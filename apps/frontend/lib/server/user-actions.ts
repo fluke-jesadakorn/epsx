@@ -50,7 +50,7 @@ async function tryRefresh(
 ): Promise<string | null> {
   try {
     const refreshToken = cookieStore.get(COOKIES.refresh_token)?.value;
-    if (refreshToken === undefined || refreshToken === '') return null;
+    if (refreshToken === undefined || refreshToken === '') {return null;}
 
     const backendUrl = getBackendUrl('server');
     const clientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID ?? 'epsx-frontend';
@@ -62,7 +62,7 @@ async function tryRefresh(
       cache: 'no-store',
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) {return null;}
 
     const data = (await res.json()) as {
       access_token?: string;
@@ -71,7 +71,7 @@ async function tryRefresh(
       user?: Record<string, unknown>;
     };
     const newToken = data.access_token;
-    if (typeof newToken !== 'string' || newToken === '') return null;
+    if (typeof newToken !== 'string' || newToken === '') {return null;}
 
     // Try to persist refreshed cookies (works in server actions, silently fails in SSR)
     try {
@@ -90,7 +90,7 @@ async function tryRefresh(
       if (userCookie !== undefined && userCookie !== '') {
         const existing = JSON.parse(decodeURIComponent(userCookie)) as Record<string, unknown>;
         existing.access = newToken;
-        if (data.user) Object.assign(existing, data.user);
+        if (data.user) {Object.assign(existing, data.user);}
         cookieStore.set(COOKIES.user, JSON.stringify(existing), {
           ...COOKIE_OPTIONS.clientSide,
           maxAge: COOKIE_OPTIONS.maxAge.user,
@@ -117,7 +117,7 @@ async function tryRefresh(
 async function getValidToken(): Promise<string | null> {
   const cookieStore = await cookies();
   const token = getServerAuthToken(cookieStore);
-  if (token !== null) return token;
+  if (token !== null) {return token;}
   return tryRefresh(cookieStore);
 }
 
@@ -156,7 +156,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     if (token === null) {
       // No token in any cookie - try refresh_token
       token = await tryRefresh(cookieStore);
-      if (token === null) return null;
+      if (token === null) {return null;}
     }
 
     // Validate session with current token
@@ -171,7 +171,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 
     // Token expired/invalid - attempt refresh
     const freshToken = await tryRefresh(cookieStore);
-    if (freshToken === null) return null;
+    if (freshToken === null) {return null;}
 
     const freshClient = createFrontendApiClient({ token: freshToken, serverSide: true });
     const retry = await freshClient.get<SessionData>(
@@ -191,7 +191,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 export async function getPaymentHistory() {
   try {
     const token = await getValidToken();
-    if (token === null) return [];
+    if (token === null) {return [];}
 
     const client = createFrontendApiClient({ token, serverSide: true });
 

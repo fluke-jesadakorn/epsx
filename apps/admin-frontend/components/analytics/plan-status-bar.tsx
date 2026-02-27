@@ -20,8 +20,6 @@ interface TierConfig {
     icon: React.ElementType;
 }
 
-// Dynamic tier styling based on tier_level from backend
-// tier_level is set by admin in the admin panel - no hardcoded plan names
 const TIER_STYLES: Record<number, TierConfig> = {
     0: {
         gradient: 'from-slate-400 via-gray-500 to-slate-600',
@@ -49,69 +47,144 @@ const TIER_STYLES: Record<number, TierConfig> = {
     },
 };
 
-// Get tier config based on tier_level, with fallback for higher tiers
+const MAX_TIER = Math.max(...Object.keys(TIER_STYLES).map(Number));
+
 function getTierConfig(tierLevel: number): TierConfig {
-    // Use the highest defined tier style for tier_level >= 4
-    const maxDefinedTier = Math.max(...Object.keys(TIER_STYLES).map(Number));
-    const effectiveTier = Math.min(tierLevel, maxDefinedTier);
-    return TIER_STYLES[effectiveTier] ?? TIER_STYLES[0] as TierConfig;
+    const effectiveTier = Math.min(tierLevel, MAX_TIER);
+    return TIER_STYLES[effectiveTier] ?? (TIER_STYLES[0] as TierConfig);
+}
+
+function getLockedRanksText(rankingOffset: number): string | null {
+    if (rankingOffset <= 0) { return null; }
+    if (rankingOffset === 1) { return 'Unlock Rank 1'; }
+    return `Unlock ranks 1-${rankingOffset}`;
+}
+
+function getRankRangeText(rankingOffset: number): string {
+    if (rankingOffset === 0) { return 'All ranks (1+)'; }
+    return `Ranks ${rankingOffset + 1}+`;
+}
+
+function getLockedRankLabel(rankingOffset: number): string {
+    if (rankingOffset === 1) { return 'Rank 1 locked'; }
+    return `Ranks 1-${rankingOffset} locked`;
+}
+
+function LoadingBar({ className }: { className?: string }) {
+    return (
+        <div className={cn('animate-pulse rounded-2xl bg-gray-100 dark:bg-card/50 p-4', className)}>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-slate-700" />
+                    <div className="space-y-2">
+                        <div className="h-4 w-32 rounded bg-slate-700" />
+                        <div className="h-3 w-48 rounded bg-slate-700" />
+                    </div>
+                </div>
+                <div className="h-10 w-28 rounded-xl bg-slate-700" />
+            </div>
+        </div>
+    );
+}
+
+function LockedRankInfo({ rankingOffset }: { rankingOffset: number }) {
+    if (rankingOffset <= 0) { return null; }
+    return (
+        <>
+            <span className="text-muted-foreground">•</span>
+            <div className="flex items-center gap-1 text-sm text-slate-400">
+                <Lock className="h-3 w-3" />
+                <span>{getLockedRankLabel(rankingOffset)}</span>
+            </div>
+        </>
+    );
+}
+
+function getPlanData(planAccess: PlanAccessData | null | undefined) {
+    return {
+        rankingOffset: planAccess?.ranking_offset ?? FREE_PLAN_RANKING_OFFSET,
+        planName: planAccess?.plan_name,
+        canUpgrade: planAccess?.can_upgrade ?? true,
+        tierLevel: planAccess?.tier_level ?? 0,
+    };
+}
+
+function UpgradeCta({ canUpgrade, lockedRanksText, upgradeButtonText }: {
+    canUpgrade: boolean;
+    lockedRanksText: string | null;
+    upgradeButtonText: string | null;
+}) {
+    if (!canUpgrade || lockedRanksText === null) { return null; }
+    return (
+        <Link
+            href="/plans"
+            className={cn(
+                'group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5',
+                'bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500'
+            )}
+        >
+            <Rocket className="h-4 w-4 transition-transform group-hover:-rotate-12" />
+            {upgradeButtonText}
+        </Link>
+    );
+}
+
+function PlanInfo({ planName, tierLevel, tierConfig, rankRangeText, rankingOffset }: {
+    planName: string | undefined;
+    tierLevel: number;
+    tierConfig: TierConfig;
+    rankRangeText: string;
+    rankingOffset: number;
+}) {
+    return (
+        <div className="flex items-center gap-4">
+            <div className={cn(
+                'flex h-12 w-12 items-center justify-center rounded-xl shadow-lg',
+                `bg-gradient-to-br ${tierConfig.gradient}`
+            )}>
+                <tierConfig.icon className="h-6 w-6 text-white" />
+            </div>
+            <div>
+                <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-white">
+                        {planName ?? FREE_PLAN_NAME}
+                    </h3>
+                    {tierLevel > 0 && (
+                        <span className={cn(
+                            'rounded-full px-2 py-0.5 text-xs font-semibold',
+                            `bg-gradient-to-r ${tierConfig.gradient} text-white`
+                        )}>
+                            Tier {tierLevel}
+                        </span>
+                    )}
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                    <Sparkles className="h-3.5 w-3.5 text-slate-400" />
+                    <span className="text-sm text-slate-300">
+                        Viewing: <span className="font-semibold text-white">{rankRangeText}</span>
+                    </span>
+                    <LockedRankInfo rankingOffset={rankingOffset} />
+                </div>
+            </div>
+        </div>
+    );
 }
 
 export function PlanStatusBar({ className, planAccess: propPlanAccess }: PlanStatusBarProps): React.ReactElement {
     const { planAccess: hookPlanAccess, loading } = usePlanAccess();
     const { nextPlan } = useUpgradeOptions();
 
-    // Use prop if provided, otherwise fall back to hook
     const planAccess = propPlanAccess !== undefined ? propPlanAccess : hookPlanAccess;
 
-    if (loading) {
-        return (
-            <div className={cn('animate-pulse rounded-2xl bg-gray-100 dark:bg-card/50 p-4', className)}>
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-slate-700" />
-                        <div className="space-y-2">
-                            <div className="h-4 w-32 rounded bg-slate-700" />
-                            <div className="h-3 w-48 rounded bg-slate-700" />
-                        </div>
-                    </div>
-                    <div className="h-10 w-28 rounded-xl bg-slate-700" />
-                </div>
-            </div>
-        );
-    }
+    if (loading) { return <LoadingBar className={className} />; }
 
-    const rankingOffset = planAccess?.ranking_offset ?? FREE_PLAN_RANKING_OFFSET;
-    const planName = planAccess?.plan_name;
-    const canUpgrade = planAccess?.can_upgrade ?? true;
-
-    // Use tier_level from backend for dynamic styling (admin-configured)
-    const tierLevel = planAccess?.tier_level ?? 0;
+    const { rankingOffset, planName, canUpgrade, tierLevel } = getPlanData(planAccess);
     const tierConfig = getTierConfig(tierLevel);
-    const TierIcon = tierConfig.icon;
-
-    // Calculate visible rank range
-    const visibleRankStart = rankingOffset + 1;
+    const rankRangeText = getRankRangeText(rankingOffset);
     const isTopRanks = rankingOffset === 0;
-    const rankRangeText = isTopRanks
-        ? 'All ranks (1+)'
-        : `Ranks ${visibleRankStart}+`;
-
-    // Calculate locked ranks for upgrade prompt
-    // FIX: "1-1" display issue. If offset is 1, it means Rank 1 is locked.
-    // Display "Unlock Rank 1" instead of "Unlock ranks 1-1".
-    let lockedRanksText = null;
-    if (rankingOffset > 0) {
-        if (rankingOffset === 1) {
-            lockedRanksText = `Unlock Rank 1`;
-        } else {
-            lockedRanksText = `Unlock ranks 1-${rankingOffset}`;
-        }
-    }
-
-    // Dynamic Upgrade CTA
-    const upgradeButtonText = nextPlan
-        ? `${lockedRanksText} with ${nextPlan.name}`
+    const lockedRanksText = getLockedRanksText(rankingOffset);
+    const upgradeButtonText = nextPlan !== null
+        ? `${lockedRanksText ?? ''} with ${nextPlan.name}`
         : lockedRanksText;
 
     return (
@@ -121,76 +194,21 @@ export function PlanStatusBar({ className, planAccess: propPlanAccess }: PlanSta
             tierConfig.borderColor,
             className
         )}>
-            {/* Animated gradient overlay */}
-            <div className={cn(
-                'absolute inset-0 opacity-20 bg-gradient-to-r',
-                tierConfig.gradient
-            )} />
+            <div className={cn('absolute inset-0 opacity-20 bg-gradient-to-r', tierConfig.gradient)} />
 
             <div className="relative flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
-                {/* Plan Info */}
-                <div className="flex items-center gap-4">
-                    {/* Tier Icon */}
-                    <div className={cn(
-                        'flex h-12 w-12 items-center justify-center rounded-xl shadow-lg',
-                        `bg-gradient-to-br ${tierConfig.gradient}`
-                    )}>
-                        <TierIcon className="h-6 w-6 text-white" />
-                    </div>
-
-                    {/* Plan Details */}
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <h3 className="text-base font-bold text-white">
-                                {planName ?? FREE_PLAN_NAME}
-                            </h3>
-                            {tierLevel > 0 && (
-                                <span className={cn(
-                                    'rounded-full px-2 py-0.5 text-xs font-semibold',
-                                    `bg-gradient-to-r ${tierConfig.gradient} text-white`
-                                )}>
-                                    Tier {tierLevel}
-                                </span>
-                            )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                            <Sparkles className="h-3.5 w-3.5 text-slate-400" />
-                            <span className="text-sm text-slate-300">
-                                Viewing: <span className="font-semibold text-white">{rankRangeText}</span>
-                            </span>
-                            {rankingOffset > 0 && (
-                                <>
-                                    <span className="text-muted-foreground">•</span>
-                                    <div className="flex items-center gap-1 text-sm text-slate-400">
-                                        <Lock className="h-3 w-3" />
-                                        <span>
-                                            {rankingOffset === 1
-                                                ? 'Rank 1 locked'
-                                                : `Ranks 1-${rankingOffset} locked`
-                                            }
-                                        </span>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Upgrade CTA */}
-                {canUpgrade && lockedRanksText && (
-                    <Link
-                        href="/plans"
-                        className={cn(
-                            'group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5',
-                            'bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500'
-                        )}
-                    >
-                        <Rocket className="h-4 w-4 transition-transform group-hover:-rotate-12" />
-                        {upgradeButtonText}
-                    </Link>
-                )}
-
-                {/* Full access badge for enterprise */}
+                <PlanInfo
+                    planName={planName}
+                    tierLevel={tierLevel}
+                    tierConfig={tierConfig}
+                    rankRangeText={rankRangeText}
+                    rankingOffset={rankingOffset}
+                />
+                <UpgradeCta
+                    canUpgrade={canUpgrade}
+                    lockedRanksText={lockedRanksText}
+                    upgradeButtonText={upgradeButtonText}
+                />
                 {!canUpgrade && isTopRanks && (
                     <div className="flex items-center gap-2 rounded-xl bg-emerald-500/20 px-4 py-2 text-sm font-semibold text-emerald-400">
                         <Crown className="h-4 w-4" />

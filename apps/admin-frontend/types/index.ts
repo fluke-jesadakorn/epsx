@@ -6,49 +6,8 @@
 // Import permission group types
 import type { PermissionGroup } from '@/shared/types/domain/user';
 
-// Re-export existing types
-export * from './permission-templates';
-
 // Export separated authentication types
 export * from './auth-separation';
-
-// Payment and Subscription Types (deprecated - use PermissionGroup)
-/** @deprecated Use PermissionGroup instead */
-export enum PaymentTier {
-  BRONZE = 'bronze',
-  SILVER = 'silver',
-  GOLD = 'gold',
-  PLATINUM = 'platinum'
-}
-
-export interface PaymentTierConfig {
-  id: string;
-  name: string;
-  description: string;
-  monthlyPrice: number;
-  yearlyPrice: number;
-  features: string[];
-  maxUsers?: number;
-  maxApiCalls?: number;
-  priority: 'low' | 'medium' | 'high';
-  isActive: boolean;
-}
-
-export interface UserSubscription {
-  id: string;
-  userId: string;
-  tierName: string;
-  paymentTier: PaymentTierConfig;
-  startDate: string;
-  endDate: string;
-  status: 'active' | 'cancelled' | 'expired' | 'pending';
-  autoRenew: boolean;
-  paymentMethod: 'credit_card' | 'paypal' | 'bank_transfer';
-  lastPaymentDate?: string;
-  nextPaymentDate?: string;
-  cancelledAt?: string;
-  cancelReason?: string;
-}
 
 // Stock Ranking Types
 export interface StockRankingType {
@@ -64,17 +23,7 @@ export interface StockRankingType {
   updatedAt: string;
 }
 
-// Package Tier Enum (deprecated - use PermissionGroup)
-/** @deprecated Use PermissionGroup instead */
-export enum PackageTier {
-  FREE = 'free',
-  BRONZE = 'bronze',
-  SILVER = 'silver',
-  GOLD = 'gold',
-  PLATINUM = 'platinum',
-}
-
-// Permission Group Config (replaces PackageTierConfig)
+// Permission Group Config
 export interface PermissionGroupConfig {
   id: string;
   name: PermissionGroup;
@@ -83,19 +32,6 @@ export interface PermissionGroupConfig {
   maxStocks: number;
   refreshRate: 'realtime' | 'hourly' | 'daily';
   features: string[];
-}
-
-/** @deprecated Use PermissionGroupConfig instead */
-export interface PackageTierConfig {
-  id: string;
-  name: string;
-  description: string;
-  level: number;
-  maxStocks: number;
-  refreshRate: 'realtime' | 'hourly' | 'daily';
-  features: string[];
-  monthlyPrice: number;
-  isActive: boolean;
 }
 
 export interface StockRankingPermissionAssignment {
@@ -112,33 +48,9 @@ export interface StockRankingPermissionAssignment {
   metadata?: Record<string, unknown>;
 }
 
-/** @deprecated Use StockRankingPermissionAssignment instead */
-export interface StockRankingPackageAssignment {
-  id: string;
-  userId: string;
-  packageTierId: string;
-  stockRankingTypeId: string;
-  packageTier: PackageTierConfig;
-  stockRankingType: StockRankingType;
-  assignedAt: string;
-  expiresAt?: string;
-  status: 'active' | 'expired' | 'revoked';
-  assignedBy: string;
-  metadata?: Record<string, unknown>;
-}
-
 export interface BulkStockRankingPermissionAssignment {
   targetUsers: string[];
   permissionGroupId: string;
-  stockRankingTypeId: string;
-  expiresAt?: string;
-  metadata?: Record<string, unknown>;
-}
-
-/** @deprecated Use BulkStockRankingPermissionAssignment instead */
-export interface BulkStockRankingAssignment {
-  targetUsers: string[];
-  packageTierId: string;
   stockRankingTypeId: string;
   expiresAt?: string;
   metadata?: Record<string, unknown>;

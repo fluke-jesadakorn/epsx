@@ -21,12 +21,17 @@ export async function getTopicsAction(): Promise<ChatTopic[]> {
   return [];
 }
 
+interface CreateConversationOptions {
+  topicId: string;
+  subject: string;
+  message: string;
+  turnstileToken?: string;
+}
+
 export async function createConversationAction(
-  topicId: string,
-  subject: string,
-  message: string,
-  turnstileToken?: string
+  opts: CreateConversationOptions
 ): Promise<ChatConversation | null> {
+  const { topicId, subject, message, turnstileToken } = opts;
   try {
     const client = getServerActionClient();
     const api = createSupportChatClient(client);

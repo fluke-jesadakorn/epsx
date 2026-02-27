@@ -190,7 +190,6 @@ function ThemeToggleButton({
         >
             <ThemeIcon iconType={iconType} isDark={isDark} size={size} sizeStyle={sizeStyle} variant={variant} />
             <ThemeLabel showLabel={showLabel} isDark={isDark} sizeStyle={sizeStyle} />
-            <span className="sr-only">Toggle theme</span>
         </button>
 
     )

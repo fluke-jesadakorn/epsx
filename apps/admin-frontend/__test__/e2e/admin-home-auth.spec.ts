@@ -9,12 +9,6 @@ test.describe('Admin Home & Auth', () => {
     await capture(page, 'admin-dashboard');
   });
 
-  test('admin dashboard page shows overview', async ({ authedPage: page }) => {
-    await page.goto('/dashboard');
-    await page.waitForLoadState('networkidle');
-    await capture(page, 'admin-dashboard-page');
-  });
-
   test('auth page shows wallet connect', async ({ page }) => {
     await mockAllApis(page);
     await page.goto('/auth');
@@ -36,10 +30,4 @@ test.describe('Admin Home & Auth', () => {
     await capture(page, 'admin-unauthorized');
   });
 
-  test('request-access page', async ({ page }) => {
-    await mockAllApis(page);
-    await page.goto('/request-access');
-    await page.waitForLoadState('networkidle');
-    await capture(page, 'admin-request-access');
-  });
 });

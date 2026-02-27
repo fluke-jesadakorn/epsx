@@ -1,62 +1,53 @@
 'use client';
 
-import { DashboardActionGrid } from '@/components/admin/dashboard-action-grid';
-import { DashboardQuickStats } from '@/components/admin/dashboard-quick-stats';
-import { DashboardStatCard } from '@/components/admin/dashboard-stat-card';
-import { RecentWalletsPanel } from '@/components/admin/recent-wallets-panel';
-import { PageHeader, PageLayout } from '@/components/shared';
+import { DashboardActivityStream } from '@/components/admin/dashboard-activity-stream';
+import { DashboardBentoTools } from '@/components/admin/dashboard-bento-tools';
+import { DashboardHudMetrics } from '@/components/admin/dashboard-hud-metrics';
+import { DashboardPulseHeader } from '@/components/admin/dashboard-pulse-header';
+import { PageLayout } from '@/components/shared';
 import type { RecentWalletsData } from '@/hooks/use-analytics-data';
 import { useDashboardData } from '@/hooks/use-dashboard-data';
-import { useSharedAuth } from '@/shared/components/auth';
 
 interface DashboardClientProps {
-  initialRecentWallets?: RecentWalletsData;
+  initialRecentWallets?: RecentWalletsData; // Kept for backwards compatibility with page.tsx
 }
 
-export default function DashboardClient({ initialRecentWallets }: DashboardClientProps) {
-  const { user } = useSharedAuth();
+export default function DashboardClient({ initialRecentWallets: _initialRecentWallets }: DashboardClientProps) {
+  // We don't necessarily need 'user' for the generic dashboard, the HUD is more systems-focused now.
   const { dashboardStats } = useDashboardData(true);
 
-  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-  const subtitle = `Welcome back, ${user?.wallet_address ? `${user.wallet_address.slice(0, 6)}...${user.wallet_address.slice(-4)}` : 'Admin'}`;
-
   return (
-    <PageLayout>
-      {/* Page Header */}
-      <PageHeader
-        title="EPSX Admin Center"
-        subtitle={subtitle}
-        icon="Home"
-        gradient="primary"
-        centered
-      />
+    <PageLayout maxWidth="full">
+      <div className="max-w-[1600px] mx-auto w-full @container pb-12">
+        {/* Command Center Pulse Header */}
+        <DashboardPulseHeader stats={dashboardStats} />
 
-      {/* System Status */}
-      <div className="text-center text-sm text-muted-foreground flex items-center justify-center gap-2 -mt-4 mb-6">
-        <span>{new Date().toLocaleDateString()}</span>
-        <span>•</span>
-        <span className="flex items-center gap-1">
-          System Status: <span className="text-success font-medium">Operational</span>
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success/40 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
-          </span>
-        </span>
-      </div>
+        {/* HUD Metrics */}
+        <DashboardHudMetrics stats={dashboardStats} />
 
-      <DashboardStatCard stats={dashboardStats} />
+        {/* Main Grid: Bento Tools + Activity Stream */}
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+          {/* Bento Tools take up 3 columns on extra large screens */}
+          <div className="xl:col-span-3">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
+                Operational Modules
+              </h2>
+            </div>
+            <DashboardBentoTools stats={dashboardStats} />
+          </div>
 
-      {/* Recent Wallets Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <RecentWalletsPanel initialData={initialRecentWallets} />
-        </div>
-        <div className="space-y-4">
-          <DashboardQuickStats stats={dashboardStats} />
+          {/* Activity Stream takes up 1 column on extra large screens, acts as a sidebar feed */}
+          <div className="xl:col-span-1 h-full">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest hidden xl:block opacity-0">
+                Global Event Stream
+              </h2>
+            </div>
+            <DashboardActivityStream />
+          </div>
         </div>
       </div>
-
-      <DashboardActionGrid stats={dashboardStats} />
     </PageLayout>
   );
 }

@@ -83,7 +83,7 @@ function useChallengeRequest({
                 }
                 setError(errorMessage);
                 onAuthError?.(errorMessage);
-                throw new Error(errorMessage);
+                throw new Error(errorMessage, { cause: err });
             } finally {
                 setIsSigningChallenge(false);
             }
@@ -201,7 +201,7 @@ function useDirectApiAuth({
             const errorMessage = error instanceof Error ? error.message : 'Failed to process authentication result';
             setError(errorMessage);
             onAuthError?.(errorMessage);
-            throw new Error(errorMessage);
+            throw new Error(errorMessage, { cause: error });
         } finally {
             setIsLoading(false);
         }

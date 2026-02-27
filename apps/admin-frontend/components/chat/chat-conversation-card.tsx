@@ -1,6 +1,6 @@
 'use client';
 
-import { User, Clock, Wallet } from 'lucide-react';
+import { Clock, Wallet } from 'lucide-react';
 import type { ChatConversation, ChatTopic } from '@/shared/api/chat';
 import { ChatStatusBadge } from './chat-status-badge';
 

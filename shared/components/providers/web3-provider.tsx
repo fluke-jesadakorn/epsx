@@ -1,21 +1,19 @@
-// @ts-nocheck
 'use client';
 
-// @ts-ignore
 import {
     darkTheme,
     lightTheme,
     RainbowKitProvider
 } from '@rainbow-me/rainbowkit';
 import '@rainbow-me/rainbowkit/styles.css';
-// @ts-ignore
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useTheme } from 'next-themes';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-// @ts-ignore
 import { useRouter } from 'next/navigation';
-import type { Chain, State } from 'wagmi';
-import { useAccount, useReconnect, WagmiProvider } from 'wagmi';
+import type { State } from 'wagmi';
+import type { Chain } from 'viem';
+import { useReconnect, WagmiProvider } from 'wagmi';
+import { logger } from '../../utils/logger';
 import { DEFAULT_APP_NAME, DEFAULT_LEARN_MORE_URL, DEFAULT_PROJECT_ID, getConfig, getDefaultChains } from '../../config/wagmi';
 import { createQueryClient } from '../../state';
 
@@ -169,6 +167,7 @@ export function UnifiedWeb3Provider({
             window.addEventListener('unhandledrejection', handleWalletErrors);
             return () => window.removeEventListener('unhandledrejection', handleWalletErrors);
         }
+        return undefined;
     }, []);
 
     const config = React.useMemo(() => getConfig({

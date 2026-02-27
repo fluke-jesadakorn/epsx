@@ -12,8 +12,20 @@ import type {
   GrantCreditsRequest,
   RevokeCreditsRequest,
   CreditHistoryResponse,
+  PlanSwitchData,
 } from '../types/credits';
-import { UnifiedApiClient } from '../utils/api-client';
+import type { UnifiedApiClient } from '../utils/api-client';
+
+function buildCreditParams(filters: CreditTransactionFilters): URLSearchParams {
+  const params = new URLSearchParams();
+  const { tx_type, from_date, to_date, limit, offset } = filters;
+  if (tx_type !== undefined && tx_type !== '') { params.append('tx_type', tx_type); }
+  if (from_date !== undefined && from_date !== '') { params.append('from_date', from_date); }
+  if (to_date !== undefined && to_date !== '') { params.append('to_date', to_date); }
+  if (limit !== undefined && limit !== 0) { params.append('limit', limit.toString()); }
+  if (offset !== undefined && offset !== 0) { params.append('offset', offset.toString()); }
+  return params;
+}
 
 export class CreditsApi {
   private client: UnifiedApiClient;
@@ -35,30 +47,18 @@ export class CreditsApi {
   async getHistory(
     filters?: CreditTransactionFilters
   ): Promise<ApiResponse<CreditHistoryResponse>> {
-    const params = new URLSearchParams();
-
-    if (filters?.tx_type) {
-      params.append('tx_type', filters.tx_type);
-    }
-    if (filters?.from_date) {
-      params.append('from_date', filters.from_date);
-    }
-    if (filters?.to_date) {
-      params.append('to_date', filters.to_date);
-    }
-    if (filters?.limit) {
-      params.append('limit', filters.limit.toString());
-    }
-    if (filters?.offset) {
-      params.append('offset', filters.offset.toString());
-    }
-
-    const query = params.toString();
-    const endpoint = query
+    const query = filters !== undefined ? buildCreditParams(filters).toString() : '';
+    const endpoint = query !== ''
       ? `/api/payments/credits/history?${query}`
       : '/api/payments/credits/history';
-
     return this.client.get<CreditHistoryResponse>(endpoint);
+  }
+
+  /**
+   * Switch plan (downgrade with pro-rata credit or apply upgrade credit)
+   */
+  async switchPlan(newPlanId: string): Promise<ApiResponse<PlanSwitchData>> {
+    return this.client.post<PlanSwitchData>('/api/payments/plans/switch', { new_plan_id: newPlanId });
   }
 
   // ==========================================================================
@@ -75,29 +75,10 @@ export class CreditsApi {
     balance: CreditBalance;
     transactions: CreditTransaction[];
   }>> {
-    const params = new URLSearchParams();
-
-    if (filters?.tx_type) {
-      params.append('tx_type', filters.tx_type);
-    }
-    if (filters?.from_date) {
-      params.append('from_date', filters.from_date);
-    }
-    if (filters?.to_date) {
-      params.append('to_date', filters.to_date);
-    }
-    if (filters?.limit) {
-      params.append('limit', filters.limit.toString());
-    }
-    if (filters?.offset) {
-      params.append('offset', filters.offset.toString());
-    }
-
-    const query = params.toString();
-    const endpoint = query
+    const query = filters !== undefined ? buildCreditParams(filters).toString() : '';
+    const endpoint = query !== ''
       ? `/api/payments/admin/credits/${walletAddress}?${query}`
       : `/api/payments/admin/credits/${walletAddress}`;
-
     return this.client.get(endpoint);
   }
 

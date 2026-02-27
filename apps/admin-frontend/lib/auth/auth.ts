@@ -5,7 +5,7 @@
  */
 
 import { COOKIES } from '@/shared/auth/cookies';
-import { logger } from '@/shared/utils/logger';
+import { logger } from '@/lib/logger';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { clearWeb3SessionAction, setWeb3SessionAction } from './auth-actions';
@@ -84,7 +84,7 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
     try {
       userData = JSON.parse(decodeURIComponent(userCookie)) as UserCookieData;
     } catch (parseError) {
-      logger.warn('Failed to parse user cookie:', parseError);
+      logger.auth.error('Failed to parse user cookie', { parseError: String(parseError) });
       return null;
     }
 
@@ -106,7 +106,7 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
 
     // Check if session has expired using new expiresAt calculation
     if (Date.now() > sessionData.expiresAt) {
-      logger.warn('Admin session expired (read-only check)');
+      logger.auth.error('Admin session expired (read-only check)');
       // Do not clear cookies here in Server Components - just return null
       return null;
     }
@@ -114,7 +114,7 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
     return sessionData;
 
   } catch (_error) {
-    logger.error('❌ Failed to get Web3 session from cookies:', { error: _error });
+    logger.auth.error('Failed to get Web3 session from cookies', { error: String(_error) });
     return null;
   }
 }
@@ -139,7 +139,7 @@ export async function validateWeb3Session(_sessionData: Web3SessionData): Promis
     try {
       userData = JSON.parse(decodeURIComponent(userCookie)) as UserCookieData;
     } catch (parseError) {
-      logger.warn('Failed to parse user cookie:', parseError);
+      logger.auth.error('Failed to parse user cookie', { parseError: String(parseError) });
       return null;
     }
 
@@ -161,7 +161,7 @@ export async function validateWeb3Session(_sessionData: Web3SessionData): Promis
     return web3User;
 
   } catch (_error) {
-    logger.error('❌ Web3 validation error:', { error: _error });
+    logger.auth.error('Web3 validation error', { error: String(_error) });
     return null;
   }
 }
@@ -278,7 +278,7 @@ export async function getAdminSession(): Promise<AdminSession> {
     };
 
   } catch (_error) {
-    logger.error('❌ Session validation error:', { error: _error });
+    logger.auth.error('Session validation error', { error: String(_error) });
     return {
       isAuthenticated: false,
       isLoggedIn: false,

@@ -162,26 +162,14 @@ export function buildCookieString(
  */
 export type CookieType = keyof typeof COOKIES;
 
-/**
- * Server-side utility to get auth token from cookies with fallback support.
- * This consolidates the token fetching logic used across server actions.
- * 
- * @param cookieStore - The Next.js cookies() store
- * @param cookieStore.get - The get method of the cookie store
- * @returns The auth token if found, null otherwise
- */
-export function getServerAuthToken(
-  cookieStore: { get: (name: string) => { value: string } | undefined }
-): string | null {
-  // Primary: Check session ID cookie
-  let token = cookieStore.get(COOKIES.sid)?.value;
-  if (token !== undefined && token !== '') { return token; }
+interface CookieStore { get: (name: string) => { value: string } | undefined; }
 
-  // Secondary: Check access token (HttpOnly)
-  token = cookieStore.get(COOKIES.access_token)?.value;
-  if (token !== undefined && token !== '') { return token; }
+function getTokenFromSimpleCookie(cookieStore: CookieStore, name: string): string | null {
+  const value = cookieStore.get(name)?.value;
+  return (value !== undefined && value !== '') ? value : null;
+}
 
-  // Tertiary: Extract from user cookie (client-set JSON with access field)
+function getTokenFromUserCookie(cookieStore: CookieStore): string | null {
   try {
     const userCookie = cookieStore.get(COOKIES.user)?.value;
     if (userCookie !== undefined && userCookie !== '') {
@@ -191,8 +179,25 @@ export function getServerAuthToken(
   } catch {
     // Invalid JSON in user cookie
   }
-
   return null;
+}
+
+/**
+ * Server-side utility to get auth token from cookies with fallback support.
+ * This consolidates the token fetching logic used across server actions.
+ *
+ * @param cookieStore - The Next.js cookies() store
+ * @param cookieStore.get - The get method of the cookie store
+ * @returns The auth token if found, null otherwise
+ */
+export function getServerAuthToken(
+  cookieStore: CookieStore
+): string | null {
+  return (
+    getTokenFromSimpleCookie(cookieStore, COOKIES.sid) ??
+    getTokenFromSimpleCookie(cookieStore, COOKIES.access_token) ??
+    getTokenFromUserCookie(cookieStore)
+  );
 }
 
 /**

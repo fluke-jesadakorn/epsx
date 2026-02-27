@@ -20,8 +20,16 @@ const PancakeCard = React.forwardRef<HTMLDivElement, React.ComponentProps<typeof
 )
 PancakeCard.displayName = "pancake-card"
 
+interface PancakeStatsCardExtraProps {
+  className?: string;
+  title?: string;
+  value?: string | number;
+  trend?: number;
+  icon?: React.ComponentType<{ className?: string }>;
+}
+
 // Stats Card Wrapper
-const PancakeStatsCard = React.forwardRef<HTMLDivElement, any>(
+const PancakeStatsCard = React.forwardRef<HTMLDivElement, React.ComponentProps<typeof SharedCard> & PancakeStatsCardExtraProps>(
   ({ className, title, value, trend, icon: Icon, ...props }, ref) => (
     <PancakeCard ref={ref} className={cn("overflow-hidden", className)} {...props}>
       <CardContent className="p-6">
@@ -30,32 +38,40 @@ const PancakeStatsCard = React.forwardRef<HTMLDivElement, any>(
             <p className="text-sm font-medium text-muted-foreground">{title}</p>
             <h3 className="text-2xl font-bold mt-2 bg-gradient-to-r from-purple-400 to-orange-400 bg-clip-text text-transparent">{value}</h3>
           </div>
-          {Icon && <div className="p-3 bg-gradient-to-br from-purple-500/20 to-orange-500/20 rounded-xl bg-clip-text text-purple-400 border border-purple-500/20"><Icon className="w-6 h-6" /></div>}
+          {Icon !== undefined ? <div className="p-3 bg-gradient-to-br from-purple-500/20 to-orange-500/20 rounded-xl bg-clip-text text-purple-400 border border-purple-500/20"><Icon className="w-6 h-6" /></div> : null}
         </div>
-        {trend && (
+        {trend !== undefined ? (
           <div className="mt-4 flex items-center text-sm">
             <span className={cn("font-medium px-2 py-1 rounded-full", trend > 0 ? "text-success bg-emerald-500/10" : "text-destructive bg-red-500/10")}>
               {trend > 0 ? "+" : ""}{trend}%
             </span>
             <span className="text-muted-foreground ml-2">from last month</span>
           </div>
-        )}
+        ) : null}
       </CardContent>
     </PancakeCard>
   )
 )
 PancakeStatsCard.displayName = "Pancakestats-card"
 
+interface PancakeFeatureCardExtraProps {
+  className?: string;
+  title?: string;
+  description?: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  action?: React.ReactNode;
+}
+
 // Feature Card
-const PancakeFeatureCard = React.forwardRef<HTMLDivElement, any>(
+const PancakeFeatureCard = React.forwardRef<HTMLDivElement, React.ComponentProps<typeof SharedCard> & PancakeFeatureCardExtraProps>(
   ({ className, title, description, icon: Icon, action, ...props }, ref) => (
     <PancakeCard ref={ref} className={cn("hover:border-purple-500/30 transition-all", className)} {...props}>
       <CardHeader>
-        {Icon && <div className="mb-4 text-purple-400 bg-gradient-to-br from-purple-500/20 to-orange-500/20 p-3 rounded-xl border border-purple-500/20 inline-block"><Icon className="w-8 h-8" /></div>}
+        {Icon !== undefined ? <div className="mb-4 text-purple-400 bg-gradient-to-br from-purple-500/20 to-orange-500/20 p-3 rounded-xl border border-purple-500/20 inline-block"><Icon className="w-8 h-8" /></div> : null}
         <CardTitle className="text-foreground">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      {action && <CardFooter>{action}</CardFooter>}
+      {action !== undefined ? <CardFooter>{action}</CardFooter> : null}
     </PancakeCard>
   )
 )

@@ -19,7 +19,7 @@ import {
 } from '@/app/wallet-management/plan-actions';
 import { type PermissionDefinition } from '@/lib/api/permissions-client';
 import { type PermissionPlan } from '@/lib/api/plan-management-client';
-import { logger } from '@/shared/utils/logger';
+import { logger } from '@/lib/logger';
 
 import {
     type DragDropContext,
@@ -41,7 +41,7 @@ export function useLoadPlansAndPermissions() {
                 getPermissionsAction(),
                 getPlansAction(),
             ]);
-            if (permRes.success && permRes.data) {
+            if (permRes.success && permRes.data !== undefined) {
                 setPermissions(permRes.data);
             }
             if (Array.isArray(planRes)) {
@@ -61,9 +61,62 @@ export function useLoadPlansAndPermissions() {
     return { permissions, plans, isLoading, setPlans, load };
 }
 
+const EMPTY_FORM: PlanEditFormState = {
+    name: '',
+    description: '',
+    plan_category: 'base',
+    plan_group: 'personal',
+    priority: 0,
+    price: 0,
+    expiryDays: 30,
+    gracePeriodHours: 0,
+    permissions: [],
+    is_public: true,
+    is_active: true,
+    features: [],
+    promoEnabled: false,
+    promoType: 'percentage',
+    promoValue: 0,
+    promoPrice: 0,
+    promoStart: '',
+    promoEnd: '',
+};
+
+function promoFromMeta(promo: Record<string, unknown> | undefined) {
+    return {
+        promoEnabled: promo?.enabled === true,
+        promoType: (promo?.type as ('percentage' | 'fixed') | undefined) ?? 'percentage',
+        promoValue: Number(promo?.value) || 0,
+        promoPrice: Number(promo?.price) || 0,
+        promoStart: toLocal((promo?.start_date as string | undefined) ?? ''),
+        promoEnd: toLocal((promo?.end_date as string | undefined) ?? ''),
+    };
+}
+
+function planToForm(plan: PermissionPlan): PlanEditFormState {
+    const meta = plan.plan_metadata;
+    const features = Array.isArray(meta?.features) ? (meta.features as string[]) : [];
+    const promo = meta?.promotion as Record<string, unknown> | undefined;
+    return {
+        name: plan.name,
+        description: plan.description,
+        plan_category: plan.plan_category,
+        plan_group: plan.plan_group ?? 'personal',
+        priority: plan.tier_level,
+        price: Number(plan.price) || 0,
+        expiryDays: plan.default_expiry_days ?? 30,
+        gracePeriodHours: plan.grace_period_hours ?? 0,
+        permissions: plan.permissions,
+        is_public: plan.is_public !== false,
+        is_active: plan.is_active !== false,
+        features,
+        ...promoFromMeta(promo),
+    };
+}
+
 /** datetime-local input value → RFC3339 UTC string for backend */
 function toIso(dt: string): string {
-    if (!dt) { return ''; }
+    if (dt === '') { return ''; }
     if (dt.includes('Z') || /[+-]\d{2}:\d{2}$/.test(dt)) { return dt; }
     // YYYY-MM-DDTHH:mm:ss → append Z; YYYY-MM-DDTHH:mm → append :00Z
     return dt.length === 16 ? `${dt}:00Z` : `${dt}Z`;
@@ -71,84 +124,23 @@ function toIso(dt: string): string {
 
 /** RFC3339 UTC string → datetime-local input value (YYYY-MM-DDTHH:mm) */
 function toLocal(iso: string): string {
-    if (!iso) { return ''; }
+    if (iso === '') { return ''; }
     return iso.slice(0, 16);
 }
 
 export function usePlanEditForm() {
     const [selectedPlan, setSelectedPlan] = useState<PermissionPlan | null>(null);
-    const [form, setForm] = useState<PlanEditFormState>({
-        name: '',
-        description: '',
-        plan_category: 'base',
-        plan_group: 'personal',
-        priority: 0,
-        price: 0,
-        expiryDays: 30,
-        gracePeriodHours: 0,
-        permissions: [],
-        is_public: true,
-        is_active: true,
-        features: [],
-        promoEnabled: false,
-        promoType: 'percentage',
-        promoValue: 0,
-        promoPrice: 0,
-        promoStart: '',
-        promoEnd: '',
-    });
+    const [form, setForm] = useState<PlanEditFormState>(EMPTY_FORM);
     const [hasChanges, setHasChanges] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
     const selectPlanLogic = useCallback((plan: PermissionPlan | null) => {
-        if (!plan) {
+        if (plan === null) {
             setSelectedPlan(null);
-            setForm({
-                name: '',
-                description: '',
-                plan_category: 'base',
-                plan_group: 'personal',
-                priority: 0,
-                price: 0,
-                expiryDays: 30,
-                gracePeriodHours: 0,
-                permissions: [],
-                is_public: true,
-                is_active: true,
-                features: [],
-                promoEnabled: false,
-                promoType: 'percentage',
-                promoValue: 0,
-                promoPrice: 0,
-                promoStart: '',
-                promoEnd: '',
-            });
+            setForm(EMPTY_FORM);
         } else {
             setSelectedPlan(plan);
-            const features = Array.isArray(plan.plan_metadata?.features)
-                ? (plan.plan_metadata?.features as string[])
-                : [];
-            const promo = plan.plan_metadata?.promotion as Record<string, unknown> | undefined;
-            setForm({
-                name: plan.name,
-                description: plan.description,
-                plan_category: plan.plan_category ?? 'base',
-                plan_group: plan.plan_group ?? 'personal',
-                priority: plan.tier_level ?? 0,
-                price: Number(plan.price) || 0,
-                expiryDays: plan.default_expiry_days ?? 30,
-                gracePeriodHours: plan.grace_period_hours ?? 0,
-                permissions: plan.permissions ?? [],
-                is_public: plan.is_public !== false,
-                is_active: plan.is_active !== false,
-                features,
-                promoEnabled: promo?.enabled === true,
-                promoType: (promo?.type as 'percentage' | 'fixed') ?? 'percentage',
-                promoValue: Number(promo?.value) || 0,
-                promoPrice: Number(promo?.price) || 0,
-                promoStart: toLocal((promo?.start_date as string) ?? ''),
-                promoEnd: toLocal((promo?.end_date as string) ?? ''),
-            });
+            setForm(planToForm(plan));
         }
         setHasChanges(false);
     }, []);
@@ -157,7 +149,7 @@ export function usePlanEditForm() {
         plans: PermissionPlan[],
         setPlans: (p: PermissionPlan[]) => void
     ) => {
-        if (!selectedPlan) {
+        if (selectedPlan === null) {
             return;
         }
         setIsSaving(true);
@@ -206,7 +198,7 @@ export function usePlanEditForm() {
     };
 
     const discardChanges = () => {
-        if (selectedPlan) {
+        if (selectedPlan !== null) {
             selectPlanLogic(selectedPlan);
             toast.info('Changes discarded');
         }
@@ -233,13 +225,13 @@ export function usePlanDeletion(ctx: PlanDeletionContext) {
     const [confirmInput, setConfirmInput] = useState('');
 
     useEffect(() => {
-        if (!deleteConfirm) {
+        if (deleteConfirm === null) {
             setConfirmInput('');
         }
     }, [deleteConfirm]);
 
     const deletePlan = async () => {
-        if (!deleteConfirm) {
+        if (deleteConfirm === null) {
             return;
         }
         try {
@@ -298,8 +290,7 @@ export function usePlanDragAndDrop(ctx: DragDropContext) {
         const { active, over } = event;
         setActiveId(null);
 
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- over?.id check
-        if (!over?.id || active.id === over.id) {
+        if (over?.id === undefined || active.id === over.id) {
             return;
         }
 
@@ -413,7 +404,7 @@ export async function submitCreatePlan(
             tier_level: formData.priority,
             price: formData.price,
             default_expiry_days: formData.default_expiry_days,
-            plan_group: (formData.plan_group as 'personal' | 'enterprise' | 'api') ?? 'personal',
+            plan_group: (formData.plan_group as 'personal' | 'enterprise' | 'api' | undefined) ?? 'personal',
         });
         toast.success('Created');
         onSuccess();

@@ -11,7 +11,7 @@ export function QuickActions({ stats }: QuickActionsProps) {
     return (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Create Plan */}
-            <Link href="/subscriptions/plans/new" className="block group h-full">
+            <Link href="/wallet-management/access/plans" className="block group h-full">
                 <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-400/20 via-indigo-400/20 to-blue-400/20 p-0.5 hover:scale-[1.02] transition-all duration-300 h-full">
                     <div className="relative bg-card rounded-2xl h-full flex flex-col">
                         <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-full blur-sm opacity-60" />
@@ -40,7 +40,7 @@ export function QuickActions({ stats }: QuickActionsProps) {
 
             {/* Create Group */}
             <Link
-                href="/subscriptions/manual-access/create-group"
+                href="/wallet-management/groups/new"
                 className="block group h-full"
             >
                 <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-400/20 via-orange-400/20 to-amber-400/20 p-0.5 hover:scale-[1.02] transition-all duration-300 h-full">
@@ -71,7 +71,7 @@ export function QuickActions({ stats }: QuickActionsProps) {
 
             {/* View Expiring */}
             <Link
-                href="/subscriptions/manual-access/expiring"
+                href="/wallet-management/wallets"
                 className="block group h-full"
             >
                 <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-orange-400/20 via-pink-400/20 to-orange-400/20 p-0.5 hover:scale-[1.02] transition-all duration-300 h-full">

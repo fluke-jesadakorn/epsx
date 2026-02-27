@@ -1,5 +1,4 @@
-/* eslint-disable max-lines-per-function */
-/* eslint-disable @typescript-eslint/no-unnecessary-condition */
+import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { NotificationType, SSENotification } from '../api/notifications';
 import { createNotificationsClient } from '../api/notifications';
@@ -34,253 +33,210 @@ enum ConnectionState {
   DISCONNECTING = 'DISCONNECTING',
 }
 
+const MAX_RECONNECT_ATTEMPTS = 10
 
-export function useSSENotifications(
-  options: UseSSENotificationsOptions
-): UseSSENotificationsReturn {
-  const { autoConnect = true } = options;
+interface SSEStateCtx {
+  connectionStateRef: MutableRefObject<ConnectionState>
+  connectionIdRef: MutableRefObject<number>
+  isMounted: MutableRefObject<boolean>
+  reconnectAttempts: MutableRefObject<number>
+  optionsRef: MutableRefObject<UseSSENotificationsOptions>
+  setIsConnected: Dispatch<SetStateAction<boolean>>
+  setError: Dispatch<SetStateAction<string | null>>
+}
 
-  const [notifications, setNotifications] = useState<SSENotification[]>([])
-  const [isConnected, setIsConnected] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+function handleSSEError(
+  ctx: SSEStateCtx,
+  currentId: number,
+  scheduleReconnect: (delay: number) => void
+): void {
+  if (!ctx.isMounted.current || ctx.connectionIdRef.current !== currentId) {
+    logger.warn(`⚠️ SSE: Stale error from connection #${currentId}, ignoring`)
+    return
+  }
 
-  // Connection management with atomic state transitions
-  const connectionStateRef = useRef<ConnectionState>(ConnectionState.DISCONNECTED)
-  const disconnectRef = useRef<(() => void) | null>(null)
-  const reconnectAttempts = useRef(0)
-  const maxReconnectAttempts = 10
-  const isMounted = useRef(true)
-  const connectionIdRef = useRef(0) // Track connection attempts to identify stale ones
+  if (ctx.connectionStateRef.current === ConnectionState.CONNECTING) {
+    ctx.connectionStateRef.current = ConnectionState.DISCONNECTED
+    ctx.setIsConnected(false)
+    ctx.setError('Connection failed. Retrying...')
+    ctx.reconnectAttempts.current++
+    scheduleReconnect(Math.min(3000 * ctx.reconnectAttempts.current, 30000))
+    return
+  }
 
-  // Store options in refs to avoid dependency changes
-  const optionsRef = useRef(options)
-  optionsRef.current = options
+  if (ctx.connectionStateRef.current === ConnectionState.CONNECTED) {
+    ctx.connectionStateRef.current = ConnectionState.DISCONNECTED
+    ctx.setIsConnected(false)
+    ctx.setError('Connection lost. Reconnecting...')
+    ctx.optionsRef.current.onError?.('Connection lost. Reconnecting...')
+    ctx.reconnectAttempts.current++
+    if (ctx.reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
+      const delay = Math.min(5000 * ctx.reconnectAttempts.current, 30000)
+      logger.debug(`🔄 SSE: Scheduling reconnect attempt ${ctx.reconnectAttempts.current} in ${delay}ms`)
+      scheduleReconnect(delay)
+    } else {
+      ctx.setError('Failed to connect after multiple attempts')
+      ctx.optionsRef.current.onError?.('Failed to connect after multiple attempts')
+    }
+  }
+}
 
-  const connect = useCallback(async () => {
-    // Atomic state check - prevent race conditions
+interface UseSSEConnectCtx extends SSEStateCtx {
+  disconnectRef: MutableRefObject<(() => void) | null>
+  setNotifications: Dispatch<SetStateAction<SSENotification[]>>
+}
+
+function useSSEConnect(ctx: UseSSEConnectCtx): { connect: () => void; disconnect: () => void; reconnect: () => void } {
+  // Store ctx in a ref so connect/disconnect callbacks don't need ctx as a dependency
+  const ctxRef = useRef(ctx)
+  ctxRef.current = ctx
+
+  const connectRef = useRef<() => void>(() => undefined)
+
+  const connect = useCallback(() => {
+    const { connectionStateRef, connectionIdRef, isMounted, reconnectAttempts, optionsRef, setIsConnected, setError, disconnectRef, setNotifications } = ctxRef.current
     if (connectionStateRef.current !== ConnectionState.DISCONNECTED) {
       logger.debug(`⏭️ SSE: Already ${connectionStateRef.current}, skipping connection attempt`)
       return
     }
-
-    // Atomically transition to CONNECTING state
     connectionStateRef.current = ConnectionState.CONNECTING
-    const currentConnectionId = ++connectionIdRef.current
-    logger.debug(`🔌 SSE: Initiating connection #${currentConnectionId}...`)
-
-
+    const currentId = ++connectionIdRef.current
+    logger.debug(`🔌 SSE: Initiating connection #${currentId}...`)
 
     try {
       const { apiClient, walletAddress, types } = optionsRef.current
-      if (apiClient === undefined) {
-        throw new Error('API client not available')
-      }
+      if (apiClient === undefined) { throw new Error('API client not available') }
       const client = createNotificationsClient(apiClient)
 
+      const stateCtx: SSEStateCtx = { connectionStateRef, connectionIdRef, isMounted, reconnectAttempts, optionsRef, setIsConnected, setError }
+      const scheduleReconnect = (delay: number): void => {
+        setTimeout(() => {
+          if (isMounted.current && connectionStateRef.current === ConnectionState.DISCONNECTED) {
+            connectRef.current()
+          }
+        }, delay)
+      }
+
       const disconnectFn = client.connectToSSE(
-        {
-          wallet_address: walletAddress,
-          types,
-          auto_reconnect: false, // We handle reconnection ourselves to avoid conflicts
-          reconnect_interval: Math.min(5000 * (reconnectAttempts.current + 1), 30000),
-        },
+        { wallet_address: walletAddress, types, auto_reconnect: false, reconnect_interval: Math.min(5000 * (reconnectAttempts.current + 1), 30000) },
         {
           onNotification: (notification) => {
-            // Verify this callback is from the current connection
-            if (!isMounted.current || connectionIdRef.current !== currentConnectionId) {
-              logger.warn(`⚠️ SSE: Stale notification from connection #${currentConnectionId}, ignoring`)
+            if (!isMounted.current || connectionIdRef.current !== currentId) {
+              logger.warn(`⚠️ SSE: Stale notification from connection #${currentId}, ignoring`)
               return
             }
-
-            if (isMounted.current) {
-              setNotifications((prev) => {
-                const newArray = [notification, ...prev]
-                // Keep only last 50 notifications to prevent memory issues
-                return newArray.slice(0, 50)
-              })
-            }
+            setNotifications((prev) => [notification, ...prev].slice(0, 50))
             optionsRef.current.onNotification?.(notification)
             reconnectAttempts.current = 0
           },
-          onError: (_err) => {
-            const handleError = async () => {
-              // Verify this callback is from the current connection
-              if (!isMounted.current || connectionIdRef.current !== currentConnectionId) {
-                logger.warn(`⚠️ SSE: Stale error from connection #${currentConnectionId}, ignoring`)
-                return
-              }
-
-              // Handle failure before connection was ever established (stuck CONNECTING)
-              if (connectionStateRef.current === ConnectionState.CONNECTING) {
-                connectionStateRef.current = ConnectionState.DISCONNECTED
-                if (isMounted.current) {
-                  setIsConnected(false)
-                  setError('Connection failed. Retrying...')
-                }
-                reconnectAttempts.current++
-                const delay = Math.min(3000 * reconnectAttempts.current, 30000)
-                setTimeout(() => {
-                  if (isMounted.current && connectionStateRef.current === ConnectionState.DISCONNECTED) {
-                    void connect()
-                  }
-                }, delay)
-                return
-              }
-
-              // Only update state if we're still in CONNECTED state
-              if (connectionStateRef.current === ConnectionState.CONNECTED) {
-                connectionStateRef.current = ConnectionState.DISCONNECTED
-                if (isMounted.current) {
-                  setIsConnected(false)
-                  const errorMsg = 'Connection lost. Reconnecting...'
-                  setError(errorMsg)
-                }
-                optionsRef.current.onError?.('Connection lost. Reconnecting...')
-
-                // If we get an error, just back off and retry.
-                // Do NOT proactively refresh session here as it loops with RSC cookie updates.
-
-                reconnectAttempts.current++
-                if (reconnectAttempts.current < maxReconnectAttempts) {
-                  // Attempt reconnection with exponential backoff
-                  const delay = Math.min(5000 * reconnectAttempts.current, 30000)
-                  logger.debug(`🔄 SSE: Scheduling reconnect attempt ${reconnectAttempts.current} in ${delay}ms`)
-                  setTimeout(() => {
-                    if (isMounted.current && connectionStateRef.current === ConnectionState.DISCONNECTED) {
-                      void connect()
-                    }
-                  }, delay)
-                } else {
-                  if (isMounted.current) {
-                    setError('Failed to connect after multiple attempts')
-                  }
-                  optionsRef.current.onError?.('Failed to connect after multiple attempts')
-                }
-              }
-            }
-            void handleError()
-          },
+          onError: (_err) => { handleSSEError(stateCtx, currentId, scheduleReconnect) },
           onOpen: () => {
-            // Verify this callback is from the current connection
-            if (!isMounted.current || connectionIdRef.current !== currentConnectionId) {
-              logger.warn(`⚠️ SSE: Stale open event from connection #${currentConnectionId}, ignoring`)
+            if (!isMounted.current || connectionIdRef.current !== currentId) {
+              logger.warn(`⚠️ SSE: Stale open event from connection #${currentId}, ignoring`)
               return
             }
-
-            logger.info(`✅ SSE: Connection #${currentConnectionId} established`)
+            logger.info(`✅ SSE: Connection #${currentId} established`)
             connectionStateRef.current = ConnectionState.CONNECTED
-            if (isMounted.current) {
-              setIsConnected(true)
-              setError(null)
-            }
+            setIsConnected(true)
+            setError(null)
             reconnectAttempts.current = 0
             optionsRef.current.onConnect?.()
-          }
+          },
         }
       )
-
       disconnectRef.current = disconnectFn
     } catch (err) {
-      // Reset state on connection failure
       connectionStateRef.current = ConnectionState.DISCONNECTED
       const errorMsg = err instanceof Error ? err.message : 'Failed to connect to notification stream'
-
-      if (isMounted.current) {
-        setError(errorMsg)
-      }
+      setError(errorMsg)
       optionsRef.current.onError?.(errorMsg)
-      logger.error(`❌ SSE: Connection #${currentConnectionId} failed:`, errorMsg)
+      logger.error(`❌ SSE: Connection #${connectionIdRef.current} failed:`, errorMsg)
     }
-  }, []) // Empty dependency array since we use refs for all values
+  }, []) // ctxRef is stable; all values accessed via ctxRef.current
+
+  connectRef.current = connect
 
   const disconnect = useCallback(() => {
-    // Atomic state transition to DISCONNECTING
+    const { connectionStateRef, connectionIdRef, disconnectRef, setIsConnected } = ctxRef.current
     const prevState = connectionStateRef.current
     if (prevState === ConnectionState.DISCONNECTED) {
       logger.debug('⏭️ SSE: Already disconnected, skipping')
       return
     }
-
     logger.info(`🔴 SSE: Disconnecting from ${prevState} state...`)
     connectionStateRef.current = ConnectionState.DISCONNECTING
-
-    // Increment connection ID to invalidate any pending callbacks
     connectionIdRef.current++
 
-    if (disconnectRef.current) {
-      try {
-        disconnectRef.current()
-      } catch (err) {
-        logger.error('❌ SSE: Error during disconnect:', err)
-      }
+    if (disconnectRef.current !== null) {
+      try { disconnectRef.current() } catch (err) { logger.error('❌ SSE: Error during disconnect:', err) }
       disconnectRef.current = null
     }
 
-    // Final state transition
     connectionStateRef.current = ConnectionState.DISCONNECTED
     setIsConnected(false)
     logger.info('✅ SSE: Disconnected successfully')
-  }, [])
+  }, []) // ctxRef is stable
 
-  const reconnect = useCallback(() => { void connect() }, [connect])
+  const reconnect = useCallback(() => { connect() }, [connect])
+
+  return { connect, disconnect, reconnect }
+}
+
+export function useSSENotifications(
+  options: UseSSENotificationsOptions
+): UseSSENotificationsReturn {
+  const { autoConnect = true } = options
+
+  const [notifications, setNotifications] = useState<SSENotification[]>([])
+  const [isConnected, setIsConnected] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const connectionStateRef = useRef<ConnectionState>(ConnectionState.DISCONNECTED)
+  const disconnectRef = useRef<(() => void) | null>(null)
+  const reconnectAttempts = useRef(0)
+  const isMounted = useRef<boolean>(true)
+  const connectionIdRef = useRef(0)
+  const optionsRef = useRef(options)
+  optionsRef.current = options
+
+  const { connect, disconnect, reconnect } = useSSEConnect({
+    connectionStateRef, disconnectRef, reconnectAttempts, isMounted,
+    connectionIdRef, optionsRef, setIsConnected, setError, setNotifications,
+  })
 
   const addNotification = useCallback((notification: SSENotification) => {
-    setNotifications((prev) => {
-      const newArray = [notification, ...prev]
-      // Keep only last 50 notifications to prevent memory issues
-      return newArray.slice(0, 50)
-    })
+    setNotifications((prev) => [notification, ...prev].slice(0, 50))
   }, [])
 
   useEffect(() => {
     isMounted.current = true
+    // Capture ref objects (not .current) for use in cleanup
+    const idRef = connectionIdRef
+    const dRef = disconnectRef
+    const stateRef = connectionStateRef
 
-    if (autoConnect && connectionStateRef.current === ConnectionState.DISCONNECTED) {
+    if (autoConnect && stateRef.current === ConnectionState.DISCONNECTED) {
       logger.debug('🎬 SSE: Auto-connect triggered')
-      // Add a small delay to prevent race conditions during component mounting
       const connectTimer = setTimeout(() => {
-        if (isMounted.current && connectionStateRef.current === ConnectionState.DISCONNECTED) {
-          void connect()
+        if (isMounted.current && stateRef.current === ConnectionState.DISCONNECTED) {
+          connect()
         }
       }, 100)
-
-      return () => {
-        clearTimeout(connectTimer)
-      }
+      return () => { clearTimeout(connectTimer) }
     }
 
     return () => {
       logger.debug('🧹 SSE: Cleanup triggered')
-
-      // Cancel any pending operations without setting state
-      if (connectionStateRef.current !== ConnectionState.DISCONNECTED) {
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        connectionIdRef.current++ // Invalidate any pending callbacks
-
-        if (disconnectRef.current) {
-          try {
-            disconnectRef.current()
-          } catch (err) {
-            logger.error('❌ SSE: Error during disconnect:', err)
-          }
-          disconnectRef.current = null
-        }
-
-        connectionStateRef.current = ConnectionState.DISCONNECTED
-        // Remove setIsConnected call to prevent state updates during cleanup
-        logger.info('✅ SSE: Disconnected successfully')
+      idRef.current++
+      if (dRef.current !== null) {
+        try { dRef.current() } catch (err) { logger.error('❌ SSE: Error during disconnect:', err) }
+        dRef.current = null
       }
-
+      stateRef.current = ConnectionState.DISCONNECTED
+      logger.info('✅ SSE: Disconnected successfully')
       isMounted.current = false
     }
   }, [autoConnect, connect])
 
-  return {
-    notifications,
-    isConnected,
-    error,
-    reconnect,
-    disconnect,
-    addNotification,
-  }
+  return { notifications, isConnected, error, reconnect, disconnect, addNotification }
 }

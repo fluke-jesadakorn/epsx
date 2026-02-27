@@ -14,42 +14,63 @@ const SUPPORTED_CHAINS = [BSC_MAINNET, BSC_TESTNET];
 function parseWalletError(err: unknown): string {
     const raw = err instanceof Error ? err.message : String(err);
     const lower = raw.toLowerCase();
+    return matchKnownWalletError(lower) ?? extractViemShortMessage(raw) ?? truncateOrRaw(raw);
+}
 
-    if (lower.includes('user rejected') || lower.includes('user denied') || lower.includes('rejected by user'))
+function matchKnownWalletError(lower: string): string | undefined {
+    return matchWalletRejection(lower)
+        ?? matchWalletProviderError(lower)
+        ?? matchWalletNetworkError(lower);
+}
+
+function matchWalletRejection(lower: string): string | undefined {
+    if (lower.includes('user rejected') || lower.includes('user denied') || lower.includes('rejected by user')) {
         return 'Request rejected. Please approve the request in your wallet to continue.';
-
-    if (lower.includes('provider not found') || lower.includes('no provider') || lower.includes('connector not found'))
-        return 'Wallet not found. Please install the wallet extension and refresh the page.';
-
-    if (lower.includes('already processing') || lower.includes('already pending') || lower.includes('request already pending'))
+    }
+    if (lower.includes('already processing') || lower.includes('already pending') || lower.includes('request already pending')) {
         return 'A request is already pending in your wallet. Please check your wallet and approve or reject it.';
-
-    if (lower.includes('resource not available') || lower.includes('resourceunavailable') || lower.includes('rpc') || lower.includes('disconnected'))
-        return 'Unable to connect to the network. Please check your internet connection and wallet settings.';
-
-    if (lower.includes('is not a function') || (lower.includes('connector') && !lower.includes('not found')))
-        return 'Wallet still initializing. Please try again in a moment.';
-
-    if (lower.includes('chain not configured') || lower.includes('chain mismatch'))
-        return 'Network not supported. Please switch to BNB Smart Chain in your wallet.';
-
-    if (lower.includes('switch chain not supported'))
-        return 'Your wallet does not support automatic network switching. Please switch to BNB Smart Chain manually.';
-
-    if (lower.includes('timeout') || lower.includes('timed out'))
+    }
+    if (lower.includes('timeout') || lower.includes('timed out')) {
         return 'Connection timed out. Please try again.';
+    }
+    return undefined;
+}
 
-    // Viem errors often have a "Details:" or "shortMessage" section - extract the short message
+function matchWalletProviderError(lower: string): string | undefined {
+    if (lower.includes('provider not found') || lower.includes('no provider') || lower.includes('connector not found')) {
+        return 'Wallet not found. Please install the wallet extension and refresh the page.';
+    }
+    if (lower.includes('is not a function') || (lower.includes('connector') && !lower.includes('not found'))) {
+        return 'Wallet still initializing. Please try again in a moment.';
+    }
+    return undefined;
+}
+
+function matchWalletNetworkError(lower: string): string | undefined {
+    if (lower.includes('resource not available') || lower.includes('resourceunavailable') || lower.includes('rpc') || lower.includes('disconnected')) {
+        return 'Unable to connect to the network. Please check your internet connection and wallet settings.';
+    }
+    if (lower.includes('chain not configured') || lower.includes('chain mismatch')) {
+        return 'Network not supported. Please switch to BNB Smart Chain in your wallet.';
+    }
+    if (lower.includes('switch chain not supported')) {
+        return 'Your wallet does not support automatic network switching. Please switch to BNB Smart Chain manually.';
+    }
+    return undefined;
+}
+
+function extractViemShortMessage(raw: string): string | undefined {
     const shortMatch = raw.match(/Short Message:\s*(.+?)(?:\n|$)/i)
         ?? raw.match(/Details:\s*(.+?)(?:\n|$)/i);
-    if (shortMatch?.[1]) {
-        const short = shortMatch[1].trim();
-        if (short.length < 200) return short;
+    const short = shortMatch?.[1]?.trim();
+    if (short !== undefined && short !== '' && short.length < 200) {
+        return short;
     }
+    return undefined;
+}
 
-    // Fallback: truncate if too long
-    if (raw.length > 150) return 'Connection failed. Please try again or use a different wallet.';
-
+function truncateOrRaw(raw: string): string {
+    if (raw.length > 150) { return 'Connection failed. Please try again or use a different wallet.'; }
     return raw;
 }
 

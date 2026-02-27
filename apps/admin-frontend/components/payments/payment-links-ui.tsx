@@ -129,7 +129,7 @@ export function LinkStatusBadge({ link, isExpired }: LinkStatusBadgeProps) {
             </span>
         );
     }
-    if (link.max_uses && link.current_uses >= link.max_uses) {
+    if (link.max_uses !== undefined && link.max_uses !== 0 && link.current_uses >= link.max_uses) {
         return (
             <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-warning/10 text-warning border border-warning/20">
                 <CheckCircleIcon className="w-3 h-3 mr-1" />
@@ -148,8 +148,8 @@ export function LinkStatusBadge({ link, isExpired }: LinkStatusBadgeProps) {
 interface PaymentLinksMobileCardsProps {
     links: PaymentLink[];
     copiedSlug: string | null;
-    onCopyUrl: (link: PaymentLink) => void;
-    onDelete: (id: string) => void;
+    onCopyUrl: (link: PaymentLink) => Promise<void>;
+    onDelete: (id: string) => Promise<void>;
     isExpired: (expiresAt?: string) => boolean;
 }
 
@@ -182,20 +182,20 @@ export function PaymentLinksMobileCards({
                             <div className="text-sm font-medium text-muted-foreground">Usage</div>
                             <div className="text-lg font-bold text-secondary">
                                 {link.current_uses}
-                                {link.max_uses ? ` / ${link.max_uses}` : ' / ∞'}
+                                {link.max_uses !== undefined && link.max_uses !== 0 ? ` / ${link.max_uses}` : ' / ∞'}
                             </div>
                         </div>
                     </div>
                     <div className="flex gap-2">
                         <button
-                            onClick={() => onCopyUrl(link)}
+                            onClick={() => { void onCopyUrl(link); }}
                             className="flex-1 px-3 py-2 rounded-xl font-semibold bg-primary text-primary-foreground hover:opacity-90 transition-all text-sm"
                         >
                             {copiedSlug === link.slug ? '✓ Copied' : 'Copy URL'}
                         </button>
                         {link.is_active && (
                             <button
-                                onClick={() => onDelete(link.id)}
+                                onClick={() => { void onDelete(link.id); }}
                                 className="px-3 py-2 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive/20 border border-destructive/20 transition-colors"
                             >
                                 <TrashIcon className="w-5 h-5" />
@@ -211,8 +211,8 @@ export function PaymentLinksMobileCards({
 interface PaymentLinksTableProps {
     links: PaymentLink[];
     copiedSlug: string | null;
-    onCopyUrl: (link: PaymentLink) => void;
-    onDelete: (id: string) => void;
+    onCopyUrl: (link: PaymentLink) => Promise<void>;
+    onDelete: (id: string) => Promise<void>;
     formatDate: (dateString: string) => string;
     isExpired: (expiresAt?: string) => boolean;
 }
@@ -258,10 +258,10 @@ export function PaymentLinksTable({
                             </td>
                             <td className="px-4 py-4 text-sm text-foreground">
                                 {link.current_uses}
-                                {link.max_uses ? ` / ${link.max_uses}` : ' / ∞'}
+                                {link.max_uses !== undefined && link.max_uses !== 0 ? ` / ${link.max_uses}` : ' / ∞'}
                             </td>
                             <td className="px-4 py-4 text-sm text-muted-foreground">
-                                {link.expires_at ? formatDate(link.expires_at) : 'Never'}
+                                {link.expires_at !== undefined && link.expires_at !== '' ? formatDate(link.expires_at) : 'Never'}
                             </td>
                             <td className="px-4 py-4">
                                 <LinkStatusBadge link={link} isExpired={isExpired} />
@@ -269,7 +269,7 @@ export function PaymentLinksTable({
                             <td className="px-4 py-4">
                                 <div className="flex items-center gap-1">
                                     <button
-                                        onClick={() => onCopyUrl(link)}
+                                        onClick={() => { void onCopyUrl(link); }}
                                         className="p-2 rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                                         title="Copy URL"
                                     >
@@ -287,7 +287,7 @@ export function PaymentLinksTable({
                                     </button>
                                     {link.is_active && (
                                         <button
-                                            onClick={() => onDelete(link.id)}
+                                            onClick={() => { void onDelete(link.id); }}
                                             className="p-2 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                                             title="Deactivate"
                                         >
@@ -304,12 +304,96 @@ export function PaymentLinksTable({
     );
 }
 
+interface ModalFormFieldsProps {
+    form: CreatePaymentLinkForm;
+    onFormChange: <K extends keyof CreatePaymentLinkForm>(key: K, value: CreatePaymentLinkForm[K]) => void;
+}
+
+function AmountCurrencyRow({ form, onFormChange }: ModalFormFieldsProps) {
+    const cls = 'w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all';
+    return (
+        <div className="grid grid-cols-2 gap-4">
+            <div>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Amount *</label>
+                <input type="number" step="0.01" min="0.01" value={form.amount} onChange={(e) => onFormChange('amount', e.target.value)} placeholder="0.00" className={cls} required />
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Currency</label>
+                <select value={form.currency} onChange={(e) => onFormChange('currency', e.target.value)} className={cls}>
+                    {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+            </div>
+        </div>
+    );
+}
+
+function ExpiryMaxUsesRow({ form, onFormChange }: ModalFormFieldsProps) {
+    const cls = 'w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all';
+    return (
+        <div className="grid grid-cols-2 gap-4">
+            <div>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Expires In (hours)</label>
+                <input type="number" min="1" value={form.expires_in_hours} onChange={(e) => onFormChange('expires_in_hours', e.target.value)} placeholder="24" className={cls} />
+                <p className="text-xs text-muted-foreground mt-1">Leave empty for no expiration</p>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Max Uses</label>
+                <input type="number" min="1" value={form.max_uses} onChange={(e) => onFormChange('max_uses', e.target.value)} placeholder="Unlimited" className={cls} />
+                <p className="text-xs text-muted-foreground mt-1">Leave empty for unlimited</p>
+            </div>
+        </div>
+    );
+}
+
+function ModalFormFields({ form, onFormChange }: ModalFormFieldsProps) {
+    const cls = 'w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all';
+    return (
+        <div className="space-y-4">
+            <div>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Context Type *</label>
+                <select value={form.context_type} onChange={(e) => onFormChange('context_type', e.target.value as PaymentContextType)} className={cls} required>
+                    {CONTEXT_TYPES.map((type) => (
+                        <option key={type.value} value={type.value}>{type.label} - {type.description}</option>
+                    ))}
+                </select>
+            </div>
+
+            {(form.context_type === 'plan' || form.context_type === 'group') && (
+                <div>
+                    <label className="block text-sm font-medium text-muted-foreground mb-2">
+                        {form.context_type === 'plan' ? 'Plan ID' : 'Group ID'}
+                    </label>
+                    <input type="text" value={form.context_id} onChange={(e) => onFormChange('context_id', e.target.value)} placeholder="UUID of the linked entity" className={cls} />
+                </div>
+            )}
+
+            <div>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Name *</label>
+                <input type="text" value={form.name} onChange={(e) => onFormChange('name', e.target.value)} placeholder="e.g., Pro Plan Monthly" className={cls} required />
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Description</label>
+                <textarea value={form.description} onChange={(e) => onFormChange('description', e.target.value)} placeholder="Optional description" rows={2} className={cls} />
+            </div>
+
+            <AmountCurrencyRow form={form} onFormChange={onFormChange} />
+            <ExpiryMaxUsesRow form={form} onFormChange={onFormChange} />
+
+            <div>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Custom Slug (optional)</label>
+                <input type="text" value={form.slug} onChange={(e) => onFormChange('slug', e.target.value)} placeholder="Auto-generated if empty" className={cls} />
+            </div>
+        </div>
+    );
+}
+
 interface CreatePaymentLinkModalProps {
     isOpen: boolean;
     onClose: () => void;
     form: CreatePaymentLinkForm;
     onFormChange: <K extends keyof CreatePaymentLinkForm>(key: K, value: CreatePaymentLinkForm[K]) => void;
-    onSubmit: (e: React.FormEvent) => void;
+    onSubmit: (e: React.FormEvent) => Promise<void>;
     isLoading: boolean;
     error: string | null;
 }
@@ -334,7 +418,7 @@ export function CreatePaymentLinkModal({
                     <div className="absolute inset-0 bg-background/95" />
                 </div>
                 <div className="inline-block align-bottom bg-card rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-border/50">
-                    <form onSubmit={onSubmit}>
+                    <form onSubmit={(e) => { void onSubmit(e); }}>
                         <div className="px-6 pt-6 pb-4">
                             <div className="flex items-center justify-between mb-6">
                                 <h3 className="text-xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
@@ -349,135 +433,13 @@ export function CreatePaymentLinkModal({
                                 </button>
                             </div>
 
-                            {error && (
+                            {error !== null && error !== '' && (
                                 <div className="mb-4 bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-xl text-sm">
                                     {error}
                                 </div>
                             )}
 
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-muted-foreground mb-2">Context Type *</label>
-                                    <select
-                                        value={form.context_type}
-                                        onChange={(e) => onFormChange('context_type', e.target.value as PaymentContextType)}
-                                        className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                        required
-                                    >
-                                        {CONTEXT_TYPES.map((type) => (
-                                            <option key={type.value} value={type.value}>
-                                                {type.label} - {type.description}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                {(form.context_type === 'plan' || form.context_type === 'group') && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-muted-foreground mb-2">
-                                            {form.context_type === 'plan' ? 'Plan ID' : 'Group ID'}
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={form.context_id}
-                                            onChange={(e) => onFormChange('context_id', e.target.value)}
-                                            placeholder="UUID of the linked entity"
-                                            className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                        />
-                                    </div>
-                                )}
-
-                                <div>
-                                    <label className="block text-sm font-medium text-muted-foreground mb-2">Name *</label>
-                                    <input
-                                        type="text"
-                                        value={form.name}
-                                        onChange={(e) => onFormChange('name', e.target.value)}
-                                        placeholder="e.g., Pro Plan Monthly"
-                                        className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                        required
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-muted-foreground mb-2">Description</label>
-                                    <textarea
-                                        value={form.description}
-                                        onChange={(e) => onFormChange('description', e.target.value)}
-                                        placeholder="Optional description"
-                                        rows={2}
-                                        className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                    />
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-muted-foreground mb-2">Amount *</label>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            min="0.01"
-                                            value={form.amount}
-                                            onChange={(e) => onFormChange('amount', e.target.value)}
-                                            placeholder="0.00"
-                                            className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                            required
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-muted-foreground mb-2">Currency</label>
-                                        <select
-                                            value={form.currency}
-                                            onChange={(e) => onFormChange('currency', e.target.value)}
-                                            className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                        >
-                                            {CURRENCIES.map((c) => (
-                                                <option key={c} value={c}>
-                                                    {c}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-muted-foreground mb-2">Expires In (hours)</label>
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            value={form.expires_in_hours}
-                                            onChange={(e) => onFormChange('expires_in_hours', e.target.value)}
-                                            placeholder="24"
-                                            className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                        />
-                                        <p className="text-xs text-muted-foreground mt-1">Leave empty for no expiration</p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-muted-foreground mb-2">Max Uses</label>
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            value={form.max_uses}
-                                            onChange={(e) => onFormChange('max_uses', e.target.value)}
-                                            placeholder="Unlimited"
-                                            className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                        />
-                                        <p className="text-xs text-muted-foreground mt-1">Leave empty for unlimited</p>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-muted-foreground mb-2">Custom Slug (optional)</label>
-                                    <input
-                                        type="text"
-                                        value={form.slug}
-                                        onChange={(e) => onFormChange('slug', e.target.value)}
-                                        placeholder="Auto-generated if empty"
-                                        className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                    />
-                                </div>
-                            </div>
+                            <ModalFormFields form={form} onFormChange={onFormChange} />
                         </div>
 
                         <div className="px-6 py-4 bg-muted/30 flex flex-row-reverse gap-3 rounded-b-3xl">
@@ -511,8 +473,8 @@ export function LoadingState() {
                 <div className="h-6 bg-muted rounded-full w-64 mx-auto" />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="bg-card rounded-3xl h-32 border border-border/50" />
+                {Array.from({ length: 4 }, (_, i) => `skel-${i}`).map((key) => (
+                    <div key={key} className="bg-card rounded-3xl h-32 border border-border/50" />
                 ))}
             </div>
             <div className="bg-card rounded-3xl h-96 border border-border/50" />

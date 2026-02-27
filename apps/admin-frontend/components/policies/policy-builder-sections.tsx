@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any */
 'use client';
 
 import {
@@ -30,7 +29,7 @@ type ComparisonOperator = 'equals' | 'not_equals' | 'greater_than' | 'less_than'
 type ConditionOperator = 'AND' | 'OR' | 'NOT';
 type PolicyDecision = 'allow' | 'deny' | 'require_mfa' | 'require_approval' | 'restricted_access';
 
-export const POLICY_TYPE_OPTIONS: { value: PolicyType; label: string; icon: React.ComponentType<any>; color: string }[] = [
+export const POLICY_TYPE_OPTIONS: { value: PolicyType; label: string; icon: React.ComponentType<{ className?: string }>; color: string }[] = [
   { value: 'time_based', label: 'Time-Based', icon: ClockIcon, color: 'blue' },
   { value: 'location_based', label: 'Location-Based', icon: MapPinIcon, color: 'green' },
   { value: 'risk_based', label: 'Risk-Based', icon: AlertTriangleIcon, color: 'red' },
@@ -124,7 +123,7 @@ export function PolicyBuilderHeader({ showTemplates, setShowTemplates, onTest, o
 
           <Button
             onClick={onSave}
-            disabled={saving ?? !formData.name}
+            disabled={saving || formData.name === ''}
             className="rounded-xl bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white border-0"
           >
             <SaveIcon className="h-4 w-4 mr-2" />
@@ -227,7 +226,7 @@ export function PolicyConfiguration({ formData, setFormData }: ConfigurationSect
               type="number"
               placeholder="100"
               value={formData.priority ?? ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, priority: parseInt(e.target.value) ?? 100 }))}
+              onChange={(e) => setFormData(prev => ({ ...prev, priority: parseInt(e.target.value, 10) || 100 }))}
               className="rounded-xl border border-border/40 min-h-[44px]"
             />
           </div>
@@ -250,11 +249,20 @@ export function PolicyConfiguration({ formData, setFormData }: ConfigurationSect
 
 interface TargetActionsProps {
   actions: string[];
-  onAdd: () => void;
+  onAdd: (value: string) => void;
   onRemove: (index: number) => void;
 }
 
 export function TargetActions({ actions, onAdd, onRemove }: TargetActionsProps) {
+  const [newAction, setNewAction] = React.useState('');
+
+  const handleAdd = () => {
+    if (newAction.trim() !== '' && !actions.includes(newAction.trim())) {
+      onAdd(newAction.trim());
+      setNewAction('');
+    }
+  };
+
   return (
     <div className="rounded-2xl bg-card border border-border/20 overflow-hidden shadow-xl">
       <div className="h-[3px] bg-gradient-to-r from-[#31d0aa] to-[#1fc7d4]" />
@@ -265,19 +273,30 @@ export function TargetActions({ actions, onAdd, onRemove }: TargetActionsProps) 
           </div>
           <h3 className="text-xs font-bold text-[#31d0aa] uppercase tracking-[0.2em]">Target Actions</h3>
         </div>
-        <Button
-          size="sm"
-          onClick={onAdd}
-          className="min-h-[44px] rounded-xl bg-gradient-to-r from-[#31d0aa] to-[#1fc7d4] text-white border-0 w-full sm:w-auto"
-        >
-          <PlusIcon className="h-4 w-4 mr-2" />
-          Add Action
-        </Button>
       </div>
 
       <div className="p-5 space-y-3">
+        <div className="flex gap-2">
+          <Input
+            variant="glass"
+            placeholder="e.g., epsx:trading:execute"
+            value={newAction}
+            onChange={(e) => setNewAction(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAdd(); } }}
+            className="rounded-xl min-h-[44px] flex-1"
+          />
+          <Button
+            size="sm"
+            onClick={handleAdd}
+            className="min-h-[44px] rounded-xl bg-gradient-to-r from-[#31d0aa] to-[#1fc7d4] text-white border-0"
+          >
+            <PlusIcon className="h-4 w-4 mr-2" />
+            Add
+          </Button>
+        </div>
+
         {actions.map((action, index) => (
-          <div key={index} className="flex items-center gap-3 p-3 sm:p-4 bg-muted/30 border border-border/40 rounded-xl">
+          <div key={action} className="flex items-center gap-3 p-3 sm:p-4 bg-muted/30 border border-border/40 rounded-xl">
             <span className="font-mono text-sm flex-1 text-foreground">{action}</span>
             <Button
               size="sm"
@@ -299,6 +318,47 @@ export function TargetActions({ actions, onAdd, onRemove }: TargetActionsProps) 
             <p className="text-xs">Add actions this policy should apply to</p>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+interface ConditionRowProps {
+  condition: SingleCondition;
+  index: number;
+  onRemove: (index: number) => void;
+  onUpdate: (index: number, updates: Partial<SingleCondition>) => void;
+}
+
+function ConditionRow({ condition, index, onRemove, onUpdate }: ConditionRowProps) {
+  const fieldDef = CONDITION_FIELDS.find(f => f.value === condition.field);
+  const availableOperators = COMPARISON_OPERATORS.filter(op => fieldDef !== undefined ? op.types.includes(fieldDef.type) : true);
+  return (
+    <div className="p-4 border border-border/40 rounded-xl bg-muted/30">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div>
+          <label className="block text-sm font-semibold mb-2 text-foreground">Field</label>
+          <select className="w-full px-3 py-3 border border-border/40 rounded-xl bg-card text-foreground min-h-[44px]" value={condition.field} onChange={(e) => onUpdate(index, { field: e.target.value })}>
+            {CONDITION_FIELDS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-semibold mb-2 text-foreground">Operator</label>
+          <select className="w-full px-3 py-3 border border-border/40 rounded-xl bg-card text-foreground min-h-[44px]" value={condition.operator} onChange={(e) => onUpdate(index, { operator: e.target.value as ComparisonOperator })}>
+            {availableOperators.map(op => <option key={op.value} value={op.value}>{op.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-semibold mb-2 text-foreground">Value</label>
+          <Input variant="glass" placeholder="Enter value..." value={String(condition.value)} onChange={(e) => onUpdate(index, { value: e.target.value })} className="rounded-xl min-h-[44px]" />
+        </div>
+        <div className="flex flex-col justify-between gap-2">
+          <label className="flex items-center gap-3 p-2 rounded-xl hover:bg-muted/50">
+            <input type="checkbox" checked={condition.negate ?? false} onChange={(e) => onUpdate(index, { negate: e.target.checked })} className="h-5 w-5 rounded border-border/40 text-[#7645d9] focus:ring-[#7645d9]/50" />
+            <span className="text-sm font-medium text-foreground">Negate</span>
+          </label>
+          <Button size="sm" variant="ghost" onClick={() => onRemove(index)} className="h-10 w-10 p-0 text-red-400 hover:bg-red-500/10 rounded-xl self-end"><TrashIcon className="h-4 w-4" /></Button>
+        </div>
       </div>
     </div>
   );
@@ -327,106 +387,22 @@ export function ConditionsBuilder({ formData, setFormData, onAdd, onRemove, onUp
           <select
             className="px-3 py-2 border border-border/40 rounded-xl text-sm bg-muted/30 text-foreground min-h-[44px]"
             value={formData.conditions.operator}
-            onChange={(e) => setFormData(prev => ({
-              ...prev,
-              conditions: {
-                ...prev.conditions,
-                operator: e.target.value as ConditionOperator
-              }
-            }))}
+            onChange={(e) => setFormData(prev => ({ ...prev, conditions: { ...prev.conditions, operator: e.target.value as ConditionOperator } }))}
           >
             <option value="AND">ALL conditions must be met (AND)</option>
             <option value="OR">ANY condition must be met (OR)</option>
             <option value="NOT">NO conditions must be met (NOT)</option>
           </select>
-
-          <Button
-            size="sm"
-            onClick={onAdd}
-            className="min-h-[44px] rounded-xl bg-gradient-to-r from-[#ffb237] to-[#ed4b9e] text-white border-0 w-full sm:w-auto"
-          >
-            <PlusIcon className="h-4 w-4 mr-2" />
-            Add Condition
+          <Button size="sm" onClick={onAdd} className="min-h-[44px] rounded-xl bg-gradient-to-r from-[#ffb237] to-[#ed4b9e] text-white border-0 w-full sm:w-auto">
+            <PlusIcon className="h-4 w-4 mr-2" />Add Condition
           </Button>
         </div>
       </div>
 
       <div className="p-5 space-y-4">
-        {formData.conditions.conditions.map((condition, index) => {
-          const field = CONDITION_FIELDS.find(f => f.value === condition.field);
-          const availableOperators = COMPARISON_OPERATORS.filter(op =>
-            field ? op.types.includes(field.type) : true
-          );
-
-          return (
-            <div key={index} className="p-4 border border-border/40 rounded-xl bg-muted/30">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                <div>
-                  <label className="block text-sm font-semibold mb-2 text-foreground">Field</label>
-                  <select
-                    className="w-full px-3 py-3 border border-border/40 rounded-xl bg-card text-foreground min-h-[44px]"
-                    value={condition.field}
-                    onChange={(e) => onUpdate(index, { field: e.target.value })}
-                  >
-                    {CONDITION_FIELDS.map(field => (
-                      <option key={field.value} value={field.value}>
-                        {field.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold mb-2 text-foreground">Operator</label>
-                  <select
-                    className="w-full px-3 py-3 border border-border/40 rounded-xl bg-card text-foreground min-h-[44px]"
-                    value={condition.operator}
-                    onChange={(e) => onUpdate(index, { operator: e.target.value as ComparisonOperator })}
-                  >
-                    {availableOperators.map(op => (
-                      <option key={op.value} value={op.value}>
-                        {op.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold mb-2 text-foreground">Value</label>
-                  <Input
-                    variant="glass"
-                    placeholder="Enter value..."
-                    value={condition.value}
-                    onChange={(e) => onUpdate(index, { value: e.target.value })}
-                    className="rounded-xl min-h-[44px]"
-                  />
-                </div>
-
-                <div className="flex flex-col justify-between gap-2">
-                  <div>
-                    <label className="flex items-center gap-3 p-2 rounded-xl hover:bg-muted/50">
-                      <input
-                        type="checkbox"
-                        checked={condition.negate ?? false}
-                        onChange={(e) => onUpdate(index, { negate: e.target.checked })}
-                        className="h-5 w-5 rounded border-border/40 text-[#7645d9] focus:ring-[#7645d9]/50"
-                      />
-                      <span className="text-sm font-medium text-foreground">Negate</span>
-                    </label>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => onRemove(index)}
-                    className="h-10 w-10 p-0 text-red-400 hover:bg-red-500/10 rounded-xl self-end"
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+        {formData.conditions.conditions.map((condition, index) => (
+          <ConditionRow key={condition._key} condition={condition} index={index} onRemove={onRemove} onUpdate={onUpdate} />
+        ))}
 
         {formData.conditions.conditions.length === 0 && (
           <div className="text-center py-8 sm:py-12 text-muted-foreground">
@@ -502,11 +478,11 @@ export function ActionsResponses({ formData, setFormData }: ActionsResponsesProp
 }
 
 interface TestResultsProps {
-  testResults: any;
+  testResults: Record<string, unknown> | null;
 }
 
 export function TestResults({ testResults }: TestResultsProps) {
-  if (!testResults) {return null;}
+  if (testResults === null) {return null;}
 
   return (
     <div className="rounded-2xl bg-card border border-border/20 overflow-hidden shadow-xl">
@@ -526,18 +502,18 @@ export function TestResults({ testResults }: TestResultsProps) {
               testResults.decision === 'deny' ? 'destructive' : 'glass'}
             className="text-sm px-3 py-1"
           >
-            {testResults.decision}
+            {String(testResults.decision ?? '')}
           </Badge>
         </div>
 
         <div>
           <span className="text-sm font-semibold text-foreground">Reason:</span>
-          <p className="text-sm text-muted-foreground mt-2 p-3 bg-muted/30 border border-border/40 rounded-xl">{testResults.final_decision_reason}</p>
+          <p className="text-sm text-muted-foreground mt-2 p-3 bg-muted/30 border border-border/40 rounded-xl">{String(testResults.final_decision_reason ?? '')}</p>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-foreground">Evaluation Time:</span>
-          <span className="text-sm bg-[#31d0aa]/10 text-[#31d0aa] border border-[#31d0aa]/20 px-2 py-1 rounded-lg">{testResults.evaluation_time_ms}ms</span>
+          <span className="text-sm bg-[#31d0aa]/10 text-[#31d0aa] border border-[#31d0aa]/20 px-2 py-1 rounded-lg">{String(testResults.evaluation_time_ms ?? '')}ms</span>
         </div>
       </div>
     </div>

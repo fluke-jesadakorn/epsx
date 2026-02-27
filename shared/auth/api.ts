@@ -88,7 +88,7 @@ class DirectWeb3ApiClient {
       const body: ChallengeRequest = {
         wallet_address: walletAddress,
       };
-      if (turnstileToken) {
+      if (turnstileToken !== undefined && turnstileToken !== '') {
         body.turnstile_token = turnstileToken;
       }
 

@@ -120,30 +120,33 @@ export function useSignMessage({
 function parseSignError(err: unknown): string {
     const raw = err instanceof Error ? err.message : String(err);
     const lower = raw.toLowerCase();
+    return matchKnownSignError(lower) ?? extractSignViemMessage(raw) ?? (raw.length > 150 ? 'Authentication failed. Please try again.' : raw);
+}
 
-    if (lower.includes('user rejected') || lower.includes('user denied'))
+function matchKnownSignError(lower: string): string | undefined {
+    if (lower.includes('user rejected') || lower.includes('user denied')) {
         return 'Signature request rejected. Please approve the sign request in your wallet to log in.';
-
-    if (lower.includes('timeout') || lower.includes('timed out'))
+    }
+    if (lower.includes('timeout') || lower.includes('timed out')) {
         return 'Signature request timed out. Please try again.';
-
-    if (lower.includes('disconnected') || lower.includes('resource not available'))
+    }
+    if (lower.includes('disconnected') || lower.includes('resource not available')) {
         return 'Wallet disconnected. Please reconnect and try again.';
-
-    if (lower.includes('is not a function') || lower.includes('connector'))
+    }
+    if (lower.includes('is not a function') || lower.includes('connector')) {
         return 'Wallet still initializing. Please try again in a moment.';
+    }
+    return undefined;
+}
 
-    // Extract viem short message if available
+function extractSignViemMessage(raw: string): string | undefined {
     const shortMatch = raw.match(/Short Message:\s*(.+?)(?:\n|$)/i)
         ?? raw.match(/Details:\s*(.+?)(?:\n|$)/i);
-    if (shortMatch?.[1]) {
-        const short = shortMatch[1].trim();
-        if (short.length < 200) return short;
+    const short = shortMatch?.[1]?.trim();
+    if (short !== undefined && short !== '' && short.length < 200) {
+        return short;
     }
-
-    if (raw.length > 150) return 'Authentication failed. Please try again.';
-
-    return raw;
+    return undefined;
 }
 
 interface VerifyAndLoginProps {

@@ -16,7 +16,7 @@ export default async function DeveloperLayout({ children }: DeveloperLayoutProps
 
     if (!user) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-indigo-900 flex items-center justify-center">
+            <div className="min-h-screen bg-background flex items-center justify-center">
                 <div className="container mx-auto p-6">
                     <GlobalAuthGuard title="Developer API" debugInfo={debugInfo} />
                 </div>
@@ -25,7 +25,7 @@ export default async function DeveloperLayout({ children }: DeveloperLayoutProps
     }
 
     return (
-        <div className="flex min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-indigo-900">
+        <div className="flex min-h-screen bg-background">
             {/* Sidebar */}
             <DeveloperSidebarClient />
 

@@ -15,6 +15,9 @@ const nextConfig: NextConfig = {
   // Transpile shared packages only
   transpilePackages: ['@/shared'],
 
+  // Tree-shake large icon/component libraries
+  optimizePackageImports: ['lucide-react', '@radix-ui/react-icons', 'sonner'],
+
   // Silence Next.js 16 Turbopack warning (using webpack config for dev)
   turbopack: {
     resolveAlias: {

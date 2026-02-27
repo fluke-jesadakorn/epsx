@@ -114,9 +114,8 @@ function PlatformDistribution({
 function StatsBarSkeleton() {
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {Array.from({ length: 5 }).map((_, i) => (
-                // eslint-disable-next-line react/no-array-index-key
-                <div key={`skeleton-${i}`} className="rounded-2xl bg-muted p-5 animate-pulse">
+            {Array.from({ length: 5 }, (_, i) => `skeleton-${i}`).map((key) => (
+                <div key={key} className="rounded-2xl bg-muted p-5 animate-pulse">
                     <div className="flex items-center justify-between mb-3">
                         <div className="h-6 w-6 rounded bg-muted/80" />
                         <div className="h-5 w-16 rounded-full bg-muted/80" />

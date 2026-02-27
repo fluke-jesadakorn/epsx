@@ -12,6 +12,7 @@
  * - Display exactly what backend tells us to display
  */
 
+import { isMobile } from '../utils/helpers/browser';
 import { logger } from '../utils/logger';
 
 // Web3 JWT Token Response (from backend)
@@ -206,7 +207,7 @@ export class SharedWeb3AuthClient {
             Accept: 'application/json',
           },
           body: JSON.stringify(body),
-          signal: AbortSignal.timeout(10000), // 10s timeout
+          signal: AbortSignal.timeout(isMobile() ? 20000 : 10000),
         });
 
         logger.info('[AUTH] Challenge response received', {
@@ -371,7 +372,7 @@ export class SharedWeb3AuthClient {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request),
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(isMobile() ? 25000 : 15000),
       });
 
       if (!response.ok) {
@@ -698,33 +699,20 @@ export class SharedWeb3AuthClient {
     this.tokenExpiry = Date.now() + (expiresIn ?? 3600) * 1000;
   }
 
-  async loadCurrentUser(): Promise<UserInfoResponse | null> {
-    try {
-      if (!this.isAuthenticated()) {
-        this.user = null;
-        this.notifyListeners();
-        return null;
-      }
-
-      const user = await this.fetchCurrentUser();
-      this.user = user;
+  loadCurrentUser(): Promise<UserInfoResponse | null> {
+    if (!this.isAuthenticated()) {
+      this.user = null;
       this.notifyListeners();
-      return user;
-    } catch (error) {
-      logger.warn('[AUTH] Failed to load current user', {
-        error_message: error instanceof Error ? error.message : String(error),
-        error_type: error instanceof Error ? error.constructor.name : typeof error,
-        backend_url: this.backendUrl
-      });
-      // Don't auto-logout on network error, but do if 401
-      if (error instanceof Error && error.message.includes('401')) {
-        this.clearTokens();
-      }
-      return null;
+      return Promise.resolve(null);
     }
+
+    const user = this.fetchCurrentUser();
+    this.user = user;
+    this.notifyListeners();
+    return Promise.resolve(user);
   }
 
-  async fetchCurrentUser(): Promise<UserInfoResponse | null> {
+  fetchCurrentUser(): UserInfoResponse | null {
     if (this.user !== null) { return this.user; }
     if (this.accessToken !== null && this.accessToken !== '') {
       return this.decodeUserFromToken(this.accessToken);

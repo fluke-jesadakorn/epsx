@@ -1,12 +1,12 @@
-import { CreditCard, Gem, Key, Link2, Lock, Users, Zap } from 'lucide-react';
+import { getPublicPlansAction } from '@/app/actions/plans';
 import { PaymentAuthGuard } from '@/app/payment/components/payment-auth-guard';
 import { getCurrentUser, getDebugSessionInfo } from '@/lib/server/user-actions';
+import type { LucideIcon } from 'lucide-react';
+import { CreditCard, Gem, Key, Link2, Lock, Users, Zap } from 'lucide-react';
+import { redirect } from 'next/navigation';
 import { PaymentClient } from '../../payment-client';
-import { getPublicPlansAction } from '@/app/actions/plans';
 
 export const dynamic = 'force-dynamic';
-
-import type { LucideIcon } from 'lucide-react';
 
 type PaymentType = 'plan' | 'access-plan' | 'permission' | 'link';
 
@@ -87,9 +87,15 @@ function getThemeConfig(type: PaymentType): ThemeConfig {
 }
 
 export default async function PaymentDynamicPage({ params }: PaymentDynamicPageProps) {
+    const { type, id } = await params;
+
+    // Redirect plan type to unified payment page
+    if (type === 'plan') {
+        redirect(`/payment?planId=${id}`);
+    }
+
     const user = await getCurrentUser();
     const debugInfo = !user ? await getDebugSessionInfo() : null;
-    const { type, id } = await params;
 
     // Validate payment type
     // Handle 'group' for legacy support by mapping to 'access-plan' if needed,

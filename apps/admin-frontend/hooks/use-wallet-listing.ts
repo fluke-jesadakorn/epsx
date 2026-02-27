@@ -28,6 +28,10 @@ export function useWalletListing({ initialData }: UseWalletListingProps) {
     // State
     const [wallets, setWallets] = useState<WalletData[]>(initialData?.wallets ?? []);
     const [isLoading, setIsLoading] = useState(!initialData);
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [limit, setLimit] = useState(initialData?.pagination.limit ?? 10);
+    const [total, setTotal] = useState(initialData?.pagination.total ?? 0);
     const [filters, setFiltersRaw] = useState<WalletFilters>({
         search: '',
         platform: 'all',
@@ -39,11 +43,6 @@ export function useWalletListing({ initialData }: UseWalletListingProps) {
         setFiltersRaw(f);
         setPage(1);
     }, []);
-
-    const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const [limit, setLimit] = useState(initialData?.pagination.limit ?? 10);
-    const [total, setTotal] = useState(initialData?.pagination.total ?? 0);
 
     // Modals
     const [disableModalWallet, setDisableModalWallet] = useState<string | null>(null);

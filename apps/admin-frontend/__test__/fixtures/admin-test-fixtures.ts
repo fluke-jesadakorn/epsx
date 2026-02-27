@@ -485,13 +485,13 @@ export const PERFORMANCE_TEST_DATA = {
  *
  */
 export class TestDatabaseUtilities {
-  private static instance: TestDatabaseUtilities;
-  
+  private static instance: TestDatabaseUtilities | undefined;
+
   /**
    *
    */
   static getInstance(): TestDatabaseUtilities {
-    if (!TestDatabaseUtilities.instance) {
+    if (TestDatabaseUtilities.instance === undefined) {
       TestDatabaseUtilities.instance = new TestDatabaseUtilities();
     }
     return TestDatabaseUtilities.instance;
@@ -748,7 +748,7 @@ export class TestUtilities {
    */
   static generateRandomUser(): TestUser {
     const id = `random-${Date.now()}`;
-    const roles = Object.values(Role).filter((role): role is Role => role !== undefined);
+    const roles = Object.values(Role);
     const randomRole = roles[Math.floor(Math.random() * roles.length)] ?? Role.User;
 
     return {

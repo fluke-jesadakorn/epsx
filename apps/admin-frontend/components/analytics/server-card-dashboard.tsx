@@ -1,4 +1,4 @@
- 
+
 import {
   getAnalyticsData,
   type EPSQueryParams,
@@ -8,7 +8,7 @@ import { AnalyticsDashboardWrapper } from './analytics-dashboard-wrapper';
 import ServerFilters from './server-filters';
 
 interface ServerCardDashboardProps {
-  searchParams: {
+  searchParams: Promise<{
     page?: string;
     limit?: string;
     country?: string;
@@ -17,30 +17,39 @@ interface ServerCardDashboardProps {
     min_eps?: string;
     min_growth?: string;
     search?: string;
-  };
+  }>;
 }
 
 function parseSearchParams(
-  searchParams: ServerCardDashboardProps['searchParams']
+  sp: Awaited<ServerCardDashboardProps['searchParams']>
 ): EPSQueryParams {
   return {
-    page: parseInt(searchParams.page ?? '1', 10),
-    limit: parseInt(searchParams.limit ?? '10', 10),
-    country: searchParams.country ?? undefined,
-    sector: searchParams.sector ?? undefined,
-    sort_by: searchParams.sort_by ?? 'growth_factor',
-    min_eps: searchParams.min_eps
-      ? parseFloat(searchParams.min_eps)
-      : undefined,
-    min_growth: searchParams.min_growth
-      ? parseFloat(searchParams.min_growth)
-      : undefined,
-    search: searchParams.search ?? undefined,
+    page: parseInt(sp.page ?? '1', 10),
+    limit: parseInt(sp.limit ?? '10', 10),
+    country: sp.country,
+    sector: sp.sector,
+    sort_by: sp.sort_by ?? 'growth_factor',
+    min_eps: sp.min_eps !== undefined ? parseFloat(sp.min_eps) : undefined,
+    min_growth: sp.min_growth !== undefined ? parseFloat(sp.min_growth) : undefined,
+    search: sp.search,
   };
 }
 
+function buildCurrentParams(params: EPSQueryParams): string {
+  const entries: Record<string, string> = {
+    page: String(params.page),
+    limit: String(params.limit),
+  };
+  if (params.country !== undefined && params.country !== '') { entries.country = params.country; }
+  if (params.sector !== undefined && params.sector !== '') { entries.sector = params.sector; }
+  if (params.sort_by !== '') { entries.sort_by = params.sort_by; }
+  if (params.min_eps !== undefined) { entries.min_eps = String(params.min_eps); }
+  if (params.min_growth !== undefined) { entries.min_growth = String(params.min_growth); }
+  if (params.search !== undefined && params.search !== '') { entries.search = params.search; }
+  return new URLSearchParams(entries).toString();
+}
+
 async function CardGrid({ params }: { params: EPSQueryParams }) {
-  // On the first page, fetch extra items to account for Top 5 special section
   const adjustedParams = {
     ...params,
     limit: params.page === 1 ? params.limit + 5 : params.limit
@@ -48,7 +57,7 @@ async function CardGrid({ params }: { params: EPSQueryParams }) {
 
   const data = await getAnalyticsData(adjustedParams);
 
-  if (!data?.rankings || data.rankings.length === 0) {
+  if (data.rankings.length === 0) {
     return (
       <div className="py-12 text-center">
         <p className="text-slate-400">No data available</p>
@@ -56,24 +65,13 @@ async function CardGrid({ params }: { params: EPSQueryParams }) {
     );
   }
 
-  // Build current params string for pagination
-  const currentParams = new URLSearchParams({
-    page: String(params.page),
-    limit: String(params.limit),
-    ...(params.country && { country: params.country }),
-    ...(params.sector && { sector: params.sector }),
-    ...(params.sort_by && { sort_by: params.sort_by }),
-    ...(params.min_eps !== undefined && { min_eps: String(params.min_eps) }),
-    ...(params.min_growth !== undefined && { min_growth: String(params.min_growth) }),
-    ...(params.search && { search: params.search }),
-  }).toString();
+  const currentParams = buildCurrentParams(params);
 
-  // Adjust pagination for display
-  const adjustedPagination = data.pagination ? {
+  const adjustedPagination = {
     ...data.pagination,
     limit: params.limit,
     totalPages: Math.ceil(data.pagination.total / params.limit)
-  } : null;
+  };
 
   return (
     <AnalyticsDashboardWrapper

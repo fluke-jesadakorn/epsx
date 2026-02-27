@@ -5,16 +5,18 @@ import {
     ArrowLeft,
     Check,
     CheckCircle2,
+    Copy,
     ExternalLink,
     Loader2,
     Lock,
     Shield,
     Sparkles,
     Wallet,
-    Zap
 } from 'lucide-react';
 import Link from 'next/link';
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { copyToClipboard } from '@/shared/utils/helpers/browser';
 import { PlanComparisonCard } from './plan-comparison-card';
 import { PricingCard } from '@/shared/components/plans/pricing-card';
 import type { PricingCardData } from '@/shared/components/plans/pricing-card';
@@ -59,7 +61,7 @@ export function StepIndicator({ currentStep }: StepIndicatorProps) {
                     </div>
                     <span
                         className={cn(
-                            'text-sm font-medium transition-colors',
+                            'text-sm font-medium transition-colors hidden sm:inline',
                             idx <= currentIndex
                                 ? 'text-blue-600 dark:text-blue-400'
                                 : 'text-gray-500'
@@ -70,7 +72,7 @@ export function StepIndicator({ currentStep }: StepIndicatorProps) {
                     {idx < steps.length - 1 && (
                         <div
                             className={cn(
-                                'w-12 h-0.5 mx-2 transition-colors',
+                                'w-6 sm:w-12 h-0.5 mx-1 sm:mx-2 transition-colors',
                                 idx < currentIndex
                                     ? 'bg-blue-600'
                                     : 'bg-gray-200 dark:bg-gray-700'
@@ -181,9 +183,17 @@ interface VerifyingStepProps {
 }
 
 export function VerifyingStep({ planTitle, txHash, className }: VerifyingStepProps) {
+    const [copied, setCopied] = useState(false);
     const explorerUrl = txHash
         ? `https://bscscan.com/tx/${txHash}`
         : null;
+
+    const handleCopy = () => {
+        if (!txHash) { return; }
+        void copyToClipboard(txHash);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
 
     return (
         <div className={cn('max-w-lg mx-auto text-center', className)}>
@@ -201,7 +211,16 @@ export function VerifyingStep({ planTitle, txHash, className }: VerifyingStepPro
 
                 {txHash && (
                     <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 mb-6">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Transaction Hash</p>
+                        <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Transaction Hash</p>
+                            <button
+                                onClick={handleCopy}
+                                className="text-xs text-gray-500 hover:text-blue-500 transition-colors flex items-center gap-1"
+                            >
+                                {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                                {copied ? 'Copied' : 'Copy'}
+                            </button>
+                        </div>
                         <code className="text-xs font-mono text-gray-700 dark:text-gray-300 break-all">
                             {txHash}
                         </code>
@@ -235,9 +254,17 @@ interface SuccessStepProps {
 }
 
 export function SuccessStep({ planTitle, txHash, className }: SuccessStepProps) {
+    const [copied, setCopied] = useState(false);
     const explorerUrl = txHash
         ? `https://bscscan.com/tx/${txHash}`
         : null;
+
+    const handleCopy = () => {
+        if (!txHash) { return; }
+        void copyToClipboard(txHash);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
 
     return (
         <div className={cn('max-w-lg mx-auto text-center', className)}>
@@ -254,7 +281,16 @@ export function SuccessStep({ planTitle, txHash, className }: SuccessStepProps) 
 
                 {txHash && (
                     <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 mb-6">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Transaction Hash</p>
+                        <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Transaction Hash</p>
+                            <button
+                                onClick={handleCopy}
+                                className="text-xs text-gray-500 hover:text-blue-500 transition-colors flex items-center gap-1"
+                            >
+                                {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                                {copied ? 'Copied' : 'Copy'}
+                            </button>
+                        </div>
                         <code className="text-xs font-mono text-gray-700 dark:text-gray-300 break-all">
                             {txHash}
                         </code>
@@ -299,13 +335,17 @@ interface ConfirmStepProps {
     balanceData: { value: bigint; formatted: string } | undefined;
     amountInDecimals: bigint;
     error: string | null;
-    isAddingToken: boolean;
     isTransferring: boolean;
     isConfirming: boolean;
-    isTokenAdded: (symbol: string) => boolean;
+    isChainSupported: boolean;
+    onSwitchChain: () => void;
+    onAddChain: () => void;
+    isSwitchingChain: boolean;
+    isAddingChain: boolean;
     planAccess: PlanAccessData | null;
     plans: PricingCardData[];
     upgradePreview: UpgradePreviewData | null;
+    isDowngrade?: boolean;
     onBack: () => void;
     onTokenSelect: (token: PaymentToken) => void;
     onPayment: () => void;
@@ -319,20 +359,26 @@ export function ConfirmStep({
     balanceData,
     amountInDecimals,
     error,
-    isAddingToken,
     isTransferring,
     isConfirming,
-    isTokenAdded,
+    isChainSupported,
+    onSwitchChain,
+    onAddChain,
+    isSwitchingChain,
+    isAddingChain,
     planAccess,
     plans,
     upgradePreview,
+    isDowngrade = false,
     onBack,
     onTokenSelect,
     onPayment,
     className
 }: ConfirmStepProps) {
     const numericPrice = selectedPlan.price.replace(/[^0-9.]/g, '');
+    const payAmount = upgradePreview?.amount_to_pay?.replace(/[^0-9.]/g, '') ?? numericPrice;
     const insufficientBalance = Boolean(balanceData) && balanceData!.value < amountInDecimals;
+    const blocked = isDowngrade;
 
     return (
         <div className={cn('max-w-4xl mx-auto', className)}>
@@ -371,9 +417,10 @@ export function ConfirmStep({
                         upgradePreview={
                             upgradePreview
                                 ? {
-                                      credit_amount: parseFloat(upgradePreview.upgrade_details.remaining_credit),
-                                      bonus_days: upgradePreview.upgrade_details.bonus_days,
-                                      new_expiry_date: upgradePreview.upgrade_details.new_expiry_date,
+                                      credit_amount: parseFloat(upgradePreview.credit_from_current_plan),
+                                      bonus_days: 0,
+                                      new_expiry_date: upgradePreview.new_expiry_date,
+                                      payment_required: parseFloat(upgradePreview.amount_to_pay),
                                   }
                                 : null
                         }
@@ -393,12 +440,22 @@ export function ConfirmStep({
                                 {selectedPlan.title}
                             </h3>
                             <p className="text-sm text-gray-600 dark:text-gray-400">
-                                30 days access
+                                {payAmount === '0' && upgradePreview ? `${upgradePreview.new_duration_days} days access` : '30 days access'}
                             </p>
                         </div>
                         <div className="text-right">
-                            <p className="text-2xl font-black text-blue-600 dark:text-blue-400">
-                                ${numericPrice}
+                            {payAmount !== numericPrice && payAmount !== '0' && (
+                                <p className="text-sm line-through text-gray-400">
+                                    ${numericPrice}
+                                </p>
+                            )}
+                            <p className={cn(
+                                'text-2xl font-black',
+                                payAmount === '0'
+                                    ? 'text-emerald-500 dark:text-emerald-400'
+                                    : 'text-blue-600 dark:text-blue-400'
+                            )}>
+                                {payAmount === '0' ? 'FREE' : `$${payAmount}`}
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
                                 {selectedToken.symbol}
@@ -448,44 +505,88 @@ export function ConfirmStep({
                     </div>
                 </div>
 
-                {!isTokenAdded(selectedToken.symbol) && (
-                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 mb-6">
-                        <div className="flex items-start gap-3">
-                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-800 flex items-center justify-center">
-                                <Zap className="w-4 h-4 text-blue-600 dark:text-blue-300" />
-                            </div>
-                            <div className="flex-1">
-                                <p className="font-medium text-blue-800 dark:text-blue-200 mb-1">
-                                    Add {selectedToken.symbol} to Wallet
-                                </p>
-                                <p className="text-sm text-blue-600 dark:text-blue-300">
-                                    We'll prompt you to add the token when you proceed.
-                                </p>
-                            </div>
+                {blocked && (
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-6">
+                        <div className="flex items-center gap-2">
+                            <Lock className="w-4 h-4 text-red-500 shrink-0" />
+                            <p className="text-sm font-medium text-red-700 dark:text-red-300">
+                                Downgrades are not available. You can only upgrade to a higher-tier plan.
+                            </p>
                         </div>
                     </div>
                 )}
 
-                {error && (
+                {error && !blocked && (
                     <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-6">
                         <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
                     </div>
                 )}
 
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-4">
+                    <div className="flex items-center gap-2 mb-3">
+                        <span className="text-lg flex-shrink-0">🟡</span>
+                        <p className="text-sm text-amber-800 dark:text-amber-200">
+                            Ensure your MetaMask is on <span className="font-bold">BNB Smart Chain</span> before paying.
+                        </p>
+                    </div>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={onSwitchChain}
+                            disabled={isSwitchingChain}
+                            className={cn(
+                                'flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all',
+                                isSwitchingChain
+                                    ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 cursor-not-allowed'
+                                    : 'bg-amber-500 text-white hover:bg-amber-600'
+                            )}
+                        >
+                            {isSwitchingChain ? (
+                                <span className="flex items-center justify-center gap-1.5">
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    Switching...
+                                </span>
+                            ) : (
+                                'Switch to BSC'
+                            )}
+                        </button>
+                        <button
+                            onClick={onAddChain}
+                            disabled={isAddingChain}
+                            className={cn(
+                                'flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all border',
+                                isAddingChain
+                                    ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 border-gray-300 dark:border-gray-600 cursor-not-allowed'
+                                    : 'bg-white dark:bg-gray-800 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/30'
+                            )}
+                        >
+                            {isAddingChain ? (
+                                <span className="flex items-center justify-center gap-1.5">
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    Adding...
+                                </span>
+                            ) : (
+                                'Add BNB Chain'
+                            )}
+                        </button>
+                    </div>
+                </div>
+
                 <button
                     onClick={onPayment}
-                    disabled={isAddingToken || isTransferring || isConfirming || insufficientBalance}
+                    disabled={isTransferring || isConfirming || insufficientBalance || blocked}
                     className={cn(
                         'w-full py-4 rounded-xl font-bold text-lg transition-all',
-                        isAddingToken || isTransferring || isConfirming || insufficientBalance
+                        isTransferring || isConfirming || insufficientBalance || blocked
                             ? 'bg-gray-300 dark:bg-gray-700 cursor-not-allowed'
-                            : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-xl shadow-lg shadow-blue-500/30'
+                            : payAmount === '0'
+                                ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white hover:shadow-xl shadow-lg shadow-emerald-500/30'
+                                : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-xl shadow-lg shadow-blue-500/30'
                     )}
                 >
-                    {isAddingToken ? (
+                    {blocked ? (
                         <span className="flex items-center justify-center gap-2">
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                            Adding Token...
+                            <Lock className="w-5 h-5" />
+                            Downgrade Not Available
                         </span>
                     ) : isConfirming ? (
                         <span className="flex items-center justify-center gap-2">
@@ -495,17 +596,22 @@ export function ConfirmStep({
                     ) : isTransferring ? (
                         <span className="flex items-center justify-center gap-2">
                             <Loader2 className="w-5 h-5 animate-spin" />
-                            Confirm in Wallet...
+                            {payAmount === '0' ? 'Upgrading...' : 'Confirm in Wallet...'}
                         </span>
-                    ) : insufficientBalance ? (
+                    ) : insufficientBalance && payAmount !== '0' ? (
                         <span className="flex items-center justify-center gap-2">
                             <AlertCircle className="w-5 h-5" />
                             Insufficient {selectedToken.symbol} Balance
                         </span>
+                    ) : payAmount === '0' ? (
+                        <span className="flex items-center justify-center gap-2">
+                            <Sparkles className="w-5 h-5" />
+                            Upgrade Now (Free)
+                        </span>
                     ) : (
                         <span className="flex items-center justify-center gap-2">
                             <Wallet className="w-5 h-5" />
-                            Pay ${numericPrice} {selectedToken.symbol}
+                            Pay ${payAmount} {selectedToken.symbol}
                         </span>
                     )}
                 </button>
@@ -609,16 +715,20 @@ export function PlanGridView({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {plans.map((plan) => (
-                    <PricingCard
-                        key={plan.id}
-                        card={plan}
-                        isDisabled={false}
-                        isSelected={selectedPlan?.id === plan.id}
-                        onSelect={onPlanSelect}
-                        actionType={getActionType(plan)}
-                    />
-                ))}
+                {plans.map((plan) => {
+                    const action = getActionType(plan);
+                    const locked = action === 'downgrade';
+                    return (
+                        <PricingCard
+                            key={plan.id}
+                            card={plan}
+                            isDisabled={locked}
+                            isSelected={selectedPlan?.id === plan.id}
+                            onSelect={onPlanSelect}
+                            actionType={locked ? 'locked' : action}
+                        />
+                    );
+                })}
             </div>
 
             {error && (

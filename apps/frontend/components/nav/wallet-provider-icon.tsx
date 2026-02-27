@@ -89,7 +89,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   }, [isConnected, address]);
 
   const handleCopyAddress = () => {
-    if (address === undefined || address === null) return;
+    if (address === undefined || address === null) {return;}
     void navigator.clipboard.writeText(address).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);

@@ -16,22 +16,22 @@ export function AdminAuthModal({ children, fallback, initialHasAuthCookie = fals
     const router = useRouter();
     const { isAuthenticated, isLoading } = useSharedAuth();
 
-    const isChecking = isLoading ?? (initialHasAuthCookie && !isAuthenticated);
+    const isChecking = isLoading || (initialHasAuthCookie && !isAuthenticated);
 
     // Redirect to /auth when not authenticated and done checking
     useEffect(() => {
-        if (!isChecking && !isAuthenticated) {
+        if (!isChecking && isAuthenticated === false) {
             router.replace('/auth');
         }
     }, [isChecking, isAuthenticated, router]);
 
     // Authenticated - render children
-    if (isAuthenticated && children) {
+    if (isAuthenticated === true && children !== undefined) {
         return <>{children}</>;
     }
 
     // Custom fallback
-    if (fallback) {
+    if (fallback !== undefined) {
         return <>{fallback}</>;
     }
 

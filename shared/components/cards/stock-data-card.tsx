@@ -48,6 +48,94 @@ const getRankTheme = (rank: number): { color: string; glow: 'blue' | 'purple' | 
 };
 
 // ============================================================================
+// SUB-COMPONENTS
+// ============================================================================
+
+function WatchlistButton({ symbol, isWatchlisted, onWatchlistToggle }: {
+  symbol: string;
+  isWatchlisted?: boolean;
+  onWatchlistToggle: (symbol: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onWatchlistToggle(symbol); }}
+      className="absolute top-3 right-3 z-20 p-1.5 rounded-full transition-colors hover:bg-black/[0.05] dark:hover:bg-white/10"
+      aria-label={isWatchlisted === true ? 'Remove from watchlist' : 'Add to watchlist'}
+    >
+      <Heart className={cn('w-4 h-4 transition-colors', isWatchlisted === true ? 'fill-pink-500 text-pink-500' : 'text-gray-400 hover:text-pink-400')} />
+    </button>
+  );
+}
+
+function RankBadge({ rank, label }: { rank: number; label: string }) {
+  return (
+    <div className="absolute top-3 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20">
+      <div className={cn(
+        "text-white text-[10px] font-bold px-4 py-1.5 rounded-full shadow-lg uppercase tracking-wider",
+        rank <= 3 ? "bg-gradient-to-r from-blue-600 to-cyan-500" : "bg-gradient-to-r from-emerald-600 to-teal-500"
+      )}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function CardHeader({ rank, rankTheme, symbol, companyName, price, currency }: {
+  rank: number;
+  rankTheme: ReturnType<typeof getRankTheme>;
+  symbol: string;
+  companyName?: string;
+  price: number;
+  currency: string;
+}) {
+  return (
+    <div className="text-center mb-4">
+      <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">
+        {rank > 5 ? rankTheme.label : 'Stock Symbol'}
+      </h3>
+      <div className="flex items-center justify-center mb-0.5">
+        <span className={cn("text-4xl font-black tracking-tighter", rankTheme.color)}>{symbol}</span>
+      </div>
+      {companyName !== undefined && companyName !== '' && (
+        <div className="text-xs font-medium text-gray-500 dark:text-gray-400 truncate max-w-[90%] mx-auto">
+          {companyName}
+        </div>
+      )}
+      <div className="text-sm font-semibold text-gray-600 dark:text-gray-300 mt-0.5">
+        {formatCurrency(price, currency)}
+      </div>
+    </div>
+  );
+}
+
+function NextActionMetric({ daysUntilNextAction }: { daysUntilNextAction?: number }) {
+  const progressWidth = daysUntilNextAction !== undefined
+    ? Math.max(5, Math.min(100, ((90 - daysUntilNextAction) / 90) * 100))
+    : 0;
+  return (
+    <div className="flex flex-col gap-2 p-3 rounded-xl bg-white dark:bg-white/5 group/feature hover:bg-black/[0.05] dark:hover:bg-white/10 transition-colors">
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded-md bg-blue-500/20 text-blue-400">
+            <Calendar className="w-3.5 h-3.5" />
+          </div>
+          <span className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider">Next Action</span>
+        </div>
+        <span className="font-bold text-sm text-gray-900 dark:text-white">
+          {daysUntilNextAction !== undefined ? `${daysUntilNextAction} Days` : 'N/A'}
+        </span>
+      </div>
+      <div className="h-1.5 w-full bg-gray-200 dark:bg-gray-700/50 rounded-full overflow-hidden">
+        <div className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full relative" style={{ width: `${progressWidth}%` }}>
+          <div className="absolute inset-0 bg-white/20" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // MAIN STOCK DATA CARD COMPONENT
 // ============================================================================
 
@@ -73,59 +161,15 @@ export const StockDataCard = ({
       glowColor={rankTheme.glow}
       className={cn('w-full hover:-translate-y-1 transition-transform', className)}
     >
-      {/* Watchlist heart */}
       {onWatchlistToggle !== undefined && (
-        <button
-          type="button"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onWatchlistToggle(symbol); }}
-          className="absolute top-3 right-3 z-20 p-1.5 rounded-full transition-colors hover:bg-black/[0.05] dark:hover:bg-white/10"
-          aria-label={isWatchlisted === true ? 'Remove from watchlist' : 'Add to watchlist'}
-        >
-          <Heart
-            className={cn('w-4 h-4 transition-colors', isWatchlisted === true ? 'fill-pink-500 text-pink-500' : 'text-gray-400 hover:text-pink-400')}
-          />
-        </button>
+        <WatchlistButton symbol={symbol} isWatchlisted={isWatchlisted} onWatchlistToggle={onWatchlistToggle} />
       )}
-
-      {/* Top Rank Badge */}
-      {rank <= 5 && (
-        <div className="absolute top-3 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20">
-          <div className={cn(
-            "text-white text-[10px] font-bold px-4 py-1.5 rounded-full shadow-lg uppercase tracking-wider",
-            rank <= 3
-              ? "bg-gradient-to-r from-blue-600 to-cyan-500"
-              : "bg-gradient-to-r from-emerald-600 to-teal-500"
-          )}>
-            {rankTheme.label}
-          </div>
-        </div>
-      )}
+      {rank <= 5 && <RankBadge rank={rank} label={rankTheme.label} />}
 
       <div className={cn("p-5 flex flex-col h-full relative z-10", rank <= 5 ? "pt-8" : "pt-5")}>
+        <CardHeader rank={rank} rankTheme={rankTheme} symbol={symbol} companyName={companyName} price={price} currency={currency} />
 
-        {/* Header */}
-        <div className="text-center mb-4">
-          <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">
-            {rank > 5 ? rankTheme.label : 'Stock Symbol'}
-          </h3>
-          <div className="flex items-center justify-center mb-0.5">
-            <span className={cn("text-4xl font-black tracking-tighter", rankTheme.color)}>
-              {symbol}
-            </span>
-          </div>
-          {companyName !== undefined && companyName !== '' && (
-            <div className="text-xs font-medium text-gray-500 dark:text-gray-400 truncate max-w-[90%] mx-auto">
-              {companyName}
-            </div>
-          )}
-          <div className="text-sm font-semibold text-gray-600 dark:text-gray-300 mt-0.5">
-            {formatCurrency(price, currency)}
-          </div>
-        </div>
-
-        {/* Metrics */}
         <div className="space-y-2 mb-4 flex-grow">
-          {/* EPS Growth */}
           <div className="flex items-center justify-between group/feature p-2 rounded-lg hover:bg-black/[0.05] dark:hover:bg-white/5 transition-colors">
             <div className="flex items-center gap-3">
               <div className={cn("p-1.5 rounded-md", isPositiveGrowth ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400")}>
@@ -137,46 +181,12 @@ export const StockDataCard = ({
               {formatPercentage(epsGrowth)}
             </span>
           </div>
-
-          {/* Next Action & Progress Bar */}
-          <div className="flex flex-col gap-2 p-3 rounded-xl bg-white dark:bg-white/5 group/feature hover:bg-black/[0.05] dark:hover:bg-white/10 transition-colors">
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-md bg-blue-500/20 text-blue-400">
-                  <Calendar className="w-3.5 h-3.5" />
-                </div>
-                <span className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider">Next Action</span>
-              </div>
-              <span className="font-bold text-sm text-gray-900 dark:text-white">
-                {daysUntilNextAction !== undefined ? `${daysUntilNextAction} Days` : 'N/A'}
-              </span>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="h-1.5 w-full bg-gray-200 dark:bg-gray-700/50 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full relative"
-                style={{
-                  width: `${daysUntilNextAction !== undefined ? Math.max(5, Math.min(100, ((90 - daysUntilNextAction) / 90) * 100)) : 0}%`
-                }}
-              >
-                <div className="absolute inset-0 bg-white/20" />
-              </div>
-            </div>
-          </div>
+          <NextActionMetric daysUntilNextAction={daysUntilNextAction} />
         </div>
 
-        {/* Action Button */}
         <div className="mt-auto">
-          <a
-            href={`https://www.tradingview.com/symbols/${symbol}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full"
-          >
-            <button
-              className="w-full py-3 rounded-xl font-bold text-sm transition-all duration-300 relative overflow-hidden bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:shadow-lg hover:shadow-blue-500/25 group"
-            >
+          <a href={`https://www.tradingview.com/symbols/${symbol}`} target="_blank" rel="noopener noreferrer" className="block w-full">
+            <button className="w-full py-3 rounded-xl font-bold text-sm transition-all duration-300 relative overflow-hidden bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:shadow-lg hover:shadow-blue-500/25 group">
               <span className="relative flex items-center justify-center gap-2">
                 View Details
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -184,13 +194,10 @@ export const StockDataCard = ({
             </button>
           </a>
         </div>
-
       </div>
 
-      {/* Background Decor */}
       <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl -z-10 translate-x-10 -translate-y-10" />
       <div className="absolute bottom-0 left-0 w-24 h-24 bg-purple-500/10 rounded-full blur-3xl -z-10 -translate-x-10 translate-y-10" />
-
     </PremiumCard>
   );
 };

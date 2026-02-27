@@ -178,7 +178,7 @@ export function decodeJWT(token: string): JWTUser | null {
     if (Array.isArray(payload.permissions)) {
       permissions = payload.permissions as string[];
     } else if (typeof payload.scope === 'string') {
-      permissions = (payload.scope as string).split(' ').filter(s => s.includes(':'));
+      permissions = payload.scope.split(' ').filter(s => s.includes(':'));
     }
 
     return {
@@ -217,9 +217,10 @@ export function createJWTClaims(
  * Web3-first authentication system
  */
 export async function signJWT(payload: EPSXJWTPayload): Promise<string> {
-  const secret =
-    process.env.WEB3_APP_SECRET ??
-    'web3-default-secret-for-development-only-change-in-production';
+  const secret = process.env.WEB3_APP_SECRET;
+  if (!secret) {
+    throw new Error('FATAL: WEB3_APP_SECRET environment variable is not set. Refusing to sign JWT with no secret.');
+  }
 
   const encoder = new TextEncoder();
   const key = encoder.encode(secret);
@@ -237,9 +238,10 @@ export async function signJWT(payload: EPSXJWTPayload): Promise<string> {
  */
 export async function verifyJWT(token: string): Promise<EPSXJWTPayload | null> {
   try {
-    const secret =
-      process.env.WEB3_APP_SECRET ??
-      'web3-default-secret-for-development-only-change-in-production';
+    const secret = process.env.WEB3_APP_SECRET;
+    if (!secret) {
+      throw new Error('FATAL: WEB3_APP_SECRET environment variable is not set. Refusing to verify JWT with no secret.');
+    }
 
     const encoder = new TextEncoder();
     const key = encoder.encode(secret);
@@ -254,6 +256,21 @@ export async function verifyJWT(token: string): Promise<EPSXJWTPayload | null> {
   }
 }
 
+type RawEPSXPayload = EPSXJWTPayload & { scope?: string; wallet_address?: string };
+
+function applyPermissionsFromScope(raw: RawEPSXPayload): void {
+  if ((!Array.isArray(raw.permissions) || raw.permissions.length === 0) && typeof raw.scope === 'string') {
+    raw.permissions = raw.scope.split(' ').filter(s => s.includes(':'));
+  }
+}
+
+function applyWalletAddressFallback(raw: RawEPSXPayload): void {
+  const wa = raw.wallet_address;
+  if (wa === undefined || wa === '') { return; }
+  if (raw.email === '') { raw.email = wa; }
+  if (raw.name === '') { raw.name = wa; }
+}
+
 /**
  * Decode EPSX JWT payload without verification
  * Used when verification is handled by upstream/backend or we trust the source (HttpOnly cookie)
@@ -263,22 +280,9 @@ export function decodeEPSXJWT(token: string): EPSXJWTPayload | null {
   try {
     const payloadPart = token.split('.')[1];
     if (!payloadPart) { return null; }
-    const raw = JSON.parse(atob(payloadPart)) as EPSXJWTPayload & { scope?: string; wallet_address?: string };
-
-    // OIDC tokens store permissions in scope claim as space-delimited string
-    // e.g. "openid profile admin:*:*" → extract permission strings containing ":"
-    if ((!Array.isArray(raw.permissions) || raw.permissions.length === 0) && typeof raw.scope === 'string') {
-      raw.permissions = raw.scope.split(' ').filter(s => s.includes(':'));
-    }
-
-    // OIDC tokens use wallet_address instead of email/name
-    if (!raw.email && raw.wallet_address) {
-      raw.email = raw.wallet_address;
-    }
-    if (!raw.name && raw.wallet_address) {
-      raw.name = raw.wallet_address;
-    }
-
+    const raw = JSON.parse(atob(payloadPart)) as RawEPSXPayload;
+    applyPermissionsFromScope(raw);
+    applyWalletAddressFallback(raw);
     return raw;
   } catch {
     return null;

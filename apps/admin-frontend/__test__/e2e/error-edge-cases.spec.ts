@@ -415,7 +415,7 @@ test.describe('Error Handling and Edge Cases - E2E', () => {
 
     test('should enforce CSRF protection', async ({ page }) => {
       await page.route('**/api/admin/**', route => {
-        if (route.request().method() === 'POST' && !route.request().headers()['x-csrf-token']) {
+        if (route.request().method() === 'POST' && route.request().headers()['x-csrf-token'] === undefined) {
           route.fulfill({ status: 403, body: JSON.stringify({ error: 'CSRF validation failed' }) });
         } else {
           route.continue();

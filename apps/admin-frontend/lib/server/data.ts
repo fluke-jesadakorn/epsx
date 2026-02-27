@@ -7,7 +7,7 @@ import type { AnalyticsFiltersResponse } from '@/shared/api/analytics';
 import { createPlatformAnalyticsClient } from '@/shared/api/analytics';
 import { COOKIES } from '@/shared/auth/cookies';
 import type { CardDashboardResponse, FilterOptions, SymbolCardData } from '@/shared/types/analytics';
-import { logger } from '@/shared/utils/logger';
+import { logger } from '@/lib/logger';
 
 export interface EPSQueryParams {
     page: number;
@@ -80,7 +80,7 @@ export async function getAnalyticsData(params: EPSQueryParams) {
         }
 
         if (!response.success) {
-            logger.warn('⚠️ Analytics data fetch failed or returned empty:', response.message);
+            logger.action.error('getAnalyticsData', response.message);
             return {
                 rankings: [],
                 pagination: {
@@ -108,7 +108,7 @@ export async function getAnalyticsData(params: EPSQueryParams) {
             processing_time_ms: 0
         };
     } catch (error) {
-        logger.error('❌ Error in getAnalyticsData:', String(error));
+        logger.action.error('getAnalyticsData', error);
         return {
             rankings: [],
             pagination: {
@@ -158,7 +158,7 @@ export async function getServerFilterOptions(): Promise<FilterOptions> {
             stock_types: [], // Backend doesn't return this yet in the unified client
         };
     } catch (error) {
-        logger.error('❌ Error in getServerFilterOptions:', String(error));
+        logger.action.error('getServerFilterOptions', error);
         // Fallback options
         return {
             countries: [{ value: 'america', label: 'United States' }],

@@ -14,7 +14,7 @@ import {
 import { type PermissionDefinition } from '@/lib/api/permissions-client';
 import { type PermissionPlan } from '@/lib/api/plan-management-client';
 import { useSharedAuth } from '@/shared/components/auth';
-import { logger } from '@/shared/utils/logger';
+import { logger } from '@/lib/logger';
 
 import { DeletePlanDialog } from './delete-plan-dialog';
 import { PlanEditor } from './plan-editor';
@@ -74,8 +74,7 @@ export function PlanEditorPage({ planId }: Props) {
                 setIsLoading(false);
             }
         })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once on mount
-    }, [isAuthenticated, planId]);
+    }, [isAuthenticated, planId, selectPlan, router]);
 
     const reloadPermissions = async () => {
         try {

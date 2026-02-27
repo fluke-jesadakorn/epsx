@@ -163,6 +163,7 @@ module.exports = [
       'node_modules/**',
       '.next/**',
       '.debug/**',
+      '.cache-synpress/**',
       'out/**',
       'dist/**',
       'build/**',

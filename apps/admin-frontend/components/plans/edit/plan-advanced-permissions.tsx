@@ -15,7 +15,7 @@ export function PlanAdvancedPermissions({
     setCustomPermissions,
     loadingPermissions,
 }: PlanAdvancedPermissionsProps) {
-    const filteredAvailable = (availablePermissions ?? []).filter(
+    const filteredAvailable = availablePermissions.filter(
         (p) =>
             !p.startsWith('epsx:api:calls:') &&
             !p.startsWith('epsx:rankings:offset:') &&
@@ -24,8 +24,8 @@ export function PlanAdvancedPermissions({
     )
 
     const systemPermissions = new Set(
-        (availablePermissions ?? []).filter(
-            (p) => p.startsWith('system:') ?? p.startsWith('admin:')
+        availablePermissions.filter(
+            (p) => p.startsWith('system:') || p.startsWith('admin:')
         )
     )
 

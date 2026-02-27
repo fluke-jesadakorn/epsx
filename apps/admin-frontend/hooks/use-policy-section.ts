@@ -138,7 +138,7 @@ export function usePolicySection(initialPolicies: AccessPolicy[]) {
         }
     };
 
-    const handleCreatePlan = () => router.push('/subscriptions/plans/new');
+    const handleCreatePlan = () => router.push('/wallet-management/access/plans');
     const handleCreateGroup = () => router.push('/wallet-management/groups/new');
 
     return {

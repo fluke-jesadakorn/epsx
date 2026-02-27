@@ -25,6 +25,7 @@ pub use subscription_handlers::{
     get_plan_expiry_status_handler,
     cancel_plan_handler,
     get_upgrade_preview_handler,
+    execute_plan_switch_handler,
 };
 pub use admin_handlers::{
     admin_list_payments_handler,

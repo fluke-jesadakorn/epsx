@@ -1,8 +1,8 @@
 'use client';
 
-import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/design-system';
 import * as LucideIcons from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
 import React from 'react';
 
 // Type helper for Lucide icon names
@@ -88,7 +88,12 @@ interface PageHeaderProps {
   className?: string;
 }
 
-// eslint-disable-next-line complexity
+function headerOuterClass(centered: boolean, actions: React.ReactNode | undefined): string {
+  if (centered) { return 'flex items-start gap-4 justify-center'; }
+  if (actions !== undefined) { return 'flex items-start gap-4 justify-between flex-col sm:flex-row sm:items-center'; }
+  return 'flex items-start gap-4 justify-between';
+}
+
 export function PageHeader({
   title,
   subtitle,
@@ -99,53 +104,31 @@ export function PageHeader({
   actions,
   className,
 }: PageHeaderProps) {
-  // Dynamically get the icon component from the icon name
-  const Icon = iconName ? (LucideIcons[iconName] as React.ComponentType<{ className?: string }>) : null;
+  const Icon = iconName !== undefined ? (LucideIcons[iconName] as React.ComponentType<{ className?: string }>) : null;
 
   return (
-    <div className={cn(
-      'mb-6 sm:mb-8',
-      centered && 'text-center',
-      className
-    )}>
-      <div className={cn(
-        'flex items-start gap-4',
-        centered ? 'justify-center' : 'justify-between',
-        !centered && actions !== undefined && 'flex-col sm:flex-row sm:items-center'
-      )}>
+    <div className={cn('mb-6 sm:mb-8', centered && 'text-center', className)}>
+      <div className={headerOuterClass(centered, actions)}>
         <div className={cn(centered && 'flex flex-col items-center')}>
-          <h1 className={cn(
-            'flex items-center gap-3 text-3xl sm:text-4xl lg:text-5xl font-bold',
-            centered && 'justify-center'
-          )}>
+          <h1 className={cn('flex items-center gap-3 text-3xl sm:text-4xl lg:text-5xl font-bold', centered && 'justify-center')}>
             {Icon !== null && (
               <span className={iconColorClasses[gradient]}>
                 <Icon className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12" />
               </span>
             )}
-            {emoji !== undefined && (
-              <span className="text-3xl sm:text-4xl">{emoji}</span>
-            )}
-            <span className={cn(
-              'bg-gradient-to-r bg-clip-text text-transparent',
-              gradientClasses[gradient]
-            )}>
+            {emoji !== undefined && <span className="text-3xl sm:text-4xl">{emoji}</span>}
+            <span className={cn('bg-gradient-to-r bg-clip-text text-transparent', gradientClasses[gradient])}>
               {title}
             </span>
           </h1>
           {subtitle !== undefined && (
-            <p className={cn(
-              'text-sm sm:text-base lg:text-lg text-muted-foreground mt-2',
-              centered ? 'max-w-2xl' : ''
-            )}>
+            <p className={cn('text-sm sm:text-base lg:text-lg text-muted-foreground mt-2', centered ? 'max-w-2xl' : '')}>
               {subtitle}
             </p>
           )}
         </div>
         {actions !== undefined && (
-          <div className="flex items-center gap-2 shrink-0">
-            {actions}
-          </div>
+          <div className="flex items-center gap-2 shrink-0">{actions}</div>
         )}
       </div>
     </div>
@@ -175,15 +158,14 @@ interface PageTabsProps {
   className?: string;
 }
 
-export function PageTabs({ tabs, activeTab, onTabChange, className }: PageTabsProps) {
-  const getTabGradient = (tab: TabItem): string => {
-    if (tab.gradient) {
-      return gradientClasses[tab.gradient];
-    }
-    // Default to a premium purple if no gradient specified, matching the design
-    return 'from-[#7645d9] to-[#7645d9]';
-  };
+function getTabGradient(tab: TabItem): string {
+  if (tab.gradient !== undefined) {
+    return gradientClasses[tab.gradient];
+  }
+  return 'from-[#7645d9] to-[#7645d9]';
+}
 
+export function PageTabs({ tabs, activeTab, onTabChange, className }: PageTabsProps) {
   return (
     <div className={cn(
       'bg-card p-1.5 rounded-2xl border border-border/20 shadow-xl max-w-2xl mx-auto',
@@ -191,7 +173,7 @@ export function PageTabs({ tabs, activeTab, onTabChange, className }: PageTabsPr
     )}>
       <div className="relative flex gap-1 overflow-x-auto no-scrollbar justify-center">
         {tabs.map((tab) => {
-          const Icon = tab.icon ? (LucideIcons[tab.icon] as React.ComponentType<{ className?: string }>) : null;
+          const Icon = tab.icon !== undefined ? (LucideIcons[tab.icon] as React.ComponentType<{ className?: string }>) : null;
           const isActive = activeTab === tab.id;
 
           return (
@@ -238,7 +220,18 @@ interface PageSkeletonProps {
   className?: string;
 }
 
-// eslint-disable-next-line complexity
+function tabsGridClass(tabCount: number): string {
+  if (tabCount === 2) { return 'grid gap-2 grid-cols-2'; }
+  if (tabCount === 3) { return 'grid gap-2 grid-cols-3'; }
+  return 'grid gap-2 grid-cols-4';
+}
+
+function statsGridClass(stats: number): string {
+  if (stats <= 2) { return 'grid gap-4 sm:gap-6 animate-pulse grid-cols-1 sm:grid-cols-2'; }
+  if (stats === 3) { return 'grid gap-4 sm:gap-6 animate-pulse grid-cols-1 sm:grid-cols-3'; }
+  return 'grid gap-4 sm:gap-6 animate-pulse grid-cols-2 lg:grid-cols-4';
+}
+
 export function PageSkeleton({
   stats = 4,
   rows = 6,
@@ -250,7 +243,6 @@ export function PageSkeleton({
   return (
     <div className={cn('p-3 sm:p-6 lg:p-8', className)}>
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header skeleton */}
         {showHeader && (
           <div className="mb-6 sm:mb-8 animate-pulse">
             <div className="flex items-center gap-3 mb-2">
@@ -261,37 +253,20 @@ export function PageSkeleton({
           </div>
         )}
 
-        {/* Tabs skeleton */}
         {showTabs && (
           <div className="rounded-2xl bg-card border border-border/20 p-2 animate-pulse">
-            <div className={cn(
-              'grid gap-2',
-              tabCount === 2 && 'grid-cols-2',
-              tabCount === 3 && 'grid-cols-3',
-              tabCount === 4 && 'grid-cols-4'
-            )}>
-              {Array.from({ length: tabCount }).map((_, i) => (
-                // eslint-disable-next-line react/no-array-index-key
-                <div key={i} className="h-12 bg-muted/30 rounded-xl" />
+            <div className={tabsGridClass(tabCount)}>
+              {Array.from({ length: tabCount }, (_, i) => `tab-skel-${i}`).map((key) => (
+                <div key={key} className="h-12 bg-muted/30 rounded-xl" />
               ))}
             </div>
           </div>
         )}
 
-        {/* Stats grid skeleton */}
         {stats > 0 && (
-          <div className={cn(
-            'grid gap-4 sm:gap-6 animate-pulse',
-            stats <= 2 && 'grid-cols-1 sm:grid-cols-2',
-            stats === 3 && 'grid-cols-1 sm:grid-cols-3',
-            stats >= 4 && 'grid-cols-2 lg:grid-cols-4'
-          )}>
-            {Array.from({ length: stats }).map((_, i) => (
-              <div
-                // eslint-disable-next-line react/no-array-index-key
-                key={i}
-                className="bg-card rounded-2xl p-4 sm:p-6 border border-border/20"
-              >
+          <div className={statsGridClass(stats)}>
+            {Array.from({ length: stats }, (_, i) => `stat-skel-${i}`).map((key) => (
+              <div key={key} className="bg-card rounded-2xl p-4 sm:p-6 border border-border/20">
                 <div className="flex items-center justify-between mb-3 sm:mb-4">
                   <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-orange-500 rounded-xl" />
                   <div className="w-12 h-4 bg-gray-50 dark:bg-white/[0.06] rounded-full" />
@@ -306,16 +281,11 @@ export function PageSkeleton({
           </div>
         )}
 
-        {/* Content skeleton */}
         {rows > 0 && (
           <div className="bg-card rounded-2xl border border-border/20 overflow-hidden animate-pulse">
             <div className="p-4 sm:p-6 lg:p-8 space-y-4">
-              {Array.from({ length: rows }).map((_, i) => (
-                <div
-                  // eslint-disable-next-line react/no-array-index-key
-                  key={i}
-                  className="flex items-center gap-4 p-3 sm:p-4 bg-muted/30 rounded-xl sm:rounded-2xl"
-                >
+              {Array.from({ length: rows }, (_, i) => `row-skel-${i}`).map((key) => (
+                <div key={key} className="flex items-center gap-4 p-3 sm:p-4 bg-muted/30 rounded-xl sm:rounded-2xl">
                   <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-orange-500 rounded-xl shrink-0" />
                   <div className="flex-1 space-y-2">
                     <div className="h-4 bg-muted/30 rounded-lg w-1/3" />

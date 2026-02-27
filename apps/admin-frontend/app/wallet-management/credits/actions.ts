@@ -12,8 +12,29 @@ import type {
   RevokeCreditsRequest,
 } from '@/shared/types/credits';
 import type { UnifiedApiClient } from '@/shared/utils/api-client';
-import { logger } from '@/shared/utils/logger';
+import { logger } from '@/lib/logger';
 import { redirect } from 'next/navigation';
+
+async function handleApiError<T>(
+  res: ApiResponse<T>,
+  errMsg: string,
+  defaultVal?: T
+): Promise<T> {
+  redirectOnForbidden(res, '/wallet-management/credits');
+
+  if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
+    await logout();
+    redirect('/auth');
+  }
+
+  logger.action.error(errMsg, res.error, { code: res.error?.code });
+
+  if (defaultVal !== undefined) {
+    return defaultVal;
+  }
+
+  throw new Error(res.error?.message ?? errMsg);
+}
 
 async function handleAction<T>(
   reqFn: (api: UnifiedApiClient) => Promise<ApiResponse<T>>,
@@ -26,20 +47,7 @@ async function handleAction<T>(
     const res = await reqFn(apiClient);
 
     if (!res.success) {
-      redirectOnForbidden(res, '/wallet-management/credits');
-
-      if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
-        await logout();
-        redirect('/auth');
-      }
-
-      logger.error(`${errMsg}: ${res.error?.message} (${res.error?.code})`, { error: res.error });
-
-      if (defaultVal !== undefined) {
-        return defaultVal;
-      }
-
-      throw new Error(res.error?.message ?? errMsg);
+      return handleApiError(res, errMsg, defaultVal);
     }
 
     return res.data ?? (defaultVal as T);

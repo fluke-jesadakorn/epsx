@@ -61,8 +61,8 @@ function SidebarNavItem({
                     <div className={cn(
                         "flex items-center gap-3 px-3 py-3 lg:py-2 rounded-lg min-w-0 overflow-hidden transition-all duration-200",
                         (isActive || hasActiveChild)
-                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300'
-                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5'
+                            ? 'bg-[#7645d9]/10 text-[#7645d9]'
+                            : 'text-muted-foreground hover:bg-background hover:text-foreground'
                     )}>
                         <span className="text-xl lg:text-lg flex-shrink-0">{item.icon}</span>
                         <div className="flex flex-col min-w-0">
@@ -70,7 +70,7 @@ function SidebarNavItem({
                                 {item.label}
                             </span>
                             {typeof item.description === 'string' && item.description !== '' && (
-                                <span className="text-xs text-gray-500 dark:text-gray-400 text-ellipsis whitespace-nowrap overflow-hidden hidden lg:block">
+                                <span className="text-xs text-muted-foreground/60 text-ellipsis whitespace-nowrap overflow-hidden hidden lg:block">
                                     {item.description}
                                 </span>
                             )}
@@ -87,9 +87,9 @@ function SidebarNavItem({
                             e.stopPropagation()
                             onToggle()
                         }}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-background"
                     >
-                        <span className="text-gray-500 text-sm">
+                        <span className="text-muted-foreground text-sm">
                             {isExpanded ? '▼' : '▶'}
                         </span>
                     </button>
@@ -105,8 +105,8 @@ function SidebarNavItem({
                                 <div className={cn(
                                     "flex items-center gap-3 px-3 py-3 lg:py-2 rounded-lg min-w-0 overflow-hidden transition-all duration-200",
                                     pathname === child.href || pathname.startsWith(`${child.href}/`)
-                                        ? 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300'
-                                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'
+                                        ? 'bg-[#7645d9]/10 text-[#7645d9]'
+                                        : 'text-muted-foreground hover:bg-background hover:text-foreground'
                                 )}>
                                     <span className="text-base lg:text-sm flex-shrink-0">{child.icon}</span>
                                     <span className="text-base lg:text-sm font-medium text-ellipsis whitespace-nowrap overflow-hidden">
@@ -143,16 +143,13 @@ function checkHasActiveChild(pathname: string, item: NavItem): boolean {
 
 export function SidebarFooter() {
     return (
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-900/30 dark:to-blue-900/30 rounded-lg p-3 border border-emerald-200 dark:border-emerald-700">
+        <div className="p-4 border-t border-border/10">
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
                 <div className="flex items-center gap-2 mb-2">
-                    <span className="text-lg">🚀</span>
-                    <span className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">API Status</span>
-                </div>
-                <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-xs text-emerald-600 dark:text-emerald-300">All systems operational</span>
+                    <span className="text-sm font-semibold text-emerald-400">API Status</span>
                 </div>
+                <span className="text-xs text-emerald-400/80">All systems operational</span>
             </div>
         </div>
     )
@@ -161,26 +158,25 @@ export function SidebarFooter() {
 export function MobileHeader({ title, onOpenSidebar }: { title: string, onOpenSidebar: () => void }) {
     return (
         <div
-            className="lg:hidden fixed top-14 left-0 right-0 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 border-b border-blue-200 dark:border-gray-700 shadow-md"
+            className="lg:hidden fixed top-14 left-0 right-0 bg-card border-b border-border/20 shadow-md"
             style={{ zIndex: 60 }}
         >
             <div className="flex items-center justify-between h-12 px-4">
                 <button
                     type="button"
                     onClick={onOpenSidebar}
-                    className="flex items-center gap-2.5 px-3 py-2 -ml-1 rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-blue-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-gray-700 active:scale-95 transition-all"
+                    className="flex items-center gap-2.5 px-3 py-2 -ml-1 rounded-xl bg-background shadow-sm border border-border/30 hover:bg-accent active:scale-95 transition-all"
                     aria-label="Open developer menu"
                 >
-                    <span className="text-lg">🛠️</span>
-                    <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Developer Menu</span>
-                    <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <span className="text-sm font-semibold text-[#7645d9]">Developer Menu</span>
+                    <svg className="w-4 h-4 text-[#7645d9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                 </button>
 
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-white/80 dark:bg-gray-800/80 rounded-full border border-blue-200 dark:border-gray-600">
-                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-background rounded-full border border-border/30">
+                    <div className="w-2 h-2 rounded-full bg-[#7645d9] animate-pulse" />
+                    <span className="text-xs font-medium text-muted-foreground">
                         {title}
                     </span>
                 </div>
@@ -227,7 +223,7 @@ export function MobileSidebar({
 }) {
     return (
         <div
-            className="lg:hidden fixed left-0 w-72 max-w-[85vw] bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-gray-700 flex flex-col transition-transform duration-300 ease-in-out shadow-2xl"
+            className="lg:hidden fixed left-0 w-72 max-w-[85vw] bg-card border-r border-border/20 flex flex-col transition-transform duration-300 ease-in-out shadow-2xl"
             style={{
                 top: 0,
                 bottom: 0,
@@ -237,18 +233,22 @@ export function MobileSidebar({
                 minHeight: '100dvh',
             }}
         >
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30">
+            <div className="p-4 border-b border-border/10 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <span className="text-2xl">🛠️</span>
-                    <h1 className="text-xl font-bold text-gray-900 dark:text-white truncate">{title}</h1>
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#7645d9] to-[#5a33b8]">
+                        <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                        </svg>
+                    </div>
+                    <h1 className="text-xl font-bold text-foreground truncate">{title}</h1>
                 </div>
                 <button
                     type="button"
                     onClick={onClose}
-                    className="p-2 rounded-xl bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-colors active:scale-95"
+                    className="p-2 rounded-xl bg-background hover:bg-accent border border-border/30 transition-colors active:scale-95"
                     aria-label="Close menu"
                 >
-                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>

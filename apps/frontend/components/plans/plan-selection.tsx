@@ -8,6 +8,7 @@ import { createCreditsApi } from '@/shared/api/credits'
 import { PricingCard } from '@/shared/components/plans/pricing-card'
 import type { Plan, PlanGroup, PricingCardData } from '@/shared/types/plans'
 import { createFrontendApiClient } from '@/shared/utils/api-client'
+import { fmtAmt } from '@/shared/utils/formatting/currency'
 import { AlertCircle, Building2, Code2, Star, User as UserIcon } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { ReactNode } from 'react'
@@ -62,8 +63,8 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
     return {
       id: plan.id,
       title: plan.name,
-      price: isFree ? 'Free' : `$${displayPrice.toFixed(2)} ${plan.currency || 'USD'}`,
-      originalPrice: hasPromo ? `$${basePrice.toFixed(2)} ${plan.currency || 'USD'}` : undefined,
+      price: isFree ? 'Free' : `$${fmtAmt(displayPrice)} ${plan.currency || 'USD'}`,
+      originalPrice: hasPromo ? `$${fmtAmt(basePrice)} ${plan.currency || 'USD'}` : undefined,
       features: Array.isArray(plan.features)
         ? plan.features.map(f => typeof f === 'string' ? { text: f, included: true } : f)
         : [],
@@ -71,7 +72,7 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
       buttonText: isFree ? 'Start Free' : 'Get Started',
       promotions: hasPromo ? [`${Math.round(discount)}% OFF`] : [],
       badges: [],
-      savings: hasPromo ? `Save $${savedAmt.toFixed(2)}` : undefined,
+      savings: hasPromo ? `Save $${fmt(savedAmt)}` : undefined,
       promotion_ends_at: hasPromo ? plan.promotion_ends_at : undefined,
       tier_level: plan.tier_level,
       plan_type: plan.plan_type,
@@ -155,15 +156,10 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
 
   // Handle plan selection - redirect to payment
   const handlePlanClick = (card: PricingCardData) => {
-    // Direct navigation to dynamic route
     const planId = card.id.toString()
-    let paymentUrl = ''
-
-    if ((affiliateCode?.length ?? 0) > 0) {
-      paymentUrl = `/payment/plan/${planId}?ref=${affiliateCode ?? ''}`
-    } else {
-      paymentUrl = `/payment/plan/${planId}`
-    }
+    const paymentUrl = (affiliateCode?.length ?? 0) > 0
+      ? `/payment?planId=${planId}&ref=${affiliateCode ?? ''}`
+      : `/payment?planId=${planId}`
 
     router.push(paymentUrl)
   }
@@ -213,7 +209,7 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
         <div className="space-y-16 px-4 py-8">
           {PLAN_GROUPS.map((group) => {
             const groupCards = pricingCards.filter((c) => (c.plan_group ?? 'personal') === group)
-            if (groupCards.length === 0) return null
+            if (groupCards.length === 0) {return null}
             const cfg = GROUP_CONFIG[group]
             return (
               <section key={group}>
@@ -229,7 +225,7 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 lg:gap-16">
                   {groupCards.map((card) => {
                     let actionType: 'extend' | 'upgrade' | 'downgrade' | 'select' | 'locked' = 'select'
-                    let buttonTextOverride = undefined
+                    let buttonTextOverride: string | undefined
                     let isSelected = false
 
                     if (planAccess) {
@@ -240,10 +236,13 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
                       } else if ((card.tier_level ?? 0) > planAccess.tier_level) {
                         actionType = 'upgrade'
                       } else if ((card.tier_level ?? 0) < planAccess.tier_level) {
-                        actionType = 'downgrade'
-                        buttonTextOverride = 'Switch Plan'
+                        actionType = 'locked'
                       }
                     }
+
+                    // Combine proration credit + wallet credit for upgrade cards
+                    const prorationCredit = parseFloat(planAccess?.proration_credit ?? '0') || 0
+                    const totalCredit = actionType === 'upgrade' ? creditBalance + prorationCredit : undefined
 
                     const finalCard = (buttonTextOverride?.length ?? 0) > 0
                       ? { ...card, buttonText: buttonTextOverride ?? '' }
@@ -258,7 +257,8 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
                         affiliateCode={affiliateCode}
                         actionType={actionType}
                         isSelected={isSelected}
-                        creditBalance={creditBalance}
+                        isDisabled={actionType === 'locked'}
+                        creditBalance={totalCredit}
                       />
                     )
                   })}

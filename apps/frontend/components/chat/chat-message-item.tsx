@@ -13,7 +13,6 @@ interface MsgItemProps {
   isRead?: boolean;
 }
 
-
 function AttachmentView({ att }: { att: ChatAttachment }) {
   const [open, setOpen] = useState(false);
   const isImage = att.file_type.startsWith('image/');

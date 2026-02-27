@@ -35,7 +35,7 @@ export function ChatInput({ onSend, onUpload, onTyping, disabled = false, placeh
   }, [val, autoResize]);
 
   const emitTyping = useCallback((typing: boolean) => {
-    if (isTypingRef.current === typing) return;
+    if (isTypingRef.current === typing) {return;}
     isTypingRef.current = typing;
     onTyping?.(typing);
   }, [onTyping]);
@@ -44,7 +44,7 @@ export function ChatInput({ onSend, onUpload, onTyping, disabled = false, placeh
     setVal(v);
     if (v.length > 0) {
       emitTyping(true);
-      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      if (typingTimerRef.current) {clearTimeout(typingTimerRef.current);}
       typingTimerRef.current = setTimeout(() => emitTyping(false), 2000);
     } else {
       emitTyping(false);

@@ -43,8 +43,7 @@ export async function getPolicyTemplatesAction(): Promise<unknown[]> {
         return [];
     }
     if (res.data) {
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        return res.data.templates ?? [];
+        return res.data.templates;
     }
     return [];
 }

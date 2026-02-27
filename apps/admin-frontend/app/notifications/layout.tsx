@@ -8,7 +8,7 @@ import { PageHeader, PageLayout } from '@/components/shared';
  * 1. Page Header
  * 2. Navigation Tabs
  */
-export default async function NotificationsLayout({
+export default function NotificationsLayout({
     children,
 }: {
     children: React.ReactNode;

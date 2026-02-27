@@ -63,7 +63,7 @@ export async function getServerSession(): Promise<ServerSession | null> {
       accessToken: jwt,
     };
   } catch (_error) {
-    logger.error('❌ Failed to get server session:', { error: _error });
+    logger.auth.error('Failed to get server session', { error: String(_error) });
     return null;
   }
 }
@@ -78,7 +78,7 @@ export async function getCurrentUser(): Promise<EnhancedAuthUser | null> {
 
     return createEnhancedAuthUser(session.user);
   } catch (_error) {
-    logger.error('❌ Failed to get current user:', { error: _error });
+    logger.auth.error('Failed to get current user', { error: String(_error) });
     return null;
   }
 }
@@ -110,7 +110,7 @@ export async function getUserContext() {
       platform,
     };
   } catch (_error) {
-    logger.error('❌ Failed to get user context:', { error: _error });
+    logger.auth.error('Failed to get user context', { error: String(_error) });
     return null;
   }
 }

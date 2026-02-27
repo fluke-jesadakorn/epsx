@@ -14,31 +14,35 @@ const LOG_LEVEL_MAP: Record<LogLevel, number> = {
     error: 3,
 };
 
+function isLogLevel(value: string | undefined): value is LogLevel {
+    return value !== undefined && Object.prototype.hasOwnProperty.call(LOG_LEVEL_MAP, value);
+}
+
+interface LogEntry {
+    level: LogLevel;
+    timestamp: string;
+    message: string;
+    args: unknown[];
+}
+
 class Logger {
     private static instance?: Logger;
-    private minLevel: number = 1; // Default to 'info'
+    private minLevel = 1; // Default to 'info'
 
     private constructor() {
         this.initializeLevel();
     }
 
     private initializeLevel() {
-        if (typeof window === 'undefined') {
-            // Server side
-            const envLevel = process.env.LOG_LEVEL?.toLowerCase() as LogLevel | undefined;
-            if (envLevel && LOG_LEVEL_MAP[envLevel] !== undefined) {
-                this.minLevel = LOG_LEVEL_MAP[envLevel];
-            } else if (process.env.NODE_ENV !== 'production') {
-                this.minLevel = LOG_LEVEL_MAP.debug;
-            }
-        } else {
-            // Client side
-            const envLevel = process.env.NEXT_PUBLIC_LOG_LEVEL?.toLowerCase() as LogLevel | undefined;
-            if (envLevel && LOG_LEVEL_MAP[envLevel] !== undefined) {
-                this.minLevel = LOG_LEVEL_MAP[envLevel];
-            } else if (process.env.NODE_ENV !== 'production') {
-                this.minLevel = LOG_LEVEL_MAP.debug;
-            }
+        const rawLevel = (typeof window === 'undefined'
+            ? process.env.LOG_LEVEL
+            : process.env.NEXT_PUBLIC_LOG_LEVEL
+        )?.toLowerCase();
+        const mapped = isLogLevel(rawLevel) ? LOG_LEVEL_MAP[rawLevel] : undefined;
+        if (mapped !== undefined) {
+            this.minLevel = mapped;
+        } else if (process.env.NODE_ENV !== 'production') {
+            this.minLevel = LOG_LEVEL_MAP.debug;
         }
     }
 
@@ -48,61 +52,59 @@ class Logger {
     }
 
     private log(level: LogLevel, message: string, ...args: unknown[]): void {
-        const currentLevelWeight = LOG_LEVEL_MAP[level];
-        if (currentLevelWeight < this.minLevel) {
-            return; // Skip logs below the minimum threshold
-        }
+        if (LOG_LEVEL_MAP[level] < this.minLevel) { return; }
 
-        const timestamp = new Date().toISOString();
-        const isServer = typeof window === 'undefined';
+        const entry: LogEntry = { level, timestamp: new Date().toISOString(), message, args };
         const isProduction = process.env.NODE_ENV === 'production';
 
-        // PRODUCTION SERVER logs as JSON for structured aggregation (e.g. ELK, Datadog)
-        if (isServer && isProduction) {
-            const logEntry = {
-                timestamp,
-                level: level.toUpperCase(),
-                message,
-                args: args.length > 0 ? args : undefined,
-            };
-
-            switch (level) {
-                case 'info':
-                case 'debug': // Just in case debug is forced in production
-                    // eslint-disable-next-line no-console
-                    console.log(JSON.stringify(logEntry));
-                    break;
-                case 'warn':
-                    // eslint-disable-next-line no-console
-                    console.warn(JSON.stringify(logEntry));
-                    break;
-                case 'error':
-                    // eslint-disable-next-line no-console
-                    console.error(JSON.stringify(logEntry));
-                    break;
-            }
+        if (typeof window === 'undefined' && isProduction) {
+            this.logProduction(entry);
             return;
         }
 
-        // DEV OR CLIENT: Use rich standard console output
-        const prefix = `[${timestamp}] [${level.toUpperCase()}]`;
+        this.logDev(entry);
+    }
 
-        switch (level) {
-            case 'info':
-                // eslint-disable-next-line no-console
-                console.info(prefix, message, ...args);
-                break;
+    private logProduction(entry: LogEntry): void {
+        const json = JSON.stringify({
+            timestamp: entry.timestamp,
+            level: entry.level.toUpperCase(),
+            message: entry.message,
+            args: entry.args.length > 0 ? entry.args : undefined,
+        });
+        switch (entry.level) {
             case 'warn':
                 // eslint-disable-next-line no-console
-                console.warn(prefix, message, ...args);
+                console.warn(json);
                 break;
             case 'error':
                 // eslint-disable-next-line no-console
-                console.error(prefix, message, ...args);
+                console.error(json);
+                break;
+            default:
+                // eslint-disable-next-line no-console
+                console.log(json);
+        }
+    }
+
+    private logDev(entry: LogEntry): void {
+        const prefix = `[${entry.timestamp}] [${entry.level.toUpperCase()}]`;
+        switch (entry.level) {
+            case 'info':
+                // eslint-disable-next-line no-console
+                console.info(prefix, entry.message, ...entry.args);
+                break;
+            case 'warn':
+                // eslint-disable-next-line no-console
+                console.warn(prefix, entry.message, ...entry.args);
+                break;
+            case 'error':
+                // eslint-disable-next-line no-console
+                console.error(prefix, entry.message, ...entry.args);
                 break;
             case 'debug':
                 // eslint-disable-next-line no-console
-                console.debug(prefix, message, ...args);
+                console.debug(prefix, entry.message, ...entry.args);
                 break;
         }
     }

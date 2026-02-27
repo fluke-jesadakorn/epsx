@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useAccount } from 'wagmi';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
@@ -13,7 +14,6 @@ import {
     VerifyingStep,
     SuccessStep,
     ConfirmStep,
-    SinglePlanView,
     PlanGridView
 } from './payment-flow-steps';
 
@@ -57,7 +57,9 @@ export function UnifiedPaymentFlow({
     initialPlans = [],
 }: UnifiedPaymentFlowProps) {
     const { openSignInModal } = useAuth();
-    const { isConnected } = useAccount();
+    const { isConnected, connector } = useAccount();
+    const [isSwitchingChain, setIsSwitchingChain] = useState(false);
+    const [isAddingChain, setIsAddingChain] = useState(false);
 
     const {
         step,
@@ -75,12 +77,11 @@ export function UnifiedPaymentFlow({
         isChainSupported,
         balanceData,
         amountInDecimals,
-        isAddingToken,
-        isTokenAdded,
         isTransferring,
         isConfirming,
         currentPlanTier,
         isExpired,
+        isDowngrade,
         planAccess,
         planAccessLoading,
         isAuthenticated,
@@ -90,6 +91,61 @@ export function UnifiedPaymentFlow({
         handlePayment,
         fetchPlans,
     } = usePaymentFlow({ preselectedId, initialPlans });
+
+    const handleSwitchToBsc = async () => {
+        if (!connector) { return; }
+        setIsSwitchingChain(true);
+        try {
+            const provider = await connector.getProvider() as { request: (args: { method: string; params: unknown[] }) => Promise<unknown> };
+            await provider.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: '0x38' }],
+            });
+        } catch (err: unknown) {
+            const e = err as { code?: number };
+            if (e?.code === 4902) {
+                try {
+                    const provider = await connector.getProvider() as { request: (args: { method: string; params: unknown[] }) => Promise<unknown> };
+                    await provider.request({
+                        method: 'wallet_addEthereumChain',
+                        params: [{
+                            chainId: '0x38',
+                            chainName: 'BNB Smart Chain',
+                            nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+                            rpcUrls: ['https://bsc-dataseed.binance.org/'],
+                            blockExplorerUrls: ['https://bscscan.com'],
+                        }],
+                    });
+                } catch (_addErr) {
+                    // user rejected adding network
+                }
+            }
+        } finally {
+            setIsSwitchingChain(false);
+        }
+    };
+
+    const handleAddBscChain = async () => {
+        if (!connector) { return; }
+        setIsAddingChain(true);
+        try {
+            const provider = await connector.getProvider() as { request: (args: { method: string; params: unknown[] }) => Promise<unknown> };
+            await provider.request({
+                method: 'wallet_addEthereumChain',
+                params: [{
+                    chainId: '0x38',
+                    chainName: 'BNB Smart Chain Mainnet',
+                    nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+                    rpcUrls: ['https://bsc-dataseed.binance.org/'],
+                    blockExplorerUrls: ['https://bscscan.com'],
+                }],
+            });
+        } catch (_err) {
+            // user rejected
+        } finally {
+            setIsAddingChain(false);
+        }
+    };
 
     const getPageTitle = () => {
         if (title) { return title; }
@@ -144,27 +200,20 @@ export function UnifiedPaymentFlow({
                 balanceData={balanceData}
                 amountInDecimals={amountInDecimals}
                 error={error}
-                isAddingToken={isAddingToken}
                 isTransferring={isTransferring}
                 isConfirming={isConfirming}
-                isTokenAdded={isTokenAdded}
+                isChainSupported={isChainSupported}
+                onSwitchChain={handleSwitchToBsc}
+                onAddChain={handleAddBscChain}
+                isSwitchingChain={isSwitchingChain}
+                isAddingChain={isAddingChain}
                 planAccess={planAccess}
                 plans={plans}
                 upgradePreview={upgradePreview}
+                isDowngrade={isDowngrade}
                 onBack={() => setStep('select')}
                 onTokenSelect={setSelectedToken}
                 onPayment={handlePayment}
-                className={className}
-            />
-        );
-    }
-
-    if (preselectedId && selectedPlan && !showAllPlans && step === 'select') {
-        return (
-            <SinglePlanView
-                selectedPlan={selectedPlan}
-                onPlanSelect={handlePlanSelect}
-                onShowAllPlans={() => setShowAllPlans(true)}
                 className={className}
             />
         );

@@ -769,12 +769,10 @@ impl TradingViewScanner {
                 // Pick the nearest date that is in the future (or today)
                 // We use a small buffer (e.g. 1 day ago is still "next" if we haven't updated) or strictly future.
                 // Strictly > current_timestamp is safest.
-                let next_val = candidates
+                candidates
                     .into_iter()
                     .filter(|&ts| ts > current_timestamp)
-                    .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-
-                next_val
+                    .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             },
         }
     }

@@ -1,6 +1,6 @@
-/// Unified permission checking — single source of truth.
-/// All permission wildcard matching goes through these functions.
-/// Format: "platform:resource:action" (e.g., "admin:users:manage")
+//! Unified permission checking — single source of truth.
+//! All permission wildcard matching goes through these functions.
+//! Format: "platform:resource:action" (e.g., "admin:users:manage")
 
 /// Check if permission set satisfies a required permission.
 /// Supports: exact match, `*:*` super-admin, `platform:*:*`, `platform:resource:*`

@@ -5,18 +5,6 @@
  */
 
 // ============================================================================
-// PERMISSION TEMPLATE TYPES
-// ============================================================================
-
-export type PermissionTemplateName =
-  | 'FREE'
-  | 'BASIC'
-  | 'PRO'
-  | 'ENTERPRISE'
-  | 'WHALE'
-  | 'CUSTOM';
-
-// ============================================================================
 // PAYMENT CONTEXT TYPES (V2 Dynamic Payments)
 // ============================================================================
 
@@ -105,7 +93,7 @@ export interface CreatePaymentRequest {
   amount: string;
   payment_method: 'on_line' | 'on_chain';
   product_name: string;
-  permission_template: PermissionTemplateName;
+  permission_template?: string;
   notify_url?: string;
 }
 
@@ -126,9 +114,8 @@ export interface PaymentResponse {
   created_at: string;
   updated_at: string;
   expiration_date: string;
-  permission_template: PermissionTemplateName;
+  permission_template?: string;
   permissions: string[];
-  display_tier?: string;
   qr_code?: string;
   checkout_url?: string;
   payment_method: string;
@@ -162,6 +149,7 @@ export interface AssetInfo {
 export interface PlanAccessData {
   wallet_address: string;
   plan_name: string | null;
+  plan_id?: string | null;
   plan_expires_at: string | null;
   days_remaining: number;
   status: 'active' | 'expiring_soon' | 'grace_period' | 'expired' | 'no_plan';
@@ -171,6 +159,10 @@ export interface PlanAccessData {
   can_upgrade: boolean;
   /** Plan tier level for styling hierarchy (admin-configured) */
   tier_level: number;
+  /** Pro-rata credit from remaining plan time */
+  proration_credit?: string | null;
+  /** Current plan price for reference */
+  current_plan_price?: string | null;
 }
 
 /**

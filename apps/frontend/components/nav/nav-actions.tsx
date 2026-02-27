@@ -17,7 +17,7 @@ export function NavActions({ isAuthenticated }: NavActionsProps) {
       {/* Desktop actions */}
       <div className="hidden md:flex items-center gap-1.5">
         {isAuthenticated && <NotificationBellClient />}
-        <UnifiedThemeToggle variant="minimal" size="md" showTooltip={true} />
+        <UnifiedThemeToggle variant="minimal" size="md" showTooltip={false} />
         <ChainSelector />
         <WalletProviderIcon compact={false} />
       </div>
@@ -25,7 +25,7 @@ export function NavActions({ isAuthenticated }: NavActionsProps) {
       {/* Tablet: compact wallet */}
       <div className="hidden sm:flex md:hidden items-center gap-1.5">
         {isAuthenticated && <NotificationBellClient />}
-        <UnifiedThemeToggle variant="minimal" size="md" showTooltip={true} />
+        <UnifiedThemeToggle variant="minimal" size="md" showTooltip={false} />
         <WalletProviderIcon compact />
       </div>
 

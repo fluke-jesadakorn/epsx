@@ -15,7 +15,8 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
-      "@shared/*": ["./*"]
+      "@shared/*": ["./*"],
+      "@/shared/*": ["./*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", "eslint.config.js", "config/**/*.cjs"],

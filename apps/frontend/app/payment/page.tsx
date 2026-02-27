@@ -19,6 +19,7 @@ export const dynamic = 'force-dynamic';
  */
 interface PaymentPageProps {
   searchParams: Promise<{
+    planId?: string;
     plan?: string;
     'access-plan'?: string;
     group?: string; // Legacy support
@@ -36,10 +37,10 @@ export default async function PaymentPage({ searchParams }: PaymentPageProps) {
   const plansResponse = await getPublicPlansAction();
   const initialPlans = plansResponse.success && plansResponse.data ? plansResponse.data : [];
 
-  // Redirect query string patterns to new dynamic routes
-  if (resolvedSearchParams.plan !== undefined && resolvedSearchParams.plan !== '') {
-    redirect(`/payment/plan/${resolvedSearchParams.plan}`);
-  }
+  // Resolve preselected plan from query params
+  const preselectedPlanId = resolvedSearchParams.planId ?? resolvedSearchParams.plan;
+
+  // Redirect query string patterns to new dynamic routes (non-plan types)
   if (resolvedSearchParams['access-plan'] !== undefined && resolvedSearchParams['access-plan'] !== '') {
     redirect(`/payment/access-plan/${resolvedSearchParams['access-plan']}`);
   }
@@ -98,6 +99,7 @@ export default async function PaymentPage({ searchParams }: PaymentPageProps) {
         {/* Payment Flow */}
         <PaymentClient
           paymentType="plan"
+          preselectedId={preselectedPlanId}
           title="Choose Your Plan"
           description="Select a plan to unlock premium features and analytics. Your subscription is secured by blockchain technology."
           initialPlans={initialPlans}

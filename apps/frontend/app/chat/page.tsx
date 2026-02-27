@@ -61,16 +61,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-4 md:py-6">
-      <div className="flex items-center gap-3 mb-4 md:mb-6">
-        <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm shadow-blue-500/20">
-          <MessageCircle className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">Support</h1>
-          <p className="text-xs text-muted-foreground">Get help from our team</p>
-        </div>
-      </div>
+    <div className="container mx-auto px-4 py-3">
       <ChatInbox
         topics={topics}
         initConvos={convos}

@@ -9,9 +9,11 @@ export default async function WalletsPage() {
         sortBy: 'created_at',
         sortOrder: 'desc',
         search: ''
-    }, 1, 10).catch(() => undefined) as any;
+    }, 1, 10).catch(() => undefined);
 
-    const initialWalletsData = response?.success ? { wallets: response.wallets, pagination: response.pagination } : undefined;
+    const initialWalletsData = response?.success === true
+        ? { wallets: response.wallets, pagination: response.pagination }
+        : undefined;
 
     return <WalletSection initialData={initialWalletsData} />;
 }

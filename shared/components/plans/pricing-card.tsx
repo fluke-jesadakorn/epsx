@@ -1,6 +1,7 @@
 'use client'
 
 import { cn } from '@/shared/utils'
+import { fmtAmt } from '@/shared/utils/formatting/currency'
 import { getTimeRemaining } from '@/shared/utils/promo'
 import { Check, Clock, Flame, Lock, Sparkles, TrendingUp } from 'lucide-react'
 
@@ -35,6 +36,112 @@ interface PricingCardProps {
     creditBalance?: number
 }
 
+interface CardStyle { borderClass: string; bgClass: string }
+
+function resolveCardStyle(isSelected: boolean, isDisabled: boolean, highlight: boolean | undefined): CardStyle {
+    if (isSelected) {
+        return {
+            borderClass: 'border-blue-500/20 ring-1 ring-blue-500/20 shadow-2xl shadow-blue-500/10',
+            bgClass: 'bg-white dark:bg-slate-900 dark:border-blue-900/30',
+        }
+    }
+    if (isDisabled) {
+        return { borderClass: 'border-gray-200 dark:border-slate-700', bgClass: 'bg-gray-50 dark:bg-slate-900' }
+    }
+    if (highlight === true) {
+        return { borderClass: 'border-blue-500/30 shadow-2xl shadow-blue-900/20', bgClass: 'bg-white dark:bg-slate-900' }
+    }
+    return {
+        borderClass: 'border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-white/20',
+        bgClass: 'bg-white dark:bg-slate-900',
+    }
+}
+
+function AffiliateInfo({ info, code }: { info: { commission_rate: number }; code: string }) {
+    return (
+        <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
+            <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                <Sparkles className="h-4 w-4" />
+                <span className="font-semibold">Affiliate: {info.commission_rate}% applied (code: {code})</span>
+            </div>
+        </div>
+    )
+}
+
+interface CreditInfoProps { planPrice: number; creditsCover: number; amountDue: number }
+
+function CreditInfo({ planPrice, creditsCover, amountDue }: CreditInfoProps) {
+    return (
+        <div className="mb-6 p-4 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl border border-emerald-200 dark:border-emerald-700">
+            <div className="flex items-center gap-2 mb-3">
+                <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Credits Applied</span>
+            </div>
+            <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between text-gray-600 dark:text-gray-300">
+                    <span>Plan Price:</span>
+                    <span className="font-mono">${fmtAmt(planPrice)}</span>
+                </div>
+                <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
+                    <span>Credit Applied:</span>
+                    <span className="font-mono">-${fmtAmt(creditsCover)}</span>
+                </div>
+                <div className="h-px bg-emerald-200 dark:bg-emerald-700 my-2" />
+                <div className="flex justify-between font-bold text-gray-900 dark:text-white">
+                    <span>Amount Due:</span>
+                    <span className="font-mono text-lg">${fmtAmt(amountDue)}</span>
+                </div>
+                {amountDue === 0 && (
+                    <div className="text-center mt-2 text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
+                        Fully covered by credits!
+                    </div>
+                )}
+            </div>
+        </div>
+    )
+}
+
+interface CardOverlaysProps { card: PricingCardData; isDisabled: boolean }
+
+function CardOverlays({ card, isDisabled }: CardOverlaysProps) {
+    return (
+        <>
+            {isDisabled && (
+                <div className="absolute inset-0 z-10 backdrop-blur-[1px] bg-white/40 dark:bg-black/40 flex items-center justify-center rounded-2xl">
+                    <div className="bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-xl border border-gray-200 dark:border-gray-700">
+                        <Lock className="w-4 h-4" />
+                        <span className="text-sm font-medium">Upgrade Only</span>
+                    </div>
+                </div>
+            )}
+            {(card.promotions?.length ?? 0) > 0 && !isDisabled && (
+                <div className="absolute -top-px -left-px z-20 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-br-3xl uppercase tracking-wider">
+                    SALE
+                </div>
+            )}
+            {card.highlight === true && !isDisabled && (
+                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-20">
+                    <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-xs font-bold px-4 py-1 rounded-full shadow-lg flex items-center gap-1 uppercase tracking-wider">
+                        {card.title} ONLY
+                    </div>
+                </div>
+            )}
+            {card.highlight === true && (
+                <div className="absolute -inset-px bg-gradient-to-b from-blue-500/20 to-transparent rounded-2xl pointer-events-none -z-10" />
+            )}
+        </>
+    )
+}
+
+function parsePlanPrice(price: string): number {
+    return price === 'Free' ? 0 : parseFloat(price.replace(/[^0-9.]/g, ''))
+}
+
+function calcCredits(creditBalance: number | undefined, planPrice: number): CreditInfoProps {
+    const cover = creditBalance !== undefined ? Math.min(creditBalance, planPrice) : 0
+    return { planPrice, creditsCover: cover, amountDue: Math.max(0, planPrice - cover) }
+}
+
 export function PricingCard({
     card,
     onSelect,
@@ -46,137 +153,32 @@ export function PricingCard({
     className,
     creditBalance
 }: PricingCardProps) {
-    // Calculate credit application
-    const planPrice = card.price === 'Free'
-        ? 0
-        : parseFloat(card.price.replace(/[^0-9.]/g, ''))
-
+    const planPrice = parsePlanPrice(card.price)
     const hasCredits = (creditBalance ?? 0) > 0
-    const creditsCover = hasCredits && creditBalance !== undefined ? Math.min(creditBalance, planPrice) : 0
-    const amountDue = Math.max(0, planPrice - creditsCover)
-
-    // Styling based on state
-    const getCardStyle = () => {
-        if (isSelected) {
-            return {
-                borderClass: 'border-blue-500/20 ring-1 ring-blue-500/20 shadow-2xl shadow-blue-500/10',
-                bgClass: 'bg-white dark:bg-slate-900 dark:border-blue-900/30',
-            }
-        }
-        if (isDisabled) {
-            return {
-                borderClass: 'border-gray-200 dark:border-slate-700',
-                bgClass: 'bg-gray-50 dark:bg-slate-900',
-            }
-        }
-        if (card.highlight === true) {
-            return {
-                borderClass: 'border-blue-500/30 shadow-2xl shadow-blue-900/20',
-                bgClass: 'bg-white dark:bg-slate-900',
-            }
-        }
-        return {
-            borderClass: 'border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-white/20',
-            bgClass: 'bg-white dark:bg-slate-900',
-        }
-    }
-
-    const cardStyle = getCardStyle()
+    const credits = hasCredits ? calcCredits(creditBalance, planPrice) : null
+    const cardStyle = resolveCardStyle(isSelected, isDisabled, card.highlight)
+    const showAffiliate = affiliateInfo !== undefined && affiliateCode !== undefined && affiliateCode !== null
+    const cursorClass = isDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:shadow-xl hover:shadow-blue-500/10'
 
     return (
         <div
             className={cn(
-                'relative rounded-2xl border transition-all duration-300 flex flex-col h-full',
+                'relative rounded-2xl border transition-all duration-300 flex flex-col h-full overflow-hidden',
                 cardStyle.borderClass,
                 cardStyle.bgClass,
-                isDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:shadow-xl hover:shadow-blue-500/10',
+                cursorClass,
                 className
             )}
             onClick={() => !isDisabled && onSelect(card)}
         >
-            {/* Blur overlay for disabled cards */}
-            {isDisabled && (
-                <div className="absolute inset-0 z-10 backdrop-blur-[1px] bg-white/40 dark:bg-black/40 flex items-center justify-center rounded-2xl">
-                    <div className="bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-xl border border-gray-200 dark:border-gray-700">
-                        <Lock className="w-4 h-4" />
-                        <span className="text-sm font-medium">Upgrade Only</span>
-                    </div>
-                </div>
-            )}
-
-            {/* Sale ribbon */}
-            {(card.promotions?.length ?? 0) > 0 && !isDisabled && (
-                <div className="absolute -top-px -left-px z-20 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-br-lg rounded-tl-2xl uppercase tracking-wider">
-                    SALE
-                </div>
-            )}
-
-            {/* Popular/Highlight badge */}
-            {card.highlight === true && !isDisabled && (
-                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-20">
-                    <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-xs font-bold px-4 py-1 rounded-full shadow-lg flex items-center gap-1 uppercase tracking-wider">
-                        {card.title} ONLY
-                    </div>
-                </div>
-            )}
-
+            <CardOverlays card={card} isDisabled={isDisabled} />
             <div className="relative p-6 sm:p-8 flex flex-col h-full">
                 <PricingCardHeader card={card} />
-
                 <PricingCardFeatures features={card.features} />
-
-                {/* Affiliate Info */}
-                {affiliateInfo !== undefined && affiliateCode !== undefined && affiliateCode !== null && (
-                    <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
-                        <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                            <Sparkles className="h-4 w-4" />
-                            <span className="font-semibold">Affiliate: {affiliateInfo.commission_rate}% applied</span>
-                        </div>
-                    </div>
-                )}
-
-                {/* Credit Balance Info */}
-                {hasCredits && planPrice > 0 && (
-                    <div className="mb-6 p-4 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl border border-emerald-200 dark:border-emerald-700">
-                        <div className="flex items-center gap-2 mb-3">
-                            <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                            <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Credits Applied</span>
-                        </div>
-                        <div className="space-y-1.5 text-sm">
-                            <div className="flex justify-between text-gray-600 dark:text-gray-300">
-                                <span>Plan Price:</span>
-                                <span className="font-mono">${planPrice.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
-                                <span>Credit Applied:</span>
-                                <span className="font-mono">-${creditsCover.toFixed(2)}</span>
-                            </div>
-                            <div className="h-px bg-emerald-200 dark:bg-emerald-700 my-2" />
-                            <div className="flex justify-between font-bold text-gray-900 dark:text-white">
-                                <span>Amount Due:</span>
-                                <span className="font-mono text-lg">${amountDue.toFixed(2)}</span>
-                            </div>
-                            {amountDue === 0 && (
-                                <div className="text-center mt-2 text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
-                                    ✨ Fully covered by credits!
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                <PricingCardButton
-                    card={card}
-                    isDisabled={isDisabled}
-                    actionType={actionType}
-                    onSelect={onSelect}
-                />
+                {showAffiliate && <AffiliateInfo info={affiliateInfo} code={affiliateCode} />}
+                {credits !== null && planPrice > 0 && <CreditInfo {...credits} />}
+                <PricingCardButton card={card} isDisabled={isDisabled} actionType={actionType} onSelect={onSelect} />
             </div>
-
-            {/* Glow effect for highlighted cards */}
-            {card.highlight === true && (
-                <div className="absolute -inset-px bg-gradient-to-b from-blue-500/20 to-transparent rounded-2xl pointer-events-none -z-10" />
-            )}
         </div>
     )
 }

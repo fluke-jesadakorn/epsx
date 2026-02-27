@@ -1,7 +1,7 @@
 /**
  * Server-Side Admin Feature Gates
  * Conditionally render admin features based on JWT authentication
- * 
+ *
  * PERMISSION REFACTOR: Client-side permission checks are now permissive.
  * Backend (Rust) enforces access control based on user plan/permissions.
  */
@@ -23,7 +23,7 @@ interface ConditionalFeatureProps extends FeatureGateProps {
 /**
  * Base conditional feature component
  */
-export async function ConditionalFeature({
+export function ConditionalFeature({
   condition,
   children,
   fallback = null
@@ -31,10 +31,7 @@ export async function ConditionalFeature({
   return condition ? <>{children}</> : <>{fallback}</>;
 }
 
-/**
- * Show content only for authenticated admin users
- */
-export async function AdminFeature({ children, fallback }: FeatureGateProps) {
+async function authFeature({ children, fallback }: FeatureGateProps) {
   const user = await getAuthUser();
   return (
     <ConditionalFeature condition={Boolean(user)} fallback={fallback}>
@@ -42,6 +39,11 @@ export async function AdminFeature({ children, fallback }: FeatureGateProps) {
     </ConditionalFeature>
   );
 }
+
+/**
+ * Show content only for authenticated admin users
+ */
+export const AdminFeature = authFeature;
 
 /**
  * Show content based on admin module (Permissive for authenticated)
@@ -50,25 +52,13 @@ export async function AdminModuleFeature({
   children,
   fallback
 }: { module?: string } & FeatureGateProps) {
-  const user = await getAuthUser();
-  return (
-    <ConditionalFeature condition={Boolean(user)} fallback={fallback}>
-      {children}
-    </ConditionalFeature>
-  );
+  return authFeature({ children, fallback });
 }
 
 /**
  * Show content only for system administrators (Permissive for authenticated)
  */
-export async function SystemAdminFeature({ children, fallback }: FeatureGateProps) {
-  const user = await getAuthUser();
-  return (
-    <ConditionalFeature condition={Boolean(user)} fallback={fallback}>
-      {children}
-    </ConditionalFeature>
-  );
-}
+export const SystemAdminFeature = authFeature;
 
 /**
  * Show content based on admin permission (Permissive for authenticated)
@@ -77,73 +67,33 @@ export async function AdminPermissionFeature({
   children,
   fallback
 }: { permission?: string } & FeatureGateProps) {
-  const user = await getAuthUser();
-  return (
-    <ConditionalFeature condition={Boolean(user)} fallback={fallback}>
-      {children}
-    </ConditionalFeature>
-  );
+  return authFeature({ children, fallback });
 }
 
 /**
  * User management features (Permissive for authenticated)
  */
-export async function UserManagementFeature({ children, fallback }: FeatureGateProps) {
-  const user = await getAuthUser();
-  return (
-    <ConditionalFeature condition={Boolean(user)} fallback={fallback}>
-      {children}
-    </ConditionalFeature>
-  );
-}
+export const UserManagementFeature = authFeature;
 
 /**
  * Analytics features (Permissive for authenticated)
  */
-export async function AnalyticsFeature({ children, fallback }: FeatureGateProps) {
-  const user = await getAuthUser();
-  return (
-    <ConditionalFeature condition={Boolean(user)} fallback={fallback}>
-      {children}
-    </ConditionalFeature>
-  );
-}
+export const AnalyticsFeature = authFeature;
 
 /**
  * Billing management features (Permissive for authenticated)
  */
-export async function BillingFeature({ children, fallback }: FeatureGateProps) {
-  const user = await getAuthUser();
-  return (
-    <ConditionalFeature condition={Boolean(user)} fallback={fallback}>
-      {children}
-    </ConditionalFeature>
-  );
-}
+export const BillingFeature = authFeature;
 
 /**
  * Permission management features (Permissive for authenticated)
  */
-export async function PermissionManagementFeature({ children, fallback }: FeatureGateProps) {
-  const user = await getAuthUser();
-  return (
-    <ConditionalFeature condition={Boolean(user)} fallback={fallback}>
-      {children}
-    </ConditionalFeature>
-  );
-}
+export const PermissionManagementFeature = authFeature;
 
 /**
  * Module coordination features (Permissive for authenticated)
  */
-export async function ModuleCoordinatorFeature({ children, fallback }: FeatureGateProps) {
-  const user = await getAuthUser();
-  return (
-    <ConditionalFeature condition={Boolean(user)} fallback={fallback}>
-      {children}
-    </ConditionalFeature>
-  );
-}
+export const ModuleCoordinatorFeature = authFeature;
 
 /**
  * Development-only admin features

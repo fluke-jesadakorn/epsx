@@ -91,9 +91,9 @@ export function DeveloperSidebar({ title = 'Developer', className = '' }: Develo
     // Don't render interactive mobile elements until mounted (prevents hydration mismatch)
     if (!isMounted) {
         return (
-            <div className={`hidden lg:flex w-64 min-w-0 max-w-64 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-gray-700 h-screen flex-col ${className}`}>
-                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                    <h1 className="text-xl font-bold text-gray-900 dark:text-white truncate">{title}</h1>
+            <div className={`hidden lg:flex w-64 min-w-0 max-w-64 bg-card border-r border-border/20 h-screen flex-col ${className}`}>
+                <div className="p-4 border-b border-border/10">
+                    <h1 className="text-xl font-bold text-foreground truncate">{title}</h1>
                 </div>
                 <SidebarNav
                     items={navigationItems}
@@ -119,9 +119,9 @@ export function DeveloperSidebar({ title = 'Developer', className = '' }: Develo
             />
 
             {/* Sidebar - Desktop (always visible) */}
-            <div className={`hidden lg:flex w-64 min-w-0 max-w-64 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-gray-700 h-screen flex-col ${className}`}>
-                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                    <h1 className="text-xl font-bold text-gray-900 dark:text-white truncate">{title}</h1>
+            <div className={`hidden lg:flex w-64 min-w-0 max-w-64 bg-card border-r border-border/20 h-screen flex-col ${className}`}>
+                <div className="p-4 border-b border-border/10">
+                    <h1 className="text-xl font-bold text-foreground truncate">{title}</h1>
                 </div>
                 <SidebarNav
                     items={navigationItems}
@@ -151,8 +151,8 @@ export function DeveloperSidebar({ title = 'Developer', className = '' }: Develo
  */
 export function DeveloperMobileHeader({ title }: { title?: string }) {
     return (
-        <div className="lg:hidden flex items-center justify-center h-14 border-b border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-slate-900 backdrop-blur-xl sticky top-0 z-30">
-            <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <div className="lg:hidden flex items-center justify-center h-14 border-b border-border/20 bg-card/80 backdrop-blur-xl sticky top-0 z-30">
+            <h1 className="text-lg font-semibold text-foreground">
                 {title ?? 'Developer Portal'}
             </h1>
         </div>

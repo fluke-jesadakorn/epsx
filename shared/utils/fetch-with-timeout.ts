@@ -16,7 +16,7 @@ export async function fetchWithTimeout(
   } catch (error) {
     clearTimeout(id);
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('Request timeout - server did not respond in time');
+      throw new Error('Request timeout - server did not respond in time', { cause: error });
     }
     throw error;
   }

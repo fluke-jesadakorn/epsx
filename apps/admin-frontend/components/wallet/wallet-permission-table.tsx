@@ -237,13 +237,16 @@ export function WalletPermissionTable({
 
     if (groupByPlatform) {
         // Group permissions by platform
-        const grouped = permissions.reduce((acc, perm) => {
+        const grouped = permissions.reduce<Partial<Record<Platform, WalletPermission[]>>>((acc, perm) => {
             const platform = perm.platform;
-            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-            acc[platform] ??= [];
-            acc[platform].push(perm);
+            const existing = acc[platform];
+            if (existing !== undefined) {
+                existing.push(perm);
+            } else {
+                acc[platform] = [perm];
+            }
             return acc;
-        }, {} as Record<Platform, WalletPermission[]>);
+        }, {});
 
         return (
             <div className={cn('space-y-6', className)}>

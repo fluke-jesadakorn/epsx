@@ -43,7 +43,7 @@ function StatCard({ icon, label, value, subLabel, iconBg, iconColor }: StatCardP
             {value}
           </p>
           <p className="text-sm text-muted-foreground font-medium">{label}</p>
-          {subLabel && (
+          {subLabel !== undefined && (
             <p className="text-xs text-muted-foreground/70 mt-0.5">{subLabel}</p>
           )}
         </div>

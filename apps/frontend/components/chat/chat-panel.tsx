@@ -1,4 +1,3 @@
-/* eslint-disable max-lines-per-function */
 'use client';
 
 import {
@@ -30,7 +29,6 @@ interface PanelProps {
   onClose: () => void;
   walletAddr?: string;
 }
-
 
 export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
   const [view, setView] = useState<View>('list');
@@ -66,9 +64,9 @@ export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
     }
   }, [isOpen, loadData]);
 
-  const handleCreateConvo = useCallback(async (topicId: string, subject: string, message: string, turnstileToken?: string, file?: File) => {
+  const handleCreateConvo = useCallback(async ({ topicId, subject, message, turnstileToken, file }: { topicId: string; subject: string; message: string; turnstileToken?: string; file?: File }) => {
     setLoading(true);
-    const convo = await createConversationAction(topicId, subject, message, turnstileToken);
+    const convo = await createConversationAction({ topicId, subject, message, turnstileToken });
     if (convo) {
       if (file) {
         const formData = new FormData();
@@ -100,7 +98,7 @@ export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
   }, [convos]);
 
   const handleSendMsg = useCallback(async (content: string, turnstileToken: string) => {
-    if (!activeConvo) return;
+    if (!activeConvo) { return; }
     const msg = await sendMessageAction(activeConvo.id, content, turnstileToken);
     if (msg) {
       setMsgs((prev) => [...prev, msg]);
@@ -108,20 +106,20 @@ export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
   }, [activeConvo]);
 
   const handleUpload = useCallback(async (file: File) => {
-    if (!activeConvo) return;
+    if (!activeConvo) { return; }
     const formData = new FormData();
     formData.append('file', file);
     const msg = await uploadAttachmentAction(activeConvo.id, formData);
-    if (msg) setMsgs((prev) => [...prev, msg]);
+    if (msg) { setMsgs((prev) => [...prev, msg]); }
   }, [activeConvo]);
 
   const handleTyping = useCallback((isTyping: boolean) => {
-    if (!activeConvo) return;
+    if (!activeConvo) { return; }
     void notifyTypingAction(activeConvo.id, isTyping);
   }, [activeConvo]);
 
   const handleResolve = useCallback(async () => {
-    if (!activeConvo) return;
+    if (!activeConvo) { return; }
     const updated = await updateConversationStatusAction(activeConvo.id, 'resolved');
     if (updated) {
       setActiveConvo(updated);
@@ -153,7 +151,7 @@ export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
       const typing = evt.type === 'typing_start';
       setAgentTyping(typing);
       if (typing) {
-        if (typingTimer.current) clearTimeout(typingTimer.current);
+        if (typingTimer.current) {clearTimeout(typingTimer.current);}
         typingTimer.current = setTimeout(() => setAgentTyping(false), 5000);
       }
     }
@@ -161,7 +159,7 @@ export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
       // Find the last user message id
       setMsgs((prev) => {
         const lastUserMsg = [...prev].reverse().find((m) => m.sender_type === 'user');
-        if (lastUserMsg) setReadUpToId(lastUserMsg.id);
+        if (lastUserMsg) {setReadUpToId(lastUserMsg.id);}
         return prev;
       });
     }

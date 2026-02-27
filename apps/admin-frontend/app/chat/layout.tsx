@@ -1,9 +1,6 @@
 import type { ReactNode } from 'react';
 
-
-
-export default async function ChatLayout({ children }: { children: ReactNode }) {
-
+export default function ChatLayout({ children }: { children: ReactNode }) {
   return <div className="h-full">{children}</div>;
 }
 

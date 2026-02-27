@@ -1,6 +1,7 @@
 /**
  * Promotion utilities for calculating prices and status
  */
+import { fmtAmt } from './formatting/currency'
 
 export type PromoType = 'percentage' | 'fixed';
 export type PromoStatus = 'active' | 'upcoming' | 'expired' | 'disabled';
@@ -86,7 +87,7 @@ export function formatBadge(
   if (type === 'percentage') {
     return `${Math.round(value)}% OFF`;
   } else {
-    return `$${value.toFixed(2)} OFF`;
+    return `$${fmtAmt(value)} OFF`;
   }
 }
 
@@ -107,7 +108,7 @@ export function getTimeRemaining(endDate: string): string {
   const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 
   if (days > 0) {
-    return `${days}d ${hours}h left`;
+    return hours > 0 ? `${days}d ${hours}h left` : `${days}d left`;
   } else if (hours > 0) {
     return `${hours}h ${minutes}m left`;
   } else {

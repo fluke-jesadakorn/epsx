@@ -30,7 +30,7 @@ export function PermissionItem({
     const platform = getPlatformFromPermission(permission.permission_string);
     const platformColor = getPlatformColorClass(platform);
 
-    const displayString = stripPlatform
+    const displayString = stripPlatform === true
         ? permission.permission_string.replace(`${platform}:`, '')
         : permission.permission_string;
 
@@ -59,12 +59,12 @@ export function PermissionItem({
                 <div className={cn('perm-string font-semibold truncate', platformColor)}>
                     {displayString}
                 </div>
-                {permission.name && (
+                {permission.name !== null && (
                     <div className="text-[10px] text-muted-foreground truncate">
                         {permission.name}
                     </div>
                 )}
-                {permission.description && (
+                {permission.description !== null && (
                     <div className="text-[10px] text-muted-foreground/70 line-clamp-1 mt-0.5">
                         {permission.description}
                     </div>

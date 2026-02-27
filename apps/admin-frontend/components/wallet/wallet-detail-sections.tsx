@@ -242,7 +242,7 @@ export function WalletSubscriptionCard({
                     </div>
                     <div className="flex items-center gap-2">
                         <Badge className="bg-green-500/10 text-green-400 border-green-500/20 uppercase text-[10px] font-bold">Active</Badge>
-                        <Link href={`/subscriptions/${subscription.id}`}>
+                        <Link href={`/wallet-management/access/plans/${subscription.id}`}>
                             <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-border/20 hover:bg-muted/30">
                                 Manage
                                 <ExternalLink className="h-3 w-3" />

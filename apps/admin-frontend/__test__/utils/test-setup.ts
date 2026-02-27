@@ -25,6 +25,137 @@ import {
 } from '../fixtures/admin-test-fixtures';
 
 // ============================================================================
+// Performance Monitoring Utilities
+// ============================================================================
+
+export interface PerformanceMetrics {
+  startTime: number;
+  endTime: number;
+  duration: number;
+  memoryUsage?: {
+    used: number;
+    total: number;
+  };
+  networkActivity?: NetworkActivity[];
+  errors?: Error[];
+}
+
+export interface NetworkActivity {
+  url: string;
+  method: string;
+  status: number;
+  duration: number;
+  size: number;
+}
+
+export interface PagePerformanceMetrics {
+  pageLoadTime: number;
+  domContentLoaded: number;
+  timeToFirstByte: number;
+  memoryUsage: unknown;
+}
+
+export interface PerformanceSummary {
+  totalMeasurements: number;
+  averageDuration: number;
+  minDuration: number;
+  maxDuration: number;
+  p95Duration?: number;
+  p99Duration?: number;
+}
+
+export class PerformanceMonitor {
+  private metrics: PerformanceMetrics[] = [];
+  private currentMetric: Partial<PerformanceMetrics> | null = null;
+
+  startMeasurement(_identifier: string): void {
+    this.currentMetric = {
+      startTime: performance.now(),
+      errors: []
+    };
+  }
+
+  endMeasurement(): PerformanceMetrics | null {
+    if (this.currentMetric?.startTime === undefined) {
+      return null;
+    }
+
+    const endTime = performance.now();
+    const completedMetric: PerformanceMetrics = {
+      ...this.currentMetric,
+      endTime,
+      duration: endTime - this.currentMetric.startTime
+    } as PerformanceMetrics;
+
+    this.metrics.push(completedMetric);
+    this.currentMetric = null;
+
+    return completedMetric;
+  }
+
+  async measurePagePerformance(page: Page): Promise<PagePerformanceMetrics> {
+    const performanceTiming = await page.evaluate(() => {
+      const timing = performance.timing;
+      return {
+        navigationStart: timing.navigationStart,
+        loadEventEnd: timing.loadEventEnd,
+        domContentLoadedEventEnd: timing.domContentLoadedEventEnd,
+        connectEnd: timing.connectEnd,
+        requestStart: timing.requestStart,
+        responseStart: timing.responseStart,
+        responseEnd: timing.responseEnd
+      };
+    });
+
+    const memory = await page.evaluate(() => {
+      if ('memory' in performance) {
+        return (performance as { memory: unknown }).memory;
+      }
+      return null;
+    });
+
+    return {
+      pageLoadTime: performanceTiming.loadEventEnd - performanceTiming.navigationStart,
+      domContentLoaded: performanceTiming.domContentLoadedEventEnd - performanceTiming.navigationStart,
+      timeToFirstByte: performanceTiming.responseStart - performanceTiming.requestStart,
+      memoryUsage: memory
+    };
+  }
+
+  getAverageResponseTime(): number {
+    if (this.metrics.length === 0) { return 0; }
+    return this.metrics.reduce((sum, metric) => sum + metric.duration, 0) / this.metrics.length;
+  }
+
+  getMetricsSummary(): PerformanceSummary {
+    if (this.metrics.length === 0) {
+      return { totalMeasurements: 0, averageDuration: 0, minDuration: 0, maxDuration: 0 };
+    }
+
+    const durations = this.metrics.map(m => m.duration);
+    return {
+      totalMeasurements: this.metrics.length,
+      averageDuration: durations.reduce((a, b) => a + b, 0) / durations.length,
+      minDuration: Math.min(...durations),
+      maxDuration: Math.max(...durations),
+      p95Duration: this.calculatePercentile(durations, 95),
+      p99Duration: this.calculatePercentile(durations, 99)
+    };
+  }
+
+  private calculatePercentile(values: number[], percentile: number): number {
+    const sorted = values.sort((a, b) => a - b);
+    const index = Math.ceil((percentile / 100) * sorted.length) - 1;
+    return sorted[index] ?? 0;
+  }
+
+  clearMetrics(): void {
+    this.metrics = [];
+    this.currentMetric = null;
+  }
+}
+
+// ============================================================================
 // Extended Test Fixtures
 // ============================================================================
 
@@ -80,168 +211,10 @@ export const test = base.extend<AdminTestFixtures>({
   },
 
   performanceMonitor: async ({ }, use) => {
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     const monitor = new PerformanceMonitor();
     await use(monitor);
   }
 });
-
-// ============================================================================
-// Performance Monitoring Utilities
-// ============================================================================
-
-export interface PerformanceMetrics {
-  startTime: number;
-  endTime: number;
-  duration: number;
-  memoryUsage?: {
-    used: number;
-    total: number;
-  };
-  networkActivity?: NetworkActivity[];
-  errors?: Error[];
-}
-
-export interface NetworkActivity {
-  url: string;
-  method: string;
-  status: number;
-  duration: number;
-  size: number;
-}
-
-/**
- *
- */
-export class PerformanceMonitor {
-  private metrics: PerformanceMetrics[] = [];
-  private currentMetric: Partial<PerformanceMetrics> | null = null;
-
-  /**
-   *
-   * @param identifier
-   */
-  startMeasurement(identifier: string): void {
-    this.currentMetric = {
-      startTime: performance.now(),
-      errors: []
-    };
-  }
-
-  /**
-   *
-   */
-  endMeasurement(): PerformanceMetrics | null {
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (!this.currentMetric?.startTime) {
-
-      console.warn('⚠️ No active measurement to end');
-      return null;
-    }
-
-    const endTime = performance.now();
-    const completedMetric: PerformanceMetrics = {
-      ...this.currentMetric,
-      endTime,
-      duration: endTime - this.currentMetric.startTime
-    } as PerformanceMetrics;
-
-    this.metrics.push(completedMetric);
-    this.currentMetric = null;
-
-    return completedMetric;
-  }
-
-  /**
-   *
-   * @param page
-   */
-  async measurePagePerformance(page: Page): Promise<PagePerformanceMetrics> {
-    const performanceTiming = await page.evaluate(() => {
-      const timing = performance.timing;
-      return {
-        navigationStart: timing.navigationStart,
-        loadEventEnd: timing.loadEventEnd,
-        domContentLoadedEventEnd: timing.domContentLoadedEventEnd,
-        connectEnd: timing.connectEnd,
-        requestStart: timing.requestStart,
-        responseStart: timing.responseStart,
-        responseEnd: timing.responseEnd
-      };
-    });
-
-    const memory = await page.evaluate(() => {
-      if ('memory' in performance) {
-        return (performance as any).memory;
-      }
-      return null;
-    });
-
-    return {
-      pageLoadTime: performanceTiming.loadEventEnd - performanceTiming.navigationStart,
-      domContentLoaded: performanceTiming.domContentLoadedEventEnd - performanceTiming.navigationStart,
-      timeToFirstByte: performanceTiming.responseStart - performanceTiming.requestStart,
-      memoryUsage: memory
-    };
-  }
-
-  /**
-   *
-   */
-  getAverageResponseTime(): number {
-    if (this.metrics.length === 0) { return 0; }
-    return this.metrics.reduce((sum, metric) => sum + metric.duration, 0) / this.metrics.length;
-  }
-
-  /**
-   *
-   */
-  getMetricsSummary(): PerformanceSummary {
-    if (this.metrics.length === 0) {
-      return { totalMeasurements: 0, averageDuration: 0, minDuration: 0, maxDuration: 0 };
-    }
-
-    const durations = this.metrics.map(m => m.duration);
-    return {
-      totalMeasurements: this.metrics.length,
-      averageDuration: durations.reduce((a, b) => a + b, 0) / durations.length,
-      minDuration: Math.min(...durations),
-      maxDuration: Math.max(...durations),
-      p95Duration: this.calculatePercentile(durations, 95),
-      p99Duration: this.calculatePercentile(durations, 99)
-    };
-  }
-
-  private calculatePercentile(values: number[], percentile: number): number {
-    const sorted = values.sort((a, b) => a - b);
-    const index = Math.ceil((percentile / 100) * sorted.length) - 1;
-    return sorted[index] ?? 0;
-  }
-
-  /**
-   *
-   */
-  clearMetrics(): void {
-    this.metrics = [];
-    this.currentMetric = null;
-  }
-}
-
-export interface PagePerformanceMetrics {
-  pageLoadTime: number;
-  domContentLoaded: number;
-  timeToFirstByte: number;
-  memoryUsage: any;
-}
-
-export interface PerformanceSummary {
-  totalMeasurements: number;
-  averageDuration: number;
-  minDuration: number;
-  maxDuration: number;
-  p95Duration?: number;
-  p99Duration?: number;
-}
 
 // ============================================================================
 // Authentication Test Helpers
@@ -303,7 +276,7 @@ export class AuthenticationHelper {
           return !url.includes('/login') &&
 
             !url.includes('/oauth/authorize') &&
-            (url.includes('localhost:3001') ?? url.includes('admin.epsx.io'));
+            (url.includes('localhost:3001') || url.includes('admin.epsx.io'));
         },
         { timeout: 30000 }
       );
@@ -314,16 +287,11 @@ export class AuthenticationHelper {
 
       const token = await this.extractAuthToken();
 
-      if (token) {
+      if (token !== null && token !== '') {
         return token;
-      } else {
-
-        console.error(`❌ Failed to extract auth token for ${user?.name}`);
-        return null;
       }
-    } catch (_error) {
-
-      console.error(`❌ Login failed for ${user?.name}:`, _error);
+      return null;
+    } catch {
       return null;
     }
   }
@@ -381,9 +349,8 @@ export class AuthenticationHelper {
         sessionStorage.clear();
       });
 
-    } catch (_error) {
-
-      console.error('⚠️ Logout error:', _error);
+    } catch {
+      // logout errors are non-critical in tests
     }
   }
 }
@@ -422,7 +389,7 @@ export class SecurityTestHelper {
     for (const payload of payloads) {
       try {
         const response = await this.request.get(`${this.baseUrl}${endpoint}?q=${encodeURIComponent(payload)}`, {
-          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+          headers: token !== undefined ? { 'Authorization': `Bearer ${token}` } : {}
         });
 
         results.push({
@@ -466,7 +433,7 @@ export class SecurityTestHelper {
           },
           headers: {
             'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            ...(token !== undefined ? { 'Authorization': `Bearer ${token}` } : {})
           }
         });
 
@@ -476,14 +443,14 @@ export class SecurityTestHelper {
         if (response.ok()) {
           try {
             const responseData = await response.json();
-            sanitized = !responseData.name?.includes('<script>') &&
-              !responseData.name?.includes('javascript:');
+            const name = (responseData as { name?: string }).name ?? '';
+            sanitized = !name.includes('<script>') && !name.includes('javascript:');
           } catch { }
         }
 
         results.push({
           payload,
-          blocked: blocked ?? sanitized,
+          blocked: blocked || sanitized,
           status: response.status(),
           responseTime: 0,
           sanitized
@@ -513,7 +480,7 @@ export class SecurityTestHelper {
     const startTime = performance.now();
     const requests = Array.from({ length: requestCount }, (_, i) =>
       this.request.get(`${this.baseUrl}${endpoint}?test=${i}`, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        headers: token !== undefined ? { 'Authorization': `Bearer ${token}` } : {}
       }).catch(() => ({ status: () => 0, ok: () => false }))
     );
 
@@ -521,8 +488,8 @@ export class SecurityTestHelper {
     const endTime = performance.now();
 
     const results = responses.map(response => ({
-      status: response.status ? response.status() : 0,
-      success: response.ok ? response.ok() : false
+      status: response.status(),
+      success: response.ok()
     }));
 
     const successCount = results.filter(r => r.success).length;
@@ -551,7 +518,7 @@ export class SecurityTestHelper {
           'Content-Type': 'application/json',
           'Origin': 'http://malicious-site.com',
           'Referer': 'http://malicious-site.com/attack.html',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          ...(token !== undefined ? { 'Authorization': `Bearer ${token}` } : {})
         }
       });
 
@@ -626,8 +593,6 @@ export class EnvironmentValidator {
     } catch (_error) {
       results.database = false;
       results.errors.push(`Database validation failed: ${_error}`);
-
-      console.error('❌ Database validation failed:', _error);
     }
 
     // Validate API availability
@@ -635,17 +600,12 @@ export class EnvironmentValidator {
       const response = await fetch(`${TEST_ENVIRONMENT_CONFIG.api.baseUrl}/health`);
       results.api = response.ok;
 
-      if (results.api) {
-      } else {
+      if (!results.api) {
         results.errors.push(`API health check failed: ${response.status}`);
-
-        console.error('❌ API validation failed:', response.status);
       }
     } catch (_error) {
       results.api = false;
       results.errors.push(`API validation failed: ${_error}`);
-
-      console.error('❌ API validation failed:', _error);
     }
 
     // Validate authentication system
@@ -655,18 +615,6 @@ export class EnvironmentValidator {
     } catch (_error) {
       results.authentication = false;
       results.errors.push(`Authentication validation failed: ${_error}`);
-
-      console.error('❌ Authentication validation failed:', _error);
-    }
-
-    const allValid = results.database && results.api && results.authentication;
-
-    if (allValid) {
-    } else {
-
-      console.error('❌ Test environment validation failed');
-
-      console.error('Errors:', results.errors);
     }
 
     return results;
@@ -712,61 +660,24 @@ export class TestDataManager {
    *
    */
   async setupTestData(): Promise<void> {
-
-    try {
-      await this.dbUtils.seedTestUsers();
-      await this.dbUtils.seedRoleProfiles();
-      await this.dbUtils.seedTestSessions();
-
-    } catch (_error) {
-
-      console.error('❌ Test data setup failed:', _error);
-      throw _error;
-    }
+    await this.dbUtils.seedTestUsers();
+    await this.dbUtils.seedRoleProfiles();
+    await this.dbUtils.seedTestSessions();
   }
 
-  /**
-   *
-   */
   async cleanupTestData(): Promise<void> {
-
-    try {
-      await this.dbUtils.cleanupTestData();
-    } catch (_error) {
-
-      console.error('❌ Test data cleanup failed:', _error);
-      throw _error;
-    }
+    await this.dbUtils.cleanupTestData();
   }
 
-  /**
-   *
-   */
   async resetTestData(): Promise<void> {
-
     await this.cleanupTestData();
     await this.setupTestData();
-
   }
 
-  /**
-   *
-   */
   async verifyTestDataIntegrity(): Promise<boolean> {
-
     try {
-      const isValid = await this.dbUtils.verifyDatabaseIntegrity();
-
-      if (isValid) {
-      } else {
-
-        console.error('❌ Test data integrity check failed');
-      }
-
-      return isValid;
-    } catch (_error) {
-
-      console.error('❌ Test data integrity verification failed:', _error);
+      return await this.dbUtils.verifyDatabaseIntegrity();
+    } catch {
       return false;
     }
   }
@@ -780,7 +691,7 @@ export class TestDataManager {
  *
  */
 export class GlobalTestSetup {
-  private static instance: GlobalTestSetup;
+  private static instance: GlobalTestSetup | undefined;
   private dataManager: TestDataManager;
   private isSetup = false;
 
@@ -795,7 +706,7 @@ export class GlobalTestSetup {
    *
    */
   static getInstance(): GlobalTestSetup {
-    if (!GlobalTestSetup.instance) {
+    if (GlobalTestSetup.instance === undefined) {
       GlobalTestSetup.instance = new GlobalTestSetup();
     }
     return GlobalTestSetup.instance;

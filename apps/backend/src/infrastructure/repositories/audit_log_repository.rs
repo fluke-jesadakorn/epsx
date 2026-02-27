@@ -29,7 +29,8 @@ impl DieselAuditLogRepository {
         query: &AuditQuery,
         category: Option<&str>,
         search: Option<&str>,
-        fetch_limit: i64,
+        limit: i64,
+        offset: i64,
     ) -> Result<(Vec<AuditLogEntry>, i64)> {
         let pool = get_analytics_pool().await?;
         let mut conn = pool.get().await
@@ -154,7 +155,7 @@ impl DieselAuditLogRepository {
 
         // Data query
         let data_sql = format!(
-            "SELECT id, wallet_address, action, resource_type, resource_id, result, ip_address, user_agent, details, created_at, category FROM ({union}) unified {where_clause} ORDER BY created_at DESC LIMIT $4",
+            "SELECT id, wallet_address, action, resource_type, resource_id, result, ip_address, user_agent, details, created_at, category FROM ({union}) unified {where_clause} ORDER BY created_at DESC LIMIT $4 OFFSET $5",
             union = union_sql,
             where_clause = where_clause
         );
@@ -189,7 +190,8 @@ impl DieselAuditLogRepository {
             .bind::<Nullable<Text>, _>(&bind_search)
             .bind::<Nullable<Timestamptz>, _>(&bind_from)
             .bind::<Nullable<Timestamptz>, _>(&bind_to)
-            .bind::<BigInt, _>(fetch_limit)
+            .bind::<BigInt, _>(limit)
+            .bind::<BigInt, _>(offset)
             .get_results::<UnifiedRow>(&mut conn)
             .await
             .context("Failed to query analytics audit logs")?;
@@ -219,7 +221,8 @@ impl DieselAuditLogRepository {
     async fn query_payments(
         query: &AuditQuery,
         search: Option<&str>,
-        fetch_limit: i64,
+        limit: i64,
+        offset: i64,
     ) -> Result<(Vec<AuditLogEntry>, i64)> {
         let pool = get_payments_pool().await?;
         let mut conn = pool.get().await
@@ -275,14 +278,15 @@ impl DieselAuditLogRepository {
         }
 
         let data_sql = format!(
-            "SELECT id::text, performed_by as wallet_address, action, payment_id::text as resource_id, old_status, new_status, reason, metadata, created_at FROM payment_audit_log {where_clause} ORDER BY created_at DESC LIMIT $4"
+            "SELECT id::text, performed_by as wallet_address, action, payment_id::text as resource_id, old_status, new_status, reason, metadata, created_at FROM payment_audit_log {where_clause} ORDER BY created_at DESC LIMIT $4 OFFSET $5"
         );
 
         let rows = diesel::sql_query(&data_sql)
             .bind::<Nullable<Text>, _>(&bind_search)
             .bind::<Nullable<Timestamptz>, _>(&bind_from)
             .bind::<Nullable<Timestamptz>, _>(&bind_to)
-            .bind::<BigInt, _>(fetch_limit)
+            .bind::<BigInt, _>(limit)
+            .bind::<BigInt, _>(offset)
             .get_results::<PaymentRow>(&mut conn)
             .await
             .context("Failed to query payment audit logs")?;
@@ -320,16 +324,23 @@ impl DieselAuditLogRepository {
         let search = query.search.as_deref();
         let limit = query.limit.unwrap_or(50) as i64;
         let offset = query.offset.unwrap_or(0) as i64;
-        let fetch_limit = limit + offset;
 
         let need_analytics = !matches!(category, Some("payment"));
         let need_payments = matches!(category, None | Some("all") | Some("payment"));
+
+        // When only one source is queried, push pagination to SQL directly
+        let single_source = need_analytics != need_payments;
 
         let mut all_entries: Vec<AuditLogEntry> = Vec::new();
         let mut total: i64 = 0;
 
         if need_analytics {
-            match Self::query_analytics(query, category, search, fetch_limit).await {
+            let (a_limit, a_offset) = if single_source {
+                (limit, offset)
+            } else {
+                (limit + offset, 0)
+            };
+            match Self::query_analytics(query, category, search, a_limit, a_offset).await {
                 Ok((entries, count)) => {
                     all_entries.extend(entries);
                     total += count;
@@ -341,7 +352,12 @@ impl DieselAuditLogRepository {
         }
 
         if need_payments {
-            match Self::query_payments(query, search, fetch_limit).await {
+            let (p_limit, p_offset) = if single_source {
+                (limit, offset)
+            } else {
+                (limit + offset, 0)
+            };
+            match Self::query_payments(query, search, p_limit, p_offset).await {
                 Ok((entries, count)) => {
                     all_entries.extend(entries);
                     total += count;
@@ -352,15 +368,19 @@ impl DieselAuditLogRepository {
             }
         }
 
-        // Sort by timestamp desc, then paginate in Rust
-        all_entries.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
-        let result: Vec<AuditLogEntry> = all_entries
-            .into_iter()
-            .skip(offset as usize)
-            .take(limit as usize)
-            .collect();
-
-        Ok((result, total))
+        if single_source {
+            // Already paginated in SQL
+            Ok((all_entries, total))
+        } else {
+            // Sort by timestamp desc, then paginate in Rust
+            all_entries.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+            let result: Vec<AuditLogEntry> = all_entries
+                .into_iter()
+                .skip(offset as usize)
+                .take(limit as usize)
+                .collect();
+            Ok((result, total))
+        }
     }
 }
 

@@ -194,9 +194,8 @@ export function WalletSection({ className, initialData }: WalletSectionProps) {
             {/* Mobile cards */}
             <div className="md:hidden">
                 {isLoading ? (
-                    Array.from({ length: Math.min(limit, 6) }).map((_, i) => (
-                        // eslint-disable-next-line react/no-array-index-key
-                        <Skeleton key={`m-skeleton-${i}`} className="h-36 w-full rounded-2xl mb-3" />
+                    Array.from({ length: Math.min(limit, 6) }, (_, i) => `m-skeleton-${i}`).map((key) => (
+                        <Skeleton key={key} className="h-36 w-full rounded-2xl mb-3" />
                     ))
                 ) : wallets.length === 0 ? (
                     <WalletEmptyState onClearFilters={() => setFilters({ search: '', platform: 'all', status: 'all', sortBy: 'created_at', sortOrder: 'desc' })} />
@@ -222,9 +221,8 @@ export function WalletSection({ className, initialData }: WalletSectionProps) {
                 </div>
                 <ListHeader />
                 {isLoading ? (
-                    Array.from({ length: limit }).map((_, i) => (
-                        // eslint-disable-next-line react/no-array-index-key
-                        <Skeleton key={`skeleton-${i}`} className="h-14 w-full rounded-none border-b border-border/40 last:border-0" />
+                    Array.from({ length: limit }, (_, i) => `skeleton-${i}`).map((key) => (
+                        <Skeleton key={key} className="h-14 w-full rounded-none border-b border-border/40 last:border-0" />
                     ))
                 ) : wallets.length === 0 ? (
                     <WalletEmptyState onClearFilters={() => setFilters({ search: '', platform: 'all', status: 'all', sortBy: 'created_at', sortOrder: 'desc' })} />

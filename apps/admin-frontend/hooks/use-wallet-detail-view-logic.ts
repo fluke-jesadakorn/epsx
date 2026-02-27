@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import type { AccessItem, UseWalletAccessReturn } from '@/hooks/use-wallet-access';
 import type { useWalletData } from '@/hooks/use-wallet-detail';
 import { copyToClipboard } from '@/lib/utils';
-import { logger } from '@/shared/utils/logger';
+import { logger } from '@/lib/logger';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 
 interface UseWalletDetailViewLogicProps {
@@ -88,7 +88,7 @@ export function useWalletDetailViewLogic({
                 }
 
                 setPendingDrops(prev => [...prev, plan]);
-                toast.success(`Staged "${plan.name}" for assignment`);
+                setEditingItem({ item: plan, type: 'plan' });
             }
         }
     }, [accessData.data.availablePlans, accessData.data.authorizedPlans, pendingDrops]);
@@ -97,7 +97,7 @@ export function useWalletDetailViewLogic({
         if (pendingDrops.length === 0) { return; }
         setIsSavingPending(true);
         try {
-            await Promise.all(pendingDrops.map(plan => accessData.assignPlan(plan.id)));
+            await Promise.all(pendingDrops.map(plan => accessData.assignPlan(plan.id, plan.expiresAt ?? undefined)));
             toast.success('Access plans assigned successfully');
             setPendingDrops([]);
             void accessData.refresh();

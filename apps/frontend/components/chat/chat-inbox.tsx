@@ -1,4 +1,3 @@
-/* eslint-disable max-lines-per-function */
 'use client';
 
 import {
@@ -17,13 +16,11 @@ import { useChatSSE } from '@/shared/hooks/use-chat-sse';
 import {
   ArrowLeft,
   CheckCircle,
-  Clock,
   Headset,
   Inbox,
   Loader2,
   MessageCircle,
   Plus,
-  SlidersHorizontal,
   Tag,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
@@ -43,12 +40,11 @@ function timeAgo(date: string): string {
   const mins = Math.floor(diff / 60000);
   const hrs = Math.floor(mins / 60);
   const days = Math.floor(hrs / 24);
-  if (days > 0) return `${days}d ago`;
-  if (hrs > 0) return `${hrs}h ago`;
-  if (mins > 0) return `${mins}m ago`;
+  if (days > 0) { return `${days}d ago`; }
+  if (hrs > 0) { return `${hrs}h ago`; }
+  if (mins > 0) { return `${mins}m ago`; }
   return 'Just now';
 }
-
 
 export function ChatInbox({ topics, initConvos, userAddr }: Props) {
   const [convos, setConvos] = useState(initConvos);
@@ -110,43 +106,41 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
   useChatSSE({ enabled: true, mode: 'user', onEvent: handleSSE });
 
   const handleSend = useCallback((content: string, turnstileToken: string) => {
-    if (!content || !selected || isPending) return;
-    startTransition(() => {
-      void (async () => {
-        const msg = await sendMessageAction(selected, content, turnstileToken);
-        if (msg) setMsgs(prev => [...prev, msg]);
-      })();
-    });
+    if (!content || !selected || isPending) { return; }
+    const doSend = async () => {
+      const msg = await sendMessageAction(selected, content, turnstileToken);
+      if (msg) { setMsgs(prev => [...prev, msg]); }
+    };
+    startTransition(() => { void doSend(); });
   }, [selected, isPending]);
 
   const handleResolve = useCallback(() => {
-    if (!selected || isPending) return;
-    startTransition(() => {
-      void (async () => {
-        const updated = await updateConversationStatusAction(selected, 'resolved');
-        if (updated) setConvos(prev => prev.map(c => (c.id === selected ? updated : c)));
-      })();
-    });
+    if (!selected || isPending) { return; }
+    const doResolve = async () => {
+      const updated = await updateConversationStatusAction(selected, 'resolved');
+      if (updated) { setConvos(prev => prev.map(c => (c.id === selected ? updated : c))); }
+    };
+    startTransition(() => { void doResolve(); });
   }, [selected, isPending]);
 
   const handleTyping = useCallback((isTyping: boolean) => {
-    if (!selected) return;
+    if (!selected) { return; }
     void notifyTypingAction(selected, isTyping);
   }, [selected]);
 
   const handleUpload = useCallback((file: File) => {
-    if (!selected) return;
+    if (!selected) { return; }
     void (async () => {
       const formData = new FormData();
       formData.append('file', file);
       const msg = await uploadAttachmentAction(selected, formData);
-      if (msg) setMsgs(prev => [...prev, msg]);
+      if (msg) { setMsgs(prev => [...prev, msg]); }
     })();
   }, [selected]);
 
   const handleCreate = useCallback(
-    async (topicId: string, subject: string, message: string, turnstileToken?: string, file?: File) => {
-      const convo = await createConversationAction(topicId, subject, message, turnstileToken);
+    async ({ topicId, subject, message, turnstileToken, file }: { topicId: string; subject: string; message: string; turnstileToken?: string; file?: File }) => {
+      const convo = await createConversationAction({ topicId, subject, message, turnstileToken });
       if (convo) {
         if (file) {
           const formData = new FormData();
@@ -169,8 +163,8 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
   }, []);
 
   const filtered = convos.filter(c => {
-    if (statusFilter !== '' && c.status !== statusFilter) return false;
-    if (topicFilter !== '' && c.topic_id !== topicFilter) return false;
+    if (statusFilter !== '' && c.status !== statusFilter) { return false; }
+    if (topicFilter !== '' && c.topic_id !== topicFilter) { return false; }
     return true;
   });
 
@@ -182,35 +176,34 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
     selectedConv.status !== 'closed';
 
   return (
-    <div className="h-[calc(100vh-8rem)] md:h-[calc(100vh-12rem)] flex flex-col md:flex-row md:gap-4">
+    <div className="h-[calc(100vh-5rem)] md:h-[calc(100vh-6rem)] flex flex-col md:flex-row md:gap-3">
       {/* Left: Conversation List */}
-      <div className={`w-full md:w-[360px] md:flex-shrink-0 flex flex-col ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>
+      <div className={`w-full md:w-[320px] md:flex-shrink-0 flex flex-col bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>
         {/* Panel Header */}
-        <div className="flex items-center justify-between mb-3 px-1">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm shadow-blue-500/20 shrink-0">
-              <Headset className="w-4 h-4 text-white" />
+        <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-200 dark:border-slate-700">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm shadow-blue-500/20 shrink-0">
+              <Headset className="w-3.5 h-3.5 text-white" />
             </div>
             <div>
-              <h2 className="font-bold text-sm tracking-tight">Support</h2>
-              <div className="flex items-center gap-1 mt-0.5">
+              <h2 className="font-bold text-sm tracking-tight leading-tight">Support</h2>
+              <div className="flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                 <span className="text-[10px] text-muted-foreground/60">Online</span>
               </div>
             </div>
           </div>
-          <span className="text-[10px] font-medium text-muted-foreground/40 bg-slate-100 dark:bg-slate-800/60 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
-            {filtered.length} {filtered.length === 1 ? 'thread' : 'threads'}
+          <span className="text-[10px] font-medium text-muted-foreground/40 bg-slate-100 dark:bg-slate-800/60 px-1.5 py-0.5 rounded-md">
+            {filtered.length}
           </span>
         </div>
 
         {/* Filter Bar */}
-        <div className="flex items-center gap-2 mb-3 p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
-          <SlidersHorizontal className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+        <div className="flex items-center gap-1.5 px-2.5 py-2 border-b border-slate-100 dark:border-slate-800">
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
-            className="flex-1 px-2.5 py-1.5 text-xs font-medium bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-white/8 rounded-lg text-foreground focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all cursor-pointer"
+            className="flex-1 px-2 py-1 text-[11px] font-medium bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-white/8 rounded-lg text-foreground focus:outline-none focus:border-blue-500/50 transition-all cursor-pointer"
           >
             <option value="">All Status</option>
             <option value="open">Open</option>
@@ -221,7 +214,7 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
           <select
             value={topicFilter}
             onChange={e => setTopicFilter(e.target.value)}
-            className="flex-1 px-2.5 py-1.5 text-xs font-medium bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-white/8 rounded-lg text-foreground focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all cursor-pointer"
+            className="flex-1 px-2 py-1 text-[11px] font-medium bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-white/8 rounded-lg text-foreground focus:outline-none focus:border-blue-500/50 transition-all cursor-pointer"
           >
             <option value="">All Topics</option>
             {topics.map(t => (
@@ -233,14 +226,14 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
         </div>
 
         {/* Cards */}
-        <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto scrollbar-thin">
           {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800/40 flex items-center justify-center mb-3 border border-slate-200 dark:border-slate-700">
-                <Inbox className="w-6 h-6 text-muted-foreground/40" />
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800/40 flex items-center justify-center mb-2">
+                <Inbox className="w-5 h-5 text-muted-foreground/40" />
               </div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">No conversations</p>
-              <p className="text-xs text-muted-foreground/50">Start a new conversation below</p>
+              <p className="text-xs font-medium text-muted-foreground mb-0.5">No conversations</p>
+              <p className="text-[10px] text-muted-foreground/50">Start a new one below</p>
             </div>
           ) : (
             filtered.map(c => {
@@ -255,35 +248,29 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
                     setShowNew(false);
                     setMobileView('chat');
                   }}
-                  className={`w-full text-left p-3.5 rounded-xl transition-all ${isSel
-                    ? 'bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/25 border-l-2 border-l-blue-500 shadow-sm shadow-blue-500/5'
-                    : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700'
+                  className={`w-full text-left px-3 py-2.5 border-b border-slate-100 dark:border-slate-800 transition-all ${isSel
+                    ? 'bg-blue-50 dark:bg-blue-500/10 border-l-2 border-l-blue-500'
+                    : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
                     }`}
                 >
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <p
-                      className={`text-sm leading-snug line-clamp-1 ${unread ? 'font-bold' : 'font-semibold text-foreground/80'}`}
-                    >
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <p className={`text-[13px] leading-snug line-clamp-1 ${unread ? 'font-bold' : 'font-medium text-foreground/80'}`}>
                       {c.subject}
                     </p>
                     {unread && (
-                      <div className="flex-shrink-0 min-w-[22px] h-[22px] px-1 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white text-[10px] font-bold flex items-center justify-center shadow-sm shadow-blue-500/30">
+                      <div className="flex-shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-white text-[9px] font-bold flex items-center justify-center">
                         {c.unread_user > 9 ? '9+' : c.unread_user}
                       </div>
                     )}
                   </div>
-                  {topic && (
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <Tag className="w-3 h-3 text-blue-400" />
-                      <span className="text-[11px] font-semibold text-blue-400">{topic.label}</span>
-                    </div>
-                  )}
                   <div className="flex items-center justify-between">
-                    <ChatStatusBadge status={c.status} />
-                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
-                      <Clock className="w-2.5 h-2.5" />
-                      {timeAgo(c.last_message_at)}
+                    <div className="flex items-center gap-2">
+                      <ChatStatusBadge status={c.status} />
+                      {topic && (
+                        <span className="text-[10px] font-medium text-blue-400">{topic.label}</span>
+                      )}
                     </div>
+                    <span className="text-[10px] text-muted-foreground/50">{timeAgo(c.last_message_at)}</span>
                   </div>
                 </button>
               );
@@ -292,21 +279,23 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
         </div>
 
         {/* New Conversation */}
-        <button
-          onClick={() => {
-            setShowNew(true);
-            setSelected(null);
-            setMobileView('chat');
-          }}
-          className="mt-3 w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold text-sm hover:from-blue-400 hover:to-blue-500 transition-all shadow-sm shadow-blue-500/20 flex items-center justify-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          New Conversation
-        </button>
+        <div className="p-2 border-t border-slate-200 dark:border-slate-700">
+          <button
+            onClick={() => {
+              setShowNew(true);
+              setSelected(null);
+              setMobileView('chat');
+            }}
+            className="w-full py-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold text-xs hover:from-blue-400 hover:to-blue-500 transition-all shadow-sm shadow-blue-500/20 flex items-center justify-center gap-1.5"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            New Conversation
+          </button>
+        </div>
       </div>
 
       {/* Right: Conversation View */}
-      <div className={`flex-1 border border-slate-200 dark:border-slate-700 rounded-2xl bg-white dark:bg-slate-900/80 overflow-hidden flex flex-col ${mobileView === 'list' ? 'hidden md:flex' : 'flex'}`}>
+      <div className={`flex-1 min-w-0 border border-slate-200 dark:border-slate-700 rounded-2xl bg-white dark:bg-slate-900/80 overflow-hidden flex flex-col ${mobileView === 'list' ? 'hidden md:flex' : 'flex'}`}>
         {showNew ? (
           <div className="flex-1 flex flex-col overflow-hidden">
             <button
@@ -382,18 +371,11 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
           </>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center px-8">
-            <div className="relative mb-6">
-              <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border border-blue-500/15 flex items-center justify-center">
-                <MessageCircle className="w-10 h-10 text-blue-400/40" />
-              </div>
-              <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm shadow-blue-500/30">
-                <span className="text-white text-[8px] font-bold">?</span>
-              </div>
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border border-blue-500/15 flex items-center justify-center mb-3">
+              <MessageCircle className="w-7 h-7 text-blue-400/30" />
             </div>
-            <p className="text-sm font-semibold text-foreground/70 mb-1.5">Select a conversation</p>
-            <p className="text-xs text-muted-foreground/40 leading-relaxed max-w-[180px]">
-              Choose from the left panel to view messages
-            </p>
+            <p className="text-sm font-medium text-foreground/60 mb-1">Select a conversation</p>
+            <p className="text-[11px] text-muted-foreground/40">Choose from the left panel</p>
           </div>
         )}
       </div>

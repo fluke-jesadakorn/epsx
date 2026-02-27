@@ -137,11 +137,11 @@ export class SupportChatApi {
     agent?: string;
   }): Promise<ApiResponse<ChatConversation[]>> {
     const searchParams = new URLSearchParams();
-    if (params?.status) searchParams.set('status', params.status);
-    if (params?.topic_id) searchParams.set('topic_id', params.topic_id);
-    if (params?.agent) searchParams.set('agent', params.agent);
+    if (params?.status !== undefined && params.status !== '') { searchParams.set('status', params.status); }
+    if (params?.topic_id !== undefined && params.topic_id !== '') { searchParams.set('topic_id', params.topic_id); }
+    if (params?.agent !== undefined && params.agent !== '') { searchParams.set('agent', params.agent); }
     const qs = searchParams.toString();
-    return this.client.get(`/api/admin/chat/conversations${qs ? `?${qs}` : ''}`);
+    return this.client.get(`/api/admin/chat/conversations${qs !== '' ? `?${qs}` : ''}`);
   }
 
   async adminGetConversation(id: string): Promise<ApiResponse<ChatConversation>> {

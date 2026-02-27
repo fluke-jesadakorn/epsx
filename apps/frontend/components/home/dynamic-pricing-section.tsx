@@ -1,5 +1,6 @@
  
 import { getPublicPlansAction } from '@/app/actions/plans';
+import { fmtAmt } from '@/shared/utils/formatting/currency';
 import type { PricingCardData } from '@/shared/types/plans';
 import { DynamicPricingClient } from './dynamic-pricing-client';
 
@@ -67,14 +68,14 @@ export default async function DynamicPricingSection({ initialAffiliateCode }: Dy
       const transformToPricingCard = (plan: typeof planData[number]): PricingCardData => ({
         id: plan.id,
         title: plan.name,
-        price: plan.effectivePrice === 0 ? 'Free' : `$${plan.effectivePrice.toFixed(2)} ${plan.currency}`,
-        originalPrice: plan.hasPromo ? `$${plan.basePrice.toFixed(2)} ${plan.currency}` : undefined,
+        price: plan.effectivePrice === 0 ? 'Free' : `$${fmtAmt(plan.effectivePrice)} ${plan.currency}`,
+        originalPrice: plan.hasPromo ? `$${fmtAmt(plan.basePrice)} ${plan.currency}` : undefined,
         features: plan.features.map((feature: string) => ({ text: feature, included: true })),
         highlight: plan.isHighlighted,
         buttonText: plan.effectivePrice === 0 ? 'Start Free' : 'Get Started',
         promotions: plan.hasPromo ? [`${Math.round(plan.promoDiscount)}% OFF`] : [],
         badges: [],
-        savings: plan.hasPromo ? `Save $${(plan.basePrice - plan.effectivePrice).toFixed(2)}` : undefined,
+        savings: plan.hasPromo ? `Save $${fmtAmt(plan.basePrice - plan.effectivePrice)}` : undefined,
         promotion_ends_at: plan.hasPromo ? plan.promoEndsAt : undefined,
       });
 

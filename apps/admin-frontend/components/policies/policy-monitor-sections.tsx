@@ -207,8 +207,8 @@ export function StatsOverview({ stats }: StatsOverviewProps) {
 }
 
 function getDecisionBadge(decision: string) {
-  const _color = DECISION_COLORS[decision as keyof typeof DECISION_COLORS] ?? 'gray';
-  const Icon = DECISION_ICONS[decision as keyof typeof DECISION_ICONS] ?? ActivityIcon;
+  const _color = DECISION_COLORS[decision as keyof typeof DECISION_COLORS] as string | undefined ?? 'gray';
+  const Icon = DECISION_ICONS[decision as keyof typeof DECISION_ICONS] as typeof ActivityIcon | undefined ?? ActivityIcon;
 
   let variant: "default" | "destructive" | "outline" | "secondary" = "outline";
   if (decision === 'allow') { variant = 'default'; }
@@ -385,7 +385,7 @@ export function ChartsGrid({ stats }: ChartsGridProps) {
         <div className="p-5 space-y-3">
           {Object.entries(stats.decision_breakdown).map(([decision, count]) => {
             const percentage = calculatePercentage(count, stats.evaluations_24h);
-            const Icon = DECISION_ICONS[decision as keyof typeof DECISION_ICONS] ?? ActivityIcon;
+            const Icon = DECISION_ICONS[decision as keyof typeof DECISION_ICONS] as typeof ActivityIcon | undefined ?? ActivityIcon;
 
             return (
               <div key={decision} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">

@@ -12,7 +12,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { type PermissionDefinition } from '@/lib/api/permissions-client';
-import { logger } from '@/shared/utils/logger';
+import { type PermissionPlan } from '@/lib/api/plan-management-client';
+import { logger } from '@/lib/logger';
 
 import { categoryBadgeClass, FREE_PLAN_ID, isSystemPlan } from './types';
 
@@ -24,16 +25,94 @@ interface Props {
     planId: string | null;
     onClose: () => void;
     onPlanUpdated: () => void;
-    onDuplicate?: (plan: import('@/lib/api/plan-management-client').PermissionPlan) => void;
+    onDuplicate?: (plan: PermissionPlan) => void;
 }
 
-// eslint-disable-next-line max-lines-per-function -- sidebar panel wrapper
+interface DrawerHeaderProps {
+    planId: string | null;
+    selectedPlan: PermissionPlan | null;
+    form: { plan_category: string; is_active: boolean };
+    hasChanges: boolean;
+    isSaving: boolean;
+    onClose: () => void;
+    onDiscard: () => void;
+    onSave: () => void;
+    onDelete: (plan: PermissionPlan) => void;
+    onDuplicate?: (plan: PermissionPlan) => void;
+}
+
+function DrawerHeader({ planId, selectedPlan, form, hasChanges, isSaving, onClose, onDiscard, onSave, onDelete, onDuplicate }: DrawerHeaderProps) {
+    return (
+        <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-border/20 shrink-0 gap-2">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                {selectedPlan !== null ? (
+                    <>
+                        <div className="h-8 w-8 rounded-lg bg-[#1fc7d4]/20 flex items-center justify-center shrink-0">
+                            <Package className="w-4 h-4 text-[#1fc7d4]" />
+                        </div>
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                                <span className="text-sm font-medium truncate max-w-[120px] sm:max-w-none">{selectedPlan.name}</span>
+                                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${categoryBadgeClass(form.plan_category)}`}>
+                                    {form.plan_category}
+                                </Badge>
+                                {isSystemPlan(selectedPlan) && (
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 bg-purple-500/15 text-purple-400 border-purple-500/30">
+                                        <Shield className="w-2.5 h-2.5 mr-1" />
+                                        System
+                                    </Badge>
+                                )}
+                                {form.is_active === false && (
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 bg-red-500/15 text-red-400 border-red-500/30">
+                                        inactive
+                                    </Badge>
+                                )}
+                            </div>
+                            <p className="text-[11px] text-muted-foreground font-mono truncate">
+                                {selectedPlan.slug}
+                            </p>
+                        </div>
+                    </>
+                ) : (
+                    <span className="text-xs text-muted-foreground font-mono truncate">{planId}</span>
+                )}
+            </div>
+            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                {selectedPlan !== null && (
+                    <>
+                        {isSystemPlan(selectedPlan) ? (
+                            <Button variant="ghost" className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10" size="sm" onClick={() => onDuplicate?.(selectedPlan)}>
+                                <Copy className="w-3.5 h-3.5 sm:mr-1.5" />
+                                <span className="hidden sm:inline">Template</span>
+                            </Button>
+                        ) : selectedPlan.id !== FREE_PLAN_ID && (
+                            <Button variant="ghost" className="text-red-400 hover:text-red-300 hover:bg-red-500/10" size="sm" onClick={() => onDelete(selectedPlan)}>
+                                <Trash2 className="w-3.5 h-3.5 sm:mr-1.5" />
+                                <span className="hidden sm:inline">Delete</span>
+                            </Button>
+                        )}
+                        <Button variant="ghost" size="sm" onClick={onDiscard} disabled={!hasChanges || isSaving} className="text-muted-foreground hover:text-foreground">
+                            <RotateCcw className="w-3.5 h-3.5 sm:mr-1.5" />
+                            <span className="hidden sm:inline">Discard</span>
+                        </Button>
+                        <Button size="sm" onClick={onSave} disabled={!hasChanges || isSaving} className="bg-[#1fc7d4] text-white hover:bg-[#1fc7d4]/90">
+                            {isSaving && <Loader2 className="w-3 h-3 animate-spin mr-1.5" />}
+                            Save
+                        </Button>
+                    </>
+                )}
+                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onClose}>
+                    <X className="h-4 w-4" />
+                </Button>
+            </div>
+        </div>
+    );
+}
+
 export function PlanEditorDrawer({ planId, onClose, onPlanUpdated, onDuplicate }: Props) {
     const [permissions, setPermissions] = useState<PermissionDefinition[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [deleteTarget, setDeleteTarget] = useState<
-        Parameters<typeof DeletePlanDialog>[0]['planToDelete']
-    >(null);
+    const [deleteTarget, setDeleteTarget] = useState<Parameters<typeof DeletePlanDialog>[0]['planToDelete']>(null);
 
     const {
         selectedPlan,
@@ -48,7 +127,7 @@ export function PlanEditorDrawer({ planId, onClose, onPlanUpdated, onDuplicate }
     } = usePlanEditForm();
 
     useEffect(() => {
-        if (!planId) {return;}
+        if (planId === null) { return; }
         void (async () => {
             setIsLoading(true);
             try {
@@ -56,12 +135,12 @@ export function PlanEditorDrawer({ planId, onClose, onPlanUpdated, onDuplicate }
                     getPermissionsAction(),
                     getPlansAction(),
                 ]);
-                if (permRes.success && permRes.data) {
+                if (permRes.success && permRes.data !== undefined) {
                     setPermissions(permRes.data);
                 }
                 if (Array.isArray(planRes)) {
                     const plan = planRes.find((p) => p.id === planId);
-                    if (plan) {
+                    if (plan !== undefined) {
                         selectPlan(plan);
                     } else {
                         toast.error('Plan not found');
@@ -69,20 +148,16 @@ export function PlanEditorDrawer({ planId, onClose, onPlanUpdated, onDuplicate }
                     }
                 }
             } catch (error: unknown) {
-                logger.error(
-                    'Failed to load plan:',
-                    error instanceof Error ? error.message : String(error)
-                );
+                logger.error('Failed to load plan:', error instanceof Error ? error.message : String(error));
                 toast.error('Failed to load plan data');
             } finally {
                 setIsLoading(false);
             }
         })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- load when planId changes
-    }, [planId]);
+    }, [planId, selectPlan, onClose]);
 
     const handleDelete = async () => {
-        if (!deleteTarget) {return;}
+        if (deleteTarget === null) { return; }
         try {
             await deletePlanAction(deleteTarget.id);
             toast.success('Plan deleted');
@@ -96,94 +171,37 @@ export function PlanEditorDrawer({ planId, onClose, onPlanUpdated, onDuplicate }
     const reloadPermissions = async () => {
         try {
             const res = await getPermissionsAction();
-            if (res.success && res.data) {
+            if (res.success && res.data !== undefined) {
                 setPermissions(res.data);
             }
-        } catch (_) {
+        } catch {
             // ignore
         }
     };
 
     const handleSave = () => {
-        void savePlan([], () => {}).then(() => {
+        void (async () => {
+            await savePlan([], () => {});
             onPlanUpdated();
-        });
+        })();
     };
 
     return (
         <>
-            {/* Backdrop */}
-            <div
-                className="fixed inset-0 z-40 bg-black/50 animate-in fade-in duration-200"
-                onClick={onClose}
-            />
-            {/* Drawer */}
+            <div className="fixed inset-0 z-40 bg-black/50 animate-in fade-in duration-200" onClick={onClose} />
             <div className="fixed inset-y-0 right-0 z-50 w-full max-w-full sm:max-w-xl flex flex-col bg-card border-l border-border/20 shadow-2xl animate-in slide-in-from-right duration-300">
-                <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-border/20 shrink-0 gap-2">
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                        {selectedPlan != null ? (
-                            <>
-                                <div className="h-8 w-8 rounded-lg bg-[#1fc7d4]/20 flex items-center justify-center shrink-0">
-                                    <Package className="w-4 h-4 text-[#1fc7d4]" />
-                                </div>
-                                <div className="min-w-0">
-                                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                                        <span className="text-sm font-medium truncate max-w-[120px] sm:max-w-none">{selectedPlan.name}</span>
-                                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${categoryBadgeClass(form.plan_category)}`}>
-                                            {form.plan_category}
-                                        </Badge>
-                                        {isSystemPlan(selectedPlan) && (
-                                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 bg-purple-500/15 text-purple-400 border-purple-500/30">
-                                                <Shield className="w-2.5 h-2.5 mr-1" />
-                                                System
-                                            </Badge>
-                                        )}
-                                        {!form.is_active && (
-                                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 bg-red-500/15 text-red-400 border-red-500/30">
-                                                inactive
-                                            </Badge>
-                                        )}
-                                    </div>
-                                    <p className="text-[11px] text-muted-foreground font-mono truncate">
-                                        {selectedPlan.slug ?? selectedPlan.id}
-                                    </p>
-                                </div>
-                            </>
-                        ) : (
-                            <span className="text-xs text-muted-foreground font-mono truncate">
-                                {planId}
-                            </span>
-                        )}
-                    </div>
-                    <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-                        {selectedPlan != null && (
-                            <>
-                                {isSystemPlan(selectedPlan) ? (
-                                    <Button variant="ghost" className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10" size="sm" onClick={() => onDuplicate?.(selectedPlan)}>
-                                        <Copy className="w-3.5 h-3.5 sm:mr-1.5" />
-                                        <span className="hidden sm:inline">Template</span>
-                                    </Button>
-                                ) : selectedPlan.id !== FREE_PLAN_ID && (
-                                    <Button variant="ghost" className="text-red-400 hover:text-red-300 hover:bg-red-500/10" size="sm" onClick={() => setDeleteTarget(selectedPlan)}>
-                                        <Trash2 className="w-3.5 h-3.5 sm:mr-1.5" />
-                                        <span className="hidden sm:inline">Delete</span>
-                                    </Button>
-                                )}
-                                <Button variant="ghost" size="sm" onClick={discardChanges} disabled={!hasChanges || isSaving} className="text-muted-foreground hover:text-foreground">
-                                    <RotateCcw className="w-3.5 h-3.5 sm:mr-1.5" />
-                                    <span className="hidden sm:inline">Discard</span>
-                                </Button>
-                                <Button size="sm" onClick={handleSave} disabled={!hasChanges || isSaving} className="bg-[#1fc7d4] text-white hover:bg-[#1fc7d4]/90">
-                                    {isSaving && <Loader2 className="w-3 h-3 animate-spin mr-1.5" />}
-                                    Save
-                                </Button>
-                            </>
-                        )}
-                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onClose}>
-                            <X className="h-4 w-4" />
-                        </Button>
-                    </div>
-                </div>
+                <DrawerHeader
+                    planId={planId}
+                    selectedPlan={selectedPlan}
+                    form={form}
+                    hasChanges={hasChanges}
+                    isSaving={isSaving}
+                    onClose={onClose}
+                    onDiscard={discardChanges}
+                    onSave={handleSave}
+                    onDelete={setDeleteTarget}
+                    onDuplicate={onDuplicate}
+                />
                 {isLoading ? (
                     <div className="flex-1 flex items-center justify-center">
                         <Loader2 className="animate-spin" />
@@ -204,9 +222,7 @@ export function PlanEditorDrawer({ planId, onClose, onPlanUpdated, onDuplicate }
             <DeletePlanDialog
                 planToDelete={deleteTarget}
                 onClose={() => setDeleteTarget(null)}
-                onConfirm={() => {
-                    void handleDelete();
-                }}
+                onConfirm={() => { void handleDelete(); }}
             />
         </>
     );

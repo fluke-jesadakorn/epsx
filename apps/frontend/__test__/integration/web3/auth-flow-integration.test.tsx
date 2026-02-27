@@ -1,5 +1,5 @@
 import { testApiHandler } from 'next-test-api-route-handler';
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 // Mock the auth handlers that would normally be in app/api/auth/web3/
@@ -23,7 +23,7 @@ const mockWeb3ChallengeHandler = async (req: NextRequest) => {
 
   // Simulate successful challenge generation
   return NextResponse.json({
-    nonce: `test_nonce_${  Date.now()}`,
+    nonce: `test_nonce_${Date.now()}`,
     message: `epsx.io wants you to sign in with your Ethereum account:\n${body.wallet_address}\n\nSign in to EPSX analytics platform\n\nURI: https://epsx.io\nVersion: 1\nChain ID: 1\nNonce: test_nonce_${Date.now()}\nIssued At: ${new Date().toISOString()}`,
     expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString()
   });
@@ -94,7 +94,7 @@ const mockWeb3PermissionsHandler = async (req: NextRequest) => {
   }
 
   // Simulate different permission sets based on wallet
-  let permissions = [];
+  let permissions: { permission: string; permission_type: string; granted_at: string; is_active: boolean }[];
   if (walletAddress.includes('nft')) {
     permissions = [
       { permission: 'nft:holder:access', permission_type: 'nft_gated', granted_at: new Date().toISOString(), is_active: true },

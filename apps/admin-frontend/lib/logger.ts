@@ -1,128 +1,61 @@
 /**
- * Centralized logging service for admin frontend
- * Replaces console.log statements with structured logging
+ * Admin frontend logger — wraps shared logger with domain methods
  */
+import { logger as sharedLogger } from '@/shared/utils/logger'
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error'
+type LogContext = Record<string, unknown>
 
-interface LogContext {
-  [key: string]: unknown
+interface FwdOpts {
+  level: 'debug' | 'info' | 'warn' | 'error'
+  tag: string
+  message: string
 }
 
-class Logger {
-  private isDevelopment = process.env.NODE_ENV === 'development'
-  private minLevel: LogLevel = this.isDevelopment ? 'debug' : 'info'
+function isContext(arg: unknown): arg is LogContext {
+  return typeof arg === 'object' && arg !== null && !Array.isArray(arg)
+}
 
-  private levels: Record<LogLevel, number> = {
-    debug: 0,
-    info: 1,
-    warn: 2,
-    error: 3
+function fwd(opts: FwdOpts, args: unknown[]): void {
+  const prefix = opts.tag ? `[${opts.tag}] ${opts.message}` : opts.message
+  if (args.length === 1 && isContext(args[0])) {
+    sharedLogger[opts.level](prefix, args[0])
+  } else if (args.length > 0) {
+    sharedLogger[opts.level](prefix, ...args)
+  } else {
+    sharedLogger[opts.level](prefix)
   }
+}
 
-  private shouldLog(level: LogLevel): boolean {
-    return this.levels[level] >= this.levels[this.minLevel]
-  }
+class AdminLogger {
+  debug(message: string, ...args: unknown[]): void { fwd({ level: 'debug', tag: '', message }, args) }
+  info(message: string, ...args: unknown[]): void { fwd({ level: 'info', tag: '', message }, args) }
+  warn(message: string, ...args: unknown[]): void { fwd({ level: 'warn', tag: '', message }, args) }
+  error(message: string, ...args: unknown[]): void { fwd({ level: 'error', tag: '', message }, args) }
 
-  private formatMessage(level: LogLevel, message: string, context?: LogContext): string {
-    const timestamp = new Date().toISOString()
-    const contextStr = context ? ` ${JSON.stringify(context)}` : ''
-    return `[${timestamp}] [${level.toUpperCase()}] ${message}${contextStr}`
-  }
-
-  private log(level: LogLevel, message: string, context?: LogContext): void {
-    if (!this.shouldLog(level)) { return }
-
-    const formattedMessage = this.formatMessage(level, message, context)
-
-    switch (level) {
-      case 'debug':
-        // eslint-disable-next-line no-console
-        console.debug(formattedMessage)
-        break
-      case 'info':
-        // eslint-disable-next-line no-console
-        console.info(formattedMessage)
-        break
-      case 'warn':
-        // eslint-disable-next-line no-console
-        console.warn(formattedMessage)
-        break
-      case 'error':
-        // eslint-disable-next-line no-console
-        console.error(formattedMessage)
-        break
-    }
-  }
-
-  debug(message: string, context?: LogContext): void {
-    this.log('debug', message, context)
-  }
-
-  info(message: string, context?: LogContext): void {
-    this.log('info', message, context)
-  }
-
-  warn(message: string, context?: LogContext): void {
-    this.log('warn', message, context)
-  }
-
-  error(message: string, context?: LogContext): void {
-    this.log('error', message, context)
-  }
-
-  // Auth-specific logging helpers
   auth = {
-    login: (message: string, context?: LogContext) =>
-      this.info(`🔐 [AUTH] ${message}`, { ...context, component: 'auth' }),
-
-    logout: (message: string, context?: LogContext) =>
-      this.info(`🚪 [AUTH] ${message}`, { ...context, component: 'auth' }),
-
-    error: (message: string, context?: LogContext) =>
-      this.error(`🚨 [AUTH] ${message}`, { ...context, component: 'auth' }),
-
-    success: (message: string, context?: LogContext) =>
-      this.info(`✅ [AUTH] ${message}`, { ...context, component: 'auth' })
+    login: (message: string, ctx?: LogContext) => fwd({ level: 'info', tag: 'AUTH', message }, ctx ? [{ ...ctx, component: 'auth' }] : [{ component: 'auth' }]),
+    logout: (message: string, ctx?: LogContext) => fwd({ level: 'info', tag: 'AUTH', message }, ctx ? [{ ...ctx, component: 'auth' }] : [{ component: 'auth' }]),
+    error: (message: string, ctx?: LogContext) => fwd({ level: 'error', tag: 'AUTH', message }, ctx ? [{ ...ctx, component: 'auth' }] : [{ component: 'auth' }]),
+    success: (message: string, ctx?: LogContext) => fwd({ level: 'info', tag: 'AUTH', message }, ctx ? [{ ...ctx, component: 'auth' }] : [{ component: 'auth' }]),
   }
 
-  // Server action logging helpers
   action = {
-    start: (action: string, context?: LogContext) =>
-      this.debug(`▶️ [ACTION] Starting ${action}`, { ...context, action }),
-
-    success: (action: string, context?: LogContext) =>
-      this.info(`✅ [ACTION] ${action} completed successfully`, { ...context, action }),
-
-    error: (action: string, error: unknown, context?: LogContext) =>
-      this.error(`❌ [ACTION] ${action} failed`, {
-        ...context,
+    start: (action: string, ctx?: LogContext) => fwd({ level: 'debug', tag: 'ACTION', message: `Starting ${action}` }, ctx ? [{ ...ctx, action }] : [{ action }]),
+    success: (action: string, ctx?: LogContext) => fwd({ level: 'info', tag: 'ACTION', message: `${action} completed` }, ctx ? [{ ...ctx, action }] : [{ action }]),
+    error: (action: string, error: unknown, ctx?: LogContext) =>
+      fwd({ level: 'error', tag: 'ACTION', message: `${action} failed` }, [{
+        ...ctx,
         action,
-        error: error instanceof Error ? error.message : String(error)
-      })
+        error: error instanceof Error ? error.message : String(error),
+      }]),
   }
 
-  // Admin operations logging
   admin = {
-    userOperation: (operation: string, context?: LogContext) =>
-      this.info(`👤 [ADMIN] User ${operation}`, { ...context, component: 'admin-users' }),
-
-    permission: (operation: string, context?: LogContext) =>
-      this.info(`🔑 [ADMIN] Permission ${operation}`, { ...context, component: 'admin-permissions' }),
-
-    audit: (operation: string, context?: LogContext) =>
-      this.info(`📋 [AUDIT] ${operation}`, { ...context, component: 'audit' })
+    userOperation: (op: string, ctx?: LogContext) => fwd({ level: 'info', tag: 'ADMIN', message: `User ${op}` }, ctx ? [{ ...ctx, component: 'admin-users' }] : [{ component: 'admin-users' }]),
+    permission: (op: string, ctx?: LogContext) => fwd({ level: 'info', tag: 'ADMIN', message: `Permission ${op}` }, ctx ? [{ ...ctx, component: 'admin-permissions' }] : [{ component: 'admin-permissions' }]),
+    audit: (op: string, ctx?: LogContext) => fwd({ level: 'info', tag: 'AUDIT', message: op }, ctx ? [{ ...ctx, component: 'audit' }] : [{ component: 'audit' }]),
   }
 }
 
-// Export singleton instance
-export const logger = new Logger()
-
-// Export types for use in components
-export type { LogContext, LogLevel }
-
-// Legacy console replacement - helps with gradual migration
-export const consoleLog = logger.debug
-export const consoleInfo = logger.info
-export const consoleWarn = logger.warn
-export const consoleError = logger.error
+export const logger = new AdminLogger()
+export type { LogContext }

@@ -25,6 +25,12 @@ import type {
 import { mapWalletDtoToData } from '@/lib/mappers/wallet';
 
 // ============================================================================
+// CONSTANTS
+// ============================================================================
+
+const WALLET_MGMT_ROUTE = '/wallet-management';
+
+// ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
@@ -93,7 +99,7 @@ export async function getUserPermissionsAction(userId: string): Promise<string[]
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.get<string[]>(`/api/auth/web3/plans/permissions/${userId}`);
     if (!res.success) {
-        redirectOnForbidden(res, '/wallet-management');
+        redirectOnForbidden(res, WALLET_MGMT_ROUTE);
         if (res.error?.code === '404') { return []; }
     }
     return res.data ?? [];
@@ -106,7 +112,7 @@ export async function grantPermissionAction(walletAddress: string, permission: s
         permission_string: permission,
         expires_at: expiresAt,
     });
-    if (!res.success) { redirectOnForbidden(res, '/wallet-management'); throw new Error(res.error?.message ?? 'Failed to grant permission'); }
+    if (!res.success) { redirectOnForbidden(res, WALLET_MGMT_ROUTE); throw new Error(res.error?.message ?? 'Failed to grant permission'); }
 }
 
 export async function revokePermissionAction(walletAddress: string, permission: string) {
@@ -116,7 +122,7 @@ export async function revokePermissionAction(walletAddress: string, permission: 
         wallet_address: walletAddress,
         permission_string: permission,
     });
-    if (!res.success) { redirectOnForbidden(res, '/wallet-management'); throw new Error(res.error?.message ?? 'Failed to revoke permission'); }
+    if (!res.success) { redirectOnForbidden(res, WALLET_MGMT_ROUTE); throw new Error(res.error?.message ?? 'Failed to revoke permission'); }
 }
 
 export async function assignUserToPlanAction(userId: string, planId: string, expiresAt?: string | null) {
@@ -127,7 +133,7 @@ export async function assignUserToPlanAction(userId: string, planId: string, exp
         expires_at: expiresAt,
         assignment_source: 'manual',
     });
-    if (!res.success) { redirectOnForbidden(res, '/wallet-management'); throw new Error(res.error?.message ?? 'Failed to assign plan'); }
+    if (!res.success) { redirectOnForbidden(res, WALLET_MGMT_ROUTE); throw new Error(res.error?.message ?? 'Failed to assign plan'); }
 }
 
 export async function removeUserFromPlanAction(userId: string, planId: string) {
@@ -139,7 +145,7 @@ export async function removeUserFromPlanAction(userId: string, planId: string) {
 
     if (assignment) {
         const res = await apiClient.delete(`${API_ROUTES.ADMIN.PERMISSION_ASSIGNMENTS}/${assignment.id}`);
-        if (!res.success) { redirectOnForbidden(res, '/wallet-management'); throw new Error(res.error?.message ?? 'Failed to remove plan'); }
+        if (!res.success) { redirectOnForbidden(res, WALLET_MGMT_ROUTE); throw new Error(res.error?.message ?? 'Failed to remove plan'); }
     }
 }
 
@@ -153,7 +159,7 @@ export async function updatePlanAction(planId: string, data: UpdatePlanRequest):
 
     const res = await apiClient.put<PermissionPlan>(`${API_ROUTES.PERMISSIONS.PLANS}/${planId}`, payload);
     if (!res.success || !res.data) {
-        redirectOnForbidden(res, '/wallet-management');
+        redirectOnForbidden(res, WALLET_MGMT_ROUTE);
         throw new Error(res.error?.message ?? 'Failed to update plan');
     }
     revalidatePath('/wallet-management/access/plans', 'layout');
@@ -183,7 +189,7 @@ export async function createPlanAction(data: CreatePlanRequest): Promise<Permiss
 
     const res = await apiClient.post<PermissionPlan>(API_ROUTES.PERMISSIONS.PLANS, backendRequest);
     if (!res.success || !res.data) {
-        redirectOnForbidden(res, '/wallet-management');
+        redirectOnForbidden(res, WALLET_MGMT_ROUTE);
         throw new Error(res.error?.message ?? 'Failed to create plan');
     }
 
@@ -194,14 +200,14 @@ export async function createPlanAction(data: CreatePlanRequest): Promise<Permiss
 export async function getPlanAction(planId: string): Promise<PermissionPlan> {
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.get<PermissionPlan>(`${API_ROUTES.PERMISSIONS.PLANS}/${planId}`);
-    if (!res.success || !res.data) { redirectOnForbidden(res, '/wallet-management'); throw new Error(res.error?.message ?? 'Failed to fetch plan'); }
+    if (!res.success || !res.data) { redirectOnForbidden(res, WALLET_MGMT_ROUTE); throw new Error(res.error?.message ?? 'Failed to fetch plan'); }
     return res.data;
 }
 
 export async function deletePlanAction(planId: string) {
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.delete(`${API_ROUTES.PERMISSIONS.PLANS}/${planId}`);
-    if (!res.success) { redirectOnForbidden(res, '/wallet-management'); throw new Error(res.error?.message ?? 'Failed to delete plan'); }
+    if (!res.success) { redirectOnForbidden(res, WALLET_MGMT_ROUTE); throw new Error(res.error?.message ?? 'Failed to delete plan'); }
     revalidatePath('/wallet-management/access/plans');
 }
 
@@ -212,7 +218,7 @@ export async function fetchWalletDetailAction(walletAddress: string): Promise<Wa
     const res = await apiClient.get<Record<string, unknown>>(`/api/admin/wallets/${walletAddress}`);
 
     if (!res.success || !res.data) {
-        redirectOnForbidden(res, '/wallet-management');
+        redirectOnForbidden(res, WALLET_MGMT_ROUTE);
         throw new Error(res.error?.message ?? 'Wallet not found');
     }
 
@@ -236,17 +242,17 @@ export async function updateWalletMetadataAction(walletAddress: string, data: { 
     const res = await apiClient.put(`/api/admin/wallets/${walletAddress}`, {
         metadata: { label: data.label ?? undefined, note: data.note ?? undefined },
     });
-    if (!res.success) { redirectOnForbidden(res, '/wallet-management'); throw new Error(res.error?.message ?? 'Failed to update metadata'); }
+    if (!res.success) { redirectOnForbidden(res, WALLET_MGMT_ROUTE); throw new Error(res.error?.message ?? 'Failed to update metadata'); }
 }
 
 export async function disableWalletAction(walletAddress: string, data: DisableWalletRequest): Promise<void> {
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.post(`/api/admin/wallets/${walletAddress}/disable`, data);
-    if (!res.success) { redirectOnForbidden(res, '/wallet-management'); throw new Error(res.error?.message ?? 'Failed to disable wallet'); }
+    if (!res.success) { redirectOnForbidden(res, WALLET_MGMT_ROUTE); throw new Error(res.error?.message ?? 'Failed to disable wallet'); }
 }
 
 export async function enableWalletAction(walletAddress: string, data: EnableWalletRequest): Promise<void> {
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.post(`/api/admin/wallets/${walletAddress}/enable`, data);
-    if (!res.success) { redirectOnForbidden(res, '/wallet-management'); throw new Error(res.error?.message ?? 'Failed to enable wallet'); }
+    if (!res.success) { redirectOnForbidden(res, WALLET_MGMT_ROUTE); throw new Error(res.error?.message ?? 'Failed to enable wallet'); }
 }

@@ -5,7 +5,6 @@
  */
 
 // Stub types for compatibility
-export type PermissionTemplateName = 'basic' | 'advanced' | 'enterprise';
 export type AssetType = 'stock' | 'crypto' | 'commodity';
 export type PaymentMethod = 'crypto' | 'fiat' | 'token';
 export interface NetworkConfig {
@@ -16,12 +15,6 @@ export interface NetworkConfig {
 }
 
 // Stub constants for compatibility
-export const PERMISSION_TEMPLATES = {
-  basic: { name: 'Basic', permissions: ['read'] },
-  advanced: { name: 'Advanced', permissions: ['read', 'write'] },
-  enterprise: { name: 'Enterprise', permissions: ['read', 'write', 'admin'] }
-} as const;
-
 export const ASSET_DEFINITIONS = {
   stock: { type: 'stock', category: 'equity' },
   crypto: { type: 'crypto', category: 'digital' },
@@ -48,14 +41,6 @@ export const UI_CONSTANTS = {
 // Stub utility functions for compatibility
 /**
  *
- * @param name
- */
-export function getPermissionTemplate(name: PermissionTemplateName) {
-  return PERMISSION_TEMPLATES[name];
-}
-
-/**
- *
  * @param type
  */
 export function getAssetDefinition(type: AssetType) {
@@ -76,15 +61,6 @@ export function getPaymentConfig(method: PaymentMethod) {
  */
 export function getNetworkConfig(network: keyof typeof BLOCKCHAIN_NETWORKS): NetworkConfig {
   return BLOCKCHAIN_NETWORKS[network];
-}
-
-/**
- *
- * @param template
- */
-export function calculatePermissionPrice(template: PermissionTemplateName): number {
-  const prices: Record<PermissionTemplateName, number> = { basic: 10, advanced: 50, enterprise: 200 };
-  return prices[template];
 }
 
 /**
@@ -354,7 +330,6 @@ export const ADMIN_ERROR_MESSAGES = {
 export const CONSTANTS = {
   // Shared constants
   UI_CONSTANTS,
-  PERMISSION_TEMPLATES,
   ASSET_DEFINITIONS,
   PAYMENT_CONFIGS,
   BLOCKCHAIN_NETWORKS,

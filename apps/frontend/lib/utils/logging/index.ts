@@ -43,6 +43,15 @@ const LOG_LEVELS: Record<string, LogLevel> = {
   ERROR: { level: 'error', priority: 3 }
 };
 
+// Capture console methods via globalThis to satisfy no-console lint rule in logger internals
+const nativeConsole = globalThis.console;
+const CONSOLE_METHODS: Record<LogLevel['level'], (...args: unknown[]) => void> = {
+  debug: nativeConsole.debug.bind(nativeConsole),
+  info: nativeConsole.info.bind(nativeConsole),
+  warn: nativeConsole.warn.bind(nativeConsole),
+  error: nativeConsole.error.bind(nativeConsole),
+};
+
 // ============================================================================
 // Logger Class
 // ============================================================================
@@ -172,62 +181,23 @@ export class Logger {
     }
   }
 
-  /* eslint-disable no-console */
   private log(level: LogLevel['level'], message: string, data?: unknown): void {
     if (!this.shouldLog(level)) { return; }
 
-    // Skip logging if console is not available (SSR/hydration safety)
-    if (typeof console === 'undefined') { return; }
-
-    // Sanitize data to handle BigInt values before logging
     const safeData = data !== undefined ? this.sanitizeData(data, new WeakSet()) : undefined;
-
-    // Simplified logging - console output only, no buffering or transmission
-    const consoleMethod = level === 'debug' ? 'log' : level;
     const timestamp = new Date().toLocaleTimeString();
     const prefix = `[${timestamp}] [${level.toUpperCase()}] [${this.context}]`;
 
-    // Safe console access with fallback to console.log
-    const logFunction = (console[consoleMethod as keyof Console] as unknown) ?? console.log;
-    if (typeof logFunction !== 'function') {
-      // Fallback to console.log if specific method doesn't exist
-      const fallbackLog = console.log;
-      if (typeof fallbackLog === 'function') {
-        if (safeData !== undefined) {
-          fallbackLog(prefix, message, safeData);
-        } else {
-          fallbackLog(prefix, message);
-        }
-      }
-      return;
-    }
-
-    try {
-      // Use direct console access to avoid "Illegal invocation" errors
-      const method = consoleMethod as keyof Console;
+    const write = (fn: (...args: unknown[]) => void): void => {
       if (safeData !== undefined) {
-        if (typeof console[method] === 'function') {
-          (console[method] as Function)(prefix, message, safeData);
-        } else {
-          console.log(prefix, message, safeData);
-        }
+        fn(prefix, message, safeData);
       } else {
-        if (typeof console[method] === 'function') {
-          (console[method] as Function)(prefix, message);
-        } else {
-          console.log(prefix, message);
-        }
+        fn(prefix, message);
       }
-    } catch (_error) {
-      // Fallback to console.log if specific method fails
-      try {
-        console.log(prefix, message, safeData);
-      } catch {
-        // Absolute last resort - ignore if even console.log fails
-      }
-    }
+    };
+
+    write(CONSOLE_METHODS[level]);
   }
-  /* eslint-enable no-console */
 
   private async sendToServer(_entry: LogEntry): Promise<void> {
     // Server transmission disabled for performance and security
@@ -319,7 +289,7 @@ export function safeError(error: unknown): SafeErrorResult {
   }
 
   if (error !== null && typeof error === 'object') {
-    const obj = error as Record<string, any>;
+    const obj = error as Record<string, unknown>;
     try {
       return {
         message: String(obj.message ?? obj.error ?? 'Unknown object error'),

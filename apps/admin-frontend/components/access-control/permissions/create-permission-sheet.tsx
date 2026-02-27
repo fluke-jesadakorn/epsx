@@ -19,6 +19,21 @@ import type { CreatePermissionRequest } from '@/lib/api/permissions-client';
 
 const emptyForm: CreatePermissionRequest = { permission: '', name: '', description: '', platform: '', category: '' };
 
+function trimOrUndefined(val: string | undefined): string | undefined {
+    const trimmed = val?.trim();
+    return trimmed !== '' ? trimmed : undefined;
+}
+
+function buildPayload(formData: CreatePermissionRequest): CreatePermissionRequest {
+    return {
+        permission: formData.permission.trim(),
+        name: trimOrUndefined(formData.name),
+        description: trimOrUndefined(formData.description),
+        platform: trimOrUndefined(formData.platform),
+        category: trimOrUndefined(formData.category),
+    };
+}
+
 export function CreatePermissionSheet({
     open,
     onOpenChange,
@@ -38,14 +53,7 @@ export function CreatePermissionSheet({
         }
         setSubmitting(true);
         try {
-            const payload: CreatePermissionRequest = {
-                permission: formData.permission.trim(),
-                name: formData.name?.trim() !== '' ? formData.name?.trim() : undefined,
-                description: formData.description?.trim() !== '' ? formData.description?.trim() : undefined,
-                platform: formData.platform?.trim() !== '' ? formData.platform?.trim() : undefined,
-                category: formData.category?.trim() !== '' ? formData.category?.trim() : undefined,
-            };
-            const res = await createPermissionAction(payload);
+            const res = await createPermissionAction(buildPayload(formData));
             if (res.success) {
                 toast.success('Permission created');
                 setFormData(emptyForm);

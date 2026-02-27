@@ -36,7 +36,7 @@ const KeyInfo: React.FC<{ clientName: string; expiresAt?: string }> = ({ clientN
             <div className="flex justify-between">
                 <span className="text-muted-foreground">Current Expiration:</span>
                 <span className="font-medium text-foreground">
-                    {expiresAt !== undefined && expiresAt !== null && expiresAt !== ''
+                    {expiresAt !== undefined && expiresAt !== ''
                         ? new Date(expiresAt).toLocaleDateString()
                         : 'Never'}
                 </span>
@@ -44,6 +44,17 @@ const KeyInfo: React.FC<{ clientName: string; expiresAt?: string }> = ({ clientN
         </div>
     </div>
 );
+
+const getInitialDate = (expiresAt?: string): string => {
+    if (expiresAt !== undefined && expiresAt !== '') {
+        try {
+            return new Date(expiresAt).toISOString().slice(0, 16);
+        } catch {
+            return '';
+        }
+    }
+    return '';
+};
 
 const PresetButtons: React.FC<{ onSetPreset: (days: number) => void; disabled: boolean }> = ({ onSetPreset, disabled }) => (
     <div>
@@ -74,18 +85,7 @@ export const EditExpirationModal: React.FC<EditExpirationModalProps> = ({
     onUpdate,
     isLoading = false,
 }) => {
-    const getInitialDate = () => {
-        if (apiKey.expires_at !== undefined && apiKey.expires_at !== null && apiKey.expires_at !== '') {
-            try {
-                return new Date(apiKey.expires_at).toISOString().slice(0, 16);
-            } catch {
-                return '';
-            }
-        }
-        return '';
-    };
-
-    const [expirationDate, setExpirationDate] = useState(getInitialDate());
+    const [expirationDate, setExpirationDate] = useState(() => getInitialDate(apiKey.expires_at));
     const [removeExpiration, setRemoveExpiration] = useState(false);
     const [error, setError] = useState('');
 
@@ -110,7 +110,7 @@ export const EditExpirationModal: React.FC<EditExpirationModalProps> = ({
     };
 
     const handleClose = () => {
-        setExpirationDate(getInitialDate());
+        setExpirationDate(getInitialDate(apiKey.expires_at));
         setRemoveExpiration(false);
         setError('');
         onClose();

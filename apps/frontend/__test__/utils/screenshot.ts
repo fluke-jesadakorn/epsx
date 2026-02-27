@@ -5,8 +5,8 @@
 import { test as base, type Page } from '@playwright/test';
 import { mockAuth } from './auth-mock';
 import { mockAllApis } from './api-interceptor';
-import path from 'path';
-import fs from 'fs';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../public/screenshots');
 

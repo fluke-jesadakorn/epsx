@@ -34,19 +34,16 @@ interface HeaderProps {
  * @param root0
  * @param root0.user
  */
-export function Header({ user }: HeaderProps) {
-  const { theme, resolvedTheme, setTheme } = useTheme();
+export function Header({ user: _user }: HeaderProps) {
+  const { setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     // Sync stored theme with next-themes on mount only
     const current = themeUtils.getTheme();
-    if (current && (resolvedTheme ?? theme) !== current) {
-      setTheme(current);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    setTheme(current);
+  }, [setTheme]);
 
   if (!mounted) {
     return (

@@ -25,7 +25,7 @@ export function DocsSidebar({ categories, activeSection, onSelect, open, onToggl
       </button>
 
       {/* Sidebar */}
-      <aside className={`${open ? 'translate-x-0' : '-translate-x-full'} fixed left-0 top-0 z-20 h-full w-64 border-r border-border/20 bg-card pt-20 transition-transform lg:sticky lg:top-20 lg:h-[calc(100vh-5rem)] lg:translate-x-0`}>
+      <aside className={`${open ? 'translate-x-0' : '-translate-x-full'} fixed top-0 left-0 z-20 h-full w-56 border-r border-border/20 bg-card pt-20 transition-transform lg:relative lg:block lg:h-auto lg:w-56 lg:shrink-0 lg:translate-x-0 lg:border-r-0 lg:pt-0`}>
         <div className="px-4 py-4">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">API Reference</h3>
           <nav className="space-y-1">

@@ -18,6 +18,19 @@ import { formatRelativeTime } from '@/shared/utils';
 import type { WalletData } from './types';
 import { getPlanDisplay, PLATFORM_ICONS, PLATFORM_LABELS, STATUS_CONFIG } from './wallet-card-sections';
 
+async function handleCopyAddress(
+    e: React.MouseEvent,
+    walletAddress: string,
+    setCopied: (v: boolean) => void,
+) {
+    e.stopPropagation();
+    const success = await copyToClipboard(walletAddress);
+    if (success) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    }
+}
+
 interface WalletMobileCardProps {
     wallet: WalletData;
     onView?: () => void;
@@ -31,15 +44,6 @@ export function WalletMobileCard({ wallet, onView, onEnable }: WalletMobileCardP
     const statusConfig = STATUS_CONFIG[wallet.status];
     const plan = getPlanDisplay(wallet);
 
-    const handleCopy = async (e: React.MouseEvent) => {
-        e.stopPropagation();
-        const success = await copyToClipboard(wallet.walletAddress);
-        if (success) {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        }
-    };
-
     return (
         <div
             className={cn(
@@ -48,7 +52,6 @@ export function WalletMobileCard({ wallet, onView, onEnable }: WalletMobileCardP
             )}
             onClick={onView}
         >
-            {/* Top row: avatar + address + status */}
             <div className="flex items-center gap-3 mb-3">
                 <div className="relative shrink-0">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#1fc7d4] to-[#7645d9] text-xs font-black text-white">
@@ -62,7 +65,7 @@ export function WalletMobileCard({ wallet, onView, onEnable }: WalletMobileCardP
                             {wallet.walletAddress.slice(0, 6)}...{wallet.walletAddress.slice(-4)}
                         </span>
                         <button
-                            onClick={(e) => void handleCopy(e)}
+                            onClick={(e) => { void handleCopyAddress(e, wallet.walletAddress, setCopied); }}
                             className={cn('shrink-0 rounded p-0.5 transition-colors', copied ? 'text-emerald-400' : 'text-muted-foreground hover:text-foreground')}
                         >
                             {copied ? <CheckCircle2 size={11} /> : <Copy size={11} />}
@@ -81,7 +84,6 @@ export function WalletMobileCard({ wallet, onView, onEnable }: WalletMobileCardP
                 </Badge>
             </div>
 
-            {/* Info row: plan + dates */}
             <div className="grid grid-cols-3 gap-2 mb-3 text-xs">
                 <div className="flex flex-col gap-0.5">
                     <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Plan</span>
@@ -106,7 +108,6 @@ export function WalletMobileCard({ wallet, onView, onEnable }: WalletMobileCardP
                 </div>
             </div>
 
-            {/* Platforms + actions */}
             <div className="flex items-center justify-between" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center gap-1">
                     {wallet.platforms.length > 0 ? wallet.platforms.map(p => (
@@ -126,7 +127,7 @@ export function WalletMobileCard({ wallet, onView, onEnable }: WalletMobileCardP
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-44">
-                            <DropdownMenuItem onClick={(e) => { void handleCopy(e as unknown as React.MouseEvent); }}>
+                            <DropdownMenuItem onClick={(e) => { void handleCopyAddress(e as unknown as React.MouseEvent, wallet.walletAddress, setCopied); }}>
                                 <Copy className="h-3.5 w-3.5 mr-2" /> Copy Address
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
@@ -163,15 +164,6 @@ export function WalletListRow({ wallet, onView, onEnable }: WalletListRowProps) 
     const statusConfig = STATUS_CONFIG[wallet.status];
     const plan = getPlanDisplay(wallet);
 
-    const handleCopy = async (e: React.MouseEvent) => {
-        e.stopPropagation();
-        const success = await copyToClipboard(wallet.walletAddress);
-        if (success) {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        }
-    };
-
     return (
         <div
             className={cn(
@@ -180,7 +172,6 @@ export function WalletListRow({ wallet, onView, onEnable }: WalletListRowProps) 
             )}
             onClick={onView}
         >
-            {/* Avatar + Address */}
             <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div className="relative shrink-0">
                     <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#1fc7d4] to-[#7645d9] text-xs font-black text-white">
@@ -194,7 +185,7 @@ export function WalletListRow({ wallet, onView, onEnable }: WalletListRowProps) 
                             {wallet.walletAddress.slice(0, 6)}...{wallet.walletAddress.slice(-4)}
                         </span>
                         <button
-                            onClick={(e) => void handleCopy(e)}
+                            onClick={(e) => { void handleCopyAddress(e, wallet.walletAddress, setCopied); }}
                             className={cn(
                                 'shrink-0 rounded p-0.5 transition-colors',
                                 copied ? 'text-emerald-400' : 'text-muted-foreground hover:text-foreground'
@@ -213,13 +204,11 @@ export function WalletListRow({ wallet, onView, onEnable }: WalletListRowProps) 
                 </div>
             </div>
 
-            {/* Plan */}
             <div className="hidden sm:flex items-center gap-1.5 w-32 shrink-0">
                 <CreditCard size={12} className="text-muted-foreground shrink-0" />
                 <span className="text-sm truncate">{plan.name}</span>
             </div>
 
-            {/* Platforms */}
             <div className="hidden md:flex items-center gap-1 w-24 shrink-0">
                 {wallet.platforms.length > 0 ? wallet.platforms.map(p => (
                     <div key={p} title={PLATFORM_LABELS[p]} className="p-1 rounded text-muted-foreground border border-border/40 hover:text-foreground transition-colors">
@@ -228,26 +217,22 @@ export function WalletListRow({ wallet, onView, onEnable }: WalletListRowProps) 
                 )) : <span className="text-xs text-muted-foreground">—</span>}
             </div>
 
-            {/* Status */}
             <div className="hidden sm:flex shrink-0 w-20">
                 <Badge variant="outline" className={cn('text-xs', statusConfig.className)}>
                     {statusConfig.label}
                 </Badge>
             </div>
 
-            {/* Joined */}
             <div className="hidden lg:flex items-center gap-1.5 w-24 shrink-0 text-xs text-muted-foreground">
                 <User size={11} className="shrink-0" />
                 <span className="truncate">{formatRelativeTime(wallet.createdAt)}</span>
             </div>
 
-            {/* Last Login */}
             <div className="hidden xl:flex items-center gap-1.5 w-24 shrink-0 text-xs text-muted-foreground">
                 <Clock size={11} className="shrink-0" />
                 <span className="truncate">{wallet.lastAuthAt !== undefined && wallet.lastAuthAt !== '' ? formatRelativeTime(wallet.lastAuthAt) : 'Never'}</span>
             </div>
 
-            {/* Actions */}
             <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
                 <Button size="sm" variant="ghost" className="h-7 px-2 text-xs gap-1" onClick={onView}>
                     <Edit size={12} /> <span className="hidden sm:inline">Edit</span>
@@ -259,7 +244,7 @@ export function WalletListRow({ wallet, onView, onEnable }: WalletListRowProps) 
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-44">
-                        <DropdownMenuItem onClick={(e) => { void handleCopy(e as unknown as React.MouseEvent); }}>
+                        <DropdownMenuItem onClick={(e) => { void handleCopyAddress(e as unknown as React.MouseEvent, wallet.walletAddress, setCopied); }}>
                             <Copy className="h-3.5 w-3.5 mr-2" /> Copy Address
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />

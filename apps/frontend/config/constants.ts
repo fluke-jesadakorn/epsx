@@ -9,8 +9,6 @@ import {
   BLOCKCHAIN_NETWORKS,
   // Payment configurations
   MIN_AMOUNT,
-  // Permission templates
-  PERMISSION_TEMPLATES,
 
   // Asset definitions (using correct export names)
   SUPPORTED_ASSETS,
@@ -19,20 +17,13 @@ import {
   Z_INDEX_LAYERS,
   getAssetInfo,
   // Utility functions
-  getPermissionTemplate,
-  isFeatureEnabled,
   validatePayment
 } from '@/shared/config/constants';
 
-import type { PermissionTemplateName } from '@/shared/types/payment';
-
-// Re-export types
-export type { PermissionTemplateName };
-
 // Re-export from shared constants for direct use
 export {
-  BLOCKCHAIN_NETWORKS, MIN_AMOUNT, PERMISSION_TEMPLATES,
-  SUPPORTED_ASSETS, TRANSACTION_STATUSES, Z_INDEX_LAYERS, getAssetInfo, getPermissionTemplate, isFeatureEnabled, validatePayment
+  BLOCKCHAIN_NETWORKS, MIN_AMOUNT,
+  SUPPORTED_ASSETS, TRANSACTION_STATUSES, Z_INDEX_LAYERS, getAssetInfo, validatePayment
 };
 
 /**
@@ -276,7 +267,6 @@ export const FRONTEND_ERROR_MESSAGES = {
 export const CONSTANTS = {
   // Shared constants
   ...Z_INDEX_LAYERS,
-  PERMISSION_TEMPLATES,
   SUPPORTED_ASSETS,
   MIN_AMOUNT,
   TRANSACTION_STATUSES,

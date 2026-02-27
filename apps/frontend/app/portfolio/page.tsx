@@ -24,7 +24,7 @@ export default function PortfolioPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-foreground">Portfolio</h1>
-                <p className="text-sm text-slate-400">Track your watchlisted stocks</p>
+                <p className="text-sm text-muted-foreground">Track your watchlisted stocks</p>
               </div>
             </div>
             <div className="flex gap-2">

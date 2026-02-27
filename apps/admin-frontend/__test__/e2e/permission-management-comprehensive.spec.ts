@@ -28,7 +28,7 @@ test.describe('Admin Permission Management - Comprehensive E2E Tests', () => {
       await page.waitForTimeout(2000);
       
       // Check if we're on login page
-      if (page.url().includes('/login') ?? page.url().includes('/auth')) {
+      if (page.url().includes('/login') || page.url().includes('/auth')) {
         await page.waitForSelector('button:has-text("Continue"), button:has-text("Sign In")', { timeout: 10000 });
         const continueBtn = page.locator('button:has-text("Continue"), button:has-text("Sign In")').first();
         if (await continueBtn.isVisible()) {
@@ -122,7 +122,7 @@ test.describe('Admin Permission Management - Comprehensive E2E Tests', () => {
           const hasExpiry = await card.locator('text=expires, text=Expires, text=expiry').isVisible();
           const hasTime = await card.locator('text=hour, text=minute, text=day').isVisible();
           
-          expect(hasExpiry ?? hasTime).toBe(true);
+          expect(hasExpiry || hasTime).toBe(true);
         }
       }
     });
@@ -420,11 +420,11 @@ test.describe('Admin Permission Management - Comprehensive E2E Tests', () => {
           { base: 'epsx:rankings:view:100', timestamp: 1756700217 }
         ];
         
-        const results = testCases.map(test => {
-          const embedded = createEmbeddedPermission(test.base, test.timestamp);
-          const expected = `${test.base}:${test.timestamp}`;
+        const results = testCases.map(tc => {
+          const embedded = createEmbeddedPermission(tc.base, tc.timestamp);
+          const expected = `${tc.base}:${tc.timestamp}`;
           return {
-            input: test,
+            input: tc,
             output: embedded,
             expected,
             passed: embedded === expected
@@ -474,11 +474,11 @@ test.describe('Admin Permission Management - Comprehensive E2E Tests', () => {
           }
         ];
         
-        const results = testCases.map(test => {
-          const parsed = parseEmbeddedPermission(test.input);
-          const passed = parsed.basePermission === test.expectedBase && 
-                         parsed.timestamp === test.expectedTimestamp;
-          return { test, parsed, passed };
+        const results = testCases.map(tc => {
+          const parsed = parseEmbeddedPermission(tc.input);
+          const passed = parsed.basePermission === tc.expectedBase &&
+                         parsed.timestamp === tc.expectedTimestamp;
+          return { tc, parsed, passed };
         });
         
         (window as any).permissionParsingTest = {

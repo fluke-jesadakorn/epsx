@@ -64,8 +64,9 @@ export function EditWalletMetadataModal({
 }: EditWalletMetadataModalProps) {
     const [isLoading, setIsLoading] = React.useState(false);
 
-    const form = useForm<z.infer<typeof formSchema>>({
-        resolver: zodResolver(formSchema as any) as any,
+    type FormValues = z.infer<typeof formSchema>;
+    const form = useForm<FormValues>({
+        resolver: zodResolver(formSchema),
         defaultValues: {
             label: currentLabel ?? '',
             note: currentNote ?? '',
@@ -82,7 +83,7 @@ export function EditWalletMetadataModal({
         }
     }, [isOpen, currentLabel, currentNote, form]);
 
-    const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    const onSubmit = async (values: FormValues) => {
         setIsLoading(true);
         try {
             await walletMgmt.updateWalletMetadata(walletAddress, {
@@ -119,10 +120,10 @@ export function EditWalletMetadataModal({
                     </DialogDescription>
                 </DialogHeader>
 
-                <Form {...(form as any)}>
-                    <form onSubmit={(e) => void form.handleSubmit(onSubmit)(e)} className="space-y-4">
+                <Form {...form}>
+                    <form onSubmit={(e) => { void form.handleSubmit(onSubmit)(e); }} className="space-y-4">
                         <FormField
-                            control={form.control as any}
+                            control={form.control}
                             name="label"
                             render={({ field }) => (
                                 <FormItem>
@@ -139,7 +140,7 @@ export function EditWalletMetadataModal({
                         />
 
                         <FormField
-                            control={form.control as any}
+                            control={form.control}
                             name="note"
                             render={({ field }) => (
                                 <FormItem>

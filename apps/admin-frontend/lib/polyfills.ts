@@ -64,8 +64,7 @@ if (math.pow.__isPolyfilled !== true) {
     // Mark as polyfilled to prevent re-wrapping
     polyfilledPow.__isPolyfilled = true;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (Math as unknown as Record<string, any>).pow = polyfilledPow;
+    (Math as unknown as Record<string, unknown>).pow = polyfilledPow;
 }
 
 // Validation: Mock localStorage for Server-Side Rendering

@@ -14,7 +14,7 @@ import { logout } from '@/lib/auth/auth';
 import { createAdminApiClient, createPlansClient } from '@/shared/api';
 import type { ApiResponse } from '@/shared/types/api';
 import type { UnifiedApiClient } from '@/shared/utils/api-client';
-import { logger } from '@/shared/utils/logger';
+import { logger } from '@/lib/logger';
 import { redirect } from 'next/navigation';
 
 async function processApiResponse<T>(
@@ -25,7 +25,7 @@ async function processApiResponse<T>(
     if (!res.success) {
         redirectOnForbidden(res, '/analytics');
 
-        logger.error(`${errorMessage}: ${res.error?.message} (${res.error?.code})`, { error: res.error });
+        logger.action.error(errorMessage, res.error, { code: res.error?.code });
 
         if (defaultValue !== undefined) {
             return defaultValue;

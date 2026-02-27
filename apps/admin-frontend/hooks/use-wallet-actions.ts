@@ -1,7 +1,7 @@
 import { disableWalletAction, enableWalletAction } from '@/app/wallet-management/plan-actions';
 import type { DisableWalletData } from '@/components/wallet/disable-wallet-modal';
 import type { ReenableWalletData } from '@/components/wallet/reenable-wallet-modal';
-import { logger } from '@/shared/utils/logger';
+import { logger } from '@/lib/logger';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 

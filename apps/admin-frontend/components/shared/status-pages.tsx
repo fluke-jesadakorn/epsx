@@ -161,7 +161,7 @@ export function ErrorContent({
         {/* Error details */}
         <div className="bg-muted/30 rounded-2xl border border-border/20 p-6 mb-6 shadow-lg">
           <p className="text-foreground mb-3">{message}</p>
-          {errorId && (
+          {errorId !== undefined && errorId !== '' && (
             <p className="text-xs text-muted-foreground font-mono bg-muted/30 border border-border/20 px-3 py-2 rounded-lg">
               Error ID: {errorId}
             </p>
@@ -218,6 +218,60 @@ interface AccessDeniedContentProps {
   showHomeButton?: boolean;
 }
 
+interface ErrorDetailsProps {
+  route?: string;
+  context?: string;
+  permission?: string;
+  detail?: string;
+}
+
+function ErrorDetailsCard({ route, context, permission, detail }: ErrorDetailsProps) {
+  return (
+    <div className="bg-muted/30 rounded-2xl border border-border/20 shadow-lg overflow-hidden mb-6">
+      <div className="p-6">
+        <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-destructive" />
+          Error Details
+        </h3>
+        <div className="space-y-3 text-sm">
+          {route !== undefined && route !== '' && (
+            <div className="flex justify-between items-start gap-4">
+              <span className="text-muted-foreground shrink-0">Requested Route:</span>
+              <code className="text-foreground bg-muted/30 border border-border/20 px-2 py-1 rounded text-right break-all">{decodeURIComponent(route)}</code>
+            </div>
+          )}
+          {context !== undefined && context !== '' && (
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Context:</span>
+              <span className="text-foreground capitalize">{context}</span>
+            </div>
+          )}
+          {permission !== undefined && permission !== '' && (
+            <div className="flex justify-between items-start gap-4">
+              <span className="text-muted-foreground shrink-0">Required Permission:</span>
+              <code className="text-foreground bg-muted/30 border border-border/20 px-2 py-1 rounded text-right break-all">{decodeURIComponent(permission)}</code>
+            </div>
+          )}
+          {detail !== undefined && detail !== '' && (
+            <div className="flex justify-between items-start gap-4 border-t border-border/20 pt-3 mt-1">
+              <span className="text-muted-foreground shrink-0">Backend Detail:</span>
+              <span className="text-foreground text-right">{detail}</span>
+            </div>
+          )}
+        </div>
+      </div>
+      {context === 'admin' && (
+        <div className="border-t border-border/20 bg-gradient-to-r from-purple-500/10 to-orange-500/10 p-4">
+          <p className="text-sm text-foreground">
+            <span className="font-medium">Admin Access Required:</span> Only authorized administrators can access this panel.
+            Contact your system administrator if you believe this is an error.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AccessDeniedContent({
   title = 'Access Denied',
   reason = 'You don\'t have permission to access this resource.',
@@ -233,7 +287,7 @@ export function AccessDeniedContent({
 
   const handleReauth = useCallback(async () => {
     try { disconnect(); } catch { /* WalletConnect origin check may fail in dev */ }
-    const returnPath = route != null ? decodeURIComponent(route) : undefined;
+    const returnPath = route !== undefined ? decodeURIComponent(route) : undefined;
     await logoutAction(returnPath);
     router.replace('/auth');
   }, [disconnect, route, router]);
@@ -241,77 +295,23 @@ export function AccessDeniedContent({
   return (
     <StatusPageLayout>
       <div className="w-full max-w-lg">
-        {/* Icon */}
         <div className="flex justify-center mb-6">
           <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-red-500 to-red-600 rounded-3xl flex items-center justify-center border-2 border-red-400/30 shadow-lg shadow-red-500/30">
             <ShieldX className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
           </div>
         </div>
 
-        {/* Title */}
         <div className="text-center mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
-            {title}
-          </h1>
-          <p className="text-base sm:text-lg text-muted-foreground">
-            {reason}
-          </p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">{title}</h1>
+          <p className="text-base sm:text-lg text-muted-foreground">{reason}</p>
         </div>
 
-        {/* Error details card */}
-        <div className="bg-muted/30 rounded-2xl border border-border/20 shadow-lg overflow-hidden mb-6">
-          <div className="p-6">
-            <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-destructive" />
-              Error Details
-            </h3>
-            <div className="space-y-3 text-sm">
-              {route && (
-                <div className="flex justify-between items-start gap-4">
-                  <span className="text-muted-foreground shrink-0">Requested Route:</span>
-                  <code className="text-foreground bg-muted/30 border border-border/20 px-2 py-1 rounded text-right break-all">
-                    {decodeURIComponent(route)}
-                  </code>
-                </div>
-              )}
-              {context && (
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Context:</span>
-                  <span className="text-foreground capitalize">{context}</span>
-                </div>
-              )}
-              {permission && (
-                <div className="flex justify-between items-start gap-4">
-                  <span className="text-muted-foreground shrink-0">Required Permission:</span>
-                  <code className="text-foreground bg-muted/30 border border-border/20 px-2 py-1 rounded text-right break-all">
-                    {decodeURIComponent(permission)}
-                  </code>
-                </div>
-              )}
-              {detail && (
-                <div className="flex justify-between items-start gap-4 border-t border-border/20 pt-3 mt-1">
-                  <span className="text-muted-foreground shrink-0">Backend Detail:</span>
-                  <span className="text-foreground text-right">{detail}</span>
-                </div>
-              )}
-            </div>
-          </div>
+        <ErrorDetailsCard route={route} context={context} permission={permission} detail={detail} />
 
-          {context === 'admin' && (
-            <div className="border-t border-border/20 bg-gradient-to-r from-purple-500/10 to-orange-500/10 p-4">
-              <p className="text-sm text-foreground">
-                <span className="font-medium">Admin Access Required:</span> Only authorized administrators can access this panel.
-                Contact your system administrator if you believe this is an error.
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-3">
           {showLoginButton && (
             <button
-              onClick={handleReauth}
+              onClick={() => { void handleReauth(); }}
               className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-2xl font-semibold shadow-lg shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 hover-lift transition-all"
             >
               <RotateCcw className="w-5 h-5" />

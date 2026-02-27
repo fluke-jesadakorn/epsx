@@ -14,9 +14,4 @@ test.describe('Admin Audit, Payments & Affiliates', () => {
     await capture(page, 'admin-payments');
   });
 
-  test('affiliates page', async ({ authedPage: page }) => {
-    await page.goto('/affiliates');
-    await page.waitForLoadState('networkidle');
-    await capture(page, 'admin-affiliates');
-  });
 });

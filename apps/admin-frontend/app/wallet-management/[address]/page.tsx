@@ -1,7 +1,6 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 
 import { WalletDetailView } from '@/components/wallet/wallet-detail-view';
 import { useWalletAccess } from '@/hooks/use-wallet-access';
@@ -15,11 +14,6 @@ export default function WalletDetailPage() {
     const walletData = useWalletData({ walletAddress, router });
     const subscriptionData = useSubscriptionData(walletAddress);
     const accessData = useWalletAccess(walletAddress);
-
-    useEffect(() => {
-        void walletData.loadWallet();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     return (
         <WalletDetailView

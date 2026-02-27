@@ -90,7 +90,7 @@ export const UsageAnalytics: React.FC<UsageAnalyticsProps> = ({ apiKeys }) => {
                             <tbody>
                                 {apiKeys.map(key => {
                                     const apiKey = key as ExtendedApiKey;
-                                    const keyPreviewValue = apiKey.key_preview ?? apiKey.key_prefix ?? '';
+                                    const keyPreviewValue = apiKey.key_prefix ?? apiKey.key_preview;
                                     return (
                                         <tr key={apiKey.id} className="hover:bg-muted/30">
                                             <td className="border border-border/20 px-4 py-3 text-sm font-mono text-foreground">
@@ -108,7 +108,7 @@ export const UsageAnalytics: React.FC<UsageAnalyticsProps> = ({ apiKeys }) => {
                                                 {apiKey.allowed_modules[0]?.module_name ?? 'N/A'}
                                             </td>
                                             <td className="border border-border/20 px-4 py-3 text-sm text-foreground">
-                                                {apiKey.last_used_at !== undefined && apiKey.last_used_at !== null && apiKey.last_used_at !== ''
+                                                {apiKey.last_used_at !== undefined && apiKey.last_used_at !== ''
                                                     ? new Date(apiKey.last_used_at).toLocaleDateString()
                                                     : 'Never'}
                                             </td>

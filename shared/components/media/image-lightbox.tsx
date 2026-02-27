@@ -18,15 +18,15 @@ export function ImageLightbox({ src, alt, onClose }: ImageLightboxProps) {
   const zoomIn = useCallback(() => setZoom(z => Math.min(z + 0.5, 4)), []);
   const zoomOut = useCallback(() => setZoom(z => {
     const next = Math.max(z - 0.5, 0.5);
-    if (next <= 1) setPan({ x: 0, y: 0 });
+    if (next <= 1) { setPan({ x: 0, y: 0 }); }
     return next;
   }), []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-      if (e.key === '+' || e.key === '=') zoomIn();
-      if (e.key === '-') zoomOut();
+      if (e.key === 'Escape') { onClose(); }
+      if (e.key === '+' || e.key === '=') { zoomIn(); }
+      if (e.key === '-') { zoomOut(); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -36,14 +36,14 @@ export function ImageLightbox({ src, alt, onClose }: ImageLightboxProps) {
     e.stopPropagation();
     setZoom(z => {
       const next = Math.max(0.5, Math.min(4, z * (1 - e.deltaY * 0.001)));
-      if (next <= 1) setPan({ x: 0, y: 0 });
+      if (next <= 1) { setPan({ x: 0, y: 0 }); }
       return next;
     });
   }, []);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLImageElement>) => {
     e.stopPropagation();
-    if (zoom <= 1) return;
+    if (zoom <= 1) { return; }
     setIsDragging(true);
     dragStart.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -51,7 +51,7 @@ export function ImageLightbox({ src, alt, onClose }: ImageLightboxProps) {
 
   const handlePointerMove = (e: React.PointerEvent<HTMLImageElement>) => {
     e.stopPropagation();
-    if (!isDragging) return;
+    if (!isDragging) { return; }
     setPan({ x: e.clientX - dragStart.current.x, y: e.clientY - dragStart.current.y });
   };
 
@@ -69,19 +69,19 @@ export function ImageLightbox({ src, alt, onClose }: ImageLightboxProps) {
     >
       <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
         <button
-          onClick={e => { e.stopPropagation(); zoomIn(); }}
+          onClick={(e) => { e.stopPropagation(); zoomIn(); }}
           className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
         >
           <ZoomIn className="w-4 h-4" />
         </button>
         <button
-          onClick={e => { e.stopPropagation(); zoomOut(); }}
+          onClick={(e) => { e.stopPropagation(); zoomOut(); }}
           className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
         >
           <ZoomOut className="w-4 h-4" />
         </button>
         <button
-          onClick={e => { e.stopPropagation(); onClose(); }}
+          onClick={(e) => { e.stopPropagation(); onClose(); }}
           className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors ml-1"
         >
           <X className="w-4 h-4" />
@@ -104,7 +104,7 @@ export function ImageLightbox({ src, alt, onClose }: ImageLightboxProps) {
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-          onClick={e => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); }}
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             transition: isDragging ? 'none' : 'transform 0.1s ease-out',

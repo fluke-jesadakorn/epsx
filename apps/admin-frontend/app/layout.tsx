@@ -19,7 +19,7 @@ import { headers } from 'next/headers';
 import { cookieToInitialState } from 'wagmi';
 
 import { getAuthUser } from '@/lib/server/auth';
-import { logger } from '@/shared/utils/logger';
+import { logger } from '@/lib/logger';
 
 const kanit = Kanit({
   subsets: ['latin'],
@@ -88,8 +88,7 @@ export default async function RootLayout({
   } catch {
     // Cookie value might be URL-encoded - try decoding first
     try {
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-      const decodedCookie = rawCookie ? decodeURIComponent(rawCookie) : null;
+      const decodedCookie = rawCookie !== null ? decodeURIComponent(rawCookie) : null;
       initialState = cookieToInitialState(getServerConfig(), decodedCookie);
     } catch {
       // If all parsing fails, use undefined (fresh state)

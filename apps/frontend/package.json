@@ -25,6 +25,7 @@
     "test:watch": "jest --watch",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "test:e2e:synpress": "playwright test --config=playwright-synpress.config.ts",
     "clean": "rm -rf .next out dist node_modules/.cache"
   },
   "dependencies": {
@@ -50,7 +51,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@radix-ui/react-visually-hidden": "^1.2.4",
     "@rainbow-me/rainbowkit": "^2.2.10",
-"@tanstack/react-query": "^5.90.12",
+    "@tanstack/react-query": "^5.90.12",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
@@ -71,6 +72,7 @@
     "@eslint/js": "^9.39.1",
     "@next/bundle-analyzer": "^16.0.10",
     "@playwright/test": "^1.57.0",
+    "@synthetixio/synpress-metamask": "^0.0.14",
     "@tailwindcss/postcss": "^4.1.18",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",

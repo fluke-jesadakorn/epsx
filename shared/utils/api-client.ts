@@ -15,6 +15,7 @@
 
 import { refreshSessionAction } from '../auth/actions';
 import { COOKIES } from '../auth/cookies';
+import { isApiError, isApiResponse, isApiSuccess, isPaginatedResponse, type ApiError, type ApiResponse, type PaginatedResponse } from '../types/api';
 import { logger } from './logger';
 import { getBackendUrl } from './url-resolver';
 
@@ -44,8 +45,6 @@ export function registerSessionExpiredHandler(fn: () => void): void {
 // ============================================================================
 // CORE TYPES AND INTERFACES
 // ============================================================================
-
-import { isApiError, isApiResponse, isApiSuccess, isPaginatedResponse, type ApiError, type ApiResponse, type PaginatedResponse } from '../types/api';
 
 export type { ApiError, ApiResponse, PaginatedResponse };
 
@@ -231,16 +230,14 @@ export class UnifiedApiClient {
 
       const data = await this.parseResponseData(response);
 
-      if (!response.ok) {
-        // 403: Don't throw — return normalized response to preserve status for redirect handling
-        if (response.status !== 403) {
-          this.handleErrorResponse({
-            response,
-            data,
-            method: requestConfig.method ?? 'GET',
-            url
-          });
-        }
+      // 403: Don't throw — return normalized response to preserve status for redirect handling
+      if (!response.ok && response.status !== 403) {
+        this.handleErrorResponse({
+          response,
+          data,
+          method: requestConfig.method ?? 'GET',
+          url
+        });
       }
 
       return this.normalizeResponse(response, data);
@@ -262,10 +259,7 @@ export class UnifiedApiClient {
 
   private async handleUnauthorized(endpoint: string, config: RequestConfig, headers: Record<string, string>): Promise<unknown | null> {
     if (headers['x-retry'] === 'true') { return null; }
-
-    if (!this.isServerSide && isRedirecting) {
-      return this.createUnauthorizedResponse(headers);
-    }
+    if (!this.isServerSide && isRedirecting) { return this.createUnauthorizedResponse(headers); }
 
     const refreshResult = await this.handleTokenRefresh();
     if (refreshResult.success && refreshResult.access_token !== undefined && refreshResult.access_token !== '') {
@@ -275,19 +269,20 @@ export class UnifiedApiClient {
       });
     }
 
-    if (!this.isServerSide) {
-      const onAuthPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/auth');
-      if (!isRedirecting && !onAuthPage) {
-        isRedirecting = true;
-        if (sessionExpiredHandler !== undefined) {
-          sessionExpiredHandler();
-        } else if (typeof window !== 'undefined') {
-          window.location.href = '/auth?clear=true';
-        }
-      }
-    }
+    if (!this.isServerSide) { this.triggerSessionExpiry(); }
 
     return this.createUnauthorizedResponse(headers);
+  }
+
+  private triggerSessionExpiry(): void {
+    const onAuthPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/auth');
+    if (isRedirecting || onAuthPage) { return; }
+    isRedirecting = true;
+    if (sessionExpiredHandler !== undefined) {
+      sessionExpiredHandler();
+    } else if (typeof window !== 'undefined') {
+      window.location.href = '/auth?clear=true';
+    }
   }
 
   private applyTimeout(config: RequestInit, timeout: number): void {

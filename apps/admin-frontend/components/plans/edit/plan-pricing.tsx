@@ -19,7 +19,7 @@ export function PlanPricing({ formData, setFormData }: PlanFormProps) {
                         onChange={(e) =>
                             setFormData({
                                 ...formData,
-                                current_price: parseFloat(e.target.value) ?? 0,
+                                current_price: Number(e.target.value),
                             })
                         }
                         className="w-full px-4 py-3 rounded-xl border-2 border-border/40 bg-card text-foreground focus:border-green-500 focus:ring-2 focus:ring-green-500 focus:outline-none"

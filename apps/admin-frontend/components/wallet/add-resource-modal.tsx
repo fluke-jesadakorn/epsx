@@ -34,18 +34,18 @@ export function AddResourceModal({
     const [selectedId, setSelectedId] = useState<string | null>(null);
 
     const filteredItems = useMemo(() => {
-        if (!search) { return items; }
+        if (search === '') { return items; }
         const lower = search.toLowerCase();
         return items.filter(item =>
             item.name.toLowerCase().includes(lower) ||
-            item.description?.toLowerCase().includes(lower)
+            (item.description?.toLowerCase().includes(lower) === true)
         );
     }, [items, search]);
 
     const handleConfirm = async () => {
-        if (!selectedId) { return; }
+        if (selectedId === null) { return; }
         const item = items.find(i => i.id === selectedId);
-        if (item) {
+        if (item !== undefined) {
             await onConfirm(item);
             onClose();
             setSelectedId(null);
@@ -58,7 +58,7 @@ export function AddResourceModal({
             <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden">
                 <DialogHeader className="px-6 py-4 border-b border-gray-100 dark:border-gray-800">
                     <DialogTitle>{title}</DialogTitle>
-                    {description && <DialogDescription>{description}</DialogDescription>}
+                    {description !== undefined && <DialogDescription>{description}</DialogDescription>}
                 </DialogHeader>
 
                 <div className="p-4 space-y-4">
@@ -93,7 +93,7 @@ export function AddResourceModal({
                                         <p className="font-medium text-sm text-foreground">
                                             {item.name}
                                         </p>
-                                        {item.description && (
+                                        {item.description !== undefined && item.description !== '' && (
                                             <p className="text-xs text-gray-500 truncate max-w-[300px]">
                                                 {item.description}
                                             </p>
@@ -114,7 +114,7 @@ export function AddResourceModal({
                     </Button>
                     <Button
                         onClick={() => { void handleConfirm(); }}
-                        disabled={!selectedId || isLoading}
+                        disabled={selectedId === null || isLoading}
                         className="gap-2"
                     >
                         {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}

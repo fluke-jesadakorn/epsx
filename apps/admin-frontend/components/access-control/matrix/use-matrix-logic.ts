@@ -21,9 +21,7 @@ export function useAccessControlMatrix() {
             // Load both datasets in parallel
             const [policiesData, permissionsData] = await Promise.all([
                 accessPolicyClient.getPolicies(),
-                planMgmt.getPermissionDefinitions() as Promise<
-                    PermissionDefinitionDto[]
-                >,
+                planMgmt.getPermissionDefinitions(),
             ]);
 
             setPolicies(policiesData);
@@ -43,18 +41,16 @@ export function useAccessControlMatrix() {
     const groupedPermissions = useMemo(() => {
         const filtered = permissions.filter(
             (p) =>
-                (p.permission ?? '').toLowerCase().includes(search.toLowerCase()) ||
+                p.permission.toLowerCase().includes(search.toLowerCase()) ||
                 (p.description ?? '').toLowerCase().includes(search.toLowerCase())
         );
 
         const groups: Record<string, PermissionDefinitionDto[]> = {};
 
         filtered.forEach((p) => {
-            const platform = p.platform ?? 'Other';
-            if (!groups[platform]) {
-                groups[platform] = [];
-            }
-            groups[platform]?.push(p);
+            const platform = p.platform;
+            groups[platform] ??= [];
+            groups[platform].push(p);
         });
 
         // specific sort order for platforms

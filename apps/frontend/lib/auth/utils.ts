@@ -5,7 +5,6 @@
  */
 
 // Re-export shared JWT types and utilities
-import { getDisplayTierFromPermissions, getRankingLimitFromPermissions } from '@/app/constants/packages';
 import { authLogger, safeError } from '@/lib/utils/logging';
 
 export {
@@ -77,13 +76,6 @@ export function getAccessiblePlatforms(permissions: string[]): string[] {
 }
 
 /**
- * Get display tier from permissions (replaces package tier)
- */
-export function getDisplayTier(permissions: string[]): string {
-  return getDisplayTierFromPermissions(permissions);
-}
-
-/**
  * Get primary platform from permissions
  */
 export function getPrimaryPlatform(permissions: string[]): string {
@@ -94,13 +86,6 @@ export function getPrimaryPlatform(permissions: string[]): string {
   if (platforms.includes('epsx')) {return 'epsx';}
 
   return platforms[0] || 'epsx';
-}
-
-/**
- * Get ranking limit from permissions
- */
-export function getRankingLimit(permissions: string[]): number {
-  return getRankingLimitFromPermissions(permissions);
 }
 
 interface JWTPayloadRaw {
@@ -402,6 +387,3 @@ class SecureTokenRefreshManager {
 
 // Export singleton instance
 export const secureTokenRefreshManager = new SecureTokenRefreshManager();
-
-// Export functions that are used in other modules
-export { getRankingLimitFromPermissions } from '@/app/constants/packages';

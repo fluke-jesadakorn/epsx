@@ -24,19 +24,29 @@ pub struct SeedPlansResponse {
 
 
 
-/// POST /api/public/plans/seed
+/// POST /api/admin/plans/seed
 ///
-/// SAFETY: Should be disabled in production or require admin auth
+/// Requires admin auth. Disabled entirely in production as safety measure.
 #[utoipa::path(
     post,
-    path = "/api/public/plans/seed",
-    tag = "public",
+    path = "/api/admin/plans/seed",
+    tag = "admin",
     responses(
         (status = 200, description = "Successfully seeded subscription plans", body = ApiResponse<SeedPlansResponse>),
+        (status = 403, description = "Forbidden in production"),
         (status = 500, description = "Internal server error")
     )
 )]
 pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (StatusCode, Json<ApiResponse<SeedPlansResponse>>) {
+    // Defense-in-depth: block in production even if route is accidentally exposed
+    if crate::config::env::is_production() {
+        tracing::warn!("Seed endpoint called in production — rejecting");
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ApiResponse::error("FORBIDDEN", "Plan seeding is disabled in production"))
+        );
+    }
+
     tracing::info!("Seeding subscription plans...");
 
     let mut conn = match app_state.db_pool.get().await {

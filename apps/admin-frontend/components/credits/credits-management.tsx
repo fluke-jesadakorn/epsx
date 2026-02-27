@@ -109,7 +109,7 @@ function OverviewTab({ stats, onRefresh }: { stats: CreditStats | null; onRefres
         <StatCard
           icon={<Users className="w-6 h-6" />}
           label="Active Users with Credits"
-          value={stats?.active_users_with_credits?.toString() ?? '0'}
+          value={stats?.active_users_with_credits.toString() ?? '0'}
           gradient="from-[#7645d9] to-[#ed4b9e]"
         />
       </div>
@@ -149,7 +149,68 @@ function StatCard({ icon, label, value, gradient }: { icon: React.ReactNode; lab
 // GRANT CREDITS TAB
 // ============================================================================
 
-// eslint-disable-next-line max-lines-per-function, complexity
+interface GrantFormProps {
+  mode: 'grant' | 'revoke';
+  walletAddress: string;
+  amount: string;
+  reason: string;
+  expiresAt: string;
+  loading: boolean;
+  success: string | null;
+  error: string | null;
+  setWalletAddress: (v: string) => void;
+  setAmount: (v: string) => void;
+  setReason: (v: string) => void;
+  setExpiresAt: (v: string) => void;
+  onSubmit: (e: React.FormEvent) => void;
+}
+
+function GrantForm({ mode, walletAddress, amount, reason, expiresAt, loading, success, error, setWalletAddress, setAmount, setReason, setExpiresAt, onSubmit }: GrantFormProps) {
+  const inputClass = 'w-full px-4 py-2.5 rounded-lg border border-border/50 bg-muted/50 text-foreground focus:ring-1 focus:ring-[#1fc7d4] focus:border-transparent transition-all text-sm';
+  const labelClass = 'block text-xs font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2';
+  return (
+    <>
+      {success !== null && success.length > 0 && (
+        <div className="mb-4 p-4 bg-success/10 border border-success/30 rounded-xl">
+          <p className="text-success text-sm">{success}</p>
+        </div>
+      )}
+      {error !== null && error.length > 0 && (
+        <div className="mb-4 p-4 bg-destructive/10 border border-destructive/30 rounded-xl">
+          <p className="text-destructive text-sm">{error}</p>
+        </div>
+      )}
+      <form onSubmit={onSubmit} className="space-y-6">
+        <div>
+          <label className={labelClass}>Wallet Address</label>
+          <input type="text" value={walletAddress} onChange={(e) => setWalletAddress(e.target.value)} placeholder="0x..." required className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Amount (USD)</label>
+          <input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" required min="0.01" className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Reason (optional)</label>
+          <textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Promotional credit for early adopter..." rows={3} className={inputClass} />
+        </div>
+        {mode === 'grant' && (
+          <div>
+            <label className={labelClass}>Expiry Date (optional)</label>
+            <input type="datetime-local" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} className={inputClass} />
+          </div>
+        )}
+        <button
+          type="submit"
+          disabled={loading}
+          className={cn('w-full py-2.5 rounded-lg font-semibold text-sm text-white transition-all', loading ? 'bg-muted cursor-not-allowed text-muted-foreground' : mode === 'grant' ? 'bg-gradient-to-r from-[#7645d9] to-[#5a33b8] hover:opacity-90' : 'bg-destructive hover:opacity-90')}
+        >
+          {loading ? 'Processing...' : mode === 'grant' ? 'Grant Credits' : 'Revoke Credits'}
+        </button>
+      </form>
+    </>
+  );
+}
+
 function GrantCreditsTab() {
   const { user } = useSharedAuth();
   const [walletAddress, setWalletAddress] = useState('');
@@ -172,11 +233,10 @@ function GrantCreditsTab() {
         const request: GrantCreditsRequest = {
           wallet_address: walletAddress,
           amount: parseFloat(amount),
-          reason: reason || undefined,
-          expires_at: expiresAt || undefined,
+          reason: reason !== '' ? reason : undefined,
+          expires_at: expiresAt !== '' ? expiresAt : undefined,
           granted_by: user?.wallet_address ?? 'system',
         };
-
         const data = await grantCreditsAction(request);
         setSuccess(`Successfully granted $${amount} credits. New balance: $${Number(data.new_balance).toFixed(2)}`);
         setWalletAddress('');
@@ -187,10 +247,9 @@ function GrantCreditsTab() {
         const request: RevokeCreditsRequest = {
           wallet_address: walletAddress,
           amount: parseFloat(amount),
-          reason: reason || undefined,
+          reason: reason !== '' ? reason : undefined,
           granted_by: user?.wallet_address ?? 'system',
         };
-
         const data = await revokeCreditsAction(request);
         setSuccess(`Successfully revoked $${amount} credits. New balance: $${Number(data.new_balance).toFixed(2)}`);
         setWalletAddress('');
@@ -209,120 +268,33 @@ function GrantCreditsTab() {
       <div className="rounded-2xl border border-border/20 overflow-hidden bg-card shadow-xl">
         <div className="h-[3px] bg-gradient-to-r from-[#31d0aa] to-[#1fc7d4]" />
         <div className="p-6 sm:p-8">
-        <h2 className="text-xs font-bold text-[#31d0aa] uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-          {mode === 'grant' ? <Plus className="w-4 h-4" /> : <Minus className="w-4 h-4" />}
-          {mode === 'grant' ? 'Grant' : 'Revoke'} Credits
-        </h2>
-
-        {/* Mode Toggle */}
-        <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => setMode('grant')}
-            className={cn(
-              'flex-1 px-4 py-2 rounded-lg font-semibold text-sm transition-colors',
-              mode === 'grant'
-                ? 'bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white'
-                : 'bg-muted/50 border border-border/50 text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <Plus className="w-4 h-4 inline mr-2" />
-            Grant
-          </button>
-          <button
-            onClick={() => setMode('revoke')}
-            className={cn(
-              'flex-1 px-4 py-2 rounded-lg font-semibold text-sm transition-colors',
-              mode === 'revoke'
-                ? 'bg-destructive text-white'
-                : 'bg-muted/50 border border-border/50 text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <Minus className="w-4 h-4 inline mr-2" />
-            Revoke
-          </button>
-        </div>
-
-        {success !== null && success.length > 0 && (
-          <div className="mb-4 p-4 bg-success/10 border border-success/30 rounded-xl">
-            <p className="text-success text-sm">{success}</p>
+          <h2 className="text-xs font-bold text-[#31d0aa] uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+            {mode === 'grant' ? <Plus className="w-4 h-4" /> : <Minus className="w-4 h-4" />}
+            {mode === 'grant' ? 'Grant' : 'Revoke'} Credits
+          </h2>
+          <div className="flex gap-2 mb-6">
+            <button onClick={() => setMode('grant')} className={cn('flex-1 px-4 py-2 rounded-lg font-semibold text-sm transition-colors', mode === 'grant' ? 'bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white' : 'bg-muted/50 border border-border/50 text-muted-foreground hover:text-foreground')}>
+              <Plus className="w-4 h-4 inline mr-2" />Grant
+            </button>
+            <button onClick={() => setMode('revoke')} className={cn('flex-1 px-4 py-2 rounded-lg font-semibold text-sm transition-colors', mode === 'revoke' ? 'bg-destructive text-white' : 'bg-muted/50 border border-border/50 text-muted-foreground hover:text-foreground')}>
+              <Minus className="w-4 h-4 inline mr-2" />Revoke
+            </button>
           </div>
-        )}
-
-        {error !== null && error.length > 0 && (
-          <div className="mb-4 p-4 bg-destructive/10 border border-destructive/30 rounded-xl">
-            <p className="text-destructive text-sm">{error}</p>
-          </div>
-        )}
-
-        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
-          <div>
-            <label className="block text-xs font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2">
-              Wallet Address
-            </label>
-            <input
-              type="text"
-              value={walletAddress}
-              onChange={(e) => setWalletAddress(e.target.value)}
-              placeholder="0x..."
-              required
-              className="w-full px-4 py-2.5 rounded-lg border border-border/50 bg-muted/50 text-foreground focus:ring-1 focus:ring-[#1fc7d4] focus:border-transparent transition-all text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2">
-              Amount (USD)
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.00"
-              required
-              min="0.01"
-              className="w-full px-4 py-2.5 rounded-lg border border-border/50 bg-muted/50 text-foreground focus:ring-1 focus:ring-[#1fc7d4] focus:border-transparent transition-all text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2">
-              Reason (optional)
-            </label>
-            <textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Promotional credit for early adopter..."
-              rows={3}
-              className="w-full px-4 py-2.5 rounded-lg border border-border/50 bg-muted/50 text-foreground focus:ring-1 focus:ring-[#1fc7d4] focus:border-transparent transition-all text-sm"
-            />
-          </div>
-
-          {mode === 'grant' && (
-            <div>
-              <label className="block text-xs font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2">
-                Expiry Date (optional)
-              </label>
-              <input
-                type="datetime-local"
-                value={expiresAt}
-                onChange={(e) => setExpiresAt(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-lg border border-border/50 bg-muted/50 text-foreground focus:ring-1 focus:ring-[#1fc7d4] focus:border-transparent transition-all text-sm"
-              />
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className={cn(
-              'w-full py-2.5 rounded-lg font-semibold text-sm text-white transition-all',
-              loading ? 'bg-muted cursor-not-allowed text-muted-foreground' : mode === 'grant' ? 'bg-gradient-to-r from-[#7645d9] to-[#5a33b8] hover:opacity-90' : 'bg-destructive hover:opacity-90'
-            )}
-          >
-            {loading ? 'Processing...' : mode === 'grant' ? 'Grant Credits' : 'Revoke Credits'}
-          </button>
-        </form>
+          <GrantForm
+            mode={mode}
+            walletAddress={walletAddress}
+            amount={amount}
+            reason={reason}
+            expiresAt={expiresAt}
+            loading={loading}
+            success={success}
+            error={error}
+            setWalletAddress={setWalletAddress}
+            setAmount={setAmount}
+            setReason={setReason}
+            setExpiresAt={setExpiresAt}
+            onSubmit={(e) => void handleSubmit(e)}
+          />
         </div>
       </div>
     </div>

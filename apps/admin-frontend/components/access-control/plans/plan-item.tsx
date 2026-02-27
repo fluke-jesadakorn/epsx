@@ -30,6 +30,62 @@ export interface PlanItemProps {
     innerRef?: (node: HTMLElement | null) => void;
 }
 
+function PlanItemHeader({ plan, index, isSys, active, permCount, onDuplicate }: {
+    plan: PermissionPlan; index: number; isSys: boolean; active: boolean; permCount: number;
+    onDuplicate?: (plan: PermissionPlan) => void;
+}) {
+    return (
+        <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+                {isSys ? (
+                    <div className="h-5 w-5 rounded bg-purple-500/20 flex items-center justify-center shrink-0">
+                        <Shield className="h-3 w-3 text-purple-400" />
+                    </div>
+                ) : (
+                    <div className="h-5 w-5 rounded bg-muted/30 flex items-center justify-center text-[10px] font-mono text-muted-foreground shrink-0">
+                        {index + 1}
+                    </div>
+                )}
+                <h4 className="font-bold text-sm text-foreground truncate">{plan.name}</h4>
+                <Badge variant="outline" className={cn('text-[9px] px-1 py-0 shrink-0', categoryBadgeClass(plan.plan_category))}>
+                    {plan.plan_category}
+                </Badge>
+                <span className={cn('flex items-center gap-1 text-[9px] font-medium uppercase shrink-0', active ? 'text-emerald-400' : 'text-muted-foreground')}>
+                    <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-emerald-400' : 'bg-slate-500')} />
+                    {active ? 'On' : 'Off'}
+                </span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+                <button type="button" onClick={(e) => { e.stopPropagation(); onDuplicate?.(plan); }}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted/50 text-muted-foreground hover:text-[#1fc7d4]"
+                    title="Duplicate plan">
+                    <Copy className="h-3.5 w-3.5" />
+                </button>
+                <Badge variant="secondary" className="text-[10px] h-5 bg-muted/30">{permCount}</Badge>
+            </div>
+        </div>
+    );
+}
+
+function PlanItemMeta({ plan, members, isPublic }: { plan: PermissionPlan; members: number; isPublic: boolean }) {
+    const maxMembers = plan.max_members !== null && plan.max_members !== undefined ? `/${plan.max_members}` : '';
+    return (
+        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/20 text-[10px] text-muted-foreground">
+            <span className="flex items-center gap-0.5" title="Tier level"><Hash className="h-2.5 w-2.5" />{plan.tier_level}</span>
+            <span className="text-white/10">|</span>
+            <span className="flex items-center gap-0.5" title="Members assigned"><Users className="h-2.5 w-2.5" />{members}{maxMembers}</span>
+            <span className="text-white/10">|</span>
+            <span title={isPublic ? 'Public' : 'Private'}>
+                {isPublic ? <Eye className="h-2.5 w-2.5 text-emerald-400/70" /> : <EyeOff className="h-2.5 w-2.5" />}
+            </span>
+            <span className="flex-1" />
+            <span className="flex items-center gap-0.5 text-muted-foreground/60" title={plan.updated_at}>
+                <Clock className="h-2.5 w-2.5" />{formatRelativeTime(plan.updated_at)}
+            </span>
+        </div>
+    );
+}
+
 export function PlanItem({
     plan,
     index,
@@ -46,7 +102,6 @@ export function PlanItem({
     const active = plan.is_active !== false;
     const isSys = isSystemPlan(plan);
     const g = group ?? plan.plan_group ?? 'personal';
-    const permCount = plan.permissions?.length ?? 0;
     const members = plan.member_count ?? 0;
     const isPublic = plan.is_public === true;
 
@@ -57,13 +112,10 @@ export function PlanItem({
             onClick={() => onSelect?.(plan)}
             className={cn(
                 'p-3 cursor-pointer hover:bg-muted/30 transition-colors border-l-4 group relative bg-transparent',
-                selectedPlanId === plan.id
-                    ? 'bg-cyan-500/10 border-l-[#1fc7d4]'
-                    : GROUP_BORDER[g],
+                selectedPlanId === plan.id ? 'bg-cyan-500/10 border-l-[#1fc7d4]' : GROUP_BORDER[g],
                 isDragging === true ? 'opacity-40' : ''
             )}
         >
-            {/* Drag Handle */}
             <div
                 {...(dragHandleProps ?? {})}
                 className={cn(
@@ -74,79 +126,10 @@ export function PlanItem({
             >
                 <GripVertical className="h-4 w-4" />
             </div>
-
             <div className="pl-4">
-                {/* Row 1: Name + badges + actions */}
-                <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                        {isSys ? (
-                            <div className="h-5 w-5 rounded bg-purple-500/20 flex items-center justify-center shrink-0">
-                                <Shield className="h-3 w-3 text-purple-400" />
-                            </div>
-                        ) : (
-                            <div className="h-5 w-5 rounded bg-muted/30 flex items-center justify-center text-[10px] font-mono text-muted-foreground shrink-0">
-                                {index + 1}
-                            </div>
-                        )}
-                        <h4 className="font-bold text-sm text-foreground truncate">{plan.name}</h4>
-                        <Badge variant="outline" className={cn('text-[9px] px-1 py-0 shrink-0', categoryBadgeClass(plan.plan_category))}>
-                            {plan.plan_category}
-                        </Badge>
-                        <span className={cn(
-                            'flex items-center gap-1 text-[9px] font-medium uppercase shrink-0',
-                            active ? 'text-emerald-400' : 'text-muted-foreground'
-                        )}>
-                            <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-emerald-400' : 'bg-slate-500')} />
-                            {active ? 'On' : 'Off'}
-                        </span>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                            type="button"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onDuplicate?.(plan);
-                            }}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted/50 text-muted-foreground hover:text-[#1fc7d4]"
-                            title="Duplicate plan"
-                        >
-                            <Copy className="h-3.5 w-3.5" />
-                        </button>
-                        <Badge variant="secondary" className="text-[10px] h-5 bg-muted/30">
-                            {permCount}
-                        </Badge>
-                    </div>
-                </div>
-
-                {/* Row 2: Description */}
-                <p className="text-xs text-muted-foreground line-clamp-1 mt-1 ml-7">
-                    {plan.description}
-                </p>
-
-                {/* Row 3: Metadata */}
-                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/20 text-[10px] text-muted-foreground">
-                    <span className="flex items-center gap-0.5" title="Tier level">
-                        <Hash className="h-2.5 w-2.5" />
-                        {plan.tier_level}
-                    </span>
-                    <span className="text-white/10">|</span>
-                    <span className="flex items-center gap-0.5" title="Members assigned">
-                        <Users className="h-2.5 w-2.5" />
-                        {members}{plan.max_members != null ? `/${plan.max_members}` : ''}
-                    </span>
-                    <span className="text-white/10">|</span>
-                    <span title={isPublic ? 'Public' : 'Private'}>
-                        {isPublic
-                            ? <Eye className="h-2.5 w-2.5 text-emerald-400/70" />
-                            : <EyeOff className="h-2.5 w-2.5" />
-                        }
-                    </span>
-                    <span className="flex-1" />
-                    <span className="flex items-center gap-0.5 text-muted-foreground/60" title={plan.updated_at}>
-                        <Clock className="h-2.5 w-2.5" />
-                        {formatRelativeTime(plan.updated_at)}
-                    </span>
-                </div>
+                <PlanItemHeader plan={plan} index={index} isSys={isSys} active={active} permCount={plan.permissions.length} onDuplicate={onDuplicate} />
+                <p className="text-xs text-muted-foreground line-clamp-1 mt-1 ml-7">{plan.description}</p>
+                <PlanItemMeta plan={plan} members={members} isPublic={isPublic} />
             </div>
         </div>
     );

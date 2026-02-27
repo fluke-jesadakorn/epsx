@@ -3,13 +3,14 @@
  * Provides comprehensive error handling for admin interface
  * Prevents admin interface crashes and provides recovery options
  */
-/* eslint-disable @typescript-eslint/strict-boolean-expressions */
 
 'use client';
 
 import { AlertTriangle, RefreshCw, Home, Shield, Bug } from 'lucide-react';
 import type { ReactNode } from 'react';
 import React, { Component } from 'react';
+
+import { logger } from '@/lib/logger';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -73,8 +74,7 @@ export class AdminErrorBoundary extends Component<Props, State> {
     const { context = 'component', featureName } = this.props;
     
     // Enhanced error logging for admin interface
-     
-    console.error('🚨 Admin Error Boundary caught an error:', {
+    logger.error('Admin Error Boundary caught an error', {
       error: error.message,
       stack: error.stack,
       componentStack: errorInfo.componentStack,
@@ -83,7 +83,6 @@ export class AdminErrorBoundary extends Component<Props, State> {
       featureName,
       retryCount: this.state.retryCount,
       timestamp: new Date().toISOString(),
-      userAgent: navigator.userAgent,
       url: window.location.href,
       adminSession: this.getAdminSessionInfo()
     });
@@ -112,8 +111,7 @@ export class AdminErrorBoundary extends Component<Props, State> {
 
   private reportCriticalError = (error: Error, errorInfo: React.ErrorInfo) => {
     // For critical admin errors, we might want special handling
-     
-    console.error('🔥 CRITICAL ADMIN ERROR:', {
+    logger.error('CRITICAL ADMIN ERROR', {
       error: error.message,
       context: this.props.context,
       feature: this.props.featureName,
@@ -149,10 +147,13 @@ export class AdminErrorBoundary extends Component<Props, State> {
   private getErrorSeverity = (): 'low' | 'medium' | 'high' | 'critical' => {
     const { context } = this.props;
     const { retryCount } = this.state;
-    
-    if (context === 'critical' ?? retryCount >= this.maxRetries) {return 'critical';}
-    if (context === 'page' ?? retryCount >= 2) {return 'high';}
-    if (context === 'feature' ?? retryCount >= 1) {return 'medium';}
+    return this.calcSeverity(context, retryCount);
+  };
+
+  private calcSeverity = (context: Props['context'], retryCount: number): 'low' | 'medium' | 'high' | 'critical' => {
+    if (context === 'critical' || retryCount >= this.maxRetries) { return 'critical'; }
+    if (context === 'page' || retryCount >= 2) { return 'high'; }
+    if (context === 'feature' || retryCount >= 1) { return 'medium'; }
     return 'low';
   };
 
@@ -165,163 +166,154 @@ export class AdminErrorBoundary extends Component<Props, State> {
     }
   };
 
+  private getErrorTitle = (context: Props['context'], featureName?: string): string => {
+    if (context === 'critical') { return 'Critical Admin Error'; }
+    if (context === 'page') { return 'Page Error'; }
+    return `${featureName ?? 'Feature'} Error`;
+  };
+
+  private getErrorDescription = (context: Props['context'], featureName?: string): string => {
+    if (context === 'critical') { return 'A critical admin function has failed. This may affect system operations.'; }
+    if (context === 'page') { return 'This admin page encountered an error and cannot be displayed.'; }
+    return `The ${featureName ?? 'feature'} is temporarily unavailable.`;
+  };
+
+  private renderComponentError = (featureName: string | undefined, canRetry: boolean) => (
+    <div className="border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10 rounded-lg p-4 m-2">
+      <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+        <AlertTriangle className="w-4 h-4" />
+        <span className="text-sm font-medium">Component Error</span>
+      </div>
+      <p className="text-xs text-red-600 dark:text-red-400 mb-3">
+        {featureName !== undefined && featureName !== '' ? `${featureName} failed to load` : 'This component encountered an error'}
+      </p>
+      {canRetry ? (
+        <Button size="sm" variant="outline" onClick={this.handleReset}>
+          <RefreshCw className="w-3 h-3 mr-1" />
+          Retry
+        </Button>
+      ) : null}
+    </div>
+  );
+
   /**
    *
    */
   override render() {
-    if (this.state.hasError) {
-      // Use custom fallback if provided
-      if (this.props.fallback) {
-        return this.props.fallback;
-      }
-
-      const { context, featureName } = this.props;
-      const severity = this.getErrorSeverity();
-      const canRetry = this.state.retryCount < this.maxRetries;
-
-      // Minimal error UI for components
-      if (context === 'component') {
-        return (
-          <div className="border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10 rounded-lg p-4 m-2">
-            <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
-              <AlertTriangle className="w-4 h-4" />
-              <span className="text-sm font-medium">Component Error</span>
-            </div>
-            <p className="text-xs text-red-600 dark:text-red-400 mb-3">
-              {featureName ? `${featureName} failed to load` : 'This component encountered an error'}
-            </p>
-            {canRetry && (
-              <Button size="sm" variant="outline" onClick={this.handleReset}>
-                <RefreshCw className="w-3 h-3 mr-1" />
-                Retry
-              </Button>
-            )}
-          </div>
-        );
-      }
-
-      // Full error UI for page/feature/critical errors
-      return (
-        <div className="min-h-[400px] flex items-center justify-center p-4">
-          <Card className="w-full max-w-lg">
-            <CardHeader className="text-center">
-              <div className="mx-auto w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-4">
-                {context === 'critical' ? (
-                  <Shield className="w-8 h-8 text-red-600 dark:text-red-400" />
-                ) : (
-                  <AlertTriangle className="w-8 h-8 text-red-600 dark:text-red-400" />
-                )}
-              </div>
-              
-              <div className="space-y-2">
-                <Badge className={this.getSeverityColor(severity)}>
-                  {severity.toUpperCase()} ERROR
-                </Badge>
-                
-                <CardTitle className="text-xl font-semibold">
-                  {context === 'critical' && 'Critical Admin Error'}
-                  {context === 'page' && 'Page Error'}
-                  {context === 'feature' && `${featureName ?? 'Feature'} Error`}
-                </CardTitle>
-                
-                <CardDescription>
-                  {context === 'critical' && 'A critical admin function has failed. This may affect system operations.'}
-                  {context === 'page' && 'This admin page encountered an error and cannot be displayed.'}
-                  {context === 'feature' && `The ${featureName ?? 'feature'} is temporarily unavailable.`}
-                </CardDescription>
-              </div>
-            </CardHeader>
-            
-            <CardContent className="space-y-4">
-              {/* Error ID for support */}
-              {this.state.errorId && (
-                <div className="text-xs text-muted-foreground font-mono bg-muted/30 p-2 rounded">
-                  Error ID: {this.state.errorId}
-                  {this.state.retryCount > 0 && ` (Attempt ${this.state.retryCount + 1})`}
-                </div>
-              )}
-
-              {/* Development error details */}
-              {process.env.NODE_ENV === 'development' && this.state.error && (
-                <details className="text-xs">
-                  <summary className="cursor-pointer text-muted-foreground mb-2 flex items-center gap-1">
-                    <Bug className="w-3 h-3" />
-                    Error Details (Development)
-                  </summary>
-                  <pre className="whitespace-pre-wrap bg-red-50 dark:bg-red-900/10 text-red-700 dark:text-red-300 p-2 rounded text-xs overflow-auto max-h-40 border">
-                    {this.state.error.message}
-                    {'\n\n'}
-                    {this.state.error.stack}
-                  </pre>
-                </details>
-              )}
-
-              {/* Recovery actions */}
-              <div className="space-y-2">
-                {canRetry ? (
-                  <Button onClick={this.handleReset} className="w-full">
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Try Again ({this.maxRetries - this.state.retryCount} attempts left)
-                  </Button>
-                ) : (
-                  <Button onClick={this.handleReload} className="w-full">
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Reload Page
-                  </Button>
-                )}
-                
-                <div className="grid grid-cols-2 gap-2">
-                  <Button 
-                    variant="outline" 
-                    onClick={this.handleGoToDashboard}
-                    className="text-sm"
-                  >
-                    <Home className="w-4 h-4 mr-1" />
-                    Dashboard
-                  </Button>
-                  
-                  <Button 
-                    variant="outline" 
-                    onClick={this.handleReload}
-                    className="text-sm"
-                  >
-                    Reload
-                  </Button>
-                </div>
-              </div>
-
-              <p className="text-xs text-muted-foreground text-center">
-                If this problem persists, please contact the system administrator with the error ID above.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      );
+    if (!this.state.hasError) {
+      return this.props.children;
     }
 
-    return this.props.children;
+    if (this.props.fallback !== undefined) {
+      return this.props.fallback;
+    }
+
+    const { context, featureName } = this.props;
+    const severity = this.getErrorSeverity();
+    const canRetry = this.state.retryCount < this.maxRetries;
+
+    if (context === 'component') {
+      return this.renderComponentError(featureName, canRetry);
+    }
+
+    return (
+      <div className="min-h-[400px] flex items-center justify-center p-4">
+        <Card className="w-full max-w-lg">
+          <CardHeader className="text-center">
+            <div className="mx-auto w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-4">
+              {context === 'critical' ? (
+                <Shield className="w-8 h-8 text-red-600 dark:text-red-400" />
+              ) : (
+                <AlertTriangle className="w-8 h-8 text-red-600 dark:text-red-400" />
+              )}
+            </div>
+            <div className="space-y-2">
+              <Badge className={this.getSeverityColor(severity)}>
+                {severity.toUpperCase()} ERROR
+              </Badge>
+              <CardTitle className="text-xl font-semibold">
+                {this.getErrorTitle(context, featureName)}
+              </CardTitle>
+              <CardDescription>
+                {this.getErrorDescription(context, featureName)}
+              </CardDescription>
+            </div>
+          </CardHeader>
+
+          <CardContent className="space-y-4">
+            {this.state.errorId !== null && (
+              <div className="text-xs text-muted-foreground font-mono bg-muted/30 p-2 rounded">
+                Error ID: {this.state.errorId}
+                {this.state.retryCount > 0 ? ` (Attempt ${this.state.retryCount + 1})` : null}
+              </div>
+            )}
+
+            {process.env.NODE_ENV === 'development' && this.state.error !== null && (
+              <details className="text-xs">
+                <summary className="cursor-pointer text-muted-foreground mb-2 flex items-center gap-1">
+                  <Bug className="w-3 h-3" />
+                  Error Details (Development)
+                </summary>
+                <pre className="whitespace-pre-wrap bg-red-50 dark:bg-red-900/10 text-red-700 dark:text-red-300 p-2 rounded text-xs overflow-auto max-h-40 border">
+                  {this.state.error.message}
+                  {'\n\n'}
+                  {this.state.error.stack}
+                </pre>
+              </details>
+            )}
+
+            <div className="space-y-2">
+              {canRetry ? (
+                <Button onClick={this.handleReset} className="w-full">
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Try Again ({this.maxRetries - this.state.retryCount} attempts left)
+                </Button>
+              ) : (
+                <Button onClick={this.handleReload} className="w-full">
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Reload Page
+                </Button>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" onClick={this.handleGoToDashboard} className="text-sm">
+                  <Home className="w-4 h-4 mr-1" />
+                  Dashboard
+                </Button>
+                <Button variant="outline" onClick={this.handleReload} className="text-sm">
+                  Reload
+                </Button>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground text-center">
+              If this problem persists, please contact the system administrator with the error ID above.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 }
 
 // Convenience wrapper for admin components
 /**
  *
- * @param Component
+ * @param WrappedComp
  * @param context
  * @param featureName
  */
 export function withAdminErrorBoundary<P extends object>(
-  Component: React.ComponentType<P>,
+  WrappedComp: React.ComponentType<P>,
   context: Props['context'] = 'component',
   featureName?: string
 ) {
-  const WrappedComponent = (props: P) => (
+  const WithBoundary = (props: P) => (
     <AdminErrorBoundary context={context} featureName={featureName}>
-      <Component {...props} />
+      <WrappedComp {...props} />
     </AdminErrorBoundary>
   );
 
-  WrappedComponent.displayName = `withAdminErrorBoundary(${Component.displayName ?? Component.name})`;
-  
-  return WrappedComponent;
+  WithBoundary.displayName = `withAdminErrorBoundary(${WrappedComp.displayName ?? WrappedComp.name})`;
+
+  return WithBoundary;
 }

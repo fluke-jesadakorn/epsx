@@ -1,6 +1,6 @@
 import { GlobalErrorBoundary } from '@/components/error-boundaries/global-error-boundary';
+import { SafeThemeScript } from '@/components/ui/safe-theme-script';
 import '@/lib/polyfills';
-import Script from 'next/script';
 
 import { NavigationClient } from '@/components/nav/navigation-client';
 import { ClientProviders } from '@/components/providers/client-providers';
@@ -11,29 +11,17 @@ import { getServerConfig } from '@/shared/config/wagmi';
 import { initializeRuntimeEnvironment } from '@/shared/utils/runtime-env-validator';
 import { Kanit } from 'next/font/google';
 import { cookies, headers } from 'next/headers';
-import { ChatWidget } from '@/components/chat';
 import { Toaster } from 'sonner';
 import { cookieToInitialState } from 'wagmi';
+import { ChatWidget } from '@/components/chat';
 import './globals.css';
-
-import { SafeThemeScript } from '@/components/ui/safe-theme-script';
-// Verify polyfills are active for debugging (both for server and client module load)
-if (typeof window !== 'undefined') {
-  const mathPowAny = Math.pow as unknown as Record<string, unknown>;
-  if (mathPowAny.__isPolyfilled === true) {
-    // Polyfills verified active
-  }
-}
 
 // Initialize runtime environment validation
 initializeRuntimeEnvironment();
 
-// Pure Web3 layout - no server-side session checking required
-export const dynamic = 'force-dynamic';
-
 const kanit = Kanit({
   subsets: ['latin'],
-  weight: ['200', '300', '400', '500', '600', '700', '800'],
+  weight: ['400', '600', '700'],
   display: 'swap',
   variable: '--font-kanit',
 });
@@ -122,45 +110,6 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* CRITICAL: BigInt-safe Math polyfill must run before ANY other JS */}
-        <Script id="bigint-polyfill" strategy="beforeInteractive">
-          {`
-            (function() {
-              if (!Math.pow || !Math.pow.__isPolyfilled) {
-                var originalPow = Math.pow;
-                Math.pow = function(b, e) {
-                  if (typeof b === 'bigint' || typeof e === 'bigint') {
-                    try {
-                      return new Function('b', 'e', 'return b ** e')(b, e);
-                    } catch (err) {
-                      if (typeof b === 'bigint' && typeof e === 'bigint') {
-                         var res = 1n; 
-                         var exp = BigInt(e);
-                         if (exp < 0n) return 0n;
-                         for (var i = 0n; i < exp; i++) res *= b;
-                         return res;
-                      }
-                      return NaN;
-                    }
-                  }
-                  return originalPow.apply(Math, arguments);
-                };
-                Math.pow.__isPolyfilled = true;
-                
-                ['floor', 'ceil', 'round', 'trunc', 'abs'].forEach(function(f) {
-                  var orig = Math[f];
-                  if (orig) {
-                    Math[f] = function(v) {
-                      if (typeof v === 'bigint') return v;
-                      return orig.call(Math, v);
-                    };
-                  }
-                });
-                console.log('[Polyfill] Inline BigInt-safe Math polyfill active');
-              }
-            })();
-          `}
-        </Script>
         {/* Mobile performance optimizations */}
         <meta name="msapplication-tap-highlight" content="no" />
 

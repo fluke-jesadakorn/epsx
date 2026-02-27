@@ -15,7 +15,7 @@ export async function mockAllApis(page: Page, overrides: MockOverrides = {}) {
 
   for (const [key, response] of Object.entries(merged)) {
     const spaceIdx = key.indexOf(' ');
-    if (spaceIdx === -1) continue;
+    if (spaceIdx === -1) {continue;}
 
     const method = key.slice(0, spaceIdx).toUpperCase();
     const path = key.slice(spaceIdx + 1);

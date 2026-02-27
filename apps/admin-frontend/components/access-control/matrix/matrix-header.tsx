@@ -40,7 +40,7 @@ export function MatrixHeader({
                 <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => router.push('/subscriptions/plans/new')}
+                    onClick={() => router.push('/wallet-management/access/plans')}
                 >
                     <Plus className="h-4 w-4 mr-2" />
                     New Policy

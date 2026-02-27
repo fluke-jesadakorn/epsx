@@ -20,6 +20,8 @@ import { mapWalletDtoToData } from '@/lib/mappers/wallet';
 // SERVER ACTIONS
 // ============================================================================
 
+const WALLET_MGMT_ROUTE = '/wallet-management';
+
 // Helper to check and handle auth errors
 async function checkAuthError(error?: { code?: string; message?: string } | null) {
     if (!error) { return; }
@@ -85,7 +87,7 @@ export async function fetchWalletsAction(filters: WalletFilters, page = 1, limit
     const res = await apiClient.get<WalletListResponse>('/api/admin/wallets', params);
 
     if (!res.success) {
-        redirectOnForbidden(res, '/wallet-management');
+        redirectOnForbidden(res, WALLET_MGMT_ROUTE);
         await checkAuthError(res.error);
         const msg = res.error?.message ?? 'Failed to fetch wallets';
         const code = res.error?.code ?? 'UNKNOWN';
@@ -108,7 +110,7 @@ export async function updateWalletMetadataAction(walletAddress: string, data: { 
     });
 
     if (!res.success) {
-        redirectOnForbidden(res, '/wallet-management');
+        redirectOnForbidden(res, WALLET_MGMT_ROUTE);
         await checkAuthError(res.error);
         throw new Error(res.error?.message ?? 'Failed to update metadata');
     }
@@ -119,7 +121,7 @@ export async function disableWalletAction(walletAddress: string, data: DisableWa
     const res = await apiClient.post(`/api/admin/wallets/${walletAddress}/disable`, data);
 
     if (!res.success) {
-        redirectOnForbidden(res, '/wallet-management');
+        redirectOnForbidden(res, WALLET_MGMT_ROUTE);
         await checkAuthError(res.error);
         throw new Error(res.error?.message ?? 'Failed to disable wallet');
     }
@@ -130,7 +132,7 @@ export async function enableWalletAction(walletAddress: string, data: EnableWall
     const res = await apiClient.post(`/api/admin/wallets/${walletAddress}/enable`, data);
 
     if (!res.success) {
-        redirectOnForbidden(res, '/wallet-management');
+        redirectOnForbidden(res, WALLET_MGMT_ROUTE);
         await checkAuthError(res.error);
         throw new Error(res.error?.message ?? 'Failed to enable wallet');
     }

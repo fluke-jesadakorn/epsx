@@ -1,5 +1,4 @@
 # EPSX Monorepo .gitignore
-# Next.js 15 + Rust + pnpm workspaces
 
 # Dependencies
 node_modules/
@@ -17,11 +16,13 @@ dist/
 out/
 tmp/
 
-# Testing Outputs
+# Testing
 coverage/
 .nyc_output/
 test-results/
 playwright-report/
+playwright-synpress-report/
+.cache-synpress/
 
 # Environment Files
 .env
@@ -81,12 +82,20 @@ secrets/
 
 # Deployment
 .vercel/
+.vercel
 .firebase/
 
 # Local Overrides
 *.local
 
-# Debug and Test Files
+# Debug
 .debug/
 docs/privatekey.txt
-.vercel
+eslint-output.txt
+
+# Claude Code
+.claude/worktrees/
+.worktrees/
+
+# Design Files
+webDesign/

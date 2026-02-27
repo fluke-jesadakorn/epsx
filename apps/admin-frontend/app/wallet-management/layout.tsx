@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-condition */
 import { PageHeader, PageLayout } from '@/components/shared';
 import { DashboardSection } from '@/components/wallet/dashboard-section';
 import { fetchAccessManagementData, fetchWalletStats } from '@/lib/data/access-management';
@@ -30,11 +29,11 @@ export default async function WalletManagementLayout({
 
     // Transform stats for DashboardSection
     const dashboardStats = {
-        totalWallets: walletStats?.total_users ?? 0,
-        activeCount: walletStats?.active_users ?? 0,
-        disabledCount: walletStats?.inactive_users ?? 0,
-        subscribedCount: data?.stats?.activeSubscriptions ?? 0,
-        expiringSoon: data?.stats?.expiringSoon ?? 0,
+        totalWallets: walletStats.total_users,
+        activeCount: walletStats.active_users,
+        disabledCount: walletStats.inactive_users,
+        subscribedCount: data.stats.activeSubscriptions,
+        expiringSoon: data.stats.expiringSoon,
     };
 
     return (

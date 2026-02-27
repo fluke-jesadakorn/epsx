@@ -8,7 +8,7 @@ import { useDocsState } from './hooks/use-docs-state';
 import { getApiKeysAction } from '@/app/actions/developer';
 
 export function ApiDocs() {
-  const { activeSection, sidebarOpen, toggleSection, toggleSidebar, scrollToSection } = useDocsState();
+  const { activeSection, sidebarOpen, toggleSidebar, scrollToSection } = useDocsState();
 
   const { data: keysData } = useQuery({
     queryKey: ['api-keys-for-docs'],
@@ -23,7 +23,7 @@ export function ApiDocs() {
   const apiKeys = (keysData as any[]) ?? [];
 
   return (
-    <div className="flex min-h-[calc(100vh-5rem)]">
+    <div className="flex gap-6">
       <DocsSidebar
         categories={ENDPOINT_CATEGORIES}
         activeSection={activeSection}
@@ -32,7 +32,7 @@ export function ApiDocs() {
         onToggle={toggleSidebar}
       />
 
-      <main className="flex-1 px-4 py-6 lg:px-8">
+      <div className="min-w-0 flex-1">
         {/* Hero */}
         <div className="mb-8">
           <div className="h-[3px] w-16 rounded-full bg-gradient-to-r from-[#7645d9] to-[#1fc7d4]" />
@@ -60,7 +60,7 @@ export function ApiDocs() {
             <EndpointSection key={cat.id} category={cat} apiKeys={apiKeys} />
           ))}
         </div>
-      </main>
+      </div>
     </div>
   );
 }

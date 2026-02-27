@@ -39,8 +39,7 @@ export function MatrixGrid({
 
                         {/* Policy Columns */}
                         {policies.map((policy) => {
-                            const config =
-                                POLICY_TYPE_CONFIG[policy.type] ?? POLICY_TYPE_CONFIG.manual;
+                            const config = POLICY_TYPE_CONFIG[policy.type];
                             return (
                                 <div
                                     key={policy.id}

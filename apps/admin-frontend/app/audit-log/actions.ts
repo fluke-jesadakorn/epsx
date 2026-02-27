@@ -14,6 +14,18 @@ interface FetchAuditLogsParams {
     toDate?: string;
 }
 
+function buildAuditQueryParams(params: FetchAuditLogsParams): Record<string, string> {
+    const q: Record<string, string> = {
+        page: params.page.toString(),
+        page_size: params.pageSize.toString(),
+    };
+    if (params.search !== undefined && params.search !== '') { q.search = params.search; }
+    if (params.category !== undefined && params.category !== 'all') { q.category = params.category; }
+    if (params.fromDate !== undefined && params.fromDate !== '') { q.from_date = params.fromDate; }
+    if (params.toDate !== undefined && params.toDate !== '') { q.to_date = params.toDate; }
+    return q;
+}
+
 export async function fetchAuditLogsAction(params: FetchAuditLogsParams): Promise<{
     success: boolean;
     entries: AuditLogEntry[];
@@ -21,17 +33,7 @@ export async function fetchAuditLogsAction(params: FetchAuditLogsParams): Promis
     error?: string;
 }> {
     const client = createAdminApiClient({ serverSide: true });
-    const queryParams: Record<string, string> = {
-        page: params.page.toString(),
-        page_size: params.pageSize.toString(),
-    };
-
-    if (params.search !== undefined && params.search !== '') { queryParams.search = params.search; }
-    if (params.category !== undefined && params.category !== 'all') { queryParams.category = params.category; }
-    if (params.fromDate !== undefined && params.fromDate !== '') { queryParams.from_date = params.fromDate; }
-    if (params.toDate !== undefined && params.toDate !== '') { queryParams.to_date = params.toDate; }
-
-    const qs = new URLSearchParams(queryParams);
+    const qs = new URLSearchParams(buildAuditQueryParams(params));
 
     const res = await client.get<{
         entries: AuditLogEntry[];

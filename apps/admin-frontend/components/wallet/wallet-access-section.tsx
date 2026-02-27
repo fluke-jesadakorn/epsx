@@ -10,6 +10,7 @@ import {
 import type { AccessItem, UseWalletAccessReturn } from '@/hooks/use-wallet-access';
 import type { useMetadataForm, useSubscriptionData } from '@/hooks/use-wallet-detail';
 import { ShieldCheck } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface WalletAccessSectionProps {
     walletAddress: string;
@@ -129,18 +130,23 @@ export function WalletAccessSection({
                                 setPendingDrops((prev: AccessItem[]) => prev.filter((p: AccessItem) => p.id !== id));
                             } else {
                                 const plan = accessData.data.authorizedPlans.find(g => g.id === id);
-                                // eslint-disable-next-line no-alert
-                                if (window.confirm(`Are you sure you want to remove access to "${plan?.name ?? 'this plan'}"?`)) {
-                                    const handleRemove = async () => {
-                                        try {
-                                            await accessData.removePlan(id);
-                                            void accessData.refresh();
-                                        } catch (_err) {
-                                            // Handle error if needed
+                                const planName = plan?.name ?? 'this plan';
+                                toast(`Remove access to "${planName}"?`, {
+                                    action: {
+                                        label: 'Remove',
+                                        onClick: () => {
+                                            const handleRemove = async () => {
+                                                try {
+                                                    await accessData.removePlan(id);
+                                                    void accessData.refresh();
+                                                } catch (_err) {
+                                                    // Handle error if needed
+                                                }
+                                            };
+                                            void handleRemove();
                                         }
-                                    };
-                                    void handleRemove();
-                                }
+                                    },
+                                });
                             }
                         }}
                         onDiscard={() => setPendingDrops([])}

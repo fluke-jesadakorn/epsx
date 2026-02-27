@@ -15,7 +15,7 @@ export function ConnectStep({ connectors, connect, isConnecting, error }: Connec
     const [connectingId, setConnectingId] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!isConnecting) setConnectingId(null);
+        if (!isConnecting) { setConnectingId(null); }
     }, [isConnecting]);
 
     // Deduplicate connectors by name (RainbowKit registers multiple WalletConnect instances)

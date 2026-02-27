@@ -75,15 +75,16 @@ export function LoadingSpinner({
                     variantClasses[variant]
                 )}
             />
-            {label && (
+            {label !== undefined && label !== '' ? (
                 <span className={cn(
                     labelSizeClasses[size],
                     variantClasses[variant]
                 )}>
                     {label}
                 </span>
+            ) : (
+                <span className="sr-only">Loading...</span>
             )}
-            {!label && <span className="sr-only">Loading...</span>}
         </div>
     )
 }

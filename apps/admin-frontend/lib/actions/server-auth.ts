@@ -16,7 +16,7 @@ export async function getBearerToken(): Promise<string | null> {
   try {
     return await getJWTFromCookies();
   } catch (_error) {
-    logger.error('❌ Failed to get bearer token:', { error: _error });
+    logger.auth.error('Failed to get bearer token', { error: String(_error) });
     return null;
   }
 }
@@ -28,7 +28,7 @@ export async function getCurrentUser() {
   try {
     return await getAuthUser();
   } catch (_error) {
-    logger.error('❌ Failed to get current user:', { error: _error });
+    logger.auth.error('Failed to get current user', { error: String(_error) });
     return null;
   }
 }

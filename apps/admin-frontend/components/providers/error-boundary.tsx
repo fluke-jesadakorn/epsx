@@ -44,13 +44,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   /**
-   *
-   * @param error
-   * @param errorInfo
+   * @param _error
+   * @param _errorInfo
    */
-  override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-
-    console.error('ErrorBoundary caught an error:', error, errorInfo)
+  override componentDidCatch(_error: Error, _errorInfo: React.ErrorInfo) {
+    // Errors are captured by state; logging handled by monitoring
   }
 
   /**
@@ -58,7 +56,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
    */
   override render() {
     if (this.state.hasError) {
-      if (this.props.fallback) {
+      if (this.props.fallback !== undefined) {
         return this.props.fallback
       }
 

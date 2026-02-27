@@ -72,7 +72,7 @@ export function WalletHeader({ wallet, className }: WalletHeaderProps) {
                     <span>Created {formatTimeAgo(wallet.createdAt)}</span>
                 </div>
 
-                {wallet.lastAuthAt !== null && wallet.lastAuthAt !== undefined && (
+                {wallet.lastAuthAt !== undefined && (
                     <div className="flex items-center text-xs text-muted-foreground">
                         <span className="w-1 h-1 rounded-full bg-muted-foreground mx-2 hidden sm:block" />
                         <span>Last active {formatTimeAgo(wallet.lastAuthAt)}</span>
@@ -81,7 +81,7 @@ export function WalletHeader({ wallet, className }: WalletHeaderProps) {
             </div>
 
             {/* Disable Reason Callout */}
-            {wallet.status === 'disabled' && wallet.disableInfo !== undefined && wallet.disableInfo !== null && (
+            {wallet.status === 'disabled' && wallet.disableInfo !== undefined && (
                 <div className="mt-5 p-3.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30">
                     <div className="flex items-center gap-2 text-amber-800 dark:text-amber-400 font-semibold text-sm mb-1.5">
                         <span>⚠️ Access Restricted</span>
@@ -93,7 +93,7 @@ export function WalletHeader({ wallet, className }: WalletHeaderProps) {
                         <span>Disabled by <strong>{wallet.disableInfo.disabledBy}</strong></span>
                         <span>•</span>
                         <span>{formatDate(wallet.disableInfo.disabledAt)}</span>
-                        {wallet.disableInfo.expiresAt !== null && wallet.disableInfo.expiresAt !== undefined && (
+                        {wallet.disableInfo.expiresAt !== undefined && (
                             <>
                                 <span>•</span>
                                 <span className="text-amber-600 dark:text-amber-500">Expires {formatDate(wallet.disableInfo.expiresAt)}</span>

@@ -53,7 +53,8 @@ export function AnalyticsIcon({ name, className = '', size = 24 }: AnalyticsIcon
     neutral: ArrowRight
   };
 
-  const IconComponent = icons[name as keyof typeof icons] || Users;
+  const iconMap: Record<string, typeof Users> = icons;
+  const IconComponent = iconMap[name] ?? Users;
 
   return (
     <div className={`inline-flex items-center justify-center ${className}`}>
@@ -94,7 +95,118 @@ interface AnalyticsStatsCardProps {
  * @param root0.rank
  * @param root0.className
  */
-// eslint-disable-next-line max-lines-per-function
+const STATUS_COLORS = {
+  green: 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/20',
+  yellow: 'bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/20',
+  red: 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg shadow-red-500/20',
+  blue: 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/20',
+  purple: 'bg-gradient-to-br from-purple-500 to-orange-500 text-white shadow-lg shadow-purple-500/20'
+} as const;
+
+const TREND_COLORS = {
+  up: 'text-[#31d0aa] bg-[#31d0aa]/10 border border-[#31d0aa]/20',
+  down: 'text-[#ed4b9e] bg-[#ed4b9e]/10 border border-[#ed4b9e]/20',
+  neutral: 'text-slate-400 bg-muted/30 border border-border/20'
+} as const;
+
+function StatsCardError() {
+  return (
+    <div className="w-full max-w-sm mx-auto bg-muted/30 rounded-2xl shadow-lg border border-red-500/30 overflow-hidden p-6">
+      <div className="flex items-center justify-center h-24">
+        <div className="text-center">
+          <AnalyticsIcon name="error" className="text-red-400 mb-2" size={32} />
+          <p className="text-sm text-slate-300">Error loading data</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatsCardLoading() {
+  return (
+    <div className="w-full max-w-sm mx-auto bg-muted/30 rounded-2xl shadow-lg border border-border/20 overflow-hidden p-6">
+      <div className="animate-pulse space-y-3">
+        <div className="w-10 h-10 bg-gray-50 dark:bg-white/[0.06] rounded-lg" />
+        <div className="w-20 h-4 bg-gray-50 dark:bg-white/[0.06] rounded" />
+        <div className="w-24 h-8 bg-gray-50 dark:bg-white/[0.06] rounded" />
+        <div className="w-32 h-3 bg-gray-50 dark:bg-white/[0.06] rounded" />
+      </div>
+    </div>
+  );
+}
+
+interface StatsCardBodyProps {
+  title: string;
+  value: string | number;
+  subtitle?: string;
+  iconName: string;
+  trend: 'up' | 'down' | 'neutral';
+  trendValue?: string;
+  statusColor: 'green' | 'yellow' | 'red' | 'blue' | 'purple';
+  rank?: number;
+  daysLeft: number;
+  progressPercentage: number;
+}
+
+function StatsCardBody({ title, value, subtitle, iconName, trend, trendValue, statusColor, rank, daysLeft, progressPercentage }: StatsCardBodyProps) {
+  return (
+    <>
+      <div className="absolute -right-6 -top-6 w-24 h-24 bg-[#1fc7d4]/5 rounded-full blur-3xl group-hover:bg-[#1fc7d4]/10 transition-colors" />
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-4">
+          <div className="p-3 rounded-2xl bg-muted/30 border border-border/20 text-[#1fc7d4]">
+            <AnalyticsIcon name={iconName} size={24} />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-[0.2em]">{title}</h3>
+            {rank !== undefined && rank !== 0 ? <div className="text-[10px] font-black text-[#7645d9]/60 uppercase">Rank #{rank}</div> : null}
+          </div>
+        </div>
+        {trendValue !== undefined && trendValue !== '' ? (
+          <div className={cn("px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all", TREND_COLORS[trend])}>
+            <AnalyticsIcon name={trend} size={14} />
+            <span>{trendValue}</span>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="mb-6 flex justify-center">
+        <span className={`px-4 py-2 rounded-full font-medium text-sm transition-colors ${STATUS_COLORS[statusColor]}`}>
+          ● {statusColor.toUpperCase()}
+        </span>
+      </div>
+
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-slate-200 font-medium text-sm">Status</span>
+          <span className="text-slate-200 font-medium text-sm">{daysLeft}d left</span>
+        </div>
+        <div className="w-full bg-gray-50 dark:bg-white/[0.06] rounded-full h-2">
+          <div
+            className="bg-gradient-to-r from-purple-500 to-orange-500 h-2 rounded-full transition-all duration-1000 shadow-lg shadow-purple-500/20"
+            style={{ width: `${progressPercentage}%` }}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className={`rounded-xl p-4 text-center ${STATUS_COLORS[statusColor]}`}>
+          <div className="font-medium text-xs mb-1 opacity-80">Value</div>
+          <div className="font-bold text-lg">
+            {typeof value === 'number' ? value.toLocaleString() : value}
+          </div>
+        </div>
+        <div className="text-center flex flex-col justify-center">
+          <div className="text-slate-400 font-medium text-sm mb-1">Info</div>
+          <div className="bg-gradient-to-r from-purple-400 to-orange-400 bg-clip-text text-transparent font-semibold text-base">
+            {subtitle ?? 'Active'}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function AnalyticsStatsCard({
   title,
   value,
@@ -109,121 +221,34 @@ export function AnalyticsStatsCard({
   rank,
   className = ''
 }: AnalyticsStatsCardProps) {
-  const statusColors = {
-    green: 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/20',
-    yellow: 'bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/20',
-    red: 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg shadow-red-500/20',
-    blue: 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/20',
-    purple: 'bg-gradient-to-br from-purple-500 to-orange-500 text-white shadow-lg shadow-purple-500/20'
-  };
-
-  const trendColors = {
-    up: 'text-[#31d0aa] bg-[#31d0aa]/10 border border-[#31d0aa]/20',
-    down: 'text-[#ed4b9e] bg-[#ed4b9e]/10 border border-[#ed4b9e]/20',
-    neutral: 'text-slate-400 bg-muted/30 border border-border/20'
-  };
-
-  if (error) {
-    return (
-      <div className="w-full max-w-sm mx-auto bg-muted/30 rounded-2xl shadow-lg border border-red-500/30 overflow-hidden p-6">
-        <div className="flex items-center justify-center h-24">
-          <div className="text-center">
-            <AnalyticsIcon name="error" className="text-red-400 mb-2" size={32} />
-            <p className="text-sm text-slate-300">Error loading data</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="w-full max-w-sm mx-auto bg-muted/30 rounded-2xl shadow-lg border border-border/20 overflow-hidden p-6">
-        <div className="animate-pulse space-y-3">
-          <div className="w-10 h-10 bg-gray-50 dark:bg-white/[0.06] rounded-lg" />
-          <div className="w-20 h-4 bg-gray-50 dark:bg-white/[0.06] rounded" />
-          <div className="w-24 h-8 bg-gray-50 dark:bg-white/[0.06] rounded" />
-          <div className="w-32 h-3 bg-gray-50 dark:bg-white/[0.06] rounded" />
-        </div>
-      </div>
-    );
-  }
+  if (error) { return <StatsCardError />; }
+  if (isLoading) { return <StatsCardLoading />; }
 
   // Calculate days left for next action (mock for now)
   const daysLeft = Math.floor(Math.random() * 90) + 1;
   const progressPercentage = Math.max(10, Math.min(90, (90 - daysLeft) / 90 * 100));
-
-  const isActive = statusColor === 'green';
-  const isInactive = statusColor === 'red';
 
   return (
     <div
       className={cn(
         "group relative bg-card border border-border/20 rounded-2xl shadow-xl overflow-hidden transition-all duration-300 hover:border-[#1fc7d4]/30 active:scale-[0.99] p-8",
         className,
-        onClick && 'cursor-pointer'
+        onClick !== undefined && 'cursor-pointer'
       )}
       onClick={onClick}
     >
-      <div className="absolute -right-6 -top-6 w-24 h-24 bg-[#1fc7d4]/5 rounded-full blur-3xl group-hover:bg-[#1fc7d4]/10 transition-colors" />
-      {/* Header Section */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
-          <div className="p-3 rounded-2xl bg-muted/30 border border-border/20 text-[#1fc7d4]">
-            <AnalyticsIcon name={iconName} size={24} />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-[0.2em]">{title}</h3>
-            {rank && <div className="text-[10px] font-black text-[#7645d9]/60 uppercase">Rank #{rank}</div>}
-          </div>
-        </div>
-        {trendValue && (
-          <div className={cn("px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all", trendColors[trend])}>
-            <AnalyticsIcon name={trend} size={14} />
-            <span>{trendValue}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Status Badge */}
-      <div className="mb-6 flex justify-center">
-        <span className={`px-4 py-2 rounded-full font-medium text-sm transition-colors ${statusColors[statusColor]}`}>
-          ● {statusColor.toUpperCase()}
-        </span>
-      </div>
-
-      {/* Progress Bar */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-slate-200 font-medium text-sm">Status</span>
-          <span className="text-slate-200 font-medium text-sm">{daysLeft}d left</span>
-        </div>
-        <div className="w-full bg-gray-50 dark:bg-white/[0.06] rounded-full h-2">
-          <div
-            className="bg-gradient-to-r from-purple-500 to-orange-500 h-2 rounded-full transition-all duration-1000 shadow-lg shadow-purple-500/20"
-            style={{ width: `${progressPercentage}%` }}
-           />
-        </div>
-      </div>
-
-      {/* Value and Subtitle Section */}
-      <div className="grid grid-cols-2 gap-4">
-        {/* Main Value */}
-        <div className={`rounded-xl p-4 text-center ${statusColors[statusColor]}`}>
-          <div className="font-medium text-xs mb-1 opacity-80">Value</div>
-          <div className="font-bold text-lg">
-            {typeof value === 'number' ? value.toLocaleString() : value}
-          </div>
-        </div>
-
-        {/* Subtitle */}
-        <div className="text-center flex flex-col justify-center">
-          <div className="text-slate-400 font-medium text-sm mb-1">Info</div>
-          <div className="bg-gradient-to-r from-purple-400 to-orange-400 bg-clip-text text-transparent font-semibold text-base">
-            {subtitle ?? 'Active'}
-          </div>
-        </div>
-      </div>
+      <StatsCardBody
+        title={title}
+        value={value}
+        subtitle={subtitle}
+        iconName={iconName}
+        trend={trend}
+        trendValue={trendValue}
+        statusColor={statusColor}
+        rank={rank}
+        daysLeft={daysLeft}
+        progressPercentage={progressPercentage}
+      />
     </div>
   );
 }
@@ -288,8 +313,7 @@ export function AnalyticsUserCard({
 }: AnalyticsUserCardProps) {
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(address);
-    // Could add toast here
+    void navigator.clipboard.writeText(address);
   };
 
   return (
@@ -298,7 +322,7 @@ export function AnalyticsUserCard({
       className={cn(
         "group relative w-full overflow-hidden rounded-[24px] border border-border/20 bg-white/60 dark:bg-[#0f172a]/60 p-1 transition-all duration-300 hover:border-[#7645d9]/30 hover:shadow-2xl hover:shadow-[#7645d9]/10",
         className,
-        onViewDetails && "cursor-pointer"
+        onViewDetails !== undefined && "cursor-pointer"
       )}
     >
       {/* Background Gradients */}
@@ -313,7 +337,7 @@ export function AnalyticsUserCard({
           <div className="relative shrink-0">
             <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#1fc7d4] to-[#7645d9] blur-md opacity-40 group-hover:opacity-60 transition-opacity" />
             <div className="relative flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1fc7d4] to-[#7645d9] text-lg sm:text-xl font-black text-white shadow-inner shadow-white/20">
-              {avatarLabel && avatarLabel.slice(0, 2).toUpperCase()}
+              {avatarLabel !== '' ? avatarLabel.slice(0, 2).toUpperCase() : null}
             </div>
             <div className="absolute -bottom-1 -right-1 rounded-full border-[3px] border-[#0f172a] bg-emerald-500 h-4 w-4 sm:h-5 sm:w-5" />
           </div>
@@ -322,7 +346,7 @@ export function AnalyticsUserCard({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-1">
               <span className="font-mono text-base sm:text-lg font-bold text-slate-100/90 tracking-tight text-ellipsis overflow-hidden whitespace-nowrap">
-                {address && address.length > 12 ? `${address.slice(0, 6)}...${address.slice(Math.max(0, address.length - 6))}` : address}
+                {address.length > 12 ? `${address.slice(0, 6)}...${address.slice(Math.max(0, address.length - 6))}` : address}
               </span>
               <button
                 onClick={handleCopy}

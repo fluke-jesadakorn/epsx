@@ -133,7 +133,7 @@ pub async fn submit_transaction_handler(
         UnifiedErrorResponse::json(400, "Invalid amount", "Cannot parse expected_amount")
     })?;
 
-    if payment_amount <= BigDecimal::from(0) {
+    if payment_amount <= 0 {
         return Err(UnifiedErrorResponse::json(
             400,
             "Invalid amount",
@@ -210,7 +210,7 @@ pub async fn submit_transaction_handler(
     // C3: Validate amount matches plan price (allow 1% tolerance for rounding)
     let price_diff = (&payment_amount - &plan_info.current_price).abs();
     let tolerance = &plan_info.current_price * BigDecimal::from_str("0.01").unwrap_or_else(|_| BigDecimal::from(0));
-    if price_diff > tolerance && plan_info.current_price > BigDecimal::from(0) {
+    if price_diff > tolerance && plan_info.current_price > 0 {
         error!(
             "Amount mismatch: submitted={}, plan_price={}, plan_id={}",
             payment_amount, plan_info.current_price, plan_uuid
@@ -286,13 +286,13 @@ pub async fn submit_transaction_handler(
         wallet_credit_balance, payment_amount, credit_to_use, remaining_amount
     );
 
-    let payment_status = if remaining_amount <= BigDecimal::from(0) {
+    let payment_status = if remaining_amount <= 0 {
         "confirmed"
     } else {
         "pending"
     };
 
-    let tx_hash_value = if remaining_amount <= BigDecimal::from(0) {
+    let tx_hash_value = if remaining_amount <= 0 {
         None
     } else {
         Some(payload.transaction_hash.clone())
@@ -312,7 +312,7 @@ pub async fn submit_transaction_handler(
 
     // Atomic transaction: credit deduction + payment insert
     // Uses a single SQL DO block to ensure both happen or neither
-    let use_credits = credit_to_use > BigDecimal::from(0);
+    let use_credits = credit_to_use > 0;
 
     if use_credits {
         // Wrap credit deduction + payment insert in a transaction

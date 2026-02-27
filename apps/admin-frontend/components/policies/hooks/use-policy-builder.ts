@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,9 +12,10 @@ type PolicyDecision = 'allow' | 'deny' | 'require_mfa' | 'require_approval' | 'r
 type SecondaryAction = 'log_audit' | 'email_risk_team' | 'send_notification' | 'increment_risk_score' | 'require_approval' | 'trigger_alert';
 
 export interface SingleCondition {
+  _key: string;
   field: string;
   operator: ComparisonOperator;
-  value: any;
+  value: string | number | boolean;
   negate?: boolean;
 }
 
@@ -28,7 +28,7 @@ export interface PolicyAction {
   primary: PolicyDecision;
   message?: string;
   secondary_actions: SecondaryAction[];
-  restrictions?: Record<string, any>;
+  restrictions?: Record<string, unknown>;
 }
 
 export interface PolicyFormData {
@@ -48,7 +48,7 @@ export interface PolicyTemplate {
   name: string;
   description: string;
   category: string;
-  template_data: any;
+  template_data: Record<string, unknown>;
   usage_count: number;
 }
 
@@ -57,176 +57,101 @@ const INITIAL_FORM_DATA: PolicyFormData = {
   description: '',
   policy_type: 'time_based',
   target_actions: [],
-  conditions: {
-    operator: 'AND',
-    conditions: []
-  },
-  actions: {
-    primary: 'require_approval',
-    secondary_actions: [],
-  },
+  conditions: { operator: 'AND', conditions: [] },
+  actions: { primary: 'require_approval', secondary_actions: [] },
   priority: 100,
 };
+
+const TEST_CONTEXT = {
+  user_id: 'test-user',
+  user_email: 'test@epsx.io',
+  action: 'epsx:test:action',
+  simulate_context: { time_of_day: 14, day_of_week: 2, device_trust_score: 75, location_country: 'US', network_type: 'office', risk_score: 25 },
+};
+
+interface PolicyActions {
+  formData: PolicyFormData;
+  setFormData: React.Dispatch<React.SetStateAction<PolicyFormData>>;
+  setTestResults: (r: Record<string, unknown> | null) => void;
+  setSaving: (v: boolean) => void;
+  toast: ReturnType<typeof useToast>['toast'];
+}
+
+async function runTestPolicy({ formData, setTestResults, toast }: Pick<PolicyActions, 'formData' | 'setTestResults' | 'toast'>) {
+  try {
+    const ctx = { ...TEST_CONTEXT, action: formData.target_actions[0] ?? TEST_CONTEXT.action };
+    const result = await evaluatePolicyAction(ctx);
+    if (result !== null && result !== undefined) {
+      const r = result as Record<string, unknown>;
+      setTestResults(r);
+      toast({ title: "Test Complete", description: `Policy decision: ${String(r.decision ?? '')}` });
+    }
+  } catch (_error) {
+    toast({ title: "Test Failed", description: "Failed to test policy evaluation", variant: "destructive" });
+  }
+}
+
+async function savePolicy({ formData, setFormData, setSaving, toast }: Omit<PolicyActions, 'setTestResults'>) {
+  try {
+    setSaving(true);
+    if (formData.name === '' || formData.target_actions.length === 0 || formData.conditions.conditions.length === 0) {
+      toast({ title: "Validation Error", description: "Please fill in all required fields", variant: "destructive" });
+      return;
+    }
+    await createPolicyAction(formData);
+    toast({ title: "Success", description: `Policy "${formData.name}" created successfully` });
+    setFormData(INITIAL_FORM_DATA);
+  } catch (_error) {
+    toast({ title: "Error", description: _error instanceof Error ? _error.message : "Failed to save policy", variant: "destructive" });
+  } finally {
+    setSaving(false);
+  }
+}
 
 export function usePolicyBuilder() {
   const [formData, setFormData] = useState<PolicyFormData>(INITIAL_FORM_DATA);
   const [templates, setTemplates] = useState<PolicyTemplate[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
-  const [testResults, setTestResults] = useState<any>(null);
+  const [testResults, setTestResults] = useState<Record<string, unknown> | null>(null);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    loadTemplates();
+    void (async () => {
+      try {
+        const loaded = await getPolicyTemplatesAction();
+        setTemplates(loaded);
+      } catch (_e) { /* silently ignore */ }
+    })();
   }, []);
-
-  const loadTemplates = async () => {
-    try {
-      const templates = await getPolicyTemplatesAction();
-      setTemplates(templates);
-    } catch (_error) {
-      console.error('Error loading templates:', _error);
-    }
-  };
 
   const addCondition = () => {
     setFormData(prev => ({
       ...prev,
-      conditions: {
-        ...prev.conditions,
-        conditions: [
-          ...prev.conditions.conditions,
-          {
-            field: 'user.tier',
-            operator: 'equals',
-            value: '',
-          }
-        ]
-      }
+      conditions: { ...prev.conditions, conditions: [...prev.conditions.conditions, { _key: crypto.randomUUID(), field: 'user.tier', operator: 'equals', value: '' }] }
     }));
   };
 
   const removeCondition = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      conditions: {
-        ...prev.conditions,
-        conditions: prev.conditions.conditions.filter((_, i) => i !== index)
-      }
-    }));
+    setFormData(prev => ({ ...prev, conditions: { ...prev.conditions, conditions: prev.conditions.conditions.filter((_, i) => i !== index) } }));
   };
 
   const updateCondition = (index: number, updates: Partial<SingleCondition>) => {
-    setFormData(prev => ({
-      ...prev,
-      conditions: {
-        ...prev.conditions,
-        conditions: prev.conditions.conditions.map((condition, i) =>
-          i === index ? { ...condition, ...updates } : condition
-        )
-      }
-    }));
+    setFormData(prev => ({ ...prev, conditions: { ...prev.conditions, conditions: prev.conditions.conditions.map((c, i) => i === index ? { ...c, ...updates } : c) } }));
   };
 
-  const addTargetAction = () => {
-    const newAction = prompt('Enter target action (e.g., epsx:trading:execute):');
-    if (newAction && !formData.target_actions.includes(newAction)) {
-      setFormData(prev => ({
-        ...prev,
-        target_actions: [...prev.target_actions, newAction]
-      }));
+  const addTargetAction = (value: string) => {
+    if (value !== '' && !formData.target_actions.includes(value)) {
+      setFormData(prev => ({ ...prev, target_actions: [...prev.target_actions, value] }));
     }
   };
 
   const removeTargetAction = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      target_actions: prev.target_actions.filter((_, i) => i !== index)
-    }));
+    setFormData(prev => ({ ...prev, target_actions: prev.target_actions.filter((_, i) => i !== index) }));
   };
 
-  const handleTestPolicy = async () => {
-    try {
-      const testContext = {
-        user_id: 'test-user',
-        user_email: 'test@epsx.io',
-        action: formData.target_actions[0] ?? 'epsx:test:action',
-        simulate_context: {
-          time_of_day: 14,
-          day_of_week: 2,
-          device_trust_score: 75,
-          location_country: 'US',
-          network_type: 'office',
-          risk_score: 25,
-        }
-      };
+  const handleTestPolicy = async () => runTestPolicy({ formData, setTestResults, toast });
+  const handleSavePolicy = async () => savePolicy({ formData, setFormData, setSaving, toast });
 
-      const result = await evaluatePolicyAction(testContext);
-
-      if (result) {
-        setTestResults(result);
-        toast({
-          title: "Test Complete",
-          description: `Policy decision: ${result.decision}`,
-        });
-      }
-    } catch (_error) {
-      console.error('Error testing policy:', _error);
-      toast({
-        title: "Test Failed",
-        description: "Failed to test policy evaluation",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleSavePolicy = async () => {
-    try {
-      setSaving(true);
-
-      if (!formData.name ?? formData.target_actions.length === 0 ?? formData.conditions.conditions.length === 0) {
-        toast({
-          title: "Validation Error",
-          description: "Please fill in all required fields",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      await createPolicyAction(formData);
-
-      toast({
-        title: "Success",
-        description: `Policy "${formData.name}" created successfully`,
-      });
-
-      setFormData(INITIAL_FORM_DATA);
-    } catch (_error) {
-      console.error('Error saving policy:', _error);
-      toast({
-        title: "Error",
-        description: _error instanceof Error ? _error.message : "Failed to save policy",
-        variant: "destructive",
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return {
-    formData,
-    setFormData,
-    templates,
-    showTemplates,
-    setShowTemplates,
-    testResults,
-    saving,
-    addCondition,
-    removeCondition,
-    updateCondition,
-    addTargetAction,
-    removeTargetAction,
-    handleTestPolicy,
-    handleSavePolicy,
-  };
+  return { formData, setFormData, templates, showTemplates, setShowTemplates, testResults, saving, addCondition, removeCondition, updateCondition, addTargetAction, removeTargetAction, handleTestPolicy, handleSavePolicy };
 }

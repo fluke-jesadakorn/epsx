@@ -329,7 +329,6 @@ impl UnifiedRouteBuilder {
             )
             .route("/plans", get(crate::web::public::plans_handlers::get_public_plans))
             .route("/plans/{id}", get(crate::web::public::plans_handlers::get_public_plan_by_id))
-            .route("/plans/seed", post(crate::web::public::seed_plans_handler::seed_subscription_plans))
             // V2 Dynamic Payment Links (public lookup by slug)
             .route("/payment-links/{slug}", get(crate::web::admin::payment_link_handlers::get_payment_link_by_slug_handler))
             .with_state(app_state)
@@ -595,6 +594,7 @@ impl UnifiedRouteBuilder {
             get_plan_expiry_status_handler,
             cancel_plan_handler,
             get_upgrade_preview_handler,
+            execute_plan_switch_handler,
             get_user_payment_history,
             submit_transaction_handler,
             get_transaction_status_handler,
@@ -638,6 +638,7 @@ impl UnifiedRouteBuilder {
             .route("/plans/expiry", get(get_plan_expiry_status_handler)) // Changed from /subscriptions/{id}
             .route("/plans/cancel/{id}", post(cancel_plan_handler)) // Changed from /subscriptions/{id}/cancel
             .route("/plans/upgrade_preview", get(get_upgrade_preview_handler)) // Changed from /subscriptions/upgrade-preview
+            .route("/plans/switch", post(execute_plan_switch_handler))
             .with_state(app_state.clone())
             .layer(axum_middleware::from_fn_with_state(
                 app_state.clone(),

@@ -18,7 +18,7 @@ import { InsufficientTierUI } from './partials/insufficient-tier-ui'
 import { PermissionDeniedUI } from './partials/permission-denied-ui'
 import { PermissionExpiredUI } from './partials/permission-expired-ui'
 import { RateLimitExceededUI } from './partials/rate-limit-exceeded-ui'
-import type { IconComponentProps, PermissionErrorUIProps, UIComponentProps } from './partials/types'
+import type { PermissionErrorUIProps } from './partials/types'
 
 // Export types for consumers
 export type { IconComponentProps, UIComponentProps } from './partials/types'

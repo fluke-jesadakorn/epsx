@@ -4,7 +4,7 @@ import { useAuth } from '@/shared/auth';
 import { createPlansClient } from '@/shared/api/plans';
 import type { PlanAccessData } from '@/shared/types/payment';
 import { createAdminApiClient } from '@/shared/utils/api-client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { FREE_PLAN_RANKING_OFFSET, FREE_PLAN_TIER_LEVEL } from '@/shared/config/constants';
 
@@ -32,7 +32,7 @@ export function usePlanAccess(): UsePlanAccessResult {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchPlanAccess = async (): Promise<void> => {
+    const fetchPlanAccess = useCallback(async (): Promise<void> => {
         if (!isAuthenticated) {
             setPlanAccess(DEFAULT_FREE_TIER);
             setLoading(false);
@@ -56,11 +56,11 @@ export function usePlanAccess(): UsePlanAccessResult {
         } finally {
             setLoading(false);
         }
-    };
+    }, [isAuthenticated]);
 
     useEffect(() => {
         void fetchPlanAccess();
-    }, [isAuthenticated]);
+    }, [fetchPlanAccess]);
 
     return {
         planAccess,

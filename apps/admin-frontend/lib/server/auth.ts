@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 
 import { COOKIES } from '@/shared/auth/cookies';
 import { generateCodeChallenge, generateCodeVerifier, generateRandomString } from '@/shared/auth/pkce';
-import { logger } from '@/shared/utils/logger';
+import { logger } from '@/lib/logger';
 
 import type { User } from '../../types/admin/iam';
 import type { EPSXJWTPayload } from './token';
@@ -39,7 +39,7 @@ export async function getServerSession(): Promise<{ isAuthenticated: boolean; us
     return await getSessionFromJWT() as { isAuthenticated: boolean; user: EPSXJWTPayload | null };
   } catch (error) {
 
-    logger.error('❌ Admin: Failed to get server session:', error);
+    logger.auth.error('Failed to get server session', { error: String(error) });
     return { isAuthenticated: false, user: null };
   }
 }
@@ -60,7 +60,7 @@ export async function getAuthUser(): Promise<User | null> {
 
     return userWithAccess as unknown as User | null;
   } catch (error) {
-    logger.error('❌ Admin: Failed to get auth user:', error);
+    logger.auth.error('Failed to get auth user', { error: String(error) });
     return null;
   }
 }
@@ -103,7 +103,7 @@ export async function exchangeCodeForTokens(
     if (!response.ok) {
       const errorText = await response.text()
 
-      logger.error('❌ Admin: Token exchange failed:', response.status, response.statusText, errorText)
+      logger.auth.error('Token exchange failed', { status: response.status, statusText: response.statusText, body: errorText })
       throw new Error(`Token exchange failed: ${response.status} ${response.statusText} - ${errorText}`)
     }
 
@@ -117,7 +117,7 @@ export async function exchangeCodeForTokens(
     }
   } catch (error) {
 
-    logger.error('❌ Admin: Token exchange error:', error)
+    logger.auth.error('Token exchange error', { error: error instanceof Error ? error.message : String(error) })
     throw new Error(`Failed to exchange authorization code for tokens: ${error instanceof Error ? error.message : 'Unknown error'}`, { cause: error })
   }
 }
@@ -141,7 +141,7 @@ export async function getUserInfo(accessToken: string): Promise<unknown> {
   if (!response.ok) {
     const errorText = await response.text();
 
-    logger.error('❌ Admin: UserInfo fetch failed:', response.status, response.statusText, errorText);
+    logger.auth.error('UserInfo fetch failed', { status: response.status, statusText: response.statusText, body: errorText });
     throw new Error(`UserInfo fetch failed: ${response.status} ${response.statusText} - ${errorText}`);
   }
 
@@ -195,7 +195,7 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
       throw error;
     }
 
-    logger.error('❌ Admin: Failed to setup PKCE redirect:', error);
+    logger.auth.error('Failed to setup PKCE redirect', { error: String(error) });
     // Fallback to simple redirect without PKCE using consolidated config
     const { authConfig } = await import('../../config/env');
     const backendAdminLoginUrl = new URL('/oauth/authorize', authConfig.apiUrl);
@@ -247,7 +247,7 @@ export async function clearSession(): Promise<void> {
     cookieStore.delete('epsx_admin_jwt');
   } catch (error) {
 
-    logger.error('❌ Admin: Failed to clear session:', error);
+    logger.auth.error('Failed to clear session', { error: String(error) });
     throw error;
   }
 }

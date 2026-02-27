@@ -22,7 +22,7 @@ export const FEATURE_PERMISSIONS: FeaturePermDef[] = [
 
 export function getFeatureValue(permissions: string[], prefix: string): string | null {
     const match = permissions.find(p => p.startsWith(`${prefix  }:`) || p === prefix);
-    if (!match) {return null;}
+    if (match === undefined) {return null;}
     if (match === prefix) {return 'true';}
     return match.slice(prefix.length + 1);
 }

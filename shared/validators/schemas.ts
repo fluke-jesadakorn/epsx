@@ -307,7 +307,7 @@ export const createApiKeySchema = z.object({
     accessLevel: z.enum(['bronze', 'silver', 'gold', 'platinum', 'enterprise']),
     customQuotas: z.record(z.string(), z.any()).optional()
   })).min(1, 'At least one module is required'),
-  ipRestrictions: z.array(z.string().ip({ version: 'v4', message: 'Invalid IP address' })).optional(),
+  ipRestrictions: z.array(z.string().ipv4({ message: 'Invalid IP address' })).optional(),
   expiresAt: optionalDateSchema,
   rateLimits: z.record(z.string(), z.number()).optional()
 });

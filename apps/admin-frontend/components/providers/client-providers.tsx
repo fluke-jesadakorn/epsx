@@ -7,17 +7,19 @@ import React from 'react';
 import { SettingsProvider } from './settings-provider';
 
 import { SharedOpenIDWeb3Provider } from '@/shared/components/auth';
+import type { UserInfoResponse } from '@/shared/auth/client';
 import { CommonProviders } from '@/shared/components/providers/common-providers';
 import { SessionExpiryProvider } from '@/shared/components/providers/session-expiry-provider';
 import { UnifiedWeb3Provider } from '@/shared/components/providers/web3-provider';
 import type { State } from 'wagmi';
 
 /**
- *
  * @param root0
  * @param root0.children
+ * @param root0.initialUser
+ * @param root0.initialState
  */
-export function ClientProviders({ children, initialUser, initialState }: { children: React.ReactNode; initialUser?: any, initialState?: State }) {
+export function ClientProviders({ children, initialUser, initialState }: { children: React.ReactNode; initialUser?: UserInfoResponse | null, initialState?: State }) {
   return (
     <CommonProviders>
       <SessionExpiryProvider>

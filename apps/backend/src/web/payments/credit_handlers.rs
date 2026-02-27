@@ -211,7 +211,7 @@ pub async fn admin_grant_credits(
     info!("Admin {} granting {} credits to {}", admin_wallet, request.amount, request.wallet_address);
 
     // Validate amount is positive
-    if request.amount <= BigDecimal::from(0) {
+    if request.amount <= 0 {
         return Err(Json(UnifiedErrorResponse::new(400, "Invalid amount", "Amount must be positive")));
     }
 
@@ -301,7 +301,7 @@ pub async fn admin_revoke_credits(
     info!("Admin {} revoking {} credits from {}", admin_wallet, request.amount, request.wallet_address);
 
     // Validate amount is positive
-    if request.amount <= BigDecimal::from(0) {
+    if request.amount <= 0 {
         return Err(Json(UnifiedErrorResponse::new(400, "Invalid amount", "Amount must be positive")));
     }
 

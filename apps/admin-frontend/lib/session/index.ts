@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 
 import { COOKIES } from '@/shared/auth/cookies';
 import { type User } from '@/shared/types/auth';
-import { logger } from '@/shared/utils/logger';
+import { logger } from '@/lib/logger';
 import { getBackendUrl } from '@/shared/utils/url-resolver';
 
 export interface AdminSessionData {
@@ -53,7 +53,7 @@ export async function getServerSessionAdmin(): Promise<AdminSessionData> {
 
   } catch (error) {
 
-    logger.error('Failed to get admin server session:', error);
+    logger.auth.error('Failed to get admin server session', { error: String(error) });
     return { isAuthenticated: false };
   }
 }

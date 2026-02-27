@@ -51,7 +51,7 @@ export async function clearWeb3SessionAction(): Promise<void> {
         cookieStore.delete(COOKIES.sid);
     } catch (error) {
         // Find a way to handle this gracefully - usually happens if called during render
-        logger.warn('Failed to clear cookies in clearWeb3SessionAction (likely called during render)', { error });
+        logger.auth.error('Failed to clear cookies (likely called during render)', { error: String(error) });
     }
 
 }
@@ -104,7 +104,7 @@ export async function getAndClearReturnUrlAction(): Promise<string> {
     const isExternalUrl = returnUrl.startsWith('http://') || returnUrl.startsWith('https://') || returnUrl.startsWith('//');
 
     if (isInvalidPath || isExternalUrl || !returnUrl.startsWith('/')) {
-        logger.warn('[AUTH] Invalid return URL detected, defaulting to home', { returnUrl });
+        logger.auth.error('Invalid return URL detected, defaulting to home', { returnUrl });
         return '/';
     }
 

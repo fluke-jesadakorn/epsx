@@ -2,7 +2,7 @@
 
 import type { AnalyticsFilters } from '@/shared/api/analytics';
 import { createAnalyticsClient } from '@/shared/api/analytics';
-import { logger } from '@/shared/utils/logger';
+import { logger } from '@/lib/logger';
 import { getServerActionClient } from '@/shared/utils/server-fetch';
 
 const DEFAULT_ANALYTICS_FILTERS: AnalyticsFilters = {
@@ -31,7 +31,7 @@ export async function getRankingsAction(filters: Partial<AnalyticsFilters> = {})
     try {
         return await analytics.getAuthenticatedRankings(mergedFilters);
     } catch (error) {
-        logger.error('[getRankingsAction] Failed:', error);
+        logger.action.error('getRankingsAction', error);
         return await analytics.getPublicRankings(mergedFilters);
     }
 }

@@ -76,6 +76,78 @@ function formatDate(timestamp: string): string {
  * @param root0.onConfirm
  * @param root0.isLoading
  */
+interface ReenableBodyProps {
+    disableInfo?: WalletDisableInfo;
+    platformsToEnable: Platform[];
+    restorePermissions: boolean;
+    resumeSubscriptions: boolean;
+    resolutionNote: string;
+    error: string;
+    onTogglePlatform: (p: Platform) => void;
+    onRestoreChange: (v: boolean) => void;
+    onResumeChange: (v: boolean) => void;
+    onNoteChange: (v: string) => void;
+}
+
+function ReenableBody({ disableInfo, platformsToEnable, restorePermissions, resumeSubscriptions, resolutionNote, error, onTogglePlatform, onRestoreChange, onResumeChange, onNoteChange }: ReenableBodyProps) {
+    return (
+        <div className="space-y-5 py-4">
+            {disableInfo !== undefined ? (
+                <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                    <h4 className="text-sm font-medium text-amber-800 dark:text-amber-300 mb-2">Current Disable Information</h4>
+                    <div className="space-y-1.5 text-sm text-amber-700 dark:text-amber-400">
+                        <p><strong>Disabled by:</strong> {disableInfo.disabledBy}</p>
+                        <p><strong>Disabled on:</strong> {formatDate(disableInfo.disabledAt)}</p>
+                        <p><strong>Reason:</strong> {REASON_LABELS[disableInfo.reasonCategory] ?? disableInfo.reasonCategory}</p>
+                        <p><strong>Details:</strong> {disableInfo.reasonDetails}</p>
+                        {disableInfo.expiresAt !== undefined && disableInfo.expiresAt !== '' ? (
+                            <p><strong>Scheduled expiry:</strong> {formatDate(disableInfo.expiresAt)}</p>
+                        ) : null}
+                    </div>
+                </div>
+            ) : (
+                <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                    <p className="text-sm text-amber-700 dark:text-amber-400">
+                        This wallet is currently disabled. Select platforms and provide a resolution note to re-enable access.
+                    </p>
+                </div>
+            )}
+            <div>
+                <Label className="text-sm font-medium">Platforms to Re-enable</Label>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                    {ALL_PLATFORMS.map((platform) => {
+                        const wasAffected = disableInfo?.affectedPlatforms.includes(platform.value) ?? true;
+                        return (
+                            <label key={platform.value} className={cn('flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer', platformsToEnable.includes(platform.value) ? 'border-green-500 bg-green-50 dark:bg-green-900/20' : 'border-border hover:border-border/80', !wasAffected && 'opacity-50')}>
+                                <Checkbox checked={platformsToEnable.includes(platform.value)} onCheckedChange={() => onTogglePlatform(platform.value)} disabled={!wasAffected} />
+                                <span className="flex items-center gap-2 text-sm">
+                                    {platform.emoji} {platform.label}
+                                    {!wasAffected && <Badge variant="secondary" className="text-xs">Not Affected</Badge>}
+                                </span>
+                            </label>
+                        );
+                    })}
+                </div>
+            </div>
+            <div className="space-y-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                    <Checkbox checked={restorePermissions} onCheckedChange={(c) => onRestoreChange(c === true)} />
+                    <span className="text-sm">Restore all previous permissions</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                    <Checkbox checked={resumeSubscriptions} onCheckedChange={(c) => onResumeChange(c === true)} />
+                    <span className="text-sm">Resume paused subscriptions</span>
+                </label>
+            </div>
+            <div>
+                <Label className="text-sm font-medium">Resolution Note (Required)</Label>
+                <Textarea value={resolutionNote} onChange={(e) => onNoteChange(e.target.value)} placeholder="e.g., Investigation complete - false positive, user verified identity..." className="mt-1.5 min-h-[80px]" />
+            </div>
+            {error !== '' && <p className="text-sm text-destructive">⚠️ {error}</p>}
+        </div>
+    );
+}
+
 export function ReenableWalletModal({
     walletAddress,
     disableInfo,
@@ -93,48 +165,25 @@ export function ReenableWalletModal({
     const [error, setError] = useState('');
 
     const togglePlatform = (platform: Platform) => {
-        setPlatformsToEnable(prev =>
-            prev.includes(platform)
-                ? prev.filter(p => p !== platform)
-                : [...prev, platform]
-        );
+        setPlatformsToEnable(prev => prev.includes(platform) ? prev.filter(p => p !== platform) : [...prev, platform]);
     };
 
     const handleSubmit = async () => {
         setError('');
-
-        if (!resolutionNote.trim()) {
-            setError('Please provide a resolution note');
-            return;
-        }
-
-        if (platformsToEnable.length === 0) {
-            setError('Please select at least one platform to re-enable');
-            return;
-        }
-
+        if (resolutionNote.trim() === '') { setError('Please provide a resolution note'); return; }
+        if (platformsToEnable.length === 0) { setError('Please select at least one platform to re-enable'); return; }
         try {
-            await onConfirm({
-                walletAddress,
-                platformsToEnable,
-                restorePermissions,
-                resumeSubscriptions,
-                resolutionNote: resolutionNote.trim(),
-            });
+            await onConfirm({ walletAddress, platformsToEnable, restorePermissions, resumeSubscriptions, resolutionNote: resolutionNote.trim() });
             onClose();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to re-enable wallet');
         }
     };
 
-    const handleClose = () => {
-        setResolutionNote('');
-        setError('');
-        onClose();
-    };
+    const handleClose = () => { setResolutionNote(''); setError(''); onClose(); };
 
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+        <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { handleClose(); } }}>
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-green-600 dark:text-green-400">
@@ -148,135 +197,17 @@ export function ReenableWalletModal({
                         </code>
                     </DialogDescription>
                 </DialogHeader>
-
-                <div className="space-y-5 py-4">
-                    {/* Current Disable Info */}
-                    {disableInfo ? (
-                        <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                            <h4 className="text-sm font-medium text-amber-800 dark:text-amber-300 mb-2">
-                                Current Disable Information
-                            </h4>
-                            <div className="space-y-1.5 text-sm text-amber-700 dark:text-amber-400">
-                                <p>
-                                    <strong>Disabled by:</strong> {disableInfo.disabledBy}
-                                </p>
-                                <p>
-                                    <strong>Disabled on:</strong> {formatDate(disableInfo.disabledAt)}
-                                </p>
-                                <p>
-                                    <strong>Reason:</strong> {REASON_LABELS[disableInfo.reasonCategory] ?? disableInfo.reasonCategory}
-                                </p>
-                                <p>
-                                    <strong>Details:</strong> {disableInfo.reasonDetails}
-                                </p>
-                                {disableInfo.expiresAt && (
-                                    <p>
-                                        <strong>Scheduled expiry:</strong> {formatDate(disableInfo.expiresAt)}
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                            <p className="text-sm text-amber-700 dark:text-amber-400">
-                                This wallet is currently disabled. Select platforms and provide a resolution note to re-enable access.
-                            </p>
-                        </div>
-                    )}
-
-                    {/* Platforms to Re-enable */}
-                    <div>
-                        <Label className="text-sm font-medium">Platforms to Re-enable</Label>
-                        <div className="mt-2 grid grid-cols-2 gap-2">
-                            {ALL_PLATFORMS.map((platform) => {
-                                const wasAffected = disableInfo?.affectedPlatforms.includes(platform.value) ?? true;
-
-                                return (
-                                    <label
-                                        key={platform.value}
-                                        className={cn(
-                                            'flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer',
-                                            platformsToEnable.includes(platform.value)
-                                                ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
-                                                : 'border-border hover:border-border/80',
-                                            !wasAffected && 'opacity-50'
-                                        )}
-                                    >
-                                        <Checkbox
-                                            checked={platformsToEnable.includes(platform.value)}
-                                            onCheckedChange={() => togglePlatform(platform.value)}
-                                            disabled={!wasAffected}
-                                        />
-                                        <span className="flex items-center gap-2 text-sm">
-                                            {platform.emoji} {platform.label}
-                                            {!wasAffected && (
-                                                <Badge variant="secondary" className="text-xs">
-                                                    Not Affected
-                                                </Badge>
-                                            )}
-                                        </span>
-                                    </label>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Options */}
-                    <div className="space-y-3">
-                        <label className="flex items-center gap-3 cursor-pointer">
-                            <Checkbox
-                                checked={restorePermissions}
-                                onCheckedChange={(checked) => setRestorePermissions(checked === true)}
-                            />
-                            <span className="text-sm">Restore all previous permissions</span>
-                        </label>
-                        <label className="flex items-center gap-3 cursor-pointer">
-                            <Checkbox
-                                checked={resumeSubscriptions}
-                                onCheckedChange={(checked) => setResumeSubscriptions(checked === true)}
-                            />
-                            <span className="text-sm">Resume paused subscriptions</span>
-                        </label>
-                    </div>
-
-                    {/* Resolution Note */}
-                    <div>
-                        <Label className="text-sm font-medium">Resolution Note (Required)</Label>
-                        <Textarea
-                            value={resolutionNote}
-                            onChange={(e) => setResolutionNote(e.target.value)}
-                            placeholder="e.g., Investigation complete - false positive, user verified identity..."
-                            className="mt-1.5 min-h-[80px]"
-                        />
-                    </div>
-
-                    {error && (
-                        <p className="text-sm text-destructive">
-                            ⚠️ {error}
-                        </p>
-                    )}
-                </div>
-
+                <ReenableBody
+                    disableInfo={disableInfo} platformsToEnable={platformsToEnable}
+                    restorePermissions={restorePermissions} resumeSubscriptions={resumeSubscriptions}
+                    resolutionNote={resolutionNote} error={error}
+                    onTogglePlatform={togglePlatform} onRestoreChange={setRestorePermissions}
+                    onResumeChange={setResumeSubscriptions} onNoteChange={setResolutionNote}
+                />
                 <DialogFooter className="gap-2 sm:gap-0">
-                    <Button variant="outline" onClick={handleClose} disabled={isLoading}>
-                        Cancel
-                    </Button>
-                    <Button
-                        onClick={() => { void handleSubmit(); }}
-                        disabled={isLoading}
-                        className="bg-green-600 hover:bg-green-700 text-white"
-                    >
-                        {isLoading ? (
-                            <>
-                                <span className="animate-spin mr-2">⏳</span>
-                                Re-enabling...
-                            </>
-                        ) : (
-                            <>
-                                <Unlock className="h-4 w-4 mr-2" />
-                                Re-enable Access
-                            </>
-                        )}
+                    <Button variant="outline" onClick={handleClose} disabled={isLoading}>Cancel</Button>
+                    <Button onClick={() => { void handleSubmit(); }} disabled={isLoading} className="bg-green-600 hover:bg-green-700 text-white">
+                        {isLoading ? <><span className="animate-spin mr-2">⏳</span>Re-enabling...</> : <><Unlock className="h-4 w-4 mr-2" />Re-enable Access</>}
                     </Button>
                 </DialogFooter>
             </DialogContent>

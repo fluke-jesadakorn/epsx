@@ -43,15 +43,17 @@ export function PaymentLinksManagement() {
         setForm((prev) => ({ ...prev, [key]: value }));
     }, [setForm]);
 
+    const updateLinkState = useCallback((id: string) => {
+        setPaymentLinks((prev) =>
+            prev.map((link) => (link.id === id ? { ...link, is_active: false, is_usable: false } : link))
+        );
+    }, [setPaymentLinks]);
+
     const handleDeleteWithRefresh = useCallback(
         async (id: string) => {
-            await handleDeleteLink(id, () => {
-                setPaymentLinks((prev) =>
-                    prev.map((link) => (link.id === id ? { ...link, is_active: false, is_usable: false } : link))
-                );
-            });
+            await handleDeleteLink(id, () => updateLinkState(id));
         },
-        [handleDeleteLink, setPaymentLinks]
+        [handleDeleteLink, updateLinkState]
     );
 
     if (loading) {
@@ -74,7 +76,7 @@ export function PaymentLinksManagement() {
                     onReset={resetFilters}
                 />
 
-                {error && (
+                {error !== null && error !== '' && (
                     <div className="relative overflow-hidden rounded-2xl bg-destructive/10 p-0.5 mb-6">
                         <div className="bg-destructive/5 rounded-2xl p-4 text-destructive border border-destructive/20">
                             {error}

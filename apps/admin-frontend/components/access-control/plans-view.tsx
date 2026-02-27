@@ -94,12 +94,12 @@ export function PlansView({ className }: PlansViewProps) {
                 plans={plans}
                 selectedPlanId={selectedPlanId ?? undefined}
                 onSelect={handleSelect}
-                onRefresh={loadAllData}
+                onRefresh={() => { void loadAllData(); }}
                 duplicateRef={duplicateRef}
                 sensors={sensors}
                 activeId={activeId}
                 onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
+                onDragEnd={(e) => { void handleDragEnd(e); }}
                 modifiers={[snapToCursor]}
             />
             {isOpen && (

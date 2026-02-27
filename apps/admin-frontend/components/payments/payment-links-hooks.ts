@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { copyToClipboard } from '@/lib/utils';
 import { createPaymentLinkAction, deletePaymentLinkAction, fetchPaymentLinksAction } from '@/app/payments/actions';
+import { toast } from '@/hooks/use-toast';
 
 export type PaymentContextType = 'plan' | 'group' | 'product' | 'campaign' | 'custom';
 
-interface PaymentLinksApiResponse {
+interface PaymentLinksData {
     payment_links?: PaymentLink[];
 }
 
@@ -67,13 +68,13 @@ export function usePaymentLinks(ctx: UsePaymentLinksContext) {
                 params.is_active = ctx.filterActive;
             }
 
-            const response = await fetchPaymentLinksAction(params) as any;
+            const response = await fetchPaymentLinksAction(params);
 
-            if (response.success && response.data) {
-                setPaymentLinks(response.data.payment_links ?? []);
+            if (response.success === true && response.data !== null) {
+                const data = response.data as PaymentLinksData;
+                setPaymentLinks(data.payment_links ?? []);
             } else {
-                const errorMsg = (response.error?.message ?? response.message ?? 'Failed to load payment links') as string;
-                throw new Error(errorMsg);
+                throw new Error(response.error?.message ?? 'Failed to load payment links');
             }
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Unknown error');
@@ -115,38 +116,38 @@ export function usePaymentLinkForm(ctx: UsePaymentLinkFormContext) {
         setFormError(null);
     }, []);
 
+    const buildPayload = useCallback((f: CreatePaymentLinkForm) => {
+        const expiresAt = f.expires_in_hours !== ''
+            ? new Date(Date.now() + parseInt(f.expires_in_hours) * 60 * 60 * 1000).toISOString()
+            : undefined;
+        return {
+            context_type: f.context_type,
+            context_id: f.context_id !== '' ? f.context_id : undefined,
+            slug: f.slug !== '' ? f.slug : undefined,
+            name: f.name,
+            description: f.description !== '' ? f.description : undefined,
+            amount: parseFloat(f.amount),
+            currency: f.currency,
+            expires_at: expiresAt,
+            max_uses: f.max_uses !== '' ? parseInt(f.max_uses) : undefined,
+        };
+    }, []);
+
     const handleCreateLink = useCallback(
-        // eslint-disable-next-line complexity
         async (e: React.FormEvent) => {
             e.preventDefault();
             setFormLoading(true);
             setFormError(null);
 
             try {
-                const expiresAt = form.expires_in_hours
-                    ? new Date(Date.now() + parseInt(form.expires_in_hours) * 60 * 60 * 1000).toISOString()
-                    : undefined;
+                const payload = buildPayload(form);
+                const response = await createPaymentLinkAction(payload);
 
-                const payload = {
-                    context_type: form.context_type,
-                    context_id: form.context_id || undefined,
-                    slug: form.slug || undefined,
-                    name: form.name,
-                    description: form.description || undefined,
-                    amount: parseFloat(form.amount),
-                    currency: form.currency,
-                    expires_at: expiresAt,
-                    max_uses: form.max_uses !== '' ? parseInt(form.max_uses) : undefined,
-                };
-
-                const response = await createPaymentLinkAction(payload) as any;
-
-                if (response.success && response.data) {
+                if (response.success === true && response.data !== null) {
                     resetForm();
                     ctx.onSuccess?.();
                 } else {
-                    const errorMsg = (response.error?.message ?? response.message ?? 'Failed to create payment link') as string;
-                    throw new Error(errorMsg);
+                    throw new Error(response.error?.message ?? 'Failed to create payment link');
                 }
             } catch (err: unknown) {
                 setFormError(err instanceof Error ? err.message : 'Unknown error');
@@ -154,7 +155,7 @@ export function usePaymentLinkForm(ctx: UsePaymentLinkFormContext) {
                 setFormLoading(false);
             }
         },
-        [form, ctx, resetForm]
+        [form, ctx, resetForm, buildPayload]
     );
 
     return {
@@ -176,30 +177,22 @@ export function usePaymentLinkActions() {
             setCopiedSlug(link.slug);
             setTimeout(() => setCopiedSlug(null), 2000);
         } else {
-            // eslint-disable-next-line no-alert
-            alert('Failed to copy URL');
+            toast({ title: 'Failed to copy URL', variant: 'destructive' });
         }
     }, []);
 
     const handleDeleteLink = useCallback(
         async (id: string, onSuccess?: () => void) => {
-            // eslint-disable-next-line no-alert
-            if (!confirm('Are you sure you want to deactivate this payment link?')) {
-                return;
-            }
-
             try {
-                const response = await deletePaymentLinkAction(id) as any;
+                const response = await deletePaymentLinkAction(id);
 
-                if (response.success) {
+                if (response.success === true) {
                     onSuccess?.();
                 } else {
-                    const errorMsg = (response.error?.message ?? response.message ?? 'Failed to deactivate payment link') as string;
-                    throw new Error(errorMsg);
+                    throw new Error(response.error?.message ?? 'Failed to deactivate payment link');
                 }
             } catch (err: unknown) {
-                // eslint-disable-next-line no-alert
-                alert(err instanceof Error ? err.message : 'Failed to deactivate');
+                toast({ title: err instanceof Error ? err.message : 'Failed to deactivate', variant: 'destructive' });
             }
         },
         []

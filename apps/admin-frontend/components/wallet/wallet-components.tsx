@@ -143,7 +143,7 @@ export function DraggablePlanItem({ id, label, description, isAssigned = false, 
             </div>
             <div className="min-w-0 flex-1">
                 <p className="font-semibold text-sm text-gray-800 dark:text-foreground group-hover:text-gray-900 dark:group-hover:text-white transition-colors">{label}</p>
-                {description && <p className="text-xs text-gray-500 dark:text-muted-foreground truncate mt-0.5">{description}</p>}
+                {description !== undefined && description !== '' && <p className="text-xs text-gray-500 dark:text-muted-foreground truncate mt-0.5">{description}</p>}
             </div>
             {onManage && (
                 <Button
@@ -171,6 +171,54 @@ interface PlanItem {
     type?: string;
 }
 
+function formatExpiry(expiresAt: string | null | undefined): string {
+    if (expiresAt !== undefined && expiresAt !== null && expiresAt !== '') {
+        return `Expires: ${new Date(expiresAt).toLocaleDateString()} ${formatTimeRemaining(expiresAt)}`;
+    }
+    return 'Permanent';
+}
+
+interface PlanListItemProps {
+    plan: PlanItem;
+    onManage?: (item: PlanItem) => void;
+    onEdit?: (item: PlanItem) => void;
+    onDelete?: (id: string) => void;
+}
+
+function PlanListItem({ plan, onManage, onEdit, onDelete }: PlanListItemProps) {
+    return (
+        <div className={cn("flex items-center justify-between p-4 rounded-xl border bg-white dark:bg-card/80 border-border/20 shadow-sm transition-all", plan.isPending === true && "border-amber-500/50 bg-amber-500/10 dark:bg-amber-500/10")}>
+            <div className="flex items-center gap-4">
+                <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors", plan.isPending === true ? "bg-amber-500/20 text-amber-400" : "bg-purple-500/20 text-purple-400")}>
+                    <Package className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                    <p className="font-semibold text-sm text-gray-900 dark:text-foreground">{plan.name}</p>
+                    {plan.isPending === true ? (
+                        <div className="flex flex-col items-start mt-0.5">
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider leading-none mb-1">Pending Add</span>
+                            <span className="text-[10px] text-gray-500 dark:text-muted-foreground/80 font-medium leading-none">{formatExpiry(plan.expiresAt)}</span>
+                        </div>
+                    ) : (
+                        <p className="text-xs text-gray-500 dark:text-muted-foreground mt-0.5">{formatExpiry(plan.expiresAt)}</p>
+                    )}
+                </div>
+            </div>
+            <div className="flex items-center gap-2">
+                {onManage !== undefined && plan.isPending !== true && (
+                    <Button variant="ghost" size="sm" className="h-8 px-3 text-xs font-medium text-gray-500 dark:text-muted-foreground hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700" onClick={() => onManage(plan)}>Manage</Button>
+                )}
+                {onEdit !== undefined && (
+                    <Button variant="ghost" size="sm" className="h-8 px-3 text-xs font-medium text-gray-500 dark:text-muted-foreground hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700" onClick={() => onEdit(plan)}>Edit</Button>
+                )}
+                {onDelete !== undefined && (
+                    <Button variant="ghost" size="sm" className="h-8 px-3 text-xs font-medium text-red-500/70 hover:text-red-400 hover:bg-red-500/10" onClick={() => onDelete(plan.id)}>Del</Button>
+                )}
+            </div>
+        </div>
+    );
+}
+
 export function DroppablePlanList({
     id,
     items,
@@ -189,19 +237,10 @@ export function DroppablePlanList({
     onDelete?: (id: string) => void;
 }) {
     const { setNodeRef, isOver } = useDroppable({ id });
-
     const allItems = [...items, ...(pendingItems.map(i => ({ ...i, isPending: true })))];
 
     return (
-        <div
-            ref={setNodeRef}
-            className={cn(
-                "min-h-[500px] h-full rounded-2xl transition-all duration-200 p-4 border-2 border-dashed",
-                isOver
-                    ? "bg-blue-500/5 border-blue-500/50"
-                    : "bg-transparent border-border/20/50 hover:border-gray-300 dark:hover:border-slate-600/50"
-            )}
-        >
+        <div ref={setNodeRef} className={cn("min-h-[500px] h-full rounded-2xl transition-all duration-200 p-4 border-2 border-dashed", isOver ? "bg-blue-500/5 border-blue-500/50" : "bg-transparent border-border/20/50 hover:border-gray-300 dark:hover:border-slate-600/50")}>
             {allItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                     <Package className="h-10 w-10 mb-3 opacity-20" />
@@ -209,72 +248,7 @@ export function DroppablePlanList({
                 </div>
             ) : (
                 <div className="space-y-3">
-                    {allItems.map(plan => (
-                        <div key={plan.id} className={cn(
-                            "flex items-center justify-between p-4 rounded-xl border bg-white dark:bg-card/80 border-border/20 shadow-sm transition-all",
-                            plan.isPending && "border-amber-500/50 bg-amber-500/10 dark:bg-amber-500/10"
-                        )}>
-                            <div className="flex items-center gap-4">
-                                <div className={cn(
-                                    "h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors",
-                                    plan.isPending ? "bg-amber-500/20 text-amber-400" : "bg-purple-500/20 text-purple-400"
-                                )}>
-                                    <Package className="h-5 w-5" />
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="font-semibold text-sm text-gray-900 dark:text-foreground">
-                                        {plan.name}
-                                    </p>
-                                    {plan.isPending ? (
-                                        <div className="flex flex-col items-start mt-0.5">
-                                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider leading-none mb-1">Pending Add</span>
-                                            <span className="text-[10px] text-gray-500 dark:text-muted-foreground/80 font-medium leading-none">
-                                                {plan.expiresAt ? `Expires: ${new Date(plan.expiresAt).toLocaleDateString()} ${formatTimeRemaining(plan.expiresAt)}` : "Permanent"}
-                                            </span>
-                                        </div>
-                                    ) : (
-                                        <p className="text-xs text-gray-500 dark:text-muted-foreground mt-0.5">
-                                            {plan.expiresAt ? `Expires: ${new Date(plan.expiresAt).toLocaleDateString()} ${formatTimeRemaining(plan.expiresAt)}` : "Permanent"}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Actions for Assigned Items */}
-                            <div className="flex items-center gap-2">
-                                {onManage && !plan.isPending && (
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 px-3 text-xs font-medium text-gray-500 dark:text-muted-foreground hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700"
-                                        onClick={() => onManage(plan)}
-                                    >
-                                        Manage
-                                    </Button>
-                                )}
-                                {onEdit && (
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 px-3 text-xs font-medium text-gray-500 dark:text-muted-foreground hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700"
-                                        onClick={() => onEdit(plan)}
-                                    >
-                                        Edit
-                                    </Button>
-                                )}
-                                {onDelete && (
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 px-3 text-xs font-medium text-red-500/70 hover:text-red-400 hover:bg-red-500/10"
-                                        onClick={() => onDelete(plan.id)}
-                                    >
-                                        Del
-                                    </Button>
-                                )}
-                            </div>
-                        </div>
-                    ))}
+                    {allItems.map(plan => <PlanListItem key={plan.id} plan={plan} onManage={onManage} onEdit={onEdit} onDelete={onDelete} />)}
                 </div>
             )}
         </div>

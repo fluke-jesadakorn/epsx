@@ -26,7 +26,7 @@ export function PermissionTransferList({
     // Filter out selected items from available list
     const availableFiltered = available.filter(p => !selected.includes(p))
 
-    const renderItem = (item: string, type: 'available' | 'selected') => {
+    const renderItem = (item: string, _type: 'available' | 'selected') => {
         const isSystem = systemPermissions.has(item)
         // Extract parts: "platform:resource:action" 
         const parts = item.split(':')

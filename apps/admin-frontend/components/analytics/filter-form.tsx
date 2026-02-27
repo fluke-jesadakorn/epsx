@@ -18,38 +18,67 @@ interface FilterFormProps {
   currentParams: EPSQueryParams;
 }
 
+interface FilterState {
+  country: string;
+  sector: string;
+  sort_by: string;
+  min_eps: string;
+  min_growth: string;
+}
+
+function buildInitialFilters(p: EPSQueryParams): FilterState {
+  return {
+    country: p.country ?? 'all',
+    sector: p.sector ?? 'all',
+    sort_by: p.sort_by !== '' ? p.sort_by : 'growth_factor',
+    min_eps: p.min_eps?.toString() ?? '',
+    min_growth: p.min_growth?.toString() ?? '',
+  };
+}
+
+function hasFilterChanges(filters: FilterState, p: EPSQueryParams): boolean {
+  return (
+    filters.country !== (p.country ?? 'all') ||
+    filters.sector !== (p.sector ?? 'all') ||
+    filters.sort_by !== (p.sort_by !== '' ? p.sort_by : 'growth_factor') ||
+    filters.min_eps !== (p.min_eps?.toString() ?? '') ||
+    filters.min_growth !== (p.min_growth?.toString() ?? '')
+  );
+}
+
+function buildFilterParams(filters: FilterState, limit: number): URLSearchParams {
+  const params = new URLSearchParams();
+  params.set('page', '1');
+  params.set('limit', String(limit));
+  if (filters.country !== '' && filters.country !== 'all') { params.set('country', filters.country); }
+  if (filters.sector !== '' && filters.sector !== 'all') { params.set('sector', filters.sector); }
+  if (filters.sort_by !== '') { params.set('sort_by', filters.sort_by); }
+  if (filters.min_eps !== '') { params.set('min_eps', filters.min_eps); }
+  if (filters.min_growth !== '') { params.set('min_growth', filters.min_growth); }
+  return params;
+}
+
+function countActiveFilters(p: EPSQueryParams): number {
+  return [
+    p.country,
+    p.sector,
+    p.min_eps !== undefined ? 'x' : undefined,
+    p.min_growth !== undefined ? 'x' : undefined,
+  ].filter(Boolean).length;
+}
+
 export default function FilterForm({ filterOptions, currentParams }: FilterFormProps) {
   const router = useRouter();
-  const [filters, setFilters] = useState({
-    country: currentParams.country ?? 'all',
-    sector: currentParams.sector ?? 'all',
-    sort_by: currentParams.sort_by || 'growth_factor',
-    min_eps: currentParams.min_eps?.toString() ?? '',
-    min_growth: currentParams.min_growth?.toString() ?? '',
-  });
-
+  const [filters, setFilters] = useState<FilterState>(() => buildInitialFilters(currentParams));
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
-    const changes =
-      filters.country !== (currentParams.country ?? 'all') ||
-      filters.sector !== (currentParams.sector ?? 'all') ||
-      filters.sort_by !== (currentParams.sort_by || 'growth_factor') ||
-      filters.min_eps !== (currentParams.min_eps?.toString() ?? '') ||
-      filters.min_growth !== (currentParams.min_growth?.toString() ?? '');
-    setHasChanges(changes);
+    setHasChanges(hasFilterChanges(filters, currentParams));
   }, [filters, currentParams]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const params = new URLSearchParams();
-    params.set('page', '1');
-    params.set('limit', String(currentParams.limit));
-    if (filters.country && filters.country !== 'all') {params.set('country', filters.country);}
-    if (filters.sector && filters.sector !== 'all') {params.set('sector', filters.sector);}
-    if (filters.sort_by) {params.set('sort_by', filters.sort_by);}
-    if (filters.min_eps) {params.set('min_eps', filters.min_eps);}
-    if (filters.min_growth) {params.set('min_growth', filters.min_growth);}
+    const params = buildFilterParams(filters, currentParams.limit);
     router.push(`/analytics?${params.toString()}`);
   };
 
@@ -72,15 +101,7 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
-  const activeCount = [
-    currentParams.country,
-    currentParams.sector,
-    currentParams.min_eps !== undefined ? 'x' : undefined,
-    currentParams.min_growth !== undefined ? 'x' : undefined,
-  ].filter(Boolean).length;
-
-  const countries = filterOptions.countries ?? [];
-  const sectors = filterOptions.sectors ?? [];
+  const activeCount = countActiveFilters(currentParams);
 
   return (
     <form onSubmit={handleSubmit}>
@@ -110,7 +131,7 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
               </SelectTrigger>
               <SelectContent className="border-border/20 bg-gray-100 dark:bg-card">
                 <SelectItem value="all">All Countries</SelectItem>
-                {countries.map(c => (
+                {filterOptions.countries.map(c => (
                   <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
                 ))}
               </SelectContent>
@@ -129,7 +150,7 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
               </SelectTrigger>
               <SelectContent className="border-border/20 bg-gray-100 dark:bg-card">
                 <SelectItem value="all">All Sectors</SelectItem>
-                {sectors.map(s => (
+                {filterOptions.sectors.map(s => (
                   <SelectItem key={s} value={s}>{s}</SelectItem>
                 ))}
               </SelectContent>
@@ -164,10 +185,10 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
           <div className="border-t border-white/[0.04] px-4 py-2 flex items-center gap-2 text-xs text-slate-400">
             <div className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
             <span>{activeCount} filter{activeCount !== 1 ? 's' : ''} active</span>
-            {currentParams.country && (
+            {currentParams.country !== undefined && currentParams.country !== '' && (
               <span className="rounded bg-gray-100 dark:bg-card px-1.5 py-0.5 text-slate-300">{currentParams.country}</span>
             )}
-            {currentParams.sector && (
+            {currentParams.sector !== undefined && currentParams.sector !== '' && (
               <span className="rounded bg-gray-100 dark:bg-card px-1.5 py-0.5 text-slate-300">{currentParams.sector}</span>
             )}
           </div>

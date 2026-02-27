@@ -37,6 +37,6 @@ export const middleware = createAuthMiddleware({
 export const config = {
     matcher: [
         // Pattern to match all paths that should be protected or checked
-        '/((?!_next/static|_next/image|favicon.ico|api/health).*)',
+        '/((?!_next/static|_next/image|favicon.ico|api/health|logos/).*)',
     ],
 };

@@ -14,7 +14,7 @@ interface ChartContainerProps {
   children: React.ReactNode
   className?: string
   variant?: 'analytics' | 'user' | 'permission' | 'billing' | 'pancake' | 'default'
-  size?: 'default' | 'large' | 'compact'
+  size?: 'default' | 'sm' | 'lg'
   showLiveDot?: boolean
 }
 
@@ -40,10 +40,10 @@ export function ChartContainer({
 }: ChartContainerProps) {
   return (
     <div className={cn(
-      adminCardVariants({ 
-        variant, 
-        hover: 'glow', 
-        size: size as any
+      adminCardVariants({
+        variant,
+        hover: 'glow',
+        size
       }),
       'relative overflow-hidden',
       className
@@ -62,7 +62,7 @@ export function ChartContainer({
           <h3 className="text-lg font-light text-foreground uppercase tracking-wide mb-1">
             {title}
           </h3>
-          {subtitle && (
+          {subtitle !== undefined && subtitle !== '' && (
             <p className="text-sm text-muted-foreground font-light">
               {subtitle}
             </p>

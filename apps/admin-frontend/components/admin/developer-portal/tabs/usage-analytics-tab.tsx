@@ -6,6 +6,11 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import type { ApiKeyResponse } from '@/shared/api/plans';
 
+interface ExtendedApiKey extends ApiKeyResponse {
+    key_prefix?: string;
+    last_used_at?: string;
+}
+
 interface UsageAnalyticsTabProps {
     apiKeys: ApiKeyResponse[];
 }
@@ -95,36 +100,39 @@ export const UsageAnalyticsTab: React.FC<UsageAnalyticsTabProps> = ({ apiKeys })
                                         </td>
                                     </tr>
                                 ) : (
-                                    apiKeys.map(apiKey => (
-                                        <tr key={apiKey.id} className="hover:bg-muted/30">
-                                            <td className="border border-border/40 px-4 py-3 text-sm font-mono text-foreground">
-                                                {(apiKey as any).key_prefix ?? apiKey.key_preview}...
-                                            </td>
-                                            <td className="border border-border/40 px-4 py-3 text-sm text-foreground">
-                                                {apiKey.client_name}
-                                            </td>
-                                            <td className="border border-border/40 px-4 py-3 text-sm text-foreground">
-                                                {apiKey.total_requests.toLocaleString()}
-                                            </td>
-                                            <td className="border border-border/40 px-4 py-3 text-sm">
-                                                <span
-                                                    className={`px-2 py-1 rounded-full text-xs font-medium ${apiKey.status === 'active'
-                                                            ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200'
-                                                            : apiKey.status === 'revoked'
-                                                                ? 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200'
-                                                                : 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200'
-                                                        }`}
-                                                >
-                                                    {apiKey.status}
-                                                </span>
-                                            </td>
-                                            <td className="border border-border/40 px-4 py-3 text-sm text-foreground">
-                                                {apiKey.last_used_at
-                                                    ? new Date(apiKey.last_used_at).toLocaleDateString()
-                                                    : 'Never'}
-                                            </td>
-                                        </tr>
-                                    ))
+                                    apiKeys.map(key => {
+                                        const apiKey = key as ExtendedApiKey;
+                                        return (
+                                            <tr key={apiKey.id} className="hover:bg-muted/30">
+                                                <td className="border border-border/40 px-4 py-3 text-sm font-mono text-foreground">
+                                                    {apiKey.key_prefix ?? apiKey.key_preview}...
+                                                </td>
+                                                <td className="border border-border/40 px-4 py-3 text-sm text-foreground">
+                                                    {apiKey.client_name}
+                                                </td>
+                                                <td className="border border-border/40 px-4 py-3 text-sm text-foreground">
+                                                    {apiKey.total_requests.toLocaleString()}
+                                                </td>
+                                                <td className="border border-border/40 px-4 py-3 text-sm">
+                                                    <span
+                                                        className={`px-2 py-1 rounded-full text-xs font-medium ${apiKey.status === 'active'
+                                                                ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200'
+                                                                : apiKey.status === 'revoked'
+                                                                    ? 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200'
+                                                                    : 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200'
+                                                            }`}
+                                                    >
+                                                        {apiKey.status}
+                                                    </span>
+                                                </td>
+                                                <td className="border border-border/40 px-4 py-3 text-sm text-foreground">
+                                                    {apiKey.last_used_at !== undefined
+                                                        ? new Date(apiKey.last_used_at).toLocaleDateString()
+                                                        : 'Never'}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>

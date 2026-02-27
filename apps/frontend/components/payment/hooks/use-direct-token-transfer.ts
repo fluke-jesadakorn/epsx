@@ -50,13 +50,7 @@ export function useDirectTokenTransfer({
     const {
         isLoading: isConfirming,
         isSuccess: isConfirmed,
-        error: receiptError
-    } = useWaitForTransactionReceipt({
-        hash: txHash,
-    })
-
-    // Handle transfer confirmation — M8: also verify receipt status
-    const {
+        error: receiptError,
         data: receiptData
     } = useWaitForTransactionReceipt({
         hash: txHash,
@@ -103,7 +97,7 @@ export function useDirectTokenTransfer({
                 onError?.('Insufficient token balance. Please add funds and try again.')
             } else if (isRpcUnavailable) {
                 devLog('🔌 RPC connection issue detected')
-                onError?.('RPC connection failed. Ensure MetaMask RPC URL matches your network access (e.g., use Tailscale IP instead of localhost for remote access).')
+                onError?.('RPC connection failed. Please check your MetaMask is connected to BNB Smart Chain with a working RPC URL (e.g., https://bsc-dataseed.binance.org).')
             } else {
                 onError?.(`Transfer failed: ${error.message}`)
             }

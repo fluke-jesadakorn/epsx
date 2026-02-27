@@ -9,184 +9,154 @@ interface DocumentationTabProps {
     modules: Module[];
 }
 
+function AuthSection() {
+    return (
+        <div>
+            <h3 className="text-md font-semibold text-foreground mb-3 flex items-center">
+                <Shield className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
+                Authentication
+            </h3>
+            <div className="bg-gray-50 dark:bg-muted rounded-lg p-4">
+                <p className="text-sm text-gray-700 dark:text-muted-foreground mb-3">
+                    Include your API key in the Authorization header:
+                </p>
+                <code className="block bg-gray-900 text-green-400 p-3 rounded text-sm font-mono overflow-x-auto">
+                    curl -H &quot;Authorization: Bearer YOUR_API_KEY&quot; \<br />
+                    {'  '}https://api.epsx.io/modules/stock-ranking/rankings
+                </code>
+            </div>
+        </div>
+    );
+}
+
+function BaseUrlSection() {
+    return (
+        <div>
+            <h3 className="text-md font-semibold text-foreground mb-3 flex items-center">
+                <Globe className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
+                Base URL
+            </h3>
+            <div className="bg-gray-50 dark:bg-muted rounded-lg p-4">
+                <code className="text-sm font-mono text-foreground">
+                    https://api.epsx.io
+                </code>
+            </div>
+        </div>
+    );
+}
+
+function EndpointsSection({ modules }: { modules: Module[] }) {
+    return (
+        <div>
+            <h3 className="text-md font-semibold text-foreground mb-3 flex items-center">
+                <Code className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
+                Available Endpoints
+            </h3>
+            <div className="space-y-4">
+                {modules.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                        No modules available. Check back later.
+                    </p>
+                ) : (
+                    modules.map(module => (
+                        <div key={module.id} className="border border-border/40 rounded-lg p-4">
+                            <h4 className="font-medium text-foreground mb-2">{module.display_name}</h4>
+                            <div className="space-y-2 text-sm">
+                                <div className="flex items-center space-x-3">
+                                    <span className="px-2 py-1 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 rounded text-xs font-mono">GET</span>
+                                    <code className="text-gray-700 dark:text-muted-foreground">/modules/{module.name}/status</code>
+                                    <span className="text-muted-foreground">- Get module status</span>
+                                </div>
+                                <div className="flex items-center space-x-3">
+                                    <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded text-xs font-mono">GET</span>
+                                    <code className="text-gray-700 dark:text-muted-foreground">/modules/{module.name}/data</code>
+                                    <span className="text-muted-foreground">- Get module data</span>
+                                </div>
+                                <div className="flex items-center space-x-3">
+                                    <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 rounded text-xs font-mono">POST</span>
+                                    <code className="text-gray-700 dark:text-muted-foreground">/modules/{module.name}/analyze</code>
+                                    <span className="text-muted-foreground">- Perform analysis</span>
+                                </div>
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
+        </div>
+    );
+}
+
+function RateLimitsSection() {
+    return (
+        <div>
+            <h3 className="text-md font-semibold text-foreground mb-3 flex items-center">
+                <AlertTriangle className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
+                Rate Limits
+            </h3>
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                <div className="space-y-2 text-sm text-yellow-800 dark:text-yellow-200">
+                    <div><strong>Bronze:</strong> 100 requests/hour, 1,000 requests/day</div>
+                    <div><strong>Silver:</strong> 500 requests/hour, 5,000 requests/day</div>
+                    <div><strong>Gold:</strong> 2,000 requests/hour, 20,000 requests/day</div>
+                    <div><strong>Platinum:</strong> 10,000 requests/hour, 100,000 requests/day</div>
+                    <div><strong>Enterprise:</strong> Unlimited (fair usage policy)</div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ErrorCodesSection() {
+    const codes = [
+        { code: '401', color: 'red', desc: 'Unauthorized - Invalid API key' },
+        { code: '403', color: 'red', desc: 'Forbidden - Insufficient permissions' },
+        { code: '429', color: 'yellow', desc: 'Too Many Requests - Rate limit exceeded' },
+        { code: '500', color: 'muted', desc: 'Internal Server Error - Contact support' },
+    ] as const;
+
+    const codeClass: Record<string, string> = {
+        red: 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200',
+        yellow: 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200',
+        muted: 'bg-muted/30 text-gray-800 dark:text-foreground',
+    };
+
+    return (
+        <div>
+            <h3 className="text-md font-semibold text-foreground mb-3 flex items-center">
+                <BookOpen className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
+                Common Error Codes
+            </h3>
+            <div className="space-y-2 text-sm">
+                {codes.map(({ code, color, desc }) => (
+                    <div key={code} className="flex items-center space-x-3">
+                        <code className={`px-2 py-1 rounded ${codeClass[color] ?? ''}`}>{code}</code>
+                        <span className="text-gray-700 dark:text-muted-foreground">{desc}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 /**
  * API Documentation tab showing authentication, endpoints, and rate limits
  * @param root0
  * @param root0.modules
  */
-// eslint-disable-next-line max-lines-per-function
 export const DocumentationTab: React.FC<DocumentationTabProps> = ({ modules }) => {
     return (
         <div className="space-y-6">
             <div className="bg-card rounded-lg shadow">
                 <div className="p-6 border-b border-gray-200 dark:border-border/40">
-                    <h2 className="text-lg font-semibold text-foreground">
-                        API Documentation
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                        Complete guide to using our module-based API
-                    </p>
+                    <h2 className="text-lg font-semibold text-foreground">API Documentation</h2>
+                    <p className="text-sm text-muted-foreground">Complete guide to using our module-based API</p>
                 </div>
                 <div className="p-6 space-y-6">
-                    {/* Authentication */}
-                    <div>
-                        <h3 className="text-md font-semibold text-foreground mb-3 flex items-center">
-                            <Shield className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
-                            Authentication
-                        </h3>
-                        <div className="bg-gray-50 dark:bg-muted rounded-lg p-4">
-                            <p className="text-sm text-gray-700 dark:text-muted-foreground mb-3">
-                                Include your API key in the Authorization header:
-                            </p>
-                            <code className="block bg-gray-900 text-green-400 p-3 rounded text-sm font-mono overflow-x-auto">
-                                curl -H &quot;Authorization: Bearer YOUR_API_KEY&quot; \<br />
-                                {'  '}https://api.epsx.io/modules/stock-ranking/rankings
-                            </code>
-                        </div>
-                    </div>
-
-                    {/* Base URL */}
-                    <div>
-                        <h3 className="text-md font-semibold text-foreground mb-3 flex items-center">
-                            <Globe className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
-                            Base URL
-                        </h3>
-                        <div className="bg-gray-50 dark:bg-muted rounded-lg p-4">
-                            <code className="text-sm font-mono text-foreground">
-                                https://api.epsx.io
-                            </code>
-                        </div>
-                    </div>
-
-                    {/* Available Endpoints */}
-                    <div>
-                        <h3 className="text-md font-semibold text-foreground mb-3 flex items-center">
-                            <Code className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
-                            Available Endpoints
-                        </h3>
-                        <div className="space-y-4">
-                            {modules.length === 0 ? (
-                                <p className="text-sm text-muted-foreground">
-                                    No modules available. Check back later.
-                                </p>
-                            ) : (
-                                modules.map(module => (
-                                    <div
-                                        key={module.id}
-                                        className="border border-border/40 rounded-lg p-4"
-                                    >
-                                        <h4 className="font-medium text-foreground mb-2">
-                                            {module.display_name}
-                                        </h4>
-                                        <div className="space-y-2 text-sm">
-                                            <div className="flex items-center space-x-3">
-                                                <span className="px-2 py-1 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 rounded text-xs font-mono">
-                                                    GET
-                                                </span>
-                                                <code className="text-gray-700 dark:text-muted-foreground">
-                                                    /modules/{module.name}/status
-                                                </code>
-                                                <span className="text-muted-foreground">
-                                                    - Get module status
-                                                </span>
-                                            </div>
-                                            <div className="flex items-center space-x-3">
-                                                <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded text-xs font-mono">
-                                                    GET
-                                                </span>
-                                                <code className="text-gray-700 dark:text-muted-foreground">
-                                                    /modules/{module.name}/data
-                                                </code>
-                                                <span className="text-muted-foreground">
-                                                    - Get module data
-                                                </span>
-                                            </div>
-                                            <div className="flex items-center space-x-3">
-                                                <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 rounded text-xs font-mono">
-                                                    POST
-                                                </span>
-                                                <code className="text-gray-700 dark:text-muted-foreground">
-                                                    /modules/{module.name}/analyze
-                                                </code>
-                                                <span className="text-muted-foreground">
-                                                    - Perform analysis
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Rate Limits */}
-                    <div>
-                        <h3 className="text-md font-semibold text-foreground mb-3 flex items-center">
-                            <AlertTriangle className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
-                            Rate Limits
-                        </h3>
-                        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-                            <div className="space-y-2 text-sm text-yellow-800 dark:text-yellow-200">
-                                <div>
-                                    <strong>Bronze:</strong> 100 requests/hour, 1,000 requests/day
-                                </div>
-                                <div>
-                                    <strong>Silver:</strong> 500 requests/hour, 5,000 requests/day
-                                </div>
-                                <div>
-                                    <strong>Gold:</strong> 2,000 requests/hour, 20,000 requests/day
-                                </div>
-                                <div>
-                                    <strong>Platinum:</strong> 10,000 requests/hour, 100,000 requests/day
-                                </div>
-                                <div>
-                                    <strong>Enterprise:</strong> Unlimited (fair usage policy)
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Error Codes */}
-                    <div>
-                        <h3 className="text-md font-semibold text-foreground mb-3 flex items-center">
-                            <BookOpen className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
-                            Common Error Codes
-                        </h3>
-                        <div className="space-y-2 text-sm">
-                            <div className="flex items-center space-x-3">
-                                <code className="px-2 py-1 bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200 rounded">
-                                    401
-                                </code>
-                                <span className="text-gray-700 dark:text-muted-foreground">
-                                    Unauthorized - Invalid API key
-                                </span>
-                            </div>
-                            <div className="flex items-center space-x-3">
-                                <code className="px-2 py-1 bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200 rounded">
-                                    403
-                                </code>
-                                <span className="text-gray-700 dark:text-muted-foreground">
-                                    Forbidden - Insufficient permissions
-                                </span>
-                            </div>
-                            <div className="flex items-center space-x-3">
-                                <code className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200 rounded">
-                                    429
-                                </code>
-                                <span className="text-gray-700 dark:text-muted-foreground">
-                                    Too Many Requests - Rate limit exceeded
-                                </span>
-                            </div>
-                            <div className="flex items-center space-x-3">
-                                <code className="px-2 py-1 bg-muted/30 text-gray-800 dark:text-foreground rounded">
-                                    500
-                                </code>
-                                <span className="text-gray-700 dark:text-muted-foreground">
-                                    Internal Server Error - Contact support
-                                </span>
-                            </div>
-                        </div>
-                    </div>
+                    <AuthSection />
+                    <BaseUrlSection />
+                    <EndpointsSection modules={modules} />
+                    <RateLimitsSection />
+                    <ErrorCodesSection />
                 </div>
             </div>
         </div>

@@ -1,6 +1,7 @@
 'use server';
 
 import { PaymentsApi, type PaymentSubmitRequest, type PaymentValidateRequest } from '@/shared/api/payments';
+import { CreditsApi } from '@/shared/api/credits';
 import { getServerActionClient } from '@/shared/utils/server-fetch';
 
 /**
@@ -31,6 +32,16 @@ export async function validatePaymentAction(request: PaymentValidateRequest) {
     const paymentsApi = new PaymentsApi(client);
 
     return paymentsApi.validatePayment(request);
+}
+
+/**
+ * Switch plan (downgrade with credit or apply upgrade credit)
+ */
+export async function switchPlanAction(newPlanId: string) {
+    const client = getServerActionClient();
+    const creditsApi = new CreditsApi(client);
+
+    return creditsApi.switchPlan(newPlanId);
 }
 
 /**

@@ -17,6 +17,9 @@ import type { CardDashboardResponse } from '../types/analytics';
 import type { UnifiedApiClient } from '../utils/api-client';
 import { createAdminApiClient, createFrontendApiClient } from '../utils/api-client';
 
+const API_VERSION = 'v1';
+const UNKNOWN_ERR = 'Unknown error';
+
 // ============================================================================
 // ANALYTICS TYPES
 // ============================================================================
@@ -169,14 +172,14 @@ export class AnalyticsAPIClient {
       {
         timeout: 60000, // 60 second timeout for analytics queries
         headers: {
-          'X-API-Version': 'v1',
+          'X-API-Version': API_VERSION,
           'X-Access-Level': 'public',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch public rankings: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to fetch public rankings: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     // The API client normalizes responses - response IS the full backend response
@@ -195,14 +198,14 @@ export class AnalyticsAPIClient {
       {
         timeout: 30000, // 30 second timeout for filter queries
         headers: {
-          'X-API-Version': 'v1',
+          'X-API-Version': API_VERSION,
           'X-Access-Level': 'public',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch public filters: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to fetch public filters: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     // The API client normalizes responses - response IS the full backend response
@@ -224,14 +227,14 @@ export class AnalyticsAPIClient {
       {
         timeout: 60000, // 60 second timeout for analytics queries
         headers: {
-          'X-API-Version': 'v1',
+          'X-API-Version': API_VERSION,
           'X-Access-Level': 'auth',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch authenticated rankings: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to fetch authenticated rankings: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     // The API client normalizes responses - response IS the full backend response
@@ -249,14 +252,14 @@ export class AnalyticsAPIClient {
       {
         timeout: 30000, // 30 second timeout for filter queries
         headers: {
-          'X-API-Version': 'v1',
+          'X-API-Version': API_VERSION,
           'X-Access-Level': 'auth',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch authenticated filters: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to fetch authenticated filters: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     // The API client normalizes responses - response IS the full backend response
@@ -274,14 +277,14 @@ export class AnalyticsAPIClient {
       {
         timeout: 90000, // 90 second timeout for export operations
         headers: {
-          'X-API-Version': 'v1',
+          'X-API-Version': API_VERSION,
           'X-Access-Level': 'auth',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to export analytics data: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to export analytics data: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data;
@@ -298,14 +301,14 @@ export class AnalyticsAPIClient {
       {
         timeout: 15000, // 15 second timeout for status checks
         headers: {
-          'X-API-Version': 'v1',
+          'X-API-Version': API_VERSION,
           'X-Access-Level': 'auth',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to get export status: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to get export status: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data;
@@ -338,14 +341,14 @@ export class AnalyticsAPIClient {
       {
         timeout: 30000, // 30 second timeout for admin queries
         headers: {
-          'X-API-Version': 'v1',
+          'X-API-Version': API_VERSION,
           'X-Access-Level': 'admin',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch admin overview: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to fetch admin overview: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data.data;
@@ -376,14 +379,14 @@ export class AnalyticsAPIClient {
       {
         timeout: 30000, // 30 second timeout for admin queries
         headers: {
-          'X-API-Version': 'v1',
+          'X-API-Version': API_VERSION,
           'X-Access-Level': 'admin',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch admin user analytics: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to fetch admin user analytics: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data.data;
@@ -408,14 +411,14 @@ export class AnalyticsAPIClient {
       {
         timeout: 30000, // 30 second timeout for admin queries
         headers: {
-          'X-API-Version': 'v1',
+          'X-API-Version': API_VERSION,
           'X-Access-Level': 'admin',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch admin permission analytics: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to fetch admin permission analytics: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data.data;
@@ -441,14 +444,14 @@ export class AnalyticsAPIClient {
       undefined,
       {
         headers: {
-          'X-API-Version': 'v1',
+          'X-API-Version': API_VERSION,
           'X-Access-Level': 'admin',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch admin revenue analytics: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to fetch admin revenue analytics: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data.data;
@@ -474,14 +477,14 @@ export class AnalyticsAPIClient {
       undefined,
       {
         headers: {
-          'X-API-Version': 'v1',
+          'X-API-Version': API_VERSION,
           'X-Access-Level': 'admin',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch admin performance analytics: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to fetch admin performance analytics: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data.data;
@@ -510,7 +513,7 @@ export class AnalyticsAPIClient {
     };
 
     // First check if it's already a mapped value (lowercase)
-    if (country && country === country.toLowerCase()) {
+    if (country !== '' && country === country.toLowerCase()) {
       return country;
     }
 

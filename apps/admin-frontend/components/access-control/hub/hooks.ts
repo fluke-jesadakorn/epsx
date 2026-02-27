@@ -12,7 +12,7 @@ import {
     type PolicyType,
 } from '@/components/access-control/types';
 import { accessPolicyClient } from '@/lib/api/access-policy-client';
-import { logger } from '@/shared/utils/logger';
+import { logger } from '@/lib/logger';
 
 export function useAccessControlHub() {
     const searchParams = useSearchParams();
@@ -26,7 +26,7 @@ export function useAccessControlHub() {
     // Filters - initialized from URL params
     const [filters, setFilters] = useState<PolicyFiltersType>(() => {
         const typeParam = searchParams.get('type');
-        const types: PolicyType[] | 'all' = typeParam
+        const types: PolicyType[] | 'all' = typeParam !== null
             ? (typeParam
                 .split(',')
                 .filter((t) => t in POLICY_TYPE_CONFIG) as PolicyType[])
@@ -34,7 +34,7 @@ export function useAccessControlHub() {
 
         return {
             ...DEFAULT_POLICY_FILTERS,
-            types: types.length === 0 ? 'all' : types,
+            types: (Array.isArray(types) && types.length === 0) ? 'all' : types,
         };
     });
 

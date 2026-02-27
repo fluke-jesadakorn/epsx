@@ -6,7 +6,6 @@ interface Props {
 }
 
 export function ChatStatsPanel({ stats }: Props) {
-  const total = stats.total_open + stats.total_in_progress + stats.total_resolved;
   const cards = [
     {
       label: 'Open',

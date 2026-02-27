@@ -1,7 +1,5 @@
 
-
-export default async function DeveloperPortalLayout({ children }: { children: React.ReactNode }) {
-
+export default function DeveloperPortalLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 

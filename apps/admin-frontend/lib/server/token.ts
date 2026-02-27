@@ -9,7 +9,7 @@ import { cookies } from 'next/headers';
 import { config } from '@/config/env';
 import { COOKIES } from '@/shared/auth/cookies';
 import type { EPSXJWTPayload } from '@/shared/auth/jwt';
-import { logger } from '@/shared/utils/logger';
+import { logger } from '@/lib/logger';
 
 export type { EPSXJWTPayload };
 
@@ -23,7 +23,7 @@ function getWalletAddressFromToken(token: string): string | null {
     // In our backend, 'sub' is the wallet address, also present as 'wallet_address'
     return (claims.wallet_address as string | undefined) ?? (claims.sub) ?? null;
   } catch (error) {
-    logger.error('❌ Failed to decode JWT for wallet address:', error);
+    logger.auth.error('Failed to decode JWT for wallet address', { error: String(error) });
     return null;
   }
 }
@@ -42,7 +42,7 @@ export async function getJWTFromCookies(): Promise<string | null> {
 
     return jwtCookie?.value ?? null;
   } catch (error) {
-    logger.error('❌ Failed to get JWT from cookies:', error);
+    logger.auth.error('Failed to get JWT from cookies', { error: String(error) });
     return null;
   }
 }
@@ -56,7 +56,7 @@ export async function verifyJWTWithBackend(token: string): Promise<EPSXJWTPayloa
     const walletAddress = getWalletAddressFromToken(token);
 
     if (walletAddress === null || walletAddress === '') {
-      logger.error('❌ Could not extract wallet address from token');
+      logger.auth.error('Could not extract wallet address from token');
       return null;
     }
 
@@ -77,12 +77,12 @@ export async function verifyJWTWithBackend(token: string): Promise<EPSXJWTPayloa
     if (!response.ok) {
       // If backend says 401/403, the token is invalid
       if (response.status === 401 || response.status === 403) {
-        logger.warn(`⚠️ Backend rejected session: ${response.status}`);
+        logger.auth.error(`Backend rejected session: ${response.status}`);
       } else if (response.status === 404) {
         // Handle 404 specifically - might mean user not found despite valid token signature
-        logger.warn(`⚠️ Backend could not find user session: ${response.status}`);
+        logger.auth.error(`Backend could not find user session: ${response.status}`);
       } else {
-        logger.error(`❌ Backend verification error: ${response.status}`);
+        logger.auth.error(`Backend verification error: ${response.status}`);
       }
       return null;
     }
@@ -94,7 +94,7 @@ export async function verifyJWTWithBackend(token: string): Promise<EPSXJWTPayloa
     };
 
     if (!sessionData.authenticated) {
-      logger.warn('⚠️ Backend returned unauthenticated session');
+      logger.auth.error('Backend returned unauthenticated session');
       return null;
     }
 
@@ -120,9 +120,9 @@ export async function verifyJWTWithBackend(token: string): Promise<EPSXJWTPayloa
   } catch (error: unknown) {
     const err = error as { code?: string; message?: string };
     if (err.code === 'ECONNREFUSED') {
-      logger.error(`❌ Backend connection refused at ${config.backendUrl}. Is the backend running?`);
+      logger.auth.error(`Backend connection refused at ${config.backendUrl}. Is the backend running?`);
     } else {
-      logger.error('❌ Backend verification request failed:', error);
+      logger.auth.error('Backend verification request failed', { error: String(error) });
     }
     return null;
   }
@@ -139,7 +139,7 @@ export async function verifyJWTFromCookies(): Promise<EPSXJWTPayload | null> {
 
     return await verifyJWTWithBackend(token);
   } catch (error) {
-    logger.error('❌ Failed to verify JWT from cookies:', error);
+    logger.auth.error('Failed to verify JWT from cookies', { error: String(error) });
     return null;
   }
 }
@@ -160,7 +160,7 @@ export async function getSessionFromJWT(): Promise<{
 
     return { isAuthenticated: true, user: payload };
   } catch (error) {
-    logger.error('❌ Failed to get session from JWT:', error);
+    logger.auth.error('Failed to get session from JWT', { error: String(error) });
     return { isAuthenticated: false, user: null };
   }
 }

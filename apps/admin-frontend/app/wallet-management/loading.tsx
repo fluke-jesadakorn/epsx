@@ -46,9 +46,8 @@ export default function WalletManagementLoading() {
         <div className="rounded-2xl border border-border/20 bg-card shadow-xl overflow-hidden">
           <div className="h-[3px] bg-gradient-to-r from-[#1fc7d4] to-[#7645d9]" />
           <div className="p-6 space-y-3">
-            {Array.from({ length: 8 }).map((_, i) => (
-              // eslint-disable-next-line react/no-array-index-key
-              <Skeleton key={i} className="h-14 w-full rounded-xl" />
+            {Array.from({ length: 8 }, (_, i) => `skel-${i}`).map((key) => (
+              <Skeleton key={key} className="h-14 w-full rounded-xl" />
             ))}
           </div>
         </div>

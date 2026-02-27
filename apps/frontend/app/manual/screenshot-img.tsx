@@ -30,7 +30,6 @@ export function ScreenshotImg({ src, alt, variant = 'hero', caption, onClick }: 
   return (
     <>
       <button type="button" onClick={handleClick} className="w-full text-left">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={src}
           alt={alt}
@@ -50,11 +49,10 @@ export function ScreenshotImg({ src, alt, variant = 'hero', caption, onClick }: 
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-8"
           onClick={() => setExpanded(false)}
-          onKeyDown={(e) => { if (e.key === 'Escape') setExpanded(false); }}
+          onKeyDown={(e) => { if (e.key === 'Escape') { setExpanded(false); } }}
           role="button"
           tabIndex={0}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={src}
             alt={alt}

@@ -1,6 +1,5 @@
 'use client';
 
-import { useTheme } from 'next-themes';
 import { usePathname } from 'next/navigation';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
@@ -46,28 +45,21 @@ function applyAccentColor(color: string) {
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
     const [settings, setSettings] = useState<SystemSettings | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const { setTheme } = useTheme();
 
     const applySettings = useCallback((newSettings: SystemSettings) => {
-        // Apply theme mode
-        // NOTE: Commented out to prevent conflict with next-themes user selection
-        // const themeMode = newSettings.appearance?.theme ?? 'dark';
-        // setTheme(themeMode === 'auto' ? 'system' : themeMode);
-
         // Apply accent color
-        const accentColor = newSettings.appearance?.primaryColor ?? '#00ff33';
+        const accentColor = newSettings.appearance.primaryColor;
         applyAccentColor(accentColor);
 
         setSettings(newSettings);
-    }, [setTheme]);
+    }, []);
 
     const refreshSettings = useCallback(async () => {
         try {
             setIsLoading(true);
             const fetchedSettings = await settingsApi.getAll();
             applySettings(fetchedSettings);
-        } catch (error) {
-            console.error('Failed to fetch settings:', error);
+        } catch {
             // Apply defaults on error
             applyAccentColor('#00ff33');
         } finally {

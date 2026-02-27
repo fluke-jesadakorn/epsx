@@ -149,7 +149,7 @@ export async function getServerFilterOptions(): Promise<FilterOptions> {
         // Transform from AnalyticsFiltersResponse to the expected FilterOptions format
         return {
             countries: response.data.countries.map((c: unknown) => {
-                if (typeof c === 'string') return { value: c, label: c };
+                if (typeof c === 'string') {return { value: c, label: c };}
                 const obj = c as { value?: string; label?: string };
                 return { value: String(obj.value ?? ''), label: String(obj.label ?? obj.value ?? '') };
             }),

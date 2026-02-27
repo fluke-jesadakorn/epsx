@@ -24,14 +24,10 @@ export function PermissionDeniedUI(props: PermissionDeniedUIProps) {
         return <PermissionDeniedFallback {...props} />
     }
 
-    let Renderer: React.ComponentType<PermissionDeniedUIProps> | null = null;
-    if (variant === 'alert') {
-        Renderer = getAlertRenderer(components);
-    } else if (variant === 'full-page') {
-        Renderer = getFullPageRenderer(components);
-    } else {
-        Renderer = getCardRenderer(components);
-    }
+    const Renderer: React.ComponentType<PermissionDeniedUIProps> | null =
+        variant === 'alert' ? getAlertRenderer(components)
+        : variant === 'full-page' ? getFullPageRenderer(components)
+        : getCardRenderer(components);
 
     const FinalRenderer = Renderer ?? PermissionDeniedFallback;
     return <FinalRenderer {...props} />;

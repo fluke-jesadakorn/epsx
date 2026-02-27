@@ -74,6 +74,15 @@ export interface CreditHistoryResponse {
   count: number;
 }
 
+// Plan switch response data
+export interface PlanSwitchData {
+  proration_credit: string;
+  new_wallet_balance: string;
+  new_plan_name: string;
+  new_plan_expires_at: string | null;
+  switch_type: 'downgrade' | 'upgrade_credit_applied';
+}
+
 // Upgrade preview with credits
 export interface UpgradePreviewWithCredits {
   current_plan: {

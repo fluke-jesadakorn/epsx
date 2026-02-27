@@ -2,8 +2,6 @@
  * Tier utility functions for plan tier management
  */
 
-import type { Plan } from '@/shared/types/plans';
-
 /**
  * Get display label for tier level
  */

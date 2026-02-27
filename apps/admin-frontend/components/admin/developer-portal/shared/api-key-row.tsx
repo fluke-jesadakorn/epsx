@@ -20,8 +20,7 @@ interface ApiKeyRowProps {
  * @param address
  */
 const truncateWallet = (address: string | undefined): string => {
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (!address || address.length < 12) { return address ?? 'Unknown'; }
+    if (address === undefined || address === '' || address.length < 12) { return address ?? 'Unknown'; }
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
 
@@ -69,7 +68,35 @@ interface ExtendedApiKey extends ApiKeyResponse {
     permission_groups?: Array<{ id: string; name: string }>;
 }
 
-// eslint-disable-next-line max-lines-per-function
+function ScopeCell({ apiKey, permissionGroups }: { apiKey: ApiKeyResponse; permissionGroups: Array<{ id: string; name: string }> }) {
+    return (
+        <TableCell className="py-6 px-6">
+            <div className="flex flex-wrap gap-2 max-w-[240px]">
+                {permissionGroups.length > 0 ? (
+                    permissionGroups.slice(0, 3).map((group) => (
+                        <span key={group.id} className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-purple-500/10 text-purple-400 border border-purple-500/10 shadow-[0_0_15px_rgba(168,85,247,0.05)]">
+                            {group.name}
+                        </span>
+                    ))
+                ) : apiKey.allowed_modules.length > 0 ? (
+                    apiKey.allowed_modules.slice(0, 3).map((module) => (
+                        <span key={module.module_id} className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-cyan-500/10 text-cyan-400 border border-cyan-500/10 shadow-[0_0_15px_rgba(31,199,212,0.05)]">
+                            {module.module_name}
+                        </span>
+                    ))
+                ) : (
+                    <span className="text-[10px] font-black text-muted-foreground/30 uppercase tracking-widest">No scope</span>
+                )}
+                {(permissionGroups.length > 3 || apiKey.allowed_modules.length > 3) && (
+                    <span className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-muted/30 text-muted-foreground border border-border/20">
+                        +{Math.max(permissionGroups.length, apiKey.allowed_modules.length) - 3}
+                    </span>
+                )}
+            </div>
+        </TableCell>
+    );
+}
+
 export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
     apiKey,
     onCopyWallet,
@@ -79,119 +106,44 @@ export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
 }) => {
     const extendedKey = apiKey as ExtendedApiKey;
     const walletAddress = extendedKey.wallet_address ?? '';
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    const keyPrefix = extendedKey.key_prefix ?? apiKey.key_preview ?? '';
+    const keyPrefix = extendedKey.key_prefix ?? apiKey.key_preview;
     const permissionGroups = extendedKey.permission_groups ?? [];
 
     return (
         <TableRow className="hover:bg-gray-50 dark:hover:bg-white/[0.02] border-border/20 transition-colors">
-            {/* User / Client */}
             <TableCell className="py-6 px-6">
                 <div className="flex flex-col">
-                    <span className="font-black text-foreground tracking-tight text-base">
-                        {apiKey.client_name}
-                    </span>
-                    <span
-                        className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1 cursor-pointer hover:text-[#1fc7d4] transition-colors"
-                        title={walletAddress}
-                        onClick={() => onCopyWallet(walletAddress)}
-                    >
+                    <span className="font-black text-foreground tracking-tight text-base">{apiKey.client_name}</span>
+                    <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1 cursor-pointer hover:text-[#1fc7d4] transition-colors" title={walletAddress} onClick={() => onCopyWallet(walletAddress)}>
                         {truncateWallet(walletAddress)}
                     </span>
                 </div>
             </TableCell>
-
-            {/* API Key */}
             <TableCell className="py-6 px-6">
                 <div className="flex items-center space-x-3">
-                    <div className="px-3 py-1.5 bg-muted/30 border border-border/20 rounded-lg font-mono text-xs font-bold text-[#1fc7d4]">
-                        {maskKeyPrefix(keyPrefix)}
-                    </div>
-                    <button
-                        onClick={() => onCopyKeyPrefix(keyPrefix)}
-                        className="p-2 text-muted-foreground/50 hover:text-[#1fc7d4] hover:bg-muted/30 rounded-lg transition-all"
-                        title="Copy key prefix"
-                    >
+                    <div className="px-3 py-1.5 bg-muted/30 border border-border/20 rounded-lg font-mono text-xs font-bold text-[#1fc7d4]">{maskKeyPrefix(keyPrefix)}</div>
+                    <button onClick={() => onCopyKeyPrefix(keyPrefix)} className="p-2 text-muted-foreground/50 hover:text-[#1fc7d4] hover:bg-muted/30 rounded-lg transition-all" title="Copy key prefix">
                         <Copy className="w-4 h-4" />
                     </button>
                 </div>
             </TableCell>
-
-            {/* Scope / Permission Groups */}
+            <ScopeCell apiKey={apiKey} permissionGroups={permissionGroups} />
             <TableCell className="py-6 px-6">
-                <div className="flex flex-wrap gap-2 max-w-[240px]">
-                    {permissionGroups.length > 0 ? (
-                        permissionGroups.slice(0, 3).map((group) => (
-                            <span
-                                key={group.id}
-                                className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-purple-500/10 text-purple-400 border border-purple-500/10 shadow-[0_0_15px_rgba(168,85,247,0.05)]"
-                            >
-                                {group.name}
-                            </span>
-                        ))
-                    ) : apiKey.allowed_modules.length > 0 ? (
-                        apiKey.allowed_modules.slice(0, 3).map((module) => (
-                            <span
-                                key={module.module_id}
-                                className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-cyan-500/10 text-cyan-400 border border-cyan-500/10 shadow-[0_0_15px_rgba(31,199,212,0.05)]"
-                            >
-                                {module.module_name}
-                            </span>
-                        ))
-                    ) : (
-                        <span className="text-[10px] font-black text-muted-foreground/30 uppercase tracking-widest">No scope</span>
-                    )}
-                    {(permissionGroups.length > 3 || apiKey.allowed_modules.length > 3) && (
-                        <span className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-muted/30 text-muted-foreground border border-border/20">
-                            +{Math.max(permissionGroups.length, apiKey.allowed_modules.length) - 3}
-                        </span>
-                    )}
-                </div>
-            </TableCell>
-
-            {/* Expiration */}
-            <TableCell className="py-6 px-6">
-                <button
-                    onClick={() => onEditExpiration(apiKey)}
-                    className="flex flex-col items-start group"
-                    title="Click to edit expiration"
-                >
+                <button onClick={() => onEditExpiration(apiKey)} className="flex flex-col items-start group" title="Click to edit expiration">
                     <span className="text-xs font-black text-foreground group-hover:text-[#1fc7d4] transition-colors">
-                        {/* eslint-disable-next-line @typescript-eslint/strict-boolean-expressions */}
-                        {apiKey.expires_at ? (
-                            new Date(apiKey.expires_at).toLocaleDateString(undefined, {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric'
-                            })
-                        ) : (
-                            'Never'
-                        )}
+                        {apiKey.expires_at !== null ? new Date(apiKey.expires_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'Never'}
                     </span>
                     <span className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-widest">
-                        {/* eslint-disable-next-line @typescript-eslint/strict-boolean-expressions */}
-                        {apiKey.expires_at ? 'Fixed Date' : 'Permanent'}
+                        {apiKey.expires_at !== null ? 'Fixed Date' : 'Permanent'}
                     </span>
                 </button>
             </TableCell>
-
-            {/* Status */}
             <TableCell className="py-6 px-6">
-                <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${getStatusBadgeClass(apiKey.status)}`}>
-                    {apiKey.status}
-                </span>
+                <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${getStatusBadgeClass(apiKey.status)}`}>{apiKey.status}</span>
             </TableCell>
-
-            {/* Actions */}
             <TableCell className="py-6 px-6 text-right">
                 {apiKey.status === 'active' && (
-                    <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-10 w-10 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl border border-transparent hover:border-red-500/20 active:scale-90 transition-all"
-                        onClick={() => onRevoke(apiKey)}
-                        title="Revoke API Key"
-                    >
+                    <Button size="sm" variant="ghost" className="h-10 w-10 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl border border-transparent hover:border-red-500/20 active:scale-90 transition-all" onClick={() => onRevoke(apiKey)} title="Revoke API Key">
                         <Trash2 className="w-5 h-5" />
                         <span className="sr-only">Revoke</span>
                     </Button>

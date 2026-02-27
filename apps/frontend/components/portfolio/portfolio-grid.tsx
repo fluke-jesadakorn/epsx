@@ -26,7 +26,7 @@ export function PortfolioGrid({ watchedStocks: initialWatched, allRankings }: Po
         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-slate-800/50">
           <Heart className="h-8 w-8 text-slate-400" />
         </div>
-        <h3 className="mb-2 text-lg font-semibold text-white">No stocks in watchlist</h3>
+        <h3 className="mb-2 text-lg font-semibold text-foreground">No stocks in watchlist</h3>
         <p className="max-w-md text-center text-sm text-slate-400">
           Use the search bar above to find stocks and add them to your watchlist.
           Click the heart icon on any stock card to track it here.
@@ -38,7 +38,7 @@ export function PortfolioGrid({ watchedStocks: initialWatched, allRankings }: Po
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-white">
+        <h2 className="text-lg font-semibold text-foreground">
           Your Watchlist
           <span className="ml-2 text-sm font-normal text-slate-400">
             ({watchedStocks.length} stock{watchedStocks.length !== 1 ? 's' : ''})

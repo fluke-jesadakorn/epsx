@@ -24,8 +24,6 @@ const routeConfig: Record<string, BreadcrumbItem> = {
   '/audit-log': { label: 'Audit Log', href: '/audit-log', icon: '📜' },
   '/bulk-permissions': { label: 'Bulk Permissions', href: '/bulk-permissions', icon: '⚡' },
   '/developer-portal': { label: 'Developer Portal', href: '/developer-portal', icon: '👨‍💻' },
-  '/docs': { label: 'Documentation', href: '/docs', icon: '📚' },
-  '/docs/api': { label: 'API Docs', href: '/docs/api' },
   '/wallet-management': { label: 'Wallet Management', href: '/wallet-management', icon: '👛' },
   '/wallet-management/wallets': { label: 'Wallets', href: '/wallet-management/wallets' },
   '/wallet-management/access': { label: 'Access Control', href: '/wallet-management/access' },
@@ -33,16 +31,6 @@ const routeConfig: Record<string, BreadcrumbItem> = {
   // Dynamic wallet disable route is handled by generateBreadcrumbs fallback
   '/payments': { label: 'Payments', href: '/payments', icon: '💰' },
   '/chat': { label: 'Chat Support', href: '/chat', icon: '💬' },
-
-  // Access Management Routes (unified single page)
-  '/subscriptions': { label: 'Access Management', href: '/subscriptions', icon: '🛡️' },
-  '/subscriptions/plans': { label: 'Plans', href: '/subscriptions/plans' },
-  '/subscriptions/plans/new': { label: 'New Plan', href: '/subscriptions/plans/new' },
-  '/subscriptions/manual-access': { label: 'Manual Access', href: '/subscriptions/manual-access' },
-  '/subscriptions/manual-access/assign': { label: 'Assign Wallet', href: '/subscriptions/manual-access/assign' },
-  '/subscriptions/manual-access/expiring': { label: 'Expiring', href: '/subscriptions/manual-access/expiring' },
-  '/subscriptions/manual-access/create-group': { label: 'Create Group', href: '/subscriptions/manual-access/create-group' },
-  '/subscriptions/manual-access/groups': { label: 'Groups', href: '/subscriptions/manual-access/groups' },
 }
 
 function generateBreadcrumbs(pathname: string): BreadcrumbItem[] {
@@ -107,7 +95,6 @@ export function Breadcrumb() {
   return (
     <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-2 text-xs sm:text-sm min-w-0 overflow-hidden">
       {breadcrumbs.map((item, index) => {
-        if (!item) { return null }
         const isLast = index === breadcrumbs.length - 1
         const isFirst = index === 0
 

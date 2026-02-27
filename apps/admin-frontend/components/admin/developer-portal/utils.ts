@@ -30,8 +30,8 @@ export const maskKeyPrefix = (prefix: string): string => {
     return `${start}...${end}`;
 };
 
-export const truncateWallet = (address: string): string => {
-    if (!address ?? address.length < 12) { return address ?? 'Unknown'; }
+export const truncateWallet = (address: string | undefined): string => {
+    if (address === undefined || address === '' || address.length < 12) { return address ?? 'Unknown'; }
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
 

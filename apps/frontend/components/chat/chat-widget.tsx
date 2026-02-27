@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
 import { ChatBubble } from './chat-bubble';
 import { ChatPanel } from './chat-panel';
 import { useSharedAuth } from '@/shared/components/auth';
@@ -12,6 +13,7 @@ const PANEL_STATE_KEY = 'epsx_chat_panel_open';
 
 export function ChatWidget() {
   const { isAuthenticated, getWalletAddress } = useSharedAuth();
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [unread, setUnread] = useState(0);
 
@@ -50,7 +52,7 @@ export function ChatWidget() {
     setIsOpen(false);
   }, []);
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || pathname === '/chat') {
     return null;
   }
 

@@ -62,9 +62,20 @@ pub async fn verify_turnstile_token(
         }
     };
 
-    // Allow explicit dev-skip token for local development without a key
+    // Allow explicit dev-skip token for local development only — rejected in production
     if token == "development-skip-token" {
-        warn!("Development skip token received – accepting without verification");
+        if crate::config::env::is_production() {
+            warn!("Development skip token rejected in production");
+            return Ok(SiteverifyResponse {
+                success: false,
+                challenge_ts: None,
+                hostname: None,
+                error_codes: vec!["dev-skip-rejected-in-production".to_string()],
+                action: None,
+                cdata: None,
+            });
+        }
+        warn!("Development skip token received – accepting without verification (dev mode)");
         return Ok(SiteverifyResponse {
             success: true,
             challenge_ts: None,

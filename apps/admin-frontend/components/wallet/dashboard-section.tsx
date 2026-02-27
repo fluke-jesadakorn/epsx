@@ -33,12 +33,12 @@ function StatCard({ label, value, trend, trendUp, subValue, icon, colorClass, bg
                     <div className={cn("p-2 rounded-lg bg-muted/50", colorClass)}>
                         {icon}
                     </div>
-                    {trend && (
+                    {trend !== undefined && trend !== '' && (
                         <div className={cn(
                             "flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full bg-muted/50",
-                            trendUp ? "text-green-500" : "text-red-500"
+                            trendUp === true ? "text-green-500" : "text-red-500"
                         )}>
-                            {trendUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                            {trendUp === true ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
                             {trend}
                         </div>
                     )}
@@ -48,7 +48,7 @@ function StatCard({ label, value, trend, trendUp, subValue, icon, colorClass, bg
                     <div className="text-2xl font-bold text-card-foreground mb-1 tracking-tight">{value}</div>
                     <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-muted-foreground">{label}</span>
-                        {subValue && (
+                        {subValue !== undefined && subValue !== '' && (
                             <span className="text-[10px] text-muted-foreground font-medium bg-muted/50 px-1.5 py-0.5 rounded">
                                 {subValue}
                             </span>

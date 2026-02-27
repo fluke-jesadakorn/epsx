@@ -33,6 +33,13 @@ interface ExtendedUserInfoResponse extends UserInfoResponse {
   role?: string;
 }
 
+interface AdminAuthParams {
+  walletAddress?: string;
+  signature?: string;
+  message?: string;
+  nonce?: string;
+}
+
 // Web3 admin client instance
 const adminWeb3Client = createAdminClient();
 
@@ -50,8 +57,7 @@ export interface Web3AdminAuthState {
 // Transform Web3 user to admin wallet format
 // Uses backend-provided role directly - no client-side derivation
 function transformWeb3UserToAdminWallet(web3User: ExtendedUserInfoResponse): AdminWallet {
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  const permissions = web3User.permissions ?? [];
+  const permissions = web3User.permissions;
   // Use backend-provided is_admin flag
   const isAdmin = web3User.is_admin ?? permissions.some(p => p.startsWith('admin:'));
   // Use backend-provided admin_permissions
@@ -72,19 +78,113 @@ function transformWeb3UserToAdminWallet(web3User: ExtendedUserInfoResponse): Adm
   };
 }
 
+type SetFn = (partial: Partial<Web3AdminAuthState>) => void;
+type GetFn = () => Web3AdminAuthState & { getAdminWallet: () => Promise<AdminWallet | null>; disconnectWallet: () => Promise<void> };
+
+async function connectWalletImpl(set: SetFn): Promise<void> {
+  set({ isConnecting: true, error: null });
+  try {
+    if (adminWeb3Client.isAuthenticated()) {
+      const web3User = await adminWeb3Client.loadCurrentUser() as ExtendedUserInfoResponse | null;
+      if (web3User !== null) {
+        const adminWallet = transformWeb3UserToAdminWallet(web3User);
+        set({ wallet: adminWallet, walletAddress: adminWallet.wallet_address, isAuthenticated: true, isConnecting: false, expiresAt: Date.now() + 86400000 });
+        return;
+      }
+    }
+    window.dispatchEvent(new CustomEvent('epsx:admin-connect-wallet'));
+    set({ isConnecting: false });
+  } catch (_error) {
+    set({ error: _error instanceof Error ? _error.message : 'Wallet connection failed', isConnecting: false });
+  }
+}
+
+async function disconnectWalletImpl(set: SetFn): Promise<void> {
+  set({ isLoading: true });
+  try {
+    try { await logoutAction(); } catch (_e) { /* silently fail */ }
+    adminWeb3Client.logout();
+    set({ wallet: null, isAuthenticated: false, expiresAt: null, walletAddress: undefined, isLoading: false });
+  } catch (_error) {
+    set({ error: 'Disconnect failed. Please try again.', isLoading: false });
+  }
+}
+
+async function getAdminWalletImpl(set: SetFn, get: GetFn): Promise<AdminWallet | null> {
+  const { wallet, expiresAt } = get();
+  if (wallet !== null && expiresAt !== null && Date.now() < expiresAt) { return wallet; }
+  try {
+    const web3User = await adminWeb3Client.loadCurrentUser();
+    if (web3User !== null) {
+      const adminWallet = transformWeb3UserToAdminWallet(web3User as ExtendedUserInfoResponse);
+      set({ wallet: adminWallet, isAuthenticated: true, expiresAt: Date.now() + 86400000 });
+      return adminWallet;
+    }
+  } catch (_error) { /* silently fail */ }
+  set({ wallet: null, isAuthenticated: false, expiresAt: null });
+  return null;
+}
+
+async function authenticateAdminImpl(set: SetFn, get: GetFn, params?: AdminAuthParams): Promise<void> {
+  set({ isAuthenticating: true, error: null });
+  try {
+    if (hasSignatureParams(params)) {
+      const { adminWallet } = await doSignatureAuth(params);
+      set({ wallet: adminWallet, walletAddress: adminWallet.wallet_address, isAuthenticated: true, isAuthenticating: false, expiresAt: Date.now() + 86400000 });
+      return;
+    }
+    const { walletAddress: currentWalletAddress } = get();
+    if (currentWalletAddress === undefined) {
+      set({ error: 'Please connect wallet first', isAuthenticating: false });
+      return;
+    }
+    window.dispatchEvent(new CustomEvent('epsx:admin-authenticate', { detail: { walletAddress: currentWalletAddress } }));
+    set({ isAuthenticating: false });
+  } catch (_error) {
+    set({ error: _error instanceof Error ? _error.message : 'Authentication failed', isAuthenticating: false, isAuthenticated: false });
+  }
+}
+
+function hasSignatureParams(params: AdminAuthParams | undefined): params is Required<AdminAuthParams> {
+  return (
+    params?.walletAddress !== undefined && params.walletAddress !== '' &&
+    params.signature !== undefined && params.signature !== '' &&
+    params.message !== undefined && params.message !== '' &&
+    params.nonce !== undefined && params.nonce !== ''
+  );
+}
+
+async function doSignatureAuth(params: Required<AdminAuthParams>): Promise<{ adminWallet: AdminWallet; access?: string }> {
+  const result = await adminWeb3Client.authenticateWithSignature({
+    wallet_address: params.walletAddress,
+    signature: params.signature,
+    message: params.message,
+    nonce: params.nonce,
+  });
+
+  if (result.success !== true || result.user === undefined) {
+    throw new Error(result.error ?? 'Authentication failed');
+  }
+
+  if (result.user.access !== undefined) {
+    await loginAction(result.user.access, result.user);
+  }
+
+  return {
+    adminWallet: transformWeb3UserToAdminWallet(result.user as ExtendedUserInfoResponse),
+    access: result.user.access,
+  };
+}
+
 // Create Web3 admin wallet auth store
 export const useAuth = create<Web3AdminAuthState & {
-  // Web3 Admin Actions
   connectWallet: () => Promise<void>;
-  // eslint-disable-next-line max-params
-  authenticateAdmin: (walletAddress?: string, signature?: string, message?: string, nonce?: string) => Promise<void>;
+  authenticateAdmin: (params?: AdminAuthParams) => Promise<void>;
   requestAdminChallenge: (walletAddress: string) => Promise<{ nonce: string; message: string; wallet_address: string }>;
   disconnectWallet: () => Promise<void>;
   getAdminWallet: () => Promise<AdminWallet | null>;
   refreshSession: () => Promise<void>;
   clearError: () => void;
-  // Permission enforcement handled by backend - no local methods needed
-  // eslint-disable-next-line max-lines-per-function
 }>((set, get) => ({
   wallet: null,
   isLoading: false,
@@ -94,214 +194,19 @@ export const useAuth = create<Web3AdminAuthState & {
   walletAddress: undefined,
   isConnecting: false,
   isAuthenticating: false,
-
-  // Connect wallet for admin authentication
-  connectWallet: async () => {
-    set({ isConnecting: true, error: null });
-
-    try {
-
-      // Check if already authenticated
-      if (adminWeb3Client.isAuthenticated()) {
-        const web3User = await adminWeb3Client.loadCurrentUser() as ExtendedUserInfoResponse;
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        if (web3User !== null && web3User !== undefined) {
-          const adminWallet = transformWeb3UserToAdminWallet(web3User);
-
-          set({
-            wallet: adminWallet,
-            walletAddress: adminWallet.wallet_address,
-            isAuthenticated: true,
-            isConnecting: false,
-            expiresAt: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
-          });
-
-          return;
-        }
-      }
-
-      // Trigger wallet connection event for Web3 components
-      const walletConnectEvent = new CustomEvent('epsx:admin-connect-wallet');
-      window.dispatchEvent(walletConnectEvent);
-
-      set({ isConnecting: false });
-
-    } catch (_error) {
-      // Silently fail
-      set({
-        error: _error instanceof Error ? _error.message : 'Wallet connection failed',
-        isConnecting: false
-      });
-    }
-  },
-
-  // Authenticate admin with Web3 signature (called by Web3 components)
-  // eslint-disable-next-line max-params, complexity
-  authenticateAdmin: async (walletAddress?: string, signature?: string, message?: string, nonce?: string) => {
-    set({ isAuthenticating: true, error: null });
-
-    try {
-
-      // If signature provided, use it directly
-      if (
-        walletAddress !== undefined && walletAddress !== '' &&
-        signature !== undefined && signature !== '' &&
-        message !== undefined && message !== '' &&
-        nonce !== undefined && nonce !== ''
-      ) {
-        const result = await adminWeb3Client.authenticateWithSignature({
-          wallet_address: walletAddress,
-          signature,
-          message,
-          nonce
-        });
-
-        if (!result.success || !result.user) {
-          throw new Error(result.error ?? 'Authentication failed');
-        }
-
-        // Call server action to set cookies
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        if (result.user.access !== undefined && result.user.access !== null) {
-          await loginAction(result.user.access, result.user);
-        }
-
-        const adminWallet = transformWeb3UserToAdminWallet(result.user as ExtendedUserInfoResponse);
-
-        // Permission enforcement is now handled by the backend/middleware
-        // We trust the session returned by the server
-
-        set({
-          wallet: adminWallet,
-          walletAddress: adminWallet.wallet_address,
-          isAuthenticated: true,
-          isAuthenticating: false,
-          expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
-        });
-
-        return;
-      }
-
-      // Otherwise, trigger auth flow
-      const { walletAddress: currentWalletAddress } = get();
-      if (currentWalletAddress === undefined) {
-        set({ error: 'Please connect wallet first', isAuthenticating: false });
-        return;
-      }
-
-      // Trigger authentication event for Web3 components to handle
-      const authEvent = new CustomEvent('epsx:admin-authenticate', {
-        detail: { walletAddress: currentWalletAddress }
-      });
-      window.dispatchEvent(authEvent);
-
-      set({ isAuthenticating: false });
-
-    } catch (_error) {
-      // Silently fail
-      set({
-        error: _error instanceof Error ? _error.message : 'Authentication failed',
-        isAuthenticating: false,
-        isAuthenticated: false,
-      });
-    }
-  },
-
-  // Request Web3 challenge for admin authentication
-  requestAdminChallenge: async (walletAddress: string) => {
-    return adminWeb3Client.requestChallenge(walletAddress);
-  },
-
-  // Disconnect wallet and clear session
-  disconnectWallet: async () => {
-    set({ isLoading: true });
-
-    try {
-      // Call server action to clear HttpOnly cookies
-      try {
-        await logoutAction();
-      } catch (_e) {
-        // Silently fail
-      }
-
-      // Use Web3 client logout
-      await adminWeb3Client.logout();
-
-      set({
-        wallet: null,
-        isAuthenticated: false,
-        expiresAt: null,
-        walletAddress: undefined,
-        isLoading: false,
-      });
-
-    } catch (_error) {
-      // Silently fail
-      set({
-        error: 'Disconnect failed. Please try again.',
-        isLoading: false
-      });
-    }
-  },
-
-  // Get current admin wallet (NEW)
-  getAdminWallet: async () => {
-    const { wallet, expiresAt } = get();
-    if (wallet !== null && expiresAt !== null && Date.now() < expiresAt) {
-      return wallet;
-    }
-
-    // Try to load from Web3 client
-    try {
-      const web3User = await adminWeb3Client.loadCurrentUser();
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      if (web3User !== null && web3User !== undefined) {
-        const adminWallet = transformWeb3UserToAdminWallet(web3User as ExtendedUserInfoResponse);
-
-        set({
-          wallet: adminWallet,
-          isAuthenticated: true,
-          expiresAt: Date.now() + (24 * 60 * 60 * 1000)
-        });
-
-        return adminWallet;
-      }
-    } catch (_error) {
-      // Silently fail
-    }
-
-    // Clear session if unable to load
-    set({
-      wallet: null,
-      isAuthenticated: false,
-      expiresAt: null
-    });
-
-    return null;
-  },
-
-  // Refresh admin session
+  connectWallet: () => connectWalletImpl(set),
+  authenticateAdmin: (params) => authenticateAdminImpl(set, get as GetFn, params),
+  requestAdminChallenge: (walletAddress) => adminWeb3Client.requestChallenge(walletAddress),
+  disconnectWallet: () => disconnectWalletImpl(set),
+  getAdminWallet: () => getAdminWalletImpl(set, get as GetFn),
   refreshSession: async () => {
     try {
-      await get().getAdminWallet();
+      await getAdminWalletImpl(set, get as GetFn);
     } catch (_error) {
-      // Silently fail
-      void get().disconnectWallet();
+      void disconnectWalletImpl(set);
     }
   },
-
-  // Clear error state
-  clearError: () => {
-    set({ error: null });
-  },
-
-  // ============================================================================
-  // DEPRECATED: Permission helpers
-  // ============================================================================
-  // PERMISSION ENFORCEMENT - HANDLED BY BACKEND
-  // All permission checks are done server-side via JWT middleware
-  // Frontend only displays role/permissions but does not enforce them
-  // ============================================================================
+  clearError: () => { set({ error: null }); },
 }));
 
 // Subscribe to Web3 client changes
@@ -310,7 +215,7 @@ if (typeof window !== 'undefined') {
   adminWeb3Client.subscribe((web3User) => {
     const _state = useAuth.getState();
 
-    if (web3User) {
+    if (web3User !== null) {
       const adminWallet = transformWeb3UserToAdminWallet(web3User as ExtendedUserInfoResponse);
 
       // Server handling permission enforcement - we just display state
@@ -344,8 +249,7 @@ if (typeof window !== 'undefined') {
  */
 export function getAdminDisplayName(wallet: AdminWallet | null): string {
   if (wallet === null) { return 'Unknown Admin'; }
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  return wallet.wallet_address !== undefined && wallet.wallet_address !== '' ?
+  return wallet.wallet_address !== '' ?
     `${wallet.wallet_address.slice(0, 6)}...${wallet.wallet_address.slice(-4)}` :
     'Enterprise Admin';
 }

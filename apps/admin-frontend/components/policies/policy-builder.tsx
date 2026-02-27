@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 'use client';
 
 import React from 'react';
@@ -37,8 +36,8 @@ export default function PolicyBuilder() {
       <PolicyBuilderHeader
         showTemplates={showTemplates}
         setShowTemplates={setShowTemplates}
-        onTest={handleTestPolicy}
-        onSave={handleSavePolicy}
+        onTest={() => void handleTestPolicy()}
+        onSave={() => void handleSavePolicy()}
         saving={saving}
         formData={formData}
       />

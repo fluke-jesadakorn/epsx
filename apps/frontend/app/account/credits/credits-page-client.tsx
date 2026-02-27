@@ -3,6 +3,7 @@
 import { cn } from '@/lib/utils';
 import { createCreditsApi } from '@/shared/api/credits';
 import type { CreditBalance, CreditTransaction, CreditTransactionType } from '@/shared/types/credits';
+import { fmtAmt } from '@/shared/utils/formatting/currency';
 import { createFrontendApiClient } from '@/shared/utils/api-client';
 import { ArrowDownRight, ArrowUpRight, Calendar, Clock, Coins, DollarSign, TrendingDown, TrendingUp } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -108,7 +109,7 @@ export function CreditsPageClient() {
           </div>
           <div className="space-y-1">
             <p className="text-sm opacity-90">Available Balance</p>
-            <p className="text-4xl font-bold">${Number(balance?.available_balance ?? 0).toFixed(2)}</p>
+            <p className="text-4xl font-bold">${fmtAmt(Number(balance?.available_balance ?? 0))}</p>
           </div>
         </div>
 
@@ -122,7 +123,7 @@ export function CreditsPageClient() {
           <div className="space-y-1">
             <p className="text-sm text-gray-600 dark:text-gray-400">Lifetime Earned</p>
             <p className="text-3xl font-bold text-gray-900 dark:text-white">
-              ${Number(balance?.lifetime_earned ?? 0).toFixed(2)}
+              ${fmtAmt(Number(balance?.lifetime_earned ?? 0))}
             </p>
           </div>
         </div>
@@ -137,7 +138,7 @@ export function CreditsPageClient() {
           <div className="space-y-1">
             <p className="text-sm text-gray-600 dark:text-gray-400">Lifetime Spent</p>
             <p className="text-3xl font-bold text-gray-900 dark:text-white">
-              ${Number(balance?.lifetime_spent ?? 0).toFixed(2)}
+              ${fmtAmt(Number(balance?.lifetime_spent ?? 0))}
             </p>
           </div>
         </div>
@@ -237,10 +238,10 @@ export function CreditsPageClient() {
 
                     <div className="text-right ml-4">
                       <div className={cn('text-lg font-bold', isCredit ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400')}>
-                        {isCredit ? '+' : ''}{txAmount.toFixed(2)}
+                        {isCredit ? '+' : ''}{fmtAmt(txAmount)}
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Balance: ${Number(tx.balance_after).toFixed(2)}
+                        Balance: ${fmtAmt(Number(tx.balance_after))}
                       </div>
                     </div>
                   </div>

@@ -33,7 +33,7 @@ pub fn sanitize_chat_content(content: &str) -> String {
             return format!("[{}]({})", label, url);
         }
 
-        format!("*[External Link Removed]*")
+        "*[External Link Removed]*".to_string()
     }).to_string();
 
     // Process bare URLs that weren't inside markdown links

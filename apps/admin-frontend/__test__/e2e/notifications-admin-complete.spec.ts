@@ -361,7 +361,7 @@ test.describe('Admin Notifications - Complete Coverage', () => {
       // Monitor console for SSE logs
       const logs: string[] = []
       page.on('console', msg => {
-        if (msg.text().includes('SSE') ?? msg.text().includes('connection')) {
+        if (msg.text().includes('SSE') || msg.text().includes('connection')) {
           logs.push(msg.text())
         }
       })

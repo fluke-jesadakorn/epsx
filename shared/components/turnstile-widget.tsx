@@ -32,19 +32,19 @@ export function TurnstileWidget({
             return;
         }
         const key = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-        if (key) {
+        if (key !== undefined && key !== '') {
             setSiteKey(key);
         } else {
             onSuccess('development-skip-token');
         }
     }, [onSuccess]);
 
-    if (!siteKey) {
+    if (siteKey === null) {
         return null;
     }
 
     return (
-        <div className={`flex justify-center ${className || ''}`}>
+        <div className={`flex justify-center ${className ?? ''}`}>
             <Turnstile
                 siteKey={siteKey}
                 options={{

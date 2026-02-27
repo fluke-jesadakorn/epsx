@@ -71,8 +71,10 @@ export default function ServerPagination({
         <div className="flex items-center gap-1 mx-1">
           {visiblePages.map((pageNum, idx) => {
             if (pageNum === '...') {
+              const prevPage = visiblePages[idx - 1] ?? 0;
+              const nextPage = visiblePages[idx + 1] ?? 0;
               return (
-                <span key={`dots-${idx}`} className="flex items-center justify-center w-9 h-9 text-slate-500 text-sm">
+                <span key={`dots-after-${prevPage}-before-${nextPage}`} className="flex items-center justify-center w-9 h-9 text-slate-500 text-sm">
                   ...
                 </span>
               );

@@ -23,9 +23,7 @@ const NO_LAYOUT_PATHS = [
   '/login',
   '/unauthorized',
   '/access-denied',
-  '/request-access',
   '/permissions/policies',
-  '/manual'
 ]
 
 /**
@@ -38,16 +36,16 @@ export function AuthLayout({ children, user: serverUser }: AuthLayoutProps) {
   const { user: authUser } = useSharedAuth()
 
   // Special pages that never get layout
-  const isNoLayoutPage = NO_LAYOUT_PATHS.some(path => pathname === path ?? pathname.startsWith(path))
+  const isNoLayoutPage = NO_LAYOUT_PATHS.some(path => pathname === path || pathname.startsWith(path))
   if (isNoLayoutPage) {
     return <>{children}</>
   }
 
   // Use client-side auth user if available, otherwise use server user
-  const layoutUser = authUser ? {
-    id: authUser.wallet_address ?? authUser.sub,
+  const layoutUser = authUser !== null ? {
+    id: authUser.wallet_address,
     email: authUser.email ?? `${authUser.wallet_address}@web3.epsx.io`,
-    name: authUser.wallet_address ? `Admin (${authUser.wallet_address.slice(0, 6)}...${authUser.wallet_address.slice(-4)})` : 'Admin',
+    name: authUser.wallet_address !== '' ? `Admin (${authUser.wallet_address.slice(0, 6)}...${authUser.wallet_address.slice(-4)})` : 'Admin',
     role: 'admin'
   } : serverUser
 

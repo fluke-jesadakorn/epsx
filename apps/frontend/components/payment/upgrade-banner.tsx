@@ -7,30 +7,29 @@ import { env } from '@/shared/env/schema';
 
 export interface UpgradePreviewData {
     current_plan: {
+        id: string | null;
         name: string;
         price: string;
         expires_at: string | null;
+        started_at: string | null;
         days_remaining: number;
     } | null;
     new_plan: {
-        id: number;
+        id: string;
         name: string;
         price: string;
-        standard_duration_days: number;
     };
-    upgrade_details: {
-        remaining_credit: string;
-        bonus_days: number;
-        total_duration_days: number;
-        new_expiry_date: string;
-    };
-    is_upgrade: boolean;
-    is_downgrade: boolean;
-    payment_required: string;
+    credit_from_current_plan: string;
+    wallet_credit_balance: string;
+    total_credits_available: string;
+    amount_to_pay: string;
+    new_duration_days: number;
+    new_expiry_date: string;
+    is_upgrade_allowed: boolean;
 }
 
 interface UpgradeBannerProps {
-    newPlanId: number;
+    newPlanId: string;
     walletAddress?: string;
     className?: string;
 }
@@ -94,8 +93,11 @@ export function UpgradeBanner({
         return null;
     }
 
-    // Show upgrade credit info if valid upgrade
-    if (preview.is_upgrade && preview.upgrade_details.bonus_days > 0) {
+    const amtToPay = parseFloat(preview.amount_to_pay);
+    const isFreeUpgrade = amtToPay === 0 && preview.current_plan.days_remaining > 0;
+
+    // Show free upgrade day conversion info
+    if (preview.is_upgrade_allowed && isFreeUpgrade) {
         return (
             <div
                 className={cn(
@@ -109,28 +111,28 @@ export function UpgradeBanner({
                     </div>
                     <div className="flex-1">
                         <h4 className="font-semibold text-green-600 dark:text-green-400">
-                            🎉 Upgrade Bonus!
+                            Free Upgrade
                         </h4>
                         <p className="mt-1 text-sm text-muted-foreground">
                             Your remaining{' '}
                             <span className="font-medium text-foreground">
                                 {preview.current_plan.days_remaining} days
                             </span>{' '}
-                            on {preview.current_plan.name} gives you
+                            on {preview.current_plan.name} converts to{' '}
                             <span className="font-bold text-green-600 dark:text-green-400">
-                                {' '}
-                                ${parseFloat(preview.upgrade_details.remaining_credit).toFixed(2)} credit
-                            </span>
+                                {preview.new_duration_days} days
+                            </span>{' '}
+                            on {preview.new_plan.name}
                         </p>
                         <div className="mt-2 flex items-center gap-2">
                             <div className="flex items-center gap-1 rounded bg-green-500/20 px-2 py-1 text-sm font-medium text-green-600 dark:text-green-400">
                                 <TrendingUp className="h-3.5 w-3.5" />
-                                <span>+{preview.upgrade_details.bonus_days} bonus days</span>
+                                <span>{preview.current_plan.days_remaining}d → {preview.new_duration_days}d</span>
                             </div>
                             <ArrowRight className="h-4 w-4 text-muted-foreground" />
                             <div className="flex items-center gap-1 rounded bg-primary/10 px-2 py-1 text-sm font-medium text-primary">
                                 <Clock className="h-3.5 w-3.5" />
-                                <span>{preview.upgrade_details.total_duration_days} days total</span>
+                                <span>$0 — FREE</span>
                             </div>
                         </div>
                     </div>
@@ -139,38 +141,9 @@ export function UpgradeBanner({
         );
     }
 
-    // Show downgrade warning
-    if (preview.is_downgrade) {
-        return (
-            <div
-                className={cn(
-                    'rounded-lg border-2 border-amber-500/30 bg-gradient-to-r from-amber-500/10 to-orange-500/10 p-4',
-                    className
-                )}
-            >
-                <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500/20">
-                        <Clock className="h-5 w-5 text-amber-500" />
-                    </div>
-                    <div className="flex-1">
-                        <h4 className="font-semibold text-amber-600 dark:text-amber-400">
-                            ⚠️ Plan Change Notice
-                        </h4>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                            You&apos;re switching to a lower tier. Your payment will{' '}
-                            <span className="font-medium text-foreground">
-                                extend your current {preview.current_plan.name} plan
-                            </span>{' '}
-                            by 30 days instead.
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                            To switch to {preview.new_plan.name}, wait for your current plan
-                            to expire.
-                        </p>
-                    </div>
-                </div>
-            </div>
-        );
+    // Downgrades are disabled — no banner needed
+    if (!preview.is_upgrade_allowed) {
+        return null;
     }
 
     // Same plan extension
@@ -194,7 +167,7 @@ export function UpgradeBanner({
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
                             Current: {preview.current_plan.days_remaining} days remaining →
-                            New total: {preview.upgrade_details.total_duration_days} days
+                            New total: {preview.current_plan.days_remaining + preview.new_duration_days} days
                         </p>
                     </div>
                 </div>

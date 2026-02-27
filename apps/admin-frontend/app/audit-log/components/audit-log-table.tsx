@@ -32,7 +32,7 @@ export function AuditLogTable({
                     <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-[#7645d9]" />
                     <p className="text-muted-foreground text-sm">Loading audit logs...</p>
                 </div>
-            ) : error ? (
+            ) : error !== null ? (
                 <div className="p-8 text-center">
                     <p className="text-destructive mb-4 text-sm">{error}</p>
                     <button

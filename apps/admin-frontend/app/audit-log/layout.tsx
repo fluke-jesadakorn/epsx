@@ -1,7 +1,5 @@
 
-
-export default async function AuditLogLayout({ children }: { children: React.ReactNode }) {
-
+export default function AuditLogLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 

@@ -42,9 +42,9 @@ export function AccessControlHub({ className }: AccessControlHubProps) {
   } = useAccessControlHub();
 
   // Navigation handlers
-  const handleCreatePlan = () => router.push('/subscriptions/plans/new');
+  const handleCreatePlan = () => router.push('/wallet-management/access/plans');
   const handleCreateGroup = () =>
-    router.push('/subscriptions/manual-access/create-group');
+    router.push('/wallet-management/groups/new');
 
   return (
     <div className={cn('space-y-6', className)}>
@@ -85,7 +85,7 @@ export function AccessControlHub({ className }: AccessControlHubProps) {
           // Loading skeletons
           Array.from({ length: 5 }).map((_, i) => (
             <div
-              key={`skeleton-${i}`}
+              key={`skeleton-row-${String(i)}`}
               className="rounded-2xl bg-card border border-border p-6 animate-pulse"
             >
               <div className="flex items-center gap-4">

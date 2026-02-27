@@ -2,7 +2,7 @@
 
 import type { NotificationsResponse } from '@/shared/api/notifications';
 import { createNotificationsClient } from '@/shared/api/notifications';
-import { logger } from '@/shared/utils/logger';
+import { logger } from '@/lib/logger';
 import { getAdminServerActionClient } from '@/shared/utils/server-fetch';
 
 export async function getAdminNotificationsAction(filters: {
@@ -20,7 +20,7 @@ export async function getAdminNotificationsAction(filters: {
       status: filters.status as 'read' | 'unread' | 'all' | undefined,
     });
   } catch (error) {
-    logger.warn('Failed to fetch admin notifications:', error);
+    logger.action.error('getAdminNotifications', error);
     return {
       success: false,
       data: {
@@ -46,7 +46,7 @@ export async function markAsUnreadAction(notificationId: string): Promise<{ succ
   try {
     return await notifications.markAsUnread(notificationId);
   } catch (error) {
-    logger.error('Failed to mark admin notification as unread:', error);
+    logger.action.error('markAsUnread', error);
     return { success: false, message: 'Failed to mark as unread' };
   }
 }
@@ -58,7 +58,7 @@ export async function markAllAsReadAction(): Promise<{ success: boolean; updated
   try {
     return await notifications.markAllAsRead();
   } catch (error) {
-    logger.error('Failed to mark all notifications as read:', error);
+    logger.action.error('markAllAsRead', error);
     return { success: false, updated_count: 0 };
   }
 }
@@ -70,7 +70,7 @@ export async function deleteAdminNotificationAction(notificationId: string): Pro
   try {
     return await notifications.deleteAdminNotification(notificationId);
   } catch (error) {
-    logger.error('Failed to delete admin notification:', error);
+    logger.action.error('deleteAdminNotification', error);
     return { success: false, message: 'Failed to delete notification' };
   }
 }
@@ -82,7 +82,7 @@ export async function markAsReadAction(notificationId: string): Promise<{ succes
   try {
     return await notifications.markAsRead(notificationId);
   } catch (error) {
-    logger.error('Failed to mark notification as read:', error);
+    logger.action.error('markAsRead', error);
     return { success: false };
   }
 }

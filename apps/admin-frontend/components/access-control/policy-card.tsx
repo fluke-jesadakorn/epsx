@@ -28,6 +28,14 @@ interface PolicyCardProps {
   className?: string;
 }
 
+const GRADIENT_MAP: Record<string, string> = {
+  subscription: 'from-blue-500/5 via-indigo-500/5 to-blue-500/5',
+  manual: 'from-amber-500/5 via-orange-500/5 to-amber-500/5',
+  web3_asset: 'from-purple-500/5 via-pink-500/5 to-purple-500/5',
+  dao: 'from-emerald-500/5 via-teal-500/5 to-emerald-500/5',
+  system: 'from-gray-500/5 via-slate-500/5 to-gray-500/5',
+};
+
 /**
  * PolicyCard displays a unified view for both subscription plans and permission groups
  */
@@ -42,6 +50,7 @@ export function PolicyCard({
   const isSubscription = isSubscriptionPolicy(policy);
   const editUrl = getPolicyEditUrl(policy);
   const membersUrl = getPolicyMembersUrl(policy);
+  const gradient = GRADIENT_MAP[policy.type] ?? '';
 
   return (
     <div
@@ -56,21 +65,7 @@ export function PolicyCard({
       )}
     >
       {/* Type-based gradient overlay on hover */}
-      <div
-        className={cn(
-          'absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none',
-          policy.type === 'subscription' &&
-          'from-blue-500/5 via-indigo-500/5 to-blue-500/5',
-          policy.type === 'manual' &&
-          'from-amber-500/5 via-orange-500/5 to-amber-500/5',
-          policy.type === 'web3_asset' &&
-          'from-purple-500/5 via-pink-500/5 to-purple-500/5',
-          policy.type === 'dao' &&
-          'from-emerald-500/5 via-teal-500/5 to-emerald-500/5',
-          policy.type === 'system' &&
-          'from-gray-500/5 via-slate-500/5 to-gray-500/5'
-        )}
-      />
+      <div className={cn('absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none', gradient)} />
 
       <div className="relative flex flex-col p-5 gap-4">
         {/* Header: Checkbox + Avatar + Name + Type Badge */}

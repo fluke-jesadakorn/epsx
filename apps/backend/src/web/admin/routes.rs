@@ -308,6 +308,9 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/chat/conversations/{id}/read", put(super::chat_handlers::admin_mark_read))
     .route("/chat/stats", get(super::chat_handlers::admin_get_stats))
 
+    // Plan seeding (admin-only, disabled in production)
+    .route("/plans/seed", post(crate::web::public::seed_plans_handler::seed_subscription_plans))
+
     }
 
 pub fn create_admin_public_routes() -> Router<AppState> {

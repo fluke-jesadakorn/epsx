@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -434,7 +432,7 @@ export async function getPermissionStatistics(): Promise<{
       throw new Error(`Failed to fetch statistics: ${response.status}`);
     }
 
-    return await response.json();
+    return await response.json() as Awaited<ReturnType<typeof getPermissionStatistics>>;
   } catch (error) {
     logger.error('Error fetching statistics:', { error });
     // Return mock statistics for development

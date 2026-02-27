@@ -840,7 +840,7 @@ export class NotificationsAPIClient {
     }
   ): () => void {
     const { onNotification, onError, onOpen } = callbacks;
-    if (this.sseConnection && this.sseConnection.readyState === EventSource.CONNECTING) {
+    if (this.sseConnection?.readyState === EventSource.CONNECTING) {
       logger.info('⏭️ SSE: Connection already in progress, skipping duplicate request');
       return () => { };
     }
@@ -1335,7 +1335,7 @@ export class NotificationsAPIClient {
     } catch (e) {
       const error = `Invalid SSE URL format: "${sseUrl}"`;
       logger.error('❌ SSE URL validation failed', { error, exception: e });
-      throw new Error(error);
+      throw new Error(error, { cause: e });
     }
   }
 }

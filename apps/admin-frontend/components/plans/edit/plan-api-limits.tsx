@@ -20,7 +20,7 @@ export function PlanApiLimits({ formData, setFormData }: PlanFormProps) {
                         onChange={(e) =>
                             setFormData({
                                 ...formData,
-                                api_calls_limit: parseInt(e.target.value) ?? 0,
+                                api_calls_limit: Number(e.target.value),
                             })
                         }
                         className="w-full px-4 py-3 rounded-xl border-2 border-border/40 bg-card text-foreground focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"
@@ -40,7 +40,7 @@ export function PlanApiLimits({ formData, setFormData }: PlanFormProps) {
                         onChange={(e) =>
                             setFormData({
                                 ...formData,
-                                ranking_offset: parseInt(e.target.value) ?? 0,
+                                ranking_offset: Number(e.target.value),
                             })
                         }
                         className="w-full px-4 py-3 rounded-xl border-2 border-border/40 bg-card text-foreground focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"
@@ -60,7 +60,7 @@ export function PlanApiLimits({ formData, setFormData }: PlanFormProps) {
                         onChange={(e) =>
                             setFormData({
                                 ...formData,
-                                analytics_queries: parseInt(e.target.value) ?? 0,
+                                analytics_queries: Number(e.target.value),
                             })
                         }
                         className="w-full px-4 py-3 rounded-xl border-2 border-border/40 bg-card text-foreground focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"
@@ -80,7 +80,7 @@ export function PlanApiLimits({ formData, setFormData }: PlanFormProps) {
                         onChange={(e) =>
                             setFormData({
                                 ...formData,
-                                export_limit: parseInt(e.target.value) ?? 0,
+                                export_limit: Number(e.target.value),
                             })
                         }
                         className="w-full px-4 py-3 rounded-xl border-2 border-border/40 bg-card text-foreground focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"

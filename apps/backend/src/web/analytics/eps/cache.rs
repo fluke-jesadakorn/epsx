@@ -47,7 +47,7 @@ use super::{
 )]
 pub async fn get_unified_analytics_rankings_cached(
   Query(params): Query<EPSRankingQueryParams>,
-  Extension(cache): Extension<Arc<dyn Cache>>,
+  Extension(_cache): Extension<Arc<dyn Cache>>,
   Extension(permission_service): Extension<Arc<UnifiedPermissionService>>,
   user_context_ext: Option<Extension<OpenIDUserContext>>,
 ) -> Result<Json<CardDashboardResponse>, AppError> {

@@ -15,7 +15,7 @@ interface UseDeveloperPortalDataReturn {
     accessDenied: { message: string; code?: string } | null;
     loadData: () => Promise<void>;
     setApiKeys: React.Dispatch<React.SetStateAction<ApiKeyResponse[]>>;
-    handleRevokeApiKey: (keyId: string, keyName: string) => Promise<void>;
+    handleRevokeApiKey: (keyId: string, keyName: string) => void;
 }
 
 export const useDeveloperPortalData = (): UseDeveloperPortalDataReturn => {
@@ -25,6 +25,60 @@ export const useDeveloperPortalData = (): UseDeveloperPortalDataReturn => {
     const [loading, setLoading] = useState(true);
     const [accessDenied, setAccessDenied] = useState<{ message: string; code?: string } | null>(null);
 
+    const handleAccessDenied = useCallback((err: { status?: number; code?: string; message?: string }) => {
+        setAccessDenied({
+            message: err.message ?? "You don't have permission to access the developer portal.",
+            code: err.code
+        });
+    }, []);
+
+    const isAccessDenied = (err: { status?: number; code?: string }) =>
+        err.status === 403 || err.code === 'PERMISSION_DENIED';
+
+    const loadApiKeys = async (plansClient: ReturnType<typeof createPlansClient>): Promise<boolean> => {
+        try {
+            const keysRes = await plansClient.listApiKeys();
+            if (keysRes.success === true) {
+                setApiKeys(keysRes.data.api_keys);
+            }
+            return true;
+        } catch (error) {
+            const err = error as { status?: number; code?: string; message?: string };
+            if (isAccessDenied(err)) {
+                handleAccessDenied(err);
+                return false;
+            }
+            if (err.status !== 404) {
+                logger.warn('Failed to load API keys', { error });
+            }
+            setApiKeys([]);
+            return true;
+        }
+    };
+
+    const loadModules = async (plansClient: ReturnType<typeof createPlansClient>) => {
+        try {
+            const modulesRes = await plansClient.getModules();
+            if (modulesRes.success === true) {
+                setModules(modulesRes.data.modules);
+            }
+        } catch (error) {
+            logger.warn('Failed to load modules', { error });
+            setModules([]);
+        }
+    };
+
+    const loadPlans = async (plansClient: ReturnType<typeof createPlansClient>) => {
+        try {
+            const plansRes = await plansClient.listPlans({ is_active: true });
+            if (plansRes.success === true) {
+                setAvailablePlans(plansRes.data.data);
+            }
+        } catch (error) {
+            logger.warn('Failed to load available plans', { error });
+        }
+    };
+
     const loadData = useCallback(async () => {
         try {
             setLoading(true);
@@ -32,87 +86,47 @@ export const useDeveloperPortalData = (): UseDeveloperPortalDataReturn => {
             const apiClient = createAdminApiClient();
             const plansClient = createPlansClient(apiClient);
 
-            // Load API Keys using PlansApi (Admin)
-            try {
-                const keysRes = await plansClient.listApiKeys();
-                if (keysRes.success && keysRes.data) {
-                    setApiKeys(keysRes.data.api_keys);
-                }
-            } catch (error) {
-                const err = error as { status?: number; code?: string; message?: string };
-                // Handle Access Denied from backend
-                if (err.status === 403 || err.code === 'PERMISSION_DENIED') {
-                    setAccessDenied({
-                        message: err.message ?? 'You don\'t have permission to access the developer portal.',
-                        code: err.code
-                    });
-                    return;
-                }
-                if (err.status !== 404) {
-                    logger.warn('Failed to load API keys', { error });
-                }
-                setApiKeys([]);
-            }
-
-            // Load Modules
-            try {
-                const modulesRes = await plansClient.getModules();
-                if (modulesRes.success && modulesRes.data) {
-                    setModules(modulesRes.data.modules);
-                }
-            } catch (error) {
-                logger.warn('Failed to load modules', { error });
-                setModules([]);
-            }
-
-            // Load Available Plans
-            try {
-                const plansRes = await plansClient.listPlans({ is_active: true });
-                if (plansRes.success && plansRes.data) {
-                    setAvailablePlans(plansRes.data.data);
-                }
-            } catch (error) {
-                logger.warn('Failed to load available plans', { error });
-            }
+            const keysOk = await loadApiKeys(plansClient);
+            if (!keysOk) { return; }
+            await loadModules(plansClient);
+            await loadPlans(plansClient);
         } catch (error) {
             const err = error as { status?: number; code?: string; message?: string };
-            if (err.status === 403 || err.code === 'PERMISSION_DENIED') {
-                setAccessDenied({
-                    message: err.message ?? 'You don\'t have permission to access the developer portal.',
-                    code: err.code
-                });
+            if (isAccessDenied(err)) {
+                handleAccessDenied(err);
                 return;
             }
             logger.error('Failed to load developer portal data', { error });
         } finally {
             setLoading(false);
         }
-    }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [handleAccessDenied]);
 
-    const handleRevokeApiKey = useCallback(async (keyId: string, keyName: string) => {
-        // eslint-disable-next-line no-alert
-        const reason = window.confirm(
-            `Are you sure you want to revoke the API key for "${keyName}"?`
-        ) ? 'Revoked by admin' : null;
-
-        if (reason === null) {
-            return;
-        }
-
-        try {
-            const apiClient = createAdminApiClient();
-            const plansClient = createPlansClient(apiClient);
-            const response = await plansClient.revokeApiKey(keyId);
-            if (response.success) {
-                toast.success('API key revoked successfully');
-                void loadData();
-            } else {
+    const handleRevokeApiKey = useCallback((keyId: string, keyName: string) => {
+        const doRevoke = async () => {
+            try {
+                const apiClient = createAdminApiClient();
+                const plansClient = createPlansClient(apiClient);
+                const response = await plansClient.revokeApiKey(keyId);
+                if (response.success === true) {
+                    toast.success('API key revoked successfully');
+                    void loadData();
+                } else {
+                    toast.error('Failed to revoke API key');
+                }
+            } catch (error) {
+                logger.error('Failed to revoke API key', { keyId, error });
                 toast.error('Failed to revoke API key');
             }
-        } catch (error) {
-            logger.error('Failed to revoke API key', { keyId, error });
-            toast.error('Failed to revoke API key');
-        }
+        };
+
+        toast(`Revoke API key for "${keyName}"?`, {
+            action: {
+                label: 'Revoke',
+                onClick: () => { void doRevoke(); }
+            },
+        });
     }, [loadData]);
 
     return {
@@ -135,11 +149,11 @@ export const useDeveloperPortalParams = (setNewApiKey: (key: string | null) => v
             const clientNameValue = urlParams.get('client_name');
             const newKeyValue = urlParams.get('new_key');
 
-            if (clientNameValue) {
+            if (clientNameValue !== null && clientNameValue !== '') {
                 toast.success(`API key for "${clientNameValue}" created successfully!`);
             }
 
-            if (newKeyValue && newKeyValue !== 'key-created') {
+            if (newKeyValue !== null && newKeyValue !== '' && newKeyValue !== 'key-created') {
                 setNewApiKey(newKeyValue);
             }
 

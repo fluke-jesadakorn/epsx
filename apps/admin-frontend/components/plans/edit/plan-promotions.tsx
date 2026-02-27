@@ -3,6 +3,97 @@
 import type { PlanFormProps } from '@/components/plans/edit/types'
 import * as Promo from '@/shared/utils/promo'
 
+function PromoDateFields({ formData, setFormData }: PlanFormProps) {
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-muted-foreground mb-2">
+                    Start Date
+                </label>
+                <input
+                    type="datetime-local"
+                    value={formData.promo_start}
+                    onChange={(e) =>
+                        setFormData({ ...formData, promo_start: e.target.value })
+                    }
+                    className="w-full px-4 py-3 rounded-xl border-2 border-border/40 bg-card text-foreground focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                />
+            </div>
+            <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-muted-foreground mb-2">
+                    End Date
+                </label>
+                <input
+                    type="datetime-local"
+                    value={formData.promo_end}
+                    onChange={(e) =>
+                        setFormData({ ...formData, promo_end: e.target.value })
+                    }
+                    className="w-full px-4 py-3 rounded-xl border-2 border-border/40 bg-card text-foreground focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                />
+            </div>
+        </div>
+    )
+}
+
+function PromoValueFields({ formData, setFormData }: PlanFormProps) {
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-muted-foreground mb-2">
+                    {formData.promo_type === 'percentage'
+                        ? 'Discount (%)'
+                        : 'Discount Amount ($)'}
+                </label>
+                <input
+                    type="number"
+                    step={formData.promo_type === 'percentage' ? '1' : '0.01'}
+                    min="0"
+                    max={
+                        formData.promo_type === 'percentage' ? '100' : undefined
+                    }
+                    value={formData.promo_value}
+                    onChange={(e) => {
+                        const value = parseFloat(e.target.value)
+                        const newValue =
+                            formData.promo_type === 'percentage'
+                                ? Math.min(value, 100)
+                                : value
+                        setFormData({ ...formData, promo_value: newValue })
+                    }}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-border/40 bg-card text-foreground focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                />
+            </div>
+            <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-muted-foreground mb-2">
+                    Final Promotional Price ($)
+                </label>
+                <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.promo_price}
+                    onChange={(e) =>
+                        setFormData({
+                            ...formData,
+                            promo_price: parseFloat(e.target.value),
+                        })
+                    }
+                    className="w-full px-4 py-3 rounded-xl border-2 border-border/40 bg-card text-foreground focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                    Auto: $
+                    {Promo.calcPrice({
+                        basePrice: formData.current_price,
+                        type: formData.promo_type,
+                        value: formData.promo_value,
+                    }).toFixed(2)}
+                </p>
+            </div>
+        </div>
+    )
+}
+
 export function PlanPromotions({ formData, setFormData }: PlanFormProps) {
     const status = Promo.getStatus(
         formData.promo_enabled,
@@ -17,8 +108,8 @@ export function PlanPromotions({ formData, setFormData }: PlanFormProps) {
                     Promotion & Discounts
                 </h3>
                 {formData.promo_enabled &&
-                    formData.promo_start &&
-                    formData.promo_end && (
+                    formData.promo_start !== '' &&
+                    formData.promo_end !== '' && (
                         <div
                             className={`px-4 py-2 rounded-xl font-semibold ${Promo.getStatusColor(status)}`}
                         >
@@ -71,88 +162,8 @@ export function PlanPromotions({ formData, setFormData }: PlanFormProps) {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 dark:text-muted-foreground mb-2">
-                                {formData.promo_type === 'percentage'
-                                    ? 'Discount (%)'
-                                    : 'Discount Amount ($)'}
-                            </label>
-                            <input
-                                type="number"
-                                step={formData.promo_type === 'percentage' ? '1' : '0.01'}
-                                min="0"
-                                max={
-                                    formData.promo_type === 'percentage' ? '100' : undefined
-                                }
-                                value={formData.promo_value}
-                                onChange={(e) => {
-                                    const value = parseFloat(e.target.value) ?? 0
-                                    const newValue =
-                                        formData.promo_type === 'percentage'
-                                            ? Math.min(value, 100)
-                                            : value
-                                    setFormData({ ...formData, promo_value: newValue })
-                                }}
-                                className="w-full px-4 py-3 rounded-xl border-2 border-border/40 bg-card text-foreground focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 dark:text-muted-foreground mb-2">
-                                Final Promotional Price ($)
-                            </label>
-                            <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={formData.promo_price}
-                                onChange={(e) =>
-                                    setFormData({
-                                        ...formData,
-                                        promo_price: parseFloat(e.target.value) ?? 0,
-                                    })
-                                }
-                                className="w-full px-4 py-3 rounded-xl border-2 border-border/40 bg-card text-foreground focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"
-                            />
-                            <p className="text-xs text-muted-foreground mt-1">
-                                Auto: $
-                                {Promo.calcPrice({
-                                    basePrice: formData.current_price,
-                                    type: formData.promo_type,
-                                    value: formData.promo_value,
-                                }).toFixed(2)}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 dark:text-muted-foreground mb-2">
-                                Start Date
-                            </label>
-                            <input
-                                type="datetime-local"
-                                value={formData.promo_start}
-                                onChange={(e) =>
-                                    setFormData({ ...formData, promo_start: e.target.value })
-                                }
-                                className="w-full px-4 py-3 rounded-xl border-2 border-border/40 bg-card text-foreground focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 dark:text-muted-foreground mb-2">
-                                End Date
-                            </label>
-                            <input
-                                type="datetime-local"
-                                value={formData.promo_end}
-                                onChange={(e) =>
-                                    setFormData({ ...formData, promo_end: e.target.value })
-                                }
-                                className="w-full px-4 py-3 rounded-xl border-2 border-border/40 bg-card text-foreground focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"
-                            />
-                        </div>
-                    </div>
+                    <PromoValueFields formData={formData} setFormData={setFormData} />
+                    <PromoDateFields formData={formData} setFormData={setFormData} />
                 </div>
             )}
         </div>

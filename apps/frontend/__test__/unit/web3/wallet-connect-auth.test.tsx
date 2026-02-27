@@ -45,8 +45,8 @@ describe('WalletConnectauth', () => {
   });
 
   const { useAccount, useSignMessage } = require('wagmi');
-  const mockUseAccount = useAccount as jest.MockedFunction<typeof useAccount>;
-  const mockUseSignMessage = useSignMessage as jest.MockedFunction<typeof useSignMessage>;
+  const mockUseAccount = useAccount;
+  const mockUseSignMessage = useSignMessage;
 
   const defaultSharedAuthState = {
     user: null,
@@ -191,7 +191,6 @@ describe('WalletConnectauth', () => {
     });
   });
 
-
   describe('Callback Functions', () => {
     it('calls onAuthSuccess when authenticated', () => {
       const onAuthSuccess = jest.fn();
@@ -236,7 +235,6 @@ describe('WalletConnectauth', () => {
       expect(onAuthError).toHaveBeenCalledWith('Connection failed');
     });
   });
-
 
   describe('Accessibility', () => {
     it('has proper ARIA labels and roles', () => {

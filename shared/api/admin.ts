@@ -17,6 +17,9 @@
 import type { UnifiedApiClient } from '../utils/api-client';
 import { createAdminApiClient } from '../utils/api-client';
 
+const ADMIN_CONTEXT = 'true';
+const UNKNOWN_ERR = 'Unknown error';
+
 // ============================================================================
 // ADMIN TYPES
 // ============================================================================
@@ -270,13 +273,13 @@ export class AdminAPIClient {
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'admin',
-          'X-Admin-Context': 'true',
+          'X-Admin-Context': ADMIN_CONTEXT,
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch users: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to fetch users: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data;
@@ -296,13 +299,13 @@ export class AdminAPIClient {
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'admin',
-          'X-Admin-Context': 'true',
+          'X-Admin-Context': ADMIN_CONTEXT,
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to search users: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to search users: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data;
@@ -332,13 +335,13 @@ export class AdminAPIClient {
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'admin',
-          'X-Admin-Context': 'true',
+          'X-Admin-Context': ADMIN_CONTEXT,
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch user stats: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to fetch user stats: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data.data;
@@ -360,13 +363,13 @@ export class AdminAPIClient {
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'admin',
-          'X-Admin-Context': 'true',
+          'X-Admin-Context': ADMIN_CONTEXT,
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to search wallets: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to search wallets: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data;
@@ -400,13 +403,13 @@ export class AdminAPIClient {
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'admin',
-          'X-Admin-Context': 'true',
+          'X-Admin-Context': ADMIN_CONTEXT,
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch recent wallets: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to fetch recent wallets: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data.data;
@@ -428,13 +431,13 @@ export class AdminAPIClient {
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'admin',
-          'X-Admin-Context': 'true',
+          'X-Admin-Context': ADMIN_CONTEXT,
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch permissions: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to fetch permissions: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data;
@@ -452,13 +455,13 @@ export class AdminAPIClient {
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'admin',
-          'X-Admin-Context': 'true',
+          'X-Admin-Context': ADMIN_CONTEXT,
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to grant permission: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to grant permission: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data;
@@ -475,14 +478,14 @@ export class AdminAPIClient {
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'admin',
-          'X-Admin-Context': 'true',
+          'X-Admin-Context': ADMIN_CONTEXT,
         },
         body: JSON.stringify(request),
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to revoke permission: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to revoke permission: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data;
@@ -504,13 +507,13 @@ export class AdminAPIClient {
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'admin',
-          'X-Admin-Context': 'true',
+          'X-Admin-Context': ADMIN_CONTEXT,
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to assign to group: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to assign to group: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data;
@@ -548,13 +551,13 @@ export class AdminAPIClient {
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'admin',
-          'X-Admin-Context': 'true',
+          'X-Admin-Context': ADMIN_CONTEXT,
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to bulk assign modules: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to bulk assign modules: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data.data;
@@ -576,13 +579,13 @@ export class AdminAPIClient {
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'admin',
-          'X-Admin-Context': 'true',
+          'X-Admin-Context': ADMIN_CONTEXT,
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch dashboard analytics: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to fetch dashboard analytics: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data;
@@ -600,13 +603,13 @@ export class AdminAPIClient {
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'admin',
-          'X-Admin-Context': 'true',
+          'X-Admin-Context': ADMIN_CONTEXT,
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch performance metrics: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to fetch performance metrics: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data;
@@ -645,13 +648,13 @@ export class AdminAPIClient {
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'admin',
-          'X-Admin-Context': 'true',
+          'X-Admin-Context': ADMIN_CONTEXT,
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch permission analytics: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to fetch permission analytics: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data.data;
@@ -683,13 +686,13 @@ export class AdminAPIClient {
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'admin',
-          'X-Admin-Context': 'true',
+          'X-Admin-Context': ADMIN_CONTEXT,
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch cache stats: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to fetch cache stats: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data.data;
@@ -731,13 +734,13 @@ export class AdminAPIClient {
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'admin',
-          'X-Admin-Context': 'true',
+          'X-Admin-Context': ADMIN_CONTEXT,
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch NFT gates: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to fetch NFT gates: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data.data;
@@ -775,13 +778,13 @@ export class AdminAPIClient {
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'admin',
-          'X-Admin-Context': 'true',
+          'X-Admin-Context': ADMIN_CONTEXT,
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch token gates: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to fetch token gates: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data.data;
@@ -821,13 +824,13 @@ export class AdminAPIClient {
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'admin',
-          'X-Admin-Context': 'true',
+          'X-Admin-Context': ADMIN_CONTEXT,
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch DAO proposals: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to fetch DAO proposals: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data.data;

@@ -32,22 +32,36 @@ interface UseChatSSEOpts {
 // TOKEN EXTRACTION (same pattern as notifications SSE)
 // ============================================================================
 
-function getTokenFromCookies(): string | null {
-  if (typeof document === 'undefined') return null;
-  try {
-    const cookies: Record<string, string> = {};
-    for (const c of document.cookie.split(';')) {
-      const [k, v] = c.trim().split('=');
-      if (k && v) cookies[k] = v;
-    }
-    const raw = cookies[COOKIES.user];
-    if (!raw) return null;
+function parseCookieString(cookieStr: string): Record<string, string> {
+  const cookies: Record<string, string> = {};
+  for (const c of cookieStr.split(';')) {
+    const eqIdx = c.indexOf('=');
+    if (eqIdx <= 0) { continue; }
+    const k = c.slice(0, eqIdx).trim();
+    const v = c.slice(eqIdx + 1).trim();
+    if (k !== '' && v !== '') { cookies[k] = v; }
+  }
+  return cookies;
+}
+
+function findJwtInCookies(cookies: Record<string, string>): string | null {
+  const raw = cookies[COOKIES.user] ?? '';
+  if (raw !== '') {
     const user = JSON.parse(decodeURIComponent(raw)) as { access?: string };
-    if (user.access && user.access.startsWith('eyJ')) return user.access;
-    // Fallback: any JWT in cookies
-    for (const v of Object.values(cookies)) {
-      if (v.length > 50 && v.startsWith('eyJ')) return v;
-    }
+    if (user.access?.startsWith('eyJ') === true) { return user.access; }
+  }
+  // Fallback: any JWT in cookies
+  for (const v of Object.values(cookies)) {
+    if (v.length > 50 && v.startsWith('eyJ')) { return v; }
+  }
+  return null;
+}
+
+function getTokenFromCookies(): string | null {
+  if (typeof document === 'undefined') { return null; }
+  try {
+    const cookies = parseCookieString(document.cookie);
+    return findJwtInCookies(cookies);
   } catch { /* ignore */ }
   return null;
 }
@@ -55,7 +69,6 @@ function getTokenFromCookies(): string | null {
 function getBaseUrl(): string {
   if (typeof window !== 'undefined') {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { getBackendUrl } = require('../utils/url-resolver') as { getBackendUrl: (ctx: string) => string };
       return getBackendUrl('client');
     } catch { /* ignore */ }
@@ -75,10 +88,10 @@ export function useChatSSE({ enabled, mode, onEvent }: UseChatSSEOpts) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const connect = useCallback(() => {
-    if (typeof EventSource === 'undefined') return;
+    if (typeof EventSource === 'undefined') { return; }
 
     const token = getTokenFromCookies();
-    if (!token) return;
+    if (token === null) { return; }
 
     const base = getBaseUrl();
     const route = mode === 'admin' ? API_ROUTES.CHAT.ADMIN_STREAM : API_ROUTES.CHAT.STREAM;
@@ -108,11 +121,11 @@ export function useChatSSE({ enabled, mode, onEvent }: UseChatSSEOpts) {
   }, [mode]);
 
   const disconnect = useCallback(() => {
-    if (timerRef.current) {
+    if (timerRef.current !== null) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
-    if (esRef.current) {
+    if (esRef.current !== null) {
       esRef.current.close();
       esRef.current = null;
     }

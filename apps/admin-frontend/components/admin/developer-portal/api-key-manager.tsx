@@ -37,6 +37,41 @@ interface ApiKeyManagerProps {
     onCopy: (text: string, label: string) => void;
 }
 
+const STATUS_CLASSES: Record<string, string> = {
+    active: 'bg-[#31d0aa]/10 text-[#31d0aa] hover:bg-[#31d0aa]/20 border border-[#31d0aa]/20',
+    revoked: 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20',
+    expired: 'bg-[#ffb237]/10 text-[#ffb237] hover:bg-[#ffb237]/20 border border-[#ffb237]/20',
+};
+
+const STATUS_VARIANTS: Record<string, 'default' | 'destructive' | 'secondary'> = {
+    active: 'default',
+    revoked: 'destructive',
+    expired: 'secondary',
+};
+
+const KeyScope: React.FC<{ apiKey: ExtendedApiKey }> = ({ apiKey }) => {
+    if (apiKey.permission_groups !== undefined && apiKey.permission_groups.length > 0) {
+        return (
+            <>
+                {apiKey.permission_groups.map((group) => (
+                    <Badge key={group.id} variant="secondary" className="text-xs bg-[#7645d9]/10 text-[#7645d9] hover:bg-[#7645d9]/20 border border-[#7645d9]/20">
+                        {group.name}
+                    </Badge>
+                ))}
+            </>
+        );
+    }
+    return (
+        <>
+            {apiKey.allowed_modules.map((module) => (
+                <Badge key={module.module_id} variant="outline" className="text-xs">
+                    {module.module_name}
+                </Badge>
+            ))}
+        </>
+    );
+};
+
 const ApiKeyRow: React.FC<{
     keyData: ApiKey;
     showKeyValue: string | null;
@@ -45,7 +80,9 @@ const ApiKeyRow: React.FC<{
 }> = ({ keyData, showKeyValue, onRevoke, onCopy }) => {
     const apiKey = keyData as ExtendedApiKey;
     const walletAddress = apiKey.wallet_address ?? '';
-    const keyPrefixValue = apiKey.key_preview ?? apiKey.key_prefix ?? '';
+    const keyPrefixValue = apiKey.key_prefix ?? apiKey.key_preview;
+    const statusVariant = STATUS_VARIANTS[apiKey.status] ?? 'secondary';
+    const statusClass = STATUS_CLASSES[apiKey.status] ?? '';
 
     return (
         <TableRow key={apiKey.id}>
@@ -71,12 +108,7 @@ const ApiKeyRow: React.FC<{
                             : maskKeyPrefix(keyPrefixValue)}
                     </span>
                     <button
-                        onClick={() =>
-                            onCopy(
-                                `${keyPrefixValue}...`,
-                                'API Key Prefix'
-                            )
-                        }
+                        onClick={() => onCopy(`${keyPrefixValue}...`, 'API Key Prefix')}
                         className="p-1 text-muted-foreground hover:text-foreground"
                     >
                         <Copy className="w-3 h-3" />
@@ -85,24 +117,12 @@ const ApiKeyRow: React.FC<{
             </TableCell>
             <TableCell>
                 <div className="flex flex-wrap gap-1">
-                    {apiKey.permission_groups !== undefined && apiKey.permission_groups.length > 0 ? (
-                        apiKey.permission_groups.map((group) => (
-                            <Badge key={group.id} variant="secondary" className="text-xs bg-[#7645d9]/10 text-[#7645d9] hover:bg-[#7645d9]/20 border border-[#7645d9]/20">
-                                {group.name}
-                            </Badge>
-                        ))
-                    ) : (
-                        apiKey.allowed_modules.map((module) => (
-                            <Badge key={module.module_id} variant="outline" className="text-xs">
-                                {module.module_name}
-                            </Badge>
-                        ))
-                    )}
+                    <KeyScope apiKey={apiKey} />
                 </div>
             </TableCell>
             <TableCell>
                 <div className="text-sm text-muted-foreground">
-                    {apiKey.expires_at !== undefined && apiKey.expires_at !== null && apiKey.expires_at !== '' ? (
+                    {apiKey.expires_at !== null && apiKey.expires_at !== '' ? (
                         new Date(apiKey.expires_at).toLocaleDateString()
                     ) : (
                         <span className="text-muted-foreground/60">Never</span>
@@ -110,14 +130,7 @@ const ApiKeyRow: React.FC<{
                 </div>
             </TableCell>
             <TableCell>
-                <Badge
-                    variant={apiKey.status === 'active' ? 'default' : apiKey.status === 'revoked' ? 'destructive' : 'secondary'}
-                    className={`
-  ${apiKey.status === 'active' ? 'bg-[#31d0aa]/10 text-[#31d0aa] hover:bg-[#31d0aa]/20 border border-[#31d0aa]/20' : ''}
-  ${apiKey.status === 'revoked' ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20' : ''}
-  ${apiKey.status === 'expired' ? 'bg-[#ffb237]/10 text-[#ffb237] hover:bg-[#ffb237]/20 border border-[#ffb237]/20' : ''}
-`}
-                >
+                <Badge variant={statusVariant} className={statusClass}>
                     {apiKey.status}
                 </Badge>
             </TableCell>
@@ -145,6 +158,9 @@ export const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({
     onCopy,
 }) => {
     const router = useRouter();
+    const goCreate = () => {
+        router.push('/developer-portal/api-keys/create');
+    };
 
     return (
         <div className="space-y-6">
@@ -157,7 +173,7 @@ export const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({
                         Create and manage API keys for third-party integrations
                     </p>
                 </div>
-                <Button onClick={() => { void router.push('/developer-portal/api-keys/create'); }} className="bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white rounded-xl">
+                <Button onClick={goCreate} className="bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white rounded-xl">
                     <Plus className="w-4 h-4 mr-2" />
                     Create API Key
                 </Button>

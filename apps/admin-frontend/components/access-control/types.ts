@@ -187,39 +187,43 @@ export const DEFAULT_POLICY_STATS: PolicyStats = {
 // TRANSFORM FUNCTIONS
 // ============================================================================
 
-const parsePrice = (price: string | number): number => {
-  if (typeof price === 'string') {
-    return parseFloat(price);
-  }
+const parsePrice = (price: string | number | undefined): number => {
+  if (price === undefined) { return 0; }
+  if (typeof price === 'string') { return parseFloat(price); }
   return price;
 };
+
+function extractMeta<T>(meta: Record<string, unknown> | undefined, key: string): T | undefined {
+  return meta?.[key] as T | undefined;
+}
+
+function buildPricing(meta: Record<string, unknown> | undefined, price: number) {
+  return {
+    amount: isNaN(price) ? 0 : price,
+    currency: extractMeta<string>(meta, 'currency') ?? 'USD',
+    cycle: extractMeta<string>(meta, 'billing_cycle') ?? 'monthly',
+  };
+}
 
 /**
  * Transform a PlanResponse to AccessPolicy
  */
 export function planToPolicy(plan: SharedPlan): AccessPolicy {
   const price = parsePrice(plan.current_price);
+  const meta = plan.metadata;
 
   return {
     id: `plan-${plan.id}`,
     name: plan.name,
     description: plan.description ?? '',
     type: 'subscription',
-    permissions: plan.permissions ?? [],
+    permissions: plan.permissions,
     memberCount: plan.member_count ?? 0,
     isActive: plan.is_active === true,
-
-    // Subscription-specific
-    pricing: {
-      amount: isNaN(price) ? 0 : price,
-      currency: (plan.metadata?.currency as string) ?? 'USD',
-      cycle: (plan.metadata?.billing_cycle as string) ?? 'monthly',
-    },
-    revenue: 0, // Not available on SharedPlan directly
-    tierLevel: (plan.metadata?.tier_level as number) ?? 0,
-    planCategory: (plan.metadata?.plan_category as string) ?? 'standard',
-
-    // Common
+    pricing: buildPricing(meta, price),
+    revenue: 0,
+    tierLevel: extractMeta<number>(meta, 'tier_level') ?? 0,
+    planCategory: extractMeta<string>(meta, 'plan_category') ?? 'standard',
     createdAt: plan.created_at,
     updatedAt: plan.updated_at ?? plan.created_at,
     sourceId: String(plan.id),
@@ -227,43 +231,37 @@ export function planToPolicy(plan: SharedPlan): AccessPolicy {
   };
 }
 
+const GROUP_TYPE_MAP: Record<string, PolicyType> = {
+  manual: 'manual',
+  subscription: 'subscription',
+  web3_asset: 'web3_asset',
+  dao_membership: 'dao',
+  dao: 'dao',
+  admin: 'system',
+  system: 'system',
+};
+
 /**
  * Transform a PermissionGroup to AccessPolicy
  */
 export function groupToPolicy(group: PermissionGroup): AccessPolicy {
-  // Map group_type to PolicyType
-  const typeMap: Record<string, PolicyType> = {
-    manual: 'manual',
-    subscription: 'subscription', // Subscription groups are handled separately
-    web3_asset: 'web3_asset',
-    dao_membership: 'dao',
-    dao: 'dao',
-    admin: 'system',
-    system: 'system',
-  };
-
-  const policyType = typeMap[group.plan_type] ?? 'manual';
-  const isSystem =
-    group.is_system_plan === true || group.plan_type === 'system';
+  const policyType = GROUP_TYPE_MAP[group.plan_type] ?? 'manual';
+  const isSystem = group.is_system_plan === true || group.plan_type === 'system';
 
   return {
     id: `group-${group.id}`,
     name: group.name,
-    description: group.description ?? '',
+    description: group.description,
     type: policyType,
-    permissions: group.permissions ?? [],
+    permissions: group.permissions,
     memberCount: group.member_count ?? 0,
     isActive: group.is_active === true,
-
-    // Group-specific
     expiryDays: group.default_expiry_days,
-    priorityLevel: group.priority_level ?? 0,
+    priorityLevel: group.tier_level,
     isSystemGroup: isSystem,
     slug: group.slug,
-
-    // Common
     createdAt: group.created_at,
-    updatedAt: group.updated_at ?? group.created_at,
+    updatedAt: group.updated_at,
     sourceId: group.id,
     sourceType: 'group',
   };
@@ -288,8 +286,7 @@ export function isGroupPolicy(policy: AccessPolicy): boolean {
  */
 export function getPolicyEditUrl(policy: AccessPolicy): string {
   if (policy.sourceType === 'plan') {
-    // Legacy route kept for plan editing
-    return `/subscriptions/plans/${policy.sourceId}/edit`;
+    return `/wallet-management/access/plans/${policy.sourceId}`;
   }
   // Unified group management
   return `/wallet-management/groups/${policy.sourceId}`;

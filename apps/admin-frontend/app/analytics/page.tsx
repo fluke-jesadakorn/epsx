@@ -21,7 +21,6 @@ interface AnalyticsPageProps {
 
 export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
 
-
   const resolvedSearchParams = await searchParams;
   const [planAccess, watchlist] = await Promise.all([
     getMyPlanAccessAction(),

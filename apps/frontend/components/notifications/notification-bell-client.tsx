@@ -25,32 +25,28 @@ interface NotificationItemProps {
 }
 
 function NotificationItem({ notification, onToggleRead, onDeleteNotification }: NotificationItemProps) {
+  const unread = !notification.read
   return (
-    <div className="flex items-start gap-3 px-4 py-3 border-b border-orange-50 dark:border-slate-800 group hover:bg-orange-50/50 dark:hover:bg-slate-800/50 transition-colors">
+    <div className={`flex items-start gap-3 px-4 py-3 border-b border-orange-50 dark:border-slate-800 group transition-colors cursor-pointer ${unread ? 'bg-orange-50/30 dark:bg-orange-950/15 hover:bg-orange-50/60 dark:hover:bg-orange-950/25' : 'opacity-60 hover:opacity-80 hover:bg-slate-50/50 dark:hover:bg-slate-800/30'}`}
+      onClick={() => { onToggleRead(notification.id, notification.read) }}
+    >
       <div className={`w-8 h-8 rounded-full ${getPriorityColor(notification.priority)} flex items-center justify-center flex-shrink-0`}>
         <span className="text-sm">{getNotificationIcon(notification.type)}</span>
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
-          <p className={`text-sm font-medium line-clamp-1 ${notification.read ? 'text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-slate-100'}`}>
+          <p className={`text-sm line-clamp-1 ${unread ? 'font-semibold text-slate-900 dark:text-slate-100' : 'font-normal text-slate-500 dark:text-slate-400'}`}>
             {notification.title}
           </p>
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onToggleRead(notification.id, notification.read)
-            }}
-            title={notification.read ? 'Mark as unread' : 'Mark as read'}
-            className="flex-shrink-0 mt-1"
-          >
-            {notification.read ? (
-              <div className="w-2 h-2 rounded-full border border-slate-300 dark:border-slate-600 hover:border-orange-500 dark:hover:border-orange-400 transition-colors" />
+          <div className="flex-shrink-0 mt-1.5 w-5 h-5 flex items-center justify-center">
+            {unread ? (
+              <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />
             ) : (
-              <div className="w-2 h-2 rounded-full bg-orange-500 hover:bg-orange-400 transition-colors" />
+              <div className="w-2.5 h-2.5 rounded-full border border-slate-300 dark:border-slate-600 group-hover:border-orange-400" />
             )}
-          </button>
+          </div>
         </div>
-        <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 mt-0.5">
+        <p className={`text-xs line-clamp-2 mt-0.5 ${unread ? 'text-slate-600 dark:text-slate-300' : 'text-slate-400 dark:text-slate-500'}`}>
           {notification.message}
         </p>
         <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
@@ -59,6 +55,7 @@ function NotificationItem({ notification, onToggleRead, onDeleteNotification }: 
       </div>
       <button
         onClick={(e) => {
+          e.stopPropagation()
           onDeleteNotification(e, notification.id)
         }}
         className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 flex-shrink-0"
@@ -75,7 +72,7 @@ export function NotificationBellClient() {
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen) {return}
     const handler = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false)

@@ -27,6 +27,88 @@ interface PancakeButtonProps {
  * @param root0.fullWidth
  * @param root0.metro
  */
+const BUTTON_VARIANTS = {
+  pancake: {
+    bg: 'bg-gradient-to-r from-purple-500 to-orange-500',
+    hover: 'hover:shadow-xl hover:shadow-purple-500/30 hover:-translate-y-1',
+    text: 'text-white',
+    shadow: 'shadow-lg shadow-purple-500/20',
+    accent: 'border-purple-500/30'
+  },
+  admin: {
+    bg: 'bg-gradient-to-r from-purple-500 to-orange-500',
+    hover: 'hover:shadow-xl hover:shadow-purple-500/30 hover:-translate-y-1',
+    text: 'text-white',
+    shadow: 'shadow-lg shadow-purple-500/20',
+    accent: 'border-purple-500/30'
+  },
+  analytics: {
+    bg: 'bg-secondary',
+    hover: 'hover:shadow-xl hover:shadow-orange-500/30 hover:-translate-y-1',
+    text: 'text-white',
+    shadow: 'shadow-lg shadow-orange-500/20',
+    accent: 'border-orange-500/30'
+  },
+  ghost: {
+    bg: 'bg-transparent',
+    hover: 'hover:bg-accent hover:text-accent-foreground',
+    text: 'text-foreground',
+    shadow: '',
+    accent: 'border-input'
+  }
+} as const;
+
+const BUTTON_SIZES = {
+  sm: 'px-4 py-2 text-sm',
+  md: 'px-6 py-3 text-base',
+  lg: 'px-8 py-4 text-lg',
+  xl: 'px-10 py-5 text-xl'
+} as const;
+
+interface ButtonClassCtx {
+  style: typeof BUTTON_VARIANTS[keyof typeof BUTTON_VARIANTS];
+  size: keyof typeof BUTTON_SIZES;
+  fullWidth: boolean;
+  metro: boolean;
+  isDisabled: boolean;
+}
+
+function buildButtonClass({ style, size, fullWidth, metro, isDisabled }: ButtonClassCtx): string {
+  return [
+    fullWidth ? 'w-full' : '',
+    BUTTON_SIZES[size],
+    style.bg,
+    style.hover,
+    style.text,
+    'font-bold',
+    metro ? 'rounded-none' : 'rounded-xl',
+    style.shadow !== '' ? 'shadow-lg' : '',
+    `border ${style.accent}`,
+    'relative overflow-hidden transition-all duration-200',
+    isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
+  ].filter(Boolean).join(' ');
+}
+
+function ButtonContent({ loading, icon, children }: { loading: boolean; icon?: string; children: ReactNode }) {
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2">
+        <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+        </svg>
+        <span className="text-sm">Loading...</span>
+      </div>
+    );
+  }
+  return (
+    <>
+      {icon !== undefined && icon !== '' ? <span className="text-lg">{icon}</span> : null}
+      <span>{children}</span>
+    </>
+  );
+}
+
 export function PancakeButton({
   variant = 'pancake',
   size = 'md',
@@ -38,68 +120,15 @@ export function PancakeButton({
   fullWidth = false,
   metro = false
 }: PancakeButtonProps) {
-  const sizeClasses = {
-    sm: 'px-4 py-2 text-sm',
-    md: 'px-6 py-3 text-base',
-    lg: 'px-8 py-4 text-lg',
-    xl: 'px-10 py-5 text-xl'
-  };
-
-  const variants = {
-    pancake: {
-      bg: 'bg-gradient-to-r from-purple-500 to-orange-500',
-      hover: 'hover:shadow-xl hover:shadow-purple-500/30 hover:-translate-y-1',
-      text: 'text-white',
-      shadow: 'shadow-lg shadow-purple-500/20',
-      accent: 'border-purple-500/30'
-    },
-    admin: {
-      bg: 'bg-gradient-to-r from-purple-500 to-orange-500',
-      hover: 'hover:shadow-xl hover:shadow-purple-500/30 hover:-translate-y-1',
-      text: 'text-white',
-      shadow: 'shadow-lg shadow-purple-500/20',
-      accent: 'border-purple-500/30'
-    },
-    analytics: {
-      bg: 'bg-secondary',
-      hover: 'hover:shadow-xl hover:shadow-orange-500/30 hover:-translate-y-1',
-      text: 'text-white',
-      shadow: 'shadow-lg shadow-orange-500/20',
-      accent: 'border-orange-500/30'
-    },
-    ghost: {
-      bg: 'bg-transparent',
-      hover: 'hover:bg-accent hover:text-accent-foreground',
-      text: 'text-foreground',
-      shadow: '',
-      accent: 'border-input'
-    }
-  };
-
-  const style = variants[variant];
+  const style = BUTTON_VARIANTS[variant];
+  const isDisabled = disabled || loading;
 
   return (
     <button
       onClick={onClick}
-      disabled={disabled ?? loading}
-      className={`
-        ${fullWidth ? 'w-full' : ''}
-        ${sizeClasses[size]}
-        ${style.bg}
-        ${style.hover}
-        ${style.text}
-        font-bold
-        ${metro ? 'rounded-none' : 'rounded-xl'}
-        ${style.shadow && 'shadow-lg'}
-        border ${style.accent}
-        relative
-        overflow-hidden
-        transition-all
-        duration-200
-        ${disabled ?? loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-      `}
+      disabled={isDisabled}
+      className={buildButtonClass({ style, size, fullWidth, metro, isDisabled })}
     >
-      {/* Metro effect - only shown if metro is true */}
       {metro && (
         <div
           className="absolute inset-0 opacity-10"
@@ -109,7 +138,6 @@ export function PancakeButton({
         />
       )}
 
-      {/* Button hover shine effect */}
       <div
         className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity"
         style={{
@@ -117,25 +145,10 @@ export function PancakeButton({
         }}
       />
 
-      {/* Content */}
       <div className="relative z-10 flex items-center justify-center space-x-2">
-        {loading ? (
-          <div className="flex items-center gap-2">
-            <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-            </svg>
-            <span className="text-sm">Loading...</span>
-          </div>
-        ) : (
-          <>
-            {icon && <span className="text-lg">{icon}</span>}
-            <span>{children}</span>
-          </>
-        )}
+        <ButtonContent loading={loading === true} icon={icon}>{children}</ButtonContent>
       </div>
 
-      {/* Metro accent line - only shown if metro is true */}
       {metro && (
         <div className="absolute bottom-0 left-0 w-full h-0.5 bg-white/20" />
       )}
@@ -200,12 +213,11 @@ export function PancakeIconButton({
         ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
       `}
     >
-      {/* Badge */}
-      {badge && (
+      {badge !== undefined ? (
         <div className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold z-10">
           {badge}
         </div>
-      )}
+      ) : null}
 
       {/* Icon */}
       <span className="relative z-5">{icon}</span>

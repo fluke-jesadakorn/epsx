@@ -6,8 +6,6 @@ const PUBLIC_ROUTES = [
     '/login',
     '/auth',
     '/api/auth',
-    '/manual',
-    '/api/debug',
     '/api/public',
     '/unauthorized',
     '/access-denied',

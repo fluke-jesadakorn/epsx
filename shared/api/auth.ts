@@ -16,6 +16,9 @@ import { API_ROUTES } from '../config/route-constants';
 import type { UnifiedApiClient } from '../utils/api-client';
 import { logger } from '../utils/logger';
 
+const API_VERSION = 'v1';
+const UNKNOWN_ERR = 'Unknown error';
+
 // ============================================================================
 // AUTH TYPES
 // ============================================================================
@@ -157,14 +160,14 @@ export class AuthAPIClient {
       request,
       {
         headers: {
-          'X-API-Version': 'v1',
+          'X-API-Version': API_VERSION,
           'X-Access-Level': 'auth',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to get Web3 challenge: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to get Web3 challenge: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return {
@@ -184,14 +187,14 @@ export class AuthAPIClient {
       request,
       {
         headers: {
-          'X-API-Version': 'v1',
+          'X-API-Version': API_VERSION,
           'X-Access-Level': 'auth',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to verify Web3 signature: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to verify Web3 signature: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     // Update client token if authentication successful
@@ -253,14 +256,14 @@ export class AuthAPIClient {
       request as unknown as Record<string, unknown>,
       {
         headers: {
-          'X-API-Version': 'v1',
+          'X-API-Version': API_VERSION,
           'X-Access-Level': 'auth',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to validate session: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to validate session: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data;
@@ -276,14 +279,14 @@ export class AuthAPIClient {
       { token },
       {
         headers: {
-          'X-API-Version': 'v1',
+          'X-API-Version': API_VERSION,
           'X-Access-Level': 'auth',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to verify session: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to verify session: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data;
@@ -299,14 +302,14 @@ export class AuthAPIClient {
       { refresh_token: refreshToken },
       {
         headers: {
-          'X-API-Version': 'v1',
+          'X-API-Version': API_VERSION,
           'X-Access-Level': 'auth',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to refresh token: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to refresh token: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     // Update client token
@@ -332,14 +335,14 @@ export class AuthAPIClient {
       sessionData,
       {
         headers: {
-          'X-API-Version': 'v1',
+          'X-API-Version': API_VERSION,
           'X-Access-Level': 'admin',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to store session: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to store session: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data;
@@ -356,14 +359,14 @@ export class AuthAPIClient {
       {},
       {
         headers: {
-          'X-API-Version': 'v1',
+          'X-API-Version': API_VERSION,
           'X-Access-Level': 'admin',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to clear session: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to clear session: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data;
@@ -382,7 +385,7 @@ export class AuthAPIClient {
       API_ROUTES.AUTH.WEB3_LOGOUT,
       {
         headers: {
-          'X-API-Version': 'v1',
+          'X-API-Version': API_VERSION,
           'X-Access-Level': 'auth',
         },
       }
@@ -393,7 +396,7 @@ export class AuthAPIClient {
 
     if (!this.client.isApiSuccess(response)) {
       // Don't throw error for logout - just log it
-      logger.warn(`Logout request failed: ${response.error?.message ?? 'Unknown error'}`);
+      logger.warn(`Logout request failed: ${response.error?.message ?? UNKNOWN_ERR}`);
       return {
         success: false,
         message: response.error?.message ?? 'Logout request failed',
@@ -418,14 +421,14 @@ export class AuthAPIClient {
       undefined,
       {
         headers: {
-          'X-API-Version': 'v1',
+          'X-API-Version': API_VERSION,
           'X-Access-Level': 'auth',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to get user profile: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to get user profile: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data.data;
@@ -441,14 +444,14 @@ export class AuthAPIClient {
       updates,
       {
         headers: {
-          'X-API-Version': 'v1',
+          'X-API-Version': API_VERSION,
           'X-Access-Level': 'auth',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to update user profile: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to update user profile: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data;
@@ -469,14 +472,14 @@ export class AuthAPIClient {
       undefined,
       {
         headers: {
-          'X-API-Version': 'v1',
+          'X-API-Version': API_VERSION,
           'X-Access-Level': 'auth',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to get user permissions: ${response.error?.message ?? 'Unknown error'}`);
+      throw new Error(`Failed to get user permissions: ${response.error?.message ?? UNKNOWN_ERR}`);
     }
 
     return response.data.data;

@@ -14,9 +14,4 @@ test.describe('Admin Developer Portal', () => {
     await capture(page, 'admin-api-key-create');
   });
 
-  test('API docs page', async ({ authedPage: page }) => {
-    await page.goto('/docs/api');
-    await page.waitForLoadState('networkidle');
-    await capture(page, 'admin-api-docs');
-  });
 });

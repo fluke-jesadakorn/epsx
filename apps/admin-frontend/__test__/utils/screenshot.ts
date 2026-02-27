@@ -1,6 +1,6 @@
 /**
  * Screenshot utility + extended test fixture for Admin Frontend E2E Tests.
- * Saves screenshots to public/screenshots/ for use by the /manual page.
+ * Saves screenshots to public/screenshots/ for E2E visual regression.
  */
 import { test as base, type Page } from '@playwright/test';
 import { mockAuth } from './auth-mock';

@@ -86,3 +86,8 @@ export function formatFileSize(bytes: number): string {
  * Alias for file size formatting
  */
 export const formatBytes = formatFileSize
+
+/**
+ * Format a monetary amount - strips .00 from whole numbers, keeps meaningful decimals
+ */
+export const fmtAmt = (n: number): string => parseFloat(n.toFixed(2)).toString()

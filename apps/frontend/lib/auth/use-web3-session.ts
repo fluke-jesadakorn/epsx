@@ -98,7 +98,7 @@ export function useWeb3Session(ctx: UseWeb3SessionContext) {
         await validateWalletAccess(provider, address);
       } catch (authError: unknown) {
         const errorMessage = handleWalletAuthError(authError);
-        throw new Error(errorMessage);
+        throw new Error(errorMessage, { cause: authError });
       }
     } catch (error: unknown) {
       const err = error as { message?: string };
@@ -159,14 +159,15 @@ export function useWeb3Session(ctx: UseWeb3SessionContext) {
           err.message?.includes('User rejected') ||
           err.message?.includes('User denied')
         ) {
-          throw new Error('Signature was cancelled by user');
+          throw new Error('Signature was cancelled by user', { cause: error });
         } else if (err.message?.includes('Method not found') ?? false) {
-          throw new Error('Wallet does not support message signing');
+          throw new Error('Wallet does not support message signing', { cause: error });
         } else if (err.message?.includes('Connection lost') ?? false) {
-          throw new Error('Wallet connection lost - please reconnect');
+          throw new Error('Wallet connection lost - please reconnect', { cause: error });
         } else {
           throw new Error(
-            `Wallet signing failed: ${err.message ?? 'Unknown wallet error'}`
+            `Wallet signing failed: ${err.message ?? 'Unknown wallet error'}`,
+            { cause: error }
           );
         }
       }

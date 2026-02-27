@@ -37,7 +37,7 @@ const StatCard: React.FC<{
 );
 
 const RecentApiKeyItem: React.FC<{ apiKey: ApiKey }> = ({ apiKey }) => {
-    const keyPreviewString = apiKey.key_preview ?? apiKey.key_prefix ?? '';
+    const keyPreviewString = apiKey.key_prefix ?? apiKey.key_preview;
     return (
         <div className="p-6">
             <div className="flex items-center justify-between">
@@ -117,7 +117,7 @@ export const PortalOverview: React.FC<PortalOverviewProps> = ({ apiKeys, modules
     const router = useRouter();
 
     const handleCreateKey = () => {
-        void router.push('/developer-portal/api-keys/create');
+        router.push('/developer-portal/api-keys/create');
     };
 
     const totalRequests = apiKeys

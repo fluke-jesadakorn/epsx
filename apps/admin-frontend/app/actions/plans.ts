@@ -3,7 +3,7 @@
 import { createPlansClient } from '@/shared/api/plans';
 import { FREE_PLAN_RANKING_OFFSET, FREE_PLAN_TIER_LEVEL } from '@/shared/config/constants';
 import type { PlanAccessData } from '@/shared/types/payment';
-import { logger } from '@/shared/utils/logger';
+import { logger } from '@/lib/logger';
 import { getServerActionClient } from '@/shared/utils/server-fetch';
 
 const DEFAULT_FREE_TIER: PlanAccessData = {
@@ -34,7 +34,7 @@ export async function getMyPlanAccessAction(): Promise<PlanAccessData> {
     }
   } catch (error) {
     if (typeof error === 'object' && error !== null && 'digest' in error) {throw error;}
-    logger.debug('Failed to fetch plan access, returning default free tier:', error);
+    logger.action.error('getMyPlanAccess', error);
   }
 
   return DEFAULT_FREE_TIER;

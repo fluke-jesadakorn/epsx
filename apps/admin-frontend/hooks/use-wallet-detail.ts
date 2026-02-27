@@ -8,7 +8,7 @@ import type { WalletData } from '@/components/wallet/types';
 import type { SubscriptionResponse } from '@/shared/api/plans';
 import { createPlansClient, isApiSuccess } from '@/shared/api/plans';
 import { createAdminApiClient } from '@/shared/utils/api-client';
-import { logger } from '@/shared/utils/logger';
+import { logger } from '@/lib/logger';
 import type { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';

@@ -1,6 +1,7 @@
 'use client';
 
 import { getPublicPlansAction } from '@/app/actions/plans';
+import { fmtAmt } from '@/shared/utils/formatting/currency';
 import { PricingCard, type PricingCardData } from '@/shared/components/plans/pricing-card';
 import { Check, MessageSquare, Star } from 'lucide-react';
 import Link from 'next/link';
@@ -48,14 +49,14 @@ const transformToPricingCard = (plan: ApiPlanData): PricingCardData => {
     return {
         id: plan.id,
         title: plan.name,
-        price: plan.effectivePrice === 0 ? 'Free' : `$${plan.effectivePrice.toFixed(2)} ${plan.currency}`,
-        originalPrice: hasDiscount ? `$${plan.basePrice.toFixed(2)} ${plan.currency}` : undefined,
+        price: plan.effectivePrice === 0 ? 'Free' : `$${fmtAmt(plan.effectivePrice)} ${plan.currency}`,
+        originalPrice: hasDiscount ? `$${fmtAmt(plan.basePrice)} ${plan.currency}` : undefined,
         features: plan.features.map((feature: string) => ({ text: feature, included: true })),
         highlight: plan.isHighlighted ?? plan.is_highlighted ?? plan.is_promoted ?? false,
         buttonText: plan.effectivePrice === 0 ? 'Start Free' : 'Get Started',
         promotions: plan.activePromotions ?? [],
         badges: plan.promotionalBadges ?? [],
-        savings: hasDiscount ? `Save ${plan.currency} ${(plan.basePrice - plan.currentPrice).toFixed(2)}` : undefined,
+        savings: hasDiscount ? `Save ${plan.currency} ${fmtAmt(plan.basePrice - plan.currentPrice)}` : undefined,
         tier_level: 0,
     };
 };
@@ -67,15 +68,6 @@ const filterByGroup = (plans: ApiPlanData[], group: string): ApiPlanData[] => {
 const sortByDisplayOrder = (plans: ApiPlanData[]): ApiPlanData[] => {
     return plans.sort((a, b) => a.display_order - b.display_order);
 };
-
-const BackgroundDecorations = (): JSX.Element => (
-    <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-20 left-10 w-32 h-32 bg-gradient-to-br from-orange-400/10 to-yellow-400/10 dark:from-orange-600/5 dark:to-yellow-600/5 rounded-full animate-float" />
-        <div className="absolute bottom-20 right-20 w-24 h-24 bg-gradient-to-br from-blue-400/10 to-cyan-400/10 dark:from-blue-700/5 dark:to-cyan-700/5 rounded-full animate-bounce-gentle" />
-        <div className="absolute top-1/2 left-1/4 w-16 h-16 bg-gradient-to-br from-purple-400/10 to-pink-400/10 dark:from-purple-700/5 dark:to-pink-700/5 rounded-full animate-pulse-gentle" />
-        <div className="absolute bottom-1/4 right-1/3 w-20 h-20 bg-gradient-to-br from-green-400/10 to-emerald-400/10 dark:from-green-700/5 dark:to-emerald-700/5 rounded-full animate-float-reverse" />
-    </div>
-);
 
 interface AffiliateBannerProps {
     code: string;
@@ -266,12 +258,10 @@ export const DynamicPricingClient = ({
     }, [searchParams, affiliateCode]);
 
     const handlePlanClick = (plan: PricingCardData): void => {
-        // REFACTOR: Use dynamic routes instead of query strings
-        let paymentUrl = `/payment/plan/${plan.id}`;
+        let paymentUrl = `/payment?planId=${plan.id}`;
 
-        // We still support affiliate codes via query string on the dynamic route
         if (affiliateCode !== null && affiliateCode !== '') {
-            paymentUrl += `?ref=${encodeURIComponent(affiliateCode)}`;
+            paymentUrl += `&ref=${encodeURIComponent(affiliateCode)}`;
         }
 
         router.push(paymentUrl);
@@ -293,7 +283,6 @@ export const DynamicPricingClient = ({
 
     return (
         <div className="relative w-full py-16 sm:py-24 lg:py-32 overflow-hidden">
-            <BackgroundDecorations />
 
             {showAffiliateBanner && (
                 <AffiliateBanner

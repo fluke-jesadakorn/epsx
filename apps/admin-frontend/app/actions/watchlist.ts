@@ -2,7 +2,7 @@
 
 import { rethrowRedirect } from '@/lib/api-error';
 import { createUsersClient } from '@/shared/api/users';
-import { logger } from '@/shared/utils/logger';
+import { logger } from '@/lib/logger';
 import { getServerActionClient } from '@/shared/utils/server-fetch';
 import { revalidatePath } from 'next/cache';
 
@@ -14,10 +14,10 @@ export async function getWatchlistAction(): Promise<string[]> {
     if (res.success && res.data) {
       return res.data.symbols;
     }
-    logger.debug('Watchlist fetch failed:', res);
+    logger.action.error('getWatchlist', res);
   } catch (e) {
     rethrowRedirect(e);
-    logger.debug('Failed to fetch watchlist:', e);
+    logger.action.error('getWatchlist', e);
   }
   return [];
 }
@@ -31,10 +31,10 @@ export async function addToWatchlistAction(symbol: string): Promise<string[] | n
       revalidatePath('/portfolio');
       return res.data.symbols;
     }
-    logger.debug('Watchlist add failed:', res);
+    logger.action.error('addToWatchlist', res);
   } catch (e) {
     rethrowRedirect(e);
-    logger.debug('Failed to add to watchlist:', e);
+    logger.action.error('addToWatchlist', e);
   }
   return null;
 }
@@ -48,10 +48,10 @@ export async function removeFromWatchlistAction(symbol: string): Promise<string[
       revalidatePath('/portfolio');
       return res.data.symbols;
     }
-    logger.debug('Watchlist remove failed:', res);
+    logger.action.error('removeFromWatchlist', res);
   } catch (e) {
     rethrowRedirect(e);
-    logger.debug('Failed to remove from watchlist:', e);
+    logger.action.error('removeFromWatchlist', e);
   }
   return null;
 }

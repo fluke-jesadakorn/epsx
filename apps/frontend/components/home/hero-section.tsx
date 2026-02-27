@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { copyToClipboard } from '@/utils/clipboard';
 import { LineChart, Share2, TrendingUp, Users, Zap } from 'lucide-react';
 import Link from 'next/link';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { toast } from 'sonner';
 
 import type { CSSProperties } from 'react';
@@ -15,16 +15,6 @@ interface HeroSectionProps {
 }
 
 const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Simulate loading delay
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, []);
-
   const handleShare = async () => {
     if (typeof window !== 'undefined') {
       const url = window.location.href;
@@ -40,31 +30,6 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
       className={`relative w-full min-h-[85vh] flex items-center justify-center overflow-hidden ${className ?? ''}`}
       style={style}
     >
-      {/* Analytics-style floating elements */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-20 left-10 w-16 h-16 bg-gradient-to-br from-orange-400/20 to-yellow-400/20 dark:from-orange-600/10 dark:to-yellow-600/10 rounded-full animate-float" />
-        <div className="absolute top-32 right-20 w-12 h-12 bg-gradient-to-br from-amber-400/20 to-orange-400/20 dark:from-amber-600/10 dark:to-orange-600/10 rounded-full animate-bounce-gentle" />
-        <div className="absolute bottom-40 left-20 w-8 h-8 bg-gradient-to-br from-yellow-400/20 to-amber-400/20 dark:from-yellow-600/10 dark:to-amber-600/10 rounded-full animate-pulse-gentle" />
-        <div className="absolute bottom-20 right-10 w-20 h-20 bg-gradient-to-br from-orange-400/20 to-yellow-400/20 dark:from-orange-600/10 dark:to-yellow-600/10 rounded-full animate-float-reverse" />
-
-        {/* Decorative analytics shapes with enhanced styling */}
-        <div className="absolute top-1/4 left-1/4 text-6xl opacity-10 animate-spin-slow">
-          📊
-        </div>
-        <div className="absolute bottom-1/4 right-1/4 text-4xl opacity-20 animate-bounce-gentle">
-          ✨
-        </div>
-        <div className="absolute top-3/4 left-10 text-3xl opacity-15 animate-float-gentle">
-          🚀
-        </div>
-        <div className="absolute top-1/2 right-1/4 text-5xl opacity-8 animate-wiggle">
-          💰
-        </div>
-        <div className="absolute bottom-1/3 left-1/3 text-2xl opacity-25 animate-pulse">
-          📈
-        </div>
-      </div>
-
       <div className="relative text-center space-y-12 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 z-[1]">
         <div className="space-y-8">
           {/* Main heading with enhanced Analytics-style typography */}

@@ -239,7 +239,7 @@ function applySecurityHeaders(response: NextResponse, pathname: string, hostname
                 devSources.add(`${wsProto}//${parsed.hostname}:*`);
             } catch { /* ignore invalid URL */ }
         }
-        devConnectSrc = ' ' + [...devSources].join(' ');
+        devConnectSrc = ` ${[...devSources].join(' ')}`;
     }
 
     const csp = [

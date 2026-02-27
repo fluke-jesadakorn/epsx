@@ -27,6 +27,21 @@ function calculateNextPlan(candidatePlans: UpgradeOption[], isFreePlan: boolean,
     return null;
 }
 
+function toUpgradeOption(p: { id: string | number; name: string; effective_price?: number | null; current_price?: number | null; features: string[] }): UpgradeOption {
+    return {
+        id: Number(p.id) || 0,
+        name: p.name,
+        price: Number(p.effective_price ?? p.current_price),
+        features: p.features,
+    };
+}
+
+function pickRecommended(candidatePlans: UpgradeOption[]): UpgradeOption | null {
+    return candidatePlans.find(p => p.name.includes('Pro') || p.name.includes('Growth'))
+        ?? candidatePlans[Math.min(1, candidatePlans.length - 1)]
+        ?? null;
+}
+
 interface UseUpgradeOptionsResult {
     nextPlan: UpgradeOption | null;
     recommendedPlan: UpgradeOption | null;
@@ -52,26 +67,16 @@ export function useUpgradeOptions(): UseUpgradeOptionsResult {
                 const response = await plansClient.getPublicPlans();
 
                 if (response.success && response.data) {
-                    const plans = response.data;
                     const currentPlanName = planAccess?.plan_name;
-
-                    const candidatePlans = plans
-                        .map(p => ({
-                            id: Number(p.id) || 0,
-                            name: p.name,
-                            price: Number(p.effective_price || p.current_price),
-                            features: p.features
-                        }))
+                    const candidatePlans = response.data
+                        .map(toUpgradeOption)
                         .sort((a, b) => a.price - b.price)
                         .filter(p => p.price > 0);
 
                     const isFreePlan = currentPlanName === undefined || currentPlanName === null || currentPlanName === '' || currentPlanName === FREE_PLAN_NAME;
-
                     const upgradeTarget = calculateNextPlan(candidatePlans, isFreePlan, currentPlanName);
                     setNextPlan(upgradeTarget ?? (isFreePlan ? (candidatePlans[0] ?? null) : null));
-
-                    const rec = candidatePlans.find(p => p.name.includes('Pro') || p.name.includes('Growth'));
-                    setRecommendedPlan(rec ?? candidatePlans[Math.min(1, candidatePlans.length - 1)] ?? null);
+                    setRecommendedPlan(pickRecommended(candidatePlans));
                 }
             } catch (_err) {
                 setError('Failed to load upgrade options');
