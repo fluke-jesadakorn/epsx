@@ -60,3 +60,11 @@ export {
 export {
   useChatSSE, type ChatSSEEvent
 } from './use-chat-sse';
+
+// ============================================================================
+// AUTH HOOKS
+// ============================================================================
+
+export {
+  useRequireAuth
+} from './use-require-auth';

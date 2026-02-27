@@ -133,6 +133,14 @@ export function useAuthModalLogic({
         }
     }, [isConnected, address, isCorrectChain, step]);
 
+    // Auto-sign when wallet is already connected and Turnstile is ready.
+    // This enables one-click sign-in: modal opens -> Turnstile completes -> wallet popup auto-appears.
+    useEffect(() => {
+        if (step === 'sign' && turnstileToken !== null && !isSigning && address !== undefined) {
+            void handleSign();
+        }
+    }, [step, turnstileToken, isSigning, address, handleSign]);
+
     const handleSwitchChain = useCallback(async () => {
         try {
             setError(null);

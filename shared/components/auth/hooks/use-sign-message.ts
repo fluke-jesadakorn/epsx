@@ -1,29 +1,33 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { WalletClient } from 'viem';
 import type { Config } from 'wagmi';
 import { getWalletClient } from 'wagmi/actions';
 import { challengeAction, loginAction, verifyAction } from '../../../auth/actions';
+import { isMobile } from '../../../utils/helpers/browser';
 import type { AuthResult, AuthStep } from '../types';
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
-/** Wait for wagmi config to reach 'connected' status */
-async function waitForConnected(cfg: Config, timeoutMs = 8000): Promise<void> {
+/** Wait for wagmi config to reach 'connected' status with exponential backoff */
+async function waitForConnected(cfg: Config, timeoutMs?: number): Promise<void> {
+    const timeout = timeoutMs ?? (isMobile() ? 25000 : 15000);
     const getStatus = () => cfg.state.status as string;
-    if (getStatus() === 'connected') return;
+    if (getStatus() === 'connected') { return; }
     const start = Date.now();
-    while (Date.now() - start < timeoutMs) {
-        await sleep(300);
-        if (getStatus() === 'connected') return;
+    let delay = 300;
+    while (Date.now() - start < timeout) {
+        await sleep(delay);
+        if (getStatus() === 'connected') { return; }
+        delay = Math.min(delay * 1.5, 800);
     }
 }
 
 /** Retry getWalletClient to handle connector initialization race condition */
 async function getWalletClientSafe(cfg: Config, retries = 6): Promise<WalletClient> {
     // Wait for wagmi to finish reconnecting before attempting
-    await waitForConnected(cfg, 8000);
+    await waitForConnected(cfg);
 
     for (let i = 0; i < retries; i++) {
         try {
@@ -72,9 +76,13 @@ export function useSignMessage({
     setError,
 }: UseSignMessageProps) {
     const [isSigning, setIsSigning] = useState(false);
+    const isSigningRef = useRef(false);
 
     const handleSign = useCallback(async () => {
         if (address === undefined || address === '') { return; }
+        // Mutex: prevent concurrent sign attempts (double-click race condition)
+        if (isSigningRef.current) { return; }
+        isSigningRef.current = true;
         try {
             setError(null);
             setStep('authenticating');
@@ -100,6 +108,7 @@ export function useSignMessage({
             onError?.(msg);
             setStep('error');
         } finally {
+            isSigningRef.current = false;
             setIsSigning(false);
         }
     }, [address, config, variant, turnstileToken, authenticateWithDirectApi, onSuccess, onError, onClose, setStep, setError]);
@@ -153,7 +162,8 @@ interface VerifyAndLoginProps {
 }
 
 /**
- * Internal helper to handle verification and login logic
+ * Internal helper to handle verification and login logic.
+ * Auto-retries once if nonce has expired.
  */
 async function verifyAndLogin({
     address,
@@ -171,12 +181,31 @@ async function verifyAndLogin({
         account: address as `0x${string}`,
     });
 
-    const result = await verifyAction({
-        wallet_address: address,
-        signature,
-        message: challengeData.message,
-        nonce: challengeData.nonce,
-    });
+    let result;
+    try {
+        result = await verifyAction({
+            wallet_address: address,
+            signature,
+            message: challengeData.message,
+            nonce: challengeData.nonce,
+        });
+    } catch (err) {
+        const msg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
+        const isNonceExpired = msg.includes('expired') || msg.includes('challenge not found') || msg.includes('nonce');
+        if (!isNonceExpired) { throw err; }
+        // Nonce expired - auto-retry with fresh challenge
+        const freshChallenge = await challengeAction(address, turnstileToken);
+        const freshSig = await walletClient.signMessage({
+            message: freshChallenge.message,
+            account: address as `0x${string}`,
+        });
+        result = await verifyAction({
+            wallet_address: address,
+            signature: freshSig,
+            message: freshChallenge.message,
+            nonce: freshChallenge.nonce,
+        });
+    }
 
     if (result.success !== true || result.access_token === undefined || result.access_token === '') {
         throw new Error(typeof result.error === 'string' && result.error !== '' ? result.error : 'Authentication failed');

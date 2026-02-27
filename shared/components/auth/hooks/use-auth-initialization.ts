@@ -2,8 +2,20 @@
 
 import { useEffect, useState } from 'react';
 import type { SharedWeb3AuthClient, UserInfoResponse } from '../../../auth/client';
+import { refreshSessionAction } from '../../../auth/actions';
+import { COOKIES } from '../../../auth/cookies';
 import { setSharedClientToken } from '../../../utils/api-client';
 import { logger } from '../../../utils/logger';
+
+function getExpiresAt(): number | null {
+    if (typeof document === 'undefined') { return null; }
+    const name = COOKIES.expires_at;
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`));
+    if (match === null) { return null; }
+    const val = parseInt(match[1], 10);
+    return isNaN(val) ? null : val;
+}
 
 interface UseAuthInitializationProps {
     client: SharedWeb3AuthClient;
@@ -99,6 +111,38 @@ export function useAuthInitialization({
             unsubscribe();
         };
     }, [client, onAuthError, initialUser, clientId]);
+
+    // Phase 4: Proactive token refresh - runs 5 min before expiry
+    const walletAddr = user?.wallet_address ?? null;
+    useEffect(() => {
+        if (walletAddr === null) { return; }
+
+        let timerId: ReturnType<typeof setTimeout> | undefined;
+
+        const schedule = () => {
+            const expiresAt = getExpiresAt();
+            if (expiresAt === null) { return; }
+            const delay = Math.max(expiresAt - Date.now() - 5 * 60 * 1000, 30_000);
+            timerId = setTimeout(() => {
+                void (async () => {
+                    try {
+                        const result = await refreshSessionAction();
+                        if (result.success) {
+                            const updated = await client.loadCurrentUser();
+                            if (updated !== null) {
+                                if (updated.access !== undefined) { setSharedClientToken(updated.access); }
+                                setUser(updated);
+                            }
+                        }
+                    } catch { /* refresh failed, user re-auths on expiry */ }
+                    schedule();
+                })();
+            }, delay);
+        };
+
+        schedule();
+        return () => { if (timerId !== undefined) { clearTimeout(timerId); } };
+    }, [walletAddr, client]);
 
     return {
         user,

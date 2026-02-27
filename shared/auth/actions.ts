@@ -258,6 +258,23 @@ function updateSessionCookies(
     });
 }
 
+/** Retry wrapper for network failures (5xx/network errors only, not client errors) */
+async function fetchWithRetry(url: string, init: RequestInit, retries = 2): Promise<Response> {
+    const delay = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+    for (let i = 0; i <= retries; i++) {
+        try {
+            const res = await fetch(url, init);
+            // Don't retry client errors (4xx) - only server errors (5xx)
+            if (res.ok || res.status < 500) { return res; }
+            if (i < retries) { await delay(1000); }
+        } catch {
+            if (i === retries) { throw new Error('Network request failed. Please check your connection and try again.'); }
+            await delay(1000);
+        }
+    }
+    throw new Error('Request failed after retries');
+}
+
 /**
  * Server Action: Request SIWE challenge via server-to-server call.
  * Proxies through Next.js server so browser doesn't need direct backend access.
@@ -270,7 +287,7 @@ export async function challengeAction(walletAddress: string, turnstileToken?: st
         body.turnstile_token = turnstileToken;
     }
 
-    const res = await fetch(url, {
+    const res = await fetchWithRetry(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(body),
@@ -297,7 +314,7 @@ export async function challengeAction(walletAddress: string, turnstileToken?: st
 export async function verifyAction(req: SignatureVerificationRequest): Promise<SignatureVerificationResponse> {
     const url = `${getBackendUrl('server')}/api/auth/web3/verify`;
 
-    const res = await fetch(url, {
+    const res = await fetchWithRetry(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(req),

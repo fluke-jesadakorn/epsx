@@ -3,8 +3,9 @@
 import { getTopicsAction, listConversationsAction } from '@/app/actions/chat';
 import { ChatInbox } from '@/components/chat/chat-inbox';
 import type { ChatConversation, ChatTopic } from '@/shared/api/chat';
+import { AuthBanner } from '@/shared/components/auth/auth-banner';
 import { useSharedAuth } from '@/shared/components/auth';
-import { Loader2, MessageCircle, Shield } from 'lucide-react';
+import { Loader2, MessageCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 export default function ChatPage() {
@@ -31,12 +32,21 @@ export default function ChatPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="container mx-auto px-4 py-20 max-w-md text-center">
-        <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-blue-500/20 to-indigo-500/10 flex items-center justify-center mx-auto mb-6 border border-blue-500/10">
-          <Shield className="w-10 h-10 text-blue-400" />
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm shadow-blue-500/20">
+            <MessageCircle className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">Support</h1>
+            <p className="text-xs text-muted-foreground">Get help from our team</p>
+          </div>
         </div>
-        <h1 className="text-2xl font-bold mb-2">Support Chat</h1>
-        <p className="text-muted-foreground text-sm">Please sign in to access support chat.</p>
+        <AuthBanner
+          message="Sign in to access Support Chat"
+          description="Connect your wallet to start a conversation with our team"
+          buttonText="Sign In to Chat"
+        />
       </div>
     );
   }

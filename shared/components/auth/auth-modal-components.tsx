@@ -159,8 +159,11 @@ export function SignStep({
                 <span className="auth-step-label">Verify Ownership</span>
             </div>
             <p className="auth-step-desc">
-                Sign a message to prove you own this wallet. No gas fees.
+                {isTurnstileReady && !isSigning
+                    ? 'Opening wallet for signature...'
+                    : 'Sign a message to prove you own this wallet. No gas fees.'}
             </p>
+            {/* Show manual button as fallback when auto-sign hasn't triggered yet */}
             <button
                 className="auth-btn-primary"
                 onClick={handleSign}

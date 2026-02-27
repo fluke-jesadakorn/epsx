@@ -26,15 +26,15 @@ import { createQueryClient } from '../../state';
  */
 function WagmiReconnectProvider({ children }: { children: React.ReactNode }) {
     const { reconnect } = useReconnect();
-    const [hasAttempted, setHasAttempted] = React.useState(false);
 
+    // Delayed safety-net reconnect - WAGMI's Hydrate handles the primary reconnect.
+    // This catches edge cases where Hydrate's reconnect fails silently.
     React.useEffect(() => {
-        if (hasAttempted) { return; }
-        setHasAttempted(true);
-        // Always reconnect on mount to hydrate stale connectors from cookie storage
-        // wagmi's Hydrate component also reconnects, but this acts as a safety net
-        try { reconnect(); } catch { /* suppress stale connector errors */ }
-    }, [reconnect, hasAttempted]);
+        const timer = setTimeout(() => {
+            try { reconnect(); } catch { /* suppress stale connector errors */ }
+        }, 2000);
+        return () => clearTimeout(timer);
+    }, [reconnect]);
 
     return <>{children}</>;
 }
