@@ -29,6 +29,6 @@ export {
 } from './progressive-auth-gate';
 
 // Auth provider and context
-export { SharedOpenIDWeb3Provider, useSharedAuth, useAuth } from './provider';
-export type { SharedAuthContextValue } from './provider';
+export { SharedOpenIDWeb3Provider, useSharedAuth, useAuth } from './Provider';
+export type { SharedAuthContextValue } from './Provider';
 

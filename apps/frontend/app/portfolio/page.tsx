@@ -1,5 +1,6 @@
 import PortfolioDashboard from '@/components/portfolio/portfolio-dashboard';
 import { ProgressiveAuthBanner } from '@/components/auth/progressive-auth-banner';
+import { RequireSignIn } from '@/shared/components/auth/progressive-auth-gate';
 import { Heart, TrendingUp } from 'lucide-react';
 
 export default function PortfolioPage() {
@@ -37,7 +38,9 @@ export default function PortfolioPage() {
 
           <ProgressiveAuthBanner />
 
-          <PortfolioDashboard />
+          <RequireSignIn actionName="view your portfolio">
+            <PortfolioDashboard />
+          </RequireSignIn>
         </div>
       </div>
     </div>

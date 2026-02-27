@@ -1,14 +1,14 @@
 // OpenID + Web3 Authentication System (Shared)
 export {
   SharedOpenIDWeb3Provider as AuthProvider, useSharedAuth as useAuth, useSharedAuth as useOpenIDWeb3Auth
-} from '@/shared/components/auth/provider';
+} from '@/shared/components/auth/Provider';
 
 export { openidApiClient as authService } from './api-client';
 
 // Re-export types from shared system
 export type {
   SharedAuthContextValue as AuthContextValue
-} from '@/shared/components/auth/provider';
+} from '@/shared/components/auth/Provider';
 
 export type {
   OpenIDTokenResponse, UserInfoResponse, Web3AuthRequest

@@ -6,12 +6,13 @@
  */
 
 import { useCallback, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAccount, useDisconnect } from 'wagmi';
 import type { UserInfoResponse } from '../../auth/client';
 import { logger } from '../../utils/logger';
 import { AuthModal } from './auth-modal';
 import './auth.css';
-import { useSharedAuth } from './provider';
+import { useSharedAuth } from './Provider';
 
 export interface AuthStatusProps {
     variant?: 'user' | 'admin';
@@ -27,6 +28,7 @@ export function AuthStatus({
     const [showModal, setShowModal] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
 
+    const router = useRouter();
     const { address, isConnected } = useAccount();
     const { disconnect } = useDisconnect();
     const { isAuthenticated, user, logout } = useSharedAuth();
@@ -48,11 +50,8 @@ export function AuthStatus({
 
     const handleAuthSuccess = useCallback(() => {
         setShowModal(false);
-        // Refresh page to update server state
-        if (typeof window !== 'undefined') {
-            window.location.reload();
-        }
-    }, []);
+        router.refresh();
+    }, [router]);
 
     // Not connected or not authenticated - show connect button
     if (!isConnected || !isAuthenticated) {
@@ -63,7 +62,7 @@ export function AuthStatus({
                     onClick={handleConnect}
                 >
                     <span className="auth-wallet-icon">🔗</span>
-                    <span>Connect Wallet</span>
+                    <span>{isConnected ? 'Sign In' : 'Connect Wallet'}</span>
                 </button>
                 <AuthModal
                     isOpen={showModal}

@@ -7,6 +7,7 @@
  */
 
 import type { Connector } from 'wagmi';
+import { TurnstileWidget } from '../turnstile-widget';
 import { Dialog, DialogContent } from '../ui/dialog';
 import { AuthStatusDisplay, ConnectStep, SignStep, SwitchChainStep } from './auth-modal-components';
 import './auth.css';
@@ -71,7 +72,19 @@ export function AuthModal({
                         <button className="auth-modal-close" onClick={onClose}>×</button>
                     </div>
 
-                    <div className="auth-modal-content">
+                    {/* Hidden Turnstile — preloads during connect step for instant auto-sign */}
+                {isOpen && turnstileToken === null && (
+                    <div aria-hidden="true" style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0, overflow: 'hidden' }}>
+                        <TurnstileWidget
+                            onSuccess={handleTurnstileSuccess}
+                            onError={handleTurnstileError}
+                            onExpire={handleTurnstileExpire}
+                            action="auth"
+                        />
+                    </div>
+                )}
+
+                <div className="auth-modal-content">
                         <AuthModalContent
                             step={step}
                             error={error}
@@ -86,10 +99,6 @@ export function AuthModal({
                             handleRetry={handleRetry}
                             handleDisconnect={handleDisconnect}
                             variant={variant}
-                            turnstileToken={turnstileToken}
-                            onTurnstileSuccess={handleTurnstileSuccess}
-                            onTurnstileError={handleTurnstileError}
-                            onTurnstileExpire={handleTurnstileExpire}
                         />
                     </div>
 
@@ -120,10 +129,6 @@ interface AuthModalContentProps {
     handleRetry: () => void;
     handleDisconnect: () => void;
     variant: 'user' | 'admin';
-    turnstileToken: string | null;
-    onTurnstileSuccess: (token: string) => void;
-    onTurnstileError: () => void;
-    onTurnstileExpire: () => void;
 }
 
 /**
@@ -143,10 +148,6 @@ function AuthModalContent({
     handleRetry,
     handleDisconnect,
     variant,
-    turnstileToken,
-    onTurnstileSuccess,
-    onTurnstileError,
-    onTurnstileExpire,
 }: AuthModalContentProps) {
     if (step === 'connect') {
         return (
@@ -176,10 +177,6 @@ function AuthModalContent({
                 handleSign={() => { void handleSign(); }}
                 handleDisconnect={handleDisconnect}
                 isSigning={isSigning}
-                turnstileToken={turnstileToken}
-                onTurnstileSuccess={onTurnstileSuccess}
-                onTurnstileError={onTurnstileError}
-                onTurnstileExpire={onTurnstileExpire}
             />
         );
     }

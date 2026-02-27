@@ -3,7 +3,7 @@
 import type { ReactNode} from 'react';
 import { Suspense } from 'react';
 
-import { Header } from './header';
+import { Header } from './Header';
 import { Sidebar } from './sidebar';
 
 interface User {

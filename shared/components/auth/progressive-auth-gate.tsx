@@ -16,7 +16,7 @@
 
 import type { ReactNode } from 'react';
 import React from 'react';
-import { useSharedAuth } from './provider';
+import { useSharedAuth } from './Provider';
 
 export type Platform = 'admin' | 'frontend';
 

@@ -3,7 +3,7 @@
 import { useUpgradeOptions } from '@/hooks/use-upgrade-options';
 import { cn } from '@/lib/utils';
 import { FREE_PLAN_NAME, FREE_PLAN_RANKING_OFFSET } from '@/shared/config/constants';
-import { useSharedAuth } from '@/shared/components/auth/provider';
+import { useSharedAuth } from '@/shared/components/auth/Provider';
 import type { PlanAccessData } from '@/shared/types/payment';
 import { Crown, Lock, Rocket, Shield, Sparkles, Star, Zap } from 'lucide-react';
 import Link from 'next/link';

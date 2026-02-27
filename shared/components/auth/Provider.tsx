@@ -14,6 +14,7 @@ import React, {
   useRef,
   useState
 } from 'react';
+import { useAccount } from 'wagmi';
 import type {
   UnifiedApiResponse,
   UserInfoResponse
@@ -88,6 +89,7 @@ interface SharedOpenIDWeb3ProviderProps {
 }
 
 // Provider component
+// eslint-disable-next-line max-lines-per-function
 export function SharedOpenIDWeb3Provider({
   children,
   clientId = 'epsx-frontend',
@@ -164,6 +166,26 @@ export function SharedOpenIDWeb3Provider({
   } = useApiHelpers({ client });
 
   const openSignInModal = useCallback(() => setShowSignInModal(true), []);
+
+  // Auto re-sign when wallet address changes while authenticated
+  const { address } = useAccount();
+  const prevAddressRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (
+      prevAddressRef.current !== undefined &&
+      address !== undefined &&
+      address !== prevAddressRef.current &&
+      user !== null
+    ) {
+      async function reSign() {
+        await logout();
+        openSignInModal();
+      }
+      void reSign();
+    }
+    prevAddressRef.current = address;
+  }, [address, user, logout, openSignInModal]);
+
   const closeSignInModal = useCallback(() => {
     setShowSignInModal(false);
     // Resolve any pending requireAuth calls as cancelled (false)

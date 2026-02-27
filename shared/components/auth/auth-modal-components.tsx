@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import type { Connector } from 'wagmi';
-import { TurnstileWidget } from '../turnstile-widget';
 
 export interface ConnectStepProps {
     connectors: readonly Connector[];
@@ -97,25 +96,9 @@ export interface SignStepProps {
     handleSign: () => void;
     handleDisconnect: () => void;
     isSigning: boolean;
-    turnstileToken?: string | null;
-    onTurnstileSuccess?: (token: string) => void;
-    onTurnstileError?: () => void;
-    onTurnstileExpire?: () => void;
 }
 
-export function SignStep({
-    address,
-    handleSign,
-    handleDisconnect,
-    isSigning,
-    turnstileToken,
-    onTurnstileSuccess,
-    onTurnstileError,
-    onTurnstileExpire,
-}: SignStepProps) {
-    const isTurnstileReady = Boolean(turnstileToken);
-    const canSign = isTurnstileReady && !isSigning;
-
+export function SignStep({ address, handleDisconnect }: SignStepProps) {
     return (
         <div className="auth-step auth-step-enter">
             <div className="auth-step-header">
@@ -125,62 +108,11 @@ export function SignStep({
             <p className="auth-address">
                 {address.slice(0, 6)}...{address.slice(-4)}
             </p>
-
-            {/* Turnstile CAPTCHA verification */}
-            {onTurnstileSuccess && (
-                <div style={{ marginTop: '1rem' }}>
-                    <div className="auth-step-header">
-                        <span className={`auth-step-number ${isTurnstileReady ? 'auth-step-complete' : ''}`}>
-                            {isTurnstileReady ? '✓' : '2'}
-                        </span>
-                        <span className="auth-step-label">
-                            {isTurnstileReady ? 'Verified' : 'Human Verification'}
-                        </span>
-                    </div>
-                    {!isTurnstileReady && (
-                        <TurnstileWidget
-                            onSuccess={onTurnstileSuccess}
-                            onError={onTurnstileError}
-                            onExpire={onTurnstileExpire}
-                            action="auth"
-                            className="my-3"
-                        />
-                    )}
-                    {isTurnstileReady && (
-                        <p className="auth-step-desc" style={{ color: '#4ade80', fontSize: '0.8rem' }}>
-                            ✅ Verification complete
-                        </p>
-                    )}
-                </div>
-            )}
-
-            <div className="auth-step-header" style={{ marginTop: '1.5rem' }}>
-                <span className="auth-step-number">{onTurnstileSuccess ? '3' : '2'}</span>
-                <span className="auth-step-label">Verify Ownership</span>
+            <div className="auth-loading" style={{ marginTop: '2rem' }}>
+                <span className="auth-spinner-large" />
+                <p>Please approve the signature request in your wallet...</p>
             </div>
-            <p className="auth-step-desc">
-                {isTurnstileReady && !isSigning
-                    ? 'Opening wallet for signature...'
-                    : 'Sign a message to prove you own this wallet. No gas fees.'}
-            </p>
-            {/* Show manual button as fallback when auto-sign hasn't triggered yet */}
-            <button
-                className="auth-btn-primary"
-                onClick={handleSign}
-                disabled={!canSign}
-            >
-                {isSigning ? (
-                    <>
-                        <span className="auth-spinner" />
-                        Sign in Wallet...
-                    </>
-                ) : !isTurnstileReady ? (
-                    '🛡️ Complete Verification First'
-                ) : (
-                    '✍️ Sign Message'
-                )}
-            </button>
-            <button className="auth-btn-secondary" onClick={handleDisconnect}>
+            <button className="auth-btn-secondary" style={{ marginTop: '1rem' }} onClick={handleDisconnect}>
                 Use Different Wallet
             </button>
         </div>

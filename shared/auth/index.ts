@@ -11,7 +11,7 @@ export type {
 } from './client';
 
 // Provider
-export { SharedOpenIDWeb3Provider, useAuth, useSharedAuth } from '../components/auth/provider';
+export { SharedOpenIDWeb3Provider, useAuth, useSharedAuth } from '../components/auth/Provider';
 
 // Server actions
 export { challengeAction, loginAction, logoutAction, verifyAction } from './actions';

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAccount, useConfig, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
-import { useSharedAuth } from '../provider';
+import { useSharedAuth } from '../Provider';
 import type { AuthResult, AuthStep } from '../types';
 import { useSignMessage } from './use-sign-message';
 

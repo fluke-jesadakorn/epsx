@@ -1,7 +1,7 @@
 'use client';
 
 import { BarChart2, Lock, LogIn, TrendingUp, Zap } from 'lucide-react';
-import { useSharedAuth } from './provider';
+import { useSharedAuth } from './Provider';
 
 export interface AuthBannerProps {
     message?: string;
