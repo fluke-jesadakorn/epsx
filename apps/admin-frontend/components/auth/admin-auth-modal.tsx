@@ -1,8 +1,6 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 
 import { useSharedAuth } from '@/shared/components/auth';
 
@@ -13,17 +11,9 @@ interface AdminAuthModalProps {
 }
 
 export function AdminAuthModal({ children, fallback, initialHasAuthCookie = false }: AdminAuthModalProps) {
-    const router = useRouter();
     const { isAuthenticated, isLoading } = useSharedAuth();
 
     const isChecking = isLoading || (initialHasAuthCookie && !isAuthenticated);
-
-    // Redirect to /auth when not authenticated and done checking
-    useEffect(() => {
-        if (!isChecking && isAuthenticated === false) {
-            router.replace('/auth');
-        }
-    }, [isChecking, isAuthenticated, router]);
 
     // Authenticated - render children
     if (isAuthenticated === true && children !== undefined) {
@@ -35,13 +25,13 @@ export function AdminAuthModal({ children, fallback, initialHasAuthCookie = fals
         return <>{fallback}</>;
     }
 
-    // Loading / redirecting state
+    // Loading state (layout gate handles unauthenticated)
     return (
         <div className="flex min-h-screen items-center justify-center p-6">
             <div className="flex flex-col items-center gap-2">
                 <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
                 <p className="text-sm text-muted-foreground animate-pulse">
-                    {isChecking ? 'Verifying admin access...' : 'Redirecting to login...'}
+                    {isChecking ? 'Verifying admin access...' : 'Loading...'}
                 </p>
             </div>
         </div>

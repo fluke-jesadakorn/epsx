@@ -1091,6 +1091,30 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    use diesel::sql_types::*;
+
+    /// Representation of the `news_articles` table.
+    news_articles (id) {
+        id -> Uuid,
+        #[max_length = 255]
+        title -> Varchar,
+        #[max_length = 255]
+        slug -> Varchar,
+        summary -> Nullable<Text>,
+        content -> Text,
+        cover_image_url -> Nullable<Text>,
+        #[max_length = 42]
+        author_wallet -> Varchar,
+        #[max_length = 20]
+        status -> Varchar,
+        tags -> Jsonb,
+        published_at -> Nullable<Timestamptz>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
 diesel::joinable!(chat_conversations -> chat_topics (topic_id));
 diesel::joinable!(chat_messages -> chat_conversations (conversation_id));
 diesel::joinable!(user_watchlist -> wallet_users (wallet_address));
@@ -1112,6 +1136,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     chat_conversations,
     chat_messages,
     chat_topics,
+    news_articles,
     openid_refresh_tokens,
     permissions,
     plan_permissions,

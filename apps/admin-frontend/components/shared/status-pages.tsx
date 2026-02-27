@@ -289,7 +289,7 @@ export function AccessDeniedContent({
     try { disconnect(); } catch { /* WalletConnect origin check may fail in dev */ }
     const returnPath = route !== undefined ? decodeURIComponent(route) : undefined;
     await logoutAction(returnPath);
-    router.replace('/auth');
+    router.replace('/');
   }, [disconnect, route, router]);
 
   return (

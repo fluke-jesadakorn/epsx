@@ -1,0 +1,255 @@
+'use client';
+
+import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { Newspaper, Plus, Edit, Trash2, Eye, EyeOff } from 'lucide-react';
+import type { NewsArticle } from '@/shared/api/news';
+import {
+  deleteNewsAction,
+  listNewsAction,
+  publishNewsAction,
+  unpublishNewsAction,
+} from '@/app/news/actions';
+
+type StatusFilter = 'all' | 'draft' | 'published';
+
+function formatDate(dateStr: string | null): string {
+  if (dateStr === null) { return '—'; }
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    year: 'numeric', month: 'short', day: 'numeric',
+  });
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const cls = status === 'published'
+    ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+    : 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20';
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
+      {status}
+    </span>
+  );
+}
+
+interface RowActionsProps {
+  article: NewsArticle;
+  onEdit: () => void;
+  onDelete: () => void;
+  onTogglePublish: () => void;
+}
+
+function RowActions({ article, onEdit, onDelete, onTogglePublish }: RowActionsProps) {
+  return (
+    <div className="flex items-center gap-2 justify-end">
+      <button
+        title={article.status === 'published' ? 'Unpublish' : 'Publish'}
+        onClick={onTogglePublish}
+        className="p-1.5 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
+      >
+        {article.status === 'published' ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+      </button>
+      <button title="Edit" onClick={onEdit} className="p-1.5 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors">
+        <Edit className="w-4 h-4" />
+      </button>
+      <button title="Delete" onClick={onDelete} className="p-1.5 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors">
+        <Trash2 className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
+interface ArticleRowProps {
+  article: NewsArticle;
+  onEdit: (id: string) => void;
+  onDelete: (id: string, title: string) => void;
+  onTogglePublish: (article: NewsArticle) => void;
+}
+
+function ArticleRow({ article, onEdit, onDelete, onTogglePublish }: ArticleRowProps) {
+  return (
+    <tr className="border-b border-border/10 hover:bg-muted/30 transition-colors">
+      <td className="px-4 py-3">
+        <div className="font-medium text-foreground line-clamp-1">{article.title}</div>
+        <div className="text-xs text-muted-foreground">{article.slug}</div>
+      </td>
+      <td className="px-4 py-3"><StatusBadge status={article.status} /></td>
+      <td className="px-4 py-3 text-muted-foreground">{formatDate(article.published_at)}</td>
+      <td className="px-4 py-3">
+        <div className="flex flex-wrap gap-1">
+          {article.tags.slice(0, 3).map((tag) => (
+            <span key={tag} className="px-1.5 py-0.5 rounded text-xs bg-muted text-muted-foreground">{tag}</span>
+          ))}
+        </div>
+      </td>
+      <td className="px-4 py-3">
+        <RowActions
+          article={article}
+          onEdit={() => onEdit(article.id)}
+          onDelete={() => onDelete(article.id, article.title)}
+          onTogglePublish={() => onTogglePublish(article)}
+        />
+      </td>
+    </tr>
+  );
+}
+
+export function NewsManagement() {
+  const router = useRouter();
+  const [articles, setArticles] = useState<NewsArticle[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [loading, setLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+
+  const limit = 20;
+
+  const load = useCallback(async (p: number, s: StatusFilter) => {
+    setLoading(true);
+    const res = await listNewsAction(p, limit, s === 'all' ? undefined : s);
+    if (res.success) {
+      setArticles(res.data.articles);
+      setTotal(res.data.total);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { void load(page, statusFilter); }, [load, page, statusFilter]);
+
+  const handleDelete = useCallback(async (id: string) => {
+    const res = await deleteNewsAction(id);
+    if (res.success) {
+      toast.success('Article deleted');
+      void load(page, statusFilter);
+    } else {
+      toast.error('Failed to delete article');
+    }
+    setDeleteTarget(null);
+  }, [load, page, statusFilter]);
+
+  const handleTogglePublish = useCallback(async (article: NewsArticle) => {
+    const action = article.status === 'published' ? unpublishNewsAction : publishNewsAction;
+    const res = await action(article.id);
+    if (res.success) {
+      toast.success(article.status === 'published' ? 'Article unpublished' : 'Article published');
+      void load(page, statusFilter);
+    } else {
+      toast.error('Failed to update status');
+    }
+  }, [load, page, statusFilter]);
+
+  const totalPages = Math.ceil(total / limit);
+
+  return (
+    <div className="space-y-6">
+      <DeleteModal target={deleteTarget} onCancel={() => setDeleteTarget(null)} onConfirm={(id) => void handleDelete(id)} />
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="h-[3px] w-8 bg-[#1fc7d4] rounded-full" />
+          <Newspaper className="w-5 h-5 text-[#1fc7d4]" />
+          <h1 className="text-xl font-bold text-foreground">News Management</h1>
+        </div>
+        <button
+          onClick={() => router.push('/news/create')}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+        >
+          <Plus className="w-4 h-4" />
+          Create Article
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="flex gap-2">
+        {(['all', 'draft', 'published'] as StatusFilter[]).map((s) => (
+          <button
+            key={s}
+            onClick={() => { setStatusFilter(s); setPage(1); }}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors capitalize ${statusFilter === s ? 'bg-[#7645d9] text-white' : 'bg-card border border-border/20 text-muted-foreground hover:text-foreground'}`}
+          >
+            {s}
+          </button>
+        ))}
+        <span className="ml-auto text-sm text-muted-foreground self-center">{total} articles</span>
+      </div>
+
+      {/* Table */}
+      <div className="rounded-2xl bg-card border border-border/20 shadow-xl overflow-hidden">
+        {loading ? (
+          <div className="p-12 text-center text-muted-foreground">Loading…</div>
+        ) : articles.length === 0 ? (
+          <div className="p-12 text-center text-muted-foreground">No articles found.</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border/20 text-muted-foreground text-left">
+                <th className="px-4 py-3 font-medium">Title</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Published</th>
+                <th className="px-4 py-3 font-medium">Tags</th>
+                <th className="px-4 py-3 font-medium text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {articles.map((article) => (
+                <ArticleRow
+                  key={article.id}
+                  article={article}
+                  onEdit={(id) => router.push(`/news/${id}/edit`)}
+                  onDelete={(id, title) => setDeleteTarget({ id, title })}
+                  onTogglePublish={(a) => void handleTogglePublish(a)}
+                />
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <Pagination page={page} totalPages={totalPages} onPrev={() => setPage((p) => Math.max(1, p - 1))} onNext={() => setPage((p) => Math.min(totalPages, p + 1))} />
+    </div>
+  );
+}
+
+interface DeleteModalProps {
+  target: { id: string; title: string } | null;
+  onCancel: () => void;
+  onConfirm: (id: string) => void;
+}
+
+function DeleteModal({ target, onCancel, onConfirm }: DeleteModalProps) {
+  if (target === null) { return null; }
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className="rounded-2xl bg-card border border-border/20 shadow-2xl p-6 max-w-sm w-full space-y-4">
+        <h3 className="font-bold text-foreground">Delete Article?</h3>
+        <p className="text-sm text-muted-foreground">
+          &ldquo;{target.title}&rdquo; will be permanently deleted.
+        </p>
+        <div className="flex gap-3 justify-end">
+          <button onClick={onCancel} className="px-4 py-2 rounded-xl text-sm border border-border/20 hover:bg-muted/30">Cancel</button>
+          <button onClick={() => onConfirm(target.id)} className="px-4 py-2 rounded-xl text-sm bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20">Delete</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface PaginationProps {
+  page: number;
+  totalPages: number;
+  onPrev: () => void;
+  onNext: () => void;
+}
+
+function Pagination({ page, totalPages, onPrev, onNext }: PaginationProps) {
+  if (totalPages <= 1) { return null; }
+  return (
+    <div className="flex items-center justify-center gap-2">
+      <button onClick={onPrev} disabled={page === 1} className="px-3 py-1.5 rounded-lg text-sm border border-border/20 disabled:opacity-40 hover:bg-muted/50 transition-colors">Previous</button>
+      <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
+      <button onClick={onNext} disabled={page === totalPages} className="px-3 py-1.5 rounded-lg text-sm border border-border/20 disabled:opacity-40 hover:bg-muted/50 transition-colors">Next</button>
+    </div>
+  );
+}

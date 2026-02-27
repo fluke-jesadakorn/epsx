@@ -3,7 +3,6 @@
 import { redirectOnForbidden } from '@/lib/api-error';
 import { logout } from '@/lib/auth/auth';
 import { createAdminApiClient } from '@/shared/api';
-import { redirect } from 'next/navigation';
 
 interface PolicyStats {
     total_policies: number;
@@ -21,7 +20,6 @@ export async function getPolicyStatsAction(): Promise<PolicyStats | null> {
         redirectOnForbidden(res, '/policies');
         if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
             await logout();
-            redirect('/auth');
         }
         return null;
     }
@@ -38,7 +36,6 @@ export async function getPolicyTemplatesAction(): Promise<unknown[]> {
         redirectOnForbidden(res, '/policies');
         if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
             await logout();
-            redirect('/auth');
         }
         return [];
     }
@@ -55,7 +52,6 @@ export async function evaluatePolicyAction(context: Record<string, unknown>): Pr
         redirectOnForbidden(res, '/policies');
         if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
             await logout();
-            redirect('/auth');
         }
         throw new Error(res.error?.message ?? 'Failed to evaluate policy');
     }
@@ -72,7 +68,6 @@ export async function createPolicyAction(formData: Record<string, unknown>): Pro
         redirectOnForbidden(res, '/policies');
         if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
             await logout();
-            redirect('/auth');
         }
         throw new Error(res.error?.message ?? 'Failed to save policy');
     }

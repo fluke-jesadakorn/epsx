@@ -118,3 +118,13 @@ export {
   createCreditsApi
 } from './credits';
 
+export {
+  NewsApi,
+  createNewsClient,
+  type NewsArticle,
+  type NewsListResponse,
+  type CreateNewsReq,
+  type UpdateNewsReq,
+  type NewsImageUploadResponse,
+} from './news';
+

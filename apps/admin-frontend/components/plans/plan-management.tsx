@@ -100,7 +100,6 @@ async function fetchPlans(router: ReturnType<typeof useRouter>, pathname: string
   const errMsg = response.error?.message
   if (errMsg !== undefined && (errMsg.includes('Unauthorized') || errMsg.includes('log in'))) {
     toast({ title: "Session Expired", description: "Please log in again to continue.", variant: "destructive" })
-    router.push(`/auth?returnUrl=${encodeURIComponent(pathname)}`)
     return null
   }
   toast({ title: "Error", description: response.error?.message ?? "Failed to load plans", variant: "destructive" })

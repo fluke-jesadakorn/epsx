@@ -276,7 +276,8 @@ export class UnifiedApiClient {
 
   private triggerSessionExpiry(): void {
     const onAuthPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/auth');
-    if (isRedirecting || onAuthPage) { return; }
+    // Don't redirect if there was never an active session — avoids loop on unauthenticated page load
+    if (isRedirecting || onAuthPage || sharedClientToken === undefined) { return; }
     isRedirecting = true;
     if (sessionExpiredHandler !== undefined) {
       sessionExpiredHandler();

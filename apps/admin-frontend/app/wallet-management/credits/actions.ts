@@ -13,7 +13,6 @@ import type {
 } from '@/shared/types/credits';
 import type { UnifiedApiClient } from '@/shared/utils/api-client';
 import { logger } from '@/lib/logger';
-import { redirect } from 'next/navigation';
 
 async function handleApiError<T>(
   res: ApiResponse<T>,
@@ -22,12 +21,13 @@ async function handleApiError<T>(
 ): Promise<T> {
   redirectOnForbidden(res, '/wallet-management/credits');
 
-  if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
-    await logout();
-    redirect('/auth');
-  }
+  const isUnauth = res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED';
 
-  logger.action.error(errMsg, res.error, { code: res.error?.code });
+  if (isUnauth) {
+    await logout();
+  } else {
+    logger.action.error(errMsg, res.error, { code: res.error?.code });
+  }
 
   if (defaultVal !== undefined) {
     return defaultVal;

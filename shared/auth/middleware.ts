@@ -88,14 +88,14 @@ function handleRedirects(
         return handleUnauthenticated({ request, pathname, search, loginPath, noRedirect });
     }
 
-    // Case B: Explicit Login request with return_url
-    if (pathname === loginPath && request.nextUrl.searchParams.has('return_url')) {
-        return handleExplicitReturnUrl(request, loginPath);
-    }
-
-    // Case C: Authenticated User on Login Page
+    // Case C: Authenticated User on Login Page (checked before Case B so return_url redirect works)
     if (isAuthenticated && pathname === loginPath) {
         return handleAuthenticatedOnLogin(request, { homePath, loginPath, noRedirect });
+    }
+
+    // Case B: Explicit Login request with return_url (unauthenticated users only)
+    if (pathname === loginPath && request.nextUrl.searchParams.has('return_url')) {
+        return handleExplicitReturnUrl(request, loginPath);
     }
 
     return null;

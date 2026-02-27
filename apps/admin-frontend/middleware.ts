@@ -29,13 +29,10 @@ function handleLoginRoute(request: NextRequest, hasToken: boolean): NextResponse
         return null;
     }
 
-    if (!hasToken) {
-        return NextResponse.next();
-    }
-
-    // Break infinite redirect loop if token is expired but cookie isn't cleared
-    if (request.nextUrl.searchParams.get('reason') === 'no-session' || request.nextUrl.searchParams.has('clear')) {
-        const resp = NextResponse.next();
+    // Clear expired session cookies and redirect to gate
+    const params = request.nextUrl.searchParams;
+    if (params.get('reason') === 'no-session' || params.has('clear')) {
+        const resp = NextResponse.redirect(new URL('/', request.url));
         resp.cookies.delete(COOKIES.access_token);
         resp.cookies.delete(COOKIES.user);
         resp.cookies.delete(COOKIES.id_token);
@@ -43,11 +40,14 @@ function handleLoginRoute(request: NextRequest, hasToken: boolean): NextResponse
         resp.cookies.delete(COOKIES.sid);
         return resp;
     }
-    const raw = request.cookies.get(COOKIES.return_url)?.value ?? '/';
-    const returnUrl = isPublicRoute(raw) ? '/' : raw;
-    const resp = NextResponse.redirect(new URL(returnUrl, request.url));
-    resp.cookies.delete(COOKIES.return_url);
-    return resp;
+
+    // No token: pass through — page.tsx redirects to / which shows gate
+    if (!hasToken) {
+        return NextResponse.next();
+    }
+
+    // Has token: redirect authenticated users away from /auth
+    return NextResponse.redirect(new URL('/', request.url));
 }
 
 async function extractErrorDetail(res: Response): Promise<string> {
@@ -77,7 +77,7 @@ async function extractErrorDetail(res: Response): Promise<string> {
  * Verifies admin permissions by probing the backend; no JWT decoding in frontend.
  */
 export async function middleware(request: NextRequest) {
-    const { pathname, search } = request.nextUrl;
+    const { pathname } = request.nextUrl;
 
     const token = getServerAuthToken(request.cookies);
     const hasToken = token !== null;
@@ -92,19 +92,9 @@ export async function middleware(request: NextRequest) {
         return NextResponse.next();
     }
 
+    // No token: pass through — layout gate shows auth modal inline
     if (!hasToken) {
-        const url = new URL(LOGIN_PATH, request.url);
-        const resp = NextResponse.redirect(url);
-        if (pathname !== '/' && !pathname.startsWith('/_next') && !pathname.startsWith('/api')) {
-            resp.cookies.set(COOKIES.return_url, pathname + search, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'lax',
-                path: '/',
-                maxAge: 300,
-            });
-        }
-        return resp;
+        return NextResponse.next();
     }
 
     // Verify admin permission by calling the backend — backend is the sole authority

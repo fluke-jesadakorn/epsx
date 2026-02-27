@@ -2,6 +2,7 @@ import { GlobalErrorBoundary } from '@/components/error-boundaries/global-error-
 import { SafeThemeScript } from '@/components/ui/safe-theme-script';
 import '@/lib/polyfills';
 
+import { FrontendAuthModal } from '@/components/auth/frontend-auth-modal';
 import { NavigationClient } from '@/components/nav/navigation-client';
 import { ClientProviders } from '@/components/providers/client-providers';
 import { SharedOpenIDWeb3Provider } from '@/shared/components/auth';
@@ -148,17 +149,22 @@ export default async function RootLayout({
               {/* Main content with mobile scroll optimization */}
               <main className="relative min-h-screen">{children}</main>
 
+              {/* Sign in modal (triggered by openSignInModal) */}
+              <FrontendAuthModal />
+
               {/* Floating chat widget */}
               <ChatWidget />
 
               {/* Toast notifications */}
               <Toaster
-                position="top-right"
+                position="bottom-right"
+                closeButton
                 toastOptions={{
                   style: {
-                    background: 'hsl(var(--background))',
+                    background: 'hsl(var(--card))',
                     color: 'hsl(var(--foreground))',
                     border: '1px solid hsl(var(--border))',
+                    opacity: 1,
                   },
                 }}
               />

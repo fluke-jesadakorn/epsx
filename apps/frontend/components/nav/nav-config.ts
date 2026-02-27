@@ -8,6 +8,7 @@ import {
   Info,
   LineChart,
   Mail,
+  Newspaper,
   TrendingUp,
 } from 'lucide-react';
 
@@ -51,6 +52,7 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: Building2,
     items: [
       { label: 'About', href: '/about', key: 'about', icon: Info },
+      { label: 'News', href: '/news', key: 'news', icon: Newspaper, desc: 'Latest updates' },
       { label: 'Contact', href: '/contact', key: 'contact', icon: Mail },
       { label: 'Support', href: '/chat', key: 'support', icon: HelpCircle },
     ],

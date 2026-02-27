@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
 
+import { AdminAuthGate } from '@/components/auth/admin-auth-gate'
 import { MainLayout } from './main-layout'
 
 import { useSharedAuth } from '@/shared/components/auth'
@@ -14,26 +15,20 @@ interface AuthLayoutProps {
     email: string
     name?: string
     role: string
-  }
+  } | null
 }
 
 // Pages that should NEVER have the admin layout
 const NO_LAYOUT_PATHS = [
-  '/auth',
   '/login',
   '/unauthorized',
   '/access-denied',
   '/permissions/policies',
 ]
 
-/**
- * AuthLayout
- * Middleware handles auth protection server-side.
- * This wraps authenticated pages with MainLayout + user context.
- */
 export function AuthLayout({ children, user: serverUser }: AuthLayoutProps) {
   const pathname = usePathname()
-  const { user: authUser } = useSharedAuth()
+  const { user: authUser, isAuthenticated } = useSharedAuth()
 
   // Special pages that never get layout
   const isNoLayoutPage = NO_LAYOUT_PATHS.some(path => pathname === path || pathname.startsWith(path))
@@ -49,9 +44,17 @@ export function AuthLayout({ children, user: serverUser }: AuthLayoutProps) {
     role: 'admin'
   } : serverUser
 
+  // Gate: server has no user and client confirms unauthenticated
+  // Overlay the gate on top of MainLayout so the page tree stays mounted
+  // (avoids hooks count mismatch when RSC reconciles after router.refresh())
+  const isGated = (serverUser === null || serverUser === undefined) && !isAuthenticated
+
   return (
-    <MainLayout user={layoutUser}>
-      {children}
-    </MainLayout>
+    <>
+      <MainLayout user={layoutUser}>
+        {children}
+      </MainLayout>
+      {isGated && <AdminAuthGate />}
+    </>
   )
 }

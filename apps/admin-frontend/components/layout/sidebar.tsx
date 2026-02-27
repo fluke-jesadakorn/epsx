@@ -24,6 +24,7 @@ import {
   Link as LinkIcon,
   Lock,
   MessageCircle,
+  Newspaper,
   Palette,
   Send,
   Settings,
@@ -67,6 +68,7 @@ const navigationItems: NavItem[] = [
     ],
   },
   { id: 'chat', label: 'Chat Support', href: '/chat', icon: MessageCircle, requiresAuth: true },
+  { id: 'news', label: 'News', href: '/news', icon: Newspaper, requiresAuth: true },
   { id: 'analytics', label: 'Analytics', href: '/analytics', icon: BarChart3, requiresAuth: true },
   { id: 'audit-log', label: 'Audit Log', href: '/audit-log', icon: FileText, requiresAuth: true },
   {

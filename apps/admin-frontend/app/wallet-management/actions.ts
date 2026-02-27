@@ -11,8 +11,6 @@ import type {
 import { redirectOnForbidden } from '@/lib/api-error';
 import { logout } from '@/lib/auth/auth';
 import { createAdminApiClient } from '@/shared/api';
-import { redirect } from 'next/navigation';
-
 // Mappers moved to @/lib/mappers/wallet
 import { mapWalletDtoToData } from '@/lib/mappers/wallet';
 
@@ -34,7 +32,6 @@ async function checkAuthError(error?: { code?: string; message?: string } | null
 
     if (isUnauthorized) {
         await logout();
-        redirect('/auth');
     }
 }
 

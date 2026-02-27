@@ -11,7 +11,7 @@ import { COOKIES } from '@/shared/auth/cookies';
 export async function GET(request: NextRequest) {
     const cookieStore = await cookies();
     const searchParams = request.nextUrl.searchParams;
-    const returnUrl = searchParams.get('return_url') ?? '/auth';
+    const returnUrl = searchParams.get('return_url') ?? '/';
 
     // Clear all known EPSX cookies
     Object.values(COOKIES).forEach((cookieName) => {

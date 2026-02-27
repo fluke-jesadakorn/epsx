@@ -311,6 +311,15 @@ pub fn create_admin_routes() -> Router<AppState> {
     // Plan seeding (admin-only, disabled in production)
     .route("/plans/seed", post(crate::web::public::seed_plans_handler::seed_subscription_plans))
 
+    // ============================================================================
+    // NEWS MANAGEMENT
+    // ============================================================================
+    .route("/news", get(super::news_handlers::list_news).post(super::news_handlers::create_news))
+    .route("/news/upload-image", post(super::news_handlers::upload_news_image))
+    .route("/news/{id}", get(super::news_handlers::get_news).put(super::news_handlers::update_news).delete(super::news_handlers::delete_news))
+    .route("/news/{id}/publish", put(super::news_handlers::publish_news))
+    .route("/news/{id}/unpublish", put(super::news_handlers::unpublish_news))
+
     }
 
 pub fn create_admin_public_routes() -> Router<AppState> {

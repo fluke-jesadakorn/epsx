@@ -35,7 +35,6 @@ function AuthContent() {
     useEffect(() => {
         if (isAuthenticated && user && isConnected) {
             router.push(returnUrl);
-            router.refresh();
         }
     }, [isAuthenticated, user, isConnected, returnUrl, router]);
 

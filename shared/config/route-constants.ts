@@ -21,6 +21,14 @@ export const API_ROUTES = {
     PLANS_FEATURES: '/api/public/plans/features',
     STATUS: '/api/public/status',
     NETWORKS: '/api/public/networks',
+    NEWS: '/api/public/news',
+  },
+
+  // News management
+  NEWS: {
+    ADMIN_LIST: '/api/admin/news',
+    ADMIN_CREATE: '/api/admin/news',
+    ADMIN_UPLOAD_IMAGE: '/api/admin/news/upload-image',
   },
 
   // Authentication endpoints

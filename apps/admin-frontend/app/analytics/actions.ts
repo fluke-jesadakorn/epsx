@@ -15,7 +15,6 @@ import { createAdminApiClient, createPlansClient } from '@/shared/api';
 import type { ApiResponse } from '@/shared/types/api';
 import type { UnifiedApiClient } from '@/shared/utils/api-client';
 import { logger } from '@/lib/logger';
-import { redirect } from 'next/navigation';
 
 async function processApiResponse<T>(
     res: ApiResponse<T>,
@@ -25,15 +24,18 @@ async function processApiResponse<T>(
     if (!res.success) {
         redirectOnForbidden(res, '/analytics');
 
-        logger.action.error(errorMessage, res.error, { code: res.error?.code });
+        const isUnauth = res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED';
+
+        if (!isUnauth) {
+            logger.action.error(errorMessage, res.error, { code: res.error?.code });
+        }
 
         if (defaultValue !== undefined) {
             return defaultValue;
         }
 
-        if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
+        if (isUnauth) {
             await logout();
-            redirect('/auth');
         }
 
         throw new Error(res.error?.message ?? errorMessage);

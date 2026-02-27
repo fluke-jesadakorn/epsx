@@ -331,6 +331,10 @@ impl UnifiedRouteBuilder {
             .route("/plans/{id}", get(crate::web::public::plans_handlers::get_public_plan_by_id))
             // V2 Dynamic Payment Links (public lookup by slug)
             .route("/payment-links/{slug}", get(crate::web::admin::payment_link_handlers::get_payment_link_by_slug_handler))
+            // News (public, no auth)
+            .route("/news", get(crate::web::public::news_handlers::list_public_news))
+            .route("/news/images/{filename}", get(crate::web::public::news_handlers::serve_news_image))
+            .route("/news/{slug}", get(crate::web::public::news_handlers::get_public_news))
             .with_state(app_state)
     }
 

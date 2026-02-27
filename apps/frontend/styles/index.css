@@ -19,6 +19,7 @@
  * - Reduced CSS bundle size
  */
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 @source "@/shared";
 @custom-variant dark (&:where(.dark, .dark *));
 
