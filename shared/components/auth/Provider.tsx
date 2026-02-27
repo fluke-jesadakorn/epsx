@@ -9,7 +9,9 @@ import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState
 } from 'react';
 import type {
@@ -69,6 +71,8 @@ export interface SharedAuthContextValue {
   showSignInModal: boolean;
   openSignInModal: () => void;
   closeSignInModal: () => void;
+  /** Gate protected actions: opens SIWE modal if not authenticated. Resolves true when auth succeeds, false if cancelled. */
+  requireAuth: () => Promise<boolean>;
 }
 
 // Create context
@@ -93,6 +97,7 @@ export function SharedOpenIDWeb3Provider({
 }: SharedOpenIDWeb3ProviderProps) {
   const [isSigningChallenge, setIsSigningChallenge] = useState(false);
   const [showSignInModal, setShowSignInModal] = useState(false);
+  const authCallbacksRef = useRef<Array<(success: boolean) => void>>([]);
 
   const [client] = useState(() => {
     // Use centralized URL resolver as fallback when prop is empty/undefined
@@ -159,7 +164,28 @@ export function SharedOpenIDWeb3Provider({
   } = useApiHelpers({ client });
 
   const openSignInModal = useCallback(() => setShowSignInModal(true), []);
-  const closeSignInModal = useCallback(() => setShowSignInModal(false), []);
+  const closeSignInModal = useCallback(() => {
+    setShowSignInModal(false);
+    // Resolve any pending requireAuth calls as cancelled (false)
+    const cbs = authCallbacksRef.current.splice(0);
+    cbs.forEach(cb => cb(false));
+  }, []);
+
+  // When user becomes authenticated, resolve any pending requireAuth calls
+  useEffect(() => {
+    if (user !== null && authCallbacksRef.current.length > 0) {
+      const cbs = authCallbacksRef.current.splice(0);
+      cbs.forEach(cb => cb(true));
+    }
+  }, [user]);
+
+  const requireAuth = useCallback((): Promise<boolean> => {
+    if (user !== null) { return Promise.resolve(true); }
+    return new Promise<boolean>(resolve => {
+      authCallbacksRef.current.push(resolve);
+      setShowSignInModal(true);
+    });
+  }, [user]);
 
   const isAuthenticated = user !== null;
 
@@ -182,6 +208,7 @@ export function SharedOpenIDWeb3Provider({
     showSignInModal,
     openSignInModal,
     closeSignInModal,
+    requireAuth,
   }), [
     user,
     isAuthenticated,
@@ -201,6 +228,7 @@ export function SharedOpenIDWeb3Provider({
     showSignInModal,
     openSignInModal,
     closeSignInModal,
+    requireAuth,
   ]);
 
   return (

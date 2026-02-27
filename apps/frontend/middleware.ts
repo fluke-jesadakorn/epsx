@@ -10,6 +10,13 @@ export const middleware = createAuthMiddleware({
         '/terms',
         '/privacy',
         '/analytics',
+        '/plans',       // Browse plans without auth
+        '/portfolio',   // Browse without auth; actions gated at component level
+        '/chat',        // Browse without auth; sending messages requires auth
+        '/dashboard',   // Browse without auth
+        '/account*',    // Actions gated at component level
+        '/payment*',    // Actions gated at component level
+        '/developer*',  // Actions gated at component level
         '/manual',
         '/upgrade',
         '/api/auth',

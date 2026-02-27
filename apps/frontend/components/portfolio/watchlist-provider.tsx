@@ -1,6 +1,7 @@
 'use client';
 
 import { addToWatchlistAction, removeFromWatchlistAction } from '@/app/actions/watchlist';
+import { useRequireAuth } from '@/shared/hooks/use-require-auth';
 import { createContext, useCallback, useContext, useMemo, useState, useTransition } from 'react';
 
 interface WatchlistCtx {
@@ -30,6 +31,7 @@ export function WatchlistProvider({
 }) {
   const [symbols, setSymbols] = useState<string[]>(initial);
   const [isPending, startTransition] = useTransition();
+  const { requireAuth } = useRequireAuth();
 
   const symbolSet = useMemo(() => new Set(symbols), [symbols]);
 
@@ -43,14 +45,18 @@ export function WatchlistProvider({
       const upper = symbol.toUpperCase();
       const removing = symbolSet.has(upper);
 
-      // Optimistic update
-      if (removing) {
-        setSymbols((prev) => prev.filter((s) => s !== upper));
-      } else {
-        setSymbols((prev) => [...prev, upper]);
-      }
-
       startTransition(async () => {
+        // Gate: require SIWE auth before modifying watchlist
+        const ok = await requireAuth();
+        if (!ok) { return; }
+
+        // Optimistic update after auth confirmed
+        if (removing) {
+          setSymbols((prev) => prev.filter((s) => s !== upper));
+        } else {
+          setSymbols((prev) => [...prev, upper]);
+        }
+
         const updated = removing
           ? await removeFromWatchlistAction(upper)
           : await addToWatchlistAction(upper);
@@ -60,7 +66,7 @@ export function WatchlistProvider({
         }
       });
     },
-    [symbolSet],
+    [symbolSet, requireAuth],
   );
 
   const value = useMemo(
