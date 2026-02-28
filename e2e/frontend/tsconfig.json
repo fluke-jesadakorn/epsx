@@ -1,0 +1,14 @@
+{
+  "extends": "../../apps/frontend/tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["../../apps/frontend/*"],
+      "@/shared/*": ["../../shared/*"],
+      "@/components/*": ["../../apps/frontend/components/*"],
+      "@/lib/*": ["../../apps/frontend/lib/*"],
+      "@/utils/*": ["../../apps/frontend/utils/*"],
+      "@/hooks/*": ["../../apps/frontend/hooks/*"]
+    }
+  },
+  "include": ["./**/*.ts", "./**/*.tsx"]
+}

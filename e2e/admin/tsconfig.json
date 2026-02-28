@@ -1,0 +1,10 @@
+{
+  "extends": "../../apps/admin-frontend/tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["../../apps/admin-frontend/*"],
+      "@/shared/*": ["../../shared/*"]
+    }
+  },
+  "include": ["./**/*.ts", "./**/*.tsx"]
+}
