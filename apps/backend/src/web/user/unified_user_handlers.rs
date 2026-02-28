@@ -1015,7 +1015,7 @@ pub async fn update_user_notification_preferences(
         "#
     )
     .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
-    .bind::<diesel::sql_types::Jsonb, _>(serde_json::to_value(&preferences).unwrap())
+    .bind::<diesel::sql_types::Jsonb, _>(serde_json::to_value(&preferences).unwrap_or_default())
     .execute(&mut conn)
     .await;
 

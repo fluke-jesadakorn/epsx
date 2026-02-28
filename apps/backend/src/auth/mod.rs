@@ -12,6 +12,12 @@ pub mod unified_permission_service;
 // UNIFIED WEB3 AUTHENTICATION (CURRENT - SINGLE SOURCE OF TRUTH)
 pub mod auth_service;
 
+// SIWE challenge generation/validation (impl UnifiedWeb3AuthService)
+mod challenge_service;
+
+// Wallet user lifecycle + blockchain permission checks (impl UnifiedWeb3AuthService)
+mod verification_service;
+
 // OPENID CONNECT INTEGRATION WITH WEB3
 pub mod token_service;
 

@@ -12,7 +12,7 @@ use crate::infrastructure::cache::unified_permission_cache::UnifiedPermissionCac
 use crate::infrastructure::redis::RedisPool;
 use crate::web::notifications::RedisNotificationBroadcaster;
 use crate::infrastructure::adapters::repositories::{
-    wallet_user_repository_adapter::WalletUserRepositoryAdapter,
+    wallet_user::WalletUserRepositoryAdapter,
 
     permission_plan_repository_adapter::PermissionPlanRepositoryAdapter,
     payment_repository_adapter::PaymentRepositoryAdapter,

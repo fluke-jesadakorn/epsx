@@ -12,7 +12,7 @@ pub mod tradingview_eps_repository; // TradingView EPS data adapter
 pub mod payment_repository_adapter;
 pub mod mappers;
 
-pub mod wallet_user_repository_adapter;
+pub mod wallet_user;
 
 pub mod permission_plan_repository_adapter;
 pub mod plan_repository_adapter; // NEW
@@ -29,7 +29,7 @@ pub use stock_analysis_repository_adapter::StockAnalysisRepositoryAdapter;
 pub use tradingview_eps_repository::TradingViewEPSRepository;
 pub use payment_repository_adapter::PaymentRepositoryAdapter;
 
-pub use wallet_user_repository_adapter::WalletUserRepositoryAdapter;
+pub use wallet_user::WalletUserRepositoryAdapter;
 pub use plan_repository_adapter::PostgresPlanRepositoryAdapter;
 pub use subscription_repository_adapter::SubscriptionRepositoryAdapter;
 pub use credit_repository_adapter::CreditRepositoryAdapter;

@@ -9,7 +9,7 @@ use crate::infrastructure::cache::{Cache, ServerlessCacheFactory};
 use crate::infrastructure::database::diesel_health_check;
 use crate::infrastructure::redis::RedisPool;
 use crate::web::notifications::RedisNotificationBroadcaster;
-use crate::infrastructure::adapters::repositories::wallet_user_repository_adapter::WalletUserRepositoryAdapter;
+use crate::infrastructure::adapters::repositories::wallet_user::WalletUserRepositoryAdapter;
 use crate::infrastructure::adapters::services::permission_adapter::{
     Web3PermissionServiceAdapter, BlockchainConfig
 };

@@ -422,7 +422,7 @@ impl PermissionError {
                     timestamp,
                     error_id,
                     context: HashMap::from([
-                        ("usage_percentage".to_string(), serde_json::Value::Number(serde_json::Number::from_f64(usage_percentage as f64).unwrap())),
+                        ("usage_percentage".to_string(), serde_json::json!(usage_percentage as f64)),
                     ]),
                 }
             }
