@@ -48,7 +48,6 @@ interface WalletHubDataCtx { isAuthenticated: boolean; authLoading: boolean; fil
 
 function useWalletHubData({ isAuthenticated, authLoading, filters, page }: WalletHubDataCtx) {
     const [wallets, setWallets] = useState<WalletData[]>([]);
-    const [_stats, setStats] = useState<WalletStats>(DEFAULT_STATS);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -56,11 +55,7 @@ function useWalletHubData({ isAuthenticated, authLoading, filters, page }: Walle
         setIsLoading(true);
         setError(null);
         try {
-            const [statsData, walletsData] = await Promise.all([
-                walletMgmt.fetchWalletStats(),
-                walletMgmt.fetchWallets(filters, page, 50),
-            ]);
-            setStats(statsData);
+            const walletsData = await walletMgmt.fetchWallets(filters, page, 50);
             setWallets(walletsData.wallets);
         } catch (err) {
             logger.error('Failed to load wallet data:', { err });

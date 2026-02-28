@@ -410,6 +410,7 @@ impl UnifiedRouteBuilder {
             get_usage_stats_handler,
             get_usage_history_handler,
             get_top_endpoints_handler,
+            developer_overview_handler,
         };
 
         let app_state = self.create_app_state();
@@ -431,6 +432,7 @@ impl UnifiedRouteBuilder {
             .route("/stats", get(get_usage_stats_handler))
             .route("/usage-history", get(get_usage_history_handler))
             .route("/top-endpoints", get(get_top_endpoints_handler))
+            .route("/overview", get(developer_overview_handler))
             .with_state(app_state.clone())
             .layer(axum_middleware::from_fn_with_state(
                 app_state,

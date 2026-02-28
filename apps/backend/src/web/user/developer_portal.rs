@@ -651,3 +651,62 @@ pub async fn get_top_endpoints_handler(
         }
     }
 }
+
+// ============================================================================
+// Batch endpoint
+// ============================================================================
+
+#[derive(Debug, Serialize)]
+pub struct DeveloperOverviewResponse {
+    pub api_keys: Option<serde_json::Value>,
+    pub stats: Option<serde_json::Value>,
+    pub history: Option<serde_json::Value>,
+    pub top_endpoints: Option<serde_json::Value>,
+}
+
+/// GET /api/developer-portal/overview?days=N
+/// Combines keys + stats + history + top-endpoints into one round-trip.
+pub async fn developer_overview_handler(
+    State(state): State<AppState>,
+    Extension(wallet_address): Extension<String>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> impl IntoResponse {
+    let days = params.get("days")
+        .and_then(|d| d.parse::<i32>().ok())
+        .unwrap_or(7);
+
+    let pool = *state.db_pool;
+    let repo = ApiKeyRepository::new(&pool);
+    let service = UsageService::new_core_only(pool);
+    let addr = wallet_address.clone();
+
+    let (keys_res, stats_res, history_res, endpoints_res) = tokio::join!(
+        repo.list_by_wallet(&addr, Some(100), None, None),
+        service.get_wallet_stats(&addr),
+        service.get_usage_history(&addr, days),
+        service.get_top_endpoints(&addr, days),
+    );
+
+    let api_keys = keys_res.ok().map(|(keys, total)| {
+        let masked: Vec<serde_json::Value> = keys.into_iter().map(|k| serde_json::json!({
+            "id": k.id.to_string(),
+            "key_preview": mask_key_prefix(&k.key_prefix),
+            "full_key": k.full_key,
+            "client_name": k.client_name,
+            "client_description": k.client_description,
+            "status": k.status.to_string(),
+            "total_requests": k.total_requests,
+            "expires_at": k.expires_at.map(|dt| dt.to_rfc3339()),
+            "last_used_at": k.last_used_at.map(|dt| dt.to_rfc3339()),
+            "created_at": k.created_at.to_rfc3339(),
+        })).collect();
+        serde_json::json!({ "api_keys": masked, "total": total })
+    });
+
+    UnifiedApiResponse::success(DeveloperOverviewResponse {
+        api_keys,
+        stats: stats_res.ok().and_then(|s| serde_json::to_value(s).ok()),
+        history: history_res.ok().and_then(|h| serde_json::to_value(h).ok()),
+        top_endpoints: endpoints_res.ok().and_then(|e| serde_json::to_value(e).ok()),
+    })
+}

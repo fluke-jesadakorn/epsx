@@ -49,6 +49,19 @@ export async function getTopEndpointsAction(days = 7) {
 }
 
 /**
+ * Batch: api keys + stats + history + top endpoints in one call
+ */
+export async function getDeveloperOverviewAction(days = 7) {
+    const client = getServerActionClient();
+    return client.get<{
+        api_keys: { api_keys: unknown[]; total: number } | null;
+        stats: unknown | null;
+        history: unknown[] | null;
+        top_endpoints: unknown[] | null;
+    }>(`/api/developer-portal/overview?days=${days}`);
+}
+
+/**
  * Create a new API key
  */
 export async function createApiKeyAction(body: {
