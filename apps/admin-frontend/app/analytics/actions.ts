@@ -151,3 +151,25 @@ export async function getPlanStatsAction(): Promise<PlanStats> {
         }
     );
 }
+
+export interface AdminAnalyticsDashboard {
+    user_stats: UserStats | null;
+    permission_analytics: PermissionAnalytics | null;
+    plan_stats: PlanStats | null;
+    system_metrics: SystemMetrics | null;
+    developer_portal: DeveloperPortalStats | null;
+}
+
+export async function getAnalyticsDashboardAction(): Promise<AdminAnalyticsDashboard> {
+    return handleAction(
+        (apiClient) => apiClient.get<AdminAnalyticsDashboard>('/api/admin/analytics/dashboard'),
+        'Failed to fetch analytics dashboard',
+        {
+            user_stats: null,
+            permission_analytics: null,
+            plan_stats: null,
+            system_metrics: null,
+            developer_portal: null,
+        }
+    );
+}

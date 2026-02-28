@@ -4,8 +4,7 @@ import { ProgressiveAuthBanner } from '@/components/auth/progressive-auth-banner
 import { AnalyticsAuthWrapper } from '@/components/auth/analytics-auth-wrapper';
 import { WatchlistProvider } from '@/components/portfolio/watchlist-provider';
 import { AnalyticsTransitionProvider } from '@/shared/components/analytics/analytics-transition-provider';
-import { getMyPlanAccessAction } from '@/app/actions/plans';
-import { getWatchlistAction } from '@/app/actions/watchlist';
+import { getDashboardInitAction } from '@/app/actions/plans';
 import { BarChart3, TrendingUp, Sparkles } from 'lucide-react';
 import { Suspense } from 'react';
 
@@ -24,10 +23,7 @@ interface AnalyticsPageProps {
 
 export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   const resolvedSearchParams = await searchParams;
-  const [planAccess, watchlist] = await Promise.all([
-    getMyPlanAccessAction(),
-    getWatchlistAction(),
-  ]);
+  const { plan_access: planAccess, watchlist } = await getDashboardInitAction();
 
   return (
     <AnalyticsAuthWrapper>

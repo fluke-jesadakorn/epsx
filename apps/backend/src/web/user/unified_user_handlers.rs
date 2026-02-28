@@ -858,6 +858,92 @@ pub async fn get_user_notification_preferences(
     })))
 }
 
+/// Dashboard init: returns plan access + watchlist in one call
+/// GET /users/dashboard-init
+pub async fn dashboard_init_handler(
+    State(app_state): State<AppState>,
+    Extension(ctx): Extension<OpenIDUserContext>,
+) -> impl axum::response::IntoResponse {
+    info!("User: Getting dashboard init for {}", ctx.wallet_address);
+    let wallet = ctx.wallet_address.to_lowercase();
+
+    let (plan_access, watchlist) = tokio::join!(
+        fetch_user_plan_access(&app_state, &wallet),
+        fetch_user_watchlist(&app_state, &wallet),
+    );
+
+    Json(UnifiedApiResponse::success(json!({
+        "plan_access": plan_access.unwrap_or_else(|_| json!(null)),
+        "watchlist": watchlist.unwrap_or_else(|_| json!([])),
+    })))
+}
+
+async fn fetch_user_plan_access(app_state: &AppState, wallet: &str) -> Result<Value, String> {
+    let mut conn = app_state.db_pool.get().await.map_err(|e| e.to_string())?;
+
+    #[derive(QueryableByName, Serialize)]
+    struct PlanRow {
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        plan_id: String,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        plan_name: String,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+        expires_at: Option<chrono::DateTime<chrono::Utc>>,
+    }
+
+    let results = diesel::sql_query(
+        "SELECT wpa.plan_id::text, p.name as plan_name, wpa.expires_at
+         FROM wallet_plan_assignments wpa
+         INNER JOIN plans p ON wpa.plan_id = p.id
+         WHERE wpa.wallet_address = $1 AND wpa.is_active = true"
+    )
+    .bind::<diesel::sql_types::Text, _>(wallet)
+    .load::<PlanRow>(&mut conn)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(serde_json::to_value(results).unwrap_or_else(|_| json!([])))
+}
+
+async fn fetch_user_watchlist(app_state: &AppState, wallet: &str) -> Result<Value, String> {
+    let mut conn = app_state.db_pool.get().await.map_err(|e| e.to_string())?;
+
+    #[derive(QueryableByName)]
+    struct WatchlistRow {
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        ticker: String,
+    }
+
+    let results = diesel::sql_query(
+        "SELECT ticker FROM user_watchlist WHERE wallet_address = $1 ORDER BY added_at DESC"
+    )
+    .bind::<diesel::sql_types::Text, _>(wallet)
+    .load::<WatchlistRow>(&mut conn)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(serde_json::to_value(results.into_iter().map(|r| r.ticker).collect::<Vec<_>>())
+        .unwrap_or_else(|_| json!([])))
+}
+
+/// Portfolio overview: returns watchlist + analytics data
+/// GET /users/portfolio/overview
+pub async fn portfolio_overview_handler(
+    State(app_state): State<AppState>,
+    Extension(ctx): Extension<OpenIDUserContext>,
+) -> impl axum::response::IntoResponse {
+    info!("User: Getting portfolio overview for {}", ctx.wallet_address);
+    let wallet = ctx.wallet_address.to_lowercase();
+
+    let watchlist = fetch_user_watchlist(&app_state, &wallet).await
+        .unwrap_or_else(|_| json!([]));
+
+    Json(UnifiedApiResponse::success(json!({
+        "watchlist": watchlist,
+        "rankings": [],
+    })))
+}
+
 /// Update user notification preferences
 #[utoipa::path(
     post,

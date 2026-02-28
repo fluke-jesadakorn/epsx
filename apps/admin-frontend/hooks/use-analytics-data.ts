@@ -1,7 +1,6 @@
 'use client';
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 // ============================================================================
 // FETCHER (Legacy fetcher removed in favor of Server Action)
@@ -12,12 +11,14 @@ import { useCallback } from 'react';
 // ============================================================================
 
 import {
+  getAnalyticsDashboardAction,
   getApiKeysAction,
   getDeveloperPortalStatsAction,
   getPermissionAnalyticsAction,
   getPlanStatsAction,
   getSystemMetricsAction,
-  getUserStatsAction
+  getUserStatsAction,
+  type AdminAnalyticsDashboard
 } from '@/app/analytics/actions';
 
 // ============================================================================
@@ -302,45 +303,33 @@ export function useApiKeys() {
  *
  */
 export function useAnalyticsOverview() {
-  const queryClient = useQueryClient();
-  const { userStats, isLoading: userStatsLoading, error: userStatsError } = useUserStats();
-  const { permissionAnalytics, isLoading: permissionLoading, error: permissionError } = usePermissionAnalytics();
-  const { planStats, isLoading: planStatsLoading, error: planStatsError } = usePlanStats();
-  const { systemMetrics, isLoading: systemLoading, error: systemError } = useSystemMetrics();
-  const { dashboardData, isLoading: dashboardLoading, error: dashboardError } = useAnalyticsDashboard();
-
-  const refreshAll = useCallback(() => {
-    // Refresh all data sources using queryClient
-    void queryClient.invalidateQueries({ queryKey: ['user-stats'] });
-    void queryClient.invalidateQueries({ queryKey: ['permission-analytics'] });
-    void queryClient.invalidateQueries({ queryKey: ['plan-stats'] });
-    void queryClient.invalidateQueries({ queryKey: ['system-metrics'] });
-    void queryClient.invalidateQueries({ queryKey: ['developer-portal-stats'] });
-  }, [queryClient]);
+  const { data, error, isLoading, refetch } = useQuery<AdminAnalyticsDashboard>({
+    queryKey: ['admin-analytics-dashboard'],
+    queryFn: getAnalyticsDashboardAction,
+    refetchInterval: 30000,
+    refetchOnWindowFocus: false,
+  });
 
   return {
-    // Data
-    userStats,
-    permissionAnalytics,
-    planStats,
-    systemMetrics,
-    dashboardData,
-
-    // Loading states (using shared utility)
-    isLoading: combineLoadingStates(userStatsLoading, permissionLoading, planStatsLoading, systemLoading, dashboardLoading),
-
-    // Error states (using shared utility)
-    hasError: combineErrorStates(userStatsError, permissionError, planStatsError, systemError, dashboardError),
+    userStats: data?.user_stats ?? undefined,
+    permissionAnalytics: data?.permission_analytics ?? undefined,
+    planStats: data?.plan_stats ?? undefined,
+    systemMetrics: data?.system_metrics ?? undefined,
+    dashboardData: data?.developer_portal ? {
+      summary: data.developer_portal,
+      trends: [],
+      metrics: { totalRequests: data.developer_portal.total_requests_this_month }
+    } : undefined,
+    isLoading,
+    hasError: Boolean(error),
     errors: {
-      userStats: userStatsError,
-      permissions: permissionError,
-      planStats: planStatsError,
-      system: systemError,
-      dashboard: dashboardError,
+      userStats: null,
+      permissions: null,
+      planStats: null,
+      system: null,
+      dashboard: error,
     },
-
-    // Actions
-    refreshAll,
+    refreshAll: refetch,
   };
 }
 

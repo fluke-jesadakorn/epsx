@@ -353,6 +353,63 @@ pub async fn get_unread(
     }
 }
 
+/// Chat inbox: returns topics + conversations in one call
+/// GET /chat/inbox
+pub async fn chat_inbox_handler(
+    State(app_state): State<AppState>,
+    Extension(ctx): Extension<OpenIDUserContext>,
+) -> Result<Json<UnifiedApiResponse<serde_json::Value>>, Json<UnifiedApiResponse<()>>> {
+    let wallet = ctx.wallet_address.to_lowercase();
+    info!("User: Getting chat inbox for {}", wallet);
+
+    let (topics, conversations) = tokio::join!(
+        ChatRepository::list_topics(&app_state.db_pool),
+        ChatRepository::list_user_conversations(&app_state.db_pool, &wallet),
+    );
+
+    let response = serde_json::json!({
+        "topics": topics.unwrap_or_default(),
+        "conversations": conversations.unwrap_or_default(),
+    });
+
+    Ok(Json(UnifiedApiResponse::success(response)))
+}
+
+/// Full conversation with messages
+/// GET /chat/conversations/{id}/full
+pub async fn get_full_conversation_handler(
+    State(app_state): State<AppState>,
+    Extension(ctx): Extension<OpenIDUserContext>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<UnifiedApiResponse<serde_json::Value>>, Json<UnifiedApiResponse<()>>> {
+    let wallet = ctx.wallet_address.to_lowercase();
+    info!("User: Getting full conversation {} for {}", id, wallet);
+
+    let (conversation, messages) = tokio::join!(
+        ChatRepository::get_conversation(&app_state.db_pool, id),
+        ChatRepository::list_messages(&app_state.db_pool, id),
+    );
+
+    let conv = match conversation {
+        Ok(Some(c)) if c.wallet_address == ctx.wallet_address => c,
+        Ok(Some(_)) => return Err(Json(UnifiedApiResponse::error(403, "Forbidden", "Not your conversation"))),
+        Ok(None) => return Err(Json(UnifiedApiResponse::error(404, "Not found", "Conversation not found"))),
+        Err(e) => {
+            error!("Failed to get conversation: {}", e);
+            return Err(Json(UnifiedApiResponse::error(500, "Database error", &e)));
+        }
+    };
+
+    let msgs = messages.unwrap_or_default();
+
+    let response = serde_json::json!({
+        "conversation": conv,
+        "messages": msgs,
+    });
+
+    Ok(Json(UnifiedApiResponse::success(response)))
+}
+
 /// SSE stream for real-time chat messages
 pub async fn chat_stream(
     State(app_state): State<AppState>,

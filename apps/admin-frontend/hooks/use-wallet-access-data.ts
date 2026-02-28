@@ -1,10 +1,8 @@
 'use client';
 
 import {
-    getAvailablePermissionsAction,
-    getPlansAction,
-    getUserPermissionsAction,
-    getUserPlansAction,
+    getWalletAccessSummaryAction,
+    type WalletAccessSummary,
 } from '@/app/wallet-management/plan-actions';
 import type { AccessItem, RawPlanData, WalletAccessData } from '@/types/wallet';
 import { useCallback, useEffect, useState } from 'react';
@@ -24,38 +22,23 @@ export function useWalletAccessData(walletAddress: string | null) {
             setIsLoading(true);
             setError(null);
 
-            // Fetch available items in parallel
-            const [availablePermissionsRaw, plansRaw] = await Promise.all([
-                getAvailablePermissionsAction().catch(() => []),
-                getPlansAction().catch(() => []),
-            ]);
-
-            // Fetch wallet-specific data separately
-            let walletPlans: Awaited<ReturnType<typeof getUserPlansAction>> = [];
-            let walletPermissions: string[] = [];
-
-            if (walletAddress !== null && walletAddress !== '') {
-                try {
-                    const result = await getUserPlansAction(walletAddress);
-                    walletPlans = Array.isArray(result) ? result : [];
-                } catch {
-                    // Silently fail - 404 means no plans assigned
-                }
-
-                try {
-                    const result = await getUserPermissionsAction(walletAddress);
-                    walletPermissions = Array.isArray(result) ? result : [];
-                } catch {
-                    // Silently fail - 404 means no permissions assigned
-                }
+            if (walletAddress === null || walletAddress === '') {
+                setData({
+                    availablePermissions: [],
+                    availablePlans: [],
+                    authorizedPermissions: [],
+                    authorizedPlans: [],
+                });
+                return;
             }
 
-            // Parse authorized permissions from wallet data
-            const authorizedPermissionIds = new Set(walletPermissions);
-            const authorizedPlanIds = new Set(walletPlans.map((wg) => wg.plan_id));
+            const summary: WalletAccessSummary = await getWalletAccessSummaryAction(walletAddress);
+
+            const authorizedPermissionIds = new Set(summary.wallet_permissions);
+            const authorizedPlanIds = new Set(summary.wallet_assignments.map((a) => a.plan_id));
 
             // Convert permissions to AccessItems
-            const permissionItems: AccessItem[] = availablePermissionsRaw.map((p: string) => {
+            const permissionItems: AccessItem[] = summary.available_permissions.map((p: string) => {
                 const parts = p.split(':');
                 return {
                     id: p,
@@ -67,7 +50,7 @@ export function useWalletAccessData(walletAddress: string | null) {
             });
 
             // Convert plans to AccessItems
-            const planItems: AccessItem[] = (plansRaw as unknown as RawPlanData[]).map((g) => ({
+            const planItems: AccessItem[] = (summary.available_plans as unknown as RawPlanData[]).map((g) => ({
                 id: g.id,
                 type: 'plan',
                 name: g.name,
@@ -78,7 +61,6 @@ export function useWalletAccessData(walletAddress: string | null) {
                 planGroup: g.plan_group,
             }));
 
-            // Split into available/authorized
             setData({
                 availablePermissions: permissionItems.filter((p) => !authorizedPermissionIds.has(p.id)),
                 availablePlans: planItems.filter((g) => !authorizedPlanIds.has(g.id)),
@@ -88,11 +70,11 @@ export function useWalletAccessData(walletAddress: string | null) {
                 authorizedPlans: planItems
                     .filter((g) => authorizedPlanIds.has(g.id))
                     .map((g) => {
-                        const membership = walletPlans.find((wg) => wg.plan_id === g.id);
+                        const assignment = summary.wallet_assignments.find((a) => a.plan_id === g.id);
                         return {
                             ...g,
-                            expiresAt: membership?.expires_at,
-                            assignedAt: membership?.granted_at,
+                            expiresAt: assignment?.expires_at ?? undefined,
+                            assignedAt: assignment?.granted_at ?? undefined,
                             source: 'plan',
                         };
                     }),

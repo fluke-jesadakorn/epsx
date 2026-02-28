@@ -23,6 +23,7 @@ import type {
     WalletSummaryDto
 } from '@/lib/api/wallet-management-client';
 import { mapWalletDtoToData } from '@/lib/mappers/wallet';
+import type { RawPlanData } from '@/types/wallet';
 
 // ============================================================================
 // CONSTANTS
@@ -255,4 +256,29 @@ export async function enableWalletAction(walletAddress: string, data: EnableWall
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.post(`/api/admin/wallets/${walletAddress}/enable`, data);
     if (!res.success) { redirectOnForbidden(res, WALLET_MGMT_ROUTE); throw new Error(res.error?.message ?? 'Failed to enable wallet'); }
+}
+
+export interface WalletAccessSummary {
+    available_permissions: string[];
+    available_plans: RawPlanData[];
+    wallet_permissions: string[];
+    wallet_assignments: Array<{
+        plan_id: string;
+        plan_name: string;
+        expires_at: string | null;
+        granted_at: string | null;
+    }>;
+}
+
+export async function getWalletAccessSummaryAction(walletAddress: string): Promise<WalletAccessSummary> {
+    const apiClient = createAdminApiClient({ serverSide: true });
+    try {
+        const res = await apiClient.get<WalletAccessSummary>(`/api/admin/wallets/${walletAddress}/access-summary`);
+        if (!res.success || !res.data) {
+            return { available_permissions: [], available_plans: [], wallet_permissions: [], wallet_assignments: [] };
+        }
+        return res.data;
+    } catch {
+        return { available_permissions: [], available_plans: [], wallet_permissions: [], wallet_assignments: [] };
+    }
 }

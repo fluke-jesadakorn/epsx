@@ -18,7 +18,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-import { deleteNotificationAction, getNotificationsAction, getNotificationStatsAction } from '@/app/notifications/actions';
+import { deleteNotificationAction, getNotificationOverviewAction } from '@/app/notifications/actions';
 import { StatsCard } from '@/components/admin/developer-portal/shared/stats-card';
 import { Button } from '@/components/ui/button';
 
@@ -249,14 +249,15 @@ export function NotificationManagement() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [notifRes, statsRes] = await Promise.all([getNotificationsAction(1, 20), getNotificationStatsAction()]);
-      if (notifRes.success === true) {
-        setNotifications(notifRes.data?.notifications ?? []);
+      const res = await getNotificationOverviewAction(20);
+      if (res.success === true) {
+        const { notifications: notifs, stats: rawStats } = res.data;
+        setNotifications(notifs as Notification[]);
+        if (rawStats !== null && rawStats !== undefined) {
+          setStats(parseStats(rawStats as Record<string, unknown>));
+        }
       } else {
-        toast.error('Failed to load notifications');
-      }
-      if (statsRes.success === true && statsRes.data !== null && statsRes.data !== undefined) {
-        setStats(parseStats(statsRes.data as Record<string, unknown>));
+        toast.error('Failed to load notification data');
       }
     } catch {
       toast.error('Failed to load notification data');

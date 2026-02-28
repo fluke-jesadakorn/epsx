@@ -103,6 +103,7 @@ use super::analytics::{
   get_permission_analytics_handler,
   get_revenue_analytics_handler,
   get_usage_analytics_handler,
+  get_admin_analytics_dashboard_handler,
 };
 
 // Notification management handlers
@@ -120,6 +121,11 @@ use super::notification_handlers::{
 //   update_settings_handler,
 //   reset_settings_handler,
 // };
+use super::batch_handlers::{
+    admin_dashboard_summary_handler,
+    admin_notification_overview_handler,
+    wallet_access_summary_handler,
+};
 use crate::web::auth::AppState;
 
 pub fn create_admin_routes() -> Router<AppState> {
@@ -237,6 +243,7 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/analytics/permissions", get(get_permission_analytics_handler))
     .route("/analytics/revenue", get(get_revenue_analytics_handler))
     .route("/analytics/usage", get(get_usage_analytics_handler))
+    .route("/analytics/dashboard", get(get_admin_analytics_dashboard_handler))
     .route("/audit-logs", get(super::audit_log_handlers::get_audit_logs_handler))
 
     // CQRS-based admin analytics endpoints (from analytics module)
@@ -307,6 +314,7 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/chat/conversations/{id}/status", put(super::chat_handlers::admin_update_status))
     .route("/chat/conversations/{id}/read", put(super::chat_handlers::admin_mark_read))
     .route("/chat/stats", get(super::chat_handlers::admin_get_stats))
+    .route("/chat/overview", get(super::chat_handlers::admin_chat_overview_handler))
 
     // Plan seeding (admin-only, disabled in production)
     .route("/plans/seed", post(crate::web::public::seed_plans_handler::seed_subscription_plans))
@@ -319,6 +327,13 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/news/{id}", get(super::news_handlers::get_news).put(super::news_handlers::update_news).delete(super::news_handlers::delete_news))
     .route("/news/{id}/publish", put(super::news_handlers::publish_news))
     .route("/news/{id}/unpublish", put(super::news_handlers::unpublish_news))
+
+    // ============================================================================
+    // BATCH ENDPOINTS - reduces N+1 call patterns
+    // ============================================================================
+    .route("/dashboard/summary", get(admin_dashboard_summary_handler))
+    .route("/notifications/overview", get(admin_notification_overview_handler))
+    .route("/wallets/{wallet_address}/access-summary", get(wallet_access_summary_handler))
 
     }
 

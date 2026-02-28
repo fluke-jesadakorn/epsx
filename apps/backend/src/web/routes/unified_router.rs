@@ -355,6 +355,10 @@ impl UnifiedRouteBuilder {
             // User preferences update (POST with JSON body)
             .route("/preferences", post(crate::web::user::unified_user_handlers::update_user_preferences))
 
+            // Batch endpoints
+            .route("/dashboard-init", get(crate::web::user::unified_user_handlers::dashboard_init_handler))
+            .route("/portfolio/overview", get(crate::web::user::unified_user_handlers::portfolio_overview_handler))
+
             // Watchlist management
             .route("/watchlist", get(crate::web::user::watchlist_handlers::get_watchlist))
             .route("/watchlist", post(crate::web::user::watchlist_handlers::add_to_watchlist))
@@ -471,6 +475,9 @@ impl UnifiedRouteBuilder {
         // Authenticated user chat routes
         let auth_routes = Router::new()
             .layer(crate::web::middleware::governor_limiter::chat_rate_limiter())
+            // Batch endpoints
+            .route("/inbox", get(chat_handlers::chat_inbox_handler))
+            .route("/conversations/{id}/full", get(chat_handlers::get_full_conversation_handler))
             .route("/conversations", get(chat_handlers::list_conversations).post(chat_handlers::create_conversation))
             .route("/conversations/{id}", get(chat_handlers::get_conversation))
             .route("/conversations/{id}/messages", get(chat_handlers::list_messages).post(chat_handlers::send_message))

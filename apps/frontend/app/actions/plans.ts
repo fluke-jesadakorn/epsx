@@ -6,6 +6,11 @@ import type { PlanAccessData } from '@/shared/types/payment';
 import { logger } from '@/shared/utils/logger';
 import { getServerActionClient } from '@/shared/utils/server-fetch';
 
+interface DashboardInitData {
+  plan_access: PlanAccessData;
+  watchlist: string[];
+}
+
 const DEFAULT_FREE_TIER: PlanAccessData = {
   wallet_address: '',
   plan_name: null,
@@ -50,4 +55,18 @@ export async function getMyPlanAccessAction(): Promise<PlanAccessData> {
   }
 
   return DEFAULT_FREE_TIER;
+}
+
+export async function getDashboardInitAction(): Promise<DashboardInitData> {
+  try {
+    const client = getServerActionClient();
+    const res = await client.get<DashboardInitData>('/api/users/dashboard-init');
+    if (res.success && res.data) {
+      return res.data;
+    }
+    logger.debug('Dashboard init fetch failed:', res);
+  } catch (e) {
+    logger.debug('Failed to fetch dashboard init:', e);
+  }
+  return { plan_access: DEFAULT_FREE_TIER, watchlist: [] };
 }

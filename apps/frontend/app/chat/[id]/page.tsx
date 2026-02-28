@@ -4,8 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import type { ChatConversation, ChatMessage } from '@/shared/api/chat';
 import {
-  getConversationAction,
-  getMessagesAction,
+  getChatFullAction,
   sendMessageAction,
   updateConversationStatusAction,
   markConversationReadAction
@@ -32,12 +31,9 @@ export default function ChatConversationPage() {
       if (!id) {
         return;
       }
-      const [convoData, msgsData] = await Promise.all([
-        getConversationAction(id),
-        getMessagesAction(id)
-      ]);
-      setConvo(convoData);
-      setMsgs(msgsData);
+      const full = await getChatFullAction(id);
+      setConvo(full?.conversation ?? null);
+      setMsgs(full?.messages ?? []);
       void markConversationReadAction(id);
       setLoading(false);
     };

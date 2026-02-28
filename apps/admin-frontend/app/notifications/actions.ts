@@ -26,6 +26,17 @@ export async function getNotificationStatsAction() {
     }
 }
 
+export async function getNotificationOverviewAction(limit = 20) {
+    try {
+        const apiClient = createAdminApiClient({ serverSide: true });
+        const res = await apiClient.get<{ notifications: unknown[]; stats: unknown }>(`/api/admin/notifications/overview?limit=${String(limit)}`);
+        return { success: true, data: res.data ?? { notifications: [], stats: {} } };
+    } catch (e) {
+        rethrowRedirect(e);
+        return { success: false, data: { notifications: [], stats: {} } };
+    }
+}
+
 export async function deleteNotificationAction(id: string) {
     try {
         const client = createNotificationsClient(createAdminApiClient({ serverSide: true }));

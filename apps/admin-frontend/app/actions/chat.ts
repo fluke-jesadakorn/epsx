@@ -2,7 +2,13 @@
 
 import { redirectOnForbidden } from '@/lib/api-error';
 import { createAdminApiClient } from '@/shared/api';
-import type { ChatConversation, ChatMessage, ChatStats, ChatTopic } from '@/shared/api/chat';
+import type {
+  AdminChatOverviewResp,
+  ChatConversation,
+  ChatMessage,
+  ChatStats,
+  ChatTopic,
+} from '@/shared/api/chat';
 import type { ApiResponse } from '@/shared/utils/api-client';
 
 function check403<T>(res: ApiResponse<T>, route = '/chat'): ApiResponse<T> {
@@ -68,6 +74,11 @@ export async function markAsRead(id: string): Promise<ApiResponse<void>> {
 export async function getTopics(): Promise<ApiResponse<ChatTopic[]>> {
   const client = createAdminApiClient({ serverSide: true });
   return check403(await client.get('/api/admin/chat/topics'));
+}
+
+export async function getAdminChatOverview(): Promise<ApiResponse<AdminChatOverviewResp>> {
+  const client = createAdminApiClient({ serverSide: true });
+  return check403(await client.get('/api/admin/chat/overview'));
 }
 
 export interface AdminAgent {

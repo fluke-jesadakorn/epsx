@@ -1,6 +1,6 @@
 'use server';
 
-import type { ChatConversation, ChatMessage, ChatTopic } from '@/shared/api/chat';
+import type { ChatConversation, ChatFullResp, ChatInboxResp, ChatMessage, ChatTopic } from '@/shared/api/chat';
 import { createSupportChatClient } from '@/shared/api/chat';
 import { logger } from '@/shared/utils/logger';
 import { getServerActionClient } from '@/shared/utils/server-fetch';
@@ -184,4 +184,34 @@ export async function getUnreadCountAction(): Promise<number> {
     logger.debug('Failed to fetch unread count:', e);
   }
   return 0;
+}
+
+export async function getChatInboxAction(): Promise<ChatInboxResp> {
+  try {
+    const client = getServerActionClient();
+    const api = createSupportChatClient(client);
+    const res = await api.getInbox();
+    if (res.success && res.data) {
+      return res.data;
+    }
+    logger.debug('Chat inbox fetch failed:', res);
+  } catch (e) {
+    logger.debug('Failed to fetch chat inbox:', e);
+  }
+  return { topics: [], conversations: [] };
+}
+
+export async function getChatFullAction(id: string): Promise<ChatFullResp | null> {
+  try {
+    const client = getServerActionClient();
+    const api = createSupportChatClient(client);
+    const res = await api.getConversationFull(id);
+    if (res.success && res.data) {
+      return res.data;
+    }
+    logger.debug('Chat full fetch failed:', res);
+  } catch (e) {
+    logger.debug('Failed to fetch chat full:', e);
+  }
+  return null;
 }

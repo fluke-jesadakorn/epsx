@@ -31,6 +31,22 @@ export const API_ROUTES = {
     ADMIN_UPLOAD_IMAGE: '/api/admin/news/upload-image',
   },
 
+  // Batch endpoints (consolidate N+1 call patterns)
+  BATCH: {
+    // Admin batch
+    ADMIN_ANALYTICS_DASHBOARD: '/api/admin/analytics/dashboard',
+    ADMIN_DASHBOARD_SUMMARY: '/api/admin/dashboard/summary',
+    ADMIN_NOTIFICATIONS_OVERVIEW: '/api/admin/notifications/overview',
+    ADMIN_CHAT_OVERVIEW: '/api/admin/chat/overview',
+    ADMIN_WALLET_ACCESS_SUMMARY: '/api/admin/wallets/:address/access-summary',
+    // User batch
+    DASHBOARD_INIT: '/api/users/dashboard-init',
+    PORTFOLIO_OVERVIEW: '/api/users/portfolio/overview',
+    // Chat batch
+    CHAT_INBOX: '/api/chat/inbox',
+    CHAT_FULL_CONVERSATION: '/api/chat/conversations/:id/full',
+  },
+
   // Authentication endpoints
   AUTH: {
     // Web3 Authentication

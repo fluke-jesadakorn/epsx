@@ -1,5 +1,4 @@
-import { getWatchlistAction } from '@/app/actions/watchlist';
-import { getAnalyticsData } from '@/lib/server/data';
+import { getPortfolioOverviewAction } from '@/app/actions/watchlist';
 import type { SymbolCardData } from '@/shared/types/analytics';
 import { Suspense } from 'react';
 import { WatchlistProvider } from './watchlist-provider';
@@ -7,14 +6,10 @@ import { PortfolioGrid } from './portfolio-grid';
 import { StockSearch } from './stock-search';
 
 async function WatchlistContent() {
-  const [watchlist, allData] = await Promise.all([
-    getWatchlistAction(),
-    getAnalyticsData({ page: 1, limit: 100, sort_by: 'eps_growth' }),
-  ]);
+  const { watchlist, rankings: allRankings } = await getPortfolioOverviewAction();
 
-  const allRankings = allData.rankings;
   const watchlistSet = new Set(watchlist.map((s) => s.toUpperCase()));
-  const watchedStocks = allRankings.filter((r) => watchlistSet.has(r.symbol.toUpperCase()));
+  const watchedStocks = allRankings.filter((r: SymbolCardData) => watchlistSet.has(r.symbol.toUpperCase()));
 
   return (
     <WatchlistProvider initial={watchlist}>

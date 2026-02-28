@@ -85,6 +85,22 @@ export interface UnreadCountResp {
   count: number;
 }
 
+export interface ChatInboxResp {
+  topics: ChatTopic[];
+  conversations: ChatConversation[];
+}
+
+export interface ChatFullResp {
+  conversation: ChatConversation;
+  messages: ChatMessage[];
+}
+
+export interface AdminChatOverviewResp {
+  stats: ChatStats;
+  conversations: ChatConversation[];
+  topics: ChatTopic[];
+}
+
 // ============================================================================
 // SUPPORT CHAT API CLASS
 // ============================================================================
@@ -128,6 +144,14 @@ export class SupportChatApi {
 
   async getUnreadCount(): Promise<ApiResponse<UnreadCountResp>> {
     return this.client.get('/api/chat/unread');
+  }
+
+  async getInbox(): Promise<ApiResponse<ChatInboxResp>> {
+    return this.client.get('/api/chat/inbox');
+  }
+
+  async getConversationFull(id: string): Promise<ApiResponse<ChatFullResp>> {
+    return this.client.get(`/api/chat/conversations/${id}/full`);
   }
 
   // Admin methods
@@ -174,6 +198,10 @@ export class SupportChatApi {
 
   async adminGetTopics(): Promise<ApiResponse<ChatTopic[]>> {
     return this.client.get('/api/admin/chat/topics');
+  }
+
+  async adminGetOverview(): Promise<ApiResponse<AdminChatOverviewResp>> {
+    return this.client.get('/api/admin/chat/overview');
   }
 }
 

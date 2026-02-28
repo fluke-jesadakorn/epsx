@@ -1,24 +1,15 @@
 import { Breadcrumb } from '@/components/layout/breadcrumb';
 import { ChatInbox, ChatStatsPanel } from '@/components/chat';
-import { getAdminChatStats, listAllConversations, getTopics } from '@/app/actions/chat';
+import { getAdminChatOverview } from '@/app/actions/chat';
 import { MessageCircle } from 'lucide-react';
 
 export default async function ChatPage() {
-  const [statsRes, convsRes, topicsRes] = await Promise.all([
-    getAdminChatStats(),
-    listAllConversations(),
-    getTopics(),
-  ]);
+  const overviewRes = await getAdminChatOverview();
+  const overview = overviewRes.success && overviewRes.data
+    ? overviewRes.data
+    : { stats: { total_open: 0, total_in_progress: 0, total_resolved: 0, total_unassigned: 0 }, conversations: [], topics: [] };
 
-  const stats = statsRes.success && statsRes.data ? statsRes.data : {
-    total_open: 0,
-    total_in_progress: 0,
-    total_resolved: 0,
-    total_unassigned: 0,
-  };
-
-  const convs = convsRes.success && convsRes.data ? convsRes.data : [];
-  const topics = topicsRes.success && topicsRes.data ? topicsRes.data : [];
+  const { stats, conversations: convs, topics } = overview;
 
   return (
     <div className="p-4 md:p-8">

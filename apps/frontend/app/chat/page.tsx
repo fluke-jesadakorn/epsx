@@ -1,6 +1,6 @@
 'use client';
 
-import { getTopicsAction, listConversationsAction } from '@/app/actions/chat';
+import { getChatInboxAction } from '@/app/actions/chat';
 import { ChatInbox } from '@/components/chat/chat-inbox';
 import type { ChatConversation, ChatTopic } from '@/shared/api/chat';
 import { AuthBanner } from '@/shared/components/auth/auth-banner';
@@ -21,9 +21,9 @@ export default function ChatPage() {
     }
     const load = async () => {
       try {
-        const [t, c] = await Promise.all([getTopicsAction(), listConversationsAction()]);
-        setTopics(Array.isArray(t) ? t : []);
-        setConvos(Array.isArray(c) ? c : []);
+        const inbox = await getChatInboxAction();
+        setTopics(inbox.topics);
+        setConvos(inbox.conversations);
       } catch { /* API unavailable */ }
       setLoading(false);
     };

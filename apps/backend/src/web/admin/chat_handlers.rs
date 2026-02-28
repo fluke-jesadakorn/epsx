@@ -325,6 +325,28 @@ pub async fn admin_list_topics(
     }
 }
 
+/// Admin chat overview: stats + conversations + topics in one call
+/// GET /admin/chat/overview
+pub async fn admin_chat_overview_handler(
+    State(app_state): State<AppState>,
+) -> Result<Json<UnifiedApiResponse<serde_json::Value>>, Json<UnifiedApiResponse<()>>> {
+    info!("Admin: Getting chat overview");
+
+    let (stats, conversations, topics) = tokio::join!(
+        ChatRepository::get_stats(&app_state.db_pool),
+        ChatRepository::list_all_conversations(&app_state.db_pool, None, None, None),
+        ChatRepository::list_topics(&app_state.db_pool),
+    );
+
+    let response = serde_json::json!({
+        "stats": stats.map(|s| serde_json::to_value(s).unwrap_or_else(|_| serde_json::json!({}))).unwrap_or_else(|_| serde_json::json!({})),
+        "conversations": conversations.unwrap_or_default(),
+        "topics": topics.unwrap_or_default(),
+    });
+
+    Ok(Json(UnifiedApiResponse::success(response)))
+}
+
 /// SSE stream for admin - listens to new conversations + assigned conversations
 pub async fn admin_chat_stream(
     State(app_state): State<AppState>,
