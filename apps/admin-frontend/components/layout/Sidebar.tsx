@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { useSmartPolling } from '@/shared/hooks/use-smart-polling';
 
 import { getAdminChatStats } from '@/app/actions/chat';
 
@@ -24,6 +25,7 @@ import {
   Link as LinkIcon,
   Lock,
   MessageCircle,
+  Newspaper,
   Palette,
   Send,
   Settings,
@@ -67,6 +69,7 @@ const navigationItems: NavItem[] = [
     ],
   },
   { id: 'chat', label: 'Chat Support', href: '/chat', icon: MessageCircle, requiresAuth: true },
+  { id: 'news', label: 'News', href: '/news', icon: Newspaper, requiresAuth: true },
   { id: 'analytics', label: 'Analytics', href: '/analytics', icon: BarChart3, requiresAuth: true },
   { id: 'audit-log', label: 'Audit Log', href: '/audit-log', icon: FileText, requiresAuth: true },
   {
@@ -95,6 +98,21 @@ const navigationItems: NavItem[] = [
     ],
   },
 ];
+
+function useChatStats(isAuthenticated: boolean): number {
+  const { data } = useSmartPolling(
+    ['admin-chat-stats'],
+    async () => {
+      if (!isAuthenticated) { return null; }
+      const res = await getAdminChatStats();
+      return res.success === true && res.data !== null ? res.data : null;
+    },
+    { priority: 'critical', pauseWhenHidden: true }
+  );
+  return data !== null && data !== undefined
+    ? data.total_open + data.total_in_progress
+    : 0;
+}
 
 const ACTIVE_STYLE = 'bg-gradient-to-r from-[#1fc7d4]/10 to-[#7645d9]/10 text-[#1fc7d4] border border-[#1fc7d4]/20 shadow-sm';
 const INACTIVE_STYLE = 'text-muted-foreground hover:bg-muted/30 hover:text-foreground';
@@ -204,7 +222,7 @@ export function Sidebar() {
   const searchParams = useSearchParams();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const { isAuthenticated } = useSharedAuth();
-  const [chatCount, setChatCount] = useState(0);
+  const chatCount = useChatStats(isAuthenticated);
 
   const isChildActive = useCallback((child: NavItem) => {
     if (child.tab !== undefined && child.tab !== '') {
@@ -212,20 +230,6 @@ export function Sidebar() {
     }
     return pathname === child.href || pathname.startsWith(`${child.href}/`);
   }, [pathname, searchParams]);
-
-  const loadChatStats = useCallback(async () => {
-    if (!isAuthenticated) { return; }
-    const res = await getAdminChatStats();
-    if (res.success === true && res.data !== null) {
-      setChatCount(res.data.total_open + res.data.total_in_progress);
-    }
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    void loadChatStats();
-    const iv = setInterval(() => void loadChatStats(), 30_000);
-    return () => clearInterval(iv);
-  }, [loadChatStats]);
 
   useEffect(() => {
     setExpandedItems(prev => {
