@@ -1,9 +1,10 @@
 'use client';
 
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { createAdminApiClient } from '@/shared/utils/api-client';
 import { formatDistanceToNow } from 'date-fns';
 import { ExternalLink, Hash, RefreshCcw, Wifi, WifiOff } from 'lucide-react';
-import { useEffect, useState } from 'react';
 
 interface ActivityStreamWallet {
     wallet_address: string;
@@ -20,7 +21,7 @@ interface WalletRowProps {
     wallet: ActivityStreamWallet;
 }
 
-function WalletRow({ wallet }: WalletRowProps): JSX.Element {
+function WalletRow({ wallet }: WalletRowProps): React.JSX.Element {
     const isNew = wallet.connection_info?.is_new === true;
     const dateStr = wallet.last_auth_at !== undefined ? new Date(wallet.last_auth_at) : null;
     const addr = `${wallet.wallet_address.slice(0, 6)}...${wallet.wallet_address.slice(-4)}`;
@@ -72,30 +73,31 @@ function WalletRow({ wallet }: WalletRowProps): JSX.Element {
     );
 }
 
-export function DashboardActivityStream() {
-    const [data, setData] = useState<ActivityStreamWallet[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
+async function fetchRecentWallets(): Promise<RecentWalletsData> {
+    const client = createAdminApiClient();
+    const response = await client.get<RecentWalletsData>('/api/admin/web3/recent-wallets?limit=15&days=30');
+    if (response.success === true && response.data !== null) {
+        return response.data;
+    }
+    return { recent_wallets: [] };
+}
 
-    const fetchStream = async () => {
-        try {
-            setRefreshing(true);
-            const client = createAdminApiClient();
-            const response = await client.get<RecentWalletsData>('/api/admin/web3/recent-wallets?limit=15&days=30');
-            if (response.success === true && response.data !== null) {
-                setData(response.data.recent_wallets);
-            }
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
-    };
+interface DashboardActivityStreamProps {
+    initialData?: RecentWalletsData;
+}
 
-    useEffect(() => {
-        void fetchStream();
-        const interval = setInterval(() => { void fetchStream(); }, 30000);
-        return () => { clearInterval(interval); };
-    }, []);
+export function DashboardActivityStream({ initialData }: DashboardActivityStreamProps) {
+    const { data, isLoading, isFetching, refetch } = useQuery<RecentWalletsData>({
+        queryKey: ['recent-wallets-stream'],
+        queryFn: fetchRecentWallets,
+        initialData,
+        staleTime: initialData !== undefined ? 30_000 : 0,
+        gcTime: 300_000,
+        refetchInterval: 120_000,
+        refetchOnWindowFocus: false,
+    });
+
+    const wallets = data?.recent_wallets ?? [];
 
     return (
         <div className="rounded-2xl border border-border/20 bg-card shadow-2xl overflow-hidden flex flex-col h-full lg:max-h-[800px]">
@@ -110,28 +112,28 @@ export function DashboardActivityStream() {
                     </h2>
                 </div>
                 <button
-                    onClick={() => { void fetchStream(); }}
-                    className={`p-1.5 rounded-md hover:bg-muted transition-all ${refreshing ? 'animate-spin' : ''}`}
+                    onClick={() => { void refetch(); }}
+                    className={`p-1.5 rounded-md hover:bg-muted transition-all ${isFetching ? 'animate-spin' : ''}`}
                 >
                     <RefreshCcw className="w-4 h-4 text-muted-foreground" />
                 </button>
             </div>
             <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar bg-background/50 font-mono text-sm relative">
                 <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.1)_50%)] bg-[length:100%_4px]" />
-                {loading ? (
+                {isLoading ? (
                     <div className="flex items-center justify-center h-48 opacity-50">
                         <span className="animate-pulse">STREAM.CONNECTING...</span>
                     </div>
-                ) : data.length === 0 ? (
+                ) : wallets.length === 0 ? (
                     <div className="flex items-center justify-center h-48 text-muted-foreground opacity-50">
                         EMPTY_BUFFER
                     </div>
                 ) : (
-                    data.map((wallet) => <WalletRow key={wallet.wallet_address} wallet={wallet} />)
+                    wallets.map((wallet) => <WalletRow key={wallet.wallet_address} wallet={wallet} />)
                 )}
             </div>
             <div className="bg-background/80 p-2 border-t border-border/20 text-[10px] text-muted-foreground font-mono uppercase tracking-widest text-center">
-                END OF STREAM / {data.length} NODES LOGGED
+                END OF STREAM / {wallets.length} NODES LOGGED
             </div>
         </div>
     );

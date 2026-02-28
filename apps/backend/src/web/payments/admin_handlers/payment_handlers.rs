@@ -118,19 +118,26 @@ pub async fn admin_list_payments_handler(
             Json(UnifiedErrorResponse::new(500, "Query failed", format!("Failed to load payments: {}", e)))
         })?;
 
-    // Map to response format with plan name lookup
-    let mut payments_resp: Vec<AdminPaymentInfo> = Vec::new();
-    for pay_db in payment_rows {
-        // Try to get plan name from plans table (PRIMARY DB)
-        let plan_name = plans::table
-            .filter(plans::id.eq(pay_db.plan_id))
-            .select(plans::name)
-            .first::<String>(&mut primary_conn)
+    // Batch fetch plan names to avoid N+1 queries
+    let plan_ids: Vec<Uuid> = payment_rows.iter().map(|p| p.plan_id).collect();
+    let plans_map: std::collections::HashMap<Uuid, String> = if plan_ids.is_empty() {
+        std::collections::HashMap::new()
+    } else {
+        plans::table
+            .filter(plans::id.eq_any(&plan_ids))
+            .select((plans::id, plans::name))
+            .load::<(Uuid, String)>(&mut primary_conn)
             .await
-            .unwrap_or_else(|_| "Unknown Plan".to_string());
-
-        payments_resp.push(AdminPaymentInfo::from_db(pay_db, plan_name));
-    }
+            .unwrap_or_default()
+            .into_iter()
+            .collect()
+    };
+    let payments_resp: Vec<AdminPaymentInfo> = payment_rows.into_iter().map(|pay_db| {
+        let plan_name = plans_map.get(&pay_db.plan_id)
+            .cloned()
+            .unwrap_or_else(|| "Unknown Plan".to_string());
+        AdminPaymentInfo::from_db(pay_db, plan_name)
+    }).collect();
 
     let total_pages = pg.total_pages(total_count as u64);
     let pagination = PaginationInfo {
@@ -142,58 +149,55 @@ pub async fn admin_list_payments_handler(
         has_prev: pg.has_prev(),
     };
 
-    // Calculate summary statistics from database
+    // Calculate all summary statistics in a single query using conditional aggregation
     let today_start = Utc::now().date_naive().and_hms_opt(0, 0, 0)
         .map(|dt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
         .unwrap_or_else(Utc::now);
 
-    let completed_count: i64 = payments::table
-        .filter(payments::status.eq("completed").or(payments::status.eq("confirmed")))
-        .count()
-        .get_result(&mut payments_conn)
-        .await
-        .unwrap_or(0);
+    #[derive(diesel::QueryableByName)]
+    struct PaymentSummaryStats {
+        #[diesel(sql_type = diesel::sql_types::BigInt)]
+        completed_count: i64,
+        #[diesel(sql_type = diesel::sql_types::BigInt)]
+        failed_count: i64,
+        #[diesel(sql_type = diesel::sql_types::BigInt)]
+        pending_count: i64,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Numeric>)]
+        total_amount: Option<bigdecimal::BigDecimal>,
+        #[diesel(sql_type = diesel::sql_types::BigInt)]
+        payments_today: i64,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Numeric>)]
+        revenue_today: Option<bigdecimal::BigDecimal>,
+    }
 
-    let failed_count: i64 = payments::table
-        .filter(payments::status.eq("failed"))
-        .count()
-        .get_result(&mut payments_conn)
-        .await
-        .unwrap_or(0);
+    let stats = diesel::sql_query(
+        r#"
+        SELECT
+            COUNT(*) FILTER (WHERE status IN ('completed','confirmed')) as completed_count,
+            COUNT(*) FILTER (WHERE status = 'failed') as failed_count,
+            COUNT(*) FILTER (WHERE status IN ('pending','created')) as pending_count,
+            SUM(amount) FILTER (WHERE status IN ('completed','confirmed')) as total_amount,
+            COUNT(*) FILTER (WHERE created_at >= $1) as payments_today,
+            SUM(amount) FILTER (WHERE status IN ('completed','confirmed') AND created_at >= $1) as revenue_today
+        FROM payments
+        "#
+    )
+    .bind::<diesel::sql_types::Timestamptz, _>(today_start)
+    .get_result::<PaymentSummaryStats>(&mut payments_conn)
+    .await
+    .unwrap_or(PaymentSummaryStats {
+        completed_count: 0, failed_count: 0, pending_count: 0,
+        total_amount: None, payments_today: 0, revenue_today: None,
+    });
 
-    let pending_count: i64 = payments::table
-        .filter(payments::status.eq("pending").or(payments::status.eq("created")))
-        .count()
-        .get_result(&mut payments_conn)
-        .await
-        .unwrap_or(0);
-
-    let total_amount: Option<bigdecimal::BigDecimal> = payments::table
-        .filter(payments::status.eq("completed").or(payments::status.eq("confirmed")))
-        .select(diesel::dsl::sum(payments::amount))
-        .first(&mut payments_conn)
-        .await
-        .unwrap_or(None);
-
-    let payments_today: i64 = payments::table
-        .filter(payments::created_at.ge(today_start))
-        .count()
-        .get_result(&mut payments_conn)
-        .await
-        .unwrap_or(0);
-
-    let revenue_today: Option<bigdecimal::BigDecimal> = payments::table
-        .filter(payments::created_at.ge(today_start))
-        .filter(payments::status.eq("completed").or(payments::status.eq("confirmed")))
-        .select(diesel::dsl::sum(payments::amount))
-        .first(&mut payments_conn)
-        .await
-        .unwrap_or(None);
-
-    let total_amount_f64 = total_amount
+    let completed_count = stats.completed_count;
+    let failed_count = stats.failed_count;
+    let pending_count = stats.pending_count;
+    let total_amount_f64 = stats.total_amount
         .map(|bd| bd.to_string().parse::<f64>().unwrap_or(0.0))
         .unwrap_or(0.0);
-    let revenue_today_f64 = revenue_today
+    let payments_today = stats.payments_today;
+    let revenue_today_f64 = stats.revenue_today
         .map(|bd| bd.to_string().parse::<f64>().unwrap_or(0.0))
         .unwrap_or(0.0);
 

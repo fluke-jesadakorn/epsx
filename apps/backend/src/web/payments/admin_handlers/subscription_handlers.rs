@@ -5,6 +5,7 @@ use axum::{
     response::Json,
 };
 use chrono::{Datelike, Utc};
+use uuid::Uuid;
 use tracing::{info, error};
 
 use crate::{
@@ -88,31 +89,38 @@ pub async fn admin_list_subscriptions_handler(
             Json(UnifiedErrorResponse::new(500, "Query failed", format!("Failed to load subscriptions: {}", e)))
         })?;
 
-    // Map to response format with plan name lookup from PRIMARY DB
-    let mut subscriptions_resp: Vec<AdminSubscriptionInfo> = Vec::new();
-    for sub_db in subscription_rows {
-        // Try to get plan name from plans table (PRIMARY DB)
-        let plan_name = plans::table
-            .filter(plans::id.eq(sub_db.plan_id))
-            .select(plans::name)
-            .first::<String>(&mut primary_conn)
+    // Batch fetch plan names to avoid N+1 queries
+    let plan_ids: Vec<Uuid> = subscription_rows.iter().map(|s| s.plan_id).collect();
+    let plans_map: std::collections::HashMap<Uuid, String> = if plan_ids.is_empty() {
+        std::collections::HashMap::new()
+    } else {
+        plans::table
+            .filter(plans::id.eq_any(&plan_ids))
+            .select((plans::id, plans::name))
+            .load::<(Uuid, String)>(&mut primary_conn)
             .await
-            .unwrap_or_else(|_| "Unknown Plan".to_string());
-
-        subscriptions_resp.push(AdminSubscriptionInfo {
+            .unwrap_or_default()
+            .into_iter()
+            .collect()
+    };
+    let subscriptions_resp: Vec<AdminSubscriptionInfo> = subscription_rows.into_iter().map(|sub_db| {
+        let plan_name = plans_map.get(&sub_db.plan_id)
+            .cloned()
+            .unwrap_or_else(|| "Unknown Plan".to_string());
+        AdminSubscriptionInfo {
             id: sub_db.id,
             wallet_address: sub_db.wallet_address,
             plan_id: sub_db.plan_id,
             plan_name,
             status: sub_db.status,
-            payment_id: sub_db.payment_id.unwrap_or(uuid::Uuid::nil()),
+            payment_id: sub_db.payment_id.unwrap_or(Uuid::nil()),
             started_at: sub_db.started_at.unwrap_or_else(Utc::now),
             expires_at: sub_db.expires_at,
             cancelled_at: sub_db.cancelled_at,
             auto_renew: sub_db.auto_renew.unwrap_or(false),
             metadata: sub_db.metadata.unwrap_or(serde_json::json!({})),
-        });
-    }
+        }
+    }).collect();
 
     let total_pages = pg.total_pages(total_count as u64);
     let pagination = PaginationInfo {

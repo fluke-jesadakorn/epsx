@@ -215,6 +215,7 @@ impl WalletManagementRepository {
         let exclude_plan = criteria.exclude_plan_id.clone();
 
         // Only ORDER BY uses format!() — values are whitelisted above
+        // Use LEFT JOIN + GROUP BY to avoid 3 correlated subqueries per row
         let query_str = format!(
             r#"
             SELECT
@@ -223,30 +224,30 @@ impl WalletManagementRepository {
                 wu.created_at,
                 wu.last_auth_at,
                 wu.wallet_metadata,
-                (
-                    SELECT COUNT(*)::int
-                    FROM wallet_plan_assignments wpa
-                    WHERE wpa.wallet_address = wu.wallet_address AND wpa.is_active = true
-                ) as plans_count,
-                (
-                    SELECT COUNT(*)::int
-                    FROM wallet_plan_assignments wpa
-                    WHERE wpa.wallet_address = wu.wallet_address AND wpa.is_active = true
-                ) as permissions_count,
-                (
-                    SELECT pp.name
-                    FROM wallet_plan_assignments wpa
-                    JOIN plans pp ON pp.id = wpa.plan_id
-                    WHERE wpa.wallet_address = wu.wallet_address AND wpa.is_active = true
-                    ORDER BY pp.tier_level DESC NULLS LAST
-                    LIMIT 1
-                ) as plan_name
+                COALESCE(agg.plans_count, 0) as plans_count,
+                COALESCE(agg.plans_count, 0) as permissions_count,
+                top_plan.plan_name as plan_name
             FROM wallet_users wu
+            LEFT JOIN (
+                SELECT wallet_address, COUNT(*)::int as plans_count
+                FROM wallet_plan_assignments
+                WHERE is_active = true
+                GROUP BY wallet_address
+            ) agg ON agg.wallet_address = wu.wallet_address
+            LEFT JOIN (
+                SELECT DISTINCT ON (wpa.wallet_address)
+                    wpa.wallet_address,
+                    pp.name as plan_name
+                FROM wallet_plan_assignments wpa
+                JOIN plans pp ON pp.id = wpa.plan_id
+                WHERE wpa.is_active = true
+                ORDER BY wpa.wallet_address, pp.tier_level DESC NULLS LAST
+            ) top_plan ON top_plan.wallet_address = wu.wallet_address
             WHERE ($1::text IS NULL OR wu.wallet_address ILIKE $1 OR wu.wallet_metadata->>'label' ILIKE $1 OR wu.wallet_metadata->>'note' ILIKE $1)
               AND ($2::bool IS NULL OR wu.is_active = $2)
               AND ($3::timestamptz IS NULL OR wu.created_at >= $3)
               AND ($4::timestamptz IS NULL OR wu.created_at <= $4)
-              AND ($5::text IS NULL OR wu.wallet_address NOT IN (SELECT wallet_address FROM wallet_plan_assignments WHERE plan_id = $5::uuid AND is_active = true))
+              AND ($5::text IS NULL OR NOT EXISTS (SELECT 1 FROM wallet_plan_assignments WHERE wallet_address = wu.wallet_address AND plan_id = $5::uuid AND is_active = true))
             ORDER BY wu.{} {}
             LIMIT $6 OFFSET $7
             "#,
@@ -332,7 +333,7 @@ impl WalletManagementRepository {
                  AND ($2::bool IS NULL OR wu.is_active = $2)
                  AND ($3::timestamptz IS NULL OR wu.created_at >= $3)
                  AND ($4::timestamptz IS NULL OR wu.created_at <= $4)
-                 AND ($5::text IS NULL OR wu.wallet_address NOT IN (SELECT wallet_address FROM wallet_plan_assignments WHERE plan_id = $5::uuid AND is_active = true))"#
+                 AND ($5::text IS NULL OR NOT EXISTS (SELECT 1 FROM wallet_plan_assignments WHERE wallet_address = wu.wallet_address AND plan_id = $5::uuid AND is_active = true))"#
         )
             .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&search_pattern)
             .bind::<diesel::sql_types::Nullable<diesel::sql_types::Bool>, _>(&is_active_filter)

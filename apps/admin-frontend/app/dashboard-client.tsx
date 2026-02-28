@@ -9,11 +9,10 @@ import type { RecentWalletsData } from '@/hooks/use-analytics-data';
 import { useDashboardData } from '@/hooks/use-dashboard-data';
 
 interface DashboardClientProps {
-  initialRecentWallets?: RecentWalletsData; // Kept for backwards compatibility with page.tsx
+  initialRecentWallets?: RecentWalletsData;
 }
 
-export default function DashboardClient({ initialRecentWallets: _initialRecentWallets }: DashboardClientProps) {
-  // We don't necessarily need 'user' for the generic dashboard, the HUD is more systems-focused now.
+export default function DashboardClient({ initialRecentWallets }: DashboardClientProps) {
   const { dashboardStats } = useDashboardData(true);
 
   return (
@@ -44,7 +43,7 @@ export default function DashboardClient({ initialRecentWallets: _initialRecentWa
                 Global Event Stream
               </h2>
             </div>
-            <DashboardActivityStream />
+            <DashboardActivityStream initialData={initialRecentWallets} />
           </div>
         </div>
       </div>

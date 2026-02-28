@@ -31,6 +31,9 @@ export function DeveloperStatsCards({ currentUser: _currentUser }: DeveloperStat
     const { data: response, isLoading } = useQuery({
         queryKey: ['developer-plans'],
         queryFn: getMyPlansAction,
+        staleTime: 5 * 60_000,
+        gcTime: 10 * 60_000,
+        refetchOnWindowFocus: false,
     });
 
     const userGroupData = response?.success ? (response.data as unknown as UserGroupData) : null;

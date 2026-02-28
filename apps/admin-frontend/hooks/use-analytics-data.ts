@@ -177,8 +177,10 @@ export function useUserStats() {
   const { data, error, isLoading, refetch } = useQuery<UserStats>({
     queryKey: ['user-stats'],
     queryFn: getUserStatsAction,
-    refetchInterval: 30000, // Refresh every 30 seconds
-    refetchOnWindowFocus: true,
+    staleTime: 60_000,
+    gcTime: 300_000,
+    refetchInterval: 120_000,
+    refetchOnWindowFocus: false,
   });
 
   return {
@@ -196,8 +198,10 @@ export function usePlanStats() {
   const { data, error, isLoading, refetch } = useQuery<PlanStats>({
     queryKey: ['plan-stats'],
     queryFn: getPlanStatsAction,
+    staleTime: 60_000,
+    gcTime: 300_000,
     refetchInterval: DEFAULT_ANALYTICS_CONFIG.refreshInterval,
-    refetchOnWindowFocus: DEFAULT_ANALYTICS_CONFIG.revalidateOnFocus,
+    refetchOnWindowFocus: false,
   });
 
   return {
@@ -215,8 +219,10 @@ export function usePermissionAnalytics() {
   const { data, error, isLoading, refetch } = useQuery<PermissionAnalytics>({
     queryKey: ['permission-analytics'],
     queryFn: getPermissionAnalyticsAction,
+    staleTime: 60_000,
+    gcTime: 300_000,
     refetchInterval: DEFAULT_ANALYTICS_CONFIG.refreshInterval,
-    refetchOnWindowFocus: DEFAULT_ANALYTICS_CONFIG.revalidateOnFocus,
+    refetchOnWindowFocus: false,
   });
 
   return {
@@ -234,8 +240,10 @@ export function useSystemMetrics() {
   const { data, error, isLoading, refetch } = useQuery<SystemMetrics>({
     queryKey: ['system-metrics'],
     queryFn: getSystemMetricsAction,
-    refetchInterval: REALTIME_ANALYTICS_CONFIG.refreshInterval,
-    refetchOnWindowFocus: REALTIME_ANALYTICS_CONFIG.revalidateOnFocus,
+    staleTime: 30_000,
+    gcTime: 300_000,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   return {
@@ -255,8 +263,10 @@ export function useAnalyticsDashboard(_dateRange = '7d', _selectedModule = 'all'
   const { data, error, isLoading, refetch } = useQuery<DeveloperPortalStats>({
     queryKey: ['developer-portal-stats'],
     queryFn: getDeveloperPortalStatsAction,
+    staleTime: 60_000,
+    gcTime: 300_000,
     refetchInterval: DEFAULT_ANALYTICS_CONFIG.refreshInterval,
-    refetchOnWindowFocus: DEFAULT_ANALYTICS_CONFIG.revalidateOnFocus,
+    refetchOnWindowFocus: false,
   });
 
   const dashboardData: AnalyticsDashboardData | undefined = data ? {
@@ -283,8 +293,10 @@ export function useApiKeys() {
   const { data, error, isLoading, refetch } = useQuery<ApiKeysResponse>({
     queryKey: ['api-keys'],
     queryFn: getApiKeysAction,
+    staleTime: 120_000,
+    gcTime: 600_000,
     refetchInterval: SLOW_ANALYTICS_CONFIG.refreshInterval,
-    refetchOnWindowFocus: SLOW_ANALYTICS_CONFIG.revalidateOnFocus,
+    refetchOnWindowFocus: false,
   });
 
   return {

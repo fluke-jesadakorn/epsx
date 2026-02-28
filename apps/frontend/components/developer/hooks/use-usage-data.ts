@@ -37,7 +37,9 @@ export function useUsageData() {
   const { data: res, isLoading } = useQuery({
     queryKey: ['dev-overview', days],
     queryFn: () => getDeveloperOverviewAction(days),
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const overview = res?.success === true && res.data !== undefined ? res.data : null;

@@ -21,7 +21,6 @@ pub async fn admin_get_payment_analytics_handler(
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
     use crate::infrastructure::database::get_payments_pool;
-    use crate::schemas::payments::subscriptions;
 
     info!("Admin getting payment analytics");
 
@@ -111,28 +110,35 @@ pub async fn admin_get_payment_analytics_handler(
     .await
     .unwrap_or_default();
 
-    let mut plan_breakdown: Vec<PlanBreakdown> = Vec::new();
-    for row in plan_rows {
-        // Get plan name from plans table
-        let plan_name = plans::table
-            .filter(plans::id.eq(row.plan_id))
-            .select(plans::name)
-            .first::<String>(&mut primary_conn)
+    // Batch fetch plan names to avoid N+1 queries
+    let breakdown_plan_ids: Vec<Uuid> = plan_rows.iter().map(|r| r.plan_id).collect();
+    let breakdown_plans_map: std::collections::HashMap<Uuid, String> = if breakdown_plan_ids.is_empty() {
+        std::collections::HashMap::new()
+    } else {
+        plans::table
+            .filter(plans::id.eq_any(&breakdown_plan_ids))
+            .select((plans::id, plans::name))
+            .load::<(Uuid, String)>(&mut primary_conn)
             .await
-            .unwrap_or_else(|_| "Unknown Plan".to_string());
-
+            .unwrap_or_default()
+            .into_iter()
+            .collect()
+    };
+    let plan_breakdown: Vec<PlanBreakdown> = plan_rows.into_iter().map(|row| {
+        let plan_name = breakdown_plans_map.get(&row.plan_id)
+            .cloned()
+            .unwrap_or_else(|| "Unknown Plan".to_string());
         let revenue = row.total_revenue.map(|bd| bd.to_string().parse::<f64>().unwrap_or(0.0)).unwrap_or(0.0);
         let count = row.subscription_count as u32;
         let arpu = if count > 0 { revenue / count as f64 } else { 0.0 };
-
-        plan_breakdown.push(PlanBreakdown {
+        PlanBreakdown {
             plan_id: row.plan_id,
             plan_name,
             subscription_count: count,
             revenue,
             average_revenue_per_user: arpu,
-        });
-    }
+        }
+    }).collect();
 
     // === 3. Payment Methods (by currency/token) ===
     #[derive(diesel::QueryableByName)]
@@ -222,33 +228,35 @@ pub async fn admin_get_payment_analytics_handler(
         0.0
     };
 
-    // Calculate average subscription length from subscriptions table
-    let avg_sub_length: f64 = subscriptions::table
-        .filter(subscriptions::status.eq("active"))
-        .select(diesel::dsl::avg(diesel::dsl::sql::<diesel::sql_types::Float>("EXTRACT(EPOCH FROM (expires_at - started_at)) / 86400.0")))
-        .first::<Option<f64>>(&mut payments_conn)
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or(30.0);
+    // Combine subscription metrics into a single query
+    #[derive(diesel::QueryableByName)]
+    struct SubMetrics {
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Float8>)]
+        avg_sub_length: Option<f64>,
+        #[diesel(sql_type = diesel::sql_types::BigInt)]
+        cancelled_count: i64,
+        #[diesel(sql_type = diesel::sql_types::BigInt)]
+        active_count: i64,
+    }
 
-    // Churn rate estimate (cancelled in last 30 days / total active)
-    let cancelled_count: i64 = subscriptions::table
-        .filter(subscriptions::status.eq("cancelled"))
-        .filter(subscriptions::cancelled_at.ge(thirty_days_ago))
-        .count()
-        .get_result(&mut payments_conn)
-        .await
-        .unwrap_or(0);
+    let sub_metrics = diesel::sql_query(
+        r#"
+        SELECT
+            AVG(EXTRACT(EPOCH FROM (expires_at - started_at)) / 86400.0) FILTER (WHERE status = 'active') as avg_sub_length,
+            COUNT(*) FILTER (WHERE status = 'cancelled' AND cancelled_at >= $1) as cancelled_count,
+            COUNT(*) FILTER (WHERE status = 'active') as active_count
+        FROM subscriptions
+        "#
+    )
+    .bind::<diesel::sql_types::Timestamptz, _>(thirty_days_ago)
+    .get_result::<SubMetrics>(&mut payments_conn)
+    .await
+    .unwrap_or(SubMetrics { avg_sub_length: None, cancelled_count: 0, active_count: 1 });
 
-    let active_count: i64 = subscriptions::table
-        .filter(subscriptions::status.eq("active"))
-        .count()
-        .get_result(&mut payments_conn)
-        .await
-        .unwrap_or(1); // Avoid division by zero
-
-    let churn_rate = (cancelled_count as f64 / active_count.max(1) as f64) * 100.0;
+    let avg_sub_length = sub_metrics.avg_sub_length.unwrap_or(30.0);
+    let cancelled_count = sub_metrics.cancelled_count;
+    let active_count = sub_metrics.active_count.max(1);
+    let churn_rate = (cancelled_count as f64 / active_count as f64) * 100.0;
 
     // Customer lifetime value estimate (average revenue * average subscription length / 30)
     let avg_payment: f64 = if current_period.total_count > 0 {

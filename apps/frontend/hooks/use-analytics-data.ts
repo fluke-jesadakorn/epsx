@@ -1,4 +1,3 @@
-import { TIMEOUT } from '@/shared/config/constants';
 import { getRankingsAction } from '@/app/actions/analytics';
 import type { AnalyticsFilters } from '@/types/analytics';
 import { DEFAULT_FILTER_OPTIONS, type RichFilterOptions } from '@/types/dashboard';
@@ -16,7 +15,8 @@ export function useAnalyticsData(filters: AnalyticsFilters) {
   const { data: response, error: queryError, isLoading, refetch } = useQuery({
     queryKey,
     queryFn: () => getRankingsAction(filters),
-    staleTime: TIMEOUT.ANALYTICS_STALE,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
     refetchOnWindowFocus: false,
   });
 

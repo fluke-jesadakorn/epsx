@@ -123,33 +123,30 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
             ApplicationError::infrastructure(format!("Failed to get connection: {}", e))
         })?;
 
-        // Get total login count from sessions table
+        // Combine login counts into a single query
         #[derive(QueryableByName)]
-        struct CountRow {
+        struct LoginCounts {
             #[diesel(sql_type = diesel::sql_types::BigInt)]
-            count: i64,
+            total_logins: i64,
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            last_30_days_logins: i64,
         }
 
-        let total_logins: i32 = diesel::sql_query(
-            "SELECT COUNT(*) as count FROM sessions WHERE wallet_address = $1"
+        let login_counts = diesel::sql_query(
+            r#"
+            SELECT
+                COUNT(*) as total_logins,
+                COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days') as last_30_days_logins
+            FROM sessions WHERE wallet_address = $1
+            "#
         )
         .bind::<diesel::sql_types::Text, _>(&query.wallet_address)
-        .get_result::<CountRow>(&mut conn)
+        .get_result::<LoginCounts>(&mut conn)
         .await
-        .map(|r| r.count as i32)
-        .unwrap_or(0);
+        .unwrap_or(LoginCounts { total_logins: 0, last_30_days_logins: 0 });
 
-        // Get login count in last 30 days from sessions table
-        let last_30_days_logins: i32 = diesel::sql_query(
-            "SELECT COUNT(*) as count FROM sessions
-             WHERE wallet_address = $1
-             AND created_at >= NOW() - INTERVAL '30 days'"
-        )
-        .bind::<diesel::sql_types::Text, _>(&query.wallet_address)
-        .get_result::<CountRow>(&mut conn)
-        .await
-        .map(|r| r.count as i32)
-        .unwrap_or(0);
+        let total_logins = login_counts.total_logins as i32;
+        let last_30_days_logins = login_counts.last_30_days_logins as i32;
 
         let activity_summary = WalletActivitySummaryDto {
             total_logins,
