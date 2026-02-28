@@ -2,7 +2,8 @@
 import '@/lib/polyfills';
 
 import { bsc, bscTestnet, foundry } from '@/config/wagmi-chains';
-import React from 'react';
+import React, { useState } from 'react';
+import { QueryClientProvider } from '@tanstack/react-query';
 
 import { SettingsProvider } from './settings-provider';
 
@@ -11,6 +12,7 @@ import type { UserInfoResponse } from '@/shared/auth/client';
 import { CommonProviders } from '@/shared/components/providers/common-providers';
 import { SessionExpiryProvider } from '@/shared/components/providers/session-expiry-provider';
 import { UnifiedWeb3Provider } from '@/shared/components/providers/web3-provider';
+import { createQueryClient } from '@/shared/state/query-client';
 import type { State } from 'wagmi';
 
 /**
@@ -20,7 +22,9 @@ import type { State } from 'wagmi';
  * @param root0.initialState
  */
 export function ClientProviders({ children, initialUser, initialState }: { children: React.ReactNode; initialUser?: UserInfoResponse | null, initialState?: State }) {
+  const [queryClient] = useState(() => createQueryClient('admin'));
   return (
+    <QueryClientProvider client={queryClient}>
     <CommonProviders>
       <SessionExpiryProvider>
         <UnifiedWeb3Provider
@@ -41,5 +45,6 @@ export function ClientProviders({ children, initialUser, initialState }: { child
         </UnifiedWeb3Provider>
       </SessionExpiryProvider>
     </CommonProviders>
+    </QueryClientProvider>
   );
 }

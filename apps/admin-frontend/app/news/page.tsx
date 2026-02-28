@@ -1,6 +1,8 @@
 import { NewsManagement } from '@/components/news/news-management';
 import { listNewsAction } from '@/app/news/actions';
 
+export const revalidate = 30;
+
 type StatusFilter = 'all' | 'draft' | 'published';
 
 export default async function NewsPage({ searchParams }: { searchParams: Promise<{ page?: string; status?: string }> }) {

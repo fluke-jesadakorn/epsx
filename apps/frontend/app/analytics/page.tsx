@@ -72,7 +72,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                 <PlanStatusBar planAccess={planAccess} />
               </div>
 
-              <Suspense>
+              <Suspense fallback={<div className="animate-pulse h-10 rounded bg-muted" />}>
                 <ProgressiveAuthBanner />
               </Suspense>
 

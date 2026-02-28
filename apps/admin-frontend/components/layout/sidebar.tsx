@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { useSmartPolling } from '@/shared/hooks/use-smart-polling';
 
 import { getAdminChatStats } from '@/app/actions/chat';
 
@@ -99,30 +100,18 @@ const navigationItems: NavItem[] = [
 ];
 
 function useChatStats(isAuthenticated: boolean): number {
-  const [chatCount, setChatCount] = useState(0);
-
-  const loadStats = useCallback(async () => {
-    if (!isAuthenticated) { return; }
-    const res = await getAdminChatStats();
-    if (res.success === true && res.data !== null) {
-      setChatCount(res.data.total_open + res.data.total_in_progress);
-    }
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    const startPolling = (): ReturnType<typeof setInterval> => {
-      void loadStats();
-      return setInterval(() => void loadStats(), 30_000);
-    };
-    let iv = startPolling();
-    const onVisibility = () => {
-      if (document.hidden) { clearInterval(iv); } else { iv = startPolling(); }
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => { clearInterval(iv); document.removeEventListener('visibilitychange', onVisibility); };
-  }, [loadStats]);
-
-  return chatCount;
+  const { data } = useSmartPolling(
+    ['admin-chat-stats'],
+    async () => {
+      if (!isAuthenticated) { return null; }
+      const res = await getAdminChatStats();
+      return res.success === true && res.data !== null ? res.data : null;
+    },
+    { priority: 'critical', pauseWhenHidden: true }
+  );
+  return data !== null && data !== undefined
+    ? data.total_open + data.total_in_progress
+    : 0;
 }
 
 const ACTIVE_STYLE = 'bg-gradient-to-r from-[#1fc7d4]/10 to-[#7645d9]/10 text-[#1fc7d4] border border-[#1fc7d4]/20 shadow-sm';

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { getPublicNews } from '@/app/actions/news';
 import { NewsList } from '@/components/news/news-list';
 
-export const revalidate = 3600;
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: 'News — EPSX',

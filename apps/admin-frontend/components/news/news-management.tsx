@@ -151,7 +151,8 @@ const Pagination = memo(function Pagination({ page, totalPages, status }: { page
   );
 });
 
-export function NewsManagement({ articles, total, page, status }: Props) {
+export function NewsManagement({ articles: initialArticles, total, page, status }: Props) {
+  const [localArticles, setLocalArticles] = useState<NewsArticle[]>(initialArticles);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
 
   const limit = 20;
@@ -159,8 +160,10 @@ export function NewsManagement({ articles, total, page, status }: Props) {
 
   const handleDelete = useCallback(async (id: string) => {
     const res = await deleteNewsAction(id);
-    if (res.success) { toast.success('Article deleted'); }
-    else { toast.error('Failed to delete article'); }
+    if (res.success) {
+      toast.success('Article deleted');
+      setLocalArticles(prev => prev.filter(a => a.id !== id));
+    } else { toast.error('Failed to delete article'); }
     setDeleteTarget(null);
   }, []);
 
@@ -168,7 +171,9 @@ export function NewsManagement({ articles, total, page, status }: Props) {
     const action = article.status === 'published' ? unpublishNewsAction : publishNewsAction;
     const res = await action(article.id);
     if (res.success) {
-      toast.success(article.status === 'published' ? 'Article unpublished' : 'Article published');
+      const next = article.status === 'published' ? 'draft' : 'published';
+      toast.success(next === 'published' ? 'Article published' : 'Article unpublished');
+      setLocalArticles(prev => prev.map(a => a.id === article.id ? { ...a, status: next } : a));
     } else {
       toast.error('Failed to update status');
     }
@@ -215,7 +220,7 @@ export function NewsManagement({ articles, total, page, status }: Props) {
 
       {/* Table */}
       <div className="rounded-2xl bg-card border border-border/20 shadow-xl overflow-hidden">
-        {articles.length === 0 ? (
+        {localArticles.length === 0 ? (
           <div className="p-12 text-center text-muted-foreground">No articles found.</div>
         ) : (
           <table className="w-full text-sm">
@@ -229,7 +234,7 @@ export function NewsManagement({ articles, total, page, status }: Props) {
               </tr>
             </thead>
             <tbody>
-              {articles.map((article) => (
+              {localArticles.map((article) => (
                 <ArticleRow
                   key={article.id}
                   article={article}

@@ -40,13 +40,7 @@ function parseSearchParams(
 }
 
 async function CardGrid({ params }: { params: EPSQueryParams }) {
-  // On the first page, fetch extra items to account for Top 5 special section
-  const adjustedParams = {
-    ...params,
-    limit: params.page === 1 ? params.limit + 5 : params.limit
-  };
-
-  const data = await getAnalyticsData(adjustedParams);
+  const data = await getAnalyticsData(params);
 
   if (!data?.rankings || data.rankings.length === 0) {
     return (
