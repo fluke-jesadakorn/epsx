@@ -93,7 +93,7 @@ function AnalyticsContent(): React.JSX.Element {
                 icon="BarChart3"
                 gradient="info"
                 actions={
-                    <Button onClick={refreshAll} variant="outline">
+                    <Button onClick={() => { void refreshAll(); }} variant="outline">
                         <RefreshCw className="w-4 h-4 mr-2" />
                         Refresh Data
                     </Button>

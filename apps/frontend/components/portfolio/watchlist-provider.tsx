@@ -40,33 +40,27 @@ export function WatchlistProvider({
     [symbolSet],
   );
 
+  const doToggle = useCallback(async (upper: string, removing: boolean) => {
+    const ok = await requireAuth();
+    if (!ok) { return; }
+    if (removing) {
+      setSymbols((prev) => prev.filter((s) => s !== upper));
+    } else {
+      setSymbols((prev) => [...prev, upper]);
+    }
+    const updated = removing
+      ? await removeFromWatchlistAction(upper)
+      : await addToWatchlistAction(upper);
+    if (updated !== null) { setSymbols(updated); }
+  }, [requireAuth]);
+
   const toggle = useCallback(
     (symbol: string) => {
       const upper = symbol.toUpperCase();
       const removing = symbolSet.has(upper);
-
-      startTransition(async () => {
-        // Gate: require SIWE auth before modifying watchlist
-        const ok = await requireAuth();
-        if (!ok) { return; }
-
-        // Optimistic update after auth confirmed
-        if (removing) {
-          setSymbols((prev) => prev.filter((s) => s !== upper));
-        } else {
-          setSymbols((prev) => [...prev, upper]);
-        }
-
-        const updated = removing
-          ? await removeFromWatchlistAction(upper)
-          : await addToWatchlistAction(upper);
-        // null = server error, keep optimistic state
-        if (updated !== null) {
-          setSymbols(updated);
-        }
-      });
+      startTransition(() => { void doToggle(upper, removing); });
     },
-    [symbolSet, requireAuth],
+    [symbolSet, doToggle],
   );
 
   const value = useMemo(

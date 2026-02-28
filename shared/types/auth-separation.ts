@@ -214,23 +214,6 @@ export interface SecurityContext {
 }
 
 // ============================================================================
-// ACCESS CONTROL TYPES
-// ============================================================================
-
-export interface UserAnalyticsAccess {
-  canViewRankings: boolean;
-  canExportData: boolean;
-  maxStocksTracked: number;
-  realTimeAccess: boolean;
-}
-
-export interface UserTradingAccess {
-  paperTrading: boolean;
-  liveTrading: boolean;
-  advancedOrders: boolean;
-}
-
-// ============================================================================
 // AUTHENTICATION CONFIGURATION TYPES
 // ============================================================================
 
@@ -246,27 +229,6 @@ export interface TokenValidationOptions {
   maxAge?: number;
   requiredSecurityLevel?: string;
   platformContext?: string;
-}
-
-// ============================================================================
-// MIGRATION SUPPORT TYPES
-// ============================================================================
-
-export interface LegacyJWTPayload {
-  uid: string;
-  email: string;
-  permissions: string[];
-  admin_modules?: string[];
-  permission_group?: PermissionGroup;
-  firebase_uid?: string;
-}
-
-export interface MigrationResult {
-  success: boolean;
-  newTokenType: 'admin_access' | 'user_access';
-  user: AuthenticatedUserProfile;
-  securityUpgraded: boolean;
-  warnings?: string[];
 }
 
 // ============================================================================

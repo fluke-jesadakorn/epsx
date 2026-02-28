@@ -2,6 +2,8 @@
 # Cloudflare Tunnel Configuration - EPSX Production
 # ============================================================================
 # Routes: epsx.io, admin.epsx.io, api.epsx.io → internal Docker services
+# GitLab: gitlab.epsx.io, registry.epsx.io → GitLab CE
+# Review: *.review.epsx.io → Traefik → review app containers
 
 ingress:
   # Frontend - Main user application
@@ -28,6 +30,27 @@ ingress:
       noTLSVerify: false
       http2Origin: true
 
+  # GitLab CE - CI/CD platform
+  - hostname: gitlab.epsx.io
+    service: http://epsx-gitlab:80
+    originRequest:
+      connectTimeout: 60s
+      noTLSVerify: false
+
+  # GitLab Container Registry
+  - hostname: registry.epsx.io
+    service: http://epsx-gitlab:5050
+    originRequest:
+      connectTimeout: 60s
+      noTLSVerify: false
+
+  # Review Apps - Traefik routes to per-MR containers
+  - hostname: "*.review.epsx.io"
+    service: http://epsx-traefik:80
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: false
+
   # Catch-all rule (required by Cloudflare Tunnel)
   - service: http_status:404
 
@@ -49,7 +72,10 @@ no-autoupdate: true
 # Configure these CNAME records in Cloudflare DNS:
 #
 # Record Type: CNAME
-# Name: epsx.io         → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
-# Name: admin.epsx.io   → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
-# Name: api.epsx.io     → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
+# Name: epsx.io              → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
+# Name: admin.epsx.io        → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
+# Name: api.epsx.io          → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
+# Name: gitlab.epsx.io       → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
+# Name: registry.epsx.io     → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
+# Name: *.review.epsx.io     → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
 # ============================================================================

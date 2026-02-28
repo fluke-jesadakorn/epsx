@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAccount, useConfig, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
-import { useSharedAuth } from '../Provider';
+import { useSharedAuth } from '../provider';
 import type { AuthResult, AuthStep } from '../types';
 import { useSignMessage } from './use-sign-message';
 
@@ -192,17 +192,10 @@ export function useAuthModalLogic({
         setTurnstileToken(null);
     }, [disconnect]);
 
-    const handleTurnstileSuccess = useCallback((token: string) => {
-        setTurnstileToken(token);
-    }, []);
-
-    const handleTurnstileError = useCallback(() => {
-        setTurnstileToken(null);
-    }, []);
-
-    const handleTurnstileExpire = useCallback(() => {
-        setTurnstileToken(null);
-    }, []);
+    const handleTurnstileSuccess = useCallback((token: string) => { setTurnstileToken(token); }, []);
+    const resetTurnstile = useCallback(() => { setTurnstileToken(null); }, []);
+    const handleTurnstileError = resetTurnstile;
+    const handleTurnstileExpire = resetTurnstile;
 
     return {
         step,

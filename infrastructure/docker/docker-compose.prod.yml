@@ -38,7 +38,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 8G
+          memory: 6G
           cpus: "4"
         reservations:
           memory: 2G
@@ -64,7 +64,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1536M
+          memory: 1G
           cpus: "2"
         reservations:
           memory: 256M
@@ -263,6 +263,8 @@ services:
       - ${HOME}/.cloudflared/6bee9b58-eede-4b4c-815c-94c0ee38fe58.json:/etc/cloudflared/6bee9b58-eede-4b4c-815c-94c0ee38fe58.json:ro
     networks:
       - epsx_prod
+      - epsx_gitlab
+      - epsx_review
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -282,6 +284,12 @@ networks:
   epsx_prod:
     driver: bridge
     name: epsx_prod_network
+  epsx_gitlab:
+    external: true
+    name: epsx_gitlab_network
+  epsx_review:
+    external: true
+    name: epsx_review_network
 
 volumes:
   prod_postgres_data:

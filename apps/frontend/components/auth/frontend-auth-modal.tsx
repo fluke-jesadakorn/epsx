@@ -1,12 +1,12 @@
 'use client';
 
 import { AuthModal } from '@/shared/components/auth';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useSharedAuth } from '@/shared/components/auth/provider';
 
 export function FrontendAuthModal() {
     const { isAuthenticated, showSignInModal, closeSignInModal } = useSharedAuth();
 
-    if (isAuthenticated) return null;
+    if (isAuthenticated) { return null; }
 
     return (
         <AuthModal

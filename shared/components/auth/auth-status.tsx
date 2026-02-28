@@ -12,7 +12,7 @@ import type { UserInfoResponse } from '../../auth/client';
 import { logger } from '../../utils/logger';
 import { AuthModal } from './auth-modal';
 import './auth.css';
-import { useSharedAuth } from './Provider';
+import { useSharedAuth } from './provider';
 
 export interface AuthStatusProps {
     variant?: 'user' | 'admin';

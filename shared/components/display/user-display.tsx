@@ -14,7 +14,7 @@
 'use client';
 
 import React from 'react';
-import { useSharedAuth } from '../auth/Provider';
+import { useSharedAuth } from '../auth/provider';
 
 // Simple user info display component
 export function UserWalletDisplay({

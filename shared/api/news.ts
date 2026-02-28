@@ -71,7 +71,7 @@ export class NewsApi {
   // Admin
   async adminList(page = 1, limit = 20, status?: string): Promise<ApiResponse<NewsListResponse>> {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
-    if (status !== undefined) params.set('status', status);
+    if (status !== undefined) { params.set('status', status); }
     return this.client.get(`/api/admin/news?${params.toString()}`);
   }
 

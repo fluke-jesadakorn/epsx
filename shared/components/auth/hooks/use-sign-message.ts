@@ -164,6 +164,14 @@ interface VerifyAndLoginProps {
     }) => Promise<void>;
 }
 
+function isNonceExpiredMsg(msg: string): boolean {
+    return msg.includes('expired') || msg.includes('challenge not found') || msg.includes('nonce');
+}
+
+function extractErrorMsg(err: unknown, fallback: string): string {
+    return typeof err === 'string' && err !== '' ? err : fallback;
+}
+
 /**
  * Internal helper to handle verification and login logic.
  * Auto-retries once if nonce has expired.
@@ -194,8 +202,7 @@ async function verifyAndLogin({
         });
     } catch (err) {
         const msg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
-        const isNonceExpired = msg.includes('expired') || msg.includes('challenge not found') || msg.includes('nonce');
-        if (!isNonceExpired) { throw err; }
+        if (!isNonceExpiredMsg(msg)) { throw err; }
         // Nonce expired - auto-retry with fresh challenge
         const freshChallenge = await challengeAction(address, turnstileToken);
         const freshSig = await walletClient.signMessage({
@@ -211,7 +218,7 @@ async function verifyAndLogin({
     }
 
     if (result.success !== true || result.access_token === undefined || result.access_token === '') {
-        throw new Error(typeof result.error === 'string' && result.error !== '' ? result.error : 'Authentication failed');
+        throw new Error(extractErrorMsg(result.error, 'Authentication failed'));
     }
 
     const cookieData = {
@@ -226,7 +233,7 @@ async function verifyAndLogin({
 
     const actionResult = await loginAct(result.access_token, cookieData, result.refresh_token);
     if (actionResult.success !== true) {
-        throw new Error((typeof actionResult.error === 'string' && actionResult.error !== '') ? actionResult.error : 'Failed to save session');
+        throw new Error(extractErrorMsg(actionResult.error, 'Failed to save session'));
     }
 
     await authenticateWithDirectApi({

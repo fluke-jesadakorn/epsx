@@ -36,40 +36,6 @@ export * from './credits';
 // MIGRATION HELPERS
 // ============================================================================
 
-/**
- * Migration map for old type names to new consolidated types
- * Use this to find replacement types during migration
- */
-export const TYPE_MIGRATION_MAP = {
-  // Payment types
-  'CreatePaymentRequest': 'CreatePaymentRequest', // Same name, consolidated location
-  'PaymentResponse': 'PaymentResponse', // Same name, consolidated location
-  'AssetInfo': 'AssetInfo', // Same name, consolidated location
-  'UserSubscription': 'UserSubscription', // Same name, consolidated location
-
-  // Auth types
-  'AdminJWTPayload': 'AdminJWTPayload', // Same name, consolidated location
-  'UserJWTPayload': 'UserJWTPayload', // Same name, consolidated location
-  'AdminUserProfile': 'AdminUserProfile', // Same name, consolidated location
-  'UserProfile': 'UserProfile', // Same name, consolidated location
-  'SessionData': 'SessionData', // Same name, consolidated location
-  'PermissionCheck': 'PermissionCheck', // Same name, consolidated location
-} as const;
-
-/**
- * Get the consolidated type name for a legacy type
- */
-export function getConsolidatedType(legacyTypeName: keyof typeof TYPE_MIGRATION_MAP): string {
-  return TYPE_MIGRATION_MAP[legacyTypeName];
-}
-
-/**
- * Check if a type has been consolidated
- */
-export function isTypeConsolidated(typeName: string): boolean {
-  return Object.keys(TYPE_MIGRATION_MAP).includes(typeName);
-}
-
 // ============================================================================
 // CONVENIENCE EXPORTS
 // ============================================================================
@@ -112,8 +78,8 @@ export type {
 } from './progressive-auth';
 
 export type {
-  AuthConfig, AuthenticatedUserProfile, BaseJWTPayload, LegacyJWTPayload,
-  MigrationResult, PermissionValidation, SessionValidationResult, TokenValidationOptions
+  AuthConfig, AuthenticatedUserProfile, BaseJWTPayload,
+  PermissionValidation, SessionValidationResult, TokenValidationOptions
 } from './auth-separation';
 
 export type {

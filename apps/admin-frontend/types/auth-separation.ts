@@ -20,9 +20,7 @@ import type {
   PermissionCheck as SharedPermissionCheck,
   SecurityContext as SharedSecurityContext,
   AuthConfig as SharedAuthConfig,
-  TokenValidationOptions as SharedTokenValidationOptions,
-  LegacyJWTPayload as SharedLegacyJWTPayload,
-  MigrationResult as SharedMigrationResult
+  TokenValidationOptions as SharedTokenValidationOptions
 } from '@/shared/types/auth-separation';
 
 export * from '@/shared/types/auth-separation';
@@ -42,5 +40,3 @@ export type PermissionCheck = SharedPermissionCheck;
 export type SecurityContext = SharedSecurityContext;
 export type AuthConfig = SharedAuthConfig;
 export type TokenValidationOptions = SharedTokenValidationOptions;
-export type LegacyJWTPayload = SharedLegacyJWTPayload;
-export type MigrationResult = SharedMigrationResult;

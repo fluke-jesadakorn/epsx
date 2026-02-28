@@ -56,14 +56,40 @@ function BrandPanel() {
     );
 }
 
+interface StepProps {
+    mounted: boolean; isOpen: boolean; step: string; address?: string;
+    error: string | null; isSigning: boolean; isConnecting: boolean; isSwitching: boolean;
+    connectors: ReturnType<typeof useAuthModalLogic>['connectors'];
+    connect: ReturnType<typeof useAuthModalLogic>['connect'];
+    handleSwitchChain: ReturnType<typeof useAuthModalLogic>['handleSwitchChain'];
+    handleSign: ReturnType<typeof useAuthModalLogic>['handleSign'];
+    handleRetry: ReturnType<typeof useAuthModalLogic>['handleRetry'];
+    handleDisconnect: ReturnType<typeof useAuthModalLogic>['handleDisconnect'];
+}
+
+function AuthStep({ mounted, isOpen, step, address, error, isSigning, isConnecting, isSwitching, connectors, connect, handleSwitchChain, handleSign, handleRetry, handleDisconnect }: StepProps) {
+    if (!mounted) {
+        return (
+            <div className="auth-step">
+                <div className="auth-step-header">
+                    <span className="auth-step-number">1</span>
+                    <span className="auth-step-label">Select Wallet</span>
+                </div>
+                <div className="auth-wallets" />
+            </div>
+        );
+    }
+    if (!isOpen || step === 'connect') { return <ConnectStep connectors={connectors} connect={connect} isConnecting={isConnecting} error={error} />; }
+    if (step === 'switch-chain') { return <SwitchChainStep variant="admin" handleSwitchChain={() => { void handleSwitchChain(); }} isSwitching={isSwitching} />; }
+    if (step === 'sign' && typeof address === 'string' && address !== '') { return <SignStep address={address} handleSign={() => { void handleSign(); }} handleDisconnect={handleDisconnect} isSigning={isSigning} />; }
+    return <AuthStatusDisplay step={step as 'authenticating' | 'success' | 'error'} error={error} handleRetry={handleRetry} handleDisconnect={handleDisconnect} />;
+}
+
 function AuthPanel() {
     const router = useRouter();
     const [mounted, setMounted] = useState(false);
     useEffect(() => { setMounted(true); }, []);
 
-    // Wait for wagmi to finish reconnecting before opening the auth flow.
-    // Without this, the hook auto-signs immediately while the connector is
-    // still initializing → "Wallet still initializing" error.
     const { status } = useAccount();
     const isOpen = mounted && (status === 'connected' || status === 'disconnected');
 
@@ -115,27 +141,7 @@ function AuthPanel() {
                         <p className="text-sm text-muted-foreground">Verify your admin permissions</p>
                     </div>
 
-                    {!mounted && (
-                        <div className="auth-step">
-                            <div className="auth-step-header">
-                                <span className="auth-step-number">1</span>
-                                <span className="auth-step-label">Select Wallet</span>
-                            </div>
-                            <div className="auth-wallets" />
-                        </div>
-                    )}
-                    {mounted && (!isOpen || step === 'connect') && (
-                        <ConnectStep connectors={connectors} connect={connect} isConnecting={isConnecting} error={error} />
-                    )}
-                    {isOpen && step === 'switch-chain' && (
-                        <SwitchChainStep variant="admin" handleSwitchChain={() => { void handleSwitchChain(); }} isSwitching={isSwitching} />
-                    )}
-                    {isOpen && step === 'sign' && typeof address === 'string' && address !== '' && (
-                        <SignStep address={address} handleSign={() => { void handleSign(); }} handleDisconnect={handleDisconnect} isSigning={isSigning} />
-                    )}
-                    {isOpen && (step === 'authenticating' || step === 'success' || step === 'error') && (
-                        <AuthStatusDisplay step={step} error={error} handleRetry={handleRetry} handleDisconnect={handleDisconnect} />
-                    )}
+                    <AuthStep mounted={mounted} isOpen={isOpen} step={step} address={address} error={error} isSigning={isSigning} isConnecting={isConnecting} isSwitching={isSwitching} connectors={connectors} connect={connect} handleSwitchChain={handleSwitchChain} handleSign={handleSign} handleRetry={handleRetry} handleDisconnect={handleDisconnect} />
                 </div>
 
                 <p className="mt-6 text-center text-xs text-slate-600">

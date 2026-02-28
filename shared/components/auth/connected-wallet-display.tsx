@@ -13,7 +13,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
-import { useSharedAuth } from './Provider';
+import { useSharedAuth } from './provider';
 
 interface WalletProviderInfo {
     name: string;

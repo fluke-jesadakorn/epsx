@@ -72,33 +72,11 @@ export enum PermissionType {
 }
 
 /**
- * @deprecated Use PermissionType instead
- */
-export enum Web3PermissionType {
-  Manual = 'Manual',
-  NFT = 'NFT',
-  Token = 'Token',
-  DAO = 'DAO',
-}
-
-/**
  * Permission with verification data
  */
 export interface Permission {
   permission: string;
   permission_type: PermissionType;
-  is_active: boolean;
-  expires_at?: string;
-  granted_at: string;
-  verification_data?: Record<string, unknown>;
-}
-
-/**
- * @deprecated Use Permission instead
- */
-export interface Web3Permission {
-  permission: string;
-  permission_type: Web3PermissionType;
   is_active: boolean;
   expires_at?: string;
   granted_at: string;
@@ -123,7 +101,6 @@ export interface WalletAuthState {
   permissionInfo: PermissionInfo[];
   groupMemberships: GroupMembership[];
   permissionStats?: PermissionStats;
-  web3Permissions: Web3Permission[]; // @deprecated Use permissions instead
   detailedPermissions: Permission[];
 
   // Actions
@@ -393,110 +370,3 @@ export type PermissionCondition =
   | { type: 'DelegatedBy'; delegator: string }
   | { type: 'TimeWindow'; start: string; end: string };
 
-// ============================================================================
-// SIMPLIFIED AUTH UTILITIES
-// ============================================================================
-
-/**
- * Check if user has admin permissions
- */
-export function hasAdminPermissions(permissions: string[]): boolean {
-  return permissions.some(
-    p =>
-      p === 'admin:*:*' ||
-      p.startsWith('admin:') ||
-      p === 'epsx:admin:*' ||
-      p === 'epsx:*:*'
-  );
-}
-
-/**
- * Check if user has specific permission
- */
-export function hasPermission(
-  userPermissions: string[],
-  requiredPermission: string
-): boolean {
-  return userPermissions.includes(requiredPermission);
-}
-
-/**
- * Extract platform from permission string
-
- * e.g., "admin:users:manage" -> "admin"
- */
-export function getPermissionPlatform(permission: string): string {
-  return permission.split(':')[0] || '';
-}
-
-/**
- * Extract resource from permission string
- * e.g., "admin:users:manage" -> "users"
- */
-export function getPermissionResource(permission: string): string {
-  return permission.split(':')[1] || '';
-}
-
-/**
- * Extract action from permission string
- * e.g., "admin:users:manage" -> "manage"
- */
-export function getPermissionAction(permission: string): string {
-  return permission.split(':')[2] || '';
-}
-
-/**
- * Check if session is expired
- */
-export function isSessionExpired(expiresAt: number | null): boolean {
-  if (expiresAt === null) { return true; }
-  return Date.now() >= expiresAt;
-}
-
-/**
- * Check if session expires soon (within 5 minutes)
- */
-export function isSessionExpiringSoon(
-  expiresAt: number | null,
-  thresholdMs = 300000
-): boolean {
-  if (expiresAt === null) { return true; }
-  return Date.now() >= expiresAt - thresholdMs;
-}
-
-// ============================================================================
-// FRONTEND SESSION TYPES (API Compatible)
-// ============================================================================
-
-/**
- * Frontend session API response format
- */
-export interface FrontendSessionResponse {
-  isAuthenticated: boolean;
-  user?: {
-    wallet_address: string;
-    user_id?: string;
-    permissions: string[];
-    tier?: string;
-    has_access?: boolean;
-  };
-  expiresAt?: number;
-  error?: string;
-}
-
-/**
- * Admin session API response format
- */
-export interface AdminSessionResponse {
-  isAuthenticated: boolean;
-  user?: {
-    wallet_address: string;
-    user_id?: string;
-    permissions: string[];
-    tier?: string;
-    admin_level?: string;
-    has_access?: boolean;
-  };
-  expiresAt?: number;
-  error?: string;
-}

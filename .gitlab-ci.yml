@@ -1,0 +1,301 @@
+# EPSX CI/CD Pipeline — GitLab CE Self-Hosted
+# Mac Mini runner (arm64), Docker executor, bind-mounted Docker socket
+
+stages:
+  - lint
+  - test
+  - build
+  - deploy
+
+variables:
+  REGISTRY: registry.epsx.io
+  IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+  # Bun cache
+  BUN_INSTALL: /tmp/.bun
+  # Cargo cache
+  CARGO_HOME: /tmp/.cargo
+
+# ---------------------------------------------------------------------------
+# Templates
+# ---------------------------------------------------------------------------
+
+.bun-cache: &bun-cache
+  cache:
+    key: bun-${CI_COMMIT_REF_SLUG}
+    paths:
+      - node_modules/
+      - .turbo/
+    policy: pull-push
+
+.cargo-cache: &cargo-cache
+  cache:
+    key: cargo-${CI_COMMIT_REF_SLUG}
+    paths:
+      - apps/backend/target/
+      - /tmp/.cargo/registry/
+      - /tmp/.cargo/git/
+    policy: pull-push
+
+.docker-login: &docker-login
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+
+.only-frontend: &only-frontend
+  rules:
+    - changes:
+        - apps/frontend/**/*
+        - shared/**/*
+        - package.json
+        - bun.lock
+    - if: $CI_COMMIT_BRANCH == "development" || $CI_COMMIT_BRANCH == "main"
+
+.only-admin: &only-admin
+  rules:
+    - changes:
+        - apps/admin-frontend/**/*
+        - shared/**/*
+        - package.json
+        - bun.lock
+    - if: $CI_COMMIT_BRANCH == "development" || $CI_COMMIT_BRANCH == "main"
+
+.only-backend: &only-backend
+  rules:
+    - changes:
+        - apps/backend/**/*
+    - if: $CI_COMMIT_BRANCH == "development" || $CI_COMMIT_BRANCH == "main"
+
+# ---------------------------------------------------------------------------
+# Lint
+# ---------------------------------------------------------------------------
+
+lint:eslint:
+  stage: lint
+  image: oven/bun:1.2.17
+  <<: *bun-cache
+  script:
+    - bun install --frozen-lockfile
+    - bun lint
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "development" || $CI_COMMIT_BRANCH == "main"
+
+lint:typecheck:
+  stage: lint
+  image: oven/bun:1.2.17
+  <<: *bun-cache
+  script:
+    - bun install --frozen-lockfile
+    - bun type-check
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "development" || $CI_COMMIT_BRANCH == "main"
+
+# ---------------------------------------------------------------------------
+# Test
+# ---------------------------------------------------------------------------
+
+test:frontend:
+  stage: test
+  image: oven/bun:1.2.17
+  <<: *bun-cache
+  script:
+    - bun install --frozen-lockfile
+    - bun test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "development" || $CI_COMMIT_BRANCH == "main"
+
+test:backend:
+  stage: test
+  image: rust:1.88-slim-bookworm
+  <<: *cargo-cache
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq pkg-config libssl-dev libpq-dev
+  script:
+    - cd apps/backend
+    - cargo test --release
+  <<: *only-backend
+
+# ---------------------------------------------------------------------------
+# Build — Docker images pushed to internal registry
+# ---------------------------------------------------------------------------
+
+build:frontend:
+  stage: build
+  image: docker:27
+  <<: *docker-login
+  script:
+    - >
+      docker build
+      --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID
+      --build-arg NEXT_PUBLIC_APP_URL=$FRONTEND_URL
+      --build-arg NEXT_PUBLIC_BACKEND_URL=$BACKEND_URL
+      --build-arg NEXT_PUBLIC_ADMIN_URL=$ADMIN_FRONTEND_URL
+      --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=$BLOCKCHAIN_NETWORK
+      --build-arg NEXT_PUBLIC_CHAIN_ID=$CHAIN_ID
+      --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID
+      --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=$PAYMENT_ESCROW_MAINNET
+      --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=$PAYMENT_RECEIVER_MAINNET
+      --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=$TURNSTILE_SITE_KEY
+      -f apps/frontend/Dockerfile
+      -t $REGISTRY/epsx/frontend:$IMAGE_TAG
+      -t $REGISTRY/epsx/frontend:latest
+      .
+    - docker push $REGISTRY/epsx/frontend:$IMAGE_TAG
+    - docker push $REGISTRY/epsx/frontend:latest
+  <<: *only-frontend
+
+build:admin:
+  stage: build
+  image: docker:27
+  <<: *docker-login
+  script:
+    - >
+      docker build
+      --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID
+      --build-arg NEXT_PUBLIC_APP_URL=$ADMIN_FRONTEND_URL
+      --build-arg NEXT_PUBLIC_BACKEND_URL=$BACKEND_URL
+      --build-arg NEXT_PUBLIC_ADMIN_URL=$ADMIN_FRONTEND_URL
+      --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=$BLOCKCHAIN_NETWORK
+      --build-arg NEXT_PUBLIC_CHAIN_ID=$CHAIN_ID
+      --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-admin
+      --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=$PAYMENT_ESCROW_MAINNET
+      --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=$PAYMENT_RECEIVER_MAINNET
+      --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=$TURNSTILE_SITE_KEY
+      -f apps/admin-frontend/Dockerfile
+      -t $REGISTRY/epsx/admin:$IMAGE_TAG
+      -t $REGISTRY/epsx/admin:latest
+      .
+    - docker push $REGISTRY/epsx/admin:$IMAGE_TAG
+    - docker push $REGISTRY/epsx/admin:latest
+  <<: *only-admin
+
+build:backend:
+  stage: build
+  image: docker:27
+  <<: *docker-login
+  script:
+    - >
+      docker build
+      -f apps/backend/Dockerfile
+      -t $REGISTRY/epsx/backend:$IMAGE_TAG
+      -t $REGISTRY/epsx/backend:latest
+      .
+    - docker push $REGISTRY/epsx/backend:$IMAGE_TAG
+    - docker push $REGISTRY/epsx/backend:latest
+  <<: *only-backend
+
+# ---------------------------------------------------------------------------
+# Deploy
+# ---------------------------------------------------------------------------
+
+deploy:dev:
+  stage: deploy
+  image: docker:27
+  script:
+    - docker pull $REGISTRY/epsx/frontend:latest || true
+    - docker pull $REGISTRY/epsx/admin:latest || true
+    - docker pull $REGISTRY/epsx/backend:latest || true
+    - docker tag $REGISTRY/epsx/frontend:latest epsx-frontend:prod
+    - docker tag $REGISTRY/epsx/admin:latest epsx-admin-frontend:prod
+    - docker tag $REGISTRY/epsx/backend:latest epsx-backend:prod
+    - cd infrastructure/docker
+    - docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --force-recreate
+  environment:
+    name: development
+    url: https://dev.epsx.io
+  rules:
+    - if: $CI_COMMIT_BRANCH == "development"
+
+deploy:prod:
+  stage: deploy
+  image: docker:27
+  script:
+    - docker pull $REGISTRY/epsx/frontend:$IMAGE_TAG
+    - docker pull $REGISTRY/epsx/admin:$IMAGE_TAG
+    - docker pull $REGISTRY/epsx/backend:$IMAGE_TAG
+    - docker tag $REGISTRY/epsx/frontend:$IMAGE_TAG epsx-frontend:prod
+    - docker tag $REGISTRY/epsx/admin:$IMAGE_TAG epsx-admin-frontend:prod
+    - docker tag $REGISTRY/epsx/backend:$IMAGE_TAG epsx-backend:prod
+    - cd infrastructure/docker
+    - docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --force-recreate
+  environment:
+    name: production
+    url: https://epsx.io
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+      allow_failure: false
+
+# ---------------------------------------------------------------------------
+# Review Apps (MR only — frontend preview with prod backend)
+# ---------------------------------------------------------------------------
+
+review:deploy:
+  stage: deploy
+  image: docker:27
+  <<: *docker-login
+  script:
+    - >
+      docker build
+      --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID
+      --build-arg NEXT_PUBLIC_APP_URL=https://mr-${CI_MERGE_REQUEST_IID}.review.epsx.io
+      --build-arg NEXT_PUBLIC_BACKEND_URL=$BACKEND_URL
+      --build-arg NEXT_PUBLIC_ADMIN_URL=$ADMIN_FRONTEND_URL
+      --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=$BLOCKCHAIN_NETWORK
+      --build-arg NEXT_PUBLIC_CHAIN_ID=$CHAIN_ID
+      --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID
+      --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=$PAYMENT_ESCROW_MAINNET
+      --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=$PAYMENT_RECEIVER_MAINNET
+      --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=$TURNSTILE_SITE_KEY
+      -f apps/frontend/Dockerfile
+      -t $REGISTRY/epsx/review:mr-${CI_MERGE_REQUEST_IID}
+      .
+    - docker push $REGISTRY/epsx/review:mr-${CI_MERGE_REQUEST_IID}
+    # Stop existing review container if any
+    - docker rm -f epsx-review-mr-${CI_MERGE_REQUEST_IID} || true
+    # Run review app with Traefik labels
+    - >
+      docker run -d
+      --name epsx-review-mr-${CI_MERGE_REQUEST_IID}
+      --network epsx_review_network
+      --memory 512m
+      --cpus 1
+      --restart unless-stopped
+      -e NODE_ENV=production
+      -e BACKEND_URL=$BACKEND_URL
+      -e NEXT_PUBLIC_BACKEND_URL=$BACKEND_URL
+      -e PORT=3000
+      -e HOSTNAME=0.0.0.0
+      --label "traefik.enable=true"
+      --label "traefik.http.routers.mr-${CI_MERGE_REQUEST_IID}.rule=Host(\`mr-${CI_MERGE_REQUEST_IID}.review.epsx.io\`)"
+      --label "traefik.http.routers.mr-${CI_MERGE_REQUEST_IID}.entrypoints=web"
+      --label "traefik.http.services.mr-${CI_MERGE_REQUEST_IID}.loadbalancer.server.port=3000"
+      $REGISTRY/epsx/review:mr-${CI_MERGE_REQUEST_IID}
+  environment:
+    name: review/mr-${CI_MERGE_REQUEST_IID}
+    url: https://mr-${CI_MERGE_REQUEST_IID}.review.epsx.io
+    on_stop: review:stop
+    auto_stop_in: 3 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - apps/frontend/**/*
+        - shared/**/*
+
+review:stop:
+  stage: deploy
+  image: docker:27
+  script:
+    - docker rm -f epsx-review-mr-${CI_MERGE_REQUEST_IID} || true
+    - docker rmi $REGISTRY/epsx/review:mr-${CI_MERGE_REQUEST_IID} || true
+  environment:
+    name: review/mr-${CI_MERGE_REQUEST_IID}
+    action: stop
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - apps/frontend/**/*
+        - shared/**/*
+      when: manual
+      allow_failure: true

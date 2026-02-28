@@ -218,7 +218,7 @@ export function createJWTClaims(
  */
 export async function signJWT(payload: EPSXJWTPayload): Promise<string> {
   const secret = process.env.WEB3_APP_SECRET;
-  if (!secret) {
+  if (secret === undefined || secret === '') {
     throw new Error('FATAL: WEB3_APP_SECRET environment variable is not set. Refusing to sign JWT with no secret.');
   }
 
@@ -239,7 +239,7 @@ export async function signJWT(payload: EPSXJWTPayload): Promise<string> {
 export async function verifyJWT(token: string): Promise<EPSXJWTPayload | null> {
   try {
     const secret = process.env.WEB3_APP_SECRET;
-    if (!secret) {
+    if (secret === undefined || secret === '') {
       throw new Error('FATAL: WEB3_APP_SECRET environment variable is not set. Refusing to verify JWT with no secret.');
     }
 

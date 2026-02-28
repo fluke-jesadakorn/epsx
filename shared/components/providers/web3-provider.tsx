@@ -13,7 +13,7 @@ import { useRouter } from 'next/navigation';
 import type { State } from 'wagmi';
 import type { Chain } from 'viem';
 import { useReconnect, WagmiProvider } from 'wagmi';
-import { logger } from '../../utils/logger';
+import { logger as _logger } from '../../utils/logger';
 import { DEFAULT_APP_NAME, DEFAULT_LEARN_MORE_URL, DEFAULT_PROJECT_ID, getConfig, getDefaultChains } from '../../config/wagmi';
 import { createQueryClient } from '../../state';
 

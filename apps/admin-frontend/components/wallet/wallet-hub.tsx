@@ -10,7 +10,6 @@ import { ReenableWalletModal, type ReenableWalletData } from './reenable-wallet-
 import type {
     WalletData,
     WalletFilters,
-    WalletStats
 } from './types';
 import { WalletCard } from './wallet-card';
 import { WalletTable } from './wallet-table';
@@ -34,12 +33,6 @@ import { useSharedAuth } from '@/shared/components/auth';
 interface WalletHubProps {
     className?: string;
 }
-
-const DEFAULT_STATS: WalletStats = {
-    total: 0, active: 0, disabled: 0, subscribed: 0,
-    changes: { total: 0, active: 0, disabled: 0, subscribed: 0 },
-    platformDistribution: { analytics: 0, pay: 0, token: 0, markets: 0 },
-};
 
 const SKELETON_KEYS = ['sk-0', 'sk-1', 'sk-2', 'sk-3', 'sk-4', 'sk-5'];
 const PLATFORMS = ['analytics', 'pay', 'token', 'markets'] as const;

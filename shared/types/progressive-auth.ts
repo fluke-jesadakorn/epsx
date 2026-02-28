@@ -154,60 +154,6 @@ export interface AuthGateProps extends ProgressiveAuthProps {
 }
 
 // ============================================================================
-// COMPONENT PROPS FOR DIFFERENT AUTH LEVELS
-// ============================================================================
-
-export interface ConnectedComponentProps {
-  /**
-   * Enhanced props when wallet is connected (limited access/personalization)
-   */
-  walletAddress?: string;
-  isConnected: boolean;
-}
-
-export interface UserConnectedComponentProps extends ConnectedComponentProps {
-  /**
-   * User-specific connected state
-   */
-  permissions?: string[];
-  packageTier?: string;
-}
-
-export interface AdminConnectedComponentProps extends ConnectedComponentProps {
-  /**
-   * Admin-specific connected state (limited admin access)
-   */
-  adminPermissions: string[];
-  adminLevel?: string;
-}
-
-export interface AuthenticatedComponentProps extends ConnectedComponentProps {
-  /**
-   * Full authentication state for sensitive operations
-   */
-  isAuthenticated: boolean;
-}
-
-export interface UserAuthenticatedComponentProps extends UserConnectedComponentProps {
-  /**
-   * Full user authentication state
-   */
-  isAuthenticated: boolean;
-  hasValidSubscription: boolean;
-}
-
-export interface AdminAuthenticatedComponentProps extends AdminConnectedComponentProps {
-  /**
-   * Full admin authentication state for sensitive operations
-   */
-  isAuthenticated: boolean;
-  adminLevel: 'super' | 'manager' | 'moderator';
-  securityLevel: 'standard' | 'elevated' | 'critical';
-  mfaVerified: boolean;
-  deviceTrusted: boolean;
-}
-
-// ============================================================================
 // AUTH MESSAGES AND ACTION NAMES
 // ============================================================================
 

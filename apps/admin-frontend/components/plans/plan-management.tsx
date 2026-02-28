@@ -87,7 +87,7 @@ function StatsGrid({ plans, avgRevenue }: { plans: AdminPlan[]; avgRevenue: numb
   );
 }
 
-async function fetchPlans(router: ReturnType<typeof useRouter>, pathname: string): Promise<AdminPlan[] | null> {
+async function fetchPlans(_router: ReturnType<typeof useRouter>, _pathname: string): Promise<AdminPlan[] | null> {
   const apiClient = createAdminApiClient()
   const plansClient = createPlansClient(apiClient)
   const response = await plansClient.listPlans({ limit: 100 })

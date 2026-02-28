@@ -1,7 +1,7 @@
 'use client';
 
 import { createPlansClient } from '@/shared/api/plans';
-import { useAuth } from '@/shared/components/auth/Provider';
+import { useAuth } from '@/shared/components/auth/provider';
 import type { PlanAccessData } from '@/shared/types/payment';
 import { createFrontendApiClient } from '@/shared/utils/api-client';
 import { useCallback, useEffect, useState } from 'react';

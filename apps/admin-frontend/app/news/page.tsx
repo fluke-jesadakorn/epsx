@@ -11,8 +11,8 @@ export default async function NewsPage({ searchParams }: { searchParams: Promise
   const status = (['draft', 'published'].includes(statusParam ?? '') ? statusParam : 'all') as StatusFilter;
 
   const res = await listNewsAction(page, 20, status === 'all' ? undefined : status);
-  const articles = res.success === true && res.data !== undefined ? (res.data.articles ?? []) : [];
-  const total = res.success === true && res.data !== undefined ? res.data.total : 0;
+  const articles = res.success === true ? res.data.articles : [];
+  const total = res.success === true ? res.data.total : 0;
 
   return <NewsManagement articles={articles} total={total} page={page} status={status} />;
 }

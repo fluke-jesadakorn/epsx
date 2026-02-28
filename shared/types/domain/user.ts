@@ -213,23 +213,6 @@ export interface UsageMetrics {
 }
 
 // ============================================================================
-// FEATURE ACCESS TYPES - Business logic helpers
-// ============================================================================
-
-export interface UserAnalyticsAccess {
-  canViewRankings: boolean
-  canExportData: boolean
-  maxStocksTracked: number
-  realTimeAccess: boolean
-}
-
-export interface UserTradingAccess {
-  paperTrading: boolean
-  liveTrading: boolean
-  advancedOrders: boolean
-}
-
-// ============================================================================
 // REQUEST/RESPONSE TYPES - API operations
 // ============================================================================
 

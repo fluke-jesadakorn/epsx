@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 
 import { AdminWalletConnectAuth } from '@/components/auth/admin-wallet-connect-auth';
 import { AdminNotificationBell } from './admin-notification-bell-client';
-import { Breadcrumb } from './Breadcrumb';
+import { Breadcrumb } from './breadcrumb';
 
 import { themeUtils } from '@/components/ui/safe-theme-script';
 import { ChainSelector } from '@/shared/components/navigation/chain-selector';

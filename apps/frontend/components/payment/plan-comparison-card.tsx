@@ -127,7 +127,7 @@ function FeatureTable({
   features: Array<{ text: string; inCurrent: boolean; inNew: boolean }>;
   cfg: (typeof ACTION_CONFIG)[ActionType];
 }) {
-  if (features.length === 0) return null;
+  if (features.length === 0) { return null; }
 
   return (
     <div className="mt-5">
@@ -239,12 +239,11 @@ function DayBreakdown({
 }
 
 /* ── Main Component ─────────────────────────────────────────── */
-// eslint-disable-next-line max-lines-per-function
 export function PlanComparisonCard({ currentPlan, newPlan, upgradePreview }: PlanComparisonCardProps) {
   const actionType: ActionType = useMemo(() => {
-    if (!currentPlan || currentPlan.status === 'no_plan') return 'new';
-    if (newPlan.tier_level > currentPlan.tier_level) return 'upgrade';
-    if (newPlan.tier_level < currentPlan.tier_level) return 'downgrade';
+    if (!currentPlan || currentPlan.status === 'no_plan') { return 'new'; }
+    if (newPlan.tier_level > currentPlan.tier_level) { return 'upgrade'; }
+    if (newPlan.tier_level < currentPlan.tier_level) { return 'downgrade'; }
     return 'extend';
   }, [currentPlan, newPlan]);
 
@@ -252,20 +251,20 @@ export function PlanComparisonCard({ currentPlan, newPlan, upgradePreview }: Pla
   const durationDays = newPlan.duration_days ?? 30;
 
   const totalDays = useMemo(() => {
-    if (actionType === 'upgrade' && upgradePreview) return durationDays + (upgradePreview.bonus_days ?? 0);
-    if (actionType === 'extend' && currentPlan?.days_remaining) return currentPlan.days_remaining + durationDays;
+    if (actionType === 'upgrade' && upgradePreview) { return durationDays + (upgradePreview.bonus_days ?? 0); }
+    if (actionType === 'extend' && currentPlan?.days_remaining) { return currentPlan.days_remaining + durationDays; }
     return durationDays;
   }, [actionType, durationDays, currentPlan, upgradePreview]);
 
   const expiryDate = useMemo(() => {
-    if (upgradePreview?.new_expiry_date) return new Date(upgradePreview.new_expiry_date);
+    if (upgradePreview?.new_expiry_date) { return new Date(upgradePreview.new_expiry_date); }
     const d = new Date();
     d.setDate(d.getDate() + totalDays);
     return d;
   }, [upgradePreview, totalDays]);
 
   const allFeatures = useMemo(() => {
-    if (actionType === 'extend' || actionType === 'new' || !currentPlan?.features) return [];
+    if (actionType === 'extend' || actionType === 'new' || !currentPlan?.features) { return []; }
     const cur = new Set(currentPlan.features);
     const nxt = new Set(newPlan.features);
     return [...new Set([...cur, ...nxt])].map(t => ({ text: t, inCurrent: cur.has(t), inNew: nxt.has(t) }));

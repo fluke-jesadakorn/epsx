@@ -56,12 +56,10 @@ export type {
   ModuleQuota, PackageTier, StockRankingPackage, SubscriptionTier, UnifiedUserData, UsageMetrics,
   // Legacy compatibility
   User,
-  // Business access types
-  UserAnalyticsAccess,
   // API request/response types
   UserListFilters,
   UserListResponse, UserOperationError,
-  UserOperationResult, UserProfile, UserProfileUpdateData, UserRole, UserRoleUpdateData, UserSession, SessionData as UserSessionData_Legacy, UserStatus, UserStatusUpdateData, UserTradingAccess
+  UserOperationResult, UserProfile, UserProfileUpdateData, UserRole, UserRoleUpdateData, UserSession, SessionData as UserSessionData_Legacy, UserStatus, UserStatusUpdateData
 } from './user'
 
 // ============================================================================
@@ -193,8 +191,6 @@ export const DomainTypes = {
     Core: 'UserProfile' as const,
     Admin: 'AdminUserProfile' as const,
     Session: 'Usersession' as const,
-    Analytics: 'UserAnalyticsAccess' as const,
-    Trading: 'UserTradingAccess' as const
   },
   Permission: {
     Core: 'EPSXpermission' as const,

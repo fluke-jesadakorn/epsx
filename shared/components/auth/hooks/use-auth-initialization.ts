@@ -11,6 +11,7 @@ function getExpiresAt(): number | null {
     if (typeof document === 'undefined') { return null; }
     const name = COOKIES.expires_at;
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // eslint-disable-next-line security/detect-non-literal-regexp
     const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`));
     if (match === null) { return null; }
     const val = parseInt(match[1], 10);
@@ -35,7 +36,7 @@ export function useAuthInitialization({
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const initializeAuth = async () => {
+        const initializeAuth = () => {
             try {
                 setError(null);
 
@@ -85,7 +86,7 @@ export function useAuthInitialization({
             });
         }, 5000);
 
-        void initializeAuth();
+        initializeAuth();
 
         const unsubscribe = client.subscribe((newUser) => {
             setUser(newUser);
@@ -109,22 +110,24 @@ export function useAuthInitialization({
 
         let timerId: ReturnType<typeof setTimeout> | undefined;
 
+        const doRefresh = async () => {
+            const result = await refreshSessionAction();
+            if (result.success) {
+                const updated = await client.loadCurrentUser();
+                if (updated !== null) {
+                    if (updated.access !== undefined) { setSharedClientToken(updated.access); }
+                    setUser(updated);
+                }
+            }
+        };
+
         const schedule = () => {
             const expiresAt = getExpiresAt();
             if (expiresAt === null) { return; }
             const delay = Math.max(expiresAt - Date.now() - 5 * 60 * 1000, 30_000);
             timerId = setTimeout(() => {
                 void (async () => {
-                    try {
-                        const result = await refreshSessionAction();
-                        if (result.success) {
-                            const updated = await client.loadCurrentUser();
-                            if (updated !== null) {
-                                if (updated.access !== undefined) { setSharedClientToken(updated.access); }
-                                setUser(updated);
-                            }
-                        }
-                    } catch { /* refresh failed, user re-auths on expiry */ }
+                    try { await doRefresh(); } catch { /* refresh failed, user re-auths on expiry */ }
                     schedule();
                 })();
             }, delay);

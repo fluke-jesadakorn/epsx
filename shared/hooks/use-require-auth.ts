@@ -1,7 +1,7 @@
 'use client';
 
 import { useAccount } from 'wagmi';
-import { useSharedAuth } from '../components/auth/Provider';
+import { useSharedAuth } from '../components/auth/provider';
 
 /**
  * Progressive authentication hook.
