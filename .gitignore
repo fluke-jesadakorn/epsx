@@ -99,3 +99,4 @@ eslint-output.txt
 
 # Design Files
 webDesign/
+.worktrees/
