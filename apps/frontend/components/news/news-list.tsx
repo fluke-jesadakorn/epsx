@@ -1,12 +1,11 @@
-'use client';
-
-import { useCallback, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
-import type { NewsArticle, NewsListResponse } from '@/shared/api/news';
-import { getPublicNews } from '@/app/actions/news';
+import type { NewsListResponse, NewsArticle } from '@/shared/api/news';
+
+const BLUR_PLACEHOLDER = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==';
 
 interface Props {
-  initial: NewsListResponse;
+  data: NewsListResponse;
 }
 
 function formatDate(dateStr: string | null): string {
@@ -18,16 +17,23 @@ function formatDate(dateStr: string | null): string {
   });
 }
 
-function ArticleCard({ article }: { article: NewsArticle }) {
+function ArticleCard({ article, priority }: { article: NewsArticle; priority?: boolean }) {
   return (
     <Link href={`/news/${article.slug}`} className="group block">
       <div className="rounded-2xl bg-card border border-border/20 shadow-xl overflow-hidden hover:border-[#1fc7d4]/30 transition-colors h-full flex flex-col">
         {article.cover_image_url !== null && (
-          <img
-            src={article.cover_image_url}
-            alt={article.title}
-            className="w-full h-48 object-cover"
-          />
+          <div className="relative w-full h-48">
+            <Image
+              src={article.cover_image_url}
+              alt={article.title}
+              fill
+              className="object-cover"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              placeholder="blur"
+              blurDataURL={BLUR_PLACEHOLDER}
+              priority={priority}
+            />
+          </div>
         )}
         <div className="p-5 flex flex-col flex-1">
           <div className="flex flex-wrap gap-1.5 mb-3">
@@ -57,24 +63,10 @@ function ArticleCard({ article }: { article: NewsArticle }) {
   );
 }
 
-export function NewsList({ initial }: Props) {
-  const [articles, setArticles] = useState(initial.articles);
-  const [page, setPage] = useState(initial.page);
-  const [total] = useState(initial.total);
-  const [loading, setLoading] = useState(false);
-
-  const limit = initial.limit;
+export function NewsList({ data }: Props) {
+  const articles = data.articles ?? [];
+  const { page, total, limit } = data;
   const totalPages = Math.ceil(total / limit);
-
-  const loadPage = useCallback(async (p: number) => {
-    setLoading(true);
-    const res = await getPublicNews(p, limit);
-    if (res.success === true && res.data !== undefined) {
-      setArticles(res.data.articles);
-      setPage(p);
-    }
-    setLoading(false);
-  }, [limit]);
 
   if (articles.length === 0) {
     return (
@@ -86,29 +78,29 @@ export function NewsList({ initial }: Props) {
 
   return (
     <div className="space-y-8">
-      <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 ${loading ? 'opacity-60 pointer-events-none' : ''}`}>
-        {articles.map((article) => (
-          <ArticleCard key={article.id} article={article} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {articles.map((article, idx) => (
+          <ArticleCard key={article.id} article={article} priority={idx === 0} />
         ))}
       </div>
 
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-3">
-          <button
-            onClick={() => void loadPage(page - 1)}
-            disabled={page === 1 || loading}
-            className="px-4 py-2 rounded-xl text-sm border border-border/20 disabled:opacity-40 hover:bg-muted/50 transition-colors"
+          <Link
+            href={`/news?page=${page - 1}`}
+            aria-disabled={page === 1}
+            className={`px-4 py-2 rounded-xl text-sm border border-border/20 hover:bg-muted/50 transition-colors ${page === 1 ? 'pointer-events-none opacity-40' : ''}`}
           >
             Previous
-          </button>
+          </Link>
           <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-          <button
-            onClick={() => void loadPage(page + 1)}
-            disabled={page === totalPages || loading}
-            className="px-4 py-2 rounded-xl text-sm border border-border/20 disabled:opacity-40 hover:bg-muted/50 transition-colors"
+          <Link
+            href={`/news?page=${page + 1}`}
+            aria-disabled={page === totalPages}
+            className={`px-4 py-2 rounded-xl text-sm border border-border/20 hover:bg-muted/50 transition-colors ${page === totalPages ? 'pointer-events-none opacity-40' : ''}`}
           >
             Next
-          </button>
+          </Link>
         </div>
       )}
     </div>

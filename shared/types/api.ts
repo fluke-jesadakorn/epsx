@@ -763,7 +763,6 @@ export function isApiResponse<T>(response: unknown): response is ApiResponse<T> 
     typeof response === 'object' &&
     response !== null &&
     'data' in response &&
-    'error' in response &&
     'success' in response &&
     typeof (response as ApiResponse).success === 'boolean'
   );

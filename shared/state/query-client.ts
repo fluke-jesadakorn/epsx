@@ -15,7 +15,7 @@ export function createQueryClient(platform: Platform): QueryClient {
     defaultOptions: {
       queries: {
         retry: isAdmin ? 3 : 1,
-        staleTime: 60000, // 1 minute
+        staleTime: isAdmin ? 30_000 : 60_000,
         gcTime: isAdmin ? 300000 : Infinity, // 5 minutes for admin, infinite for frontend
         refetchOnWindowFocus: false,
       },

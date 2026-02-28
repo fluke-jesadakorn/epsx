@@ -98,6 +98,33 @@ const navigationItems: NavItem[] = [
   },
 ];
 
+function useChatStats(isAuthenticated: boolean): number {
+  const [chatCount, setChatCount] = useState(0);
+
+  const loadStats = useCallback(async () => {
+    if (!isAuthenticated) { return; }
+    const res = await getAdminChatStats();
+    if (res.success === true && res.data !== null) {
+      setChatCount(res.data.total_open + res.data.total_in_progress);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    const startPolling = (): ReturnType<typeof setInterval> => {
+      void loadStats();
+      return setInterval(() => void loadStats(), 30_000);
+    };
+    let iv = startPolling();
+    const onVisibility = () => {
+      if (document.hidden) { clearInterval(iv); } else { iv = startPolling(); }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => { clearInterval(iv); document.removeEventListener('visibilitychange', onVisibility); };
+  }, [loadStats]);
+
+  return chatCount;
+}
+
 const ACTIVE_STYLE = 'bg-gradient-to-r from-[#1fc7d4]/10 to-[#7645d9]/10 text-[#1fc7d4] border border-[#1fc7d4]/20 shadow-sm';
 const INACTIVE_STYLE = 'text-muted-foreground hover:bg-muted/30 hover:text-foreground';
 
@@ -206,7 +233,7 @@ export function Sidebar() {
   const searchParams = useSearchParams();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const { isAuthenticated } = useSharedAuth();
-  const [chatCount, setChatCount] = useState(0);
+  const chatCount = useChatStats(isAuthenticated);
 
   const isChildActive = useCallback((child: NavItem) => {
     if (child.tab !== undefined && child.tab !== '') {
@@ -214,20 +241,6 @@ export function Sidebar() {
     }
     return pathname === child.href || pathname.startsWith(`${child.href}/`);
   }, [pathname, searchParams]);
-
-  const loadChatStats = useCallback(async () => {
-    if (!isAuthenticated) { return; }
-    const res = await getAdminChatStats();
-    if (res.success === true && res.data !== null) {
-      setChatCount(res.data.total_open + res.data.total_in_progress);
-    }
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    void loadChatStats();
-    const iv = setInterval(() => void loadChatStats(), 30_000);
-    return () => clearInterval(iv);
-  }, [loadChatStats]);
 
   useEffect(() => {
     setExpandedItems(prev => {

@@ -12,7 +12,7 @@ import {
   uploadNewsImageAction,
 } from '@/app/news/actions';
 
-const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false });
+const MDEditor = dynamic(() => import('@uiw/react-md-editor/nohighlight'), { ssr: false });
 
 interface Props {
   article?: NewsArticle | null;

@@ -170,7 +170,7 @@ export class AnalyticsAPIClient {
       API_ROUTES.ANALYTICS.PUBLIC_RANKINGS,
       publicFilters,
       {
-        timeout: 60000, // 60 second timeout for analytics queries
+        timeout: 15000,
         headers: {
           'X-API-Version': API_VERSION,
           'X-Access-Level': 'public',
@@ -225,7 +225,7 @@ export class AnalyticsAPIClient {
       API_ROUTES.ANALYTICS.RANKINGS,
       filters,
       {
-        timeout: 60000, // 60 second timeout for analytics queries
+        timeout: 30000,
         headers: {
           'X-API-Version': API_VERSION,
           'X-Access-Level': 'auth',

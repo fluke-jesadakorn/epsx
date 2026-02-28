@@ -17,6 +17,7 @@ export const middleware = createAuthMiddleware({
         '/account*',    // Actions gated at component level
         '/payment*',    // Actions gated at component level
         '/developer*',  // Actions gated at component level
+        '/news*',       // Public news articles
         '/manual',
         '/upgrade',
         '/api/auth',

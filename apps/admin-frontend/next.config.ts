@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
   // Enable standalone output for Docker deployment
   output: 'standalone',
 
+  images: {
+    remotePatterns: [{ protocol: 'https', hostname: '**' }],
+  },
+
   typescript: { ignoreBuildErrors: true },
 
   // Enabled Turbopack for development

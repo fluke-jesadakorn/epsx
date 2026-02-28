@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { createAdminApiClient } from '@/shared/api';
 import type { CreateNewsReq, NewsArticle, NewsImageUploadResponse, NewsListResponse, UpdateNewsReq } from '@/shared/api/news';
 import type { ApiResponse } from '@/shared/utils/api-client';
@@ -31,15 +32,21 @@ export async function updateNewsAction(id: string, data: UpdateNewsReq): Promise
 }
 
 export async function deleteNewsAction(id: string): Promise<ApiResponse<void>> {
-  return client().delete(`/api/admin/news/${id}`);
+  const res = await client().delete(`/api/admin/news/${id}`);
+  if (res.success) { revalidatePath('/news'); }
+  return res;
 }
 
 export async function publishNewsAction(id: string): Promise<ApiResponse<NewsArticle>> {
-  return client().put(`/api/admin/news/${id}/publish`, {});
+  const res = await client().put(`/api/admin/news/${id}/publish`, {});
+  if (res.success) { revalidatePath('/news'); }
+  return res;
 }
 
 export async function unpublishNewsAction(id: string): Promise<ApiResponse<NewsArticle>> {
-  return client().put(`/api/admin/news/${id}/unpublish`, {});
+  const res = await client().put(`/api/admin/news/${id}/unpublish`, {});
+  if (res.success) { revalidatePath('/news'); }
+  return res;
 }
 
 export async function uploadNewsImageAction(formData: FormData): Promise<ApiResponse<NewsImageUploadResponse>> {
