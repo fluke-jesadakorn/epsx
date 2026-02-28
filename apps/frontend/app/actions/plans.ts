@@ -58,15 +58,16 @@ export async function getMyPlanAccessAction(): Promise<PlanAccessData> {
 }
 
 export async function getDashboardInitAction(): Promise<DashboardInitData> {
-  try {
-    const client = getServerActionClient();
-    const res = await client.get<DashboardInitData>('/api/users/dashboard-init');
-    if (res.success && res.data) {
-      return res.data;
-    }
-    logger.debug('Dashboard init fetch failed:', res);
-  } catch (e) {
-    logger.debug('Failed to fetch dashboard init:', e);
-  }
-  return { plan_access: DEFAULT_FREE_TIER, watchlist: [] };
+  const client = getServerActionClient();
+  const plansApi = createPlansClient(client);
+
+  const [planRes, watchlistRes] = await Promise.all([
+    plansApi.getMyPlanAccess().catch(() => null),
+    client.get<{ symbols: string[] }>('/api/users/watchlist').catch(() => null),
+  ]);
+
+  const plan_access = planRes?.success && planRes.data ? planRes.data : DEFAULT_FREE_TIER;
+  const watchlist = watchlistRes?.success && watchlistRes.data ? watchlistRes.data.symbols : [];
+
+  return { plan_access, watchlist };
 }
