@@ -17,8 +17,8 @@
     "tailwind-merge": ">=2.0.0"
   },
   "scripts": {
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint": "bunx eslint .",
+    "lint:fix": "bunx eslint . --fix"
   },
   "devDependencies": {
     "@rainbow-me/rainbowkit": "^2.2.10",
