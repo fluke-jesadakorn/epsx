@@ -90,7 +90,7 @@ export function usePaymentFlow({ preselectedId, initialPlans = [] }: UsePaymentF
     const { transfer, txHash: transferTxHash, isTransferring, isConfirming, isConfirmed } = useDirectTokenTransfer({
         tokenAddress: chain.tokenAddress,
         receiverAddress: chain.receiverAddress,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         amount: chain.amountInDecimals,
         onError: (msg: any) => {
             setError(typeof msg === 'string' ? msg : 'An error occurred');

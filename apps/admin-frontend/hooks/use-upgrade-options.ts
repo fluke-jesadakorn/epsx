@@ -31,7 +31,7 @@ function toUpgradeOption(p: PublicPlan): UpgradeOption {
     return {
         id: Number(p.id) || 0,
         name: p.name,
-        price: Number(p.effective_price ?? p.current_price),
+        price: p.effective_price,
         features: p.features,
     };
 }

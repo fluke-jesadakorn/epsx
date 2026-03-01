@@ -98,7 +98,7 @@ if (!(anyMath.pow as Record<string, boolean>)?.__isPolyfilled) {
                 if (typeof val === 'bigint') {return val;}
                 return original.call(Math, val);
             };
-            ((anyMath[func] as unknown) as Record<string, boolean>).__isPolyfilled = true;
+            ((anyMath[func]) as Record<string, boolean>).__isPolyfilled = true;
         }
     });
 

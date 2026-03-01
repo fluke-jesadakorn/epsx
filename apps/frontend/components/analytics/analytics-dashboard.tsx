@@ -2,6 +2,7 @@
 'use client';
 
 import { useAnalyticsData } from '@/hooks/use-analytics-data';
+import type { AnalyticsFilters } from '@/shared/api/analytics';
 import { useAnalyticsFilters } from '@/hooks/use-analytics-filters';
 import { calculateQoQLeaders } from '@/lib/analytics/qoq-calculations';
 import type { UnifiedAnalyticsRankingsResponse, UnifiedRankingItem } from '@/types';
@@ -70,7 +71,7 @@ export default function AnalyticsDashboard({
     filterOptions,
     isLoading: dataLoading,
     error,
-  } = useAnalyticsData(filters as import('@/shared/api/analytics').AnalyticsFilters);
+  } = useAnalyticsData(filters as AnalyticsFilters);
 
   // Tab state
   const [activeTab, setActiveTab] = useState('list');

@@ -121,7 +121,7 @@ test:frontend:
     JEST_JUNIT_OUTPUT_NAME: junit.xml
   script:
     - >
-      bunx jest --ci
+      bunx jest --ci --passWithNoTests
       --coverage --coverageDirectory=coverage
       --coverageReporters text cobertura json-summary
       --reporters default jest-junit

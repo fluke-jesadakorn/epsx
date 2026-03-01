@@ -16,6 +16,7 @@ import {
   FormMessage as BaseFormMessage,
   useFormField as useBaseFormField,
 } from "@/shared/components/ui/form"
+import type { FormProps } from "@/shared/components/ui/form"
 import { cn } from "@/lib/utils"
 import type {
   FieldPath,
@@ -41,7 +42,7 @@ const Form = <TFieldValues extends FieldValues>({
     onSubmit,
     className: cn("space-y-4", className),
     children,
-  } as import('@/shared/components/ui/form').FormProps<TFieldValues>
+  } as FormProps<TFieldValues>
   return <BaseForm {...baseProps} />
 }
 
@@ -51,7 +52,7 @@ const FormField = <
 >({
   ...props
 }: ControllerProps<TFieldValues, TName>) => (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   <BaseFormField {...(props as any)} />
 )
 

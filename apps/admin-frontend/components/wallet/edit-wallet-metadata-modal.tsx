@@ -125,8 +125,7 @@ export function EditWalletMetadataModal({
                 <Form {...(form as any)}>
                     <form onSubmit={(e) => { void form.handleSubmit(onSubmit)(e); }} className="space-y-4">
                         <FormField
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            control={form.control as any}
+                            control={form.control}
                             name="label"
                             render={({ field }) => (
                                 <FormItem>
@@ -143,8 +142,7 @@ export function EditWalletMetadataModal({
                         />
 
                         <FormField
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            control={form.control as any}
+                            control={form.control}
                             name="note"
                             render={({ field }) => (
                                 <FormItem>

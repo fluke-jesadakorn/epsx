@@ -119,7 +119,7 @@ export function NotificationBellClient() {
         const notifType = type === 'security' ? 'security' :
           type === 'permission' ? 'permissions' :
             type === 'wallet' ? 'analytics' : 'system'
-        showBrowserNotification({ type: notifType as 'security' | 'permissions' | 'analytics' | 'system', title, body: message })
+        showBrowserNotification({ type: notifType, title, body: message })
       }
     },
   })

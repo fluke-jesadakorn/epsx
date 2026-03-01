@@ -58,7 +58,7 @@ export function usePaymentChain({ selectedToken, selectedPlan, effectivePreview 
     const currentPlanTier = useMemo(() => {
         const plan = planAccess?.plan_name;
         if (!plan) { return 0; }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const tierLevel = (planAccess as any)?.tier_level;
         return typeof tierLevel === 'number' ? tierLevel : 0;
     }, [planAccess]);

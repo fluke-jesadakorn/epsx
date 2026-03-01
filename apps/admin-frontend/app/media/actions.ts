@@ -40,7 +40,7 @@ export async function uploadMediaAction(
 export async function deleteMediaAction(
   bucket: BucketName,
   key: string,
-): Promise<ApiResponse<unknown>> {
+): Promise<ApiResponse> {
   const res = await client().delete(`/api/admin/media/${bucket}/${key}`);
   if (res.success) { revalidatePath('/media'); }
   return res;
