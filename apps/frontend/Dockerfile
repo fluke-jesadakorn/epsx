@@ -13,6 +13,11 @@ RUN --mount=type=cache,target=/root/.bun/install/cache \
 FROM node:22-alpine AS builder
 WORKDIR /app
 
+ARG http_proxy
+ARG https_proxy
+ENV http_proxy=$http_proxy
+ENV https_proxy=$https_proxy
+
 ARG NEXT_PUBLIC_BACKEND_URL
 ARG NEXT_PUBLIC_APP_URL
 ARG NEXT_PUBLIC_ADMIN_URL
