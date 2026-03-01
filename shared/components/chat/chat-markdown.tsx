@@ -15,7 +15,7 @@ const INLINE_RE = /(`[^`]+`)|(\*\*(.+?)\*\*)|(\*(.+?)\*)|(!?\[([^\]]*)\]\(([^)]+
 
 function renderImage(m: RegExpExecArray, k: number): React.ReactNode {
   const alt = m[7];
-  const src = m[8] ?? '';
+  const src = m[8];
   if (isSafeUrl(src)) {
     // eslint-disable-next-line @next/next/no-img-element
     return <img key={k} src={src} alt={alt} className="max-w-full rounded-lg my-1 inline" />;
@@ -25,7 +25,7 @@ function renderImage(m: RegExpExecArray, k: number): React.ReactNode {
 
 function renderLink(m: RegExpExecArray, k: number): React.ReactNode {
   const lbl = m[7];
-  const href = m[8] ?? '';
+  const href = m[8];
   if (isSafeUrl(href)) {
     return <a key={k} href={href} target="_blank" rel="noopener noreferrer" className="underline opacity-90 hover:opacity-100">{lbl}</a>;
   }
@@ -150,7 +150,7 @@ function parseBlockquote(lines: string[], i: number): { block: Block; next: numb
 
 function parseLinePrefix(lines: string[], i: number, line: string): { block: Block; next: number } | null {
   const fenceMatch = /^```(\w*)/.exec(line);
-  if (fenceMatch !== null) { return parseFencedCode(lines, i, fenceMatch[1] ?? ''); }
+  if (fenceMatch !== null) { return parseFencedCode(lines, i, fenceMatch[1]); }
 
   if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
     return { block: { type: 'hr', lines: [] }, next: i + 1 };
@@ -158,7 +158,7 @@ function parseLinePrefix(lines: string[], i: number, line: string): { block: Blo
 
   const hMatch = /^(#{1,6})\s+(.+)/.exec(line);
   if (hMatch !== null) {
-    return { block: { type: 'h', level: (hMatch[1] ?? '').length, lines: [hMatch[2] ?? ''] }, next: i + 1 };
+    return { block: { type: 'h', level: hMatch[1].length, lines: [hMatch[2]] }, next: i + 1 };
   }
 
   return null;

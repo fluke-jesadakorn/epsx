@@ -218,8 +218,8 @@ export const BLOCKCHAIN_NETWORKS: Record<string, BlockchainNetwork> = {
 // Get network configuration based on environment
 export function getBlockchainConfig(): BlockchainNetwork {
   const isMainnet = process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === 'mainnet';
-  const mainnet = BLOCKCHAIN_NETWORKS.BSC_MAINNET as BlockchainNetwork;
-  const testnet = BLOCKCHAIN_NETWORKS.BSC_TESTNET as BlockchainNetwork;
+  const mainnet = BLOCKCHAIN_NETWORKS.BSC_MAINNET;
+  const testnet = BLOCKCHAIN_NETWORKS.BSC_TESTNET;
   return isMainnet ? mainnet : testnet;
 }
 
@@ -323,7 +323,7 @@ export function getExplorerUrl(txHash: string, currency: CurrencyType): string {
   const network = getBlockchainConfig();
 
   if (currency.includes('TRC20')) {
-    const tronNetwork = BLOCKCHAIN_NETWORKS.TRON_MAINNET as BlockchainNetwork;
+    const tronNetwork = BLOCKCHAIN_NETWORKS.TRON_MAINNET;
     return `${tronNetwork.explorerUrl}${txHash}`;
   }
 

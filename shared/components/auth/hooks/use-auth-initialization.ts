@@ -14,7 +14,7 @@ function getExpiresAt(): number | null {
     // eslint-disable-next-line security/detect-non-literal-regexp
     const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`));
     if (match === null) { return null; }
-    const val = parseInt(match[1] ?? '', 10);
+    const val = parseInt(match[1], 10);
     return isNaN(val) ? null : val;
 }
 

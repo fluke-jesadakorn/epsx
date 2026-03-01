@@ -302,7 +302,6 @@ export function isFeatureEnabled(
   context: FeatureFlagContext = {}
 ): boolean {
   const config = FEATURE_FLAGS[flag];
-  if (config === undefined) { return false; }
 
   if (!checkStatus(config)) { return false; }
   if (!checkEnvironment(config, context.environment)) { return false; }
