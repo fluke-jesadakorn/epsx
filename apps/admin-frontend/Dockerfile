@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 # EPSX Admin Frontend - Next.js 16 standalone production build
 
 FROM oven/bun:1.2.17 AS deps
