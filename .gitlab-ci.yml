@@ -16,7 +16,7 @@ stages:
 
 variables:
   IMAGE_TAG: $CI_COMMIT_SHORT_SHA
-  BUN_INSTALL: /tmp/.bun
+  BUN_INSTALL: .bun
   CARGO_HOME: /tmp/.cargo
   DOCKER_BUILDKIT: "1"
   GIT_CLEAN_FLAGS: -ffdx
@@ -66,15 +66,17 @@ prepare:deps:
   image: oven/bun:1.2.17
   script:
     - |
-      for i in 1 2 3; do
+      for i in 1 2 3 4 5; do
         bun install --frozen-lockfile && break
         echo "bun install attempt $i failed, retrying..."
-        rm -rf /tmp/.bun/install/cache/
+        rm -rf .bun/install/cache/
+        sleep $i
       done
   cache:
     key: node-${CI_COMMIT_REF_SLUG}
     paths:
       - node_modules/
+      - .bun/install/cache/
     policy: pull-push
   timeout: 15 minutes
   <<: *rules-lint-test
@@ -372,7 +374,7 @@ deploy:dev:
     - docker tag $FRONTEND_IMAGE epsx-frontend:dev
     - docker tag $ADMIN_IMAGE epsx-admin-frontend:dev
     - cd infrastructure/docker
-    - docker compose --env-file /Users/fluke/epsx-runner/envs/.env.dev -f docker-compose.dev.yml up -d postgres redis minio pgbouncer
+    - docker compose --env-file /Users/fluke/epsx-runner/envs/.env.dev -f docker-compose.dev.yml up -d postgres redis minio
     - docker compose --env-file /Users/fluke/epsx-runner/envs/.env.dev -f docker-compose.dev.yml up -d --force-recreate backend frontend admin-frontend
     - sleep 60
     - |

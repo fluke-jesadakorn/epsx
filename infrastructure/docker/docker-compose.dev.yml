@@ -5,6 +5,8 @@
 # Routing: prod cloudflared joins epsx_dev_network and routes
 # dev.epsx.io / dev-admin.epsx.io / dev-api.epsx.io
 
+name: epsx-dev
+
 x-logging: &default-logging
   driver: json-file
   options:
@@ -43,39 +45,6 @@ services:
         reservations:
           memory: 1G
           cpus: "0.5"
-    logging: *default-logging
-
-  pgbouncer:
-    image: pgbouncer/pgbouncer:latest
-    container_name: epsx-dev-pgbouncer
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      PGBOUNCER_ADMIN_PASSWORD: ${PGBOUNCER_ADMIN_PASSWORD}
-    volumes:
-      - ./config/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
-      - ./config/pgbouncer-entrypoint.sh:/entrypoint.sh:ro
-    entrypoint: ["sh", "/entrypoint.sh"]
-    networks:
-      - epsx_dev
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h localhost -p 5432 -U ${DB_USER} -d epsx_dev"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-          cpus: "0.5"
-        reservations:
-          memory: 32M
-          cpus: "0.1"
     logging: *default-logging
 
   redis:
@@ -141,7 +110,7 @@ services:
     container_name: epsx-dev-backend
     restart: unless-stopped
     depends_on:
-      pgbouncer:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -156,14 +125,14 @@ services:
       BACKEND_URL: ${BACKEND_URL}
       FRONTEND_URL: ${FRONTEND_URL}
       ADMIN_FRONTEND_URL: ${ADMIN_FRONTEND_URL}
-      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@pgbouncer:5432/${DB_NAME}?sslmode=disable
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?sslmode=disable
       DATABASE_MAX_CONNECTIONS: ${DATABASE_MAX_CONNECTIONS}
       DATABASE_MIN_CONNECTIONS: ${DATABASE_MIN_CONNECTIONS}
       DATABASE_ACQUIRE_TIMEOUT: ${DATABASE_ACQUIRE_TIMEOUT}
       DATABASE_IDLE_TIMEOUT: ${DATABASE_IDLE_TIMEOUT}
-      ANALYTICS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@pgbouncer:5432/epsx_analytics_dev?sslmode=disable
-      NOTIFICATIONS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@pgbouncer:5432/epsx_notifications_dev?sslmode=disable
-      PAYMENTS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@pgbouncer:5432/epsx_payments_dev?sslmode=disable
+      ANALYTICS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/epsx_analytics_dev?sslmode=disable
+      NOTIFICATIONS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/epsx_notifications_dev?sslmode=disable
+      PAYMENTS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/epsx_payments_dev?sslmode=disable
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       WEB3_APP_SECRET: ${WEB3_APP_SECRET}
       WALLET_SIGNATURE_SECRET: ${WALLET_SIGNATURE_SECRET}
