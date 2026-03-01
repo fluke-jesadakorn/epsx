@@ -19,6 +19,7 @@ variables:
   BUN_INSTALL: /tmp/.bun
   CARGO_HOME: /tmp/.cargo
   DOCKER_BUILDKIT: "1"
+  GIT_CLEAN_FLAGS: -ffdx
 
 # ---------------------------------------------------------------------------
 # Templates
