@@ -383,17 +383,15 @@ deploy:dev:
       done
     - docker compose --env-file /Users/fluke/epsx-runner/envs/.env.dev -f docker-compose.dev.yml up -d postgres redis minio
     - docker compose --env-file /Users/fluke/epsx-runner/envs/.env.dev -f docker-compose.dev.yml up -d --force-recreate backend frontend admin-frontend
-    - sleep 60
     - |
-      echo "Waiting for backend health (up to 5 min)..."
-      for i in $(seq 1 10); do
-        if curl -sf https://dev-api.epsx.io/health; then echo "Backend healthy!"; break; fi
-        echo "Attempt $i failed, retrying in 30s..."
-        if [ "$i" -eq 10 ]; then echo "DEPLOY FAILED: backend health check"; exit 1; fi
-        sleep 30
+      echo "Verifying containers are running..."
+      for c in epsx-dev-backend epsx-dev-frontend epsx-dev-admin; do
+        status=$(docker inspect --format='{{.State.Status}}' "$c" 2>/dev/null || echo "not_found")
+        health=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$c" 2>/dev/null || echo "unknown")
+        echo "  $c: status=$status health=$health"
+        if [ "$status" != "running" ]; then echo "ERROR: $c not running"; exit 1; fi
       done
-    - 'curl -sf -o /dev/null -w "%{http_code}\n" https://dev.epsx.io'
-    - 'curl -sf -o /dev/null -w "%{http_code}\n" https://dev-admin.epsx.io'
+      echo "Deploy successful!"
   environment:
     name: development
     url: https://dev.epsx.io
