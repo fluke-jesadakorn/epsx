@@ -19,6 +19,7 @@ import {
   FileText,
   Globe,
   Home,
+  Image as ImageIcon,
   Key,
   LayoutDashboard,
   Link2,
@@ -70,6 +71,7 @@ const navigationItems: NavItem[] = [
   },
   { id: 'chat', label: 'Chat Support', href: '/chat', icon: MessageCircle, requiresAuth: true },
   { id: 'news', label: 'News', href: '/news', icon: Newspaper, requiresAuth: true },
+  { id: 'media', label: 'Media', href: '/media', icon: ImageIcon, requiresAuth: true },
   { id: 'analytics', label: 'Analytics', href: '/analytics', icon: BarChart3, requiresAuth: true },
   { id: 'audit-log', label: 'Audit Log', href: '/audit-log', icon: FileText, requiresAuth: true },
   {
