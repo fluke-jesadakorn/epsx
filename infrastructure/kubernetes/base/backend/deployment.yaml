@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: epsx-backend
+  template:
+    metadata:
+      labels:
+        app: epsx-backend
+    spec:
+      containers:
+        - name: epsx-backend
+          image: registry.epsx.io/epsx/backend:prod-latest
+          envFrom:
+            - secretRef:
+                name: epsx-backend
+          env:
+            # K8s-native connection overrides (always use in-cluster service names)
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: epsx-postgres
+                  key: POSTGRES_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: epsx-postgres
+                  key: POSTGRES_PASSWORD
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: epsx-postgres
+                  key: POSTGRES_DB
+            - name: DATABASE_URL
+              value: "postgresql://$(DB_USER):$(DB_PASSWORD)@epsx-postgres:5432/$(DB_NAME)?sslmode=disable"
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: epsx-redis
+                  key: REDIS_PASSWORD
+            - name: REDIS_URL
+              value: "redis://:$(REDIS_PASSWORD)@epsx-redis:6379"
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: epsx-minio
+                  key: MINIO_ROOT_USER
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: epsx-minio
+                  key: MINIO_ROOT_PASSWORD
+            - name: MINIO_PUBLIC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: epsx-minio
+                  key: MINIO_PUBLIC_URL
+            - name: MINIO_ENDPOINT
+              value: "http://epsx-minio:9000"
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: "8080"
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            limits:
+              memory: 2Gi
+              cpu: "4"
+            requests:
+              memory: 512Mi
+              cpu: "1"
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 100Mi

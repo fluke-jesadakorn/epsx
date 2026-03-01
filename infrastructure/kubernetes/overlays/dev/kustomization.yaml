@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: epsx-dev
+
+resources:
+  - ../../base
+  - pvcs.yaml
+
+images:
+  - name: registry.epsx.io/epsx/backend:prod-latest
+    newName: registry.epsx.io/epsx/backend
+    newTag: dev-latest
+  - name: registry.epsx.io/epsx/frontend:prod-latest
+    newName: registry.epsx.io/epsx/frontend
+    newTag: dev-latest
+  - name: registry.epsx.io/epsx/admin:prod-latest
+    newName: registry.epsx.io/epsx/admin
+    newTag: dev-latest
+
+patches:
+  - path: patches/resources.yaml
+  - path: patches/postgres-conf.yaml
+  - path: patches/redis-conf.yaml

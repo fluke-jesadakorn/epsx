@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: epsx-cloudflared-conf
+data:
+  config.yml: |
+    tunnel: <TUNNEL_ID>
+    credentials-file: /etc/cloudflared/credentials.json
+
+    ingress:
+      # ── Prod (same namespace: epsx-prod) ──────────────────────────────────
+      - hostname: epsx.io
+        service: http://epsx-frontend.epsx-prod.svc.cluster.local:3000
+        originRequest:
+          connectTimeout: 30s
+          http2Origin: true
+
+      - hostname: admin.epsx.io
+        service: http://epsx-admin.epsx-prod.svc.cluster.local:3000
+        originRequest:
+          connectTimeout: 30s
+          http2Origin: true
+
+      - hostname: api.epsx.io
+        service: http://epsx-backend.epsx-prod.svc.cluster.local:8080
+        originRequest:
+          connectTimeout: 30s
+          http2Origin: true
+
+      - hostname: minio.epsx.io
+        service: http://epsx-minio.epsx-prod.svc.cluster.local:9000
+        originRequest:
+          connectTimeout: 30s
+
+      - hostname: cdn.epsx.io
+        service: http://epsx-minio.epsx-prod.svc.cluster.local:9000
+        originRequest:
+          connectTimeout: 30s
+
+      - hostname: storage.epsx.io
+        service: http://epsx-minio.epsx-prod.svc.cluster.local:9001
+        originRequest:
+          connectTimeout: 30s
+
+      # ── Dev (cross-namespace FQDN) ─────────────────────────────────────────
+      - hostname: dev.epsx.io
+        service: http://epsx-frontend.epsx-dev.svc.cluster.local:3000
+        originRequest:
+          connectTimeout: 30s
+
+      - hostname: dev-admin.epsx.io
+        service: http://epsx-admin.epsx-dev.svc.cluster.local:3000
+        originRequest:
+          connectTimeout: 30s
+
+      - hostname: dev-api.epsx.io
+        service: http://epsx-backend.epsx-dev.svc.cluster.local:8080
+        originRequest:
+          connectTimeout: 30s
+
+      # ── Staging (cross-namespace FQDN) ────────────────────────────────────
+      - hostname: staging.epsx.io
+        service: http://epsx-frontend.epsx-staging.svc.cluster.local:3000
+        originRequest:
+          connectTimeout: 30s
+
+      - hostname: staging-admin.epsx.io
+        service: http://epsx-admin.epsx-staging.svc.cluster.local:3000
+        originRequest:
+          connectTimeout: 30s
+
+      - hostname: staging-api.epsx.io
+        service: http://epsx-backend.epsx-staging.svc.cluster.local:8080
+        originRequest:
+          connectTimeout: 30s
+
+      # ── GitLab (stays Docker — route via Mac Mini host LAN IP) ────────────
+      - hostname: gitlab.epsx.io
+        service: http://<MAC_MINI_LAN_IP>:8929
+        originRequest:
+          connectTimeout: 60s
+
+      - hostname: registry.epsx.io
+        service: http://<MAC_MINI_LAN_IP>:5050
+        originRequest:
+          connectTimeout: 60s
+
+      # ── Review apps (stays Docker — Traefik on host) ──────────────────────
+      - hostname: "*.review.epsx.io"
+        service: http://<MAC_MINI_LAN_IP>:80
+        originRequest:
+          connectTimeout: 30s
+
+      # Catch-all (required by Cloudflare Tunnel)
+      - service: http_status:404
+
+    protocol: quic
+    no-autoupdate: true
+    loglevel: info
+    metrics: 0.0.0.0:2000

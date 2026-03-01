@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: epsx-redis
+spec:
+  serviceName: epsx-redis
+  replicas: 1
+  selector:
+    matchLabels:
+      app: epsx-redis
+  template:
+    metadata:
+      labels:
+        app: epsx-redis
+    spec:
+      containers:
+        - name: epsx-redis
+          image: redis:7-alpine
+          command:
+            - redis-server
+            - /etc/redis/redis.conf
+            - --requirepass
+            - $(REDIS_PASSWORD)
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: epsx-redis
+                  key: REDIS_PASSWORD
+          ports:
+            - containerPort: 6379
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: redis-conf
+              mountPath: /etc/redis
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -a $REDIS_PASSWORD ping | grep -q PONG
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 5
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -a $REDIS_PASSWORD ping | grep -q PONG
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 5
+          resources:
+            limits:
+              memory: 1Gi
+              cpu: "2"
+            requests:
+              memory: 256Mi
+              cpu: "0.5"
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: epsx-redis-data
+        - name: redis-conf
+          configMap:
+            name: epsx-redis-conf

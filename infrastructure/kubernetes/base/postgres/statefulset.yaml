@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: epsx-postgres
+spec:
+  serviceName: epsx-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: epsx-postgres
+  template:
+    metadata:
+      labels:
+        app: epsx-postgres
+    spec:
+      containers:
+        - name: epsx-postgres
+          image: postgres:17-alpine
+          args:
+            - postgres
+            - -c
+            - config_file=/etc/postgresql/postgresql.conf
+          envFrom:
+            - secretRef:
+                name: epsx-postgres
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_INITDB_ARGS
+              value: "-E UTF8"
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init-script
+              mountPath: /docker-entrypoint-initdb.d
+            - name: postgres-conf
+              mountPath: /etc/postgresql
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U $POSTGRES_USER -d $POSTGRES_DB
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U $POSTGRES_USER -d $POSTGRES_DB
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          resources:
+            limits:
+              memory: 6Gi
+              cpu: "4"
+            requests:
+              memory: 2Gi
+              cpu: "1"
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: epsx-postgres-data
+        - name: init-script
+          configMap:
+            name: epsx-postgres-init
+            defaultMode: 0755
+        - name: postgres-conf
+          configMap:
+            name: epsx-postgres-conf

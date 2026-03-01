@@ -1,0 +1,102 @@
+# Dev resource limits (smaller — coexists with staging + prod on same node)
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: epsx-postgres
+spec:
+  template:
+    spec:
+      containers:
+        - name: epsx-postgres
+          resources:
+            limits:
+              memory: 4Gi
+              cpu: "2"
+            requests:
+              memory: 1Gi
+              cpu: "0.5"
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: epsx-redis
+spec:
+  template:
+    spec:
+      containers:
+        - name: epsx-redis
+          resources:
+            limits:
+              memory: 768Mi
+              cpu: "1"
+            requests:
+              memory: 128Mi
+              cpu: "0.25"
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: epsx-minio
+spec:
+  template:
+    spec:
+      containers:
+        - name: epsx-minio
+          resources:
+            limits:
+              memory: 512Mi
+              cpu: "1"
+            requests:
+              memory: 128Mi
+              cpu: "0.25"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-backend
+spec:
+  template:
+    spec:
+      containers:
+        - name: epsx-backend
+          resources:
+            limits:
+              memory: 1Gi
+              cpu: "2"
+            requests:
+              memory: 256Mi
+              cpu: "0.5"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-frontend
+spec:
+  template:
+    spec:
+      containers:
+        - name: epsx-frontend
+          resources:
+            limits:
+              memory: 512Mi
+              cpu: "1"
+            requests:
+              memory: 128Mi
+              cpu: "0.25"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-admin
+spec:
+  template:
+    spec:
+      containers:
+        - name: epsx-admin
+          resources:
+            limits:
+              memory: 512Mi
+              cpu: "1"
+            requests:
+              memory: 128Mi
+              cpu: "0.25"

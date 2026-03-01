@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: epsx-prod
+
+resources:
+  - ../../base
+  - pvcs.yaml
+  - cloudflared/deployment.yaml
+  - cloudflared/service.yaml
+  - cloudflared/configmap.yaml
+
+images:
+  - name: registry.epsx.io/epsx/backend:prod-latest
+    newName: registry.epsx.io/epsx/backend
+    newTag: prod-latest
+  - name: registry.epsx.io/epsx/frontend:prod-latest
+    newName: registry.epsx.io/epsx/frontend
+    newTag: prod-latest
+  - name: registry.epsx.io/epsx/admin:prod-latest
+    newName: registry.epsx.io/epsx/admin
+    newTag: prod-latest
+
+patches:
+  - path: patches/postgres-conf.yaml
+  - path: patches/redis-conf.yaml

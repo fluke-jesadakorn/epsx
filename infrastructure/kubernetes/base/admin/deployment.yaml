@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-admin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: epsx-admin
+  template:
+    metadata:
+      labels:
+        app: epsx-admin
+    spec:
+      containers:
+        - name: epsx-admin
+          image: registry.epsx.io/epsx/admin:prod-latest
+          envFrom:
+            - secretRef:
+                name: epsx-admin
+          env:
+            - name: PORT
+              value: "3000"
+            - name: HOSTNAME
+              value: "0.0.0.0"
+          ports:
+            - containerPort: 3000
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            limits:
+              memory: 1Gi
+              cpu: "2"
+            requests:
+              memory: 256Mi
+              cpu: "0.5"
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 100Mi

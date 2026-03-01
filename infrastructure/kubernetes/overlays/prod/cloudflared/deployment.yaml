@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-cloudflared
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: epsx-cloudflared
+  template:
+    metadata:
+      labels:
+        app: epsx-cloudflared
+    spec:
+      containers:
+        - name: epsx-cloudflared
+          image: cloudflare/cloudflared:latest
+          command:
+            - cloudflared
+            - tunnel
+            - --config
+            - /etc/cloudflared/config.yml
+            - run
+          env:
+            - name: TUNNEL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: epsx-cloudflared
+                  key: TUNNEL_TOKEN
+          volumeMounts:
+            - name: config
+              mountPath: /etc/cloudflared/config.yml
+              subPath: config.yml
+            - name: credentials
+              mountPath: /etc/cloudflared/credentials.json
+              subPath: credentials.json
+            - name: tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          resources:
+            limits:
+              memory: 256Mi
+              cpu: "1"
+            requests:
+              memory: 64Mi
+              cpu: "0.25"
+      volumes:
+        - name: config
+          configMap:
+            name: epsx-cloudflared-conf
+        - name: credentials
+          secret:
+            secretName: epsx-cloudflared
+            items:
+              - key: credentials.json
+                path: credentials.json
+        - name: tmp
+          emptyDir:
+            sizeLimit: 50Mi
