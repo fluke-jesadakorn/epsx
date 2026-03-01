@@ -65,7 +65,12 @@ prepare:deps:
   stage: prepare
   image: oven/bun:1.2.17
   script:
-    - bun install --frozen-lockfile
+    - |
+      for i in 1 2 3; do
+        bun install --frozen-lockfile && break
+        echo "bun install attempt $i failed, retrying..."
+        rm -rf /tmp/.bun/install/cache/
+      done
   cache:
     key: node-${CI_COMMIT_REF_SLUG}
     paths:
