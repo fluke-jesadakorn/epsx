@@ -6,7 +6,7 @@
   "homepage": "https://admin.epsx.io",
   "repository": {
     "type": "git",
-    "url": "https://github.com/fluke-jesadakorn/epsx-admin-frontend"
+    "url": "https://gitlab.epsx.io/epsx-group/epsx"
   },
   "author": "EPSX Team <admin@epsx.io>",
   "license": "UNLICENSED",
