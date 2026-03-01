@@ -363,13 +363,20 @@ deploy:dev:
     - docker compose --env-file /Users/fluke/epsx-runner/envs/.env.dev -f docker-compose.dev.yml up -d postgres redis minio pgbouncer
     - docker compose --env-file /Users/fluke/epsx-runner/envs/.env.dev -f docker-compose.dev.yml up -d --force-recreate backend frontend admin-frontend
     - sleep 60
-    - 'curl -sf https://dev-api.epsx.io/health || (echo "DEPLOY FAILED: backend health check" && exit 1)'
+    - |
+      echo "Waiting for backend health (up to 5 min)..."
+      for i in $(seq 1 10); do
+        if curl -sf https://dev-api.epsx.io/health; then echo "Backend healthy!"; break; fi
+        echo "Attempt $i failed, retrying in 30s..."
+        if [ "$i" -eq 10 ]; then echo "DEPLOY FAILED: backend health check"; exit 1; fi
+        sleep 30
+      done
     - 'curl -sf -o /dev/null -w "%{http_code}\n" https://dev.epsx.io'
     - 'curl -sf -o /dev/null -w "%{http_code}\n" https://dev-admin.epsx.io'
   environment:
     name: development
     url: https://dev.epsx.io
-  timeout: 15 minutes
+  timeout: 20 minutes
   rules:
     - if: $CI_COMMIT_BRANCH == "development"
       when: on_success
