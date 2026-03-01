@@ -66,8 +66,8 @@ prepare:deps:
     key: node-${CI_COMMIT_REF_SLUG}
     paths:
       - node_modules/
-    policy: push
-  timeout: 5 minutes
+    policy: pull-push
+  timeout: 15 minutes
   <<: *rules-lint-test
 
 # ---------------------------------------------------------------------------
