@@ -84,7 +84,7 @@ lint:eslint:
       - node_modules/
     policy: pull
   script:
-    - bun lint
+    - bunx turbo run lint --filter=!@epsx/backend --filter=!epsx-bsc-contracts
   timeout: 10 minutes
   <<: *rules-lint-test
 
