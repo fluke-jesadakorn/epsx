@@ -42,7 +42,7 @@ export const storage = {
       }, {})
 
       const cookieValue = cookies[key]
-      if (cookieValue) {
+      if (cookieValue !== undefined && cookieValue !== '') {
         return JSON.parse(decodeURIComponent(cookieValue)) as T
       }
 

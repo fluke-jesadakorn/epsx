@@ -138,7 +138,7 @@ export class SharedWeb3AuthClient {
   private decodeUserFromToken(token: string): UserInfoResponse | null {
     try {
       const payloadPart = token.split('.')[1];
-      if (!payloadPart) { return null; }
+      if (payloadPart === undefined || payloadPart === '') { return null; }
 
       const payload = JSON.parse(atob(payloadPart)) as Record<string, unknown>;
       if (typeof payload.sub === 'string' && payload.sub.startsWith('0x')) {

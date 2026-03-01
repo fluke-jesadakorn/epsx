@@ -263,7 +263,7 @@ export function getUserAuthMessage(actionName?: string, level?: AuthLevelType): 
     [ACTION_NAMES.USER.VIEW_PREMIUM]: AUTH_MESSAGES.USER.PREMIUM_REQUIRED,
   };
 
-  return messageMap[actionName] || AUTH_MESSAGES.USER.SIGN_IN_REQUIRED;
+  return messageMap[actionName] ?? AUTH_MESSAGES.USER.SIGN_IN_REQUIRED;
 }
 
 export function getAdminAuthMessage(actionName?: string, level?: AuthLevelType, requireMFA?: boolean): string {
@@ -291,7 +291,7 @@ export function getAdminAuthMessage(actionName?: string, level?: AuthLevelType, 
     [ACTION_NAMES.ADMIN.SECURITY_OPERATIONS]: AUTH_MESSAGES.ADMIN.SECURITY_REQUIRED,
   };
 
-  return messageMap[actionName] || AUTH_MESSAGES.ADMIN.SIGN_IN_REQUIRED;
+  return messageMap[actionName] ?? AUTH_MESSAGES.ADMIN.SIGN_IN_REQUIRED;
 }
 
 // ============================================================================

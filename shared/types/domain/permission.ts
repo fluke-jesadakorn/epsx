@@ -252,9 +252,9 @@ export interface PermissionPolicy {
 export function parsePermission(permission: EPSXPermission): ParsedPermission {
   const [platform, resource, action] = permission.split(':')
   return {
-    platform: platform || '',
-    resource: resource || '',
-    action: action || '',
+    platform: platform ?? '',
+    resource: resource ?? '',
+    action: action ?? '',
     full: permission
   }
 }

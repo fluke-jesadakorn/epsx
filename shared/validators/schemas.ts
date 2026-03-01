@@ -444,7 +444,7 @@ export const isValidEmbeddedPermission = (permission: string): boolean => {
   const parts = permission.split(':');
   if (parts.length !== 4) { return false; }
 
-  const timestampStr = parts[3] || '0';
+  const timestampStr = parts[3] ?? '0';
   const timestamp = parseInt(timestampStr, 10);
   return !isNaN(timestamp) && timestamp > 1000000000; // Valid Unix timestamp
 };
@@ -453,7 +453,7 @@ export const isValidEmbeddedPermission = (permission: string): boolean => {
  * Validate email domain
  */
 export const isValidEmailDomain = (email: string, allowedDomains: string[]): boolean => {
-  const domain = email.split('@')[1] || '';
+  const domain = email.split('@')[1] ?? '';
   return allowedDomains.includes(domain);
 };
 
@@ -480,7 +480,6 @@ export const isValidPhoneNumber = (phone: string): boolean => {
  */
 export const getErrorMessage = (error: z.ZodError): string => {
   const firstError = error.issues[0];
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (firstError === undefined) { return 'Validation error'; }
 
   return firstError.message;

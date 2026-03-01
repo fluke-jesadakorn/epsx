@@ -1210,7 +1210,7 @@ export class NotificationsAPIClient {
   private parseBrowserCookies(): Record<string, string> {
     return document.cookie.split(';').reduce<Record<string, string>>((acc, cookie) => {
       const [key, value] = cookie.trim().split('=');
-      if (key && value) {
+      if (key !== undefined && value !== undefined) {
         acc[key] = value;
       }
       return acc;

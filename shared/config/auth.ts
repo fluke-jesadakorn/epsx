@@ -335,21 +335,21 @@ export function validateOIDCCallback(params: Record<string, string>): {
     state: string;
   };
 } {
-  if (params.error) {
+  if (params['error'] !== undefined && params['error'] !== '') {
     return {
       valid: false,
-      error: params.error_description || params.error,
+      error: params['error_description'] ?? params['error'],
     };
   }
 
-  if (!params.code) {
+  if (params['code'] === undefined || params['code'] === '') {
     return {
       valid: false,
       error: 'Missing authorization code',
     };
   }
 
-  if (!params.state) {
+  if (params['state'] === undefined || params['state'] === '') {
     return {
       valid: false,
       error: 'Missing state parameter',
@@ -545,7 +545,7 @@ export function createPKCEChallenge(): {
 export function parseJWTPayload(token: string): Record<string, unknown> | null {
   try {
     const parts = token.split('.');
-    const base64Url = parts[1] || '';
+    const base64Url = parts[1] ?? '';
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
     const jsonPayload = decodeURIComponent(
       atob(base64)

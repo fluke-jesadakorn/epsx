@@ -48,7 +48,7 @@ export interface EPSXJWTPayload extends JWTPayload {
 export function isJWTExpired(token: string): boolean {
   try {
     const payloadPart = token.split('.')[1];
-    if (!payloadPart) { return true; }
+    if (payloadPart === undefined || payloadPart === '') { return true; }
     const payload = JSON.parse(atob(payloadPart)) as { exp?: number };
     const currentTime = Math.floor(Date.now() / 1000);
     return (payload.exp ?? 0) < currentTime;
@@ -63,7 +63,7 @@ export function isJWTExpired(token: string): boolean {
 export function getJWTTimeToExpiry(token: string): number {
   try {
     const payloadPart = token.split('.')[1];
-    if (!payloadPart) { return 0; }
+    if (payloadPart === undefined || payloadPart === '') { return 0; }
     const payload = JSON.parse(atob(payloadPart)) as { exp?: number };
     const currentTime = Math.floor(Date.now() / 1000);
     return Math.max(0, (payload.exp ?? 0) - currentTime);
@@ -87,7 +87,7 @@ function parsePermission(permissionString: string): ParsedPermission | null {
   const platform = parts[0];
   const resource = parts[1];
   const action = parts[2];
-  if (!platform || !resource || !action) { return null; }
+  if (platform === undefined || resource === undefined || action === undefined) { return null; }
   return { platform, resource, action };
 }
 
@@ -170,7 +170,7 @@ export function getJWTPermissions(payload: EPSXJWTPayload | JWTUser): string[] {
 export function decodeJWT(token: string): JWTUser | null {
   try {
     const payloadPart = token.split('.')[1];
-    if (!payloadPart) { return null; }
+    if (payloadPart === undefined || payloadPart === '') { return null; }
     const payload = JSON.parse(atob(payloadPart)) as Record<string, unknown>;
 
     // OIDC tokens store permissions in scope claim
@@ -205,7 +205,7 @@ export function createJWTClaims(
   return {
     sub: options.id,
     email: options.email,
-    name: options.name ?? (options.email.split('@')[0] || 'user'),
+    name: options.name ?? (options.email.split('@')[0] ?? 'user'),
     permissions: options.permissions,
     iat: now,
     exp: expiry,
@@ -279,7 +279,7 @@ function applyWalletAddressFallback(raw: RawEPSXPayload): void {
 export function decodeEPSXJWT(token: string): EPSXJWTPayload | null {
   try {
     const payloadPart = token.split('.')[1];
-    if (!payloadPart) { return null; }
+    if (payloadPart === undefined || payloadPart === '') { return null; }
     const raw = JSON.parse(atob(payloadPart)) as RawEPSXPayload;
     applyPermissionsFromScope(raw);
     applyWalletAddressFallback(raw);

@@ -146,7 +146,7 @@ export function getGrowthIndicator(growthPercent: number): { emoji: string; colo
 export function parseJWT(token: string): unknown {
   try {
     const parts = token.split('.');
-    const base64Url = parts[1] || '';
+    const base64Url = parts[1] ?? '';
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
     const jsonPayload = decodeURIComponent(
       atob(base64)

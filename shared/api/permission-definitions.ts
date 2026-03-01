@@ -162,8 +162,8 @@ export function getPermissionMeta(
     // Fallback: Parse from permission string
     const parts = permission.split(':');
     return {
-        platform: parts[0] || 'unknown',
-        category: parts[1] || null,
+        platform: parts[0] ?? 'unknown',
+        category: parts[1] ?? null,
     };
 }
 

@@ -518,8 +518,9 @@ export class AnalyticsAPIClient {
     }
 
     // Check direct mapping
-    if (countryValueMap[country]) {
-      return countryValueMap[country];
+    const mapped = countryValueMap[country];
+    if (mapped !== undefined && mapped !== '') {
+      return mapped;
     }
 
     // Default to lowercase if no mapping found

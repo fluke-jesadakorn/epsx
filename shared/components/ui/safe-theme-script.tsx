@@ -68,11 +68,11 @@ export const themeUtils = {
       // Try cookies first, then fallback to localStorage
       const cookies = document.cookie.split(';').reduce<Record<string, string>>((acc, cookie) => {
         const [key, value] = cookie.trim().split('=');
-        if (key && value) { acc[key] = value; }
+        if (key !== undefined && value !== undefined) { acc[key] = value; }
         return acc;
       }, {});
 
-      const stored = cookies.theme || localStorage.getItem(THEME_CONFIG.storageKey);
+      const stored = cookies['theme'] ?? localStorage.getItem(THEME_CONFIG.storageKey);
       if (stored === 'light' || stored === 'dark') { return stored; }
 
       return 'dark';

@@ -304,9 +304,9 @@ export function parsePermission(permission: string): { platform: string; resourc
   if (parts.length !== 3) { return null; }
 
   return {
-    platform: parts[0] || '',
-    resource: parts[1] || '',
-    action: parts[2] || ''
+    platform: parts[0] ?? '',
+    resource: parts[1] ?? '',
+    action: parts[2] ?? ''
   };
 }
 

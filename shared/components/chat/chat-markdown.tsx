@@ -40,11 +40,11 @@ function renderInline(text: string): React.ReactNode[] {
   while ((m = INLINE_RE.exec(text)) !== null) {
     if (m.index > last) { out.push(text.slice(last, m.index)); }
     const s = m[0];
-    if (m[1]) {
+    if (m[1] !== undefined) {
       out.push(<code key={k++} className="bg-black/15 dark:bg-white/10 rounded px-1 py-0.5 text-xs font-mono">{s.slice(1, -1)}</code>);
-    } else if (m[2]) {
+    } else if (m[2] !== undefined) {
       out.push(<strong key={k++} className="font-bold">{m[3]}</strong>);
-    } else if (m[4]) {
+    } else if (m[4] !== undefined) {
       out.push(<em key={k++} className="italic">{m[5]}</em>);
     } else if (s.startsWith('![')) {
       out.push(renderImage(m, k++));
