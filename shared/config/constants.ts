@@ -172,7 +172,7 @@ export interface BlockchainNetwork {
   testnet?: boolean;
 }
 
-export const BLOCKCHAIN_NETWORKS: Record<string, BlockchainNetwork> = {
+export const BLOCKCHAIN_NETWORKS = {
   BSC_MAINNET: {
     name: 'BSC Mainnet',
     networkId: '56',
