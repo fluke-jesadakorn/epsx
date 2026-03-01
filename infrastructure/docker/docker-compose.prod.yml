@@ -80,6 +80,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      minio:
+        condition: service_healthy
     environment:
       ENV: ${ENV}
       NODE_ENV: ${NODE_ENV}
@@ -117,6 +119,10 @@ services:
       BSC_TESTNET_REQUIRED_CONFIRMATIONS: ${BSC_TESTNET_REQUIRED_CONFIRMATIONS}
       MAX_PAYMENT_AGE_MINUTES: ${MAX_PAYMENT_AGE_MINUTES}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL}
       HOST: 0.0.0.0
       PORT: 8080
     ports:
@@ -129,8 +135,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 60s
-    volumes:
-      - prod_chat_uploads:/data/chat_uploads
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -169,6 +173,7 @@ services:
       NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET: ${NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET:-${COMPANY_WALLET_MAINNET}}
       NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
       NEXT_PUBLIC_OAUTH_CLIENT_ID: ${OAUTH_CLIENT_ID}
+      NEXT_PUBLIC_CDN_URL: ${MINIO_PUBLIC_URL}
       PORT: 3000
       HOSTNAME: 0.0.0.0
     ports:
@@ -219,6 +224,7 @@ services:
       NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET: ${NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET:-${COMPANY_WALLET_MAINNET}}
       NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
       NEXT_PUBLIC_OAUTH_CLIENT_ID: epsx-admin
+      NEXT_PUBLIC_CDN_URL: ${MINIO_PUBLIC_URL}
       PORT: 3000
       HOSTNAME: 0.0.0.0
     ports:
@@ -236,6 +242,37 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=100M
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "2"
+        reservations:
+          memory: 256M
+          cpus: "0.5"
+    logging: *default-logging
+
+  minio:
+    image: minio/minio:latest
+    container_name: epsx-prod-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - prod_minio_data:/data
+    ports:
+      - "127.0.0.1:9100:9000"
+      - "127.0.0.1:9101:9001"
+    networks:
+      - epsx_prod
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     deploy:
       resources:
         limits:
@@ -265,6 +302,8 @@ services:
       - epsx_prod
       - epsx_gitlab
       - epsx_review
+      - epsx_dev
+      - epsx_staging
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -290,11 +329,17 @@ networks:
   epsx_review:
     external: true
     name: epsx_review_network
+  epsx_dev:
+    external: true
+    name: epsx_dev_network
+  epsx_staging:
+    external: true
+    name: epsx_staging_network
 
 volumes:
   prod_postgres_data:
     name: epsx_prod_postgres_data
   prod_redis_data:
     name: epsx_prod_redis_data
-  prod_chat_uploads:
-    name: epsx_prod_chat_uploads
+  prod_minio_data:
+    name: epsx_prod_minio_data

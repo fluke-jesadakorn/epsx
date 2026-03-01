@@ -49,7 +49,7 @@ const TopPerformersBox = ({ top3Data }: { top3Data: SymbolCardData[] }) => {
       </div>
 
       {/* Analytics-style card grid */}
-      <div className="grid grid-cols-1 justify-items-center gap-6 px-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 px-4 sm:grid-cols-2 lg:grid-cols-3">
         {top3Data.map(cardData => {
           const latestQuarter = cardData.quarterly_performance[0];
 

@@ -1,53 +1,16 @@
 use axum::{
-    body::Body,
     extract::{Multipart, Path, State},
-    http::{header, HeaderMap, HeaderValue, StatusCode},
-    response::{IntoResponse, Response},
+    http::StatusCode,
+    response::{IntoResponse, Redirect, Response},
     Extension, Json,
 };
-use std::path::PathBuf;
-use tokio::{fs, io::AsyncWriteExt};
 use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::infrastructure::models::chat::TypingRequest;
 use crate::infrastructure::repositories::ChatRepository;
+use crate::infrastructure::storage::{Bucket, upload_file};
 use crate::web::{auth::AppState, middleware::OpenIDUserContext, responses::UnifiedApiResponse};
-
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-
-const MAX_FILE_SIZE: usize = 5 * 1024 * 1024; // 5 MB
-
-fn upload_dir() -> String {
-    std::env::var("CHAT_UPLOAD_DIR").unwrap_or_else(|_| "/tmp/chat_uploads".to_string())
-}
-
-struct AllowedType {
-    ext: &'static str,
-    mime: &'static str,
-    magic: &'static [u8],
-}
-
-static ALLOWED: &[AllowedType] = &[
-    AllowedType { ext: "jpg",  mime: "image/jpeg",       magic: &[0xFF, 0xD8, 0xFF] },
-    AllowedType { ext: "jpeg", mime: "image/jpeg",       magic: &[0xFF, 0xD8, 0xFF] },
-    AllowedType { ext: "png",  mime: "image/png",        magic: &[0x89, 0x50, 0x4E, 0x47] },
-    AllowedType { ext: "gif",  mime: "image/gif",        magic: b"GIF8" },
-    AllowedType { ext: "webp", mime: "image/webp",       magic: b"RIFF" },
-    AllowedType { ext: "pdf",  mime: "application/pdf",  magic: b"%PDF" },
-];
-
-fn detect_type(bytes: &[u8], claimed_ext: &str) -> Option<&'static AllowedType> {
-    ALLOWED.iter().find(|t| {
-        t.ext == claimed_ext.to_lowercase() && bytes.starts_with(t.magic)
-    })
-}
-
-fn ext_from_name(name: &str) -> &str {
-    name.rsplit('.').next().unwrap_or("")
-}
 
 // ============================================================================
 // UPLOAD ATTACHMENT
@@ -67,6 +30,9 @@ pub async fn upload_attachment(
         Err(e) => return Err(Json(UnifiedApiResponse::error(500, "Database error", &e))),
     }
 
+    let s3 = app_state.s3.as_ref()
+        .ok_or_else(|| Json(UnifiedApiResponse::error(503, "Storage unavailable", "S3 storage not configured")))?;
+
     let field = match multipart.next_field().await {
         Ok(Some(f)) => f,
         Ok(None) => return Err(Json(UnifiedApiResponse::error(400, "Bad request", "No file provided"))),
@@ -74,50 +40,21 @@ pub async fn upload_attachment(
     };
 
     let original_name = field.file_name().unwrap_or("file").to_string();
-    let claimed_ext = ext_from_name(&original_name).to_lowercase();
-
     let bytes = match field.bytes().await {
         Ok(b) => b,
         Err(e) => return Err(Json(UnifiedApiResponse::error(400, "Bad request", &e.to_string()))),
     };
 
-    if bytes.len() > MAX_FILE_SIZE {
-        return Err(Json(UnifiedApiResponse::error(413, "File too large", "Max 5MB allowed")));
-    }
+    let result = upload_file(s3, Bucket::Chat, &bytes, &original_name, Some(&conv_id.to_string()))
+        .await
+        .map_err(|e| Json(UnifiedApiResponse::error(400, "Upload failed", &e)))?;
 
-    let file_type = match detect_type(&bytes, &claimed_ext) {
-        Some(t) => t,
-        None => return Err(Json(UnifiedApiResponse::error(415, "Unsupported file type", "Allowed: jpg, png, gif, webp, pdf"))),
-    };
-
-    // Save to disk: /data/chat_uploads/{conv_id}/{uuid}.{ext}
-    let uuid_name = format!("{}.{}", Uuid::new_v4(), file_type.ext);
-    let dir = PathBuf::from(upload_dir()).join(conv_id.to_string());
-    if let Err(e) = fs::create_dir_all(&dir).await {
-        error!("Failed to create upload dir: {}", e);
-        return Err(Json(UnifiedApiResponse::error(500, "Storage error", "Failed to create upload directory")));
-    }
-
-    let file_path = dir.join(&uuid_name);
-    match fs::File::create(&file_path).await {
-        Ok(mut f) => {
-            if let Err(e) = f.write_all(&bytes).await {
-                error!("Failed to write file: {}", e);
-                return Err(Json(UnifiedApiResponse::error(500, "Storage error", "Failed to write file")));
-            }
-        }
-        Err(e) => {
-            error!("Failed to create file: {}", e);
-            return Err(Json(UnifiedApiResponse::error(500, "Storage error", "Failed to create file")));
-        }
-    }
-
-    let url = format!("/api/chat/files/{}/{}", conv_id, uuid_name);
     let attachment = serde_json::json!({
-        "url": url,
-        "filename": original_name,
-        "file_type": file_type.mime,
-        "size": bytes.len(),
+        "url": result.url,
+        "thumb_url": result.thumb_url,
+        "filename": result.original_name,
+        "file_type": result.mime,
+        "size": result.size,
     });
 
     // Insert a message with attachment metadata
@@ -163,34 +100,29 @@ pub async fn upload_attachment(
 }
 
 // ============================================================================
-// SERVE ATTACHMENT (secure, with nosniff header)
+// SERVE ATTACHMENT — redirect via presigned URL (private bucket)
 // ============================================================================
 
 pub async fn serve_attachment(
+    State(app_state): State<AppState>,
     Path((conv_id, filename)): Path<(Uuid, String)>,
 ) -> Response {
-    // Reject path traversal attempts
     if filename.contains("..") || filename.contains('/') || filename.contains('\\') {
         return (StatusCode::BAD_REQUEST, "Invalid filename").into_response();
     }
 
-    let claimed_ext = ext_from_name(&filename).to_lowercase();
-    let allowed_type = ALLOWED.iter().find(|t| t.ext == claimed_ext);
-    let mime = allowed_type.map(|t| t.mime).unwrap_or("application/octet-stream");
+    let s3 = match &app_state.s3 {
+        Some(s) => s,
+        None => return (StatusCode::SERVICE_UNAVAILABLE, "Storage not configured").into_response(),
+    };
 
-    let file_path = PathBuf::from(upload_dir())
-        .join(conv_id.to_string())
-        .join(&filename);
-
-    match fs::read(&file_path).await {
-        Ok(bytes) => {
-            let mut headers = HeaderMap::new();
-            headers.insert(header::CONTENT_TYPE, HeaderValue::from_static(mime));
-            headers.insert("X-Content-Type-Options", HeaderValue::from_static("nosniff"));
-            headers.insert("Cache-Control", HeaderValue::from_static("private, max-age=86400"));
-            (StatusCode::OK, headers, Body::from(bytes)).into_response()
+    let key = format!("{}/{}", conv_id, filename);
+    match s3.presigned_url(Bucket::Chat, &key, 3600).await {
+        Ok(url) => Redirect::temporary(&url).into_response(),
+        Err(e) => {
+            error!("Failed to generate presigned URL: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to serve file").into_response()
         }
-        Err(_) => (StatusCode::NOT_FOUND, "File not found").into_response(),
     }
 }
 
@@ -204,6 +136,9 @@ pub async fn admin_upload_attachment(
     Path(conv_id): Path<Uuid>,
     mut multipart: Multipart,
 ) -> Result<Json<UnifiedApiResponse<serde_json::Value>>, Json<UnifiedApiResponse<()>>> {
+    let s3 = app_state.s3.as_ref()
+        .ok_or_else(|| Json(UnifiedApiResponse::error(503, "Storage unavailable", "S3 storage not configured")))?;
+
     let field = match multipart.next_field().await {
         Ok(Some(f)) => f,
         Ok(None) => return Err(Json(UnifiedApiResponse::error(400, "Bad request", "No file provided"))),
@@ -211,45 +146,21 @@ pub async fn admin_upload_attachment(
     };
 
     let original_name = field.file_name().unwrap_or("file").to_string();
-    let claimed_ext = ext_from_name(&original_name).to_lowercase();
-
     let bytes = match field.bytes().await {
         Ok(b) => b,
         Err(e) => return Err(Json(UnifiedApiResponse::error(400, "Bad request", &e.to_string()))),
     };
 
-    if bytes.len() > MAX_FILE_SIZE {
-        return Err(Json(UnifiedApiResponse::error(413, "File too large", "Max 5MB allowed")));
-    }
+    let result = upload_file(s3, Bucket::Chat, &bytes, &original_name, Some(&conv_id.to_string()))
+        .await
+        .map_err(|e| Json(UnifiedApiResponse::error(400, "Upload failed", &e)))?;
 
-    let file_type = match detect_type(&bytes, &claimed_ext) {
-        Some(t) => t,
-        None => return Err(Json(UnifiedApiResponse::error(415, "Unsupported file type", "Allowed: jpg, png, gif, webp, pdf"))),
-    };
-
-    let uuid_name = format!("{}.{}", Uuid::new_v4(), file_type.ext);
-    let dir = PathBuf::from(upload_dir()).join(conv_id.to_string());
-    if let Err(e) = fs::create_dir_all(&dir).await {
-        error!("Failed to create upload dir: {}", e);
-        return Err(Json(UnifiedApiResponse::error(500, "Storage error", "Failed to create directory")));
-    }
-
-    let file_path = dir.join(&uuid_name);
-    match fs::File::create(&file_path).await {
-        Ok(mut f) => {
-            if let Err(e) = f.write_all(&bytes).await {
-                return Err(Json(UnifiedApiResponse::error(500, "Storage error", &e.to_string())));
-            }
-        }
-        Err(e) => return Err(Json(UnifiedApiResponse::error(500, "Storage error", &e.to_string()))),
-    }
-
-    let url = format!("/api/chat/files/{}/{}", conv_id, uuid_name);
     let attachment = serde_json::json!({
-        "url": url,
-        "filename": original_name,
-        "file_type": file_type.mime,
-        "size": bytes.len(),
+        "url": result.url,
+        "thumb_url": result.thumb_url,
+        "filename": result.original_name,
+        "file_type": result.mime,
+        "size": result.size,
     });
 
     let content = format!("[attachment: {}]", original_name);

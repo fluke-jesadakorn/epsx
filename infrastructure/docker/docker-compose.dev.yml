@@ -1,9 +1,9 @@
 # EPSX Platform - Development Docker Compose
-# Server: Mac Mini (arm64) with Cloudflare Tunnel
+# Server: Mac Mini (arm64, 48GB RAM) — coexists with prod + staging
 # Usage: docker compose --env-file .env.dev -f docker-compose.dev.yml up -d
 #
-# NOTE: Uses pre-built images (no build context on server).
-# Ports offset from prod (DB: 5433, Redis: 6380) to allow co-existence.
+# Routing: prod cloudflared joins epsx_dev_network and routes
+# dev.epsx.io / dev-admin.epsx.io / dev-api.epsx.io
 
 x-logging: &default-logging
   driver: json-file
@@ -105,6 +105,37 @@ services:
           cpus: "0.25"
     logging: *default-logging
 
+  minio:
+    image: minio/minio:latest
+    container_name: epsx-dev-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - dev_minio_data:/data
+    ports:
+      - "127.0.0.1:9200:9000"
+      - "127.0.0.1:9201:9001"
+    networks:
+      - epsx_dev
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
+    logging: *default-logging
+
   backend:
     image: epsx-backend:dev
     container_name: epsx-dev-backend
@@ -113,6 +144,8 @@ services:
       pgbouncer:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     environment:
       ENV: ${ENV}
@@ -148,6 +181,10 @@ services:
       BSC_REQUIRED_CONFIRMATIONS: ${BSC_REQUIRED_CONFIRMATIONS}
       BSC_TESTNET_REQUIRED_CONFIRMATIONS: ${BSC_TESTNET_REQUIRED_CONFIRMATIONS}
       MAX_PAYMENT_AGE_MINUTES: ${MAX_PAYMENT_AGE_MINUTES}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_PUBLIC_URL: http://localhost:9200
       HOST: 0.0.0.0
       PORT: 8080
     networks:
@@ -186,6 +223,7 @@ services:
       NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID}
       NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: ${COMPANY_WALLET_MAINNET}
       NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: ${COMPANY_WALLET_TESTNET}
+      NEXT_PUBLIC_CDN_URL: ${MINIO_PUBLIC_URL:-https://cdn.epsx.io}
       PORT: 3000
       HOSTNAME: 0.0.0.0
     networks:
@@ -224,6 +262,7 @@ services:
       NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID}
       NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: ${COMPANY_WALLET_MAINNET}
       NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: ${COMPANY_WALLET_TESTNET}
+      NEXT_PUBLIC_CDN_URL: ${MINIO_PUBLIC_URL:-https://cdn.epsx.io}
       PORT: 3000
       HOSTNAME: 0.0.0.0
     networks:
@@ -244,35 +283,9 @@ services:
           cpus: "0.25"
     logging: *default-logging
 
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: epsx-dev-cloudflared
-    restart: unless-stopped
-    depends_on:
-      backend:
-        condition: service_healthy
-      frontend:
-        condition: service_healthy
-      admin-frontend:
-        condition: service_healthy
-    command: tunnel run
-    environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
-    networks:
-      - epsx_dev
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-          cpus: "0.5"
-        reservations:
-          memory: 32M
-          cpus: "0.1"
-    logging: *default-logging
-
 networks:
   epsx_dev:
-    driver: bridge
+    external: true
     name: epsx_dev_network
 
 volumes:
@@ -280,3 +293,5 @@ volumes:
     name: epsx_dev_postgres_data
   dev_redis_data:
     name: epsx_dev_redis_data
+  dev_minio_data:
+    name: epsx_dev_minio_data

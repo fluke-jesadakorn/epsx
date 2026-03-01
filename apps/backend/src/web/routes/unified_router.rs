@@ -333,6 +333,7 @@ impl UnifiedRouteBuilder {
             .route("/payment-links/{slug}", get(crate::web::admin::payment_link_handlers::get_payment_link_by_slug_handler))
             // News (public, no auth)
             .route("/news", get(crate::web::public::news_handlers::list_public_news))
+            .route("/news/featured", get(crate::web::public::news_handlers::list_featured_news))
             .route("/news/images/{filename}", get(crate::web::public::news_handlers::serve_news_image))
             .route("/news/{slug}", get(crate::web::public::news_handlers::get_public_news))
             .with_state(app_state)
@@ -467,7 +468,8 @@ impl UnifiedRouteBuilder {
 
         // File serving (UUID filenames, no auth – unguessable paths)
         let file_route = Router::new()
-            .route("/files/{conv_id}/{filename}", get(chat_upload_handlers::serve_attachment));
+            .route("/files/{conv_id}/{filename}", get(chat_upload_handlers::serve_attachment))
+            .with_state(app_state.clone());
 
         // Topics (public, no auth needed)
         let public_routes = Router::new()

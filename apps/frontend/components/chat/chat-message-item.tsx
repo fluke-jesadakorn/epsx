@@ -17,6 +17,7 @@ function AttachmentView({ att }: { att: ChatAttachment }) {
   const [open, setOpen] = useState(false);
   const isImage = att.file_type.startsWith('image/');
   const src = att.url;
+  const preview = att.thumb_url ?? src;
 
   if (isImage) {
     return (
@@ -27,7 +28,7 @@ function AttachmentView({ att }: { att: ChatAttachment }) {
           className="block mt-2 cursor-zoom-in focus:outline-none"
         >
           <img
-            src={src}
+            src={preview}
             alt={att.filename}
             className="max-w-full max-h-48 rounded-xl border border-white/10 object-cover hover:opacity-90 transition-opacity"
           />

@@ -36,6 +36,7 @@ use crate::auth::UnifiedPermissionService;
 use crate::infrastructure::cqrs::{EventStore, PostgresEventStore, TransactionalOutbox};
 use crate::infrastructure::blockchain::{ContractSubscriber, PaymentEvent};
 use crate::domain::shared_kernel::app_error::AppError;
+use crate::infrastructure::storage::S3Storage;
 use tracing::info;
 
 /// Enhanced container with Web3-first services
@@ -82,6 +83,9 @@ pub struct SimpleContainer {
     // Contract subscribers for WebSocket-based payment monitoring
     pub contract_subscribers: Option<Arc<HashMap<Chain, Arc<ContractSubscriber>>>>,
     pub subscriber_handles: Option<Arc<HashMap<Chain, tokio::task::JoinHandle<Result<(), AppError>>>>>,
+
+    // S3-compatible object storage (MinIO)
+    pub s3: Option<Arc<S3Storage>>,
 }
 
 impl SimpleContainer {
@@ -121,6 +125,8 @@ impl SimpleContainer {
             // Contract subscribers
             contract_subscribers: None,
             subscriber_handles: None,
+            // S3 storage
+            s3: None,
         }
     }
 
@@ -358,6 +364,21 @@ impl SimpleContainer {
             }
         };
 
+        // Initialize S3 storage (MinIO)
+        let s3 = match (env::var("MINIO_ENDPOINT").ok(), env::var("MINIO_ACCESS_KEY").ok(), env::var("MINIO_SECRET_KEY").ok()) {
+            (Some(endpoint), Some(access_key), Some(secret_key)) => {
+                let public_url = env::var("MINIO_PUBLIC_URL").unwrap_or_else(|_| endpoint.clone());
+                let storage = S3Storage::new(&endpoint, &access_key, &secret_key, &public_url).await;
+                storage.init_buckets().await;
+                info!("S3 storage (MinIO) initialized with public URL: {}", public_url);
+                Some(Arc::new(storage))
+            }
+            _ => {
+                tracing::warn!("MinIO not configured (MINIO_ENDPOINT/ACCESS_KEY/SECRET_KEY missing)");
+                None
+            }
+        };
+
         // Initialize contract subscribers for WebSocket-based payment monitoring
         let config = crate::config::env::init_config();
         let supported_tokens = config.supported_payment_tokens.clone();
@@ -402,6 +423,8 @@ impl SimpleContainer {
             // Contract subscribers
             contract_subscribers,
             subscriber_handles,
+            // S3 storage
+            s3,
         }
     }
 
@@ -556,6 +579,8 @@ impl SimpleContainer {
             // Contract subscribers
             contract_subscribers: None,
             subscriber_handles: None,
+            // S3 storage
+            s3: None,
         }
     }
 

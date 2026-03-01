@@ -1,8 +1,9 @@
+import type { NewsArticle } from '@/shared/api/news';
+import { resolveNewsImageUrl } from '@/shared/api/news';
+import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { MarkdownAsync } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ArrowLeft } from 'lucide-react';
-import type { NewsArticle } from '@/shared/api/news';
 
 function formatDate(dateStr: string | null): string {
   if (dateStr === null) { return ''; }
@@ -31,9 +32,9 @@ export function NewsDetail({ article }: Props) {
         </Link>
 
         {/* Cover image */}
-        {article.cover_image_url !== null && (
+        {resolveNewsImageUrl(article.cover_image_url) !== null && (
           <img
-            src={article.cover_image_url}
+            src={resolveNewsImageUrl(article.cover_image_url) ?? ''}
             alt={article.title}
             className="w-full rounded-2xl mb-8 object-cover max-h-96"
           />

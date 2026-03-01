@@ -18,6 +18,9 @@ import { formatRelativeTime } from '@/shared/utils';
 import type { WalletData } from './types';
 import { getPlanDisplay, PLATFORM_ICONS, PLATFORM_LABELS, STATUS_CONFIG } from './wallet-card-sections';
 
+const FADE_ON_HOVER = 'opacity-0 group-hover:opacity-100 transition-opacity';
+const AVATAR_GRADIENT = 'bg-gradient-to-br from-[#1fc7d4] to-[#7645d9]';
+
 async function handleCopyAddress(
     e: React.MouseEvent,
     walletAddress: string,
@@ -37,6 +40,7 @@ interface WalletMobileCardProps {
     onEnable?: () => void;
 }
 
+// eslint-disable-next-line complexity
 export function WalletMobileCard({ wallet, onView, onEnable }: WalletMobileCardProps) {
     const [copied, setCopied] = useState(false);
     const router = useRouter();
@@ -47,14 +51,16 @@ export function WalletMobileCard({ wallet, onView, onEnable }: WalletMobileCardP
     return (
         <div
             className={cn(
-                'group relative overflow-hidden rounded-2xl border border-border/60 bg-card p-4 cursor-pointer transition-all hover:border-[#7645d9]/30 hover:shadow-lg hover:shadow-[#7645d9]/10',
-                isDisabled && 'opacity-60'
+                'group relative overflow-hidden rounded-2xl border border-border/20 bg-card p-4 cursor-pointer transition-all hover:border-[#1fc7d4]/30 hover:shadow-xl hover:shadow-[#1fc7d4]/5',
+                isDisabled && 'opacity-50'
             )}
             onClick={onView}
         >
+            <div className="absolute left-0 top-0 bottom-0 w-0.5 rounded-r bg-[#1fc7d4] opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="flex items-center gap-3 mb-3">
                 <div className="relative shrink-0">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#1fc7d4] to-[#7645d9] text-xs font-black text-white">
+                    <div className={cn('absolute inset-0 rounded-xl blur-sm opacity-0 group-hover:opacity-40 transition-opacity', AVATAR_GRADIENT)} />
+                    <div className={cn('relative flex h-10 w-10 items-center justify-center rounded-xl text-xs font-black text-white', AVATAR_GRADIENT)}>
                         {wallet.walletAddress.slice(2, 4).toUpperCase()}
                     </div>
                     <div className={cn('absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background', statusConfig.dotClass)} />
@@ -66,7 +72,7 @@ export function WalletMobileCard({ wallet, onView, onEnable }: WalletMobileCardP
                         </span>
                         <button
                             onClick={(e) => { void handleCopyAddress(e, wallet.walletAddress, setCopied); }}
-                            className={cn('shrink-0 rounded p-0.5 transition-colors', copied ? 'text-emerald-400' : 'text-muted-foreground hover:text-foreground')}
+                            className={cn('shrink-0 rounded p-0.5 transition-all', copied ? 'text-emerald-400' : 'text-muted-foreground hover:text-foreground', !copied && FADE_ON_HOVER)}
                         >
                             {copied ? <CheckCircle2 size={11} /> : <Copy size={11} />}
                         </button>
@@ -157,6 +163,7 @@ interface WalletListRowProps {
     onEnable?: () => void;
 }
 
+// eslint-disable-next-line complexity
 export function WalletListRow({ wallet, onView, onEnable }: WalletListRowProps) {
     const [copied, setCopied] = useState(false);
     const router = useRouter();
@@ -167,14 +174,17 @@ export function WalletListRow({ wallet, onView, onEnable }: WalletListRowProps) 
     return (
         <div
             className={cn(
-                'group flex items-center gap-3 px-4 py-3 border-b border-border/40 hover:bg-muted/20 transition-colors cursor-pointer',
-                isDisabled && 'opacity-60'
+                'group relative flex items-center gap-3 px-4 py-3 border-b border-border/20 hover:bg-[#1fc7d4]/[0.03] transition-colors cursor-pointer',
+                isDisabled && 'opacity-50'
             )}
             onClick={onView}
         >
+            <div className="absolute left-0 top-0 bottom-0 w-0.5 rounded-r bg-[#1fc7d4] opacity-0 group-hover:opacity-100 transition-opacity" />
+
             <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div className="relative shrink-0">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#1fc7d4] to-[#7645d9] text-xs font-black text-white">
+                    <div className={cn('absolute inset-0 rounded-xl blur-sm opacity-0 group-hover:opacity-30 transition-opacity', AVATAR_GRADIENT)} />
+                    <div className={cn('relative flex h-9 w-9 items-center justify-center rounded-xl text-xs font-black text-white', AVATAR_GRADIENT)}>
                         {wallet.walletAddress.slice(2, 4).toUpperCase()}
                     </div>
                     <div className={cn('absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background', statusConfig.dotClass)} />
@@ -187,8 +197,9 @@ export function WalletListRow({ wallet, onView, onEnable }: WalletListRowProps) 
                         <button
                             onClick={(e) => { void handleCopyAddress(e, wallet.walletAddress, setCopied); }}
                             className={cn(
-                                'shrink-0 rounded p-0.5 transition-colors',
-                                copied ? 'text-emerald-400' : 'text-muted-foreground hover:text-foreground'
+                                'shrink-0 rounded p-0.5 transition-all',
+                                copied ? 'text-emerald-400' : 'text-muted-foreground hover:text-foreground',
+                                !copied && FADE_ON_HOVER
                             )}
                         >
                             {copied ? <CheckCircle2 size={11} /> : <Copy size={11} />}
@@ -205,16 +216,16 @@ export function WalletListRow({ wallet, onView, onEnable }: WalletListRowProps) 
             </div>
 
             <div className="hidden sm:flex items-center gap-1.5 w-32 shrink-0">
-                <CreditCard size={12} className="text-muted-foreground shrink-0" />
-                <span className="text-sm truncate">{plan.name}</span>
+                <CreditCard size={12} className="text-muted-foreground/60 shrink-0" />
+                <span className="text-sm truncate text-muted-foreground group-hover:text-foreground transition-colors">{plan.name}</span>
             </div>
 
             <div className="hidden md:flex items-center gap-1 w-24 shrink-0">
                 {wallet.platforms.length > 0 ? wallet.platforms.map(p => (
-                    <div key={p} title={PLATFORM_LABELS[p]} className="p-1 rounded text-muted-foreground border border-border/40 hover:text-foreground transition-colors">
+                    <div key={p} title={PLATFORM_LABELS[p]} className="p-1 rounded-md text-muted-foreground/60 border border-border/30 hover:text-[#1fc7d4] hover:border-[#1fc7d4]/30 transition-colors">
                         {PLATFORM_ICONS[p]}
                     </div>
-                )) : <span className="text-xs text-muted-foreground">—</span>}
+                )) : <span className="text-xs text-muted-foreground/40">—</span>}
             </div>
 
             <div className="hidden sm:flex shrink-0 w-20">
@@ -223,17 +234,17 @@ export function WalletListRow({ wallet, onView, onEnable }: WalletListRowProps) 
                 </Badge>
             </div>
 
-            <div className="hidden lg:flex items-center gap-1.5 w-24 shrink-0 text-xs text-muted-foreground">
+            <div className="hidden lg:flex items-center gap-1.5 w-24 shrink-0 text-xs text-muted-foreground/60">
                 <User size={11} className="shrink-0" />
                 <span className="truncate">{formatRelativeTime(wallet.createdAt)}</span>
             </div>
 
-            <div className="hidden xl:flex items-center gap-1.5 w-24 shrink-0 text-xs text-muted-foreground">
+            <div className="hidden xl:flex items-center gap-1.5 w-24 shrink-0 text-xs text-muted-foreground/60">
                 <Clock size={11} className="shrink-0" />
                 <span className="truncate">{wallet.lastAuthAt !== undefined && wallet.lastAuthAt !== '' ? formatRelativeTime(wallet.lastAuthAt) : 'Never'}</span>
             </div>
 
-            <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+            <div className={cn('flex items-center gap-1 shrink-0', FADE_ON_HOVER)} onClick={e => e.stopPropagation()}>
                 <Button size="sm" variant="ghost" className="h-7 px-2 text-xs gap-1" onClick={onView}>
                     <Edit size={12} /> <span className="hidden sm:inline">Edit</span>
                 </Button>

@@ -4,6 +4,7 @@ import type { NotificationsResponse } from '@/shared/api/notifications';
 import { createNotificationsClient } from '@/shared/api/notifications';
 import { logger } from '@/lib/logger';
 import { getAdminServerActionClient } from '@/shared/utils/server-fetch';
+import type { ApiResponse } from '@/shared/utils/api-client';
 
 export async function getAdminNotificationsAction(filters: {
   page: number;
@@ -84,5 +85,17 @@ export async function markAsReadAction(notificationId: string): Promise<{ succes
   } catch (error) {
     logger.action.error('markAsRead', error);
     return { success: false };
+  }
+}
+
+export async function uploadNotificationImageAction(
+  formData: FormData
+): Promise<ApiResponse<{ url: string; filename: string }>> {
+  const client = getAdminServerActionClient();
+  try {
+    return await client.post('/api/admin/notifications/upload-image', formData);
+  } catch (error) {
+    logger.action.error('uploadNotificationImage', error);
+    return { success: false, data: null as unknown as { url: string; filename: string }, error: { code: 'UPLOAD_FAILED', message: error instanceof Error ? error.message : 'Upload failed' } };
   }
 }

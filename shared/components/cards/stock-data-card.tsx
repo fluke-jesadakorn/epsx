@@ -109,12 +109,27 @@ function CardHeader({ rank, rankTheme, symbol, companyName, price, currency }: {
   );
 }
 
+function GrowthBar({ epsGrowth }: { epsGrowth: number }) {
+  const isPositive = epsGrowth >= 0;
+  const width = Math.max(5, Math.min(100, (Math.abs(epsGrowth) / 60) * 100));
+  return (
+    <div className="h-1.5 w-full bg-gray-200 dark:bg-gray-700/50 rounded-full overflow-hidden">
+      <div
+        className={cn('h-full rounded-full relative', isPositive ? 'bg-gradient-to-r from-green-500 to-emerald-400' : 'bg-gradient-to-r from-red-500 to-rose-400')}
+        style={{ width: `${width}%` }}
+      >
+        <div className="absolute inset-0 bg-white/20" />
+      </div>
+    </div>
+  );
+}
+
 function NextActionMetric({ daysUntilNextAction }: { daysUntilNextAction?: number }) {
   const progressWidth = daysUntilNextAction !== undefined
     ? Math.max(5, Math.min(100, ((90 - daysUntilNextAction) / 90) * 100))
     : 0;
   return (
-    <div className="flex flex-col gap-2 p-3 rounded-xl bg-white dark:bg-white/5 group/feature hover:bg-black/[0.05] dark:hover:bg-white/10 transition-colors">
+    <div className="flex flex-col gap-2 p-3 rounded-xl bg-white/5 group/feature hover:bg-white/10 transition-colors">
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-md bg-blue-500/20 text-blue-400">
@@ -157,7 +172,7 @@ export const StockDataCard = ({
 
   return (
     <PremiumCard
-      variant={variant === 'premium' ? 'highlight' : 'default'}
+      variant='glass'
       glowColor={rankTheme.glow}
       className={cn('w-full hover:-translate-y-1 transition-transform', className)}
     >
@@ -170,16 +185,19 @@ export const StockDataCard = ({
         <CardHeader rank={rank} rankTheme={rankTheme} symbol={symbol} companyName={companyName} price={price} currency={currency} />
 
         <div className="space-y-2 mb-4 flex-grow">
-          <div className="flex items-center justify-between group/feature p-2 rounded-lg hover:bg-black/[0.05] dark:hover:bg-white/5 transition-colors">
-            <div className="flex items-center gap-3">
-              <div className={cn("p-1.5 rounded-md", isPositiveGrowth ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400")}>
-                <TrendingUp className="w-4 h-4" />
+          <div className="flex flex-col gap-2 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={cn("p-1.5 rounded-md", isPositiveGrowth ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400")}>
+                  <TrendingUp className="w-4 h-4" />
+                </div>
+                <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">Growth</span>
               </div>
-              <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">Growth</span>
+              <span className={cn("font-bold text-sm", isPositiveGrowth ? "text-green-400" : "text-red-400")}>
+                {formatPercentage(epsGrowth)}
+              </span>
             </div>
-            <span className={cn("font-bold text-sm", isPositiveGrowth ? "text-green-400" : "text-red-400")}>
-              {formatPercentage(epsGrowth)}
-            </span>
+            <GrowthBar epsGrowth={epsGrowth} />
           </div>
           <NextActionMetric daysUntilNextAction={daysUntilNextAction} />
         </div>

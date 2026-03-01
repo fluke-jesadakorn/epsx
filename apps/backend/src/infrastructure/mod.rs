@@ -15,6 +15,7 @@ pub mod redis; // Redis connection pool for notification pub/sub
 pub mod blockchain; // Blockchain payment infrastructure
 pub mod services; // Background services
 pub mod logger; // Environment-specific logger configuration
+pub mod storage; // S3-compatible object storage (MinIO)
 
 // Re-export infrastructure components with explicit imports to avoid conflicts
 pub use adapters::{

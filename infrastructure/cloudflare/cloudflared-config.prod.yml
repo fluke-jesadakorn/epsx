@@ -51,6 +51,54 @@ ingress:
       connectTimeout: 30s
       noTLSVerify: false
 
+  # Dev environment (containers on epsx_dev_network)
+  - hostname: dev.epsx.io
+    service: http://epsx-dev-frontend:3000
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: false
+  - hostname: dev-admin.epsx.io
+    service: http://epsx-dev-admin:3000
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: false
+  - hostname: dev-api.epsx.io
+    service: http://epsx-dev-backend:8080
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: false
+
+  # MinIO Console - storage management UI
+  - hostname: storage.epsx.io
+    service: http://minio:9001
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: false
+
+  # MinIO S3 API - public bucket direct access (CDN)
+  - hostname: cdn.epsx.io
+    service: http://minio:9000
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: false
+
+  # Staging environment (containers on epsx_staging_network)
+  - hostname: staging.epsx.io
+    service: http://epsx-staging-frontend:3000
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: false
+  - hostname: staging-admin.epsx.io
+    service: http://epsx-staging-admin:3000
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: false
+  - hostname: staging-api.epsx.io
+    service: http://epsx-staging-backend:8080
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: false
+
   # Catch-all rule (required by Cloudflare Tunnel)
   - service: http_status:404
 
@@ -78,4 +126,12 @@ no-autoupdate: true
 # Name: gitlab.epsx.io       → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
 # Name: registry.epsx.io     → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
 # Name: *.review.epsx.io     → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
+# Name: dev.epsx.io          → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
+# Name: dev-admin.epsx.io    → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
+# Name: dev-api.epsx.io      → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
+# Name: staging.epsx.io      → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
+# Name: staging-admin.epsx.io→ <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
+# Name: staging-api.epsx.io  → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
+# Name: storage.epsx.io      → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
+# Name: cdn.epsx.io           → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
 # ============================================================================

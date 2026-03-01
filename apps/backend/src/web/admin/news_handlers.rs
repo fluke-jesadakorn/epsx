@@ -3,55 +3,20 @@ use axum::{
     Extension, Json,
 };
 use chrono::Utc;
-use std::path::PathBuf;
-use tokio::{fs, io::AsyncWriteExt};
 use tracing::error;
 use uuid::Uuid;
 
 use crate::infrastructure::models::news::{
     CreateNewsReq, NewsListQuery, NewsListResponse, NewNewsArticle, UpdateNewsArticle,
-    UpdateNewsReq,
+    UpdateNewsReq, NewsArticleDb,
 };
 use crate::infrastructure::repositories::NewsRepository;
+use crate::infrastructure::storage::{Bucket, upload_file};
 use crate::web::{
     auth::AppState,
     middleware::OpenIDUserContext,
     responses::UnifiedApiResponse,
 };
-
-// ============================================================================
-// IMAGE UPLOAD CONSTANTS
-// ============================================================================
-
-const MAX_IMG_SIZE: usize = 5 * 1024 * 1024; // 5 MB
-
-struct ImgType {
-    ext: &'static str,
-    mime: &'static str,
-    magic: &'static [u8],
-}
-
-static ALLOWED_IMG: &[ImgType] = &[
-    ImgType { ext: "jpg",  mime: "image/jpeg", magic: &[0xFF, 0xD8, 0xFF] },
-    ImgType { ext: "jpeg", mime: "image/jpeg", magic: &[0xFF, 0xD8, 0xFF] },
-    ImgType { ext: "png",  mime: "image/png",  magic: &[0x89, 0x50, 0x4E, 0x47] },
-    ImgType { ext: "gif",  mime: "image/gif",  magic: b"GIF8" },
-    ImgType { ext: "webp", mime: "image/webp", magic: b"RIFF" },
-];
-
-fn news_upload_dir() -> String {
-    std::env::var("NEWS_UPLOAD_DIR").unwrap_or_else(|_| "/tmp/news_uploads".to_string())
-}
-
-fn ext_from_name(name: &str) -> &str {
-    name.rsplit('.').next().unwrap_or("")
-}
-
-fn detect_img_type(bytes: &[u8], claimed_ext: &str) -> Option<&'static ImgType> {
-    ALLOWED_IMG.iter().find(|t| {
-        t.ext == claimed_ext.to_lowercase() && bytes.starts_with(t.magic)
-    })
-}
 
 // ============================================================================
 // HANDLERS
@@ -228,9 +193,39 @@ pub async fn unpublish_news(
     }
 }
 
+pub async fn pin_news(
+    State(app_state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<UnifiedApiResponse<NewsArticleDb>>, Json<UnifiedApiResponse<()>>> {
+    match NewsRepository::pin(&app_state.db_pool, id).await {
+        Ok(article) => Ok(Json(UnifiedApiResponse::success(article))),
+        Err(e) => {
+            error!("Failed to pin news article: {}", e);
+            Err(Json(UnifiedApiResponse::error(500, "Database error", &e)))
+        }
+    }
+}
+
+pub async fn unpin_news(
+    State(app_state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<UnifiedApiResponse<NewsArticleDb>>, Json<UnifiedApiResponse<()>>> {
+    match NewsRepository::unpin(&app_state.db_pool, id).await {
+        Ok(article) => Ok(Json(UnifiedApiResponse::success(article))),
+        Err(e) => {
+            error!("Failed to unpin news article: {}", e);
+            Err(Json(UnifiedApiResponse::error(500, "Database error", &e)))
+        }
+    }
+}
+
 pub async fn upload_news_image(
+    State(app_state): State<AppState>,
     mut multipart: Multipart,
 ) -> Result<Json<UnifiedApiResponse<serde_json::Value>>, Json<UnifiedApiResponse<()>>> {
+    let s3 = app_state.s3.as_ref()
+        .ok_or_else(|| Json(UnifiedApiResponse::error(503, "Storage unavailable", "S3 storage not configured")))?;
+
     let field = match multipart.next_field().await {
         Ok(Some(f)) => f,
         Ok(None) => return Err(Json(UnifiedApiResponse::error(400, "Bad request", "No file provided"))),
@@ -238,49 +233,19 @@ pub async fn upload_news_image(
     };
 
     let original_name = field.file_name().unwrap_or("image").to_string();
-    let claimed_ext = ext_from_name(&original_name).to_lowercase();
-
     let bytes = match field.bytes().await {
         Ok(b) => b,
         Err(e) => return Err(Json(UnifiedApiResponse::error(400, "Bad request", &e.to_string()))),
     };
 
-    if bytes.len() > MAX_IMG_SIZE {
-        return Err(Json(UnifiedApiResponse::error(413, "File too large", "Max 5MB allowed")));
+    match upload_file(s3, Bucket::News, &bytes, &original_name, None).await {
+        Ok(result) => Ok(Json(UnifiedApiResponse::success(serde_json::json!({
+            "url": result.url,
+            "thumb_url": result.thumb_url,
+            "filename": result.key,
+            "mime": result.mime,
+            "size": result.size,
+        })))),
+        Err(e) => Err(Json(UnifiedApiResponse::error(400, "Upload failed", &e))),
     }
-
-    let img_type = match detect_img_type(&bytes, &claimed_ext) {
-        Some(t) => t,
-        None => return Err(Json(UnifiedApiResponse::error(415, "Unsupported file type", "Allowed: jpg, png, gif, webp"))),
-    };
-
-    let filename = format!("{}.{}", Uuid::new_v4(), img_type.ext);
-    let dir = PathBuf::from(news_upload_dir());
-
-    if let Err(e) = fs::create_dir_all(&dir).await {
-        error!("Failed to create news upload dir: {}", e);
-        return Err(Json(UnifiedApiResponse::error(500, "Storage error", "Failed to create directory")));
-    }
-
-    let file_path = dir.join(&filename);
-    match fs::File::create(&file_path).await {
-        Ok(mut f) => {
-            if let Err(e) = f.write_all(&bytes).await {
-                error!("Failed to write image file: {}", e);
-                return Err(Json(UnifiedApiResponse::error(500, "Storage error", "Failed to write file")));
-            }
-        }
-        Err(e) => {
-            error!("Failed to create image file: {}", e);
-            return Err(Json(UnifiedApiResponse::error(500, "Storage error", "Failed to create file")));
-        }
-    }
-
-    let url = format!("/api/public/news/images/{}", filename);
-    Ok(Json(UnifiedApiResponse::success(serde_json::json!({
-        "url": url,
-        "filename": filename,
-        "mime": img_type.mime,
-        "size": bytes.len(),
-    }))))
 }

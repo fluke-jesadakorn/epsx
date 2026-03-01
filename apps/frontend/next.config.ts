@@ -7,7 +7,10 @@ const nextConfig: NextConfig = {
   output: 'standalone',
 
   images: {
-    remotePatterns: [{ protocol: 'https', hostname: '**' }],
+    remotePatterns: [
+      { protocol: 'https', hostname: '**' },
+      { protocol: 'http', hostname: '**' },
+    ],
   },
 
   typescript: { ignoreBuildErrors: true },
@@ -37,7 +40,7 @@ const nextConfig: NextConfig = {
   },
   // Improve HMR WebSocket reliability and fix SSR issues
   webpack: (config: any, { dev, isServer, webpack }: { dev: boolean; isServer: boolean; webpack: any }) => {
-     
+
     if (dev && !isServer) {
       config.watchOptions = {
         poll: 1000,

@@ -88,7 +88,9 @@ pub async fn fetch_queued_notifications(
     Ok(notifications)
 }
 
-/// Mark notification as delivered via Redis
+/// Mark notification as delivered (SSE stream sent it to the client).
+/// Only transitions from undelivered states (created/queued/sent) so it never
+/// clobbers a user-explicitly set state like 'read' or 'unread'.
 pub async fn mark_as_delivered(
     db_pool: &TlsPool,
     notification_id: &str,
@@ -100,7 +102,9 @@ pub async fn mark_as_delivered(
         .map_err(|e| AppError::database_error(format!("Connection pool error: {}", e)))?;
 
     diesel::sql_query(
-        "UPDATE wallet_notifications SET status = 'delivered', total_attempts = total_attempts + 1, updated_at = NOW() WHERE id = $1"
+        "UPDATE wallet_notifications \
+         SET status = 'delivered', total_attempts = total_attempts + 1, updated_at = NOW() \
+         WHERE id = $1 AND status IN ('created', 'queued', 'sent')"
     )
     .bind::<diesel::sql_types::Uuid, _>(id)
     .execute(&mut conn)
@@ -109,7 +113,10 @@ pub async fn mark_as_delivered(
     Ok(())
 }
 
-/// Mark notification as acknowledged by client
+/// Mark notification as acknowledged by client (called automatically on SSE receipt).
+/// Only marks as 'delivered' when currently in an undelivered state.
+/// Never overrides user-explicit 'read' or 'unread' states — those are set
+/// only through the explicit mark-as-read / mark-as-unread API endpoints.
 pub async fn mark_as_acknowledged(
     db_pool: &TlsPool,
     notification_id: &str,
@@ -120,14 +127,18 @@ pub async fn mark_as_acknowledged(
     let mut conn = db_pool.get().await
         .map_err(|e| AppError::database_error(format!("Connection pool error: {}", e)))?;
 
+    // Only update if not already in a user-controlled state ('read' or 'unread').
+    // This prevents the SSE auto-acknowledge from undoing an explicit markAsUnread.
     diesel::sql_query(
-        "UPDATE wallet_notifications SET status = 'read', updated_at = NOW() WHERE id = $1"
+        "UPDATE wallet_notifications \
+         SET status = 'delivered', updated_at = NOW() \
+         WHERE id = $1 AND status NOT IN ('read', 'unread', 'deleted')"
     )
     .bind::<diesel::sql_types::Uuid, _>(id)
     .execute(&mut conn)
     .await?;
 
-    tracing::debug!("Notification acknowledged: id={}", notification_id);
+    tracing::debug!("Notification acknowledged (delivery confirmed): id={}", notification_id);
 
     Ok(())
 }
@@ -140,7 +151,7 @@ pub async fn mark_as_acknowledged(
 /// - Unread notifications: Keep indefinitely (user might still want to see them)
 /// - Expired notifications: Remove immediately
 ///
-/// This function is designed to be called by a cron job (not implemented)
+/// Called every hour by `PlanExpirationService` background task (main.rs).
 pub async fn cleanup_old_notifications(
     db_pool: &TlsPool,
     _days: i64,

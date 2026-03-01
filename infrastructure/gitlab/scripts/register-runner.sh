@@ -5,7 +5,9 @@
 # Prerequisites:
 #   1. GitLab is running and healthy: curl -sf https://gitlab.epsx.io/-/health
 #   2. Create a runner token: GitLab Admin > CI/CD > Runners > New instance runner
-#   3. Run this script with the token
+#   3. Create host dirs: sudo mkdir -p /srv/epsx/{ci,envs}
+#   4. Copy env files to /Users/fluke/epsx-runner/envs/.env.{dev,staging,prod}
+#   5. Run this script with the token
 
 set -euo pipefail
 
@@ -22,13 +24,16 @@ docker exec -it epsx-gitlab-runner gitlab-runner register \
   --executor "docker" \
   --docker-image "docker:27" \
   --docker-volumes "/var/run/docker.sock:/var/run/docker.sock" \
+  --docker-volumes "/Users/fluke/epsx-runner/builds:/Users/fluke/epsx-runner/builds" \
+  --docker-volumes "/Users/fluke/epsx-runner/envs:/Users/fluke/epsx-runner/envs:ro" \
   --docker-network-mode "epsx_gitlab_network" \
   --docker-memory "4g" \
   --docker-cpus "4" \
   --docker-pull-policy "if-not-present" \
   --description "${RUNNER_NAME}" \
   --tag-list "docker,arm64,epsx" \
-  --run-untagged="true"
+  --run-untagged="true" \
+  --builds-dir "/Users/fluke/epsx-runner/builds"
 
 # Set concurrency to 3 jobs
 docker exec epsx-gitlab-runner sed -i 's/^concurrent = .*/concurrent = 3/' /etc/gitlab-runner/config.toml
@@ -37,4 +42,10 @@ echo ""
 echo "Runner registered. Restarting runner to apply concurrency..."
 docker restart epsx-gitlab-runner
 
+echo ""
 echo "Done. Verify: docker exec epsx-gitlab-runner gitlab-runner list"
+echo ""
+echo "IMPORTANT: Ensure env files exist at:"
+echo "  /Users/fluke/epsx-runner/envs/.env.dev"
+echo "  /Users/fluke/epsx-runner/envs/.env.staging"
+echo "  /Users/fluke/epsx-runner/envs/.env.prod"

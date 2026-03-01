@@ -41,19 +41,19 @@ interface CardStyle { borderClass: string; bgClass: string }
 function resolveCardStyle(isSelected: boolean, isDisabled: boolean, highlight: boolean | undefined): CardStyle {
     if (isSelected) {
         return {
-            borderClass: 'border-blue-500/20 ring-1 ring-blue-500/20 shadow-2xl shadow-blue-500/10',
-            bgClass: 'bg-white dark:bg-slate-900 dark:border-blue-900/30',
+            borderClass: 'border-blue-400/40 ring-1 ring-blue-400/20 shadow-2xl shadow-blue-500/10',
+            bgClass: 'bg-white/12 dark:bg-white/10 backdrop-blur-xl',
         }
     }
     if (isDisabled) {
-        return { borderClass: 'border-gray-200 dark:border-slate-700', bgClass: 'bg-gray-50 dark:bg-slate-900' }
+        return { borderClass: 'border-white/10', bgClass: 'bg-white/4 dark:bg-white/3 backdrop-blur-sm' }
     }
     if (highlight === true) {
-        return { borderClass: 'border-blue-500/30 shadow-2xl shadow-blue-900/20', bgClass: 'bg-white dark:bg-slate-900' }
+        return { borderClass: 'border-blue-400/30 shadow-2xl shadow-blue-900/20', bgClass: 'bg-white/12 dark:bg-white/10 backdrop-blur-xl' }
     }
     return {
-        borderClass: 'border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-white/20',
-        bgClass: 'bg-white dark:bg-slate-900',
+        borderClass: 'border-white/20 dark:border-white/15 hover:border-white/30 dark:hover:border-white/25',
+        bgClass: 'bg-white/8 dark:bg-white/5 backdrop-blur-xl',
     }
 }
 

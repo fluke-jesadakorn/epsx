@@ -25,6 +25,16 @@ pub struct NewsArticleDb {
     pub published_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub is_pinned: bool,
+    pub pinned_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, AsChangeset)]
+#[diesel(table_name = news_articles)]
+pub struct PinNewsArticle {
+    pub is_pinned: bool,
+    pub pinned_at: Option<DateTime<Utc>>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Insertable)]

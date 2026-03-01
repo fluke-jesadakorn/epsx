@@ -1,33 +1,21 @@
 use axum::{
-    body::Body,
     extract::{Path, Query, State},
-    http::{header, HeaderMap, HeaderValue, StatusCode},
-    response::{IntoResponse, Response},
+    http::{header, StatusCode},
+    response::{IntoResponse, Response, Redirect},
     Json,
 };
-use std::path::PathBuf;
-use tokio::fs;
+use serde::Deserialize;
 use tracing::error;
 
-use crate::infrastructure::models::news::{NewsListResponse, NewsListQuery};
+use crate::infrastructure::models::news::{NewsArticleDb, NewsListResponse, NewsListQuery};
 use crate::infrastructure::repositories::NewsRepository;
+use crate::infrastructure::storage::Bucket;
 use crate::web::{auth::AppState, responses::UnifiedApiResponse};
 
-fn news_upload_dir() -> String {
-    std::env::var("NEWS_UPLOAD_DIR").unwrap_or_else(|_| "/tmp/news_uploads".to_string())
+#[derive(Debug, Deserialize)]
+pub struct FeaturedQuery {
+    pub limit: Option<i64>,
 }
-
-fn ext_from_name(name: &str) -> &str {
-    name.rsplit('.').next().unwrap_or("")
-}
-
-static MIME_MAP: &[(&str, &str)] = &[
-    ("jpg",  "image/jpeg"),
-    ("jpeg", "image/jpeg"),
-    ("png",  "image/png"),
-    ("gif",  "image/gif"),
-    ("webp", "image/webp"),
-];
 
 pub async fn list_public_news(
     State(app_state): State<AppState>,
@@ -61,27 +49,53 @@ pub async fn get_public_news(
     }
 }
 
-pub async fn serve_news_image(Path(filename): Path<String>) -> Response {
+pub async fn list_featured_news(
+    State(app_state): State<AppState>,
+    Query(query): Query<FeaturedQuery>,
+) -> Result<Json<UnifiedApiResponse<Vec<NewsArticleDb>>>, Json<UnifiedApiResponse<()>>> {
+    let limit = query.limit.unwrap_or(3).clamp(1, 10);
+    match NewsRepository::list_featured(&app_state.db_pool, limit).await {
+        Ok(articles) => Ok(Json(UnifiedApiResponse::success(articles))),
+        Err(e) => {
+            error!("Failed to list featured news: {}", e);
+            Err(Json(UnifiedApiResponse::error(500, "Database error", &e)))
+        }
+    }
+}
+
+/// Backward-compat: redirect old /api/public/news/images/{filename} to CDN
+pub async fn serve_news_image(
+    State(app_state): State<AppState>,
+    Path(filename): Path<String>,
+) -> Response {
     if filename.contains("..") || filename.contains('/') || filename.contains('\\') {
         return (StatusCode::BAD_REQUEST, "Invalid filename").into_response();
     }
 
-    let ext = ext_from_name(&filename).to_lowercase();
-    let mime = MIME_MAP
-        .iter()
-        .find(|(e, _)| *e == ext)
-        .map(|(_, m)| *m)
-        .unwrap_or("application/octet-stream");
+    // If S3 is configured, redirect to CDN
+    if let Some(s3) = &app_state.s3 {
+        let url = s3.public_url(Bucket::News, &filename);
+        return Redirect::temporary(&url).into_response();
+    }
 
-    let file_path = PathBuf::from(news_upload_dir()).join(&filename);
-
-    match fs::read(&file_path).await {
+    // Fallback: serve from filesystem (legacy)
+    let dir = std::env::var("NEWS_UPLOAD_DIR").unwrap_or_else(|_| "/tmp/news_uploads".to_string());
+    let file_path = std::path::PathBuf::from(dir).join(&filename);
+    match tokio::fs::read(&file_path).await {
         Ok(bytes) => {
-            let mut headers = HeaderMap::new();
-            headers.insert(header::CONTENT_TYPE, HeaderValue::from_static(mime));
-            headers.insert("X-Content-Type-Options", HeaderValue::from_static("nosniff"));
-            headers.insert("Cache-Control", HeaderValue::from_static("public, max-age=604800"));
-            (StatusCode::OK, headers, Body::from(bytes)).into_response()
+            let ext = filename.rsplit('.').next().unwrap_or("").to_lowercase();
+            let mime = match ext.as_str() {
+                "jpg" | "jpeg" => "image/jpeg",
+                "png" => "image/png",
+                "gif" => "image/gif",
+                "webp" => "image/webp",
+                _ => "application/octet-stream",
+            };
+            let headers = [
+                (header::CONTENT_TYPE, mime),
+                (header::CACHE_CONTROL, "public, max-age=604800"),
+            ];
+            (StatusCode::OK, headers, bytes).into_response()
         }
         Err(_) => (StatusCode::NOT_FOUND, "Image not found").into_response(),
     }

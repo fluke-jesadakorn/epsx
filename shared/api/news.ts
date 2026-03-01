@@ -17,6 +17,8 @@ export interface NewsArticle {
   published_at: string | null;
   created_at: string;
   updated_at: string;
+  is_pinned: boolean;
+  pinned_at: string | null;
 }
 
 export interface NewsListResponse {
@@ -57,7 +59,7 @@ export interface NewsImageUploadResponse {
 // ============================================================================
 
 export class NewsApi {
-  constructor(private client: UnifiedApiClient) {}
+  constructor(private client: UnifiedApiClient) { }
 
   // Public
   async listPublished(page = 1, limit = 10): Promise<ApiResponse<NewsListResponse>> {
@@ -102,8 +104,55 @@ export class NewsApi {
   async adminUploadImage(formData: FormData): Promise<ApiResponse<NewsImageUploadResponse>> {
     return this.client.post('/api/admin/news/upload-image', formData);
   }
+
+  async adminPin(id: string): Promise<ApiResponse<NewsArticle>> {
+    return this.client.put(`/api/admin/news/${id}/pin`, {});
+  }
+
+  async adminUnpin(id: string): Promise<ApiResponse<NewsArticle>> {
+    return this.client.put(`/api/admin/news/${id}/unpin`, {});
+  }
+
+  async listFeatured(limit = 3): Promise<ApiResponse<NewsArticle[]>> {
+    return this.client.get(`/api/public/news/featured?limit=${limit}`);
+  }
 }
 
 export function createNewsClient(client: UnifiedApiClient): NewsApi {
   return new NewsApi(client);
 }
+
+// ============================================================================
+// IMAGE URL RESOLVER
+// ============================================================================
+
+/**
+ * Resolves a news article's cover_image_url to an absolute URL.
+ * Old paths like `/api/public/news/images/foo.png` → CDN direct.
+ * New uploads already store full CDN URLs → pass through.
+ */
+export function resolveNewsImageUrl(coverImageUrl: string | null | undefined): string | null {
+  if (coverImageUrl === null || coverImageUrl === undefined || coverImageUrl === '') {
+    return null;
+  }
+  // Already an absolute URL — return as-is
+  if (coverImageUrl.startsWith('http://') || coverImageUrl.startsWith('https://')) {
+    return coverImageUrl;
+  }
+  // Old-format path → rewrite to CDN direct
+  const oldPrefix = '/api/public/news/images/';
+  if (coverImageUrl.startsWith(oldPrefix)) {
+    const cdn =
+      (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_CDN_URL) ??
+      'https://cdn.epsx.io';
+    return `${cdn}/news/${coverImageUrl.slice(oldPrefix.length)}`;
+  }
+  // Generic fallback — prefix with backend URL
+  const backendUrl =
+    (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_BACKEND_URL) ??
+    (typeof window !== 'undefined' && (window as Window & { __ENV__?: { NEXT_PUBLIC_BACKEND_URL?: string } }).__ENV__?.NEXT_PUBLIC_BACKEND_URL) ??
+    'http://127.0.0.1:8080';
+  const cleanPath = coverImageUrl.startsWith('/') ? coverImageUrl : `/${coverImageUrl}`;
+  return `${backendUrl}${cleanPath}`;
+}
+

@@ -6,15 +6,19 @@ import {
   ExternalLink,
   Image as ImageIcon,
   Key,
+  Loader2,
   MessageSquare,
   Send,
   Settings,
   Shield,
+  Upload,
   User,
   Users,
   Zap
 } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+
+import { uploadNotificationImageAction } from '@/app/actions/notifications';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -148,7 +152,33 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
   const [actionUrl, setActionUrl] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file === undefined) { return; }
+    setUploading(true);
+    setError(null);
+    const fd = new FormData();
+    fd.append('file', file);
+    void (async () => {
+      try {
+        const res = await uploadNotificationImageAction(fd);
+        if (res.success && res.data?.url) {
+          setImageUrl(res.data.url);
+        } else {
+          setError('Image upload failed');
+        }
+      } catch {
+        setError('Image upload failed');
+      } finally {
+        setUploading(false);
+        if (fileRef.current !== null) { fileRef.current.value = ''; }
+      }
+    })();
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -237,7 +267,13 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
           <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-2 inline-flex items-center">
             Asset URL <ImageIcon className="w-2.5 h-2.5 ml-2 opacity-30" />
           </label>
-          <Input type="url" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://..." className="h-12 bg-muted/30 border-border/40 rounded-2xl px-5 text-xs font-bold hover:bg-muted/50 focus:border-[#1fc7d4]/50 transition-all" />
+          <div className="flex gap-2">
+            <Input type="url" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://..." className="h-12 bg-muted/30 border-border/40 rounded-2xl px-5 text-xs font-bold hover:bg-muted/50 focus:border-[#1fc7d4]/50 transition-all flex-1" />
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+            <Button type="button" variant="outline" disabled={uploading} onClick={() => fileRef.current?.click()} className="h-12 px-4 rounded-2xl border-border/40 hover:bg-muted/50">
+              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+            </Button>
+          </div>
         </div>
       </div>
 

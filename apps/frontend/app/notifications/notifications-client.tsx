@@ -1,7 +1,7 @@
- 
+
 'use client';
 
-import { getInitialNotificationsAction, markAsReadAction, markAllAsReadAction, deleteNotificationAction, clearAllNotificationsAction } from '@/app/actions/notifications';
+import { clearAllNotificationsAction, deleteNotificationAction, getInitialNotificationsAction, markAllAsReadAction, markAsReadAction } from '@/app/actions/notifications';
 import type { NotificationsResponse } from '@/shared/api/notifications';
 import { Bell, Check, Filter, Trash2 } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
@@ -26,7 +26,7 @@ interface NotificationsClientProps {
   initialData: NotificationsResponse;
   focusId?: string | null;
 }
- 
+
 export default function NotificationsClient({ initialData, focusId }: NotificationsClientProps) {
   const _searchParams = useSearchParams();
   const notificationRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
@@ -109,36 +109,41 @@ export default function NotificationsClient({ initialData, focusId }: Notificati
 
   const markAsRead = async (notificationId: string) => {
     try {
-      await markAsReadAction(notificationId);
-
-      setNotifications(prev => prev.map(n =>
-        n.id === notificationId ? { ...n, read: true } : n
-      ));
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      const result = await markAsReadAction(notificationId);
+      if (result.success) {
+        setNotifications(prev => prev.map(n =>
+          n.id === notificationId ? { ...n, read: true } : n
+        ));
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
     } catch (_error) {
-      // Error handling handled by parent component
+      // silently fail
     }
   };
 
   const markAllAsRead = async () => {
     try {
-      await markAllAsReadAction();
-
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-      setUnreadCount(0);
+      const result = await markAllAsReadAction();
+      if (result.success) {
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        setUnreadCount(0);
+      }
     } catch (_error) {
-      // Error handling handled by parent component
+      // silently fail
     }
   };
 
   const deleteNotification = async (notificationId: string) => {
     try {
-      await deleteNotificationAction(notificationId);
-
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
-      setTotalCount(prev => prev - 1);
+      const result = await deleteNotificationAction(notificationId);
+      if (result.success) {
+        const wasUnread = notifications.find(n => n.id === notificationId && !n.read);
+        setNotifications(prev => prev.filter(n => n.id !== notificationId));
+        setTotalCount(prev => prev - 1);
+        if (wasUnread) setUnreadCount(prev => Math.max(0, prev - 1));
+      }
     } catch (_error) {
-      // Error handling handled by parent component
+      // silently fail
     }
   };
 
@@ -148,13 +153,14 @@ export default function NotificationsClient({ initialData, focusId }: Notificati
     }
 
     try {
-      await clearAllNotificationsAction();
-
-      setNotifications([]);
-      setTotalCount(0);
-      setUnreadCount(0);
+      const result = await clearAllNotificationsAction();
+      if (result.success) {
+        setNotifications([]);
+        setTotalCount(0);
+        setUnreadCount(0);
+      }
     } catch (_error) {
-      // Error handling handled by parent component
+      // silently fail
     }
   };
 
@@ -188,10 +194,10 @@ export default function NotificationsClient({ initialData, focusId }: Notificati
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-    if (minutes < 1) {return 'Just now';}
-    if (minutes < 60) {return `${minutes}m ago`;}
-    if (hours < 24) {return `${hours}h ago`;}
-    if (days < 7) {return `${days}d ago`;}
+    if (minutes < 1) { return 'Just now'; }
+    if (minutes < 60) { return `${minutes}m ago`; }
+    if (hours < 24) { return `${hours}h ago`; }
+    if (days < 7) { return `${days}d ago`; }
     return date.toLocaleDateString();
   };
 

@@ -198,7 +198,11 @@ export function useNotificationBell(
       const result = await optionsRef.current.actions.markAsUnread(notificationId)
       if (result.success) {
         setNotifications((prev) => prev.map((n) => (n.id === notificationId ? { ...n, read: false } : n)))
-        setCount((prev) => prev + 1)
+        // Re-fetch unread count from server to stay in sync
+        const data = await optionsRef.current.actions.getNotifications({ page: 1, limit: 1, status: 'all' })
+        if (data.success && data.data !== undefined) {
+          setCount(data.data.unread_count ?? 0)
+        }
       }
     } catch (err) {
       logger.error('Failed to mark notification as unread:', err)
@@ -207,9 +211,11 @@ export function useNotificationBell(
 
   const markAllAsRead = useCallback(async () => {
     try {
-      await optionsRef.current.actions.markAllAsRead()
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
-      setCount(0)
+      const result = await optionsRef.current.actions.markAllAsRead()
+      if (result.success) {
+        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+        setCount(0)
+      }
     } catch (err) {
       logger.error('Failed to mark all notifications as read:', err)
     }

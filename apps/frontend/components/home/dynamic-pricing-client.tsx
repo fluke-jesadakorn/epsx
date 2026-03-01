@@ -295,7 +295,7 @@ export const DynamicPricingClient = ({
                 {personalPlans.length > 0 && (
                     <div className="space-y-8 sm:space-y-12">
                         <PersonalPlansHeader />
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 lg:gap-16 px-4 py-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {renderPricingCards(personalPlans)}
                         </div>
                     </div>
@@ -304,7 +304,7 @@ export const DynamicPricingClient = ({
                 {enterprisePlans.length > 0 && (
                     <div className="space-y-8 sm:space-y-12">
                         <EnterprisePlansHeader />
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 lg:gap-16 px-4 py-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {renderPricingCards(enterprisePlans)}
                         </div>
                     </div>
@@ -313,7 +313,7 @@ export const DynamicPricingClient = ({
                 {apiPlans.length > 0 && (
                     <div className="space-y-8 sm:space-y-12">
                         <ApiPlansHeader />
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 lg:gap-16 px-4 py-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {renderPricingCards(apiPlans)}
                         </div>
                     </div>
@@ -321,7 +321,7 @@ export const DynamicPricingClient = ({
 
                 <div className="space-y-8 sm:space-y-12">
                     <CustomPlansHeader />
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 lg:gap-16 px-4 py-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         <ContactCard />
                     </div>
                 </div>

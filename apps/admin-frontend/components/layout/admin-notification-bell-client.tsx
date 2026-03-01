@@ -1,8 +1,8 @@
 'use client'
 
+import { Bell, ExternalLink, RefreshCw } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Bell, ExternalLink, RefreshCw } from 'lucide-react'
 
 import {
   deleteAdminNotificationAction,
@@ -234,29 +234,33 @@ function useNotificationBellLogic(isOnAuthPage: boolean) {
         : await markAsReadAction(notificationId)
 
       if (result.success !== true) {
-        // Revert on failure
+        // Revert on failure — reverse the optimistic change
         setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, read: currentlyRead } : n))
-        setCount(prev => currentlyRead ? Math.max(0, prev - 1) : prev + 1)
+        setCount(prev => currentlyRead ? prev + 1 : Math.max(0, prev - 1))
         toast({ title: 'Failed to update notification', variant: 'destructive' })
       }
     } catch {
       // Revert on error
       setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, read: currentlyRead } : n))
-      setCount(prev => currentlyRead ? Math.max(0, prev - 1) : prev + 1)
+      setCount(prev => currentlyRead ? prev + 1 : Math.max(0, prev - 1))
       toast({ title: 'Failed to update notification', variant: 'destructive' })
     }
   }, [])
 
   const handleDeleteNotification = useCallback(async (e: React.MouseEvent, notificationId: string) => {
     e.stopPropagation()
+    const notification = notifications.find(n => n.id === notificationId)
     try {
-      const notification = notifications.find(n => n.id === notificationId)
-      await deleteAdminNotificationAction(notificationId)
-      setNotifications(prev => prev.filter(n => n.id !== notificationId))
-      if (notification !== undefined && !notification.read) {
-        setCount(prev => Math.max(0, prev - 1))
+      const result = await deleteAdminNotificationAction(notificationId)
+      if (result.success === true) {
+        setNotifications(prev => prev.filter(n => n.id !== notificationId))
+        if (notification !== undefined && !notification.read) {
+          setCount(prev => Math.max(0, prev - 1))
+        }
+        toast({ title: 'Notification deleted' })
+      } else {
+        toast({ title: 'Failed to delete notification', variant: 'destructive' })
       }
-      toast({ title: 'Notification deleted' })
     } catch {
       toast({ title: 'Failed to delete notification', variant: 'destructive' })
     }
@@ -264,10 +268,14 @@ function useNotificationBellLogic(isOnAuthPage: boolean) {
 
   const handleMarkAllAsRead = useCallback(async () => {
     try {
-      await markAllAsReadAction()
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })))
-      setCount(0)
-      toast({ title: 'All notifications marked as read' })
+      const result = await markAllAsReadAction()
+      if (result.success === true) {
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+        setCount(0)
+        toast({ title: 'All notifications marked as read' })
+      } else {
+        toast({ title: 'Failed to mark all as read', variant: 'destructive' })
+      }
     } catch {
       toast({ title: 'Failed to mark all as read', variant: 'destructive' })
     }

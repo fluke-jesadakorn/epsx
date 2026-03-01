@@ -22,6 +22,11 @@ name = "grant_wallet_permission"
 path = "src/bin/grant_wallet_permission.rs"
 required-features = ["cli-tools"]
 
+[[bin]]
+name = "migrate_media"
+path = "src/bin/migrate_media.rs"
+required-features = ["cli-tools"]
+
 # Feature flags optimized for production
 [features]
 default = ["production"]
@@ -111,6 +116,14 @@ utoipa = { version = "5.1", features = ["axum_extras", "chrono", "uuid"] }
 
 # Input validation
 validator = { version = "0.18", features = ["derive"] }
+
+# S3-compatible object storage (MinIO)
+aws-sdk-s3 = "1"
+aws-config = { version = "1", features = ["behavior-version-latest"] }
+aws-credential-types = { version = "1", features = ["hardcoded-credentials"] }
+
+# Image processing (resize, compress, thumbnails)
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp"] }
 
 
 

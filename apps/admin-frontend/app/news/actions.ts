@@ -52,3 +52,15 @@ export async function unpublishNewsAction(id: string): Promise<ApiResponse<NewsA
 export async function uploadNewsImageAction(formData: FormData): Promise<ApiResponse<NewsImageUploadResponse>> {
   return client().post('/api/admin/news/upload-image', formData);
 }
+
+export async function pinNewsAction(id: string): Promise<ApiResponse<NewsArticle>> {
+  const res = await client().put(`/api/admin/news/${id}/pin`, {});
+  if (res.success) { revalidatePath('/news'); }
+  return res;
+}
+
+export async function unpinNewsAction(id: string): Promise<ApiResponse<NewsArticle>> {
+  const res = await client().put(`/api/admin/news/${id}/unpin`, {});
+  if (res.success) { revalidatePath('/news'); }
+  return res;
+}

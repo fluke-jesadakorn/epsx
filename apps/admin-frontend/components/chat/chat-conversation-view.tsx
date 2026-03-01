@@ -191,12 +191,13 @@ function AttachmentView({ att, isRight }: { att: ChatAttachment; isRight: boolea
   const [open, setOpen] = useState(false);
   const isImage = att.file_type.startsWith('image/');
   const src = att.url;
+  const preview = att.thumb_url ?? src;
 
   if (isImage) {
     return (
       <>
         <button type="button" onClick={() => setOpen(true)} className="block mt-2 cursor-zoom-in focus:outline-none">
-          <Image unoptimized width={400} height={300} src={src} alt={att.filename} className="w-auto h-auto max-w-full max-h-48 rounded-xl border border-white/10 object-cover hover:opacity-90 transition-opacity" />
+          <Image unoptimized width={400} height={300} src={preview} alt={att.filename} className="w-auto h-auto max-w-full max-h-48 rounded-xl border border-white/10 object-cover hover:opacity-90 transition-opacity" />
         </button>
         {open && <ImageLightbox src={src} alt={att.filename} onClose={() => setOpen(false)} />}
       </>
@@ -317,7 +318,7 @@ function MsgItem({ m, prev, readUpToId }: MsgItemProps) {
   const isSystem = m.sender_type === 'system';
   const isAi = m.sender_type === 'ai';
   const isRight = isAgent || isAi;
-  const attachments = m.metadata.attachments ?? [];
+  const attachments = m.metadata?.attachments ?? [];
   const isAttachmentOnly = m.content.startsWith('[attachment:') && attachments.length > 0;
   const showDate = prev === undefined || formatDate(prev.created_at) !== formatDate(m.created_at);
   const isRead = isRight && (m.id === readUpToId || m.is_read === true);

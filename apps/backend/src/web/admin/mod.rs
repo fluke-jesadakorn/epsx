@@ -23,6 +23,7 @@ pub mod payment_link_handlers;
 pub mod audit_log_handlers;
 pub mod chat_handlers;
 pub mod news_handlers;
+pub mod media_handlers;
 pub mod batch_handlers;
 
 // Consolidated permission module (v3.0) - replaces 5 handler files (3,743 lines)

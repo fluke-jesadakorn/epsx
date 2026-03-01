@@ -4,7 +4,7 @@ use diesel_async::RunQueryDsl;
 use uuid::Uuid;
 
 use crate::infrastructure::models::news::{
-    NewsArticleDb, NewNewsArticle, UpdateNewsArticle, NewsListQuery,
+    NewsArticleDb, NewNewsArticle, UpdateNewsArticle, NewsListQuery, PinNewsArticle,
 };
 use crate::prelude::TlsPool;
 use crate::schemas::primary::news_articles;
@@ -153,6 +153,49 @@ impl NewsRepository {
             .await
             .map_err(|e| e.to_string())?;
         Ok(count > 0)
+    }
+
+    pub async fn pin(pool: &TlsPool, id: Uuid) -> Result<NewsArticleDb, String> {
+        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let changeset = PinNewsArticle {
+            is_pinned: true,
+            pinned_at: Some(Utc::now()),
+            updated_at: Utc::now(),
+        };
+        diesel::update(news_articles::table.find(id))
+            .set(&changeset)
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| e.to_string())
+    }
+
+    pub async fn unpin(pool: &TlsPool, id: Uuid) -> Result<NewsArticleDb, String> {
+        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let changeset = PinNewsArticle {
+            is_pinned: false,
+            pinned_at: None,
+            updated_at: Utc::now(),
+        };
+        diesel::update(news_articles::table.find(id))
+            .set(&changeset)
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| e.to_string())
+    }
+
+    pub async fn list_featured(pool: &TlsPool, limit: i64) -> Result<Vec<NewsArticleDb>, String> {
+        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        news_articles::table
+            .filter(news_articles::status.eq("published"))
+            .order((
+                news_articles::is_pinned.desc(),
+                news_articles::pinned_at.desc().nulls_last(),
+                news_articles::published_at.desc().nulls_last(),
+            ))
+            .limit(limit.clamp(1, 10))
+            .load::<NewsArticleDb>(&mut conn)
+            .await
+            .map_err(|e| e.to_string())
     }
 
     pub async fn unique_slug(pool: &TlsPool, title: &str) -> Result<String, String> {

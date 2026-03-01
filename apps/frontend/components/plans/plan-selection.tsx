@@ -193,7 +193,7 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
 
       {/* Pricing Cards - Grouped by plan_group */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 lg:gap-16 px-4 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={`plan-skeleton-${String(i)}`} className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded-2xl h-[500px]" />
           ))}
@@ -222,7 +222,7 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
                     <p className="text-sm text-gray-500 dark:text-gray-400">{cfg.desc}</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 lg:gap-16">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {groupCards.map((card) => {
                     let actionType: 'extend' | 'upgrade' | 'downgrade' | 'select' | 'locked' = 'select'
                     let buttonTextOverride: string | undefined

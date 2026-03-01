@@ -104,11 +104,13 @@ pub async fn sse_notifications_handler(
     // Extract wallet address from authentication (Header or Query)
     let mut wallet_address = "all".to_string();
     let mut token_to_validate = None;
+    let mut token_present = false;
 
     // 1. Check Authorization header
     if let Some(auth_header) = request.headers().get("authorization").and_then(|h| h.to_str().ok()) {
         if let Some(token) = auth_header.strip_prefix("Bearer ") {
             token_to_validate = Some(token.to_string());
+            token_present = true;
         }
     }
 
@@ -116,10 +118,11 @@ pub async fn sse_notifications_handler(
     if token_to_validate.is_none() {
         if let Some(token) = query.token {
             token_to_validate = Some(token);
+            token_present = true;
         }
     }
 
-    // 3. Validate token if present
+    // 3. Validate token if present — reject on failure instead of silently falling back to "all"
     if let Some(token) = token_to_validate {
         if let Some(token_service) = app_state.domain_container.get_token_service() {
             match token_service.validate_access_token(&token).await {
@@ -128,12 +131,17 @@ pub async fn sse_notifications_handler(
                     tracing::debug!("SSE Auth: Validated wallet from token: {}", wallet_address);
                 }
                 Err(e) => {
-                    tracing::warn!("SSE Auth: Token validation failed: {}", e);
+                    tracing::warn!("SSE Auth: Token validation failed, rejecting SSE connection: {}", e);
+                    return Err(AppError::unauthorized("Invalid or expired authentication token"));
                 }
             }
         } else {
-             tracing::error!("SSE Auth: Token service not available");
+            tracing::error!("SSE Auth: Token service not available");
+            return Err(AppError::internal_server_error("Authentication service unavailable"));
         }
+    } else if token_present {
+        // Token header/param was present but empty — reject
+        return Err(AppError::unauthorized("Authentication token is required"));
     }
 
     tracing::info!(

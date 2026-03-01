@@ -327,6 +327,18 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/news/{id}", get(super::news_handlers::get_news).put(super::news_handlers::update_news).delete(super::news_handlers::delete_news))
     .route("/news/{id}/publish", put(super::news_handlers::publish_news))
     .route("/news/{id}/unpublish", put(super::news_handlers::unpublish_news))
+    .route("/news/{id}/pin", put(super::news_handlers::pin_news))
+    .route("/news/{id}/unpin", put(super::news_handlers::unpin_news))
+
+    // ============================================================================
+    // MEDIA & FILE MANAGEMENT
+    // ============================================================================
+    .route("/notifications/upload-image", post(super::media_handlers::upload_notification_image))
+    .route("/files/upload", post(super::media_handlers::upload_public_file))
+    .route("/files", get(super::media_handlers::list_public_files))
+    .route("/files/{key}", delete(super::media_handlers::delete_public_file))
+    .route("/media/{bucket}", get(super::media_handlers::list_media))
+    .route("/media/{bucket}/{key}", delete(super::media_handlers::delete_media))
 
     // ============================================================================
     // BATCH ENDPOINTS - reduces N+1 call patterns

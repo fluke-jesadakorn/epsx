@@ -129,7 +129,7 @@ services:
           memory: 512M
           cpus: "1"
         reservations:
-          memory: 128M
+          memory: 512M
           cpus: "0.25"
     logging: *default-logging
 

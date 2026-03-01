@@ -16,3 +16,7 @@ export async function getPublicNews(page = 1, limit = 10): Promise<ApiResponse<N
 export async function getNewsBySlug(slug: string): Promise<ApiResponse<NewsArticle>> {
   return newsClient().getBySlug(slug);
 }
+
+export async function getHomepageNews(): Promise<ApiResponse<NewsArticle[]>> {
+  return newsClient().listFeatured(3);
+}

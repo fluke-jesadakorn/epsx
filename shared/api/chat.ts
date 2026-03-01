@@ -39,6 +39,7 @@ export interface ChatConversation {
 
 export interface ChatAttachment {
   url: string;
+  thumb_url?: string | null;
   filename: string;
   file_type: string;
   size: number;

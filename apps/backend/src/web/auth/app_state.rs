@@ -13,6 +13,7 @@ use crate::domain::payment::repository_ports::{TransactionHistoryProvider};
 use crate::domain::auth::ports::IdentityProviderPort;
 
 use crate::infrastructure::adapters::repositories::permission_plan_repository_adapter::PermissionPlanRepositoryAdapter;
+use crate::infrastructure::storage::S3Storage;
 // use crate::infrastructure::adapters::repositories::payment_repository_adapter::PaymentRepositoryAdapter; // Temporarily disabled
 
 /// Application State for Dependency Injection
@@ -30,7 +31,7 @@ pub struct AppState {
 
     pub analytics_db_pool: Option<Arc<&'static TlsPool>>,
     pub audit: Arc<AuditService>,
-    // pub payment_repository: Arc<PaymentRepositoryAdapter>, // Temporarily disabled
+    pub s3: Option<Arc<S3Storage>>,
     // Stub for backwards compatibility with admin handlers
     pub user_repo: Option<String>,
 }
@@ -60,6 +61,8 @@ impl AppState {
         let audit_pool = analytics_db_pool.clone().unwrap_or_else(|| db_pool.clone());
         let audit = Arc::new(AuditService::new(audit_pool));
 
+        let s3 = domain_container.s3.clone();
+
         Self {
             db_pool,
             cache,
@@ -72,8 +75,8 @@ impl AppState {
 
             analytics_db_pool,
             audit,
-            // payment_repository, // Temporarily disabled
-            user_repo: None, // Placeholder for backwards compatibility
+            s3,
+            user_repo: None,
         }
     }
 }

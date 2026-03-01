@@ -4,13 +4,35 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useWalletListing } from '@/hooks/use-wallet-listing';
 import { cn } from '@/lib/utils';
-import { BarChart3, ChevronLeft, ChevronRight, Clock, CreditCard, Search, User } from 'lucide-react';
+import { BarChart3, ChevronLeft, ChevronRight, Clock, CreditCard, Search, User, Wallet } from 'lucide-react';
 import { useState } from 'react';
 import { EditWalletMetadataModal } from './edit-wallet-metadata-modal';
 import { ReenableWalletModal } from './reenable-wallet-modal';
 import type { WalletData } from './types';
 import { WalletFilterBar } from './wallet-filter-bar';
 import { WalletListRow, WalletMobileCard } from './wallet-list-row';
+
+const COL_HDR = 'text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground/70';
+
+function PageHeader({ total, isLoading }: { total: number; isLoading: boolean }) {
+    return (
+        <div className="rounded-2xl bg-card border border-border/20 shadow-xl overflow-hidden">
+            <div className="h-[3px] bg-gradient-to-r from-[#1fc7d4] to-[#7645d9]" />
+            <div className="px-5 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="h-[3px] w-8 bg-[#1fc7d4] rounded-full" />
+                    <Wallet className="w-5 h-5 text-[#1fc7d4]" />
+                    <h1 className="text-xl font-bold text-foreground">Wallets</h1>
+                </div>
+                {!isLoading && total > 0 && (
+                    <span className="px-2.5 py-1 rounded-full bg-[#1fc7d4]/10 text-[#1fc7d4] text-xs font-bold border border-[#1fc7d4]/20">
+                        {total} {total === 1 ? 'wallet' : 'wallets'}
+                    </span>
+                )}
+            </div>
+        </div>
+    );
+}
 
 interface WalletSectionProps {
     className?: string;
@@ -48,20 +70,20 @@ function WalletEmptyState({ onClearFilters }: WalletEmptyStateProps) {
 
 function ListHeader() {
     return (
-        <div className="flex items-center gap-3 px-4 py-2 border-b border-border/60 bg-muted/30 text-xs font-medium text-muted-foreground rounded-t-lg">
-            <div className="flex-1 min-w-0">Wallet</div>
-            <div className="hidden sm:flex items-center gap-1.5 w-32 shrink-0">
-                <CreditCard size={11} /> Plan
+        <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border/20 bg-muted/20 text-xs">
+            <div className={cn('flex-1 min-w-0', COL_HDR)}>Wallet</div>
+            <div className={cn('hidden sm:flex items-center gap-1.5 w-32 shrink-0', COL_HDR)}>
+                <CreditCard size={10} /> Plan
             </div>
-            <div className="hidden md:flex items-center gap-1.5 w-24 shrink-0">
-                <BarChart3 size={11} /> Platforms
+            <div className={cn('hidden md:flex items-center gap-1.5 w-24 shrink-0', COL_HDR)}>
+                <BarChart3 size={10} /> Platforms
             </div>
-            <div className="hidden sm:block w-20 shrink-0">Status</div>
-            <div className="hidden lg:flex items-center gap-1.5 w-24 shrink-0">
-                <User size={11} /> Joined
+            <div className={cn('hidden sm:flex w-20 shrink-0', COL_HDR)}>Status</div>
+            <div className={cn('hidden lg:flex items-center gap-1.5 w-24 shrink-0', COL_HDR)}>
+                <User size={10} /> Joined
             </div>
-            <div className="hidden xl:flex items-center gap-1.5 w-24 shrink-0">
-                <Clock size={11} /> Last Login
+            <div className={cn('hidden xl:flex items-center gap-1.5 w-24 shrink-0', COL_HDR)}>
+                <Clock size={10} /> Last Login
             </div>
             <div className="w-20 shrink-0" />
         </div>
@@ -185,7 +207,8 @@ export function WalletSection({ className, initialData }: WalletSectionProps) {
     } = useWalletListing({ initialData });
 
     return (
-        <div className={cn("space-y-4", className)}>
+        <div className={cn("p-4 sm:p-6 lg:p-8 space-y-4", className)}>
+            <PageHeader total={total} isLoading={isLoading} />
             <WalletFilterBar
                 filters={filters}
                 onFilterChange={setFilters}
