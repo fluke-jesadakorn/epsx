@@ -15,7 +15,6 @@ stages:
   - deploy
 
 variables:
-  REGISTRY: registry.epsx.io
   IMAGE_TAG: $CI_COMMIT_SHORT_SHA
   BUN_INSTALL: /tmp/.bun
   CARGO_HOME: /tmp/.cargo
@@ -36,7 +35,7 @@ variables:
 
 .docker-login: &docker-login
   before_script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
 
 .rules-lint-test: &rules-lint-test
   rules:
@@ -141,17 +140,17 @@ test:backend:
 # ---------------------------------------------------------------------------
 # BuildKit inline cache for layer reuse between runs.
 # Images tagged: <env>-<sha> + <env>-latest
-# Change detection on dev/staging for frontend/admin; always build on main.
+# Always build all images (Docker cache keeps it fast; needed for deploy artifacts).
 
 build:frontend:
   stage: build
   image: docker:27
   <<: *docker-login
   script:
-    - docker pull $REGISTRY/epsx/frontend:$ENV_TAG-latest || true
+    - docker pull $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-latest || true
     - >
       docker build
-      --cache-from $REGISTRY/epsx/frontend:$ENV_TAG-latest
+      --cache-from $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-latest
       --build-arg BUILDKIT_INLINE_CACHE=1
       --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID
       --build-arg NEXT_PUBLIC_APP_URL=$DEPLOY_FRONTEND_URL
@@ -164,27 +163,25 @@ build:frontend:
       --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=${PAYMENT_RECEIVER_MAINNET:-}
       --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}
       -f apps/frontend/Dockerfile
-      -t $REGISTRY/epsx/frontend:$ENV_TAG-$IMAGE_TAG
-      -t $REGISTRY/epsx/frontend:$ENV_TAG-latest
+      -t $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-$IMAGE_TAG
+      -t $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-latest
       .
-    - docker push $REGISTRY/epsx/frontend:$ENV_TAG-$IMAGE_TAG
-    - docker push $REGISTRY/epsx/frontend:$ENV_TAG-latest
+    - docker push $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-$IMAGE_TAG
+    - docker push $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-latest
     - |
-      echo "image: $REGISTRY/epsx/frontend:$ENV_TAG-$IMAGE_TAG" > build-manifest.txt
+      echo "image: $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-$IMAGE_TAG" > build-manifest.txt
       echo "commit: $CI_COMMIT_SHA" >> build-manifest.txt
       echo "branch: $CI_COMMIT_BRANCH" >> build-manifest.txt
       echo "built_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> build-manifest.txt
+      echo "FRONTEND_IMAGE=$CI_REGISTRY_IMAGE/frontend:$ENV_TAG-$IMAGE_TAG" >> deploy.env
   artifacts:
+    reports:
+      dotenv: deploy.env
     paths: [build-manifest.txt]
     expire_in: 90 days
   timeout: 30 minutes
   rules:
     - if: $CI_COMMIT_BRANCH == "development"
-      changes:
-        - apps/frontend/**/*
-        - shared/**/*
-        - package.json
-        - bun.lock
       variables:
         ENV_TAG: dev
         DEPLOY_FRONTEND_URL: https://dev.epsx.io
@@ -193,11 +190,6 @@ build:frontend:
         DEPLOY_BLOCKCHAIN_NETWORK: testnet
         DEPLOY_CHAIN_ID: "97"
     - if: $CI_COMMIT_BRANCH == "staging"
-      changes:
-        - apps/frontend/**/*
-        - shared/**/*
-        - package.json
-        - bun.lock
       variables:
         ENV_TAG: staging
         DEPLOY_FRONTEND_URL: https://staging.epsx.io
@@ -219,10 +211,10 @@ build:admin:
   image: docker:27
   <<: *docker-login
   script:
-    - docker pull $REGISTRY/epsx/admin:$ENV_TAG-latest || true
+    - docker pull $CI_REGISTRY_IMAGE/admin:$ENV_TAG-latest || true
     - >
       docker build
-      --cache-from $REGISTRY/epsx/admin:$ENV_TAG-latest
+      --cache-from $CI_REGISTRY_IMAGE/admin:$ENV_TAG-latest
       --build-arg BUILDKIT_INLINE_CACHE=1
       --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID
       --build-arg NEXT_PUBLIC_APP_URL=$DEPLOY_ADMIN_URL
@@ -235,27 +227,25 @@ build:admin:
       --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=${PAYMENT_RECEIVER_MAINNET:-}
       --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}
       -f apps/admin-frontend/Dockerfile
-      -t $REGISTRY/epsx/admin:$ENV_TAG-$IMAGE_TAG
-      -t $REGISTRY/epsx/admin:$ENV_TAG-latest
+      -t $CI_REGISTRY_IMAGE/admin:$ENV_TAG-$IMAGE_TAG
+      -t $CI_REGISTRY_IMAGE/admin:$ENV_TAG-latest
       .
-    - docker push $REGISTRY/epsx/admin:$ENV_TAG-$IMAGE_TAG
-    - docker push $REGISTRY/epsx/admin:$ENV_TAG-latest
+    - docker push $CI_REGISTRY_IMAGE/admin:$ENV_TAG-$IMAGE_TAG
+    - docker push $CI_REGISTRY_IMAGE/admin:$ENV_TAG-latest
     - |
-      echo "image: $REGISTRY/epsx/admin:$ENV_TAG-$IMAGE_TAG" > build-manifest.txt
+      echo "image: $CI_REGISTRY_IMAGE/admin:$ENV_TAG-$IMAGE_TAG" > build-manifest.txt
       echo "commit: $CI_COMMIT_SHA" >> build-manifest.txt
       echo "branch: $CI_COMMIT_BRANCH" >> build-manifest.txt
       echo "built_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> build-manifest.txt
+      echo "ADMIN_IMAGE=$CI_REGISTRY_IMAGE/admin:$ENV_TAG-$IMAGE_TAG" >> deploy.env
   artifacts:
+    reports:
+      dotenv: deploy.env
     paths: [build-manifest.txt]
     expire_in: 90 days
   timeout: 30 minutes
   rules:
     - if: $CI_COMMIT_BRANCH == "development"
-      changes:
-        - apps/admin-frontend/**/*
-        - shared/**/*
-        - package.json
-        - bun.lock
       variables:
         ENV_TAG: dev
         DEPLOY_API_URL: https://dev-api.epsx.io
@@ -263,11 +253,6 @@ build:admin:
         DEPLOY_BLOCKCHAIN_NETWORK: testnet
         DEPLOY_CHAIN_ID: "97"
     - if: $CI_COMMIT_BRANCH == "staging"
-      changes:
-        - apps/admin-frontend/**/*
-        - shared/**/*
-        - package.json
-        - bun.lock
       variables:
         ENV_TAG: staging
         DEPLOY_API_URL: https://staging-api.epsx.io
@@ -290,23 +275,26 @@ build:backend:
       optional: true  # backend test may be skipped (no changes)
   <<: *docker-login
   script:
-    - docker pull $REGISTRY/epsx/backend:$ENV_TAG-latest || true
+    - docker pull $CI_REGISTRY_IMAGE/backend:$ENV_TAG-latest || true
     - >
       docker build
-      --cache-from $REGISTRY/epsx/backend:$ENV_TAG-latest
+      --cache-from $CI_REGISTRY_IMAGE/backend:$ENV_TAG-latest
       --build-arg BUILDKIT_INLINE_CACHE=1
       -f apps/backend/Dockerfile
-      -t $REGISTRY/epsx/backend:$ENV_TAG-$IMAGE_TAG
-      -t $REGISTRY/epsx/backend:$ENV_TAG-latest
+      -t $CI_REGISTRY_IMAGE/backend:$ENV_TAG-$IMAGE_TAG
+      -t $CI_REGISTRY_IMAGE/backend:$ENV_TAG-latest
       .
-    - docker push $REGISTRY/epsx/backend:$ENV_TAG-$IMAGE_TAG
-    - docker push $REGISTRY/epsx/backend:$ENV_TAG-latest
+    - docker push $CI_REGISTRY_IMAGE/backend:$ENV_TAG-$IMAGE_TAG
+    - docker push $CI_REGISTRY_IMAGE/backend:$ENV_TAG-latest
     - |
-      echo "image: $REGISTRY/epsx/backend:$ENV_TAG-$IMAGE_TAG" > build-manifest.txt
+      echo "image: $CI_REGISTRY_IMAGE/backend:$ENV_TAG-$IMAGE_TAG" > build-manifest.txt
       echo "commit: $CI_COMMIT_SHA" >> build-manifest.txt
       echo "branch: $CI_COMMIT_BRANCH" >> build-manifest.txt
       echo "built_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> build-manifest.txt
+      echo "BACKEND_IMAGE=$CI_REGISTRY_IMAGE/backend:$ENV_TAG-$IMAGE_TAG" >> deploy.env
   artifacts:
+    reports:
+      dotenv: deploy.env
     paths: [build-manifest.txt]
     expire_in: 90 days
   timeout: 30 minutes
@@ -324,23 +312,25 @@ build:backend:
 # ---------------------------------------------------------------------------
 # Deploy
 # ---------------------------------------------------------------------------
-# Runner mounts: /Users/fluke/epsx-runner/builds (builds_dir) + /Users/fluke/epsx-runner/envs (env files)
-# Compose files use relative volume mounts that resolve on the host because
-# builds_dir maps to the same path on host and in CI container.
-# Each deploy verifies services are healthy before marking success.
+# Shell runner (tags: k8s, arm64, epsx) with kubectl + kubeconfig.
+# Image vars come from build job dotenv artifacts.
 
 deploy:dev:
   stage: deploy
   tags: [k8s, arm64, epsx]
+  needs:
+    - job: build:backend
+      artifacts: true
+    - job: build:frontend
+      artifacts: true
+    - job: build:admin
+      artifacts: true
   script:
     - export KUBECONFIG=~/.kube/epsx-k3s.yaml
     - kubectl apply -k infrastructure/kubernetes/overlays/dev/
-    - kubectl set image deployment/epsx-backend
-        epsx-backend=$REGISTRY/epsx/backend:dev-$IMAGE_TAG -n epsx-dev
-    - kubectl set image deployment/epsx-frontend
-        epsx-frontend=$REGISTRY/epsx/frontend:dev-$IMAGE_TAG -n epsx-dev
-    - kubectl set image deployment/epsx-admin
-        epsx-admin=$REGISTRY/epsx/admin:dev-$IMAGE_TAG -n epsx-dev
+    - kubectl set image deployment/epsx-backend epsx-backend=$BACKEND_IMAGE -n epsx-dev
+    - kubectl set image deployment/epsx-frontend epsx-frontend=$FRONTEND_IMAGE -n epsx-dev
+    - kubectl set image deployment/epsx-admin epsx-admin=$ADMIN_IMAGE -n epsx-dev
     - kubectl rollout status deployment/epsx-backend -n epsx-dev --timeout=180s
     - kubectl rollout status deployment/epsx-frontend -n epsx-dev --timeout=90s
     - kubectl rollout status deployment/epsx-admin -n epsx-dev --timeout=90s
@@ -353,20 +343,24 @@ deploy:dev:
   timeout: 10 minutes
   rules:
     - if: $CI_COMMIT_BRANCH == "development"
-      when: manual
+      when: on_success
 
 deploy:staging:
   stage: deploy
   tags: [k8s, arm64, epsx]
+  needs:
+    - job: build:backend
+      artifacts: true
+    - job: build:frontend
+      artifacts: true
+    - job: build:admin
+      artifacts: true
   script:
     - export KUBECONFIG=~/.kube/epsx-k3s.yaml
     - kubectl apply -k infrastructure/kubernetes/overlays/staging/
-    - kubectl set image deployment/epsx-backend
-        epsx-backend=$REGISTRY/epsx/backend:staging-$IMAGE_TAG -n epsx-staging
-    - kubectl set image deployment/epsx-frontend
-        epsx-frontend=$REGISTRY/epsx/frontend:staging-$IMAGE_TAG -n epsx-staging
-    - kubectl set image deployment/epsx-admin
-        epsx-admin=$REGISTRY/epsx/admin:staging-$IMAGE_TAG -n epsx-staging
+    - kubectl set image deployment/epsx-backend epsx-backend=$BACKEND_IMAGE -n epsx-staging
+    - kubectl set image deployment/epsx-frontend epsx-frontend=$FRONTEND_IMAGE -n epsx-staging
+    - kubectl set image deployment/epsx-admin epsx-admin=$ADMIN_IMAGE -n epsx-staging
     - kubectl rollout status deployment/epsx-backend -n epsx-staging --timeout=180s
     - kubectl rollout status deployment/epsx-frontend -n epsx-staging --timeout=90s
     - kubectl rollout status deployment/epsx-admin -n epsx-staging --timeout=90s
@@ -401,15 +395,19 @@ test:e2e:staging:
 deploy:prod:
   stage: deploy
   tags: [k8s, arm64, epsx]
+  needs:
+    - job: build:backend
+      artifacts: true
+    - job: build:frontend
+      artifacts: true
+    - job: build:admin
+      artifacts: true
   script:
     - export KUBECONFIG=~/.kube/epsx-k3s.yaml
     - kubectl apply -k infrastructure/kubernetes/overlays/prod/
-    - kubectl set image deployment/epsx-backend
-        epsx-backend=$REGISTRY/epsx/backend:prod-$IMAGE_TAG -n epsx-prod
-    - kubectl set image deployment/epsx-frontend
-        epsx-frontend=$REGISTRY/epsx/frontend:prod-$IMAGE_TAG -n epsx-prod
-    - kubectl set image deployment/epsx-admin
-        epsx-admin=$REGISTRY/epsx/admin:prod-$IMAGE_TAG -n epsx-prod
+    - kubectl set image deployment/epsx-backend epsx-backend=$BACKEND_IMAGE -n epsx-prod
+    - kubectl set image deployment/epsx-frontend epsx-frontend=$FRONTEND_IMAGE -n epsx-prod
+    - kubectl set image deployment/epsx-admin epsx-admin=$ADMIN_IMAGE -n epsx-prod
     - kubectl rollout status deployment/epsx-backend -n epsx-prod --timeout=180s
     - kubectl rollout status deployment/epsx-frontend -n epsx-prod --timeout=90s
     - kubectl rollout status deployment/epsx-admin -n epsx-prod --timeout=90s
@@ -447,9 +445,9 @@ review:deploy:
       --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=${PAYMENT_RECEIVER_MAINNET:-}
       --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}
       -f apps/frontend/Dockerfile
-      -t $REGISTRY/epsx/review:mr-${CI_MERGE_REQUEST_IID}
+      -t $CI_REGISTRY_IMAGE/review:mr-${CI_MERGE_REQUEST_IID}
       .
-    - docker push $REGISTRY/epsx/review:mr-${CI_MERGE_REQUEST_IID}
+    - docker push $CI_REGISTRY_IMAGE/review:mr-${CI_MERGE_REQUEST_IID}
     - docker rm -f epsx-review-mr-${CI_MERGE_REQUEST_IID} || true
     - >
       docker run -d
@@ -467,7 +465,7 @@ review:deploy:
       --label "traefik.http.routers.mr-${CI_MERGE_REQUEST_IID}.rule=Host(\`mr-${CI_MERGE_REQUEST_IID}.review.epsx.io\`)"
       --label "traefik.http.routers.mr-${CI_MERGE_REQUEST_IID}.entrypoints=web"
       --label "traefik.http.services.mr-${CI_MERGE_REQUEST_IID}.loadbalancer.server.port=3000"
-      $REGISTRY/epsx/review:mr-${CI_MERGE_REQUEST_IID}
+      $CI_REGISTRY_IMAGE/review:mr-${CI_MERGE_REQUEST_IID}
   environment:
     name: review/mr-${CI_MERGE_REQUEST_IID}
     url: https://mr-${CI_MERGE_REQUEST_IID}.review.epsx.io
@@ -485,7 +483,7 @@ review:stop:
   image: docker:27
   script:
     - docker rm -f epsx-review-mr-${CI_MERGE_REQUEST_IID} || true
-    - docker rmi $REGISTRY/epsx/review:mr-${CI_MERGE_REQUEST_IID} || true
+    - docker rmi $CI_REGISTRY_IMAGE/review:mr-${CI_MERGE_REQUEST_IID} || true
   environment:
     name: review/mr-${CI_MERGE_REQUEST_IID}
     action: stop

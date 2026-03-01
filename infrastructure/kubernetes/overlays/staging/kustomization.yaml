@@ -8,14 +8,11 @@ resources:
   - pvcs.yaml
 
 images:
-  - name: registry.epsx.io/epsx/backend:prod-latest
-    newName: registry.epsx.io/epsx/backend
+  - name: registry.epsx.io/jesadakorn/epsx/backend
     newTag: staging-latest
-  - name: registry.epsx.io/epsx/frontend:prod-latest
-    newName: registry.epsx.io/epsx/frontend
+  - name: registry.epsx.io/jesadakorn/epsx/frontend
     newTag: staging-latest
-  - name: registry.epsx.io/epsx/admin:prod-latest
-    newName: registry.epsx.io/epsx/admin
+  - name: registry.epsx.io/jesadakorn/epsx/admin
     newTag: staging-latest
 
 patches:
