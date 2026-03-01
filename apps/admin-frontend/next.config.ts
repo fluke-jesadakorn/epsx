@@ -15,7 +15,6 @@ const nextConfig: NextConfig = {
     ],
   },
 
-
   typescript: { ignoreBuildErrors: true },
 
   // Enabled Turbopack for development

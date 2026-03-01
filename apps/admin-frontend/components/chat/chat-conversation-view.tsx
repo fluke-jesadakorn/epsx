@@ -318,7 +318,7 @@ function MsgItem({ m, prev, readUpToId }: MsgItemProps) {
   const isSystem = m.sender_type === 'system';
   const isAi = m.sender_type === 'ai';
   const isRight = isAgent || isAi;
-  const attachments = m.metadata?.attachments ?? [];
+  const attachments = m.metadata.attachments ?? [];
   const isAttachmentOnly = m.content.startsWith('[attachment:') && attachments.length > 0;
   const showDate = prev === undefined || formatDate(prev.created_at) !== formatDate(m.created_at);
   const isRead = isRight && (m.id === readUpToId || m.is_read === true);

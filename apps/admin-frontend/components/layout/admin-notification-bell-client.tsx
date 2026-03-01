@@ -146,6 +146,20 @@ function NotificationDropdown({ loading, error, notifications, count, onRefresh,
   )
 }
 
+async function execMarkAllRead(
+  setNotifications: React.Dispatch<React.SetStateAction<Notification[]>>,
+  setCount: React.Dispatch<React.SetStateAction<number>>,
+) {
+  const result = await markAllAsReadAction()
+  if (result.success === true) {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+    setCount(0)
+    toast({ title: 'All notifications marked as read' })
+  } else {
+    toast({ title: 'Failed to mark all as read', variant: 'destructive' })
+  }
+}
+
 function useNotificationBellLogic(isOnAuthPage: boolean) {
   const [count, setCount] = useState(0)
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -268,14 +282,7 @@ function useNotificationBellLogic(isOnAuthPage: boolean) {
 
   const handleMarkAllAsRead = useCallback(async () => {
     try {
-      const result = await markAllAsReadAction()
-      if (result.success === true) {
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })))
-        setCount(0)
-        toast({ title: 'All notifications marked as read' })
-      } else {
-        toast({ title: 'Failed to mark all as read', variant: 'destructive' })
-      }
+      await execMarkAllRead(setNotifications, setCount)
     } catch {
       toast({ title: 'Failed to mark all as read', variant: 'destructive' })
     }

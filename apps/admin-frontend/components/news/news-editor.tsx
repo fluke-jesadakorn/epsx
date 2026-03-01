@@ -67,30 +67,39 @@ async function mdToHtml(md: string): Promise<string> {
   return micromark(md, { extensions: [gfm()], htmlExtensions: [gfmHtml()] });
 }
 
+type ElTransformer = (el: Element, inner: string) => string;
+const EL_TO_MD: Record<string, ElTransformer> = {
+  h1: (_, s) => `# ${s.trim()}\n\n`,
+  h2: (_, s) => `## ${s.trim()}\n\n`,
+  h3: (_, s) => `### ${s.trim()}\n\n`,
+  strong: (_, s) => `**${s}**`,
+  b: (_, s) => `**${s}**`,
+  em: (_, s) => `_${s}_`,
+  i: (_, s) => `_${s}_`,
+  code: (el, s) => el.parentElement?.tagName.toLowerCase() === 'pre' ? s : `\`${s}\``,
+  pre: (el) => `\`\`\`\n${el.textContent}\n\`\`\`\n\n`,
+  blockquote: (_, s) => `> ${s.trim()}\n\n`,
+  a: (el, s) => `[${s}](${(el as HTMLAnchorElement).href})`,
+  img: (el) => `![${(el as HTMLImageElement).alt}](${(el as HTMLImageElement).src})`,
+  hr: () => '\n---\n\n',
+  br: () => '\n',
+  ul: (el) => `${Array.from(el.children).map((li) => `- ${domToMd(li)}\n`).join('')}\n`,
+  ol: (el) => `${Array.from(el.children).map((li, i) => `${i + 1}. ${domToMd(li)}\n`).join('')}\n`,
+  li: (_, s) => s,
+  p: (_, s) => `${s}\n\n`,
+  div: (_, s) => `${s}\n\n`,
+};
+
+function elToMd(el: Element, inner: string): string {
+  const fn = EL_TO_MD[el.tagName.toLowerCase()];
+  return fn !== undefined ? fn(el, inner) : inner;
+}
+
 function domToMd(node: Node): string {
   if (node.nodeType === Node.TEXT_NODE) { return node.textContent ?? ''; }
   if (node.nodeType !== Node.ELEMENT_NODE) { return Array.from(node.childNodes).map(domToMd).join(''); }
   const el = node as Element;
-  const inner = Array.from(el.childNodes).map(domToMd).join('');
-  switch (el.tagName.toLowerCase()) {
-    case 'h1': return `# ${inner.trim()}\n\n`;
-    case 'h2': return `## ${inner.trim()}\n\n`;
-    case 'h3': return `### ${inner.trim()}\n\n`;
-    case 'strong': case 'b': return `**${inner}**`;
-    case 'em': case 'i': return `_${inner}_`;
-    case 'code': return el.parentElement?.tagName.toLowerCase() === 'pre' ? inner : `\`${inner}\``;
-    case 'pre': return `\`\`\`\n${el.textContent ?? ''}\n\`\`\`\n\n`;
-    case 'blockquote': return `> ${inner.trim()}\n\n`;
-    case 'a': return `[${inner}](${(el as HTMLAnchorElement).href})`;
-    case 'img': return `![${(el as HTMLImageElement).alt}](${(el as HTMLImageElement).src})`;
-    case 'hr': return '\n---\n\n';
-    case 'br': return '\n';
-    case 'ul': return `${Array.from(el.children).map((li) => `- ${domToMd(li)}\n`).join('')}\n`;
-    case 'ol': return `${Array.from(el.children).map((li, i) => `${i + 1}. ${domToMd(li)}\n`).join('')}\n`;
-    case 'li': return inner;
-    case 'p': case 'div': return `${inner}\n\n`;
-    default: return inner;
-  }
+  return elToMd(el, Array.from(el.childNodes).map(domToMd).join(''));
 }
 
 function readMarkdown(el: HTMLElement): string {
@@ -221,9 +230,10 @@ function MarkdownEditor({ value, onChange }: { value: string; onChange: (v: stri
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    void mdToHtml(value).then((html) => {
+    void (async () => {
+      const html = await mdToHtml(value);
       if (editorRef.current !== null) { setContent(editorRef.current, html); }
-    });
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -232,15 +242,14 @@ function MarkdownEditor({ value, onChange }: { value: string; onChange: (v: stri
     setMode('markdown');
   }, [onChange]);
 
-  const switchToWysiwyg = useCallback(() => {
-    void mdToHtml(value).then((html) => {
-      setMode('wysiwyg');
-      requestAnimationFrame(() => {
-        if (editorRef.current !== null) {
-          setContent(editorRef.current, html);
-          editorRef.current.focus();
-        }
-      });
+  const switchToWysiwyg = useCallback(async () => {
+    const html = await mdToHtml(value);
+    setMode('wysiwyg');
+    requestAnimationFrame(() => {
+      if (editorRef.current !== null) {
+        setContent(editorRef.current, html);
+        editorRef.current.focus();
+      }
     });
   }, [value]);
 
@@ -276,7 +285,7 @@ function MarkdownEditor({ value, onChange }: { value: string; onChange: (v: stri
         {mode === 'wysiwyg' ? <WysiwygToolbar onExec={execCmd} /> : <MarkdownToolbar onInsert={insertMarkdown} />}
         <div className="h-4 w-px bg-border/40 mx-1" />
         <button
-          onClick={switchToWysiwyg}
+          onClick={() => { void switchToWysiwyg(); }}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${mode === 'wysiwyg' ? ACTIVE_TAB_CLS : INACTIVE_TAB_CLS}`}
         >
           <Pencil className="w-3 h-3" />
@@ -427,7 +436,7 @@ function CoverImageField({ coverUrl, uploading, fileInputRef, onClear, onUrlChan
 
   return (
     <div className="space-y-2">
-      {resolvedUrl !== '' && resolvedUrl !== null ? (
+      {resolvedUrl !== '' ? (
         <div className="relative group rounded-2xl overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={resolvedUrl} alt="Cover" className="w-full h-40 sm:h-56 object-cover" />

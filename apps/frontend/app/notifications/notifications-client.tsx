@@ -140,7 +140,7 @@ export default function NotificationsClient({ initialData, focusId }: Notificati
         const wasUnread = notifications.find(n => n.id === notificationId && !n.read);
         setNotifications(prev => prev.filter(n => n.id !== notificationId));
         setTotalCount(prev => prev - 1);
-        if (wasUnread) setUnreadCount(prev => Math.max(0, prev - 1));
+        if (wasUnread) { setUnreadCount(prev => Math.max(0, prev - 1)); }
       }
     } catch (_error) {
       // silently fail

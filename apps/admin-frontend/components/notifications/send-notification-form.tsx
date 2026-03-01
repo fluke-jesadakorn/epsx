@@ -139,10 +139,7 @@ function PrioritySelector({ value, onChange }: PrioritySelectorProps) {
   );
 }
 
-/**
- * Modernized Send Notification Form with PancakeSwap aesthetic
- */
-export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFormProps) {
+function useNotificationForm(onSuccess?: () => void) {
   const [recipientType, setRecipientType] = useState<'specific' | 'broadcast'>('specific');
   const [walletAddress, setWalletAddress] = useState('');
   const [notificationType, setNotificationType] = useState<NotificationType>('system');
@@ -166,17 +163,10 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
     void (async () => {
       try {
         const res = await uploadNotificationImageAction(fd);
-        if (res.success && res.data?.url) {
-          setImageUrl(res.data.url);
-        } else {
-          setError('Image upload failed');
-        }
-      } catch {
-        setError('Image upload failed');
-      } finally {
-        setUploading(false);
-        if (fileRef.current !== null) { fileRef.current.value = ''; }
-      }
+        if (res.success && res.data.url !== '') { setImageUrl(res.data.url); }
+        else { setError('Image upload failed'); }
+      } catch { setError('Image upload failed'); }
+      finally { setUploading(false); if (fileRef.current !== null) { fileRef.current.value = ''; } }
     })();
   };
 
@@ -185,35 +175,28 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
     if (title.trim() === '') { setError('Title is mandatory for identification'); return; }
     if (message.trim() === '') { setError('Message payload cannot be empty'); return; }
     if (recipientType === 'specific' && walletAddress.trim() === '') { setError('Protocol requires a destination wallet address'); return; }
-
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     void (async () => {
       try {
         const client = createNotificationsClient(createAdminApiClient());
         await client.sendNotification({
           ...(recipientType === 'specific' ? { recipient_wallet_address: walletAddress } : { broadcast: true }),
-          notification_type: notificationType,
-          priority,
-          title,
-          message,
+          notification_type: notificationType, priority, title, message,
           ...(actionUrl !== '' && { action_url: actionUrl }),
           ...(imageUrl !== '' && { image_url: imageUrl }),
         });
-        setRecipientType('specific');
-        setWalletAddress('');
-        setTitle('');
-        setMessage('');
-        setActionUrl('');
-        setImageUrl('');
+        setRecipientType('specific'); setWalletAddress(''); setTitle(''); setMessage(''); setActionUrl(''); setImageUrl('');
         onSuccess?.();
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Signal transmission failed.');
-      } finally {
-        setLoading(false);
-      }
+      } catch (err: unknown) { setError(err instanceof Error ? err.message : 'Signal transmission failed.'); }
+      finally { setLoading(false); }
     })();
   };
+
+  return { recipientType, setRecipientType, walletAddress, setWalletAddress, notificationType, setNotificationType, priority, setPriority, title, setTitle, message, setMessage, actionUrl, setActionUrl, imageUrl, setImageUrl, loading, uploading, error, fileRef, handleImageUpload, handleSubmit };
+}
+
+export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFormProps) {
+  const { recipientType, setRecipientType, walletAddress, setWalletAddress, notificationType, setNotificationType, priority, setPriority, title, setTitle, message, setMessage, actionUrl, setActionUrl, imageUrl, setImageUrl, loading, uploading, error, fileRef, handleImageUpload, handleSubmit } = useNotificationForm(onSuccess);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-10">

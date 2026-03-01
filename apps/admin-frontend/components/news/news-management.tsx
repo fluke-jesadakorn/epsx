@@ -85,7 +85,7 @@ const ArticleCard = memo(function ArticleCard({ article, onDelete, onTogglePubli
       <div className="shrink-0 w-20 h-14 rounded-xl overflow-hidden bg-gradient-to-br from-[#7645d9]/10 via-[#1fc7d4]/5 to-transparent border border-border/20 flex items-center justify-center">
         {hasCover ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={resolvedCover ?? ''} alt="" className="w-full h-full object-cover" />
+          <img src={resolvedCover} alt="" className="w-full h-full object-cover" />
         ) : (
           <FileText className="w-5 h-5 text-muted-foreground/40" />
         )}

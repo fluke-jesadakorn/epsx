@@ -162,7 +162,7 @@ export const StockDataCard = ({
   currency = 'USD',
   daysUntilNextAction,
   companyName,
-  variant = 'standard',
+  variant: _variant = 'standard',
   className,
   isWatchlisted,
   onWatchlistToggle,

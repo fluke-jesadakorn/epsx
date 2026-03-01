@@ -131,28 +131,31 @@ export function createNewsClient(client: UnifiedApiClient): NewsApi {
  * Old paths like `/api/public/news/images/foo.png` → CDN direct.
  * New uploads already store full CDN URLs → pass through.
  */
+const OLD_NEWS_IMAGE_PREFIX = '/api/public/news/images/';
+
+function getCdnUrl(): string {
+  return (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_CDN_URL) ?? 'https://cdn.epsx.io';
+}
+
+function getBackendUrl(): string {
+  return (
+    (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_BACKEND_URL) ??
+    (typeof window !== 'undefined' && (window as Window & { __ENV__?: { NEXT_PUBLIC_BACKEND_URL?: string } }).__ENV__?.NEXT_PUBLIC_BACKEND_URL) ??
+    'http://127.0.0.1:8080'
+  );
+}
+
 export function resolveNewsImageUrl(coverImageUrl: string | null | undefined): string | null {
   if (coverImageUrl === null || coverImageUrl === undefined || coverImageUrl === '') {
     return null;
   }
-  // Already an absolute URL — return as-is
   if (coverImageUrl.startsWith('http://') || coverImageUrl.startsWith('https://')) {
     return coverImageUrl;
   }
-  // Old-format path → rewrite to CDN direct
-  const oldPrefix = '/api/public/news/images/';
-  if (coverImageUrl.startsWith(oldPrefix)) {
-    const cdn =
-      (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_CDN_URL) ??
-      'https://cdn.epsx.io';
-    return `${cdn}/news/${coverImageUrl.slice(oldPrefix.length)}`;
+  if (coverImageUrl.startsWith(OLD_NEWS_IMAGE_PREFIX)) {
+    return `${getCdnUrl()}/news/${coverImageUrl.slice(OLD_NEWS_IMAGE_PREFIX.length)}`;
   }
-  // Generic fallback — prefix with backend URL
-  const backendUrl =
-    (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_BACKEND_URL) ??
-    (typeof window !== 'undefined' && (window as Window & { __ENV__?: { NEXT_PUBLIC_BACKEND_URL?: string } }).__ENV__?.NEXT_PUBLIC_BACKEND_URL) ??
-    'http://127.0.0.1:8080';
   const cleanPath = coverImageUrl.startsWith('/') ? coverImageUrl : `/${coverImageUrl}`;
-  return `${backendUrl}${cleanPath}`;
+  return `${getBackendUrl()}${cleanPath}`;
 }
 

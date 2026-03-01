@@ -216,7 +216,7 @@ export function MediaBrowser({ files: initialFiles, bucket, buckets }: Props) {
     formData.append('file', file);
 
     const res = await uploadMediaAction(bucket, formData);
-    if (res.success && res.data !== undefined && res.data !== null) {
+    if (res.success) {
       toast.success('File uploaded');
       const newFile: FileInfo = {
         key: res.data.filename,
@@ -246,7 +246,7 @@ export function MediaBrowser({ files: initialFiles, bucket, buckets }: Props) {
         ref={fileInputRef}
         type="file"
         accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
-        onChange={handleUpload}
+        onChange={(e) => { void handleUpload(e); }}
         className="hidden"
       />
 

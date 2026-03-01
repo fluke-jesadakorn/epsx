@@ -41,7 +41,7 @@ export async function deleteMediaAction(
   bucket: BucketName,
   key: string,
 ): Promise<ApiResponse<void>> {
-  const res = await client().delete(`/api/admin/media/${bucket}/${key}`) as ApiResponse<void>;
+  const res = await client().delete(`/api/admin/media/${bucket}/${key}`);
   if (res.success) { revalidatePath('/media'); }
   return res;
 }
