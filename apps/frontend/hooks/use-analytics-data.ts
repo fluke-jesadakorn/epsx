@@ -1,5 +1,6 @@
 import { getRankingsAction } from '@/app/actions/analytics';
-import type { AnalyticsFilters } from '@/types/analytics';
+import type { AnalyticsFilters } from '@/shared/api/analytics';
+import type { UnifiedAnalyticsRankingsResponse } from '@/types';
 import { DEFAULT_FILTER_OPTIONS, type RichFilterOptions } from '@/types/dashboard';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
@@ -8,7 +9,7 @@ import { useMemo } from 'react';
 // MAIN HOOK
 // ============================================================================
 
-export function useAnalyticsData(filters: AnalyticsFilters) {
+export function useAnalyticsData(filters: Partial<AnalyticsFilters>) {
   // Create a stable query key based on filters
   const queryKey = useMemo(() => ['analytics-rankings', filters] as const, [filters]);
 
@@ -27,7 +28,7 @@ export function useAnalyticsData(filters: AnalyticsFilters) {
   const filterOptions: RichFilterOptions = DEFAULT_FILTER_OPTIONS;
 
   return {
-    data: data as unknown, // Cast to unknown to match existing usage in components
+    data: data as unknown as UnifiedAnalyticsRankingsResponse | null,
     filterOptions,
     isLoading,
     error: (error ?? null),

@@ -321,7 +321,8 @@ function useTransferListHandlers<T>({
 
     // Touch handlers
     const handleTouchStart = useCallback((e: React.TouchEvent, item: T, source: 'available' | 'selected') => {
-        const touch = e.touches[0]
+        const touch = e.touches[0];
+        if (touch === undefined) { return; }
         const element = e.currentTarget as HTMLElement
         longPressTimer.current = setTimeout(() => {
             if (typeof navigator.vibrate === 'function') { navigator.vibrate(50); }
@@ -333,7 +334,7 @@ function useTransferListHandlers<T>({
 
     const handleTouchMove = useCallback((e: React.TouchEvent) => {
         const touch = e.touches[0]
-        if (!touchDrag) { return }
+        if (!touchDrag || touch === undefined) { return }
         e.preventDefault()
         setTouchDrag((prev) => {
             if (!prev) { return null }

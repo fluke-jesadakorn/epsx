@@ -1,6 +1,6 @@
 'use client';
 
-import type { UnifiedAnalyticsRankingsResponse } from '@/lib/api-client';
+import type { UnifiedAnalyticsRankingsResponse } from '@/types';
 
 interface AnalyticsMetadataDisplayProps {
   data: UnifiedAnalyticsRankingsResponse | null;
@@ -34,7 +34,7 @@ export function AnalyticsMetadataDisplay({ data, isLoading }: AnalyticsMetadataD
             <MetricCard
               icon={<ProcessingTimeIcon />}
               label="Processing Time"
-              value={`${data.metadata.query_time}ms`}
+              value={`${(data.metadata as unknown as Record<string, unknown>).query_time ?? 0}ms`}
               bgColor="green"
             />
             

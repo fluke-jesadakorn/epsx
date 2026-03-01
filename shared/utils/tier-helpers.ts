@@ -51,7 +51,7 @@ export function getTierColor(tierLevel: number) {
 export function getTierIconName(tierLevel: number): string {
   const normalizedTier = Math.min(Math.max(tierLevel, 0), 3);
   const icons = ['Shield', 'Star', 'Zap', 'Crown'];
-  return icons[normalizedTier];
+  return icons[normalizedTier] ?? 'Shield';
 }
 
 /**

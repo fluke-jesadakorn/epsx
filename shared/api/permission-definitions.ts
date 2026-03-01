@@ -129,8 +129,8 @@ export function getPermissionTitle(
     // "epsx:analytics:view" -> "Analytics View"
     const parts = permission.split(':');
     if (parts.length >= 3) {
-        const resource = parts[1];
-        const action = parts[2];
+        const resource = parts[1] ?? '';
+        const action = parts[2] ?? '';
         return `${capitalize(resource)} ${capitalize(action)}`;
     }
     return permission;

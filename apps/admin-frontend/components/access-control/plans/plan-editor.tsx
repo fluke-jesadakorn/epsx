@@ -634,7 +634,7 @@ function RateLimitsSection({ setForm, setHasChanges, permissions }: SectionProps
             <SectionHeader icon={Activity}>Rate Limits & Quotas</SectionHeader>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {numericFeatures.map((fp) => {
-                    const val = getFeatureValue(permissions, fp.prefix);
+                    const val = getFeatureValue(permissions ?? [], fp.prefix);
                     const FeatureIcon = FEATURE_ICONS[fp.prefix] ?? Hash;
                     return (
                         <div key={fp.prefix} className="space-y-1">
@@ -673,7 +673,7 @@ function FeatureTogglesSection({ setForm, setHasChanges, permissions }: SectionP
             <SectionHeader icon={Zap}>Feature Toggles</SectionHeader>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {booleanFeatures.map((fp) => {
-                    const val = getFeatureValue(permissions, fp.prefix);
+                    const val = getFeatureValue(permissions ?? [], fp.prefix);
                     const FeatureIcon = FEATURE_ICONS[fp.prefix] ?? Zap;
                     const isOn = val === 'true';
                     return (

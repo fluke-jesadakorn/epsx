@@ -112,7 +112,7 @@ function getPlanData(planAccess: PlanAccessData | null | undefined) {
 function UpgradeCta({ canUpgrade, lockedRanksText, upgradeButtonText }: {
     canUpgrade: boolean;
     lockedRanksText: string | null;
-    upgradeButtonText: string | null;
+    upgradeButtonText: string | null | undefined;
 }) {
     if (!canUpgrade || lockedRanksText === null) { return null; }
     return (
@@ -130,7 +130,7 @@ function UpgradeCta({ canUpgrade, lockedRanksText, upgradeButtonText }: {
 }
 
 function PlanInfo({ planName, tierLevel, tierConfig, rankRangeText, rankingOffset }: {
-    planName: string | undefined;
+    planName: string | null | undefined;
     tierLevel: number;
     tierConfig: TierConfig;
     rankRangeText: string;

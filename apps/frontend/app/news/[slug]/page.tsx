@@ -12,7 +12,7 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const res = await getNewsBySlug(slug);
-  if (res.success !== true || res.data === undefined) {
+  if (res.success !== true || res.data == null) {
     return { title: 'Article Not Found — EPSX' };
   }
   return {
@@ -24,6 +24,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function NewsDetailPage({ params }: Props) {
   const { slug } = await params;
   const res = await getNewsBySlug(slug);
-  if (res.success !== true || res.data === undefined) { notFound(); }
+  if (res.success !== true || res.data == null) { notFound(); }
   return <NewsDetail article={res.data} />;
 }

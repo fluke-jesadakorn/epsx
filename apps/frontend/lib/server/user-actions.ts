@@ -28,7 +28,7 @@ interface SessionData {
 }
 
 function mapSession(data: SessionData): AuthUser {
-  const d = data as Record<string, unknown>;
+  const d = data as unknown as Record<string, unknown>;
   return {
     id: data.wallet_address,
     wallet_address: data.wallet_address,

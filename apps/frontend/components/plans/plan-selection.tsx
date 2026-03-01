@@ -72,7 +72,7 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
       buttonText: isFree ? 'Start Free' : 'Get Started',
       promotions: hasPromo ? [`${Math.round(discount)}% OFF`] : [],
       badges: [],
-      savings: hasPromo ? `Save $${fmt(savedAmt)}` : undefined,
+      savings: hasPromo ? `Save $${fmtAmt(savedAmt)}` : undefined,
       promotion_ends_at: hasPromo ? plan.promotion_ends_at : undefined,
       tier_level: plan.tier_level,
       plan_type: plan.plan_type,
@@ -133,7 +133,7 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
         })
 
         if (response.success && response.data && Array.isArray(response.data)) {
-          const cards = response.data
+          const cards = (response.data as unknown as Plan[])
             .filter((plan: Plan) => (plan.is_active ?? false))
             .sort((a: Plan, b: Plan) => (a.display_order ?? 0) - (b.display_order ?? 0))
             .map((plan: Plan) => transformToPricingCard(plan))
@@ -181,7 +181,7 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
           <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-4 rounded-2xl text-center shadow-xl">
             <div className="flex items-center justify-center gap-2 text-lg font-semibold">
               <Star className="h-5 w-5" />
-              <span>You're eligible for {affiliateInfo.commission_rate}% affiliate rewards!</span>
+              <span>You&apos;re eligible for {String(affiliateInfo.commission_rate ?? '')}% affiliate rewards!</span>
               <Star className="h-5 w-5" />
             </div>
             <p className="text-sm mt-1 opacity-90">
@@ -251,9 +251,9 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
                     return (
                       <PricingCard
                         key={card.id}
-                        card={finalCard}
-                        onSelect={handlePlanClick}
-                        affiliateInfo={affiliateInfo}
+                        card={finalCard as Parameters<typeof PricingCard>[0]['card']}
+                        onSelect={handlePlanClick as Parameters<typeof PricingCard>[0]['onSelect']}
+                        affiliateInfo={(affiliateInfo as { commission_rate: number } | null) ?? undefined}
                         affiliateCode={affiliateCode}
                         actionType={actionType}
                         isSelected={isSelected}

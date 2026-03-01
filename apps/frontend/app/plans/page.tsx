@@ -20,7 +20,7 @@ export default async function PlansPage() {
         </div>
 
         {/* Plan Selection Component */}
-        <PlanSelection currentUser={user} />
+        <PlanSelection currentUser={user as unknown as Record<string, unknown> ?? undefined} />
 
         {/* FAQ Section */}
         <div className="mt-20">

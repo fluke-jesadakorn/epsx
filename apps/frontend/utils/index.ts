@@ -1,6 +1,5 @@
 export * from './env'
 export * from './format'
 export * from './stock'
-export * from './tbl'
 export * from './cache'
 export * from './clipboard'

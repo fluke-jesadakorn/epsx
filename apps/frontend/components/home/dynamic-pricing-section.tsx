@@ -77,6 +77,7 @@ export default async function DynamicPricingSection({ initialAffiliateCode }: Dy
         badges: [],
         savings: plan.hasPromo ? `Save $${fmtAmt(plan.basePrice - plan.effectivePrice)}` : undefined,
         promotion_ends_at: plan.hasPromo ? plan.promoEndsAt : undefined,
+        tier_level: 0,
       });
 
       const active = planData.filter((p) => p.isActive);

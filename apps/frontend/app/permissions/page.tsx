@@ -73,7 +73,7 @@ export default function PermissionsPage() {
               <TabNavigation
                 activeTab={activeTab}
                 timestampedPermissions={timestampedPermissions}
-                onTabChange={setActiveTab}
+                onTabChange={(tab) => setActiveTab(tab as typeof activeTab)}
               />
             </CardHeader>
 

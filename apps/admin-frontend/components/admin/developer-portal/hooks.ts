@@ -38,7 +38,7 @@ export const useDeveloperPortalData = (): UseDeveloperPortalDataReturn => {
     const loadApiKeys = async (plansClient: ReturnType<typeof createPlansClient>): Promise<boolean> => {
         try {
             const keysRes = await plansClient.listApiKeys();
-            if (keysRes.success === true) {
+            if (keysRes.success === true && keysRes.data !== null) {
                 setApiKeys(keysRes.data.api_keys);
             }
             return true;
@@ -59,7 +59,7 @@ export const useDeveloperPortalData = (): UseDeveloperPortalDataReturn => {
     const loadModules = async (plansClient: ReturnType<typeof createPlansClient>) => {
         try {
             const modulesRes = await plansClient.getModules();
-            if (modulesRes.success === true) {
+            if (modulesRes.success === true && modulesRes.data !== null) {
                 setModules(modulesRes.data.modules);
             }
         } catch (error) {
@@ -71,7 +71,7 @@ export const useDeveloperPortalData = (): UseDeveloperPortalDataReturn => {
     const loadPlans = async (plansClient: ReturnType<typeof createPlansClient>) => {
         try {
             const plansRes = await plansClient.listPlans({ is_active: true });
-            if (plansRes.success === true) {
+            if (plansRes.success === true && plansRes.data !== null) {
                 setAvailablePlans(plansRes.data.data);
             }
         } catch (error) {

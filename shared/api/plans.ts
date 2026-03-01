@@ -163,6 +163,7 @@ export interface UpdatePlanRequest {
   description?: string;
   permissions?: string[];
   is_active?: boolean;
+  tier_level?: number;
   metadata?: Record<string, unknown>;
 }
 

@@ -165,7 +165,7 @@ function NotificationBody({
                 <div className="flex items-start gap-3">
                     <NotificationIcon
                         icon={icon}
-                        iconType={iconType}
+                        iconType={iconType ?? 'lucide'}
                         variant={variant}
                         typeStyle={typeStyle}
                         variantStyle={variantStyle}

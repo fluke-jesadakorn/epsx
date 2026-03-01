@@ -134,13 +134,13 @@ export function createNewsClient(client: UnifiedApiClient): NewsApi {
 const OLD_NEWS_IMAGE_PREFIX = '/api/public/news/images/';
 
 function getCdnUrl(): string {
-  return (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_CDN_URL) ?? 'https://cdn.epsx.io';
+  return (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_CDN_URL : undefined) ?? 'https://cdn.epsx.io';
 }
 
 function getBackendUrl(): string {
   return (
-    (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_BACKEND_URL) ??
-    (typeof window !== 'undefined' && (window as Window & { __ENV__?: { NEXT_PUBLIC_BACKEND_URL?: string } }).__ENV__?.NEXT_PUBLIC_BACKEND_URL) ??
+    (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_BACKEND_URL : undefined) ??
+    (typeof window !== 'undefined' ? (window as Window & { __ENV__?: { NEXT_PUBLIC_BACKEND_URL?: string } }).__ENV__?.NEXT_PUBLIC_BACKEND_URL : undefined) ??
     'http://127.0.0.1:8080'
   );
 }

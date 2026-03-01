@@ -139,9 +139,12 @@ function ActionButtons({
 }: {
     error: RateLimitExceededError, isAdmin: boolean, countdown: number,
     onRetry?: () => void, onUpgrade?: (tier: string) => void, onSupport?: (error: unknown) => void,
-    showRetry?: boolean, showSupport?: boolean, Button: React.ElementType, icons: Record<string, React.ElementType>
+    showRetry?: boolean, showSupport?: boolean, Button: React.ElementType,
+    icons: { ArrowUp?: React.ComponentType<{ className?: string }>, RefreshCw?: React.ComponentType<{ className?: string }>, HelpCircle?: React.ComponentType<{ className?: string }> }
 }) {
-    const { ArrowUp, RefreshCw, HelpCircle } = icons
+    const ArrowUp = icons.ArrowUp as React.ComponentType<{ className?: string }>
+    const RefreshCw = icons.RefreshCw as React.ComponentType<{ className?: string }>
+    const HelpCircle = icons.HelpCircle as React.ComponentType<{ className?: string }>
     const upgradeInfo = error.error.upgrade_for_higher_limits
 
     return (

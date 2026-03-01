@@ -3,6 +3,7 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 import type { Connector } from 'wagmi';
+import type { Web3Permission } from './use-permission-sync';
 
 interface EthProvider {
   request?: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
@@ -62,7 +63,7 @@ interface UseWeb3SessionContext {
     isAuthenticated: boolean;
     isAuthenticating: boolean;
     walletAddress?: string;
-    permissions: unknown[];
+    permissions: Web3Permission[];
     userTier: 'free' | 'nft' | 'token' | 'dao' | 'enterprise';
     hasApiAccess: boolean;
     error?: string;
@@ -203,7 +204,7 @@ export function useWeb3Session(ctx: UseWeb3SessionContext) {
 
       const authData = await authResponse.json() as { access_token?: string; refresh_token?: string; user?: Record<string, unknown> };
 
-      const { loginAction } = await import('shared/auth/actions');
+      const { loginAction } = await import('@/shared/auth/actions');
       if (authData.access_token !== undefined && authData.access_token !== '') {
         await loginAction(authData.access_token, authData.user ?? {}, authData.refresh_token);
       }

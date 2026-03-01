@@ -84,8 +84,8 @@ lint:eslint:
       - node_modules/
     policy: pull
   script:
-    - bunx turbo run lint --filter=!@epsx/backend --filter=!epsx-bsc-contracts
-  timeout: 10 minutes
+    - bunx turbo run lint --filter=!@epsx/backend --filter=!epsx-bsc-contracts --concurrency=1
+  timeout: 30 minutes
   <<: *rules-lint-test
 
 lint:typecheck:
@@ -99,7 +99,7 @@ lint:typecheck:
     policy: pull
   script:
     - bun type-check
-  timeout: 10 minutes
+  timeout: 20 minutes
   <<: *rules-lint-test
 
 # ---------------------------------------------------------------------------

@@ -51,7 +51,7 @@ export function AuthLayout({ children, user: serverUser }: AuthLayoutProps) {
 
   return (
     <>
-      <MainLayout user={layoutUser}>
+      <MainLayout user={layoutUser ?? undefined}>
         {children}
       </MainLayout>
       {isGated && <AdminAuthGate />}

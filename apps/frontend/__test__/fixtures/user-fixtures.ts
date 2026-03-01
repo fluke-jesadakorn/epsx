@@ -13,6 +13,7 @@ export interface TestUser {
   wallet_address: string;
   subscription_status: 'active' | 'expired' | 'trial' | 'cancelled';
   subscription_expires_at?: string;
+  package_tier?: string;
   rate_limits: {
     per_minute: number;
     per_hour: number;
@@ -20,6 +21,7 @@ export interface TestUser {
   created_at: string;
   last_login?: string;
   auth_token?: string; // Web3 authentication token
+  jwt_token?: string;
 }
 
 // Permission-based route access mapping (for test validation)
@@ -381,7 +383,7 @@ export function canUserAccessApiEndpoint(user: TestUser, endpoint: string): bool
 
 // Rate limiting helpers
 export function getUserRateLimit(user: TestUser): { perMinute: number; perHour: number } {
-  return user.rate_limits;
+  return { perMinute: user.rate_limits.per_minute, perHour: user.rate_limits.per_hour };
 }
 
 // Subscription status helpers

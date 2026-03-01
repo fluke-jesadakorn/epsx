@@ -2,7 +2,7 @@
 
 import type { PermissionDefinition } from '@/shared/api/permission-definitions';
 import { loadPermissionDefinitions } from '@/shared/api/permission-definitions';
-import type { ApiClient } from '@/shared/utils/api-client';
+import type { UnifiedApiClient as ApiClient } from '@/shared/utils/api-client';
 import { useEffect, useState } from 'react';
 import type {
   AnalyticsData,

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 import type { Connector } from 'wagmi';
+import type { Web3Permission } from './use-permission-sync';
 
 interface UseWalletAuthContext {
   address: string | undefined;
@@ -16,7 +17,7 @@ interface UseWalletAuthContext {
     isAuthenticated: boolean;
     isAuthenticating: boolean;
     walletAddress?: string;
-    permissions: unknown[];
+    permissions: Web3Permission[];
     userTier: 'free' | 'nft' | 'token' | 'dao' | 'enterprise';
     hasApiAccess: boolean;
     error?: string;

@@ -253,7 +253,7 @@ interface MessageInputProps {
   disabled?: boolean;
   canSend: boolean;
   hasUpload: boolean;
-  fileRef: React.RefObject<HTMLInputElement>;
+  fileRef: React.RefObject<HTMLInputElement | null>;
   onMsgChange: (v: string) => void;
   onSend: () => void;
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -267,7 +267,7 @@ function MessageInput({ msg, isPending, disabled, canSend, hasUpload, fileRef, o
           {hasUpload && (
             <>
               <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/gif,image/webp,application/pdf" onChange={onFileChange} className="hidden" />
-              <button onClick={() => { fileRef.current.click(); }} disabled={isPending || disabled} className="m-2 w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground/40 hover:text-muted-foreground hover:bg-gray-200 dark:hover:bg-slate-700 transition-all disabled:opacity-30 shrink-0" aria-label="Attach file">
+              <button onClick={() => { fileRef.current?.click(); }} disabled={isPending || disabled} className="m-2 w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground/40 hover:text-muted-foreground hover:bg-gray-200 dark:hover:bg-slate-700 transition-all disabled:opacity-30 shrink-0" aria-label="Attach file">
                 <Paperclip className="w-4 h-4" />
               </button>
             </>

@@ -4,7 +4,7 @@ import { GRADIENTS, COLORS, TYPOGRAPHY, ANIMATIONS } from '../constants/styles';
 import { GrowthIndicator, TrendIcon, AnimatedBadge } from './growth-indicators';
 import { MetricCard, QuarterRow } from './metric-components';
 import { useFinancialData, getValidQuarters } from '../hooks/use-financial-data';
-import type { StockFinancialData } from '@/types/financialChartData';
+import type { StockFinancialData } from '@/types';
 import {
   formatPrice,
   formatDate,
@@ -308,9 +308,9 @@ export function FinancialCard({
 
           {/* Quarter Rows */}
           <div className="space-y-2">
-            {validQuarters.map((quarter) => (
+            {validQuarters.map((quarter, qi) => (
               <QuarterRow
-                key={quarter}
+                key={`${String(quarter.quarter)}-${qi}`}
                 quarter={quarter}
                 formatPrice={formatPrice}
                 formatDate={formatDate}

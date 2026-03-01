@@ -7,6 +7,8 @@ import { FrontendAuthGate } from './frontend-auth-gate';
 interface GlobalAuthGuardProps {
     children?: React.ReactNode;
     fallback?: React.ReactNode;
+    title?: string;
+    debugInfo?: unknown;
 }
 
 export function GlobalAuthGuard({ children, fallback }: GlobalAuthGuardProps) {

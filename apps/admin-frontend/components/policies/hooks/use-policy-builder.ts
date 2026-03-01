@@ -98,7 +98,7 @@ async function savePolicy({ formData, setFormData, setSaving, toast }: Omit<Poli
       toast({ title: "Validation Error", description: "Please fill in all required fields", variant: "destructive" });
       return;
     }
-    await createPolicyAction(formData);
+    await createPolicyAction(formData as unknown as Record<string, unknown>);
     toast({ title: "Success", description: `Policy "${formData.name}" created successfully` });
     setFormData(INITIAL_FORM_DATA);
   } catch (_error) {
@@ -120,7 +120,7 @@ export function usePolicyBuilder() {
     void (async () => {
       try {
         const loaded = await getPolicyTemplatesAction();
-        setTemplates(loaded);
+        setTemplates(loaded as PolicyTemplate[]);
       } catch (_e) { /* silently ignore */ }
     })();
   }, []);

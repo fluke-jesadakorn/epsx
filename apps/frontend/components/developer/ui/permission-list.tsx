@@ -14,7 +14,7 @@ interface PermissionListProps {
   count: number;
   searchValue: string;
   onSearchChange: (value: string) => void;
-  listRef: React.RefObject<HTMLDivElement>;
+  listRef: React.RefObject<HTMLDivElement | null>;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent) => void;
   dropTarget: 'available' | 'selected' | null;

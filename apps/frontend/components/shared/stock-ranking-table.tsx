@@ -2,7 +2,7 @@
 
 import React from 'react';
 import FinancialDataTable from '@/components/home/financial-data-table';
-import type { StockFinancialData } from '@/types/financialChartData';
+import type { StockFinancialData } from '@/types';
 
 interface StockRankingTableProps {
   data: StockFinancialData[];

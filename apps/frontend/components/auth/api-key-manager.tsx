@@ -83,7 +83,8 @@ export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
       });
 
       if (response.success) {
-        setApiKeys(response.data?.api_keys ?? []);
+        const d = response.data as { api_keys?: ApiKey[] } | null;
+        setApiKeys(d?.api_keys ?? []);
       } else {
         throw new Error(response.error?.message ?? 'Failed to fetch API keys');
       }
@@ -109,7 +110,7 @@ export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
       await fetchApiKeys();
 
       // Show the new key
-      setShowNewKey(newKey);
+      setShowNewKey(typeof newKey === 'string' ? newKey : null);
       setNewKeyName('');
 
       toast.success('API key generated successfully');

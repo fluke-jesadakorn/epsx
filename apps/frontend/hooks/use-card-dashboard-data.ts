@@ -178,10 +178,10 @@ export function useCardDashboardData() {
             hasPrev: response.pagination.page > 1,
           },
           metadata: {
-            available_countries: response.metadata.available_countries ?? [],
-            available_sectors: response.metadata.available_sectors ?? [],
-            request_timestamp: response.metadata.request_timestamp ?? new Date().toISOString(),
-            data_source: response.metadata.data_source ?? 'analytics-api',
+            available_countries: (response.metadata as Record<string, unknown>).available_countries as string[] ?? [],
+            available_sectors: (response.metadata as Record<string, unknown>).available_sectors as string[] ?? [],
+            request_timestamp: (response.metadata as Record<string, unknown>).request_timestamp as string ?? new Date().toISOString(),
+            data_source: (response.metadata as Record<string, unknown>).data_source as string ?? 'analytics-api',
           },
           processing_time_ms: response.metadata.query_time ?? 0,
         };

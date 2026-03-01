@@ -13,7 +13,7 @@ interface ChartContainerProps {
   subtitle?: string
   children: React.ReactNode
   className?: string
-  variant?: 'analytics' | 'user' | 'permission' | 'billing' | 'pancake' | 'default'
+  variant?: 'default' | 'pancake' | 'glass'
   size?: 'default' | 'sm' | 'lg'
   showLiveDot?: boolean
 }

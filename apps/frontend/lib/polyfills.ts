@@ -10,7 +10,7 @@
  */
 
 // Access the global Math object safely
-const anyMath = Math as Record<string, unknown>;
+const anyMath = Math as unknown as Record<string, unknown>;
 
 // Prevent infinite recursion if the file is re-evaluated and check for existing polyfill
 if (!(anyMath.pow as Record<string, boolean>)?.__isPolyfilled) {
@@ -93,12 +93,12 @@ if (!(anyMath.pow as Record<string, boolean>)?.__isPolyfilled) {
     const mathFuncs = ['floor', 'ceil', 'round', 'trunc', 'abs'];
     mathFuncs.forEach(func => {
         const original = anyMath[func] as (val: number | bigint) => number | bigint;
-        if (original && !(original as Record<string, boolean>).__isPolyfilled) {
+        if (original && !((original as unknown) as Record<string, boolean>).__isPolyfilled) {
             anyMath[func] = function (val: number | bigint): number | bigint {
                 if (typeof val === 'bigint') {return val;}
                 return original.call(Math, val);
             };
-            (anyMath[func] as Record<string, boolean>).__isPolyfilled = true;
+            ((anyMath[func] as unknown) as Record<string, boolean>).__isPolyfilled = true;
         }
     });
 

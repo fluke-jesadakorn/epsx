@@ -32,7 +32,7 @@ export default function NotificationsClient({ initialData, focusId }: Notificati
   const notificationRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
 
   const [notifications, setNotifications] = useState<Notification[]>(
-    initialData.data.notifications.map(n => ({
+    (initialData.data?.notifications ?? []).map(n => ({
       id: n.id,
       title: n.title,
       message: n.message,
@@ -48,10 +48,10 @@ export default function NotificationsClient({ initialData, focusId }: Notificati
   const [typeFilter, setTypeFilter] = useState<FilterNotificationType>('all');
   const [priorityFilter, setPriorityFilter] = useState<FilterNotificationPriority>('all');
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(initialData.data.total_pages);
-  const [totalCount, setTotalCount] = useState(initialData.data.total_count);
-  const [unreadCount, setUnreadCount] = useState(initialData.data.unread_count);
-  const [focusedId, _setFocusedId] = useState<string | null>(focusId);
+  const [totalPages, setTotalPages] = useState(initialData.data?.total_pages ?? 1);
+  const [totalCount, setTotalCount] = useState(initialData.data?.total_count ?? 0);
+  const [unreadCount, setUnreadCount] = useState(initialData.data?.unread_count ?? 0);
+  const [focusedId, _setFocusedId] = useState<string | null>(focusId ?? null);
 
   useEffect(() => {
     void fetchNotifications();
@@ -85,7 +85,7 @@ export default function NotificationsClient({ initialData, focusId }: Notificati
         priority: priorityFilter === 'all' ? undefined : priorityFilter,
       });
 
-      const mappedNotifications = data.data.notifications.map(n => ({
+      const mappedNotifications = (data.data?.notifications ?? []).map(n => ({
         id: n.id,
         title: n.title,
         message: n.message,
@@ -97,9 +97,9 @@ export default function NotificationsClient({ initialData, focusId }: Notificati
       }));
 
       setNotifications(mappedNotifications);
-      setTotalCount(data.data.total_count);
-      setUnreadCount(data.data.unread_count);
-      setTotalPages(data.data.total_pages);
+      setTotalCount(data.data?.total_count ?? 0);
+      setUnreadCount(data.data?.unread_count ?? 0);
+      setTotalPages(data.data?.total_pages ?? 1);
     } catch (_error) {
       setNotifications([]);
     } finally {

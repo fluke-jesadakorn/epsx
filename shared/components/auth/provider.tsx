@@ -143,7 +143,6 @@ export function SharedOpenIDWeb3Provider({
     authenticateWithDirectApi,
   } = useWalletAuth({
     client,
-    variant: clientId === 'epsx-admin' ? 'admin' : 'user',
     setUser,
     setIsLoading,
     setError,

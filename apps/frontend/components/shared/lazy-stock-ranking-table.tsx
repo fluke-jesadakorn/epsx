@@ -2,8 +2,7 @@
 
 import React from 'react';
 import FinancialDataTable from '@/components/home/financial-data-table';
-import BatchFinancialDataTable from '@/components/home/components/Batchfinancial-data-table';
-import type { StockFinancialData } from '@/types/financialChartData';
+import type { StockFinancialData } from '@/types';
 
 interface LazyStockRankingTableProps {
   data?: StockFinancialData[];
@@ -25,7 +24,7 @@ export default function LazyStockRankingTable({
   subtitle = "Discover the most delicious data insights with our comprehensive analytics",
   showRank = true,
   rankShift = 0,
-  maxCards = 10,
+  maxCards: _maxCards = 10,
   useLazyLoading = false,
 }: LazyStockRankingTableProps): React.JSX.Element {
   // Apply rank shift if needed (for future use)
@@ -63,9 +62,8 @@ export default function LazyStockRankingTable({
       
       {/* Render appropriate table component */}
       {shouldUseBatchLoading ? (
-        <BatchFinancialDataTable 
-          maxCards={maxCards}
-          useBatchLoading
+        <FinancialDataTable
+          data={[]}
           className="min-h-screen"
         />
       ) : (

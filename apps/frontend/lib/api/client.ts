@@ -199,12 +199,12 @@ class FrontendApiClient {
       API_ROUTES.ANALYTICS.RANKINGS,
       filteredParams
     );
-    return response.data;
+    return response.data ?? undefined;
   }
 
   async getAnalyticsHealth(): Promise<{ status: string; timestamp: string } | undefined> {
     const response = await this.client.get<{ status: string; timestamp: string }>(API_ROUTES.HEALTH);
-    return response.data;
+    return response.data ?? undefined;
   }
 
   // ============================================================================
@@ -219,7 +219,7 @@ class FrontendApiClient {
       '/api/notifications',
       filteredParams
     );
-    return response.data;
+    return response.data ?? undefined;
   }
 
   async markNotificationRead(notificationId: string): Promise<void> {
@@ -232,7 +232,7 @@ class FrontendApiClient {
 
   async getNotificationStats(): Promise<NotificationStats | undefined> {
     const response = await this.client.get<NotificationStats>('/api/notifications/unread-count');
-    return response.data;
+    return response.data ?? undefined;
   }
 
   async deleteNotification(notificationId: string): Promise<void> {
@@ -241,7 +241,7 @@ class FrontendApiClient {
 
   async getNotificationsServer(userId: string): Promise<Notification[] | undefined> {
     const response = await this.client.get<Notification[]>(`/api/notifications/${userId}`);
-    return response.data;
+    return response.data ?? undefined;
   }
 
   async markNotificationReadServer(userId: string, notificationId: string): Promise<void> {
@@ -250,7 +250,7 @@ class FrontendApiClient {
 
   async getUnreadNotificationCount(userId: string): Promise<{ count: number } | undefined> {
     const response = await this.client.get<{ count: number }>(`/api/notifications/${userId}/unread/count`);
-    return response.data;
+    return response.data ?? undefined;
   }
 
   // ============================================================================
@@ -259,12 +259,12 @@ class FrontendApiClient {
 
   async getUserProfile(): Promise<Record<string, unknown> | undefined> {
     const response = await this.client.get<Record<string, unknown>>(API_ROUTES.USERS.PROFILE);
-    return response.data;
+    return response.data ?? undefined;
   }
 
   async updateUserProfile(data: Record<string, unknown>): Promise<Record<string, unknown> | undefined> {
     const response = await this.client.put<Record<string, unknown>>(API_ROUTES.USERS.PROFILE, data);
-    return response.data;
+    return response.data ?? undefined;
   }
 
   // ============================================================================
@@ -273,7 +273,7 @@ class FrontendApiClient {
 
   async getWatchlist(): Promise<Array<Record<string, unknown>> | undefined> {
     const response = await this.client.get<Array<Record<string, unknown>>>(API_ROUTES.USERS.WATCHLIST);
-    return response.data;
+    return response.data ?? undefined;
   }
 
   async addToWatchlist(request: WatchlistAddRequest): Promise<void> {
@@ -290,7 +290,7 @@ class FrontendApiClient {
 
   async getPriceAlerts(): Promise<Array<Record<string, unknown>> | undefined> {
     const response = await this.client.get<Array<Record<string, unknown>>>(API_ROUTES.USERS.ALERTS);
-    return response.data;
+    return response.data ?? undefined;
   }
 
   async createPriceAlert(request: PriceAlertCreateRequest): Promise<void> {

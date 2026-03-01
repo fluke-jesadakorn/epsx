@@ -81,7 +81,7 @@ export default async function ServerTopPerformers({ className }: ServerTopPerfor
     const result = await getPublicRankingsAction({
       page: 1,
       limit: 3,
-      sort_by: 'growth_factor'
+      sort_by: 'eps_growth'
     });
      
     if (result.data && Array.isArray(result.data)) {
@@ -92,7 +92,7 @@ export default async function ServerTopPerformers({ className }: ServerTopPerfor
         return {
           rank: typeof rankingObj?.rank === 'number' ? rankingObj.rank : typeof rankingObj?.ranking_position === 'number' ? rankingObj.ranking_position : index + 1,
           symbol: typeof rankingObj?.symbol === 'string' ? rankingObj.symbol : '',
-          latest_date: typeof qData[0] === 'object' && qData[0] !== null && 'date' in qData[0] ? (qData[0] as Record<string, unknown>).date : typeof rankingObj?.latest_date === 'string' ? rankingObj.latest_date : new Date().toISOString(),
+          latest_date: (typeof qData[0] === 'object' && qData[0] !== null && 'date' in qData[0] ? String((qData[0] as Record<string, unknown>).date ?? '') : typeof rankingObj?.latest_date === 'string' ? rankingObj.latest_date : new Date().toISOString()),
           value: typeof rankingObj?.value === 'number' ? rankingObj.value : typeof rankingObj?.price_current === 'number' ? rankingObj.price_current : 0,
           active_status: typeof rankingObj?.active_status === 'string' ? rankingObj.active_status : 'unknown',
           quarterly_performance: (qData as unknown[]).map((q: unknown) => {
@@ -106,19 +106,22 @@ export default async function ServerTopPerformers({ className }: ServerTopPerfor
               price_growth: typeof qObj?.price_growth === 'number' ? qObj.price_growth : 0,
             };
           }),
-          next_quarter_estimate: rankingObj?.next_quarter_estimate && typeof rankingObj.next_quarter_estimate === 'object' ? {
-            quarter: typeof (rankingObj.next_quarter_estimate as Record<string, unknown>).quarter === 'string' ? (rankingObj.next_quarter_estimate as Record<string, unknown>).quarter : '',
-            estimated_eps: typeof (rankingObj.next_quarter_estimate as Record<string, unknown>).estimated_eps === 'number' ? (rankingObj.next_quarter_estimate as Record<string, unknown>).estimated_eps : 0,
-            announcement_date: typeof (rankingObj.next_quarter_estimate as Record<string, unknown>).announcement_date === 'string' ? (rankingObj.next_quarter_estimate as Record<string, unknown>).announcement_date : '',
-            announcement_timestamp: typeof (rankingObj.next_quarter_estimate as Record<string, unknown>).announcement_timestamp === 'number' ? (rankingObj.next_quarter_estimate as Record<string, unknown>).announcement_timestamp : 0,
-            days_until_announcement: typeof (rankingObj.next_quarter_estimate as Record<string, unknown>).days_until_announcement === 'number' ? (rankingObj.next_quarter_estimate as Record<string, unknown>).days_until_announcement : 0,
-            confidence: typeof (rankingObj.next_quarter_estimate as Record<string, unknown>).confidence === 'string' ? (rankingObj.next_quarter_estimate as Record<string, unknown>).confidence : 'Medium'
-          } : undefined,
+          next_quarter_estimate: rankingObj?.next_quarter_estimate && typeof rankingObj.next_quarter_estimate === 'object' ? (() => {
+            const nq = rankingObj.next_quarter_estimate as Record<string, unknown>;
+            return {
+              quarter: typeof nq.quarter === 'string' ? nq.quarter : '',
+              estimated_eps: typeof nq.estimated_eps === 'number' ? nq.estimated_eps : 0,
+              announcement_date: typeof nq.announcement_date === 'string' ? nq.announcement_date : '',
+              announcement_timestamp: typeof nq.announcement_timestamp === 'number' ? nq.announcement_timestamp : 0,
+              days_until_announcement: typeof nq.days_until_announcement === 'number' ? nq.days_until_announcement : 0,
+              confidence: typeof nq.confidence === 'string' ? nq.confidence : 'Medium',
+            };
+          })() : undefined,
           currency: 'USD'
         };
       });
     } else {
-      const resultObj = result as Record<string, unknown>;
+      const resultObj = result as unknown as Record<string, unknown>;
       error = typeof resultObj?.message === 'string' ? resultObj.message : 'No valid data received';
     }
   } catch (err) {

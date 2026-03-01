@@ -19,7 +19,7 @@ import type { UnifiedApiClient } from '../utils/api-client';
 function buildCreditParams(filters: CreditTransactionFilters): URLSearchParams {
   const params = new URLSearchParams();
   const { tx_type, from_date, to_date, limit, offset } = filters;
-  if (tx_type !== undefined && tx_type !== '') { params.append('tx_type', tx_type); }
+  if (tx_type !== undefined) { params.append('tx_type', tx_type); }
   if (from_date !== undefined && from_date !== '') { params.append('from_date', from_date); }
   if (to_date !== undefined && to_date !== '') { params.append('to_date', to_date); }
   if (limit !== undefined && limit !== 0) { params.append('limit', limit.toString()); }

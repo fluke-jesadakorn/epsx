@@ -163,7 +163,7 @@ function useNotificationForm(onSuccess?: () => void) {
     void (async () => {
       try {
         const res = await uploadNotificationImageAction(fd);
-        if (res.success && res.data.url !== '') { setImageUrl(res.data.url); }
+        if (res.success && res.data !== null && res.data.url !== '') { setImageUrl(res.data.url); }
         else { setError('Image upload failed'); }
       } catch { setError('Image upload failed'); }
       finally { setUploading(false); if (fileRef.current !== null) { fileRef.current.value = ''; } }

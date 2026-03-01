@@ -80,11 +80,11 @@ export async function POST(req: NextRequest) {
             return NextResponse.json(
                 {
                     success: false,
-                    message: response.message ?? response.error ?? 'Backend validation failed',
+                    message: response.error?.message ?? 'Backend validation failed',
                     details: response.data,
-                    status: response.status
+                    status: response.error?.status
                 },
-                { status: response.status ?? 400 }
+                { status: response.error?.status ?? 400 }
             );
         }
 

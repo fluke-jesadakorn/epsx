@@ -215,7 +215,7 @@ export function NewsManagement({ articles: initialArticles, total, page, status 
     const res = await action(article.id);
     if (res.success) {
       toast.success(article.is_pinned ? 'Article unpinned' : 'Article pinned to homepage');
-      setLocalArticles((prev) => prev.map((a) => a.id === article.id ? { ...a, is_pinned: !article.is_pinned, pinned_at: res.data?.pinned_at ?? null } : a));
+      setLocalArticles((prev) => prev.map((a) => a.id === article.id ? { ...a, is_pinned: !article.is_pinned, pinned_at: (res.data as NewsArticle | null)?.pinned_at ?? null } : a));
     } else { toast.error('Failed to update pin status'); }
   }, []);
 

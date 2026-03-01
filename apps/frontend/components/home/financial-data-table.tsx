@@ -10,7 +10,7 @@ import {
 } from './components/layout-components';
 import { EnhancedTouchWrapper } from '@/components/touch';
 import { Heart, Share2, Bookmark, TrendingUp, ExternalLink } from 'lucide-react';
-import type { StockFinancialData } from '@/types/financialChartData';
+import type { StockFinancialData } from '@/types';
 
 interface FinancialDataTableProps {
   style?: React.CSSProperties;
@@ -154,17 +154,17 @@ function FinancialDataTable({
           <div className="block md:hidden">
             <div className="overflow-x-auto pb-4">
               <div className="flex gap-4 w-max">
-                {safeData.map((item) => (
+                {safeData.map((item, idx) => (
                   <div
                     key={item.symbol}
                     className="w-72 flex-shrink-0"
                     style={{
-                      animationDelay: `${index * 150}ms`,
+                      animationDelay: `${idx * 150}ms`,
                       animationDuration: '600ms',
                       animationFillMode: 'both',
                     }}
                   >
-                    <FinancialCard data={item} index={index} />
+                    <FinancialCard data={item} index={idx} />
                   </div>
                 ))}
               </div>
@@ -198,17 +198,17 @@ function FinancialDataTable({
                 max-w-full
               "
             >
-              {safeData.map((item) => (
+              {safeData.map((item, idx) => (
                 <div
                   key={`desktop-${item.symbol}`}
                   className="relative w-full max-w-full overflow-hidden"
                   style={{
-                    animationDelay: `${index * 150}ms`,
+                    animationDelay: `${idx * 150}ms`,
                     animationDuration: '600ms',
                     animationFillMode: 'both',
                   }}
                 >
-                  <FinancialCard data={item} index={index} />
+                  <FinancialCard data={item} index={idx} />
                 </div>
               ))}
             </div>

@@ -39,5 +39,5 @@ export async function fetchWithPermissionHandling(
   options?: RequestInit,
   context?: { feature?: string; action?: string }
 ): Promise<Response> {
-  return sharedFetchWithPermissionHandling(url, options, context, 'frontend')
+  return sharedFetchWithPermissionHandling(url, options, { context, platform: 'frontend' })
 }

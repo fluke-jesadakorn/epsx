@@ -122,7 +122,7 @@ function WalletDropdownMenuContent({
     navigationLinks
 }: WalletDropdownMenuContentProps) {
     const [copied, setCopied] = useState(false);
-    const providerInfo = walletProviders[connectorId.toLowerCase()] ?? walletProviders.injected;
+    const providerInfo = (walletProviders[connectorId.toLowerCase()] ?? walletProviders.injected) as WalletProviderInfo;
 
     const handleCopyAddress = async () => {
         if (!address) { return; }

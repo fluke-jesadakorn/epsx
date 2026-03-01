@@ -177,7 +177,7 @@ export function SymbolCard({
       </div>
 
       <div className="space-y-4 bg-white px-6 pt-6 pb-6 dark:bg-slate-900">
-        {quarters.length >= 2 && (
+        {quarters.length >= 2 && previousQuarter != null && latestQuarter != null && (
           <>
             <div className="rounded-2xl border border-purple-200/50 bg-gradient-to-r from-purple-50 to-pink-50 p-4 dark:border-cyan-400/20 dark:from-slate-800 dark:to-slate-700">
               <div className="mb-2 text-sm font-semibold text-purple-600 dark:text-cyan-400">

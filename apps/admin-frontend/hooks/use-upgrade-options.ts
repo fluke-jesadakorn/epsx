@@ -1,6 +1,6 @@
 'use client';
 
-import { createPlansClient } from '@/shared/api/plans';
+import { createPlansClient, type PublicPlan } from '@/shared/api/plans';
 import { FREE_PLAN_NAME } from '@/shared/config/constants';
 import { createAdminApiClient } from '@/shared/utils/api-client';
 import { useEffect, useState } from 'react';
@@ -27,7 +27,7 @@ function calculateNextPlan(candidatePlans: UpgradeOption[], isFreePlan: boolean,
     return null;
 }
 
-function toUpgradeOption(p: { id: string | number; name: string; effective_price?: number | null; current_price?: number | null; features: string[] }): UpgradeOption {
+function toUpgradeOption(p: PublicPlan): UpgradeOption {
     return {
         id: Number(p.id) || 0,
         name: p.name,

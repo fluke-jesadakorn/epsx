@@ -100,7 +100,10 @@ export function NotificationBellClient() {
     markAllAsRead,
   } = useNotificationBell({
     actions: {
-      getNotifications: getInitialNotificationsAction,
+      getNotifications: async (filters: { page: number; limit: number; status?: string }) => {
+        const res = await getInitialNotificationsAction(filters);
+        return { success: res.success, data: res.data ?? undefined };
+      },
       markAsRead: markAsReadAction,
       markAsUnread: markAsUnreadAction,
       markAllAsRead: markAllAsReadAction,
@@ -116,7 +119,7 @@ export function NotificationBellClient() {
         const notifType = type === 'security' ? 'security' :
           type === 'permission' ? 'permissions' :
             type === 'wallet' ? 'analytics' : 'system'
-        showBrowserNotification(notifType, title, message)
+        showBrowserNotification({ type: notifType as 'security' | 'permissions' | 'analytics' | 'system', title, body: message })
       }
     },
   })

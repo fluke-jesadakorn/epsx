@@ -2,9 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-// Frontend auth adapter for unified auth system
-export { useFrontendAuth } from './useFrontendauth';
-
 // DEPRECATED: Generic data fetching hook using deprecated API client
 // Migrate to specific server actions instead of using this hook
 export function useApi<T>(
@@ -25,7 +22,7 @@ export function useApi<T>(
   useEffect(() => {
     fetchData();
 
-    if (options?.refresh !== null && options.refresh !== undefined && options.refresh > 0) {
+    if (options?.refresh != null && options.refresh > 0) {
       const interval = setInterval(() => fetchData(), options.refresh);
       return () => clearInterval(interval);
     }

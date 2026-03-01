@@ -252,7 +252,7 @@ export function ChainVerificationCard({
                             </code>
                             {contractInfo.explorer && currentChain.id !== 31337 && (
                                 <a
-                                    href={contractInfo.explorer.address(contractInfo.address)}
+                                    href={`${contractInfo.explorer}/address/${contractInfo.address}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-purple-500 hover:text-purple-600"
@@ -354,7 +354,7 @@ export function ChainVerificationCard({
                                         </code>
                                         {contractInfo.explorer && chain.id !== 31337 && (
                                             <a
-                                                href={contractInfo.explorer.address(contractInfo.address)}
+                                                href={`${contractInfo.explorer}/address/${contractInfo.address}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="text-purple-500 hover:text-purple-600"

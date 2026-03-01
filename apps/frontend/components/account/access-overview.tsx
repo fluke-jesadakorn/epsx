@@ -129,7 +129,7 @@ export async function AccessOverview() {
                             const canRenew = group.can_renew ?? (isPlan && !isFree && daysRemaining !== null && daysRemaining <= 30);
 
                             return (
-                                <div key={group.id} className={`bg-white/80 dark:bg-slate-900 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 transition-all duration-300 hover:shadow-2xl flex flex-col ${isPlan ? 'border-blue-300/50 dark:border-blue-700/50' : 'border-purple-300/50 dark:border-purple-700/50'}`}>
+                                <div key={group.name} className={`bg-white/80 dark:bg-slate-900 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 transition-all duration-300 hover:shadow-2xl flex flex-col ${isPlan ? 'border-blue-300/50 dark:border-blue-700/50' : 'border-purple-300/50 dark:border-purple-700/50'}`}>
                                     <div className="flex items-center justify-between mb-4">
                                         <div className="flex items-center gap-2">
                                             <div className="text-3xl">{isPlan ? '💎' : '👥'}</div>

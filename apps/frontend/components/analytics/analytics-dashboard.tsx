@@ -4,7 +4,7 @@
 import { useAnalyticsData } from '@/hooks/use-analytics-data';
 import { useAnalyticsFilters } from '@/hooks/use-analytics-filters';
 import { calculateQoQLeaders } from '@/lib/analytics/qoq-calculations';
-import type { UnifiedAnalyticsRankingsResponse } from '@/lib/api-client';
+import type { UnifiedAnalyticsRankingsResponse, UnifiedRankingItem } from '@/types';
 import { useMemo, useState } from 'react';
 
 import { AnalyticsNavigation } from '@/components/shared/analytics-navigation';
@@ -70,13 +70,13 @@ export default function AnalyticsDashboard({
     filterOptions,
     isLoading: dataLoading,
     error,
-  } = useAnalyticsData(filters);
+  } = useAnalyticsData(filters as import('@/shared/api/analytics').AnalyticsFilters);
 
   // Tab state
   const [activeTab, setActiveTab] = useState('list');
 
   // Use initial data if provided and no new data has been loaded
-  const currentData = data ?? initialData;
+  const currentData: UnifiedAnalyticsRankingsResponse | null = data ?? initialData ?? null;
   const currentFilterOptions = filterOptions.countries.length > 0
     ? filterOptions
     : (initialFilterOptions ?? filterOptions);
@@ -115,7 +115,7 @@ export default function AnalyticsDashboard({
         <FilterPanel
           filters={filters}
           options={{
-            countries: currentFilterOptions.countries.map((c: string | { value: string }) => typeof c === 'string' ? c : c.value),
+            countries: currentFilterOptions.countries,
             sectors: currentFilterOptions.sectors,
             exchanges: currentFilterOptions.exchanges,
             stock_types: currentFilterOptions.stock_types
@@ -368,7 +368,7 @@ function RankingsList({ data, isLoading, onPageChange, onReset }: RankingsListPr
     return <RankingsListSkeleton />;
   }
 
-  if (!data?.rankings || data.rankings.length === 0) {
+  if (!data?.data || data.data.length === 0) {
     return <NoResultsState onReset={onReset} />;
   }
 
@@ -378,15 +378,15 @@ function RankingsList({ data, isLoading, onPageChange, onReset }: RankingsListPr
       <div className="sm:hidden">
         <div className="overflow-x-auto">
           <div className="flex gap-4 pb-4" style={{ width: 'max-content' }}>
-            {data.rankings.map((ranking: StockRanking, index: number) => (
+            {data.data.map((ranking: UnifiedRankingItem, index: number) => (
               <div key={ranking.symbol} className="w-80 flex-shrink-0">
                 <StockDataCard
                   symbol={ranking.symbol}
-                  rank={(ranking.rank) || index + 1}
-                  epsGrowth={(ranking.epsGrowth) || 0}
-                  price={ranking.price ?? ranking.price_current ?? ranking.current_price ?? 0}
+                  rank={ranking.ranking_position || index + 1}
+                  epsGrowth={ranking.analytics?.growth_factor ?? 0}
+                  price={ranking.current_price ?? 0}
                   currency="USD"
-                  companyName={ranking.name ?? ranking.companyName}
+                  companyName={ranking.company_name}
                 />
               </div>
             ))}
@@ -402,15 +402,15 @@ function RankingsList({ data, isLoading, onPageChange, onReset }: RankingsListPr
 
       {/* Desktop: Grid layout */}
       <div className="mb-6 hidden sm:grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {data.rankings.map((ranking: StockRanking) => (
+        {data.data.map((ranking: UnifiedRankingItem) => (
           <StockDataCard
             key={ranking.symbol}
             symbol={ranking.symbol}
-            rank={(ranking.rank) || 0}
-            epsGrowth={(ranking.epsGrowth) || 0}
-            price={ranking.price ?? ranking.price_current ?? ranking.current_price ?? 0}
+            rank={ranking.ranking_position || 0}
+            epsGrowth={ranking.analytics?.growth_factor ?? 0}
+            price={ranking.current_price ?? 0}
             currency="USD"
-            companyName={ranking.name ?? ranking.companyName}
+            companyName={ranking.company_name}
           />
         ))}
       </div>
@@ -420,11 +420,11 @@ function RankingsList({ data, isLoading, onPageChange, onReset }: RankingsListPr
         <Pagination
           pagination={{
             page: data.pagination.page,
-            limit: data.pagination.per_page,
-            total: data.pagination.total_items,
-            totalPages: data.pagination.total_pages,
-            hasNext: data.pagination.page < data.pagination.total_pages,
-            hasPrev: data.pagination.page > 1
+            limit: data.pagination.limit,
+            total: data.pagination.total,
+            totalPages: data.pagination.totalPages,
+            hasNext: data.pagination.hasNext,
+            hasPrev: data.pagination.hasPrev
           }}
           onPageChange={onPageChange}
           isLoading={isLoading}

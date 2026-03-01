@@ -208,7 +208,7 @@ function mapAssignmentToMembership(assignment: AssignmentDto): UserPlanMembershi
       updated_at: assignment.assigned_at,
       default_expiry_days: assignment.default_expiry_days,
       priority_level: assignment.priority_level,
-    } as PermissionPlan
+    } as unknown as PermissionPlan
   };
 }
 

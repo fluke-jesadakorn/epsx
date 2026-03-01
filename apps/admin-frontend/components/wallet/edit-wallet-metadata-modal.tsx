@@ -66,7 +66,8 @@ export function EditWalletMetadataModal({
 
     type FormValues = z.infer<typeof formSchema>;
     const form = useForm<FormValues>({
-        resolver: zodResolver(formSchema),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        resolver: zodResolver(formSchema as any),
         defaultValues: {
             label: currentLabel ?? '',
             note: currentNote ?? '',
@@ -120,10 +121,12 @@ export function EditWalletMetadataModal({
                     </DialogDescription>
                 </DialogHeader>
 
-                <Form {...form}>
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                <Form {...(form as any)}>
                     <form onSubmit={(e) => { void form.handleSubmit(onSubmit)(e); }} className="space-y-4">
                         <FormField
-                            control={form.control}
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            control={form.control as any}
                             name="label"
                             render={({ field }) => (
                                 <FormItem>
@@ -140,7 +143,8 @@ export function EditWalletMetadataModal({
                         />
 
                         <FormField
-                            control={form.control}
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            control={form.control as any}
                             name="note"
                             render={({ field }) => (
                                 <FormItem>

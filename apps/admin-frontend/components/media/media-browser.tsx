@@ -216,7 +216,7 @@ export function MediaBrowser({ files: initialFiles, bucket, buckets }: Props) {
     formData.append('file', file);
 
     const res = await uploadMediaAction(bucket, formData);
-    if (res.success) {
+    if (res.success && res.data !== null) {
       toast.success('File uploaded');
       const newFile: FileInfo = {
         key: res.data.filename,

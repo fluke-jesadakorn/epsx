@@ -18,6 +18,7 @@ import { Kanit } from 'next/font/google';
 import { headers } from 'next/headers';
 import { cookieToInitialState } from 'wagmi';
 
+import type { UserInfoResponse } from '@/shared/auth/client';
 import { getAuthUser } from '@/lib/server/auth';
 import { logger } from '@/lib/logger';
 
@@ -155,9 +156,9 @@ export default async function RootLayout({
         {/* Main application wrapper */}
         <div className="flex h-screen flex-col overflow-hidden relative z-0">
           <ErrorBoundary>
-            <ClientProviders initialUser={user} initialState={initialState}>
+            <ClientProviders initialUser={user as unknown as UserInfoResponse | null} initialState={initialState}>
               <div className="flex-1 relative overflow-hidden">
-                <LayoutWrapper initialUser={user}>
+                <LayoutWrapper initialUser={user !== null ? { id: user.id, email: user.email, name: user.name, role: 'admin' } : undefined}>
                   {children}
                 </LayoutWrapper>
               </div>

@@ -110,7 +110,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   };
 
   const handleViewExplorer = () => {
-    const explorerUrl = getExplorerAddressLink(address);
+    const explorerUrl = getExplorerAddressLink(address ?? '');
     window.open(explorerUrl, '_blank', 'noopener,noreferrer');
   };
 

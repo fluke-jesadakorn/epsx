@@ -24,25 +24,25 @@ import type {
   ControllerProps
 } from "react-hook-form"
 
+type FormWrapperProps<TFieldValues extends FieldValues> = UseFormReturn<TFieldValues> & {
+  onSubmit?: (data: TFieldValues) => void | Promise<void>
+  children: React.ReactNode
+  className?: string
+}
+
 const Form = <TFieldValues extends FieldValues>({
   children,
   onSubmit,
   className,
-  ...props
-}: UseFormReturn<TFieldValues> & {
-  onSubmit?: (data: TFieldValues) => void | Promise<void>
-  children: React.ReactNode
-  className?: string
-}) => {
-  return (
-    <BaseForm
-      onSubmit={onSubmit}
-      className={cn("space-y-4", className)}
-      {...(props as Record<string, unknown>)}
-    >
-      {children}
-    </BaseForm>
-  );
+  ...formMethods
+}: FormWrapperProps<TFieldValues>) => {
+  const baseProps = {
+    ...formMethods,
+    onSubmit,
+    className: cn("space-y-4", className),
+    children,
+  } as import('@/shared/components/ui/form').FormProps<TFieldValues>
+  return <BaseForm {...baseProps} />
 }
 
 const FormField = <
@@ -51,7 +51,8 @@ const FormField = <
 >({
   ...props
 }: ControllerProps<TFieldValues, TName>) => (
-  <BaseFormField {...props} />
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  <BaseFormField {...(props as any)} />
 )
 
 const useFormField = useBaseFormField

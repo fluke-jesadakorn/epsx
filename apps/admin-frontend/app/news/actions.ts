@@ -31,19 +31,19 @@ export async function updateNewsAction(id: string, data: UpdateNewsReq): Promise
   return client().put(`/api/admin/news/${id}`, data);
 }
 
-export async function deleteNewsAction(id: string): Promise<ApiResponse<void>> {
+export async function deleteNewsAction(id: string): Promise<ApiResponse<unknown>> {
   const res = await client().delete(`/api/admin/news/${id}`);
   if (res.success) { revalidatePath('/news'); }
   return res;
 }
 
-export async function publishNewsAction(id: string): Promise<ApiResponse<NewsArticle>> {
+export async function publishNewsAction(id: string): Promise<ApiResponse<unknown>> {
   const res = await client().put(`/api/admin/news/${id}/publish`, {});
   if (res.success) { revalidatePath('/news'); }
   return res;
 }
 
-export async function unpublishNewsAction(id: string): Promise<ApiResponse<NewsArticle>> {
+export async function unpublishNewsAction(id: string): Promise<ApiResponse<unknown>> {
   const res = await client().put(`/api/admin/news/${id}/unpublish`, {});
   if (res.success) { revalidatePath('/news'); }
   return res;
@@ -53,13 +53,13 @@ export async function uploadNewsImageAction(formData: FormData): Promise<ApiResp
   return client().post('/api/admin/news/upload-image', formData);
 }
 
-export async function pinNewsAction(id: string): Promise<ApiResponse<NewsArticle>> {
+export async function pinNewsAction(id: string): Promise<ApiResponse<unknown>> {
   const res = await client().put(`/api/admin/news/${id}/pin`, {});
   if (res.success) { revalidatePath('/news'); }
   return res;
 }
 
-export async function unpinNewsAction(id: string): Promise<ApiResponse<NewsArticle>> {
+export async function unpinNewsAction(id: string): Promise<ApiResponse<unknown>> {
   const res = await client().put(`/api/admin/news/${id}/unpin`, {});
   if (res.success) { revalidatePath('/news'); }
   return res;

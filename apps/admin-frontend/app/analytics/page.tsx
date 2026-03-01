@@ -69,7 +69,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
               <PlanStatusBar planAccess={planAccess} />
             </div>
 
-            <ServerCardDashboard searchParams={{ ...resolvedSearchParams }} />
+            <ServerCardDashboard searchParams={Promise.resolve(resolvedSearchParams)} />
           </div>
         </div>
       </div>
