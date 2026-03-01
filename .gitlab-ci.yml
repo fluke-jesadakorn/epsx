@@ -90,10 +90,12 @@ lint:eslint:
   image: oven/bun:1.2.17
   needs: ["prepare:deps"]
   cache:
-    key: node-${CI_COMMIT_REF_SLUG}
-    paths:
-      - node_modules/
-    policy: pull
+    - key: node-${CI_COMMIT_REF_SLUG}
+      paths: [node_modules/]
+      policy: pull
+    - key: turbo-${CI_COMMIT_REF_SLUG}
+      paths: [.turbo/]
+      policy: pull-push
   script:
     - bunx turbo run lint --filter=!@epsx/backend --filter=!epsx-bsc-contracts --concurrency=1
   timeout: 30 minutes
