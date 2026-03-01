@@ -24,6 +24,13 @@ variables:
 # Templates
 # ---------------------------------------------------------------------------
 
+.node-cache: &node-cache
+  cache:
+    key: node-${CI_COMMIT_REF_SLUG}
+    paths:
+      - node_modules/
+    policy: pull-push
+
 .cargo-cache: &cargo-cache
   cache:
     key: cargo-${CI_COMMIT_REF_SLUG}
@@ -55,11 +62,11 @@ prepare:deps:
   image: oven/bun:1.2.17
   script:
     - bun install --frozen-lockfile
-  artifacts:
+  cache:
+    key: node-${CI_COMMIT_REF_SLUG}
     paths:
       - node_modules/
-      - .turbo/
-    expire_in: 1 hour
+    policy: push
   timeout: 5 minutes
   <<: *rules-lint-test
 
@@ -71,6 +78,11 @@ lint:eslint:
   stage: lint
   image: oven/bun:1.2.17
   needs: ["prepare:deps"]
+  cache:
+    key: node-${CI_COMMIT_REF_SLUG}
+    paths:
+      - node_modules/
+    policy: pull
   script:
     - bun lint
   timeout: 10 minutes
@@ -80,6 +92,11 @@ lint:typecheck:
   stage: lint
   image: oven/bun:1.2.17
   needs: ["prepare:deps"]
+  cache:
+    key: node-${CI_COMMIT_REF_SLUG}
+    paths:
+      - node_modules/
+    policy: pull
   script:
     - bun type-check
   timeout: 10 minutes
@@ -93,6 +110,11 @@ test:frontend:
   stage: test
   image: oven/bun:1.2.17
   needs: ["prepare:deps"]
+  cache:
+    key: node-${CI_COMMIT_REF_SLUG}
+    paths:
+      - node_modules/
+    policy: pull
   variables:
     JEST_JUNIT_OUTPUT_DIR: test-results
     JEST_JUNIT_OUTPUT_NAME: junit.xml
@@ -118,7 +140,7 @@ test:frontend:
 
 test:backend:
   stage: test
-  image: rust:1.88-slim-bookworm
+  image: rust:slim-bookworm
   needs: []  # DAG: starts immediately, no wait for prepare/lint
   <<: *cargo-cache
   before_script:
@@ -145,6 +167,7 @@ test:backend:
 build:frontend:
   stage: build
   image: docker:27
+  needs: ["lint:eslint", "lint:typecheck", "test:frontend"]
   <<: *docker-login
   script:
     - docker pull $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-latest || true
@@ -209,6 +232,7 @@ build:frontend:
 build:admin:
   stage: build
   image: docker:27
+  needs: ["lint:eslint", "lint:typecheck"]
   <<: *docker-login
   script:
     - docker pull $CI_REGISTRY_IMAGE/admin:$ENV_TAG-latest || true
