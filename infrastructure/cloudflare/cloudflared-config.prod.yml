@@ -1,33 +1,32 @@
 # ============================================================================
 # Cloudflare Tunnel Configuration - EPSX Production
 # ============================================================================
-# Routes: epsx.io, admin.epsx.io, api.epsx.io → internal Docker services
-# GitLab: gitlab.epsx.io, registry.epsx.io → GitLab CE
-# Review: *.review.epsx.io → Traefik → review app containers
+# Tunnel ID: 6bee9b58-eede-4b4c-815c-94c0ee38fe58
+# Routes: all environments + gitlab + registry + storage
+# Credentials JSON must exist at: ~/.cloudflared/6bee9b58-eede-4b4c-815c-94c0ee38fe58.json
+# This file is mounted into the cloudflared container from the repo path.
+
+tunnel: 6bee9b58-eede-4b4c-815c-94c0ee38fe58
+credentials-file: /etc/cloudflared/6bee9b58-eede-4b4c-815c-94c0ee38fe58.json
 
 ingress:
-  # Frontend - Main user application
+  # Production environment
   - hostname: epsx.io
     service: http://frontend:3000
     originRequest:
       connectTimeout: 30s
-      noTLSVerify: false
       http2Origin: true
 
-  # Admin Frontend - Administrative dashboard
   - hostname: admin.epsx.io
     service: http://admin-frontend:3000
     originRequest:
       connectTimeout: 30s
-      noTLSVerify: false
       http2Origin: true
 
-  # Backend API - Rust API server
   - hostname: api.epsx.io
     service: http://backend:8080
     originRequest:
       connectTimeout: 30s
-      noTLSVerify: false
       http2Origin: true
 
   # GitLab CE - CI/CD platform
@@ -35,103 +34,62 @@ ingress:
     service: http://epsx-gitlab:80
     originRequest:
       connectTimeout: 60s
-      noTLSVerify: false
 
   # GitLab Container Registry
   - hostname: registry.epsx.io
     service: http://epsx-gitlab:5050
     originRequest:
       connectTimeout: 60s
-      noTLSVerify: false
 
   # Review Apps - Traefik routes to per-MR containers
   - hostname: "*.review.epsx.io"
     service: http://epsx-traefik:80
     originRequest:
       connectTimeout: 30s
-      noTLSVerify: false
 
-  # Dev environment (containers on epsx_dev_network)
+  # Dev environment
   - hostname: dev.epsx.io
     service: http://epsx-dev-frontend:3000
     originRequest:
       connectTimeout: 30s
-      noTLSVerify: false
   - hostname: dev-admin.epsx.io
     service: http://epsx-dev-admin:3000
     originRequest:
       connectTimeout: 30s
-      noTLSVerify: false
   - hostname: dev-api.epsx.io
     service: http://epsx-dev-backend:8080
     originRequest:
       connectTimeout: 30s
-      noTLSVerify: false
+
+  # Staging environment
+  - hostname: staging.epsx.io
+    service: http://epsx-staging-frontend:3000
+    originRequest:
+      connectTimeout: 30s
+  - hostname: staging-admin.epsx.io
+    service: http://epsx-staging-admin:3000
+    originRequest:
+      connectTimeout: 30s
+  - hostname: staging-api.epsx.io
+    service: http://epsx-staging-backend:8080
+    originRequest:
+      connectTimeout: 30s
 
   # MinIO Console - storage management UI
   - hostname: storage.epsx.io
     service: http://minio:9001
     originRequest:
       connectTimeout: 30s
-      noTLSVerify: false
 
-  # MinIO S3 API - public bucket direct access (CDN)
+  # MinIO S3 API - CDN / public bucket access
   - hostname: cdn.epsx.io
     service: http://minio:9000
     originRequest:
       connectTimeout: 30s
-      noTLSVerify: false
-
-  # Staging environment (containers on epsx_staging_network)
-  - hostname: staging.epsx.io
-    service: http://epsx-staging-frontend:3000
-    originRequest:
-      connectTimeout: 30s
-      noTLSVerify: false
-  - hostname: staging-admin.epsx.io
-    service: http://epsx-staging-admin:3000
-    originRequest:
-      connectTimeout: 30s
-      noTLSVerify: false
-  - hostname: staging-api.epsx.io
-    service: http://epsx-staging-backend:8080
-    originRequest:
-      connectTimeout: 30s
-      noTLSVerify: false
 
   # Catch-all rule (required by Cloudflare Tunnel)
   - service: http_status:404
 
-# Logging configuration
 loglevel: info
-
-# Metrics (optional - for monitoring tunnel health)
-metrics: 0.0.0.0:2000
-
-# Protocol optimizations
-protocol: quic
-
-# No automatic updates in production
+protocol: http2
 no-autoupdate: true
-
-# ============================================================================
-# DNS CONFIGURATION REQUIRED
-# ============================================================================
-# Configure these CNAME records in Cloudflare DNS:
-#
-# Record Type: CNAME
-# Name: epsx.io              → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
-# Name: admin.epsx.io        → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
-# Name: api.epsx.io          → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
-# Name: gitlab.epsx.io       → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
-# Name: registry.epsx.io     → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
-# Name: *.review.epsx.io     → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
-# Name: dev.epsx.io          → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
-# Name: dev-admin.epsx.io    → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
-# Name: dev-api.epsx.io      → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
-# Name: staging.epsx.io      → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
-# Name: staging-admin.epsx.io→ <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
-# Name: staging-api.epsx.io  → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
-# Name: storage.epsx.io      → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
-# Name: cdn.epsx.io           → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
-# ============================================================================

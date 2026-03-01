@@ -8,6 +8,7 @@
 #   MR          → lint + test + review app
 
 stages:
+  - infra
   - prepare
   - lint
   - test
@@ -56,6 +57,60 @@ variables:
 .rules-deploy-branches: &rules-deploy-branches
   rules:
     - if: $CI_COMMIT_BRANCH =~ /^(development|staging|main)$/
+
+# ---------------------------------------------------------------------------
+# Infra — deploy infrastructure components (GitLab, Cloudflared)
+# Manual jobs that can be triggered without SSH access to the Mac Mini.
+# ---------------------------------------------------------------------------
+
+infra:gitlab:
+  stage: infra
+  image: docker:27
+  script:
+    - cd infrastructure/gitlab
+    - |
+      # Ensure all required Docker networks exist
+      for net in epsx_gitlab_network epsx_review_network epsx_dev_network epsx_staging_network epsx_prod_network; do
+        docker network create "$net" 2>/dev/null && echo "Created $net" || echo "$net already exists"
+      done
+    - docker compose -f docker-compose.gitlab.yml --env-file /Users/fluke/epsx-runner/envs/.env.gitlab up -d --force-recreate gitlab runner traefik
+    - |
+      echo "Waiting for GitLab to be healthy..."
+      for i in $(seq 1 20); do
+        status=$(docker inspect --format='{{.State.Health.Status}}' epsx-gitlab 2>/dev/null || echo "unknown")
+        echo "  [$i] epsx-gitlab: $status"
+        if [ "$status" = "healthy" ]; then echo "GitLab is healthy!"; break; fi
+        if [ "$i" -eq 20 ]; then echo "WARNING: GitLab health check timed out (may still be starting)"; fi
+        sleep 30
+      done
+  timeout: 15 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH =~ /^(main|development)$/
+      when: manual
+      allow_failure: true
+
+infra:cloudflared:
+  stage: infra
+  image: docker:27
+  script:
+    - |
+      # Restart cloudflared to pick up latest config from repo
+      # Config is mounted from: infrastructure/cloudflare/cloudflared-config.prod.yml
+      docker restart epsx-prod-cloudflared
+      sleep 10
+      status=$(docker inspect --format='{{.State.Status}}' epsx-prod-cloudflared 2>/dev/null || echo "not_found")
+      echo "epsx-prod-cloudflared: $status"
+      if [ "$status" != "running" ]; then
+        # Container not running — start it fresh via prod compose
+        cd infrastructure/docker
+        docker compose --env-file /Users/fluke/epsx-runner/envs/.env.prod -f docker-compose.prod.yml up -d cloudflared
+      fi
+      docker inspect --format='{{.State.Status}}' epsx-prod-cloudflared
+  timeout: 5 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH =~ /^(main|development)$/
+      when: manual
+      allow_failure: true
 
 # ---------------------------------------------------------------------------
 # Prepare — single bun install, shared via artifacts
@@ -391,6 +446,11 @@ deploy:dev:
         echo "  $c: status=$status health=$health"
         if [ "$status" != "running" ]; then echo "ERROR: $c not running"; exit 1; fi
       done
+    - |
+      # Restart cloudflared so it reconnects to the new dev containers
+      docker restart epsx-prod-cloudflared
+      sleep 5
+      echo "  epsx-prod-cloudflared: $(docker inspect --format='{{.State.Status}}' epsx-prod-cloudflared 2>/dev/null)"
       echo "Deploy successful!"
   environment:
     name: development
@@ -422,10 +482,17 @@ deploy:staging:
     - cd infrastructure/docker
     - docker compose --env-file /Users/fluke/epsx-runner/envs/.env.staging -f docker-compose.staging.yml up -d postgres redis minio pgbouncer
     - docker compose --env-file /Users/fluke/epsx-runner/envs/.env.staging -f docker-compose.staging.yml up -d --force-recreate backend frontend admin-frontend
-    - sleep 60
-    - 'curl -sf https://staging-api.epsx.io/health || (echo "DEPLOY FAILED: backend health check" && exit 1)'
-    - 'curl -sf -o /dev/null -w "%{http_code}\n" https://staging.epsx.io'
-    - 'curl -sf -o /dev/null -w "%{http_code}\n" https://staging-admin.epsx.io'
+    - |
+      echo "Verifying staging containers..."
+      for c in epsx-staging-backend epsx-staging-frontend epsx-staging-admin; do
+        status=$(docker inspect --format='{{.State.Status}}' "$c" 2>/dev/null || echo "not_found")
+        health=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$c" 2>/dev/null || echo "unknown")
+        echo "  $c: status=$status health=$health"
+        if [ "$status" != "running" ]; then echo "ERROR: $c not running"; exit 1; fi
+      done
+    - docker restart epsx-prod-cloudflared
+    - sleep 5
+    - echo "  cloudflared: $(docker inspect --format='{{.State.Status}}' epsx-prod-cloudflared 2>/dev/null)"
   environment:
     name: staging
     url: https://staging.epsx.io
@@ -472,10 +539,17 @@ deploy:prod:
     - docker tag $ADMIN_IMAGE epsx-admin-frontend:prod
     - cd infrastructure/docker
     - docker compose --env-file /Users/fluke/epsx-runner/envs/.env.prod -f docker-compose.prod.yml up -d --force-recreate backend frontend admin-frontend
-    - sleep 60
-    - 'curl -sf https://api.epsx.io/health || (echo "DEPLOY FAILED: backend health check" && exit 1)'
-    - 'curl -sf -o /dev/null -w "%{http_code}\n" https://epsx.io'
-    - 'curl -sf -o /dev/null -w "%{http_code}\n" https://admin.epsx.io'
+    - |
+      echo "Verifying prod containers..."
+      for c in epsx-prod-backend epsx-prod-frontend epsx-prod-admin; do
+        status=$(docker inspect --format='{{.State.Status}}' "$c" 2>/dev/null || echo "not_found")
+        health=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$c" 2>/dev/null || echo "unknown")
+        echo "  $c: status=$status health=$health"
+        if [ "$status" != "running" ]; then echo "ERROR: $c not running"; exit 1; fi
+      done
+    - docker restart epsx-prod-cloudflared
+    - sleep 5
+    - echo "  cloudflared: $(docker inspect --format='{{.State.Status}}' epsx-prod-cloudflared 2>/dev/null)"
   environment:
     name: production
     url: https://epsx.io

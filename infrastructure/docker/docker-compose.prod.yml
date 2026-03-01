@@ -287,16 +287,9 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: epsx-prod-cloudflared
     restart: unless-stopped
-    depends_on:
-      backend:
-        condition: service_healthy
-      frontend:
-        condition: service_healthy
-      admin-frontend:
-        condition: service_healthy
     command: tunnel --config /etc/cloudflared/config.yml run
     volumes:
-      - ${HOME}/.cloudflared/config.yml:/etc/cloudflared/config.yml:ro
+      - /Users/fluke/Desktop/Work/epsx/infrastructure/cloudflare/cloudflared-config.prod.yml:/etc/cloudflared/config.yml:ro
       - ${HOME}/.cloudflared/6bee9b58-eede-4b4c-815c-94c0ee38fe58.json:/etc/cloudflared/6bee9b58-eede-4b4c-815c-94c0ee38fe58.json:ro
     networks:
       - epsx_prod
