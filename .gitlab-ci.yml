@@ -112,6 +112,12 @@ infra:cloudflared:
 prepare:deps:
   stage: prepare
   image: oven/bun:1.2.17
+  variables:
+    # Runner injects a proxy that corrupts npm tarball downloads
+    HTTP_PROXY: ""
+    HTTPS_PROXY: ""
+    http_proxy: ""
+    https_proxy: ""
   script:
     - |
       for i in 1 2 3 4 5; do
@@ -140,6 +146,11 @@ lint:eslint:
   stage: lint
   image: oven/bun:1.2.17
   needs: ["prepare:deps"]
+  variables:
+    HTTP_PROXY: ""
+    HTTPS_PROXY: ""
+    http_proxy: ""
+    https_proxy: ""
   cache:
     key: turbo-${CI_COMMIT_REF_SLUG}
     paths: [.turbo/]
@@ -153,6 +164,11 @@ lint:typecheck:
   stage: lint
   image: oven/bun:1.2.17
   needs: ["prepare:deps"]
+  variables:
+    HTTP_PROXY: ""
+    HTTPS_PROXY: ""
+    http_proxy: ""
+    https_proxy: ""
   script:
     - bun type-check
   timeout: 20 minutes
@@ -167,6 +183,10 @@ test:frontend:
   image: oven/bun:1.2.17
   needs: ["prepare:deps"]
   variables:
+    HTTP_PROXY: ""
+    HTTPS_PROXY: ""
+    http_proxy: ""
+    https_proxy: ""
     JEST_JUNIT_OUTPUT_DIR: test-results
     JEST_JUNIT_OUTPUT_NAME: junit.xml
   script:
