@@ -12,22 +12,19 @@ credentials-file: /etc/cloudflared/6bee9b58-eede-4b4c-815c-94c0ee38fe58.json
 ingress:
   # Production environment
   - hostname: epsx.io
-    service: http://frontend:3000
+    service: http://epsx-prod-frontend:3000
     originRequest:
       connectTimeout: 30s
-      http2Origin: true
 
   - hostname: admin.epsx.io
-    service: http://admin-frontend:3000
+    service: http://epsx-prod-admin:3000
     originRequest:
       connectTimeout: 30s
-      http2Origin: true
 
   - hostname: api.epsx.io
-    service: http://backend:8080
+    service: http://epsx-prod-backend:8080
     originRequest:
       connectTimeout: 30s
-      http2Origin: true
 
   # GitLab CE - CI/CD platform
   - hostname: gitlab.epsx.io
@@ -77,13 +74,13 @@ ingress:
 
   # MinIO Console - storage management UI
   - hostname: storage.epsx.io
-    service: http://minio:9001
+    service: http://epsx-prod-minio:9001
     originRequest:
       connectTimeout: 30s
 
   # MinIO S3 API - CDN / public bucket access
   - hostname: cdn.epsx.io
-    service: http://minio:9000
+    service: http://epsx-prod-minio:9000
     originRequest:
       connectTimeout: 30s
 
