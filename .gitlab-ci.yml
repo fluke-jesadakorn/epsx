@@ -29,13 +29,6 @@ variables:
 # Templates
 # ---------------------------------------------------------------------------
 
-.node-cache: &node-cache
-  cache:
-    key: node-${CI_COMMIT_REF_SLUG}
-    paths:
-      - node_modules/
-    policy: pull-push
-
 .cargo-cache: &cargo-cache
   cache:
     key: cargo-${CI_COMMIT_REF_SLUG}
@@ -127,17 +120,16 @@ prepare:deps:
         rm -rf node_modules/ .bun/install/cache/
         sleep $i
       done
+  artifacts:
+    paths:
+      - node_modules/
+    expire_in: 1 hour
   cache:
-    - key: node-${CI_COMMIT_REF_SLUG}
-      paths:
-        - node_modules/
-        - .bun/install/cache/
-      policy: pull-push
-    - key: node-development
-      paths:
-        - node_modules/
-      policy: pull
-  timeout: 25 minutes
+    key: bun-${CI_COMMIT_REF_SLUG}
+    paths:
+      - .bun/install/cache/
+    policy: pull-push
+  timeout: 15 minutes
   <<: *rules-lint-test
 
 # ---------------------------------------------------------------------------
@@ -149,12 +141,9 @@ lint:eslint:
   image: oven/bun:1.2.17
   needs: ["prepare:deps"]
   cache:
-    - key: node-${CI_COMMIT_REF_SLUG}
-      paths: [node_modules/]
-      policy: pull
-    - key: turbo-${CI_COMMIT_REF_SLUG}
-      paths: [.turbo/]
-      policy: pull-push
+    key: turbo-${CI_COMMIT_REF_SLUG}
+    paths: [.turbo/]
+    policy: pull-push
   script:
     - bunx turbo run lint --filter=!@epsx/backend --filter=!epsx-bsc-contracts --concurrency=1
   timeout: 30 minutes
@@ -164,11 +153,6 @@ lint:typecheck:
   stage: lint
   image: oven/bun:1.2.17
   needs: ["prepare:deps"]
-  cache:
-    key: node-${CI_COMMIT_REF_SLUG}
-    paths:
-      - node_modules/
-    policy: pull
   script:
     - bun type-check
   timeout: 20 minutes
@@ -182,11 +166,6 @@ test:frontend:
   stage: test
   image: oven/bun:1.2.17
   needs: ["prepare:deps"]
-  cache:
-    key: node-${CI_COMMIT_REF_SLUG}
-    paths:
-      - node_modules/
-    policy: pull
   variables:
     JEST_JUNIT_OUTPUT_DIR: test-results
     JEST_JUNIT_OUTPUT_NAME: junit.xml
