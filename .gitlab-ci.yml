@@ -2,7 +2,7 @@
 # Mac Mini runner (arm64), Docker executor, bind-mounted Docker socket
 #
 # Branches:
-#   development → auto-deploy to dev.epsx.io
+#   development → lint + test + build only (deploy is local)
 #   staging     → auto-deploy to staging.epsx.io + E2E smoke tests
 #   main        → manual deploy to epsx.io
 #   MR          → lint + test + review app
@@ -423,54 +423,6 @@ build:backend:
 # Shell runner (tags: k8s, arm64, epsx) with kubectl + kubeconfig.
 # Image vars come from build job dotenv artifacts.
 
-deploy:dev:
-  stage: deploy
-  image: docker:27
-  needs:
-    - job: build:backend
-      artifacts: true
-    - job: build:frontend
-      artifacts: true
-    - job: build:admin
-      artifacts: true
-  before_script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-  script:
-    - docker pull $BACKEND_IMAGE
-    - docker pull $FRONTEND_IMAGE
-    - docker pull $ADMIN_IMAGE
-    - docker tag $BACKEND_IMAGE epsx-backend:dev
-    - docker tag $FRONTEND_IMAGE epsx-frontend:dev
-    - docker tag $ADMIN_IMAGE epsx-admin-frontend:dev
-    - cd infrastructure/docker
-    - |
-      # Remove containers that may have conflicting names from old project label
-      for c in epsx-dev-postgres epsx-dev-redis epsx-dev-minio epsx-dev-pgbouncer epsx-dev-backend epsx-dev-frontend epsx-dev-admin; do
-        docker rm -f "$c" 2>/dev/null || true
-      done
-    - docker compose --env-file /Users/fluke/epsx-runner/envs/.env.dev -f docker-compose.dev.yml up -d postgres redis minio
-    - docker compose --env-file /Users/fluke/epsx-runner/envs/.env.dev -f docker-compose.dev.yml up -d --force-recreate backend frontend admin-frontend
-    - |
-      echo "Verifying containers are running..."
-      for c in epsx-dev-backend epsx-dev-frontend epsx-dev-admin; do
-        status=$(docker inspect --format='{{.State.Status}}' "$c" 2>/dev/null || echo "not_found")
-        health=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$c" 2>/dev/null || echo "unknown")
-        echo "  $c: status=$status health=$health"
-        if [ "$status" != "running" ]; then echo "ERROR: $c not running"; exit 1; fi
-      done
-    - |
-      # Restart cloudflared so it reconnects to the new dev containers
-      docker restart epsx-prod-cloudflared
-      sleep 5
-      echo "  epsx-prod-cloudflared: $(docker inspect --format='{{.State.Status}}' epsx-prod-cloudflared 2>/dev/null)"
-      echo "Deploy successful!"
-  environment:
-    name: development
-    url: https://dev.epsx.io
-  timeout: 20 minutes
-  rules:
-    - if: $CI_COMMIT_BRANCH == "development"
-      when: on_success
 
 deploy:staging:
   stage: deploy
@@ -512,7 +464,7 @@ deploy:staging:
   timeout: 15 minutes
   rules:
     - if: $CI_COMMIT_BRANCH == "staging"
-      when: manual
+      when: on_success
 
 test:e2e:staging:
   stage: deploy  # runs after staging deploy
