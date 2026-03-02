@@ -52,34 +52,10 @@ variables:
     - if: $CI_COMMIT_BRANCH =~ /^(development|staging|main)$/
 
 # ---------------------------------------------------------------------------
-# Infra — deploy infrastructure components (GitLab, Cloudflared)
-# Manual jobs that can be triggered without SSH access to the Mac Mini.
+# Infra — deploy infrastructure components (Cloudflared)
+# Manual job that can be triggered without SSH access to the Mac Mini.
+# GitLab runs independently — manage via API/MCP only when explicitly needed.
 # ---------------------------------------------------------------------------
-
-infra:gitlab:
-  stage: infra
-  image: docker:27
-  script:
-    - |
-      # Ensure all required Docker networks exist
-      for net in epsx_gitlab_network epsx_review_network epsx_dev_network epsx_staging_network epsx_prod_network; do
-        docker network create "$net" 2>/dev/null && echo "Created $net" || echo "$net already exists"
-      done
-    - docker compose -f /gitlab-central/docker-compose.yml --env-file /Users/fluke/epsx-runner/envs/.env.gitlab up -d --force-recreate gitlab runner traefik
-    - |
-      echo "Waiting for GitLab to be healthy..."
-      for i in $(seq 1 20); do
-        status=$(docker inspect --format='{{.State.Health.Status}}' epsx-gitlab 2>/dev/null || echo "unknown")
-        echo "  [$i] epsx-gitlab: $status"
-        if [ "$status" = "healthy" ]; then echo "GitLab is healthy!"; break; fi
-        if [ "$i" -eq 20 ]; then echo "WARNING: GitLab health check timed out (may still be starting)"; fi
-        sleep 30
-      done
-  timeout: 15 minutes
-  rules:
-    - if: $CI_COMMIT_BRANCH =~ /^(main|development)$/
-      when: manual
-      allow_failure: true
 
 infra:cloudflared:
   stage: infra
