@@ -135,7 +135,7 @@ prepare:deps:
     paths:
       - .bun/install/cache/
     policy: pull-push
-  timeout: 15 minutes
+  timeout: 30 minutes
   <<: *rules-lint-test
 
 # ---------------------------------------------------------------------------
