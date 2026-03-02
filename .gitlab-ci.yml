@@ -124,16 +124,20 @@ prepare:deps:
       for i in 1 2 3 4 5; do
         bun install --frozen-lockfile && break
         echo "bun install attempt $i failed, retrying..."
-        rm -rf .bun/install/cache/
+        rm -rf node_modules/ .bun/install/cache/
         sleep $i
       done
   cache:
-    key: node-${CI_COMMIT_REF_SLUG}
-    paths:
-      - node_modules/
-      - .bun/install/cache/
-    policy: pull-push
-  timeout: 15 minutes
+    - key: node-${CI_COMMIT_REF_SLUG}
+      paths:
+        - node_modules/
+        - .bun/install/cache/
+      policy: pull-push
+    - key: node-development
+      paths:
+        - node_modules/
+      policy: pull
+  timeout: 25 minutes
   <<: *rules-lint-test
 
 # ---------------------------------------------------------------------------
