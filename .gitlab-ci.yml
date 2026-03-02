@@ -126,15 +126,13 @@ prepare:deps:
         rm -rf node_modules/ .bun/install/cache/
         sleep $i
       done
-  artifacts:
-    paths:
-      - node_modules/
-    expire_in: 1 hour
   cache:
-    key: bun-${CI_COMMIT_REF_SLUG}
-    paths:
-      - .bun/install/cache/
-    policy: pull-push
+    - key: bun-${CI_COMMIT_REF_SLUG}
+      paths: [.bun/install/cache/]
+      policy: pull-push
+    - key: node-${CI_COMMIT_REF_SLUG}
+      paths: [node_modules/]
+      policy: push
   timeout: 30 minutes
   <<: *rules-lint-test
 
@@ -152,9 +150,12 @@ lint:eslint:
     http_proxy: ""
     https_proxy: ""
   cache:
-    key: turbo-${CI_COMMIT_REF_SLUG}
-    paths: [.turbo/]
-    policy: pull-push
+    - key: node-${CI_COMMIT_REF_SLUG}
+      paths: [node_modules/]
+      policy: pull
+    - key: turbo-${CI_COMMIT_REF_SLUG}
+      paths: [.turbo/]
+      policy: pull-push
   script:
     - bunx turbo run lint --filter=!@epsx/backend --filter=!epsx-bsc-contracts --concurrency=1
   timeout: 30 minutes
@@ -169,6 +170,10 @@ lint:typecheck:
     HTTPS_PROXY: ""
     http_proxy: ""
     https_proxy: ""
+  cache:
+    key: node-${CI_COMMIT_REF_SLUG}
+    paths: [node_modules/]
+    policy: pull
   script:
     - bun type-check
   timeout: 20 minutes
@@ -189,6 +194,10 @@ test:frontend:
     https_proxy: ""
     JEST_JUNIT_OUTPUT_DIR: test-results
     JEST_JUNIT_OUTPUT_NAME: junit.xml
+  cache:
+    key: node-${CI_COMMIT_REF_SLUG}
+    paths: [node_modules/]
+    policy: pull
   script:
     - >
       bunx jest --ci --passWithNoTests
