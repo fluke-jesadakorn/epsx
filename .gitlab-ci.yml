@@ -490,9 +490,10 @@ deploy:staging:
         echo "  $c: status=$status health=$health"
         if [ "$status" != "running" ]; then echo "ERROR: $c not running"; exit 1; fi
       done
-    - docker restart epsx-prod-cloudflared
-    - sleep 5
-    - echo "  cloudflared: $(docker inspect --format='{{.State.Status}}' epsx-prod-cloudflared 2>/dev/null)"
+    - |
+      docker restart epsx-prod-cloudflared
+      sleep 5
+      echo "  cloudflared: $(docker inspect --format='{{.State.Status}}' epsx-prod-cloudflared 2>/dev/null)"
   environment:
     name: staging
     url: https://staging.epsx.io
@@ -547,9 +548,10 @@ deploy:prod:
         echo "  $c: status=$status health=$health"
         if [ "$status" != "running" ]; then echo "ERROR: $c not running"; exit 1; fi
       done
-    - docker restart epsx-prod-cloudflared
-    - sleep 5
-    - echo "  cloudflared: $(docker inspect --format='{{.State.Status}}' epsx-prod-cloudflared 2>/dev/null)"
+    - |
+      docker restart epsx-prod-cloudflared
+      sleep 5
+      echo "  cloudflared: $(docker inspect --format='{{.State.Status}}' epsx-prod-cloudflared 2>/dev/null)"
   environment:
     name: production
     url: https://epsx.io
