@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: epsx-cloudflared
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: epsx-cloudflared
@@ -21,12 +21,6 @@ spec:
             - --config
             - /etc/cloudflared/config.yml
             - run
-          env:
-            - name: TUNNEL_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: epsx-cloudflared
-                  key: TUNNEL_TOKEN
           volumeMounts:
             - name: config
               mountPath: /etc/cloudflared/config.yml
