@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: epsx-frontend
-          image: registry.epsx.io/jesadakorn/epsx/frontend:prod-latest
+          image: registry.jesadakorn.com/jesadakorn/epsx/frontend:prod-latest
           envFrom:
             - secretRef:
                 name: epsx-frontend

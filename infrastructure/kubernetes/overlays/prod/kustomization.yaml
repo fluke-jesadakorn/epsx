@@ -11,11 +11,11 @@ resources:
   - cloudflared/configmap.yaml
 
 images:
-  - name: registry.epsx.io/jesadakorn/epsx/backend
+  - name: registry.jesadakorn.com/jesadakorn/epsx/backend
     newTag: prod-latest
-  - name: registry.epsx.io/jesadakorn/epsx/frontend
+  - name: registry.jesadakorn.com/jesadakorn/epsx/frontend
     newTag: prod-latest
-  - name: registry.epsx.io/jesadakorn/epsx/admin
+  - name: registry.jesadakorn.com/jesadakorn/epsx/admin
     newTag: prod-latest
 
 patches:

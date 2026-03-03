@@ -56,7 +56,9 @@ export default async function HomePage(props: {
           </Suspense>
 
           {/* Dynamic Pricing Section with affiliate tracking */}
-          <DynamicPricingSection initialAffiliateCode={refCode} />
+          <Suspense fallback={null}>
+            <DynamicPricingSection initialAffiliateCode={refCode} />
+          </Suspense>
 
           {/* News Section */}
           <Suspense fallback={null}>

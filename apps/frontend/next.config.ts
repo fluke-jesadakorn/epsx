@@ -6,6 +6,24 @@ const nextConfig: NextConfig = {
   // Enable standalone output for Docker deployment
   output: 'standalone',
 
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '80mb',
+    },
+    // Tree-shake large packages — only bundle exports that are actually imported
+    optimizePackageImports: [
+      'wagmi',
+      'viem',
+      '@rainbow-me/rainbowkit',
+      '@tanstack/react-query',
+      'lucide-react',
+      'sonner',
+      '@walletconnect/core',
+      '@wagmi/core',
+      '@wagmi/connectors',
+    ],
+  },
+
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**' },
@@ -45,6 +63,28 @@ const nextConfig: NextConfig = {
       config.watchOptions = {
         poll: 1000,
         aggregateTimeout: 300,
+      };
+    }
+
+    // Split vendor chunks for better caching on mobile
+    if (!dev && !isServer) {
+      config.optimization.splitChunks = {
+        ...config.optimization.splitChunks,
+        cacheGroups: {
+          ...config.optimization.splitChunks?.cacheGroups,
+          web3: {
+            name: 'vendor-web3',
+            test: /[\\/]node_modules[\\/](wagmi|viem|@wagmi|@rainbow-me|@walletconnect|@coinbase|@metamask)[\\/]/,
+            chunks: 'all',
+            priority: 30,
+          },
+          tanstack: {
+            name: 'vendor-tanstack',
+            test: /[\\/]node_modules[\\/](@tanstack)[\\/]/,
+            chunks: 'all',
+            priority: 25,
+          },
+        },
       };
     }
 

@@ -1,13 +1,7 @@
 'use client';
 
-import {
-    darkTheme,
-    lightTheme,
-    RainbowKitProvider
-} from '@rainbow-me/rainbowkit';
-import '@rainbow-me/rainbowkit/styles.css';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { useTheme } from 'next-themes';
+import dynamic from 'next/dynamic';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { State } from 'wagmi';
@@ -16,6 +10,12 @@ import { useReconnect, WagmiProvider } from 'wagmi';
 import { logger as _logger } from '../../utils/logger';
 import { DEFAULT_APP_NAME, DEFAULT_LEARN_MORE_URL, DEFAULT_PROJECT_ID, getConfig, getDefaultChains } from '../../config/wagmi';
 import { createQueryClient } from '../../state';
+import type { RainbowKitWrapperProps } from './rainbowkit-wrapper';
+
+const RainbowKitWrapper = dynamic<RainbowKitWrapperProps>(
+    () => import('./rainbowkit-wrapper').then(m => m.RainbowKitWrapper),
+    { ssr: false }
+);
 
 /**
  * Component that triggers wagmi reconnection on mount
@@ -61,64 +61,6 @@ export interface UnifiedWeb3ProviderProps {
     learnMoreUrl?: string;
     isAdminMode?: boolean;
     initialState?: State;
-}
-
-/**
- * Inner provider component that renders after hydration
- * This separation ensures RainbowKit is only mounted on the client after hydration
- */
-function RainbowKitWrapper({
-    children,
-    appName,
-    learnMoreUrl,
-    isAdminMode,
-}: {
-    children: React.ReactNode;
-    appName: string;
-    learnMoreUrl: string;
-    isAdminMode: boolean;
-}) {
-    const { resolvedTheme } = useTheme();
-    const [isMounted, setIsMounted] = useState(false);
-
-    useEffect(() => {
-        setIsMounted(true);
-    }, []);
-
-    const customLightTheme = React.useMemo(() => lightTheme({
-        accentColor: '#f97316',
-        accentColorForeground: 'white',
-        borderRadius: 'medium',
-    }), []);
-
-    const customDarkTheme = React.useMemo(() => darkTheme({
-        accentColor: isAdminMode ? '#fbbf24' : '#f97316',
-        accentColorForeground: isAdminMode ? '#1f2937' : 'white',
-        borderRadius: 'medium',
-    }), [isAdminMode]);
-
-    const theme = React.useMemo(() =>
-        isMounted && resolvedTheme === 'dark' ? customDarkTheme : customLightTheme,
-        [isMounted, resolvedTheme, customDarkTheme, customLightTheme]);
-
-    // Don't render RainbowKit until after client-side mount
-    // This prevents the ConnectModal setState during Hydrate error
-    if (!isMounted) {
-        return <>{children}</>;
-    }
-
-    return (
-        <RainbowKitProvider
-            theme={theme}
-            modalSize="compact"
-            appInfo={{
-                appName,
-                learnMoreUrl,
-            }}
-        >
-            {children}
-        </RainbowKitProvider>
-    );
 }
 
 export function UnifiedWeb3Provider({

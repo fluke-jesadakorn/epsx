@@ -101,6 +101,33 @@ services:
           cpus: "0.1"
     logging: *default-logging
 
+  traefik:
+    image: traefik:v3.2
+    container_name: epsx-dev-traefik
+    restart: unless-stopped
+    command:
+      - --entrypoints.web.address=:80
+      - --providers.docker=true
+      - --providers.docker.network=epsx_dev_network
+      - --providers.docker.exposedbydefault=false
+      - --providers.file.directory=/etc/traefik/dynamic/
+      - --providers.file.watch=true
+    extra_hosts:
+      - "host.docker.internal:${HOST_IP:-192.168.0.33}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /Users/fluke/epsx-runner/traefik/:/etc/traefik/dynamic/:ro
+    networks:
+      - epsx_dev
+    ports:
+      - "127.0.0.1:4800:80"
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.5"
+    logging: *default-logging
+
   minio:
     image: minio/minio:latest
     container_name: epsx-dev-minio

@@ -44,17 +44,17 @@ ingress:
     originRequest:
       connectTimeout: 30s
 
-  # Dev environment (routes to host machine where `bun dev` runs)
+  # Dev environment (routes to Traefik for revision-based traffic splitting)
   - hostname: dev.epsx.io
-    service: http://host.docker.internal:3000
+    service: http://epsx-dev-traefik:80
     originRequest:
       connectTimeout: 30s
   - hostname: dev-admin.epsx.io
-    service: http://host.docker.internal:3001
+    service: http://epsx-dev-traefik:80
     originRequest:
       connectTimeout: 30s
   - hostname: dev-api.epsx.io
-    service: http://host.docker.internal:8080
+    service: http://epsx-dev-traefik:80
     originRequest:
       connectTimeout: 30s
 

@@ -2,7 +2,6 @@ import { GlobalErrorBoundary } from '@/components/error-boundaries/global-error-
 import { SafeThemeScript } from '@/components/ui/safe-theme-script';
 import '@/lib/polyfills';
 
-import { FrontendAuthModal } from '@/components/auth/frontend-auth-modal';
 import { NavigationClient } from '@/components/nav/navigation-client';
 import { ClientProviders } from '@/components/providers/client-providers';
 import { SharedOpenIDWeb3Provider } from '@/shared/components/auth';
@@ -14,7 +13,7 @@ import { Kanit } from 'next/font/google';
 import { cookies, headers } from 'next/headers';
 import { Toaster } from 'sonner';
 import { cookieToInitialState } from 'wagmi';
-import { ChatWidget } from '@/components/chat';
+import { ChatWidget, FrontendAuthModal } from '@/components/layout/lazy-widgets';
 import './globals.css';
 
 // Initialize runtime environment validation
