@@ -886,13 +886,14 @@ deploy:k8s:tag:
     - git config user.name "GitLab CI"
   script:
     - cd infrastructure/kubernetes/overlays/prod
-    - kustomize edit set image
-        registry.jesadakorn.com/jesadakorn/epsx/backend:prod-$IMAGE_TAG
-        registry.jesadakorn.com/jesadakorn/epsx/frontend:prod-$IMAGE_TAG
+    - |
+      kustomize edit set image \
+        registry.jesadakorn.com/jesadakorn/epsx/backend:prod-$IMAGE_TAG \
+        registry.jesadakorn.com/jesadakorn/epsx/frontend:prod-$IMAGE_TAG \
         registry.jesadakorn.com/jesadakorn/epsx/admin:prod-$IMAGE_TAG
     - git add kustomization.yaml
     - git diff --cached --quiet && echo "No image changes" && exit 0
-    - git commit -m "deploy(k8s): prod $IMAGE_TAG [skip ci]"
+    - 'git commit -m "deploy(k8s): prod $IMAGE_TAG [skip ci]"'
     - git push "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" HEAD:$CI_COMMIT_BRANCH
   environment:
     name: production
