@@ -16,11 +16,11 @@ if (!fs.existsSync(SCREENSHOT_DIR)) {
 }
 
 /**
- * Capture a named screenshot and save to public/screenshots/{name}.webp
+ * Capture a named screenshot and save to public/screenshots/{name}.png
  */
 export async function capture(page: Page, name: string, opts?: { fullPage?: boolean }) {
-  const filePath = path.join(SCREENSHOT_DIR, `${name}.webp`);
-  await page.screenshot({ path: filePath, fullPage: opts?.fullPage ?? false });
+  const filePath = path.join(SCREENSHOT_DIR, `${name}.png`);
+  await page.screenshot({ path: filePath, type: 'png', fullPage: opts?.fullPage ?? false });
   return filePath;
 }
 
