@@ -13,7 +13,10 @@ import { createQueryClient } from '../../state';
 import type { RainbowKitWrapperProps } from './rainbowkit-wrapper';
 
 const RainbowKitWrapper = dynamic<RainbowKitWrapperProps>(
-    () => import('./rainbowkit-wrapper').then(m => m.RainbowKitWrapper),
+    async () => {
+        const { RainbowKitWrapper: Wrapper } = await import('./rainbowkit-wrapper');
+        return Wrapper;
+    },
     { ssr: false }
 );
 
