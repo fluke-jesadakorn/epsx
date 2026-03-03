@@ -77,7 +77,7 @@ pub async fn get_transaction_status_handler(
     State(_app_state): State<AppState>,
     Extension(user_context): Extension<OpenIDUserContext>,
     Path(tx_hash): Path<String>,
-) -> Result<Json<TransactionStatusResponse>, Json<UnifiedErrorResponse>> {
+) -> Result<Json<TransactionStatusResponse>, UnifiedErrorResponse> {
     let wallet_address = user_context.wallet_address.clone();
     
     debug!(
@@ -87,18 +87,18 @@ pub async fn get_transaction_status_handler(
 
     // Validate transaction hash format
     if !tx_hash.starts_with("0x") || tx_hash.len() != 66 {
-        return Err(UnifiedErrorResponse::json(400, "Invalid transaction hash", "Transaction hash must be 66 characters starting with 0x"));
+        return Err(UnifiedErrorResponse::new(400, "Invalid transaction hash", "Transaction hash must be 66 characters starting with 0x"));
     }
 
     // Get payments database connection
     let payments_pool = get_payments_pool().await.map_err(|e| {
         error!("Failed to get payments database pool: {}", e);
-        UnifiedErrorResponse::json(500, "Database error", "Cannot connect to database")
+        UnifiedErrorResponse::new(500, "Database error", "Cannot connect to database")
     })?;
 
     let mut conn = payments_pool.get().await.map_err(|e| {
         error!("Failed to get database connection: {}", e);
-        UnifiedErrorResponse::json(500, "Database error", "Cannot establish database connection")
+        UnifiedErrorResponse::new(500, "Database error", "Cannot establish database connection")
     })?;
 
     // Query payment by transaction hash
@@ -111,7 +111,7 @@ pub async fn get_transaction_status_handler(
         .optional()
         .map_err(|e| {
             error!("Failed to query payment: {}", e);
-            UnifiedErrorResponse::json(500, "Database query failed", format!("Cannot query payment: {}", e))
+            UnifiedErrorResponse::new(500, "Database query failed", format!("Cannot query payment: {}", e))
         })?;
 
     match payment {
@@ -154,19 +154,19 @@ pub async fn get_transaction_status_handler(
                     status: payment.status.clone(),
                     confirmations: payment.confirmations.unwrap_or(0),
                     block_number: payment.block_number,
-                    error_message: None,
+                    error_message: payment.error_message.clone(),
                     payment_reference: Some(payment.payment_reference),
                     plan_name,
                     amount,
                     currency: Some(payment.currency),
                     completed_at: payment.completed_at,
-                    last_checked_at: None,
+                    last_checked_at: payment.last_checked_at,
                 },
             }))
         }
         None => {
             // H6: Uniform error response to prevent tx hash enumeration
-            Err(UnifiedErrorResponse::json(404, "Transaction not found", "Unable to retrieve transaction status"))
+            Err(UnifiedErrorResponse::new(404, "Transaction not found", "Unable to retrieve transaction status"))
         }
     }
 }

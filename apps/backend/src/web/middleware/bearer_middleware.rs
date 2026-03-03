@@ -12,7 +12,7 @@ use axum::{
     extract::{Request, State},
     http::{header::AUTHORIZATION, StatusCode},
     middleware::Next,
-    response::Response,
+    response::{IntoResponse, Response},
     Json,
 };
 use serde::{Deserialize, Serialize};
@@ -76,6 +76,13 @@ impl UnifiedErrorResponse {
     /// Wrap in Json for Axum handler returns
     pub fn json(code: u16, message: impl Into<String>, reason: impl Into<String>) -> Json<Self> {
         Json(Self::new(code, message, reason))
+    }
+}
+
+impl IntoResponse for UnifiedErrorResponse {
+    fn into_response(self) -> Response {
+        let status = StatusCode::from_u16(self.error.code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+        (status, Json(self)).into_response()
     }
 }
 

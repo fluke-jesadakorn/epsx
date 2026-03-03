@@ -613,6 +613,9 @@ impl UnifiedRouteBuilder {
             get_user_payment_history,
             submit_transaction_handler,
             get_transaction_status_handler,
+            // Admin reprocess handlers
+            admin_reprocess_payment_handler,
+            admin_payment_events_handler,
             // Admin payment handlers
             admin_list_payments_handler,
             admin_get_payment_details_handler,
@@ -668,6 +671,9 @@ impl UnifiedRouteBuilder {
             .route("/admin/{id}/refund", post(admin_process_refund_handler))
             .route("/admin/subscriptions", get(admin_list_subscriptions_handler))
             .route("/admin/analytics", get(admin_get_payment_analytics_handler))
+            // Reprocess & audit trail for stuck transactions
+            .route("/admin/tx/{tx_hash}/reprocess", post(admin_reprocess_payment_handler))
+            .route("/admin/tx/{tx_hash}/events", get(admin_payment_events_handler))
             .with_state(app_state.clone())
             .layer(axum_middleware::from_fn(
                 crate::web::middleware::permission_validation_middleware

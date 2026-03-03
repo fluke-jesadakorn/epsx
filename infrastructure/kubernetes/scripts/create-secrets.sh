@@ -96,7 +96,10 @@ apply_secret epsx-backend \
   --from-literal=BSC_REQUIRED_CONFIRMATIONS="${BSC_REQUIRED_CONFIRMATIONS:-3}" \
   --from-literal=BSC_TESTNET_REQUIRED_CONFIRMATIONS="${BSC_TESTNET_REQUIRED_CONFIRMATIONS:-1}" \
   --from-literal=MAX_PAYMENT_AGE_MINUTES="${MAX_PAYMENT_AGE_MINUTES:-60}" \
-  --from-literal=TURNSTILE_SECRET_KEY="${TURNSTILE_SECRET_KEY:-}"
+  --from-literal=TURNSTILE_SECRET_KEY="${TURNSTILE_SECRET_KEY:-}" \
+  --from-literal=PAYMENTS_DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@epsx-postgres:5432/epsx_payments_${DB_SUFFIX}?sslmode=disable" \
+  --from-literal=ANALYTICS_DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@epsx-postgres:5432/epsx_analytics_${DB_SUFFIX}?sslmode=disable" \
+  --from-literal=NOTIFICATIONS_DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@epsx-postgres:5432/epsx_notifications_${DB_SUFFIX}?sslmode=disable"
 
 # ── epsx-frontend ─────────────────────────────────────────────────────────────
 apply_secret epsx-frontend \

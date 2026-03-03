@@ -10,6 +10,7 @@ pub mod admin_handlers;
 pub mod user_payment_handlers;
 pub mod submit_tx_handler;
 pub mod get_tx_status_handler;
+pub mod admin_reprocess_handler;
 pub mod upgrade_service;
 pub mod credit_handlers;
 
@@ -43,6 +44,10 @@ pub use submit_tx_handler::{
 };
 pub use get_tx_status_handler::{
     get_transaction_status_handler,
+};
+pub use admin_reprocess_handler::{
+    admin_reprocess_payment_handler,
+    admin_payment_events_handler,
 };
 pub use credit_handlers::{
     get_credit_balance,

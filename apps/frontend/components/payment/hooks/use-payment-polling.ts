@@ -7,6 +7,7 @@ import type { PaymentStep } from './use-payment-flow';
 
 const MAX_POLL_MS = 5 * 60 * 1000;
 const POLL_INTERVALS = [3000, 5000, 8000, 12000, 15000];
+const MAX_CONSECUTIVE_ERRORS = 5;
 
 interface UsePaymentPollingCtx {
     step: PaymentStep;
@@ -23,6 +24,7 @@ export function usePaymentPolling({ step, address, txHash, refetchPlanAccess, se
     const pollAttemptRef = useRef<number>(0);
     const visCleanupRef = useRef<(() => void) | null>(null);
     const hasResumedRef = useRef(false);
+    const errorCountRef = useRef<number>(0);
 
     const clearPoll = useCallback(() => {
         if (pollRef.current) { clearTimeout(pollRef.current); pollRef.current = null; }
@@ -42,6 +44,7 @@ export function usePaymentPolling({ step, address, txHash, refetchPlanAccess, se
         visCleanupRef.current?.();
         pollStartRef.current = Date.now();
         pollAttemptRef.current = 0;
+        errorCountRef.current = 0;
 
         const schedulePoll = () => {
             const idx = Math.min(pollAttemptRef.current, POLL_INTERVALS.length - 1);
@@ -57,11 +60,40 @@ export function usePaymentPolling({ step, address, txHash, refetchPlanAccess, se
                     try {
                         const status = await getTransactionStatusAction(hash);
                         if (status.success && status.data) {
-                            const s = (status.data as { status: string }).status;
-                            if (s === 'confirmed') { clearPoll(); setStep('success'); refetchPlanAccess(); return; }
-                            if (s === 'failed' || s === 'expired') { clearPoll(); setError('Payment verification failed. Please contact support.'); return; }
+                            errorCountRef.current = 0;
+                            const d = status.data as { status: string; error_message?: string | null };
+                            if (d.status === 'confirmed') { clearPoll(); setStep('success'); refetchPlanAccess(); return; }
+                            if (d.status === 'failed' || d.status === 'expired') {
+                                clearPoll();
+                                setError(d.error_message ?? 'Payment verification failed. Please contact support.');
+                                return;
+                            }
+                            // Surface any stored error even while still pending/confirming
+                            if (d.error_message) {
+                                setError(d.error_message);
+                                return;
+                            }
+                        } else if (!status.success) {
+                            // Backend returned an error (now with proper HTTP status codes)
+                            errorCountRef.current += 1;
+                            const errMsg = (status as { error?: { reason?: string } }).error?.reason
+                                ?? 'Unable to check payment status';
+                            if (errorCountRef.current >= MAX_CONSECUTIVE_ERRORS) {
+                                clearPoll();
+                                setError('Unable to verify payment status. Your payment is safe — please contact support.');
+                                return;
+                            }
+                            logger.error('[Payment] Status check failed:', errMsg);
                         }
-                    } catch (_err) { logger.error('[Payment] Poll status error:', _err); }
+                    } catch (_err) {
+                        errorCountRef.current += 1;
+                        logger.error('[Payment] Poll status error:', _err);
+                        if (errorCountRef.current >= MAX_CONSECUTIVE_ERRORS) {
+                            clearPoll();
+                            setError('Unable to verify payment status. Your payment is safe — please contact support.');
+                            return;
+                        }
+                    }
                     pollAttemptRef.current += 1;
                     schedulePoll();
                 })();

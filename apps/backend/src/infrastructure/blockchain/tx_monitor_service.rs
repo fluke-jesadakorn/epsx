@@ -82,7 +82,7 @@ impl Default for TransactionMonitorConfig {
             rpc_url: std::env::var("BSC_RPC_URL")
                 .unwrap_or_else(|_| "https://bsc-dataseed.binance.org".to_string()),
             receiver_addresses,
-            min_confirmations: if is_mainnet { 50 } else { 3 },
+            min_confirmations: if is_mainnet { 15 } else { 3 },
             poll_interval_secs: 5,
             supported_tokens,
             pending_ttl_hours: 24,
@@ -117,6 +117,22 @@ impl TransactionMonitorService {
         })
     }
 
+    /// Verify payments table is accessible before starting the poll loop
+    async fn validate_db(&self) -> Result<(), String> {
+        let pool = get_payments_pool()
+            .await
+            .map_err(|e| format!("payments pool unavailable: {}", e))?;
+        let mut conn = pool
+            .get()
+            .await
+            .map_err(|e| format!("payments connection failed: {}", e))?;
+        diesel::sql_query("SELECT 1 FROM payments LIMIT 0")
+            .execute(&mut conn)
+            .await
+            .map_err(|e| format!("payments table not accessible: {}", e))?;
+        Ok(())
+    }
+
     /// Start the background monitoring loop
     pub async fn start(&self) {
         info!(
@@ -126,6 +142,27 @@ impl TransactionMonitorService {
             self.config.supported_tokens.len(),
             self.config.pending_ttl_hours,
         );
+
+        // Validate DB connectivity before entering poll loop — retry up to 5 times
+        for attempt in 1..=5 {
+            match self.validate_db().await {
+                Ok(()) => {
+                    info!("Transaction monitor: payments DB validated");
+                    break;
+                }
+                Err(e) => {
+                    error!(
+                        "Transaction monitor DB validation failed (attempt {}/5): {}",
+                        attempt, e
+                    );
+                    if attempt == 5 {
+                        error!("FATAL: Transaction monitor cannot reach payments DB after 5 attempts. Stopping.");
+                        return;
+                    }
+                    tokio::time::sleep(Duration::from_secs(10)).await;
+                }
+            }
+        }
 
         let mut error_count: u64 = 0;
         loop {
@@ -464,6 +501,70 @@ impl TransactionMonitorService {
 
         warn!("Transaction {} marked as failed: {}", tx_hash, error_message);
 
+        self.emit_audit_event(
+            tx_hash, "failed", "failed", Some(error_message),
+            serde_json::json!({}),
+        ).await;
+
+        Ok(())
+    }
+
+    /// Emit an entry to payment_audit_log (best-effort, non-fatal)
+    async fn emit_audit_event(
+        &self,
+        tx_hash: &str,
+        action: &str,
+        new_status: &str,
+        reason: Option<&str>,
+        metadata: serde_json::Value,
+    ) {
+        let Ok(payments_pool) = get_payments_pool().await else { return; };
+        let Ok(mut conn) = payments_pool.get().await else { return; };
+
+        let _ = diesel::sql_query(
+            r#"
+            INSERT INTO payment_audit_log
+                (id, payment_id, action, new_status, reason, performed_by, metadata, tx_hash)
+            SELECT gen_random_uuid(), p.id, $1, $2, $3, 'tx_monitor', $4, $5
+            FROM payments p
+            WHERE p.transaction_hash = $5
+            "#,
+        )
+        .bind::<diesel::sql_types::Text, _>(action)
+        .bind::<diesel::sql_types::Text, _>(new_status)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(reason)
+        .bind::<diesel::sql_types::Jsonb, _>(&metadata)
+        .bind::<diesel::sql_types::Text, _>(tx_hash)
+        .execute(&mut conn)
+        .await;
+    }
+
+    /// Store verify error in DB without changing payment status (RC-2)
+    async fn mark_verify_error(&self, tx_hash: &str, error: &str) -> Result<(), String> {
+        let payments_pool = get_payments_pool()
+            .await
+            .map_err(|e| format!("Failed to get payments pool: {}", e))?;
+        let mut conn = payments_pool
+            .get()
+            .await
+            .map_err(|e| format!("Failed to get connection: {}", e))?;
+
+        diesel::sql_query(
+            r#"
+            UPDATE payments
+            SET error_message = $1,
+                last_checked_at = NOW()
+            WHERE transaction_hash = $2
+            "#,
+        )
+        .bind::<diesel::sql_types::Text, _>(error)
+        .bind::<diesel::sql_types::Text, _>(tx_hash)
+        .execute(&mut conn)
+        .await
+        .map_err(|e| format!("Failed to store verify error: {}", e))?;
+
+        warn!("Verify error stored for {}: {}", tx_hash, error);
+
         Ok(())
     }
 
@@ -484,7 +585,7 @@ impl TransactionMonitorService {
             SET status = 'expired',
                 error_message = 'Payment expired: pending too long',
                 last_checked_at = NOW()
-            WHERE status = 'pending'
+            WHERE status IN ('pending', 'confirming')
               AND created_at < NOW() - ($1 || ' hours')::INTERVAL
             "#,
         )
@@ -589,39 +690,30 @@ impl TransactionMonitorService {
             .and_then(|s| s.parse::<bigdecimal::BigDecimal>().ok())
             .unwrap_or_else(|| payment.amount.clone());
 
-        // Verify ERC20 Transfer events in the receipt
-        let (verified_amount, verified_token) =
-            self.verify_transfer_logs(receipt, &blockchain_amount, &payment.currency, &wallet_address)?;
+        // Verify ERC20 Transfer events in the receipt (RC-2: store error without changing status)
+        let (verified_amount, verified_token) = match self.verify_transfer_logs(
+            receipt, &blockchain_amount, &payment.currency, &wallet_address,
+        ) {
+            Ok(result) => result,
+            Err(e) => {
+                self.mark_verify_error(tx_hash, &e).await.ok();
+                return Err(e);
+            }
+        };
 
         info!(
             "On-chain verification passed: tx={}, amount_raw={}, token={:?}",
             tx_hash, verified_amount, verified_token
         );
 
+        self.emit_audit_event(
+            tx_hash, "verified", "confirming", None,
+            serde_json::json!({ "token": format!("{:?}", verified_token), "amount_raw": verified_amount.to_string() }),
+        ).await;
+
         let block_number = receipt.block_number.map(|b| b.as_u64() as i64);
         let expires_at = Utc::now() + chrono::Duration::days(30);
         let token_addr = format!("{:?}", verified_token);
-
-        // 1. Update payment status to confirmed with verified on-chain data
-        diesel::sql_query(
-            r#"
-            UPDATE payments
-            SET status = 'confirmed',
-                block_number = $1,
-                confirmations = $2,
-                token_address = $3,
-                completed_at = NOW(),
-                last_checked_at = NOW()
-            WHERE transaction_hash = $4
-            "#,
-        )
-        .bind::<diesel::sql_types::Nullable<diesel::sql_types::BigInt>, _>(block_number)
-        .bind::<diesel::sql_types::Integer, _>(self.config.min_confirmations as i32)
-        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(Some(&token_addr))
-        .bind::<diesel::sql_types::Text, _>(tx_hash)
-        .execute(&mut payments_conn)
-        .await
-        .map_err(|e| format!("Failed to update payment status: {}", e))?;
 
         // 2. Ensure wallet_users entry exists
         diesel::sql_query(
@@ -663,6 +755,7 @@ impl TransactionMonitorService {
                     "Plan {} not found or inactive for wallet {}",
                     plan_uuid, wallet_address
                 );
+                self.mark_as_failed(tx_hash, &format!("Plan {} not found or inactive", plan_uuid)).await.ok();
                 return Err(format!("Plan {} not found or inactive", plan_uuid));
             }
         };
@@ -782,6 +875,27 @@ impl TransactionMonitorService {
             .map_err(|e| format!("Failed to assign plan: {}", e))?;
         }
 
+        // 1. Update payment status to confirmed (RC-3: after plan assignment succeeds)
+        diesel::sql_query(
+            r#"
+            UPDATE payments
+            SET status = 'confirmed',
+                block_number = $1,
+                confirmations = $2,
+                token_address = $3,
+                completed_at = NOW(),
+                last_checked_at = NOW()
+            WHERE transaction_hash = $4
+            "#,
+        )
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::BigInt>, _>(block_number)
+        .bind::<diesel::sql_types::Integer, _>(self.config.min_confirmations as i32)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(Some(&token_addr))
+        .bind::<diesel::sql_types::Text, _>(tx_hash)
+        .execute(&mut payments_conn)
+        .await
+        .map_err(|e| format!("Failed to update payment status: {}", e))?;
+
         // 5. Update wallet tier based on plan tier_level
         let tier_name = match tier_level {
             0..=2 => "Bronze",
@@ -808,7 +922,180 @@ impl TransactionMonitorService {
             wallet_address, plan_name, plan_uuid, tier_name, expires_at, payment_reference
         );
 
+        self.emit_audit_event(
+            tx_hash, "plan_assigned", "confirmed", None,
+            serde_json::json!({ "plan_id": plan_uuid.to_string(), "plan_name": plan_name, "expires_at": expires_at.to_rfc3339(), "payment_reference": payment_reference }),
+        ).await;
+
         Ok(())
+    }
+}
+
+/// Reprocess a specific transaction — used by admin reprocess endpoint
+/// Creates a fresh monitor service, fetches the receipt, and runs finalize_payment
+pub async fn reprocess_payment_tx(tx_hash: &str) -> Result<String, String> {
+    let config = TransactionMonitorConfig::default();
+    let service = TransactionMonitorService::new(config)?;
+
+    let current_block = service
+        .provider
+        .get_block_number()
+        .await
+        .map_err(|e| format!("Failed to get block number: {}", e))?;
+
+    service
+        .check_single_transaction(tx_hash, current_block.as_u64())
+        .await?;
+
+    // Return new payment status from DB
+    let payments_pool = get_payments_pool()
+        .await
+        .map_err(|e| format!("Failed to get payments pool: {}", e))?;
+    let mut conn = payments_pool
+        .get()
+        .await
+        .map_err(|e| format!("Failed to get connection: {}", e))?;
+
+    #[derive(diesel::QueryableByName)]
+    struct StatusRow {
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        status: String,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+        error_message: Option<String>,
+    }
+
+    let row: Option<StatusRow> = diesel::sql_query(
+        "SELECT status, error_message FROM payments WHERE transaction_hash = $1 LIMIT 1",
+    )
+    .bind::<diesel::sql_types::Text, _>(tx_hash)
+    .get_result(&mut conn)
+    .await
+    .ok();
+
+    Ok(row.map(|r| {
+        if let Some(err) = r.error_message {
+            format!("{}:{}", r.status, err)
+        } else {
+            r.status
+        }
+    }).unwrap_or_else(|| "not_found".to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ethers::types::{Bytes, Log, TransactionReceipt, H160, H256, U256, U64};
+    use std::str::FromStr;
+
+    fn make_service(receiver: H160, token: H160) -> TransactionMonitorService {
+        let mut receivers = HashSet::new();
+        receivers.insert(receiver);
+        let mut tokens = HashSet::new();
+        tokens.insert(format!("{:#x}", token));
+        let config = TransactionMonitorConfig {
+            rpc_url: "http://localhost:8545".to_string(),
+            receiver_addresses: receivers,
+            min_confirmations: 15,
+            poll_interval_secs: 5,
+            supported_tokens: tokens,
+            pending_ttl_hours: 24,
+        };
+        TransactionMonitorService::new(config).expect("service creation failed")
+    }
+
+    fn make_receipt(from: H160, to: H160, token: H160, amount: U256) -> TransactionReceipt {
+        let transfer_topic: H256 = ERC20_TRANSFER_TOPIC.parse().unwrap();
+        let from_topic = H256::from(from);
+        let to_topic = H256::from(to);
+        let mut amount_bytes = [0u8; 32];
+        amount.to_big_endian(&mut amount_bytes);
+
+        let log = Log {
+            address: token,
+            topics: vec![transfer_topic, from_topic, to_topic],
+            data: Bytes::from(amount_bytes.to_vec()),
+            ..Default::default()
+        };
+        TransactionReceipt {
+            logs: vec![log],
+            status: Some(U64::from(1)),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn verify_valid_transfer() {
+        let receiver = H160::from_str("0x1111111111111111111111111111111111111111").unwrap();
+        let token = H160::from_str("0x55d398326f99059ff775485246999027b3197955").unwrap();
+        let sender = H160::from_str("0x2222222222222222222222222222222222222222").unwrap();
+        let svc = make_service(receiver, token);
+        let amount = U256::from(29u64) * U256::from(10u64).pow(U256::from(18u64));
+        let receipt = make_receipt(sender, receiver, token, amount);
+        let expected: bigdecimal::BigDecimal = "29".parse().unwrap();
+        let result = svc.verify_transfer_logs(&receipt, &expected, "USDT", &format!("{:#x}", sender));
+        assert!(result.is_ok(), "expected Ok but got: {:?}", result);
+    }
+
+    #[test]
+    fn verify_wrong_receiver_fails() {
+        let receiver = H160::from_str("0x1111111111111111111111111111111111111111").unwrap();
+        let wrong = H160::from_str("0x3333333333333333333333333333333333333333").unwrap();
+        let token = H160::from_str("0x55d398326f99059ff775485246999027b3197955").unwrap();
+        let sender = H160::from_str("0x2222222222222222222222222222222222222222").unwrap();
+        let svc = make_service(receiver, token);
+        let amount = U256::from(29u64) * U256::from(10u64).pow(U256::from(18u64));
+        let receipt = make_receipt(sender, wrong, token, amount);
+        let expected: bigdecimal::BigDecimal = "29".parse().unwrap();
+        let result = svc.verify_transfer_logs(&receipt, &expected, "USDT", &format!("{:#x}", sender));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("No Transfer to valid receivers"));
+    }
+
+    #[test]
+    fn verify_unsupported_token_fails() {
+        let receiver = H160::from_str("0x1111111111111111111111111111111111111111").unwrap();
+        let token = H160::from_str("0x55d398326f99059ff775485246999027b3197955").unwrap();
+        let bad_token = H160::from_str("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef").unwrap();
+        let sender = H160::from_str("0x2222222222222222222222222222222222222222").unwrap();
+        let svc = make_service(receiver, token);
+        let amount = U256::from(29u64) * U256::from(10u64).pow(U256::from(18u64));
+        let receipt = make_receipt(sender, receiver, bad_token, amount);
+        let expected: bigdecimal::BigDecimal = "29".parse().unwrap();
+        let result = svc.verify_transfer_logs(&receipt, &expected, "USDT", &format!("{:#x}", sender));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("No Transfer to valid receivers"));
+    }
+
+    #[test]
+    fn verify_underpayment_fails() {
+        let receiver = H160::from_str("0x1111111111111111111111111111111111111111").unwrap();
+        let token = H160::from_str("0x55d398326f99059ff775485246999027b3197955").unwrap();
+        let sender = H160::from_str("0x2222222222222222222222222222222222222222").unwrap();
+        let svc = make_service(receiver, token);
+        // Send only 20, expect 29 — well under 0.1% tolerance
+        let amount = U256::from(20u64) * U256::from(10u64).pow(U256::from(18u64));
+        let receipt = make_receipt(sender, receiver, token, amount);
+        let expected: bigdecimal::BigDecimal = "29".parse().unwrap();
+        let result = svc.verify_transfer_logs(&receipt, &expected, "USDT", &format!("{:#x}", sender));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Amount mismatch"));
+    }
+
+    #[test]
+    fn verify_no_erc20_events_fails() {
+        let receiver = H160::from_str("0x1111111111111111111111111111111111111111").unwrap();
+        let token = H160::from_str("0x55d398326f99059ff775485246999027b3197955").unwrap();
+        let sender = H160::from_str("0x2222222222222222222222222222222222222222").unwrap();
+        let svc = make_service(receiver, token);
+        let receipt = TransactionReceipt {
+            logs: vec![],
+            status: Some(U64::from(1)),
+            ..Default::default()
+        };
+        let expected: bigdecimal::BigDecimal = "29".parse().unwrap();
+        let result = svc.verify_transfer_logs(&receipt, &expected, "USDT", &format!("{:#x}", sender));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("No ERC20 Transfer events"));
     }
 }
 

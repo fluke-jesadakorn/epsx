@@ -73,7 +73,7 @@ pub async fn submit_transaction_handler(
     State(_app_state): State<AppState>,
     Extension(user_context): Extension<OpenIDUserContext>,
     Json(payload): Json<SubmitTransactionRequest>,
-) -> Result<Json<SubmitTransactionResponse>, Json<UnifiedErrorResponse>> {
+) -> Result<Json<SubmitTransactionResponse>, UnifiedErrorResponse> {
     let wallet_address = user_context.wallet_address.clone();
 
     debug!("api/payments/submit HIT by wallet: {}", wallet_address);
@@ -90,7 +90,7 @@ pub async fn submit_transaction_handler(
         let client = ClientId::User(wallet_address.clone().into());
         match limiter.check_client_rate_limit(&client, "/api/payments/submit", "POST", &config).await {
             Ok(result) if !result.allowed => {
-                return Err(UnifiedErrorResponse::json(
+                return Err(UnifiedErrorResponse::new(
                     429,
                     "Too many requests",
                     "Payment submission rate limit exceeded. Please try again later.",
@@ -106,7 +106,7 @@ pub async fn submit_transaction_handler(
 
     // Validate transaction hash format
     if !payload.transaction_hash.starts_with("0x") || payload.transaction_hash.len() != 66 {
-        return Err(UnifiedErrorResponse::json(
+        return Err(UnifiedErrorResponse::new(
             400,
             "Invalid transaction hash",
             "Transaction hash must be 66 characters starting with 0x",
@@ -115,14 +115,14 @@ pub async fn submit_transaction_handler(
 
     // Parse plan_id as UUID
     let plan_uuid = Uuid::parse_str(&payload.plan_id)
-        .map_err(|_| UnifiedErrorResponse::json(400, "Invalid plan ID", "Plan ID must be a valid UUID"))?;
+        .map_err(|_| UnifiedErrorResponse::new(400, "Invalid plan ID", "Plan ID must be a valid UUID"))?;
 
     // Parse expected_amount: accept both f64 and string
     let amount_str = match &payload.expected_amount {
         serde_json::Value::Number(n) => n.to_string(),
         serde_json::Value::String(s) => s.clone(),
         _ => {
-            return Err(UnifiedErrorResponse::json(
+            return Err(UnifiedErrorResponse::new(
                 400,
                 "Invalid amount",
                 "expected_amount must be a number or string",
@@ -130,11 +130,11 @@ pub async fn submit_transaction_handler(
         }
     };
     let payment_amount = BigDecimal::from_str(&amount_str).map_err(|_| {
-        UnifiedErrorResponse::json(400, "Invalid amount", "Cannot parse expected_amount")
+        UnifiedErrorResponse::new(400, "Invalid amount", "Cannot parse expected_amount")
     })?;
 
     if payment_amount <= 0 {
-        return Err(UnifiedErrorResponse::json(
+        return Err(UnifiedErrorResponse::new(
             400,
             "Invalid amount",
             "Payment amount must be positive",
@@ -145,7 +145,7 @@ pub async fn submit_transaction_handler(
     let network = match payload.network.as_deref() {
         Some(n) if ["bsc-mainnet", "bsc-testnet", "localhost"].contains(&n) => n.to_string(),
         Some(_) => {
-            return Err(UnifiedErrorResponse::json(
+            return Err(UnifiedErrorResponse::new(
                 400,
                 "Invalid network",
                 "Unsupported network. Must be bsc-mainnet, bsc-testnet, or localhost",
@@ -157,17 +157,17 @@ pub async fn submit_transaction_handler(
     // C3+C5: Server-side plan price & eligibility validation
     let primary_pool = get_diesel_pool().await.map_err(|e| {
         error!("Failed to get primary database pool: {}", e);
-        UnifiedErrorResponse::json(500, "Database error", "Cannot connect to primary database")
+        UnifiedErrorResponse::new(500, "Database error", "Cannot connect to primary database")
     })?;
     let mut primary_conn = primary_pool.get().await.map_err(|e| {
         error!("Failed to get primary connection: {}", e);
-        UnifiedErrorResponse::json(500, "Database error", "Cannot establish primary database connection")
+        UnifiedErrorResponse::new(500, "Database error", "Cannot establish primary database connection")
     })?;
 
     #[derive(diesel::QueryableByName)]
     struct PlanCheck {
         #[diesel(sql_type = diesel::sql_types::Numeric)]
-        current_price: BigDecimal,
+        price: BigDecimal,
         #[diesel(sql_type = diesel::sql_types::Bool)]
         is_active: bool,
         #[diesel(sql_type = diesel::sql_types::Text)]
@@ -175,7 +175,7 @@ pub async fn submit_transaction_handler(
     }
 
     let plan_check: Option<PlanCheck> = diesel::sql_query(
-        "SELECT current_price, is_active, COALESCE(plan_type, 'subscription') as plan_type FROM plans WHERE id = $1"
+        "SELECT COALESCE(price, 0) as price, is_active, COALESCE(plan_type, 'subscription') as plan_type FROM plans WHERE id = $1"
     )
     .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
     .get_result(&mut primary_conn)
@@ -183,16 +183,16 @@ pub async fn submit_transaction_handler(
     .optional()
     .map_err(|e| {
         error!("Failed to query plan: {}", e);
-        UnifiedErrorResponse::json(500, "Database error", "Failed to verify plan")
+        UnifiedErrorResponse::new(500, "Database error", "Failed to verify plan")
     })?;
 
     let plan_info = plan_check.ok_or_else(|| {
-        UnifiedErrorResponse::json(404, "Plan not found", "The specified plan does not exist")
+        UnifiedErrorResponse::new(404, "Plan not found", "The specified plan does not exist")
     })?;
 
     // C5: Check plan eligibility
     if !plan_info.is_active {
-        return Err(UnifiedErrorResponse::json(
+        return Err(UnifiedErrorResponse::new(
             403,
             "Plan unavailable",
             "This plan is not currently available for purchase",
@@ -200,7 +200,7 @@ pub async fn submit_transaction_handler(
     }
 
     if plan_info.plan_type == "system" {
-        return Err(UnifiedErrorResponse::json(
+        return Err(UnifiedErrorResponse::new(
             403,
             "Plan unavailable",
             "This plan cannot be purchased directly",
@@ -208,14 +208,14 @@ pub async fn submit_transaction_handler(
     }
 
     // C3: Validate amount matches plan price (allow 1% tolerance for rounding)
-    let price_diff = (&payment_amount - &plan_info.current_price).abs();
-    let tolerance = &plan_info.current_price * BigDecimal::from_str("0.01").unwrap_or_else(|_| BigDecimal::from(0));
-    if price_diff > tolerance && plan_info.current_price > 0 {
+    let price_diff = (&payment_amount - &plan_info.price).abs();
+    let tolerance = &plan_info.price * BigDecimal::from_str("0.01").unwrap_or_else(|_| BigDecimal::from(0));
+    if price_diff > tolerance && plan_info.price > 0 {
         error!(
             "Amount mismatch: submitted={}, plan_price={}, plan_id={}",
-            payment_amount, plan_info.current_price, plan_uuid
+            payment_amount, plan_info.price, plan_uuid
         );
-        return Err(UnifiedErrorResponse::json(
+        return Err(UnifiedErrorResponse::new(
             400,
             "Amount mismatch",
             "Payment amount does not match plan price",
@@ -225,12 +225,12 @@ pub async fn submit_transaction_handler(
     // Get payments database connection
     let payments_pool = get_payments_pool().await.map_err(|e| {
         error!("Failed to get payments database pool: {}", e);
-        UnifiedErrorResponse::json(500, "Database error", "Cannot connect to database")
+        UnifiedErrorResponse::new(500, "Database error", "Cannot connect to database")
     })?;
 
     let mut conn = payments_pool.get().await.map_err(|e| {
         error!("Failed to get database connection: {}", e);
-        UnifiedErrorResponse::json(500, "Database error", "Cannot establish database connection")
+        UnifiedErrorResponse::new(500, "Database error", "Cannot establish database connection")
     })?;
 
     // Atomic dedup check — the UNIQUE constraint on transaction_hash prevents races.
@@ -360,7 +360,7 @@ pub async fn submit_transaction_handler(
             }
             Err(e) => {
                 error!("Atomic credit+payment failed: {}", e);
-                return Err(UnifiedErrorResponse::json(
+                return Err(UnifiedErrorResponse::new(
                     500,
                     "Failed to submit transaction",
                     format!("Database error: {}", e),
@@ -435,7 +435,7 @@ pub async fn submit_transaction_handler(
                     // We return a 409 Conflict indicating it's already in progress.
                     warn!("Transaction hash {} already exists for a different wallet. Preventing overwrite DoS.", payload.transaction_hash);
                     
-                    return Err(UnifiedErrorResponse::json(
+                    return Err(UnifiedErrorResponse::new(
                         409,
                         "Transaction Conflict",
                         "This transaction is already being processed by another account.",
@@ -443,7 +443,7 @@ pub async fn submit_transaction_handler(
                 }
 
                 error!("Failed to insert payment record: {}", e);
-                return Err(UnifiedErrorResponse::json(
+                return Err(UnifiedErrorResponse::new(
                     500,
                     "Failed to submit transaction",
                     format!("Database error: {}", e),

@@ -184,7 +184,7 @@ export function UnifiedPaymentFlow({
     }
 
     if (step === 'verifying') {
-        return <VerifyingStep planTitle={selectedPlan?.title ?? ''} txHash={txHash} className={className} />;
+        return <VerifyingStep planTitle={selectedPlan?.title ?? ''} txHash={txHash} errorMessage={error} className={className} />;
     }
 
     if (step === 'success') {

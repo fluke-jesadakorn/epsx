@@ -179,10 +179,11 @@ export function ErrorStep({ error, onRetry, className }: ErrorStepProps) {
 interface VerifyingStepProps {
     planTitle: string;
     txHash: string | null;
+    errorMessage?: string | null;
     className?: string;
 }
 
-export function VerifyingStep({ planTitle, txHash, className }: VerifyingStepProps) {
+export function VerifyingStep({ planTitle, txHash, errorMessage, className }: VerifyingStepProps) {
     const [copied, setCopied] = useState(false);
     const explorerUrl = txHash
         ? `https://bscscan.com/tx/${txHash}`
@@ -194,6 +195,41 @@ export function VerifyingStep({ planTitle, txHash, className }: VerifyingStepPro
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
+
+    const supportUrl = txHash
+        ? `/contact?subject=Payment+stuck&tx=${txHash}`
+        : '/contact';
+
+    if (errorMessage) {
+        return (
+            <div className={cn('max-w-lg mx-auto text-center', className)}>
+                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl border border-red-200/50 dark:border-red-700/50">
+                    <div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 mx-auto mb-6">
+                        <AlertCircle className="h-10 w-10 text-red-600 dark:text-red-400" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                        Verification Failed
+                    </h2>
+                    <p className="text-sm text-red-600 dark:text-red-400 mb-4 font-mono break-all bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
+                        {errorMessage}
+                    </p>
+                    {txHash && (
+                        <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 mb-6">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Transaction Hash</p>
+                            <code className="text-xs font-mono text-gray-700 dark:text-gray-300 break-all">{txHash}</code>
+                        </div>
+                    )}
+                    <a
+                        href={supportUrl}
+                        className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold transition-all"
+                    >
+                        Contact Support
+                        <ExternalLink className="w-4 h-4" />
+                    </a>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className={cn('max-w-lg mx-auto text-center', className)}>
