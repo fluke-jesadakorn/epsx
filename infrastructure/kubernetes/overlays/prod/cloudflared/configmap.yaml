@@ -4,7 +4,7 @@ metadata:
   name: epsx-cloudflared-conf
 data:
   config.yml: |
-    tunnel: <TUNNEL_ID>
+    tunnel: 6bee9b58-eede-4b4c-815c-94c0ee38fe58
     credentials-file: /etc/cloudflared/credentials.json
 
     ingress:
@@ -76,18 +76,18 @@ data:
 
       # ── GitLab (stays Docker — route via Mac Mini host LAN IP) ────────────
       - hostname: gitlab.jesadakorn.com
-        service: http://<MAC_MINI_LAN_IP>:8929
+        service: http://192.168.0.33:8929
         originRequest:
           connectTimeout: 60s
 
       - hostname: registry.jesadakorn.com
-        service: http://<MAC_MINI_LAN_IP>:5050
+        service: http://192.168.0.33:5050
         originRequest:
           connectTimeout: 60s
 
       # ── Review apps (stays Docker — Traefik on host) ──────────────────────
       - hostname: "*.review.epsx.io"
-        service: http://<MAC_MINI_LAN_IP>:80
+        service: http://192.168.0.33:80
         originRequest:
           connectTimeout: 30s
 
