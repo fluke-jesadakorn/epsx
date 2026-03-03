@@ -1,0 +1,28 @@
+# ============================================================================
+# Cloudflare Tunnel Configuration - EPSX Dev
+# ============================================================================
+# Routes dev.epsx.io / dev-admin.epsx.io / dev-api.epsx.io
+# to the host machine where `bun dev` runs (ports 3000, 3001, 8080).
+# Token-based auth — no credentials JSON needed.
+
+ingress:
+  - hostname: dev.epsx.io
+    service: http://host.docker.internal:3000
+    originRequest:
+      connectTimeout: 30s
+
+  - hostname: dev-admin.epsx.io
+    service: http://host.docker.internal:3001
+    originRequest:
+      connectTimeout: 30s
+
+  - hostname: dev-api.epsx.io
+    service: http://host.docker.internal:8080
+    originRequest:
+      connectTimeout: 30s
+
+  - service: http_status:404
+
+loglevel: info
+protocol: http2
+no-autoupdate: true

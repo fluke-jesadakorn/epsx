@@ -44,17 +44,17 @@ ingress:
     originRequest:
       connectTimeout: 30s
 
-  # Dev environment
+  # Dev environment (routes to host machine where `bun dev` runs)
   - hostname: dev.epsx.io
-    service: http://epsx-dev-frontend:3000
+    service: http://host.docker.internal:3000
     originRequest:
       connectTimeout: 30s
   - hostname: dev-admin.epsx.io
-    service: http://epsx-dev-admin:3000
+    service: http://host.docker.internal:3001
     originRequest:
       connectTimeout: 30s
   - hostname: dev-api.epsx.io
-    service: http://epsx-dev-backend:8080
+    service: http://host.docker.internal:8080
     originRequest:
       connectTimeout: 30s
 
