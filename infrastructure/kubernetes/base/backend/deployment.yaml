@@ -16,7 +16,7 @@ spec:
         - name: migrate
           image: registry.jesadakorn.com/jesadakorn/epsx/backend:prod-latest
           imagePullPolicy: IfNotPresent
-          command: ["./migrate"]
+          command: ["./migrate", "up"]
           env:
             - name: DB_USER
               valueFrom:
