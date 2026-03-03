@@ -13,6 +13,14 @@ spec:
       labels:
         app: epsx-redis
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role
+                    operator: In
+                    values: [stateful]
       containers:
         - name: epsx-redis
           image: redis:7-alpine

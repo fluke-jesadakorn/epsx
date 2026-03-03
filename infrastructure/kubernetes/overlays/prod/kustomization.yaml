@@ -19,5 +19,7 @@ images:
     newTag: prod-latest
 
 patches:
+  - path: patches/replicas.yaml
+  - path: patches/resources.yaml
   - path: patches/postgres-conf.yaml
   - path: patches/redis-conf.yaml

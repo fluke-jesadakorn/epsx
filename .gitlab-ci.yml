@@ -23,6 +23,7 @@ variables:
   GIT_CLEAN_FLAGS: -ffdx
   CI_REGISTRY: "registry.jesadakorn.com"
   CI_REGISTRY_IMAGE: "registry.jesadakorn.com/jesadakorn/epsx"
+  BUILDX_PLATFORMS: "linux/arm64,linux/amd64"
 
 # ---------------------------------------------------------------------------
 # Templates
@@ -268,9 +269,10 @@ build:frontend:
   needs: ["lint:eslint", "lint:typecheck", "test:frontend"]
   <<: *docker-login
   script:
-    - docker pull $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-latest || true
+    - docker buildx create --use --name epsx-builder || docker buildx use epsx-builder
     - >
-      docker build
+      docker buildx build
+      --platform $BUILDX_PLATFORMS
       --cache-from $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-latest
       --build-arg BUILDKIT_INLINE_CACHE=1
       --build-arg http_proxy=http://192.168.65.7:3128
@@ -288,13 +290,13 @@ build:frontend:
       -f apps/frontend/Dockerfile
       -t $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-$IMAGE_TAG
       -t $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-latest
+      --push
       .
-    - docker push $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-$IMAGE_TAG
-    - docker push $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-latest
     - |
       if [ "$CI_COMMIT_BRANCH" = "development" ]; then
-        docker tag $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-$IMAGE_TAG $CI_REGISTRY_IMAGE/frontend:dev-rev-$CI_PIPELINE_IID
-        docker push $CI_REGISTRY_IMAGE/frontend:dev-rev-$CI_PIPELINE_IID
+        docker buildx imagetools create \
+          --tag $CI_REGISTRY_IMAGE/frontend:dev-rev-$CI_PIPELINE_IID \
+          $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-$IMAGE_TAG
         echo "FRONTEND_REV_IMAGE=$CI_REGISTRY_IMAGE/frontend:dev-rev-$CI_PIPELINE_IID" >> deploy.env
         echo "REVISION=dev-rev-$CI_PIPELINE_IID" >> deploy.env
       fi
@@ -342,9 +344,10 @@ build:admin:
   needs: ["lint:eslint", "lint:typecheck"]
   <<: *docker-login
   script:
-    - docker pull $CI_REGISTRY_IMAGE/admin:$ENV_TAG-latest || true
+    - docker buildx create --use --name epsx-builder || docker buildx use epsx-builder
     - >
-      docker build
+      docker buildx build
+      --platform $BUILDX_PLATFORMS
       --cache-from $CI_REGISTRY_IMAGE/admin:$ENV_TAG-latest
       --build-arg BUILDKIT_INLINE_CACHE=1
       --build-arg http_proxy=http://192.168.65.7:3128
@@ -362,13 +365,13 @@ build:admin:
       -f apps/admin-frontend/Dockerfile
       -t $CI_REGISTRY_IMAGE/admin:$ENV_TAG-$IMAGE_TAG
       -t $CI_REGISTRY_IMAGE/admin:$ENV_TAG-latest
+      --push
       .
-    - docker push $CI_REGISTRY_IMAGE/admin:$ENV_TAG-$IMAGE_TAG
-    - docker push $CI_REGISTRY_IMAGE/admin:$ENV_TAG-latest
     - |
       if [ "$CI_COMMIT_BRANCH" = "development" ]; then
-        docker tag $CI_REGISTRY_IMAGE/admin:$ENV_TAG-$IMAGE_TAG $CI_REGISTRY_IMAGE/admin:dev-rev-$CI_PIPELINE_IID
-        docker push $CI_REGISTRY_IMAGE/admin:dev-rev-$CI_PIPELINE_IID
+        docker buildx imagetools create \
+          --tag $CI_REGISTRY_IMAGE/admin:dev-rev-$CI_PIPELINE_IID \
+          $CI_REGISTRY_IMAGE/admin:$ENV_TAG-$IMAGE_TAG
         echo "ADMIN_REV_IMAGE=$CI_REGISTRY_IMAGE/admin:dev-rev-$CI_PIPELINE_IID" >> deploy.env
         echo "REVISION=dev-rev-$CI_PIPELINE_IID" >> deploy.env
       fi
@@ -415,21 +418,22 @@ build:backend:
       optional: true  # backend test may be skipped (no changes)
   <<: *docker-login
   script:
-    - docker pull $CI_REGISTRY_IMAGE/backend:$ENV_TAG-latest || true
+    - docker buildx create --use --name epsx-builder || docker buildx use epsx-builder
     - >
-      docker build
+      docker buildx build
+      --platform $BUILDX_PLATFORMS
       --cache-from $CI_REGISTRY_IMAGE/backend:$ENV_TAG-latest
       --build-arg BUILDKIT_INLINE_CACHE=1
       -f apps/backend/Dockerfile
       -t $CI_REGISTRY_IMAGE/backend:$ENV_TAG-$IMAGE_TAG
       -t $CI_REGISTRY_IMAGE/backend:$ENV_TAG-latest
+      --push
       .
-    - docker push $CI_REGISTRY_IMAGE/backend:$ENV_TAG-$IMAGE_TAG
-    - docker push $CI_REGISTRY_IMAGE/backend:$ENV_TAG-latest
     - |
       if [ "$CI_COMMIT_BRANCH" = "development" ]; then
-        docker tag $CI_REGISTRY_IMAGE/backend:$ENV_TAG-$IMAGE_TAG $CI_REGISTRY_IMAGE/backend:dev-rev-$CI_PIPELINE_IID
-        docker push $CI_REGISTRY_IMAGE/backend:dev-rev-$CI_PIPELINE_IID
+        docker buildx imagetools create \
+          --tag $CI_REGISTRY_IMAGE/backend:dev-rev-$CI_PIPELINE_IID \
+          $CI_REGISTRY_IMAGE/backend:$ENV_TAG-$IMAGE_TAG
         echo "BACKEND_REV_IMAGE=$CI_REGISTRY_IMAGE/backend:dev-rev-$CI_PIPELINE_IID" >> deploy.env
         echo "REVISION=dev-rev-$CI_PIPELINE_IID" >> deploy.env
       fi
@@ -843,6 +847,65 @@ deploy:dev:rollback:
   timeout: 5 minutes
   rules:
     - if: $CI_COMMIT_BRANCH == "development"
+      when: manual
+      allow_failure: false
+
+# ---------------------------------------------------------------------------
+# K8s — GitOps deploy via GitLab Agent (pull-based)
+# ---------------------------------------------------------------------------
+
+deploy:k8s:secrets:
+  stage: deploy
+  image: bitnami/kubectl:latest
+  script:
+    - |
+      # Write KUBECONFIG from CI variable
+      echo "$KUBECONFIG_B64" | base64 -d > /tmp/kubeconfig
+      export KUBECONFIG=/tmp/kubeconfig
+    - ./infrastructure/kubernetes/scripts/create-secrets.sh prod
+  environment:
+    name: production
+    url: https://epsx.io
+  timeout: 10 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+      allow_failure: false
+
+deploy:k8s:tag:
+  stage: deploy
+  image: alpine/git
+  needs:
+    - job: build:backend
+      artifacts: true
+    - job: build:frontend
+      artifacts: true
+    - job: build:admin
+      artifacts: true
+  before_script:
+    - apk add --no-cache curl
+    - |
+      # Install kustomize
+      curl -sL https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.3.0/kustomize_v5.3.0_linux_amd64.tar.gz \
+        | tar xz -C /usr/local/bin
+    - git config user.email "ci@epsx.io"
+    - git config user.name "GitLab CI"
+  script:
+    - cd infrastructure/kubernetes/overlays/prod
+    - kustomize edit set image
+        registry.jesadakorn.com/jesadakorn/epsx/backend:prod-$IMAGE_TAG
+        registry.jesadakorn.com/jesadakorn/epsx/frontend:prod-$IMAGE_TAG
+        registry.jesadakorn.com/jesadakorn/epsx/admin:prod-$IMAGE_TAG
+    - git add kustomization.yaml
+    - git diff --cached --quiet && echo "No image changes" && exit 0
+    - git commit -m "deploy(k8s): prod $IMAGE_TAG [skip ci]"
+    - git push "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" HEAD:$CI_COMMIT_BRANCH
+  environment:
+    name: production
+    url: https://epsx.io
+  timeout: 10 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
       when: manual
       allow_failure: false
 

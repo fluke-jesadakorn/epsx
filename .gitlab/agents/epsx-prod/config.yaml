@@ -1,0 +1,7 @@
+gitops:
+  manifest_projects:
+    - id: "jesadakorn/epsx"
+      default_namespace: epsx-prod
+      paths:
+        - glob: 'infrastructure/kubernetes/overlays/prod/**/*.yaml'
+      reconcile_timeout: 3600s

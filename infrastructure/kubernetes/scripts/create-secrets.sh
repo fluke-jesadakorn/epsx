@@ -13,25 +13,25 @@
 
 set -euo pipefail
 
-ENV="${1:-}"
-if [[ -z "$ENV" ]]; then
+TARGET_ENV="${1:-}"
+if [[ -z "$TARGET_ENV" ]]; then
   echo "Usage: $0 <env>  (dev|staging|prod)" >&2
   exit 1
 fi
 
-ENV_FILE="/Users/fluke/epsx-runner/envs/.env.${ENV}"
+ENV_FILE="/Users/fluke/epsx-runner/envs/.env.${TARGET_ENV}"
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "Error: env file not found: $ENV_FILE" >&2
   exit 1
 fi
 
-# Load env vars
+# Load env vars (ENV in file may differ from TARGET_ENV; preserve TARGET_ENV)
 set -a
 # shellcheck source=/dev/null
 source "$ENV_FILE"
 set +a
 
-NAMESPACE="epsx-${ENV}"
+NAMESPACE="epsx-${TARGET_ENV}"
 
 # Helper: create/update a secret idempotently
 apply_secret() {
@@ -139,7 +139,7 @@ apply_secret epsx-admin \
   --from-literal=NEXT_PUBLIC_CDN_URL="${MINIO_PUBLIC_URL}"
 
 # ── epsx-cloudflared (prod only) ──────────────────────────────────────────────
-if [[ "$ENV" == "prod" ]]; then
+if [[ "$TARGET_ENV" == "prod" ]]; then
   CREDS_FILE="${HOME}/.cloudflared/6bee9b58-eede-4b4c-815c-94c0ee38fe58.json"
   if [[ ! -f "$CREDS_FILE" ]]; then
     echo "Warning: cloudflared credentials not found at $CREDS_FILE" >&2
