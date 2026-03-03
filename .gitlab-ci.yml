@@ -491,7 +491,7 @@ build:backend:
 # Image vars come from build job dotenv artifacts.
 
 
-deploy:staging:
+deploy:staging:revision:
   stage: deploy
   image: docker:27
   needs:
@@ -504,51 +504,282 @@ deploy:staging:
   before_script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - docker pull $BACKEND_IMAGE
-    - docker pull $FRONTEND_IMAGE
-    - docker pull $ADMIN_IMAGE
-    - docker tag $BACKEND_IMAGE epsx-backend:staging
-    - docker tag $FRONTEND_IMAGE epsx-frontend:staging
-    - docker tag $ADMIN_IMAGE epsx-admin-frontend:staging
-    - cd infrastructure/docker
-    - docker compose --env-file /Users/fluke/epsx-runner/envs/.env.staging -f docker-compose.staging.yml up -d postgres redis minio pgbouncer
-    - docker compose --env-file /Users/fluke/epsx-runner/envs/.env.staging -f docker-compose.staging.yml up -d --force-recreate backend frontend admin-frontend
+    - docker pull $FRONTEND_REV_IMAGE
+    - docker pull $ADMIN_REV_IMAGE
+    - docker pull $BACKEND_REV_IMAGE
+    - docker tag $FRONTEND_REV_IMAGE epsx-frontend:$REVISION
+    - docker tag $ADMIN_REV_IMAGE    epsx-admin-frontend:$REVISION
+    - docker tag $BACKEND_REV_IMAGE  epsx-backend:$REVISION
+    # Start infra (postgres, redis, minio, traefik) if not already running
+    - cd infrastructure/docker && docker compose --env-file /Users/fluke/epsx-runner/envs/.env.staging -f docker-compose.staging.yml up -d postgres redis minio traefik && cd $CI_PROJECT_DIR
+    # Remove any existing containers for this revision before starting fresh
     - |
-      echo "Verifying staging containers..."
-      for c in epsx-staging-backend epsx-staging-frontend epsx-staging-admin; do
-        status=$(docker inspect --format='{{.State.Status}}' "$c" 2>/dev/null || echo "not_found")
-        health=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$c" 2>/dev/null || echo "unknown")
-        echo "  $c: status=$status health=$health"
-        if [ "$status" != "running" ]; then echo "ERROR: $c not running"; exit 1; fi
+      for c in epsx-staging-frontend-$REVISION epsx-staging-admin-$REVISION epsx-staging-backend-$REVISION; do
+        docker rm -f "$c" || true
       done
+    # Start frontend revision container
+    - >
+      docker run -d
+      --name epsx-staging-frontend-$REVISION
+      --network epsx_staging_network
+      --restart unless-stopped
+      --memory 512m --cpus 1
+      -e NODE_ENV=production
+      -e PORT=3000
+      -e HOSTNAME=0.0.0.0
+      -e BACKEND_URL=https://staging-api.epsx.io
+      -e NEXT_PUBLIC_BACKEND_URL=https://staging-api.epsx.io
+      epsx-frontend:$REVISION
+    # Start admin revision container
+    - >
+      docker run -d
+      --name epsx-staging-admin-$REVISION
+      --network epsx_staging_network
+      --restart unless-stopped
+      --memory 512m --cpus 1
+      -e NODE_ENV=production
+      -e PORT=3000
+      -e HOSTNAME=0.0.0.0
+      -e BACKEND_URL=https://staging-api.epsx.io
+      -e NEXT_PUBLIC_BACKEND_URL=https://staging-api.epsx.io
+      epsx-admin-frontend:$REVISION
+    # Start backend revision container
+    - >
+      docker run -d
+      --name epsx-staging-backend-$REVISION
+      --network epsx_staging_network
+      --restart unless-stopped
+      --memory 1g --cpus 2
+      --env-file /Users/fluke/epsx-runner/envs/.env.staging
+      epsx-backend:$REVISION
+    # Ensure staging traefik dir exists, then write traffic config
+    - docker run --rm -v /Users/fluke/epsx-runner:/host alpine mkdir -p /host/traefik/staging
     - |
-      docker restart epsx-prod-cloudflared
-      sleep 5
-      echo "  cloudflared: $(docker inspect --format='{{.State.Status}}' epsx-prod-cloudflared 2>/dev/null)"
+      docker run --rm -i \
+        -v /Users/fluke/epsx-runner/traefik/staging:/cfg \
+        alpine sh -c "cat > /cfg/traffic.yml" << EOF
+      http:
+        routers:
+          staging-frontend:
+            entryPoints: [web]
+            rule: "Host(\`staging.epsx.io\`)"
+            service: staging-frontend
+          staging-admin:
+            entryPoints: [web]
+            rule: "Host(\`staging-admin.epsx.io\`)"
+            service: staging-admin
+          staging-api:
+            entryPoints: [web]
+            rule: "Host(\`staging-api.epsx.io\`)"
+            service: staging-api
+        services:
+          staging-frontend:
+            weighted:
+              services:
+                - name: staging-frontend-${REVISION}
+                  weight: 100
+          staging-admin:
+            weighted:
+              services:
+                - name: staging-admin-${REVISION}
+                  weight: 100
+          staging-api:
+            weighted:
+              services:
+                - name: staging-api-${REVISION}
+                  weight: 100
+          staging-frontend-${REVISION}:
+            loadBalancer:
+              servers:
+                - url: "http://epsx-staging-frontend-${REVISION}:3000"
+          staging-admin-${REVISION}:
+            loadBalancer:
+              servers:
+                - url: "http://epsx-staging-admin-${REVISION}:3000"
+          staging-api-${REVISION}:
+            loadBalancer:
+              servers:
+                - url: "http://epsx-staging-backend-${REVISION}:8080"
+      EOF
+    # Keep last 3 staging frontend revisions; remove older (+ paired admin+backend)
+    - |
+      FRONTENDS=$(docker ps -a \
+        --filter "name=epsx-staging-frontend-staging-rev-" \
+        --format "{{.CreatedAt}}\t{{.Names}}" \
+        | sort | awk '{print $NF}')
+      COUNT=$(echo "$FRONTENDS" | grep -c . || true)
+      if [ "$COUNT" -gt 3 ]; then
+        TO_REMOVE=$(echo "$FRONTENDS" | head -n $((COUNT - 3)))
+        for CNAME in $TO_REMOVE; do
+          REV=$(echo "$CNAME" | sed 's/epsx-staging-frontend-//')
+          echo "Removing old revision: $REV"
+          docker rm -f "epsx-staging-frontend-$REV" "epsx-staging-admin-$REV" "epsx-staging-backend-$REV" || true
+        done
+      fi
+    - |
+      echo "revision: $REVISION"        > deploy-manifest.txt
+      echo "commit: $CI_COMMIT_SHA"     >> deploy-manifest.txt
+      echo "pipeline: $CI_PIPELINE_IID" >> deploy-manifest.txt
+      echo "deployed_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> deploy-manifest.txt
+  artifacts:
+    paths: [deploy-manifest.txt]
+    expire_in: 90 days
   environment:
     name: staging
     url: https://staging.epsx.io
   timeout: 15 minutes
   rules:
     - if: $CI_COMMIT_BRANCH == "staging"
-      when: on_success
+      when: manual
+      allow_failure: false
 
-test:e2e:staging:
-  stage: deploy  # runs after staging deploy
-  image: mcr.microsoft.com/playwright:v1.58.0-noble
-  needs: ["deploy:staging"]
+deploy:staging:rollback:
+  stage: deploy
+  image: docker:27
+  variables:
+    ROLLBACK_TO: ""   # set in GitLab UI when triggering (e.g. staging-rev-39)
   script:
-    - bun install --frozen-lockfile
-    - TEST_ENV=staging bunx playwright test
-  artifacts:
-    when: always
-    paths:
-      - playwright-report/
-      - test-results/
-    expire_in: 7 days
-  timeout: 15 minutes
+    - '[ -z "$ROLLBACK_TO" ] && echo "ROLLBACK_TO must be set (e.g. staging-rev-42)" && exit 1'
+    - |
+      docker run --rm -i \
+        -v /Users/fluke/epsx-runner/traefik/staging:/cfg \
+        alpine sh -c "cat > /cfg/traffic.yml" << EOF
+      http:
+        routers:
+          staging-frontend:
+            entryPoints: [web]
+            rule: "Host(\`staging.epsx.io\`)"
+            service: staging-frontend
+          staging-admin:
+            entryPoints: [web]
+            rule: "Host(\`staging-admin.epsx.io\`)"
+            service: staging-admin
+          staging-api:
+            entryPoints: [web]
+            rule: "Host(\`staging-api.epsx.io\`)"
+            service: staging-api
+        services:
+          staging-frontend:
+            weighted:
+              services:
+                - name: staging-frontend-${ROLLBACK_TO}
+                  weight: 100
+          staging-admin:
+            weighted:
+              services:
+                - name: staging-admin-${ROLLBACK_TO}
+                  weight: 100
+          staging-api:
+            weighted:
+              services:
+                - name: staging-api-${ROLLBACK_TO}
+                  weight: 100
+          staging-frontend-${ROLLBACK_TO}:
+            loadBalancer:
+              servers:
+                - url: "http://epsx-staging-frontend-${ROLLBACK_TO}:3000"
+          staging-admin-${ROLLBACK_TO}:
+            loadBalancer:
+              servers:
+                - url: "http://epsx-staging-admin-${ROLLBACK_TO}:3000"
+          staging-api-${ROLLBACK_TO}:
+            loadBalancer:
+              servers:
+                - url: "http://epsx-staging-backend-${ROLLBACK_TO}:8080"
+      EOF
+  environment:
+    name: staging
+    url: https://staging.epsx.io
+  timeout: 5 minutes
   rules:
     - if: $CI_COMMIT_BRANCH == "staging"
+      when: manual
+      allow_failure: false
+
+deploy:staging:traffic:
+  stage: deploy
+  image: docker:27
+  variables:
+    REV_A: ""       # e.g. staging-rev-42
+    WEIGHT_A: "80"
+    REV_B: ""       # e.g. staging-rev-43
+    WEIGHT_B: "20"
+  script:
+    - '[ -z "$REV_A" ] && echo "REV_A must be set (e.g. staging-rev-42)" && exit 1'
+    - '[ -z "$REV_B" ] && echo "REV_B must be set (e.g. staging-rev-43)" && exit 1'
+    - |
+      docker run --rm -i \
+        -v /Users/fluke/epsx-runner/traefik/staging:/cfg \
+        alpine sh -c "cat > /cfg/traffic.yml" << EOF
+      http:
+        routers:
+          staging-frontend:
+            entryPoints: [web]
+            rule: "Host(\`staging.epsx.io\`)"
+            service: staging-frontend
+          staging-admin:
+            entryPoints: [web]
+            rule: "Host(\`staging-admin.epsx.io\`)"
+            service: staging-admin
+          staging-api:
+            entryPoints: [web]
+            rule: "Host(\`staging-api.epsx.io\`)"
+            service: staging-api
+        services:
+          staging-frontend:
+            weighted:
+              services:
+                - name: staging-frontend-${REV_A}
+                  weight: ${WEIGHT_A}
+                - name: staging-frontend-${REV_B}
+                  weight: ${WEIGHT_B}
+          staging-admin:
+            weighted:
+              services:
+                - name: staging-admin-${REV_A}
+                  weight: ${WEIGHT_A}
+                - name: staging-admin-${REV_B}
+                  weight: ${WEIGHT_B}
+          staging-api:
+            weighted:
+              services:
+                - name: staging-api-${REV_A}
+                  weight: ${WEIGHT_A}
+                - name: staging-api-${REV_B}
+                  weight: ${WEIGHT_B}
+          staging-frontend-${REV_A}:
+            loadBalancer:
+              servers:
+                - url: "http://epsx-staging-frontend-${REV_A}:3000"
+          staging-admin-${REV_A}:
+            loadBalancer:
+              servers:
+                - url: "http://epsx-staging-admin-${REV_A}:3000"
+          staging-api-${REV_A}:
+            loadBalancer:
+              servers:
+                - url: "http://epsx-staging-backend-${REV_A}:8080"
+          staging-frontend-${REV_B}:
+            loadBalancer:
+              servers:
+                - url: "http://epsx-staging-frontend-${REV_B}:3000"
+          staging-admin-${REV_B}:
+            loadBalancer:
+              servers:
+                - url: "http://epsx-staging-admin-${REV_B}:3000"
+          staging-api-${REV_B}:
+            loadBalancer:
+              servers:
+                - url: "http://epsx-staging-backend-${REV_B}:8080"
+      EOF
+  environment:
+    name: staging
+    url: https://staging.epsx.io
+  timeout: 5 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH == "staging"
+      when: manual
+      allow_failure: false
 
 deploy:prod:
   stage: deploy
