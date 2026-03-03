@@ -840,7 +840,6 @@ deploy:dev:rollback:
   environment:
     name: development
     url: https://dev.epsx.io
-    action: rollback
   timeout: 5 minutes
   rules:
     - if: $CI_COMMIT_BRANCH == "development"
