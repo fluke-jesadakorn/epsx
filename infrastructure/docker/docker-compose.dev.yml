@@ -1,9 +1,10 @@
-# EPSX Platform - Development Docker Compose
+# EPSX Platform - Development Docker Compose (infra only)
 # Server: Mac Mini (arm64, 48GB RAM) — coexists with prod + staging
 # Usage: docker compose --env-file .env.dev -f docker-compose.dev.yml up -d
 #
-# Routing: prod cloudflared joins epsx_dev_network and routes
-# dev.epsx.io / dev-admin.epsx.io / dev-api.epsx.io
+# App services (backend :8080, frontend :3000, admin :3001) run locally via `bun dev`.
+# Cloudflare tunnel routes dev.epsx.io / dev-admin.epsx.io / dev-api.epsx.io
+# to host.docker.internal so they reach the locally-running bun dev processes.
 
 name: epsx-dev
 
@@ -74,6 +75,32 @@ services:
           cpus: "0.25"
     logging: *default-logging
 
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: epsx-dev-cloudflared
+    restart: unless-stopped
+    command: tunnel --config /etc/cloudflared/config.yml run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    extra_hosts:
+      - "host.docker.internal:${HOST_IP:-192.168.0.33}"
+    volumes:
+      - /Users/fluke/Desktop/Work/epsx/infrastructure/cloudflare/cloudflared-config.dev.yml:/etc/cloudflared/config.yml:ro
+    networks:
+      - epsx_dev
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=50M
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.5"
+        reservations:
+          memory: 32M
+          cpus: "0.1"
+    logging: *default-logging
+
   minio:
     image: minio/minio:latest
     container_name: epsx-dev-minio
@@ -95,153 +122,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: "1"
-        reservations:
-          memory: 128M
-          cpus: "0.25"
-    logging: *default-logging
-
-  backend:
-    image: epsx-backend:dev
-    container_name: epsx-dev-backend
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-    environment:
-      ENV: ${ENV}
-      NODE_ENV: ${NODE_ENV}
-      RUST_ENV: ${RUST_ENV}
-      RUST_LOG: ${RUST_LOG}
-      LOG_LEVEL: ${LOG_LEVEL}
-      BACKEND_URL: ${BACKEND_URL}
-      FRONTEND_URL: ${FRONTEND_URL}
-      ADMIN_FRONTEND_URL: ${ADMIN_FRONTEND_URL}
-      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?sslmode=disable
-      DATABASE_MAX_CONNECTIONS: ${DATABASE_MAX_CONNECTIONS}
-      DATABASE_MIN_CONNECTIONS: ${DATABASE_MIN_CONNECTIONS}
-      DATABASE_ACQUIRE_TIMEOUT: ${DATABASE_ACQUIRE_TIMEOUT}
-      DATABASE_IDLE_TIMEOUT: ${DATABASE_IDLE_TIMEOUT}
-      ANALYTICS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/epsx_analytics_dev?sslmode=disable
-      NOTIFICATIONS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/epsx_notifications_dev?sslmode=disable
-      PAYMENTS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/epsx_payments_dev?sslmode=disable
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
-      WEB3_APP_SECRET: ${WEB3_APP_SECRET}
-      WALLET_SIGNATURE_SECRET: ${WALLET_SIGNATURE_SECRET}
-      WEB3_SESSION_SECRET: ${WEB3_SESSION_SECRET}
-      WEB3_SESSION_DURATION_HOURS: ${WEB3_SESSION_DURATION_HOURS}
-      WEB3_SIGNATURE_TIMEOUT_MINUTES: ${WEB3_SIGNATURE_TIMEOUT_MINUTES}
-      JWT_SECRET: ${JWT_SECRET}
-      NEXT_PUBLIC_BLOCKCHAIN_NETWORK: ${BLOCKCHAIN_NETWORK}
-      BLOCKCHAIN_NETWORK: ${BLOCKCHAIN_NETWORK}
-      COMPANY_WALLET_MAINNET: ${COMPANY_WALLET_MAINNET}
-      COMPANY_WALLET_TESTNET: ${COMPANY_WALLET_TESTNET}
-      BSC_MAINNET_RPC_URL: ${BSC_MAINNET_RPC_URL}
-      BSC_TESTNET_RPC_URL: ${BSC_TESTNET_RPC_URL}
-      BLOCKCHAIN_CONFIRMATION_TIMEOUT_SECONDS: ${BLOCKCHAIN_CONFIRMATION_TIMEOUT_SECONDS}
-      BSC_REQUIRED_CONFIRMATIONS: ${BSC_REQUIRED_CONFIRMATIONS}
-      BSC_TESTNET_REQUIRED_CONFIRMATIONS: ${BSC_TESTNET_REQUIRED_CONFIRMATIONS}
-      MAX_PAYMENT_AGE_MINUTES: ${MAX_PAYMENT_AGE_MINUTES}
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
-      MINIO_PUBLIC_URL: http://localhost:9200
-      HOST: 0.0.0.0
-      PORT: 8080
-    networks:
-      - epsx_dev
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 60s
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: "2"
-        reservations:
-          memory: 256M
-          cpus: "0.5"
-    logging: *default-logging
-
-  frontend:
-    image: epsx-frontend:dev
-    container_name: epsx-dev-frontend
-    restart: unless-stopped
-    depends_on:
-      backend:
-        condition: service_healthy
-    environment:
-      NODE_ENV: ${NODE_ENV}
-      ENV: ${ENV}
-      NEXT_PUBLIC_BACKEND_URL: ${BACKEND_URL}
-      NEXT_PUBLIC_APP_URL: ${FRONTEND_URL}
-      NEXT_PUBLIC_ADMIN_URL: ${ADMIN_FRONTEND_URL}
-      NEXT_PUBLIC_BLOCKCHAIN_NETWORK: ${BLOCKCHAIN_NETWORK}
-      NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${WALLETCONNECT_PROJECT_ID}
-      NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID}
-      NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: ${COMPANY_WALLET_MAINNET}
-      NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: ${COMPANY_WALLET_TESTNET}
-      NEXT_PUBLIC_CDN_URL: ${MINIO_PUBLIC_URL:-https://cdn.epsx.io}
-      PORT: 3000
-      HOSTNAME: 0.0.0.0
-    networks:
-      - epsx_dev
-    healthcheck:
-      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\"" ]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: "1"
-        reservations:
-          memory: 128M
-          cpus: "0.25"
-    logging: *default-logging
-
-  admin-frontend:
-    image: epsx-admin-frontend:dev
-    container_name: epsx-dev-admin
-    restart: unless-stopped
-    depends_on:
-      backend:
-        condition: service_healthy
-    environment:
-      NODE_ENV: ${NODE_ENV}
-      ENV: ${ENV}
-      NEXT_PUBLIC_BACKEND_URL: ${BACKEND_URL}
-      NEXT_PUBLIC_APP_URL: ${ADMIN_FRONTEND_URL}
-      NEXT_PUBLIC_ADMIN_URL: ${ADMIN_FRONTEND_URL}
-      NEXT_PUBLIC_BLOCKCHAIN_NETWORK: ${BLOCKCHAIN_NETWORK}
-      NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${WALLETCONNECT_PROJECT_ID}
-      NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID}
-      NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: ${COMPANY_WALLET_MAINNET}
-      NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: ${COMPANY_WALLET_TESTNET}
-      NEXT_PUBLIC_CDN_URL: ${MINIO_PUBLIC_URL:-https://cdn.epsx.io}
-      PORT: 3000
-      HOSTNAME: 0.0.0.0
-    networks:
-      - epsx_dev
-    healthcheck:
-      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\"" ]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
     deploy:
       resources:
         limits:
