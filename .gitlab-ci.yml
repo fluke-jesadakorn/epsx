@@ -542,23 +542,17 @@ deploy:prod:
     - docker pull $BACKEND_IMAGE
     - docker pull $FRONTEND_IMAGE
     - docker pull $ADMIN_IMAGE
-    - docker tag $BACKEND_IMAGE epsx-backend:prod
-    - docker tag $FRONTEND_IMAGE epsx-frontend:prod
-    - docker tag $ADMIN_IMAGE epsx-admin-frontend:prod
-    - cd infrastructure/docker
-    - docker compose --env-file /Users/fluke/epsx-runner/envs/.env.prod -f docker-compose.prod.yml up -d --force-recreate backend frontend admin-frontend
-    - |
-      echo "Verifying prod containers..."
-      for c in epsx-prod-backend epsx-prod-frontend epsx-prod-admin; do
-        status=$(docker inspect --format='{{.State.Status}}' "$c" 2>/dev/null || echo "not_found")
-        health=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$c" 2>/dev/null || echo "unknown")
-        echo "  $c: status=$status health=$health"
-        if [ "$status" != "running" ]; then echo "ERROR: $c not running"; exit 1; fi
-      done
-    - |
-      docker restart epsx-prod-cloudflared
-      sleep 5
-      echo "  cloudflared: $(docker inspect --format='{{.State.Status}}' epsx-prod-cloudflared 2>/dev/null)"
+    - docker tag $BACKEND_IMAGE registry.jesadakorn.com/jesadakorn/epsx/backend:prod-latest
+    - docker tag $FRONTEND_IMAGE registry.jesadakorn.com/jesadakorn/epsx/frontend:prod-latest
+    - docker tag $ADMIN_IMAGE registry.jesadakorn.com/jesadakorn/epsx/admin:prod-latest
+    - k3d image import registry.jesadakorn.com/jesadakorn/epsx/backend:prod-latest registry.jesadakorn.com/jesadakorn/epsx/frontend:prod-latest registry.jesadakorn.com/jesadakorn/epsx/admin:prod-latest -c epsx-local
+    - kubectl rollout restart deployment/epsx-backend  -n epsx-prod
+    - kubectl rollout restart deployment/epsx-frontend -n epsx-prod
+    - kubectl rollout restart deployment/epsx-admin    -n epsx-prod
+    - kubectl rollout status  deployment/epsx-backend  -n epsx-prod --timeout=120s
+    - kubectl rollout status  deployment/epsx-frontend -n epsx-prod --timeout=120s
+    - kubectl rollout status  deployment/epsx-admin    -n epsx-prod --timeout=120s
+    - kubectl get pods -n epsx-prod
   environment:
     name: production
     url: https://epsx.io
