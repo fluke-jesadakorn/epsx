@@ -7,22 +7,22 @@
 
 ingress:
   - hostname: dev.epsx.io
-    service: http://host.docker.internal:3000
+    service: http://localhost:3000
     originRequest:
       connectTimeout: 30s
 
   - hostname: dev-admin.epsx.io
-    service: http://host.docker.internal:3001
+    service: http://localhost:3001
     originRequest:
       connectTimeout: 30s
 
   - hostname: dev-api.epsx.io
-    service: http://host.docker.internal:8080
+    service: http://localhost:8080
     originRequest:
       connectTimeout: 30s
 
   - service: http_status:404
 
 loglevel: info
-protocol: http2
+protocol: quic
 no-autoupdate: true

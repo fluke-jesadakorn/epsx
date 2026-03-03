@@ -42,22 +42,6 @@ data:
         originRequest:
           connectTimeout: 30s
 
-      # ── Dev (cross-namespace FQDN) ─────────────────────────────────────────
-      - hostname: dev.epsx.io
-        service: http://epsx-frontend.epsx-dev.svc.cluster.local:3000
-        originRequest:
-          connectTimeout: 30s
-
-      - hostname: dev-admin.epsx.io
-        service: http://epsx-admin.epsx-dev.svc.cluster.local:3000
-        originRequest:
-          connectTimeout: 30s
-
-      - hostname: dev-api.epsx.io
-        service: http://epsx-backend.epsx-dev.svc.cluster.local:8080
-        originRequest:
-          connectTimeout: 30s
-
       # ── Staging (cross-namespace FQDN) ────────────────────────────────────
       - hostname: staging.epsx.io
         service: http://epsx-frontend.epsx-staging.svc.cluster.local:3000
