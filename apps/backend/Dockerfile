@@ -16,6 +16,7 @@ RUN mkdir -p src/bin && \
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
+    find /usr/local/cargo/registry/src -name ".cargo-ok" -delete 2>/dev/null || true && \
     cargo build --release --bin epsx && rm -rf src
 
 COPY apps/backend/src/ ./src/

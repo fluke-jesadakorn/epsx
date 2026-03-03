@@ -9,7 +9,7 @@ export function ShareButton() {
   const handleShare = async () => {
     if (typeof window !== 'undefined') {
       const success = await copyToClipboard(window.location.href);
-      if (success) toast.success('URL copied to clipboard!');
+      if (success) { toast.success('URL copied to clipboard!'); }
     }
   };
 
