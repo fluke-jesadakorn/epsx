@@ -21,9 +21,8 @@ variables:
   CARGO_HOME: /tmp/.cargo
   DOCKER_BUILDKIT: "1"
   GIT_CLEAN_FLAGS: -ffdx
-  # Use local registry directly to avoid Cloudflare tunnel dependency
-  CI_REGISTRY: "127.0.0.1:5050"
-  CI_REGISTRY_IMAGE: "127.0.0.1:5050/jesadakorn/epsx"
+  CI_REGISTRY: "registry.jesadakorn.com"
+  CI_REGISTRY_IMAGE: "registry.jesadakorn.com/jesadakorn/epsx"
 
 # ---------------------------------------------------------------------------
 # Templates

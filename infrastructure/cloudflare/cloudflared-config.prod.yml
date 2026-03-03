@@ -27,13 +27,13 @@ ingress:
       connectTimeout: 30s
 
   # GitLab CE - CI/CD platform
-  - hostname: gitlab.epsx.io
+  - hostname: gitlab.jesadakorn.com
     service: http://epsx-gitlab:80
     originRequest:
       connectTimeout: 60s
 
   # GitLab Container Registry
-  - hostname: registry.epsx.io
+  - hostname: registry.jesadakorn.com
     service: http://epsx-gitlab:5050
     originRequest:
       connectTimeout: 60s
