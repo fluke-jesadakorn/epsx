@@ -15,6 +15,7 @@ spec:
       containers:
         - name: epsx-admin
           image: registry.jesadakorn.com/jesadakorn/epsx/admin:prod-latest
+          imagePullPolicy: IfNotPresent
           envFrom:
             - secretRef:
                 name: epsx-admin

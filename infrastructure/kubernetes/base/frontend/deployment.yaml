@@ -15,6 +15,7 @@ spec:
       containers:
         - name: epsx-frontend
           image: registry.jesadakorn.com/jesadakorn/epsx/frontend:prod-latest
+          imagePullPolicy: IfNotPresent
           envFrom:
             - secretRef:
                 name: epsx-frontend
