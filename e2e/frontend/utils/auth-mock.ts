@@ -8,8 +8,9 @@ import { MOCK_USER, MOCK_TOKEN, MOCK_PERMISSIONS } from '../fixtures/api-mocks';
 const COOKIE_DOMAIN = 'localhost';
 
 export async function mockAuth(page: Page, user = MOCK_USER, token = MOCK_TOKEN) {
-  const baseURL = page.context().pages()[0]?.url() ?? 'http://localhost:3000';
-  const url = new URL(baseURL.startsWith('http') ? baseURL : `http://${baseURL}`);
+  const rawUrl = page.context().pages()[0]?.url() ?? '';
+  const baseURL = rawUrl.startsWith('http') ? rawUrl : 'http://localhost:3000';
+  const url = new URL(baseURL);
   const domain = url.hostname;
 
   // Set auth cookies (dev mode uses epsx.* prefix without __Host-)
