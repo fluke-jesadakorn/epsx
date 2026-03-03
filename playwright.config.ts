@@ -1,11 +1,12 @@
 import { defineConfig, devices } from '@playwright/test'
 
-const ENV = (process.env.TEST_ENV ?? 'dev') as 'dev' | 'staging' | 'prod'
+const ENV = (process.env.TEST_ENV ?? 'dev') as 'dev' | 'devtunnel' | 'staging' | 'prod'
 
 const URLS = {
-  dev:     { frontend: 'http://localhost:3000', admin: 'http://localhost:3001' },
-  staging: { frontend: 'https://staging.epsx.io', admin: 'https://staging-admin.epsx.io' },
-  prod:    { frontend: 'https://epsx.io',       admin: 'https://admin.epsx.io' },
+  dev:       { frontend: 'http://localhost:3000', admin: 'http://localhost:3001' },
+  devtunnel: { frontend: 'https://dev.epsx.io',  admin: 'https://dev-admin.epsx.io' },
+  staging:   { frontend: 'https://staging.epsx.io', admin: 'https://staging-admin.epsx.io' },
+  prod:      { frontend: 'https://epsx.io',       admin: 'https://admin.epsx.io' },
 }
 
 export default defineConfig({

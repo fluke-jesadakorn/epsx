@@ -193,6 +193,50 @@ test:frontend:
   timeout: 15 minutes
   <<: *rules-lint-test
 
+test:e2e:dev:
+  stage: test
+  image: mcr.microsoft.com/playwright:v1.58.0-noble
+  needs: ["lint:eslint", "lint:typecheck", "test:frontend"]
+  variables:
+    HTTP_PROXY: ""
+    HTTPS_PROXY: ""
+    http_proxy: ""
+    https_proxy: ""
+  script:
+    - |
+      for i in 1 2 3 4 5; do
+        bun install --frozen-lockfile && break
+        echo "bun install attempt $i failed, retrying..."
+        rm -rf node_modules/ .bun/install/cache/
+        sleep $i
+      done
+    - |
+      echo "Waiting for dev.epsx.io..."
+      ok=0
+      for i in 1 2 3; do
+        if curl -sf --max-time 10 https://dev.epsx.io > /dev/null 2>&1; then
+          echo "dev.epsx.io is reachable"
+          ok=1
+          break
+        fi
+        echo "  attempt $i failed, retrying in 10s..."
+        sleep 10
+      done
+      if [ "$ok" = "0" ]; then
+        echo "WARNING: dev.epsx.io unreachable after retries — tests may fail"
+      fi
+    - TEST_ENV=devtunnel bunx playwright test --project=frontend
+  artifacts:
+    when: always
+    paths:
+      - playwright-report/
+      - test-results/
+    expire_in: 7 days
+  timeout: 15 minutes
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == "development"
+
 test:backend:
   stage: test
   image: rust:slim-bookworm
