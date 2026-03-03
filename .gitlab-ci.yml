@@ -301,6 +301,14 @@ build:frontend:
         echo "REVISION=dev-rev-$CI_PIPELINE_IID" >> deploy.env
       fi
     - |
+      if [ "$CI_COMMIT_BRANCH" = "staging" ]; then
+        docker buildx imagetools create \
+          --tag $CI_REGISTRY_IMAGE/frontend:staging-rev-$CI_PIPELINE_IID \
+          $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-$IMAGE_TAG
+        echo "FRONTEND_REV_IMAGE=$CI_REGISTRY_IMAGE/frontend:staging-rev-$CI_PIPELINE_IID" >> deploy.env
+        echo "REVISION=staging-rev-$CI_PIPELINE_IID" >> deploy.env
+      fi
+    - |
       echo "image: $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-$IMAGE_TAG" > build-manifest.txt
       echo "commit: $CI_COMMIT_SHA" >> build-manifest.txt
       echo "branch: $CI_COMMIT_BRANCH" >> build-manifest.txt
@@ -376,6 +384,14 @@ build:admin:
         echo "REVISION=dev-rev-$CI_PIPELINE_IID" >> deploy.env
       fi
     - |
+      if [ "$CI_COMMIT_BRANCH" = "staging" ]; then
+        docker buildx imagetools create \
+          --tag $CI_REGISTRY_IMAGE/admin:staging-rev-$CI_PIPELINE_IID \
+          $CI_REGISTRY_IMAGE/admin:$ENV_TAG-$IMAGE_TAG
+        echo "ADMIN_REV_IMAGE=$CI_REGISTRY_IMAGE/admin:staging-rev-$CI_PIPELINE_IID" >> deploy.env
+        echo "REVISION=staging-rev-$CI_PIPELINE_IID" >> deploy.env
+      fi
+    - |
       echo "image: $CI_REGISTRY_IMAGE/admin:$ENV_TAG-$IMAGE_TAG" > build-manifest.txt
       echo "commit: $CI_COMMIT_SHA" >> build-manifest.txt
       echo "branch: $CI_COMMIT_BRANCH" >> build-manifest.txt
@@ -436,6 +452,14 @@ build:backend:
           $CI_REGISTRY_IMAGE/backend:$ENV_TAG-$IMAGE_TAG
         echo "BACKEND_REV_IMAGE=$CI_REGISTRY_IMAGE/backend:dev-rev-$CI_PIPELINE_IID" >> deploy.env
         echo "REVISION=dev-rev-$CI_PIPELINE_IID" >> deploy.env
+      fi
+    - |
+      if [ "$CI_COMMIT_BRANCH" = "staging" ]; then
+        docker buildx imagetools create \
+          --tag $CI_REGISTRY_IMAGE/backend:staging-rev-$CI_PIPELINE_IID \
+          $CI_REGISTRY_IMAGE/backend:$ENV_TAG-$IMAGE_TAG
+        echo "BACKEND_REV_IMAGE=$CI_REGISTRY_IMAGE/backend:staging-rev-$CI_PIPELINE_IID" >> deploy.env
+        echo "REVISION=staging-rev-$CI_PIPELINE_IID" >> deploy.env
       fi
     - |
       echo "image: $CI_REGISTRY_IMAGE/backend:$ENV_TAG-$IMAGE_TAG" > build-manifest.txt
