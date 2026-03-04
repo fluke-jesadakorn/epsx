@@ -716,6 +716,8 @@ deploy:prod:
       artifacts: true
     - job: build:admin
       artifacts: true
+    - job: validate:env:prod
+      artifacts: false
   before_script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
@@ -747,15 +749,14 @@ verify:prod:
   image: curlimages/curl:latest
   needs: ["deploy:prod"]
   script:
-    - curl -sf https://api.epsx.io/health || exit 1
+    - sleep 15  # wait for pods to become ready
+    - curl -sf --retry 3 --retry-delay 10 https://api.epsx.io/health || exit 1
     - curl -sf -o /dev/null -w "%{http_code}" https://epsx.io | grep -q "200" || exit 1
     - curl -sf -o /dev/null -w "%{http_code}" https://admin.epsx.io | grep -qE "200|307" || exit 1
     - echo "All services healthy"
   timeout: 5 minutes
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
-      when: manual
-      allow_failure: true
 
 # ---------------------------------------------------------------------------
 # Review Apps (MR only — frontend preview with prod backend)
@@ -837,6 +838,13 @@ review:stop:
 validate:env:prod:
   stage: deploy
   image: alpine:latest
+  needs:
+    - job: build:backend
+      artifacts: false
+    - job: build:frontend
+      artifacts: false
+    - job: build:admin
+      artifacts: false
   before_script:
     - apk add --no-cache bash grep coreutils
     - |
@@ -853,8 +861,6 @@ validate:env:prod:
   timeout: 5 minutes
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
-      when: manual
-      allow_failure: false
 
 deploy:k8s:secrets:
   stage: deploy
@@ -886,8 +892,6 @@ deploy:k8s:secrets:
   timeout: 10 minutes
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
-      when: manual
-      allow_failure: false
 
 deploy:k8s:tag:
   stage: deploy
@@ -899,6 +903,8 @@ deploy:k8s:tag:
       artifacts: true
     - job: build:admin
       artifacts: true
+    - job: validate:env:prod
+      artifacts: false
   before_script:
     - apk add --no-cache curl
     - |
@@ -924,6 +930,4 @@ deploy:k8s:tag:
   timeout: 10 minutes
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
-      when: manual
-      allow_failure: false
 
