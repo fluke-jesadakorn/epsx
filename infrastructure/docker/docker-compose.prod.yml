@@ -128,7 +128,9 @@ services:
     ports:
       - "127.0.0.1:9180:8080"
     networks:
-      - epsx_prod
+      epsx_prod:
+        aliases:
+          - epsx-backend.epsx-prod.svc.cluster.local
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
       interval: 15s
@@ -179,7 +181,9 @@ services:
     ports:
       - "127.0.0.1:4700:3000"
     networks:
-      - epsx_prod
+      epsx_prod:
+        aliases:
+          - epsx-frontend.epsx-prod.svc.cluster.local
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\"" ]
       interval: 15s
@@ -230,7 +234,9 @@ services:
     ports:
       - "127.0.0.1:4701:3000"
     networks:
-      - epsx_prod
+      epsx_prod:
+        aliases:
+          - epsx-admin.epsx-prod.svc.cluster.local
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\"" ]
       interval: 15s
@@ -266,7 +272,9 @@ services:
       - "127.0.0.1:9100:9000"
       - "127.0.0.1:9101:9001"
     networks:
-      - epsx_prod
+      epsx_prod:
+        aliases:
+          - epsx-minio.epsx-prod.svc.cluster.local
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 15s
