@@ -23,7 +23,7 @@ variables:
   GIT_CLEAN_FLAGS: -ffdx
   CI_REGISTRY: "registry.jesadakorn.com"
   CI_REGISTRY_IMAGE: "registry.jesadakorn.com/jesadakorn/epsx"
-  BUILDX_PLATFORMS: "linux/arm64,linux/amd64"
+  BUILDX_PLATFORMS: "linux/arm64"
 
 # ---------------------------------------------------------------------------
 # Templates
@@ -230,13 +230,8 @@ build:frontend:
   needs: ["lint:eslint", "lint:typecheck", "test:frontend"]
   <<: *docker-login
   script:
-    - docker buildx rm epsx-builder 2>/dev/null || true
-    - docker buildx create --use --name epsx-builder --driver-opt network=host
     - >
-      docker buildx build
-      --platform $BUILDX_PLATFORMS
-      --cache-from $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-latest
-      --build-arg BUILDKIT_INLINE_CACHE=1
+      docker build
       --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID
       --build-arg NEXT_PUBLIC_APP_URL=$DEPLOY_FRONTEND_URL
       --build-arg NEXT_PUBLIC_BACKEND_URL=$DEPLOY_API_URL
@@ -250,13 +245,13 @@ build:frontend:
       -f apps/frontend/Dockerfile
       -t $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-$IMAGE_TAG
       -t $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-latest
-      --push
       .
+    - docker push $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-$IMAGE_TAG
+    - docker push $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-latest
     - |
       if [ "$CI_COMMIT_BRANCH" = "staging" ]; then
-        docker buildx imagetools create \
-          --tag $CI_REGISTRY_IMAGE/frontend:staging-rev-$CI_PIPELINE_IID \
-          $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-$IMAGE_TAG
+        docker tag $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-$IMAGE_TAG $CI_REGISTRY_IMAGE/frontend:staging-rev-$CI_PIPELINE_IID
+        docker push $CI_REGISTRY_IMAGE/frontend:staging-rev-$CI_PIPELINE_IID
         echo "FRONTEND_REV_IMAGE=$CI_REGISTRY_IMAGE/frontend:staging-rev-$CI_PIPELINE_IID" >> deploy.env
         echo "REVISION=staging-rev-$CI_PIPELINE_IID" >> deploy.env
       fi
@@ -304,13 +299,8 @@ build:admin:
   needs: ["lint:eslint", "lint:typecheck"]
   <<: *docker-login
   script:
-    - docker buildx rm epsx-builder 2>/dev/null || true
-    - docker buildx create --use --name epsx-builder --driver-opt network=host
     - >
-      docker buildx build
-      --platform $BUILDX_PLATFORMS
-      --cache-from $CI_REGISTRY_IMAGE/admin:$ENV_TAG-latest
-      --build-arg BUILDKIT_INLINE_CACHE=1
+      docker build
       --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID
       --build-arg NEXT_PUBLIC_APP_URL=$DEPLOY_ADMIN_URL
       --build-arg NEXT_PUBLIC_BACKEND_URL=$DEPLOY_API_URL
@@ -324,13 +314,13 @@ build:admin:
       -f apps/admin-frontend/Dockerfile
       -t $CI_REGISTRY_IMAGE/admin:$ENV_TAG-$IMAGE_TAG
       -t $CI_REGISTRY_IMAGE/admin:$ENV_TAG-latest
-      --push
       .
+    - docker push $CI_REGISTRY_IMAGE/admin:$ENV_TAG-$IMAGE_TAG
+    - docker push $CI_REGISTRY_IMAGE/admin:$ENV_TAG-latest
     - |
       if [ "$CI_COMMIT_BRANCH" = "staging" ]; then
-        docker buildx imagetools create \
-          --tag $CI_REGISTRY_IMAGE/admin:staging-rev-$CI_PIPELINE_IID \
-          $CI_REGISTRY_IMAGE/admin:$ENV_TAG-$IMAGE_TAG
+        docker tag $CI_REGISTRY_IMAGE/admin:$ENV_TAG-$IMAGE_TAG $CI_REGISTRY_IMAGE/admin:staging-rev-$CI_PIPELINE_IID
+        docker push $CI_REGISTRY_IMAGE/admin:staging-rev-$CI_PIPELINE_IID
         echo "ADMIN_REV_IMAGE=$CI_REGISTRY_IMAGE/admin:staging-rev-$CI_PIPELINE_IID" >> deploy.env
         echo "REVISION=staging-rev-$CI_PIPELINE_IID" >> deploy.env
       fi
@@ -377,24 +367,19 @@ build:backend:
       optional: true  # backend test may be skipped (no changes)
   <<: *docker-login
   script:
-    - docker buildx rm epsx-builder 2>/dev/null || true
     - docker builder prune -af 2>/dev/null || true
-    - docker buildx create --use --name epsx-builder --driver-opt network=host
     - >
-      docker buildx build
-      --platform $BUILDX_PLATFORMS
-      --cache-from $CI_REGISTRY_IMAGE/backend:$ENV_TAG-latest
-      --build-arg BUILDKIT_INLINE_CACHE=1
+      docker build
       -f apps/backend/Dockerfile
       -t $CI_REGISTRY_IMAGE/backend:$ENV_TAG-$IMAGE_TAG
       -t $CI_REGISTRY_IMAGE/backend:$ENV_TAG-latest
-      --push
       .
+    - docker push $CI_REGISTRY_IMAGE/backend:$ENV_TAG-$IMAGE_TAG
+    - docker push $CI_REGISTRY_IMAGE/backend:$ENV_TAG-latest
     - |
       if [ "$CI_COMMIT_BRANCH" = "staging" ]; then
-        docker buildx imagetools create \
-          --tag $CI_REGISTRY_IMAGE/backend:staging-rev-$CI_PIPELINE_IID \
-          $CI_REGISTRY_IMAGE/backend:$ENV_TAG-$IMAGE_TAG
+        docker tag $CI_REGISTRY_IMAGE/backend:$ENV_TAG-$IMAGE_TAG $CI_REGISTRY_IMAGE/backend:staging-rev-$CI_PIPELINE_IID
+        docker push $CI_REGISTRY_IMAGE/backend:staging-rev-$CI_PIPELINE_IID
         echo "BACKEND_REV_IMAGE=$CI_REGISTRY_IMAGE/backend:staging-rev-$CI_PIPELINE_IID" >> deploy.env
         echo "REVISION=staging-rev-$CI_PIPELINE_IID" >> deploy.env
       fi
@@ -447,6 +432,9 @@ deploy:staging:revision:
     - docker tag $FRONTEND_REV_IMAGE epsx-frontend:$REVISION
     - docker tag $ADMIN_REV_IMAGE    epsx-admin-frontend:$REVISION
     - docker tag $BACKEND_REV_IMAGE  epsx-backend:$REVISION
+    # Validate staging env vars before deploy
+    - set -a && source /Users/fluke/epsx-runner/envs/.env.staging && set +a
+    - bash infrastructure/scripts/validate-env.sh staging
     # Start infra (postgres, redis, minio, traefik) if not already running
     - cd infrastructure/docker && docker compose --env-file /Users/fluke/epsx-runner/envs/.env.staging -f docker-compose.staging.yml up -d postgres redis minio traefik && cd $CI_PROJECT_DIR
     # Remove any existing containers for this revision before starting fresh
@@ -754,6 +742,21 @@ deploy:prod:
       when: manual
       allow_failure: false
 
+verify:prod:
+  stage: deploy
+  image: curlimages/curl:latest
+  needs: ["deploy:prod"]
+  script:
+    - curl -sf https://api.epsx.io/health || exit 1
+    - curl -sf -o /dev/null -w "%{http_code}" https://epsx.io | grep -q "200" || exit 1
+    - curl -sf -o /dev/null -w "%{http_code}" https://admin.epsx.io | grep -qE "200|307" || exit 1
+    - echo "All services healthy"
+  timeout: 5 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+      allow_failure: true
+
 # ---------------------------------------------------------------------------
 # Review Apps (MR only — frontend preview with prod backend)
 # ---------------------------------------------------------------------------
@@ -831,15 +834,52 @@ review:stop:
 # K8s — GitOps deploy via GitLab Agent (pull-based)
 # ---------------------------------------------------------------------------
 
+validate:env:prod:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache bash grep coreutils
+    - |
+      # Install SOPS + age
+      wget -qO /usr/local/bin/sops https://github.com/getsops/sops/releases/download/v3.9.4/sops-v3.9.4.linux.arm64
+      chmod +x /usr/local/bin/sops
+      apk add --no-cache age
+  script:
+    - export SOPS_AGE_KEY_FILE=/Users/fluke/.config/sops/age/keys.txt
+    - sops -d infrastructure/docker/.env.prod.enc > /tmp/.env.prod
+    - set -a && source /tmp/.env.prod && set +a
+    - bash infrastructure/scripts/validate-env.sh prod
+    - rm -f /tmp/.env.prod
+  timeout: 5 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+      allow_failure: false
+
 deploy:k8s:secrets:
   stage: deploy
   image: bitnami/kubectl:latest
+  needs: ["validate:env:prod"]
+  before_script:
+    - |
+      # Install SOPS + age
+      apt-get update -qq && apt-get install -y -qq wget age
+      wget -qO /usr/local/bin/sops https://github.com/getsops/sops/releases/download/v3.9.4/sops-v3.9.4.linux.arm64
+      chmod +x /usr/local/bin/sops
   script:
     - |
       # Write KUBECONFIG from CI variable
       echo "$KUBECONFIG_B64" | base64 -d > /tmp/kubeconfig
       export KUBECONFIG=/tmp/kubeconfig
+    - |
+      # Decrypt env file
+      export SOPS_AGE_KEY_FILE=/Users/fluke/.config/sops/age/keys.txt
+      sops -d infrastructure/docker/.env.prod.enc > /tmp/.env.prod
+      # Override env file path for create-secrets.sh
+      mkdir -p /Users/fluke/epsx-runner/envs
+      cp /tmp/.env.prod /Users/fluke/epsx-runner/envs/.env.prod
     - ./infrastructure/kubernetes/scripts/create-secrets.sh prod
+    - rm -f /tmp/.env.prod /Users/fluke/epsx-runner/envs/.env.prod
   environment:
     name: production
     url: https://epsx.io

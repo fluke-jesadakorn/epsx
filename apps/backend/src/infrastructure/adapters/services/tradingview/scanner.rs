@@ -918,22 +918,23 @@ mod tests {
     #[test]
     fn test_nvda_earnings_date_selection() {
         use crate::infrastructure::adapters::tradingview_types::StockDataField;
+        use chrono::Utc;
 
         let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         let scanner = TradingViewScanner::new(tv_config);
 
-        // Mock data similar to NVDA response
-        // Indices:
-        // 32: earnings_release_date = 1795132800 (Nov 2026)
-        // 33: earnings_release_next_date = 1803566400 (Feb 2027)
-        // 34: earnings_release_trading_date_fy = 1772020800 (Feb 2026)
+        // Use dynamic dates relative to now so the test doesn't break over time
+        let now = Utc::now().timestamp() as f64;
+        let near_future = now + 30.0 * 86400.0;   // +30 days (nearest future)
+        let far_future = now + 180.0 * 86400.0;   // +180 days
+        let past = now - 30.0 * 86400.0;          // -30 days (in the past)
 
         let mut d = vec![StockDataField::Null; 35];
         d[0] = StockDataField::String("NVDA".to_string());
-        d[32] = StockDataField::Number(1795132800.0);
-        d[33] = StockDataField::Number(1803566400.0);
-        d[34] = StockDataField::Number(1772020800.0); // The correct nearest date
+        d[32] = StockDataField::Number(far_future);
+        d[33] = StockDataField::Number(past);
+        d[34] = StockDataField::Number(near_future); // The correct nearest future date
 
         let stock = TradingViewStock {
             s: "NASDAQ:NVDA".to_string(),
@@ -942,15 +943,12 @@ mod tests {
 
         let result = scanner.convert_to_stock_screening_result(stock);
 
-        // We expect it to pick the nearest future date: 1772020800 (Feb 2026)
-
+        // Should pick the nearest future date (index 34)
         assert!(result.next_earnings_date.is_some());
         let selected = result.next_earnings_date.unwrap();
-        debug!("Selected: {}", selected);
-
         assert_eq!(
-            selected, 1772020800.0,
-            "Should select Feb 2026 date (index 34)"
+            selected, near_future,
+            "Should select nearest future date (index 34)"
         );
     }
 
