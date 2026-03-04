@@ -15,7 +15,6 @@ import { useSharedAuth } from '@/shared/components/auth';
 import { getExplorerAddressLink } from '@/shared/config/constants';
 import { Check, Code, Copy, ExternalLink, LogOut, Settings, Wallet } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
 
@@ -59,8 +58,6 @@ const walletProviders: Record<string, WalletProviderInfo> = {
 };
 
 export function WalletProviderIcon({ className = '', compact = false }: WalletProviderIconProps) {
-  const router = useRouter();
-  const pathname = usePathname();
   const [isHydrated, setIsHydrated] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -71,7 +68,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   const { address, isConnected, connector } = useAccount();
   const { disconnect } = useDisconnect();
   const { isInitialized } = useUnifiedWeb3();
-  const { isAuthenticated, requestChallenge, authenticateWithWallet, logout } = useSharedAuth();
+  const { isAuthenticated, requestChallenge, authenticateWithWallet, logout, openSignInModal } = useSharedAuth();
   const { signMessageAsync } = useSignMessage();
 
   useEffect(() => {
@@ -176,10 +173,6 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
 
   // Not connected - show connect button
   if (!isConnected || address === undefined || address === null) {
-    const handleConnectRedirect = () => {
-      router.push(`/auth?return_url=${encodeURIComponent(pathname)}`);
-    };
-
     const baseClasses = 'flex items-center gap-2 rounded-2xl font-medium transition-all duration-200';
     const sizeClasses = compact ? 'h-8 px-3 text-xs' : 'h-10 px-4 text-sm';
     const colorClasses = 'bg-gradient-to-r from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700 text-white shadow-lg hover:shadow-xl border-0';
@@ -187,7 +180,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
     const finalClassName = [baseClasses, sizeClasses, colorClasses, extraClasses].filter(Boolean).join(' ');
 
     return (
-      <button onClick={handleConnectRedirect} type="button" className={finalClassName}>
+      <button onClick={openSignInModal} type="button" className={finalClassName}>
         <Wallet className={compact ? 'h-3 w-3 text-white' : 'h-4 w-4 text-white'} />
         <span>Connect</span>
       </button>
