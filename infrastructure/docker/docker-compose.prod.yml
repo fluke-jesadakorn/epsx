@@ -290,7 +290,7 @@ services:
     command: tunnel --config /etc/cloudflared/config.yml run
     volumes:
       - /Users/fluke/Desktop/Work/epsx/infrastructure/cloudflare/cloudflared-config.prod.yml:/etc/cloudflared/config.yml:ro
-      - ${HOME}/.cloudflared/6bee9b58-eede-4b4c-815c-94c0ee38fe58.json:/etc/cloudflared/6bee9b58-eede-4b4c-815c-94c0ee38fe58.json:ro
+      - /Users/fluke/.cloudflared/6bee9b58-eede-4b4c-815c-94c0ee38fe58.json:/etc/cloudflared/6bee9b58-eede-4b4c-815c-94c0ee38fe58.json:ro
     networks:
       - epsx_prod
       - epsx_gitlab
