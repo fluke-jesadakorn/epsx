@@ -160,7 +160,7 @@ lint:typecheck:
 
 test:frontend:
   stage: test
-  image: oven/bun:1.2.17
+  image: node:20-slim
   needs: ["prepare:deps"]
   variables:
     HTTP_PROXY: ""
@@ -175,7 +175,7 @@ test:frontend:
     policy: pull
   script:
     - >
-      bunx jest --ci --passWithNoTests
+      npx jest --ci --passWithNoTests
       --coverage --coverageDirectory=coverage
       --coverageReporters text cobertura json-summary
       --reporters default jest-junit
