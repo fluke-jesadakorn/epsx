@@ -4,19 +4,20 @@
  */
 
 import { renderHook, act } from '@testing-library/react';
+import { getTransactionStatusAction } from '@/app/actions/payments';
 import { usePaymentPolling } from '@/components/payment/hooks/use-payment-polling';
-
-const mockGetTransactionStatus = jest.fn();
 
 // Mock server action
 jest.mock('@/app/actions/payments', () => ({
-    getTransactionStatusAction: mockGetTransactionStatus,
+    getTransactionStatusAction: jest.fn(),
 }));
 
 // Suppress logger in tests
 jest.mock('@/shared/utils/logger', () => ({
     logger: { error: jest.fn() },
 }));
+
+const mockGetTransactionStatus = getTransactionStatusAction as jest.MockedFunction<typeof getTransactionStatusAction>;
 
 const TX_HASH = '0x' + 'a'.repeat(64);
 
