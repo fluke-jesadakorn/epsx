@@ -250,11 +250,11 @@ function applySecurityHeaders(response: NextResponse, pathname: string, hostname
 
     const csp = [
         "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://static.cloudflareinsights.com",
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob: https:",
         "font-src 'self' data:",
-        `connect-src 'self' https://*.epsx.io wss://*.epsx.io https://challenges.cloudflare.com https://*.walletconnect.com wss://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.org https://*.bnbchain.org https://*.web3modal.org${devConnectSrc}`,
+        `connect-src 'self' https://*.epsx.io wss://*.epsx.io https://challenges.cloudflare.com https://static.cloudflareinsights.com https://*.walletconnect.com wss://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.org https://*.bnbchain.org https://*.web3modal.org${devConnectSrc}`,
         "frame-src 'self' https://challenges.cloudflare.com https://verify.walletconnect.com https://verify.walletconnect.org",
         "object-src 'none'",
         "base-uri 'self'",
