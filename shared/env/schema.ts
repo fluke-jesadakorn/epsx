@@ -81,9 +81,7 @@ const getDefaultChainId = () => {
 };
 
 const getDefaultWalletConnectProjectId = () => {
-  if (isDev) { return 'epsx-web3-dev'; }
-  if (isStaging) { return 'epsx-web3-staging'; }
-  return 'epsx-web3-prod'; // Production WalletConnect project
+  return '04e0a500abfa1e095bf8f64b15fa2812';
 };
 
 /**
