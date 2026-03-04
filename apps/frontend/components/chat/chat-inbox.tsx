@@ -23,6 +23,7 @@ import {
   Plus,
   Tag,
 } from 'lucide-react';
+import { TurnstileWidget } from '@/shared/components/turnstile-widget';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { ChatInput } from './chat-input';
 import { ChatMessageList } from './chat-message-list';
@@ -57,6 +58,13 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   const [isPending, startTransition] = useTransition();
   const markedRef = useRef<string | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [widgetKey, setWidgetKey] = useState(0);
+
+  const handleTokenUsed = useCallback(() => {
+    setToken(null);
+    setWidgetKey((k) => k + 1);
+  }, []);
 
   const reloadConvos = useCallback(async () => {
     const data = await listConversationsAction();
@@ -177,6 +185,14 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
 
   return (
     <div className="h-[calc(100vh-5rem)] md:h-[calc(100vh-6rem)] flex flex-col md:flex-row md:gap-3">
+      <div aria-hidden className="absolute opacity-0 pointer-events-none">
+        <TurnstileWidget
+          key={widgetKey}
+          action="chat"
+          onSuccess={setToken}
+          onExpire={() => setToken(null)}
+        />
+      </div>
       {/* Left: Conversation List */}
       <div className={`w-full md:w-[320px] md:flex-shrink-0 flex flex-col bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>
         {/* Panel Header */}
@@ -305,7 +321,7 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
               <ArrowLeft className="w-3.5 h-3.5" />
               Back
             </button>
-            <ChatTopicSelector topics={topics} onSelect={handleCreate} />
+            <ChatTopicSelector topics={topics} onSelect={handleCreate} turnstileToken={token} />
           </div>
         ) : selectedConv ? (
           <>
@@ -366,6 +382,8 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
                 onTyping={handleTyping}
                 disabled={isPending || selectedConv.status === 'closed'}
                 placeholder={selectedConv.status === 'closed' ? 'Conversation is closed' : 'Type your reply...'}
+                turnstileToken={token}
+                onTokenUsed={handleTokenUsed}
               />
             </div>
           </>

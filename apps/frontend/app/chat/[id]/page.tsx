@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { TurnstileWidget } from '@/shared/components/turnstile-widget';
 import { useRouter, useParams } from 'next/navigation';
 import type { ChatConversation, ChatMessage } from '@/shared/api/chat';
 import {
@@ -25,6 +26,13 @@ export default function ChatConversationPage() {
   const [convo, setConvo] = useState<ChatConversation | null>(null);
   const [msgs, setMsgs] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState<string | null>(null);
+  const [widgetKey, setWidgetKey] = useState(0);
+
+  const handleTokenUsed = useCallback(() => {
+    setToken(null);
+    setWidgetKey((k) => k + 1);
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -40,11 +48,11 @@ export default function ChatConversationPage() {
     void load();
   }, [id]);
 
-  const handleSendMsg = useCallback(async (content: string) => {
+  const handleSendMsg = useCallback(async (content: string, turnstileToken: string) => {
     if (!id) {
       return;
     }
-    const msg = await sendMessageAction(id, content);
+    const msg = await sendMessageAction(id, content, turnstileToken);
     if (msg) {
       setMsgs((prev) => [...prev, msg]);
     }
@@ -99,6 +107,14 @@ export default function ChatConversationPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
+      <div aria-hidden className="absolute opacity-0 pointer-events-none">
+        <TurnstileWidget
+          key={widgetKey}
+          action="chat"
+          onSuccess={setToken}
+          onExpire={() => setToken(null)}
+        />
+      </div>
       <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden flex flex-col shadow-sm" style={{ height: '720px' }}>
         <ChatHeader
           subject={convo.subject}
@@ -108,7 +124,7 @@ export default function ChatConversationPage() {
           showResolve={true}
         />
         <ChatMessageList msgs={msgs} userAddr={getWalletAddress() ?? undefined} />
-        <ChatInput onSend={handleSendMsg} disabled={convo.status === 'closed'} />
+        <ChatInput onSend={handleSendMsg} disabled={convo.status === 'closed'} turnstileToken={token} onTokenUsed={handleTokenUsed} />
       </div>
     </div>
   );

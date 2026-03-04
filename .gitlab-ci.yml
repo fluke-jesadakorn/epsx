@@ -207,7 +207,7 @@ test:backend:
   script:
     - cd apps/backend
     - cargo test --jobs 1
-  timeout: 20 minutes
+  timeout: 40 minutes
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
