@@ -199,12 +199,14 @@ test:backend:
   needs: []  # DAG: starts immediately, no wait for prepare/lint
   <<: *cargo-cache
   variables:
-    CARGO_BUILD_JOBS: "2"
+    CARGO_BUILD_JOBS: "1"
+    CARGO_PROFILE_DEV_CODEGEN_UNITS: "16"
+    CARGO_PROFILE_TEST_CODEGEN_UNITS: "16"
   before_script:
     - apt-get update -qq && apt-get install -y -qq pkg-config libssl-dev libpq-dev
   script:
     - cd apps/backend
-    - cargo test --jobs 2
+    - cargo test --jobs 1
   timeout: 20 minutes
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
