@@ -30,11 +30,13 @@ playwright-synpress-report/
 !.env.example
 !.env.template
 !.env.*.template
+!.env.*.enc
 **/.env
 **/.env.*
 !**/.env.example
 !**/.env.template
 !**/.env.*.template
+!**/.env.*.enc
 production.env
 development.env
 

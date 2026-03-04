@@ -1,0 +1,8 @@
+# SOPS configuration — encrypts env files with age
+# Generate key: age-keygen -o ~/.config/sops/age/keys.txt
+# Decrypt requires SOPS_AGE_KEY_FILE pointing to private key
+creation_rules:
+  - path_regex: \.env\.prod(\.enc)?$
+    age: 'age1tzjksfjeq5ydlr0hw8jhn3gvscxyf83pe2fvchq7pm3gxj5hkutqelsgmr'
+  - path_regex: \.env\.staging(\.enc)?$
+    age: 'age1tzjksfjeq5ydlr0hw8jhn3gvscxyf83pe2fvchq7pm3gxj5hkutqelsgmr'

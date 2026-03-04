@@ -31,6 +31,12 @@ set -a
 source "$ENV_FILE"
 set +a
 
+# Validate env vars before creating any secrets
+VALIDATE_SCRIPT="$(dirname "$0")/../../scripts/validate-env.sh"
+if [[ -x "$VALIDATE_SCRIPT" ]]; then
+  "$VALIDATE_SCRIPT" "$TARGET_ENV"
+fi
+
 NAMESPACE="epsx-${TARGET_ENV}"
 
 # Helper: create/update a secret idempotently
