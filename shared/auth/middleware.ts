@@ -174,9 +174,15 @@ function handleAuthenticatedOnLogin(
         return responseNext;
     }
 
+    // If user explicitly navigated to /auth with return_url, let the page render.
+    // Middleware can only check cookies, not wallet connection state (client-side).
+    // The auth page handles redirect when both authenticated AND wallet connected.
+    if (request.nextUrl.searchParams.has('return_url')) {
+        return null;
+    }
+
     const returnUrlCookie = request.cookies.get(COOKIES.return_url)?.value;
-    const returnUrlParam = request.nextUrl.searchParams.get('return_url');
-    const targetPath = returnUrlCookie ?? returnUrlParam ?? homePath;
+    const targetPath = returnUrlCookie ?? homePath;
 
     logger.info('[AUTH] Middleware: Authenticated user on login page, redirecting', { targetPath });
 

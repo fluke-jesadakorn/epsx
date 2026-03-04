@@ -53,6 +53,7 @@ export interface RequestConfig extends RequestInit {
   serverSide?: boolean;
   platform?: 'admin' | 'frontend';
   token?: string;
+  _isRetry?: boolean;
 }
 
 export type Platform = 'admin' | 'frontend';
@@ -214,7 +215,7 @@ export class UnifiedApiClient {
     endpoint: string,
     config: RequestConfig = {}
   ): Promise<ApiResponse<T>> {
-    const { timeout = 0, ...options } = config;
+    const { timeout = 0, _isRetry: _, ...options } = config;
     const url = `${this.baseURL}${endpoint}`;
 
     try {
@@ -258,14 +259,14 @@ export class UnifiedApiClient {
   }
 
   private async handleUnauthorized(endpoint: string, config: RequestConfig, headers: Record<string, string>): Promise<unknown | null> {
-    if (headers['x-retry'] === 'true') { return null; }
+    if (config._isRetry === true) { return null; }
     if (!this.isServerSide && isRedirecting) { return this.createUnauthorizedResponse(headers); }
 
     const refreshResult = await this.handleTokenRefresh();
     if (refreshResult.success && refreshResult.access_token !== undefined && refreshResult.access_token !== '') {
       return await this.request(endpoint, {
         ...config,
-        headers: { ...config.headers, 'x-retry': 'true' }
+        _isRetry: true
       });
     }
 

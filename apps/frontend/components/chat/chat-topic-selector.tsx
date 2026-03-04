@@ -1,7 +1,6 @@
 'use client';
 
 import type { ChatTopic } from '@/shared/api/chat';
-import { TurnstileWidget } from '@/shared/components/turnstile-widget';
 import {
   ArrowLeft,
   BarChart3,
@@ -58,14 +57,14 @@ interface TopicSelectorProps {
   topics: ChatTopic[];
   onSelect: (opts: ConversationCreateOptions) => void;
   compact?: boolean;
+  turnstileToken: string | null;
 }
 
-export function ChatTopicSelector({ topics, onSelect, compact }: TopicSelectorProps) {
+export function ChatTopicSelector({ topics, onSelect, compact, turnstileToken }: TopicSelectorProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -187,13 +186,6 @@ export function ChatTopicSelector({ topics, onSelect, compact }: TopicSelectorPr
             </div>
           )}
         </div>
-
-        <TurnstileWidget
-          action="chat"
-          onSuccess={setTurnstileToken}
-          onExpire={() => setTurnstileToken(null)}
-          className="mt-2"
-        />
 
         <button
           onClick={handleSubmit}

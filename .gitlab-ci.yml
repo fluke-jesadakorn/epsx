@@ -198,11 +198,13 @@ test:backend:
   image: rust:slim-bookworm
   needs: []  # DAG: starts immediately, no wait for prepare/lint
   <<: *cargo-cache
+  variables:
+    CARGO_BUILD_JOBS: "2"
   before_script:
     - apt-get update -qq && apt-get install -y -qq pkg-config libssl-dev libpq-dev
   script:
     - cd apps/backend
-    - cargo test
+    - cargo test --jobs 2
   timeout: 20 minutes
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -225,14 +227,13 @@ build:frontend:
   needs: ["lint:eslint", "lint:typecheck", "test:frontend"]
   <<: *docker-login
   script:
-    - docker buildx create --use --name epsx-builder || docker buildx use epsx-builder
+    - docker buildx rm epsx-builder 2>/dev/null || true
+    - docker buildx create --use --name epsx-builder
     - >
       docker buildx build
       --platform $BUILDX_PLATFORMS
       --cache-from $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-latest
       --build-arg BUILDKIT_INLINE_CACHE=1
-      --build-arg http_proxy=http://192.168.65.7:3128
-      --build-arg https_proxy=http://192.168.65.7:3128
       --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID
       --build-arg NEXT_PUBLIC_APP_URL=$DEPLOY_FRONTEND_URL
       --build-arg NEXT_PUBLIC_BACKEND_URL=$DEPLOY_API_URL
@@ -300,14 +301,13 @@ build:admin:
   needs: ["lint:eslint", "lint:typecheck"]
   <<: *docker-login
   script:
-    - docker buildx create --use --name epsx-builder || docker buildx use epsx-builder
+    - docker buildx rm epsx-builder 2>/dev/null || true
+    - docker buildx create --use --name epsx-builder
     - >
       docker buildx build
       --platform $BUILDX_PLATFORMS
       --cache-from $CI_REGISTRY_IMAGE/admin:$ENV_TAG-latest
       --build-arg BUILDKIT_INLINE_CACHE=1
-      --build-arg http_proxy=http://192.168.65.7:3128
-      --build-arg https_proxy=http://192.168.65.7:3128
       --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID
       --build-arg NEXT_PUBLIC_APP_URL=$DEPLOY_ADMIN_URL
       --build-arg NEXT_PUBLIC_BACKEND_URL=$DEPLOY_API_URL
@@ -374,7 +374,8 @@ build:backend:
       optional: true  # backend test may be skipped (no changes)
   <<: *docker-login
   script:
-    - docker buildx create --use --name epsx-builder || docker buildx use epsx-builder
+    - docker buildx rm epsx-builder 2>/dev/null || true
+    - docker buildx create --use --name epsx-builder
     - >
       docker buildx build
       --platform $BUILDX_PLATFORMS

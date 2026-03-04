@@ -1,6 +1,5 @@
 'use client';
 
-import { TurnstileWidget } from '@/shared/components/turnstile-widget';
 import { Paperclip, Send, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
@@ -10,17 +9,17 @@ interface InputProps {
   onTyping?: (isTyping: boolean) => void;
   disabled?: boolean;
   placeholder?: string;
+  turnstileToken: string | null;
+  onTokenUsed: () => void;
 }
 
-export function ChatInput({ onSend, onUpload, onTyping, disabled = false, placeholder = 'Type a message...' }: InputProps) {
+export function ChatInput({ onSend, onUpload, onTyping, disabled = false, placeholder = 'Type a message...', turnstileToken, onTokenUsed }: InputProps) {
   const [val, setVal] = useState('');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [turnstileKey, setTurnstileKey] = useState(0);
 
   const autoResize = useCallback(() => {
     const el = textareaRef.current;
@@ -63,11 +62,10 @@ export function ChatInput({ onSend, onUpload, onTyping, disabled = false, placeh
     if (trimmed && !disabled && turnstileToken !== null) {
       onSend(trimmed, turnstileToken);
       setVal('');
-      setTurnstileToken(null);
-      setTurnstileKey(k => k + 1);
+      onTokenUsed();
       emitTyping(false);
     }
-  }, [val, disabled, onSend, pendingFile, onUpload, emitTyping, turnstileToken]);
+  }, [val, disabled, onSend, pendingFile, onUpload, emitTyping, turnstileToken, onTokenUsed]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -151,15 +149,6 @@ export function ChatInput({ onSend, onUpload, onTyping, disabled = false, placeh
           Press Enter to send · Shift+Enter for new line · Supports **markdown**
         </p>
       )}
-
-      {/* Turnstile Widget */}
-      <TurnstileWidget
-        key={turnstileKey}
-        action="chat_message"
-        onSuccess={setTurnstileToken}
-        onExpire={() => setTurnstileToken(null)}
-        className="mt-3 flex justify-center"
-      />
     </div>
   );
 }

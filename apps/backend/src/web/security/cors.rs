@@ -128,7 +128,6 @@ fn development_cors() -> CorsLayer {
             HeaderName::from_static("x-access-level"),
             HeaderName::from_static("x-admin-context"),
             HeaderName::from_static("x-admin-session"),
-            HeaderName::from_static("x-retry"),
             // Next.js React Server Components header
             HeaderName::from_static("rsc"),
             // Next.js Router headers for prefetching
