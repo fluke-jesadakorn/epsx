@@ -2,9 +2,9 @@
 # Mac Mini runner (arm64), Docker executor, bind-mounted Docker socket
 #
 # Branches:
-#   development → lint + test + build only
+#   development → lint + test + build (all CI)
 #   staging     → build + manual revision deploy (Traefik, Docker Compose)
-#   main        → manual deploy to epsx.io (k8s)
+#   production  → manual deploy (Docker Compose) + auto validate
 #   MR          → lint + test + review app
 
 stages:
@@ -14,6 +14,7 @@ stages:
   - test
   - build
   - deploy
+  - validate
 
 variables:
   IMAGE_TAG: $CI_COMMIT_SHORT_SHA
@@ -45,16 +46,14 @@ variables:
 .rules-lint-test: &rules-lint-test
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH =~ /^(development|staging|main)$/
+    - if: $CI_COMMIT_BRANCH =~ /^(development|staging)$/
 
 .rules-deploy-branches: &rules-deploy-branches
   rules:
-    - if: $CI_COMMIT_BRANCH =~ /^(development|staging|main)$/
+    - if: $CI_COMMIT_BRANCH =~ /^(development|staging)$/
 
 # ---------------------------------------------------------------------------
 # Infra — deploy infrastructure components (Cloudflared)
-# Manual job that can be triggered without SSH access to the Mac Mini.
-# GitLab runs independently — manage via API/MCP only when explicitly needed.
 # ---------------------------------------------------------------------------
 
 infra:cloudflared:
@@ -62,21 +61,18 @@ infra:cloudflared:
   image: docker:27
   script:
     - |
-      # Restart cloudflared to pick up latest config from repo
-      # Config is mounted from: infrastructure/cloudflare/cloudflared-config.prod.yml
       docker restart epsx-prod-cloudflared
       sleep 10
       status=$(docker inspect --format='{{.State.Status}}' epsx-prod-cloudflared 2>/dev/null || echo "not_found")
       echo "epsx-prod-cloudflared: $status"
       if [ "$status" != "running" ]; then
-        # Container not running — start it fresh via prod compose
         cd infrastructure/docker
         docker compose --env-file /Users/fluke/epsx-runner/envs/.env.prod -f docker-compose.prod.yml up -d cloudflared
       fi
       docker inspect --format='{{.State.Status}}' epsx-prod-cloudflared
   timeout: 5 minutes
   rules:
-    - if: $CI_COMMIT_BRANCH =~ /^(main|development)$/
+    - if: $CI_COMMIT_BRANCH == "development"
       when: manual
       allow_failure: true
 
@@ -213,7 +209,7 @@ test:backend:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
         - apps/backend/**/*
-    - if: $CI_COMMIT_BRANCH =~ /^(development|staging|main)$/
+    - if: $CI_COMMIT_BRANCH =~ /^(development|staging)$/
       changes:
         - apps/backend/**/*
 
@@ -284,14 +280,6 @@ build:frontend:
         DEPLOY_ADMIN_URL: https://staging-admin.epsx.io
         DEPLOY_BLOCKCHAIN_NETWORK: testnet
         DEPLOY_CHAIN_ID: "97"
-    - if: $CI_COMMIT_BRANCH == "main"
-      variables:
-        ENV_TAG: prod
-        DEPLOY_FRONTEND_URL: https://epsx.io
-        DEPLOY_API_URL: https://api.epsx.io
-        DEPLOY_ADMIN_URL: https://admin.epsx.io
-        DEPLOY_BLOCKCHAIN_NETWORK: mainnet
-        DEPLOY_CHAIN_ID: "56"
 
 build:admin:
   stage: build
@@ -351,13 +339,6 @@ build:admin:
         DEPLOY_ADMIN_URL: https://staging-admin.epsx.io
         DEPLOY_BLOCKCHAIN_NETWORK: testnet
         DEPLOY_CHAIN_ID: "97"
-    - if: $CI_COMMIT_BRANCH == "main"
-      variables:
-        ENV_TAG: prod
-        DEPLOY_API_URL: https://api.epsx.io
-        DEPLOY_ADMIN_URL: https://admin.epsx.io
-        DEPLOY_BLOCKCHAIN_NETWORK: mainnet
-        DEPLOY_CHAIN_ID: "56"
 
 build:backend:
   stage: build
@@ -402,9 +383,6 @@ build:backend:
     - if: $CI_COMMIT_BRANCH == "staging"
       variables:
         ENV_TAG: staging
-    - if: $CI_COMMIT_BRANCH == "main"
-      variables:
-        ENV_TAG: prod
 
 # ---------------------------------------------------------------------------
 # Deploy
@@ -706,57 +684,81 @@ deploy:staging:traffic:
       when: manual
       allow_failure: false
 
-deploy:prod:
+# ---------------------------------------------------------------------------
+# Production — manual deploy + auto validate (Docker Compose + Cloudflare Tunnel)
+# All CI (lint/test/build) already passed on development branch.
+# ---------------------------------------------------------------------------
+
+deploy:production:
   stage: deploy
   image: docker:27
-  needs:
-    - job: build:backend
-      artifacts: true
-    - job: build:frontend
-      artifacts: true
-    - job: build:admin
-      artifacts: true
-    - job: validate:env:prod
-      artifacts: false
-  before_script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  needs: []
   script:
-    - docker pull $BACKEND_IMAGE
-    - docker pull $FRONTEND_IMAGE
-    - docker pull $ADMIN_IMAGE
-    - docker tag $BACKEND_IMAGE registry.jesadakorn.com/jesadakorn/epsx/backend:prod-latest
-    - docker tag $FRONTEND_IMAGE registry.jesadakorn.com/jesadakorn/epsx/frontend:prod-latest
-    - docker tag $ADMIN_IMAGE registry.jesadakorn.com/jesadakorn/epsx/admin:prod-latest
-    - k3d image import registry.jesadakorn.com/jesadakorn/epsx/backend:prod-latest registry.jesadakorn.com/jesadakorn/epsx/frontend:prod-latest registry.jesadakorn.com/jesadakorn/epsx/admin:prod-latest -c epsx-local
-    - kubectl rollout restart deployment/epsx-backend  -n epsx-prod
-    - kubectl rollout restart deployment/epsx-frontend -n epsx-prod
-    - kubectl rollout restart deployment/epsx-admin    -n epsx-prod
-    - kubectl rollout status  deployment/epsx-backend  -n epsx-prod --timeout=120s
-    - kubectl rollout status  deployment/epsx-frontend -n epsx-prod --timeout=120s
-    - kubectl rollout status  deployment/epsx-admin    -n epsx-prod --timeout=120s
-    - kubectl get pods -n epsx-prod
+    - set -a && source /Users/fluke/epsx-runner/envs/.env.prod && set +a
+    - export DOCKER_DEFAULT_PLATFORM=$DOCKER_PLATFORM
+    # Build frontend
+    - >
+      docker build
+      --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID
+      --build-arg NEXT_PUBLIC_APP_URL=$FRONTEND_URL
+      --build-arg NEXT_PUBLIC_BACKEND_URL=$BACKEND_URL
+      --build-arg NEXT_PUBLIC_ADMIN_URL=$ADMIN_FRONTEND_URL
+      --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=$NEXT_PUBLIC_BLOCKCHAIN_NETWORK
+      --build-arg NEXT_PUBLIC_CHAIN_ID=$NEXT_PUBLIC_CHAIN_ID
+      --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID
+      --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=${NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET:-}
+      --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=${NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET:-}
+      --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
+      -f apps/frontend/Dockerfile -t epsx-frontend:prod .
+    # Build admin
+    - >
+      docker build
+      --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID
+      --build-arg NEXT_PUBLIC_APP_URL=$ADMIN_FRONTEND_URL
+      --build-arg NEXT_PUBLIC_BACKEND_URL=$BACKEND_URL
+      --build-arg NEXT_PUBLIC_ADMIN_URL=$ADMIN_FRONTEND_URL
+      --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=$NEXT_PUBLIC_BLOCKCHAIN_NETWORK
+      --build-arg NEXT_PUBLIC_CHAIN_ID=$NEXT_PUBLIC_CHAIN_ID
+      --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-admin
+      --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=${NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET:-}
+      --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=${NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET:-}
+      --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
+      -f apps/admin-frontend/Dockerfile -t epsx-admin-frontend:prod .
+    # Build backend
+    - docker build -f apps/backend/Dockerfile -t epsx-backend:prod .
+    # Deploy via Docker Compose
+    - cd infrastructure/docker
+    - docker compose --env-file /Users/fluke/epsx-runner/envs/.env.prod -f docker-compose.prod.yml up -d --force-recreate
   environment:
     name: production
     url: https://epsx.io
-  timeout: 15 minutes
+  timeout: 30 minutes
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "production"
       when: manual
       allow_failure: false
 
-verify:prod:
-  stage: deploy
+validate:production:
+  stage: validate
   image: curlimages/curl:latest
-  needs: ["deploy:prod"]
+  needs: ["deploy:production"]
   script:
-    - sleep 15  # wait for pods to become ready
-    - curl -sf --retry 3 --retry-delay 10 https://api.epsx.io/health || exit 1
-    - curl -sf -o /dev/null -w "%{http_code}" https://epsx.io | grep -q "200" || exit 1
-    - curl -sf -o /dev/null -w "%{http_code}" https://admin.epsx.io | grep -qE "200|307" || exit 1
-    - echo "All services healthy"
+    - sleep 20
+    - echo "=== Backend health ==="
+    - curl -sf --retry 5 --retry-delay 10 https://api.epsx.io/health || exit 1
+    - echo ""
+    - echo "=== Frontend ==="
+    - STATUS=$(curl -sf -o /dev/null -w "%{http_code}" --retry 3 --retry-delay 5 https://epsx.io)
+    - echo "HTTP $STATUS"
+    - echo "$STATUS" | grep -q "200" || exit 1
+    - echo "=== Admin ==="
+    - STATUS=$(curl -sf -o /dev/null -w "%{http_code}" --retry 3 --retry-delay 5 https://admin.epsx.io)
+    - echo "HTTP $STATUS"
+    - echo "$STATUS" | grep -qE "200|307" || exit 1
+    - echo "=== All services healthy ==="
   timeout: 5 minutes
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "production"
 
 # ---------------------------------------------------------------------------
 # Review Apps (MR only — frontend preview with prod backend)
@@ -831,103 +833,4 @@ review:stop:
       when: manual
       allow_failure: true
 
-# ---------------------------------------------------------------------------
-# K8s — GitOps deploy via GitLab Agent (pull-based)
-# ---------------------------------------------------------------------------
-
-validate:env:prod:
-  stage: deploy
-  image: alpine:latest
-  needs:
-    - job: build:backend
-      artifacts: false
-    - job: build:frontend
-      artifacts: false
-    - job: build:admin
-      artifacts: false
-  before_script:
-    - apk add --no-cache bash grep coreutils
-    - |
-      # Install SOPS + age
-      wget -qO /usr/local/bin/sops https://github.com/getsops/sops/releases/download/v3.9.4/sops-v3.9.4.linux.arm64
-      chmod +x /usr/local/bin/sops
-      apk add --no-cache age
-  script:
-    - export SOPS_AGE_KEY_FILE=/Users/fluke/.config/sops/age/keys.txt
-    - sops -d infrastructure/docker/.env.prod.enc > /tmp/.env.prod
-    - set -a && source /tmp/.env.prod && set +a
-    - bash infrastructure/scripts/validate-env.sh prod
-    - rm -f /tmp/.env.prod
-  timeout: 5 minutes
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-
-deploy:k8s:secrets:
-  stage: deploy
-  image: bitnami/kubectl:latest
-  needs: ["validate:env:prod"]
-  before_script:
-    - |
-      # Install SOPS + age
-      apt-get update -qq && apt-get install -y -qq wget age
-      wget -qO /usr/local/bin/sops https://github.com/getsops/sops/releases/download/v3.9.4/sops-v3.9.4.linux.arm64
-      chmod +x /usr/local/bin/sops
-  script:
-    - |
-      # Write KUBECONFIG from CI variable
-      echo "$KUBECONFIG_B64" | base64 -d > /tmp/kubeconfig
-      export KUBECONFIG=/tmp/kubeconfig
-    - |
-      # Decrypt env file
-      export SOPS_AGE_KEY_FILE=/Users/fluke/.config/sops/age/keys.txt
-      sops -d infrastructure/docker/.env.prod.enc > /tmp/.env.prod
-      # Override env file path for create-secrets.sh
-      mkdir -p /Users/fluke/epsx-runner/envs
-      cp /tmp/.env.prod /Users/fluke/epsx-runner/envs/.env.prod
-    - ./infrastructure/kubernetes/scripts/create-secrets.sh prod
-    - rm -f /tmp/.env.prod /Users/fluke/epsx-runner/envs/.env.prod
-  environment:
-    name: production
-    url: https://epsx.io
-  timeout: 10 minutes
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-
-deploy:k8s:tag:
-  stage: deploy
-  image: alpine/git
-  needs:
-    - job: build:backend
-      artifacts: true
-    - job: build:frontend
-      artifacts: true
-    - job: build:admin
-      artifacts: true
-    - job: validate:env:prod
-      artifacts: false
-  before_script:
-    - apk add --no-cache curl
-    - |
-      # Install kustomize
-      curl -sL https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.3.0/kustomize_v5.3.0_linux_amd64.tar.gz \
-        | tar xz -C /usr/local/bin
-    - git config user.email "ci@epsx.io"
-    - git config user.name "GitLab CI"
-  script:
-    - cd infrastructure/kubernetes/overlays/prod
-    - |
-      kustomize edit set image \
-        registry.jesadakorn.com/jesadakorn/epsx/backend:prod-$IMAGE_TAG \
-        registry.jesadakorn.com/jesadakorn/epsx/frontend:prod-$IMAGE_TAG \
-        registry.jesadakorn.com/jesadakorn/epsx/admin:prod-$IMAGE_TAG
-    - git add kustomization.yaml
-    - git diff --cached --quiet && echo "No image changes" && exit 0
-    - 'git commit -m "deploy(k8s): prod $IMAGE_TAG [skip ci]"'
-    - git push "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" HEAD:$CI_COMMIT_BRANCH
-  environment:
-    name: production
-    url: https://epsx.io
-  timeout: 10 minutes
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
 
