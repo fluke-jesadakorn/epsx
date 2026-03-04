@@ -377,6 +377,7 @@ build:backend:
   <<: *docker-login
   script:
     - docker buildx rm epsx-builder 2>/dev/null || true
+    - docker builder prune -af 2>/dev/null || true
     - docker buildx create --use --name epsx-builder
     - >
       docker buildx build

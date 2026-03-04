@@ -24,6 +24,7 @@ COPY apps/backend/migrations/ ./migrations/
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
+    find /usr/local/cargo/registry/src -name ".cargo-ok" -delete 2>/dev/null || true && \
     cargo build --release --features="cli-tools" --bin epsx --bin migrate
 
 FROM debian:bookworm-slim AS runtime
