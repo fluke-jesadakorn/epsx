@@ -248,13 +248,15 @@ function applySecurityHeaders(response: NextResponse, pathname: string, hostname
         devConnectSrc = ` ${[...devSources].join(' ')}`;
     }
 
+    const cfScripts = 'https://challenges.cloudflare.com https://static.cloudflareinsights.com';
     const csp = [
         "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://static.cloudflareinsights.com",
+        `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${cfScripts}`,
+        `script-src-elem 'self' 'unsafe-inline' ${cfScripts}`,
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob: https:",
         "font-src 'self' data:",
-        `connect-src 'self' https://*.epsx.io wss://*.epsx.io https://challenges.cloudflare.com https://static.cloudflareinsights.com https://*.walletconnect.com wss://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.org https://*.bnbchain.org https://*.web3modal.org${devConnectSrc}`,
+        `connect-src 'self' https://*.epsx.io wss://*.epsx.io ${cfScripts} https://*.walletconnect.com wss://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.org https://*.bnbchain.org https://*.web3modal.org${devConnectSrc}`,
         "frame-src 'self' https://challenges.cloudflare.com https://verify.walletconnect.com https://verify.walletconnect.org",
         "object-src 'none'",
         "base-uri 'self'",
