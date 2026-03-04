@@ -25,7 +25,6 @@
     "test:watch": "jest --watch",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:synpress": "playwright test --config=playwright-synpress.config.ts",
     "clean": "rm -rf .next out dist node_modules/.cache"
   },
   "dependencies": {
@@ -72,7 +71,6 @@
     "@eslint/js": "^9.39.1",
     "@next/bundle-analyzer": "^16.0.10",
     "@playwright/test": "^1.57.0",
-    "@synthetixio/synpress-metamask": "^0.0.14",
     "@tailwindcss/postcss": "^4.1.18",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
