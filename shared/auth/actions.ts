@@ -96,12 +96,17 @@ export async function logoutAction() {
     try {
         const cookieStore = await cookies();
 
-        // Get wallet address before clearing cookies
+        // Get wallet address before clearing cookies (best-effort, never block logout)
         const userCookie = cookieStore.get(COOKIES.user)?.value;
         let walletAddress = '';
         if (userCookie !== undefined && userCookie !== '') {
-            const user = JSON.parse(userCookie) as UserInfoResponse;
-            walletAddress = user.wallet_address;
+            try {
+                const decoded = decodeURIComponent(userCookie);
+                const user = JSON.parse(decoded) as UserInfoResponse;
+                walletAddress = user.wallet_address;
+            } catch {
+                // Cookie may be malformed — continue with logout anyway
+            }
         }
 
         logger.info('[AUTH] logoutAction: Starting logout', { walletAddress: walletAddress.slice(0, 8) });

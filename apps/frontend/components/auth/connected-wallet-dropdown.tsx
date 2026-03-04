@@ -9,7 +9,7 @@ import { formatAddress } from '@/shared/auth/utils';
 import { copyToClipboard as copyToClipboardUtil } from '@/utils/clipboard';
 import { Check, Copy, ExternalLink, LogOut, Wallet } from 'lucide-react';
 import { useState } from 'react';
-import { useAccount } from 'wagmi';
+import { useAccount, useDisconnect } from 'wagmi';
 
 interface ConnectedWalletDropdownProps {
   className?: string;
@@ -17,6 +17,7 @@ interface ConnectedWalletDropdownProps {
 
 export function ConnectedWalletDropdown({ className }: ConnectedWalletDropdownProps) {
   const { address } = useAccount();
+  const { disconnect } = useDisconnect();
   const { user, logout } = useSharedAuth();
   const [copied, setCopied] = useState(false);
 
@@ -123,8 +124,10 @@ export function ConnectedWalletDropdown({ className }: ConnectedWalletDropdownPr
             "hover:bg-red-500/10 focus:bg-red-500/10"
           )}
           onClick={() => {
-            void logout().catch(() => {
-              // Error logged silently
+            void logout().then(() => {
+              disconnect();
+            }).catch(() => {
+              disconnect();
             });
           }}
         >
