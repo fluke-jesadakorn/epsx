@@ -14,17 +14,15 @@ RUN mkdir -p src/bin && \
     echo "fn main() {}" > src/bin/migrate.rs && \
     echo "fn main() {}" > src/bin/grant_wallet_permission.rs
 
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/usr/local/cargo/git \
-    find /usr/local/cargo/registry/src -name ".cargo-ok" -delete 2>/dev/null || true && \
+RUN --mount=type=cache,sharing=private,target=/usr/local/cargo/registry \
+    --mount=type=cache,sharing=private,target=/usr/local/cargo/git \
     cargo build --release --bin epsx && rm -rf src
 
 COPY apps/backend/src/ ./src/
 COPY apps/backend/migrations/ ./migrations/
 
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/usr/local/cargo/git \
-    find /usr/local/cargo/registry/src -name ".cargo-ok" -delete 2>/dev/null || true && \
+RUN --mount=type=cache,sharing=private,target=/usr/local/cargo/registry \
+    --mount=type=cache,sharing=private,target=/usr/local/cargo/git \
     cargo build --release --features="cli-tools" --bin epsx --bin migrate
 
 FROM debian:bookworm-slim AS runtime
