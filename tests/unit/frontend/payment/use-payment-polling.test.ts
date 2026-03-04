@@ -6,17 +6,17 @@
 import { renderHook, act } from '@testing-library/react';
 import { usePaymentPolling } from '@/components/payment/hooks/use-payment-polling';
 
+const mockGetTransactionStatus = jest.fn();
+
 // Mock server action
 jest.mock('@/app/actions/payments', () => ({
-    getTransactionStatusAction: jest.fn(),
+    getTransactionStatusAction: mockGetTransactionStatus,
 }));
 
 // Suppress logger in tests
 jest.mock('@/shared/utils/logger', () => ({
     logger: { error: jest.fn() },
 }));
-
-const { getTransactionStatusAction } = jest.requireMock('@/app/actions/payments');
 
 const TX_HASH = '0x' + 'a'.repeat(64);
 
@@ -51,7 +51,7 @@ afterEach(() => {
 
 describe('usePaymentPolling', () => {
     it('transitions to success on confirmed status', async () => {
-        getTransactionStatusAction.mockResolvedValue({
+        mockGetTransactionStatus.mockResolvedValue({
             success: true,
             data: { status: 'confirmed' },
         });
@@ -68,7 +68,7 @@ describe('usePaymentPolling', () => {
     });
 
     it('stops and shows error on failed status', async () => {
-        getTransactionStatusAction.mockResolvedValue({
+        mockGetTransactionStatus.mockResolvedValue({
             success: true,
             data: { status: 'failed', error_message: 'Plan not found' },
         });
@@ -84,7 +84,7 @@ describe('usePaymentPolling', () => {
     });
 
     it('shows generic error when failed with no error_message', async () => {
-        getTransactionStatusAction.mockResolvedValue({
+        mockGetTransactionStatus.mockResolvedValue({
             success: true,
             data: { status: 'failed' },
         });
@@ -99,7 +99,7 @@ describe('usePaymentPolling', () => {
     });
 
     it('surfaces error_message from API when present during confirming', async () => {
-        getTransactionStatusAction.mockResolvedValue({
+        mockGetTransactionStatus.mockResolvedValue({
             success: true,
             data: { status: 'confirming', error_message: 'Amount mismatch: expected $29, on-chain $20' },
         });
@@ -114,7 +114,7 @@ describe('usePaymentPolling', () => {
     });
 
     it('times out after MAX_POLL_MS and shows timeout message', async () => {
-        getTransactionStatusAction.mockResolvedValue({
+        mockGetTransactionStatus.mockResolvedValue({
             success: true,
             data: { status: 'confirming' },
         });
