@@ -202,6 +202,7 @@ test:backend:
     CARGO_BUILD_JOBS: "1"
     CARGO_PROFILE_DEV_CODEGEN_UNITS: "16"
     CARGO_PROFILE_TEST_CODEGEN_UNITS: "16"
+    DATABASE_URL: "postgres://test:test@localhost/test"
   before_script:
     - apt-get update -qq && apt-get install -y -qq pkg-config libssl-dev libpq-dev
   script:
@@ -230,7 +231,7 @@ build:frontend:
   <<: *docker-login
   script:
     - docker buildx rm epsx-builder 2>/dev/null || true
-    - docker buildx create --use --name epsx-builder
+    - docker buildx create --use --name epsx-builder --driver-opt network=host
     - >
       docker buildx build
       --platform $BUILDX_PLATFORMS
@@ -304,7 +305,7 @@ build:admin:
   <<: *docker-login
   script:
     - docker buildx rm epsx-builder 2>/dev/null || true
-    - docker buildx create --use --name epsx-builder
+    - docker buildx create --use --name epsx-builder --driver-opt network=host
     - >
       docker buildx build
       --platform $BUILDX_PLATFORMS
@@ -378,7 +379,7 @@ build:backend:
   script:
     - docker buildx rm epsx-builder 2>/dev/null || true
     - docker builder prune -af 2>/dev/null || true
-    - docker buildx create --use --name epsx-builder
+    - docker buildx create --use --name epsx-builder --driver-opt network=host
     - >
       docker buildx build
       --platform $BUILDX_PLATFORMS

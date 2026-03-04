@@ -151,7 +151,8 @@ mod tests {
     #[test]
     fn test_credit_half_remaining() {
         let now = Utc::now();
-        let expires = now + Duration::days(15);
+        // Add 1 hour buffer to avoid num_days() truncation from sub-ms timing
+        let expires = now + Duration::days(15) + Duration::hours(1);
         let credit = calculate_upgrade_credit(dec!(30.00), expires, 30);
         assert_eq!(credit, dec!(15.00));
     }
