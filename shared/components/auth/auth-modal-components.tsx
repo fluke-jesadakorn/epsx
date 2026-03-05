@@ -98,7 +98,7 @@ export interface SignStepProps {
     isSigning: boolean;
 }
 
-export function SignStep({ address, handleDisconnect }: SignStepProps) {
+export function SignStep({ address, handleSign, handleDisconnect, isSigning }: SignStepProps) {
     return (
         <div className="auth-step auth-step-enter">
             <div className="auth-step-header">
@@ -108,10 +108,20 @@ export function SignStep({ address, handleDisconnect }: SignStepProps) {
             <p className="auth-address">
                 {address.slice(0, 6)}...{address.slice(-4)}
             </p>
-            <div className="auth-loading" style={{ marginTop: '2rem' }}>
-                <span className="auth-spinner-large" />
-                <p>Please approve the signature request in your wallet...</p>
-            </div>
+            {isSigning ? (
+                <div className="auth-loading" style={{ marginTop: '2rem' }}>
+                    <span className="auth-spinner-large" />
+                    <p>Please approve the signature request in your wallet...</p>
+                </div>
+            ) : (
+                <button
+                    className="auth-btn-primary"
+                    style={{ marginTop: '2rem', width: '100%' }}
+                    onClick={handleSign}
+                >
+                    Sign with Wallet
+                </button>
+            )}
             <button className="auth-btn-secondary" style={{ marginTop: '1rem' }} onClick={handleDisconnect}>
                 Use Different Wallet
             </button>
