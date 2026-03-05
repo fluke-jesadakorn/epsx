@@ -49,6 +49,8 @@ COPY shared ./shared
 
 WORKDIR /app/apps/frontend
 ENV NODE_ENV=production
+# Clear proxy vars before build (CI runners inject these, corrupts middleware compilation)
+ENV http_proxy= https_proxy= HTTP_PROXY= HTTPS_PROXY=
 RUN npx next build --webpack
 
 FROM node:22-alpine AS runner

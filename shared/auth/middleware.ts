@@ -34,10 +34,10 @@ export function createAuthMiddleware(config: AuthMiddlewareConfig) {
         if (request.nextUrl.searchParams.has('logout')) {
             const cleanUrl = new URL(pathname, request.url);
             const resp = NextResponse.redirect(cleanUrl);
-            const isProd = process.env.NODE_ENV === 'production';
             [COOKIES.access_token, COOKIES.refresh_token, COOKIES.id_token,
              COOKIES.user, COOKIES.sid, COOKIES.auth_time, COOKIES.expires_at].forEach(name => {
-                resp.cookies.set(name, '', { maxAge: 0, secure: isProd, sameSite: 'lax', path: '/' });
+                // __Host- prefix requires Secure flag per spec; derive from name, not NODE_ENV
+                resp.cookies.set(name, '', { maxAge: 0, secure: name.startsWith('__Host-'), sameSite: 'lax', path: '/' });
             });
             return resp;
         }
@@ -134,7 +134,7 @@ function handleUnauthenticated(context: UnauthenticatedContext): NextResponse | 
     if (pathname !== '/' && isValidReturnPath) {
         responseRedirect.cookies.set(COOKIES.return_url, pathname + search, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: COOKIES.return_url.startsWith('__Host-'),
             sameSite: 'lax',
             path: '/',
             maxAge: 300 // 5 minutes
@@ -157,7 +157,7 @@ function handleExplicitReturnUrl(request: NextRequest, loginPath: string): NextR
         const response = NextResponse.next();
         response.cookies.set(COOKIES.return_url, returnUrl, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: COOKIES.return_url.startsWith('__Host-'),
             sameSite: 'lax',
             path: '/',
             maxAge: 300
@@ -179,11 +179,10 @@ function handleAuthenticatedOnLogin(
     // Break infinite redirect loop if token is expired but cookie isn't cleared
     if (request.nextUrl.searchParams.get('reason') === 'no-session' || request.nextUrl.searchParams.has('clear')) {
         const responseNext = NextResponse.next();
-        const isProd = process.env.NODE_ENV === 'production';
         // Use set(maxAge=0) — delete() omits Secure flag, failing to remove __Host- cookies
         [COOKIES.access_token, COOKIES.refresh_token, COOKIES.id_token,
          COOKIES.user, COOKIES.sid, COOKIES.auth_time, COOKIES.expires_at].forEach(name => {
-            responseNext.cookies.set(name, '', { maxAge: 0, secure: isProd, sameSite: 'lax', path: '/' });
+            responseNext.cookies.set(name, '', { maxAge: 0, secure: name.startsWith('__Host-'), sameSite: 'lax', path: '/' });
         });
         return responseNext;
     }

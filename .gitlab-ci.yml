@@ -224,6 +224,11 @@ build:frontend:
   stage: build
   image: docker:27
   needs: ["lint:eslint", "lint:typecheck", "test:frontend"]
+  variables:
+    HTTP_PROXY: ""
+    HTTPS_PROXY: ""
+    http_proxy: ""
+    https_proxy: ""
   <<: *docker-login
   script:
     - >
@@ -285,6 +290,11 @@ build:admin:
   stage: build
   image: docker:27
   needs: ["lint:eslint", "lint:typecheck"]
+  variables:
+    HTTP_PROXY: ""
+    HTTPS_PROXY: ""
+    http_proxy: ""
+    https_proxy: ""
   <<: *docker-login
   script:
     - >
@@ -696,6 +706,8 @@ deploy:production:
   script:
     - set -a && source /Users/fluke/epsx-runner/envs/.env.prod && set +a
     - export DOCKER_DEFAULT_PLATFORM=$DOCKER_PLATFORM
+    # Clear CI runner proxy vars that corrupt Next.js middleware compilation
+    - unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy
     # Build frontend
     - >
       docker build

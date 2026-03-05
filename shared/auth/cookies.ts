@@ -76,7 +76,7 @@ export const COOKIE_OPTIONS = {
   // Server-side HttpOnly cookies (auth tokens)
   httpOnly: {
     httpOnly: true,
-    secure: isProduction,
+    secure: prefix === '__Host-' || isProduction,
     sameSite: 'lax' as const,
     path: '/',
     domain: undefined as string | undefined, // Required for __Host- prefix
@@ -85,7 +85,7 @@ export const COOKIE_OPTIONS = {
   // Client-side JavaScript accessible cookies
   clientSide: {
     httpOnly: false,
-    secure: isProduction,
+    secure: prefix === '__Host-' || isProduction,
     sameSite: 'lax' as const,
     path: '/',
     domain: undefined,
