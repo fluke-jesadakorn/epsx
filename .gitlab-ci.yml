@@ -44,7 +44,7 @@ variables:
     wget -qO /usr/local/bin/sops
     https://github.com/getsops/sops/releases/download/v3.9.4/sops-v3.9.4.linux.arm64
   - chmod +x /usr/local/bin/sops
-  - sops -d infrastructure/docker/.env.prod.enc > /tmp/.env.prod
+  - sops -d --input-type dotenv --output-type dotenv infrastructure/docker/.env.prod.enc > /tmp/.env.prod
 
 .docker-login: &docker-login
   before_script:
