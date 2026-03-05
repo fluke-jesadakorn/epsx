@@ -703,7 +703,8 @@ deploy:production:
   needs: []
   script:
     - *sops-decrypt-prod
-    - set -a && source /tmp/.env.prod && set +a
+    - grep -v '^RSA_' /tmp/.env.prod > /tmp/.env.prod.sh
+    - set -a && source /tmp/.env.prod.sh && set +a
     - export DOCKER_DEFAULT_PLATFORM=$DOCKER_PLATFORM
     # Build frontend
     - >
