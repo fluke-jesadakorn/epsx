@@ -125,8 +125,10 @@ export function usePaymentFlow({ preselectedId, initialPlans = [] }: UsePaymentF
         void (async () => {
             try {
                 const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8080';
+                const headers: Record<string, string> = { Accept: 'application/json', 'Content-Type': 'application/json' };
+                if (user?.access) { headers['Authorization'] = `Bearer ${user.access}`; }
                 const res = await fetch(`${baseUrl}/api/payments/plans/upgrade_preview?new_plan_id=${selectedPlan.id}`, {
-                    method: 'GET', headers: { Accept: 'application/json', 'Content-Type': 'application/json' }, credentials: 'include',
+                    method: 'GET', headers, credentials: 'include',
                 });
                 if (res.ok) {
                     const result: { success?: boolean; data?: UpgradePreviewData } = await res.json();
@@ -134,7 +136,7 @@ export function usePaymentFlow({ preselectedId, initialPlans = [] }: UsePaymentF
                 }
             } catch (_err) { logger.error('Failed to fetch upgrade preview', _err); }
         })();
-    }, [step, selectedPlan, chain.address]);
+    }, [step, selectedPlan, chain.address, user?.access]);
 
     const isDowngrade = useMemo(() => {
         if (!selectedPlan || currentPlanTier === 0) { return false; }

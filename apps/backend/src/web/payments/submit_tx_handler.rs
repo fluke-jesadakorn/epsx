@@ -172,10 +172,12 @@ pub async fn submit_transaction_handler(
         is_active: bool,
         #[diesel(sql_type = diesel::sql_types::Text)]
         plan_type: String,
+        #[diesel(sql_type = diesel::sql_types::Jsonb)]
+        plan_metadata: serde_json::Value,
     }
 
     let plan_check: Option<PlanCheck> = diesel::sql_query(
-        "SELECT COALESCE(price, 0) as price, is_active, COALESCE(plan_type, 'subscription') as plan_type FROM plans WHERE id = $1"
+        "SELECT COALESCE(price, 0) as price, is_active, COALESCE(plan_type, 'subscription') as plan_type, COALESCE(plan_metadata, '{}'::jsonb) as plan_metadata FROM plans WHERE id = $1"
     )
     .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
     .get_result(&mut primary_conn)
@@ -208,18 +210,36 @@ pub async fn submit_transaction_handler(
     }
 
     // C3: Validate amount matches plan price (allow 1% tolerance for rounding)
-    let price_diff = (&payment_amount - &plan_info.price).abs();
-    let tolerance = &plan_info.price * BigDecimal::from_str("0.01").unwrap_or_else(|_| BigDecimal::from(0));
-    if price_diff > tolerance && plan_info.price > 0 {
-        error!(
-            "Amount mismatch: submitted={}, plan_price={}, plan_id={}",
-            payment_amount, plan_info.price, plan_uuid
-        );
-        return Err(UnifiedErrorResponse::new(
-            400,
-            "Amount mismatch",
-            "Payment amount does not match plan price",
-        ));
+    // Check both base price and promotional price (if promotion is active)
+    let base_price = &plan_info.price;
+    let effective_price = plan_info.plan_metadata.get("promotion")
+        .and_then(|promo_val| {
+            serde_json::from_value::<crate::domain::subscription_management::promotion::Promotion>(promo_val.clone()).ok()
+        })
+        .map(|promo| {
+            let bp = base_price.to_string().parse::<f64>().unwrap_or(0.0);
+            let ep = promo.calculate_effective_price(bp);
+            BigDecimal::from_str(&format!("{:.2}", ep)).unwrap_or_else(|_| base_price.clone())
+        });
+
+    let price_to_validate = effective_price.as_ref().unwrap_or(base_price);
+    let price_diff = (&payment_amount - price_to_validate).abs();
+    let tolerance = price_to_validate * BigDecimal::from_str("0.01").unwrap_or_else(|_| BigDecimal::from(0));
+    if price_diff > tolerance && *price_to_validate > 0 {
+        // Also check against base price in case promotion just expired
+        let base_diff = (&payment_amount - base_price).abs();
+        let base_tolerance = base_price * BigDecimal::from_str("0.01").unwrap_or_else(|_| BigDecimal::from(0));
+        if base_diff > base_tolerance && *base_price > 0 {
+            error!(
+                "Amount mismatch: submitted={}, plan_price={}, effective_price={:?}, plan_id={}",
+                payment_amount, plan_info.price, effective_price, plan_uuid
+            );
+            return Err(UnifiedErrorResponse::new(
+                400,
+                "Amount mismatch",
+                "Payment amount does not match plan price",
+            ));
+        }
     }
 
     // Get payments database connection

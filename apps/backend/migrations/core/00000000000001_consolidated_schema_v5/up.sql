@@ -534,19 +534,38 @@ INSERT INTO system_settings (category, key, value, description) VALUES
 ON CONFLICT (category, key) DO NOTHING;
 
 -- Subscription plans
-INSERT INTO plans (id, name, slug, description, plan_type, plan_metadata, price, currency, billing_cycle, is_active, is_promoted, display_order, rate_limit_per_minute, rate_limit_per_hour, rate_limit_per_day, burst_capacity, tier_level, created_by) VALUES
-    (uuid_generate_v4(), 'Starter Plan', 'starter', 'Ideal for individual investors', 'subscription',
-     '{"permissions": ["epsx:analytics:view:25"], "features": ["Advanced analytics", "25 stock rankings", "Email support"]}'::jsonb,
-     14.99, 'USD', 'monthly', true, false, 2, 120, 3000, 50000, 20, 1, '0x0000000000000000000000000000000000000000'),
-    (uuid_generate_v4(), 'Pro Plan', 'pro', 'For serious traders who need advanced tools', 'subscription',
-     '{"permissions": ["epsx:analytics:view:100"], "features": ["Premium analytics", "100 stock rankings", "Priority support"], "highlighted": true}'::jsonb,
-     29.99, 'USD', 'monthly', true, true, 3, 300, 10000, 200000, 50, 2, '0x0000000000000000000000000000000000000000'),
-    (uuid_generate_v4(), 'Enterprise Plan', 'enterprise', 'Complete solution for teams', 'subscription',
-     '{"permissions": ["epsx:*:*"], "features": ["Unlimited access", "API access", "Dedicated support"], "contact_sales": true}'::jsonb,
-     99.99, 'USD', 'monthly', true, false, 4, 1000, 50000, 1000000, 200, 3, '0x0000000000000000000000000000000000000000'),
-    (uuid_generate_v4(), 'API Developer', 'api-developer', 'For developers building on EPSX', 'subscription',
-     '{"permissions": ["epsx:api:access"], "features": ["Full API access", "Developer docs", "100k calls/month"], "plan_type": "api"}'::jsonb,
-     49.99, 'USD', 'monthly', true, false, 5, 300, 10000, 100000, 50, 3, '0x0000000000000000000000000000000000000000')
+INSERT INTO plans (name, slug, description, plan_type, plan_metadata, price, currency, billing_cycle, is_active, is_promoted, is_public, display_order, rate_limit_per_minute, rate_limit_per_hour, rate_limit_per_day, burst_capacity, tier_level, created_by) VALUES
+
+-- 1. ONE DAY PLAN (trial)
+('One Day Plan', 'one-day', '24-hour trial access to explore the platform', 'subscription',
+ '{"features":["Basic analytics view","Rankings from position 6+","Basic trading features","24-hour trial access","Explore the platform"],"ranking_offset":5,"rankings_limit":5,"promotion":{"enabled":true,"type":"percentage","value":80.0,"price":1.0,"start_date":"","end_date":"2026-03-25T14:00:00Z"}}'::jsonb,
+ 5.00, 'USD', 'one_time', true, false, true, 1, 60, 1000, 10000, 10, 0, '0x0000000000000000000000000000000000000000'),
+
+-- 2. STARTER PLAN (30-day)
+('Starter Plan', 'starter', 'Advanced analytics for individual investors and traders', 'subscription',
+ '{"features":["Advanced analytics view","25 stock rankings","Basic Analytic features","Price alerts","Email support","30-day access"],"ranking_offset":1,"rankings_limit":25,"promotion":{"enabled":true,"type":"percentage","value":90.0,"price":9.9,"start_date":"","end_date":"2026-03-25T14:00:00Z"}}'::jsonb,
+ 99.00, 'USD', 'one_time', true, false, true, 2, 120, 3000, 50000, 20, 1, '0x0000000000000000000000000000000000000000'),
+
+-- 3. LIFE TIME (lifetime)
+('Life Time', 'lifetime', 'Full platform access with lifetime membership', 'subscription',
+ '{"features":["Advanced analytics suite","Full rankings access (Rank 1+)","API read access","Basic & Pro trading","Priority support","Lifetime access"],"ranking_offset":0,"rankings_limit":-1,"promotion":{"enabled":true,"type":"percentage","value":50.0,"price":4999.0,"start_date":"","end_date":"2026-03-25T14:00:00Z"}}'::jsonb,
+ 9999.00, 'USD', 'lifetime', true, true, true, 3, 300, 10000, 200000, 50, 3, '0x0000000000000000000000000000000000000000'),
+
+-- 4. COMPANY PLAN (365-day)
+('Company Plan', 'company', 'Complete solutions for professional teams and institutions', 'subscription',
+ '{"features":["Advanced analytics suite","Full trading suite (Basic, Pro & Advanced)","API read & write access","Data export","Notifications management","365-day corporate access","Dedicated support"],"ranking_offset":0,"rankings_limit":-1,"promotion":{"enabled":true,"type":"percentage","value":57.0,"price":2999.0,"start_date":"","end_date":"2026-04-04T05:00:00Z"}}'::jsonb,
+ 6999.00, 'USD', 'one_time', true, false, true, 4, 1000, 50000, 1000000, 200, 4, '0x0000000000000000000000000000000000000000'),
+
+-- 5. API PERSONAL (30-day)
+('API Personal', 'api-personal', 'Integrate our powerful API into your systems', 'subscription',
+ '{"features":["Analytics view access","API read access","Data export capability","Full developer documentation","30-day access"],"ranking_offset":1,"rankings_limit":-1,"promotion":{"enabled":true,"type":"percentage","value":75.0,"price":999.0,"start_date":"","end_date":"2026-03-25T14:00:00Z"}}'::jsonb,
+ 3999.00, 'USD', 'one_time', true, false, true, 5, 300, 10000, 100000, 50, 2, '0x0000000000000000000000000000000000000000'),
+
+-- 6. CUSTOM (revenue share)
+('Custom', 'custom', 'Tailored solutions for partners, corporate, and enterprise needs', 'manual',
+ '{"features":["Custom feature set & permissions","Dedicated support & SLA","Volume-based pricing","Custom API rate limits","White-label options","Priority onboarding"],"contact_sales":true}'::jsonb,
+ 0.00, 'USD', 'pay_per_use', true, false, true, 6, 1000, 50000, 1000000, 200, 5, '0x0000000000000000000000000000000000000000')
+
 ON CONFLICT (slug) DO NOTHING;
 
 -- API modules seed data
@@ -587,6 +606,7 @@ INSERT INTO permissions (permission_string, platform, resource, action, descript
     ('epsx:api:write', 'epsx', 'api', 'write', 'API write access', 'manual', true, true),
     ('epsx:data:export', 'epsx', 'data', 'export', 'Export data', 'manual', true, true),
     ('epsx:notifications:manage', 'epsx', 'notifications', 'manage', 'Manage notifications', 'manual', true, true),
+    ('epsx:alerts:create', 'epsx', 'alerts', 'create', 'Create price alerts', 'manual', true, true),
     ('admin:users:view', 'admin', 'users', 'view', 'View user lists and profiles', 'manual', true, true),
     ('admin:users:manage', 'admin', 'users', 'manage', 'Full user management (edit, ban)', 'manual', true, true),
     ('admin:permissions:view', 'admin', 'permissions', 'view', 'View granted permissions and groups', 'manual', true, true),
@@ -601,76 +621,55 @@ ON CONFLICT (permission_string) DO NOTHING;
 -- Seed plan_permissions (link permissions to plans)
 DO $$
 DECLARE
-    starter_id UUID;
-    pro_id UUID;
-    enterprise_id UUID;
-    api_dev_id UUID;
-    p_analytics_view UUID;
-    p_analytics_advanced UUID;
-    p_trading_basic UUID;
-    p_trading_pro UUID;
-    p_trading_advanced UUID;
-    p_api_read UUID;
-    p_api_write UUID;
-    p_data_export UUID;
-    p_notif_manage UUID;
+    p_one_day UUID;
+    p_starter UUID;
+    p_lifetime UUID;
+    p_company UUID;
+    p_api_pers UUID;
 BEGIN
-    SELECT id INTO starter_id FROM plans WHERE slug = 'starter';
-    SELECT id INTO pro_id FROM plans WHERE slug = 'pro';
-    SELECT id INTO enterprise_id FROM plans WHERE slug = 'enterprise';
-    SELECT id INTO api_dev_id FROM plans WHERE slug = 'api-developer';
+    SELECT id INTO p_one_day FROM plans WHERE slug = 'one-day';
+    SELECT id INTO p_starter FROM plans WHERE slug = 'starter';
+    SELECT id INTO p_lifetime FROM plans WHERE slug = 'lifetime';
+    SELECT id INTO p_company FROM plans WHERE slug = 'company';
+    SELECT id INTO p_api_pers FROM plans WHERE slug = 'api-personal';
 
-    SELECT id INTO p_analytics_view FROM permissions WHERE permission_string = 'epsx:analytics:view';
-    SELECT id INTO p_analytics_advanced FROM permissions WHERE permission_string = 'epsx:analytics:advanced';
-    SELECT id INTO p_trading_basic FROM permissions WHERE permission_string = 'epsx:trading:basic';
-    SELECT id INTO p_trading_pro FROM permissions WHERE permission_string = 'epsx:trading:pro';
-    SELECT id INTO p_trading_advanced FROM permissions WHERE permission_string = 'epsx:trading:advanced';
-    SELECT id INTO p_api_read FROM permissions WHERE permission_string = 'epsx:api:read';
-    SELECT id INTO p_api_write FROM permissions WHERE permission_string = 'epsx:api:write';
-    SELECT id INTO p_data_export FROM permissions WHERE permission_string = 'epsx:data:export';
-    SELECT id INTO p_notif_manage FROM permissions WHERE permission_string = 'epsx:notifications:manage';
-
-    -- Starter: analytics:view, trading:basic
-    IF starter_id IS NOT NULL THEN
-        INSERT INTO plan_permissions (plan_id, permission_id) VALUES
-            (starter_id, p_analytics_view),
-            (starter_id, p_trading_basic)
+    -- One Day: analytics:view, trading:basic
+    IF p_one_day IS NOT NULL THEN
+        INSERT INTO plan_permissions (plan_id, permission_id)
+        SELECT p_one_day, id FROM permissions
+        WHERE permission_string IN ('epsx:analytics:view', 'epsx:trading:basic')
         ON CONFLICT (plan_id, permission_id) DO NOTHING;
     END IF;
 
-    -- Pro: analytics:view/advanced, trading:basic/pro, api:read
-    IF pro_id IS NOT NULL THEN
-        INSERT INTO plan_permissions (plan_id, permission_id) VALUES
-            (pro_id, p_analytics_view),
-            (pro_id, p_analytics_advanced),
-            (pro_id, p_trading_basic),
-            (pro_id, p_trading_pro),
-            (pro_id, p_api_read)
+    -- Starter: analytics:view/advanced, trading:basic, alerts:create
+    IF p_starter IS NOT NULL THEN
+        INSERT INTO plan_permissions (plan_id, permission_id)
+        SELECT p_starter, id FROM permissions
+        WHERE permission_string IN ('epsx:analytics:view', 'epsx:analytics:advanced', 'epsx:trading:basic', 'epsx:alerts:create')
         ON CONFLICT (plan_id, permission_id) DO NOTHING;
     END IF;
 
-    -- Enterprise: all EPSX permissions
-    IF enterprise_id IS NOT NULL THEN
-        INSERT INTO plan_permissions (plan_id, permission_id) VALUES
-            (enterprise_id, p_analytics_view),
-            (enterprise_id, p_analytics_advanced),
-            (enterprise_id, p_trading_basic),
-            (enterprise_id, p_trading_pro),
-            (enterprise_id, p_trading_advanced),
-            (enterprise_id, p_api_read),
-            (enterprise_id, p_api_write),
-            (enterprise_id, p_data_export),
-            (enterprise_id, p_notif_manage)
+    -- Lifetime: analytics:view/advanced, trading:basic/pro, api:read
+    IF p_lifetime IS NOT NULL THEN
+        INSERT INTO plan_permissions (plan_id, permission_id)
+        SELECT p_lifetime, id FROM permissions
+        WHERE permission_string IN ('epsx:analytics:view', 'epsx:analytics:advanced', 'epsx:trading:basic', 'epsx:trading:pro', 'epsx:api:read')
         ON CONFLICT (plan_id, permission_id) DO NOTHING;
     END IF;
 
-    -- API Developer: api:read/write, data:export, analytics:view
-    IF api_dev_id IS NOT NULL THEN
-        INSERT INTO plan_permissions (plan_id, permission_id) VALUES
-            (api_dev_id, p_api_read),
-            (api_dev_id, p_api_write),
-            (api_dev_id, p_data_export),
-            (api_dev_id, p_analytics_view)
+    -- Company: all trading, api read+write, data export, notifications
+    IF p_company IS NOT NULL THEN
+        INSERT INTO plan_permissions (plan_id, permission_id)
+        SELECT p_company, id FROM permissions
+        WHERE permission_string IN ('epsx:analytics:view', 'epsx:analytics:advanced', 'epsx:trading:basic', 'epsx:trading:pro', 'epsx:trading:advanced', 'epsx:api:read', 'epsx:api:write', 'epsx:data:export', 'epsx:notifications:manage')
+        ON CONFLICT (plan_id, permission_id) DO NOTHING;
+    END IF;
+
+    -- API Personal: analytics:view, api:read, data:export
+    IF p_api_pers IS NOT NULL THEN
+        INSERT INTO plan_permissions (plan_id, permission_id)
+        SELECT p_api_pers, id FROM permissions
+        WHERE permission_string IN ('epsx:analytics:view', 'epsx:api:read', 'epsx:data:export')
         ON CONFLICT (plan_id, permission_id) DO NOTHING;
     END IF;
 END $$;
