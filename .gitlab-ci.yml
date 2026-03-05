@@ -113,7 +113,13 @@ prepare:deps:
       paths: [node_modules/]
       policy: push
   timeout: 30 minutes
-  <<: *rules-lint-test
+  rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH =~ /^(development|staging)$/
 
 # ---------------------------------------------------------------------------
 # Lint
@@ -138,7 +144,13 @@ lint:eslint:
   script:
     - bunx turbo run lint --filter=!@epsx/backend --filter=!epsx-bsc-contracts --concurrency=1
   timeout: 30 minutes
-  <<: *rules-lint-test
+  rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH =~ /^(development|staging)$/
 
 lint:typecheck:
   stage: lint
@@ -156,7 +168,13 @@ lint:typecheck:
   script:
     - bun type-check
   timeout: 20 minutes
-  <<: *rules-lint-test
+  rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH =~ /^(development|staging)$/
 
 # ---------------------------------------------------------------------------
 # Test
@@ -195,7 +213,13 @@ test:frontend:
     expire_in: 30 days
   coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
   timeout: 15 minutes
-  <<: *rules-lint-test
+  rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH =~ /^(development|staging)$/
 
 test:backend:
   stage: test
@@ -214,6 +238,10 @@ test:backend:
     - cargo test --jobs 1
   timeout: 40 minutes
   rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "production"
+      when: never
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
         - apps/backend/**/*
