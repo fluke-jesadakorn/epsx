@@ -106,6 +106,7 @@ export class SharedWeb3AuthClient {
   private backendUrl: string;
   private challengeCache: Map<string, { promise: Promise<Web3ChallengeResponse>; timestamp: number }> = new Map();
   private authInProgress = false;
+  private refreshPromise: Promise<boolean> | null = null;
 
   constructor(clientId: string, backendUrl: string) {
     this.clientId = clientId;
@@ -161,6 +162,12 @@ export class SharedWeb3AuthClient {
     return null;
   }
 
+  /** Invalidate cached challenge for a wallet (call after sign failure) */
+  invalidateChallenge(walletAddress: string): void {
+    const key = `${walletAddress.trim().toLowerCase()}_${this.clientId}`;
+    this.challengeCache.delete(key);
+  }
+
   // ============================================================================
   // WEB3 AUTHENTICATION FLOW
   // ============================================================================
@@ -176,8 +183,9 @@ export class SharedWeb3AuthClient {
     const now = Date.now();
     const cached = this.challengeCache.get(cacheKey);
 
-    // Return cached promise if request is in-flight or recent (within 60s)
-    if (cached !== undefined && (now - cached.timestamp) < 60000) {
+    // Return cached promise if request is in-flight or recent (within 15s)
+    // Short TTL: nonces are single-use, stale cache causes "challenge not found" on retry
+    if (cached !== undefined && (now - cached.timestamp) < 15000) {
       logger.info('[AUTH] Reusing existing challenge request', { wallet_address: normalizedAddress });
       return cached.promise;
     }
@@ -521,8 +529,20 @@ export class SharedWeb3AuthClient {
   }
 
   // Refresh tokens using backend refresh endpoint
-  // eslint-disable-next-line complexity
+  // Deduplicates concurrent refresh calls (e.g. multiple 401s at once)
   async refreshTokens(): Promise<boolean> {
+    // Deduplicate: if a refresh is already in flight, reuse it
+    if (this.refreshPromise !== null) { return this.refreshPromise; }
+
+    this.refreshPromise = this.doRefreshTokens();
+    try {
+      return await this.refreshPromise;
+    } finally {
+      this.refreshPromise = null;
+    }
+  }
+
+  private async doRefreshTokens(): Promise<boolean> {
     if (this.refreshToken === null || this.refreshToken === '') {
       // refresh_token is HttpOnly, so we can't read it from JS
       // Don't clear cookies here - just return false and let the server handle it
@@ -554,18 +574,7 @@ export class SharedWeb3AuthClient {
         expires_in?: number;
       };
 
-      if (result.success && result.access_token !== undefined && result.access_token !== '') {
-        this.accessToken = result.access_token;
-        if (result.refresh_token !== undefined && result.refresh_token !== '') {
-          this.refreshToken = result.refresh_token;
-        }
-        this.tokenExpiry = Date.now() + (result.expires_in ?? 3600) * 1000;
-        this.notifyListeners();
-        return true;
-      }
-
-      this.clearTokens();
-      return false;
+      return this.updateTokensFromRefreshResult(result);
     } catch (error) {
       logger.error('Token refresh request failed', {
         error_message: error instanceof Error ? error.message : String(error),
@@ -576,6 +585,25 @@ export class SharedWeb3AuthClient {
       // Only clear if we know for sure it's invalid (handled above in !response.ok)
       return false;
     }
+  }
+
+  private updateTokensFromRefreshResult(result: {
+    success: boolean;
+    access_token?: string;
+    refresh_token?: string;
+    expires_in?: number;
+  }): boolean {
+    if (result.success && result.access_token !== undefined && result.access_token !== '') {
+      this.accessToken = result.access_token;
+      if (result.refresh_token !== undefined && result.refresh_token !== '') {
+        this.refreshToken = result.refresh_token;
+      }
+      this.tokenExpiry = Date.now() + (result.expires_in ?? 3600) * 1000;
+      this.notifyListeners();
+      return true;
+    }
+    this.clearTokens();
+    return false;
   }
 
   private clearTokens(): void {
@@ -684,8 +712,11 @@ export class SharedWeb3AuthClient {
     // If user object contains an access token, hydrate that too
     if (user?.access !== undefined && user.access !== '') {
       this.accessToken = user.access;
-      // If we don't have an expiry yet, assume it's valid for at least a bit (hydration scenario)
-      this.tokenExpiry ??= Date.now() + 3600 * 1000; // 1 hour safety buffer
+      // If we don't have a valid expiry, assume it's valid for at least a bit (hydration scenario)
+      // Use explicit null/0 check — ??= misses falsy 0 which would mean "already expired"
+      if (this.tokenExpiry === null || this.tokenExpiry === 0 || this.tokenExpiry <= Date.now()) {
+        this.tokenExpiry = Date.now() + 3600 * 1000;
+      }
     }
 
     this.notifyListeners();

@@ -110,7 +110,7 @@ export function useAuthInitialization({
 
         let timerId: ReturnType<typeof setTimeout> | undefined;
 
-        const doRefresh = async () => {
+        const doRefresh = async (): Promise<boolean> => {
             const result = await refreshSessionAction();
             if (result.success) {
                 const updated = await client.loadCurrentUser();
@@ -118,17 +118,27 @@ export function useAuthInitialization({
                     if (updated.access !== undefined) { setSharedClientToken(updated.access); }
                     setUser(updated);
                 }
+                return true;
             }
+            return false;
         };
 
         const schedule = () => {
             const expiresAt = getExpiresAt();
             if (expiresAt === null) { return; }
-            const delay = Math.max(expiresAt - Date.now() - 5 * 60 * 1000, 30_000);
+            const timeUntilExpiry = expiresAt - Date.now();
+            // Already expired or expiring within 5 min → refresh immediately (1s delay to avoid tight loop)
+            // Otherwise schedule 5 min before expiry
+            const delay = timeUntilExpiry <= 5 * 60 * 1000 ? 1_000 : timeUntilExpiry - 5 * 60 * 1000;
             timerId = setTimeout(() => {
                 void (async () => {
-                    try { await doRefresh(); } catch { /* refresh failed, user re-auths on expiry */ }
-                    schedule();
+                    try {
+                        const ok = await doRefresh();
+                        if (ok) { schedule(); }
+                        // If refresh failed: stop rescheduling, user re-auths on next 401
+                    } catch {
+                        // Network error: stop rescheduling
+                    }
                 })();
             }, delay);
         };

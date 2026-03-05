@@ -105,31 +105,34 @@ export async function logoutAction() {
                 const user = JSON.parse(decoded) as UserInfoResponse;
                 walletAddress = user.wallet_address;
             } catch {
-                // Cookie may be malformed — continue with logout anyway
+                // Cookie may be malformed (invalid encoding or JSON) — continue with logout
             }
         }
 
         logger.info('[AUTH] logoutAction: Starting logout', { walletAddress: walletAddress.slice(0, 8) });
 
-        // Call backend logout endpoint if we have wallet address
-        if (walletAddress !== '') {
-            try {
-                const { getBackendUrl: getBackendUrlFn } = await import('../utils/url-resolver');
-                const backendUrl = getBackendUrlFn('server');
+        // Always attempt backend logout — even without wallet address, the backend
+        // can use the access token cookie or session to invalidate the session
+        try {
+            const { getBackendUrl: getBackendUrlFn } = await import('../utils/url-resolver');
+            const backendUrl = getBackendUrlFn('server');
+            const accessToken = cookieStore.get(COOKIES.access_token)?.value;
 
-                await fetch(`${backendUrl}/api/auth/web3/logout`, {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ wallet_address: walletAddress }),
-                    cache: 'no-store',
-                });
+            await fetch(`${backendUrl}/api/auth/web3/logout`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(accessToken !== undefined && accessToken !== '' ? { Authorization: `Bearer ${accessToken}` } : {}),
+                },
+                body: JSON.stringify({ wallet_address: walletAddress }),
+                cache: 'no-store',
+            });
 
-                logger.info('[AUTH] logoutAction: Backend logout called');
-            } catch (e) {
-                // Best effort - continue clearing cookies even if backend call fails
-                logger.warn('[AUTH] logoutAction: Backend logout failed (continuing)',
-                    e instanceof Error ? e.message : String(e));
-            }
+            logger.info('[AUTH] logoutAction: Backend logout called');
+        } catch (e) {
+            // Best effort - continue clearing cookies even if backend call fails
+            logger.warn('[AUTH] logoutAction: Backend logout failed (continuing)',
+                e instanceof Error ? e.message : String(e));
         }
 
         // Clear all known cookies

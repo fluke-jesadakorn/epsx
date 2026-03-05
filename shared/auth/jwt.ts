@@ -45,13 +45,16 @@ export interface EPSXJWTPayload extends JWTPayload {
 /**
  * Check if JWT token is expired
  */
+/** Clock skew tolerance in seconds — prevents fresh tokens being marked expired on drifted clocks */
+const CLOCK_SKEW_BUFFER = 30;
+
 export function isJWTExpired(token: string): boolean {
   try {
     const payloadPart = token.split('.')[1];
     if (payloadPart === undefined || payloadPart === '') { return true; }
     const payload = JSON.parse(atob(payloadPart)) as { exp?: number };
     const currentTime = Math.floor(Date.now() / 1000);
-    return (payload.exp ?? 0) < currentTime;
+    return (payload.exp ?? 0) + CLOCK_SKEW_BUFFER < currentTime;
   } catch {
     return true;
   }

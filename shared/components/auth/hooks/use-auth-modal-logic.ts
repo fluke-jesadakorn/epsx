@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAccount, useConfig, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
 import { useSharedAuth } from '../provider';
 import type { AuthResult, AuthStep } from '../types';
@@ -9,6 +9,35 @@ export type { AuthResult, AuthStep } from '../types';
 const BSC_MAINNET = 56;
 const BSC_TESTNET = 97;
 const SUPPORTED_CHAINS = [BSC_MAINNET, BSC_TESTNET];
+
+interface AutoSignContext {
+    isOpen: boolean;
+    step: AuthStep;
+    turnstileToken: string | null;
+    isSigning: boolean;
+    address: string | undefined;
+    handleSign: () => Promise<void>;
+    fallbackFiredRef: React.MutableRefObject<boolean>;
+}
+
+/** Auto-sign when Turnstile completes, or after 8s fallback if it stalls */
+function useAutoSign(ctx: AutoSignContext): void {
+    const { isOpen, step, turnstileToken, isSigning, address, handleSign, fallbackFiredRef } = ctx;
+    // Auto-sign when Turnstile completes (fast path)
+    useEffect(() => {
+        if (!isOpen || step !== 'sign' || turnstileToken === null || isSigning || address === undefined) { return; }
+        void handleSign();
+    }, [isOpen, step, turnstileToken, isSigning, address, handleSign]);
+
+    // Fallback: if Turnstile stalls/fails, auto-sign once after 8s
+    useEffect(() => {
+        if (!isOpen || step !== 'sign' || isSigning || address === undefined || turnstileToken !== null) { return; }
+        if (fallbackFiredRef.current) { return; }
+        fallbackFiredRef.current = true;
+        const timer = setTimeout(() => { void handleSign(); }, 8000);
+        return () => clearTimeout(timer);
+    }, [isOpen, step, isSigning, address, turnstileToken, handleSign, fallbackFiredRef]);
+}
 
 /** Parse viem/wagmi errors into user-friendly messages */
 function parseWalletError(err: unknown): string {
@@ -89,9 +118,9 @@ export function useAuthModalLogic({
     onError,
     onClose,
 }: UseAuthModalLogicProps) {
-    const [step, setStep] = useState<AuthStep>('connect');
     const [error, setError] = useState<string | null>(null);
     const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+    const fallbackFiredRef = useRef(false);
 
     const { address, isConnected, chain } = useAccount();
     const { connect, connectors, error: connectError, isPending: isConnecting } = useConnect();
@@ -100,9 +129,9 @@ export function useAuthModalLogic({
     const { switchChainAsync, isPending: isSwitching } = useSwitchChain();
     const { authenticateWithDirectApi } = useSharedAuth();
 
+    const [step, setStep] = useState<AuthStep>('connect');
     const isCorrectChain = chain !== undefined && SUPPORTED_CHAINS.includes(chain.id);
 
-    // Sign message hook – now receives the Turnstile token
     const { handleSign, isSigning } = useSignMessage({
         address,
         config,
@@ -122,58 +151,34 @@ export function useAuthModalLogic({
         }
     }, [connectError]);
 
-    // Reset state when modal closes
+    // Reset state when modal closes or connection changes
     useEffect(() => {
         if (!isOpen) {
             setTurnstileToken(null);
             setStep('connect');
             setError(null);
+            fallbackFiredRef.current = false;
+            return;
         }
-    }, [isOpen]);
-
-    useEffect(() => {
-        if (!isOpen) { return; }
 
         setError(null);
         if (isConnected && address !== undefined) {
-            if (!isCorrectChain) {
-                setStep('switch-chain');
-            } else {
-                setStep('sign');
-            }
+            setStep(isCorrectChain ? 'sign' : 'switch-chain');
         } else {
             setStep('connect');
         }
     }, [isOpen, isConnected, address, isCorrectChain]);
 
+    // If already in 'connect' step but now connected, advance to next step
     useEffect(() => {
-        if (!isOpen) { return; }
-        if (isConnected && address !== undefined && step === 'connect') {
-            if (!isCorrectChain) {
-                setStep('switch-chain');
-            } else {
-                setStep('sign');
-            }
+        if (!isOpen || step !== 'connect') { return; }
+        if (isConnected && address !== undefined) {
+            setStep(isCorrectChain ? 'sign' : 'switch-chain');
         }
     }, [isOpen, isConnected, address, isCorrectChain, step]);
 
-    // Auto-sign when Turnstile completes (fast path).
-    useEffect(() => {
-        if (!isOpen) { return; }
-        if (step === 'sign' && turnstileToken !== null && !isSigning && address !== undefined) {
-            void handleSign();
-        }
-    }, [isOpen, step, turnstileToken, isSigning, address, handleSign]);
-
-    // Fallback: if Turnstile stalls/fails, auto-sign after 8s so user is never stuck.
-    useEffect(() => {
-        if (!isOpen) { return; }
-        if (step !== 'sign' || isSigning || address === undefined || turnstileToken !== null) { return; }
-        const timer = setTimeout(() => {
-            void handleSign();
-        }, 8000);
-        return () => clearTimeout(timer);
-    }, [isOpen, step, isSigning, address, turnstileToken, handleSign]);
+    // Auto-sign logic when Turnstile completes or stalls
+    useAutoSign({ isOpen, step, turnstileToken, isSigning, address, handleSign, fallbackFiredRef });
 
     const handleSwitchChain = useCallback(async () => {
         try {

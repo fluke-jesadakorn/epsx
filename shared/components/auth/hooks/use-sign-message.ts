@@ -165,7 +165,8 @@ interface VerifyAndLoginProps {
 }
 
 function isNonceExpiredMsg(msg: string): boolean {
-    return msg.includes('expired') || msg.includes('challenge not found') || msg.includes('nonce');
+    return msg.includes('nonce expired') || msg.includes('nonce invalid')
+        || msg.includes('challenge not found') || msg.includes('challenge expired');
 }
 
 function extractErrorMsg(err: unknown, fallback: string): string {
