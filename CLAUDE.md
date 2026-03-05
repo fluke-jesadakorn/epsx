@@ -270,3 +270,319 @@ Ultra-strict config in `shared/config/eslint.cjs`. Key rules enforced as errors:
 - Wrap fire-and-forget promises with `void`
 - Use `useCallback` with complete dependency arrays
 - Extract hooks for business logic, components for UI sections
+
+## Plan Seed Data (Manual DB Insert Fallback)
+
+If a migration fails and plans are missing, run this SQL against the `epsx_prod` (or `epsx_dev`) database:
+
+```sql
+-- ============================================================
+-- EPSX SUBSCRIPTION PLAN SEED (manual fallback)
+-- Run: psql -h localhost -p 5491 -U <user> -d epsx_prod -f seed.sql
+-- Update promotion end_date values before running.
+-- ============================================================
+
+-- Step 1: Ensure all required permissions exist
+INSERT INTO permissions (permission_string, platform, resource, action, permission_type, is_system, is_active)
+VALUES
+  ('epsx:analytics:view',      'epsx', 'analytics', 'view',      'manual', true, true),
+  ('epsx:analytics:advanced',  'epsx', 'analytics', 'advanced',  'manual', true, true),
+  ('epsx:trading:basic',       'epsx', 'trading',   'basic',     'manual', true, true),
+  ('epsx:trading:pro',         'epsx', 'trading',   'pro',       'manual', true, true),
+  ('epsx:trading:advanced',    'epsx', 'trading',   'advanced',  'manual', true, true),
+  ('epsx:api:read',            'epsx', 'api',       'read',      'manual', true, true),
+  ('epsx:api:write',           'epsx', 'api',       'write',     'manual', true, true),
+  ('epsx:data:export',         'epsx', 'data',      'export',    'manual', true, true),
+  ('epsx:notifications:manage','epsx', 'notifications','manage', 'manual', true, true),
+  ('epsx:alerts:create',       'epsx', 'alerts',    'create',    'manual', true, true)
+ON CONFLICT (permission_string) DO NOTHING;
+
+-- Step 2: Upsert plans (ON CONFLICT (slug) DO UPDATE)
+INSERT INTO plans (
+  name, slug, description, plan_type, plan_metadata,
+  price, currency, billing_cycle,
+  is_active, is_promoted, is_public, is_system,
+  plan_category, plan_group, tier_level, grace_period_hours,
+  display_order,
+  rate_limit_per_minute, rate_limit_per_hour, rate_limit_per_day, burst_capacity,
+  created_by
+) VALUES
+
+-- 1. ONE DAY PLAN (Personal, trial)
+(
+  'One Day Plan', 'one-day',
+  '24-hour trial access to explore the platform',
+  'subscription',
+  '{
+    "features": [
+      "Basic analytics view",
+      "Rankings from position 6+",
+      "Basic trading features",
+      "24-hour trial access",
+      "Explore the platform"
+    ],
+    "ranking_offset": 5,
+    "rankings_limit": 5,
+    "promotion": {
+      "enabled": true,
+      "type": "percentage",
+      "value": 80.0,
+      "price": 1.0,
+      "start_date": "",
+      "end_date": "2026-03-25T14:00:00Z"
+    }
+  }'::jsonb,
+  5.00, 'USD', 'one_time',
+  true, false, true, false,
+  'base', 'personal', 0, 0,
+  1, 60, 1000, 10000, 10,
+  '0x0000000000000000000000000000000000000000'
+),
+
+-- 2. STARTER PLAN (Personal, 30-day)
+(
+  'Starter Plan', 'starter',
+  'Advanced analytics for individual investors and traders',
+  'subscription',
+  '{
+    "features": [
+      "Advanced analytics view",
+      "25 stock rankings",
+      "Basic Analytic features",
+      "Price alerts",
+      "Email support",
+      "30-day access"
+    ],
+    "ranking_offset": 1,
+    "rankings_limit": 25,
+    "promotion": {
+      "enabled": true,
+      "type": "percentage",
+      "value": 90.0,
+      "price": 9.9,
+      "start_date": "",
+      "end_date": "2026-03-25T14:00:00Z"
+    }
+  }'::jsonb,
+  99.00, 'USD', 'one_time',
+  true, false, true, false,
+  'base', 'personal', 1, 0,
+  2, 120, 3000, 50000, 20,
+  '0x0000000000000000000000000000000000000000'
+),
+
+-- 3. LIFE TIME (Personal, lifetime)
+(
+  'Life Time', 'lifetime',
+  'Full platform access with lifetime membership',
+  'subscription',
+  '{
+    "features": [
+      "Advanced analytics suite",
+      "Full rankings access (Rank 1+)",
+      "API read access",
+      "Basic & Pro trading",
+      "Priority support",
+      "Lifetime access"
+    ],
+    "ranking_offset": 0,
+    "rankings_limit": -1,
+    "promotion": {
+      "enabled": true,
+      "type": "percentage",
+      "value": 50.0,
+      "price": 4999.0,
+      "start_date": "",
+      "end_date": "2026-03-25T14:00:00Z"
+    }
+  }'::jsonb,
+  9999.00, 'USD', 'lifetime',
+  true, true, true, false,
+  'base', 'personal', 3, 0,
+  3, 300, 10000, 200000, 50,
+  '0x0000000000000000000000000000000000000000'
+),
+
+-- 4. COMPANY PLAN (Enterprise, 365-day)
+(
+  'Company Plan', 'company',
+  'Complete solutions for professional teams and institutions',
+  'subscription',
+  '{
+    "features": [
+      "Advanced analytics suite",
+      "Full trading suite (Basic, Pro & Advanced)",
+      "API read & write access",
+      "Data export",
+      "Notifications management",
+      "365-day corporate access",
+      "Dedicated support"
+    ],
+    "ranking_offset": 0,
+    "rankings_limit": -1,
+    "promotion": {
+      "enabled": true,
+      "type": "percentage",
+      "value": 57.0,
+      "price": 2999.0,
+      "start_date": "",
+      "end_date": "2026-04-04T05:00:00Z"
+    }
+  }'::jsonb,
+  6999.00, 'USD', 'one_time',
+  true, false, true, false,
+  'base', 'enterprise', 4, 0,
+  4, 1000, 50000, 1000000, 200,
+  '0x0000000000000000000000000000000000000000'
+),
+
+-- 5. API PERSONAL (API, 30-day)
+(
+  'API Personal', 'api-personal',
+  'Integrate our powerful API into your systems',
+  'subscription',
+  '{
+    "features": [
+      "Analytics view access",
+      "API read access",
+      "Data export capability",
+      "Full developer documentation",
+      "30-day access"
+    ],
+    "ranking_offset": 1,
+    "rankings_limit": -1,
+    "promotion": {
+      "enabled": true,
+      "type": "percentage",
+      "value": 75.0,
+      "price": 999.0,
+      "start_date": "",
+      "end_date": "2026-03-25T14:00:00Z"
+    }
+  }'::jsonb,
+  3999.00, 'USD', 'one_time',
+  true, false, true, false,
+  'base', 'api', 2, 0,
+  5, 300, 10000, 100000, 50,
+  '0x0000000000000000000000000000000000000000'
+),
+
+-- 6. CUSTOM (Custom, revenue share)
+(
+  'Custom', 'custom',
+  'Tailored solutions for partners, corporate, and enterprise needs',
+  'manual',
+  '{
+    "features": [
+      "Custom feature set & permissions",
+      "Dedicated support & SLA",
+      "Volume-based pricing",
+      "Custom API rate limits",
+      "White-label options",
+      "Priority onboarding"
+    ],
+    "contact_sales": true
+  }'::jsonb,
+  0.00, 'USD', 'pay_per_use',
+  true, false, true, false,
+  'exclusive', 'custom', 5, 0,
+  6, 1000, 50000, 1000000, 200,
+  '0x0000000000000000000000000000000000000000'
+)
+
+ON CONFLICT (slug) DO UPDATE SET
+  name            = EXCLUDED.name,
+  description     = EXCLUDED.description,
+  plan_type       = EXCLUDED.plan_type,
+  plan_metadata   = EXCLUDED.plan_metadata,
+  price           = EXCLUDED.price,
+  currency        = EXCLUDED.currency,
+  billing_cycle   = EXCLUDED.billing_cycle,
+  is_active       = EXCLUDED.is_active,
+  is_promoted     = EXCLUDED.is_promoted,
+  plan_category   = EXCLUDED.plan_category,
+  plan_group      = EXCLUDED.plan_group,
+  tier_level      = EXCLUDED.tier_level,
+  display_order   = EXCLUDED.display_order,
+  rate_limit_per_minute = EXCLUDED.rate_limit_per_minute,
+  rate_limit_per_hour   = EXCLUDED.rate_limit_per_hour,
+  rate_limit_per_day    = EXCLUDED.rate_limit_per_day,
+  burst_capacity        = EXCLUDED.burst_capacity,
+  updated_at      = NOW();
+
+-- Step 3: Link plan permissions
+DO $$
+DECLARE
+  p_one_day    UUID;
+  p_starter    UUID;
+  p_lifetime   UUID;
+  p_company    UUID;
+  p_api_pers   UUID;
+BEGIN
+  SELECT id INTO p_one_day  FROM plans WHERE slug = 'one-day';
+  SELECT id INTO p_starter  FROM plans WHERE slug = 'starter';
+  SELECT id INTO p_lifetime FROM plans WHERE slug = 'lifetime';
+  SELECT id INTO p_company  FROM plans WHERE slug = 'company';
+  SELECT id INTO p_api_pers FROM plans WHERE slug = 'api-personal';
+
+  -- ONE DAY PLAN: analytics:view, trading:basic
+  IF p_one_day IS NOT NULL THEN
+    INSERT INTO plan_permissions (plan_id, permission_id)
+    SELECT p_one_day, id FROM permissions
+    WHERE permission_string IN ('epsx:analytics:view', 'epsx:trading:basic')
+    ON CONFLICT (plan_id, permission_id) DO NOTHING;
+  END IF;
+
+  -- STARTER PLAN: analytics:view/advanced, trading:basic, alerts:create
+  IF p_starter IS NOT NULL THEN
+    INSERT INTO plan_permissions (plan_id, permission_id)
+    SELECT p_starter, id FROM permissions
+    WHERE permission_string IN (
+      'epsx:analytics:view', 'epsx:analytics:advanced',
+      'epsx:trading:basic', 'epsx:alerts:create'
+    )
+    ON CONFLICT (plan_id, permission_id) DO NOTHING;
+  END IF;
+
+  -- LIFE TIME: analytics:view/advanced, trading:basic/pro, api:read
+  IF p_lifetime IS NOT NULL THEN
+    INSERT INTO plan_permissions (plan_id, permission_id)
+    SELECT p_lifetime, id FROM permissions
+    WHERE permission_string IN (
+      'epsx:analytics:view', 'epsx:analytics:advanced',
+      'epsx:trading:basic', 'epsx:trading:pro',
+      'epsx:api:read'
+    )
+    ON CONFLICT (plan_id, permission_id) DO NOTHING;
+  END IF;
+
+  -- COMPANY PLAN: all trading, api read+write, data export, notifications
+  IF p_company IS NOT NULL THEN
+    INSERT INTO plan_permissions (plan_id, permission_id)
+    SELECT p_company, id FROM permissions
+    WHERE permission_string IN (
+      'epsx:analytics:view', 'epsx:analytics:advanced',
+      'epsx:trading:basic', 'epsx:trading:pro', 'epsx:trading:advanced',
+      'epsx:api:read', 'epsx:api:write',
+      'epsx:data:export', 'epsx:notifications:manage'
+    )
+    ON CONFLICT (plan_id, permission_id) DO NOTHING;
+  END IF;
+
+  -- API PERSONAL: analytics:view, api:read, data:export
+  IF p_api_pers IS NOT NULL THEN
+    INSERT INTO plan_permissions (plan_id, permission_id)
+    SELECT p_api_pers, id FROM permissions
+    WHERE permission_string IN (
+      'epsx:analytics:view', 'epsx:api:read', 'epsx:data:export'
+    )
+    ON CONFLICT (plan_id, permission_id) DO NOTHING;
+  END IF;
+END $$;
+```
+
+**Notes:**
+- `promotion.end_date` values above are estimates — update to actual sale end dates before running
+- `promotion.price` = the sale price shown to users; `plans.price` = original/base price (shown as strikethrough)
+- Custom plan has no fixed permissions (assigned manually per customer via admin)
+- Run `SELECT name, price, plan_group, plan_category FROM plans ORDER BY display_order;` to verify after insert

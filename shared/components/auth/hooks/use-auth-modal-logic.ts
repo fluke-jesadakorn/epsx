@@ -122,10 +122,12 @@ export function useAuthModalLogic({
         }
     }, [connectError]);
 
-    // Reset turnstile token when modal opens/closes
+    // Reset state when modal closes
     useEffect(() => {
         if (!isOpen) {
             setTurnstileToken(null);
+            setStep('connect');
+            setError(null);
         }
     }, [isOpen]);
 
@@ -145,6 +147,7 @@ export function useAuthModalLogic({
     }, [isOpen, isConnected, address, isCorrectChain]);
 
     useEffect(() => {
+        if (!isOpen) { return; }
         if (isConnected && address !== undefined && step === 'connect') {
             if (!isCorrectChain) {
                 setStep('switch-chain');
@@ -152,23 +155,25 @@ export function useAuthModalLogic({
                 setStep('sign');
             }
         }
-    }, [isConnected, address, isCorrectChain, step]);
+    }, [isOpen, isConnected, address, isCorrectChain, step]);
 
     // Auto-sign when Turnstile completes (fast path).
     useEffect(() => {
+        if (!isOpen) { return; }
         if (step === 'sign' && turnstileToken !== null && !isSigning && address !== undefined) {
             void handleSign();
         }
-    }, [step, turnstileToken, isSigning, address, handleSign]);
+    }, [isOpen, step, turnstileToken, isSigning, address, handleSign]);
 
     // Fallback: if Turnstile stalls/fails, auto-sign after 8s so user is never stuck.
     useEffect(() => {
+        if (!isOpen) { return; }
         if (step !== 'sign' || isSigning || address === undefined || turnstileToken !== null) { return; }
         const timer = setTimeout(() => {
             void handleSign();
         }, 8000);
         return () => clearTimeout(timer);
-    }, [step, isSigning, address, turnstileToken, handleSign]);
+    }, [isOpen, step, isSigning, address, turnstileToken, handleSign]);
 
     const handleSwitchChain = useCallback(async () => {
         try {

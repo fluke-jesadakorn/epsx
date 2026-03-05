@@ -282,15 +282,14 @@ export function AccessDeniedContent({
   showLoginButton = true,
   showHomeButton = true,
 }: AccessDeniedContentProps) {
-  const router = useRouter();
   const { disconnect } = useDisconnect();
 
   const handleReauth = useCallback(async () => {
     try { disconnect(); } catch { /* WalletConnect origin check may fail in dev */ }
     const returnPath = route !== undefined ? decodeURIComponent(route) : undefined;
     await logoutAction(returnPath);
-    router.replace('/');
-  }, [disconnect, route, router]);
+    window.location.href = '/';
+  }, [disconnect, route]);
 
   return (
     <StatusPageLayout>
@@ -320,7 +319,7 @@ export function AccessDeniedContent({
           )}
           {showHomeButton && (
             <button
-              onClick={() => router.back()}
+              onClick={() => { history.back(); }}
               className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-4 bg-muted/30 border border-border/20 text-foreground rounded-2xl font-semibold hover:bg-muted/50 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
