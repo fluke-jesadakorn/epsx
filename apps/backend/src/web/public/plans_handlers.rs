@@ -133,15 +133,20 @@ pub async fn get_public_plans(
         // Extract and process promotion
         let promotion_data = plan.plan_metadata.get("promotion");
         let (effective_price, promotion_active, promotion_status, promotion_discount, promotion_ends_at) = if let Some(promo_value) = promotion_data {
-            if let Ok(promo) = serde_json::from_value::<Promotion>(promo_value.clone()) {
-                let effective = promo.calculate_effective_price(base_price);
-                let active = promo.is_active();
-                let status = promo.get_status();
-                let discount = promo.get_discount_percentage(base_price);
-                let ends_at = if active { Some(promo.end_date.clone()) } else { None };
-                (effective, active, status, discount, ends_at)
-            } else {
-                (base_price, false, crate::domain::subscription_management::PromotionStatus::Disabled, 0.0, None)
+            match serde_json::from_value::<Promotion>(promo_value.clone()) {
+                Ok(promo) => {
+                    let effective = promo.calculate_effective_price(base_price);
+                    let active = promo.is_active();
+                    let status = promo.get_status();
+                    let discount = promo.get_discount_percentage(base_price);
+                    let ends_at = if active { Some(promo.end_date.clone()) } else { None };
+                    tracing::debug!("Plan {} promotion: enabled={}, active={}, effective_price={:.2}", plan.id, promo.enabled, active, effective);
+                    (effective, active, status, discount, ends_at)
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to deserialize promotion for plan {}: {}", plan.id, e);
+                    (base_price, false, crate::domain::subscription_management::PromotionStatus::Disabled, 0.0, None)
+                }
             }
         } else {
             (base_price, false, crate::domain::subscription_management::PromotionStatus::Disabled, 0.0, None)
