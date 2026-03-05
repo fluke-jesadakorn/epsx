@@ -152,7 +152,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
       await logout();
       disconnect();
     } finally {
-      setIsDisconnecting(false);
+      window.location.href = '/?logout=1';
     }
   };
 

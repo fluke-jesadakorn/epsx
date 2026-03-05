@@ -41,12 +41,12 @@ export function AuthStatus({
         try {
             await logout();
             disconnect();
-            setShowDropdown(false);
-            onLogout?.();
         } catch (err) {
             logger.error('Disconnect error:', err);
+        } finally {
+            window.location.href = '/?logout=1';
         }
-    }, [logout, disconnect, onLogout]);
+    }, [logout, disconnect]);
 
     const handleAuthSuccess = useCallback(() => {
         setShowModal(false);

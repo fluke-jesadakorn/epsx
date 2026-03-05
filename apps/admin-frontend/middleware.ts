@@ -79,6 +79,18 @@ async function extractErrorDetail(res: Response): Promise<string> {
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
+    // Logout via middleware — clears __Host- cookies at HTTP level
+    if (request.nextUrl.searchParams.has('logout')) {
+        const cleanUrl = new URL(pathname, request.url);
+        const resp = NextResponse.redirect(cleanUrl);
+        const isProd = process.env.NODE_ENV === 'production';
+        [COOKIES.access_token, COOKIES.refresh_token, COOKIES.id_token,
+         COOKIES.user, COOKIES.sid, COOKIES.auth_time, COOKIES.expires_at].forEach(name => {
+            resp.cookies.set(name, '', { maxAge: 0, secure: isProd, sameSite: 'lax', path: '/' });
+        });
+        return resp;
+    }
+
     const token = getServerAuthToken(request.cookies);
     const hasToken = token !== null;
 

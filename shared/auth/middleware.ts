@@ -28,9 +28,23 @@ export function createAuthMiddleware(config: AuthMiddlewareConfig) {
         const { pathname, search } = request.nextUrl;
         const startTime = performance.now();
 
+        // 0. Logout via middleware — clears __Host- cookies at HTTP level
+        // Server action Set-Cookie headers can be lost through Cloudflare Tunnel;
+        // middleware Set-Cookie on a redirect is a raw HTTP response that always works.
+        if (request.nextUrl.searchParams.has('logout')) {
+            const cleanUrl = new URL(pathname, request.url);
+            const resp = NextResponse.redirect(cleanUrl);
+            const isProd = process.env.NODE_ENV === 'production';
+            [COOKIES.access_token, COOKIES.refresh_token, COOKIES.id_token,
+             COOKIES.user, COOKIES.sid, COOKIES.auth_time, COOKIES.expires_at].forEach(name => {
+                resp.cookies.set(name, '', { maxAge: 0, secure: isProd, sameSite: 'lax', path: '/' });
+            });
+            return resp;
+        }
+
         // 1. Initialize Response and Headers
         const response = NextResponse.next();
-        applySecurityHeaders(response, pathname, request.nextUrl.hostname);
+        applySecurityHeaders(response, pathname);
 
         // 2. Validate Authentication — use unified token resolution (sid → access_token → user.access)
         const token = getServerAuthToken(request.cookies);
@@ -207,7 +221,7 @@ function checkIsPublicRoute(pathname: string, publicRoutes: string[] | undefined
 /**
  * Applies security headers to the response.
  */
-function applySecurityHeaders(response: NextResponse, pathname: string, hostname = 'localhost') {
+function applySecurityHeaders(response: NextResponse, pathname: string) {
     const headers = response.headers;
     const isProd = process.env.NODE_ENV === 'production';
 
@@ -226,43 +240,11 @@ function applySecurityHeaders(response: NextResponse, pathname: string, hostname
         headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     }
 
-    // Content Security Policy
-    let devConnectSrc = '';
-    if (!isProd) {
-        const devSources = new Set(['http://localhost:*', 'ws://localhost:*']);
-        // Add request hostname if meaningful
-        if (hostname !== 'localhost' && hostname !== '0.0.0.0') {
-            devSources.add(`http://${hostname}:*`);
-            devSources.add(`ws://${hostname}:*`);
-        }
-        // Add backend URL from env (handles IP-based access like Tailscale)
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-        if (backendUrl !== undefined && backendUrl !== '') {
-            try {
-                const parsed = new URL(backendUrl);
-                const wsProto = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
-                devSources.add(`${parsed.protocol}//${parsed.hostname}:*`);
-                devSources.add(`${wsProto}//${parsed.hostname}:*`);
-            } catch { /* ignore invalid URL */ }
-        }
-        devConnectSrc = ` ${[...devSources].join(' ')}`;
-    }
-
-    const cfScripts = 'https://challenges.cloudflare.com https://static.cloudflareinsights.com';
-    const csp = [
-        "default-src 'self'",
-        `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${cfScripts}`,
-        `script-src-elem 'self' 'unsafe-inline' ${cfScripts}`,
-        "style-src 'self' 'unsafe-inline'",
-        "img-src 'self' data: blob: https:",
-        "font-src 'self' data:",
-        `connect-src 'self' https://*.epsx.io wss://*.epsx.io ${cfScripts} https://*.walletconnect.com wss://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.org https://*.bnbchain.org https://*.web3modal.org${devConnectSrc}`,
-        "frame-src 'self' https://challenges.cloudflare.com https://verify.walletconnect.com https://verify.walletconnect.org",
-        "object-src 'none'",
-        "base-uri 'self'",
-        "form-action 'self'",
-    ].join('; ');
-    headers.set('Content-Security-Policy', csp);
+    // CSP is set via <meta> tag in layout.tsx — NOT as an HTTP header.
+    // Cloudflare Tunnel strips `static.cloudflareinsights.com` and `script-src-elem`
+    // from HTTP headers, and when both header + meta exist the browser enforces
+    // the intersection (most restrictive wins), so the stripped header blocks
+    // the Cloudflare analytics beacon. Meta tag alone works correctly.
 
     // Conditional caching headers
     if (pathname.includes('/api/')) {

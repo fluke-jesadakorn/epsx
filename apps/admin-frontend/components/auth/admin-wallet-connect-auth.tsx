@@ -125,9 +125,10 @@ export function AdminWalletConnectAuth({ className = '' }: AdminWalletConnectAut
     try {
       await logout();
       disconnect();
-      window.location.href = '/';
     } catch {
       // Silently fail
+    } finally {
+      window.location.href = '/?logout=1';
     }
   };
 

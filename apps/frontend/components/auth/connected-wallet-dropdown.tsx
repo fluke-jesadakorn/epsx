@@ -128,6 +128,8 @@ export function ConnectedWalletDropdown({ className }: ConnectedWalletDropdownPr
               disconnect();
             }).catch(() => {
               disconnect();
+            }).finally(() => {
+              window.location.href = '/?logout=1';
             });
           }}
         >

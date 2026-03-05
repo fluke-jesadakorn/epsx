@@ -288,7 +288,7 @@ export function AccessDeniedContent({
     try { disconnect(); } catch { /* WalletConnect origin check may fail in dev */ }
     const returnPath = route !== undefined ? decodeURIComponent(route) : undefined;
     await logoutAction(returnPath);
-    window.location.href = '/';
+    window.location.href = '/?logout=1';
   }, [disconnect, route]);
 
   return (
