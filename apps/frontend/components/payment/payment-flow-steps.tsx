@@ -413,6 +413,7 @@ export function ConfirmStep({
 }: ConfirmStepProps) {
     const numericPrice = selectedPlan.price.replace(/[^0-9.]/g, '');
     const payAmount = upgradePreview?.amount_to_pay?.replace(/[^0-9.]/g, '') ?? numericPrice;
+    const origPrice = selectedPlan.originalPrice?.replace(/[^0-9.]/g, '');
     const insufficientBalance = Boolean(balanceData) && balanceData!.value < amountInDecimals;
     const blocked = isDowngrade;
 
@@ -483,6 +484,11 @@ export function ConfirmStep({
                             {payAmount !== numericPrice && payAmount !== '0' && (
                                 <p className="text-sm line-through text-gray-400">
                                     ${numericPrice}
+                                </p>
+                            )}
+                            {payAmount === numericPrice && origPrice && origPrice !== numericPrice && (
+                                <p className="text-sm line-through text-gray-400">
+                                    ${origPrice}
                                 </p>
                             )}
                             <p className={cn(

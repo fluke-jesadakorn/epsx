@@ -420,10 +420,12 @@ pub async fn get_upgrade_preview_handler(
         tier_level: i32,
         #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
         billing_cycle: Option<String>,
+        #[diesel(sql_type = diesel::sql_types::Jsonb)]
+        plan_metadata: serde_json::Value,
     }
 
     let new_plan: Option<PlanRow> = diesel::sql_query(
-        "SELECT id, name, price, tier_level, billing_cycle FROM plans WHERE id = $1"
+        "SELECT id, name, price, tier_level, billing_cycle, COALESCE(plan_metadata, '{}'::jsonb) as plan_metadata FROM plans WHERE id = $1"
     )
     .bind::<diesel::sql_types::Uuid, _>(new_plan_uuid)
     .get_result(&mut conn)
@@ -442,9 +444,21 @@ pub async fn get_upgrade_preview_handler(
         }
     };
 
-    let new_plan_price: rust_decimal::Decimal = new_plan.price.as_ref()
+    let new_plan_base_price: rust_decimal::Decimal = new_plan.price.as_ref()
         .and_then(|bd| rust_decimal::Decimal::from_str(&bd.to_string()).ok())
         .unwrap_or(rust_decimal::Decimal::ZERO);
+
+    // Check for active promotion and use effective price
+    let new_plan_price = new_plan.plan_metadata.get("promotion")
+        .and_then(|promo_val| {
+            serde_json::from_value::<crate::domain::subscription_management::promotion::Promotion>(promo_val.clone()).ok()
+        })
+        .map(|promo| {
+            let bp = new_plan_base_price.to_string().parse::<f64>().unwrap_or(0.0);
+            let ep = promo.calculate_effective_price(bp);
+            rust_decimal::Decimal::from_str(&format!("{:.2}", ep)).unwrap_or(new_plan_base_price)
+        })
+        .unwrap_or(new_plan_base_price);
 
     let now = Utc::now();
     let standard_duration_days: i64 = 30;
@@ -592,7 +606,7 @@ pub async fn get_upgrade_preview_handler(
         (rust_decimal::Decimal::ZERO, rust_decimal::Decimal::ZERO, new_plan_price, exp, standard_duration_days)
     };
 
-    let is_upgrade = current_plan_info.is_none() || is_extension || is_upgrade_allowed(current_plan_price, new_plan_price);
+    let is_upgrade = current_plan_info.is_none() || is_extension || is_upgrade_allowed(current_plan_price, new_plan_base_price);
 
     // Build response
     let response_data = UpgradePreviewData {
