@@ -133,18 +133,20 @@ export async function logoutAction() {
         }
 
         // Clear all known cookies
+        // Use set(maxAge=0) instead of delete() — delete() omits the Secure flag,
+        // which prevents deletion of __Host- prefixed cookies (browser spec requires Secure).
+        const isProd = process.env.NODE_ENV === 'production';
         Object.entries(COOKIES).forEach(([key, cookieName]) => {
-            // Determine options based on cookie type using HTTP_ONLY_COOKIES
             const isHttpOnly = (HTTP_ONLY_COOKIES as readonly string[]).includes(key);
-            const options = isHttpOnly ? COOKIE_OPTIONS.httpOnly : COOKIE_OPTIONS.clientSide;
-
-            // Explicitly delete with path and domain to ensure removal
-            // Next.js cookies().delete() matches based on these
-            cookieStore.delete({
-                name: cookieName,
-                path: options.path,
-                domain: options.domain,
-            });
+            try {
+                cookieStore.set(cookieName, '', {
+                    maxAge: 0,
+                    httpOnly: isHttpOnly,
+                    secure: isProd,
+                    sameSite: 'lax',
+                    path: '/',
+                });
+            } catch { /* ignore individual cookie failures */ }
         });
 
         logger.info('[AUTH] logoutAction: All cookies cleared');

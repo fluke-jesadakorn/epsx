@@ -165,12 +165,12 @@ function handleAuthenticatedOnLogin(
     // Break infinite redirect loop if token is expired but cookie isn't cleared
     if (request.nextUrl.searchParams.get('reason') === 'no-session' || request.nextUrl.searchParams.has('clear')) {
         const responseNext = NextResponse.next();
-        // Clear all auth cookies to prevent infinite redirect loops
-        responseNext.cookies.delete(COOKIES.access_token);
-        responseNext.cookies.delete(COOKIES.user);
-        responseNext.cookies.delete(COOKIES.id_token);
-        responseNext.cookies.delete(COOKIES.refresh_token);
-        responseNext.cookies.delete(COOKIES.sid);
+        const isProd = process.env.NODE_ENV === 'production';
+        // Use set(maxAge=0) — delete() omits Secure flag, failing to remove __Host- cookies
+        [COOKIES.access_token, COOKIES.refresh_token, COOKIES.id_token,
+         COOKIES.user, COOKIES.sid, COOKIES.auth_time, COOKIES.expires_at].forEach(name => {
+            responseNext.cookies.set(name, '', { maxAge: 0, secure: isProd, sameSite: 'lax', path: '/' });
+        });
         return responseNext;
     }
 

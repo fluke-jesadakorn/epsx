@@ -33,11 +33,11 @@ function handleLoginRoute(request: NextRequest, hasToken: boolean): NextResponse
     const params = request.nextUrl.searchParams;
     if (params.get('reason') === 'no-session' || params.has('clear')) {
         const resp = NextResponse.redirect(new URL('/', request.url));
-        resp.cookies.delete(COOKIES.access_token);
-        resp.cookies.delete(COOKIES.user);
-        resp.cookies.delete(COOKIES.id_token);
-        resp.cookies.delete(COOKIES.refresh_token);
-        resp.cookies.delete(COOKIES.sid);
+        const isProd = process.env.NODE_ENV === 'production';
+        [COOKIES.access_token, COOKIES.refresh_token, COOKIES.id_token,
+         COOKIES.user, COOKIES.sid, COOKIES.auth_time, COOKIES.expires_at].forEach(name => {
+            resp.cookies.set(name, '', { maxAge: 0, secure: isProd, sameSite: 'lax', path: '/' });
+        });
         return resp;
     }
 
@@ -107,11 +107,22 @@ export async function middleware(request: NextRequest) {
         });
 
         if (!res.ok) {
-            const detail = await extractErrorDetail(res);
-            const reason = res.status === 401 || res.status === 403
-                ? 'insufficient_permissions'
-                : 'backend_error';
+            // 401 = token expired → clear all auth cookies and force fresh login
+            if (res.status === 401) {
+                const resp = NextResponse.redirect(new URL('/auth', request.url));
+                const isProd = process.env.NODE_ENV === 'production';
+                const authCookies = [
+                    COOKIES.access_token, COOKIES.refresh_token, COOKIES.id_token,
+                    COOKIES.user, COOKIES.sid, COOKIES.auth_time, COOKIES.expires_at,
+                ];
+                authCookies.forEach(name => {
+                    resp.cookies.set(name, '', { maxAge: 0, secure: isProd, sameSite: 'lax', path: '/' });
+                });
+                return resp;
+            }
 
+            const detail = await extractErrorDetail(res);
+            const reason = res.status === 403 ? 'insufficient_permissions' : 'backend_error';
             return NextResponse.redirect(
                 new URL(`/access-denied?reason=${reason}${detail}`, request.url)
             );
