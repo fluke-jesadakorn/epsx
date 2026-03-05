@@ -52,7 +52,7 @@ variables:
 
 .rules-lint-test: &rules-lint-test
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME != "production"
     - if: $CI_COMMIT_BRANCH =~ /^(development|staging)$/
 
 .rules-deploy-branches: &rules-deploy-branches
@@ -231,7 +231,13 @@ test:backend:
 build:frontend:
   stage: build
   image: docker:27
-  needs: ["lint:eslint", "lint:typecheck", "test:frontend"]
+  needs:
+    - job: "lint:eslint"
+      optional: true
+    - job: "lint:typecheck"
+      optional: true
+    - job: "test:frontend"
+      optional: true
   <<: *docker-login
   script:
     - >
@@ -272,6 +278,10 @@ build:frontend:
     expire_in: 90 days
   timeout: 30 minutes
   rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "production"
+      when: never
     - if: $CI_COMMIT_BRANCH == "development"
       variables:
         ENV_TAG: dev
@@ -292,7 +302,11 @@ build:frontend:
 build:admin:
   stage: build
   image: docker:27
-  needs: ["lint:eslint", "lint:typecheck"]
+  needs:
+    - job: "lint:eslint"
+      optional: true
+    - job: "lint:typecheck"
+      optional: true
   <<: *docker-login
   script:
     - >
@@ -333,6 +347,10 @@ build:admin:
     expire_in: 90 days
   timeout: 30 minutes
   rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "production"
+      when: never
     - if: $CI_COMMIT_BRANCH == "development"
       variables:
         ENV_TAG: dev
@@ -385,6 +403,10 @@ build:backend:
     expire_in: 90 days
   timeout: 30 minutes
   rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "production"
+      when: never
     - if: $CI_COMMIT_BRANCH == "development"
       variables:
         ENV_TAG: dev
