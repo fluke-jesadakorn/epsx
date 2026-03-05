@@ -209,7 +209,7 @@ pub async fn submit_transaction_handler(
         ));
     }
 
-    // C3: Validate amount matches plan price (allow 1% tolerance for rounding)
+    // C3: Validate amount matches plan price (allow 5% tolerance for rounding & promotion edge cases)
     // Check both base price and promotional price (if promotion is active)
     let base_price = &plan_info.price;
     let effective_price = plan_info.plan_metadata.get("promotion")
@@ -224,20 +224,20 @@ pub async fn submit_transaction_handler(
 
     let price_to_validate = effective_price.as_ref().unwrap_or(base_price);
     let price_diff = (&payment_amount - price_to_validate).abs();
-    let tolerance = price_to_validate * BigDecimal::from_str("0.01").unwrap_or_else(|_| BigDecimal::from(0));
+    let tolerance = price_to_validate * BigDecimal::from_str("0.05").unwrap_or_else(|_| BigDecimal::from(0)); // 5% tolerance
     if price_diff > tolerance && *price_to_validate > 0 {
         // Also check against base price in case promotion just expired
         let base_diff = (&payment_amount - base_price).abs();
-        let base_tolerance = base_price * BigDecimal::from_str("0.01").unwrap_or_else(|_| BigDecimal::from(0));
+        let base_tolerance = base_price * BigDecimal::from_str("0.05").unwrap_or_else(|_| BigDecimal::from(0)); // 5% tolerance
         if base_diff > base_tolerance && *base_price > 0 {
             error!(
-                "Amount mismatch: submitted={}, plan_price={}, effective_price={:?}, plan_id={}",
-                payment_amount, plan_info.price, effective_price, plan_uuid
+                "Amount mismatch: submitted={}, plan_price={}, effective_price={:?}, plan_id={}, tolerance={}%",
+                payment_amount, plan_info.price, effective_price, plan_uuid, 5
             );
             return Err(UnifiedErrorResponse::new(
                 400,
                 "Amount mismatch",
-                "Payment amount does not match plan price",
+                "Payment amount does not match plan price. Please refresh and try again.",
             ));
         }
     }
