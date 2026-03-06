@@ -3,6 +3,23 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use super::{Cache, CacheConfig, MemoryCache};
 use tokio::sync::Mutex;
 
+const PERM_INV_TTL: u64 = 3600; // Match access token lifetime
+
+/// Mark a user's permissions as invalidated in cache.
+/// The middleware will detect this and fetch live permissions from DB.
+pub fn set_perm_invalidated(cache: &dyn Cache, wallet: &str) {
+    let ts = chrono::Utc::now().timestamp().to_string();
+    cache.set(&format!("perm_inv:{}", wallet), ts, Some(PERM_INV_TTL));
+    tracing::info!("Permission cache invalidated for {}", wallet);
+}
+
+/// Get the timestamp when a user's permissions were last invalidated.
+/// Returns None if no invalidation flag exists.
+pub fn get_perm_invalidated(cache: &dyn Cache, wallet: &str) -> Option<i64> {
+    cache.get(&format!("perm_inv:{}", wallet))
+        .and_then(|s| s.parse::<i64>().ok())
+}
+
 /// Redis cache implementation with automatic fallback to memory cache
 pub struct RedisCache {
     redis_client: Option<Arc<Mutex<redis::Client>>>,

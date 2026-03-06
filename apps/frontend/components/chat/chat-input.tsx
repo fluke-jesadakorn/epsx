@@ -16,6 +16,7 @@ interface InputProps {
 export function ChatInput({ onSend, onUpload, onTyping, disabled = false, placeholder = 'Type a message...', turnstileToken, onTokenUsed }: InputProps) {
   const [val, setVal] = useState('');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -34,7 +35,7 @@ export function ChatInput({ onSend, onUpload, onTyping, disabled = false, placeh
   }, [val, autoResize]);
 
   const emitTyping = useCallback((typing: boolean) => {
-    if (isTypingRef.current === typing) {return;}
+    if (isTypingRef.current === typing) { return; }
     isTypingRef.current = typing;
     onTyping?.(typing);
   }, [onTyping]);
@@ -43,18 +44,23 @@ export function ChatInput({ onSend, onUpload, onTyping, disabled = false, placeh
     setVal(v);
     if (v.length > 0) {
       emitTyping(true);
-      if (typingTimerRef.current) {clearTimeout(typingTimerRef.current);}
+      if (typingTimerRef.current) { clearTimeout(typingTimerRef.current); }
       typingTimerRef.current = setTimeout(() => emitTyping(false), 2000);
     } else {
       emitTyping(false);
     }
   }, [emitTyping]);
 
+  const clearPending = useCallback(() => {
+    setPendingFile(null);
+    if (previewUrl !== null) { URL.revokeObjectURL(previewUrl); setPreviewUrl(null); }
+  }, [previewUrl]);
+
   const handleSend = useCallback(() => {
     const trimmed = val.trim();
-    if (pendingFile && onUpload) {
+    if (pendingFile !== null && onUpload !== undefined) {
       onUpload(pendingFile);
-      setPendingFile(null);
+      clearPending();
       setVal('');
       emitTyping(false);
       return;
@@ -65,7 +71,7 @@ export function ChatInput({ onSend, onUpload, onTyping, disabled = false, placeh
       onTokenUsed();
       emitTyping(false);
     }
-  }, [val, disabled, onSend, pendingFile, onUpload, emitTyping, turnstileToken, onTokenUsed]);
+  }, [val, disabled, onSend, pendingFile, onUpload, emitTyping, turnstileToken, onTokenUsed, clearPending]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -77,29 +83,51 @@ export function ChatInput({ onSend, onUpload, onTyping, disabled = false, placeh
     [handleSend]
   );
 
+  useEffect(() => {
+    return () => { if (previewUrl !== null) { URL.revokeObjectURL(previewUrl); } };
+  }, [previewUrl]);
+
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setPendingFile(file);
+      setPreviewUrl(file.type.startsWith('image/') ? URL.createObjectURL(file) : null);
     }
-    // Reset input so same file can be picked again
     e.target.value = '';
   }, []);
 
   const canSend = (val.trim().length > 0 || pendingFile !== null) && !disabled && (pendingFile !== null || turnstileToken !== null);
 
   return (
-    <div className="p-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/40">
+    <div className="flex-shrink-0 px-4 md:px-5 py-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-t border-slate-200/60 dark:border-white/5">
       {pendingFile !== null && (
-        <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-blue-500/10 border border-blue-500/20 rounded-xl text-xs text-blue-400">
-          <Paperclip className="w-3.5 h-3.5 shrink-0" />
-          <span className="flex-1 truncate">{pendingFile.name}</span>
-          <button onClick={() => setPendingFile(null)} className="shrink-0 hover:opacity-70">
-            <X className="w-3.5 h-3.5" />
-          </button>
+        <div className="mb-2">
+          {previewUrl !== null ? (
+            <div className="relative inline-block">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={previewUrl} alt={pendingFile.name} className="max-h-28 max-w-full rounded-xl border border-[#7645d9]/20 object-cover shadow-sm" />
+              <button
+                onClick={clearPending}
+                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-slate-900 dark:bg-slate-700 border border-slate-600 flex items-center justify-center hover:bg-red-500 transition-colors shadow-sm"
+              >
+                <X className="w-2.5 h-2.5 text-white" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-2 bg-[#7645d9]/8 border border-[#7645d9]/20 rounded-xl text-xs text-[#7645d9] dark:text-violet-400">
+              <Paperclip className="w-3.5 h-3.5 shrink-0" />
+              <span className="flex-1 truncate font-medium">{pendingFile.name}</span>
+              <button onClick={clearPending} className="shrink-0 hover:opacity-60 transition-opacity"><X className="w-3.5 h-3.5" /></button>
+            </div>
+          )}
         </div>
       )}
-      <div className="flex items-end gap-2 bg-slate-100 dark:bg-slate-800/30 rounded-2xl border border-slate-200 dark:border-white/8 px-3 py-2 focus-within:border-blue-500/30 focus-within:ring-2 focus-within:ring-blue-500/10 transition-all">
+
+      <div className={`flex items-end gap-2.5 bg-slate-100/80 dark:bg-white/[0.06] rounded-2xl border px-3.5 py-2 transition-all ${
+        disabled
+          ? 'border-slate-200/60 dark:border-white/5 opacity-60'
+          : 'border-slate-200/80 dark:border-white/10 focus-within:border-[#7645d9]/40 focus-within:ring-2 focus-within:ring-[#7645d9]/10 focus-within:bg-white/90 dark:focus-within:bg-white/[0.08]'
+      }`}>
         {onUpload !== undefined && (
           <>
             <input
@@ -112,7 +140,7 @@ export function ChatInput({ onSend, onUpload, onTyping, disabled = false, placeh
             <button
               onClick={() => fileRef.current?.click()}
               disabled={disabled}
-              className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground/40 hover:text-muted-foreground hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-30"
+              className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground/35 hover:text-muted-foreground hover:bg-slate-200/70 dark:hover:bg-white/10 transition-all disabled:opacity-25"
               aria-label="Attach file"
             >
               <Paperclip className="w-4 h-4" />
@@ -127,26 +155,25 @@ export function ChatInput({ onSend, onUpload, onTyping, disabled = false, placeh
           placeholder={placeholder}
           disabled={disabled}
           rows={1}
-          className="flex-1 resize-none bg-transparent text-sm focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-muted-foreground/40 py-1"
+          className="flex-1 resize-none bg-transparent text-sm focus:outline-none disabled:cursor-not-allowed placeholder:text-muted-foreground/35 py-1 leading-relaxed"
           style={{ minHeight: '28px' }}
         />
-        <div className="flex items-center gap-1 shrink-0">
-          <button
-            onClick={handleSend}
-            disabled={!canSend}
-            className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${canSend
-                ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-sm shadow-blue-500/20'
-                : 'text-muted-foreground/30 cursor-not-allowed'
-              }`}
-            aria-label="Send message"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
+        <button
+          onClick={handleSend}
+          disabled={!canSend}
+          className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
+            canSend
+              ? 'bg-gradient-to-br from-[#7645d9] to-[#5a33b8] text-white hover:from-[#8755e8] hover:to-[#6840cc] shadow-md shadow-[#7645d9]/25 active:scale-95'
+              : 'text-muted-foreground/25 cursor-not-allowed'
+          }`}
+          aria-label="Send message"
+        >
+          <Send className="w-4 h-4" />
+        </button>
       </div>
       {!disabled && (
-        <p className="text-[10px] text-muted-foreground/40 mt-1.5 text-center">
-          Press Enter to send · Shift+Enter for new line · Supports **markdown**
+        <p className="text-[10px] text-muted-foreground/30 mt-1.5 text-center">
+          Enter to send · Shift+Enter for new line · **markdown** supported
         </p>
       )}
     </div>

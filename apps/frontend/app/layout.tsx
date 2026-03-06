@@ -116,18 +116,6 @@ export default async function RootLayout({
         {/* Mobile performance optimizations */}
         <meta name="msapplication-tap-highlight" content="no" />
 
-        {/* Preconnect to external resources */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-
-        {/* Critical resource hints */}
-        <link rel="dns-prefetch" href="//fonts.googleapis.com" />
-        <link rel="dns-prefetch" href="//fonts.gstatic.com" />
-
         {/* Performance and mobile optimizations */}
         <meta httpEquiv="x-ua-compatible" content="ie=edge" />
         <meta name="HandheldFriendly" content="true" />

@@ -21,6 +21,7 @@ use tracing::debug;
 use crate::{
     auth::OpenIDTokenError,
     infrastructure::adapters::repositories::developer_portal::ApiKeyRepository,
+    infrastructure::cache::redis_cache::{get_perm_invalidated},
     web::auth::AppState,
 };
 
@@ -175,7 +176,7 @@ pub async fn validate_bearer_token(
         .collect();
 
     // Extract user context from claims
-    let user_context = OpenIDUserContext {
+    let mut user_context = OpenIDUserContext {
         sub: claims.sub,
         wallet_address: claims.wallet_address,
         permissions,  // Parsed from OIDC scope claim
@@ -185,6 +186,22 @@ pub async fn validate_bearer_token(
         iat: claims.iat,
         auth_time: claims.auth_time,
     };
+
+    // Check if permissions were invalidated after this token was issued.
+    // If so, fetch live permissions from DB to reflect the change immediately.
+    // Fail-open: on any error (Redis down, DB issue), continue with JWT permissions.
+    if let Some(invalidated_at) = get_perm_invalidated(app_state.cache.as_ref(), &user_context.wallet_address) {
+        if invalidated_at > user_context.iat {
+            if let Ok(fresh_perms) = token_service.expand_plans(&user_context.wallet_address).await {
+                debug!(
+                    "Live permissions loaded for {} ({} perms) due to invalidation flag",
+                    user_context.wallet_address,
+                    fresh_perms.len()
+                );
+                user_context.permissions = fresh_perms;
+            }
+        }
+    }
 
     debug!(
         "JWT token validated for user: {} (permissions: {})",

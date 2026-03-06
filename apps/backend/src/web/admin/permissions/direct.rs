@@ -11,6 +11,7 @@ use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use diesel::prelude::*;
 use diesel_async::{AsyncConnection, RunQueryDsl};
+use crate::infrastructure::cache::redis_cache::set_perm_invalidated;
 use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
 
 use crate::web::auth::AppState;
@@ -178,6 +179,9 @@ pub async fn grant_permission(
             "reason": req.reason,
         })));
 
+    // Invalidate cached permissions so next request gets live DB permissions
+    set_perm_invalidated(app_state.cache.as_ref(), &wallet);
+
     AdminResponse::created(response, "Direct permission granted successfully").into_response()
 }
 
@@ -237,6 +241,9 @@ pub async fn revoke_permission(
             app_state.audit.log(ctx, AuditEntry::new("permission", "revoke", "permission")
                 .id(&wallet)
                 .before(serde_json::json!({ "permission": req.permission_string })));
+
+            // Invalidate cached permissions so next request gets live DB permissions
+            set_perm_invalidated(app_state.cache.as_ref(), &wallet);
 
             AdminResponse::success_with_message(
                 serde_json::json!({"deleted": true}),

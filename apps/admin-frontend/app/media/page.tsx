@@ -13,5 +13,5 @@ export default async function MediaPage({ searchParams }: { searchParams: Promis
   const res = await listMediaAction(bucket, undefined, 200);
   const files = res.success === true ? (res.data ?? []) : [];
 
-  return <MediaBrowser files={files} bucket={bucket} buckets={BUCKETS} />;
+  return <MediaBrowser key={bucket} files={files} bucket={bucket} buckets={BUCKETS} />;
 }

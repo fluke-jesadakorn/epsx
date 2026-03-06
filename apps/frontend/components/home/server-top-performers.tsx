@@ -1,5 +1,5 @@
  
-import { getPublicRankingsAction } from '@/app/actions/analytics';
+import { getRankingsAction } from '@/app/actions/analytics';
 import { StockDataCard } from '@/shared/components';
 
 interface QuarterlyPerformance {
@@ -78,10 +78,9 @@ export default async function ServerTopPerformers({ className }: ServerTopPerfor
   let error: string | null = null;
 
   try {
-    const result = await getPublicRankingsAction({
+    const result = await getRankingsAction({
       page: 1,
       limit: 3,
-      sort_by: 'eps_growth'
     });
      
     if (result.data && Array.isArray(result.data)) {

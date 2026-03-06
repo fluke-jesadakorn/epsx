@@ -145,11 +145,22 @@ function getBackendUrl(): string {
   );
 }
 
+function isIpOrLocalhost(hostname: string): boolean {
+  return hostname === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(hostname);
+}
+
 export function resolveNewsImageUrl(coverImageUrl: string | null | undefined): string | null {
   if (coverImageUrl === null || coverImageUrl === undefined || coverImageUrl === '') {
     return null;
   }
   if (coverImageUrl.startsWith('http://') || coverImageUrl.startsWith('https://')) {
+    // Route local/IP MinIO URLs through the Next.js proxy to avoid private-IP blocking
+    try {
+      const parsed = new URL(coverImageUrl);
+      if (isIpOrLocalhost(parsed.hostname) && parsed.pathname.startsWith('/news/')) {
+        return `/news-img/${parsed.pathname.slice('/news/'.length)}`;
+      }
+    } catch { /* invalid URL, fall through */ }
     return coverImageUrl;
   }
   if (coverImageUrl.startsWith(OLD_NEWS_IMAGE_PREFIX)) {

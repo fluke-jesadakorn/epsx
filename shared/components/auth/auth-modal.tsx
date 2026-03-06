@@ -56,22 +56,13 @@ export function AuthModal({
         onClose,
     });
 
-    const title = variant === 'admin' ? '🔐 Admin Access' : '🔗 Connect Wallet';
-    const subtitle = variant === 'admin' ? 'Verify your admin permissions' : 'Connect your wallet to continue';
-
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent
-                className="sm:max-w-[420px] p-0 gap-0 overflow-hidden"
+                className="sm:max-w-[420px] p-0 gap-0 overflow-hidden bg-transparent dark:bg-transparent"
                 showClose={false}
             >
                 <div className={`auth-modal-inner ${variant === 'admin' ? 'auth-modal-admin' : ''}`} style={{ isolation: 'isolate' }}>
-                    <div className="auth-modal-header">
-                        <h2 className="auth-modal-title">{title}</h2>
-                        <p className="auth-modal-subtitle">{subtitle}</p>
-                        <button className="auth-modal-close" onClick={onClose}>×</button>
-                    </div>
-
                     {/* Hidden Turnstile — preloads during connect step for instant auto-sign */}
                 {isOpen && turnstileToken === null && (
                     <div aria-hidden="true" style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0, overflow: 'hidden' }}>

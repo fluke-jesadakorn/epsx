@@ -6,6 +6,7 @@ use uuid::Uuid;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 
+use crate::infrastructure::cache::redis_cache::set_perm_invalidated;
 use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
 use crate::web::auth::AppState;
 use crate::web::responses::AdminResponse;
@@ -59,6 +60,11 @@ pub async fn remove_assignment(
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
             app_state.audit.log(ctx, AuditEntry::new("plan_assignment", "delete", "plan")
                 .id(&assignment_id));
+
+            // Invalidate cached permissions so next request gets live DB permissions
+            if let Some(ref info) = info {
+                set_perm_invalidated(app_state.cache.as_ref(), &info.wallet_address);
+            }
 
             // Notify user about plan removal
             if let Some(info) = info {

@@ -364,7 +364,7 @@ impl OpenIDTokenService {
 
     /// Get permissions from normalized permission tables
     /// Queries: wallet_plan_assignments + plan_permissions + wallet_direct_permissions
-    async fn expand_plans(
+    pub async fn expand_plans(
         &self,
         wallet_address: &str,
     ) -> Result<Vec<String>, OpenIDTokenError> {

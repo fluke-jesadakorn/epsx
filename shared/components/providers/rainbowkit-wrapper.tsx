@@ -3,7 +3,7 @@
 import { darkTheme, lightTheme, RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import '@rainbow-me/rainbowkit/styles.css';
 import { useTheme } from 'next-themes';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 
 export interface RainbowKitWrapperProps {
     children: React.ReactNode;
@@ -14,11 +14,6 @@ export interface RainbowKitWrapperProps {
 
 export function RainbowKitWrapper({ children, appName, learnMoreUrl, isAdminMode }: RainbowKitWrapperProps) {
     const { resolvedTheme } = useTheme();
-    const [isMounted, setIsMounted] = useState(false);
-
-    useEffect(() => {
-        setIsMounted(true);
-    }, []);
 
     const customLightTheme = React.useMemo(() => lightTheme({
         accentColor: '#f97316',
@@ -26,19 +21,22 @@ export function RainbowKitWrapper({ children, appName, learnMoreUrl, isAdminMode
         borderRadius: 'medium',
     }), []);
 
-    const customDarkTheme = React.useMemo(() => darkTheme({
-        accentColor: isAdminMode ? '#fbbf24' : '#f97316',
-        accentColorForeground: isAdminMode ? '#1f2937' : 'white',
-        borderRadius: 'medium',
-    }), [isAdminMode]);
+    const customDarkTheme = React.useMemo(() => {
+        const t = darkTheme({
+            accentColor: isAdminMode ? '#fbbf24' : '#f97316',
+            accentColorForeground: isAdminMode ? '#1f2937' : 'white',
+            borderRadius: 'medium',
+        });
+        t.colors.modalBackground = '#1a1b23';
+        t.colors.downloadTopCardBackground = '#1a1b23';
+        t.colors.downloadBottomCardBackground = '#1a1b23';
+        t.colors.profileForeground = '#1a1b23';
+        return t;
+    }, [isAdminMode]);
 
     const theme = React.useMemo(() =>
-        isMounted && resolvedTheme === 'dark' ? customDarkTheme : customLightTheme,
-        [isMounted, resolvedTheme, customDarkTheme, customLightTheme]);
-
-    if (!isMounted) {
-        return <>{children}</>;
-    }
+        resolvedTheme === 'dark' ? customDarkTheme : customLightTheme,
+        [resolvedTheme, customDarkTheme, customLightTheme]);
 
     return (
         <RainbowKitProvider

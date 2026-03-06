@@ -124,6 +124,9 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL}
+      RSA_PRIVATE_KEY: ${RSA_PRIVATE_KEY}
+      RSA_PUBLIC_KEY: ${RSA_PUBLIC_KEY}
+      RSA_KEY_ID: ${RSA_KEY_ID}
       HOST: 0.0.0.0
       PORT: 8080
     ports:
@@ -270,8 +273,8 @@ services:
     volumes:
       - prod_minio_data:/data
     ports:
-      - "127.0.0.1:9100:9000"
-      - "127.0.0.1:9101:9001"
+      - "9100:9000"
+      - "9101:9001"
     networks:
       epsx_prod:
         aliases:

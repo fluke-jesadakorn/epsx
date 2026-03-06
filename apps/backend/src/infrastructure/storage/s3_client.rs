@@ -60,8 +60,8 @@ impl S3Storage {
                 },
             }
 
-            // Only Public bucket gets public-read policy; others are private by default
-            if matches!(bucket, Bucket::Public) {
+            // Public and News buckets get public-read policy; others are private by default
+            if matches!(bucket, Bucket::Public | Bucket::News) {
                 let policy = serde_json::json!({
                     "Version": "2012-10-17",
                     "Statement": [{
@@ -209,6 +209,22 @@ impl S3Storage {
         Ok(req.uri().to_string())
     }
 
+    pub async fn get_object_bytes(&self, bucket: Bucket, key: &str) -> Result<(Vec<u8>, String), String> {
+        let output = self.client
+            .get_object()
+            .bucket(bucket.as_str())
+            .key(key)
+            .send()
+            .await
+            .map_err(|e| format!("S3 get failed: {}", e))?;
+        let content_type = output.content_type().unwrap_or("application/octet-stream").to_string();
+        let bytes = output.body.collect().await
+            .map_err(|e| format!("Failed to read body: {}", e))?
+            .into_bytes()
+            .to_vec();
+        Ok((bytes, content_type))
+    }
+
     pub async fn delete_object(&self, bucket: Bucket, key: &str) -> Result<(), String> {
         self.client
             .delete_object()
@@ -235,15 +251,23 @@ impl S3Storage {
         }
 
         let resp = req.send().await.map_err(|e| format!("S3 list failed: {}", e))?;
-        let items = resp.contents().iter().map(|obj| {
+        let is_private = !matches!(bucket, Bucket::Public | Bucket::News);
+        let mut items = Vec::new();
+        for obj in resp.contents() {
             let key = obj.key().unwrap_or_default().to_string();
-            FileInfo {
-                url: self.public_url(bucket, &key),
+            let url = if is_private {
+                self.presigned_url(bucket, &key, 3600).await
+                    .unwrap_or_else(|_| self.public_url(bucket, &key))
+            } else {
+                self.public_url(bucket, &key)
+            };
+            items.push(FileInfo {
+                url,
                 key,
                 size: obj.size().unwrap_or(0),
                 last_modified: obj.last_modified().map(|t| t.to_string()),
-            }
-        }).collect();
+            });
+        }
         Ok(items)
     }
 

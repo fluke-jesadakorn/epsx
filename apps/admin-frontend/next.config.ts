@@ -15,6 +15,16 @@ const nextConfig: NextConfig = {
     ],
   },
 
+  async rewrites() {
+    const minioEndpoint = process.env.MINIO_ENDPOINT ?? 'http://localhost:9200';
+    return [
+      {
+        source: '/minio-img/:path*',
+        destination: `${minioEndpoint}/:path*`,
+      },
+    ];
+  },
+
   typescript: { ignoreBuildErrors: true },
 
   // Enabled Turbopack for development

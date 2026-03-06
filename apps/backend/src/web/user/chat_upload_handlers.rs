@@ -1,7 +1,8 @@
 use axum::{
+    body::Body,
     extract::{Multipart, Path, State},
-    http::StatusCode,
-    response::{IntoResponse, Redirect, Response},
+    http::{header, StatusCode},
+    response::{IntoResponse, Response},
     Extension, Json,
 };
 use tracing::{error, info};
@@ -117,11 +118,16 @@ pub async fn serve_attachment(
     };
 
     let key = format!("{}/{}", conv_id, filename);
-    match s3.presigned_url(Bucket::Chat, &key, 3600).await {
-        Ok(url) => Redirect::temporary(&url).into_response(),
+    match s3.get_object_bytes(Bucket::Chat, &key).await {
+        Ok((bytes, content_type)) => axum::http::Response::builder()
+            .status(StatusCode::OK)
+            .header(header::CONTENT_TYPE, content_type)
+            .header(header::CACHE_CONTROL, "private, max-age=3600")
+            .body(Body::from(bytes))
+            .unwrap_or_else(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Build error").into_response()),
         Err(e) => {
-            error!("Failed to generate presigned URL: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to serve file").into_response()
+            error!("Failed to get attachment: {}", e);
+            (StatusCode::NOT_FOUND, "File not found").into_response()
         }
     }
 }

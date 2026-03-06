@@ -5,7 +5,7 @@ import { ChatInbox } from '@/components/chat/chat-inbox';
 import type { ChatConversation, ChatTopic } from '@/shared/api/chat';
 import { AuthBanner } from '@/shared/components/auth/auth-banner';
 import { useSharedAuth } from '@/shared/components/auth';
-import { Loader2, MessageCircle } from 'lucide-react';
+import { Headset, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 export default function ChatPage() {
@@ -32,14 +32,14 @@ export default function ChatPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="container mx-auto px-4 py-8 max-w-2xl">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm shadow-blue-500/20">
-            <MessageCircle className="w-5 h-5 text-white" />
+      <div className="container mx-auto px-4 py-12 max-w-xl">
+        <div className="flex items-center gap-4 mb-8">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#7645d9] to-[#1fc7d4] flex items-center justify-center shadow-lg shadow-[#7645d9]/25">
+            <Headset className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Support</h1>
-            <p className="text-xs text-muted-foreground">Get help from our team</p>
+            <h1 className="text-xl font-bold tracking-tight">Support Center</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">Get help from our team · Usually replies in minutes</p>
           </div>
         </div>
         <AuthBanner
@@ -53,15 +53,20 @@ export default function ChatPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-20 max-w-md text-center">
-        <Loader2 className="w-8 h-8 text-blue-400 animate-spin mx-auto mb-4" />
-        <p className="text-sm text-muted-foreground">Loading conversations...</p>
+      <div className="h-[calc(100vh-3.5rem)] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#7645d9]/12 to-[#1fc7d4]/12 border border-[#7645d9]/20 flex items-center justify-center mx-auto mb-4 shadow-sm">
+            <Loader2 className="w-6 h-6 text-[#7645d9] animate-spin" />
+          </div>
+          <p className="text-sm font-semibold text-foreground/60">Loading conversations...</p>
+          <p className="text-xs text-muted-foreground/40 mt-1">Just a moment</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-3">
+    <div className="h-[calc(100vh-3.5rem)] overflow-hidden">
       <ChatInbox
         topics={topics}
         initConvos={convos}

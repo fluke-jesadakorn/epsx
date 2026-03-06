@@ -8,6 +8,7 @@ use uuid::Uuid;
 use diesel::prelude::*;
 use diesel_async::{AsyncConnection, RunQueryDsl};
 
+use crate::infrastructure::cache::redis_cache::set_perm_invalidated;
 use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
 use crate::web::auth::AppState;
 use crate::web::responses::AdminResponse;
@@ -232,6 +233,9 @@ pub async fn create_assignment(
             "plan_name": &response.plan_name,
             "source": &response.assignment_source,
         })));
+
+    // Invalidate cached permissions so next request gets live DB permissions
+    set_perm_invalidated(app_state.cache.as_ref(), &response.wallet_address);
 
     // Notify user about plan assignment
     let notif_wallet = response.wallet_address.clone();

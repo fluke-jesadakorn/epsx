@@ -299,6 +299,7 @@ export function ChatReplyInput({ onSend, onUpload, onTyping, onResolve, onClose,
   const [isPending, startTransition] = useTransition();
   const [assignOpen, setAssignOpen] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
@@ -322,9 +323,18 @@ export function ChatReplyInput({ onSend, onUpload, onTyping, onResolve, onClose,
     }
   };
 
+  const clearPending = useCallback(() => {
+    setPendingFile(null);
+    if (previewUrl !== null) { URL.revokeObjectURL(previewUrl); setPreviewUrl(null); }
+  }, [previewUrl]);
+
+  useEffect(() => {
+    return () => { if (previewUrl !== null) { URL.revokeObjectURL(previewUrl); } };
+  }, [previewUrl]);
+
   const handleSendFile = (f: File) => {
     if (onUpload === undefined) { return; }
-    setPendingFile(null);
+    clearPending();
     setMsg('');
     emitTyping(false);
     startTransition(() => { void onUpload(f); });
@@ -366,7 +376,10 @@ export function ChatReplyInput({ onSend, onUpload, onTyping, onResolve, onClose,
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file !== undefined) { setPendingFile(file); }
+    if (file !== undefined) {
+      setPendingFile(file);
+      setPreviewUrl(file.type.startsWith('image/') ? URL.createObjectURL(file) : null);
+    }
     e.target.value = '';
   };
 
@@ -388,12 +401,22 @@ export function ChatReplyInput({ onSend, onUpload, onTyping, onResolve, onClose,
       />
 
       {pendingFile !== null && (
-        <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-violet-500/10 border border-violet-500/20 rounded-xl text-xs text-violet-400">
-          <Paperclip className="w-3.5 h-3.5 shrink-0" />
-          <span className="flex-1 truncate">{pendingFile.name}</span>
-          <button onClick={() => setPendingFile(null)} className="shrink-0 hover:opacity-70">
-            <X className="w-3.5 h-3.5" />
-          </button>
+        <div className="mb-2 relative">
+          {previewUrl !== null ? (
+            <div className="relative inline-block">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={previewUrl} alt={pendingFile.name} className="max-h-32 max-w-full rounded-xl border border-violet-500/20 object-cover" />
+              <button onClick={clearPending} className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-card border border-border/20 flex items-center justify-center hover:bg-red-500/80 transition-colors">
+                <X className="w-3 h-3 text-foreground" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-2 bg-violet-500/10 border border-violet-500/20 rounded-xl text-xs text-violet-400">
+              <Paperclip className="w-3.5 h-3.5 shrink-0" />
+              <span className="flex-1 truncate">{pendingFile.name}</span>
+              <button onClick={clearPending} className="shrink-0 hover:opacity-70"><X className="w-3.5 h-3.5" /></button>
+            </div>
+          )}
         </div>
       )}
 

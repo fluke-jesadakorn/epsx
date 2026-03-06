@@ -36,6 +36,16 @@ function isImage(key: string): boolean {
   return IMG_EXTS.has(extOf(key));
 }
 
+function proxyUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(parsed.hostname)) {
+      return `/minio-img${parsed.pathname}${parsed.search}`;
+    }
+  } catch { /* invalid url */ }
+  return url;
+}
+
 function nameOf(key: string): string {
   return key.split('/').pop() ?? key;
 }
@@ -96,7 +106,7 @@ const FileGridItem = memo(function FileGridItem({ file, onDelete, onCopy }: {
       <div className="aspect-square bg-gradient-to-br from-[#7645d9]/5 via-[#1fc7d4]/3 to-transparent flex items-center justify-center relative">
         {img ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={file.url} alt="" className="w-full h-full object-cover" loading="lazy" />
+          <img src={proxyUrl(file.url)} alt="" className="w-full h-full object-cover" loading="lazy" />
         ) : (
           <File className="w-10 h-10 text-muted-foreground/30" />
         )}
@@ -134,7 +144,7 @@ const FileListItem = memo(function FileListItem({ file, onDelete, onCopy }: {
       <div className="shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-gradient-to-br from-[#7645d9]/10 via-[#1fc7d4]/5 to-transparent border border-border/20 flex items-center justify-center">
         {img ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={file.url} alt="" className="w-full h-full object-cover" loading="lazy" />
+          <img src={proxyUrl(file.url)} alt="" className="w-full h-full object-cover" loading="lazy" />
         ) : (
           <File className="w-4 h-4 text-muted-foreground/40" />
         )}

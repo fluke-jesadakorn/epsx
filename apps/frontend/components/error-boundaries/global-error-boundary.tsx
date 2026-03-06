@@ -3,7 +3,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { safeError, uiLogger } from '@/lib/utils/logging';
+import { safeError } from '@/lib/utils/logging';
 import { AlertTriangle, Bug, Home, RefreshCw } from 'lucide-react';
 import type { ErrorInfo, ReactNode } from 'react';
 import React, { Component } from 'react';
@@ -54,48 +54,19 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    const { onError, level = 'global', context } = this.props;
+    const { onError } = this.props;
 
-    // Log error with context - wrapped in try-catch to prevent recursive errors
-    const errorContext = {
-      level,
-      context,
-      errorId: this.state.errorId,
-      componentStack: errorInfo.componentStack,
-      errorBoundary: this.constructor.name,
-    };
+    safeError(error);
 
-    try {
-      safeError(error);
-      uiLogger.error(`Error caught by ${level} boundary`, error);
-      uiLogger.error('Component error boundary triggered', errorContext);
-    } catch (loggingError) {
-      // Fallback logging failed silently
-      void loggingError;
-      void error;
-    }
-
-    // Call custom error handler if provided
     if (onError) {
       try {
         onError(error, errorInfo);
       } catch (handlerError) {
-        uiLogger.error('Error handler failed', handlerError);
+        safeError(handlerError instanceof Error ? handlerError : new Error(String(handlerError)));
       }
     }
 
-    // Report to external error tracking service in production
-    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
-      // Here you could integrate with Sentry, LogRocket, etc.
-      this.reportErrorToService(error, errorInfo, errorContext);
-    }
-
     this.setState({ errorInfo });
-  }
-
-  private reportErrorToService(_error: Error, _errorInfo: ErrorInfo, _context: any) {
-    // External error reporting disabled for security
-    // Errors are handled locally only
   }
 
   private setupGlobalErrorHandlers() {
@@ -133,17 +104,9 @@ export class GlobalErrorBoundary extends Component<Props, State> {
         }
       }
 
-      // Log other unhandled rejections with more context
+      // Log other unhandled rejections
       const reason = event.reason;
-      uiLogger.error('Unhandled promise rejection', {
-        error: reason,
-        message: reason instanceof Error ? reason.message : String(reason),
-        source: 'global-error-boundary',
-        event: {
-          type: event.type,
-          timeStamp: event.timeStamp
-        }
-      });
+      safeError(reason instanceof Error ? reason : new Error(String(reason)));
     });
 
     // Handle general JavaScript errors
@@ -161,13 +124,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
         }
       }
 
-      uiLogger.error('Unhandled JavaScript error', {
-        error: event.error,
-        source: 'global-error-boundary',
-        filename: event.filename,
-        lineno: event.lineno,
-        colno: event.colno
-      });
+      safeError(event.error instanceof Error ? event.error : new Error(String(event.error)));
     });
   }
 

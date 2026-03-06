@@ -55,7 +55,17 @@ function getBackendUrl(): string {
       return gbu('client');
     } catch { /* ignore */ }
   }
-  return '';
+  return process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
+}
+
+function toServeUrl(url: string): string {
+  try {
+    const parts = new URL(url).pathname.split('/').filter(Boolean);
+    if (parts.length >= 3 && parts[0] === 'chat') {
+      return `/api/chat-files/${parts[1]}/${parts[2]}`;
+    }
+  } catch { /* ignore */ }
+  return url;
 }
 
 async function uploadFile(convId: string, file: File): Promise<ChatMessage | null> {
@@ -190,14 +200,14 @@ function ImageLightbox({ src, alt, onClose }: { src: string; alt: string; onClos
 function AttachmentView({ att, isRight }: { att: ChatAttachment; isRight: boolean }) {
   const [open, setOpen] = useState(false);
   const isImage = att.file_type.startsWith('image/');
-  const src = att.url;
-  const preview = att.thumb_url ?? src;
+  const src = toServeUrl(att.url);
+  const preview = toServeUrl(att.thumb_url ?? att.url);
 
   if (isImage) {
     return (
       <>
         <button type="button" onClick={() => setOpen(true)} className="block mt-2 cursor-zoom-in focus:outline-none">
-          <Image unoptimized width={400} height={300} src={preview} alt={att.filename} className="w-auto h-auto max-w-full max-h-48 rounded-xl border border-white/10 object-cover hover:opacity-90 transition-opacity" />
+          <Image unoptimized loading="eager" width={400} height={300} src={preview} alt={att.filename} className="w-auto h-auto max-w-full max-h-48 rounded-xl border border-white/10 object-cover hover:opacity-90 transition-opacity" />
         </button>
         {open && <ImageLightbox src={src} alt={att.filename} onClose={() => setOpen(false)} />}
       </>
@@ -318,7 +328,7 @@ function MsgItem({ m, prev, readUpToId }: MsgItemProps) {
   const isSystem = m.sender_type === 'system';
   const isAi = m.sender_type === 'ai';
   const isRight = isAgent || isAi;
-  const attachments = m.metadata.attachments ?? [];
+  const attachments = m.metadata?.attachments ?? [];
   const isAttachmentOnly = m.content.startsWith('[attachment:') && attachments.length > 0;
   const showDate = prev === undefined || formatDate(prev.created_at) !== formatDate(m.created_at);
   const isRead = isRight && (m.id === readUpToId || m.is_read === true);

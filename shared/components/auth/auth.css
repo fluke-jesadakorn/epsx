@@ -92,6 +92,29 @@
   min-height: 200px;
 }
 
+/* Uniform background across all sections */
+.auth-modal-header,
+.auth-modal-content,
+.auth-modal-footer {
+  background: #ffffff;
+}
+
+.dark .auth-modal-header,
+.dark .auth-modal-content,
+.dark .auth-modal-footer {
+  background: rgb(25, 25, 35);
+}
+
+/* Admin: transparent to show gradient from parent */
+.auth-modal-admin .auth-modal-header,
+.auth-modal-admin .auth-modal-content,
+.auth-modal-admin .auth-modal-footer,
+.dark .auth-modal-admin .auth-modal-header,
+.dark .auth-modal-admin .auth-modal-content,
+.dark .auth-modal-admin .auth-modal-footer {
+  background: transparent;
+}
+
 /* Step Animation */
 .auth-step-enter {
   animation: slideUp 0.3s ease-out;

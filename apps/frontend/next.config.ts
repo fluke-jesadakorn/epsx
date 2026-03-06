@@ -31,6 +31,16 @@ const nextConfig: NextConfig = {
     ],
   },
 
+  async rewrites() {
+    const minioEndpoint = process.env.MINIO_ENDPOINT ?? 'http://localhost:9200';
+    return [
+      {
+        source: '/news-img/:path*',
+        destination: `${minioEndpoint}/news/:path*`,
+      },
+    ];
+  },
+
   typescript: { ignoreBuildErrors: true },
 
   // Skip static generation for error pages that fail with useContext issues
