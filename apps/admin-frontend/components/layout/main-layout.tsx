@@ -5,6 +5,7 @@ import { Suspense } from 'react';
 
 import { Header } from './header';
 import { Sidebar } from './sidebar';
+import type { Notification as ApiNotification } from '@/shared/api/notifications';
 
 interface User {
   id: string;
@@ -16,6 +17,8 @@ interface User {
 interface MainLayoutProps {
   children: ReactNode;
   user?: User;
+  initialNotifications?: ApiNotification[];
+  initialUnreadCount?: number;
 }
 
 /**
@@ -29,7 +32,7 @@ interface MainLayoutProps {
  * @param root0.children
  * @param root0.user
  */
-export function MainLayout({ children, user }: MainLayoutProps) {
+export function MainLayout({ children, user, initialNotifications, initialUnreadCount }: MainLayoutProps) {
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
       {/* Sidebar Navigation - Fixed height handled by parent h-screen */}
@@ -38,7 +41,7 @@ export function MainLayout({ children, user }: MainLayoutProps) {
       {/* Right Side - Content Area */}
       <div className="flex flex-1 flex-col h-full overflow-hidden">
         {/* Header - Sticky within the content area if needed, or just top block */}
-        <Header user={user} />
+        <Header user={user} initialNotifications={initialNotifications} initialUnreadCount={initialUnreadCount} />
 
         {/* Content Wrapper - Fixed frame, internal main scrolls */}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">

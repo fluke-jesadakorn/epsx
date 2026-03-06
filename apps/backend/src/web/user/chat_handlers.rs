@@ -105,6 +105,7 @@ pub async fn create_conversation(
                     &serde_json::to_string(&event).unwrap_or_default(),
                 ).await;
             }
+
             info!("Created conversation {} for {}", conv.id, ctx.wallet_address);
             Ok(Json(UnifiedApiResponse::success(conv)))
         }
@@ -244,6 +245,39 @@ pub async fn send_message(
                 // Notify admin channel
                 let _ = broadcaster.publish_to_channel("chat:new", &payload).await;
             }
+
+            // Send notification to assigned agent (or broadcast if unassigned)
+            let notif_state = app_state.clone();
+            let notif_content = body.content.chars().take(100).collect::<String>();
+            let notif_conv_id = id;
+            let notif_subject = conv.subject.clone();
+            let notif_agent = conv.assigned_agent.clone();
+            tokio::spawn(async move {
+                use crate::infrastructure::services::NotificationService;
+                use crate::web::notifications::{NotificationType, NotificationPriority};
+                if let Some(agent) = notif_agent {
+                    let _ = NotificationService::send(
+                        &notif_state,
+                        &agent,
+                        NotificationType::Chat,
+                        NotificationPriority::Normal,
+                        &format!("New message: {}", notif_subject),
+                        &notif_content,
+                        Some(serde_json::json!({ "conversation_id": notif_conv_id })),
+                        Some("/chat".to_string()),
+                    ).await;
+                } else {
+                    let _ = NotificationService::broadcast(
+                        &notif_state,
+                        NotificationType::Chat,
+                        NotificationPriority::Normal,
+                        &format!("New message: {}", notif_subject),
+                        &notif_content,
+                        Some(serde_json::json!({ "conversation_id": notif_conv_id })),
+                    ).await;
+                }
+            });
+
             Ok(Json(UnifiedApiResponse::success(msg)))
         }
         Err(e) => {

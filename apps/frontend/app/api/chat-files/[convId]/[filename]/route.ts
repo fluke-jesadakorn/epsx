@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 
 export async function GET(
   _req: NextRequest,
@@ -9,7 +10,7 @@ export async function GET(
   const url = `${backend}/api/chat/files/${convId}/${filename}`;
   try {
     const res = await fetch(url);
-    if (!res.ok) return new NextResponse(null, { status: res.status });
+    if (!res.ok) { return new NextResponse(null, { status: res.status }); }
     const data = await res.arrayBuffer();
     return new NextResponse(data, {
       headers: {

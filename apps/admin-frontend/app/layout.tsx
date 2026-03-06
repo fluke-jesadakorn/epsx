@@ -21,6 +21,9 @@ import { cookieToInitialState } from 'wagmi';
 import type { UserInfoResponse } from '@/shared/auth/client';
 import { getAuthUser } from '@/lib/server/auth';
 import { logger } from '@/lib/logger';
+import { getAdminNotificationsAction } from '@/app/actions/notifications';
+import { MAX_DROPDOWN_NOTIFICATIONS } from '@/shared/components/notifications/constants';
+import type { Notification as ApiNotification } from '@/shared/api/notifications';
 
 const kanit = Kanit({
   subsets: ['latin'],
@@ -76,6 +79,25 @@ export default async function RootLayout({
 }) {
   // Server-side auth check to seed client state
   const user = await getAuthUser();
+
+  // Pre-fetch notifications server-side to avoid loading spinner
+  let initialNotifications: ApiNotification[] = [];
+  let initialUnreadCount = 0;
+  if (user !== null) {
+    try {
+      const res = await getAdminNotificationsAction({
+        page: 1,
+        limit: MAX_DROPDOWN_NOTIFICATIONS,
+        status: 'all',
+      });
+      if (res.success === true && res.data?.notifications !== undefined) {
+        initialNotifications = res.data.notifications;
+        initialUnreadCount = res.data.unread_count;
+      }
+    } catch {
+      // Fall back to client-side fetch
+    }
+  }
 
   // Unified Web3 Cookie Hydration with safe error handling
   const headersList = await headers();
@@ -158,7 +180,7 @@ export default async function RootLayout({
           <ErrorBoundary>
             <ClientProviders initialUser={user as unknown as UserInfoResponse | null} initialState={initialState}>
               <div className="flex-1 relative overflow-hidden">
-                <LayoutWrapper initialUser={user !== null ? { id: user.id, email: user.email, name: user.name, role: 'admin' } : undefined}>
+                <LayoutWrapper initialUser={user !== null ? { id: user.id, email: user.email, name: user.name, role: 'admin' } : undefined} initialNotifications={initialNotifications} initialUnreadCount={initialUnreadCount}>
                   {children}
                 </LayoutWrapper>
               </div>

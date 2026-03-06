@@ -146,6 +146,7 @@ pub async fn get_user_plans_handler(
         #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
         offset_permission: Option<String>,
         #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+        #[allow(dead_code)]
         assigned_at: DateTime<Utc>,
         #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Numeric>)]
         price: Option<bigdecimal::BigDecimal>,
@@ -548,7 +549,7 @@ pub async fn get_upgrade_preview_handler(
     // Calculate credit using upgrade_service
     use super::upgrade_service::{calculate_upgrade_credit, calculate_upgrade_days, is_upgrade_allowed, billing_period_days};
 
-    let is_extension = assignment.as_ref().map_or(false, |a| a.plan_id == new_plan_uuid);
+    let is_extension = assignment.as_ref().is_some_and(|a| a.plan_id == new_plan_uuid);
 
     let proration_credit = if is_extension {
         rust_decimal::Decimal::ZERO

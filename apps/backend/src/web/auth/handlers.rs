@@ -628,7 +628,7 @@ pub async fn grant_permission_handler(
 
             // Log permission grant to audit trail
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            app_state.audit.log(ctx, AuditEntry::new("permission", "grant", "auth")
+            app_state.audit.log(ctx, AuditEntry::new("permission", "grant", "permission")
                 .id(&request.wallet_address)
                 .after(serde_json::json!({
                     "wallet": request.wallet_address,
@@ -699,7 +699,7 @@ pub async fn revoke_permission_handler(
 
             // Log permission revocation to audit trail
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            app_state.audit.log(ctx, AuditEntry::new("permission", "revoke", "auth")
+            app_state.audit.log(ctx, AuditEntry::new("permission", "revoke", "permission")
                 .id(&request.wallet_address)
                 .after(serde_json::json!({
                     "wallet": request.wallet_address,

@@ -17,7 +17,7 @@ function SignInBanner() {
   const { isConnected } = useAccount();
   const { isAuthenticated, isLoading, openSignInModal } = useSharedAuth();
 
-  if (!isConnected || isAuthenticated || isLoading) return null;
+  if (!isConnected || isAuthenticated || isLoading) { return null; }
 
   return (
     <div className="sticky top-0 z-40 flex items-center justify-center gap-3 bg-gradient-to-r from-[#5a33b8] via-[#7645d9] to-[#1a9bab] px-6 py-3 text-base text-white shadow-lg dark:from-[#7645d9]/90 dark:via-[#5a33b8] dark:to-[#1fc7d4]/80">

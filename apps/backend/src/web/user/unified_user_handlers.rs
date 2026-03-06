@@ -873,8 +873,8 @@ pub async fn dashboard_init_handler(
     );
 
     Json(UnifiedApiResponse::success(json!({
-        "plan_access": plan_access.unwrap_or_else(|_| json!(null)),
-        "watchlist": watchlist.unwrap_or_else(|_| json!([])),
+        "plan_access": plan_access.unwrap_or(json!(null)),
+        "watchlist": watchlist.unwrap_or(json!([])),
     })))
 }
 

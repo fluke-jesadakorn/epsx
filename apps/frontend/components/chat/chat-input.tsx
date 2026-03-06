@@ -104,7 +104,6 @@ export function ChatInput({ onSend, onUpload, onTyping, disabled = false, placeh
         <div className="mb-2">
           {previewUrl !== null ? (
             <div className="relative inline-block">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={previewUrl} alt={pendingFile.name} className="max-h-28 max-w-full rounded-xl border border-[#7645d9]/20 object-cover shadow-sm" />
               <button
                 onClick={clearPending}

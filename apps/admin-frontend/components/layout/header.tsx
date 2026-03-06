@@ -7,7 +7,7 @@
 
 import { useTheme } from 'next-themes';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 import { AdminWalletConnectAuth } from '@/components/auth/admin-wallet-connect-auth';
 import { AdminNotificationBell } from './admin-notification-bell-client';
@@ -17,6 +17,7 @@ import { themeUtils } from '@/components/ui/safe-theme-script';
 import { ChainSelector } from '@/shared/components/navigation/chain-selector';
 import { UnifiedThemeToggle } from '@/shared/components/ui/theme-toggle';
 import { isProduction } from '@/shared/utils';
+import type { Notification as ApiNotification } from '@/shared/api/notifications';
 
 interface User {
   id: string;
@@ -27,6 +28,8 @@ interface User {
 
 interface HeaderProps {
   user?: User;
+  initialNotifications?: ApiNotification[];
+  initialUnreadCount?: number;
 }
 
 /**
@@ -34,29 +37,13 @@ interface HeaderProps {
  * @param root0
  * @param root0.user
  */
-export function Header({ user: _user }: HeaderProps) {
+export function Header({ user: _user, initialNotifications, initialUnreadCount }: HeaderProps) {
   const { setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-    // Sync stored theme with next-themes on mount only
     const current = themeUtils.getTheme();
     setTheme(current);
   }, [setTheme]);
-
-  if (!mounted) {
-    return (
-      <header className="sticky top-0 z-40 border-b border-border/40 bg-card">
-        <div className="flex h-14 items-center justify-between px-4 gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <Breadcrumb />
-          </div>
-          <div className="h-8 w-24 bg-muted rounded-md animate-pulse flex-shrink-0" />
-        </div>
-      </header>
-    );
-  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/40 bg-card">
@@ -70,7 +57,7 @@ export function Header({ user: _user }: HeaderProps) {
         <div className="flex items-center gap-3 flex-shrink-0">
           {/* Notification Bell */}
           <div className="hidden sm:block">
-            <AdminNotificationBell />
+            <AdminNotificationBell initialNotifications={initialNotifications} initialUnreadCount={initialUnreadCount} />
           </div>
 
           <div className="w-[1px] h-6 bg-border hidden sm:block" />

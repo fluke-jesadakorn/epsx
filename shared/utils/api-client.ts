@@ -410,7 +410,7 @@ export class UnifiedApiClient {
     }
   }
 
-  private updateServerCookies(cookieStore: { set: (name: string, value: string, options: Record<string, unknown>) => void }, data: { access_token: string; refresh_token?: string; expires_in?: number }): void {
+  private updateServerCookies(cookieStore: { get?: (name: string) => { value: string } | undefined; set: (name: string, value: string, options: Record<string, unknown>) => void }, data: { access_token: string; refresh_token?: string; expires_in?: number }): void {
     const isProd = process.env.NODE_ENV === 'production';
     cookieStore.set(COOKIES.access_token, data.access_token, {
       httpOnly: true,
@@ -428,6 +428,25 @@ export class UnifiedApiClient {
         path: '/',
         maxAge: 2592000,
       } as Record<string, unknown>);
+    }
+
+    // Also update the client-side user cookie with the new access token
+    // so SSE connections can use the refreshed token
+    if (cookieStore.get !== undefined) {
+      try {
+        const raw = cookieStore.get(COOKIES.user)?.value;
+        if (raw !== undefined && raw !== '') {
+          const user = JSON.parse(decodeURIComponent(raw)) as Record<string, unknown>;
+          user.access = data.access_token;
+          cookieStore.set(COOKIES.user, JSON.stringify(user), {
+            httpOnly: false,
+            secure: isProd,
+            sameSite: 'lax',
+            path: '/',
+            maxAge: 2592000,
+          } as Record<string, unknown>);
+        }
+      } catch { /* ignore parse errors */ }
     }
   }
 

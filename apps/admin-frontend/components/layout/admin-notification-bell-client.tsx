@@ -12,7 +12,7 @@ import {
   markAsUnreadAction,
 } from '@/app/actions/notifications'
 import { toast } from '@/hooks/use-toast'
-import type { SSENotification } from '@/shared/api/notifications'
+import type { Notification as ApiNotification, SSENotification } from '@/shared/api/notifications'
 import { useSharedAuth } from '@/shared/components/auth'
 import { MAX_DROPDOWN_NOTIFICATIONS } from '@/shared/components/notifications/constants'
 import type { Notification } from '@/shared/components/notifications/types'
@@ -160,10 +160,30 @@ async function execMarkAllRead(
   }
 }
 
-function useNotificationBellLogic(isOnAuthPage: boolean) {
-  const [count, setCount] = useState(0)
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [loading, setLoading] = useState(true)
+function mapApiNotifications(apiNotifs: ApiNotification[]): Notification[] {
+  return apiNotifs.map(n => ({
+    id: n.id,
+    title: n.title,
+    message: n.message,
+    type: n.notification_type,
+    priority: n.priority,
+    timestamp: n.timestamp,
+    wallet_address: n.wallet_address,
+    read: Boolean(n.read_at),
+  }))
+}
+
+interface BellLogicOpts {
+  isOnAuthPage: boolean
+  initialNotifications?: ApiNotification[]
+  initialUnreadCount?: number
+}
+
+function useNotificationBellLogic({ isOnAuthPage, initialNotifications, initialUnreadCount }: BellLogicOpts) {
+  const hasInitial = initialNotifications !== undefined && initialNotifications.length > 0
+  const [count, setCount] = useState(hasInitial ? (initialUnreadCount ?? 0) : 0)
+  const [notifications, setNotifications] = useState<Notification[]>(hasInitial ? mapApiNotifications(initialNotifications) : [])
+  const [loading, setLoading] = useState(!hasInitial)
   const [error, setError] = useState<string | null>(null)
   const { refreshSession } = useSharedAuth()
 
@@ -177,22 +197,13 @@ function useNotificationBellLogic(isOnAuthPage: boolean) {
       })
 
       if (data.success === true && data.data?.notifications !== undefined) {
-        const mapped: Notification[] = data.data.notifications.map(n => ({
-          id: n.id,
-          title: n.title,
-          message: n.message,
-          type: n.notification_type,
-          priority: n.priority,
-          timestamp: n.timestamp,
-          wallet_address: n.wallet_address,
-          read: Boolean(n.read_at),
-        }))
-        setNotifications(mapped)
+        setNotifications(mapApiNotifications(data.data.notifications))
         setCount(data.data.unread_count)
         setError(null)
       } else {
         setNotifications([])
         setCount(0)
+        setError('Failed to load notifications')
       }
     } catch {
       setNotifications([])
@@ -233,8 +244,9 @@ function useNotificationBellLogic(isOnAuthPage: boolean) {
       setLoading(false)
       return
     }
+    if (hasInitial) { return }
     void fetchNotifications()
-  }, [isOnAuthPage, fetchNotifications])
+  }, [isOnAuthPage, fetchNotifications, hasInitial])
 
   const handleToggleRead = useCallback(async (notificationId: string, currentlyRead: boolean) => {
     // Optimistic update
@@ -291,7 +303,12 @@ function useNotificationBellLogic(isOnAuthPage: boolean) {
   return { count, notifications, loading, error, fetchNotifications, handleToggleRead, handleDeleteNotification, handleMarkAllAsRead }
 }
 
-export function AdminNotificationBell() {
+interface AdminNotificationBellProps {
+  initialNotifications?: ApiNotification[]
+  initialUnreadCount?: number
+}
+
+export function AdminNotificationBell({ initialNotifications, initialUnreadCount }: AdminNotificationBellProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
@@ -299,7 +316,7 @@ export function AdminNotificationBell() {
   const isOnAuthPage = pathname === '/auth' || pathname.startsWith('/auth')
 
   const { count, notifications, loading, error, fetchNotifications, handleToggleRead, handleDeleteNotification, handleMarkAllAsRead } =
-    useNotificationBellLogic(isOnAuthPage)
+    useNotificationBellLogic({ isOnAuthPage, initialNotifications, initialUnreadCount })
 
   useEffect(() => {
     if (!isOpen) { return; }

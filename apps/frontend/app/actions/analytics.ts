@@ -6,7 +6,7 @@ import { logger } from '@/shared/utils/logger';
 import { getServerActionClient } from '@/shared/utils/server-fetch';
 
 const DEFAULT_ANALYTICS_FILTERS: AnalyticsFilters = {
-    sort_by: 'eps_growth',
+    sort_by: 'growth_factor',
     page: 1,
     limit: 20,
 };

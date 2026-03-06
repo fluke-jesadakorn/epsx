@@ -60,7 +60,7 @@ export function ChatWidget() {
     <>
       <ChatPanel isOpen={isOpen} onClose={handleClose} walletAddr={getWalletAddress() ?? undefined} />
       <div className="fixed bottom-6 right-6 z-50">
-        <ChatBubble unread={unread} onClick={handleToggle} isOpen={false} />
+        <ChatBubble unread={unread} onClick={handleToggle} isOpen={isOpen} />
       </div>
     </>
   );

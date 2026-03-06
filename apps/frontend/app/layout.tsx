@@ -137,7 +137,7 @@ export default async function RootLayout({
               <NavigationClient />
 
               {/* Main content with mobile scroll optimization */}
-              <main className="relative min-h-screen">{children}</main>
+              <main className="relative min-h-[calc(100svh-3.5rem)]">{children}</main>
 
               {/* Sign in modal (triggered by openSignInModal) */}
               <FrontendAuthModal />

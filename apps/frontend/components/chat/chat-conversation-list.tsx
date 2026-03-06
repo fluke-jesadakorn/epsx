@@ -34,7 +34,7 @@ export function ChatConversationList({ convos, onSelect, onNew }: ConvoListProps
   }
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col min-h-0">
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
         <span className="text-xs text-muted-foreground font-medium">
           {convos.length} conversation{convos.length !== 1 ? 's' : ''}

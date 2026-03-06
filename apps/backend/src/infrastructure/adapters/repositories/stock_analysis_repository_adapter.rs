@@ -4,8 +4,8 @@ use tracing::{debug, error, info};
 
 use crate::domain::market_analytics::aggregates::eps_ranking::{EPSRanking as DDDEPSRanking, RankingEntry, RankingType, RankingPeriod};
 use crate::domain::market_analytics::value_objects::*;
-use crate::domain::shared_kernel::entities::eps_growth::{EPSRanking as LegacyEPSRanking, EPSGrowthData};
-use crate::domain::shared_kernel::services::eps_ranking_service::{EPSRepository, EPSRankingService, EPSRankingParams};
+use crate::domain::shared_kernel::entities::eps_growth::EPSRanking as LegacyEPSRanking;
+use crate::domain::shared_kernel::services::eps_ranking_service::{EPSRankingService, EPSRankingParams};
 
 
 // Mock implementation of EPSRepository for testing

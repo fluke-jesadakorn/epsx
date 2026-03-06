@@ -129,159 +129,131 @@ use super::batch_handlers::{
 use crate::web::auth::AppState;
 
 pub fn create_admin_routes() -> Router<AppState> {
-  Router::new()
-    // Lightweight identity check used by admin-frontend middleware to gate page access
+  use crate::web::middleware::perm_guard;
+
+  // Dashboard identity check and batch overview
+  let dashboard = Router::new()
     .route("/me", get(super::setup_handlers::admin_me_handler))
-    // Security monitoring routes (require admin:security:* permissions)
-    .route(
-      "/security/events",
-      get(SecurityMonitoringHandlers::get_security_events)
-    )
-    .route(
-      "/security/metrics",
-      get(SecurityMonitoringHandlers::get_security_metrics)
-    )
-    .route(
-      "/security/user-threat",
-      get(SecurityMonitoringHandlers::get_user_threat_assessment)
-    )
-    // Dynamic Plan Management routes (require admin:plans:* permissions) - Simplified
+    .route("/dashboard/summary", get(admin_dashboard_summary_handler))
+    .layer(from_fn_with_state("admin:dashboard:view", perm_guard));
+
+  // Security monitoring
+  let security = Router::new()
+    .route("/security/events", get(SecurityMonitoringHandlers::get_security_events))
+    .route("/security/metrics", get(SecurityMonitoringHandlers::get_security_metrics))
+    .route("/security/user-threat", get(SecurityMonitoringHandlers::get_user_threat_assessment))
+    .layer(from_fn_with_state("admin:security:read", perm_guard));
+
+  // Plan management — read
+  let plans_read = Router::new()
     .route("/plans", get(list_plans_handler))
-    .route("/plans", post(create_plan_handler))
-    .route("/plans/{plan_id}", get(get_plan_handler).put(update_plan_handler).delete(delete_plan_handler))
-    // Promotion Management routes (require admin:promotions:* permissions)
-    .route("/promotions", get(list_promotions_handler))
-    .route("/promotions", post(create_promotion_handler))
-    .route("/promotions/{id}", get(get_promotion_handler))
-    .route("/promotions/{id}", put(update_promotion_handler))
-    .route("/promotions/{id}", delete(delete_promotion_handler))
-    // Subscription Management routes (require admin:subscriptions:* permissions) - Simplified
-    .route("/subscriptions", get(list_subscriptions_handler).post(create_subscription_handler))
-    // Direct Payment Model: User Access List (replaces subscription-based model)
+    .route("/plans/{plan_id}", get(get_plan_handler))
+    .route("/subscriptions", get(list_subscriptions_handler))
     .route("/plans/user-access/list", get(admin_list_user_access_handler))
-    // Performance monitoring routes (require admin:performance:* permissions)
+    .route("/plans/history", get(get_plan_history))
+    .layer(from_fn_with_state("admin:plans:read", perm_guard));
+
+  // Plan management — write
+  let plans_write = Router::new()
+    .route("/plans", post(create_plan_handler))
+    .route("/plans/{plan_id}", put(update_plan_handler).delete(delete_plan_handler))
+    .route("/subscriptions", post(create_subscription_handler))
+    .route("/plans/seed", post(crate::web::public::seed_plans_handler::seed_subscription_plans))
+    .layer(from_fn_with_state("admin:plans:manage", perm_guard));
+
+  // Promotion management
+  let promotions = Router::new()
+    .route("/promotions", get(list_promotions_handler).post(create_promotion_handler))
+    .route("/promotions/{id}", get(get_promotion_handler).put(update_promotion_handler).delete(delete_promotion_handler))
+    .layer(from_fn_with_state("admin:promotions:manage", perm_guard));
+
+  // Performance monitoring
+  let performance = Router::new()
     .route("/performance/auth-cache", get(get_auth_cache_performance))
     .route("/performance/cache-summary", get(get_cache_summary))
     .route("/performance/clear-cache", post(clear_auth_cache))
-    // Permission Management routes (require admin:web3:* permissions)
-    .route("/web3/permissions", get(get_user_permissions))
-    .route("/web3/permissions/grant", post(grant_manual_permission))
-    // New simplified routes (aliased to above)
+    .layer(from_fn_with_state("admin:performance:view", perm_guard));
+
+  // Permission system — read
+  let permissions_read = Router::new()
     .route("/permissions", get(get_user_permissions))
-    .route("/permissions/grant", post(grant_manual_permission))
+    .route("/web3/permissions", get(get_user_permissions))
+    .route("/permissions/system/health", get(get_health))
+    .route("/permissions/system/stats", get(get_statistics))
+    .route("/permissions/system/routes", get(get_route_permissions))
+    .route("/permissions/available", get(super::permissions::list_available_permissions))
+    .route("/permissions/direct/wallet/{wallet}", get(list_wallet_permissions))
     .route("/web3/nft-gates", get(get_nft_gates))
-    .route("/web3/nft-gates", post(create_nft_gate))
     .route("/web3/token-gates", get(get_token_gates))
-    .route("/web3/token-gates", post(create_token_gate))
     .route("/web3/dao-proposals", get(get_dao_proposals))
-    .route("/web3/dao-proposals", post(create_dao_proposal))
     .route("/web3/recent-wallets", get(get_recent_wallets))
     .route("/wallets/search", get(search_wallets))
     .route("/tiers", get(get_tiers))
+    .layer(from_fn_with_state("admin:permissions:read", perm_guard));
 
-    // ============================================================================
-    // BACKEND-CENTRIC PERMISSION AUTHORITY SYSTEM (THE SINGLE SOURCE OF TRUTH)
-    // These endpoints are THE AUTHORITY for all permission decisions
-    // Frontend and admin apps consume these APIs and handle only error responses
-    // ============================================================================
-    
-    // ============================================================================
-    // ADMIN-SPECIFIC PERMISSION OPERATIONS
-    // Core permission operations moved to /api/permissions/* (accessible by all apps)
-    // ============================================================================
-
-    // Admin-only permission system operations
-    .route("/permissions/system/health", get(get_health))
-    .route("/permissions/system/stats", get(get_statistics))
+  // Permission system — write
+  let permissions_write = Router::new()
+    .route("/web3/permissions/grant", post(grant_manual_permission))
+    .route("/permissions/grant", post(grant_manual_permission))
+    .route("/web3/nft-gates", post(create_nft_gate))
+    .route("/web3/token-gates", post(create_token_gate))
+    .route("/web3/dao-proposals", post(create_dao_proposal))
     .route("/permissions/system/cache/clear", post(clear_caches))
-    .route("/permissions/system/routes", get(get_route_permissions).post(register_route_permission))
-
-    // List all available unique permission strings (matches frontend call)
-    .route("/permissions/available", get(super::permissions::list_available_permissions))
-
-    // Plan Assignment History (Audit Log)
-    .route("/plans/history", get(get_plan_history))
-
-    // Admin-only direct permission management (elevated privileges)
+    .route("/permissions/system/routes", post(register_route_permission))
     .route("/permissions/direct/grant", post(grant_permission))
     .route("/permissions/direct/revoke", delete(revoke_permission))
-    .route("/permissions/direct/wallet/{wallet}", get(list_wallet_permissions))
     .route("/permissions/plans/{plan_id}/permissions", post(add_permission_to_plan))
     .route("/permissions/plans/{plan_id}/permissions/{permission_id}", delete(remove_permission_from_plan))
-
-    // Admin-only bulk operations
     .route("/permissions/bulk/grant", post(bulk_grant))
     .route("/permissions/bulk/revoke", post(bulk_revoke))
     .route("/permissions/bulk/assign-plans", post(bulk_assign_plans))
     .route("/permissions/bulk/apply-template", post(bulk_apply_template))
     .route("/permissions/bulk/validate", post(bulk_validate))
+    .layer(from_fn_with_state("admin:permissions:manage", perm_guard));
 
-    // Admin-specific permission analytics - see /analytics/permissions endpoint
-    // ============================================================================
-    // CONSOLIDATED WALLET MANAGEMENT SYSTEM
-    // Backend-centric wallet operations with comprehensive data and analytics
-    // ============================================================================
-
-    // Wallet Management routes (require admin:wallets:* permissions)
+  // Wallet management — read
+  let wallets_read = Router::new()
     .route("/wallets", get(list_users_handler))
     .route("/wallets/stats", get(get_user_stats_handler))
     .route("/wallets/{wallet_address}", get(get_user_handler))
+    .route("/wallets/{wallet_address}/activity", get(get_wallet_activity_handler))
+    .route("/wallets/{wallet_address}/access-summary", get(wallet_access_summary_handler))
+    .layer(from_fn_with_state("admin:users:read", perm_guard));
+
+  // Wallet management — write
+  let wallets_write = Router::new()
     .route("/wallets/{wallet_address}", put(update_user_handler))
-    // Wallet disable/enable operations
     .route("/wallets/{wallet_address}/disable", post(super::wallet_management_handlers::disable_user_handler))
     .route("/wallets/{wallet_address}/enable", post(super::wallet_management_handlers::enable_user_handler))
-    .route("/wallets/{wallet_address}/activity", get(get_wallet_activity_handler))
+    .layer(from_fn_with_state("admin:users:update", perm_guard));
 
-    // ============================================================================
-    // ANALYTICS AND BUSINESS INTELLIGENCE SYSTEM
-    // Data aggregation and insights for administrative decision making
-    // ============================================================================
-    
-    // Analytics routes (require admin:analytics:* permissions)
+  // Analytics and audit
+  let analytics = Router::new()
     .route("/analytics/overview", get(get_platform_overview_handler))
     .route("/analytics/users", get(get_user_analytics_handler))
     .route("/analytics/permissions", get(get_permission_analytics_handler))
     .route("/analytics/revenue", get(get_revenue_analytics_handler))
     .route("/analytics/usage", get(get_usage_analytics_handler))
     .route("/analytics/dashboard", get(get_admin_analytics_dashboard_handler))
-    .route("/audit-logs", get(super::audit_log_handlers::get_audit_logs_handler))
-
-    // CQRS-based admin analytics endpoints (from analytics module)
     .route("/analytics/metrics", get(crate::web::analytics::system_metrics_handler))
     .route("/analytics/time-series", get(crate::web::analytics::admin_time_series_handler))
     .route("/analytics/modules", get(crate::web::analytics::admin_modules_handler))
+    .route("/audit-logs", get(super::audit_log_handlers::get_audit_logs_handler))
+    .layer(from_fn_with_state("admin:analytics:view", perm_guard));
 
-    // ============================================================================
-    // NOTIFICATION MANAGEMENT SYSTEM
-    // Admin notification sending and statistics
-    // ============================================================================
-
-    // Notification routes (require admin:notifications:* permissions)
+  // Notification management
+  let notifications = Router::new()
     .route("/notifications/send", post(send_notification_handler))
     .route("/notifications", get(get_all_notifications_handler))
     .route("/notifications/stats", get(get_notification_stats_handler))
     .route("/notifications/{id}/acknowledge", put(acknowledge_notification_handler))
     .route("/notifications/{id}", delete(delete_admin_notification_handler))
+    .route("/notifications/overview", get(admin_notification_overview_handler))
+    .route("/notifications/upload-image", post(super::media_handlers::upload_notification_image))
+    .layer(from_fn_with_state("admin:notifications:manage", perm_guard));
 
-    // ============================================================================
-    // SYSTEM SETTINGS MANAGEMENT
-    // Global admin console settings (NOT tied to any wallet)
-    // ============================================================================
-
-    // Settings routes (require admin:settings:* permissions)
-    // MOVED to unified_router.rs as public routes for development
-    /*
-    .route("/settings", get(get_all_settings_handler).put(update_settings_handler))
-    .route("/settings/reset", post(reset_settings_handler))
-    .route("/settings/{category}", get(get_settings_by_category_handler))
-    */
-
-    // ============================================================================
-    // DEVELOPER PORTAL MANAGEMENT
-    // API key and module management for third-party integrations
-    // ============================================================================
-
-    // Developer Portal routes (require admin:developer:* permissions)
+  // Developer portal
+  let developer = Router::new()
     .route("/developer-portal/api-keys", get(super::developer_portal_handlers::list_api_keys_handler).post(super::developer_portal_handlers::create_api_key_handler))
     .route("/developer-portal/api-keys/{id}", get(super::developer_portal_handlers::get_api_key_handler))
     .route("/developer-portal/api-keys/{id}/revoke", post(super::developer_portal_handlers::revoke_api_key_handler))
@@ -290,20 +262,17 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/developer-portal/modules", get(super::developer_portal_handlers::list_modules_handler).post(super::developer_portal_handlers::create_module_handler))
     .route("/developer-portal/modules/{id}", get(super::developer_portal_handlers::get_module_handler).put(super::developer_portal_handlers::update_module_handler))
     .route("/developer-portal/stats", get(super::developer_portal_handlers::get_stats_handler))
+    .layer(from_fn_with_state("admin:developer:manage", perm_guard));
 
-    // ============================================================================
-    // PAYMENT LINK MANAGEMENT (V2 Dynamic Payments)
-    // Dynamic payment links for plans, plans, products, campaigns, and custom
-    // ============================================================================
-
-    // Payment Link routes (require admin:payments:* permissions)
+  // Payment links
+  let payment_links = Router::new()
     .route("/payment-links", get(super::payment_link_handlers::list_payment_links_handler).post(super::payment_link_handlers::create_payment_link_handler))
     .route("/payment-links/{id}", get(super::payment_link_handlers::get_payment_link_handler).put(super::payment_link_handlers::update_payment_link_handler).delete(super::payment_link_handlers::delete_payment_link_handler))
     .route("/payment-links/{id}/record-usage", post(super::payment_link_handlers::record_payment_usage_handler))
+    .layer(from_fn_with_state("admin:payments:manage", perm_guard));
 
-    // ============================================================================
-    // SUPPORT CHAT MANAGEMENT
-    // ============================================================================
+  // Support chat
+  let chat = Router::new()
     .route("/chat/topics", get(super::chat_handlers::admin_list_topics))
     .route("/chat/conversations", get(super::chat_handlers::admin_list_conversations))
     .route("/chat/conversations/{id}", get(super::chat_handlers::admin_get_conversation))
@@ -315,13 +284,10 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/chat/conversations/{id}/read", put(super::chat_handlers::admin_mark_read))
     .route("/chat/stats", get(super::chat_handlers::admin_get_stats))
     .route("/chat/overview", get(super::chat_handlers::admin_chat_overview_handler))
+    .layer(from_fn_with_state("admin:chat:manage", perm_guard));
 
-    // Plan seeding (admin-only, disabled in production)
-    .route("/plans/seed", post(crate::web::public::seed_plans_handler::seed_subscription_plans))
-
-    // ============================================================================
-    // NEWS MANAGEMENT
-    // ============================================================================
+  // News / content management
+  let news = Router::new()
     .route("/news", get(super::news_handlers::list_news).post(super::news_handlers::create_news))
     .route("/news/upload-image", post(super::news_handlers::upload_news_image))
     .route("/news/{id}", get(super::news_handlers::get_news).put(super::news_handlers::update_news).delete(super::news_handlers::delete_news))
@@ -329,25 +295,35 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/news/{id}/unpublish", put(super::news_handlers::unpublish_news))
     .route("/news/{id}/pin", put(super::news_handlers::pin_news))
     .route("/news/{id}/unpin", put(super::news_handlers::unpin_news))
+    .layer(from_fn_with_state("admin:content:manage", perm_guard));
 
-    // ============================================================================
-    // MEDIA & FILE MANAGEMENT
-    // ============================================================================
-    .route("/notifications/upload-image", post(super::media_handlers::upload_notification_image))
+  // Media and file management
+  let media = Router::new()
     .route("/files/upload", post(super::media_handlers::upload_public_file))
     .route("/files", get(super::media_handlers::list_public_files))
     .route("/files/{key}", delete(super::media_handlers::delete_public_file))
     .route("/media/{bucket}", get(super::media_handlers::list_media))
     .route("/media/{bucket}/{key}", delete(super::media_handlers::delete_media))
+    .layer(from_fn_with_state("admin:media:manage", perm_guard));
 
-    // ============================================================================
-    // BATCH ENDPOINTS - reduces N+1 call patterns
-    // ============================================================================
-    .route("/dashboard/summary", get(admin_dashboard_summary_handler))
-    .route("/notifications/overview", get(admin_notification_overview_handler))
-    .route("/wallets/{wallet_address}/access-summary", get(wallet_access_summary_handler))
-
-    }
+  dashboard
+    .merge(security)
+    .merge(plans_read)
+    .merge(plans_write)
+    .merge(promotions)
+    .merge(performance)
+    .merge(permissions_read)
+    .merge(permissions_write)
+    .merge(wallets_read)
+    .merge(wallets_write)
+    .merge(analytics)
+    .merge(notifications)
+    .merge(developer)
+    .merge(payment_links)
+    .merge(chat)
+    .merge(news)
+    .merge(media)
+}
 
 pub fn create_admin_public_routes() -> Router<AppState> {
   Router::new()

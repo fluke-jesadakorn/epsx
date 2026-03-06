@@ -36,9 +36,10 @@ export function ChatMessageList({ msgs, userAddr, agentTyping, readUpToId }: Msg
   let readReached = false;
 
   return (
-    <div className="flex-1 overflow-y-auto scrollbar-thin">
+    <div className="flex-1 overflow-y-auto scrollbar-thin flex flex-col">
+      <div className="flex-1" />
       <div
-        className="flex flex-col justify-end min-h-full px-4 md:px-6 py-5"
+        className="flex flex-col px-4 md:px-6 py-5"
         style={{
           backgroundImage: 'radial-gradient(circle, rgba(118,69,217,0.045) 1px, transparent 1px)',
           backgroundSize: '22px 22px',

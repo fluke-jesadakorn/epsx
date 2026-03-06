@@ -67,7 +67,7 @@ const DialogContent = React.forwardRef<
         style={style}
         {...props}
       >
-        <DialogPrimitive.Title className="sr-only">Dialog</DialogPrimitive.Title>
+        <DialogPrimitive.Title className="sr-only" style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>Dialog</DialogPrimitive.Title>
         {children}
         {showClose && (
           <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg bg-white dark:bg-white/5 backdrop-blur-sm border border-gray-200 dark:border-slate-700 opacity-70 ring-offset-background transition-all hover:opacity-100 hover:bg-black/[0.05] dark:hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">

@@ -16,7 +16,7 @@ export function ChatBubble({ unread, onClick, isOpen }: BubbleProps) {
       onClick={onClick}
       className={`group relative w-14 h-14 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center ${
         isOpen
-          ? 'bg-card/90 backdrop-blur-md border border-border hover:bg-muted scale-95'
+          ? 'bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 hover:from-blue-400 hover:via-blue-500 hover:to-indigo-500 hover:shadow-blue-500/25 hover:shadow-xl scale-95'
           : 'bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 hover:from-blue-400 hover:via-blue-500 hover:to-indigo-500 hover:shadow-blue-500/25 hover:shadow-xl hover:scale-105'
       }`}
       aria-label={isOpen ? 'Close support chat' : 'Open support chat'}
@@ -27,7 +27,7 @@ export function ChatBubble({ unread, onClick, isOpen }: BubbleProps) {
       )}
 
       {isOpen ? (
-        <X className="w-5 h-5 text-foreground transition-transform duration-200 group-hover:rotate-90" />
+        <X className="w-5 h-5 text-white transition-transform duration-200 group-hover:rotate-90" />
       ) : (
         <MessageCircle className="w-6 h-6 text-white transition-transform duration-200 group-hover:scale-110" />
       )}

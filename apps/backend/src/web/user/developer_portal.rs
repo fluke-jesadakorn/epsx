@@ -676,7 +676,7 @@ pub async fn developer_overview_handler(
         .unwrap_or(7);
 
     let pool = *state.db_pool;
-    let repo = ApiKeyRepository::new(&pool);
+    let repo = ApiKeyRepository::new(pool);
     let service = UsageService::new_core_only(pool);
     let addr = wallet_address.clone();
 

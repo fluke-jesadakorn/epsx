@@ -59,7 +59,7 @@ export function AuthModal({
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent
-                className="sm:max-w-[420px] p-0 gap-0 overflow-hidden bg-transparent dark:bg-transparent"
+                className="sm:max-w-[420px] p-0 gap-0 overflow-hidden bg-transparent dark:bg-transparent border-0 shadow-none"
                 showClose={false}
             >
                 <div className={`auth-modal-inner ${variant === 'admin' ? 'auth-modal-admin' : ''}`} style={{ isolation: 'isolate' }}>

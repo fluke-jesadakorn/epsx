@@ -22,7 +22,7 @@ export interface AuthStatusProps {
 
 export function AuthStatus({
     variant = 'user',
-    onLogout,
+    onLogout: _onLogout,
     className = '',
 }: AuthStatusProps) {
     const [showModal, setShowModal] = useState(false);

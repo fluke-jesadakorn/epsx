@@ -5,6 +5,7 @@ import '@/lib/polyfills';
 import type { ReactNode } from 'react';
 
 import { AuthLayout } from './auth-layout';
+import type { Notification as ApiNotification } from '@/shared/api/notifications';
 
 interface InitialUser {
   id: string;
@@ -16,11 +17,13 @@ interface InitialUser {
 interface LayoutWrapperProps {
   children: ReactNode;
   initialUser?: InitialUser;
+  initialNotifications?: ApiNotification[];
+  initialUnreadCount?: number;
 }
 
-export function LayoutWrapper({ children, initialUser }: LayoutWrapperProps) {
+export function LayoutWrapper({ children, initialUser, initialNotifications, initialUnreadCount }: LayoutWrapperProps) {
   return (
-    <AuthLayout user={initialUser}>
+    <AuthLayout user={initialUser} initialNotifications={initialNotifications} initialUnreadCount={initialUnreadCount}>
       {children}
     </AuthLayout>
   );

@@ -278,7 +278,7 @@ pub async fn create_payment_link_handler(
 
             // Audit log
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            let entry = AuditEntry::new("payment", "payment_link", "create")
+            let entry = AuditEntry::new("payment_link", "create", "payment")
                 .id(&saved.id.to_string())
                 .meta(serde_json::json!({
                     "name": saved.name,
@@ -484,7 +484,7 @@ pub async fn update_payment_link_handler(
 
             // Audit log
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            let entry = AuditEntry::new("payment", "payment_link", "update")
+            let entry = AuditEntry::new("payment_link", "update", "payment")
                 .id(&updated.id.to_string())
                 .meta(serde_json::json!({
                     "name": updated.name,
@@ -539,7 +539,7 @@ pub async fn delete_payment_link_handler(
 
             // Audit log
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            let entry = AuditEntry::new("payment", "payment_link", "delete")
+            let entry = AuditEntry::new("payment_link", "delete", "payment")
                 .id(&id.to_string());
             app_state.audit.log(ctx, entry);
 
@@ -598,7 +598,7 @@ pub async fn record_payment_usage_handler(
 
             // Audit log
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            let entry = AuditEntry::new("payment", "payment_link", "record_usage")
+            let entry = AuditEntry::new("payment_link", "record_usage", "payment")
                 .id(&updated.id.to_string())
                 .meta(serde_json::json!({
                     "current_uses": updated.current_uses,

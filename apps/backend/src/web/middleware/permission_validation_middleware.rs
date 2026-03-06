@@ -128,78 +128,31 @@ fn check_jwt_permission(user_context: &OpenIDUserContext, required: &str) -> boo
     crate::core::permissions::has_permission(&user_context.permissions, required)
 }
 
-/// Determine required permission for HTTP route and method
+/// Determine required permission for HTTP route and method.
+/// Admin routes under /api/admin/* are now enforced via perm_guard at the sub-router level
+/// (see web/admin/routes.rs). Only routes outside create_admin_routes() are listed here.
 fn get_required_permission(method: &str, path: &str) -> Option<String> {
-    // Route permission mapping (static, fast lookup)
     match (method, path) {
-        // Admin routes - require admin permissions
-        ("GET", p) if p.contains("/admin/wallets") => Some("admin:users:read".to_string()),
-        ("POST", p) if p.contains("/admin/wallets") => Some("admin:users:create".to_string()),
-        ("PUT", p) if p.contains("/admin/wallets") => Some("admin:users:update".to_string()),
-        ("DELETE", p) if p.contains("/admin/wallets") => Some("admin:users:delete".to_string()),
-
-        ("GET", p) if p.contains("/admin/permissions") => Some("admin:permissions:read".to_string()),
-        ("POST", p) if p.contains("/admin/permissions") => Some("admin:permissions:manage".to_string()),
-        ("PUT", p) if p.contains("/admin/permissions") => Some("admin:permissions:manage".to_string()),
-        ("DELETE", p) if p.contains("/admin/permissions") => Some("admin:permissions:manage".to_string()),
-
-        // Payment Admin routes (Phase 1.2)
+        // Payment admin routes (/api/payments/admin/*)
         ("GET", p) if p.contains("/admin/list") => Some("admin:payments:view".to_string()),
         ("GET", p) if p.contains("/admin/subscriptions") => Some("admin:payments:view".to_string()),
         ("PUT", p) if p.contains("/admin/") && p.contains("/status") => Some("admin:payments:manage".to_string()),
         ("POST", p) if p.contains("/admin/") && p.contains("/refund") => Some("admin:payments:manage".to_string()),
 
-        // Security monitoring
-        (_, p) if p.contains("/admin/security") => Some("admin:security:read".to_string()),
+        // Credit admin routes (/api/payments/admin/credits/*)
+        (_, p) if p.contains("/admin/credits") => Some("admin:credits:manage".to_string()),
 
-        // Plan management
-        ("GET", p) if p.contains("/admin/plans") => Some("admin:plans:read".to_string()),
-        ("POST" | "PUT" | "DELETE", p) if p.contains("/admin/plans") => Some("admin:plans:manage".to_string()),
-
-        // Promotions
-        (_, p) if p.contains("/admin/promotions") => Some("admin:promotions:manage".to_string()),
-
-        // Notifications (admin)
-        (_, p) if p.contains("/admin/notifications") => Some("admin:notifications:manage".to_string()),
-
-        // Developer portal (admin)
-        (_, p) if p.contains("/admin/developer-portal") => Some("admin:developer:manage".to_string()),
-
-        // Payment links
-        (_, p) if p.contains("/admin/payment-links") => Some("admin:payments:manage".to_string()),
-
-        // Analytics (admin)
-        ("GET", p) if p.contains("/admin/analytics") => Some("admin:analytics:view".to_string()),
-
-        // Audit logs
-        ("GET", p) if p.contains("/admin/audit") => Some("admin:audit:read".to_string()),
-
-        // Performance
-        ("GET", p) if p.contains("/admin/performance") => Some("admin:performance:view".to_string()),
-
-        // Credits (admin)
-        (_, p) if p.contains("/admin/credits") => Some("admin:payments:manage".to_string()),
-
-        // Settings (admin)
+        // Settings routes (/api/admin/settings — unified_router.rs, not create_admin_routes)
         (_, p) if p.contains("/admin/settings") => Some("admin:settings:manage".to_string()),
 
-        // Bulk/direct permission ops (sensitive)
-        (_, p) if p.contains("/admin/permissions/bulk") || p.contains("/admin/permissions/direct") => Some("admin:permissions:manage".to_string()),
-
-        // Admin chat management
-        (_, p) if p.contains("/admin/chat") => Some("admin:chat:manage".to_string()),
-
-        // CATCH-ALL: Any unmatched admin route requires base admin permission
-        (_, p) if p.contains("/admin/") => Some("admin:dashboard:view".to_string()),
-
-        // Analytics routes (user-facing)
+        // Analytics routes (user-facing, no permission required)
         ("GET", p) if p.starts_with("/api/auth/analytics") => None,
         ("GET", p) if p.starts_with("/api/analytics") => None,
 
         // Export routes
         ("POST", p) if p.contains("/export") => Some("epsx:export:csv".to_string()),
 
-        // No specific permission required (public after authentication)
+        // No specific permission required
         _ => None,
     }
 }
@@ -346,77 +299,39 @@ mod tests {
 
     #[test]
     fn test_get_required_permission() {
-        // Wallet admin routes
-        assert_eq!(
-            get_required_permission("GET", "/admin/wallets"),
-            Some("admin:users:read".to_string())
-        );
-        assert_eq!(
-            get_required_permission("POST", "/admin/wallets"),
-            Some("admin:users:create".to_string())
-        );
+        // Admin routes handled by perm_guard in create_admin_routes() → middleware returns None
+        assert_eq!(get_required_permission("GET", "/api/admin/wallets"), None);
+        assert_eq!(get_required_permission("GET", "/api/admin/plans"), None);
+        assert_eq!(get_required_permission("GET", "/api/admin/analytics/overview"), None);
+        assert_eq!(get_required_permission("GET", "/api/admin/chat/conversations"), None);
 
         // Analytics (user-facing)
-        assert_eq!(
-            get_required_permission("GET", "/api/auth/analytics"),
-            None
-        );
+        assert_eq!(get_required_permission("GET", "/api/auth/analytics"), None);
 
-        // Payment admin routes
+        // Payment admin routes (still in middleware — not in create_admin_routes)
         assert_eq!(
-            get_required_permission("GET", "/admin/list"),
+            get_required_permission("GET", "/api/payments/admin/list"),
             Some("admin:payments:view".to_string())
         );
         assert_eq!(
-            get_required_permission("PUT", "/admin/abc/status"),
+            get_required_permission("PUT", "/api/payments/admin/abc/status"),
             Some("admin:payments:manage".to_string())
         );
 
-        // New admin route mappings
+        // Credit admin routes (still in middleware)
         assert_eq!(
-            get_required_permission("GET", "/admin/plans"),
-            Some("admin:plans:read".to_string())
+            get_required_permission("GET", "/api/payments/admin/credits/stats"),
+            Some("admin:credits:manage".to_string())
         );
+
+        // Settings routes (unified_router.rs, not create_admin_routes)
         assert_eq!(
-            get_required_permission("POST", "/admin/plans"),
-            Some("admin:plans:manage".to_string())
-        );
-        assert_eq!(
-            get_required_permission("GET", "/admin/audit/logs"),
-            Some("admin:audit:read".to_string())
-        );
-        assert_eq!(
-            get_required_permission("GET", "/admin/performance/metrics"),
-            Some("admin:performance:view".to_string())
-        );
-        assert_eq!(
-            get_required_permission("GET", "/admin/settings"),
+            get_required_permission("GET", "/api/admin/settings"),
             Some("admin:settings:manage".to_string())
         );
 
-        // Catch-all: any unknown admin route requires dashboard:view
-        assert_eq!(
-            get_required_permission("GET", "/admin/some-unknown-route/"),
-            Some("admin:dashboard:view".to_string())
-        );
-
         // Non-admin routes
-        assert_eq!(
-            get_required_permission("GET", "/some/random/path"),
-            None
-        );
-    }
-
-    #[test]
-    fn test_admin_chat_permission_mapping() {
-        assert_eq!(
-            get_required_permission("GET", "/admin/chat/conversations"),
-            Some("admin:chat:manage".to_string())
-        );
-        assert_eq!(
-            get_required_permission("POST", "/admin/chat/conversations/123/messages"),
-            Some("admin:chat:manage".to_string())
-        );
+        assert_eq!(get_required_permission("GET", "/some/random/path"), None);
     }
 
     #[tokio::test]

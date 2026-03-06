@@ -263,7 +263,7 @@ pub async fn create_promotion_handler(
 
             // Audit log
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            let entry = AuditEntry::new("system", "promotion", "create")
+            let entry = AuditEntry::new("promotion", "create", "system")
                 .id(&row.id.to_string())
                 .meta(serde_json::json!({
                     "name": request.name,
@@ -469,7 +469,7 @@ pub async fn update_promotion_handler(
 
             // Audit log
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            let entry = AuditEntry::new("system", "promotion", "update")
+            let entry = AuditEntry::new("promotion", "update", "system")
                 .id(&row.id.to_string())
                 .meta(serde_json::json!({
                     "name": row.name,
@@ -531,7 +531,7 @@ pub async fn delete_promotion_handler(
         Ok(Some(_)) => {
             // Audit log
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            let entry = AuditEntry::new("system", "promotion", "delete")
+            let entry = AuditEntry::new("promotion", "delete", "system")
                 .id(&id.to_string());
             app_state.audit.log(ctx, entry);
 

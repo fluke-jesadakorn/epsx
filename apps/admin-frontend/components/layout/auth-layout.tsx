@@ -7,6 +7,7 @@ import { AdminAuthGate } from '@/components/auth/admin-auth-gate'
 import { MainLayout } from './main-layout'
 
 import { useSharedAuth } from '@/shared/components/auth'
+import type { Notification as ApiNotification } from '@/shared/api/notifications'
 
 interface AuthLayoutProps {
   children: ReactNode
@@ -16,6 +17,8 @@ interface AuthLayoutProps {
     name?: string
     role: string
   } | null
+  initialNotifications?: ApiNotification[]
+  initialUnreadCount?: number
 }
 
 // Pages that should NEVER have the admin layout
@@ -26,7 +29,7 @@ const NO_LAYOUT_PATHS = [
   '/permissions/policies',
 ]
 
-export function AuthLayout({ children, user: serverUser }: AuthLayoutProps) {
+export function AuthLayout({ children, user: serverUser, initialNotifications, initialUnreadCount }: AuthLayoutProps) {
   const pathname = usePathname()
   const { user: authUser, isAuthenticated } = useSharedAuth()
 
@@ -51,7 +54,7 @@ export function AuthLayout({ children, user: serverUser }: AuthLayoutProps) {
 
   return (
     <>
-      <MainLayout user={layoutUser ?? undefined}>
+      <MainLayout user={layoutUser ?? undefined} initialNotifications={initialNotifications} initialUnreadCount={initialUnreadCount}>
         {children}
       </MainLayout>
       {isGated && <AdminAuthGate />}
