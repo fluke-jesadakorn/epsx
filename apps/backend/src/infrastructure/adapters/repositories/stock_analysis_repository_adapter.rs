@@ -7,6 +7,8 @@ use crate::domain::market_analytics::value_objects::*;
 use crate::domain::shared_kernel::entities::eps_growth::EPSRanking as LegacyEPSRanking;
 use crate::domain::shared_kernel::services::eps_ranking_service::{EPSRankingService, EPSRankingParams};
 
+#[cfg(test)]
+use crate::domain::shared_kernel::{EPSRepository, EPSGrowthData};
 
 // Mock implementation of EPSRepository for testing
 #[cfg(test)]

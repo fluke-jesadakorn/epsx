@@ -370,9 +370,6 @@ impl BlockchainMonitor {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use diesel_async::pooled_connection::AsyncDieselConnectionManager;
-
     #[tokio::test]
     #[ignore] // Requires database connection
     async fn test_blockchain_monitor_creation() {

@@ -8,8 +8,6 @@ use anyhow::Result;
 use tracing::info;
 
 use crate::infrastructure::database::get_diesel_pool;
-use crate::infrastructure::database::diesel_connection_manager::TlsConnectionManager;
-use diesel_async::pooled_connection::deadpool::Object;
 
 /// Test database setup guard
 /// Ensures test database is properly configured and cleaned up

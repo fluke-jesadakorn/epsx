@@ -356,7 +356,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_perm_guard_wrong_permission_returns_403() {
-        use axum::{body::Body, routing::get, Router, Extension, middleware::from_fn_with_state};
+        use axum::{body::Body, routing::get, Router, middleware::from_fn_with_state};
         use tower::ServiceExt;
 
         async fn ok_handler() -> &'static str { "ok" }

@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use diesel_async::RunQueryDsl;
 use diesel::prelude::*;
 use std::sync::Arc;
-use tracing::{error, info};
+use tracing::info;
 use uuid::Uuid;
 use utoipa::ToSchema;
 

@@ -365,8 +365,6 @@ impl CreditRepositoryAdapter {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     // Note: These are placeholder tests
     // In a real implementation, you would use a test database
 

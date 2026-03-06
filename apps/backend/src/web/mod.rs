@@ -23,7 +23,6 @@ pub mod docs;
 pub mod pagination;
 
 use axum::{ routing::get, Router };
-use serde_json::json;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 
