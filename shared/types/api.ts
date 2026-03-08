@@ -636,14 +636,6 @@ export interface UpdateSystemConfigRequest {
   features?: Record<string, boolean>;
 }
 
-export interface FeatureFlagsResponse {
-  [key: string]: boolean;
-}
-
-export interface UpdateFeatureFlagsRequest {
-  flags: Record<string, boolean>;
-}
-
 // ============================================================================
 // HEALTH CHECK TYPES
 // ============================================================================
