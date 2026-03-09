@@ -63,12 +63,6 @@ check_required backend $REQUIRED_BACKEND
 echo "[frontend]"
 check_required frontend $REQUIRED_FRONTEND
 
-# Cloudflared only required for prod
-if [[ "$TARGET_ENV" == "prod" ]]; then
-  echo "[cloudflared]"
-  check_required cloudflared $REQUIRED_CLOUDFLARED
-fi
-
 echo ""
 echo "[format checks]"
 check_format

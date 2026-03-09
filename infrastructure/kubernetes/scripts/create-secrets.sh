@@ -147,19 +147,5 @@ apply_secret epsx-admin \
   --from-literal=NEXT_PUBLIC_OAUTH_CLIENT_ID="epsx-admin" \
   --from-literal=NEXT_PUBLIC_CDN_URL="${MINIO_PUBLIC_URL}"
 
-# ── epsx-cloudflared (prod only) ──────────────────────────────────────────────
-if [[ "$TARGET_ENV" == "prod" ]]; then
-  CREDS_FILE="${HOME}/.cloudflared/6bee9b58-eede-4b4c-815c-94c0ee38fe58.json"
-  if [[ ! -f "$CREDS_FILE" ]]; then
-    echo "Warning: cloudflared credentials not found at $CREDS_FILE" >&2
-  else
-    kubectl create secret generic epsx-cloudflared \
-      -n "$NAMESPACE" \
-      --from-literal=TUNNEL_TOKEN="${CLOUDFLARE_TUNNEL_TOKEN}" \
-      --from-file=credentials.json="$CREDS_FILE" \
-      --dry-run=client -o yaml | kubectl apply -f -
-  fi
-fi
-
 echo "Done. Secrets created in $NAMESPACE:"
 kubectl get secrets -n "$NAMESPACE" --no-headers | awk '{print "  " $1}'
