@@ -11,7 +11,7 @@ pub fn has_permission(user_permissions: &[String], required: &str) -> bool {
         }
 
         // super-admin wildcard
-        if p == "*:*" {
+        if p == "*:*" || p == "*:*:*" {
             return true;
         }
 
@@ -35,10 +35,10 @@ pub fn has_permission(user_permissions: &[String], required: &str) -> bool {
 }
 
 /// Check if permission set contains admin privileges.
-/// True for: `admin:*:*`, `admin:dashboard:view`, `*:*`
+/// True for: `admin:*:*`, `admin:dashboard:view`, `*:*`, `*:*:*`
 pub fn is_admin(user_permissions: &[String]) -> bool {
     user_permissions.iter().any(|p| {
-        p == "admin:*:*" || p == "admin:dashboard:view" || p == "*:*"
+        p == "admin:*:*" || p == "admin:dashboard:view" || p == "*:*" || p == "*:*:*"
     })
 }
 

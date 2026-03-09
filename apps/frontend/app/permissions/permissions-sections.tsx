@@ -71,14 +71,10 @@ function getPermissionIcon(permission: string) {
   return PERMISSION_ICONS.default;
 }
 
-function getPlatformFromPermission(permission: string): string {
-  const parts = permission.split(':');
-  return parts[0] || 'default';
-}
-
 export interface TimestampedPermission {
   permission: string;
   basePermission: string;
+  platform: string;
   expiresAt?: number;
   isExpired: boolean;
   timeRemaining?: number;
@@ -107,7 +103,7 @@ export function PermissionCard({
   permission: TimestampedPermission;
   definitions: Map<string, PermissionDefinition>;
 }) {
-  const platform = getPlatformFromPermission(permission.basePermission);
+  const platform = permission.platform;
   const Icon = getPermissionIcon(permission.basePermission);
   const title = getPermissionTitle(permission.basePermission, definitions);
   const note = getPermissionNote(permission.basePermission, definitions);

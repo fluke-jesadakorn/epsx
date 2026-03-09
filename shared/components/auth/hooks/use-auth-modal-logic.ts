@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAccount, useConfig, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
 import { useSharedAuth } from '../provider';
 import type { AuthResult, AuthStep } from '../types';
@@ -9,35 +9,6 @@ export type { AuthResult, AuthStep } from '../types';
 const BSC_MAINNET = 56;
 const BSC_TESTNET = 97;
 const SUPPORTED_CHAINS = [BSC_MAINNET, BSC_TESTNET];
-
-interface AutoSignContext {
-    isOpen: boolean;
-    step: AuthStep;
-    turnstileToken: string | null;
-    isSigning: boolean;
-    address: string | undefined;
-    handleSign: () => Promise<void>;
-    fallbackFiredRef: React.MutableRefObject<boolean>;
-}
-
-/** Auto-sign when Turnstile completes, or after 8s fallback if it stalls */
-function useAutoSign(ctx: AutoSignContext): void {
-    const { isOpen, step, turnstileToken, isSigning, address, handleSign, fallbackFiredRef } = ctx;
-    // Auto-sign when Turnstile completes (fast path)
-    useEffect(() => {
-        if (!isOpen || step !== 'sign' || turnstileToken === null || isSigning || address === undefined) { return; }
-        void handleSign();
-    }, [isOpen, step, turnstileToken, isSigning, address, handleSign]);
-
-    // Fallback: if Turnstile stalls/fails, auto-sign once after 8s
-    useEffect(() => {
-        if (!isOpen || step !== 'sign' || isSigning || address === undefined || turnstileToken !== null) { return; }
-        if (fallbackFiredRef.current) { return; }
-        fallbackFiredRef.current = true;
-        const timer = setTimeout(() => { void handleSign(); }, 8000);
-        return () => clearTimeout(timer);
-    }, [isOpen, step, isSigning, address, turnstileToken, handleSign, fallbackFiredRef]);
-}
 
 /** Parse viem/wagmi errors into user-friendly messages */
 function parseWalletError(err: unknown): string {
@@ -119,8 +90,6 @@ export function useAuthModalLogic({
     onClose,
 }: UseAuthModalLogicProps) {
     const [error, setError] = useState<string | null>(null);
-    const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-    const fallbackFiredRef = useRef(false);
 
     const { address, isConnected, chain } = useAccount();
     const { connect, connectors, error: connectError, isPending: isConnecting } = useConnect();
@@ -136,7 +105,6 @@ export function useAuthModalLogic({
         address,
         config,
         variant,
-        turnstileToken,
         authenticateWithDirectApi,
         onSuccess,
         onError,
@@ -154,10 +122,8 @@ export function useAuthModalLogic({
     // Reset state when modal closes or connection changes
     useEffect(() => {
         if (!isOpen) {
-            setTurnstileToken(null);
             setStep('connect');
             setError(null);
-            fallbackFiredRef.current = false;
             return;
         }
 
@@ -177,8 +143,11 @@ export function useAuthModalLogic({
         }
     }, [isOpen, isConnected, address, isCorrectChain, step]);
 
-    // Auto-sign logic when Turnstile completes or stalls
-    useAutoSign({ isOpen, step, turnstileToken, isSigning, address, handleSign, fallbackFiredRef });
+    // Auto-sign when step becomes 'sign'
+    useEffect(() => {
+        if (!isOpen || step !== 'sign' || isSigning || address === undefined) { return; }
+        void handleSign();
+    }, [isOpen, step, isSigning, address, handleSign]);
 
     const handleSwitchChain = useCallback(async () => {
         try {
@@ -195,7 +164,6 @@ export function useAuthModalLogic({
 
     const handleRetry = useCallback(() => {
         setError(null);
-        setTurnstileToken(null);
         if (isConnected && address !== undefined) {
             setStep(isCorrectChain ? 'sign' : 'switch-chain');
         } else {
@@ -207,13 +175,7 @@ export function useAuthModalLogic({
         disconnect();
         setStep('connect');
         setError(null);
-        setTurnstileToken(null);
     }, [disconnect]);
-
-    const handleTurnstileSuccess = useCallback((token: string) => { setTurnstileToken(token); }, []);
-    const resetTurnstile = useCallback(() => { setTurnstileToken(null); }, []);
-    const handleTurnstileError = resetTurnstile;
-    const handleTurnstileExpire = resetTurnstile;
 
     return {
         step,
@@ -228,9 +190,5 @@ export function useAuthModalLogic({
         handleSign,
         handleRetry,
         handleDisconnect,
-        turnstileToken,
-        handleTurnstileSuccess,
-        handleTurnstileError,
-        handleTurnstileExpire,
     };
 }

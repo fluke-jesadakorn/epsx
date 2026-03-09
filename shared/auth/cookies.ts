@@ -36,6 +36,9 @@ export const COOKIES = {
   expires_at: `${prefix}epsx.expires_at`,
   auth_time: `${prefix}epsx.auth_time`,
 
+  // Turnstile gate (httpOnly, 24h)
+  turnstile: 'epsx.turnstile',
+
   // UX/State
   theme: `${prefix}epsx.theme`,
   browser_notifications: `${prefix}epsx.browser_notifications`,

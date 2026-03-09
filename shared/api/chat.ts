@@ -67,7 +67,6 @@ export interface CreateConversationReq {
   topic_id: string;
   subject: string;
   message: string;
-  turnstile_token?: string;
 }
 
 export interface SendMessageReq {
@@ -131,8 +130,8 @@ export class SupportChatApi {
     return this.client.get(`/api/chat/conversations/${id}/messages`);
   }
 
-  async sendMessage(id: string, content: string, turnstileToken?: string): Promise<ApiResponse<ChatMessage>> {
-    return this.client.post(`/api/chat/conversations/${id}/messages`, { content, turnstile_token: turnstileToken });
+  async sendMessage(id: string, content: string): Promise<ApiResponse<ChatMessage>> {
+    return this.client.post(`/api/chat/conversations/${id}/messages`, { content });
   }
 
   async updateStatus(id: string, status: string): Promise<ApiResponse<ChatConversation>> {
@@ -177,8 +176,8 @@ export class SupportChatApi {
     return this.client.get(`/api/admin/chat/conversations/${id}/messages`);
   }
 
-  async adminSendReply(id: string, content: string, turnstileToken?: string): Promise<ApiResponse<ChatMessage>> {
-    return this.client.post(`/api/admin/chat/conversations/${id}/messages`, { content, turnstile_token: turnstileToken });
+  async adminSendReply(id: string, content: string): Promise<ApiResponse<ChatMessage>> {
+    return this.client.post(`/api/admin/chat/conversations/${id}/messages`, { content });
   }
 
   async adminAssignAgent(id: string, agentAddress?: string): Promise<ApiResponse<ChatConversation>> {

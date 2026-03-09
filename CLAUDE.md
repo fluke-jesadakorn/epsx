@@ -99,7 +99,7 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --force-rec
 | Frontend | epsx-prod-frontend | 4700 |
 | Admin | epsx-prod-admin | 4701 |
 | Backend | epsx-prod-backend | 9180 |
-| PostgreSQL | epsx-prod-postgres | 5491 |
+| PostgreSQL | bare metal (brew) | 5432 |
 | Redis | epsx-prod-redis | 6342 |
 | Cloudflared | epsx-prod-cloudflared | - |
 
@@ -278,7 +278,7 @@ If a migration fails and plans are missing, run this SQL against the `epsx_prod`
 ```sql
 -- ============================================================
 -- EPSX SUBSCRIPTION PLAN SEED (manual fallback)
--- Run: psql -h localhost -p 5491 -U <user> -d epsx_prod -f seed.sql
+-- Run: psql -h localhost -p 5432 -U <user> -d epsx_prod -f seed.sql
 -- Update promotion end_date values before running.
 -- ============================================================
 

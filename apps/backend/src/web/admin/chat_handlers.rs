@@ -1,6 +1,5 @@
 use axum::{
     extract::{Path, Query, State},
-    http::HeaderMap,
     response::sse::{Event, KeepAlive, Sse},
     response::IntoResponse,
     Extension, Json,
@@ -8,7 +7,7 @@ use axum::{
 use futures::StreamExt;
 use serde::Deserialize;
 use std::time::Duration;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::infrastructure::models::chat::*;
@@ -91,37 +90,11 @@ pub async fn admin_list_messages(
 pub async fn admin_send_reply(
     State(app_state): State<AppState>,
     Extension(ctx): Extension<OpenIDUserContext>,
-    headers: HeaderMap,
     Path(id): Path<Uuid>,
     Json(body): Json<SendMessageRequest>,
 ) -> Result<Json<UnifiedApiResponse<ChatMessageDb>>, Json<UnifiedApiResponse<()>>> {
     if body.content.trim().is_empty() {
         return Err(Json(UnifiedApiResponse::error(400, "Invalid request", "Message content required")));
-    }
-
-    if let Some(token) = &body.turnstile_token {
-        let remote_ip = headers
-            .get("cf-connecting-ip")
-            .or_else(|| headers.get("x-forwarded-for"))
-            .and_then(|h| h.to_str().ok())
-            .map(|s| s.split(',').next().unwrap_or(s).trim());
-
-        match crate::infrastructure::security::verify_turnstile_token(token, remote_ip).await {
-            Ok(result) if result.success => {
-                info!("Turnstile verification passed for admin chat reply");
-            }
-            Ok(result) => {
-                warn!(error_codes = ?result.error_codes, "Chat Turnstile verification failed");
-                return Err(Json(UnifiedApiResponse::error(400, "Captcha failed", "Human verification failed")));
-            }
-            Err(e) => {
-                error!("Turnstile verification error: {}", e);
-                if crate::config::env::is_production() {
-                    return Err(Json(UnifiedApiResponse::error(503, "Verification unavailable", "Try again later")));
-                }
-                warn!("Turnstile verification error in dev mode – allowing request");
-            }
-        }
     }
 
     let conv = match ChatRepository::get_conversation(&app_state.db_pool, id).await {

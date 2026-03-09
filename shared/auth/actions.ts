@@ -289,13 +289,10 @@ async function fetchWithRetry(url: string, init: RequestInit, retries = 2): Prom
  * Server Action: Request SIWE challenge via server-to-server call.
  * Proxies through Next.js server so browser doesn't need direct backend access.
  */
-export async function challengeAction(walletAddress: string, turnstileToken?: string): Promise<ChallengeResponse> {
+export async function challengeAction(walletAddress: string): Promise<ChallengeResponse> {
     const url = `${getBackendUrl('server')}/api/auth/web3/challenge`;
 
     const body: Record<string, string> = { wallet_address: walletAddress };
-    if (turnstileToken !== undefined && turnstileToken !== '') {
-        body.turnstile_token = turnstileToken;
-    }
 
     const res = await fetchWithRetry(url, {
         method: 'POST',

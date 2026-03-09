@@ -2,8 +2,9 @@
 
 import type { PermissionDefinition } from '@/shared/api/permission-definitions';
 import { loadPermissionDefinitions } from '@/shared/api/permission-definitions';
+import type { UserPermissionInfo, UserPermissionStatus } from '@/shared/api/permissions';
 import type { UnifiedApiClient as ApiClient } from '@/shared/utils/api-client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type {
   AnalyticsData,
   PermissionHistoryItem,
@@ -19,24 +20,25 @@ const exportPermissionsData = async (format: string) => ({
   filename: `permissions.${format}`,
 });
 
-function parsePermissionWithTimestamp(permission: string): {
-  basePermission: string;
-  timestamp?: number;
-} {
-  const parts = permission.split(':');
-  if (parts.length >= 4) {
-    const lastPart = parts[parts.length - 1];
-    const timestamp = parseInt(lastPart, 10);
-    if (!isNaN(timestamp)) {
-      const basePermission = parts.slice(0, -1).join(':');
-      return { basePermission, timestamp };
-    }
-  }
-  return { basePermission: permission };
+function toTimestampedPermission(info: UserPermissionInfo): TimestampedPermission {
+  const expiresAtUnix = info.expires_at
+    ? Math.floor(new Date(info.expires_at).getTime() / 1000)
+    : undefined;
+  const timeRemaining = info.time_until_expiry !== null
+    ? info.time_until_expiry * 1000
+    : undefined;
+
+  return {
+    permission: info.permission,
+    basePermission: info.permission,
+    platform: info.permission.split(':')[0] ?? 'unknown',
+    expiresAt: expiresAtUnix,
+    isExpired: !info.is_active,
+    timeRemaining,
+  };
 }
 
 interface UsePermissionsPageContext {
-  userPermissions?: string[] | Record<string, unknown> | null;
   base: ApiClient;
 }
 
@@ -47,6 +49,7 @@ export function usePermissionsPage(ctx: UsePermissionsPageContext) {
   const [timestampedPermissions, setTimestampedPermissions] = useState<
     TimestampedPermission[]
   >([]);
+  const [permissionStatus, setPermissionStatus] = useState<UserPermissionStatus | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [history, setHistory] = useState<PermissionHistoryItem[]>([]);
   const [isExporting, setIsExporting] = useState(false);
@@ -58,39 +61,24 @@ export function usePermissionsPage(ctx: UsePermissionsPageContext) {
     loadPermissionDefinitions(ctx.base).then(setPermissionDefinitions);
   }, [ctx.base]);
 
-  useEffect(() => {
-    if (!ctx.userPermissions) {
-      setTimestampedPermissions([]);
-      return;
+  const fetchPermissions = useCallback(async () => {
+    try {
+      const res = await ctx.base.get<UserPermissionStatus>(
+        '/api/users/permissions/status',
+        { include_expired: true }
+      );
+      if (res.success && res.data !== null) {
+        setPermissionStatus(res.data);
+        setTimestampedPermissions(res.data.permissions.map(toTimestampedPermission));
+      }
+    } catch {
+      // fallback: keep empty
     }
+  }, [ctx.base]);
 
-    const permissionStrings =
-      typeof ctx.userPermissions === 'object' &&
-      ctx.userPermissions !== null &&
-      !Array.isArray(ctx.userPermissions)
-        ? Object.keys(ctx.userPermissions)
-        : Array.isArray(ctx.userPermissions)
-          ? ctx.userPermissions
-          : [];
-
-    const parsed = permissionStrings.map((perm) => {
-      const { basePermission, timestamp } =
-        parsePermissionWithTimestamp(perm);
-      const expiresAt = timestamp;
-      const isExpired = expiresAt ? Date.now() / 1000 > expiresAt : false;
-      const timeRemaining = expiresAt ? expiresAt * 1000 - Date.now() : undefined;
-
-      return {
-        permission: perm,
-        basePermission,
-        expiresAt,
-        isExpired,
-        timeRemaining,
-      };
-    });
-
-    setTimestampedPermissions(parsed);
-  }, [ctx.userPermissions]);
+  useEffect(() => {
+    void fetchPermissions();
+  }, [fetchPermissions]);
 
   useEffect(() => {
     if (activeTab === 'analytics') {
@@ -156,6 +144,7 @@ export function usePermissionsPage(ctx: UsePermissionsPageContext) {
     history,
     isExporting,
     permissionDefinitions,
+    permissionStatus,
     handleExport,
   };
 }

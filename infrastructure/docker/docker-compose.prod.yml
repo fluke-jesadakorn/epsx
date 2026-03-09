@@ -2,8 +2,11 @@
 # Server: Mac Mini (arm64, 48GB RAM, 16 cores) with Cloudflare Tunnel
 # Usage: docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
 #
-# NOTE: Uses pre-built images (no build context on server).
-# Images are built on local Mac and transferred via docker save/load.
+# Bare metal services (not in this compose):
+#   PostgreSQL 17 — brew services start postgresql@17 (port 5432)
+#   Redis 8       — brew services start redis (port 6379)
+#   MinIO         — launchctl load ~/Library/LaunchAgents/com.epsx.minio.plist (ports 9100/9101)
+#   Cloudflared   — launchctl load ~/Library/LaunchAgents/com.epsx.cloudflared.plist
 
 x-logging: &default-logging
   driver: json-file
@@ -12,76 +15,10 @@ x-logging: &default-logging
     max-file: "3"
 
 services:
-  postgres:
-    image: postgres:17-alpine
-    container_name: epsx-prod-postgres
-    restart: unless-stopped
-    command: postgres -c config_file=/etc/postgresql/postgresql.conf
-    environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_INITDB_ARGS: "-E UTF8"
-      PGDATA: /var/lib/postgresql/data/pgdata
-    volumes:
-      - prod_postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-databases-prod.sh:/docker-entrypoint-initdb.d/init-databases.sh:ro
-      - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
-    networks:
-      - epsx_prod
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          memory: 6G
-          cpus: "4"
-        reservations:
-          memory: 2G
-          cpus: "1"
-    logging: *default-logging
-
-  redis:
-    image: redis:7-alpine
-    container_name: epsx-prod-redis
-    restart: unless-stopped
-    command: redis-server /etc/redis/redis.conf --requirepass ${REDIS_PASSWORD}
-    volumes:
-      - prod_redis_data:/data
-      - ./config/redis.conf:/etc/redis/redis.conf:ro
-    networks:
-      - epsx_prod
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "--raw", "incr", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
-      start_period: 5s
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: "2"
-        reservations:
-          memory: 256M
-          cpus: "0.5"
-    logging: *default-logging
-
   backend:
     image: epsx-backend:prod
     container_name: epsx-prod-backend
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
     environment:
       ENV: ${ENV}
       NODE_ENV: ${NODE_ENV}
@@ -91,15 +28,15 @@ services:
       BACKEND_URL: ${BACKEND_URL}
       FRONTEND_URL: ${FRONTEND_URL}
       ADMIN_FRONTEND_URL: ${ADMIN_FRONTEND_URL}
-      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?sslmode=disable
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/${DB_NAME}?sslmode=disable
       DATABASE_MAX_CONNECTIONS: ${DATABASE_MAX_CONNECTIONS}
       DATABASE_MIN_CONNECTIONS: ${DATABASE_MIN_CONNECTIONS}
       DATABASE_ACQUIRE_TIMEOUT: ${DATABASE_ACQUIRE_TIMEOUT}
       DATABASE_IDLE_TIMEOUT: ${DATABASE_IDLE_TIMEOUT}
-      ANALYTICS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/epsx_analytics_prod?sslmode=disable
-      NOTIFICATIONS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/epsx_notifications_prod?sslmode=disable
-      PAYMENTS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/epsx_payments_prod?sslmode=disable
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      ANALYTICS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_analytics?sslmode=disable
+      NOTIFICATIONS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_notifications?sslmode=disable
+      PAYMENTS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_payments?sslmode=disable
+      REDIS_URL: redis://:${REDIS_PASSWORD}@host.docker.internal:6379
       WEB3_APP_SECRET: ${WEB3_APP_SECRET}
       WALLET_SIGNATURE_SECRET: ${WALLET_SIGNATURE_SECRET}
       WEB3_SESSION_SECRET: ${WEB3_SESSION_SECRET}
@@ -120,7 +57,7 @@ services:
       BSC_TESTNET_REQUIRED_CONFIRMATIONS: ${BSC_TESTNET_REQUIRED_CONFIRMATIONS}
       MAX_PAYMENT_AGE_MINUTES: ${MAX_PAYMENT_AGE_MINUTES}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY}
-      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ENDPOINT: http://host.docker.internal:9100
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL}
@@ -262,89 +199,7 @@ services:
           cpus: "0.5"
     logging: *default-logging
 
-  minio:
-    image: minio/minio:latest
-    container_name: epsx-prod-minio
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    volumes:
-      - prod_minio_data:/data
-    ports:
-      - "9100:9000"
-      - "9101:9001"
-    networks:
-      epsx_prod:
-        aliases:
-          - epsx-minio.epsx-prod.svc.cluster.local
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: "2"
-        reservations:
-          memory: 256M
-          cpus: "0.5"
-    logging: *default-logging
-
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: epsx-prod-cloudflared
-    restart: unless-stopped
-    command: tunnel --config /etc/cloudflared/config.yml run
-    volumes:
-      - /Users/fluke/Desktop/Work/epsx/infrastructure/cloudflare/cloudflared-config.prod.yml:/etc/cloudflared/config.yml:ro
-      - /Users/fluke/.cloudflared/6bee9b58-eede-4b4c-815c-94c0ee38fe58.json:/etc/cloudflared/6bee9b58-eede-4b4c-815c-94c0ee38fe58.json:ro
-    networks:
-      - epsx_prod
-      - epsx_gitlab
-      - epsx_review
-      - epsx_dev
-      - epsx_staging
-    security_opt:
-      - no-new-privileges:true
-    read_only: true
-    tmpfs:
-      - /tmp:size=50M
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: "1"
-        reservations:
-          memory: 64M
-          cpus: "0.25"
-    logging: *default-logging
-
 networks:
   epsx_prod:
     driver: bridge
     name: epsx_prod_network
-  epsx_gitlab:
-    external: true
-    name: epsx_gitlab_network
-  epsx_review:
-    external: true
-    name: epsx_review_network
-  epsx_dev:
-    external: true
-    name: epsx_dev_network
-  epsx_staging:
-    external: true
-    name: epsx_staging_network
-
-volumes:
-  prod_postgres_data:
-    name: epsx_prod_postgres_data
-  prod_redis_data:
-    name: epsx_prod_redis_data
-  prod_minio_data:
-    name: epsx_prod_minio_data

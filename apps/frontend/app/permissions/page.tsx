@@ -29,18 +29,9 @@ export default function PermissionsPage() {
     history,
     isExporting,
     permissionDefinitions,
+    permissionStatus,
     handleExport,
-  } = usePermissionsPage({
-    userPermissions: user?.permissions,
-    base,
-  });
-
-  const permissionsCount =
-    typeof user?.permissions === 'object' && user?.permissions !== null
-      ? Object.keys(user.permissions).length
-      : Array.isArray(user?.permissions)
-        ? (user.permissions as string[]).length
-        : 0;
+  } = usePermissionsPage({ base });
 
   return (
     <div className="container mx-auto p-6">
@@ -56,7 +47,7 @@ export default function PermissionsPage() {
 
           <UserInfoCard
             walletAddress={user?.wallet_address}
-            permissionsCount={permissionsCount}
+            permissionsCount={permissionStatus?.total_permissions ?? 0}
           />
 
           <Card>

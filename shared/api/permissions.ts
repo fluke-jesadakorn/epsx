@@ -105,6 +105,35 @@ export interface UserPermissionsResponse {
 }
 
 // ============================================================================
+// STRUCTURED PERMISSION STATUS (from /api/users/permissions/status)
+// ============================================================================
+
+export interface UserPermissionInfo {
+  permission: string;
+  expires_at: string | null;
+  source: string;
+  granted_by: string | null;
+  granted_at: string;
+  is_active: boolean;
+  expires_soon: boolean | null;
+  time_until_expiry: number | null; // seconds
+  metadata: Record<string, string> | null;
+}
+
+export interface UserPermissionStatus {
+  wallet_address: string;
+  permissions: UserPermissionInfo[];
+  permission_version: number;
+  last_updated: string;
+  total_permissions: number;
+  active_permissions: number;
+  expired_permissions: number;
+  expiring_soon: number;
+  has_admin_access: boolean;
+  platform_permissions: Record<string, string[]>;
+}
+
+// ============================================================================
 // PERMISSIONS API CLASS
 // ============================================================================
 
@@ -125,6 +154,16 @@ export class PermissionsApi {
    */
   async getCurrentUserPermissions(): Promise<ApiResponse<UserPermissionsResponse>> {
     return this.client.get<UserPermissionsResponse>('/api/auth/web3/permissions');
+  }
+
+  /**
+   * Get structured permission status with expiry info
+   * GET /api/users/permissions/status
+   */
+  async getPermissionStatus(includeExpired = false): Promise<ApiResponse<UserPermissionStatus>> {
+    return this.client.get<UserPermissionStatus>('/api/users/permissions/status', {
+      include_expired: includeExpired,
+    });
   }
 
   /**

@@ -8,8 +8,8 @@
 import { authLogger, safeError } from '@/lib/utils/logging';
 
 export {
-  decodeJWT, getJWTPermissions, getJWTTimeToExpiry, hasJWTPermission,
-  isJWTAdmin, isJWTExpired, type CreateJWTClaimsOptions,
+  decodeJWT, getJWTPermissions, getJWTTimeToExpiry,
+  isJWTExpired, type CreateJWTClaimsOptions,
   type EPSXJWTPayload, type JWTUser
 } from '@/shared/auth/jwt';
 

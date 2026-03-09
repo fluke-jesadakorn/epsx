@@ -124,18 +124,6 @@
    FEATURE FLAGS
    ============================================================================ */
 
-/*
- * This section includes feature-flagged styles that can be toggled
- * for A/B testing or gradual rollouts.
- */
-
-/* Performance optimized - all animations removed */
-body[data-performance-mode="high"] .card-insight {
-  backdrop-filter: none;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-
 /* ============================================================================
    VERSION METADATA
    ============================================================================ */

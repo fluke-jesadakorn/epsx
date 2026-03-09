@@ -1,16 +1,7 @@
 import type { PermissionDefinition } from '@/lib/api/permissions-client';
 
 /**
- * Extract platform prefix from permission string
- * e.g. "admin:users:manage" -> "admin"
- */
-export function getPlatformFromPermission(permission: string): string {
-    const parts = permission.split(':');
-    return parts[0] ?? 'other';
-}
-
-/**
- * Group permissions by platform prefix
+ * Group permissions by backend-provided platform field
  */
 export function groupPermissionsByPlatform(
     permissions: PermissionDefinition[]
@@ -18,7 +9,7 @@ export function groupPermissionsByPlatform(
     const grouped: Record<string, PermissionDefinition[]> = {};
 
     permissions.forEach((perm) => {
-        const platform = getPlatformFromPermission(perm.permission_string);
+        const platform = perm.platform || 'other';
         grouped[platform] ??= [];
         grouped[platform].push(perm);
     });

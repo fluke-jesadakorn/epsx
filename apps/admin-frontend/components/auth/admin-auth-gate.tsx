@@ -3,7 +3,6 @@
 import '@/shared/components/auth/auth.css';
 import { AuthStatusDisplay, ConnectStep, SignStep, SwitchChainStep } from '@/shared/components/auth/auth-modal-components';
 import { useAuthModalLogic } from '@/shared/components/auth/hooks/use-auth-modal-logic';
-import { TurnstileWidget } from '@/shared/components/turnstile-widget';
 import { BarChart3, Key, Lock, Shield, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -97,7 +96,6 @@ function AuthPanel() {
         step, error, isSigning, isConnecting, isSwitching,
         address, connectors, connect,
         handleSwitchChain, handleSign, handleRetry, handleDisconnect,
-        turnstileToken, handleTurnstileSuccess, handleTurnstileError, handleTurnstileExpire,
     } = useAuthModalLogic({
         isOpen,
         variant: 'admin',
@@ -107,17 +105,6 @@ function AuthPanel() {
 
     return (
         <div className="relative z-10 flex w-full items-center justify-center p-4 sm:p-6 lg:w-2/5 lg:border-l lg:border-border/20 lg:bg-white/[0.02] lg:backdrop-blur-3xl">
-            {isOpen && turnstileToken === null && (
-                <div aria-hidden="true" style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0, overflow: 'hidden' }}>
-                    <TurnstileWidget
-                        onSuccess={handleTurnstileSuccess}
-                        onError={handleTurnstileError}
-                        onExpire={handleTurnstileExpire}
-                        action="auth"
-                    />
-                </div>
-            )}
-
             <div className="w-full max-w-md">
                 <div className="mb-8 text-center lg:hidden">
                     <div className="mb-4 flex items-center justify-center gap-2">

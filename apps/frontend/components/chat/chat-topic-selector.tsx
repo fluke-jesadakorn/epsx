@@ -49,7 +49,6 @@ interface ConversationCreateOptions {
   topicId: string;
   subject: string;
   message: string;
-  turnstileToken?: string;
   file?: File;
 }
 
@@ -57,10 +56,9 @@ interface TopicSelectorProps {
   topics: ChatTopic[];
   onSelect: (opts: ConversationCreateOptions) => void;
   compact?: boolean;
-  turnstileToken: string | null;
 }
 
-export function ChatTopicSelector({ topics, onSelect, compact, turnstileToken }: TopicSelectorProps) {
+export function ChatTopicSelector({ topics, onSelect, compact }: TopicSelectorProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
@@ -70,11 +68,11 @@ export function ChatTopicSelector({ topics, onSelect, compact, turnstileToken }:
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = useCallback(() => {
-    if (selected && subject.trim() && message.trim() && !sending && turnstileToken !== null) {
+    if (selected && subject.trim() && message.trim() && !sending) {
       setSending(true);
-      onSelect({ topicId: selected, subject: subject.trim(), message: message.trim(), turnstileToken, file: pendingFile ?? undefined });
+      onSelect({ topicId: selected, subject: subject.trim(), message: message.trim(), file: pendingFile ?? undefined });
     }
-  }, [selected, subject, message, onSelect, sending, turnstileToken, pendingFile]);
+  }, [selected, subject, message, onSelect, sending, pendingFile]);
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -189,7 +187,7 @@ export function ChatTopicSelector({ topics, onSelect, compact, turnstileToken }:
 
         <button
           onClick={handleSubmit}
-          disabled={!subject.trim() || !message.trim() || sending || turnstileToken === null}
+          disabled={!subject.trim() || !message.trim() || sending}
           className="w-full mt-2 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold text-sm hover:from-blue-400 hover:to-blue-500 disabled:opacity-40 disabled:cursor-not-allowed disabled:from-muted disabled:to-muted disabled:text-muted-foreground transition-all shadow-sm shadow-blue-500/20 flex items-center justify-center gap-2"
         >
           <Send className="w-4 h-4" />

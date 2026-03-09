@@ -28,7 +28,6 @@ interface SettingsDashboardProps {
   initialGeneralSettings?: unknown;
   initialNotificationSettings?: unknown;
   initialSecuritySettings?: unknown;
-  initialFeatureFlags?: unknown;
   initialEnvironmentConfig?: unknown;
 }
 

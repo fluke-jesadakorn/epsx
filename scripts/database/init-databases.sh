@@ -1,8 +1,12 @@
 #!/bin/bash
 # Initialize multiple databases and run migrations
-# 
+#
+# Prerequisite: epsx_user must exist with CREATEDB privilege.
+# Run fix-ownership.sh first, or create manually:
+#   psql postgres -c "CREATE ROLE epsx_user LOGIN CREATEDB PASSWORD 'password';"
+#
 # Usage:
-#   DATABASE_URL=postgresql://user:pass@host:port/db ./scripts/init-databases.sh
+#   DATABASE_URL=postgresql://epsx_user:password@localhost:5432/epsx_dev ./scripts/init-databases.sh
 
 set -e
 

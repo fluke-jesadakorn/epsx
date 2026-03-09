@@ -1,7 +1,7 @@
 // V1 User Permission Status API
 // Clean endpoints for users to check their current granular permissions
 
-use axum::{ extract::{ Query, State }, response::Json, http::StatusCode };
+use axum::{ extract::{ Query, State, Request }, response::Json, http::StatusCode };
 use std::collections::HashMap;
 use serde::{ Deserialize, Serialize };
 use chrono::{ DateTime, Utc };
@@ -13,6 +13,7 @@ use crate::auth::granular_permissions::{
 };
 use crate::web::analytics::AuthenticatedUser;
 use crate::web::auth::AppState;
+use crate::web::middleware::require_user_context;
 
 /// Query parameters for permission check
 #[derive(Debug, Deserialize)]
@@ -103,25 +104,26 @@ impl<T> ApiResponse<T> {
 /// Get user's complete permission status
 pub async fn get_user_permissions(
   State(_state): State<AppState>,
-  user: AuthenticatedUser,
-  Query(query): Query<PermissionCheckQuery>
+  Query(query): Query<PermissionCheckQuery>,
+  request: Request,
 ) -> Result<
   Json<ApiResponse<UserPermissionStatus>>,
   (StatusCode, Json<ErrorResponse>)
 > {
-  info!("Getting permission status for user {}", user.id);
+  let user_context = require_user_context(&request).map_err(|_| {
+    (StatusCode::UNAUTHORIZED, Json(ErrorResponse {
+      success: false,
+      error: "unauthorized".to_string(),
+      message: "Valid Bearer token required".to_string(),
+      timestamp: Utc::now(),
+    }))
+  })?;
 
-  // Using JWT permissions directly (cache intentionally disabled)
-  // Note: Cache integration requires resolving Arc<dyn Cache> to Box conversion
-  // Current approach provides fresh data from JWT claims on each request
-  let _cached_permissions: Option<Vec<String>> = None;
+  info!("Getting permission status for user {}", user_context.wallet_address);
 
-  // Use JWT permissions directly from authenticated user
   let (permissions_map, permission_version) = {
-    // Fall back to JWT permissions (convert to expected format)
     let mut permissions_map = HashMap::new();
-    for perm in &user.permissions {
-      // Create a basic permission claim for JWT permissions
+    for perm in &user_context.permissions {
       permissions_map.insert(
         perm.clone(),
         GranularPermissionClaim::permanent(PermissionSource::SystemGrant, None)
@@ -206,10 +208,10 @@ pub async fn get_user_permissions(
   }
 
   // Check if user has admin access
-  let has_admin_access = crate::core::permissions::has_admin_platform_permission(&user.permissions);
+  let has_admin_access = crate::core::permissions::has_admin_platform_permission(&user_context.permissions);
 
   let status = UserPermissionStatus {
-    wallet_address: user.id.clone(),
+    wallet_address: user_context.wallet_address.clone(),
     permissions: permission_infos,
     permission_version,
     last_updated: now,

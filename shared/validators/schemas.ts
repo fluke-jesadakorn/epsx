@@ -430,14 +430,6 @@ export const createPlatformSchema = (platform: 'admin' | 'frontend') => {
 // ============================================================================
 
 /**
- * Validate permission format: platform:resource:action or platform:resource:action:timestamp
- */
-export const isValidPermission = (permission: string): boolean => {
-  // eslint-disable-next-line security/detect-unsafe-regex
-  return /^[a-zA-Z0-9_]+:[a-zA-Z0-9_*]+:[a-zA-Z0-9_*]+(?::\d+)?$/.test(permission);
-};
-
-/**
  * Validate embedded timestamp permission
  */
 export const isValidEmbeddedPermission = (permission: string): boolean => {

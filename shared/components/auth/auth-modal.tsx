@@ -7,7 +7,6 @@
  */
 
 import type { Connector } from 'wagmi';
-import { TurnstileWidget } from '../turnstile-widget';
 import { Dialog, DialogContent } from '../ui/dialog';
 import { AuthStatusDisplay, ConnectStep, SignStep, SwitchChainStep } from './auth-modal-components';
 import './auth.css';
@@ -44,10 +43,6 @@ export function AuthModal({
         handleSign,
         handleRetry,
         handleDisconnect,
-        turnstileToken,
-        handleTurnstileSuccess,
-        handleTurnstileError,
-        handleTurnstileExpire,
     } = useAuthModalLogic({
         isOpen,
         variant,
@@ -63,18 +58,6 @@ export function AuthModal({
                 showClose={false}
             >
                 <div className={`auth-modal-inner ${variant === 'admin' ? 'auth-modal-admin' : ''}`} style={{ isolation: 'isolate' }}>
-                    {/* Hidden Turnstile — preloads during connect step for instant auto-sign */}
-                {isOpen && turnstileToken === null && (
-                    <div aria-hidden="true" style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0, overflow: 'hidden' }}>
-                        <TurnstileWidget
-                            onSuccess={handleTurnstileSuccess}
-                            onError={handleTurnstileError}
-                            onExpire={handleTurnstileExpire}
-                            action="auth"
-                        />
-                    </div>
-                )}
-
                 <div className="auth-modal-content">
                         <AuthModalContent
                             step={step}

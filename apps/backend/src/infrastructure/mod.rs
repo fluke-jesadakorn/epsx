@@ -7,7 +7,6 @@ pub mod container;
 pub mod cache;
 pub mod models; // Re-added - contains Diesel database models
 pub mod security;
-pub mod config;
 pub mod database;
 pub mod cqrs; // NEW: Event sourcing and CQRS infrastructure
 pub mod repositories; // NEW: DDD repositories
@@ -31,7 +30,6 @@ pub use cache::{
 pub use security::{
     key_management as KeyManagement, threat_detection as ThreatDetection
 };
-pub use config::{FeatureFlags};
 pub use cqrs::{
     EventStore, PostgresEventStore, TransactionalOutbox,
     EventDispatcher, EventDispatcherConfig,

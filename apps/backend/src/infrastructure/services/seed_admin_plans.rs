@@ -29,7 +29,7 @@ const ADMIN_PLANS: &[AdminPlanDef] = &[
         name: SUPER_ADMIN_PLAN_NAME,
         slug: SUPER_ADMIN_PLAN_SLUG,
         description: "Full administrative access to all platform features",
-        permissions: &["admin:*:*"],
+        permissions: &["*:*:*", "admin:*:*"],
     },
     AdminPlanDef {
         id: MODERATOR_PLAN_ID,

@@ -6,6 +6,13 @@ import { type PermissionPlan } from '@/lib/api/plan-management-client';
 
 import { FREE_PLAN_ID, getFeatureValue, type PlanEditFormState } from './types';
 
+function rankingFromPermissions(permissions: string[], prefix: string): number | undefined {
+    const val = getFeatureValue(permissions, prefix);
+    if (val === null) { return undefined; }
+    const n = parseInt(val, 10);
+    return isNaN(n) ? undefined : n;
+}
+
 export const EMPTY_FORM: PlanEditFormState = {
     name: '',
     description: '',
@@ -96,10 +103,8 @@ export function usePlanEditForm() {
         if (selectedPlan === null) { return; }
         setIsSaving(true);
         try {
-            const offsetStr = getFeatureValue(form.permissions, 'epsx:rankings:offset');
-            const limitStr = getFeatureValue(form.permissions, 'epsx:rankings:limit');
-            const rankingOffset = offsetStr !== null ? parseInt(offsetStr, 10) : undefined;
-            const rankingsLimit = limitStr !== null ? parseInt(limitStr, 10) : undefined;
+            const rankingOffset = rankingFromPermissions(form.permissions, 'epsx:rankings:offset');
+            const rankingsLimit = rankingFromPermissions(form.permissions, 'epsx:rankings:limit');
 
             const updated = await updatePlanAction(selectedPlan.id, {
                 name: form.name,

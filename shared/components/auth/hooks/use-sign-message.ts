@@ -48,7 +48,6 @@ interface UseSignMessageProps {
     address?: string;
     config: Config;
     variant: 'user' | 'admin';
-    turnstileToken?: string | null;
     authenticateWithDirectApi: (user: {
         wallet_address: string;
         permissions: string[];
@@ -67,7 +66,6 @@ export function useSignMessage({
     address,
     config,
     variant,
-    turnstileToken,
     authenticateWithDirectApi,
     onSuccess,
     onError,
@@ -94,7 +92,6 @@ export function useSignMessage({
                 address,
                 walletClient,
                 variant,
-                turnstileToken: turnstileToken ?? undefined,
                 loginAct: loginAction,
                 authenticateWithDirectApi
             });
@@ -111,7 +108,7 @@ export function useSignMessage({
             isSigningRef.current = false;
             setIsSigning(false);
         }
-    }, [address, config, variant, turnstileToken, authenticateWithDirectApi, onSuccess, onError, onClose, setStep, setError]);
+    }, [address, config, variant, authenticateWithDirectApi, onSuccess, onError, onClose, setStep, setError]);
 
     return { handleSign, isSigning };
 }
@@ -153,7 +150,6 @@ interface VerifyAndLoginProps {
     address: string;
     walletClient: WalletClient;
     variant: 'user' | 'admin';
-    turnstileToken?: string;
     loginAct: (token: string, data: Record<string, unknown>, refreshToken?: string) => Promise<{ success: boolean; error?: string }>;
     authenticateWithDirectApi: (user: {
         wallet_address: string;
@@ -181,12 +177,11 @@ async function verifyAndLogin({
     address,
     walletClient,
     variant,
-    turnstileToken,
     loginAct,
     authenticateWithDirectApi
 }: VerifyAndLoginProps) {
     // Server actions proxy requests through Next.js server (no direct browser→backend)
-    const challengeData = await challengeAction(address, turnstileToken);
+    const challengeData = await challengeAction(address);
 
     const signature = await walletClient.signMessage({
         message: challengeData.message,
@@ -205,7 +200,7 @@ async function verifyAndLogin({
         const msg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
         if (!isNonceExpiredMsg(msg)) { throw err; }
         // Nonce expired - auto-retry with fresh challenge
-        const freshChallenge = await challengeAction(address, turnstileToken);
+        const freshChallenge = await challengeAction(address);
         const freshSig = await walletClient.signMessage({
             message: freshChallenge.message,
             account: address as `0x${string}`,

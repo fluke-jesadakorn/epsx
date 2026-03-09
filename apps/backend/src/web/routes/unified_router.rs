@@ -336,6 +336,7 @@ impl UnifiedRouteBuilder {
             .route("/news/featured", get(crate::web::public::news_handlers::list_featured_news))
             .route("/news/images/{filename}", get(crate::web::public::news_handlers::serve_news_image))
             .route("/news/{slug}", get(crate::web::public::news_handlers::get_public_news))
+            .route("/verify-turnstile", post(crate::web::public::verify_turnstile_handler::verify_turnstile_handler))
             .with_state(app_state)
     }
 
@@ -352,6 +353,7 @@ impl UnifiedRouteBuilder {
             // User profile and settings - using available handlers
             .route("/profile", get(crate::web::user::unified_user_handlers::get_current_user_profile))
             .route("/permissions", get(crate::web::user::unified_user_handlers::get_user_permissions))
+            .route("/permissions/status", get(crate::web::user::permissions::get_user_permissions))
             .route("/access-overview", get(crate::web::user::unified_user_handlers::get_user_access_overview))
             // User preferences update (POST with JSON body)
             .route("/preferences", post(crate::web::user::unified_user_handlers::update_user_preferences))

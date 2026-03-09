@@ -2,7 +2,6 @@
 
 import type { AdminAgent } from '@/app/actions/chat';
 import { listAdminAgents } from '@/app/actions/chat';
-import { TurnstileWidget } from '@/shared/components/turnstile-widget';
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover';
 import { CheckCircle, ChevronDown, Loader2, MessageSquare, Paperclip, Search, Send, UserPlus, X, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
@@ -20,7 +19,7 @@ const DEFAULT_RESPONSES = [
 ];
 
 interface Props {
-  onSend: (content: string, turnstileToken: string) => Promise<void>;
+  onSend: (content: string) => Promise<void>;
   onUpload?: (file: File) => Promise<void>;
   onTyping?: (isTyping: boolean) => void;
   onResolve?: () => Promise<void>;
@@ -303,9 +302,6 @@ export function ChatReplyInput({ onSend, onUpload, onTyping, onResolve, onClose,
   const fileRef = useRef<HTMLInputElement>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [turnstileKey, setTurnstileKey] = useState(0);
-
   const emitTyping = useCallback((typing: boolean) => {
     if (isTypingRef.current === typing) { return; }
     isTypingRef.current = typing;
@@ -340,13 +336,11 @@ export function ChatReplyInput({ onSend, onUpload, onTyping, onResolve, onClose,
     startTransition(() => { void onUpload(f); });
   };
 
-  const handleSendMsg = (content: string, token: string) => {
+  const handleSendMsg = (content: string) => {
     startTransition(() => {
       void (async () => {
-        await onSend(content, token);
+        await onSend(content);
         setMsg('');
-        setTurnstileToken(null);
-        setTurnstileKey(k => k + 1);
         emitTyping(false);
       })();
     });
@@ -354,8 +348,8 @@ export function ChatReplyInput({ onSend, onUpload, onTyping, onResolve, onClose,
 
   const handleSend = () => {
     if (pendingFile !== null && onUpload !== undefined) { handleSendFile(pendingFile); return; }
-    if (msg.trim() === '' || isPending || (disabled ?? false) || turnstileToken === null) { return; }
-    handleSendMsg(msg, turnstileToken);
+    if (msg.trim() === '' || isPending || (disabled ?? false)) { return; }
+    handleSendMsg(msg);
   };
 
   const handleResolve = () => {
@@ -383,7 +377,7 @@ export function ChatReplyInput({ onSend, onUpload, onTyping, onResolve, onClose,
     e.target.value = '';
   };
 
-  const canSend = (msg.trim() !== '' || pendingFile !== null) && !isPending && !(disabled ?? false) && (pendingFile !== null || turnstileToken !== null);
+  const canSend = (msg.trim() !== '' || pendingFile !== null) && !isPending && !(disabled ?? false);
 
   return (
     <div className="border-t border-border/20 bg-card p-4">
@@ -432,13 +426,6 @@ export function ChatReplyInput({ onSend, onUpload, onTyping, onResolve, onClose,
         onFileChange={handleFileChange}
       />
 
-      <TurnstileWidget
-        key={turnstileKey}
-        action="admin_chat_reply"
-        onSuccess={setTurnstileToken}
-        onExpire={() => setTurnstileToken(null)}
-        className="mt-3 flex justify-start"
-      />
     </div>
   );
 }

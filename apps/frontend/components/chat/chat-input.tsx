@@ -4,16 +4,14 @@ import { Paperclip, Send, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 interface InputProps {
-  onSend: (content: string, turnstileToken: string) => void;
+  onSend: (content: string) => void;
   onUpload?: (file: File) => void;
   onTyping?: (isTyping: boolean) => void;
   disabled?: boolean;
   placeholder?: string;
-  turnstileToken: string | null;
-  onTokenUsed: () => void;
 }
 
-export function ChatInput({ onSend, onUpload, onTyping, disabled = false, placeholder = 'Type a message...', turnstileToken, onTokenUsed }: InputProps) {
+export function ChatInput({ onSend, onUpload, onTyping, disabled = false, placeholder = 'Type a message...' }: InputProps) {
   const [val, setVal] = useState('');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -65,13 +63,12 @@ export function ChatInput({ onSend, onUpload, onTyping, disabled = false, placeh
       emitTyping(false);
       return;
     }
-    if (trimmed && !disabled && turnstileToken !== null) {
-      onSend(trimmed, turnstileToken);
+    if (trimmed && !disabled) {
+      onSend(trimmed);
       setVal('');
-      onTokenUsed();
       emitTyping(false);
     }
-  }, [val, disabled, onSend, pendingFile, onUpload, emitTyping, turnstileToken, onTokenUsed, clearPending]);
+  }, [val, disabled, onSend, pendingFile, onUpload, emitTyping, clearPending]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -96,7 +93,7 @@ export function ChatInput({ onSend, onUpload, onTyping, disabled = false, placeh
     e.target.value = '';
   }, []);
 
-  const canSend = (val.trim().length > 0 || pendingFile !== null) && !disabled && (pendingFile !== null || turnstileToken !== null);
+  const canSend = (val.trim().length > 0 || pendingFile !== null) && !disabled;
 
   return (
     <div className="flex-shrink-0 px-4 md:px-5 py-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-t border-slate-200/60 dark:border-white/5">

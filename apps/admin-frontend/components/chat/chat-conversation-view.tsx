@@ -513,8 +513,8 @@ export function ChatConversationView({ conv, topics, onUpdate, onBack }: Props) 
 
   useChatSSE({ enabled: true, mode: 'admin', onEvent: handleSSE });
 
-  const handleSend = async (content: string, turnstileToken: string) => {
-    const res = await sendReply(conv.id, content, turnstileToken);
+  const handleSend = async (content: string) => {
+    const res = await sendReply(conv.id, content);
     if (res.success && res.data) {
       setMsgs(prev => [...prev, res.data as ChatMessage]);
       onUpdate();

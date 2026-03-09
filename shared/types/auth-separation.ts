@@ -260,18 +260,6 @@ export function isRegularUser(user: AuthenticatedUserProfile): user is UserProfi
   return !('securityLevel' in user) && 'permission_group' in user;
 }
 
-export function hasValidSubscription(user: UserProfile): boolean {
-  return user.permission_group !== 'Basic Access Group';
-}
-
-export function canAccessFeature(user: UserProfile, feature: string): boolean {
-  return user.permissions.some(p =>
-    p.includes(feature) ||
-    p.includes('*') ||
-    p === 'epsx:*:*'
-  );
-}
-
 // ============================================================================
 // SESSION MANAGEMENT UTILITIES
 // ============================================================================

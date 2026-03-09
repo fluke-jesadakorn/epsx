@@ -411,40 +411,6 @@ mod tests {
     assert!(!claims.permissions.iter().any(|p| p.starts_with("admin:")));
   }
 
-  #[tokio::test]
-  async fn test_feature_flag_based_migration() {
-    let suite = SecurityTestSuite::new();
-
-    // Test feature flag system for gradual rollout
-    use crate::infrastructure::config::FeatureFlags;
-
-    let feature_flags = FeatureFlags::new();
-
-    // Test different user scenarios for gradual migration
-    let test_users = vec![
-      ("admin_user", true, false, true), // Admin, not beta -> should use stateless
-      ("beta_user", false, true, true), // Beta user -> should use stateless
-      ("regular_user", false, false, false) // Regular user -> may use legacy
-    ];
-
-    for (user_id, is_admin, is_beta, expected_stateless) in test_users {
-      let should_use_stateless = feature_flags.should_use_stateless_auth(
-        user_id,
-        is_admin,
-        is_beta
-      );
-
-      if expected_stateless {
-        assert!(
-          should_use_stateless,
-          "User {} should use stateless auth",
-          user_id
-        );
-      }
-      // Note: Regular users may or may not use stateless based on percentage rollout
-    }
-  }
-
   /// Performance test for Web3 signature validation
   #[tokio::test]
   async fn test_web3_signature_performance() {

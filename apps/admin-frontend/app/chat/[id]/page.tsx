@@ -1,4 +1,3 @@
-import { Breadcrumb } from '@/components/layout/breadcrumb';
 import { ChatConversationView } from '@/components/chat';
 import { getConversation, getTopics } from '@/app/actions/chat';
 import { notFound } from 'next/navigation';
@@ -24,7 +23,6 @@ export default async function ConversationPage({ params }: Props) {
 
   return (
     <div className="p-4 md:p-8">
-      <Breadcrumb />
       <div className="h-[calc(100vh-7rem)] md:h-[calc(100vh-10rem)] border border-border/20 rounded-2xl bg-gray-100 dark:bg-card/80 overflow-hidden">
         <ChatConversationView
           conv={conv}

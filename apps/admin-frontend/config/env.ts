@@ -60,25 +60,6 @@ export const authConfig = {
 } as const;
 
 /**
- * Feature Flags (Legacy)
- * @deprecated Use shared/config/feature-flags.ts through compatibility layer instead
- * Kept for backward compatibility during migration
- */
-export const featureFlags = {
-  UNIFIED_USER_MANAGEMENT: process.env.NEXT_PUBLIC_ENABLE_UNIFIED_USERS === 'true',
-  SERVER_COMPONENTS: process.env.NEXT_PUBLIC_ENABLE_SERVER_COMPONENTS === 'true',
-  NEW_NAVIGATION: process.env.NEXT_PUBLIC_ENABLE_NEW_NAV === 'true',
-  DEV_MODE: isDev,
-
-  // Legacy rollout percentages (for compatibility)
-  rolloutPercentages: {
-    UNIFIED_USER_MANAGEMENT: 100,
-    SERVER_COMPONENTS: 50,
-    NEW_NAVIGATION: 75,
-  } as const,
-} as const;
-
-/**
  * Server-only configuration for admin frontend
  * Uses unified schema's server-only getters
  */

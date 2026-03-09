@@ -45,12 +45,9 @@ export type {
   // Core user types
   BaseUser,
   // Billing & subscriptions
-  BillingStatus, BillingUpdateData, canAccessFeature,
+  BillingStatus, BillingUpdateData,
   getUserTierLevel,
-  hasMinimumPermissionGroup, hasValidSubscription,
-  // Type guards & helpers
-  isAdminUser,
-  isPremiumUser, LoginRecord,
+  LoginRecord,
   // Module access
   ModuleAccess,
   ModuleQuota, PackageTier, StockRankingPackage, SubscriptionTier, UnifiedUserData, UsageMetrics,
@@ -68,17 +65,14 @@ export type {
 export type {
   BulkPermissionOperation, EffectivePermissions,
   // Business domain types
-  EPSXPermission, hasEffectivePermission, isWildcardPermission,
-  matchesPermissionPattern, ParsedPermission,
-  // Helper functions
-  parsePermission,
+  EPSXPermission, ParsedPermission,
   // Core permission types
   Permission, PermissionAnalytics, PermissionAssignment, PermissionCategory, PermissionCheck, PermissionExpiryDetails,
   PermissionExpiryInfo,
   // Permission context & inheritance
   PermissionInheritance, PermissionPolicy,
   // Management types
-  PermissionRequest, PermissionRole, PermissionScope, PermissionSource, PermissionTemplate, PermissionValidation, Platform, PlatformPermissionContext, resolveUserPermissions, TimestampedPermission
+  PermissionRequest, PermissionRole, PermissionScope, PermissionSource, PermissionTemplate, PermissionValidation, Platform, PlatformPermissionContext, TimestampedPermission
 } from './permission'
 
 // ============================================================================

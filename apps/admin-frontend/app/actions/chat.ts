@@ -51,9 +51,9 @@ export async function getMessages(id: string): Promise<ApiResponse<ChatMessage[]
   return check403(await client.get(`/api/admin/chat/conversations/${id}/messages`));
 }
 
-export async function sendReply(id: string, content: string, turnstileToken?: string): Promise<ApiResponse<ChatMessage>> {
+export async function sendReply(id: string, content: string): Promise<ApiResponse<ChatMessage>> {
   const client = createAdminApiClient({ serverSide: true });
-  return check403(await client.post(`/api/admin/chat/conversations/${id}/messages`, { content, turnstile_token: turnstileToken }));
+  return check403(await client.post(`/api/admin/chat/conversations/${id}/messages`, { content }));
 }
 
 export async function assignAgent(id: string, agentAddress?: string): Promise<ApiResponse<ChatConversation>> {

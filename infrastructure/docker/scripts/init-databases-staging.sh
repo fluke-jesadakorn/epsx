@@ -5,9 +5,32 @@
 set -e
 
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
-    CREATE DATABASE epsx_analytics_staging;
-    CREATE DATABASE epsx_notifications_staging;
-    CREATE DATABASE epsx_payments_staging;
+    -- Ensure epsx_user role exists
+    DO \$\$
+    BEGIN
+      IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'epsx_user') THEN
+        CREATE ROLE epsx_user LOGIN CREATEDB PASSWORD '${EPSX_DB_PASSWORD:-password}';
+      ELSE
+        ALTER ROLE epsx_user CREATEDB;
+      END IF;
+    END \$\$;
+
+    -- Create databases owned by epsx_user
+    CREATE DATABASE epsx_analytics_staging OWNER epsx_user;
+    CREATE DATABASE epsx_notifications_staging OWNER epsx_user;
+    CREATE DATABASE epsx_payments_staging OWNER epsx_user;
+
+    -- Ensure main DB is also owned by epsx_user
+    ALTER DATABASE epsx_staging OWNER TO epsx_user;
 EOSQL
 
-echo "Staging databases created: epsx_analytics_staging, epsx_notifications_staging, epsx_payments_staging"
+# Set default privileges in each database
+for db in epsx_staging epsx_analytics_staging epsx_notifications_staging epsx_payments_staging; do
+  psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$db" <<-EOSQL
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO epsx_user;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO epsx_user;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO epsx_user;
+EOSQL
+done
+
+echo "✅ Staging databases created (owned by epsx_user): epsx_analytics_staging, epsx_notifications_staging, epsx_payments_staging"

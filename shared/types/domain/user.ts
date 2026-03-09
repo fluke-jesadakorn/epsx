@@ -287,56 +287,6 @@ export interface UserOperationResult<T = unknown> {
   error?: UserOperationError
 }
 
-// ============================================================================
-// TYPE GUARDS & VALIDATION HELPERS
-// ============================================================================
-
-export function isAdminUser(user: UserProfile): user is AdminUserProfile {
-  return user.role === 'admin' || user.role === 'super_admin'
-}
-
-export function isPremiumUser(user: UserProfile): boolean {
-  return user.group !== 'Basic Access Group'
-}
-
-export function hasValidSubscription(user: UserProfile): boolean {
-  return isPremiumUser(user) && user.status === 'active'
-}
-
-export function canAccessFeature(user: UserProfile, feature: string): boolean {
-  return user.permissions.some(p =>
-    p.includes(feature) ||
-    p.includes('*') ||
-    p === 'epsx:*:*' ||
-    p === 'admin:*:*'
-  )
-}
-
-export function getGroupLevel(group: Group): number {
-  const levels: Record<Group, number> = {
-    'Basic Access Group': 1,
-    'Standard Access Group': 2,
-    'Premium Access Group': 3,
-    'Professional Access Group': 4,
-    'Enterprise Access Group': 5
-  }
-  return levels[group] || 0
-}
-
-/**
- * @deprecated Use getGroupLevel instead
- */
-export const getPermissionGroupLevel = getGroupLevel
-
-export function hasMinimumGroup(user: UserProfile, requiredGroup: Group): boolean {
-  return getGroupLevel(user.group) >= getGroupLevel(requiredGroup)
-}
-
-/**
- * @deprecated Use hasMinimumGroup instead
- */
-export const hasMinimumPermissionGroup = hasMinimumGroup
-
 /**
  * @deprecated Use getGroupLevel instead
  */

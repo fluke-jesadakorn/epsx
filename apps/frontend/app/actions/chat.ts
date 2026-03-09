@@ -25,17 +25,16 @@ interface CreateConversationOptions {
   topicId: string;
   subject: string;
   message: string;
-  turnstileToken?: string;
 }
 
 export async function createConversationAction(
   opts: CreateConversationOptions
 ): Promise<ChatConversation | null> {
-  const { topicId, subject, message, turnstileToken } = opts;
+  const { topicId, subject, message } = opts;
   try {
     const client = getServerActionClient();
     const api = createSupportChatClient(client);
-    const res = await api.createConversation({ topic_id: topicId, subject, message, turnstile_token: turnstileToken });
+    const res = await api.createConversation({ topic_id: topicId, subject, message });
     if (res.success && res.data) {
       revalidatePath('/chat');
       return res.data;
@@ -92,11 +91,11 @@ export async function getMessagesAction(id: string): Promise<ChatMessage[]> {
   return [];
 }
 
-export async function sendMessageAction(id: string, content: string, turnstileToken?: string): Promise<ChatMessage | null> {
+export async function sendMessageAction(id: string, content: string): Promise<ChatMessage | null> {
   try {
     const client = getServerActionClient();
     const api = createSupportChatClient(client);
-    const res = await api.sendMessage(id, content, turnstileToken);
+    const res = await api.sendMessage(id, content);
     if (res.success && res.data) {
       revalidatePath(`/chat/${id}`);
       return res.data;

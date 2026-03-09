@@ -14,7 +14,6 @@ import {
 import type { ChatConversation, ChatMessage, ChatTopic } from '@/shared/api/chat';
 import type { ChatSSEEvent } from '@/shared/hooks/use-chat-sse';
 import { useChatSSE } from '@/shared/hooks/use-chat-sse';
-import { TurnstileWidget } from '@/shared/components/turnstile-widget';
 import { MessageCircle, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChatConversationList } from './chat-conversation-list';
@@ -40,14 +39,7 @@ export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
   const [loading, setLoading] = useState(false);
   const [agentTyping, setAgentTyping] = useState(false);
   const [readUpToId, setReadUpToId] = useState<string | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [widgetKey, setWidgetKey] = useState(0);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleTokenUsed = useCallback(() => {
-    setToken(null);
-    setWidgetKey((k) => k + 1);
-  }, []);
 
   const loadData = useCallback(async () => {
     try {
@@ -72,10 +64,9 @@ export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
     }
   }, [isOpen, loadData]);
 
-  const handleCreateConvo = useCallback(async ({ topicId, subject, message, turnstileToken, file }: { topicId: string; subject: string; message: string; turnstileToken?: string; file?: File }) => {
+  const handleCreateConvo = useCallback(async ({ topicId, subject, message, file }: { topicId: string; subject: string; message: string; file?: File }) => {
     setLoading(true);
-    const convo = await createConversationAction({ topicId, subject, message, turnstileToken });
-    handleTokenUsed();
+    const convo = await createConversationAction({ topicId, subject, message });
     if (convo) {
       if (file) {
         const formData = new FormData();
@@ -89,7 +80,7 @@ export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
       setView('conversation');
     }
     setLoading(false);
-  }, [handleTokenUsed]);
+  }, []);
 
   const handleSelectConvo = useCallback(async (id: string) => {
     setLoading(true);
@@ -106,9 +97,9 @@ export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
     setLoading(false);
   }, [convos]);
 
-  const handleSendMsg = useCallback(async (content: string, turnstileToken: string) => {
+  const handleSendMsg = useCallback(async (content: string) => {
     if (!activeConvo) { return; }
-    const msg = await sendMessageAction(activeConvo.id, content, turnstileToken);
+    const msg = await sendMessageAction(activeConvo.id, content);
     if (msg) {
       setMsgs((prev) => [...prev, msg]);
     }
@@ -187,17 +178,6 @@ export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
       className={`fixed bottom-2 right-2 md:bottom-24 md:right-6 w-[calc(100vw-1rem)] md:w-[400px] max-w-[400px] h-[calc(100vh-4rem)] md:h-[580px] max-h-[580px] bg-white dark:bg-slate-950 backdrop-blur-xl border border-slate-200 dark:border-white/8 rounded-3xl shadow-2xl shadow-black/10 flex flex-col z-50 overflow-hidden transition-all duration-300 origin-bottom-right ${isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4 pointer-events-none'
         }`}
     >
-      {isOpen && (
-        <div aria-hidden className="absolute opacity-0 pointer-events-none">
-          <TurnstileWidget
-            key={widgetKey}
-            action="chat"
-            onSuccess={setToken}
-            onExpire={() => setToken(null)}
-          />
-        </div>
-      )}
-
       {view === 'topics' && (
         <>
           <PanelHeader onClose={onClose} title="New Conversation" />
@@ -209,7 +189,7 @@ export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
               View existing conversations
             </button>
           )}
-          <ChatTopicSelector topics={topics} onSelect={handleCreateConvo} compact turnstileToken={token} />
+          <ChatTopicSelector topics={topics} onSelect={handleCreateConvo} compact />
         </>
       )}
 
@@ -240,8 +220,6 @@ export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
             onUpload={handleUpload}
             onTyping={handleTyping}
             disabled={loading || activeConvo.status === 'closed'}
-            turnstileToken={token}
-            onTokenUsed={handleTokenUsed}
           />
         </>
       )}

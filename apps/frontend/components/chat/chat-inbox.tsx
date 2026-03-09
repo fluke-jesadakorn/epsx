@@ -24,7 +24,6 @@ import {
   Search,
   Tag,
 } from 'lucide-react';
-import { TurnstileWidget } from '@/shared/components/turnstile-widget';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { ChatInput } from './chat-input';
 import { ChatMessageList } from './chat-message-list';
@@ -60,13 +59,6 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   const [isPending, startTransition] = useTransition();
   const markedRef = useRef<string | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [widgetKey, setWidgetKey] = useState(0);
-
-  const handleTokenUsed = useCallback(() => {
-    setToken(null);
-    setWidgetKey((k) => k + 1);
-  }, []);
 
   const reloadConvos = useCallback(async () => {
     const data = await listConversationsAction();
@@ -108,10 +100,10 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
 
   useChatSSE({ enabled: true, mode: 'user', onEvent: handleSSE });
 
-  const handleSend = useCallback((content: string, turnstileToken: string) => {
+  const handleSend = useCallback((content: string) => {
     if (!content || !selected || isPending) { return; }
     const doSend = async () => {
-      const msg = await sendMessageAction(selected, content, turnstileToken);
+      const msg = await sendMessageAction(selected, content);
       if (msg) { setMsgs(prev => [...prev, msg]); }
     };
     startTransition(() => { void doSend(); });
@@ -142,8 +134,8 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
   }, [selected]);
 
   const handleCreate = useCallback(
-    async ({ topicId, subject, message, turnstileToken, file }: { topicId: string; subject: string; message: string; turnstileToken?: string; file?: File }) => {
-      const convo = await createConversationAction({ topicId, subject, message, turnstileToken });
+    async ({ topicId, subject, message, file }: { topicId: string; subject: string; message: string; file?: File }) => {
+      const convo = await createConversationAction({ topicId, subject, message });
       if (convo) {
         if (file) {
           const formData = new FormData();
@@ -181,15 +173,6 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
 
   return (
     <div className="h-full flex flex-col md:flex-row overflow-hidden">
-      <div aria-hidden className="absolute opacity-0 pointer-events-none">
-        <TurnstileWidget
-          key={widgetKey}
-          action="chat"
-          onSuccess={setToken}
-          onExpire={() => setToken(null)}
-        />
-      </div>
-
       {/* ── Sidebar ── */}
       <div className={`
         w-full md:w-[300px] lg:w-[320px] flex-shrink-0 flex flex-col overflow-hidden
@@ -336,7 +319,7 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
             >
               <ArrowLeft className="w-3.5 h-3.5" /> Back
             </button>
-            <ChatTopicSelector topics={topics} onSelect={handleCreate} turnstileToken={token} />
+            <ChatTopicSelector topics={topics} onSelect={handleCreate} />
           </div>
         ) : selectedConv !== undefined ? (
           <>
@@ -409,8 +392,6 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
               onTyping={handleTyping}
               disabled={isPending || selectedConv.status === 'closed'}
               placeholder={selectedConv.status === 'closed' ? 'This conversation is closed' : 'Type your reply...'}
-              turnstileToken={token}
-              onTokenUsed={handleTokenUsed}
             />
           </>
         ) : (

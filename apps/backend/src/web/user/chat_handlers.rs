@@ -1,6 +1,5 @@
 use axum::{
     extract::{Path, Query, State},
-    http::HeaderMap,
     response::sse::{Event, KeepAlive, Sse},
     response::IntoResponse,
     Extension, Json,
@@ -8,7 +7,7 @@ use axum::{
 use futures::StreamExt;
 use serde::Deserialize;
 use std::time::Duration;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::infrastructure::models::chat::*;
@@ -49,36 +48,10 @@ pub async fn list_topics(
 pub async fn create_conversation(
     State(app_state): State<AppState>,
     Extension(ctx): Extension<OpenIDUserContext>,
-    headers: HeaderMap,
     Json(body): Json<CreateConversationRequest>,
 ) -> Result<Json<UnifiedApiResponse<ChatConversationDb>>, Json<UnifiedApiResponse<()>>> {
     if body.subject.trim().is_empty() || body.message.trim().is_empty() {
         return Err(Json(UnifiedApiResponse::error(400, "Invalid request", "Subject and message required")));
-    }
-
-    if let Some(token) = &body.turnstile_token {
-        let remote_ip = headers
-            .get("cf-connecting-ip")
-            .or_else(|| headers.get("x-forwarded-for"))
-            .and_then(|h| h.to_str().ok())
-            .map(|s| s.split(',').next().unwrap_or(s).trim());
-
-        match crate::infrastructure::security::verify_turnstile_token(token, remote_ip).await {
-            Ok(result) if result.success => {
-                info!("Turnstile verification passed for chat conversation creation");
-            }
-            Ok(result) => {
-                warn!(error_codes = ?result.error_codes, "Chat Turnstile verification failed");
-                return Err(Json(UnifiedApiResponse::error(400, "Captcha failed", "Human verification failed")));
-            }
-            Err(e) => {
-                error!("Turnstile verification error: {}", e);
-                if crate::config::env::is_production() {
-                    return Err(Json(UnifiedApiResponse::error(503, "Verification unavailable", "Try again later")));
-                }
-                warn!("Turnstile verification error in dev mode – allowing request");
-            }
-        }
     }
 
     let sanitized_subject = crate::infrastructure::security::sanitize_chat_content(body.subject.trim());
@@ -176,37 +149,11 @@ pub async fn list_messages(
 pub async fn send_message(
     State(app_state): State<AppState>,
     Extension(ctx): Extension<OpenIDUserContext>,
-    headers: HeaderMap,
     Path(id): Path<Uuid>,
     Json(body): Json<SendMessageRequest>,
 ) -> Result<Json<UnifiedApiResponse<ChatMessageDb>>, Json<UnifiedApiResponse<()>>> {
     if body.content.trim().is_empty() {
         return Err(Json(UnifiedApiResponse::error(400, "Invalid request", "Message content required")));
-    }
-
-    if let Some(token) = &body.turnstile_token {
-        let remote_ip = headers
-            .get("cf-connecting-ip")
-            .or_else(|| headers.get("x-forwarded-for"))
-            .and_then(|h| h.to_str().ok())
-            .map(|s| s.split(',').next().unwrap_or(s).trim());
-
-        match crate::infrastructure::security::verify_turnstile_token(token, remote_ip).await {
-            Ok(result) if result.success => {
-                info!("Turnstile verification passed for user chat message");
-            }
-            Ok(result) => {
-                warn!(error_codes = ?result.error_codes, "Chat Turnstile verification failed");
-                return Err(Json(UnifiedApiResponse::error(400, "Captcha failed", "Human verification failed")));
-            }
-            Err(e) => {
-                error!("Turnstile verification error: {}", e);
-                if crate::config::env::is_production() {
-                    return Err(Json(UnifiedApiResponse::error(503, "Verification unavailable", "Try again later")));
-                }
-                warn!("Turnstile verification error in dev mode – allowing request");
-            }
-        }
     }
 
     // Verify ownership

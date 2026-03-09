@@ -4,7 +4,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 
 import type { PermissionDefinition } from '@/lib/api/permissions-client';
 import { cn } from '@/lib/utils';
-import { getPlatformColorClass, getPlatformFromPermission } from '@/lib/utils/permission-utils';
+import { getPlatformColorClass } from '@/lib/utils/permission-utils';
 
 interface PermissionItemProps {
     permission: PermissionDefinition;
@@ -27,7 +27,7 @@ export function PermissionItem({
     onDoubleClick,
     stripPlatform,
 }: PermissionItemProps) {
-    const platform = getPlatformFromPermission(permission.permission_string);
+    const platform = permission.platform || 'other';
     const platformColor = getPlatformColorClass(platform);
 
     const displayString = stripPlatform === true
