@@ -4,7 +4,7 @@
 # Branches:
 #   development → lint + test + build (all CI)
 #   staging     → build + manual revision deploy (Traefik, Docker Compose)
-#   production  → manual deploy (Docker Compose) + auto validate
+#   production  → manual deploy (OrbStack K8s) + auto validate
 #   MR          → lint + test + review app
 
 stages:
@@ -743,7 +743,7 @@ deploy:staging:traffic:
       allow_failure: false
 
 # ---------------------------------------------------------------------------
-# Production — manual deploy + auto validate (Docker Compose + Cloudflare Tunnel)
+# Production — manual deploy + auto validate (OrbStack K8s + Cloudflare Tunnel)
 # All CI (lint/test/build) already passed on development branch.
 # ---------------------------------------------------------------------------
 
@@ -786,9 +786,17 @@ deploy:production:
       -f apps/admin-frontend/Dockerfile -t epsx-admin-frontend:prod .
     # Build backend
     - docker build -f apps/backend/Dockerfile -t epsx-backend:prod .
-    # Deploy via Docker Compose
-    - cd infrastructure/docker
-    - docker compose --env-file /tmp/.env.prod -f docker-compose.prod.yml up -d --force-recreate
+    # Deploy via OrbStack K8s
+    - apk add --no-cache curl
+    - curl -LO "https://dl.k8s.io/release/v1.33.0/bin/linux/arm64/kubectl"
+    - install kubectl /usr/local/bin/kubectl
+    - kubectl apply -k infrastructure/kubernetes/overlays/prod/
+    - kubectl -n epsx-prod rollout restart deployment/epsx-backend
+    - kubectl -n epsx-prod rollout restart deployment/epsx-frontend
+    - kubectl -n epsx-prod rollout restart deployment/epsx-admin
+    - kubectl -n epsx-prod rollout status deployment/epsx-backend --timeout=120s
+    - kubectl -n epsx-prod rollout status deployment/epsx-frontend --timeout=120s
+    - kubectl -n epsx-prod rollout status deployment/epsx-admin --timeout=120s
   environment:
     name: production
     url: https://epsx.io

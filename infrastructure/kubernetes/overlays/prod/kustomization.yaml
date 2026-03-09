@@ -5,21 +5,19 @@ namespace: epsx-prod
 
 resources:
   - ../../base
-  - pvcs.yaml
-  - cloudflared/deployment.yaml
-  - cloudflared/service.yaml
-  - cloudflared/configmap.yaml
 
 images:
   - name: registry.jesadakorn.com/jesadakorn/epsx/backend
-    newTag: prod-latest
+    newName: epsx-backend
+    newTag: prod
   - name: registry.jesadakorn.com/jesadakorn/epsx/frontend
-    newTag: prod-latest
+    newName: epsx-frontend
+    newTag: prod
   - name: registry.jesadakorn.com/jesadakorn/epsx/admin
-    newTag: prod-latest
+    newName: epsx-admin-frontend
+    newTag: prod
 
 patches:
   - path: patches/replicas.yaml
   - path: patches/resources.yaml
-  - path: patches/postgres-conf.yaml
-  - path: patches/redis-conf.yaml
+  - path: patches/services-nodeport.yaml

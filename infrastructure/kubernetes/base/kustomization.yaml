@@ -3,15 +3,6 @@ kind: Kustomization
 
 resources:
   - namespace.yaml
-  - postgres/statefulset.yaml
-  - postgres/service.yaml
-  - postgres/configmap-init.yaml
-  - postgres/configmap-postgres.yaml
-  - redis/statefulset.yaml
-  - redis/service.yaml
-  - redis/configmap.yaml
-  - minio/statefulset.yaml
-  - minio/service.yaml
   - backend/deployment.yaml
   - backend/service.yaml
   - frontend/deployment.yaml

@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: epsx-backend
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: epsx-frontend
+spec:
+  type: NodePort
+  ports:
+    - port: 3000
+      targetPort: 3000
+      nodePort: 30000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: epsx-admin
+spec:
+  type: NodePort
+  ports:
+    - port: 3000
+      targetPort: 3000
+      nodePort: 30001
