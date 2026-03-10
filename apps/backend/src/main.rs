@@ -59,6 +59,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Seed system admin plans (idempotent)
     epsx::infrastructure::services::seed_system_admin_plans(_db_pool).await;
 
+    // Seed production news (idempotent)
+    epsx::infrastructure::services::seed_production_news(_db_pool).await;
+
     // Create cache (optional)
     let redis_timeout = std::time::Duration::from_secs(5);
     let cache = match std::env::var("REDIS_URL").ok() {

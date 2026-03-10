@@ -35,15 +35,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Multiple Diesel configs: `diesel.toml`, `diesel_analytics.toml`, `diesel_notifications.toml`, `diesel_payments.toml`
 - **Migration safety**: Never drop/delete existing data unless the structural change requires it. Prefer `ALTER TABLE ADD/RENAME` over `DROP`+recreate. Use `IF EXISTS`/`IF NOT EXISTS` guards.
 
-### Deployment (Local Docker + Cloudflare Tunnel)
+### Deployment (Colima K8s + Cloudflare Tunnel)
 **CRITICAL: Never deploy to production unless explicitly instructed by the user. Making code changes locally is always safe; deploying to prod requires explicit user confirmation each time.**
 
-Production runs locally via Docker Compose with Cloudflare Tunnel exposing services.
+Production runs locally via Colima Kubernetes (multi-architecture supported) with Cloudflare Tunnel exposing services via NodePorts.
 
 **Quick deploy (restart with existing images):**
 ```bash
-cd infrastructure/docker
-docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --force-recreate
+kubectl apply -k infrastructure/kubernetes/overlays/prod
+kubectl rollout restart deployment -n epsx-prod
 ```
 
 **Full rebuild & deploy:**
@@ -83,27 +83,32 @@ docker build \
 # Build backend
 docker build -f apps/backend/Dockerfile -t epsx-backend:prod .
 
-# Deploy
-cd infrastructure/docker
-docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --force-recreate
+# Create/update K8s secrets
+./infrastructure/kubernetes/scripts/create-secrets.sh prod
+
+# Deploy to K8s
+kubectl apply -k infrastructure/kubernetes/overlays/prod
 ```
 
 **Key files:**
-- `infrastructure/docker/docker-compose.prod.yml` - Service definitions
-- `infrastructure/docker/.env.prod` - Env vars (DB creds, JWT secrets, tunnel token)
-- `~/.cloudflared/config.yml` - Tunnel ingress routes
+- `infrastructure/kubernetes/base/` - Base K8s manifests (deployments + services)
+- `infrastructure/kubernetes/overlays/prod/` - Prod patches (replicas, resources, NodePorts)
+- `infrastructure/kubernetes/scripts/create-secrets.sh` - Secret creation from env file
+- `infrastructure/docker/.env.prod` - Env vars (single source of truth)
+- `infrastructure/cloudflare/cloudflared-config.prod.yml` - Tunnel routes
 
 **Services & ports:**
-| Service | Container | Host Port |
-|---------|-----------|-----------|
-| Frontend | epsx-prod-frontend | 4700 |
-| Admin | epsx-prod-admin | 4701 |
-| Backend | epsx-prod-backend | 9180 |
+| Service | K8s Deployment | NodePort |
+|---------|---------------|----------|
+| Frontend | epsx-frontend | 30000 |
+| Admin | epsx-admin | 30001 |
+| Backend | epsx-backend | 30080 |
 | PostgreSQL | bare metal (brew) | 5432 |
-| Redis | epsx-prod-redis | 6342 |
-| Cloudflared | epsx-prod-cloudflared | - |
+| Redis | bare metal (brew) | 6379 |
+| MinIO | bare metal (launchctl) | 9100 |
+| Cloudflared | bare metal (launchctl) | — |
 
-**Cloudflare Tunnel:** Config mounted from `~/.cloudflared/`. Routes: `epsx.io` -> frontend:3000, `admin.epsx.io` -> admin:3000, `api.epsx.io` -> backend:8080. Token stored in `.env.prod` as `CLOUDFLARE_TUNNEL_TOKEN`. Refresh with `cloudflared tunnel token epsx-prod`.
+**Cloudflare Tunnel:** Routes `epsx.io` → NodePort 30000, `admin.epsx.io` → NodePort 30001, `api.epsx.io` → NodePort 30080, `minio.epsx.io` → localhost:9100. Config at `infrastructure/cloudflare/cloudflared-config.prod.yml`. Cloudflared runs as bare-metal launchctl service.
 
 **Verify:**
 ```bash
@@ -112,25 +117,24 @@ curl -s -o /dev/null -w "%{http_code}" https://epsx.io        # Frontend
 curl -s -o /dev/null -w "%{http_code}" https://admin.epsx.io  # Admin (307 = OK, redirects to auth)
 ```
 
-**Troubleshooting - 502 / "Unable to reach origin service":**
+**Troubleshooting:**
+```bash
+# Check pod status
+kubectl get pods -n epsx-prod
 
-Cloudflared uses Docker service names (`backend`, `frontend`, `admin-frontend`) for routing. When a container is restarted manually (outside docker compose), its service name DNS alias may not be re-registered in the Docker network. Diagnose:
-```bash
-docker run --rm --network epsx_prod_network alpine nslookup backend
-# If NXDOMAIN → DNS alias is missing
+# Check pod logs
+kubectl logs -n epsx-prod deployment/epsx-backend
+
+# Restart a deployment
+kubectl rollout restart deployment/epsx-backend -n epsx-prod
+
+# Check init container (migration) logs
+kubectl logs -n epsx-prod deployment/epsx-backend -c migrate
+
+# Validate deployment
+./infrastructure/kubernetes/scripts/validate.sh prod
 ```
-Fix without full redeploy (briefly disconnects backend from network):
-```bash
-docker network disconnect epsx_prod_network epsx-prod-backend
-docker network connect --alias backend epsx_prod_network epsx-prod-backend
-docker restart epsx-prod-cloudflared
-```
-Fix via full redeploy (preferred):
-```bash
-cd infrastructure/docker
-docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --force-recreate
-```
-**Rule:** Always use `docker compose up --force-recreate` to restart containers, never `docker restart <container>` alone.
+**Rule:** Always use `kubectl apply -k` or `kubectl rollout restart` — never delete and recreate pods manually.
 
 ## Architecture Constraints
 
@@ -155,7 +159,7 @@ apps/
   backend/          # Rust + Axum - API server (:8080)
   contracts/        # Solidity (Forge) - BSC smart contracts
 shared/             # Consolidated TS modules shared across frontends
-infrastructure/     # Docker & Cloudflare config
+infrastructure/     # Kubernetes, Docker & Cloudflare config
 packages/           # NPM packages
 scripts/            # Build & deployment scripts
 ```
@@ -246,7 +250,7 @@ API_ROUTES.USERS.WATCHLIST         // '/api/users/watchlist' (GET/POST/DELETE)
 - `/dashboard` - User dashboard
 
 ### Infrastructure
-- **Host**: Local Mac Mini (arm64) via Docker Compose + Cloudflare Tunnel
+- **Host**: Local Mac Mini (arm64) via OrbStack K8s + Cloudflare Tunnel
 - **DB**: PostgreSQL (`epsx_prod`, `epsx_dev`), Redis (DB 0: Dev, DB 1: Prod)
 - **Prod**: epsx.io / admin.epsx.io / api.epsx.io
 - **Dev**: dev.epsx.io / dev-admin.epsx.io / dev-api.epsx.io

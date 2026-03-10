@@ -2,7 +2,7 @@
 # Cloudflare Tunnel Configuration - EPSX Production
 # ============================================================================
 # Routes epsx.io / admin.epsx.io / api.epsx.io
-# to OrbStack K8s NodePort services on localhost.
+# to Colima K8s NodePort services on localhost.
 
 tunnel: 6bee9b58-eede-4b4c-815c-94c0ee38fe58
 credentials-file: /etc/cloudflared/6bee9b58-eede-4b4c-815c-94c0ee38fe58.json
