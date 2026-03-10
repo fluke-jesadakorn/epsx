@@ -129,7 +129,7 @@ export default async function ServerTopPerformers({ className }: ServerTopPerfor
   }
 
   return (
-    <div className={`container mx-auto px-4 py-12 ${className ?? ''}`}>
+    <div className={`container mx-auto px-4 py-16 sm:py-24 lg:py-32 ${className ?? ''}`}>
       <div className="relative">
         <div className="absolute -top-8 -left-8 h-16 w-16 rounded-full bg-gradient-to-br from-orange-400/20 to-yellow-400/20 dark:from-orange-600/10 dark:to-yellow-600/10 blur-xl" />
         <div className="absolute -right-8 -bottom-8 h-20 w-20 rounded-full bg-gradient-to-br from-blue-400/20 to-cyan-400/20 dark:from-blue-700/10 dark:to-cyan-700/10 blur-xl" />

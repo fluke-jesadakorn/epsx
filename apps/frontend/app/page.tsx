@@ -10,7 +10,7 @@ export const revalidate = 60;
 // Loading skeleton for Top Performers section
 function TopPerformersLoading() {
   return (
-    <div className="container mx-auto px-4 py-12">
+    <div className="container mx-auto px-4 py-16 sm:py-24 lg:py-32">
       <div className="relative">
         <div className="flex w-full flex-col gap-8">
           <div className="mb-6 space-y-4 text-center">
