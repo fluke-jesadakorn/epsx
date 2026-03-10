@@ -34,7 +34,7 @@ spec:
                   name: epsx-postgres
                   key: POSTGRES_DB
             - name: DATABASE_URL
-              value: "postgresql://$(DB_USER):$(DB_PASSWORD)@host.internal:5432/$(DB_NAME)?sslmode=disable"
+              value: "postgresql://$(DB_USER):$(DB_PASSWORD)@host.docker.internal:5432/$(DB_NAME)?sslmode=disable"
             - name: PAYMENTS_DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -58,7 +58,7 @@ spec:
             - secretRef:
                 name: epsx-backend
           env:
-            # Connection overrides (bare-metal services via OrbStack host.internal)
+            # Connection overrides (bare-metal services via Colima host.docker.internal)
             - name: DB_USER
               valueFrom:
                 secretKeyRef:
@@ -75,14 +75,14 @@ spec:
                   name: epsx-postgres
                   key: POSTGRES_DB
             - name: DATABASE_URL
-              value: "postgresql://$(DB_USER):$(DB_PASSWORD)@host.internal:5432/$(DB_NAME)?sslmode=disable"
+              value: "postgresql://$(DB_USER):$(DB_PASSWORD)@host.docker.internal:5432/$(DB_NAME)?sslmode=disable"
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: epsx-redis
                   key: REDIS_PASSWORD
             - name: REDIS_URL
-              value: "redis://:$(REDIS_PASSWORD)@host.internal:6379"
+              value: "redis://:$(REDIS_PASSWORD)@host.docker.internal:6379"
             - name: MINIO_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
@@ -99,7 +99,7 @@ spec:
                   name: epsx-minio
                   key: MINIO_PUBLIC_URL
             - name: MINIO_ENDPOINT
-              value: "http://host.internal:9100"
+              value: "http://host.docker.internal:9100"
             - name: HOST
               value: "0.0.0.0"
             - name: PORT

@@ -9,7 +9,7 @@
 #   ./create-secrets.sh prod
 #
 # Expects env file at: /Users/fluke/epsx-runner/envs/.env.<env>
-# Requires: kubectl with KUBECONFIG pointing to OrbStack K8s
+# Requires: kubectl with KUBECONFIG pointing to Colima K8s
 
 set -euo pipefail
 
@@ -19,7 +19,11 @@ if [[ -z "$TARGET_ENV" ]]; then
   exit 1
 fi
 
-ENV_FILE="/Users/fluke/epsx-runner/envs/.env.${TARGET_ENV}"
+# Determine script root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+
+ENV_FILE="${PROJECT_ROOT}/infrastructure/docker/.env.${TARGET_ENV}"
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "Error: env file not found: $ENV_FILE" >&2
   exit 1
@@ -103,9 +107,9 @@ apply_secret epsx-backend \
   --from-literal=BSC_TESTNET_REQUIRED_CONFIRMATIONS="${BSC_TESTNET_REQUIRED_CONFIRMATIONS:-1}" \
   --from-literal=MAX_PAYMENT_AGE_MINUTES="${MAX_PAYMENT_AGE_MINUTES:-60}" \
   --from-literal=TURNSTILE_SECRET_KEY="${TURNSTILE_SECRET_KEY:-}" \
-  --from-literal=PAYMENTS_DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@host.internal:5432/epsx_payments_${DB_SUFFIX}?sslmode=disable" \
-  --from-literal=ANALYTICS_DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@host.internal:5432/epsx_analytics_${DB_SUFFIX}?sslmode=disable" \
-  --from-literal=NOTIFICATIONS_DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@host.internal:5432/epsx_notifications_${DB_SUFFIX}?sslmode=disable"
+  --from-literal=PAYMENTS_DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_payments_${DB_SUFFIX}?sslmode=disable" \
+  --from-literal=ANALYTICS_DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_analytics_${DB_SUFFIX}?sslmode=disable" \
+  --from-literal=NOTIFICATIONS_DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_notifications_${DB_SUFFIX}?sslmode=disable"
 
 # ── epsx-frontend ─────────────────────────────────────────────────────────────
 apply_secret epsx-frontend \
