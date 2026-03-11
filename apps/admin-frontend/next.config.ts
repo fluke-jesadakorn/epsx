@@ -26,6 +26,10 @@ const nextConfig: NextConfig = {
         source: '/minio-img/:path*',
         destination: `${minioEndpoint}/:path*`,
       },
+      {
+        source: '/news-img/:path*',
+        destination: `${minioEndpoint}/news/:path*`,
+      },
     ];
   },
 
