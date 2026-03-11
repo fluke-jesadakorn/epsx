@@ -14,7 +14,7 @@ spec:
     spec:
       initContainers:
         - name: migrate
-          image: registry.jesadakorn.com/jesadakorn/epsx/backend:prod-latest
+          image: epsx-backend:prod
           imagePullPolicy: IfNotPresent
           command: ["./migrate", "up"]
           envFrom:
@@ -38,7 +38,7 @@ spec:
                   key: POSTGRES_DB
       containers:
         - name: epsx-backend
-          image: registry.jesadakorn.com/jesadakorn/epsx/backend:prod-latest
+          image: epsx-backend:prod
           imagePullPolicy: IfNotPresent
           envFrom:
             - secretRef:
