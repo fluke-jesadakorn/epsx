@@ -26,6 +26,8 @@ variables:
   CI_REGISTRY_IMAGE: "registry.jesadakorn.com/jesadakorn/epsx"
   BUILDX_PLATFORMS: "linux/arm64"
   KUBECTL_VERSION: "v1.33.0"
+  DOCKER_HOST: unix:///var/run/docker.sock
+  DOCKER_TLS_CERTDIR: ""
 
 # ---------------------------------------------------------------------------
 # Templates
