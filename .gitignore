@@ -102,3 +102,6 @@ eslint-output.txt
 # Design Files
 webDesign/
 .worktrees/
+infrastructure/kubernetes/base/backend/secret.yaml
+infrastructure/kubernetes/kubeconfig-colima-insecure.yaml
+infrastructure/kubernetes/snapshots/

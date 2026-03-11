@@ -1,0 +1,6 @@
+[registry."registry.jesadakorn.com:5050"]
+  http = true
+  insecure = true
+[registry."epsx-gitlab"]
+  http = true
+  insecure = true

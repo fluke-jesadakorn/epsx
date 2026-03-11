@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.epsx.port-bridge</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-c</string>
+        <string>/opt/homebrew/bin/socat TCP-LISTEN:4701,fork,reuseaddr TCP:127.0.0.1:30001 & /opt/homebrew/bin/socat TCP-LISTEN:4700,fork,reuseaddr TCP:127.0.0.1:30000 & /opt/homebrew/bin/socat TCP-LISTEN:9180,fork,reuseaddr TCP:127.0.0.1:30080 & wait</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/port-bridge.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/port-bridge.err</string>
+</dict>
+</plist>

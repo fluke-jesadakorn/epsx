@@ -11,12 +11,12 @@ The project follows a modular monorepo structure where logic is centralized in `
 - **`apps/backend`**: High-performance API (Rust, Axum, Diesel ORM, CQRS).
 - **`apps/contracts`**: BSC Smart Contracts (Solidity, Foundry).
 - **`shared/`**: Single source of truth for UI components, API clients, and domain types.
-- **`infrastructure/`**: Kubernetes manifests (Colima), Docker, and Cloudflare Tunnel configs.
+- **`infrastructure/`**: Kubernetes manifests (**Colima**), Docker, and Cloudflare Tunnel configs.
 
 ### Technical Stack
 - **Frontend**: Next.js 16 (App Router), React 19, Tailwind CSS v4, Zustand, TanStack Query v5.
 - **Backend**: Rust (Axum), Diesel ORM (Async), PostgreSQL, Redis (Streams for CQRS), SIWE.
-- **Infrastructure**: Colima K8s (multi-architecture), Cloudflare Tunnel, MinIO (S3-compatible).
+- **Infrastructure**: **Colima Kubernetes (k3s)**, Cloudflare Tunnel, MinIO (Bare Metal).
 
 ## 🛠 Core Development Commands
 
@@ -42,34 +42,30 @@ The project follows a modular monorepo structure where logic is centralized in `
 
 ### Permissions & Plan Logic (CRITICAL)
 - **Backend Only**: All business logic for permissions, plan access, ranking offsets, and feature flags **must be implemented in the Rust backend**.
-- **UI-Only Frontends**: Frontends must never compute, derive, or parse permission strings (e.g., `epsx:rankings:offset:N`). They only display data returned by the API.
+- **UI-Only Frontends**: Frontends must never compute, derive, or parse permission strings. They only display data returned by the API.
 
 ### Backend (Rust/Axum) - Clean Architecture + CQRS
 - **Domain-Driven Design (DDD)**: Logic split into `domain`, `application`, `infrastructure`, and `web`.
-- **CQRS**: Utilizes Redis Streams for domain event publishing and `ProjectionManager` for read models.
-- **Migration Safety**: Never drop data. Prefer `ALTER TABLE` and use `IF EXISTS`/`IF NOT EXISTS` guards.
-- **Dependency Injection**: Use `DomainContainer` (created in `main.rs`) passed to all routes.
+- **Session Persistence**: Uses persistent RSA keys (secret `epsx-backend-keys`) to maintain user sessions across restarts.
+- **Dependency Injection**: Use `DomainContainer` passed to all routes.
 
-### Frontend (Next.js 16)
-- **Server Components First**: Default to RSC over Client Components.
-- **Server Actions**: Use `'use server'` for data fetching; avoid client-side `fetch` or SWR.
-- **Optimistic Updates**: Use `useTransition` + Context for instant feedback (e.g., watchlist changes).
-- **Shared First**: Always check `shared/` for components, hooks, or utils before creating new ones.
+### Infrastructure & Networking
+- **Host Connectivity**: Pods reach host services (DB/Redis) via `host.docker.internal`, mapped to `192.168.5.1` via `hostAliases`.
+- **Port Bridging**: `socat` bridges map legacy Docker ports (4700, 4701, 9180) to Kubernetes NodePorts (30000, 30001, 30080) for Cloudflare Tunnel compatibility.
 
 ## 🔑 Authentication & Security
 - **Web3-First**: Sign-In with Ethereum (SIWE). No email/password.
 - **Session**: Secure HttpOnly cookies with JWT (`epsx.` prefix).
 - **IAM Permissions**: Format `"platform:resource:action"` (e.g., `"admin:users:manage"`).
-- **Temporal Access**: Supports expiring permissions via `:unix_timestamp` suffix.
 
 ## 🚀 Deployment (Colima K8s + Cloudflare Tunnel)
 
 **CRITICAL**: Never deploy to production without explicit user confirmation.
 
-Production runs on local Kubernetes (Colima) with Cloudflare Tunnels for ingress.
-- **Frontend NodePort**: 30000
-- **Admin NodePort**: 30001
-- **Backend NodePort**: 30080
+Production runs on local **Colima Kubernetes (k3s)** with Cloudflare Tunnels for ingress.
+- **Frontend NodePort**: 30000 (Legacy Bridge: 4700)
+- **Admin NodePort**: 30001 (Legacy Bridge: 4701)
+- **Backend NodePort**: 30080 (Legacy Bridge: 9180)
 
 ### Quick Redeploy
 ```bash
