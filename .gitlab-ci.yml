@@ -26,6 +26,8 @@ variables:
   CI_REGISTRY_IMAGE: "registry.jesadakorn.com/jesadakorn/epsx"
   BUILDX_PLATFORMS: "linux/arm64"
   KUBECTL_VERSION: "v1.33.0"
+  DOCKER_HOST: unix:///var/run/docker.sock
+  DOCKER_TLS_CERTDIR: ""
 
 # ---------------------------------------------------------------------------
 # Templates
@@ -49,6 +51,8 @@ variables:
 
 .docker-login: &docker-login
   before_script:
+    - export DOCKER_HOST=unix:///var/run/docker.sock
+    - export DOCKER_TLS_CERTDIR=""
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
 
 .kubectl-setup: &kubectl-setup
@@ -76,12 +80,11 @@ variables:
 infra:cloudflared:
   stage: infra
   image: docker:27
-  variables:
-    DOCKER_HOST: unix:///var/run/docker.sock
-    DOCKER_TLS_CERTDIR: ""
   script:
     - *sops-decrypt-prod
     - |
+      export DOCKER_HOST=unix:///var/run/docker.sock
+      export DOCKER_TLS_CERTDIR=""
       docker restart epsx-prod-cloudflared
       sleep 10
       status=$(docker inspect --format='{{.State.Status}}' epsx-prod-cloudflared 2>/dev/null || echo "not_found")
@@ -272,9 +275,6 @@ test:backend:
 build:frontend:
   stage: build
   image: docker:27
-  variables:
-    DOCKER_HOST: unix:///var/run/docker.sock
-    DOCKER_TLS_CERTDIR: ""
   needs:
     - job: "lint:eslint"
       optional: true
@@ -331,9 +331,6 @@ build:frontend:
 build:admin:
   stage: build
   image: docker:27
-  variables:
-    DOCKER_HOST: unix:///var/run/docker.sock
-    DOCKER_TLS_CERTDIR: ""
   needs:
     - job: "lint:eslint"
       optional: true
@@ -383,9 +380,6 @@ build:admin:
 build:backend:
   stage: build
   image: docker:27
-  variables:
-    DOCKER_HOST: unix:///var/run/docker.sock
-    DOCKER_TLS_CERTDIR: ""
   needs:
     - job: test:backend
       optional: true  # backend test may be skipped (no changes)
@@ -420,9 +414,6 @@ build:backend:
 deploy:staging:
   stage: deploy
   image: docker:27
-  variables:
-    DOCKER_HOST: unix:///var/run/docker.sock
-    DOCKER_TLS_CERTDIR: ""
   needs:
     - job: build:backend
     - job: build:frontend
@@ -447,14 +438,13 @@ deploy:staging:
 deploy:production:
   stage: deploy
   image: docker:27
-  variables:
-    DOCKER_HOST: unix:///var/run/docker.sock
-    DOCKER_TLS_CERTDIR: ""
   needs: []
   script:
     - *sops-decrypt-prod
     - grep -v -E '^(RSA_|#|$)' /tmp/.env.prod | sed 's/^\([^=]*\)="\(.*\)"/\1=\2/' | sed "s/^\([^=]*\)=\(.*\)/\1='\2'/" > /tmp/.env.prod.sh
     - set -a && source /tmp/.env.prod.sh && set +a
+    - export DOCKER_HOST=unix:///var/run/docker.sock
+    - export DOCKER_TLS_CERTDIR=""
     - export DOCKER_DEFAULT_PLATFORM=$DOCKER_PLATFORM
     # Build frontend
     - >
@@ -468,7 +458,7 @@ deploy:production:
       --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID
       --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=${NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET:-}
       --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=${NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET:-}
-      --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}
+      --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
       -f apps/frontend/Dockerfile -t epsx-frontend:prod .
     # Build admin
     - >
@@ -533,9 +523,6 @@ validate:production:
 review:deploy:
   stage: deploy
   image: docker:27
-  variables:
-    DOCKER_HOST: unix:///var/run/docker.sock
-    DOCKER_TLS_CERTDIR: ""
   <<: *docker-login
   script:
     - >
@@ -587,12 +574,12 @@ review:deploy:
 review:stop:
   stage: deploy
   image: docker:27
-  variables:
-    DOCKER_HOST: unix:///var/run/docker.sock
-    DOCKER_TLS_CERTDIR: ""
   script:
-    - docker rm -f epsx-review-mr-${CI_MERGE_REQUEST_IID} || true
-    - docker rmi $CI_REGISTRY_IMAGE/review:mr-${CI_MERGE_REQUEST_IID} || true
+    - |
+      export DOCKER_HOST=unix:///var/run/docker.sock
+      export DOCKER_TLS_CERTDIR=""
+      docker rm -f epsx-review-mr-${CI_MERGE_REQUEST_IID} || true
+      docker rmi $CI_REGISTRY_IMAGE/review:mr-${CI_MERGE_REQUEST_IID} || true
   environment:
     name: review/mr-${CI_MERGE_REQUEST_IID}
     action: stop
