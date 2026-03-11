@@ -60,12 +60,17 @@ variables:
   - curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/arm64/kubectl"
   - install kubectl /usr/local/bin/kubectl
   - |
-    if [ ! -f ~/.kube/config ] && [ -n "$KUBECONFIG_CONTENT" ]; then
+    if [ -f ~/.kube/config ]; then
+      echo "Using mounted kubeconfig..."
+      cp ~/.kube/config /tmp/kubeconfig
+    elif [ -n "$KUBECONFIG_CONTENT" ]; then
       echo "Setting up kubeconfig from variable..."
-      mkdir -p ~/.kube
-      echo "$KUBECONFIG_CONTENT" > ~/.kube/config
-      chmod 600 ~/.kube/config
+      echo "$KUBECONFIG_CONTENT" > /tmp/kubeconfig
+    else
+      echo "ERROR: No kubeconfig found!" && exit 1
     fi
+  - export KUBECONFIG=/tmp/kubeconfig
+  - chmod 600 /tmp/kubeconfig
   - echo "Available contexts:"
   - kubectl config get-contexts
   - kubectl config use-context colima-epsx
