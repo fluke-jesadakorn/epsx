@@ -16,8 +16,12 @@ const nextConfig: NextConfig = {
   },
 
   async rewrites() {
-    const minioEndpoint = process.env.MINIO_ENDPOINT ?? 'http://localhost:9200';
+    const minioEndpoint = process.env.MINIO_ENDPOINT ?? 'http://localhost:9100';
     return [
+      {
+        source: '/media-proxy/:path*',
+        destination: `${minioEndpoint}/:path*`,
+      },
       {
         source: '/minio-img/:path*',
         destination: `${minioEndpoint}/:path*`,

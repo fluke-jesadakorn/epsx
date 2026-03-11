@@ -146,7 +146,13 @@ function getBackendUrl(): string {
 }
 
 function isIpOrLocalhost(hostname: string): boolean {
-  return hostname === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(hostname);
+  return (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === 'minio.epsx.io' ||
+    hostname.startsWith('minio-') ||
+    /^\d+\.\d+\.\d+\.\d+$/.test(hostname)
+  );
 }
 
 export function resolveNewsImageUrl(coverImageUrl: string | null | undefined): string | null {
