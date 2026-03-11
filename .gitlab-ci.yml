@@ -59,9 +59,15 @@ variables:
   - apk add --no-cache curl
   - curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/arm64/kubectl"
   - install kubectl /usr/local/bin/kubectl
-  - mkdir -p ~/.kube
-  - echo "$KUBECONFIG_CONTENT" > ~/.kube/config
-  - chmod 600 ~/.kube/config
+  - |
+    if [ ! -f ~/.kube/config ] && [ -n "$KUBECONFIG_CONTENT" ]; then
+      echo "Setting up kubeconfig from variable..."
+      mkdir -p ~/.kube
+      echo "$KUBECONFIG_CONTENT" > ~/.kube/config
+      chmod 600 ~/.kube/config
+    fi
+  - echo "Available contexts:"
+  - kubectl config get-contexts
   - kubectl config use-context colima-epsx
 
 .rules-lint-test: &rules-lint-test
