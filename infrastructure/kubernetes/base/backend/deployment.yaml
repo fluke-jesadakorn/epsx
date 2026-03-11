@@ -17,6 +17,9 @@ spec:
           image: registry.jesadakorn.com/jesadakorn/epsx/backend:prod-latest
           imagePullPolicy: IfNotPresent
           command: ["./migrate", "up"]
+          envFrom:
+            - secretRef:
+                name: epsx-backend
           env:
             - name: DB_USER
               valueFrom:
@@ -33,23 +36,6 @@ spec:
                 secretKeyRef:
                   name: epsx-postgres
                   key: POSTGRES_DB
-            - name: DATABASE_URL
-              value: "postgresql://$(DB_USER):$(DB_PASSWORD)@host.docker.internal:5432/$(DB_NAME)?sslmode=disable"
-            - name: PAYMENTS_DATABASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: epsx-backend
-                  key: PAYMENTS_DATABASE_URL
-            - name: ANALYTICS_DATABASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: epsx-backend
-                  key: ANALYTICS_DATABASE_URL
-            - name: NOTIFICATIONS_DATABASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: epsx-backend
-                  key: NOTIFICATIONS_DATABASE_URL
       containers:
         - name: epsx-backend
           image: registry.jesadakorn.com/jesadakorn/epsx/backend:prod-latest
@@ -74,8 +60,6 @@ spec:
                 secretKeyRef:
                   name: epsx-postgres
                   key: POSTGRES_DB
-            - name: DATABASE_URL
-              value: "postgresql://$(DB_USER):$(DB_PASSWORD)@host.docker.internal:5432/$(DB_NAME)?sslmode=disable"
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
