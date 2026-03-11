@@ -1,0 +1,60 @@
+# Staging resource limits
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-backend
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: migrate
+          resources:
+            limits:
+              memory: 256Mi
+              cpu: "0.5"
+            requests:
+              memory: 64Mi
+              cpu: "0.1"
+      containers:
+        - name: epsx-backend
+          resources:
+            limits:
+              memory: 1Gi
+              cpu: "2"
+            requests:
+              memory: 256Mi
+              cpu: "0.5"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-frontend
+spec:
+  template:
+    spec:
+      containers:
+        - name: epsx-frontend
+          resources:
+            limits:
+              memory: 512Mi
+              cpu: "1"
+            requests:
+              memory: 128Mi
+              cpu: "0.25"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-admin
+spec:
+  template:
+    spec:
+      containers:
+        - name: epsx-admin
+          resources:
+            limits:
+              memory: 512Mi
+              cpu: "1"
+            requests:
+              memory: 128Mi
+              cpu: "0.25"

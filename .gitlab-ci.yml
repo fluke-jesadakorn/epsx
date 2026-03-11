@@ -3,8 +3,8 @@
 #
 # Branches:
 #   development → lint + test + build (all CI)
-#   staging     → build + manual revision deploy (Traefik, Docker Compose)
-#   production  → manual deploy (OrbStack K8s) + auto validate
+#   staging     → build + manual deploy (Colima K8s)
+#   production  → manual deploy (Colima K8s) + auto validate
 #   MR          → lint + test + review app
 
 stages:
@@ -25,6 +25,7 @@ variables:
   CI_REGISTRY: "registry.jesadakorn.com"
   CI_REGISTRY_IMAGE: "registry.jesadakorn.com/jesadakorn/epsx"
   BUILDX_PLATFORMS: "linux/arm64"
+  KUBECTL_VERSION: "v1.33.0"
 
 # ---------------------------------------------------------------------------
 # Templates
@@ -49,6 +50,15 @@ variables:
 .docker-login: &docker-login
   before_script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+
+.kubectl-setup: &kubectl-setup
+  - apk add --no-cache curl
+  - curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/arm64/kubectl"
+  - install kubectl /usr/local/bin/kubectl
+  - mkdir -p ~/.kube
+  - echo "$KUBECONFIG_CONTENT" > ~/.kube/config
+  - chmod 600 ~/.kube/config
+  - kubectl config use-context colima-epsx
 
 .rules-lint-test: &rules-lint-test
   rules:
@@ -286,24 +296,9 @@ build:frontend:
       .
     - docker push $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-$IMAGE_TAG
     - docker push $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-latest
-    - |
-      if [ "$CI_COMMIT_BRANCH" = "staging" ]; then
-        docker tag $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-$IMAGE_TAG $CI_REGISTRY_IMAGE/frontend:staging-rev-$CI_PIPELINE_IID
-        docker push $CI_REGISTRY_IMAGE/frontend:staging-rev-$CI_PIPELINE_IID
-        echo "FRONTEND_REV_IMAGE=$CI_REGISTRY_IMAGE/frontend:staging-rev-$CI_PIPELINE_IID" >> deploy.env
-        echo "REVISION=staging-rev-$CI_PIPELINE_IID" >> deploy.env
-      fi
-    - |
-      echo "image: $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-$IMAGE_TAG" > build-manifest.txt
-      echo "commit: $CI_COMMIT_SHA" >> build-manifest.txt
-      echo "branch: $CI_COMMIT_BRANCH" >> build-manifest.txt
-      echo "built_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> build-manifest.txt
-      echo "FRONTEND_IMAGE=$CI_REGISTRY_IMAGE/frontend:$ENV_TAG-$IMAGE_TAG" >> deploy.env
   artifacts:
     reports:
-      dotenv: deploy.env
-    paths: [build-manifest.txt]
-    expire_in: 90 days
+      dotenv: build.env
   timeout: 30 minutes
   rules:
     - if: $CI_COMMIT_BRANCH == "production"
@@ -355,24 +350,6 @@ build:admin:
       .
     - docker push $CI_REGISTRY_IMAGE/admin:$ENV_TAG-$IMAGE_TAG
     - docker push $CI_REGISTRY_IMAGE/admin:$ENV_TAG-latest
-    - |
-      if [ "$CI_COMMIT_BRANCH" = "staging" ]; then
-        docker tag $CI_REGISTRY_IMAGE/admin:$ENV_TAG-$IMAGE_TAG $CI_REGISTRY_IMAGE/admin:staging-rev-$CI_PIPELINE_IID
-        docker push $CI_REGISTRY_IMAGE/admin:staging-rev-$CI_PIPELINE_IID
-        echo "ADMIN_REV_IMAGE=$CI_REGISTRY_IMAGE/admin:staging-rev-$CI_PIPELINE_IID" >> deploy.env
-        echo "REVISION=staging-rev-$CI_PIPELINE_IID" >> deploy.env
-      fi
-    - |
-      echo "image: $CI_REGISTRY_IMAGE/admin:$ENV_TAG-$IMAGE_TAG" > build-manifest.txt
-      echo "commit: $CI_COMMIT_SHA" >> build-manifest.txt
-      echo "branch: $CI_COMMIT_BRANCH" >> build-manifest.txt
-      echo "built_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> build-manifest.txt
-      echo "ADMIN_IMAGE=$CI_REGISTRY_IMAGE/admin:$ENV_TAG-$IMAGE_TAG" >> deploy.env
-  artifacts:
-    reports:
-      dotenv: deploy.env
-    paths: [build-manifest.txt]
-    expire_in: 90 days
   timeout: 30 minutes
   rules:
     - if: $CI_COMMIT_BRANCH == "production"
@@ -411,24 +388,6 @@ build:backend:
       .
     - docker push $CI_REGISTRY_IMAGE/backend:$ENV_TAG-$IMAGE_TAG
     - docker push $CI_REGISTRY_IMAGE/backend:$ENV_TAG-latest
-    - |
-      if [ "$CI_COMMIT_BRANCH" = "staging" ]; then
-        docker tag $CI_REGISTRY_IMAGE/backend:$ENV_TAG-$IMAGE_TAG $CI_REGISTRY_IMAGE/backend:staging-rev-$CI_PIPELINE_IID
-        docker push $CI_REGISTRY_IMAGE/backend:staging-rev-$CI_PIPELINE_IID
-        echo "BACKEND_REV_IMAGE=$CI_REGISTRY_IMAGE/backend:staging-rev-$CI_PIPELINE_IID" >> deploy.env
-        echo "REVISION=staging-rev-$CI_PIPELINE_IID" >> deploy.env
-      fi
-    - |
-      echo "image: $CI_REGISTRY_IMAGE/backend:$ENV_TAG-$IMAGE_TAG" > build-manifest.txt
-      echo "commit: $CI_COMMIT_SHA" >> build-manifest.txt
-      echo "branch: $CI_COMMIT_BRANCH" >> build-manifest.txt
-      echo "built_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> build-manifest.txt
-      echo "BACKEND_IMAGE=$CI_REGISTRY_IMAGE/backend:$ENV_TAG-$IMAGE_TAG" >> deploy.env
-  artifacts:
-    reports:
-      dotenv: deploy.env
-    paths: [build-manifest.txt]
-    expire_in: 90 days
   timeout: 30 minutes
   rules:
     - if: $CI_COMMIT_BRANCH == "production"
@@ -443,148 +402,25 @@ build:backend:
         ENV_TAG: staging
 
 # ---------------------------------------------------------------------------
-# Deploy
+# Deploy — Colima K8s
 # ---------------------------------------------------------------------------
-# Shell runner (tags: k8s, arm64, epsx) with kubectl + kubeconfig.
-# Image vars come from build job dotenv artifacts.
 
-
-deploy:staging:revision:
+deploy:staging:
   stage: deploy
   image: docker:27
   needs:
     - job: build:backend
-      artifacts: true
     - job: build:frontend
-      artifacts: true
     - job: build:admin
-      artifacts: true
-  before_script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - docker pull $FRONTEND_REV_IMAGE
-    - docker pull $ADMIN_REV_IMAGE
-    - docker pull $BACKEND_REV_IMAGE
-    - docker tag $FRONTEND_REV_IMAGE epsx-frontend:$REVISION
-    - docker tag $ADMIN_REV_IMAGE    epsx-admin-frontend:$REVISION
-    - docker tag $BACKEND_REV_IMAGE  epsx-backend:$REVISION
-    # Validate staging env vars before deploy
-    - set -a && source /Users/fluke/epsx-runner/envs/.env.staging && set +a
-    - bash infrastructure/scripts/validate-env.sh staging
-    # Start infra (postgres, redis, minio, traefik) if not already running
-    - cd infrastructure/docker && docker compose --env-file /Users/fluke/epsx-runner/envs/.env.staging -f docker-compose.staging.yml up -d postgres redis minio traefik && cd $CI_PROJECT_DIR
-    # Remove any existing containers for this revision before starting fresh
-    - |
-      for c in epsx-staging-frontend-$REVISION epsx-staging-admin-$REVISION epsx-staging-backend-$REVISION; do
-        docker rm -f "$c" || true
-      done
-    # Start frontend revision container
-    - >
-      docker run -d
-      --name epsx-staging-frontend-$REVISION
-      --network epsx_staging_network
-      --restart unless-stopped
-      --memory 512m --cpus 1
-      -e NODE_ENV=production
-      -e PORT=3000
-      -e HOSTNAME=0.0.0.0
-      -e BACKEND_URL=https://staging-api.epsx.io
-      -e NEXT_PUBLIC_BACKEND_URL=https://staging-api.epsx.io
-      epsx-frontend:$REVISION
-    # Start admin revision container
-    - >
-      docker run -d
-      --name epsx-staging-admin-$REVISION
-      --network epsx_staging_network
-      --restart unless-stopped
-      --memory 512m --cpus 1
-      -e NODE_ENV=production
-      -e PORT=3000
-      -e HOSTNAME=0.0.0.0
-      -e BACKEND_URL=https://staging-api.epsx.io
-      -e NEXT_PUBLIC_BACKEND_URL=https://staging-api.epsx.io
-      epsx-admin-frontend:$REVISION
-    # Start backend revision container
-    - >
-      docker run -d
-      --name epsx-staging-backend-$REVISION
-      --network epsx_staging_network
-      --restart unless-stopped
-      --memory 1g --cpus 2
-      --env-file /Users/fluke/epsx-runner/envs/.env.staging
-      epsx-backend:$REVISION
-    # Ensure staging traefik dir exists, then write traffic config
-    - docker run --rm -v /Users/fluke/epsx-runner:/host alpine mkdir -p /host/traefik/staging
-    - |
-      docker run --rm -i \
-        -v /Users/fluke/epsx-runner/traefik/staging:/cfg \
-        alpine sh -c "cat > /cfg/traffic.yml" << EOF
-      http:
-        routers:
-          staging-frontend:
-            entryPoints: [web]
-            rule: "Host(\`staging.epsx.io\`)"
-            service: staging-frontend
-          staging-admin:
-            entryPoints: [web]
-            rule: "Host(\`staging-admin.epsx.io\`)"
-            service: staging-admin
-          staging-api:
-            entryPoints: [web]
-            rule: "Host(\`staging-api.epsx.io\`)"
-            service: staging-api
-        services:
-          staging-frontend:
-            weighted:
-              services:
-                - name: staging-frontend-${REVISION}
-                  weight: 100
-          staging-admin:
-            weighted:
-              services:
-                - name: staging-admin-${REVISION}
-                  weight: 100
-          staging-api:
-            weighted:
-              services:
-                - name: staging-api-${REVISION}
-                  weight: 100
-          staging-frontend-${REVISION}:
-            loadBalancer:
-              servers:
-                - url: "http://epsx-staging-frontend-${REVISION}:3000"
-          staging-admin-${REVISION}:
-            loadBalancer:
-              servers:
-                - url: "http://epsx-staging-admin-${REVISION}:3000"
-          staging-api-${REVISION}:
-            loadBalancer:
-              servers:
-                - url: "http://epsx-staging-backend-${REVISION}:8080"
-      EOF
-    # Keep last 3 staging frontend revisions; remove older (+ paired admin+backend)
-    - |
-      FRONTENDS=$(docker ps -a \
-        --filter "name=epsx-staging-frontend-staging-rev-" \
-        --format "{{.CreatedAt}}\t{{.Names}}" \
-        | sort | awk '{print $NF}')
-      COUNT=$(echo "$FRONTENDS" | grep -c . || true)
-      if [ "$COUNT" -gt 3 ]; then
-        TO_REMOVE=$(echo "$FRONTENDS" | head -n $((COUNT - 3)))
-        for CNAME in $TO_REMOVE; do
-          REV=$(echo "$CNAME" | sed 's/epsx-staging-frontend-//')
-          echo "Removing old revision: $REV"
-          docker rm -f "epsx-staging-frontend-$REV" "epsx-staging-admin-$REV" "epsx-staging-backend-$REV" || true
-        done
-      fi
-    - |
-      echo "revision: $REVISION"        > deploy-manifest.txt
-      echo "commit: $CI_COMMIT_SHA"     >> deploy-manifest.txt
-      echo "pipeline: $CI_PIPELINE_IID" >> deploy-manifest.txt
-      echo "deployed_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> deploy-manifest.txt
-  artifacts:
-    paths: [deploy-manifest.txt]
-    expire_in: 90 days
+    - *kubectl-setup
+    - kubectl apply -k infrastructure/kubernetes/overlays/staging/
+    - kubectl -n epsx-staging rollout restart deployment/epsx-backend
+    - kubectl -n epsx-staging rollout restart deployment/epsx-frontend
+    - kubectl -n epsx-staging rollout restart deployment/epsx-admin
+    - kubectl -n epsx-staging rollout status deployment/epsx-backend --timeout=120s
+    - kubectl -n epsx-staging rollout status deployment/epsx-frontend --timeout=120s
+    - kubectl -n epsx-staging rollout status deployment/epsx-admin --timeout=120s
   environment:
     name: staging
     url: https://staging.epsx.io
@@ -592,160 +428,6 @@ deploy:staging:revision:
   rules:
     - if: $CI_COMMIT_BRANCH == "staging"
       when: manual
-      allow_failure: false
-
-deploy:staging:rollback:
-  stage: deploy
-  image: docker:27
-  variables:
-    ROLLBACK_TO: ""   # set in GitLab UI when triggering (e.g. staging-rev-39)
-  script:
-    - '[ -z "$ROLLBACK_TO" ] && echo "ROLLBACK_TO must be set (e.g. staging-rev-42)" && exit 1'
-    - |
-      docker run --rm -i \
-        -v /Users/fluke/epsx-runner/traefik/staging:/cfg \
-        alpine sh -c "cat > /cfg/traffic.yml" << EOF
-      http:
-        routers:
-          staging-frontend:
-            entryPoints: [web]
-            rule: "Host(\`staging.epsx.io\`)"
-            service: staging-frontend
-          staging-admin:
-            entryPoints: [web]
-            rule: "Host(\`staging-admin.epsx.io\`)"
-            service: staging-admin
-          staging-api:
-            entryPoints: [web]
-            rule: "Host(\`staging-api.epsx.io\`)"
-            service: staging-api
-        services:
-          staging-frontend:
-            weighted:
-              services:
-                - name: staging-frontend-${ROLLBACK_TO}
-                  weight: 100
-          staging-admin:
-            weighted:
-              services:
-                - name: staging-admin-${ROLLBACK_TO}
-                  weight: 100
-          staging-api:
-            weighted:
-              services:
-                - name: staging-api-${ROLLBACK_TO}
-                  weight: 100
-          staging-frontend-${ROLLBACK_TO}:
-            loadBalancer:
-              servers:
-                - url: "http://epsx-staging-frontend-${ROLLBACK_TO}:3000"
-          staging-admin-${ROLLBACK_TO}:
-            loadBalancer:
-              servers:
-                - url: "http://epsx-staging-admin-${ROLLBACK_TO}:3000"
-          staging-api-${ROLLBACK_TO}:
-            loadBalancer:
-              servers:
-                - url: "http://epsx-staging-backend-${ROLLBACK_TO}:8080"
-      EOF
-  environment:
-    name: staging
-    url: https://staging.epsx.io
-  timeout: 5 minutes
-  rules:
-    - if: $CI_COMMIT_BRANCH == "staging"
-      when: manual
-      allow_failure: false
-
-deploy:staging:traffic:
-  stage: deploy
-  image: docker:27
-  variables:
-    REV_A: ""       # e.g. staging-rev-42
-    WEIGHT_A: "80"
-    REV_B: ""       # e.g. staging-rev-43
-    WEIGHT_B: "20"
-  script:
-    - '[ -z "$REV_A" ] && echo "REV_A must be set (e.g. staging-rev-42)" && exit 1'
-    - '[ -z "$REV_B" ] && echo "REV_B must be set (e.g. staging-rev-43)" && exit 1'
-    - |
-      docker run --rm -i \
-        -v /Users/fluke/epsx-runner/traefik/staging:/cfg \
-        alpine sh -c "cat > /cfg/traffic.yml" << EOF
-      http:
-        routers:
-          staging-frontend:
-            entryPoints: [web]
-            rule: "Host(\`staging.epsx.io\`)"
-            service: staging-frontend
-          staging-admin:
-            entryPoints: [web]
-            rule: "Host(\`staging-admin.epsx.io\`)"
-            service: staging-admin
-          staging-api:
-            entryPoints: [web]
-            rule: "Host(\`staging-api.epsx.io\`)"
-            service: staging-api
-        services:
-          staging-frontend:
-            weighted:
-              services:
-                - name: staging-frontend-${REV_A}
-                  weight: ${WEIGHT_A}
-                - name: staging-frontend-${REV_B}
-                  weight: ${WEIGHT_B}
-          staging-admin:
-            weighted:
-              services:
-                - name: staging-admin-${REV_A}
-                  weight: ${WEIGHT_A}
-                - name: staging-admin-${REV_B}
-                  weight: ${WEIGHT_B}
-          staging-api:
-            weighted:
-              services:
-                - name: staging-api-${REV_A}
-                  weight: ${WEIGHT_A}
-                - name: staging-api-${REV_B}
-                  weight: ${WEIGHT_B}
-          staging-frontend-${REV_A}:
-            loadBalancer:
-              servers:
-                - url: "http://epsx-staging-frontend-${REV_A}:3000"
-          staging-admin-${REV_A}:
-            loadBalancer:
-              servers:
-                - url: "http://epsx-staging-admin-${REV_A}:3000"
-          staging-api-${REV_A}:
-            loadBalancer:
-              servers:
-                - url: "http://epsx-staging-backend-${REV_A}:8080"
-          staging-frontend-${REV_B}:
-            loadBalancer:
-              servers:
-                - url: "http://epsx-staging-frontend-${REV_B}:3000"
-          staging-admin-${REV_B}:
-            loadBalancer:
-              servers:
-                - url: "http://epsx-staging-admin-${REV_B}:3000"
-          staging-api-${REV_B}:
-            loadBalancer:
-              servers:
-                - url: "http://epsx-staging-backend-${REV_B}:8080"
-      EOF
-  environment:
-    name: staging
-    url: https://staging.epsx.io
-  timeout: 5 minutes
-  rules:
-    - if: $CI_COMMIT_BRANCH == "staging"
-      when: manual
-      allow_failure: false
-
-# ---------------------------------------------------------------------------
-# Production — manual deploy + auto validate (OrbStack K8s + Cloudflare Tunnel)
-# All CI (lint/test/build) already passed on development branch.
-# ---------------------------------------------------------------------------
 
 deploy:production:
   stage: deploy
@@ -782,14 +464,12 @@ deploy:production:
       --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-admin
       --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=${NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET:-}
       --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=${NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET:-}
-      --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
+      --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}
       -f apps/admin-frontend/Dockerfile -t epsx-admin-frontend:prod .
     # Build backend
     - docker build -f apps/backend/Dockerfile -t epsx-backend:prod .
-    # Deploy via OrbStack K8s
-    - apk add --no-cache curl
-    - curl -LO "https://dl.k8s.io/release/v1.33.0/bin/linux/arm64/kubectl"
-    - install kubectl /usr/local/bin/kubectl
+    # Deploy
+    - *kubectl-setup
     - kubectl apply -k infrastructure/kubernetes/overlays/prod/
     - kubectl -n epsx-prod rollout restart deployment/epsx-backend
     - kubectl -n epsx-prod rollout restart deployment/epsx-frontend
@@ -900,5 +580,3 @@ review:stop:
         - shared/**/*
       when: manual
       allow_failure: true
-
-
