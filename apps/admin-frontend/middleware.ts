@@ -17,6 +17,7 @@ function isTurnstileExempt(pathname: string): boolean {
 }
 
 const PUBLIC_ROUTES = [
+    '/challenge',
     '/login',
     '/auth',
     '/api/auth',

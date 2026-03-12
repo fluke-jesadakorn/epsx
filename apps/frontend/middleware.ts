@@ -19,6 +19,7 @@ function isTurnstileExempt(pathname: string): boolean {
 const authMiddleware = createAuthMiddleware({
     publicRoutes: [
         '/', // Landing page
+        '/challenge',
         '/auth',
         '/access-denied',
         '/unauthorized',
@@ -35,11 +36,11 @@ const authMiddleware = createAuthMiddleware({
         '/news*',       // Public news articles
         '/manual',
         '/upgrade',
-        '/api/auth',
-        '/api/public',
+        '/api/auth*',
+        '/api/public*',
         '/developer/docs/reference',
         '/developer/docs/openapi',
-        '/_next',
+        '/_next*',
         '/favicon.ico',
         '/robots.txt',
         '/sitemap.xml',
