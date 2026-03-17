@@ -352,15 +352,8 @@ export function ChatReplyInput({ onSend, onUpload, onTyping, onResolve, onClose,
     handleSendMsg(msg);
   };
 
-  const handleResolve = () => {
-    if (isPending || (disabled ?? false) || onResolve === undefined) { return; }
-    startTransition(() => { void onResolve(); });
-  };
-
-  const handleClose = () => {
-    if (isPending || (disabled ?? false) || onClose === undefined) { return; }
-    startTransition(() => { void onClose(); });
-  };
+  const handleResolve = () => { if (isPending || (disabled ?? false) || onResolve === undefined) { return; }; startTransition(() => { void onResolve(); }); };
+  const handleClose = () => { if (isPending || (disabled ?? false) || onClose === undefined) { return; }; startTransition(() => { void onClose(); }); };
 
   const handleAssign = (addr: string) => {
     if (isPending || (disabled ?? false) || onAssign === undefined) { return; }

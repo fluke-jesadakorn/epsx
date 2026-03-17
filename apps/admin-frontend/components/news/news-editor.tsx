@@ -259,7 +259,6 @@ function MarkdownEditor({ value, onChange }: { value: string; onChange: (v: stri
 
   const execCmd = useCallback((cmd: string, val?: string) => {
     editorRef.current?.focus();
-    // eslint-disable-next-line @typescript-eslint/no-deprecated
     document.execCommand(cmd, false, val);
   }, []);
 

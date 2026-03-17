@@ -34,6 +34,60 @@ function LoadingButton({ message, className = '' }: {
   );
 }
 
+function MetaInfoItem({ label, icon, value, color }: { label: string; icon?: React.ReactNode; value: React.ReactNode; color?: string }) {
+  return (
+    <div>
+      <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5">{label}</p>
+      <div className="flex items-center gap-1">
+        {icon}
+        <span className={`text-xs font-medium ${color ?? 'text-gray-700 dark:text-gray-300'}`}>{value}</span>
+      </div>
+    </div>
+  );
+}
+
+function MetaInfoGrid({ role, tierLevel, permCount, balance }: { role?: string; tierLevel?: string; permCount?: number; balance?: string }) {
+  return (
+    <div className="px-3 py-2.5 border-b border-gray-200 dark:border-white/10 grid grid-cols-2 gap-x-4 gap-y-2.5">
+      {role !== undefined && role !== '' && (
+        <MetaInfoItem
+          label="Role"
+          icon={<Shield className="h-3 w-3 text-purple-500 dark:text-purple-400 flex-shrink-0" />}
+          value={role.replace('_', ' ')}
+          color="text-purple-600 dark:text-purple-400 capitalize"
+        />
+      )}
+      {tierLevel !== undefined && tierLevel !== '' && (
+        <MetaInfoItem label="Tier" value={tierLevel} color="text-cyan-600 dark:text-cyan-400" />
+      )}
+      {permCount !== undefined && permCount > 0 && (
+        <MetaInfoItem
+          label="Permissions"
+          icon={<Key className="h-3 w-3 text-gray-400 dark:text-gray-500 flex-shrink-0" />}
+          value={permCount}
+        />
+      )}
+      {balance !== undefined && balance !== '' && (
+        <MetaInfoItem label="Balance" value={`${balance} BNB`} />
+      )}
+    </div>
+  );
+}
+
+function NetworkBadge({ chainId }: { chainId?: number }) {
+  const chainName = chainId === 56 ? 'BSC Mainnet' : chainId === 97 ? 'BSC Testnet' : chainId !== undefined ? `Chain ${chainId}` : null;
+  const isLive = chainId === 56;
+  if (chainName === null) { return null; }
+  return (
+    <div className="px-3 py-2 border-b border-gray-200 dark:border-white/10">
+      <div className="flex items-center gap-1.5">
+        <span className={cn('h-1.5 w-1.5 rounded-full flex-shrink-0', isLive ? 'bg-green-500' : 'bg-yellow-400')} />
+        <span className="text-xs text-gray-600 dark:text-gray-400">{chainName}</span>
+      </div>
+    </div>
+  );
+}
+
 function ConnectedDropdown({ displayAddress, copied, onCopy, onExplorer, onDisconnect, role, tierLevel, permCount, chainId, balance }: {
   displayAddress: string;
   copied: boolean;
@@ -47,9 +101,6 @@ function ConnectedDropdown({ displayAddress, copied, onCopy, onExplorer, onDisco
   chainId?: number;
   balance?: string;
 }) {
-  const chainName = chainId === 56 ? 'BSC Mainnet' : chainId === 97 ? 'BSC Testnet' : chainId !== undefined ? `Chain ${chainId}` : null;
-  const isLive = chainId === 56;
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -77,48 +128,10 @@ function ConnectedDropdown({ displayAddress, copied, onCopy, onExplorer, onDisco
         </div>
 
         {/* Meta info */}
-        <div className="px-3 py-2.5 border-b border-gray-200 dark:border-white/10 grid grid-cols-2 gap-x-4 gap-y-2.5">
-          {role !== undefined && role !== '' && (
-            <div>
-              <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5">Role</p>
-              <div className="flex items-center gap-1">
-                <Shield className="h-3 w-3 text-purple-500 dark:text-purple-400 flex-shrink-0" />
-                <span className="text-xs font-medium text-purple-600 dark:text-purple-400 capitalize">{role.replace('_', ' ')}</span>
-              </div>
-            </div>
-          )}
-          {tierLevel !== undefined && tierLevel !== '' && (
-            <div>
-              <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5">Tier</p>
-              <span className="text-xs font-medium text-cyan-600 dark:text-cyan-400">{tierLevel}</span>
-            </div>
-          )}
-          {permCount !== undefined && permCount > 0 && (
-            <div>
-              <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5">Permissions</p>
-              <div className="flex items-center gap-1">
-                <Key className="h-3 w-3 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                <span className="text-xs text-gray-700 dark:text-gray-300">{permCount}</span>
-              </div>
-            </div>
-          )}
-          {balance !== undefined && balance !== '' && (
-            <div>
-              <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5">Balance</p>
-              <span className="text-xs text-gray-700 dark:text-gray-300">{balance} BNB</span>
-            </div>
-          )}
-        </div>
+        <MetaInfoGrid role={role} tierLevel={tierLevel} permCount={permCount} balance={balance} />
 
         {/* Network */}
-        {chainName !== null && (
-          <div className="px-3 py-2 border-b border-gray-200 dark:border-white/10">
-            <div className="flex items-center gap-1.5">
-              <span className={cn('h-1.5 w-1.5 rounded-full flex-shrink-0', isLive ? 'bg-green-500' : 'bg-yellow-400')} />
-              <span className="text-xs text-gray-600 dark:text-gray-400">{chainName}</span>
-            </div>
-          </div>
-        )}
+        <NetworkBadge chainId={chainId} />
 
         {/* Actions */}
         <div className="p-1">
@@ -150,6 +163,38 @@ function ConnectedDropdown({ displayAddress, copied, onCopy, onExplorer, onDisco
   );
 }
 
+function ConnectedState({ displayAddress, user, copied, chainId, balanceData, copyToClipboard, openBSCScan, handleDisconnect, className }: {
+  displayAddress: string;
+  user: { is_admin?: boolean; tier_level?: string; permissions: unknown[] };
+  copied: boolean;
+  chainId: number;
+  balanceData?: { formatted: string };
+  copyToClipboard: (text: string) => Promise<void>;
+  openBSCScan: () => void;
+  handleDisconnect: () => Promise<void>;
+  className: string;
+}) {
+  const bnbBalance = balanceData !== undefined
+    ? parseFloat(balanceData.formatted).toFixed(4)
+    : undefined;
+
+  return (
+    <ConnectedDropdown
+      displayAddress={displayAddress}
+      copied={copied}
+      onCopy={() => { void copyToClipboard(displayAddress); }}
+      onExplorer={openBSCScan}
+      onDisconnect={() => { void handleDisconnect(); }}
+      className={className}
+      role={user.is_admin === true ? 'admin' : undefined}
+      tierLevel={user.tier_level}
+      permCount={user.permissions.length}
+      chainId={chainId}
+      balance={bnbBalance}
+    />
+  );
+}
+
 export function AdminWalletConnectAuth({ className = '' }: AdminWalletConnectAuthProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -160,8 +205,6 @@ export function AdminWalletConnectAuth({ className = '' }: AdminWalletConnectAut
   const { data: balanceData } = useBalance({
     address: user?.wallet_address as `0x${string}` | undefined,
   });
-
-  const isAuthenticated = Boolean(user);
 
   if (isLoading) {
     return <LoadingButton message="Loading..." className={className} />;
@@ -196,24 +239,18 @@ export function AdminWalletConnectAuth({ className = '' }: AdminWalletConnectAut
     }
   };
 
-  if (isAuthenticated && displayAddress !== undefined && displayAddress !== '') {
-    const bnbBalance = balanceData !== undefined
-      ? parseFloat(balanceData.formatted).toFixed(4)
-      : undefined;
-
+  if (user !== null && displayAddress !== undefined && displayAddress !== '') {
     return (
-      <ConnectedDropdown
+      <ConnectedState
         displayAddress={displayAddress}
+        user={user}
         copied={copied}
-        onCopy={() => { void copyToClipboard(displayAddress); }}
-        onExplorer={openBSCScan}
-        onDisconnect={() => { void handleDisconnect(); }}
-        className={className}
-        role={user?.is_admin === true ? 'admin' : undefined}
-        tierLevel={user?.tier_level}
-        permCount={user?.permissions.length}
         chainId={chainId}
-        balance={bnbBalance}
+        balanceData={balanceData}
+        copyToClipboard={copyToClipboard}
+        openBSCScan={openBSCScan}
+        handleDisconnect={handleDisconnect}
+        className={className}
       />
     );
   }

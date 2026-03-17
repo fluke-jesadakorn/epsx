@@ -22,15 +22,17 @@ interface MainLayoutProps {
 }
 
 /**
- * Main Layout with Sidebar + Header
+ * Main Layout with Sidebar + Header.
  * Using "App Shell" fixed layout:
  * - Outer container: h-screen, overflow-hidden (prevents body scroll)
  * - Sidebar: h-full (fits to screen)
  * - Main Content: overflow-y-auto (scrolls independently)
  *
- * @param root0
- * @param root0.children
- * @param root0.user
+ * @param root0 - Component props.
+ * @param root0.children - Page content.
+ * @param root0.user - Optional authenticated user.
+ * @param root0.initialNotifications - Pre-fetched notifications.
+ * @param root0.initialUnreadCount - Pre-fetched unread count.
  */
 export function MainLayout({ children, user, initialNotifications, initialUnreadCount }: MainLayoutProps) {
   return (

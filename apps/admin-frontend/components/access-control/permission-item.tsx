@@ -17,6 +17,33 @@ interface PermissionItemProps {
     stripPlatform?: boolean;
 }
 
+function PermissionActions({ permission, onEdit, onDelete }: {
+    permission: PermissionDefinition;
+    onEdit?: (perm: PermissionDefinition) => void;
+    onDelete?: (perm: PermissionDefinition) => void;
+}) {
+    return (
+        <div className="hidden group-hover:flex items-center gap-1 shrink-0 mt-0.5">
+            {onEdit !== undefined && (
+                <button
+                    onClick={(e) => { e.stopPropagation(); onEdit(permission); }}
+                    className="p-1 rounded hover:bg-muted/50 text-muted-foreground hover:text-cyan-400 transition-colors"
+                >
+                    <Pencil className="w-3 h-3" />
+                </button>
+            )}
+            {onDelete !== undefined && !permission.is_system && (
+                <button
+                    onClick={(e) => { e.stopPropagation(); onDelete(permission); }}
+                    className="p-1 rounded hover:bg-muted/50 text-muted-foreground hover:text-red-400 transition-colors"
+                >
+                    <Trash2 className="w-3 h-3" />
+                </button>
+            )}
+        </div>
+    );
+}
+
 export function PermissionItem({
     permission,
     isSelected,
@@ -71,25 +98,8 @@ export function PermissionItem({
                 )}
             </div>
 
-            {(onEdit ?? onDelete) && (
-                <div className="hidden group-hover:flex items-center gap-1 shrink-0 mt-0.5">
-                    {onEdit && (
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onEdit(permission); }}
-                            className="p-1 rounded hover:bg-muted/50 text-muted-foreground hover:text-cyan-400 transition-colors"
-                        >
-                            <Pencil className="w-3 h-3" />
-                        </button>
-                    )}
-                    {onDelete && !permission.is_system && (
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onDelete(permission); }}
-                            className="p-1 rounded hover:bg-muted/50 text-muted-foreground hover:text-red-400 transition-colors"
-                        >
-                            <Trash2 className="w-3 h-3" />
-                        </button>
-                    )}
-                </div>
+            {(onEdit ?? onDelete) !== undefined && (
+                <PermissionActions permission={permission} onEdit={onEdit} onDelete={onDelete} />
             )}
         </div>
     );

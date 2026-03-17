@@ -33,9 +33,12 @@ interface HeaderProps {
 }
 
 /**
+ * Admin header navigation bar.
  *
- * @param root0
- * @param root0.user
+ * @param root0 - Component props.
+ * @param root0.user - Optional authenticated user.
+ * @param root0.initialNotifications - Pre-fetched notifications.
+ * @param root0.initialUnreadCount - Pre-fetched unread count.
  */
 export function Header({ user: _user, initialNotifications, initialUnreadCount }: HeaderProps) {
   const { setTheme } = useTheme();
