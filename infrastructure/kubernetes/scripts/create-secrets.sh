@@ -106,7 +106,6 @@ apply_secret epsx-backend \
   --from-literal=BSC_REQUIRED_CONFIRMATIONS="${BSC_REQUIRED_CONFIRMATIONS:-3}" \
   --from-literal=BSC_TESTNET_REQUIRED_CONFIRMATIONS="${BSC_TESTNET_REQUIRED_CONFIRMATIONS:-1}" \
   --from-literal=MAX_PAYMENT_AGE_MINUTES="${MAX_PAYMENT_AGE_MINUTES:-60}" \
-  --from-literal=TURNSTILE_SECRET_KEY="${TURNSTILE_SECRET_KEY:-}" \
   --from-literal=PAYMENTS_DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_payments_${DB_SUFFIX}?sslmode=disable" \
   --from-literal=ANALYTICS_DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_analytics_${DB_SUFFIX}?sslmode=disable" \
   --from-literal=NOTIFICATIONS_DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_notifications_${DB_SUFFIX}?sslmode=disable"
@@ -127,7 +126,6 @@ apply_secret epsx-frontend \
   --from-literal=NEXT_PUBLIC_CHAIN_ID="${CHAIN_ID}" \
   --from-literal=NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET="${NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET:-${PAYMENT_ESCROW_CONTRACT_MAINNET:-}}" \
   --from-literal=NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET="${NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET:-${COMPANY_WALLET_MAINNET}}" \
-  --from-literal=NEXT_PUBLIC_TURNSTILE_SITE_KEY="${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}" \
   --from-literal=NEXT_PUBLIC_OAUTH_CLIENT_ID="${OAUTH_CLIENT_ID}" \
   --from-literal=NEXT_PUBLIC_CDN_URL="${MINIO_PUBLIC_URL}"
 
@@ -147,7 +145,6 @@ apply_secret epsx-admin \
   --from-literal=NEXT_PUBLIC_CHAIN_ID="${CHAIN_ID}" \
   --from-literal=NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET="${NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET:-${PAYMENT_ESCROW_CONTRACT_MAINNET:-}}" \
   --from-literal=NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET="${NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET:-${COMPANY_WALLET_MAINNET}}" \
-  --from-literal=NEXT_PUBLIC_TURNSTILE_SITE_KEY="${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}" \
   --from-literal=NEXT_PUBLIC_OAUTH_CLIENT_ID="epsx-admin" \
   --from-literal=NEXT_PUBLIC_CDN_URL="${MINIO_PUBLIC_URL}"
 

@@ -2,22 +2,7 @@ import { COOKIES, getServerAuthToken } from '@/shared/auth/cookies';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const TURNSTILE_EXEMPT = [
-    '/challenge',
-    '/_next',
-    '/api/',
-    '/favicon.ico',
-    '/robots.txt',
-    '/sitemap.xml',
-    '/manifest.json',
-];
-
-function isTurnstileExempt(pathname: string): boolean {
-    return TURNSTILE_EXEMPT.some(p => pathname.startsWith(p));
-}
-
 const PUBLIC_ROUTES = [
-    '/challenge',
     '/login',
     '/auth',
     '/api/auth',
@@ -93,17 +78,6 @@ async function extractErrorDetail(res: Response): Promise<string> {
  */
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
-
-    // Turnstile gate — check before auth/logout logic
-    if (!isTurnstileExempt(pathname)) {
-        const turnstileCookie = request.cookies.get('epsx.turnstile');
-        if (turnstileCookie === undefined || turnstileCookie.value === '') {
-            const url = request.nextUrl.clone();
-            url.pathname = '/challenge';
-            url.searchParams.set('from', pathname);
-            return NextResponse.redirect(url);
-        }
-    }
 
     // Logout via middleware — clears __Host- cookies at HTTP level
     if (request.nextUrl.searchParams.has('logout')) {

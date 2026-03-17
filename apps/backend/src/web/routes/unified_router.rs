@@ -336,7 +336,6 @@ impl UnifiedRouteBuilder {
             .route("/news/featured", get(crate::web::public::news_handlers::list_featured_news))
             .route("/news/images/{filename}", get(crate::web::public::news_handlers::serve_news_image))
             .route("/news/{slug}", get(crate::web::public::news_handlers::get_public_news))
-            .route("/verify-turnstile", post(crate::web::public::verify_turnstile_handler::verify_turnstile_handler))
             .with_state(app_state)
     }
 

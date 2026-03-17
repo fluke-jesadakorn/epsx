@@ -3,7 +3,6 @@
 /**
  * SHARED AUTH MODAL COMPONENT
  * Premium 2-step auth modal: Connect Wallet -> Sign Message
- * Includes Cloudflare Turnstile CAPTCHA verification
  */
 
 import type { Connector } from 'wagmi';

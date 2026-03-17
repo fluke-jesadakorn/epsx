@@ -63,7 +63,6 @@ docker build \
   --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID \
   --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=$NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET \
   --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=$NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET \
-  --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY \
   -f apps/frontend/Dockerfile -t epsx-frontend:prod .
 
 # Build admin frontend
@@ -77,7 +76,6 @@ docker build \
   --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-admin \
   --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=$NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET \
   --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=$NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET \
-  --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY \
   -f apps/admin-frontend/Dockerfile -t epsx-admin-frontend:prod .
 
 # Build backend
