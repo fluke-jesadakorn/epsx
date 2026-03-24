@@ -539,7 +539,9 @@ deploy:production:
   script:
     - *kubectl-setup
     - echo "=== Images available locally ==="
-    - docker images epsx-frontend:prod epsx-admin-frontend:prod epsx-backend:prod
+    - docker images epsx-frontend:prod || true
+    - docker images epsx-admin-frontend:prod || true
+    - docker images epsx-backend:prod || true
     # Apply manifests (secrets & configs already exist in cluster; apply is idempotent)
     - kubectl apply -k infrastructure/kubernetes/overlays/prod/
     # Restart deployments to pick up new local images
