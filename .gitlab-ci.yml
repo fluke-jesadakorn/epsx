@@ -459,6 +459,7 @@ build:frontend:prod:
 build:admin:prod:
   stage: build
   image: docker:27
+  needs: ["build:frontend:prod"]
   <<: *prod-build-before
   script:
     - >
@@ -483,6 +484,7 @@ build:admin:prod:
 build:backend:prod:
   stage: build
   image: docker:27
+  needs: ["build:admin:prod"]
   before_script:
     - export DOCKER_HOST=unix:///var/run/docker.sock
     - export DOCKER_TLS_CERTDIR=""
