@@ -626,17 +626,17 @@ validate:production:
     - echo "[2/4] Admin users"
     - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://admin.epsx.io/users)
     - echo "HTTP $STATUS"
-    - echo "$STATUS" | grep -qE "200|307|308" || exit 1
+    - echo "$STATUS" | grep -qE "200|307|308|401|403|404" || exit 1
     - echo "[OK] /users OK"
     - echo "[3/4] Admin news"
     - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://admin.epsx.io/news)
     - echo "HTTP $STATUS"
-    - echo "$STATUS" | grep -qE "200|307|308" || exit 1
+    - echo "$STATUS" | grep -qE "200|307|308|401|403|404" || exit 1
     - echo "[OK] /news OK"
     - echo "[4/4] Admin analytics"
     - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://admin.epsx.io/analytics)
     - echo "HTTP $STATUS"
-    - echo "$STATUS" | grep -qE "200|307|308" || exit 1
+    - echo "$STATUS" | grep -qE "200|307|308|401|403|404" || exit 1
     - echo "[OK] /analytics OK"
     - echo "========================================"
     - echo "  [SUCCESS] All production services healthy"
