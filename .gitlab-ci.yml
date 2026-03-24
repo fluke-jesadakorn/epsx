@@ -49,6 +49,19 @@ variables:
   - chmod +x /usr/local/bin/sops
   - sops -d --input-type dotenv --output-type dotenv infrastructure/docker/.env.prod.enc > /tmp/.env.prod
 
+# Template for production build jobs (SOPS decrypt + docker login in before_script)
+.prod-build-before: &prod-build-before
+  before_script:
+    - export DOCKER_HOST=unix:///var/run/docker.sock
+    - export DOCKER_TLS_CERTDIR=""
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - >
+      wget -qO /usr/local/bin/sops
+      https://github.com/getsops/sops/releases/download/v3.9.4/sops-v3.9.4.linux.arm64
+    - chmod +x /usr/local/bin/sops
+    - sops -d --input-type dotenv --output-type dotenv infrastructure/docker/.env.prod.enc > /tmp/.env.prod
+    - export $(grep -v -E '^(RSA_|#|^$)' /tmp/.env.prod | xargs)
+
 .docker-login: &docker-login
   before_script:
     - export DOCKER_HOST=unix:///var/run/docker.sock
@@ -421,10 +434,8 @@ build:backend:
 build:frontend:prod:
   stage: build
   image: docker:27
-  <<: *docker-login
+  <<: *prod-build-before
   script:
-    - *sops-decrypt-prod
-    - export $(grep -v -E '^(RSA_|#|$)' /tmp/.env.prod | xargs)
     - >
       docker build
       --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=${WALLETCONNECT_PROJECT_ID}
@@ -449,10 +460,8 @@ build:frontend:prod:
 build:admin:prod:
   stage: build
   image: docker:27
-  <<: *docker-login
+  <<: *prod-build-before
   script:
-    - *sops-decrypt-prod
-    - export $(grep -v -E '^(RSA_|#|$)' /tmp/.env.prod | xargs)
     - >
       docker build
       --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=${WALLETCONNECT_PROJECT_ID}
