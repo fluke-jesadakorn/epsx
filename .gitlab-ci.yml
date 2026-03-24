@@ -580,103 +580,80 @@ validate:production:
   image: curlimages/curl:latest
   needs: ["deploy:production"]
   script:
-    # Give pods time to become ready after deployment
     - sleep 30
-
     - echo "========================================"
     - echo "  EPSX Production Smoke Tests"
-    - echo "  Commit: $CI_COMMIT_SHORT_SHA"
+    - echo "  Commit $CI_COMMIT_SHORT_SHA"
     - echo "========================================"
-
-    # ---- Backend API ----
-    - echo ""
     - echo "--- Backend API ---"
     - echo "[1/4] Health check"
     - curl -sf --retry 5 --retry-delay 10 https://api.epsx.io/health || exit 1
-    - echo "  ✅  /health OK"
-
-    - echo "[2/4] API version / root"
+    - echo "[OK] /health OK"
+    - echo "[2/4] API root"
     - STATUS=$(curl -o /dev/null -w "%{http_code}" -s --retry 3 --retry-delay 5 https://api.epsx.io)
-    - echo "  HTTP $STATUS"
+    - echo "HTTP $STATUS"
     - echo "$STATUS" | grep -qE "200|404" || exit 1
-    - echo "  ✅  root reachable"
-
-    - echo "[3/4] News endpoint (public)"
+    - echo "[OK] root reachable"
+    - echo "[3/4] News endpoint"
     - STATUS=$(curl -o /dev/null -w "%{http_code}" -s --retry 3 --retry-delay 5 https://api.epsx.io/news)
-    - echo "  HTTP $STATUS"
+    - echo "HTTP $STATUS"
     - echo "$STATUS" | grep -qE "200|401|404" || exit 1
-    - echo "  ✅  /news reachable"
-
-    - echo "[4/4] Stocks endpoint (public)"
+    - echo "[OK] /news reachable"
+    - echo "[4/4] Stocks endpoint"
     - STATUS=$(curl -o /dev/null -w "%{http_code}" -s --retry 3 --retry-delay 5 https://api.epsx.io/stocks)
-    - echo "  HTTP $STATUS"
+    - echo "HTTP $STATUS"
     - echo "$STATUS" | grep -qE "200|401|404" || exit 1
-    - echo "  ✅  /stocks reachable"
-
-    # ---- Frontend ----
-    - echo ""
-    - echo "--- Frontend (epsx.io) ---"
+    - echo "[OK] /stocks reachable"
+    - echo "--- Frontend epsx.io ---"
     - echo "[1/5] Home page"
     - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://epsx.io)
-    - echo "  HTTP $STATUS"
+    - echo "HTTP $STATUS"
     - echo "$STATUS" | grep -qE "200|307" || exit 1
-    - echo "  ✅  / OK"
-
+    - echo "[OK] / OK"
     - echo "[2/5] News page"
     - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://epsx.io/news)
-    - echo "  HTTP $STATUS"
+    - echo "HTTP $STATUS"
     - echo "$STATUS" | grep -qE "200|307" || exit 1
-    - echo "  ✅  /news OK"
-
-    - echo "[3/5] Stocks / market page"
+    - echo "[OK] /news OK"
+    - echo "[3/5] Market page"
     - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://epsx.io/market)
-    - echo "  HTTP $STATUS"
+    - echo "HTTP $STATUS"
     - echo "$STATUS" | grep -qE "200|307|308" || exit 1
-    - echo "  ✅  /market OK"
-
+    - echo "[OK] /market OK"
     - echo "[4/5] Leaderboard page"
     - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://epsx.io/leaderboard)
-    - echo "  HTTP $STATUS"
+    - echo "HTTP $STATUS"
     - echo "$STATUS" | grep -qE "200|307|308" || exit 1
-    - echo "  ✅  /leaderboard OK"
-
-    - echo "[5/5] Portfolio page (auth-gated, expect redirect)"
+    - echo "[OK] /leaderboard OK"
+    - echo "[5/5] Portfolio page"
     - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://epsx.io/portfolio)
-    - echo "  HTTP $STATUS"
+    - echo "HTTP $STATUS"
     - echo "$STATUS" | grep -qE "200|307|308" || exit 1
-    - echo "  ✅  /portfolio OK"
-
-    # ---- Admin ----
-    - echo ""
-    - echo "--- Admin (admin.epsx.io) ---"
+    - echo "[OK] /portfolio OK"
+    - echo "--- Admin admin.epsx.io ---"
     - echo "[1/4] Admin home"
     - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://admin.epsx.io)
-    - echo "  HTTP $STATUS"
+    - echo "HTTP $STATUS"
     - echo "$STATUS" | grep -qE "200|307" || exit 1
-    - echo "  ✅  / OK"
-
-    - echo "[2/4] Admin users page"
+    - echo "[OK] / OK"
+    - echo "[2/4] Admin users"
     - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://admin.epsx.io/users)
-    - echo "  HTTP $STATUS"
+    - echo "HTTP $STATUS"
     - echo "$STATUS" | grep -qE "200|307|308" || exit 1
-    - echo "  ✅  /users OK"
-
-    - echo "[3/4] Admin news management"
+    - echo "[OK] /users OK"
+    - echo "[3/4] Admin news"
     - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://admin.epsx.io/news)
-    - echo "  HTTP $STATUS"
+    - echo "HTTP $STATUS"
     - echo "$STATUS" | grep -qE "200|307|308" || exit 1
-    - echo "  ✅  /news OK"
-
+    - echo "[OK] /news OK"
     - echo "[4/4] Admin analytics"
     - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://admin.epsx.io/analytics)
-    - echo "  HTTP $STATUS"
+    - echo "HTTP $STATUS"
     - echo "$STATUS" | grep -qE "200|307|308" || exit 1
-    - echo "  ✅  /analytics OK"
-
-    - echo ""
+    - echo "[OK] /analytics OK"
     - echo "========================================"
-    - echo "  ✅  All production services healthy!"
-    - echo "  Deployed: $CI_COMMIT_SHORT_SHA @ $(date -u)"
+    - echo "  [SUCCESS] All production services healthy"
+    - echo "  Deployed $CI_COMMIT_SHORT_SHA"
     - echo "========================================"
   timeout: 10 minutes
   rules:
