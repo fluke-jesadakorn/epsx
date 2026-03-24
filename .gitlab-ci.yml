@@ -2,9 +2,9 @@
 # Mac Mini runner (arm64), Docker executor, bind-mounted Docker socket
 #
 # Branches:
-#   development → lint + test + build (all CI)
+#   development → lint + test + build + deploy (all CI)
 #   staging     → build + manual deploy (Colima K8s)
-#   production  → manual deploy (Colima K8s) + auto validate
+#   production  → build + manual deploy (Colima K8s) + auto validate
 #   MR          → lint + test + review app
 
 stages:
@@ -416,6 +416,82 @@ build:backend:
       variables:
         ENV_TAG: staging
 
+# --- Production builds (run automatically on production branch push) ---
+
+build:frontend:prod:
+  stage: build
+  image: docker:27
+  <<: *docker-login
+  script:
+    - *sops-decrypt-prod
+    - export $(grep -v -E '^(RSA_|#|$)' /tmp/.env.prod | xargs)
+    - >
+      docker build
+      --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=${WALLETCONNECT_PROJECT_ID}
+      --build-arg NEXT_PUBLIC_APP_URL=${FRONTEND_URL}
+      --build-arg NEXT_PUBLIC_BACKEND_URL=${BACKEND_URL}
+      --build-arg NEXT_PUBLIC_ADMIN_URL=${ADMIN_FRONTEND_URL}
+      --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=${BLOCKCHAIN_NETWORK}
+      --build-arg NEXT_PUBLIC_CHAIN_ID=${CHAIN_ID}
+      --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID:-epsx-frontend}
+      --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=${NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET:-}
+      --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=${NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET:-}
+      -f apps/frontend/Dockerfile
+      -t $CI_REGISTRY_IMAGE/frontend:prod-$IMAGE_TAG
+      -t $CI_REGISTRY_IMAGE/frontend:prod-latest
+      .
+    - docker push $CI_REGISTRY_IMAGE/frontend:prod-$IMAGE_TAG
+    - docker push $CI_REGISTRY_IMAGE/frontend:prod-latest
+  timeout: 30 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+
+build:admin:prod:
+  stage: build
+  image: docker:27
+  <<: *docker-login
+  script:
+    - *sops-decrypt-prod
+    - export $(grep -v -E '^(RSA_|#|$)' /tmp/.env.prod | xargs)
+    - >
+      docker build
+      --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=${WALLETCONNECT_PROJECT_ID}
+      --build-arg NEXT_PUBLIC_APP_URL=${ADMIN_FRONTEND_URL}
+      --build-arg NEXT_PUBLIC_BACKEND_URL=${BACKEND_URL}
+      --build-arg NEXT_PUBLIC_ADMIN_URL=${ADMIN_FRONTEND_URL}
+      --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=${BLOCKCHAIN_NETWORK}
+      --build-arg NEXT_PUBLIC_CHAIN_ID=${CHAIN_ID}
+      --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-admin
+      --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=${NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET:-}
+      --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=${NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET:-}
+      -f apps/admin-frontend/Dockerfile
+      -t $CI_REGISTRY_IMAGE/admin:prod-$IMAGE_TAG
+      -t $CI_REGISTRY_IMAGE/admin:prod-latest
+      .
+    - docker push $CI_REGISTRY_IMAGE/admin:prod-$IMAGE_TAG
+    - docker push $CI_REGISTRY_IMAGE/admin:prod-latest
+  timeout: 30 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+
+build:backend:prod:
+  stage: build
+  image: docker:27
+  <<: *docker-login
+  script:
+    - docker builder prune -af 2>/dev/null || true
+    - >
+      docker build
+      -f apps/backend/Dockerfile
+      -t $CI_REGISTRY_IMAGE/backend:prod-$IMAGE_TAG
+      -t $CI_REGISTRY_IMAGE/backend:prod-latest
+      .
+    - docker push $CI_REGISTRY_IMAGE/backend:prod-$IMAGE_TAG
+    - docker push $CI_REGISTRY_IMAGE/backend:prod-latest
+  timeout: 45 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+
 # ---------------------------------------------------------------------------
 # Deploy — Colima K8s
 # ---------------------------------------------------------------------------
@@ -447,51 +523,40 @@ deploy:staging:
 deploy:production:
   stage: deploy
   image: docker:27
-  needs: []
+  needs:
+    - job: build:frontend:prod
+    - job: build:admin:prod
+    - job: build:backend:prod
   script:
-    - *sops-decrypt-prod
-    - grep -v -E '^(RSA_|#|$)' /tmp/.env.prod | sed 's/^\([^=]*\)="\(.*\)"/\1=\2/' | sed "s/^\([^=]*\)=\(.*\)/\1='\2'/" > /tmp/.env.prod.sh
-    - set -a && source /tmp/.env.prod.sh && set +a
-    - export DOCKER_HOST=unix:///var/run/docker.sock
-    - export DOCKER_TLS_CERTDIR=""
-    - export DOCKER_DEFAULT_PLATFORM=$DOCKER_PLATFORM
-    # Build frontend
-    - >
-      docker build
-      --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID
-      --build-arg NEXT_PUBLIC_APP_URL=$FRONTEND_URL
-      --build-arg NEXT_PUBLIC_BACKEND_URL=$BACKEND_URL
-      --build-arg NEXT_PUBLIC_ADMIN_URL=$ADMIN_FRONTEND_URL
-      --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=$NEXT_PUBLIC_BLOCKCHAIN_NETWORK
-      --build-arg NEXT_PUBLIC_CHAIN_ID=$NEXT_PUBLIC_CHAIN_ID
-      --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID
-      --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=${NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET:-}
-      --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=${NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET:-}
-      -f apps/frontend/Dockerfile -t epsx-frontend:prod .
-    # Build admin
-    - >
-      docker build
-      --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID
-      --build-arg NEXT_PUBLIC_APP_URL=$ADMIN_FRONTEND_URL
-      --build-arg NEXT_PUBLIC_BACKEND_URL=$BACKEND_URL
-      --build-arg NEXT_PUBLIC_ADMIN_URL=$ADMIN_FRONTEND_URL
-      --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=$NEXT_PUBLIC_BLOCKCHAIN_NETWORK
-      --build-arg NEXT_PUBLIC_CHAIN_ID=$NEXT_PUBLIC_CHAIN_ID
-      --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-admin
-      --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=${NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET:-}
-      --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=${NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET:-}
-      -f apps/admin-frontend/Dockerfile -t epsx-admin-frontend:prod .
-    # Build backend
-    - docker build -f apps/backend/Dockerfile -t epsx-backend:prod .
-    # Deploy
     - *kubectl-setup
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    # Pull the registry-built images and retag as local names used by kustomize
+    - docker pull $CI_REGISTRY_IMAGE/frontend:prod-$IMAGE_TAG
+    - docker pull $CI_REGISTRY_IMAGE/admin:prod-$IMAGE_TAG
+    - docker pull $CI_REGISTRY_IMAGE/backend:prod-$IMAGE_TAG
+    - docker tag $CI_REGISTRY_IMAGE/frontend:prod-$IMAGE_TAG epsx-frontend:prod
+    - docker tag $CI_REGISTRY_IMAGE/admin:prod-$IMAGE_TAG epsx-admin-frontend:prod
+    - docker tag $CI_REGISTRY_IMAGE/backend:prod-$IMAGE_TAG epsx-backend:prod
+    # Apply manifests (secrets & configs already exist in cluster; apply is idempotent)
     - kubectl apply -k infrastructure/kubernetes/overlays/prod/
+    # Update the image refs in-place to force a rollout with the new SHA
+    - |
+      kubectl -n epsx-prod set image deployment/epsx-backend \
+        epsx-backend=epsx-backend:prod
+    - |
+      kubectl -n epsx-prod set image deployment/epsx-frontend \
+        epsx-frontend=epsx-frontend:prod
+    - |
+      kubectl -n epsx-prod set image deployment/epsx-admin \
+        epsx-admin=epsx-admin-frontend:prod
     - kubectl -n epsx-prod rollout restart deployment/epsx-backend
     - kubectl -n epsx-prod rollout restart deployment/epsx-frontend
     - kubectl -n epsx-prod rollout restart deployment/epsx-admin
-    - kubectl -n epsx-prod rollout status deployment/epsx-backend --timeout=120s
-    - kubectl -n epsx-prod rollout status deployment/epsx-frontend --timeout=120s
-    - kubectl -n epsx-prod rollout status deployment/epsx-admin --timeout=120s
+    - kubectl -n epsx-prod rollout status deployment/epsx-backend --timeout=180s
+    - kubectl -n epsx-prod rollout status deployment/epsx-frontend --timeout=180s
+    - kubectl -n epsx-prod rollout status deployment/epsx-admin --timeout=180s
+    - echo "=== Pod status after deploy ==="
+    - kubectl get pods -n epsx-prod -o wide
   environment:
     name: production
     url: https://epsx.io
@@ -506,20 +571,105 @@ validate:production:
   image: curlimages/curl:latest
   needs: ["deploy:production"]
   script:
-    - sleep 20
-    - echo "=== Backend health ==="
-    - curl -sf --retry 5 --retry-delay 10 https://api.epsx.io/health || exit 1
+    # Give pods time to become ready after deployment
+    - sleep 30
+
+    - echo "========================================"
+    - echo "  EPSX Production Smoke Tests"
+    - echo "  Commit: $CI_COMMIT_SHORT_SHA"
+    - echo "========================================"
+
+    # ---- Backend API ----
     - echo ""
-    - echo "=== Frontend ==="
-    - STATUS=$(curl -sf -o /dev/null -w "%{http_code}" --retry 3 --retry-delay 5 https://epsx.io)
-    - echo "HTTP $STATUS"
+    - echo "--- Backend API ---"
+    - echo "[1/4] Health check"
+    - curl -sf --retry 5 --retry-delay 10 https://api.epsx.io/health || exit 1
+    - echo "  ✅  /health OK"
+
+    - echo "[2/4] API version / root"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -s --retry 3 --retry-delay 5 https://api.epsx.io)
+    - echo "  HTTP $STATUS"
+    - echo "$STATUS" | grep -qE "200|404" || exit 1
+    - echo "  ✅  root reachable"
+
+    - echo "[3/4] News endpoint (public)"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -s --retry 3 --retry-delay 5 https://api.epsx.io/news)
+    - echo "  HTTP $STATUS"
+    - echo "$STATUS" | grep -qE "200|401|404" || exit 1
+    - echo "  ✅  /news reachable"
+
+    - echo "[4/4] Stocks endpoint (public)"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -s --retry 3 --retry-delay 5 https://api.epsx.io/stocks)
+    - echo "  HTTP $STATUS"
+    - echo "$STATUS" | grep -qE "200|401|404" || exit 1
+    - echo "  ✅  /stocks reachable"
+
+    # ---- Frontend ----
+    - echo ""
+    - echo "--- Frontend (epsx.io) ---"
+    - echo "[1/5] Home page"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://epsx.io)
+    - echo "  HTTP $STATUS"
     - echo "$STATUS" | grep -qE "200|307" || exit 1
-    - echo "=== Admin ==="
-    - STATUS=$(curl -sf -o /dev/null -w "%{http_code}" --retry 3 --retry-delay 5 https://admin.epsx.io)
-    - echo "HTTP $STATUS"
+    - echo "  ✅  / OK"
+
+    - echo "[2/5] News page"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://epsx.io/news)
+    - echo "  HTTP $STATUS"
     - echo "$STATUS" | grep -qE "200|307" || exit 1
-    - echo "=== All services healthy ==="
-  timeout: 5 minutes
+    - echo "  ✅  /news OK"
+
+    - echo "[3/5] Stocks / market page"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://epsx.io/market)
+    - echo "  HTTP $STATUS"
+    - echo "$STATUS" | grep -qE "200|307|308" || exit 1
+    - echo "  ✅  /market OK"
+
+    - echo "[4/5] Leaderboard page"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://epsx.io/leaderboard)
+    - echo "  HTTP $STATUS"
+    - echo "$STATUS" | grep -qE "200|307|308" || exit 1
+    - echo "  ✅  /leaderboard OK"
+
+    - echo "[5/5] Portfolio page (auth-gated, expect redirect)"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://epsx.io/portfolio)
+    - echo "  HTTP $STATUS"
+    - echo "$STATUS" | grep -qE "200|307|308" || exit 1
+    - echo "  ✅  /portfolio OK"
+
+    # ---- Admin ----
+    - echo ""
+    - echo "--- Admin (admin.epsx.io) ---"
+    - echo "[1/4] Admin home"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://admin.epsx.io)
+    - echo "  HTTP $STATUS"
+    - echo "$STATUS" | grep -qE "200|307" || exit 1
+    - echo "  ✅  / OK"
+
+    - echo "[2/4] Admin users page"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://admin.epsx.io/users)
+    - echo "  HTTP $STATUS"
+    - echo "$STATUS" | grep -qE "200|307|308" || exit 1
+    - echo "  ✅  /users OK"
+
+    - echo "[3/4] Admin news management"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://admin.epsx.io/news)
+    - echo "  HTTP $STATUS"
+    - echo "$STATUS" | grep -qE "200|307|308" || exit 1
+    - echo "  ✅  /news OK"
+
+    - echo "[4/4] Admin analytics"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://admin.epsx.io/analytics)
+    - echo "  HTTP $STATUS"
+    - echo "$STATUS" | grep -qE "200|307|308" || exit 1
+    - echo "  ✅  /analytics OK"
+
+    - echo ""
+    - echo "========================================"
+    - echo "  ✅  All production services healthy!"
+    - echo "  Deployed: $CI_COMMIT_SHORT_SHA @ $(date -u)"
+    - echo "========================================"
+  timeout: 10 minutes
   rules:
     - if: $CI_COMMIT_BRANCH == "production"
 
