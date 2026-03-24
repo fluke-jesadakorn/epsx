@@ -49,12 +49,11 @@ variables:
   - chmod +x /usr/local/bin/sops
   - sops -d --input-type dotenv --output-type dotenv infrastructure/docker/.env.prod.enc > /tmp/.env.prod
 
-# Template for production build jobs (SOPS decrypt + docker login in before_script)
+# Template for production build jobs (SOPS decrypt in before_script, no registry needed)
 .prod-build-before: &prod-build-before
   before_script:
     - export DOCKER_HOST=unix:///var/run/docker.sock
     - export DOCKER_TLS_CERTDIR=""
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
     - >
       wget -qO /usr/local/bin/sops
       https://github.com/getsops/sops/releases/download/v3.9.4/sops-v3.9.4.linux.arm64
@@ -430,6 +429,8 @@ build:backend:
         ENV_TAG: staging
 
 # --- Production builds (run automatically on production branch push) ---
+# Images are built locally on the shared Mac Mini runner Docker socket.
+# No registry push; images persist in local Docker until deploy:production runs.
 
 build:frontend:prod:
   stage: build
@@ -448,11 +449,9 @@ build:frontend:prod:
       --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=${NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET:-}
       --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=${NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET:-}
       -f apps/frontend/Dockerfile
-      -t $CI_REGISTRY_IMAGE/frontend:prod-$IMAGE_TAG
-      -t $CI_REGISTRY_IMAGE/frontend:prod-latest
+      -t epsx-frontend:prod
       .
-    - docker push $CI_REGISTRY_IMAGE/frontend:prod-$IMAGE_TAG
-    - docker push $CI_REGISTRY_IMAGE/frontend:prod-latest
+    - echo "[OK] epsx-frontend:prod built"
   timeout: 30 minutes
   rules:
     - if: $CI_COMMIT_BRANCH == "production"
@@ -474,11 +473,9 @@ build:admin:prod:
       --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=${NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET:-}
       --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=${NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET:-}
       -f apps/admin-frontend/Dockerfile
-      -t $CI_REGISTRY_IMAGE/admin:prod-$IMAGE_TAG
-      -t $CI_REGISTRY_IMAGE/admin:prod-latest
+      -t epsx-admin-frontend:prod
       .
-    - docker push $CI_REGISTRY_IMAGE/admin:prod-$IMAGE_TAG
-    - docker push $CI_REGISTRY_IMAGE/admin:prod-latest
+    - echo "[OK] epsx-admin-frontend:prod built"
   timeout: 30 minutes
   rules:
     - if: $CI_COMMIT_BRANCH == "production"
@@ -486,17 +483,17 @@ build:admin:prod:
 build:backend:prod:
   stage: build
   image: docker:27
-  <<: *docker-login
+  before_script:
+    - export DOCKER_HOST=unix:///var/run/docker.sock
+    - export DOCKER_TLS_CERTDIR=""
   script:
     - docker builder prune -af 2>/dev/null || true
     - >
       docker build
       -f apps/backend/Dockerfile
-      -t $CI_REGISTRY_IMAGE/backend:prod-$IMAGE_TAG
-      -t $CI_REGISTRY_IMAGE/backend:prod-latest
+      -t epsx-backend:prod
       .
-    - docker push $CI_REGISTRY_IMAGE/backend:prod-$IMAGE_TAG
-    - docker push $CI_REGISTRY_IMAGE/backend:prod-latest
+    - echo "[OK] epsx-backend:prod built"
   timeout: 45 minutes
   rules:
     - if: $CI_COMMIT_BRANCH == "production"
@@ -536,28 +533,16 @@ deploy:production:
     - job: build:frontend:prod
     - job: build:admin:prod
     - job: build:backend:prod
+  before_script:
+    - export DOCKER_HOST=unix:///var/run/docker.sock
+    - export DOCKER_TLS_CERTDIR=""
   script:
     - *kubectl-setup
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    # Pull the registry-built images and retag as local names used by kustomize
-    - docker pull $CI_REGISTRY_IMAGE/frontend:prod-$IMAGE_TAG
-    - docker pull $CI_REGISTRY_IMAGE/admin:prod-$IMAGE_TAG
-    - docker pull $CI_REGISTRY_IMAGE/backend:prod-$IMAGE_TAG
-    - docker tag $CI_REGISTRY_IMAGE/frontend:prod-$IMAGE_TAG epsx-frontend:prod
-    - docker tag $CI_REGISTRY_IMAGE/admin:prod-$IMAGE_TAG epsx-admin-frontend:prod
-    - docker tag $CI_REGISTRY_IMAGE/backend:prod-$IMAGE_TAG epsx-backend:prod
+    - echo "=== Images available locally ==="
+    - docker images epsx-frontend:prod epsx-admin-frontend:prod epsx-backend:prod
     # Apply manifests (secrets & configs already exist in cluster; apply is idempotent)
     - kubectl apply -k infrastructure/kubernetes/overlays/prod/
-    # Update the image refs in-place to force a rollout with the new SHA
-    - |
-      kubectl -n epsx-prod set image deployment/epsx-backend \
-        epsx-backend=epsx-backend:prod
-    - |
-      kubectl -n epsx-prod set image deployment/epsx-frontend \
-        epsx-frontend=epsx-frontend:prod
-    - |
-      kubectl -n epsx-prod set image deployment/epsx-admin \
-        epsx-admin=epsx-admin-frontend:prod
+    # Restart deployments to pick up new local images
     - kubectl -n epsx-prod rollout restart deployment/epsx-backend
     - kubectl -n epsx-prod rollout restart deployment/epsx-frontend
     - kubectl -n epsx-prod rollout restart deployment/epsx-admin
