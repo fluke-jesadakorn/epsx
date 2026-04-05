@@ -124,8 +124,9 @@ export function EditWalletMetadataModal({
                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 <Form {...(form as any)}>
                     <form onSubmit={(e) => { void form.handleSubmit(onSubmit)(e); }} className="space-y-4">
+                        {/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment */}
                         <FormField
-                            control={form.control}
+                            control={form.control as any}
                             name="label"
                             render={({ field }) => (
                                 <FormItem>
@@ -140,9 +141,11 @@ export function EditWalletMetadataModal({
                                 </FormItem>
                             )}
                         />
+                        {/* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment */}
 
+                        {/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment */}
                         <FormField
-                            control={form.control}
+                            control={form.control as any}
                             name="note"
                             render={({ field }) => (
                                 <FormItem>
@@ -162,6 +165,7 @@ export function EditWalletMetadataModal({
                                 </FormItem>
                             )}
                         />
+                        {/* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment */}
 
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>

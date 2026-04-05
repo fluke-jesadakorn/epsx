@@ -15,6 +15,7 @@ stages:
   - build
   - deploy
   - validate
+  - cleanup
 
 variables:
   IMAGE_TAG: $CI_COMMIT_SHORT_SHA
@@ -720,5 +721,25 @@ review:stop:
       changes:
         - apps/frontend/**/*
         - shared/**/*
+      when: manual
+      allow_failure: true
+
+# ---------------------------------------------------------------------------
+# Housekeeping — Docker cleanup for the runner
+# ---------------------------------------------------------------------------
+
+cleanup:docker:
+  stage: cleanup
+  image: docker:27
+  script:
+    - chmod +x scripts/ops/docker-cleanup.sh
+    - ./scripts/ops/docker-cleanup.sh
+  variables:
+    DOCKER_HOST: unix:///var/run/docker.sock
+    DOCKER_TLS_CERTDIR: ""
+  timeout: 10 minutes
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_COMMIT_BRANCH == "development"
       when: manual
       allow_failure: true

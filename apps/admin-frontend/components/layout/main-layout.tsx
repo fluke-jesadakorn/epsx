@@ -38,7 +38,9 @@ export function MainLayout({ children, user, initialNotifications, initialUnread
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
       {/* Sidebar Navigation - Fixed height handled by parent h-screen */}
-      <Sidebar />
+      <Suspense fallback={<div className="w-56 sm:w-64 min-w-0 max-w-64 bg-card border-r border-border/40 h-full hidden md:block" />}>
+        <Sidebar />
+      </Suspense>
 
       {/* Right Side - Content Area */}
       <div className="flex flex-1 flex-col h-full overflow-hidden">
