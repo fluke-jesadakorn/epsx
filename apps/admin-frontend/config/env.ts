@@ -1,6 +1,6 @@
 // Admin Frontend Environment Configuration - Using Unified Schema
 // Now uses /shared/env/schema.ts for consistent validation across all services
-// Root .env file loaded via next.config.ts
+// Root env stack loaded via scripts/utils/with-root-env.sh
 
 import {
   clientEnv,

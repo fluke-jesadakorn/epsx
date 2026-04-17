@@ -6,6 +6,7 @@ import { cookies } from 'next/headers';
 import { logger } from '@/lib/logger';
 import { COOKIES } from '@/shared/auth/cookies';
 import { API_ROUTES } from '@/shared/config/route-constants';
+import { getBackendUrl } from '@/shared/utils/url-resolver';
 
 const UNKNOWN_ERROR = 'Unknown error occurred';
 const AUTH_REQUIRED_MSG = 'Authentication required';
@@ -30,6 +31,7 @@ interface PermissionTemplate {
 
 const PATH_PERMISSIONS = '/policies';
 const PATH_WALLET_MGMT = '/wallet-management';
+const BACKEND_URL = getBackendUrl('server');
 
 const getAuthHeaders = (token: string) => ({
   'Authorization': `Bearer ${token}`,
@@ -55,7 +57,7 @@ export async function grantBatchPermissions(request: BatchPermissionRequest): Pr
   }
 
   try {
-    const response = await fetch(`${process.env.BACKEND_URL}${API_ROUTES.PERMISSIONS.BULK_GRANT}`, {
+    const response = await fetch(`${BACKEND_URL}${API_ROUTES.PERMISSIONS.BULK_GRANT}`, {
       method: 'POST',
       headers: getAuthHeaders(token),
       body: JSON.stringify(request),
@@ -113,7 +115,7 @@ export async function revokeBatchPermissions(
   }
 
   try {
-    const response = await fetch(`${process.env.BACKEND_URL}${API_ROUTES.PERMISSIONS.BULK_REVOKE}`, {
+    const response = await fetch(`${BACKEND_URL}${API_ROUTES.PERMISSIONS.BULK_REVOKE}`, {
       method: 'POST',
       headers: getAuthHeaders(token),
       body: JSON.stringify({
@@ -169,7 +171,7 @@ export async function createPermissionTemplate(template: Omit<PermissionTemplate
 
   try {
     // Note: PERMISSION_TEMPLATES endpoint may not be implemented in backend
-    const response = await fetch(`${process.env.BACKEND_URL}/api/admin/permissions/templates`, {
+    const response = await fetch(`${BACKEND_URL}/api/admin/permissions/templates`, {
       method: 'POST',
       headers: getAuthHeaders(token),
       body: JSON.stringify(template),
@@ -212,7 +214,7 @@ export async function getPermissionTemplates(): Promise<PermissionTemplate[]> {
 
   try {
     // Note: PERMISSION_TEMPLATES endpoint may not be implemented in backend
-    const response = await fetch(`${process.env.BACKEND_URL}/api/admin/permissions/templates`, {
+    const response = await fetch(`${BACKEND_URL}/api/admin/permissions/templates`, {
       method: 'GET',
       headers: getAuthHeaders(token),
       cache: 'no-store',
@@ -286,7 +288,7 @@ export async function applyPermissionTemplate(params: {
   }
 
   try {
-    const response = await fetch(`${process.env.BACKEND_URL}${API_ROUTES.ADMIN.PERMISSION_PLANS}/${params.templateId}/apply`, {
+    const response = await fetch(`${BACKEND_URL}${API_ROUTES.ADMIN.PERMISSION_PLANS}/${params.templateId}/apply`, {
       method: 'POST',
       headers: getAuthHeaders(token),
       body: JSON.stringify({
@@ -352,7 +354,7 @@ export async function exportPermissionsData(
   }
 
   try {
-    const response = await fetch(`${process.env.BACKEND_URL}${API_ROUTES.ADMIN.REPORTS}`, {
+    const response = await fetch(`${BACKEND_URL}${API_ROUTES.ADMIN.REPORTS}`, {
       method: 'POST',
       headers: getAuthHeaders(token),
       body: JSON.stringify({
@@ -422,7 +424,7 @@ export async function getPermissionStatistics(): Promise<{
   }
 
   try {
-    const response = await fetch(`${process.env.BACKEND_URL}${API_ROUTES.PERMISSIONS.STATS}`, {
+    const response = await fetch(`${BACKEND_URL}${API_ROUTES.PERMISSIONS.STATS}`, {
       method: 'GET',
       headers: getAuthHeaders(token),
       cache: 'no-store',

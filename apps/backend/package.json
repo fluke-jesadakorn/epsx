@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "dotenv -e ../../.env -- cargo watch --why --exec 'run'",
+    "dev": "ENV=development sh ../../scripts/utils/with-root-env.sh cargo watch --why --exec 'run'",
     "build": "exit 0",
-    "start": "dotenv -e ../../.env -- cargo run --release",
+    "start": "NODE_ENV=production sh ../../scripts/utils/with-root-env.sh cargo run --release",
     "clean": "cargo clean",
-    "test": "dotenv -e ../../.env -- cargo test",
-    "test:watch": "dotenv -e ../../.env -- cargo watch --why --exec 'test'",
+    "test": "NODE_ENV=test sh ../../scripts/utils/with-root-env.sh cargo test",
+    "test:watch": "NODE_ENV=test sh ../../scripts/utils/with-root-env.sh cargo watch --why --exec 'test'",
     "lint": "cargo clippy",
     "lint:fix": "cargo clippy --fix --allow-dirty --allow-staged",
     "migrate:all": "./scripts/migrate_all.sh"

@@ -1,4 +1,5 @@
 import { COOKIES, getServerAuthToken } from '@/shared/auth/cookies';
+import { getBackendUrl } from '@/shared/utils/url-resolver';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
@@ -18,7 +19,7 @@ const PUBLIC_ROUTES = [
 ];
 
 const LOGIN_PATH = '/auth';
-const BACKEND_URL = process.env.BACKEND_URL ?? 'http://127.0.0.1:8080';
+const BACKEND_URL = getBackendUrl('server');
 
 function isPublicRoute(pathname: string): boolean {
     return PUBLIC_ROUTES.some(route => pathname.startsWith(route));

@@ -2,6 +2,7 @@
  * Shared Utilities for Server Actions
  */
 import { COOKIES } from '@/shared/auth/cookies';
+import { getBackendUrl } from '@/shared/utils/url-resolver';
 import { cookies } from 'next/headers';
 
 /**
@@ -13,7 +14,7 @@ export async function makeAuthenticatedRequest<T = unknown>(
     endpoint: string,
     options: RequestInit = {}
 ): Promise<T> {
-    const backendUrl = process.env.BACKEND_URL ?? 'http://127.0.0.1:8080';
+    const backendUrl = getBackendUrl('server');
     const cookieStore = await cookies();
     const token = cookieStore.get(COOKIES.access_token)?.value;
     const headers = (token !== undefined && token !== '' ? { Authorization: `Bearer ${token}` } : {}) as Record<string, string>;

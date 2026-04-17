@@ -1,5 +1,10 @@
 {
   "mcpServers": {
+    "cloudflare-api": {
+      "type": "http",
+      "url": "https://mcp.cloudflare.com/mcp",
+      "note": "Official Cloudflare MCP server. Uses OAuth on first connection and supports DNS, domains, Workers, Firewall, R2, and the rest of the Cloudflare API."
+    },
     "lighthouse": {
       "command": "npx",
       "args": ["-y", "@danielsogl/lighthouse-mcp@latest"]

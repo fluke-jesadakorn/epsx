@@ -1,9 +1,10 @@
 import type { NextConfig } from 'next';
 
 const STUB_PATH = '../../shared/stubs/empty.ts';
+const DEFAULT_MEDIA_ORIGIN = 'http://localhost:9100';
 
 const nextConfig: NextConfig = {
-  // Enable standalone output for Docker deployment
+  // Keep standalone output for legacy Docker and local container workflows.
   output: 'standalone',
 
   experimental: {
@@ -32,7 +33,11 @@ const nextConfig: NextConfig = {
   },
 
   async rewrites() {
-    const minioEndpoint = process.env.MINIO_ENDPOINT ?? 'http://localhost:9100';
+    const minioEndpoint =
+      process.env.MINIO_ENDPOINT ??
+      process.env.MINIO_PUBLIC_URL ??
+      process.env.NEXT_PUBLIC_CDN_URL ??
+      DEFAULT_MEDIA_ORIGIN;
     return [
       {
         source: '/media-proxy/:path*',

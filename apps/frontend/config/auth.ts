@@ -33,6 +33,7 @@ import {
   validateWeb3Signature,
   web3Config
 } from '@/shared/config/auth';
+import { getBackendUrl } from '@/shared/utils/url-resolver';
 import { env } from './env';
 
 // Re-export types (Web3-focused)
@@ -100,7 +101,7 @@ export function getUserRequiredAuthLevel(route: string) {
  */
 export function buildFrontendWeb3ChallengeUrl(walletAddress: string): string {
   // Create an OIDC-compatible config for Web3 challenge URL
-  const BACKEND_URL = process.env.BACKEND_URL ?? 'http://127.0.0.1:8080';
+  const BACKEND_URL = getBackendUrl(typeof window === 'undefined' ? 'server' : 'client');
   const oidcLikeConfig = {
     clientId: 'epsx-frontend',
     issuer: BACKEND_URL,

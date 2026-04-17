@@ -27,8 +27,7 @@ enum Commands {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     
-    // Load .env if available
-    dotenv::dotenv().ok();
+    epsx::config::env::load_env();
     
     // Define database configurations: (Env Var, Migration Source, "Label")
     let databases = vec![

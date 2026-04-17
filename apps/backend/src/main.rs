@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use epsx::prelude::{TlsPool, TlsConnectionManager};
 use tracing::{info, error};
@@ -146,11 +146,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .unwrap_or_else(|_| "8080".to_string())
         .parse()
         .unwrap_or(8080);
+    let host_ip: IpAddr = host
+        .parse()
+        .unwrap_or_else(|_| IpAddr::from([0, 0, 0, 0]));
 
     info!("Backend URL: {}", config.backend_url);
     info!("Frontend URL: {}", config.frontend_url);
     info!("Admin URL: {}", config.admin_frontend_url);
-    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    let addr = SocketAddr::new(host_ip, port);
 
     info!("Server starting on {}:{}", host, port);
     info!("Health check: http://{}:{}/health", host, port);

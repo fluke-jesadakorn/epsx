@@ -323,7 +323,7 @@ export async function getDebugSessionInfo() {
       clientSessionLength: hasClientSession ? clientSession.length : 0,
       clientSessionPreview: hasClientSession ? `${clientSession.slice(0, 10)  }...` : 'none',
       accessCookieLength: hasAccessCookie ? accessCookie.length : 0,
-      backendUrl: process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8080',
+      backendUrl: getBackendUrl('server'),
       allCookieNames: allCookies,
       rawCookieHeader: hasRawHeader ? (`${rawHeader.slice(0, 50)  }...`) : 'missing'
     };

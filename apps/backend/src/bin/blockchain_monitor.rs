@@ -10,7 +10,7 @@ use tracing::{error, info, warn};
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load environment variables
-    dotenv::dotenv().ok();
+    epsx::config::env::load_env();
     
     // Determine environment and log level
     let is_production = std::env::var("RUST_ENV").unwrap_or_default() == "production" || 
@@ -70,7 +70,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Validate contract address
     if contract_address == "0x0000000000000000000000000000000000000000" {
-        error!("Invalid contract address. Please set {} in .env", contract_address_var);
+        error!("Invalid contract address. Please set {} in your active environment configuration", contract_address_var);
         error!("   Deploy the smart contract first and update the environment variable.");
         std::process::exit(1);
     }
