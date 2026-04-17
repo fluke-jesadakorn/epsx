@@ -2,6 +2,11 @@ name: Branch Flow
 
 on:
   pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
     branches:
       - development
       - staging
