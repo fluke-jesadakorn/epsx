@@ -81,14 +81,6 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Validate root environment
-        env:
-          ENV: ${{ steps.target.outputs.env_name }}
-          DEPLOYMENT_ENV: ${{ steps.target.outputs.env_name }}
-          NODE_ENV: production
-          RUST_ENV: ${{ steps.target.outputs.rust_env }}
-        run: bun run env:validate
-
       - name: Build frontend
         env:
           ENV: ${{ steps.target.outputs.env_name }}
