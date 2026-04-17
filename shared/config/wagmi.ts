@@ -2,6 +2,12 @@ import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { type Chain, http } from 'viem';
 import { bsc, bscTestnet } from 'viem/chains';
 import { cookieStorage, createConfig, createStorage } from 'wagmi';
+import {
+    getDefaultBlockchainNetworkForEnvironment,
+    getDefaultChainIdForEnvironment,
+    isLocalDevelopmentHostname,
+    resolveDeploymentEnvironment,
+} from '../env/deployment';
 
 /**
  * Get the dynamic Anvil RPC URL based on the current browser hostname.
@@ -53,12 +59,17 @@ const getAnvilLocalhost = (): Chain => {
 let cachedChains: Chain[] | null = null;
 
 // Get the blockchain network from environment
-const isMainnet = process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === 'mainnet';
-const isProduction = process.env.NODE_ENV === 'production';
-const defaultChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID);
+const deploymentEnvironment = resolveDeploymentEnvironment();
+const configuredNetwork = process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK;
+const blockchainNetwork = configuredNetwork === 'local'
+    ? 'testnet'
+    : configuredNetwork ?? getDefaultBlockchainNetworkForEnvironment(deploymentEnvironment);
+const isMainnet = blockchainNetwork === 'mainnet';
+const isProductionDeployment = deploymentEnvironment === 'production';
+const defaultChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? getDefaultChainIdForEnvironment(deploymentEnvironment));
 const isLocal = typeof window !== 'undefined'
-    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    : process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === 'local';
+    ? isLocalDevelopmentHostname(window.location.hostname)
+    : configuredNetwork === 'local' || defaultChainId === 31337;
 
 // Determine default chains with environment awareness
 // In production mainnet: only BSC Mainnet
@@ -69,9 +80,9 @@ export function getDefaultChains(): Chain[] {
     // Return cached chains if available to maintain connector references
     if (cachedChains) { return cachedChains; }
 
-    if (isMainnet && isProduction) {
+    if (isMainnet && isProductionDeployment) {
         cachedChains = [bsc];
-    } else if (isProduction) {
+    } else if (isProductionDeployment) {
         cachedChains = [bscTestnet, bsc];
     } else if (isLocal) {
         // Local: include Anvil with dynamic RPC URL

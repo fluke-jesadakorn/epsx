@@ -77,26 +77,33 @@ CONTRACT_ADDR=$(grep "PaymentEscrow deployed to:" $OUTPUT_FILE | awk '{print $NF
 if [ ! -z "$CONTRACT_ADDR" ]; then
     echo -e "${GREEN}✅ PaymentEscrow deployed to $CONTRACT_ADDR${NC}"
     
-    # Update root .env if it exists
-    ENV_FILE="../../.env"
+    # Update local development override first, then legacy fallbacks
+    ENV_FILE="../../.env.development.local"
+    if [ ! -f "$ENV_FILE" ]; then
+        ENV_FILE="../../.env.local"
+    fi
+    if [ ! -f "$ENV_FILE" ]; then
+        ENV_FILE="../../.env"
+    fi
+
     if [ -f "$ENV_FILE" ]; then
         # Replace existing or append
         if grep -q "PAYMENT_ESCROW_ADDRESS=" "$ENV_FILE"; then
             # Use perl for cross-platform in-place editing (sed -i differences on mac/linux)
             sed -i.bak "s/^PAYMENT_ESCROW_ADDRESS=.*/PAYMENT_ESCROW_ADDRESS=$CONTRACT_ADDR/" "$ENV_FILE" && rm "$ENV_FILE.bak"
-            echo -e "${GREEN}🔄 Updated PAYMENT_ESCROW_ADDRESS in .env${NC}"
+            echo -e "${GREEN}🔄 Updated PAYMENT_ESCROW_ADDRESS in $(basename "$ENV_FILE")${NC}"
         else
             echo "PAYMENT_ESCROW_ADDRESS=$CONTRACT_ADDR" >> "$ENV_FILE"
-            echo -e "${GREEN}➕ Added PAYMENT_ESCROW_ADDRESS to .env${NC}"
+            echo -e "${GREEN}➕ Added PAYMENT_ESCROW_ADDRESS to $(basename "$ENV_FILE")${NC}"
         fi
         
         # Also update NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL for frontend
         if grep -q "NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL=" "$ENV_FILE"; then
             sed -i.bak "s/^NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL=.*/NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL=$CONTRACT_ADDR/" "$ENV_FILE" && rm "$ENV_FILE.bak"
-            echo -e "${GREEN}🔄 Updated NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL in .env${NC}"
+            echo -e "${GREEN}🔄 Updated NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL in $(basename "$ENV_FILE")${NC}"
         else
             echo "NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL=$CONTRACT_ADDR" >> "$ENV_FILE"
-            echo -e "${GREEN}➕ Added NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL to .env${NC}"
+            echo -e "${GREEN}➕ Added NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL to $(basename "$ENV_FILE")${NC}"
         fi
     fi
 else

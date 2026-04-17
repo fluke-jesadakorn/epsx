@@ -28,6 +28,9 @@ playwright-synpress-report/
 .env
 .env.*
 !.env.example
+!.env.development
+!.env.staging
+!.env.production
 !.env.template
 !.env.*.template
 !.env.*.enc
@@ -73,6 +76,7 @@ target-check/
 *.pem
 *.key
 secrets/
+.secret/
 
 # Database
 *.db

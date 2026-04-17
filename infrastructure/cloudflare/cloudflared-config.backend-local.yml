@@ -1,0 +1,42 @@
+# ============================================================================
+# Cloudflare Tunnel Configuration - EPSX Local Backend
+# ============================================================================
+# Temporary backend-only routing while the Rust API is served directly from the
+# Mac host as three local executables instead of Docker/Kubernetes.
+#
+# Public hostnames:
+#   dev-api.epsx.io      -> localhost:18080
+#   staging-api.epsx.io  -> localhost:28080
+#   api.epsx.io          -> localhost:38080
+#
+# Retains the existing MinIO route to avoid breaking media access.
+
+tunnel: 6bee9b58-eede-4b4c-815c-94c0ee38fe58
+credentials-file: /etc/cloudflared/6bee9b58-eede-4b4c-815c-94c0ee38fe58.json
+
+ingress:
+  - hostname: dev-api.epsx.io
+    service: http://127.0.0.1:18080
+    originRequest:
+      connectTimeout: 30s
+
+  - hostname: staging-api.epsx.io
+    service: http://127.0.0.1:28080
+    originRequest:
+      connectTimeout: 30s
+
+  - hostname: api.epsx.io
+    service: http://127.0.0.1:38080
+    originRequest:
+      connectTimeout: 30s
+
+  - hostname: minio.epsx.io
+    service: http://127.0.0.1:9100
+    originRequest:
+      connectTimeout: 30s
+
+  - service: http_status:404
+
+loglevel: info
+protocol: quic
+no-autoupdate: true

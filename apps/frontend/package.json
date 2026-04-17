@@ -15,9 +15,9 @@
     "bun": ">=1.1.0"
   },
   "scripts": {
-    "dev": "dotenv -e ../../.env -- next dev -H 0.0.0.0 -p ${PORT:-3000} --turbo",
-    "build": "NODE_ENV=production dotenv -e ../../.env -- next build --webpack",
-    "start": "dotenv -e ../../.env -- next start -p ${PORT:-3000}",
+    "dev": "ENV=development sh ../../scripts/utils/with-root-env.sh next dev -H 0.0.0.0 -p ${PORT:-3000} --turbo",
+    "build": "NODE_ENV=production sh ../../scripts/utils/with-root-env.sh next build --webpack",
+    "start": "NODE_ENV=production sh ../../scripts/utils/with-root-env.sh next start -p ${PORT:-3000}",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "type-check": "tsc --noEmit",
