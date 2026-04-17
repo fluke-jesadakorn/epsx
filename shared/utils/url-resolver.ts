@@ -11,7 +11,14 @@
  * - Type-safe URL construction
  */
 
-import { clientEnv, isDev, isProd, isStaging, serverEnv } from '../env/schema';
+import { clientEnv, serverEnv } from '../env/schema';
+import {
+  getDefaultAdminUrlForEnvironment,
+  getDefaultBackendUrlForEnvironment,
+  getDefaultFrontendUrlForEnvironment,
+  isLocalDevelopmentHostname,
+  resolveDeploymentEnvironment,
+} from '../env/deployment';
 
 // ============================================================================
 // Modern Enum System for Type-Safe URL Resolution
@@ -165,10 +172,9 @@ function getEnvOverride(key: string, publicKey: string): string | undefined {
  * Helper to get development local URL based on window location
  */
 function getDevLocalUrl(port: number): string | undefined {
-  if (typeof window !== 'undefined' && isDev) {
+  if (typeof window !== 'undefined' && isLocalDevelopmentHostname(window.location.hostname)) {
     const hostname = window.location.hostname;
-    // Don't redirect localhost to localhost - that's the default anyway
-    if (hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.startsWith('100.')) {
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
       return `http://${hostname}:${port}`;
     }
   }
@@ -184,9 +190,11 @@ function getDefaultBackendUrl(): string {
   const localUrl = getDevLocalUrl(8080);
   if (localUrl !== undefined) { return localUrl; }
 
-  if (isDev) { return 'http://127.0.0.1:8080'; }
-  if (isStaging) { return 'https://staging-api.epsx.io'; }
-  return 'https://api.epsx.io'; // Production default
+  const environment = resolveDeploymentEnvironment();
+  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
+    return 'http://127.0.0.1:8080';
+  }
+  return getDefaultBackendUrlForEnvironment(environment);
 }
 
 function getDefaultFrontendUrl(): string {
@@ -196,9 +204,11 @@ function getDefaultFrontendUrl(): string {
   const localUrl = getDevLocalUrl(3000);
   if (localUrl !== undefined) { return localUrl; }
 
-  if (isDev) { return 'http://localhost:3000'; }
-  if (isStaging) { return 'https://staging.epsx.io'; }
-  return 'https://epsx.io'; // Production default
+  const environment = resolveDeploymentEnvironment();
+  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
+    return 'http://localhost:3000';
+  }
+  return getDefaultFrontendUrlForEnvironment(environment);
 }
 
 function getDefaultAdminUrl(): string {
@@ -208,9 +218,11 @@ function getDefaultAdminUrl(): string {
   const localUrl = getDevLocalUrl(3001);
   if (localUrl !== undefined) { return localUrl; }
 
-  if (isDev) { return 'http://localhost:3001'; }
-  if (isStaging) { return 'https://staging-admin.epsx.io'; }
-  return 'https://admin.epsx.io'; // Production default
+  const environment = resolveDeploymentEnvironment();
+  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
+    return 'http://localhost:3001';
+  }
+  return getDefaultAdminUrlForEnvironment(environment);
 }
 
 /**
@@ -218,8 +230,9 @@ function getDefaultAdminUrl(): string {
  * @returns Current environment as enum
  */
 export function getCurrentEnvironment(): Environment {
-  if (isDev) { return Environment.DEVELOPMENT; }
-  if (isStaging) { return Environment.STAGING; }
+  const environment = resolveDeploymentEnvironment();
+  if (environment === 'development') { return Environment.DEVELOPMENT; }
+  if (environment === 'staging') { return Environment.STAGING; }
   return Environment.PRODUCTION;
 }
 

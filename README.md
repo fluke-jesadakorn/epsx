@@ -10,6 +10,10 @@ Ensure you have [Bun](https://bun.sh) and [Docker](https://www.docker.com/) inst
 # Install dependencies
 bun install
 
+# Configure local env stack
+# Shared secrets/common defaults: .env or .env.local
+# Environment overlays: .env.development / .env.staging / .env.production
+
 # Start development environment (all services)
 bun dev
 ```
@@ -41,7 +45,7 @@ The project is structured as a monorepo using **Turbo** and **Bun**.
 - **Frontend**: Next.js 16.0, React 19.2, TailwindCSS, Zustand, SWR.
 - **Web3**: Wagmi, RainbowKit (SIWE compatible).
 - **Backend**: Rust (Axum), Diesel ORM (Async), PostgreSQL, Redis.
-- **DevOps**: Docker, Turbo Repo, Cloudflare Tunnel.
+- **DevOps**: Vercel (frontend/admin), local Kubernetes + Cloudflare Tunnel (backend), Turbo Repo.
 
 ## 🔑 Authentication
 
@@ -64,11 +68,23 @@ Defined in `package.json`, here are the most common commands:
 - `bun lint`: Lint all codebases.
 - `bun format`: Format code with Prettier.
 
+## 🌍 Environment Files
+
+Root environment loading now follows a layered model:
+
+- `.env`: shared secrets and legacy common values
+- `.env.development`, `.env.staging`, `.env.production`: tracked non-secret overlays
+- `.env.local`, `.env.development.local`, `.env.staging.local`, `.env.production.local`: untracked overrides
+
+The app and backend scripts resolve the active stack automatically from `ENV`, `DEPLOYMENT_ENV`, `RUST_ENV`, or `NODE_ENV`.
+
 ## 📦 Deployment
 
-Deployment is handled via Docker containers and Cloud Run / Custom Server orchestration. See the `./scripts/deploy` directory for specific deployment strategies.
+The target deployment split is now:
 
-```bash
-# Example: Build and deploy to development
-bun deploy:dev
-```
+- `apps/frontend` -> Vercel
+- `apps/admin-frontend` -> Vercel
+- `apps/backend` -> local Kubernetes
+- `apps/contracts` -> local Foundry workflows and on-chain deployment
+
+The repo migration note is in [docs/plans/2026-04-16-vercel-hybrid-deployment.md](/Users/fluke/Desktop/Work/epsx/docs/plans/2026-04-16-vercel-hybrid-deployment.md). Legacy Docker-based frontend deployment files still exist and should be treated as transitional until the Vercel projects are fully live.

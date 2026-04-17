@@ -12,6 +12,7 @@ NC='\033[0m' # No Color
 # Get the script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
+REPO_ROOT="$(cd "$BACKEND_DIR/../.." && pwd)"
 
 cd "$BACKEND_DIR"
 
@@ -19,16 +20,10 @@ echo "🔍 Checking EPSX Backend Environment Configuration"
 echo "=================================================="
 echo ""
 
-# Load .env file if it exists
-if [ -f .env ]; then
-    echo -e "${GREEN}✅ .env file found${NC}"
-    # Source .env safely (handles multiline values)
-    set -a
-    source .env 2>/dev/null || true
-    set +a
-else
-    echo -e "${YELLOW}⚠️  .env file not found in $BACKEND_DIR${NC}"
-    echo "   Create one from the root .env or copy required variables"
+eval "$(node "$REPO_ROOT/scripts/utils/root-env.js" --print-shell)"
+echo -e "${GREEN}✅ Loaded merged environment for ${EPSX_ENV:-development}${NC}"
+if [ -n "${EPSX_ROOT_ENV_FILES:-}" ]; then
+    echo "   Files: ${EPSX_ROOT_ENV_FILES}"
 fi
 
 echo ""
@@ -70,17 +65,23 @@ else
     echo -e "${YELLOW}⚠️  REDIS_URL${NC}: not set (notifications will not work)"
 fi
 
-# Check OIDC secrets
-if [ -n "$OIDC_CLIENT_SECRET" ]; then
-    echo -e "${GREEN}✅ OIDC_CLIENT_SECRET${NC}: configured"
+# Check Web3 / session secrets
+if [ -n "$WEB3_APP_SECRET" ]; then
+    echo -e "${GREEN}✅ WEB3_APP_SECRET${NC}: configured"
 else
-    echo -e "${RED}❌ OIDC_CLIENT_SECRET${NC}: not set"
+    echo -e "${RED}❌ WEB3_APP_SECRET${NC}: not set"
 fi
 
-if [ -n "$OIDC_ADMIN_CLIENT_SECRET" ]; then
-    echo -e "${GREEN}✅ OIDC_ADMIN_CLIENT_SECRET${NC}: configured"
+if [ -n "$JWT_SECRET" ]; then
+    echo -e "${GREEN}✅ JWT_SECRET${NC}: configured"
 else
-    echo -e "${RED}❌ OIDC_ADMIN_CLIENT_SECRET${NC}: not set"
+    echo -e "${RED}❌ JWT_SECRET${NC}: not set"
+fi
+
+if [ -n "$WALLET_SIGNATURE_SECRET" ]; then
+    echo -e "${GREEN}✅ WALLET_SIGNATURE_SECRET${NC}: configured"
+else
+    echo -e "${RED}❌ WALLET_SIGNATURE_SECRET${NC}: not set"
 fi
 
 echo ""

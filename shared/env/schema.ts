@@ -4,80 +4,74 @@
 // Reduced from 80+ legacy vars to 12 essential Web3-first variables
 
 import { z } from 'zod';
+import {
+  getDefaultAdminUrlForEnvironment,
+  getDefaultBackendUrlForEnvironment,
+  getDefaultBlockchainNetworkForEnvironment,
+  getDefaultChainIdForEnvironment,
+  getDefaultFrontendUrlForEnvironment,
+  isLocalDevelopmentHostname,
+  resolveDeploymentEnvironment,
+} from './deployment';
 
 // Environment context detection
 export const isServer = typeof window === 'undefined';
-// Helper to detect if running in development environment
-// Includes localhost, Tailscale IPs (100.x.x.x), and local network IPs
-const isDevHostname = (hostname: string): boolean => {
-  if (hostname === 'localhost') { return true; }
-  if (hostname === '127.0.0.1') { return true; }
-  // Tailscale IPs (CGNAT range)
-  if (hostname.startsWith('100.')) { return true; }
-  // Local network IPs
-  if (hostname.startsWith('192.168.')) { return true; }
-  if (hostname.startsWith('10.')) { return true; }
-  // Docker/internal ranges
-  if (hostname.startsWith('172.')) { return true; }
-  return false;
-};
-
-export const isDev = (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') || (typeof window !== 'undefined' && isDevHostname(window.location.hostname));
-export const isProd = (typeof process !== 'undefined' && process.env.NODE_ENV === 'production');
-export const isStaging = (typeof process !== 'undefined' && process.env.NODE_ENV === 'production' && process.env.DEPLOYMENT_ENV === 'staging');
+const deploymentEnvironment = resolveDeploymentEnvironment();
+export const isDev = deploymentEnvironment === 'development';
+export const isProd = deploymentEnvironment === 'production';
+export const isStaging = deploymentEnvironment === 'staging';
 export const isBuild = (typeof process !== 'undefined' && (process.env.NEXT_PHASE === 'phase-production-build' || process.env.CI === 'true'));
 
 // URL defaults based on environment
 const getDefaultBackendUrl = () => {
   // In browser development, use the same host as the frontend but port 8080
-  if (typeof window !== 'undefined' && isDev) {
+  if (typeof window !== 'undefined' && isLocalDevelopmentHostname(window.location.hostname)) {
     const hostname = window.location.hostname;
     if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
       return `http://${hostname}:8080`;
     }
   }
-  if (isDev) { return 'http://localhost:8080'; }
-  if (isStaging) { return 'https://staging-api.epsx.io'; }
-  return 'https://api.epsx.io'; // Production default - api.epsx.io maps to backend service
+  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
+    return 'http://localhost:8080';
+  }
+  return getDefaultBackendUrlForEnvironment(deploymentEnvironment);
 };
 
 const getDefaultFrontendUrl = () => {
   // In browser development, use the current origin
-  if (typeof window !== 'undefined' && isDev) {
+  if (typeof window !== 'undefined' && isLocalDevelopmentHostname(window.location.hostname)) {
     const hostname = window.location.hostname;
     if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
       return `http://${hostname}:3000`;
     }
   }
-  if (isDev) { return 'http://localhost:3000'; }
-  if (isStaging) { return 'https://staging.epsx.io'; }
-  return undefined; // Force explicit configuration in production
+  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
+    return 'http://localhost:3000';
+  }
+  return getDefaultFrontendUrlForEnvironment(deploymentEnvironment);
 };
 
 const getDefaultAdminUrl = () => {
   // In browser development, use the same host as the frontend but port 3001
-  if (typeof window !== 'undefined' && isDev) {
+  if (typeof window !== 'undefined' && isLocalDevelopmentHostname(window.location.hostname)) {
     const hostname = window.location.hostname;
     if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
       return `http://${hostname}:3001`;
     }
   }
-  if (isDev) { return 'http://localhost:3001'; }
-  if (isStaging) { return 'https://staging-admin.epsx.io'; }
-  return undefined; // Force explicit configuration in production
+  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
+    return 'http://localhost:3001';
+  }
+  return getDefaultAdminUrlForEnvironment(deploymentEnvironment);
 };
 
 // Web3 Configuration Defaults
 const getDefaultBlockchainNetwork = () => {
-  if (isDev) { return 'testnet'; }
-  if (isStaging) { return 'testnet'; }
-  return 'mainnet'; // Production uses BSC mainnet
+  return getDefaultBlockchainNetworkForEnvironment(deploymentEnvironment);
 };
 
 const getDefaultChainId = () => {
-  if (isDev) { return '97'; }
-  if (isStaging) { return '97'; }
-  return '56'; // Production uses BSC mainnet (chain 56)
+  return getDefaultChainIdForEnvironment(deploymentEnvironment);
 };
 
 const getDefaultWalletConnectProjectId = () => {
@@ -206,7 +200,7 @@ export const clientEnvSchema = z.object({
 
   NEXT_PUBLIC_CHAIN_ID: z.string()
     .optional()
-    .default('97') // BSC Testnet default for development
+    .default(getDefaultChainId())
     .describe('Blockchain chain ID - automatically determined by network setting'),
 
   // Payment Configuration (2 variables) - Company wallet addresses for receiving payments

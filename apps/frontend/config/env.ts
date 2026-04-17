@@ -24,8 +24,9 @@ export const config = {
 
   // Web3 configuration (use shared auth config for full Web3 setup)
   web3: {
-    networkId: process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK ?? 'testnet',
-    walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? 'epsx-web3-frontend',
+    networkId: env.BLOCKCHAIN_NETWORK,
+    chainId: env.CHAIN_ID,
+    walletConnectProjectId: env.WALLETCONNECT_PROJECT_ID,
   },
 
   // Web3 blockchain configuration

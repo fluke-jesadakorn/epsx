@@ -9,11 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 MIGRATIONS_DIR="$PROJECT_ROOT/apps/backend/migrations/core"
 
-# Load .env file if it exists (optional but helpful for credentials)
-if [ -f "$PROJECT_ROOT/.env" ]; then
-    # Simplistic env loader
-    export $(grep -v '^#' "$PROJECT_ROOT/.env" | xargs)
-fi
+eval "$(node "$PROJECT_ROOT/scripts/utils/root-env.js" --print-shell)"
 
 # Default connection info (matches docker-compose defaults)
 DB_USER=${DB_USER:-epsx_user}
@@ -78,4 +74,3 @@ done
 
 echo ""
 echo "🎉 All recoveries complete!"
-

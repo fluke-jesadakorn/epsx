@@ -3,9 +3,10 @@ import path from 'node:path';
 
 const SHARED_STUB = '../../shared/stubs/empty.ts';
 const ZOD_ALIAS = 'zod';
+const DEFAULT_MEDIA_ORIGIN = 'http://localhost:9100';
 
 const nextConfig: NextConfig = {
-  // Enable standalone output for Docker deployment
+  // Keep standalone output for legacy Docker and local container workflows.
   output: 'standalone',
 
   images: {
@@ -16,7 +17,11 @@ const nextConfig: NextConfig = {
   },
 
   async rewrites() {
-    const minioEndpoint = process.env.MINIO_ENDPOINT ?? 'http://localhost:9100';
+    const minioEndpoint =
+      process.env.MINIO_ENDPOINT ??
+      process.env.MINIO_PUBLIC_URL ??
+      process.env.NEXT_PUBLIC_CDN_URL ??
+      DEFAULT_MEDIA_ORIGIN;
     return [
       {
         source: '/media-proxy/:path*',

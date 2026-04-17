@@ -4,6 +4,7 @@
 
 use std::env;
 use std::fmt;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct ValidationError {
@@ -15,6 +16,83 @@ impl fmt::Display for ValidationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", self.variable, self.reason)
     }
+}
+
+fn normalize_environment_name(value: &str) -> Option<&'static str> {
+    match value.trim().to_lowercase().as_str() {
+        "dev" | "development" | "local" | "preview" | "test" => Some("development"),
+        "stage" | "staging" => Some("staging"),
+        "prod" | "production" | "main" | "master" => Some("production"),
+        _ => None,
+    }
+}
+
+fn resolve_runtime_environment() -> String {
+    let candidates = [
+        env::var("DEPLOYMENT_ENV").ok(),
+        env::var("APP_ENV").ok(),
+        env::var("ENV").ok(),
+        env::var("EPSX_ENV").ok(),
+        env::var("RUST_ENV").ok(),
+        env::var("NODE_ENV").ok(),
+    ];
+
+    candidates
+        .into_iter()
+        .flatten()
+        .find_map(|value| normalize_environment_name(&value).map(str::to_string))
+        .unwrap_or_else(|| "development".to_string())
+}
+
+fn resolve_repo_root() -> Option<PathBuf> {
+    let current_dir = env::current_dir().ok()?;
+
+    current_dir
+        .ancestors()
+        .find(|candidate| candidate.join("turbo.json").exists())
+        .map(Path::to_path_buf)
+}
+
+fn candidate_env_files(environment_name: &str) -> Vec<PathBuf> {
+    if let Ok(root_env_file) = env::var("ROOT_ENV_FILE") {
+        let root_env_path = PathBuf::from(root_env_file);
+        let explicit_path = if root_env_path.is_absolute() {
+            root_env_path
+        } else {
+            env::current_dir()
+                .map(|dir| dir.join(&root_env_path))
+                .unwrap_or(root_env_path)
+        };
+
+        return vec![explicit_path];
+    }
+
+    let Some(repo_root) = resolve_repo_root() else {
+        return Vec::new();
+    };
+
+    vec![
+        repo_root.join(".env"),
+        repo_root.join(format!(".env.{environment_name}")),
+        repo_root.join(".env.local"),
+        repo_root.join(format!(".env.{environment_name}.local")),
+    ]
+}
+
+#[allow(deprecated)]
+fn load_env_file(path: &Path, protected_keys: &[String]) -> Result<(), dotenv::Error> {
+    let iter = dotenv::from_path_iter(path)?;
+
+    for item in iter {
+        let (key, value) = item?;
+        if protected_keys.iter().any(|protected_key| protected_key == &key) {
+            continue;
+        }
+
+        env::set_var(key, value);
+    }
+
+    Ok(())
 }
 
 /// Pure Web3 Enterprise Configuration - Zero OIDC Dependencies
@@ -301,17 +379,61 @@ impl Config {
     }
 }
 
-/// Load environment from .env file
+/// Load environment from the repo root env stack
 pub fn load_env() {
-    // Load environment variables from .env file (searches current and parent directories)
-    match dotenv::dotenv() {
-        Ok(path) => println!("Loaded environment variables from .env file: {:?}", path),
-        Err(e) => {
-            // Only log if we don't have the variables already
-            if std::env::var("DATABASE_URL").is_err() {
-                eprintln!("Info: .env file not loaded: {}", e);
+    let environment_name = resolve_runtime_environment();
+    let protected_keys: Vec<String> = env::vars().map(|(key, _)| key).collect();
+    let mut loaded_files = Vec::new();
+
+    for file_path in candidate_env_files(&environment_name) {
+        if !file_path.exists() {
+            continue;
+        }
+
+        match load_env_file(&file_path, &protected_keys) {
+            Ok(()) => loaded_files.push(file_path),
+            Err(error) => eprintln!("Warning: failed to load {:?}: {}", file_path, error),
+        }
+    }
+
+    if loaded_files.is_empty() {
+        // Legacy fallback for commands run outside the repo root env stack.
+        match dotenv::dotenv() {
+            Ok(path) => println!("Loaded environment variables from .env file: {:?}", path),
+            Err(error) => {
+                if env::var("DATABASE_URL").is_err() {
+                    eprintln!("Info: .env file not loaded: {}", error);
+                }
             }
         }
+    } else {
+        println!("Loaded environment overlay for {environment_name}:");
+        for loaded_file in loaded_files {
+            println!("  - {:?}", loaded_file);
+        }
+    }
+
+    if env::var("ENV").is_err() {
+        env::set_var("ENV", &environment_name);
+    }
+    if env::var("DEPLOYMENT_ENV").is_err() {
+        env::set_var("DEPLOYMENT_ENV", &environment_name);
+    }
+    if env::var("RUST_ENV").is_err() {
+        env::set_var("RUST_ENV", &environment_name);
+    }
+    if env::var("EPSX_ENV").is_err() {
+        env::set_var("EPSX_ENV", &environment_name);
+    }
+    if env::var("NODE_ENV").is_err() {
+        env::set_var(
+            "NODE_ENV",
+            if environment_name == "development" {
+                "development"
+            } else {
+                "production"
+            },
+        );
     }
 }
 

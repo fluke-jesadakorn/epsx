@@ -6,6 +6,7 @@
  */
 
 import { logger } from './logger';
+import { getDefaultBlockchainNetworkForEnvironment, resolveDeploymentEnvironment } from '../env/deployment';
 import { URLContext, getAdminUrl, getBackendUrl, getFrontendUrl } from './url-resolver';
 
 export interface ValidationResult {
@@ -163,6 +164,7 @@ export function getRuntimeEnvironment(isDevelopment = false): RequiredEnvVars & 
   const env = process.env as Record<string, string | undefined>;
   const oauthKey = 'NEXT_PUBLIC_OAUTH_CLIENT_ID';
   const blockchainKey = 'NEXT_PUBLIC_BLOCKCHAIN_NETWORK';
+  const environment = resolveDeploymentEnvironment();
 
   return {
     // Required variables with centralized URL resolver fallbacks
@@ -172,7 +174,7 @@ export function getRuntimeEnvironment(isDevelopment = false): RequiredEnvVars & 
     NEXT_PUBLIC_OAUTH_CLIENT_ID: env[oauthKey] ?? (isDevelopment ? 'epsx-frontend' : ''),
 
     // Optional Web3 variables
-    NEXT_PUBLIC_BLOCKCHAIN_NETWORK: env[blockchainKey] ?? 'testnet',
+    NEXT_PUBLIC_BLOCKCHAIN_NETWORK: env[blockchainKey] ?? getDefaultBlockchainNetworkForEnvironment(environment),
     NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? 'epsx-web3-frontend',
 
     // Optional Firebase variables

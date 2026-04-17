@@ -1,14 +1,13 @@
 #!/bin/bash
 set -e
 
-# Load .env variables from project root
-# We use 'set -a' to automatically export all variables
-set -a
-[ -f "../../.env" ] && . "../../.env"
-set +a
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+
+eval "$(node "$REPO_ROOT/scripts/utils/root-env.js" --print-shell)"
 
 # Move to backend directory where diesel configs live
-cd "$(dirname "$0")/.."
+cd "$SCRIPT_DIR/.."
 
 # Default values if not in .env (but .env matches these usually)
 DB_USER=${DB_USER:-postgres}

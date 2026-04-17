@@ -25,6 +25,9 @@ target/
 # Environment Files
 .env*
 !.env.example
+!.env.development
+!.env.staging
+!.env.production
 
 # Testing
 coverage/
@@ -88,6 +91,7 @@ scripts/
 *.pem
 *.key
 secrets/
+.secret/
 
 # Database
 *.db

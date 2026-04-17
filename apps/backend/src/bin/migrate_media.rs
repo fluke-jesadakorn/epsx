@@ -24,7 +24,7 @@ use aws_sdk_s3::{
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    dotenv::dotenv().ok();
+    epsx::config::env::load_env();
 
     let endpoint = env::var("MINIO_ENDPOINT").expect("MINIO_ENDPOINT required");
     let access = env::var("MINIO_ACCESS_KEY").expect("MINIO_ACCESS_KEY required");

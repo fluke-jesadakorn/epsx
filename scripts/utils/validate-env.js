@@ -1,17 +1,12 @@
 // validate-env.js
-// This script validates that all required environment variables defined in .env.example are present.
-// It loads .env (if present) using dotenv and checks each variable.
+// Validates required environment variables against the merged root env stack.
 
 const fs = require('fs');
 const path = require('path');
+const { buildRootEnv } = require('./root-env');
 
-// Load .env if exists
-try {
-  const envPath = path.resolve(__dirname, '../../.env');
-  require('dotenv').config({ path: envPath });
-} catch (e) {
-  // dotenv may not be installed; ignore if not needed
-}
+const { envName, mergedEnv } = buildRootEnv(process.env);
+Object.assign(process.env, mergedEnv);
 
 const envExamplePath = path.resolve(__dirname, '../../.env.example');
 if (!fs.existsSync(envExamplePath)) {
@@ -38,10 +33,10 @@ for (const key of requiredVars) {
 }
 
 if (missing.length > 0) {
-  console.error('❌ Missing required environment variables:');
+  console.error(`❌ Missing required environment variables for ${envName}:`);
   missing.forEach(v => console.error('  -', v));
   process.exit(1);
 } else {
-  console.log('✅ All required environment variables are set.');
+  console.log(`✅ All required environment variables are set for ${envName}.`);
   process.exit(0);
 }

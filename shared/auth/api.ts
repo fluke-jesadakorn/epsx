@@ -13,6 +13,7 @@
 
 import { fetchWithTimeout } from '../utils/fetch-with-timeout';
 import { logger } from '../utils/logger';
+import { getBackendUrl } from '../utils/url-resolver';
 
 // Challenge request/response types
 export interface ChallengeRequest {
@@ -54,14 +55,7 @@ class DirectWeb3ApiClient {
   private baseUrl: string;
 
   constructor() {
-    // Enhanced backend URL resolution with dynamic environment detection
-    this.baseUrl =
-      typeof window !== 'undefined'
-        ? // Client-side: Try env var, then dynamic port replacement (3000 -> 8080)
-        process.env.NEXT_PUBLIC_BACKEND_URL ??
-        window.location.origin.replace(/:300[0-9]/, ':8080')
-        : // Server-side: Try server env var, then default
-        process.env.BACKEND_URL ?? 'http://127.0.0.1:8080';
+    this.baseUrl = getBackendUrl(typeof window === 'undefined' ? 'server' : 'client');
 
     logger.debug('[AUTH] DirectWeb3ApiClient initialized', {
       baseUrl: this.baseUrl,
