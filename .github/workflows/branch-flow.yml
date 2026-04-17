@@ -1,0 +1,59 @@
+name: Branch Flow
+
+on:
+  pull_request:
+    branches:
+      - development
+      - staging
+      - production
+
+jobs:
+  validate-branch-flow:
+    name: Validate Branch Flow
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Enforce development -> staging -> production
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+
+          echo "Validating PR flow: ${HEAD_REF} -> ${BASE_REF}"
+
+          case "$BASE_REF" in
+            development)
+              case "$HEAD_REF" in
+                staging|production)
+                  echo "Back-promoting environment branches into development is not allowed."
+                  echo "Use feature or fix branches for development work, then promote development -> staging -> production."
+                  exit 1
+                  ;;
+                *)
+                  echo "Development accepts PRs from working branches."
+                  ;;
+              esac
+              ;;
+            staging)
+              if [[ "$HEAD_REF" != "development" ]]; then
+                echo "Staging only accepts promotion PRs from development."
+                exit 1
+              fi
+
+              echo "Valid staging promotion."
+              ;;
+            production)
+              if [[ "$HEAD_REF" != "staging" ]]; then
+                echo "Production only accepts promotion PRs from staging."
+                exit 1
+              fi
+
+              echo "Valid production promotion."
+              ;;
+            *)
+              echo "No branch-flow rule for base branch '${BASE_REF}'."
+              ;;
+          esac
