@@ -102,5 +102,21 @@ jobs:
           RUST_ENV: ${{ steps.target.outputs.rust_env }}
         run: cargo check --locked --manifest-path apps/backend/Cargo.toml
 
+      - name: Install contract dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cd apps/contracts
+
+          forge_std_repo=$(git config -f .gitmodules --get submodule.lib/forge-std.url | sed -E 's#https://github.com/##; s#\.git$##')
+          openzeppelin_repo=$(git config -f .gitmodules --get submodule.lib/openzeppelin-contracts.url | sed -E 's#https://github.com/##; s#\.git$##')
+          forge_std_ref=$(node -p "JSON.parse(require('fs').readFileSync('foundry.lock', 'utf8'))['lib/forge-std'].tag.name")
+          openzeppelin_ref=$(node -p "JSON.parse(require('fs').readFileSync('foundry.lock', 'utf8'))['lib/openzeppelin-contracts'].tag.name")
+
+          forge install --no-git \
+            "${forge_std_repo}@${forge_std_ref}" \
+            "${openzeppelin_repo}@${openzeppelin_ref}"
+
       - name: Build contracts
         run: cd apps/contracts && forge build
