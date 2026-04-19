@@ -2,12 +2,14 @@
 
 import { redirectOnForbidden } from '@/lib/api-error';
 import { createAdminApiClient } from '@/shared/api';
-import type {
-  AdminChatOverviewResp,
-  ChatConversation,
-  ChatMessage,
-  ChatStats,
-  ChatTopic,
+import {
+  normalizeChatMessage,
+  normalizeChatMessages,
+  type AdminChatOverviewResp,
+  type ChatConversation,
+  type ChatMessage,
+  type ChatStats,
+  type ChatTopic,
 } from '@/shared/api/chat';
 import type { ApiResponse } from '@/shared/utils/api-client';
 
@@ -48,12 +50,24 @@ export async function getConversation(id: string): Promise<ApiResponse<ChatConve
 
 export async function getMessages(id: string): Promise<ApiResponse<ChatMessage[]>> {
   const client = createAdminApiClient({ serverSide: true });
-  return check403(await client.get(`/api/admin/chat/conversations/${id}/messages`));
+  const res = check403(
+    await client.get<ChatMessage[]>(`/api/admin/chat/conversations/${id}/messages`)
+  );
+  if (res.success && Array.isArray(res.data)) {
+    return { ...res, data: normalizeChatMessages(res.data) };
+  }
+  return res;
 }
 
 export async function sendReply(id: string, content: string): Promise<ApiResponse<ChatMessage>> {
   const client = createAdminApiClient({ serverSide: true });
-  return check403(await client.post(`/api/admin/chat/conversations/${id}/messages`, { content }));
+  const res = check403(
+    await client.post<ChatMessage>(`/api/admin/chat/conversations/${id}/messages`, { content })
+  );
+  if (res.success && res.data) {
+    return { ...res, data: normalizeChatMessage(res.data) };
+  }
+  return res;
 }
 
 export async function assignAgent(id: string, agentAddress?: string): Promise<ApiResponse<ChatConversation>> {
