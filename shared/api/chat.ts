@@ -45,6 +45,57 @@ export interface ChatAttachment {
   size: number;
 }
 
+export type ChatMessageMetadata =
+  | ({ attachments?: ChatAttachment[] } & Record<string, unknown>)
+  | null;
+
+type NormalizedChatMessageMetadata = {
+  attachments?: ChatAttachment[];
+} & Record<string, unknown>;
+
+function isChatAttachment(value: unknown): value is ChatAttachment {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const attachment = value as Partial<ChatAttachment>;
+
+  return (
+    typeof attachment.url === 'string' &&
+    typeof attachment.filename === 'string' &&
+    typeof attachment.file_type === 'string' &&
+    typeof attachment.size === 'number'
+  );
+}
+
+function isChatMessageMetadataRecord(
+  value: unknown
+): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export function normalizeChatMessageMetadata(
+  metadata: ChatMessageMetadata | undefined
+): NormalizedChatMessageMetadata {
+  if (!isChatMessageMetadataRecord(metadata)) {
+    return {};
+  }
+
+  const attachments = Array.isArray(metadata.attachments)
+    ? metadata.attachments.filter(isChatAttachment)
+    : undefined;
+
+  return attachments === undefined
+    ? { ...metadata }
+    : { ...metadata, attachments };
+}
+
+export function getChatAttachments(
+  metadata: ChatMessageMetadata | undefined
+): ChatAttachment[] {
+  return normalizeChatMessageMetadata(metadata).attachments ?? [];
+}
+
 export interface ChatMessage {
   id: string;
   conversation_id: string;
@@ -52,7 +103,7 @@ export interface ChatMessage {
   sender_address: string | null;
   content: string;
   is_read: boolean;
-  metadata: { attachments?: ChatAttachment[] } & Record<string, unknown>;
+  metadata: ChatMessageMetadata;
   created_at: string;
 }
 
@@ -95,6 +146,30 @@ export interface ChatFullResp {
   messages: ChatMessage[];
 }
 
+export function normalizeChatMessage(message: ChatMessage): ChatMessage {
+  return {
+    ...message,
+    metadata: normalizeChatMessageMetadata(message.metadata),
+  };
+}
+
+export function normalizeChatMessages(
+  messages: ChatMessage[] | null | undefined
+): ChatMessage[] {
+  if (!Array.isArray(messages)) {
+    return [];
+  }
+
+  return messages.map(normalizeChatMessage);
+}
+
+export function normalizeChatFullResp(chatFull: ChatFullResp): ChatFullResp {
+  return {
+    ...chatFull,
+    messages: normalizeChatMessages(chatFull.messages),
+  };
+}
+
 export interface AdminChatOverviewResp {
   stats: ChatStats;
   conversations: ChatConversation[];
@@ -106,7 +181,7 @@ export interface AdminChatOverviewResp {
 // ============================================================================
 
 export class SupportChatApi {
-  constructor(private client: UnifiedApiClient) { }
+  constructor(private client: UnifiedApiClient) {}
 
   // Topics
   async getTopics(): Promise<ApiResponse<ChatTopic[]>> {
@@ -114,7 +189,9 @@ export class SupportChatApi {
   }
 
   // User conversations
-  async createConversation(data: CreateConversationReq): Promise<ApiResponse<ChatConversation>> {
+  async createConversation(
+    data: CreateConversationReq
+  ): Promise<ApiResponse<ChatConversation>> {
     return this.client.post('/api/chat/conversations', data);
   }
 
@@ -130,11 +207,19 @@ export class SupportChatApi {
     return this.client.get(`/api/chat/conversations/${id}/messages`);
   }
 
-  async sendMessage(id: string, content: string): Promise<ApiResponse<ChatMessage>> {
-    return this.client.post(`/api/chat/conversations/${id}/messages`, { content });
+  async sendMessage(
+    id: string,
+    content: string
+  ): Promise<ApiResponse<ChatMessage>> {
+    return this.client.post(`/api/chat/conversations/${id}/messages`, {
+      content,
+    });
   }
 
-  async updateStatus(id: string, status: string): Promise<ApiResponse<ChatConversation>> {
+  async updateStatus(
+    id: string,
+    status: string
+  ): Promise<ApiResponse<ChatConversation>> {
     return this.client.put(`/api/chat/conversations/${id}/status`, { status });
   }
 
@@ -161,14 +246,24 @@ export class SupportChatApi {
     agent?: string;
   }): Promise<ApiResponse<ChatConversation[]>> {
     const searchParams = new URLSearchParams();
-    if (params?.status !== undefined && params.status !== '') { searchParams.set('status', params.status); }
-    if (params?.topic_id !== undefined && params.topic_id !== '') { searchParams.set('topic_id', params.topic_id); }
-    if (params?.agent !== undefined && params.agent !== '') { searchParams.set('agent', params.agent); }
+    if (params?.status !== undefined && params.status !== '') {
+      searchParams.set('status', params.status);
+    }
+    if (params?.topic_id !== undefined && params.topic_id !== '') {
+      searchParams.set('topic_id', params.topic_id);
+    }
+    if (params?.agent !== undefined && params.agent !== '') {
+      searchParams.set('agent', params.agent);
+    }
     const qs = searchParams.toString();
-    return this.client.get(`/api/admin/chat/conversations${qs !== '' ? `?${qs}` : ''}`);
+    return this.client.get(
+      `/api/admin/chat/conversations${qs !== '' ? `?${qs}` : ''}`
+    );
   }
 
-  async adminGetConversation(id: string): Promise<ApiResponse<ChatConversation>> {
+  async adminGetConversation(
+    id: string
+  ): Promise<ApiResponse<ChatConversation>> {
     return this.client.get(`/api/admin/chat/conversations/${id}`);
   }
 
@@ -176,16 +271,31 @@ export class SupportChatApi {
     return this.client.get(`/api/admin/chat/conversations/${id}/messages`);
   }
 
-  async adminSendReply(id: string, content: string): Promise<ApiResponse<ChatMessage>> {
-    return this.client.post(`/api/admin/chat/conversations/${id}/messages`, { content });
+  async adminSendReply(
+    id: string,
+    content: string
+  ): Promise<ApiResponse<ChatMessage>> {
+    return this.client.post(`/api/admin/chat/conversations/${id}/messages`, {
+      content,
+    });
   }
 
-  async adminAssignAgent(id: string, agentAddress?: string): Promise<ApiResponse<ChatConversation>> {
-    return this.client.put(`/api/admin/chat/conversations/${id}/assign`, { agent_address: agentAddress });
+  async adminAssignAgent(
+    id: string,
+    agentAddress?: string
+  ): Promise<ApiResponse<ChatConversation>> {
+    return this.client.put(`/api/admin/chat/conversations/${id}/assign`, {
+      agent_address: agentAddress,
+    });
   }
 
-  async adminUpdateStatus(id: string, status: string): Promise<ApiResponse<ChatConversation>> {
-    return this.client.put(`/api/admin/chat/conversations/${id}/status`, { status });
+  async adminUpdateStatus(
+    id: string,
+    status: string
+  ): Promise<ApiResponse<ChatConversation>> {
+    return this.client.put(`/api/admin/chat/conversations/${id}/status`, {
+      status,
+    });
   }
 
   async adminMarkRead(id: string): Promise<ApiResponse<void>> {
@@ -209,6 +319,8 @@ export class SupportChatApi {
 // FACTORY
 // ============================================================================
 
-export function createSupportChatClient(client: UnifiedApiClient): SupportChatApi {
+export function createSupportChatClient(
+  client: UnifiedApiClient
+): SupportChatApi {
   return new SupportChatApi(client);
 }
