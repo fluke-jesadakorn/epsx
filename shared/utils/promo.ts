@@ -6,6 +6,38 @@ import { fmtAmt } from './formatting/currency'
 export type PromoType = 'percentage' | 'fixed';
 export type PromoStatus = 'active' | 'upcoming' | 'expired' | 'disabled';
 
+const DEFAULT_PROMOTION_FALLBACK_YEARS = 1;
+
+function parsePromotionDate(value: string): Date | null {
+  const trimmedValue = value.trim();
+  if (trimmedValue === '') {
+    return null;
+  }
+
+  const parsedDate = new Date(trimmedValue);
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+}
+
+function getFallbackPromotionEndDate(now: Date): Date {
+  const fallbackDate = new Date(now);
+  fallbackDate.setFullYear(fallbackDate.getFullYear() + DEFAULT_PROMOTION_FALLBACK_YEARS);
+  return fallbackDate;
+}
+
+export function resolvePromotionEndDate(
+  endDate: string | null | undefined,
+  now: Date = new Date()
+): Date {
+  if (typeof endDate === 'string') {
+    const parsedDate = parsePromotionDate(endDate);
+    if (parsedDate !== null) {
+      return parsedDate;
+    }
+  }
+
+  return getFallbackPromotionEndDate(now);
+}
+
 /**
  * Options for calculating price
  */
@@ -96,7 +128,7 @@ export function formatBadge(
  */
 export function getTimeRemaining(endDate: string): string {
   const now = new Date();
-  const end = new Date(endDate);
+  const end = resolvePromotionEndDate(endDate, now);
   const diff = end.getTime() - now.getTime();
 
   if (diff <= 0) {
