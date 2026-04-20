@@ -5,6 +5,12 @@
  */
 
 import { COOKIES } from '@/shared/auth/cookies';
+import {
+  DESIGN_BYPASS_WALLET,
+  getDesignBypassPermissions,
+  isDesignBypassEnabled,
+  isDesignBypassServerEnabled,
+} from '@/shared/utils/design-bypass';
 import { logger } from '@/lib/logger';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
@@ -59,6 +65,45 @@ interface UserCookieData {
   auth_time?: string;
 }
 
+function createDesignBypassWeb3Session(): Web3SessionData {
+  return {
+    walletAddress: DESIGN_BYPASS_WALLET,
+    signature: '',
+    message: '',
+    nonce: '',
+    chainId: 56,
+    expiresAt: Date.now() + 60 * 60 * 1000,
+  };
+}
+
+function parseUserCookieData(userCookie: string): UserCookieData | null {
+  try {
+    return JSON.parse(decodeURIComponent(userCookie)) as UserCookieData;
+  } catch (parseError) {
+    logger.auth.error('Failed to parse user cookie', {
+      parseError: String(parseError),
+    });
+    return null;
+  }
+}
+
+function getWalletAddress(userData: UserCookieData): string {
+  return userData.wallet_address ?? userData.sub ?? '';
+}
+
+function getDefaultChainId(): number {
+  const defaultChainId = process.env['NEXT_PUBLIC_DEFAULT_CHAIN_ID'];
+  return defaultChainId !== undefined && defaultChainId !== ''
+    ? parseInt(defaultChainId)
+    : 56;
+}
+
+function getSessionExpiry(userData: UserCookieData, fallbackTime: number): number {
+  return userData.auth_time !== undefined
+    ? parseInt(userData.auth_time) + 2592000000
+    : fallbackTime + 2592000000;
+}
+
 // ============================================================================
 // Web3 Session Management
 // ============================================================================
@@ -67,6 +112,10 @@ interface UserCookieData {
  * Get Web3 authentication data from EPSX HttpOnly cookies
  */
 export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | null> {
+  if (await isDesignBypassServerEnabled()) {
+    return createDesignBypassWeb3Session();
+  }
+
   try {
     const cookieStore = await cookies();
 
@@ -79,29 +128,19 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
       return null;
     }
 
-    // Parse user data from cookie
-    let userData: UserCookieData | null = null;
-    try {
-      userData = JSON.parse(decodeURIComponent(userCookie)) as UserCookieData;
-    } catch (parseError) {
-      logger.auth.error('Failed to parse user cookie', { parseError: String(parseError) });
+    const userData = parseUserCookieData(userCookie);
+    if (userData === null) {
       return null;
     }
 
     const now = Date.now();
-    const walletAddress = (userData.wallet_address !== undefined && userData.wallet_address !== '')
-      ? userData.wallet_address
-      : (userData.sub ?? '');
-
     const sessionData: Web3SessionData = {
-      walletAddress,
+      walletAddress: getWalletAddress(userData),
       signature: '', // Not accessible (HttpOnly)
-      message: '',   // Not accessible (HttpOnly)
+      message: '', // Not accessible (HttpOnly)
       nonce: '', // Not accessible (HttpOnly)
-      chainId: (process.env['NEXT_PUBLIC_DEFAULT_CHAIN_ID'] !== undefined && process.env['NEXT_PUBLIC_DEFAULT_CHAIN_ID'] !== '')
-        ? parseInt(process.env['NEXT_PUBLIC_DEFAULT_CHAIN_ID'])
-        : 56, // BSC Mainnet - default
-      expiresAt: userData.auth_time !== undefined ? parseInt(userData.auth_time) + 2592000000 : now + 2592000000, // 30 days default
+      chainId: getDefaultChainId(),
+      expiresAt: getSessionExpiry(userData, now),
     };
 
     // Check if session has expired using new expiresAt calculation
@@ -112,9 +151,10 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
     }
 
     return sessionData;
-
   } catch (_error) {
-    logger.auth.error('Failed to get Web3 session from cookies', { error: String(_error) });
+    logger.auth.error('Failed to get Web3 session from cookies', {
+      error: String(_error),
+    });
     return null;
   }
 }
@@ -123,7 +163,9 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
  * Validate Web3 authentication with backend
  * @param _sessionData
  */
-export async function validateWeb3Session(_sessionData: Web3SessionData): Promise<Web3AdminUser | null> {
+export async function validateWeb3Session(
+  _sessionData: Web3SessionData
+): Promise<Web3AdminUser | null> {
   try {
     // Note: Since we don't have access to signature and message (HttpOnly),
     // we'll rely on the backend validation through HttpOnly cookies
@@ -139,13 +181,16 @@ export async function validateWeb3Session(_sessionData: Web3SessionData): Promis
     try {
       userData = JSON.parse(decodeURIComponent(userCookie)) as UserCookieData;
     } catch (parseError) {
-      logger.auth.error('Failed to parse user cookie', { parseError: String(parseError) });
+      logger.auth.error('Failed to parse user cookie', {
+        parseError: String(parseError),
+      });
       return null;
     }
 
-    const walletAddress = (userData.wallet_address !== undefined && userData.wallet_address !== '')
-      ? userData.wallet_address
-      : (userData.sub ?? '');
+    const walletAddress =
+      userData.wallet_address !== undefined && userData.wallet_address !== ''
+        ? userData.wallet_address
+        : (userData.sub ?? '');
 
     const web3User: Web3AdminUser = {
       walletAddress,
@@ -154,12 +199,14 @@ export async function validateWeb3Session(_sessionData: Web3SessionData): Promis
       permissions: userData.permissions ?? [],
       groups: userData.groups ?? [],
       isAdmin: userData.isAdmin ?? true, // Assume admin if user cookie exists
-      sessionExpiry: userData.auth_time !== undefined ? parseInt(userData.auth_time) + 2592000000 : Date.now() + 2592000000, // 30 days default
-      lastVerified: Date.now()
+      sessionExpiry:
+        userData.auth_time !== undefined
+          ? parseInt(userData.auth_time) + 2592000000
+          : Date.now() + 2592000000, // 30 days default
+      lastVerified: Date.now(),
     };
 
     return web3User;
-
   } catch (_error) {
     logger.auth.error('Web3 validation error', { error: String(_error) });
     return null;
@@ -170,7 +217,9 @@ export async function validateWeb3Session(_sessionData: Web3SessionData): Promis
  * Set Web3 session data in secure cookies
  * @param sessionData
  */
-export async function setWeb3Session(sessionData: Web3SessionData): Promise<void> {
+export async function setWeb3Session(
+  sessionData: Web3SessionData
+): Promise<void> {
   await setWeb3SessionAction(sessionData);
 }
 
@@ -190,6 +239,10 @@ export async function clearWeb3Session(): Promise<void> {
  * @param user
  */
 export function hasAdminAccess(user: Web3AdminUser | undefined): boolean {
+  if (isDesignBypassEnabled()) {
+    return true;
+  }
+
   // PERMISSION REFACTOR: Client-side checks are now permissive.
   // Backend enforces actual access control.
   return Boolean(user);
@@ -200,10 +253,13 @@ export function hasAdminAccess(user: Web3AdminUser | undefined): boolean {
  * @param permissions
  * @param platform
  */
-export function getPermissionsByPlatform(permissions: string[], platform: string): string[] {
-  return permissions.filter(permission =>
-    permission.startsWith(`${platform}:`) ||
-    permission === 'admin:*:*'
+export function getPermissionsByPlatform(
+  permissions: string[],
+  platform: string
+): string[] {
+  return permissions.filter(
+    permission =>
+      permission.startsWith(`${platform}:`) || permission === 'admin:*:*'
   );
 }
 
@@ -212,7 +268,10 @@ export function getPermissionsByPlatform(permissions: string[], platform: string
  * @param _permissions
  * @param _withinDays
  */
-export function getExpiringPermissions(_permissions: string[], _withinDays = 7): string[] {
+export function getExpiringPermissions(
+  _permissions: string[],
+  _withinDays = 7
+): string[] {
   // PERMISSION REFACTOR: UI display hint for expiring permissions.
   // Real expiry is enforced by the backend.
   return [];
@@ -227,8 +286,26 @@ export function getExpiringPermissions(_permissions: string[], _withinDays = 7):
  * Web3-only authentication using wallet signatures
  */
 export async function getAdminSession(): Promise<AdminSession> {
-  try {
+  if (await isDesignBypassServerEnabled()) {
+    return {
+      isAuthenticated: true,
+      isLoggedIn: true,
+      user: {
+        walletAddress: DESIGN_BYPASS_WALLET,
+        chainId: 56,
+        displayName: 'EPSX Design Mode',
+        permissions: getDesignBypassPermissions('admin'),
+        groups: ['admin'],
+        isAdmin: true,
+        sessionExpiry: Date.now() + 60 * 60 * 1000,
+        lastVerified: Date.now(),
+      },
+      hasAdminAccess: true,
+      expiresAt: Date.now() + 60 * 60 * 1000,
+    };
+  }
 
+  try {
     // Get Web3 session data from cookies
     const sessionData = await getWeb3SessionFromCookies();
 
@@ -238,7 +315,7 @@ export async function getAdminSession(): Promise<AdminSession> {
         isLoggedIn: false,
         user: null,
         hasAdminAccess: false,
-        error: 'No Web3 session found'
+        error: 'No Web3 session found',
       };
     }
 
@@ -252,7 +329,7 @@ export async function getAdminSession(): Promise<AdminSession> {
         isLoggedIn: false,
         user: null,
         hasAdminAccess: false,
-        error: 'Session validation failed'
+        error: 'Session validation failed',
       };
     }
 
@@ -265,7 +342,7 @@ export async function getAdminSession(): Promise<AdminSession> {
         isLoggedIn: true,
         user: web3User,
         hasAdminAccess: false,
-        error: 'Insufficient admin permissions'
+        error: 'Insufficient admin permissions',
       };
     }
 
@@ -274,9 +351,8 @@ export async function getAdminSession(): Promise<AdminSession> {
       isLoggedIn: true,
       user: web3User,
       hasAdminAccess: true,
-      expiresAt: sessionData.expiresAt
+      expiresAt: sessionData.expiresAt,
     };
-
   } catch (_error) {
     logger.auth.error('Session validation error', { error: String(_error) });
     return {
@@ -284,7 +360,8 @@ export async function getAdminSession(): Promise<AdminSession> {
       isLoggedIn: false,
       user: null,
       hasAdminAccess: false,
-      error: _error instanceof Error ? _error.message : 'Session validation failed'
+      error:
+        _error instanceof Error ? _error.message : 'Session validation failed',
     };
   }
 }
@@ -343,7 +420,7 @@ export const Web3AdminAuth = {
   getExpiringPermissions,
 
   // Authentication flows
-  logout
+  logout,
 };
 
 // Backward compatibility export

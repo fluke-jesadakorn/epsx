@@ -5,7 +5,17 @@
 import { redirect } from 'next/navigation';
 
 import { COOKIES } from '@/shared/auth/cookies';
-import { generateCodeChallenge, generateCodeVerifier, generateRandomString } from '@/shared/auth/pkce';
+import {
+  generateCodeChallenge,
+  generateCodeVerifier,
+  generateRandomString,
+} from '@/shared/auth/pkce';
+import {
+  getDesignBypassAdminPayload,
+  getDesignBypassPermissions,
+  getDesignBypassUserInfo,
+  isDesignBypassServerEnabled,
+} from '@/shared/utils/design-bypass';
 import { logger } from '@/lib/logger';
 
 import type { User } from '../../types/admin/iam';
@@ -19,7 +29,11 @@ interface TokenResponse {
 }
 
 // OAuth authorization URL generation now handled by shared utilities
-async function getAuthorizationUrl(): Promise<{ url: string; codeVerifier: string; state: string }> {
+async function getAuthorizationUrl(): Promise<{
+  url: string;
+  codeVerifier: string;
+  state: string;
+}> {
   const codeVerifier = generateCodeVerifier();
   // codeChallenge generated but unused in current simplified flow
   await generateCodeChallenge(codeVerifier);
@@ -33,12 +47,24 @@ export type { EPSXJWTPayload };
 /**
  * Get server session with JWT verification
  */
-export async function getServerSession(): Promise<{ isAuthenticated: boolean; user: EPSXJWTPayload | null }> {
+export async function getServerSession(): Promise<{
+  isAuthenticated: boolean;
+  user: EPSXJWTPayload | null;
+}> {
+  if (await isDesignBypassServerEnabled()) {
+    return {
+      isAuthenticated: true,
+      user: getDesignBypassAdminPayload(),
+    };
+  }
+
   try {
     const { getSessionFromJWT } = await import('./token');
-    return await getSessionFromJWT() as { isAuthenticated: boolean; user: EPSXJWTPayload | null };
+    return (await getSessionFromJWT()) as {
+      isAuthenticated: boolean;
+      user: EPSXJWTPayload | null;
+    };
   } catch (error) {
-
     logger.auth.error('Failed to get server session', { error: String(error) });
     return { isAuthenticated: false, user: null };
   }
@@ -48,10 +74,37 @@ export async function getServerSession(): Promise<{ isAuthenticated: boolean; us
  * Get authenticated admin user from JWT cookies
  */
 export async function getAuthUser(): Promise<User | null> {
+  if (await isDesignBypassServerEnabled()) {
+    const userInfo = getDesignBypassUserInfo('admin');
+    return {
+      id: userInfo.wallet_address,
+      email: userInfo.email ?? '',
+      name: 'EPSX Design Mode',
+      displayName: 'EPSX Design Mode',
+      emailVerified: true,
+      disabled: false,
+      roles: ['super_admin'],
+      groups: ['admin'],
+      attachedPolicies: [],
+      status: 'active',
+      createdAt: new Date(0).toISOString(),
+      updatedAt: new Date().toISOString(),
+      permissions: userInfo.permissions,
+      access: userInfo.access,
+      wallet_address: userInfo.wallet_address,
+      is_admin: true,
+      admin_permissions: getDesignBypassPermissions('admin'),
+      role: 'super_admin',
+      sub: userInfo.sub,
+    } as unknown as User;
+  }
+
   try {
     const { verifyJWTFromCookies, getJWTFromCookies } = await import('./token');
     const user = await verifyJWTFromCookies();
-    if (user === null) { return null; }
+    if (user === null) {
+      return null;
+    }
 
     // Include raw JWT for client-side hydration (access_token is HttpOnly,
     // so client JS can't read it from cookies — pass it via initialUser)
@@ -75,9 +128,13 @@ export async function exchangeCodeForTokens(
   code: string,
   codeVerifier: string,
   _state: string
-): Promise<{ accessToken: string; idToken: string; refreshToken: string; expiresIn: number }> {
+): Promise<{
+  accessToken: string;
+  idToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}> {
   try {
-
     // Use consolidated auth config for consistency
     const { authConfig } = await import('../../config/env');
 
@@ -89,7 +146,7 @@ export async function exchangeCodeForTokens(
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Accept': 'application/json',
+        Accept: 'application/json',
       },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
@@ -98,27 +155,37 @@ export async function exchangeCodeForTokens(
         client_id: clientId,
         code_verifier: codeVerifier,
       }),
-    })
+    });
 
     if (!response.ok) {
-      const errorText = await response.text()
+      const errorText = await response.text();
 
-      logger.auth.error('Token exchange failed', { status: response.status, statusText: response.statusText, body: errorText })
-      throw new Error(`Token exchange failed: ${response.status} ${response.statusText} - ${errorText}`)
+      logger.auth.error('Token exchange failed', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText,
+      });
+      throw new Error(
+        `Token exchange failed: ${response.status} ${response.statusText} - ${errorText}`
+      );
     }
 
-    const tokens = await response.json() as TokenResponse
+    const tokens = (await response.json()) as TokenResponse;
 
     return {
       accessToken: tokens.access_token,
       idToken: tokens.id_token,
       refreshToken: tokens.refresh_token,
       expiresIn: tokens.expires_in ?? 3600, // Include expiry information
-    }
+    };
   } catch (error) {
-
-    logger.auth.error('Token exchange error', { error: error instanceof Error ? error.message : String(error) })
-    throw new Error(`Failed to exchange authorization code for tokens: ${error instanceof Error ? error.message : 'Unknown error'}`, { cause: error })
+    logger.auth.error('Token exchange error', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw new Error(
+      `Failed to exchange authorization code for tokens: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      { cause: error }
+    );
   }
 }
 
@@ -133,7 +200,7 @@ export async function getUserInfo(accessToken: string): Promise<unknown> {
 
   const response = await fetch(`${apiUrl}/oauth/userinfo`, {
     headers: {
-      'Authorization': `Bearer ${accessToken}`,
+      Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
   });
@@ -141,8 +208,14 @@ export async function getUserInfo(accessToken: string): Promise<unknown> {
   if (!response.ok) {
     const errorText = await response.text();
 
-    logger.auth.error('UserInfo fetch failed', { status: response.status, statusText: response.statusText, body: errorText });
-    throw new Error(`UserInfo fetch failed: ${response.status} ${response.statusText} - ${errorText}`);
+    logger.auth.error('UserInfo fetch failed', {
+      status: response.status,
+      statusText: response.statusText,
+      body: errorText,
+    });
+    throw new Error(
+      `UserInfo fetch failed: ${response.status} ${response.statusText} - ${errorText}`
+    );
   }
 
   return await response.json();
@@ -152,7 +225,9 @@ export async function getUserInfo(accessToken: string): Promise<unknown> {
  * Redirect to backend Chef Kitchen login with proper PKCE parameters
  * @param callbackUrl
  */
-export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise<never> {
+export async function redirectToBackendAdminLogin(
+  callbackUrl?: string
+): Promise<never> {
   try {
     // Generate proper PKCE parameters
     const { url, codeVerifier, state } = await getAuthorizationUrl();
@@ -167,15 +242,15 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 600, // 10 minutes
-      path: '/'
+      path: '/',
     });
 
     cookieStore.set('oauth_state', state, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 600, // 10 minutes  
-      path: '/'
+      maxAge: 600, // 10 minutes
+      path: '/',
     });
 
     // Store callback URL for after authentication
@@ -185,7 +260,7 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         maxAge: 600, // 10 minutes
-        path: '/'
+        path: '/',
       });
     }
 
@@ -195,16 +270,27 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
       throw error;
     }
 
-    logger.auth.error('Failed to setup PKCE redirect', { error: String(error) });
+    logger.auth.error('Failed to setup PKCE redirect', {
+      error: String(error),
+    });
     // Fallback to simple redirect without PKCE using consolidated config
     const { authConfig } = await import('../../config/env');
     const backendAdminLoginUrl = new URL('/oauth/authorize', authConfig.apiUrl);
     backendAdminLoginUrl.searchParams.set('client_id', authConfig.clientId);
-    backendAdminLoginUrl.searchParams.set('redirect_uri', authConfig.callbackUrl);
-    backendAdminLoginUrl.searchParams.set('scope', 'openid profile email permissions');
+    backendAdminLoginUrl.searchParams.set(
+      'redirect_uri',
+      authConfig.callbackUrl
+    );
+    backendAdminLoginUrl.searchParams.set(
+      'scope',
+      'openid profile email permissions'
+    );
     backendAdminLoginUrl.searchParams.set('response_type', 'code');
     if (callbackUrl !== undefined && callbackUrl !== '') {
-      backendAdminLoginUrl.searchParams.set('state', encodeURIComponent(callbackUrl));
+      backendAdminLoginUrl.searchParams.set(
+        'state',
+        encodeURIComponent(callbackUrl)
+      );
     }
     redirect(backendAdminLoginUrl.toString());
   }
@@ -219,6 +305,10 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
  * @param redirectPath
  */
 export async function requireAuth(redirectPath?: string): Promise<unknown> {
+  if (await isDesignBypassServerEnabled()) {
+    return getAuthUser();
+  }
+
   const user = await getAuthUser();
 
   if (user === null) {
@@ -246,9 +336,7 @@ export async function clearSession(): Promise<void> {
     // Also clear legacy cookie for migration compatibility
     cookieStore.delete('epsx_admin_jwt');
   } catch (error) {
-
     logger.auth.error('Failed to clear session', { error: String(error) });
     throw error;
   }
 }
-

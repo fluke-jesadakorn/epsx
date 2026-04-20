@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useCallback } from 'react';
-import type { ChatMessage, ChatConversation } from '../api/chat';
+import {
+  normalizeChatMessage,
+  type ChatMessage,
+  type ChatConversation,
+} from '../api/chat';
 import { COOKIES } from '../auth/cookies';
 import { API_ROUTES } from '../config/route-constants';
 
@@ -105,6 +109,9 @@ export function useChatSSE({ enabled, mode, onEvent }: UseChatSSEOpts) {
     es.addEventListener(eventName, (e: MessageEvent) => {
       try {
         const data = JSON.parse(e.data as string) as ChatSSEEvent;
+        if (data.type === 'new_message' && data.message !== undefined) {
+          data.message = normalizeChatMessage(data.message);
+        }
         onEventRef.current?.(data);
         retryRef.current = 0;
       } catch { /* invalid payload */ }

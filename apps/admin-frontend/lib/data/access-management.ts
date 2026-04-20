@@ -1,6 +1,6 @@
 /**
  * Server-side data fetching for Access Management
- * 
+ *
  * These functions are designed to be called from Server Components
  * to fetch initial data for the unified access management page.
  */
@@ -87,7 +87,7 @@ const API_ROUTES_LOCAL = {
   },
   WALLETS: {
     STATS: '/api/admin/wallets/stats',
-  }
+  },
 } as const;
 
 // ============================================================================
@@ -100,8 +100,10 @@ const API_ROUTES_LOCAL = {
 export async function fetchWalletStats(): Promise<WalletStats> {
   try {
     const apiClient = createAdminApiClient({ serverSide: true });
-    const response = await apiClient.get<WalletStats>(API_ROUTES_LOCAL.WALLETS.STATS);
-    redirectOnForbidden(response, WALLET_MGMT_ROUTE);
+    const response = await apiClient.get<WalletStats>(
+      API_ROUTES_LOCAL.WALLETS.STATS
+    );
+    await redirectOnForbidden(response, WALLET_MGMT_ROUTE);
 
     if (response.success && response.data) {
       return response.data;
@@ -113,17 +115,19 @@ export async function fetchWalletStats(): Promise<WalletStats> {
       inactive_users: 0,
       new_users_30_days: 0,
       active_users_30_days: 0,
-      growth_rate: 0
+      growth_rate: 0,
     };
   } catch (e) {
-    if (typeof e === 'object' && e !== null && 'digest' in e) { throw e; }
+    if (typeof e === 'object' && e !== null && 'digest' in e) {
+      throw e;
+    }
     return {
       total_users: 0,
       active_users: 0,
       inactive_users: 0,
       new_users_30_days: 0,
       active_users_30_days: 0,
-      growth_rate: 0
+      growth_rate: 0,
     };
   }
 }
@@ -131,7 +135,9 @@ export async function fetchWalletStats(): Promise<WalletStats> {
 /**
  * Helper to extract plans from API response
  */
-function extractPlans(data: PlansApiResponse | null | undefined): PlanResponse[] {
+function extractPlans(
+  data: PlansApiResponse | null | undefined
+): PlanResponse[] {
   if (!data) {
     return [];
   }
@@ -150,7 +156,7 @@ export async function fetchPolicies(): Promise<AccessPolicy[]> {
       plansClient.listPlans({ limit: 100 }),
       apiClient.get<PlansApiResponse>(API_ROUTES_LOCAL.PERMISSIONS.PLANS),
     ]);
-    redirectOnForbidden(groupsRes, WALLET_MGMT_ROUTE);
+    await redirectOnForbidden(groupsRes, WALLET_MGMT_ROUTE);
 
     const policies: AccessPolicy[] = [];
 
@@ -165,15 +171,17 @@ export async function fetchPolicies(): Promise<AccessPolicy[]> {
     // Transform groups to policies (exclude subscription type - handled by plans)
     if (groupsRes.success && groupsRes.data) {
       const rawGroups = groupsRes.data.plans ?? groupsRes.data;
-      const groupsArray = (Array.isArray(rawGroups) ? rawGroups : []) as unknown as GroupData[];
+      const groupsArray = (Array.isArray(rawGroups)
+        ? rawGroups
+        : []) as unknown as GroupData[];
       groupsArray
-        .filter((g) => g.group_type !== 'subscription')
-        .forEach((group) => {
+        .filter(g => g.group_type !== 'subscription')
+        .forEach(group => {
           // Add plan_type if missing (mapping group_type to plan_type for groupToPolicy)
           const planType = group.plan_type ?? group.group_type;
           const normalizedGroup = {
             ...group,
-            plan_type: planType ?? 'manual'
+            plan_type: planType ?? 'manual',
           } as unknown as PermissionPlan;
 
           policies.push(groupToPolicy(normalizedGroup));
@@ -182,7 +190,9 @@ export async function fetchPolicies(): Promise<AccessPolicy[]> {
 
     return policies;
   } catch (e) {
-    if (typeof e === 'object' && e !== null && 'digest' in e) { throw e; }
+    if (typeof e === 'object' && e !== null && 'digest' in e) {
+      throw e;
+    }
     return [];
   }
 }
@@ -197,28 +207,37 @@ function processPlansStats(stats: PolicyStats, plans: PlanResponse[]): void {
   // Calculate MRR
   stats.totalMRR = plans.reduce((sum, plan) => {
     const rawRevenue = plan.revenue_last_30_days;
-    const revenue = typeof rawRevenue === 'string'
-      ? parseFloat(rawRevenue)
-      : (rawRevenue ?? 0);
-    return sum + (isNaN(revenue) ? 0 : (revenue));
+    const revenue =
+      typeof rawRevenue === 'string'
+        ? parseFloat(rawRevenue)
+        : (rawRevenue ?? 0);
+    return sum + (isNaN(revenue) ? 0 : revenue);
   }, 0);
 
   // Count subscribers
-  const planMembers = plans.reduce((sum, p) => sum + (p.subscriber_count ?? 0), 0);
+  const planMembers = plans.reduce(
+    (sum, p) => sum + (p.subscriber_count ?? 0),
+    0
+  );
   stats.totalMembers += planMembers;
 }
 
 /**
  * Process group statistics
  */
-function processGroupsStats(stats: PolicyStats, groupsResData: PlansApiResponse): void {
+function processGroupsStats(
+  stats: PolicyStats,
+  groupsResData: PlansApiResponse
+): void {
   const rawGroups = groupsResData.plans ?? groupsResData;
-  const groupsArray = (Array.isArray(rawGroups) ? rawGroups : []) as unknown as GroupData[];
-  const nonSubGroups = groupsArray.filter((g) => g.group_type !== 'subscription');
-  stats.activeGroups = nonSubGroups.filter((g) => g.is_active === true).length;
+  const groupsArray = (Array.isArray(rawGroups)
+    ? rawGroups
+    : []) as unknown as GroupData[];
+  const nonSubGroups = groupsArray.filter(g => g.group_type !== 'subscription');
+  stats.activeGroups = nonSubGroups.filter(g => g.is_active === true).length;
 
   // Count by type
-  nonSubGroups.forEach((group) => {
+  nonSubGroups.forEach(group => {
     const typeMap: Record<string, PolicyType | undefined> = {
       manual: 'manual',
       web3_asset: 'web3_asset',
@@ -246,7 +265,7 @@ export async function fetchPolicyStats(): Promise<PolicyStats> {
       apiClient.get<PlansApiResponse>(API_ROUTES_LOCAL.PERMISSIONS.PLANS),
       apiClient.get<AnalyticsData>(API_ROUTES_LOCAL.PERMISSIONS.ANALYTICS),
     ]);
-    redirectOnForbidden(groupsRes, WALLET_MGMT_ROUTE);
+    await redirectOnForbidden(groupsRes, WALLET_MGMT_ROUTE);
 
     const stats: PolicyStats = { ...DEFAULT_POLICY_STATS };
 
@@ -269,12 +288,17 @@ export async function fetchPolicyStats(): Promise<PolicyStats> {
     }
 
     // Calculate total policies
-    const total = Object.values(stats.byType).reduce((acc, count) => acc + count, 0);
+    const total = Object.values(stats.byType).reduce(
+      (acc, count) => acc + count,
+      0
+    );
     stats.totalPolicies = total;
 
     return stats;
   } catch (e) {
-    if (typeof e === 'object' && e !== null && 'digest' in e) { throw e; }
+    if (typeof e === 'object' && e !== null && 'digest' in e) {
+      throw e;
+    }
     return DEFAULT_POLICY_STATS;
   }
 }
@@ -282,11 +306,16 @@ export async function fetchPolicyStats(): Promise<PolicyStats> {
 /**
  * Fetch permission definitions count and platform count
  */
-export async function fetchPermissionStats(): Promise<{ count: number; platformCount: number }> {
+export async function fetchPermissionStats(): Promise<{
+  count: number;
+  platformCount: number;
+}> {
   try {
     const apiClient = createAdminApiClient({ serverSide: true });
-    const response = await apiClient.get<PermissionDefinitionDto[]>(API_ROUTES_LOCAL.PERMISSIONS.DEFINITIONS);
-    redirectOnForbidden(response, WALLET_MGMT_ROUTE);
+    const response = await apiClient.get<PermissionDefinitionDto[]>(
+      API_ROUTES_LOCAL.PERMISSIONS.DEFINITIONS
+    );
+    await redirectOnForbidden(response, WALLET_MGMT_ROUTE);
 
     if (response.success && response.data) {
       const definitions = Array.isArray(response.data) ? response.data : [];
@@ -300,7 +329,9 @@ export async function fetchPermissionStats(): Promise<{ count: number; platformC
     return { count: 0, platformCount: 0 };
   } catch (e) {
     // Let Next.js redirect errors propagate
-    if (typeof e === 'object' && e !== null && 'digest' in e) { throw e; }
+    if (typeof e === 'object' && e !== null && 'digest' in e) {
+      throw e;
+    }
     return { count: 0, platformCount: 0 };
   }
 }

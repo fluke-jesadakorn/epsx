@@ -1,7 +1,12 @@
 'use server';
 
 import type { ChatConversation, ChatFullResp, ChatInboxResp, ChatMessage, ChatTopic } from '@/shared/api/chat';
-import { createSupportChatClient } from '@/shared/api/chat';
+import {
+  createSupportChatClient,
+  normalizeChatFullResp,
+  normalizeChatMessage,
+  normalizeChatMessages,
+} from '@/shared/api/chat';
 import { logger } from '@/shared/utils/logger';
 import { getServerActionClient } from '@/shared/utils/server-fetch';
 import { revalidatePath } from 'next/cache';
@@ -82,7 +87,7 @@ export async function getMessagesAction(id: string): Promise<ChatMessage[]> {
     const api = createSupportChatClient(client);
     const res = await api.getMessages(id);
     if (res.success && res.data) {
-      return res.data;
+      return normalizeChatMessages(res.data);
     }
     logger.debug('Messages fetch failed:', res);
   } catch (e) {
@@ -98,7 +103,7 @@ export async function sendMessageAction(id: string, content: string): Promise<Ch
     const res = await api.sendMessage(id, content);
     if (res.success && res.data) {
       revalidatePath(`/chat/${id}`);
-      return res.data;
+      return normalizeChatMessage(res.data);
     }
     logger.debug('Message send failed:', res);
   } catch (e) {
@@ -163,7 +168,10 @@ export async function uploadAttachmentAction(convId: string, formData: FormData)
       body: formData,
     });
     const json = await res.json() as { success?: boolean; data?: { message?: ChatMessage } };
-    return json.success === true ? (json.data?.message ?? null) : null;
+    if (json.success !== true || json.data?.message === undefined) {
+      return null;
+    }
+    return normalizeChatMessage(json.data.message);
   } catch (e) {
     logger.debug('Failed to upload attachment:', e);
     return null;
@@ -206,7 +214,7 @@ export async function getChatFullAction(id: string): Promise<ChatFullResp | null
     const api = createSupportChatClient(client);
     const res = await api.getConversationFull(id);
     if (res.success && res.data) {
-      return res.data;
+      return normalizeChatFullResp(res.data);
     }
     logger.debug('Chat full fetch failed:', res);
   } catch (e) {
