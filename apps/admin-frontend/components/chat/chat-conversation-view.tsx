@@ -1,7 +1,14 @@
 'use client';
 
 import { assignAgent, getMessages, markAsRead, sendReply, updateStatus } from '@/app/actions/chat';
-import type { ChatAttachment, ChatConversation, ChatMessage, ChatTopic } from '@/shared/api/chat';
+import {
+  getChatAttachments,
+  normalizeChatMessage,
+  type ChatAttachment,
+  type ChatConversation,
+  type ChatMessage,
+  type ChatTopic,
+} from '@/shared/api/chat';
 import { COOKIES } from '@/shared/auth/cookies';
 import { useSharedAuth } from '@/shared/components/auth';
 import { ChatMarkdown } from '@/shared/components/chat/chat-markdown';
@@ -79,7 +86,10 @@ async function uploadFile(convId: string, file: File): Promise<ChatMessage | nul
       body: form,
     });
     const json = await res.json() as { success?: boolean; data?: { message?: ChatMessage } };
-    return json.success === true ? (json.data?.message ?? null) : null;
+    if (json.success !== true || json.data?.message === undefined) {
+      return null;
+    }
+    return normalizeChatMessage(json.data.message);
   } catch { return null; }
 }
 
@@ -328,7 +338,7 @@ function MsgItem({ m, prev, readUpToId }: MsgItemProps) {
   const isSystem = m.sender_type === 'system';
   const isAi = m.sender_type === 'ai';
   const isRight = isAgent || isAi;
-  const attachments = m.metadata.attachments ?? [];
+  const attachments = getChatAttachments(m.metadata);
   const isAttachmentOnly = m.content.startsWith('[attachment:') && attachments.length > 0;
   const showDate = prev === undefined || formatDate(prev.created_at) !== formatDate(m.created_at);
   const isRead = isRight && (m.id === readUpToId || m.is_read === true);

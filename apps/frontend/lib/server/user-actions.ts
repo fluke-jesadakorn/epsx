@@ -1,10 +1,18 @@
 'use server';
 import { cookies } from 'next/headers';
 
-import { COOKIES, COOKIE_OPTIONS, getServerAuthToken } from '@/shared/auth/cookies';
+import {
+  COOKIES,
+  COOKIE_OPTIONS,
+  getServerAuthToken,
+} from '@/shared/auth/cookies';
 
 import { getExplorerTxLink } from '@/shared/config/constants';
 import { createFrontendApiClient } from '@/shared/utils/api-client';
+import {
+  getDesignBypassUserInfo,
+  isDesignBypassServerEnabled,
+} from '@/shared/utils/design-bypass';
 import { getBackendUrl } from '@/shared/utils/url-resolver';
 
 export interface AuthUser {
@@ -50,7 +58,9 @@ async function tryRefresh(
 ): Promise<string | null> {
   try {
     const refreshToken = cookieStore.get(COOKIES.refresh_token)?.value;
-    if (refreshToken === undefined || refreshToken === '') {return null;}
+    if (refreshToken === undefined || refreshToken === '') {
+      return null;
+    }
 
     const backendUrl = getBackendUrl('server');
     const clientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID ?? 'epsx-frontend';
@@ -58,11 +68,16 @@ async function tryRefresh(
     const res = await fetch(`${backendUrl}/api/auth/session/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: refreshToken, client_id: clientId }),
+      body: JSON.stringify({
+        refresh_token: refreshToken,
+        client_id: clientId,
+      }),
       cache: 'no-store',
     });
 
-    if (!res.ok) {return null;}
+    if (!res.ok) {
+      return null;
+    }
 
     const data = (await res.json()) as {
       access_token?: string;
@@ -71,7 +86,9 @@ async function tryRefresh(
       user?: Record<string, unknown>;
     };
     const newToken = data.access_token;
-    if (typeof newToken !== 'string' || newToken === '') {return null;}
+    if (typeof newToken !== 'string' || newToken === '') {
+      return null;
+    }
 
     // Try to persist refreshed cookies (works in server actions, silently fails in SSR)
     try {
@@ -88,15 +105,22 @@ async function tryRefresh(
       // Update user cookie with fresh access token
       const userCookie = cookieStore.get(COOKIES.user)?.value;
       if (userCookie !== undefined && userCookie !== '') {
-        const existing = JSON.parse(decodeURIComponent(userCookie)) as Record<string, unknown>;
+        const existing = JSON.parse(decodeURIComponent(userCookie)) as Record<
+          string,
+          unknown
+        >;
         existing.access = newToken;
-        if (data.user) {Object.assign(existing, data.user);}
+        if (data.user) {
+          Object.assign(existing, data.user);
+        }
         cookieStore.set(COOKIES.user, JSON.stringify(existing), {
           ...COOKIE_OPTIONS.clientSide,
           maxAge: COOKIE_OPTIONS.maxAge.user,
         });
       }
-      const expiresAt = Date.now() + ((data.expires_in ?? COOKIE_OPTIONS.maxAge.access_token) * 1000);
+      const expiresAt =
+        Date.now() +
+        (data.expires_in ?? COOKIE_OPTIONS.maxAge.access_token) * 1000;
       cookieStore.set(COOKIES.expires_at, expiresAt.toString(), {
         ...COOKIE_OPTIONS.clientSide,
         maxAge: COOKIE_OPTIONS.maxAge.expires_at,
@@ -117,7 +141,9 @@ async function tryRefresh(
 async function getValidToken(): Promise<string | null> {
   const cookieStore = await cookies();
   const token = getServerAuthToken(cookieStore);
-  if (token !== null) {return token;}
+  if (token !== null) {
+    return token;
+  }
   return tryRefresh(cookieStore);
 }
 
@@ -139,16 +165,34 @@ function mapPaymentToTransaction(payment: Record<string, unknown>) {
     actualAmount: getNumberValue(payment.amount),
     currency: getStringValue(payment.currency, 'USD'),
     status: getStringValue(payment.status, 'pending'),
-    finishTime: getStringValue(payment.completed_at) || getStringValue(payment.created_at) || new Date().toISOString(),
+    finishTime:
+      getStringValue(payment.completed_at) ||
+      getStringValue(payment.created_at) ||
+      new Date().toISOString(),
     blockchainData: {
-      txHash,  // Backend returns 'tx_hash' not 'transaction_hash'
-      network: 'BSC'
+      txHash, // Backend returns 'tx_hash' not 'transaction_hash'
+      network: 'BSC',
     },
-    blockExplorerUrl: txHash !== '' ? getExplorerTxLink(txHash) : ''
+    blockExplorerUrl: txHash !== '' ? getExplorerTxLink(txHash) : '',
   };
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
+  if (await isDesignBypassServerEnabled()) {
+    const designUser = getDesignBypassUserInfo('frontend');
+    return {
+      id: designUser.wallet_address,
+      wallet_address: designUser.wallet_address,
+      walletAddress: designUser.wallet_address,
+      email: designUser.email,
+      emailVerified: true,
+      permissions: designUser.permissions,
+      role: 'user',
+      package_tier: designUser.packageTier ?? designUser.tier_level,
+      name: 'EPSX Design Mode',
+    };
+  }
+
   try {
     const cookieStore = await cookies();
     let token = getServerAuthToken(cookieStore);
@@ -156,13 +200,17 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     if (token === null) {
       // No token in any cookie - try refresh_token
       token = await tryRefresh(cookieStore);
-      if (token === null) {return null;}
+      if (token === null) {
+        return null;
+      }
     }
 
     // Validate session with current token
     const client = createFrontendApiClient({ token, serverSide: true });
     const response = await client.get<SessionData>(
-      '/api/auth/web3/session', undefined, { cache: 'no-store' }
+      '/api/auth/web3/session',
+      undefined,
+      { cache: 'no-store' }
     );
 
     if (response.success && response.data?.authenticated) {
@@ -171,11 +219,18 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 
     // Token expired/invalid - attempt refresh
     const freshToken = await tryRefresh(cookieStore);
-    if (freshToken === null) {return null;}
+    if (freshToken === null) {
+      return null;
+    }
 
-    const freshClient = createFrontendApiClient({ token: freshToken, serverSide: true });
+    const freshClient = createFrontendApiClient({
+      token: freshToken,
+      serverSide: true,
+    });
     const retry = await freshClient.get<SessionData>(
-      '/api/auth/web3/session', undefined, { cache: 'no-store' }
+      '/api/auth/web3/session',
+      undefined,
+      { cache: 'no-store' }
     );
 
     if (retry.success && retry.data?.authenticated) {
@@ -191,13 +246,19 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 export async function getPaymentHistory() {
   try {
     const token = await getValidToken();
-    if (token === null) {return [];}
+    if (token === null) {
+      return [];
+    }
 
     const client = createFrontendApiClient({ token, serverSide: true });
 
-    const response = await client.get<{ payments: Record<string, unknown>[] }>('/api/payments/history', undefined, {
-      cache: 'no-store'
-    });
+    const response = await client.get<{ payments: Record<string, unknown>[] }>(
+      '/api/payments/history',
+      undefined,
+      {
+        cache: 'no-store',
+      }
+    );
 
     if (!response.success || !response.data) {
       return [];
@@ -212,10 +273,22 @@ export async function getPaymentHistory() {
 }
 
 export async function checkFeatureAccess(feature: string) {
+  if (await isDesignBypassServerEnabled()) {
+    return {
+      hasAccess: true,
+      reason: `Design bypass enabled for ${feature}`,
+      limits: undefined,
+    };
+  }
+
   try {
     const token = await getValidToken();
     if (token === null) {
-      return { hasAccess: false, reason: 'Not authenticated', limits: undefined };
+      return {
+        hasAccess: false,
+        reason: 'Not authenticated',
+        limits: undefined,
+      };
     }
 
     const client = createFrontendApiClient({ token, serverSide: true });
@@ -224,37 +297,60 @@ export async function checkFeatureAccess(feature: string) {
       has_permission: boolean;
       reason?: string;
       limits?: { daily?: number; monthly?: number };
-    }>(`/api/permissions/check?permission=${encodeURIComponent(feature)}`, undefined, {
-      cache: 'no-store'
-    });
+    }>(
+      `/api/permissions/check?permission=${encodeURIComponent(feature)}`,
+      undefined,
+      {
+        cache: 'no-store',
+      }
+    );
 
     if (!response.success || !response.data) {
       return {
         hasAccess: false,
         reason: response.error ?? 'Permission check failed',
-        limits: undefined
+        limits: undefined,
       };
     }
 
     return {
       hasAccess: response.data.has_permission,
-      reason: response.data.reason ?? (response.data.has_permission ? 'Access granted' : 'Access denied'),
-      limits: response.data.limits
+      reason:
+        response.data.reason ??
+        (response.data.has_permission ? 'Access granted' : 'Access denied'),
+      limits: response.data.limits,
     };
   } catch (_error) {
     return {
       hasAccess: false,
       reason: 'Error checking permissions',
-      limits: undefined
+      limits: undefined,
     };
   }
 }
 
 export async function getPaymentStatus(paymentId?: string) {
+  if (await isDesignBypassServerEnabled()) {
+    return {
+      status: 'active',
+      activeSubscription: {
+        id: 'design-bypass-subscription',
+        plan_name: 'Enterprise',
+        package_tier: 'enterprise',
+        status: 'active',
+      },
+      paymentHistory: [],
+    };
+  }
+
   try {
     const token = await getValidToken();
     if (token === null) {
-      return { status: 'unauthenticated', activeSubscription: null, paymentHistory: [] };
+      return {
+        status: 'unauthenticated',
+        activeSubscription: null,
+        paymentHistory: [],
+      };
     }
 
     const client = createFrontendApiClient({ token, serverSide: true });
@@ -269,9 +365,11 @@ export async function getPaymentStatus(paymentId?: string) {
       }>;
     }>('/api/subscriptions/my', undefined, { cache: 'no-store' });
 
-    const activeSubscription = subResponse.success && subResponse.data?.subscriptions
-      ? subResponse.data.subscriptions.find(s => s.status === 'active') ?? null
-      : null;
+    const activeSubscription =
+      subResponse.success && subResponse.data?.subscriptions
+        ? (subResponse.data.subscriptions.find(s => s.status === 'active') ??
+          null)
+        : null;
 
     // Get specific payment if ID provided
     if (paymentId !== undefined) {
@@ -284,20 +382,20 @@ export async function getPaymentStatus(paymentId?: string) {
       return {
         status: typeof paymentStatus === 'string' ? paymentStatus : 'unknown',
         activeSubscription,
-        paymentHistory: []
+        paymentHistory: [],
       };
     }
 
     return {
       status: activeSubscription ? 'subscribed' : 'none',
       activeSubscription,
-      paymentHistory: []
+      paymentHistory: [],
     };
   } catch (_error) {
     return {
       status: 'error',
       activeSubscription: null,
-      paymentHistory: []
+      paymentHistory: [],
     };
   }
 }
@@ -310,7 +408,9 @@ export async function getDebugSessionInfo() {
 
     const clientSession = cookieStore.get(COOKIES.sid)?.value;
     const accessCookie = cookieStore.get(COOKIES.access_token)?.value;
-    const allCookies = cookieStore.getAll().map(c => `${c.name} (${c.value.length} chars)`);
+    const allCookies = cookieStore
+      .getAll()
+      .map(c => `${c.name} (${c.value.length} chars)`);
     const rawHeader = headerStore.get('cookie');
 
     const hasClientSession = clientSession !== undefined;
@@ -321,11 +421,15 @@ export async function getDebugSessionInfo() {
       foundClientSession: hasClientSession,
       foundAccessCookie: hasAccessCookie,
       clientSessionLength: hasClientSession ? clientSession.length : 0,
-      clientSessionPreview: hasClientSession ? `${clientSession.slice(0, 10)  }...` : 'none',
+      clientSessionPreview: hasClientSession
+        ? `${clientSession.slice(0, 10)}...`
+        : 'none',
       accessCookieLength: hasAccessCookie ? accessCookie.length : 0,
       backendUrl: getBackendUrl('server'),
       allCookieNames: allCookies,
-      rawCookieHeader: hasRawHeader ? (`${rawHeader.slice(0, 50)  }...`) : 'missing'
+      rawCookieHeader: hasRawHeader
+        ? `${rawHeader.slice(0, 50)}...`
+        : 'missing',
     };
   } catch (e) {
     return { error: 'Failed to get debug info', details: String(e) };
