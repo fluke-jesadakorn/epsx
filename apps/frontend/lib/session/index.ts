@@ -1,6 +1,10 @@
 import { cookies } from 'next/headers';
 import { type User } from '@/shared/types/auth';
 import { getBackendUrl } from '@/shared/utils/url-resolver';
+import {
+  getDesignBypassFrontendUser,
+  isDesignBypassServerEnabled,
+} from '@/shared/utils/design-bypass';
 import { COOKIES } from '@/shared/auth/cookies';
 
 export interface SessionData {
@@ -14,6 +18,14 @@ export interface SessionData {
  */
 export async function getServerSession(): Promise<SessionData | null> {
   try {
+    if (await isDesignBypassServerEnabled()) {
+      return {
+        isAuthenticated: true,
+        user: getDesignBypassFrontendUser(),
+        expiresAt: Date.now() + 60 * 60 * 1000,
+      };
+    }
+
     const cookieStore = await cookies();
     const accessToken = cookieStore.get(COOKIES.access_token)?.value;
 
@@ -25,7 +37,7 @@ export async function getServerSession(): Promise<SessionData | null> {
     const response = await fetch(`${getBackendUrl()}/api/auth/session`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       cache: 'no-store',
@@ -35,14 +47,16 @@ export async function getServerSession(): Promise<SessionData | null> {
       return { isAuthenticated: false };
     }
 
-    const sessionData = await response.json() as { user?: User; expiresAt?: number };
+    const sessionData = (await response.json()) as {
+      user?: User;
+      expiresAt?: number;
+    };
 
     return {
       isAuthenticated: true,
       user: sessionData.user,
       expiresAt: sessionData.expiresAt,
     };
-
   } catch (_error) {
     return { isAuthenticated: false };
   }

@@ -1,10 +1,18 @@
 import { redirect } from 'next/navigation';
+import { isDesignBypassServerEnabled } from '@/shared/utils/design-bypass';
 
 /** Redirect to /access-denied if response is 403 */
-export function redirectOnForbidden(
-  res: { success: boolean; error?: { status?: number; message?: string } | null },
+export async function redirectOnForbidden(
+  res: {
+    success: boolean;
+    error?: { status?: number; message?: string } | null;
+  },
   route: string
-): void {
+): Promise<void> {
+  if (await isDesignBypassServerEnabled()) {
+    return;
+  }
+
   if (!res.success && res.error?.status === 403) {
     const params = new URLSearchParams({
       route: encodeURIComponent(route),
@@ -17,5 +25,7 @@ export function redirectOnForbidden(
 
 /** Re-throw Next.js redirect errors (have `digest` property) */
 export function rethrowRedirect(e: unknown): void {
-  if (typeof e === 'object' && e !== null && 'digest' in e) {throw e;}
+  if (typeof e === 'object' && e !== null && 'digest' in e) {
+    throw e;
+  }
 }

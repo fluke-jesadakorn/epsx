@@ -8,12 +8,19 @@ import { SharedOpenIDWeb3Provider } from '@/shared/components/auth';
 import type { UserInfoResponse } from '@/shared/auth/client';
 import { COOKIES } from '@/shared/auth/cookies';
 import { getServerConfig } from '@/shared/config/wagmi';
+import {
+  getDesignBypassUserInfo,
+  isDesignBypassServerEnabled,
+} from '@/shared/utils/design-bypass';
 import { initializeRuntimeEnvironment } from '@/shared/utils/runtime-env-validator';
 import { Kanit } from 'next/font/google';
 import { cookies, headers } from 'next/headers';
 import { Toaster } from 'sonner';
 import { cookieToInitialState } from 'wagmi';
-import { ChatWidget, FrontendAuthModal } from '@/components/layout/lazy-widgets';
+import {
+  ChatWidget,
+  FrontendAuthModal,
+} from '@/components/layout/lazy-widgets';
 import './globals.css';
 
 // Initialize runtime environment validation
@@ -73,10 +80,15 @@ export default async function RootLayout({
     const cookieStore = await cookies();
     const userCookie = cookieStore.get(COOKIES.user)?.value;
     if (userCookie !== undefined && userCookie !== '') {
-      initialUser = JSON.parse(decodeURIComponent(userCookie)) as UserInfoResponse;
+      initialUser = JSON.parse(
+        decodeURIComponent(userCookie)
+      ) as UserInfoResponse;
       // Include HttpOnly access_token for client-side hydration
       // (JS can't read HttpOnly cookies, so pass it via initialUser)
-      if (initialUser !== null && (initialUser.access === undefined || initialUser.access === '')) {
+      if (
+        initialUser !== null &&
+        (initialUser.access === undefined || initialUser.access === '')
+      ) {
         const accessToken = cookieStore.get(COOKIES.access_token)?.value;
         if (accessToken !== undefined && accessToken !== '') {
           initialUser = { ...initialUser, access: accessToken };
@@ -85,6 +97,10 @@ export default async function RootLayout({
     }
   } catch {
     // Invalid cookie - start fresh
+  }
+
+  if (initialUser === null && (await isDesignBypassServerEnabled())) {
+    initialUser = getDesignBypassUserInfo('frontend');
   }
 
   // Unified Web3 Cookie Hydration
@@ -99,7 +115,10 @@ export default async function RootLayout({
     // Cookie value might be URL-encoded (e.g., '%7B%22stat...' instead of raw JSON)
     // Try decoding the cookie string first
     try {
-      const decodedCookie = cookie !== null && cookie !== undefined ? decodeURIComponent(cookie) : null;
+      const decodedCookie =
+        cookie !== null && cookie !== undefined
+          ? decodeURIComponent(cookie)
+          : null;
       initialState = cookieToInitialState(getServerConfig(), decodedCookie);
     } catch {
       // If all parsing fails, use undefined (fresh state)
@@ -111,7 +130,10 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         {/* CSP via meta tag — Cloudflare edge overwrites the HTTP header */}
-        <meta httpEquiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com; script-src-elem 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://*.epsx.io wss://*.epsx.io https://static.cloudflareinsights.com https://*.walletconnect.com wss://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.org https://*.bnbchain.org https://*.web3modal.org; frame-src 'self' https://verify.walletconnect.com https://verify.walletconnect.org; object-src 'none'; base-uri 'self'; form-action 'self'" />
+        <meta
+          httpEquiv="Content-Security-Policy"
+          content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com; script-src-elem 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://*.epsx.io wss://*.epsx.io https://static.cloudflareinsights.com https://*.walletconnect.com wss://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.org https://*.bnbchain.org https://*.web3modal.org; frame-src 'self' https://verify.walletconnect.com https://verify.walletconnect.org; object-src 'none'; base-uri 'self'; form-action 'self'"
+        />
 
         {/* Mobile performance optimizations */}
         <meta name="msapplication-tap-highlight" content="no" />
@@ -130,14 +152,20 @@ export default async function RootLayout({
           <ClientProviders initialState={initialState}>
             <SharedOpenIDWeb3Provider
               clientId="epsx-frontend"
-              backendUrl={process.env['NEXT_PUBLIC_BACKEND_URL'] || process.env['BACKEND_URL'] || undefined}
+              backendUrl={
+                process.env['NEXT_PUBLIC_BACKEND_URL'] ||
+                process.env['BACKEND_URL'] ||
+                undefined
+              }
               initialUser={initialUser}
             >
               {/* Mobile navigation optimized for touch */}
               <NavigationClient />
 
               {/* Main content with mobile scroll optimization */}
-              <main className="relative min-h-[calc(100svh-3.5rem)]">{children}</main>
+              <main className="relative min-h-[calc(100svh-3.5rem)]">
+                {children}
+              </main>
 
               {/* Sign in modal (triggered by openSignInModal) */}
               <FrontendAuthModal />
@@ -158,7 +186,6 @@ export default async function RootLayout({
                   },
                 }}
               />
-
             </SharedOpenIDWeb3Provider>
           </ClientProviders>
         </GlobalErrorBoundary>

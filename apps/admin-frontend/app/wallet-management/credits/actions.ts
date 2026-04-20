@@ -19,9 +19,10 @@ async function handleApiError<T>(
   errMsg: string,
   defaultVal?: T
 ): Promise<T> {
-  redirectOnForbidden(res, '/wallet-management/credits');
+  await redirectOnForbidden(res, '/wallet-management/credits');
 
-  const isUnauth = res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED';
+  const isUnauth =
+    res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED';
 
   if (isUnauth) {
     await logout();
@@ -54,7 +55,10 @@ async function handleAction<T>(
   } catch (error: unknown) {
     rethrowRedirect(error);
 
-    logger.error(`${errMsg}:`, error instanceof Error ? error.message : String(error));
+    logger.error(
+      `${errMsg}:`,
+      error instanceof Error ? error.message : String(error)
+    );
 
     if (defaultVal !== undefined) {
       return defaultVal;
@@ -66,7 +70,7 @@ async function handleAction<T>(
 
 export async function getCreditStatsAction(): Promise<CreditStats> {
   return handleAction(
-    (apiClient) => {
+    apiClient => {
       const creditsApi = createCreditsApi(apiClient);
       return creditsApi.adminGetStats();
     },
@@ -86,35 +90,26 @@ export async function getUserCreditsAction(
   walletAddress: string,
   filters?: CreditTransactionFilters
 ) {
-  return handleAction(
-    (apiClient) => {
-      const creditsApi = createCreditsApi(apiClient);
-      return creditsApi.adminGetUserCredits(walletAddress, filters);
-    },
-    'Failed to fetch user credits'
-  );
+  return handleAction(apiClient => {
+    const creditsApi = createCreditsApi(apiClient);
+    return creditsApi.adminGetUserCredits(walletAddress, filters);
+  }, 'Failed to fetch user credits');
 }
 
 export async function grantCreditsAction(
   request: GrantCreditsRequest
 ): Promise<{ transaction_id: string; new_balance: number }> {
-  return handleAction(
-    (apiClient) => {
-      const creditsApi = createCreditsApi(apiClient);
-      return creditsApi.adminGrantCredits(request);
-    },
-    'Failed to grant credits'
-  );
+  return handleAction(apiClient => {
+    const creditsApi = createCreditsApi(apiClient);
+    return creditsApi.adminGrantCredits(request);
+  }, 'Failed to grant credits');
 }
 
 export async function revokeCreditsAction(
   request: RevokeCreditsRequest
 ): Promise<{ transaction_id: string; new_balance: number }> {
-  return handleAction(
-    (apiClient) => {
-      const creditsApi = createCreditsApi(apiClient);
-      return creditsApi.adminRevokeCredits(request);
-    },
-    'Failed to revoke credits'
-  );
+  return handleAction(apiClient => {
+    const creditsApi = createCreditsApi(apiClient);
+    return creditsApi.adminRevokeCredits(request);
+  }, 'Failed to revoke credits');
 }

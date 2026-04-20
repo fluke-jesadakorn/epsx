@@ -13,14 +13,17 @@ import {
 } from '@/shared/api/chat';
 import type { ApiResponse } from '@/shared/utils/api-client';
 
-function check403<T>(res: ApiResponse<T>, route = '/chat'): ApiResponse<T> {
-  redirectOnForbidden(res, route);
+async function check403<T>(
+  res: ApiResponse<T>,
+  route = '/chat'
+): Promise<ApiResponse<T>> {
+  await redirectOnForbidden(res, route);
   return res;
 }
 
 export async function getAdminChatStats(): Promise<ApiResponse<ChatStats>> {
   const client = createAdminApiClient({ serverSide: true });
-  return check403(await client.get('/api/admin/chat/stats'));
+  return await check403(await client.get('/api/admin/chat/stats'));
 }
 
 export async function listAllConversations(
@@ -40,18 +43,30 @@ export async function listAllConversations(
     params.set('agent', agent);
   }
   const qs = params.toString();
-  return check403(await client.get(`/api/admin/chat/conversations${qs !== '' ? `?${qs}` : ''}`));
+  return await check403(
+    await client.get(
+      `/api/admin/chat/conversations${qs !== '' ? `?${qs}` : ''}`
+    )
+  );
 }
 
-export async function getConversation(id: string): Promise<ApiResponse<ChatConversation>> {
+export async function getConversation(
+  id: string
+): Promise<ApiResponse<ChatConversation>> {
   const client = createAdminApiClient({ serverSide: true });
-  return check403(await client.get(`/api/admin/chat/conversations/${id}`));
+  return await check403(
+    await client.get(`/api/admin/chat/conversations/${id}`)
+  );
 }
 
-export async function getMessages(id: string): Promise<ApiResponse<ChatMessage[]>> {
+export async function getMessages(
+  id: string
+): Promise<ApiResponse<ChatMessage[]>> {
   const client = createAdminApiClient({ serverSide: true });
-  const res = check403(
-    await client.get<ChatMessage[]>(`/api/admin/chat/conversations/${id}/messages`)
+  const res = await check403(
+    await client.get<ChatMessage[]>(
+      `/api/admin/chat/conversations/${id}/messages`
+    )
   );
   if (res.success && Array.isArray(res.data)) {
     return { ...res, data: normalizeChatMessages(res.data) };
@@ -59,10 +74,16 @@ export async function getMessages(id: string): Promise<ApiResponse<ChatMessage[]
   return res;
 }
 
-export async function sendReply(id: string, content: string): Promise<ApiResponse<ChatMessage>> {
+export async function sendReply(
+  id: string,
+  content: string
+): Promise<ApiResponse<ChatMessage>> {
   const client = createAdminApiClient({ serverSide: true });
-  const res = check403(
-    await client.post<ChatMessage>(`/api/admin/chat/conversations/${id}/messages`, { content })
+  const res = await check403(
+    await client.post<ChatMessage>(
+      `/api/admin/chat/conversations/${id}/messages`,
+      { content }
+    )
   );
   if (res.success && res.data) {
     return { ...res, data: normalizeChatMessage(res.data) };
@@ -70,29 +91,45 @@ export async function sendReply(id: string, content: string): Promise<ApiRespons
   return res;
 }
 
-export async function assignAgent(id: string, agentAddress?: string): Promise<ApiResponse<ChatConversation>> {
+export async function assignAgent(
+  id: string,
+  agentAddress?: string
+): Promise<ApiResponse<ChatConversation>> {
   const client = createAdminApiClient({ serverSide: true });
-  return check403(await client.put(`/api/admin/chat/conversations/${id}/assign`, { agent_address: agentAddress }));
+  return await check403(
+    await client.put(`/api/admin/chat/conversations/${id}/assign`, {
+      agent_address: agentAddress,
+    })
+  );
 }
 
-export async function updateStatus(id: string, status: string): Promise<ApiResponse<ChatConversation>> {
+export async function updateStatus(
+  id: string,
+  status: string
+): Promise<ApiResponse<ChatConversation>> {
   const client = createAdminApiClient({ serverSide: true });
-  return check403(await client.put(`/api/admin/chat/conversations/${id}/status`, { status }));
+  return await check403(
+    await client.put(`/api/admin/chat/conversations/${id}/status`, { status })
+  );
 }
 
 export async function markAsRead(id: string): Promise<ApiResponse<void>> {
   const client = createAdminApiClient({ serverSide: true });
-  return check403(await client.put(`/api/admin/chat/conversations/${id}/read`, {}));
+  return await check403(
+    await client.put(`/api/admin/chat/conversations/${id}/read`, {})
+  );
 }
 
 export async function getTopics(): Promise<ApiResponse<ChatTopic[]>> {
   const client = createAdminApiClient({ serverSide: true });
-  return check403(await client.get('/api/admin/chat/topics'));
+  return await check403(await client.get('/api/admin/chat/topics'));
 }
 
-export async function getAdminChatOverview(): Promise<ApiResponse<AdminChatOverviewResp>> {
+export async function getAdminChatOverview(): Promise<
+  ApiResponse<AdminChatOverviewResp>
+> {
   const client = createAdminApiClient({ serverSide: true });
-  return check403(await client.get('/api/admin/chat/overview'));
+  return await check403(await client.get('/api/admin/chat/overview'));
 }
 
 export interface AdminAgent {
@@ -101,14 +138,18 @@ export interface AdminAgent {
   status: string;
 }
 
-export async function listAdminAgents(search?: string): Promise<ApiResponse<AdminAgent[]>> {
+export async function listAdminAgents(
+  search?: string
+): Promise<ApiResponse<AdminAgent[]>> {
   const client = createAdminApiClient({ serverSide: true });
   const params: Record<string, string> = { limit: '50', status: 'active' };
   if (search !== undefined && search !== '') {
     params.search = search;
   }
   const qs = new URLSearchParams(params).toString();
-  const res = await client.get<{ users: AdminAgent[]; total_count: number }>(`/api/admin/users?${qs}`);
+  const res = await client.get<{ users: AdminAgent[]; total_count: number }>(
+    `/api/admin/users?${qs}`
+  );
   if (res.success && res.data) {
     return { ...res, data: res.data.users };
   }
