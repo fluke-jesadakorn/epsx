@@ -1,0 +1,2303 @@
+{
+  "generated": [
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-auth",
+      "file": "/Users/fluke/Desktop/Work/epsx/.generated/design-captures/admin/light/tablet/admin-auth.jpg"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-request-access",
+      "file": "/Users/fluke/Desktop/Work/epsx/.generated/design-captures/admin/light/tablet/admin-request-access.jpg"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-auth",
+      "file": "/Users/fluke/Desktop/Work/epsx/.generated/design-captures/admin/light/mobile/admin-auth.jpg"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-request-access",
+      "file": "/Users/fluke/Desktop/Work/epsx/.generated/design-captures/admin/light/mobile/admin-request-access.jpg"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-auth",
+      "file": "/Users/fluke/Desktop/Work/epsx/.generated/design-captures/admin/dark/tablet/admin-auth.jpg"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-request-access",
+      "file": "/Users/fluke/Desktop/Work/epsx/.generated/design-captures/admin/dark/tablet/admin-request-access.jpg"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-auth",
+      "file": "/Users/fluke/Desktop/Work/epsx/.generated/design-captures/admin/dark/mobile/admin-auth.jpg"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-request-access",
+      "file": "/Users/fluke/Desktop/Work/epsx/.generated/design-captures/admin/dark/mobile/admin-request-access.jpg"
+    }
+  ],
+  "failed": [],
+  "skipped": [
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "about",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "access-denied",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "account",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "account-credits",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "account-payments",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "account-prefs",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "analytics",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "analytics-auth",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "analytics-default",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "analytics-filter-country",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "analytics-filter-sector",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "analytics-pagination",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "analytics-search",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "analytics-sort",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "auth",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "dashboard",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "developer",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "developer-create-key",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "developer-docs",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "developer-usage",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "home",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "notifications",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "notifications-default",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "notifications-empty",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "notifications-filter-priority",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "notifications-filter-type",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "notifications-search",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "offline",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "payment",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "payment-detail",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "permissions",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "plans",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "portfolio",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "portfolio-search",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "privacy",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "profile",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "profile-edit",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "terms",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "about",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "access-denied",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "account",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "account-credits",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "account-payments",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "account-prefs",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "analytics",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "analytics-auth",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "analytics-default",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "analytics-filter-country",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "analytics-filter-sector",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "analytics-pagination",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "analytics-search",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "analytics-sort",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "auth",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "dashboard",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "developer",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "developer-create-key",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "developer-docs",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "developer-usage",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "home",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "notifications",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "notifications-default",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "notifications-empty",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "notifications-filter-priority",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "notifications-filter-type",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "notifications-search",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "offline",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "payment",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "payment-detail",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "permissions",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "plans",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "portfolio",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "portfolio-search",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "privacy",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "profile",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "profile-edit",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "terms",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "about",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "access-denied",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "account",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "account-credits",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "account-payments",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "account-prefs",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "analytics",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "analytics-auth",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "analytics-default",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "analytics-filter-country",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "analytics-filter-sector",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "analytics-pagination",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "analytics-search",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "analytics-sort",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "auth",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "dashboard",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "developer",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "developer-create-key",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "developer-docs",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "developer-usage",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "home",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "notifications",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "notifications-default",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "notifications-empty",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "notifications-filter-priority",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "notifications-filter-type",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "notifications-search",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "offline",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "payment",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "payment-detail",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "permissions",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "plans",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "portfolio",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "portfolio-search",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "privacy",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "profile",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "profile-edit",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "terms",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "about",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "access-denied",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "account",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "account-credits",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "account-payments",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "account-prefs",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "analytics",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "analytics-auth",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "analytics-default",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "analytics-filter-country",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "analytics-filter-sector",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "analytics-pagination",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "analytics-search",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "analytics-sort",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "auth",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "dashboard",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "developer",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "developer-create-key",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "developer-docs",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "developer-usage",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "home",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "notifications",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "notifications-default",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "notifications-empty",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "notifications-filter-priority",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "notifications-filter-type",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "notifications-search",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "offline",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "payment",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "payment-detail",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "permissions",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "plans",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "portfolio",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "portfolio-search",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "privacy",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "profile",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "profile-edit",
+      "reason": "state-filter"
+    },
+    {
+      "app": "frontend",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "terms",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-access-denied",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-access-overview",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-access-permissions",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-access-plan-detail",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-access-plans",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-analytics",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-api-docs",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-api-key-create",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-audit-log",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-audit-log-category",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-audit-log-search",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-dashboard",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-dashboard-page",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-developer-portal",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-notification-create",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-notification-create-filled",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-notification-manage",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-notifications",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-payments",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-plan-edit",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-plan-new",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-profile",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-settings",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-settings-appearance",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-settings-notifications",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-settings-security",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-subscription-detail",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-subscription-new",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-subscription-new-external",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-subscription-new-filled",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-unauthorized",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-wallet-activity",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-wallet-credits",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-wallet-detail",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-wallet-disable",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-wallet-management",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-wallets-default",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-wallets-edit",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-wallets-filter-platform",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-wallets-filter-status",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-wallets-list",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "tablet",
+      "state": "admin-wallets-search",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-access-denied",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-access-overview",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-access-permissions",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-access-plan-detail",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-access-plans",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-analytics",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-api-docs",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-api-key-create",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-audit-log",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-audit-log-category",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-audit-log-search",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-dashboard",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-dashboard-page",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-developer-portal",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-notification-create",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-notification-create-filled",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-notification-manage",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-notifications",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-payments",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-plan-edit",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-plan-new",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-profile",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-settings",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-settings-appearance",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-settings-notifications",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-settings-security",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-subscription-detail",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-subscription-new",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-subscription-new-external",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-subscription-new-filled",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-unauthorized",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-wallet-activity",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-wallet-credits",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-wallet-detail",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-wallet-disable",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-wallet-management",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-wallets-default",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-wallets-edit",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-wallets-filter-platform",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-wallets-filter-status",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-wallets-list",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "light",
+      "viewport": "mobile",
+      "state": "admin-wallets-search",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-access-denied",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-access-overview",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-access-permissions",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-access-plan-detail",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-access-plans",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-analytics",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-api-docs",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-api-key-create",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-audit-log",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-audit-log-category",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-audit-log-search",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-dashboard",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-dashboard-page",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-developer-portal",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-notification-create",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-notification-create-filled",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-notification-manage",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-notifications",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-payments",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-plan-edit",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-plan-new",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-profile",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-settings",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-settings-appearance",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-settings-notifications",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-settings-security",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-subscription-detail",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-subscription-new",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-subscription-new-external",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-subscription-new-filled",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-unauthorized",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-wallet-activity",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-wallet-credits",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-wallet-detail",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-wallet-disable",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-wallet-management",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-wallets-default",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-wallets-edit",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-wallets-filter-platform",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-wallets-filter-status",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-wallets-list",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "tablet",
+      "state": "admin-wallets-search",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-access-denied",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-access-overview",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-access-permissions",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-access-plan-detail",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-access-plans",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-analytics",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-api-docs",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-api-key-create",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-audit-log",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-audit-log-category",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-audit-log-search",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-dashboard",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-dashboard-page",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-developer-portal",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-notification-create",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-notification-create-filled",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-notification-manage",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-notifications",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-payments",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-plan-edit",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-plan-new",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-profile",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-settings",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-settings-appearance",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-settings-notifications",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-settings-security",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-subscription-detail",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-subscription-new",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-subscription-new-external",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-subscription-new-filled",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-unauthorized",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-wallet-activity",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-wallet-credits",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-wallet-detail",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-wallet-disable",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-wallet-management",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-wallets-default",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-wallets-edit",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-wallets-filter-platform",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-wallets-filter-status",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-wallets-list",
+      "reason": "state-filter"
+    },
+    {
+      "app": "admin",
+      "mode": "dark",
+      "viewport": "mobile",
+      "state": "admin-wallets-search",
+      "reason": "state-filter"
+    }
+  ]
+}
