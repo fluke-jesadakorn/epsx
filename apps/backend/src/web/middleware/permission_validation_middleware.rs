@@ -8,13 +8,13 @@ use axum::{
     extract::{Request, State},
     http::StatusCode,
     middleware::Next,
-    response::{Response, IntoResponse},
+    response::{IntoResponse, Response},
 };
 use serde_json::json;
-use tracing::{info, warn, debug};
+use tracing::{debug, info, warn};
 
-use crate::web::middleware::bearer_middleware::OpenIDUserContext;
 use crate::web::errors::PermissionError;
+use crate::web::middleware::bearer_middleware::OpenIDUserContext;
 
 /// JWT-ONLY Permission validation middleware
 /// Validates permissions using ONLY the JWT claims (no database queries)
@@ -22,13 +22,11 @@ use crate::web::errors::PermissionError;
 ///
 /// IMPORTANT: Permissions are expanded from permission plans during token generation
 /// and stored in the JWT. This middleware just validates what's in the token.
-pub async fn permission_validation_middleware(
-    request: Request,
-    next: Next,
-) -> Response {
+pub async fn permission_validation_middleware(request: Request, next: Next) -> Response {
     let method = request.method().clone();
     // Use OriginalUri to get the full path before .nest() stripping
-    let path = request.extensions()
+    let path = request
+        .extensions()
         .get::<axum::extract::OriginalUri>()
         .map(|uri| uri.0.path().to_string())
         .unwrap_or_else(|| request.uri().path().to_string());
@@ -46,11 +44,15 @@ pub async fn permission_validation_middleware(
     let user_context = match request.extensions().get::<OpenIDUserContext>() {
         Some(ctx) => ctx,
         None => {
-            warn!("Missing JWT authentication for protected route: {} {}", method, path);
+            warn!(
+                "Missing JWT authentication for protected route: {} {}",
+                method, path
+            );
             return create_auth_error(
                 "Authentication required",
-                "Valid Bearer token required to access this resource"
-            ).into_response();
+                "Valid Bearer token required to access this resource",
+            )
+            .into_response();
         }
     };
 
@@ -76,10 +78,7 @@ pub async fn permission_validation_middleware(
             "Permission denied (JWT): wallet={}, permission={}, route={} {}\nCurrent Permissions: {:?}",
             user_context.wallet_address, required_permission, method, path, user_context.permissions
         );
-        create_permission_denied_error(
-            &required_permission,
-            user_context
-        ).into_response()
+        create_permission_denied_error(&required_permission, user_context).into_response()
     }
 }
 
@@ -110,11 +109,10 @@ pub async fn perm_guard(
                 reason: format!("Required: {}", required),
                 suggested_actions: vec!["Upgrade your plan".into()],
                 upgrade_plan: None,
-            }.into_response()
+            }
+            .into_response()
         }
-        None => {
-            PermissionError::authentication_required("Bearer token required").into_response()
-        }
+        None => PermissionError::authentication_required("Bearer token required").into_response(),
     }
 }
 
@@ -128,19 +126,57 @@ fn check_jwt_permission(user_context: &OpenIDUserContext, required: &str) -> boo
     crate::core::permissions::has_permission(&user_context.permissions, required)
 }
 
+fn is_payment_admin_path(path: &str) -> bool {
+    path.starts_with("/api/payments/admin/") || path.starts_with("/admin/")
+}
+
+fn is_payment_admin_subpath(path: &str, subpath: &str) -> bool {
+    path.starts_with(&format!("/api/payments/admin/{}", subpath))
+        || path.starts_with(&format!("/admin/{}", subpath))
+}
+
 /// Determine required permission for HTTP route and method.
 /// Admin routes under /api/admin/* are now enforced via perm_guard at the sub-router level
 /// (see web/admin/routes.rs). Only routes outside create_admin_routes() are listed here.
 fn get_required_permission(method: &str, path: &str) -> Option<String> {
     match (method, path) {
-        // Payment admin routes (/api/payments/admin/*)
-        ("GET", p) if p.contains("/admin/list") => Some("admin:payments:view".to_string()),
-        ("GET", p) if p.contains("/admin/subscriptions") => Some("admin:payments:view".to_string()),
-        ("PUT", p) if p.contains("/admin/") && p.contains("/status") => Some("admin:payments:manage".to_string()),
-        ("POST", p) if p.contains("/admin/") && p.contains("/refund") => Some("admin:payments:manage".to_string()),
+        // Auth permission management routes (/api/auth/web3/permissions/*)
+        ("POST", p) if p.ends_with("/web3/permissions/grant") => {
+            Some("admin:permissions:manage".to_string())
+        }
+        ("DELETE", p) if p.ends_with("/web3/permissions/revoke") => {
+            Some("admin:permissions:manage".to_string())
+        }
 
         // Credit admin routes (/api/payments/admin/credits/*)
-        (_, p) if p.contains("/admin/credits") => Some("admin:credits:manage".to_string()),
+        (_, p) if is_payment_admin_subpath(p, "credits") => {
+            Some("admin:credits:manage".to_string())
+        }
+
+        // Payment admin routes (/api/payments/admin/*)
+        ("GET", p) if is_payment_admin_subpath(p, "list") => {
+            Some("admin:payments:view".to_string())
+        }
+        ("GET", p) if is_payment_admin_subpath(p, "subscriptions") => {
+            Some("admin:payments:view".to_string())
+        }
+        ("GET", p) if is_payment_admin_subpath(p, "analytics") => {
+            Some("admin:payments:view".to_string())
+        }
+        ("GET", p) if is_payment_admin_subpath(p, "tx/") && p.ends_with("/events") => {
+            Some("admin:payments:view".to_string())
+        }
+        ("POST", p) if is_payment_admin_subpath(p, "tx/") && p.ends_with("/reprocess") => {
+            Some("admin:payments:manage".to_string())
+        }
+        ("PUT", p) if is_payment_admin_path(p) && p.contains("/status") => {
+            Some("admin:payments:manage".to_string())
+        }
+        ("POST", p) if is_payment_admin_path(p) && p.contains("/refund") => {
+            Some("admin:payments:manage".to_string())
+        }
+        ("GET", p) if is_payment_admin_path(p) => Some("admin:payments:view".to_string()),
+        (_, p) if is_payment_admin_path(p) => Some("admin:payments:manage".to_string()),
 
         // Settings routes (/api/admin/settings — unified_router.rs, not create_admin_routes)
         (_, p) if p.contains("/admin/settings") => Some("admin:settings:manage".to_string()),
@@ -195,7 +231,7 @@ fn create_auth_error(message: &str, reason: &str) -> (StatusCode, axum::Json<ser
                 "message": message,
                 "reason": reason
             }
-        }))
+        })),
     )
 }
 
@@ -302,8 +338,14 @@ mod tests {
         // Admin routes handled by perm_guard in create_admin_routes() → middleware returns None
         assert_eq!(get_required_permission("GET", "/api/admin/wallets"), None);
         assert_eq!(get_required_permission("GET", "/api/admin/plans"), None);
-        assert_eq!(get_required_permission("GET", "/api/admin/analytics/overview"), None);
-        assert_eq!(get_required_permission("GET", "/api/admin/chat/conversations"), None);
+        assert_eq!(
+            get_required_permission("GET", "/api/admin/analytics/overview"),
+            None
+        );
+        assert_eq!(
+            get_required_permission("GET", "/api/admin/chat/conversations"),
+            None
+        );
 
         // Analytics (user-facing)
         assert_eq!(get_required_permission("GET", "/api/auth/analytics"), None);
@@ -336,10 +378,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_perm_guard_no_context_returns_401() {
-        use axum::{body::Body, routing::get, Router, middleware::from_fn_with_state};
+        use axum::{body::Body, middleware::from_fn_with_state, routing::get, Router};
         use tower::ServiceExt;
 
-        async fn ok_handler() -> &'static str { "ok" }
+        async fn ok_handler() -> &'static str {
+            "ok"
+        }
 
         let app = Router::new()
             .route("/test", get(ok_handler))
@@ -356,10 +400,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_perm_guard_wrong_permission_returns_403() {
-        use axum::{body::Body, routing::get, Router, middleware::from_fn_with_state};
+        use axum::{body::Body, middleware::from_fn_with_state, routing::get, Router};
         use tower::ServiceExt;
 
-        async fn ok_handler() -> &'static str { "ok" }
+        async fn ok_handler() -> &'static str {
+            "ok"
+        }
 
         let ctx = create_test_user_context(vec!["epsx:analytics:read".to_string()]);
 
@@ -379,10 +425,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_perm_guard_correct_permission_passes() {
-        use axum::{body::Body, routing::get, Router, middleware::from_fn_with_state};
+        use axum::{body::Body, middleware::from_fn_with_state, routing::get, Router};
         use tower::ServiceExt;
 
-        async fn ok_handler() -> &'static str { "ok" }
+        async fn ok_handler() -> &'static str {
+            "ok"
+        }
 
         let ctx = create_test_user_context(vec!["admin:users:read".to_string()]);
 
@@ -402,10 +450,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_perm_guard_wildcard_permission_passes() {
-        use axum::{body::Body, routing::get, Router, middleware::from_fn_with_state};
+        use axum::{body::Body, middleware::from_fn_with_state, routing::get, Router};
         use tower::ServiceExt;
 
-        async fn ok_handler() -> &'static str { "ok" }
+        async fn ok_handler() -> &'static str {
+            "ok"
+        }
 
         let ctx = create_test_user_context(vec!["admin:*:*".to_string()]);
 

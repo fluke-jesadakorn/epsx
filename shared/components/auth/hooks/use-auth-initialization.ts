@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import type { SharedWeb3AuthClient, UserInfoResponse } from '../../../auth/client';
 import { refreshSessionAction } from '../../../auth/actions';
 import { COOKIES } from '../../../auth/cookies';
-import { setSharedClientToken } from '../../../utils/api-client';
 import { logger } from '../../../utils/logger';
 
 function getExpiresAt(): number | null {
@@ -45,9 +44,6 @@ export function useAuthInitialization({
                         wallet: initialUser.wallet_address,
                     });
                     client.setCurrentUser(initialUser);
-                    if (initialUser.access !== undefined && initialUser.access !== '') {
-                        setSharedClientToken(initialUser.access);
-                    }
                     setIsLoading(false);
                     return;
                 }
@@ -115,7 +111,6 @@ export function useAuthInitialization({
             if (result.success) {
                 const updated = await client.loadCurrentUser();
                 if (updated !== null) {
-                    if (updated.access !== undefined) { setSharedClientToken(updated.access); }
                     setUser(updated);
                 }
                 return true;

@@ -118,9 +118,9 @@ export class SharedWeb3AuthClient {
   // ============================================================================
 
   isAuthenticated(): boolean {
-    return Boolean(this.accessToken !== null && this.accessToken !== '' &&
+    return Boolean(this.user !== null || (this.accessToken !== null && this.accessToken !== '' &&
       this.tokenExpiry !== null &&
-      this.tokenExpiry > Date.now());
+      this.tokenExpiry > Date.now()));
   }
 
   getCurrentUser(): UserInfoResponse | null {
@@ -618,7 +618,7 @@ export class SharedWeb3AuthClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<UnifiedApiResponse<T>> {
-    // Ensure we have valid tokens
+    // Ensure we have an authenticated user or an in-memory token.
     if (!this.isAuthenticated()) {
       // Web3-first: No refresh tokens, user must re-authenticate
       return {
@@ -637,13 +637,16 @@ export class SharedWeb3AuthClient {
       ? endpoint
       : `${this.backendUrl}${endpoint}`;
 
+    const headers = new Headers(options.headers);
+    headers.set('Content-Type', 'application/json');
+    if (this.accessToken !== null && this.accessToken !== '') {
+      headers.set('Authorization', `Bearer ${this.accessToken}`);
+    }
+
     const response = await fetch(url, {
       ...options,
-      headers: {
-        ...options.headers,
-        Authorization: `Bearer ${this.accessToken}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
+      credentials: 'include',
     });
 
     // Handle 401 with token refresh retry

@@ -13,7 +13,6 @@
  * - Type-safe responses with proper error handling
  */
 
-import { COOKIES } from '../auth/cookies';
 import {
   validateNotificationFilters,
   validateSendNotificationRequest,
@@ -863,7 +862,7 @@ export class NotificationsAPIClient {
     // Create SSE connection with timestamp for error tracking
     const connectionStartTime = Date.now();
     logger.info('🔌 Creating EventSource connection', { url: sseUrl });
-    this.sseConnection = new EventSource(sseUrl);
+    this.sseConnection = new EventSource(sseUrl, { withCredentials: true });
 
     // Store handlers for cleanup
     this.setupSSEHandlers({
@@ -1178,106 +1177,6 @@ export class NotificationsAPIClient {
   }
 
   /**
-   * Get authentication token information from accessible cookies
-   * Since access tokens are HttpOnly, we get user info from client-side cookies
-   */
-  private getTokenFromCookies(): string | null {
-    if (typeof document === 'undefined') {
-      logger.warn('🔐 Document not available, cannot extract authentication token');
-      return null;
-    }
-
-    const platform = this.client.getPlatform();
-
-    try {
-      const cookies = this.parseBrowserCookies();
-      const userCookie = cookies[COOKIES.user] as string | undefined;
-      if (userCookie === undefined || userCookie === '') {
-        logger.warn(`⚠️ No user cookie found in cookies for platform: ${platform}`);
-        return null;
-      }
-
-      return this.extractTokenFromUserCookie(userCookie, cookies, platform);
-    } catch (error) {
-      logger.error('❌ Error extracting authentication token from cookies', { error });
-      return null;
-    }
-  }
-
-  /**
-   * Parse browser cookies into a record
-   */
-  private parseBrowserCookies(): Record<string, string> {
-    return document.cookie.split(';').reduce<Record<string, string>>((acc, cookie) => {
-      const [key, value] = cookie.trim().split('=');
-      if (key !== undefined && value !== undefined) {
-        acc[key] = value;
-      }
-      return acc;
-    }, {});
-  }
-
-  /**
-   * Extract token from user cookie with fallback to other JWT tokens
-   */
-  private extractTokenFromUserCookie(userCookie: string, cookies: Record<string, string>, platform: string | undefined): string | null {
-    let token: string | null = null;
-    let tokenSource = 'user-cookie';
-
-    try {
-      const user = JSON.parse(decodeURIComponent(userCookie)) as { access?: string };
-      token = user.access ?? null;
-    } catch (error) {
-      logger.warn('Failed to parse user cookie', { error });
-    }
-
-    // Fallback: check for any JWT-like tokens
-    if (token === null || token === '') {
-      for (const [cookieName, value] of Object.entries(cookies)) {
-        if (value !== '' && value.length > 50 && value.startsWith('eyJ')) {
-          token = value;
-          tokenSource = `${cookieName} (JWT-like)`;
-          break;
-        }
-      }
-    }
-
-    if (token === null || token === '') {
-      logger.warn(`⚠️ No authentication token found in cookies for platform: ${platform}`);
-      return null;
-    }
-
-    return this.validateAndLogToken(token, tokenSource);
-  }
-
-  /**
-   * Validate token format and log its extraction
-   */
-  private validateAndLogToken(token: string, source: string): string | null {
-    if (token.startsWith('eyJ')) {
-      logger.info(`🔑 JWT token extracted from ${source}`);
-      return token;
-    }
-
-    // DEPRECATED: Legacy format support
-    if (token.startsWith('web3_token_')) {
-      const wallet = token.slice(12);
-      if (wallet.length >= 20 && wallet.startsWith('0x')) {
-        logger.warn('⚠️ DEPRECATED: Legacy web3_token_ format detected.');
-        return token;
-      }
-    }
-
-    if (token.length > 50) {
-      logger.info(`🔑 Token extracted from ${source}`);
-      return token;
-    }
-
-    logger.warn('⚠️ Token invalid format or too short');
-    return null;
-  }
-
-  /**
    * Internal helper to build SSE URL and validate it
    */
   private buildSSEUrl(options: SSEConnectionOptions): { sseUrl: string; token: string | null; platform: string | undefined } {
@@ -1286,15 +1185,9 @@ export class NotificationsAPIClient {
     if (options.types !== undefined && options.types.length > 0) { params.append('types', options.types.join(',')); }
     if (options.priority !== undefined) { params.append('priority', options.priority); }
 
-    const token = this.getTokenFromCookies();
+    const token = typeof window !== 'undefined' ? 'cookie' : null;
     const platform = this.client.getPlatform();
-
-    if (token !== null && token !== '') {
-      params.append('token', token);
-      logger.info(`🔑 SSE [${platform}]: Client-side token found and added to URL`);
-    } else {
-      logger.info(`ℹ️ SSE [${platform}]: No client-side token found. Relying on Proxy Middleware.`);
-    }
+    logger.info(`ℹ️ SSE [${platform}]: Using HttpOnly cookie credentials`);
 
     const queryString = params.toString();
 

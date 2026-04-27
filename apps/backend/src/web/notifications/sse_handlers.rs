@@ -3,15 +3,12 @@ use axum::{
     response::sse::{Event, KeepAlive, Sse},
     response::IntoResponse,
 };
-use serde::{Deserialize, Serialize};
-use std::time::Duration;
 use chrono::{DateTime, Utc};
 use futures::StreamExt;
+use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
-use crate::{
-    web::auth::AppState,
-    core::errors::AppError,
-};
+use crate::{core::errors::AppError, web::auth::AppState};
 
 // ============================================================================
 // SSE NOTIFICATION TYPES
@@ -58,19 +55,18 @@ pub enum NotificationPriority {
 pub struct SSEQuery {
     pub types: Option<String>, // comma-separated notification types
     pub timeout: Option<u64>,  // seconds
-    pub token: Option<String>, // Bearer token (for EventSource compatibility)
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct ScalarQuery {
-    pub types: Option<String>,    // comma-separated notification types
-    pub limit: Option<u32>,       // maximum number to return
+    pub types: Option<String>,     // comma-separated notification types
+    pub limit: Option<u32>,        // maximum number to return
     pub unread_only: Option<bool>, // filter for unread only
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct ScalarListQuery {
-    pub limit: Option<u32>, // maximum number to return
+    pub limit: Option<u32>,  // maximum number to return
     pub offset: Option<u32>, // number to skip
 }
 
@@ -91,8 +87,7 @@ pub struct ScalarListQuery {
     ),
     params(
         ("types" = Option<String>, Query, description = "Comma-separated notification types to filter"),
-        ("timeout" = Option<u64>, Query, description = "Connection timeout in seconds"),
-        ("token" = Option<String>, Query, description = "Bearer token for authentication (for EventSource compatibility)")
+        ("timeout" = Option<u64>, Query, description = "Connection timeout in seconds")
     ),
     security(("bearerAuth" = []))
 )]
@@ -101,48 +96,28 @@ pub async fn sse_notifications_handler(
     Query(query): Query<SSEQuery>,
     request: axum::extract::Request,
 ) -> Result<impl IntoResponse, AppError> {
-    // Extract wallet address from authentication (Header or Query)
-    let mut wallet_address = "all".to_string();
-    let mut token_to_validate = None;
-    let mut token_present = false;
+    let token = crate::web::middleware::bearer_middleware::extract_bearer_token_from_headers(
+        request.headers(),
+    )
+    .ok_or_else(|| AppError::unauthorized("Authentication token is required"))?;
 
-    // 1. Check Authorization header
-    if let Some(auth_header) = request.headers().get("authorization").and_then(|h| h.to_str().ok()) {
-        if let Some(token) = auth_header.strip_prefix("Bearer ") {
-            token_to_validate = Some(token.to_string());
-            token_present = true;
-        }
-    }
+    let token_service = app_state
+        .domain_container
+        .get_token_service()
+        .ok_or_else(|| AppError::internal_server_error("Authentication service unavailable"))?;
 
-    // 2. Fallback to query param
-    if token_to_validate.is_none() {
-        if let Some(token) = query.token {
-            token_to_validate = Some(token);
-            token_present = true;
-        }
-    }
-
-    // 3. Validate token if present — reject on failure instead of silently falling back to "all"
-    if let Some(token) = token_to_validate {
-        if let Some(token_service) = app_state.domain_container.get_token_service() {
-            match token_service.validate_access_token(&token).await {
-                Ok(claims) => {
-                    wallet_address = claims.wallet_address.to_lowercase();
-                    tracing::debug!("SSE Auth: Validated wallet from token: {}", wallet_address);
-                }
-                Err(e) => {
-                    tracing::warn!("SSE Auth: Token validation failed, rejecting SSE connection: {}", e);
-                    return Err(AppError::unauthorized("Invalid or expired authentication token"));
-                }
-            }
-        } else {
-            tracing::error!("SSE Auth: Token service not available");
-            return Err(AppError::internal_server_error("Authentication service unavailable"));
-        }
-    } else if token_present {
-        // Token header/param was present but empty — reject
-        return Err(AppError::unauthorized("Authentication token is required"));
-    }
+    let claims = token_service
+        .validate_access_token(&token)
+        .await
+        .map_err(|e| {
+            tracing::warn!(
+                "SSE Auth: Token validation failed, rejecting SSE connection: {}",
+                e
+            );
+            AppError::unauthorized("Invalid or expired authentication token")
+        })?;
+    let wallet_address = claims.wallet_address.to_lowercase();
+    tracing::debug!("SSE Auth: Validated wallet from token: {}", wallet_address);
 
     tracing::info!(
         "SSE connection request: wallet={}, types={:?}",
@@ -154,12 +129,12 @@ pub async fn sse_notifications_handler(
     use crate::infrastructure::database::get_notifications_pool;
     let queued_notifications = if wallet_address != "all" {
         match get_notifications_pool().await {
-            Ok(notifications_pool) => {
-                crate::web::notifications::fetch_queued_notifications(
-                    notifications_pool,
-                    &wallet_address
-                ).await.unwrap_or_default()
-            }
+            Ok(notifications_pool) => crate::web::notifications::fetch_queued_notifications(
+                notifications_pool,
+                &wallet_address,
+            )
+            .await
+            .unwrap_or_default(),
             Err(e) => {
                 tracing::error!("Failed to get notifications database pool: {}", e);
                 vec![]
@@ -292,9 +267,7 @@ pub async fn sse_notifications_handler(
 
     // Send initial ping event to establish connection
     let initial_ping = tokio_stream::once(Ok::<Event, axum::Error>(
-        Event::default()
-            .event("ping")
-            .data("connected")
+        Event::default().event("ping").data("connected"),
     ));
 
     // Combine streams
@@ -303,8 +276,7 @@ pub async fn sse_notifications_handler(
     // Keep-alive every 15 seconds
     let keep_alive_duration = Duration::from_secs(15);
 
-    Ok(Sse::new(combined_stream)
-        .keep_alive(KeepAlive::new().interval(keep_alive_duration)))
+    Ok(Sse::new(combined_stream).keep_alive(KeepAlive::new().interval(keep_alive_duration)))
 }
 
 // ============================================================================
@@ -384,5 +356,3 @@ fn parse_notification_types(types_str: Option<String>) -> Option<Vec<Notificatio
             .collect()
     })
 }
-
-

@@ -4,16 +4,48 @@ import path from 'node:path';
 const SHARED_STUB = '../../shared/stubs/empty.ts';
 const ZOD_ALIAS = 'zod';
 const DEFAULT_MEDIA_ORIGIN = 'http://localhost:9100';
+interface RemotePattern {
+  protocol: 'http' | 'https';
+  hostname: string;
+  port?: string;
+}
+
+function buildImageRemotePatterns(): RemotePattern[] {
+  const origins = [
+    process.env.MINIO_ENDPOINT,
+    process.env.MINIO_PUBLIC_URL,
+    process.env.NEXT_PUBLIC_CDN_URL,
+    DEFAULT_MEDIA_ORIGIN,
+    'https://cdn.epsx.io',
+    'https://dev-cdn.epsx.io',
+    'https://staging-cdn.epsx.io',
+  ];
+
+  const patterns = new Map<string, RemotePattern>();
+  for (const origin of origins) {
+    if (origin === undefined || origin.trim() === '') { continue; }
+    try {
+      const url = new URL(origin);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') { continue; }
+      const pattern: RemotePattern = {
+        protocol: url.protocol === 'https:' ? 'https' : 'http',
+        hostname: url.hostname,
+      };
+      if (url.port !== '') { pattern.port = url.port; }
+      patterns.set(`${pattern.protocol}:${pattern.hostname}:${pattern.port ?? ''}`, pattern);
+    } catch {
+      // Ignore malformed optional env values; build should still use safe defaults.
+    }
+  }
+  return [...patterns.values()];
+}
 
 const nextConfig: NextConfig = {
   // Keep standalone output for legacy Docker and local container workflows.
   output: 'standalone',
 
   images: {
-    remotePatterns: [
-      { protocol: 'https', hostname: '**' },
-      { protocol: 'http', hostname: '**' },
-    ],
+    remotePatterns: buildImageRemotePatterns(),
   },
 
   async rewrites() {
@@ -37,8 +69,6 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-
-  typescript: { ignoreBuildErrors: true },
 
   // Enabled Turbopack for development
   turbopack: {
