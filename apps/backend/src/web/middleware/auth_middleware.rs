@@ -83,7 +83,7 @@ impl std::error::Error for Web3AuthError {}
 /// This middleware supports multiple authentication methods:
 /// 1. SIWE (Sign-In with Ethereum) signature verification
 /// 2. JWT Bearer token validation
-/// 3. Session cookie validation
+/// 3. HttpOnly access-cookie token validation for browser requests
 /// 4. Proper error handling and logging
 pub async fn web3_auth_middleware(
     State(app_state): State<AppState>,
@@ -130,14 +130,16 @@ pub async fn web3_auth_middleware(
 
 /// Authenticate request using multiple methods
 async fn authenticate_request(headers: &HeaderMap, app_state: &AppState) -> Result<Web3AuthContext, Web3AuthError> {
-    // Method 1: Try Bearer token authentication first (most common for API calls)
-    if let Some(auth_header) = headers.get("authorization") {
-        if let Ok(auth_str) = auth_header.to_str() {
-            if let Some(token) = auth_str.strip_prefix("Bearer ") {
-                match validate_bearer_token(token, app_state).await {
-                    Ok(context) => return Ok(context),
-                    Err(e) => debug!("Bearer token validation failed: {}", e),
-                }
+    // Method 1: Try Bearer token authentication first. Browser callers may supply
+    // the same access token through the HttpOnly auth cookie instead of JS-visible
+    // Authorization headers.
+    if let Some(token) =
+        crate::web::middleware::bearer_middleware::extract_bearer_token_from_headers(headers)
+    {
+        match validate_bearer_token(&token, app_state).await {
+            Ok(context) => return Ok(context),
+            Err(e) => {
+                debug!("Bearer token validation failed: {}", e);
             }
         }
     }
@@ -150,9 +152,6 @@ async fn authenticate_request(headers: &HeaderMap, app_state: &AppState) -> Resu
         }
     }
 
-    // Method 3: NO COOKIE AUTHENTICATION
-    // Backend is strict Bearer-only. Frontend must extract tokens from cookies and send as Bearer header.
-    
     Err(Web3AuthError::MissingCredentials)
 }
 

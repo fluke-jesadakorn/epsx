@@ -55,7 +55,6 @@ pub enum NotificationPriority {
 pub struct SSEQuery {
     pub types: Option<String>, // comma-separated notification types
     pub timeout: Option<u64>,  // seconds
-    pub token: Option<String>, // Bearer token (for EventSource compatibility)
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -88,8 +87,7 @@ pub struct ScalarListQuery {
     ),
     params(
         ("types" = Option<String>, Query, description = "Comma-separated notification types to filter"),
-        ("timeout" = Option<u64>, Query, description = "Connection timeout in seconds"),
-        ("token" = Option<String>, Query, description = "Bearer token for authentication (for EventSource compatibility)")
+        ("timeout" = Option<u64>, Query, description = "Connection timeout in seconds")
     ),
     security(("bearerAuth" = []))
 )]
