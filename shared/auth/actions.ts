@@ -7,6 +7,16 @@ import type { ChallengeResponse, SignatureVerificationRequest, SignatureVerifica
 import type { UserInfoResponse } from './client';
 import { COOKIES, COOKIE_OPTIONS, HTTP_ONLY_COOKIES } from './cookies';
 
+function sanitizeUserForClientCookie(user: UserInfoResponse | Record<string, unknown>): Record<string, unknown> {
+    const sanitized = { ...(user as Record<string, unknown>) };
+    delete sanitized.access;
+    delete sanitized.access_token;
+    delete sanitized.refresh_token;
+    delete sanitized.id_token;
+    delete sanitized.token;
+    return sanitized;
+}
+
 /**
  * Server Action to establish a user session by setting cookies.
  * This MUST be called from a Client Component or another Server Action.
@@ -49,7 +59,7 @@ export async function loginAction(
         });
 
         // 2. Set User Data (Client Accessible - but set from server)
-        cookieStore.set(COOKIES.user, JSON.stringify(user), {
+        cookieStore.set(COOKIES.user, JSON.stringify(sanitizeUserForClientCookie(user)), {
             ...COOKIE_OPTIONS.clientSide,
             maxAge: COOKIE_OPTIONS.maxAge.user,
         });
@@ -209,7 +219,7 @@ export async function refreshSessionAction() {
         updateSessionCookies(cookieStore, data);
 
         logger.info('[AUTH] refreshSessionAction: Token refreshed successfully');
-        return { success: true, access_token: data.access_token, expires_in: data.expires_in };
+        return { success: true, expires_in: data.expires_in };
     } catch (error) {
         logger.error('[AUTH] refreshSessionAction error:', error instanceof Error ? error.message : String(error));
         return { success: false, error: 'Internal server error' };
@@ -244,17 +254,15 @@ function updateSessionCookies(
     // 3. Update User Data
     const existingUserCookie = cookieStore.get(COOKIES.user)?.value;
     if (existingUserCookie !== undefined && existingUserCookie !== '') {
-        const existingUser = JSON.parse(existingUserCookie) as Record<string, unknown>;
-        existingUser.access = accessToken;
-        if (data.user) { Object.assign(existingUser, data.user); }
+        const existingUser = sanitizeUserForClientCookie(JSON.parse(decodeURIComponent(existingUserCookie)) as Record<string, unknown>);
+        if (data.user) { Object.assign(existingUser, sanitizeUserForClientCookie(data.user)); }
 
         cookieStore.set(COOKIES.user, JSON.stringify(existingUser), {
             ...COOKIE_OPTIONS.clientSide,
             maxAge: COOKIE_OPTIONS.maxAge.user,
         });
     } else if (data.user) {
-        const newUser = { ...data.user, access: accessToken };
-        cookieStore.set(COOKIES.user, JSON.stringify(newUser), {
+        cookieStore.set(COOKIES.user, JSON.stringify(sanitizeUserForClientCookie(data.user)), {
             ...COOKIE_OPTIONS.clientSide,
             maxAge: COOKIE_OPTIONS.maxAge.user,
         });
@@ -340,4 +348,3 @@ export async function verifyAction(req: SignatureVerificationRequest): Promise<S
 
     return data;
 }
-

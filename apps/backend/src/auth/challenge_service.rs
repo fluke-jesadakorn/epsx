@@ -2,16 +2,19 @@
 // Handles nonce lifecycle: generate, store, validate, cleanup
 
 use chrono::{Duration, Utc};
-use ethers::types::Address;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
+use ethers::types::Address;
 use tracing::info;
 
-use super::auth_service::{UnifiedWeb3AuthService, Web3Challenge, Web3AuthError};
+use super::auth_service::{UnifiedWeb3AuthService, Web3AuthError, Web3Challenge};
 
 impl UnifiedWeb3AuthService {
     /// Generate Web3 authentication challenge (SIWE)
-    pub async fn generate_challenge(&self, wallet_address: &str) -> Result<Web3Challenge, Web3AuthError> {
+    pub async fn generate_challenge(
+        &self,
+        wallet_address: &str,
+    ) -> Result<Web3Challenge, Web3AuthError> {
         let wallet_address = wallet_address.trim().to_lowercase();
 
         let address = Address::from_str(&wallet_address)
@@ -25,20 +28,20 @@ impl UnifiedWeb3AuthService {
 
         use crate::schemas::primary::web3_auth_nonces;
 
-        let mut conn = self.db_pool.get().await
+        let mut conn = self
+            .db_pool
+            .get()
+            .await
             .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
+
+        diesel::delete(web3_auth_nonces::table.filter(web3_auth_nonces::expires_at.lt(now)))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
         diesel::insert_into(web3_auth_nonces::table)
             .values((
                 web3_auth_nonces::wallet_address.eq(&wallet_address),
-                web3_auth_nonces::nonce.eq(&nonce),
-                web3_auth_nonces::message.eq(&message),
-                web3_auth_nonces::expires_at.eq(&expires_at),
-                web3_auth_nonces::created_at.eq(&now),
-            ))
-            .on_conflict(web3_auth_nonces::wallet_address)
-            .do_update()
-            .set((
                 web3_auth_nonces::nonce.eq(&nonce),
                 web3_auth_nonces::message.eq(&message),
                 web3_auth_nonces::expires_at.eq(&expires_at),
@@ -64,28 +67,50 @@ impl UnifiedWeb3AuthService {
         use rand::Rng;
         use std::fmt::Write;
         let mut rng = rand::thread_rng();
-        (0..32).map(|_| rng.gen_range(0..16)).fold(String::new(), |mut acc, n| {
-            let _ = write!(acc, "{:x}", n);
-            acc
-        })
+        (0..32)
+            .map(|_| rng.gen_range(0..16))
+            .fold(String::new(), |mut acc, n| {
+                let _ = write!(acc, "{:x}", n);
+                acc
+            })
     }
 
     /// Create SIWE message
-    pub(super) fn create_siwe_message(&self, address: &Address, nonce: &str) -> Result<String, Web3AuthError> {
+    pub(super) fn create_siwe_message(
+        &self,
+        address: &Address,
+        nonce: &str,
+    ) -> Result<String, Web3AuthError> {
         use siwe::{Message, Version};
 
-        let domain = self.domain.parse()
-            .map_err(|e| Web3AuthError::InvalidDomain(format!("Invalid domain {}: {}", self.domain, e)))?;
+        let domain = self.domain.parse().map_err(|e| {
+            Web3AuthError::InvalidDomain(format!("Invalid domain {}: {}", self.domain, e))
+        })?;
 
-        let uri = format!("https://{}", self.domain).parse()
-            .map_err(|e| Web3AuthError::InvalidDomain(format!("Invalid URI {}: {}", self.domain, e)))?;
+        let uri = format!("https://{}", self.domain).parse().map_err(|e| {
+            Web3AuthError::InvalidDomain(format!("Invalid URI {}: {}", self.domain, e))
+        })?;
 
-        let issued_at = Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string().parse()
-            .map_err(|e| Web3AuthError::InvalidTimestamp(format!("Failed to parse issued_at: {}", e)))?;
+        let issued_at = Utc::now()
+            .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+            .to_string()
+            .parse()
+            .map_err(|e| {
+                Web3AuthError::InvalidTimestamp(format!("Failed to parse issued_at: {}", e))
+            })?;
 
-        let expiration_time = Some((Utc::now() + Duration::minutes(self.nonce_expiry_minutes))
-            .format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string().parse()
-            .map_err(|e| Web3AuthError::InvalidTimestamp(format!("Failed to parse expiration_time: {}", e)))?);
+        let expiration_time = Some(
+            (Utc::now() + Duration::minutes(self.nonce_expiry_minutes))
+                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                .to_string()
+                .parse()
+                .map_err(|e| {
+                    Web3AuthError::InvalidTimestamp(format!(
+                        "Failed to parse expiration_time: {}",
+                        e
+                    ))
+                })?,
+        );
 
         let message = Message {
             domain,
@@ -109,15 +134,23 @@ impl UnifiedWeb3AuthService {
     }
 
     /// Cleanup used nonce
-    pub(super) async fn cleanup_nonce(&self, wallet_address: &str) -> Result<(), Web3AuthError> {
+    pub(super) async fn cleanup_nonce(
+        &self,
+        wallet_address: &str,
+        nonce: &str,
+    ) -> Result<(), Web3AuthError> {
         let wallet_address = wallet_address.trim().to_lowercase();
         use crate::schemas::primary::web3_auth_nonces;
 
-        let mut conn = self.db_pool.get().await
+        let mut conn = self
+            .db_pool
+            .get()
+            .await
             .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
 
         diesel::delete(web3_auth_nonces::table)
             .filter(web3_auth_nonces::wallet_address.eq(wallet_address))
+            .filter(web3_auth_nonces::nonce.eq(nonce))
             .execute(&mut conn)
             .await
             .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;

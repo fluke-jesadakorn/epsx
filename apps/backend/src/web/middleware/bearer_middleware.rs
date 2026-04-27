@@ -10,7 +10,7 @@
 
 use axum::{
     extract::{Request, State},
-    http::{header::AUTHORIZATION, StatusCode},
+    http::{header::AUTHORIZATION, HeaderMap, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
     Json,
@@ -21,8 +21,7 @@ use tracing::debug;
 use crate::{
     auth::OpenIDTokenError,
     infrastructure::adapters::repositories::developer_portal::ApiKeyRepository,
-    infrastructure::cache::redis_cache::{get_perm_invalidated},
-    web::auth::AppState,
+    infrastructure::cache::redis_cache::get_perm_invalidated, web::auth::AppState,
 };
 
 /// OpenID Bearer Token User Context
@@ -82,7 +81,8 @@ impl UnifiedErrorResponse {
 
 impl IntoResponse for UnifiedErrorResponse {
     fn into_response(self) -> Response {
-        let status = StatusCode::from_u16(self.error.code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+        let status =
+            StatusCode::from_u16(self.error.code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
         (status, Json(self)).into_response()
     }
 }
@@ -94,23 +94,14 @@ pub async fn bearer_middleware(
     mut request: Request,
     next: Next,
 ) -> Result<Response, (StatusCode, Json<UnifiedErrorResponse>)> {
-    // Extract Authorization header
-    let auth_header = request
-        .headers()
-        .get(AUTHORIZATION)
-        .and_then(|header| header.to_str().ok());
-
-    // Try to get token from Authorization header first
-    let token = match auth_header {
-        Some(header) if header.starts_with("Bearer ") => {
-            header.strip_prefix("Bearer ").unwrap_or("").to_string()
-        }
-        _ => {
-            debug!("No Bearer token found in Authorization header");
+    let token = match extract_bearer_token_from_headers(request.headers()) {
+        Some(token) => token,
+        None => {
+            debug!("No Bearer token found in Authorization header or auth cookies");
             return Err(create_auth_error(
                 StatusCode::UNAUTHORIZED,
                 "Bearer token required",
-                "Authorization header with Bearer token required"
+                "Authorization Bearer token or HttpOnly auth cookie required",
             ));
         }
     };
@@ -120,7 +111,7 @@ pub async fn bearer_middleware(
         return Err(create_auth_error(
             StatusCode::UNAUTHORIZED,
             "Invalid token format",
-            "Bearer token cannot be empty"
+            "Bearer token cannot be empty",
         ));
     }
 
@@ -148,8 +139,47 @@ pub async fn bearer_middleware(
     Ok(next.run(request).await)
 }
 
+/// Extract an access token from an Authorization header or EPSX HttpOnly auth cookie.
+///
+/// Browser clients cannot set Authorization headers for EventSource and should not receive
+/// access tokens during hydration. Supporting the HttpOnly cookie keeps those flows server-owned.
+pub fn extract_bearer_token_from_headers(headers: &HeaderMap) -> Option<String> {
+    if let Some(auth_header) = headers
+        .get(AUTHORIZATION)
+        .and_then(|header| header.to_str().ok())
+    {
+        if let Some(token) = auth_header.strip_prefix("Bearer ") {
+            let token = token.trim();
+            if !token.is_empty() {
+                return Some(token.to_string());
+            }
+        }
+    }
+
+    let cookie_header = headers
+        .get("cookie")
+        .and_then(|header| header.to_str().ok())?;
+    for cookie in cookie_header.split(';') {
+        let (name, value) = match cookie.trim().split_once('=') {
+            Some(parts) => parts,
+            None => continue,
+        };
+        if matches!(
+            name.trim(),
+            "epsx.access_token" | "__Host-epsx.access_token"
+        ) {
+            let token = value.trim();
+            if !token.is_empty() {
+                return Some(token.to_string());
+            }
+        }
+    }
+
+    None
+}
+
 /// Validate Bearer JWT token and extract user context
-/// 
+///
 /// Uses OpenIDTokenService::validate_access_token() as the SINGLE SOURCE OF TRUTH
 /// for all JWT validation. This ensures consistent validation across the entire application.
 pub async fn validate_bearer_token(
@@ -169,7 +199,8 @@ pub async fn validate_bearer_token(
 
     // Parse permissions from OIDC standard scope claim
     // OIDC standard: scope is space-separated string like "openid profile epsx:analytics:read admin:users:manage"
-    let permissions: Vec<String> = claims.scope
+    let permissions: Vec<String> = claims
+        .scope
         .split_whitespace()
         .filter(|s| *s != "openid" && *s != "profile") // Remove standard OIDC scopes
         .map(|s| s.to_string())
@@ -179,7 +210,7 @@ pub async fn validate_bearer_token(
     let mut user_context = OpenIDUserContext {
         sub: claims.sub,
         wallet_address: claims.wallet_address,
-        permissions,  // Parsed from OIDC scope claim
+        permissions, // Parsed from OIDC scope claim
         auth_method: claims.auth_method,
         jti: claims.jti,
         exp: claims.exp,
@@ -189,17 +220,26 @@ pub async fn validate_bearer_token(
 
     // Check if permissions were invalidated after this token was issued.
     // If so, fetch live permissions from DB to reflect the change immediately.
-    // Fail-open: on any error (Redis down, DB issue), continue with JWT permissions.
-    if let Some(invalidated_at) = get_perm_invalidated(app_state.cache.as_ref(), &user_context.wallet_address) {
+    // Fail closed if the live permission reload fails; stale admin permissions must not survive revocation.
+    if let Some(invalidated_at) =
+        get_perm_invalidated(app_state.cache.as_ref(), &user_context.wallet_address)
+    {
         if invalidated_at > user_context.iat {
-            if let Ok(fresh_perms) = token_service.expand_plans(&user_context.wallet_address).await {
-                debug!(
-                    "Live permissions loaded for {} ({} perms) due to invalidation flag",
-                    user_context.wallet_address,
-                    fresh_perms.len()
-                );
-                user_context.permissions = fresh_perms;
-            }
+            let fresh_perms = token_service
+                .expand_plans(&user_context.wallet_address)
+                .await
+                .map_err(|e| {
+                    OpenIDTokenError::DatabaseError(format!(
+                        "Permission reload failed after invalidation: {}",
+                        e
+                    ))
+                })?;
+            debug!(
+                "Live permissions loaded for {} ({} perms) due to invalidation flag",
+                user_context.wallet_address,
+                fresh_perms.len()
+            );
+            user_context.permissions = fresh_perms;
         }
     }
 
@@ -229,8 +269,6 @@ fn create_auth_error(
 
     (status, Json(error_response))
 }
-
-
 
 /// Validate a Bearer token as an API key (SHA-256 hash → DB lookup)
 /// Returns OpenIDUserContext with auth_method = "api_key" on success
@@ -270,7 +308,10 @@ async fn validate_api_key(
     }
 
     // Check status (validate_key filters active, but guard against race)
-    if !matches!(api_key.status, crate::domain::developer_portal::ApiKeyStatus::Active) {
+    if !matches!(
+        api_key.status,
+        crate::domain::developer_portal::ApiKeyStatus::Active
+    ) {
         return Err(create_auth_error(
             StatusCode::UNAUTHORIZED,
             "Token revoked",
@@ -294,14 +335,19 @@ async fn validate_api_key(
         permissions,
         auth_method: "api_key".to_string(),
         jti: api_key.id.to_string(),
-        exp: api_key.expires_at.map(|e| e.timestamp()).unwrap_or(i64::MAX),
+        exp: api_key
+            .expires_at
+            .map(|e| e.timestamp())
+            .unwrap_or(i64::MAX),
         iat: api_key.created_at.timestamp(),
         auth_time: now.timestamp(),
     };
 
     debug!(
         "API key validated for user: {} (key: {}, permissions: {})",
-        ctx.wallet_address, api_key.key_prefix, ctx.permissions.len()
+        ctx.wallet_address,
+        api_key.key_prefix,
+        ctx.permissions.len()
     );
 
     Ok(ctx)
@@ -326,13 +372,19 @@ pub async fn optional_bearer_middleware(
                 // Try JWT first, then API key fallback
                 match validate_bearer_token(token, &app_state).await {
                     Ok(ctx) => {
-                        debug!("Optional auth: JWT validated for user: {}", ctx.wallet_address);
+                        debug!(
+                            "Optional auth: JWT validated for user: {}",
+                            ctx.wallet_address
+                        );
                         request.extensions_mut().insert(ctx);
                     }
                     Err(_) => {
                         // JWT failed — try API key
                         if let Ok(ctx) = validate_api_key(token, &app_state).await {
-                            debug!("Optional auth: API key validated for user: {}", ctx.wallet_address);
+                            debug!(
+                                "Optional auth: API key validated for user: {}",
+                                ctx.wallet_address
+                            );
                             request.extensions_mut().insert(ctx);
                         }
                     }
@@ -350,22 +402,21 @@ pub fn extract_user_context(request: &Request) -> Option<&OpenIDUserContext> {
 }
 
 /// Helper to require user context (for use in handlers)
-pub fn require_user_context(request: &Request) -> Result<&OpenIDUserContext, (StatusCode, Json<UnifiedErrorResponse>)> {
+pub fn require_user_context(
+    request: &Request,
+) -> Result<&OpenIDUserContext, (StatusCode, Json<UnifiedErrorResponse>)> {
     extract_user_context(request).ok_or_else(|| {
         create_auth_error(
             StatusCode::UNAUTHORIZED,
             "Authentication required",
-            "Valid Bearer token required for this endpoint"
+            "Valid Bearer token required for this endpoint",
         )
     })
 }
 
 /// Helper to check if user has specific permission
 /// Uses exact match + wildcard matching (platform:*:* and platform:resource:*)
-pub fn check_user_permission(
-    user_context: &OpenIDUserContext,
-    required_permission: &str,
-) -> bool {
+pub fn check_user_permission(user_context: &OpenIDUserContext, required_permission: &str) -> bool {
     crate::core::permissions::has_permission(&user_context.permissions, required_permission)
 }
 
@@ -376,7 +427,7 @@ pub fn create_permission_denied_error(
     create_auth_error(
         StatusCode::FORBIDDEN,
         "Permission denied",
-        &format!("Required permission: {}", required_permission)
+        &format!("Required permission: {}", required_permission),
     )
 }
 
@@ -419,9 +470,15 @@ mod tests {
 
         // admin:*:* grants all admin permissions
         assert!(check_user_permission(&admin_context, "admin:users:manage"));
-        assert!(check_user_permission(&admin_context, "admin:permissions:read"));
+        assert!(check_user_permission(
+            &admin_context,
+            "admin:permissions:read"
+        ));
         // admin:*:* does NOT grant cross-platform permissions
-        assert!(!check_user_permission(&admin_context, "epsx:analytics:read"));
+        assert!(!check_user_permission(
+            &admin_context,
+            "epsx:analytics:read"
+        ));
     }
 
     #[test]

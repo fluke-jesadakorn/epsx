@@ -100,18 +100,13 @@ export async function getAuthUser(): Promise<User | null> {
   }
 
   try {
-    const { verifyJWTFromCookies, getJWTFromCookies } = await import('./token');
+    const { verifyJWTFromCookies } = await import('./token');
     const user = await verifyJWTFromCookies();
     if (user === null) {
       return null;
     }
 
-    // Include raw JWT for client-side hydration (access_token is HttpOnly,
-    // so client JS can't read it from cookies — pass it via initialUser)
-    const token = await getJWTFromCookies();
-    const userWithAccess = { ...user, access: token ?? undefined };
-
-    return userWithAccess as unknown as User | null;
+    return user as unknown as User | null;
   } catch (error) {
     logger.auth.error('Failed to get auth user', { error: String(error) });
     return null;

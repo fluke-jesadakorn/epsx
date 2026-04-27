@@ -78,8 +78,10 @@ export function isLocalDevelopmentHostname(hostname: string): boolean {
 }
 
 export function normalizeEnvironmentName(value?: string | null): DeploymentEnvironment | undefined {
-  if (!value) { return undefined; }
-  return ENVIRONMENT_ALIASES[value.trim().toLowerCase()];
+  if (value === undefined || value === null) { return undefined; }
+  const normalized = value.trim().toLowerCase();
+  if (normalized === '') { return undefined; }
+  return ENVIRONMENT_ALIASES[normalized];
 }
 
 function getProcessEnv(key: string): string | undefined {
@@ -88,7 +90,7 @@ function getProcessEnv(key: string): string | undefined {
 }
 
 function extractHostname(value?: string | null): string | undefined {
-  if (!value) { return undefined; }
+  if (value === undefined || value === null) { return undefined; }
 
   const trimmed = value.trim();
   if (trimmed === '') { return undefined; }
@@ -103,7 +105,7 @@ function extractHostname(value?: string | null): string | undefined {
 
 export function inferEnvironmentFromHostname(hostname?: string | null): DeploymentEnvironment | undefined {
   const normalizedHostname = hostname?.toLowerCase();
-  if (!normalizedHostname) { return undefined; }
+  if (normalizedHostname === undefined || normalizedHostname === '') { return undefined; }
 
   if (isLocalDevelopmentHostname(normalizedHostname)) {
     return 'development';
@@ -122,22 +124,26 @@ export function inferEnvironmentFromHostname(hostname?: string | null): Deployme
 }
 
 export function inferEnvironmentFromBranch(branch?: string | null): DeploymentEnvironment | undefined {
-  if (!branch) { return undefined; }
+  if (branch === undefined || branch === null) { return undefined; }
 
   const normalizedBranch = branch.trim().toLowerCase();
   if (normalizedBranch === '') { return undefined; }
 
-  if (normalizedBranch === 'staging' || normalizedBranch.startsWith('staging/')) {
+  if (matchesBranchNameOrPrefix(normalizedBranch, ['staging'])) {
     return 'staging';
   }
-  if (normalizedBranch === 'development' || normalizedBranch === 'develop' || normalizedBranch.startsWith('development/') || normalizedBranch.startsWith('develop/')) {
+  if (matchesBranchNameOrPrefix(normalizedBranch, ['development', 'develop'])) {
     return 'development';
   }
-  if (normalizedBranch === 'production' || normalizedBranch === 'main' || normalizedBranch === 'master' || normalizedBranch.startsWith('production/')) {
+  if (matchesBranchNameOrPrefix(normalizedBranch, ['production', 'main', 'master'])) {
     return 'production';
   }
 
   return undefined;
+}
+
+function matchesBranchNameOrPrefix(branch: string, names: readonly string[]): boolean {
+  return names.some(name => branch === name || branch.startsWith(`${name}/`));
 }
 
 function inferEnvironmentFromConfiguredUrls(): DeploymentEnvironment | undefined {
@@ -154,7 +160,7 @@ function inferEnvironmentFromConfiguredUrls(): DeploymentEnvironment | undefined
 
   for (const candidate of urlCandidates) {
     const inferred = inferEnvironmentFromHostname(extractHostname(candidate));
-    if (inferred) {
+    if (inferred !== undefined) {
       return inferred;
     }
   }
@@ -174,7 +180,7 @@ export function resolveDeploymentEnvironment(): DeploymentEnvironment {
     .map(normalizeEnvironmentName)
     .find((value): value is DeploymentEnvironment => value !== undefined);
 
-  if (explicitEnvironment) {
+  if (explicitEnvironment !== undefined) {
     return explicitEnvironment;
   }
 
@@ -186,18 +192,18 @@ export function resolveDeploymentEnvironment(): DeploymentEnvironment {
     .map(inferEnvironmentFromBranch)
     .find((value): value is DeploymentEnvironment => value !== undefined);
 
-  if (branchEnvironment) {
+  if (branchEnvironment !== undefined) {
     return branchEnvironment;
   }
 
   const configuredEnvironment = inferEnvironmentFromConfiguredUrls();
-  if (configuredEnvironment) {
+  if (configuredEnvironment !== undefined) {
     return configuredEnvironment;
   }
 
   if (typeof window !== 'undefined') {
     const browserEnvironment = inferEnvironmentFromHostname(window.location.hostname);
-    if (browserEnvironment) {
+    if (browserEnvironment !== undefined) {
       return browserEnvironment;
     }
   }

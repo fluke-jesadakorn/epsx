@@ -63,9 +63,7 @@ export function useSessionActions({
         try {
             // Use server action (can read HttpOnly refresh_token cookie)
             const result = await refreshSessionAction();
-            if (result.success && result.access_token !== undefined && result.access_token !== '') {
-                client.updateTokens(result.access_token, result.expires_in);
-                setSharedClientToken(result.access_token);
+            if (result.success) {
                 await client.loadCurrentUser();
                 return true;
             }

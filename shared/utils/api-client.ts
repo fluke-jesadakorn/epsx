@@ -263,7 +263,7 @@ export class UnifiedApiClient {
     if (!this.isServerSide && isRedirecting) { return this.createUnauthorizedResponse(headers); }
 
     const refreshResult = await this.handleTokenRefresh();
-    if (refreshResult.success && refreshResult.access_token !== undefined && refreshResult.access_token !== '') {
+    if (refreshResult.success) {
       return await this.request(endpoint, {
         ...config,
         _isRetry: true
@@ -359,9 +359,11 @@ export class UnifiedApiClient {
           ? await this.refreshServerToken()
           : await this.refreshClientToken();
 
-        if (result.success && result.access_token !== undefined && result.access_token !== '') {
+        if (result.success) {
           logger.debug('[UnifiedApiClient] Token refreshed successfully');
-          this.setAuthToken(result.access_token);
+          if (result.access_token !== undefined && result.access_token !== '') {
+            this.setAuthToken(result.access_token);
+          }
           return result;
         }
 
@@ -430,14 +432,17 @@ export class UnifiedApiClient {
       } as Record<string, unknown>);
     }
 
-    // Also update the client-side user cookie with the new access token
-    // so SSE connections can use the refreshed token
+    // Keep client-readable user cookie free of bearer tokens.
     if (cookieStore.get !== undefined) {
       try {
         const raw = cookieStore.get(COOKIES.user)?.value;
         if (raw !== undefined && raw !== '') {
           const user = JSON.parse(decodeURIComponent(raw)) as Record<string, unknown>;
-          user.access = data.access_token;
+          delete user.access;
+          delete user.access_token;
+          delete user.refresh_token;
+          delete user.id_token;
+          delete user.token;
           cookieStore.set(COOKIES.user, JSON.stringify(user), {
             httpOnly: false,
             secure: isProd,
@@ -454,11 +459,15 @@ export class UnifiedApiClient {
     try {
       const refreshResult = (await refreshSessionAction()) as { success: boolean; access_token?: string };
 
-      if (refreshResult.success && refreshResult.access_token !== undefined && refreshResult.access_token !== '') {
-        this.token = refreshResult.access_token;
-        // Share refreshed token with all client instances
-        sharedClientToken = refreshResult.access_token;
-        return { success: true, access_token: refreshResult.access_token };
+      if (refreshResult.success) {
+        if (refreshResult.access_token !== undefined && refreshResult.access_token !== '') {
+          this.token = refreshResult.access_token;
+          sharedClientToken = refreshResult.access_token;
+          return { success: true, access_token: refreshResult.access_token };
+        }
+        this.token = undefined;
+        sharedClientToken = undefined;
+        return { success: true };
       }
       return { success: false };
     } catch {

@@ -6,7 +6,6 @@ import {
   type ChatMessage,
   type ChatConversation,
 } from '../api/chat';
-import { COOKIES } from '../auth/cookies';
 import { API_ROUTES } from '../config/route-constants';
 
 // ============================================================================
@@ -30,44 +29,6 @@ interface UseChatSSEOpts {
   enabled: boolean;
   mode: 'user' | 'admin';
   onEvent?: (evt: ChatSSEEvent) => void;
-}
-
-// ============================================================================
-// TOKEN EXTRACTION (same pattern as notifications SSE)
-// ============================================================================
-
-function parseCookieString(cookieStr: string): Record<string, string> {
-  const cookies: Record<string, string> = {};
-  for (const c of cookieStr.split(';')) {
-    const eqIdx = c.indexOf('=');
-    if (eqIdx <= 0) { continue; }
-    const k = c.slice(0, eqIdx).trim();
-    const v = c.slice(eqIdx + 1).trim();
-    if (k !== '' && v !== '') { cookies[k] = v; }
-  }
-  return cookies;
-}
-
-function findJwtInCookies(cookies: Record<string, string>): string | null {
-  const raw = cookies[COOKIES.user] ?? '';
-  if (raw !== '') {
-    const user = JSON.parse(decodeURIComponent(raw)) as { access?: string };
-    if (user.access?.startsWith('eyJ') === true) { return user.access; }
-  }
-  // Fallback: any JWT in cookies
-  for (const v of Object.values(cookies)) {
-    if (v.length > 50 && v.startsWith('eyJ')) { return v; }
-  }
-  return null;
-}
-
-function getTokenFromCookies(): string | null {
-  if (typeof document === 'undefined') { return null; }
-  try {
-    const cookies = parseCookieString(document.cookie);
-    return findJwtInCookies(cookies);
-  } catch { /* ignore */ }
-  return null;
 }
 
 function getBaseUrl(): string {
@@ -94,14 +55,11 @@ export function useChatSSE({ enabled, mode, onEvent }: UseChatSSEOpts) {
   const connect = useCallback(() => {
     if (typeof EventSource === 'undefined') { return; }
 
-    const token = getTokenFromCookies();
-    if (token === null) { return; }
-
     const base = getBaseUrl();
     const route = mode === 'admin' ? API_ROUTES.CHAT.ADMIN_STREAM : API_ROUTES.CHAT.STREAM;
-    const url = `${base}${route}?token=${encodeURIComponent(token)}`;
+    const url = `${base}${route}`;
 
-    const es = new EventSource(url);
+    const es = new EventSource(url, { withCredentials: true });
     esRef.current = es;
 
     const eventName = mode === 'admin' ? 'chat_event' : 'chat_message';
