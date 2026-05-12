@@ -11,13 +11,16 @@ interface PortfolioGridProps {
   allRankings: SymbolCardData[];
 }
 
-export function PortfolioGrid({ watchedStocks: initialWatched, allRankings }: PortfolioGridProps) {
+export function PortfolioGrid({
+  watchedStocks: initialWatched,
+  allRankings,
+}: PortfolioGridProps) {
   const { symbols, isWatchlisted, toggle, isLoading } = useWatchlist();
 
   // Re-derive watched stocks from current watchlist state
   const watchedStocks = useMemo(() => {
-    const set = new Set(symbols.map((s) => s.toUpperCase()));
-    return allRankings.filter((r) => set.has(r.symbol.toUpperCase()));
+    const set = new Set(symbols.map(s => s.toUpperCase()));
+    return allRankings.filter(r => set.has(r.symbol.toUpperCase()));
   }, [symbols, allRankings]);
 
   if (watchedStocks.length === 0) {
@@ -26,10 +29,12 @@ export function PortfolioGrid({ watchedStocks: initialWatched, allRankings }: Po
         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-slate-800/50">
           <Heart className="h-8 w-8 text-slate-400" />
         </div>
-        <h3 className="mb-2 text-lg font-semibold text-foreground">No stocks in watchlist</h3>
+        <h3 className="text-foreground mb-2 text-lg font-semibold">
+          No stocks in watchlist
+        </h3>
         <p className="max-w-md text-center text-sm text-slate-400">
-          Use the search bar above to find stocks and add them to your watchlist.
-          Click the heart icon on any stock card to track it here.
+          Use the search bar above to find stocks and add them to your
+          watchlist. Click the heart icon on any stock card to track it here.
         </p>
       </div>
     );
@@ -38,10 +43,11 @@ export function PortfolioGrid({ watchedStocks: initialWatched, allRankings }: Po
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-foreground">
+        <h2 className="text-foreground text-lg font-semibold">
           Your Watchlist
           <span className="ml-2 text-sm font-normal text-slate-400">
-            ({watchedStocks.length} stock{watchedStocks.length !== 1 ? 's' : ''})
+            ({watchedStocks.length} stock{watchedStocks.length !== 1 ? 's' : ''}
+            )
           </span>
         </h2>
         {isLoading && (
@@ -50,7 +56,7 @@ export function PortfolioGrid({ watchedStocks: initialWatched, allRankings }: Po
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-        {watchedStocks.map((card) => {
+        {watchedStocks.map(card => {
           const latestQ = card.quarterly_performance[0];
           return (
             <StockDataCard
@@ -60,9 +66,11 @@ export function PortfolioGrid({ watchedStocks: initialWatched, allRankings }: Po
               epsGrowth={latestQ?.eps_growth ?? 0}
               price={latestQ?.price ?? 0}
               currency={card.currency}
-              daysUntilNextAction={card.next_quarter_estimate?.days_until_announcement ?? 0}
+              daysUntilNextAction={
+                card.next_quarter_estimate?.days_until_announcement ?? 0
+              }
               companyName={card.company_name ?? card.name}
-              variant={card.rank <= 5 ? 'premium' : 'standard'}
+              variant={card.rank > 0 && card.rank <= 5 ? 'premium' : 'standard'}
               isWatchlisted={true}
               onWatchlistToggle={toggle}
             />
