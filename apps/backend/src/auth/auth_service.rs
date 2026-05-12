@@ -5,12 +5,12 @@ use crate::prelude::TlsPool;
 
 use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
-use std::str::FromStr;
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 use ethers::types::Address;
 use serde::{Deserialize, Serialize};
 use siwe::{Message, VerificationOpts};
-use diesel_async::RunQueryDsl;
-use diesel::prelude::*;
+use std::str::FromStr;
 use tracing::{error, info, warn};
 
 use super::token_service::OpenIDTokenService;
@@ -131,18 +131,26 @@ impl UnifiedWeb3AuthService {
     }
 
     /// Verify Web3 signature and authenticate user
-    pub async fn verify_and_authenticate(&self, request: Web3VerificationRequest) -> Result<Web3AuthResult, Web3AuthError> {
+    pub async fn verify_and_authenticate(
+        &self,
+        request: Web3VerificationRequest,
+    ) -> Result<Web3AuthResult, Web3AuthError> {
         let wallet_address = request.wallet_address.trim().to_lowercase();
 
-        let _address = Address::from_str(&wallet_address)
-            .map_err(|e| {
-                warn!("Invalid wallet address format during verification: {} for input: {}", e, request.wallet_address);
-                Web3AuthError::InvalidWalletAddress(e.to_string())
-            })?;
+        let address = Address::from_str(&wallet_address).map_err(|e| {
+            warn!(
+                "Invalid wallet address format during verification: {} for input: {}",
+                e, request.wallet_address
+            );
+            Web3AuthError::InvalidWalletAddress(e.to_string())
+        })?;
 
         use crate::schemas::primary::web3_auth_nonces;
 
-        let mut conn = self.db_pool.get().await
+        let mut conn = self
+            .db_pool
+            .get()
+            .await
             .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
 
         #[derive(Queryable, Selectable)]
@@ -157,24 +165,55 @@ impl UnifiedWeb3AuthService {
 
         let nonce_record = web3_auth_nonces::table
             .filter(web3_auth_nonces::wallet_address.eq(&wallet_address))
-            .select((web3_auth_nonces::nonce, web3_auth_nonces::message, web3_auth_nonces::expires_at))
+            .filter(web3_auth_nonces::nonce.eq(&request.nonce))
+            .select((
+                web3_auth_nonces::nonce,
+                web3_auth_nonces::message,
+                web3_auth_nonces::expires_at,
+            ))
             .first::<NonceRecord>(&mut conn)
             .await
             .optional()
             .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?
             .ok_or_else(|| {
-                warn!("Challenge not found for wallet: {} (input was: {})", wallet_address, request.wallet_address);
-                Web3AuthError::ExpiredNonce(format!("Challenge not found for {}. Please request a new challenge.", wallet_address))
+                warn!(
+                    "Challenge not found for wallet: {} (input was: {})",
+                    wallet_address, request.wallet_address
+                );
+                Web3AuthError::ExpiredNonce(format!(
+                    "Challenge not found for {}. Please request a new challenge.",
+                    wallet_address
+                ))
             })?;
 
         if nonce_record.nonce != request.nonce {
-            warn!("Nonce mismatch for wallet {}: expected {}, got {}", wallet_address, nonce_record.nonce, request.nonce);
-            return Err(Web3AuthError::ExpiredNonce("Challenge mismatch. Please request a new challenge.".to_string()));
+            warn!(
+                "Nonce mismatch for wallet {}: expected {}, got {}",
+                wallet_address, nonce_record.nonce, request.nonce
+            );
+            return Err(Web3AuthError::ExpiredNonce(
+                "Challenge mismatch. Please request a new challenge.".to_string(),
+            ));
         }
 
         if !request.message.contains(&request.nonce) {
-            warn!("Nonce not found in message for wallet {}: {}", wallet_address, request.nonce);
-            return Err(Web3AuthError::InvalidSignature("Challenge nonce missing from message".to_string()));
+            warn!(
+                "Nonce not found in message for wallet {}: {}",
+                wallet_address, request.nonce
+            );
+            return Err(Web3AuthError::InvalidSignature(
+                "Challenge nonce missing from message".to_string(),
+            ));
+        }
+
+        if request.message != nonce_record.message {
+            warn!(
+                "Signed SIWE message does not match stored challenge for wallet {}",
+                wallet_address
+            );
+            return Err(Web3AuthError::InvalidSignature(
+                "Signed message does not match challenge".to_string(),
+            ));
         }
 
         if Utc::now() > nonce_record.expires_at {
@@ -184,34 +223,72 @@ impl UnifiedWeb3AuthService {
         let message = Message::from_str(&request.message)
             .map_err(|e| Web3AuthError::InvalidSignature(format!("Invalid SIWE message: {}", e)))?;
 
-        let signature_bytes = hex::decode(request.signature.trim_start_matches("0x"))
-            .map_err(|e| Web3AuthError::InvalidSignature(format!("Invalid signature format: {}", e)))?;
+        if message.address != address.to_fixed_bytes() {
+            warn!(
+                "SIWE address does not match requested wallet: requested={}, signed=0x{}",
+                wallet_address,
+                hex::encode(message.address)
+            );
+            return Err(Web3AuthError::InvalidSignature(
+                "Signed wallet does not match requested wallet".to_string(),
+            ));
+        }
 
-        message.verify(&signature_bytes, &VerificationOpts::default())
+        let signature_bytes =
+            hex::decode(request.signature.trim_start_matches("0x")).map_err(|e| {
+                Web3AuthError::InvalidSignature(format!("Invalid signature format: {}", e))
+            })?;
+
+        let expected_domain = self.domain.parse().map_err(|e| {
+            Web3AuthError::InvalidDomain(format!("Invalid domain {}: {}", self.domain, e))
+        })?;
+
+        let verification_opts = VerificationOpts {
+            domain: Some(expected_domain),
+            nonce: Some(request.nonce.clone()),
+            ..Default::default()
+        };
+
+        message
+            .verify(&signature_bytes, &verification_opts)
             .await
-            .map_err(|e| Web3AuthError::InvalidSignature(format!("Signature verification failed: {}", e)))?;
+            .map_err(|e| {
+                Web3AuthError::InvalidSignature(format!("Signature verification failed: {}", e))
+            })?;
 
-        info!("Successfully verified SIWE signature for wallet: {}", wallet_address);
+        info!(
+            "Successfully verified SIWE signature for wallet: {}",
+            wallet_address
+        );
 
-        self.cleanup_nonce(&wallet_address).await?;
+        self.cleanup_nonce(&wallet_address, &request.nonce).await?;
 
         let (_user_id, is_new_user) = self.get_or_create_user(&wallet_address).await?;
         let permissions = self.get_wallet_permissions(&wallet_address).await?;
 
-        let (access_token, bearer_token, token_expires_at, refresh_token) = if let Some(ref openid_service) = self.openid_service {
-            match openid_service.issue_tokens_for_user(&wallet_address, &permissions, "epsx-frontend").await {
-                Ok(tokens) => {
-                    let expiry = Utc::now() + Duration::seconds(tokens.expires_in);
-                    (tokens.access_token.clone(), Some(tokens.access_token), Some(expiry), Some(tokens.refresh_token))
+        let (access_token, bearer_token, token_expires_at, refresh_token) =
+            if let Some(ref openid_service) = self.openid_service {
+                match openid_service
+                    .issue_tokens_for_user(&wallet_address, &permissions, "epsx-frontend")
+                    .await
+                {
+                    Ok(tokens) => {
+                        let expiry = Utc::now() + Duration::seconds(tokens.expires_in);
+                        (
+                            tokens.access_token.clone(),
+                            Some(tokens.access_token),
+                            Some(expiry),
+                            Some(tokens.refresh_token),
+                        )
+                    }
+                    Err(e) => {
+                        error!("Failed to generate OpenID tokens: {}", e);
+                        (format!("web3_session_{}", wallet_address), None, None, None)
+                    }
                 }
-                Err(e) => {
-                    error!("Failed to generate OpenID tokens: {}", e);
-                    (format!("web3_session_{}", wallet_address), None, None, None)
-                }
-            }
-        } else {
-            (format!("web3_session_{}", wallet_address), None, None, None)
-        };
+            } else {
+                (format!("web3_session_{}", wallet_address), None, None, None)
+            };
 
         Ok(Web3AuthResult {
             wallet_address,
@@ -225,7 +302,10 @@ impl UnifiedWeb3AuthService {
     }
 
     /// Get wallet permissions (DB manual + blockchain: NFT, Token, DAO)
-    pub async fn get_wallet_permissions(&self, wallet_address: &str) -> Result<Vec<String>, Web3AuthError> {
+    pub async fn get_wallet_permissions(
+        &self,
+        wallet_address: &str,
+    ) -> Result<Vec<String>, Web3AuthError> {
         let wallet_address = wallet_address.to_lowercase();
         let wallet_address_str = wallet_address.as_str();
 
@@ -242,15 +322,24 @@ impl UnifiedWeb3AuthService {
 
         match nft_perms {
             Ok(perms) => permissions.extend(perms),
-            Err(e) => warn!("Failed to check NFT permissions for {}: {}", wallet_address_str, e),
+            Err(e) => warn!(
+                "Failed to check NFT permissions for {}: {}",
+                wallet_address_str, e
+            ),
         }
         match token_perms {
             Ok(perms) => permissions.extend(perms),
-            Err(e) => warn!("Failed to check token permissions for {}: {}", wallet_address_str, e),
+            Err(e) => warn!(
+                "Failed to check token permissions for {}: {}",
+                wallet_address_str, e
+            ),
         }
         match dao_perms {
             Ok(perms) => permissions.extend(perms),
-            Err(e) => warn!("Failed to check DAO permissions for {}: {}", wallet_address_str, e),
+            Err(e) => warn!(
+                "Failed to check DAO permissions for {}: {}",
+                wallet_address_str, e
+            ),
         }
 
         permissions.sort();
@@ -260,21 +349,34 @@ impl UnifiedWeb3AuthService {
     }
 
     /// Grant manual permission to wallet
-    pub async fn grant_manual_permission(&self, wallet_address: &str, permission: &str, expires_at: Option<DateTime<Utc>>) -> Result<(), Web3AuthError> {
+    pub async fn grant_manual_permission(
+        &self,
+        wallet_address: &str,
+        permission: &str,
+        expires_at: Option<DateTime<Utc>>,
+    ) -> Result<(), Web3AuthError> {
         let wallet_address = wallet_address.to_lowercase();
 
-        let mut conn = self.db_pool.get().await
+        let mut conn = self
+            .db_pool
+            .get()
+            .await
             .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
 
-        diesel::sql_query("SELECT add_wallet_user_permission($1, $2, 'Manual', $3, '{}') AS success")
-            .bind::<diesel::sql_types::Text, _>(&wallet_address)
-            .bind::<diesel::sql_types::Text, _>(permission)
-            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(expires_at)
-            .execute(&mut conn)
-            .await
-            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
+        diesel::sql_query(
+            "SELECT add_wallet_user_permission($1, $2, 'Manual', $3, '{}') AS success",
+        )
+        .bind::<diesel::sql_types::Text, _>(&wallet_address)
+        .bind::<diesel::sql_types::Text, _>(permission)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(expires_at)
+        .execute(&mut conn)
+        .await
+        .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
-        info!("Granted manual permission '{}' to wallet: {}", permission, wallet_address);
+        info!(
+            "Granted manual permission '{}' to wallet: {}",
+            permission, wallet_address
+        );
         Ok(())
     }
 
@@ -289,10 +391,16 @@ impl UnifiedWeb3AuthService {
     }
 
     /// Get manual/plan permissions from normalized tables
-    pub(super) async fn get_manual_permissions(&self, wallet_address: &str) -> Result<Vec<String>, Web3AuthError> {
+    pub(super) async fn get_manual_permissions(
+        &self,
+        wallet_address: &str,
+    ) -> Result<Vec<String>, Web3AuthError> {
         let wallet_address = wallet_address.trim().to_lowercase();
         let wallet_address = wallet_address.as_str();
-        let mut conn = self.db_pool.get().await
+        let mut conn = self
+            .db_pool
+            .get()
+            .await
             .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
         let now = Utc::now();
 
@@ -326,14 +434,18 @@ impl UnifiedWeb3AuthService {
               AND (wdp.expires_at IS NULL OR wdp.expires_at > $2)
 
             ORDER BY permission
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(wallet_address)
         .bind::<diesel::sql_types::Timestamptz, _>(now)
-        .load::<PermissionResult>(&mut conn).await
+        .load::<PermissionResult>(&mut conn)
+        .await
         .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
-        Ok(permission_records.into_iter().filter_map(|row| row.permission).collect())
+        Ok(permission_records
+            .into_iter()
+            .filter_map(|row| row.permission)
+            .collect())
     }
 
     /// Refresh tokens — validates, fetches full permissions (DB + blockchain), rotates refresh token
@@ -341,26 +453,48 @@ impl UnifiedWeb3AuthService {
         &self,
         refresh_token: &str,
         client_id: &str,
-    ) -> Result<(super::token_service::OpenIDTokenResponse, String, Vec<String>), Web3AuthError> {
+    ) -> Result<
+        (
+            super::token_service::OpenIDTokenResponse,
+            String,
+            Vec<String>,
+        ),
+        Web3AuthError,
+    > {
         if let Some(ref openid_service) = self.openid_service {
-            let refresh_info = openid_service.validate_refresh_token(refresh_token).await
-                .map_err(|e| Web3AuthError::InvalidSignature(format!("Invalid refresh token: {}", e)))?;
+            openid_service
+                .validate_client_id(client_id)
+                .map_err(|e| Web3AuthError::InvalidSignature(format!("Invalid client: {}", e)))?;
 
-            let permissions = self.get_wallet_permissions(&refresh_info.wallet_address).await?;
+            let (refresh_info, new_refresh_token) = openid_service
+                .consume_refresh_token(refresh_token)
+                .await
+                .map_err(|e| {
+                    Web3AuthError::InvalidSignature(format!("Invalid refresh token: {}", e))
+                })?;
 
-            let response = openid_service.issue_tokens_for_user(
-                &refresh_info.wallet_address,
-                &permissions,
-                client_id,
-            ).await
-                .map_err(|e| Web3AuthError::InvalidSignature(format!("Token generation failed: {}", e)))?;
+            let permissions = self
+                .get_wallet_permissions(&refresh_info.wallet_address)
+                .await?;
 
-            openid_service.revoke_refresh_token(refresh_token).await
-                .map_err(|e| Web3AuthError::DatabaseError(format!("Failed to revoke token: {}", e)))?;
+            let response = openid_service
+                .issue_tokens_for_user_with_refresh_token(
+                    &refresh_info.wallet_address,
+                    &permissions,
+                    client_id,
+                    new_refresh_token,
+                    refresh_info.created_at.timestamp(),
+                )
+                .await
+                .map_err(|e| {
+                    Web3AuthError::InvalidSignature(format!("Token generation failed: {}", e))
+                })?;
 
             Ok((response, refresh_info.wallet_address, permissions))
         } else {
-            Err(Web3AuthError::DatabaseError("OpenID service not configured".to_string()))
+            Err(Web3AuthError::DatabaseError(
+                "OpenID service not configured".to_string(),
+            ))
         }
     }
 }
@@ -374,10 +508,12 @@ mod tests {
     fn test_nonce_generation() {
         fn generate_secure_nonce() -> String {
             let mut rng = rand::thread_rng();
-            (0..32).map(|_| rng.gen_range(0..16)).fold(String::new(), |mut acc, n| {
-                let _ = write!(acc, "{:x}", n);
-                acc
-            })
+            (0..32)
+                .map(|_| rng.gen_range(0..16))
+                .fold(String::new(), |mut acc, n| {
+                    let _ = write!(acc, "{:x}", n);
+                    acc
+                })
         }
 
         let nonce = generate_secure_nonce();

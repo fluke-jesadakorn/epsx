@@ -7,18 +7,14 @@
 
 import { logger } from '@/lib/logger';
 import { getAuthUser } from '@/lib/server/auth';
-import { getJWTFromCookies } from '@/lib/server/token';
 
 /**
  * Get JWT bearer token for authenticated API requests
  */
 export async function getBearerToken(): Promise<string | null> {
-  try {
-    return await getJWTFromCookies();
-  } catch (_error) {
-    logger.auth.error('Failed to get bearer token', { error: String(_error) });
-    return null;
-  }
+  await Promise.resolve();
+  logger.warn('Refusing to return HttpOnly bearer token to a client-callable server action');
+  return null;
 }
 
 /**
@@ -32,4 +28,3 @@ export async function getCurrentUser() {
     return null;
   }
 }
-

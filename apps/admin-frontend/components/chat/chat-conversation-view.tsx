@@ -9,7 +9,6 @@ import {
   type ChatMessage,
   type ChatTopic,
 } from '@/shared/api/chat';
-import { COOKIES } from '@/shared/auth/cookies';
 import { useSharedAuth } from '@/shared/components/auth';
 import { ChatMarkdown } from '@/shared/components/chat/chat-markdown';
 import type { ChatSSEEvent } from '@/shared/hooks/use-chat-sse';
@@ -40,21 +39,6 @@ function formatDate(date: string): string {
   return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function getToken(): string | null {
-  if (typeof document === 'undefined') { return null; }
-  try {
-    const cookies: Record<string, string> = {};
-    for (const c of document.cookie.split(';')) {
-      const [k, v] = c.trim().split('=');
-      if (k !== undefined && k !== '' && v !== undefined && v !== '') { cookies[k] = v; }
-    }
-    const raw = cookies[COOKIES.user];
-    if (raw === undefined || raw === '') { return null; }
-    const user = JSON.parse(decodeURIComponent(raw)) as { access?: string };
-    return user.access ?? null;
-  } catch { return null; }
-}
-
 function getBackendUrl(): string {
   if (typeof window !== 'undefined') {
     try {
@@ -76,13 +60,12 @@ function toServeUrl(url: string): string {
 }
 
 async function uploadFile(convId: string, file: File): Promise<ChatMessage | null> {
-  const token = getToken();
   const form = new FormData();
   form.append('file', file);
   try {
     const res = await fetch(`${getBackendUrl()}/api/admin/chat/conversations/${convId}/upload`, {
       method: 'POST',
-      headers: token !== null ? { Authorization: `Bearer ${token}` } : {},
+      credentials: 'include',
       body: form,
     });
     const json = await res.json() as { success?: boolean; data?: { message?: ChatMessage } };
@@ -94,11 +77,11 @@ async function uploadFile(convId: string, file: File): Promise<ChatMessage | nul
 }
 
 async function notifyTyping(convId: string, isTyping: boolean): Promise<void> {
-  const token = getToken();
   try {
     await fetch(`${getBackendUrl()}/api/admin/chat/conversations/${convId}/typing`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(token !== null ? { Authorization: `Bearer ${token}` } : {}) },
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ is_typing: isTyping }),
     });
   } catch { /* non-critical */ }

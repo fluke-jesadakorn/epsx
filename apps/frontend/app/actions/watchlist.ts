@@ -6,10 +6,16 @@ import { getServerActionClient } from '@/shared/utils/server-fetch';
 import { revalidatePath } from 'next/cache';
 import type { SymbolCardData } from '@/shared/types/analytics';
 
-export async function getPortfolioOverviewAction(): Promise<{ watchlist: string[]; rankings: SymbolCardData[] }> {
+export async function getPortfolioOverviewAction(): Promise<{
+  watchlist: string[];
+  rankings: SymbolCardData[];
+}> {
   try {
     const client = getServerActionClient();
-    const res = await client.get<{ watchlist: string[]; rankings: SymbolCardData[] }>('/api/users/portfolio/overview');
+    const res = await client.get<{
+      watchlist: string[];
+      rankings: SymbolCardData[];
+    }>('/api/users/portfolio/overview');
     if (res.success && res.data) {
       return res.data;
     }
@@ -35,12 +41,15 @@ export async function getWatchlistAction(): Promise<string[]> {
   return [];
 }
 
-export async function addToWatchlistAction(symbol: string): Promise<string[] | null> {
+export async function addToWatchlistAction(
+  symbol: string
+): Promise<string[] | null> {
   try {
     const client = getServerActionClient();
     const api = createUsersClient(client);
     const res = await api.addToWatchlist(symbol);
     if (res.success && res.data) {
+      revalidatePath('/analytics');
       revalidatePath('/portfolio');
       return res.data.symbols;
     }
@@ -51,12 +60,15 @@ export async function addToWatchlistAction(symbol: string): Promise<string[] | n
   return null;
 }
 
-export async function removeFromWatchlistAction(symbol: string): Promise<string[] | null> {
+export async function removeFromWatchlistAction(
+  symbol: string
+): Promise<string[] | null> {
   try {
     const client = getServerActionClient();
     const api = createUsersClient(client);
     const res = await api.removeFromWatchlist(symbol);
     if (res.success && res.data) {
+      revalidatePath('/analytics');
       revalidatePath('/portfolio');
       return res.data.symbols;
     }
