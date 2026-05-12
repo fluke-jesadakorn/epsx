@@ -36,7 +36,7 @@
     "build:prod": "ENV=production DEPLOYMENT_ENV=production NODE_ENV=production RUST_ENV=production turbo run build",
     "build:frontend": "turbo run build --filter='epsx-frontend'",
     "build:admin": "turbo run build --filter='epsx-admin-frontend'",
-    "build:backend": "turbo run build:backend",
+    "build:backend": "turbo run build:backend --filter='@epsx/backend'",
     "build:web": "turbo run build --filter='epsx-frontend' --filter='epsx-admin-frontend' --parallel",
     "build:affected": "turbo run build --affected",
     "start": "turbo run start",

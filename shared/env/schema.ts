@@ -109,7 +109,7 @@ export const serverEnvSchema = z.object({
   FRONTEND_URL: z.string()
     .url()
     .optional()
-    .default(getDefaultFrontendUrl() ?? '')
+    .default(getDefaultFrontendUrl())
     .refine(url => isBuild || Boolean(url), {
       message: 'FRONTEND_URL must be explicitly set in production environment'
     })
@@ -118,7 +118,7 @@ export const serverEnvSchema = z.object({
   ADMIN_FRONTEND_URL: z.string()
     .url()
     .optional()
-    .default(getDefaultAdminUrl() ?? '')
+    .default(getDefaultAdminUrl())
     .refine(url => isBuild || Boolean(url), {
       message: 'ADMIN_FRONTEND_URL must be explicitly set in production environment'
     })
@@ -164,7 +164,7 @@ export const clientEnvSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string()
     .url()
     .optional()
-    .default(getDefaultFrontendUrl() ?? '')
+    .default(getDefaultFrontendUrl())
     .refine(url => {
       // Skip validation during build or in browser (client-side)
       if (isBuild || typeof window !== 'undefined') { return true; }
@@ -178,7 +178,7 @@ export const clientEnvSchema = z.object({
   NEXT_PUBLIC_ADMIN_URL: z.string()
     .url()
     .optional()
-    .default(getDefaultAdminUrl() ?? '')
+    .default(getDefaultAdminUrl())
     .refine(url => {
       // Skip validation during build or in browser (client-side)
       if (isBuild || typeof window !== 'undefined') { return true; }
@@ -270,8 +270,8 @@ function getFallbackClientEnv(): ClientEnv {
   const envObj = (typeof process !== 'undefined' ? process.env : {}) as Record<string, string | undefined>;
   return {
     NEXT_PUBLIC_BACKEND_URL: envObj.NEXT_PUBLIC_BACKEND_URL ?? getDefaultBackendUrl(),
-    NEXT_PUBLIC_APP_URL: envObj.NEXT_PUBLIC_APP_URL ?? getDefaultFrontendUrl() ?? '',
-    NEXT_PUBLIC_ADMIN_URL: envObj.NEXT_PUBLIC_ADMIN_URL ?? getDefaultAdminUrl() ?? '',
+    NEXT_PUBLIC_APP_URL: envObj.NEXT_PUBLIC_APP_URL ?? getDefaultFrontendUrl(),
+    NEXT_PUBLIC_ADMIN_URL: envObj.NEXT_PUBLIC_ADMIN_URL ?? getDefaultAdminUrl(),
     NEXT_PUBLIC_BLOCKCHAIN_NETWORK: (envObj.NEXT_PUBLIC_BLOCKCHAIN_NETWORK as 'mainnet' | 'testnet' | undefined) ?? getDefaultBlockchainNetwork(),
     NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: envObj.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? getDefaultWalletConnectProjectId(),
     NEXT_PUBLIC_CHAIN_ID: envObj.NEXT_PUBLIC_CHAIN_ID ?? getDefaultChainId(),
@@ -283,8 +283,8 @@ function getFallbackClientEnv(): ClientEnv {
 function getDevFallbackClientEnv(): ClientEnv {
   return {
     NEXT_PUBLIC_BACKEND_URL: getDefaultBackendUrl(),
-    NEXT_PUBLIC_APP_URL: getDefaultFrontendUrl() ?? 'http://localhost:3000',
-    NEXT_PUBLIC_ADMIN_URL: getDefaultAdminUrl() ?? 'http://localhost:3001',
+    NEXT_PUBLIC_APP_URL: getDefaultFrontendUrl(),
+    NEXT_PUBLIC_ADMIN_URL: getDefaultAdminUrl(),
     NEXT_PUBLIC_BLOCKCHAIN_NETWORK: getDefaultBlockchainNetwork(),
     NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: getDefaultWalletConnectProjectId(),
     NEXT_PUBLIC_CHAIN_ID: getDefaultChainId(),
