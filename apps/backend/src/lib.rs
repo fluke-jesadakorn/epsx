@@ -18,6 +18,7 @@ pub mod infrastructure; // Infrastructure layer with adapters and DDD patterns
 pub mod web; // Web/API layer (maintains same endpoints, uses DDD internally)
 pub mod config; // Configuration
 pub mod auth; // Web3 wallet-first authentication system
+pub mod bootstrap; // Shared runtime bootstrap for stateful and serverless entrypoints
 
 #[cfg(test)]
 pub mod __test__;
