@@ -1,0 +1,25 @@
+[package]
+name = "epsx-payment"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "payment"
+path = "src/main.rs"
+
+[dependencies]
+epsx-kernel = { path = "../../shared/kernel" }
+epsx-web3 = { path = "../../shared/web3" }
+epsx-observability = { path = "../../shared/observability" }
+axum.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+clap.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+alloy.workspace = true
+alloy-primitives.workspace = true
+alloy-provider.workspace = true

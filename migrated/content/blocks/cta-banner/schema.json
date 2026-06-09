@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json.schemastore.org/block-type.json",
+  "type": "cta-banner",
+  "name": "Call to Action",
+  "category": "conversion",
+  "description": "Prominent call-to-action banner",
+  "props": {
+    "title": { "type": "string", "required": true, "description": "CTA title" },
+    "description": { "type": "string", "description": "Supporting text" },
+    "ctaText": { "type": "string", "default": "Get Started" },
+    "ctaLink": { "type": "string", "default": "/" },
+    "secondaryCtaText": { "type": "string" },
+    "secondaryCtaLink": { "type": "string" },
+    "background": { "type": "string", "enum": ["primary", "gradient", "dark"], "default": "gradient" }
+  }
+}

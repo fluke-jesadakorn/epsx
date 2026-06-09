@@ -1,0 +1,29 @@
+[package]
+name = "epsx-subscription"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "subscription"
+path = "src/main.rs"
+
+[dependencies]
+epsx-kernel = { path = "../../shared/kernel" }
+epsx-config = { path = "../../shared/config" }
+epsx-database = { path = "../../shared/database" }
+epsx-events = { path = "../../shared/events" }
+epsx-web3 = { path = "../../shared/web3" }
+epsx-observability = { path = "../../shared/observability" }
+axum.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+clap.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+
+[dependencies.alloy]
+workspace = true
+features = ["contract", "signer-local"]

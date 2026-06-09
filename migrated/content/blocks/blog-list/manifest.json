@@ -1,0 +1,15 @@
+{
+  "id": "blog-list",
+  "version": "1.0.0",
+  "name": "Blog List",
+  "category": "content",
+  "schema": "blocks/blog-list/schema.json",
+  "defaultProps": {
+    "title": "Latest Posts",
+    "posts": [],
+    "columns": 3,
+    "showExcerpt": true
+  },
+  "preview": "/assets/blocks/blog-list.png",
+  "component": "BlogList"
+}

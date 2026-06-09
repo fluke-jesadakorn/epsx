@@ -1,0 +1,28 @@
+[package]
+name = "epsx-identity"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "identity"
+path = "src/main.rs"
+
+[dependencies]
+epsx-kernel = { path = "../../shared/kernel" }
+epsx-config = { path = "../../shared/config" }
+epsx-crypto = { path = "../../shared/crypto" }
+epsx-database = { path = "../../shared/database" }
+epsx-events = { path = "../../shared/events" }
+epsx-observability = { path = "../../shared/observability" }
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+clap.workspace = true
+uuid.workspace = true
+chrono.workspace = true

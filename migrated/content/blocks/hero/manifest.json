@@ -1,0 +1,17 @@
+{
+  "id": "hero",
+  "version": "1.0.0",
+  "name": "Hero",
+  "category": "marketing",
+  "schema": "blocks/hero/schema.json",
+  "defaultProps": {
+    "title": "Your Headline Here",
+    "subtitle": "A short supporting statement.",
+    "ctaText": "Get Started",
+    "ctaLink": "/auth",
+    "background": "gradient",
+    "alignment": "center"
+  },
+  "preview": "/assets/blocks/hero.png",
+  "component": "Hero"
+}

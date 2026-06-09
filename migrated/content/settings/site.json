@@ -1,0 +1,33 @@
+{
+  "site": {
+    "name": "EPSX",
+    "tagline": "Web3 Analytics Platform",
+    "domain": "epsx.io",
+    "logo": "/assets/logo.svg",
+    "favicon": "/assets/favicon.ico",
+    "description": "Real-time blockchain data, analytics, and payments on BSC",
+    "keywords": ["web3", "analytics", "bsc", "payments", "subscriptions", "blockchain"],
+    "twitter": "@epsx",
+    "github": "https://github.com/epsx",
+    "discord": "https://discord.gg/epsx"
+  },
+  "seo": {
+    "titleTemplate": "%s | EPSX",
+    "defaultTitle": "EPSX - Web3 Analytics Platform",
+    "description": "Track wallets, accept stablecoin payments, and run on-chain subscriptions on BSC.",
+    "ogImage": "/assets/og.png",
+    "twitterHandle": "@epsx"
+  },
+  "features": {
+    "editMode": true,
+    "blog": true,
+    "pay": true,
+    "subscriptions": true,
+    "preview": true,
+    "analytics": true
+  },
+  "i18n": {
+    "defaultLocale": "en",
+    "supportedLocales": ["en", "es", "fr", "de", "ja", "zh"]
+  }
+}

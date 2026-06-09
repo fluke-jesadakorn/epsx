@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: epsx-content
+  namespace: epsx
+data:
+  config.toml: |
+    [server]
+    host = "0.0.0.0"
+    port = 8080
+
+    [database]
+    host = "localhost"
+    port = 5432
+    name = "epsx_content"
+    user = "epsx"
+    password = "epsx"
+    max_connections = 20
+
+    [redis]
+    url = "redis://localhost:6379"
+    max_connections = 20
+
+    [web3]
+    bsc_rpc = "https://bsc-dataseed1.binance.org"
+    bsc_testnet_rpc = "https://data-seed-prebsc-1-s1.binance.org:8545"
+
+    [auth]
+    jwt_secret = "super-secret-jwt-key"
+    jwt_expires_in = 3600
+    refresh_expires_in = 604800
+    siwe_domain = "epsx.io"
+
+    [content]
+    base_path = "../content"
+    git_repo = "https://github.com/epsx/content"
+    preview_url = "https://preview.epsx.io"
+
+    [monitoring]
+    prometheus_port = 9090

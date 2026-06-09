@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json.schemastore.org/block-type.json",
+  "type": "rich-text",
+  "name": "Rich Text",
+  "category": "content",
+  "description": "Markdown rich text block",
+  "props": {
+    "markdown": { "type": "string", "required": true, "description": "Markdown content" },
+    "alignment": { "type": "string", "enum": ["left", "center", "right"], "default": "left" },
+    "maxWidth": { "type": "string", "enum": ["sm", "md", "lg", "full"], "default": "md" }
+  }
+}

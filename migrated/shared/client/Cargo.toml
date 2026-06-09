@@ -1,0 +1,16 @@
+[package]
+name = "epsx-client"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+epsx-kernel = { path = "../kernel" }
+serde.workspace = true
+serde_json.workspace = true
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+tokio.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+async-trait.workspace = true
+uuid.workspace = true
+http.workspace = true

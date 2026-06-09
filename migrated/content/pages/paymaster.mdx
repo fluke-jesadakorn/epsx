@@ -1,0 +1,53 @@
+---
+title: "Paymaster Gas Sponsorship"
+slug: "paymaster"
+date: "2025-01-25"
+author: "EPSX Engineering"
+excerpt: "How users can pay for gas with USDC instead of BNB."
+tags: ["engineering", "paymaster", "erc-4337"]
+---
+
+# Paymaster Gas Sponsorship
+
+One of the biggest UX barriers in web3 is **requiring users to hold native gas tokens**. EPSX solves this with an ERC-4337 style paymaster.
+
+## The problem
+
+To use any BSC dApp, users need:
+1. BNB for gas
+2. The dApp's token (e.g. USDC)
+3. A wallet
+
+This is **two tokens before they can do anything**.
+
+## Our solution
+
+Users only hold USDC. The EPSX Paymaster:
+1. **Deposits USDC** when users fund their account
+2. **Pays native BNB gas** on their behalf
+3. **Debits USDC** at gas price + 1% markup
+4. **Returns change** in USDC
+
+## Architecture
+
+```
+User → has 100 USDC, 0 BNB
+   ↓
+Submits transaction (e.g. transfer 50 USDC)
+   ↓
+Paymaster pays 0.001 BNB gas
+   ↓
+User is debited 0.00105 BNB-equivalent in USDC (≈ 0.35 USDC)
+   ↓
+User now has 49.65 USDC, still 0 BNB
+```
+
+## Why this matters
+
+- **Onboarding** — Users can join with just a stablecoin transfer
+- **Predictable costs** — No need to monitor BNB price
+- **Better UX** — One token to manage, not two
+
+## ERC-4337 compatibility
+
+Our Paymaster implements the standard `IStakeManager` and `IDeposit` interfaces, so it works with any ERC-4337 bundler out of the box.

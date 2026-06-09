@@ -1,0 +1,38 @@
+# ============================================================================
+# EPSX Microservices - Process Manager (Overmind)
+# ============================================================================
+# Usage: overmind start -f Procfile
+# Or: overmind start -f Procfile -l 9001  (with web UI on port 9001)
+
+# API Gateway
+gateway:        cargo run --bin gateway --release
+
+# Core Services
+identity:       cargo run --bin identity --release
+wallet:         cargo run --bin wallet --release
+payment:        cargo run --bin payment --release
+subscription:   cargo run --bin subscription --release
+content:        cargo run --bin content --release
+notification:   cargo run --bin notification --release
+analytics:      cargo run --bin analytics --release
+indexer:        cargo run --bin indexer --release
+
+# BFFs (Dioxus 0.7 Fullstack)
+bff-frontend:   cargo run --bin bff-frontend --release
+bff-admin:      cargo run --bin bff-admin --release
+bff-pay:        cargo run --bin bff-pay --release
+bff-preview:    cargo run --bin bff-preview --release
+
+# Infrastructure
+postgres:       postgres -D /Users/fluke/epsx-prod/data/postgresql
+redis:          redis-server --port 6379 --databases 16 --appendonly yes --dir /Users/fluke/epsx-prod/data/redis
+minio:          minio server /Users/fluke/epsx-prod/data/minio --console-address :9101
+
+# Monitoring
+prometheus:     prometheus --config.file=/Users/fluke/epsx-prod/config/monitoring/prometheus.yml --storage.tsdb.retention.time=30d
+loki:           loki -config.file=/Users/fluke/epsx-prod/config/monitoring/loki.yml
+tempo:          tempo -config.file=/Users/fluke/epsx-prod/config/monitoring/tempo.yml
+grafana:        grafana --config=/Users/fluke/epsx-prod/config/monitoring/grafana.ini
+
+# Cloudflare Tunnel
+cloudflared:    cloudflared tunnel run --config /Users/fluke/epsx-prod/config/cloudflare/config.prod.yml

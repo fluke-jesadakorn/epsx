@@ -1,0 +1,25 @@
+/target/
+Cargo.lock
+*.o
+*.so
+*.dylib
+*.dll
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Data directories
+/data/
+
+# Logs
+/logs/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db

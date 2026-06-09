@@ -1,0 +1,26 @@
+{
+  "enabled": true,
+  "allowedRoles": ["admin", "editor", "content_manager", "designer"],
+  "auth": {
+    "type": "siwe",
+    "chainIds": [56, 97],
+    "sessionTimeoutMinutes": 60
+  },
+  "publishing": {
+    "requireApproval": true,
+    "approverRoles": ["admin", "editor"],
+    "autoCommit": true,
+    "gitBranch": "main"
+  },
+  "collaboration": {
+    "conflictStrategy": "last-write-wins",
+    "showOtherEditors": true,
+    "autoSaveSeconds": 30
+  },
+  "permissions": {
+    "admin": ["*"],
+    "editor": ["read", "write_blocks", "write_themes", "write_navigation", "publish"],
+    "content_manager": ["read", "write_blocks", "write_navigation"],
+    "designer": ["read", "write_themes", "write_components"]
+  }
+}

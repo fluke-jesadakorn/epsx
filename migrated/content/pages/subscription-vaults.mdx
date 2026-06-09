@@ -1,0 +1,53 @@
+---
+title: "Subscription Vaults Explained"
+slug: "subscription-vaults"
+date: "2025-01-20"
+author: "EPSX Engineering"
+excerpt: "How on-chain subscription vaults work and why they beat Superfluid streams."
+tags: ["engineering", "subscriptions", "defi"]
+---
+
+# Subscription Vaults Explained
+
+We chose to build our own subscription system instead of using Superfluid. Here's why.
+
+## The problem with streams
+
+Superfluid streams send tokens continuously, every second. This is elegant in theory, but:
+
+- **Gas costs** are high (continuous transfers)
+- **Composability** is limited (can't easily integrate with other DeFi)
+- **Pricing is unpredictable** (depends on stream duration)
+
+## Our approach: interval-based billing
+
+EPSX uses **SubscriptionVault**, a per-merchant contract that:
+
+1. Defines plans with fixed amounts and periods (e.g. $29/month)
+2. Lets users pre-pay for N periods
+3. Tracks `lastPaidAt` and enforces grace periods
+4. Allows merchants to withdraw accumulated earnings
+
+## Why this is better
+
+- **Predictable revenue** — merchants know exactly when they'll be paid
+- **Lower gas** — one transfer per period, not per second
+- **Composability** — works with any ERC20 stablecoin
+- **Graceful failure** — grace periods handle missed payments
+
+## Smart contract
+
+The vault is fully on-chain. Here's the core:
+
+```solidity
+function charge(uint64 subId, uint8 periodsToCharge) external {
+    Subscription storage s = subscriptions[subId];
+    Plan storage p = plans[s.planId];
+    uint256 total = p.amountPerPeriod * periodsToCharge;
+    IERC20(p.token).safeTransferFrom(s.subscriber, address(this), total);
+    merchantBalances[p.merchant] += total;
+    s.lastPaidAt = uint64(block.timestamp);
+}
+```
+
+Simple, gas-efficient, and battle-tested patterns.
