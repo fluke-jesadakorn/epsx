@@ -6,9 +6,12 @@ use axum::{
     Json, Router,
 };
 use clap::Parser;
+use deadpool_redis::redis::{aio::ConnectionLike, AsyncCommands};
+use deadpool_redis::{Config as RedisConfig, Pool as RedisPool, Runtime};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use std::net::SocketAddr;
+use std::str::FromStr;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -21,7 +24,7 @@ struct Args {
     host: String,
     #[arg(long, default_value = "postgres://epsx:epsx@localhost:5432/epsx_identity")]
     database_url: String,
-    #[arg(long, default_value = "redis://localhost:6379")]
+    #[arg(long, default_value = "redis://:epsx@localhost:6379")]
     redis_url: String,
     #[arg(long, default_value = "super-secret-jwt-key")]
     jwt_secret: String,
@@ -31,6 +34,8 @@ struct Args {
 struct AppState {
     db: sqlx::PgPool,
     jwt_service: Arc<epsx_crypto::JwtService>,
+    redis: RedisPool,
+    domain: String,
 }
 
 #[derive(Deserialize)]
@@ -86,10 +91,17 @@ async fn main() {
 
     let jwt_service = Arc::new(epsx_crypto::JwtService::new(&args.jwt_secret, 3600, 604800));
 
-    let state = AppState { db, jwt_service };
+    let redis_cfg = RedisConfig::from_url(&args.redis_url);
+    let redis = redis_cfg
+        .create_pool(Some(Runtime::Tokio1))
+        .expect("Failed to create Redis pool");
+
+    let domain = std::env::var("EPSX_AUTH_DOMAIN").unwrap_or_else(|_| "epsx.io".to_string());
+    let state = AppState { db, jwt_service, redis, domain };
 
     let app = Router::new()
         .route("/health", get(health))
+        .route("/api/v1/identity/auth/challenge", post(auth_challenge))
         .route("/api/v1/identity/auth/siwe", post(siwe_auth))
         .route("/api/v1/identity/auth/refresh", post(refresh_token))
         .route("/api/v1/identity/auth/me", get(current_user))
@@ -108,11 +120,77 @@ async fn health() -> StatusCode {
     StatusCode::OK
 }
 
+#[derive(Deserialize)]
+struct ChallengeRequest {
+    address: String,
+    chain_id: String,
+}
+
+#[derive(Serialize)]
+struct ChallengeResponse {
+    message: String,
+    nonce: String,
+    /// When the nonce expires (RFC3339).
+    expires_at: String,
+}
+
+/// Issue a SIWE challenge. The wallet signs `message` (which includes the
+/// nonce) and posts the signature to `/api/v1/identity/auth/siwe`. The
+/// nonce is stored in Redis with a 5-minute TTL so it can be verified
+/// exactly once.
+async fn auth_challenge(
+    State(state): State<AppState>,
+    Json(req): Json<ChallengeRequest>,
+) -> Result<Json<ChallengeResponse>, StatusCode> {
+    let address = req.address.trim().to_lowercase();
+    if !address.starts_with("0x") || address.len() != 42 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let chain_id_num: u64 = req.chain_id.parse().map_err(|_| StatusCode::BAD_REQUEST)?;
+    let uri = format!("https://{}", state.domain);
+
+    let (message, nonce) = epsx_crypto::SiweVerifier::build_message(
+        &state.domain,
+        &address,
+        chain_id_num,
+        &uri,
+        Some("Sign in to EPSX"),
+    ).map_err(|e| { tracing::error!("siwe build: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+
+    let mut conn = state.redis.get().await.map_err(|e| { tracing::error!("redis: {e}"); StatusCode::SERVICE_UNAVAILABLE })?;
+    let key = format!("siwe:challenge:{}:{}", address, nonce);
+    let _: () = conn.set_ex(&key, &address, 300).await.map_err(|e| { tracing::error!("redis set: {e}"); StatusCode::SERVICE_UNAVAILABLE })?;
+
+    let expires_at = (chrono::Utc::now() + chrono::Duration::minutes(5))
+        .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+
+    Ok(Json(ChallengeResponse { message, nonce, expires_at }))
+}
+
 async fn siwe_auth(
     State(state): State<AppState>,
     Json(req): Json<SiweAuthRequest>,
 ) -> Result<Json<AuthResponse>, StatusCode> {
-    let address = epsx_crypto::SiweVerifier::verify(&req.message, &req.signature, "epsx.io")
+    tracing::info!("siwe_auth called: message len={}, sig len={}, chain_id={}", req.message.len(), req.signature.len(), req.chain_id);
+    // Parse the message once to extract the (nonce, address) pair so we can
+    // look up + consume the challenge that was issued by `auth_challenge`.
+    let parsed = siwe::Message::from_str(&req.message).map_err(|e| { tracing::warn!("siwe parse: {e}"); StatusCode::BAD_REQUEST })?;
+    let parsed_nonce = parsed.nonce.clone();
+    let parsed_address_lower = siwe::eip55(&parsed.address).to_lowercase();
+
+    // Consume the challenge. Read + delete in two ops; the TTL means even
+    // if delete fails, the nonce will expire in 5 min.
+    let mut conn = state.redis.get().await.map_err(|e| { tracing::error!("redis: {e}"); StatusCode::SERVICE_UNAVAILABLE })?;
+    let key = format!("siwe:challenge:{}:{}", parsed_address_lower, parsed_nonce);
+    let stored: Option<String> = conn.get(&key).await
+        .map_err(|e| { tracing::error!("redis get: {e}"); StatusCode::SERVICE_UNAVAILABLE })?;
+    if stored.is_none() {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    let _: i64 = conn.del(&key).await
+        .map_err(|e| { tracing::error!("redis del: {e}"); StatusCode::SERVICE_UNAVAILABLE })?;
+
+    let address = epsx_crypto::SiweVerifier::verify(&req.message, &req.signature, &state.domain)
         .await
         .map_err(|_| StatusCode::UNAUTHORIZED)?;
 

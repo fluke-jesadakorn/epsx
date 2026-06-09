@@ -128,4 +128,55 @@ impl SiweVerifier {
 
         Ok(format!("{:?}", parsed.address))
     }
+
+    /// Build a fresh SIWE message for the given (address, chain_id) pair using
+    /// `expected_domain` as the relying party. Includes a random 17-char
+    /// nonce. Returns the message as a string (what the wallet should sign)
+    /// and the nonce separately.
+    ///
+    /// The string format follows EIP-4361 exactly so the same message can be
+    /// parsed back by `siwe::Message::from_str` and the original signature
+    /// can be verified.
+    pub fn build_message(
+        expected_domain: &str,
+        address: &str,
+        chain_id: u64,
+        uri: &str,
+        statement: Option<&str>,
+    ) -> std::result::Result<(String, String), String> {
+        let nonce = siwe::generate_nonce();
+        // EIP-55 checksum the address
+        let addr_hex = address.trim_start_matches("0x");
+        let addr_bytes: [u8; 20] = hex::decode(addr_hex)
+            .map_err(|e| e.to_string())?
+            .try_into()
+            .map_err(|_| "address must be 20 bytes".to_string())?;
+        let checksummed = siwe::eip55(&addr_bytes);
+        let issued_at_str = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+
+        // EIP-4361 layout (per siwe 0.6 parser):
+        //   <domain> wants you to sign in with your Ethereum account:
+        //   <checksummed-address>
+        //   \n
+        //   [<statement>\n]
+        //   \n              <- required blank line after statement
+        //   URI: <uri>
+        //   Version: 1
+        //   Chain ID: <chain_id>
+        //   Nonce: <nonce>
+        //   Issued At: <issued_at>
+        let mut s = format!(
+            "{expected_domain} wants you to sign in with your Ethereum account:\n{checksummed}\n"
+        );
+        if let Some(stmt) = statement {
+            s.push_str(&format!("\n{stmt}\n\n"));
+        } else {
+            s.push_str("\n\n");
+        }
+        s.push_str(&format!(
+            "URI: {uri}\nVersion: 1\nChain ID: {chain_id}\nNonce: {nonce}\nIssued At: {issued_at_str}"
+        ));
+
+        Ok((s, nonce))
+    }
 }

@@ -26,3 +26,6 @@ sqlx.workspace = true
 clap.workspace = true
 uuid.workspace = true
 chrono.workspace = true
+siwe.workspace = true
+redis.workspace = true
+deadpool-redis.workspace = true
