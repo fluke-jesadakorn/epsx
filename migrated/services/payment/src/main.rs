@@ -50,9 +50,9 @@ struct PaymentIntent {
     escrow_id: Option<String>,
     tx_hash: Option<String>,
     description: Option<String>,
-    expires_at: Option<chrono::NaiveDateTime>,
-    created_at: chrono::NaiveDateTime,
-    updated_at: chrono::NaiveDateTime,
+    expires_at: Option<chrono::DateTime<chrono::Utc>>,
+    created_at: chrono::DateTime<chrono::Utc>,
+    updated_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Serialize, Deserialize, FromRow, Clone)]
@@ -68,8 +68,8 @@ struct EscrowRecord {
     on_chain_id: Option<String>,
     tx_hash: Option<String>,
     dispute_reason: Option<String>,
-    created_at: chrono::NaiveDateTime,
-    updated_at: chrono::NaiveDateTime,
+    created_at: chrono::DateTime<chrono::Utc>,
+    updated_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -230,12 +230,11 @@ async fn create_intent(
         .unwrap_or_else(|| "0x0000000000000000000000000000000000000000".to_string());
 
     let id = format!("0x{}", uuid::Uuid::new_v4().simple());
-    let now = chrono::Utc::now().naive_utc();
+    let now = chrono::Utc::now();
     let expires = req.expires_in.unwrap_or(3600);
     let expires_at = chrono::Utc::now()
         .checked_add_signed(chrono::Duration::seconds(expires))
-        .unwrap()
-        .naive_utc();
+        .unwrap();
 
     sqlx::query(
         "INSERT INTO payment_intents (id, chain_id, payer, payee, amount, token_address, status, description, expires_at, created_at, updated_at)
@@ -275,7 +274,7 @@ async fn create_intent(
     Ok(Json(IntentResponse {
         intent,
         payment_url,
-        expires_at: chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(expires_at, chrono::Utc),
+        expires_at,
     }))
 }
 

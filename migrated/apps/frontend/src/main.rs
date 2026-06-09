@@ -28,6 +28,9 @@ struct AppState {
     notification: Arc<ServiceClient>,
     content: Arc<ServiceClient>,
     analytics: Arc<ServiceClient>,
+    wallet: Arc<ServiceClient>,
+    payment: Arc<ServiceClient>,
+    subscription: Arc<ServiceClient>,
     api_url: String,
     demo_login_enabled: bool,
 }
@@ -43,6 +46,12 @@ struct SavePageBody {
 struct SiweLoginBody {
     message: String,
     signature: String,
+    chain_id: String,
+}
+
+#[derive(Deserialize)]
+struct ChallengeBody {
+    address: String,
     chain_id: String,
 }
 
@@ -84,6 +93,9 @@ async fn main() {
         notification: Arc::new(ServiceClient::new(cfg.clone())),
         content: Arc::new(ServiceClient::new(cfg.clone())),
         analytics: Arc::new(ServiceClient::new(cfg.clone())),
+        wallet: Arc::new(ServiceClient::new(cfg.clone())),
+        payment: Arc::new(ServiceClient::new(cfg.clone())),
+        subscription: Arc::new(ServiceClient::new(cfg.clone())),
         api_url,
         demo_login_enabled,
     };
@@ -94,6 +106,7 @@ async fn main() {
         .route("/api/v1/edit/{slug}/save", any(save_page))
         .route("/api/v1/edit/{slug}/publish", any(publish_page))
         .route("/api/v1/auth/siwe", post(siwe_login))
+        .route("/api/v1/auth/challenge", post(auth_challenge))
         .route("/api/v1/auth/demo", post(demo_login))
         .route("/api/v1/auth/refresh", post(refresh_token))
         .route("/api/v1/auth/logout", post(logout))
@@ -109,6 +122,12 @@ async fn main() {
         .route("/api/v1/news", get(api_news))
         .route("/api/v1/portfolio/{addr}", get(api_portfolio))
         .route("/api/v1/news/{slug}", get(api_news_post))
+        .route("/api/v1/wallet/chains", get(api_wallet_chains))
+        .route("/api/v1/wallet/connect", post(api_wallet_connect))
+        .route("/api/v1/subscription/plans", get(api_subscription_plans))
+        .route("/api/v1/subscription/merchant/{addr}", get(api_subscription_merchant))
+        .route("/api/v1/subscription/subscribe", post(api_subscription_subscribe))
+        .route("/api/v1/subscription/plans/create", post(api_subscription_create_plan))
         .fallback(ssr_fallback)
         .with_state(state);
 
@@ -209,6 +228,23 @@ async fn siwe_login(
         }
     }
     Ok(response)
+}
+
+async fn auth_challenge(
+    State(state): State<AppState>,
+    Json(body): Json<ChallengeBody>,
+) -> Result<Response, StatusCode> {
+    let url = format!("{}/api/v1/identity/auth/challenge", state.api_url.trim_end_matches('/'));
+    let resp = state.identity.clone_for_bearer()
+        .post(&url)
+        .json(&serde_json::json!({
+            "address": body.address,
+            "chain_id": body.chain_id,
+        }))
+        .send().await.map_err(|e| { tracing::error!("challenge: {e}"); StatusCode::BAD_GATEWAY })?;
+    let status = resp.status();
+    let value: serde_json::Value = resp.json().await.map_err(|_| StatusCode::BAD_GATEWAY)?;
+    Ok((status, Json(value)).into_response())
 }
 
 async fn demo_login(
@@ -469,6 +505,182 @@ async fn api_plans(State(state): State<AppState>) -> Json<serde_json::Value> {
             "personal": [], "api": [], "custom": []
         })),
     }
+}
+
+#[derive(Serialize)]
+struct ChainInfo {
+    id: String,
+    name: String,
+    short_name: String,
+    rpc_url: String,
+    explorer: String,
+    native_symbol: String,
+    usdt_address: String,
+    usdc_address: String,
+    entry_point: String,
+    is_testnet: bool,
+}
+
+async fn api_wallet_chains() -> Json<Vec<ChainInfo>> {
+    Json(vec![
+        ChainInfo {
+            id: "0x38".to_string(),
+            name: "BNB Smart Chain".to_string(),
+            short_name: "BSC".to_string(),
+            rpc_url: "https://bsc-dataseed.binance.org/".to_string(),
+            explorer: "https://bscscan.com".to_string(),
+            native_symbol: "BNB".to_string(),
+            usdt_address: "0x55d398326f99059fF775485246999027B3197955".to_string(),
+            usdc_address: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d".to_string(),
+            entry_point: "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789".to_string(),
+            is_testnet: false,
+        },
+        ChainInfo {
+            id: "0x61".to_string(),
+            name: "BNB Smart Chain Testnet".to_string(),
+            short_name: "BSC Test".to_string(),
+            rpc_url: "https://data-seed-prebsc-1-s1.binance.org:8545/".to_string(),
+            explorer: "https://testnet.bscscan.com".to_string(),
+            native_symbol: "tBNB".to_string(),
+            usdt_address: "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd".to_string(),
+            usdc_address: "0x64544969ed7ebf5f0836792333251ebe106fcf80".to_string(),
+            entry_point: "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789".to_string(),
+            is_testnet: true,
+        },
+    ])
+}
+
+#[derive(Deserialize)]
+struct WalletConnectBody {
+    address: String,
+    chain_id: String,
+    signature: Option<String>,
+    message: Option<String>,
+}
+
+#[derive(Serialize)]
+struct WalletConnectResponse {
+    session_id: String,
+    address: String,
+    chain_id: String,
+    expires_at: String,
+    capabilities: Vec<String>,
+}
+
+async fn api_wallet_connect(
+    State(state): State<AppState>,
+    Json(body): Json<WalletConnectBody>,
+) -> Result<Json<WalletConnectResponse>, StatusCode> {
+    if !body.address.starts_with("0x") || body.address.len() != 42 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let chain_decimal = u64::from_str_radix(
+        body.chain_id.trim_start_matches("0x"),
+        16,
+    ).unwrap_or(56);
+
+    let payload = serde_json::json!({
+        "address": body.address.to_lowercase(),
+        "chain_id": chain_decimal,
+        "role": "user",
+    });
+    let v = state.wallet.post_plain("/api/v1/wallet/accounts", &payload).await
+        .map_err(|e| {
+            tracing::error!("wallet/accounts failed: {:?}", e);
+            StatusCode::BAD_GATEWAY
+        })?;
+
+    let session_id = format!("0x{}", hex::encode(uuid::Uuid::new_v4().as_bytes()));
+    let _ = v;
+    Ok(Json(WalletConnectResponse {
+        session_id,
+        address: body.address,
+        chain_id: body.chain_id,
+        expires_at: chrono::Utc::now().checked_add_signed(chrono::Duration::hours(24))
+            .map(|d| d.to_rfc3339()).unwrap_or_default(),
+        capabilities: vec![
+            "read_address".to_string(),
+            "sign_message".to_string(),
+            "send_transaction".to_string(),
+            "paymaster_sponsored".to_string(),
+        ],
+    }))
+}
+
+async fn api_subscription_plans(
+    State(state): State<AppState>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    state.subscription.get_plain("/api/v1/subscription/plans").await
+        .map(Json)
+        .map_err(|_| StatusCode::BAD_GATEWAY)
+}
+
+async fn api_subscription_merchant(
+    State(state): State<AppState>,
+    AxPath(addr): AxPath<String>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let path = format!("/api/v1/subscription/subscriptions?merchant={}", addr);
+    state.subscription.get_plain(&path).await
+        .map(Json)
+        .map_err(|_| StatusCode::BAD_GATEWAY)
+}
+
+#[derive(Deserialize)]
+struct SubscribeBody {
+    plan_id: String,
+    user_id: Option<String>,
+    account_id: Option<String>,
+    payment_token: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct CreatePlanBody {
+    merchant_id: String,
+    name: String,
+    description: Option<String>,
+    amount: String,
+    currency: String,
+    chain_id: String,
+    interval: i32,
+}
+
+async fn api_subscription_subscribe(
+    State(state): State<AppState>,
+    Json(body): Json<SubscribeBody>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let payload = serde_json::json!({
+        "plan_id": body.plan_id,
+        "user_id": body.user_id.unwrap_or_else(|| "0x0000000000000000000000000000000000000000".to_string()),
+        "account_id": body.account_id.unwrap_or_else(|| "0x0000000000000000000000000000000000000000".to_string()),
+        "payment_token": body.payment_token.unwrap_or_else(|| "USDT".to_string()),
+    });
+    state.subscription.post_plain("/api/v1/subscription/subscriptions", &payload).await
+        .map(Json)
+        .map_err(|e| {
+            tracing::error!("subscribe failed: {:?}", e);
+            StatusCode::BAD_GATEWAY
+        })
+}
+
+async fn api_subscription_create_plan(
+    State(state): State<AppState>,
+    Json(body): Json<CreatePlanBody>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let payload = serde_json::json!({
+        "merchant_id": body.merchant_id.to_lowercase(),
+        "name": body.name,
+        "description": body.description,
+        "amount": body.amount,
+        "currency": body.currency,
+        "chain_id": body.chain_id,
+        "interval": body.interval,
+    });
+    state.subscription.post_plain("/api/v1/subscription/plans", &payload).await
+        .map(Json)
+        .map_err(|e| {
+            tracing::error!("create_plan failed: {:?}", e);
+            StatusCode::BAD_GATEWAY
+        })
 }
 
 #[derive(Serialize)]
@@ -1530,11 +1742,12 @@ document.getElementById('wallet-btn').onclick = async () => {
     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
     const address = accounts[0];
     const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-    const domain = location.host;
-    const uri = location.origin;
-    const nonce = Math.random().toString(36).slice(2);
-    const issuedAt = new Date().toISOString();
-    const message = `${domain} wants you to sign in with your Ethereum account:\n${address}\n\nURI: ${uri}\nVersion: 1\nChain ID: ${parseInt(chainId, 16)}\nNonce: ${nonce}\nIssued At: ${issuedAt}`;
+    const challengeRes = await fetch('/api/v1/auth/challenge', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ address, chain_id: String(parseInt(chainId, 16)) }),
+    });
+    if (!challengeRes.ok) { epsx.toast('Challenge failed: ' + (await challengeRes.text()), 'error'); return; }
+    const { message } = await challengeRes.json();
     const signature = await window.ethereum.request({ method: 'personal_sign', params: [message, address] });
     const res = await fetch('/api/v1/auth/siwe', { method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'include', body: JSON.stringify({ message, signature, chain_id: String(parseInt(chainId, 16)) }) });
     if (res.ok) {

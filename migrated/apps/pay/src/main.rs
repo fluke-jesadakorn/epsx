@@ -29,6 +29,11 @@ struct IntentBody {
     success_url: Option<String>,
     cancel_url: Option<String>,
     metadata: Option<serde_json::Value>,
+    payer: Option<String>,
+    payee: Option<String>,
+    merchant: Option<String>,
+    chain_id: Option<String>,
+    token: Option<String>,
 }
 
 #[tokio::main]
@@ -71,11 +76,25 @@ async fn create_intent(
     axum::extract::State(state): axum::extract::State<AppState>,
     Json(body): Json<IntentBody>,
 ) -> Result<Response, StatusCode> {
+    let chain_decimal = body.chain_id.as_deref()
+        .and_then(|s| u64::from_str_radix(s.trim_start_matches("0x"), 16).ok())
+        .or_else(|| body.chain_id.as_deref().and_then(|s| s.parse().ok()))
+        .unwrap_or(56);
+    let payee = body.payee.clone()
+        .or_else(|| body.merchant.clone())
+        .unwrap_or_else(|| "0x0000000000000000000000000000000000000000".to_string());
+    let payer = body.payer.clone()
+        .unwrap_or_else(|| "0x0000000000000000000000000000000000000000".to_string());
+    let token = body.token.clone()
+        .or_else(|| Some(body.currency.clone()))
+        .unwrap_or_else(|| "USDT".to_string());
     let res = state.payment.post_plain("/api/v1/payment/intents", &serde_json::json!({
         "amount": body.amount,
-        "currency": body.currency,
-        "chain_id": "56",
+        "token": token,
+        "chain_id": chain_decimal,
         "description": body.description,
+        "payer": payer,
+        "payee": payee,
     })).await;
     res.map(|v| Json(v).into_response()).map_err(|_| StatusCode::BAD_GATEWAY)
 }

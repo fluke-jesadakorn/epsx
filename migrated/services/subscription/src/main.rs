@@ -31,7 +31,7 @@ struct SubscriptionPlan {
     chain_id: String,
     interval: i32,
     active: bool,
-    created_at: chrono::NaiveDateTime,
+    created_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Serialize, FromRow)]
@@ -43,9 +43,9 @@ struct Subscription {
     account_id: Option<String>,
     payment_token: Option<String>,
     vault_position_id: Option<String>,
-    current_period_start: Option<chrono::NaiveDateTime>,
-    current_period_end: Option<chrono::NaiveDateTime>,
-    created_at: chrono::NaiveDateTime,
+    current_period_start: Option<chrono::DateTime<chrono::Utc>>,
+    current_period_end: Option<chrono::DateTime<chrono::Utc>>,
+    created_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Deserialize)]
@@ -131,7 +131,7 @@ async fn create_plan(
     let plan: SubscriptionPlan = sqlx::query_as::<_, SubscriptionPlan>(
         "INSERT INTO subscription_plans (merchant_id, name, description, amount, currency, chain_id, interval) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *"
     ).bind(&req.merchant_id).bind(&req.name).bind(&req.description).bind(&req.amount).bind(&req.currency).bind(&req.chain_id).bind(&req.interval)
-    .fetch_one(&state.db).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    .fetch_one(&state.db).await.map_err(|e| { tracing::error!("create_plan: {}", e); StatusCode::INTERNAL_SERVER_ERROR })?;
     Ok(Json(plan))
 }
 

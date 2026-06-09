@@ -117,11 +117,12 @@ window.epsxAuth = {
       const address = accounts[0];
       const chainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
       const chainId = String(parseInt(chainIdHex, 16));
-      const domain = location.host;
-      const uri = location.origin;
-      const nonce = Math.random().toString(36).slice(2);
-      const issuedAt = new Date().toISOString();
-      const message = `${domain} wants you to sign in with your Ethereum account:\n${address}\n\nURI: ${uri}\nVersion: 1\nChain ID: ${chainId}\nNonce: ${nonce}\nIssued At: ${issuedAt}`;
+      const challengeRes = await fetch('/api/v1/auth/challenge', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ address, chain_id: chainId }),
+      });
+      if (!challengeRes.ok) { epsx.toast('Challenge failed: ' + (await challengeRes.text()), 'error'); return; }
+      const { message } = await challengeRes.json();
       const signature = await window.ethereum.request({ method: 'personal_sign', params: [message, address] });
       const res = await fetch('/api/v1/auth/siwe', {
         method: 'POST',

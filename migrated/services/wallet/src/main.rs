@@ -41,7 +41,8 @@ struct Account {
     label: Option<String>,
     role: String,
     encrypted_pk: Option<String>,
-    created_at: chrono::NaiveDateTime,
+    #[serde(with = "chrono::serde::ts_seconds")]
+    created_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -50,6 +51,7 @@ struct CreateAccountRequest {
     label: Option<String>,
     role: Option<String>,
     private_key: Option<String>,
+    address: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -205,15 +207,22 @@ async fn create_account(
     State(state): State<AppState>,
     Json(req): Json<CreateAccountRequest>,
 ) -> Result<Json<AccountResponse>, StatusCode> {
-    let signer: PrivateKeySigner = if let Some(pk) = req.private_key.as_ref() {
-        PrivateKeySigner::from_str(pk).map_err(|_| StatusCode::BAD_REQUEST)?
-    } else {
-        PrivateKeySigner::random()
-    };
-
-    let address = format!("{:#x}", signer.address());
     let chain_id = req.chain_id.to_string();
     let role = req.role.unwrap_or_else(|| "user".to_string());
+
+    let address = if let Some(provided) = req.address.as_ref() {
+        if !provided.starts_with("0x") || provided.len() != 42 {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+        provided.to_lowercase()
+    } else {
+        let signer: PrivateKeySigner = if let Some(pk) = req.private_key.as_ref() {
+            PrivateKeySigner::from_str(pk).map_err(|_| StatusCode::BAD_REQUEST)?
+        } else {
+            PrivateKeySigner::random()
+        };
+        format!("{:#x}", signer.address()).to_lowercase()
+    };
 
     sqlx::query(
         "INSERT INTO accounts (address, chain_id, label, role) VALUES ($1, $2, $3, $4)
