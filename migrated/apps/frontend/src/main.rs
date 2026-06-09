@@ -642,10 +642,22 @@ async fn api_news() -> Json<serde_json::Value> {
 }
 
 async fn api_news_post(AxPath(slug): AxPath<String>) -> Json<serde_json::Value> {
+    use epsx_renderer::render_markdown;
+
+    let mdx_name = pages::slug_to_mdx(&slug);
+    let (title, body_html) = match mdx_name.and_then(|n| std::fs::read_to_string(pages::mdx_path(n)).ok()) {
+        Some(raw) => {
+            let (t, _, _) = pages::mdx_frontmatter(&raw);
+            let body = pages::mdx_body(&raw);
+            (t, render_markdown(body))
+        }
+        None => (slug.replace('-', " "), format!("<p>Article for <code>{slug}</code> coming soon.</p>")),
+    };
+
     Json(serde_json::json!({
         "slug": slug,
-        "title": slug.replace('-', " "),
-        "body": "Article body. Full content available at the corresponding URL.",
+        "title": title,
+        "body": body_html,
         "published": "2026-06-09T00:00:00Z"
     }))
 }
@@ -757,6 +769,10 @@ fn render_page(state: &AppState, path: &str, query: Option<&str>, user: Option<&
                          "Track your watchlist and on-chain assets",
                          portfolio_body(),
                          true),
+        "/rankings" => ("Rankings - EPSX",
+                        "EPS stock rankings by growth — top 100+ assets",
+                        pages::rankings_body(),
+                        true),
         "/analytics" => ("Analytics - EPSX",
                          "Top-ranked stocks and tokens by EPS growth",
                          analytics_body(),
@@ -854,7 +870,7 @@ fn render_page(state: &AppState, path: &str, query: Option<&str>, user: Option<&
     } else {
         render_navbar(path, is_authed, user)
     };
-    let is_marketing = matches!(path, "/" | "/about" | "/pricing" | "/blog" | "/contact" | "/news" | "/plans");
+    let is_marketing = matches!(path, "/" | "/about" | "/pricing" | "/blog" | "/contact" | "/news" | "/plans" | "/rankings") || path.starts_with("/rankings/");
     let body_class = if path == "/" { "" } else if is_marketing { "page-bg" } else { "" };
 
     let mut html = page_shell_with_body_class(title, description, &nav, &body, include_footer, body_class);
@@ -1333,13 +1349,13 @@ fn about_body() -> String {
 fn pricing_body() -> String {
     r##"<section class="section">
 <div class="container-x" style="text-align:center;">
-  <span class="badge-pill"><i class="fa-solid fa-tag" style="color:var(--epsx-orange);"></i> Pricing</span>
+  <span class="badge-pill"><i data-lucide="tag" style="color:var(--epsx-orange);"></i> Pricing</span>
   <h1 style="font-size:3rem;font-weight:800;margin:1rem 0 1rem;">Simple, transparent pricing</h1>
   <p style="font-size:1.125rem;color:var(--text-muted);max-width:42rem;margin:0 auto 3rem;">Start free, scale as you grow. No hidden fees, ever.</p>
   <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:1.5rem;max-width:72rem;margin:0 auto;text-align:left;">
-    <div class="card-insight"><h3 style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Free</h3><div style="font-size:2.5rem;font-weight:800;margin-bottom:1rem;">$0<span style="font-size:1rem;font-weight:500;color:var(--text-muted);">/month</span></div><ul style="list-style:none;padding:0;margin:0 0 1.5rem;display:grid;gap:0.5rem;"><li style="display:flex;gap:0.5rem;align-items:center;"><i class="fa-solid fa-check" style="color:var(--epsx-green);"></i> 100 API calls/day</li><li style="display:flex;gap:0.5rem;align-items:center;"><i class="fa-solid fa-check" style="color:var(--epsx-green);"></i> Basic analytics</li><li style="display:flex;gap:0.5rem;align-items:center;"><i class="fa-solid fa-check" style="color:var(--epsx-green);"></i> Community support</li></ul><a href="/auth" class="btn btn-outline btn-block">Get Started</a></div>
-    <div class="card-insight" style="border:2px solid var(--epsx-orange);position:relative;"><span class="badge badge-primary" style="position:absolute;top:-0.75rem;left:50%;transform:translateX(-50%);"><i class="fa-solid fa-star"></i> POPULAR</span><h3 style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Pro</h3><div class="gradient-text" style="font-size:2.5rem;font-weight:800;margin-bottom:1rem;">$29<span style="font-size:1rem;font-weight:500;color:var(--text-muted);-webkit-text-fill-color:var(--text-muted);">/month</span></div><ul style="list-style:none;padding:0;margin:0 0 1.5rem;display:grid;gap:0.5rem;"><li style="display:flex;gap:0.5rem;align-items:center;"><i class="fa-solid fa-check" style="color:var(--epsx-green);"></i> 10,000 API calls/day</li><li style="display:flex;gap:0.5rem;align-items:center;"><i class="fa-solid fa-check" style="color:var(--epsx-green);"></i> Advanced analytics</li><li style="display:flex;gap:0.5rem;align-items:center;"><i class="fa-solid fa-check" style="color:var(--epsx-green);"></i> Priority support</li><li style="display:flex;gap:0.5rem;align-items:center;"><i class="fa-solid fa-check" style="color:var(--epsx-green);"></i> Custom webhooks</li></ul><a href="/auth" class="btn btn-gradient btn-block">Subscribe</a></div>
-    <div class="card-insight"><h3 style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Enterprise</h3><div style="font-size:2.5rem;font-weight:800;margin-bottom:1rem;">Custom</div><ul style="list-style:none;padding:0;margin:0 0 1.5rem;display:grid;gap:0.5rem;"><li style="display:flex;gap:0.5rem;align-items:center;"><i class="fa-solid fa-check" style="color:var(--epsx-green);"></i> Unlimited API calls</li><li style="display:flex;gap:0.5rem;align-items:center;"><i class="fa-solid fa-check" style="color:var(--epsx-green);"></i> Custom integrations</li><li style="display:flex;gap:0.5rem;align-items:center;"><i class="fa-solid fa-check" style="color:var(--epsx-green);"></i> Dedicated support</li><li style="display:flex;gap:0.5rem;align-items:center;"><i class="fa-solid fa-check" style="color:var(--epsx-green);"></i> SLA guarantee</li></ul><a href="/contact" class="btn btn-outline btn-block">Contact Us</a></div>
+    <div class="card-insight"><h3 style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Free</h3><div style="font-size:2.5rem;font-weight:800;margin-bottom:1rem;">$0<span style="font-size:1rem;font-weight:500;color:var(--text-muted);">/month</span></div><ul style="list-style:none;padding:0;margin:0 0 1.5rem;display:grid;gap:0.5rem;"><li style="display:flex;gap:0.5rem;align-items:center;"><i data-lucide="check" style="color:var(--epsx-green);"></i> 100 API calls/day</li><li style="display:flex;gap:0.5rem;align-items:center;"><i data-lucide="check" style="color:var(--epsx-green);"></i> Basic analytics</li><li style="display:flex;gap:0.5rem;align-items:center;"><i data-lucide="check" style="color:var(--epsx-green);"></i> Community support</li></ul><a href="/auth" class="btn btn-outline btn-block">Get Started</a></div>
+    <div class="card-insight" style="border:2px solid var(--epsx-orange);position:relative;"><span class="badge badge-primary" style="position:absolute;top:-0.75rem;left:50%;transform:translateX(-50%);"><i data-lucide="star"></i> POPULAR</span><h3 style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Pro</h3><div class="gradient-text" style="font-size:2.5rem;font-weight:800;margin-bottom:1rem;">$29<span style="font-size:1rem;font-weight:500;color:var(--text-muted);-webkit-text-fill-color:var(--text-muted);">/month</span></div><ul style="list-style:none;padding:0;margin:0 0 1.5rem;display:grid;gap:0.5rem;"><li style="display:flex;gap:0.5rem;align-items:center;"><i data-lucide="check" style="color:var(--epsx-green);"></i> 10,000 API calls/day</li><li style="display:flex;gap:0.5rem;align-items:center;"><i data-lucide="check" style="color:var(--epsx-green);"></i> Advanced analytics</li><li style="display:flex;gap:0.5rem;align-items:center;"><i data-lucide="check" style="color:var(--epsx-green);"></i> Priority support</li><li style="display:flex;gap:0.5rem;align-items:center;"><i data-lucide="check" style="color:var(--epsx-green);"></i> Custom webhooks</li></ul><a href="/auth" class="btn btn-gradient btn-block">Subscribe</a></div>
+    <div class="card-insight"><h3 style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Enterprise</h3><div style="font-size:2.5rem;font-weight:800;margin-bottom:1rem;">Custom</div><ul style="list-style:none;padding:0;margin:0 0 1.5rem;display:grid;gap:0.5rem;"><li style="display:flex;gap:0.5rem;align-items:center;"><i data-lucide="check" style="color:var(--epsx-green);"></i> Unlimited API calls</li><li style="display:flex;gap:0.5rem;align-items:center;"><i data-lucide="check" style="color:var(--epsx-green);"></i> Custom integrations</li><li style="display:flex;gap:0.5rem;align-items:center;"><i data-lucide="check" style="color:var(--epsx-green);"></i> Dedicated support</li><li style="display:flex;gap:0.5rem;align-items:center;"><i data-lucide="check" style="color:var(--epsx-green);"></i> SLA guarantee</li></ul><a href="/contact" class="btn btn-outline btn-block">Contact Us</a></div>
   </div>
 </div>
 </section>"##.to_string()
@@ -1349,7 +1365,7 @@ fn blog_index_body() -> String {
     r##"<section class="section">
 <div class="container-x">
   <div style="text-align:center;margin-bottom:3rem;">
-    <span class="badge-pill"><i class="fa-solid fa-newspaper" style="color:var(--epsx-orange);"></i> Blog</span>
+    <span class="badge-pill"><i data-lucide="newspaper" style="color:var(--epsx-orange);"></i> Blog</span>
     <h1 style="font-size:3rem;font-weight:800;margin:1rem 0 1rem;">Latest from the team</h1>
     <p style="font-size:1.125rem;color:var(--text-muted);max-width:42rem;margin:0 auto;">News, deep dives, and product updates.</p>
   </div>
@@ -1367,7 +1383,7 @@ fn blog_post_body(slug: &str) -> String {
         r##"<section class="section">
 <div class="container-x" style="max-width:54rem;">
   <a href="/blog" class="nav-link" style="margin-bottom:1.5rem;display:inline-flex;">
-    <i class="fa-solid fa-arrow-left"></i> Back to blog
+    <i data-lucide="arrow-left"></i> Back to blog
   </a>
   <span class="badge badge-primary">Post</span>
   <h1 style="font-size:2.5rem;font-weight:800;margin:1rem 0 1.5rem;">{}</h1>
@@ -1385,7 +1401,7 @@ fn contact_body() -> String {
     r##"<section class="section">
 <div class="container-x" style="max-width:42rem;">
   <div style="text-align:center;margin-bottom:3rem;">
-    <span class="badge-pill"><i class="fa-solid fa-message" style="color:var(--epsx-orange);"></i> Contact</span>
+    <span class="badge-pill"><i data-lucide="message-square" style="color:var(--epsx-orange);"></i> Contact</span>
     <h1 style="font-size:3rem;font-weight:800;margin:1rem 0 1rem;">Get in touch</h1>
     <p style="font-size:1.125rem;color:var(--text-muted);">Have a question, partnership idea, or feedback? We'd love to hear from you.</p>
   </div>
@@ -1394,7 +1410,7 @@ fn contact_body() -> String {
     <div><label class="label">Email</label><input type="email" class="input" placeholder="you@company.com" required /></div>
     <div><label class="label">Subject</label><select class="input" required><option>Sales inquiry</option><option>Partnership</option><option>Support</option><option>Other</option></select></div>
     <div><label class="label">Message</label><textarea class="input" rows="5" placeholder="Tell us what you're working on..." required></textarea></div>
-    <button type="submit" class="btn btn-gradient btn-lg"><i class="fa-solid fa-paper-plane"></i> Send Message</button>
+    <button type="submit" class="btn btn-gradient btn-lg"><i data-lucide="send"></i> Send Message</button>
   </form>
 </div>
 </section>"##.to_string()
@@ -1424,7 +1440,7 @@ fn dashboard_body(is_authed: bool, display: Option<String>) -> String {
 <div class="container-x">
   <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:1rem;margin-bottom:2rem;">
     <div>
-      <span class="badge-pill"><i class="fa-solid fa-wallet" style="color:var(--epsx-orange);"></i> {addr}</span>
+      <span class="badge-pill"><i data-lucide="wallet" style="color:var(--epsx-orange);"></i> {addr}</span>
       <h1 style="font-size:2.5rem;font-weight:800;margin-top:1rem;">Welcome back</h1>
       <p style="color:var(--text-muted);">Your portfolio, subscriptions, and notifications at a glance.</p>
     </div>
@@ -1439,9 +1455,9 @@ fn dashboard_body(is_authed: bool, display: Option<String>) -> String {
     <h2 style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Browse the platform</h2>
     <p style="color:var(--text-muted);margin-bottom:1.5rem;">Jump into analytics, manage your portfolio, or check out the docs.</p>
     <div style="display:flex;flex-wrap:wrap;gap:0.75rem;justify-content:center;">
-      <a href="/analytics" class="btn btn-gradient"><i class="fa-solid fa-chart-line"></i> Analytics</a>
-      <a href="/portfolio" class="btn btn-outline"><i class="fa-solid fa-heart"></i> Portfolio</a>
-      <a href="/developer" class="btn btn-outline"><i class="fa-solid fa-code"></i> Developer</a>
+      <a href="/analytics" class="btn btn-gradient"><i data-lucide="line-chart"></i> Analytics</a>
+      <a href="/portfolio" class="btn btn-outline"><i data-lucide="heart"></i> Portfolio</a>
+      <a href="/developer" class="btn btn-outline"><i data-lucide="code"></i> Developer</a>
     </div>
   </div>
 </div>
@@ -1470,7 +1486,7 @@ fn dashboard_body(is_authed: bool, display: Option<String>) -> String {
             .render();
         let cta = Card::body_only(r##"<div style="text-align:center;padding:1rem 0;">
           <div style="width:4rem;height:4rem;border-radius:9999px;background:var(--gradient-warm);display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;box-shadow:var(--shadow-orange);">
-            <i class="fa-solid fa-wallet" style="color:white;font-size:1.25rem;"></i>
+            <i data-lucide="wallet" style="color:white;font-size:1.25rem;"></i>
           </div>
           <h2 style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Connect a BSC wallet</h2>
           <p style="color:var(--text-muted);margin-bottom:1.5rem;">Sign in with your wallet to track assets, subscriptions, and on-chain activity.</p>
@@ -1514,14 +1530,14 @@ fn auth_body(demo_enabled: bool) -> String {
     let demo_btn = if demo_enabled {
         r##"<div style="margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--border);text-align:center;">
           <p style="font-size:0.8125rem;color:var(--text-muted);margin-bottom:0.75rem;">Or try the demo (no wallet required):</p>
-          <button class="btn btn-outline btn-block" id="demo-btn"><i class="fa-solid fa-flask"></i> Continue as Demo User</button>
+          <button class="btn btn-outline btn-block" id="demo-btn"><i data-lucide="flask-conical"></i> Continue as Demo User</button>
         </div>"##
     } else { "" };
 
     let card = Card::body_only(format!(
         r##"<div style="text-align:center;margin-bottom:2rem;">
           <div style="width:4rem;height:4rem;border-radius:9999px;background:var(--gradient-warm);display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;box-shadow:var(--shadow-orange);">
-            <i class="fa-solid fa-arrow-right-to-bracket" style="color:white;font-size:1.25rem;"></i>
+            <i data-lucide="log-in" style="color:white;font-size:1.25rem;"></i>
           </div>
           <h1 style="font-size:1.75rem;font-weight:800;margin-bottom:0.5rem;">Welcome back</h1>
           <p style="color:var(--text-muted);">Connect your Web3 wallet to continue</p>
@@ -1592,7 +1608,7 @@ if (demoBtn) demoBtn.onclick = async () => {
 fn edit_body(slug: &str) -> String {
     format!(r##"<div style="min-height:100vh;display:flex;flex-direction:column;">
 <div style="background:rgba(245,158,11,0.1);border-bottom:1px solid rgba(245,158,11,0.3);padding:0.75rem 1rem;text-align:center;color:var(--epsx-amber);font-size:0.875rem;">
-  <i class="fa-solid fa-pen-to-square"></i> Edit Mode &mdash; Connect a wallet with Editor, ContentManager, or Admin role to save changes.
+  <i data-lucide="pencil"></i> Edit Mode &mdash; Connect a wallet with Editor, ContentManager, or Admin role to save changes.
 </div>
 <div style="flex:1;display:flex;">
   <aside id="block-palette" style="width:16rem;background:var(--bg-secondary);border-right:1px solid var(--border);padding:1rem;overflow-y:auto;">
@@ -1655,14 +1671,14 @@ fn edit_body(slug: &str) -> String {
         <span style="font-size:0.75rem;color:var(--text-subtle);" id="block-count">0 blocks</span>
       </div>
       <div style="display:flex;gap:0.5rem;">
-        <button id="preview-btn" class="btn btn-outline btn-sm"><i class="fa-solid fa-eye"></i> Preview</button>
-        <button id="save-btn" class="btn btn-primary btn-sm"><i class="fa-solid fa-save"></i> Save Draft</button>
-        <button id="publish-btn" class="btn btn-gradient btn-sm"><i class="fa-solid fa-rocket"></i> Publish</button>
+        <button id="preview-btn" class="btn btn-outline btn-sm"><i data-lucide="eye"></i> Preview</button>
+        <button id="save-btn" class="btn btn-primary btn-sm"><i data-lucide="save"></i> Save Draft</button>
+        <button id="publish-btn" class="btn btn-gradient btn-sm"><i data-lucide="rocket"></i> Publish</button>
       </div>
     </div>
     <div id="canvas" style="flex:1;padding:1.5rem;overflow-y:auto;">
       <div id="empty-state" style="text-align:center;color:var(--text-subtle);padding:5rem 1rem;border:2px dashed var(--border);border-radius:1rem;">
-        <i class="fa-solid fa-cube" style="font-size:2.5rem;margin-bottom:1rem;display:block;color:var(--text-subtle);"></i>
+        <i data-lucide="box" style="font-size:2.5rem;margin-bottom:1rem;display:block;color:var(--text-subtle);"></i>
         <p style="font-size:1.125rem;margin-bottom:0.5rem;">Drag blocks from the left to start building</p>
         <p style="font-size:0.875rem;">Or click a block to add it</p>
       </div>
@@ -1672,12 +1688,12 @@ fn edit_body(slug: &str) -> String {
   <aside id="block-editor" style="width:20rem;background:var(--bg-secondary);border-left:1px solid var(--border);padding:1rem;display:none;overflow-y:auto;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
       <h3 style="font-weight:600;">Block Properties</h3>
-      <button id="close-editor" class="nav-link" style="width:2rem;height:2rem;padding:0;justify-content:center;"><i class="fa-solid fa-xmark"></i></button>
+      <button id="close-editor" class="nav-link" style="width:2rem;height:2rem;padding:0;justify-content:center;"><i data-lucide="x"></i></button>
     </div>
     <div id="editor-form"></div>
     <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border);display:flex;gap:0.5rem;">
-      <button id="duplicate-block" class="btn btn-outline btn-sm" style="flex:1;"><i class="fa-solid fa-copy"></i> Duplicate</button>
-      <button id="delete-block" class="btn btn-danger btn-sm" style="flex:1;"><i class="fa-solid fa-trash"></i> Delete</button>
+      <button id="duplicate-block" class="btn btn-outline btn-sm" style="flex:1;"><i data-lucide="copy"></i> Duplicate</button>
+      <button id="delete-block" class="btn btn-danger btn-sm" style="flex:1;"><i data-lucide="trash-2"></i> Delete</button>
     </div>
   </aside>
 </div>
@@ -1806,7 +1822,7 @@ fn legal_body(title: &str, subtitle: &str, body: &str) -> String {
     format!(
         r##"<section class="section">
 <div class="container-x" style="max-width:54rem;">
-  <span class="badge-pill"><i class="fa-solid fa-scale-balanced" style="color:var(--epsx-orange);"></i> Legal</span>
+  <span class="badge-pill"><i data-lucide="scale" style="color:var(--epsx-orange);"></i> Legal</span>
   <h1 style="font-size:3rem;font-weight:800;margin:1rem 0 0.5rem;">{}</h1>
   <p style="color:var(--text-muted);margin-bottom:2rem;">{}</p>
   <div class="card-insight" style="font-size:1rem;line-height:1.7;color:var(--text-muted);">
@@ -1825,7 +1841,7 @@ fn not_found_body() -> String {
   <div style="font-size:6rem;font-weight:900;background:var(--gradient-warm);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;line-height:1;margin-bottom:1rem;">404</div>
   <h1 style="font-size:2rem;font-weight:700;margin-bottom:0.5rem;">Page not found</h1>
   <p style="color:var(--text-muted);margin-bottom:2rem;">The page you are looking for does not exist or has been moved.</p>
-  <a href="/" class="btn btn-gradient btn-lg"><i class="fa-solid fa-house"></i> Back to Home</a>
+  <a href="/" class="btn btn-gradient btn-lg"><i data-lucide="home"></i> Back to Home</a>
 </div>
 </section>"##.to_string()
 }

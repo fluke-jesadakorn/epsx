@@ -9,21 +9,21 @@ pub fn interactive_body() -> String {
     let toast_section = format!(
         r##"<div class="card-insight" style="padding:1.5rem;">
     <h2 style="font-size:1.25rem;font-weight:700;margin:0 0 1rem;display:flex;align-items:center;gap:0.5rem;">
-      <i class="fa-solid fa-circle-info" style="color:var(--epsx-blue-start);"></i> Toast Notifications
+      <i data-lucide="info" style="color:var(--epsx-blue-start);"></i> Toast Notifications
     </h2>
     <p style="color:var(--text-muted);font-size:0.875rem;margin-bottom:1rem;">Click a button to fire a toast. Auto-dismisses after 3.5s.</p>
     <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
       <button class="btn btn-primary btn-sm" onclick="epsx.toast('Saved successfully!', 'success')">
-        <i class="fa-solid fa-check"></i> Success
+        <i data-lucide="check"></i> Success
       </button>
       <button class="btn btn-danger btn-sm" onclick="epsx.toast('Something went wrong!', 'error')">
-        <i class="fa-solid fa-xmark"></i> Error
+        <i data-lucide="x"></i> Error
       </button>
       <button class="btn btn-outline btn-sm" onclick="epsx.toast('Heads up — read this.', 'warning')">
-        <i class="fa-solid fa-exclamation-triangle"></i> Warning
+        <i data-lucide="alert-triangle"></i> Warning
       </button>
       <button class="btn btn-ghost btn-sm" onclick="epsx.toast('FYI: New release available.', 'info')">
-        <i class="fa-solid fa-info-circle"></i> Info
+        <i data-lucide="info"></i> Info
       </button>
     </div>
   </div>"##
@@ -33,7 +33,7 @@ pub fn interactive_body() -> String {
     let modal_section = format!(
         r##"<div class="card-insight" style="padding:1.5rem;">
     <h2 style="font-size:1.25rem;font-weight:700;margin:0 0 1rem;display:flex;align-items:center;gap:0.5rem;">
-      <i class="fa-solid fa-window-maximize" style="color:var(--epsx-purple);"></i> Modal Dialogs
+      <i data-lucide="maximize" style="color:var(--epsx-purple);"></i> Modal Dialogs
     </h2>
     <p style="color:var(--text-muted);font-size:0.875rem;margin-bottom:1rem;">Click outside or press Escape to close.</p>
     {modal_btn}
@@ -50,7 +50,7 @@ pub fn interactive_body() -> String {
     let tabs_section = format!(
         r##"<div class="card-insight" style="padding:1.5rem;">
     <h2 style="font-size:1.25rem;font-weight:700;margin:0 0 1rem;display:flex;align-items:center;gap:0.5rem;">
-      <i class="fa-solid fa-folder-tree" style="color:var(--epsx-orange);"></i> Tabs
+      <i data-lucide="folder-tree" style="color:var(--epsx-orange);"></i> Tabs
     </h2>
     {tabs}
     <div data-tab-group="demo-basic" data-tab-name="a" class="card-insight" style="padding:1rem;margin-top:1rem;background:var(--bg-secondary);">
@@ -73,14 +73,14 @@ pub fn interactive_body() -> String {
     let form_section = format!(
         r##"<div class="card-insight" style="padding:1.5rem;">
     <h2 style="font-size:1.25rem;font-weight:700;margin:0 0 1rem;display:flex;align-items:center;gap:0.5rem;">
-      <i class="fa-solid fa-rectangle-list" style="color:var(--epsx-green);"></i> Form Validation
+      <i data-lucide="list" style="color:var(--epsx-green);"></i> Form Validation
     </h2>
     <form id="demo-form" style="display:grid;gap:1rem;" onsubmit="event.preventDefault(); epsx.toast('Form submitted!', 'success'); document.getElementById('demo-form').reset();">
       {name}
       {email}
       {msg}
       <button type="submit" class="btn btn-gradient">
-        <i class="fa-solid fa-paper-plane"></i> Submit
+        <i data-lucide="send"></i> Submit
       </button>
     </form>
   </div>"##,
@@ -90,7 +90,7 @@ pub fn interactive_body() -> String {
     let skeleton_section = format!(
         r##"<div class="card-insight" style="padding:1.5rem;">
     <h2 style="font-size:1.25rem;font-weight:700;margin:0 0 1rem;display:flex;align-items:center;gap:0.5rem;">
-      <i class="fa-solid fa-spinner" style="color:var(--epsx-cyan);"></i> Skeleton Loaders
+      <i data-lucide="loader" style="color:var(--epsx-cyan);"></i> Skeleton Loaders
     </h2>
     <p style="color:var(--text-muted);font-size:0.875rem;margin-bottom:1rem;">Animated placeholders during data fetch.</p>
     <div style="display:grid;gap:1rem;">
@@ -104,17 +104,17 @@ pub fn interactive_body() -> String {
 
     let dropdown_section = r##"<div class="card-insight" style="padding:1.5rem;">
     <h2 style="font-size:1.25rem;font-weight:700;margin:0 0 1rem;display:flex;align-items:center;gap:0.5rem;">
-      <i class="fa-solid fa-caret-down" style="color:var(--epsx-amber);"></i> Dropdowns
+      <i data-lucide="chevron-down" style="color:var(--epsx-amber);"></i> Dropdowns
     </h2>
     <p style="color:var(--text-muted);font-size:0.875rem;margin-bottom:1rem;">Click trigger to open. Click outside or Escape to close.</p>
     <div style="position:relative;display:inline-block;">
       <button class="btn btn-outline" data-dropdown-trigger onclick="epsx.toggleDropdown('demo-dropdown')">
-        Options <i class="fa-solid fa-chevron-down"></i>
+        Options <i data-lucide="chevron-down"></i>
       </button>
       <div id="demo-dropdown" class="dropdown-menu" style="display:none;position:absolute;top:calc(100% + 0.25rem);right:0;min-width:12rem;background:var(--bg-solid);border:1px solid var(--border);border-radius:0.5rem;box-shadow:var(--shadow-lg);padding:0.5rem;z-index:50;">
-        <a href="#" class="nav-link" style="width:100%;display:flex;gap:0.5rem;align-items:center;"><i class="fa-solid fa-pen"></i> Edit</a>
-        <a href="#" class="nav-link" style="width:100%;display:flex;gap:0.5rem;align-items:center;"><i class="fa-solid fa-copy"></i> Duplicate</a>
-        <a href="#" class="nav-link" style="width:100%;display:flex;gap:0.5rem;align-items:center;color:var(--epsx-red);"><i class="fa-solid fa-trash"></i> Delete</a>
+        <a href="#" class="nav-link" style="width:100%;display:flex;gap:0.5rem;align-items:center;"><i data-lucide="pencil"></i> Edit</a>
+        <a href="#" class="nav-link" style="width:100%;display:flex;gap:0.5rem;align-items:center;"><i data-lucide="copy"></i> Duplicate</a>
+        <a href="#" class="nav-link" style="width:100%;display:flex;gap:0.5rem;align-items:center;color:var(--epsx-red);"><i data-lucide="trash-2"></i> Delete</a>
       </div>
     </div>
   </div>"##;
@@ -136,7 +136,7 @@ pub fn interactive_body() -> String {
     let badge_section = format!(
         r##"<div class="card-insight" style="padding:1.5rem;">
     <h2 style="font-size:1.25rem;font-weight:700;margin:0 0 1rem;display:flex;align-items:center;gap:0.5rem;">
-      <i class="fa-solid fa-tag" style="color:var(--epsx-pink);"></i> Badges
+      <i data-lucide="tag" style="color:var(--epsx-pink);"></i> Badges
     </h2>
     <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
       {badges}
@@ -147,13 +147,13 @@ pub fn interactive_body() -> String {
 
     let accordion_section = r##"<div class="card-insight" style="padding:1.5rem;">
     <h2 style="font-size:1.25rem;font-weight:700;margin:0 0 1rem;display:flex;align-items:center;gap:0.5rem;">
-      <i class="fa-solid fa-bars-staggered" style="color:var(--epsx-cyan);"></i> Accordion
+      <i data-lucide="menu" style="color:var(--epsx-cyan);"></i> Accordion
     </h2>
     <div style="display:grid;gap:0.5rem;">
       <div class="nav-accordion" id="acc-1">
         <button class="nav-accordion-trigger" onclick="epsx.toggleNavAccordion('acc-1')" style="width:100%;">
-          <span><i class="fa-solid fa-circle-question" style="color:var(--epsx-orange);margin-right:0.5rem;"></i> What is EPSX?</span>
-          <i class="fa-solid fa-chevron-right"></i>
+          <span><i data-lucide="help-circle" style="color:var(--epsx-orange);margin-right:0.5rem;"></i> What is EPSX?</span>
+          <i data-lucide="chevron-right"></i>
         </button>
         <div class="nav-accordion-content" style="padding:0.75rem 1rem;color:var(--text-muted);font-size:0.875rem;">
           EPSX is a web3 analytics and payments platform on BSC, providing on-chain rankings, subscription vaults, and stablecoin payments.
@@ -161,8 +161,8 @@ pub fn interactive_body() -> String {
       </div>
       <div class="nav-accordion" id="acc-2">
         <button class="nav-accordion-trigger" onclick="epsx.toggleNavAccordion('acc-2')" style="width:100%;">
-          <span><i class="fa-solid fa-shield-halved" style="color:var(--epsx-green);margin-right:0.5rem;"></i> Is it secure?</span>
-          <i class="fa-solid fa-chevron-right"></i>
+          <span><i data-lucide="shield" style="color:var(--epsx-green);margin-right:0.5rem;"></i> Is it secure?</span>
+          <i data-lucide="chevron-right"></i>
         </button>
         <div class="nav-accordion-content" style="padding:0.75rem 1rem;color:var(--text-muted);font-size:0.875rem;">
           All payments are settled on-chain via audited smart contracts. No custodial risk.
@@ -170,8 +170,8 @@ pub fn interactive_body() -> String {
       </div>
       <div class="nav-accordion" id="acc-3">
         <button class="nav-accordion-trigger" onclick="epsx.toggleNavAccordion('acc-3')" style="width:100%;">
-          <span><i class="fa-solid fa-gas-pump" style="color:var(--epsx-blue-start);margin-right:0.5rem;"></i> Do users need BNB?</span>
-          <i class="fa-solid fa-chevron-right"></i>
+          <span><i data-lucide="fuel" style="color:var(--epsx-blue-start);margin-right:0.5rem;"></i> Do users need BNB?</span>
+          <i data-lucide="chevron-right"></i>
         </button>
         <div class="nav-accordion-content" style="padding:0.75rem 1rem;color:var(--text-muted);font-size:0.875rem;">
           No! Our paymaster sponsors gas and charges users in stablecoins via ERC-4337.
@@ -184,14 +184,14 @@ pub fn interactive_body() -> String {
 const modalDemoHtml = `
   <div style="padding:2rem;max-width:32rem;text-align:center;">
     <div style="width:4rem;height:4rem;border-radius:9999px;background:var(--gradient-warm);display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
-      <i class="fa-solid fa-rocket" style="color:white;font-size:1.5rem;"></i>
+      <i data-lucide="rocket" style="color:white;font-size:1.5rem;"></i>
     </div>
     <h2 style="font-size:1.5rem;font-weight:800;margin-bottom:0.5rem;">Ready to launch?</h2>
     <p style="color:var(--text-muted);margin-bottom:1.5rem;">This is a vanilla JS modal powered by epsx.openModal(). No framework needed.</p>
     <div style="display:flex;gap:0.5rem;justify-content:center;">
       <button class="btn btn-outline" onclick="epsx.closeModal()">Cancel</button>
       <button class="btn btn-gradient" onclick="epsx.toast('Launched!', 'success'); epsx.closeModal();">
-        <i class="fa-solid fa-rocket"></i> Launch
+        <i data-lucide="rocket"></i> Launch
       </button>
     </div>
   </div>
@@ -203,7 +203,7 @@ document.addEventListener('keydown', (e) => {
 </script>"##;
 
     let hero = r##"<div style="text-align:center;margin-bottom:3rem;">
-    <span class="badge-pill"><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--epsx-orange);"></i> Interactive</span>
+    <span class="badge-pill"><i data-lucide="sparkles" style="color:var(--epsx-orange);"></i> Interactive</span>
     <h1 class="gradient-text" style="font-size:3rem;font-weight:800;margin:1rem 0 1rem;">Component Playground</h1>
     <p style="font-size:1.125rem;color:var(--text-muted);max-width:42rem;margin:0 auto;">Live demos of every interactive component &mdash; toasts, modals, tabs, forms, dropdowns, accordions, badges, and skeletons. All running on vanilla JS via the global <code style="background:var(--bg-secondary);padding:0.125rem 0.5rem;border-radius:0.25rem;font-size:0.875rem;">window.epsx</code> namespace.</p>
   </div>"##;

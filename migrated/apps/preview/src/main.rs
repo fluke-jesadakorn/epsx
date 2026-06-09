@@ -113,7 +113,7 @@ async fn preview_html(
 
     let main_body = format!(
         r##"<div style="position:fixed;top:3.5rem;left:0;right:0;background:rgba(245,158,11,0.15);border-bottom:1px solid rgba(245,158,11,0.3);padding:0.625rem 1rem;text-align:center;color:var(--epsx-amber);font-size:0.875rem;z-index:40;backdrop-filter:blur(8px);">
-  <i class="fa-solid fa-eye"></i> PREVIEW MODE{session}
+  <i data-lucide="eye"></i> PREVIEW MODE{session}
 </div>
 <div style="padding-top:6rem;">{body}</div>"##,
         session = if session.is_empty() { String::new() } else { format!(" — session {}", session) },
@@ -140,12 +140,12 @@ async fn preview_index() -> Response {
     let body = r##"<section class="section" style="display:flex;align-items:center;justify-content:center;min-height:80vh;">
 <div style="text-align:center;max-width:32rem;">
   <div style="width:5rem;height:5rem;border-radius:9999px;background:var(--gradient-warm);display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;box-shadow:var(--shadow-orange);">
-    <i class="fa-solid fa-eye" style="color:white;font-size:1.5rem;"></i>
+    <i data-lucide="eye" style="color:white;font-size:1.5rem;"></i>
   </div>
-  <span class="badge-pill"><i class="fa-solid fa-eye" style="color:var(--epsx-orange);"></i> Preview</span>
+  <span class="badge-pill"><i data-lucide="eye" style="color:var(--epsx-orange);"></i> Preview</span>
   <h1 style="font-size:2.5rem;font-weight:800;margin:1rem 0 1rem;">EPSX Preview</h1>
   <p style="color:var(--text-muted);font-size:1.125rem;margin-bottom:2rem;">Use <code class="badge badge-primary">/preview/&lt;slug&gt;</code> to preview a page.</p>
-  <a href="/" class="btn btn-gradient btn-lg"><i class="fa-solid fa-house"></i> Back to Home</a>
+  <a href="/" class="btn btn-gradient btn-lg"><i data-lucide="home"></i> Back to Home</a>
 </div>
 </section>"##;
     let shell = page_shell_with_body_class("EPSX Preview", "Page preview server", &nav, body, false, "page-bg");
@@ -175,7 +175,7 @@ fn render_blocks(blocks_json: &str) -> String {
 <div class="container-x">
   <h1 style="font-size:clamp(2.25rem, 5vw, 4.5rem);font-weight:800;line-height:1.1;margin-bottom:1rem;">{title}</h1>
   <p style="font-size:1.25rem;color:var(--text-muted);max-width:42rem;margin:0 auto 2rem;">{subtitle}</p>
-  <a href="{cta_link}" class="btn btn-gradient btn-xl"><i class="fa-solid fa-arrow-right"></i> {cta_text}</a>
+  <a href="{cta_link}" class="btn btn-gradient btn-xl"><i data-lucide="arrow-right"></i> {cta_text}</a>
 </div>
 </section>"##,
                 title = props.get("title").and_then(|v| v.as_str()).unwrap_or(""),
@@ -188,7 +188,7 @@ fn render_blocks(blocks_json: &str) -> String {
                 let cards = items.iter().map(|item| format!(
                     r##"<div class="card-insight">
   <div style="width:3rem;height:3rem;border-radius:0.75rem;background:var(--gradient-warm);display:flex;align-items:center;justify-content:center;margin-bottom:1rem;">
-    <i class="fa-solid fa-bolt" style="color:white;"></i>
+    <i data-lucide="zap" style="color:white;"></i>
   </div>
   <h3 style="font-size:1.25rem;font-weight:700;margin-bottom:0.5rem;">{title}</h3>
   <p style="color:var(--text-muted);">{description}</p>
@@ -209,7 +209,7 @@ fn render_blocks(blocks_json: &str) -> String {
                     let name = plan.get("name").and_then(|v| v.as_str()).unwrap_or("");
                     let price = plan.get("price").and_then(|v| v.as_str()).unwrap_or("");
                     let features_html = plan.get("features").and_then(|v| v.as_array()).cloned().unwrap_or_default()
-                        .iter().map(|f| format!(r##"<li style="display:flex;gap:0.5rem;align-items:center;"><i class="fa-solid fa-check" style="color:var(--epsx-green);"></i>{}</li>"##, f.as_str().unwrap_or(""))).collect::<Vec<_>>().join("");
+                        .iter().map(|f| format!(r##"<li style="display:flex;gap:0.5rem;align-items:center;"><i data-lucide="check" style="color:var(--epsx-green);"></i>{}</li>"##, f.as_str().unwrap_or(""))).collect::<Vec<_>>().join("");
                     let cta = plan.get("ctaText").and_then(|v| v.as_str()).unwrap_or("Subscribe");
                     format!(r##"<div class="card-insight">
   <h3 style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">{name}</h3>
@@ -228,7 +228,7 @@ fn render_blocks(blocks_json: &str) -> String {
             "testimonial" => format!(
                 r##"<section class="section" style="text-align:center;">
 <div class="container-x" style="max-width:48rem;">
-  <i class="fa-solid fa-quote-left" style="font-size:2rem;color:var(--epsx-orange);margin-bottom:1rem;display:block;"></i>
+  <i data-lucide="quote" style="width:2rem;height:2rem;color:var(--epsx-orange);margin-bottom:1rem;display:block;"></i>
   <blockquote style="font-size:1.5rem;font-style:italic;line-height:1.6;margin-bottom:1.5rem;">"{quote}"</blockquote>
   <div>
     <div style="font-weight:600;">{author}</div>
@@ -245,7 +245,7 @@ fn render_blocks(blocks_json: &str) -> String {
 <div class="container-x" style="max-width:48rem;">
   <h2 style="font-size:2.5rem;font-weight:800;margin-bottom:1rem;">{title}</h2>
   <p style="color:var(--text-muted);font-size:1.125rem;margin-bottom:2rem;">{description}</p>
-  <a href="{cta_link}" class="btn btn-gradient btn-xl"><i class="fa-solid fa-arrow-right"></i> {cta_text}</a>
+  <a href="{cta_link}" class="btn btn-gradient btn-xl"><i data-lucide="arrow-right"></i> {cta_text}</a>
 </div>
 </section>"##,
                 title = props.get("title").and_then(|v| v.as_str()).unwrap_or(""),

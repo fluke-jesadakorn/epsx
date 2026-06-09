@@ -145,14 +145,14 @@ fn success_body() -> String {
     r##"<section class="section" style="display:flex;align-items:center;justify-content:center;min-height:80vh;">
 <div style="text-align:center;max-width:32rem;">
   <div style="width:5rem;height:5rem;border-radius:9999px;background:linear-gradient(135deg,#10b981,#34d399);display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;box-shadow:0 20px 25px -5px rgba(16,185,129,0.5);">
-    <i class="fa-solid fa-check" style="color:white;font-size:1.75rem;"></i>
+    <i data-lucide="check" style="color:white;font-size:1.75rem;"></i>
   </div>
   <span class="badge badge-success" style="margin-bottom:1rem;">Confirmed</span>
   <h1 style="font-size:2.5rem;font-weight:800;margin-bottom:1rem;">Payment Successful</h1>
   <p style="color:var(--text-muted);font-size:1.125rem;margin-bottom:2rem;">Your payment has been confirmed on BSC. The recipient has been notified.</p>
   <div style="display:inline-flex;gap:0.75rem;flex-wrap:wrap;justify-content:center;">
-    <a href="/" class="btn btn-gradient btn-lg"><i class="fa-solid fa-house"></i> Back to Home</a>
-    <a href="/dashboard" class="btn btn-outline btn-lg"><i class="fa-solid fa-gauge-high"></i> View Dashboard</a>
+    <a href="/" class="btn btn-gradient btn-lg"><i data-lucide="home"></i> Back to Home</a>
+    <a href="/dashboard" class="btn btn-outline btn-lg"><i data-lucide="gauge"></i> View Dashboard</a>
   </div>
 </div>
 </section>"##.to_string()
@@ -162,14 +162,14 @@ fn cancel_body() -> String {
     r##"<section class="section" style="display:flex;align-items:center;justify-content:center;min-height:80vh;">
 <div style="text-align:center;max-width:32rem;">
   <div style="width:5rem;height:5rem;border-radius:9999px;background:linear-gradient(135deg,#ef4444,#f87171);display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;box-shadow:0 20px 25px -5px rgba(239,68,68,0.5);">
-    <i class="fa-solid fa-xmark" style="color:white;font-size:1.75rem;"></i>
+    <i data-lucide="x" style="color:white;font-size:1.75rem;"></i>
   </div>
   <span class="badge badge-danger" style="margin-bottom:1rem;">Cancelled</span>
   <h1 style="font-size:2.5rem;font-weight:800;margin-bottom:1rem;">Payment Cancelled</h1>
   <p style="color:var(--text-muted);font-size:1.125rem;margin-bottom:2rem;">Your payment was not completed. No funds have been transferred.</p>
   <div style="display:inline-flex;gap:0.75rem;flex-wrap:wrap;justify-content:center;">
-    <a href="/" class="btn btn-gradient btn-lg"><i class="fa-solid fa-house"></i> Back to Home</a>
-    <button onclick="history.back()" class="btn btn-outline btn-lg"><i class="fa-solid fa-arrow-left"></i> Try Again</button>
+    <a href="/" class="btn btn-gradient btn-lg"><i data-lucide="home"></i> Back to Home</a>
+    <button onclick="history.back()" class="btn btn-outline btn-lg"><i data-lucide="arrow-left"></i> Try Again</button>
   </div>
 </div>
 </section>"##.to_string()
@@ -180,7 +180,7 @@ fn checkout_body() -> String {
 <div style="width:100%;max-width:28rem;">
   <div class="card-insight" style="padding:2.5rem;">
     <div style="text-align:center;margin-bottom:2rem;">
-      <span class="badge-pill"><i class="fa-solid fa-credit-card" style="color:var(--epsx-orange);"></i> EPSX Pay</span>
+      <span class="badge-pill"><i data-lucide="credit-card" style="color:var(--epsx-orange);width:1rem;height:1rem;"></i> EPSX Pay</span>
       <h1 style="font-size:1.75rem;font-weight:800;margin-top:0.75rem;">Complete Payment</h1>
       <p style="color:var(--text-muted);font-size:0.875rem;margin-top:0.25rem;">Powered by BSC</p>
     </div>
@@ -192,15 +192,15 @@ fn checkout_body() -> String {
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-size:0.875rem;color:var(--text-muted);">Chain</span>
-        <span style="font-size:0.875rem;font-weight:500;"><i class="fa-solid fa-link" style="color:var(--epsx-orange);margin-right:0.25rem;"></i>BSC (BEP-20)</span>
+        <span style="font-size:0.875rem;font-weight:500;"><i data-lucide="link" style="color:var(--epsx-orange);width:1rem;height:1rem;margin-right:0.25rem;"></i>BSC (BEP-20)</span>
       </div>
     </div>
 
     <button id="pay-btn" class="btn btn-gradient btn-block btn-lg" style="margin-bottom:0.75rem;">
-      <i class="fa-solid fa-wallet"></i> Connect Wallet & Pay
+      <i data-lucide="wallet"></i> Connect Wallet & Pay
     </button>
     <p style="font-size:0.75rem;color:var(--text-subtle);text-align:center;">
-      <i class="fa-solid fa-shield-halved" style="color:var(--epsx-green);"></i> Secured by EPSX escrow
+      <i data-lucide="shield" style="color:var(--epsx-green);"></i> Secured by EPSX escrow
     </p>
   </div>
 </div>

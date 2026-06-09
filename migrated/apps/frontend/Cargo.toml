@@ -12,6 +12,7 @@ epsx-kernel = { path = "../../shared/kernel" }
 epsx-client = { path = "../../shared/client" }
 epsx-observability = { path = "../../shared/observability" }
 epsx-templates = { path = "../../shared/templates" }
+epsx-renderer = { path = "../../shared/renderer" }
 axum.workspace = true
 tokio.workspace = true
 tracing.workspace = true

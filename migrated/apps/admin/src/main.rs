@@ -218,7 +218,7 @@ fn render_page(path: &str) -> String {
         let cls = active(href);
         links_html.push_str(&format!(
             r#"<a href="{href}" class="nav-link {cls}" style="width:100%;justify-content:flex-start;padding:0.625rem 0.75rem;">
-              <i class="fa-solid fa-{icon}" style="color:var(--epsx-orange);width:1.25rem;"></i>
+              <i data-lucide="{icon}" style="color:var(--epsx-orange);width:1.25rem;height:1.25rem;"></i>
               <span>{label}</span>
             </a>"#,
         ));
@@ -233,13 +233,13 @@ fn render_page(path: &str) -> String {
     </div>
     <nav style="display:flex;flex-direction:column;gap:0.25rem;">{links}</nav>
     <div style="margin-top:auto;padding:0.75rem;border-top:1px solid var(--border);font-size:0.75rem;color:var(--text-subtle);">
-      <i class="fa-solid fa-shield-halved" style="color:var(--epsx-orange);"></i> Secured by EPSX
+      <i data-lucide="shield" style="color:var(--epsx-orange);"></i> Secured by EPSX
     </div>
   </aside>
   <main style="flex:1;padding:2rem;overflow:auto;">
     <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:1rem;margin-bottom:2rem;">
       <div>
-        <span class="badge-pill"><i class="fa-solid fa-shield-halved" style="color:var(--epsx-orange);"></i> Admin</span>
+        <span class="badge-pill"><i data-lucide="shield" style="color:var(--epsx-orange);"></i> Admin</span>
         <h1 style="font-size:2rem;font-weight:800;margin-top:0.75rem;">{title}</h1>
       </div>
     </div>
@@ -265,28 +265,28 @@ async function load() {{
         <div class="card-insight">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
             <span style="font-size:0.875rem;color:var(--text-muted);">Total Users</span>
-            <i class="fa-solid fa-users" style="color:var(--epsx-blue-start);"></i>
+            <i data-lucide="users" style="color:var(--epsx-blue-start);width:1.25rem;height:1.25rem;"></i>
           </div>
           <div style="font-size:2rem;font-weight:800;">${{users.length}}</div>
         </div>
         <div class="card-insight">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
             <span style="font-size:0.875rem;color:var(--text-muted);">Revenue</span>
-            <i class="fa-solid fa-dollar-sign" style="color:var(--epsx-green);"></i>
+            <i data-lucide="dollar-sign" style="color:var(--epsx-green);width:1.25rem;height:1.25rem;"></i>
           </div>
           <div class="gradient-text" style="font-size:2rem;font-weight:800;">$0</div>
         </div>
         <div class="card-insight">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
             <span style="font-size:0.875rem;color:var(--text-muted);">Active Subs</span>
-            <i class="fa-solid fa-vault" style="color:var(--epsx-purple);"></i>
+            <i data-lucide="shield" style="color:var(--epsx-purple);width:1.25rem;height:1.25rem;"></i>
           </div>
           <div style="font-size:2rem;font-weight:800;color:var(--epsx-purple);">${{subs.length}}</div>
         </div>
         <div class="card-insight">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
             <span style="font-size:0.875rem;color:var(--text-muted);">Payments</span>
-            <i class="fa-solid fa-credit-card" style="color:var(--epsx-orange);"></i>
+            <i data-lucide="credit-card" style="color:var(--epsx-orange);width:1.25rem;height:1.25rem;"></i>
           </div>
           <div style="font-size:2rem;font-weight:800;color:var(--epsx-orange);">${{payments.length}}</div>
         </div>

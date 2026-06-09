@@ -135,10 +135,10 @@ impl Btn {
         let full_cls = format!("{kind_cls} {size_cls}{block_cls} {}", self.extra_cls).trim().to_string();
 
         let left = self.icon_left.as_deref()
-            .map(|i| format!(r#"<i class="fa-solid fa-{i}"></i>"#))
+            .map(|i| format!(r#"<i data-lucide="{i}"></i>"#))
             .unwrap_or_default();
         let right = self.icon_right.as_deref()
-            .map(|i| format!(r#"<i class="fa-solid fa-{i}"></i>"#))
+            .map(|i| format!(r#"<i data-lucide="{i}"></i>"#))
             .unwrap_or_default();
 
         let attrs = self.extra_attrs;
@@ -261,7 +261,7 @@ impl Card {
             let icon_html = self.icon.as_deref().map(|i| {
                 let color = self.icon_color.as_deref().unwrap_or("var(--epsx-orange)");
                 format!(
-                    r#"<div style="width:2.5rem;height:2.5rem;border-radius:0.75rem;display:flex;align-items:center;justify-content:center;background:rgba(249,115,22,0.1);color:{color};font-size:1.125rem;flex-shrink:0;"><i class="fa-solid fa-{i}"></i></div>"#,
+                    r#"<div style="width:2.5rem;height:2.5rem;border-radius:0.75rem;display:flex;align-items:center;justify-content:center;background:rgba(249,115,22,0.1);color:{color};font-size:1.125rem;flex-shrink:0;"><i data-lucide="{i}"></i></div>"#,
                     color = color, i = i
                 )
             }).unwrap_or_default();
@@ -373,7 +373,7 @@ impl Badge {
         let cls = self.kind.cls();
         let radius = if self.pill { "border-radius:9999px;" } else { "" };
         let icon_html = self.icon.as_deref()
-            .map(|i| format!(r#" <i class="fa-solid fa-{i}" style="font-size:0.75em;"></i>"#))
+            .map(|i| format!(r#" <i data-lucide="{i}" style="font-size:0.75em;"></i>"#))
             .unwrap_or_default();
         format!(
             r##"<span class="{cls}" style="{radius}">{label}{icon}</span>"##,
@@ -496,7 +496,7 @@ impl Input {
             .unwrap_or_default();
 
         let icon_html = self.icon.as_deref().map(|i| {
-            format!(r#"<i class="fa-solid fa-{i}" style="position:absolute;left:0.875rem;top:50%;transform:translateY(-50%);color:var(--text-subtle);pointer-events:none;"></i>"#)
+            format!(r#"<i data-lucide="{i}" style="position:absolute;left:0.875rem;top:50%;transform:translateY(-50%);color:var(--text-subtle);pointer-events:none;"></i>"#)
         });
 
         let control = match self.kind {
@@ -616,7 +616,7 @@ impl StatCard {
 
     pub fn render(self) -> String {
         let icon_html = self.icon.as_deref().map(|i| {
-            format!(r#"<div style="width:2.75rem;height:2.75rem;border-radius:0.875rem;display:flex;align-items:center;justify-content:center;background:rgba(249,115,22,0.1);color:{c};font-size:1.25rem;flex-shrink:0;"><i class="fa-solid fa-{i}"></i></div>"#,
+            format!(r#"<div style="width:2.75rem;height:2.75rem;border-radius:0.875rem;display:flex;align-items:center;justify-content:center;background:rgba(249,115,22,0.1);color:{c};font-size:1.25rem;flex-shrink:0;"><i data-lucide="{i}"></i></div>"#,
                 c = self.icon_color, i = i)
         }).unwrap_or_default();
 
@@ -737,30 +737,12 @@ impl Skeleton {
 }
 
 // =====================================================================
-// Icon — single Font Awesome icon helper.
+// Icon — single Lucide icon helper.
 // =====================================================================
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum IconStyle {
-    Solid,
-    Regular,
-    Brands,
-}
-
-impl IconStyle {
-    fn prefix(self) -> &'static str {
-        match self {
-            IconStyle::Solid => "fa-solid",
-            IconStyle::Regular => "fa-regular",
-            IconStyle::Brands => "fa-brands",
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct Icon {
     name: String,
-    style: IconStyle,
     size: Option<String>,
     color: Option<String>,
     extra_cls: String,
@@ -770,34 +752,24 @@ impl Icon {
     pub fn fa(name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
-            style: IconStyle::Solid,
             size: None,
             color: None,
             extra_cls: String::new(),
         }
     }
-    pub fn regular(mut self) -> Self { self.style = IconStyle::Regular; self }
-    pub fn brand(mut self) -> Self { self.style = IconStyle::Brands; self }
+    pub fn regular(mut self) -> Self { self }
+    pub fn brand(mut self) -> Self { self }
     pub fn size(mut self, s: impl Into<String>) -> Self { self.size = Some(s.into()); self }
     pub fn color(mut self, c: impl Into<String>) -> Self { self.color = Some(c.into()); self }
     pub fn cls(mut self, c: impl Into<String>) -> Self { self.extra_cls = c.into(); self }
 
     pub fn render(self) -> String {
-        let style_str = format!(r#"{}="{}""#, "class", format!("{} fa-{} {}", self.style.prefix(), self.name, self.extra_cls).trim());
-        let size_attr = self.size.as_deref()
-            .map(|s| format!(r#" style="font-size:{s};""#))
-            .unwrap_or_default();
-        let color_attr = self.color.as_deref()
-            .map(|c| {
-                if size_attr.is_empty() {
-                    format!(r#" style="color:{c};""#)
-                } else {
-                    // already has style; merge
-                    size_attr.replace("style=\"", &format!(r#"style="color:{c};""#))
-                }
-            })
-            .unwrap_or(size_attr);
-        format!(r#"<i {style}></i>"#, style = format!("{style_str}{color_attr}"))
+        let cls = if self.extra_cls.is_empty() { String::new() } else { format!(r#" class="{}""#, self.extra_cls) };
+        let mut style = String::new();
+        if let Some(s) = &self.size { style.push_str(&format!("width:{s};height:{s};")); }
+        if let Some(c) = &self.color { style.push_str(&format!("color:{c};")); }
+        let style_attr = if style.is_empty() { String::new() } else { format!(r#" style="{style}""#) };
+        format!(r#"<i data-lucide="{name}"{cls}{style_attr}></i>"#, name = self.name, cls = cls, style_attr = style_attr)
     }
 }
 
@@ -881,8 +853,8 @@ mod tests {
         let html = Btn::new("Trade").gradient().lg().icon_left("bolt").icon_right("arrow-right").render();
         assert!(html.contains("btn-gradient"));
         assert!(html.contains("btn-lg"));
-        assert!(html.contains("fa-bolt"));
-        assert!(html.contains("fa-arrow-right"));
+        assert!(html.contains(r#"data-lucide="bolt""#));
+        assert!(html.contains(r#"data-lucide="arrow-right""#));
     }
 
     #[test]
@@ -897,7 +869,7 @@ mod tests {
         let html = Card::new("Hello", "World").glass().hover().icon("user").render();
         assert!(html.contains("card-glass"));
         assert!(html.contains("hover-scale"));
-        assert!(html.contains("fa-user"));
+        assert!(html.contains(r#"data-lucide="user""#));
         assert!(html.contains("Hello"));
     }
 
@@ -912,7 +884,7 @@ mod tests {
     fn badge_variants() {
         assert!(Badge::new("ok").success().pill().render().contains("badge-success"));
         assert!(Badge::new("x").danger().render().contains("badge-danger"));
-        assert!(Badge::new("!").warning().icon("exclamation").render().contains("fa-exclamation"));
+        assert!(Badge::new("!").warning().icon("exclamation").render().contains(r#"data-lucide="exclamation""#));
     }
 
     #[test]
@@ -928,7 +900,7 @@ mod tests {
     fn input_with_icon() {
         let html = Input::new("user").text().icon("user").label("Username").render();
         assert!(html.contains("input-icon-wrap"));
-        assert!(html.contains("fa-user"));
+        assert!(html.contains(r#"data-lucide="user""#));
     }
 
     #[test]
@@ -953,7 +925,7 @@ mod tests {
         let html = StatCard::new("Revenue", "$1,234").change("+12.5%", BadgeKind::Success).icon("chart-line", "var(--epsx-orange)").render();
         assert!(html.contains("Revenue"));
         assert!(html.contains("$1,234"));
-        assert!(html.contains("fa-chart-line"));
+        assert!(html.contains(r#"data-lucide="chart-line""#));
         assert!(html.contains("+12.5%"));
     }
 
@@ -983,8 +955,9 @@ mod tests {
     #[test]
     fn icon_with_size_and_color() {
         let html = Icon::fa("user").size("1.5rem").color("var(--epsx-orange)").render();
-        assert!(html.contains(r#"class="fa-solid fa-user""#));
-        assert!(html.contains("font-size:1.5rem"));
+        assert!(html.contains(r#"data-lucide="user""#));
+        assert!(html.contains("width:1.5rem"));
+        assert!(html.contains("height:1.5rem"));
         assert!(html.contains("color:var(--epsx-orange)"));
     }
 

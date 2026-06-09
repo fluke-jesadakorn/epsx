@@ -143,7 +143,7 @@ pub fn render_navbar(active_path: &str, is_authed: bool, user: Option<&AuthUser>
   <div class="flex items-center gap-2" style="margin-left:auto;">
     {actions}
     <button class="nav-link hamburger lg:hidden" onclick="epsx.openSheet('mobile-sheet')" aria-label="Open menu" style="width:2.25rem;height:2.25rem;padding:0;justify-content:center;">
-      <i class="fa-solid fa-bars"></i>
+      <i data-lucide="menu"></i>
     </button>
   </div>
 {close}
@@ -164,7 +164,7 @@ fn render_nav_actions(is_authed: bool, user: Option<&AuthUser>) -> String {
     if !is_authed {
         return format!(
             r##"{theme}
-            <a href="/auth" class="btn btn-gradient btn-sm">Sign In <i class="fa-solid fa-arrow-right" style="margin-left:0.25rem;"></i></a>"##,
+            <a href="/auth" class="btn btn-gradient btn-sm">Sign In <i data-lucide="arrow-right" style="margin-left:0.25rem;"></i></a>"##,
             theme = theme
         );
     }
@@ -172,7 +172,7 @@ fn render_nav_actions(is_authed: bool, user: Option<&AuthUser>) -> String {
     let address = user.display();
     let role = user.role_label();
     let bell = r##"<a href="/notifications" class="nav-link" style="position:relative;width:2.25rem;height:2.25rem;padding:0;justify-content:center;" title="Notifications">
-        <i class="fa-solid fa-bell"></i>
+        <i data-lucide="bell"></i>
         <span id="nav-unread-badge" style="display:none;position:absolute;top:-0.125rem;right:-0.125rem;background:var(--epsx-red);color:white;font-size:0.625rem;font-weight:700;min-width:1.125rem;height:1.125rem;border-radius:9999px;padding:0 0.25rem;align-items:center;justify-content:center;">0</span>
     </a>"##;
     let wallet = format!(
@@ -180,26 +180,26 @@ fn render_nav_actions(is_authed: bool, user: Option<&AuthUser>) -> String {
           <button type="button" class="nav-dropdown-trigger" onclick="epsx.toggleNavDropdown('nav-wallet')" style="display:flex;align-items:center;gap:0.5rem;padding:0.375rem 0.75rem;border-radius:0.5rem;background:var(--bg-secondary);border:1px solid var(--border);font-size:0.875rem;">
             <div style="width:1.5rem;height:1.5rem;border-radius:9999px;background:var(--gradient-warm);display:flex;align-items:center;justify-content:center;color:white;font-size:0.625rem;font-weight:700;">{initials}</div>
             <span style="font-weight:500;">{addr}</span>
-            <i class="fa-solid fa-chevron-down chev"></i>
+            <i data-lucide="chevron-down" class="chev"></i>
           </button>
           <div class="nav-dropdown" role="menu" style="min-width:14rem;">
             <div style="padding:0.5rem 0.75rem;border-bottom:1px solid var(--border);margin-bottom:0.25rem;">
               <div style="font-size:0.6875rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">{role}</div>
               <div style="font-size:0.8125rem;font-family:monospace;color:var(--text);word-break:break-all;">{full_addr}</div>
             </div>
-            <a href="/dashboard" class="nav-dropdown-item" role="menuitem"><i class="fa-solid fa-gauge-high"></i><div><div class="nav-dropdown-item-label">Dashboard</div></div></a>
-            <a href="/profile" class="nav-dropdown-item" role="menuitem"><i class="fa-solid fa-user"></i><div><div class="nav-dropdown-item-label">Profile</div></div></a>
-            <a href="/account" class="nav-dropdown-item" role="menuitem"><i class="fa-solid fa-gear"></i><div><div class="nav-dropdown-item-label">Account Settings</div></div></a>
+            <a href="/dashboard" class="nav-dropdown-item" role="menuitem"><i data-lucide="gauge"></i><div><div class="nav-dropdown-item-label">Dashboard</div></div></a>
+            <a href="/profile" class="nav-dropdown-item" role="menuitem"><i data-lucide="user"></i><div><div class="nav-dropdown-item-label">Profile</div></div></a>
+            <a href="/account" class="nav-dropdown-item" role="menuitem"><i data-lucide="settings"></i><div><div class="nav-dropdown-item-label">Account Settings</div></div></a>
             {admin_link}
             <div style="border-top:1px solid var(--border);margin:0.25rem 0;"></div>
-            <button onclick="epsx.signOut()" class="nav-dropdown-item" role="menuitem" style="color:var(--epsx-red);width:100%;background:transparent;border:none;text-align:left;cursor:pointer;"><i class="fa-solid fa-arrow-right-from-bracket"></i><div><div class="nav-dropdown-item-label">Sign Out</div></div></button>
+            <button onclick="epsx.signOut()" class="nav-dropdown-item" role="menuitem" style="color:var(--epsx-red);width:100%;background:transparent;border:none;text-align:left;cursor:pointer;"><i data-lucide="log-out"></i><div><div class="nav-dropdown-item-label">Sign Out</div></div></button>
           </div>
         </div>"##,
         initials = address.chars().take(2).collect::<String>().to_uppercase(),
         addr = address,
         role = role,
         full_addr = user.address,
-        admin_link = if user.is_admin() { r##"<a href="/admin" class="nav-dropdown-item" role="menuitem"><i class="fa-solid fa-shield-halved"></i><div><div class="nav-dropdown-item-label">Admin Panel</div></div></a>"## } else { "" }
+        admin_link = if user.is_admin() { r##"<a href="/admin" class="nav-dropdown-item" role="menuitem"><i data-lucide="shield"></i><div><div class="nav-dropdown-item-label">Admin Panel</div></div></a>"## } else { "" }
     );
     let js = r##"<script>
 (function() {
@@ -255,9 +255,9 @@ fn render_nav_dropdown(group: &NavGroup, active_path: &str) -> String {
     format!(
         r##"<div class="nav-dropdown-wrap" id="nav-{k}">
   <button type="button" class="{tc}" onclick="epsx.toggleNavDropdown('nav-{k}')" aria-haspopup="true" aria-expanded="false">
-    <i class="fa-solid fa-{icon}"></i>
+    <i data-lucide="{icon}"></i>
     <span>{label}</span>
-    <i class="fa-solid fa-chevron-down chev"></i>
+    <i data-lucide="chevron-down" class="chev"></i>
   </button>
   <div class="nav-dropdown" role="menu">{items}</div>
 </div>"##,
@@ -278,7 +278,7 @@ fn render_nav_dropdown_item(item: &NavItem, active_path: &str) -> String {
         .unwrap_or_default();
     format!(
         r##"<a href="{href}" class="{cls}" role="menuitem">
-  <i class="fa-solid fa-{icon} item-icon"></i>
+  <i data-lucide="{icon}" class="item-icon"></i>
   <div style="min-width:0;">
     <div class="item-label">{label}</div>
     {desc}
@@ -318,10 +318,10 @@ fn render_mobile_sheet(active_path: &str, is_authed: bool, user: Option<&AuthUse
     } else { String::new() };
 
     let sign = if is_authed {
-        r##"<a href="/dashboard" class="btn btn-gradient btn-block" onclick="epsx.closeSheet('mobile-sheet')">Dashboard <i class="fa-solid fa-arrow-right"></i></a>
-            <button class="btn btn-outline btn-block" style="margin-top:0.5rem;" onclick="epsx.closeSheet('mobile-sheet'); epsx.signOut();">Sign Out <i class="fa-solid fa-arrow-right-from-bracket"></i></button>"##
+        r##"<a href="/dashboard" class="btn btn-gradient btn-block" onclick="epsx.closeSheet('mobile-sheet')">Dashboard <i data-lucide="arrow-right"></i></a>
+            <button class="btn btn-outline btn-block" style="margin-top:0.5rem;" onclick="epsx.closeSheet('mobile-sheet'); epsx.signOut();">Sign Out <i data-lucide="log-out"></i></button>"##
     } else {
-        r##"<a href="/auth" class="btn btn-gradient btn-block" onclick="epsx.closeSheet('mobile-sheet')">Sign In <i class="fa-solid fa-arrow-right"></i></a>"##
+        r##"<a href="/auth" class="btn btn-gradient btn-block" onclick="epsx.closeSheet('mobile-sheet')">Sign In <i data-lucide="arrow-right"></i></a>"##
     };
 
     format!(
@@ -331,7 +331,7 @@ fn render_mobile_sheet(active_path: &str, is_authed: bool, user: Option<&AuthUse
     <div class="flex justify-between items-center mb-4">
       {logo}
       <button class="nav-link" onclick="epsx.closeSheet('mobile-sheet')" aria-label="Close menu" style="width:2.25rem;height:2.25rem;padding:0;justify-content:center;">
-        <i class="fa-solid fa-xmark"></i>
+        <i data-lucide="x"></i>
       </button>
     </div>
     {user_block}
@@ -359,7 +359,7 @@ fn render_nav_accordion(group: &NavGroup, active_path: &str) -> String {
             let cls = if item_active { "active" } else { "" };
             format!(
                 r##"<a href="{href}" class="{cls}" onclick="epsx.closeSheet('mobile-sheet')">
-  <i class="fa-solid fa-{icon}"></i>
+  <i data-lucide="{icon}"></i>
   <span>{label}</span>
 </a>"##,
                 href = html_escape_attr(item.href),
@@ -374,10 +374,10 @@ fn render_nav_accordion(group: &NavGroup, active_path: &str) -> String {
         r##"<div class="{ac}" id="mob-nav-{k}">
   <button type="button" class="{tc}" onclick="epsx.toggleNavAccordion('mob-nav-{k}')" aria-expanded="{ae}">
     <span class="trigger-label">
-      <i class="fa-solid fa-{icon}"></i>
+      <i data-lucide="{icon}"></i>
       <span>{label}</span>
     </span>
-    <i class="fa-solid fa-chevron-right chev"></i>
+    <i data-lucide="chevron-right" class="chev"></i>
   </button>
   <div class="nav-accordion-content">{items}</div>
 </div>"##,

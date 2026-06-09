@@ -1,8 +1,9 @@
 //! EPSX design system — shared HTML template helpers.
 //!
 //! Every BFF (frontend, admin, pay, preview) calls `design_system_head()` to
-//! emit the same `<head>` block (Kanit font, Tailwind CDN, CSS variables,
-//! glassmorphism utilities, animations, dark/light mode FOUC prevention).
+//! emit the same `<head>` block (system-ui font stack, Tailwind CDN, CSS
+//! variables, glassmorphism utilities, animations, dark/light mode FOUC
+//! prevention).
 //!
 //! All visual changes across the platform should go through this module so we
 //! can match the original Next.js design without duplicating CSS strings.
@@ -12,7 +13,8 @@ pub mod components;
 /// Returns the full `<head>` block matching the original Next.js design.
 ///
 /// Includes:
-/// - Kanit Google Font (400, 600, 700) + CSS variable `--font-kanit`
+/// - system-ui font stack via CSS variable `--font-sans` (no external font
+///   network round-trip — matches epsx.io which uses platform defaults)
 /// - Tailwind v2.2.19 CDN (we keep the older CDN for stability with our
 ///   utility classes; the design intent is identical to v4)
 /// - Complete CSS variable system for light + dark mode
@@ -27,8 +29,6 @@ pub fn design_system_head(title: &str, description: &str) -> String {
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
 <title>{title}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" />
 <script>
   // FOUC prevention: apply theme before first paint
@@ -1412,7 +1412,7 @@ window.epsx = (function() {
     const el = document.createElement('div');
     el.className = 'toast toast-' + kind;
     const icon = {success:'check-circle',error:'xmark-circle',info:'info-circle',warning:'exclamation-triangle'}[kind] || 'info-circle';
-    el.innerHTML = '<i class="fa-solid fa-' + icon + '" style="margin-top:2px;"></i><div style="flex:1;font-size:0.875rem;">' + message + '</div>';
+    el.innerHTML = '<i data-lucide="' + icon + '" style="width:1rem;height:1rem;margin-top:2px;"></i><div style="flex:1;font-size:0.875rem;">' + message + '</div>';
     host.appendChild(el);
     setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateX(20px)'; el.style.transition = 'all 0.3s ease'; }, 3500);
     setTimeout(() => el.remove(), 4000);
@@ -1720,10 +1720,12 @@ window.epsx = (function() {
       </div>
     `;
   }
-  // ============ Bootstrap API data on home page ============
+  // ============ Bootstrap API data on home + /rankings pages ============
   async function loadRankings() {
     const grid = document.getElementById('rankings-grid');
     if (!grid) return;
+    const empty = document.getElementById('rankings-grid-empty');
+    if (empty) empty.remove();
     const data = await apiGet('/api/v1/rankings');
     if (data && data.companies) {
       grid.innerHTML = data.companies.map(companyCardHTML).join('');
@@ -1793,8 +1795,8 @@ window.epsx = (function() {
 /// button. Pair with `set_theme` JS in `global_js()`.
 pub fn theme_toggle_button() -> &'static str {
     r##"<button id="epsx-theme-toggle" class="nav-link" onclick="epsx.toggleTheme()" aria-label="Toggle theme" style="width:2.25rem;height:2.25rem;padding:0;justify-content:center;">
-  <i data-icon="sun" class="fa-solid fa-sun" style="display:none;"></i>
-  <i data-icon="moon" class="fa-solid fa-moon"></i>
+  <i data-icon="sun" data-lucide="sun" style="display:none;width:1.125rem;height:1.125rem;"></i>
+  <i data-icon="moon" data-lucide="moon" style="width:1.125rem;height:1.125rem;"></i>
 </button>"##
 }
 

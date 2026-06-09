@@ -76,12 +76,12 @@
         const prioS = esc(i.priority || 'normal');
         const ago = timeAgo(i.created_at);
         const markBtn = !i.read_at
-          ? '<button class="mark-read-btn nav-link" style="padding:0.25rem;color:var(--epsx-blue-start);" title="Mark as read"><i class="fa-solid fa-check"></i></button>'
+          ? '<button class="mark-read-btn nav-link" style="padding:0.25rem;color:var(--epsx-blue-start);" title="Mark as read"><i data-lucide="check" style="width:1rem;height:1rem;"></i></button>'
           : '';
         el.innerHTML =
           '<div style="display:flex;gap:1rem;align-items:flex-start;">' +
             '<div style="width:2.5rem;height:2.5rem;border-radius:9999px;background:' + color + '20;color:' + color + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-              '<i class="fa-solid fa-' + icon + '"></i>' +
+              '<i data-lucide="' + icon + '" style="width:1rem;height:1rem;"></i>' +
             '</div>' +
             '<div style="flex:1;min-width:0;">' +
               '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.25rem;">' +
@@ -93,7 +93,7 @@
             '</div>' +
             '<div style="display:flex;gap:0.25rem;flex-shrink:0;">' +
               markBtn +
-              '<button class="delete-btn nav-link" style="padding:0.25rem;color:var(--epsx-red);" title="Delete"><i class="fa-solid fa-trash"></i></button>' +
+              '<button class="delete-btn nav-link" style="padding:0.25rem;color:var(--epsx-red);" title="Delete"><i data-lucide="trash-2" style="width:1rem;height:1rem;"></i></button>' +
             '</div>' +
           '</div>';
         const markBtnEl = el.querySelector('.mark-read-btn');
