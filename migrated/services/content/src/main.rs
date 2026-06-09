@@ -251,6 +251,11 @@ async fn main() {
         .route("/api/v1/content/edit/sessions", get(list_edit_sessions))
         .route("/api/v1/content/navigation", get(get_navigation))
         .route("/api/v1/content/site", get(get_site_settings))
+        .route("/api/v1/content/news", get(news_list))
+        .route("/api/v1/content/news/{slug}", get(news_post))
+        .route("/api/v1/content/plans", get(plans_list))
+        .route("/api/v1/content/rankings", get(rankings_list))
+        .route("/api/v1/content/portfolio/{addr}", get(portfolio_get))
         .with_state(state);
 
     let addr: SocketAddr = format!("{}:{}", args.host, args.port).parse().unwrap();
@@ -745,4 +750,113 @@ async fn get_site_settings(State(state): State<AppState>) -> Result<Json<serde_j
     } else {
         Ok(Json(serde_json::json!({})))
     }
+}
+
+// =====================================================================
+// Marketing endpoints (news, plans, rankings, portfolio)
+// Served by the content service since they're display-only / content-driven.
+// =====================================================================
+
+fn read_content_json(content_path: &PathBuf, rel: &str) -> Option<serde_json::Value> {
+    let p = content_path.join(rel);
+    if !p.exists() { return None; }
+    std::fs::read_to_string(&p).ok().and_then(|s| serde_json::from_str(&s).ok())
+}
+
+async fn news_list(State(state): State<AppState>) -> Json<serde_json::Value> {
+    let articles = read_content_json(&state.content_path, "marketing/news.json")
+        .unwrap_or_else(|| serde_json::json!({"articles": [], "total": 0}));
+    Json(articles)
+}
+
+async fn news_post(AxPath(slug): AxPath<String>, State(state): State<AppState>) -> Result<Json<serde_json::Value>, StatusCode> {
+    let pages_dir = state.content_path.join("pages");
+    let candidates = ["welcome", "pricing", "subscription-vaults", "paymaster", "about"];
+    let mapped = match slug.as_str() {
+        "strategic-roadmap-future" | "strategic-launch-epsx" | "platform-update" => Some("welcome"),
+        "integrated-service-solutions" | "platform-update-q2" | "service-tier-changes" => Some("pricing"),
+        "enhanced-portfolio-management" | "portfolio-enhancements" | "new-portfolio-features" => Some("subscription-vaults"),
+        "proprietary-performance-metrics" | "metrics-deep-dive" | "performance-analysis" => Some("paymaster"),
+        _ => None,
+    };
+
+    let pick = mapped.and_then(|m| candidates.iter().find(|c| **c == m).copied());
+    let body_html = pick.and_then(|name| {
+        let p = pages_dir.join(format!("{name}.mdx"));
+        std::fs::read_to_string(&p).ok()
+    });
+
+    let (title, body) = match body_html {
+        Some(raw) => {
+            use epsx_renderer::render_markdown;
+            let trimmed = raw.trim_start_matches('\n');
+            let mut title = slug.replace('-', " ");
+            let body_start;
+            if trimmed.starts_with("---") {
+                let after = trimmed[3..].trim_start_matches('\n');
+                if let Some(close) = after.find("\n---") {
+                    for line in after[..close].lines() {
+                        if let Some(v) = line.trim().strip_prefix("title:") {
+                            title = v.trim().trim_matches('"').to_string();
+                            break;
+                        }
+                    }
+                    body_start = close + 4;
+                } else {
+                    body_start = 0;
+                }
+            } else {
+                body_start = 0;
+            }
+            let md = if body_start > 0 {
+                let after = trimmed[3..].trim_start_matches('\n');
+                &after[body_start..]
+            } else {
+                trimmed
+            };
+            (title, render_markdown(md))
+        }
+        None => (
+            slug.replace('-', " "),
+            format!("<p>Article for <code>{slug}</code> coming soon.</p>"),
+        ),
+    };
+
+    Ok(Json(serde_json::json!({
+        "slug": slug,
+        "title": title,
+        "body": body,
+        "published": "2026-06-09T00:00:00Z"
+    })))
+}
+
+async fn plans_list(State(state): State<AppState>) -> Json<serde_json::Value> {
+    Json(read_content_json(&state.content_path, "marketing/plans.json")
+        .unwrap_or_else(|| serde_json::json!({
+            "personal": [], "api": [], "custom": []
+        })))
+}
+
+async fn rankings_list() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "companies": [
+            { "rank": 100, "ticker": "GHC",  "price": "$5.40",  "growth": "+4650.00%", "growth_pct": 4650.00, "next_action_days": 158, "next_action_pct": 5.0,    "tradingview_url": "https://www.tradingview.com/symbols/GHC" },
+            { "rank": 101, "ticker": "6535", "price": "$462.00","growth": "+4622.84%", "growth_pct": 4622.84, "next_action_days": 1,   "next_action_pct": 98.89,  "tradingview_url": "https://www.tradingview.com/symbols/6535" },
+            { "rank": 102, "ticker": "4657", "price": "$427.00","growth": "+4612.47%", "growth_pct": 4612.47, "next_action_days": 65,  "next_action_pct": 27.78,  "tradingview_url": "https://www.tradingview.com/symbols/4657" }
+        ],
+        "as_of": "2026-06-09T00:00:00Z",
+        "total": 100
+    }))
+}
+
+async fn portfolio_get(AxPath(addr): AxPath<String>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "address": addr,
+        "total_value_usd": 0.0,
+        "watchlist": [],
+        "subscriptions": [],
+        "transactions": [],
+        "auth_required": true,
+        "message": "Sign in to view your portfolio"
+    }))
 }

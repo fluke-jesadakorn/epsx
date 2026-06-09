@@ -430,16 +430,19 @@ struct CompanyRanking {
     tradingview_url: String,
 }
 
-async fn api_rankings() -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "companies": [
-            { "rank": 100, "ticker": "GHC",  "price": "$5.40",  "growth": "+4650.00%", "growth_pct": 4650.00, "next_action_days": 158, "next_action_pct": 5.0,    "tradingview_url": "https://www.tradingview.com/symbols/GHC" },
-            { "rank": 101, "ticker": "6535", "price": "$462.00","growth": "+4622.84%", "growth_pct": 4622.84, "next_action_days": 1,   "next_action_pct": 98.89,  "tradingview_url": "https://www.tradingview.com/symbols/6535" },
-            { "rank": 102, "ticker": "4657", "price": "$427.00","growth": "+4612.47%", "growth_pct": 4612.47, "next_action_days": 65,  "next_action_pct": 27.78,  "tradingview_url": "https://www.tradingview.com/symbols/4657" }
-        ],
-        "as_of": "2026-06-09T00:00:00Z",
-        "total": 100
-    }))
+async fn api_rankings(State(state): State<AppState>) -> Json<serde_json::Value> {
+    match state.content.get_plain("/api/v1/rankings").await {
+        Ok(v) => Json(v),
+        Err(_) => Json(serde_json::json!({
+            "companies": [
+                { "rank": 100, "ticker": "GHC",  "price": "$5.40",  "growth": "+4650.00%", "growth_pct": 4650.00, "next_action_days": 158, "next_action_pct": 5.0,    "tradingview_url": "https://www.tradingview.com/symbols/GHC" },
+                { "rank": 101, "ticker": "6535", "price": "$462.00","growth": "+4622.84%", "growth_pct": 4622.84, "next_action_days": 1,   "next_action_pct": 98.89,  "tradingview_url": "https://www.tradingview.com/symbols/6535" },
+                { "rank": 102, "ticker": "4657", "price": "$427.00","growth": "+4612.47%", "growth_pct": 4612.47, "next_action_days": 65,  "next_action_pct": 27.78,  "tradingview_url": "https://www.tradingview.com/symbols/4657" }
+            ],
+            "as_of": "2026-06-09T00:00:00Z",
+            "total": 100
+        })),
+    }
 }
 
 #[derive(Serialize)]
@@ -459,57 +462,13 @@ struct Plan {
     sale_active: bool,
 }
 
-async fn api_plans() -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "personal": [
-            {
-                "id": "1day", "category": "personal", "title": "1 Day Package",
-                "price": "$1", "price_usd": 1.0, "original_price": "$5", "original_usd": 5.0,
-                "discount_pct": 80, "savings": "Save $4", "badge": "SALE",
-                "countdown_hours": 24, "sale_active": true,
-                "features": ["Basic analytics view", "Rankings from position 6+", "Basic trading features", "24-hour access", "Explore the platform"]
-            },
-            {
-                "id": "1month", "category": "personal", "title": "1 Month Package",
-                "price": "$9.9", "price_usd": 9.9, "original_price": "$99", "original_usd": 99.0,
-                "discount_pct": 90, "savings": "Save $89.1", "badge": "SALE",
-                "countdown_hours": 168, "sale_active": true,
-                "features": ["Advanced analytics view", "25 stock rankings", "Basic analytic features", "Price alerts", "Email support", "30-day access"]
-            },
-            {
-                "id": "lifetime", "category": "personal", "title": "Lifetime Package",
-                "price": "$4999", "price_usd": 4999.0, "original_price": "$9999", "original_usd": 9999.0,
-                "discount_pct": 50, "savings": "Save $5000", "badge": "SALE",
-                "countdown_hours": 720, "sale_active": true,
-                "features": ["Advanced analytics suite", "Full rankings access (Rank 1+)", "API read access", "Basic & Pro trading", "Priority support", "Lifetime access"]
-            }
-        ],
-        "api": [
-            {
-                "id": "api-personal", "category": "api", "title": "API Personal",
-                "price": "$999", "price_usd": 999.0, "original_price": "$3999", "original_usd": 3999.0,
-                "discount_pct": 75, "savings": "Save $3000", "badge": "SALE",
-                "countdown_hours": 360, "sale_active": true,
-                "features": ["Analytics view access", "API read access", "Data export capability", "Full developer documentation", "30-day access"]
-            },
-            {
-                "id": "api-company", "category": "api", "title": "API Company",
-                "price": "$2999", "price_usd": 2999.0, "original_price": "$6999", "original_usd": 6999.0,
-                "discount_pct": 57, "savings": "Save $4000", "badge": "SALE",
-                "countdown_hours": 360, "sale_active": true,
-                "features": ["Advanced analytics suite", "Full trading suite (Basic, Pro & Advanced)", "API read & write access", "Data export", "Notifications management", "365-day company access", "Dedicated support"]
-            }
-        ],
-        "custom": [
-            {
-                "id": "revenue-share", "category": "custom", "title": "Custom",
-                "price": "Revenue Share", "price_usd": 0.0, "original_price": "", "original_usd": 0.0,
-                "discount_pct": 0, "savings": "Volume-based", "badge": "",
-                "countdown_hours": 0, "sale_active": false,
-                "features": ["Custom feature set & permissions", "Dedicated support & SLA", "Volume-based pricing", "Custom API rate limits", "White-label options", "Priority onboarding"]
-            }
-        ]
-    }))
+async fn api_plans(State(state): State<AppState>) -> Json<serde_json::Value> {
+    match state.content.get_plain("/api/v1/plans").await {
+        Ok(v) => Json(v),
+        Err(_) => Json(serde_json::json!({
+            "personal": [], "api": [], "custom": []
+        })),
+    }
 }
 
 #[derive(Serialize)]
@@ -525,7 +484,10 @@ struct NewsArticle {
     image: Option<String>,
 }
 
-async fn api_news() -> Json<serde_json::Value> {
+async fn api_news(State(state): State<AppState>) -> Json<serde_json::Value> {
+    if let Ok(v) = state.content.get_plain("/api/v1/news").await {
+        return Json(v);
+    }
     let articles = vec![
         NewsArticle {
             slug: "strategic-roadmap-future".to_string(),
@@ -641,7 +603,10 @@ async fn api_news() -> Json<serde_json::Value> {
     Json(serde_json::json!({ "articles": articles, "total": articles.len() }))
 }
 
-async fn api_news_post(AxPath(slug): AxPath<String>) -> Json<serde_json::Value> {
+async fn api_news_post(AxPath(slug): AxPath<String>, State(state): State<AppState>) -> Json<serde_json::Value> {
+    if let Ok(v) = state.content.get_plain(&format!("/api/v1/news/{slug}")).await {
+        return Json(v);
+    }
     use epsx_renderer::render_markdown;
 
     let mdx_name = pages::slug_to_mdx(&slug);
@@ -662,7 +627,10 @@ async fn api_news_post(AxPath(slug): AxPath<String>) -> Json<serde_json::Value> 
     }))
 }
 
-async fn api_portfolio(AxPath(addr): AxPath<String>) -> Json<serde_json::Value> {
+async fn api_portfolio(AxPath(addr): AxPath<String>, State(state): State<AppState>) -> Json<serde_json::Value> {
+    if let Ok(v) = state.content.get_plain(&format!("/api/v1/portfolio/{addr}")).await {
+        return Json(v);
+    }
     Json(serde_json::json!({
         "address": addr,
         "total_value_usd": 0.0,

@@ -77,6 +77,13 @@ async fn main() {
         .route("/api/v1/payment/{*path}", any(proxy_payment))
         .route("/api/v1/subscription/{*path}", any(proxy_subscription))
         .route("/api/v1/content/{*path}", any(proxy_content))
+        .route("/api/v1/news", any(proxy_news))
+        .route("/api/v1/news/{*path}", any(proxy_news))
+        .route("/api/v1/portfolio/{*path}", any(proxy_portfolio))
+        .route("/api/v1/plans", any(proxy_plans))
+        .route("/api/v1/plans/{*path}", any(proxy_plans))
+        .route("/api/v1/rankings", any(proxy_rankings))
+        .route("/api/v1/rankings/{*path}", any(proxy_rankings))
         .route("/api/v1/notification/{*path}", any(proxy_notification))
         .route("/api/v1/analytics/{*path}", any(proxy_analytics))
         .route("/api/v1/indexer/{*path}", any(proxy_indexer))
@@ -107,7 +114,19 @@ macro_rules! proxy_fn {
             uri: axum::http::Uri,
             req: axum::http::Request<axum::body::Body>,
         ) -> Result<axum::http::Response<axum::body::Body>, StatusCode> {
-            proxy_to_service(&$state.$svc, uri, req).await
+            proxy_to_service(&$state.$svc, uri, req, None).await
+        }
+    };
+}
+
+macro_rules! proxy_rewrite_fn {
+    ($name:ident, $state:ident, $svc:ident, $from:literal, $to:literal) => {
+        async fn $name(
+            axum::extract::State($state): axum::extract::State<AppState>,
+            uri: axum::http::Uri,
+            req: axum::http::Request<axum::body::Body>,
+        ) -> Result<axum::http::Response<axum::body::Body>, StatusCode> {
+            proxy_to_service(&$state.$svc, uri, req, Some(($from, $to))).await
         }
     };
 }
@@ -117,6 +136,10 @@ proxy_fn!(proxy_wallet, state, wallet_url);
 proxy_fn!(proxy_payment, state, payment_url);
 proxy_fn!(proxy_subscription, state, subscription_url);
 proxy_fn!(proxy_content, state, content_url);
+proxy_rewrite_fn!(proxy_news, state, content_url, "/api/v1/news", "/api/v1/content/news");
+proxy_rewrite_fn!(proxy_portfolio, state, content_url, "/api/v1/portfolio", "/api/v1/content/portfolio");
+proxy_rewrite_fn!(proxy_plans, state, content_url, "/api/v1/plans", "/api/v1/content/plans");
+proxy_rewrite_fn!(proxy_rankings, state, content_url, "/api/v1/rankings", "/api/v1/content/rankings");
 proxy_fn!(proxy_notification, state, notification_url);
 proxy_fn!(proxy_analytics, state, analytics_url);
 proxy_fn!(proxy_indexer, state, indexer_url);
@@ -125,9 +148,16 @@ async fn proxy_to_service(
     base_url: &str,
     uri: axum::http::Uri,
     req: Request,
+    rewrite: Option<(&str, &str)>,
 ) -> Result<Response, StatusCode> {
     let client = reqwest::Client::new();
-    let path = uri.path();
+    let raw_path = uri.path();
+    let path = match rewrite {
+        Some((from, to)) if raw_path.starts_with(from) => {
+            format!("{}{}", to, &raw_path[from.len()..])
+        }
+        _ => raw_path.to_string(),
+    };
     let query = uri.query().map(|q| format!("?{}", q)).unwrap_or_default();
     let url = format!("{}{}{}", base_url.trim_end_matches('/'), path, query);
 

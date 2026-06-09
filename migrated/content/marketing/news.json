@@ -1,0 +1,82 @@
+{
+  "articles": [
+    {
+      "slug": "strategic-roadmap-future",
+      "href": "/news/strategic-roadmap-future",
+      "title": "Strategic Roadmap and Future Capabilities",
+      "excerpt": "A preview of upcoming system enhancements, including automated alerts and expanded analytical depth.",
+      "date": "May 9, 2026",
+      "tag1": "roadmap",
+      "tag2": "strategy",
+      "featured": true,
+      "image": "https://aullybia7vqndzva.public.blob.vercel-storage.com/news/strategic-roadmap-future.jpg"
+    },
+    {
+      "slug": "enhanced-portfolio-management",
+      "href": "/news/enhanced-portfolio-management",
+      "title": "Enhanced Portfolio Management Solutions",
+      "excerpt": "Our asset tracking capabilities have been integrated into a unified portfolio view for streamlined oversight.",
+      "date": "April 30, 2026",
+      "tag1": "portfolio",
+      "tag2": "oversight",
+      "featured": false,
+      "image": "https://aullybia7vqndzva.public.blob.vercel-storage.com/news/enhanced-portfolio-management.jpg"
+    },
+    {
+      "slug": "integrated-service-solutions",
+      "href": "/news/integrated-service-solutions",
+      "title": "Integrated Service Solutions: Professional Tier Alignment",
+      "excerpt": "Our refined service structure is designed to align with various professional requirements and organizational scales.",
+      "date": "April 19, 2026",
+      "tag1": "solutions",
+      "tag2": "tier-update",
+      "featured": false,
+      "image": null
+    },
+    {
+      "slug": "proprietary-performance-metrics",
+      "href": "/news/proprietary-performance-metrics",
+      "title": "Proprietary Performance Metrics and Strategic Positioning",
+      "excerpt": "An overview of our methodology for identifying market momentum and prioritizing growth indicators.",
+      "date": "April 6, 2026",
+      "tag1": "methodology",
+      "tag2": "insights",
+      "featured": false,
+      "image": null
+    },
+    {
+      "slug": "strategic-launch-epsx",
+      "href": "/news/strategic-launch-epsx",
+      "title": "Strategic Launch of EPSX: Institutional-Grade Market Insights",
+      "excerpt": "EPSX is now operational, providing streamlined access to essential market metrics and professional portfolio management.",
+      "date": "March 23, 2026",
+      "tag1": "announcement",
+      "tag2": "launch",
+      "featured": false,
+      "image": null
+    },
+    {
+      "slug": "scalable-foundation",
+      "href": "/news/scalable-foundation",
+      "title": "Built for Ambition: A Scalable Foundation for Global Analytics",
+      "excerpt": "Scaling a global analytics platform requires an industrial-strength architecture.",
+      "date": "March 10, 2026",
+      "tag1": "postgresql",
+      "tag2": "database",
+      "featured": false,
+      "image": null
+    },
+    {
+      "slug": "smarter-decisions-ai",
+      "href": "/news/smarter-decisions-ai",
+      "title": "Smarter Decisions: How EPSX AI Navigates Market Complexity",
+      "excerpt": "Leverage the power of artificial intelligence to filter out noise and surface high-signal trends.",
+      "date": "March 10, 2026",
+      "tag1": "ai",
+      "tag2": "machine-learning",
+      "featured": false,
+      "image": null
+    }
+  ],
+  "total": 7
+}
