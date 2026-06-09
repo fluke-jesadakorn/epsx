@@ -87,7 +87,7 @@ opentelemetry = { version = "0.27", features = ["trace", "metrics", "logs"] }
 opentelemetry-sdk = { version = "0.27", features = ["trace", "metrics", "logs"] }
 opentelemetry-otlp = { version = "0.27", features = ["tonic"] }
 opentelemetry-prometheus = "0.27"
-metrics = "0.22"
+metrics = "0.23"
 metrics-exporter-prometheus = "0.15"
 
 # Utilities
