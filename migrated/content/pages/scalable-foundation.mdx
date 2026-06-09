@@ -1,0 +1,50 @@
+---
+title: "Built for Ambition: A Scalable Foundation for Global Analytics"
+slug: "scalable-foundation"
+date: "March 15, 2026"
+author: "EPSX Engineering"
+excerpt: "EPSX's distributed architecture is engineered to absorb growth without compromising latency, security, or the developer experience."
+tags: ["engineering", "scalability", "infrastructure"]
+---
+
+# Built for Ambition: A Scalable Foundation for Global Analytics
+
+When we set out to build EPSX, the brief was deceptively simple: a platform that delivers **institutional-grade market intelligence** to anyone with a wallet. The hard part wasn't the analytics — it was the foundation underneath.
+
+## Microservices from day one
+
+Every subsystem in EPSX is a standalone Rust service with a single responsibility:
+
+- **Identity** — SIWE authentication, JWT issuance, role-based access control
+- **Wallet** — On-chain read paths, ERC-20 balance lookups, transaction history
+- **Payment** — Paymaster coordination, gas sponsorship, USDC settlement
+- **Subscription** — Per-merchant vaults, billing schedules, grace periods
+- **Content** — Visual page builder, MDX rendering, asset registry
+- **Notification** — Real-time alerts, multi-channel delivery
+- **Analytics** — Event ingestion, Prometheus metrics, business dashboards
+- **Indexer** — Multi-chain block scanning, transaction decoding
+
+A single **gateway** sits in front of them, rewriting paths and handling cross-cutting concerns. This means any service can scale independently, fail independently, and be replaced without touching the others.
+
+## Why Rust?
+
+Three reasons:
+
+1. **Performance** — Sub-millisecond p99 latency on hot paths, even under load
+2. **Safety** — The borrow checker catches entire classes of bugs at compile time
+3. **Type system** — Domain models are encoded in the type signatures, not just docs
+
+We use **axum** for HTTP, **sqlx** for Postgres, **redis** for caching and ephemeral state, and **alloy** for on-chain interactions. Every binary is statically linked and runs in our local Kubernetes cluster.
+
+## What scales with you
+
+- **Block registry** is dynamic — add a new chain by dropping a config entry
+- **Per-merchant vaults** mean each business has isolated billing state
+- **CDN-friendly frontends** with server-side rendered shells and lazy-loaded islands
+- **Postgres + Redis + MinIO** on bare metal, no managed-service lock-in
+
+## What's next
+
+We're actively working on horizontal indexer scaling, multi-region read replicas, and a real-time WebSocket layer for live price feeds. The platform is designed to grow with you — from a single merchant to a global marketplace.
+
+If you're building on EPSX and need capacity that isn't there yet, [reach out](/news/strategic-launch-epsx) — we ship fast when the use case is real.

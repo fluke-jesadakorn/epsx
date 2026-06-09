@@ -195,6 +195,53 @@ pub fn design_system_head(title: &str, description: &str) -> String {
     padding: 1.5rem;
     transition: all 0.3s ease;
   }}
+  .card-insight h2, .card-insight h3, .card-insight h4 {{
+    color: var(--text);
+    margin-top: 2rem;
+    margin-bottom: 0.75rem;
+    line-height: 1.3;
+  }}
+  .card-insight h2 {{ font-size: 1.625rem; font-weight: 700; }}
+  .card-insight h3 {{ font-size: 1.25rem; font-weight: 700; }}
+  .card-insight h4 {{ font-size: 1.0625rem; font-weight: 700; }}
+  .card-insight p, .card-insight li {{
+    color: var(--text-muted);
+  }}
+  .card-insight a {{
+    color: var(--accent);
+  }}
+  .card-insight code {{
+    background: rgba(255,255,255,0.05);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-size: 0.875em;
+    color: var(--text);
+  }}
+  .card-insight pre {{
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    overflow-x: auto;
+    font-size: 0.875rem;
+    margin: 1rem 0;
+  }}
+  .card-insight ul, .card-insight ol {{
+    margin: 0.75rem 0 1rem 1.5rem;
+  }}
+  .card-insight li {{ margin-bottom: 0.375rem; }}
+  .card-insight hr {{
+    border: 0;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }}
+  .card-insight blockquote {{
+    border-left: 3px solid var(--accent);
+    padding-left: 1rem;
+    color: var(--text);
+    font-style: italic;
+    margin: 1rem 0;
+  }}
   .card-insight:hover {{
     box-shadow: var(--shadow-xl);
     transform: translateY(-2px);

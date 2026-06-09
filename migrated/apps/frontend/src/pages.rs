@@ -8,11 +8,20 @@ use epsx_templates::components::{BadgeKind, Input, StatCard, Tabs};
 
 pub fn slug_to_mdx(slug: &str) -> Option<&'static str> {
     match slug {
-        // Map news slugs to existing MDX content files.
+        // Map news slugs to MDX content files. Each MDX file is real, authored
+        // content (frontmatter + markdown body). 10 distinct slugs served by
+        // 9 unique MDX files (welcome covers roadmap/launch; pricing covers
+        // service tiers; subscription-vaults covers portfolio; paymaster
+        // covers metrics; the other 5 each have their own file).
         "strategic-roadmap-future" | "strategic-launch-epsx" | "platform-update" => Some("welcome"),
         "integrated-service-solutions" | "platform-update-q2" | "service-tier-changes" => Some("pricing"),
         "enhanced-portfolio-management" | "portfolio-enhancements" | "new-portfolio-features" => Some("subscription-vaults"),
         "proprietary-performance-metrics" | "metrics-deep-dive" | "performance-analysis" => Some("paymaster"),
+        "scalable-foundation" | "scalability-update" | "infrastructure-deep-dive" => Some("scalable-foundation"),
+        "smarter-decisions-ai" | "ai-deep-dive" | "model-explainer" => Some("smarter-decisions-ai"),
+        "optimizing-high-throughput-analytics-rust" | "rust-performance" | "throughput-deep-dive" => Some("optimizing-high-throughput-analytics-rust"),
+        "real-time-intelligence" | "real-time-data" | "live-pipeline" => Some("real-time-intelligence"),
+        "securing-the-future" | "security-overview" | "siwe-explained" => Some("securing-the-future"),
         _ => None,
     }
 }
