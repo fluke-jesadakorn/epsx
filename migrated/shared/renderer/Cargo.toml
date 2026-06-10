@@ -1,0 +1,11 @@
+[package]
+name = "epsx-renderer"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+pulldown-cmark.workspace = true
+tracing.workspace = true
+thiserror.workspace = true

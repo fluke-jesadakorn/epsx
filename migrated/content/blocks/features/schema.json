@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json.schemastore.org/block-type.json",
+  "type": "features",
+  "name": "Features Grid",
+  "category": "marketing",
+  "description": "Grid of feature cards with icons",
+  "props": {
+    "title": { "type": "string", "description": "Section heading" },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string", "required": true },
+          "description": { "type": "string" },
+          "icon": { "type": "string", "description": "Icon name" }
+        }
+      },
+      "minItems": 1,
+      "maxItems": 12
+    },
+    "columns": { "type": "number", "enum": [2, 3, 4], "default": 3 }
+  }
+}

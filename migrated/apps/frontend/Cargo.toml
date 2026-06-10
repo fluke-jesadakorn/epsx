@@ -1,0 +1,28 @@
+[package]
+name = "epsx-frontend"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "bff-frontend"
+path = "src/main.rs"
+
+[dependencies]
+epsx-kernel = { path = "../../shared/kernel" }
+epsx-client = { path = "../../shared/client" }
+epsx-observability = { path = "../../shared/observability" }
+epsx-templates = { path = "../../shared/templates" }
+epsx-renderer = { path = "../../shared/renderer" }
+axum.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+hex.workspace = true
+
+[features]
+default = ["ssr"]
+ssr = []
+web = []

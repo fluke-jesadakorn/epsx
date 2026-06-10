@@ -1,0 +1,22 @@
+[package]
+name = "epsx-notification"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "notification"
+path = "src/main.rs"
+
+[dependencies]
+epsx-observability = { path = "../../shared/observability" }
+axum.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+clap.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+handlebars = "5.1"
+lettre = { version = "0.11", features = ["tokio1-native-tls"] }

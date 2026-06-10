@@ -1,0 +1,242 @@
+syntax = "proto3";
+
+package epsx.analytics.v1;
+
+option rust_module = "analytics_v1";
+
+service AnalyticsService {
+  // Events
+  rpc TrackEvent(TrackEventRequest) returns (TrackEventResponse);
+  rpc TrackBatch(TrackBatchRequest) returns (TrackBatchResponse);
+  
+  // Metrics
+  rpc GetMetrics(GetMetricsRequest) returns (GetMetricsResponse);
+  rpc GetTimeSeries(GetTimeSeriesRequest) returns (GetTimeSeriesResponse);
+  rpc GetFunnel(GetFunnelRequest) returns (GetFunnelResponse);
+  rpc GetRetention(GetRetentionRequest) returns (GetRetentionResponse);
+  
+  // Dashboards
+  rpc GetDashboard(GetDashboardRequest) returns (GetDashboardResponse);
+  rpc ListDashboards(ListDashboardsRequest) returns (ListDashboardsResponse);
+  rpc CreateDashboard(CreateDashboardRequest) returns (CreateDashboardResponse);
+  rpc UpdateDashboard(UpdateDashboardRequest) returns (UpdateDashboardResponse);
+  
+  // Revenue
+  rpc GetRevenue(GetRevenueRequest) returns (GetRevenueResponse);
+  rpc GetRevenueByProduct(GetRevenueByProductRequest) returns (GetRevenueByProductResponse);
+  rpc GetRevenueByChain(GetRevenueByChainRequest) returns (GetRevenueByChainResponse);
+  
+  // Export
+  rpc ExportData(ExportDataRequest) returns (ExportDataResponse);
+}
+
+message TrackEventRequest {
+  string user_id = 1;
+  string event = 2;
+  map<string, string> properties = 3;
+  int64 timestamp = 4;
+  string session_id = 5;
+  string chain_id = 6;
+}
+
+message TrackEventResponse {
+  string event_id = 1;
+  bool accepted = 2;
+}
+
+message TrackBatchRequest {
+  repeated TrackEventRequest events = 1;
+}
+
+message TrackBatchResponse {
+  int32 accepted = 1;
+  int32 failed = 2;
+}
+
+message GetMetricsRequest {
+  string metric = 1; // dau, mau, revenue, conversion, etc.
+  int64 start = 2;
+  int64 end = 3;
+  string interval = 4; // hour, day, week, month
+  repeated string filters = 5; // key=value
+}
+
+message GetMetricsResponse {
+  repeated MetricPoint points = 1;
+}
+
+message GetTimeSeriesRequest {
+  string metric = 1;
+  int64 start = 2;
+  int64 end = 3;
+  string interval = 4;
+  repeated string group_by = 5;
+  repeated string filters = 6;
+}
+
+message GetTimeSeriesResponse {
+  repeated TimeSeries series = 1;
+}
+
+message GetFunnelRequest {
+  repeated string steps = 1;
+  int64 start = 2;
+  int64 end = 3;
+  repeated string filters = 4;
+}
+
+message GetFunnelResponse {
+  repeated FunnelStep steps = 1;
+}
+
+message GetRetentionRequest {
+  string cohort_event = 1;
+  string return_event = 2;
+  int64 start = 3;
+  int64 end = 4;
+  string interval = 5; // day, week, month
+}
+
+message GetRetentionResponse {
+  repeated RetentionCohort cohorts = 1;
+}
+
+message GetDashboardRequest {
+  string dashboard_id = 1;
+}
+
+message GetDashboardResponse {
+  Dashboard dashboard = 1;
+}
+
+message ListDashboardsRequest {
+  string user_id = 1;
+}
+
+message ListDashboardsResponse {
+  repeated Dashboard dashboards = 1;
+}
+
+message CreateDashboardRequest {
+  string user_id = 1;
+  string name = 2;
+  string layout_json = 3;
+  repeated string widgets = 4;
+}
+
+message CreateDashboardResponse {
+  Dashboard dashboard = 1;
+}
+
+message UpdateDashboardRequest {
+  string dashboard_id = 1;
+  string name = 2;
+  string layout_json = 3;
+  repeated string widgets = 4;
+}
+
+message UpdateDashboardResponse {
+  Dashboard dashboard = 1;
+}
+
+message GetRevenueRequest {
+  int64 start = 1;
+  int64 end = 2;
+  string interval = 3;
+  string chain_id = 4;
+}
+
+message GetRevenueResponse {
+  repeated RevenuePoint points = 1;
+  string total = 2;
+}
+
+message GetRevenueByProductRequest {
+  int64 start = 1;
+  int64 end = 2;
+}
+
+message GetRevenueByProductResponse {
+  repeated ProductRevenue products = 1;
+}
+
+message GetRevenueByChainRequest {
+  int64 start = 1;
+  int64 end = 2;
+}
+
+message GetRevenueByChainResponse {
+  repeated ChainRevenue chains = 1;
+}
+
+message ExportDataRequest {
+  string query = 1; // SQL-like or predefined
+  string format = 2; // csv, json, parquet
+}
+
+message ExportDataResponse {
+  string download_url = 1;
+  int64 expires_at = 2;
+}
+
+message MetricPoint {
+  int64 timestamp = 1;
+  string value = 2;
+  map<string, string> dimensions = 3;
+}
+
+message TimeSeries {
+  string name = 1;
+  map<string, string> tags = 2;
+  repeated MetricPoint points = 3;
+}
+
+message FunnelStep {
+  string event = 1;
+  int64 count = 2;
+  double conversion_rate = 3;
+}
+
+message RetentionCohort {
+  int64 cohort_start = 1;
+  int64 cohort_size = 2;
+  repeated RetentionPoint points = 3;
+}
+
+message RetentionPoint {
+  int32 period = 1; // 0, 1, 2, ...
+  int64 retained = 2;
+  double rate = 3;
+}
+
+message Dashboard {
+  string id = 1;
+  string user_id = 2;
+  string name = 3;
+  string layout_json = 4;
+  repeated string widgets = 5;
+  int64 created_at = 6;
+  int64 updated_at = 7;
+}
+
+message RevenuePoint {
+  int64 timestamp = 1;
+  string amount = 2;
+  string currency = 3;
+  string chain_id = 4;
+}
+
+message ProductRevenue {
+  string product_id = 1;
+  string product_name = 2;
+  string revenue = 3;
+  int64 transactions = 4;
+}
+
+message ChainRevenue {
+  string chain_id = 1;
+  string chain_name = 2;
+  string revenue = 3;
+  string currency = 4;
+  int64 transactions = 5;
+}

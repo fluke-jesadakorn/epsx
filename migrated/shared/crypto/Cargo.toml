@@ -1,0 +1,17 @@
+[package]
+name = "epsx-crypto"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+epsx-kernel = { path = "../kernel" }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+jsonwebtoken.workspace = true
+base64.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+rand.workspace = true
+hex.workspace = true
+siwe.workspace = true

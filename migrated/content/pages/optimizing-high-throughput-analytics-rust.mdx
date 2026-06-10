@@ -1,0 +1,80 @@
+---
+title: "Optimizing High-Throughput Analytics in Rust"
+slug: "optimizing-high-throughput-analytics-rust"
+date: "March 5, 2026"
+author: "EPSX Engineering"
+excerpt: "A deep dive into the dataflow optimizations that let EPSX's analytics service handle 10k+ events per second on commodity hardware."
+tags: ["rust", "performance", "engineering"]
+---
+
+# Optimizing High-Throughput Analytics in Rust
+
+When we benchmarked the first version of the EPSX analytics service, we were proud to hit **3,000 events per second** on a single core. Then we looked at production load projections and realized that wasn't going to be enough. Here's how we got to 10k+.
+
+## The starting point
+
+The naive pipeline was:
+
+1. Accept HTTP request
+2. Parse JSON body
+3. Validate fields
+4. INSERT into Postgres
+5. Return 200
+
+That worked, but Postgres was the bottleneck. Every event was a synchronous round-trip, and the connection pool was hitting its limit around 2-3k req/s.
+
+## Optimization 1: batch inserts
+
+The first win was **batching**. Instead of INSERTing one row at a time, we accumulate events in an in-memory channel and flush to Postgres every 100ms or every 500 rows, whichever comes first.
+
+```rust
+let mut batch = Vec::with_capacity(500);
+loop {
+    select! {
+        Some(event) = rx.recv() => batch.push(event),
+        _ = tokio::time::sleep(Duration::from_millis(100)) => {
+            flush(&pool, &mut batch).await?;
+        }
+    }
+    if batch.len() >= 500 { flush(&pool, &mut batch).await?; }
+}
+```
+
+This alone took us from 3k to 7k events/sec, because Postgres loves bulk inserts.
+
+## Optimization 2: copy-from
+
+Postgres has a special `COPY FROM` protocol that's even faster than parameterized INSERTs. We use the [`sqlx::CopyFrom`] helper, which streams rows directly into the database without per-row parsing.
+
+```rust
+let mut writer = pool.copy_in_raw("COPY events (id, name, props, chain, ts) FROM STDIN WITH (FORMAT csv)").await?;
+for e in batch.drain(..) {
+    writer.write_all(format!("{},{},...\n", e.id, e.name, ...).as_bytes()).await?;
+}
+writer.finish().await?;
+```
+
+This took us to 9k.
+
+## Optimization 3: precomputed JSON
+
+Most events have a `properties` field that's a free-form JSON blob. Serializing/deserializing this for every event was expensive. We precompute the JSON once at the API boundary and store the **bytes** directly in a `BYTEA` column, bypassing serde for the hot path.
+
+```rust
+let props_bytes = body.properties.map(|p| serde_json::to_vec(&p).unwrap());
+// store as raw bytes
+```
+
+## Optimization 4: skip the ORM
+
+The biggest win came from **ditching `sqlx::query_as`** (which maps rows into typed structs) and using raw row iteration. For high-throughput write paths, the type mapping overhead is significant. We still use the typed API for read paths where we want the safety.
+
+## The result
+
+After all four optimizations, the same single core now handles **12,000 events/sec** with p99 latency under 50ms. Scaling to multiple cores is just running more replicas behind the gateway.
+
+## When to do this
+
+Don't optimize upfront. We built the simple version first, measured under load, and only then did we start optimizing. The 80/20 rule applies: batching alone got us 2x, and the rest was diminishing returns.
+
+The full source of the EPSX analytics service is in the monorepo — feel free to copy the patterns.

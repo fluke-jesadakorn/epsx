@@ -1,0 +1,277 @@
+{
+  "nextjsDir": "screenshots/baseline/nextjs-admin",
+  "dioxusDir": "screenshots/dioxus-admin",
+  "total": 29,
+  "identical": 0,
+  "minor": 0,
+  "major": 29,
+  "sizeMismatch": 0,
+  "missing": 0,
+  "pass": 0,
+  "fail": 29,
+  "avgDiffPct": 97.61145021107771,
+  "avgRmse": 33.09422792417189,
+  "results": [
+    {
+      "file": "access-denied.png",
+      "diffPct": 100,
+      "rmse": 32.89023342007599,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "analytics.png",
+      "diffPct": 99.998828125,
+      "rmse": 33.89865615326654,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "audit-log.png",
+      "diffPct": 99.998828125,
+      "rmse": 32.39374224728989,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "auth.png",
+      "diffPct": 99.998828125,
+      "rmse": 33.55914418162544,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "chat.png",
+      "diffPct": 99.998828125,
+      "rmse": 33.37817524494549,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "chat__sample-1.png",
+      "diffPct": 99.998828125,
+      "rmse": 33.55587145515049,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "developer-portal.png",
+      "diffPct": 99.998828125,
+      "rmse": 33.532264362181216,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "developer-portal__api-keys__create.png",
+      "diffPct": 99.998828125,
+      "rmse": 33.47877975689103,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "home.png",
+      "diffPct": 99.998828125,
+      "rmse": 33.652213367299176,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "media.png",
+      "diffPct": 99.998828125,
+      "rmse": 33.52898777900065,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "news.png",
+      "diffPct": 99.998828125,
+      "rmse": 33.4964236323649,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "news__1__edit.png",
+      "diffPct": 99.998828125,
+      "rmse": 33.382107330780514,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "news__create.png",
+      "diffPct": 99.998828125,
+      "rmse": 33.382107330780514,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "not-a-real-page.png",
+      "diffPct": 65.38067649812734,
+      "rmse": 27.887710499657608,
+      "status": "major",
+      "width": 1280,
+      "height": 801,
+      "notes": []
+    },
+    {
+      "file": "notifications.png",
+      "diffPct": 99.998828125,
+      "rmse": 33.628594525963564,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "notifications__create.png",
+      "diffPct": 99.998828125,
+      "rmse": 33.553668778191195,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "notifications__manage.png",
+      "diffPct": 99.998828125,
+      "rmse": 33.628594525963564,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "payments.png",
+      "diffPct": 99.998828125,
+      "rmse": 34.19292396796692,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "policies.png",
+      "diffPct": 99.998828125,
+      "rmse": 33.52049238646009,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "settings.png",
+      "diffPct": 99.998828125,
+      "rmse": 33.36625231607218,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "unauthorized.png",
+      "diffPct": 100,
+      "rmse": 33.43773773766731,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "wallet-management.png",
+      "diffPct": 99.998828125,
+      "rmse": 33.704638951470145,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "wallet-management__0x1234.png",
+      "diffPct": 99.998828125,
+      "rmse": 33.381858909170575,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "wallet-management__0x1234__disable.png",
+      "diffPct": 65.38067649812734,
+      "rmse": 27.887710499657608,
+      "status": "major",
+      "width": 1280,
+      "height": 801,
+      "notes": []
+    },
+    {
+      "file": "wallet-management__access.png",
+      "diffPct": 99.998828125,
+      "rmse": 33.393776022160615,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "wallet-management__access__plans.png",
+      "diffPct": 99.998828125,
+      "rmse": 33.393776022160615,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "wallet-management__access__plans__1.png",
+      "diffPct": 99.998828125,
+      "rmse": 33.38044215734405,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "wallet-management__credits.png",
+      "diffPct": 99.998828125,
+      "rmse": 33.54108728795674,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    },
+    {
+      "file": "wallet-management__wallets.png",
+      "diffPct": 99.998828125,
+      "rmse": 33.704638951470145,
+      "status": "major",
+      "width": 1280,
+      "height": 800,
+      "notes": []
+    }
+  ]
+}

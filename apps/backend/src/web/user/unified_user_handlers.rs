@@ -19,7 +19,7 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tracing::{error, info, warn};
 use utoipa::ToSchema;
@@ -1039,65 +1039,51 @@ async fn fetch_user_watchlist(app_state: &AppState, wallet: &str) -> Result<Vec<
         .collect())
 }
 
-async fn fetch_portfolio_rankings(watchlist: &[String]) -> Result<Vec<SymbolCardData>, String> {
+async fn fetch_watchlist_rankings(symbols: &[String]) -> Result<Vec<SymbolCardData>, String> {
+    if symbols.is_empty() {
+        return Ok(Vec::new());
+    }
+
     let mut seen = HashSet::new();
-    let normalized_watchlist: Vec<String> = watchlist
+    let normalized_symbols: Vec<String> = symbols
         .iter()
         .map(|symbol| normalize_watchlist_symbol(symbol))
         .filter(|symbol| !symbol.is_empty())
         .filter(|symbol| seen.insert(symbol.clone()))
         .collect();
 
+    if normalized_symbols.is_empty() {
+        return Ok(Vec::new());
+    }
+
     let tradingview_service =
         TradingViewApiService::new(Arc::new(crate::config::get_fallback_config()));
 
-    let (screening_results, _) = tradingview_service
-        .fetch_eps_growth_ranking(
-            Some(0),
-            Some(1000),
-            None,
-            None,
-            Some("qoq_growth".to_string()),
-        )
+    let eps_data = tradingview_service
+        .fetch_symbols_concurrent(normalized_symbols.clone())
         .await
         .map_err(|e| e.to_string())?;
 
-    let mut ranked_symbols = HashSet::new();
-    let mut cards = Vec::with_capacity(screening_results.len());
-
-    for (index, result) in screening_results.into_iter().enumerate() {
-        ranked_symbols.insert(normalize_watchlist_symbol(&result.symbol));
-        let ranking = convert_screening_result_to_eps_ranking(result);
-        let position = index + 1;
-        let unified = transform_ranking_to_unified_format(ranking, position);
-        let card = transform_unified_to_card_format(&unified);
-        cards.push(card);
-    }
-
-    let missing_watchlist_symbols: Vec<String> = normalized_watchlist
-        .into_iter()
-        .filter(|symbol| !ranked_symbols.contains(symbol))
+    let symbol_positions: HashMap<String, usize> = normalized_symbols
+        .iter()
+        .enumerate()
+        .map(|(index, symbol)| (symbol.clone(), index + 1))
         .collect();
 
-    if !missing_watchlist_symbols.is_empty() {
-        let eps_data = tradingview_service
-            .fetch_symbols_concurrent(missing_watchlist_symbols)
-            .await
-            .map_err(|e| e.to_string())?;
-
-        for data in eps_data {
-            let symbol = normalize_watchlist_symbol(&data.symbol);
-            if !ranked_symbols.insert(symbol) {
-                continue;
-            }
-            let ranking = EPSRanking::from_eps_data(data, None);
-            let unified = transform_ranking_to_unified_format(ranking, 0);
-            let card = transform_unified_to_card_format(&unified);
-            cards.push(card);
-        }
+    let mut cards_by_symbol = HashMap::new();
+    for data in eps_data {
+        let symbol = normalize_watchlist_symbol(&data.symbol);
+        let position = symbol_positions.get(&symbol).copied().unwrap_or(1);
+        let ranking = EPSRanking::from_eps_data(data, Some(position as i32));
+        let unified = transform_ranking_to_unified_format(ranking, position);
+        let card = transform_unified_to_card_format(&unified);
+        cards_by_symbol.insert(symbol, card);
     }
 
-    Ok(cards)
+    Ok(normalized_symbols
+        .iter()
+        .filter_map(|symbol| cards_by_symbol.remove(symbol))
+        .collect())
 }
 
 /// Portfolio overview: returns watchlist + analytics data
@@ -1118,10 +1104,10 @@ pub async fn portfolio_overview_handler(
             warn!("Failed to fetch watchlist for {}: {}", wallet, e);
             Vec::new()
         });
-    let rankings = fetch_portfolio_rankings(&watchlist)
+    let rankings = fetch_watchlist_rankings(&watchlist)
         .await
         .unwrap_or_else(|e| {
-            warn!("Failed to fetch portfolio rankings for {}: {}", wallet, e);
+            warn!("Failed to fetch watchlist rankings for {}: {}", wallet, e);
             Vec::new()
         });
 
