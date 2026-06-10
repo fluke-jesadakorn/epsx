@@ -8,7 +8,7 @@ name = "notification"
 path = "src/main.rs"
 
 [dependencies]
-epsx-observability = { path = "../../shared/observability" }
+epsx-observability = { path = "../../shared/rust/observability" }
 axum.workspace = true
 tokio.workspace = true
 tracing.workspace = true
