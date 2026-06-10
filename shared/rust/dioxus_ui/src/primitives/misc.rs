@@ -219,7 +219,15 @@ pub fn ScrollArea(
     };
     rsx! {
         div { class: "{cls}", style: "{style}",
-            div { class: "scroll-area-viewport h-full w-full rounded-[inherit] overflow-auto",
+            // A11y: the scroll viewport is a focusable `region` so
+            // keyboard users can scroll with arrow keys / PageUp /
+            // PageDown after tabbing to it. `role="region"` and
+            // `tabindex="0"` mirror the behaviour of Radix's
+            // ScrollArea.Viewport.
+            div {
+                class: "scroll-area-viewport h-full w-full rounded-[inherit] overflow-auto",
+                role: "region",
+                tabindex: "0",
                 {children}
             }
             ScrollBar { orientation: Some("vertical".to_string()) }
