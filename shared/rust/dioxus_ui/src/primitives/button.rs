@@ -1,3 +1,5 @@
+use super::icon::Icon;
+
 use dioxus::prelude::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -45,10 +47,20 @@ pub fn Button(
     kind: Option<ButtonKind>,
     size: Option<ButtonSize>,
     href: Option<String>,
+    /// Optional root tag override: "a" (render as anchor) or "button" (default).
+    /// Used together with `children: Element` to act as a thin wrapper ("as_child"
+    /// slot pattern) — the caller passes whatever element should be rendered
+    /// as the root via children, and `as` only controls the wrapper element
+    /// when `href` is not set.
+    r#as: Option<String>,
     r#type: Option<String>,
     disabled: Option<bool>,
     block: Option<bool>,
     loading: Option<bool>,
+    /// Optional lucide icon name rendered to the left of children.
+    left_icon: Option<String>,
+    /// Optional lucide icon name rendered to the right of children.
+    right_icon: Option<String>,
     class_name: Option<String>,
     id: Option<String>,
     onclick: Option<EventHandler<MouseEvent>>,
@@ -66,17 +78,48 @@ pub fn Button(
 
     if let Some(url) = href {
         rsx! {
-            a { class: "{cls}", href: "{url}", id: id.clone(), {children} }
+            a { class: "{cls}", href: "{url}", id: id.clone(),
+                if let Some(i) = &left_icon {
+                    Icon { name: i.clone(), size: Some(16) }
+                }
+                {children}
+                if let Some(i) = &right_icon {
+                    Icon { name: i.clone(), size: Some(16) }
+                }
+            }
         }
     } else {
-        rsx! {
-            button {
-                class: "{cls}",
-                r#type: r#type.unwrap_or_else(|| "button".to_string()),
-                disabled: disabled,
-                id: id.clone(),
-                onclick: move |e| if let Some(h) = &onclick { h.call(e); },
-                {children}
+        // `as` overrides the root tag when "a" is passed; default is "button".
+        let tag = r#as.as_deref().unwrap_or("button");
+        if tag == "a" {
+            rsx! {
+                a { class: "{cls}", id: id.clone(),
+                    onclick: move |e| if let Some(h) = &onclick { h.call(e); },
+                    if let Some(i) = &left_icon {
+                        Icon { name: i.clone(), size: Some(16) }
+                    }
+                    {children}
+                    if let Some(i) = &right_icon {
+                        Icon { name: i.clone(), size: Some(16) }
+                    }
+                }
+            }
+        } else {
+            rsx! {
+                button {
+                    class: "{cls}",
+                    r#type: r#type.unwrap_or_else(|| "button".to_string()),
+                    disabled: disabled,
+                    id: id.clone(),
+                    onclick: move |e| if let Some(h) = &onclick { h.call(e); },
+                    if let Some(i) = &left_icon {
+                        Icon { name: i.clone(), size: Some(16) }
+                    }
+                    {children}
+                    if let Some(i) = &right_icon {
+                        Icon { name: i.clone(), size: Some(16) }
+                    }
+                }
             }
         }
     }
