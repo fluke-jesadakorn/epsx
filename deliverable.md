@@ -11,7 +11,9 @@ public API (no signature changes, no removed parameters, no required booleans).
 
 - Branch name: `wave1/track-a-form-input`
 - Forked from: `migration/dioxus-microservices` @ `4d90b402`
-- Commit hash: `e90468a8` (`feat(dioxus-ui): track A — form & input primitive parity`)
+- Commits:
+  - `e90468a8` — `feat(dioxus-ui): track A — form & input primitive parity` (9 files, +1079/−61)
+  - `64300cce` — `docs(wave1): track A deliverable` (deliverable.md)
 
 ## Changed files (9)
 
@@ -152,4 +154,4 @@ primitives crate — this is the baseline state.)
 | `git diff --stat -- shared/rust/dioxus_ui/src/pages/` | empty (no pages modified) |
 | `git diff --stat -- apps/` | empty (no BFF modified) |
 | Branch | `wave1/track-a-form-input` |
-| Commit hash | `e90468a8` |
+| Commit hash | `e90468a8` + `64300cce` |
