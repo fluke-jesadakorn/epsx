@@ -1432,6 +1432,506 @@ pub fn design_system_head(title: &str, description: &str) -> String {
   .ring-1 {{ box-shadow: 0 0 0 1px var(--border); }}
   .scrollbar-thin::-webkit-scrollbar {{ width: 6px; height: 6px; }}
   .scrollbar-thin::-webkit-scrollbar-thumb {{ background: var(--border-strong); border-radius: 3px; }}
+
+  /* =================================================================
+   * Wave 1 — Track A: form & input primitive parity
+   * ----------------------------------------------------------------
+   * Block comment cataloguing every new class added by the Track A
+   * Dioxus primitives (form, input, select, combobox, date_picker,
+   * stepper, checkbox, switch, misc). Reuses the existing --epsx-*
+   * CSS custom properties and the global Tailwind v2 utility set.
+   * Each entry is: `<class>` — `<purpose>` — `<consumer primitive file>`.
+   * ----------------------------------------------------------------
+   *  input-error             — invalid input border + ring            (primitives/input.rs)
+   *  input-with-icon         — left padding when an icon is present   (primitives/input.rs)
+   *  label-required          — red "*" indicator on required labels   (primitives/form.rs :: Label)
+   *  form-section            — boxed subsection of a long form        (primitives/form.rs :: FormSection)
+   *  form-section-header     — header row holding title + description (primitives/form.rs :: FormSection)
+   *  form-section-title      — h3 title inside the section header     (primitives/form.rs :: FormSection)
+   *  form-section-description— muted description under the section title(primitives/form.rs :: FormSection)
+   *  form-section-body       — content area below the section header  (primitives/form.rs :: FormSection)
+   *  form-row                — responsive 1/2/3-column grid for fields(primitives/form.rs :: FormRow)
+   *  input-group             — label + control + trailing-button row  (primitives/form.rs :: InputGroup)
+   *  input-group-label       — label rendered above the control row   (primitives/form.rs :: InputGroup)
+   *  input-group-control     — flex row holding the control(s)        (primitives/form.rs :: InputGroup)
+   *  input-group-help        — inline help text below the control row (primitives/form.rs :: InputGroup)
+   *  input-group-error       — red error text below the control row   (primitives/form.rs :: InputGroup)
+   *  radio-group             — vertical stack of radio rows           (primitives/form.rs :: RadioGroup)
+   *  radio-group-label       — group label rendered above the rows    (primitives/form.rs :: RadioGroup)
+   *  radio-group-help        — help text below the radio stack        (primitives/form.rs :: RadioGroup)
+   *  radio-group-error       — error text below the radio stack       (primitives/form.rs :: RadioGroup)
+   *  radio-row               — single radio row (label + input)       (primitives/form.rs :: RadioGroup)
+   *  radio-row.selected      — visual cue for the currently-selected row(primitives/form.rs :: RadioGroup)
+   *  radio-row-label         — label text inside a radio row          (primitives/form.rs :: RadioGroup)
+   *  multiselect             — top-level wrapper around a multi-select(primitives/select.rs :: MultiSelect)
+   *  multiselect-control     — flex row holding chips + trigger       (primitives/select.rs :: MultiSelect)
+   *  multiselect-chip        — single chip for a selected value       (primitives/select.rs :: MultiSelect)
+   *  multiselect-chip-remove — × button inside a chip                 (primitives/select.rs :: MultiSelect)
+   *  multiselect-trigger     — "Add…" button that opens the dropdown  (primitives/select.rs :: MultiSelect)
+   *  multiselect-menu        — dropdown panel listing the options     (primitives/select.rs :: MultiSelect)
+   *  multiselect-option      — single option inside the dropdown      (primitives/select.rs :: MultiSelect)
+   *  multiselect-option.selected — visual cue for selected options   (primitives/select.rs :: MultiSelect)
+   *  combobox-async          — modifier on a combobox with async load (primitives/combobox.rs :: ComboboxAsync)
+   *  combobox-loading        — "Loading…" item inside the menu        (primitives/combobox.rs :: ComboboxAsync)
+   *  combobox-empty          — "No matches" item inside the menu      (primitives/combobox.rs :: ComboboxAsync)
+   *  combobox-multi          — modifier on a multi-select combobox    (primitives/combobox.rs :: ComboboxMulti)
+   *  combobox-multi-control  — flex row holding chips + search input  (primitives/combobox.rs :: ComboboxMulti)
+   *  combobox-multi-chip     — single chip in a multi-select combobox (primitives/combobox.rs :: ComboboxMulti)
+   *  combobox-multi-chip-remove — × button inside a multi chip      (primitives/combobox.rs :: ComboboxMulti)
+   *  combobox-multi-input    — trailing search input after the chips  (primitives/combobox.rs :: ComboboxMulti)
+   *  datetime-picker         — flex row holding the date + time inputs(primitives/date_picker.rs :: DateTimePicker)
+   *  stepper-wrap            — outer wrapper around the progress bar  (primitives/stepper.rs)
+   *                            and the row of step circles
+   *  stepper-progress        — linear progress bar above the stepper  (primitives/stepper.rs)
+   *  rating-interactive      — hover-able, clickable rating           (primitives/misc.rs :: Rating)
+   *  rating-disabled         — non-interactive, dimmed rating         (primitives/misc.rs :: Rating)
+   *  switch-sm / switch-md / switch-lg — size variants of the switch  (primitives/switch.rs)
+   *  state-checked / state-unchecked    — checked/unchecked visual state for SwitchRoot(primitives/switch.rs)
+   *  kbd-combo               — wrapper for multi-key keyboard shortcut(primitives/misc.rs :: KbdCombo)
+   *  kbd-combo-sep           — "+" separator between combo keys       (primitives/misc.rs :: KbdCombo)
+   *  slider-field            — vertical layout wrapper around a slider(primitives/misc.rs :: Slider)
+   *  checkbox-indeterminate  — partial-fill visual state              (primitives/checkbox.rs)
+   *  =================================================================
+   */
+
+  /* === Input variants === */
+  .input-error {{
+    border-color: var(--epsx-red);
+    box-shadow: 0 0 0 3px rgba(239,68,68,0.15);
+  }}
+  .input-with-icon {{ padding-left: 2.5rem; }}
+  .input-icon {{
+    position: absolute;
+    left: 0.875rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-subtle);
+    pointer-events: none;
+  }}
+  .label-required {{
+    color: var(--epsx-red);
+    margin-left: 0.25rem;
+  }}
+
+  /* === Form section / row / input-group === */
+  .form-section {{
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 1.25rem 1.25rem 1rem;
+    background: var(--bg-secondary);
+  }}
+  .form-section-header {{
+    margin-bottom: 1rem;
+  }}
+  .form-section-title {{
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0;
+  }}
+  .form-section-description {{
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin: 0.25rem 0 0;
+  }}
+  .form-section-body {{
+    margin-top: 0.5rem;
+  }}
+  .form-row {{
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }}
+  @media (min-width: 768px) {{
+    .form-row {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+    .form-row[data-cols="3"], .form-row.md\:grid-cols-3 {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
+  }}
+  .input-group {{
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }}
+  .input-group-label {{
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-muted);
+  }}
+  .input-group-control {{
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }}
+  .input-group-help {{
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }}
+  .input-group-error {{
+    font-size: 0.75rem;
+    color: var(--epsx-red);
+  }}
+
+  /* === Radio group === */
+  .radio-group {{
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }}
+  .radio-group-label {{
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-muted);
+  }}
+  .radio-group-help {{
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }}
+  .radio-group-error {{
+    font-size: 0.75rem;
+    color: var(--epsx-red);
+  }}
+  .radio-row {{
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.5rem;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+  }}
+  .radio-row:hover {{ background: var(--bg-secondary); }}
+  .radio-row.selected {{
+    background: rgba(59,130,246,0.10);
+    color: var(--text);
+  }}
+  html.dark .radio-row.selected {{
+    background: rgba(59,130,246,0.20);
+  }}
+  .radio-row-label {{ color: var(--text); font-size: 0.875rem; }}
+
+  /* === Multiselect === */
+  .multiselect {{
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }}
+  .multiselect-control {{
+    min-height: 2.5rem;
+    padding: 0.375rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 0.625rem;
+  }}
+  .multiselect-control:focus-within {{
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+  }}
+  .multiselect-chip {{
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    background: rgba(59,130,246,0.15);
+    color: #3b82f6;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }}
+  .multiselect-chip-remove {{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    padding: 0;
+    margin-left: 0.125rem;
+    background: transparent;
+    border: none;
+    border-radius: 9999px;
+    color: inherit;
+    cursor: pointer;
+    font-size: 0.875rem;
+    line-height: 1;
+  }}
+  .multiselect-chip-remove:hover {{ background: rgba(59,130,246,0.25); }}
+  .multiselect-trigger {{
+    background: transparent;
+    border: 1px dashed var(--border-strong);
+    border-radius: 9999px;
+    padding: 0.125rem 0.625rem;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    cursor: pointer;
+  }}
+  .multiselect-trigger:hover {{ background: var(--bg-secondary); color: var(--text); }}
+  .multiselect-trigger:disabled {{ opacity: 0.5; cursor: not-allowed; }}
+  .multiselect-menu {{
+    position: absolute;
+    z-index: 50;
+    margin-top: 0.25rem;
+    max-height: 16rem;
+    overflow: auto;
+    background: var(--surface-solid);
+    border: 1px solid var(--border);
+    border-radius: 0.625rem;
+    box-shadow: var(--shadow-lg);
+    padding: 0.25rem;
+    min-width: 12rem;
+    list-style: none;
+  }}
+  .multiselect-option {{
+    padding: 0.375rem 0.625rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    color: var(--text);
+    cursor: pointer;
+  }}
+  .multiselect-option:hover {{ background: var(--bg-secondary); }}
+  .multiselect-option.selected {{
+    background: rgba(59,130,246,0.15);
+    color: #3b82f6;
+  }}
+
+  /* === Combobox variants === */
+  .combobox-async .combobox-menu {{
+    min-width: 12rem;
+  }}
+  .combobox-loading,
+  .combobox-empty {{
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    list-style: none;
+  }}
+  .combobox-multi {{
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }}
+  .combobox-multi-control {{
+    min-height: 2.5rem;
+    padding: 0.375rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 0.625rem;
+  }}
+  .combobox-multi-control:focus-within {{
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+  }}
+  .combobox-multi-chip {{
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    background: rgba(59,130,246,0.15);
+    color: #3b82f6;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }}
+  .combobox-multi-chip-remove {{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    padding: 0;
+    margin-left: 0.125rem;
+    background: transparent;
+    border: none;
+    border-radius: 9999px;
+    color: inherit;
+    cursor: pointer;
+    font-size: 0.875rem;
+    line-height: 1;
+  }}
+  .combobox-multi-chip-remove:hover {{ background: rgba(59,130,246,0.25); }}
+  .combobox-multi-input {{
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-size: 0.875rem;
+    flex: 1;
+    min-width: 8rem;
+  }}
+
+  /* === DateTimePicker === */
+  .datetime-picker {{
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }}
+  .datetime-picker .input {{ min-width: 0; }}
+
+  /* === Stepper (progress bar variant + per-step icons) === */
+  .stepper-wrap {{
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+  }}
+  .stepper-progress {{
+    width: 100%;
+    height: 0.25rem;
+    background: var(--bg-tertiary);
+    border-radius: 9999px;
+    overflow: hidden;
+  }}
+  .stepper-progress .progress-bar {{
+    height: 100%;
+    background: var(--gradient-brand);
+    border-radius: 9999px;
+    transition: width 0.3s ease;
+  }}
+  .step-circle.flex.items-center.justify-center {{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }}
+
+  /* === Rating interactive / disabled === */
+  .rating-interactive .rating-star {{
+    cursor: pointer;
+    transition: transform 0.15s ease, color 0.15s ease;
+  }}
+  .rating-interactive .rating-star:hover {{
+    transform: scale(1.1);
+  }}
+  .rating-interactive .rating-star:focus {{
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }}
+  .rating-disabled {{
+    opacity: 0.6;
+    cursor: not-allowed;
+  }}
+
+  /* === Switch size variants + states === */
+  .SwitchRoot {{
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    user-select: none;
+  }}
+  .SwitchInput {{
+    appearance: none;
+    -webkit-appearance: none;
+    background: var(--bg-tertiary);
+    border-radius: 9999px;
+    position: relative;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    flex-shrink: 0;
+  }}
+  .SwitchInput:checked {{ background: var(--primary); }}
+  .SwitchInput:disabled {{ opacity: 0.5; cursor: not-allowed; }}
+  .SwitchInput::after {{
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    background: white;
+    border-radius: 9999px;
+    transition: transform 0.2s ease;
+  }}
+  .SwitchInput:checked::after {{ transform: translateX(100%); }}
+  .SwitchThumb {{ display: none; }}
+  .switch-sm .SwitchInput {{ width: 2rem; height: 1.125rem; }}
+  .switch-sm .SwitchInput::after {{ width: calc(1.125rem - 4px); height: calc(1.125rem - 4px); }}
+  .switch-md .SwitchInput {{ width: 2.5rem; height: 1.375rem; }}
+  .switch-md .SwitchInput::after {{ width: calc(1.375rem - 4px); height: calc(1.375rem - 4px); }}
+  .switch-lg .SwitchInput {{ width: 3rem; height: 1.625rem; }}
+  .switch-lg .SwitchInput::after {{ width: calc(1.625rem - 4px); height: calc(1.625rem - 4px); }}
+  .SwitchLabel {{ font-size: 0.875rem; color: var(--text); }}
+  .state-checked {{ /* presentational hook for future styling */ }}
+  .state-unchecked {{ /* presentational hook for future styling */ }}
+
+  /* === Kbd combo (multi-key shortcut) === */
+  .kbd-combo {{
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+  }}
+  .kbd-combo-sep {{
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }}
+  .kbd {{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    padding: 0 0.375rem;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-strong);
+    border-bottom-width: 2px;
+    border-radius: 0.375rem;
+  }}
+
+  /* === Slider (a11y + visual) === */
+  .slider-field {{
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }}
+  .slider {{
+    width: 100%;
+    height: 0.375rem;
+    appearance: none;
+    -webkit-appearance: none;
+    background: var(--bg-tertiary);
+    border-radius: 9999px;
+    cursor: pointer;
+  }}
+  .slider::-webkit-slider-thumb {{
+    appearance: none;
+    -webkit-appearance: none;
+    width: 1.125rem;
+    height: 1.125rem;
+    border-radius: 9999px;
+    background: var(--primary);
+    border: 2px solid var(--surface-solid);
+    box-shadow: var(--shadow);
+  }}
+  .slider::-moz-range-thumb {{
+    width: 1.125rem;
+    height: 1.125rem;
+    border-radius: 9999px;
+    background: var(--primary);
+    border: 2px solid var(--surface-solid);
+    box-shadow: var(--shadow);
+  }}
+  .slider:focus {{
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }}
+  .slider:disabled {{ opacity: 0.5; cursor: not-allowed; }}
+
+  /* === Checkbox indeterminate (visual) === */
+  .checkbox-indeterminate {{
+    background: var(--primary);
+    position: relative;
+    color: white;
+  }}
+  .checkbox-indeterminate::after {{
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 60%;
+    height: 2px;
+    background: currentColor;
+    transform: translate(-50%, -50%);
+    border-radius: 1px;
+  }}
 </style>"##
     )
 }
