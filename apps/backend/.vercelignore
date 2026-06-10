@@ -1,7 +1,0 @@
-package.json
-.env
-.env.*
-Dockerfile
-*.log
-.DS_Store
-target

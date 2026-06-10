@@ -1,68 +1,66 @@
-# EPSX Smart Contracts
+## Foundry
 
-Foundry-based smart contracts for the EPSX platform, deployed to BSC mainnet and testnet.
+**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
 
-## Contracts
+Foundry consists of:
 
-### PaymentEscrow
-Holds stablecoin (USDC/USDT) in escrow between buyer and seller. Supports:
-- `createEscrow()` — buyer deposits tokens
-- `releaseEscrow()` — buyer or admin releases to seller (0.3% fee)
-- `refundEscrow()` — seller or admin refunds to buyer
-- `disputeEscrow()` — buyer or seller flags a dispute
-- `resolveDispute()` — owner resolves in either direction
+- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
+- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
+- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
+- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
 
-### SubscriptionVault
-Per-merchant subscription management:
-- `createPlan()` — merchant defines a plan (amount, period, grace periods)
-- `subscribe()` — user subscribes to a plan
-- `charge()` — user pays for N periods in advance
-- `cancel()` — user cancels
-- `withdraw()` — merchant withdraws accumulated earnings
+## Documentation
 
-### Paymaster
-ERC-4337 style paymaster for gas sponsorship:
-- Users deposit USDC/USDT
-- Sponsor pays native gas on user's behalf
-- Charges user in stablecoin at gas price + 1% markup
+https://book.getfoundry.sh/
 
-### TokenRegistry
-On-chain registry of accepted payment tokens per chain.
+## Usage
 
-## Build
+### Build
 
-```bash
-forge build
+```shell
+$ forge build
 ```
 
-## Test
+### Test
 
-```bash
-forge test
+```shell
+$ forge test
 ```
 
-## Deploy (Local)
+### Format
 
-```bash
-anvil &
-PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 forge script script/Deploy.s.sol:Deploy --rpc-url local --broadcast
+```shell
+$ forge fmt
 ```
 
-## Deploy (BSC Testnet)
+### Gas Snapshots
 
-```bash
-forge script script/Deploy.s.sol:Deploy --rpc-url bsc_testnet --broadcast
+```shell
+$ forge snapshot
 ```
 
-## Deploy (BSC Mainnet)
+### Anvil
 
-```bash
-forge script script/Deploy.s.sol:Deploy --rpc-url bsc --broadcast --verify
+```shell
+$ anvil
 ```
 
-## Architecture
+### Deploy
 
-- **OpenZeppelin** for ERC20, Ownable, ReentrancyGuard, Pausable
-- **Solidity 0.8.24** with optimizer enabled
-- **Foundry** for build/test/deploy
-- **via_ir** in production profile for gas optimization
+```shell
+$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+```
+
+### Cast
+
+```shell
+$ cast <subcommand>
+```
+
+### Help
+
+```shell
+$ forge --help
+$ anvil --help
+$ cast --help
+```

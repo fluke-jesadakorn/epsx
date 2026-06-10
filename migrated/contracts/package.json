@@ -1,13 +1,18 @@
 {
-  "name": "@epsx/contracts",
-  "version": "0.1.0",
-  "description": "EPSX BSC smart contracts: PaymentEscrow, SubscriptionVault, Paymaster, TokenRegistry",
-  "license": "MIT",
+  "name": "epsx-bsc-contracts",
+  "version": "1.0.0",
+  "description": "EPSX Payment Escrow Smart Contracts for BSC",
   "scripts": {
     "build": "forge build",
     "test": "forge test",
-    "deploy:local": "forge script script/Deploy.s.sol:Deploy --rpc-url local --broadcast",
-    "deploy:testnet": "forge script script/Deploy.s.sol:Deploy --rpc-url bsc_testnet --broadcast",
-    "deploy:mainnet": "forge script script/Deploy.s.sol:Deploy --rpc-url bsc --broadcast"
+    "deploy:testnet": "forge script script/Deploy.s.sol --rpc-url $BSC_TESTNET_RPC --broadcast",
+    "deploy:mainnet": "forge script script/Deploy.s.sol --rpc-url $BSC_MAINNET_RPC --broadcast",
+    "clean": "rm -rf out cache"
+  },
+  "devDependencies": {},
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.4.0",
+    "dotenv": "^17.2.3",
+    "ethers": "^6.16.0"
   }
 }

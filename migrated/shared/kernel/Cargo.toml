@@ -9,6 +9,8 @@ serde_json.workspace = true
 alloy-primitives.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
-
-[dev-dependencies]
-serde_json.workspace = true
+uuid.workspace = true
+async-trait.workspace = true
+tracing.workspace = true
+tokio.workspace = true
+regex = "1.10"
