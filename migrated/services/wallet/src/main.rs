@@ -3,6 +3,7 @@ use alloy_primitives::{Address, U256};
 use axum::{
     extract::{Path as AxPath, State},
     http::StatusCode,
+    response::IntoResponse,
     routing::{get, post},
     Json, Router,
 };
@@ -25,6 +26,10 @@ struct Args {
     host: String,
     #[arg(long, default_value = "postgres://epsx:epsx@localhost:5432/epsx_wallet")]
     database_url: String,
+    #[arg(long, env = "BSC_RPC_URL")]
+    bsc_rpc_url: Option<String>,
+    #[arg(long, env = "BSC_TESTNET_RPC_URL")]
+    bsc_testnet_rpc_url: Option<String>,
 }
 
 #[derive(Clone)]
@@ -73,6 +78,7 @@ struct TokenBalance {
     symbol: String,
     address: String,
     decimals: u8,
+    balance: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -180,7 +186,17 @@ async fn main() {
     let provider: Arc<RwLock<Option<Arc<dyn alloy::providers::Provider + Send + Sync>>>> =
         Arc::new(RwLock::new(None));
 
-    if let Ok(p) = epsx_web3::provider_for_chain(ChainId(56)) {
+    if let Some(url) = args.bsc_rpc_url.clone() {
+        if let Ok(p) = epsx_web3::provider_for_url(&url) {
+            *provider.write().await = Some(Arc::from(p));
+            info!("Connected to custom BSC RPC: {}", url);
+        }
+    } else if let Some(url) = args.bsc_testnet_rpc_url.clone() {
+        if let Ok(p) = epsx_web3::provider_for_url(&url) {
+            *provider.write().await = Some(Arc::from(p));
+            info!("Connected to custom BSC testnet RPC: {}", url);
+        }
+    } else if let Ok(p) = epsx_web3::provider_for_chain(ChainId(56)) {
         *provider.write().await = Some(Arc::from(p));
     }
 
@@ -285,37 +301,62 @@ async fn get_balance(
         }
     }
 
-    let native_balance = if let Some(p) = state.provider.read().await.as_ref() {
-        epsx_web3::fetch_balance(p.as_ref(), addr).await.unwrap_or(U256::ZERO)
-    } else {
-        U256::ZERO
+    let provider = state.provider.read().await.clone();
+    let provider = match provider.as_ref() {
+        Some(p) => p.clone(),
+        None => return Err(StatusCode::SERVICE_UNAVAILABLE),
     };
 
-    let tokens: Vec<TokenBalance> = Token::for_chain(chain_id_n).iter().map(|t| TokenBalance {
-        symbol: t.symbol().to_string(),
-        address: t.address(ChainId(chain_id_n)).map(|a| a.0).unwrap_or_default(),
-        decimals: t.decimals(),
-    }).collect();
+    let native_balance = epsx_web3::fetch_balance(provider.as_ref(), addr).await
+        .map_err(|e| { tracing::error!("get_balance {}: {e}", address); StatusCode::BAD_GATEWAY })?;
+
+    let mut tokens_out: Vec<TokenBalance> = Vec::new();
+    for token in Token::for_chain(chain_id_n) {
+        let Some(addr_str) = token.address(ChainId(chain_id_n)) else { continue; };
+        let token_addr = match Address::from_str(&addr_str.0) {
+            Ok(a) => a,
+            Err(_) => continue,
+        };
+        let balance = epsx_web3::fetch_token_balance(provider.as_ref(), token_addr, addr).await
+            .unwrap_or_else(|e| {
+                tracing::warn!("balanceOf {} for {}: {e}", token.symbol(), address);
+                U256::ZERO
+            });
+        tokens_out.push(TokenBalance {
+            symbol: token.symbol().to_string(),
+            address: addr_str.0.clone(),
+            decimals: token.decimals(),
+            balance: balance.to_string(),
+        });
+    }
 
     Ok(Json(BalanceInfo {
         native: native_balance.to_string(),
-        tokens,
+        tokens: tokens_out,
     }))
 }
 
 async fn send_transaction(
     State(state): State<AppState>,
     Json(req): Json<SendTxRequest>,
-) -> Result<Json<SendTxResponse>, StatusCode> {
-    let signer = PrivateKeySigner::from_str(&req.private_key).map_err(|_| StatusCode::BAD_REQUEST)?;
+) -> Result<axum::response::Response, StatusCode> {
+    let signer = match PrivateKeySigner::from_str(&req.private_key) {
+        Ok(s) => s,
+        Err(_) => return Err(StatusCode::BAD_REQUEST),
+    };
     let from_addr = signer.address();
-    let expected_from = Address::from_str(&req.from).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let expected_from = match Address::from_str(&req.from) {
+        Ok(a) => a,
+        Err(_) => return Err(StatusCode::BAD_REQUEST),
+    };
     if from_addr != expected_from {
         return Err(StatusCode::BAD_REQUEST);
     }
-    let _to_addr = Address::from_str(&req.to).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let _to_addr = match Address::from_str(&req.to) {
+        Ok(a) => a,
+        Err(_) => return Err(StatusCode::BAD_REQUEST),
+    };
 
-    // Get next nonce from DB
     let nonce: i64 = sqlx::query_scalar(
         "INSERT INTO nonces (address, chain_id, nonce) VALUES ($1, $2, 0)
          ON CONFLICT (address, chain_id) DO UPDATE SET nonce = nonces.nonce + 1, updated_at = NOW()
@@ -327,9 +368,7 @@ async fn send_transaction(
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let tx_hash = format!("0x{:064x}", nonce);
-
-    sqlx::query(
+    let _ = sqlx::query(
         "INSERT INTO signed_transactions (chain_id, sender, recipient, value, data_hash) VALUES ($1, $2, $3, $4, $5)"
     )
     .bind(req.chain_id.to_string())
@@ -338,15 +377,16 @@ async fn send_transaction(
     .bind(&req.value)
     .bind(req.data.as_ref().map(|d| format!("0x{}", alloy::hex::encode(alloy::hex::decode(d.trim_start_matches("0x")).unwrap_or_default()))))
     .execute(&state.db)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    .await;
 
-    Ok(Json(SendTxResponse {
-        tx_hash,
-        sender: format!("{:#x}", from_addr),
-        nonce: nonce as u64,
-        note: "Transaction prepared. Use frontend wallet to broadcast (signing delegated to user wallet for security)".to_string(),
-    }))
+    let body = serde_json::json!({
+        "sender": format!("{:#x}", from_addr),
+        "nonce": nonce,
+        "tx_hash": null,
+        "note": "Server-side broadcasting disabled for security. Frontend must sign and broadcast via user wallet (MetaMask/WalletConnect).",
+    });
+
+    Ok((StatusCode::NOT_IMPLEMENTED, Json(body)).into_response())
 }
 
 async fn sign_message(
