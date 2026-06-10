@@ -27,8 +27,11 @@ pub fn Form(
     }
 }
 
-/// Standalone label, rendered as a `<label>`. Useful when the input is not
-/// inside a `Field` (e.g. in an `InputGroup`).
+/// Standalone label, rendered as a `<label>`. Mirrors
+/// `shared/components/ui/label.tsx` — a thin Radix-Label wrapper
+/// around `<label>` with the standard text styling. Useful when the
+/// input is not inside a `Field` (e.g. for a custom checkbox / radio
+/// control, or in an `InputGroup`).
 #[component]
 pub fn Label(
     #[props(default = None)] html_for: Option<String>,
@@ -46,7 +49,6 @@ pub fn Label(
     }
 }
 
-/// Field wrapper — renders a label, the control (children), and help/error text.
 #[component]
 pub fn Field(
     label: Option<String>,

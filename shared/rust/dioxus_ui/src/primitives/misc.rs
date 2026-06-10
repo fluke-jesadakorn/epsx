@@ -260,3 +260,61 @@ pub fn Rating(
         }
     }
 }
+
+// === ScrollArea ===
+// Mirrors `shared/components/ui/scroll-area.tsx`. Wraps children in a
+// scrollable container with a styled scrollbar using the design
+// system's `scroll-area-*` class names (declared in the design doc).
+#[component]
+pub fn ScrollArea(
+    max_height: Option<String>,
+    class_name: Option<String>,
+    children: Element,
+) -> Element {
+    let extra = class_name.unwrap_or_default();
+    let base = "scroll-area relative overflow-hidden";
+    let cls = if extra.is_empty() {
+        base.to_string()
+    } else {
+        format!("{base} {extra}")
+    };
+    let mh = max_height.unwrap_or_default();
+    let style = if mh.is_empty() {
+        String::new()
+    } else {
+        format!("max-height: {mh};")
+    };
+    rsx! {
+        div { class: "{cls}", style: "{style}",
+            // A11y: the scroll viewport is a focusable `region` so
+            // keyboard users can scroll with arrow keys / PageUp /
+            // PageDown after tabbing to it. `role="region"` and
+            // `tabindex="0"` mirror the behaviour of Radix's
+            // ScrollArea.Viewport.
+            div {
+                class: "scroll-area-viewport h-full w-full rounded-[inherit] overflow-auto",
+                role: "region",
+                tabindex: "0",
+                {children}
+            }
+            ScrollBar { orientation: Some("vertical".to_string()) }
+        }
+    }
+}
+
+// === ScrollBar ===
+#[component]
+pub fn ScrollBar(orientation: Option<String>) -> Element {
+    let o = orientation.unwrap_or_else(|| "vertical".to_string());
+    let base = "scroll-area-scrollbar flex touch-none select-none transition-colors";
+    let orient_cls = match o.as_str() {
+        "horizontal" => "h-2.5 flex-col border-t border-t-transparent p-[1px]",
+        _ => "h-full w-2.5 border-l border-l-transparent p-[1px]",
+    };
+    let cls = format!("{base} {orient_cls}");
+    rsx! {
+        div { class: "{cls}",
+            div { class: "scroll-area-thumb relative flex-1 rounded-full bg-border" }
+        }
+    }
+}
