@@ -8,9 +8,9 @@ name = "content"
 path = "src/main.rs"
 
 [dependencies]
-epsx-kernel = { path = "../../shared/kernel" }
-epsx-renderer = { path = "../../shared/renderer" }
-epsx-observability = { path = "../../shared/observability" }
+epsx-kernel = { path = "../../shared/rust/kernel" }
+epsx-renderer = { path = "../../shared/rust/renderer" }
+epsx-observability = { path = "../../shared/rust/observability" }
 axum.workspace = true
 tokio.workspace = true
 tracing.workspace = true

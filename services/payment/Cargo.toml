@@ -8,9 +8,9 @@ name = "payment"
 path = "src/main.rs"
 
 [dependencies]
-epsx-kernel = { path = "../../shared/kernel" }
-epsx-web3 = { path = "../../shared/web3" }
-epsx-observability = { path = "../../shared/observability" }
+epsx-kernel = { path = "../../shared/rust/kernel" }
+epsx-web3 = { path = "../../shared/rust/web3" }
+epsx-observability = { path = "../../shared/rust/observability" }
 axum.workspace = true
 tokio.workspace = true
 tracing.workspace = true

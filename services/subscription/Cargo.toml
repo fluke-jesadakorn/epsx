@@ -8,12 +8,12 @@ name = "subscription"
 path = "src/main.rs"
 
 [dependencies]
-epsx-kernel = { path = "../../shared/kernel" }
-epsx-config = { path = "../../shared/config" }
-epsx-database = { path = "../../shared/database" }
-epsx-events = { path = "../../shared/events" }
-epsx-web3 = { path = "../../shared/web3" }
-epsx-observability = { path = "../../shared/observability" }
+epsx-kernel = { path = "../../shared/rust/kernel" }
+epsx-config = { path = "../../shared/rust/config" }
+epsx-database = { path = "../../shared/rust/database" }
+epsx-events = { path = "../../shared/rust/events" }
+epsx-web3 = { path = "../../shared/rust/web3" }
+epsx-observability = { path = "../../shared/rust/observability" }
 axum.workspace = true
 tokio.workspace = true
 tracing.workspace = true

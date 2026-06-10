@@ -8,10 +8,10 @@ name = "bff-pay"
 path = "src/main.rs"
 
 [dependencies]
-epsx-kernel = { path = "../../shared/kernel" }
-epsx-client = { path = "../../shared/client" }
-epsx-observability = { path = "../../shared/observability" }
-epsx-templates = { path = "../../shared/templates" }
+epsx-kernel = { path = "../../shared/rust/kernel" }
+epsx-client = { path = "../../shared/rust/client" }
+epsx-observability = { path = "../../shared/rust/observability" }
+epsx-templates = { path = "../../shared/rust/templates" }
 axum.workspace = true
 tokio.workspace = true
 tracing.workspace = true
