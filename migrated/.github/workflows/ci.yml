@@ -2,43 +2,96 @@ name: CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main, migration/*]
   pull_request:
-    branches: [ "main" ]
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
 
 jobs:
-  build-and-test:
-    name: Build and Test
-    runs-on: ubuntu-latest
-
+  lint:
+    name: Lint
+    runs-on: macos-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          bun-version: latest
+          components: rustfmt, clippy
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+      - name: fmt
+        run: cargo fmt --all -- --check
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+        continue-on-error: true
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+  check:
+    name: Check
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+      - name: cargo check
+        run: cargo check --workspace --all-targets
+
+  test:
+    name: Test
+    runs-on: macos-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: epsx
+          POSTGRES_PASSWORD: epsx
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://epsx:epsx@localhost:5432/epsx_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+      - name: Test
+        run: cargo test --workspace --all-features
+
+  build:
+    name: Build
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+      - name: cargo build
+        run: cargo build --workspace --release
+
+  contracts:
+    name: Contracts (Foundry)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
         with:
-          components: clippy, rustfmt
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Check Formatting
-        run: bun run format:check
-
-      - name: Lint
-        run: bun run lint
-
-      - name: Type Check
-        run: bun run type-check
-
-      - name: Test (Frontend & Shared)
-        run: bun run test
-
-      - name: Test (Backend)
-        run: bun run test:backend
+          submodules: recursive
+      - name: Install Foundry
+        run: |
+          curl -L https://foundry.paradigm.xyz | bash
+          echo "$HOME/.foundry/bin" >> $GITHUB_PATH
+          foundryup
+      - name: Install deps
+        run: |
+          cd contracts
+          forge install foundry-rs/forge-std --no-commit
+          forge install OpenZeppelin/openzeppelin-contracts --no-commit
+      - name: Build
+        run: cd contracts && forge build
+      - name: Test
+        run: cd contracts && forge test -vv

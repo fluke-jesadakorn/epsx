@@ -16,7 +16,6 @@ Cargo.lock
 
 # Logs
 /logs/
-*.log
 
 # IDE
 .vscode/
@@ -24,17 +23,3 @@ Cargo.lock
 
 # OS
 Thumbs.db
-
-# Foundry
-out/
-cache/
-broadcast/
-
-# Node (some parity scripts use bun)
-node_modules/
-
-# Vercel
-.vercel/
-
-# Turborepo
-.turbo/

@@ -1,0 +1,18 @@
+[package]
+name = "epsx-dioxus-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Dioxus 0.7 UI component library for EPSX — 1:1 mirror of the Next.js shadcn/Radix design system"
+
+[dependencies]
+dioxus = { workspace = true }
+dioxus-router = { workspace = true }
+epsx-templates = { path = "../templates" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[features]
+default = []
+ssr = []
+web = []

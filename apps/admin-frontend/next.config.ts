@@ -11,10 +11,6 @@ interface RemotePattern {
 }
 
 function buildImageRemotePatterns(): RemotePattern[] {
-  const staticPatterns: RemotePattern[] = [
-    { protocol: 'https', hostname: '**.public.blob.vercel-storage.com' },
-    { protocol: 'https', hostname: 'images.unsplash.com' },
-  ];
   const origins = [
     process.env.MINIO_ENDPOINT,
     process.env.MINIO_PUBLIC_URL,
@@ -41,7 +37,7 @@ function buildImageRemotePatterns(): RemotePattern[] {
       // Ignore malformed optional env values; build should still use safe defaults.
     }
   }
-  return [...patterns.values(), ...staticPatterns];
+  return [...patterns.values()];
 }
 
 const nextConfig: NextConfig = {

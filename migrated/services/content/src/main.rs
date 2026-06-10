@@ -82,8 +82,8 @@ struct DbPage {
     title: String,
     locale: String,
     status: String,
-    blocks_json: serde_json::Value,
-    seo_json: Option<serde_json::Value>,
+    blocks_json: String,
+    seo_json: Option<String>,
     theme_id: Option<uuid::Uuid>,
     created_at: chrono::DateTime<chrono::Utc>,
     updated_at: chrono::DateTime<chrono::Utc>,
@@ -113,11 +113,11 @@ struct UpdatePageRequest {
 struct DbTheme {
     id: uuid::Uuid,
     name: String,
-    colors_json: serde_json::Value,
-    fonts_json: serde_json::Value,
-    spacing_json: serde_json::Value,
-    breakpoints_json: serde_json::Value,
-    radius_json: Option<serde_json::Value>,
+    colors_json: String,
+    fonts_json: String,
+    spacing_json: String,
+    breakpoints_json: String,
+    radius_json: Option<String>,
     is_default: bool,
 }
 
@@ -441,8 +441,10 @@ async fn get_page(
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
     .ok_or(StatusCode::NOT_FOUND)?;
 
-    let blocks: serde_json::Value = row.blocks_json.clone();
-    let seo: serde_json::Value = row.seo_json.clone().unwrap_or_else(|| serde_json::json!({}));
+    let blocks: serde_json::Value = serde_json::from_str(&row.blocks_json).unwrap_or_else(|_| serde_json::json!([]));
+    let seo: serde_json::Value = row.seo_json.as_deref()
+        .and_then(|s| serde_json::from_str(s).ok())
+        .unwrap_or_else(|| serde_json::json!({}));
     Ok(Json(serde_json::json!({
         "id": row.id,
         "slug": row.slug,
@@ -471,7 +473,7 @@ async fn create_page(
     Json(req): Json<CreatePageRequest>,
 ) -> Result<Json<DbPage>, StatusCode> {
     let locale = req.locale.unwrap_or_else(|| "en".to_string());
-    let blocks = serde_json::to_value(req.blocks.unwrap_or_default()).unwrap_or(serde_json::json!([]));
+    let blocks = serde_json::to_value(req.blocks.unwrap_or_default()).unwrap_or_else(|_| serde_json::json!([]));
     let seo = req.seo.unwrap_or_else(|| serde_json::json!({}));
 
     let theme_uuid: Option<uuid::Uuid> = req.theme_id
@@ -510,11 +512,14 @@ async fn update_page(
     let new_title = req.title.unwrap_or(current.title);
     let new_blocks = match req.blocks {
         Some(b) => serde_json::to_value(b).unwrap_or(serde_json::json!([])),
-        None => current.blocks_json.clone(),
+        None => serde_json::from_str(&current.blocks_json).unwrap_or(serde_json::json!([])),
     };
     let new_seo = match req.seo {
         Some(s) => s,
-        None => current.seo_json.clone().unwrap_or(serde_json::json!({})),
+        None => current.seo_json
+            .as_deref()
+            .and_then(|s| serde_json::from_str(s).ok())
+            .unwrap_or(serde_json::json!({})),
     };
     let new_theme_uuid: Option<uuid::Uuid> = req.theme_id
         .as_deref()
@@ -525,7 +530,7 @@ async fn update_page(
     let page: DbPage = sqlx::query_as::<_, DbPage>(
         "UPDATE pages SET title = $2, blocks_json = $3, seo_json = $4, theme_id = $5, status = $6, updated_at = NOW() WHERE id = $1 RETURNING *"
     )
-    .bind(&current.id)
+    .bind(current.id)
     .bind(&new_title)
     .bind(&new_blocks)
     .bind(&new_seo)
@@ -568,13 +573,14 @@ async fn render_page_html(
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
     .ok_or(StatusCode::NOT_FOUND)?;
 
-    let blocks: Vec<Block> = serde_json::from_value(page.blocks_json.clone()).unwrap_or_default();
+    let blocks_json: serde_json::Value = serde_json::from_str(&page.blocks_json).unwrap_or_else(|_| serde_json::json!([]));
+    let blocks: Vec<Block> = serde_json::from_value(blocks_json).unwrap_or_default();
 
     let domain_page = Page {
         slug: page.slug.clone(),
         title: page.title.clone(),
         blocks,
-        seo: page.seo_json.clone().unwrap_or_else(|| serde_json::json!({})),
+        seo: page.seo_json.as_deref().and_then(|s| serde_json::from_str(s).ok()).unwrap_or_else(|| serde_json::json!({})),
         theme: page.theme_id.map(|u| u.to_string()),
     };
 
@@ -594,10 +600,11 @@ async fn get_theme(
     State(state): State<AppState>,
     AxPath(id): AxPath<String>,
 ) -> Result<Json<DbTheme>, StatusCode> {
+    let theme_uuid = uuid::Uuid::parse_str(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
     let theme: DbTheme = sqlx::query_as::<_, DbTheme>(
-        "SELECT id, name, colors_json, fonts_json, spacing_json, breakpoints_json, radius_json, is_default FROM themes WHERE id = $1 OR name = $1"
+        "SELECT id, name, colors_json, fonts_json, spacing_json, breakpoints_json, radius_json, is_default FROM themes WHERE id = $1"
     )
-    .bind(&id)
+    .bind(theme_uuid)
     .fetch_optional(&state.db).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
     .ok_or(StatusCode::NOT_FOUND)?;
     Ok(Json(theme))
@@ -625,7 +632,7 @@ async fn create_theme(
     .bind(&breakpoints)
     .bind(&radius)
     .bind(is_default)
-    .fetch_one(&state.db).await.map_err(|e| { tracing::error!("create_theme: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+    .fetch_one(&state.db).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Json(theme))
 }
 
@@ -650,7 +657,7 @@ async fn update_theme(
     .bind(&spacing)
     .bind(&breakpoints)
     .bind(&radius)
-    .fetch_optional(&state.db).await.map_err(|e| { tracing::error!("update_theme: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?
+    .fetch_optional(&state.db).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
     .ok_or(StatusCode::NOT_FOUND)?;
     Ok(Json(theme))
 }

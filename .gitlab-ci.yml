@@ -1,0 +1,745 @@
+# EPSX CI/CD Pipeline — GitLab CE Self-Hosted
+# Mac Mini runner (arm64), Docker executor, bind-mounted Docker socket
+#
+# Branches:
+#   development → lint + test + build + deploy (all CI)
+#   staging     → build + manual deploy (Colima K8s)
+#   production  → build + manual deploy (Colima K8s) + auto validate
+#   MR          → lint + test + review app
+
+stages:
+  - infra
+  - prepare
+  - lint
+  - test
+  - build
+  - deploy
+  - validate
+  - cleanup
+
+variables:
+  IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+  BUN_INSTALL: .bun
+  CARGO_HOME: /tmp/.cargo
+  DOCKER_BUILDKIT: "1"
+  GIT_CLEAN_FLAGS: -ffdx
+  CI_REGISTRY: "registry.jesadakorn.com"
+  CI_REGISTRY_IMAGE: "registry.jesadakorn.com/jesadakorn/epsx"
+  BUILDX_PLATFORMS: "linux/arm64"
+  KUBECTL_VERSION: "v1.33.0"
+  DOCKER_HOST: unix:///var/run/docker.sock
+  DOCKER_TLS_CERTDIR: ""
+
+# ---------------------------------------------------------------------------
+# Templates
+# ---------------------------------------------------------------------------
+
+.cargo-cache: &cargo-cache
+  cache:
+    key: cargo-${CI_COMMIT_REF_SLUG}
+    paths:
+      - apps/backend/target/
+      - /tmp/.cargo/registry/
+      - /tmp/.cargo/git/
+    policy: pull-push
+
+.sops-decrypt-prod: &sops-decrypt-prod
+  - >
+    wget -qO /usr/local/bin/sops
+    https://github.com/getsops/sops/releases/download/v3.9.4/sops-v3.9.4.linux.arm64
+  - chmod +x /usr/local/bin/sops
+  - sops -d --input-type dotenv --output-type dotenv infrastructure/docker/.env.prod.enc > /tmp/.env.prod
+
+# Template for production build jobs (SOPS decrypt in before_script, no registry needed)
+.prod-build-before: &prod-build-before
+  before_script:
+    - export DOCKER_HOST=unix:///var/run/docker.sock
+    - export DOCKER_TLS_CERTDIR=""
+    - >
+      wget -qO /usr/local/bin/sops
+      https://github.com/getsops/sops/releases/download/v3.9.4/sops-v3.9.4.linux.arm64
+    - chmod +x /usr/local/bin/sops
+    - sops -d --input-type dotenv --output-type dotenv infrastructure/docker/.env.prod.enc > /tmp/.env.prod
+    - export $(grep -v -E '^(RSA_|#|^$)' /tmp/.env.prod | xargs)
+
+.docker-login: &docker-login
+  before_script:
+    - export DOCKER_HOST=unix:///var/run/docker.sock
+    - export DOCKER_TLS_CERTDIR=""
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+
+.kubectl-setup: &kubectl-setup
+  - apk add --no-cache curl
+  - curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/arm64/kubectl"
+  - install kubectl /usr/local/bin/kubectl
+  - |
+    if [ -f ~/.kube/config ]; then
+      echo "Using mounted kubeconfig..."
+      cp ~/.kube/config /tmp/kubeconfig
+    elif [ -n "$KUBECONFIG_CONTENT" ]; then
+      echo "Setting up kubeconfig from variable..."
+      echo "$KUBECONFIG_CONTENT" > /tmp/kubeconfig
+    else
+      echo "ERROR: No kubeconfig found!" && exit 1
+    fi
+  - export KUBECONFIG=/tmp/kubeconfig
+  - chmod 600 /tmp/kubeconfig
+  - echo "Available contexts:"
+  - kubectl config get-contexts
+  - kubectl config use-context colima-epsx
+
+.rules-lint-test: &rules-lint-test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME != "production"
+    - if: $CI_COMMIT_BRANCH =~ /^(development|staging)$/
+
+.rules-deploy-branches: &rules-deploy-branches
+  rules:
+    - if: $CI_COMMIT_BRANCH =~ /^(development|staging)$/
+
+# ---------------------------------------------------------------------------
+# Infra — deploy infrastructure components (Cloudflared)
+# ---------------------------------------------------------------------------
+
+infra:cloudflared:
+  stage: infra
+  image: docker:27
+  script:
+    - *sops-decrypt-prod
+    - |
+      export DOCKER_HOST=unix:///var/run/docker.sock
+      export DOCKER_TLS_CERTDIR=""
+      docker restart epsx-prod-cloudflared
+      sleep 10
+      status=$(docker inspect --format='{{.State.Status}}' epsx-prod-cloudflared 2>/dev/null || echo "not_found")
+      echo "epsx-prod-cloudflared: $status"
+      if [ "$status" != "running" ]; then
+        cd infrastructure/docker
+        docker compose --env-file /tmp/.env.prod -f docker-compose.prod.yml up -d cloudflared
+      fi
+      docker inspect --format='{{.State.Status}}' epsx-prod-cloudflared
+  timeout: 5 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH == "development"
+      when: manual
+      allow_failure: true
+
+# ---------------------------------------------------------------------------
+# Prepare — single bun install, shared via artifacts
+# ---------------------------------------------------------------------------
+
+prepare:deps:
+  stage: prepare
+  image: oven/bun:1.2.17
+  variables:
+    # Runner injects a proxy that corrupts npm tarball downloads
+    HTTP_PROXY: ""
+    HTTPS_PROXY: ""
+    http_proxy: ""
+    https_proxy: ""
+  script:
+    - |
+      for i in 1 2 3 4 5; do
+        bun install --frozen-lockfile && break
+        echo "bun install attempt $i failed, retrying..."
+        rm -rf node_modules/ .bun/install/cache/
+        sleep $i
+      done
+  cache:
+    - key: bun-${CI_COMMIT_REF_SLUG}
+      paths: [.bun/install/cache/]
+      policy: pull-push
+    - key: node-${CI_COMMIT_REF_SLUG}
+      paths: [node_modules/]
+      policy: push
+  timeout: 30 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH =~ /^(development|staging)$/
+
+# ---------------------------------------------------------------------------
+# Lint
+# ---------------------------------------------------------------------------
+
+lint:eslint:
+  stage: lint
+  image: oven/bun:1.2.17
+  needs: ["prepare:deps"]
+  variables:
+    HTTP_PROXY: ""
+    HTTPS_PROXY: ""
+    http_proxy: ""
+    https_proxy: ""
+  cache:
+    - key: node-${CI_COMMIT_REF_SLUG}
+      paths: [node_modules/]
+      policy: pull
+    - key: turbo-${CI_COMMIT_REF_SLUG}
+      paths: [.turbo/]
+      policy: pull-push
+  script:
+    - bunx turbo run lint --filter=!@epsx/backend --filter=!epsx-bsc-contracts --concurrency=1
+  timeout: 30 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH =~ /^(development|staging)$/
+
+lint:typecheck:
+  stage: lint
+  image: oven/bun:1.2.17
+  needs: ["prepare:deps"]
+  variables:
+    HTTP_PROXY: ""
+    HTTPS_PROXY: ""
+    http_proxy: ""
+    https_proxy: ""
+  cache:
+    key: node-${CI_COMMIT_REF_SLUG}
+    paths: [node_modules/]
+    policy: pull
+  script:
+    - bun type-check
+  timeout: 20 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH =~ /^(development|staging)$/
+
+# ---------------------------------------------------------------------------
+# Test
+# ---------------------------------------------------------------------------
+
+test:frontend:
+  stage: test
+  image: node:20-slim
+  needs: ["prepare:deps"]
+  variables:
+    HTTP_PROXY: ""
+    HTTPS_PROXY: ""
+    http_proxy: ""
+    https_proxy: ""
+    JEST_JUNIT_OUTPUT_DIR: test-results
+    JEST_JUNIT_OUTPUT_NAME: junit.xml
+  cache:
+    key: node-${CI_COMMIT_REF_SLUG}
+    paths: [node_modules/]
+    policy: pull
+  script:
+    - >
+      npx jest --ci --passWithNoTests
+      --coverage --coverageDirectory=coverage
+      --coverageReporters text cobertura json-summary
+      --reporters default jest-junit
+  artifacts:
+    when: always
+    paths:
+      - coverage/
+    reports:
+      junit: test-results/junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/cobertura-coverage.xml
+    expire_in: 30 days
+  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
+  timeout: 15 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH =~ /^(development|staging)$/
+
+test:backend:
+  stage: test
+  image: rust:slim-bookworm
+  needs: []  # DAG: starts immediately, no wait for prepare/lint
+  <<: *cargo-cache
+  variables:
+    CARGO_BUILD_JOBS: "1"
+    CARGO_PROFILE_DEV_CODEGEN_UNITS: "16"
+    CARGO_PROFILE_TEST_CODEGEN_UNITS: "16"
+    DATABASE_URL: "postgres://test:test@localhost/test"
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq pkg-config libssl-dev libpq-dev
+  script:
+    - cd apps/backend
+    - cargo test --jobs 1
+  timeout: 40 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - apps/backend/**/*
+    - if: $CI_COMMIT_BRANCH =~ /^(development|staging)$/
+      changes:
+        - apps/backend/**/*
+
+# ---------------------------------------------------------------------------
+# Build — Docker images pushed to internal registry
+# ---------------------------------------------------------------------------
+# BuildKit inline cache for layer reuse between runs.
+# Images tagged: <env>-<sha> + <env>-latest
+# Always build all images (Docker cache keeps it fast; needed for deploy artifacts).
+
+build:frontend:
+  stage: build
+  image: docker:27
+  needs:
+    - job: "lint:eslint"
+      optional: true
+    - job: "lint:typecheck"
+      optional: true
+    - job: "test:frontend"
+      optional: true
+  <<: *docker-login
+  script:
+    - >
+      docker build
+      --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID
+      --build-arg NEXT_PUBLIC_APP_URL=$DEPLOY_FRONTEND_URL
+      --build-arg NEXT_PUBLIC_BACKEND_URL=$DEPLOY_API_URL
+      --build-arg NEXT_PUBLIC_ADMIN_URL=$DEPLOY_ADMIN_URL
+      --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=$DEPLOY_BLOCKCHAIN_NETWORK
+      --build-arg NEXT_PUBLIC_CHAIN_ID=$DEPLOY_CHAIN_ID
+      --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID
+      --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=${PAYMENT_ESCROW_MAINNET:-}
+      --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=${PAYMENT_RECEIVER_MAINNET:-}
+      -f apps/frontend/Dockerfile
+      -t $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-$IMAGE_TAG
+      -t $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-latest
+      .
+    - docker push $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-$IMAGE_TAG
+    - docker push $CI_REGISTRY_IMAGE/frontend:$ENV_TAG-latest
+  artifacts:
+    reports:
+      dotenv: build.env
+  timeout: 30 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "production"
+      when: never
+    - if: $CI_COMMIT_BRANCH == "development"
+      variables:
+        ENV_TAG: dev
+        DEPLOY_FRONTEND_URL: https://dev.epsx.io
+        DEPLOY_API_URL: https://dev-api.epsx.io
+        DEPLOY_ADMIN_URL: https://dev-admin.epsx.io
+        DEPLOY_BLOCKCHAIN_NETWORK: testnet
+        DEPLOY_CHAIN_ID: "97"
+    - if: $CI_COMMIT_BRANCH == "staging"
+      variables:
+        ENV_TAG: staging
+        DEPLOY_FRONTEND_URL: https://staging.epsx.io
+        DEPLOY_API_URL: https://staging-api.epsx.io
+        DEPLOY_ADMIN_URL: https://staging-admin.epsx.io
+        DEPLOY_BLOCKCHAIN_NETWORK: testnet
+        DEPLOY_CHAIN_ID: "97"
+
+build:admin:
+  stage: build
+  image: docker:27
+  needs:
+    - job: "lint:eslint"
+      optional: true
+    - job: "lint:typecheck"
+      optional: true
+  <<: *docker-login
+  script:
+    - >
+      docker build
+      --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID
+      --build-arg NEXT_PUBLIC_APP_URL=$DEPLOY_ADMIN_URL
+      --build-arg NEXT_PUBLIC_BACKEND_URL=$DEPLOY_API_URL
+      --build-arg NEXT_PUBLIC_ADMIN_URL=$DEPLOY_ADMIN_URL
+      --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=$DEPLOY_BLOCKCHAIN_NETWORK
+      --build-arg NEXT_PUBLIC_CHAIN_ID=$DEPLOY_CHAIN_ID
+      --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-admin
+      --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=${PAYMENT_ESCROW_MAINNET:-}
+      --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=${PAYMENT_RECEIVER_MAINNET:-}
+      -f apps/admin-frontend/Dockerfile
+      -t $CI_REGISTRY_IMAGE/admin:$ENV_TAG-$IMAGE_TAG
+      -t $CI_REGISTRY_IMAGE/admin:$ENV_TAG-latest
+      .
+    - docker push $CI_REGISTRY_IMAGE/admin:$ENV_TAG-$IMAGE_TAG
+    - docker push $CI_REGISTRY_IMAGE/admin:$ENV_TAG-latest
+  timeout: 30 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "production"
+      when: never
+    - if: $CI_COMMIT_BRANCH == "development"
+      variables:
+        ENV_TAG: dev
+        DEPLOY_API_URL: https://dev-api.epsx.io
+        DEPLOY_ADMIN_URL: https://dev-admin.epsx.io
+        DEPLOY_BLOCKCHAIN_NETWORK: testnet
+        DEPLOY_CHAIN_ID: "97"
+    - if: $CI_COMMIT_BRANCH == "staging"
+      variables:
+        ENV_TAG: staging
+        DEPLOY_API_URL: https://staging-api.epsx.io
+        DEPLOY_ADMIN_URL: https://staging-admin.epsx.io
+        DEPLOY_BLOCKCHAIN_NETWORK: testnet
+        DEPLOY_CHAIN_ID: "97"
+
+build:backend:
+  stage: build
+  image: docker:27
+  needs:
+    - job: test:backend
+      optional: true  # backend test may be skipped (no changes)
+  <<: *docker-login
+  script:
+    - docker builder prune -af 2>/dev/null || true
+    - >
+      docker build
+      -f apps/backend/Dockerfile
+      -t $CI_REGISTRY_IMAGE/backend:$ENV_TAG-$IMAGE_TAG
+      -t $CI_REGISTRY_IMAGE/backend:$ENV_TAG-latest
+      .
+    - docker push $CI_REGISTRY_IMAGE/backend:$ENV_TAG-$IMAGE_TAG
+    - docker push $CI_REGISTRY_IMAGE/backend:$ENV_TAG-latest
+  timeout: 30 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "production"
+      when: never
+    - if: $CI_COMMIT_BRANCH == "development"
+      variables:
+        ENV_TAG: dev
+    - if: $CI_COMMIT_BRANCH == "staging"
+      variables:
+        ENV_TAG: staging
+
+# --- Production builds (run automatically on production branch push) ---
+# Images are built locally on the shared Mac Mini runner Docker socket.
+# No registry push; images persist in local Docker until deploy:production runs.
+
+build:frontend:prod:
+  stage: build
+  image: docker:27
+  <<: *prod-build-before
+  script:
+    - >
+      docker build
+      --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=${WALLETCONNECT_PROJECT_ID}
+      --build-arg NEXT_PUBLIC_APP_URL=${FRONTEND_URL}
+      --build-arg NEXT_PUBLIC_BACKEND_URL=${BACKEND_URL}
+      --build-arg NEXT_PUBLIC_ADMIN_URL=${ADMIN_FRONTEND_URL}
+      --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=${BLOCKCHAIN_NETWORK}
+      --build-arg NEXT_PUBLIC_CHAIN_ID=${CHAIN_ID}
+      --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID:-epsx-frontend}
+      --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=${NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET:-}
+      --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=${NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET:-}
+      -f apps/frontend/Dockerfile
+      -t epsx-frontend:prod
+      .
+    - echo "[OK] epsx-frontend:prod built"
+  timeout: 30 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+
+build:admin:prod:
+  stage: build
+  image: docker:27
+  needs: ["build:frontend:prod"]
+  <<: *prod-build-before
+  script:
+    - >
+      docker build
+      --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=${WALLETCONNECT_PROJECT_ID}
+      --build-arg NEXT_PUBLIC_APP_URL=${ADMIN_FRONTEND_URL}
+      --build-arg NEXT_PUBLIC_BACKEND_URL=${BACKEND_URL}
+      --build-arg NEXT_PUBLIC_ADMIN_URL=${ADMIN_FRONTEND_URL}
+      --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=${BLOCKCHAIN_NETWORK}
+      --build-arg NEXT_PUBLIC_CHAIN_ID=${CHAIN_ID}
+      --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-admin
+      --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=${NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET:-}
+      --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=${NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET:-}
+      -f apps/admin-frontend/Dockerfile
+      -t epsx-admin-frontend:prod
+      .
+    - echo "[OK] epsx-admin-frontend:prod built"
+  timeout: 30 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+
+build:backend:prod:
+  stage: build
+  image: docker:27
+  needs: ["build:admin:prod"]
+  before_script:
+    - export DOCKER_HOST=unix:///var/run/docker.sock
+    - export DOCKER_TLS_CERTDIR=""
+  script:
+    - docker builder prune -af 2>/dev/null || true
+    - >
+      docker build
+      -f apps/backend/Dockerfile
+      -t epsx-backend:prod
+      .
+    - echo "[OK] epsx-backend:prod built"
+  timeout: 45 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+
+# ---------------------------------------------------------------------------
+# Deploy — Colima K8s
+# ---------------------------------------------------------------------------
+
+deploy:staging:
+  stage: deploy
+  image: docker:27
+  needs:
+    - job: build:backend
+    - job: build:frontend
+    - job: build:admin
+  script:
+    - *kubectl-setup
+    - kubectl apply -k infrastructure/kubernetes/overlays/staging/
+    - kubectl -n epsx-staging rollout restart deployment/epsx-backend
+    - kubectl -n epsx-staging rollout restart deployment/epsx-frontend
+    - kubectl -n epsx-staging rollout restart deployment/epsx-admin
+    - kubectl -n epsx-staging rollout status deployment/epsx-backend --timeout=120s
+    - kubectl -n epsx-staging rollout status deployment/epsx-frontend --timeout=120s
+    - kubectl -n epsx-staging rollout status deployment/epsx-admin --timeout=120s
+  environment:
+    name: staging
+    url: https://staging.epsx.io
+  timeout: 15 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH == "staging"
+      when: manual
+
+deploy:production:
+  stage: deploy
+  image: docker:27
+  needs:
+    - job: build:frontend:prod
+    - job: build:admin:prod
+    - job: build:backend:prod
+  before_script:
+    - export DOCKER_HOST=unix:///var/run/docker.sock
+    - export DOCKER_TLS_CERTDIR=""
+  script:
+    - *kubectl-setup
+    - echo "=== Images available locally ==="
+    - docker images epsx-frontend:prod || true
+    - docker images epsx-admin-frontend:prod || true
+    - docker images epsx-backend:prod || true
+    # Apply manifests (secrets & configs already exist in cluster; apply is idempotent)
+    - kubectl apply -k infrastructure/kubernetes/overlays/prod/
+    # Restart deployments to pick up new local images
+    - kubectl -n epsx-prod rollout restart deployment/epsx-backend
+    - kubectl -n epsx-prod rollout restart deployment/epsx-frontend
+    - kubectl -n epsx-prod rollout restart deployment/epsx-admin
+    - kubectl -n epsx-prod rollout status deployment/epsx-backend --timeout=180s
+    - kubectl -n epsx-prod rollout status deployment/epsx-frontend --timeout=180s
+    - kubectl -n epsx-prod rollout status deployment/epsx-admin --timeout=180s
+    - echo "=== Pod status after deploy ==="
+    - kubectl get pods -n epsx-prod -o wide
+  environment:
+    name: production
+    url: https://epsx.io
+  timeout: 30 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+      when: manual
+      allow_failure: false
+
+validate:production:
+  stage: validate
+  image: curlimages/curl:latest
+  needs: ["deploy:production"]
+  script:
+    - sleep 30
+    - echo "========================================"
+    - echo "  EPSX Production Smoke Tests"
+    - echo "  Commit $CI_COMMIT_SHORT_SHA"
+    - echo "========================================"
+    - echo "--- Backend API ---"
+    - echo "[1/4] Health check"
+    - curl -sf --retry 5 --retry-delay 10 https://api.epsx.io/health || exit 1
+    - echo "[OK] /health OK"
+    - echo "[2/4] API root"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -s --retry 3 --retry-delay 5 https://api.epsx.io)
+    - echo "HTTP $STATUS"
+    - echo "$STATUS" | grep -qE "200|404" || exit 1
+    - echo "[OK] root reachable"
+    - echo "[3/4] News endpoint"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -s --retry 3 --retry-delay 5 https://api.epsx.io/news)
+    - echo "HTTP $STATUS"
+    - echo "$STATUS" | grep -qE "200|401|404" || exit 1
+    - echo "[OK] /news reachable"
+    - echo "[4/4] Stocks endpoint"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -s --retry 3 --retry-delay 5 https://api.epsx.io/stocks)
+    - echo "HTTP $STATUS"
+    - echo "$STATUS" | grep -qE "200|401|404" || exit 1
+    - echo "[OK] /stocks reachable"
+    - echo "--- Frontend epsx.io ---"
+    - echo "[1/5] Home page"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://epsx.io)
+    - echo "HTTP $STATUS"
+    - echo "$STATUS" | grep -qE "200|307" || exit 1
+    - echo "[OK] / OK"
+    - echo "[2/5] News page"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://epsx.io/news)
+    - echo "HTTP $STATUS"
+    - echo "$STATUS" | grep -qE "200|307" || exit 1
+    - echo "[OK] /news OK"
+    - echo "[3/5] Market page"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://epsx.io/market)
+    - echo "HTTP $STATUS"
+    - echo "$STATUS" | grep -qE "200|307|308" || exit 1
+    - echo "[OK] /market OK"
+    - echo "[4/5] Leaderboard page"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://epsx.io/leaderboard)
+    - echo "HTTP $STATUS"
+    - echo "$STATUS" | grep -qE "200|307|308" || exit 1
+    - echo "[OK] /leaderboard OK"
+    - echo "[5/5] Portfolio page"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://epsx.io/portfolio)
+    - echo "HTTP $STATUS"
+    - echo "$STATUS" | grep -qE "200|307|308" || exit 1
+    - echo "[OK] /portfolio OK"
+    - echo "--- Admin admin.epsx.io ---"
+    - echo "[1/4] Admin home"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://admin.epsx.io)
+    - echo "HTTP $STATUS"
+    - echo "$STATUS" | grep -qE "200|307" || exit 1
+    - echo "[OK] / OK"
+    - echo "[2/4] Admin users"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://admin.epsx.io/users)
+    - echo "HTTP $STATUS"
+    - echo "$STATUS" | grep -qE "200|307|308|401|403|404" || exit 1
+    - echo "[OK] /users OK"
+    - echo "[3/4] Admin news"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://admin.epsx.io/news)
+    - echo "HTTP $STATUS"
+    - echo "$STATUS" | grep -qE "200|307|308|401|403|404" || exit 1
+    - echo "[OK] /news OK"
+    - echo "[4/4] Admin analytics"
+    - STATUS=$(curl -o /dev/null -w "%{http_code}" -sL --retry 3 --retry-delay 5 https://admin.epsx.io/analytics)
+    - echo "HTTP $STATUS"
+    - echo "$STATUS" | grep -qE "200|307|308|401|403|404" || exit 1
+    - echo "[OK] /analytics OK"
+    - echo "========================================"
+    - echo "  [SUCCESS] All production services healthy"
+    - echo "  Deployed $CI_COMMIT_SHORT_SHA"
+    - echo "========================================"
+  timeout: 10 minutes
+  rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+
+# ---------------------------------------------------------------------------
+# Review Apps (MR only — frontend preview with prod backend)
+# ---------------------------------------------------------------------------
+
+review:deploy:
+  stage: deploy
+  image: docker:27
+  <<: *docker-login
+  script:
+    - >
+      docker build
+      --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID
+      --build-arg NEXT_PUBLIC_APP_URL=https://mr-${CI_MERGE_REQUEST_IID}.review.epsx.io
+      --build-arg NEXT_PUBLIC_BACKEND_URL=https://api.epsx.io
+      --build-arg NEXT_PUBLIC_ADMIN_URL=https://admin.epsx.io
+      --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=mainnet
+      --build-arg NEXT_PUBLIC_CHAIN_ID=56
+      --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID
+      --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=${PAYMENT_ESCROW_MAINNET:-}
+      --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=${PAYMENT_RECEIVER_MAINNET:-}
+      -f apps/frontend/Dockerfile
+      -t $CI_REGISTRY_IMAGE/review:mr-${CI_MERGE_REQUEST_IID}
+      .
+    - docker push $CI_REGISTRY_IMAGE/review:mr-${CI_MERGE_REQUEST_IID}
+    - docker rm -f epsx-review-mr-${CI_MERGE_REQUEST_IID} || true
+    - >
+      docker run -d
+      --name epsx-review-mr-${CI_MERGE_REQUEST_IID}
+      --network epsx_review_network
+      --memory 512m
+      --cpus 1
+      --restart unless-stopped
+      -e NODE_ENV=production
+      -e BACKEND_URL=https://api.epsx.io
+      -e NEXT_PUBLIC_BACKEND_URL=https://api.epsx.io
+      -e PORT=3000
+      -e HOSTNAME=0.0.0.0
+      --label "traefik.enable=true"
+      --label "traefik.http.routers.mr-${CI_MERGE_REQUEST_IID}.rule=Host(\`mr-${CI_MERGE_REQUEST_IID}.review.epsx.io\`)"
+      --label "traefik.http.routers.mr-${CI_MERGE_REQUEST_IID}.entrypoints=web"
+      --label "traefik.http.services.mr-${CI_MERGE_REQUEST_IID}.loadbalancer.server.port=3000"
+      $CI_REGISTRY_IMAGE/review:mr-${CI_MERGE_REQUEST_IID}
+  environment:
+    name: review/mr-${CI_MERGE_REQUEST_IID}
+    url: https://mr-${CI_MERGE_REQUEST_IID}.review.epsx.io
+    on_stop: review:stop
+    auto_stop_in: 3 days
+  timeout: 15 minutes
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - apps/frontend/**/*
+        - shared/**/*
+
+review:stop:
+  stage: deploy
+  image: docker:27
+  script:
+    - |
+      export DOCKER_HOST=unix:///var/run/docker.sock
+      export DOCKER_TLS_CERTDIR=""
+      docker rm -f epsx-review-mr-${CI_MERGE_REQUEST_IID} || true
+      docker rmi $CI_REGISTRY_IMAGE/review:mr-${CI_MERGE_REQUEST_IID} || true
+  environment:
+    name: review/mr-${CI_MERGE_REQUEST_IID}
+    action: stop
+  timeout: 5 minutes
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - apps/frontend/**/*
+        - shared/**/*
+      when: manual
+      allow_failure: true
+
+# ---------------------------------------------------------------------------
+# Housekeeping — Docker cleanup for the runner
+# ---------------------------------------------------------------------------
+
+cleanup:docker:
+  stage: cleanup
+  image: docker:27
+  script:
+    - chmod +x scripts/ops/docker-cleanup.sh
+    - ./scripts/ops/docker-cleanup.sh
+  variables:
+    DOCKER_HOST: unix:///var/run/docker.sock
+    DOCKER_TLS_CERTDIR: ""
+  timeout: 10 minutes
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_COMMIT_BRANCH == "development"
+      when: manual
+      allow_failure: true

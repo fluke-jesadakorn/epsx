@@ -1,0 +1,27 @@
+// Domain Layer - Core business logic following DDD principles
+// This layer contains bounded contexts, aggregates, entities, value objects, and domain services
+// It has no dependencies on external concerns (infrastructure, application, web layers)
+
+pub mod shared_kernel;
+pub mod wallet_management; // Web3-first: wallet-based user management
+pub mod payment; // Payment processing and validation
+pub mod permission_management; // Permission plans, policies, and assignments
+pub mod subscription_management; // Plans, subscriptions, and billing
+pub mod market_analytics;
+pub mod notification;
+
+pub mod realtime_events;
+pub mod resource_management; // New domain for resource tracking and billing
+pub mod developer_portal; // API key management and module access
+pub mod audit; // Audit logging domain
+pub mod auth; // Authentication and Identity interfaces
+pub mod support_chat; // Support chat system
+
+// Re-export shared kernel for easy access
+pub use shared_kernel::{
+  AggregateRoot,
+  DomainEvent,
+  DomainEventBus,
+  Specification,
+  ValueObject,
+};

@@ -1,0 +1,16 @@
+[profile.default]
+src = "contracts"
+out = "out"
+libs = ["lib"]
+test = "test"
+cache_path = "cache"
+
+# See more config options https://book.getfoundry.sh/reference/config.html
+
+[etherscan]
+bsc = { key = "${BSCSCAN_API_KEY}" }
+bsc_testnet = { key = "${BSCSCAN_API_KEY}" }
+
+[rpc_endpoints]
+bsc = "${BSC_MAINNET_RPC}"
+bsc_testnet = "${BSC_TESTNET_RPC}"

@@ -1,11 +1,7 @@
 use alloy::providers::utils::Eip1559Estimation;
 use alloy::providers::{Provider, ProviderBuilder};
-use alloy::rpc::types::TransactionRequest;
-use alloy::rpc::types::{Filter, Log};
 use alloy::signers::local::PrivateKeySigner;
-use alloy::sol;
-use alloy_primitives::{Address, B256, Bytes, U256};
-use alloy_sol_types::SolCall;
+use alloy_primitives::{Address, U256};
 use epsx_kernel::{ChainId, Token};
 use std::str::FromStr;
 use thiserror::Error;
@@ -24,18 +20,6 @@ pub enum Web3Error {
 
 pub type Result<T> = std::result::Result<T, Web3Error>;
 
-sol! {
-    interface IERC20 {
-        function balanceOf(address account) external view returns (uint256);
-        function decimals() external view returns (uint8);
-        function symbol() external view returns (string);
-    }
-
-    interface IERC20Events {
-        event Transfer(address indexed from, address indexed to, uint256 value);
-    }
-}
-
 pub fn bsc_provider() -> Result<Box<dyn Provider + Send + Sync>> {
     let url: reqwest::Url = "https://bsc-dataseed1.binance.org".parse().map_err(|e: url::ParseError| Web3Error::Provider(e.to_string()))?;
     Ok(Box::new(ProviderBuilder::new().connect_http(url)))
@@ -44,11 +28,6 @@ pub fn bsc_provider() -> Result<Box<dyn Provider + Send + Sync>> {
 pub fn bsc_testnet_provider() -> Result<Box<dyn Provider + Send + Sync>> {
     let url: reqwest::Url = "https://data-seed-prebsc-1-s1.binance.org:8545".parse().map_err(|e: url::ParseError| Web3Error::Provider(e.to_string()))?;
     Ok(Box::new(ProviderBuilder::new().connect_http(url)))
-}
-
-pub fn provider_for_url(url: &str) -> Result<Box<dyn Provider + Send + Sync>> {
-    let parsed: reqwest::Url = url.parse().map_err(|e: url::ParseError| Web3Error::Provider(e.to_string()))?;
-    Ok(Box::new(ProviderBuilder::new().connect_http(parsed)))
 }
 
 pub fn provider_for_chain(chain_id: ChainId) -> Result<Box<dyn Provider + Send + Sync>> {
@@ -111,58 +90,6 @@ pub async fn fetch_block<P: Provider + ?Sized>(provider: &P, number: u64) -> Res
     provider.get_block_by_number(alloy_rpc_types::BlockNumberOrTag::Number(number)).await.map_err(|e| Web3Error::Provider(e.to_string()))
 }
 
-pub async fn fetch_block_full<P: Provider + ?Sized>(provider: &P, number: u64) -> Result<Option<alloy_rpc_types::Block>> {
-    provider.get_block_by_number(alloy_rpc_types::BlockNumberOrTag::Number(number))
-        .full()
-        .await
-        .map_err(|e| Web3Error::Provider(e.to_string()))
-}
-
-pub async fn fetch_tx_receipt<P: Provider + ?Sized>(provider: &P, hash: B256) -> Result<Option<alloy_rpc_types::TransactionReceipt>> {
+pub async fn fetch_tx_receipt<P: Provider + ?Sized>(provider: &P, hash: alloy_primitives::B256) -> Result<Option<alloy_rpc_types::TransactionReceipt>> {
     provider.get_transaction_receipt(hash).await.map_err(|e| Web3Error::Provider(e.to_string()))
-}
-
-pub async fn send_raw_transaction<P: Provider + ?Sized>(provider: &P, raw: Bytes) -> Result<B256> {
-    let pending = provider.send_raw_transaction(&raw).await.map_err(|e| Web3Error::Transaction(e.to_string()))?;
-    Ok(*pending.tx_hash())
-}
-
-pub async fn fetch_token_balance<P: Provider + ?Sized>(provider: &P, token: Address, holder: Address) -> Result<U256> {
-    let call = IERC20::balanceOfCall { account: holder };
-    let req = TransactionRequest::default()
-        .to(token)
-        .input(Bytes::from(call.abi_encode()).into());
-    let result = provider.call(req).await
-        .map_err(|e| Web3Error::Contract(e.to_string()))?;
-    let decoded = IERC20::balanceOfCall::abi_decode_returns(&result)
-        .map_err(|e| Web3Error::Contract(e.to_string()))?;
-    Ok(decoded)
-}
-
-pub async fn fetch_token_decimals<P: Provider + ?Sized>(provider: &P, token: Address) -> Result<u8> {
-    let call = IERC20::decimalsCall {};
-    let req = TransactionRequest::default()
-        .to(token)
-        .input(Bytes::from(call.abi_encode()).into());
-    let result = provider.call(req).await
-        .map_err(|e| Web3Error::Contract(e.to_string()))?;
-    let decoded = IERC20::decimalsCall::abi_decode_returns(&result)
-        .map_err(|e| Web3Error::Contract(e.to_string()))?;
-    Ok(decoded)
-}
-
-pub async fn fetch_token_symbol<P: Provider + ?Sized>(provider: &P, token: Address) -> Result<String> {
-    let call = IERC20::symbolCall {};
-    let req = TransactionRequest::default()
-        .to(token)
-        .input(Bytes::from(call.abi_encode()).into());
-    let result = provider.call(req).await
-        .map_err(|e| Web3Error::Contract(e.to_string()))?;
-    let decoded = IERC20::symbolCall::abi_decode_returns(&result)
-        .map_err(|e| Web3Error::Contract(e.to_string()))?;
-    Ok(decoded)
-}
-
-pub async fn fetch_logs<P: Provider + ?Sized>(provider: &P, filter: Filter) -> Result<Vec<Log>> {
-    provider.get_logs(&filter).await.map_err(|e| Web3Error::Provider(e.to_string()))
 }

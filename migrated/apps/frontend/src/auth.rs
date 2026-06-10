@@ -1,73 +1,35 @@
-//! Authentication helpers for the frontend BFF.
+//! Authentication helpers — cookie scheme + JWT verification.
 //!
-//! Reads the `epsx_token` cookie (or `Authorization: Bearer` header), and
-//! uses the identity service's `/api/v1/identity/auth/me` to look up the
-//! current user. Tokens are stored in cookies so the BFF can render
-//! per-user content server-side.
+//! Mirrors the original Next.js middleware behavior: an `epsx_token` cookie
+//! is treated as a bearer token, and we verify it with `epsx_auth::JwtAuth`
+//! to get back a verified `AuthUser`. The same scheme is used by the
+//! `/api/v1/auth/siwe` and `/api/v1/auth/demo` handlers to set the cookies.
+//!
+//! All API handlers in `api.rs` and the SSR handler in `ssr.rs` go through
+//! `current_user` (or `require_*` variants) to enforce authentication.
 
-use epsx_client::{ClientError, ServiceClient};
-use serde::{Deserialize, Serialize};
+use axum::http::HeaderMap;
+use epsx_auth::{AuthError, AuthUser, JwtAuth};
 use std::collections::HashMap;
+use std::sync::Arc;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AuthUser {
-    pub id: Uuid,
-    pub address: String,
-    pub chain_id: String,
-    pub roles: Vec<String>,
-    pub token: String,
-}
+pub use epsx_auth::AuthUser as VerifiedAuthUser;
 
-impl AuthUser {
-    pub fn display(&self) -> String {
-        let s = self.address.as_str();
-        if s.len() > 10 {
-            format!("{}…{}", &s[..6], &s[s.len() - 4..])
-        } else {
-            s.to_string()
-        }
-    }
-
-    pub fn role_label(&self) -> &'static str {
-        if self.is_admin() {
-            "Admin"
-        } else if self.is_editor() {
-            "Editor"
-        } else if self.is_merchant() {
-            "Merchant"
-        } else {
-            "Member"
-        }
-    }
-
-    pub fn is_admin(&self) -> bool {
-        self.roles.iter().any(|r| r == "admin" || r == "super_admin")
-    }
-
-    pub fn is_editor(&self) -> bool {
-        self.is_admin() || self.roles.iter().any(|r| r == "editor" || r == "content_manager")
-    }
-
-    pub fn is_merchant(&self) -> bool {
-        self.roles.iter().any(|r| r == "merchant" || r == "designer")
-    }
-}
-
-pub fn parse_cookies(headers: &axum::http::HeaderMap) -> HashMap<String, String> {
+pub fn parse_cookies(headers: &HeaderMap) -> HashMap<String, String> {
     let mut map = HashMap::new();
     if let Some(cookie_header) = headers.get("cookie").and_then(|h| h.to_str().ok()) {
         for pair in cookie_header.split(';') {
             let pair = pair.trim();
             if let Some(idx) = pair.find('=') {
-                map.insert(pair[..idx].to_string(), pair[idx+1..].to_string());
+                map.insert(pair[..idx].to_string(), pair[idx + 1..].to_string());
             }
         }
     }
     map
 }
 
-pub fn get_cookie(headers: &axum::http::HeaderMap, name: &str) -> Option<String> {
+pub fn get_cookie(headers: &HeaderMap, name: &str) -> Option<String> {
     parse_cookies(headers).remove(name)
 }
 
@@ -84,34 +46,7 @@ pub fn build_clear_cookie(name: &str) -> String {
     build_set_cookie(name, "", 0)
 }
 
-/// Fetch the current user via the identity service. Returns None if the
-/// request fails (no token, expired, etc).
-pub async fn current_user(
-    identity: &ServiceClient,
-    headers: &axum::http::HeaderMap,
-) -> Option<AuthUser> {
-    let token = bearer_token(headers)?;
-    let url = format!("{}/api/v1/identity/auth/me", identity.base_url().trim_end_matches('/'));
-    let client = identity.clone_for_bearer();
-    let res = client.get(&url).bearer_auth(&token).send().await.ok()?;
-    if !res.status().is_success() {
-        return None;
-    }
-    let v: serde_json::Value = res.json().await.ok()?;
-    let obj = v.as_object()?;
-    let id = obj.get("id")?.as_str()?;
-    let id = Uuid::parse_str(id).ok()?;
-    let address = obj.get("address")?.as_str()?.to_string();
-    let chain_id = obj.get("chain_id")?.as_str()?.to_string();
-    let roles: Vec<String> = obj
-        .get("roles")
-        .and_then(|r| r.as_array())
-        .map(|arr| arr.iter().filter_map(|s| s.as_str().map(String::from)).collect())
-        .unwrap_or_default();
-    Some(AuthUser { id, address, chain_id, roles, token })
-}
-
-pub fn bearer_token(headers: &axum::http::HeaderMap) -> Option<String> {
+pub fn bearer_token(headers: &HeaderMap) -> Option<String> {
     if let Some(h) = headers.get("authorization").and_then(|h| h.to_str().ok()) {
         if let Some(t) = h.strip_prefix("Bearer ") {
             return Some(t.to_string());
@@ -120,49 +55,64 @@ pub fn bearer_token(headers: &axum::http::HeaderMap) -> Option<String> {
     get_cookie(headers, "epsx_token")
 }
 
-/// Issue a `GET` request to a service URL with bearer auth and parse JSON.
-pub async fn authed_get_json(
-    client: &ServiceClient,
-    url: &str,
-    token: &str,
-) -> Result<serde_json::Value, ClientError> {
-    let res = client.clone_for_bearer().get(url).bearer_auth(token).send().await?;
-    if !res.status().is_success() {
-        return Err(ClientError::Service(format!("status {}", res.status())));
-    }
-    Ok(res.json().await?)
+/// Resolve a verified `AuthUser` from the request. Returns `None` if no
+/// token is present or verification fails. This is the only function
+/// API handlers and the SSR layer should call to get the current user.
+pub fn current_user(headers: &HeaderMap, jwt: &JwtAuth) -> Option<AuthUser> {
+    let token = bearer_token(headers)?;
+    jwt.verify(&token).ok()
 }
 
-pub async fn authed_post_json<B: serde::Serialize>(
-    client: &ServiceClient,
-    url: &str,
-    token: &str,
-    body: &B,
-) -> Result<serde_json::Value, ClientError> {
-    let res = client
-        .clone_for_bearer()
-        .post(url)
-        .bearer_auth(token)
-        .json(body)
-        .send()
-        .await?;
-    if !res.status().is_success() {
-        return Err(ClientError::Service(format!("status {}", res.status())));
-    }
-    Ok(res.json().await?)
+pub fn require_user(headers: &HeaderMap, jwt: &JwtAuth) -> Result<AuthUser, AuthError> {
+    let token = bearer_token(headers).ok_or(AuthError::Missing)?;
+    jwt.verify(&token)
 }
 
-pub async fn authed_delete(
-    client: &ServiceClient,
-    url: &str,
-    token: &str,
-) -> Result<serde_json::Value, ClientError> {
-    let res = client.clone_for_bearer().delete(url).bearer_auth(token).send().await?;
-    if !res.status().is_success() {
-        return Err(ClientError::Service(format!("status {}", res.status())));
+pub fn require_admin(headers: &HeaderMap, jwt: &JwtAuth) -> Result<AuthUser, AuthError> {
+    let user = require_user(headers, jwt)?;
+    if user.is_admin() { Ok(user) } else { Err(AuthError::Forbidden) }
+}
+
+pub fn require_editor(headers: &HeaderMap, jwt: &JwtAuth) -> Result<AuthUser, AuthError> {
+    let user = require_user(headers, jwt)?;
+    if user.is_editor() { Ok(user) } else { Err(AuthError::Forbidden) }
+}
+
+/// Construct a `JwtAuth` from the standard `EPSX_JWT_SECRET` env var, or
+/// fall back to a deterministic dev secret. Production must set the env.
+pub fn jwt_auth_from_env() -> Arc<JwtAuth> {
+    let secret = std::env::var("EPSX_JWT_SECRET")
+        .unwrap_or_else(|_| "epsx-dev-secret-do-not-use-in-prod".to_string());
+    Arc::new(JwtAuth::from_secret(&secret))
+}
+
+// Re-export the legacy `AuthUser` for backwards compat with the siwe handler
+// which has a different shape (id: Uuid, token: String, ...). We keep that
+// struct in the BFF for cookie-set purposes, but the verified one comes
+// from `epsx_auth`.
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct AuthUserSession {
+    pub id: Uuid,
+    pub address: String,
+    pub chain_id: String,
+    pub roles: Vec<String>,
+    pub token: String,
+}
+
+impl AuthUserSession {
+    pub fn display(&self) -> String {
+        let s = self.address.as_str();
+        if s.len() > 10 {
+            format!("{}…{}", &s[..6], &s[s.len() - 4..])
+        } else {
+            s.to_string()
+        }
     }
-    if res.status().as_u16() == 204 {
-        return Ok(serde_json::Value::Null);
+    pub fn is_admin(&self) -> bool {
+        self.roles.iter().any(|r| r == "admin" || r == "super_admin")
     }
-    Ok(res.json().await?)
+    pub fn is_editor(&self) -> bool {
+        self.is_admin() || self.roles.iter().any(|r| r == "editor" || r == "content_manager")
+    }
 }

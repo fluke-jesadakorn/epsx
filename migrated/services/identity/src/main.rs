@@ -101,8 +101,7 @@ async fn main() {
     if let Ok(addr) = std::env::var("EPSX_BOOTSTRAP_ADMIN") {
         let addr = addr.to_lowercase();
         let _ = sqlx::query(
-            "INSERT INTO users (address, chain_id, roles) VALUES ($1, '56', ARRAY['admin','user'])
-             ON CONFLICT (address) DO UPDATE SET roles = ARRAY['admin','user'], updated_at = NOW()"
+            "UPDATE users SET roles = ARRAY['admin','user'] WHERE address = $1"
         )
         .bind(&addr)
         .execute(&db)

@@ -1,219 +1,153 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type {
-  SharedWeb3AuthClient,
-  UserInfoResponse,
-} from '../../../auth/client';
+import type { SharedWeb3AuthClient, UserInfoResponse } from '../../../auth/client';
 import { refreshSessionAction } from '../../../auth/actions';
 import { COOKIES } from '../../../auth/cookies';
-import { setSharedClientToken } from '../../../utils/api-client';
 import { logger } from '../../../utils/logger';
 
 function getExpiresAt(): number | null {
-  if (typeof document === 'undefined') {
-    return null;
-  }
-  const name = COOKIES.expires_at;
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  // eslint-disable-next-line security/detect-non-literal-regexp
-  const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`));
-  if (match === null) {
-    return null;
-  }
-  const val = parseInt(match[1] ?? '', 10);
-  return isNaN(val) ? null : val;
+    if (typeof document === 'undefined') { return null; }
+    const name = COOKIES.expires_at;
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // eslint-disable-next-line security/detect-non-literal-regexp
+    const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`));
+    if (match === null) { return null; }
+    const val = parseInt(match[1] ?? '', 10);
+    return isNaN(val) ? null : val;
 }
 
 interface UseAuthInitializationProps {
-  client: SharedWeb3AuthClient;
-  initialUser: UserInfoResponse | null;
-  clientId: string;
-  onAuthError?: (error: string) => void;
-}
-
-function hasAccessToken(
-  user: UserInfoResponse
-): user is UserInfoResponse & { access: string } {
-  return typeof user.access === 'string' && user.access !== '';
+    client: SharedWeb3AuthClient;
+    initialUser: UserInfoResponse | null;
+    clientId: string;
+    onAuthError?: (error: string) => void;
 }
 
 export function useAuthInitialization({
-  client,
-  initialUser,
-  clientId,
-  onAuthError,
+    client,
+    initialUser,
+    clientId,
+    onAuthError,
 }: UseAuthInitializationProps) {
-  const [user, setUser] = useState<UserInfoResponse | null>(initialUser);
-  const [isLoading, setIsLoading] = useState(initialUser === null);
-  const [error, setError] = useState<string | null>(null);
+    const [user, setUser] = useState<UserInfoResponse | null>(initialUser);
+    const [isLoading, setIsLoading] = useState(initialUser === null);
+    const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        setError(null);
+    useEffect(() => {
+        const initializeAuth = () => {
+            try {
+                setError(null);
 
-        if (initialUser !== null) {
-          let hydratedUser = initialUser;
+                if (initialUser !== null) {
+                    logger.info('[AUTH] Provider: Hydrated from server state', {
+                        wallet: initialUser.wallet_address,
+                    });
+                    client.setCurrentUser(initialUser);
+                    setIsLoading(false);
+                    return;
+                }
 
-          if (!hasAccessToken(hydratedUser)) {
-            const refreshResult = await refreshSessionAction();
-            if (
-              refreshResult.success &&
-              refreshResult.access_token !== undefined &&
-              refreshResult.access_token !== ''
-            ) {
-              setSharedClientToken(refreshResult.access_token);
-              client.updateTokens(
-                refreshResult.access_token,
-                refreshResult.expires_in
-              );
-              hydratedUser = {
-                ...hydratedUser,
-                access: refreshResult.access_token,
-              };
+                setIsLoading(true);
+
+                // Try in-memory client state (no cookie reads)
+                if (typeof window !== 'undefined') {
+                    const clientUser = client.getCurrentUser();
+                    if (clientUser !== null && client.isAuthenticated()) {
+                        logger.info('[AUTH] Client has valid in-memory auth state');
+                        setUser(clientUser);
+                        setIsLoading(false);
+                        return;
+                    }
+                }
+
+                setIsLoading(false);
+            } catch (err) {
+                const errorMessage = err instanceof Error ? err.message : 'Failed to initialize authentication';
+                logger.error('Authentication initialization failed', { error: errorMessage });
+                setError(errorMessage);
+                onAuthError?.(errorMessage);
+            } finally {
+                setIsLoading(false);
             }
-          } else {
-            setSharedClientToken(hydratedUser.access);
-          }
+        };
 
-          logger.info('[AUTH] Provider: Hydrated from server state', {
-            wallet: hydratedUser.wallet_address,
-            hasAccessToken: hasAccessToken(hydratedUser),
-          });
-          client.setCurrentUser(hydratedUser);
-          setUser(hydratedUser);
-          setIsLoading(false);
-          return;
-        }
+        const safetyTimeout = setTimeout(() => {
+            setIsLoading((prev) => {
+                if (prev) {
+                    logger.warn('[AUTH] Provider: Initialization took too long, forcing load completion');
+                    return false;
+                }
+                return prev;
+            });
+        }, 5000);
 
-        setIsLoading(true);
+        initializeAuth();
 
-        // Try in-memory client state (no cookie reads)
-        if (typeof window !== 'undefined') {
-          const clientUser = client.getCurrentUser();
-          if (clientUser !== null && client.isAuthenticated()) {
-            logger.info('[AUTH] Client has valid in-memory auth state');
-            setUser(clientUser);
-            setIsLoading(false);
-            return;
-          }
-        }
-
-        setIsLoading(false);
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error
-            ? err.message
-            : 'Failed to initialize authentication';
-        logger.error('Authentication initialization failed', {
-          error: errorMessage,
-        });
-        setError(errorMessage);
-        onAuthError?.(errorMessage);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    const safetyTimeout = setTimeout(() => {
-      setIsLoading(prev => {
-        if (prev) {
-          logger.warn(
-            '[AUTH] Provider: Initialization took too long, forcing load completion'
-          );
-          return false;
-        }
-        return prev;
-      });
-    }, 5000);
-
-    void initializeAuth();
-
-    const unsubscribe = client.subscribe(newUser => {
-      setUser(newUser);
-      if (newUser !== null) {
-        logger.info('User state updated', {
-          wallet_address: newUser.wallet_address,
-        });
-      } else {
-        logger.info('User logged out');
-      }
-    });
-
-    return () => {
-      clearTimeout(safetyTimeout);
-      unsubscribe();
-    };
-  }, [client, onAuthError, initialUser, clientId]);
-
-  // Phase 4: Proactive token refresh - runs 5 min before expiry
-  const walletAddr = user?.wallet_address ?? null;
-  useEffect(() => {
-    if (walletAddr === null) {
-      return;
-    }
-
-    let timerId: ReturnType<typeof setTimeout> | undefined;
-
-    const doRefresh = async (): Promise<boolean> => {
-      const result = await refreshSessionAction();
-      if (result.success) {
-        if (result.access_token !== undefined && result.access_token !== '') {
-          setSharedClientToken(result.access_token);
-          client.updateTokens(result.access_token, result.expires_in);
-        }
-
-        const updated = await client.loadCurrentUser();
-        if (updated !== null) {
-          setUser(updated);
-        }
-        return true;
-      }
-      return false;
-    };
-
-    const schedule = () => {
-      const expiresAt = getExpiresAt();
-      if (expiresAt === null) {
-        return;
-      }
-      const timeUntilExpiry = expiresAt - Date.now();
-      // Already expired or expiring within 5 min → refresh immediately (1s delay to avoid tight loop)
-      // Otherwise schedule 5 min before expiry
-      const delay =
-        timeUntilExpiry <= 5 * 60 * 1000
-          ? 1_000
-          : timeUntilExpiry - 5 * 60 * 1000;
-      timerId = setTimeout(() => {
-        void (async () => {
-          try {
-            const ok = await doRefresh();
-            if (ok) {
-              schedule();
+        const unsubscribe = client.subscribe((newUser) => {
+            setUser(newUser);
+            if (newUser !== null) {
+                logger.info('User state updated', { wallet_address: newUser.wallet_address });
+            } else {
+                logger.info('User logged out');
             }
-            // If refresh failed: stop rescheduling, user re-auths on next 401
-          } catch {
-            // Network error: stop rescheduling
-          }
-        })();
-      }, delay);
-    };
+        });
 
-    schedule();
-    return () => {
-      if (timerId !== undefined) {
-        clearTimeout(timerId);
-      }
-    };
-  }, [walletAddr, client]);
+        return () => {
+            clearTimeout(safetyTimeout);
+            unsubscribe();
+        };
+    }, [client, onAuthError, initialUser, clientId]);
 
-  return {
-    user,
-    setUser,
-    isLoading,
-    setIsLoading,
-    error,
-    setError,
-  };
+    // Phase 4: Proactive token refresh - runs 5 min before expiry
+    const walletAddr = user?.wallet_address ?? null;
+    useEffect(() => {
+        if (walletAddr === null) { return; }
+
+        let timerId: ReturnType<typeof setTimeout> | undefined;
+
+        const doRefresh = async (): Promise<boolean> => {
+            const result = await refreshSessionAction();
+            if (result.success) {
+                const updated = await client.loadCurrentUser();
+                if (updated !== null) {
+                    setUser(updated);
+                }
+                return true;
+            }
+            return false;
+        };
+
+        const schedule = () => {
+            const expiresAt = getExpiresAt();
+            if (expiresAt === null) { return; }
+            const timeUntilExpiry = expiresAt - Date.now();
+            // Already expired or expiring within 5 min → refresh immediately (1s delay to avoid tight loop)
+            // Otherwise schedule 5 min before expiry
+            const delay = timeUntilExpiry <= 5 * 60 * 1000 ? 1_000 : timeUntilExpiry - 5 * 60 * 1000;
+            timerId = setTimeout(() => {
+                void (async () => {
+                    try {
+                        const ok = await doRefresh();
+                        if (ok) { schedule(); }
+                        // If refresh failed: stop rescheduling, user re-auths on next 401
+                    } catch {
+                        // Network error: stop rescheduling
+                    }
+                })();
+            }, delay);
+        };
+
+        schedule();
+        return () => { if (timerId !== undefined) { clearTimeout(timerId); } };
+    }, [walletAddr, client]);
+
+    return {
+        user,
+        setUser,
+        isLoading,
+        setIsLoading,
+        error,
+        setError,
+    };
 }

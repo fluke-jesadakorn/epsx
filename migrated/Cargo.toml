@@ -12,6 +12,8 @@ members = [
     "shared/client",
     "shared/renderer",
     "shared/templates",
+    "shared/dioxus_ui",
+    "shared/bff",
     "services/gateway",
     "services/identity",
     "services/wallet",
@@ -113,6 +115,7 @@ dioxus = { version = "0.7", features = ["fullstack", "ssr", "router", "web"] }
 dioxus-ssr = "0.7"
 dioxus-fullstack = { version = "0.7", features = ["axum"] }
 dioxus-server = "0.7"
+dioxus-web = "0.7"
 dioxus-router = "0.7"
 
 # Testing
