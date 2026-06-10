@@ -1525,6 +1525,152 @@ pub fn design_system_head(title: &str, description: &str) -> String {
   }}
   .form-section-title {{
     font-size: 1rem;
+   * Wave 1 — Track C: interactive primitive parity
+   * ----------------------------------------------------------------
+   * Block comment cataloguing every new class added by the Track C
+   * Dioxus primitives (dropdown, modal, tabs, tooltip, overlays,
+   * rich_text). Reuses the existing --epsx-* CSS custom properties,
+   * the global Tailwind v2 utility set, and the existing shadcn-style
+   * class naming. Each entry is:
+   *   `<class>` — `<purpose>` — `<consumer primitive file>`
+   * ----------------------------------------------------------------
+   *  dropdown-label            — non-interactive label inside menu  (primitives/dropdown.rs)
+   *  dropdown-item-inset       — left-padded item (Radix `inset`)  (primitives/dropdown.rs)
+   *  dropdown-item-check       — leading check column             (primitives/dropdown.rs)
+   *  dropdown-item-checked     — modifier on a checked item         (primitives/dropdown.rs)
+   *  dropdown-checkbox-item    — checkbox-style item container      (primitives/dropdown.rs)
+   *  dropdown-menu-side-top    — render the menu above the trigger  (primitives/dropdown.rs)
+   *  dropdown-menu-side-bottom — render below the trigger (default) (primitives/dropdown.rs)
+   *  dropdown-menu-align-start — align menu to the start of trigger (primitives/dropdown.rs)
+   *  dropdown-menu-align-end   — align menu to the end of trigger   (primitives/dropdown.rs)
+   *  dropdown-menu-align-center— center menu under trigger (default)(primitives/dropdown.rs)
+   *
+   *  modal-overlay             — full-viewport click-to-dismiss     (primitives/modal.rs)
+   *  modal-header              — title + close button row           (primitives/modal.rs)
+   *  modal-title               — dialog title heading               (primitives/modal.rs)
+   *  modal-close               — "✕" close button                   (primitives/modal.rs)
+   *  modal-description         — subtitle paragraph                 (primitives/modal.rs)
+   *  modal-body                — content area below header          (primitives/modal.rs)
+   *  modal-footer              — right-aligned action row           (primitives/modal.rs)
+   *  modal-sm/lg/xl/full       — width size variants                (primitives/modal.rs)
+   *
+   *  tabs                      — top-level tab list                 (primitives/tabs.rs)
+   *  tab                       — individual tab button              (primitives/tabs.rs)
+   *  tab-active                — modifier on the active tab         (primitives/tabs.rs)
+   *  tab-icon                  — leading icon inside a tab          (primitives/tabs.rs)
+   *  tabs-vertical             — vertical layout orientation        (primitives/tabs.rs)
+   *
+   *  tooltip-wrapper           — hover/focus reveal wrapper         (primitives/tooltip.rs)
+   *  tooltip-content           — the bubble itself                  (primitives/tooltip.rs)
+   *  tooltip-open              — modifier when the bubble is shown  (primitives/tooltip.rs)
+   *  tooltip-side-top          — bubble above the trigger           (primitives/tooltip.rs)
+   *  tooltip-side-bottom       — bubble below (default)             (primitives/tooltip.rs)
+   *  tooltip-side-left         — bubble to the left                 (primitives/tooltip.rs)
+   *  tooltip-side-right        — bubble to the right                (primitives/tooltip.rs)
+   *  tooltip-align-start       — align bubble to start              (primitives/tooltip.rs)
+   *  tooltip-align-end         — align bubble to end                (primitives/tooltip.rs)
+   *  tooltip-align-center      — center bubble (default)            (primitives/tooltip.rs)
+   *
+   *  popover                   — top-level popover wrapper          (primitives/overlays.rs)
+   *  popover-trigger           — click-to-open trigger              (primitives/overlays.rs)
+   *  popover-content           — the popover body                   (primitives/overlays.rs)
+   *  popover-content-side-top  — render above the trigger           (primitives/overlays.rs)
+   *  popover-content-side-bottom — render below the trigger         (primitives/overlays.rs)
+   *  popover-content-side-left — render to the left                 (primitives/overlays.rs)
+   *  popover-content-side-right— render to the right                (primitives/overlays.rs)
+   *  popover-content-align-start — align popover to start           (primitives/overlays.rs)
+   *  popover-content-align-end — align popover to end               (primitives/overlays.rs)
+   *  popover-content-align-center — center popover (default)        (primitives/overlays.rs)
+   *
+   *  hover-card                — hover-triggered card wrapper       (primitives/overlays.rs)
+   *  hover-card-content        — the card body                      (primitives/overlays.rs)
+   *
+   *  accordion                 — stack of collapsible sections      (primitives/overlays.rs)
+   *  accordion-item            — single section                     (primitives/overlays.rs)
+   *  accordion-trigger         — section header button              (primitives/overlays.rs)
+   *  accordion-content         — section body                       (primitives/overlays.rs)
+   *  accordion-icon            — "+/-" glyph at section header      (primitives/overlays.rs)
+   *  accordion-item.open       — modifier when a section is open    (primitives/overlays.rs)
+   *
+   *  collapsible               — single collapsible section         (primitives/overlays.rs)
+   *  collapsible-trigger       — section header button              (primitives/overlays.rs)
+   *  collapsible-content       — section body                       (primitives/overlays.rs)
+   *  collapsible.open          — modifier when the section is open  (primitives/overlays.rs)
+   *
+   *  command-palette-overlay   — full-screen modal scrim            (primitives/overlays.rs)
+   *  command-palette           — dialog container (centered card)   (primitives/overlays.rs)
+   *  command-input             — search input at the top            (primitives/overlays.rs)
+   *  command-list              — scrollable list of items           (primitives/overlays.rs)
+   *  command-item              — individual command row             (primitives/overlays.rs)
+   *  command-item.active       — modifier on the focused row        (primitives/overlays.rs)
+   *  command-empty             — "No matches" placeholder row       (primitives/overlays.rs)
+   *  command-hint              — right-aligned shortcut hint        (primitives/overlays.rs)
+   *
+   *  rich-text-editor          — top-level wrapper around the RTE   (primitives/rich_text.rs)
+   *  rte-toolbar               — formatting button bar above the    (primitives/rich_text.rs)
+   *                              textarea
+   *  rte-preview               — rendered markdown preview pane     (primitives/rich_text.rs)
+   * =================================================================
+   */
+
+  /* === Dropdown: modifiers introduced by Track C === */
+  .dropdown-label {{
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }}
+  .dropdown-item-inset {{ padding-left: 2rem; }}
+  .dropdown-item-check {{
+    position: absolute;
+    left: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1rem;
+    height: 1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+  }}
+  .dropdown-checkbox-item {{
+    position: relative;
+  }}
+  .dropdown-item-checked {{
+    background: var(--bg-secondary);
+  }}
+  .dropdown-menu-side-top    {{ transform-origin: bottom; }}
+  .dropdown-menu-side-bottom {{ transform-origin: top; }}
+  .dropdown-menu-align-start  {{ left: 0; }}
+  .dropdown-menu-align-end    {{ right: 0; }}
+  .dropdown-menu-align-center {{ left: 50%; transform: translateX(-50%); }}
+
+  /* === Modal: layout + size variants + slot styling === */
+  .modal-overlay {{
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    animation: fadeIn 0.15s ease-out;
+  }}
+  .modal-header {{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }}
+  .modal-title {{
+    font-size: 1.125rem;
     font-weight: 600;
     color: var(--text);
     margin: 0;
@@ -1931,6 +2077,357 @@ pub fn design_system_head(title: &str, description: &str) -> String {
     background: currentColor;
     transform: translate(-50%, -50%);
     border-radius: 1px;
+  .modal-close {{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+    border-radius: 0.375rem;
+    cursor: pointer;
+    font-size: 1.125rem;
+    line-height: 1;
+  }}
+  .modal-close:hover {{
+    background: var(--bg-secondary);
+    color: var(--text);
+  }}
+  .modal-description {{
+    color: var(--text-muted);
+  }}
+  .modal-body {{
+    padding: 1.25rem 1.5rem;
+  }}
+  .modal-footer {{
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--border);
+    background: var(--bg-secondary);
+    border-bottom-left-radius: inherit;
+    border-bottom-right-radius: inherit;
+  }}
+  .modal-sm   {{ max-width: 24rem; }}
+  .modal-lg   {{ max-width: 48rem; }}
+  .modal-xl   {{ max-width: 64rem; }}
+  .modal-full {{ max-width: 95vw; max-height: 95vh; width: 100%; }}
+
+  /* === Tabs === */
+  .tabs {{
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border-bottom: 1px solid var(--border);
+  }}
+  .tab {{
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.5rem 0.875rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+  }}
+  .tab:hover {{ color: var(--text); }}
+  .tab-active {{
+    color: var(--epsx-orange);
+    border-bottom-color: var(--epsx-orange);
+  }}
+  .tab-icon {{
+    display: inline-flex;
+    align-items: center;
+    color: var(--text-muted);
+  }}
+  .tabs-vertical {{
+    flex-direction: column;
+    align-items: stretch;
+    border-bottom: 0;
+    border-right: 1px solid var(--border);
+  }}
+  .tabs-vertical .tab {{
+    border-bottom: 0;
+    border-right: 2px solid transparent;
+    justify-content: flex-start;
+  }}
+  .tabs-vertical .tab.tab-active {{
+    border-right-color: var(--epsx-orange);
+  }}
+
+  /* === Tooltip: hover/focus reveal + side/align modifiers === */
+  .tooltip-wrapper {{
+    position: relative;
+    display: inline-flex;
+  }}
+  .tooltip-content {{
+    position: absolute;
+    z-index: 1100;
+    background: var(--text);
+    color: var(--surface-solid);
+    padding: 0.375rem 0.625rem;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(2px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    transition-delay: var(--tooltip-delay, 0ms);
+    box-shadow: var(--shadow-lg);
+  }}
+  .tooltip-wrapper:hover .tooltip-content,
+  .tooltip-wrapper:focus-within .tooltip-content,
+  .tooltip-content.tooltip-open {{
+    opacity: 1;
+    transform: translateY(0);
+  }}
+  .tooltip-side-top    {{ bottom: 100%; left: 50%; transform: translate(-50%, -2px); margin-bottom: 0.375rem; }}
+  .tooltip-side-bottom {{ top: 100%; left: 50%; transform: translate(-50%, 2px); margin-top: 0.375rem; }}
+  .tooltip-side-left   {{ right: 100%; top: 50%; transform: translate(-2px, -50%); margin-right: 0.375rem; }}
+  .tooltip-side-right  {{ left: 100%; top: 50%; transform: translate(2px, -50%); margin-left: 0.375rem; }}
+  .tooltip-align-start  {{ left: 0; transform: translateX(0); }}
+  .tooltip-align-end    {{ left: auto; right: 0; transform: translateX(0); }}
+  .tooltip-align-center {{ left: 50%; transform: translateX(-50%); }}
+  .tooltip-side-top.tooltip-align-start,
+  .tooltip-side-bottom.tooltip-align-start {{
+    left: 0; transform: translateX(0);
+  }}
+  .tooltip-side-top.tooltip-align-end,
+  .tooltip-side-bottom.tooltip-align-end {{
+    left: auto; right: 0; transform: translateX(0);
+  }}
+  .tooltip-side-left.tooltip-align-start,
+  .tooltip-side-right.tooltip-align-start {{
+    top: 0; transform: translateY(0);
+  }}
+  .tooltip-side-left.tooltip-align-end,
+  .tooltip-side-right.tooltip-align-end {{
+    top: auto; bottom: 0; transform: translateY(0);
+  }}
+
+  /* === Popover === */
+  .popover {{
+    position: relative;
+    display: inline-block;
+  }}
+  .popover-content {{
+    position: absolute;
+    z-index: 900;
+    min-width: 12rem;
+    max-width: 24rem;
+    background: var(--surface-solid);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    box-shadow: var(--shadow-lg);
+    padding: 0.75rem;
+    animation: fadeIn 0.12s ease-out;
+  }}
+  .popover-content-side-top    {{ bottom: 100%; margin-bottom: 0.375rem; }}
+  .popover-content-side-bottom {{ top: 100%; margin-top: 0.375rem; }}
+  .popover-content-side-left   {{ right: 100%; margin-right: 0.375rem; top: 0; }}
+  .popover-content-side-right  {{ left: 100%; margin-left: 0.375rem; top: 0; }}
+  .popover-content-align-start  {{ left: 0; }}
+  .popover-content-align-end    {{ right: 0; }}
+  .popover-content-align-center {{ left: 50%; transform: translateX(-50%); }}
+
+  /* === HoverCard === */
+  .hover-card {{
+    position: relative;
+    display: inline-block;
+  }}
+  .hover-card-content {{
+    position: absolute;
+    z-index: 850;
+    top: 100%;
+    left: 50%;
+    transform: translate(-50%, 0.25rem);
+    min-width: 16rem;
+    max-width: 24rem;
+    background: var(--surface-solid);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    box-shadow: var(--shadow-lg);
+    padding: 0.75rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    transition-delay: var(--hover-card-open-delay, 200ms);
+  }}
+  .hover-card:hover .hover-card-content,
+  .hover-card:focus-within .hover-card-content,
+  .hover-card-content[data-visible="true"] {{
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(-50%, 0.5rem);
+    transition-delay: 0ms;
+  }}
+
+  /* === Accordion === */
+  .accordion {{
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }}
+  .accordion-item {{
+    border-bottom: 1px solid var(--border);
+  }}
+  .accordion-item:last-child {{
+    border-bottom: 0;
+  }}
+  .accordion-trigger {{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: var(--surface-solid);
+    color: var(--text);
+    border: 0;
+    text-align: left;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.12s;
+  }}
+  .accordion-trigger:hover {{
+    background: var(--bg-secondary);
+  }}
+  .accordion-icon {{
+    color: var(--text-muted);
+    font-size: 1rem;
+    line-height: 1;
+  }}
+  .accordion-content {{
+    padding: 0.75rem 1rem 1rem;
+    color: var(--text);
+    font-size: 0.875rem;
+  }}
+  .accordion-item.open .accordion-trigger {{
+    background: var(--bg-secondary);
+  }}
+
+  /* === Collapsible === */
+  .collapsible {{
+    display: flex;
+    flex-direction: column;
+  }}
+  .collapsible-trigger {{
+    cursor: pointer;
+  }}
+  .collapsible-content {{
+    padding: 0.5rem 0 0;
+  }}
+
+  /* === Command palette === */
+  .command-palette-overlay {{
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 1200;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 12vh;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    animation: fadeIn 0.12s ease-out;
+  }}
+  .command-palette {{
+    width: 100%;
+    max-width: 36rem;
+    background: var(--surface-solid);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    box-shadow: var(--shadow-xl);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 70vh;
+  }}
+  .command-input {{
+    width: 100%;
+    padding: 1rem 1.25rem;
+    font-size: 0.95rem;
+    color: var(--text);
+    background: var(--surface-solid);
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    outline: none;
+  }}
+  .command-input:focus {{
+    border-bottom-color: var(--epsx-orange);
+  }}
+  .command-list {{
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 0.375rem;
+  }}
+  .command-item {{
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--text);
+    border-radius: 0.375rem;
+    cursor: pointer;
+    text-decoration: none;
+  }}
+  .command-item:hover,
+  .command-item.active {{
+    background: var(--bg-secondary);
+    color: var(--text);
+  }}
+  .command-empty {{
+    font-size: 0.875rem;
+  }}
+  .command-hint {{
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  }}
+
+  /* === Rich text editor === */
+  .rich-text-editor {{
+    display: flex;
+    flex-direction: column;
+  }}
+  .rte-toolbar {{
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+  }}
+  .rte-preview {{
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }}
+  .rte-preview h1 {{ font-size: 1.75rem; font-weight: 700; margin: 1rem 0 0.5rem; }}
+  .rte-preview h2 {{ font-size: 1.5rem;  font-weight: 700; margin: 1rem 0 0.5rem; }}
+  .rte-preview h3 {{ font-size: 1.25rem; font-weight: 600; margin: 0.75rem 0 0.5rem; }}
+  .rte-preview p  {{ margin: 0 0 0.75rem; }}
+  .rte-preview ul {{ margin: 0 0 0.75rem; padding-left: 1.5rem; list-style: disc; }}
+  .rte-preview li {{ margin: 0.25rem 0; }}
+  .rte-preview code {{
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    background: var(--bg-tertiary);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-size: 0.85em;
+  }}
+  .rte-preview a {{
+    color: var(--primary);
+    text-decoration: underline;
   }}
 </style>"##
     )
