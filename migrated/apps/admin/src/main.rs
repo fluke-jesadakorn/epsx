@@ -10,6 +10,19 @@ use epsx_templates::{page_shell_with_body_class, theme_toggle_button, logo};
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+fn build_set_cookie(name: &str, value: &str, max_age_secs: i64) -> String {
+    let secure = if std::env::var("EPSX_COOKIE_SECURE").ok().as_deref() == Some("1") { "; Secure" } else { "" };
+    if max_age_secs <= 0 {
+        format!("{}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0{}", name, secure)
+    } else {
+        format!("{}={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}{}", name, value, max_age_secs, secure)
+    }
+}
+
+fn build_clear_cookie(name: &str) -> String {
+    build_set_cookie(name, "", 0)
+}
+
 #[derive(Clone)]
 struct AppState {
     identity: Arc<ServiceClient>,
@@ -21,6 +34,7 @@ struct AppState {
     analytics: Arc<ServiceClient>,
     indexer: Arc<ServiceClient>,
     api_url: String,
+    demo_login_enabled: bool,
 }
 
 fn ctx_from(headers: &HeaderMap) -> RequestContext {
@@ -45,6 +59,7 @@ async fn main() {
     let api_url = std::env::var("API_URL").unwrap_or_else(|_| "http://localhost:18081".to_string());
     let port: u16 = std::env::var("PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(3001);
     let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+    let demo_login_enabled = std::env::var("EPSX_ENABLE_DEMO_LOGIN").ok().as_deref() == Some("1");
 
     let cfg = epsx_client::ClientConfig { base_url: api_url.clone(), timeout: std::time::Duration::from_secs(30) };
     let state = AppState {
@@ -57,6 +72,7 @@ async fn main() {
         analytics: Arc::new(ServiceClient::new(cfg.clone())),
         indexer: Arc::new(ServiceClient::new(cfg.clone())),
         api_url,
+        demo_login_enabled,
     };
 
     let app = Router::new()
@@ -133,11 +149,52 @@ async fn refresh_token(
 
 async fn demo_login(
     State(state): State<AppState>,
-    Json(body): Json<serde_json::Value>,
+    _headers: HeaderMap,
 ) -> Result<Response, StatusCode> {
-    state.identity.post_plain("/api/v1/identity/auth/demo", &body).await
-        .map(|v| Json(v).into_response())
-        .map_err(err_to_status)
+    if !state.demo_login_enabled {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    let payload = serde_json::json!({
+        "address": "0xDEMO0000000000000000000000000000000000",
+        "chain_id": "56",
+    });
+    let url = format!("{}/api/v1/identity/auth/demo", state.api_url.trim_end_matches('/'));
+    let resp = state.identity.clone_for_bearer()
+        .post(&url)
+        .json(&payload)
+        .send().await.map_err(|e| { tracing::error!("admin demo-login: {e}"); StatusCode::BAD_GATEWAY })?;
+    let status = resp.status();
+    if !status.is_success() {
+        let text = resp.text().await.unwrap_or_default();
+        return Ok((status, Json(serde_json::json!({"error": text}))).into_response());
+    }
+    let value: serde_json::Value = resp.json().await.map_err(|_| StatusCode::BAD_GATEWAY)?;
+    let user_id = value.get("user").and_then(|u| u.get("id")).and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let address = value.get("user").and_then(|u| u.get("address")).and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let access = value.get("access_token").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let expires = value.get("expires_in").and_then(|v| v.as_u64()).unwrap_or(3600);
+
+    let mut response = Json(serde_json::json!({
+        "access_token": access,
+        "refresh_token": value.get("refresh_token").and_then(|v| v.as_str()).map(|s| s.to_string()).unwrap_or_default(),
+        "expires_in": expires,
+        "user": serde_json::json!({
+            "id": user_id, "address": address, "chain_id": "56",
+            "roles": value.get("user").and_then(|u| u.get("roles")).cloned().unwrap_or(serde_json::json!([])),
+        }),
+        "demo": true,
+    })).into_response();
+    let cookie_max_age = expires as i64;
+    for c in [
+        build_set_cookie("epsx_token", &access, cookie_max_age),
+        build_set_cookie("epsx_user_id", &user_id, cookie_max_age),
+        build_set_cookie("epsx_user_address", &address, cookie_max_age),
+    ] {
+        if let Ok(v) = c.parse() {
+            response.headers_mut().append("set-cookie", v);
+        }
+    }
+    Ok(response)
 }
 
 async fn current_user(
