@@ -169,6 +169,12 @@ impl ServiceClient {
         self.handle_response(res).await
     }
 
+    pub async fn delete_with_ctx(&self, path: &str, ctx: &RequestContext) -> Result<serde_json::Value> {
+        let req = self.apply_ctx(self.inner.delete(self.url(path)), Some(ctx));
+        let res = req.send().await?;
+        self.handle_response(res).await
+    }
+
     /// Returns a clone of the underlying reqwest::Client.
     /// Useful when callers need to add custom headers (e.g. bearer auth)
     /// that are not handled by `RequestContext`.
@@ -199,6 +205,9 @@ impl ServiceClient {
     async fn handle_response(&self, res: reqwest::Response) -> Result<serde_json::Value> {
         let status = res.status();
         if status.is_success() {
+            if status.as_u16() == 204 || res.content_length() == Some(0) {
+                return Ok(serde_json::json!({"ok": true}));
+            }
             let body = res.json().await?;
             Ok(body)
         } else if status.as_u16() == 401 {

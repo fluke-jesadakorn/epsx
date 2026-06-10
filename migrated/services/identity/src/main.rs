@@ -97,6 +97,20 @@ async fn main() {
         .expect("Failed to create Redis pool");
 
     let domain = std::env::var("EPSX_AUTH_DOMAIN").unwrap_or_else(|_| "epsx.io".to_string());
+
+    if let Ok(addr) = std::env::var("EPSX_BOOTSTRAP_ADMIN") {
+        let addr = addr.to_lowercase();
+        let _ = sqlx::query(
+            "INSERT INTO users (address, chain_id, roles) VALUES ($1, '56', ARRAY['admin','user'])
+             ON CONFLICT (address) DO UPDATE SET roles = ARRAY['admin','user'], updated_at = NOW()"
+        )
+        .bind(&addr)
+        .execute(&db)
+        .await
+        .map_err(|e| tracing::warn!("bootstrap admin: {e}"));
+        tracing::info!("bootstrap admin role applied to {addr}");
+    }
+
     let state = AppState { db, jwt_service, redis, domain };
 
     let app = Router::new()
@@ -106,7 +120,8 @@ async fn main() {
         .route("/api/v1/identity/auth/refresh", post(refresh_token))
         .route("/api/v1/identity/auth/me", get(current_user))
         .route("/api/v1/identity/auth/demo", post(demo_login))
-        .route("/api/v1/identity/users/{id}", get(get_user))
+        .route("/api/v1/identity/users", get(list_users).post(create_user))
+        .route("/api/v1/identity/users/{id}", get(get_user).put(update_user).delete(delete_user))
         .with_state(state);
 
     let addr: SocketAddr = format!("{}:{}", args.host, args.port).parse().unwrap();
@@ -334,4 +349,162 @@ async fn demo_login(
         user,
         demo: true,
     }))
+}
+
+#[derive(Serialize)]
+struct UserList {
+    users: Vec<User>,
+    total: i64,
+}
+
+#[derive(Deserialize)]
+struct ListUsersQuery {
+    limit: Option<i64>,
+    offset: Option<i64>,
+    role: Option<String>,
+}
+
+async fn list_users(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    axum::extract::Query(q): axum::extract::Query<ListUsersQuery>,
+) -> Result<Json<UserList>, StatusCode> {
+    let _ = require_admin(&state, &headers).await?;
+
+    let limit = q.limit.unwrap_or(50).clamp(1, 200);
+    let offset = q.offset.unwrap_or(0).max(0);
+
+    let (users, total) = if let Some(role) = q.role.as_ref() {
+        let users: Vec<User> = sqlx::query_as::<_, User>(
+            "SELECT id, address, chain_id, roles FROM users WHERE $1 = ANY(roles) ORDER BY created_at DESC LIMIT $2 OFFSET $3"
+        )
+        .bind(role)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&state.db)
+        .await
+        .map_err(|e| { tracing::error!("list_users db error: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+        let total: (i64,) = sqlx::query_as("SELECT COUNT(*)::BIGINT FROM users WHERE $1 = ANY(roles)")
+            .bind(role)
+            .fetch_one(&state.db)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        (users, total.0)
+    } else {
+        let users: Vec<User> = sqlx::query_as::<_, User>(
+            "SELECT id, address, chain_id, roles FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2"
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&state.db)
+        .await
+        .map_err(|e| { tracing::error!("list_users db error: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+        let total: (i64,) = sqlx::query_as("SELECT COUNT(*)::BIGINT FROM users")
+            .fetch_one(&state.db)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        (users, total.0)
+    };
+
+    Ok(Json(UserList { users, total }))
+}
+
+#[derive(Deserialize)]
+struct CreateUserRequest {
+    address: String,
+    chain_id: String,
+    roles: Option<Vec<String>>,
+}
+
+async fn create_user(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<CreateUserRequest>,
+) -> Result<Json<User>, StatusCode> {
+    let _ = require_admin(&state, &headers).await?;
+
+    let address = req.address.trim().to_lowercase();
+    if !address.starts_with("0x") || address.len() != 42 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let roles = req.roles.unwrap_or_else(|| vec!["user".to_string()]);
+
+    let user: User = sqlx::query_as::<_, User>(
+        "INSERT INTO users (address, chain_id, roles) VALUES ($1, $2, $3)
+         ON CONFLICT (address) DO UPDATE SET roles = $3, updated_at = NOW()
+         RETURNING id, address, chain_id, roles"
+    )
+    .bind(&address)
+    .bind(&req.chain_id)
+    .bind(&roles)
+    .fetch_one(&state.db)
+    .await
+    .map_err(|e| { tracing::error!("create_user db error: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+
+    Ok(Json(user))
+}
+
+#[derive(Deserialize)]
+struct UpdateUserRequest {
+    roles: Option<Vec<String>>,
+    chain_id: Option<String>,
+}
+
+async fn update_user(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    axum::extract::Path(id): axum::extract::Path<String>,
+    Json(req): Json<UpdateUserRequest>,
+) -> Result<Json<User>, StatusCode> {
+    let _ = require_admin(&state, &headers).await?;
+
+    let id_uuid = Uuid::parse_str(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let user: User = sqlx::query_as::<_, User>(
+        "UPDATE users SET
+            roles = COALESCE($2, roles),
+            chain_id = COALESCE($3, chain_id),
+            updated_at = NOW()
+         WHERE id = $1
+         RETURNING id, address, chain_id, roles"
+    )
+    .bind(id_uuid)
+    .bind(&req.roles)
+    .bind(&req.chain_id)
+    .fetch_one(&state.db)
+    .await
+    .map_err(|e| { tracing::error!("update_user db error: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+
+    Ok(Json(user))
+}
+
+async fn delete_user(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Result<StatusCode, StatusCode> {
+    let _ = require_admin(&state, &headers).await?;
+    let id_uuid = Uuid::parse_str(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let res = sqlx::query("DELETE FROM users WHERE id = $1")
+        .bind(id_uuid)
+        .execute(&state.db)
+        .await
+        .map_err(|e| { tracing::error!("delete_user db error: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+    if res.rows_affected() == 0 { Err(StatusCode::NOT_FOUND) } else { Ok(StatusCode::NO_CONTENT) }
+}
+
+async fn require_admin(state: &AppState, headers: &HeaderMap) -> Result<Uuid, StatusCode> {
+    let token = extract_bearer(headers).ok_or(StatusCode::UNAUTHORIZED)?;
+    let claims = state.jwt_service.verify_token(&token)
+        .map_err(|_| StatusCode::UNAUTHORIZED)?;
+    let sub_uuid = Uuid::parse_str(&claims.sub).map_err(|_| StatusCode::UNAUTHORIZED)?;
+    let row: (Vec<String>,) = sqlx::query_as("SELECT roles FROM users WHERE id = $1")
+        .bind(sub_uuid)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    if row.0.iter().any(|r| r == "admin") {
+        Ok(sub_uuid)
+    } else {
+        Err(StatusCode::FORBIDDEN)
+    }
 }
