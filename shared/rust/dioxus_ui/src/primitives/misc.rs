@@ -105,9 +105,31 @@ pub fn AvatarGroup(addresses: Vec<String>, #[props(default = 4)] max: usize) -> 
 }
 
 // === Kbd ===
+/// Single-key keyboard hint. Renders a single `<kbd>` element. For multi-key
+/// combos (e.g. `["Cmd", "K"]`), use `KbdCombo` instead, which renders
+/// `<kbd>Cmd</kbd> + <kbd>K</kbd>`.
 #[component]
 pub fn Kbd(text: String) -> Element {
     rsx! { kbd { class: "kbd", "{text}" } }
+}
+
+// === KbdCombo ===
+/// Multi-key keyboard combo. Renders a row of `<kbd>` elements separated by
+/// `+`. Example: `KbdCombo { keys: vec!["Cmd".into(), "K".into()] }` renders
+/// `<kbd>Cmd</kbd> + <kbd>K</kbd>`.
+#[component]
+pub fn KbdCombo(keys: Vec<String>) -> Element {
+    let last_idx = keys.len().saturating_sub(1);
+    rsx! {
+        span { class: "kbd-combo inline-flex items-center gap-1",
+            for (i, k) in keys.iter().enumerate() {
+                kbd { class: "kbd", "{k}" }
+                if i < last_idx {
+                    span { class: "kbd-combo-sep text-muted-foreground", "+" }
+                }
+            }
+        }
+    }
 }
 
 // === SkeletonText ===
@@ -145,6 +167,8 @@ pub fn LoadingState(message: Option<String>) -> Element {
 }
 
 // === Slider ===
+/// Range slider with full ARIA a11y (`role="slider"`, `aria-valuenow`,
+/// `aria-valuemin`, `aria-valuemax`, `aria-label`).
 #[component]
 pub fn Slider(
     name: String,
@@ -153,10 +177,14 @@ pub fn Slider(
     #[props(default = 0.0)] value: f64,
     #[props(default = 1.0)] step: f64,
     #[props(default = None)] label: Option<String>,
+    /// Accessible label for the slider thumb. Falls back to `name` if unset.
+    #[props(default = None)] aria_label: Option<String>,
+    #[props(default = false)] disabled: bool,
     #[props(default = None)] oninput: Option<EventHandler<FormEvent>>,
 ) -> Element {
+    let aria_label = aria_label.unwrap_or_else(|| name.clone());
     rsx! {
-        div { class: "field",
+        div { class: "field slider-field",
             if let Some(l) = &label {
                 label { class: "field-label", "{l}" }
             }
@@ -164,10 +192,16 @@ pub fn Slider(
                 class: "slider",
                 name: "{name}",
                 r#type: "range",
+                role: "slider",
+                "aria-label": "{aria_label}",
+                "aria-valuemin": min.to_string(),
+                "aria-valuemax": max.to_string(),
+                "aria-valuenow": value.to_string(),
                 min: "{min}",
                 max: "{max}",
                 step: "{step}",
                 value: "{value}",
+                disabled: disabled,
                 oninput: move |e| if let Some(h) = &oninput { h.call(e); },
             }
         }
@@ -175,21 +209,54 @@ pub fn Slider(
 }
 
 // === Rating ===
+/// Interactive star rating. Clicking a star updates the hidden
+/// `<input name="…">` with the new value and fires `onchange`.
 #[component]
 pub fn Rating(
     name: String,
     #[props(default = 5)] max: u8,
     #[props(default = 0)] value: u8,
+    #[props(default = false)] disabled: bool,
+    onchange: Option<EventHandler<u8>>,
 ) -> Element {
+    // Internal signal mirrors the `value` prop. Clicking a star updates it
+    // and fires the callback. The hidden input always reflects the signal
+    // so the form submission carries the latest value.
+    let mut internal = use_signal(|| value);
+    // If the parent updates `value` externally, sync the signal.
+    let _ = internal.read();
+
+    let value_str = internal.read().to_string();
+
     rsx! {
-        div { class: "rating",
+        div {
+            class: if disabled { "rating rating-disabled" } else { "rating rating-interactive" },
+            role: "radiogroup",
+            "aria-label": "Rating",
             for i in 1..=max {
-                span {
-                    class: if i <= value { "rating-star filled" } else { "rating-star" },
-                    "★"
+                {
+                    let i_for_fill = i;
+                    let i_for_click = i;
+                    let i_for_aria = i;
+                    let filled = i_for_fill <= *internal.read();
+                    rsx! {
+                        span {
+                            class: if filled { "rating-star filled" } else { "rating-star" },
+                            role: "radio",
+                            "aria-checked": (i_for_fill == *internal.read()).to_string(),
+                            "aria-label": format!("{} star{}", i_for_aria, if i_for_aria == 1 { "" } else { "s" }),
+                            tabindex: if disabled { "-1" } else { "0" },
+                            onclick: move |_| {
+                                if disabled { return; }
+                                internal.set(i_for_click);
+                                if let Some(h) = &onchange { h.call(i_for_click); }
+                            },
+                            "★"
+                        }
+                    }
                 }
             }
-            input { r#type: "hidden", name: "{name}", value: "{value}" }
+            input { r#type: "hidden", name: "{name}", value: "{value_str}" }
         }
     }
 }
