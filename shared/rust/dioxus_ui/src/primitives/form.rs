@@ -26,6 +26,28 @@ pub fn Form(
     }
 }
 
+/// Standalone label, rendered as a `<label>`. Mirrors
+/// `shared/components/ui/label.tsx` — a thin Radix-Label wrapper
+/// around `<label>` with the standard text styling. Useful when the
+/// input is not inside a `Field` (e.g. for a custom checkbox / radio
+/// control, or in an `InputGroup`).
+#[component]
+pub fn Label(
+    #[props(default = None)] html_for: Option<String>,
+    #[props(default = false)] required: bool,
+    #[props(default = None)] class_name: Option<String>,
+    children: Element,
+) -> Element {
+    let mut cls = "label".to_string();
+    if let Some(c) = &class_name { cls.push(' '); cls.push_str(c); }
+    rsx! {
+        label { class: "{cls}", r#for: html_for.as_deref().unwrap_or(""),
+            {children}
+            if required { span { class: "label-required text-red-500 ml-1", "*" } }
+        }
+    }
+}
+
 #[component]
 pub fn Field(
     label: Option<String>,
