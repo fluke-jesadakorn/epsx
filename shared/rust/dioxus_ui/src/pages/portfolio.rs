@@ -6,7 +6,8 @@ use crate::feedback::*;
 use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
-use crate::layout::{Navbar, Footer, PageHeader};
+use crate::layout::main_layout::MainLayout;
+use crate::layout::PageHeader;
 use crate::auth::AuthGate;
 use crate::charts::{ChartDonut, ChartLine, DataPoint, Series};
 
@@ -19,41 +20,41 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 fn RenderPortfolio(ctx: PageContext) -> Element {
     let mut tab = use_signal(|| "holdings".to_string());
     rsx! {
-        Navbar { user: ctx.user.clone(), current_path: Some(ctx.path.clone()) }
-        AuthGate { user: ctx.user.clone(), feature: Some("your portfolio".to_string()),
-            div { class: "container page-content",
-                PageHeader { title: "Portfolio".to_string(), description: Some("Track your holdings and watchlist performance".to_string()), icon: Some("briefcase".to_string()) }
-                div { class: "grid grid-cols-1 md:grid-cols-3 gap-4 mb-6",
-                    StatCard { label: "Total value".to_string(), value: "$12,345.67".to_string(), icon: Some("trending-up".to_string()) }
-                    StatCard { label: "24h change".to_string(), value: "+$234.56 (+1.9%)".to_string(), icon: Some("arrow-up-right".to_string()) }
-                    StatCard { label: "Assets".to_string(), value: "8".to_string(), icon: Some("layers".to_string()) }
-                }
-                div { class: "grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6",
-                    div { class: "card card-glass lg:col-span-2",
-                        div { class: "card-header", h3 { class: "card-title", "Performance (30d)" } }
-                        div { class: "card-body",
-                            ChartLine {
-                                series: vec![Series { name: "Portfolio".to_string(), color: "#22d3ee".to_string(), points: (0..30).map(|i| DataPoint { x: i as f64, y: 10000.0 + (i as f64 * 80.0) + (i as f64 * 0.3).sin() * 200.0, label: None }).collect() }],
-                                width: 640, height: 220,
+        MainLayout { ctx: ctx.clone(),
+            AuthGate { user: ctx.user.clone(), feature: Some("your portfolio".to_string()),
+                div { class: "container page-content",
+                    PageHeader { title: "Portfolio".to_string(), description: Some("Track your holdings and watchlist performance".to_string()), icon: Some("briefcase".to_string()) }
+                    div { class: "grid grid-cols-1 md:grid-cols-3 gap-4 mb-6",
+                        StatCard { label: "Total value".to_string(), value: "$12,345.67".to_string(), icon: Some("trending-up".to_string()) }
+                        StatCard { label: "24h change".to_string(), value: "+$234.56 (+1.9%)".to_string(), icon: Some("arrow-up-right".to_string()) }
+                        StatCard { label: "Assets".to_string(), value: "8".to_string(), icon: Some("layers".to_string()) }
+                    }
+                    div { class: "grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6",
+                        div { class: "card card-glass lg:col-span-2",
+                            div { class: "card-header", h3 { class: "card-title", "Performance (30d)" } }
+                            div { class: "card-body",
+                                ChartLine {
+                                    series: vec![Series { name: "Portfolio".to_string(), color: "#22d3ee".to_string(), points: (0..30).map(|i| DataPoint { x: i as f64, y: 10000.0 + (i as f64 * 80.0) + (i as f64 * 0.3).sin() * 200.0, label: None }).collect() }],
+                                    width: 640, height: 220,
+                                }
+                            }
+                        }
+                        div { class: "card card-glass",
+                            div { class: "card-header", h3 { class: "card-title", "Allocation" } }
+                            div { class: "card-body",
+                                ChartDonut { data: vec![("BNB".to_string(), 35.0, "#f3ba2f".to_string()), ("USDT".to_string(), 30.0, "#26a17b".to_string()), ("ETH".to_string(), 20.0, "#627eea".to_string()), ("EPSX".to_string(), 10.0, "#22d3ee".to_string()), ("Other".to_string(), 5.0, "#9ca3af".to_string())], size: 180, thickness: 28 }
                             }
                         }
                     }
-                    div { class: "card card-glass",
-                        div { class: "card-header", h3 { class: "card-title", "Allocation" } }
-                        div { class: "card-body",
-                            ChartDonut { data: vec![("BNB".to_string(), 35.0, "#f3ba2f".to_string()), ("USDT".to_string(), 30.0, "#26a17b".to_string()), ("ETH".to_string(), 20.0, "#627eea".to_string()), ("EPSX".to_string(), 10.0, "#22d3ee".to_string()), ("Other".to_string(), 5.0, "#9ca3af".to_string())], size: 180, thickness: 28 }
-                        }
+                    div { class: "tabs mb-4",
+                        button { class: if *tab.read() == "holdings" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("holdings".to_string()), "Holdings" }
+                        button { class: if *tab.read() == "watchlist" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("watchlist".to_string()), "Watchlist" }
+                        button { class: if *tab.read() == "transactions" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("transactions".to_string()), "Transactions" }
                     }
+                    if *tab.read() == "holdings" { HoldingsTable {} } else if *tab.read() == "watchlist" { WatchlistTable {} } else { TransactionsTable {} }
                 }
-                div { class: "tabs mb-4",
-                    button { class: if *tab.read() == "holdings" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("holdings".to_string()), "Holdings" }
-                    button { class: if *tab.read() == "watchlist" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("watchlist".to_string()), "Watchlist" }
-                    button { class: if *tab.read() == "transactions" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("transactions".to_string()), "Transactions" }
-                }
-                if *tab.read() == "holdings" { HoldingsTable {} } else if *tab.read() == "watchlist" { WatchlistTable {} } else { TransactionsTable {} }
             }
         }
-        Footer {}
     }
 }
 

@@ -12,6 +12,14 @@ epsx-templates = { path = "../templates" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
+[dev-dependencies]
+# === wave3a-wiring-track-a ===
+# Test-only dep so unit tests inside `src/layout/main_layout.rs` can
+# serialize a `dioxus::prelude::Element` to a string and assert on the
+# rendered HTML. Already in the workspace dep tree as a transitive
+# dep of the BFF crates; we only need it direct for `cargo test`.
+dioxus-ssr = { workspace = true }
+
 [features]
 default = []
 ssr = []

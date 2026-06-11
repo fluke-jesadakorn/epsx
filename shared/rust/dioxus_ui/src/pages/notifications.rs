@@ -7,7 +7,8 @@ use crate::feedback::*;
 use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
-use crate::layout::{Navbar, Footer, PageHeader};
+use crate::layout::main_layout::MainLayout;
+use crate::layout::PageHeader;
 use crate::auth::AuthGate;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
@@ -24,31 +25,31 @@ fn RenderNotifications(ctx: PageContext) -> Element {
         .unwrap_or_default();
     let mut filter = use_signal(|| "all".to_string());
     rsx! {
-        Navbar { user: ctx.user.clone(), current_path: Some(ctx.path.clone()) }
-        AuthGate { user: ctx.user.clone(), feature: Some("your notifications".to_string()),
-            div { class: "container page-content",
-                PageHeader { title: "Notifications".to_string(), description: Some(format!("{} notification(s)", items.len())), icon: Some("bell".to_string()) }
-                div { class: "flex gap-2 mb-4",
-                    button { class: if *filter.read() == "all" { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" }, onclick: move |_| filter.set("all".to_string()), "All" }
-                    button { class: if *filter.read() == "unread" { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" }, onclick: move |_| filter.set("unread".to_string()), "Unread" }
-                    button { class: if *filter.read() == "read" { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" }, onclick: move |_| filter.set("read".to_string()), "Read" }
-                    div { class: "ml-auto flex gap-2",
-                        button { class: "btn btn-sm btn-outline", r#type: "button", "Mark all read" }
-                        button { class: "btn btn-sm btn-outline", r#type: "button", "Clear all" }
+        MainLayout { ctx: ctx.clone(),
+            AuthGate { user: ctx.user.clone(), feature: Some("your notifications".to_string()),
+                div { class: "container page-content",
+                    PageHeader { title: "Notifications".to_string(), description: Some(format!("{} notification(s)", items.len())), icon: Some("bell".to_string()) }
+                    div { class: "flex gap-2 mb-4",
+                        button { class: if *filter.read() == "all" { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" }, onclick: move |_| filter.set("all".to_string()), "All" }
+                        button { class: if *filter.read() == "unread" { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" }, onclick: move |_| filter.set("unread".to_string()), "Unread" }
+                        button { class: if *filter.read() == "read" { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" }, onclick: move |_| filter.set("read".to_string()), "Read" }
+                        div { class: "ml-auto flex gap-2",
+                            button { class: "btn btn-sm btn-outline", r#type: "button", "Mark all read" }
+                            button { class: "btn btn-sm btn-outline", r#type: "button", "Clear all" }
+                        }
                     }
-                }
-                div { class: "card card-glass",
-                    div { class: "card-body p-0",
-                        if items.is_empty() {
-                            div { class: "p-8", EmptyState { title: "You're all caught up".to_string(), description: Some("New notifications will appear here.".to_string()), icon: Some("bell-off".to_string()) } }
-                        } else {
-                            for n in items.iter() { NotificationRow { n: n.clone() } }
+                    div { class: "card card-glass",
+                        div { class: "card-body p-0",
+                            if items.is_empty() {
+                                div { class: "p-8", EmptyState { title: "You're all caught up".to_string(), description: Some("New notifications will appear here.".to_string()), icon: Some("bell-off".to_string()) } }
+                            } else {
+                                for n in items.iter() { NotificationRow { n: n.clone() } }
+                            }
                         }
                     }
                 }
             }
         }
-        Footer {}
     }
 }
 

@@ -2993,6 +2993,16 @@ pub fn design_system_head(title: &str, description: &str) -> String {
   .wallet-balance {{ display: flex; align-items: baseline; gap: 0.25rem; color: #ffffff; }}
 
   /* end wave2-chrome-track-c */
+
+  /* === wave3a-wiring-track-a === frontend MainLayout wrapper.
+     Track A only adds an empty region marker — the layout component
+     in `shared/rust/dioxus_ui/src/layout/main_layout.rs` reuses
+     existing classes from the Wave 2 chrome cluster
+     (`NavigationClient` → `.epsx-header`, `Footer` → `.site-footer`)
+     plus the page-bg / page-content utilities. No new CSS is needed
+     for the layout swap. Integration gate can concatenate an empty
+     block here safely; future Wave 3a iterations may add overrides
+     for per-page body padding or auth-page full-bleed rules. */
 </style>"##
     )
 }

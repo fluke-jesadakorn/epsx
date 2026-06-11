@@ -7,7 +7,8 @@ use crate::feedback::*;
 use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
-use crate::layout::{Navbar, Footer, PageHeader};
+use crate::layout::main_layout::MainLayout;
+use crate::layout::PageHeader;
 use crate::auth::AuthGate;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
@@ -19,23 +20,23 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 fn RenderAccount(ctx: PageContext) -> Element {
     let mut tab = use_signal(|| "overview".to_string());
     rsx! {
-        Navbar { user: ctx.user.clone(), current_path: Some(ctx.path.clone()) }
-        AuthGate { user: ctx.user.clone(), feature: Some("your account".to_string()),
-            div { class: "container page-content",
-                PageHeader { title: "Account".to_string(), description: Some("Manage your profile, payment methods, and credits".to_string()), icon: Some("user".to_string()) }
-                div { class: "tabs mb-4",
-                    button { class: if *tab.read() == "overview" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("overview".to_string()), "Overview" }
-                    button { class: if *tab.read() == "payment" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("payment".to_string()), "Payment history" }
-                    button { class: if *tab.read() == "credits" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("credits".to_string()), "Credits" }
+        MainLayout { ctx: ctx.clone(),
+            AuthGate { user: ctx.user.clone(), feature: Some("your account".to_string()),
+                div { class: "container page-content",
+                    PageHeader { title: "Account".to_string(), description: Some("Manage your profile, payment methods, and credits".to_string()), icon: Some("user".to_string()) }
+                    div { class: "tabs mb-4",
+                        button { class: if *tab.read() == "overview" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("overview".to_string()), "Overview" }
+                        button { class: if *tab.read() == "payment" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("payment".to_string()), "Payment history" }
+                        button { class: if *tab.read() == "credits" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("credits".to_string()), "Credits" }
+                    }
+                    if *tab.read() == "payment" { PaymentHistory {} }
+                    else if *tab.read() == "credits" {
+                        div { class: "card card-glass", div { class: "card-body", a { class: "btn btn-primary", href: "/account/credits", "View credits details" } } }
+                    }
+                    else { Overview { user: ctx.user.clone() } }
                 }
-                if *tab.read() == "payment" { PaymentHistory {} }
-                else if *tab.read() == "credits" {
-                    div { class: "card card-glass", div { class: "card-body", a { class: "btn btn-primary", href: "/account/credits", "View credits details" } } }
-                }
-                else { Overview { user: ctx.user.clone() } }
             }
         }
-        Footer {}
     }
 }
 
