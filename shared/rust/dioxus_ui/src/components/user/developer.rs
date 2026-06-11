@@ -596,11 +596,22 @@ pub fn DeveloperUsageBody(ctx: PageContext) -> Element {
 mod tests {
     use super::*;
 
+    /// Render an `Element` produced by a `fn() -> Element` harness
+    /// via a real Dioxus scope. Components with `EventHandler` props
+    /// (ApiKeysList, ApiKeyCreateForm, PlanTransferList) need this —
+    /// bare `dioxus_ssr::render_element(rsx! { ... })` panics with
+    /// "Must be called from inside a Dioxus runtime".
+    fn render_html(harness: fn() -> Element) -> String {
+        let mut vdom = dioxus::prelude::VirtualDom::new(harness);
+        vdom.rebuild_in_place();
+        dioxus_ssr::render(&vdom)
+    }
+
     /// Wave 6C Track E — `test_render_smoke` for the extracted
     /// developer sub-components.
     #[test]
     fn developer_subcomponents_render_smoke() {
-        // DeveloperStatsCards
+        // DeveloperStatsCards — no EventHandler, render_element is fine.
         let el = rsx! {
             DeveloperStatsCards {
                 api_access: "Active".to_string(),
@@ -617,18 +628,16 @@ mod tests {
         assert!(html.contains("developer-stats-cards"));
         assert!(html.contains("API Access"));
 
-        // ApiKeysList (empty)
-        let el = rsx! { ApiKeysList { keys: vec![], on_revoke: |_| {} } };
-        let html = dioxus_ssr::render_element(el);
+        // ApiKeysList (empty) — has EventHandler<String>.
+        let html = render_html(|| rsx! { ApiKeysList { keys: vec![], on_revoke: |_| {} } });
         assert!(html.contains("api-keys-list"));
         assert!(html.contains("No API keys yet"));
 
         // ApiKeysList (with sample)
-        let el = rsx! { ApiKeysList { keys: sample_api_keys(), on_revoke: |_| {} } };
-        let html = dioxus_ssr::render_element(el);
+        let html = render_html(|| rsx! { ApiKeysList { keys: sample_api_keys(), on_revoke: |_| {} } });
         assert!(html.contains("Production"));
 
-        // PermissionList
+        // PermissionList — no EventHandler.
         let el = rsx! { PermissionList { permissions: vec!["read".to_string(), "write".to_string()] } };
         let html = dioxus_ssr::render_element(el);
         assert!(html.contains("permission-list"));
@@ -640,15 +649,14 @@ mod tests {
         assert!(html.contains("docs-quick-links"));
         assert!(html.contains("Quick start"));
 
-        // PlanTransferList
-        let el = rsx! {
+        // PlanTransferList — has EventHandler<Vec<String>>.
+        let html = render_html(|| rsx! {
             PlanTransferList {
                 available: sample_permissions_available(),
                 selected: vec!["read".to_string()],
                 on_change: |_| {},
             }
-        };
-        let html = dioxus_ssr::render_element(el);
+        });
         assert!(html.contains("plan-transfer-list"));
         assert!(html.contains("Available"));
     }

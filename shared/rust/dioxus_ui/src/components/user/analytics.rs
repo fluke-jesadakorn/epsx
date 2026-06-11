@@ -606,38 +606,48 @@ pub fn AnalyticsPageBody(ctx: PageContext) -> Element {
 mod tests {
     use super::*;
 
+    /// Render an `Element` produced by a `fn() -> Element` harness
+    /// via a real Dioxus scope. Components with `EventHandler` props
+    /// (AnalyticsHeader, FilterPanel) need this — bare
+    /// `dioxus_ssr::render_element(rsx! { ... })` panics with
+    /// "Must be called from inside a Dioxus runtime".
+    fn render_html(harness: fn() -> Element) -> String {
+        let mut vdom = dioxus::prelude::VirtualDom::new(harness);
+        vdom.rebuild_in_place();
+        dioxus_ssr::render(&vdom)
+    }
+
     /// Wave 6C Track E — `test_render_smoke` for the extracted
     /// analytics sub-components.
     #[test]
     fn analytics_subcomponents_render_smoke() {
-        // AnalyticsHeader
-        let el = rsx! {
+        // AnalyticsHeader — has EventHandler props, use the
+        // VirtualDom harness wrapper.
+        let html = render_html(|| rsx! {
             AnalyticsHeader {
                 on_export_click: move |_| {},
                 on_filter_toggle: move |_| {},
                 filters_active: true,
             }
-        };
-        let html = dioxus_ssr::render_element(el);
+        });
         assert!(html.contains("analytics-header"), "AnalyticsHeader missing section-marker");
         assert!(html.contains("Export"));
         assert!(html.contains("AI-Powered"));
 
-        // AnalyticsPlanStatusBar
+        // AnalyticsPlanStatusBar — no EventHandler, render_element is fine.
         let el = rsx! { AnalyticsPlanStatusBar { plan_name: "Pro".to_string(), rank_range: "5+".to_string(), locked_ranks: Some("1-4".to_string()) } };
         let html = dioxus_ssr::render_element(el);
         assert!(html.contains("analytics-plan-status"), "AnalyticsPlanStatusBar missing section-marker");
         assert!(html.contains("Unlock"));
 
-        // FilterPanel
-        let el = rsx! {
+        // FilterPanel — has EventHandler props.
+        let html = render_html(|| rsx! {
             FilterPanel {
                 active_count: 2,
                 on_clear: |_| {},
                 on_apply: |_| {},
             }
-        };
-        let html = dioxus_ssr::render_element(el);
+        });
         assert!(html.contains("analytics-filter-panel"), "FilterPanel missing section-marker");
         assert!(html.contains("2 filters active"));
 
@@ -652,7 +662,8 @@ mod tests {
         let el = rsx! { AnalyticsChart { series: sample_pnl_series(), volume: sample_volume_series() } };
         let html = dioxus_ssr::render_element(el);
         assert!(html.contains("analytics-chart"), "AnalyticsChart missing section-marker");
-        assert!(html.contains("P&L over time"));
+        // Dioxus HTML-escapes `&` to `&#38;` — match the escaped form.
+        assert!(html.contains("P&#38;L over time"), "AnalyticsChart must render the P&L header");
 
         // AnalyticsTable
         let el = rsx! {
