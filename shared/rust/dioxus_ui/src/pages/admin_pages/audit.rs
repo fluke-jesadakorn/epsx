@@ -5,7 +5,6 @@ use crate::data_table::{Column, DataTable, Row, SortDir};
 
 use dioxus::prelude::*;
 use super::super::{PageContext, PageMeta};
-use crate::layout::DashboardShell;
 use crate::auth::AuthGate;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
@@ -25,26 +24,24 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     ];
     (meta, rsx! {
         AuthGate { user: ctx.user.clone(), feature: Some("the audit log".to_string()),
-            DashboardShell { current_path: ctx.path.clone(), page_title: "Audit log".to_string(), user: ctx.user.clone(),
-                div { class: "container page-content",
-                    div { class: "flex items-center justify-between mb-6",
-                        div {
-                            h1 { class: "text-2xl font-bold", "Audit log" }
-                            p { class: "text-muted-foreground", "All platform actions by admin users and authenticated wallets" }
-                        }
-                        div { class: "flex gap-2",
-                            button { class: "btn btn-sm btn-outline", r#type: "button", "Export CSV" }
-                            button { class: "btn btn-sm btn-outline", r#type: "button", "Export JSON" }
-                        }
+            div { class: "container page-content",
+                div { class: "flex items-center justify-between mb-6",
+                    div {
+                        h1 { class: "text-2xl font-bold", "Audit log" }
+                        p { class: "text-muted-foreground", "All platform actions by admin users and authenticated wallets" }
                     }
-                    DataTable {
-                        columns: columns.clone(),
-                        rows: rows.clone(),
-                        striped: true,
-                        page_size: 25,
-                        filter_placeholder: Some("Filter by actor, action, resource...".to_string()),
-                        initial_sort: Some(("time".to_string(), SortDir::Desc)),
+                    div { class: "flex gap-2",
+                        button { class: "btn btn-sm btn-outline", r#type: "button", "Export CSV" }
+                        button { class: "btn btn-sm btn-outline", r#type: "button", "Export JSON" }
                     }
+                }
+                DataTable {
+                    columns: columns.clone(),
+                    rows: rows.clone(),
+                    striped: true,
+                    page_size: 25,
+                    filter_placeholder: Some("Filter by actor, action, resource...".to_string()),
+                    initial_sort: Some(("time".to_string(), SortDir::Desc)),
                 }
             }
         }

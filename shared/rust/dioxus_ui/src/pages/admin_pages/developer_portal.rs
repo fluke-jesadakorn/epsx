@@ -6,7 +6,6 @@ use crate::data_table::{Column, DataTable, Row, SortDir};
 
 use dioxus::prelude::*;
 use super::super::{PageContext, PageMeta};
-use crate::layout::DashboardShell;
 use crate::auth::AuthGate;
 
 const QUICK_START_CURL: &str = "curl -X POST https://api.epsx.io/v1/auth/siwe \\\n  -H 'Content-Type: application/json' \\\n  -d '{ \"message\": \"...\", \"signature\": \"0x...\" }'";
@@ -21,17 +20,15 @@ fn RenderDevPortal(ctx: PageContext) -> Element {
     let mut tab = use_signal(|| "overview".to_string());
     rsx! {
         AuthGate { user: ctx.user.clone(), feature: Some("the developer portal".to_string()),
-            DashboardShell { current_path: ctx.path.clone(), page_title: "Developer portal".to_string(), user: ctx.user.clone(),
-                div { class: "container page-content",
-                    div { class: "flex items-center justify-between mb-4", h1 { class: "text-2xl font-bold", "Developer portal" } a { class: "btn btn-primary", href: "/developer-portal/api-keys/create", Icon { name: "plus".to_string(), size: Some(16) } " Create API key" } }
-                    div { class: "tabs mb-4",
-                        button { class: if *tab.read() == "overview" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("overview".to_string()), "Overview" }
-                        button { class: if *tab.read() == "keys" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("keys".to_string()), "API keys" }
-                        button { class: if *tab.read() == "usage" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("usage".to_string()), "Usage" }
-                        button { class: if *tab.read() == "docs" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("docs".to_string()), "Documentation" }
-                    }
-                    if *tab.read() == "keys" { KeysView {} } else if *tab.read() == "usage" { UsageView {} } else if *tab.read() == "docs" { DocsView {} } else { OverviewView {} }
+            div { class: "container page-content",
+                div { class: "flex items-center justify-between mb-4", h1 { class: "text-2xl font-bold", "Developer portal" } a { class: "btn btn-primary", href: "/developer-portal/api-keys/create", Icon { name: "plus".to_string(), size: Some(16) } " Create API key" } }
+                div { class: "tabs mb-4",
+                    button { class: if *tab.read() == "overview" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("overview".to_string()), "Overview" }
+                    button { class: if *tab.read() == "keys" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("keys".to_string()), "API keys" }
+                    button { class: if *tab.read() == "usage" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("usage".to_string()), "Usage" }
+                    button { class: if *tab.read() == "docs" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("docs".to_string()), "Documentation" }
                 }
+                if *tab.read() == "keys" { KeysView {} } else if *tab.read() == "usage" { UsageView {} } else if *tab.read() == "docs" { DocsView {} } else { OverviewView {} }
             }
         }
     }
@@ -132,31 +129,29 @@ fn RenderCreateKey(ctx: PageContext) -> Element {
     let mut created_key = use_signal(|| None::<String>);
     rsx! {
         AuthGate { user: ctx.user.clone(), feature: Some("creating API keys".to_string()),
-            DashboardShell { current_path: ctx.path.clone(), page_title: "Create API key".to_string(), user: ctx.user.clone(),
-                div { class: "container page-content max-w-2xl",
-                    a { class: "btn btn-sm btn-ghost mb-4", href: "/developer-portal", Icon { name: "arrow-left".to_string(), size: Some(16) } " Back" }
-                    div { class: "card card-glass",
-                        div { class: "card-header", h1 { class: "card-title", "Create API key" } }
-                        div { class: "card-body",
-                            if let Some(k) = created_key.read().clone() {
-                                div { class: "alert alert-success",
-                                    p { class: "font-semibold", "API key created" }
-                                    p { class: "text-sm mt-2", "Save this key now. You will not be able to see it again." }
-                                    div { class: "mt-3 flex gap-2", code { class: "flex-1 p-3 bg-background rounded font-mono text-sm", "{k}" } CopyButton { text: k.clone(), label: "Copy".to_string() } }
+            div { class: "container page-content max-w-2xl",
+                a { class: "btn btn-sm btn-ghost mb-4", href: "/developer-portal", Icon { name: "arrow-left".to_string(), size: Some(16) } " Back" }
+                div { class: "card card-glass",
+                    div { class: "card-header", h1 { class: "card-title", "Create API key" } }
+                    div { class: "card-body",
+                        if let Some(k) = created_key.read().clone() {
+                            div { class: "alert alert-success",
+                                p { class: "font-semibold", "API key created" }
+                                p { class: "text-sm mt-2", "Save this key now. You will not be able to see it again." }
+                                div { class: "mt-3 flex gap-2", code { class: "flex-1 p-3 bg-background rounded font-mono text-sm", "{k}" } CopyButton { text: k.clone(), label: "Copy".to_string() } }
+                            }
+                        } else {
+                            Form { method: "POST".to_string(), action: "/api/v1/developer/api-keys".to_string(),
+                                div { class: "field", label { class: "field-label", "Key name" } input { class: "input", name: "name", required: true, placeholder: "e.g. Production, Staging, Dev", value: "{name.read()}", oninput: move |e| name.set(e.value().to_string()) } }
+                                div { class: "field", label { class: "field-label", "Permissions" } div { class: "space-y-1",
+                                    CheckboxField { name: "perm_read".to_string(), label: "Read — read-only access to data".to_string(), checked: true }
+                                    CheckboxField { name: "perm_trade".to_string(), label: "Trade — execute trades".to_string() }
+                                    CheckboxField { name: "perm_admin".to_string(), label: "Admin — full access".to_string() }
+                                } }
+                                div { class: "field", label { class: "field-label", "Expires" }
+                                    SelectField { name: "expires".to_string(), options: vec![("never".to_string(), "Never".to_string()), ("30d".to_string(), "30 days".to_string()), ("90d".to_string(), "90 days".to_string()), ("1y".to_string(), "1 year".to_string())], value: Some("90d".to_string()), required: true, help: None, error: None, label: None, placeholder: None, onchange: None }
                                 }
-                            } else {
-                                Form { method: "POST".to_string(), action: "/api/v1/developer/api-keys".to_string(),
-                                    div { class: "field", label { class: "field-label", "Key name" } input { class: "input", name: "name", required: true, placeholder: "e.g. Production, Staging, Dev", value: "{name.read()}", oninput: move |e| name.set(e.value().to_string()) } }
-                                    div { class: "field", label { class: "field-label", "Permissions" } div { class: "space-y-1",
-                                        CheckboxField { name: "perm_read".to_string(), label: "Read — read-only access to data".to_string(), checked: true }
-                                        CheckboxField { name: "perm_trade".to_string(), label: "Trade — execute trades".to_string() }
-                                        CheckboxField { name: "perm_admin".to_string(), label: "Admin — full access".to_string() }
-                                    } }
-                                    div { class: "field", label { class: "field-label", "Expires" }
-                                        SelectField { name: "expires".to_string(), options: vec![("never".to_string(), "Never".to_string()), ("30d".to_string(), "30 days".to_string()), ("90d".to_string(), "90 days".to_string()), ("1y".to_string(), "1 year".to_string())], value: Some("90d".to_string()), required: true, help: None, error: None, label: None, placeholder: None, onchange: None }
-                                    }
-                                    FormActions { a { class: "btn btn-outline", href: "/developer-portal", "Cancel" } button { class: "btn btn-primary", r#type: "submit", "Create key" } }
-                                }
+                                FormActions { a { class: "btn btn-outline", href: "/developer-portal", "Cancel" } button { class: "btn btn-primary", r#type: "submit", "Create key" } }
                             }
                         }
                     }

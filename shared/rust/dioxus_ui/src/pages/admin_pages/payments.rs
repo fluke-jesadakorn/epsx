@@ -5,7 +5,6 @@ use crate::data_table::{Column, DataTable, Row, SortDir};
 
 use dioxus::prelude::*;
 use super::super::{PageContext, PageMeta};
-use crate::layout::DashboardShell;
 use crate::auth::AuthGate;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
@@ -25,26 +24,24 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     ];
     (meta, rsx! {
         AuthGate { user: ctx.user.clone(), feature: Some("payment management".to_string()),
-            DashboardShell { current_path: ctx.path.clone(), page_title: "Payments".to_string(), user: ctx.user.clone(),
-                div { class: "container page-content",
-                    div { class: "flex items-center justify-between mb-6",
-                        div {
-                            h1 { class: "text-2xl font-bold", "Payments" }
-                            p { class: "text-muted-foreground", "All payment intents and their status" }
-                        }
-                        div { class: "flex gap-2",
-                            button { class: "btn btn-sm btn-outline", r#type: "button", "Export" }
-                            button { class: "btn btn-sm btn-outline", r#type: "button", "Refresh" }
-                        }
+            div { class: "container page-content",
+                div { class: "flex items-center justify-between mb-6",
+                    div {
+                        h1 { class: "text-2xl font-bold", "Payments" }
+                        p { class: "text-muted-foreground", "All payment intents and their status" }
                     }
-                    div { class: "grid grid-cols-1 md:grid-cols-4 gap-4 mb-6",
-                        StatCard { label: "Confirmed".to_string(), value: "1,234".to_string(), icon: Some("check".to_string()) }
-                        StatCard { label: "Pending".to_string(), value: "12".to_string(), icon: Some("clock".to_string()) }
-                        StatCard { label: "Failed".to_string(), value: "3".to_string(), icon: Some("x".to_string()) }
-                        StatCard { label: "Total volume".to_string(), value: "$45,231".to_string(), icon: Some("trending-up".to_string()) }
+                    div { class: "flex gap-2",
+                        button { class: "btn btn-sm btn-outline", r#type: "button", "Export" }
+                        button { class: "btn btn-sm btn-outline", r#type: "button", "Refresh" }
                     }
-                    DataTable { columns, rows, striped: true, page_size: 25, filter_placeholder: Some("Filter by ID, status, token...".to_string()), initial_sort: Some(("created".to_string(), SortDir::Desc)) }
                 }
+                div { class: "grid grid-cols-1 md:grid-cols-4 gap-4 mb-6",
+                    StatCard { label: "Confirmed".to_string(), value: "1,234".to_string(), icon: Some("check".to_string()) }
+                    StatCard { label: "Pending".to_string(), value: "12".to_string(), icon: Some("clock".to_string()) }
+                    StatCard { label: "Failed".to_string(), value: "3".to_string(), icon: Some("x".to_string()) }
+                    StatCard { label: "Total volume".to_string(), value: "$45,231".to_string(), icon: Some("trending-up".to_string()) }
+                }
+                DataTable { columns, rows, striped: true, page_size: 25, filter_placeholder: Some("Filter by ID, status, token...".to_string()), initial_sort: Some(("created".to_string(), SortDir::Desc)) }
             }
         }
     })
