@@ -1,12 +1,35 @@
 # ============================================================================
 # Cloudflare Tunnel Configuration - EPSX Production
 # ============================================================================
-# Routes non-frontend production hostnames through the EPSX production tunnel.
+# Routes production hostnames through the EPSX production tunnel.
+#
+# Public hostnames:
+#   epsx.io        -> epsx-frontend:3000 (Rust BFF, was frontend:3000 Next.js)
+#   admin.epsx.io  -> epsx-admin:3001    (Rust BFF, was admin-frontend:3000)
+#   api.epsx.io    -> localhost:30080     (Rust gateway, NodePort via host)
+#   minio.epsx.io  -> localhost:9100      (MinIO on host)
+#
+# Updated 2026-06-11 as part of the Next.js -> Dioxus/Axum migration.
+# See docs/plans/2026-06-11-rust-bff-deployment.md.
 
 tunnel: 6bee9b58-eede-4b4c-815c-94c0ee38fe58
 credentials-file: /etc/cloudflared/6bee9b58-eede-4b4c-815c-94c0ee38fe58.json
 
 ingress:
+  - hostname: epsx.io
+    service: http://epsx-frontend:3000
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: false
+      http2Origin: true
+
+  - hostname: admin.epsx.io
+    service: http://epsx-admin:3001
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: false
+      http2Origin: true
+
   - hostname: api.epsx.io
     service: http://localhost:30080
     originRequest:

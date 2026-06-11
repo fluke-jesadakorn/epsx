@@ -1,116 +1,55 @@
-# EPSX Docker Ignore
-# Minimal build context for performance
+# Build context for apps/frontend/Dockerfile — exclude noise so COPY is fast.
 
-# Dependencies (rebuilt in container)
-node_modules/
-.pnp/
-yarn.lock
-package-lock.json
-
-# Build Artifacts
-.next/
-dist/
-build/
-out/
-tmp/
-.cache/
-.turbo/
-.swc/
-
-# Rust Build Artifacts
+# Build artifacts
 target/
-**/*.rs.bk
-!Cargo.lock
+**/target/
 
-# Environment Files
-.env*
-!.env.example
-!.env.development
-!.env.staging
-!.env.production
-
-# Testing
-coverage/
-.nyc_output/
-__tests__/
-test/
-tests/
-*.test.*
-*.spec.*
-playwright-report/
-test-results/
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-.pnpm-debug.log*
-debug/
-
-# Version Control
+# VCS
 .git/
 .gitignore
+.gitattributes
 
-# IDE
+# Old (pre-migration) apps that aren't built by this Dockerfile
+apps-old/
+
+# Local env / IDE / OS
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
 .idea/
 .vscode/
+.DS_Store
 *.swp
 *.swo
 *~
 
-# Documentation
-*.md
-!README.md
-docs/
+# CI / logs
+**/*.log
+**/coverage/
+**/.coverage
 
-# OS Files
-.DS_Store
-Thumbs.db
+# Test outputs
+**/junit.xml
+**/test-results/
 
-# TypeScript
-*.tsbuildinfo
+# Bun / Node (Next.js used to live here; ignore leftovers)
+node_modules/
+.bun/
+bun.lock
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+**/node_modules/
+**/.next/
+**/.turbo/
+**/dist/
+**/build/
 
-# Deployment
-.vercel/
-.firebase/
-.github/
-docker-compose.override.yml
-
-# Scripts
-scripts/
-# Dockerfiles kept for multi-stage builds
-.dockerignore
-
-# Config Files
-.eslintrc*
-.prettier*
-# turbo.json - needed by Dockerfile COPY
-
-# Secrets
-*.pem
-*.key
-secrets/
-.secret/
-
-# Database
-*.db
-*.sqlite
-
-# Caches
-.yarn/
-.pnpm-store/
-
-# Deployment Artifacts
-deploy.tar.gz
-deploy-prod.tar.gz
-*.tar.gz
-
-# Smart Contracts (exclude source, keep deployments)
-apps/contracts/src/
-apps/contracts/lib/
-apps/contracts/out/
-apps/contracts/cache/
-apps/contracts/test/
-apps/contracts/script/
-apps/contracts/broadcast/
+# Rust-specific noise
+**/Cargo.lock.bak
+**/*.pdb
+**/*.d
+**/*.rlib

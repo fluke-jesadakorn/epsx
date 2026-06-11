@@ -9,9 +9,9 @@ resources:
 images:
   - name: epsx-backend
     newTag: staging
-  - name: epsx-frontend
+  - name: bff-frontend
     newTag: staging
-  - name: epsx-admin-frontend
+  - name: bff-admin
     newTag: staging
 
 patches:

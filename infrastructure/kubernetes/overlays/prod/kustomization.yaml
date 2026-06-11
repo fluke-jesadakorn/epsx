@@ -10,11 +10,11 @@ images:
   - name: registry.jesadakorn.com/jesadakorn/epsx/backend
     newName: epsx-backend
     newTag: prod
-  - name: registry.jesadakorn.com/jesadakorn/epsx/frontend
-    newName: epsx-frontend
+  - name: registry.jesadakorn.com/jesadakorn/epsx/bff-frontend
+    newName: bff-frontend
     newTag: prod
-  - name: registry.jesadakorn.com/jesadakorn/epsx/admin
-    newName: epsx-admin-frontend
+  - name: registry.jesadakorn.com/jesadakorn/epsx/bff-admin
+    newName: bff-admin
     newTag: prod
 
 patches:

@@ -14,34 +14,36 @@ spec:
     spec:
       containers:
         - name: epsx-admin
-          image: registry.jesadakorn.com/jesadakorn/epsx/admin:prod-latest
+          image: registry.jesadakorn.com/jesadakorn/epsx/bff-admin:prod-latest
           imagePullPolicy: IfNotPresent
           envFrom:
             - secretRef:
-                name: epsx-admin
+                name: epsx-admin-bff
           env:
-            - name: MINIO_ENDPOINT
-              value: "http://host.docker.internal:9100"
+            - name: API_URL
+              value: "https://api.epsx.io"
             - name: PORT
-              value: "3000"
-            - name: HOSTNAME
+              value: "3001"
+            - name: HOST
               value: "0.0.0.0"
+            - name: RUST_LOG
+              value: "info"
           ports:
-            - containerPort: 3000
+            - containerPort: 3001
           livenessProbe:
             httpGet:
               path: /api/health
-              port: 3000
-            initialDelaySeconds: 30
+              port: 3001
+            initialDelaySeconds: 20
             periodSeconds: 15
             timeoutSeconds: 5
             failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /api/health
-              port: 3000
-            initialDelaySeconds: 15
-            periodSeconds: 15
+              port: 3001
+            initialDelaySeconds: 10
+            periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
           securityContext:

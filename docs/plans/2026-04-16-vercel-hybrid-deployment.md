@@ -1,5 +1,18 @@
 # 2026-04-16 Vercel Hybrid Deployment
 
+> **DEPRECATED 2026-06-11** — This plan was written for the pre-migration
+> Next.js apps. After Wave 1–4 the user-facing apps (`apps/frontend`,
+> `apps/admin-frontend` → `apps/admin`) are Rust binaries
+> (`bff-frontend`, `bff-admin`) — Dioxus 0.7 fullstack SSR + Axum.
+> Vercel is no longer a valid target.
+>
+> The replacement plan is
+> [`2026-06-11-rust-bff-deployment.md`](./2026-06-11-rust-bff-deployment.md).
+> The cutover runbook is
+> [`../runbooks/2026-06-11-rust-bff-cutover.md`](../runbooks/2026-06-11-rust-bff-cutover.md).
+>
+> This file is kept for historical reference only. Do not follow it.
+
 ## Target topology
 
 | Component | Runtime | Deployment target | Public entrypoint | Notes |
