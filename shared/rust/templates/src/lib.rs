@@ -4569,6 +4569,178 @@ pub fn design_system_head(title: &str, description: &str) -> String {
        the section marker. */
   }}
   /* end wave6-auth-pages-depth-track-d */
+
+  /* === wave6b-admin-pages-depth-track-a ===
+   * Wave 6B Track A — admin shell primitive (sidebar + breadcrumb
+   * header + main content) + the 5 admin pages (dashboard,
+   * analytics, policies, settings, media). The admin shell
+   * structure mirrors the existing `DashboardShell` from
+   * `shell.rs`; the per-page rules below are the genuinely new
+   * styles required by the section-marker class names
+   * (`admin-stats-cards`, `wallets-by-chain`, `policy-stats-bar`,
+   * `email-settings`, `media-browser`, etc.). Track B/C/D will add
+   * their own blocks under `// === wave6b-admin-pages-depth-track-b/c/d ===`. */
+
+  /* === AdminShell primitive === */
+  .admin-shell {{
+    display: flex;
+    width: 100%;
+    height: 100%;
+    min-height: 100vh;
+    background: var(--background, transparent);
+  }}
+  .admin-shell-sidebar {{
+    flex-shrink: 0;
+    height: 100%;
+  }}
+  .admin-shell-header {{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--border, rgba(255,255,255,0.08));
+    background: var(--card, rgba(15,23,42,0.6));
+    backdrop-filter: blur(12px);
+  }}
+  .admin-shell-header-left {{
+    flex: 1;
+    min-width: 0;
+  }}
+  .admin-shell-header-right {{
+    flex-shrink: 0;
+  }}
+  .admin-shell-page-title {{
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--foreground, #f8fafc);
+    margin: 0;
+  }}
+  .admin-shell-main {{
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }}
+
+  /* === Dashboard sections === */
+  .admin-pulse-header {{
+    background: linear-gradient(135deg, rgba(34, 211, 238, 0.04), rgba(99, 102, 241, 0.04), rgba(168, 85, 247, 0.04));
+  }}
+  .admin-stats-cards .stat-card,
+  .admin-stats-grid .stat-card {{
+    /* reuse existing `.stat-card` styles; the wrapper class is the
+       section marker. */
+  }}
+  .wallets-by-chain .chart-donut {{
+    margin: 0 auto;
+  }}
+  .recent-transactions .table th {{
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    color: var(--muted-foreground, #94a3b8);
+  }}
+  .system-alerts .badge {{
+    text-transform: uppercase;
+    font-size: 0.65rem;
+    letter-spacing: 0.05em;
+  }}
+  .activity-stream {{
+    min-height: 480px;
+  }}
+
+  /* === Analytics sections === */
+  .admin-analytics .status-pill {{
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }}
+  .admin-analytics .status-pill-live {{
+    background: rgba(34, 197, 94, 0.1);
+    color: rgb(74, 222, 128);
+    border: 1px solid rgba(34, 197, 94, 0.25);
+  }}
+  .admin-analytics .status-pill-ai {{
+    background: rgba(168, 85, 247, 0.1);
+    color: rgb(192, 132, 252);
+    border: 1px solid rgba(168, 85, 247, 0.25);
+  }}
+  .analytics-filter-panel .field-label {{
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted-foreground, #94a3b8);
+    margin-bottom: 0.25rem;
+    font-weight: 700;
+  }}
+  .analytics-export-dialog {{
+    /* marker-only wrapper — the actual dialog is rendered by
+       Wave 6A's `<ExportDialog>` primitive inside this div. */
+  }}
+
+  /* === Policies sections === */
+  .policy-stats-bar .hover-scale {{
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }}
+  .policy-stats-bar .hover-scale:hover {{
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.4);
+  }}
+  .policy-card .badge {{
+    text-transform: uppercase;
+    font-size: 0.65rem;
+    letter-spacing: 0.05em;
+  }}
+  .policy-builder .card-body {{
+    gap: 1rem;
+  }}
+  .policy-monitor .pulse-indicator {{
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--success, rgb(74, 222, 128));
+  }}
+
+  /* === Settings sections === */
+  .settings-dashboard {{
+    /* the global control bar wrapper. */
+  }}
+  .email-settings .field,
+  .notification-settings .field,
+  .session-management .field {{
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }}
+  .api-keys-list .table-wrap {{
+    border-radius: 0.75rem;
+    overflow: hidden;
+  }}
+
+  /* === Media sections === */
+  .media-stats .stat-card {{
+    /* reuse the existing `.stat-card` primitive styles. */
+  }}
+  .media-filters .btn-sm {{
+    font-size: 0.75rem;
+  }}
+  .media-browser .card-body {{
+    padding: 0.5rem;
+  }}
+  .media-browser .card-body p.text-xs {{
+    color: var(--muted-foreground, #94a3b8);
+  }}
+
+  /* end wave6b-admin-pages-depth-track-a */
 </style>"##
     )
 }
@@ -5079,6 +5251,20 @@ pub fn lucide_icon(name: &str) -> &'static str {
         "wifi-off" => r#"<line x1="2" x2="22" y1="2" y2="22"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M2 8.82a15 15 0 0 1 4.17-2.65"/><path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/><path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"/><path d="M5 13a10 10 0 0 1 5.24-2.76"/><line x1="12" x2="12.01" y1="20" y2="20"/>"#,
         "mail" => r#"<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>"#,
         "tag" => r#"<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5"/>"#,
+        // === wave6b-admin-pages-depth-track-a === new icons required by
+        // the 5 admin pages (dashboard, analytics, policies, settings,
+        // media). All paths mirror the official lucide.dev SVG body.
+        // No existing icons are restyled. The 4 additions:
+        // - `download` — analytics export button + media browser
+        //   "open" icon.
+        // - `layers` — policies stats bar "Total Policies" card.
+        // - `activity` — policies monitor "Evaluations (24h)" stat.
+        // - `rotate-ccw` — settings dashboard "Reset Logic" button.
+        "download" => r#"<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>"#,
+        "layers" => r#"<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>"#,
+        "activity" => r#"<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>"#,
+        "rotate-ccw" => r#"<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>"#,
+        // end wave6b-admin-pages-depth-track-a icon additions
         _ => "",
     }
 }

@@ -15,6 +15,15 @@ pub mod nav_config;
 pub mod navbar_skeleton;
 pub mod nav_actions;
 pub mod mobile_nav;
+// === wave6b-admin-pages-depth-track-a === new module (AdminShell primitive)
+//
+// `<AdminShell>` is the shared admin chrome (sidebar + breadcrumb header
+// + main content area) used by every Wave 6B admin page. The pages
+// consume it via `use crate::layout::admin_shell::AdminShell;`. CSS
+// lives in `shared/rust/templates/src/lib.rs` under the
+// `// === wave6b-admin-pages-depth-track-a ===` marker region. Track
+// B/C/D do not touch this module.
+pub mod admin_shell;
 // === wave3a-wiring-track-a === new module (frontend MainLayout wrapper)
 //
 // The two `MainLayout` / `AuthLayout` component names already exist in
@@ -56,3 +65,5 @@ pub use mobile_nav::*;
 // === wave3a-wiring-track-a ===
 // Intentionally NOT re-exporting `main_layout::*` globally — see
 // the comment on the `pub mod main_layout;` line above.
+// === wave6b-admin-pages-depth-track-a === re-export (AdminShell primitive)
+pub use admin_shell::*;
