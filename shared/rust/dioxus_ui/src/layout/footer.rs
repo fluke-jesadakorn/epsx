@@ -2,6 +2,13 @@ use crate::primitives::icon::Icon;
 
 use dioxus::prelude::*;
 
+/// Site footer. Used by every page in `pages/*.rs`. **Wave 2 keeps
+/// this API stable** — see Wave 1's Public API Stability rule.
+///
+/// Wave 2 also adds `pub use Footer as SiteFooter;` at the bottom of
+/// this file so the frontend nav cluster (and any future component
+/// that wants to disambiguate "the site-wide footer" from admin-only
+/// footers) can refer to it by either name.
 #[component]
 pub fn Footer() -> Element {
     rsx! {
@@ -47,3 +54,8 @@ pub fn Footer() -> Element {
         }
     }
 }
+
+/// Alias for `Footer`. The frontend nav cluster (and Wave 3's wiring
+/// step) calls it `SiteFooter` to disambiguate from admin-only
+/// footers added by Track A.
+pub use Footer as SiteFooter;
