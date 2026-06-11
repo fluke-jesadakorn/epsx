@@ -1,8 +1,7 @@
 //! JSON API handlers for the frontend BFF.
 //!
 //! These are the exact same endpoints the Next.js frontend exposes under
-//! `apps/frontend/app/api/*` and were previously rendered by
-//! `legacy::ssr_fallback`. They proxy to the Rust gateway (`API_URL`,
+//! `apps/frontend/app/api/*`. They proxy to the Rust gateway (`API_URL`,
 //! default `http://localhost:8080`).
 //!
 //! Each handler:
@@ -13,7 +12,7 @@
 //!
 //! Inline fallback data (rankings, news, plans) mirrors what the content
 //! service would return so the BFF can serve traffic when the gateway is
-//! down — same behaviour as the legacy SSR.
+//! down — same behaviour the previous string-template fallback had.
 
 use axum::{
     extract::{Path as AxPath, State},
