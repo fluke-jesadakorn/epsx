@@ -28,11 +28,14 @@ all unchanged.
 ## Branch & final HEAD
 
 - **Branch**: `wave5/track-b-info-pages`
-- **Final HEAD**: `1d00a5fd1e27d451dd7b9306c52da0391df6753a`
-- **Previous attempt HEAD** (now parent of new HEAD): `2d4129f3d456430abb908c0f8c8e512c00b36455`
+- **Final HEAD**: `4babbb68fa2f4a3a5b40579a98add55392c278f9`
+- **Attempt-2 code commit**: `1d00a5fd1e27d451dd7b9306c52da0391df6753a`
+  (the verifier-required commit, message:
+  `feat(dioxus-ui): track B — expand terms.rs to 9 sections (~350 LoC)`)
+- **Previous attempt HEAD** (parent of attempt-2): `2d4129f3d456430abb908c0f8c8e512c00b36455`
 - **Worktree**: `/private/tmp/epsx-track5-b-info-pages`
 - **Pushed to**: `origin/wave5/track-b-info-pages` (force-push not
-  used; the new commit is a regular fast-forward of the prior
+  used; the new commits are regular fast-forwards of the prior
   attempt's HEAD)
 
 ## Section-list confirmation (terms.rs — what was added)
@@ -149,7 +152,8 @@ required 56/56; the new attempt adds 2 more, for 58/58.)
 ## Commits on `wave5/track-b-info-pages`
 
 ```
-1d00a5fd  feat(dioxus-ui): track B — expand terms.rs to 9 sections (~350 LoC)   <-- this attempt
+4babbb68  docs(wave5): track B — update deliverable.md for terms.rs expansion (attempt 2)  <-- this deliverable update
+1d00a5fd  feat(dioxus-ui): track B — expand terms.rs to 9 sections (~350 LoC)             <-- this attempt (verifier-required)
 2d4129f3  feat(dioxus-ui): track B — info-pages depth (manual + plans + contact + 6 utility pages)  <-- attempt 1
 9b3a1378  docs(wave5): marketing/auth page-depth design — 12 pages, 2 tracks + integration gate  <-- base
 ```
