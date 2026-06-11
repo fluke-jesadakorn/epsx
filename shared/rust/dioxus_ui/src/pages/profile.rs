@@ -6,7 +6,8 @@ use crate::feedback::*;
 use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
-use crate::layout::{Navbar, Footer, PageHeader};
+use crate::layout::main_layout::MainLayout;
+use crate::layout::PageHeader;
 use crate::auth::AuthGate;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
@@ -18,30 +19,30 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 fn RenderProfile(ctx: PageContext) -> Element {
     let mut tab = use_signal(|| "profile".to_string());
     rsx! {
-        Navbar { user: ctx.user.clone(), current_path: Some(ctx.path.clone()) }
-        AuthGate { user: ctx.user.clone(), feature: Some("your profile".to_string()),
-            div { class: "container page-content max-w-3xl",
-                PageHeader { title: "Profile".to_string(), description: Some("Manage your account settings".to_string()), icon: Some("user".to_string()) }
-                div { class: "tabs mb-4",
-                    button { class: if *tab.read() == "profile" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("profile".to_string()), "Profile" }
-                    button { class: if *tab.read() == "email" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("email".to_string()), "Email" }
-                    button { class: if *tab.read() == "data" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("data".to_string()), "Data" }
-                    button { class: if *tab.read() == "security" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("security".to_string()), "Security" }
-                }
-                if *tab.read() == "profile" {
-                    div { class: "card card-glass", div { class: "card-body",
-                        if let Some(u) = &ctx.user {
-                            div { class: "space-y-3",
-                                div { span { class: "text-muted-foreground", "Wallet: " } span { class: "font-mono text-sm", "{u.address}" } }
-                                div { span { class: "text-muted-foreground", "Chain: " } span { "{u.chain_id}" } }
-                                div { span { class: "text-muted-foreground", "Roles: " } span { "{u.roles.join(\", \")}" } }
+        MainLayout { ctx: ctx.clone(),
+            AuthGate { user: ctx.user.clone(), feature: Some("your profile".to_string()),
+                div { class: "container page-content max-w-3xl",
+                    PageHeader { title: "Profile".to_string(), description: Some("Manage your account settings".to_string()), icon: Some("user".to_string()) }
+                    div { class: "tabs mb-4",
+                        button { class: if *tab.read() == "profile" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("profile".to_string()), "Profile" }
+                        button { class: if *tab.read() == "email" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("email".to_string()), "Email" }
+                        button { class: if *tab.read() == "data" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("data".to_string()), "Data" }
+                        button { class: if *tab.read() == "security" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("security".to_string()), "Security" }
+                    }
+                    if *tab.read() == "profile" {
+                        div { class: "card card-glass", div { class: "card-body",
+                            if let Some(u) = &ctx.user {
+                                div { class: "space-y-3",
+                                    div { span { class: "text-muted-foreground", "Wallet: " } span { class: "font-mono text-sm", "{u.address}" } }
+                                    div { span { class: "text-muted-foreground", "Chain: " } span { "{u.chain_id}" } }
+                                    div { span { class: "text-muted-foreground", "Roles: " } span { "{u.roles.join(\", \")}" } }
+                                }
                             }
-                        }
-                    } }
-                } else if *tab.read() == "email" { EmailForm {} } else if *tab.read() == "data" { DataForm {} } else { SecurityForm {} }
+                        } }
+                    } else if *tab.read() == "email" { EmailForm {} } else if *tab.read() == "data" { DataForm {} } else { SecurityForm {} }
+                }
             }
         }
-        Footer {}
     }
 }
 

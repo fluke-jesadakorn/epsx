@@ -3,21 +3,20 @@ use crate::primitives::*;
 use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
-use crate::layout::{Navbar, Footer};
+use crate::layout::main_layout::MainLayout;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Home");
-    let path = ctx.path.clone();
     (meta, rsx! {
-        Navbar { user: ctx.user.clone(), current_path: Some(path) }
-        Hero {}
-        TrustBar {}
-        TopPerformers {}
-        FeaturesGrid {}
-        PricingTeaser {}
-        NewsPreview {}
-        CTASection {}
-        Footer {}
+        MainLayout { ctx: ctx.clone(),
+            Hero {}
+            TrustBar {}
+            TopPerformers {}
+            FeaturesGrid {}
+            PricingTeaser {}
+            NewsPreview {}
+            CTASection {}
+        }
     })
 }
 

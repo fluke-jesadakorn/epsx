@@ -6,7 +6,8 @@ use crate::feedback::*;
 use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
-use crate::layout::{Navbar, Footer, PageHeader};
+use crate::layout::main_layout::MainLayout;
+use crate::layout::PageHeader;
 use crate::auth::AuthGate;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
@@ -18,22 +19,22 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
         .unwrap_or_else(default_plans);
 
     (meta, rsx! {
-        Navbar { user: ctx.user.clone(), current_path: Some(ctx.path.clone()) }
-        AuthGate { user: ctx.user.clone(), feature: Some("plan subscription".to_string()),
-            div { class: "container page-content",
-                PageHeader {
-                    title: "Plans".to_string(),
-                    description: Some("Pick a plan that fits your trading volume".to_string()),
-                    icon: Some("zap".to_string()),
-                }
-                div { class: "grid grid-cols-1 md:grid-cols-3 gap-6",
-                    for p in plans.iter() {
-                        PlanCard { plan: p.clone() }
+        MainLayout { ctx: ctx.clone(),
+            AuthGate { user: ctx.user.clone(), feature: Some("plan subscription".to_string()),
+                div { class: "container page-content",
+                    PageHeader {
+                        title: "Plans".to_string(),
+                        description: Some("Pick a plan that fits your trading volume".to_string()),
+                        icon: Some("zap".to_string()),
+                    }
+                    div { class: "grid grid-cols-1 md:grid-cols-3 gap-6",
+                        for p in plans.iter() {
+                            PlanCard { plan: p.clone() }
+                        }
                     }
                 }
             }
         }
-        Footer {}
     })
 }
 

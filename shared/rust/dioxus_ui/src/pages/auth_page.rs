@@ -113,5 +113,9 @@ fn WalletOption(name: String, icon: String, disabled: bool, onclick: EventHandle
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Sign in");
-    (meta, rsx! { RenderAuth {} })
+    (meta, rsx! {
+        crate::layout::main_layout::AuthLayout { ctx: ctx.clone(),
+            RenderAuth {}
+        }
+    })
 }

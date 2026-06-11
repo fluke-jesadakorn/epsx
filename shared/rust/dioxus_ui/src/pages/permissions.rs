@@ -6,7 +6,8 @@ use crate::feedback::*;
 use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
-use crate::layout::{Navbar, Footer, PageHeader};
+use crate::layout::main_layout::MainLayout;
+use crate::layout::PageHeader;
 use crate::auth::AuthGate;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
@@ -18,54 +19,54 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 fn RenderPermissions(ctx: PageContext) -> Element {
     let mut tab = use_signal(|| "permissions".to_string());
     rsx! {
-        Navbar { user: ctx.user.clone(), current_path: Some(ctx.path.clone()) }
-        AuthGate { user: ctx.user.clone(), feature: Some("your permissions".to_string()),
-            div { class: "container page-content max-w-6xl",
-                PageHeader { title: "My permissions".to_string(), description: Some("Active permissions, history, and analytics".to_string()), icon: Some("shield".to_string()) }
-                div { class: "grid grid-cols-1 md:grid-cols-3 gap-4 mb-4",
-                    StatCard { label: "Total permissions".to_string(), value: "12".to_string(), icon: Some("key".to_string()) }
-                    StatCard { label: "Active".to_string(), value: "10".to_string(), icon: Some("check".to_string()) }
-                    StatCard { label: "Expiring soon".to_string(), value: "2".to_string(), icon: Some("clock".to_string()) }
-                }
-                div { class: "card card-glass",
-                    div { class: "card-header",
-                        h2 { class: "card-title", "Permission details" }
-                        div { class: "tabs",
-                            button { class: if *tab.read() == "permissions" { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" }, onclick: move |_| tab.set("permissions".to_string()), "Permissions" }
-                            button { class: if *tab.read() == "analytics" { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" }, onclick: move |_| tab.set("analytics".to_string()), "Analytics" }
-                            button { class: if *tab.read() == "history" { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" }, onclick: move |_| tab.set("history".to_string()), "History" }
-                        }
+        MainLayout { ctx: ctx.clone(),
+            AuthGate { user: ctx.user.clone(), feature: Some("your permissions".to_string()),
+                div { class: "container page-content max-w-6xl",
+                    PageHeader { title: "My permissions".to_string(), description: Some("Active permissions, history, and analytics".to_string()), icon: Some("shield".to_string()) }
+                    div { class: "grid grid-cols-1 md:grid-cols-3 gap-4 mb-4",
+                        StatCard { label: "Total permissions".to_string(), value: "12".to_string(), icon: Some("key".to_string()) }
+                        StatCard { label: "Active".to_string(), value: "10".to_string(), icon: Some("check".to_string()) }
+                        StatCard { label: "Expiring soon".to_string(), value: "2".to_string(), icon: Some("clock".to_string()) }
                     }
-                    div { class: "card-body",
-                        if *tab.read() == "permissions" {
-                            div { class: "grid grid-cols-1 md:grid-cols-2 gap-4",
-                                PermCard { name: "trade".to_string(), granted: true, source: "Pro plan".to_string(), expires: "2024-12-31".to_string() }
-                                PermCard { name: "view".to_string(), granted: true, source: "Pro plan".to_string(), expires: "Never".to_string() }
-                                PermCard { name: "pay".to_string(), granted: true, source: "Pro plan".to_string(), expires: "2024-12-31".to_string() }
-                                PermCard { name: "api".to_string(), granted: false, source: "—".to_string(), expires: "—".to_string() }
-                                PermCard { name: "admin".to_string(), granted: false, source: "—".to_string(), expires: "—".to_string() }
-                                PermCard { name: "merchant".to_string(), granted: false, source: "—".to_string(), expires: "—".to_string() }
+                    div { class: "card card-glass",
+                        div { class: "card-header",
+                            h2 { class: "card-title", "Permission details" }
+                            div { class: "tabs",
+                                button { class: if *tab.read() == "permissions" { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" }, onclick: move |_| tab.set("permissions".to_string()), "Permissions" }
+                                button { class: if *tab.read() == "analytics" { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" }, onclick: move |_| tab.set("analytics".to_string()), "Analytics" }
+                                button { class: if *tab.read() == "history" { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" }, onclick: move |_| tab.set("history".to_string()), "History" }
                             }
-                        } else if *tab.read() == "analytics" {
-                            div { class: "grid grid-cols-1 md:grid-cols-2 gap-4",
-                                div { class: "card card-glass", div { class: "card-header", h4 { "By category" } } div { class: "card-body",
-                                    crate::charts::ChartDonut { data: vec![("Trade".to_string(), 4.0, "#22d3ee".to_string()), ("View".to_string(), 3.0, "#22c55e".to_string()), ("Pay".to_string(), 3.0, "#f59e0b".to_string())], size: 180, thickness: 28 } } }
-                                div { class: "card card-glass", div { class: "card-header", h4 { "By source" } } div { class: "card-body",
-                                    crate::charts::ChartDonut { data: vec![("Plan".to_string(), 8.0, "#3b82f6".to_string()), ("Direct".to_string(), 2.0, "#9ca3af".to_string())], size: 180, thickness: 28 } } }
+                        }
+                        div { class: "card-body",
+                            if *tab.read() == "permissions" {
+                                div { class: "grid grid-cols-1 md:grid-cols-2 gap-4",
+                                    PermCard { name: "trade".to_string(), granted: true, source: "Pro plan".to_string(), expires: "2024-12-31".to_string() }
+                                    PermCard { name: "view".to_string(), granted: true, source: "Pro plan".to_string(), expires: "Never".to_string() }
+                                    PermCard { name: "pay".to_string(), granted: true, source: "Pro plan".to_string(), expires: "2024-12-31".to_string() }
+                                    PermCard { name: "api".to_string(), granted: false, source: "—".to_string(), expires: "—".to_string() }
+                                    PermCard { name: "admin".to_string(), granted: false, source: "—".to_string(), expires: "—".to_string() }
+                                    PermCard { name: "merchant".to_string(), granted: false, source: "—".to_string(), expires: "—".to_string() }
+                                }
+                            } else if *tab.read() == "analytics" {
+                                div { class: "grid grid-cols-1 md:grid-cols-2 gap-4",
+                                    div { class: "card card-glass", div { class: "card-header", h4 { "By category" } } div { class: "card-body",
+                                        crate::charts::ChartDonut { data: vec![("Trade".to_string(), 4.0, "#22d3ee".to_string()), ("View".to_string(), 3.0, "#22c55e".to_string()), ("Pay".to_string(), 3.0, "#f59e0b".to_string())], size: 180, thickness: 28 } } }
+                                    div { class: "card card-glass", div { class: "card-header", h4 { "By source" } } div { class: "card-body",
+                                        crate::charts::ChartDonut { data: vec![("Plan".to_string(), 8.0, "#3b82f6".to_string()), ("Direct".to_string(), 2.0, "#9ca3af".to_string())], size: 180, thickness: 28 } } }
+                                }
+                            } else {
+                                div { class: "table-wrap",
+                                    table { class: "table", thead { tr { th { "Date" } th { "Action" } th { "Permission" } th { "Source" } } } tbody {
+                                        tr { td { "2024-09-15" } td { span { class: "badge badge-success", "Granted" } } td { "trade" } td { "Pro plan" } }
+                                        tr { td { "2024-08-01" } td { span { class: "badge badge-info", "Updated" } } td { "view" } td { "Pro plan" } }
+                                        tr { td { "2024-07-20" } td { span { class: "badge badge-danger", "Revoked" } } td { "admin" } td { "— " } }
+                                    } } }
                             }
-                        } else {
-                            div { class: "table-wrap",
-                                table { class: "table", thead { tr { th { "Date" } th { "Action" } th { "Permission" } th { "Source" } } } tbody {
-                                    tr { td { "2024-09-15" } td { span { class: "badge badge-success", "Granted" } } td { "trade" } td { "Pro plan" } }
-                                    tr { td { "2024-08-01" } td { span { class: "badge badge-info", "Updated" } } td { "view" } td { "Pro plan" } }
-                                    tr { td { "2024-07-20" } td { span { class: "badge badge-danger", "Revoked" } } td { "admin" } td { "— " } }
-                                } } }
                         }
                     }
                 }
             }
         }
-        Footer {}
     }
 }
 

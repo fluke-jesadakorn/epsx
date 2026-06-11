@@ -3083,6 +3083,7 @@ version = "0.1.0"
 dependencies = [
  "dioxus",
  "dioxus-router",
+ "dioxus-ssr",
  "epsx-templates",
  "serde",
  "serde_json",

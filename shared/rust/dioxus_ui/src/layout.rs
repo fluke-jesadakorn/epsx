@@ -15,6 +15,20 @@ pub mod nav_config;
 pub mod navbar_skeleton;
 pub mod nav_actions;
 pub mod mobile_nav;
+// === wave3a-wiring-track-a === new module (frontend MainLayout wrapper)
+//
+// The two `MainLayout` / `AuthLayout` component names already exist in
+// `super::shell` (the admin shell, added in Wave 2 chrome-track-a).
+// Re-exporting both globally from `layout.rs` causes E0659 "is
+// ambiguous" errors. So we expose `main_layout` as a sub-module and
+// import it via the module path from each page:
+//
+//     use crate::layout::main_layout::MainLayout;
+//
+// The Track C integration agent can promote either the frontend or
+// admin `MainLayout` to the global namespace if needed — the design
+// doc keeps them disambiguated by file (`main_layout` vs `shell`).
+pub mod main_layout;
 
 pub use navbar::*;
 pub use footer::*;
@@ -29,3 +43,6 @@ pub use nav_config::*;
 pub use navbar_skeleton::*;
 pub use nav_actions::*;
 pub use mobile_nav::*;
+// === wave3a-wiring-track-a ===
+// Intentionally NOT re-exporting `main_layout::*` globally — see
+// the comment on the `pub mod main_layout;` line above.

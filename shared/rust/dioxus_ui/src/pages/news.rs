@@ -6,7 +6,8 @@ use crate::feedback::*;
 use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
-use crate::layout::{Navbar, Footer, PageHeader};
+use crate::layout::main_layout::MainLayout;
+use crate::layout::PageHeader;
 use crate::auth::AuthGate;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
@@ -18,22 +19,22 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
         .unwrap_or_else(default_posts);
 
     (meta, rsx! {
-        Navbar { user: ctx.user.clone(), current_path: Some(ctx.path.clone()) }
-        AuthGate { user: ctx.user.clone(), feature: Some("news articles".to_string()),
-            div { class: "container page-content",
-                PageHeader {
-                    title: "News".to_string(),
-                    description: Some("Latest updates from EPSX".to_string()),
-                    icon: Some("newspaper".to_string()),
-                }
-                div { class: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
-                    for p in posts.iter() {
-                        NewsCard { post: p.clone() }
+        MainLayout { ctx: ctx.clone(),
+            AuthGate { user: ctx.user.clone(), feature: Some("news articles".to_string()),
+                div { class: "container page-content",
+                    PageHeader {
+                        title: "News".to_string(),
+                        description: Some("Latest updates from EPSX".to_string()),
+                        icon: Some("newspaper".to_string()),
+                    }
+                    div { class: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
+                        for p in posts.iter() {
+                            NewsCard { post: p.clone() }
+                        }
                     }
                 }
             }
         }
-        Footer {}
     })
 }
 
