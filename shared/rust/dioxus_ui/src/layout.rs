@@ -29,6 +29,16 @@ pub mod mobile_nav;
 // admin `MainLayout` to the global namespace if needed — the design
 // doc keeps them disambiguated by file (`main_layout` vs `shell`).
 pub mod main_layout;
+// === wave5-page-depth-track-a === new module (MarketingBackground primitive)
+//
+// Extracted shared PancakeSwap-style gradient + orbs + mesh overlays
+// + geometric decorations that appear on the home / about / contact /
+// plans pages. Pages consume it as `use crate::layout::marketing_bg
+// ::MarketingBackground;`. CSS lives in
+// `shared/rust/templates/src/lib.rs` under the same wave marker
+// region. Track B imports this module from its pages (no further
+// changes to `layout.rs` are required from Track B).
+pub mod marketing_bg;
 
 pub use navbar::*;
 pub use footer::*;

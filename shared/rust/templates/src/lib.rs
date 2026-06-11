@@ -3032,6 +3032,473 @@ pub fn design_system_head(title: &str, description: &str) -> String {
    * gate can confirm the three wave3b tracks append cleanly into a
    * single CSS region. */
   /* end wave3b-gates-track-a */
+
+  /* === wave5-page-depth-track-a === hero-pages depth (home + auth + about)
+     + MarketingBackground primitive.
+
+     Adds CSS for:
+       1. `<MarketingBackground>` — fixed gradient + 4 floating orbs
+          (orange / blue / purple / green) + 3 radial mesh overlays
+          + 2 geometric decorations. These are reused across the
+          home / about / contact / plans pages, so they live here
+          rather than in `marketing_bg.rs` (which is presentational
+          markup only).
+       2. Hero additions: share button, chain selector, mobile
+          collapse, the existing 4-stat grid.
+       3. New home sections: TestimonialsSection + FAQSection
+          (the source has both; Wave 1 port was missing them).
+       4. Auth page two-column layout + form (the Wave 1 port was
+          form-only; the source has a marketing pitch on the left).
+       5. About page: MissionSection, StatsSection, TeamSection,
+          TimelineSection, inline DataTechSection port.
+
+     All rules are additive — no existing class is restyled. The
+     marker region is the only shared file surface with Track B
+     (which uses `// === wave5-page-depth-track-b ===`). */
+
+  /* === MarketingBackground primitive === */
+  .marketing-bg {{ position: relative; min-height: 100vh; overflow: hidden; }}
+  .marketing-bg-fixed {{
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background: linear-gradient(to bottom right, #eff6ff, #fff7ed, #fefce8);
+  }}
+  .marketing-bg-gradient {{
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(circle at 25% 25%, rgba(255, 133, 27, 0.10) 0%, transparent 50%),
+      radial-gradient(circle at 75% 75%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.06) 0%, transparent 60%);
+  }}
+  .marketing-orb {{
+    position: absolute; border-radius: 9999px; filter: blur(48px);
+    animation: marketing-orb-drift 20s ease-in-out infinite;
+  }}
+  .marketing-orb-orange {{
+    top: -10rem; left: -10rem; width: 24rem; height: 24rem;
+    background: linear-gradient(to bottom right, rgba(251, 146, 60, 0.30), rgba(250, 204, 21, 0.30));
+  }}
+  .marketing-orb-blue {{
+    top: 5rem; right: -8rem; width: 20rem; height: 20rem;
+    background: linear-gradient(to bottom right, rgba(96, 165, 250, 0.25), rgba(34, 211, 238, 0.25));
+  }}
+  .marketing-orb-purple {{
+    bottom: 5rem; left: 5rem; width: 18rem; height: 18rem;
+    background: linear-gradient(to bottom right, rgba(192, 132, 252, 0.20), rgba(244, 114, 182, 0.20));
+  }}
+  .marketing-orb-green {{
+    top: 50%; right: 25%; width: 16rem; height: 16rem;
+    background: linear-gradient(to bottom right, rgba(74, 222, 128, 0.15), rgba(16, 185, 129, 0.15));
+    transform: translateY(-50%);
+  }}
+  .marketing-mesh {{ position: absolute; inset: 0; pointer-events: none; }}
+  .marketing-mesh-orange {{ background: radial-gradient(circle at 25% 25%, rgba(255, 133, 27, 0.10) 0%, transparent 50%); }}
+  .marketing-mesh-blue   {{ background: radial-gradient(circle at 75% 75%, rgba(59, 130, 246, 0.08) 0%, transparent 50%); }}
+  .marketing-mesh-purple {{ background: radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.06) 0%, transparent 60%); }}
+  .marketing-shape {{ position: absolute; pointer-events: none; }}
+  .marketing-shape-square {{
+    top: 25%; left: 25%; width: 8rem; height: 8rem; transform: rotate(45deg); border-radius: 1rem;
+    background: linear-gradient(to bottom right, rgba(251, 146, 60, 0.10), rgba(250, 204, 21, 0.10));
+  }}
+  .marketing-shape-circle {{
+    right: 33%; bottom: 33%; width: 6rem; height: 6rem; border-radius: 9999px;
+    background: linear-gradient(to bottom right, rgba(96, 165, 250, 0.10), rgba(34, 211, 238, 0.10));
+  }}
+  .marketing-bg-content {{ position: relative; z-index: 1; }}
+  @keyframes marketing-orb-drift {{
+    0%, 100% {{ transform: translate(0, 0) scale(1); }}
+    33%      {{ transform: translate(2rem, -2rem) scale(1.05); }}
+    66%      {{ transform: translate(-2rem, 2rem) scale(0.95); }}
+  }}
+
+  /* === Hero additions (share button, chain selector, mobile collapse) === */
+  .hero {{
+    position: relative; min-height: 80vh; display: flex; align-items: center; justify-content: center;
+    padding: 4rem 0; overflow: hidden;
+  }}
+  .hero-bg {{ position: absolute; inset: 0; pointer-events: none; }}
+  .hero-orb {{ position: absolute; border-radius: 9999px; filter: blur(64px); opacity: 0.4; }}
+  .hero-orb-1 {{ top: 10%; left: 5%; width: 18rem; height: 18rem; background: rgba(251, 146, 60, 0.30); }}
+  .hero-orb-2 {{ bottom: 10%; right: 5%; width: 18rem; height: 18rem; background: rgba(96, 165, 250, 0.30); }}
+  .hero-orb-3 {{ top: 40%; right: 25%; width: 14rem; height: 14rem; background: rgba(192, 132, 252, 0.25); }}
+  .hero-orb-4 {{ top: 60%; left: 30%; width: 12rem; height: 12rem; background: rgba(74, 222, 128, 0.20); }}
+  .hero-inner {{ position: relative; z-index: 1; text-align: center; max-width: 72rem; margin: 0 auto; padding: 0 1.5rem; }}
+  .hero-badge {{
+    display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 9999px;
+    background: linear-gradient(to right, rgba(251, 146, 60, 0.10), rgba(250, 204, 21, 0.10));
+    border: 1px solid rgba(251, 146, 60, 0.20); font-size: 0.875rem; font-weight: 500;
+    color: rgb(194, 65, 12); margin-bottom: 1.5rem;
+  }}
+  .hero-badge-dot {{
+    width: 0.5rem; height: 0.5rem; border-radius: 9999px; background: rgb(251, 146, 60);
+    animation: pulse 2s ease-in-out infinite;
+  }}
+  .hero-title {{ font-size: 3.5rem; line-height: 1.1; font-weight: 800; margin: 0 0 1.5rem; }}
+  .hero-title-line {{ display: block; }}
+  .hero-title-gradient {{
+    background: linear-gradient(to right, rgb(249, 115, 22), rgb(234, 179, 8), rgb(234, 88, 12));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }}
+  .hero-subtitle {{ font-size: 1.25rem; line-height: 1.6; color: rgb(82, 82, 91); max-width: 56rem; margin: 0 auto 2rem; }}
+  .hero-subtitle-accent {{
+    background: linear-gradient(to right, rgb(59, 130, 246), rgb(168, 85, 247));
+    -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 700;
+  }}
+  .hero-actions {{ display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center; align-items: center; margin: 2rem 0 1.5rem; }}
+  .hero-cta-primary {{ min-width: 220px; height: 3.5rem; font-size: 1.125rem; font-weight: 700; }}
+  .hero-share-btn {{ min-width: 220px; height: 3.5rem; font-size: 1.125rem; font-weight: 700; }}
+  .hero-chain-selector {{ display: inline-flex; align-items: center; gap: 0.5rem; margin: 1rem 0 2rem; padding: 0.5rem 1rem; border-radius: 9999px; background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(8px); border: 1px solid rgba(0, 0, 0, 0.06); }}
+  .hero-chain-label {{ font-size: 0.75rem; font-weight: 600; color: rgb(82, 82, 91); text-transform: uppercase; letter-spacing: 0.05em; }}
+  .hero-chain-pill {{ display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.8125rem; font-weight: 600; color: rgb(82, 82, 91); }}
+  .hero-chain-pill-active {{ background: rgba(16, 185, 129, 0.10); color: rgb(6, 95, 70); }}
+  .hero-chain-dot {{ width: 0.5rem; height: 0.5rem; border-radius: 9999px; background: rgb(16, 185, 129); }}
+  .hero-chain-dot-testnet {{ background: rgb(234, 179, 8); }}
+  .hero-stats {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-top: 4rem; }}
+  .hero-stat {{
+    position: relative; padding: 2rem 1.5rem; border-radius: 1.25rem; text-align: center;
+    background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px);
+    border: 1px solid rgba(251, 146, 60, 0.20); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.10);
+  }}
+  .hero-stat-icon {{ margin-bottom: 0.5rem; }}
+  .hero-stat-value {{ font-size: 2.5rem; font-weight: 800; line-height: 1; background: linear-gradient(to right, rgb(249, 115, 22), rgb(234, 179, 8)); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 0.5rem; }}
+  .hero-stat-label {{ font-size: 0.875rem; font-weight: 500; color: rgb(82, 82, 91); }}
+  @media (max-width: 768px) {{
+    .hero-title {{ font-size: 2.5rem; }}
+    .hero-stats {{ grid-template-columns: 1fr; }}
+    .hero-actions {{ flex-direction: column; }}
+    .hero-chain-selector {{ flex-direction: column; gap: 0.5rem; padding: 0.75rem; }}
+  }}
+
+  /* === TrustBar additions (Binance, Ethereum Foundation logos) === */
+  .trust-bar {{ padding: 3rem 0; border-top: 1px solid rgba(0, 0, 0, 0.06); border-bottom: 1px solid rgba(0, 0, 0, 0.06); }}
+  .trust-bar-inner {{ text-align: center; }}
+  .trust-bar-label {{ font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: rgb(113, 113, 122); margin-bottom: 1.5rem; }}
+  .trust-bar-logos {{ display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center; align-items: center; }}
+  .trust-logo {{
+    display: inline-flex; align-items: center; padding: 0.5rem 1.25rem; border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(8px);
+    border: 1px solid rgba(0, 0, 0, 0.06); font-size: 0.875rem; font-weight: 600; color: rgb(63, 63, 70);
+  }}
+
+  /* === TopPerformers additions (data-freshness timestamp) === */
+  .top-performers {{ padding: 5rem 0; }}
+  .top-performers-freshness {{
+    display: inline-flex; align-items: center; gap: 0.375rem; margin-top: 0.75rem;
+    font-size: 0.75rem; color: rgb(113, 113, 122); font-weight: 500;
+  }}
+  .top-performers-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-top: 2.5rem; }}
+  .performer-card {{
+    padding: 1.5rem; text-decoration: none; color: inherit; display: block;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }}
+  .performer-card:hover {{ transform: translateY(-2px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.10); }}
+  .performer-symbol {{ font-size: 1.5rem; font-weight: 800; color: rgb(24, 24, 27); margin-bottom: 0.5rem; }}
+  .performer-price {{ font-size: 1.125rem; font-weight: 600; color: rgb(63, 63, 70); margin-bottom: 0.75rem; }}
+
+  /* === FeaturesGrid === */
+  .features-grid-section {{ padding: 5rem 0; }}
+  .features-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 2.5rem; }}
+  .feature-card {{ padding: 2rem; }}
+  .feature-icon {{ display: inline-flex; padding: 0.75rem; border-radius: 0.75rem; background: rgba(251, 146, 60, 0.10); margin-bottom: 1.25rem; }}
+  .feature-title {{ font-size: 1.25rem; font-weight: 700; margin: 0 0 0.5rem; color: rgb(24, 24, 27); }}
+  .feature-description {{ font-size: 0.9375rem; line-height: 1.6; margin: 0; }}
+
+  /* === PricingTeaser === */
+  .pricing-teaser {{ padding: 5rem 0; }}
+  .pricing-teaser-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; margin-top: 2.5rem; }}
+  .pricing-teaser-card {{ padding: 2rem; display: flex; flex-direction: column; gap: 1rem; }}
+  .pricing-teaser-tier {{ font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: rgb(113, 113, 122); }}
+  .pricing-teaser-price {{ font-size: 1.75rem; font-weight: 800; color: rgb(24, 24, 27); }}
+  .pricing-teaser-features {{ list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }}
+  .pricing-teaser-features li {{ font-size: 0.9375rem; color: rgb(63, 63, 70); padding-left: 1.5rem; position: relative; }}
+  .pricing-teaser-features li::before {{ content: "✓"; position: absolute; left: 0; color: rgb(16, 185, 129); font-weight: 700; }}
+  .pricing-teaser-card.highlighted {{ border: 2px solid rgba(251, 146, 60, 0.50); }}
+
+  /* === NewsPreview === */
+  .news-preview {{ padding: 5rem 0; }}
+  .news-preview-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 2.5rem; }}
+  .news-preview-card {{ padding: 2rem; text-decoration: none; color: inherit; display: block; transition: transform 0.2s ease; }}
+  .news-preview-card:hover {{ transform: translateY(-2px); }}
+  .news-preview-tag {{
+    display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px;
+    background: rgba(59, 130, 246, 0.10); color: rgb(29, 78, 216);
+    font-size: 0.75rem; font-weight: 600; margin-bottom: 1rem;
+  }}
+  .news-preview-title {{ font-size: 1.25rem; font-weight: 700; margin: 0 0 0.5rem; color: rgb(24, 24, 27); }}
+  .news-preview-excerpt {{ font-size: 0.9375rem; line-height: 1.6; margin: 0; }}
+
+  /* === TestimonialsSection (NEW) === */
+  .testimonials-section {{ padding: 5rem 0; }}
+  .testimonials-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 2.5rem; }}
+  .testimonial-card {{ padding: 2rem; display: flex; flex-direction: column; gap: 1.25rem; }}
+  .testimonial-rating {{ display: flex; gap: 0.25rem; }}
+  .testimonial-star {{
+    width: 1.25rem; height: 1.25rem;
+    background: linear-gradient(to right, rgb(250, 204, 21), rgb(234, 88, 12));
+    clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  }}
+  .testimonial-quote {{ font-size: 1rem; line-height: 1.7; color: rgb(63, 63, 70); margin: 0; font-style: italic; }}
+  .testimonial-meta {{ display: flex; align-items: center; gap: 0.75rem; margin-top: auto; padding-top: 1rem; border-top: 1px solid rgba(0, 0, 0, 0.06); }}
+  .testimonial-avatar {{
+    width: 2.5rem; height: 2.5rem; border-radius: 9999px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; color: white; font-weight: 700;
+  }}
+  .testimonial-avatar-1 {{ background: linear-gradient(135deg, #f97316, #f59e0b); }}
+  .testimonial-avatar-2 {{ background: linear-gradient(135deg, #3b82f6, #06b6d4); }}
+  .testimonial-avatar-3 {{ background: linear-gradient(135deg, #a855f7, #ec4899); }}
+  .testimonial-name {{ font-weight: 700; color: rgb(24, 24, 27); font-size: 0.9375rem; }}
+  .testimonial-role {{ font-size: 0.8125rem; color: rgb(113, 113, 122); }}
+
+  /* === FAQSection (NEW) === */
+  .faq-section {{ padding: 5rem 0; }}
+  .faq-list {{ max-width: 56rem; margin: 2.5rem auto 0; display: flex; flex-direction: column; gap: 0.75rem; }}
+  .faq-item {{
+    background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(8px);
+    border: 1px solid rgba(0, 0, 0, 0.06); border-radius: 1rem; overflow: hidden;
+    transition: border-color 0.2s ease;
+  }}
+  .faq-item[open] {{ border-color: rgba(251, 146, 60, 0.40); }}
+  .faq-item summary {{
+    list-style: none; cursor: pointer; padding: 1.25rem 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    font-weight: 600; color: rgb(24, 24, 27);
+  }}
+  .faq-item summary::-webkit-details-marker {{ display: none; }}
+  .faq-chevron {{ display: inline-flex; transition: transform 0.2s ease; color: rgb(113, 113, 122); }}
+  .faq-item[open] .faq-chevron {{ transform: rotate(180deg); color: rgb(249, 115, 22); }}
+  .faq-answer {{ padding: 0 1.5rem 1.5rem 1.5rem; color: rgb(63, 63, 70); line-height: 1.7; }}
+  .faq-answer p {{ margin: 0; }}
+
+  /* === CTASection additions (Talk to sales secondary link) === */
+  .cta-section {{ padding: 5rem 0; }}
+  .cta-card {{ padding: 3rem 2rem; text-align: center; display: flex; flex-direction: column; gap: 1.5rem; align-items: center; }}
+  .cta-title {{ font-size: 2rem; font-weight: 800; margin: 0; color: white; }}
+  .cta-subtitle {{ font-size: 1.125rem; color: rgba(255, 255, 255, 0.85); margin: 0; max-width: 36rem; }}
+  .cta-actions {{ display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; }}
+  .cta-secondary-link {{ color: white !important; border-color: rgba(255, 255, 255, 0.30) !important; }}
+
+  /* === Auth page two-column layout + form === */
+  .auth-page {{
+    position: relative; display: flex; min-height: 100vh; width: 100%;
+    flex-direction: column; overflow: hidden;
+  }}
+  @media (min-width: 1024px) {{ .auth-page {{ flex-direction: row; }} }}
+  .auth-page-pitch {{
+    position: relative; display: none; flex-direction: column; justify-content: center;
+    padding: 2rem; color: rgb(24, 24, 27); width: 100%; overflow: hidden;
+  }}
+  @media (min-width: 1024px) {{ .auth-page-pitch {{ display: flex; width: 60%; padding: 5rem; }} }}
+  .auth-page-pitch-bg {{ position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }}
+  .auth-page-pitch-orb {{
+    position: absolute; border-radius: 9999px; filter: blur(120px); animation: pulse 4s ease-in-out infinite;
+  }}
+  .auth-page-pitch-orb-1 {{ top: -10%; left: -10%; width: 60%; height: 60%; background: rgba(251, 146, 60, 0.10); }}
+  .auth-page-pitch-orb-2 {{ bottom: -10%; right: -10%; width: 60%; height: 60%; background: rgba(168, 85, 247, 0.10); animation-delay: 1s; }}
+  .auth-page-pitch-orb-3 {{ top: 20%; right: 10%; width: 40%; height: 40%; background: rgba(59, 130, 246, 0.10); animation-delay: 2s; }}
+  .auth-page-pitch-inner {{ position: relative; z-index: 1; max-width: 36rem; }}
+  .auth-page-brand {{ margin-bottom: 3rem; font-size: 2rem; font-weight: 900; font-style: italic; letter-spacing: -0.02em; text-transform: uppercase; }}
+  .auth-page-brand a {{ color: inherit; text-decoration: none; }}
+  .auth-page-headline {{
+    font-size: 3.5rem; line-height: 1.1; font-weight: 800; margin: 0 0 1.5rem;
+  }}
+  @media (min-width: 1280px) {{ .auth-page-headline {{ font-size: 4.5rem; }} }}
+  .auth-page-sub {{ font-size: 1.125rem; line-height: 1.7; color: rgb(113, 113, 122); margin: 0 0 3rem; max-width: 32rem; }}
+  .auth-page-value-props {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem; max-width: 36rem; margin-bottom: 3rem; }}
+  .auth-page-value-prop {{ display: flex; gap: 1rem; align-items: flex-start; }}
+  .auth-page-value-icon {{
+    flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+    width: 3rem; height: 3rem; border-radius: 0.75rem; background: rgba(251, 146, 60, 0.10);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+  }}
+  .auth-page-value-title {{ font-size: 1rem; font-weight: 700; margin: 0 0 0.25rem; color: rgb(24, 24, 27); }}
+  .auth-page-value-desc {{ font-size: 0.875rem; color: rgb(113, 113, 122); margin: 0; line-height: 1.5; }}
+  .auth-page-social-proof {{ display: flex; align-items: center; gap: 1.5rem; padding-top: 1.5rem; border-top: 1px solid rgba(0, 0, 0, 0.06); max-width: 24rem; }}
+  .auth-page-social-avatars {{ display: flex; }}
+  .auth-page-social-avatar {{
+    width: 2.25rem; height: 2.25rem; border-radius: 9999px; border: 2px solid white;
+    display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; color: white;
+  }}
+  .auth-page-social-avatar:not(:first-child) {{ margin-left: -0.5rem; }}
+  .auth-page-social-avatar-a {{ background: linear-gradient(135deg, #f97316, #f59e0b); }}
+  .auth-page-social-avatar-b {{ background: linear-gradient(135deg, #3b82f6, #06b6d4); }}
+  .auth-page-social-avatar-c {{ background: linear-gradient(135deg, #a855f7, #ec4899); }}
+  .auth-page-social-avatar-d {{ background: linear-gradient(135deg, #10b981, #06b6d4); }}
+  .auth-page-social-text {{ font-size: 0.875rem; color: rgb(113, 113, 122); margin: 0; }}
+  .auth-page-social-count {{ font-weight: 700; color: rgb(24, 24, 27); font-size: 1rem; padding: 0 0.25rem; }}
+
+  .auth-page-form-col {{
+    position: relative; z-index: 1; display: flex; align-items: center; justify-content: center;
+    padding: 2rem 1.5rem; width: 100%;
+  }}
+  @media (min-width: 1024px) {{ .auth-page-form-col {{ width: 40%; backdrop-filter: blur(24px); border-left: 1px solid rgba(0, 0, 0, 0.06); }} }}
+  .auth-page-form-inner {{ width: 100%; max-width: 28rem; display: flex; flex-direction: column; gap: 1.5rem; }}
+  .auth-card {{ padding: 2.5rem 2rem; display: flex; flex-direction: column; gap: 1.25rem; }}
+  .auth-card-title {{ font-size: 1.5rem; font-weight: 800; margin: 0; color: rgb(24, 24, 27); text-align: center; }}
+  .auth-card-sub {{ font-size: 0.9375rem; color: rgb(113, 113, 122); margin: 0; text-align: center; }}
+  .auth-card-cta {{ width: 100%; }}
+  .auth-card-cta .connect-btn {{ width: 100%; justify-content: center; height: 3.5rem; font-size: 1.125rem; font-weight: 700; }}
+  .auth-card-divider {{ display: flex; align-items: center; gap: 1rem; color: rgb(161, 161, 170); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; margin: 0.5rem 0; }}
+  .auth-card-divider::before, .auth-card-divider::after {{ content: ""; flex: 1; height: 1px; background: rgba(0, 0, 0, 0.08); }}
+  .auth-card-divider-thin {{ margin: 0; }}
+  .auth-card-email-form {{ display: flex; flex-direction: column; gap: 0.5rem; }}
+  .auth-card-email-input {{ width: 100%; }}
+  .auth-card-google-btn {{ gap: 0.5rem; }}
+  .auth-card-google-glyph {{
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.25rem; height: 1.25rem; border-radius: 0.25rem; font-weight: 900; color: #4285F4;
+  }}
+  .auth-card-foot {{ font-size: 0.75rem; color: rgb(113, 113, 122); text-align: center; margin: 0; line-height: 1.6; }}
+  .auth-card-foot a {{ color: rgb(82, 82, 91); text-decoration: underline; text-underline-offset: 2px; }}
+  .auth-card-error {{
+    display: flex; gap: 0.75rem; padding: 0.75rem 1rem; border-radius: 0.5rem;
+    background: rgba(239, 68, 68, 0.10); border: 1px solid rgba(239, 68, 68, 0.30); color: rgb(153, 27, 27);
+  }}
+  .auth-card-error-icon {{ flex-shrink: 0; padding-top: 0.125rem; }}
+  .auth-card-error-body {{ flex: 1; min-width: 0; }}
+  .auth-card-error-title {{ font-size: 0.875rem; font-weight: 700; margin-bottom: 0.125rem; }}
+  .auth-card-error-msg {{ font-size: 0.8125rem; line-height: 1.5; }}
+  .auth-card-status {{ display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; border-radius: 0.5rem; background: rgba(59, 130, 246, 0.10); color: rgb(30, 64, 175); font-size: 0.875rem; font-weight: 500; }}
+  .auth-page-status-indicator {{
+    display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+    font-size: 0.625rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.2em; color: rgb(113, 113, 122);
+  }}
+  .auth-page-status-dot {{ width: 0.25rem; height: 0.25rem; border-radius: 9999px; background: rgb(16, 185, 129); animation: pulse 2s ease-in-out infinite; }}
+  .auth-page-fallback {{ text-align: center; font-size: 0.75rem; }}
+  .auth-page-fallback a {{ color: rgb(113, 113, 122); text-decoration: underline; text-underline-offset: 2px; }}
+
+  /* === About page sections === */
+  .about-hero-section {{ padding: 6rem 0 3rem; text-align: center; }}
+  .about-hero-content {{ max-width: 48rem; margin: 0 auto; }}
+  .about-hero-title {{
+    font-size: 3.5rem; line-height: 1.1; font-weight: 800; margin: 0 0 1.5rem;
+    background: linear-gradient(to right, rgb(249, 115, 22), rgb(234, 179, 8), rgb(234, 88, 12));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }}
+  @media (min-width: 640px) {{ .about-hero-title {{ font-size: 4rem; }} }}
+  .about-hero-sub {{ font-size: 1.125rem; line-height: 1.7; color: rgb(82, 82, 91); margin: 0 auto 2rem; max-width: 48rem; }}
+  .about-hero-underline {{ width: 10rem; height: 0.25rem; margin: 0 auto; border-radius: 9999px; background: linear-gradient(to right, rgb(249, 115, 22), rgb(234, 179, 8), rgb(234, 88, 12)); }}
+
+  .mission-section {{ padding: 5rem 0; }}
+  .mission-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; }}
+  .mission-card {{ padding: 2.5rem 2rem; }}
+  .mission-card-icon {{ display: inline-flex; padding: 0.75rem; border-radius: 0.75rem; background: rgba(251, 146, 60, 0.10); margin-bottom: 1.5rem; }}
+  .mission-card-title {{
+    font-size: 1.75rem; font-weight: 800; margin: 0 0 1rem;
+    background: linear-gradient(to right, rgb(59, 130, 246), rgb(6, 182, 212));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }}
+  .mission-card-vision .mission-card-title {{ background: linear-gradient(to right, rgb(168, 85, 247), rgb(236, 72, 153)); -webkit-background-clip: text; background-clip: text; color: transparent; }}
+  .mission-card-values .mission-card-title {{ background: linear-gradient(to right, rgb(16, 185, 129), rgb(5, 150, 105)); -webkit-background-clip: text; background-clip: text; color: transparent; }}
+  .mission-card-body {{ font-size: 1rem; line-height: 1.7; color: rgb(63, 63, 70); margin: 0; }}
+  .mission-card-values-list {{ list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }}
+  .mission-card-values-list li {{ display: flex; align-items: center; gap: 0.5rem; font-size: 0.9375rem; color: rgb(63, 63, 70); }}
+  .mission-value-dot {{ color: rgb(16, 185, 129); font-weight: 700; }}
+
+  .about-stats-section {{ padding: 5rem 0; }}
+  .about-stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-top: 2.5rem; }}
+  .about-stat-card {{ padding: 2rem 1.5rem; text-align: center; }}
+  .about-stat-icon {{ display: inline-flex; padding: 0.5rem; border-radius: 0.5rem; background: rgba(251, 146, 60, 0.10); margin-bottom: 1rem; }}
+  .about-stat-value {{
+    font-size: 2.5rem; font-weight: 800; line-height: 1; margin-bottom: 0.5rem;
+    background: linear-gradient(to right, rgb(249, 115, 22), rgb(234, 179, 8));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }}
+  .about-stat-label {{ font-size: 0.875rem; color: rgb(113, 113, 122); font-weight: 500; }}
+
+  .team-section {{ padding: 5rem 0; }}
+  .about-team-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; margin-top: 2.5rem; }}
+  .about-team-card {{ padding: 2rem 1.5rem; text-align: center; }}
+  .about-team-avatar {{
+    width: 5rem; height: 5rem; border-radius: 9999px; margin: 0 auto 1rem;
+    background: linear-gradient(135deg, #f97316, #f59e0b);
+  }}
+  .about-team-avatar-1 {{ background: linear-gradient(135deg, #f97316, #f59e0b); }}
+  .about-team-avatar-2 {{ background: linear-gradient(135deg, #3b82f6, #06b6d4); }}
+  .about-team-avatar-3 {{ background: linear-gradient(135deg, #a855f7, #ec4899); }}
+  .about-team-avatar-4 {{ background: linear-gradient(135deg, #10b981, #06b6d4); }}
+  .about-team-avatar-5 {{ background: linear-gradient(135deg, #f59e0b, #ef4444); }}
+  .about-team-avatar-6 {{ background: linear-gradient(135deg, #6366f1, #a855f7); }}
+  .about-team-name {{ font-size: 1.125rem; font-weight: 700; color: rgb(24, 24, 27); margin-bottom: 0.25rem; }}
+  .about-team-role {{ font-size: 0.875rem; color: rgb(249, 115, 22); font-weight: 600; margin-bottom: 0.75rem; }}
+  .about-team-bio {{ font-size: 0.875rem; line-height: 1.6; margin: 0; }}
+
+  .timeline-section {{ padding: 5rem 0; }}
+  .about-timeline {{ max-width: 48rem; margin: 2.5rem auto 0; position: relative; padding-left: 2rem; }}
+  .about-timeline::before {{
+    content: ""; position: absolute; left: 0.5rem; top: 0.5rem; bottom: 0.5rem;
+    width: 2px; background: linear-gradient(to bottom, rgba(251, 146, 60, 0.40), rgba(168, 85, 247, 0.20));
+  }}
+  .about-timeline-item {{ position: relative; padding-bottom: 2.5rem; }}
+  .about-timeline-item:last-child {{ padding-bottom: 0; }}
+  .about-timeline-dot {{
+    position: absolute; left: -2rem; top: 0.25rem; width: 1.25rem; height: 1.25rem;
+    border-radius: 9999px; background: white; border: 3px solid rgb(249, 115, 22);
+    box-shadow: 0 0 0 4px rgba(251, 146, 60, 0.10);
+  }}
+  .about-timeline-dot-current {{ background: rgb(249, 115, 22); animation: pulse 2s ease-in-out infinite; }}
+  .about-timeline-year {{
+    display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px;
+    background: rgba(251, 146, 60, 0.10); color: rgb(194, 65, 12);
+    font-size: 0.75rem; font-weight: 700; margin-bottom: 0.5rem;
+  }}
+  .about-timeline-title {{ font-size: 1.25rem; font-weight: 700; color: rgb(24, 24, 27); margin: 0 0 0.5rem; }}
+  .about-timeline-body {{ font-size: 0.9375rem; line-height: 1.7; color: rgb(63, 63, 70); margin: 0; }}
+
+  .datatech-section {{ padding: 5rem 0; }}
+  .datatech-overview-grid {{ display: grid; grid-template-columns: 1fr; gap: 1.5rem; margin-top: 2.5rem; }}
+  @media (min-width: 1024px) {{ .datatech-overview-grid {{ grid-template-columns: 2fr 1fr; }} }}
+  .datatech-card {{ padding: 2.5rem 2rem; position: relative; overflow: hidden; }}
+  .datatech-card-title {{
+    font-size: 1.5rem; font-weight: 800; margin: 0 0 1rem;
+    background: linear-gradient(to right, rgb(249, 115, 22), rgb(234, 179, 8));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }}
+  .datatech-card-body {{ font-size: 1rem; line-height: 1.7; color: rgb(63, 63, 70); margin: 0 0 1rem; }}
+  .datatech-card-body:last-child {{ margin-bottom: 0; }}
+  .datatech-highlight {{ background: linear-gradient(to right, rgb(249, 115, 22), rgb(234, 179, 8)); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 700; }}
+  .datatech-text-orange {{ color: rgb(194, 65, 12); font-weight: 600; }}
+  .datatech-text-blue {{ color: rgb(29, 78, 216); font-weight: 600; }}
+  .datatech-why-list {{ list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.75rem; }}
+  .datatech-why-list li {{ display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: rgb(63, 63, 70); }}
+  .datatech-why-check {{ color: rgb(16, 185, 129); font-weight: 700; }}
+  .datatech-card-why .datatech-card-title {{ background: linear-gradient(to right, rgb(59, 130, 246), rgb(6, 182, 212)); -webkit-background-clip: text; background-clip: text; color: transparent; }}
+
+  .datatech-features-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 1.5rem; }}
+  .datatech-feature {{ padding: 2rem 1.5rem; position: relative; overflow: hidden; }}
+  .datatech-feature-title {{
+    font-size: 1.25rem; font-weight: 800; margin: 0 0 0.75rem; background-clip: text; -webkit-background-clip: text; color: transparent;
+  }}
+  .datatech-feature-orange .datatech-feature-title {{ background-image: linear-gradient(to right, rgb(249, 115, 22), rgb(234, 179, 8)); }}
+  .datatech-feature-blue .datatech-feature-title   {{ background-image: linear-gradient(to right, rgb(59, 130, 246), rgb(6, 182, 212)); }}
+  .datatech-feature-purple .datatech-feature-title {{ background-image: linear-gradient(to right, rgb(168, 85, 247), rgb(236, 72, 153)); }}
+  .datatech-feature-green .datatech-feature-title  {{ background-image: linear-gradient(to right, rgb(16, 185, 129), rgb(5, 150, 105)); }}
+  .datatech-feature-red .datatech-feature-title    {{ background-image: linear-gradient(to right, rgb(239, 68, 68), rgb(249, 115, 22)); }}
+  .datatech-feature-indigo .datatech-feature-title {{ background-image: linear-gradient(to right, rgb(99, 102, 241), rgb(168, 85, 247)); }}
+  .datatech-feature-body {{ font-size: 0.9375rem; line-height: 1.6; color: rgb(63, 63, 70); margin: 0 0 0.75rem; }}
+  .datatech-feature-detail {{ font-size: 0.8125rem; line-height: 1.6; color: rgb(113, 113, 122); margin: 0; }}
+
+  .datatech-benefits {{ padding: 2.5rem 2rem; margin-top: 1.5rem; position: relative; overflow: hidden; }}
+  .datatech-benefits-title {{
+    font-size: 1.75rem; font-weight: 800; margin: 0 0 1.5rem;
+    background: linear-gradient(to right, rgb(16, 185, 129), rgb(5, 150, 105));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }}
+  .datatech-benefits-grid {{ display: grid; grid-template-columns: 1fr; gap: 1.5rem; }}
+  @media (min-width: 640px) {{ .datatech-benefits-grid {{ grid-template-columns: 1fr 1fr; }} }}
+  .datatech-benefits-col {{ display: flex; flex-direction: column; gap: 1rem; }}
+  .datatech-benefit-item {{ display: flex; align-items: center; gap: 0.75rem; font-size: 0.9375rem; color: rgb(63, 63, 70); font-weight: 500; }}
+  .datatech-benefit-emoji {{ font-size: 1.25rem; }}
+
+  .about-cta-section {{ padding: 5rem 0; }}
+  .about-cta-card {{ padding: 3rem 2rem; text-align: center; display: flex; flex-direction: column; gap: 1.5rem; align-items: center; }}
+  .about-cta-title {{ font-size: 2rem; font-weight: 800; margin: 0; color: white; }}
+  .about-cta-sub {{ font-size: 1.125rem; color: rgba(255, 255, 255, 0.85); margin: 0; max-width: 36rem; }}
+  .about-cta-actions {{ display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; }}
+
+  /* === Section header (shared) === */
+  .section-header {{ text-align: center; max-width: 48rem; margin: 0 auto 2.5rem; }}
+  .section-title {{ font-size: 2.5rem; font-weight: 800; line-height: 1.2; margin: 0 0 0.75rem; color: rgb(24, 24, 27); }}
+  .section-sub {{ font-size: 1.125rem; line-height: 1.6; color: rgb(113, 113, 122); margin: 0; }}
+
+  /* end wave5-page-depth-track-a */
 </style>"##
     )
 }
@@ -3521,6 +3988,27 @@ pub fn lucide_icon(name: &str) -> &'static str {
         "image" => r#"<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>"#,
         "bar-chart-3" => r#"<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>"#,
         "book-open" => r#"<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>"#,
+        // === wave5-page-depth-track-a === new icons required by the
+        // expanded home / auth / about hero pages. All paths mirror
+        // the official lucide.dev SVG body. No existing icons are
+        // restyled.
+        "share-2" => r#"<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/>"#,
+        "clock" => r#"<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>"#,
+        "star" => r#"<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>"#,
+        "circle-check" => r#"<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>"#,
+        "rocket" => r#"<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>"#,
+        "target" => r#"<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>"#,
+        "lightbulb" => r#"<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>"#,
+        "database" => r#"<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/>"#,
+        "message-square" => r#"<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>"#,
+        "sparkles" => r#"<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>"#,
+        "play" => r#"<polygon points="6 3 20 12 6 21 6 3"/>"#,
+        "arrow-up-right" => r#"<path d="M7 7h10v10"/><path d="M7 17 17 7"/>"#,
+        "circle-x" => r#"<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>"#,
+        "triangle-alert" => r#"<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>"#,
+        "wifi-off" => r#"<line x1="2" x2="22" y1="2" y2="22"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M2 8.82a15 15 0 0 1 4.17-2.65"/><path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/><path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"/><path d="M5 13a10 10 0 0 1 5.24-2.76"/><line x1="12" x2="12.01" y1="20" y2="20"/>"#,
+        "mail" => r#"<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>"#,
+        "tag" => r#"<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5"/>"#,
         _ => "",
     }
 }
