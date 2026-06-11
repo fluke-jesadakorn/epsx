@@ -1,5 +1,7 @@
 # Track C — auth cluster: TS parity (Wave 2)
 
+> Retry added: aria-live=polite on retry count (verifier check 8 fix).
+
 ## Summary
 
 Brought the six auth-cluster files in `shared/rust/dioxus_ui/src/auth/*` to
