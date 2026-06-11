@@ -143,7 +143,42 @@ test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 ## Commit + push
 
 - Branch: `wave2/track-b-frontend-nav`
-- Commit: `aec932b4` (feat(dioxus-ui): track B — frontend nav cluster port)
-- Push: `git push -u origin wave2/track-b-frontend-nav` succeeded
-  (`* [new branch]        wave2/track-b-frontend-nav -> wave2/track-b-frontend-nav`).
+- Commits on branch (from `origin/migration/dioxus-microservices`):
+  - `aec932b4` — `feat(dioxus-ui): track B — frontend nav cluster port` (the 8 code files, +1117/-45)
+  - `5bbfc221` — `docs(track-b-frontend-nav): deliverable.md — port summary, a11y checklist, verification log` (this file)
+- Push: `git push -u origin wave2/track-b-frontend-nav` then `git push origin wave2/track-b-frontend-nav` — both succeeded. Final remote HEAD: `5bbfc221`.
 - Worktree: `/private/tmp/epsx-track-b-frontend-nav`
+
+## CSS classes added in `/* === wave2-chrome-track-b === */` block
+
+All in `shared/rust/templates/src/lib.rs`, between lines 2433 and 2489 (inside the `<style>` block of `design_system_head()`):
+
+| Line | Class |
+| --- | --- |
+| 2433 | `/* === wave2-chrome-track-b === frontend nav cluster (NavigationClient, DesktopNav, MobileNav, NavActions, NavbarSkeleton, NavGroup data). */` (marker) |
+| 2436 | `.mobile-nav-group` |
+| 2437 | `.mobile-nav-group-trigger` |
+| 2453 | `.mobile-nav-group-trigger:hover` |
+| 2454 | `.mobile-nav-group-trigger.active` |
+| 2455 | `html.dark .mobile-nav-group-trigger` |
+| 2456 | `html.dark .mobile-nav-group-trigger:hover` |
+| 2457 | `.mobile-nav-group-trigger .chev` |
+| 2460 | `.mobile-nav-group-trigger .chev.rotate-90` |
+| 2463 | `.signin-banner` |
+| 2474 | `html.dark .signin-banner` |
+| 2477 | `.signin-banner-cta` |
+| 2487 | `.signin-banner-cta:hover` |
+
+13 new selectors, all inside the wave2-chrome-track-b marker block — satisfies the verifier's "classes either existing or inside the wave2-chrome-track-b marker" rule.
+
+## Last 5 lines of `cargo check --workspace`
+
+```
+warning: `epsx-notification` (bin "notification") generated 4 warnings (run `cargo fix --bin "notification"` to apply 1 suggestion)
+warning: `epsx-identity` (bin "identity") generated 2 warnings (run `cargo fix --bin "identity"` to apply 2 suggestions)
+warning: `epsx-admin` (bin "bff-admin") generated 7 warnings (run `cargo fix --bin "bff-admin"` to apply 3 suggestions)
+warning: `epsx-frontend` (bin "bff-frontend") generated 15 warnings (run `cargo fix --bin "bff-frontend"` to apply 9 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.30s
+```
+
+(0 errors; all warnings are pre-existing in the Wave 1 codebase, not introduced by this track.)
