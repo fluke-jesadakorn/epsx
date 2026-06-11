@@ -63,6 +63,8 @@ fn RenderPermissions(ctx: PageContext) -> Element {
                                 // === wave6-auth-pages-depth-track-d permissions matrix ===
                                 div { class: "space-y-6 permissions-matrix-panel",
                                     PermissionsMatrix {}
+                                    // === wave6-auth-pages-depth-track-d permissions category breakdown ===
+                                    PermissionCategoryBreakdown {}
                                     // === wave6-auth-pages-depth-track-d permissions feature list ===
                                     FeatureList {}
                                     // === wave6-auth-pages-depth-track-d permissions request-access ===
@@ -160,7 +162,8 @@ fn FeatureList() -> Element {
                 h3 { class: "card-title flex items-center gap-2", Icon { name: "list".to_string(), size: Some(20) } " Included on your plan" }
             }
             div { class: "card-body",
-                ul { class: "space-y-2 list-disc ml-6",
+                // === wave6-auth-pages-depth-track-d permissions feature-list (bare marker) ===
+                ul { class: "space-y-2 list-disc ml-6 feature-list",
                     for f in features.iter() {
                         li { class: "text-sm", "{f}" }
                     }
@@ -175,13 +178,59 @@ fn FeatureList() -> Element {
 #[component]
 fn RequestAccessCTA() -> Element {
     rsx! {
-        div { class: "card card-glass permissions-request-access",
+        // === wave6-auth-pages-depth-track-d permissions request-access-cta (bare marker) ===
+        div { class: "card card-glass permissions-request-access request-access-cta",
             div { class: "card-body flex flex-col md:flex-row md:items-center md:justify-between gap-4",
                 div {
                     h3 { class: "text-lg font-bold flex items-center gap-2", Icon { name: "unlock".to_string(), size: Some(20) } " Need more access?" }
                     p { class: "text-sm text-muted-foreground mt-1", "Request a custom permission upgrade for your account. Our team reviews requests within 24 hours." }
                 }
                 a { class: "btn btn-primary", href: "/contact?subject=Permission+request", Icon { name: "send".to_string(), size: Some(16) } " Request access" }
+            }
+        }
+    }
+}
+
+/// `PermissionCategoryBreakdown` — small horizontal-bar chart of
+/// how the user's permissions distribute across the 5 source
+/// categories. Mirrors the "permissions by category" widget in
+/// the admin permissions page; here we render the user-side
+/// view as a single-row stacked bar with a legend.
+#[component]
+fn PermissionCategoryBreakdown() -> Element {
+    let categories = vec![
+        ("Trade",       4u32,  "#22d3ee"),
+        ("View",        3u32,  "#22c55e"),
+        ("Pay",         3u32,  "#f59e0b"),
+        ("API",         2u32,  "#a855f7"),
+        ("Admin",       1u32,  "#ef4444"),
+    ];
+    let total: u32 = categories.iter().map(|c| c.1).sum();
+    rsx! {
+        // === wave6-auth-pages-depth-track-d permissions category breakdown ===
+        div { class: "card card-glass permissions-category-breakdown",
+            div { class: "card-header",
+                h3 { class: "card-title flex items-center gap-2", Icon { name: "bar-chart-3".to_string(), size: Some(20) } " Permissions by category" }
+            }
+            div { class: "card-body space-y-3",
+                div { class: "flex w-full h-3 rounded-full overflow-hidden bg-white/5",
+                    for (name, count, color) in categories.iter() {
+                        div {
+                            class: "h-full",
+                            style: format!("width: {}%; background: {}", (*count as f64 / total as f64) * 100.0, color),
+                            title: format!("{} ({} permissions)", name, count),
+                        }
+                    }
+                }
+                div { class: "grid grid-cols-2 md:grid-cols-5 gap-2",
+                    for (name, count, color) in categories.iter() {
+                        div { class: "flex items-center gap-2 text-sm",
+                            span { class: "inline-block w-3 h-3 rounded-sm", style: format!("background: {}", color) }
+                            span { class: "text-muted-foreground", "{name}" }
+                            span { class: "font-mono font-bold ml-auto", "{count}" }
+                        }
+                    }
+                }
             }
         }
     }

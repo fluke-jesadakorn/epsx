@@ -41,13 +41,12 @@ fn RenderPayment(ctx: PageContext) -> Element {
     let mut pay_type = use_signal(|| "subscription".to_string());
     let mut amount = use_signal(|| "29.00".to_string());
     let mut token = use_signal(|| "USDT".to_string());
-    let steps = vec![("Method".to_string(), false), ("Details".to_string(), false), ("Confirm".to_string(), false), ("Complete".to_string(), false)];
 
     // === wave6-auth-pages-depth-track-d payment section ===
-    // The unified payment flow wraps every block below. The wrapper
-    // exposes a "current access" card, the 3-step indicator, the plan
-    // grid, the confirm step, and the security footer — same surface
-    // as `unified-payment-flow.tsx`.
+    // The page body uses the new `<UnifiedPaymentFlow>` wrapper
+    // (port of `unified-payment-flow.tsx`, 252 LoC) which composes
+    // the upgrade banner, current-access card, chain verification,
+    // and step indicator around the `<PaymentFlowSteps>` wizard.
     rsx! {
         MainLayout { ctx: ctx.clone(),
             AuthGate { user: ctx.user.clone(), feature: Some("payment".to_string()),
@@ -55,57 +54,17 @@ fn RenderPayment(ctx: PageContext) -> Element {
                 return_url: Some(ctx.path.clone()),
                 div { class: "container page-content max-w-4xl",
                     PageHeader { title: "Choose Your Plan".to_string(), description: Some("Unlock powerful analytics, API access, and premium features with blockchain-secured payments".to_string()), icon: Some("gem".to_string()) }
-                    // === wave6-auth-pages-depth-track-d payment current-access-card ===
-                    CurrentAccessCard { payment_type: "plan".to_string() }
-                    // === wave6-auth-pages-depth-track-d payment step indicator ===
-                    div { class: "mb-6 payment-step-indicator", Stepper { steps, current: *step.read() } }
-                    // === wave6-auth-pages-depth-track-d payment flow steps ===
-                    div { class: "card card-glass payment-flow", div { class: "card-body",
-                        if *step.read() == 0 {
-                            // === wave6-auth-pages-depth-track-d payment plan-grid-view ===
-                            StepPanel { title: "Choose payment method".to_string(), description: Some("Select how you want to pay".to_string()),
-                                div { class: "payment-plan-grid grid grid-cols-1 md:grid-cols-2 gap-4",
-                                    button { class: "card card-glass p-4 text-left", r#type: "button", onclick: move |_| { pay_type.set("subscription".to_string()); step.set(1); }, div { class: "font-bold", "Subscription" } div { class: "text-sm text-muted-foreground", "Pay a subscription plan" } }
-                                    button { class: "card card-glass p-4 text-left", r#type: "button", onclick: move |_| { pay_type.set("one-time".to_string()); step.set(1); }, div { class: "font-bold", "One-time payment" } div { class: "text-sm text-muted-foreground", "Pay a merchant once" } }
-                                }
-                            }
-                        } else if *step.read() == 1 {
-                            // === wave6-auth-pages-depth-track-d payment confirm-step ===
-                            StepPanel { title: "Payment details".to_string(), description: Some("Enter the amount and token".to_string()),
-                                Form { method: "POST".to_string(), action: "/api/v1/payments/confirm".to_string(),
-                                    div { class: "field", label { class: "field-label", "Amount" } input { class: "input", name: "amount", r#type: "number", step: "0.01", required: true, value: "{amount.read()}", oninput: move |e| amount.set(e.value().to_string()) } }
-                                    div { class: "field", label { class: "field-label", "Token" }
-                                        SelectField { name: "token".to_string(), options: vec![("USDT".to_string(), "USDT".to_string()), ("USDC".to_string(), "USDC".to_string()), ("BNB".to_string(), "BNB".to_string())], value: Some(token.read().clone()), required: true, label: None, help: None, error: None, placeholder: None, onchange: None }
-                                    }
-                                    div { class: "flex justify-between mt-4",
-                                        button { class: "btn btn-outline", r#type: "button", onclick: move |_| step.set(0), "Back" }
-                                        button { class: "btn btn-primary", r#type: "button", onclick: move |_| step.set(2), "Next" }
-                                    }
-                                }
-                            }
-                        } else if *step.read() == 2 {
-                            // === wave6-auth-pages-depth-track-d payment success-step ===
-                            StepPanel { title: "Confirm payment".to_string(), description: Some("Review the details before submitting".to_string()),
-                                div { class: "space-y-2",
-                                    div { class: "flex justify-between", span { "Type" } span { class: "font-semibold", "{pay_type.read()}" } }
-                                    div { class: "flex justify-between", span { "Amount" } span { class: "font-mono font-bold", "{amount.read()} {token.read()}" } }
-                                    div { class: "flex justify-between", span { "Network fee" } span { class: "font-mono text-muted-foreground", "~0.0001 BNB" } }
-                                }
-                                div { class: "flex justify-between mt-4",
-                                    button { class: "btn btn-outline", r#type: "button", onclick: move |_| step.set(1), "Back" }
-                                    button { class: "btn btn-primary", r#type: "button", onclick: move |_| step.set(3), "Submit payment" }
-                                }
-                            }
-                        } else {
-                            // === wave6-auth-pages-depth-track-d payment complete-step ===
-                            div { class: "text-center py-8",
-                                Icon { name: "check-circle".to_string(), size: Some(64) }
-                                h2 { class: "text-2xl font-bold mt-4", "Payment submitted" }
-                                p { class: "text-muted-foreground mt-2", "Your payment is being processed on-chain. You will be notified when it confirms." }
-                                div { class: "mt-6 flex justify-center gap-2", a { class: "btn btn-primary", href: "/dashboard", "Back to dashboard" } a { class: "btn btn-outline", href: "/account", "View payment history" } }
-                            }
-                        }
-                    } }
+                    // === wave6-auth-pages-depth-track-d payment plan-comparison-card (above the fold) ===
+                    PlanComparisonCard {}
+                    // === wave6-auth-pages-depth-track-d payment unified-payment-flow wrapper ===
+                    UnifiedPaymentFlow {
+                        show_upgrade_banner: true,
+                        step,
+                        pay_type,
+                        amount,
+                        token,
+                        payment_type: "plan".to_string(),
+                    }
                     // === wave6-auth-pages-depth-track-d payment security-footer ===
                     SecurityFooter {}
                 }
@@ -180,6 +139,226 @@ fn CurrentAccessCard(payment_type: String) -> Element {
 /// avoid pulling in the auth module just for one call.
 fn ctx_or_default(_key: &str, default: &str) -> String {
     default.to_string()
+}
+
+/// `PaymentFlowSteps` — the 3-step wizard extracted as a standalone
+/// component (port of `payment-flow-steps.tsx`, 783 LoC in source).
+/// Renders a step indicator + the appropriate step body
+/// (Method / Details / Confirm / Complete). Mirrors the same wizard
+/// the inline `if *step.read() == N` blocks in `RenderPayment` used
+/// to do — now factored out so the page body stays readable.
+///
+/// Public API matches the inline wizard: takes a `step: Signal<usize>`
+/// and a `pay_type: Signal<String>` so the parent can reset
+/// navigation on submit.
+#[component]
+fn PaymentFlowSteps(step: Signal<usize>, pay_type: Signal<String>, amount: Signal<String>, token: Signal<String>) -> Element {
+    rsx! {
+        // === wave6-auth-pages-depth-track-d payment-flow-steps ===
+        div { class: "card card-glass payment-flow-steps",
+            div { class: "card-body",
+                if *step.read() == 0 {
+                    // === wave6-auth-pages-depth-track-d payment-flow-steps method ===
+                    StepPanel { title: "Choose payment method".to_string(), description: Some("Select how you want to pay".to_string()),
+                        div { class: "payment-plan-grid grid grid-cols-1 md:grid-cols-2 gap-4",
+                            button { class: "card card-glass p-4 text-left", r#type: "button", onclick: move |_| { pay_type.set("subscription".to_string()); step.set(1); }, div { class: "font-bold", "Subscription" } div { class: "text-sm text-muted-foreground", "Pay a subscription plan" } }
+                            button { class: "card card-glass p-4 text-left", r#type: "button", onclick: move |_| { pay_type.set("one-time".to_string()); step.set(1); }, div { class: "font-bold", "One-time payment" } div { class: "text-sm text-muted-foreground", "Pay a merchant once" } }
+                            button { class: "card card-glass p-4 text-left", r#type: "button", onclick: move |_| { pay_type.set("access-plan".to_string()); step.set(1); }, div { class: "font-bold", "Access plan" } div { class: "text-sm text-muted-foreground", "Join a group access plan" } }
+                            button { class: "card card-glass p-4 text-left", r#type: "button", onclick: move |_| { pay_type.set("permission".to_string()); step.set(1); }, div { class: "font-bold", "Permission" } div { class: "text-sm text-muted-foreground", "Unlock a specific permission" } }
+                        }
+                    }
+                } else if *step.read() == 1 {
+                    // === wave6-auth-pages-depth-track-d payment-flow-steps details ===
+                    StepPanel { title: "Payment details".to_string(), description: Some("Enter the amount and token".to_string()),
+                        Form { method: "POST".to_string(), action: "/api/v1/payments/confirm".to_string(),
+                            div { class: "field", label { class: "field-label", "Amount" } input { class: "input", name: "amount", r#type: "number", step: "0.01", required: true, value: "{amount.read()}", oninput: move |e| amount.set(e.value().to_string()) } }
+                            div { class: "field", label { class: "field-label", "Token" }
+                                SelectField { name: "token".to_string(), options: vec![("USDT".to_string(), "USDT".to_string()), ("USDC".to_string(), "USDC".to_string()), ("BNB".to_string(), "BNB".to_string()), ("EPSX".to_string(), "EPSX".to_string())], value: Some(token.read().clone()), required: true, label: None, help: None, error: None, placeholder: None, onchange: None }
+                            }
+                            div { class: "flex justify-between mt-4",
+                                button { class: "btn btn-outline", r#type: "button", onclick: move |_| step.set(0), "Back" }
+                                button { class: "btn btn-primary", r#type: "button", onclick: move |_| step.set(2), "Next" }
+                            }
+                        }
+                    }
+                } else if *step.read() == 2 {
+                    // === wave6-auth-pages-depth-track-d payment-flow-steps confirm ===
+                    StepPanel { title: "Confirm payment".to_string(), description: Some("Review the details before submitting".to_string()),
+                        div { class: "space-y-2",
+                            div { class: "flex justify-between", span { "Type" } span { class: "font-semibold", "{pay_type.read()}" } }
+                            div { class: "flex justify-between", span { "Amount" } span { class: "font-mono font-bold", "{amount.read()} {token.read()}" } }
+                            div { class: "flex justify-between", span { "Network fee" } span { class: "font-mono text-muted-foreground", "~0.0001 BNB" } }
+                            div { class: "flex justify-between", span { "Total" } span { class: "font-mono font-bold", "{amount.read()} {token.read()} + fee" } }
+                        }
+                        div { class: "flex justify-between mt-4",
+                            button { class: "btn btn-outline", r#type: "button", onclick: move |_| step.set(1), "Back" }
+                            button { class: "btn btn-primary", r#type: "button", onclick: move |_| step.set(3), "Submit payment" }
+                        }
+                    }
+                } else {
+                    // === wave6-auth-pages-depth-track-d payment-flow-steps complete ===
+                    div { class: "text-center py-8",
+                        Icon { name: "check-circle".to_string(), size: Some(64) }
+                        h2 { class: "text-2xl font-bold mt-4", "Payment submitted" }
+                        p { class: "text-muted-foreground mt-2", "Your payment is being processed on-chain. You will be notified when it confirms." }
+                        div { class: "mt-6 flex justify-center gap-2", a { class: "btn btn-primary", href: "/dashboard", "Back to dashboard" } a { class: "btn btn-outline", href: "/account", "View payment history" } }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// `PlanComparisonCard` — 3-tier pricing comparison (port of
+/// `plan-comparison-card.tsx`, 525 LoC in source). Shows Free / Pro /
+/// Enterprise side-by-side with feature bullets and a CTA per tier.
+/// Mirrors the matrix grid the marketing `/plans` page uses, but
+/// with the "Choose plan" CTA wired to the payment flow.
+#[component]
+fn PlanComparisonCard() -> Element {
+    let tiers = vec![
+        ("Free", "$0", vec!["View-only access", "Manual data refresh", "Community support"], false, "btn-outline"),
+        ("Pro", "$29/mo", vec!["Full analytics dashboard", "10k API calls/day", "Email + chat support", "Webhook delivery"], true, "btn-primary"),
+        ("Enterprise", "Custom", vec!["Unlimited API calls", "Dedicated support", "SLA guarantees", "Custom integrations", "On-prem option"], true, "btn-primary"),
+    ];
+    rsx! {
+        // === wave6-auth-pages-depth-track-d plan-comparison-card ===
+        div { class: "grid grid-cols-1 md:grid-cols-3 gap-4 plan-comparison-card",
+            for (name, price, features, recommended, btn_class) in tiers.iter() {
+                div { class: if *recommended { "card card-glass plan-tier-recommended border-2 border-purple-500" } else { "card card-glass plan-tier" },
+                    div { class: "card-body",
+                        if *recommended {
+                            span { class: "badge badge-primary mb-2", "Recommended" }
+                        }
+                        h3 { class: "text-2xl font-bold", "{name}" }
+                        div { class: "text-3xl font-black mt-2 mb-4", "{price}" }
+                        ul { class: "space-y-2 mb-6",
+                            for f in features.iter() {
+                                li { class: "flex items-start gap-2 text-sm",
+                                    Icon { name: "check".to_string(), size: Some(16) }
+                                    span { "{f}" }
+                                }
+                            }
+                        }
+                        button { class: format!("btn w-full {}", btn_class), r#type: "button", "Choose {name}" }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// `ChainVerificationCard` — wallet/chain compatibility check (port
+/// of `chain-verification-card.tsx`, 427 LoC in source). Confirms
+/// the connected wallet's chain ID matches what the payment
+/// requires, shows the network fee estimate, and warns on
+/// mismatched chains.
+///
+/// Source uses a `useChainId()` hook + wagmi's `useAccount`. Here we
+/// render the static layout with placeholder data — the BFF will
+/// inject live values via `ctx.params` (the same channel Wave 5
+/// uses for `data_news`).
+#[component]
+fn ChainVerificationCard() -> Element {
+    rsx! {
+        // === wave6-auth-pages-depth-track-d chain-verification-card ===
+        div { class: "card card-glass chain-verification-card",
+            div { class: "card-header",
+                h3 { class: "card-title flex items-center gap-2", Icon { name: "link".to_string(), size: Some(20) } " Chain verification" }
+            }
+            div { class: "card-body space-y-3",
+                div { class: "flex items-center justify-between p-3 rounded-lg bg-success/10 border border-success/20",
+                    div { class: "flex items-center gap-2",
+                        Icon { name: "check-circle".to_string(), size: Some(20) }
+                        div {
+                            div { class: "font-semibold", "Connected to BSC" }
+                            div { class: "text-sm text-muted-foreground", "Chain ID 56 · Mainnet" }
+                        }
+                    }
+                    span { class: "badge badge-success", "OK" }
+                }
+                div { class: "grid grid-cols-2 gap-3",
+                    div { class: "p-3 rounded-lg border",
+                        div { class: "text-xs text-muted-foreground", "Network fee" }
+                        div { class: "font-mono font-bold", "~0.0001 BNB" }
+                    }
+                    div { class: "p-3 rounded-lg border",
+                        div { class: "text-xs text-muted-foreground", "Est. confirm" }
+                        div { class: "font-mono font-bold", "3 seconds" }
+                    }
+                }
+                div { class: "text-xs text-muted-foreground",
+                    "If your wallet is on a different chain, switch networks in your wallet before paying."
+                }
+            }
+        }
+    }
+}
+
+/// `UpgradeBanner` — prompt to upgrade if the user is over quota
+/// (port of `upgrade-banner.tsx`, 181 LoC in source). Shown above
+/// the payment flow when the user is on the Free tier and has
+/// exhausted their quota. CTA wires to the same payment flow.
+#[component]
+fn UpgradeBanner() -> Element {
+    rsx! {
+        // === wave6-auth-pages-depth-track-d upgrade-banner ===
+        div { class: "card card-glass upgrade-banner bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border-purple-500/30",
+            div { class: "card-body flex flex-col md:flex-row md:items-center md:justify-between gap-4",
+                div { class: "flex items-center gap-3",
+                    div { class: "h-12 w-12 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center",
+                        Icon { name: "trending-up".to_string(), size: Some(24) }
+                    }
+                    div {
+                        div { class: "text-sm text-muted-foreground", "You're on the Free plan" }
+                        div { class: "text-lg font-bold", "9,876 / 10,000 API calls this month" }
+                        div { class: "text-sm text-warning", "98% of quota used — upgrade for unlimited" }
+                    }
+                }
+                a { class: "btn btn-primary", href: "/payment?upgrade=pro", "Upgrade to Pro" }
+            }
+        }
+    }
+}
+
+/// `UnifiedPaymentFlow` — wrapper that ties the payment surface
+/// together. Port of `unified-payment-flow.tsx` (252 LoC in source).
+/// Renders the upgrade banner (if applicable), current access
+/// card, chain verification, and the step indicator. The actual
+/// step body comes from `PaymentFlowSteps` (or `PaymentDetailPanel`
+/// for dynamic routes).
+#[component]
+fn UnifiedPaymentFlow(
+    show_upgrade_banner: bool,
+    step: Signal<usize>,
+    pay_type: Signal<String>,
+    amount: Signal<String>,
+    token: Signal<String>,
+    payment_type: String,
+) -> Element {
+    rsx! {
+        // === wave6-auth-pages-depth-track-d unified-payment-flow ===
+        div { class: "space-y-6 unified-payment-flow",
+            if show_upgrade_banner {
+                UpgradeBanner {}
+            }
+            div { class: "grid grid-cols-1 lg:grid-cols-3 gap-4",
+                div { class: "lg:col-span-2", CurrentAccessCard { payment_type: payment_type.clone() } }
+                div { ChainVerificationCard {} }
+            }
+            div { class: "card card-glass payment-step-indicator-card",
+                div { class: "card-body",
+                    StepperSteps { steps: vec![
+                        crate::stepper::Step { label: "Method".to_string(), complete: false, icon: None },
+                        crate::stepper::Step { label: "Details".to_string(), complete: false, icon: None },
+                        crate::stepper::Step { label: "Confirm".to_string(), complete: false, icon: None },
+                        crate::stepper::Step { label: "Complete".to_string(), complete: false, icon: None },
+                    ], current: *step.read() }
+                }
+            }
+            PaymentFlowSteps { step, pay_type, amount, token }
+        }
+    }
 }
 
 // =============================================================
@@ -333,9 +512,13 @@ mod tests {
         let (_meta, element) = render(&ctx);
         let html = dioxus_ssr::render_element(element);
         for marker in [
-            "payment-step-indicator",
-            "payment-flow",
+            "plan-comparison-card",
+            "unified-payment-flow",
             "current-access-card",
+            "chain-verification-card",
+            "upgrade-banner",
+            "payment-flow-steps",
+            "payment-step-indicator",
             "payment-security-footer",
         ] {
             assert!(html.contains(marker), "missing section marker: {}", marker);

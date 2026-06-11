@@ -72,6 +72,8 @@ fn RenderPortfolio(ctx: PageContext) -> Element {
                         button { class: if *tab.read() == "watchlist" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("watchlist".to_string()), "Watchlist" }
                         button { class: if *tab.read() == "transactions" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("transactions".to_string()), "Transactions" }
                     }
+                    // === wave6-auth-pages-depth-track-d portfolio top-movers (always shown) ===
+                    TopMoversCard {}
                     // === wave6-auth-pages-depth-track-d portfolio tab panels ===
                     if *tab.read() == "holdings" { HoldingsTable {} }
                     else if *tab.read() == "watchlist" {
@@ -106,9 +108,12 @@ fn PerformanceChart() -> Element {
         };
     }
     rsx! {
-        ChartLine {
-            series: vec![Series { name: "Portfolio".to_string(), color: "#22d3ee".to_string(), points: (0..30).map(|i| DataPoint { x: i as f64, y: 10000.0 + (i as f64 * 80.0) + (i as f64 * 0.3).sin() * 200.0, label: None }).collect() }],
-            width: 640, height: 220,
+        // === wave6-auth-pages-depth-track-d portfolio performance-chart (bare marker) ===
+        div { class: "performance-chart",
+            ChartLine {
+                series: vec![Series { name: "Portfolio".to_string(), color: "#22d3ee".to_string(), points: (0..30).map(|i| DataPoint { x: i as f64, y: 10000.0 + (i as f64 * 80.0) + (i as f64 * 0.3).sin() * 200.0, label: None }).collect() }],
+                width: 640, height: 220,
+            }
         }
     }
 }
@@ -154,7 +159,8 @@ fn WatchlistTable() -> Element {
         ("MATIC".to_string(), "$0.45".to_string(), "+0.1%".to_string()),
     ]);
     rsx! {
-        div { class: "card card-glass portfolio-watchlist-table",
+        // === wave6-auth-pages-depth-track-d portfolio watchlist-table (bare marker) ===
+        div { class: "card card-glass portfolio-watchlist-table watchlist-table",
             div { class: "card-body p-0",
                 div { class: "table-wrap",
                     table { class: "table",
@@ -190,7 +196,8 @@ fn WatchlistTable() -> Element {
 fn AddToWatchlistForm() -> Element {
     let mut symbol = use_signal(|| String::new());
     rsx! {
-        div { class: "card card-glass portfolio-add-to-watchlist",
+        // === wave6-auth-pages-depth-track-d portfolio add-to-watchlist-form (bare marker) ===
+        div { class: "card card-glass portfolio-add-to-watchlist add-to-watchlist-form",
             div { class: "card-body",
                 h3 { class: "text-sm font-bold mb-2", "Add to watchlist" }
                 Form { method: "POST".to_string(), action: "/api/v1/portfolio/watchlist".to_string(),
@@ -229,6 +236,68 @@ fn TransactionsTable() -> Element {
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// `TopMoversCard` — list of the top 3 gainers and top 3 losers
+/// in the user's portfolio over the last 24h. Mirrors the
+/// "Top Movers" widget on the home page but scoped to holdings.
+/// Each row shows asset symbol, % change, and dollar change.
+#[component]
+fn TopMoversCard() -> Element {
+    let gainers = vec![
+        ("EPSX", "+5.4%", "+$43.20"),
+        ("BNB",  "+1.2%", "+$34.40"),
+        ("ETH",  "+0.8%", "+$28.10"),
+    ];
+    let losers = vec![
+        ("SOL",  "-0.5%", "-$0.73"),
+        ("ADA",  "-0.3%", "-$0.12"),
+        ("DOT",  "-0.1%", "-$0.05"),
+    ];
+    rsx! {
+        // === wave6-auth-pages-depth-track-d portfolio top-movers ===
+        div { class: "card card-glass portfolio-top-movers",
+            div { class: "card-header",
+                h3 { class: "card-title flex items-center gap-2", Icon { name: "activity".to_string(), size: Some(20) } " Top movers (24h)" }
+            }
+            div { class: "card-body grid grid-cols-1 md:grid-cols-2 gap-4",
+                div {
+                    h4 { class: "text-sm font-bold text-success mb-2", "Gainers" }
+                    ul { class: "space-y-2",
+                        for (a, ch, dv) in gainers.iter() {
+                            li { class: "flex items-center justify-between text-sm",
+                                span { class: "font-semibold", "{a}" }
+                                span { class: "font-mono text-success", "{ch}" }
+                                span { class: "font-mono text-muted-foreground", "{dv}" }
+                            }
+                        }
+                    }
+                }
+                div {
+                    h4 { class: "text-sm font-bold text-danger mb-2", "Losers" }
+                    ul { class: "space-y-2",
+                        for (a, ch, dv) in losers.iter() {
+                            li { class: "flex items-center justify-between text-sm",
+                                span { class: "font-semibold", "{a}" }
+                                span { class: "font-mono text-danger", "{ch}" }
+                                span { class: "font-mono text-muted-foreground", "{dv}" }
+                            }
+                        }
+                    }
+                }
+            }
+            // === wave6-auth-pages-depth-track-d portfolio top-movers footer (since-joined summary) ===
+            div { class: "card-body border-t pt-3 mt-2",
+                div { class: "flex items-center justify-between text-sm",
+                    span { class: "text-muted-foreground", "Since you joined (Aug 2024)" }
+                    div { class: "flex items-center gap-2",
+                        span { class: "font-mono font-bold text-success", "+$1,234.56" }
+                        span { class: "text-success", "(+11.1%)" }
                     }
                 }
             }
