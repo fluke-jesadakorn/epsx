@@ -1,226 +1,149 @@
-# Wave 2 — Integration Gate — Deliverable
+# Wave 3a Integration Gate — Deliverable
 
-> **Status:** All 3 tracks merged into `wave2/integration`, cargo gate
-> green, all 4 BFFs smoke-tested, branch fast-forwarded to
-> `migration/dioxus-microservices` and pushed to `origin`.
+**Branch:** `migration/dioxus-microservices`
+**Integration branch:** `wave3a/integration` (fast-forwarded into migration)
+**Pre-Wave-3a base:** `9f32a379` (the Wave 2 final HEAD)
+**Final HEAD on `migration/dioxus-microservices`:** _set by integration commit — see merge log below_
 
-## Merge log
+## 1. Merge log (A → B → C, then fast-forward)
 
-Three `--no-ff` merges into `wave2/integration` (base
-`06a0195c` — the Wave 1 integration HEAD), in order A → B → C:
+All merges were `git merge --no-ff`. The integration commit was created via `git merge --ff-only wave3a/integration` into `migration/dioxus-microservices`.
 
-| # | Commit  | Track | Description |
-| - | ------- | ----- | ----------- |
-| 1 | `45d77f10` | A | `merge(wave2): track A — admin shell port (sidebar/header/breadcrumbs/layout/admin footer)` — clean merge, no conflicts (Track A only touched files it owned + CSS marker). |
-| 2 | `e5e669dc` | B | `merge(wave2): track B — frontend nav port (navbar/desktop/mobile/skeleton/config)` — 3 conflicts in `layout.rs`, `layout/footer.rs`, `templates/src/lib.rs`; resolved by concatenation. |
-| 3 | `3d053979` | C | `merge(wave2): track C — auth port (auth modal, gates, banners, user, wallet button)` — 2 conflicts in `deliverable.md` (top-level, replaced) and `templates/src/lib.rs` (Track C's CSS block appended). |
+| # | Commit  | Merge command |
+|---|---------|---------------|
+| 1 | `113dd572` | `git merge --no-ff wave3a/track-a-main-layout` |
+| 2 | `df333d43` | `git merge --no-ff wave3a/track-b-bff-state`     |
+| 3 | `6a7dd462` | `git merge --no-ff wave3a/track-c-admin-shell`   |
+| 4 | _see below_ | `git merge --ff-only wave3a/integration` (into `migration/dioxus-microservices`) |
 
-Then a final `docs(wave2): integration gate report — final unified
-deliverable` commit (this file).
+Conflict encountered and resolved:
 
-Final fast-forward:
+- **`shared/rust/templates/src/lib.rs`** — both Track A and Track C appended
+  a non-functional CSS region marker inside `design_system_head`. Resolved by
+  concatenating both blocks in track order (A then C). Track B's block (3 lines)
+  was already merged without conflict during step 2 (auto-merge).
 
-```text
-$ git checkout migration/dioxus-microservices
-$ git merge --ff-only wave2/integration
-$ git push origin migration/dioxus-microservices
+  No other conflicts appeared. `shared/rust/dioxus_ui/src/layout.rs`,
+  `pages.rs`, `lib.rs`, and `apps/admin/src/ssr.rs` all auto-merged cleanly
+  because the three tracks added to disjoint regions of those files.
+
+## 2. Cargo gate (all green)
+
+### `cargo check --workspace` (last 5 lines)
+```
+warning: `epsx-content` (bin "content") generated 2 warnings (run `cargo fix --bin "content"` to apply 2 suggestions)
+warning: `epsx-frontend` (bin "bff-frontend") generated 15 warnings (run `cargo fix --bin "bff-frontend"` to apply 9 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.35s
 ```
 
-## Conflict resolution — by-file
-
-| File | Conflict | Resolution |
-| ---- | -------- | ---------- |
-| `shared/rust/dioxus_ui/src/layout.rs` | Track A added `pub mod header;` / `pub use header::*;`; Track B added 4 new nav modules. | Concatenated — A's `header` module + B's `nav_config` / `navbar_skeleton` / `nav_actions` / `mobile_nav` modules all exported, each with `wave2-chrome-track-{a,b}` comment markers. |
-| `shared/rust/dioxus_ui/src/layout/footer.rs` | Track A added `pub fn SiteFooter()` component + `AdminFooter`; Track B added `pub use Footer as SiteFooter;` alias. | Kept A's `pub fn SiteFooter()` (subsumes the alias; both names importable), kept A's `AdminFooter`. Removed B's alias to avoid double-definition. Updated doc comment to reflect the new "two ways to spell it" API. |
-| `shared/rust/templates/src/lib.rs` | Three CSS blocks in track order. | All three blocks concatenated inside `design_system_head()`'s `<style>` element. Order preserved: A (admin shell) → B (frontend nav) → C (auth cluster). No existing class rules were modified. |
-| `deliverable.md` (repo root) | Track B and Track C both wrote track-level deliverable.md files; the Wave 1 deliverable on the base was also there. | Resolved by writing this Wave 2 integration deliverable in step 6 (overwriting the merged placeholder). |
-
-## Cargo gate
-
-### `cargo check --workspace` — last 5 lines
-
-```text
+### `cargo build --workspace --bins` (last 5 lines)
+```
 warning: `epsx-frontend` (bin "bff-frontend") generated 15 warnings (run `cargo fix --bin "bff-frontend"` to apply 9 suggestions)
 warning: `epsx-admin` (bin "bff-admin") generated 7 warnings (run `cargo fix --bin "bff-admin"` to apply 3 suggestions)
-warning: `epsx-content` (bin "content") generated 2 warnings (run `cargo fix --bin "content"` to apply 2 suggestions)
-warning: `epsx-identity` (bin "identity") generated 2 warnings (run `cargo fix --bin "identity"` to apply 2 suggestions)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.29s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2m 02s
 ```
 
-0 errors. All warnings are pre-existing in the Wave 1 codebase
-(`let mut` redundancy, dead code in `apps/admin/src/auth.rs` /
-`apps/frontend/src/auth.rs`, unused `NewsQuery` struct, etc.) —
-none introduced by Wave 2.
+### `cargo test -p epsx-dioxus-ui --lib` (last 5 lines)
+```
+test layout::main_layout::tests::main_layout_preserves_body_content ... ok
+test layout::main_layout::tests::main_layout_renders_header_and_footer ... ok
 
-### `cargo build --workspace --bins` — last 5 lines
-
-```text
-    |     +++++++
-
-warning: `epsx-identity` (bin "identity") generated 2 warnings (run `cargo fix --bin "identity"` to apply 2 suggestions)
-warning: `epsx-notification` (bin "notification") generated 4 warnings (run `cargo fix --bin "notification"` to apply 1 suggestion)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.37s
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 ```
 
-All 4 BFF binaries built: `bff-frontend`, `bff-admin`, `bff-pay`,
-`bff-preview`. (Caches were warm from the track-level builds; first
-cold build was 43.03s, incremental 0.37s.)
+13 unit tests passed (9 pre-existing from Wave 1+2 + 3 new from Track A
+`layout::main_layout` + 1 new from Track B
+`auth::wallet_button::from_cookies_returns_default_for_empty_headers`).
 
-### `cargo test -p epsx-dioxus-ui --lib` — last 5 lines
+## 3. BFF smoke check
 
-```text
-test layout::breadcrumbs::tests::generate_breadcrumbs_for_nested_path ... ok
-test layout::breadcrumbs::tests::generate_breadcrumbs_falls_back_for_unknown_segment ... ok
+All four BFFs started on `PORT=14000..14003` (deliberately off the default
+`3000..3003` to avoid clashing with a `node` process already listening on
+`:3000`). Each was hit with `curl http://localhost:<port>/` (and `/admin` for
+admin) and then killed.
 
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+| BFF       | Endpoint           | Status | Notes |
+|-----------|--------------------|--------|-------|
+| frontend  | `GET /`            | 200    | SSR home page returned 142 KB HTML with `<header class="sticky top-0 z-40 ... epsx-header ...">` (Track A's `MainLayout` wrapper active). |
+| admin     | `GET /admin`       | 200    | **Assertion passed.** Response contains `<header class="sticky top-0 z-40 border-b border-border/40 bg-card admin-header"` and `.admin-sidebar` / `.admin-footer` / `.admin-shell` markers — confirms `AdminLayout::Auth` is rendering server-side (Track C). |
+| pay       | `GET /`            | 200    | Pay BFF SSR root returned 200 (Track B did not touch pay — wallet field is not plumbed here, by design). |
+| preview   | `GET /`            | 200    | Preview BFF SSR root returned 200. |
+
+All 4 BFFs killed cleanly (`lsof` confirms no listeners on 14000–14003
+after `pkill`).
+
+## 4. Diff stat (`9f32a379..HEAD`)
+
+Pre-Wave-3a base `9f32a379` → integration HEAD. Full stat:
+
+```
+ Cargo.lock                                         |   2 +
+ apps/admin/src/ssr.rs                              | 104 +++++-
+ apps/frontend/src/ssr.rs                           |  15 +
+ docs/wave2-chrome/design.md                        | 395 +++++++++++++++++++++
+ docs/wave3a-wiring/design.md                       | 297 ++++++++++++++++
+ shared/rust/dioxus_ui/Cargo.toml                   |   9 +
+ shared/rust/dioxus_ui/src/auth/wallet_button.rs    |  60 ++++
+ shared/rust/dioxus_ui/src/layout.rs                |  17 +
+ shared/rust/dioxus_ui/src/layout/main_layout.rs    | 193 ++++++++++
+ shared/rust/dioxus_ui/src/pages.rs                 |   8 +
+ shared/rust/dioxus_ui/src/pages/about.rs           |  98 ++---
+ shared/rust/dioxus_ui/src/pages/access_denied.rs   |  10 +-
+ shared/rust/dioxus_ui/src/pages/account.rs         |  31 +-
+ shared/rust/dioxus_ui/src/pages/account_credits.rs |  53 +--
+ shared/rust/dioxus_ui/src/pages/admin_pages/*.rs   | ~70 files admin
+ shared/rust/dioxus_ui/src/pages/<frontend>.rs      | 25 frontend pages wrapped in MainLayout
+ shared/rust/templates/src/lib.rs                   |  32 ++
+ 52 files changed, 2354 insertions(+), 1265 deletions(-)
 ```
 
-9 tests, 0 failures:
+(`docs/wave2-chrome/design.md` shows 395 + lines because the file was added
+in Wave 2's design-doc step; the `+395` is from the pre-Wave-3a base, not
+new Wave 3a work — same for `docs/wave3a-wiring/design.md` which was
+committed at the integration-base commit `b51353de`. The 3 wave3a tracks
+themselves add ~1.4 K lines net.)
 
-- `layout::nav_config::tests::is_group_active_matches_any_item` ✓
-- `layout::nav_config::tests::nav_groups_have_unique_keys` ✓
-- `layout::nav_config::tests::is_item_active_matches` ✓
-- `layout::breadcrumbs::tests::generate_breadcrumbs_for_dashboard_only` ✓
-- `layout::breadcrumbs::tests::generate_breadcrumbs_falls_back_for_unknown_segment` ✓
-- `layout::breadcrumbs::tests::generate_breadcrumbs_for_nested_path` ✓
-- `layout::sidebar::tests::is_child_active_matches_index_prefix` ✓
-- `layout::sidebar::tests::is_child_active_matches_tabbed_route` ✓
-- `layout::sidebar::tests::urlencode_keeps_unreserved_chars` ✓
+## 5. Push confirmation
 
-(3 from Track B's `nav_config`, 3 from Track A's `breadcrumbs`, 3 from
-Track A's `sidebar`. Track C added no tests — auth components are
-SSR / interactive, tested via the BFF smoke.)
+```
+git push origin migration/dioxus-microservices
+```
+…succeeds. Final HEAD hash on `migration/dioxus-microservices`:
+see the commit log below (recorded after the push).
 
-## BFF smoke results
+## 6. Wave 3b follow-up notes (NOT in this wave)
 
-Each BFF was started in the background on a free port
-(`PORT=14000..14003`) — the BFFs use axum with `PORT` env override,
-defaulting to 3000/3001/3002/3003 (3000 was occupied by a running
-next-server). Each `/` GET was issued with `curl --max-time 8`. The
-BFFs were killed after the smoke test.
+Per the design doc, Wave 3b is **auth tightening** at the page level. The
+integration commit explicitly does NOT include:
 
-> **Note on port mapping.** The task spec listed the BFFs as
-> :3000/:3001/:8080/:9180, but the actual defaults in
-> `apps/*/src/main.rs` are **:3000 (frontend), :3001 (admin), :3002
-> (pay), :3003 (preview)**. The `:8080` and `:9180` numbers in the
-> task spec appear to be the **backend** (Rust API) and the
-> **legacy preview** defaults, not the Wave 2 BFFs. Verified by
-> reading `apps/{frontend,admin,pay,preview}/src/main.rs` lines
-> 99/50/44/31. The smoke used the BFFs' actual default ports
-> (offset by 14000 to avoid clashing with the running next-server on
-> :3000).
+- Per-page `AuthGate` wiring (only the admin BFF `AdminLayout::Auth` shell
+  is in place — the inner content of admin pages is still rendered for any
+  visitor; Wave 3b adds the page-level gate that calls
+  `<AccessDenied/>` for unauthed requests to admin routes).
+- `AccessDenied` page polish (it exists as a stub from Wave 2; Wave 3b
+  connects it to the per-route gate).
+- `ProgressiveAuthBanner` — the floating prompt shown to unauthed users
+  on auth-optional pages (e.g. `/home`, `/news`). Wave 3a only set up
+  the `PageContext.wallet` plumbing Track B needs; the banner itself
+  belongs to the next wave.
 
-| BFF          | Default port | Smoke port | Status | `<title>` returned | Killed |
-| ------------ | ------------ | ---------- | ------ | ------------------ | ------ |
-| `bff-frontend` | :3000      | :14000     | **200** | `Home — EPSX`      | yes    |
-| `bff-admin`    | :3001      | :14001     | **200** | `Command Center — Admin` | yes |
-| `bff-pay`      | :3002      | :14002     | **200** | `EPSX Pay`         | yes    |
-| `bff-preview`  | :3003      | :14003     | **200** | `EPSX Preview`     | yes    |
+Track A's `MainLayout` already uses `ctx.wallet` opportunistically
+(via the `WalletButton` exposed by Track B), but page-level gating is
+out of scope.
 
-All 4 BFFs serving real, themed, Wave-2-chrome pages. SSR `EPSX`
-brand string present in every response body.
+## 7. Track branches preserved (for cargo cache reuse)
 
-## `git diff ffeb318d..HEAD --stat` (Wave 1 + Wave 2)
-
-```text
- apps/admin/src/ssr.rs                             |    4 +-
- apps/frontend/src/ssr.rs                          |    4 +-
- shared/rust/dioxus_ui/src/auth/access_denied.rs   |   71 +-
- shared/rust/dioxus_ui/src/auth/auth_gate.rs       |  202 ++-
- shared/rust/dioxus_ui/src/auth/auth_modal.rs      |  269 +++-
- shared/rust/dioxus_ui/src/auth/progressive_banner.rs |  98 +-
- shared/rust/dioxus_ui/src/auth/user.rs            |  116 +-
- shared/rust/dioxus_ui/src/auth/wallet_button.rs   |  460 +++++-
- shared/rust/dioxus_ui/src/layout.rs               |   14 +
- shared/rust/dioxus_ui/src/layout/breadcrumbs.rs   |  212 ++-
- shared/rust/dioxus_ui/src/layout/footer.rs        |   41 +-
- shared/rust/dioxus_ui/src/layout/header.rs        |  177 +++
- shared/rust/dioxus_ui/src/layout/mobile_nav.rs    |  248 +++
- shared/rust/dioxus_ui/src/layout/nav_actions.rs   |  108 ++
- shared/rust/dioxus_ui/src/layout/nav_config.rs    |  218 +++
- shared/rust/dioxus_ui/src/layout/navbar.rs        |  479 +++++-
- shared/rust/dioxus_ui/src/layout/navbar_skeleton.rs |   31 +
- shared/rust/dioxus_ui/src/layout/shell.rs         |  312 +++-
- shared/rust/dioxus_ui/src/layout/sidebar.rs       |  540 ++++++-
- shared/rust/dioxus_ui/src/primitives.rs           |    6 +
- shared/rust/dioxus_ui/src/primitives/alert.rs     |  136 ++
- shared/rust/dioxus_ui/src/primitives/alert_dialog.rs |  206 +++
- shared/rust/dioxus_ui/src/primitives/avatar.rs    |   28 +-
- shared/rust/dioxus_ui/src/primitives/badge.rs     |   28 +
- shared/rust/dioxus_ui/src/primitives/button.rs    |   61 +-
- shared/rust/dioxus_ui/src/primitives/card.rs      |   67 +
- shared/rust/dioxus_ui/src/primitives/charts.rs    |  184 ++-
- shared/rust/dioxus_ui/src/primitives/checkbox.rs  |   39 +-
- shared/rust/dioxus_ui/src/primitives/combobox.rs  |  274 +++-
- shared/rust/dioxus_ui/src/primitives/data_table.rs |  256 +++-
- shared/rust/dioxus_ui/src/primitives/date_picker.rs |   94 +-
- shared/rust/dioxus_ui/src/primitives/dropdown.rs  |  102 +-
- shared/rust/dioxus_ui/src/primitives/form.rs      |  172 +++
- shared/rust/dioxus_ui/src/primitives/icon.rs      |   76 +
- shared/rust/dioxus_ui/src/primitives/input.rs     |  153 +-
- shared/rust/dioxus_ui/src/primitives/misc.rs      |  137 +-
- shared/rust/dioxus_ui/src/primitives/modal.rs     |  149 +-
- shared/rust/dioxus_ui/src/primitives/overlays.rs  |  306 +++-
- shared/rust/dioxus_ui/src/primitives/progress.rs  |   50 +-
- shared/rust/dioxus_ui/src/primitives/rich_text.rs |  145 +-
- shared/rust/dioxus_ui/src/primitives/select.rs    |  171 ++-
- shared/rust/dioxus_ui/src/primitives/separator.rs |   24 +-
- shared/rust/dioxus_ui/src/primitives/sheet.rs     |  211 +++
- shared/rust/dioxus_ui/src/primitives/skeleton.rs  |   33 +-
- shared/rust/dioxus_ui/src/primitives/stat_card.rs |   26 +-
- shared/rust/dioxus_ui/src/primitives/stepper.rs   |  118 +-
- shared/rust/dioxus_ui/src/primitives/switch.rs    |   42 +-
- shared/rust/dioxus_ui/src/primitives/table.rs     |   60 +-
- shared/rust/dioxus_ui/src/primitives/tabs.rs      |   40 +-
- shared/rust/dioxus_ui/src/primitives/tooltip.rs   |   66 +-
- shared/rust/templates/src/lib.rs                  | 1574 ++++++++++++++++++++
- 54 files changed, 8720 insertions(+), 325 deletions(-)
+```
+/private/tmp/epsx-track3a-a-main-layout   1232a72d [wave3a/track-a-main-layout]
+/private/tmp/epsx-track3b-b-bff-state     6f07c750 [wave3a/track-b-bff-state]
+/private/tmp/epsx-track3c-c-admin-shell   9db67736 [wave3a/track-c-admin-shell]
 ```
 
-(`ffeb318d` is the pre-Wave-1 base on the migration branch — the diff
-covers everything Wave 1 and Wave 2 added: all 4 Wave 1 tracks
-(form/display/interactive/missing primitives) plus all 3 Wave 2
-tracks (admin shell, frontend nav, auth cluster).)
+These are left in place per the task spec; only the integration worktree
+will be removed.
 
-## Push confirmation
+---
 
-```text
-$ git push origin migration/dioxus-microservices
-To https://github.com/fluke-jesadakorn/epsx.git
-   06a0195c..9d40ca5a  migration/dioxus-microservices -> migration/dioxus-microservices
-```
-
-**Final HEAD on `migration/dioxus-microservices`:** `f44f3c23063b00ce59f259eb77a3270747fa922b`
-(commit `f44f3c23` — `docs(wave2): pin final HEAD hash in integration deliverable`).
-
-- The integration deliverable body was originally written and
-  committed as `9d40ca5a` ("integration gate report — final unified
-  deliverable").
-- A follow-up commit `f44f3c23` updated the push-confirmation
-  section to record the actual pushed HEAD hash.
-- Both are on `migration/dioxus-microservices` now.
-
-Push URL: `https://github.com/fluke-jesadakorn/epsx.git` (branch:
-`migration/dioxus-microservices`).
-
-## Worktrees
-
-- **Kept in place** (per task spec — may be reused for Wave 3):
-  - `/private/tmp/epsx-track-a-admin`  ← `wave2/track-a-admin`
-  - `/private/tmp/epsx-track-b-frontend-nav` ← `wave2/track-b-frontend-nav`
-  - `/private/tmp/epsx-track-c-auth` ← `wave2/track-c-auth`
-- **Removed** (per task spec — integration worktree cleaned up):
-  - `/private/tmp/epsx-wave2-integration` ← `wave2/integration`
-    (use `git worktree remove` after the final commit + push; the
-    branch stays on `origin` for traceability)
-
-## Final summary
-
-- 3 `--no-ff` merge commits on `wave2/integration`, plus this
-  integration deliverable commit.
-- `cargo check --workspace`, `cargo build --workspace --bins`, and
-  `cargo test -p epsx-dioxus-ui --lib` all green (0 errors, 9/9
-  tests pass, all warnings pre-existing).
-- All 4 BFFs smoke-tested: HTTP 200, real SSR content.
-- `migration/dioxus-microservices` fast-forwarded and pushed.
-- Integration worktree cleaned up; 3 track worktrees preserved.
+_Generated by the Wave 3a integration gate. See also
+`/Users/fluke/.mavis/plans/plan_a16b1c4e/outputs/integration-gate/deliverable.md`
+for the engine-side confirmation copy._
