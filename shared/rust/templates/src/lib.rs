@@ -3851,6 +3851,84 @@ pub fn design_system_head(title: &str, description: &str) -> String {
   .credits-ledger-kind {{ display: block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }}
 
   /* end wave6-auth-pages-depth-track-a */
+=======
+  /* === wave6-auth-pages-depth-track-b ===
+   * Analytics + developer depth — filter panel, export dialog
+   * primitive, analytics card grid responsive breakpoints, and
+   * developer portal sub-section styles. All rules below are scoped
+   * to the new section-marker class names added by the Track B page
+   * ports in `shared/rust/dioxus_ui/src/pages/analytics.rs` and
+   * `shared/rust/dioxus_ui/src/pages/developer.rs`, and the new
+   * `<ExportDialog>` primitive at
+   * `shared/rust/dioxus_ui/src/data/export_dialog.rs`. We deliberately
+   * reuse the existing design-system classes (`.card`, `.card-glass`,
+   * `.btn`, `.btn-primary`, `.btn-outline`, `.input`, `.modal`,
+   * `.modal-overlay`, etc.) — only the new Wave 6A surface-area
+   * selectors are defined here.
+   *
+   * No new colors, no new design tokens. CSS is appended cleanly so
+   * the integration agent can concatenate Track A + Track B + Track C
+   * + Track D blocks (each marked) without conflicts. */
+
+  /* --- <ExportDialog> primitive (data/export_dialog.rs) --- */
+  .export-dialog-overlay {{ /* extends .modal-overlay for the analytics export modal */ }}
+  .export-dialog {{ max-width: 32rem; width: 100%; }}
+  .export-dialog-body {{ display: flex; flex-direction: column; gap: 1rem; }}
+  .export-dialog-scopes, .export-dialog-formats {{ gap: 0.5rem; }}
+  .export-dialog-scope-btn, .export-dialog-formats > button {{
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border, rgba(255,255,255,0.1));
+    background: var(--bg-secondary, rgba(255,255,255,0.05));
+    color: var(--text-muted, #94a3b8);
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }}
+  .export-dialog-scope-btn:hover, .export-dialog-formats > button:hover {{
+    background: var(--bg-hover, rgba(255,255,255,0.1));
+    color: var(--text, #fff);
+  }}
+  .export-dialog-scope-btn.active, .export-dialog-formats > button.active {{
+    background: rgba(118, 69, 217, 0.2);
+    border-color: rgba(118, 69, 217, 0.5);
+    color: #c4a8f0;
+  }}
+  .export-dialog-trigger {{ background: linear-gradient(90deg, #7645d9, #5a33b8); color: #fff; }}
+
+  /* --- /analytics --- section styles --- */
+  .analytics-header {{ gap: 0.75rem; }}
+  .analytics-header-date {{ font-variant-numeric: tabular-nums; }}
+  .analytics-plan-status {{ border-radius: 1rem; }}
+  .analytics-filter-panel {{ padding: 0; }}
+  .analytics-filter-apply {{ background: linear-gradient(90deg, #7645d9, #5a33b8); }}
+  .analytics-card-grid {{ gap: 1rem; }}
+  @media (min-width: 640px) {{ .analytics-card-grid {{ gap: 1rem; }} }}
+  .analytics-card {{ transition: transform 0.15s ease, box-shadow 0.15s ease; }}
+  .analytics-card-tier-premium {{ box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.2); }}
+  .analytics-card-tier-standard {{ }}
+  .analytics-table .card-body {{ overflow-x: auto; }}
+  .analytics-metadata {{ position: relative; }}
+
+  /* --- /developer --- section styles --- */
+  .developer-stats-cards {{ margin-bottom: 0; }}
+  .api-keys-list {{ overflow: hidden; }}
+  .api-key-card {{ position: relative; }}
+  .api-key-create-form {{ margin-bottom: 0; }}
+  .api-key-create-submit {{ background: linear-gradient(90deg, #7645d9, #5a33b8); color: #fff; }}
+  .api-key-create-submit:disabled {{ opacity: 0.5; pointer-events: none; }}
+  .plan-transfer-list {{ }}
+  .permission-list {{ display: flex; flex-direction: column; gap: 0.5rem; }}
+  .permission-list-box {{ scrollbar-width: thin; }}
+  .permission-list-display {{ margin-top: 1rem; }}
+  .docs-quick-links {{ position: sticky; top: 5rem; }}
+  .docs-quick-link {{ transition: background 0.15s ease, color 0.15s ease; text-decoration: none; }}
+  .usage-monitor {{ }}
+  .usage-monitor .chart {{ margin-top: 0.5rem; }}
+  .developer-docs {{ margin-top: 1rem; }}
+
+  /* end wave6-auth-pages-depth-track-b */
 </style>"##
     )
 }
