@@ -28,11 +28,17 @@ all unchanged.
 ## Branch & final HEAD
 
 - **Branch**: `wave5/track-b-info-pages`
-- **Final HEAD**: `4babbb68fa2f4a3a5b40579a98add55392c278f9`
-- **Attempt-2 code commit**: `1d00a5fd1e27d451dd7b9306c52da0391df6753a`
-  (the verifier-required commit, message:
-  `feat(dioxus-ui): track B — expand terms.rs to 9 sections (~350 LoC)`)
-- **Previous attempt HEAD** (parent of attempt-2): `2d4129f3d456430abb908c0f8c8e512c00b36455`
+- **Final HEAD at time of this report**: see `git rev-parse HEAD` on
+  the branch (HEAD advances with every deliverable.md sync; the
+  attempt-2 code commit `1d00a5fd1e27d451dd7b9306c52da0391df6753a`
+  is the verifier-required commit and the only commit that changes
+  the 9-page code surface; subsequent commits only update this
+  report file)
+- **Attempt-2 code commit** (the verifier-required commit,
+  message: `feat(dioxus-ui): track B — expand terms.rs to 9 sections
+  (~350 LoC)`): `1d00a5fd1e27d451dd7b9306c52da0391df6753a`
+- **Previous attempt HEAD** (parent of attempt-2):
+  `2d4129f3d456430abb908c0f8c8e512c00b36455`
 - **Worktree**: `/private/tmp/epsx-track5-b-info-pages`
 - **Pushed to**: `origin/wave5/track-b-info-pages` (force-push not
   used; the new commits are regular fast-forwards of the prior
@@ -152,8 +158,13 @@ required 56/56; the new attempt adds 2 more, for 58/58.)
 ## Commits on `wave5/track-b-info-pages`
 
 ```
-4babbb68  docs(wave5): track B — update deliverable.md for terms.rs expansion (attempt 2)  <-- this deliverable update
-1d00a5fd  feat(dioxus-ui): track B — expand terms.rs to 9 sections (~350 LoC)             <-- this attempt (verifier-required)
-2d4129f3  feat(dioxus-ui): track B — info-pages depth (manual + plans + contact + 6 utility pages)  <-- attempt 1
-9b3a1378  docs(wave5): marketing/auth page-depth design — 12 pages, 2 tracks + integration gate  <-- base
+<current HEAD>  docs(wave5): track B — deliverable.md hash sync (this file's own updates)
+1d00a5fd       feat(dioxus-ui): track B — expand terms.rs to 9 sections (~350 LoC)            <-- attempt 2 (verifier-required)
+2d4129f3       feat(dioxus-ui): track B — info-pages depth (manual + plans + contact + 6 utility pages)  <-- attempt 1
+9b3a1378       docs(wave5): marketing/auth page-depth design — 12 pages, 2 tracks + integration gate  <-- base
 ```
+
+(`git log --oneline -5 origin/wave5/track-b-info-pages` for the
+authoritative current HEAD; this file's HEAD-relative hashes go
+stale with every report edit, but `1d00a5fd` is the stable
+attempt-2 code commit.)
