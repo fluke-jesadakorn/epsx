@@ -26,6 +26,9 @@ pub mod i18n;
 pub mod pages;
 pub mod theme;
 
+#[cfg(test)]
+mod tests;
+
 pub use primitives::*;
 pub use layout::*;
 pub use feedback::*;

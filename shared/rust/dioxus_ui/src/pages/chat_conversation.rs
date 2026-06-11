@@ -13,6 +13,8 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
             AuthGate { user: ctx.user.clone(), feature: Some("support chat".to_string()),
+                required_permissions: Some(vec!["chat:read".to_string(), "chat:write".to_string()]),
+                return_url: Some(ctx.path.clone()),
                 div { class: "container page-content",
                     PageHeader { title: format!("Conversation #{}", conv_id), description: Some("Live conversation with EPSX support".to_string()), icon: Some("message-circle".to_string()),
                         a { class: "btn btn-outline", href: "/chat", "Inbox" }

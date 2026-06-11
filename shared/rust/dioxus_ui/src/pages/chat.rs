@@ -15,6 +15,8 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
             AuthGate { user: ctx.user.clone(), feature: Some("support chat".to_string()),
+                required_permissions: Some(vec!["chat:read".to_string()]),
+                return_url: Some(ctx.path.clone()),
                 div { class: "container page-content",
                     PageHeader { title: "Support chat".to_string(), description: Some("Open or past conversations".to_string()), icon: Some("message-circle".to_string()),
                         a { class: "btn btn-outline", href: "/chat/history", Icon { name: "history".to_string(), size: Some(16) } " History" }
@@ -43,6 +45,8 @@ fn RenderConversation(ctx: PageContext) -> Element {
     rsx! {
         MainLayout { ctx: ctx.clone(),
             AuthGate { user: ctx.user.clone(), feature: Some("chat conversations".to_string()),
+                required_permissions: Some(vec!["chat:read".to_string(), "chat:write".to_string()]),
+                return_url: Some(ctx.path.clone()),
                 div { class: "container page-content",
                     a { class: "btn btn-sm btn-ghost mb-4", href: "/chat", Icon { name: "arrow-left".to_string(), size: Some(16) } " Back" }
                     div { class: "card card-glass",
@@ -74,6 +78,8 @@ pub fn render_history(ctx: &PageContext) -> (PageMeta, Element) {
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
             AuthGate { user: ctx.user.clone(), feature: Some("chat history".to_string()),
+                required_permissions: Some(vec!["chat:read".to_string()]),
+                return_url: Some(ctx.path.clone()),
                 div { class: "container page-content",
                     PageHeader { title: "Chat history".to_string(), description: Some("Past conversations with support".to_string()), icon: Some("history".to_string()) }
                     div { class: "card card-glass",

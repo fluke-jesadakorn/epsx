@@ -26,6 +26,8 @@ fn RenderPayment(ctx: PageContext) -> Element {
     rsx! {
         MainLayout { ctx: ctx.clone(),
             AuthGate { user: ctx.user.clone(), feature: Some("payment".to_string()),
+                required_permissions: Some(vec!["payments:read".to_string()]),
+                return_url: Some(ctx.path.clone()),
                 div { class: "container page-content max-w-3xl",
                     PageHeader { title: "Payment".to_string(), description: Some("Send a payment to any merchant or subscription plan".to_string()), icon: Some("credit-card".to_string()) }
                     div { class: "mb-6", Stepper { steps, current: *step.read() } }
@@ -84,6 +86,8 @@ pub fn render_dynamic(ctx: &PageContext) -> (PageMeta, Element) {
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
             AuthGate { user: ctx.user.clone(), feature: Some("payment".to_string()),
+                required_permissions: Some(vec!["payments:read".to_string()]),
+                return_url: Some(ctx.path.clone()),
                 div { class: "container page-content max-w-2xl",
                     PageHeader { title: format!("{} payment", ptype), description: Some(format!("ID: {}", pid)), icon: Some("credit-card".to_string()) }
                     div { class: "card card-glass",

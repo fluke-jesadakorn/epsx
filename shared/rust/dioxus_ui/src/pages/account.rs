@@ -22,6 +22,8 @@ fn RenderAccount(ctx: PageContext) -> Element {
     rsx! {
         MainLayout { ctx: ctx.clone(),
             AuthGate { user: ctx.user.clone(), feature: Some("your account".to_string()),
+                required_permissions: Some(vec!["profile:read".to_string()]),
+                return_url: Some(ctx.path.clone()),
                 div { class: "container page-content",
                     PageHeader { title: "Account".to_string(), description: Some("Manage your profile, payment methods, and credits".to_string()), icon: Some("user".to_string()) }
                     div { class: "tabs mb-4",

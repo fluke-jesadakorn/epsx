@@ -16,6 +16,8 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
             AuthGate { user: ctx.user.clone(), feature: Some("analytics".to_string()),
+                required_permissions: Some(vec!["analytics:read".to_string()]),
+                return_url: Some(ctx.path.clone()),
                 div { class: "container page-content",
                     PageHeader {
                         title: "Analytics".to_string(),

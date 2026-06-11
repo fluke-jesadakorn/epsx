@@ -22,6 +22,8 @@ fn RenderPortfolio(ctx: PageContext) -> Element {
     rsx! {
         MainLayout { ctx: ctx.clone(),
             AuthGate { user: ctx.user.clone(), feature: Some("your portfolio".to_string()),
+                required_permissions: Some(vec!["payments:read".to_string()]),
+                return_url: Some(ctx.path.clone()),
                 div { class: "container page-content",
                     PageHeader { title: "Portfolio".to_string(), description: Some("Track your holdings and watchlist performance".to_string()), icon: Some("briefcase".to_string()) }
                     div { class: "grid grid-cols-1 md:grid-cols-3 gap-4 mb-6",

@@ -21,6 +21,8 @@ fn RenderProfile(ctx: PageContext) -> Element {
     rsx! {
         MainLayout { ctx: ctx.clone(),
             AuthGate { user: ctx.user.clone(), feature: Some("your profile".to_string()),
+                required_permissions: Some(vec!["profile:read".to_string(), "profile:write".to_string()]),
+                return_url: Some(ctx.path.clone()),
                 div { class: "container page-content max-w-3xl",
                     PageHeader { title: "Profile".to_string(), description: Some("Manage your account settings".to_string()), icon: Some("user".to_string()) }
                     div { class: "tabs mb-4",
