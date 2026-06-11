@@ -5,7 +5,7 @@ use crate::data_table::{Column, DataTable, Row, SortDir};
 
 use dioxus::prelude::*;
 use super::super::{PageContext, PageMeta};
-use crate::auth::AuthGate;
+use crate::auth::AdminAuthGate;
 
 pub fn render_manage(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::admin("Notifications");
@@ -23,7 +23,7 @@ pub fn render_manage(ctx: &PageContext) -> (PageMeta, Element) {
         Row { id: "n3".into(), cells: vec!["Maintenance window".into(), "All users".into(), "Email + Push".into(), "Scheduled".into(), "—".into(), "2024-09-15".into()] },
     ];
     (meta, rsx! {
-        AuthGate { user: ctx.user.clone(), feature: Some("notification management".to_string()),
+        AdminAuthGate { user: ctx.user.clone(), feature: Some("notification management".to_string()), required_permissions: Some(vec!["notifications:manage".to_string()]), return_url: Some(ctx.path.clone()),
             div { class: "container page-content",
                 div { class: "flex items-center justify-between mb-6",
                     div {
@@ -41,7 +41,7 @@ pub fn render_manage(ctx: &PageContext) -> (PageMeta, Element) {
 pub fn render_create(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::admin("New notification");
     (meta, rsx! {
-        AuthGate { user: ctx.user.clone(), feature: Some("creating notifications".to_string()),
+        AdminAuthGate { user: ctx.user.clone(), feature: Some("creating notifications".to_string()), required_permissions: Some(vec!["notifications:manage".to_string()]), return_url: Some(ctx.path.clone()),
             div { class: "container page-content max-w-3xl",
                 a { class: "btn btn-sm btn-ghost mb-4", href: "/notifications/manage", Icon { name: "arrow-left".to_string(), size: Some(16) } " Back" }
                 Form { method: "POST".to_string(), action: "/api/v1/notification/send".to_string(),

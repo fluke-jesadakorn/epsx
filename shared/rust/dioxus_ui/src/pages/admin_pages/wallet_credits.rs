@@ -6,7 +6,7 @@ use crate::data_table::{Column, DataTable, Row, SortDir};
 
 use dioxus::prelude::*;
 use super::super::{PageContext, PageMeta};
-use crate::auth::AuthGate;
+use crate::auth::AdminAuthGate;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::admin("Credits");
@@ -22,7 +22,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
         Row { id: "0x9876…5432".into(), cells: vec!["0x9876…5432".into(), "5,200".into(), "1,400".into(), "6,600".into()] },
     ];
     (meta, rsx! {
-        AuthGate { user: ctx.user.clone(), feature: Some("credits management".to_string()),
+        AdminAuthGate { user: ctx.user.clone(), feature: Some("credits management".to_string()), required_permissions: Some(vec!["wallets:manage".to_string()]), return_url: Some(ctx.path.clone()),
             div { class: "container page-content",
                 div { class: "flex items-center justify-between mb-6",
                     div {

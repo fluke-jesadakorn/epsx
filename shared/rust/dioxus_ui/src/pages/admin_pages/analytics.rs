@@ -5,12 +5,12 @@ use crate::charts::{ChartLine, DataPoint, Series, ChartBar};
 
 use dioxus::prelude::*;
 use super::super::{PageContext, PageMeta};
-use crate::auth::AuthGate;
+use crate::auth::AdminAuthGate;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::admin("Analytics");
     (meta, rsx! {
-        AuthGate { user: ctx.user.clone(), feature: Some("platform analytics".to_string()),
+        AdminAuthGate { user: ctx.user.clone(), feature: Some("platform analytics".to_string()), required_permissions: Some(vec!["analytics:read".to_string()]), return_url: Some(ctx.path.clone()),
             div { class: "container page-content",
                 div { class: "mb-6",
                     h1 { class: "text-2xl font-bold", "Platform analytics" }

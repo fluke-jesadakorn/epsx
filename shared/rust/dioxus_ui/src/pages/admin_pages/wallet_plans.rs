@@ -5,12 +5,12 @@ use crate::data_table::{Column, DataTable, Row, SortDir};
 
 use dioxus::prelude::*;
 use super::super::{PageContext, PageMeta};
-use crate::auth::AuthGate;
+use crate::auth::AdminAuthGate;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::admin("Access control");
     (meta, rsx! {
-        AuthGate { user: ctx.user.clone(), feature: Some("access control".to_string()),
+        AdminAuthGate { user: ctx.user.clone(), feature: Some("access control".to_string()), required_permissions: Some(vec!["wallets:manage".to_string()]), return_url: Some(ctx.path.clone()),
             div { class: "container page-content",
                 div { class: "mb-6",
                     h1 { class: "text-2xl font-bold", "Access control" }
@@ -54,7 +54,7 @@ pub fn render_plans(ctx: &PageContext) -> (PageMeta, Element) {
         Row { id: "3".into(), cells: vec!["Enterprise".into(), "$299".into(), "monthly".into(), "32".into(), "Active".into(), "Edit".into()] },
     ];
     (meta, rsx! {
-        AuthGate { user: ctx.user.clone(), feature: Some("plan management".to_string()),
+        AdminAuthGate { user: ctx.user.clone(), feature: Some("plan management".to_string()), required_permissions: Some(vec!["wallets:manage".to_string()]), return_url: Some(ctx.path.clone()),
             div { class: "container page-content",
                 div { class: "flex items-center justify-between mb-6",
                     div {
@@ -73,7 +73,7 @@ pub fn render_editor(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::admin("Plan editor");
     let plan_id = ctx.params.get("planId").cloned();
     (meta, rsx! {
-        AuthGate { user: ctx.user.clone(), feature: Some("plan editing".to_string()),
+        AdminAuthGate { user: ctx.user.clone(), feature: Some("plan editing".to_string()), required_permissions: Some(vec!["wallets:manage".to_string()]), return_url: Some(ctx.path.clone()),
             div { class: "container page-content max-w-3xl",
                 a { class: "btn btn-sm btn-ghost mb-4", href: "/wallet-management/access/plans", Icon { name: "arrow-left".to_string(), size: Some(16) } " Back" }
                 Form { method: "POST".to_string(), action: if let Some(ref p) = plan_id { format!("/api/v1/subscription/plans/{}", p) } else { "/api/v1/subscription/plans".to_string() },

@@ -6,7 +6,7 @@ use crate::data_table::{Column, DataTable, Row, SortDir};
 
 use dioxus::prelude::*;
 use super::super::{PageContext, PageMeta};
-use crate::auth::AuthGate;
+use crate::auth::AdminAuthGate;
 
 const QUICK_START_CURL: &str = "curl -X POST https://api.epsx.io/v1/auth/siwe \\\n  -H 'Content-Type: application/json' \\\n  -d '{ \"message\": \"...\", \"signature\": \"0x...\" }'";
 
@@ -19,7 +19,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 fn RenderDevPortal(ctx: PageContext) -> Element {
     let mut tab = use_signal(|| "overview".to_string());
     rsx! {
-        AuthGate { user: ctx.user.clone(), feature: Some("the developer portal".to_string()),
+        AdminAuthGate { user: ctx.user.clone(), feature: Some("the developer portal".to_string()), required_permissions: Some(vec!["developer:manage".to_string()]), return_url: Some(ctx.path.clone()),
             div { class: "container page-content",
                 div { class: "flex items-center justify-between mb-4", h1 { class: "text-2xl font-bold", "Developer portal" } a { class: "btn btn-primary", href: "/developer-portal/api-keys/create", Icon { name: "plus".to_string(), size: Some(16) } " Create API key" } }
                 div { class: "tabs mb-4",
@@ -128,7 +128,7 @@ fn RenderCreateKey(ctx: PageContext) -> Element {
     let mut name = use_signal(String::new);
     let mut created_key = use_signal(|| None::<String>);
     rsx! {
-        AuthGate { user: ctx.user.clone(), feature: Some("creating API keys".to_string()),
+        AdminAuthGate { user: ctx.user.clone(), feature: Some("creating API keys".to_string()), required_permissions: Some(vec!["developer:manage".to_string()]), return_url: Some(ctx.path.clone()),
             div { class: "container page-content max-w-2xl",
                 a { class: "btn btn-sm btn-ghost mb-4", href: "/developer-portal", Icon { name: "arrow-left".to_string(), size: Some(16) } " Back" }
                 div { class: "card card-glass",
