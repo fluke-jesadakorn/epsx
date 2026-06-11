@@ -3081,6 +3081,7 @@ dependencies = [
 name = "epsx-dioxus-ui"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "dioxus",
  "dioxus-router",
  "epsx-templates",

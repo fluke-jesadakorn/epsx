@@ -46,6 +46,10 @@ pub async fn ssr_handler(
 
     // Admin: always render the admin page dispatcher
     let mut params = HashMap::new();
+    // Wave 3a Track B — admin doesn't render the wallet dropdown yet,
+    // so the BFF just plumbs the default `ConnectedWalletState`. The
+    // type is here so Track A's MainLayout can read `ctx.wallet`
+    // uniformly; admin pages ignore it for now.
     let ctx = PageContext {
         user,
         path: path.clone(),
@@ -53,6 +57,7 @@ pub async fn ssr_handler(
         params,
         api_url: state.api_url.clone(),
         demo_login_enabled: true,
+        wallet: epsx_dioxus_ui::auth::wallet_button::ConnectedWalletState::default(),
     };
 
     // Use the dedicated admin dispatcher regardless of `is_admin` so the

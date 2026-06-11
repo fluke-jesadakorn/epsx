@@ -2,6 +2,7 @@
 
 use dioxus::prelude::*;
 use crate::auth::User;
+use crate::auth::wallet_button::ConnectedWalletState;
 use crate::i18n::t;
 
 pub mod home;
@@ -73,6 +74,13 @@ pub struct PageContext {
     pub params: std::collections::HashMap<String, String>,
     pub api_url: String,
     pub demo_login_enabled: bool,
+    /// Wave 3a Track B — server-side wallet state plumbed from the BFF.
+    /// The BFF reads the `WalletInfo` cookie (or defaults) via
+    /// `ConnectedWalletState::from_cookies(&headers)` and forwards the
+    /// resulting state to the layout / connect-button cluster. Defaults
+    /// to `Default::default()` so BFFs that don't yet plumb the cookie
+    /// (admin, pay, preview) still compile.
+    pub wallet: ConnectedWalletState,
 }
 
 impl PageContext {

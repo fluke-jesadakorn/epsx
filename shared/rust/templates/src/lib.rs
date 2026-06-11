@@ -3771,3 +3771,12 @@ pub fn page_shell_with_body_class(
         body_class = body_class,
     )
 }
+
+// === wave3a-wiring-track-b ===
+//
+// Wave 3a Track B — BFF plumbing for wallet state. This track adds
+// `PageContext::wallet` and `ConnectedWalletState::from_cookies(...)`.
+// The track does NOT add any CSS — the stub reads cookies as a
+// no-op and the navbar cluster already exists from Wave 2. The
+// marker block is reserved here per the Wave 3a CSS region
+// convention (see `docs/wave3a-wiring/design.md` §3).
