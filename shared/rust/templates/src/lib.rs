@@ -4948,6 +4948,184 @@ pub fn design_system_head(title: &str, description: &str) -> String {
   .access-revoke-dialog {{ /* destructive confirm card */ }}
 
   /* end wave6b-admin-pages-depth-track-c */
+
+  /* === wave6b-admin-pages-depth-track-d ===
+   * Track D — wallet_wallets + chat + developer_portal + auth_page
+   * (5 pages, plus the new `<AdminMetricCard>` primitive). Adds the
+   * admin-metric-card visual primitives, the platform-distribution
+   * bar, the chat-inbox / conversation view / reply input layout, the
+   * developer-portal stat-card and module-card styles, and the
+   * auth-method-selector panels. Keep CSS minimal — the page
+   * sections themselves use the existing tailwind utilities; this
+   * block only adds the new `.admin-metric-card-*`,
+   * `.platform-distribution-*`, `.conversation-card-*`, and
+   * `.auth-method-selector-*` classes. */
+  .admin-metric-card {{
+    position: relative;
+    padding: 1rem;
+  }}
+  .admin-metric-card-header {{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }}
+  .admin-metric-card-label-row {{
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }}
+  .admin-metric-card-icon {{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.5rem;
+    background: var(--bg-tertiary, rgba(255,255,255,0.05));
+  }}
+  .admin-metric-card-label {{
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }}
+  .admin-metric-card-value {{
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+  }}
+  .admin-metric-trend {{
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    white-space: nowrap;
+  }}
+  .admin-metric-trend-up {{
+    background: rgba(16, 185, 129, 0.1);
+    color: rgb(16, 185, 129);
+  }}
+  .admin-metric-trend-down {{
+    background: rgba(239, 68, 68, 0.1);
+    color: rgb(239, 68, 68);
+  }}
+  .admin-metric-trend-flat {{
+    background: rgba(148, 163, 184, 0.1);
+    color: rgb(148, 163, 184);
+  }}
+  .admin-metric-card-sparkline {{
+    color: rgb(34, 211, 238);
+    opacity: 0.85;
+  }}
+  .platform-distribution-card {{
+    padding: 1rem 1.25rem;
+  }}
+  .wallet-card-avatar {{
+    position: relative;
+    width: 3rem;
+    height: 3rem;
+    flex-shrink: 0;
+  }}
+  .wallet-card-avatar-bg {{
+    position: absolute;
+    inset: 0;
+    border-radius: 1rem;
+    background: linear-gradient(135deg, #1fc7d4 0%, #7645d9 100%);
+    filter: blur(8px);
+    opacity: 0.2;
+  }}
+  .wallet-card-avatar-text {{
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    border-radius: 1rem;
+    background: linear-gradient(135deg, #1fc7d4 0%, #7645d9 100%);
+    color: white;
+    font-weight: 900;
+    font-size: 0.875rem;
+  }}
+  .wallet-card-sections {{
+    /* The mobile-card variant of the wallet list row. */
+  }}
+  .wallet-table-row {{
+    display: grid;
+    grid-template-columns: 30% 20% 20% 30%;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    align-items: center;
+    border-bottom: 1px solid var(--border, rgba(255,255,255,0.06));
+  }}
+  .wallet-detail-view {{
+    /* Wrapper for the per-wallet detail view. */
+  }}
+  .wallet-detail-panel {{
+    /* Right-hand panel of the detail view. */
+  }}
+  .wallet-disable-dialog,
+  .wallet-reenable-dialog,
+  .api-key-revoke-modal {{
+    /* The disable / re-enable / revoke modals. Inline `alert-dialog`
+       classes carry the modal styling; this class is the section
+       marker. */
+  }}
+  .admin-chat-page {{
+    /* Container for the admin chat inbox + conversation. */
+  }}
+  .admin-chat-inbox-container {{
+    min-height: 24rem;
+  }}
+  .admin-chat-conversation-container {{
+    min-height: 24rem;
+  }}
+  .conversation-card {{
+    /* Individual conversation card in the inbox. */
+  }}
+  .chat-inbox-search {{
+    background: var(--bg-secondary, rgba(255,255,255,0.02));
+  }}
+  .chat-reply-input {{
+    background: var(--card-bg, rgba(255,255,255,0.02));
+  }}
+  .canned-responses-popover,
+  .assign-agent-popover {{
+    /* Inline popovers in the chat reply input. */
+  }}
+  .chat-unread-badge {{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.375rem;
+    border-radius: 9999px;
+    background: rgb(239, 68, 68);
+    color: white;
+    font-size: 0.625rem;
+    font-weight: 700;
+  }}
+  .admin-chat-conversation-view {{
+    /* Wrapper for the per-conversation view. */
+  }}
+  .developer-portal-stats,
+  .developer-portal-overview {{
+    /* Container for the developer portal stats + overview. */
+  }}
+  .api-keys-tab,
+  .usage-analytics-tab,
+  .documentation-tab {{
+    /* Per-tab containers in the developer portal. */
+  }}
+  .api-key-create-form {{
+    /* The create-key form. */
+  }}
+  .auth-method-selector {{
+    /* The "Pick a sign-in method" panel. */
+  }}
+  .auth-redirect-handler {{
+    /* The auto-redirect UI shown briefly before the redirect. */
+  }}
+  /* end wave6b-admin-pages-depth-track-d */
 </style>"##
     )
 }
