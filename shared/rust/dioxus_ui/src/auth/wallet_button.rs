@@ -199,33 +199,148 @@ pub struct ConnectedWalletState {
 }
 
 impl ConnectedWalletState {
-    /// Wave 3a Track B — derive a server-side `ConnectedWalletState`
-    /// from the inbound HTTP request headers.
+    /// Wave 4 — derive a server-side `ConnectedWalletState` from the
+    /// inbound HTTP request headers.
     ///
-    /// In Wave 3a the real wagmi-equivalent client writes a
-    /// `WalletInfo` cookie on connect; we would parse it here to
-    /// populate `address` / `connector_id` / `chain_id`. For this
-    /// wave the parser is a no-op (returns `Self::default()`) so the
-    /// BFF SSR path can be wired without waiting on the client-side
-    /// cookie contract. A follow-up wave (3b or later) will replace
-    /// the body with a real `WalletInfo` cookie parser — the
-    /// signature is stable.
+    /// The wagmi-equivalent client writes a `epsx_wallet` cookie on
+    /// connect. The cookie is URL-encoded JSON with the shape:
+    ///
+    /// ```text
+    /// epsx_wallet = URL_ENCODE({"address":"0x...","connector_id":"metaMask","chain_id":"56"})
+    /// ```
+    ///
+    /// `chain_id` is parsed as a decimal `u64` (the client writes the
+    /// decimal form, not the `0x` hex). On any parse error (missing
+    /// cookie, malformed JSON, bad chain id) the function returns
+    /// `Self::default()` so SSR never panics on a missing or corrupt
+    /// cookie. The contract "missing cookie = disconnected" is
+    /// preserved: with no `address`, the dropdown renders nothing.
     ///
     /// `is_authenticated` is intentionally NOT derived from cookies
     /// here; it tracks the SIWE session lifetime, not the wallet
     /// connection lifetime. The BFF is expected to set it from
-    /// `user.is_some()` after calling this helper.
-    ///
-    /// The function MUST accept the `HeaderMap` so callers compile
-    /// even though it is currently ignored.
+    /// `user.is_some()` after calling this helper — the SSR layer in
+    /// `apps/frontend/src/ssr.rs` does this in one place.
     pub fn from_cookies(headers: &axum::http::HeaderMap) -> Self {
-        // Stub: real cookie read happens here in a follow-up wave. The
-        // wagmi-equivalent client writes a WalletInfo cookie when
-        // connected; we will parse it here. Until then, return the
-        // default (all fields None / false / 0) so SSR never crashes
-        // on a missing cookie.
-        let _ = headers;
-        Self::default()
+        let cookie_header = match headers.get(axum::http::header::COOKIE).and_then(|h| h.to_str().ok()) {
+            Some(s) => s,
+            None => return Self::default(),
+        };
+
+        // Find the `epsx_wallet=<value>` pair. We do a single linear
+        // scan over the cookie header (the BFF has a small cookie
+        // surface; no need for a HashMap).
+        let raw = match parse_cookie(cookie_header, "epsx_wallet") {
+            Some(v) => v,
+            None => return Self::default(),
+        };
+
+        // The client URL-encodes the JSON value when writing the
+        // cookie (covers the case where the JSON has no special chars
+        // but is always escaped for safety).
+        let decoded = percent_decode(&raw);
+        let parsed: WalletCookieShape = match serde_json::from_str(&decoded) {
+            Ok(v) => v,
+            Err(_) => return Self::default(),
+        };
+
+        let mut state = Self::default();
+        if !parsed.address.is_empty() {
+            state.address = Some(parsed.address);
+        }
+        if !parsed.connector_id.is_empty() {
+            state.connector_id = Some(parsed.connector_id);
+        }
+        // `chain_id` is a String in the cookie; convert to u64. A
+        // non-decimal value (e.g. "0x38") is silently dropped — the
+        // address/connector are still applied since they're valid
+        // even without a chain. The dropdown shows the address; the
+        // network badge just doesn't render.
+        if let Some(s) = parsed.chain_id {
+            if let Ok(c) = s.parse::<u64>() {
+                state.chain_id = Some(c);
+            }
+        }
+        state
+    }
+}
+
+/// JSON shape of the `epsx_wallet` cookie value written by the
+/// wagmi-equivalent client. Mirrors the wagmi `WagmiStore` cookie
+/// fields the TS frontend uses (subset: address + connector + chain
+/// id — the rest of `ConnectedWalletState` is server-driven).
+///
+/// `chain_id` is deserialized as a `String` (not `u64`) because the
+/// client writes it as a JSON string (`"56"`, not the bare number
+/// `56`) — the wagmi store wraps all values in strings. We convert
+/// to `u64` after deserializing so a malformed value (e.g. `"0x38"`)
+/// cleanly returns `None` rather than failing the whole parse.
+#[derive(serde::Deserialize, Debug)]
+struct WalletCookieShape {
+    #[serde(default)]
+    address: String,
+    #[serde(default)]
+    connector_id: String,
+    #[serde(default)]
+    chain_id: Option<String>,
+}
+
+/// Extract a single cookie value from a `Cookie:` header string. We
+/// avoid pulling in a full cookie-parser crate for one read.
+fn parse_cookie<'a>(header: &'a str, name: &str) -> Option<&'a str> {
+    for pair in header.split(';') {
+        let pair = pair.trim();
+        // RFC 6265 §5.2: OWS (optional whitespace) is allowed around
+        // the `=` separator. We accept the variants the BFF might
+        // see in practice:
+        //   - `name=value`
+        //   - `name =value`
+        //   - `name= value`
+        //   - `name = value`
+        // By stripping leading whitespace from both halves after the
+        // first `=` we handle all of them.
+        let (k, v) = match pair.find('=') {
+            Some(idx) => (pair[..idx].trim_end(), &pair[idx + 1..]),
+            None => continue,
+        };
+        if k == name {
+            return Some(v.trim_start());
+        }
+    }
+    None
+}
+
+/// Minimal percent-decode. We only need to handle the characters the
+/// client emits in the JSON: `%XX` where XX are hex digits. We do NOT
+/// touch the underlying bytes (cookies are valid ASCII per RFC 6265
+/// §4.1.1, so multi-byte UTF-8 sequences in the JSON string values
+/// are NOT percent-escaped — wagmi does not escape them either).
+fn percent_decode(input: &str) -> String {
+    let bytes = input.as_bytes();
+    let mut out = String::with_capacity(input.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            let hi = hex_digit(bytes[i + 1]);
+            let lo = hex_digit(bytes[i + 2]);
+            if let (Some(h), Some(l)) = (hi, lo) {
+                out.push(((h << 4) | l) as char);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i] as char);
+        i += 1;
+    }
+    out
+}
+
+fn hex_digit(b: u8) -> Option<u8> {
+    match b {
+        b'0'..=b'9' => Some(b - b'0'),
+        b'a'..=b'f' => Some(b - b'a' + 10),
+        b'A'..=b'F' => Some(b - b'A' + 10),
+        _ => None,
     }
 }
 
@@ -517,13 +632,14 @@ pub fn connected_wallet_pill(user: User) -> Element {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::http::{HeaderMap, HeaderName, HeaderValue};
 
-    /// Wave 3a Track B — the `from_cookies` stub must return
+    /// Wave 3a Track B — the `from_cookies` parser must return
     /// `Default::default()` for an empty `HeaderMap`. This locks in
     /// the contract that SSR never panics on a missing cookie.
     #[test]
     fn from_cookies_returns_default_for_empty_headers() {
-        let state = ConnectedWalletState::from_cookies(&axum::http::HeaderMap::new());
+        let state = ConnectedWalletState::from_cookies(&HeaderMap::new());
         let default = ConnectedWalletState::default();
         assert_eq!(state, default);
         // Defensive: also assert the field-level shape, so a future
@@ -540,5 +656,136 @@ mod tests {
         assert!(state.role.is_none());
         assert!(state.tier_level.is_none());
         assert_eq!(state.perm_count, 0);
+    }
+
+    fn header_map_with_cookie(value: &str) -> HeaderMap {
+        let mut h = HeaderMap::new();
+        h.insert(
+            HeaderName::from_static("cookie"),
+            HeaderValue::from_str(value).unwrap(),
+        );
+        h
+    }
+
+    /// No `epsx_wallet` cookie in the header at all — must return
+    /// default. Other cookies (the SIWE session, etc.) are ignored.
+    #[test]
+    fn from_cookies_returns_default_when_no_wallet_cookie() {
+        let headers = header_map_with_cookie("epsx_token=abc; epsx_user_id=u1; other=foo");
+        let state = ConnectedWalletState::from_cookies(&headers);
+        assert_eq!(state, ConnectedWalletState::default());
+    }
+
+    /// Happy path — wallet connected, all three fields populated.
+    /// The JSON value is URL-encoded as the client writes it.
+    #[test]
+    fn from_cookies_parses_fully_populated_cookie() {
+        // {"address":"0x1234abcd","connector_id":"metaMask","chain_id":"56"}
+        // URL-encoded: address=0x1234abcd, " -> %22, etc.
+        let raw = r#"epsx_wallet=%7B%22address%22%3A%220x1234abcd%22%2C%22connector_id%22%3A%22metaMask%22%2C%22chain_id%22%3A%2256%22%7D"#;
+        let headers = header_map_with_cookie(&format!("{raw}; epsx_token=t"));
+        let state = ConnectedWalletState::from_cookies(&headers);
+        assert_eq!(state.address.as_deref(), Some("0x1234abcd"));
+        assert_eq!(state.connector_id.as_deref(), Some("metaMask"));
+        assert_eq!(state.chain_id, Some(56));
+        // The other fields stay at their defaults — the cookie only
+        // carries connect-time state, not auth/retry/balance/etc.
+        assert!(!state.is_authenticated);
+        assert!(state.balance.is_none());
+    }
+
+    /// Chain id is parsed as decimal. The client writes `"56"`, not
+    /// the `"0x38"` hex form. If a future client writes a non-decimal
+    /// chain, the parser drops the chain field but keeps the rest of
+    /// the parsed state — the address + connector are still valid
+    /// connect-time info, the network badge just doesn't render.
+    #[test]
+    fn from_cookies_drops_non_decimal_chain_id_but_keeps_address() {
+        let raw = r#"epsx_wallet=%7B%22address%22%3A%220xabc%22%2C%22chain_id%22%3A%220x38%22%7D"#;
+        let headers = header_map_with_cookie(raw);
+        let state = ConnectedWalletState::from_cookies(&headers);
+        assert_eq!(state.address.as_deref(), Some("0xabc"));
+        assert!(state.chain_id.is_none());
+    }
+
+    /// Malformed JSON — the cookie is corrupt (truncated, manual
+    /// edit, etc.). Falls back to default. SSR must never panic.
+    #[test]
+    fn from_cookies_returns_default_on_malformed_json() {
+        let raw = r#"epsx_wallet=%7B%22address%22%3A%220xabc%22%2C%"#;
+        let headers = header_map_with_cookie(raw);
+        let state = ConnectedWalletState::from_cookies(&headers);
+        assert_eq!(state, ConnectedWalletState::default());
+    }
+
+    /// Cookie present but every field is empty / null — the contract
+    /// is "no address = disconnected". We do not surface an empty
+    /// `Some("")` that downstream code would have to re-check.
+    #[test]
+    fn from_cookies_treats_empty_address_as_disconnected() {
+        let raw = r#"epsx_wallet=%7B%22address%22%3A%22%22%2C%22connector_id%22%3A%22%22%7D"#;
+        let headers = header_map_with_cookie(raw);
+        let state = ConnectedWalletState::from_cookies(&headers);
+        assert!(state.address.is_none());
+        assert!(state.connector_id.is_none());
+    }
+
+    /// Optional `chain_id` field absent — backwards-compat: older
+    /// clients may write only `address` + `connector_id`. The parser
+    /// should populate what is present and leave the rest default.
+    #[test]
+    fn from_cookies_handles_missing_optional_chain_id() {
+        let raw = r#"epsx_wallet=%7B%22address%22%3A%220xfeed%22%2C%22connector_id%22%3A%22walletConnect%22%7D"#;
+        let headers = header_map_with_cookie(raw);
+        let state = ConnectedWalletState::from_cookies(&headers);
+        assert_eq!(state.address.as_deref(), Some("0xfeed"));
+        assert_eq!(state.connector_id.as_deref(), Some("walletConnect"));
+        assert!(state.chain_id.is_none());
+    }
+
+    /// `is_authenticated` must NEVER be derived from the cookie — the
+    /// BFF sets it from `user.is_some()` (SIWE session lifetime).
+    /// Even with a valid wallet cookie, the parser leaves the field
+    /// at `false`.
+    #[test]
+    fn from_cookies_does_not_set_is_authenticated() {
+        let raw = r#"epsx_wallet=%7B%22address%22%3A%220xabc%22%2C%22connector_id%22%3A%22metaMask%22%2C%22chain_id%22%3A%2256%22%7D"#;
+        let headers = header_map_with_cookie(raw);
+        let state = ConnectedWalletState::from_cookies(&headers);
+        assert!(!state.is_authenticated);
+    }
+
+    // ---- internal helpers ----
+
+    #[test]
+    fn parse_cookie_finds_value_with_equals_in_other_cookie() {
+        // Confirms we don't read into the next pair after `=`.
+        assert_eq!(parse_cookie("a=b; epsx_wallet=xyz; c=d", "epsx_wallet"), Some("xyz"));
+    }
+
+    #[test]
+    fn parse_cookie_handles_whitespace_after_separator() {
+        // Some clients emit `epsx_wallet = ...` — RFC 6265 §5.2 is
+        // lenient on whitespace within the pair.
+        assert_eq!(parse_cookie("epsx_wallet = hello; other=foo", "epsx_wallet"), Some("hello"));
+    }
+
+    #[test]
+    fn parse_cookie_returns_none_when_absent() {
+        assert_eq!(parse_cookie("a=b; c=d", "epsx_wallet"), None);
+    }
+
+    #[test]
+    fn percent_decode_decodes_basic_escapes() {
+        assert_eq!(percent_decode("a%20b"), "a b");
+        assert_eq!(percent_decode("100%25"), "100%");
+        assert_eq!(percent_decode("hello"), "hello");
+    }
+
+    #[test]
+    fn percent_decode_passes_through_invalid_escapes() {
+        // `%XY` where X or Y is not a hex digit is left as-is (per
+        // RFC 3986 §2.4 "should not").
+        assert_eq!(percent_decode("a%ZZb"), "a%ZZb");
     }
 }
