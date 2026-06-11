@@ -18,6 +18,7 @@ pub mod payments;
 pub mod settings;
 pub mod unauthorized;
 pub mod auth_redirect;
+pub mod auth_page;
 pub mod access_denied;
 pub mod wallet_redirect;
 pub mod wallet_wallets;
@@ -45,7 +46,7 @@ pub fn dispatch(ctx: &PageContext) -> (PageMeta, Element) {
         "/policies" => policies::render(ctx),
         "/settings" => settings::render(ctx),
         "/unauthorized" => unauthorized::render(ctx),
-        "/auth" => auth_redirect::render(ctx),
+        "/auth" => auth_page::render(ctx),
         "/access-denied" => access_denied::render(ctx),
         "/wallet-management" => wallet_redirect::render(ctx),
         "/wallet-management/wallets" => wallet_wallets::render(ctx),
