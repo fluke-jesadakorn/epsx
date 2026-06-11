@@ -7,7 +7,7 @@ use super::not_found;
 
 pub mod dashboard;
 pub mod analytics;
-pub mod audit;
+pub mod audit_log;
 pub mod chat;
 pub mod developer_portal;
 pub mod media;
@@ -31,7 +31,7 @@ pub fn dispatch(ctx: &PageContext) -> (PageMeta, Element) {
     match p {
         "/" | "/index" => dashboard::render(ctx),
         "/analytics" => analytics::render(ctx),
-        "/audit-log" => audit::render(ctx),
+        "/audit-log" => audit_log::render(ctx),
         "/chat" => chat::render(ctx),
         "/developer-portal" => developer_portal::render(ctx),
         "/developer-portal/api-keys/create" => developer_portal::render_create_key(ctx),
