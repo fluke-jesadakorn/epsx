@@ -31,4 +31,16 @@ pub mod plans;
 pub mod portfolio;
 pub mod permissions;
 pub mod account;
+pub mod account_credits;
+pub mod analytics;
+pub mod chat;
+pub mod chat_conversation;
+pub mod chat_history;
+pub mod dashboard;
+pub mod developer;
+pub mod home;
+pub mod manual;
+pub mod notifications;
+pub mod payment;
+pub mod profile;
 // end wave6c-1to1-track-e
