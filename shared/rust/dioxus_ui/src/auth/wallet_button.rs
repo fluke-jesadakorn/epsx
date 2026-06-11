@@ -380,17 +380,25 @@ pub fn ConnectedWalletDropdown(
                 }
             }
 
-            // Retry row (auth failed >= 3 attempts)
+            // Retry row (auth failed >= 3 attempts). The whole row
+            // is wrapped in a `polite` live region so screen readers
+            // announce the appearance of the retry CTA when the
+            // auth-attempt count crosses the threshold. The visible
+            // count text below ("Retry Authentication" / "Clear error
+            // and try again") is the spoken text when the region
+            // updates.
             if show_retry_row {
-                if let Some(h) = on_retry.clone() {
-                    button {
-                        class: "wallet-retry-row",
-                        r#type: "button",
-                        onclick: move |e| h.call(e),
-                        Icon { name: "refresh-cw".to_string(), size: Some(16) }
-                        div { class: "wallet-retry-meta",
-                            div { class: "wallet-retry-title", "Retry Authentication" }
-                            div { class: "wallet-retry-sub", "Clear error and try again" }
+                div { class: "wallet-retry-row-wrap", "aria-live": "polite",
+                    if let Some(h) = on_retry.clone() {
+                        button {
+                            class: "wallet-retry-row",
+                            r#type: "button",
+                            onclick: move |e| h.call(e),
+                            Icon { name: "refresh-cw".to_string(), size: Some(16) }
+                            div { class: "wallet-retry-meta",
+                                div { class: "wallet-retry-title", "Retry Authentication" }
+                                div { class: "wallet-retry-sub", "Clear error and try again" }
+                            }
                         }
                     }
                 }
