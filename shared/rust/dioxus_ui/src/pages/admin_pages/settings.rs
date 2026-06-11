@@ -1,30 +1,17 @@
 //! /admin/settings — system settings (config + API keys + email +
 //! notifications + sessions).
 //!
-//! Wave 6B Track A — port of `apps-old/admin-frontend/app/settings/page.tsx`
-//! (26 LoC) + the TS-parity `SettingsDashboard` component (480 LoC of
-//! `components/admin/settings-dashboard.tsx`).
-//!
-//! Sections (per design doc §"Track A" line 173):
-//! - `settings-dashboard` — top-level dashboard wrapper with the
-//!   global save/reset control bar (mirrors the TS
-//!   `SettingsDashboard` outer container).
-//! - `api-keys-list` — API keys table (mirrors the TS source's
-//!   API keys management surface; the TS source's API keys live in
-//!   `developer-portal/api-keys/page.tsx` but the settings dashboard
-//!   references them via the `DeveloperPortal` shortcut).
-//! - `email-settings` — email / SMTP / sender config (mirrors the
-//!   `GeneralSettings` system-designation + admin-email block from
-//!   the TS source).
-//! - `notification-settings` — notification channel toggles
-//!   (mirrors the TS source's `NotificationSettings` block — the
-//!   `Signal Processing` surface).
-//! - `session-management` — session timeout + active session list
-//!   (mirrors the TS source's `SecuritySettings` `Vault Protocols`
-//!   surface — auto-lock duration + active sessions table).
+//! Wave 6C Track C — thin composition of the 5 named sub-components
+//! extracted into `crate::components::admin::settings`. The 5 sub-
+//! components (SettingsDashboard, ApiKeysList, EmailSettings,
+//! NotificationSettings, SessionManagement) live in
+//! `components/admin/settings.rs`. The `MaintenanceCard` is a bonus
+//! (5th in the page surface) and stays page-local.
 
 use crate::auth::AdminAuthGate;
-use crate::data_table::{Column, DataTable, Row};
+use crate::components::admin::settings::{
+    ApiKeysList, EmailSettings, NotificationSettings, SessionManagement, SettingsDashboard,
+};
 use crate::layout::admin_shell::AdminShell;
 use crate::primitives::*;
 
@@ -48,8 +35,7 @@ fn RenderSettings(ctx: PageContext) -> Element {
                     ("Settings".to_string(), "/settings".to_string()),
                 ],
                 div { class: "container page-content admin-settings",
-                    // SettingsDashboard — outer wrapper with global control bar.
-                    SettingsDashboardWrapper {}
+                    SettingsDashboard {}
                     // 2-col grid of section cards.
                     div { class: "grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4",
                         // Left col: EmailSettings + NotificationSettings.
@@ -67,244 +53,11 @@ fn RenderSettings(ctx: PageContext) -> Element {
     }
 }
 
-// ===== SettingsDashboardWrapper =============================================
-//
-// Source: the `SettingsDashboard` component's outer container
-// (`components/admin/settings-dashboard.tsx` lines 438-468 — the
-// global "Reset Logic" + "Deploy Update" control bar). The Dioxus
-// port renders the same bar with a slim variant (no async save —
-// the form actions are wired by the BFF).
-
-#[component]
-fn SettingsDashboardWrapper() -> Element {
-    rsx! {
-        div { class: "settings-dashboard flex items-center justify-between gap-4 p-4 rounded-xl bg-card border border-border/20 shadow-xl",
-            div {
-                h1 { class: "text-2xl font-bold", "Settings Nexus" }
-                p { class: "text-muted-foreground text-sm", "Universal configuration interface for security, appearance, and system protocols" }
-            }
-            div { class: "flex items-center gap-3",
-                button { class: "btn btn-outline", r#type: "button", Icon { name: "rotate-ccw".to_string(), size: Some(14) } " Reset Logic" }
-                button { class: "btn btn-primary", r#type: "button", Icon { name: "check".to_string(), size: Some(14) } " Deploy Update" }
-            }
-        }
-    }
-}
-
-// ===== EmailSettings =======================================================
-//
-// Source: the `GeneralSettings` block of the TS `SettingsDashboard`
-// (`settings-dashboard.tsx` lines 45-119). Mirrors the
-// "System Designation" + "Authority Email Channel" + "Maintenance
-// Lock" fields with the same gradient / dark styling.
-
-#[component]
-fn EmailSettings() -> Element {
-    rsx! {
-        div { class: "card card-glass email-settings",
-            div { class: "card-header",
-                div { class: "card-icon", Icon { name: "mail".to_string(), size: Some(20) } }
-                div { class: "flex-1",
-                    h3 { class: "card-title", "Email & system" }
-                    p { class: "card-description text-xs text-muted-foreground", "SMTP, sender, and platform designation" }
-                }
-            }
-            div { class: "card-body space-y-4",
-                div { class: "field",
-                    label { class: "field-label", "System designation" }
-                    input { class: "input", r#type: "text", value: "EPSX Production" }
-                }
-                div { class: "field",
-                    label { class: "field-label", "Authority email" }
-                    input { class: "input", r#type: "email", value: "admin@epsx.io" }
-                }
-                div { class: "field",
-                    label { class: "field-label", "SMTP host" }
-                    input { class: "input", r#type: "text", value: "smtp.sendgrid.net" }
-                }
-                div { class: "grid grid-cols-2 gap-4",
-                    div { class: "field",
-                        label { class: "field-label", "SMTP port" }
-                        input { class: "input", r#type: "number", value: "587" }
-                    }
-                    div { class: "field",
-                        label { class: "field-label", "TLS" }
-                        select { class: "input",
-                            option { value: "starttls", "STARTTLS" }
-                            option { value: "tls", "TLS" }
-                            option { value: "none", "None" }
-                        }
-                    }
-                }
-                FormActions {
-                    button { class: "btn btn-primary", r#type: "submit", "Save" }
-                }
-            }
-        }
-    }
-}
-
-// ===== NotificationSettings ================================================
-//
-// Source: the `NotificationSettings` block of the TS
-// `SettingsDashboard` (`settings-dashboard.tsx` lines 121-168).
-// Mirrors the "Signal Processing" surface — toggle list for
-// notification channels (email, push, webhook, in-app).
-
-#[component]
-fn NotificationSettings() -> Element {
-    rsx! {
-        div { class: "card card-glass notification-settings",
-            div { class: "card-header",
-                div { class: "card-icon", Icon { name: "bell".to_string(), size: Some(20) } }
-                div { class: "flex-1",
-                    h3 { class: "card-title", "Notification channels" }
-                    p { class: "card-description text-xs text-muted-foreground", "Signal processing — choose which channels fire" }
-                }
-            }
-            div { class: "card-body grid grid-cols-1 md:grid-cols-2 gap-3",
-                NotificationToggle { name: "Email alerts".to_string(), on: true }
-                NotificationToggle { name: "Push notifications".to_string(), on: true }
-                NotificationToggle { name: "Webhook delivery".to_string(), on: false }
-                NotificationToggle { name: "In-app banners".to_string(), on: true }
-                NotificationToggle { name: "Admin digest".to_string(), on: true }
-                NotificationToggle { name: "Weekly report".to_string(), on: false }
-            }
-        }
-    }
-}
-
-#[component]
-fn NotificationToggle(name: String, on: bool) -> Element {
-    rsx! {
-        div { class: "flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/40 hover:bg-muted/50 transition-all",
-            div {
-                span { class: "text-sm font-bold", "{name}" }
-                p { class: "text-[10px] font-bold text-muted-foreground uppercase opacity-50 mt-0.5", "Active broadcast channel" }
-            }
-            ToggleSwitch { on }
-        }
-    }
-}
-
-#[component]
-fn ToggleSwitch(on: bool) -> Element {
-    let bg = if on { "bg-primary" } else { "bg-muted/30" };
-    let pos = if on { "translate-x-[40px]" } else { "translate-x-0" };
-    rsx! {
-        button {
-            class: format!("relative w-20 h-10 rounded-full transition-all duration-300 {bg}"),
-            r#type: "button",
-            "aria-pressed": "{on}",
-            div { class: format!("absolute top-1.5 left-1.5 w-7 h-7 rounded-full bg-white transition-transform duration-300 {pos}") }
-        }
-    }
-}
-
-// ===== ApiKeysList =========================================================
-//
-// Source: not a single component — assembled from the TS source's
-// `developer-portal/api-keys/page.tsx` (Wave 6B Track D territory)
-// but inlined into the settings surface for the admin "Settings
-// Nexus" overview. Renders a 5-col table (Name, Key, Scope, Last
-// used, Created).
-
-#[component]
-fn ApiKeysList() -> Element {
-    let columns = vec![
-        Column { key: "name".into(), label: "Name".into(), sortable: true, align: crate::primitives::data_table::Align::Left, width: Some("25%".into()), class_name: None },
-        Column { key: "key".into(), label: "Key".into(), sortable: false, align: crate::primitives::data_table::Align::Left, width: Some("30%".into()), class_name: None },
-        Column { key: "scope".into(), label: "Scope".into(), sortable: true, align: crate::primitives::data_table::Align::Center, width: Some("15%".into()), class_name: None },
-        Column { key: "last".into(), label: "Last used".into(), sortable: true, align: crate::primitives::data_table::Align::Right, width: Some("15%".into()), class_name: None },
-        Column { key: "created".into(), label: "Created".into(), sortable: true, align: crate::primitives::data_table::Align::Right, width: Some("15%".into()), class_name: None },
-    ];
-    let rows = vec![
-        Row { id: "k1".into(), cells: vec!["Production read-only".into(), "epx_live_…3a4f".into(), "read".into(), "2 min ago".into(), "2024-01-15".into()] },
-        Row { id: "k2".into(), cells: vec!["Webhook delivery".into(), "epx_live_…8b2c".into(), "write".into(), "12 min ago".into(), "2024-03-22".into()] },
-        Row { id: "k3".into(), cells: vec!["Indexer sync".into(), "epx_live_…9d1e".into(), "read".into(), "1 hour ago".into(), "2024-05-04".into()] },
-    ];
-    rsx! {
-        div { class: "card card-glass api-keys-list",
-            div { class: "card-header flex items-center justify-between",
-                div { class: "card-icon", Icon { name: "key".to_string(), size: Some(20) } }
-                div { class: "flex-1",
-                    h3 { class: "card-title", "API keys" }
-                    p { class: "card-description text-xs text-muted-foreground", "Active API keys for the platform" }
-                }
-                button { class: "btn btn-sm btn-primary", r#type: "button", Icon { name: "plus".to_string(), size: Some(14) } " New" }
-            }
-            div { class: "card-body p-0",
-                DataTable { columns, rows, striped: true, page_size: 10, filter_placeholder: Some("Filter by name, scope, or key…".to_string()) }
-            }
-        }
-    }
-}
-
-// ===== SessionManagement ===================================================
-//
-// Source: the `SecuritySettings` block of the TS `SettingsDashboard`
-// (`settings-dashboard.tsx` lines 170-210) + the active sessions
-// table. The Dioxus port renders the auto-lock duration input +
-// a list of active sessions.
-
-#[component]
-fn SessionManagement() -> Element {
-    rsx! {
-        div { class: "card card-glass session-management",
-            div { class: "card-header",
-                div { class: "card-icon", Icon { name: "shield".to_string(), size: Some(20) } }
-                div { class: "flex-1",
-                    h3 { class: "card-title", "Sessions & security" }
-                    p { class: "card-description text-xs text-muted-foreground", "Vault protocols — auto-lock, active sessions, and access controls" }
-                }
-            }
-            div { class: "card-body space-y-4",
-                div { class: "field",
-                    label { class: "field-label", "Auto-lock duration (minutes)" }
-                    input { class: "input", r#type: "number", value: "30" }
-                    p { class: "text-[10px] font-bold text-muted-foreground uppercase opacity-30 mt-1", "Recommended: 15-60 minutes for optimal security" }
-                }
-                div {
-                    p { class: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground", "Active sessions (2)" }
-                    div { class: "space-y-2 mt-2",
-                        SessionRow { device: "MacBook Pro · Chrome 128".to_string(), location: "Bangkok, TH", last_active: "Active now", current: true }
-                        SessionRow { device: "iPhone 15 · Safari 17".to_string(), location: "Bangkok, TH", last_active: "12 min ago", current: false }
-                    }
-                }
-                FormActions {
-                    button { class: "btn btn-danger", r#type: "button", "Revoke all other sessions" }
-                }
-            }
-        }
-    }
-}
-
-#[component]
-fn SessionRow(device: String, location: String, last_active: String, current: bool) -> Element {
-    rsx! {
-        div { class: "flex items-center justify-between p-3 rounded-lg border border-border/40 bg-muted/20",
-            div { class: "min-w-0",
-                div { class: "flex items-center gap-2",
-                    span { class: "text-sm font-semibold", "{device}" }
-                    if current {
-                        span { class: "badge badge-success", "this device" }
-                    }
-                }
-                p { class: "text-xs text-muted-foreground", "{location} · {last_active}" }
-            }
-            if !current {
-                button { class: "btn btn-sm btn-ghost text-danger", r#type: "button", "Revoke" }
-            }
-        }
-    }
-}
-
 // ===== MaintenanceCard =====================================================
 //
-// Bonus card — the TS source's `Maintenance Lock` toggle (from
-// `settings-dashboard.tsx` lines 95-114). Lives in the settings
-// surface as the "5th section" alongside the 4 design-doc-named
-// ones. Renders the maintenance mode toggle + message.
+// Bonus card — the TS source's `Maintenance Lock` toggle. Lives in the
+// settings surface as the "5th section" alongside the 5 design-doc-named
+// sub-components.
 
 #[component]
 fn MaintenanceCard() -> Element {
@@ -323,7 +76,7 @@ fn MaintenanceCard() -> Element {
                         span { class: "text-sm font-bold", "Maintenance mode" }
                         p { class: "text-[10px] font-bold text-muted-foreground uppercase opacity-50 mt-0.5", "Isolate network from public operations" }
                     }
-                    ToggleSwitch { on: false }
+                    SettingsToggleSwitch { on: false }
                 }
                 div { class: "field",
                     label { class: "field-label", "Maintenance message" }
@@ -333,6 +86,24 @@ fn MaintenanceCard() -> Element {
                     button { class: "btn btn-primary", r#type: "submit", "Save" }
                 }
             }
+        }
+    }
+}
+
+/// Local toggle switch — the NotificationSettings sub-component
+/// reuses its own internal `ToggleSwitch`; this one is the bonus
+/// maintenance surface so we duplicate the (small) implementation
+/// here to avoid leaking the helper.
+#[component]
+fn SettingsToggleSwitch(on: bool) -> Element {
+    let bg = if on { "bg-primary" } else { "bg-muted/30" };
+    let pos = if on { "translate-x-[40px]" } else { "translate-x-0" };
+    rsx! {
+        button {
+            class: format!("relative w-20 h-10 rounded-full transition-all duration-300 {bg}"),
+            r#type: "button",
+            "aria-pressed": "{on}",
+            div { class: format!("absolute top-1.5 left-1.5 w-7 h-7 rounded-full bg-white transition-transform duration-300 {pos}") }
         }
     }
 }

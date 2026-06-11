@@ -26,6 +26,11 @@ pub mod chat;
 pub mod i18n;
 pub mod pages;
 pub mod theme;
+// === wave6c-1to1-track-c === new cross-cutting module — admin sub-components
+// (1:1 extraction of named #[component]s from the Next.js source).
+// Other tracks add their own `pub mod` lines for `user` / extra admin
+// sub-modules; the integration agent concatenates the regions.
+pub mod components;
 
 #[cfg(test)]
 mod tests;
