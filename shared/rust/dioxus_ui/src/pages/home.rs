@@ -4,11 +4,17 @@ use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
+use crate::auth::ProgressiveAuthBanner;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Home");
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
+            if ctx.user.is_none() {
+                ProgressiveAuthBanner {
+                    feature: Some("the full EPSX experience".to_string()),
+                }
+            }
             Hero {}
             TrustBar {}
             TopPerformers {}
@@ -270,5 +276,81 @@ fn CTASection() -> Element {
                 }
             }
         }
+    }
+}
+
+// === wave3b-gates-track-c ===
+// Unit tests for the ProgressiveAuthBanner integration on the free
+// `/` page. The banner is a Wave 3b Track C addition: it must
+// render ABOVE the page body when the user is signed out, and be
+// absent from the DOM when the user is signed in. We assert the
+// HTML rendered by `dioxus_ssr::render_element` for both states
+// (mirrors the Wave 3a Track A pattern in `layout/main_layout.rs`).
+//
+// Kept inline in `home.rs` (rather than a new
+// `shared/rust/dioxus_ui/src/tests/banners.rs` file) to avoid a
+// cross-track `mod banners;` race with Wave 3b Tracks A & B, both
+// of which may add files in the same `tests/` directory. The
+// design doc permits this alternative (see §9 "Test additions").
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::auth::User;
+
+    /// Build a minimal signed-in `User` for tests. The default
+    /// `User::default()` is empty (no id, no roles, no permissions)
+    /// but the `is_authed`/`is_admin` methods only treat an empty
+    /// id as "not authed" — for the positive test we want a real
+    /// authed user, so we set `id` to a non-empty value.
+    fn test_user() -> User {
+        User {
+            id: "test-user-id".to_string(),
+            address: "0xtest".to_string(),
+            chain_id: "56".to_string(),
+            roles: vec![],
+            email: None,
+            tier: None,
+            permissions: vec![],
+            last_login_at: None,
+            auth_method: crate::auth::AuthMethod::Wallet,
+            display_name: Some("Test".to_string()),
+        }
+    }
+
+    /// Render a page's `(PageMeta, Element)` to an HTML string.
+    /// Mirrors the helper in `layout/main_layout.rs::tests`.
+    fn render_page_to_string(ctx: &PageContext) -> String {
+        let (_meta, el) = render(ctx);
+        dioxus_ssr::render_element(el)
+    }
+
+    #[test]
+    fn home_renders_banner_for_anonymous_user() {
+        let ctx = PageContext {
+            user: None,
+            path: "/".to_string(),
+            ..Default::default()
+        };
+        let html = render_page_to_string(&ctx);
+        assert!(
+            html.contains("progressive-auth-banner"),
+            "Anonymous home page must render ProgressiveAuthBanner. Got: {}",
+            html
+        );
+    }
+
+    #[test]
+    fn home_does_not_render_banner_for_signed_in_user() {
+        let ctx = PageContext {
+            user: Some(test_user()),
+            path: "/".to_string(),
+            ..Default::default()
+        };
+        let html = render_page_to_string(&ctx);
+        assert!(
+            !html.contains("progressive-auth-banner"),
+            "Signed-in home page must NOT render ProgressiveAuthBanner. Got: {}",
+            html
+        );
     }
 }

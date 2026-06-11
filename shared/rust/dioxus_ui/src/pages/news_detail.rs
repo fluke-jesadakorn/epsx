@@ -8,12 +8,18 @@ use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
 use crate::auth::AuthGate;
+use crate::auth::ProgressiveAuthBanner;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("News article");
     let slug = ctx.params.get("slug").cloned().unwrap_or_default();
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
+            if ctx.user.is_none() {
+                ProgressiveAuthBanner {
+                    feature: Some("news articles".to_string()),
+                }
+            }
             AuthGate { user: ctx.user.clone(), feature: Some("news articles".to_string()),
                 article { class: "container page-content max-w-3xl",
                     a { class: "btn btn-sm btn-ghost mb-4", href: "/news", Icon { name: "arrow-left".to_string(), size: Some(16) } " Back to news" }

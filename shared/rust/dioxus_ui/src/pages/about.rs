@@ -4,11 +4,15 @@ use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
+use crate::auth::ProgressiveAuthBanner;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("About");
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
+            if ctx.user.is_none() {
+                ProgressiveAuthBanner {  }
+            }
             section { class: "about-section container page-content",
                 div { class: "about-hero",
                     h1 { class: "section-title", "About EPSX" }
