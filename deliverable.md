@@ -186,12 +186,22 @@ tracks (admin shell, frontend nav, auth cluster).)
 
 ```text
 $ git push origin migration/dioxus-microservices
-To github.com:epsx/epsx.git
-   06a0195c..<final-hash>  migration/dioxus-microservices -> migration/dioxus-microservices
+To https://github.com/fluke-jesadakorn/epsx.git
+   06a0195c..9d40ca5a  migration/dioxus-microservices -> migration/dioxus-microservices
 ```
 
-**Final HEAD on `migration/dioxus-microservices`:** see the commit
-hash at the end of this report (captured at push time below).
+**Final HEAD on `migration/dioxus-microservices`:** `f44f3c23063b00ce59f259eb77a3270747fa922b`
+(commit `f44f3c23` — `docs(wave2): pin final HEAD hash in integration deliverable`).
+
+- The integration deliverable body was originally written and
+  committed as `9d40ca5a` ("integration gate report — final unified
+  deliverable").
+- A follow-up commit `f44f3c23` updated the push-confirmation
+  section to record the actual pushed HEAD hash.
+- Both are on `migration/dioxus-microservices` now.
+
+Push URL: `https://github.com/fluke-jesadakorn/epsx.git` (branch:
+`migration/dioxus-microservices`).
 
 ## Worktrees
 
