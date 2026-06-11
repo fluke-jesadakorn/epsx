@@ -4884,6 +4884,70 @@ pub fn design_system_head(title: &str, description: &str) -> String {
   .notification-analytics-btn {{ /* analytics deep-dive button */ }}
 
   /* end wave6b-admin-pages-depth-track-b */
+
+  /* === wave6b-admin-pages-depth-track-c ===
+   * Wave 6B Track C — financial-surface pages (payments +
+   * wallet_credits + wallet_plans + wallet_access) +
+   * <AdminTable> primitive. All rules below are scoped to the new
+   * section-marker class names added by the Track C page ports in
+   * `shared/rust/dioxus_ui/src/pages/admin_pages/<payments,
+   * wallet_credits,wallet_plans,wallet_access>.rs` and the
+   * `primitives/admin_table.rs` primitive. We deliberately reuse
+   * the existing design-system classes (`.card`, `.card-glass`,
+   * `.card-header`, `.card-body`, `.btn`, `.tab`, etc.) — these
+   * are the few genuinely new rules that the markers introduced.
+   * The marker region is the only shared file surface with Tracks
+   * A/B/D (which use
+   * `// === wave6b-admin-pages-depth-track-<a,b,d> ===`). */
+
+  /* === admin_table primitive === */
+  .admin-table {{ /* extends .data-table; uses shared toolbar + pagination */ }}
+  .admin-table-toolbar {{ display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; padding: 0.5rem 0; }}
+  .admin-table-chips {{ display: flex; flex-wrap: wrap; gap: 0.25rem; }}
+  .admin-table-chips .chip {{ font-size: 0.75rem; padding: 0.25rem 0.625rem; border-radius: 999px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); cursor: pointer; transition: all 0.15s ease; }}
+  .admin-table-chips .chip-active {{ background: rgba(99, 102, 241, 0.15); border-color: rgba(99, 102, 241, 0.45); color: rgb(165, 180, 252); }}
+  .admin-table-filter {{ flex: 1; min-width: 200px; }}
+  .admin-table-count {{ white-space: nowrap; }}
+  .admin-table-actions {{ white-space: nowrap; }}
+  .admin-table-actions .btn {{ margin-left: 0.25rem; }}
+  .admin-table-action-delete {{ color: rgb(239, 68, 68); }}
+  .admin-table-action-revoke {{ color: rgb(245, 158, 11); }}
+  .admin-table-pagination {{ padding: 0.75rem 0; border-top: 1px solid rgba(255, 255, 255, 0.06); }}
+
+  /* === payments === */
+  .payments-stats {{ /* grid layout, no extra rules needed */ }}
+  .payments-filter-panel {{ /* rounded card; uses shared .input + .btn */ }}
+  .payment-links-list {{ /* uses shared .data-table + gradient header */ }}
+  .access-management-list {{ /* uses shared .data-table + gradient header */ }}
+  .create-link-form {{ /* 2-col form; uses shared .input */ }}
+  .link-revoke-confirm {{ /* destructive confirm card */ }}
+
+  /* === wallet_credits === */
+  .credits-ledger {{ /* page chrome; uses shared .input */ }}
+  .credits-balance-cards {{ /* 4-col grid of .credits-balance-card */ }}
+  .credits-balance-card {{ /* uses existing .rounded-xl + .border styles */ }}
+  .credits-breakdown-card {{ /* uses existing .card + .card-glass */ }}
+  .credits-transaction-list {{ /* uses shared .data-table */ }}
+  .credits-topup-form {{ /* grant form; uses existing .input */ }}
+  .credits-revoke-dialog {{ /* destructive confirm card */ }}
+
+  /* === wallet_plans === */
+  .plan-list-sidebar {{ /* 4-group list; uses existing .input + .btn */ }}
+  .plan-item-card {{ /* sidebar row; uses existing .border-l-4 */ }}
+  .plan-item-card:hover {{ background: rgba(99, 102, 241, 0.04); }}
+  .plan-editor-page {{ /* full-page editor layout */ }}
+  .plan-editor-drawer {{ /* slide-in drawer — hidden by default */ }}
+  .plan-api-limits {{ /* gradient card; uses existing .input */ }}
+  .plan-promotions {{ /* gradient card; uses existing .input */ }}
+
+  /* === wallet_access === */
+  .wallet-access-manager {{ /* 2-col grid; uses existing .input */ }}
+  .plan-selector-modal {{ /* centered modal — hidden by default */ }}
+  .plan-selector-modal[open], .plan-selector-modal.show {{ display: flex; }}
+  .access-grant-form {{ /* grant form; uses existing .input */ }}
+  .access-revoke-dialog {{ /* destructive confirm card */ }}
+
+  /* end wave6b-admin-pages-depth-track-c */
 </style>"##
     )
 }
@@ -5408,6 +5472,21 @@ pub fn lucide_icon(name: &str) -> &'static str {
         "activity" => r#"<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>"#,
         "rotate-ccw" => r#"<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>"#,
         // end wave6b-admin-pages-depth-track-a icon additions
+
+        // === wave6b-admin-pages-depth-track-c === new icons required by
+        // the financial-surface admin pages (payments + wallet_credits
+        // + wallet_plans + wallet_access). All paths mirror the
+        // official lucide.dev SVG body. No existing icons are
+        // restyled.
+        "refresh-cw" => r#"<path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/>"#,
+        "trash" => r#"<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>"#,
+        "trash-2" => r#"<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>"#,
+        "alert-circle" => r#"<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>"#,
+        "arrow-left" => r#"<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>"#,
+        "user-check" => r#"<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/>"#,
+        "rotate-ccw" => r#"<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>"#,
+        "shield-check" => r#"<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>"#,
+        "building" => r#"<rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/>"#,
         _ => "",
     }
 }
