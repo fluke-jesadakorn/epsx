@@ -6,7 +6,7 @@ use crate::data_table::{Column, DataTable, Row, SortDir};
 
 use dioxus::prelude::*;
 use super::super::{PageContext, PageMeta};
-use crate::auth::AuthGate;
+use crate::auth::AdminAuthGate;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::admin("Support chat");
@@ -22,7 +22,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
         Row { id: "3".into(), cells: vec!["API key question".into(), "0x9876…5432".into(), "Open".into(), "5 min ago".into()] },
     ];
     (meta, rsx! {
-        AuthGate { user: ctx.user.clone(), feature: Some("support chat".to_string()),
+        AdminAuthGate { user: ctx.user.clone(), feature: Some("support chat".to_string()), required_permissions: Some(vec!["chat:manage".to_string()]), return_url: Some(ctx.path.clone()),
             div { class: "container page-content",
                 div { class: "flex items-center justify-between mb-6",
                     div {
@@ -46,7 +46,7 @@ fn RenderAdminConversation(ctx: PageContext) -> Element {
     let id = ctx.params.get("id").cloned().unwrap_or_default();
     let mut reply = use_signal(String::new);
     rsx! {
-        AuthGate { user: ctx.user.clone(), feature: Some("support conversations".to_string()),
+        AdminAuthGate { user: ctx.user.clone(), feature: Some("support conversations".to_string()), required_permissions: Some(vec!["chat:manage".to_string()]), return_url: Some(ctx.path.clone()),
             div { class: "container page-content",
                 a { class: "btn btn-sm btn-ghost mb-4", href: "/chat", Icon { name: "arrow-left".to_string(), size: Some(16) } " Back" }
                 div { class: "card card-glass",

@@ -5,7 +5,7 @@ use crate::data_table::{Column, DataTable, Row, SortDir};
 
 use dioxus::prelude::*;
 use super::super::{PageContext, PageMeta};
-use crate::auth::AuthGate;
+use crate::auth::AdminAuthGate;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::admin("Policies");
@@ -16,7 +16,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 fn RenderPolicies(ctx: PageContext) -> Element {
     let mut tab = use_signal(|| "list".to_string());
     rsx! {
-        AuthGate { user: ctx.user.clone(), feature: Some("policy management".to_string()),
+        AdminAuthGate { user: ctx.user.clone(), feature: Some("policy management".to_string()), required_permissions: Some(vec!["policies:manage".to_string()]), return_url: Some(ctx.path.clone()),
             div { class: "container page-content",
                 div { class: "flex items-center justify-between mb-6",
                     div { h1 { class: "text-2xl font-bold", "Policies" } p { class: "text-muted-foreground", "Access control policies: rules, conditions, and decisions" } }

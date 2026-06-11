@@ -6,7 +6,7 @@ use crate::rich_text::RichTextEditor;
 
 use dioxus::prelude::*;
 use super::super::{PageContext, PageMeta};
-use crate::auth::AuthGate;
+use crate::auth::AdminAuthGate;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::admin("News");
@@ -23,7 +23,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
         Row { id: "3".into(), cells: vec!["Subscription v2: programmable plans".into(), "Draft".into(), "EPSX Product".into(), "2024-09-01".into(), "Edit".into()] },
     ];
     (meta, rsx! {
-        AuthGate { user: ctx.user.clone(), feature: Some("news management".to_string()),
+        AdminAuthGate { user: ctx.user.clone(), feature: Some("news management".to_string()), required_permissions: Some(vec!["news:manage".to_string()]), return_url: Some(ctx.path.clone()),
             div { class: "container page-content",
                 div { class: "flex items-center justify-between mb-6",
                     div {
@@ -58,7 +58,7 @@ fn RenderNewsEditor(ctx: PageContext, id: Option<String>, title_str: String) -> 
     let mut title = use_signal(String::new);
     let mut body = use_signal(|| "## Introduction\n\nWrite your news article here in markdown.\n\n- Point 1\n- Point 2\n\n[Read more](https://epsx.io)".to_string());
     rsx! {
-        AuthGate { user: ctx.user.clone(), feature: Some("news editing".to_string()),
+        AdminAuthGate { user: ctx.user.clone(), feature: Some("news editing".to_string()), required_permissions: Some(vec!["news:manage".to_string()]), return_url: Some(ctx.path.clone()),
             div { class: "container page-content max-w-4xl",
                 a { class: "btn btn-sm btn-ghost mb-4", href: "/news", Icon { name: "arrow-left".to_string(), size: Some(16) } " Back" }
                 Form { method: "POST".to_string(), action: if let Some(ref i) = id { format!("/api/v1/news/{}", i) } else { "/api/v1/news".to_string() },

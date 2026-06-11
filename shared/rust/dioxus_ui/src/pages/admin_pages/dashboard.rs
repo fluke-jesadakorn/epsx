@@ -10,13 +10,13 @@ use crate::feedback::*;
 
 use dioxus::prelude::*;
 use super::super::{PageContext, PageMeta};
-use crate::auth::AuthGate;
+use crate::auth::AdminAuthGate;
 use crate::charts::{ChartLine, Series, DataPoint};
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::admin("Command Center");
     (meta, rsx! {
-        AuthGate { user: ctx.user.clone(), feature: Some("the admin dashboard".to_string()),
+        AdminAuthGate { user: ctx.user.clone(), feature: Some("the admin dashboard".to_string()), required_permissions: Some(vec!["admin:*".to_string()]), return_url: Some(ctx.path.clone()),
             div { class: "container page-content",
                 // Pulse header
                 div { class: "admin-pulse-header card card-primary-solid",
