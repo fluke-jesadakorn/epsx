@@ -22,6 +22,7 @@ use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
 use crate::auth::AuthGate;
 use crate::auth::ProgressiveAuthBanner;
+use crate::components::user::news_detail::{RelatedCard, RelatedNewsList};
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("News article");
@@ -160,32 +161,9 @@ fn article_for(slug: &str) -> (&'static str, &'static str, &'static str, &'stati
     }
 }
 
-/// `RelatedNewsList` — 3 cross-linked related articles. Mirrors the
-/// bottom of `news-detail.tsx` (the "related" section in the source
-/// is implicit; we make it explicit so the section marker exists).
-#[component]
-fn RelatedNewsList() -> Element {
-    rsx! {
-        section { class: "max-w-3xl mx-auto px-4 sm:px-6 pb-12 news-related-list",
-            h3 { class: "text-lg font-bold mb-4", "Related articles" }
-            div { class: "grid grid-cols-1 sm:grid-cols-3 gap-4",
-                RelatedCard { slug: "welcome-to-epsx".to_string(), title: "Welcome to EPSX".to_string(), read_time: "3 min".to_string() }
-                RelatedCard { slug: "bsc-integration".to_string(), title: "BSC mainnet integration live".to_string(), read_time: "5 min".to_string() }
-                RelatedCard { slug: "subscription-v2".to_string(), title: "Subscription v2: programmable plans".to_string(), read_time: "4 min".to_string() }
-            }
-        }
-    }
-}
-
-#[component]
-fn RelatedCard(slug: String, title: String, read_time: String) -> Element {
-    rsx! {
-        a { class: "card card-glass p-4 hover:border-cyan-500/40 transition-all news-related-card", href: "/news/{slug}",
-            div { class: "text-xs text-muted-foreground mb-2", "{read_time} read" }
-            div { class: "font-bold line-clamp-2", "{title}" }
-        }
-    }
-}
+/// `RelatedNewsList` and `RelatedCard` were extracted to
+/// `crate::components::user::news_detail` in Wave 6C Track E. The
+/// page file `use`s them from there.
 
 #[cfg(test)]
 mod tests {

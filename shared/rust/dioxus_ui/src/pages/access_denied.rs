@@ -12,14 +12,19 @@
 //!
 //! The source's `searchParams.reason` and `searchParams.route` are
 //! read from the query string and forwarded to the primitive.
-
-use crate::primitives::*;
+//!
+//! Wave 6C Track E — the `AccessDeniedReasons` sub-component now
+//! lives in `crate::components::user::access_denied` (extracted
+//! from the inline section that was here during Wave 6A). The page
+//! `pub use`s the component from there.
 
 use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
 use crate::auth::AccessDenied;
+
+pub use crate::components::user::access_denied::AccessDeniedReasons;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let reason = ctx.query_param("reason");
@@ -48,37 +53,6 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
             }
         }
     })
-}
-
-/// Common-reasons panel — explains why a user might land on
-/// /access-denied. Mirrors the source's "Permission Required"
-/// sub-list in `app/error.tsx` (which renders for 403s). Listed
-/// as a static card below the AccessDenied primitive.
-#[component]
-fn AccessDeniedReasons() -> Element {
-    rsx! {
-        section { class: "access-denied-reasons",
-            div { class: "card card-glass access-denied-reasons-card",
-                div { class: "card-body",
-                    h3 { class: "access-denied-reasons-title", "Common reasons" }
-                    ul { class: "access-denied-reasons-list",
-                        li { class: "access-denied-reasons-item",
-                            span { class: "access-denied-reasons-bullet", "•" }
-                            span { "You need to sign in first" }
-                        }
-                        li { class: "access-denied-reasons-item",
-                            span { class: "access-denied-reasons-bullet", "•" }
-                            span { "Your account lacks the required permissions" }
-                        }
-                        li { class: "access-denied-reasons-item",
-                            span { class: "access-denied-reasons-bullet", "•" }
-                            span { "This page requires a higher subscription tier" }
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 // === wave5-page-depth-track-b ===

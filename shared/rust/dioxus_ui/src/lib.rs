@@ -26,6 +26,13 @@ pub mod chat;
 pub mod i18n;
 pub mod pages;
 pub mod theme;
+// === wave6c-1to1-track-e ===
+// New `components` barrel for sub-components extracted from the
+// page files. Track E owns `components::user`; Tracks B/C/D will
+// own `components::admin` and the integration gate will concat
+// the `pub mod` lines.
+pub mod components;
+// end wave6c-1to1-track-e
 
 #[cfg(test)]
 mod tests;
