@@ -1,100 +1,21 @@
 //! /admin/auth — admin auth gate redirect handler.
 //!
-//! Wave 6B Track D — 2 sections per the design doc
-//! `docs/wave6b-admin-pages-depth/design.md` §"Track D — ... + auth_page":
-//! 1. `AuthMethodSelector` — a brief "Pick a sign-in method" panel
-//!    that lists the two auth options the admin sign-in flow
-//!    supports: SIWE wallet (admin gate) and email magic link.
-//!    The selector is shown briefly before the redirect fires.
-//! 2. `AuthRedirectHandler` — the actual redirect. Mirrors the
-//!    5-LoC source `apps-old/admin-frontend/app/auth/page.tsx`,
-//!    which is a `redirect('/')` Next.js call. The Dioxus port
-//!    emits an inline `<script>` that does
-//!    `window.location.replace('/')` plus a "Redirecting..."
-//!    fallback UI in case the JS doesn't fire.
+//! Wave 6C Track D — 2 sections per the design doc
+//! `docs/wave6c-live-render-and-1to1/design.md` §"Track D":
+//!   1. `AuthMethodSelector`    — pick sign-in method
+//!   2. `AuthRedirectHandler`   — auto-redirect after 1.5s
 //!
-//! The 2-section structure lets us add an "AuthMethodSelector"
-//! later (e.g. for an OAuth provider dropdown) without rewriting
-//! the redirect handler.
+//! The 2 sub-components live in `components::admin::auth`. This
+//! page just composes them inside the `AdminAuthGate` wrapper.
 
 use crate::primitives::*;
+use crate::components::admin::auth::{AuthMethodSelector, AuthRedirectHandler};
 
 use dioxus::prelude::*;
 use super::super::{PageContext, PageMeta};
 use crate::auth::AdminAuthGate;
 
-const AUTH_REDIRECT_SCRIPT: &str = "(function(){try{var d=new URLSearchParams(location.search).get('next')||'/';setTimeout(function(){location.replace(d);},1500);}catch(e){location.replace('/');}})();";
-
-// ============================================================================
-// Section 1: AuthMethodSelector
-// ============================================================================
-//
-// Brief "Pick a sign-in method" panel shown for 1.5s before the
-// redirect fires. The selector is a single panel with two
-// options (SIWE wallet, email magic link) — when the user clicks
-// one, we record the choice in the URL (`?method=siwe` or
-// `?method=email`) and the redirect handler skips the auto-redirect
-// for that method. The Dioxus port keeps the selector in DOM
-// regardless (the BFF / hydration handles the actual flow).
-
-#[component]
-fn AuthMethodSelector() -> Element {
-    rsx! {
-        div { class: "auth-method-selector space-y-3",
-            p { class: "text-sm text-muted-foreground", "Pick a sign-in method" }
-            div { class: "grid grid-cols-1 md:grid-cols-2 gap-3",
-                a { class: "card card-glass p-4 hover-scale flex items-center gap-3", href: "/auth?method=siwe",
-                    div { class: "p-2 rounded-lg bg-primary/10",
-                        Icon { name: "wallet".to_string(), size: Some(20), class_name: Some("text-primary".to_string()) }
-                    }
-                    div {
-                        p { class: "font-semibold", "Sign in with wallet" }
-                        p { class: "text-xs text-muted-foreground", "SIWE \u{2014} recommended for admins" }
-                    }
-                }
-                a { class: "card card-glass p-4 hover-scale flex items-center gap-3", href: "/auth?method=email",
-                    div { class: "p-2 rounded-lg bg-blue-500/10",
-                        Icon { name: "mail".to_string(), size: Some(20), class_name: Some("text-blue-400".to_string()) }
-                    }
-                    div {
-                        p { class: "font-semibold", "Continue with email" }
-                        p { class: "text-xs text-muted-foreground", "Magic link to your inbox" }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ============================================================================
-// Section 2: AuthRedirectHandler
-// ============================================================================
-//
-// The actual redirect. Emits an inline `<script>` that does
-// `window.location.replace('/')` after 1.5s (giving the
-// AuthMethodSelector time to be clicked) plus a "Redirecting..."
-// fallback UI for users with JS disabled.
-
-#[component]
-fn AuthRedirectHandler() -> Element {
-    rsx! {
-        div { class: "auth-redirect-handler flex flex-col items-center justify-center text-center space-y-3 py-6",
-            div { class: "spinner spinner-sm" }
-            p { class: "text-sm text-muted-foreground", "Redirecting\u{2026}" }
-            p { class: "text-xs text-muted-foreground/60",
-                "If you are not redirected automatically, "
-                a { href: "/", class: "underline", "go to the home page" }
-                "."
-            }
-            script { dangerous_inner_html: AUTH_REDIRECT_SCRIPT }
-        }
-    }
-}
-
-// ============================================================================
-// Top-level page entry point
-// ============================================================================
-
+/// Top-level page entry point.
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::admin("Sign in");
     (meta, rsx! { RenderAdminAuth { ctx: ctx.clone() } })
@@ -120,9 +41,9 @@ fn RenderAdminAuth(ctx: PageContext) -> Element {
                             p { class: "text-sm text-muted-foreground", "Choose how you want to sign in to the admin console" }
                         }
                     }
-                    // Section 1: method selector.
+                    // Section 1.
                     AuthMethodSelector {}
-                    // Section 2: redirect handler.
+                    // Section 2.
                     AuthRedirectHandler {}
                 }
             }
@@ -134,7 +55,7 @@ fn RenderAdminAuth(ctx: PageContext) -> Element {
 // Section markers (used by `tests::test_section_markers`):
 //
 //   1. "Auth method selector"    → "Pick a sign-in method" + 2 option cards
-//   2. "Auth redirect handler"  → "Redirecting\u{2026}" + auto-redirect script
+//   2. "Auth redirect handler"  → "Redirecting…" + auto-redirect script
 // ============================================================================
 
 #[cfg(test)]
@@ -191,7 +112,7 @@ mod tests {
     /// section component directly.
     #[test]
     fn test_section_markers() {
-        // Section 1: AuthMethodSelector.
+        // Section 1: AuthMethodSelector (from the new components module).
         let el = rsx! { AuthMethodSelector {} };
         let html = render_to_string(el);
         assert!(html.contains("Pick a sign-in method"), "section 1 (AuthMethodSelector) marker missing");
