@@ -5,7 +5,6 @@ use crate::data_table::{Column, DataTable, Row, SortDir};
 
 use dioxus::prelude::*;
 use super::super::{PageContext, PageMeta};
-use crate::layout::DashboardShell;
 use crate::auth::AuthGate;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
@@ -18,19 +17,17 @@ fn RenderPolicies(ctx: PageContext) -> Element {
     let mut tab = use_signal(|| "list".to_string());
     rsx! {
         AuthGate { user: ctx.user.clone(), feature: Some("policy management".to_string()),
-            DashboardShell { current_path: ctx.path.clone(), page_title: "Policies".to_string(), user: ctx.user.clone(),
-                div { class: "container page-content",
-                    div { class: "flex items-center justify-between mb-6",
-                        div { h1 { class: "text-2xl font-bold", "Policies" } p { class: "text-muted-foreground", "Access control policies: rules, conditions, and decisions" } }
-                    button { class: "btn btn-primary", r#type: "button", Icon { name: "plus".to_string(), size: Some(16) } " New policy" }
-                    }
-                    div { class: "tabs mb-4",
-                        button { class: if *tab.read() == "list" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("list".to_string()), "List" }
-                        button { class: if *tab.read() == "monitor" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("monitor".to_string()), "Monitor" }
-                        button { class: if *tab.read() == "stats" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("stats".to_string()), "Stats" }
-                    }
-                    if *tab.read() == "list" { ListView {} } else if *tab.read() == "monitor" { MonitorView {} } else { StatsView {} }
+            div { class: "container page-content",
+                div { class: "flex items-center justify-between mb-6",
+                    div { h1 { class: "text-2xl font-bold", "Policies" } p { class: "text-muted-foreground", "Access control policies: rules, conditions, and decisions" } }
+                button { class: "btn btn-primary", r#type: "button", Icon { name: "plus".to_string(), size: Some(16) } " New policy" }
                 }
+                div { class: "tabs mb-4",
+                    button { class: if *tab.read() == "list" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("list".to_string()), "List" }
+                    button { class: if *tab.read() == "monitor" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("monitor".to_string()), "Monitor" }
+                    button { class: if *tab.read() == "stats" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("stats".to_string()), "Stats" }
+                }
+                if *tab.read() == "list" { ListView {} } else if *tab.read() == "monitor" { MonitorView {} } else { StatsView {} }
             }
         }
     }

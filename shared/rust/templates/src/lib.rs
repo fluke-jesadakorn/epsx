@@ -3003,6 +3003,19 @@ pub fn design_system_head(title: &str, description: &str) -> String {
      for the layout swap. Integration gate can concatenate an empty
      block here safely; future Wave 3a iterations may add overrides
      for per-page body padding or auth-page full-bleed rules. */
+  /* end wave3a-wiring-track-a */
+  /* === wave3a-wiring-track-c ===
+   * Admin shell wiring: pages stopped rendering `<DashboardShell>`
+   * themselves; the admin BFF now wraps every page body in
+   * `AdminLayout::Auth` (Header + Sidebar + AdminFooter). The CSS
+   * classes that the new layout renders (`.admin-shell`,
+   * `.admin-main`, `.admin-header`, `.admin-content`,
+   * `.admin-footer`, etc.) were already defined in the
+   * `wave2-chrome-track-a` block above — no new rules are required
+   * for this track. This marker exists so the integration gate can
+   * confirm the three wave3a tracks append cleanly into a single
+   * CSS region. */
+  /* end wave3a-wiring-track-c */
 </style>"##
     )
 }

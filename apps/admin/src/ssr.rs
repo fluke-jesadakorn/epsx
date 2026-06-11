@@ -4,6 +4,11 @@
 //! dispatched to the appropriate `rsx!` page from `epsx_dioxus_ui::pages`.
 //! The HTML is wrapped in the EPSX design-system page shell so the visuals
 //! match the Next.js admin 1:1.
+//!
+//! Wave 3a Track C — the rendered page body is wrapped in
+//! `AdminLayout::Auth` (from `epsx_dioxus_ui::layout::shell`) so the
+//! admin chrome (`Header` + `Sidebar` + `AdminFooter`) is owned by the
+//! layout, not by each page. Pages are body-only after this wave.
 
 use axum::{
     extract::{Request, State},
@@ -11,6 +16,7 @@ use axum::{
 };
 use epsx_dioxus_ui::auth::User as UiUser;
 use epsx_dioxus_ui::auth::user::AuthMethod;
+use epsx_dioxus_ui::layout::shell::{AdminLayout, ServerUser};
 use epsx_dioxus_ui::pages::{admin_pages, render_page, PageContext};
 use std::collections::HashMap;
 
@@ -51,7 +57,7 @@ pub async fn ssr_handler(
     // type is here so Track A's MainLayout can read `ctx.wallet`
     // uniformly; admin pages ignore it for now.
     let ctx = PageContext {
-        user,
+        user: user.clone(),
         path: path.clone(),
         query: query.clone(),
         params,
@@ -71,6 +77,37 @@ pub async fn ssr_handler(
     } else {
         render_page(&ctx, true)
     };
+
+    // Wave 3a Track C — wrap the page body in `AdminLayout::Auth` so the
+    // admin shell chrome is rendered by the layout, not by each page.
+    //
+    // The admin BFF does not yet plumb a server user into the layout —
+    // the cookie-based session check happens higher in the request
+    // lifecycle. Until Track B's `wallet` field lands on `PageContext`
+    // we pass a default `ConnectedWalletState` (no wallet dropdown for
+    // admin yet) and let the layout's `is_authenticated` default to
+    // `false` — pages still get the chrome and the AuthGate will
+    // overlay when needed.
+    let server_user: Option<ServerUser> = user.as_ref().map(|u| ServerUser {
+        id: u.id.clone(),
+        email: u.email.clone().unwrap_or_default(),
+        name: None,
+        role: u.roles.first().cloned().unwrap_or_default(),
+    });
+    let is_authenticated = user.is_some();
+    let body_element = AdminLayout::Auth {
+        current_path: path.clone(),
+        server_user,
+        is_authenticated,
+        is_gated: None,
+        no_layout_paths: None,
+    }
+    .render(
+        body_element,
+        None,
+        None,
+        None,
+    );
 
     let body_html = dioxus_ssr::render_element(body_element);
 
@@ -101,4 +138,64 @@ window.epsxWallet = {
   chainId: () => window.ethereum && window.ethereum.chainId || '0x38',
 };
 "#
+}
+
+#[cfg(test)]
+mod tests {
+    //! Smoke tests for Wave 3a Track C — verify that the admin BFF
+    //! wraps page bodies in `AdminLayout::Auth` (which renders the
+    //! `Header` component with the `admin-header` class).
+    //!
+    //! The full BFF render path is async/axum-bound; we exercise the
+    //! thin render-only path (construct a `PageContext`, dispatch the
+    //! page, wrap in `AdminLayout::Auth`, serialize) to confirm the
+    //! chrome is present.
+
+    use super::*;
+    use epsx_dioxus_ui::pages::PageContext;
+
+    fn build_ctx(path: &str) -> PageContext {
+        PageContext {
+            user: None,
+            path: path.to_string(),
+            query: String::new(),
+            params: HashMap::new(),
+            api_url: String::new(),
+            demo_login_enabled: true,
+        }
+    }
+
+    /// Render a page through the admin BFF render path (without
+    /// `page_shell_with_body_class`) so we can assert on the
+    /// layout-wrapped HTML in isolation.
+    fn render_admin_html(path: &str) -> String {
+        let ctx = build_ctx(path);
+        let admin_path = path.trim_start_matches("/admin").to_string();
+        let mut c = ctx.clone();
+        c.path = if admin_path.is_empty() { "/".to_string() } else { admin_path };
+        let (_meta, body) = admin_pages::dispatch(&c);
+        let server_user: Option<ServerUser> = None;
+        let body = AdminLayout::Auth {
+            current_path: path.to_string(),
+            server_user,
+            is_authenticated: false,
+            is_gated: None,
+            no_layout_paths: None,
+        }
+        .render(body, None, None, None);
+        dioxus_ssr::render_element(body)
+    }
+
+    #[test]
+    fn admin_dashboard_renders_with_admin_header() {
+        let html = render_admin_html("/admin");
+        // The admin `Header` component renders an element with the
+        // `admin-header` class — that's our marker for "the layout
+        // chrome is present".
+        assert!(
+            html.contains("admin-header"),
+            "expected rendered admin dashboard HTML to include `admin-header` from the `Header` component rendered by `AdminLayout::Auth`; got: {}",
+            html
+        );
+    }
 }
