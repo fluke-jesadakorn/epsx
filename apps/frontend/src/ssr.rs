@@ -12,6 +12,7 @@ use axum::{
 };
 use epsx_dioxus_ui::auth::User;
 use epsx_dioxus_ui::auth::user::AuthMethod;
+use epsx_dioxus_ui::auth::wallet_button::ConnectedWalletState;
 use epsx_dioxus_ui::pages::{render_page, PageContext};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -75,6 +76,19 @@ pub async fn ssr_handler(
     // page can consume it.
     fetch_page_data(&state, &path, &user, &mut params, &headers).await;
 
+    // Wave 3a Track B — plumb server-side wallet state into the page
+    // context. We delegate the cookie read to
+    // `ConnectedWalletState::from_cookies` (currently a no-op stub —
+    // see `auth/wallet_button.rs` for the follow-up). `is_authenticated`
+    // is sourced from the resolved `user` (the SIWE session lifetime),
+    // NOT from the cookie (which tracks wallet-connection lifetime).
+    //
+    // Stub: cookie parser is a no-op for now — when the wagmi-equivalent
+    // client writes a `WalletInfo` cookie, the parser will populate
+    // `address` / `connector_id` / `chain_id` from it.
+    let mut wallet = ConnectedWalletState::from_cookies(&headers);
+    wallet.is_authenticated = user.is_some();
+
     let ctx = PageContext {
         user,
         path: path.clone(),
@@ -82,6 +96,7 @@ pub async fn ssr_handler(
         params,
         api_url: state.api_url.clone(),
         demo_login_enabled: state.demo_login_enabled,
+        wallet,
     };
 
     let (meta, body_element) = render_page(&ctx, false);

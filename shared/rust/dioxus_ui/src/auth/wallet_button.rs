@@ -198,6 +198,37 @@ pub struct ConnectedWalletState {
     pub perm_count: u32,
 }
 
+impl ConnectedWalletState {
+    /// Wave 3a Track B — derive a server-side `ConnectedWalletState`
+    /// from the inbound HTTP request headers.
+    ///
+    /// In Wave 3a the real wagmi-equivalent client writes a
+    /// `WalletInfo` cookie on connect; we would parse it here to
+    /// populate `address` / `connector_id` / `chain_id`. For this
+    /// wave the parser is a no-op (returns `Self::default()`) so the
+    /// BFF SSR path can be wired without waiting on the client-side
+    /// cookie contract. A follow-up wave (3b or later) will replace
+    /// the body with a real `WalletInfo` cookie parser — the
+    /// signature is stable.
+    ///
+    /// `is_authenticated` is intentionally NOT derived from cookies
+    /// here; it tracks the SIWE session lifetime, not the wallet
+    /// connection lifetime. The BFF is expected to set it from
+    /// `user.is_some()` after calling this helper.
+    ///
+    /// The function MUST accept the `HeaderMap` so callers compile
+    /// even though it is currently ignored.
+    pub fn from_cookies(headers: &axum::http::HeaderMap) -> Self {
+        // Stub: real cookie read happens here in a follow-up wave. The
+        // wagmi-equivalent client writes a WalletInfo cookie when
+        // connected; we will parse it here. Until then, return the
+        // default (all fields None / false / 0) so SSR never crashes
+        // on a missing cookie.
+        let _ = headers;
+        Self::default()
+    }
+}
+
 /// The connected-wallet dropdown card. Renders the full TS layout
 /// (provider card header, copy + explorer actions, optional sign-in
 /// row, retry banner, nav links, disconnect) condensed down to a
@@ -480,5 +511,34 @@ pub fn connected_wallet_pill(user: User) -> Element {
                 span { class: "text-muted-foreground text-sm", "BNB" }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Wave 3a Track B — the `from_cookies` stub must return
+    /// `Default::default()` for an empty `HeaderMap`. This locks in
+    /// the contract that SSR never panics on a missing cookie.
+    #[test]
+    fn from_cookies_returns_default_for_empty_headers() {
+        let state = ConnectedWalletState::from_cookies(&axum::http::HeaderMap::new());
+        let default = ConnectedWalletState::default();
+        assert_eq!(state, default);
+        // Defensive: also assert the field-level shape, so a future
+        // change to `Default` impl (e.g. by adding a new `#[derive]`
+        // default value) doesn't silently desync the test.
+        assert!(state.address.is_none());
+        assert!(state.connector_id.is_none());
+        assert!(!state.is_authenticated);
+        assert_eq!(state.auth_retry_count, 0);
+        assert!(state.last_error.is_none());
+        assert!(state.balance.is_none());
+        assert!(state.chain_id.is_none());
+        assert!(!state.is_authenticating);
+        assert!(state.role.is_none());
+        assert!(state.tier_level.is_none());
+        assert_eq!(state.perm_count, 0);
     }
 }
