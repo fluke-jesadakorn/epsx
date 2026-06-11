@@ -27,4 +27,8 @@ pub mod news_detail;
 pub mod about;
 pub mod news;
 pub mod contact;
+pub mod plans;
+pub mod portfolio;
+pub mod permissions;
+pub mod account;
 // end wave6c-1to1-track-e
