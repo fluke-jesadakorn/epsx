@@ -3807,7 +3807,77 @@ pub fn design_system_head(title: &str, description: &str) -> String {
   .access-denied-reasons-item {{ display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.875rem; color: var(--text-muted, #94a3b8); }}
   .access-denied-reasons-bullet {{ color: var(--text-muted, #94a3b8); }}
 
-  /* end wave5-page-depth-track-b */
+  /* === wave6-auth-pages-depth-track-d ===
+   * Track D — payment + permissions + portfolio + profile + news +
+   * news_detail (6 small/medium pages). Adds the new
+   * `<EmptyChartState>` primitive (reused across portfolio chart
+   * placeholders), the payment-step indicator, the permissions
+   * matrix grid, the profile tab nav, and the news detail hero
+   * accent. Keep CSS minimal — the page sections themselves use
+   * the existing tailwind utilities; this block only adds the new
+   * `.empty-chart-state-*` classes + a couple of helpers used
+   * by the page-level section markers. */
+  .empty-chart-state {{
+    position: relative;
+    border: 1px dashed var(--border, #cbd5e1);
+    border-radius: 1rem;
+    padding: 3rem 1.5rem;
+    background: var(--bg-secondary, #f8fafc);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 220px;
+    justify-content: center;
+  }}
+  .empty-chart-state-grid {{
+    width: 100%;
+    max-width: 360px;
+    height: 80px;
+    background:
+      linear-gradient(to right, rgba(34, 211, 238, 0.18) 1px, transparent 1px) 0 0/40px 40px,
+      linear-gradient(to bottom, rgba(34, 211, 238, 0.18) 1px, transparent 1px) 0 0/40px 40px;
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+  }}
+  .empty-chart-state-title {{
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--text, #0f172a);
+    margin: 0;
+  }}
+  .empty-chart-state-cta {{
+    margin-top: 0.5rem;
+  }}
+  .payment-step-indicator {{
+    /* the existing .card card-glass + .stepper covers the visual
+       step indicator; this class is the section-marker hook
+       used by payment.rs's test_section_markers test. */
+  }}
+  .payment-detail-hero {{
+    /* gradient hero wrapper — tailwind gradient utilities already
+       carry the visual styling; this class is the section marker. */
+  }}
+  .permissions-matrix-table th,
+  .permissions-matrix-table td {{
+    text-align: center;
+  }}
+  .permissions-matrix-table thead th:first-child,
+  .permissions-matrix-table tbody th {{
+    text-align: left;
+  }}
+  .profile-tab-nav {{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }}
+  .news-detail-accent {{
+    /* the gradient bar between hero and article body — the
+       inline gradient classes carry the styling; this class is
+       the section marker. */
+  }}
+  /* end wave6-auth-pages-depth-track-d */
 </style>"##
     )
 }
