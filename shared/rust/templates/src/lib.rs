@@ -2570,6 +2570,429 @@ pub fn design_system_head(title: &str, description: &str) -> String {
     transition: background 0.15s ease;
   }}
   .signin-banner-cta:hover {{ background: rgba(255, 255, 255, 0.3); }}
+
+  /* ============================================================
+   * wave2-chrome-track-c
+   * ------------------------------------------------------------
+   * CSS for the Wave 2 Track C auth cluster
+   * (auth_modal, auth_gate, access_denied, progressive_banner,
+   * user, wallet_button). The Track C rust components emit
+   * markup using these class names; keep additions in this
+   * block so the integration step can merge Tracks A/B/C
+   * cleanly without manual conflict resolution.
+   * ============================================================ */
+
+  /* --- auth modal (focus trap, role=dialog, gradient) --- */
+  .auth-modal {{
+    background: var(--surface-solid, #191923);
+    color: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: 1.5rem;
+    box-shadow: 0 0 50px -12px rgba(0,0,0,0.5);
+    max-width: 56rem;
+    width: 100%;
+    overflow: hidden;
+    animation: scaleIn 0.2s ease;
+    isolation: isolate;
+  }}
+  .auth-modal-grid {{
+    display: grid;
+    grid-template-columns: 1fr;
+  }}
+  @media (min-width: 1024px) {{
+    .auth-modal-grid {{ grid-template-columns: 3fr 2fr; }}
+  }}
+  .auth-modal-aside {{
+    display: none;
+    padding: 3rem 2.5rem;
+    background:
+      radial-gradient(at top left, rgba(118,69,217,0.18), transparent 60%),
+      radial-gradient(at bottom right, rgba(31,199,212,0.18), transparent 60%);
+    border-right: 1px solid var(--border);
+  }}
+  @media (min-width: 1024px) {{
+    .auth-modal-aside {{ display: flex; flex-direction: column; justify-content: center; }}
+  }}
+  .auth-modal-brand {{
+    display: flex; align-items: center; gap: 0.75rem;
+    margin-bottom: 2rem;
+  }}
+  .auth-modal-headline {{
+    font-size: 2.25rem; font-weight: 800; line-height: 1.1;
+    margin: 0 0 1rem 0;
+  }}
+  .auth-modal-sub {{ color: rgba(255,255,255,0.65); margin: 0 0 1.5rem 0; line-height: 1.5; }}
+  .auth-modal-features {{ list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.75rem; }}
+  .auth-modal-features li {{ display: flex; align-items: center; gap: 0.5rem; color: rgba(255,255,255,0.85); }}
+  .auth-modal-content {{ padding: 2rem; position: relative; background: rgba(255,255,255,0.02); }}
+  .auth-modal-title {{ font-size: 1.25rem; font-weight: 600; margin: 0 0 0.5rem 0; color: #ffffff; }}
+  .auth-modal-description {{ color: rgba(255,255,255,0.55); margin: 0 0 1rem 0; }}
+  .auth-modal-divider {{
+    margin: 1.5rem 0 1rem;
+    text-align: center;
+    color: rgba(255,255,255,0.4);
+    font-size: 0.75rem; font-weight: 600;
+    letter-spacing: 0.1em;
+  }}
+  .auth-demo-btn {{ margin-top: 0.25rem; }}
+
+  /* --- wallet option row (button styled as card) --- */
+  .wallet-list {{ display: flex; flex-direction: column; gap: 0.625rem; margin: 0.5rem 0 0 0; padding: 0; list-style: none; }}
+  .wallet-option {{
+    width: 100%;
+    display: flex; align-items: center; gap: 0.875rem;
+    padding: 1rem 1.25rem;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid transparent;
+    border-radius: 1rem;
+    color: #ffffff;
+    font-size: 1rem; font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+  }}
+  .wallet-option:not(:disabled):hover {{
+    background: rgba(255,255,255,0.10);
+    border-color: rgba(139,92,246,0.4);
+    transform: translateY(-1px);
+  }}
+  .wallet-option:disabled {{ opacity: 0.6; cursor: not-allowed; }}
+  .wallet-icon {{
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.75rem; height: 1.75rem;
+    background: rgba(255,255,255,0.06);
+    border-radius: 0.5rem;
+  }}
+  .wallet-name {{ flex: 1; }}
+  .wallet-chev {{ opacity: 0.5; }}
+
+  /* --- auth gate (sign-in / permission-missing / admin variants) --- */
+  .auth-gate {{
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center;
+    padding: 3rem 1.5rem;
+    max-width: 32rem; margin: 4rem auto;
+    background: var(--surface-solid, #191923);
+    border: 1px solid var(--border);
+    border-radius: 1.5rem;
+    box-shadow: 0 0 50px -12px rgba(0,0,0,0.5);
+    color: #ffffff;
+  }}
+  .auth-gate-icon {{
+    width: 4rem; height: 4rem;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: rgba(139,92,246,0.12);
+    color: #8b5cf6;
+    border-radius: 9999px;
+    margin-bottom: 1.25rem;
+  }}
+  .auth-gate-title {{ font-size: 1.5rem; font-weight: 700; margin: 0 0 0.75rem 0; }}
+  .auth-gate-description {{ color: rgba(255,255,255,0.65); margin: 0 0 1.5rem 0; line-height: 1.5; }}
+  .auth-gate-perms {{
+    text-align: left;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 0.875rem 1rem;
+    margin: 0 0 1.5rem 0;
+    width: 100%;
+  }}
+  .auth-gate-perms p {{ margin: 0 0 0.5rem 0; font-size: 0.75rem; color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 0.05em; }}
+  .auth-gate-perms ul {{ margin: 0; padding-left: 1.25rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8125rem; color: rgba(255,255,255,0.85); }}
+  .auth-gate-actions {{ display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; }}
+  .auth-gate-badge {{
+    display: inline-block;
+    background: linear-gradient(135deg, #7645d9, #1fc7d4);
+    color: #ffffff;
+    font-size: 0.6875rem; font-weight: 700;
+    padding: 0.25rem 0.625rem;
+    border-radius: 9999px;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+  }}
+  .auth-gate-admin .auth-gate-icon {{ background: rgba(118,69,217,0.15); color: #a78bfa; }}
+  .auth-gate-missing .auth-gate-icon {{ background: rgba(245,158,11,0.15); color: #fbbf24; }}
+
+  /* --- access denied (full page panel) --- */
+  .access-denied {{
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center;
+    padding: 4rem 1.5rem;
+    max-width: 32rem; margin: 0 auto;
+  }}
+  .access-denied-icon {{
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 5rem; height: 5rem;
+    background: rgba(239,68,68,0.10);
+    color: #ef4444;
+    border-radius: 9999px;
+    margin-bottom: 1.5rem;
+  }}
+  .access-denied-title {{ font-size: 1.75rem; font-weight: 700; margin: 0 0 0.75rem 0; color: var(--text); }}
+  .access-denied-reason {{ color: var(--text-muted); margin: 0 0 1.5rem 0; line-height: 1.5; }}
+  .access-denied-perms {{
+    background: var(--bg-muted, rgba(255,255,255,0.05));
+    border-radius: 0.75rem;
+    padding: 1rem;
+    margin: 0 0 1.5rem 0;
+    width: 100%;
+    text-align: left;
+  }}
+  .access-denied-perms p {{ margin: 0 0 0.5rem 0; font-size: 0.875rem; color: var(--text-muted); }}
+  .access-denied-perms ul {{ margin: 0; padding-left: 1rem; display: flex; flex-direction: column; gap: 0.375rem; }}
+  .access-denied-perm {{
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.75rem;
+    background: var(--bg, #ffffff);
+    color: var(--text);
+    padding: 0.375rem 0.5rem;
+    border-radius: 0.375rem;
+  }}
+  .access-denied-actions {{ display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; }}
+
+  /* --- progressive auth banner (inline strip) --- */
+  .progressive-auth-banner {{
+    display: flex; align-items: center; gap: 0.875rem;
+    padding: 0.875rem 1rem;
+    background: linear-gradient(90deg, rgba(139,92,246,0.08), rgba(31,199,212,0.08));
+    border: 1px solid rgba(139,92,246,0.20);
+    border-radius: 0.75rem;
+    color: var(--text);
+  }}
+  .progressive-auth-banner .banner-icon {{
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 2rem; height: 2rem;
+    background: rgba(139,92,246,0.12);
+    color: #8b5cf6;
+    border-radius: 9999px;
+    flex-shrink: 0;
+  }}
+  .progressive-auth-banner .banner-content {{ flex: 1; min-width: 0; }}
+  .progressive-auth-banner .banner-title {{ font-size: 0.875rem; font-weight: 600; margin: 0; color: var(--text); }}
+  .progressive-auth-banner .banner-subtitle {{ margin: 0.125rem 0 0 0; color: var(--text-muted); }}
+  .progressive-auth-banner-dismiss {{
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.75rem; height: 1.75rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 9999px;
+    color: var(--text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+  }}
+  .progressive-auth-banner-dismiss:hover {{ background: var(--bg-muted, rgba(255,255,255,0.05)); color: var(--text); }}
+
+  /* --- auth method pill (small chip) --- */
+  .auth-method-pill {{
+    display: inline-flex; align-items: center; gap: 0.375rem;
+    padding: 0.125rem 0.5rem;
+    background: rgba(139,92,246,0.10);
+    color: #8b5cf6;
+    font-size: 0.6875rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    border-radius: 9999px;
+    border: 1px solid rgba(139,92,246,0.25);
+  }}
+  .auth-method-pill-icon {{ display: inline-flex; align-items: center; }}
+  .auth-method-pill-label {{ line-height: 1; }}
+
+  /* --- connect button (orange→purple gradient, compact / default / full) --- */
+  .connect-btn {{
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+    background: linear-gradient(90deg, #fb923c, #a855f7);
+    color: #ffffff;
+    font-weight: 600;
+    border: 0;
+    border-radius: 9999px;
+    cursor: pointer;
+    text-decoration: none;
+    box-shadow: 0 8px 24px -8px rgba(168,85,247,0.5);
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }}
+  .connect-btn:hover {{ transform: translateY(-1px); box-shadow: 0 12px 32px -8px rgba(168,85,247,0.6); }}
+  .connect-btn:active {{ transform: translateY(0); }}
+  .connect-btn:disabled {{ opacity: 0.6; cursor: not-allowed; }}
+  .connect-btn-compact {{ height: 2rem; padding: 0 0.75rem; font-size: 0.75rem; }}
+  .connect-btn-default {{ height: 2.5rem; padding: 0 1.25rem; font-size: 0.875rem; }}
+  .connect-btn-full {{
+    height: 3.25rem; padding: 0 1.5rem; font-size: 1rem;
+    border-radius: 1rem;
+    width: 100%;
+  }}
+  .connect-btn-icon {{ display: inline-flex; align-items: center; }}
+  .connect-btn-label {{ line-height: 1; }}
+
+  /* --- connected wallet dropdown (provider card + actions + nav + disconnect) --- */
+  .connected-wallet-dropdown {{
+    background: var(--surface-solid, #191923);
+    color: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    box-shadow: 0 0 50px -12px rgba(0,0,0,0.5);
+    width: 18rem;
+    overflow: hidden;
+    animation: scaleIn 0.15s ease;
+  }}
+  .wallet-provider-card {{
+    padding: 1rem;
+    background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 0.75rem;
+  }}
+  .wallet-provider-icon {{
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 2.5rem; height: 2.5rem;
+    background: rgba(255,255,255,0.08);
+    border-radius: 9999px;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+  }}
+  .wallet-provider-meta {{ flex: 1; min-width: 0; }}
+  .wallet-provider-name {{ font-size: 0.875rem; font-weight: 600; color: #ffffff; }}
+  .wallet-provider-address {{
+    font-size: 0.6875rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: rgba(255,255,255,0.5);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }}
+  .wallet-provider-status {{
+    display: flex; align-items: center; gap: 0.375rem;
+    margin-top: 0.25rem;
+    font-size: 0.6875rem; font-weight: 500;
+  }}
+  .wallet-status-dot {{ display: inline-block; width: 0.4375rem; height: 0.4375rem; border-radius: 9999px; background: currentColor; }}
+  .wallet-status-success {{ color: #10b981; }}
+  .wallet-status-warning {{ color: #f59e0b; }}
+  .wallet-status-error {{ color: #ef4444; }}
+  .wallet-status-neutral {{ color: rgba(255,255,255,0.5); }}
+
+  .wallet-actions-row {{
+    display: flex; gap: 0.5rem;
+    padding: 0.5rem;
+    background: rgba(255,255,255,0.02);
+  }}
+  .wallet-action-btn {{
+    flex: 1;
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(255,255,255,0.05);
+    color: #ffffff;
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem; font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }}
+  .wallet-action-btn:hover {{ background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.15); }}
+
+  .wallet-meta-grid {{
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem 1rem;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+  }}
+  .wallet-meta-cell {{ min-width: 0; }}
+  .wallet-meta-label {{
+    font-size: 0.625rem; font-weight: 600;
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase; letter-spacing: 0.05em;
+    margin-bottom: 0.125rem;
+  }}
+  .wallet-meta-value {{ font-size: 0.8125rem; color: #ffffff; }}
+  .wallet-meta-value-role {{ color: #a78bfa; text-transform: capitalize; }}
+  .wallet-meta-value-tier {{ color: #22d3ee; }}
+
+  .wallet-network-badge {{
+    display: flex; align-items: center; gap: 0.375rem;
+    padding: 0.5rem 1rem;
+    border-top: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.7);
+  }}
+  .wallet-network-dot {{ width: 0.4375rem; height: 0.4375rem; border-radius: 9999px; background: rgba(255,255,255,0.5); }}
+  .wallet-network-live .wallet-network-dot {{ background: #10b981; box-shadow: 0 0 0 2px rgba(16,185,129,0.2); }}
+  .wallet-network-testnet .wallet-network-dot {{ background: #f59e0b; }}
+  .wallet-network-other .wallet-network-dot {{ background: rgba(255,255,255,0.5); }}
+
+  .wallet-signin-row,
+  .wallet-retry-row {{
+    width: calc(100% - 1rem);
+    margin: 0.5rem;
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid transparent;
+    border-radius: 0.75rem;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }}
+  .wallet-signin-row {{
+    background: linear-gradient(90deg, rgba(16,185,129,0.10), rgba(34,197,94,0.10));
+    border-color: rgba(16,185,129,0.25);
+    color: #10b981;
+  }}
+  .wallet-signin-row:hover {{ background: linear-gradient(90deg, rgba(16,185,129,0.18), rgba(34,197,94,0.18)); }}
+  .wallet-retry-row {{
+    background: rgba(251,146,60,0.10);
+    border-color: rgba(251,146,60,0.30);
+    color: #fb923c;
+  }}
+  .wallet-retry-row:hover {{ background: rgba(251,146,60,0.18); }}
+  .wallet-signin-meta,
+  .wallet-retry-meta {{ flex: 1; min-width: 0; }}
+  .wallet-signin-title,
+  .wallet-retry-title {{ font-size: 0.875rem; font-weight: 600; color: inherit; }}
+  .wallet-signin-sub,
+  .wallet-retry-sub {{ font-size: 0.75rem; opacity: 0.75; }}
+
+  .wallet-nav-links {{
+    display: flex; flex-direction: column; gap: 0.125rem;
+    padding: 0.5rem;
+    border-top: 1px solid var(--border);
+  }}
+  .wallet-nav-link {{
+    display: flex; align-items: center; gap: 0.625rem;
+    padding: 0.5rem 0.75rem;
+    color: rgba(255,255,255,0.85);
+    border-radius: 0.5rem;
+    font-size: 0.8125rem; font-weight: 500;
+    text-decoration: none;
+    transition: all 0.15s ease;
+  }}
+  .wallet-nav-link:hover {{ background: rgba(255,255,255,0.06); color: #ffffff; }}
+
+  .wallet-disconnect-btn {{
+    width: calc(100% - 1rem);
+    margin: 0.5rem;
+    display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    background: rgba(239,68,68,0.10);
+    border: 1px solid rgba(239,68,68,0.25);
+    color: #ef4444;
+    border-radius: 0.625rem;
+    font-size: 0.8125rem; font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }}
+  .wallet-disconnect-btn:hover {{ background: rgba(239,68,68,0.20); }}
+
+  /* --- legacy wallet pill (Wave 1 fallback) --- */
+  .connected-wallet {{
+    display: flex; align-items: center; gap: 0.625rem;
+    padding: 0.375rem 0.75rem;
+    background: rgba(255,255,255,0.05);
+    border-radius: 9999px;
+    color: #ffffff;
+  }}
+  .wallet-pill {{ display: flex; align-items: center; gap: 0.375rem; font-size: 0.8125rem; font-weight: 500; }}
+  .wallet-pill .wallet-status-dot {{ background: #10b981; }}
+  .wallet-address {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }}
+  .wallet-balance {{ display: flex; align-items: baseline; gap: 0.25rem; color: #ffffff; }}
+
+  /* end wave2-chrome-track-c */
 </style>"##
     )
 }
