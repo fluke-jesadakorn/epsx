@@ -37,6 +37,7 @@ pub mod misc;
 pub mod alert;
 pub mod alert_dialog;
 pub mod sheet;
+pub mod admin_table;
 
 pub use button::*;
 pub use card::*;
@@ -68,3 +69,4 @@ pub use misc::*;
 pub use alert::*;
 pub use alert_dialog::*;
 pub use sheet::*;
+pub use admin_table::*;
