@@ -4569,6 +4569,149 @@ pub fn design_system_head(title: &str, description: &str) -> String {
        the section marker. */
   }}
   /* end wave6-auth-pages-depth-track-d */
+
+  /* === wave6b-admin-pages-depth-track-b ===
+   * Wave 6B Track B — content-moderation pages depth: audit_log +
+   * news + notifications. All rules below are scoped to the new
+   * section-marker class names added by the Track B page ports in
+   * `shared/rust/dioxus_ui/src/pages/admin_pages/audit_log.rs` +
+   * `news.rs` + `notifications.rs` and the new
+   * `feedback/admin_action_confirm.rs` primitive. The marker region
+   * is the only shared file surface with Tracks A/C/D (which use
+   * `// === wave6b-admin-pages-depth-track-a/c/d ===`).
+   *
+   * We deliberately reuse the existing design-system classes
+   * (`.card`, `.card-glass`, `.btn`, `.btn-primary`, `.btn-outline`,
+   * `.btn-danger`, `.btn-warning`, `.text-muted-foreground`,
+   * `.text-destructive`, `.text-foreground`, etc.) — only the new
+   * Wave 6B surface-area selectors are defined here. No new colors,
+   * no new design tokens. */
+
+  /* --- AdminActionConfirm primitive --- */
+  .admin-action-confirm-overlay {{
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex; align-items: center; justify-content: center;
+    padding: 1rem;
+  }}
+  .admin-action-confirm-panel {{
+    border-radius: 1rem;
+    background: var(--card, #0b0f1a);
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    padding: 1.5rem;
+    max-width: 28rem;
+    width: 100%;
+  }}
+  .admin-action-confirm-title {{
+    font-size: 1.125rem; font-weight: 700; color: var(--foreground, #fff);
+    margin: 0 0 0.5rem;
+  }}
+  .admin-action-confirm-message {{
+    font-size: 0.875rem; color: var(--text-muted, #94a3b8);
+    margin: 0 0 1rem;
+  }}
+  .admin-action-confirm-actions {{
+    display: flex; gap: 0.75rem; justify-content: flex-end;
+  }}
+  .admin-action-confirm-actions .btn {{
+    padding: 0.5rem 1rem; border-radius: 0.5rem;
+    font-size: 0.875rem; font-weight: 500;
+    transition: all 0.15s ease;
+  }}
+  .admin-action-confirm-actions .btn-outline {{
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+    background: transparent;
+  }}
+  .admin-action-confirm-actions .btn-outline:hover {{
+    background: var(--muted, rgba(255, 255, 255, 0.04));
+  }}
+  .admin-action-confirm-actions .btn-danger {{
+    background: var(--destructive, #ef4444); color: #fff;
+  }}
+  .admin-action-confirm-actions .btn-danger:hover {{
+    background: var(--destructive-hover, #dc2626);
+  }}
+  .admin-action-confirm-actions .btn-warning {{
+    background: var(--warning, #f59e0b); color: #fff;
+  }}
+  .admin-action-confirm-actions .btn-warning:hover {{
+    background: var(--warning-hover, #d97706);
+  }}
+  .admin-action-confirm-actions .btn-primary {{
+    background: var(--primary, #3b82f6); color: #fff;
+  }}
+  .admin-action-confirm-actions .btn-primary:hover {{
+    background: var(--primary-hover, #2563eb);
+  }}
+
+  /* --- /admin/audit-log --- 5 sections: filters / timeline / detail / severity / export --- */
+  .audit-filters {{ /* the top filter strip — uses the same card/border styles as the existing data-table-toolbar */ }}
+  .audit-filters-pills {{ /* category filter pill row; scroll-x on mobile */ }}
+  .audit-filters-pill[data-category="all"] {{
+    /* the 'All Actions' pill is the default; uses the muted class by default */
+  }}
+  .audit-filters-pill[data-category].active {{
+    background: linear-gradient(90deg, #7645d9, #5a33b8);
+    color: #fff;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }}
+  .audit-filters-date-from, .audit-filters-date-to {{
+    /* date range inputs — inherit the .input style */ }}
+  .audit-timeline {{ /* outer wrapper for the list + pagination */ }}
+  .audit-timeline-row {{ /* one log entry row */ }}
+  .audit-timeline-action {{ /* the colored action pill inside a row */ }}
+  .audit-timeline-pagination {{ /* footer pagination row */ }}
+  .audit-entry-detail {{ /* expand-into view shown when a row is clicked */ }}
+  .audit-entry-detail-header {{ /* result badge + resource badge + action label */ }}
+  .audit-entry-detail-result {{ /* success / denied / error badge */ }}
+  .audit-entry-detail-resource {{ /* resource type badge (blue) */ }}
+  .audit-entry-detail-meta {{ /* actor / target / timestamp / IP grid */ }}
+  .audit-entry-detail-changes {{ /* per-shape diff section (before/after, permission, etc.) */ }}
+  .audit-severity-breakdown {{ /* sidebar panel: per-category counts */ }}
+  .audit-severity-row {{ /* one row in the breakdown (label + bar) */ }}
+  .audit-export-button {{ /* top-right CSV/JSON button pair */ }}
+
+  /* --- /admin/news --- 6 sections: list / editor / featured / card / empty / pagination --- */
+  .news-management-list {{ /* outer container for the news list */ }}
+  .news-management-filters {{ /* status filter pills (all/draft/published) + count */ }}
+  .news-management-articles {{ /* article list body */ }}
+  .news-featured-card {{ /* pinned-article highlight (cyan border + gradient bar) */ }}
+  .news-featured-card-cover {{ /* cover image slot, gradient placeholder */ }}
+  .news-featured-card-pinned {{ /* the 'Pinned' badge */ }}
+  .news-featured-card-title {{ /* article title (larger than card rows) */ }}
+  .news-featured-card-meta {{ /* author + date line */ }}
+  .news-featured-card-actions {{ /* right-side edit/view buttons */ }}
+  .news-editor {{ /* outer wrapper for the create/edit form */ }}
+  .news-editor-header {{ /* sticky header with status toggle + save button */ }}
+  .news-editor-save {{ /* the primary save button in the header */ }}
+  .article-card {{ /* one article row: cover + title + tags + actions */ }}
+  .article-card-cover {{ /* cover thumbnail slot */ }}
+  .article-card-title {{ /* article title in a row */ }}
+  .article-card-status {{ /* status badge (draft / published) */ }}
+  .article-card-actions {{ /* pin/publish/edit/delete icon buttons */ }}
+  .news-empty-state {{ /* empty state when 0 articles */ }}
+  .news-pagination {{ /* prev/next page controls */ }}
+
+  /* --- /admin/notifications --- 7 sections: list / form / recipients / template / preview / schedule / filters --- */
+  .notification-list {{ /* outer container for the notification list */ }}
+  .notification-list-row {{ /* one notification row */ }}
+  .notification-list-priority {{ /* priority badge (critical / high / normal / low) */ }}
+  .notification-list-actions {{ /* hover-revealed delete button */ }}
+  .send-form {{ /* compose form wrapper */ }}
+  .recipients-picker {{ /* targeted client vs. global broadcast toggle */ }}
+  .notification-template-editor {{ /* title / body / action URL / image URL */ }}
+  .notification-preview {{ /* live preview of the notification card */ }}
+  .notification-schedule-dialog {{ /* schedule-for-later toggle + datetime picker */ }}
+  .notification-management-filters {{ /* filter chips row (all/sent/scheduled/draft) */ }}
+  .notification-filter-chip {{ /* one filter chip */ }}
+  .notification-stats-grid {{ /* 4-stat-card grid (Total Sent / Today's Pulse / Weekly Volume / System Health) */ }}
+  .notification-stat-card {{ /* one stats card */ }}
+  .notification-action-buttons {{ /* 2-col grid for Synchronize / Analytics */ }}
+  .notification-sync-btn {{ /* synchronize telemetry button */ }}
+  .notification-analytics-btn {{ /* analytics deep-dive button */ }}
+
+  /* end wave6b-admin-pages-depth-track-b */
 </style>"##
     )
 }
