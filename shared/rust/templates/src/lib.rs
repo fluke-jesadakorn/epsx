@@ -3017,21 +3017,330 @@ pub fn design_system_head(title: &str, description: &str) -> String {
    * CSS region. */
   /* end wave3a-wiring-track-c */
   /* === wave3b-gates-track-a ===
-   * Frontend user-page gate enrichment (Track A).
-   * The 12 user pages (account, profile, dashboard, portfolio, payment,
-   * notifications, analytics, permissions, chat, chat_history,
-   * chat_conversation, account_credits) all call <AuthGate> with a
-   * required_permissions list and a return_url of `ctx.path.clone()`.
-   * The gate's HTML/CSS (`.auth-gate`, `.auth-gate-missing`,
-   * `.auth-gate-perms`, `.auth-gate-actions`, etc.) was already
-   * defined in the wave2-chrome-track-c block above; this track only
-   * enriches the gate CALLSITES, not the gate styles. No new CSS
-   * rules are required — the existing gate styles render the
-   * permission list, the connect link, and the return_url `?next=...`
-   * query string correctly. This marker exists so the integration
-   * gate can confirm the three wave3b tracks append cleanly into a
-   * single CSS region. */
+    * Frontend user-page gate enrichment (Track A).
+    * The 12 user pages (account, profile, dashboard, portfolio, payment,
+    * notifications, analytics, permissions, chat, chat_history,
+    * chat_conversation, account_credits) all call <AuthGate> with a
+    * required_permissions list and a return_url of `ctx.path.clone()`.
+    * The gate's HTML/CSS (`.auth-gate`, `.auth-gate-missing`,
+    * `.auth-gate-perms`, `.auth-gate-actions`, etc.) was already
+    * defined in the wave2-chrome-track-c block above; this track only
+    * enriches the gate CALLSITES, not the gate styles. No new CSS
+    * rules are required — the existing gate styles render the
+    * permission list, the connect link, and the return_url `?next=...`
+    * query string correctly. This marker exists so the integration
+    * gate can confirm the three wave3b tracks append cleanly into a
+    * single CSS region. */
   /* end wave3b-gates-track-a */
+
+  /* === wave5-page-depth-track-b ===
+   * Info-pages depth — 9 static / utility pages (manual, plans,
+   * contact, privacy, terms, not_found, error_page, offline,
+   * access_denied). All rules below are scoped to the new
+   * section-marker class names added by the Track B page
+   * ports in `shared/rust/dioxus_ui/src/pages/*.rs`. We deliberately
+   * reuse the existing design-system classes (`.card`,
+   * `.card-glass`, `.btn`, `.btn-primary`, `.btn-outline`,
+   * `.btn-gradient`, `.section-title`, `.section-sub`, `.orb-*`,
+   * `.text-muted-foreground`, etc.) — only the new Wave 5
+   * surface-area selectors are defined here.
+   *
+   * No new colors, no new design tokens. CSS is appended cleanly
+   * so the integration agent can concatenate Track A + Track B
+   * blocks (each marked) without conflicts. */
+
+  /* --- /manual --- two-column layout: sticky sidebar + 8-category sections --- */
+  .manual-page {{ max-width: 1280px; }}
+  .manual-grid {{ display: grid; grid-template-columns: 16rem 1fr; gap: 2rem; align-items: start; }}
+  @media (max-width: 900px) {{ .manual-grid {{ grid-template-columns: 1fr; }} }}
+  .manual-sidebar {{ position: sticky; top: 5rem; }}
+  .manual-sidebar-card {{ padding: 0; overflow: hidden; }}
+  .manual-nav {{ display: flex; flex-direction: column; gap: 0.25rem; }}
+  .manual-nav-link {{
+    padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-size: 0.875rem;
+    color: var(--text-muted, #94a3b8); text-decoration: none;
+    transition: background 0.15s ease, color 0.15s ease;
+  }}
+  .manual-nav-link:hover {{ background: rgba(255, 255, 255, 0.06); color: var(--text, #fff); }}
+  .manual-content {{ display: flex; flex-direction: column; gap: 1.5rem; }}
+  .manual-category-details {{
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+    border-radius: 1rem; background: var(--glass-bg, rgba(255, 255, 255, 0.04));
+    padding: 0.5rem 1rem;
+  }}
+  .manual-category-details > summary {{
+    list-style: none; cursor: pointer; padding: 0.75rem 0;
+    display: flex; align-items: center; justify-content: space-between;
+  }}
+  .manual-category-details > summary::-webkit-details-marker {{ display: none; }}
+  .manual-category-title {{ font-size: 1.25rem; font-weight: 700; margin: 0; }}
+  .manual-category-count {{ font-size: 0.75rem; color: var(--text-muted, #94a3b8); }}
+  .manual-feature-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; padding: 0.5rem 0 1rem; }}
+  .manual-feature-card {{ display: flex; flex-direction: column; padding: 0; overflow: hidden; }}
+  .manual-feature-screenshot {{
+    aspect-ratio: 16 / 9; background: rgba(0,0,0,0.2);
+    display: flex; align-items: center; justify-content: center;
+  }}
+  .screenshot-img {{ width: 100%; height: 100%; object-fit: cover; object-position: top; }}
+  .screenshot-img-fallback {{
+    position: absolute; font-size: 0.75rem; color: var(--text-muted, #94a3b8);
+  }}
+  .screenshot-img-wrap {{ position: relative; width: 100%; height: 100%; }}
+  .manual-feature-body {{ padding: 0.75rem 1rem 1rem; display: flex; flex-direction: column; gap: 0.25rem; }}
+  .manual-feature-head {{ display: flex; align-items: center; gap: 0.5rem; }}
+  .manual-feature-name {{ font-weight: 600; margin: 0; }}
+  .manual-feature-route {{
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.7rem; color: var(--text-muted, #94a3b8);
+    background: rgba(255,255,255,0.04); padding: 0.1rem 0.4rem; border-radius: 0.25rem;
+  }}
+  .manual-feature-desc {{ margin: 0.25rem 0 0.5rem; }}
+  .manual-feature-link {{ font-size: 0.875rem; color: #60a5fa; text-decoration: none; }}
+  .manual-feature-link:hover {{ color: #93c5fd; }}
+  .manual-summary {{ margin: 0 0 1.5rem; }}
+  .manual-summary-title {{ font-size: 2rem; font-weight: 700; margin: 0 0 0.5rem; }}
+  .manual-summary-subtitle {{ margin: 0 0 0.75rem; }}
+  .manual-summary-meta {{ display: flex; gap: 0.5rem; align-items: center; font-size: 0.875rem; color: var(--text-muted, #94a3b8); }}
+  .manual-summary-count, .manual-summary-categories {{ font-weight: 500; }}
+  .manual-cta {{ margin-top: 3rem; }}
+  .manual-cta-card {{ padding: 2rem; }}
+
+  /* --- /plans --- hero, 3-tier grid, comparison table, FAQ, enterprise CTA --- */
+  .plans-hero {{ padding: 3rem 0 2rem; text-align: center; }}
+  .plans-hero-title {{
+    font-size: 2.5rem; font-weight: 800; margin: 0 0 0.75rem;
+    background: linear-gradient(90deg, #10b981, #3b82f6, #a855f7);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }}
+  .plans-hero-subtitle {{ color: var(--text-muted, #94a3b8); max-width: 48rem; margin: 0 auto; font-size: 1.125rem; }}
+  .plans-grid-section {{ padding: 2rem 0; }}
+  .plan-card {{ padding: 1.5rem; transition: transform 0.2s ease, box-shadow 0.2s ease; }}
+  .plan-card.card-featured {{ transform: translateY(-2px); }}
+  .plan-features {{ list-style: none; padding: 0; margin: 0; }}
+  .plans-comparison-section {{ padding: 3rem 0; }}
+  .plans-comparison-table-wrap {{ overflow-x: auto; margin-top: 1.5rem; }}
+  .plans-comparison-table {{ width: 100%; border-collapse: collapse; }}
+  .plans-comparison-table th, .plans-comparison-table td {{
+    padding: 0.75rem 1rem; text-align: left;
+    border-bottom: 1px solid var(--border, rgba(255,255,255,0.08));
+  }}
+  .plans-comparison-table thead th {{ font-weight: 600; }}
+  .plans-comparison-feature-col {{ width: 40%; }}
+  .plans-comparison-col-featured {{ color: var(--primary, #3b82f6); }}
+  .plans-comparison-yes {{ color: #10b981; font-weight: 700; }}
+  .plans-comparison-no {{ color: var(--text-muted, #94a3b8); }}
+  .plans-faq-section {{ padding: 3rem 0; }}
+  .plans-faq-list {{ max-width: 48rem; margin: 2rem auto 0; display: flex; flex-direction: column; gap: 0.75rem; }}
+  .plans-faq-item {{ padding: 0; overflow: hidden; }}
+  .plans-faq-question {{
+    list-style: none; cursor: pointer; padding: 1rem 1.25rem;
+  }}
+  .plans-faq-question::-webkit-details-marker {{ display: none; }}
+  .plans-faq-question h3 {{ margin: 0; font-size: 1rem; font-weight: 600; }}
+  .plans-faq-answer {{ padding: 0 1.25rem 1.25rem; color: var(--text-muted, #94a3b8); }}
+  .plans-faq-link {{ color: #10b981; text-decoration: underline; }}
+  .plans-enterprise-cta {{ padding: 3rem 0; }}
+  .plans-enterprise-cta-card {{ padding: 2.5rem; }}
+  .plans-enterprise-cta-title {{ font-size: 1.75rem; font-weight: 700; margin: 0 0 0.5rem; }}
+  .plans-enterprise-cta-subtitle {{ margin: 0 0 1.5rem; }}
+  .plans-enterprise-cta-actions {{ display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }}
+
+  /* --- /contact --- gradient background + form + 3 info cards --- */
+  .contact-page {{ position: relative; z-index: 1; padding-bottom: 4rem; }}
+  .contact-bg {{
+    position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+    background: linear-gradient(135deg, #eff6ff 0%, #fff7ed 50%, #fefce8 100%);
+  }}
+  :root.dark .contact-bg {{
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+  }}
+  .contact-bg-orb {{ position: absolute; border-radius: 9999px; filter: blur(80px); opacity: 0.35; }}
+  .contact-bg-orb-1 {{ width: 24rem; height: 24rem; top: -6rem; left: -8rem; }}
+  .contact-bg-orb-2 {{ width: 20rem; height: 20rem; top: 5rem; right: -6rem; }}
+  .contact-bg-orb-3 {{ width: 18rem; height: 18rem; bottom: 0; left: 30%; }}
+  .contact-bg-orb-4 {{ width: 16rem; height: 16rem; bottom: 6rem; right: 8rem; opacity: 0.25; }}
+  .contact-hero {{ padding: 4rem 0 2rem; text-align: center; position: relative; }}
+  .contact-hero-title {{
+    font-size: 3rem; font-weight: 800; margin: 0 0 1rem;
+    background: linear-gradient(90deg, #a855f7, #f97316, #eab308);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }}
+  .contact-hero-subtitle {{ max-width: 36rem; margin: 0 auto; color: var(--text-muted, #475569); }}
+  .contact-hero-divider {{
+    width: 10rem; height: 0.25rem; margin: 1.5rem auto 0;
+    background: linear-gradient(90deg, #a855f7, #f97316, #eab308); border-radius: 9999px;
+  }}
+  .contact-email-section {{ padding: 1rem 0 3rem; }}
+  .contact-email-card {{
+    max-width: 32rem; margin: 0 auto; padding: 2rem; text-align: center;
+    background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(20px);
+    border: 1px solid rgba(168, 85, 247, 0.2);
+    border-radius: 1.5rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+  }}
+  :root.dark .contact-email-card {{ background: rgba(30, 41, 59, 0.8); border-color: rgba(168, 85, 247, 0.3); }}
+  .contact-email-icon {{
+    display: inline-flex; padding: 1rem; border-radius: 1rem;
+    background: linear-gradient(135deg, #a855f7, #f97316); margin-bottom: 1.25rem;
+  }}
+  .contact-email-title {{ font-size: 1.25rem; font-weight: 700; margin: 0 0 0.5rem; }}
+  .contact-email-subtitle {{ margin: 0 0 1.25rem; }}
+  .contact-mailto-btn {{ display: inline-flex; gap: 0.5rem; align-items: center; }}
+  .contact-email-divider {{ height: 1px; background: rgba(0,0,0,0.06); margin: 1rem 0; }}
+  :root.dark .contact-email-divider {{ background: rgba(255,255,255,0.06); }}
+  .contact-copy-btn {{ display: inline-flex; gap: 0.4rem; align-items: center; }}
+  .contact-info-section {{ padding: 0 0 3rem; }}
+  .contact-info-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; max-width: 64rem; margin: 0 auto; }}
+  .contact-info-card {{
+    background: rgba(255,255,255,0.8); backdrop-filter: blur(20px);
+    border-radius: 1.5rem; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+    padding: 0;
+  }}
+  :root.dark .contact-info-card {{ background: rgba(30, 41, 59, 0.8); }}
+  .contact-info-row {{ display: flex; gap: 1rem; align-items: flex-start; padding: 1.25rem; }}
+  .contact-info-icon {{
+    display: inline-flex; padding: 0.75rem; border-radius: 1rem; flex-shrink: 0;
+  }}
+  .contact-info-icon-purple {{ background: linear-gradient(135deg, #a855f7, #3b82f6); }}
+  .contact-info-icon-orange {{ background: linear-gradient(135deg, #f97316, #eab308); }}
+  .contact-info-icon-blue {{ background: linear-gradient(135deg, #3b82f6, #06b6d4); }}
+  .contact-info-title {{ font-weight: 600; margin: 0 0 0.25rem; }}
+  .contact-info-desc {{ margin: 0; }}
+  .contact-form-section {{ padding: 0 0 4rem; }}
+  .contact-form-card {{ max-width: 48rem; margin: 0 auto; padding: 0; }}
+  .contact-form-title {{ font-size: 1.5rem; font-weight: 700; margin: 0 0 0.5rem; }}
+  .contact-form-subtitle {{ margin: 0 0 1.5rem; }}
+  .contact-form {{ display: flex; flex-direction: column; gap: 1rem; }}
+  .contact-form-row {{ display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }}
+  @media (max-width: 600px) {{ .contact-form-row {{ grid-template-columns: 1fr; }} }}
+  .contact-form-actions {{ display: flex; justify-content: flex-end; }}
+
+  /* --- /privacy, /terms --- legal pages: hero + sticky TOC + sections --- */
+  .legal-page {{ max-width: 56rem; }}
+  .legal-hero {{ text-align: center; padding: 3rem 0 2rem; }}
+  .legal-hero-title {{
+    font-size: 2.5rem; font-weight: 800; margin: 0 0 0.5rem;
+    background: linear-gradient(90deg, #a855f7, #ec4899);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }}
+  .legal-hero-subtitle {{ margin: 0; }}
+  .legal-toc {{
+    display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
+    padding: 0.75rem 1rem; margin: 1rem 0 2rem;
+    background: var(--glass-bg, rgba(255,255,255,0.04));
+    border: 1px solid var(--glass-border, rgba(255,255,255,0.08));
+    border-radius: 0.75rem;
+  }}
+  .legal-toc-label {{ font-size: 0.875rem; color: var(--text-muted, #94a3b8); margin-right: 0.5rem; }}
+  .legal-toc-link {{
+    font-size: 0.875rem; color: var(--text, #fff); text-decoration: none;
+    padding: 0.25rem 0.6rem; border-radius: 9999px;
+    background: rgba(255,255,255,0.04);
+  }}
+  .legal-toc-link:hover {{ background: rgba(255,255,255,0.1); }}
+  .legal-sections {{ display: flex; flex-direction: column; gap: 2rem; }}
+  .legal-section-title {{
+    font-size: 1.5rem; font-weight: 700; margin: 0 0 0.75rem; color: #a855f7;
+  }}
+  .legal-section-text {{ margin: 0 0 0.75rem; line-height: 1.7; }}
+  .legal-section-list {{ padding-left: 1.5rem; margin: 0 0 0.75rem; line-height: 1.8; }}
+  .legal-link {{ color: #60a5fa; text-decoration: underline; }}
+  .legal-footer {{
+    display: flex; gap: 0.75rem; justify-content: center;
+    margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.08);
+  }}
+  .terms-subscribe-section {{ margin-top: 2rem; }}
+  .terms-subscribe-card {{ padding: 0; }}
+  .terms-subscribe-title {{ font-size: 1.25rem; font-weight: 700; margin: 0 0 0.5rem; color: #a855f7; }}
+  .terms-subscribe-subtitle {{ margin: 0 0 1rem; }}
+  .terms-subscribe-form {{ display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap; }}
+
+  /* --- /not-found, /error, /offline --- utility pages --- */
+  .not-found {{ text-align: center; padding: 4rem 1rem; max-width: 42rem; margin: 0 auto; }}
+  .not-found-code {{
+    font-size: 6rem; font-weight: 900; line-height: 1;
+    background: linear-gradient(135deg, #a855f7, #3b82f6);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    margin-bottom: 0.5rem;
+  }}
+  .not-found-title {{ font-size: 2rem; font-weight: 700; margin: 0 0 0.5rem; }}
+  .not-found-description {{ margin: 0 0 1.5rem; }}
+  .not-found-actions {{ display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; margin-bottom: 2rem; }}
+  .not-found-illustration {{ display: flex; justify-content: center; color: var(--text-muted, #94a3b8); margin: 1rem 0; }}
+  .not-found-destinations {{ margin-top: 2rem; }}
+  .not-found-destinations-title {{ font-size: 1.125rem; font-weight: 600; margin: 0 0 1rem; }}
+  .not-found-destinations-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.75rem; }}
+  .not-found-destination {{
+    display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+    padding: 1rem; text-decoration: none; color: inherit;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }}
+  .not-found-destination:hover {{ transform: translateY(-2px); }}
+
+  .error-page {{ text-align: center; padding: 4rem 1rem; max-width: 42rem; margin: 0 auto; }}
+  .error-page-illustration {{ display: flex; justify-content: center; margin-bottom: 1rem; }}
+  .error-page-icon {{
+    display: inline-flex; padding: 1rem; border-radius: 9999px; background: rgba(0,0,0,0.05);
+  }}
+  :root.dark .error-page-icon {{ background: rgba(255,255,255,0.06); }}
+  .error-page-title {{ font-size: 2rem; font-weight: 700; margin: 0 0 0.5rem; }}
+  .error-page-subtitle {{ margin: 0 0 1rem; }}
+  .error-page-message {{
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.875rem; color: var(--text-muted, #94a3b8);
+    background: rgba(0,0,0,0.05); border-radius: 0.5rem; padding: 0.75rem 1rem;
+    margin: 0 0 1.5rem; text-align: left; word-break: break-word;
+  }}
+  :root.dark .error-page-message {{ background: rgba(255,255,255,0.05); }}
+  .error-page-actions {{ display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; margin-top: 1rem; }}
+  .error-page-hints {{ margin: 1.5rem auto; max-width: 24rem; text-align: left; }}
+  .error-page-hints-label {{ margin: 0 0 0.5rem; color: var(--text-muted, #94a3b8); }}
+  .error-page-hints ul {{ padding-left: 1.5rem; margin: 0; line-height: 1.7; color: var(--text-muted, #94a3b8); }}
+
+  .offline-page {{
+    min-height: 80vh; display: flex; align-items: center; justify-content: center;
+    padding: 2rem 1rem;
+    background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+  }}
+  :root.dark .offline-page {{ background: linear-gradient(135deg, #0f172a, #1e293b); }}
+  .offline-card {{ max-width: 32rem; width: 100%; padding: 2.5rem 2rem; text-align: center; }}
+  .offline-icon {{
+    display: inline-flex; padding: 1.25rem; border-radius: 9999px;
+    background: rgba(249, 115, 22, 0.1); color: #f97316; margin-bottom: 1.5rem;
+  }}
+  :root.dark .offline-icon {{ background: rgba(249, 115, 22, 0.2); }}
+  .offline-title {{ font-size: 1.5rem; font-weight: 700; margin: 0 0 0.5rem; }}
+  .offline-subtitle {{ margin: 0 0 1.5rem; }}
+  .offline-available {{
+    background: rgba(0,0,0,0.03); border-radius: 0.75rem; padding: 1rem 1.25rem;
+    text-align: left; margin: 0 0 1.5rem;
+  }}
+  :root.dark .offline-available {{ background: rgba(255,255,255,0.04); }}
+  .offline-available-title {{ font-size: 0.875rem; font-weight: 500; margin: 0 0 0.75rem; }}
+  .offline-available-list {{ list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.875rem; }}
+  .offline-available-item {{ display: flex; gap: 0.5rem; align-items: center; }}
+  .offline-available-dot {{ width: 0.5rem; height: 0.5rem; border-radius: 9999px; flex-shrink: 0; }}
+  .offline-available-dot-yes {{ background: #10b981; }}
+  .offline-available-dot-limited {{ background: #f97316; }}
+  .offline-actions {{ display: flex; flex-direction: column; gap: 0.75rem; }}
+  .offline-actions-row {{ display: flex; gap: 0.5rem; }}
+  .offline-actions-row .btn {{ flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; }}
+  .offline-tip {{
+    margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.06);
+    font-size: 0.75rem; color: var(--text-muted, #94a3b8);
+  }}
+  :root.dark .offline-tip {{ border-top-color: rgba(255,255,255,0.06); }}
+  .offline-tip-label {{ font-weight: 500; margin: 0 0 0.25rem; }}
+  .offline-tip-text {{ margin: 0; }}
+
+  .access-denied-page {{ max-width: 42rem; margin: 0 auto; padding: 2rem 1rem; }}
+  .access-denied-reasons {{ margin-top: 2rem; }}
+  .access-denied-reasons-card {{ padding: 0; }}
+  .access-denied-reasons-title {{ font-size: 1rem; font-weight: 600; margin: 0 0 0.75rem; }}
+  .access-denied-reasons-list {{ list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }}
+  .access-denied-reasons-item {{ display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.875rem; color: var(--text-muted, #94a3b8); }}
+  .access-denied-reasons-bullet {{ color: var(--text-muted, #94a3b8); }}
+
+  /* end wave5-page-depth-track-b */
 </style>"##
     )
 }
