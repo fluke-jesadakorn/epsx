@@ -11,6 +11,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use epsx_dioxus_ui::auth::User;
+use epsx_dioxus_ui::auth::user::AuthMethod;
 use epsx_dioxus_ui::pages::{render_page, PageContext};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -41,6 +42,12 @@ pub async fn ssr_handler(
         email: None,
         tier: None,
         permissions: vec![],
+        // Wave 2 Track C — auth metadata fields. The frontend BFF
+        // doesn't have rich auth metadata, so we leave the new
+        // optional fields at their defaults.
+        last_login_at: None,
+        auth_method: AuthMethod::Wallet,
+        display_name: None,
     });
 
     // Parse dynamic-route params from path

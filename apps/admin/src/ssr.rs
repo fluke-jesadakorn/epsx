@@ -10,6 +10,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use epsx_dioxus_ui::auth::User as UiUser;
+use epsx_dioxus_ui::auth::user::AuthMethod;
 use epsx_dioxus_ui::pages::{admin_pages, render_page, PageContext};
 use std::collections::HashMap;
 
@@ -35,6 +36,12 @@ pub async fn ssr_handler(
         email: None,
         tier: None,
         permissions: vec![],
+        // Wave 2 Track C — auth metadata fields. The admin BFF
+        // doesn't have rich auth metadata, so we leave the new
+        // optional fields at their defaults.
+        last_login_at: None,
+        auth_method: AuthMethod::Wallet,
+        display_name: None,
     });
 
     // Admin: always render the admin page dispatcher
