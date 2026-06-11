@@ -3808,6 +3808,49 @@ pub fn design_system_head(title: &str, description: &str) -> String {
   .access-denied-reasons-bullet {{ color: var(--text-muted, #94a3b8); }}
 
   /* end wave5-page-depth-track-b */
+
+  /* === wave6-auth-pages-depth-track-a ===
+   * Wave 6A Track A — auth-required pages depth: dashboard + account
+   * + account_credits. All rules below are scoped to the new
+   * section-marker class names added by the Track A page ports in
+   * `shared/rust/dioxus_ui/src/pages/{{dashboard,account,account_credits}}.rs`.
+   * We deliberately reuse the existing design-system classes
+   * (`.card`, `.card-glass`, `.card-header`, `.card-body`,
+   * `.btn`, `.tab`, etc.) — these are the few genuinely new rules
+   * that the markers introduced. The marker region is the only
+   * shared file surface with Tracks B/C/D (which use
+   * `// === wave6-auth-pages-depth-track-b/c/d ===`). */
+
+  /* === dashboard === */
+  .stat-cards-row {{ /* layout: same as inline grid, no extra rules */ }}
+  .dashboard-earnings-chart .chart {{ width: 100%; height: auto; }}
+  .watchlist-snapshot-row td {{ vertical-align: middle; }}
+  .plan-summary-card .progress {{ width: 100%; height: 0.5rem; background: rgba(255, 255, 255, 0.08); border-radius: 999px; overflow: hidden; }}
+  .plan-summary-card .progress-bar {{ height: 100%; background: linear-gradient(90deg, #22d3ee, #6366f1); border-radius: 999px; transition: width 0.3s ease; }}
+  .your-account-card p {{ margin: 0.25rem 0; }}
+
+  /* === account (6 tabs) === */
+  .account-tabs {{ display: flex; flex-wrap: wrap; gap: 0.5rem; }}
+  .account-tab {{ display: block; }}
+  .notification-toggle-row {{ transition: border-color 0.15s ease, background 0.15s ease; }}
+  .notification-toggle-row:hover {{ background: rgba(99, 102, 241, 0.04); }}
+  .notification-toggle-input {{ width: 1.25rem; height: 1.25rem; accent-color: #6366f1; cursor: pointer; }}
+  .btn-danger {{ background: #ef4444; color: white; border-color: #ef4444; }}
+  .btn-danger:hover {{ background: #dc2626; border-color: #dc2626; }}
+
+  /* === account/credits (credit ledger) === */
+  .credits-ledger-page {{ /* layout: same as page-content */ }}
+  .credits-balance-row {{ margin-bottom: 1.5rem; }}
+  .credits-balance-available {{ box-shadow: 0 10px 30px -10px rgba(59, 130, 246, 0.5); }}
+  .credits-topup .input {{ width: 100%; }}
+  .credits-transaction-list .credits-filter-chip {{ font-size: 0.75rem; }}
+  .credits-ledger-row {{ transition: background 0.15s ease; }}
+  .credits-ledger-row:hover {{ background: rgba(99, 102, 241, 0.04); }}
+  .credits-ledger-row--credit {{ /* default row */ }}
+  .credits-ledger-row--debit {{ /* default row */ }}
+  .credits-ledger-kind {{ display: block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }}
+
+  /* end wave6-auth-pages-depth-track-a */
 </style>"##
     )
 }
