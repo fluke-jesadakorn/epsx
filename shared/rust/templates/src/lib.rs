@@ -3016,6 +3016,22 @@ pub fn design_system_head(title: &str, description: &str) -> String {
    * confirm the three wave3a tracks append cleanly into a single
    * CSS region. */
   /* end wave3a-wiring-track-c */
+  /* === wave3b-gates-track-a ===
+   * Frontend user-page gate enrichment (Track A).
+   * The 12 user pages (account, profile, dashboard, portfolio, payment,
+   * notifications, analytics, permissions, chat, chat_history,
+   * chat_conversation, account_credits) all call <AuthGate> with a
+   * required_permissions list and a return_url of `ctx.path.clone()`.
+   * The gate's HTML/CSS (`.auth-gate`, `.auth-gate-missing`,
+   * `.auth-gate-perms`, `.auth-gate-actions`, etc.) was already
+   * defined in the wave2-chrome-track-c block above; this track only
+   * enriches the gate CALLSITES, not the gate styles. No new CSS
+   * rules are required — the existing gate styles render the
+   * permission list, the connect link, and the return_url `?next=...`
+   * query string correctly. This marker exists so the integration
+   * gate can confirm the three wave3b tracks append cleanly into a
+   * single CSS region. */
+  /* end wave3b-gates-track-a */
 </style>"##
     )
 }

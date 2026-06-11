@@ -15,6 +15,8 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
             AuthGate { user: ctx.user.clone(), feature: Some("your credits".to_string()),
+                required_permissions: Some(vec!["profile:read".to_string()]),
+                return_url: Some(ctx.path.clone()),
                 div { class: "container page-content",
                     PageHeader {
                         title: "Credits".to_string(),

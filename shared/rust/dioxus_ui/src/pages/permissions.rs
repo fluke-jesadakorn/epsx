@@ -21,6 +21,8 @@ fn RenderPermissions(ctx: PageContext) -> Element {
     rsx! {
         MainLayout { ctx: ctx.clone(),
             AuthGate { user: ctx.user.clone(), feature: Some("your permissions".to_string()),
+                required_permissions: Some(vec!["permissions:read".to_string()]),
+                return_url: Some(ctx.path.clone()),
                 div { class: "container page-content max-w-6xl",
                     PageHeader { title: "My permissions".to_string(), description: Some("Active permissions, history, and analytics".to_string()), icon: Some("shield".to_string()) }
                     div { class: "grid grid-cols-1 md:grid-cols-3 gap-4 mb-4",

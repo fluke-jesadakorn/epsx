@@ -34,6 +34,8 @@ fn RenderDashboard(ctx: PageContext) -> Element {
     rsx! {
         MainLayout { ctx: ctx.clone(),
             AuthGate { user: ctx.user.clone(), feature: Some("your dashboard".to_string()),
+                required_permissions: Some(vec!["dashboard:read".to_string()]),
+                return_url: Some(ctx.path.clone()),
                 div { class: "container page-content",
                     PageHeader {
                         title: "Dashboard".to_string(),

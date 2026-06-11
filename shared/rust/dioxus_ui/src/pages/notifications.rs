@@ -27,6 +27,8 @@ fn RenderNotifications(ctx: PageContext) -> Element {
     rsx! {
         MainLayout { ctx: ctx.clone(),
             AuthGate { user: ctx.user.clone(), feature: Some("your notifications".to_string()),
+                required_permissions: Some(vec!["notifications:read".to_string()]),
+                return_url: Some(ctx.path.clone()),
                 div { class: "container page-content",
                     PageHeader { title: "Notifications".to_string(), description: Some(format!("{} notification(s)", items.len())), icon: Some("bell".to_string()) }
                     div { class: "flex gap-2 mb-4",
