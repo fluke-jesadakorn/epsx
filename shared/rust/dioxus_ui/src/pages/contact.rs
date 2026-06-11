@@ -5,11 +5,17 @@ use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
 use crate::layout::PageHeader;
+use crate::auth::ProgressiveAuthBanner;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Contact");
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
+            if ctx.user.is_none() {
+                ProgressiveAuthBanner {
+                    feature: Some("support requests".to_string()),
+                }
+            }
             div { class: "container page-content",
                 PageHeader { title: "Contact".to_string(), description: Some("Get in touch with the EPSX team".to_string()), icon: Some("mail".to_string()) }
                 div { class: "grid grid-cols-1 md:grid-cols-3 gap-4",

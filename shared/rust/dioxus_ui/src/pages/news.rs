@@ -9,6 +9,7 @@ use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
 use crate::layout::PageHeader;
 use crate::auth::AuthGate;
+use crate::auth::ProgressiveAuthBanner;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("News");
@@ -20,6 +21,11 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
+            if ctx.user.is_none() {
+                ProgressiveAuthBanner {
+                    feature: Some("personalized news".to_string()),
+                }
+            }
             AuthGate { user: ctx.user.clone(), feature: Some("news articles".to_string()),
                 div { class: "container page-content",
                     PageHeader {
