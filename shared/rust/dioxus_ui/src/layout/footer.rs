@@ -10,6 +10,11 @@ use dioxus::prelude::*;
 
 /// Full 4-column site footer. Matches the original `Footer` in
 /// `apps-old/frontend/components/footer.tsx`.
+///
+/// Wave 2 keeps this API stable — see Wave 1's Public API Stability
+/// rule. Both `Footer` and `SiteFooter` (alias added below) are
+/// importable so the frontend nav cluster (Track B) and the admin
+/// shell (Track A) can refer to it by either name.
 #[component]
 pub fn Footer() -> Element {
     rsx! {

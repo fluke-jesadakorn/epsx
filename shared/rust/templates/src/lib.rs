@@ -2514,6 +2514,62 @@ pub fn design_system_head(title: &str, description: &str) -> String {
     padding: 1.5rem;
     min-width: 0;
   }}
+
+  /* === wave2-chrome-track-b === frontend nav cluster (NavigationClient,
+     DesktopNav, MobileNav, NavActions, NavbarSkeleton, NavGroup data). */
+  /* Mobile nav group accordion */
+  .mobile-nav-group {{ display: block; }}
+  .mobile-nav-group-trigger {{
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.625rem 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: color 0.15s ease, background 0.15s ease;
+  }}
+  .mobile-nav-group-trigger:hover {{ color: var(--text); }}
+  .mobile-nav-group-trigger.active {{ color: var(--text); }}
+  html.dark .mobile-nav-group-trigger {{ color: #94a3b8; }}
+  html.dark .mobile-nav-group-trigger:hover {{ color: white; }}
+  .mobile-nav-group-trigger .chev {{
+    transition: transform 0.2s ease;
+  }}
+  .mobile-nav-group-trigger .chev.rotate-90 {{ transform: rotate(90deg); }}
+
+  /* Sign-in banner (purple→teal gradient; matches epsx.io CTA strip) */
+  .signin-banner {{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    color: #fff;
+    background: linear-gradient(90deg, #5a33b8 0%, #7645d9 50%, #1a9bab 100%);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  }}
+  html.dark .signin-banner {{
+    background: linear-gradient(90deg, rgba(118,69,217,0.9) 0%, #5a33b8 50%, rgba(31,199,212,0.8) 100%);
+  }}
+  .signin-banner-cta {{
+    border-radius: 0.375rem;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 0.25rem 1rem;
+    font-weight: 700;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }}
+  .signin-banner-cta:hover {{ background: rgba(255, 255, 255, 0.3); }}
 </style>"##
     )
 }
