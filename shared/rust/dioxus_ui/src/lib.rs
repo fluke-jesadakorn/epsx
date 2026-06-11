@@ -26,6 +26,15 @@ pub mod chat;
 pub mod i18n;
 pub mod pages;
 pub mod theme;
+// === wave6c-1to1-track-b === new module (admin sub-component clusters)
+//
+// 1:1 component parity for the admin pages: the per-page page file
+// in `pages/admin_pages/*.rs` consumes sub-components from
+// `components::admin::{dashboard,analytics,policies}::*`. Track C/D
+// add their own sub-modules (payments, wallet, settings, media,
+// wallets, chat, developer, audit, auth, news, notifications) —
+// the integration gate concatenates the `pub mod` lines.
+pub mod components;
 
 #[cfg(test)]
 mod tests;
