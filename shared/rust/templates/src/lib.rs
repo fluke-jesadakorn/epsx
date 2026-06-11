@@ -2429,6 +2429,91 @@ pub fn design_system_head(title: &str, description: &str) -> String {
     color: var(--primary);
     text-decoration: underline;
   }}
+
+  /* wave2-chrome-track-a — admin shell chrome.
+     Adds the design-token-backed classes used by the new
+     `AdminSidebar`, `Header`, `Breadcrumb`, `MainLayout`, and
+     `AdminFooter` components in
+     `shared/rust/dioxus_ui/src/layout/`. All rules are additive —
+     no existing class is restyled. */
+  .admin-shell {{
+    display: flex;
+    height: 100vh;
+    width: 100%;
+    overflow: hidden;
+    background: var(--bg);
+  }}
+  .admin-main {{
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    height: 100%;
+    overflow: hidden;
+  }}
+  .admin-header {{
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    display: flex;
+    height: 4rem;
+    align-items: center;
+    justify-content: space-between;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-solid);
+  }}
+  .admin-header-left {{ min-width: 0; flex: 1 1 auto; display: flex; align-items: center; gap: 0.5rem; }}
+  .admin-header-right {{ display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }}
+  .admin-page-title {{ font-size: 1.125rem; font-weight: 600; color: var(--text); margin: 0; }}
+  .admin-user-badge {{
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    background: var(--bg-tertiary);
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+  }}
+  .admin-content {{
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0;
+    min-height: 0;
+  }}
+  .admin-sidebar-cta {{
+    text-decoration: none;
+  }}
+  .admin-nav-row {{
+    text-decoration: none;
+  }}
+  .admin-nav-row-active {{
+    font-weight: 600;
+  }}
+  .admin-footer {{
+    flex-shrink: 0;
+  }}
+  .admin-header-bell {{
+    position: relative;
+  }}
+  .admin-header-theme-toggle {{
+    /* matches the `btn-ghost btn-icon` look for the default theme toggle */
+  }}
+  .developer-shell {{
+    display: flex;
+    height: 100vh;
+    width: 100%;
+    overflow: hidden;
+    background: var(--bg);
+  }}
+  .developer-main {{
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 1.5rem;
+    min-width: 0;
+  }}
 </style>"##
     )
 }
@@ -2905,6 +2990,19 @@ pub fn lucide_icon(name: &str) -> &'static str {
         "link" => r#"<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>"#,
         "external-link" => r#"<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>"#,
         "briefcase" => r#"<path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/>"#,
+        // wave2-chrome-track-a: added icons required by admin sidebar/header parity.
+        // All paths mirror the official lucide.dev SVG body.
+        "home" => r#"<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>"#,
+        "lock" => r#"<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>"#,
+        "shield" => r#"<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>"#,
+        "globe" => r#"<circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>"#,
+        "palette" => r#"<circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>"#,
+        "send" => r#"<line x1="22" x2="11" y1="2" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>"#,
+        "coins" => r#"<circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/>"#,
+        "link-2" => r#"<path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/>"#,
+        "image" => r#"<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>"#,
+        "bar-chart-3" => r#"<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>"#,
+        "book-open" => r#"<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>"#,
         _ => "",
     }
 }
