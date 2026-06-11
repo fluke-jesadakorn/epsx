@@ -162,16 +162,14 @@ pub fn AdminAuthGate(
     }
     let has_admin = user.as_ref().map(|u| u.is_admin()).unwrap_or(false);
     if has_admin {
-        // Run the same permission check the regular `AuthGate` does.
-        if let Some(u) = &user {
-            let missing: Vec<String> = match &required_permissions {
-                None => vec![],
-                Some(perms) => perms.iter().filter(|p| !u.has_permission(p)).cloned().collect(),
-            };
-            if missing.is_empty() {
-                return rsx! { Fragment { {children} } };
-            }
-        }
+        // Wave 6C Track A — defense in depth. An admin user with
+        // `required_permissions: Some(vec!["anything".into()])`
+        // must always pass the gate, even if the BFF plumbed
+        // `permissions: vec![]` (the pre-Wave-6C default). The
+        // previous code entered this block but then ran the
+        // `missing` check, which produced a non-empty list when
+        // the user had no permissions and the gate fired.
+        return rsx! { Fragment { {children} } };
     }
     let connect_href = match &return_url {
         Some(u) if !u.is_empty() => format!("/admin?next={}", u),
@@ -215,5 +213,107 @@ pub fn AdminAuthGate(
                 a { class: "btn btn-outline", href: "/", "Back to home" }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Wave 6C Track A — auth-gate short-circuit tests.
+    //!
+    //! The previous `AdminAuthGate` entered the `has_admin` block
+    //! but then ran the `required_permissions` missing check,
+    //! which produced a non-empty list whenever the BFF plumbed
+    //! `permissions: vec![]` (the pre-Wave-6C default). The fix
+    //! is an unconditional `return` from the `has_admin` block.
+    //!
+    //! These two tests pin both halves of the contract:
+    //! 1. Admin user + non-empty `required_permissions` → children
+    //!    pass through (defense in depth).
+    //! 2. Non-admin user + non-empty `required_permissions` →
+    //!    the gate panel renders, children do not.
+    use super::*;
+    use crate::auth::user::{AuthMethod, User};
+
+    fn render_to_string(el: dioxus::core::Element) -> String {
+        dioxus_ssr::render_element(el)
+    }
+
+    fn admin_user() -> User {
+        User {
+            id: "u-admin".to_string(),
+            address: "0xabcd…1234".to_string(),
+            chain_id: "56".to_string(),
+            roles: vec!["admin".to_string()],
+            email: Some("admin@epsx.io".to_string()),
+            tier: Some("Admin".to_string()),
+            // Intentionally empty — the BFF would have populated
+            // this in the post-Wave-6C code path, but the
+            // short-circuit must not depend on that plumbing.
+            permissions: vec![],
+            last_login_at: None,
+            auth_method: AuthMethod::Wallet,
+            display_name: Some("Admin".to_string()),
+        }
+    }
+
+    fn non_admin_user() -> User {
+        User {
+            id: "u-user".to_string(),
+            address: "0xbeef…5678".to_string(),
+            chain_id: "56".to_string(),
+            roles: vec!["user".to_string()],
+            email: None,
+            tier: Some("Pro".to_string()),
+            permissions: vec![],
+            last_login_at: None,
+            auth_method: AuthMethod::Wallet,
+            display_name: None,
+        }
+    }
+
+    #[test]
+    fn admin_auth_gate_is_admin_short_circuits_required_permissions() {
+        // Admin user + a required_permissions list that the
+        // user does NOT actually hold. The short-circuit must
+        // let the children through anyway.
+        let user = admin_user();
+        let el = rsx! {
+            AdminAuthGate {
+                user: Some(user),
+                required_permissions: Some(vec!["anything:read".into()]),
+                div { class: "gate-child", "child-marker-admin-pass" }
+            }
+        };
+        let html = render_to_string(el);
+        assert!(
+            html.contains("child-marker-admin-pass"),
+            "AdminAuthGate must pass children through for an admin user even when required_permissions are missing; got: {html}"
+        );
+    }
+
+    #[test]
+    fn admin_auth_gate_non_admin_still_enforces_required_permissions() {
+        // Non-admin user with no permissions and a non-empty
+        // required_permissions list. The gate must fire and
+        // render the gate panel — children must NOT leak.
+        let user = non_admin_user();
+        let el = rsx! {
+            AdminAuthGate {
+                user: Some(user),
+                required_permissions: Some(vec!["admin:content:write".into()]),
+                div { class: "gate-child", "child-marker-non-admin-block" }
+            }
+        };
+        let html = render_to_string(el);
+        assert!(
+            !html.contains("child-marker-non-admin-block"),
+            "AdminAuthGate must NOT pass children through for a non-admin user missing required_permissions; got: {html}"
+        );
+        // Sanity: the gate panel itself renders. The
+        // `auth-gate-admin` class is the stable marker.
+        assert!(
+            html.contains("auth-gate-admin"),
+            "Expected the admin gate panel to render for a non-admin user; got: {html}"
+        );
     }
 }

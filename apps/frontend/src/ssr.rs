@@ -39,10 +39,16 @@ pub async fn ssr_handler(
         id: u.user_id,
         address: u.address,
         chain_id: u.chain_id,
-        roles: u.roles,
+        roles: u.roles.clone(),
         email: None,
         tier: None,
-        permissions: vec![],
+        // Wave 6C Track A — derive permissions from the user's
+        // roles. Mirrors the change in `apps/admin/src/ssr.rs`.
+        // The wildcard for admins is populated here so any
+        // future page that moves from AdminAuthGate to AuthGate
+        // (or pages shared between the two BFFs) get the right
+        // permission set out of the box.
+        permissions: epsx_auth::permissions_for_roles(&u.roles),
         // Wave 2 Track C — auth metadata fields. The frontend BFF
         // doesn't have rich auth metadata, so we leave the new
         // optional fields at their defaults.

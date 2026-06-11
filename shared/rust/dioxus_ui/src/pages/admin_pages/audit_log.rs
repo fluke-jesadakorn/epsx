@@ -838,9 +838,18 @@ mod tests {
     }
 
     /// An admin user missing the `audit:read` permission must
-    /// still be bounced by the admin variant of the gate.
+    /// still see the page body — the Wave 6C Layer 3 short-circuit
+    /// in `AdminAuthGate` unconditionally passes admin users
+    /// through, regardless of `permissions`. See
+    /// `docs/wave6c-live-render-and-1to1/design.md` §"Defense in
+    /// depth (Layer 3)".
+    ///
+    /// This test was inverted from its Wave 6B version, which
+    /// asserted the old buggy behavior. The new contract is the
+    /// explicit design-doc requirement; the live-rendering fix
+    /// for the 5 PARTIAL admin smoke routes depends on it.
     #[test]
-    fn audit_log_gates_admin_user_missing_permission() {
+    fn audit_log_renders_body_for_admin_user_without_required_permission() {
         let u = test_user_admin_with(&[]); // admin role, no audit:read
         let ctx = PageContext {
             user: Some(u),
@@ -850,8 +859,8 @@ mod tests {
         let (_, el) = render(&ctx);
         let html = render_to_string(el);
         assert!(
-            html.contains("auth-gate-admin"),
-            "AdminAuthGate must fire for an admin missing the required permission. Got: {}",
+            !html.contains("auth-gate-admin"),
+            "AdminAuthGate must NOT fire for an admin user — Layer 3 short-circuit lets admin users through regardless of `permissions`. Got: {}",
             html
         );
     }

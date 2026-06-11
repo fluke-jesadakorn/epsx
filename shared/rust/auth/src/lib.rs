@@ -8,6 +8,9 @@ use epsx_crypto::JwtService;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+pub mod permissions;
+pub use permissions::*;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthUser {
     pub user_id: String,
