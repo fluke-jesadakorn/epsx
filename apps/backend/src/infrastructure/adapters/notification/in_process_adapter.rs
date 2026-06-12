@@ -52,17 +52,18 @@ use uuid::Uuid;
 
 use crate::web::admin::wallet_notification_repository::WalletNotificationRepository;
 use crate::web::notifications::{
-    NotificationPriority, NotificationType, RedisNotificationBroadcaster, SSENotification,
+    NotificationPriority, NotificationType, SSENotification,
 };
 use crate::prelude::TlsPool;
+use epsx_contracts::pubsub_port::PubsubPort;
 
 /// In-process `NotificationPort` adapter. Owns the resources it needs
 /// to fulfill a request: the notifications DB pool wrapped in the
-/// `WalletNotificationRepository`, plus the `RedisNotificationBroadcaster`
-/// for real-time fanout.
+/// `WalletNotificationRepository`, plus the kernel-level
+/// `PubsubPort` for real-time fanout.
 pub struct InProcessNotificationAdapter {
     pool: Arc<&'static TlsPool>,
-    broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
+    broadcaster: Option<Arc<dyn PubsubPort>>,
 }
 
 impl std::fmt::Debug for InProcessNotificationAdapter {
@@ -80,7 +81,7 @@ impl InProcessNotificationAdapter {
     /// gate does not have this constraint (it talks to a remote
     /// service).
     pub async fn try_new(
-        broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
+        broadcaster: Option<Arc<dyn PubsubPort>>,
     ) -> AppResult<Self> {
         Self::check_notifications_url_configured()?;
         let pool = crate::infrastructure::database::get_notifications_pool()
@@ -102,7 +103,7 @@ impl InProcessNotificationAdapter {
     /// a mock pool. Production wiring must use `try_new`.
     pub fn from_pool(
         pool: Arc<&'static TlsPool>,
-        broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
+        broadcaster: Option<Arc<dyn PubsubPort>>,
     ) -> Self {
         Self { pool, broadcaster }
     }
@@ -170,18 +171,31 @@ impl InProcessNotificationAdapter {
         Ok(id)
     }
 
-    /// Publish via Redis broadcaster (fire-and-forget; failure is logged,
-    /// not propagated). The pre-wave-10 behavior is preserved here.
+    /// Publish via the kernel-level `PubsubPort` (fire-and-forget;
+    /// failure is logged, not propagated). The pre-wave-10 behavior
+    /// is preserved here — channel names are
+    /// `notifications:wallet:<addr>` for per-wallet and
+    /// `notifications:all` for broadcasts.
     async fn publish_sse(&self, wallet: &str, sse: &SSENotification, broadcast: bool) {
         if let Some(broadcaster) = &self.broadcaster {
-            let res = if broadcast {
-                broadcaster.publish_to_all(sse).await
+            let channel = if broadcast {
+                "notifications:all".to_string()
             } else {
-                broadcaster.publish_to_wallet(wallet, sse).await
+                format!("notifications:wallet:{}", wallet)
             };
-            if let Err(e) = res {
+            let payload = match serde_json::to_vec(sse) {
+                Ok(p) => p,
+                Err(e) => {
+                    tracing::warn!(
+                        "Failed to serialize notification SSE (wallet={}, broadcast={}): {}",
+                        wallet, broadcast, e
+                    );
+                    return;
+                }
+            };
+            if let Err(e) = broadcaster.publish(&channel, &payload).await {
                 tracing::warn!(
-                    "Failed to publish notification via Redis (wallet={}, broadcast={}): {}",
+                    "Failed to publish notification via PubsubPort (wallet={}, broadcast={}): {}",
                     wallet, broadcast, e
                 );
             }

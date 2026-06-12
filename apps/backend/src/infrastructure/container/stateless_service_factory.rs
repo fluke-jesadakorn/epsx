@@ -264,7 +264,7 @@ impl RequestServices {
         // NOTIFICATIONS_DATABASE_URL is unset; the warnings below
         // surface the misconfig in production logs.
         let port = match crate::infrastructure::adapters::notification::InProcessNotificationAdapter::try_new(
-            app_state.redis_broadcaster.clone(),
+            app_state.pubsub.clone(),
         )
         .await
         {
