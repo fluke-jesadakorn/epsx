@@ -107,7 +107,7 @@ pub use epsx_kernel as kernel;
 /// crate `epsx-identity-stub`. Future service binaries
 /// will use `epsx_identity::*` regardless of the crate
 /// rename Track B picks.
-pub use epsx_identity_stub as identity;
+pub use epsx_identity_shared as identity;
 
 /// Header name used by the security-headers middleware.
 /// Exposed here so that future tests in this crate can

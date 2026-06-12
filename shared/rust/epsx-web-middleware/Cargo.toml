@@ -18,7 +18,7 @@ epsx-contracts = { path = "../epsx-contracts" }
 # to reconcile this either by renaming `services/identity` or
 # by adopting a different crate name for the shared identity
 # surface (e.g. `epsx-identity-shared`).
-epsx-identity-stub = { path = "../epsx-identity" }
+epsx-identity-shared = { path = "../epsx-identity-shared" }
 
 # HTTP / middleware runtime — needed because the facade crate's
 # public surface is middleware-shaped (tower::Layer, axum handlers).

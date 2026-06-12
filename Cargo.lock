@@ -885,7 +885,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -896,7 +896,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2068,9 +2068,9 @@ dependencies = [
 
 [[package]]
 name = "block-buffer"
-version = "0.12.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdd35008169921d80bc60d3d0ab416eecb028c4cd653352907921d95084790be"
+checksum = "d2f6c7dbe95a6ed67ad9f18e57daf93a2f034c524b99fd2b76d18fdfeb6660aa"
 dependencies = [
  "hybrid-array",
 ]
@@ -3181,7 +3181,7 @@ dependencies = [
  "pq-sys",
  "r2d2",
  "serde_json",
- "uuid 0.8.2",
+ "uuid 1.23.3",
 ]
 
 [[package]]
@@ -3265,7 +3265,7 @@ version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1dd6dbb5841937940781866fa1281a1ff7bd3bf827091440879f9994983d5c2"
 dependencies = [
- "block-buffer 0.12.0",
+ "block-buffer 0.12.1",
  "const-oid 0.10.2",
  "crypto-common 0.2.2",
  "ctutils",
@@ -4095,6 +4095,7 @@ dependencies = [
  "diesel_migrations",
  "dotenv",
  "epsx-contracts",
+ "epsx-identity-shared",
  "ethers",
  "futures",
  "futures-util",
@@ -4291,17 +4292,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "epsx-contracts"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "serde",
- "thiserror 1.0.69",
- "tracing",
- "uuid",
-]
-
-[[package]]
 name = "epsx-crypto"
 version = "0.1.0"
 dependencies = [
@@ -4436,24 +4426,46 @@ dependencies = [
 ]
 
 [[package]]
-name = "epsx-identity-stub"
+name = "epsx-identity-shared"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "async-stream",
  "async-trait",
+ "axum 0.8.9",
+ "base64 0.22.1",
  "chrono",
- "epsx-contracts",
+ "dashmap",
+ "deadpool 0.9.5",
+ "diesel",
+ "diesel-async",
  "epsx-crypto",
  "epsx-kernel",
- "jsonwebtoken",
- "rand 0.9.4",
+ "ethers",
+ "futures",
+ "hex",
+ "http 1.4.2",
+ "jsonwebtoken 9.3.1",
+ "once_cell",
+ "rand 0.8.6",
+ "regex",
  "rsa",
  "serde",
  "serde_json",
- "sha2",
+ "serde_yaml",
+ "sha2 0.10.9",
+ "siwe",
  "thiserror 1.0.69",
  "tokio",
+ "tokio-postgres",
+ "tokio-test",
+ "tower 0.5.3",
+ "tower-http 0.5.2",
  "tracing",
- "uuid",
+ "url",
+ "utoipa",
+ "uuid 1.23.3",
+ "validator",
 ]
 
 [[package]]
@@ -4640,12 +4652,12 @@ dependencies = [
 name = "epsx-web-middleware"
 version = "0.1.0"
 dependencies = [
- "axum",
+ "axum 0.8.9",
  "epsx-contracts",
- "epsx-identity-stub",
+ "epsx-identity-shared",
  "epsx-kernel",
- "http",
- "tower",
+ "http 1.4.2",
+ "tower 0.5.3",
  "tower-http 0.5.2",
  "tracing",
 ]
@@ -4688,7 +4700,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6916,9 +6928,9 @@ checksum = "490cc448043f947bae3cbee9c203358d62dbee0db12107a74be5c30ccfd09771"
 
 [[package]]
 name = "memchr"
-version = "2.8.1"
+version = "2.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b947ae49db0d222b1dbc6b113ce7248a3fc3a6ca21b696717bfc000ba4484d8"
+checksum = "88904434abc2901f197fe8cc55f0445e7ded921dba5911dad2e2b39b48e663c4"
 
 [[package]]
 name = "memfd"
@@ -7207,7 +7219,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -8925,7 +8937,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -9041,7 +9053,7 @@ dependencies = [
  "security-framework 3.7.0",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -9493,6 +9505,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_yaml"
+version = "0.9.34+deprecated"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
+dependencies = [
+ "indexmap 2.14.0",
+ "itoa",
+ "ryu",
+ "serde",
+ "unsafe-libyaml",
+]
+
+[[package]]
 name = "serdect"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9726,9 +9751,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.15.1"
+version = "1.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
+checksum = "8ed6a63f02c8539c91a8685a86f4099661ba3da017932f6ebbea6de3f0fa7c90"
 dependencies = [
  "serde",
 ]
@@ -9750,7 +9775,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52d1cfed4120b4d927bf7c0f86d2087a4a7d6027c906d9f9d525a80573b9be51"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -10259,7 +10284,7 @@ dependencies = [
  "getrandom 0.4.2",
  "once_cell",
  "rustix",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -11147,6 +11172,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 
 [[package]]
+name = "unsafe-libyaml"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
+
+[[package]]
 name = "untrusted"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11622,7 +11653,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
