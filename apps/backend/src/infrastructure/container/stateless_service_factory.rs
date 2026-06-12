@@ -234,7 +234,7 @@ impl RequestServices {
             tracing::warn!("Redis not configured - notifications will not work for auth routes");
         }
 
-        crate::web::auth::AppState::new(
+        let app_state = crate::web::auth::AppState::new(
             self.db_pool.clone(),
             self.cache.as_ref().unwrap().clone(), // Auth requires cache
             // Convert to legacy container format for compatibility
@@ -242,7 +242,33 @@ impl RequestServices {
             redis_pool,
             redis_broadcaster,
             crate::infrastructure::database::get_analytics_pool().await.ok().map(Arc::new),
+        );
+
+        // Wave 10 / R3: wire the in-process NotificationPort. The
+        // constructor refuses to start the port when
+        // NOTIFICATIONS_DATABASE_URL is unset; the warnings below
+        // surface the misconfig in production logs.
+        let port = match crate::infrastructure::adapters::notification::InProcessNotificationAdapter::try_new(
+            app_state.redis_broadcaster.clone(),
         )
+        .await
+        {
+            Ok(adapter) => {
+                tracing::info!("NotificationPort wired (in-process adapter)");
+                Some(Arc::new(adapter) as Arc<dyn epsx_contracts::notification_port::NotificationPort>)
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "NotificationPort NOT wired ({}); \
+                     publisher call sites will drop notifications until the \
+                     notifications DB is configured.",
+                    e
+                );
+                None
+            }
+        };
+
+        app_state.with_notification_port_opt(port)
     }
 
     /// Validate that all required services are available

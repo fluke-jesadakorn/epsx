@@ -4,6 +4,10 @@
 mod notification_types;
 mod notification_admin;
 mod notification_user;
+mod upload_image;
+
+#[cfg(test)]
+mod tests;
 
 // Re-export types
 pub use notification_types::*;
@@ -27,3 +31,8 @@ pub use notification_user::{
     clear_all_notifications_handler,
     acknowledge_notification_handler,
 };
+
+// Wave 10 / Bonus refactor: the upload-image handler moved from
+// `web/admin/media_handlers::upload_notification_image` into this
+// module. See `upload_image.rs` for the function body (unchanged).
+pub use upload_image::upload_notification_image;

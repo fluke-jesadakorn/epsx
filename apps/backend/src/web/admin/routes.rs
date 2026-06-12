@@ -113,6 +113,7 @@ use super::notification_handlers::{
   get_notification_stats_handler,
   acknowledge_notification_handler,
   delete_admin_notification_handler,
+  upload_notification_image,
 };
 // System settings handlers
 // use super::system_settings_handlers::{
@@ -249,7 +250,7 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/notifications/{id}/acknowledge", put(acknowledge_notification_handler))
     .route("/notifications/{id}", delete(delete_admin_notification_handler))
     .route("/notifications/overview", get(admin_notification_overview_handler))
-    .route("/notifications/upload-image", post(super::media_handlers::upload_notification_image))
+    .route("/notifications/upload-image", post(upload_notification_image))
     .layer(from_fn_with_state("admin:notifications:manage", perm_guard));
 
   // Developer portal

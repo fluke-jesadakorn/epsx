@@ -70,18 +70,27 @@ pub async fn remove_assignment(
             if let Some(info) = info {
                 let notif_state = app_state.clone();
                 tokio::spawn(async move {
-                    use crate::infrastructure::services::NotificationService;
-                    use crate::web::notifications::{NotificationType, NotificationPriority};
-                    let _ = NotificationService::send(
-                        &notif_state,
-                        &info.wallet_address,
-                        NotificationType::Permission,
-                        NotificationPriority::Normal,
-                        "Plan Removed",
-                        &format!("Your {} plan has been removed", info.plan_name),
-                        Some(serde_json::json!({ "plan_name": info.plan_name })),
-                        Some("/plans".to_string()),
-                    ).await;
+                    // Wave 10 / R3: route through the NotificationPort.
+                    use epsx_contracts::notification_port::SendNotificationRequest;
+                    if let Some(port) = notif_state.notification_port.as_ref() {
+                        let _ = port
+                            .send(SendNotificationRequest {
+                                recipient_wallet_address: info.wallet_address.clone(),
+                                notification_type: "permission".to_string(),
+                                priority: "normal".to_string(),
+                                title: "Plan Removed".to_string(),
+                                message: format!("Your {} plan has been removed", info.plan_name),
+                                data: Some(serde_json::json!({ "plan_name": info.plan_name })),
+                                action_url: Some("/plans".to_string()),
+                            })
+                            .await;
+                    } else {
+                        tracing::warn!(
+                            "notification_port not wired in AppState; plan-removed \
+                             notification for wallet={} dropped",
+                            info.wallet_address
+                        );
+                    }
                 });
             }
 

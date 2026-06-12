@@ -31,7 +31,17 @@ pub mod telemetry;
 pub mod traits;
 pub mod value_object;
 pub mod value_objects;
+pub mod notification_port;
 
 // Re-export the value-object trait + error at the crate root for ergonomics,
 // mirroring what `shared_kernel/mod.rs` did before the extraction.
 pub use value_object::{ValueObject, ValueObjectError};
+
+// Re-export the NotificationPort trait + its DTOs at the crate root for
+// ergonomics. Callers write `use epsx_contracts::{NotificationPort,
+// SendNotificationRequest, BroadcastNotificationRequest};` instead of
+// reaching into the `notification_port` submodule.
+pub use notification_port::{
+    BroadcastNotificationRequest, NotificationPort, NotificationPriorityTag,
+    NotificationTypeTag, SendNotificationRequest,
+};
