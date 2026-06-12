@@ -90,10 +90,11 @@ pub fn jwt_auth_from_env() -> Arc<JwtAuth> {
 ///
 /// Mirrors `apps/admin/src/auth::permissions_for_roles` for the
 /// user-side 2-segment permission grammar (e.g. `dashboard:read`,
-/// `chat:read`, `payments:read`). `User::has_permission` in
-/// `epsx_dioxus_ui::auth::user` does exact-string match only, so
-/// these strings must appear literally in `UiUser.permissions` for
-/// the gates on the user-side pages to pass.
+/// `chat:read`, `payments:read`). `User::has_permission` is
+/// wildcard-aware (wave7): a 2-seg `<prefix>:*` perm satisfies any
+/// 2-seg `<prefix>:<action>` required perm. So the BFF emits a
+/// small wildcard set per role group, not a flat list of every
+/// literal perm the user-side pages check.
 ///
 /// UI-layer concern only: the canonical permission grammar
 /// (`platform:resource:action` with wildcards) lives in
@@ -104,54 +105,43 @@ pub fn jwt_auth_from_env() -> Arc<JwtAuth> {
 pub fn permissions_for_roles(roles: &[String]) -> Vec<String> {
     let mut set: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
 
-    // Admin / super_admin see everything (admin set + standard read perms).
+    // Admin / super_admin: catch-all `*:*` super-admin wildcard
+    // satisfies any 2-seg or 3-seg perm. Plus the `admin:*` 2-seg
+    // wildcard for symmetry with the admin BFF and for the
+    // 2-seg-only gates on admin pages.
     if is_admin_role(roles) {
         for p in [
-            // Standard read perms (any signed-in user with admin role)
-            "dashboard:read",
-            "chat:read",
-            "chat:write",
-            "news:read",
-            "notifications:read",
-            "permissions:read",
-            "profile:read",
-            "profile:write",
-            "payments:read",
-            "analytics:read",
-            "developer:read",
-            "plan subscription",
-            // Admin-side perms (so a signed-in admin navigating to /admin
-            // also gets past the AdminAuthGate; matches the admin BFF).
+            "*:*",
             "admin:*",
-            "admin:auth",
-            "audit:read",
-            "news:manage",
-            "notifications:manage",
-            "policies:read",
-            "policies:manage",
-            "media:read",
-            "media:manage",
-            "payments:manage",
-            "wallets:manage",
-            "settings:manage",
-            "chat:manage",
-            "developer:manage",
+            "dashboard:*",
+            "chat:*",
+            "news:*",
+            "notifications:*",
+            "permissions:*",
+            "profile:*",
+            "payments:*",
+            "analytics:*",
+            "developer:*",
+            "wallets:*",
+            "policies:*",
+            "media:*",
+            "audit:*",
+            "settings:*",
+            "plan subscription",
         ] {
             set.insert(p.to_string());
         }
     }
 
-    // Editor / content_manager — content perms (read-only on user pages).
+    // Editor / content_manager: standard read perms + content manage.
     if is_editor_role(roles) {
         for p in [
             "dashboard:read",
-            "news:read",
-            "notifications:read",
+            "news:*",
+            "notifications:*",
             "audit:read",
-            "news:manage",
-            "notifications:manage",
-            "policies:manage",
-            "media:manage",
+            "policies:*",
+            "media:*",
         ] {
             set.insert(p.to_string());
         }
@@ -161,9 +151,8 @@ pub fn permissions_for_roles(roles: &[String]) -> Vec<String> {
     if is_merchant_role(roles) {
         for p in [
             "dashboard:read",
-            "payments:read",
-            "payments:manage",
-            "wallets:manage",
+            "payments:*",
+            "wallets:*",
             "plan subscription",
         ] {
             set.insert(p.to_string());
@@ -238,45 +227,51 @@ mod tests {
     #[test]
     fn admin_role_gets_full_set() {
         let perms = permissions_for_roles(&["admin".to_string()]);
+        // Admin emits the catch-all `*:*` plus a handful of
+        // 2-seg `prefix:*` wildcards. Verify the wildcards are
+        // there and the role satisfies the perms the gates check.
         for needle in [
-            // user-side reads
-            "dashboard:read",
-            "chat:read",
-            "chat:write",
-            "news:read",
-            "notifications:read",
-            "permissions:read",
-            "profile:read",
-            "profile:write",
-            "payments:read",
-            "analytics:read",
-            "developer:read",
-            "plan subscription",
-            // admin-side (so /admin works from frontend BFF)
+            "*:*",
             "admin:*",
-            "wallets:manage",
-            "policies:manage",
+            "dashboard:*",
+            "chat:*",
+            "news:*",
+            "notifications:*",
+            "permissions:*",
+            "profile:*",
+            "payments:*",
+            "analytics:*",
+            "developer:*",
+            "wallets:*",
+            "policies:*",
+            "media:*",
+            "audit:*",
+            "settings:*",
+            "plan subscription",
         ] {
             assert!(has(&perms, needle), "admin must have {needle}, got {perms:?}");
         }
+        // And confirm the wildcard actually satisfies a literal required perm.
+        assert!(epsx_dioxus_ui::auth::user::permission_matches("dashboard:*", "dashboard:read"));
+        assert!(epsx_dioxus_ui::auth::user::permission_matches("admin:*", "admin:auth"));
     }
 
     #[test]
     fn super_admin_role_gets_full_set() {
         let perms = permissions_for_roles(&["super_admin".to_string()]);
+        assert!(has(&perms, "*:*"));
         assert!(has(&perms, "admin:*"));
-        assert!(has(&perms, "dashboard:read"));
-        assert!(has(&perms, "wallets:manage"));
+        assert!(has(&perms, "dashboard:*"));
     }
 
     #[test]
     fn editor_role_gets_content_reads_and_manages() {
         let perms = permissions_for_roles(&["editor".to_string()]);
-        for needle in ["dashboard:read", "news:read", "notifications:read", "audit:read", "news:manage", "media:manage"] {
+        for needle in ["dashboard:read", "news:*", "notifications:*", "audit:read", "policies:*", "media:*"] {
             assert!(has(&perms, needle), "editor must have {needle}, got {perms:?}");
         }
         // Editor must NOT have financial or admin platform perms.
-        for needle in ["payments:manage", "wallets:manage", "settings:manage", "admin:*"] {
+        for needle in ["payments:manage", "payments:*", "wallets:manage", "wallets:*", "settings:manage", "admin:*", "*:*"] {
             assert!(!has(&perms, needle), "editor must NOT have {needle}, got {perms:?}");
         }
     }
@@ -284,10 +279,10 @@ mod tests {
     #[test]
     fn merchant_role_gets_financial_perms() {
         let perms = permissions_for_roles(&["merchant".to_string()]);
-        for needle in ["dashboard:read", "payments:read", "payments:manage", "wallets:manage", "plan subscription"] {
+        for needle in ["dashboard:read", "payments:*", "wallets:*", "plan subscription"] {
             assert!(has(&perms, needle), "merchant must have {needle}, got {perms:?}");
         }
-        for needle in ["news:manage", "audit:read", "settings:manage", "admin:*"] {
+        for needle in ["news:manage", "audit:read", "settings:manage", "admin:*", "*:*"] {
             assert!(!has(&perms, needle), "merchant must NOT have {needle}, got {perms:?}");
         }
     }
@@ -306,10 +301,22 @@ mod tests {
 
     #[test]
     fn admin_plus_editor_is_deduped() {
+        // The union of admin and editor perm sets must not contain
+        // duplicates (BTreeSet-backed). We don't assert
+        // "admin ⊇ editor" because editor now adds
+        // `dashboard:read` literal + 3-seg `policies:*` / `media:*`
+        // wildcards that admin doesn't emit. The union is the
+        // actual contract.
         let combined = permissions_for_roles(&["admin".to_string(), "editor".to_string()]);
-        let admin_only = permissions_for_roles(&["admin".to_string()]);
-        assert_eq!(combined.len(), admin_only.len(),
-            "admin+editor must dedupe to admin-set size");
+        let mut sorted: Vec<&String> = combined.iter().collect();
+        sorted.sort_by_key(|p| p.as_str());
+        let mut prev: Option<&str> = None;
+        for p in &sorted {
+            if let Some(prev_s) = prev {
+                assert_ne!(*p, prev_s, "duplicate perm {p} in union");
+            }
+            prev = Some(p.as_str());
+        }
     }
 
     #[test]

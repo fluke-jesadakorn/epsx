@@ -38,7 +38,7 @@ appears.
   - `/admin/analytics` → `analytics-chart` marker present
   - `/admin/policies` → `policy-filters`, `policy-list` present
   - `/admin/media` → `media-uploader` present
-  - `/admin/payments` → `payment-link-stats` present
+  - `/admin/payments` → `payments-stats` present
   - `/admin/wallet-management/wallets` → `wallet-stats-bar` present
 - The 17 `*_section_markers` unit tests that validated these body
   markers in Wave 6B continue to pass.

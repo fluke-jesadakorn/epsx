@@ -60,7 +60,41 @@ impl User {
         self.roles.iter().any(|r| r == "admin" || r == "super_admin" || r == "Admin")
     }
 
-    pub fn has_permission(&self, p: &str) -> bool { self.permissions.iter().any(|x| x == p) }
+    pub fn has_permission(&self, p: &str) -> bool {
+        // Wave 7 — wildcard-aware permission check.
+        //
+        // `User::permissions` is populated by the admin/frontend BFF
+        // from the JWT role list (see `apps/{admin,frontend}/src/auth.rs`
+        // → `permissions_for_roles`). The BFF may emit either
+        // 2-segment perms (`<feature>:<action>`, e.g. `analytics:read`,
+        // `admin:*`) or 3-segment perms (`<platform>:<resource>:<action>`,
+        // e.g. `admin:users:manage`) — the same two grammars the page
+        // gates use. `has_permission` accepts both.
+        //
+        // Wildcard rules (mirrors `apps/backend/src/core/permissions.rs`
+        // for 3-segment; adds 2-segment `prefix:*` for the UI layer):
+        //
+        //   1. Exact match: `<p> == <r>` → ✓
+        //   2. Super-admin: `p == "*:*"` or `p == "*:*:*"` → ✓
+        //   3. 3-segment platform wildcard: `p == "<pl>:*:*"` matches
+        //      any 3-segment required perm with the same platform.
+        //   4. 3-segment resource wildcard: `p == "<pl>:<re>:*"` matches
+        //      any 3-segment required perm with the same platform+resource.
+        //   5. 2-segment prefix wildcard: `p` is 2-segment and ends in
+        //      `:*`; matches any 2-segment required perm with the same
+        //      prefix. (`admin:*` matches `admin:auth`, `admin:read`, ...)
+        //
+        // Cross-grammar wildcards (2-seg `admin:*` matching 3-seg
+        // `admin:users:read`) are intentionally NOT supported — they
+        // would silently grant access across grammars and make the
+        // perms a BFF emits hard to reason about.
+        //
+        // Behavior change from pre-wave7: the old impl was exact-match
+        // only, which is a strict subset of this impl. Every previous
+        // call site that passed still passes; new wildcard-bearing
+        // perms now resolve correctly.
+        self.permissions.iter().any(|x| permission_matches(x, p))
+    }
 
     /// Returns `true` when the user has the given role (case-insensitive,
     /// exact match). Empty / unknown role tags never match.
@@ -148,5 +182,205 @@ pub fn AuthMethodPill(user: User) -> Element {
             span { class: "auth-method-pill-icon", Icon { name: icon, size: Some(12) } }
             span { class: "auth-method-pill-label", "{label}" }
         }
+    }
+}
+
+/// Check whether a held permission `held` satisfies a required
+/// permission `req`. Exposed at module scope so the BFF test
+/// harnesses and the gate's permission filter can call it
+/// independently of `User`.
+///
+/// See `User::has_permission` for the full rules. Summary:
+/// - exact match
+/// - `held` is a 2-seg or 3-seg super-admin wildcard
+/// - both 3-seg: `held` is `pl:*:*` or `pl:re:*` for the same `pl`/`re`
+/// - both 2-seg: `held` is `prefix:*` and `req` starts with `prefix:`
+/// - cross-grammar wildcards (2-seg matching 3-seg or vice versa) → false
+pub fn permission_matches(held: &str, req: &str) -> bool {
+    // 1. Exact match.
+    if held == req {
+        return true;
+    }
+
+    // 2. Super-admin wildcards — match any required perm.
+    if held == "*:*" || held == "*:*:*" {
+        return true;
+    }
+
+    let held_parts: Vec<&str> = held.split(':').collect();
+    let req_parts: Vec<&str> = req.split(':').collect();
+
+    match (held_parts.len(), req_parts.len()) {
+        // 3. Both 3-segment: platform / resource / action wildcards.
+        (3, 3) => {
+            // held is a 3-seg wildcard only if its last segment is `*`.
+            if held_parts[2] != "*" {
+                return false;
+            }
+            // platform wildcard: `<pl>:*:*`
+            if held_parts[1] == "*" {
+                return held_parts[0] == req_parts[0];
+            }
+            // resource wildcard: `<pl>:<re>:*`
+            held_parts[0] == req_parts[0] && held_parts[1] == req_parts[1]
+        }
+        // 4. Both 2-segment: prefix wildcard.
+        (2, 2) => {
+            // held wildcard only if its last segment is `*`.
+            if held_parts[1] != "*" {
+                return false;
+            }
+            // `prefix:*` matches `prefix:anything`.
+            held_parts[0] == req_parts[0]
+        }
+        // 5. Cross-grammar: no match (intentional).
+        _ => false,
+    }
+}
+
+#[cfg(test)]
+mod perm_match_tests {
+    //! Wildcard-aware permission matching — the heart of the
+    //! wave7 `has_permission` upgrade. Mirrors the test layout in
+    //! `apps/backend/src/core/permissions.rs` (3-seg cases) and
+    //! adds the 2-seg prefix wildcard that the UI layer needs.
+    use super::permission_matches;
+
+    // ── 2-segment exact + prefix wildcard ──────────────────────
+
+    #[test]
+    fn two_seg_exact_match() {
+        assert!(permission_matches("analytics:read", "analytics:read"));
+    }
+
+    #[test]
+    fn two_seg_no_match() {
+        assert!(!permission_matches("analytics:read", "policies:read"));
+    }
+
+    #[test]
+    fn two_seg_prefix_wildcard() {
+        // `admin:*` is the admin platform catch-all used by the
+        // AdminAuthGate. It must match any 2-seg admin perm.
+        assert!(permission_matches("admin:*", "admin:auth"));
+        assert!(permission_matches("admin:*", "admin:read"));
+        assert!(permission_matches("admin:*", "admin:manage"));
+        // Not admin perms.
+        assert!(!permission_matches("admin:*", "analytics:read"));
+        assert!(!permission_matches("admin:*", "policies:manage"));
+    }
+
+    #[test]
+    fn two_seg_prefix_wildcard_does_not_match_3seg() {
+        // Cross-grammar: 2-seg `admin:*` must NOT silently grant
+        // 3-seg `admin:users:read` access.
+        assert!(!permission_matches("admin:*", "admin:users:read"));
+    }
+
+    // ── 3-segment exact + wildcards (mirrors backend) ──────────
+
+    #[test]
+    fn three_seg_exact_match() {
+        assert!(permission_matches("admin:users:read", "admin:users:read"));
+    }
+
+    #[test]
+    fn three_seg_no_match() {
+        assert!(!permission_matches("admin:users:read", "admin:users:write"));
+        assert!(!permission_matches("admin:users:read", "epsx:analytics:read"));
+    }
+
+    #[test]
+    fn three_seg_platform_wildcard() {
+        assert!(permission_matches("admin:*:*", "admin:users:read"));
+        assert!(permission_matches("admin:*:*", "admin:permissions:read"));
+        // Cross-platform: must not match.
+        assert!(!permission_matches("admin:*:*", "epsx:analytics:read"));
+    }
+
+    #[test]
+    fn three_seg_resource_wildcard() {
+        assert!(permission_matches("admin:users:*", "admin:users:read"));
+        assert!(permission_matches("admin:users:*", "admin:users:write"));
+        // Cross-resource: must not match.
+        assert!(!permission_matches("admin:users:*", "admin:groups:read"));
+    }
+
+    // ── Super-admin wildcards (any grammar) ────────────────────
+
+    #[test]
+    fn super_admin_two_seg_matches_anything() {
+        assert!(permission_matches("*:*", "analytics:read"));
+        assert!(permission_matches("*:*", "admin:auth"));
+        assert!(permission_matches("*:*", "any:thing"));
+    }
+
+    #[test]
+    fn super_admin_three_seg_matches_anything() {
+        assert!(permission_matches("*:*:*", "admin:users:read"));
+        assert!(permission_matches("*:*:*", "epsx:analytics:read"));
+        assert!(permission_matches("*:*:*", "epsx-pay:payments:create"));
+    }
+
+    // ── Cross-grammar: must not match ──────────────────────────
+
+    #[test]
+    fn three_seg_held_does_not_match_two_seg_req() {
+        assert!(!permission_matches("admin:users:*", "admin:read"));
+        assert!(!permission_matches("admin:*:*", "analytics:read"));
+    }
+
+    #[test]
+    fn two_seg_held_does_not_match_three_seg_req() {
+        // 2-seg `analytics:read` is a literal UI-layer perm; it must
+        // NOT match a 3-seg required perm like `epsx:analytics:read`.
+        assert!(!permission_matches("analytics:read", "epsx:analytics:read"));
+    }
+
+    // ── Edge cases ─────────────────────────────────────────────
+
+    #[test]
+    fn empty_held_does_not_satisfy_a_required_perm() {
+        // The held set has no useful perms; required perms should
+        // not match anything (no wildcards present).
+        assert!(!permission_matches("", "analytics:read"));
+        assert!(!permission_matches("", "admin:read"));
+    }
+
+    #[test]
+    fn empty_required_does_not_match_a_held_perm() {
+        // A required perm of "" is a programming error (no gate
+        // declares an empty required perm), but defensively it
+        // should not match a non-empty held perm. (Exact match
+        // between two empty strings would return true, but that's
+        // a degenerate case and we don't test it.)
+        assert!(!permission_matches("analytics:read", ""));
+    }
+
+    #[test]
+    fn non_wildcard_does_not_act_as_wildcard() {
+        // A non-wildcard held perm must not match a different req.
+        assert!(!permission_matches("admin:auth", "admin:read"));
+        assert!(!permission_matches("admin:users:read", "admin:users:write"));
+    }
+
+    #[test]
+    fn single_segment_does_not_match() {
+        // `<pl>:*` requires 2 segments; a single `*` is not a valid
+        // wildcard and must not match anything.
+        assert!(!permission_matches("*", "analytics:read"));
+        assert!(!permission_matches("admin", "admin:read"));
+    }
+
+    #[test]
+    fn exact_match_wins_even_for_unusual_grammars() {
+        // The function's first rule is exact-match equality. Two
+        // 4-segment strings that happen to be equal will match —
+        // this is defensive against unknown grammars (no call
+        // site emits ≥4-segment perms, but if two records both
+        // carry the same 4-seg string, they're treated as
+        // equivalent). Documented behavior, not a security gap:
+        // no wildcard logic ever upgrades a non-match to a match.
+        assert!(permission_matches("a:b:c:d", "a:b:c:d"));
     }
 }

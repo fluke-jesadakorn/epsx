@@ -8,7 +8,7 @@
 
 - `apps/admin/src/ssr.rs:44` hard-codes `permissions: vec![]` when building the `UiUser` from the JWT-decoded `AuthUser`.
 - `shared/rust/dioxus_ui/src/auth/user.rs:63` `User::has_permission` does **exact-string** comparison only — no wildcards.
-- `shared/rust/dioxus_ui/src/auth/auth_gate.rs:163-170` `AdminAuthGate` does the right check: if `is_admin()`, run the same `has_permission` filter as `AuthGate`. With empty perms, every required permission looks "missing" → gate fires → page body is replaced with the gate panel → body markers (`analytics-chart`, `policy-filters`, `media-uploader`, `payment-link-stats`, `wallet-stats-bar`) are missing → wave6b smoke shows 5 PARTIAL routes.
+- `shared/rust/dioxus_ui/src/auth/auth_gate.rs:163-170` `AdminAuthGate` does the right check: if `is_admin()`, run the same `has_permission` filter as `AuthGate`. With empty perms, every required permission looks "missing" → gate fires → page body is replaced with the gate panel → body markers (`analytics-chart`, `policy-filters`, `media-uploader`, `payments-stats`, `wallet-stats-bar`) are missing → wave6b smoke shows 5 PARTIAL routes.
 
 The wave6c deliverable (`deliverable.md` §"Wave 6C follow-up notes" item 3) flagged this exactly:
 > *Wire the admin BFF's `permissions` field properly. Wave 3a sets `permissions: vec![]` for admin users in `ssr.rs:42`. The fix is to either (a) decode the user's role-based permissions from the JWT and plumb them into the `UiUser`, or (b) make `AdminAuthGate` skip the permission check when the user is `is_admin()`.*

@@ -144,3 +144,21 @@ git checkout migration/dioxus-microservices
 git merge --ff-only wave6b/integration
 git push origin migration/dioxus-microservices
 ```
+
+---
+
+## Postscript (Wave 7, 2026-06-12)
+
+The `/admin/payments` row above flagged `payment-link-stats` as the missing
+body marker. **The marker name is a smoke-script typo** — the actual source
+class is `payments-stats` (no `-link-`), defined at
+`shared/rust/dioxus_ui/src/pages/admin_pages/payments.rs:112`. The body was
+intercepted by `AdminAuthGate` at the wave6b HEAD, so the typo was masked.
+
+Wave 7 (branch `wave7/admin-permissions`) fixes the gate so admin tokens
+populate `UiUser.permissions`, after which the body renders fully and the
+correct `payments-stats` marker is present. The smoke script
+(`/tmp/epsx-admin-smoke.sh`) was updated to expect `payments-stats`. With
+the wave7 fix + script fix, the full 16-route smoke is **16/16 PASS, 0
+PARTIAL, 0 FAIL** (see `WAVE7_DELIVERABLE.md` in the wave7 branch for the
+fresh integration-gate record).
