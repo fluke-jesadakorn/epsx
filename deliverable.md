@@ -20,8 +20,11 @@ notifications context.
 - **Branch:** `wave10/track-a-notification-port` (pushed to
   `origin/wave10/track-a-notification-port`).
 - **Base:** `migration/dioxus-microservices` HEAD `9f794784`.
-- **Final commit hash:** `87f6da19fb0f219e3858df23283d18917598a5ec`
-  (`87f6da19`).
+- **Final commit hash:** `12a4eb88` (pushed).
+  - Main commit (squashed, contains the full implementation):
+    `87f6da19fb0f219e3858df23283d18917598a5ec` (`87f6da19`).
+  - `12a4eb88` is a follow-up that adds the worktree-level
+    `deliverable.md`.
 - **Worktree:** `/Users/fluke/Desktop/Work/epsx/.worktrees/wave10-track-a-notification-port`.
 
 ## Verification
