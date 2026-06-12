@@ -9,6 +9,7 @@ license = "MIT OR Apache-2.0"
 # Workspace-shared siblings
 epsx-kernel = { path = "../kernel" }
 epsx-crypto = { path = "../crypto" }
+epsx-database-pools = { path = "../epsx-database-pools" }
 
 # Auth + crypto
 serde = "1.0"

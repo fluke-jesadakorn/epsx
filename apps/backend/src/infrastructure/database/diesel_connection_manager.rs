@@ -1,135 +1,28 @@
 // Diesel Async Connection Manager for Serverless Environments
 // Provides efficient connection pooling using diesel-async and deadpool
 // Optimized for Cloud Run serverless deployment
+//
+// kernel extraction wave10: the type definitions (`TlsConnectionManager`,
+// `ManagerError`, `TlsPool`, `PoolExt`) now live in the shared
+// `epsx-database-pools` crate so that `epsx-identity-shared` and
+// `apps/backend` see the same `TlsPool` type. This file retains only
+// the backend runtime wiring: the global `OnceLock` pools, the
+// initializer struct, the serverless config, and the health-check /
+// pool-statistics accessors.
 
-use diesel_async::{AsyncPgConnection, RunQueryDsl};
-use deadpool::managed::{Manager, Pool, RecycleResult, RecycleError};
 use std::sync::OnceLock;
 use anyhow::Result;
-use tracing::{debug, info, warn, error};
-use tokio_postgres_rustls::MakeRustlsConnect;
-use rustls::ClientConfig;
-use std::str::FromStr;
-use async_trait::async_trait;
+use tracing::{info, warn, error};
 
-/// Custom Error type for the Connection Manager
-#[derive(Debug, thiserror::Error)]
-pub enum ManagerError {
-    #[error("Database connection error: {0}")]
-    Connection(#[from] tokio_postgres::Error),
-    #[error("Internal error: {0}")]
-    Internal(String),
-    #[error("Configuration error: {0}")]
-    Config(String),
-}
-
-/// Custom Connection Manager that enforces TLS
-#[derive(Clone)]
-pub struct TlsConnectionManager {
-    database_url: String,
-}
-
-impl TlsConnectionManager {
-    pub fn new(database_url: String) -> Self {
-        Self { database_url }
-    }
-}
-
-#[async_trait]
-impl Manager for TlsConnectionManager {
-    type Type = AsyncPgConnection;
-    type Error = ManagerError;
-
-    async fn create(&self) -> Result<AsyncPgConnection, ManagerError> {
-        let config = tokio_postgres::Config::from_str(&self.database_url)
-            .map_err(|e| ManagerError::Config(e.to_string()))?;
-        
-        let connect_timeout = std::time::Duration::from_secs(5);
-        
-        debug!("Connecting to database (SSL Mode: {:?})...", config.get_ssl_mode());
-
-        let client = match config.get_ssl_mode() {
-            tokio_postgres::config::SslMode::Disable => {
-                let (client, connection) = tokio::time::timeout(connect_timeout, config.connect(tokio_postgres::NoTls))
-                    .await
-                    .map_err(|_| ManagerError::Config("Database connection timed out".to_string()))?
-                    .map_err(|e| {
-                        error!("Connection error: {:?}", e);
-                        ManagerError::Connection(e)
-                    })?;
-
-                tokio::spawn(async move {
-                    if let Err(e) = connection.await {
-                        error!("database connection error: {}", e);
-                    }
-                });
-                client
-            }
-            _ => {
-                let root_store = rustls::RootCertStore::from_iter(
-                    webpki_roots::TLS_SERVER_ROOTS.iter().cloned()
-                );
-                let client_config = ClientConfig::builder()
-                    .with_root_certificates(root_store)
-                    .with_no_client_auth();
-                let tls = MakeRustlsConnect::new(client_config);
-                
-                let (client, connection) = tokio::time::timeout(connect_timeout, config.connect(tls))
-                    .await
-                    .map_err(|_| ManagerError::Config("Database connection timed out during TLS handshake".to_string()))?
-                    .map_err(|e| {
-                        error!("TLS Connection error: {}", e);
-                        ManagerError::Connection(e)
-                    })?;
-
-                tokio::spawn(async move {
-                    if let Err(e) = connection.await {
-                        error!("database connection error: {}", e);
-                    }
-                });
-                client
-            }
-        };
-        
-        debug!("Wrapping in AsyncPgConnection...");
-        tokio::time::timeout(connect_timeout, AsyncPgConnection::try_from(client))
-            .await
-            .map_err(|_| ManagerError::Config("AsyncPgConnection wrapper timed out".to_string()))?
-            .map_err(|e| {
-                error!("AsyncPgConnection conversion error: {}", e);
-                ManagerError::Internal(e.to_string())
-            })
-    }
-
-    async fn recycle(&self, conn: &mut AsyncPgConnection) -> RecycleResult<ManagerError> {
-        // Simple health check query
-        diesel::sql_query("SELECT 1")
-            .execute(conn)
-            .await
-            .map(|_| ())
-            .map_err(|e| RecycleError::Backend(ManagerError::Internal(e.to_string())))
-    }
-}
+// Re-export the shared types so existing backend import paths
+// (`crate::infrastructure::database::diesel_connection_manager::TlsPool`
+// etc.) keep working without a 50-file import-site rewrite.
+pub use epsx_database_pools::{ManagerError, PoolExt, TlsConnectionManager, TlsPool};
 
 // Global Pool Type Definition - explicitly using our custom manager
-pub type TlsPool = Pool<TlsConnectionManager>;
+// (re-exported from epsx-database-pools for backward compat)
 
-/// Extension trait for TlsPool to reduce DB connection boilerplate
-#[async_trait]
-pub trait PoolExt {
-    /// Get a connection from the pool, mapping errors to AppError
-    async fn conn(&self) -> crate::core::errors::AppResult<deadpool::managed::Object<TlsConnectionManager>>;
-}
-
-#[async_trait]
-impl PoolExt for TlsPool {
-    async fn conn(&self) -> crate::core::errors::AppResult<deadpool::managed::Object<TlsConnectionManager>> {
-        self.get().await
-            .map_err(|e| crate::core::errors::AppError::database_error(e.to_string()))
-    }
-}
-
-/// Global Diesel async connection pool that persists across serverless invocations
+// Global Diesel async connection pool that persists across serverless invocations
 static GLOBAL_DIESEL_POOL: OnceLock<TlsPool> = OnceLock::new();
 
 /// Global Analytics database pool (separate database for high-volume logs)
@@ -227,9 +120,7 @@ impl DieselConnectionManager {
         info!("   Acquire timeout: {}s", config.acquire_timeout_secs);
 
         // Create TLS connection manager
-        let manager = TlsConnectionManager {
-            database_url: config.database_url,
-        };
+        let manager = TlsConnectionManager::new(config.database_url);
 
         // Create the pool with simplified configuration
         use deadpool::managed::Timeouts;
@@ -381,7 +272,7 @@ impl DieselConnectionManager {
     /// Comprehensive health check for all pools
     pub async fn health_check_all() -> AllPoolsHealth {
         let primary = Self::check_pool(Self::get_pool().await).await;
-        // Only check other pools if they are configured or initialized, 
+        // Only check other pools if they are configured or initialized,
         // but for now we try to get them (which initializes/fallback) and check.
         // Falls back to primary pool if not configured, so it effectively checks primary again if not split.
         let analytics = Self::check_pool(Self::get_analytics_pool().await).await;
@@ -488,5 +379,3 @@ pub async fn diesel_health_check() -> bool {
 pub async fn diesel_health_check_all() -> AllPoolsHealth {
     DieselConnectionManager::health_check_all().await
 }
-
-

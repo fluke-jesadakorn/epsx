@@ -8,7 +8,9 @@ use crate::domain::shared_kernel::entities::eps_growth::EPSRanking as LegacyEPSR
 use crate::domain::market_analytics::services::eps_ranking_service::{EPSRankingService, EPSRankingParams};
 
 #[cfg(test)]
-use crate::domain::shared_kernel::{EPSRepository, EPSGrowthData};
+use crate::domain::shared_kernel::EPSGrowthData;
+#[cfg(test)]
+use crate::domain::market_analytics::services::eps_ranking_service::EPSRepository;
 
 // Mock implementation of EPSRepository for testing
 #[cfg(test)]

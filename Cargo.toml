@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "shared/rust/kernel",
+    "shared/rust/epsx-database-pools",
     "shared/rust/epsx-contracts",
     "shared/rust/events",
     "shared/rust/config",

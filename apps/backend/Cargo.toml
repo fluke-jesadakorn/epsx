@@ -59,6 +59,10 @@ async-trait = "0.1"
 
 # Wave 9: auth + identity extraction (Shape B shared library, Track B)
 epsx-identity-shared = { path = "../../shared/rust/epsx-identity-shared" }
+# Wave 10 prep: shared Postgres pool types so backend and auth crate
+# see the same `TlsPool` / `TlsConnectionManager` (was a placeholder
+# alias in epsx-identity-shared's prelude before this crate existed).
+epsx-database-pools = { path = "../../shared/rust/epsx-database-pools" }
 chrono = { version = "0.4.42", features = ["serde"] }
 dotenv = "0.15"
 futures = "0.3"
