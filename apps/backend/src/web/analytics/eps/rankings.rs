@@ -1,6 +1,6 @@
 // Core EPS Rankings Business Logic
 // Focused module handling EPS rankings endpoint and business logic
-// Uses UnifiedPermissionService for permission checking
+// Uses WalletRankingOffsetQuery port (wave10 R6 migration).
 
 use axum::{
     extract::{Query, Extension},
@@ -10,8 +10,8 @@ use std::sync::Arc;
 use tracing::{debug, info, warn};
 
 use epsx_contracts::errors::AppError;
+use epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery;
 use crate::domain::market_analytics::services::eps_ranking_service::{EPSRankingService, EPSRankingParams};
-use crate::auth::UnifiedPermissionService;
 use crate::web::pagination::Pagination;
 use super::{types::*, enhancement::enhance_with_websocket_data};
 
@@ -21,7 +21,7 @@ pub async fn get_eps_rankings(
     wallet_ext: Option<Extension<String>>,  // Wallet from Bearer token (injected by auth middleware)
     Query(params): Query<EPSRankingQueryParams>,
     Extension(service): Extension<Arc<EPSRankingService>>,
-    Extension(permission_service): Extension<Arc<UnifiedPermissionService>>,
+    Extension(permission_service): Extension<Arc<dyn WalletRankingOffsetQuery>>,
 ) -> Result<Json<EPSRankingsApiResponse>, AppError> {
     debug!("EPS Rankings API called with params: {:?}", params);
 
@@ -211,17 +211,17 @@ pub fn is_valid_eps_for_ranking(eps: f64) -> bool {
 }
 
 /// Calculate rank offset and limit based on user's plan metadata.
-/// Uses get_wallet_ranking_offset which reads from plan_metadata directly.
+/// Uses the `WalletRankingOffsetQuery` port (wave10 R6 migration).
 async fn calculate_ranking_config_from_permissions(
-    permission_service: &Arc<UnifiedPermissionService>,
+    permission_service: &Arc<dyn WalletRankingOffsetQuery>,
     wallet_address: &str,
 ) -> (i32, i32) {
     // Get offset directly from plan metadata (not permission strings)
     match permission_service.get_wallet_ranking_offset(wallet_address).await {
         Ok(offset) => {
-            info!("Wallet {} has ranking offset: {} (from plan metadata)", wallet_address, offset);
+            info!("Wallet {} has ranking offset: {} (from plan metadata)", wallet_address, offset.value());
             // limit_cap is -1 (unlimited) since we're using offset-based access
-            (offset, -1)
+            (offset.value(), -1)
         },
         Err(e) => {
             warn!("Failed to get ranking offset for {}: {}, using {} default", wallet_address, e, epsx_contracts::constants::FREE_PLAN_NAME);
