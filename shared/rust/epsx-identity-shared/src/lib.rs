@@ -32,9 +32,6 @@ pub mod key_manager;
 pub mod granular_permissions;
 pub mod unified_permission_service;
 
-#[cfg(test)]
-pub mod tests;
-
 // ============================================================================
 // EXPORTS — UNIFIED PERMISSION SYSTEM
 // ============================================================================
