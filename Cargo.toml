@@ -16,6 +16,7 @@ members = [
     "shared/rust/templates",
     "shared/rust/dioxus_ui",
     "shared/rust/bff",
+    "shared/rust/epsx-web-middleware",
     "services/gateway",
     "services/identity",
     "services/wallet",
@@ -30,7 +31,6 @@ members = [
     "apps/backend",
     "apps/pay",
     "apps/preview",
-    "apps/backend",
 ]
 
 [workspace.dependencies]
