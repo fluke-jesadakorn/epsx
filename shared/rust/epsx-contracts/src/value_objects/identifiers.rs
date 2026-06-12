@@ -1,5 +1,9 @@
+// kernel extraction wave9 — moved from apps/backend/src/domain/shared_kernel/value_objects/identifiers.rs
+// Import-path adjustment: `crate::domain::shared_kernel::value_object::*` →
+// `crate::value_object::*`; the inner `user_id` re-export becomes
+// `super::user_id::UserId` (the file is at `super::user_id` now).
 use serde::{Deserialize, Serialize};
-use crate::domain::shared_kernel::value_object::{ValueObject, ValueObjectError};
+use crate::value_object::{ValueObject, ValueObjectError};
 
 // Re-export commonly used identifiers
 pub use super::user_id::UserId;

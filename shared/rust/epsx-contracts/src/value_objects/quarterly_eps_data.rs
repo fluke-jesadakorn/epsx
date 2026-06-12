@@ -1,5 +1,8 @@
+// kernel extraction wave9 — moved from apps/backend/src/domain/shared_kernel/value_objects/quarterly_eps_data.rs
+// Import-path adjustment: `crate::domain::shared_kernel::value_object::*` →
+// `crate::value_object::*`.
 use serde::{Deserialize, Serialize};
-use crate::domain::shared_kernel::value_object::{ValueObject, ValueObjectError};
+use crate::value_object::{ValueObject, ValueObjectError};
 
 /// Quarterly EPS data value object - Domain representation
 /// Represents quarterly earnings data independent of external data sources

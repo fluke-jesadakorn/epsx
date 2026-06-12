@@ -1,3 +1,4 @@
+// kernel extraction wave9 — moved from apps/backend/src/domain/shared_kernel/value_objects/mod.rs
 // Shared Value Objects - Common types used across bounded contexts
 
 pub mod user_id;

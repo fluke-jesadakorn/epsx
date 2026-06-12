@@ -26,10 +26,10 @@ impl BscEventListener {
         supported_tokens: Vec<String>,
     ) -> Result<Self, AppError> {
         let provider = Provider::<Http>::try_from(&rpc_url)
-            .map_err(|e| AppError::infrastructure_error(format!("Failed to create provider: {}", e)))?;
+            .map_err(|e| AppError::internal_server_error(format!("Failed to create provider: {}", e)))?;
 
         let contract_address = contract_address.parse::<H160>()
-            .map_err(|e| AppError::infrastructure_error(format!("Invalid contract address: {}", e)))?;
+            .map_err(|e| AppError::internal_server_error(format!("Invalid contract address: {}", e)))?;
 
         let payment_verifier = Arc::new(PaymentVerifier::new(
             rpc_url.clone(),
@@ -106,7 +106,7 @@ impl BscEventListener {
     /// Check for new events since last checked block
     async fn check_new_events(&mut self) -> Result<Vec<PaymentEvent>, AppError> {
         let current_block = self.provider.get_block_number().await
-            .map_err(|e| AppError::infrastructure_error(format!("Failed to get block number: {}", e)))?
+            .map_err(|e| AppError::internal_server_error(format!("Failed to get block number: {}", e)))?
             .as_u64();
 
         if current_block <= self.last_checked_block {
@@ -140,7 +140,7 @@ impl BscEventListener {
             .to_block(to_block);
 
         let logs = self.provider.get_logs(&filter).await
-            .map_err(|e| AppError::infrastructure_error(format!("Failed to get logs: {}", e)))?;
+            .map_err(|e| AppError::internal_server_error(format!("Failed to get logs: {}", e)))?;
 
         let mut events = Vec::new();
 
@@ -165,7 +165,7 @@ impl BscEventListener {
     /// Get current block number
     pub async fn get_current_block(&self) -> Result<u64, AppError> {
         let block_number = self.provider.get_block_number().await
-            .map_err(|e| AppError::infrastructure_error(format!("Failed to get block number: {}", e)))?;
+            .map_err(|e| AppError::internal_server_error(format!("Failed to get block number: {}", e)))?;
 
         Ok(block_number.as_u64())
     }

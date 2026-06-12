@@ -1,3 +1,4 @@
+// kernel extraction wave9 — moved verbatim from apps/backend/src/domain/shared_kernel/value_objects/user_limits.rs
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;

@@ -1,3 +1,4 @@
+// kernel extraction wave9 — moved verbatim from apps/backend/src/domain/shared_kernel/value_objects/payments.rs
 // Payment-related shared value objects
 
 use serde::{Deserialize, Serialize};

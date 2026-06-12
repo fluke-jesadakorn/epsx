@@ -1,3 +1,19 @@
+// kernel extraction wave9 (R5) — moved from
+// apps/backend/src/domain/shared_kernel/services/eps_ranking_service.rs
+// to apps/backend/src/domain/market_analytics/services/eps_ranking_service.rs.
+//
+// Path adjustment: the file used to live next to the rest of the shared
+// kernel, but the wave-8 service-boundary audit showed that the
+// EPS-ranking logic is only used by the analytics bounded context (8
+// call sites, all in market_analytics / web::analytics / stock_analysis
+// and tradingview repositories). Moving it into
+// `domain::market_analytics::services` is a precondition for an honest
+// shared-kernel extraction — nothing in the kernel still needs it.
+//
+// Import path changes vs. the source:
+//   * The two `crate::domain::shared_kernel::entities::eps_growth::*`
+//     imports are unchanged because `shared_kernel/entities/` stays put.
+
 use std::sync::Arc;
 use async_trait::async_trait;
 use tracing::{debug, info, warn};

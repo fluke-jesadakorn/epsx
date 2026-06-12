@@ -1,8 +1,11 @@
+// kernel extraction wave9 — moved from apps/backend/src/domain/shared_kernel/value_objects/user_id.rs
+// Import-path adjustment: the `ValueObject` / `ValueObjectError` / `Identity`
+// traits now live in sibling modules of this crate.
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use uuid::Uuid;
-use crate::domain::shared_kernel::value_object::{ValueObject, ValueObjectError};
-use crate::domain::shared_kernel::aggregate_root::Identity;
+use crate::value_object::{ValueObject, ValueObjectError};
+use crate::traits::aggregate_root::Identity;
 
 /// User identifier value object
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

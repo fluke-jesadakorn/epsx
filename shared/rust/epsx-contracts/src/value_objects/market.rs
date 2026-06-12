@@ -1,6 +1,8 @@
+// kernel extraction wave9 — moved from apps/backend/src/domain/shared_kernel/value_objects/market.rs
+// Import-path adjustments: see symbol.rs (same pattern).
 use serde::{ Deserialize, Serialize };
-use crate::core::errors::{AppError, AppResult};
-use crate::domain::shared_kernel::ValueObject;
+use crate::errors::{AppError, AppResult};
+use crate::ValueObject;
 
 /// Market/Exchange enumeration
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
