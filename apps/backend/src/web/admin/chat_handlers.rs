@@ -4,8 +4,8 @@ use axum::{
     response::IntoResponse,
     Extension, Json,
 };
-use futures::StreamExt;
 use serde::Deserialize;
+
 use std::time::Duration;
 use tracing::{error, info};
 use uuid::Uuid;
@@ -137,16 +137,15 @@ pub async fn admin_send_reply(
     {
         Ok(msg) => {
             // Publish to user's channel
-            if let Some(broadcaster) = &app_state.redis_broadcaster {
+            if let Some(pubsub) = &app_state.pubsub {
                 let event = serde_json::json!({
                     "type": "new_message",
                     "conversation_id": id,
                     "message": msg,
                 });
-                let payload = serde_json::to_string(&event).unwrap_or_default();
-                let _ = broadcaster
-                    .publish_to_channel(&format!("chat:wallet:{}", conv.wallet_address), &payload)
-                    .await;
+                let payload = serde_json::to_vec(&event).unwrap_or_default();
+                let channel = format!("chat:wallet:{}", conv.wallet_address);
+                let _ = pubsub.publish(&channel, &payload).await;
             }
 
             // Notify user about new support message
@@ -207,18 +206,17 @@ pub async fn admin_assign_agent(
     match ChatRepository::assign_agent(&app_state.db_pool, id, Some(agent)).await {
         Ok(conv) => {
             // Publish agent_assigned to relevant channels
-            if let Some(broadcaster) = &app_state.redis_broadcaster {
+            if let Some(pubsub) = &app_state.pubsub {
                 let event = serde_json::json!({
                     "type": "agent_assigned",
                     "conversation_id": id,
                     "assigned_agent": agent,
                     "conversation": conv,
                 });
-                let payload = serde_json::to_string(&event).unwrap_or_default();
-                let _ = broadcaster.publish_to_channel("chat:new", &payload).await;
-                let _ = broadcaster
-                    .publish_to_channel(&format!("chat:agent:{}", agent), &payload)
-                    .await;
+                let payload = serde_json::to_vec(&event).unwrap_or_default();
+                let _ = pubsub.publish("chat:new", &payload).await;
+                let channel = format!("chat:agent:{}", agent);
+                let _ = pubsub.publish(&channel, &payload).await;
             }
             info!("Agent {} assigned to conversation {}", agent, id);
             Ok(Json(UnifiedApiResponse::success(conv)))
@@ -265,21 +263,17 @@ pub async fn admin_update_status(
     match ChatRepository::update_status(&app_state.db_pool, id, &body.status).await {
         Ok(conv) => {
             // Publish status_changed to user + admin channels
-            if let Some(broadcaster) = &app_state.redis_broadcaster {
+            if let Some(pubsub) = &app_state.pubsub {
                 let event = serde_json::json!({
                     "type": "status_changed",
                     "conversation_id": id,
                     "status": body.status,
                     "conversation": conv,
                 });
-                let payload = serde_json::to_string(&event).unwrap_or_default();
-                let _ = broadcaster
-                    .publish_to_channel(
-                        &format!("chat:wallet:{}", existing.wallet_address),
-                        &payload,
-                    )
-                    .await;
-                let _ = broadcaster.publish_to_channel("chat:new", &payload).await;
+                let payload = serde_json::to_vec(&event).unwrap_or_default();
+                let channel = format!("chat:wallet:{}", existing.wallet_address);
+                let _ = pubsub.publish(&channel, &payload).await;
+                let _ = pubsub.publish("chat:new", &payload).await;
             }
             Ok(Json(UnifiedApiResponse::success(conv)))
         }
@@ -314,16 +308,15 @@ pub async fn admin_mark_read(
     match ChatRepository::mark_read_by_agent(&app_state.db_pool, id).await {
         Ok(()) => {
             // Notify user that agent has read their messages
-            if let Some(broadcaster) = &app_state.redis_broadcaster {
+            if let Some(pubsub) = &app_state.pubsub {
                 let event = serde_json::json!({
                     "type": "messages_read",
                     "conversation_id": id,
                     "reader": "agent",
                 });
-                let payload = serde_json::to_string(&event).unwrap_or_default();
-                let _ = broadcaster
-                    .publish_to_channel(&format!("chat:wallet:{}", conv.wallet_address), &payload)
-                    .await;
+                let payload = serde_json::to_vec(&event).unwrap_or_default();
+                let channel = format!("chat:wallet:{}", conv.wallet_address);
+                let _ = pubsub.publish(&channel, &payload).await;
             }
             Ok(Json(UnifiedApiResponse::success(())))
         }
@@ -445,22 +438,21 @@ pub async fn admin_chat_stream(
 
     info!("Admin Chat SSE connection: wallet={}", wallet_address);
 
-    let redis_broadcaster = app_state.redis_broadcaster.clone();
+    let pubsub = app_state.pubsub.clone();
 
     // Subscribe to new conversation channel + agent-specific channel
-    let mut pubsub = match &redis_broadcaster {
-        Some(broadcaster) => {
-            let mut ps = broadcaster.subscribe_to_channel("chat:new").await?;
+    let mut message_stream = match &pubsub {
+        Some(port) => {
+            // Collect all channels we need to subscribe to. The
+            // admin chat stream is multi-channel: every admin gets
+            // `chat:new`, and a specific agent also gets
+            // `chat:agent:<wallet>`.
+            let mut channels: Vec<String> = vec!["chat:new".to_string()];
             if wallet_address != "all" {
-                let agent_channel = format!("chat:agent:{}", wallet_address);
-                ps.subscribe(&agent_channel).await.map_err(|e| {
-                    epsx_contracts::errors::AppError::new(
-                        epsx_contracts::errors::ErrorKind::InternalError,
-                        format!("Redis subscribe failed: {}", e),
-                    )
-                })?;
+                channels.push(format!("chat:agent:{}", wallet_address));
             }
-            Some(ps)
+            let channel_refs: Vec<&str> = channels.iter().map(|s| s.as_str()).collect();
+            Some(port.subscribe(&channel_refs)?)
         }
         None => None,
     };
@@ -468,16 +460,16 @@ pub async fn admin_chat_stream(
     let stream = async_stream::stream! {
         yield Ok::<Event, axum::Error>(Event::default().event("ping").data("connected"));
 
-        if let Some(ref mut ps) = pubsub {
-            let mut msg_stream = ps.on_message();
-            while let Some(msg) = msg_stream.next().await {
-                let payload: String = match msg.get_payload() {
-                    Ok(p) => p,
+        if let Some(ref mut stream) = message_stream {
+            while let Some(payload) = stream.next_message().await {
+                match String::from_utf8(payload) {
+                    Ok(s) => {
+                        yield Ok::<Event, axum::Error>(
+                            Event::default().event("chat_event").data(s)
+                        );
+                    }
                     Err(_) => continue,
-                };
-                yield Ok::<Event, axum::Error>(
-                    Event::default().event("chat_event").data(payload)
-                );
+                }
             }
         }
     };

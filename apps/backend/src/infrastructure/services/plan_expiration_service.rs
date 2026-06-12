@@ -24,9 +24,10 @@ use uuid::Uuid;
 
 use crate::prelude::TlsPool;
 use crate::web::notifications::{
-    RedisNotificationBroadcaster, cleanup_old_notifications,
+    cleanup_old_notifications,
 };
 use epsx_contracts::notification_port::{NotificationPort, SendNotificationRequest};
+use epsx_contracts::pubsub_port::PubsubPort;
 
 pub struct PlanExpirationConfig {
     pub poll_interval_secs: u64,
@@ -45,15 +46,11 @@ impl Default for PlanExpirationConfig {
 pub struct PlanExpirationService {
     db_pool: Arc<&'static TlsPool>,
     notifications_pool: Option<Arc<&'static TlsPool>>,
-    // Wave 10 / R3: the redis_broadcaster is no longer used for
-    // publishing notifications — that is the `notification_port`'s
-    // job. Kept in the struct for backwards compatibility with the
-    // `new()` signature; the field is read by the cleanup path only
-    // (via `notifications_pool` for the SQL dedup). The
-    // `#[allow(dead_code)]` is required because the struct's other
-    // public surface does not reference the field anymore.
-    #[allow(dead_code)]
-    redis_broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
+    // Wave 10 / R3: the notification port is wired by the
+    // container factory. When `None`, the service still runs its
+    // cleanup and dedup logic but skips the plan-expiry
+    // notification publish (logged as a warning so the misconfig is
+    // visible in production).
     notification_port: Option<Arc<dyn NotificationPort>>,
     config: PlanExpirationConfig,
 }
@@ -62,17 +59,18 @@ impl PlanExpirationService {
     pub fn new(
         db_pool: Arc<&'static TlsPool>,
         notifications_pool: Option<Arc<&'static TlsPool>>,
-        redis_broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
+        // Wave 10 integration gate: the `pubsub` argument is the
+        // Track B call-site update (main.rs now passes
+        // `container.pubsub` as the 3rd arg). The service itself
+        // does not publish notifications directly anymore — the
+        // `NotificationPort` adapter owns the broadcaster. We
+        // accept the arg to keep the call-site signature stable;
+        // the field is no longer stored on the struct.
+        _pubsub: Option<Arc<dyn PubsubPort>>,
     ) -> Self {
         Self {
             db_pool,
             notifications_pool,
-            redis_broadcaster,
-            // Wave 10 / R3: the notification port is wired by the
-            // container factory. When `None`, the service still runs
-            // its cleanup and dedup logic but skips the
-            // plan-expiry notification publish (logged as a warning
-            // so the misconfig is visible in production).
             notification_port: None,
             config: PlanExpirationConfig::default(),
         }

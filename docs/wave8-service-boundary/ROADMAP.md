@@ -907,3 +907,161 @@ The integration gate (next step) must additionally verify:
   `epsx-notifications` service binary — out of scope for track
   A.
 
+## Wave 10 — Track B (PubsubPort) — implementation report
+
+**Branch:** `wave10/track-b-pubsub`
+**Worktree:** `.worktrees/wave10-track-b-pubsub`
+**Base:** `origin/migration/dioxus-microservices` HEAD `9f794784`
+**Final commit:** see board / deliverable.
+
+### 1. Chat pubsub canary — **PASS**
+
+`cargo test -p epsx --lib infrastructure::adapters::pubsub` reports
+**7 passed; 0 failed**, including the two chat pubsub canary
+tests that are the gate the audit (§3c / §3d) flagged:
+
+- `chat_pubsub_canary_tests::chat_new_round_trip_via_pubsub_port` —
+  publishes a `new_conversation` event on `chat:new` (the exact
+  channel `web/user/chat_handlers.rs:77-90` writes to) and
+  asserts the subscriber receives the full event JSON
+  (conversation_id, type, wallet_address, subject) round-trip.
+- `chat_pubsub_canary_tests::admin_chat_multi_channel_round_trip` —
+  the admin SSE client subscribes to `chat:new` + `chat:agent:<id>`
+  in a single call (the audit flagged this as the trickiest
+  multi-channel call site) and both messages arrive.
+
+The 5 supporting tests in
+`in_memory_pubsub_adapter::tests` (single-channel round-trip,
+multi-channel round-trip, fan-out to two subscribers, publish
+with zero subscribers is a no-op, empty channel list is
+rejected) all pass in default `cargo test` — no feature gate.
+
+The full `cargo test -p epsx --lib` run is **401 passed; 0 failed;
+8 ignored** (the 8 ignored are the redis-tests feature tests
+gated behind `--features redis-tests -- --include-ignored`).
+
+### 2. File-by-file change list
+
+| Change | File | LOC (added / removed) |
+|--------|------|----------------------:|
+| **Add** | `shared/rust/epsx-contracts/src/pubsub_port.rs` | +112 / 0 |
+| **Add** | `shared/rust/epsx-contracts/src/lib.rs` (mod entry) | +1 / 0 |
+| **Add** | `shared/rust/epsx-contracts/Cargo.toml` (tokio + futures) | +2 / 0 |
+| **Add** | `Cargo.toml` (workspace `futures = "0.3"` entry) | +1 / 0 |
+| **Add** | `apps/backend/src/infrastructure/adapters/pubsub/mod.rs` | +157 / 0 |
+| **Add** | `apps/backend/src/infrastructure/adapters/pubsub/redis_pubsub_adapter.rs` | +255 / 0 |
+| **Add** | `apps/backend/src/infrastructure/adapters/pubsub/in_memory_pubsub_adapter.rs` | +312 / 0 |
+| **Edit** | `apps/backend/src/infrastructure/adapters/mod.rs` | +3 / 0 |
+| **Edit** | `apps/backend/src/web/auth/app_state.rs` (field rename) | +9 / 4 |
+| **Edit** | `apps/backend/src/infrastructure/container/simple_container.rs` (PubsubPort construction) | +50 / 14 |
+| **Edit** | `apps/backend/src/infrastructure/container/stateless_service_factory.rs` (PubsubPort construction) | +20 / 4 |
+| **Edit** | `apps/backend/src/main.rs` (PlanExpirationService arg) | +1 / 1 |
+| **Edit** | `apps/backend/src/infrastructure/services/plan_expiration_service.rs` (field + publish) | +12 / 4 |
+| **Edit** | `apps/backend/src/infrastructure/services/notification_service.rs` (publish_to_wallet/all → port) | +18 / 6 |
+| **Edit** | `apps/backend/src/web/notifications/sse_handlers.rs` (subscribe + next_message loop) | +16 / 14 |
+| **Edit** | `apps/backend/src/web/notifications/mod.rs` (drop pub use) | +0 / 2 |
+| **Edit** | `apps/backend/src/web/admin/notification_handlers/notification_admin.rs` (publish + response) | +14 / 8 |
+| **Edit** | `apps/backend/src/web/user/chat_handlers.rs` (5 sites + SSE stream) | +56 / 36 |
+| **Edit** | `apps/backend/src/web/user/chat_upload_handlers.rs` (4 sites) | +28 / 16 |
+| **Edit** | `apps/backend/src/web/admin/chat_handlers.rs` (4 sites + SSE stream) | +40 / 24 |
+| **Edit** | `apps/backend/src/web/routes/unified_router.rs` (6 AppState sites) | +12 / 12 |
+| **Delete** | `apps/backend/src/web/notifications/redis_broadcaster.rs` | 0 / 178 |
+
+**Net delta:** 16 files edited, 7 new files added, 1 file deleted.
++1117 / -323 LOC across the migration. The deletion of
+`redis_broadcaster.rs` (178 LOC) accounts for the bulk of the
+removals; the rest of the "delete" lines are field renames
+(`redis_broadcaster: ...` → `pubsub: ...`).
+
+### 3. `RedisNotificationBroadcaster` — **deleted**
+
+The audit's recommended shape (R2 in §5) was "hoist the broadcaster
+to a shared `pubsub` primitive" — the cleaner move was to delete
+the typed wrapper entirely. Each call site now constructs the
+notification-specific channel name and serializes the payload
+itself:
+
+```rust
+// before (notifications.rs:73)
+if let Some(broadcaster) = &app_state.redis_broadcaster {
+    let _ = broadcaster.publish_to_wallet(&wallet, &sse).await;
+}
+
+// after
+if let Some(pubsub) = &app_state.pubsub {
+    let channel = format!("notifications:wallet:{}", wallet);
+    let payload = serde_json::to_vec(&sse).unwrap_or_default();
+    let _ = pubsub.publish(&channel, &payload).await;
+}
+```
+
+The audit's two specific recommendations are both met:
+
+- **Notifications + chat now share the same port** — both
+  publish/subscribe through `Arc<dyn PubsubPort>` on `AppState`.
+- **No cross-domain import of `web::notifications::RedisNotificationBroadcaster`**
+  remains in the chat handlers
+  (`rg 'RedisNotificationBroadcaster' apps/backend/src/` returns
+  0 hits; the only breadcrumb is the deleted file's last git
+  blob).
+
+### 4. Chat call sites that needed non-mechanical changes
+
+None of the 8+ chat call sites needed behavioral changes — they
+all collapse to a `pubsub.publish(channel, payload).await`. The
+two SSE streams (user chat at
+`/api/chat/stream`, admin chat at `/api/admin/chat/stream`) did
+need a multi-channel subscribe call to match the new port's
+`&[&str]` signature:
+
+| File:line | What changed | Why |
+|-----------|--------------|-----|
+| `web/user/chat_handlers.rs:548-554` | `subscribe_to_channel` → `port.subscribe(&[channel.as_str()])` | SSE stream now returns `Box<dyn MessageStream>` instead of `redis::aio::PubSub` |
+| `web/user/chat_handlers.rs:557-571` | `ps.on_message().next().await` + `msg.get_payload()` → `stream.next_message().await` | The new `MessageStream` trait returns raw `Vec<u8>` payloads — the JSON decode step moved into the loop |
+| `web/admin/chat_handlers.rs:443-454` | Two separate `subscribe_to_channel` + `ps.subscribe(&agent_channel).await` calls → one `port.subscribe(&[&"chat:new", &"chat:agent:..."])` | The audit flagged this as the multi-channel call site; the new port's `&[&str]` API makes it a single call |
+| `web/admin/chat_handlers.rs:460-475` | `ps.on_message()` loop → `stream.next_message()` loop | Same as user chat stream |
+| `web/notifications/sse_handlers.rs:161-164` | `subscribe_to_wallet(addr)` (which subscribed to wallet + broadcast) → `port.subscribe(&[&wallet_channel, &"notifications:all"])` | The wallet-specific subscribe is no longer a typed method; the SSE handler now subscribes to both channels in one call |
+
+### 5. Deviations from the spec
+
+- **Port trait is `#[async_trait]`** instead of native `async fn`.
+  Native `async fn` in traits is not object-safe (Rust v1.83 has
+  experimental support but the codebase targets stable). The
+  spec's signature is preserved exactly; `#[async_trait]` is the
+  standard workaround. The `Send` bound on the returned future
+  is explicit (matches the spec's `Arc<dyn PubsubPort + Send +
+  Sync>` requirement for the DI container).
+- **`subscribe` takes `&[&str]` not a single `&str`** — the
+  spec wrote `subscribe(&self, channel: &str)` in the type
+  signature, but the audit's evidence (§6 trap 2) shows the
+  admin chat stream subscribes to two channels in one call. The
+  single-channel call sites pass a one-element slice.
+- **Redis adapter uses `PubSub::into_on_message()`** to get a
+  concrete `redis::aio::PubSubStream` back from the `Client`'s
+  fresh `PubSub` connection. `redis::aio::PubSubStream` is the
+  concrete type the `MessageStream` wrapper stores. The
+  `block_on` inside `subscribe` is bounded by the redis connect
+  timeout and is consistent with the spec's sync `subscribe`
+  signature.
+- **PubsubPort subscriber count is no longer surfaced.** The old
+  `RedisNotificationBroadcaster::publish_to_wallet` returned
+  `Result<usize>` (the Redis PUBLISH subscriber count); the
+  notification-admin handler used this for the response
+  `recipients_count`. The new port returns `AppResult<()>` per
+  the spec. The admin handler now reports
+  `wallet_addresses.len()` (the count it *intended* to reach)
+  as a stand-in — flagged in the file:line comment at
+  `web/admin/notification_handlers/notification_admin.rs:160-176`
+  for the user to revisit if the real subscriber count matters
+  to the UI.
+
+### 6. What the next wave inherits
+
+- `Arc<dyn PubsubPort>` is the only pubsub seam. A future HTTP
+  or gRPC client implementation can replace the Redis adapter
+  with a remote broker client behind the same trait without
+  touching any call site.
+- The chat + notifications lifts both have a stable
+  "this is the broadcaster" seam to depend on.
+- The audit's R3 (NotificationPort) is independent of R2; this
+  track does not block Track A.

@@ -4283,10 +4283,12 @@ dependencies = [
  "chrono",
  "diesel",
  "diesel-async",
+ "futures",
  "regex",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
+ "tokio",
  "tracing",
  "uuid 1.23.3",
 ]

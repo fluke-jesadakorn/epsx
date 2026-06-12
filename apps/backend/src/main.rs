@@ -130,7 +130,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let svc = epsx::infrastructure::services::PlanExpirationService::new(
             Arc::clone(&container.db_pool),
             container.notifications_pool.as_ref().map(Arc::clone),
-            container.redis_broadcaster.as_ref().map(Arc::clone),
+            container.pubsub.as_ref().map(Arc::clone),
         );
         svc.start();
         info!("PlanExpirationService background service started");

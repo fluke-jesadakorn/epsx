@@ -15,6 +15,8 @@ tracing.workspace = true
 async-trait.workspace = true
 axum.workspace = true
 regex.workspace = true
+tokio.workspace = true
+futures.workspace = true
 # Diesel From-conversions live in the kernel because `?`-propagation
 # in handlers needs them. Services that do not use Diesel can ignore them.
 # `deadpool` and `bb8` features gate `pooled_connection`, which the kernel

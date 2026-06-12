@@ -2,6 +2,7 @@
 // Concrete implementations of domain repository ports
 
 pub mod notification;
+pub mod pubsub;
 pub mod repositories;
 pub mod services;
 
@@ -15,3 +16,5 @@ pub use services::{
     TradingViewWebSocketClient, WebSocketFrontendEPSData,
     // SendGridEmailService removed - Web3-first system doesn't use traditional email
 };
+
+pub use pubsub::{InMemoryPubsubAdapter, RedisPubsubAdapter};

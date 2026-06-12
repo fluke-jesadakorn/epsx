@@ -32,6 +32,7 @@ pub mod traits;
 pub mod value_object;
 pub mod value_objects;
 pub mod notification_port;
+pub mod pubsub_port;
 
 // Re-export the value-object trait + error at the crate root for ergonomics,
 // mirroring what `shared_kernel/mod.rs` did before the extraction.

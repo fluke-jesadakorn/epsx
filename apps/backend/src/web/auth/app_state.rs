@@ -8,9 +8,9 @@ use crate::infrastructure::cache::Cache;
 use crate::infrastructure::container::DomainContainer;
 use crate::infrastructure::redis::RedisPool;
 use crate::infrastructure::services::audit_service::AuditService;
-use crate::web::notifications::RedisNotificationBroadcaster;
 use crate::domain::payment::repository_ports::{TransactionHistoryProvider};
 use crate::domain::auth::ports::IdentityProviderPort;
+use epsx_contracts::pubsub_port::PubsubPort;
 
 use crate::infrastructure::adapters::repositories::permission_plan_repository_adapter::PermissionPlanRepositoryAdapter;
 use crate::infrastructure::storage::S3Storage;
@@ -26,7 +26,13 @@ pub struct AppState {
     pub cache: Arc<dyn Cache>,
     pub domain_container: Arc<DomainContainer>,
     pub redis_pool: Option<Arc<RedisPool>>,
-    pub redis_broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
+    /// Generic pubsub port. Notifications + chat both publish/subscribe
+    /// through this single port. Hoisting the previous
+    /// notifications-typed `RedisNotificationBroadcaster` to this
+    /// kernel-level `PubsubPort` was wave-10 R2 — see
+    /// `docs/wave8-service-boundary/ROADMAP.md` §5 R2 and
+    /// `docs/wave8-service-boundary/audit-notifications.md` §3c.
+    pub pubsub: Option<Arc<dyn PubsubPort>>,
     pub plan_repo: Arc<PermissionPlanRepositoryAdapter>,
     pub transaction_history_provider: Option<Arc<dyn TransactionHistoryProvider>>,
     pub identity_provider: Option<Arc<dyn IdentityProviderPort>>,
@@ -51,13 +57,13 @@ pub struct AppState {
 
 impl AppState {
     /// Create new AppState with required dependencies
-    /// Redis pool and broadcaster are optional - if not provided, notifications won't work
+    /// Redis pool and pubsub port are optional - if not provided, real-time features won't work
     pub fn new(
         db_pool: Arc<&'static TlsPool>,
         cache: Arc<dyn Cache>,
         domain_container: Arc<DomainContainer>,
         redis_pool: Option<Arc<RedisPool>>,
-        redis_broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
+        pubsub: Option<Arc<dyn PubsubPort>>,
         analytics_db_pool: Option<Arc<&'static TlsPool>>,
     ) -> Self {
         // Diesel-based repository
@@ -81,7 +87,7 @@ impl AppState {
             cache,
             domain_container,
             redis_pool,
-            redis_broadcaster,
+            pubsub,
             plan_repo,
             transaction_history_provider,
             identity_provider,
