@@ -116,14 +116,30 @@ the rollback strategy.
      `domain/market_analytics/services/`.
   3. Delete `core::types.rs` (0 importers) and
      `shared_kernel::event_bus.rs` (stub).
-  4. Create `shared/rust/epsx-contracts/` workspace member with
+  4. **Package the 10 middleware files (3,361 LOC) at
+     `apps/backend/src/web/middleware/` as a shared
+     `epsx-web-middleware` crate** (kernel audit Refactor #3,
+     R11 in §5 below) — this is a hard precondition for any
+     service lift because every future binary that exposes
+     HTTP routes will need its own copy of `bearer_middleware`,
+     `permission_validation_middleware`, `rate_limiter`, etc.
+     **`permission_validation_middleware` (475 LOC) calls
+     `crate::core::permissions::has_permission(...)` directly
+     and must stay coordinated with the kernel's
+     `core::permissions` API** — it is the in-process permission
+     gate that the CLAUDE.md "Permissions & Plan Logic — Backend
+     Only" rule forces to stay local in every business-service
+     binary. The crate must re-export `epsx_contracts::permissions`
+     so the call site compiles unchanged after the kernel
+     moves. (kernel audit §5, §10 R3.)
+  5. Create `shared/rust/epsx-contracts/` workspace member with
      semver 0.1.0.
-  5. Replace all `use crate::core::errors::*` /
+  6. Replace all `use crate::core::errors::*` /
      `use crate::domain::shared_kernel::*` paths with
      `use epsx_contracts::*` across all 80+ callsites. Keep
      re-export aliases at the old paths with `#[deprecated]` for
      one minor version.
-  6. Create `shared/rust/epsx-identity/` workspace member carrying
+  7. Create `shared/rust/epsx-identity/` workspace member carrying
      `auth/{key_manager, token_service, auth_service, verification_service,
      challenge_service, granular_permissions, unified_permission_service,
      mod}` (8 files, ~3,200 LOC after dropping `cache.rs` and
@@ -348,6 +364,7 @@ designed so the next beneficiary can adopt them cheaply.
 | **R8. Wire up the 3 unused `_event_bus` fields** in `delete_plan_handler.rs`, `assign_wallet_handler.rs`, `remove_wallet_handler.rs` | Auth audit §3.2 | auth (primary); also a precondition for the `EventPublisherPort` to be honest | XS (3 lines × 3 files) | low |
 | **R9. Deduplicate the `consolidated_*_v2` vs `consolidated_baseline_*` migration files** in `notifications/` and `payments/` | Notifications audit Refactor #3 + payments audit §4 | notifications, payments, auth (the same problem exists in all three) | XS (~10 LOC of file deletes) | low |
 | **R10. Delete `auth/cache.rs` and `infrastructure/security/key_management.rs`** | Auth audit §8.3 | auth (primary); reduces surface that the new `epsx-identity` crate has to carry | XS (639 LOC deleted) | low |
+| **R11. Package `epsx-web-middleware` workspace crate** (3,361 LOC across 10 files in `apps/backend/src/web/middleware/`) so each lifted service binary replicates only the middlewares it needs | Shared-kernel audit Refactor #3 | **all** lifted services (notifications, payments, analytics — every binary that exposes HTTP routes); also forecloses the per-service drift where one service gets rate-limiting and another doesn't | M (~200 LOC of stub re-exports added; ~3,400 LOC moved) | med |
 
 **Strongly recommended sequencing:** R10 → R4 → R5 → R7 → R8 in
 **wave9** (these are all kernel + auth cleanup that must precede
