@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 use epsx::infra::container::AppContainer;
 
-use epsx::core::types::{ UserId, SessionId };
+use epsx_contracts::value_objects::{UserId, SessionId};
 
 use std::sync::atomic::{ AtomicUsize, Ordering };
 
