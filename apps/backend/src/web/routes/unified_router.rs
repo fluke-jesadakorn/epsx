@@ -37,6 +37,48 @@ impl UnifiedRouteBuilder {
         })
     }
 
+    /// Get the permission authority port as an `Arc<dyn ...>` for
+    /// axum `Extension` injection. Wraps the in-process
+    /// `UnifiedPermissionService` in the in-process adapter. After
+    /// wave 11, this can be swapped for the HTTP / gRPC adapter
+    /// without changing any handler signature.
+    ///
+    /// wave10(track-c): introduced as part of the R1 cross-cut.
+    fn get_permission_authority_port(
+        &self,
+    ) -> Arc<dyn epsx_contracts::permission_authority_port::PermissionAuthorityPort>
+    {
+        use crate::infrastructure::adapters::permission::in_process_authority_adapter::InProcessPermissionAuthorityAdapter;
+        let service = self
+            .container
+            .get_unified_permission_service()
+            .unwrap_or_else(|| {
+                Arc::new(crate::auth::UnifiedPermissionService::new_without_cache(
+                    *self.container.db_pool(),
+                ))
+            });
+        Arc::new(InProcessPermissionAuthorityAdapter::new(service))
+    }
+
+    /// Get the wallet ranking offset query port as an `Arc<dyn ...>`
+    /// for axum `Extension` injection. wave10(track-c): introduced
+    /// as part of the R6 cross-cut.
+    fn get_wallet_ranking_offset_port(
+        &self,
+    ) -> Arc<dyn epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery>
+    {
+        use crate::infrastructure::adapters::permission::in_process_ranking_offset_adapter::InProcessWalletRankingOffsetAdapter;
+        let service = self
+            .container
+            .get_unified_permission_service()
+            .unwrap_or_else(|| {
+                Arc::new(crate::auth::UnifiedPermissionService::new_without_cache(
+                    *self.container.db_pool(),
+                ))
+            });
+        Arc::new(InProcessWalletRankingOffsetAdapter::new(service))
+    }
+
     /// Create AppState with container dependencies - eliminates 4 duplicate patterns
     fn create_app_state(&self) -> crate::web::auth::AppState {
         let cache = self.get_or_default_cache();
@@ -282,14 +324,10 @@ impl UnifiedRouteBuilder {
                 eps_repository,
             ),
         );
-        let permission_service = self
-            .container
-            .get_unified_permission_service()
-            .unwrap_or_else(|| {
-                Arc::new(crate::auth::UnifiedPermissionService::new_without_cache(
-                    *self.container.db_pool(),
-                ))
-            });
+        // wave10(track-c) R6: replace `Arc<UnifiedPermissionService>` with
+        // `Arc<dyn WalletRankingOffsetQuery>` so the analytics handlers
+        // depend on a stable trait surface.
+        let permission_service = self.get_wallet_ranking_offset_port();
 
         let app_state = self.create_app_state();
 
@@ -361,14 +399,8 @@ impl UnifiedRouteBuilder {
             ),
         );
         // Permission service is required by the rankings handler even for public access
-        let permission_service = self
-            .container
-            .get_unified_permission_service()
-            .unwrap_or_else(|| {
-                Arc::new(crate::auth::UnifiedPermissionService::new_without_cache(
-                    *self.container.db_pool(),
-                ))
-            });
+        // wave10(track-c) R6: same port-based injection as the user-side route.
+        let permission_service = self.get_wallet_ranking_offset_port();
 
         Router::new()
             .nest("/analytics", Router::new()
@@ -739,6 +771,14 @@ impl UnifiedRouteBuilder {
 
         let app_state = self.create_app_state();
 
+        // wave10(track-c) R1: inject the permission authority port for
+        // the activate-subscription handler (validation_handlers.rs).
+        // Pre-wave-10 the handler asked for `Arc<UnifiedPermissionService>`
+        // but the payment routes block never layered the extension, so
+        // the route was effectively unwired. The port-based wiring is
+        // the same shape (just typed as `dyn PermissionAuthorityPort`).
+        let permission_authority_port = self.get_permission_authority_port();
+
         // Core payment validation routes (authenticated users)
         let core_routes = Router::new()
             .route("/validate", post(validate_payment_handler))
@@ -748,6 +788,7 @@ impl UnifiedRouteBuilder {
             .route("/details", get(get_payment_details_handler))
             .route("/history", get(get_user_payment_history))
             .with_state(app_state.clone())
+            .layer(Extension(permission_authority_port))
             .layer(axum_middleware::from_fn_with_state(
                 app_state.clone(),
                 crate::web::middleware::bearer_middleware,

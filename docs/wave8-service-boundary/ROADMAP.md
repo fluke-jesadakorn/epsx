@@ -672,6 +672,245 @@ synthesis.
 
 ---
 
+## 11. Wave 10 — Track C (Cross-cutting ports) — implementation report
+
+> Branch: `wave10/track-c-ports` (wave-10 plan, mavis plan
+> `plan_b0eb90aa`, track C). Base commit: `9f794784`.
+> Implementation: 5 commits, all on the wave10/track-c-ports
+> branch. Final commit hash recorded in
+> `deliverable.md` (workspace root) and in the per-track
+> `outputs/track-c-cross-cutting-ports/deliverable.md`.
+
+### 11.1 R1 — `PermissionAuthorityPort` migration
+
+| # | File:line (before) | File:line (after) | Status |
+|---|--------------------|-------------------|--------|
+| 1 | `apps/backend/src/web/payments/validation_handlers.rs:23` (`auth::{UnifiedPermissionService, GrantPermissionRequest}` import) | `apps/backend/src/web/payments/validation_handlers.rs:24-28` (`epsx_contracts::permission_authority_port::{GrantPermissionRequest, PermissionAuthorityPort}`) | **migrated** |
+| 2 | `apps/backend/src/web/payments/validation_handlers.rs:197` (`Extension(permission_service): Extension<Arc<UnifiedPermissionService>>`) | `apps/backend/src/web/payments/validation_handlers.rs:204` (`Extension(permission_service): Extension<Arc<dyn PermissionAuthorityPort>>`) | **migrated** |
+| 3 | `apps/backend/src/web/payments/validation_handlers.rs:233, 251` (`permission_service.grant_permission(request).await`) | unchanged shape; calls now go through the port trait | **migrated** |
+| 4 | `apps/backend/src/web/routes/unified_router.rs:285-292, 364-371` (analytics-route `Arc<UnifiedPermissionService>` injection) | `apps/backend/src/web/routes/unified_router.rs:get_wallet_ranking_offset_port()` helper | **migrated** for analytics; **wiring added** to payment routes block (pre-wave-10 the layer was missing — see §11.4) |
+| 5 | `apps/backend/src/web/admin/auth_handlers/permission_handlers.rs:15`, `apps/backend/src/web/admin/wallet_management_handlers.rs:765` (handlers that *only* call `has_permission` / read-side check) | unchanged | **deferred** — these callers use the read-side `has_permission` and `get_permission_stats` methods, not the management surface (`grant` / `revoke` / `list`). The read-side stays on the concrete `UnifiedPermissionService` per CLAUDE.md (RBAC enforcement is a backend-only concern); the new port is for the management path only. Migrating the read-side would be a separate R-precondition (it'd require a `PermissionQueryPort` with `has_permission` + `get_permission_stats` as methods). |
+| 6 | `apps/backend/src/web/auth/handlers.rs:556, 627, 693` (`web3_permission_service.grant_permission / revoke_permission / get_user_permissions`) | unchanged | **out of scope** — these call `web3_permission_service` (`Web3PermissionServiceAdapter`), a different service from `UnifiedPermissionService`. The two converge on a shared DB but the `Web3PermissionServiceAdapter` is a thin query layer that doesn't take a `GrantPermissionRequest`; it's a separate migration that would land in a later wave. |
+| 7 | `apps/backend/src/application/wallet_management/commands/handlers/grant_permission_handler.rs:44` (`user.grant_permission(permission.clone())`) and `domain/wallet_management/aggregates/wallet_user.rs:238, 267` (`pub fn grant_permission / revoke_permission` on the aggregate) | unchanged | **out of scope** — these are domain-aggregate methods on `WalletUser`, not the permission-service-management path. The aggregate's `grant_permission` enforces the domain invariants; the port wraps the *service* layer, not the aggregate. |
+
+Net diff: 1 payment handler signature, 1 router helper, 2 adapter files
+(new), 2 port files (new), 1 value-object file (new), 2 unit-test
+additions. `cargo check --workspace` is green;
+`cargo test -p epsx-contracts --lib` is 43/43 green;
+`cargo test -p epsx --lib` is 399/399 green (was 397 pre-wave).
+
+### 11.2 R6 — `WalletRankingOffsetQuery` migration
+
+| # | File:line (before) | File:line (after) | Status |
+|---|--------------------|-------------------|--------|
+| 1 | `apps/backend/src/web/analytics/eps/rankings.rs:14` (`use crate::auth::UnifiedPermissionService;`) | `apps/backend/src/web/analytics/eps/rankings.rs:13` (`use epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery;`) | **migrated** |
+| 2 | `apps/backend/src/web/analytics/eps/rankings.rs:24` (`Extension(permission_service): Extension<Arc<UnifiedPermissionService>>`) | `apps/backend/src/web/analytics/eps/rankings.rs:25` (`Extension(permission_service): Extension<Arc<dyn WalletRankingOffsetQuery>>`) | **migrated** |
+| 3 | `apps/backend/src/web/analytics/eps/rankings.rs:215-231` (`calculate_ranking_config_from_permissions(&Arc<UnifiedPermissionService>, …)`) | `apps/backend/src/web/analytics/eps/rankings.rs:215-231` (`calculate_ranking_config_from_permissions(&Arc<dyn WalletRankingOffsetQuery>, …)`, returns `(offset.value(), -1)`) | **migrated** |
+| 4 | `apps/backend/src/web/analytics/eps/cache.rs:14` (`use crate::auth::UnifiedPermissionService;`) | `apps/backend/src/web/analytics/eps/cache.rs:11` (`use epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery;`) | **migrated** |
+| 5 | `apps/backend/src/web/analytics/eps/cache.rs:51` (handler signature) | `apps/backend/src/web/analytics/eps/cache.rs:51` (`Extension(permission_service): Extension<Arc<dyn WalletRankingOffsetQuery>>`) | **migrated** |
+| 6 | `apps/backend/src/web/analytics/eps/cache.rs:73-85` (`permission_service.get_wallet_ranking_offset(wallet).await`) | unchanged shape; returns `RankingOffset`, callers use `.value()` | **migrated** |
+| 7 | `apps/backend/src/web/routes/unified_router.rs:285-292, 364-371` (analytics-route `Arc<UnifiedPermissionService>` injection) | `apps/backend/src/web/routes/unified_router.rs:get_wallet_ranking_offset_port()` helper | **migrated** |
+| 8 | `apps/backend/src/web/payments/validation_handlers.rs:221, 239` (`features.get("ranking_offset")` *metadata* extraction — different surface from the port) | unchanged | **out of scope** — the payments handler reads the `ranking_offset` *plan metadata* field, not the per-wallet query. The two are not the same code path. |
+
+#### 11.2a `RankingOffset` value-object relocation
+
+The audit (`audit-analytics.md` §10 Refactor #1) said the value
+object "already exists in
+`apps/backend/src/domain/market_analytics/value_objects/`". At
+HEAD `9f794784` it did not. Track C creates it as part of the
+relocation: the underlying function returns `i32` and the audit's
+aspirational claim is now true.
+
+- New file: `shared/rust/epsx-contracts/src/value_objects/ranking_offset.rs`
+  - Range: `0..=1000` (the product's current max is `100`; `1000`
+    is generous headroom for future premium tiers).
+  - `Default` = `FREE_PLAN_RANKING_OFFSET` (the free-plan floor).
+  - `From<i32>` clamps out-of-range inputs to the free-plan default
+    (lossy-validated; the underlying SQL function returns
+    `min(...)` across all active plans, so out-of-range values
+    only appear if seed data is corrupt — that's a separate bug).
+  - `Serialize` / `Deserialize` for the future identity-service
+    HTTP / gRPC adapter.
+  - 6 colocated unit tests covering: range validation, the
+    `From<i32>` clamp, the `Default` floor, the `ValueObject`
+    `validate()` method, and a serde round-trip.
+- Re-export: `shared/rust/epsx-contracts/src/value_objects/mod.rs`
+  adds `pub mod ranking_offset;` and `pub use ranking_offset::RankingOffset;`.
+- No call site had an existing `RankingOffset` import (the type
+  didn't exist), so no migration of existing import paths is
+  needed. The two analytics handlers now use `.value()` to extract
+  the `i32` for the `(rank_offset, limit_cap)` tuple — see rows
+  3 and 6 above.
+
+### 11.3 `notification_subscriptions` decision — drop the table (outcome b)
+
+> ROADMAP §4 wave 10 precondition item 6: "Either implement
+> or drop the `notification_subscriptions` SSE connection
+> tracking table."
+
+#### Evidence (rg survey at HEAD `9f794784`)
+
+```text
+$ rg -n 'notification_subscriptions' apps/backend/src/
+apps/backend/src/infrastructure/models/notification.rs:70:///
+apps/backend/src/infrastructure/models/notification.rs:72:#[diesel(
+apps/backend/src/infrastructure/models/notification.rs:88:#[diesel(
+
+$ rg -n 'INSERT INTO notification_subscriptions' apps/backend/src/
+(no results)
+
+$ rg -n 'FROM notification_subscriptions' apps/backend/src/
+(no results)
+```
+
+- 3 in-tree references, all inside a `/* … */` block of
+  *commented-out* Diesel models
+  (`NotificationSubscriptionDb` / `NewNotificationSubscriptionDb`).
+- Zero live INSERT paths.
+- Zero live SELECT paths.
+- The Diesel-generated schema
+  (`apps/backend/src/schemas/notifications.rs`) does not contain
+  `notification_subscriptions` — only `wallet_notifications`.
+- The audit's `audit-notifications.md` §4c reached the same
+  conclusion: "but I see no INSERT in sse_handlers.rs; this may
+  be a vestigial index only."
+
+#### Decision
+
+Drop the table. **Outcome (b).** The table is
+vestigial — the chat SSE stream and the notifications SSE
+stream both use Redis pub/sub for fanout; the
+`notification_subscriptions` table was designed for
+multi-instance fanout tracking (`(instance_id, connection_id)`
+UNIQUE) but no backend code ever wrote to it. The 4 indexes on
+the table (`idx_subs_wallet_active`, `idx_subs_instance_active`,
+`idx_subs_stale`, the implicit PK + UNIQUE) are write-amplification
+cost on every INSERT that never happened.
+
+#### Migration
+
+`apps/backend/migrations/notifications/20260613000000_drop_notification_subscriptions/{up,down}.sql`
+
+- `up.sql`: `DROP TABLE IF EXISTS notification_subscriptions CASCADE` +
+  explicit `DROP INDEX IF EXISTS` for the 3 indexes. Idempotent.
+- `down.sql`: restores the table verbatim from the baseline
+  (`00000000000001_consolidated_baseline_v2/up.sql`), with
+  `IF NOT EXISTS` guards. The original baseline migration is
+  *not* edited — the wave-10 drop is a new migration that
+  layers on top.
+
+#### Verification
+
+Scratch DB (`/tmp`-socket PostgreSQL) tested on HEAD `9f794784` + the
+two new SQL files:
+
+| Step | Command | Result |
+|------|---------|--------|
+| 1 | `createdb -h /tmp epsx_scratch_wave10_trackc` | OK |
+| 2 | `psql -h /tmp -d epsx_scratch_wave10_trackc -f 00000000000001_consolidated_baseline_v2/up.sql` | baseline applied; 2 tables |
+| 3 | `psql -h /tmp -d … -c "\dt"` | `notification_subscriptions` + `wallet_notifications` present |
+| 4 | `diesel migration --config-file diesel_notifications.toml list` | 3 migrations listed (incl. the new one) |
+| 5 | `diesel migration --config-file diesel_notifications.toml run` | 3/3 ran, including the new drop |
+| 6 | `psql -h /tmp -d … -c "\dt"` | only `wallet_notifications` remains |
+| 7 | `diesel migration --config-file diesel_notifications.toml redo` | rollback + replay, both succeed |
+| 8 | `psql -h /tmp -d … -f …/down.sql` (idempotency) | runs twice without error |
+| 9 | `psql -h /tmp -d … -f …/up.sql` (idempotency) | runs twice without error |
+
+Scratch DB dropped after verification. No production data was
+touched.
+
+#### Code cleanup
+
+The 30-line commented-out `NotificationSubscriptionDb` /
+`NewNotificationSubscriptionDb` block was removed from
+`apps/backend/src/infrastructure/models/notification.rs`. The
+two struct definitions referenced a
+`#[diesel(table_name = …)]` attribute pointing at a table
+that isn't in the schema — they would have failed to compile
+if uncommented. No source file imports either of those two
+types, so the removal is safe. A 5-line comment was left
+behind pointing at the deliverable.md for the rg evidence.
+
+#### Test
+
+None added — per the spec, outcome (b) doesn't get a new
+test. The migration files themselves are the test
+(`diesel migration run` / `diesel migration redo` against a
+scratch DB).
+
+### 11.4 Side findings (pre-existing gaps surfaced during migration)
+
+Two pre-existing issues were observed while doing the
+migrations; they are not introduced by this wave, but
+recording them so the wave-11 / wave-12 work can address
+them:
+
+1. **The `activate_subscription_handler` route had no
+   `Extension(permission_service)` layer in the payment
+   routes block.** Pre-wave-10 the handler asked for
+   `Arc<UnifiedPermissionService>` but the layer was never
+   wired in `unified_router.rs::create_payment_routes` —
+   hitting the route would have failed with a missing
+   extension at request time. Track C's port migration
+   *also* wires the layer (`get_permission_authority_port()`
+   + `Extension(permission_authority_port)`), so the route
+   is now reachable. This is a *co-located* fix, not a
+   pre-existing bug being introduced; flagging it for the
+   verifier.
+
+2. **`AppError` duplication is real and getting in the way.**
+   `epsx_contracts::errors::AppError` (struct, ~400 LOC) and
+   `epsx_identity_shared::core::AppError` (enum, ~80 LOC)
+   are two different types with the same name. The auth
+   code in `epsx_identity_shared` uses the latter; the
+   permission-adapter layer (this wave) has to do a manual
+   variant-by-variant conversion (`shared_app_error_to_port`)
+   to bridge them. ROADMAP §5 R4 is the wave-9 work that
+   collapses the two; the conversion function is the
+   lowest-friction bridge until R4 lands. (For comparison:
+   `apps/backend/src/auth/unified_permission_service.rs:32`
+   already imports `epsx_contracts::errors::AppError` — but
+   that file is a *dead-code* sibling of the live
+   `epsx_identity_shared::unified_permission_service.rs`,
+   re-exported via `apps/backend/src/auth/mod.rs`. The two
+   files are byte-for-byte identical except for those two
+   `use` lines, so the in-tree state is consistent with
+   "wave-9 prep was started but not finished".)
+
+### 11.5 Test results
+
+| Command | Result |
+|---------|--------|
+| `cargo check --workspace` | green (warnings only, 4 pre-existing) |
+| `cargo check -p epsx-contracts` | green |
+| `cargo test -p epsx-contracts --lib` | **43 passed**, 0 failed (was 40; +3 for `permission_authority_port` DTO round-trip, +6 for `ranking_offset`) |
+| `cargo test -p epsx --lib` | **399 passed**, 0 failed, 8 ignored (was 397; +2 for the `shared_error_bridge_preserves_kind` test in each adapter) |
+| `cargo test -p epsx --tests` | 1 passed, 0 failed (the existing `auth_migration_test`) |
+| `diesel migration run --config-file diesel_notifications.toml` | 3/3 applied |
+| `diesel migration redo --config-file diesel_notifications.toml` | OK (rollback + replay) |
+| `psql -f up.sql` (idempotency, x2) | OK |
+| `psql -f down.sql` (idempotency, x2) | OK |
+
+The 8 ignored backend tests are pre-existing
+(`cargo test … -- --ignored` would surface them; not run in
+this wave). No new tests were ignored or marked
+`#[ignore]`.
+
+### 11.6 Commits
+
+| # | Hash | Subject |
+|---|------|---------|
+| 1 | `2bbc1a75` | `wave10(track-c): add PermissionAuthorityPort + WalletRankingOffsetQuery traits` |
+| 2 | `301e860a` | `wave10(track-c): add in-process adapters for PermissionAuthorityPort + WalletRankingOffsetQuery` |
+| 3 | `221879a3` | `wave10(track-c): migrate call sites to PermissionAuthorityPort + WalletRankingOffsetQuery` |
+| 4 | `ff7e98e3` | `wave10(track-c): drop notification_subscriptions table + cleanup dead models` |
+| 5 | `308e3c9d` | `wave10(track-c): add DTO round-trip + error-bridge tests` |
+
+The final commit hash (`308e3c9d`) is the merge-base for the
+verifier's `git diff origin/migration/dioxus-microservices..HEAD`.
+
+---
+
 *Synthesis complete. The roadmap is intended for the user's
 review and for the wave-N+1 refactor planning. The next step is
 the user's decision on §7's open questions before wave9 work

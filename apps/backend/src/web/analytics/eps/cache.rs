@@ -8,10 +8,10 @@ use std::hash::{ Hash, Hasher };
 use tracing::{ debug, info, warn };
 
 use epsx_contracts::errors::AppError;
+use epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery;
 use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
 // use crate::domain::shared_kernel::services::eps_cache_service::EPSCacheService; // REMOVED
 use crate::domain::market_analytics::domain_services::EPSCacheService; // ADDED
-use crate::auth::UnifiedPermissionService;
 use crate::web::middleware::bearer_middleware::OpenIDUserContext;
 use crate::infrastructure::cache::Cache;
 use crate::web::analytics::convert_screening_result_to_eps_ranking;
@@ -48,7 +48,7 @@ use super::{
 pub async fn get_unified_analytics_rankings_cached(
   Query(params): Query<EPSRankingQueryParams>,
   Extension(_cache): Extension<Arc<dyn Cache>>,
-  Extension(permission_service): Extension<Arc<UnifiedPermissionService>>,
+  Extension(permission_service): Extension<Arc<dyn WalletRankingOffsetQuery>>,
   user_context_ext: Option<Extension<OpenIDUserContext>>,
 ) -> Result<Json<CardDashboardResponse>, AppError> {
   debug!(
@@ -72,8 +72,8 @@ pub async fn get_unified_analytics_rankings_cached(
   let (rank_offset, limit_cap) = if let Some(ref wallet) = wallet_address {
     match permission_service.get_wallet_ranking_offset(wallet).await {
       Ok(offset) => {
-        info!("Analytics API: Wallet {} ranking offset: {} (from plan metadata)", wallet, offset);
-        (offset, -1)
+        info!("Analytics API: Wallet {} ranking offset: {} (from plan metadata)", wallet, offset.value());
+        (offset.value(), -1)
       },
       Err(e) => {
         warn!("Analytics API: Failed to get offset for {}: {}, using free tier", wallet, e);
