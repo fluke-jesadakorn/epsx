@@ -63,6 +63,11 @@ epsx-identity-shared = { path = "../../shared/rust/epsx-identity-shared" }
 # see the same `TlsPool` / `TlsConnectionManager` (was a placeholder
 # alias in epsx-identity-shared's prelude before this crate existed).
 epsx-database-pools = { path = "../../shared/rust/epsx-database-pools" }
+# Wave 10 prep: shared web/middleware crate. Was a facade in wave 9;
+# grew in the prep pass to host the security_headers middleware and
+# the 3 pure rate-limiter factories (the rest of the 10 files in
+# `web/middleware/` stay in the backend pending trait extractions).
+epsx-web-middleware = { path = "../../shared/rust/epsx-web-middleware" }
 chrono = { version = "0.4.42", features = ["serde"] }
 dotenv = "0.15"
 futures = "0.3"

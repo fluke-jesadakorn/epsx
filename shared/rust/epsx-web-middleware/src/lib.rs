@@ -1,54 +1,60 @@
 //! `epsx-web-middleware`
 //!
-//! Facade crate for the EPSX web/middleware layer. This is a
-//! **types-only stub** in wave 9: it declares the public surface
-//! that future service binaries will use to plug in shared
-//! middlewares, and proves the dependency graph
-//! (`epsx-contracts` + `epsx-identity` + `axum` + `tower` + `http`
-//! + `tracing`) compiles standalone.
+//! Shared web/middleware crate for EPSX. Started as a types-only
+//! facade stub in wave 9 and grew in the wave 10 prep pass.
 //!
-//! The 10 implementation files at `apps/backend/src/web/middleware/`
-//! (3,361 LOC) are NOT moved into this crate in wave 9. They
-//! stay in `apps/backend` for now because of a wave-8-audit
-//! under-estimate: the audit's R11 ("package the 10 middleware
-//! files as a shared crate") recommended a real file-move, but
-//! the actual coupling footprint is broader than 2 paths (the
-//! 15+ backend-internal paths are documented in the wave 9
-//! deliverable for this track). A real move needs the
-//! dependent types — `AppState`, `DomainContainer`, `Cache`,
-//! `ApiKeyRepository`, `UnifiedWeb3AuthService`, the diesel
-//! table schemas, the tower-governor wiring, and the threat
-//! detection service — to be either extracted into
-//! `epsx-contracts` / `epsx-identity` first, or refactored into
-//! trait abstractions that the new crate can take as
-//! generic parameters. Both of those are out of scope for
-//! wave 9.
+//! ## What lives here (post-wave-10-prep)
 //!
-//! This crate is therefore a forward-looking dep-graph proof:
+//! * `security_headers` — `security_headers_middleware` +
+//!   `request_id_middleware` + the `RequestId` extension type.
+//!   Pure axum code, no backend coupling. Moved from
+//!   `apps/backend/src/web/middleware/security_headers.rs`.
+//! * `governor_limiters` — the 3 pure `*_rate_limiter()` factory
+//!   functions (`auth_rate_limiter`, `chat_rate_limiter`,
+//!   `email_rate_limiter`). Pure tower-governor config, no
+//!   backend coupling. The `threat_aware_middleware` (which
+//!   reaches into the backend's threat-detection service) stays
+//!   in `apps/backend` for now.
 //!
-//! * It has a real public surface (`BackendMiddleware` trait +
-//!   `MiddlewareKind` enum + re-exports of the kernel / identity
-//!   types a future middleware will need).
-//! * It compiles standalone with `cargo check -p epsx-web-middleware`
-//!   (no path dep back to `apps/backend`).
-//! * It has a smoke unit test (`tests::facade_surface_compiles`)
-//!   that proves a unit struct can implement the trait and that
-//!   the re-exports resolve.
+//! ## What still lives in `apps/backend/src/web/middleware/`
 //!
-//! ## Why a facade, not a file-move
+//! The remaining 8 files (2,500+ LOC) are too tightly coupled
+//! to backend-internal types to move in one prep pass:
 //!
-//! A facade proves the workspace graph and unblocks wave 10
-//! (notifications lift) without committing to a file-move that
-//! the rest of the architecture does not yet support. When the
-//! 15+ coupling paths are cleared in a future wave, the
-//! concrete implementations at `apps/backend/src/web/middleware/`
-//! move into this crate in a follow-up PR. The trait
-//! `BackendMiddleware` is the seam that future concrete
-//! implementations will satisfy.
+//! * `bearer_middleware.rs` (502 LOC) — `AppState`,
+//!   `ApiKeyRepository`, `redis_cache::get_perm_invalidated`,
+//!   `auth::OpenIDTokenError`. Moving it requires a trait
+//!   abstraction over the API key repo + Redis cache invalidation.
+//! * `auth_middleware.rs` (380 LOC) — `AppState`,
+//!   `UnifiedWeb3AuthService`.
+//! * `permission_validation_middleware.rs` (475 LOC) —
+//!   `PermissionError`, `bearer_middleware::OpenIDUserContext`.
+//! * `rate_limit_middleware.rs` (226 LOC) — `DomainContainer`.
+//! * `rate_limiter.rs` (643 LOC) — `Cache`.
+//! * `multi_level_rate_limiter.rs` (647 LOC) — `Cache`, `Config`.
+//! * `usage_tracking_middleware.rs` (194 LOC) — `DomainContainer`,
+//!   Diesel schemas, `auth_middleware::Web3AuthContext`,
+//!   `bearer_middleware::OpenIDUserContext`.
+//! * `governor_limiter.rs` (now ~30 LOC after the 3 factories
+//!   moved) — `AppState`, `infrastructure::security::get_threat_detection_service`.
+//!
+//! These are wave 10+1+ work. The dep-graph proof was delivered
+//! in wave 9; the real file-move is a sequence of
+//! "introduce trait abstraction → move file" steps that the
+//! wave 10+1 plan can take per coupling type.
+//!
+//! ## Trait seam
+//!
+//! `BackendMiddleware` is the marker trait the unified router
+//! uses to register middlewares. Real concrete middlewares
+//! (the ones that stay in the backend) implement this trait
+//! when they get ported; until then, the backend's
+//! `web::middleware::mod.rs` re-exports the moved pieces so
+//! `crate::web::middleware::security_headers_middleware` keeps
+//! working.
 
 #![doc(html_root_url = "https://docs.rs/epsx-web-middleware/0.1.0")]
 
-use axum::http::HeaderName;
 use std::borrow::Cow;
 
 /// Marker trait for middlewares that plug into an EPSX service
@@ -109,29 +115,6 @@ pub use epsx_kernel as kernel;
 /// rename Track B picks.
 pub use epsx_identity_shared as identity;
 
-/// Header name used by the security-headers middleware.
-/// Exposed here so that future tests in this crate can
-/// assert against it without re-declaring the string.
-pub const SECURITY_HEADER_CONTENT_TYPE_OPTIONS: HeaderName =
-    HeaderName::from_static("x-content-type-options");
-
-/// Header value paired with
-/// [`SECURITY_HEADER_CONTENT_TYPE_OPTIONS`]. Centralised so
-/// the `security_headers_middleware` implementation can be
-/// moved into this crate in the follow-up wave without
-/// re-deriving the constant.
-pub const SECURITY_HEADER_VALUE_NOSNIFF: &str = "nosniff";
-
-/// Header name used by the security-headers middleware for
-/// clickjacking protection.
-pub const SECURITY_HEADER_FRAME_OPTIONS: HeaderName =
-    HeaderName::from_static("x-frame-options");
-
-/// Header name used by the security-headers middleware for
-/// HSTS in production builds.
-pub const SECURITY_HEADER_HSTS: HeaderName =
-    HeaderName::from_static("strict-transport-security");
-
 /// A trivial concrete middleware used to prove the
 /// `BackendMiddleware` trait can be implemented in this
 /// crate. The smoke test in `tests::facade_surface_compiles`
@@ -144,6 +127,12 @@ impl BackendMiddleware for NoopMiddleware {
         Cow::Borrowed("noop")
     }
 }
+
+// wave 10 prep: real implementation modules moved in from
+// `apps/backend/src/web/middleware/`. See module-level docs in
+// each file for what moved and what's still in the backend.
+pub mod security_headers;
+pub mod governor_limiters;
 
 #[cfg(test)]
 mod tests {
@@ -158,13 +147,11 @@ mod tests {
         let middleware = NoopMiddleware;
         assert_eq!(middleware.name(), "noop");
         assert_eq!(MiddlewareKind::Global, MiddlewareKind::Global);
-        // Touch the header constants so a future refactor that
-        // accidentally renames them fails the test, not the
-        // production binary.
-        assert_eq!(SECURITY_HEADER_VALUE_NOSNIFF, "nosniff");
-        assert_eq!(
-            SECURITY_HEADER_CONTENT_TYPE_OPTIONS.as_str(),
-            "x-content-type-options"
-        );
+        // The security headers + governor rate-limiter factories
+        // were moved into sibling modules in the wave 10 prep
+        // pass; this test now also proves those modules are
+        // visible from the crate root.
+        crate::security_headers::RequestId(String::new());
+        let _ = crate::governor_limiters::auth_rate_limiter;
     }
 }

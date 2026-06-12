@@ -31,3 +31,12 @@ tracing.workspace = true
 # Internal kernel — pulled in for the epsx_kernel re-export that
 # the kernel extraction plan uses as the in-process permission gate.
 epsx-kernel = { path = "../kernel" }
+
+# wave 10 prep: uuid for the request-id middleware moved into this
+# crate from apps/backend/src/web/middleware/security_headers.rs.
+uuid = { version = "1.7", features = ["v4"] }
+
+# tower-governor for the portable rate-limiter factories moved
+# from apps/backend/src/web/middleware/governor_limiter.rs.
+tower_governor = "0.8"
+governor = "0.10"

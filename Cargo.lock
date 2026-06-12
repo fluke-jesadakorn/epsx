@@ -4095,6 +4095,7 @@ dependencies = [
  "epsx-contracts",
  "epsx-database-pools",
  "epsx-identity-shared",
+ "epsx-web-middleware",
  "ethers",
  "futures",
  "futures-util",
@@ -4675,10 +4676,13 @@ dependencies = [
  "epsx-contracts",
  "epsx-identity-shared",
  "epsx-kernel",
+ "governor",
  "http 1.4.2",
  "tower 0.5.3",
  "tower-http 0.5.2",
+ "tower_governor",
  "tracing",
+ "uuid 1.23.3",
 ]
 
 [[package]]
