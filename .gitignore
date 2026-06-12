@@ -71,6 +71,9 @@ Thumbs.db
 target/
 target-check/
 **/*.rs.bk
+# Vendored crates — track the source, ignore build artifacts
+vendor/**/target/
+vendor/**/Cargo.lock
 
 # Secrets
 *.pem

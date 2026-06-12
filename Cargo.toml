@@ -145,3 +145,15 @@ strip = true
 lto = "thin"
 codegen-units = 1
 overflow-checks = false
+
+# ----------------------------------------------------------------------------
+# Vendored patches
+# ----------------------------------------------------------------------------
+# `aws-runtime` 1.7.4 (the latest, pulled in transitively by `aws-config 1.8.x`
+# and `aws-sdk-*` 1.135+) ships with an E0282 type-inference error in
+# `src/auth/sigv4.rs:278` that blocks `cargo check` of the `epsx` backend. The
+# bug is unfixed upstream (no 1.7.5 release). We vendor the crate locally and
+# apply a minimal let-binding fix to disambiguate the generic `T` on
+# `DeferredSignerSender::send`. Re-evaluate on every `aws-runtime` bump.
+[patch.crates-io]
+aws-runtime = { path = "vendor/aws-runtime" }
