@@ -1,0 +1,33 @@
+[package]
+name = "epsx-web-middleware"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# Shared kernel contracts (Track A). On this branch we declare a path
+# dep so the workspace graph is complete; the actual surface ships
+# from wave9/epsx-contracts.
+epsx-contracts = { path = "../epsx-contracts" }
+
+# Shared identity crate (Track B). On this branch we declare a path
+# dep; the actual surface ships from wave9/epsx-identity. NOTE:
+# the existing `services/identity` crate already uses the name
+# `epsx-identity`; the path dep on this branch points at the
+# stub crate (renamed `epsx-identity-stub` to avoid the
+# workspace name collision). Track B's real crate will need
+# to reconcile this either by renaming `services/identity` or
+# by adopting a different crate name for the shared identity
+# surface (e.g. `epsx-identity-shared`).
+epsx-identity-shared = { path = "../epsx-identity-shared" }
+
+# HTTP / middleware runtime — needed because the facade crate's
+# public surface is middleware-shaped (tower::Layer, axum handlers).
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+http.workspace = true
+tracing.workspace = true
+
+# Internal kernel — pulled in for the epsx_kernel re-export that
+# the kernel extraction plan uses as the in-process permission gate.
+epsx-kernel = { path = "../kernel" }

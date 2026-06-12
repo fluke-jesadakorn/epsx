@@ -10,7 +10,7 @@ use std::sync::Arc;
 use tracing::{debug, info, warn};
 
 use crate::core::errors::AppError;
-use crate::domain::shared_kernel::services::eps_ranking_service::{EPSRankingService, EPSRankingParams};
+use crate::domain::market_analytics::services::eps_ranking_service::{EPSRankingService, EPSRankingParams};
 use crate::auth::UnifiedPermissionService;
 use crate::web::pagination::Pagination;
 use super::{types::*, enhancement::enhance_with_websocket_data};

@@ -48,11 +48,17 @@ production = ["postgres", "cache", "auth", "websockets", "http-client"]
 cli-tools = ["dep:clap", "database"]
 
 [dependencies]
+# Shared kernel contracts (errors, permissions, traits, value objects)
+epsx-contracts = { path = "../../shared/rust/epsx-contracts" }
+
 # Core server dependencies (always required)
 anyhow = "1.0.100"
 axum = { version = "0.8.6", features = ["ws", "macros", "multipart"] }
 # axum-extra removed - not used
 async-trait = "0.1"
+
+# Wave 9: auth + identity extraction (Shape B shared library, Track B)
+epsx-identity-shared = { path = "../../shared/rust/epsx-identity-shared" }
 chrono = { version = "0.4.42", features = ["serde"] }
 dotenv = "0.15"
 futures = "0.3"

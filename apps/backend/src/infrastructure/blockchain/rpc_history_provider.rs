@@ -14,10 +14,10 @@ pub struct RpcTransactionHistoryProvider {
 impl RpcTransactionHistoryProvider {
     pub fn new(rpc_url: String, contract_address: String) -> Result<Self, AppError> {
         let provider = Provider::<Http>::try_from(&rpc_url)
-            .map_err(|e| AppError::infrastructure_error(format!("Failed to create provider: {}", e)))?;
+            .map_err(|e| AppError::internal_server_error(format!("Failed to create provider: {}", e)))?;
 
         let contract_address = contract_address.parse::<H160>()
-            .map_err(|e| AppError::infrastructure_error(format!("Invalid contract address: {}", e)))?;
+            .map_err(|e| AppError::internal_server_error(format!("Invalid contract address: {}", e)))?;
 
         // PaymentReceived event topic0
         let event_topic = H256::from_slice(&hex::decode(

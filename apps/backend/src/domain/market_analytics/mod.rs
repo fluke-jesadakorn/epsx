@@ -30,6 +30,10 @@ pub mod value_objects;
 pub mod aggregates;
 pub mod repository_ports;
 pub mod domain_services;
+// wave 9 (R5) — moved from `domain::shared_kernel::services::eps_ranking_service`
+// to here because the EPS-ranking logic is used only by analytics (8 call
+// sites) and was only sitting in the shared kernel by historical accident.
+pub mod services;
 
 // Public exports from value objects
 pub use value_objects::{

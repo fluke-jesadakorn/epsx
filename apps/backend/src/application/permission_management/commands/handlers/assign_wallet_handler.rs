@@ -5,7 +5,8 @@ use crate::application::permission_management::commands::{
 };
 use crate::domain::permission_management::{
     PermissionPlanRepositoryPort, PlanAssignmentRepositoryPort, PlanId,
-    domain_services::PlanAssignmentService
+    domain_services::PlanAssignmentService,
+    events::WalletAssignedToPlanEvent,
 };
 use crate::domain::wallet_management::WalletAddress;
 use crate::domain::shared_kernel::DomainEventBus;
@@ -14,7 +15,7 @@ use crate::domain::shared_kernel::DomainEventBus;
 pub struct AssignWalletToPlanCommandHandler {
     plan_repository: Arc<dyn PermissionPlanRepositoryPort>,
     assignment_repository: Arc<dyn PlanAssignmentRepositoryPort>,
-    _event_bus: Arc<dyn DomainEventBus>,
+    event_bus: Arc<dyn DomainEventBus>,
 }
 
 impl AssignWalletToPlanCommandHandler {
@@ -26,7 +27,7 @@ impl AssignWalletToPlanCommandHandler {
         Self {
             plan_repository,
             assignment_repository,
-            _event_bus: event_bus,
+            event_bus,
         }
     }
 }
@@ -63,7 +64,7 @@ impl CommandHandler<AssignWalletToPlanCommand> for AssignWalletToPlanCommandHand
 
         // 5. Create assignment
         let assignment = PlanAssignmentService::create_assignment(
-            plan_id,
+            plan_id.clone(),
             wallet_address.clone(),
             assigned_by,
             command.expires_at,
@@ -75,7 +76,17 @@ impl CommandHandler<AssignWalletToPlanCommand> for AssignWalletToPlanCommandHand
         self.assignment_repository.save(&assignment).await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
-        // 7. Return response
+        // 7. Publish WalletAssignedToPlanEvent (R8 wiring — was _event_bus before)
+        let event = WalletAssignedToPlanEvent::new(
+            plan_id.as_str().to_string(),
+            0,
+            plan_id.as_str().to_string(),
+            wallet_address.as_str().to_string(),
+            assigned_at,
+        );
+        self.event_bus.publish(&event);
+
+        // 8. Return response
         Ok(AssignWalletToPlanResponse {
             plan_id: command.plan_id,
             wallet_address: wallet_address.as_str().to_string(),

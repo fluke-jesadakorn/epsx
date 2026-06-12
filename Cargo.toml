@@ -2,10 +2,12 @@
 resolver = "2"
 members = [
     "shared/rust/kernel",
+    "shared/rust/epsx-contracts",
     "shared/rust/events",
     "shared/rust/config",
     "shared/rust/crypto",
     "shared/rust/auth",
+    "shared/rust/epsx-identity-shared",
     "shared/rust/database",
     "shared/rust/observability",
     "shared/rust/web3",
@@ -14,6 +16,7 @@ members = [
     "shared/rust/templates",
     "shared/rust/dioxus_ui",
     "shared/rust/bff",
+    "shared/rust/epsx-web-middleware",
     "services/gateway",
     "services/identity",
     "services/wallet",
@@ -25,6 +28,7 @@ members = [
     "services/indexer",
     "apps/frontend",
     "apps/admin",
+    "apps/backend",
     "apps/pay",
     "apps/preview",
 ]
