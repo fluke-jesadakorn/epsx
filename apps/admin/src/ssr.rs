@@ -38,10 +38,23 @@ pub async fn ssr_handler(
         id: u.user_id,
         address: u.address,
         chain_id: u.chain_id,
-        roles: u.roles,
+        roles: u.roles.clone(),
         email: None,
         tier: None,
-        permissions: vec![],
+        // Wave 7 — populate `permissions` from the JWT roles so the
+        // `AdminAuthGate` component (which does exact-string match
+        // against `required_permissions`) stops misfiring for admin
+        // users. Previously this was `vec![]`, which made every
+        // admin page render the gate panel instead of the body,
+        // causing the wave6b smoke to flag 5 PARTIAL routes.
+        //
+        // UI-layer concern only: the canonical permission grammar
+        // (`platform:resource:action` with wildcards) lives in
+        // `apps/backend/src/core/permissions.rs`. This expansion
+        // table mirrors the role strings the backend mints into
+        // the JWT, so an admin token mints an admin perm set, an
+        // editor token mints content perms, etc.
+        permissions: auth::permissions_for_roles(&u.roles),
         // Wave 2 Track C — auth metadata fields. The admin BFF
         // doesn't have rich auth metadata, so we leave the new
         // optional fields at their defaults.
@@ -162,6 +175,11 @@ mod tests {
             params: HashMap::new(),
             api_url: String::new(),
             demo_login_enabled: true,
+            // Wave 3a Track B — `PageContext` carries a
+            // `ConnectedWalletState` so layouts can read `ctx.wallet`
+            // uniformly. Admin pages ignore the wallet field, so the
+            // test helper just plugs in a default.
+            wallet: epsx_dioxus_ui::auth::wallet_button::ConnectedWalletState::default(),
         }
     }
 

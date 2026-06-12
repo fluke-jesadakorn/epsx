@@ -39,10 +39,15 @@ pub async fn ssr_handler(
         id: u.user_id,
         address: u.address,
         chain_id: u.chain_id,
-        roles: u.roles,
+        roles: u.roles.clone(),
         email: None,
         tier: None,
-        permissions: vec![],
+        // Wave 7 — populate `permissions` from the JWT roles so the
+        // page-level `AuthGate` checks pass for the right users.
+        // Previously `vec![]`, which made every gated user page
+        // misfire (the gate's `has_permission` would always see
+        // "missing"). Mirrors the same fix in the admin BFF.
+        permissions: auth::permissions_for_roles(&u.roles),
         // Wave 2 Track C — auth metadata fields. The frontend BFF
         // doesn't have rich auth metadata, so we leave the new
         // optional fields at their defaults.
