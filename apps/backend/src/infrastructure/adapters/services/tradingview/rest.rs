@@ -218,8 +218,22 @@ mod tests {
     use super::*;
     use crate::config::Config;
 
+    // wave 10 prep: dummy DATABASE_URL so Config::from_env() doesn't fail.
+    fn ensure_dummy_db_url() {
+        if std::env::var("DATABASE_URL").is_err() {
+            // SAFETY: see scanner.rs tests::ensure_dummy_db_url — same rationale.
+            unsafe {
+                std::env::set_var(
+                    "DATABASE_URL",
+                    "postgres://test:test@localhost:5432/test",
+                );
+            }
+        }
+    }
+
     #[tokio::test]
     async fn test_rest_client_creation() {
+        ensure_dummy_db_url();
         let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         let client = TradingViewRestClient::new(tv_config);
@@ -229,6 +243,7 @@ mod tests {
 
     #[test]
     fn test_request_headers() {
+        ensure_dummy_db_url();
         let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         let client = TradingViewRestClient::new(tv_config);

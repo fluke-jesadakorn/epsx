@@ -859,8 +859,30 @@ mod tests {
     use super::*;
     use crate::config::Config;
 
+    // wave 10 prep: these tests call `Config::from_env().unwrap()` which
+    // requires a valid DATABASE_URL even though the test itself doesn't
+    // touch the database. Set a dummy postgres URL so they pass in
+    // CI/dev where DATABASE_URL isn't configured.
+    fn ensure_dummy_db_url() {
+        if std::env::var("DATABASE_URL").is_err() {
+            // SAFETY: this is test-only code; the only env var we touch
+            // is one we set to a dummy value, and `set_var` is `unsafe`
+            // since Rust 1.85 because it can race with other threads
+            // reading the same variable. The tradingview test suite is
+            // the only thing that reads `DATABASE_URL` here, and the
+            // dummy value satisfies the `postgresql://` prefix check.
+            unsafe {
+                std::env::set_var(
+                    "DATABASE_URL",
+                    "postgres://test:test@localhost:5432/test",
+                );
+            }
+        }
+    }
+
     #[test]
     fn test_scanner_creation() {
+        ensure_dummy_db_url();
         let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         let scanner = TradingViewScanner::new(tv_config);
@@ -871,6 +893,7 @@ mod tests {
 
     #[test]
     fn test_markets_filter() {
+        ensure_dummy_db_url();
         let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         let scanner = TradingViewScanner::new(tv_config);
@@ -887,6 +910,7 @@ mod tests {
 
     #[test]
     fn test_sort_parameters() {
+        ensure_dummy_db_url();
         let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         let scanner = TradingViewScanner::new(tv_config);
@@ -902,6 +926,7 @@ mod tests {
 
     #[test]
     fn test_dynamic_filters() {
+        ensure_dummy_db_url();
         let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         let scanner = TradingViewScanner::new(tv_config);
@@ -917,6 +942,7 @@ mod tests {
 
     #[test]
     fn test_nvda_earnings_date_selection() {
+        ensure_dummy_db_url();
         use crate::infrastructure::adapters::tradingview_types::StockDataField;
         use chrono::Utc;
 
@@ -954,6 +980,7 @@ mod tests {
 
     #[test]
     fn test_request_with_params() {
+        ensure_dummy_db_url();
         let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         let scanner = TradingViewScanner::new(tv_config);
