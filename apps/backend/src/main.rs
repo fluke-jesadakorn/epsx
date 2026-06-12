@@ -136,8 +136,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         info!("PlanExpirationService background service started");
     }
 
+    // Wave 10 integration gate: build the in-process NotificationPort
+    // (async constructor touches the notifications pool) and hand
+    // it to the router so every AppState the router creates has
+    // the port wired. Without this step the 8 publisher call sites
+    // see `app_state.notification_port == None` and silently log a
+    // warning instead of publishing — which is the wave-10 no-URL
+    // fallback fix.
+    let notification_port: Option<Arc<dyn epsx_contracts::notification_port::NotificationPort>> =
+        match epsx::infrastructure::adapters::notification::InProcessNotificationAdapter::try_new(
+            container.pubsub.as_ref().map(Arc::clone),
+        )
+        .await
+        {
+            Ok(adapter) => {
+                info!("NotificationPort wired (in-process adapter)");
+                Some(Arc::new(adapter) as Arc<dyn epsx_contracts::notification_port::NotificationPort>)
+            }
+            Err(e) => {
+                info!(
+                    "NotificationPort NOT wired ({}); publisher call sites will drop notifications until the notifications DB is configured.",
+                    e
+                );
+                None
+            }
+        };
+
     // Create unified router
-    let app = create_router(container);
+    let app = create_router(container, notification_port);
     info!("Unified router created successfully");
 
     // Server configuration using unified config

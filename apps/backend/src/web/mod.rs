@@ -39,9 +39,13 @@ fn configure_cors_for_frontend() -> CorsLayer {
 
 /// Create the main application router with unified architecture
 /// Single source of truth - eliminates all route duplication and competing router systems
-pub fn create_router(container: Arc<DomainContainer>) -> Router {
+pub fn create_router(
+    container: Arc<DomainContainer>,
+    notification_port: Option<Arc<dyn epsx_contracts::notification_port::NotificationPort>>,
+) -> Router {
   // Use unified route builder - consolidates all 3 previous router systems
   routes::UnifiedRouteBuilder::new(container.clone())
+    .with_notification_port(notification_port)
     .build()
 }
 

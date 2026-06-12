@@ -12,17 +12,43 @@ use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 
 use crate::infrastructure::container::DomainContainer;
+use epsx_contracts::notification_port::NotificationPort;
 
 /// Unified Route Builder - Single source of truth for all application routes
 /// Eliminates the need for multiple router implementations
 pub struct UnifiedRouteBuilder {
     container: Arc<DomainContainer>,
+    /// Wave 10 integration gate: optional in-process
+    /// `NotificationPort` that `create_app_state` will attach to
+    /// every `AppState` it builds. `None` (the default) means the
+    /// AppState is built without the port — the 8 publisher call
+    /// sites then log a warning and skip the publish. Production
+    /// wiring (in `main.rs`) should call `with_notification_port`
+    /// after building the in-process adapter so the port is wired
+    /// before the router starts.
+    notification_port: Option<Arc<dyn NotificationPort>>,
 }
 
 impl UnifiedRouteBuilder {
     /// Create new unified router with domain container
     pub fn new(container: Arc<DomainContainer>) -> Self {
-        Self { container }
+        Self {
+            container,
+            notification_port: None,
+        }
+    }
+
+    /// Attach a pre-built `NotificationPort` so `create_app_state`
+    /// wires it into every `AppState` instance. Wave 10 integration
+    /// gate: production wiring builds the in-process adapter in
+    /// `main.rs` (async) and passes the result here so the
+    /// synchronous router path can attach it.
+    pub fn with_notification_port(
+        mut self,
+        port: Option<Arc<dyn NotificationPort>>,
+    ) -> Self {
+        self.notification_port = port;
+        self
     }
 
     // ============================================================================
@@ -86,14 +112,22 @@ impl UnifiedRouteBuilder {
         let pubsub = self.container.get_pubsub();
         let analytics_pool = self.container.get_analytics_pool();
 
-        crate::web::auth::AppState::new(
+        let app_state = crate::web::auth::AppState::new(
             self.container.db_pool(),
             cache,
             Arc::clone(&self.container),
             redis_pool,
             pubsub,
             analytics_pool,
-        )
+        );
+
+        // Wave 10 integration gate: attach the in-process
+        // `NotificationPort` if the caller built one and passed it
+        // via `with_notification_port`. The port's constructor is
+        // async (it touches the notifications pool), so we cannot
+        // build it inside this sync path — the caller (main.rs)
+        // builds it in async context and hands us the Arc.
+        app_state.with_notification_port_opt(self.notification_port.clone())
     }
 
     /// Build complete router with all routes and middleware
