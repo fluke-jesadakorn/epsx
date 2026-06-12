@@ -1304,3 +1304,217 @@ need a multi-channel subscribe call to match the new port's
   "this is the broadcaster" seam to depend on.
 - The audit's R3 (NotificationPort) is independent of R2; this
   track does not block Track A.
+
+## 12. Wave 10 — Integration gate — final report
+
+> **Branch:** `wave10/integration` (pushed to
+> `origin/wave10/integration` after gate completion).
+> **Base:** `origin/migration/dioxus-microservices` HEAD `9f794784`.
+> **Worktree:** `/Users/fluke/Desktop/Work/epsx/.worktrees/wave10-integration`.
+
+### 12a. Merge log (3 merges, 1 cross-track fix)
+
+| Order | Track | Merge commit | Conflicts | Resolution |
+|-------|-------|--------------|-----------|------------|
+| 1 | Track A — NotificationPort | `729cc1aa` | none | clean merge |
+| 2 | Track B — PubsubPort | `5824f7d3` | 6 files | see §12b |
+| 3 | Track C — cross-cutting ports | `9a2e8404` | 1 file | see §12b |
+| 4 | (cross-track fix) | `4da41db3` | n/a | see §12b |
+| 5 | (DI wiring) | `f3bae988` | n/a | see §12c |
+| 6 | (ROADMAP §12 + deliverable.md) | `6f7f00bc` | n/a | documentation closure |
+
+### 12b. Cross-track fix-up list
+
+**Track B merge (6 files conflicted):**
+
+- `shared/rust/epsx-contracts/src/lib.rs` — keep both port modules
+  (`notification_port` from Track A + `pubsub_port` from Track B).
+- `apps/backend/src/infrastructure/adapters/mod.rs` — keep both
+  adapter modules (`notification` + `pubsub`).
+- `apps/backend/src/infrastructure/services/notification_service.rs` —
+  Track B's diff was a pre-A rewrite that did `INSERT` + `redis.publish`
+  directly. Track A's port-based shim supersedes that. Kept Track A's
+  structure; the in-process adapter handles publishing internally now.
+- `apps/backend/src/infrastructure/services/plan_expiration_service.rs` —
+  Track B added a `pubsub.publish` block right after `port.send` — but
+  the port adapter already does the publish. Removed the redundant
+  block. The `new()` signature takes `pubsub` (Track B's signature,
+  matches `main.rs`); the service no longer stores it. The `_pubsub`
+  arg is kept for call-site stability.
+- `docs/wave8-service-boundary/ROADMAP.md` — kept both Track A §11
+  and Track B addendum (additive).
+- `deliverable.md` — reset to placeholder; the integration gate's
+  final deliverable overwrites it.
+
+**Track C merge (1 file conflicted):**
+
+- `deliverable.md` — reset to placeholder (same as above).
+  `shared/rust/epsx-contracts/src/lib.rs`,
+  `apps/backend/src/infrastructure/adapters/mod.rs`,
+  `apps/backend/src/web/routes/unified_router.rs`, and
+  `docs/wave8-service-boundary/ROADMAP.md` all auto-merged.
+
+**Cross-track fix (separate commit `4da41db3`):**
+
+After Track B merged, `cargo check --workspace` failed with
+`unresolved import crate::web::notifications::RedisNotificationBroadcaster`
+in the in-process notification adapter and
+`no field 'redis_broadcaster' on type 'AppState'` in the
+container factory. Track A's in-process adapter took
+`Arc<RedisNotificationBroadcaster>`; Track B deleted that struct
+and renamed the AppState field to `pubsub` (the new
+`Arc<dyn PubsubPort>`). The fix:
+
+- Field type `Option<Arc<RedisNotificationBroadcaster>>` →
+  `Option<Arc<dyn PubsubPort>>` in
+  `InProcessNotificationAdapter`.
+- `publish_sse()` now serializes the `SSENotification` to JSON and
+  calls `pubsub.publish(channel, payload)` with the
+  `notifications:wallet:<addr>` / `notifications:all` channel
+  convention.
+- `stateless_service_factory.rs:267` — pass
+  `app_state.pubsub.clone()` (renamed by Track B) to
+  `try_new(...)`.
+
+**DI wiring fix (separate commit `f3bae988`):**
+
+The `NotificationPort` was wired in
+`RequestServices::create_auth_app_state` (the async factory
+path), but the production path (`main.rs` → `create_router` →
+`UnifiedRouteBuilder`) created 7 `AppState` instances without
+ever attaching the port. The 8 publisher call sites (Track A
+migration) silently log a warning and skip the publish when
+`app_state.notification_port` is `None`.
+
+The fix:
+
+- Added `UnifiedRouteBuilder::with_notification_port(...)`
+  builder method.
+- `UnifiedRouteBuilder::create_app_state()` now attaches the
+  pre-built port to every `AppState` it constructs.
+- `create_router()` in `web/mod.rs` takes the
+  `Option<Arc<dyn NotificationPort>>` and passes it to the
+  builder.
+- `main.rs` builds the in-process adapter (async) after the
+  container is ready, then passes the result to `create_router`.
+
+### 12c. End-to-end smoke test result
+
+**File:** `apps/backend/tests/wave10_smoke.rs` (integration
+test). 3 tests, all pass:
+
+```
+test wave10_send_publishes_to_wallet_channel_via_pubsub ... ok
+test wave10_broadcast_publishes_to_all_channel_via_pubsub ... ok
+test wave10_wallet_subscription_does_not_receive_broadcasts ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+```
+
+The smoke test exercises the seam between Track A's
+`NotificationPort` and Track B's `PubsubPort`. It stands up an
+`InMemoryPubsubAdapter`, a `NotificationPort` test-double that
+mirrors the in-process adapter's `publish_sse` channel-name +
+JSON-payload contract, calls `send` and `broadcast`, subscribes
+to the same channels on the pubsub, and asserts the messages
+arrive. The third test confirms cross-channel isolation
+(wallet subscriber does not receive broadcast messages).
+
+The in-process adapter itself is exercised by the unit tests in
+`apps/backend/src/infrastructure/adapters/notification/in_process_adapter.rs`
+(5 tests) and the chat pubsub canary in
+`apps/backend/src/infrastructure/adapters/pubsub/mod.rs` (2
+tests) — together they cover the unit-level + integration-level
+contract of the port + pubsub seam.
+
+### 12d. Final cargo summaries
+
+| Command | Result | Time |
+|---------|--------|------|
+| `cargo check --workspace` | clean (4 pre-existing warnings, 0 errors) | 0.36s (incremental) |
+| `cargo test -p epsx --lib` | 414 passed, 0 failed, 8 ignored | 0.16s |
+| `cargo test -p epsx --test wave10_smoke` | 3 passed, 0 failed | 0.20s |
+| `cargo test -p epsx --tests` (all integration) | 3 passed, 0 failed | 0.20s |
+| `cargo test -p epsx-contracts --lib` | 47 passed, 0 failed | 0.00s |
+| `cargo build --workspace --bins` | success (7 pre-existing warnings, 0 errors) | 1m 50s |
+
+Log lines (last line of each):
+
+- `/tmp/wave10-check.log` → `Finished dev profile [unoptimized + debuginfo] target(s) in 0.36s`
+- `/tmp/wave10-test.log` → `test result: ok. 414 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out; finished in 0.16s`
+- `/tmp/wave10-build.log` → `Finished dev profile [unoptimized + debuginfo] target(s) in 1m 50s`
+- `/tmp/wave10-smoke.log` → `test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s`
+
+### 12e. Final commit hash
+
+```
+6f7f00bcc5e1e1464d454c72a4fac3315fdeb589  wave10(integration): merge 3 producer tracks + cross-track fixes + smoke test
+```
+
+Six commits on the integration branch:
+
+```
+6f7f00bc wave10(integration): merge 3 producer tracks + cross-track fixes + smoke test
+f3bae988 wave10(integration): wire NotificationPort in production graph (UnifiedRouteBuilder)
+9a2e8404 wave10(integration): merge Track C — cross-cutting ports
+4da41db3 wave10(integration): cross-track fix — migrate InProcessNotificationAdapter to PubsubPort
+5824f7d3 wave10(integration): merge Track B — PubsubPort (Redis + in-memory)
+729cc1aa wave10(integration): merge Track A — NotificationPort (in-process)
+```
+
+### 12f. Open issues for wave 11 (next service lift)
+
+1. **`NotificationService` shim removal.** Track A kept the
+   `NotificationService` struct as a `#[deprecated]` shim for
+   pre-wave-10 callers. All 8 publisher call sites are migrated
+   to the port, so the shim can be deleted in wave 11. The
+   `web/notifications/NotificationType` / `NotificationPriority`
+   enums that the shim re-exports for legacy callers should
+   also be checked for active use; if not, delete them too.
+
+2. **Async `UnifiedRouteBuilder::create_app_state`.** The current
+   `create_router` is sync; building the in-process
+   `NotificationPort` requires async (it touches the
+   notifications pool). The integration gate works around this
+   by building the port in `main.rs` (async) and threading it
+   through a builder method. Wave 11 should make
+   `create_router` async and remove the workaround.
+
+3. **HTTP `NotificationPort` adapter.** The integration gate
+   kept the in-process adapter (the current behavior). When
+   the `epsx-notifications` service binary is lifted out of
+   the monolith, replace the in-process adapter with an HTTP
+   client that forwards `SendNotificationRequest` /
+   `BroadcastNotificationRequest` to the remote service. The
+   `AppState` field is already
+   `Arc<dyn NotificationPort>`, so the swap is a one-line
+   DI change.
+
+4. **Permission cache re-enable.** The `unified_permission_service`
+   is constructed with `new_without_cache(...)` even when Redis
+   is configured (the comment says "PERMISSION CACHE DISABLED
+   FOR SECURITY CONTROL"). The cache should be re-enabled
+   after a security review of the projection consistency story
+   (the JWT-embedded permission lag noted in the wave-8 auth
+   audit).
+
+5. **`Arc<dyn NotificationPort>` vs `Option<...>`.** Track A's
+   defensive `if let Some(port)` pattern stays for now. Wave
+   11 should make the port non-Optional in `AppState` and have
+   `main.rs` panic at startup if the port cannot be built (the
+   pool-fallback fix is already enforced by `try_new`).
+
+6. **Cross-line cleanup: `// TODO(track-b):` comments in Track
+   A code that referenced port names.** Verified absent in
+   the integration tree; the Track A → B port-name references
+   were cleaned up during the cross-track fix in `4da41db3`.
+
+7. **Plan-expiration service: re-introduce direct pubsub for
+   in-process telemetry.** The integration gate removed
+   `pubsub.publish(...)` from `PlanExpirationService` because
+   the in-process `NotificationPort` adapter handles
+   publishing. If a future wave adds a metric-collection
+   channel that the cron driver needs to push to directly
+   (not via the notification port), re-introduce a
+   `pubsub: Option<Arc<dyn PubsubPort>>` field on the struct
+   (the `_pubsub` arg in `new()` is already preserved).
