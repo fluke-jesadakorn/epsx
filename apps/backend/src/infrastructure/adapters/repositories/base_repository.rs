@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use std::sync::Arc;
-use crate::core::errors::{AppResult, AppError};
+use epsx_contracts::errors::{AppResult, AppError};
 use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 
 /// Base repository trait providing common database operations

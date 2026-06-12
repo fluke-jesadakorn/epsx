@@ -8,7 +8,7 @@ use chrono::Utc;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::core::errors::AppError;
+use epsx_contracts::errors::AppError;
 use crate::web::auth::AppState;
 use crate::web::admin::wallet_notification_repository::WalletNotificationRepository;
 use crate::web::notifications::{NotificationType, NotificationPriority, SSENotification};

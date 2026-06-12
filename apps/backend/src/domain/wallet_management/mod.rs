@@ -19,7 +19,7 @@ pub use value_objects::{
 };
 
 // Re-export shared kernel value objects
-pub use crate::domain::shared_kernel::value_objects::{UserId, SessionId};
+pub use epsx_contracts::value_objects::{UserId, SessionId};
 
 pub use events::{
     // Web3 wallet events

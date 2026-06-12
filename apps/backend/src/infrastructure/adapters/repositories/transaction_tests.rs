@@ -12,7 +12,7 @@ mod tests {
         value_objects::WalletAddress,
         repository_ports::WalletUserRepositoryPort,
     };
-    use crate::core::errors::AppError;
+    use epsx_contracts::errors::AppError;
     use chrono::{Utc, Duration};
     use serde_json::json;
     use diesel_async::{RunQueryDsl};

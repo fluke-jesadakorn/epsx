@@ -7,7 +7,7 @@ use crate::domain::permission_management::{
     PermissionPlanRepositoryPort, PermissionPlan, PlanSlug, PermissionString,
     aggregates::permission_plan::CreatePermissionPlanParams
 };
-use crate::domain::shared_kernel::DomainEventBus;
+use epsx_contracts::traits::DomainEventBus;
 
 /// Command handler for creating permission plans
 pub struct CreatePermissionPlanCommandHandler {

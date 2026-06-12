@@ -5,7 +5,7 @@ use crate::application::permission_management::commands::{
 };
 use crate::domain::permission_management::{PlanAssignmentRepositoryPort, PlanId, events::WalletRemovedFromPlanEvent};
 use crate::domain::wallet_management::WalletAddress;
-use crate::domain::shared_kernel::DomainEventBus;
+use epsx_contracts::traits::DomainEventBus;
 
 /// Command handler for removing wallets from plans
 pub struct RemoveWalletFromPlanCommandHandler {

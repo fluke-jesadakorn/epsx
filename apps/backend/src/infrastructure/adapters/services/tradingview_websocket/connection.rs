@@ -10,7 +10,7 @@ use rand;
 use url;
 use http;
 
-use crate::core::errors::AppError;
+use epsx_contracts::errors::AppError;
 
 /// Establish WebSocket connection to TradingView
 pub async fn connect_websocket(ws_url: &str, origin: &str) -> Result<

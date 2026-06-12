@@ -10,7 +10,7 @@ use crate::infrastructure::adapters::services::tradingview_websocket::{
   QuarterlyEPSData,
   EPSWebSocketData,
 };
-use crate::core::errors::AppError;
+use epsx_contracts::errors::AppError;
 
 /// Simple in-memory cache for WebSocket results
 struct EarningsCache {
@@ -165,7 +165,7 @@ impl WebSocketEarningsService {
 
     match
       tokio::time::timeout(
-        std::time::Duration::from_secs(crate::core::constants::MINUTE as u64 / 4), // 15 seconds = 1/4 minute
+        std::time::Duration::from_secs(epsx_contracts::constants::MINUTE as u64 / 4), // 15 seconds = 1/4 minute
         fetch_future
       ).await
     {

@@ -11,7 +11,6 @@
 pub mod schemas;
 
 pub mod prelude; // Common imports prelude
-pub mod core; // Shared kernel
 pub mod domain; // DDD Domain layer with bounded contexts (User Management, Trading Analytics, Notification, Payment)
 pub mod application; // Application layer with CQRS command/query handlers
 pub mod infrastructure; // Infrastructure layer with adapters and DDD patterns
@@ -23,6 +22,5 @@ pub mod auth; // Web3 wallet-first authentication system
 pub mod __test__;
 
 // Selective re-exports for clean namespace
-pub use core::{ errors, telemetry };
 pub use infrastructure::container::DomainContainer;
 pub use web::create_router;

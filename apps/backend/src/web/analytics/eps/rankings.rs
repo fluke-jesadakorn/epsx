@@ -9,7 +9,7 @@ use axum::{
 use std::sync::Arc;
 use tracing::{debug, info, warn};
 
-use crate::core::errors::AppError;
+use epsx_contracts::errors::AppError;
 use crate::domain::market_analytics::services::eps_ranking_service::{EPSRankingService, EPSRankingParams};
 use crate::auth::UnifiedPermissionService;
 use crate::web::pagination::Pagination;
@@ -32,7 +32,7 @@ pub async fn get_eps_rankings(
     let (rank_offset, limit_cap) = if let Some(ref wallet) = wallet_address {
         calculate_ranking_config_from_permissions(&permission_service, wallet).await
     } else {
-        (crate::core::constants::FREE_PLAN_RANKING_OFFSET, -1) // Default free tier offset and limit for anonymous users
+        (epsx_contracts::constants::FREE_PLAN_RANKING_OFFSET, -1) // Default free tier offset and limit for anonymous users
     };
 
     debug!("Calculated ranking config: offset={}, limit={} for wallet: {:?}",
@@ -65,9 +65,9 @@ pub async fn get_eps_rankings(
     // Get rankings from service with enhanced WebSocket data when available
     let start_time = std::time::Instant::now();
     let mut result = service.get_eps_rankings(service_params).await.map_err(|e| AppError {
-        kind: crate::core::errors::ErrorKind::InternalError,
+        kind: epsx_contracts::errors::ErrorKind::InternalError,
         message: format!("Failed to get EPS rankings: {}", e),
-        context: Box::new(crate::core::errors::ErrorContext::default()),
+        context: Box::new(epsx_contracts::errors::ErrorContext::default()),
         correlation_id: uuid::Uuid::new_v4().to_string(),
         timestamp: chrono::Utc::now(),
         stack_trace: None,
@@ -224,8 +224,8 @@ async fn calculate_ranking_config_from_permissions(
             (offset, -1)
         },
         Err(e) => {
-            warn!("Failed to get ranking offset for {}: {}, using {} default", wallet_address, e, crate::core::constants::FREE_PLAN_NAME);
-            (crate::core::constants::FREE_PLAN_RANKING_OFFSET, -1) // Free Plan default
+            warn!("Failed to get ranking offset for {}: {}, using {} default", wallet_address, e, epsx_contracts::constants::FREE_PLAN_NAME);
+            (epsx_contracts::constants::FREE_PLAN_RANKING_OFFSET, -1) // Free Plan default
         }
     }
 }

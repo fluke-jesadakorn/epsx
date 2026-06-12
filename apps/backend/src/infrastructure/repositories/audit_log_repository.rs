@@ -7,7 +7,7 @@ use crate::infrastructure::models::audit::{AuditLogDb, NewAuditLogDb};
 use crate::infrastructure::database::diesel_connection_manager::{get_analytics_pool, get_payments_pool};
 use crate::schemas::analytics::audit_logs;
 use anyhow::{Result, Context};
-use crate::domain::shared_kernel::value_objects::UserId;
+use epsx_contracts::value_objects::UserId;
 use chrono::{DateTime, Utc};
 use diesel::sql_types::{Text, Nullable, Timestamptz, Jsonb, BigInt};
 

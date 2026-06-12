@@ -8,7 +8,7 @@ use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use std::sync::Arc;
 
-use crate::core::errors::{AppError, ErrorKind};
+use epsx_contracts::errors::{AppError, ErrorKind};
 use super::notification_query_helper::NotificationQueryFilter;
 
 /// DTO for wallet notification records

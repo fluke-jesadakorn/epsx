@@ -391,13 +391,13 @@ pub async fn admin_chat_stream(
     State(app_state): State<AppState>,
     Query(_query): Query<AdminChatSSEQuery>,
     request: axum::extract::Request,
-) -> Result<impl IntoResponse, crate::core::errors::AppError> {
+) -> Result<impl IntoResponse, epsx_contracts::errors::AppError> {
     let token = crate::web::middleware::bearer_middleware::extract_bearer_token_from_headers(
         request.headers(),
     )
     .ok_or_else(|| {
-        crate::core::errors::AppError::new(
-            crate::core::errors::ErrorKind::AuthenticationError,
+        epsx_contracts::errors::AppError::new(
+            epsx_contracts::errors::ErrorKind::AuthenticationError,
             "Authentication required for admin chat stream",
         )
     })?;
@@ -406,7 +406,7 @@ pub async fn admin_chat_stream(
         .domain_container
         .get_token_service()
         .ok_or_else(|| {
-            crate::core::errors::AppError::internal_server_error(
+            epsx_contracts::errors::AppError::internal_server_error(
                 "Authentication service unavailable",
             )
         })?;
@@ -415,8 +415,8 @@ pub async fn admin_chat_stream(
         .validate_access_token(&token)
         .await
         .map_err(|_| {
-            crate::core::errors::AppError::new(
-                crate::core::errors::ErrorKind::AuthenticationError,
+            epsx_contracts::errors::AppError::new(
+                epsx_contracts::errors::ErrorKind::AuthenticationError,
                 "Invalid or expired authentication token",
             )
         })?;
@@ -427,9 +427,9 @@ pub async fn admin_chat_stream(
         .filter(|s| *s != "openid" && *s != "profile")
         .map(|s| s.to_string())
         .collect();
-    if !crate::core::permissions::is_admin(&permissions) {
-        return Err(crate::core::errors::AppError::new(
-            crate::core::errors::ErrorKind::AuthorizationError,
+    if !epsx_contracts::permissions::is_admin(&permissions) {
+        return Err(epsx_contracts::errors::AppError::new(
+            epsx_contracts::errors::ErrorKind::AuthorizationError,
             "Admin access required",
         ));
     }
@@ -446,8 +446,8 @@ pub async fn admin_chat_stream(
             if wallet_address != "all" {
                 let agent_channel = format!("chat:agent:{}", wallet_address);
                 ps.subscribe(&agent_channel).await.map_err(|e| {
-                    crate::core::errors::AppError::new(
-                        crate::core::errors::ErrorKind::InternalError,
+                    epsx_contracts::errors::AppError::new(
+                        epsx_contracts::errors::ErrorKind::InternalError,
                         format!("Redis subscribe failed: {}", e),
                     )
                 })?;

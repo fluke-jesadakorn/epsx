@@ -2,7 +2,7 @@ use chrono::{Utc, Duration};
 use std::collections::{HashSet, HashMap};
 use std::sync::Arc;
 
-use crate::core::errors::AppResult;
+use epsx_contracts::errors::AppResult;
 use crate::domain::shared_kernel::Specification;
 use crate::domain::wallet_management::{
     aggregates::{WalletUser},
@@ -24,7 +24,7 @@ pub struct Web3WalletPermissionService;
 impl WalletPermissionService {
     pub fn new() -> AppResult<Self> {
         Ok(Self {
-            blockchain_client: Arc::new(BlockchainValidationClient::new().map_err(|e| crate::core::errors::AppError::blockchain_rpc_error(e.to_string()))?),
+            blockchain_client: Arc::new(BlockchainValidationClient::new().map_err(|e| epsx_contracts::errors::AppError::blockchain_rpc_error(e.to_string()))?),
         })
     }
 

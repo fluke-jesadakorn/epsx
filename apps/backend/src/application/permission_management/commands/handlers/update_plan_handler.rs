@@ -6,7 +6,7 @@ use crate::application::permission_management::commands::{
 use crate::domain::permission_management::{
     PermissionPlanRepositoryPort, PlanId, PermissionString, UpdatePermissionPlanParams
 };
-use crate::domain::shared_kernel::DomainEventBus;
+use epsx_contracts::traits::DomainEventBus;
 
 /// Command handler for updating permission plans
 pub struct UpdatePermissionPlanCommandHandler {

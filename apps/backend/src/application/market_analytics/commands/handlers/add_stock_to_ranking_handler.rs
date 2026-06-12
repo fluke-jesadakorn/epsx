@@ -6,7 +6,7 @@ use crate::application::market_analytics::commands::{
 use crate::domain::market_analytics::{
     EPSRankingRepositoryPort, StockSymbol, EPSValue, GrowthFactor, MarketSector, Country
 };
-use crate::domain::shared_kernel::DomainEventBus;
+use epsx_contracts::traits::DomainEventBus;
 
 /// Command handler for adding stocks to rankings
 pub struct AddStockToRankingCommandHandler {

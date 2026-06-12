@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 use std::sync::Arc;
 
 use super::PaymentEvent;
-use crate::domain::shared_kernel::app_error::AppError;
+use epsx_contracts::errors::AppError;
 
 /// Service for verifying blockchain payment transactions
 pub struct PaymentVerifier {

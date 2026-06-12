@@ -3,7 +3,7 @@ use ethers::prelude::*;
 use std::sync::Arc;
 use crate::domain::payment::repository_ports::{TransactionHistoryProvider, TransactionHistoryInfo};
 use crate::infrastructure::blockchain::event_parser::parse_payment_event;
-use crate::domain::shared_kernel::app_error::AppError;
+use epsx_contracts::errors::AppError;
 
 pub struct RpcTransactionHistoryProvider {
     provider: Arc<Provider<Http>>,

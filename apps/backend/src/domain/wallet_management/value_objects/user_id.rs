@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::domain::shared_kernel::{ValueObject, Identity, new_id};
-use crate::domain::shared_kernel::value_object::ValueObjectError;
+use epsx_contracts::value_object::ValueObjectError;
 
 /// User identifier value object
 /// Represents a unique identifier for a user in the system

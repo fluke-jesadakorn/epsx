@@ -4,7 +4,7 @@ use crate::application::notification::commands::{
     RecordDeliveryAttemptCommand, RecordDeliveryAttemptResponse
 };
 use crate::domain::notification::{NotificationRepositoryPort, DeliveryChannelType, DeliveryResult};
-use crate::domain::shared_kernel::DomainEventBus;
+use epsx_contracts::traits::DomainEventBus;
 
 /// Command handler for recording notification delivery attempts
 pub struct RecordDeliveryAttemptCommandHandler {

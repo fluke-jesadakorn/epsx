@@ -6,7 +6,7 @@ use crate::application::market_analytics::commands::{
 use crate::domain::market_analytics::{
     StockAnalysisRepositoryPort, StockSymbol, EPSValue, MarketSector, Country
 };
-use crate::domain::shared_kernel::DomainEventBus;
+use epsx_contracts::traits::DomainEventBus;
 
 /// Command handler for updating stock analyses
 pub struct UpdateStockAnalysisCommandHandler {

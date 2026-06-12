@@ -4,7 +4,7 @@
 use axum::{http::StatusCode, response::Json};
 use tracing::{warn, error};
 
-use crate::core::errors::AppError as KernelAppError;
+use epsx_contracts::errors::AppError as KernelAppError;
 
 /// Local wrapper around the kernel `AppError` so we can implement
 /// `From<EPSError>` and the `IntoResponse` shape without tripping the
@@ -45,7 +45,7 @@ impl From<KernelAppError> for AppError {
 /// (not as an impl) because the target type is a tuple of foreign
 /// types and can't host an impl block.
 pub fn to_axum_response(error: &AppError) -> (StatusCode, Json<serde_json::Value>) {
-    use crate::core::errors::ErrorKind;
+    use epsx_contracts::errors::ErrorKind;
 
     match error.kind {
         ErrorKind::ValidationError => {
@@ -130,7 +130,7 @@ pub enum EPSError {
 
 impl From<EPSError> for AppError {
     fn from(error: EPSError) -> Self {
-        use crate::core::errors::ErrorKind;
+        use epsx_contracts::errors::ErrorKind;
 
         let kind = match error {
             EPSError::InvalidEPSValue(_) => ErrorKind::ValidationError,
@@ -140,7 +140,7 @@ impl From<EPSError> for AppError {
             EPSError::CacheOperationFailed(_) => ErrorKind::DatabaseError,
             EPSError::DataTransformationFailed(_) => ErrorKind::ValidationError,
         };
-        AppError(crate::core::errors::AppError::new(kind, error.to_string()))
+        AppError(epsx_contracts::errors::AppError::new(kind, error.to_string()))
     }
 }
 
@@ -164,7 +164,7 @@ pub fn cache_operation_error(message: String) -> AppError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::errors::ErrorKind;
+    use epsx_contracts::errors::ErrorKind;
 
     #[test]
     fn test_eps_error_conversion() {
@@ -189,7 +189,7 @@ mod tests {
 
     #[test]
     fn test_error_response_conversion() {
-        let app_error = AppError(crate::core::errors::AppError::new(
+        let app_error = AppError(epsx_contracts::errors::AppError::new(
             ErrorKind::ValidationError,
             "Test validation error".to_string(),
         ));

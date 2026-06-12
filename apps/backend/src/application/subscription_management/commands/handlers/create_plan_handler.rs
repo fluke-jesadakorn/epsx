@@ -9,7 +9,7 @@ use crate::domain::subscription_management::{
 use rust_decimal::Decimal;
 use std::str::FromStr;
 use crate::domain::permission_management::PlanId;
-use crate::domain::shared_kernel::DomainEventBus;
+use epsx_contracts::traits::DomainEventBus;
 
 /// Command handler for creating plans
 pub struct CreatePlanCommandHandler {

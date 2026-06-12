@@ -2,7 +2,7 @@
 // Real-time payment event monitoring with reconnection and HTTP fallback
 
 use crate::config::contracts::{Chain, ChainContractConfig, PAYMENT_EVENT_TOPIC};
-use crate::domain::shared_kernel::app_error::AppError;
+use epsx_contracts::errors::AppError;
 use crate::infrastructure::blockchain::{PaymentEvent, parse_payment_event, PaymentVerifier};
 
 use ethers::types::U256;

@@ -9,7 +9,7 @@ use crate::domain::notification::{
 };
 use crate::domain::notification::value_objects::user_preferences::NotificationType;
 use crate::domain::notification::value_objects::schedule_info::ScheduleType;
-use crate::domain::shared_kernel::DomainEventBus;
+use epsx_contracts::traits::DomainEventBus;
 
 /// Command handler for creating user notifications
 pub struct CreateUserNotificationCommandHandler {

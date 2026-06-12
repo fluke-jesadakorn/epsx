@@ -325,7 +325,7 @@ impl WalletUser {
     /// Check if user has admin privileges (requires explicit admin wildcard or dashboard perm)
     pub fn is_admin(&self) -> bool {
         let strs: Vec<String> = self.permissions.iter().map(|p| p.as_str().to_string()).collect();
-        crate::core::permissions::is_admin(&strs)
+        epsx_contracts::permissions::is_admin(&strs)
     }
     
     /// Check if user has premium access

@@ -194,7 +194,7 @@ pub async fn get_user_permissions(
   let mut platform_permissions: HashMap<String, Vec<String>> = HashMap::new();
   for info in &permission_infos {
     if info.is_active {
-      let extracted = crate::core::permissions::permission_platform(&info.permission);
+      let extracted = epsx_contracts::permissions::permission_platform(&info.permission);
       let platform = match extracted {
         "admin" | "epsx-pay" | "epsx-token" => extracted,
         _ => "epsx",
@@ -208,7 +208,7 @@ pub async fn get_user_permissions(
   }
 
   // Check if user has admin access
-  let has_admin_access = crate::core::permissions::has_admin_platform_permission(&user_context.permissions);
+  let has_admin_access = epsx_contracts::permissions::has_admin_platform_permission(&user_context.permissions);
 
   let status = UserPermissionStatus {
     wallet_address: user_context.wallet_address.clone(),

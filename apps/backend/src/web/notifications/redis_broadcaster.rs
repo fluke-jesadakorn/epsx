@@ -2,7 +2,7 @@ use redis::AsyncCommands;
 use std::sync::Arc;
 use crate::web::notifications::SSENotification;
 use crate::infrastructure::redis::RedisPool;
-use crate::core::errors::{AppError, ErrorKind};
+use epsx_contracts::errors::{AppError, ErrorKind};
 
 #[derive(Clone)]
 pub struct RedisNotificationBroadcaster {

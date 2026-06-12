@@ -4,7 +4,7 @@ use crate::application::market_analytics::commands::{
     DeleteStockAnalysisCommand, DeleteStockAnalysisResponse
 };
 use crate::domain::market_analytics::{StockAnalysisRepositoryPort, StockSymbol};
-use crate::domain::shared_kernel::DomainEventBus;
+use epsx_contracts::traits::DomainEventBus;
 
 /// Command handler for deleting stock analyses
 pub struct DeleteStockAnalysisCommandHandler {

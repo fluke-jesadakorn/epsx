@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use tracing::{debug, warn};
-use crate::domain::shared_kernel::value_objects::QuarterlyEPSData;
+use epsx_contracts::value_objects::QuarterlyEPSData;
 
 /// EPS Growth data entity for analytics
 #[derive(Debug, Clone, Serialize, Deserialize)]

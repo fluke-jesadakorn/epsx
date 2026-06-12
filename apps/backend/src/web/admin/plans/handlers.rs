@@ -395,7 +395,7 @@ pub async fn delete_plan_handler(
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Block deletion of constant Free Plan
-    if id == crate::core::constants::FREE_PLAN_ID {
+    if id == epsx_contracts::constants::FREE_PLAN_ID {
         return Err(StatusCode::FORBIDDEN);
     }
 

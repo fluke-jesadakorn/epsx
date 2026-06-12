@@ -18,7 +18,7 @@ pub use serde::{Serialize, Deserialize};
 pub use chrono::{DateTime, Utc};
 
 // ===== Core error handling =====
-pub use crate::core::errors::{AppResult, AppError};
+pub use epsx_contracts::errors::{AppResult, AppError};
 
 // ===== Domain-Driven Design core traits =====
 pub use crate::domain::shared_kernel::{
@@ -29,7 +29,7 @@ pub use crate::domain::shared_kernel::{
 };
 
 // ===== Common value objects =====
-pub use crate::domain::shared_kernel::value_objects::{
+pub use epsx_contracts::value_objects::{
     UserId,
     SessionId,
     Email,

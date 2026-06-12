@@ -286,7 +286,7 @@ pub async fn get_plan(
     Path(plan_id): Path<String>,
 ) -> impl IntoResponse {
     // Check for constant Free Plan
-    // if plan_id == crate::core::constants::FREE_PLAN_ID {
+    // if plan_id == epsx_contracts::constants::FREE_PLAN_ID {
     //    return AdminResponse::success(get_constant_permission_plan()).into_response();
     // }
 
@@ -481,7 +481,7 @@ pub async fn update_plan(
     Path(plan_id): Path<String>,
     Json(req): Json<UpdatePlanRequest>,
 ) -> impl IntoResponse {
-    use crate::core::constants::{FREE_PLAN_ID, is_system_admin_plan};
+    use epsx_contracts::constants::{FREE_PLAN_ID, is_system_admin_plan};
 
     // Check for constant Free Plan locking
     if plan_id == FREE_PLAN_ID && req.price.is_some() {
@@ -493,7 +493,7 @@ pub async fn update_plan(
         return AdminResponse::forbidden("System admin plans cannot be renamed or recategorized").into_response();
     }
     // Block updates to constant Free Plan
-    // if plan_id == crate::core::constants::FREE_PLAN_ID {
+    // if plan_id == epsx_contracts::constants::FREE_PLAN_ID {
     //    return AdminResponse::forbidden("Constant Free Plan cannot be modified").into_response();
     // }
 
@@ -617,12 +617,12 @@ pub async fn delete_plan(
     Path(plan_id): Path<String>,
 ) -> impl IntoResponse {
     // Block deletion of constant Free Plan
-    if plan_id == crate::core::constants::FREE_PLAN_ID {
+    if plan_id == epsx_contracts::constants::FREE_PLAN_ID {
         return AdminResponse::forbidden("Constant Free Plan cannot be deleted").into_response();
     }
 
     // Block deletion of system admin plans
-    if crate::core::constants::is_system_admin_plan(&plan_id) {
+    if epsx_contracts::constants::is_system_admin_plan(&plan_id) {
         return AdminResponse::forbidden("System admin plans cannot be deleted").into_response();
     }
 

@@ -4,7 +4,7 @@ use tokio::time::{sleep, Duration};
 use tracing::{debug, error, info, warn};
 
 use super::{PaymentEvent, parse_payment_event, PaymentVerifier};
-use crate::domain::shared_kernel::app_error::AppError;
+use epsx_contracts::errors::AppError;
 
 /// BSC blockchain event listener for PaymentReceived events
 pub struct BscEventListener {

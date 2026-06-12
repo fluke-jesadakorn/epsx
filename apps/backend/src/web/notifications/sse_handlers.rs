@@ -8,7 +8,8 @@ use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-use crate::{core::errors::AppError, web::auth::AppState};
+use crate::web::auth::AppState;
+use epsx_contracts::errors::AppError;
 
 // ============================================================================
 // SSE NOTIFICATION TYPES

@@ -5,7 +5,7 @@ use crate::application::subscription_management::commands::{
 };
 use crate::domain::subscription_management::{PlanId, PlanRepositoryPort, Price, BillingCycle};
 use crate::domain::subscription_management::aggregates::UpdatePlanParams;
-use crate::domain::shared_kernel::DomainEventBus;
+use epsx_contracts::traits::DomainEventBus;
 use rust_decimal::Decimal;
 use std::str::FromStr;
 

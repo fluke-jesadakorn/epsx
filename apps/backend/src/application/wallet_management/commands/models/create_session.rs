@@ -1,7 +1,7 @@
 use chrono::{ DateTime, Utc };
 use serde::{ Serialize, Deserialize };
 
-use crate::domain::shared_kernel::value_objects::{ UserId, SessionId };
+use epsx_contracts::value_objects::{ UserId, SessionId };
 
 use crate::application::shared::{ Command, ApplicationResult, ValidationUtils };
 

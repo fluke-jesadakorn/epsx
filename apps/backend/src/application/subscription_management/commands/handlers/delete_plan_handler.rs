@@ -4,7 +4,7 @@ use crate::application::subscription_management::commands::{
     DeletePlanCommand, DeletePlanResponse
 };
 use crate::domain::subscription_management::{PlanId, PlanRepositoryPort};
-use crate::domain::shared_kernel::DomainEventBus;
+use epsx_contracts::traits::DomainEventBus;
 
 /// Command handler for deleting plans
 pub struct DeletePlanCommandHandler {

@@ -187,7 +187,7 @@ impl NotificationTopic {
             }
             AccessLevel::Admin => {
                 let perms: Vec<String> = user_permissions.iter().cloned().collect();
-                crate::core::permissions::has_admin_platform_permission(&perms)
+                epsx_contracts::permissions::has_admin_platform_permission(&perms)
             }
             AccessLevel::System => false, // System topics are not user-subscribable
         }

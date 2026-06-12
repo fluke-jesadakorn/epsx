@@ -3,7 +3,7 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use uuid::Uuid;
 use crate::web::notifications::{SSENotification, NotificationType, NotificationPriority};
-use crate::core::errors::AppError;
+use epsx_contracts::errors::AppError;
 
 /// Fetch all active notifications for a wallet (offline queue)
 /// Returns notifications that persist until user explicitly deletes them

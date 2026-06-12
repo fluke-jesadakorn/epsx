@@ -7,7 +7,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{ Hash, Hasher };
 use tracing::{ debug, info, warn };
 
-use crate::core::errors::AppError;
+use epsx_contracts::errors::AppError;
 use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
 // use crate::domain::shared_kernel::services::eps_cache_service::EPSCacheService; // REMOVED
 use crate::domain::market_analytics::domain_services::EPSCacheService; // ADDED
@@ -133,7 +133,7 @@ pub async fn get_unified_analytics_rankings_cached(
     ).await
     .map_err(|e|
       AppError::new(
-        crate::core::errors::ErrorKind::ExternalServiceError,
+        epsx_contracts::errors::ErrorKind::ExternalServiceError,
         format!("TradingView API error: {}", e)
       )
     )?;
@@ -366,7 +366,7 @@ pub async fn force_cache_refresh(Extension(
     .refresh_cache().await
     .map_err(|e|
       AppError::new(
-        crate::core::errors::ErrorKind::ExternalServiceError,
+        epsx_contracts::errors::ErrorKind::ExternalServiceError,
         e.to_string()
       )
     )?;

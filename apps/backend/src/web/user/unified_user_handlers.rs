@@ -482,7 +482,7 @@ pub async fn get_user_access_overview(
 /// This is ALWAYS returned to users as a baseline plan with default permissions
 /// Centralized definition effectively acting as a constant
 fn get_free_plan() -> AccessPlanData {
-    use crate::core::constants::{
+    use epsx_contracts::constants::{
         FREE_PLAN_DEFAULT_PERMISSIONS, FREE_PLAN_DESCRIPTION, FREE_PLAN_NAME,
     };
 

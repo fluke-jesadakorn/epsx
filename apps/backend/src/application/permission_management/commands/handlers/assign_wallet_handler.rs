@@ -9,7 +9,7 @@ use crate::domain::permission_management::{
     events::WalletAssignedToPlanEvent,
 };
 use crate::domain::wallet_management::WalletAddress;
-use crate::domain::shared_kernel::DomainEventBus;
+use epsx_contracts::traits::DomainEventBus;
 
 /// Command handler for assigning wallets to plans
 pub struct AssignWalletToPlanCommandHandler {

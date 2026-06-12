@@ -4,7 +4,7 @@ use crate::application::notification::commands::{
     UpdateNotificationPriorityCommand, UpdateNotificationPriorityResponse
 };
 use crate::domain::notification::{NotificationRepositoryPort, NotificationPriority};
-use crate::domain::shared_kernel::DomainEventBus;
+use epsx_contracts::traits::DomainEventBus;
 
 /// Command handler for updating notification priority
 pub struct UpdateNotificationPriorityCommandHandler {

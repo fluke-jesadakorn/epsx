@@ -6,7 +6,7 @@ use async_trait::async_trait;
 
 use crate::prelude::*;
 use crate::domain::notification::*;
-use crate::core::errors::{AppError, ErrorKind};
+use epsx_contracts::errors::{AppError, ErrorKind};
 use super::notification_record::NotificationRecord;
 
 

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use crate::domain::shared_kernel::entities::eps_growth::EPSGrowthData;
-use crate::core::errors::AppError;
+use epsx_contracts::errors::AppError;
 
 /// Port for external market data services
 /// This abstraction allows the domain to access market data without depending on specific implementations

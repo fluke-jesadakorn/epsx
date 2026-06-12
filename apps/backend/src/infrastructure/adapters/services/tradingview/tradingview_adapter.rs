@@ -2,7 +2,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use crate::domain::market_analytics::repository_ports::MarketDataScannerPort;
 use crate::domain::shared_kernel::entities::eps_growth::EPSGrowthData;
-use crate::core::errors::AppError;
+use epsx_contracts::errors::AppError;
 use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
 
 /// Adapter that implements MarketDataScannerPort for TradingView API service

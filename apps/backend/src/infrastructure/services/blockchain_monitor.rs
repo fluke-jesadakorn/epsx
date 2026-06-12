@@ -8,7 +8,7 @@ use diesel_async::{RunQueryDsl};
 use chrono::{Utc, Duration};
 
 use uuid::Uuid;
-use crate::domain::shared_kernel::app_error::AppError;
+use epsx_contracts::errors::AppError;
 use crate::infrastructure::blockchain::{BscEventListener, PaymentEvent};
 use crate::domain::wallet_management::{
     aggregates::WalletMetadata,

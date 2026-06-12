@@ -518,19 +518,19 @@ pub async fn chat_stream(
     State(app_state): State<AppState>,
     Query(_query): Query<ChatSSEQuery>,
     request: axum::extract::Request,
-) -> Result<impl IntoResponse, crate::core::errors::AppError> {
+) -> Result<impl IntoResponse, epsx_contracts::errors::AppError> {
     let token = crate::web::middleware::bearer_middleware::extract_bearer_token_from_headers(
         request.headers(),
     )
     .ok_or_else(|| {
-        crate::core::errors::AppError::unauthorized("Authentication required for chat stream")
+        epsx_contracts::errors::AppError::unauthorized("Authentication required for chat stream")
     })?;
 
     let token_service = app_state
         .domain_container
         .get_token_service()
         .ok_or_else(|| {
-            crate::core::errors::AppError::internal_server_error(
+            epsx_contracts::errors::AppError::internal_server_error(
                 "Authentication service unavailable",
             )
         })?;
@@ -539,7 +539,7 @@ pub async fn chat_stream(
         .validate_access_token(&token)
         .await
         .map_err(|_| {
-            crate::core::errors::AppError::unauthorized("Invalid or expired authentication token")
+            epsx_contracts::errors::AppError::unauthorized("Invalid or expired authentication token")
         })?;
     let wallet_address = claims.wallet_address.to_lowercase();
 

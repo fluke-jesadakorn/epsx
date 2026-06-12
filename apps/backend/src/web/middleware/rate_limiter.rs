@@ -1,5 +1,5 @@
-use crate::domain::shared_kernel::value_objects::UserId;
-use crate::core::constants::*;
+use epsx_contracts::value_objects::UserId;
+use epsx_contracts::constants::*;
 
 // Rate limiting implementation for API endpoint access control with Redis + in-memory fallback
 

@@ -17,7 +17,7 @@ use std::sync::Arc;
 use crate::web::auth::AppState;
 use crate::web::admin::responses::{AdminApiResponse, AdminMetadata, PaginationInfo};
 use crate::auth::unified_permission_service::UnifiedPermissionService;
-use crate::core::errors::{AppError, ErrorKind};
+use epsx_contracts::errors::{AppError, ErrorKind};
 use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
 
 // CQRS imports for wallet management

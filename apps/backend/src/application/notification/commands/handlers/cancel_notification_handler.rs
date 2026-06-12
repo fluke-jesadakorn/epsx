@@ -4,7 +4,7 @@ use crate::application::notification::commands::{
     CancelNotificationCommand, CancelNotificationResponse
 };
 use crate::domain::notification::NotificationRepositoryPort;
-use crate::domain::shared_kernel::DomainEventBus;
+use epsx_contracts::traits::DomainEventBus;
 
 /// Command handler for cancelling notifications
 pub struct CancelNotificationCommandHandler {

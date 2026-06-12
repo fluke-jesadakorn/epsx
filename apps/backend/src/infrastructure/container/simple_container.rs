@@ -35,7 +35,7 @@ use crate::auth::key_manager::KeyManager;
 use crate::auth::UnifiedPermissionService;
 use crate::infrastructure::cqrs::{EventStore, PostgresEventStore, TransactionalOutbox};
 use crate::infrastructure::blockchain::{ContractSubscriber, PaymentEvent};
-use crate::domain::shared_kernel::app_error::AppError;
+use epsx_contracts::errors::AppError;
 use crate::infrastructure::storage::S3Storage;
 use tracing::info;
 

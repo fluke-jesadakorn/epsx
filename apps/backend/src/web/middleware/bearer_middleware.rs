@@ -417,7 +417,7 @@ pub fn require_user_context(
 /// Helper to check if user has specific permission
 /// Uses exact match + wildcard matching (platform:*:* and platform:resource:*)
 pub fn check_user_permission(user_context: &OpenIDUserContext, required_permission: &str) -> bool {
-    crate::core::permissions::has_permission(&user_context.permissions, required_permission)
+    epsx_contracts::permissions::has_permission(&user_context.permissions, required_permission)
 }
 
 /// Helper to create permission denied error

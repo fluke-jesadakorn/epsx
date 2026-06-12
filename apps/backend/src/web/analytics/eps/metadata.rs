@@ -8,7 +8,7 @@ use axum::{
 use std::sync::Arc;
 use tracing::{debug, info};
 
-use crate::core::errors::AppError;
+use epsx_contracts::errors::AppError;
 use crate::domain::market_analytics::services::eps_ranking_service::EPSRankingService;
 use super::types::*;
 
@@ -87,7 +87,7 @@ pub async fn get_sectors_by_country(
     debug!("Getting sectors for country: {:?}", params.country);
 
     let sectors = service.get_sectors_by_country(params.country.clone()).await
-        .map_err(|e| AppError::new(crate::core::errors::ErrorKind::ExternalServiceError, e.to_string()))?;
+        .map_err(|e| AppError::new(epsx_contracts::errors::ErrorKind::ExternalServiceError, e.to_string()))?;
     debug!("Found {} sectors", sectors.len());
 
     let response = SectorsResponse {

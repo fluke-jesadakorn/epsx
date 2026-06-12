@@ -1,6 +1,6 @@
-use crate::core::errors::AppError;
+use epsx_contracts::errors::AppError;
 use crate::domain::wallet_management::value_objects::wallet_address::WalletAddressError;
-use crate::domain::shared_kernel::value_object::ValueObjectError;
+use epsx_contracts::value_object::ValueObjectError;
 
 /// Application layer error types
 /// These wrap domain errors and add application-specific concerns
@@ -152,7 +152,7 @@ impl ApplicationError {
     
     #[allow(non_snake_case)]
     pub fn DomainError(message: impl Into<String>) -> Self {
-        Self::Domain(crate::core::errors::AppError::new(crate::core::errors::ErrorKind::BusinessRuleViolation, message.into()))
+        Self::Domain(epsx_contracts::errors::AppError::new(epsx_contracts::errors::ErrorKind::BusinessRuleViolation, message.into()))
     }
 }
 

@@ -15,7 +15,7 @@ use serde_json::{json, Value};
 use tracing::{error, info};
 use utoipa::ToSchema;
 
-use crate::core::errors::{AppError, ErrorKind};
+use epsx_contracts::errors::{AppError, ErrorKind};
 use crate::web::auth::AppState;
 
 // ============================================================================

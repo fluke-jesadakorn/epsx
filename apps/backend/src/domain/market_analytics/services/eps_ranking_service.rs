@@ -19,7 +19,7 @@ use async_trait::async_trait;
 use tracing::{debug, info, warn};
 
 use crate::domain::shared_kernel::entities::eps_growth::{EPSGrowthData, EPSRanking, EPSRankingsResponse, EPSPagination};
-use crate::core::errors::AppError;
+use epsx_contracts::errors::AppError;
 
 /// Repository trait for EPS data persistence
 #[async_trait]
@@ -196,7 +196,7 @@ impl EPSRankingService {
         // Validate country if provided
         let validated_country = if let Some(ref country) = params.country {
             Some(CountryValidator::validate_country(country)
-                .map_err(|e| AppError::new(crate::core::errors::ErrorKind::ValidationError, e))?)
+                .map_err(|e| AppError::new(epsx_contracts::errors::ErrorKind::ValidationError, e))?)
         } else {
             None
         };
@@ -259,14 +259,14 @@ impl EPSRankingService {
 
         // Validate data before storing
         eps_data.validate()
-            .map_err(|e| AppError::new(crate::core::errors::ErrorKind::ValidationError, format!("EPS data validation failed: {}", e)))?;
+            .map_err(|e| AppError::new(epsx_contracts::errors::ErrorKind::ValidationError, format!("EPS data validation failed: {}", e)))?;
 
         // Calculate ranking score
         eps_data.calculate_ranking_score();
 
         // Validate country
         let validated_country = CountryValidator::validate_country(&eps_data.country)
-            .map_err(|e| AppError::new(crate::core::errors::ErrorKind::ValidationError, e))?;
+            .map_err(|e| AppError::new(epsx_contracts::errors::ErrorKind::ValidationError, e))?;
         eps_data.country = validated_country;
 
         debug!("Validated EPS data for {} with ranking score: {:?}", 
@@ -345,7 +345,7 @@ impl EPSRankingService {
         // Validate country if provided
         let validated_country = if let Some(ref country) = country {
             Some(CountryValidator::validate_country(country)
-                .map_err(|e| AppError::new(crate::core::errors::ErrorKind::ValidationError, e))?)
+                .map_err(|e| AppError::new(epsx_contracts::errors::ErrorKind::ValidationError, e))?)
         } else {
             None
         };
@@ -363,7 +363,7 @@ impl EPSRankingService {
         // For now, only use country filter to get total count
         let validated_country = if let Some(ref country) = params.country {
             Some(CountryValidator::validate_country(country)
-                .map_err(|e| AppError::new(crate::core::errors::ErrorKind::ValidationError, e))?)
+                .map_err(|e| AppError::new(epsx_contracts::errors::ErrorKind::ValidationError, e))?)
         } else {
             None
         };
@@ -381,14 +381,14 @@ impl EPSRankingService {
         // Validate country
         if let Some(ref country) = params.country {
             CountryValidator::validate_country(country)
-                .map_err(|e| AppError::new(crate::core::errors::ErrorKind::ValidationError, e))?;
+                .map_err(|e| AppError::new(epsx_contracts::errors::ErrorKind::ValidationError, e))?;
         }
 
         // Validate sort field
         if let Some(ref sort_by) = params.sort_by {
             let valid_sort_fields = ["growth_factor", "market_cap", "volume", "name", "current_eps", "ranking_score"];
             if !valid_sort_fields.contains(&sort_by.as_str()) {
-                return Err(AppError::new(crate::core::errors::ErrorKind::ValidationError,
+                return Err(AppError::new(epsx_contracts::errors::ErrorKind::ValidationError,
                     format!("Invalid sort field: {}. Valid options: {:?}", sort_by, valid_sort_fields)
                 ));
             }
@@ -396,23 +396,23 @@ impl EPSRankingService {
 
         // Validate pagination
         if params.page < 1 {
-            return Err(AppError::new(crate::core::errors::ErrorKind::ValidationError, "Page must be >= 1"));
+            return Err(AppError::new(epsx_contracts::errors::ErrorKind::ValidationError, "Page must be >= 1"));
         }
 
         if params.limit < 1 || params.limit > 100 {
-            return Err(AppError::new(crate::core::errors::ErrorKind::ValidationError, "Limit must be between 1 and 100"));
+            return Err(AppError::new(epsx_contracts::errors::ErrorKind::ValidationError, "Limit must be between 1 and 100"));
         }
 
         // Validate numeric filters
         if let Some(min_eps) = params.min_eps {
             if !(-1000.0..=1000.0).contains(&min_eps) {
-                return Err(AppError::new(crate::core::errors::ErrorKind::ValidationError, "min_eps must be between -1000 and 1000"));
+                return Err(AppError::new(epsx_contracts::errors::ErrorKind::ValidationError, "min_eps must be between -1000 and 1000"));
             }
         }
 
         if let Some(min_growth) = params.min_growth {
             if !(-500.0..=1000.0).contains(&min_growth) {
-                return Err(AppError::new(crate::core::errors::ErrorKind::ValidationError, "min_growth must be between -500 and 1000"));
+                return Err(AppError::new(epsx_contracts::errors::ErrorKind::ValidationError, "min_growth must be between -500 and 1000"));
             }
         }
 
