@@ -15,9 +15,9 @@ use uuid::Uuid;
 use crate::prelude::TlsPool;
 use crate::web::notifications::{
     SSENotification, NotificationType, NotificationPriority,
-    RedisNotificationBroadcaster,
     cleanup_old_notifications,
 };
+use epsx_contracts::pubsub_port::PubsubPort;
 
 pub struct PlanExpirationConfig {
     pub poll_interval_secs: u64,
@@ -36,7 +36,7 @@ impl Default for PlanExpirationConfig {
 pub struct PlanExpirationService {
     db_pool: Arc<&'static TlsPool>,
     notifications_pool: Option<Arc<&'static TlsPool>>,
-    redis_broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
+    pubsub: Option<Arc<dyn PubsubPort>>,
     config: PlanExpirationConfig,
 }
 
@@ -44,12 +44,12 @@ impl PlanExpirationService {
     pub fn new(
         db_pool: Arc<&'static TlsPool>,
         notifications_pool: Option<Arc<&'static TlsPool>>,
-        redis_broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
+        pubsub: Option<Arc<dyn PubsubPort>>,
     ) -> Self {
         Self {
             db_pool,
             notifications_pool,
-            redis_broadcaster,
+            pubsub,
             config: PlanExpirationConfig::default(),
         }
     }
@@ -173,8 +173,16 @@ impl PlanExpirationService {
                 }
 
                 // Broadcast via Redis for real-time SSE delivery
-                if let Some(broadcaster) = &self.redis_broadcaster {
-                    let _ = broadcaster.publish_to_wallet(&row.wallet_address, &notification).await;
+                if let Some(pubsub) = &self.pubsub {
+                    let channel = format!("notifications:wallet:{}", row.wallet_address.to_lowercase());
+                    let payload = match serde_json::to_vec(&notification) {
+                        Ok(p) => p,
+                        Err(e) => {
+                            warn!("Failed to serialize expiry notification: {}", e);
+                            continue;
+                        }
+                    };
+                    let _ = pubsub.publish(&channel, &payload).await;
                 }
 
                 info!(

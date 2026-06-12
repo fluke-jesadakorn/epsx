@@ -41,7 +41,7 @@ impl UnifiedRouteBuilder {
     fn create_app_state(&self) -> crate::web::auth::AppState {
         let cache = self.get_or_default_cache();
         let redis_pool = self.container.get_redis_pool();
-        let redis_broadcaster = self.container.get_redis_broadcaster();
+        let pubsub = self.container.get_pubsub();
         let analytics_pool = self.container.get_analytics_pool();
 
         crate::web::auth::AppState::new(
@@ -49,7 +49,7 @@ impl UnifiedRouteBuilder {
             cache,
             Arc::clone(&self.container),
             redis_pool,
-            redis_broadcaster,
+            pubsub,
             analytics_pool,
         )
     }
@@ -151,9 +151,9 @@ impl UnifiedRouteBuilder {
 
         // Get Redis services - optional, log warning if not available
         let redis_pool = self.container.get_redis_pool();
-        let redis_broadcaster = self.container.get_redis_broadcaster();
+        let pubsub = self.container.get_pubsub();
 
-        if redis_pool.is_none() || redis_broadcaster.is_none() {
+        if redis_pool.is_none() || pubsub.is_none() {
             tracing::warn!(
                 "Redis not configured - notifications and real-time features will not work"
             );
@@ -207,7 +207,7 @@ impl UnifiedRouteBuilder {
 
     fn create_admin_routes(&self) -> Router {
         let redis_pool = self.container.redis_pool.clone();
-        let redis_broadcaster = self.container.redis_broadcaster.clone();
+        let pubsub = self.container.pubsub.clone();
         let cache = self
             .container
             .cache
@@ -220,7 +220,7 @@ impl UnifiedRouteBuilder {
             cache.clone(),
             Arc::clone(&self.container),
             redis_pool.clone(),
-            redis_broadcaster.clone(),
+            pubsub.clone(),
             self.container.get_analytics_pool(),
         );
 
@@ -334,14 +334,14 @@ impl UnifiedRouteBuilder {
         });
 
         let redis_pool = self.container.get_redis_pool();
-        let redis_broadcaster = self.container.get_redis_broadcaster();
+        let pubsub = self.container.get_pubsub();
 
         let app_state = crate::web::auth::AppState::new(
             self.container.db_pool(),
             cache,
             Arc::clone(&self.container),
             redis_pool,
-            redis_broadcaster,
+            pubsub,
             self.container.get_analytics_pool(),
         );
 
@@ -618,14 +618,14 @@ impl UnifiedRouteBuilder {
         });
 
         let redis_pool = self.container.get_redis_pool();
-        let redis_broadcaster = self.container.get_redis_broadcaster();
+        let pubsub = self.container.get_pubsub();
 
         let app_state = crate::web::auth::AppState::new(
             self.container.db_pool(),
             cache,
             Arc::clone(&self.container),
             redis_pool,
-            redis_broadcaster,
+            pubsub,
             self.container.get_analytics_pool(),
         );
 
@@ -843,14 +843,14 @@ impl UnifiedRouteBuilder {
         });
 
         let redis_pool = self.container.get_redis_pool();
-        let redis_broadcaster = self.container.get_redis_broadcaster();
+        let pubsub = self.container.get_pubsub();
 
         let app_state = crate::web::auth::AppState::new(
             self.container.db_pool(),
             cache,
             Arc::clone(&self.container),
             redis_pool,
-            redis_broadcaster,
+            pubsub,
             self.container.get_analytics_pool(),
         );
 

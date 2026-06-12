@@ -72,18 +72,19 @@ pub async fn upload_attachment(
     ).await {
         Ok(msg) => {
             // Publish to Redis
-            if let Some(broadcaster) = &app_state.redis_broadcaster {
+            if let Some(pubsub) = &app_state.pubsub {
                 let conv = ChatRepository::get_conversation(&app_state.db_pool, conv_id).await.ok().flatten();
                 let event = serde_json::json!({
                     "type": "new_message",
                     "conversation_id": conv_id,
                     "message": msg,
                 });
-                let payload = serde_json::to_string(&event).unwrap_or_default();
-                let _ = broadcaster.publish_to_channel("chat:new", &payload).await;
+                let payload = serde_json::to_vec(&event).unwrap_or_default();
+                let _ = pubsub.publish("chat:new", &payload).await;
                 if let Some(conv) = conv {
                     if let Some(agent) = &conv.assigned_agent {
-                        let _ = broadcaster.publish_to_channel(&format!("chat:agent:{}", agent), &payload).await;
+                        let channel = format!("chat:agent:{}", agent);
+                        let _ = pubsub.publish(&channel, &payload).await;
                     }
                 }
             }
@@ -187,17 +188,15 @@ pub async fn admin_upload_attachment(
         Some(meta),
     ).await {
         Ok(msg) => {
-            if let Some(broadcaster) = &app_state.redis_broadcaster {
+            if let Some(pubsub) = &app_state.pubsub {
                 let event = serde_json::json!({
                     "type": "new_message",
                     "conversation_id": conv_id,
                     "message": msg,
                 });
-                let payload = serde_json::to_string(&event).unwrap_or_default();
-                let _ = broadcaster.publish_to_channel(
-                    &format!("chat:wallet:{}", conv.wallet_address),
-                    &payload,
-                ).await;
+                let payload = serde_json::to_vec(&event).unwrap_or_default();
+                let channel = format!("chat:wallet:{}", conv.wallet_address);
+                let _ = pubsub.publish(&channel, &payload).await;
             }
             Ok(Json(UnifiedApiResponse::success(serde_json::json!({
                 "message": msg,
@@ -225,17 +224,18 @@ pub async fn user_typing(
         Err(e) => return Err(Json(UnifiedApiResponse::error(500, "Database error", &e))),
     };
 
-    if let Some(broadcaster) = &app_state.redis_broadcaster {
+    if let Some(pubsub) = &app_state.pubsub {
         let event_type = if body.is_typing { "typing_start" } else { "typing_stop" };
         let event = serde_json::json!({
             "type": event_type,
             "conversation_id": conv_id,
             "sender": "user",
         });
-        let payload = serde_json::to_string(&event).unwrap_or_default();
-        let _ = broadcaster.publish_to_channel("chat:new", &payload).await;
+        let payload = serde_json::to_vec(&event).unwrap_or_default();
+        let _ = pubsub.publish("chat:new", &payload).await;
         if let Some(agent) = &conv.assigned_agent {
-            let _ = broadcaster.publish_to_channel(&format!("chat:agent:{}", agent), &payload).await;
+            let channel = format!("chat:agent:{}", agent);
+            let _ = pubsub.publish(&channel, &payload).await;
         }
     }
 
@@ -257,18 +257,16 @@ pub async fn admin_typing(
         Err(e) => return Err(Json(UnifiedApiResponse::error(500, "Database error", &e))),
     };
 
-    if let Some(broadcaster) = &app_state.redis_broadcaster {
+    if let Some(pubsub) = &app_state.pubsub {
         let event_type = if body.is_typing { "typing_start" } else { "typing_stop" };
         let event = serde_json::json!({
             "type": event_type,
             "conversation_id": conv_id,
             "sender": "agent",
         });
-        let payload = serde_json::to_string(&event).unwrap_or_default();
-        let _ = broadcaster.publish_to_channel(
-            &format!("chat:wallet:{}", conv.wallet_address),
-            &payload,
-        ).await;
+        let payload = serde_json::to_vec(&event).unwrap_or_default();
+        let channel = format!("chat:wallet:{}", conv.wallet_address);
+        let _ = pubsub.publish(&channel, &payload).await;
     }
 
     Ok(Json(UnifiedApiResponse::success(())))

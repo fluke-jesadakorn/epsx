@@ -42,14 +42,16 @@
 use std::future::Future;
 use std::pin::Pin;
 
+use async_trait::async_trait;
+
 use crate::errors::AppResult;
 
-// The `async fn` lint (`async_fn_in_trait`) complains that
-// `pub trait PubsubPort: Send + Sync { async fn publish(...) }`
-// has no explicit `Send` bound on the returned `Future`. We add the
-// bound explicitly via `#[allow]` + a `Send`-aware desugaring so the
-// port is usable from multi-threaded runtimes.
-#[allow(async_fn_in_trait)]
+// `#[async_trait]` makes the trait dyn-compatible (so it can be used
+// as `Arc<dyn PubsubPort>` in the DI container) and adds an explicit
+// `Send` bound on the returned future. The native `async fn` in
+// trait syntax would be more ergonomic but is not object-safe —
+// `#[async_trait]` is the standard workaround.
+#[async_trait]
 
 /// A channel-agnostic pub/sub port.
 ///

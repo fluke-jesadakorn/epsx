@@ -68,10 +68,18 @@ impl NotificationService {
             expires_at: None,
         };
 
-        // Publish via Redis (fire-and-forget, don't fail the parent operation)
-        if let Some(broadcaster) = &app_state.redis_broadcaster {
-            if let Err(e) = broadcaster.publish_to_wallet(&wallet, &sse).await {
-                tracing::warn!("Failed to publish notification via Redis: {}", e);
+        // Publish via PubsubPort (fire-and-forget, don't fail the parent operation)
+        if let Some(pubsub) = &app_state.pubsub {
+            let channel = format!("notifications:wallet:{}", wallet);
+            let payload = match serde_json::to_vec(&sse) {
+                Ok(p) => p,
+                Err(e) => {
+                    tracing::warn!("Failed to serialize notification: {}", e);
+                    return Ok(id.to_string());
+                }
+            };
+            if let Err(e) = pubsub.publish(&channel, &payload).await {
+                tracing::warn!("Failed to publish notification via PubsubPort: {}", e);
             }
         }
 
@@ -127,10 +135,17 @@ impl NotificationService {
             expires_at: None,
         };
 
-        // Publish via Redis broadcast
-        if let Some(broadcaster) = &app_state.redis_broadcaster {
-            if let Err(e) = broadcaster.publish_to_all(&sse).await {
-                tracing::warn!("Failed to broadcast notification via Redis: {}", e);
+        // Publish via PubsubPort broadcast
+        if let Some(pubsub) = &app_state.pubsub {
+            let payload = match serde_json::to_vec(&sse) {
+                Ok(p) => p,
+                Err(e) => {
+                    tracing::warn!("Failed to serialize broadcast notification: {}", e);
+                    return Ok(id.to_string());
+                }
+            };
+            if let Err(e) = pubsub.publish("notifications:all", &payload).await {
+                tracing::warn!("Failed to broadcast notification via PubsubPort: {}", e);
             }
         }
 

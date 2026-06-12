@@ -26,6 +26,7 @@
 use std::pin::Pin;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use epsx_contracts::errors::{AppError, ErrorKind};
 use epsx_contracts::pubsub_port::{MessageStream, PubsubPort};
 use futures::StreamExt;
@@ -95,7 +96,7 @@ impl RedisPubsubAdapter {
     }
 }
 
-#[allow(async_fn_in_trait)]
+#[async_trait]
 impl PubsubPort for RedisPubsubAdapter {
     async fn publish(&self, channel: &str, payload: &[u8]) -> Result<(), AppError> {
         let mut conn = self.pool.get_connection();

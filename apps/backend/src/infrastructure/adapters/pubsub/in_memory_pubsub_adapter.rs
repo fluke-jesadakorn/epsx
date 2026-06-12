@@ -24,6 +24,7 @@ use std::collections::HashMap;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 
+use async_trait::async_trait;
 use epsx_contracts::errors::{AppError, ErrorKind};
 use epsx_contracts::pubsub_port::{MessageStream, PubsubPort};
 
@@ -97,6 +98,7 @@ impl InMemoryPubsubAdapter {
     }
 }
 
+#[async_trait]
 impl PubsubPort for InMemoryPubsubAdapter {
     async fn publish(&self, channel: &str, payload: &[u8]) -> Result<(), AppError> {
         let tx = self.sender_for(channel);

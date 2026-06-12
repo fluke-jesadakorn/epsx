@@ -8,7 +8,7 @@ use std::sync::Arc;
 use crate::infrastructure::cache::{Cache, ServerlessCacheFactory};
 use crate::infrastructure::database::diesel_health_check;
 use crate::infrastructure::redis::RedisPool;
-use crate::web::notifications::RedisNotificationBroadcaster;
+use crate::infrastructure::adapters::RedisPubsubAdapter;
 use crate::infrastructure::adapters::repositories::wallet_user::WalletUserRepositoryAdapter;
 use crate::infrastructure::adapters::services::permission_adapter::{
     Web3PermissionServiceAdapter, BlockchainConfig
@@ -22,6 +22,7 @@ use crate::auth::auth_service::UnifiedWeb3AuthService;
 use crate::auth::token_service::OpenIDTokenService;
 use crate::auth::key_manager::KeyManager;
 use crate::auth::unified_permission_service::UnifiedPermissionService;
+use epsx_contracts::pubsub_port::PubsubPort;
 
 /// Stateless configuration for service factory
 #[derive(Clone)]
@@ -143,13 +144,22 @@ impl StatelessServiceFactory {
             diesel_pool,
         ));
 
-        // Create Redis pool and notification broadcaster
-        let (redis_pool, redis_broadcaster) = if let Some(redis_url) = &self.config.redis_url {
+        // Create Redis pool and PubsubPort
+        let (redis_pool, pubsub): (Option<Arc<RedisPool>>, Option<Arc<dyn PubsubPort>>) = if let Some(redis_url) = &self.config.redis_url {
             match RedisPool::new(redis_url).await {
                 Ok(pool) => {
                     let pool_arc = Arc::new(pool);
-                    let broadcaster = Arc::new(RedisNotificationBroadcaster::new(Arc::clone(&pool_arc)));
-                    (Some(pool_arc), Some(broadcaster))
+                    let pubsub: Option<Arc<dyn PubsubPort>> = match redis::Client::open(redis_url.as_str()) {
+                        Ok(client) => Some(Arc::new(RedisPubsubAdapter::from_pool_and_client(
+                            client,
+                            Arc::clone(&pool_arc),
+                        )) as Arc<dyn PubsubPort>),
+                        Err(e) => {
+                            tracing::warn!("Failed to create redis::Client for PubsubPort: {}", e);
+                            None
+                        }
+                    };
+                    (Some(pool_arc), pubsub)
                 }
                 Err(e) => {
                     tracing::warn!("Failed to create Redis pool: {} (notifications will not work)", e);
@@ -172,12 +182,14 @@ impl StatelessServiceFactory {
 
             // Redis notifications
             redis_pool,
-            redis_broadcaster,
+            pubsub,
 
-            // Unified permission service (single source of truth)
+            // Unified permission service (single source of truth for all permission operations)
             unified_permission_service,
         })
     }
+
+    // Redis cache creation methods removed - now using ServerlessCacheFactory
 
     // Redis cache creation methods removed - now using ServerlessCacheFactory
 
@@ -207,7 +219,10 @@ pub struct RequestServices {
 
     // Redis notification infrastructure
     pub redis_pool: Option<Arc<RedisPool>>,
-    pub redis_broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
+    /// Generic pubsub port. Notifications + chat both publish and
+    /// subscribe through this port. See
+    /// `docs/wave8-service-boundary/ROADMAP.md` §5 R2.
+    pub pubsub: Option<Arc<dyn PubsubPort>>,
 
     // Unified permission service (single source of truth for all permission operations)
     pub unified_permission_service: Arc<UnifiedPermissionService>,
@@ -228,9 +243,9 @@ impl RequestServices {
     pub async fn create_auth_app_state(&self) -> crate::web::auth::AppState {
         // Redis is optional - notifications won't work if Redis is unavailable
         let redis_pool = self.redis_pool.clone();
-        let redis_broadcaster = self.redis_broadcaster.clone();
+        let pubsub = self.pubsub.clone();
 
-        if redis_pool.is_none() || redis_broadcaster.is_none() {
+        if redis_pool.is_none() || pubsub.is_none() {
             tracing::warn!("Redis not configured - notifications will not work for auth routes");
         }
 
@@ -240,7 +255,7 @@ impl RequestServices {
             // Convert to legacy container format for compatibility
             Arc::new(crate::infrastructure::container::DomainContainer::new(self.db_pool.clone())),
             redis_pool,
-            redis_broadcaster,
+            pubsub,
             crate::infrastructure::database::get_analytics_pool().await.ok().map(Arc::new),
         )
     }

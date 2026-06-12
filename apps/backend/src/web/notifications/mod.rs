@@ -2,7 +2,6 @@
 // Uses Redis pub/sub for real-time delivery + PostgreSQL for offline queue
 
 pub mod sse_handlers;
-pub mod redis_broadcaster;
 pub mod offline_queue;
 
 #[cfg(test)]
@@ -15,7 +14,6 @@ pub use sse_handlers::{
     sse_notifications_handler,
 };
 
-pub use redis_broadcaster::RedisNotificationBroadcaster;
 pub use offline_queue::{
     fetch_queued_notifications,
     mark_as_delivered,
