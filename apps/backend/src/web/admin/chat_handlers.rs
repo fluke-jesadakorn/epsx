@@ -155,19 +155,27 @@ pub async fn admin_send_reply(
             let notif_content = body.content.chars().take(100).collect::<String>();
             let notif_state = app_state.clone();
             tokio::spawn(async move {
-                use crate::infrastructure::services::NotificationService;
-                use crate::web::notifications::{NotificationPriority, NotificationType};
-                let _ = NotificationService::send(
-                    &notif_state,
-                    &notif_wallet,
-                    NotificationType::Chat,
-                    NotificationPriority::Normal,
-                    "New Support Message",
-                    &notif_content,
-                    Some(serde_json::json!({ "conversation_id": notif_conv_id })),
-                    Some(format!("/chat/{}", notif_conv_id)),
-                )
-                .await;
+                // Wave 10 / R3: route through the NotificationPort.
+                use epsx_contracts::notification_port::SendNotificationRequest;
+                if let Some(port) = notif_state.notification_port.as_ref() {
+                    let _ = port
+                        .send(SendNotificationRequest {
+                            recipient_wallet_address: notif_wallet.clone(),
+                            notification_type: "chat".to_string(),
+                            priority: "normal".to_string(),
+                            title: "New Support Message".to_string(),
+                            message: notif_content.clone(),
+                            data: Some(serde_json::json!({ "conversation_id": notif_conv_id })),
+                            action_url: Some(format!("/chat/{}", notif_conv_id)),
+                        })
+                        .await;
+                } else {
+                    tracing::warn!(
+                        "notification_port not wired in AppState; admin chat-reply \
+                         notification for conversation={} dropped",
+                        notif_conv_id
+                    );
+                }
             });
 
             info!(

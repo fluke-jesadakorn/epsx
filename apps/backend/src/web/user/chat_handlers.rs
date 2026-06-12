@@ -263,30 +263,40 @@ pub async fn send_message(
             let notif_subject = conv.subject.clone();
             let notif_agent = conv.assigned_agent.clone();
             tokio::spawn(async move {
-                use crate::infrastructure::services::NotificationService;
-                use crate::web::notifications::{NotificationPriority, NotificationType};
-                if let Some(agent) = notif_agent {
-                    let _ = NotificationService::send(
-                        &notif_state,
-                        &agent,
-                        NotificationType::Chat,
-                        NotificationPriority::Normal,
-                        &format!("New message: {}", notif_subject),
-                        &notif_content,
-                        Some(serde_json::json!({ "conversation_id": notif_conv_id })),
-                        Some("/chat".to_string()),
-                    )
-                    .await;
+                // Wave 10 / R3: route through the NotificationPort.
+                use epsx_contracts::notification_port::{
+                    BroadcastNotificationRequest, SendNotificationRequest,
+                };
+                if let Some(port) = notif_state.notification_port.as_ref() {
+                    if let Some(agent) = notif_agent {
+                        let _ = port
+                            .send(SendNotificationRequest {
+                                recipient_wallet_address: agent,
+                                notification_type: "chat".to_string(),
+                                priority: "normal".to_string(),
+                                title: format!("New message: {}", notif_subject),
+                                message: notif_content.clone(),
+                                data: Some(serde_json::json!({ "conversation_id": notif_conv_id })),
+                                action_url: Some("/chat".to_string()),
+                            })
+                            .await;
+                    } else {
+                        let _ = port
+                            .broadcast(BroadcastNotificationRequest {
+                                notification_type: "chat".to_string(),
+                                priority: "normal".to_string(),
+                                title: format!("New message: {}", notif_subject),
+                                message: notif_content.clone(),
+                                data: Some(serde_json::json!({ "conversation_id": notif_conv_id })),
+                            })
+                            .await;
+                    }
                 } else {
-                    let _ = NotificationService::broadcast(
-                        &notif_state,
-                        NotificationType::Chat,
-                        NotificationPriority::Normal,
-                        &format!("New message: {}", notif_subject),
-                        &notif_content,
-                        Some(serde_json::json!({ "conversation_id": notif_conv_id })),
-                    )
-                    .await;
+                    tracing::warn!(
+                        "notification_port not wired in AppState; chat notification \
+                         for conversation={} dropped",
+                        notif_conv_id
+                    );
                 }
             });
 

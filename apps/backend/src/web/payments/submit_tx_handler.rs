@@ -565,19 +565,27 @@ pub async fn submit_transaction_handler(
         let notif_ref = payment_reference.clone();
         let notif_state = _app_state.clone();
         tokio::spawn(async move {
-            use crate::infrastructure::services::NotificationService;
-            use crate::web::notifications::{NotificationPriority, NotificationType};
-            let _ = NotificationService::send(
-                &notif_state,
-                &notif_wallet,
-                NotificationType::Payment,
-                NotificationPriority::Normal,
-                "Payment Confirmed",
-                "Your payment has been confirmed",
-                Some(serde_json::json!({ "payment_reference": notif_ref })),
-                None,
-            )
-            .await;
+            // Wave 10 / R3: route through the NotificationPort.
+            use epsx_contracts::notification_port::SendNotificationRequest;
+            if let Some(port) = notif_state.notification_port.as_ref() {
+                let _ = port
+                    .send(SendNotificationRequest {
+                        recipient_wallet_address: notif_wallet.clone(),
+                        notification_type: "payment".to_string(),
+                        priority: "normal".to_string(),
+                        title: "Payment Confirmed".to_string(),
+                        message: "Your payment has been confirmed".to_string(),
+                        data: Some(serde_json::json!({ "payment_reference": notif_ref })),
+                        action_url: None,
+                    })
+                    .await;
+            } else {
+                tracing::warn!(
+                    "notification_port not wired in AppState; payment-confirmed \
+                     notification for wallet={} dropped",
+                    notif_wallet
+                );
+            }
         });
 
         format!("Payment completed using ${} wallet credits", credit_to_use)

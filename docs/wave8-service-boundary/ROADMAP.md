@@ -676,3 +676,234 @@ synthesis.
 review and for the wave-N+1 refactor planning. The next step is
 the user's decision on §7's open questions before wave9 work
 begins.*
+
+---
+
+## 11. Wave 10 — Track A (NotificationPort) — implementation report
+
+> **Branch:** `wave10/track-a-notification-port` (worktree at
+> `.worktrees/wave10-track-a-notification-port`, base
+> `migration/dioxus-microservices` HEAD `9f794784`).
+> **Status at end of track:** `cargo test -p epsx --lib` → 402
+> passed / 0 failed; `cargo test -p epsx-contracts --lib` → 37
+> passed; `cargo check --workspace` → clean (only pre-existing
+> warnings).
+>
+> This section is the wave-10 / track-A implementation log
+> (file-by-file change list, publisher migration table, test
+> results, open issues for the integration gate). It is appended
+> to the existing roadmap; nothing in §1–§10 is modified.
+
+### 11a. File-by-file change list
+
+**Additions (5 files, ~1,000 LOC):**
+
+| Path | LOC | Purpose |
+|------|----:|---------|
+| `shared/rust/epsx-contracts/src/notification_port.rs` | 181 | `NotificationPort` trait + `SendNotificationRequest` / `BroadcastNotificationRequest` DTOs + object-safety + serde round-trip tests |
+| `apps/backend/src/infrastructure/adapters/notification/mod.rs` | 10 | `pub mod in_process_adapter;` + re-export |
+| `apps/backend/src/infrastructure/adapters/notification/in_process_adapter.rs` | 450 | In-process port impl + format/parse helpers + round-trip + pool-fallback regression tests |
+| `apps/backend/src/web/admin/notification_handlers/upload_image.rs` | 60 | `upload_notification_image` handler (moved from `media_handlers.rs`, body unchanged) |
+| `apps/backend/src/web/admin/notification_handlers/tests.rs` | 128 | Route-registration tests for the moved `upload_notification_image` (401/403 + wrong-perm + compile-time path check) |
+
+**Edits (15 files, ~600 LOC changed):**
+
+| Path | What |
+|------|------|
+| `shared/rust/epsx-contracts/src/lib.rs` | Re-export the port trait + DTOs at the crate root |
+| `apps/backend/src/web/auth/app_state.rs` | Add `notification_port: Option<Arc<dyn NotificationPort>>` field + `with_notification_port` / `with_notification_port_opt` builder setters |
+| `apps/backend/src/infrastructure/services/notification_service.rs` | Becomes a deprecated shim that routes to the port; the static methods return `AppError::Configuration` when the port is unwired |
+| `apps/backend/src/infrastructure/services/plan_expiration_service.rs` | Holds `Option<Arc<dyn NotificationPort>>`; plan-expiry notification publish goes through `port.send(...)` instead of inline INSERT + `publish_to_wallet` (the 8th publisher in the audit) |
+| `apps/backend/src/infrastructure/container/stateless_service_factory.rs` | `create_auth_app_state` constructs the in-process adapter and wires it via `with_notification_port_opt` |
+| `apps/backend/src/web/payments/credit_handlers.rs` | Publisher call site #1 — `NotificationService::send` → `port.send` |
+| `apps/backend/src/web/payments/submit_tx_handler.rs` | Publisher call site #2 — `NotificationService::send` → `port.send` |
+| `apps/backend/src/web/user/chat_handlers.rs` | Publisher call sites #3 + #4 — `send` + `broadcast` → `port.send` / `port.broadcast` |
+| `apps/backend/src/web/admin/chat_handlers.rs` | Publisher call site #5 — `NotificationService::send` → `port.send` |
+| `apps/backend/src/web/admin/permissions/assignments/create.rs` | Publisher call site #6 — `NotificationService::send` → `port.send` |
+| `apps/backend/src/web/admin/permissions/assignments/remove.rs` | Publisher call site #7 — `NotificationService::send` → `port.send` |
+| `apps/backend/src/web/admin/notification_handlers/mod.rs` | Re-export the moved `upload_notification_image` |
+| `apps/backend/src/web/admin/routes.rs` | Line 252: `super::media_handlers::upload_notification_image` → `upload_notification_image` (imported from the notification_handlers module) |
+| `apps/backend/src/web/admin/media_handlers.rs` | Removed the `upload_notification_image` function (left a comment pointer to the new path) |
+| `docs/wave8-service-boundary/ROADMAP.md` | This §11 addendum (no edits to §1–§10) |
+
+### 11b. Publisher call-site migration table
+
+The audit (notifications audit §3b) identified 8 publisher call
+sites. Pre-wave-10 they all reached for `NotificationService::send` /
+`NotificationService::broadcast` directly. After the wave-10 / R3
+lift they go through `Arc<dyn NotificationPort>`.
+
+| # | File | Pre (file:line) | Post |
+|--:|------|-----------------|------|
+| 1 | `web/payments/credit_handlers.rs` | `:258` — `NotificationService::send(&notif_state, &notif_wallet, ...)` | `:258` — `if let Some(port) = notif_state.notification_port.as_ref() { port.send(SendNotificationRequest { ... }).await }` |
+| 2 | `web/payments/submit_tx_handler.rs` | `:570` — `NotificationService::send(...)` | `:570` — `if let Some(port) = notif_state.notification_port.as_ref() { port.send(SendNotificationRequest { ... }).await }` |
+| 3 | `web/user/chat_handlers.rs` (send) | `:269` — `NotificationService::send(...)` | `:269` — `port.send(SendNotificationRequest { ... })` |
+| 4 | `web/user/chat_handlers.rs` (broadcast) | `:281` — `NotificationService::broadcast(...)` | `:281` — `port.broadcast(BroadcastNotificationRequest { ... })` |
+| 5 | `web/admin/chat_handlers.rs` | `:160` — `NotificationService::send(...)` | `:160` — `port.send(SendNotificationRequest { ... })` |
+| 6 | `web/admin/permissions/assignments/create.rs` | `:248` — `NotificationService::send(...)` | `:248` — `port.send(SendNotificationRequest { ... })` |
+| 7 | `web/admin/permissions/assignments/remove.rs` | `:75` — `NotificationService::send(...)` | `:75` — `port.send(SendNotificationRequest { ... })` |
+| 8 | `infrastructure/services/plan_expiration_service.rs` | `:151–177` — inline `SSENotification` build + `insert_notification` (raw SQL) + `publish_to_wallet` | `:151–177` — single `port.send(SendNotificationRequest { ... })`; the inline `insert_notification` private method is removed |
+
+Every migrated site also has a defensive `if let Some(port)` guard
+that logs a warning and drops the notification if the port is not
+yet wired. This is a behavior change: pre-wave-10, an unwired
+publisher silently wrote to the primary pool (the bug the audit
+flagged). After this track, an unwired publisher logs a clear
+warning and the notification is dropped. Production wiring is
+done in `stateless_service_factory::create_auth_app_state`.
+
+### 11c. Test results
+
+```
+$ cargo test -p epsx --lib
+test result: ok. 402 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out
+
+$ cargo test -p epsx-contracts --lib
+test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+$ cargo check --workspace
+warning: `epsx` (lib) generated 7 warnings   (pre-existing; no new warnings)
+warning: `epsx-frontend` (bin "bff-frontend") generated 15 warnings   (pre-existing)
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 31.85s
+```
+
+**New tests added in this track:**
+
+| Path | Test | Asserts |
+|------|------|---------|
+| `shared/rust/epsx-contracts/src/notification_port.rs` | `_assert_object_safe` | `&dyn NotificationPort` compiles (object-safety guarantee) |
+| | `send_request_serde_round_trip` | DTO JSON round-trip works |
+| | `broadcast_request_serde_round_trip` | DTO JSON round-trip works |
+| | `app_error_is_returned_by_port` | error type stays `AppError`-compatible |
+| `apps/backend/src/infrastructure/adapters/notification/in_process_adapter.rs` | `port_trait_send_round_trip` | `dyn NotificationPort` dispatch works for `send` |
+| | `port_trait_broadcast_round_trip` | same for `broadcast` |
+| | `notifications_pool_returns_error_when_unset` | **pool-fallback fix regression** — `try_new` returns `AppError::ConfigurationError` when `NOTIFICATIONS_DATABASE_URL` is unset or empty |
+| | `from_pool_bypasses_env_check` | test-bypass path doesn't perform the env-var check |
+| `apps/backend/src/infrastructure/services/notification_service.rs` | `notifications_pool_returns_error_when_unset` | same regression test on the legacy shim |
+| `apps/backend/src/web/admin/notification_handlers/tests.rs` | `upload_notification_image_no_auth_returns_401` | route registration with `perm_guard` returns 401 without `OpenIDUserContext` |
+| | `upload_notification_image_non_admin_returns_403` | non-admin permission returns 403 |
+| | `upload_notification_image_wrong_admin_permission_returns_403` | wrong admin permission returns 403 |
+| | `_handler_is_at_new_path` | compile-time check that the handler is exported at the new path |
+
+### 11d. Pool-fallback fix details
+
+Pre-wave-10, `notification_service::send` / `broadcast` fell back
+to `app_state.db_pool` (the primary pool) when the notifications
+pool was unavailable, silently writing to the wrong schema.
+Notifications audit §6b called this out as a "real correctness
+bug that becomes a major incident when the service is split."
+
+The fix is in the `InProcessNotificationAdapter::try_new`
+constructor. Before the constructor touches the pool, it checks
+`std::env::var("NOTIFICATIONS_DATABASE_URL")`. If the var is unset
+or empty, the constructor returns
+`AppError::Configuration("NOTIFICATIONS_DATABASE_URL is not set; \
+notifications cannot be written to the primary database.")`.
+
+Production behavior: a misconfigured deployment (no
+`NOTIFICATIONS_DATABASE_URL`) now refuses to start the
+notifications port. The container factory logs a clear warning
+and the AppState has `notification_port = None`. The publisher
+call sites see `None` and drop notifications with a
+`tracing::warn!` line. Pre-wave-10, the same scenario silently
+wrote to the primary pool.
+
+The `get_notifications_pool()` factory in
+`infrastructure/database/diesel_connection_manager.rs` is left
+untouched because the `plan_expiration_service` cron driver
+still needs to *read* from the pool (for the dedup check). The
+policy is enforced at the notification *write* site (the
+adapter), not at the pool factory.
+
+### 11e. Open issues for the integration gate
+
+These are the items the integration gate (track B +
+`epsx-notifications` service binary) needs to handle. They are
+out of scope for track A.
+
+1. **HTTP impl.** The `HttpNotificationAdapter` is not part of
+   this track. It lives at
+   `apps/backend/src/infrastructure/adapters/notification/http_adapter.rs`
+   (to be added in the integration gate). It must implement
+   `NotificationPort` with the same signatures
+   (`send(&self, req: SendNotificationRequest) -> AppResult<String>`,
+   `broadcast(&self, req: BroadcastNotificationRequest) -> AppResult<()>`)
+   and use the HTTP transport to forward to the new
+   `epsx-notifications` service binary. The DI wiring is the
+   single-line change in
+   `stateless_service_factory::create_auth_app_state` that
+   replaces `InProcessNotificationAdapter::try_new(...)` with
+   `HttpNotificationAdapter::new(...)`.
+
+2. **`redis_broadcaster` hoist (R2).** This is track B. The
+   chat domain's reuse of `RedisNotificationBroadcaster` for
+   `chat:new` / `chat:agent:<id>` / `chat:wallet:<addr>` is the
+   chat SSE-stream coupling. The audit (notifications audit §3c)
+   and the roadmap (§4 R2) say this is the next step after
+   the port lift. The in-process adapter still owns the
+   broadcaster today; when track B hoists it to a shared
+   `pubsub` primitive in `epsx-contracts`, the adapter is
+   the only `web/notifications/redis_broadcaster.rs` consumer
+   and the hoist is mechanical.
+
+3. **DI for `notification_port = None`.** The 7 migrated
+   publisher call sites use `if let Some(port) = notif_state
+   .notification_port.as_ref()`. This is a defensive fallback
+   for a misconfigured deployment. The integration gate
+   should decide whether to:
+   - (a) keep this defensive pattern and let the production
+     port be optional (current design), or
+   - (b) make `notification_port: Arc<dyn NotificationPort>`
+     (non-Option) and fail-fast at AppState construction if
+     the port cannot be wired. The trade-off: (b) is stricter
+     but means a misconfigured deployment cannot start; (a)
+     starts but logs warnings when a notification is dropped.
+   Track A chose (a) because it matches the existing
+   `Option<Arc<...>>` patterns in AppState (e.g. `redis_pool`,
+   `s3`).
+
+4. **Migration dedupe (R9).** Already done in the wave10/prep
+   commit series (8f73174b "wave10/prep(4/4): R9 notifications/
+   payments migration dedupe"). No additional work needed in
+   track A. Confirmed by `rg "consolidated_"` in
+   `apps/backend/migrations/notifications/` returning only one
+   match.
+
+5. **`notification_subscriptions` table.** Notifications audit
+   §6b / §6d note that the table is indexed but may not be
+   actively written to. Not addressed in this track; flagged
+   for wave 11 (after the HTTP impl lands, the table's role
+   in the new service needs verification).
+
+6. **Plan-expiration service still has a raw INSERT path?**
+   No. The `insert_notification` private method on
+   `PlanExpirationService` (raw `INSERT INTO wallet_notifications`)
+   is **removed** in this track — the port handles DB insert +
+   Redis publish as a single call. The only raw SQL left in
+   `plan_expiration_service.rs` is the *dedup* query
+   (`notification_exists`), which is read-only and is correct
+   (the port's scope is *delivery*, not admin / read paths).
+
+7. **Deprecation timeline for `NotificationService`.** The
+   shim is `#[deprecated]` since wave 10.0.0. The static
+   `NotificationService::send` / `::broadcast` methods are
+   kept as a defensive fallback and the warning is loud.
+   Remove in wave 11 once the integration gate confirms all
+   production paths go through the port. The shim will
+   become dead code and can be deleted cleanly.
+
+### 11f. Verification
+
+`cargo test -p epsx --lib --no-run` → 0 errors, 7 warnings
+(pre-existing). `cargo check --workspace` → 0 errors, all
+warnings pre-existing. No new clippy violations.
+
+The integration gate (next step) must additionally verify:
+- `cargo test -p epsx --tests` (integration tests) — not run
+  in track A because they require a live DB.
+- `cargo test -p epsx --test '*'` (any integration test files)
+  — same reason.
+- The HTTP impl's round-trip against a real
+  `epsx-notifications` service binary — out of scope for track
+  A.
+

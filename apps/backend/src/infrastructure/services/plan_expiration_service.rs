@@ -4,9 +4,19 @@
 //! 1. Send notifications for plans expiring in 7, 3, 1 days
 //! 2. Deactivate expired plan assignments (respecting grace period)
 //! 3. Cleanup old notifications (delegates to offline_queue)
+//!
+//! ## Wave 10 / R3
+//!
+//! The plan-expiry notification was the 8th publisher in the audit.
+//! Pre-wave-10 it did its own `INSERT INTO wallet_notifications` plus
+//! `RedisNotificationBroadcaster::publish_to_wallet`. After the
+//! `NotificationPort` lift, the service holds an
+//! `Arc<dyn NotificationPort>` and calls `port.send(...)` instead.
+//! The dedup-key check still uses the raw SQL because the port does
+//! not expose a "check for existing" method (and should not — the
+//! audit's R3 scope is *delivery*, not admin / read paths).
 
 use std::sync::Arc;
-use chrono::Utc;
 use diesel_async::RunQueryDsl;
 use tokio::time::{sleep, Duration};
 use tracing::{info, warn, error};
@@ -14,10 +24,9 @@ use uuid::Uuid;
 
 use crate::prelude::TlsPool;
 use crate::web::notifications::{
-    SSENotification, NotificationType, NotificationPriority,
-    RedisNotificationBroadcaster,
-    cleanup_old_notifications,
+    RedisNotificationBroadcaster, cleanup_old_notifications,
 };
+use epsx_contracts::notification_port::{NotificationPort, SendNotificationRequest};
 
 pub struct PlanExpirationConfig {
     pub poll_interval_secs: u64,
@@ -36,7 +45,16 @@ impl Default for PlanExpirationConfig {
 pub struct PlanExpirationService {
     db_pool: Arc<&'static TlsPool>,
     notifications_pool: Option<Arc<&'static TlsPool>>,
+    // Wave 10 / R3: the redis_broadcaster is no longer used for
+    // publishing notifications — that is the `notification_port`'s
+    // job. Kept in the struct for backwards compatibility with the
+    // `new()` signature; the field is read by the cleanup path only
+    // (via `notifications_pool` for the SQL dedup). The
+    // `#[allow(dead_code)]` is required because the struct's other
+    // public surface does not reference the field anymore.
+    #[allow(dead_code)]
     redis_broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
+    notification_port: Option<Arc<dyn NotificationPort>>,
     config: PlanExpirationConfig,
 }
 
@@ -50,8 +68,21 @@ impl PlanExpirationService {
             db_pool,
             notifications_pool,
             redis_broadcaster,
+            // Wave 10 / R3: the notification port is wired by the
+            // container factory. When `None`, the service still runs
+            // its cleanup and dedup logic but skips the
+            // plan-expiry notification publish (logged as a warning
+            // so the misconfig is visible in production).
+            notification_port: None,
             config: PlanExpirationConfig::default(),
         }
+    }
+
+    /// Attach the `NotificationPort` (called by the container factory
+    /// after the in-process adapter is constructed).
+    pub fn with_notification_port(mut self, port: Arc<dyn NotificationPort>) -> Self {
+        self.notification_port = Some(port);
+        self
     }
 
     /// Start the background service loop
@@ -142,39 +173,60 @@ impl PlanExpirationService {
                     continue;
                 }
 
-                let title = format!("Plan expiring in {} day{}", row.days_left.max(1), if row.days_left > 1 { "s" } else { "" });
+                let title = format!(
+                    "Plan expiring in {} day{}",
+                    row.days_left.max(1),
+                    if row.days_left > 1 { "s" } else { "" }
+                );
                 let message = format!(
                     "Your {} plan expires soon. Renew to keep your access.",
                     row.plan_name
                 );
 
-                let notification = SSENotification {
-                    id: Uuid::new_v4().to_string(),
-                    wallet_address: row.wallet_address.clone(),
-                    notification_type: NotificationType::Payment,
-                    title: title.clone(),
-                    message: message.clone(),
-                    data: Some(serde_json::json!({
-                        "dedup_key": dedup_key,
-                        "plan_id": row.plan_id.to_string(),
-                        "plan_name": row.plan_name,
-                        "days_remaining": row.days_left,
-                        "action": "renew"
-                    })),
-                    priority: NotificationPriority::High,
-                    timestamp: Utc::now(),
-                    expires_at: None,
-                };
-
-                // Persist to DB
-                if let Err(e) = self.insert_notification(notif_pool, &notification, &dedup_key).await {
-                    warn!("Failed to persist expiry notification: {}", e);
+                // Wave 10 / R3: route through the NotificationPort.
+                // The port handles DB insert + Redis publish as a
+                // single atomic-ish call; the in-process adapter
+                // also enforces the no-URL fallback fix
+                // (AppError::Configuration when
+                // NOTIFICATIONS_DATABASE_URL is unset).
+                if let Some(port) = self.notification_port.as_ref() {
+                    let res = port
+                        .send(SendNotificationRequest {
+                            recipient_wallet_address: row.wallet_address.clone(),
+                            notification_type: "payment".to_string(),
+                            priority: "high".to_string(),
+                            title: title.clone(),
+                            message: message.clone(),
+                            data: Some(serde_json::json!({
+                                "dedup_key": dedup_key,
+                                "plan_id": row.plan_id.to_string(),
+                                "plan_name": row.plan_name,
+                                "days_remaining": row.days_left,
+                                "action": "renew",
+                            })),
+                            action_url: Some("/plans".to_string()),
+                        })
+                        .await;
+                    if let Err(e) = res {
+                        warn!(
+                            "Failed to publish plan-expiry notification via port: {}",
+                            e
+                        );
+                        continue;
+                    }
+                } else {
+                    // No port wired — the service still runs cleanup
+                    // and dedup, but cannot publish the notification.
+                    // Logged at warn so a misconfig is visible in
+                    // production; pre-wave-10 the same call silently
+                    // succeeded by writing to the primary pool, which
+                    // is the bug the audit flagged.
+                    warn!(
+                        "notification_port not wired in PlanExpirationService; \
+                         skipping plan-expiry notification for wallet={}",
+                        row.wallet_address
+                    );
                     continue;
-                }
-
-                // Broadcast via Redis for real-time SSE delivery
-                if let Some(broadcaster) = &self.redis_broadcaster {
-                    let _ = broadcaster.publish_to_wallet(&row.wallet_address, &notification).await;
                 }
 
                 info!(
@@ -221,48 +273,6 @@ impl PlanExpirationService {
         .ok();
 
         result.map(|r| r.cnt > 0).unwrap_or(false)
-    }
-
-    /// Insert notification into wallet_notifications table
-    async fn insert_notification(
-        &self,
-        pool: &TlsPool,
-        notif: &SSENotification,
-        _dedup_key: &str,
-    ) -> Result<(), String> {
-        let mut conn = pool.get().await
-            .map_err(|e| format!("Notification DB pool error: {}", e))?;
-
-        let id = Uuid::parse_str(&notif.id)
-            .unwrap_or_else(|_| Uuid::new_v4());
-        let ntype = serde_json::to_value(&notif.notification_type)
-            .ok()
-            .and_then(|v| v.as_str().map(|s| s.to_string()))
-            .unwrap_or_else(|| "payment".to_string());
-        let priority = serde_json::to_value(&notif.priority)
-            .ok()
-            .and_then(|v| v.as_str().map(|s| s.to_string()))
-            .unwrap_or_else(|| "high".to_string());
-
-        diesel::sql_query(
-            r#"
-            INSERT INTO wallet_notifications
-                (id, recipient_wallet_address, notification_type, title, body, data_payload, priority, created_at, action_url, status)
-            VALUES ($1, LOWER($2), $3, $4, $5, $6, $7, NOW(), '/plans', 'created')
-            "#
-        )
-        .bind::<diesel::sql_types::Uuid, _>(id)
-        .bind::<diesel::sql_types::Text, _>(&notif.wallet_address)
-        .bind::<diesel::sql_types::Text, _>(&ntype)
-        .bind::<diesel::sql_types::Text, _>(&notif.title)
-        .bind::<diesel::sql_types::Text, _>(&notif.message)
-        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Jsonb>, _>(notif.data.as_ref())
-        .bind::<diesel::sql_types::Text, _>(&priority)
-        .execute(&mut conn)
-        .await
-        .map_err(|e| format!("Insert notification failed: {}", e))?;
-
-        Ok(())
     }
 
     /// Deactivate expired assignments, respecting grace_period_hours

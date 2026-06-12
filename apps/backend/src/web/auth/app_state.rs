@@ -16,6 +16,8 @@ use crate::infrastructure::adapters::repositories::permission_plan_repository_ad
 use crate::infrastructure::storage::S3Storage;
 // use crate::infrastructure::adapters::repositories::payment_repository_adapter::PaymentRepositoryAdapter; // Temporarily disabled
 
+use epsx_contracts::notification_port::NotificationPort;
+
 /// Application State for Dependency Injection
 /// Provides centralized access to infrastructure dependencies for auth layer
 #[derive(Clone)]
@@ -34,6 +36,17 @@ pub struct AppState {
     pub s3: Option<Arc<S3Storage>>,
     // Stub for backwards compatibility with admin handlers
     pub user_repo: Option<String>,
+
+    /// Wave 10 / R3: cross-cutting port that the 8 publisher call
+    /// sites (payments, chat, admin permissions, plan expiration)
+    /// go through instead of the concrete `NotificationService`.
+    ///
+    /// `None` until the in-process adapter is wired in `bootstrap.rs`
+    /// / `simple_container.rs` / `stateless_service_factory.rs`. The
+    /// legacy `NotificationService::send` shim returns
+    /// `AppError::Configuration` when this is `None`, so a missing
+    /// port fails fast instead of silently dropping notifications.
+    pub notification_port: Option<Arc<dyn NotificationPort>>,
 }
 
 impl AppState {
@@ -77,6 +90,36 @@ impl AppState {
             audit,
             s3,
             user_repo: None,
+            // Default to None — the container factories set this in
+            // their `create_auth_app_state` after constructing the
+            // in-process adapter. A `None` here means the server has
+            // not finished initializing; the legacy
+            // `NotificationService` shim returns
+            // `AppError::Configuration` rather than silently dropping
+            // notifications.
+            notification_port: None,
         }
+    }
+
+    /// Attach a `NotificationPort` to the AppState. Called by the
+    /// container factories after they construct the in-process
+    /// adapter. Returns a new `AppState` with the port set.
+    pub fn with_notification_port(mut self, port: Arc<dyn NotificationPort>) -> Self {
+        self.notification_port = Some(port);
+        self
+    }
+
+    /// Attach an `Option<Arc<dyn NotificationPort>>` to the AppState.
+    /// Use this from the container factories where the in-process
+    /// adapter construction can fail (missing
+    /// `NOTIFICATIONS_DATABASE_URL`); `None` means notifications are
+    /// not wired and the publisher call sites will log a warning
+    /// instead of writing notifications to the wrong pool.
+    pub fn with_notification_port_opt(
+        mut self,
+        port: Option<Arc<dyn NotificationPort>>,
+    ) -> Self {
+        self.notification_port = port;
+        self
     }
 }

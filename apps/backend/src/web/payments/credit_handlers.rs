@@ -253,18 +253,30 @@ pub async fn admin_grant_credits(
     let notif_amount = request.amount.to_string();
     let notif_state = _app_state.clone();
     tokio::spawn(async move {
-        use crate::infrastructure::services::NotificationService;
-        use crate::web::notifications::{NotificationType, NotificationPriority};
-        let _ = NotificationService::send(
-            &notif_state,
-            &notif_wallet,
-            NotificationType::Payment,
-            NotificationPriority::Normal,
-            "Credits Received",
-            &format!("You received {} credits", notif_amount),
-            Some(serde_json::json!({ "amount": notif_amount, "type": "grant" })),
-            None,
-        ).await;
+        // Wave 10 / R3: route through the NotificationPort (the
+        // 8 publisher call sites call the port, not the concrete
+        // NotificationService). The HTTP impl in the integration
+        // gate can swap in without touching this code.
+        use epsx_contracts::notification_port::SendNotificationRequest;
+        if let Some(port) = notif_state.notification_port.as_ref() {
+            let _ = port
+                .send(SendNotificationRequest {
+                    recipient_wallet_address: notif_wallet.clone(),
+                    notification_type: "payment".to_string(),
+                    priority: "normal".to_string(),
+                    title: "Credits Received".to_string(),
+                    message: format!("You received {} credits", notif_amount),
+                    data: Some(serde_json::json!({ "amount": notif_amount, "type": "grant" })),
+                    action_url: None,
+                })
+                .await;
+        } else {
+            tracing::warn!(
+                "notification_port not wired in AppState; credits-received \
+                 notification for wallet={} dropped",
+                notif_wallet
+            );
+        }
     });
 
     Ok(Json(serde_json::json!({
