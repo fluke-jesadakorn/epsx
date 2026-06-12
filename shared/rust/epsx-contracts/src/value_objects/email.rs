@@ -1,7 +1,10 @@
+// kernel extraction wave9 — moved from apps/backend/src/domain/shared_kernel/value_objects/email.rs
+// Import-path adjustment: `crate::core::errors::AppError` →
+// `crate::errors::AppError`; the trait now lives in `crate::value_object`.
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use crate::domain::shared_kernel::value_object::{ValueObject, ValueObjectError};
-use crate::core::errors::AppError;
+use crate::value_object::{ValueObject, ValueObjectError};
+use crate::errors::AppError;
 
 /// Email address value object with validation
 ///

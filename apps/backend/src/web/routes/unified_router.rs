@@ -278,7 +278,7 @@ impl UnifiedRouteBuilder {
             tradingview_service,
         ));
         let eps_ranking_service = Arc::new(
-            crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService::new(
+            crate::domain::market_analytics::services::eps_ranking_service::EPSRankingService::new(
                 eps_repository,
             ),
         );
@@ -356,7 +356,7 @@ impl UnifiedRouteBuilder {
             tradingview_service,
         ));
         let eps_ranking_service = Arc::new(
-            crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService::new(
+            crate::domain::market_analytics::services::eps_ranking_service::EPSRankingService::new(
                 eps_repository,
             ),
         );

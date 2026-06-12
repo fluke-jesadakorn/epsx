@@ -1,5 +1,8 @@
+// kernel extraction wave9 — moved from apps/backend/src/domain/shared_kernel/value_objects/common_types.rs
+// Import-path adjustment: `crate::domain::shared_kernel::value_object::*` →
+// `crate::value_object::*` (sibling module in this crate).
 use serde::{Deserialize, Serialize};
-use crate::domain::shared_kernel::value_object::{ValueObject, ValueObjectError};
+use crate::value_object::{ValueObject, ValueObjectError};
 
 /// Payment identifier value object
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

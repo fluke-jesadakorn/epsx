@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "shared/rust/kernel",
+    "shared/rust/epsx-contracts",
     "shared/rust/events",
     "shared/rust/config",
     "shared/rust/crypto",
@@ -25,6 +26,7 @@ members = [
     "services/indexer",
     "apps/frontend",
     "apps/admin",
+    "apps/backend",
     "apps/pay",
     "apps/preview",
 ]

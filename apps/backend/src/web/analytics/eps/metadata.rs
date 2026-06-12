@@ -9,7 +9,7 @@ use std::sync::Arc;
 use tracing::{debug, info};
 
 use crate::core::errors::AppError;
-use crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService;
+use crate::domain::market_analytics::services::eps_ranking_service::EPSRankingService;
 use super::types::*;
 
 /// GET /api/analytics/eps-rankings/countries

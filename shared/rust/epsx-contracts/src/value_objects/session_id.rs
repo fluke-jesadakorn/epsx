@@ -1,7 +1,8 @@
+// kernel extraction wave9 — moved from apps/backend/src/domain/shared_kernel/value_objects/session_id.rs
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use uuid::Uuid;
-use crate::domain::shared_kernel::value_object::{ValueObject, ValueObjectError};
+use crate::value_object::{ValueObject, ValueObjectError};
 
 /// Session identifier value object
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
