@@ -124,4 +124,45 @@ mod tests {
         let r: RankingOffset = 99_999.into();
         assert_eq!(r, RankingOffset::default());
     }
+
+    /// Error bridge coverage — same pattern as the authority
+    /// adapter. Non-exhaustive match ensures future variants
+    /// in `epsx_identity_shared::AppError` get explicit arms.
+    #[test]
+    fn shared_error_bridge_preserves_kind() {
+        use epsx_contracts::errors::ErrorKind;
+        use epsx_identity_shared::prelude::AppError as Shared;
+        let cases = [
+            (Shared::NotFound("x".into()), ErrorKind::AggregateNotFound),
+            (Shared::DatabaseError("x".into()), ErrorKind::DatabaseError),
+            (
+                Shared::ValidationError("x".into()),
+                ErrorKind::ValidationError,
+            ),
+            (
+                Shared::AuthenticationError("x".into()),
+                ErrorKind::AuthenticationError,
+            ),
+            (
+                Shared::AuthorizationError("x".into()),
+                ErrorKind::AuthorizationError,
+            ),
+            (
+                Shared::ConfigurationError("x".into()),
+                ErrorKind::ConfigurationError,
+            ),
+            (Shared::NetworkError("x".into()), ErrorKind::NetworkError),
+            (Shared::RateLimitExceeded, ErrorKind::RateLimitExceeded),
+            (
+                Shared::ServiceUnavailable("x".into()),
+                ErrorKind::ServiceUnavailable,
+            ),
+            (Shared::InternalError("x".into()), ErrorKind::InternalError),
+            (Shared::Conflict("x".into()), ErrorKind::ConcurrencyConflict),
+        ];
+        for (shared, expected) in cases {
+            let port = shared_app_error_to_port(shared);
+            assert_eq!(port.kind, expected, "ErrorKind mapping for {expected:?}");
+        }
+    }
 }

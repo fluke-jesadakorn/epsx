@@ -167,3 +167,63 @@ mod object_safety {
     /// function will fail to compile.
     fn _assert_object_safe(_: Arc<dyn PermissionAuthorityPort>) {}
 }
+
+#[cfg(test)]
+mod dto_round_trip {
+    use super::*;
+
+    /// The DTOs are the wire format for the future identity
+    /// service. A round-trip through serde must preserve every
+    /// field exactly, including the `Option<…>` ones (which use
+    /// `#[serde(skip_serializing_if = "Option::is_none", default)]`
+    /// to keep the wire format clean).
+    #[test]
+    fn grant_request_round_trip() {
+        let req = GrantPermissionRequest {
+            wallet_address: "0xabc".to_string(),
+            permission_string: "epsx:rankings:offset:5".to_string(),
+            granted_by: "system_activation".to_string(),
+            reason: Some("plan activation".to_string()),
+            expires_at: None,
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        // `expires_at` should be omitted from the JSON
+        // representation (skip_serializing_if = "Option::is_none").
+        assert!(
+            !json.contains("expires_at"),
+            "expires_at should be skipped when None, got: {json}"
+        );
+        let parsed: GrantPermissionRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(req, parsed);
+    }
+
+    #[test]
+    fn revoke_request_round_trip() {
+        let req = RevokePermissionRequest {
+            wallet_address: "0xabc".to_string(),
+            permission_string: "epsx:rankings:offset:5".to_string(),
+            revoked_by: "admin".to_string(),
+            reason: None,
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        assert!(!json.contains("reason"));
+        let parsed: RevokePermissionRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(req, parsed);
+    }
+
+    #[test]
+    fn permission_dto_round_trip() {
+        let p = Permission {
+            permission_string: "epsx:rankings:offset:5".to_string(),
+            permission_id: Some("9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d".to_string()),
+            source_type: "plan".to_string(),
+            source_name: "Pro Plan".to_string(),
+            granted_at: chrono::Utc::now(),
+            expires_at: None,
+            is_permanent: true,
+        };
+        let json = serde_json::to_string(&p).unwrap();
+        let parsed: Permission = serde_json::from_str(&json).unwrap();
+        assert_eq!(p, parsed);
+    }
+}

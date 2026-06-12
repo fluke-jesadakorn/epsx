@@ -244,4 +244,71 @@ mod tests {
         let user_id = UserId::from("0xabc");
         let _ = adapter.get_user_permissions(&user_id).await;
     }
+
+    /// The error-conversion bridge (epsx_identity_shared::AppError
+    /// → epsx_contracts::AppError) must preserve the `ErrorKind`
+    /// for the variants HTTP status-mapping depends on. The test
+    /// covers every variant; if a new variant is added to
+    /// `epsx_identity_shared::AppError` without a corresponding
+    /// arm in `shared_app_error_to_port`, the
+    /// `#[test]` function below will fail to compile because the
+    /// match is non-exhaustive.
+    #[test]
+    fn shared_error_bridge_preserves_kind() {
+        use epsx_contracts::errors::ErrorKind;
+
+        let cases = [
+            (
+                InProcessAppError::NotFound("wallet 0xabc not found".into()),
+                ErrorKind::AggregateNotFound,
+            ),
+            (
+                InProcessAppError::DatabaseError("connection refused".into()),
+                ErrorKind::DatabaseError,
+            ),
+            (
+                InProcessAppError::ValidationError("bad perm string".into()),
+                ErrorKind::ValidationError,
+            ),
+            (
+                InProcessAppError::AuthenticationError("invalid token".into()),
+                ErrorKind::AuthenticationError,
+            ),
+            (
+                InProcessAppError::AuthorizationError("insufficient".into()),
+                ErrorKind::AuthorizationError,
+            ),
+            (
+                InProcessAppError::ConfigurationError("missing key".into()),
+                ErrorKind::ConfigurationError,
+            ),
+            (
+                InProcessAppError::NetworkError("timeout".into()),
+                ErrorKind::NetworkError,
+            ),
+            (
+                InProcessAppError::RateLimitExceeded,
+                ErrorKind::RateLimitExceeded,
+            ),
+            (
+                InProcessAppError::ServiceUnavailable("redis down".into()),
+                ErrorKind::ServiceUnavailable,
+            ),
+            (
+                InProcessAppError::InternalError("oops".into()),
+                ErrorKind::InternalError,
+            ),
+            (
+                InProcessAppError::Conflict("unique violation".into()),
+                ErrorKind::ConcurrencyConflict,
+            ),
+        ];
+        for (shared, expected_kind) in cases {
+            let port = shared_app_error_to_port(shared);
+            assert_eq!(
+                port.kind, expected_kind,
+                "ErrorKind mapping for {expected_kind:?}"
+            );
+        }
+    }
 }
