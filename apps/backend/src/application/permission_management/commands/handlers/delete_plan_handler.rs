@@ -3,13 +3,13 @@ use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationE
 use crate::application::permission_management::commands::{
     DeletePermissionPlanCommand, DeletePermissionPlanResponse
 };
-use crate::domain::permission_management::{PermissionPlanRepositoryPort, PlanId};
+use crate::domain::permission_management::{PermissionPlanRepositoryPort, PlanId, events::PlanDeletedEvent};
 use crate::domain::shared_kernel::DomainEventBus;
 
 /// Command handler for deleting permission plans
 pub struct DeletePermissionPlanCommandHandler {
     plan_repository: Arc<dyn PermissionPlanRepositoryPort>,
-    _event_bus: Arc<dyn DomainEventBus>,
+    event_bus: Arc<dyn DomainEventBus>,
 }
 
 impl DeletePermissionPlanCommandHandler {
@@ -19,7 +19,7 @@ impl DeletePermissionPlanCommandHandler {
     ) -> Self {
         Self {
             plan_repository,
-            _event_bus: event_bus,
+            event_bus,
         }
     }
 }
@@ -40,7 +40,16 @@ impl CommandHandler<DeletePermissionPlanCommand> for DeletePermissionPlanCommand
         self.plan_repository.delete(&plan_id).await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
-        // 4. Return response
+        // 4. Publish PlanDeletedEvent (R8 wiring — was _event_bus before)
+        let event = PlanDeletedEvent::new(
+            plan_id.as_str().to_string(),
+            0, // aggregate version not tracked per-delete; event-sourcing build fills this
+            plan_id.as_str().to_string(),
+            Utc::now(),
+        );
+        self.event_bus.publish(&event);
+
+        // 5. Return response
         Ok(DeletePermissionPlanResponse {
             plan_id: command.plan_id,
             deleted: true,

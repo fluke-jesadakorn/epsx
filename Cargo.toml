@@ -7,6 +7,7 @@ members = [
     "shared/rust/config",
     "shared/rust/crypto",
     "shared/rust/auth",
+    "shared/rust/epsx-identity-shared",
     "shared/rust/database",
     "shared/rust/observability",
     "shared/rust/web3",
@@ -29,6 +30,7 @@ members = [
     "apps/backend",
     "apps/pay",
     "apps/preview",
+    "apps/backend",
 ]
 
 [workspace.dependencies]

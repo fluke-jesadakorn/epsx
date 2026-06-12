@@ -28,7 +28,7 @@ pub use cache::{
     MemoryCache, RedisCache, UnifiedPermissionCache
 };
 pub use security::{
-    key_management as KeyManagement, threat_detection as ThreatDetection
+    threat_detection as ThreatDetection
 };
 pub use cqrs::{
     EventStore, PostgresEventStore, TransactionalOutbox,
