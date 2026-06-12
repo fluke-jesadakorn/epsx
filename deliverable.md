@@ -17,14 +17,14 @@ interface contracts line up at runtime — 3/3 tests pass.
 
 - **Branch:** `wave10/integration` (pushed to `origin/wave10/integration`).
 - **Base:** `origin/migration/dioxus-microservices` HEAD `9f794784`.
-- **Final commit hash:** `6f7f00bcc5e1e1464d454c72a4fac3315fdeb589`
+- **Final commit hash:** `4675e427da4c50655c0c6af130b702a57d8503c7`
   (the "wire NotificationPort in production graph" commit).
 - **Worktree:** `/Users/fluke/Desktop/Work/epsx/.worktrees/wave10-integration`.
 
 6 commits on the integration branch (final commit first):
 
 ```
-6f7f00bc wave10(integration): merge 3 producer tracks + cross-track fixes + smoke test
+4675e427 wave10(integration): merge 3 producer tracks + cross-track fixes + smoke test
 f3bae988 wave10(integration): wire NotificationPort in production graph (UnifiedRouteBuilder)
 9a2e8404 wave10(integration): merge Track C — cross-cutting ports
 4da41db3 wave10(integration): cross-track fix — migrate InProcessNotificationAdapter to PubsubPort
@@ -70,7 +70,7 @@ permission-service call sites in `validation_handlers.rs` and
 | 3 | Track C — cross-cutting ports | `9a2e8404` | 1 file | see below |
 | 4 | (cross-track fix) | `4da41db3` | n/a | see below |
 | 5 | (DI wiring) | `f3bae988` | n/a | see below |
-| 6 | (ROADMAP §12 + deliverable.md) | `6f7f00bc` | n/a | documentation closure |
+| 6 | (ROADMAP §12 + deliverable.md) | `4675e427` | n/a | documentation closure |
 
 **Track B conflict resolution (6 files):**
 

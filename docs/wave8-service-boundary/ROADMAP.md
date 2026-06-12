@@ -1321,7 +1321,7 @@ need a multi-channel subscribe call to match the new port's
 | 3 | Track C — cross-cutting ports | `9a2e8404` | 1 file | see §12b |
 | 4 | (cross-track fix) | `4da41db3` | n/a | see §12b |
 | 5 | (DI wiring) | `f3bae988` | n/a | see §12c |
-| 6 | (ROADMAP §12 + deliverable.md) | `6f7f00bc` | n/a | documentation closure |
+| 6 | (ROADMAP §12 + deliverable.md) | `4675e427` | n/a | documentation closure |
 
 ### 12b. Cross-track fix-up list
 
@@ -1448,13 +1448,13 @@ Log lines (last line of each):
 ### 12e. Final commit hash
 
 ```
-6f7f00bcc5e1e1464d454c72a4fac3315fdeb589  wave10(integration): merge 3 producer tracks + cross-track fixes + smoke test
+4675e427da4c50655c0c6af130b702a57d8503c7  wave10(integration): merge 3 producer tracks + cross-track fixes + smoke test
 ```
 
 Six commits on the integration branch:
 
 ```
-6f7f00bc wave10(integration): merge 3 producer tracks + cross-track fixes + smoke test
+4675e427 wave10(integration): merge 3 producer tracks + cross-track fixes + smoke test
 f3bae988 wave10(integration): wire NotificationPort in production graph (UnifiedRouteBuilder)
 9a2e8404 wave10(integration): merge Track C — cross-cutting ports
 4da41db3 wave10(integration): cross-track fix — migrate InProcessNotificationAdapter to PubsubPort
