@@ -14,6 +14,19 @@ members = [
     "shared/rust/templates",
     "shared/rust/dioxus_ui",
     "shared/rust/bff",
+    # wave 9 track A: shared-kernel contracts. Real surface
+    # ships from `wave9/epsx-contracts`; this stub is a
+    # placeholder so the workspace graph resolves on the
+    # `wave9/epsx-web-middleware` branch alone.
+    "shared/rust/epsx-contracts",
+    # wave 9 track B: auth + identity. Real surface ships
+    # from `wave9/epsx-identity`.
+    "shared/rust/epsx-identity",
+    # wave 9 track C: web/middleware facade. Types-only stub
+    # in wave 9; concrete implementations move in a follow-up
+    # wave once the 15+ backend-internal coupling paths are
+    # cleared.
+    "shared/rust/epsx-web-middleware",
     "services/gateway",
     "services/identity",
     "services/wallet",

@@ -1,0 +1,34 @@
+[package]
+name = "epsx-identity-stub"
+version.workspace = true
+edition.workspace = true
+
+# ---------------------------------------------------------------------------
+# WAVE 9 / TRACK B STUB
+# ---------------------------------------------------------------------------
+# This is a minimal stub of `epsx-identity` that exists on
+# the `wave9/epsx-web-middleware` branch ONLY so the
+# `epsx-web-middleware` path dep resolves. Track B's real
+# work (the auth + identity extraction, including the
+# `OpenIDTokenService`, `JwtKeyManager`, and
+# `UnifiedPermissionService`) ships from
+# `wave9/epsx-identity` and will overwrite this stub at
+# integration time.
+# ---------------------------------------------------------------------------
+
+[dependencies]
+epsx-contracts = { path = "../epsx-contracts" }
+epsx-kernel = { path = "../kernel" }
+epsx-crypto = { path = "../crypto" }
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+async-trait.workspace = true
+jsonwebtoken.workspace = true
+sha2.workspace = true
+rsa.workspace = true
+rand.workspace = true
+tracing.workspace = true
+uuid.workspace = true

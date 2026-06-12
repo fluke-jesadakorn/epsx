@@ -1,0 +1,26 @@
+[package]
+name = "epsx-contracts"
+version.workspace = true
+edition.workspace = true
+
+# ---------------------------------------------------------------------------
+# WAVE 9 / TRACK A STUB
+# ---------------------------------------------------------------------------
+# This is a minimal stub of `epsx-contracts` that exists on
+# the `wave9/epsx-web-middleware` branch ONLY so the
+# `epsx-web-middleware` path dep resolves. Track A's real
+# work (the full shared-kernel extraction) ships from
+# `wave9/epsx-contracts` and will overwrite this stub at
+# integration time.
+#
+# DO NOT add real types here — that is Track A's work. If you
+# need a new item for the Track C facade, push it through
+# Track A's deliverable.
+# ---------------------------------------------------------------------------
+
+[dependencies]
+serde.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+tracing.workspace = true
