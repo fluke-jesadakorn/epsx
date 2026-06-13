@@ -2,7 +2,7 @@ use diesel::prelude::*;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use serde_json::Value as JsonValue;
-use crate::schemas::analytics::{audit_logs, unified_audit_log};
+use crate::schemas::infra_logs::{audit_logs, unified_audit_log};
 
 #[derive(Queryable, Selectable, Insertable, Debug, Clone)]
 #[diesel(table_name = audit_logs)]

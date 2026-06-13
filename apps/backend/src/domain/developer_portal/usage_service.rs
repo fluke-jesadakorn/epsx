@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::infrastructure::adapter_repositories::DbPool;
 use crate::schemas::primary::api_keys;
-use crate::schemas::analytics::api_key_usage_logs;
+use crate::schemas::infra_logs::api_key_usage_logs;
 
 /// API usage statistics for a wallet
 #[derive(Debug, Serialize)]
