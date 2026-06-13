@@ -2767,3 +2767,348 @@ integration worktree:
    presence. If the team wants a strict route-presence check
    later, that's a wave-13+ concern.
 
+
+---
+
+## 16. Wave 12 — Integration gate — final report
+
+> **Branch:** `wave12/integration` (worktree at
+> `.worktrees/wave12-integration`, base
+> `origin/migration/dioxus-microservices` HEAD `340e7980`).
+>
+> **Mavis plan:** `plan_1c68ccc3`, integration gate.
+> **Final commit hash:** `c2a58b3dcec1af4c6e3e498a19607fb690baf744`.
+> **Parent commits:** `d216a175` (Dockerfile + /health),
+> `1267770b` (smoke test), `34d9174a` (Track B merge),
+> `15cba935` (Track A merge), then the 2 producer final
+> commits `8428fc68` (Track A) and `638b8386` (Track B) at
+> the merge bases.
+>
+> **Producer final commits (pre-merge):**
+> * Track A — `8428fc68` (2 commits, 6 files / +875 LOC)
+> * Track B — `638b8386` (7 commits, 24 files / +1,177 / −1,998 LOC)
+
+### 16.1 Merge log
+
+The integration gate merged the 2 producer branches in
+sequence on `wave12/integration` (worktree at
+`.worktrees/wave12-integration`, base
+`origin/migration/dioxus-microservices` HEAD `340e7980`):
+
+1. **Track A** (`origin/wave12/track-a-analytics-binary` →
+   commit `15cba935`) — *clean* `ort` strategy merge. No
+   conflicts. Track A's changes are 6 new files (`apps/analytics/`
+   crate + ROADMAP §14 + workspace `Cargo.toml` + `Cargo.lock`).
+2. **Track B** (`origin/wave12/track-b-infra-cleanup` →
+   commit `34d9174a`) — *1 conflict* in
+   `docs/wave8-service-boundary/ROADMAP.md` (both tracks
+   appended §14). Resolved by:
+   * Keeping both §14 sections (Track A's report stays
+     §14, Track B's report renumbered to §15 because it
+     was the second to land).
+   * Also fixing the pre-existing dangling
+     `=======` (line 1816) and `>>>>>>> origin/wave11/track-c-event-port`
+     (line 2187) markers that were inherited from a
+     half-resolved wave-11/track-c merge in the base. The
+     `<<<<<<<` is genuinely missing — both producer branches
+     inherited the dangling state, and the integration gate
+     cleaned it up.
+
+### 16.2 Cross-track fix-up list
+
+| Fix-up | Files | Notes |
+|---|---|---|
+| Renumber Track B §14 → §15 | `docs/wave8-service-boundary/ROADMAP.md` | Track A kept §14 (it was appended first), Track B's section was appended second and renumbered. |
+| Clean up dangling wave-11 merge markers | `docs/wave8-service-boundary/ROADMAP.md` | The `=======` at line 1816 + `>>>>>>> origin/wave11/track-c-event-port` at line 2187 (with no matching `<<<<<<<`) were inherited from a half-resolved wave-11/track-c merge. Dropped the markers; the actual content (wave-11/track-c §13) is preserved. |
+| Add `/health` route to new binary | `apps/analytics/src/main.rs` | K8s healthcheck needs `/health`. Pre-merge: new binary had only 5 routes. Post-merge: 5 analytics + 1 health = 6 mounted routes. Updated `test_five_route_builder` to expect 6 (renamed in spirit but kept the fn name for diff hygiene; the assertion count is now 6). |
+| Smoke test path resolution | `apps/backend/tests/wave12_smoke.rs` | `cargo test` runs from crate root (`apps/backend/`), not the test file's directory. `fs::read_dir` and `include_str!` paths had to be re-anchored. `apps/analytics/Cargo.toml` is at `../../../apps/analytics/Cargo.toml` (relative to the test file) but `migrations/analytics` is just `migrations/analytics` (relative to the crate root). |
+| Track A's `deliverable.md` collision with Track B's renamed `deliverable.wave12-track-b.md` | worktree root | Track A used the canonical `deliverable.md` filename; Track B renamed to `deliverable.wave12-track-b.md` to avoid clobbering. Both files coexist post-merge; the integration gate's own `deliverable.md` will overwrite Track A's at the end. |
+
+### 16.3 End-to-end smoke test result
+
+The integration truth is `cargo test -p epsx --test wave12_smoke`.
+**Result: 6/6 green.**
+
+The 6 assertions:
+
+1. `new_analytics_binary_cargo_manifest_has_right_shape` —
+   the new `epsx-analytics-service` crate's `Cargo.toml`
+   has the right `name = "epsx-analytics-service"`, the
+   `[[bin]]` target with `path = "src/main.rs"`, and the
+   `epsx = { path = "../backend" }` workspace dep.
+2. `infra_logs_schema_is_canonical_in_migrations` — every
+   `.sql` file under `migrations/analytics/` references
+   `infra_logs.<table>`, not the pre-rename
+   `analytics.<table>`. The walker recurses into
+   `<version>_<name>/{up,down}.sql` subdirs.
+3. `five_unique_analytics_routes_are_at_api_analytics` —
+   the 5 unique paths are at `/api/analytics/*`, NOT
+   `/api/public/analytics/*`. The check ignores comment
+   lines so the producer's explanatory comments don't
+   trip the assertion.
+4. `dead_route_decision_is_option_b_handlers_deleted` —
+   the 2 dead handlers (`force_cache_refresh`,
+   `get_cache_stats`) are deleted from `cache.rs`, the
+   re-exports are gone from `eps_handlers.rs` and
+   `eps/mod.rs`, and the OpenAPI doc references are
+   gone from `openapi.rs`, `openapi_admin.rs`, and
+   `openapi_user.rs`. Comment-only mentions of the
+   deleted names are intentionally preserved for
+   grep-ability.
+5. `v2_migration_is_gone_embed_migrations_will_not_panic` —
+   the v2 migration dir is gone (no more
+   `embed_migrations!` panic on the duplicate version
+   number `00000000000001`).
+6. `wallet_ranking_offset_port_is_object_safe` — the
+   R6 port is reachable as `&dyn` so the new binary's
+   no-DB stub can compile against the trait.
+
+### 16.4 Production cutover runbook (4 steps, executed by hand)
+
+The new `epsx-analytics` binary is the first wave-9+ lift
+that goes from in-process to out-of-process via a reverse
+proxy (per ROADMAP §4 wave 12). The cutover is a 4-step
+runbook the production team executes by hand. **The
+integration gate does NOT execute these steps** — the
+steps are documented here for the ops team.
+
+#### Step 1 — Build the new `epsx-analytics` image in the Colima K8s cluster
+
+```bash
+cd /Users/fluke/Desktop/Work/epsx
+docker build \
+  -f apps/analytics/Dockerfile \
+  -t epsx-analytics:wave12 .
+```
+
+The Dockerfile is modeled on `apps/backend/Dockerfile`
+(rust:slim-bookworm builder, debian:bookworm-slim
+runtime, nonroot user, `--mount=type=cache` for cargo
+caches). It builds the `epsx-analytics-service` `[[bin]]`
+target. The new image is **not** tagged `:prod` (the
+monolith's `:prod` tag is for the monolith build); the
+new image uses `:wave12` so the cutover is traceable.
+
+#### Step 2 — Update the Cloudflare Tunnel routing
+
+The Cloudflare Tunnel is remotely managed and currently
+routes the 5 `/api/analytics/*` paths to the monolith's
+NodePort `30080` (port-bridged to `:9180`). Update the
+tunnel config to route the 5 paths to the new binary's
+NodePort `30081` (port-bridged to a new bridge port —
+add a `com.epsx.port-bridge` entry for the new port).
+
+```yaml
+# Cloudflare tunnel config (add a new ingress rule for
+# the new binary; keep the monolith's /api/admin/analytics/*
+# and /api/admin/analytics/cache/* routes pointing at the
+# monolith's NodePort 30080 if Track B chose option a; or
+# simply route the 5 user-facing paths at the new binary
+# and let the monolith keep handling the 3 admin analytics
+# paths + the rest).
+- hostname: api.epsx.io
+  path: /api/analytics/rankings
+  service: http://localhost:NEW_BRIDGE_PORT
+- hostname: api.epsx.io
+  path: /api/analytics/filters
+  service: http://localhost:NEW_BRIDGE_PORT
+- hostname: api.epsx.io
+  path: /api/analytics/countries
+  service: http://localhost:NEW_BRIDGE_PORT
+- hostname: api.epsx.io
+  path: /api/analytics/available-countries
+  service: http://localhost:NEW_BRIDGE_PORT
+- hostname: api.epsx.io
+  path: /api/analytics/sectors
+  service: http://localhost:NEW_BRIDGE_PORT
+```
+
+(Track B chose option b — the 2 dead admin routes
+`/api/admin/analytics/cache/*` were deleted, so no admin
+analytics routes need the new binary.)
+
+The port-bridge LaunchAgent for the new port should be
+modeled on `infrastructure/scripts/com.epsx.port-bridge.plist`
+but pointing at NodePort `30081` instead of `30080`.
+
+#### Step 3 — Deploy the new binary alongside the monolith
+
+```bash
+kubectl apply -k infrastructure/kubernetes/overlays/prod
+kubectl rollout status deployment/epsx-analytics -n epsx-prod
+```
+
+The new manifests added in this integration gate:
+
+* `infrastructure/kubernetes/base/analytics/deployment.yaml`
+  — 1-replica Deployment, 8080 containerPort, `/health`
+  probe (liveness + readiness), 512Mi/1 CPU limits
+  (lighter than the monolith because no DB / no JWT
+  verification), `EPSX_ANALYTICS_VERSION=wave12` env
+  var.
+* `infrastructure/kubernetes/base/analytics/service.yaml`
+  — ClusterIP service on port 8080 (selector
+  `app=epsx-analytics`).
+* `infrastructure/kubernetes/base/kustomization.yaml` —
+  added the 2 new resources.
+* `infrastructure/kubernetes/overlays/prod/patches/services-nodeport.yaml`
+  — NodePort `30081` for the new binary.
+* `infrastructure/kubernetes/overlays/prod/kustomization.yaml`
+  — image override (`:wave12` tag, not `:prod`).
+* `infrastructure/kubernetes/overlays/staging/*` — same
+  shape with NodePort `30086` and tag `wave12-staging`
+  for the staging canary.
+
+Verified with `kubectl kustomize
+infrastructure/kubernetes/overlays/prod` — produces 9
+kinds (was 7), no syntax errors.
+
+#### Step 4 — Verify the routing with a curl smoke test
+
+```bash
+curl -s https://api.epsx.io/api/analytics/rankings | jq .
+```
+
+The response should be the same shape as the
+pre-cutover monolith response (the handlers are the
+**same functions**, just mounted on a different
+process). If the response shape differs:
+
+1. Check the Cloudflare Tunnel config — the 5 paths
+   must all point at the new binary's bridge port.
+2. Check the `epsx-analytics` pod is ready:
+   `kubectl get pods -n epsx-prod -l app=epsx-analytics`
+3. Check the `/health` endpoint on the new binary:
+   `kubectl port-forward -n epsx-prod
+   deployment/epsx-analytics 8081:8080` →
+   `curl http://localhost:8081/health`
+4. If the new binary returns 200 on `/health` but the
+   monolith's response shape is what's expected, the
+   route consolidation regressed — the new binary
+   serves the 5 user-facing routes, NOT the 3 admin
+   routes. The 3 admin routes
+   (`/api/admin/analytics/{metrics,time-series,modules}`)
+   stay in the monolith per the wave-12 design.
+
+### 16.5 The 2 new artifacts
+
+1. **`apps/analytics/Dockerfile`** (74 lines) —
+   multi-stage Dockerfile for the new `epsx-analytics`
+   binary. Modeled on `apps/backend/Dockerfile`. Includes
+   the `/health` route addition (the new binary's
+   `main.rs` was updated to mount `/health` for K8s
+   liveness/readiness probes).
+2. **`infrastructure/kubernetes/base/analytics/deployment.yaml`**
+   (96 lines) + `infrastructure/kubernetes/base/analytics/service.yaml`
+   (11 lines) + the prod/staging kustomization patches
+   (NodePort `30081` in prod, `30086` in staging) +
+   image overrides (`:wave12` in prod, `:wave12-staging`
+   in staging).
+
+### 16.6 Final cargo check / test / build summaries
+
+```
+$ cargo check --workspace
+  Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.35s
+  (0 errors, 16 pre-existing warnings on the monolith lib)
+
+$ cargo test -p epsx --lib
+  test result: ok. 460 passed; 0 failed; 8 ignored; 0 measured;
+                0 filtered out; finished in 0.16s
+
+$ cargo test -p epsx-analytics-service
+  (lib)  test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+  (bin)  test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.11s
+  (doctest)  test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+$ cargo test -p epsx --test wave12_smoke
+  test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+$ cargo build -p epsx --bins
+  Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.53s
+
+$ cargo build -p epsx-analytics-service --bin epsx-analytics-service
+  Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.44s
+
+$ cargo build -p epsx --bin migrate --features epsx/cli-tools
+  Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 04s
+  (no embed_migrations! panic — v2 migration is gone)
+```
+
+**Total: 474 tests pass, 0 errors, 0 failures.**
+
+The 30-min cap is comfortably under (the longest single
+command was `cargo build -p migrate` at 1m 04s). No
+substitutions needed.
+
+### 16.7 Final commit hash
+
+```
+c2a58b3dcec1af4c6e3e498a19607fb690baf744
+```
+
+(branch `wave12/integration`, parent `d216a175`, which
+is the Dockerfile + /health route commit; that one is
+parent `1267770b` (smoke test), parent `34d9174a` (Track
+B merge), parent `15cba935` (Track A merge), parent
+`340e7980` (the wave-11 integration base on
+`origin/migration/dioxus-microservices`)).
+
+### 16.8 Open issues for wave 13+
+
+1. **`epsx-analytics-service` ↔ `epsx-identity` HTTP/gRPC
+   wiring.** The `WalletRankingOffsetQuery` port is
+   satisfied by a no-DB `FreePlanWalletRankingOffsetQuery`
+   stub today. A future wave-13+ can swap to an HTTP /
+   gRPC adapter against `epsx-identity` for tier-aware
+   promotion. The port is the seam; handler signatures
+   do not change. Until that swap, the new binary returns
+   the free-plan offset (100) for every wallet, which is
+   the same fallback the monolith uses when the auth call
+   errors.
+2. **Real-time SSE fanout for analytics.** The new
+   binary is currently request/response only. Wave-13+
+   can add SSE on the rankings route for real-time EPS
+   updates (the underlying `EPSCacheService` is
+   already in-process; only the transport is missing).
+3. **Chat service lift (the next wave-9+ pattern).** The
+   chat domain has the same shape as analytics: 5+
+   user-facing routes, in-process state, no DB. Wave-13+
+   can lift chat to a `epsx-chat-service` binary using
+   the wave-12 analytics lift as the template. The
+   PubsubPort already exists in `epsx-contracts` (wave-10
+   Track B) and the chat SSE handlers already use it.
+4. **`is_public_endpoint` test still passes by prefix,
+   not by route presence.** The test in
+   `permission_validation_middleware.rs:330` asserts
+   `is_public_endpoint("/api/public/analytics")` — a path
+   that's no longer a mounted route after the wave-12
+   consolidation. The test still passes because
+   `is_public_endpoint` checks a `PUBLIC_PATHS` prefix
+   list (which still includes `"/api/public/"` for other
+   public routes like `/api/public/news` and
+   `/api/public/payment-links`). If the team wants a
+   strict route-presence check, that's a wave-13+ concern.
+5. **The `infra_logs` schema rename is a forward-looking
+   change.** No production DB has the `infra_logs` schema
+   yet. A fresh DB that runs the v3 baseline after this
+   commit will end up with `infra_logs.*` tables. An
+   existing production DB that already ran v3 with the
+   `analytics` schema will need a one-line cutover:
+   ```sql
+   ALTER SCHEMA analytics RENAME TO infra_logs;
+   ```
+   Coordinate with the platform team before the wave-12
+   rollout.
+6. **The `analytics_pool` plumbing is kept (intentionally)
+   for 4 non-analytics call sites** (`audit_log_repository`,
+   `usage_tracking_middleware`, `usage_service`,
+   `developer_portal_handlers`). The analytics domain
+   never opens a connection to the pool (per audit §5c),
+   but the pool is shared infrastructure. Future
+   refactors can move these 4 call sites to dedicated
+   pools; the existing `AppState.analytics_pool` field
+   is the seam.
+7. **3 `AnalyticsQuery` types with the same name** (audit
+   §9). Out of scope; defer to a wave-N+2 analytics
+   cleanup.
