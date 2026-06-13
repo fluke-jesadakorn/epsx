@@ -5,24 +5,24 @@ use crate::application::subscription_management::commands::{
 };
 use crate::domain::subscription_management::{PlanId, PlanRepositoryPort, Price, BillingCycle};
 use crate::domain::subscription_management::aggregates::UpdatePlanParams;
-use epsx_contracts::traits::DomainEventBus;
+use epsx_contracts::event_publisher_port::EventPublisherPort;
 use rust_decimal::Decimal;
 use std::str::FromStr;
 
 /// Command handler for updating plans
 pub struct UpdatePlanCommandHandler {
     plan_repository: Arc<dyn PlanRepositoryPort>,
-    event_bus: Arc<dyn DomainEventBus>,
+    event_publisher: Arc<dyn EventPublisherPort>,
 }
 
 impl UpdatePlanCommandHandler {
     pub fn new(
         plan_repository: Arc<dyn PlanRepositoryPort>,
-        event_bus: Arc<dyn DomainEventBus>,
+        event_publisher: Arc<dyn EventPublisherPort>,
     ) -> Self {
         Self {
             plan_repository,
-            event_bus,
+            event_publisher,
         }
     }
 }
@@ -76,7 +76,13 @@ impl CommandHandler<UpdatePlanCommand> for UpdatePlanCommandHandler {
 
         // 7. Publish domain events
         for event in plan.uncommitted_events() {
-            self.event_bus.publish(&**event);
+            let owned: Box<dyn crate::domain::shared_kernel::DomainEvent> = Box::new(epsx_contracts::domain_event::OwnedEvent::from_borrowed(&**event));
+            if let Err(e) = self.event_publisher.publish(owned).await {
+                tracing::warn!(
+                    error = %e,
+                    "EventPublisherPort.publish returned error; command continues"
+                );
+            }
         }
 
         // 8. Return response

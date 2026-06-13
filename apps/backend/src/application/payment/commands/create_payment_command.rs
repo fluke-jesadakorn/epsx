@@ -4,6 +4,9 @@
 use crate::prelude::*;
 
 use tracing::{info, error};
+// wave11(track-c) R7: kernel-level port for publishing domain events.
+// See `epsx_contracts::event_publisher_port` for the design notes.
+use epsx_contracts::event_publisher_port::EventPublisherPort;
 
 use crate::domain::payment::{
     Payment, PaymentId, PaymentAmount, PaymentMethod, PaymentRepositoryPort
@@ -75,17 +78,20 @@ pub struct PaymentInstructions {
 /// Command handler for creating payments
 pub struct CreatePaymentCommandHandler {
     payment_repository: Arc<dyn PaymentRepositoryPort>,
-    event_bus: Arc<dyn DomainEventBus>,
+    // wave11(track-c) R7: migrated from `Arc<dyn DomainEventBus>` to the
+    // kernel-level `EventPublisherPort`. The publish is async on the
+    // port (was sync on the bus).
+    event_publisher: Arc<dyn EventPublisherPort>,
 }
 
 impl CreatePaymentCommandHandler {
     pub fn new(
         payment_repository: Arc<dyn PaymentRepositoryPort>,
-        event_bus: Arc<dyn DomainEventBus>,
+        event_publisher: Arc<dyn EventPublisherPort>,
     ) -> Self {
         Self {
             payment_repository,
-            event_bus,
+            event_publisher,
         }
     }
     
@@ -154,9 +160,22 @@ impl CommandHandler<CreatePaymentCommand> for CreatePaymentCommandHandler {
                 ApplicationError::infrastructure(format!("Failed to save payment: {}", e))
             })?;
         
-        // Publish domain events
+        // Publish domain events via the new `EventPublisherPort` (R7).
+        // The aggregate exposes a borrowed slice
+        // `&[Box<dyn DomainEvent>]`; the port takes owned
+        // `Box<dyn DomainEvent>`. We wrap each event in an
+        // `OwnedEvent` (one JSON round-trip + preserved event type
+        // header) and pass the owned box to the port. The wrapper
+        // lives in `epsx_contracts::domain_event`.
         for event in payment.uncommitted_events() {
-            self.event_bus.publish(&**event);
+            let owned: Box<dyn crate::domain::shared_kernel::DomainEvent> =
+                Box::new(epsx_contracts::domain_event::OwnedEvent::from_borrowed(&**event));
+            if let Err(e) = self.event_publisher.publish(owned).await {
+                tracing::warn!(
+                    error = %e,
+                    "EventPublisherPort.publish returned error; command continues"
+                );
+            }
         }
         
         // Generate payment instructions
@@ -239,20 +258,36 @@ mod tests {
         }
     }
     
-    // Mock event bus
-    struct MockEventBus;
-    
-    impl DomainEventBus for MockEventBus {
-        fn publish(&self, _event: &dyn crate::domain::shared_kernel::DomainEvent) {
-            // No-op
+    // Mock event publisher (wave11(track-c) R7: replaces MockEventBus).
+    // Uses a `Mutex<Vec<String>>` to capture published event types
+    // for test assertions.
+    struct MockEventPublisher {
+        published: std::sync::Mutex<Vec<String>>,
+    }
+
+    impl MockEventPublisher {
+        fn new() -> Self {
+            Self { published: std::sync::Mutex::new(Vec::new()) }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl epsx_contracts::event_publisher_port::EventPublisherPort for MockEventPublisher {
+        async fn publish(
+            &self,
+            event: Box<dyn crate::domain::shared_kernel::DomainEvent>,
+        ) -> crate::prelude::AppResult<()> {
+            self.published.lock().unwrap().push(event.event_type().to_string());
+            Ok(())
         }
     }
     
     #[tokio::test]
     async fn test_create_payment_command() {
         let payment_repo = Arc::new(MockPaymentRepository);
-        let event_bus = Arc::new(MockEventBus);
-        let handler = CreatePaymentCommandHandler::new(payment_repo, event_bus);
+        let event_publisher: Arc<dyn epsx_contracts::event_publisher_port::EventPublisherPort> =
+            Arc::new(MockEventPublisher::new());
+        let handler = CreatePaymentCommandHandler::new(payment_repo, event_publisher);
         
         let wallet_address = WalletAddress::new("0x742d35Cc6634C0532925a3b8D369D7763F3c45c6").unwrap();
         let amount = PaymentAmount::new(rust_decimal::Decimal::from(100), Currency::USDT).unwrap();

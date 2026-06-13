@@ -4,22 +4,22 @@ use crate::application::notification::commands::{
     RecordDeliveryAttemptCommand, RecordDeliveryAttemptResponse
 };
 use crate::domain::notification::{NotificationRepositoryPort, DeliveryChannelType, DeliveryResult};
-use epsx_contracts::traits::DomainEventBus;
+use epsx_contracts::event_publisher_port::EventPublisherPort;
 
 /// Command handler for recording notification delivery attempts
 pub struct RecordDeliveryAttemptCommandHandler {
     notification_repository: Arc<dyn NotificationRepositoryPort>,
-    event_bus: Arc<dyn DomainEventBus>,
+    event_publisher: Arc<dyn EventPublisherPort>,
 }
 
 impl RecordDeliveryAttemptCommandHandler {
     pub fn new(
         notification_repository: Arc<dyn NotificationRepositoryPort>,
-        event_bus: Arc<dyn DomainEventBus>,
+        event_publisher: Arc<dyn EventPublisherPort>,
     ) -> Self {
         Self {
             notification_repository,
-            event_bus,
+            event_publisher,
         }
     }
 }
@@ -62,7 +62,13 @@ impl CommandHandler<RecordDeliveryAttemptCommand> for RecordDeliveryAttemptComma
 
         // 7. Publish domain events
         for event in notification.uncommitted_events() {
-            self.event_bus.publish(&**event);
+            let owned: Box<dyn crate::domain::shared_kernel::DomainEvent> = Box::new(epsx_contracts::domain_event::OwnedEvent::from_borrowed(&**event));
+            if let Err(e) = self.event_publisher.publish(owned).await {
+                tracing::warn!(
+                    error = %e,
+                    "EventPublisherPort.publish returned error; command continues"
+                );
+            }
         }
 
         // 8. Return response
