@@ -263,7 +263,15 @@ async fn main() -> anyhow::Result<()> {
     );
 
     // ---- serve ----
-    let addr: SocketAddr = "0.0.0.0:8080".parse()?;
+    // Default to 0.0.0.0:8080 (matches the K8s prod deployment's
+    // containerPort + liveness/readiness probe); override with the
+    // BIND_ADDR env var (e.g. "127.0.0.1:18080" for the local dev
+    // container, where the host's :8080 is already taken by the
+    // dev-monolith socat bridge).
+    let addr: SocketAddr = std::env::var("BIND_ADDR")
+        .unwrap_or_else(|_| "0.0.0.0:8080".to_string())
+        .parse()
+        .with_context(|| format!("parsing BIND_ADDR env var"))?;
     info!(%addr, "epsx-analytics-service listening");
     let listener = tokio::net::TcpListener::bind(addr).await?;
     if let Err(err) = axum::serve(listener, app).await {

@@ -1,64 +1,50 @@
 # EPSX Analytics microservice (wave 12 track A) - Rust binary for the
 # out-of-process analytics routes (/api/analytics/rankings, /filters,
-# /countries, /available-countries, /sectors). This is the first wave-9+
-# lift that runs as a separate binary (per ROADMAP §4 wave 12) and is
-# fronted by the existing Cloudflare Tunnel + reverse-proxy path-based
-# routing. The new binary has NO PostgreSQL connections (per Q2 in
-# ROADMAP §7) and uses the `epsx-analytics-service` [[bin]] target
-# (renamed from `epsx-analytics` to avoid collision with
-# services/analytics event-tracking binary).
+# /countries, /available-countries, /sectors).
+#
+# Build context: the WORKSPACE ROOT (not apps/analytics). The new
+# crate has path deps to the monolith lib (`../backend`) and the
+# shared kernel (`../../shared/rust/epsx-contracts`), plus every
+# numeric/string dep comes from `workspace = true` so we need the
+# root `Cargo.toml`. `.dockerignore` keeps the build context
+# manageable (skips `target/`, `node_modules/`, `.next/`, etc.).
 
 FROM rust:slim-bookworm AS builder
-WORKDIR /app
+WORKDIR /workspace
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+    pkg-config libssl-dev libpq-dev ca-certificates && rm -rf /var/lib/apt/lists/*
 
-# Stub the backend's `[[bin]]` targets so cargo can build the new
-# analytics binary's deps without dragging in the full monolith build
-# (the monolith Dockerfile does the same for its own binaries). The
-# final `cargo build --bin epsx-analytics-service` overwrites the stub
-# with the real source.
-COPY apps/analytics/Cargo.toml apps/analytics/Cargo.lock ./
+# Copy workspace root, including the real source under apps/analytics/src.
+# We do NOT include any target/ — that's created by cargo inside this stage.
+COPY . .
 
-RUN mkdir -p src && \
-    echo "fn main() {}" > src/main.rs
+WORKDIR /workspace/apps/analytics
 
-RUN --mount=type=cache,sharing=private,target=/usr/local/cargo/registry \
-    --mount=type=cache,sharing=private,target=/usr/local/cargo/git \
-    cargo build --release --bin epsx-analytics-service && rm -rf src
+# ---- Single RUN: stub-build → restore real source → real build ----
+# BuildKit's `--mount=type=cache` is ephemeral across `RUN` steps,
+# so we do the whole sequence in one shell `RUN`. We back up the
+# real src before the stub clobbers it, then restore.
+RUN set -e; \
+    echo "==> backing up real source"; \
+    cp -r src src-real; \
+    echo "==> installing stub main for dep cache"; \
+    echo "fn main() {}" > src/main.rs; \
+    find src -mindepth 1 -maxdepth 1 ! -name main.rs -exec rm -rf {} +; \
+    echo "==> building stub for dep cache (this is the slow part)"; \
+    cargo build --release --bin epsx-analytics-service; \
+    echo "==> restoring real source"; \
+    rm -rf src && mv src-real src; \
+    echo "==> building real binary"; \
+    cargo build --release --bin epsx-analytics-service; \
+    echo "==> binary check:"; \
+    ls -la /workspace/target/release/epsx-analytics-service
 
-# Now copy the real source over the stub and re-link. The new binary
-# re-exports the moved trees from `epsx` (the monolith lib) via path
-# dep `epsx = { path = "../backend" }`, so the backend crate is
-# transitively available on the cargo workspace.
-COPY apps/analytics/src/ ./src/
-
-RUN --mount=type=cache,sharing=private,target=/usr/local/cargo/registry \
-    --mount=type=cache,sharing=private,target=/usr/local/cargo/git \
-    cargo build --release --bin epsx-analytics-service
-
-FROM debian:bookworm-slim AS runtime
-
+# ============================================================================
+FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl && rm -rf /var/lib/apt/lists/*
-
-RUN useradd --create-home --shell /bin/bash --user-group --uid 1001 nonroot
+    ca-certificates libssl3 && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-
-COPY --from=builder --chown=nonroot:nonroot \
-    /app/target/release/epsx-analytics-service ./epsx-analytics-service
-
-USER nonroot:nonroot
-
-ENV RUST_LOG=info RUST_BACKTRACE=0 RUST_ENV=production \
-    ENV=production HOST=0.0.0.0 PORT=8080 \
-    EPSX_ANALYTICS_VERSION=wave12
-
+COPY --from=builder /workspace/target/release/epsx-analytics-service /app/epsx-analytics-service
 EXPOSE 8080
-STOPSIGNAL SIGTERM
-
-HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
-  CMD curl -sf http://localhost:8080/health || exit 1
-
-CMD ["./epsx-analytics-service"]
+CMD ["/app/epsx-analytics-service"]
