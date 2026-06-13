@@ -1,0 +1,85 @@
+# Dev NodePort assignments.
+#
+# Strategy: dev uses 30100-30199 range to avoid clashing with
+# staging (30000-30099) and prod (30080-30099). Specifically:
+#   - 30100 = monolith backend
+#   - 30101 = frontend
+#   - 30102 = admin
+#   - 30103 = new epsx-analytics binary (wave 12)
+# (30104 = wave-13a epsx-identity binary, allocated for the
+#  wave-13 plan; Service + NodePort patch are added in
+#  wave-13a's deliverable, not this overlay)
+#
+# All NodePorts forward to the service's port: 8080 for backend,
+# 3000 for frontend/admin, 8080 for the new binaries.
+#
+# These NodePorts are reachable on the colima VM's eth0 IP
+# (192.168.5.3). Operators access dev via:
+#   curl -k https://dev.epsx.io/api/...
+# which the existing Cloudflare Tunnel routes here via the
+# dev /etc/cloudflared/config.yaml. (Tunnel config is a separate
+# concern; the wave-13a smoke test reaches the binary directly
+# at http://192.168.5.3:30103/...)
+#
+# NOTE: the wave-13a NodePort (30104 / epsx-identity) is
+# allocated but the corresponding Service manifest is added
+# in wave-13a's plan deliverable. The dev overlay ships
+# without it.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: epsx-backend
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30100
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: epsx-frontend
+spec:
+  type: NodePort
+  ports:
+    - port: 3000
+      targetPort: 3000
+      nodePort: 30101
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: epsx-admin
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 3001
+      targetPort: 3001
+      nodePort: 30102
+---
+# wave12(integration): the new epsx-analytics binary
+# (port 8080) is exposed on NodePort 30103. Cloudflare
+# Tunnel routes the 5 /api/analytics/* paths to a port-bridge
+# that maps to this NodePort. The monolith (NodePort 30100)
+# continues to serve the 3 admin /api/admin/analytics/*
+# routes and any pre-cutover /api/analytics/* traffic during
+# the migration window.
+apiVersion: v1
+kind: Service
+metadata:
+  name: epsx-analytics
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30103
+---
+# wave13(dev-k8s): pre-allocate the wave-13a NodePort for
+# the new epsx-identity binary. The corresponding Service
+# manifest is in wave-13a's plan deliverable; this overlay
+# is shipped without the epsx-identity nodeport patch since
+# the Service is not in base/ yet.

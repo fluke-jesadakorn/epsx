@@ -1,0 +1,43 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# ============================================================================
+# wave13(dev-k8s) — Dev K8s overlay
+#
+# Spun up on the `default` colima profile (8 CPU / 16 GB / k3s v1.35.0).
+# Uses the `epsx-dev` namespace + NodePorts 30100+ to avoid clashing
+# with staging (30000+) and prod (30080+).
+#
+# Image tags: `:dev` (not `:staging`, not `:prod`) so a wave-N push
+# to this overlay never accidentally lands in a higher environment.
+# The new epsx-analytics binary uses `:wave12-dev` to mirror the
+# wave12(integration) tag pattern.
+# ============================================================================
+
+namespace: epsx-dev
+
+resources:
+  - ../../base
+
+images:
+  - name: epsx-backend
+    newTag: dev
+  - name: epsx-frontend
+    newTag: dev
+  - name: epsx-admin-frontend
+    newTag: dev
+  # wave12(integration): the new epsx-analytics binary uses a
+  # per-wave image tag rather than `dev` to keep the analytics
+  # cutover traceable across waves.
+  - name: epsx-analytics
+    newTag: wave12-dev
+  # wave13(dev-k8s): the epsx-identity image tag is allocated
+  # in wave-13a's plan deliverable when the corresponding
+  # deployment + service land in base/. For now, this overlay
+  # ships with the 4 wave-12 services only.
+
+patches:
+  - path: patches/replicas.yaml
+  - path: patches/resources.yaml
+  - path: patches/services-nodeport.yaml
+  - path: patches/skip-migrate.yaml
