@@ -1,7 +1,13 @@
 -- ============================================================================
--- EPSX Analytics Consolidated Schema v3
+-- EPSX Analytics Consolidated Schema v3 (renamed: schema infra_logs)
 -- ============================================================================
 -- Consolidates all analytics migrations into a single baseline.
+--
+-- Schema rename: the schema historically called `analytics` is actually
+-- shared infrastructure (event store, outbox, audit logs, usage logs).
+-- Per audit-analytics.md §5a and ROADMAP §4 wave-12 precondition #3, the
+-- schema is renamed to `infra_logs` so future readers don't confuse it
+-- with the analytics domain's own storage (analytics owns no PG tables).
 --
 -- Tables:
 --   - api_key_usage_logs (partitioned by month)
@@ -20,14 +26,18 @@
 SET timezone = 'UTC';
 SET client_encoding = 'UTF8';
 
--- Extensions
+-- Schema setup (idempotent: safe to re-run)
+CREATE SCHEMA IF NOT EXISTS infra_logs;
+SET search_path TO infra_logs;
+
+-- Extensions (kept in public — uuid-ossp is a Postgres extension, not a table)
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
 
 -- ============================================================================
 -- API KEY USAGE LOGS (Partitioned)
 -- ============================================================================
 
-CREATE TABLE api_key_usage_logs (
+CREATE TABLE infra_logs.api_key_usage_logs (
     id UUID DEFAULT gen_random_uuid(),
     api_key_id UUID NOT NULL,
     module_id UUID,
@@ -42,27 +52,27 @@ CREATE TABLE api_key_usage_logs (
 ) PARTITION BY RANGE (request_at);
 
 -- Create monthly partitions for 2025-2026
-CREATE TABLE api_key_usage_logs_2025_11 PARTITION OF api_key_usage_logs
+CREATE TABLE infra_logs.api_key_usage_logs_2025_11 PARTITION OF infra_logs.api_key_usage_logs
     FOR VALUES FROM ('2025-11-01') TO ('2025-12-01');
-CREATE TABLE api_key_usage_logs_2025_12 PARTITION OF api_key_usage_logs
+CREATE TABLE infra_logs.api_key_usage_logs_2025_12 PARTITION OF infra_logs.api_key_usage_logs
     FOR VALUES FROM ('2025-12-01') TO ('2026-01-01');
-CREATE TABLE api_key_usage_logs_2026_01 PARTITION OF api_key_usage_logs
+CREATE TABLE infra_logs.api_key_usage_logs_2026_01 PARTITION OF infra_logs.api_key_usage_logs
     FOR VALUES FROM ('2026-01-01') TO ('2026-02-01');
-CREATE TABLE api_key_usage_logs_2026_02 PARTITION OF api_key_usage_logs
+CREATE TABLE infra_logs.api_key_usage_logs_2026_02 PARTITION OF infra_logs.api_key_usage_logs
     FOR VALUES FROM ('2026-02-01') TO ('2026-03-01');
-CREATE TABLE api_key_usage_logs_2026_03 PARTITION OF api_key_usage_logs
+CREATE TABLE infra_logs.api_key_usage_logs_2026_03 PARTITION OF infra_logs.api_key_usage_logs
     FOR VALUES FROM ('2026-03-01') TO ('2026-04-01');
 
-CREATE INDEX idx_usage_logs_api_key ON api_key_usage_logs(api_key_id);
-CREATE INDEX idx_usage_logs_time ON api_key_usage_logs(request_at DESC);
-CREATE INDEX idx_usage_logs_key_time ON api_key_usage_logs(api_key_id, request_at DESC);
-CREATE INDEX idx_usage_logs_endpoint ON api_key_usage_logs(endpoint);
+CREATE INDEX idx_usage_logs_api_key ON infra_logs.api_key_usage_logs(api_key_id);
+CREATE INDEX idx_usage_logs_time ON infra_logs.api_key_usage_logs(request_at DESC);
+CREATE INDEX idx_usage_logs_key_time ON infra_logs.api_key_usage_logs(api_key_id, request_at DESC);
+CREATE INDEX idx_usage_logs_endpoint ON infra_logs.api_key_usage_logs(endpoint);
 
 -- ============================================================================
 -- EVENT STORE (Event Sourcing)
 -- ============================================================================
 
-CREATE TABLE event_store (
+CREATE TABLE infra_logs.event_store (
     event_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     aggregate_id VARCHAR(255) NOT NULL,
     aggregate_type VARCHAR(100) NOT NULL,
@@ -79,18 +89,18 @@ CREATE TABLE event_store (
     CONSTRAINT event_store_version_positive CHECK (aggregate_version >= 0)
 );
 
-CREATE INDEX idx_event_store_aggregate ON event_store(aggregate_id, aggregate_version);
-CREATE INDEX idx_event_store_type_time ON event_store(event_type, occurred_at DESC);
-CREATE INDEX idx_event_store_correlation ON event_store(correlation_id) WHERE correlation_id IS NOT NULL;
-CREATE INDEX idx_event_store_occurred_at ON event_store(occurred_at DESC);
+CREATE INDEX idx_event_store_aggregate ON infra_logs.event_store(aggregate_id, aggregate_version);
+CREATE INDEX idx_event_store_type_time ON infra_logs.event_store(event_type, occurred_at DESC);
+CREATE INDEX idx_event_store_correlation ON infra_logs.event_store(correlation_id) WHERE correlation_id IS NOT NULL;
+CREATE INDEX idx_event_store_occurred_at ON infra_logs.event_store(occurred_at DESC);
 
 -- ============================================================================
 -- OUTBOX EVENTS (Transactional Outbox Pattern)
 -- ============================================================================
 
-CREATE TABLE outbox_events (
+CREATE TABLE infra_logs.outbox_events (
     id BIGSERIAL PRIMARY KEY,
-    event_id UUID NOT NULL REFERENCES event_store(event_id) ON DELETE CASCADE,
+    event_id UUID NOT NULL REFERENCES infra_logs.event_store(event_id) ON DELETE CASCADE,
     aggregate_id VARCHAR(255) NOT NULL,
     aggregate_type VARCHAR(100) NOT NULL,
     event_type VARCHAR(100) NOT NULL,
@@ -107,15 +117,15 @@ CREATE TABLE outbox_events (
     CONSTRAINT outbox_retry_count_limit CHECK (retry_count <= 10)
 );
 
-CREATE INDEX idx_outbox_unprocessed ON outbox_events(processed, sequence_number) WHERE processed = false;
-CREATE INDEX idx_outbox_aggregate ON outbox_events(aggregate_id);
-CREATE INDEX idx_outbox_retry ON outbox_events(next_retry_at) WHERE processed = false AND next_retry_at IS NOT NULL;
+CREATE INDEX idx_outbox_unprocessed ON infra_logs.outbox_events(processed, sequence_number) WHERE processed = false;
+CREATE INDEX idx_outbox_aggregate ON infra_logs.outbox_events(aggregate_id);
+CREATE INDEX idx_outbox_retry ON infra_logs.outbox_events(next_retry_at) WHERE processed = false AND next_retry_at IS NOT NULL;
 
 -- ============================================================================
 -- AGGREGATE SNAPSHOTS
 -- ============================================================================
 
-CREATE TABLE aggregate_snapshots (
+CREATE TABLE infra_logs.aggregate_snapshots (
     aggregate_id VARCHAR(255) PRIMARY KEY,
     aggregate_type VARCHAR(100) NOT NULL,
     aggregate_version BIGINT NOT NULL,
@@ -126,13 +136,13 @@ CREATE TABLE aggregate_snapshots (
     CONSTRAINT snapshot_version_positive CHECK (aggregate_version >= 0)
 );
 
-CREATE INDEX idx_snapshots_type_version ON aggregate_snapshots(aggregate_type, aggregate_version DESC);
+CREATE INDEX idx_snapshots_type_version ON infra_logs.aggregate_snapshots(aggregate_type, aggregate_version DESC);
 
 -- ============================================================================
 -- UNIFIED AUDIT LOG (Consolidated v3)
 -- ============================================================================
 
-CREATE TABLE unified_audit_log (
+CREATE TABLE infra_logs.unified_audit_log (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     actor           VARCHAR(42),
     actor_type      VARCHAR(20) NOT NULL DEFAULT 'admin',
@@ -149,16 +159,16 @@ CREATE TABLE unified_audit_log (
     category        VARCHAR(30) NOT NULL DEFAULT 'system'
 );
 
-CREATE INDEX idx_ual_created_at ON unified_audit_log (created_at DESC);
-CREATE INDEX idx_ual_actor ON unified_audit_log (actor);
-CREATE INDEX idx_ual_category ON unified_audit_log (category);
-CREATE INDEX idx_ual_resource ON unified_audit_log (resource_type, resource_id);
+CREATE INDEX idx_ual_created_at ON infra_logs.unified_audit_log (created_at DESC);
+CREATE INDEX idx_ual_actor ON infra_logs.unified_audit_log (actor);
+CREATE INDEX idx_ual_category ON infra_logs.unified_audit_log (category);
+CREATE INDEX idx_ual_resource ON infra_logs.unified_audit_log (resource_type, resource_id);
 
 -- ============================================================================
 -- LEGACY AUDIT TABLES (Kept for compatibility)
 -- ============================================================================
 
-CREATE TABLE permission_audit_log (
+CREATE TABLE infra_logs.permission_audit_log (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_type VARCHAR(50) NOT NULL,
     event_timestamp TIMESTAMPTZ DEFAULT NOW() NOT NULL,
@@ -182,10 +192,10 @@ CREATE TABLE permission_audit_log (
     metadata JSONB DEFAULT '{}'::JSONB
 );
 
-CREATE INDEX idx_perm_audit_wallet ON permission_audit_log(wallet_address, event_timestamp DESC);
-CREATE INDEX idx_perm_audit_timestamp ON permission_audit_log(event_timestamp DESC);
+CREATE INDEX idx_perm_audit_wallet ON infra_logs.permission_audit_log(wallet_address, event_timestamp DESC);
+CREATE INDEX idx_perm_audit_timestamp ON infra_logs.permission_audit_log(event_timestamp DESC);
 
-CREATE TABLE payment_audit_log (
+CREATE TABLE infra_logs.payment_audit_log (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     payment_id UUID NOT NULL,
     action VARCHAR(50) NOT NULL,
@@ -197,7 +207,7 @@ CREATE TABLE payment_audit_log (
     metadata JSONB DEFAULT '{}'
 );
 
-CREATE TABLE assignment_audit_log (
+CREATE TABLE infra_logs.assignment_audit_log (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     assignment_id UUID NOT NULL,
     action VARCHAR(50) NOT NULL,
@@ -208,7 +218,7 @@ CREATE TABLE assignment_audit_log (
     performed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE wallet_activity_logs (
+CREATE TABLE infra_logs.wallet_activity_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     wallet_address VARCHAR(42) NOT NULL,
     event_type VARCHAR(50) NOT NULL,
@@ -218,7 +228,7 @@ CREATE TABLE wallet_activity_logs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE audit_logs (
+CREATE TABLE infra_logs.audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     wallet_address VARCHAR(42),
     action VARCHAR(50) NOT NULL,
@@ -235,7 +245,7 @@ CREATE TABLE audit_logs (
 -- ANALYTICS EVENTS
 -- ============================================================================
 
-CREATE TABLE analytics_events (
+CREATE TABLE infra_logs.analytics_events (
     id UUID PRIMARY KEY,
     event_type VARCHAR(50) NOT NULL,
     wallet_address VARCHAR(42),
@@ -247,16 +257,17 @@ CREATE TABLE analytics_events (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_analytics_events_wallet ON analytics_events(wallet_address);
-CREATE INDEX idx_analytics_events_created_at ON analytics_events(created_at);
+CREATE INDEX idx_analytics_events_wallet ON infra_logs.analytics_events(wallet_address);
+CREATE INDEX idx_analytics_events_created_at ON infra_logs.analytics_events(created_at);
 
 -- ============================================================================
 -- COMMENTS
 -- ============================================================================
 
-COMMENT ON TABLE api_key_usage_logs IS 'API usage tracking (partitioned by month) - high write volume';
-COMMENT ON TABLE event_store IS 'Immutable event log for event sourcing';
-COMMENT ON TABLE outbox_events IS 'Transactional outbox for reliable event publishing';
-COMMENT ON TABLE unified_audit_log IS 'Consolidated audit trail for all system actions';
+COMMENT ON SCHEMA infra_logs IS 'Shared infrastructure logs (event store, outbox, audit, usage). Not analytics-domain storage.';
+COMMENT ON TABLE infra_logs.api_key_usage_logs IS 'API usage tracking (partitioned by month) - high write volume';
+COMMENT ON TABLE infra_logs.event_store IS 'Immutable event log for event sourcing';
+COMMENT ON TABLE infra_logs.outbox_events IS 'Transactional outbox for reliable event publishing';
+COMMENT ON TABLE infra_logs.unified_audit_log IS 'Consolidated audit trail for all system actions';
 
-SELECT 'EPSX ANALYTICS CONSOLIDATED SCHEMA v3 CREATED SUCCESSFULLY! 🎉' AS success_message;
+SELECT 'EPSX INFRA_LOGS CONSOLIDATED SCHEMA v3 CREATED SUCCESSFULLY! 🎉' AS success_message;

@@ -5,7 +5,7 @@ use crate::domain::audit::repository::AuditLogRepository;
 use crate::domain::shared_kernel::entities::audit::{AuditLogEntry, AuditQuery, AuditAction, ResourceType, AuditResult};
 use crate::infrastructure::models::audit::{AuditLogDb, NewAuditLogDb};
 use crate::infrastructure::database::diesel_connection_manager::{get_analytics_pool, get_payments_pool};
-use crate::schemas::analytics::audit_logs;
+use crate::schemas::infra_logs::audit_logs;
 use anyhow::{Result, Context};
 use epsx_contracts::value_objects::UserId;
 use chrono::{DateTime, Utc};

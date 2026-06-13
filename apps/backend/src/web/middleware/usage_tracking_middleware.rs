@@ -10,8 +10,8 @@ use crate::infrastructure::container::DomainContainer;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use crate::schemas::primary::api_keys;
-use crate::schemas::analytics::api_key_usage_logs;
-use crate::schemas::analytics::analytics_events; // Import the new table
+use crate::schemas::infra_logs::api_key_usage_logs;
+use crate::schemas::infra_logs::analytics_events; // Import the new table
 use crate::web::middleware::auth_middleware::Web3AuthContext;
 use crate::web::middleware::bearer_middleware::OpenIDUserContext;
 
