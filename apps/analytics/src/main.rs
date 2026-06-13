@@ -51,7 +51,8 @@ use epsx_analytics_service::{
 // The handler functions come from `epsx::web::analytics::eps_handlers`
 // via the re-export in `crate::*` (lib.rs).
 
-/// Build the analytics router with the 5 user-facing routes.
+/// Build the analytics router with the 5 user-facing routes plus
+/// a `/health` endpoint for K8s liveness/readiness probes.
 pub fn build_analytics_router(
     permission_service: Arc<dyn WalletRankingOffsetQuery>,
     cache: Arc<dyn epsx::infrastructure::cache::Cache>,
@@ -63,6 +64,7 @@ pub fn build_analytics_router(
     };
 
     Router::new()
+        .route("/health", get(health_handler))
         .route("/rankings", get(get_unified_analytics_rankings_cached))
         .route("/filters", get(get_filter_options))
         .route("/countries", get(get_all_valid_countries))
@@ -71,6 +73,19 @@ pub fn build_analytics_router(
         .layer(axum::Extension(permission_service))
         .layer(axum::Extension(cache))
         .layer(axum::Extension(eps_ranking_service))
+}
+
+/// Liveness/readiness probe endpoint. Returns 200 with a static
+/// JSON body so K8s `livenessProbe` / `readinessProbe` succeed.
+/// The new binary has no DB connections, so the probe is purely
+/// "the HTTP server is accepting requests" — there's no upstream
+/// health to check.
+async fn health_handler() -> axum::Json<serde_json::Value> {
+    axum::Json(serde_json::json!({
+        "status": "ok",
+        "service": "epsx-analytics-service",
+        "version": env!("CARGO_PKG_VERSION"),
+    }))
 }
 
 // ============================================================================
@@ -225,6 +240,7 @@ async fn main() -> anyhow::Result<()> {
 
     // ---- startup banner ----
     let routes: &[(&str, &str)] = &[
+        ("GET", "/health"),
         ("GET", "/api/analytics/rankings"),
         ("GET", "/api/analytics/filters"),
         ("GET", "/api/analytics/countries"),
@@ -321,12 +337,14 @@ mod tests {
 
         let router = build_analytics_router(perm, cache, eps_ranking);
 
-        // Walk the 5 expected paths. The router doesn't have a
-        // `count_routes()` API, so we send a GET to each and
-        // assert it's NOT a 404 (404 means the route isn't
-        // mounted; 400 / 500 are expected for a bare-bones test
-        // because the handler signature requires query params).
+        // Walk the 6 expected paths (5 analytics + 1 health).
+        // The router doesn't have a `count_routes()` API, so we
+        // send a GET to each and assert it's NOT a 404 (404
+        // means the route isn't mounted; 400 / 500 are expected
+        // for a bare-bones test because the handler signature
+        // requires query params).
         let expected_paths = [
+            "/health",
             "/rankings",
             "/filters",
             "/countries",
@@ -357,8 +375,8 @@ mod tests {
             }
         }
         assert_eq!(
-            mounted_count, 5,
-            "expected 5 mounted routes, found {mounted_count}"
+            mounted_count, 6,
+            "expected 6 mounted routes (5 analytics + /health), found {mounted_count}"
         );
     }
 
