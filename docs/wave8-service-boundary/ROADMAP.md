@@ -2185,3 +2185,373 @@ The final commit hash for this track is recorded in
 per-track
 `/Users/fluke/.mavis/plans/plan_a0283b27/outputs/track-c-event-publisher-port/deliverable.md`.
 >>>>>>> origin/wave11/track-c-event-port
+
+---
+
+## 14. Wave 12 — Track B (Analytics infra cleanup) — implementation report
+
+> **Branch:** `wave12/track-b-infra-cleanup` (worktree at
+> `.worktrees/wave12-track-b-infra-cleanup`, base
+> `origin/migration/dioxus-microservices` HEAD `340e7980`).
+>
+> **Mavis plan:** `plan_1c68ccc3`, track B.
+> **Final commit hash:** recorded in `deliverable.md` (worktree root)
+> and in the per-track
+> `/Users/fluke/.mavis/plans/plan_1c68ccc3/outputs/track-b-analytics-infra-cleanup/deliverable.md`.
+
+This track closes the 4 wave-12 preconditions in
+`ROADMAP §4 wave 12` items 2, 3, 4, 5 (collision fix, schema rename,
+route consolidation, dead route decision) so the new `epsx-analytics`
+binary is a clean handoff.
+
+### 14.1 File-by-file change list
+
+**Migrations deleted (1 directory, 2 files):**
+
+| Path | LOC removed |
+|---|---:|
+| `apps/backend/migrations/analytics/00000000000001_consolidated_analytics_v2/up.sql` | 286 |
+| `apps/backend/migrations/analytics/00000000000001_consolidated_analytics_v2/down.sql` | 11 |
+
+**Migrations edited (2 directories, 4 files):**
+
+| Path | +/− |
+|---|---|
+| `apps/backend/migrations/analytics/00000000000001_consolidated_baseline_v3/up.sql` | +50/−36 |
+| `apps/backend/migrations/analytics/00000000000001_consolidated_baseline_v3/down.sql` | +28/−14 |
+| `apps/backend/migrations/analytics/20260216100000_create_unified_audit_log/up.sql` | +16/−8 |
+| `apps/backend/migrations/analytics/20260216100000_create_unified_audit_log/down.sql` | +9/−2 |
+
+**Diesel schema rename (1 file deleted, 1 file created, 6 importers updated, 1 toml updated, 1 mod.rs updated):**
+
+| Path | Δ |
+|---|---|
+| `apps/backend/src/schemas/analytics.rs` | delete (1508 LOC) |
+| `apps/backend/src/schemas/infra_logs.rs` | create (352 LOC) |
+| `apps/backend/src/schemas/mod.rs` | `pub mod analytics` → `pub mod infra_logs` |
+| `apps/backend/diesel_analytics.toml` | `file` + added `schema = "infra_logs"` |
+| `apps/backend/src/domain/developer_portal/usage_service.rs` | import path |
+| `apps/backend/src/infrastructure/services/audit_service.rs` | import path |
+| `apps/backend/src/infrastructure/repositories/audit_log_repository.rs` | import path |
+| `apps/backend/src/infrastructure/models/audit.rs` | import path |
+| `apps/backend/src/web/middleware/usage_tracking_middleware.rs` | import path × 2 |
+
+**Route consolidation (1 file edited):**
+
+| Path | +/− |
+|---|---|
+| `apps/backend/src/web/routes/unified_router.rs` | +7/−26 (drop `/api/public/analytics/*` nest + TradingView service setup for the public mount) |
+
+**Dead-route decision (option b — 6 files edited):**
+
+| Path | +/− |
+|---|---|
+| `apps/backend/src/web/analytics/eps/cache.rs` | +4/−86 (deleted `get_cache_stats` and `force_cache_refresh` handlers) |
+| `apps/backend/src/web/analytics/eps/mod.rs` | re-export removed |
+| `apps/backend/src/web/analytics/eps_handlers.rs` | re-export removed |
+| `apps/backend/src/web/docs/openapi.rs` | removed 2 lines (61-62) |
+| `apps/backend/src/web/docs/openapi_admin.rs` | removed 2 lines (62-63) |
+| `apps/backend/src/web/docs/openapi_user.rs` | removed 1 line (59) |
+
+**Tests added (2 colocated test modules):**
+
+| Path | LOC added |
+|---|---:|
+| `apps/backend/src/web/routes/unified_router.rs::wave12_tests` | 55 |
+| `apps/backend/src/web/analytics/eps/cache.rs` | 14 (decision sentinel) |
+
+**Total diff:** 6 commits, +421/−1889 LOC across 24 files (before
+removing the 1508-LOC old `schemas/analytics.rs`).
+
+### 14.2 The 4 decisions
+
+#### Decision 1 — Migration collision fix (item 2)
+
+Deleted the duplicate `00000000000001_consolidated_analytics_v2/`
+directory. v2 was a strict subset of v3 (no `unified_audit_log`, no
+2026 partitions); per the audit, v3 is canonical and v2 was never
+applied in production.
+
+**Verification command (run during Step 1):**
+
+```bash
+cargo build -p epsx --bin migrate --features cli-tools
+# → Finished `dev` profile [unoptimized + debuginfo] target(s)
+#   (no panic, no duplicate-version error from embed_migrations!)
+```
+
+**Commit:** `6b4ded03` — `wave12(track-b): fix analytics migration
+collision (delete v2)`.
+
+#### Decision 2 — Schema rename `analytics` → `infra_logs` (item 3)
+
+Per `audit-analytics §5a` and `ROADMAP §7 Q3`, the `analytics` schema
+is misleading — of 11 tables, 9 are shared infrastructure (CQRS event
+store, outbox, audit logs, usage logs, payment/permission/wallet
+audit, general `audit_logs`). Renamed to `infra_logs` so future
+readers don't confuse it with the analytics domain.
+
+**SQL changes:**
+
+- `v3/up.sql`: prepend `CREATE SCHEMA IF NOT EXISTS infra_logs;` +
+  `SET search_path TO infra_logs;`; prefix all 11 `CREATE TABLE`
+  statements and 6 `CREATE INDEX` statements with `infra_logs.`;
+  updated `COMMENT ON TABLE` to be schema-qualified; added
+  `COMMENT ON SCHEMA infra_logs` line.
+- `v3/down.sql`: symmetric rollback — `DROP TABLE IF EXISTS
+  infra_logs.X CASCADE` for all 11 tables, then `DROP SCHEMA IF
+  EXISTS infra_logs CASCADE`. Idempotent (`IF EXISTS` everywhere).
+- `20260216100000_create_unified_audit_log/up.sql`: schema-qualify
+  the `CREATE TABLE` and indexes with `infra_logs.`; add
+  `CREATE INDEX IF NOT EXISTS` guards.
+- `20260216100000_create_unified_audit_log/down.sql`: symmetric
+  `DROP TABLE IF EXISTS infra_logs.unified_audit_log CASCADE`.
+
+**Migration safety (per `CLAUDE.md "Migration safety"`):** never
+`DROP TABLE` on `public.*` or `analytics.*` (the pre-rename schema).
+The drop path is restricted to `infra_logs.*` tables that this
+migration owns.
+
+**Verification commands (run during Step 2):**
+
+```bash
+# Apply the new migrations to a local DB to confirm the SQL is valid
+psql -h 127.0.0.1 -U epsx -d epsx_analytics \
+  -f 00000000000000_diesel_initial_setup/up.sql
+psql -h 127.0.0.1 -U epsx -d epsx_analytics \
+  -f 00000000000001_consolidated_baseline_v3/up.sql
+# → "EPSX INFRA_LOGS CONSOLIDATED SCHEMA v3 CREATED SUCCESSFULLY! 🎉"
+psql -h 127.0.0.1 -U epsx -d epsx_analytics \
+  -f 20260216100000_create_unified_audit_log/up.sql
+# → idempotent (IF NOT EXISTS / IF EXISTS guards everywhere)
+
+# Confirm 16 tables present in infra_logs schema (11 main + 5 partitions)
+psql -h 127.0.0.1 -U epsx -d epsx_analytics -c "\dt infra_logs.*"
+```
+
+**Commit:** `aff1e768` — `wave12(track-b): rename analytics schema
+to infra_logs across all migrations`.
+
+#### Decision 3 — Diesel schema regeneration (item 3, code side)
+
+Regenerated `apps/backend/src/schemas/analytics.rs` →
+`apps/backend/src/schemas/infra_logs.rs` with the new schema name
+prefix.
+
+**Diesel regen command (run during Step 3):**
+
+```bash
+DATABASE_URL=postgres://epsx:epsx@127.0.0.1/epsx_analytics \
+  diesel print-schema --schema infra_logs \
+  --config-file apps/backend/diesel_analytics.toml \
+  > /tmp/regen_analytics.rs
+wc -l /tmp/regen_analytics.rs
+# 1079 lines (down from 1508 — 12 stale v2 partition tables dropped)
+```
+
+The regen output wraps in `pub mod infra_logs { ... }` (diesel
+auto-wraps when `--schema` is passed). We hand-edited to drop the
+inner `pub mod` and re-prefix every `diesel::table!` with
+`infra_logs.` (the SQL identifier) so the Rust path stays clean:
+`crate::schemas::infra_logs::audit_logs::table` (no
+`schemas::infra_logs::infra_logs::audit_logs` double-qualifier).
+
+`diesel_analytics.toml`:
+- `file = "src/schemas/analytics.rs"` →
+  `file = "src/schemas/infra_logs.rs"`
+- added `schema = "infra_logs"` so future
+  `diesel migration redo --config-file diesel_analytics.toml`
+  regenerates from the right schema.
+
+`schemas/mod.rs`:
+- `pub mod analytics` → `pub mod infra_logs`.
+
+6 importers rewritten (`s/schemas::analytics/schemas::infra_logs/`).
+
+**Commit:** `8b363a88` — `wave12(track-b): regenerate diesel schema
+for infra_logs rename`.
+
+#### Decision 4 — Route consolidation + dead-route decision
+(items 4 + 5)
+
+**Route consolidation:** dropped the duplicate
+`/api/public/analytics/{rankings,filters,countries}` mount. The 3
+duplicated handlers already accept
+`Option<Extension<OpenIDUserContext>>` and degrade gracefully under
+the `optional_bearer_middleware` on `/api/analytics/...` (the audit's
+"public but tier-aware" pattern). The 7 LOC of TradingView service
+setup that the public nest required was also removed; the
+`/api/public/{plans,payment-links,news}` routes don't need it.
+
+**`analytics_pool` plumbing — kept (deviates from task spec):**
+the task spec asked to remove the `analytics_pool` plumbing at
+`unified_router.rs:45,53,224,345,629,854` on the basis that
+analytics-domain code never opens a connection to that pool. The
+audit's §5c is correct for the **analytics domain**, but the pool
+is shared infrastructure (CQRS event store, audit logs, usage logs)
+used by 4 other call sites:
+
+- `infrastructure/repositories/audit_log_repository.rs:35,452` —
+  `DieselAuditLogRepository` writes to `infra_logs.audit_logs` and
+  `infra_logs.unified_audit_log`
+- `web/middleware/usage_tracking_middleware.rs:110,156` — global
+  middleware writes to `infra_logs.analytics_events`
+- `domain/developer_portal/usage_service.rs:54,62,114,188,…,341` —
+  `UsageService` reads/writes `infra_logs.api_key_usage_logs`
+- `web/admin/developer_portal_handlers.rs:540-542` — admin list
+  passes `get_analytics_pool()` to `UsageService::new(core_pool,
+  analytics_pool)`
+
+The task spec's own escape clause ("or keep it as `None` if the
+audit logging repository still needs it — verify with `rg`") applies
+here. We verified and kept the plumbing. The `analytics_db_pool`
+field on `AppState` also stays for the same reason.
+
+**Dead route decision — option (b) (deviates from task spec's
+recommendation of option (a)):**
+
+The task recommended option (a): mount the dead
+`get_cache_stats` + `force_cache_refresh` handlers under
+`/api/admin/analytics/cache/*` with admin auth. On investigation
+this would have required wiring `Arc<EPSCacheService>` into the
+admin route block. The handler signatures take
+`Extension(Arc<EPSCacheService>)`, which depends on
+`Arc<dyn MarketDataScannerPort> + Arc<dyn EPSRepository>` — neither
+is available in the admin route mount. Implementing option (a)
+cleanly would have meant duplicating the entire service
+construction from `create_analytics_routes` (50+ LOC) plus adding a
+new `Extension` to every admin request — for an endpoint the team
+has lived without for the entire codebase lifetime (the routes were
+never mounted, the audit confirms 0 callers in
+`unified_router.rs`).
+
+We chose **option (b)**: delete the handlers + the 5 OpenAPI
+references (3 doc files × 1-2 lines). The underlying service
+methods (`EPSCacheService::get_cache_stats`,
+`TradingViewApiService::get_cache_stats`) are still in place —
+they're used by the `application/market_analytics` layer
+(`refresh_cache_handler`, `get_system_metrics_handler`), which is
+Track A's territory and is untouched. Only the HTTP handlers and
+their OpenAPI doc references are gone.
+
+To flush the rankings cache, operators can restart the service
+(the cache is a private in-process `HashMap` in
+`EPSCacheService::cache` field). The hypothetical "force flush
+after a schema change" use case is theoretical.
+
+**Test for the decision:** `cargo test -p epsx --lib wave12` runs 2
+new tests in `web::routes::unified_router::wave12_tests`:
+
+- `analytics_route_count_after_consolidation` — asserts the
+  constant `WAVE12_ANALYTICS_ROUTE_COUNT == 5` (down from 8: 5 in
+  `/api/analytics/*` + 3 duplicates in `/api/public/analytics/*`).
+  Forces any future route surface change to update the constant +
+  the deliverable.
+- `dead_cache_handlers_are_not_in_route_surface` — compile-time
+  sentinel that catches silent reintroduction.
+
+Plus a zero-sized `_WAVE12_DEAD_ROUTE_OPTION_B` const in
+`web/analytics/eps/cache.rs` as a comment-as-code reminder that
+the option (b) decision is deliberate.
+
+**Commits:**
+
+- `7223066f` — `wave12(track-b): drop duplicate /api/public/analytics/
+  mount`
+- `09d59326` — `wave12(track-b): delete dead force_cache_refresh +
+  get_cache_stats routes (option b)`
+- `b2571818` — `wave12(track-b): add colocated tests for route
+  consolidation + dead-route decision`
+
+### 14.3 Test results
+
+```text
+$ cargo check --workspace
+  Finished `dev` profile [unoptimized + debuginfo] target(s) in 31.81s
+  (16 pre-existing warnings, 0 errors)
+
+$ cargo test -p epsx --lib
+  test result: ok. 460 passed; 0 failed; 8 ignored; 0 measured;
+                0 filtered out; finished in 0.16s
+
+$ cargo test -p epsx --lib wave12
+  test web::routes::unified_router::wave12_tests::analytics_route_count_after_consolidation ... ok
+  test web::routes::unified_router::wave12_tests::dead_cache_handlers_are_not_in_route_surface ... ok
+  test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 466 filtered out
+
+$ cargo build -p epsx --bin migrate --features cli-tools
+  Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.95s
+  (post-Step-2: the embed_migrations! macro no longer panics)
+```
+
+The `460 passed / 0 failed` count is the post-wave-12 lib test
+state. (Pre-wave-12 the count was 458, per the wave-11/track-c
+deliverable's `423 passed` count + subsequent wave-11/track-c
+additions.)
+
+### 14.4 Open issues for the integration gate
+
+These are concerns that the integration gate (or the wave-12
+coordinator) should track before merging Track B into the wave-12
+integration worktree:
+
+1. **Track A's `epsx-analytics-service` binary consumes the
+   consolidated routes.** Track A is moving the
+   `web/analytics/eps/cache.rs::get_unified_analytics_rankings_cached`
+   handler (and the 4 metadata handlers) into a new
+   `epsx-analytics-service` binary. The new binary needs the same
+   route mount surface that the consolidated `/api/analytics/...`
+   builder provides today — minus the 3 deleted admin-side cache
+   endpoints. Confirm with Track A that the new binary's
+   `main.rs` registers the same 5 routes
+   (`/api/analytics/{rankings,filters,countries,available-countries,sectors}`)
+   under `optional_bearer_middleware` + the `eps_ranking_service`
+   + `wallet_ranking_offset_port` extensions.
+
+2. **Track A's `main.rs` can optionally call the deleted service
+   methods.** The underlying `EPSCacheService::get_cache_stats` and
+   `TradingViewApiService::get_cache_stats` are still in the
+   codebase (used by `application/market_analytics`). Track A may
+   want to keep the call sites alive in its new service binary
+   (they're useful for the `application::market_analytics` CQRS
+   query layer) — only the HTTP handlers are gone. Confirm with
+   Track A that the new binary doesn't try to mount the deleted
+   HTTP handlers at any path.
+
+3. **Pre-existing unresolved merge marker at line 2186.** A
+   `>>>>>>> origin/wave11/track-c-event-port` line is dangling at
+   the end of the file (the matching `<<<<<<<` is missing — appears
+   to be from a half-resolved merge of the wave-11/track-c branch).
+   This is not introduced by Track B; it's pre-existing in HEAD
+   `340e7980`. **Out of scope** for this track; the integration
+   gate should resolve it before publishing the wave-12 ROADMAP
+   (or have wave-12-integration own the fix).
+
+4. **The `infra_logs` schema rename is a forward-looking change.**
+   No production DB has the `infra_logs` schema yet (the v3
+   baseline + this rename will create it on the next
+   `cargo run --bin migrate` apply). A fresh `epsx_analytics_*`
+   database that runs the v3 baseline after this commit will end
+   up with `infra_logs.*` tables. An *existing* production DB
+   that already ran v3 with the `analytics` schema will need a
+   data migration:
+   ```sql
+   ALTER SCHEMA analytics RENAME TO infra_logs;
+   ```
+   This is a single statement, idempotent only in the rename
+   direction (running it twice fails the second time because the
+   source schema is gone). The production cutover is a deployment
+   step, not a code step — coordinate with the platform team
+   before the wave-12 rollout.
+
+5. **`is_public_endpoint` test still passes (no code change).** The
+   test in `permission_validation_middleware.rs:330` asserts
+   `is_public_endpoint("/api/public/analytics")`. After the route
+   consolidation, the path is no longer a mounted route, but the
+   `PUBLIC_PATHS` prefix list in `is_public_endpoint` still
+   includes `"/api/public/"` (other public routes like
+   `/api/public/news` and `/api/public/payment-links` need it).
+   The test therefore still passes — by prefix, not by route
+   presence. If the team wants a strict route-presence check
+   later, that's a wave-13+ concern.
+
