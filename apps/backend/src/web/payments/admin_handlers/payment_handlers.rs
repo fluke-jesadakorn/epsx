@@ -13,8 +13,18 @@ use crate::{
         middleware::UnifiedErrorResponse,
         pagination::Pagination,
     },
-    schemas::primary::plans,
 };
+
+// Note: `schemas::primary::plans` is imported lazily by
+// `admin_list_payments_handler` (line ~125) because the
+// list handler still does a batch `plans::name` lookup on
+// the primary pool. The list endpoint is NOT in the
+// 8-handler cross-pool collapse set (ROADMAP §11 track A
+// covers the 5 high-traffic sites; the list handler is
+// left for a follow-up patch that adds a
+// `list_user_payments_with_plan_names`-style paginated
+// port method scoped to admin filters). Track C will
+// re-evaluate.
 
 use super::types::*;
 
@@ -28,6 +38,12 @@ pub async fn admin_list_payments_handler(
     use crate::infrastructure::models::payment::PaymentDb;
     use crate::infrastructure::database::get_payments_pool;
     use crate::schemas::payments::payments;
+    // Scoped import: this handler is NOT in the 8-site cross-pool
+    // collapse set (ROADMAP §11 track A). It still does a batch
+    // `plans::name` lookup on the primary pool because the
+    // list-with-filters port method (analogous to
+    // `list_user_payments_with_plan_names`) is wave-12 work.
+    use crate::schemas::primary::plans;
 
     info!("Admin listing payments with params: {:?}", params);
 
@@ -229,13 +245,35 @@ pub async fn admin_get_payment_details_handler(
 ) -> Result<Json<AdminPaymentDetailsResponse>, Json<UnifiedErrorResponse>> {
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
-    use crate::infrastructure::models::payment::PaymentDb;
     use crate::infrastructure::database::get_payments_pool;
-    use crate::schemas::payments::{payments, payment_audit_log};
+    use crate::schemas::payments::payment_audit_log;
 
     info!("Admin getting payment details for {}", payment_id);
 
-    // Get PAYMENTS database connection
+    // Wave 11 / Track A: collapse the cross-pool
+    // `payments_pool` + `primary_pool` to a single
+    // `PaymentRepositoryPort::get_admin_payment_details_with_plan_name`
+    // call. The audit log fetch below stays on the payments
+    // pool (single-table query, no cross-pool join).
+    let payment_repo = app_state.payment_repo.as_ref().ok_or_else(|| {
+        error!("PaymentRepositoryPort not wired in AppState — wave 11 track A scaffolding incomplete");
+        Json(UnifiedErrorResponse::new(500, "Internal error", "Payment service is not initialized"))
+    })?;
+    let port_result = payment_repo
+        .get_admin_payment_details_with_plan_name(crate::domain::payment::PaymentId::from_uuid(payment_id))
+        .await;
+    let payment = match port_result {
+        Ok(Some(row)) => Some(AdminPaymentInfo::from_port_row(&row)),
+        Ok(None) => {
+            return Err(Json(UnifiedErrorResponse::new(404, "Payment not found", format!("No payment found with ID: {}", payment_id))));
+        }
+        Err(e) => {
+            error!("Failed to query payment: {}", e);
+            return Err(Json(UnifiedErrorResponse::new(500, "Query failed", format!("Failed to load payment: {}", e))));
+        }
+    };
+
+    // Fetch audit logs for this payment (payments pool only)
     let payments_pool = get_payments_pool().await.map_err(|e| {
         error!("Failed to get payments database pool: {}", e);
         Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to get payments database pool"))
@@ -245,42 +283,6 @@ pub async fn admin_get_payment_details_handler(
             error!("Failed to get payments database connection: {}", e);
             Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to establish payments database connection"))
         })?;
-
-    // Get PRIMARY database connection for plan name lookup
-    let mut primary_conn = app_state.db_pool.get().await
-        .map_err(|e| {
-            error!("Failed to get primary database connection: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to establish primary database connection"))
-        })?;
-
-    // Fetch payment from database
-    let payment_result = payments::table
-        .filter(payments::id.eq(payment_id))
-        .first::<PaymentDb>(&mut payments_conn)
-        .await;
-
-    let payment = match payment_result {
-        Ok(pay_db) => {
-            // Try to get plan name from plans table (PRIMARY DB)
-            let plan_name = plans::table
-                .filter(plans::id.eq(pay_db.plan_id))
-                .select(plans::name)
-                .first::<String>(&mut primary_conn)
-                .await
-                .unwrap_or_else(|_| "Unknown Plan".to_string());
-
-            Some(AdminPaymentInfo::from_db(pay_db, plan_name))
-        }
-        Err(diesel::NotFound) => {
-            return Err(Json(UnifiedErrorResponse::new(404, "Payment not found", format!("No payment found with ID: {}", payment_id))));
-        }
-        Err(e) => {
-            error!("Failed to query payment: {}", e);
-            return Err(Json(UnifiedErrorResponse::new(500, "Query failed", format!("Failed to load payment: {}", e))));
-        }
-    };
-
-    // Fetch audit logs for this payment
     let audit_log_rows = payment_audit_log::table
         .filter(payment_audit_log::payment_id.eq(payment_id))
         .order(payment_audit_log::created_at.desc().nulls_last())
