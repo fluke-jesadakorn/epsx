@@ -13,8 +13,18 @@ use super::plan_handlers::{
   delete_plan_handler,
   create_subscription_handler,
   admin_list_user_access_handler,
-  list_subscriptions_handler,
 };
+// wave11(track-b) move: the admin subscription list handler
+// moved to `crate::web::payments::admin::subscription_admin_handlers`
+// and now goes through
+// `Arc<dyn SubscriptionRepositoryPort>`. The pre-wave-11
+// `super::plan_handlers::list_subscriptions_handler` is a
+// `#[deprecated]` stub (returns 410 GONE) and is no longer
+// used in the route mount below. See
+// `docs/wave8-service-boundary/ROADMAP.md` §4 wave-11
+// preconditions item 3.
+#[allow(deprecated)]
+use super::plan_handlers::list_subscriptions_handler as _legacy_list_subscriptions_handler;
 // Promotion management handlers
 use super::promotion_handlers::{
   create_promotion_handler,
@@ -149,7 +159,18 @@ pub fn create_admin_routes() -> Router<AppState> {
   let plans_read = Router::new()
     .route("/plans", get(list_plans_handler))
     .route("/plans/{plan_id}", get(get_plan_handler))
-    .route("/subscriptions", get(list_subscriptions_handler))
+    // wave11(track-b): the admin `/api/admin/subscriptions`
+    // route now points at the moved handler in
+    // `web/payments::admin::subscription_admin_handlers`.
+    // The legacy `list_subscriptions_handler` in
+    // `super::plan_handlers` is a `#[deprecated]` stub that
+    // returns 410 GONE — keeping the legacy import above so
+    // the compiler flags any new caller that uses the old
+    // name with a deprecation warning.
+    .route(
+      "/subscriptions",
+      get(crate::web::payments::admin::subscription_admin_handlers::list_subscriptions_admin_handler),
+    )
     .route("/plans/user-access/list", get(admin_list_user_access_handler))
     .route("/plans/history", get(get_plan_history))
     .layer(from_fn_with_state("admin:plans:read", perm_guard));
