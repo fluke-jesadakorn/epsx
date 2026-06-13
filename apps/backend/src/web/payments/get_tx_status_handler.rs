@@ -2,24 +2,25 @@
 //!
 //! Allows frontend to poll for transaction status updates.
 //! Returns current confirmation status, block number, and any errors.
+//!
+//! Wave 11 / Track A: the cross-pool `payments_pool` + `get_diesel_pool`
+//! lookup for `plans::name` is collapsed to a single
+//! `PaymentRepositoryPort::get_tx_status_with_plan_name` call.
+//! This handler no longer imports `schemas::primary::plans` or
+//! `infrastructure::database::*`.
 
 use axum::{
     extract::{Path, State},
     response::Json,
     Extension,
 };
+use bigdecimal::ToPrimitive;
 use chrono::{DateTime, Utc};
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use serde::Serialize;
 use tracing::{debug, error};
 
 use crate::{
     prelude::*,
-    infrastructure::database::{get_payments_pool, get_diesel_pool},
-    schemas::payments::payments,
-    schemas::primary::plans,
-    infrastructure::models::payment::PaymentDb,
     web::{
         auth::AppState,
         middleware::{OpenIDUserContext, UnifiedErrorResponse},
@@ -74,12 +75,12 @@ pub struct TransactionStatusData {
 /// Frontend polls this endpoint to track payment progress.
 #[axum::debug_handler]
 pub async fn get_transaction_status_handler(
-    State(_app_state): State<AppState>,
+    State(app_state): State<AppState>,
     Extension(user_context): Extension<OpenIDUserContext>,
     Path(tx_hash): Path<String>,
 ) -> Result<Json<TransactionStatusResponse>, UnifiedErrorResponse> {
     let wallet_address = user_context.wallet_address.clone();
-    
+
     debug!(
         "Getting transaction status: wallet={}, tx_hash={}",
         wallet_address, tx_hash
@@ -90,85 +91,71 @@ pub async fn get_transaction_status_handler(
         return Err(UnifiedErrorResponse::new(400, "Invalid transaction hash", "Transaction hash must be 66 characters starting with 0x"));
     }
 
-    // Get payments database connection
-    let payments_pool = get_payments_pool().await.map_err(|e| {
-        error!("Failed to get payments database pool: {}", e);
-        UnifiedErrorResponse::new(500, "Database error", "Cannot connect to database")
+    // Wave 11 / Track A: collapse the cross-pool
+    // `payments_pool` + `get_diesel_pool()` reacharound to a
+    // single port call. The port's
+    // `get_tx_status_with_plan_name` returns
+    // `PaymentRowWithPlanName` (the flat row + plan name)
+    // — the domain `Payment` aggregate does not carry
+    // `confirmations` / `block_number` / `error_message` /
+    // `last_checked_at`, which the response shape needs.
+    let payment_repo = app_state.payment_repo.as_ref().ok_or_else(|| {
+        error!("PaymentRepositoryPort not wired in AppState — wave 11 track A scaffolding incomplete");
+        UnifiedErrorResponse::new(500, "Internal error", "Payment service is not initialized")
     })?;
 
-    let mut conn = payments_pool.get().await.map_err(|e| {
-        error!("Failed to get database connection: {}", e);
-        UnifiedErrorResponse::new(500, "Database error", "Cannot establish database connection")
-    })?;
-
-    // Query payment by transaction hash
-    let payment: Option<PaymentDb> = payments::table
-        .filter(payments::transaction_hash.eq(&tx_hash))
-        .filter(payments::wallet_address.eq(&wallet_address))
-        .select(PaymentDb::as_select())
-        .first::<PaymentDb>(&mut conn)
+    let result = payment_repo
+        .get_tx_status_with_plan_name(&tx_hash)
         .await
-        .optional()
         .map_err(|e| {
-            error!("Failed to query payment: {}", e);
+            error!("Failed to query payment via port: {}", e);
             UnifiedErrorResponse::new(500, "Database query failed", format!("Cannot query payment: {}", e))
         })?;
 
-    match payment {
-        Some(payment) => {
-            // Get plan name from primary database if plan_id exists
-            // Get plan name from primary database
-            let plan_name = {
-                let primary_pool = get_diesel_pool().await.ok();
-                if let Some(pool) = primary_pool {
-                    if let Ok(mut primary_conn) = pool.get().await {
-                        plans::table
-                            .filter(plans::id.eq(payment.plan_id))
-                            .select(plans::name)
-                            .first::<String>(&mut primary_conn)
-                            .await
-                            .ok()
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            };
-
-            // Convert amount
-            use bigdecimal::ToPrimitive;
-            let amount = payment.amount.to_f64();
-
-            if payment.status == "confirmed" {
-                tracing::info!(
-                    "Returning CONFIRMED status to frontend for tx: {}", 
-                    tx_hash
-                );
-            }
-
-            Ok(Json(TransactionStatusResponse {
-                success: true,
-                data: TransactionStatusData {
-                    transaction_hash: tx_hash,
-                    status: payment.status.clone(),
-                    confirmations: payment.confirmations.unwrap_or(0),
-                    block_number: payment.block_number,
-                    error_message: payment.error_message.clone(),
-                    payment_reference: Some(payment.payment_reference),
-                    plan_name,
-                    amount,
-                    currency: Some(payment.currency),
-                    completed_at: payment.completed_at,
-                    last_checked_at: payment.last_checked_at,
-                },
-            }))
-        }
+    let row = match result {
+        Some(r) => r,
         None => {
             // H6: Uniform error response to prevent tx hash enumeration
-            Err(UnifiedErrorResponse::new(404, "Transaction not found", "Unable to retrieve transaction status"))
+            return Err(UnifiedErrorResponse::new(404, "Transaction not found", "Unable to retrieve transaction status"));
         }
-    }
-}
+    };
 
-use diesel::result::OptionalExtension;
+    // Wallet-ownership check. The legacy handler double-checked
+    // `payments.wallet_address = $wallet`; the port's WHERE
+    // clause does the same check, but the result is also
+    // verified here in case the port is swapped for an HTTP
+    // impl that doesn't filter by wallet.
+    if row.wallet_address.to_lowercase() != wallet_address.to_lowercase() {
+        return Err(UnifiedErrorResponse::new(404, "Transaction not found", "Unable to retrieve transaction status"));
+    }
+
+    if row.status == "confirmed" {
+        tracing::info!(
+            "Returning CONFIRMED status to frontend for tx: {}",
+            tx_hash
+        );
+    }
+
+    let amount = row
+        .amount
+        .parse::<bigdecimal::BigDecimal>()
+        .ok()
+        .and_then(|bd| bd.to_f64());
+
+    Ok(Json(TransactionStatusResponse {
+        success: true,
+        data: TransactionStatusData {
+            transaction_hash: tx_hash,
+            status: row.status,
+            confirmations: row.confirmations.unwrap_or(0),
+            block_number: row.block_number,
+            error_message: row.error_message,
+            payment_reference: Some(row.payment_reference),
+            plan_name: row.plan_name,
+            amount,
+            currency: Some(row.currency),
+            completed_at: row.completed_at,
+            last_checked_at: row.last_checked_at,
+        },
+    }))
+}

@@ -43,9 +43,21 @@ pub fn create_router(
     container: Arc<DomainContainer>,
     notification_port: Option<Arc<dyn epsx_contracts::notification_port::NotificationPort>>,
 ) -> Router {
-  // Use unified route builder - consolidates all 3 previous router systems
+  // Use unified route builder - consolidates all 3 previous router systems.
+  // Wave 11 / Track A: pull the PaymentRepositoryPort and
+  // CreditRepositoryPort accessors from the container so the
+  // 8 cross-pool handler collapses in `web/payments/*` have
+  // a port to call. If the container wasn't initialized with
+  // these (e.g. test harness), the AppState ends up with
+  // `payment_repo = None` and the handlers panic-fast at
+  // startup with a clear "port not wired" message rather
+  // than silently falling back to the cross-pool path.
+  let payment_repo = container.get_payment_repository_port();
+  let credit_repo = container.get_credit_repository_port();
   routes::UnifiedRouteBuilder::new(container.clone())
     .with_notification_port(notification_port)
+    .with_payment_repository_port(payment_repo)
+    .with_credit_repository_port(credit_repo)
     .build()
 }
 

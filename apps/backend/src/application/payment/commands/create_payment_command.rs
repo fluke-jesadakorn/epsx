@@ -185,6 +185,13 @@ mod tests {
     use std::sync::Arc;
     use async_trait::async_trait;
     use crate::domain::payment::value_objects::{Currency, PaymentMethodType, Network};
+    use crate::domain::payment::repository_ports::{
+        ActivateSubscriptionCommand as PortActivateSubscriptionCommand,
+        CreatePaymentCommand as PortCreatePaymentCommand,
+        PaymentRowWithPlanName, Subscription, SubscriptionFilters,
+        AnalyticsWindow, AnalyticsRollup, SubmitTxValidation,
+    };
+    use crate::domain::payment::PaymentStatus;
     
     // Mock payment repository
     struct MockPaymentRepository;
@@ -236,6 +243,67 @@ mod tests {
                 average_amount: PaymentAmount::new(rust_decimal::Decimal::ZERO, crate::domain::payment::Currency::USD).unwrap(),
                 last_payment_date: None,
             })
+        }
+
+        // Wave 11 / Track A: stubs for the 11 new port methods. The
+        // existing test only exercises the create_payment flow, so
+        // these stubs are no-ops returning default values. The new
+        // N+1 / round-trip tests live in the cross-pool adapter's
+        // own test module, not here.
+        async fn get_tx_status_with_plan_name(
+            &self, _tx_hash: &str,
+        ) -> Result<Option<crate::domain::payment::repository_ports::PaymentRowWithPlanName>, String> {
+            Ok(None)
+        }
+        async fn get_admin_payment_details_with_plan_name(
+            &self, _payment_id: PaymentId,
+        ) -> Result<Option<crate::domain::payment::repository_ports::PaymentRowWithPlanName>, String> {
+            Ok(None)
+        }
+        async fn list_user_payments_with_plan_names(
+            &self, _wallet_address: &WalletAddress, _page: u32, _per_page: u32,
+        ) -> Result<Vec<crate::domain::payment::repository_ports::PaymentRowWithPlanName>, String> {
+            Ok(vec![])
+        }
+        async fn list_admin_subscriptions_with_plan_names(
+            &self, _filters: crate::domain::payment::repository_ports::SubscriptionFilters, _page: u32, _per_page: u32,
+        ) -> Result<Vec<(crate::domain::payment::repository_ports::Subscription, Option<String>)>, String> {
+            Ok(vec![])
+        }
+        async fn list_admin_subscriptions_with_plan_names_paginated(
+            &self, _filters: crate::domain::payment::repository_ports::SubscriptionFilters, _page: u32, _per_page: u32,
+        ) -> Result<(Vec<(crate::domain::payment::repository_ports::Subscription, Option<String>)>, u64), String> {
+            Ok((vec![], 0))
+        }
+        async fn get_analytics_rollup(
+            &self, _window: crate::domain::payment::repository_ports::AnalyticsWindow,
+        ) -> Result<crate::domain::payment::repository_ports::AnalyticsRollup, String> {
+            unimplemented!("mock test helper — the round-trip test lives in the cross-pool adapter")
+        }
+        async fn validate_submit_tx(
+            &self, _plan_id: uuid::Uuid, _wallet_address: &WalletAddress,
+        ) -> Result<crate::domain::payment::repository_ports::SubmitTxValidation, String> {
+            unimplemented!("mock test helper — the round-trip test lives in the cross-pool adapter")
+        }
+        async fn create_payment(
+            &self, _cmd: PortCreatePaymentCommand,
+        ) -> Result<Payment, String> {
+            unimplemented!("mock test helper — the round-trip test lives in the cross-pool adapter")
+        }
+        async fn update_payment_status(
+            &self, _payment_id: PaymentId, _new_status: PaymentStatus, _audit_note: Option<String>,
+        ) -> Result<(), String> {
+            Ok(())
+        }
+        async fn grant_subscription(
+            &self, _cmd: PortActivateSubscriptionCommand,
+        ) -> Result<Subscription, String> {
+            unimplemented!("mock test helper — the round-trip test lives in the cross-pool adapter")
+        }
+        async fn revoke_subscription(
+            &self, _subscription_id: uuid::Uuid, _reason: Option<String>,
+        ) -> Result<(), String> {
+            Ok(())
         }
     }
     

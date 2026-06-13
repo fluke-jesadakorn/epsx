@@ -10,6 +10,7 @@ pub mod stock_analysis_repository_adapter;
 pub mod market_data_repository_adapter;
 pub mod tradingview_eps_repository; // TradingView EPS data adapter
 pub mod payment_repository_adapter;
+pub mod payment_repository_adapter_cross_pool; // Wave 11 / Track A — cross-pool port impls
 pub mod mappers;
 
 pub mod wallet_user;

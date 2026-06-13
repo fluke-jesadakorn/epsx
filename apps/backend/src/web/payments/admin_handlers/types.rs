@@ -85,6 +85,35 @@ impl AdminPaymentInfo {
             metadata: pay.metadata.unwrap_or(serde_json::json!({})),
         }
     }
+
+    /// Wave 11 / Track A — create from the port DTO
+    /// (`PaymentRowWithPlanName`) returned by
+    /// `PaymentRepositoryPort::get_admin_payment_details_with_plan_name`.
+    /// The conversion matches the legacy `from_db` 1:1.
+    pub fn from_port_row(
+        row: &crate::domain::payment::repository_ports::PaymentRowWithPlanName,
+    ) -> Self {
+        Self {
+            id: row.id,
+            payment_reference: row.payment_reference.clone(),
+            wallet_address: row.wallet_address.clone(),
+            amount: row.amount.parse::<f64>().unwrap_or(0.0),
+            currency: row.currency.clone(),
+            status: row.status.clone(),
+            plan_id: row.plan_id,
+            plan_name: row.plan_name.clone().unwrap_or_else(|| "Unknown Plan".to_string()),
+            transaction_hash: row.transaction_hash.clone(),
+            contract_address: row.contract_address.clone(),
+            token_address: row.token_address.clone(),
+            block_number: row.block_number,
+            confirmations: row.confirmations.unwrap_or(0),
+            created_at: row.created_at.unwrap_or_else(Utc::now),
+            updated_at: row.updated_at.unwrap_or_else(Utc::now),
+            completed_at: row.completed_at,
+            expires_at: row.expires_at,
+            metadata: row.metadata.clone().unwrap_or(serde_json::json!({})),
+        }
+    }
 }
 
 /// Payment summary statistics

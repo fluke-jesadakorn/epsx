@@ -8,7 +8,9 @@ use crate::infrastructure::cache::Cache;
 use crate::infrastructure::container::DomainContainer;
 use crate::infrastructure::redis::RedisPool;
 use crate::infrastructure::services::audit_service::AuditService;
-use crate::domain::payment::repository_ports::{TransactionHistoryProvider};
+use crate::domain::payment::repository_ports::{
+    PaymentRepositoryPort, CreditRepositoryPort, TransactionHistoryProvider,
+};
 use crate::domain::auth::ports::IdentityProviderPort;
 use epsx_contracts::pubsub_port::PubsubPort;
 
@@ -53,6 +55,20 @@ pub struct AppState {
     /// `AppError::Configuration` when this is `None`, so a missing
     /// port fails fast instead of silently dropping notifications.
     pub notification_port: Option<Arc<dyn NotificationPort>>,
+
+    /// Wave 11 / Track A: `PaymentRepositoryPort` injected into
+    /// the web/payments/* handlers. Replaces the 8 cross-pool
+    /// `get_payments_pool()` + `get_diesel_pool()` reacharounds
+    /// (audit-payments.md §3, §4). In-process impl today; the
+    /// `epsx-payments` binary serves it over HTTP in the
+    /// integration gate.
+    pub payment_repo: Option<Arc<dyn PaymentRepositoryPort>>,
+
+    /// Wave 11 / Track A: `CreditRepositoryPort` injected into
+    /// `web/payments/credit_handlers.rs` and
+    /// `web/payments/submit_tx_handler.rs` (the latter after the
+    /// cross-pool collapse).
+    pub credit_repo: Option<Arc<dyn CreditRepositoryPort>>,
 }
 
 impl AppState {
@@ -104,6 +120,16 @@ impl AppState {
             // `AppError::Configuration` rather than silently dropping
             // notifications.
             notification_port: None,
+            // Wave 11 / Track A — populated by the container
+            // factories via `with_payment_repo` /
+            // `with_credit_repo`. A `None` here means the legacy
+            // direct-pool code paths are still in use; the 8
+            // cross-pool handler collapses REQUIRE these to be
+            // `Some`, so the handlers panic-fast at startup
+            // rather than silently falling back to the
+            // cross-pool path.
+            payment_repo: None,
+            credit_repo: None,
         }
     }
 
@@ -126,6 +152,28 @@ impl AppState {
         port: Option<Arc<dyn NotificationPort>>,
     ) -> Self {
         self.notification_port = port;
+        self
+    }
+
+    /// Wave 11 / Track A — attach the `PaymentRepositoryPort`
+    /// to the AppState. Called by the container factories
+    /// (e.g. `stateless_service_factory::create_auth_app_state`)
+    /// after the in-process adapter is constructed.
+    pub fn with_payment_repo(
+        mut self,
+        port: Option<Arc<dyn PaymentRepositoryPort>>,
+    ) -> Self {
+        self.payment_repo = port;
+        self
+    }
+
+    /// Wave 11 / Track A — attach the `CreditRepositoryPort`
+    /// to the AppState. See `with_payment_repo`.
+    pub fn with_credit_repo(
+        mut self,
+        port: Option<Arc<dyn CreditRepositoryPort>>,
+    ) -> Self {
+        self.credit_repo = port;
         self
     }
 }
