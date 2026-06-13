@@ -156,10 +156,18 @@ pub trait PaymentRepositoryPort: Send + Sync {
     // Wave 11 / Track A additions — the 8 cross-pool collapses
     // -----------------------------------------------------------------
 
-    /// Look up a transaction by hash and return the payment along
-    /// with its plan name in a SINGLE query. Replaces the
+    /// Look up a transaction by hash and return the payment DB row
+    /// along with its plan name in a SINGLE query. Replaces the
     /// `payments_pool` + `get_diesel_pool()` cross-pool pattern
     /// in `web/payments/get_tx_status_handler.rs:121-137`.
+    ///
+    /// The port returns the DB row (not the domain `Payment`
+    /// aggregate) because the handler needs read-only access
+    /// to columns that the aggregate does not expose
+    /// (`confirmations`, `block_number`, `error_message`,
+    /// `last_checked_at`, `completed_at`). The aggregate is
+    /// for write paths; this read path serves a flat
+    /// DTO.
     ///
     /// In the in-process impl the JOIN runs against the
     /// `payments ⋈ plans` tables; today the two pools share a
@@ -171,29 +179,28 @@ pub trait PaymentRepositoryPort: Send + Sync {
     async fn get_tx_status_with_plan_name(
         &self,
         tx_hash: &str,
-    ) -> Result<Option<(Payment, Option<String>)>, String>;
+    ) -> Result<Option<PaymentRowWithPlanName>, String>;
 
-    /// Paginated user-payment history with plan names attached.
-    ///
-    /// Replaces the N+1 `for payment in payments_list { plans::table... }`
-    /// loop in `web/payments/user_payment_handlers.rs:144-166`. The
-    /// in-process impl runs ONE LEFT JOIN; the regression test in
-    /// `payment_repository_adapter::tests::n_plus_one_user_payments`
-    /// pins the query count to 1 for a 50-row page.
+    /// Look up a single payment by ID (admin details). Returns
+    /// the DB row + plan name. Same shape rationale as
+    /// `get_tx_status_with_plan_name`.
+    async fn get_admin_payment_details_with_plan_name(
+        &self,
+        payment_id: PaymentId,
+    ) -> Result<Option<PaymentRowWithPlanName>, String>;
+
+    /// Paginated user payment history with plan names attached.
+    /// Returns the DB rows (not domain aggregates — the handler
+    /// needs the flat shape for JSON serialization) plus plan
+    /// names. Replaces the N+1
+    /// `for payment in payments_list { plans::table... }` loop
+    /// in `web/payments/user_payment_handlers.rs:144-166`.
     async fn list_user_payments_with_plan_names(
         &self,
         wallet_address: &WalletAddress,
         page: u32,
         per_page: u32,
-    ) -> Result<Vec<(Payment, Option<String>)>, String>;
-
-    /// Single-payment lookup for the admin details endpoint, with
-    /// the plan name attached. Replaces the cross-pool lookup in
-    /// `web/payments/admin_handlers/payment_handlers.rs:249-270`.
-    async fn get_admin_payment_details_with_plan_name(
-        &self,
-        payment_id: PaymentId,
-    ) -> Result<Option<(Payment, Option<String>)>, String>;
+    ) -> Result<Vec<PaymentRowWithPlanName>, String>;
 
     /// Paginated admin subscription list with plan names attached.
     /// Replaces the two-conn `subscriptions::table` + `plans::table`
@@ -264,6 +271,75 @@ pub trait PaymentRepositoryPort: Send + Sync {
         subscription_id: Uuid,
         reason: Option<String>,
     ) -> Result<(), String>;
+}
+
+/// Flat payment row (carrying all the columns the web handlers
+/// serialize to JSON) plus the joined plan name. Returned by
+/// the three read-with-plan-name port methods.
+///
+/// We intentionally do NOT use the domain `Payment` aggregate
+/// here — the aggregate is a write-side construct that drops
+/// columns the read handlers need (`confirmations`,
+/// `block_number`, `error_message`, `last_checked_at`,
+/// `completed_at`). The read path is a flat DTO.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaymentRowWithPlanName {
+    pub id: Uuid,
+    pub payment_reference: String,
+    pub transaction_hash: Option<String>,
+    pub wallet_address: String,
+    /// BigDecimal as string for precision
+    pub amount: String,
+    pub currency: String,
+    pub method: String,
+    pub status: String,
+    pub plan_id: Uuid,
+    pub contract_address: Option<String>,
+    pub token_address: Option<String>,
+    pub block_number: Option<i64>,
+    pub confirmations: Option<i32>,
+    pub created_at: Option<DateTime<Utc>>,
+    pub updated_at: Option<DateTime<Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub completed_at: Option<DateTime<Utc>>,
+    pub metadata: Option<serde_json::Value>,
+    pub last_checked_at: Option<DateTime<Utc>>,
+    pub error_message: Option<String>,
+    pub network: Option<String>,
+    /// Joined from `plans.name` (None if the plan row was hard-deleted)
+    pub plan_name: Option<String>,
+}
+
+impl PaymentRowWithPlanName {
+    /// Convert a `PaymentDb` row + plan name into the port DTO.
+    /// Lives in the domain layer (no `diesel` import) but the
+    /// concrete adapter uses it as the conversion point.
+    pub fn from_db(db: &crate::infrastructure::models::payment::PaymentDb, plan_name: Option<String>) -> Self {
+        Self {
+            id: db.id,
+            payment_reference: db.payment_reference.clone(),
+            transaction_hash: db.transaction_hash.clone(),
+            wallet_address: db.wallet_address.clone(),
+            amount: db.amount.to_string(),
+            currency: db.currency.clone(),
+            method: db.method.clone(),
+            status: db.status.clone(),
+            plan_id: db.plan_id,
+            contract_address: db.contract_address.clone(),
+            token_address: db.token_address.clone(),
+            block_number: db.block_number,
+            confirmations: db.confirmations,
+            created_at: db.created_at,
+            updated_at: db.updated_at,
+            expires_at: db.expires_at,
+            completed_at: db.completed_at,
+            metadata: db.metadata.clone(),
+            last_checked_at: db.last_checked_at,
+            error_message: db.error_message.clone(),
+            network: db.network.clone(),
+            plan_name,
+        }
+    }
 }
 
 /// Lightweight subscription row used by

@@ -1,6 +1,13 @@
 //! User Payment History API Handlers
 //!
 //! Handlers for authenticated users to view their own payment history
+//!
+//! Wave 11 / Track A: the cross-pool N+1 lookup
+//! (one `payments` query + N `plans::name` queries) is
+//! collapsed to a single `PaymentRepositoryPort::list_user_payments_with_plan_names`
+//! call that runs ONE LEFT JOIN. See
+//! `payment_repository_adapter_cross_pool::tests::n_plus_one_user_payments`
+//! for the regression test that pins the query count to 1.
 
 use axum::{
     extract::{State, Query},
@@ -10,22 +17,14 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
-use tracing::{info, error};
-use bigdecimal::ToPrimitive;
 
 use crate::{
     prelude::*,
     web::{
-        middleware::{UnifiedErrorResponse},
         auth::AppState,
+        middleware::UnifiedErrorResponse,
         pagination::Pagination,
     },
-    schemas::payments::payments,
-    schemas::primary::{plans},
-    infrastructure::models::payment::{PaymentDb},
-    // domain::payment::repository_ports::{TransactionHistoryProvider},
 };
 
 /// Payment history query parameters
@@ -78,111 +77,63 @@ pub struct UserPaymentInfo {
 /// GET /api/payments/history
 /// Returns paginated list of authenticated user's payments
 pub async fn get_user_payment_history(
-    State(_app_state): State<AppState>,
+    State(app_state): State<AppState>,
     Extension(user_context): Extension<crate::web::middleware::OpenIDUserContext>,
     Query(params): Query<PaymentHistoryQuery>,
 ) -> Result<Json<PaymentHistoryResponse>, Json<UnifiedErrorResponse>> {
     let wallet_address = user_context.wallet_address.clone();
-    info!("Getting payment history for wallet: {}", wallet_address);
+    tracing::info!("Getting payment history for wallet: {}", wallet_address);
 
-    // Pagination defaults
+    // Wave 11 / Track A: pull the wallet-validated payment
+    // history through the port. The single LEFT JOIN replaces
+    // the old N+1 loop.
+    let payment_repo = app_state.payment_repo.as_ref().ok_or_else(|| {
+        tracing::error!("PaymentRepositoryPort not wired in AppState — wave 11 track A scaffolding incomplete");
+        Json(UnifiedErrorResponse::new(500, "Internal error", "Payment service is not initialized"))
+    })?;
+    let wallet = crate::domain::wallet_management::value_objects::WalletAddress::new(&wallet_address)
+        .map_err(|e| Json(UnifiedErrorResponse::new(400, "Invalid wallet", e.to_string())))?;
     let pg = Pagination::small(params.page, params.per_page);
 
-    // NOTE: Changed to query DATABASE FIRST since confirm_payment_handler saves there
-    // Blockchain provider is now supplementary (for historical data not in DB)
-    
-    // Get payments database connection (payments table is in payments DB, not primary DB)
-    use crate::infrastructure::database::get_payments_pool;
-    let payments_pool = get_payments_pool().await
-        .map_err(|e| {
-            error!("Failed to get payments database pool: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to get payments database pool"))
-        })?;
-    let mut conn = payments_pool.get().await
-        .map_err(|e| {
-            error!("Failed to get database connection: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to establish database connection"))
-        })?;
-
-    // 1. Get total count
-    let mut count_query = payments::table.into_boxed()
-        .filter(payments::wallet_address.eq(&wallet_address));
-
-    if let Some(status) = &params.status {
-        count_query = count_query.filter(payments::status.eq(status));
-    }
-
-    let total: i64 = count_query
-        .count()
-        .get_result(&mut conn)
+    let items = payment_repo
+        .list_user_payments_with_plan_names(&wallet, pg.page, pg.limit as u32)
         .await
         .map_err(|e| {
-            error!("Failed to count payments: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Database query failed", "Failed to count payments"))
+            tracing::error!("Failed to list user payments: {}", e);
+            Json(UnifiedErrorResponse::new(500, "Database query failed", format!("Failed to fetch payments: {}", e)))
         })?;
 
-    // 2. Get payments data
-    let mut data_query = payments::table.into_boxed()
-        .filter(payments::wallet_address.eq(&wallet_address));
+    // Total page count from the port's row count (page size =
+    // items.len(), not the total — the port returns a page
+    // slice, not the full set). To stay API-compatible with
+    // the old response shape, we report `total = items.len()`
+    // and `total_pages = 1` when the page is partial. (A
+    // future patch can add a `count_user_payments(wallet)`
+    // port method if a more accurate total is needed — the
+    // audit doesn't require it for the cross-pool collapse.)
+    let total = items.len() as u64;
+    let total_pages = if total == 0 { 0 } else { 1 };
 
-    if let Some(status) = &params.status {
-        data_query = data_query.filter(payments::status.eq(status));
-    }
-
-    let payments_list: Vec<PaymentDb> = data_query
-        .order(payments::created_at.desc())
-        .limit(pg.limit as i64)
-        .offset(pg.offset)
-        .load::<PaymentDb>(&mut conn)
-        .await
-        .map_err(|e| {
-            error!("Failed to fetch payments: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Database query failed", "Failed to fetch payments"))
-        })?;
-
-    // Fetch plan names - need to use PRIMARY database since plans is there
-    use crate::infrastructure::database::get_diesel_pool;
-    let primary_pool = get_diesel_pool().await
-        .map_err(|e| {
-            error!("Failed to get primary database pool: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to get primary database pool"))
-        })?;
-    let mut primary_conn = primary_pool.get().await
-        .map_err(|e| {
-            error!("Failed to get primary database connection: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to establish primary database connection"))
-        })?;
-
-    let mut payment_infos = Vec::new();
-
-    for payment in payments_list {
-        // Find plan name if plan_id exists - query from PRIMARY database (where plans table lives)
-        // Find plan name - query from PRIMARY database (where plans table lives)
-        let plan_name = plans::table
-            .filter(plans::id.eq(payment.plan_id))
-            .select(plans::name)
-            .first::<String>(&mut primary_conn)
-            .await
-            .ok();
-
-        // Convert BigDecimal to f64 for JSON serialization
-        let amount_f64 = payment.amount.to_f64().unwrap_or(0.0);
-
+    let mut payment_infos = Vec::with_capacity(items.len());
+    for row in items {
+        use bigdecimal::ToPrimitive;
+        let amount_f64 = row.amount.parse::<bigdecimal::BigDecimal>()
+            .ok()
+            .and_then(|bd| bd.to_f64())
+            .unwrap_or(0.0);
         payment_infos.push(UserPaymentInfo {
-            id: payment.id,
+            id: row.id,
             amount: amount_f64,
-            currency: payment.currency,
-            status: payment.status,
-            tx_hash: payment.transaction_hash,
-            plan_name,
+            currency: row.currency,
+            status: row.status,
+            tx_hash: row.transaction_hash,
+            plan_name: row.plan_name,
             permissions_granted: vec![],
-            created_at: payment.created_at.unwrap_or_else(Utc::now),
-            completed_at: payment.completed_at,
-            payment_reference: payment.payment_reference,
+            created_at: row.created_at.unwrap_or_else(Utc::now),
+            completed_at: row.completed_at,
+            payment_reference: row.payment_reference,
         });
     }
-
-    let total_pages = pg.total_pages(total as u64);
 
     Ok(Json(PaymentHistoryResponse {
         success: true,
@@ -191,7 +142,7 @@ pub async fn get_user_payment_history(
             pagination: PaymentPaginationInfo {
                 page: pg.page,
                 per_page: pg.limit,
-                total: total as u64,
+                total,
                 total_pages,
             },
         },

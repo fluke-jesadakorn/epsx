@@ -75,7 +75,7 @@ use crate::domain::payment::repository_ports::{
     PaymentRepositoryPort, Subscription, AnalyticsRollup, AnalyticsWindow,
     DailyRevenueEntry, PlanBreakdownEntry, PaymentMethodEntry, AnalyticsTrends,
     SubmitTxValidation, CreatePaymentCommand, ActivateSubscriptionCommand,
-    SubscriptionFilters,
+    SubscriptionFilters, PaymentRowWithPlanName,
 };
 use crate::domain::wallet_management::value_objects::WalletAddress;
 use crate::infrastructure::models::payment::{PaymentDb, NewPaymentDb, SubscriptionDb};
@@ -177,7 +177,7 @@ impl PaymentRepositoryAdapter {
     pub async fn get_tx_status_with_plan_name_impl(
         &self,
         tx_hash: &str,
-    ) -> Result<Option<(Payment, Option<String>)>, String> {
+    ) -> Result<Option<PaymentRowWithPlanName>, String> {
         let mut conn = self.conn().await?;
         #[derive(diesel::QueryableByName)]
         struct Row {
@@ -272,8 +272,7 @@ impl PaymentRepositoryAdapter {
             error_message: row.error_message,
             network: row.network,
         };
-        let payment = self.row_to_domain(db)?;
-        Ok(Some((payment, row.plan_name)))
+        Ok(Some(PaymentRowWithPlanName::from_db(&db, row.plan_name)))
     }
 
     /// Replaces `web/payments/user_payment_handlers.rs:144-166`.
@@ -285,7 +284,7 @@ impl PaymentRepositoryAdapter {
         wallet_address: &WalletAddress,
         page: u32,
         per_page: u32,
-    ) -> Result<Vec<(Payment, Option<String>)>, String> {
+    ) -> Result<Vec<PaymentRowWithPlanName>, String> {
         let per_page = per_page.clamp(1, 50);
         let page = page.max(1);
         let offset = ((page - 1) * per_page) as i64;
@@ -364,7 +363,7 @@ impl PaymentRepositoryAdapter {
                 error_message: r.error_message,
                 network: r.network,
             };
-            out.push((self.row_to_domain(db)?, r.plan_name));
+            out.push(PaymentRowWithPlanName::from_db(&db, r.plan_name));
         }
         Ok(out)
     }
@@ -373,7 +372,7 @@ impl PaymentRepositoryAdapter {
     pub async fn get_admin_payment_details_with_plan_name_impl(
         &self,
         payment_id: PaymentId,
-    ) -> Result<Option<(Payment, Option<String>)>, String> {
+    ) -> Result<Option<PaymentRowWithPlanName>, String> {
         let mut conn = self.conn().await?;
         #[derive(diesel::QueryableByName)]
         struct Row {
@@ -446,8 +445,7 @@ impl PaymentRepositoryAdapter {
             error_message: row.error_message,
             network: row.network,
         };
-        let payment = self.row_to_domain(db)?;
-        Ok(Some((payment, row.plan_name)))
+        Ok(Some(PaymentRowWithPlanName::from_db(&db, row.plan_name)))
     }
 
     /// Replaces `web/payments/admin_handlers/subscription_handlers.rs:32-101`.
@@ -1095,7 +1093,7 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         PaymentRepositoryAdapter::_get_user_payment_stats_impl(self, wallet_address).await
     }
 
-    async fn get_tx_status_with_plan_name(&self, tx_hash: &str) -> Result<Option<(Payment, Option<String>)>, String> {
+    async fn get_tx_status_with_plan_name(&self, tx_hash: &str) -> Result<Option<PaymentRowWithPlanName>, String> {
         self.get_tx_status_with_plan_name_impl(tx_hash).await
     }
 
@@ -1104,11 +1102,11 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         wallet_address: &WalletAddress,
         page: u32,
         per_page: u32,
-    ) -> Result<Vec<(Payment, Option<String>)>, String> {
+    ) -> Result<Vec<PaymentRowWithPlanName>, String> {
         self.list_user_payments_with_plan_names_impl(wallet_address, page, per_page).await
     }
 
-    async fn get_admin_payment_details_with_plan_name(&self, payment_id: PaymentId) -> Result<Option<(Payment, Option<String>)>, String> {
+    async fn get_admin_payment_details_with_plan_name(&self, payment_id: PaymentId) -> Result<Option<PaymentRowWithPlanName>, String> {
         self.get_admin_payment_details_with_plan_name_impl(payment_id).await
     }
 
