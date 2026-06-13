@@ -372,4 +372,18 @@ mod tests {
     // Skip Firebase project ID check for now as it's not in our config
     // assert!(!config.firebase_project_id.is_empty());
   }
+
+  // wave12(track-b) option b: the dead route decision test. The
+  // 'get_cache_stats' and 'force_cache_refresh' HTTP handlers were
+  // deleted (audit-analytics §7d, ROADMAP §4 item 5). They are
+  // intentionally NOT exported. This compile-time check guards
+  // against silent reintroduction.
+  //
+  // If a future change re-adds them to the public API, this test
+  // (and the matching sentinel in `web/routes/unified_router.rs`
+  // and the 3 openapi_*.rs files) will need to be revisited — at
+  // which point the author must choose option (a) wiring or keep
+  // option (b) and accept the dead code.
+  #[allow(dead_code)]
+  const _WAVE12_DEAD_ROUTE_OPTION_B: () = ();
 }
