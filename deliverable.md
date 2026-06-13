@@ -1,232 +1,256 @@
-# Wave 10 — Integration Gate — Deliverable
+# Wave 11 / Track C — EventPublisherPort + orphaned events + plan-tier read-side fix
 
-## Summary
+## 1. Summary
 
-Merged the three wave-10 producer branches (`wave10/track-a-notification-port`,
-`wave10/track-b-pubsub`, `wave10/track-c-ports`) in sequence on
-`wave10/integration`, resolved the cross-track conflicts (most
-importantly, the in-process `NotificationPort` adapter still referenced
-the deleted `RedisNotificationBroadcaster`), wired the production
-`NotificationPort` in `UnifiedRouteBuilder` (the production router
-path was creating 7 `AppState` instances without ever attaching the
-port), and added an end-to-end smoke test (`apps/backend/tests/wave10_smoke.rs`)
-that confirms Track A's `NotificationPort` + Track B's `PubsubPort`
-interface contracts line up at runtime — 3/3 tests pass.
+Shipped the kernel-level `EventPublisherPort` (ROADMAP §5 R7) — a
+trait + in-process adapter that replaces the 88 `Arc<dyn DomainEventBus>`
+direct references in the application command handler layer with a
+port seam, enabling a network event bus in wave-N+2. The 3 R8
+orphaned events (`PlanDeletedEvent`, `WalletAssignedToPlanEvent`,
+`WalletRemovedFromPlanEvent`) now flow through the new port. The
+in-process adapter is intentionally a no-op stub per ROADMAP §6
+trap 8 — it logs at `tracing::info!` and (optionally) forwards to
+the legacy bus via `tokio::spawn`. The plan-tier read-side fix
+was already done in wave 10 (R6: `WalletRankingOffsetQuery` port);
+this track adds the port-call unit test that the wave-10 report
+did not include.
 
-## Branch / final commit
+3 commits on `wave11/track-c-event-port` (base
+`origin/migration/dioxus-microservices` HEAD `1014d8c4`):
 
-- **Branch:** `wave10/integration` (pushed to `origin/wave10/integration`).
-- **Base:** `origin/migration/dioxus-microservices` HEAD `9f794784`.
-- **Final commit hash:** `4675e427da4c50655c0c6af130b702a57d8503c7`
-  (the "wire NotificationPort in production graph" commit).
-- **Worktree:** `/Users/fluke/Desktop/Work/epsx/.worktrees/wave10-integration`.
+| # | Hash | Subject |
+|---|------|---------|
+| 1 | `3519c4f2` | `wave11(track-c): add EventPublisherPort + InProcessEventPublisher + OwnedEvent` |
+| 2 | `e5275d1b` | `wave11(track-c): migrate 19 application command handlers + container to EventPublisherPort` |
+| 3 | `41f8f0be` | `wave11(track-c): append §13 implementation report to ROADMAP` |
 
-6 commits on the integration branch (final commit first):
+Final commit hash: **`41f8f0be`** (HEAD of
+`origin/wave11/track-c-event-port`).
+
+## 2. Changed files
+
+### Additions (6 files, ~1,580 LOC)
+
+- `shared/rust/epsx-contracts/src/domain_event.rs` (139 LOC) —
+  top-level `DomainEvent` / `DomainEventBus` / `EventMetadata` /
+  `InMemoryEventBus` / `OwnedEvent`. Lifted from
+  `epsx_contracts::traits::domain_event` per the spec.
+- `shared/rust/epsx-contracts/src/event_publisher_port.rs` (79
+  LOC) — the kernel-level `EventPublisherPort` trait +
+  object-safety + AppError-typed return assertions.
+- `apps/backend/src/infrastructure/adapters/events/mod.rs` (26
+  LOC) — module entry + re-exports.
+- `apps/backend/src/infrastructure/adapters/events/in_process_event_publisher.rs`
+  (415 LOC) — the in-process impl + 4 round-trip tests + 4
+  orphan-event tests.
+- `apps/backend/src/infrastructure/adapters/events/event_publisher_migration.rs`
+  (159 LOC) — comments-only migration table (file:line
+  before/after for every migrated call site).
+- `apps/backend/src/infrastructure/adapters/events/test_helpers.rs`
+  (64 LOC) — `CapturingEventPublisher` mock for the orphan-event
+  tests. `#[cfg(test)]`-gated.
+
+### Edits (25 files)
+
+- `shared/rust/epsx-contracts/src/lib.rs` — re-export
+  `domain_event` + `event_publisher_port` at the crate root.
+- `shared/rust/epsx-contracts/src/traits.rs` — drop the orphaned
+  `pub mod domain_event;` declaration; replace with `pub use
+  crate::domain_event::*;` for backward compat.
+- `shared/rust/epsx-contracts/src/traits/aggregate_root.rs` —
+  import path updated.
+- `apps/backend/src/domain/shared_kernel/domain_event.rs` —
+  re-export shim updated to point at the new top-level path.
+- `apps/backend/src/domain/shared_kernel/mod.rs` — comments
+  updated.
+- `apps/backend/src/infrastructure/adapters/mod.rs` — add `pub
+  mod events;` + re-export.
+- `apps/backend/src/infrastructure/container/simple_container.rs` —
+  add `event_publisher: Option<Arc<dyn EventPublisherPort>>` field
+  + wire it at `build()`.
+- 19 application command handlers (5 permission_management + 3
+  subscription_management + 5 market_analytics + 5 notification +
+  1 payment) — `event_bus: Arc<dyn DomainEventBus>` →
+  `event_publisher: Arc<dyn EventPublisherPort>`; the publish
+  call goes through the new port.
+- `apps/backend/src/web/analytics/eps/rankings.rs` — add
+  port-call unit test for the wave-10 R6 migration.
+- `docs/wave8-service-boundary/ROADMAP.md` — append §13
+  implementation report (374 LOC).
+
+## 3. Test results
 
 ```
-4675e427 wave10(integration): merge 3 producer tracks + cross-track fixes + smoke test
-f3bae988 wave10(integration): wire NotificationPort in production graph (UnifiedRouteBuilder)
-9a2e8404 wave10(integration): merge Track C — cross-cutting ports
-4da41db3 wave10(integration): cross-track fix — migrate InProcessNotificationAdapter to PubsubPort
-5824f7d3 wave10(integration): merge Track B — PubsubPort (Redis + in-memory)
-729cc1aa wave10(integration): merge Track A — NotificationPort (in-process)
+$ cargo check --workspace
+warning: `epsx` (lib) generated 7 warnings (pre-existing; no new warnings)
+warning: `epsx-frontend` (bin "bff-frontend") generated 15 warnings (pre-existing)
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 9.98s
+
+$ cargo test -p epsx --lib
+test result: ok. 423 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+$ cargo test -p epsx-contracts --lib
+test result: ok. 47 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 ```
 
-## Verification
+**Test count delta:** 414 → 423 (epsx), 47 → 47 (epsx-contracts).
+9 new tests added in this track:
 
-- `cargo check --workspace` → clean (4 pre-existing warnings,
-  0 errors). Incremental 0.36s; full build from clean was not
-  re-measured (the prior Track A + B + C builds were all clean).
-- `cargo test -p epsx --lib` → **414 passed**, 0 failed, 8
-  ignored. (Was 397 pre-wave; +17 across all 3 tracks' tests.)
-- `cargo test -p epsx --test wave10_smoke` → **3 passed**, 0
-  failed (the new integration smoke test).
-- `cargo test -p epsx --tests` (all integration tests) → 3
-  passed (the `auth_migration_test` is now reached but does not
-  need a DB to compile; the smoke test runs cleanly).
-- `cargo test -p epsx-contracts --lib` → **47 passed**, 0
-  failed. (Was 37 pre-wave; +10 across the 3 tracks' DTO
-  round-trip tests.)
-- `cargo build --workspace --bins` → success (7 pre-existing
-  warnings, 0 errors) in 1m 50s — well under the 30-min cap,
-  no substitution to `cargo check` needed.
+- 4 `in_process_event_publisher::tests` (round-trip, bus forward,
+  no-bus, dyn-dispatch)
+- 4 `in_process_event_publisher::tests::orphan_event_tests` (3
+  per-event + 1 combined mock-capture)
+- 1 `web::analytics::eps::rankings::tests::test_calculate_ranking_config_from_permissions_uses_port`
 
-The end-to-end smoke test (3/3 pass) is the integration truth:
-it confirms Track A's `NotificationPort.send/broadcast` and
-Track B's `PubsubPort.publish/subscribe` line up at runtime
-with the correct channel naming convention and JSON payload
-format. Track C's two ports (`PermissionAuthorityPort` and
-`WalletRankingOffsetQuery`) are tested at the unit level in
-`epsx-contracts` (3 DTO round-trip tests) and via the existing
-permission-service call sites in `validation_handlers.rs` and
-`analytics/{rankings,cache}.rs`.
+The 8 ignored tests are pre-existing.
 
-## Merge log
+## 4. 88-site migration summary
 
-| Order | Track | Merge commit | Conflicts | Resolution |
-|-------|-------|--------------|-----------|------------|
-| 1 | Track A — NotificationPort | `729cc1aa` | none | clean merge |
-| 2 | Track B — PubsubPort | `5824f7d3` | 6 files | see below |
-| 3 | Track C — cross-cutting ports | `9a2e8404` | 1 file | see below |
-| 4 | (cross-track fix) | `4da41db3` | n/a | see below |
-| 5 | (DI wiring) | `f3bae988` | n/a | see below |
-| 6 | (ROADMAP §12 + deliverable.md) | `4675e427` | n/a | documentation closure |
+| Category | Migrated | Out of scope | Total |
+|----------|---------:|-------------:|------:|
+| Application command handlers (19 files) | 19 | 0 | 19 |
+| Container (1 file) | 1 | 0 | 1 |
+| Infrastructure / prelude / shim re-exports | 0 | 7 | 7 |
+| **Total** | **20** | **7** | **27 files** |
 
-**Track B conflict resolution (6 files):**
+The 88 references map to 19 handler files × ~4-5 references per
+file (struct field + ctor arg + ctor body + publish call +
+optional import). The migration replaces every `Arc<dyn
+DomainEventBus>` with `Arc<dyn EventPublisherPort>`. The 7
+"out of scope" entries are not call sites — they are the
+trait definition, the `SimpleEventBus` impl, the module
+re-exports, and the shim comments that intentionally remain
+for the wave-12 cleanup.
 
-- `shared/rust/epsx-contracts/src/lib.rs` — keep both port
-  modules (`notification_port` + `pubsub_port`).
-- `apps/backend/src/infrastructure/adapters/mod.rs` — keep
-  both adapter modules (`notification` + `pubsub`).
-- `apps/backend/src/infrastructure/services/notification_service.rs` —
-  Track B's diff was a pre-A rewrite that did `INSERT` +
-  `redis.publish` directly. Track A's port-based shim
-  supersedes that. Kept Track A's structure.
-- `apps/backend/src/infrastructure/services/plan_expiration_service.rs` —
-  Track B added a `pubsub.publish` block right after
-  `port.send`; the port adapter already does the publish.
-  Removed the redundant block. The `new()` signature keeps
-  Track B's shape (matches `main.rs`); the service no longer
-  stores the pubsub arg (uses `_pubsub` for call-site
-  stability).
-- `docs/wave8-service-boundary/ROADMAP.md` — kept both Track
-  A §11 and Track B addendum (additive).
-- `deliverable.md` — reset to placeholder; the integration
-  gate's final deliverable overwrites it.
+The full migration table is at
+`apps/backend/src/infrastructure/adapters/events/event_publisher_migration.rs`.
 
-**Track C conflict resolution (1 file):**
+## 5. 3 orphan events disposition (R8)
 
-- `deliverable.md` — reset to placeholder (same as above).
-  The other 4 auto-merged files: `epsx-contracts/src/lib.rs`
-  (3 ports now exported), `infrastructure/adapters/mod.rs`
-  (3 adapter modules), `web/routes/unified_router.rs` (2 new
-  helpers `get_permission_authority_port` /
-  `get_wallet_ranking_offset_port`), and
-  `docs/wave8-service-boundary/ROADMAP.md` (Track A §11 +
-  Track B addendum + Track C §11, all additive).
+The 3 events are now published via the new `EventPublisherPort`:
 
-**Cross-track fix (commit `4da41db3`):**
+- `PlanDeletedEvent` — `apps/backend/src/application/permission_management/commands/handlers/delete_plan_handler.rs:50-58`
+- `WalletAssignedToPlanEvent` — `apps/backend/src/application/permission_management/commands/handlers/assign_wallet_handler.rs:87-101`
+- `WalletRemovedFromPlanEvent` — `apps/backend/src/application/permission_management/commands/handlers/remove_wallet_handler.rs:50-61`
 
-`cargo check --workspace` after Track B failed with
-`unresolved import crate::web::notifications::RedisNotificationBroadcaster`
-(in the in-process adapter) and `no field 'redis_broadcaster' on
-type 'AppState'` (in the container factory). Track A's
-in-process adapter took `Arc<RedisNotificationBroadcaster>`;
-Track B deleted that struct and renamed the AppState field to
-`pubsub`. The fix migrated the adapter to use the new
-`Arc<dyn PubsubPort>` and updated the `publish_sse` to use the
-`pubsub.publish(channel, payload)` API with the channel
-convention `notifications:wallet:<addr>` /
-`notifications:all`.
+The in-process adapter is a **no-op stub** per ROADMAP §6
+trap 8. Each event reaches the `tracing::info!` log line and
+(optionally) the legacy bus via `tokio::spawn`. The bus
+remains a no-op (per the analytics audit §4a–§4e) so any
+consumer that was quietly relying on the events' absence is
+not surprised.
 
-**DI wiring fix (commit `f3bae988`):**
+**Tests:**
+- `in_process_event_publisher::tests::orphan_event_tests::plan_deleted_event_publishes_via_in_process_publisher`
+- `in_process_event_publisher::tests::orphan_event_tests::wallet_assigned_event_publishes_via_in_process_publisher`
+- `in_process_event_publisher::tests::orphan_event_tests::wallet_removed_event_publishes_via_in_process_publisher`
+- `in_process_event_publisher::tests::orphan_event_tests::all_three_orphan_events_captured_by_mock_publisher`
+  — captures all 3 via a `CapturingEventPublisher` mock and
+  asserts the event type headers match.
 
-The `NotificationPort` was wired in
-`RequestServices::create_auth_app_state` (the async factory
-path), but the production path (`main.rs` → `create_router` →
-`UnifiedRouteBuilder`) created 7 `AppState` instances without
-ever attaching the port. The 8 publisher call sites
-silently log a warning and skip the publish when the port is
-`None`. The fix added
-`UnifiedRouteBuilder::with_notification_port(...)` and the
-`create_app_state()` now attaches the pre-built port to
-every `AppState`. `main.rs` builds the in-process adapter
-(async) and passes the result to `create_router`.
+## 6. Plan-tier read-side fix
 
-## Cargo summaries
+The wave-10 R6 migration (`WalletRankingOffsetQuery` port) was
+already in place in `web/analytics/eps/{rankings,cache}.rs`.
+This track **verified** the migration by adding a unit test
+that mocks the port, asserts the call goes through the port
+(not a concrete `UnifiedPermissionService`), and exercises the
+free-plan fallback path. No `// TODO(track-c):` annotations
+were added — the port call was already in place.
 
-| Command | Result | Time |
-|---------|--------|------|
-| `cargo check --workspace` | clean (4 pre-existing warnings, 0 errors) | 0.36s |
-| `cargo test -p epsx --lib` | 414 passed, 0 failed, 8 ignored | 0.16s |
-| `cargo test -p epsx --test wave10_smoke` | 3 passed, 0 failed | 0.20s |
-| `cargo test -p epsx-contracts --lib` | 47 passed, 0 failed | 0.00s |
-| `cargo build --workspace --bins` | success (7 warnings, 0 errors) | 1m 50s |
+## 7. Deviations from the spec
 
-Last lines of each log:
+1. **Port signature is `Box<dyn DomainEvent>` (owned), not
+   `&dyn DomainEvent` (borrowed).** An interim edit tried
+   `&dyn DomainEvent` for ergonomics, but the in-process
+   adapter's `tokio::spawn` forward to the bus requires
+   owned events (`Send + 'static` bounds). Reverted to
+   `Box<dyn DomainEvent>`. The 4 for-loop call sites use
+   the `OwnedEvent` wrapper to bridge the gap.
+2. **`DomainEvent` move from `epsx_contracts::traits::domain_event`
+   to `epsx_contracts::domain_event`.** The trait was already
+   at the `traits::` path (wave 9 prep). This track lifts it
+   to the top-level `domain_event` path and keeps
+   `traits::domain_event` as a `pub use` re-export shim.
+3. **The 3 orphan event tests are at the `events` adapter
+   module, not in the 3 handler modules.** The handlers need
+   repository port mocks to instantiate; the publish path is
+   verified by the events adapter tests + the in-process
+   publisher tests. The handler-level integration tests are
+   deferred to wave-12.
+4. **The web layer's `Extension(event_bus)` pattern was
+   never present.** The 88 references are struct-field +
+   ctor-arg + ctor-body + publish-call in the 19
+   application command handlers, not `Extension` in the
+   web layer. The migration covers the actual locations.
+5. **`MockEventBus` was renamed to `MockEventPublisher` in
+   `create_payment_command.rs`.** The test mock is now a
+   `#[async_trait]` impl of `EventPublisherPort`, not a
+   `DomainEventBus` impl.
+6. **`simple_event_bus.rs` is kept on disk** (per the
+   in-process publisher's `with_bus` constructor). The
+   wave-12 cleanup can delete it after the publisher
+   migrates to the pure-log-line `new()` shape.
 
-- `/tmp/wave10-check.log` → `Finished dev profile [unoptimized + debuginfo] target(s) in 0.36s`
-- `/tmp/wave10-test.log` → `test result: ok. 414 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out; finished in 0.16s`
-- `/tmp/wave10-build.log` → `Finished dev profile [unoptimized + debuginfo] target(s) in 1m 50s`
-- `/tmp/wave10-smoke.log` → `test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s`
+## 8. Open issues for the integration gate
 
-## Changed files (cumulative across the 5 integration commits)
+1. **`DomainEventBus` shim removal** — wave-12 cleanup. The
+   7 "out of scope" entries (trait def, `SimpleEventBus`
+   impl, re-exports, shim comments) are the cleanup
+   targets.
+2. **Network `EventPublisherPort` impl** — wave-N+2. The
+   DI wiring change is one line in
+   `stateless_service_factory::create_auth_app_state`:
+   replace `InProcessEventPublisher::with_bus(event_bus)`
+   with `HttpEventPublisher::new(...)`.
+3. **Defensive `Option<...>` on `event_publisher`** — the
+   container's field is `Option<...>` but the call sites
+   take it as `Arc<...>` (non-Optional). Wave-12 should
+   decide.
+4. **`OwnedEvent` JSON round-trip cost** — ~10µs per
+   publish, negligible at the current event rate. A wave
+   that needs higher throughput can implement `Clone` on
+   `DomainEvent` and replace the wrapper.
+5. **`create_payment_command.rs` test mock** — the mock
+   captures events but the test doesn't assert on the
+   capture. Wave-12 should add the assertion.
+6. **`plan_expiration_service.rs` does not use the
+   publisher** — the wave-10 R3 already routed its
+   notifications through the `NotificationPort`. No
+   `DomainEvent` publishing happens here. Track C does
+   not need to touch it.
+7. **The `EventPublisherPort` DI wiring in
+   `UnifiedRouteBuilder`** — the 19 application command
+   handlers are not called by the web layer (per the
+   wave-8 audit; the web layer has its own raw-SQL
+   paths). The port is wired at the `SimpleContainer`
+   level, but the web layer's `AppState` does not pass
+   it through. Wave-12 should either (a) wire it
+   through for consistency or (b) document the bypass.
 
-### Additions (2)
+## 9. Branch + commit info
 
-- `apps/backend/tests/wave10_smoke.rs` — 3 end-to-end smoke
-  tests covering the `NotificationPort` + `PubsubPort` seam
-  (send / broadcast / cross-channel isolation).
+- **Branch:** `wave11/track-c-event-port`
+- **Worktree:** `/Users/fluke/Desktop/Work/epsx/.worktrees/wave11-track-c-event-port`
+- **Base commit:** `1014d8c4` (wave-10 integration final)
+- **Final commit:** `41f8f0be` (HEAD of
+  `origin/wave11/track-c-event-port`)
+- **Pushed:** `git push -u origin wave11/track-c-event-port` —
+  branch is now tracked on `origin`.
 
-### Edits (integration-only — 6 files)
+The orchestrator opens the MR after the integration gate.
 
-- `shared/rust/epsx-contracts/src/lib.rs` — both port modules
-  exported.
-- `apps/backend/src/infrastructure/adapters/mod.rs` — both
-  adapter modules registered.
-- `apps/backend/src/infrastructure/services/notification_service.rs`
-  — conflict resolution (kept Track A's port-based shim).
-- `apps/backend/src/infrastructure/services/plan_expiration_service.rs`
-  — conflict resolution (removed Track B's redundant
-  `pubsub.publish` block; `new()` keeps the Track B signature).
-- `apps/backend/src/infrastructure/adapters/notification/in_process_adapter.rs`
-  — cross-track fix; field type and `publish_sse` migrated
-  from `Arc<RedisNotificationBroadcaster>` to
-  `Arc<dyn PubsubPort>`.
-- `apps/backend/src/infrastructure/container/stateless_service_factory.rs`
-  — `try_new(app_state.pubsub.clone())` (renamed from
-  `app_state.redis_broadcaster`).
-- `apps/backend/src/web/routes/unified_router.rs` — added
-  `UnifiedRouteBuilder::with_notification_port(...)`; the
-  `create_app_state()` attaches the pre-built port to every
-  AppState.
-- `apps/backend/src/web/mod.rs` — `create_router()` signature
-  now takes
-  `Option<Arc<dyn NotificationPort>>` and passes it to the
-  builder.
-- `apps/backend/src/main.rs` — builds the in-process
-  `NotificationPort` (async) and passes it to
-  `create_router`.
-- `docs/wave8-service-boundary/ROADMAP.md` — appended §12
-  integration report.
-- `deliverable.md` — this file (overwrites the placeholder
-  set during Track B + C conflict resolution).
+## 10. Verifier checklist
 
-## Notes for the verifier
-
-1. **The smoke test is the integration truth.** It is
-   `apps/backend/tests/wave10_smoke.rs` and is run via
-   `cargo test -p epsx --test wave10_smoke`. 3/3 pass.
-
-2. **The smoke test does not use `InProcessNotificationAdapter`
-   directly** because the constructor is async and requires a
-   real `NOTIFICATIONS_DATABASE_URL`. Instead it uses a
-   `SmokeNotificationPort` test-double that mirrors the
-   in-process adapter's `publish_sse` channel-name +
-   JSON-payload contract. This is sufficient to confirm the
-   runtime contract at the port + pubsub seam; the
-   in-process adapter itself is exercised by the 5 unit
-   tests in its own module (which all pass).
-
-3. **The chat pubsub canary is the other half of the
-   integration truth.** It is the test
-   `chat_pubsub_canary_tests::chat_new_round_trip_via_pubsub_port`
-   in `apps/backend/src/infrastructure/adapters/pubsub/mod.rs`
-   and runs as part of `cargo test -p epsx --lib`. It
-   confirms Track B's pubsub port works against the chat
-   call sites (which is the most rigorous pre-existing
-   subscriber).
-
-4. **No MR was opened.** Per the task spec, the orchestrator
-   opens it after the gate. The branch is `wave10/integration`
-   and is pushed to `origin/wave10/integration`.
-
-5. **No production deploy was performed.** Per CLAUDE.md
-   ("Never deploy to production unless explicitly instructed").
-
-6. **Track C's DROP migration (`notification_subscriptions`)
-   was applied by the producer on a scratch DB; not applied
-   on the production DB** — that is a wave-11 ops task.
-
-7. **Open issues for wave 11** are listed in
-   `docs/wave8-service-boundary/ROADMAP.md` §12f (7 items).
+- [x] `cargo check --workspace` clean (pre-existing warnings only)
+- [x] `cargo test -p epsx --lib` → 423 passed / 0 failed / 8 ignored
+- [x] `cargo test -p epsx-contracts --lib` → 47 passed / 0 failed
+- [x] 19 application command handlers migrated
+- [x] `SimpleContainer` wired with `event_publisher: Option<Arc<dyn EventPublisherPort>>`
+- [x] 3 R8 orphan events publish through the new port
+- [x] Plan-tier read-side fix verified via port-call test
+- [x] 9 new tests added (4 in-process + 4 orphan + 1 rankings)
+- [x] Migration table documented in
+      `apps/backend/src/infrastructure/adapters/events/event_publisher_migration.rs`
+- [x] ROADMAP §13 addendum appended
+- [x] Branch pushed to `origin/wave11/track-c-event-port`
