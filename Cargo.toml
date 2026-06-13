@@ -30,6 +30,7 @@ members = [
     "apps/frontend",
     "apps/admin",
     "apps/backend",
+    "apps/analytics",
     "apps/pay",
     "apps/preview",
 ]

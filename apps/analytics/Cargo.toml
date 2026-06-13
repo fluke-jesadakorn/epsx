@@ -1,0 +1,46 @@
+[package]
+name = "epsx-analytics-service"
+version.workspace = true
+edition.workspace = true
+description = "EPSX Analytics microservice binary (wave 12 track A — market-analytics lift)"
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+default-run = "epsx-analytics-service"
+
+[[bin]]
+name = "epsx-analytics-service"
+path = "src/main.rs"
+
+[dependencies]
+# The monolith library — we re-export the moved domain/application/web
+# subtrees from here so the new binary compiles against the same
+# `epsx::domain::market_analytics::*` / `epsx::web::analytics::*` paths
+# the monolith uses. No files are physically moved; this crate is a
+# thin shell that wires a standalone axum router.
+epsx = { path = "../backend" }
+
+# Wave 10 R6 port (kernel-level). Stays in `epsx-contracts` so the
+# new binary and the monolith call the same trait surface for the
+# plan-tier ranking offset query. Per CLAUDE.md "Permissions & Plan
+# Logic — Backend Only" — the new binary IS a Rust backend, so the
+# in-process adapter pattern is the correct shape today; wave-13+
+# can swap to an HTTP / gRPC adapter without changing handler
+# signatures.
+epsx-contracts = { path = "../../shared/rust/epsx-contracts" }
+
+# HTTP / runtime
+axum.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+http.workspace = true
+async-trait.workspace = true
+futures.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
