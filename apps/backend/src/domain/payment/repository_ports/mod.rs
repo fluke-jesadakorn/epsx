@@ -1,6 +1,8 @@
 // Payment Bounded Context Repository Ports
 // These define the interfaces for data persistence in the Payment bounded context
 
+pub mod subscription_port;
+
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -497,63 +499,33 @@ pub struct TransactionRecord {
 // Payment Context Repository Port (V2 Dynamic Payments)
 // ============================================================================
 
-use super::aggregates::{PaymentContext, PaymentContextId, PaymentContextType};
+// wave11(track-b): the pre-wave-11 `PaymentContextRepositoryPort`
+// declared here used a domain-aggregate surface (`PaymentContext`,
+// `PaymentContextId`, `PaymentContextType` with `Result<_, String>`)
+// that no live caller exercised. Track B replaces it with a
+// wider surface that mirrors the concrete
+// `PaymentContextRepositoryAdapter` 1:1 — the port uses the
+// Diesel DTOs (`PaymentContextDb`, `NewPaymentContextDb`,
+// `UpdatePaymentContextDb`) directly so the admin
+// `payment_link_handlers` (and its future
+// `web/payments/payment_link_handlers.rs` replacement) can plug
+// in via `Arc<dyn PaymentContextRepositoryPort>` without a
+// domain↔DB shim layer.
+//
+// The port trait itself lives in
+// `repository_ports/payment_context_port.rs`; the impl is on
+// `infrastructure::adapters::repositories::payment_context_repository_adapter::PaymentContextRepositoryAdapter`.
+// See `docs/wave8-service-boundary/ROADMAP.md` §4 wave-11
+// preconditions item 3.
+pub mod payment_context_port;
 
-/// Port for payment context (dynamic payment link) operations
-#[async_trait]
-pub trait PaymentContextRepositoryPort: Send + Sync {
-    /// Save a payment context aggregate
-    async fn save(&self, context: &PaymentContext) -> Result<(), String>;
+pub use payment_context_port::PaymentContextRepositoryPort;
 
-    /// Find payment context by ID
-    async fn find_by_id(&self, id: &PaymentContextId) -> Result<Option<PaymentContext>, String>;
-
-    /// Find payment context by slug
-    async fn find_by_slug(&self, slug: &str) -> Result<Option<PaymentContext>, String>;
-
-    /// Find all payment contexts by context type
-    async fn find_by_type(&self, context_type: PaymentContextType) -> Result<Vec<PaymentContext>, String>;
-
-    /// Find payment contexts linked to a specific entity (plan, group, etc.)
-    async fn find_by_context_id(&self, context_id: &uuid::Uuid) -> Result<Vec<PaymentContext>, String>;
-
-    /// List all active payment contexts with pagination
-    async fn list_active(
-        &self,
-        limit: i64,
-        offset: i64,
-    ) -> Result<Vec<PaymentContext>, String>;
-
-    /// List all payment contexts with pagination and filters
-    async fn list_with_filters(
-        &self,
-        context_type: Option<PaymentContextType>,
-        is_active: Option<bool>,
-        created_by: Option<&str>,
-        limit: i64,
-        offset: i64,
-    ) -> Result<(Vec<PaymentContext>, i64), String>;
-
-    /// Update payment context
-    async fn update(&self, context: &PaymentContext) -> Result<(), String>;
-
-    /// Delete payment context (soft delete by setting is_active = false)
-    async fn soft_delete(&self, id: &PaymentContextId) -> Result<(), String>;
-
-    /// Increment usage count
-    async fn increment_usage(&self, id: &PaymentContextId) -> Result<(), String>;
-
-    /// Find expired contexts that need cleanup
-    async fn find_expired(&self) -> Result<Vec<PaymentContext>, String>;
-
-    /// Get total count with filters
-    async fn count_with_filters(
-        &self,
-        context_type: Option<PaymentContextType>,
-        is_active: Option<bool>,
-        created_by: Option<&str>,
-    ) -> Result<i64, String>;
-}
+// wave11(track-b) re-export: the new
+// `SubscriptionRepositoryPort`. See
+// `repository_ports/subscription_port.rs` for the full
+// docstring and the audit references.
+pub use subscription_port::SubscriptionRepositoryPort;
 
 /// Transaction history information for UI
 #[derive(Debug, Clone, serde::Serialize)]

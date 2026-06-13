@@ -163,7 +163,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         };
 
     // Create unified router
-    let app = create_router(container, notification_port);
+    let app = create_router(container, notification_port).await;
     info!("Unified router created successfully");
 
     // Server configuration using unified config

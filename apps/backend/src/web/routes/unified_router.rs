@@ -11,6 +11,8 @@ use axum::{
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 
+use crate::domain::payment::repository_ports::payment_context_port::PaymentContextRepositoryPort;
+use crate::domain::payment::repository_ports::subscription_port::SubscriptionRepositoryPort;
 use crate::infrastructure::container::DomainContainer;
 use epsx_contracts::notification_port::NotificationPort;
 
@@ -27,6 +29,7 @@ pub struct UnifiedRouteBuilder {
     /// after building the in-process adapter so the port is wired
     /// before the router starts.
     notification_port: Option<Arc<dyn NotificationPort>>,
+
     /// Wave 11 / Track A — `PaymentRepositoryPort` injected
     /// into the AppState so the 8 cross-pool handler sites
     /// can call into the port instead of opening two pools
@@ -40,6 +43,21 @@ pub struct UnifiedRouteBuilder {
     /// Wave 11 / Track A — `CreditRepositoryPort` injected
     /// into the AppState. See `payment_repo` for the lifecycle.
     credit_repo: Option<Arc<dyn crate::domain::payment::repository_ports::CreditRepositoryPort>>,
+
+    /// Wave 11 / Track B: optional
+    /// `PaymentContextRepositoryPort`. When the in-process
+    /// adapter can be constructed from the payments pool, this
+    /// is `Some(Arc<...>)`; otherwise `None` and the
+    /// `web/payments/payment_link_handlers::get_port` helper
+    /// returns 503.
+    payment_context_repository_port: Option<Arc<dyn PaymentContextRepositoryPort>>,
+    /// Wave 11 / Track B: optional
+    /// `SubscriptionRepositoryPort`. When the in-process adapter
+    /// can be constructed from the payments pool, this is
+    /// `Some(Arc<...>)`; otherwise `None` and the
+    /// market_analytics stock-ranking-assignments query path
+    /// returns an empty result.
+    subscription_repository_port: Option<Arc<dyn SubscriptionRepositoryPort>>,
 }
 
 impl UnifiedRouteBuilder {
@@ -50,6 +68,8 @@ impl UnifiedRouteBuilder {
             notification_port: None,
             payment_repo: None,
             credit_repo: None,
+            payment_context_repository_port: None,
+            subscription_repository_port: None,
         }
     }
 
@@ -86,6 +106,32 @@ impl UnifiedRouteBuilder {
         port: Option<Arc<dyn crate::domain::payment::repository_ports::CreditRepositoryPort>>,
     ) -> Self {
         self.credit_repo = port;
+        self
+    }
+
+    /// Attach a pre-built `PaymentContextRepositoryPort` so
+    /// `create_app_state` wires it into every `AppState`
+    /// instance. Wave 11 / Track B: production wiring builds
+    /// the in-process `PaymentContextRepositoryAdapter` in
+    /// `main.rs` (async) and passes the result here.
+    pub fn with_payment_context_repository_port(
+        mut self,
+        port: Option<Arc<dyn PaymentContextRepositoryPort>>,
+    ) -> Self {
+        self.payment_context_repository_port = port;
+        self
+    }
+
+    /// Attach a pre-built `SubscriptionRepositoryPort` so
+    /// `create_app_state` wires it into every `AppState`
+    /// instance. Wave 11 / Track B: production wiring builds
+    /// the in-process `PaymentSubscriptionRepositoryAdapter` in
+    /// `main.rs` (async) and passes the result here.
+    pub fn with_subscription_repository_port(
+        mut self,
+        port: Option<Arc<dyn SubscriptionRepositoryPort>>,
+    ) -> Self {
+        self.subscription_repository_port = port;
         self
     }
 
@@ -168,7 +214,19 @@ impl UnifiedRouteBuilder {
         let app_state = app_state
             .with_notification_port_opt(self.notification_port.clone())
             .with_payment_repo(self.payment_repo.clone())
-            .with_credit_repo(self.credit_repo.clone());
+            .with_credit_repo(self.credit_repo.clone())
+            // wave11(track-b): the two new payments ports. The
+            // `None` default means a missing payments pool
+            // surfaces as a 503 from the payment-link handlers
+            // and an empty result from the stock-ranking query
+            // path. Both are recoverable in production (no
+            // panics).
+            .with_payment_context_repository_port_opt(
+                self.payment_context_repository_port.clone(),
+            )
+            .with_subscription_repository_port_opt(
+                self.subscription_repository_port.clone(),
+            );
         app_state
     }
 
@@ -490,7 +548,7 @@ impl UnifiedRouteBuilder {
             .route("/plans", get(crate::web::public::plans_handlers::get_public_plans))
             .route("/plans/{id}", get(crate::web::public::plans_handlers::get_public_plan_by_id))
             // V2 Dynamic Payment Links (public lookup by slug)
-            .route("/payment-links/{slug}", get(crate::web::admin::payment_link_handlers::get_payment_link_by_slug_handler))
+            .route("/payment-links/{slug}", get(crate::web::payments::payment_link_handlers::get_payment_link_by_slug_handler))
             // News (public, no auth)
             .route("/news", get(crate::web::public::news_handlers::list_public_news))
             .route("/news/featured", get(crate::web::public::news_handlers::list_featured_news))

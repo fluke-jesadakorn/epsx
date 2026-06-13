@@ -17,10 +17,48 @@ pub mod wallet_user;
 
 pub mod permission_plan_repository_adapter;
 pub mod plan_repository_adapter; // NEW
-pub mod subscription_repository_adapter;
-pub mod credit_repository_adapter; // Credit wallet system
 pub mod developer_portal; // Developer portal API keys and modules
-pub mod payment_context_repository_adapter; // V2 Dynamic payment contexts
+
+// Payment-bounded-context repository adapters.
+//
+// Pre-wave-11 these all sat in this central layer. Wave 11 /
+// Track B moves ONLY `subscription_repository_adapter` into
+// `payment/` (see audit-payments.md §3 row 3, the "strongest
+// outward leak"). The other three
+// (`payment_repository_adapter`,
+// `payment_context_repository_adapter`,
+// `credit_repository_adapter`) stay at the central layer for
+// one more wave; the `payment/` subdir re-exports them as a
+// forward-move marker so future call sites can use the
+// destination path today.
+pub mod payment_context_repository_adapter;
+pub mod credit_repository_adapter;
+
+pub mod payment;
+
+// `use payment::*` keeps the legacy flat re-exports working
+// for any pre-wave-11 callers (e.g.
+// `use crate::infrastructure::adapters::repositories::SubscriptionRepositoryAdapter`).
+// The real type now lives at
+// `repositories::payment::PaymentSubscriptionRepositoryAdapter`.
+pub use payment::{
+    CreditRepositoryAdapter, NewPaymentContextDb, PaymentContextDb,
+    PaymentContextRepositoryAdapter, PaymentContextSearchCriteria,
+    PaymentRepositoryAdapter, PaymentSubscriptionRepositoryAdapter,
+    SubscriptionSearchCriteria, UpdatePaymentContextDb, is_context_usable,
+};
+
+// wave11(track-b) deprecation shim: pre-wave-11 callers used
+// `SubscriptionRepositoryAdapter` (without the `Payment` prefix).
+// The wave-11 task brief renames it to
+// `PaymentSubscriptionRepositoryAdapter` to make ownership
+// explicit. This alias lets any pre-wave-11 import keep
+// compiling for one minor version. Drop after the next wave.
+#[deprecated(
+    since = "0.2.0",
+    note = "Use `PaymentSubscriptionRepositoryAdapter` (in `infrastructure::adapters::repositories::payment::subscription_repository_adapter`) — wave11(track-b) renamed the type to make ownership explicit."
+)]
+pub use payment::PaymentSubscriptionRepositoryAdapter as SubscriptionRepositoryAdapter;
 
 
 pub use base_repository::{ BaseRepository, DieselBaseRepository };
@@ -28,13 +66,9 @@ pub use database_types::*;
 pub use notification_repository_adapter::NotificationRepositoryAdapter;
 pub use stock_analysis_repository_adapter::StockAnalysisRepositoryAdapter;
 pub use tradingview_eps_repository::TradingViewEPSRepository;
-pub use payment_repository_adapter::PaymentRepositoryAdapter;
 
 pub use wallet_user::WalletUserRepositoryAdapter;
 pub use plan_repository_adapter::PostgresPlanRepositoryAdapter;
-pub use subscription_repository_adapter::SubscriptionRepositoryAdapter;
-pub use credit_repository_adapter::CreditRepositoryAdapter;
-pub use payment_context_repository_adapter::{PaymentContextRepositoryAdapter, PaymentContextSearchCriteria};
 
 // Export both new and legacy names for backward compatibility
 pub use permission_plan_repository_adapter::{PlanRepositoryAdapter, PermissionPlanRepositoryAdapter};

@@ -60,3 +60,9 @@ pub use repository_ports::{
     PaymentMethodRepositoryPort, PaymentStats, TransactionRecord,
     PaymentContextRepositoryPort
 };
+
+// wave11(track-b) re-export: the new
+// `SubscriptionRepositoryPort`. See
+// `repository_ports/subscription_port.rs` for the full docstring
+// and the audit references.
+pub use repository_ports::subscription_port::SubscriptionRepositoryPort;

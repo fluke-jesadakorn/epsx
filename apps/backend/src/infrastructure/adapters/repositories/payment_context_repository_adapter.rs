@@ -7,7 +7,9 @@
 //! diesel migration run --migration-dir diesel_migrations_payments
 //! ```
 
+use crate::domain::payment::repository_ports::payment_context_port::PaymentContextRepositoryPort;
 use crate::prelude::*;
+use async_trait::async_trait;
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
@@ -382,6 +384,65 @@ impl PaymentContextRepositoryAdapter {
 
         info!("Found {} expired payment contexts", results.len());
         Ok(results)
+    }
+}
+
+// -----------------------------------------------------------------------------
+// `PaymentContextRepositoryPort` impl
+// -----------------------------------------------------------------------------
+//
+// Wave 11 — Track B (outbound-leakage fold). The pre-wave-11
+// `PaymentContextRepositoryPort` was an unused narrow port. Track
+// B replaces it with a wider surface that this adapter
+// implements 1:1. The methods delegate to the `self.*` concrete
+// methods above, so the existing tested logic is preserved and
+// the `Arc<dyn PaymentContextRepositoryPort>` injection in
+// `AppState` and the `web/payments/payment_link_handlers.rs`
+// move target get a stable trait surface to depend on.
+
+#[async_trait]
+impl PaymentContextRepositoryPort for PaymentContextRepositoryAdapter {
+    async fn save(&self, context: NewPaymentContextDb) -> AppResult<PaymentContextDb> {
+        self.save(context).await
+    }
+
+    async fn find_by_id(&self, id: Uuid) -> AppResult<Option<PaymentContextDb>> {
+        self.find_by_id(id).await
+    }
+
+    async fn find_by_slug(&self, slug: &str) -> AppResult<Option<PaymentContextDb>> {
+        self.find_by_slug(slug).await
+    }
+
+    async fn find_all(
+        &self,
+        criteria: PaymentContextSearchCriteria,
+    ) -> AppResult<Vec<PaymentContextDb>> {
+        self.find_all(criteria).await
+    }
+
+    async fn update(
+        &self,
+        id: Uuid,
+        changeset: UpdatePaymentContextDb,
+    ) -> AppResult<PaymentContextDb> {
+        self.update(id, changeset).await
+    }
+
+    async fn soft_delete(&self, id: Uuid) -> AppResult<()> {
+        self.soft_delete(id).await
+    }
+
+    async fn increment_usage(&self, id: Uuid) -> AppResult<PaymentContextDb> {
+        self.increment_usage(id).await
+    }
+
+    async fn count(&self, criteria: PaymentContextSearchCriteria) -> AppResult<i64> {
+        self.count(criteria).await
+    }
+
+    async fn find_expired(&self) -> AppResult<Vec<PaymentContextDb>> {
+        self.find_expired().await
     }
 }
 

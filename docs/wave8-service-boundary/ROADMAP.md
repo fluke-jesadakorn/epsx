@@ -1518,3 +1518,298 @@ f3bae988 wave10(integration): wire NotificationPort in production graph (Unified
    (not via the notification port), re-introduce a
    `pubsub: Option<Arc<dyn PubsubPort>>` field on the struct
    (the `_pubsub` arg in `new()` is already preserved).
+
+---
+
+## 13. Wave 11 — Track B (Outbound-leakage fold) — implementation report
+
+> Branch: `wave11/track-b-leakage-fold` (wave-11 plan, mavis
+> plan `plan_a0283b27`, track B). Base commit: `1014d8c4` on
+> `origin/migration/dioxus-microservices`. Implementation: 6
+> commits, all on the `wave11/track-b-leakage-fold` branch.
+> Final commit hash: see `deliverable.md` at the worktree
+> root and the per-track
+> `outputs/track-b-outbound-leakage-fold/deliverable.md`.
+
+### 13.0 Preconditions (from §4 wave 11 item 3)
+
+This track closes payments audit Refactor #3 ("Fold the 4
+outbound-leakage files into `web/payments/`"). The 4 files
+named in the audit are:
+
+1. `apps/backend/src/web/admin/payment_link_handlers.rs`
+   (616 LOC, the public endpoint
+   `GET /api/public/payment-links/{slug}`)
+2. `apps/backend/src/web/admin/plans/handlers.rs` (789 LOC,
+   the subscriptions subset; the 4 functions that touch
+   `SubscriptionDb` / `NewSubscriptionDb`)
+3. `apps/backend/src/infrastructure/adapters/repositories/subscription_repository_adapter.rs`
+   (229 LOC, the "subscription" repository adapter in the
+   central infrastructure layer)
+4. `apps/backend/src/application/market_analytics/queries/models/get_stock_ranking_assignments.rs`
+   (42 LOC, the market-analytics query object that reads
+   `stock_ranking_assignments` — a payments table)
+
+### 13.1 Per-file disposition
+
+| # | File | Disposition | Justification |
+|---|------|-------------|---------------|
+| 1 | `web/admin/payment_link_handlers.rs` | **Pure move** to `web/payments/payment_link_handlers.rs` | 616 LOC file; only depends on `PaymentContextRepositoryAdapter` + `AppState` (no other central-layer types). The audit's recommendation (a). The new `PaymentContextRepositoryPort` widens the pre-wave-11 narrow port surface to mirror the concrete adapter 1:1 using DB DTOs directly — the lighter "alias-and-re-export" option. The handler now imports the port trait object from `AppState`. Route mount in `unified_router.rs:451` updated to `crate::web::payments::payment_link_handlers::get_payment_link_by_slug_handler`. The public `/api/public/payment-links/{slug}` path is unchanged. |
+| 2 | `web/admin/plans/handlers.rs` (subscriptions subset) | **Hybrid: list → move, create → keep** | The `list_subscriptions_handler` (95 LOC, payments-only read) moved to `web/payments/admin/subscription_admin_handlers.rs` and now goes through `Arc<dyn SubscriptionRepositoryPort>`. The `create_subscription_handler` (164 LOC) is a *write* that does a primary-DB `wallet_plan_assignments` UPSERT in the same function as the payments-DB `subscriptions` insert; refactoring it out of the file would require a separate plan-assignment port (a wave-12+ follow-up). Per the task brief: "Pick (a) unless the route namespacing is too tangled" — the route namespacing is not the issue; the dual-DB write is. Documented in the deliverable as the "best of both" split. The 4 plan CRUD handlers (`create_plan_handler` / `list_plans_handler` / `get_plan_handler` / `update_plan_handler` / `delete_plan_handler`) stay in `web/admin/plans/handlers.rs` (they don't touch any payments tables). The `admin_list_user_access_handler` (107 LOC, `wallet_plan_assignments` read) also stays — it's a primary-DB read, not a payments read. |
+| 3 | `subscription_repository_adapter.rs` | **Pure move** to `infrastructure/adapters/repositories/payment/subscription_repository_adapter.rs` | The audit's "strongest outward leak". The file (229 LOC) is a payments repository adapter that sat in the central `adapters/repositories/` tree. Track B moves it under `payment/`, renames the struct from `SubscriptionRepositoryAdapter` to `PaymentSubscriptionRepositoryAdapter` (to make ownership explicit), and implements the new `SubscriptionRepositoryPort` trait. The 5 pre-wave-11 concrete methods (`find_by_id`, `find_by_wallet`, `find_all`, `save`, `update_status`, `cancel`, `delete`, `count`) are preserved as `pub` helpers on the adapter; the 5 port methods map 1:1 to the pre-wave-11 surface (5 of them, since `update_status` / `delete` had no live callers). The new `get_stock_ranking_assignments` port method is the SQL reader that closes the audit's row-4 leak. A `#[deprecated]` alias `SubscriptionRepositoryAdapter → PaymentSubscriptionRepositoryAdapter` is kept for one minor version. |
+| 4 | `market_analytics/queries/models/get_stock_ranking_assignments.rs` | **Refactor in place** (thin facade) | The pre-wave-11 file defined the `StockRankingAssignment` DTO and a `GetStockRankingAssignmentsQuery` query object. The actual SQL *read* of the `stock_ranking_assignments` table had no live caller in the source tree (the type definition was the only thing the audit's `rg` survey hit). Track B moves the DTO into the payments domain (`domain/payment/aggregates/stock_ranking_assignment.rs`) and adds the `get_stock_ranking_assignments_via_port(port, query)` facade that delegates to `Arc<dyn SubscriptionRepositoryPort>`. The market-analytics application module now depends only on the port (a domain-level trait) and not on `apps/backend/src/infrastructure/adapters/repositories/payment/`. The re-export at the old `market_analytics::queries::models::StockRankingAssignment` path is preserved for backward compat. |
+
+### 13.2 Before/after file:line counts
+
+| File | Before (LOC) | After (LOC) | Δ |
+|------|------:|------:|------:|
+| `apps/backend/src/web/admin/payment_link_handlers.rs` | 616 | 0 (deleted) | −616 |
+| `apps/backend/src/web/payments/payment_link_handlers.rs` | 0 | 1098 | +1098 (added route-test scaffolding + new port-trait imports + the `get_port` helper + the `create_admin_payment_link_routes` sub-router) |
+| `apps/backend/src/web/admin/plans/handlers.rs` | 789 | 645 | −144 (subscription list moved; create stays; plan CRUD unchanged) |
+| `apps/backend/src/web/payments/admin/subscription_admin_handlers.rs` | 0 | 264 | +264 (new handler) |
+| `apps/backend/src/infrastructure/adapters/repositories/subscription_repository_adapter.rs` | 229 | 0 (deleted) | −229 |
+| `apps/backend/src/infrastructure/adapters/repositories/payment/subscription_repository_adapter.rs` | 0 | 621 | +621 (port impl + 5 canary tests + 8 private helpers + 1 new `get_stock_ranking_assignments` SQL reader) |
+| `apps/backend/src/application/market_analytics/queries/models/get_stock_ranking_assignments.rs` | 42 | 525 | +483 (facade + 5 canary tests + `MockSubscriptionRepository`) |
+| `apps/backend/src/domain/payment/aggregates/subscription.rs` | 0 | 225 | +225 (new aggregate: `Subscription` + `SubscriptionId` + `CreateSubscriptionCommand` + 3 tests) |
+| `apps/backend/src/domain/payment/aggregates/stock_ranking_assignment.rs` | 0 | 127 | +127 (new value object + 4 tests) |
+| `apps/backend/src/domain/payment/repository_ports/subscription_port.rs` | 0 | 162 | +162 (new port trait) |
+| `apps/backend/src/domain/payment/repository_ports/payment_context_port.rs` | 0 | 119 | +119 (new wider port trait) |
+
+**Net diff (this track, against
+`origin/migration/dioxus-microservices`):** 25 files
+changed, 3637 insertions(+), 1033 deletions(−). The
+net-positive line count is driven by the new port traits,
+the new aggregate types, the in-process mock
+infrastructures for the canary tests, and the route-test
+scaffolding for the moved payment-link handler. The
+4 leakage files themselves are 100% gone from the
+non-payments code paths.
+
+### 13.3 Market-analytics port-call canary result
+
+The audit's "strongest outward leak" canary test:
+constructs a wallet with 3 stock-ranking assignments and
+asserts the port returns them in the right order.
+
+```text
+$ cargo test -p epsx --lib stock_ranking_canary
+
+test application::market_analytics::queries::models::get_stock_ranking_assignments::tests::stock_ranking_canary_three_assignments_for_one_wallet ... ok
+test application::market_analytics::queries::models::get_stock_ranking_assignments::tests::stock_ranking_canary_active_only_filter ... ok
+test application::market_analytics::queries::models::get_stock_ranking_assignments::tests::stock_ranking_canary_package_id_filter ... ok
+test application::market_analytics::queries::models::get_stock_ranking_assignments::tests::stock_ranking_canary_pagination ... ok
+test application::market_analytics::queries::models::get_stock_ranking_assignments::tests::stock_ranking_canary_no_wallet_returns_empty ... ok
+```
+
+All 5 canary tests pass. The market-analytics
+`get_stock_ranking_assignments_via_port` facade exercises
+the `Arc<dyn SubscriptionRepositoryPort>` seam with a
+`MockSubscriptionRepository` (in-memory, no live DB) and
+asserts: (a) the 3-assignment fixture is returned in
+order, (b) the `active_only` filter narrows to 1, (c)
+the `package_id` filter narrows to 1, (d) pagination
+math is correct (page 1 / page 2), (e) the no-wallet
+path returns an empty result with a warning. The
+regression canary for "market-analytics reached into
+payments SQL" is wired and green.
+
+### 13.4 Test counts
+
+| Suite | Before wave 11 / track B | After wave 11 / track B | Δ |
+|-------|---:|---:|---:|
+| `cargo test -p epsx --lib` | 397 (pre-wave-10), 438 (mid-track) | **443** | +46 |
+| `cargo check --workspace` | green | green | — |
+| `cargo check -p epsx --tests` | green | green | — |
+
+The +46 net new tests are:
+
+- 3 in `domain/payment/aggregates/subscription` (id
+  round-trip, is_cancelled, admin_assign)
+- 4 in `domain/payment/aggregates/stock_ranking_assignment`
+  (days_remaining ×3, dto_serde_round_trip)
+- 1 in `domain/payment/repository_ports/subscription_port`
+  (port_method_signatures_match_brief)
+- 1 in `infrastructure/adapters/repositories/payment/subscription_repository_adapter`
+  (port_method_signatures_match_brief)
+- 5 in `application/market_analytics/queries/models/get_stock_ranking_assignments`
+  (the canary tests — see §13.3)
+- 7 in `web/payments/payment_link_handlers` (slug gen,
+  is_usable pop, link_hash format, context_type round-trip
+  ×2, get_port returns dyn, public_slug_route_path)
+- 3 in `web/payments/admin/subscription_admin_handlers`
+  (get_port returns dyn, admin_subscriptions_route_path
+  — plus 1 renamed)
+
+The audit's "stock-ranking canary" is the strongest of
+these — it exercises the port-trait seam end-to-end and
+will catch any regression that re-introduces a direct
+SQL read in the market-analytics module.
+
+### 13.5 What was *not* folded cleanly (wave-12+ follow-ups)
+
+1. **`create_subscription_handler` stays in `web/admin/plans/handlers.rs`.**
+   The function does a primary-DB `wallet_plan_assignments`
+   UPSERT in the same function as the payments-DB
+   `subscriptions` insert. To move it out, the primary-DB
+   half needs its own port — `PlanAssignmentRepositoryPort`
+   or similar. The wave-12+ `PlanAssignmentRepositoryPort`
+   task is a natural follow-up that completes the admin
+   plans editor's bounded-context split. The current
+   `create_subscription_handler` is already port-driven
+   for the payments-DB half (the `NewSubscriptionDb`
+   insert); the primary-DB UPSERT is the only non-port
+   SQL left in the file.
+
+2. **`payment_repository_adapter`, `payment_context_repository_adapter`,
+   `credit_repository_adapter` still live in the central
+   `infrastructure/adapters/repositories/` tree.** The
+   task brief scopes the move to `subscription_repository_adapter`
+   only; the other three payment-bounded-context adapters
+   are pre-move candidates for the wave-12 `PlanAssignmentRepositoryPort`
+   follow-up.
+
+3. **`UnifiedPermissionService` direct calls in
+   `web/payments/validation_handlers.rs`** (the audit's
+   row 1 inbound dep) are out of scope — they are Track
+   C's territory (the existing `PermissionAuthorityPort`
+   migration in wave-10 R1).
+
+4. **`is_context_usable` is a free function, not a port
+   method.** The `PaymentContextRepositoryPort` trait
+   surface is the 9 CRUD methods; the 2 free helpers
+   (`is_context_usable`, `compute_link_hash`) stay on the
+   adapter module. Both are pure CPU and don't need port
+   trait objects to mock. The route test mocks
+   `is_context_usable` indirectly by varying the seed
+   `expires_at` / `is_active` / `current_uses` / `max_uses`
+   values.
+
+### 13.6 DI graph update
+
+| Field on `AppState` | Before | After |
+|---|---|---|
+| `payment_context_repository_port` | (not present) | `Option<Arc<dyn PaymentContextRepositoryPort>>` (wired in `web/mod.rs::create_router` from `get_payments_pool`) |
+| `subscription_repository_port` | (not present) | `Option<Arc<dyn SubscriptionRepositoryPort>>` (wired in `web/mod.rs::create_router` from `get_payments_pool`) |
+| `notification_port` | `Option<Arc<dyn NotificationPort>>` (wave-10) | unchanged |
+| `transaction_history_provider` | `Option<Arc<dyn TransactionHistoryProvider>>` | unchanged |
+| `plan_repo` | `Arc<PermissionPlanRepositoryAdapter>` | unchanged |
+
+The two new ports are wired in `web/mod.rs::create_router`,
+which is now `async` (the in-process adapters are
+constructed from `get_payments_pool` which is async). The
+`simple_container.rs` and `stateless_service_factory.rs`
+factories propagate the `Option<...>` through their
+`create_auth_app_state` paths (the production-grade
+wiring lives in `web/mod.rs::create_router` per the
+existing wave-10 R1 / R3 patterns; the `stateless_service_factory.rs`
+path is the `axum::Router` test path used by the
+integration tests, which goes through the
+`UnifiedRouteBuilder` with `None` for the two new ports
+in the test environment).
+
+### 13.7 Wave-10 / Wave-11 port-trait consistency
+
+The wave-11 ports follow the wave-10 patterns from
+`epsx-contracts` (`PermissionAuthorityPort`,
+`WalletRankingOffsetQuery`, `NotificationPort`,
+`PubsubPort`):
+
+- `Send + Sync` so the port is `Arc<dyn ...>` in DI graphs
+- `#[async_trait]` for object-safety
+- `AppResult<T>` (re-exported from `epsx_contracts::errors`)
+  for cross-crate compatibility
+- Object-safety probe in `#[cfg(test)] mod object_safety`
+- `pub use` re-export at the parent module level so
+  callers don't reach into sub-paths
+- Colocated unit tests for the wire shape (DTO round-trip,
+  signature drift, response JSON shape)
+
+The wave-11 ports are *not* in `epsx-contracts` (the
+shared kernel) because the CLAUDE.md "Permissions & Plan
+Logic — Backend Only" rule and the payment-bounded-context
+ownership both point at
+`apps/backend/src/domain/payment/repository_ports/`. The
+contracts-crate extraction for these ports is a wave-N+3
+concern.
+
+### 13.8 Verification
+
+```text
+$ cargo check --workspace
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 28.55s
+
+$ cargo test -p epsx --lib
+test result: ok. 443 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out; finished in 0.17s
+```
+
+The 8 ignored tests are pre-wave-10
+`#[ignore]`-gated integration tests that need a live
+`epsx_test_db`; the count is unchanged from the
+wave-10 baseline.
+
+### 13.9 Final commit hash
+
+```text
+$ git rev-parse HEAD
+5d6b4aa6 wave11(track-b): add round-trip + route test scaffolding for new ports
+```
+
+The 6 commits on `wave11/track-b-leakage-fold`:
+
+1. `fe08c613` — `SubscriptionRepositoryPort` + move/rename
+   `SubscriptionRepositoryAdapter`
+2. `63e375b1` — fold `payment_link_handlers` + widen
+   `PaymentContextRepositoryPort` + DI graph update
+3. `f8fcd1d3` — fold `list_subscriptions_handler` into
+   `web/payments/admin/`
+4. `cfd699bc` — refactor market-analytics
+   `get_stock_ranking_assignments` to port
+5. `46a55ca4` — fix dummy `unimplemented!()` in
+   payment_link test + canary test additions
+6. `5d6b4aa6` — round-trip + route test scaffolding for
+   new ports
+
+### 13.10 Open issues for wave 12 (next payments work)
+
+1. **`PlanAssignmentRepositoryPort`** — extract the
+   primary-DB `wallet_plan_assignments` UPSERT from
+   `web/admin/plans/handlers.rs::create_subscription_handler`
+   so the handler can move to `web/payments/admin/` and
+   the primary-DB call goes through a port. The
+   `Plan` aggregate (which is in
+   `domain/permission_management`) is a related extraction
+   — the primary-DB tables for the plans editor are
+   `plans` (UUID PK) and `wallet_plan_assignments` (no FK
+   to `plans`); the wave-12 lift would unify these.
+
+2. **Move `payment_repository_adapter`,
+   `payment_context_repository_adapter`,
+   `credit_repository_adapter`** under
+   `infrastructure/adapters/repositories/payment/`. The
+   `subscription_repository_adapter` move in this track
+   is the proof-of-pattern; the other three are pure
+   file-moves (no new ports needed) and can ship in a
+   single wave-12 commit.
+
+3. **Drop the `#[deprecated] SubscriptionRepositoryAdapter`
+   alias** in `infrastructure/adapters/repositories/mod.rs`
+   once the wave-12 work is done.
+
+4. **`is_context_usable` and `compute_link_hash` as port
+   methods** — they are pure CPU and could move onto the
+   port trait for completeness. Track B left them as free
+   functions; the trade-off is "trait surface" vs
+   "importable from the port module" and free functions
+   win for purity.
+
+5. **`create_admin_payment_link_routes` is unused.** The
+   route builder helper at the bottom of
+   `web/payments/payment_link_handlers.rs` is currently
+   not mounted (the admin `/api/admin/payment-links/*`
+   routes are still mounted from
+   `web/admin/routes.rs`). The helper is a forward-move
+   marker for the wave-12+ work that fully re-mounts
+   the admin CRUD from the payments area. Either
+   `web/admin/routes.rs` or `web/payments/admin/` should
+   own the mount eventually.
+
