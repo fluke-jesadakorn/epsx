@@ -3112,3 +3112,447 @@ B merge), parent `15cba935` (Track A merge), parent
 7. **3 `AnalyticsQuery` types with the same name** (audit
    §9). Out of scope; defer to a wave-N+2 analytics
    cleanup.
+
+## 17. Wave 13 — Identity adapter + SSE fanout + small cleanups
+
+Wave 12 shipped the `epsx-analytics-service` binary and the
+`infra_logs` schema rename (the integration tree is at
+`origin/wave12/integration`; the dev branch
+`migration/dioxus-microservices` is intentionally pinned at the
+wave-11 head `340e7980` pending a real K8s dev cluster). Wave 13
+picks up the 7 open items from §16.8 and turns them into a
+bounded, plan-able set.
+
+The 7 items are heterogeneous — a new binary, two new
+transports, and four cleanup-only refactors. They are **not**
+all wave 13. The user picks scope after the per-item spec is
+written. This section gives the per-item spec so the pick is
+informed: preconditions, effort, risk, rollback, integration
+gate assertion for each.
+
+### 17.1 Identity adapter (`WalletRankingOffsetQuery` ↔ `epsx-identity`)
+
+Replace the no-DB
+`FreePlanWalletRankingOffsetQuery` stub in
+`apps/analytics/src/main.rs` with an HTTP/gRPC client against a
+new `epsx-identity` microservice that owns the actual
+plan-tier offset table.
+
+- **Target service:** `epsx-identity` (new microservice binary
+  in `apps/identity/`). Owns the read-only `wallet_plan_offset`
+  query (the read side of the `WalletRankingOffsetQuery`
+  port from wave 10 R6 + wave 12's port reuse). The
+  wave-9+ plan was to put the entire identity service in a
+  binary; wave 13 narrows to **just the read-only offset
+  query** the new analytics binary needs, leaving the full
+  identity split (auth flows, JWT signing, SIWE challenges) for
+  wave 14+ once the read-only seam is proven.
+- **Preconditions (must land before the binary):**
+  1. **R6 already done in wave 10.** `WalletRankingOffsetQuery`
+     port + `RankingOffset` value object exist in
+     `shared/rust/epsx-contracts`. Verified.
+  2. **New `epsx-identity` workspace crate** at
+     `apps/identity/Cargo.toml` + `apps/identity/src/`
+     (mirrors `apps/analytics/` layout). Empty stub
+     `fn main() {}` is enough for the build dep.
+  3. **Identity HTTP transport choice.** Recommend
+     **`tonic` (gRPC) over HTTP/JSON** for two reasons: the
+     port trait is `async fn`-based (not naturally REST), and
+     gRPC keeps the auth-handler-agnostic service contract
+     the same shape the monolith will need when it
+     federates identity. (CLAUDE.md "Permissions & Plan Logic
+     — Backend Only" forces the gRPC server to live in the
+     Rust backend; the JS frontend is not in the call path
+     for the offset query.)
+  4. **One-line protobuf schema** (`shared/proto/identity.proto`)
+     with `service Identity { rpc GetWalletRankingOffset
+     (RankingOffsetRequest) returns (RankingOffsetResponse); }`.
+     Codegen via `tonic-build` build script.
+  5. **Stub server implementation** in `epsx-identity` that
+     returns the same free-plan offset the wave-12 stub
+     returns today. This is the *migration* path: the new
+     binary is functionally identical to the wave-12 stub
+     but goes over gRPC instead of in-process. Operators
+     can flip the Cloudflare Tunnel routing incrementally.
+- **Effort:** **M** (~600 LOC: 200 LOC proto + 200 LOC
+  epsx-identity stub + 200 LOC gRPC client in
+  `apps/analytics/src/`). The new `epsx-identity` binary
+  itself is thin; the work is the gRPC wiring + codegen
+  build script.
+- **Risk:** **med** — the `WalletRankingOffsetQuery` trait
+  is used in 5 user-facing handler `Extension<Arc<dyn ...>>`
+  injections. Changing the underlying impl from in-process
+  to gRPC is a synchronous→async boundary; if the gRPC
+  client panics on a connection error the new binary will
+  fail-open (today's monolith does: `web/analytics/eps/cache.rs:78-81`
+  returns the free-plan offset on auth error). The
+  wave-12 stub already implements that fallback; the
+  gRPC client must preserve it. **Mitigation:** add a
+  `tonic::transport::Channel::connect_lazy` with a 100ms
+  timeout, fall back to `FreePlanWalletRankingOffsetQuery`
+  on any `tonic::Status` / `Elapsed` error. The behavior
+  contract does not change.
+- **Rollback:** the gRPC client is a single trait impl
+  behind the existing `WalletRankingOffsetQuery` port. To
+  roll back, swap the gRPC impl for the wave-12 in-process
+  stub at the `build_analytics_router` call site; rebuild
+  + redeploy. No data migration, no schema change.
+- **Integration gate assertion:** smoke test
+  `apps/backend/tests/wave13_smoke.rs` must include:
+  - gRPC server starts in the `epsx-identity` binary
+  - `epsx-analytics-service` makes one `GetWalletRankingOffset`
+    call per `GET /api/analytics/rankings` request
+  - the returned offset matches `RankingOffset::free_plan()`
+    (the only currently-known tier)
+  - the fallback path: kill `epsx-identity` mid-test, the
+    next `/api/analytics/rankings` request still returns 200
+    with the free-plan offset (the timeout-and-fall-back
+    contract)
+
+### 17.2 Real-time SSE fanout for analytics rankings
+
+Add a `text/event-stream` route alongside `GET /api/analytics/rankings`
+that pushes the latest EPS update to the browser as the
+in-process `EPSCacheService` (already in the wave-12 binary)
+recomputes.
+
+- **Target service:** the wave-12 `epsx-analytics-service`
+  binary gets one more route. No new binary.
+- **Preconditions:**
+  1. **`EPSCacheService` is the publish point.** The
+     in-process cache already recomputes on a timer (per
+     wave 12 spec §14.5). Wave 13 wraps that recompute in
+     a `tokio::sync::broadcast` channel.
+  2. **SSE handler** added to `build_analytics_router`:
+     `GET /api/analytics/rankings/stream` → `axum::response::sse::Sse`
+     with the broadcast receiver as the body. No DB, no
+     external service. The new binary's "0 PostgreSQL
+     connections" guarantee is preserved.
+  3. **Cloudflare Tunnel SSE compatibility.** Cloudflare
+     proxies SSE fine; the wave-12 prod runbook's
+     `cloudflared` config is unchanged.
+- **Effort:** **S** (~150 LOC: broadcast channel wrapper,
+  SSE handler, smoke test for the stream).
+- **Risk:** **low** — the broadcast channel is in-process;
+  no inter-service coupling. The main risk is connection
+  count (a runaway client could hold a connection
+  forever), mitigated by `axum::extract::ws::Message::Ping`
+  every 30s + client-side reconnect.
+- **Rollback:** delete the new route + the broadcast
+  channel wrapper. The 5 existing user-facing routes are
+  unchanged.
+- **Integration gate assertion:** smoke test
+  `apps/backend/tests/wave13_smoke.rs`:
+  - open an SSE client to
+    `/api/analytics/rankings/stream` with a 5s timeout
+  - trigger a cache recompute (call the
+    `refresh_eps_cache` admin endpoint, which already
+    exists in the monolith for ops)
+  - assert the SSE client receives at least 1 event
+    before the timeout
+
+### 17.3 Chat service lift (the next wave-9+ pattern)
+
+Apply the wave-12 template to the chat domain. New
+`epsx-chat-service` binary serving the 5+ chat user-facing
+routes, in-process state, no DB.
+
+- **Target service:** `epsx-chat-service` (new microservice
+  binary in `apps/chat/`). Carries the chat handlers
+  (`web/user/chat_handlers.rs:576 LOC`,
+  `web/admin/chat_handlers.rs:478 LOC`,
+  `web/user/chat_upload_handlers.rs`) + the chat repository
+  + the chat model + the support_chat domain module
+  (`domain/support_chat/mod.rs:54 LOC`).
+- **Preconditions:**
+  1. **`PubsubPort` (wave 10 R2)** is the inter-service
+     pubsub; the chat SSE handlers already consume it. The
+     `epsx-chat-service` binary consumes the same trait.
+  2. **5+ user-facing chat routes** need to be enumerated
+     (the wave-12 audit enumerated 5 analytics routes
+     upfront; chat has more — needs the same exercise
+     in the spec).
+  3. **Auth path is the wave-9 R6 port pattern** reused.
+- **Effort:** **L** (~1.5-2 engineer-weeks). The work is
+  the file-by-file move of `chat_*` from the monolith into
+  the new crate, mirroring what wave 12 did for
+  `market_analytics`.
+- **Risk:** **med** — chat has upload handlers (multipart
+  S3/MinIO), not just JSON routes. The upload handler
+  needs its own port (`ChatUploadPort`? `ObjectStorePort`?)
+  before the lift, otherwise the new binary becomes a
+  chat-API-only binary and the upload stays in the
+  monolith (split upload + chat is a real risk for
+  consistency: a user uploads a file in chat round N,
+  asks the AI about it in chat round N+1; if they're in
+  different processes the AI's "view the file" link has
+  to traverse the monolith's auth middleware in a way
+  the new binary doesn't know about).
+- **Rollback:** the reverse proxy repointed at the monolith
+  chat handlers (which still exist); the new binary can
+  be decommissioned. Same shape as wave 12.
+- **Integration gate assertion:** end-to-end smoke test
+  that exercises a chat upload + chat round-trip through
+  the new binary. The smoke test must be designed before
+  this wave starts; the audit doesn't currently exercise
+  chat end-to-end.
+
+### 17.4 `is_public_endpoint` strict check (test-only refactor)
+
+Tighten the test at
+`apps/backend/src/web/middleware/permission_validation_middleware.rs:328`
+to check route *presence* in the mounted router, not just
+the `PUBLIC_PATHS` prefix list.
+
+- **Target:** the test function
+  `test_is_public_endpoint`. No production code change.
+- **Preconditions:**
+  1. The wave-12 consolidation must be merged on dev
+     (currently it's not — dev is at wave-11 head
+     `340e7980`). This is the hard blocker: the test
+     passes today because the prefix list still includes
+     `/api/public/`, but the wave-12 mount table no longer
+     has `/api/public/analytics/*`. Once dev catches up,
+     the test passes for the wrong reason.
+  2. Refactor the test to import the monolith's
+     `build_router()` (or the wave-12 `build_analytics_router`
+     for the analytics subset) and call `.route(...)` to
+     enumerate the actual mount table.
+- **Effort:** **XS** (~30 LOC test change + ~10 LOC
+  helper to expose the route table).
+- **Risk:** **low** — test-only. Worst case: the
+  tightened test fails because the test is wrong, not
+  because the production code is wrong. That outcome is
+  the entire point of the tightening.
+- **Rollback:** revert the test.
+- **Integration gate assertion:** the tightened test
+  runs as part of `cargo test -p epsx --lib` and must
+  pass.
+
+### 17.5 `infra_logs` schema cutover (ops coordination)
+
+Coordinate with the platform team to run
+`ALTER SCHEMA analytics RENAME TO infra_logs;` on the prod
+DB during a low-traffic window.
+
+- **Target:** ops runbook + a one-shot migration script
+  in `apps/backend/migrations/analytics/20260220000000_rename_analytics_to_infra_logs/`.
+  The script does:
+  ```sql
+  -- pre-check
+  SELECT schema_name FROM information_schema.schemata
+   WHERE schema_name IN ('analytics', 'infra_logs');
+  -- the cutover (idempotent: only runs if `analytics` exists)
+  DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.schemata
+                WHERE schema_name = 'analytics') THEN
+      ALTER SCHEMA analytics RENAME TO infra_logs;
+    END IF;
+  END $$;
+  ```
+- **Preconditions:**
+  1. **The wave-12 code is on prod** (new binary + the
+     `infra_logs`-aware migrations). Today it is not.
+  2. **The platform team is on board** — this is a
+     irreversible rename. Backup the prod DB first;
+     rollback = `ALTER SCHEMA infra_logs RENAME TO
+     analytics;` if the new binary is rolled back.
+- **Effort:** **S** (~50 LOC migration script + 1 ops
+  runbook + 1 platform-team review meeting).
+- **Risk:** **med** — the rename locks the schemas
+  briefly. Long-running queries against `analytics.*` will
+  fail with `relation does not exist` during the cutover
+  window. The monolith's `analytics_pool` has connections
+  in its pool at any given time; those need to be
+  invalidated (`SELECT pg_terminate_backend(pid) ...`) or
+  drained (rotate the monolith's DB connection pool)
+  before the rename. **Mitigation:** run the cutover
+  during a planned deploy window where the monolith is
+  restarted against the new pool anyway.
+- **Rollback:** `ALTER SCHEMA infra_logs RENAME TO
+  analytics;` is reversible in milliseconds. The
+  cross-cutting risk is the application code: if the
+  monolith is running the wave-11 build (with
+  `analytics.*` references), the rename breaks it. The
+  monolith must be on the wave-12 build before the
+  rename.
+- **Integration gate assertion:** the migration script
+  is idempotent (verified by `cargo test -p epsx
+  --test wave13_smoke` running the script twice in
+  sequence + asserting no error). The script is not run
+  against prod by the integration gate; it is run by ops
+  during the cutover window.
+
+### 17.6 `analytics_pool` plumbing migration (per-call-site split)
+
+Move the 4 non-analytics call sites
+(`audit_log_repository.rs:35,452`, `usage_tracking_middleware.rs:110,156`,
+`usage_service.rs`, `developer_portal_handlers.rs:540-542`)
+off `AppState.analytics_pool` onto their own pools.
+
+- **Target:** a new `AppState.audit_pool` and
+  `AppState.usage_pool`. The `analytics_pool` field stays
+  (zero analytics callers, but it's the seam for wave-12's
+  binary).
+- **Preconditions:**
+  1. **Audit the 4 call sites** to determine whether they
+     share the *same* pool (audit + usage both read from
+     the same `analytics` schema's `audit_log` table
+     today) or if they need separate pools.
+  2. **Diesel connection-pool config** in
+     `apps/backend/src/infrastructure/database/pool_factory.rs`
+     already has the factory pattern; add
+     `create_audit_pool()` + `create_usage_pool()` (or
+     one shared `create_infra_logs_pool()` if the call
+     sites share a schema).
+  3. **Update `AppState`** to carry the new pool(s)
+     + the constructor signature.
+  4. **Update the 4 call sites** to read from the new
+     pool(s). No behavior change.
+- **Effort:** **S** (~150 LOC: pool factory + AppState
+  + 4 call site rewires + tests).
+- **Risk:** **low** — pure refactor. The old
+  `analytics_pool` field can stay as a re-export shim
+  for one minor version (mirrors the wave-9 R4
+  `core::errors` deprecation pattern).
+- **Rollback:** re-point the 4 call sites at
+  `analytics_pool`. The pool factory has both. No data
+  migration, no schema change.
+- **Integration gate assertion:** smoke test
+  `apps/backend/tests/wave13_smoke.rs` exercises the 4
+  call sites end-to-end (audit insert + read, usage
+  insert + read, developer-portal usage query) and
+  asserts the same behavior as before.
+
+### 17.7 `AnalyticsQuery` type dedup (rename only)
+
+The 3 `AnalyticsQuery` types live in:
+- `apps/backend/src/web/admin/analytics/types.rs:9` (admin)
+- `apps/backend/src/web/analytics/types.rs:16` (user)
+- `apps/backend/src/application/market_analytics/dtos/req.rs:19`
+  (application)
+
+They have different fields. The dedup is a rename, not a
+unify — they are 3 different types with the same name in
+3 different namespaces, and the dedup makes the names
+distinct so future readers don't confuse them.
+
+- **Preconditions:** the 3 files are read in the
+  wave-13 branch to confirm the fields are genuinely
+  different (the audit §9 says so; verified above:
+  admin has `period/granularity/include_inactive`, user
+  has `start_date/end_date/granularity`, application has
+  `start_date/end_date/granularity`).
+- **Renames:**
+  - `web/admin/analytics/types.rs::AnalyticsQuery` →
+    `AdminAnalyticsQuery`
+  - `web/analytics/types.rs::AnalyticsQuery` →
+    `UserAnalyticsQuery`
+  - `application/market_analytics/dtos/req.rs::AnalyticsQuery`
+    → `RankingQuery` (or `MarketAnalyticsQuery` —
+    user picks; recommend `MarketAnalyticsQuery` for
+    clarity)
+- **Effort:** **XS** (~30 LOC: 3 type renames + 3
+  files' importers updated). The audit said "0 effort";
+  this matches.
+- **Risk:** **low** — pure rename, type-checker catches
+  every callsite.
+- **Rollback:** revert the rename.
+- **Integration gate assertion:** `cargo check --workspace`
+  must pass; the 3 renamed types are referenced from their
+  respective callers unchanged.
+
+### 17.8 Recommended Wave 13 bundle
+
+The user picks from the 6 spec'd items (17.1-17.7 — 17.5
+is ops-only, 17.4/17.6/17.7 are XS-S effort). The
+recommended bundles are:
+
+| Bundle | Items | Effort | Risk | Integration gate |
+|--------|-------|:------:|:----:|------------------|
+| **13a — Identity adapter** | 17.1 only | M | med | gRPC round-trip + fallback contract |
+| **13b — Identity + SSE** | 17.1 + 17.2 | M | med | 13a gate + SSE stream event receipt |
+| **13c — Chat lift** | 17.3 only | L | med | chat upload + round-trip E2E (smoke test must be designed first) |
+| **13d — Small cleanups** | 17.4 + 17.6 + 17.7 | S | low | 4-call-site pool migration + tightened test + rename |
+| **13e — Production cutover coordination** | 17.5 only | S | med | ops runbook + idempotent migration script (not run by the gate) |
+| **13f — Full scope (not recommended)** | all 6 | XL | high | 3 separate integration gates; high regression risk |
+
+**13f is not recommended** — too much surface, no single
+integration gate can verify all of it, regression risk is
+unbounded. Pick one of 13a-13e, ship it, then pick the
+next.
+
+### 17.9 Cross-cutting preconditions for *any* wave 13 bundle
+
+1. **K8s dev cluster must be working.** The wave-12
+   integration gate is the first time we tried to apply
+   K8s manifests in a "dev" namespace and the cluster was
+   down (k3s API server off on the `epsx` colima profile,
+   cert mismatch on the `default` colima profile). Any
+   wave-13 bundle that adds a binary or service will need
+   a working K8s cluster to deploy to. **Fix first;** either
+   restore the `epsx` colima profile's k3s, fix the cert
+   in the `default` colima profile, or use the docker
+   dev env from the `wave12/dev-env` branch (binary runs
+   on `127.0.0.1:18080`, no K8s, no Cloudflare routing).
+2. **dev branch must be fast-forwarded to wave 12.**
+   Today `origin/migration/dioxus-microservices` is
+   pinned at the wave-11 head `340e7980` (per user
+   instruction during the wave-12 dev cutover attempt:
+   "don't merge to dev too"). Wave 13 needs the
+   wave-12 preconditions in scope (the
+   `epsx-analytics-service` binary, the `infra_logs`
+   schema rename, the route consolidation). The branch
+   must be fast-forwarded before wave-13 work begins.
+3. **The `epsx-analytics-service` binary must be on
+   dev** (K8s deployment + service + NodePort 30086
+   for staging, or whatever dev NodePort is decided).
+   Today the K8s manifests exist on the wave-12
+   integration branch but are not applied anywhere.
+
+### 17.10 Rollback strategy for the whole wave
+
+All wave-13 items are designed to be individually
+reversible:
+
+- 17.1 (gRPC adapter) → swap the gRPC client for the
+  wave-12 in-process stub at one call site
+- 17.2 (SSE route) → delete the new route + the
+  broadcast channel wrapper
+- 17.3 (chat binary) → repoint reverse proxy at the
+  monolith chat handlers
+- 17.4 (test tightening) → revert the test
+- 17.5 (schema rename) → `ALTER SCHEMA infra_logs
+  RENAME TO analytics;`
+- 17.6 (pool migration) → re-point 4 call sites at
+  `analytics_pool` (kept as a re-export shim)
+- 17.7 (type dedup) → revert the rename
+
+No wave-13 item changes the database schema, the public
+HTTP contract, or the wave-11/wave-12 ports. The wave is
+**net-additive** (one new binary, one new gRPC client,
+one new SSE route, one migration script, one test
+tightening, one pool refactor, one type rename) on top
+of wave 12.
+
+The integration gate for any wave-13 bundle must verify
+the wave-12 contract is unchanged: 75/75 wave-12 tests
++ the wave-12 smoke test (`apps/backend/tests/wave12_smoke.rs`)
+must continue to pass after wave-13 is applied.
+
+### 17.11 What this section is *not*
+
+- It is **not** a wave-13 plan. It is a per-item spec so
+  the user can pick a bundle.
+- It is **not** a commitment to start work. The user's
+  next step is to pick 13a, 13b, 13c, 13d, 13e, or 13f.
+  Then I write the wave-13 plan file
+  (`.mavis/plans/wave13-<bundle>.yaml`) with the
+  selected items' producer + verifier + integration
+  gate tasks.
+- It does **not** include a `wave 13 audit` doc. The 6
+  items are not new enough to warrant a fresh audit;
+  the wave-12 audits + the wave-11/12 implementation
+  reports cover the source context.
+
+---
