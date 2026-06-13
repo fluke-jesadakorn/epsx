@@ -266,10 +266,19 @@ pub fn create_admin_routes() -> Router<AppState> {
     .layer(from_fn_with_state("admin:developer:manage", perm_guard));
 
   // Payment links
+  //
+  // wave11(track-b): the handlers live at
+  // `crate::web::payments::payment_link_handlers` now (folded
+  // out of `web::admin::payment_link_handlers`). The route
+  // mount and the perm-guard layer stay here because the admin
+  // scope is what gates the writes; the public slug lookup
+  // (`/api/public/payment-links/{slug}`) is mounted separately
+  // from `unified_router::create_public_routes` and uses no
+  // perm guard.
   let payment_links = Router::new()
-    .route("/payment-links", get(super::payment_link_handlers::list_payment_links_handler).post(super::payment_link_handlers::create_payment_link_handler))
-    .route("/payment-links/{id}", get(super::payment_link_handlers::get_payment_link_handler).put(super::payment_link_handlers::update_payment_link_handler).delete(super::payment_link_handlers::delete_payment_link_handler))
-    .route("/payment-links/{id}/record-usage", post(super::payment_link_handlers::record_payment_usage_handler))
+    .route("/payment-links", get(crate::web::payments::payment_link_handlers::list_payment_links_handler).post(crate::web::payments::payment_link_handlers::create_payment_link_handler))
+    .route("/payment-links/{id}", get(crate::web::payments::payment_link_handlers::get_payment_link_handler).put(crate::web::payments::payment_link_handlers::update_payment_link_handler).delete(crate::web::payments::payment_link_handlers::delete_payment_link_handler))
+    .route("/payment-links/{id}/record-usage", post(crate::web::payments::payment_link_handlers::record_payment_usage_handler))
     .layer(from_fn_with_state("admin:payments:manage", perm_guard));
 
   // Support chat

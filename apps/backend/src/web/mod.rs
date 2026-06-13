@@ -39,14 +39,62 @@ fn configure_cors_for_frontend() -> CorsLayer {
 
 /// Create the main application router with unified architecture
 /// Single source of truth - eliminates all route duplication and competing router systems
-pub fn create_router(
+///
+/// `async` since wave 11 — the two new payments ports are
+/// built from the payments pool here, which is an async
+/// operation.
+pub async fn create_router(
     container: Arc<DomainContainer>,
     notification_port: Option<Arc<dyn epsx_contracts::notification_port::NotificationPort>>,
 ) -> Router {
   // Use unified route builder - consolidates all 3 previous router systems
-  routes::UnifiedRouteBuilder::new(container.clone())
-    .with_notification_port(notification_port)
-    .build()
+  let mut builder = routes::UnifiedRouteBuilder::new(container.clone())
+    .with_notification_port(notification_port);
+
+  // wave11(track-b): wire the two new payment-bounded-context
+  // ports. The in-process adapters are built here from the
+  // payments pool; the build is async because the
+  // `get_payments_pool` call is. A missing pool means the
+  // handlers fall back to 503 / empty (no panic, no silent
+  // failure). The sync router path uses the
+  // `with_*_port_opt` builder methods so a missing pool is
+  // propagated as `None`.
+  let payment_context_port: Option<Arc<dyn crate::domain::payment::repository_ports::PaymentContextRepositoryPort>> = {
+      use crate::infrastructure::adapters::repositories::payment_context_repository_adapter::PaymentContextRepositoryAdapter;
+      match crate::infrastructure::database::get_payments_pool().await {
+          Ok(pool) => Some(Arc::new(PaymentContextRepositoryAdapter::new(pool)) as Arc<dyn crate::domain::payment::repository_ports::PaymentContextRepositoryPort>),
+          Err(e) => {
+              tracing::warn!(
+                  "PaymentContextRepositoryPort NOT wired ({}); \
+                   /api/public/payment-links/{{slug}} will return 503 \
+                   and the admin CRUD endpoints will return 503.",
+                  e
+              );
+              None
+          }
+      }
+  };
+  let subscription_port: Option<Arc<dyn crate::domain::payment::repository_ports::SubscriptionRepositoryPort>> = {
+      use crate::infrastructure::adapters::repositories::payment::PaymentSubscriptionRepositoryAdapter;
+      match crate::infrastructure::database::get_payments_pool().await {
+          Ok(pool) => Some(Arc::new(PaymentSubscriptionRepositoryAdapter::new(pool)) as Arc<dyn crate::domain::payment::repository_ports::SubscriptionRepositoryPort>),
+          Err(e) => {
+              tracing::warn!(
+                  "SubscriptionRepositoryPort NOT wired ({}); \
+                   the market_analytics stock-ranking-assignments \
+                   query will return an empty result.",
+                  e
+              );
+              None
+          }
+      }
+  };
+
+  builder = builder
+    .with_payment_context_repository_port(payment_context_port)
+    .with_subscription_repository_port(subscription_port);
+
+  builder.build()
 }
 
 /// Create a demo router for Cloud Run demonstration without database dependencies

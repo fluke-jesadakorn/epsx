@@ -14,6 +14,18 @@ pub mod admin_reprocess_handler;
 pub mod upgrade_service;
 pub mod credit_handlers;
 
+// wave11(track-b): payment-link handlers folded into the
+// payments area. Pre-wave-11 the file lived at
+// `web/admin/payment_link_handlers.rs` and reached into the
+// concrete `PaymentContextRepositoryAdapter` directly. Track B
+// moves it here and routes through
+// `Arc<dyn PaymentContextRepositoryPort>`. The public slug
+// route (`/api/public/payment-links/{slug}`) and the admin
+// CRUD routes (`/api/admin/payment-links/*`) both come from
+// this module. See `docs/wave8-service-boundary/ROADMAP.md`
+// §4 wave-11 preconditions item 3.
+pub mod payment_link_handlers;
+
 // Re-export handler functions for router integration
 pub use validation_handlers::{
     validate_payment_handler,
@@ -56,4 +68,13 @@ pub use credit_handlers::{
     admin_grant_credits,
     admin_revoke_credits,
     admin_get_credit_stats,
+};
+pub use payment_link_handlers::{
+    create_payment_link_handler,
+    delete_payment_link_handler,
+    get_payment_link_by_slug_handler,
+    get_payment_link_handler,
+    list_payment_links_handler,
+    record_payment_usage_handler,
+    update_payment_link_handler,
 };

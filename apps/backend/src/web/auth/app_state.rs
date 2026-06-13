@@ -16,6 +16,9 @@ use crate::infrastructure::adapters::repositories::permission_plan_repository_ad
 use crate::infrastructure::storage::S3Storage;
 // use crate::infrastructure::adapters::repositories::payment_repository_adapter::PaymentRepositoryAdapter; // Temporarily disabled
 
+use crate::domain::payment::repository_ports::payment_context_port::PaymentContextRepositoryPort;
+use crate::domain::payment::repository_ports::subscription_port::SubscriptionRepositoryPort;
+
 use epsx_contracts::notification_port::NotificationPort;
 
 /// Application State for Dependency Injection
@@ -53,6 +56,27 @@ pub struct AppState {
     /// `AppError::Configuration` when this is `None`, so a missing
     /// port fails fast instead of silently dropping notifications.
     pub notification_port: Option<Arc<dyn NotificationPort>>,
+
+    /// Wave 11 / Track B: payment-context (V2 dynamic payment
+    /// link) port. Used by the public
+    /// `GET /api/public/payment-links/{slug}` route and the
+    /// admin `web/payments/payment_link_handlers.rs` CRUD.
+    /// In-process impl is the existing
+    /// `PaymentContextRepositoryAdapter` (see
+    /// `infrastructure::adapters::repositories::payment_context_repository_adapter`).
+    /// `None` means the container did not wire the adapter; the
+    /// handlers return `503 SERVICE_UNAVAILABLE` rather than
+    /// silently 500.
+    pub payment_context_repository_port: Option<Arc<dyn PaymentContextRepositoryPort>>,
+
+    /// Wave 11 / Track B: subscription port. Backed by the
+    /// `PaymentSubscriptionRepositoryAdapter` (see
+    /// `infrastructure::adapters::repositories::payment::subscription_repository_adapter`).
+    /// Used by the admin plans editor and the
+    /// market_analytics `get_stock_ranking_assignments` query
+    /// (the audit's row-4 leak closed in this track).
+    /// `None` means the container did not wire the adapter.
+    pub subscription_repository_port: Option<Arc<dyn SubscriptionRepositoryPort>>,
 }
 
 impl AppState {
@@ -104,7 +128,72 @@ impl AppState {
             // `AppError::Configuration` rather than silently dropping
             // notifications.
             notification_port: None,
+            // wave11(track-b) ports. Default to None; the
+            // container factories wire them after constructing
+            // the in-process adapters. A `None` value means the
+            // server has not finished initializing; the handler
+            // paths return 503 (payment-link) or fall back to
+            // the legacy shim (subscription) rather than
+            // panicking.
+            payment_context_repository_port: None,
+            subscription_repository_port: None,
         }
+    }
+
+    /// Attach a `PaymentContextRepositoryPort` to the AppState.
+    ///
+    /// Called by the container factories after they construct
+    /// the in-process `PaymentContextRepositoryAdapter`.
+    /// `web/payments/payment_link_handlers::get_port` reads
+    /// this field; a missing port fails fast with `503`.
+    pub fn with_payment_context_repository_port(
+        mut self,
+        port: Arc<dyn PaymentContextRepositoryPort>,
+    ) -> Self {
+        self.payment_context_repository_port = Some(port);
+        self
+    }
+
+    /// Attach an `Option<Arc<dyn PaymentContextRepositoryPort>>`
+    /// to the AppState. Use this from the container factories
+    /// where the in-process adapter construction can fail
+    /// (missing `PAYMENTS_DATABASE_URL`); `None` means the
+    /// payment-link handlers will return 503.
+    pub fn with_payment_context_repository_port_opt(
+        mut self,
+        port: Option<Arc<dyn PaymentContextRepositoryPort>>,
+    ) -> Self {
+        self.payment_context_repository_port = port;
+        self
+    }
+
+    /// Attach a `SubscriptionRepositoryPort` to the AppState.
+    ///
+    /// Called by the container factories after they construct
+    /// the in-process `PaymentSubscriptionRepositoryAdapter`.
+    /// The market_analytics stock-ranking-assignments query
+    /// reads this field; a missing port surfaces as a 500
+    /// (the handler still runs, but the query path returns
+    /// empty).
+    pub fn with_subscription_repository_port(
+        mut self,
+        port: Arc<dyn SubscriptionRepositoryPort>,
+    ) -> Self {
+        self.subscription_repository_port = Some(port);
+        self
+    }
+
+    /// Attach an `Option<Arc<dyn SubscriptionRepositoryPort>>`
+    /// to the AppState. Use this from the container factories
+    /// where the in-process adapter construction can fail
+    /// (missing `PAYMENTS_DATABASE_URL`); `None` means the
+    /// stock-ranking query returns empty.
+    pub fn with_subscription_repository_port_opt(
+        mut self,
+        port: Option<Arc<dyn SubscriptionRepositoryPort>>,
+    ) -> Self {
+        self.subscription_repository_port = port;
+        self
     }
 
     /// Attach a `NotificationPort` to the AppState. Called by the

@@ -19,7 +19,12 @@ pub mod notification_query_helper;
 pub mod wallet_notification_repository;
 pub mod system_settings_handlers;
 pub mod developer_portal_handlers;
-pub mod payment_link_handlers;
+// wave11(track-b): `payment_link_handlers` moved to
+// `crate::web::payments::payment_link_handlers` — see
+// `web/payments/payment_link_handlers.rs` for the docstring
+// and the audit references. The route is still mounted from
+// `web/admin/routes.rs` but the handlers themselves live in
+// the payments area.
 pub mod audit_log_handlers;
 pub mod chat_handlers;
 pub mod news_handlers;
