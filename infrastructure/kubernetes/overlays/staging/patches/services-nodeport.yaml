@@ -30,3 +30,17 @@ spec:
     - port: 3000
       targetPort: 3000
       nodePort: 30006
+---
+# wave12(integration): the new epsx-analytics binary
+# gets its own NodePort in staging so the canary rollout
+# doesn't collide with the monolith's port 30085.
+apiVersion: v1
+kind: Service
+metadata:
+  name: epsx-analytics
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30086

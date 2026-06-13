@@ -16,6 +16,12 @@ images:
   - name: registry.jesadakorn.com/jesadakorn/epsx/admin
     newName: epsx-admin-frontend
     newTag: prod
+  # wave12(integration): the new epsx-analytics binary
+  # (per-wave-12 image tag, not `prod`, because the
+  # monolith's `prod` tag is for the monolith build).
+  - name: registry.jesadakorn.com/jesadakorn/epsx/analytics
+    newName: epsx-analytics
+    newTag: wave12
 
 patches:
   - path: patches/replicas.yaml

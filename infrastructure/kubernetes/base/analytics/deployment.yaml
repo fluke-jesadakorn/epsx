@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-analytics
+  labels:
+    app: epsx-analytics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: epsx-analytics
+  template:
+    metadata:
+      labels:
+        app: epsx-analytics
+    spec:
+      containers:
+        - name: epsx-analytics
+          image: epsx-analytics:wave12
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: "8080"
+            - name: RUST_LOG
+              value: "info"
+            - name: RUST_BACKTRACE
+              value: "0"
+            - name: RUST_ENV
+              value: "production"
+            - name: ENV
+              value: "production"
+            # wave-12 marker: lets ops distinguish the
+            # wave-12 build of the analytics binary from
+            # pre-wave-12 versions (none exist today, but
+            # the env var is forward-looking).
+            - name: EPSX_ANALYTICS_VERSION
+              value: "wave12"
+            # The new binary has NO PostgreSQL connections
+            # (Q2 ROADMAP §7) and no Redis dependency by
+            # default. Wave-13+ can add env vars here for
+            # a Redis-backed cache swap-in.
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          resources:
+            # The new binary is lighter than the monolith
+            # (no DB pools, no JWT verification, no
+            # permission service) — 512Mi / 1 CPU is
+            # sufficient for the 5 routes it serves.
+            limits:
+              memory: 512Mi
+              cpu: "1"
+            requests:
+              memory: 128Mi
+              cpu: "0.25"
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 100Mi

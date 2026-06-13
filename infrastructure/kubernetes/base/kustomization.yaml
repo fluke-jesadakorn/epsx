@@ -9,3 +9,5 @@ resources:
   - frontend/service.yaml
   - admin/deployment.yaml
   - admin/service.yaml
+  - analytics/deployment.yaml
+  - analytics/service.yaml

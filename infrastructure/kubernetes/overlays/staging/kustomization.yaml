@@ -13,6 +13,11 @@ images:
     newTag: staging
   - name: epsx-admin-frontend
     newTag: staging
+  # wave12(integration): the new epsx-analytics binary
+  # uses a per-wave image tag rather than `staging` to
+  # keep the analytics cutover traceable across waves.
+  - name: epsx-analytics
+    newTag: wave12-staging
 
 patches:
   - path: patches/replicas.yaml
