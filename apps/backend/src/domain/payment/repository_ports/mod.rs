@@ -1,6 +1,8 @@
 // Payment Bounded Context Repository Ports
 // These define the interfaces for data persistence in the Payment bounded context
 
+pub mod subscription_port;
+
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
