@@ -877,24 +877,10 @@ mod tests {
         // Compile-time check: the helper must take a port trait
         // object so a future HTTP / gRPC adapter (e.g. when
         // payments is lifted to a separate service) can be
-        // substituted without code change.
+        // substituted without code change. The function-pointer
+        // type assertion pins the trait-object shape.
         fn _takes_dyn_port(_: Arc<dyn crate::domain::payment::repository_ports::PaymentContextRepositoryPort>) {}
-        // Build a concrete adapter and verify the cast works.
-        let _adapter: Arc<dyn crate::domain::payment::repository_ports::PaymentContextRepositoryPort> = {
-            // We do not have a live `TlsPool` in the unit test;
-            // this branch is the compile-time shape check. The
-            // runtime path is exercised in the integration
-            // tests.
-            let _unused: fn() = || {
-                // Dead-code marker so the closure type is
-                // inferred. The cast itself is what we are
-                // pinning.
-            };
-            // We construct the type path only; the value is
-            // not actually created here. The compile pass is
-            // what matters.
-            unimplemented!()
-        };
+        let _ = _takes_dyn_port as fn(_);
     }
 
     /// The public `get_payment_link_by_slug_handler` URL path
