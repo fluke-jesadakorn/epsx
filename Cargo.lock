@@ -4189,6 +4189,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "epsx-analytics-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "axum 0.8.9",
+ "chrono",
+ "epsx",
+ "epsx-contracts",
+ "futures",
+ "http 1.4.2",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tower 0.5.3",
+ "tower-http 0.5.2",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "epsx-auth"
 version = "0.1.0"
 dependencies = [

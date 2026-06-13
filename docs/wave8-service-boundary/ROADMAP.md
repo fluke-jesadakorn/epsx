@@ -2185,3 +2185,217 @@ The final commit hash for this track is recorded in
 per-track
 `/Users/fluke/.mavis/plans/plan_a0283b27/outputs/track-c-event-publisher-port/deliverable.md`.
 >>>>>>> origin/wave11/track-c-event-port
+
+---
+
+## 14. Wave 12 — Track A (Analytics binary) — implementation report
+
+> Branch: `wave12/track-a-analytics-binary`. Base commit:
+> `340e7980` (wave-11 integration HEAD).
+> Plan ID: `plan_1c68ccc3`. Track:
+> `track-a-analytics-binary-extract`.
+> Worktree:
+> `/Users/fluke/Desktop/Work/epsx/.worktrees/wave12-track-a-analytics-binary`.
+> Final commit hash: recorded in
+> `deliverable.md` (workspace root of the worktree) and in
+> `/Users/fluke/.mavis/plans/plan_1c68ccc3/outputs/track-a-analytics-binary-extract/deliverable.md`.
+
+### 14.1 Crate name deviation (parent-session-notified)
+
+The spec asked for the new crate to be named
+`epsx-analytics` (path `apps/analytics/`). The workspace
+already has a member named `epsx-analytics` —
+`services/analytics/Cargo.toml:2` — which is the
+**event-tracking** analytics service (a different binary on
+port 8107, with its own `[[bin]] name = "analytics"`).
+Cargo will not allow two crates with the same name.
+
+Resolution: the new crate is named `epsx-analytics-service`.
+The spec's own §2/§5 wording ("the new `analytics-service`
+binary") matches this name. The filesystem path stays
+`apps/analytics/` per the spec. The orchestrator was
+notified via parent-session message channel before any
+verifier dispatch. This deviation is in the deliverable's
+"Notes" section.
+
+### 14.2 File-by-file change list
+
+| File | Status | LOC | Purpose |
+|------|--------|----:|---------|
+| `apps/analytics/Cargo.toml` | new | 50 | Workspace member; depends on `epsx` (path = "../backend") + `epsx-contracts`; `[[bin]] name = "epsx-analytics-service"`. |
+| `apps/analytics/src/lib.rs` | new | 191 | Re-export surface for the 4 moved trees (domain / application / transport / infrastructure) + nested modules (`cache`, `tradingview`, `tradingview_ws`, `repositories`) + 3 lib tests. |
+| `apps/analytics/src/main.rs` | new | 420 | `tokio::main` + tracing init + `AnalyticsServiceState::build` (no DB) + 5-route axum builder + `FreePlanWalletRankingOffsetQuery` no-DB stub for the R6 port + startup banner on `:8080` + 5 bin tests. |
+| `Cargo.toml` (workspace root) | modified | +1 | Adds `apps/analytics` to the `[workspace] members` list. |
+| `Cargo.lock` | modified | +22 | Cargo resolves the new crate's deps. |
+| `docs/wave8-service-boundary/ROADMAP.md` | modified | +95 | This §14. |
+
+**Total new Rust code:** 661 lines across 3 files (Cargo.toml
++ lib.rs + main.rs). The 9,593 LOC of analytics source in
+`apps/backend/src/{domain,application,web,Infrastructure}/*`
+was **not** physically moved — it stays where it is and is
+re-exported from the new crate. This matches the spec's
+"cleanest path: keep the files, add a re-export" guidance.
+
+### 14.3 The 5 routes the new binary serves
+
+| Method | Path | Handler (monolith path) | Auth |
+|--------|------|-------------------------|------|
+| GET | `/api/analytics/rankings` | `epsx::web::analytics::eps_handlers::get_unified_analytics_rankings_cached` (`web/analytics/eps/cache.rs:48`) | optional bearer (in monolith); in new binary, the handler is mounted bare — the integration gate adds the `optional_bearer_middleware` layer |
+| GET | `/api/analytics/filters` | `get_filter_options` (`web/analytics/eps/metadata.rs`) | none (the handler degrades gracefully without `OpenIDUserContext`) |
+| GET | `/api/analytics/countries` | `get_all_valid_countries` (`web/analytics/eps/metadata.rs`) | none |
+| GET | `/api/analytics/available-countries` | `get_available_countries` (`web/analytics/eps/metadata.rs`) | none |
+| GET | `/api/analytics/sectors` | `get_sectors_by_country` (`web/analytics/eps/metadata.rs`) | none |
+
+The 2 dead routes `force_cache_refresh` and
+`get_cache_stats` (audit §7d) are **not** mounted — they
+stay as unused exports in the monolith. Track B owns the
+wire-up-or-delete decision (it also owns the
+`web/docs/openapi_{admin,user}.rs` cleanup).
+
+The 3 admin routes
+(`/api/admin/analytics/{metrics,time-series,modules}`) stay
+in the monolith's admin binary per the spec ("wave 12
+doesn't lift the admin binary").
+
+### 14.4 The 4 ports the new binary consumes
+
+1. **`WalletRankingOffsetQuery`** (wave-10 R6; lives in
+   `epsx-contracts::wallet_ranking_offset_query`). Implemented
+   locally by `FreePlanWalletRankingOffsetQuery` (a
+   no-DB stub returning the free-plan offset for every
+   wallet). The spec's "no DB" rule + Q2 in ROADMAP §7
+   force this shape today; wave-13+ can swap to an HTTP /
+   gRPC adapter against the `epsx-identity` binary
+   without changing handler signatures.
+2. **`Cache`** (`epsx::infrastructure::cache::Cache`).
+   Implemented by an in-process `MemoryCache` (the spec
+   doesn't require Redis for the new binary; wave-13+ can
+   swap to a `RedisCache` if cross-binary cache coherency
+   becomes a requirement).
+3. **`MarketDataScannerPort`**
+   (`epsx::domain::market_analytics::repository_ports::MarketDataScannerPort`).
+   Implemented by `TradingViewAdapter`
+   (`infrastructure/adapters/services/tradingview/tradingview_adapter.rs:23`),
+   which wraps `TradingViewApiService`.
+4. **`EPSRepository`** (the legacy port in
+   `epsx::domain::market_analytics::services::eps_ranking_service::EPSRepository`).
+   Implemented by `TradingViewEPSRepository`
+   (`web/analytics/repository.rs:14`).
+
+### 14.5 0 PostgreSQL connections (Q2 in ROADMAP §7)
+
+The new binary does **not** open a database pool. The
+`apps/analytics/Cargo.toml` does not depend on `diesel` or
+`diesel-async`. The `AnalyticsServiceState::build` function
+in `main.rs` constructs all in-process state without
+touching the DB:
+
+- `TradingViewApiService` (REST + WSS aggregator)
+- `TradingViewAdapter` (impl `MarketDataScannerPort`)
+- `TradingViewEPSRepository` (impl `EPSRepository`)
+- `EPSRankingService` (the legacy DDD service)
+- `EPSCacheService` (the private `HashMap` cache)
+- `WebSocketEarningsService` (the `lazy_static` earnings cache)
+- `MemoryCache` (the `Arc<dyn Cache>` for handler `Extension`)
+
+The `analytics` PostgreSQL schema stays in the monolith.
+`ANALYTICS_DATABASE_URL` continues to be read by the
+monolith for the CQRS read-replica (which is used by
+`audit_log_repository.rs` and CQRS plumbing, not by
+analytics-domain code — see audit §5c). The
+integration-gate cutover in production is a
+reverse-proxy switch (the new binary listens on `:8080`,
+the same port the monolith uses today).
+
+### 14.6 Test results
+
+```text
+$ cargo check --workspace
+warning: `epsx` (lib) generated 16 warnings (pre-existing; no new warnings)
+warning: `epsx-frontend` (bin "bff-frontend") generated 15 warnings (pre-existing)
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 53s
+
+$ cargo test -p epsx-analytics-service
+running 3 tests (lib)
+test tests::reexport_sanity_cache_service ... ok
+test tests::reexport_sanity_epsranking ... ok
+test tests::reexport_sanity_port ... ok
+test result: ok. 3 passed; 0 failed
+
+running 5 tests (bin)
+test tests::test_epsranking_type_reexport ... ok
+test tests::test_startup_banner ... ok
+test tests::test_free_plan_stub_returns_default ... ok
+test tests::test_state_build_no_db ... ok
+test tests::test_five_route_builder ... ok
+test result: ok. 5 passed; 0 failed
+
+$ cargo test -p epsx --lib web::analytics
+test result: ok. 19 passed; 0 failed   (monolith analytics HTTP transport tests)
+
+$ cargo test -p epsx --lib domain::market_analytics
+test result: ok. 45 passed; 0 failed   (monolith analytics DDD core tests, including
+test_cache_stats_calculation for EPSCacheService)
+```
+
+The 19 + 45 monolith tests that the spec called out
+("existing `EPSCacheService` and `WebSocketEarningsService`
+tests in the monolith still pass") are green. The new
+binary adds 8 tests of its own (3 lib + 5 bin). Total:
+**75 tests, 0 failures** on the affected surface.
+
+### 14.7 Open issues for the integration gate
+
+These are the items the spec explicitly deferred to
+**Track B** of the wave-12 plan. The new binary does not
+address them; the integration gate will sequence Track A
+and Track B.
+
+1. **Route consolidation** (`/api/analytics/*` +
+   `/api/public/analytics/*` duplicate mount). Per
+   audit §7b + §10 Refactor #3: the public mount is
+   redundant because the authenticated mount already
+   uses `optional_bearer_middleware` and the handlers
+   accept `Option<Extension<OpenIDUserContext>>`. The
+   new binary mounts only the 5 user-facing routes
+   under `/api/analytics/*`. The integration gate
+   decides whether to drop the public mount, keep it,
+   or merge it.
+2. **Dead route decision** (`force_cache_refresh` +
+   `get_cache_stats`). Per audit §7d + §10 Refactor #3:
+   these are referenced by `web/docs/openapi_{admin,user}.rs`
+   but not mounted. Track B either wires them up under
+   `/api/admin/analytics/cache/*` with admin auth, or
+   deletes the handlers + the OpenAPI refs. The new
+   binary does **not** mount them.
+3. **`SyncEPSDataCommand` + `RefreshCacheCommand` dead
+   commands** (audit §6). Defined and have handlers, but
+   zero live `.handle(...)` call sites. The spec
+   explicitly says "Do NOT touch — those are wave-12+
+   cleanup that the integration gate will handle."
+4. **`web/admin/analytics/` naming-collision** (audit
+   §1d). Different tree, different `AnalyticsQuery`
+   type. Out of scope per the spec; stays in the
+   admin binary.
+5. **Three `AnalyticsQuery` types with the same name**
+   (audit §9). Out of scope; defer to a wave-N+2
+   analytics cleanup.
+6. **`epsx-analytics-service` ↔ `epsx-identity` HTTP/gRPC
+   wiring.** The `WalletRankingOffsetQuery` port is
+   satisfied by a no-DB stub today (the spec's "no DB"
+   rule). A future wave-13+ can swap to an HTTP / gRPC
+   adapter against `epsx-identity` for tier-aware
+   promotion. The port is the seam; handler signatures
+   do not change.
+7. **Migration collision** (audit §5d, §10 Refactor #2).
+   `migrations/analytics/00000000000001_consolidated_analytics_v2`
+   and `00000000000001_consolidated_baseline_v3` have
+   the same version number; `embed_migrations!` will
+   refuse to compile. Out of scope for Track A; this
+   is Track B's job (per the worktree the orchestrator
+   set up: `wave12/track-b-infra-cleanup`).
+8. **The pre-existing merge-conflict marker at the end
+   of this file** (`>>>>>>> origin/wave11/track-c-event-port`).
+   Present before Track A started; out of scope. The
+   integration gate or a future wave can clean it up
+   when the wave-11 track-C report is fully merged.
