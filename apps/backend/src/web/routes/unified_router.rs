@@ -517,34 +517,15 @@ impl UnifiedRouteBuilder {
             self.container.get_analytics_pool(),
         );
 
-        // Create TradingView service and EPS ranking service for public analytics
-        let config = Arc::new(crate::config::get_fallback_config());
-        let tradingview_service = Arc::new(
-            crate::infrastructure::adapters::services::tradingview::TradingViewApiService::new(
-                config,
-            ),
-        );
-        let eps_repository = Arc::new(crate::web::analytics::TradingViewEPSRepository::new(
-            tradingview_service,
-        ));
-        let eps_ranking_service = Arc::new(
-            crate::domain::market_analytics::services::eps_ranking_service::EPSRankingService::new(
-                eps_repository,
-            ),
-        );
-        // Permission service is required by the rankings handler even for public access
-        // wave10(track-c) R6: same port-based injection as the user-side route.
-        let permission_service = self.get_wallet_ranking_offset_port();
+        // wave12(track-b): the `/api/public/analytics/{rankings,filters,countries}`
+        // mount has been removed. The same 3 handlers are mounted under
+        // `/api/analytics/...` in `create_analytics_routes` with
+        // `optional_bearer_middleware` — the audit's "public but tier-aware"
+        // pattern. The handlers already accept
+        // `Option<Extension<OpenIDUserContext>>` and degrade gracefully.
+        // See audit-analytics §7b, ROADMAP §4 wave-12 precondition #4.
 
         Router::new()
-            .nest("/analytics", Router::new()
-                .route("/rankings", get(crate::web::analytics::eps_handlers::get_unified_analytics_rankings_cached))
-                .route("/filters", get(crate::web::analytics::eps_handlers::get_filter_options))
-                .route("/countries", get(crate::web::analytics::eps_handlers::get_all_valid_countries))
-                .layer(Extension(self.get_or_default_cache()))
-                .layer(Extension(eps_ranking_service))
-                .layer(Extension(permission_service))
-            )
             .route("/plans", get(crate::web::public::plans_handlers::get_public_plans))
             .route("/plans/{id}", get(crate::web::public::plans_handlers::get_public_plan_by_id))
             // V2 Dynamic Payment Links (public lookup by slug)
