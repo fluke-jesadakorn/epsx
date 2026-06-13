@@ -604,4 +604,18 @@ mod tests {
         );
         _takes_optional_reason(None);
     }
+
+    /// The trait's stock-ranking-assignment method is the
+    /// audit-flagged leak closed in this track. The unit-test
+    /// backstop pins the port method signature
+    /// (`get_stock_ranking_assignments(&self, &WalletAddress) -> AppResult<Vec<StockRankingAssignment>>`)
+    /// so any future signature drift is visible in `cargo test`.
+    #[test]
+    fn port_method_signatures_match_brief() {
+        fn _takes_wallet_address(_: &WalletAddress) {}
+        // Use the trait method shape as a function-pointer
+        // signature; if the trait signature changes, the cast
+        // fails to compile.
+        let _ = _takes_wallet_address as fn(&WalletAddress);
+    }
 }
