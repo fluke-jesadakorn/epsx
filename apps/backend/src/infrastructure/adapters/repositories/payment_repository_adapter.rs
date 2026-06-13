@@ -1,5 +1,23 @@
 //! Payment Repository Adapter (Infrastructure Layer)
 //! PostgreSQL implementation of PaymentRepositoryPort using Diesel
+//!
+//! Wave 11 / Track A:
+//! The cross-pool port methods (the 8 methods listed in
+//! `PaymentRepositoryPort`'s new "Wave 11 / Track A additions"
+//! block) are implemented as inherent `_*_impl` methods on
+//! `PaymentRepositoryAdapter` in this file. The trait impl
+//! (which is the only place the trait is implemented for
+//! this type, per Rust's coherence rules) lives in
+//! `payment_repository_adapter_cross_pool.rs` and
+//! forward-calls the inherent methods.
+//!
+//! Why this split? A single `impl PaymentRepositoryPort` block
+//! in this file would have ballooned to 800+ LOC. The split
+//! keeps the original 506 LOC file diffable against the
+//! wave-10 baseline (only the trait-impl block is removed and
+//! the inherent `_*_impl` shims are added) and the new 8-method
+//! bodies live in the cross-pool file. Test code goes in the
+//! cross-pool file too — same reason.
 
 use crate::prelude::*;
 use tracing::{info, error, debug, warn};
@@ -26,7 +44,7 @@ use crate::schemas::payments::payments;
 /// PostgreSQL implementation of PaymentRepositoryPort using Diesel
 #[derive(Clone)]
 pub struct PaymentRepositoryAdapter {
-    db_pool: &'static TlsPool,
+    pub(crate) db_pool: &'static TlsPool,
 }
 
 impl PaymentRepositoryAdapter {
@@ -34,8 +52,19 @@ impl PaymentRepositoryAdapter {
         Self { db_pool }
     }
 
+    /// Shorthand for `self.db_pool.conn().await` that the
+    /// cross-pool port methods in
+    /// `payment_repository_adapter_cross_pool.rs` use so they
+    /// don't have to reach into the private `db_pool` field.
+    /// Returns the inner deadpool Object (not the AppResult
+    /// wrapper) so the cross-pool methods can plug it straight
+    /// into `diesel_async::RunQueryDsl`.
+    pub(crate) async fn conn(&self) -> Result<deadpool::managed::Object<TlsConnectionManager>, String> {
+        self.db_pool.conn().await.map_err(|e| format!("conn: {}", e))
+    }
+
     /// Convert PaymentDb domain model to database model
-    fn payment_to_domain(&self, payment_db: PaymentDb) -> Result<Payment, AppError> {
+    pub(crate) fn payment_to_domain(&self, payment_db: PaymentDb) -> Result<Payment, AppError> {
         // Convert payment amount
         // Convert BigDecimal to Decimal
         let amount_decimal = rust_decimal::Decimal::from_str(&payment_db.amount.to_string())
@@ -147,11 +176,15 @@ impl PaymentRepositoryAdapter {
                 .map_err(|e| AppError::validation_error(format!("Failed to serialize metadata: {}", e)))?,
         })
     }
-}
 
-#[async_trait]
-impl PaymentRepositoryPort for PaymentRepositoryAdapter {
-    async fn save(&self, payment: &Payment) -> Result<(), String> {
+    // -----------------------------------------------------------------
+    // Inherent `_*_impl` shims. The trait impl in
+    // `payment_repository_adapter_cross_pool.rs` forward-calls these
+    // to keep the 506-LOC original file diffable against the
+    // wave-10 baseline.
+    // -----------------------------------------------------------------
+
+    pub async fn _save_impl(&self, payment: &Payment) -> Result<(), String> {
         let mut conn = self.db_pool.conn().await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
@@ -178,7 +211,7 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         Ok(())
     }
 
-    async fn find_by_id(&self, payment_id: &PaymentId) -> Result<Option<Payment>, String> {
+    pub async fn _find_by_id_impl(&self, payment_id: &PaymentId) -> Result<Option<Payment>, String> {
         let mut conn = self.db_pool.conn().await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
@@ -208,7 +241,7 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         }
     }
 
-    async fn find_by_user(&self, wallet_address: &WalletAddress) -> Result<Vec<Payment>, String> {
+    pub async fn _find_by_user_impl(&self, wallet_address: &WalletAddress) -> Result<Vec<Payment>, String> {
         let mut conn = self.db_pool.conn().await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
@@ -235,7 +268,7 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         Ok(payments)
     }
 
-    async fn find_by_status(&self, status: PaymentStatus) -> Result<Vec<Payment>, String> {
+    pub async fn _find_by_status_impl(&self, status: PaymentStatus) -> Result<Vec<Payment>, String> {
         let mut conn = self.db_pool.conn().await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
@@ -277,7 +310,7 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         Ok(payments)
     }
 
-    async fn find_by_reference(&self, reference: &PaymentReference) -> Result<Option<Payment>, String> {
+    pub async fn _find_by_reference_impl(&self, reference: &PaymentReference) -> Result<Option<Payment>, String> {
         let mut conn = self.db_pool.conn().await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
@@ -307,10 +340,10 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         }
     }
 
-    async fn find_by_date_range(
+    pub async fn _find_by_date_range_impl(
         &self,
         start: DateTime<Utc>,
-        end: DateTime<Utc>
+        end: DateTime<Utc>,
     ) -> Result<Vec<Payment>, String> {
         let mut conn = self.db_pool.conn().await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
@@ -339,7 +372,7 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         Ok(payments)
     }
 
-    async fn find_expired_pending(&self, threshold: DateTime<Utc>) -> Result<Vec<Payment>, String> {
+    pub async fn _find_expired_pending_impl(&self, threshold: DateTime<Utc>) -> Result<Vec<Payment>, String> {
         let mut conn = self.db_pool.conn().await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
@@ -368,7 +401,7 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         Ok(payments)
     }
 
-    async fn update_status(&self, payment_id: &PaymentId, status: PaymentStatus) -> Result<(), String> {
+    pub async fn _update_status_impl(&self, payment_id: &PaymentId, status: PaymentStatus) -> Result<(), String> {
         let mut conn = self.db_pool.conn().await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
@@ -413,7 +446,7 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         Ok(())
     }
 
-    async fn delete(&self, payment_id: &PaymentId) -> Result<(), String> {
+    pub async fn _delete_impl(&self, payment_id: &PaymentId) -> Result<(), String> {
         let mut conn = self.db_pool.conn().await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
@@ -431,7 +464,7 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         Ok(())
     }
 
-    async fn get_user_payment_stats(&self, wallet_address: &WalletAddress) -> Result<PaymentStats, String> {
+    pub async fn _get_user_payment_stats_impl(&self, wallet_address: &WalletAddress) -> Result<PaymentStats, String> {
         let mut conn = self.db_pool.conn().await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
@@ -505,3 +538,12 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         Ok(stats)
     }
 }
+
+// Note: The `impl PaymentRepositoryPort for PaymentRepositoryAdapter`
+// block was REMOVED from this file as part of wave-11 / Track A.
+// It now lives in `payment_repository_adapter_cross_pool.rs`
+// alongside the 8 new cross-pool port methods. The trait
+// impl there forward-calls the inherent `_*_impl` methods on
+// this struct (defined above) and the new inherent
+// `*_impl` methods on this struct (defined in the
+// cross-pool file).

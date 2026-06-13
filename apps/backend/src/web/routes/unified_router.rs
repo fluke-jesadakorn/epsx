@@ -27,6 +27,19 @@ pub struct UnifiedRouteBuilder {
     /// after building the in-process adapter so the port is wired
     /// before the router starts.
     notification_port: Option<Arc<dyn NotificationPort>>,
+    /// Wave 11 / Track A — `PaymentRepositoryPort` injected
+    /// into the AppState so the 8 cross-pool handler sites
+    /// can call into the port instead of opening two pools
+    /// directly. `None` (default) means the AppState is built
+    /// without the port — the cross-pool handler collapses
+    /// REQUIRE this to be `Some`. Production wiring (in
+    /// `main.rs`) builds the in-process adapter and calls
+    /// `with_payment_repository_port(Some(...))` so the port
+    /// is wired before the router starts.
+    payment_repo: Option<Arc<dyn crate::domain::payment::repository_ports::PaymentRepositoryPort>>,
+    /// Wave 11 / Track A — `CreditRepositoryPort` injected
+    /// into the AppState. See `payment_repo` for the lifecycle.
+    credit_repo: Option<Arc<dyn crate::domain::payment::repository_ports::CreditRepositoryPort>>,
 }
 
 impl UnifiedRouteBuilder {
@@ -35,6 +48,8 @@ impl UnifiedRouteBuilder {
         Self {
             container,
             notification_port: None,
+            payment_repo: None,
+            credit_repo: None,
         }
     }
 
@@ -48,6 +63,29 @@ impl UnifiedRouteBuilder {
         port: Option<Arc<dyn NotificationPort>>,
     ) -> Self {
         self.notification_port = port;
+        self
+    }
+
+    /// Wave 11 / Track A — attach the `PaymentRepositoryPort`
+    /// and `CreditRepositoryPort` accessors from the container
+    /// so `create_app_state` can wire them into the AppState.
+    /// The container's `get_payment_repository_port` /
+    /// `get_credit_repository_port` already do the `Arc<dyn ...>`
+    /// upcast. In the integration gate the same builder will
+    /// accept an HTTP impl of the port instead.
+    pub fn with_payment_repository_port(
+        mut self,
+        port: Option<Arc<dyn crate::domain::payment::repository_ports::PaymentRepositoryPort>>,
+    ) -> Self {
+        self.payment_repo = port;
+        self
+    }
+
+    pub fn with_credit_repository_port(
+        mut self,
+        port: Option<Arc<dyn crate::domain::payment::repository_ports::CreditRepositoryPort>>,
+    ) -> Self {
+        self.credit_repo = port;
         self
     }
 
@@ -127,7 +165,11 @@ impl UnifiedRouteBuilder {
         // async (it touches the notifications pool), so we cannot
         // build it inside this sync path — the caller (main.rs)
         // builds it in async context and hands us the Arc.
-        app_state.with_notification_port_opt(self.notification_port.clone())
+        let app_state = app_state
+            .with_notification_port_opt(self.notification_port.clone())
+            .with_payment_repo(self.payment_repo.clone())
+            .with_credit_repo(self.credit_repo.clone());
+        app_state
     }
 
     /// Build complete router with all routes and middleware

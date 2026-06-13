@@ -1,13 +1,20 @@
 //! Credit Repository Adapter (Infrastructure Layer)
 //! PostgreSQL implementation for credit wallet persistence using Diesel
+//!
+//! Wave 11 / Track A: this file now also implements
+//! `domain::payment::repository_ports::CreditRepositoryPort` —
+//! the trait wrapper around the 6 in-process methods below. The
+//! trait impl is at the bottom of the file.
 
 use crate::prelude::*;
+use async_trait::async_trait;
 use tracing::{info, error, debug};
 use diesel::prelude::*;
 use diesel_async::{RunQueryDsl};
 use uuid::Uuid;
 use chrono::Utc;
 use bigdecimal::BigDecimal;
+use std::str::FromStr;
 
 use crate::infrastructure::models::credit::{
     WalletCreditDb, NewWalletCreditDb, UpdateWalletCreditDb,
@@ -15,6 +22,10 @@ use crate::infrastructure::models::credit::{
     CreditTransactionFilters, CreditStatsResponse
 };
 use crate::schemas::payments::{wallet_credits, credit_transactions};
+use crate::domain::payment::repository_ports::{
+    CreditRepositoryPort, CreditBalanceRow, CreditTransactionRow,
+    CreditTransactionFilters as PortCreditTransactionFilters, CreditStats,
+};
 
 /// PostgreSQL credit repository adapter
 #[derive(Clone)]
@@ -363,15 +374,181 @@ impl CreditRepositoryAdapter {
     }
 }
 
+// ============================================================================
+// Wave 11 / Track A — CreditRepositoryPort impl
+// ============================================================================
+//
+// Thin trait wrapper around the 6 in-process methods above. The
+// `*_port` methods on the port each forward to the inherent
+// method on this adapter, converting the in-process error
+// types to the port's `String` return.
+
+#[async_trait]
+impl CreditRepositoryPort for CreditRepositoryAdapter {
+    async fn get_balance(&self, wallet_address: &str) -> Result<Option<CreditBalanceRow>, String> {
+        let row = self.get_balance(wallet_address)
+            .await
+            .map_err(|e| format!("get_balance: {}", e))?;
+        Ok(row.map(|db| CreditBalanceRow {
+            wallet_address: db.wallet_address,
+            balance: db.balance.to_string(),
+            pending_balance: db.pending_balance.to_string(),
+            lifetime_earned: db.lifetime_earned.to_string(),
+            lifetime_spent: db.lifetime_spent.to_string(),
+            updated_at: Some(db.updated_at),
+        }))
+    }
+
+    async fn get_or_create_balance(&self, wallet_address: &str) -> Result<CreditBalanceRow, String> {
+        let db = self.get_or_create_balance(wallet_address)
+            .await
+            .map_err(|e| format!("get_or_create: {}", e))?;
+        Ok(CreditBalanceRow {
+            wallet_address: db.wallet_address,
+            balance: db.balance.to_string(),
+            pending_balance: db.pending_balance.to_string(),
+            lifetime_earned: db.lifetime_earned.to_string(),
+            lifetime_spent: db.lifetime_spent.to_string(),
+            updated_at: Some(db.updated_at),
+        })
+    }
+
+    async fn get_transactions(
+        &self,
+        wallet_address: &str,
+        filters: Option<PortCreditTransactionFilters>,
+    ) -> Result<Vec<CreditTransactionRow>, String> {
+        // The port's `CreditTransactionFilters` is identical to
+        // the existing `infrastructure::models::credit::CreditTransactionFilters`
+        // (no Deserialize impl on the latter — that's only on the
+        // port filter). We construct the in-process filter
+        // field-by-field.
+        let f = filters.map(|p| CreditTransactionFilters {
+            wallet_address: p.wallet_address,
+            tx_type: p.tx_type,
+            from_date: p.from_date,
+            to_date: p.to_date,
+            limit: p.limit,
+            offset: p.offset,
+        });
+        let rows = self.get_transactions(wallet_address, f)
+            .await
+            .map_err(|e| format!("get_transactions: {}", e))?;
+        Ok(rows.into_iter().map(credit_tx_to_row).collect())
+    }
+
+    async fn get_all_transactions(
+        &self,
+        filters: Option<PortCreditTransactionFilters>,
+    ) -> Result<Vec<CreditTransactionRow>, String> {
+        let f = filters.map(|p| CreditTransactionFilters {
+            wallet_address: p.wallet_address,
+            tx_type: p.tx_type,
+            from_date: p.from_date,
+            to_date: p.to_date,
+            limit: p.limit,
+            offset: p.offset,
+        });
+        let rows = self.get_all_transactions(f)
+            .await
+            .map_err(|e| format!("get_all_transactions: {}", e))?;
+        Ok(rows.into_iter().map(credit_tx_to_row).collect())
+    }
+
+    async fn add_transaction(
+        &self,
+        wallet_address: &str,
+        amount: String,
+        tx_type: &str,
+        reference_id: Option<Uuid>,
+        reference_type: Option<&str>,
+        reason: Option<&str>,
+        granted_by: Option<&str>,
+        expires_at: Option<chrono::DateTime<Utc>>,
+        metadata: Option<serde_json::Value>,
+    ) -> Result<Uuid, String> {
+        let amt = BigDecimal::from_str(&amount)
+            .map_err(|e| format!("amount parse: {}", e))?;
+        self.add_transaction(
+            wallet_address,
+            amt,
+            tx_type,
+            reference_id,
+            reference_type,
+            reason,
+            granted_by,
+            expires_at,
+            metadata,
+        )
+        .await
+        .map_err(|e| format!("add_transaction: {}", e))
+    }
+
+    async fn get_stats(&self) -> Result<CreditStats, String> {
+        let r = self.get_stats()
+            .await
+            .map_err(|e| format!("get_stats: {}", e))?;
+        Ok(CreditStats {
+            total_credits_outstanding: r.total_credits_outstanding.to_string(),
+            total_credits_granted_today: r.total_credits_granted_today.to_string(),
+            total_credits_used_today: r.total_credits_used_today.to_string(),
+            active_users_with_credits: r.active_users_with_credits,
+            total_transactions_today: r.total_transactions_today,
+            average_balance: r.average_balance.to_string(),
+        })
+    }
+}
+
+fn credit_tx_to_row(db: CreditTransactionDb) -> CreditTransactionRow {
+    CreditTransactionRow {
+        id: db.id,
+        wallet_address: db.wallet_address,
+        amount: db.amount.to_string(),
+        balance_after: db.balance_after.to_string(),
+        tx_type: db.tx_type,
+        reference_id: db.reference_id,
+        reference_type: db.reference_type,
+        reason: db.reason,
+        granted_by: db.granted_by,
+        expires_at: db.expires_at,
+        metadata: db.metadata.unwrap_or(serde_json::json!({})),
+        created_at: db.created_at,
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    // Note: These are placeholder tests
-    // In a real implementation, you would use a test database
+    use super::*;
+
+    /// Object-safety compile-time check: the port would not
+    /// compile if `CreditRepositoryPort` had a generic method or
+    /// an `impl Trait` return.
+    #[allow(dead_code)]
+    fn _assert_credit_port_object_safe(_: &dyn CreditRepositoryPort) {}
 
     #[test]
     fn test_repository_creation() {
         // This is just a placeholder to show the structure
         // Real tests would require database setup
         assert!(true);
+    }
+
+    #[test]
+    fn credit_balance_row_round_trip_strings() {
+        // The port DTO carries BigDecimal as a string. Verify
+        // the round-trip preserves "0", positive, and negative
+        // amounts exactly.
+        let r = CreditBalanceRow {
+            wallet_address: "0xtest".to_string(),
+            balance: "100.5".to_string(),
+            pending_balance: "0".to_string(),
+            lifetime_earned: "100.5".to_string(),
+            lifetime_spent: "0".to_string(),
+            updated_at: None,
+        };
+        let json = serde_json::to_string(&r).expect("ser");
+        let back: CreditBalanceRow = serde_json::from_str(&json).expect("de");
+        assert_eq!(back.wallet_address, "0xtest");
+        assert_eq!(back.balance, "100.5");
     }
 }

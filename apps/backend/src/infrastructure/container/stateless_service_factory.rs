@@ -10,6 +10,8 @@ use crate::infrastructure::database::diesel_health_check;
 use crate::infrastructure::redis::RedisPool;
 use crate::infrastructure::adapters::RedisPubsubAdapter;
 use crate::infrastructure::adapters::repositories::wallet_user::WalletUserRepositoryAdapter;
+use crate::infrastructure::adapters::repositories::payment_repository_adapter::PaymentRepositoryAdapter;
+use crate::infrastructure::adapters::repositories::credit_repository_adapter::CreditRepositoryAdapter;
 use crate::infrastructure::adapters::services::permission_adapter::{
     Web3PermissionServiceAdapter, BlockchainConfig
 };
@@ -18,6 +20,7 @@ use crate::domain::wallet_management::{
     WalletUserRepositoryPort,
     WalletUserAnalyticsPort,
 };
+use crate::domain::payment::repository_ports::{PaymentRepositoryPort, CreditRepositoryPort};
 use crate::auth::auth_service::UnifiedWeb3AuthService;
 use crate::auth::token_service::OpenIDTokenService;
 use crate::auth::key_manager::KeyManager;
@@ -144,6 +147,21 @@ impl StatelessServiceFactory {
             diesel_pool,
         ));
 
+        // Wave 11 / Track A — build the payment + credit
+        // repository adapters from the dedicated
+        // `payments_pool` (the `get_payments_pool` call
+        // returns `None` if the env var isn't set, which
+        // matches the current production behaviour — the
+        // connection manager falls back to the primary
+        // pool, but in serverless the test harness rarely
+        // has PAYMENTS_DATABASE_URL set).
+        let payments_pool = crate::infrastructure::database::get_payments_pool()
+            .await
+            .ok()
+            .map(|p| Arc::new(p) as Arc<&'static TlsPool>);
+        let payment_repository = payments_pool.as_ref().map(|p| Arc::new(PaymentRepositoryAdapter::new(**p)));
+        let credit_repository = payments_pool.as_ref().map(|p| Arc::new(CreditRepositoryAdapter::new(**p)));
+
         // Create Redis pool and PubsubPort
         let (redis_pool, pubsub): (Option<Arc<RedisPool>>, Option<Arc<dyn PubsubPort>>) = if let Some(redis_url) = &self.config.redis_url {
             match RedisPool::new(redis_url).await {
@@ -186,6 +204,9 @@ impl StatelessServiceFactory {
 
             // Unified permission service (single source of truth for all permission operations)
             unified_permission_service,
+            // Wave 11 / Track A — payment + credit ports
+            payment_repository,
+            credit_repository,
         })
     }
 
@@ -226,6 +247,17 @@ pub struct RequestServices {
 
     // Unified permission service (single source of truth for all permission operations)
     pub unified_permission_service: Arc<UnifiedPermissionService>,
+
+    // Wave 11 / Track A — payment + credit ports. Optional
+    // because the legacy single-DB deployments don't always
+    // have a `PAYMENTS_DATABASE_URL` set. The cross-pool
+    // handler collapses REQUIRE the payment port; the
+    // `with_*` methods accept `None` for backward compat
+    // with the test harness, but the 8 collapsed handlers
+    // will panic-fast with a clear "port not wired" message
+    // when run in the production binary.
+    pub payment_repository: Option<Arc<PaymentRepositoryAdapter>>,
+    pub credit_repository: Option<Arc<CreditRepositoryAdapter>>,
 }
 
 impl RequestServices {
@@ -237,6 +269,24 @@ impl RequestServices {
     /// Get wallet user analytics port
     pub fn get_wallet_user_analytics_port(&self) -> Arc<dyn WalletUserAnalyticsPort> {
         self.wallet_user_repository.clone() as Arc<dyn WalletUserAnalyticsPort>
+    }
+
+    /// Wave 11 / Track A — `PaymentRepositoryPort` accessor.
+    /// Returns `None` if the container wasn't initialized with
+    /// a `payments_pool` (e.g. test harness). The 8 cross-pool
+    /// handler collapses REQUIRE this to be `Some` in
+    /// production; the AppState wiring accepts `None` so the
+    /// container can build in test mode.
+    pub fn get_payment_repository_port(&self) -> Option<Arc<dyn PaymentRepositoryPort>> {
+        self.payment_repository.as_ref()
+            .map(|repo| Arc::clone(repo) as Arc<dyn PaymentRepositoryPort>)
+    }
+
+    /// Wave 11 / Track A — `CreditRepositoryPort` accessor.
+    /// See `get_payment_repository_port`.
+    pub fn get_credit_repository_port(&self) -> Option<Arc<dyn CreditRepositoryPort>> {
+        self.credit_repository.as_ref()
+            .map(|repo| Arc::clone(repo) as Arc<dyn CreditRepositoryPort>)
     }
 
     /// Create app state for auth routes
@@ -283,7 +333,23 @@ impl RequestServices {
             }
         };
 
-        app_state.with_notification_port_opt(port)
+        // Wave 11 / Track A: wire the PaymentRepositoryPort
+        // and CreditRepositoryPort from this RequestServices.
+        // Both accessors return `Arc<dyn ...>`; `None` if the
+        // container wasn't initialized with the payment
+        // adapter (e.g. a test harness without the
+        // `PAYMENTS_DATABASE_URL` set). The 8 cross-pool
+        // handler collapses REQUIRE the payment port; the
+        // `with_*` methods accept `None` to keep the
+        // AppState constructible in test mode, but the
+        // handlers will panic-fast with a clear "port not
+        // wired" message.
+        let payment_repo = self.get_payment_repository_port();
+        let credit_repo = self.get_credit_repository_port();
+        app_state
+            .with_notification_port_opt(port)
+            .with_payment_repo(payment_repo)
+            .with_credit_repo(credit_repo)
     }
 
     /// Validate that all required services are available

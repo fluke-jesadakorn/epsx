@@ -16,6 +16,7 @@ use crate::infrastructure::adapters::repositories::{
 
     permission_plan_repository_adapter::PermissionPlanRepositoryAdapter,
     payment_repository_adapter::PaymentRepositoryAdapter,
+    credit_repository_adapter::CreditRepositoryAdapter,
     notification_repository_adapter::NotificationRepositoryAdapter,
 };
 use crate::infrastructure::adapters::services::{
@@ -29,7 +30,9 @@ use crate::domain::wallet_management::{
 };
 use crate::domain::auth::ports::IdentityProviderPort;
 
-use crate::domain::payment::repository_ports::{PaymentRepositoryPort, TransactionHistoryProvider};
+use crate::domain::payment::repository_ports::{
+    PaymentRepositoryPort, CreditRepositoryPort, TransactionHistoryProvider,
+};
 use crate::auth::auth_service::UnifiedWeb3AuthService;
 use crate::auth::token_service::OpenIDTokenService;
 use crate::auth::key_manager::KeyManager;
@@ -54,6 +57,7 @@ pub struct SimpleContainer {
 
     pub permission_plan_repository: Option<Arc<PermissionPlanRepositoryAdapter>>,
     pub payment_repository: Option<Arc<PaymentRepositoryAdapter>>,
+    pub credit_repository: Option<Arc<CreditRepositoryAdapter>>,
     pub notification_repository: Option<Arc<NotificationRepositoryAdapter>>,
     pub wallet_permission_service: Option<Arc<WalletPermissionService>>,
     pub web3_permission_adapter: Option<Arc<Web3PermissionServiceAdapter>>,
@@ -107,6 +111,7 @@ impl SimpleContainer {
 
             permission_plan_repository: None,
             payment_repository: None,
+            credit_repository: None,
             notification_repository: None,
             wallet_permission_service: None,
             web3_permission_adapter: None,
@@ -189,6 +194,11 @@ impl SimpleContainer {
         
         // Payment Repository (uses payments_pool if available)
         let payment_repository = payments_pool.as_ref().map(|pool| Arc::new(PaymentRepositoryAdapter::new(**pool)));
+
+        // Credit Repository (uses payments_pool — same schema as
+        // `wallet_credits` / `credit_transactions` live in the
+        // payments migrations).
+        let credit_repository = payments_pool.as_ref().map(|pool| Arc::new(CreditRepositoryAdapter::new(**pool)));
 
         // Notification Repository (uses notifications_pool if available)
         let notification_repository = if let Some(pool) = &notifications_pool {
@@ -419,6 +429,7 @@ impl SimpleContainer {
 
             permission_plan_repository: Some(permission_plan_repository),
             payment_repository,
+            credit_repository,
             notification_repository,
             wallet_permission_service: Some(wallet_permission_service),
             web3_permission_adapter: Some(web3_permission_adapter),
@@ -577,6 +588,7 @@ impl SimpleContainer {
 
             permission_plan_repository: None,
             payment_repository: None,
+            credit_repository: None,
             notification_repository: None,
             wallet_permission_service: None,
             web3_permission_adapter: None,
@@ -658,6 +670,14 @@ impl SimpleContainer {
 
     pub fn get_payment_repository_port(&self) -> Option<Arc<dyn PaymentRepositoryPort>> {
         self.payment_repository.as_ref().map(|repo| Arc::clone(repo) as Arc<dyn PaymentRepositoryPort>)
+    }
+
+    /// Wave 11 / Track A: `CreditRepositoryPort` accessor. Used
+    /// by the credit handlers (admin credits, user balance,
+    /// history) and by `submit_tx_handler.rs` after the
+    /// cross-pool collapse.
+    pub fn get_credit_repository_port(&self) -> Option<Arc<dyn CreditRepositoryPort>> {
+        self.credit_repository.as_ref().map(|repo| Arc::clone(repo) as Arc<dyn CreditRepositoryPort>)
     }
 
     pub fn get_notification_repository(&self) -> Option<Arc<NotificationRepositoryAdapter>> {
