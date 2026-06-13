@@ -67,6 +67,15 @@ pub struct SimpleContainer {
 
     pub event_bus: Option<Arc<dyn crate::domain::DomainEventBus>>,
 
+    // wave11(track-c): kernel-level `EventPublisherPort` (ROADMAP §5 R7).
+    // The container builds the in-process adapter wrapping the legacy
+    // bus at `build()`. The port is the seam that the 19 application
+    // command handlers depend on; a future network impl (HTTP / gRPC)
+    // is a wave-N+2 concern. See
+    // `infrastructure::adapters::events::InProcessEventPublisher` for
+    // the design notes.
+    pub event_publisher: Option<Arc<dyn epsx_contracts::event_publisher_port::EventPublisherPort>>,
+
     // Unified Permission Service (single source of truth for permissions)
     pub unified_permission_service: Option<Arc<UnifiedPermissionService>>,
     pub permission_cache: Option<Arc<UnifiedPermissionCache>>,
@@ -118,6 +127,7 @@ impl SimpleContainer {
             auth_service: None,
             token_service: None,
             event_bus: None,
+            event_publisher: None,
             // Unified Permission Service
             unified_permission_service: None,
             permission_cache: None,
@@ -438,7 +448,18 @@ impl SimpleContainer {
             identity_provider: None,
 
             plan_repository: Some(plan_repository),
-            event_bus: Some(event_bus),
+            event_bus: Some(event_bus.clone()),
+            // wave11(track-c): wrap the legacy bus in the in-process
+            // `EventPublisherPort` adapter. The adapter logs at
+            // `tracing::info!` and forwards to the bus via
+            // `tokio::spawn`. See `InProcessEventPublisher` for
+            // the design notes. The bus remains available on
+            // `event_bus` for the 5 legacy unit tests that assert
+            // on `SimpleEventBus::published_events()`; the port
+            // is the seam the application command handlers use.
+            event_publisher: Some(Arc::new(
+                crate::infrastructure::adapters::events::InProcessEventPublisher::with_bus(event_bus),
+            )),
             // Unified Permission Service
             unified_permission_service: Some(unified_permission_service),
             permission_cache,
@@ -595,6 +616,7 @@ impl SimpleContainer {
             auth_service: None,
             token_service: None,
             event_bus: None,
+            event_publisher: None,
             // Unified Permission Service
             unified_permission_service: None,
             permission_cache: None,

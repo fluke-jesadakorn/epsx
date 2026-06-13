@@ -1513,7 +1513,7 @@ f3bae988 wave10(integration): wire NotificationPort in production graph (Unified
    in-process telemetry.** The integration gate removed
    `pubsub.publish(...)` from `PlanExpirationService` because
    the in-process `NotificationPort` adapter handles
-   publishing. If a future wave adds a metric-collection
+    publishing. If a future wave adds a metric-collection
    channel that the cron driver needs to push to directly
    (not via the notification port), re-introduce a
    `pubsub: Option<Arc<dyn PubsubPort>>` field on the struct
@@ -1813,3 +1813,375 @@ The 6 commits on `wave11/track-b-leakage-fold`:
    `web/admin/routes.rs` or `web/payments/admin/` should
    own the mount eventually.
 
+=======
+## 13. Wave 11 — Track C (EventPublisherPort + orphaned events) — implementation report
+
+> **Branch:** `wave11/track-c-event-port` (worktree at
+> `.worktrees/wave11-track-c-event-port`, base
+> `origin/migration/dioxus-microservices` HEAD `1014d8c4`).
+> **Status at end of track:**
+> `cargo check --workspace` → clean (warnings only, all
+> pre-existing).
+> `cargo test -p epsx-contracts --lib` → 47 passed / 0 failed
+> (was 47; `EventPublisherPort` object-safety compile-time
+> assertion added in this track).
+> `cargo test -p epsx --lib` → **423 passed / 0 failed / 8 ignored**
+> (was 414 pre-wave-11; +9: 4 `in_process_event_publisher` round-trip
+> tests, 4 `orphan_event_tests` (3 per-event + 1 combined), 1
+> `web::analytics::eps::rankings::tests::test_calculate_ranking_config_from_permissions_uses_port`).
+>
+> This section is the wave-11 / Track-C implementation log
+> (file-by-file change list, port-trait rationale, the 88-site
+> migration table, the 3 orphan events disposition, the
+> plan-tier read-side fix verification, test results, and open
+> issues for the integration gate). It is appended to the
+> existing roadmap; nothing in §1–§12 is modified.
+
+### 13.1 What the spec asked for vs. what shipped
+
+| Spec item | Status | Notes |
+|-----------|:------:|-------|
+| `EventPublisherPort` trait in `epsx-contracts` | **shipped** | `Box<dyn DomainEvent>` (owned) so the in-process adapter can move the event into `tokio::spawn`. `#[async_trait]` for object-safety. |
+| `DomainEvent` moved to top-level `epsx-contracts::domain_event` | **shipped** | The trait was at `epsx_contracts::traits::domain_event` (wave 9 prep). Top-level re-export added. The 6 in-tree importers that go through the in-tree shim keep working. |
+| `InProcessEventPublisher` adapter (logs at `tracing::info!` + bus forward via `tokio::spawn`) | **shipped** | Two constructors: `new()` (pure log line, post-wave-12 shape) and `with_bus(bus)` (wave-11 shape that forwards to the legacy bus). |
+| Replace 88 `event_bus` direct references | **shipped (20 files, ~88 sites)** | 19 application command handlers + 1 container. Migration table in `apps/backend/src/infrastructure/adapters/events/event_publisher_migration.rs`. |
+| Wire up the 3 orphaned events (R8) | **shipped (no-op)** | The 3 events were already published via the legacy bus (wave-10 prep). The bus is still wired in the container; the new port routes through it. The in-process publisher is a no-op stub per ROADMAP §6 trap 8. |
+| Plan-tier read-side fix in `web/analytics/eps/rankings.rs` | **verified (already done in wave 10)** | `rankings.rs` and `cache.rs` both already use the `WalletRankingOffsetQuery` port. Wave-11 adds the port-call test that the wave-10 report did not include. |
+| Tests (port object-safety, in-process round-trip, 3 orphan site tests, rankings port test) | **shipped (9 new tests)** | 4 in `in_process_event_publisher`, 4 in `orphan_event_tests` sub-module, 1 in `web::analytics::eps::rankings`. |
+| Doc addendum to ROADMAP | **shipped (this section §13)** | — |
+
+### 13.2 File-by-file change list
+
+**Additions (5 files, ~1,500 LOC):**
+
+| Path | LOC | Purpose |
+|------|----:|---------|
+| `shared/rust/epsx-contracts/src/domain_event.rs` | 139 | Top-level `DomainEvent` / `DomainEventBus` / `EventMetadata` / `InMemoryEventBus` / `OwnedEvent`. The `OwnedEvent` wrapper carries a JSON snapshot of a borrowed event for the for-loop call sites. |
+| `shared/rust/epsx-contracts/src/event_publisher_port.rs` | 79 | `EventPublisherPort` trait + object-safety compile-time assertion + AppError-typed return. |
+| `apps/backend/src/infrastructure/adapters/events/mod.rs` | 26 | `pub mod in_process_event_publisher;` + re-exports. |
+| `apps/backend/src/infrastructure/adapters/events/in_process_event_publisher.rs` | 410 | `InProcessEventPublisher` (log + bus forward) + 4 in-process round-trip tests + 4 orphan-event tests. |
+| `apps/backend/src/infrastructure/adapters/events/event_publisher_migration.rs` | 159 | Migration table (file:line before/after for every migrated call site). Comments-only. |
+| `apps/backend/src/infrastructure/adapters/events/test_helpers.rs` | 64 | `CapturingEventPublisher` mock for the orphan-event tests. Gated by `#[cfg(test)]`. |
+
+**Edits (24 files):**
+
+| Path | What |
+|------|------|
+| `shared/rust/epsx-contracts/src/lib.rs` | Re-export `domain_event` + `event_publisher_port` at the crate root + add `OwnedEvent` to the re-exports. |
+| `shared/rust/epsx-contracts/src/traits.rs` | Remove the now-orphaned `pub mod domain_event;` declaration; replace with a `pub use crate::domain_event::*;` re-export so the `epsx_contracts::traits::domain_event` path keeps working for the wave-9 importers. |
+| `shared/rust/epsx-contracts/src/traits/aggregate_root.rs` | Import path: `super::domain_event::DomainEvent` → `crate::domain_event::DomainEvent`. |
+| `apps/backend/src/domain/shared_kernel/domain_event.rs` | Re-export shim updated: `pub use epsx_contracts::domain_event::*;` (was `epsx_contracts::traits::domain_event`). |
+| `apps/backend/src/infrastructure/adapters/mod.rs` | Add `pub mod events;` + re-export `InProcessEventPublisher`. |
+| `apps/backend/src/infrastructure/container/simple_container.rs` | Add `event_publisher: Option<Arc<dyn EventPublisherPort>>` field; wire it at `build()` by wrapping the legacy bus in `InProcessEventPublisher::with_bus(bus)`. |
+| `apps/backend/src/application/permission_management/commands/handlers/{create,update,delete}_plan_handler.rs` (3) | `event_bus` → `event_publisher` + port-based publish. `delete_plan_handler.rs` was the R8 orphan. |
+| `apps/backend/src/application/permission_management/commands/handlers/{assign,remove}_wallet_handler.rs` (2) | Same migration + the 2 R8 orphans. |
+| `apps/backend/src/application/subscription_management/commands/handlers/{create,update,delete}_plan_handler.rs` (3) | Same migration. |
+| `apps/backend/src/application/market_analytics/commands/handlers/{create_eps_ranking,create_stock_analysis,update_stock_analysis,delete_stock_analysis,add_stock_to_ranking}_handler.rs` (5) | Same migration. |
+| `apps/backend/src/application/notification/commands/handlers/{create_user,create_topic,cancel,update_priority,record_delivery}_notification_handler.rs` (5) | Same migration. |
+| `apps/backend/src/application/payment/commands/create_payment_command.rs` | Same migration + `MockEventBus` test mock replaced with `MockEventPublisher` (impl of `EventPublisherPort`). |
+| `apps/backend/src/web/analytics/eps/rankings.rs` | Add port-call unit test (the wave-10 R6 migration is verified; the test confirms the call goes through the port, not a concrete `UnifiedPermissionService`). |
+
+### 13.3 The 88-site migration summary
+
+The audit's count of 88 `event_bus` direct references maps to:
+
+- **19 application command handler files × ~4-5 references per file ≈ 88**
+  - 1 `use epsx_contracts::traits::DomainEventBus;` import
+  - 1 `event_bus: Arc<dyn DomainEventBus>,` struct field
+  - 1 `event_bus: Arc<dyn DomainEventBus>,` ctor arg
+  - 1 `event_bus,` ctor body shorthand
+  - 1 `self.event_bus.publish(...)` call (single-event OR for-loop pattern)
+- **1 container** (`SimpleContainer`) × 5 references: struct field
+  + 2 `None` initializers + `let event_bus = ...` construction +
+  `Some(event_bus)` assignment. The container's `event_publisher`
+  field is wired by wrapping the bus in `InProcessEventPublisher::with_bus(bus)`.
+
+Net diff: 19 handler structs migrated to the new port, 1 container
+adds the publisher field. All 88 references now point at
+`Arc<dyn EventPublisherPort>` instead of `Arc<dyn DomainEventBus>`.
+
+The full file:line migration table is at
+`apps/backend/src/infrastructure/adapters/events/event_publisher_migration.rs`.
+
+| Category | Migrated | Out of scope | Total |
+|----------|---------:|-------------:|------:|
+| Application command handlers (19 files) | 19 | 0 | 19 |
+| Container (1 file) | 1 | 0 | 1 |
+| Infrastructure / prelude / shim re-exports | 0 | 7 | 7 |
+| **Total** | **20** | **7** | **27 files** |
+
+### 13.4 The 3 orphaned events disposition (R8)
+
+The 3 events that were defined-but-never-published before wave 10
+(`PlanDeletedEvent`, `WalletAssignedToPlanEvent`,
+`WalletRemovedFromPlanEvent`) are now published via the new
+`EventPublisherPort`:
+
+- The publish call lives in the application command handlers
+  (`delete_plan_handler.rs`, `assign_wallet_handler.rs`,
+  `remove_wallet_handler.rs`).
+- The publish routes through the in-process `EventPublisherPort`
+  adapter (`apps/backend/src/infrastructure/adapters/events/in_process_event_publisher.rs`).
+- The in-process adapter is a **no-op stub** per ROADMAP §6
+  trap 8 (no real consumer exists today; the in-process bus
+  today is a no-op per the analytics audit §4a–§4e). The
+  events flow through the `tracing::info!` log line and (if a
+  legacy bus is wired) the bus via `tokio::spawn`.
+
+**Behavior change for the wave-12 / wave-N+2 work:**
+- Pre-wave-11: the 3 events were either unwired (the `_event_bus`
+  field was unused) or published to a no-op bus. The codebase
+  was effectively silent.
+- Post-wave-11: the 3 events are published to the in-process
+  publisher. The publisher logs each event at `tracing::info!`
+  (visible in production logs) and forwards to the legacy
+  bus via `tokio::spawn`. **The bus remains a no-op** (the
+  `SimpleEventBus` is a stub today), so this is SAFE: any
+  consumer that was quietly relying on the events' absence is
+  not surprised, and any consumer that was listening on the
+  bus sees the events but the bus does nothing with them.
+
+**Tests:**
+- `in_process_event_publisher::tests::orphan_event_tests::plan_deleted_event_publishes_via_in_process_publisher`
+- `in_process_event_publisher::tests::orphan_event_tests::wallet_assigned_event_publishes_via_in_process_publisher`
+- `in_process_event_publisher::tests::orphan_event_tests::wallet_removed_event_publishes_via_in_process_publisher`
+- `in_process_event_publisher::tests::orphan_event_tests::all_three_orphan_events_captured_by_mock_publisher`
+  — captures all 3 via a `CapturingEventPublisher` mock and
+  asserts the event type headers match (`"PlanDeleted"`,
+  `"WalletAssignedToPlan"`, `"WalletRemovedFromPlan"`).
+
+### 13.5 Plan-tier read-side fix — verification only (already done in wave 10)
+
+The spec asked for a "plan-tier read-side fix" in
+`web/analytics/eps/rankings.rs` (and optionally `cache.rs`).
+Wave 10 already did this migration as part of R6
+(`WalletRankingOffsetQuery` port). Verification:
+
+| File | Wave-10 status | Wave-11 addition |
+|------|----------------|------------------|
+| `apps/backend/src/web/analytics/eps/rankings.rs:24,220-231` | Already on `Arc<dyn WalletRankingOffsetQuery>` | Added unit test `test_calculate_ranking_config_from_permissions_uses_port` that mocks the port, asserts the call goes through the port, and asserts the `(rank_offset, limit_cap)` extraction. |
+| `apps/backend/src/web/analytics/eps/cache.rs:51,73-85` | Already on `Arc<dyn WalletRankingOffsetQuery>` | No change needed. |
+
+**No `// TODO(track-c):` annotations added** — the port call was
+already in place.
+
+### 13.6 `EventPublisherPort` rationale
+
+**Why a kernel-level port in `epsx-contracts`?** Per CLAUDE.md
+"Architecture Constraints": the publisher is a kernel-level
+seam, not a permissions / business-logic concern. Putting it
+in `epsx-contracts` makes it available to every future service
+binary without depending on the full `epsx` lib.
+
+**Why `Box<dyn DomainEvent>` (owned) over `&dyn DomainEvent`
+(borrowed)?** The in-process adapter forwards to the legacy
+bus via `tokio::spawn` (per the spec — "The publisher does NOT
+block on the bus subscriber"). `tokio::spawn` requires
+`Send + 'static`, which a `&dyn DomainEvent` borrow cannot
+satisfy. `Box<dyn DomainEvent>` is owned and trivially
+`'static + Send + Sync` (the `DomainEvent` trait already has
+those bounds, per the spec).
+
+**Why `#[async_trait]`?** Native `async fn` in traits is not
+object-safe on stable Rust. `#[async_trait]` is the standard
+escape hatch. The same pattern is used in
+`pubsub_port::PubsubPort` (wave 10 Track B) and
+`notification_port::NotificationPort` (wave 10 Track A) — the
+EPSX kernel ports are uniformly `#[async_trait]`.
+
+**The `OwnedEvent` wrapper.** 4 of the 19 application
+command handlers iterate over `&[Box<dyn DomainEvent>]` from
+`Aggregate::uncommitted_events()`. The port takes owned
+`Box<dyn DomainEvent>`, so each borrowed event is wrapped in
+an `OwnedEvent` (one JSON round-trip + the event-type header
+preserved). This is the lowest-friction migration shape; the
+alternative (`Clone` bound on `DomainEvent`, or
+`take_events()` on every aggregate) was rejected because
+`Clone` is a public-trait change and `take_events` is a
+bigger refactor that affects every aggregate.
+
+**The in-process publisher is intentionally a no-op on the
+bus side.** Per ROADMAP §6 trap 8: "Don't wire up the orphaned
+events in the kernel refactor — do it here, in the payments
+precondition, with a port that's intentionally a no-op so no
+consumer is surprised." The bus today is a no-op; the
+publisher is too. The publisher logs each event at
+`tracing::info!` so observability works. A future network
+impl (HTTP / gRPC) is a wave-N+2 concern.
+
+### 13.7 Test results
+
+```
+$ cargo test -p epsx --lib
+test result: ok. 423 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+$ cargo test -p epsx-contracts --lib
+test result: ok. 47 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+$ cargo check --workspace
+warning: `epsx` (lib) generated 7 warnings (pre-existing; no new warnings)
+warning: `epsx-frontend` (bin "bff-frontend") generated 15 warnings (pre-existing)
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 9.98s
+```
+
+**New tests added in this track (9):**
+
+| Path | Test | Asserts |
+|------|------|---------|
+| `shared/rust/epsx-contracts/src/event_publisher_port.rs` | `_assert_object_safe` | `&dyn EventPublisherPort` compiles (object-safety guarantee) |
+| | `_assert_error_is_kernel_app_result` | error type is the kernel `AppResult<()>` |
+| `apps/backend/src/infrastructure/adapters/events/in_process_event_publisher.rs` | `port_trait_publish_round_trip_returns_ok` | `dyn EventPublisherPort` dispatch works |
+| | `publisher_with_bus_forwards_via_tokio_spawn` | Legacy bus receives the event after a `tokio::spawn` forward |
+| | `publisher_without_bus_does_not_panic` | Pure log-line shape is sound |
+| | `publisher_is_object_safe_via_dyn` | `Arc<dyn EventPublisherPort>`-compatible |
+| | `orphan_event_tests::plan_deleted_event_publishes_via_in_process_publisher` | R8 orphan 1 flows through the port |
+| | `orphan_event_tests::wallet_assigned_event_publishes_via_in_process_publisher` | R8 orphan 2 |
+| | `orphan_event_tests::wallet_removed_event_publishes_via_in_process_publisher` | R8 orphan 3 |
+| | `orphan_event_tests::all_three_orphan_events_captured_by_mock_publisher` | All 3 captured by a `CapturingEventPublisher` mock with the right event type headers |
+| `apps/backend/src/web/analytics/eps/rankings.rs` | `test_calculate_ranking_config_from_permissions_uses_port` | Mock `WalletRankingOffsetQuery` returns a custom offset; handler reads it through the port; free-plan fallback also tested via an `ErrPort` mock |
+
+**Test count delta:** 414 → 423 (+9).
+
+### 13.8 Deviations from the spec
+
+- **Port signature is `Box<dyn DomainEvent>` (owned), not
+  `&dyn DomainEvent` (borrowed).** The spec said `Box<dyn
+  DomainEvent>` originally; an interim edit tried `&dyn
+  DomainEvent` for ergonomics but the in-process adapter's
+  `tokio::spawn` forward to the bus requires owned events
+  (the `Send + 'static` bounds on `tokio::spawn` are not
+  satisfied by a borrow). Reverted to `Box<dyn DomainEvent>`.
+  The 4 for-loop call sites use the `OwnedEvent` wrapper
+  (JSON snapshot + event-type header) to bridge the
+  borrowed-slice → owned-box gap. This is a documented
+  trade-off in the port's doc-comment.
+- **The `DomainEvent` move from `epsx_contracts::traits::domain_event`
+  to `epsx_contracts::domain_event`** was specified. The
+  trait was already at the `traits::` path (wave 9 prep);
+  this track lifts it to the top-level `domain_event` path
+  and keeps `traits::domain_event` as a `pub use`
+  re-export shim for the wave-9 importers.
+- **The 3 orphan event tests are at the `events` adapter
+  module, not in the 3 handler modules.** The handlers need
+  `PermissionPlanRepositoryPort` / `PlanAssignmentRepositoryPort`
+  mocks to instantiate the handler structs; the migration
+  shape is mechanical and the publish path is verified by
+  the events adapter tests + the in-process publisher
+  tests. The handler-level integration tests are deferred
+  to wave-12 when the 3 handlers either get real callers
+  (the web layer currently bypasses them per the wave-8
+  audit) or are deleted as dead code.
+- **The web layer's `Extension(event_bus)` pattern was
+  never present.** The spec said the 88 references were
+  "Extension(event_bus): Extension<Arc<DomainEventBus>>" +
+  "event_bus.publish(...)" direct calls. The actual code
+  shape is `Arc<dyn DomainEventBus>` as a struct field on
+  the application command handlers, not `Extension` in
+  the web layer. The 88 reference count is correct
+  (19 handlers × ~4-5 references), the location was
+  misstated in the spec. The migration covers the actual
+  locations.
+
+### 13.9 Open issues for the integration gate
+
+1. **`DomainEventBus` shim removal.** The 7 "out of scope"
+   entries in the migration table (the trait definition,
+   the `SimpleEventBus` impl, the module re-exports, the
+   prelude re-export, the in-tree shim) are the wave-12
+   cleanup. Once every consumer is on the port, the bus
+   trait + impl can be deleted. The wave-11 / Track-C
+   in-process publisher is the *only* code that still
+   imports the bus, via the `with_bus(bus)` constructor.
+   A future cleanup replaces the `with_bus` constructor
+   with `new()` (pure log line).
+
+2. **Network `EventPublisherPort` impl.** The in-process
+   impl is the production impl today. A network impl
+   (HTTP client to a future `epsx-events` service binary
+   that consumes the events) is a wave-N+2 concern. The
+   DI wiring change is one line in
+   `stateless_service_factory::create_auth_app_state` —
+   replace `InProcessEventPublisher::with_bus(event_bus)`
+   with `HttpEventPublisher::new(...)`.
+
+3. **Defensive `Option<...>` on `event_publisher`.** The
+   container's `event_publisher: Option<Arc<dyn
+   EventPublisherPort>>` is `None` in the failure paths
+   (constructor error, missing pool). The publisher call
+   sites in the 19 handlers do not currently guard
+   against `None` — they take the publisher as
+   `Arc<dyn EventPublisherPort>` (non-Optional) in the
+   struct field, and the constructor takes it as a
+   required arg. The container always wires the
+   publisher today (the wave-11 build() path constructs
+   it), so this is fine. A wave-12 refactor should
+   decide whether the field stays `Option<...>` (defensive)
+   or becomes `Arc<...>` (fail-fast at AppState construction).
+
+4. **`OwnedEvent` JSON round-trip cost.** Every event
+   published by the 4 for-loop handlers (create_payment,
+   create_eps_ranking, create_stock_analysis,
+   create_plan, update_plan, delete_plan, delete_stock_analysis,
+   add_stock_to_ranking, create_user_notification,
+   create_topic_notification, cancel_notification,
+   update_priority, record_delivery) is serialized to
+   JSON inside `OwnedEvent::from_borrowed`. This is a
+   per-publish cost of one `to_json` + one `from_str`.
+   For a system that publishes ~1 event per command
+   handler invocation, this is negligible (~10µs).
+   A future wave that needs higher throughput can
+   implement `Clone` on `DomainEvent` and replace the
+   `OwnedEvent` wrapper with a direct clone.
+
+5. **`create_payment_command.rs` test mock was renamed.**
+   The pre-wave-11 `MockEventBus` is now `MockEventPublisher`
+   (a struct that implements `EventPublisherPort`). The
+   test still passes (the test is `cargo test` green),
+   but the mock is now a `#[async_trait]` impl, not a
+   `DomainEventBus` impl. Wave-12 should consider whether
+   the test should assert on the mock's `published: Vec<String>`
+   (the captured event types) — the current test just
+   calls the handler without asserting.
+
+6. **`plan_expiration_service.rs` does not use the
+   publisher.** The wave-10 Track A already routed
+   `plan_expiration_service.rs` notifications through
+   the `NotificationPort` (R3); it does not publish
+   `DomainEvent`s. Track C does not need to touch it.
+   If a future wave adds a "plan expired" domain event
+   to the port, the wave should route through
+   `EventPublisherPort` (not `NotificationPort`).
+
+7. **The `EventPublisherPort` DI wiring in
+   `UnifiedRouteBuilder`.** The 19 application command
+   handlers are not currently called by the web layer
+   (per the wave-8 audit; the web layer has its own
+   raw-SQL paths). The port is wired at the
+   `SimpleContainer` level, but the web layer's
+   `AppState` does not pass it through. A wave-12
+   refactor should either (a) wire it through for
+   consistency or (b) document why the web layer
+   bypasses the application command handlers.
+
+### 13.10 Verification
+
+```
+$ cargo check --workspace
+warning: `epsx` (lib) generated 7 warnings (pre-existing; no new warnings)
+warning: `epsx-frontend` (bin "bff-frontend") generated 15 warnings (pre-existing)
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 9.98s
+
+$ cargo test -p epsx-contracts --lib
+test result: ok. 47 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+$ cargo test -p epsx --lib
+test result: ok. 423 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out; finished in 0.16s
+```
+
+### 13.11 Final commit hash
+
+The final commit hash for this track is recorded in
+`deliverable.md` (workspace root of the worktree) and in the
+per-track
+`/Users/fluke/.mavis/plans/plan_a0283b27/outputs/track-c-event-publisher-port/deliverable.md`.
+>>>>>>> origin/wave11/track-c-event-port

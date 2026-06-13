@@ -33,6 +33,18 @@ pub mod value_object;
 pub mod value_objects;
 pub mod notification_port;
 pub mod pubsub_port;
+// wave11(track-c): `DomainEvent` / `DomainEventBus` / `EventMetadata` lifted
+// to the crate root (ROADMAP §5 R7). The 19 application command handlers being
+// migrated to `EventPublisherPort` use this path; the `traits::domain_event`
+// shim re-exports the same items for backward compatibility.
+pub mod domain_event;
+// wave11(track-c): kernel-level `EventPublisherPort` (ROADMAP §5 R7).
+// Replaces the 88 `Arc<dyn DomainEventBus>` direct references with a
+// port; the in-process adapter in
+// `apps/backend/src/infrastructure/adapters/events/in_process_event_publisher.rs`
+// is a no-op stub that logs at `tracing::info!` (the bus is a no-op today
+// per ROADMAP §6 trap 3). A future network impl is a wave-N+2 concern.
+pub mod event_publisher_port;
 
 // wave10(track-c): cross-cutting kernel-level ports (ROADMAP §5 R1 + R6).
 // These traits are the *stable contract* that the future epsx-identity
@@ -54,3 +66,9 @@ pub use notification_port::{
     BroadcastNotificationRequest, NotificationPort, NotificationPriorityTag,
     NotificationTypeTag, SendNotificationRequest,
 };
+
+// Re-export the `DomainEvent` trait + `DomainEventBus` + helpers at the
+// crate root. The 19 application command handlers write
+// `use epsx_contracts::{DomainEvent, EventPublisherPort};` instead of
+// reaching into the `domain_event` submodule.
+pub use domain_event::{DomainEvent, DomainEventBus, EventMetadata, InMemoryEventBus, OwnedEvent};

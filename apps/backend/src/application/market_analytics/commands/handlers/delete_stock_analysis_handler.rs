@@ -4,22 +4,22 @@ use crate::application::market_analytics::commands::{
     DeleteStockAnalysisCommand, DeleteStockAnalysisResponse
 };
 use crate::domain::market_analytics::{StockAnalysisRepositoryPort, StockSymbol};
-use epsx_contracts::traits::DomainEventBus;
+use epsx_contracts::event_publisher_port::EventPublisherPort;
 
 /// Command handler for deleting stock analyses
 pub struct DeleteStockAnalysisCommandHandler {
     stock_analysis_repository: Arc<dyn StockAnalysisRepositoryPort>,
-    event_bus: Arc<dyn DomainEventBus>,
+    event_publisher: Arc<dyn EventPublisherPort>,
 }
 
 impl DeleteStockAnalysisCommandHandler {
     pub fn new(
         stock_analysis_repository: Arc<dyn StockAnalysisRepositoryPort>,
-        event_bus: Arc<dyn DomainEventBus>,
+        event_publisher: Arc<dyn EventPublisherPort>,
     ) -> Self {
         Self {
             stock_analysis_repository,
-            event_bus,
+            event_publisher,
         }
     }
 }
@@ -42,7 +42,13 @@ impl CommandHandler<DeleteStockAnalysisCommand> for DeleteStockAnalysisCommandHa
 
         // 4. Publish domain events (from aggregate before deletion)
         for event in stock_analysis.uncommitted_events() {
-            self.event_bus.publish(&**event);
+            let owned: Box<dyn crate::domain::shared_kernel::DomainEvent> = Box::new(epsx_contracts::domain_event::OwnedEvent::from_borrowed(&**event));
+            if let Err(e) = self.event_publisher.publish(owned).await {
+                tracing::warn!(
+                    error = %e,
+                    "EventPublisherPort.publish returned error; command continues"
+                );
+            }
         }
 
         // 5. Return response

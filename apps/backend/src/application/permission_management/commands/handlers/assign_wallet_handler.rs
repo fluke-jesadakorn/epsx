@@ -9,25 +9,28 @@ use crate::domain::permission_management::{
     events::WalletAssignedToPlanEvent,
 };
 use crate::domain::wallet_management::WalletAddress;
-use epsx_contracts::traits::DomainEventBus;
+// wave11(track-c) R7: migrated from `Arc<dyn DomainEventBus>` to the
+// kernel-level `EventPublisherPort`. See `delete_plan_handler.rs` for
+// the design notes.
+use epsx_contracts::event_publisher_port::EventPublisherPort;
 
 /// Command handler for assigning wallets to plans
 pub struct AssignWalletToPlanCommandHandler {
     plan_repository: Arc<dyn PermissionPlanRepositoryPort>,
     assignment_repository: Arc<dyn PlanAssignmentRepositoryPort>,
-    event_bus: Arc<dyn DomainEventBus>,
+    event_publisher: Arc<dyn EventPublisherPort>,
 }
 
 impl AssignWalletToPlanCommandHandler {
     pub fn new(
         plan_repository: Arc<dyn PermissionPlanRepositoryPort>,
         assignment_repository: Arc<dyn PlanAssignmentRepositoryPort>,
-        event_bus: Arc<dyn DomainEventBus>,
+        event_publisher: Arc<dyn EventPublisherPort>,
     ) -> Self {
         Self {
             plan_repository,
             assignment_repository,
-            event_bus,
+            event_publisher,
         }
     }
 }
@@ -76,7 +79,11 @@ impl CommandHandler<AssignWalletToPlanCommand> for AssignWalletToPlanCommandHand
         self.assignment_repository.save(&assignment).await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
-        // 7. Publish WalletAssignedToPlanEvent (R8 wiring — was _event_bus before)
+        // 7. Publish WalletAssignedToPlanEvent (R7 + R8 wiring — was
+        //    _event_bus before wave 10; routed through the new
+        //    EventPublisherPort in wave 11). The in-process adapter
+        //    is a no-op stub (logs at tracing::info!); no real
+        //    consumer exists today.
         let event = WalletAssignedToPlanEvent::new(
             plan_id.as_str().to_string(),
             0,
@@ -84,7 +91,14 @@ impl CommandHandler<AssignWalletToPlanCommand> for AssignWalletToPlanCommandHand
             wallet_address.as_str().to_string(),
             assigned_at,
         );
-        self.event_bus.publish(&event);
+        let event_box: Box<dyn crate::domain::shared_kernel::DomainEvent> = Box::new(event);
+        if let Err(e) = self.event_publisher.publish(event_box).await {
+            tracing::warn!(
+                error = %e,
+                event = "WalletAssignedToPlanEvent",
+                "EventPublisherPort.publish returned error; command continues"
+            );
+        }
 
         // 8. Return response
         Ok(AssignWalletToPlanResponse {

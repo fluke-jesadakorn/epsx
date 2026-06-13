@@ -6,22 +6,22 @@ use crate::application::market_analytics::commands::{
 use crate::domain::market_analytics::{
     StockAnalysisRepositoryPort, StockAnalysis, StockSymbol, EPSValue, MarketSector, Country
 };
-use epsx_contracts::traits::DomainEventBus;
+use epsx_contracts::event_publisher_port::EventPublisherPort;
 
 /// Command handler for creating stock analyses
 pub struct CreateStockAnalysisCommandHandler {
     stock_analysis_repository: Arc<dyn StockAnalysisRepositoryPort>,
-    event_bus: Arc<dyn DomainEventBus>,
+    event_publisher: Arc<dyn EventPublisherPort>,
 }
 
 impl CreateStockAnalysisCommandHandler {
     pub fn new(
         stock_analysis_repository: Arc<dyn StockAnalysisRepositoryPort>,
-        event_bus: Arc<dyn DomainEventBus>,
+        event_publisher: Arc<dyn EventPublisherPort>,
     ) -> Self {
         Self {
             stock_analysis_repository,
-            event_bus,
+            event_publisher,
         }
     }
 }
@@ -67,7 +67,13 @@ impl CommandHandler<CreateStockAnalysisCommand> for CreateStockAnalysisCommandHa
 
         // 5. Publish domain events
         for event in stock_analysis.uncommitted_events() {
-            self.event_bus.publish(&**event);
+            let owned: Box<dyn crate::domain::shared_kernel::DomainEvent> = Box::new(epsx_contracts::domain_event::OwnedEvent::from_borrowed(&**event));
+            if let Err(e) = self.event_publisher.publish(owned).await {
+                tracing::warn!(
+                    error = %e,
+                    "EventPublisherPort.publish returned error; command continues"
+                );
+            }
         }
 
         // 6. Return response

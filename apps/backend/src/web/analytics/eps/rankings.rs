@@ -274,4 +274,67 @@ mod tests {
         assert!(!is_valid_eps_for_ranking(f64::NAN));
         assert!(!is_valid_eps_for_ranking(f64::INFINITY));
     }
+
+    /// wave11(track-c): unit test that exercises the
+    /// `WalletRankingOffsetQuery` port call path. The handler
+    /// extracts `(rank_offset, limit_cap)` from the port's
+    /// response. A mock port that returns a custom offset
+    /// verifies the call goes through the port (not a concrete
+    /// `UnifiedPermissionService`).
+    #[tokio::test]
+    async fn test_calculate_ranking_config_from_permissions_uses_port() {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        use std::sync::Arc;
+
+        struct MockPort {
+            offset: i32,
+            call_count: Arc<AtomicU32>,
+        }
+
+        #[async_trait::async_trait]
+        impl epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery for MockPort {
+            async fn get_wallet_ranking_offset(
+                &self,
+                _wallet_address: &str,
+            ) -> Result<epsx_contracts::value_objects::ranking_offset::RankingOffset, AppError> {
+                self.call_count.fetch_add(1, Ordering::SeqCst);
+                Ok(epsx_contracts::value_objects::ranking_offset::RankingOffset::from(self.offset))
+            }
+        }
+
+        let mock = Arc::new(MockPort {
+            offset: 250,
+            call_count: Arc::new(AtomicU32::new(0)),
+        });
+
+        let (rank_offset, limit_cap) =
+            calculate_ranking_config_from_permissions(&(mock.clone() as Arc<dyn WalletRankingOffsetQuery>), "0xtest").await;
+
+        assert_eq!(rank_offset, 250, "port offset should flow through unchanged");
+        assert_eq!(limit_cap, -1, "limit_cap is -1 (unlimited) for offset-based access");
+        assert_eq!(mock.call_count.load(Ordering::SeqCst), 1, "port method called exactly once");
+
+        // Test the free-plan fallback path (port returns Err).
+        struct ErrPort;
+        #[async_trait::async_trait]
+        impl epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery for ErrPort {
+            async fn get_wallet_ranking_offset(
+                &self,
+                _wallet_address: &str,
+            ) -> Result<epsx_contracts::value_objects::ranking_offset::RankingOffset, AppError> {
+                Err(AppError::not_found("plan"))
+            }
+        }
+
+        let err_port: Arc<dyn WalletRankingOffsetQuery> = Arc::new(ErrPort);
+        let (rank_offset, limit_cap) =
+            calculate_ranking_config_from_permissions(&err_port, "0xtest").await;
+
+        assert_eq!(
+            rank_offset,
+            epsx_contracts::constants::FREE_PLAN_RANKING_OFFSET,
+            "error path should fall back to FREE_PLAN_RANKING_OFFSET"
+        );
+        assert_eq!(limit_cap, -1);
+    }
 }

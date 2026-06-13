@@ -7,22 +7,22 @@ use crate::domain::permission_management::{
     PermissionPlanRepositoryPort, PermissionPlan, PlanSlug, PermissionString,
     aggregates::permission_plan::CreatePermissionPlanParams
 };
-use epsx_contracts::traits::DomainEventBus;
+use epsx_contracts::event_publisher_port::EventPublisherPort;
 
 /// Command handler for creating permission plans
 pub struct CreatePermissionPlanCommandHandler {
     plan_repository: Arc<dyn PermissionPlanRepositoryPort>,
-    event_bus: Arc<dyn DomainEventBus>,
+    event_publisher: Arc<dyn EventPublisherPort>,
 }
 
 impl CreatePermissionPlanCommandHandler {
     pub fn new(
         plan_repository: Arc<dyn PermissionPlanRepositoryPort>,
-        event_bus: Arc<dyn DomainEventBus>,
+        event_publisher: Arc<dyn EventPublisherPort>,
     ) -> Self {
         Self {
             plan_repository,
-            event_bus,
+            event_publisher,
         }
     }
 }
@@ -77,7 +77,13 @@ impl CommandHandler<CreatePermissionPlanCommand> for CreatePermissionPlanCommand
 
         // 6. Publish events
         for event in plan.uncommitted_events() {
-            self.event_bus.publish(&**event);
+            let owned: Box<dyn crate::domain::shared_kernel::DomainEvent> = Box::new(epsx_contracts::domain_event::OwnedEvent::from_borrowed(&**event));
+            if let Err(e) = self.event_publisher.publish(owned).await {
+                tracing::warn!(
+                    error = %e,
+                    "EventPublisherPort.publish returned error; command continues"
+                );
+            }
         }
 
         // 7. Return response

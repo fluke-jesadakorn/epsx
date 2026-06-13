@@ -1,13 +1,12 @@
 // kernel extraction wave9 — moved from apps/backend/src/domain/shared_kernel/aggregate_root.rs
-// Path adjustment: `super::domain_event::DomainEvent` → `super::domain_event::DomainEvent`
-// (the trait now lives at `epsx_contracts::traits::domain_event` and is a
-// sibling of this module, so the import is unchanged.)
+// wave11(track-c) — `DomainEvent` lifted to crate root at
+// `epsx_contracts::domain_event` (R7). Import updated to the canonical path.
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 use std::fmt::Debug;
 use uuid::Uuid;
 
-use super::domain_event::DomainEvent;
+use crate::domain_event::DomainEvent;
 
 /// Core aggregate root trait following DDD principles
 /// Aggregates are consistency boundaries and the only way to modify entities
