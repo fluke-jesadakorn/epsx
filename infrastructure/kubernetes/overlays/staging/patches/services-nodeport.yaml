@@ -5,7 +5,8 @@ metadata:
 spec:
   type: NodePort
   ports:
-    - port: 8080
+    - name: http
+      port: 8080
       targetPort: 8080
       nodePort: 30085
 ---
@@ -16,10 +17,13 @@ metadata:
 spec:
   type: NodePort
   ports:
-    - port: 3000
+    - name: http
+      port: 3000
       targetPort: 3000
       nodePort: 30005
 ---
+# wave11(k8s-frontend-migration): the Rust admin BFF binds on
+# 3001 (not 3000). Service + NodePort both follow.
 apiVersion: v1
 kind: Service
 metadata:
@@ -27,8 +31,9 @@ metadata:
 spec:
   type: NodePort
   ports:
-    - port: 3000
-      targetPort: 3000
+    - name: http
+      port: 3001
+      targetPort: 3001
       nodePort: 30006
 ---
 # wave12(integration): the new epsx-analytics binary
@@ -41,6 +46,7 @@ metadata:
 spec:
   type: NodePort
   ports:
-    - port: 8080
+    - name: http
+      port: 8080
       targetPort: 8080
       nodePort: 30086

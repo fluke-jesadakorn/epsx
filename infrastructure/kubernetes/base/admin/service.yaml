@@ -9,5 +9,6 @@ spec:
     # wave11(k8s-frontend-migration): the Rust admin BFF
     # binds on 3001, not 3000. Service + NodePort both
     # follow.
-    - port: 3001
+    - name: http
+      port: 3001
       targetPort: 3001
