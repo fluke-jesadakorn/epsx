@@ -589,6 +589,71 @@ impl PaymentRepositoryAdapter {
         Ok(out)
     }
 
+    /// Count of admin subscriptions matching the same filter
+    /// set as `list_admin_subscriptions_with_plan_names_impl`.
+    /// Used by `_paginated` to compute the total for the page
+    /// metadata. Branches on the same 8 filter combinations.
+    pub async fn list_admin_subscriptions_count_impl(
+        &self,
+        filters: SubscriptionFilters,
+    ) -> Result<u64, String> {
+        let mut conn = self.conn().await?;
+        #[derive(QueryableByName)]
+        struct CountRow {
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            c: i64,
+        }
+        let count: i64 = match (
+            filters.wallet_address.as_ref(),
+            filters.plan_id,
+            filters.status.as_ref(),
+        ) {
+            (Some(w), Some(p), Some(s)) => diesel::sql_query(
+                "SELECT COUNT(*) AS c FROM subscriptions WHERE wallet_address = $1 AND plan_id = $2 AND status = $3"
+            )
+            .bind::<diesel::sql_types::Text, _>(w)
+            .bind::<diesel::sql_types::Uuid, _>(p)
+            .bind::<diesel::sql_types::Text, _>(s)
+            .get_result::<CountRow>(&mut conn).await.map_err(|e| format!("count (3f): {}", e))?.c,
+            (Some(w), Some(p), None) => diesel::sql_query(
+                "SELECT COUNT(*) AS c FROM subscriptions WHERE wallet_address = $1 AND plan_id = $2"
+            )
+            .bind::<diesel::sql_types::Text, _>(w)
+            .bind::<diesel::sql_types::Uuid, _>(p)
+            .get_result::<CountRow>(&mut conn).await.map_err(|e| format!("count (wp): {}", e))?.c,
+            (Some(w), None, Some(s)) => diesel::sql_query(
+                "SELECT COUNT(*) AS c FROM subscriptions WHERE wallet_address = $1 AND status = $2"
+            )
+            .bind::<diesel::sql_types::Text, _>(w)
+            .bind::<diesel::sql_types::Text, _>(s)
+            .get_result::<CountRow>(&mut conn).await.map_err(|e| format!("count (ws): {}", e))?.c,
+            (None, Some(p), Some(s)) => diesel::sql_query(
+                "SELECT COUNT(*) AS c FROM subscriptions WHERE plan_id = $1 AND status = $2"
+            )
+            .bind::<diesel::sql_types::Uuid, _>(p)
+            .bind::<diesel::sql_types::Text, _>(s)
+            .get_result::<CountRow>(&mut conn).await.map_err(|e| format!("count (ps): {}", e))?.c,
+            (Some(w), None, None) => diesel::sql_query(
+                "SELECT COUNT(*) AS c FROM subscriptions WHERE wallet_address = $1"
+            )
+            .bind::<diesel::sql_types::Text, _>(w)
+            .get_result::<CountRow>(&mut conn).await.map_err(|e| format!("count (w): {}", e))?.c,
+            (None, Some(p), None) => diesel::sql_query(
+                "SELECT COUNT(*) AS c FROM subscriptions WHERE plan_id = $1"
+            )
+            .bind::<diesel::sql_types::Uuid, _>(p)
+            .get_result::<CountRow>(&mut conn).await.map_err(|e| format!("count (p): {}", e))?.c,
+            (None, None, Some(s)) => diesel::sql_query(
+                "SELECT COUNT(*) AS c FROM subscriptions WHERE status = $1"
+            )
+            .bind::<diesel::sql_types::Text, _>(s)
+            .get_result::<CountRow>(&mut conn).await.map_err(|e| format!("count (s): {}", e))?.c,
+            (None, None, None) => diesel::sql_query("SELECT COUNT(*) AS c FROM subscriptions")
+                .get_result::<CountRow>(&mut conn).await.map_err(|e| format!("count (_): {}", e))?.c,
+        };
+        Ok(count.max(0) as u64)
+    }
+
     /// Replaces the 4 sql_query blocks in
     /// `web/payments/admin_handlers/analytics_handlers.rs:39-44`.
     pub async fn get_analytics_rollup_impl(
@@ -1117,6 +1182,18 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         per_page: u32,
     ) -> Result<Vec<(Subscription, Option<String>)>, String> {
         self.list_admin_subscriptions_with_plan_names_impl(filters, page, per_page).await
+    }
+
+    async fn list_admin_subscriptions_with_plan_names_paginated(
+        &self,
+        filters: SubscriptionFilters,
+        page: u32,
+        per_page: u32,
+    ) -> Result<(Vec<(Subscription, Option<String>)>, u64), String> {
+        let count_filters = filters.clone();
+        let rows = self.list_admin_subscriptions_with_plan_names_impl(filters, page, per_page).await?;
+        let total = self.list_admin_subscriptions_count_impl(count_filters).await?;
+        Ok((rows, total))
     }
 
     async fn get_analytics_rollup(&self, window: AnalyticsWindow) -> Result<AnalyticsRollup, String> {

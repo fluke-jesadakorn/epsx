@@ -212,6 +212,21 @@ pub trait PaymentRepositoryPort: Send + Sync {
         per_page: u32,
     ) -> Result<Vec<(Subscription, Option<String>)>, String>;
 
+    /// Paginated admin subscription list with plan names attached
+    /// AND a total-row count for pagination. The
+    /// `list_admin_subscriptions_with_plan_names` variant above
+    /// returns just the page slice; this one runs the page
+    /// query and a `COUNT(*)` query (same filter set) so the
+    /// handler can render the total_pages / has_next / has_prev
+    /// fields. Two queries, both single-pool, both with the
+    /// same `subscriptions ⋈ plans` JOIN shape.
+    async fn list_admin_subscriptions_with_plan_names_paginated(
+        &self,
+        filters: SubscriptionFilters,
+        page: u32,
+        per_page: u32,
+    ) -> Result<(Vec<(Subscription, Option<String>)>, u64), String>;
+
     /// Aggregate analytics rollup. Replaces the 4 sql_query blocks
     /// in `web/payments/admin_handlers/analytics_handlers.rs:39-44`
     /// (daily revenue, plan breakdown, payment methods, trends).
