@@ -3,15 +3,13 @@
 # BFF for the admin app (the wave-9+ replacement for the
 # pre-dioxus Next.js admin frontend in apps-old/admin-frontend).
 # Binary: `bff-admin` ([[bin]] name in Cargo.toml).
-# Default bind: 0.0.0.0:3001 (admin is on a different port
-# than the public frontend, which is :3000). The K8s base
-# manifest's existing patch sets the service NodePort to
-# 3000-target (the pre-migration Next.js port) — this
-# Dockerfile corrects that to 3001 via the PORT env var,
-# and the matching K8s service patch in
-# infrastructure/kubernetes/overlays/{dev,staging,prod}/patches
-# must be updated to NodePort the admin service's container
-# port 3001.
+# Default bind: 0.0.0.0:3001.
+#
+# Build strategy: copy source, single cargo build, copy binary
+# out. The previous stub-swap pattern (write stub main, build
+# for dep cache, copy real source, rebuild) was producing a
+# 332KB stub binary instead of the 7MB real binary. The
+# single-build approach is slower on cache misses but reliable.
 
 FROM rust:slim-bookworm AS builder
 WORKDIR /workspace
@@ -24,15 +22,6 @@ ENV CARGO_TARGET_DIR=/workspace/target
 COPY . .
 
 WORKDIR /workspace/apps/admin
-RUN mkdir -p src && echo "fn main() {}" > src/main.rs
-
-RUN --mount=type=cache,sharing=private,target=/usr/local/cargo/registry \
-    --mount=type=cache,sharing=private,target=/usr/local/cargo/git \
-    cargo build --release --bin bff-admin && \
-    rm -rf src target/release/deps/bff_admin* target/release/bff-admin
-
-COPY apps/admin/src/ ./src/
-
 RUN --mount=type=cache,sharing=private,target=/usr/local/cargo/registry \
     --mount=type=cache,sharing=private,target=/usr/local/cargo/git \
     cargo build --release --bin bff-admin
