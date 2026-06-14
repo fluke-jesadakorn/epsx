@@ -1,34 +1,81 @@
-//! `epsx-identity-service` binary — tonic gRPC server entry point.
+//! `epsx-identity-service` binary — dual-port server entry
+//! point (wave 13a Track A + wave 13b Track A).
 //!
-//! Day 1: exposes one RPC, `GetWalletRankingOffset`, that returns
-//! the free-plan offset (100) for every wallet. The impl is a
-//! stub — it satisfies the kernel-level `WalletRankingOffsetQuery`
-//! port (`shared/rust/epsx-contracts/src/wallet_ranking_offset_query.rs`)
-//! via `FreePlanRankingOffsetService` in `identity_service.rs`.
+//! ## Port layout
 //!
-//! Behavior contract: the new binary is functionally identical to
-//! the wave-12 in-process `FreePlanWalletRankingOffsetQuery` in
-//! `apps/analytics/src/main.rs:122-141` but goes over gRPC instead
-//! of in-process. The fallback contract (timeout → fall back to
-//! free-plan offset) is implemented in **Track B** (the analytics
-//! binary's gRPC client); Track A is just the server.
+//! - **Port 50051 (BIND_ADDR, gRPC, HTTP/2):** tonic gRPC
+//!   server. Exposes ONE RPC, `GetWalletRankingOffset`, that
+//!   returns the free-plan offset (100) for every wallet.
+//!   The impl is a stub — it satisfies the kernel-level
+//!   `WalletRankingOffsetQuery` port
+//!   (`shared/rust/epsx-contracts/src/wallet_ranking_offset_query.rs`)
+//!   via `FreePlanRankingOffsetService` in `identity_service.rs`.
+//!   Behavior contract: the new binary is functionally
+//!   identical to the wave-12 in-process
+//!   `FreePlanWalletRankingOffsetQuery` in
+//!   `apps/analytics/src/main.rs:122-141` but goes over gRPC
+//!   instead of in-process. The fallback contract (timeout →
+//!   fall back to free-plan offset) is implemented in
+//!   **Track B** (the analytics binary's gRPC client); Track
+//!   A is just the server.
+//! - **Port 50052 (BIND_ADDR_SSE, HTTP/1.1, axum):** SSE
+//!   stream + admin emit hook. Exposes:
+//!     - `GET  /v1/stream/ranking-offsets` — SSE stream of
+//!       `RankingOffsetChange` events.
+//!     - `POST /v1/emit` — admin hook to publish a
+//!       `RankingOffsetChange` to the bus.
+//!   Both endpoints share a single `RankingOffsetEventBus`
+//!   instance — the admin emit handler writes to it, the
+//!   SSE handler reads from it.
 //!
-//! Spec: `docs/wave8-service-boundary/ROADMAP.md` §17.1 (this
-//! track creates that section).
+//! ## Why two ports, not one?
+//!
+//! The task spec suggested `tonic-web = "0.12"` as the
+//! bridge. In practice, `tonic-web` is a **gRPC-Web**
+//! protocol translator (browser → tonic, HTTP/1.1 +
+//! `application/grpc-web` content type → native gRPC over
+//! HTTP/2). It is NOT a general HTTP/1.1 router — the crate
+//! docs explicitly state "is not expected to handle
+//! arbitrary HTTP/x.x requests or bespoke protocols" and
+//! "There is no support for web socket transports". There
+//! is no `resource()` / `add_routes()` API in any
+//! `tonic-web` version. The right primitive for hosting
+//! arbitrary HTTP/1.1 routes alongside tonic is plain axum
+//! on a separate port — the workspace already pins
+//! `axum = "0.8"` with the `ws` feature (which transitively
+//! enables `tokio` + `keep_alive`), and the wave-10
+//! notifications SSE handler already uses the same axum
+//! pattern. Two ports keeps the gRPC seam clean (no
+//! content-type negotiation, no ALPN) at the cost of one
+//! extra `tokio::spawn`.
+//!
+//! ## Spec
+//!
+//! - Wave 13a (Track A): `docs/wave8-service-boundary/ROADMAP.md`
+//!   §17.1.
+//! - Wave 13b (Track A): `docs/wave8-service-boundary/ROADMAP.md`
+//!   §17.2 (this track creates that section).
 
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::Context;
+use axum::{
+    routing::{get, post},
+    Router,
+};
 use tonic::transport::Server;
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
 use epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery;
+use epsx_identity_service::emit_handler::emit_ranking_offset;
+use epsx_identity_service::event_bus::RankingOffsetEventBus;
 use epsx_identity_service::generated::identity_server::IdentityServer;
 use epsx_identity_service::identity_service::{
     map_app_error_to_status, FreePlanRankingOffsetService,
 };
+use epsx_identity_service::sse_handler::stream_ranking_offsets;
 
 // ============================================================================
 // gRPC service impl
@@ -105,6 +152,10 @@ impl epsx_identity_service::generated::identity_server::Identity
 const BINARY_NAME: &str = env!("CARGO_PKG_NAME");
 const BINARY_VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_BIND_ADDR: &str = "0.0.0.0:50051";
+const DEFAULT_BIND_ADDR_SSE: &str = "0.0.0.0:50052";
+/// 1024-slot broadcast channel. Plenty for the dev cluster;
+/// production tuning can lift this in wave-14+ if needed.
+const EVENT_BUS_CAPACITY: usize = 1024;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -117,18 +168,25 @@ async fn main() -> anyhow::Result<()> {
         .with_target(false)
         .init();
 
-    // ---- bind address ----
-    // Default: 0.0.0.0:50051 (tonic convention). Override with
-    // `BIND_ADDR` env var (same pattern as the analytics
-    // binary) so the dev container can bind to a different port
-    // if the host's 50051 is already in use.
+    // ---- bind addresses ----
+    // Default: 0.0.0.0:50051 (tonic convention) +
+    //          0.0.0.0:50052 (axum convention, separate port).
+    // Override with `BIND_ADDR` (gRPC) and `BIND_ADDR_SSE`
+    // (HTTP/1.1) env vars (same pattern as the analytics
+    // binary) so the dev container can bind to a different
+    // port if the host's 50051/50052 are already in use.
     let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| DEFAULT_BIND_ADDR.to_string());
-    let addr: SocketAddr = bind_addr
+    let grpc_addr: SocketAddr = bind_addr
         .parse()
         .with_context(|| format!("parsing BIND_ADDR={bind_addr}"))?;
+    let bind_addr_sse =
+        std::env::var("BIND_ADDR_SSE").unwrap_or_else(|_| DEFAULT_BIND_ADDR_SSE.to_string());
+    let sse_addr: SocketAddr = bind_addr_sse
+        .parse()
+        .with_context(|| format!("parsing BIND_ADDR_SSE={bind_addr_sse}"))?;
 
     // ---- startup banner ----
-    print_startup_banner(addr);
+    print_startup_banner(grpc_addr, sse_addr);
 
     // ---- DI ----
     // Day 1: a single Arc<dyn WalletRankingOffsetQuery> backed
@@ -137,25 +195,90 @@ async fn main() -> anyhow::Result<()> {
     let port_impl: Arc<dyn WalletRankingOffsetQuery> = Arc::new(FreePlanRankingOffsetService);
     let grpc_service = GrpcIdentityService::new(port_impl);
 
-    // ---- serve ----
-    info!(%addr, "epsx-identity-service listening on gRPC");
-    let server = Server::builder().add_service(IdentityServer::new(grpc_service));
+    // ---- pub-sub bus (shared between gRPC future
+    //      publishers + the HTTP/1.1 SSE + emit handlers) ----
+    let bus = Arc::new(RankingOffsetEventBus::new(EVENT_BUS_CAPACITY));
 
-    if let Err(err) = server.serve(addr).await {
-        error!(error = %err, "tonic::server::serve returned an error");
-        return Err(err.into());
-    }
+    // ---- gRPC server (port 50051, unchanged from wave 13a) ----
+    let grpc_server = {
+        let addr = grpc_addr;
+        let svc = grpc_service;
+        async move {
+            info!(%addr, "epsx-identity-service: tonic gRPC server listening");
+            if let Err(err) = Server::builder()
+                .add_service(IdentityServer::new(svc))
+                .serve(addr)
+                .await
+            {
+                error!(error = %err, "tonic::server::serve returned an error");
+                return Err(err.into());
+            }
+            Ok::<(), anyhow::Error>(())
+        }
+    };
+
+    // ---- HTTP/1.1 server (port 50052, wave 13b) ----
+    // axum router with two routes:
+    //   - `GET  /v1/stream/ranking-offsets` — SSE stream
+    //   - `POST /v1/emit` — admin emit hook
+    // Both share the same `RankingOffsetEventBus` state via
+    // `with_state(Arc::clone(&bus))`. The bus is the only
+    // shared state the binary owns; the gRPC future-tier
+    // impls (wave 13c+) will hold their own `Arc` to the
+    // same bus.
+    let http_server = {
+        let addr = sse_addr;
+        let bus = Arc::clone(&bus);
+        async move {
+            let app = Router::new()
+                .route("/v1/stream/ranking-offsets", get(stream_ranking_offsets))
+                .route("/v1/emit", post(emit_ranking_offset))
+                .with_state((*bus).clone());
+
+            info!(
+                %addr,
+                routes = "/v1/stream/ranking-offsets (GET, SSE), /v1/emit (POST, JSON)",
+                "epsx-identity-service: axum HTTP/1.1 server listening"
+            );
+
+            let listener = tokio::net::TcpListener::bind(addr)
+                .await
+                .with_context(|| format!("binding axum listener to {addr}"))?;
+
+            if let Err(err) = axum::serve(listener, app).await {
+                error!(error = %err, "axum::serve returned an error");
+                return Err(err.into());
+            }
+            Ok::<(), anyhow::Error>(())
+        }
+    };
+
+    // ---- serve both concurrently ----
+    // `tokio::try_join!` propagates the first error and
+    // cancels the other future. If the gRPC server fails to
+    // bind, the HTTP/1.1 server is also cancelled; if the
+    // HTTP/1.1 server fails, the gRPC server is cancelled.
+    // K8s liveness probes on both ports keep the failure
+    // modes independent at the pod level.
+    tokio::try_join!(grpc_server, http_server)?;
+
     Ok(())
 }
 
-fn print_startup_banner(addr: SocketAddr) {
+fn print_startup_banner(grpc_addr: SocketAddr, sse_addr: SocketAddr) {
     info!("============================================================");
     info!("  {} v{}", BINARY_NAME, BINARY_VERSION);
-    info!("  Wave 13a — Track A (identity binary, tonic gRPC server)");
-    info!("  Bind: {}", addr);
+    info!("  Wave 13a — Track A (gRPC, tonic) +");
+    info!("  Wave 13b — Track A (SSE + admin emit, axum)");
+    info!("  gRPC:        {}", grpc_addr);
+    info!("  HTTP/1.1 SSE:{}", sse_addr);
+    info!("  Event bus:   broadcast channel, capacity = {}", EVENT_BUS_CAPACITY);
     info!("  gRPC methods (1):");
     info!("    rpc GetWalletRankingOffset(GetWalletRankingOffsetRequest)");
     info!("        returns GetWalletRankingOffsetResponse");
+    info!("  HTTP/1.1 routes (2):");
+    info!("    GET  /v1/stream/ranking-offsets  (SSE)");
+    info!("    POST /v1/emit                    (JSON, admin)");
     info!("  Day-1 behavior: always returns the free-plan offset");
     info!("  (matching the wave-12 in-process FreePlanWalletRankingOffsetQuery stub).");
     info!("============================================================");

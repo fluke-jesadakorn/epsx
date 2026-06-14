@@ -19,3 +19,14 @@ spec:
       targetPort: 50051
       # No nodePort on ClusterIP — the dev overlay adds one
       # via a strategic-merge patch.
+    # wave-13b: HTTP/1.1 (axum) port. Exposes the SSE stream
+    # (`GET /v1/stream/ranking-offsets`) and the admin emit
+    # hook (`POST /v1/emit`). The dev overlay patches this
+    # to NodePort 30105 (pre-allocated in the wave-13(dev-k8s)
+    # NodePort plan) for external smoke testing; future
+    # wave-13c+ consumers (Track B's analytics-binary SSE
+    # client) will dial `http://epsx-identity:50052` over
+    # the cluster's internal DNS.
+    - name: sse
+      port: 50052
+      targetPort: 50052
