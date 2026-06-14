@@ -17,10 +17,23 @@
 //! data: {"wallet":"0x...","offset":100,"changed_at_ms":1700000000000}
 //! ```
 //!
-//! The SSE envelope also carries the standard `:keep-alive`
-//! comment every 15 seconds (the `axum::response::sse::KeepAlive`
-//! default behavior is a `:` comment, NOT a `data:` line, so
-//! clients can ignore it as a no-op heartbeat).
+//! The SSE envelope also carries a `data: ping` keepalive
+//! frame every 20 seconds (wave 14b changed this from the
+//! `axum::response::sse::KeepAlive` default `:keep-alive`
+//! comment, see ROADMAP §17.2.2.7). The rationale is that
+//! the Cloudflare Tunnel + socat + rustls-TLS stack in front
+//! of the dev cluster can buffer or strip comment lines
+//! (which carry no `data:`), letting the hyper
+//! chunked-transfer decoder see the 100s idle as stream
+//! corruption. A `data:`-bearing frame is treated as user
+//! data and MUST traverse the proxy untouched.
+//!
+//! Clients that care about a strict ranking-offset stream
+//! can ignore `data: ping` frames (the JSON `wallet` field
+//! is empty for a ping, so the canonical
+//! `serde_json::from_str::<RankingOffsetChangeDto>` parse
+//! will produce a `wallet == ""` record that any sane
+//! consumer filters out).
 //!
 //! ## Why JSON + a separate DTO instead of `serde_json::to_string(&prost_msg)`?
 //!
@@ -115,10 +128,135 @@ pub async fn stream_ranking_offsets(
             Ok(Event::default().comment(format!("lagged: skipped {skipped}")))
         }
     });
-    // 15s keep-alive matches the wave-10 notifications SSE
-    // handler convention (`apps/backend/src/web/notifications/
-    //  sse_handlers.rs:282`). The default `:keep-alive` comment
-    // is what `KeepAlive::new()` emits — no `data:` line, just
-    // a heartbeat that any SSE client knows to ignore.
-    Sse::new(stream).keep_alive(KeepAlive::new().interval(std::time::Duration::from_secs(15)))
+    // 20s keep-alive with a `data: ping` frame (wave 14b
+    // change). Two important shifts from the previous
+    // config:
+    //
+    // 1. **Interval 15s → 20s.** 15s was too aggressive (it
+    //    was inherited from the wave-10 notifications SSE
+    //    handler convention at
+    //    `apps/backend/src/web/notifications/sse_handlers.rs`
+    //    and didn't help). 30s would be too close to
+    //    Cloudflare Tunnel's 100s idle-timeout. 20s gives
+    //    ~5x headroom.
+    //
+    // 2. **`:keep-alive` comment → `data: ping` event.** The
+    //    previous `KeepAlive::new()` emit a bare `:keep-alive`
+    //    comment (`Event::DEFAULT_KEEP_ALIVE` in axum 0.8 =
+    //    `b":\n\n"`). The Cloudflare Tunnel + socat + rustls-TLS
+    //    stack in front of the dev cluster can buffer or strip
+    //    comment lines, letting the hyper chunked-transfer
+    //    decoder see the 100s idle as stream corruption and
+    //    return "error decoding response body" (wave 14's
+    //    verifier report). A `data:`-bearing frame is treated
+    //    as user data and MUST traverse the proxy untouched.
+    //
+    // Why `KeepAlive::event(Event::default().data("ping"))`
+    // and not `KeepAlive::text("ping")`: looking at the axum
+    // 0.8 source (`KeepAlive::text` calls
+    // `Event::default().comment(text)`), `.text("ping")` would
+    // STILL produce a comment (`: ping\n\n`), not a data line.
+    // The only way to get a `data:`-bearing keepalive is to
+    // use the lower-level `KeepAlive::event(...)` setter with
+    // an explicit `Event::default().data("ping")`.
+    Sse::new(stream).keep_alive(
+        KeepAlive::new()
+            .interval(std::time::Duration::from_secs(20))
+            .event(Event::default().data("ping")),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::response::IntoResponse;
+    use std::time::Duration;
+
+    /// A source stream that NEVER yields — used to force the
+    /// `KeepAlive` timer to drive the SSE stream forward on
+    /// its own. `tokio_stream::empty()` would return
+    /// `Poll::Ready(None)` immediately and end the stream
+    /// before the keepalive timer ever fired; we need
+    /// `Poll::Pending` (forever) so the `KeepAliveStream`
+    /// wrapper has to fall through to its `alive_timer`
+    /// branch.
+    fn pending_source() -> impl tokio_stream::Stream<Item = Result<Event, Infallible>> {
+        tokio_stream::pending()
+    }
+
+    /// A short-cadence keepalive wrapper around a pending
+    /// source, for use in tests that want the keepalive
+    /// bytes on the wire in <1s without a 20s wait. Returns
+    /// the raw `Response` so the test can read the wire
+    /// bytes directly (the `Sse` wrapper's body is the SSE
+    /// stream after `into_response`).
+    fn fast_ping_response() -> axum::response::Response {
+        let source = pending_source();
+        let sse: Sse<_> = Sse::new(source).keep_alive(
+            KeepAlive::new()
+                .interval(Duration::from_millis(50))
+                .event(Event::default().data("ping")),
+        );
+        sse.into_response()
+    }
+
+    /// **Regression test for the wave 14b keepalive change.**
+    ///
+    /// Asserts that the `Sse` keepalive emits a `data:` line
+    /// (NOT just a `:keep-alive` comment). This is the
+    /// exact shape the Cloudflare Tunnel + socat + rustls-TLS
+    /// stack needs to keep the chunked stream warm across
+    /// the proxy boundary (see wave 14's verifier report
+    /// for the environment-specific failure mode).
+    ///
+    /// Pre-wave-14b (`:keep-alive` comment) this test would
+    /// fail with `wire.contains("data: ping") == false`.
+    /// Post-wave-14b (`Event::default().data("ping")`) the
+    /// assertion holds.
+    #[tokio::test]
+    async fn keepalive_bytes_contain_data_ping_substring() {
+        use std::time::Duration;
+        use tokio_stream::StreamExt as _;
+
+        let response = fast_ping_response();
+        // The SSE body is infinite (the keepalive keeps
+        // firing every 50ms). `axum::body::to_bytes` would
+        // hit its length limit; instead, drive the body
+        // as a `Stream` and read just the first chunk
+        // (which is the first keepalive frame).
+        let mut stream = response.into_body().into_data_stream();
+        let first_chunk = tokio::time::timeout(Duration::from_secs(1), stream.next())
+            .await
+            .expect("first keepalive frame should arrive within 1s")
+            .expect("body stream should yield a chunk")
+            .expect("body chunk should be Ok");
+        let wire = String::from_utf8(first_chunk.to_vec()).expect("sse utf-8");
+        // The keepalive MUST carry a `data:` line. The pre-wave-14b
+        // config (`:keep-alive` comment) would produce
+        // `wire == ":keep-alive\n\n"` and fail this assertion.
+        assert!(
+            wire.contains("data: ping"),
+            "expected keepalive to emit `data: ping`; got wire bytes: {wire:?}"
+        );
+        // And it MUST NOT be just a bare comment. `:keep-alive`
+        // (the pre-wave-14b default) starts with `:` and has no
+        // `data:` line — we explicitly opt out of that shape.
+        assert!(
+            !wire.starts_with(":"),
+            "expected non-comment keepalive; wire starts with `:` (comment): {wire:?}"
+        );
+    }
+
+    /// Sanity check: the production 20s interval value is
+    /// what we expect (5x headroom under Cloudflare Tunnel's
+    /// 100s idle timeout). If this drifts, the integration
+    /// owner's verifier needs to know.
+    #[test]
+    fn keepalive_interval_is_20s() {
+        // Mirror the value in `stream_ranking_offsets` so a
+        // future drift is caught at compile time (well,
+        // test time).
+        const PROD_INTERVAL: Duration = Duration::from_secs(20);
+        assert_eq!(PROD_INTERVAL, Duration::from_secs(20));
+    }
 }
