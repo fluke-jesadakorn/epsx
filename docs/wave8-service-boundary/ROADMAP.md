@@ -4196,7 +4196,7 @@ stays on origin; the user can fast-forward
 integration commit when ready. **Do not** fast-forward
 without explicit user confirmation.
 
-## 18. Wave 13b — Track B (SSE consumer + local bus + /v1/rankings/stream passthrough) — implementation report
+## §17.2 — Wave 13b Track B (SSE consumer + local bus + /v1/rankings/stream passthrough) — implementation report
 
 The new binary now consumes the SSE stream from
 `epsx-identity-service`'s `GET /v1/stream/ranking-offsets`
@@ -4210,7 +4210,7 @@ to web clients as a long-lived `text/event-stream`
 response. The consumer survives transient disconnects
 with exponential backoff + 0-50% jitter, capped at 30s.
 
-### 18.1 What shipped (file-by-file)
+### 17.2.1 What shipped (file-by-file)
 
 **New files (1):**
 - `apps/analytics/src/sse_consumer.rs` (440 LOC) —
@@ -4251,12 +4251,13 @@ with exponential backoff + 0-50% jitter, capped at 30s.
      identity service's default), spawns the consumer
      task in a `tokio::spawn(async move { ... })`, and
      wires `IDENTITY_SSE_URL` (default
-     `http://127.0.0.1:50052`). The shutdown half of
-     the `tokio::sync::watch::channel` is held for a
+     `http://127.0.0.1:50052/v1/stream/ranking-offsets`).
+     The shutdown half of the
+     `tokio::sync::watch::channel` is held for a
      future wave 14+ to wire `tokio::signal::ctrl_c()`
      to it.
 - `infrastructure/kubernetes/base/analytics/deployment.yaml` —
-  added `IDENTITY_SSE_URL=http://epsx-identity:50052`
+  added `IDENTITY_SSE_URL=http://epsx-identity:50052/v1/stream/ranking-offsets`
   env var + bumped `EPSX_ANALYTICS_VERSION` to
   `wave13b`.
 
@@ -4266,11 +4267,11 @@ branch):** the dev overlay's image tag is still
 branch did NOT bump it further). The integration gate
 will bump the tag to `:wave13b-dev` after merging
 this branch, mirroring the wave-13a integration's
-`§17.2` pattern. The base `deployment.yaml` change
-above lands on the integration branch via the
-auto-merge.
+`§17.2 Dev overlay follow-up` pattern. The base
+`deployment.yaml` change above lands on the
+integration branch via the auto-merge.
 
-### 18.2 The 7 routes the new binary serves
+### 17.2.2 The 7 routes the new binary serves
 
 ```
 GET  /health                            (K8s liveness/readiness)
@@ -4286,7 +4287,7 @@ The `test_five_route_builder` test was renamed (in
 body, not in fn name) to assert all 7 paths are
 mounted (`mounted_count == 7`).
 
-### 18.3 Reconnect logic
+### 17.2.3 Reconnect logic
 
 ```rust
 let mut backoff = Duration::from_millis(100);
@@ -4321,7 +4322,7 @@ on individual `data:` lines are logged + skipped
 (NOT bubbled up — a single malformed event shouldn't
 tear down the connection).
 
-### 18.4 JSON wire shape (local DTO)
+### 17.2.4 JSON wire shape (local DTO)
 
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -4344,13 +4345,14 @@ re-export, or (b) both branches keep their own DTOs
 and the wire JSON shape is the contract. Either way
 is correct; (a) is the cleaner long-term shape.
 
-### 18.5 Test results
+### 17.2.5 Test results
 
-`cargo test -p epsx-analytics-service` — **27/27 pass**
-(15 pre-existing + 12 new):
+`cargo test -p epsx-analytics-service` — **29/29 pass**
+(15 pre-existing + 14 new — 11 sse_consumer unit + 1
+sse_consumer e2e + 2 anti-test-pollution guards):
 
 ```
-running 27 tests
+running 29 tests
 test sse_consumer::tests::find_sse_event_empty_buffer_returns_none ... ok
 test sse_consumer::tests::find_sse_event_returns_first_boundary ... ok
 test sse_consumer::tests::find_sse_event_single_event_in_buffer ... ok
@@ -4369,6 +4371,8 @@ test sse_consumer::tests::bus_receiver_count_tracks_subscribers ... ok
 test sse_consumer::tests::consume_once_end_to_end_via_chunks ... ok
 test sse_consumer::tests::consume_once_two_events_in_one_chunk ... ok
 test tests::test_sse_consumer_end_to_end_via_real_http ... ok     <-- integration
+test tests::test_prod_sse_url_default_has_path ... ok              <-- anti-test-pollution guard
+test tests::test_resolve_test_sse_url_substitutes_origin_keeps_path ... ok  <-- guard
 test tests::test_epsranking_type_reexport ... ok
 test tests::test_startup_banner ... ok
 test tests::test_free_plan_stub_returns_default ... ok
@@ -4379,7 +4383,7 @@ test tests::test_state_build_no_db ... ok
 test tests::test_grpc_client_falls_back_on_timeout ... ok
 test tests::test_five_route_builder ... ok                          <-- now asserts 7 routes
 
-test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.07s
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.08s
 ```
 
 **`test_sse_consumer_end_to_end_via_real_http`** is the
@@ -4387,13 +4391,21 @@ binary-level canary: it spins up a real `axum` server
 on `127.0.0.1:0` that emits two SSE events as raw bytes,
 spawns `run_sse_consumer` against that server with a
 real `reqwest::Client`, and asserts both events land in
-the bus within a 5s timeout. This is the closest thing
-to the "manual end-to-end" smoke test the spec asked
-for without the operational overhead of spinning up
-the full K8s cluster (which is the integration gate's
-job).
+the bus within a 5s timeout. The URL is built by
+`resolve_test_sse_url(host_port)`, which reads
+`IDENTITY_SSE_URL` from env (falling back to the
+`PROD_SSE_URL_DEFAULT` constant `main()` uses) and
+substitutes only the host:port — so the test's PATH
+is identical to the production PATH. A separate
+`test_prod_sse_url_default_has_path` guard asserts
+the default ends with `/v1/stream/ranking-offsets`
+(attempt #3's bug: a path-less default would
+silently 404 in production while the test passed).
+The two guards combined make the "test passes,
+production broken" class of bug impossible to
+regress past CI.
 
-### 18.6 Cargo build summary
+### 17.2.6 Cargo build summary
 
 ```
 cargo build -p epsx-analytics-service --release
@@ -4415,7 +4427,7 @@ on-disk; matches the wave-13a image size — the SSE
 consumer + `reqwest` `stream` feature + `rand` add
 negligible weight).
 
-### 18.7 K8s plumbing
+### 17.2.7 K8s plumbing
 
 `kubectl kustomize infrastructure/kubernetes/overlays/dev`:
 
@@ -4424,7 +4436,7 @@ negligible weight).
 - name: EPSX_ANALYTICS_VERSION
   value: wave13b
 - name: IDENTITY_SSE_URL
-  value: http://epsx-identity:50052          # NEW
+  value: http://epsx-identity:50052/v1/stream/ranking-offsets   # NEW (path is part of the URL)
 - name: IDENTITY_GRPC_URL
   value: http://epsx-identity:50051
 image: epsx-analytics:wave13a-dev              # dev overlay bump is gate's job
@@ -4438,7 +4450,7 @@ resilient to a missing identity service — the
 reconnect loop just sits in backoff until the
 identity pod is up.
 
-### 18.8 Deviations from the task spec
+### 17.2.8 Deviations from the task spec
 
 1. **No `eventsource-stream` crate.** The spec listed
    it as an alternative to the hand-rolled parser. I
@@ -4490,8 +4502,106 @@ identity pod is up.
    reconnect-stormed), and the maximum is
    `backoff * 1.5` (which is well within the
    30s cap).
+6. **Test pollution discovered (verifier-caught, attempt
+   #3).** The original
+   `test_sse_consumer_end_to_end_via_real_http` built its
+   test URL inline as
+   `format!("http://{local_addr}/v1/stream/ranking-offsets")`
+   — a hardcoded path that the production `main()` does
+   NOT use. The production code reads
+   `IDENTITY_SSE_URL` from env (with fallback
+   `http://127.0.0.1:50052`), and the K8s base manifest
+   (at the time) set `IDENTITY_SSE_URL=http://epsx-identity:50052`
+   (no path). So:
+   - **Production was 404'ing on every consumer start.**
+     The pod would retry forever, no events would
+     fan out, the rankings cache would stay stale.
+   - **The test reported a working system.** The
+     hardcoded `format!("/v1/stream/ranking-offsets")`
+     in the test built a different URL from the one
+     production used, so the test's mock server
+     answered 200 + SSE bytes while the real identity
+     service answered 404 on the path production
+     actually dialed.
+   - **The verifier caught it on attempt #3.** The
+     test-pollution pattern (test using a different
+     URL shape than production) is the same as the
+     "verify-only field" pattern from the wave-12
+     infra-cleanup memory: the test exercises a
+     path the production code doesn't take, so
+     test-green ≠ prod-working.
+   - **The fix has three parts (all in the same
+     follow-up commit on this branch):**
+     1. `apps/analytics/src/main.rs:472` — the
+        in-code default now also includes the path
+        (`http://127.0.0.1:50052/v1/stream/ranking-offsets`),
+        so `main()` resolves the same URL whether
+        `IDENTITY_SSE_URL` is set or not.
+     2. `infrastructure/kubernetes/base/analytics/deployment.yaml:69`
+        — the K8s value also includes the path
+        (`http://epsx-identity:50052/v1/stream/ranking-offsets`).
+     3. `test_sse_consumer_end_to_end_via_real_http`
+        — the test now reads `IDENTITY_SSE_URL` from
+        env (with the same fallback the production
+        code uses) and substitutes the mock server's
+        host:port for the URL's host:port, keeping
+        the PATH identical to production. There's
+        an explicit
+        `assert!(url.contains("/v1/stream/ranking-offsets"))`
+        guard at the top of the test that fails with
+        a clear "anti-test-pollution" message if the
+        production URL and test URL ever diverge in
+        a future refactor.
+   - **Lesson for future waves:** integration tests
+     that exercise the wire shape of a production
+     env-var-configured resource MUST resolve that
+     env var the same way production does. A
+     `format!("hardcoded/path")` in a test is
+     always a smell — it usually means the test
+     is hiding a config bug.
+6. **§18 → §17.2 renumber + the test-pollution bug
+   behind it (caught by the verifier in attempt #3).**
+   The wave-13a integration's sub-section is
+   `§17.1.1` (Track A) + `§17.1.2` (Track B); the
+   natural slot for wave-13b Track B was `§17.2`,
+   but the first commit (HEAD `f44bd6d0`) used
+   `## 18. Wave 13b — Track B` because I treated
+   "wave 13b" as a new major wave number. The
+   verifier caught a separate bug in that commit
+   — `IDENTITY_SSE_URL` was set to
+   `http://epsx-identity:50052` (no path), so
+   production hit a 404 every time — and the
+   integration test
+   (`test_sse_consumer_end_to_end_via_real_http`)
+   passed because it constructed the URL with
+   the path inline:
+   `format!("http://{local_addr}/v1/stream/ranking-offsets")`.
+   The test was "test pollution" — a test that
+   hides a production bug because it uses a
+   different URL config than production.
+   The follow-up commit fixes both:
+   (a) `IDENTITY_SSE_URL` now includes the
+   path in BOTH the local default and the K8s
+   env var; (b) the integration test reads
+   `IDENTITY_SSE_URL` from env (falling back to
+   the same `PROD_SSE_URL_DEFAULT` constant
+   `main()` uses) and substitutes only the
+   host:port, keeping the path in lockstep with
+   production. A new
+   `test_prod_sse_url_default_has_path` guard
+   test fails loudly if a future refactor
+   strips the path from the default. Lesson:
+   **integration tests should resolve their
+   config from the same env vars / constants
+   the production code uses, not from a
+   parallel hardcoded literal** — otherwise
+   the test and the production code can
+   silently disagree on critical config.
+   This is a reusable pattern for any
+   "binary talks to a network service" seam
+   in EPSX.
 
-### 18.9 What the next wave inherits
+### 17.2.9 What the next wave inherits
 
 - The `LocalRankingOffsetBus` is a 1024-slot
   `tokio::sync::broadcast::Sender<RankingOffsetChange>`.
@@ -4515,7 +4625,7 @@ identity pod is up.
   `tokio::signal::ctrl_c()` to it is a 4-line
   change in a future wave 14+.
 
-### 18.10 Out of scope (wave-13c+ or separate)
+### 17.2.10 Out of scope (wave-13c+ or separate)
 
 - Hooking the gRPC `GetWalletRankingOffset` path
   into the publish path (i.e. when a gRPC request
