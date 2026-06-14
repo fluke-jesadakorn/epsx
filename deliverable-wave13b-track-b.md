@@ -48,6 +48,13 @@ shutdown signal for future Ctrl-C / SIGTERM wiring
 - **Worktree:**
   `/Users/fluke/Desktop/Work/epsx/.worktrees/wave13b-track-b-sse-consumer`
 - **HEAD commit (this submission):**
+  `244aba2f` (full
+  `244aba2f...`). Title: "wave13b(track-b): refresh
+  deliverable with attempt-#5 live round-trip". 1 file,
+  +65 / -1 LOC (deliverable refresh — adds the
+  attempt-#5 live cluster curl transcript + the
+  `delivered_to: 2` end-to-end canary).
+- **Previous refresh commit:**
   `ee12822ffbb00e557281a99fd1acf33a41810d7c` (full)
   / `ee12822f` (short). Title: "wave13b(track-b):
   refresh worktree-root deliverable with fix + round-trip
