@@ -4195,3 +4195,375 @@ stays on origin; the user can fast-forward
 `origin/migration/dioxus-microservices` to the
 integration commit when ready. **Do not** fast-forward
 without explicit user confirmation.
+
+---
+
+## §17.2 — Wave 13b Track A (SSE server + pub-sub + admin emit hook) — implementation report
+
+> **Branch:** `wave13b/track-a-sse-server` (worktree at
+> `.worktrees/wave13b-track-a-sse-server`, base
+> `origin/migration/dioxus-microservices` HEAD `60305b6c`
+> — the wave-13a integration head).
+>
+> **Final commit hash:** `9266bb255d9020c99885d5e16b8036637781bd60`
+> (pushed to `origin/wave13b/track-a-sse-server`).
+>
+> **Companion tracks:**
+> * Track B — `origin/wave13b/track-b-sse-consumer` (future
+>   branch, in a parallel worktree) — consumes the SSE
+>   stream from the analytics binary.
+> * Integration gate (wave 13b) — drives a full
+>   round-trip smoke test (curl SSE + curl emit, then
+>   assert the SSE client received the JSON `data:` line
+>   within 1s).
+>
+> **Verification commands:**
+> - `cargo check --workspace` → clean (16 pre-existing
+>   warnings in `epsx`, 0 new warnings)
+> - `cargo test -p epsx-identity-service` → 10/10 pass
+>   (5 wave-13a + 5 new wave-13b: 3 unit, 2 integration)
+> - `cargo build -p epsx-identity-service --release` → clean
+>   (33.3 MB content size, matches wave-13a)
+> - `docker build -f shared/rust/epsx-identity-service/Dockerfile
+>   -t epsx-identity:wave13b-dev .` → image built
+>   (156 MB on-disk, 33.3 MB content, ID `f5f9f2a59241`)
+> - `kubectl apply -k infrastructure/kubernetes/overlays/dev`
+>   → service + deployment configured
+> - `kubectl -n epsx-dev rollout status deployment/epsx-identity`
+>   → new pod `epsx-identity-9f7989ffd-jhfrg` Running with
+>   the wave-13b image
+> - `curl -N http://127.0.0.1:30105/v1/stream/ranking-offsets`
+>   + `curl -X POST -d '{"wallet":"0x1234","offset":100}'
+>   http://127.0.0.1:30105/v1/emit` → SSE round-trip OK
+>   (delivered_to=1, data: line received within ~10ms)
+
+### Goal
+
+Extend the `epsx-identity-service` binary (wave 13a
+Track A) with a real-time Server-Sent Events (SSE)
+endpoint that broadcasts `RankingOffsetChange` events
+to subscribers, plus a `POST /v1/emit` admin hook that
+the integration gate (and future tier-aware impls) can
+use to publish changes. Track B will consume the SSE
+stream from the analytics binary; the integration gate
+will exercise the full round-trip end-to-end on the dev
+cluster.
+
+### What shipped
+
+#### 1. SSE event message — `shared/proto/identity.proto`
+
+Added the `RankingOffsetChange` message (the wire
+schema for the SSE event payload). The `wallet` /
+`offset` / `changed_at_ms` field numbers are
+forward-compatible: a future wave-14+ can add a `tier`
+enum or a `plan_id` field without breaking the
+existing wire contract. The message is the **same
+prost struct** that the gRPC client and any future
+`UpdateRankingOffset` gRPC RPC will use, so the wire
+schema is the single source of truth across both
+the gRPC seam and the SSE pubsub stream.
+
+```proto
+// Wave 13b: real-time ranking offset change event.
+message RankingOffsetChange {
+  string wallet = 1;
+  int32 offset = 2;
+  int64 changed_at_ms = 3;
+}
+```
+
+The SSE envelope emits one `data:` line per event with
+the JSON form (snake_case, matching the protobuf field
+names):
+
+```text
+data: {"wallet":"0x...","offset":100,"changed_at_ms":1700000000000}
+```
+
+#### 2. Event bus — `shared/rust/epsx-identity-service/src/event_bus.rs`
+
+A 1024-slot `tokio::sync::broadcast::Sender<RankingOffsetChange>`
+wrapped in a `RankingOffsetEventBus` struct. The bus is
+`Clone` (so it can be shared between the gRPC future-tier
+publisher and the HTTP/1.1 SSE + emit handlers) and exposes
+three methods:
+
+- `new(capacity) -> Self` — construct a new bus.
+- `publish(change) -> usize` — send a change; returns the
+  number of active subscribers that received it (0 if no
+  SSE clients are connected — the event is dropped).
+- `subscribe() -> broadcast::Receiver<RankingOffsetChange>`
+  — get a `Receiver` the SSE handler can `await` on.
+
+The 1024-slot capacity is the only knob the constructor
+takes; the startup banner prints the live value. The
+`BroadcastStreamRecvError::Lagged` variant is forwarded
+to the SSE handler so a slow consumer can re-subscribe
+from the latest event.
+
+#### 3. SSE endpoint — `shared/rust/epsx-identity-service/src/sse_handler.rs`
+
+`GET /v1/stream/ranking-offsets` (port 50052, axum 0.8)
+serves an `Sse<impl Stream<...>>` over a
+`tokio_stream::wrappers::BroadcastStream` adapter of the
+bus's `Receiver`. Each published event becomes one
+`Event::default().data(json)` line; the `Lagged(_)` error
+becomes a `:lagged: skipped N` comment so the client
+knows the connection is still alive + that it missed
+events (and can re-subscribe if it wants the missed
+data). 15-second `KeepAlive::new().interval(...)` matches
+the wave-10 notifications SSE handler convention
+(`apps/backend/src/web/notifications/sse_handlers.rs:282`).
+
+A hand-written `RankingOffsetChangeDto` with
+`#[derive(Serialize)]` converts the prost message to a
+JSON envelope. We do this instead of `serde_json::to_string(&prost_msg)`
+because `prost::Message` only derives `Clone, PartialEq, prost::Message`
+— NOT `Serialize`. The DTO is the natural seam for any
+future `tier` enum (`Free`/`Pro`/`Vip`) that wave-N+2
+might add to the proto (the DTO translates the protobuf
+enum to a string in the JSON).
+
+#### 4. Admin emit hook — `shared/rust/epsx-identity-service/src/emit_handler.rs`
+
+`POST /v1/emit` (port 50052, axum 0.8) accepts a JSON
+body of the form `{"wallet": "0x...", "offset": 100}`,
+stamps `changed_at_ms` at publish time, publishes to
+the bus, and returns `{"delivered_to": N}` — the number
+of active SSE subscribers that received the event.
+Zero is a valid response (no SSE clients are connected
+— the event is dropped).
+
+Day 1: this is the ONLY publisher. Future wave-13c+ will
+hook the gRPC `GetWalletRankingOffset` path (or a new
+`UpdateRankingOffset` gRPC) into the publish path so
+every offset change fans out automatically. The
+endpoints are unauthenticated for day 1; the K8s base
+manifest keeps the service `ClusterIP` (the dev overlay
+exposes a NodePort for smoke testing), so production
+never sees the endpoint directly. A future wave-14+
+will add JWT bearer middleware that calls the wave-10
+R8b `validate_access_token`.
+
+#### 5. Dual-port binding — `shared/rust/epsx-identity-service/src/main.rs`
+
+- **Port 50051 (BIND_ADDR, gRPC, HTTP/2):** tonic gRPC
+  server. The wave-13a seam — UNCHANGED. Exposes
+  `GetWalletRankingOffset` over HTTP/2.
+- **Port 50052 (BIND_ADDR_SSE, HTTP/1.1, axum):** the
+  new wave-13b side. Exposes:
+  - `GET  /v1/stream/ranking-offsets` — SSE stream
+  - `POST /v1/emit` — admin emit hook
+- Both servers run concurrently via
+  `tokio::try_join!(grpc_server, http_server)`. A
+  failure on either port cancels the other (K8s
+  liveness probes on both ports keep the failure modes
+  independent at the pod level).
+
+#### 6. K8s base + dev overlay extensions
+
+- **`infrastructure/kubernetes/base/identity/deployment.yaml`:**
+  - added `containerPort: 50052` (name: `sse`).
+  - added env var `BIND_ADDR_SSE: "0.0.0.0:50052"`.
+  - bumped `EPSX_IDENTITY_VERSION` from `wave13a` to
+    `wave13b` so ops can distinguish the build.
+  - readiness probe stays on the gRPC port (the TCP
+    probe is sufficient — both ports share the same
+    pod lifecycle, so a broken gRPC implies a broken
+    SSE too; the explicit gRPC port is the conservative
+    default until a future wave adds a `GET /health`
+    axum route).
+- **`infrastructure/kubernetes/base/identity/service.yaml`:**
+  - added the `sse` port (`port: 50052`, `targetPort: 50052`).
+- **`infrastructure/kubernetes/overlays/dev/patches/services-identity.yaml`:**
+  - added `nodePort: 30105` for the SSE port (pre-allocated
+    in the wave-13(dev-k8s) NodePort plan but not yet
+    wired).
+- **`infrastructure/kubernetes/overlays/dev/kustomization.yaml`:**
+  - bumped `epsx-identity` image tag from
+    `:wave13a-dev` to `:wave13b-dev`.
+- **`infrastructure/kubernetes/overlays/dev/patches/services-nodeport.yaml`:**
+  - documented the 30105 entry in the NodePort plan
+    table (the table at the top of the file + a trailing
+    `wave13b(track-a)` block).
+
+#### 7. Tests — 5 new tests, all passing
+
+`cargo test -p epsx-identity-service` → **10/10 pass**
+(5 wave-13a + 5 new wave-13b).
+
+New tests (in `src/lib.rs`):
+
+- `wave13b_test_event_bus_publish_then_subscribe_in_order` —
+  publish 3 events, subscribe + drain, assert all 3
+  received in order. Proves the bus is FIFO-ordered for
+  a single subscriber that subscribes BEFORE the first
+  publish.
+- `wave13b_test_event_bus_broadcast_fan_out` — 2
+  subscribers both receive the same event. Proves the
+  broadcast fan-out shape; the admin emit handler's
+  `delivered_to: usize` field relies on this.
+- `wave13b_test_event_bus_publish_with_zero_subscribers` —
+  publish with 0 subscribers returns `delivered_to: 0`
+  (no error). Day-1 normal state — no SSE clients are
+  connected.
+- `wave13b_test_sse_round_trip` — spin up a real axum
+  server on an ephemeral port with both routes + the
+  shared bus, connect an SSE client via `reqwest` with
+  `bytes_stream`, hit the admin emit endpoint, and
+  assert the SSE client receives the JSON `data:` line
+  within 2s. Same pattern as the wave-13a Track A
+  `spin_up_mock_server` in
+  `apps/analytics/src/main.rs:587-625`, but for axum.
+  The TCP listener is bound with
+  `tokio::net::TcpListener::bind` (NOT
+  `std::net::TcpListener` + `from_std` — that's the
+  `tokio-rs/tokio#7172` cfg error trap).
+- `wave13b_test_emit_with_zero_subscribers` — admin
+  emit + 0 SSE subscribers returns `delivered_to: 0`
+  (NOT an error). End-to-end via the HTTP layer.
+
+### Deviations from spec
+
+#### 1. `tonic-web` was a wrong fit — replaced with plain `axum 0.8` on a separate port
+
+The task spec recommended `tonic-web = "0.12"` as the
+bridge between tonic gRPC and arbitrary HTTP/1.1
+routes. In practice, `tonic-web` is a **gRPC-Web**
+protocol translator (browser → tonic, HTTP/1.1 +
+`application/grpc-web` content type → native gRPC over
+HTTP/2). It is NOT a general HTTP/1.1 router — the
+crate docs explicitly state:
+
+> `tonic_web` is designed to work with grpc-web-compliant
+> clients only. It is not expected to handle arbitrary
+> HTTP/x.x requests or bespoke protocols. Similarly, the
+> cors support implemented by this crate will only handle
+> grpc-web and grpc-web preflight requests. ... There is
+> no support for web socket transports.
+
+There is no `resource()` / `add_routes()` API in any
+`tonic-web` version (verified against 0.12.3, 0.13.1,
+0.14.6). The right primitive for hosting arbitrary
+HTTP/1.1 routes alongside tonic is plain `axum` on a
+separate port. The workspace already pins `axum = "0.8"`
+with the `["ws", "macros", "multipart"]` features, and
+the `ws` feature transitively enables `tokio` so
+`axum::response::sse::KeepAlive` is available without
+bumping workspace deps. The wave-10 notifications SSE
+handler at `apps/backend/src/web/notifications/sse_handlers.rs:282`
+already uses the same axum pattern.
+
+Two ports keeps the gRPC seam clean (no content-type
+negotiation, no ALPN) at the cost of one extra
+`tokio::spawn` and one extra `containerPort`. The
+`tonic-web` dep is NOT added to `Cargo.toml`.
+
+#### 2. `tokio-stream` `sync` feature added locally
+
+The workspace pins `tokio-stream = { version = "0.1",
+features = ["net"] }`. The SSE handler's
+`tokio_stream::wrappers::BroadcastStream` is gated on
+the `sync` feature, so we override at the local crate
+level:
+
+```toml
+tokio-stream = { workspace = true, features = ["sync"] }
+```
+
+#### 3. `bytes` added as a direct dep
+
+`bytes::Bytes` is the element type of
+`reqwest::Response::bytes_stream`. The workspace doesn't
+declare `bytes` directly (it's a transitive dep of axum
++ reqwest), so the integration test names it as
+`bytes = "1"` in the local crate's `[dependencies]`.
+
+#### 4. `serde` added as a direct dep (not just transitive)
+
+`serde::Serialize` is used by the
+`RankingOffsetChangeDto` (the JSON-envelope struct that
+mirrors the prost type) and by the admin emit handler's
+`EmitResponse`. The workspace already pins
+`serde = { version = "1.0", features = ["derive"] }` and
+`serde_json = "1.0"`, but the binary's direct usage of
+`serde::*` doesn't propagate through transitive deps, so
+we declare `serde.workspace = true` + `serde_json.workspace = true`
+in the local crate.
+
+#### 5. `bytes::Bytes` cast in the SSE integration test
+
+The integration test renames the destructured `Bytes`
+local to `chunk` (not `bytes`) — pattern `Some(Ok(bytes))`
+collides with the `bytes` crate module name and the
+compiler thinks `bytes` is `[u8]`. Renamed to `chunk` to
+avoid the shadowing.
+
+#### 6. Slight scope adjustments (no functional impact)
+
+- **No new `RANKING_OFFSET_CHANGE_KIND` proto enum.**
+  Day 1 keeps the message at the wire-spec level only;
+  the `From<RankingOffsetChange> for RankingOffsetChangeDto`
+  conversion is hand-rolled instead of auto-derived
+  (prost doesn't `derive(Serialize)`).
+- **No gRPC service-shape change.** The task spec says
+  "keep the gRPC service shape unchanged" — confirmed.
+  The new `RankingOffsetChange` message is wire-schema
+  only at day 1; a future wave-13c+ will add an
+  `UpdateRankingOffset` RPC that uses it.
+- **No JWT middleware on the HTTP/1.1 path.** Day 1 is
+  unauthenticated; the K8s base manifest keeps the
+  service `ClusterIP` (production never sees the
+  endpoint directly). A future wave-14+ will add the
+  wave-10 R8b `validate_access_token` middleware.
+
+### Verification
+
+- `cargo check --workspace` clean (16 pre-existing
+  warnings in `epsx` unchanged, 0 new warnings).
+- `cargo test -p epsx-identity-service --lib` →
+  **10/10 pass** (5 wave-13a + 5 new wave-13b).
+- `cargo test -p epsx-identity-service` → 10/10 pass
+  (lib) + 0/0 (bin) + 0/0 (doc).
+- `cargo build -p epsx-identity-service --release` →
+  clean (33.3 MB content size, matches wave-13a).
+- `docker build -f shared/rust/epsx-identity-service/Dockerfile
+  -t epsx-identity:wave13b-dev .` → image built
+  (156 MB on-disk, 33.3 MB content, ID `f5f9f2a59241`).
+- `kubectl kustomize infrastructure/kubernetes/overlays/dev`
+  → renders the identity Service with `nodePort: 30105`
+  + `image: epsx-identity:wave13b-dev`.
+- `kubectl apply -k infrastructure/kubernetes/overlays/dev`
+  → service + deployment configured; new pod
+  `epsx-identity-9f7989ffd-jhfrg` Running with the
+  wave-13b image.
+- `kubectl -n epsx-dev logs epsx-identity-9f7989ffd-jhfrg`
+  → confirms both gRPC (port 50051) + HTTP/1.1 (port 50052)
+  are bound and listening.
+- `curl -N http://127.0.0.1:30105/v1/stream/ranking-offsets`
+  + `curl -X POST -d '{"wallet":"0x1234","offset":100}'
+  http://127.0.0.1:30105/v1/emit` → SSE round-trip OK:
+  - `POST /v1/emit` returns `{"delivered_to":1}`.
+  - `GET /v1/stream/ranking-offsets` receives
+    `data: {"wallet":"0x1234","offset":100,"changed_at_ms":1781423064449}`
+    within ~10ms.
+
+### Out of scope (Track B's job + wave-13c+)
+
+- Consuming the SSE stream from the analytics binary
+  (Track B's deliverable).
+- Reconnect logic on the consumer side (Track B).
+- Exposing a stream endpoint on the analytics binary
+  (Track B).
+- Hooking the gRPC `GetWalletRankingOffset` path (or a
+  new `UpdateRankingOffset` gRPC) into the publish path
+  so every offset change fans out automatically (wave-13c+).
+- TLS / mTLS on the HTTP/1.1 path (the dev cluster has
+  no cert-manager; production deployment is a separate
+  decision).
+- Replacing the in-process admin emit hook with a
+  gRPC-only `UpdateRankingOffset` RPC. The HTTP/1.1 hook
+  is a dev-cluster convenience for the integration gate;
+  the gRPC seam is the long-term public surface.
+

@@ -4478,11 +4478,18 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "axum 0.8.9",
+ "bytes",
  "epsx-contracts",
  "prost",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
  "tokio",
+ "tokio-stream",
  "tonic 0.12.3",
  "tonic-build",
+ "tower 0.5.3",
  "tracing",
  "tracing-subscriber",
 ]

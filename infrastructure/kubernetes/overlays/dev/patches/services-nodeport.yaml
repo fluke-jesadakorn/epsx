@@ -6,11 +6,13 @@
 #   - 30101 = frontend
 #   - 30102 = admin
 #   - 30103 = new epsx-analytics binary (wave 12)
-#   - 30104 = new epsx-identity binary (wave 13a)
+#   - 30104 = new epsx-identity binary, gRPC seam (wave 13a)
+#   - 30105 = new epsx-identity binary, HTTP/1.1 SSE side (wave 13b)
 #
 # All NodePorts forward to the service's port: 8080 for backend,
 # 3000 for frontend/admin, 8080 for the analytics binary, 50051
-# for the gRPC identity binary.
+# for the identity gRPC seam, 50052 for the identity SSE/admin
+# emit side.
 #
 # These NodePorts are reachable on the colima VM's eth0 IP
 # (192.168.5.3). Operators access dev via:
@@ -19,7 +21,9 @@
 # dev /etc/cloudflared/config.yaml. (Tunnel config is a separate
 # concern; the wave-13a smoke test reaches the binary directly
 # at http://192.168.5.3:30104/... for the gRPC health probe
-# fallback.)
+# fallback. The wave-13b integration gate reaches the binary
+# directly at http://192.168.5.3:30105/v1/stream/ranking-offsets
+# for the SSE round-trip.)
 
 apiVersion: v1
 kind: Service
@@ -81,3 +85,14 @@ spec:
 # the NodePort patch lives in
 # `patches/services-identity.yaml` and is wired into the
 # overlay's `patches:` list in `kustomization.yaml`.
+# ---
+# wave13b(track-a): the wave-13b NodePort (30105) for the
+# new SSE/HTTP-1.1 side of the epsx-identity binary was
+# pre-allocated in the wave-13(dev-k8s) NodePort plan
+# (see the table at the top of this file) but not yet
+# wired. The wave-13b(track-a) commit adds the matching
+# `sse` port to `patches/services-identity.yaml` (the
+# `nodePort: 30105` line on the sse port entry). The
+# integration gate's smoke test reaches the binary at
+# `http://192.168.5.3:30105/v1/stream/ranking-offsets`
+# to verify the SSE round-trip end-to-end.

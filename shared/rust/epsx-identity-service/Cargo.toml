@@ -2,7 +2,7 @@
 name = "epsx-identity-service"
 version.workspace = true
 edition.workspace = true
-description = "EPSX Identity microservice binary (wave 13a Track A) — gRPC seam for tier-aware ranking offset. Day-1 stub: always returns the free-plan offset."
+description = "EPSX Identity microservice binary (wave 13a Track A + wave 13b Track A) — gRPC seam for tier-aware ranking offset on port 50051, plus a real-time SSE pubsub stream + admin emit hook on port 50052. Day-1 stub: always returns the free-plan offset."
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
@@ -24,12 +24,38 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 anyhow.workspace = true
 
+# HTTP/1.1 + SSE stack (wave 13b Track A). The workspace already
+# pins `axum = "0.8"` with `["ws", "macros", "multipart"]` — the
+# `ws` feature transitively enables `tokio` so
+# `axum::response::sse::KeepAlive` is available without bumping
+# workspace deps. The wave-13a serde/serde_json deps
+# (transitive via `epsx-contracts`) cover the JSON envelope for
+# the SSE event + the admin emit handler.
+axum.workspace = true
+# `sync` feature enables `tokio_stream::wrappers::BroadcastStream`
+# (the SSE handler's `tokio::sync::broadcast::Receiver` adapter).
+# The workspace default is `["net"]` which doesn't include
+# `sync`; we override at the local crate level.
+tokio-stream = { workspace = true, features = ["sync"] }
+serde.workspace = true
+serde_json.workspace = true
+tower.workspace = true
+# `bytes` is a transitive dep of axum + reqwest; we declare
+# it as a direct dep so the integration tests can name
+# `bytes::Bytes` (the element type of `reqwest::Response::bytes_stream`).
+bytes = "1"
+
 # The port + value object live in the kernel (`epsx-contracts`).
 # We re-use them so the server's return type is the same
 # `RankingOffset` the rest of the system uses, and so a future
 # tier-aware impl can swap in a `TierAwareWalletRankingOffsetService`
 # that returns the same type over the wire.
 epsx-contracts = { path = "../epsx-contracts" }
+
+# Wave 13b test deps. `reqwest` is already in the workspace
+# (`workspace = true`, version 0.12) so the SSE-client test
+# reuses the workspace copy without bumping the dep.
+reqwest = { workspace = true, default-features = false, features = ["stream", "rustls-tls"] }
 
 [build-dependencies]
 # `tonic-build 0.12.3` hard-pins `prost-build 0.13` transitively

@@ -33,12 +33,13 @@ images:
   # Identity already at `:wave13a-dev` from Track A.
   - name: epsx-analytics
     newTag: wave13a-dev
-  # wave13a(track-a): the new epsx-identity binary uses a
-  # per-wave image tag (`:wave13a-dev`) to keep the identity
-  # cutover traceable across waves. Mirrors the wave-12
-  # analytics pattern.
+  # wave13b(track-a): bumped identity tag from
+  # `:wave13a-dev` to `:wave13b-dev` so the dev overlay
+  # runs the wave-13b build of the identity binary
+  # (SSE stream on port 50052 + admin emit hook). The
+  # gRPC seam on 50051 is unchanged.
   - name: epsx-identity
-    newTag: wave13a-dev
+    newTag: wave13b-dev
 
 patches:
   - path: patches/replicas.yaml

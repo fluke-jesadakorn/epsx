@@ -1,4 +1,5 @@
-// EPSX Identity service — gRPC contract (Wave 13a, Track A).
+// EPSX Identity service — gRPC contract (Wave 13a, Track A) +
+// real-time event schema (Wave 13b, Track A).
 //
 // Day-1 surface: ONE RPC, `GetWalletRankingOffset`, that returns the
 // plan-tier ranking offset for a given wallet address. The server
@@ -7,6 +8,13 @@
 // in `apps/analytics/src/main.rs`). Future waves will swap the stub
 // for a tier-aware implementation that reads from
 // `wallet_plan_assignments` in the identity PostgreSQL schema.
+//
+// Wave 13b adds the `RankingOffsetChange` message — the wire
+// schema for the SSE event published to subscribers when a
+// wallet's ranking offset changes. The message is *also* the
+// prost struct that the gRPC client / future `UpdateRankingOffset`
+// RPCs will use, so the same field numbers are the single source
+// of truth across the gRPC seam + the SSE pubsub stream.
 //
 // Why a gRPC seam (not HTTP/JSON)?
 //   - The kernel-level `WalletRankingOffsetQuery` port
@@ -19,8 +27,9 @@
 //     `epsx-contracts::value_objects::ranking_offset::RankingOffset`
 //     value object via a `From<i32>` conversion.
 //
-// Spec: `docs/wave8-service-boundary/ROADMAP.md` §17.1 (this track
-// creates that section). Referenced from the wave-10 R6 audit
+// Spec: `docs/wave8-service-boundary/ROADMAP.md` §17.1 (wave 13a
+// Track A creates that section) + §17.2 (wave 13b Track A creates
+// that section). Referenced from the wave-10 R6 audit
 // recommendation in `audit-analytics.md` §10 Refactor #1.
 
 syntax = "proto3";
@@ -68,4 +77,45 @@ message GetWalletRankingOffsetResponse {
   // VIP) alongside the numeric offset without breaking
   // forward-compatibility.
   int32 offset = 1;
+}
+
+// Wave 13b: real-time ranking offset change event.
+//
+// The SSE stream served by
+// `epsx-identity-service` (port 50052,
+// `GET /v1/stream/ranking-offsets`) emits one `data:` line per
+// `RankingOffsetChange` with the JSON form:
+//
+//   data: {"wallet":"0x...","offset":100,"changed_at_ms":1700000000000}
+//
+// The day-1 emitter is the `POST /v1/emit` admin hook (also on
+// port 50052) — a future wave-13c+ will hook the gRPC
+// `GetWalletRankingOffset` path (or a new `UpdateRankingOffset`
+// gRPC) into the publish path so every offset change fans out
+// automatically. The contract is intentionally simple: any
+// subscriber sees every emitted event; the consumer filters by
+// wallet address on its end.
+//
+// The `changed_at_ms` field is a Unix epoch in milliseconds
+// (JavaScript `Date.now()` shape) — the spec is `int64` so a
+// future 64-bit-clock domain (e.g. nanosecond precision) is
+// wire-compatible.
+message RankingOffsetChange {
+  // The wallet whose ranking offset changed. Lowercased
+  // EIP-55-checksummed or plain-hex string; the server does
+  // not validate the format — it treats the string as opaque
+  // (matches the `GetWalletRankingOffsetRequest.wallet` field's
+  // contract).
+  string wallet = 1;
+
+  // The new offset (lower = more visible). Wire type `int32`
+  // matching the `RankingOffset(i32)` newtype's inner type so
+  // a future gRPC `UpdateRankingOffset` RPC can return the
+  // same `RankingOffset` value object via `From<i32>`.
+  int32 offset = 2;
+
+  // Unix epoch millis at the time of the change. Set by the
+  // emit handler (`emit_handler.rs`) at publish time so the
+  // consumer doesn't have to trust its own clock.
+  int64 changed_at_ms = 3;
 }
