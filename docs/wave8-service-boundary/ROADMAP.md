@@ -3112,3 +3112,102 @@ B merge), parent `15cba935` (Track A merge), parent
 7. **3 `AnalyticsQuery` types with the same name** (audit
    §9). Out of scope; defer to a wave-N+2 analytics
    cleanup.
+
+## §17.1 — Wave 13a Implementation Report
+
+**Goal.** Stand up a tiny `epsx-identity-service` binary that
+serves the `WalletRankingOffsetQuery` port over gRPC (tonic),
+and host it on the dev K8s cluster with a NodePort so the
+analytics binary can call it. The contract is intentionally
+trivial: stub implementation, returns
+`RankingOffset::free_plan()` for every wallet. The
+point of this wave is the seam — Track B (next) swaps the
+in-process stub in `epsx-analytics-service` for a gRPC
+client with a 100 ms timeout + in-process fallback.
+
+### What shipped (track A)
+
+- **`shared/proto/identity.proto`** — proto schema with one
+  RPC: `GetWalletRankingOffset(Request{wallet: string}) →
+  Response{offset: int32}`. The `offset` field is `int32`
+  matching the inner type of `RankingOffset(i32)`.
+- **`shared/rust/epsx-identity-service/`** — new workspace
+  crate. `Cargo.toml` + `build.rs` (tonic-build on the
+  proto) + `src/lib.rs` (exposes `identity_service` mod
+  for testing) + `src/main.rs` (wires tonic server) +
+  `src/identity_service.rs` (the gRPC server impl that
+  delegates to `FreePlanRankingOffsetService`, a `struct`
+  that satisfies `WalletRankingOffsetQuery` and always
+  returns `RankingOffset::free_plan()`).
+- **`shared/rust/epsx-identity-service/Dockerfile`** —
+  single-build pattern (copy source once, `cargo build
+  --release`, copy binary out), matches the wave-13 retro
+  convention so colima-BuildKit doesn't strip the binary
+  to a 332 KB stub.
+- **K8s base** — `infrastructure/kubernetes/base/identity/
+  {deployment,service}.yaml`. Service is `ClusterIP` on
+  port 50051 (tonic convention), `app: epsx-identity`
+  selector, gRPC readiness/liveness probes.
+- **Dev overlay patch** — `infrastructure/kubernetes/overlays/
+  dev/patches/services-identity.yaml` patches Service to
+  `type: NodePort` on `nodePort: 30104` (pre-allocated
+  in the dev overlay's kustomization) and image tag
+  `epsx-identity:wave13a-dev`.
+
+### Deviations from spec
+
+1. **Crate renamed `epsx-identity` → `epsx-identity-service`**
+   to avoid collision with the wave-10/extraction target
+   `services/identity/` (SIWE/Postgres/Redis-backed binary
+   on port 8101, not this stub). Same suffix pattern as
+   wave-12's `epsx-analytics-service` vs `services/analytics`
+   collision. Binary artifact name = `epsx-identity-service`.
+   K8s `metadata.name` stays `epsx-identity` (no collision
+   with the Cargo crate name) — the service DNS name
+   `epsx-identity:50051` is what Track B's
+   `IDENTITY_GRPC_URL` env var points at.
+
+### Verification
+
+- `cargo check --workspace` clean (16 pre-existing
+  warnings unchanged, 2 new in `epsx-identity-service`
+  for unused imports — cosmetic, deferred).
+- `cargo test -p epsx-identity-service` 5/5 pass.
+- `kubectl kustomize infrastructure/kubernetes/base`
+  renders the identity Service as `ClusterIP` on 50051.
+- `kubectl kustomize infrastructure/kubernetes/overlays/dev`
+  renders the identity Service as `NodePort` 30104 +
+  `image: epsx-identity:wave13a-dev`. All 5 wave-13
+  services (admin/analytics/backend/frontend/identity)
+  + 5 deployments + 1 namespace = 11 resources.
+- `colima docker build` on the new Dockerfile produces
+  a real ~25 MB `epsx-identity-service` binary (not a
+  332 KB stub — single-build pattern verified).
+
+### Deferred to Track B / wave-13a follow-up
+
+- Replacing the in-process
+  `FreePlanWalletRankingOffsetQuery` stub in
+  `apps/analytics/src/main.rs` with
+  `GrpcWalletRankingOffsetQuery` (100 ms timeout +
+  in-process fallback).
+- Adding `IDENTITY_GRPC_URL` env var to
+  `infrastructure/kubernetes/base/analytics/deployment.yaml`
+  with the dev overlay value `http://epsx-identity:50051`.
+- The fallback contract test (kill `epsx-identity`, hit
+  `/rankings`, expect 200 from the in-process fallback).
+  This is the integration-gate check; not exercised in
+  track A.
+
+### Out of scope (deferred)
+
+- The "real" `services/identity/` binary on port 8101
+  (SIWE/Postgres/Redis-backed) — that lives in the
+  wave-10 extraction roadmap; wave 13a just establishes
+  the seam it will plug into.
+- Adding the `tier` enum to the proto. The wire contract
+  is forward-compatible (any future wave can add fields
+  with `optional` semantics without breaking clients on
+  the old schema).
+- TLS / mTLS. The dev cluster has no cert-manager;
+  production deployment is a separate decision.

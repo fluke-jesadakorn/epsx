@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-identity
+  labels:
+    app: epsx-identity
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: epsx-identity
+  template:
+    metadata:
+      labels:
+        app: epsx-identity
+    spec:
+      containers:
+        - name: epsx-identity
+          image: epsx-identity:dev
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: HOST
+              value: "0.0.0.0"
+            - name: BIND_ADDR
+              value: "0.0.0.0:50051"
+            - name: RUST_LOG
+              value: "info"
+            - name: RUST_BACKTRACE
+              value: "0"
+            - name: RUST_ENV
+              value: "production"
+            - name: ENV
+              value: "production"
+            # wave-13a marker: lets ops distinguish the
+            # wave-13a build of the identity binary from
+            # future tier-aware versions.
+            - name: EPSX_IDENTITY_VERSION
+              value: "wave13a"
+            # The new binary is a STUB — no PostgreSQL, no
+            # Redis, no auth flow. The fallback contract
+            # (timeout → fall back to free-plan offset) is
+            # the client's responsibility (wave-13a Track B
+            # in the analytics binary).
+          ports:
+            - name: grpc
+              containerPort: 50051
+          # gRPC health check: tonic doesn't ship a
+          # /health endpoint by default (unlike the
+          # axum-based analytics binary), so we fall back
+          # to a TCP probe on the gRPC port. The dev env
+          # doesn't have `grpc-health-probe` installed; the
+          # TCP probe is the safe default. A future wave
+          # can swap in `tonic_health::pb::health` +
+          # `grpc_health::HealthServer` for a proper gRPC
+          # health check.
+          livenessProbe:
+            tcpSocket:
+              port: 50051
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: 50051
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          resources:
+            # The new binary is the smallest in the
+            # fleet — no DB pools, no JWT verification, no
+            # permission service, no HTTP routes (gRPC
+            # only). 128Mi / 0.25 CPU is generous for the
+            # stub. A future tier-aware impl with DB
+            # connections will need to bump these.
+            limits:
+              memory: 128Mi
+              cpu: "0.25"
+            requests:
+              memory: 64Mi
+              cpu: "0.05"
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 100Mi

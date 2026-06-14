@@ -1,0 +1,26 @@
+# wave13a(track-a): dev overlay patches for the new
+# `epsx-identity` Service.
+#
+# The base Service at
+# `infrastructure/kubernetes/base/identity/service.yaml` is
+# `type: ClusterIP` (only reachable inside the cluster). The
+# dev overlay patches it to `type: NodePort` on nodePort
+# 30104 — pre-allocated in the wave-13(dev-k8s) overlay's
+# NodePort plan (see `services-nodeport.yaml` for the
+# NodePort table).
+#
+# The image tag override for `:wave13a-dev` is applied via
+# the overlay's `images:` block, not via a strategic-merge
+# patch.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: epsx-identity
+spec:
+  type: NodePort
+  ports:
+    - name: grpc
+      port: 50051
+      targetPort: 50051
+      nodePort: 30104

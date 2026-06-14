@@ -1,0 +1,42 @@
+[package]
+name = "epsx-identity-service"
+version.workspace = true
+edition.workspace = true
+description = "EPSX Identity microservice binary (wave 13a Track A) — gRPC seam for tier-aware ranking offset. Day-1 stub: always returns the free-plan offset."
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+default-run = "epsx-identity-service"
+
+[[bin]]
+name = "epsx-identity-service"
+path = "src/main.rs"
+
+[dependencies]
+# gRPC stack — tonic is in workspace deps; tonic-build is a
+# build-time dep that generates Rust types from
+# shared/proto/identity.proto.
+tonic.workspace = true
+prost.workspace = true
+tokio.workspace = true
+async-trait.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+
+# The port + value object live in the kernel (`epsx-contracts`).
+# We re-use them so the server's return type is the same
+# `RankingOffset` the rest of the system uses, and so a future
+# tier-aware impl can swap in a `TierAwareWalletRankingOffsetService`
+# that returns the same type over the wire.
+epsx-contracts = { path = "../epsx-contracts" }
+
+[build-dependencies]
+# `tonic-build 0.12.3` hard-pins `prost-build 0.13` transitively
+# (tonic 0.12 was released with prost 0.12; tonic-build 0.12 was
+# released later with prost 0.13 — a known version-skew trap).
+# To keep the generated `*Request` / `*Response` types matching
+# the runtime `ProstCodec`, the workspace root has `prost = "0.13"`
+# (and `prost-types = "0.13"`), so the build script picks up the
+# same version transitively.
+tonic-build = "0.12"

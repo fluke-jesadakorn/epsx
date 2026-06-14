@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: epsx-identity
+  labels:
+    app: epsx-identity
+spec:
+  # ClusterIP (not NodePort) — the base service is only
+  # reachable from inside the cluster (the analytics binary
+  # dials `http://epsx-identity:50051` via the cluster's
+  # internal DNS). The dev overlay patches this to NodePort
+  # 30104 for external smoke testing.
+  type: ClusterIP
+  selector:
+    app: epsx-identity
+  ports:
+    - name: grpc
+      port: 50051
+      targetPort: 50051
+      # No nodePort on ClusterIP — the dev overlay adds one
+      # via a strategic-merge patch.
