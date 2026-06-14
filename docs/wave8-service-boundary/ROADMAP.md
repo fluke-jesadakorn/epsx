@@ -4205,7 +4205,8 @@ without explicit user confirmation.
 > `origin/migration/dioxus-microservices` HEAD `60305b6c`
 > — the wave-13a integration head).
 >
-> **Final commit hash:** `<populated at end of run>`.
+> **Final commit hash:** `9266bb255d9020c99885d5e16b8036637781bd60`
+> (pushed to `origin/wave13b/track-a-sse-server`).
 >
 > **Companion tracks:**
 > * Track B — `origin/wave13b/track-b-sse-consumer` (future
