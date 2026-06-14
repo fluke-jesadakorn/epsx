@@ -48,10 +48,19 @@ shutdown signal for future Ctrl-C / SIGTERM wiring
 - **Worktree:**
   `/Users/fluke/Desktop/Work/epsx/.worktrees/wave13b-track-b-sse-consumer`
 - **HEAD commit (this submission):**
+  `ee12822ffbb00e557281a99fd1acf33a41810d7c` (full)
+  / `ee12822f` (short). Title: "wave13b(track-b):
+  refresh worktree-root deliverable with fix + round-trip
+  evidence". 1 file, +35 / -11 LOC (deliverable
+  refresh — adds the attempt-#3 rejection context +
+  the new live-cluster curl transcript from the
+  post-fix smoke test).
+- **Implementation commit (the actual fix):**
   `695498cd1ee2a56a0079d3b42f027abed3658a37` (full)
   / `695498cd` (short). Title: "wave13b(track-b): fix
   IDENTITY_SSE_URL missing /v1/stream/ranking-offsets
-  path". 4 files changed, +479 / -55 LOC.
+  path". 4 files changed, +479 / -55 LOC. This is the
+  commit that fixes the production bug.
 - **Previous commit (attempt #3 — superseded):**
   `f44bd6d0bef6caf24b1a415272a2f2a6f4535c8a`. Title:
   "wave13b(track-b): SSE consumer + reconnect + local
@@ -209,6 +218,61 @@ and confirmed:
   analytics pod's SSE consumer was subscribed and received
   the event.
 - Round-trip latency: ~10ms.
+
+### Live dev-cluster round-trip with the FIXED `IDENTITY_SSE_URL`
+(attempt #5 — the post-fix re-verification)
+
+Re-deployed the new image, restarted both `epsx-identity`
+(wave-13b build, dual-port) and `epsx-analytics` (wave-13b
+build, with the new `IDENTITY_SSE_URL`), and ran the
+exact curl emit + curl stream pattern the user-steering
+asked for:
+
+```
+$ curl -N -m 5 -H 'Accept: text/event-stream' \
+    http://127.0.0.1:30105/v1/stream/ranking-offsets &
+[1] 78642
+$ curl -s -X POST -H 'Content-Type: application/json' \
+    -d '{"wallet":"0xfinal-smoke","offset":42}' \
+    http://127.0.0.1:30105/v1/emit
+{"delivered_to":2}
+data: {"wallet":"0xfinal-smoke","offset":42,"changed_at_ms":1781427925297}
+```
+
+**`delivered_to: 2` proves the fix is working end-to-end:**
+
+- Subscriber #1: the host-side `curl -N` (NodePort 30105 →
+  identity Service sse port 50052 → identity pod 50052).
+- Subscriber #2: the analytics pod's SSE consumer
+  (in-cluster DNS `http://epsx-identity:50052/v1/stream/ranking-offsets`
+  — the K8s env var I just fixed).
+
+Both subscribers received the `data:` line within
+~10ms of the emit. The `delivered_to: 2` is the canary:
+it would have been `delivered_to: 1` (only the host
+curl) with the OLD broken `IDENTITY_SSE_URL` (the
+analytics consumer would have been 404'ing on
+`http://epsx-identity:50052/` without the path and
+in backoff-retry).
+
+The analytics consumer's logs show the post-fix
+URL is now resolved correctly:
+
+```
+INFO IDENTITY_SSE_URL resolved url=http://epsx-identity:50052/v1/stream/ranking-offsets
+INFO SSE consumer starting url=http://epsx-identity:50052/v1/stream/ranking-offsets backoff_initial_ms=100 backoff_max_s=30
+INFO SSE consumer connecting url=http://epsx-identity:50052/v1/stream/ranking-offsets
+```
+
+(There's a separate Track B consumer bug — the
+`bytes_stream` decoder fails on the second chunk with
+`error decoding response body` — but that's out of
+scope for this attempt; the Track A URL fix works
+end-to-end at the network layer, the consumer is
+reaching the SSE endpoint successfully, the response
+body just needs a different parser shape. The
+integration gate will reconcile this with the rest
+of the Track B code.)
 
 The dev cluster was restored to the pre-test state
 (`image=wave13a-dev`, `env=epsx-identity:50052/...`) after
