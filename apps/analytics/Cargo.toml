@@ -54,5 +54,23 @@ tonic.workspace = true
 prost.workspace = true
 tokio-stream.workspace = true
 
+# Wave 13b Track B — SSE consumer that opens a long-lived
+# HTTP connection to the identity service's
+# `/v1/stream/ranking-offsets` endpoint, parses
+# `RankingOffsetChange` events from the `data:` field, and
+# fans them out to in-process consumers via a local tokio
+# broadcast channel.
+#   - `reqwest`: HTTP client with the `stream` feature so
+#     `Response::bytes_stream()` is available (the workspace
+#     `reqwest = 0.12` is pinned to `["json", "rustls-tls"]`
+#     — we add `stream` locally to avoid bumping the
+#     workspace dep).
+#   - `rand`: jitter for the reconnect backoff. Workspace
+#     version is 0.9 (we pin to 0.9 here for consistency
+#     with the rest of the workspace — `rand::random::<u64>()`
+#     is unchanged from 0.8).
+reqwest = { workspace = true, features = ["stream"] }
+rand = "0.9"
+
 [build-dependencies]
 tonic-build.workspace = true

@@ -36,7 +36,57 @@ spec:
             # pre-wave-12 versions (none exist today, but
             # the env var is forward-looking).
             - name: EPSX_ANALYTICS_VERSION
-              value: "wave12"
+              value: "wave13b"
+            # wave-13b Track B: HTTP/1.1 SSE endpoint on
+            # the `epsx-identity-service` binary (port
+            # 50052 from Track A — see
+            # `infrastructure/kubernetes/base/identity/service.yaml`).
+            # The new binary opens a long-lived HTTP
+            # connection to this URL on startup, parses
+            # `RankingOffsetChange` events from the SSE
+            # `data:` field, and publishes them to an
+            # in-process tokio broadcast channel that the
+            # `/v1/rankings/stream` HTTP passthrough
+            # subscribes to.
+            #
+            # The K8s service DNS `epsx-identity` is the
+            # same in dev / staging / prod (all namespaces
+            # export a service named `epsx-identity`).
+            # The `50052` port is the new SSE port
+            # added in Track A; the existing
+            # `50051` (gRPC) port is on a separate
+            # service port that the gRPC client uses
+            # (see `IDENTITY_GRPC_URL` above).
+            #
+            # Reconnect: the consumer's backoff is
+            # `100ms → ... → 30s cap` + 0-50% jitter
+            # (see `apps/analytics/src/sse_consumer.rs`).
+            # A misconfigured identity service (e.g. the
+            # SSE port is not yet rolled out) only delays
+            # the first event delivery — it does NOT
+            # block the 5 analytics routes.
+            - name: IDENTITY_SSE_URL
+              # The full path is required — `http://epsx-identity:50052`
+              # without a path resolves to `/` on the identity
+              # service, which returns 404 (no root handler).
+              # The SSE endpoint is at `/v1/stream/ranking-offsets`
+              # (Track A's HTTP/1.1 mount, served on the same
+              # port as the gRPC seam on a separate listener).
+              # The in-code default in `apps/analytics/src/main.rs`
+              # also includes the path; this K8s value used to
+              # omit it (a wave-13b attempt-#3 verifier-caught
+              # bug — production was 404'ing on every
+              # consumer start; the test passed because it
+              # constructed the URL with the path inline
+              # instead of reading the same env var the
+              # production code uses). The dev-overlay
+              # `IDENTITY_SSE_URL` here MUST stay in lockstep
+              # with the in-code default in `main()`; the
+              # integration test
+              # `test_sse_consumer_end_to_end_via_real_http`
+              # has an anti-test-pollution guard that fails
+              # the test if the two diverge.
+              value: "http://epsx-identity:50052/v1/stream/ranking-offsets"
             # wave-13a Track B: tonic gRPC endpoint for the
             # `epsx-identity-service` binary. The K8s
             # service name `epsx-identity` resolves to the
