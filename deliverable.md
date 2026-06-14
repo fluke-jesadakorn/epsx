@@ -527,10 +527,10 @@ without explicit user confirmation.
 ## Final commit hash
 
 ```
-d80f38f31bbcf0587a57c2b2b99982882193bed8
+67a8e19c15b6aa1dbd4d3cfdc5235bf734417210
 ```
 
-(This is the integration commit — `d80f38f3` on
+(This is the integration commit — `67a8e19c` on
 `wave13a/integration`. It includes the merge of both
 tracks + the dev overlay image-tag bump + the §17.1
 final report appended to ROADMAP.md + this rewrite of
@@ -539,10 +539,11 @@ final report appended to ROADMAP.md + this rewrite of
 
 The full commit chain on `wave13a/integration`:
 
-* `d80f38f3` — this commit (integration final report +
-  this deliverable.md rewrite; amended once from
-  `c83c1c84` to populate the final commit hash field
-  in this file with the actual hash)
+* `67a8e19c` — this commit (integration final report +
+  this deliverable.md rewrite; amended twice from
+  `c83c1c84` → `d80f38f3` → `67a8e19c` to populate
+  the final commit hash field in this file with the
+  actual hash)
 * `4a401d43` — merge Track B (conflict resolution +
   dev overlay kustomization bump)
 * `b74b3e47` — merge Track A (clean ort merge)
