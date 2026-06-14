@@ -57,8 +57,24 @@ tower = { version = "0.5", features = ["util", "timeout", "limit"] }
 tower-http = { version = "0.5", features = ["cors", "trace", "request-id", "set-header"] }
 http = "1.0"
 tonic = { version = "0.12", features = ["tls", "transport"] }
-prost = "0.12"
-prost-types = "0.12"
+# Track A of wave-13a (epsx-identity-service) bumped `prost` to
+# 0.13 to align with `tonic-build = 0.12.3`'s hard-pinned
+# `prost-build = 0.13` transitive dep. Without this bump, the
+# generated `#[derive(::prost::Message)]` calls (using prost
+# 0.13) don't match `tonic::codec::ProstCodec`'s prost 0.12
+# type. This bump is workspace-scoped — no source file in
+# epsx-monolith imports `prost::*` directly today, so the
+# change is mechanical with no API fallout.
+prost = "0.13"
+prost-types = "0.13"
+tonic-build = "0.12"
+# `tokio-stream` is needed for the wave-13a Track B mock
+# tonic server's `serve_with_incoming` pattern (the
+# `TcpListenerStream` adapter converts a
+# `tokio::net::TcpListener` to a `Stream` tonic can
+# consume). Used in the gRPC client tests, not in
+# production code.
+tokio-stream = { version = "0.1", features = ["net"] }
 
 # Database
 sqlx = { version = "0.8", features = ["postgres", "runtime-tokio", "chrono", "uuid", "json", "migrate"] }

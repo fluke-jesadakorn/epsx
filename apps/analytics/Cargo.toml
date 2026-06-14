@@ -44,3 +44,15 @@ serde_json.workspace = true
 anyhow.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
+# Wave 13a Track B — gRPC client against the epsx-identity
+# binary. `tonic` is the runtime transport; `prost` is the
+# message codec; `tonic-build` runs in `build.rs` to generate
+# the client stub from `shared/proto/identity.proto` at
+# compile time. See `src/grpc_client.rs` for the client impl
+# and the fallback contract.
+tonic.workspace = true
+prost.workspace = true
+tokio-stream.workspace = true
+
+[build-dependencies]
+tonic-build.workspace = true
