@@ -11,3 +11,5 @@ resources:
   - admin/service.yaml
   - analytics/deployment.yaml
   - analytics/service.yaml
+  - identity/deployment.yaml
+  - identity/service.yaml

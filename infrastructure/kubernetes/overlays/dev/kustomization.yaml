@@ -31,13 +31,16 @@ images:
   # cutover traceable across waves.
   - name: epsx-analytics
     newTag: wave12-dev
-  # wave13(dev-k8s): the epsx-identity image tag is allocated
-  # in wave-13a's plan deliverable when the corresponding
-  # deployment + service land in base/. For now, this overlay
-  # ships with the 4 wave-12 services only.
+  # wave13a(track-a): the new epsx-identity binary uses a
+  # per-wave image tag (`:wave13a-dev`) to keep the identity
+  # cutover traceable across waves. Mirrors the wave-12
+  # analytics pattern.
+  - name: epsx-identity
+    newTag: wave13a-dev
 
 patches:
   - path: patches/replicas.yaml
   - path: patches/resources.yaml
   - path: patches/services-nodeport.yaml
+  - path: patches/services-identity.yaml
   - path: patches/skip-migrate.yaml

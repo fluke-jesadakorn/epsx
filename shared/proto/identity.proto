@@ -1,0 +1,71 @@
+// EPSX Identity service — gRPC contract (Wave 13a, Track A).
+//
+// Day-1 surface: ONE RPC, `GetWalletRankingOffset`, that returns the
+// plan-tier ranking offset for a given wallet address. The server
+// implementation is a stub that always returns the free-plan offset
+// (matching the wave-12 in-process `FreePlanWalletRankingOffsetQuery`
+// in `apps/analytics/src/main.rs`). Future waves will swap the stub
+// for a tier-aware implementation that reads from
+// `wallet_plan_assignments` in the identity PostgreSQL schema.
+//
+// Why a gRPC seam (not HTTP/JSON)?
+//   - The kernel-level `WalletRankingOffsetQuery` port
+//     (`shared/rust/epsx-contracts/src/wallet_ranking_offset_query.rs`)
+//     is the stable contract; the network transport is a swap-in
+//     detail. gRPC + tonic gives a forward-compatible binary protocol
+//     (protobuf field numbers are append-only; future waves can add a
+//     `tier` enum or `plan_id` field without breaking the wire
+//     contract) and integrates natively with the
+//     `epsx-contracts::value_objects::ranking_offset::RankingOffset`
+//     value object via a `From<i32>` conversion.
+//
+// Spec: `docs/wave8-service-boundary/ROADMAP.md` §17.1 (this track
+// creates that section). Referenced from the wave-10 R6 audit
+// recommendation in `audit-analytics.md` §10 Refactor #1.
+
+syntax = "proto3";
+
+package epsx.identity.v1;
+
+// The Identity service — day 1 exposes one RPC. Future waves will
+// add `GetActivePlan`, `SubscribeToRankingChanges`, etc. as the
+// tier-aware logic moves out of the monolith.
+service Identity {
+  // Returns the plan-tier ranking offset for `wallet`.
+  //
+  // Day 1: always returns the free-plan offset (matching the
+  // wave-12 in-process stub). Future waves: tier-aware — the
+  // server reads from the `wallet_plan_assignments` table and
+  // returns the minimum offset across the wallet's active plans
+  // (with a fallback to `FREE_PLAN_RANKING_OFFSET` for unknown
+  // wallets).
+  //
+  // The fallback contract (timeout → fall back to free-plan offset)
+  // is the responsibility of the **client** (wave-13a Track B in
+  // the analytics binary). This server is best-effort: a transient
+  // DB read failure surfaces as an `UNAVAILABLE` gRPC status, and
+  // the client decides whether to retry, fall back, or fail.
+  rpc GetWalletRankingOffset(GetWalletRankingOffsetRequest)
+      returns (GetWalletRankingOffsetResponse);
+}
+
+message GetWalletRankingOffsetRequest {
+  // Lowercased, EIP-55-checksummed or plain-hex wallet address.
+  // The server does not validate the format — it treats the
+  // string as opaque. Future waves may add a `oneof wallet_format`
+  // discriminator (e.g. ENS name, email-bound wallet) without
+  // breaking the wire contract.
+  string wallet = 1;
+}
+
+message GetWalletRankingOffsetResponse {
+  // The plan-tier ranking offset. Lower numbers = higher
+  // visibility (rank < N). The `FREE_PLAN_RANKING_OFFSET`
+  // constant in `epsx-contracts` is the floor (currently 100).
+  //
+  // Wire type: `int32` to match the `RankingOffset(i32)` newtype's
+  // inner type. Future waves can add a `tier` enum (FREE, PRO,
+  // VIP) alongside the numeric offset without breaking
+  // forward-compatibility.
+  int32 offset = 1;
+}

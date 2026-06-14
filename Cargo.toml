@@ -4,6 +4,7 @@ members = [
     "shared/rust/kernel",
     "shared/rust/epsx-database-pools",
     "shared/rust/epsx-contracts",
+    "shared/rust/epsx-identity-service",
     "shared/rust/events",
     "shared/rust/config",
     "shared/rust/crypto",
@@ -57,8 +58,15 @@ tower = { version = "0.5", features = ["util", "timeout", "limit"] }
 tower-http = { version = "0.5", features = ["cors", "trace", "request-id", "set-header"] }
 http = "1.0"
 tonic = { version = "0.12", features = ["tls", "transport"] }
-prost = "0.12"
-prost-types = "0.12"
+# Bumped from 0.12 → 0.13 in wave 13a to match
+# `tonic-build 0.12.3`'s transitive `prost-build 0.13`. Without
+# the bump, the generated gRPC types implement the wrong
+# `prost::Message` trait for `tonic::codec::ProstCodec` (a
+# classic two-prost-versions-in-the-graph issue). No source
+# file imports `prost::*` directly today; the bump is a
+# mechanical dep-graph alignment.
+prost = "0.13"
+prost-types = "0.13"
 
 # Database
 sqlx = { version = "0.8", features = ["postgres", "runtime-tokio", "chrono", "uuid", "json", "migrate"] }
