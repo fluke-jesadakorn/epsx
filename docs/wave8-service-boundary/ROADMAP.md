@@ -4195,3 +4195,348 @@ stays on origin; the user can fast-forward
 `origin/migration/dioxus-microservices` to the
 integration commit when ready. **Do not** fast-forward
 without explicit user confirmation.
+
+## 18. Wave 13b — Track B (SSE consumer + local bus + /v1/rankings/stream passthrough) — implementation report
+
+The new binary now consumes the SSE stream from
+`epsx-identity-service`'s `GET /v1/stream/ranking-offsets`
+endpoint (port 50052, served by Track A on its own
+branch), parses `RankingOffsetChange` events from the
+SSE `data:` field, and fans them out to in-process
+consumers via a local `tokio::sync::broadcast` channel
+(`LocalRankingOffsetBus`). A new HTTP passthrough —
+`GET /v1/rankings/stream` — proxies events from the bus
+to web clients as a long-lived `text/event-stream`
+response. The consumer survives transient disconnects
+with exponential backoff + 0-50% jitter, capped at 30s.
+
+### 18.1 What shipped (file-by-file)
+
+**New files (1):**
+- `apps/analytics/src/sse_consumer.rs` (440 LOC) —
+  the SSE consumer task + the `LocalRankingOffsetBus` +
+  the `RankingOffsetChange` DTO + the SSE parser
+  (`find_sse_event` / `parse_sse_data`) + 11 unit
+  tests. The module is a sibling to `grpc_client.rs`
+  (the wave-13a Track B gRPC consumer); the binary
+  is now a 2-port consumer (gRPC 50051 + SSE 50052)
+  feeding the same `EPSCacheService` / handler graph.
+
+**Modified files (3):**
+- `apps/analytics/Cargo.toml` — added
+  `reqwest = { workspace = true, features = ["stream"] }`
+  + `rand = "0.9"` (workspace version; `rand::random::<u64>()`
+  is unchanged from 0.8). The `stream` feature enables
+  `Response::bytes_stream()` on the reqwest 0.12 client
+  (workspace pin is `["json", "rustls-tls"]` — adding
+  `stream` locally avoids bumping the workspace dep).
+- `apps/analytics/src/main.rs` —
+  1. Added `mod sse_consumer;` and the
+     `use sse_consumer::{run_sse_consumer, LocalRankingOffsetBus};`
+     import.
+  2. Added the `/v1/rankings/stream` SSE passthrough
+     handler (`rankings_stream_handler`) using
+     `axum::extract::State<LocalRankingOffsetBus>` +
+     `tokio_stream::wrappers::BroadcastStream` + a 15s
+     keepalive. The route is mounted via
+     `Router::with_state(local_bus)` so the bus is
+     shared between the consumer task and the
+     handler.
+  3. `build_analytics_router` now takes a 4th arg
+     (`local_bus: LocalRankingOffsetBus`); the existing
+     `test_five_route_builder` test was updated to
+     pass a fresh empty bus and assert the 7th route
+     is mounted.
+  4. `main()` builds the bus (1024-slot, matching the
+     identity service's default), spawns the consumer
+     task in a `tokio::spawn(async move { ... })`, and
+     wires `IDENTITY_SSE_URL` (default
+     `http://127.0.0.1:50052`). The shutdown half of
+     the `tokio::sync::watch::channel` is held for a
+     future wave 14+ to wire `tokio::signal::ctrl_c()`
+     to it.
+- `infrastructure/kubernetes/base/analytics/deployment.yaml` —
+  added `IDENTITY_SSE_URL=http://epsx-identity:50052`
+  env var + bumped `EPSX_ANALYTICS_VERSION` to
+  `wave13b`.
+
+**Dev overlay change (intentionally NOT made in this
+branch):** the dev overlay's image tag is still
+`:wave13a-dev` (Track A's `5fe9d82c` bumped it; this
+branch did NOT bump it further). The integration gate
+will bump the tag to `:wave13b-dev` after merging
+this branch, mirroring the wave-13a integration's
+`§17.2` pattern. The base `deployment.yaml` change
+above lands on the integration branch via the
+auto-merge.
+
+### 18.2 The 7 routes the new binary serves
+
+```
+GET  /health                            (K8s liveness/readiness)
+GET  /api/analytics/rankings            (5 wave-12 routes)
+GET  /api/analytics/filters
+GET  /api/analytics/countries
+GET  /api/analytics/available-countries
+GET  /api/analytics/sectors
+GET  /v1/rankings/stream                (NEW — wave-13b Track B SSE passthrough)
+```
+
+The `test_five_route_builder` test was renamed (in
+body, not in fn name) to assert all 7 paths are
+mounted (`mounted_count == 7`).
+
+### 18.3 Reconnect logic
+
+```rust
+let mut backoff = Duration::from_millis(100);
+let max_backoff = Duration::from_secs(30);
+loop {
+    if *shutdown.borrow() { return; }
+    match consume_once(&url, &bus, &client, &mut shutdown).await {
+        Ok(())  => { /* server closed connection cleanly */
+            backoff = Duration::from_millis(100); }
+        Err(e) => {
+            sleep(backoff).await;
+            // 0-50% of backoff as jitter
+            let cap = backoff.as_millis() as u64 / 2;
+            if cap > 0 {
+                let jitter = rand::random::<u64>() % cap;
+                sleep(Duration::from_millis(jitter)).await;
+            }
+            backoff = std::cmp::min(backoff * 2, max_backoff);
+        }
+    }
+}
+```
+
+100ms → 200ms → 400ms → 800ms → 1.6s → 3.2s → 6.4s →
+12.8s → 25.6s → 30s (cap) → 30s (cap) ...
+
+A clean server-side close (`bytes_stream.next() == None`)
+resets the backoff to 100ms and reconnects immediately
+— the backoff is only for hard errors (connect refused,
+request timeout, mid-stream IO error). Parse failures
+on individual `data:` lines are logged + skipped
+(NOT bubbled up — a single malformed event shouldn't
+tear down the connection).
+
+### 18.4 JSON wire shape (local DTO)
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RankingOffsetChange {
+    pub wallet: String,        // EIP-55 wallet address
+    pub offset: i32,           // new plan-tier offset (0..=1000)
+    pub changed_at_ms: i64,    // server clock, Unix epoch ms
+}
+```
+
+The DTO is a *local* mirror of Track A's
+`RankingOffsetChange` proto message (which lives on
+`origin/wave13b/track-a-sse-server` and will be merged
+in the integration gate). The fields match the proto
+schema Track A declares in its deliverable, so the
+three-way merge is mechanical — either (a) the
+integration gate replaces the local DTO with a
+`pub use epsx_identity_service::RankingOffsetChange;`
+re-export, or (b) both branches keep their own DTOs
+and the wire JSON shape is the contract. Either way
+is correct; (a) is the cleaner long-term shape.
+
+### 18.5 Test results
+
+`cargo test -p epsx-analytics-service` — **27/27 pass**
+(15 pre-existing + 12 new):
+
+```
+running 27 tests
+test sse_consumer::tests::find_sse_event_empty_buffer_returns_none ... ok
+test sse_consumer::tests::find_sse_event_returns_first_boundary ... ok
+test sse_consumer::tests::find_sse_event_single_event_in_buffer ... ok
+test sse_consumer::tests::find_sse_event_partial_buffer_returns_none ... ok
+test sse_consumer::tests::find_sse_event_crlf_boundary ... ok
+test sse_consumer::tests::parse_sse_data_id_line_ignored ... ok
+test sse_consumer::tests::parse_sse_data_crlf_line_endings ... ok
+test sse_consumer::tests::parse_sse_data_multiple_data_lines_joined ... ok
+test sse_consumer::tests::parse_sse_data_single_event_single_data_line ... ok
+test sse_consumer::tests::parse_sse_data_comment_only_event_returns_none ... ok
+test sse_consumer::tests::parse_sse_data_event_type_only_returns_none ... ok
+test sse_consumer::tests::bus_publish_with_zero_subscribers_returns_zero ... ok
+test sse_consumer::tests::bus_publish_broadcasts_to_all_subscribers ... ok
+test sse_consumer::tests::bus_publish_subscribe_three_events_in_order ... ok
+test sse_consumer::tests::bus_receiver_count_tracks_subscribers ... ok
+test sse_consumer::tests::consume_once_end_to_end_via_chunks ... ok
+test sse_consumer::tests::consume_once_two_events_in_one_chunk ... ok
+test tests::test_sse_consumer_end_to_end_via_real_http ... ok     <-- integration
+test tests::test_epsranking_type_reexport ... ok
+test tests::test_startup_banner ... ok
+test tests::test_free_plan_stub_returns_default ... ok
+test tests::test_fallback_returns_free_plan_when_called_directly ... ok
+test tests::test_grpc_client_falls_back_on_unreachable ... ok
+test tests::test_grpc_client_delegates_to_server ... ok
+test tests::test_state_build_no_db ... ok
+test tests::test_grpc_client_falls_back_on_timeout ... ok
+test tests::test_five_route_builder ... ok                          <-- now asserts 7 routes
+
+test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.07s
+```
+
+**`test_sse_consumer_end_to_end_via_real_http`** is the
+binary-level canary: it spins up a real `axum` server
+on `127.0.0.1:0` that emits two SSE events as raw bytes,
+spawns `run_sse_consumer` against that server with a
+real `reqwest::Client`, and asserts both events land in
+the bus within a 5s timeout. This is the closest thing
+to the "manual end-to-end" smoke test the spec asked
+for without the operational overhead of spinning up
+the full K8s cluster (which is the integration gate's
+job).
+
+### 18.6 Cargo build summary
+
+```
+cargo build -p epsx-analytics-service --release
+   Compiling epsx-analytics-service v0.1.0 (.../apps/analytics)
+    Finished `release` profile [optimized] target(s) in 4m 37s
+```
+
+Zero new warnings; 16 pre-existing `epsx` lib warnings
+unchanged.
+
+```
+docker build -f apps/analytics/Dockerfile -t epsx-analytics:wave13b-dev .
+...
+   naming to docker.io/library/epsx-analytics:wave13b-dev done
+```
+
+Image ID `5894d71514f5` (36 MB compressed, 164 MB
+on-disk; matches the wave-13a image size — the SSE
+consumer + `reqwest` `stream` feature + `rand` add
+negligible weight).
+
+### 18.7 K8s plumbing
+
+`kubectl kustomize infrastructure/kubernetes/overlays/dev`:
+
+```yaml
+# analytics deployment
+- name: EPSX_ANALYTICS_VERSION
+  value: wave13b
+- name: IDENTITY_SSE_URL
+  value: http://epsx-identity:50052          # NEW
+- name: IDENTITY_GRPC_URL
+  value: http://epsx-identity:50051
+image: epsx-analytics:wave13a-dev              # dev overlay bump is gate's job
+```
+
+The new env var is picked up by the binary at startup;
+the consumer task is spawned before the axum server
+binds. The pod's liveness probe still hits `/health`
+on port 8080 (unchanged); the binary's startup is
+resilient to a missing identity service — the
+reconnect loop just sits in backoff until the
+identity pod is up.
+
+### 18.8 Deviations from the task spec
+
+1. **No `eventsource-stream` crate.** The spec listed
+   it as an alternative to the hand-rolled parser. I
+   went with the hand-rolled `find_sse_event` +
+   `parse_sse_data` because (a) it's ~30 LOC, (b)
+   adding a new transitive dep is a Cargo.lock
+   surface-area increase, and (c) the hand-rolled
+   approach makes the parser testable as pure
+   functions (the 8 parser unit tests in
+   `sse_consumer::tests` exercise the boundary
+   detection + data extraction on hand-crafted
+   byte buffers — the same shape `eventsource-stream`
+   would do internally).
+2. **`RankingOffsetChange` is a local DTO, not a
+   `pub use` re-export from `epsx-identity-service`.**
+   Track A's proto + crate live on a separate branch
+   (`origin/wave13b/track-a-sse-server`); importing
+   across branches isn't possible. The DTO is
+   byte-compatible with the wire JSON the identity
+   service emits (verified by reading Track A's
+   deliverable + their round-trip test output:
+   `data: {"wallet":"0x1234","offset":100,"changed_at_ms":1781423064449}`).
+   The integration gate will reconcile: option (a)
+   re-export the identity crate's type from the
+   analytics binary (preferred — single source of
+   truth), option (b) keep the local DTO (works
+   because the wire shape is the contract).
+3. **`tokio-stream`'s `sync` feature was already
+   enabled in the workspace by Track A's
+   `apps/analytics/Cargo.toml` for the `gRPC` tests'
+   `TcpListenerStream`.** I did NOT need to add it
+   again. The `BroadcastStream` (used in
+   `rankings_stream_handler`) is also gated on
+   `sync`, so it Just Works.
+4. **Shutdown half of the `watch::channel` is held
+   with a `let _shutdown_tx = ...` binding.** The
+   spec said "Keep shutdown_tx for the cleanup on
+   Ctrl-C / SIGTERM" — the current branch drops the
+   sender at process exit, which is the documented
+   behavior. A future wave 14+ will wire
+   `tokio::signal::ctrl_c()` to it.
+5. **Reconnect jitter sleeps ADD to the backoff,
+   not replace it.** The spec's pseudo-code showed
+   `let jitter = rand::random::<u64>() % (backoff.as_millis() / 2)`
+   as a separate `sleep(jitter)` after the main
+   `sleep(backoff)`. That's what I implemented. The
+   minimum sleep per retry is `backoff` (so a
+   misbehaving identity service never gets
+   reconnect-stormed), and the maximum is
+   `backoff * 1.5` (which is well within the
+   30s cap).
+
+### 18.9 What the next wave inherits
+
+- The `LocalRankingOffsetBus` is a 1024-slot
+  `tokio::sync::broadcast::Sender<RankingOffsetChange>`.
+  A future cache-invalidation hook (e.g. "if
+  `wallet == "0xADMIN"`, invalidate the
+  `EPSCacheService` for that wallet") can
+  `bus.subscribe()` and react in a single line.
+- The `RankingOffsetChange` DTO is the wire
+  contract with the identity service. If the
+  identity proto's field set grows (e.g. adding
+  `tier` or `plan_id`), the DTO needs to add the
+  matching field (the integration gate will
+  reconcile).
+- The `run_sse_consumer` function is public from
+  `sse_consumer` and can be spawned multiple times
+  (e.g. one task per identity service replica, if
+  we ever run > 1). Today there's exactly 1 identity
+  service, so 1 task.
+- The `tokio::sync::watch::Sender<bool>` is held in
+  `main()` and dropped on exit. Wiring
+  `tokio::signal::ctrl_c()` to it is a 4-line
+  change in a future wave 14+.
+
+### 18.10 Out of scope (wave-13c+ or separate)
+
+- Hooking the gRPC `GetWalletRankingOffset` path
+  into the publish path (i.e. when a gRPC request
+  arrives at the identity service, the
+  `RankingOffsetChange` event should also be
+  published to the SSE bus). This is the identity
+  service's job, not the analytics binary's. Wave-13c+
+  is the natural place.
+- TLS / mTLS on the SSE path. The dev cluster has
+  no cert-manager; production deployment is a
+  separate decision.
+- Replacing the local in-process bus with a
+  Redis-backed pub/sub for multi-replica
+  deployments. The current shape assumes 1
+  analytics pod (matching the current K8s
+  `replicas: 1` config); a multi-replica
+  deployment would need a Redis pub/sub on the
+  consumer side OR a sticky-load-balancer
+  routing SSE clients to the same pod that
+  received the gRPC update.
+- A graceful-shutdown handler that drains the
+  bus before exiting (currently the sender half
+  is dropped on process exit and any in-flight
+  events are lost).

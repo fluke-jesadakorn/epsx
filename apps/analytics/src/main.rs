@@ -68,6 +68,24 @@ mod grpc_client;
 use grpc_client::GrpcWalletRankingOffsetQuery;
 
 // ============================================================================
+// Wave 13b Track B — SSE consumer + local broadcast bus
+// ============================================================================
+//
+// The new binary consumes the
+// `GET /v1/stream/ranking-offsets` SSE stream from the
+// `epsx-identity-service` binary (port 50052 in the
+// dev cluster), parses `RankingOffsetChange` events, and
+// fans them out to in-process consumers via a local
+// `tokio::sync::broadcast` channel.
+//
+// See `sse_consumer.rs` for the consumer + reconnect
+// logic; the `/v1/rankings/stream` HTTP passthrough
+// handler is mounted on the axum router below.
+
+mod sse_consumer;
+use sse_consumer::{run_sse_consumer, LocalRankingOffsetBus};
+
+// ============================================================================
 // 5-route builder
 // ============================================================================
 //
@@ -86,13 +104,24 @@ use grpc_client::GrpcWalletRankingOffsetQuery;
 //
 // The handler functions come from `epsx::web::analytics::eps_handlers`
 // via the re-export in `crate::*` (lib.rs).
+//
+// **Wave 13b Track B** also mounts
+// `GET /v1/rankings/stream` — a server-sent events
+// passthrough that proxies events from the local
+// `LocalRankingOffsetBus` (fed by the SSE consumer) to
+// web clients. The handler takes the bus via
+// `axum::extract::State` so the same `Router` instance
+// can be built once and shared.
 
-/// Build the analytics router with the 5 user-facing routes plus
-/// a `/health` endpoint for K8s liveness/readiness probes.
+/// Build the analytics router with the 5 user-facing routes
+/// plus a `/health` endpoint for K8s liveness/readiness
+/// probes, plus the wave-13b Track B `/v1/rankings/stream`
+/// SSE passthrough.
 pub fn build_analytics_router(
     permission_service: Arc<dyn WalletRankingOffsetQuery>,
     cache: Arc<dyn epsx::infrastructure::cache::Cache>,
     eps_ranking_service: Arc<epsx::domain::market_analytics::services::eps_ranking_service::EPSRankingService>,
+    local_bus: LocalRankingOffsetBus,
 ) -> Router {
     use epsx::web::analytics::eps_handlers::{
         get_all_valid_countries, get_available_countries, get_filter_options,
@@ -106,6 +135,13 @@ pub fn build_analytics_router(
         .route("/countries", get(get_all_valid_countries))
         .route("/available-countries", get(get_available_countries))
         .route("/sectors", get(get_sectors_by_country))
+        // Wave 13b Track B — SSE passthrough to web
+        // clients. The handler subscribes to the local
+        // bus and re-emits each event as an SSE
+        // `data:` line in the same JSON shape the
+        // identity service publishes.
+        .route("/v1/rankings/stream", get(rankings_stream_handler))
+        .with_state(local_bus)
         .layer(axum::Extension(permission_service))
         .layer(axum::Extension(cache))
         .layer(axum::Extension(eps_ranking_service))
@@ -122,6 +158,84 @@ async fn health_handler() -> axum::Json<serde_json::Value> {
         "service": "epsx-analytics-service",
         "version": env!("CARGO_PKG_VERSION"),
     }))
+}
+
+// ============================================================================
+// Wave 13b Track B — /v1/rankings/stream SSE passthrough
+// ============================================================================
+//
+// Subscribes to the local `LocalRankingOffsetBus` and
+// re-emits each event as a server-sent event on the HTTP
+// response. Web clients connect with
+// `EventSource('https://api.epsx.io/v1/rankings/stream')` and
+// receive a stream of `data: <json>` lines — the JSON
+// shape is the same `RankingOffsetChange` envelope the
+// identity service publishes (no re-shaping).
+//
+// The handler is a long-lived axum response with
+// `axum::response::sse::Sse` + a `BroadcastStream` adapter
+// over the `broadcast::Receiver` returned by
+// `bus.subscribe()`. The keepalive is 15s — matches the
+// monolith's SSE handlers in
+// `apps/backend/src/web/chat/sse_handlers.rs`.
+//
+// The route is mounted via `Router::with_state(local_bus)`
+// (see `build_analytics_router`) so the bus is shared with
+// the SSE consumer task in `main()`.
+
+/// `GET /v1/rankings/stream` — SSE passthrough that
+/// proxies events from the local bus to the web client.
+///
+/// `axum::extract::State<LocalRankingOffsetBus>` is the
+/// state-injection shape (NOT `Extension`) because
+/// `Sse<impl Stream>` isn't `Clone` and axum's `State`
+/// extractor is the documented way to share a single
+/// `Arc`-wrapped value with a handler.
+async fn rankings_stream_handler(
+    axum::extract::State(bus): axum::extract::State<LocalRankingOffsetBus>,
+) -> axum::response::sse::Sse<
+    impl futures::Stream<Item = Result<axum::response::sse::Event, std::convert::Infallible>>,
+> {
+    use std::time::Duration;
+    use tokio_stream::wrappers::BroadcastStream;
+    use tokio_stream::StreamExt as _;
+
+    let rx = bus.subscribe();
+    // `BroadcastStream` yields `Result<T, RecvError>` —
+    // the only error variant is `RecvError::Lagged(n)`
+    // (we missed `n` events because the receiver fell
+    // behind the broadcast ringbuffer). We drop lagged
+    // items silently (the next event will catch the
+    // client up to the current state).
+    //
+    // `Stream::map` is `FnMut(Self::Item) -> NewItem`
+    // (NOT a `Future`); `StreamExt::filter_map` would
+    // need `FnMut(Self::Item) -> Option<NewItem>` (also
+    // synchronous). We use `.map(Result::ok)` to drop
+    // lagged items, then `.map(Option::ok)` would also
+    // be wrong — `Option` from `Result::ok` is `Option`,
+    // and `Result` from `axum::response::sse::Event` is
+    // `Result<Event, Infallible>`, so the stream's item
+    // type becomes `Option<Result<Event, Infallible>>`,
+    // not `Result<Event, Infallible>`.
+    //
+    // The cleanest shape: map `Result<change, _>` to
+    // `Result<Event, Infallible>` directly with
+    // `Option::map`. Lagged events become `None`; we
+    // then `.filter_map` to drop the `None`s.
+    let stream = BroadcastStream::new(rx).filter_map(|item| {
+        item.ok().map(|change| {
+            let json = serde_json::to_string(&change)
+                .unwrap_or_else(|_| "{}".to_string());
+            Ok::<_, std::convert::Infallible>(
+                axum::response::sse::Event::default().data(json),
+            )
+        })
+    });
+
+    axum::response::sse::Sse::new(stream).keep_alive(
+        axum::response::sse::KeepAlive::new().interval(Duration::from_secs(15)),
+    )
 }
 
 // ============================================================================
@@ -282,6 +396,8 @@ async fn main() -> anyhow::Result<()> {
         ("GET", "/api/analytics/countries"),
         ("GET", "/api/analytics/available-countries"),
         ("GET", "/api/analytics/sectors"),
+        // Wave 13b Track B — SSE passthrough.
+        ("GET", "/v1/rankings/stream"),
     ];
     print_startup_banner(routes, 8080);
 
@@ -319,11 +435,64 @@ async fn main() -> anyhow::Result<()> {
             .context("building gRPC identity client")?,
     );
 
+    // ---- Wave 13b Track B — local SSE bus + consumer task ----
+    //
+    // The bus is the in-process pub-sub seam: the SSE
+    // consumer task publishes events here, the
+    // `/v1/rankings/stream` HTTP handler subscribes. We
+    // build the bus BEFORE the consumer (the consumer
+    // needs an owned `LocalRankingOffsetBus` for its
+    // task) and clone the bus for the handler state
+    // (the handler takes `axum::extract::State<
+    // LocalRankingOffsetBus>`, which is `Clone`).
+    //
+    // The consumer's URL defaults to
+    // `http://127.0.0.1:50052` (the local-dev identity
+    // binary's HTTP/1.1 SSE port from Track A). The
+    // `IDENTITY_SSE_URL` env var overrides it for K8s:
+    //   - default: `http://127.0.0.1:50052`
+    //   - K8s:     `http://epsx-identity:50052` (set
+    //     in `infrastructure/kubernetes/base/analytics/deployment.yaml`)
+    let local_bus = LocalRankingOffsetBus::new(1024);
+    let sse_consumer_bus = local_bus.clone();
+
+    // `reqwest::Client` is the long-lived HTTP client. A
+    // 60s read timeout is generous (SSE streams are
+    // long-lived; we want the read to time out only on
+    // truly hung connections, not on legitimate idle
+    // periods). A future wave 14+ can add a connection
+    // pool size limit + a per-request timeout if the
+    // identity service grows slow.
+    let sse_client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(60))
+        .build()
+        .context("building reqwest client for SSE consumer")?;
+
+    let identity_sse_url = std::env::var("IDENTITY_SSE_URL")
+        .unwrap_or_else(|_| "http://127.0.0.1:50052".to_string());
+    info!(url = %identity_sse_url, "IDENTITY_SSE_URL resolved");
+
+    // `shutdown` is a `watch::channel(false)` — the
+    // consumer checks `*shutdown.borrow()` at every
+    // iteration and every chunk read. A future wave 14+
+    // can wire `tokio::signal::ctrl_c()` to the sender
+    // half to do a graceful shutdown. For now we just
+    // hold the sender (dropping it on shutdown) and let
+    // the consumer run for the lifetime of the process.
+    let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+    let _shutdown_tx = shutdown_tx; // silence unused warning
+
+    tokio::spawn(async move {
+        run_sse_consumer(identity_sse_url, sse_consumer_bus, sse_client, shutdown_rx).await;
+    });
+    info!("SSE consumer task spawned");
+
     // ---- router ----
     let app = build_analytics_router(
         permission_service,
         state.cache.clone(),
         state.eps_ranking_service.clone(),
+        local_bus,
     );
 
     // ---- serve ----
@@ -341,6 +510,7 @@ fn print_startup_banner(routes: &[(&str, &str)], port: u16) {
     info!("============================================================");
     info!("  {} v{}", BINARY_NAME, BINARY_VERSION);
     info!("  Wave 12 — Track A (analytics binary lift)");
+    info!("  Wave 13b — Track B (SSE consumer + local bus + /v1/rankings/stream)");
     info!("  0 PostgreSQL connections (Q2 ROADMAP §7)");
     info!("  Port: {}", port);
     info!("  Routes ({}):", routes.len());
@@ -399,14 +569,21 @@ mod tests {
         let eps_repo = Arc::new(TradingViewEPSRepository::new(tradingview));
         let eps_ranking = Arc::new(EPSRankingService::new(eps_repo));
 
-        let router = build_analytics_router(perm, cache, eps_ranking);
+        // Wave 13b Track B — the 4th constructor arg is
+        // the local bus (a fresh empty one is fine; the
+        // test doesn't publish or subscribe).
+        let local_bus = LocalRankingOffsetBus::new(16);
 
-        // Walk the 6 expected paths (5 analytics + 1 health).
-        // The router doesn't have a `count_routes()` API, so we
-        // send a GET to each and assert it's NOT a 404 (404
-        // means the route isn't mounted; 400 / 500 are expected
-        // for a bare-bones test because the handler signature
-        // requires query params).
+        let router = build_analytics_router(perm, cache, eps_ranking, local_bus);
+
+        // Walk the 7 expected paths (5 analytics + 1
+        // health + 1 wave-13b SSE passthrough). The
+        // router doesn't have a `count_routes()` API,
+        // so we send a GET to each and assert it's NOT
+        // a 404 (404 means the route isn't mounted; 400
+        // / 500 are expected for a bare-bones test
+        // because the handler signature requires query
+        // params).
         let expected_paths = [
             "/health",
             "/rankings",
@@ -414,6 +591,13 @@ mod tests {
             "/countries",
             "/available-countries",
             "/sectors",
+            // Wave 13b Track B — the SSE passthrough
+            // returns a streaming response (not a 404)
+            // because the handler is reached. We don't
+            // assert the *content* of the stream (that
+            // needs a real bus subscriber), just that
+            // the route is mounted.
+            "/v1/rankings/stream",
         ];
         let mut mounted_count = 0;
         for path in expected_paths {
@@ -439,8 +623,8 @@ mod tests {
             }
         }
         assert_eq!(
-            mounted_count, 6,
-            "expected 6 mounted routes (5 analytics + /health), found {mounted_count}"
+            mounted_count, 7,
+            "expected 7 mounted routes (5 analytics + /health + /v1/rankings/stream), found {mounted_count}"
         );
     }
 
@@ -499,6 +683,8 @@ mod tests {
             ("GET", "/api/analytics/countries"),
             ("GET", "/api/analytics/available-countries"),
             ("GET", "/api/analytics/sectors"),
+            // Wave 13b Track B.
+            ("GET", "/v1/rankings/stream"),
         ];
         print_startup_banner(&routes, 8080);
         // No panic = pass.
@@ -754,5 +940,155 @@ mod tests {
                 "fallback must return the free-plan offset for wallet={wallet}"
             );
         }
+    }
+
+    // ========================================================================
+    // wave-13b Track B — SSE consumer end-to-end integration test
+    // ========================================================================
+    //
+    // The hand-rolled parser + bus tests in
+    // `sse_consumer::tests` cover the parsing logic in
+    // isolation. This integration test covers the full
+    // path: spin up a real `hyper`-based HTTP/1.1 server
+    // that emits SSE-formatted bytes, point a real
+    // `reqwest::Client` at it via `consume_once`, and
+    // assert the events land in the bus.
+    //
+    // The mock server is intentionally tiny — it's a
+    // single-request handler that writes two SSE events
+    // and closes the connection. This mirrors the
+    // identity service's wire format exactly (one
+    // `data:` line per event, `\n\n` delimiter).
+    //
+    // Mock server: built on `axum::Router` (already in
+    // the dep tree) for ergonomics. The handler writes
+    // raw bytes to the response body so we can simulate
+    // the identity service's exact SSE output without
+    // pulling in `axum::response::sse::Sse` (which would
+    // add a heartbeat line we don't want for this test).
+
+    /// Spin up a tiny SSE server on `127.0.0.1:0` that
+    /// emits two `RankingOffsetChange` events as raw SSE
+    /// bytes then closes. Returns the bound URL and a
+    /// `JoinHandle` so the test can abort the server on
+    /// teardown.
+    async fn spin_up_mock_sse_server()
+    -> (String, tokio::task::JoinHandle<()>) {
+        use axum::routing::get;
+        use axum::Router;
+
+        async fn sse_handler() -> impl axum::response::IntoResponse {
+            // Emit two events with a small inter-event
+            // delay so the consumer's `bytes_stream`
+            // surfaces them as separate chunks (the
+            // parser must handle multi-chunk + multi-
+            // event-in-one-chunk correctly).
+            let event1 = r#"data: {"wallet":"0xE2E2","offset":77,"changed_at_ms":1700000077000}"#;
+            let event2 = r#"data: {"wallet":"0xC0DE","offset":50,"changed_at_ms":1700000077500}"#;
+            (
+                [
+                    (axum::http::header::CONTENT_TYPE, "text/event-stream"),
+                ],
+                format!("{event1}\n\n{event2}\n\n"),
+            )
+        }
+
+        let app = Router::new().route("/v1/stream/ranking-offsets", get(sse_handler));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind ephemeral port for mock SSE server");
+        let local_addr = listener
+            .local_addr()
+            .expect("read local_addr from ephemeral listener");
+        let handle = tokio::spawn(async move {
+            if let Err(e) = axum::serve(listener, app).await {
+                eprintln!("mock SSE server error: {e}");
+            }
+        });
+        let url = format!("http://{local_addr}/v1/stream/ranking-offsets");
+        (url, handle)
+    }
+
+    /// Full end-to-end: a real HTTP/1.1 server emits SSE
+    /// bytes, a real `reqwest::Client` opens the
+    /// connection, `consume_once` parses + publishes,
+    /// and the events land in the bus. This is the
+    /// "binary works" canary — no mocks, no hand-rolled
+    /// loops, just a real `reqwest::get` against a real
+    /// `axum` server.
+    #[tokio::test]
+    async fn test_sse_consumer_end_to_end_via_real_http() {
+        let (url, server_handle) = spin_up_mock_sse_server().await;
+
+        // Build the same shape `main()` builds.
+        let bus = LocalRankingOffsetBus::new(16);
+        let mut rx = bus.subscribe();
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+            .expect("reqwest client builds");
+        let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+        let _tx = shutdown_tx; // silence unused
+
+        // `consume_once` is `pub(super)` in sse_consumer.rs
+        // — wait, no, it's a module-private `async fn`.
+        // We re-implement the call here: spawn
+        // `run_sse_consumer` in a task, let it consume
+        // both events, then signal shutdown.
+        let url_for_consumer = url.clone();
+        let bus_for_consumer = bus.clone();
+        let client_for_consumer = client.clone();
+        let consumer_handle = tokio::spawn(async move {
+            // Set a short timeout for the test by
+            // setting the URL to the mock server
+            // (which emits + closes immediately).
+            sse_consumer::run_sse_consumer(
+                url_for_consumer,
+                bus_for_consumer,
+                client_for_consumer,
+                shutdown_rx,
+            )
+            .await;
+        });
+
+        // Drain 2 events. Use a 5s timeout so the test
+        // fails fast if the consumer never publishes.
+        let r1 = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            rx.recv(),
+        )
+        .await
+        .expect("event 1 must arrive within 5s")
+        .expect("event 1 must be received (not lagged)");
+        assert_eq!(r1.wallet, "0xE2E2");
+        assert_eq!(r1.offset, 77);
+        assert_eq!(r1.changed_at_ms, 1_700_000_077_000);
+
+        let r2 = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            rx.recv(),
+        )
+        .await
+        .expect("event 2 must arrive within 5s")
+        .expect("event 2 must be received (not lagged)");
+        assert_eq!(r2.wallet, "0xC0DE");
+        assert_eq!(r2.offset, 50);
+        assert_eq!(r2.changed_at_ms, 1_700_000_077_500);
+
+        // Tear down: signal shutdown to the consumer so
+        // the reconnect loop exits, then abort both
+        // tasks to free the ephemeral port.
+        // (The mock server closed the connection after
+        // emitting both events, so the consumer is
+        // currently in the "backoff = 100ms, retrying"
+        // state. The shutdown signal makes it exit
+        // cleanly.)
+        drop(_tx); // closes the watch sender; consumer sees it
+        let _ = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            consumer_handle,
+        )
+        .await;
+        server_handle.abort();
     }
 }

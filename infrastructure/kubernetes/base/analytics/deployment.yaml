@@ -36,7 +36,37 @@ spec:
             # pre-wave-12 versions (none exist today, but
             # the env var is forward-looking).
             - name: EPSX_ANALYTICS_VERSION
-              value: "wave12"
+              value: "wave13b"
+            # wave-13b Track B: HTTP/1.1 SSE endpoint on
+            # the `epsx-identity-service` binary (port
+            # 50052 from Track A — see
+            # `infrastructure/kubernetes/base/identity/service.yaml`).
+            # The new binary opens a long-lived HTTP
+            # connection to this URL on startup, parses
+            # `RankingOffsetChange` events from the SSE
+            # `data:` field, and publishes them to an
+            # in-process tokio broadcast channel that the
+            # `/v1/rankings/stream` HTTP passthrough
+            # subscribes to.
+            #
+            # The K8s service DNS `epsx-identity` is the
+            # same in dev / staging / prod (all namespaces
+            # export a service named `epsx-identity`).
+            # The `50052` port is the new SSE port
+            # added in Track A; the existing
+            # `50051` (gRPC) port is on a separate
+            # service port that the gRPC client uses
+            # (see `IDENTITY_GRPC_URL` above).
+            #
+            # Reconnect: the consumer's backoff is
+            # `100ms → ... → 30s cap` + 0-50% jitter
+            # (see `apps/analytics/src/sse_consumer.rs`).
+            # A misconfigured identity service (e.g. the
+            # SSE port is not yet rolled out) only delays
+            # the first event delivery — it does NOT
+            # block the 5 analytics routes.
+            - name: IDENTITY_SSE_URL
+              value: "http://epsx-identity:50052"
             # wave-13a Track B: tonic gRPC endpoint for the
             # `epsx-identity-service` binary. The K8s
             # service name `epsx-identity` resolves to the
