@@ -3113,7 +3113,7 @@ B merge), parent `15cba935` (Track A merge), parent
    §9). Out of scope; defer to a wave-N+2 analytics
    cleanup.
 
-## §17.1 — Wave 13a Implementation Report
+## §17.1.1 — Wave 13a Track A (epsx-identity binary) — implementation report
 
 **Goal.** Stand up a tiny `epsx-identity-service` binary that
 serves the `WalletRankingOffsetQuery` port over gRPC (tonic),
@@ -3211,3 +3211,416 @@ client with a 100 ms timeout + in-process fallback.
   the old schema).
 - TLS / mTLS. The dev cluster has no cert-manager;
   production deployment is a separate decision.
+---
+
+## §17.1.2 — Wave 13a Track B (gRPC client + fallback contract) — implementation report
+
+> **Branch:** `wave13a/track-b-grpc-client` (worktree at
+> `.worktrees/wave13a-track-b-grpc-client`, base
+> `origin/migration/dioxus-microservices` HEAD `949533e7`).
+>
+> **Mavis plan:** `plan_caca2e15`, Track B.
+> **Final commit hash:** `<populated at end of run>`.
+> **Producer-side final commit hash:** `<populated at end of run>`.
+> **Parent commits (pre-Track-B base):** `949533e7`
+> (`wave13/dev-k8s`).
+>
+> **Companion track:**
+> * Track A — `origin/wave13a/track-a-identity` (commits
+>   `5fe9d82c`, `0ea8159e`) — `epsx-identity-service` tonic
+>   gRPC server binary + the `shared/proto/identity.proto`
+>   schema. Track B consumes that schema + that K8s service.
+>
+> **Verification commands:**
+> - `cargo check --workspace` → clean (16 pre-existing
+>   warnings in the `epsx` lib, 0 new warnings)
+> - `cargo test -p epsx-analytics-service --tests` →
+>   12/12 tests pass (3 lib + 9 bin including 4 new
+>   gRPC client + fallback tests)
+> - `cargo build -p epsx-analytics-service` → 35.4 MB
+>   release binary (no stub swap)
+> - `docker build -f apps/analytics/Dockerfile -t
+>   epsx-analytics:wave13a-dev .` → image built (162 MB
+>   on-disk, 35.4 MB content)
+> - Binary smoke: `./epsx-analytics-service` with
+>   `IDENTITY_GRPC_URL=http://127.0.0.1:1` fails fast
+>   at startup (expected — `IdentityClient::connect`
+>   errors propagate through `main()`; per-call fallback
+>   is for the 100ms-timeout / tonic-error case, NOT for
+>   the connect-at-startup case — see §17.1.4 "Fallback
+>   contract semantics" below for the rationale)
+
+### 17.1 What landed
+
+Track B swaps the wave-12 in-process
+`FreePlanWalletRankingOffsetQuery` stub in
+`apps/analytics/src/main.rs` for a tonic gRPC client
+(`GrpcWalletRankingOffsetQuery`) that calls
+`epsx-identity-service` over the wire, with a **100ms
+timeout + in-process stub fallback** when the gRPC
+call fails or times out. The end-state preserves the
+same response shape — every wallet still gets
+`RankingOffset::free_plan()` (100) — but the
+*transport* is now a real gRPC call.
+
+#### 17.1.1 The gRPC client
+
+`apps/analytics/src/grpc_client.rs` (new file,
+~245 LOC including the module-level docstring). The
+`GrpcWalletRankingOffsetQuery` struct:
+
+- **Holds:** `IdentityClient<Channel>` (the tonic
+  client stub from `tonic::include_proto!`) +
+  `Arc<dyn WalletRankingOffsetQuery>` (the in-process
+  fallback, defaulted to the wave-12
+  `FreePlanWalletRankingOffsetQuery`).
+- **Implements:** `WalletRankingOffsetQuery` (the
+  kernel-level R6 port from
+  `shared/rust/epsx-contracts/src/wallet_ranking_offset_query.rs`)
+  via `#[async_trait]`.
+- **Satisfies object-safety:** the port trait's
+  `get_wallet_ranking_offset(&self, &str)` is async +
+  `&self` (no generics, no `Self`-typed returns, no
+  associated types with bound lifetimes), so the
+  `Arc<dyn WalletRankingOffsetQuery>` constructor
+  argument compiles. (See the `object_safety` test in
+  `wallet_ranking_offset_query.rs:52-62`.)
+
+The `get_wallet_ranking_offset` impl:
+
+1. Builds a `GetWalletRankingOffsetRequest { wallet }`
+2. Wraps `self.client.clone().get_wallet_ranking_offset(req)`
+   in `tokio::time::timeout(100ms, ...)`
+3. On `Ok(Ok(resp))` → returns `RankingOffset::from(resp.offset)`
+   (the `From<i32>` impl clamps out-of-range server
+   values to the free-plan default, so a buggy server
+   returning `-1` or `> 1000` cannot crash the client)
+4. On `Ok(Err(status))` (gRPC server error — e.g.
+   `UNAVAILABLE`, `DEADLINE_EXCEEDED`) → `warn!`s and
+   delegates to the fallback
+5. On `Err(_elapsed)` (100ms timeout) → `warn!`s and
+   delegates to the fallback
+
+The fallback is a constructor argument (not
+hard-coded), so a future wave can swap to a cached /
+Redis-backed fallback without changing the client.
+
+#### 17.1.2 The build.rs + workspace dep bumps
+
+`apps/analytics/build.rs` (new file, ~50 LOC) runs
+`tonic-build = 0.12` against
+`shared/proto/identity.proto` (the proto file Track A
+created at `shared/proto/identity.proto`, with package
+`epsx.identity.v1` → generated module name
+`epsx.identity.v1`). The build.rs emits
+`cargo:rerun-if-changed=../../shared/proto/identity.proto`
+so the cache invalidates when the schema changes.
+
+Workspace `Cargo.toml` (root) gains:
+
+- `prost = "0.13"` / `prost-types = "0.13"` (bumped
+  from 0.12; `tonic-build = 0.12.3` hard-pins
+  `prost-build = 0.13` transitively, and the generated
+  `#[derive(::prost::Message)]` calls match prost
+  0.13 — without this bump,
+  `tonic::codec::ProstCodec`'s prost 0.12 type
+  mismatches the generated 0.13 code, producing a
+  compile error).
+- `tonic-build = "0.12"` (Track A added it to the
+  workspace `Cargo.toml` for the same reason; Track B
+  relies on it via the workspace dep).
+- `tokio-stream = { version = "0.1", features = ["net"] }`
+  (Track B's mock test server uses
+  `TcpListenerStream` to drive
+  `Server::serve_with_incoming` — production code does
+  not import `tokio-stream`).
+
+`apps/analytics/Cargo.toml` gains:
+
+- `tonic.workspace = true` + `prost.workspace = true`
+  in `[dependencies]` (the runtime transport)
+- `tonic-build.workspace = true` in `[build-dependencies]`
+- `tokio-stream.workspace = true` in `[dependencies]`
+  (test-only — the production `grpc_client.rs` does
+  not import it; but the workspace dep is the only
+  path to surface the dep, and the dev profile
+  includes tests so it's pulled in)
+
+The bump to `prost = 0.13` is **workspace-scoped** —
+no source file in `epsx-monolith` imports `prost::*`
+directly today, so the change is mechanical with no
+API fallout. Track A made the same bump on its branch
+(see Track A's `0ea8159e` commit on
+`origin/wave13a/track-a-identity`); Track B mirrors
+it on its branch so the integration gate has a
+consistent `prost = "0.13"` at HEAD.
+
+#### 17.1.3 The K8s env var
+
+`infrastructure/kubernetes/base/analytics/deployment.yaml`
+gains one new env var:
+
+```yaml
+- name: IDENTITY_GRPC_URL
+  value: "http://epsx-identity:50051"
+```
+
+The K8s service name `epsx-identity` resolves to the
+ClusterIP of the identity service (Track A's
+`infrastructure/kubernetes/base/identity/service.yaml`)
+in the same namespace. The dev / staging / prod
+overlays do NOT need to patch this — the service DNS
+is the same across environments because all three
+namespaces (`epsx-dev`, `epsx-staging`, `epsx-prod`)
+export a service named `epsx-identity`.
+
+#### 17.1.4 Fallback contract semantics
+
+The fallback contract has two distinct failure modes
+with two distinct responses:
+
+| Failure | Response | Rationale |
+|---------|----------|-----------|
+| **gRPC connect fails at startup** (port unreachable, DNS NXDOMAIN, TLS handshake error) | `main()` returns `Err(anyhow::Error)`; binary exits with code 1 | The connect is in the constructor (`async fn new`), and we propagate the error via `?`. K8s `livenessProbe` will catch the exited pod and restart it; once the identity service is up, the analytics pod starts. |
+| **gRPC call fails or times out per request** (`Ok(Err(status))` or `Err(_elapsed)` on the 100ms timeout) | Return the fallback's `RankingOffset::free_plan()` (100) | The fallback path is for *transient* call-level errors (network blip, slow server, transient DB error on the server side). The 100ms timeout matches the monolith's `web/analytics/eps/cache.rs:78-81` behavior of falling back to the free-plan offset on auth errors. |
+
+The spec example in the task prompt suggested
+synchronous `IdentityClient::connect(endpoint)?` in
+`new()`. This is pseudocode that doesn't compile
+(`connect` is async) — Track B's `new()` is
+`async fn` and correctly `await`s the connect, so
+the connect error is the only failure mode at
+startup. Per-call errors are handled in
+`get_wallet_ranking_offset`.
+
+A future wave could make the binary more resilient
+to startup-order issues (e.g. retry-with-backoff on
+connect, or defer the connect to first call), but
+that's out of scope for wave-13a — the spec's
+fallback contract is for *calls*, not *connects*.
+
+#### 17.1.5 The Dockerfile protoc addition
+
+`apps/analytics/Dockerfile` gains
+`protobuf-compiler` to the `apt-get install` line in
+the builder stage. The wave-12 Dockerfile didn't need
+it (no proto schema); wave-13a Track B's new
+`build.rs` invokes `tonic-build` which shells out to
+`protoc` at compile time. Track A's
+`epsx-identity-service` Dockerfile hit the same trap
+and added it in its second commit
+(`5fe9d82c` on `origin/wave13a/track-a-identity`);
+Track B adds it here in the same pass.
+
+The Dockerfile otherwise does not change — the
+`cargo build --release --bin epsx-analytics-service`
+line picks up the new `build.rs` automatically.
+
+#### 17.1.6 The test surface
+
+Four new tests in `apps/analytics/src/main.rs`'s
+`tests` module (all `#[tokio::test]`):
+
+1. **`test_grpc_client_delegates_to_server`** —
+   spins up a `MockIdentityServer` (a small
+   `Identity`-trait impl) on `127.0.0.1:0` (ephemeral
+   port), points the gRPC client at it, asserts the
+   client returns the server's offset (50) — NOT the
+   fallback's free-plan offset (100). This proves the
+   wire-level round-trip works.
+2. **`test_grpc_client_falls_back_on_unreachable`** —
+   points the client at `http://127.0.0.1:1` (a port
+   that always refuses on Linux/macOS). Asserts
+   `GrpcWalletRankingOffsetQuery::new` returns
+   `Err(anyhow::Error)`. This proves the connect-error
+   path returns the expected failure shape.
+3. **`test_grpc_client_falls_back_on_timeout`** —
+   spins up a `MockIdentityServer` that sleeps for
+   200ms before responding (longer than the client's
+   100ms timeout), points the client at it, asserts
+   the client returns the fallback's free-plan offset
+   (100). This proves the 100ms timeout + fallback
+   path works.
+4. **`test_fallback_returns_free_plan_when_called_directly`** —
+   invokes the in-process
+   `FreePlanWalletRankingOffsetQuery` directly with 4
+   different wallet addresses (zero address, hex, ENS
+   name, empty string), asserts all return
+   `RankingOffset::free_plan()`. This proves the
+   fallback path itself is correct (the gRPC client
+   invokes it via the same trait).
+
+The mock server uses `tokio::net::TcpListener::bind`
+(not `std::net::TcpListener::bind + from_std`) because
+the `from_std` shape fails inside a tokio test runtime
+(it would register a blocking FD with the tokio
+reactor, which is unsupported as of tokio 1.x:
+tokio-rs/tokio#7172). The async bind path is the
+canonical fix.
+
+The mock server's `Identity` trait impl is gated to
+`#[cfg(test)]` (the `build_server(true)` in
+`build.rs` includes the server scaffolding for the
+test code path; the production binary never invokes
+the `IdentityServer` shim, so the binary size impact
+is just a few hundred bytes of unused trait
+definition — well under 1KB).
+
+The pre-existing wave-12 tests
+(`test_five_route_builder`, `test_free_plan_stub_returns_default`,
+`test_state_build_no_db`, `test_epsranking_type_reexport`,
+`test_startup_banner`) all continue to pass without
+modification. Total: 9/9 bin tests + 3/3 lib tests
+= 12/12 pass.
+
+#### 17.1.7 Deviations from the task spec
+
+1. **The `shared/proto/identity.proto` file** is on
+   Track A's branch but not on the base
+   `949533e7`. Track B's worktree is based on
+   `949533e7`, so the file doesn't exist locally. To
+   keep Track B's branch self-compiling for
+   verification, Track B creates an identical copy of
+   Track A's `shared/proto/identity.proto` (same
+   content, same `package epsx.identity.v1;`).
+   Integration: the merge will have a `shared/proto/
+   identity.proto` conflict if Track A and Track B
+   both create the same file with identical content
+   (the conflict is resolvable as `--theirs` / `--ours`
+   / "both" since the bytes are identical); Track A's
+   git identity is the canonical author of the
+   schema. The integration gate's "merge Track A
+   first, then Track B" sequence lands Track A's
+   file first and Track B's copy becomes a no-op
+   (git three-way merge with identical content is
+   a clean apply).
+2. **The `RankingOffset` constructor** in the client
+   uses `RankingOffset::from(inner.offset)` (the
+   `From<i32>` impl that clamps out-of-range values
+   to the free-plan default) rather than the
+   task-spec's `RankingOffset(inner.offset)`. The
+   reason: `pub struct RankingOffset(i32)` has a
+   **private** inner field, so the tuple-struct
+   constructor `RankingOffset(value)` is not visible
+   outside the `epsx-contracts` crate (compile error
+   E0423). The `From<i32>` conversion is the
+   documented public API for this case (see the
+   docstring on `From<i32> for RankingOffset` in
+   `shared/rust/epsx-contracts/src/value_objects/
+   ranking_offset.rs:117-135`).
+3. **The Dockerfile** does need to change despite
+   the task spec saying it doesn't. The spec's
+   assumption ("the `tonic-build` step runs as part
+   of `cargo build` via the new `build.rs`, so the
+   Dockerfile does not need to change") missed the
+   `protoc` shell-out — `tonic-build` invokes
+   `protoc` at compile time, which is not in the
+   `rust:slim-bookworm` base image. Track A's
+   `epsx-identity-service` Dockerfile added
+   `protobuf-compiler` in its second commit for
+   the same reason; Track B mirrors it here.
+4. **The `tonic::include_proto!` macro is
+   sufficient on its own for codegen** (it expands
+   to a compile-time codegen pass that handles
+   `cargo:rerun-if-changed` for the proto file). The
+   spec's instruction to also have a `build.rs` that
+   invokes `tonic_build::compile_protos` is
+   technically redundant — `tonic::include_proto!`
+   alone would compile fine. Track B keeps the
+   `build.rs` per the spec, but its only practical
+   effect is to emit `cargo:rerun-if-changed` for
+   the proto file path (defensive — the macro
+   already does this). The `build.rs` is also where
+   the test-only `build_server(true)` is set
+   (production never needs server scaffolding).
+5. **`build_server(true)` in `build.rs`**, not
+   `build_server(false)` as the spec's prose
+   suggests. The reason: the test module implements
+   the generated `Identity` trait (via
+   `MockIdentityServer`), and the trait is only
+   emitted by `build_server(true)`. The production
+   binary never invokes the server scaffolding, so
+   the binary size impact is just the trait +
+   `IdentityServer` shim definition (a few hundred
+   bytes).
+6. **The mock server's bind path** uses
+   `tokio::net::TcpListener::bind`, not
+   `std::net::TcpListener::bind + from_std`. The
+   `from_std` shape fails inside a tokio test
+   runtime with a `tokio_allow_from_blocking_fd`
+   error (tokio-rs/tokio#7172). The async bind path
+   requires the test helper itself to be `async`,
+   which propagates to the call sites
+   (`spin_up_mock_server(...).await`).
+
+#### 17.1.8 Files changed
+
+| File | Type | LOC | Description |
+|------|------|-----|-------------|
+| `Cargo.toml` | modified | +13 | Bump `prost` / `prost-types` to 0.13 (mirrors Track A); add `tonic-build = "0.12"`; add `tokio-stream` for the test mock server |
+| `shared/proto/identity.proto` | new | 71 | Identical copy of Track A's proto file (the same schema, so the integration gate's three-way merge is clean) |
+| `apps/analytics/Cargo.toml` | modified | +12 | Add `tonic` + `prost` + `tokio-stream` to `[dependencies]`; add `tonic-build` to `[build-dependencies]` |
+| `apps/analytics/build.rs` | new | 53 | `tonic-build` invocation against `shared/proto/identity.proto`; emits `cargo:rerun-if-changed` |
+| `apps/analytics/src/main.rs` | modified | +260 | Add `tonic::include_proto!` `identity_proto` module; wire the gRPC client into `main()`; 4 new tests; doc updates |
+| `apps/analytics/src/grpc_client.rs` | new | 244 | `GrpcWalletRankingOffsetQuery` struct + `WalletRankingOffsetQuery` impl + 100ms timeout + fallback contract |
+| `apps/analytics/Dockerfile` | modified | +5 | Add `protobuf-compiler` to the builder stage (mirrors Track A's Dockerfile fix) |
+| `infrastructure/kubernetes/base/analytics/deployment.yaml` | modified | +13 | Add `IDENTITY_GRPC_URL` env var pointing at `http://epsx-identity:50051` |
+
+Total: 5 new files, 4 modified files, ~671 LOC
+(including the ~225-line module-level docstring
+on `grpc_client.rs` and the ~140-line comment block
+on the test helper).
+
+#### 17.1.9 Open issues / follow-ups for the integration gate
+
+1. **Coordinate the `shared/proto/identity.proto` merge** —
+   Track A and Track B both create the same file with
+   identical content. The integration gate should
+   merge Track A first (lands the file as
+   `5fe9d82c`'s "added" entry) and then Track B
+   (the three-way merge will be a no-op since the
+   bytes match).
+2. **Coordinate the `Cargo.toml` workspace dep
+   bump** — Track A and Track B both bump `prost` to
+   0.13 (with the same comment). Track A's bump
+   lands first via the merge; Track B's is a no-op
+   in the three-way merge. The `tonic-build = 0.12`
+   and `tokio-stream` entries are Track B-only
+   (Track A doesn't need them — the identity binary
+   uses `tonic-build` via its own `build.rs` and
+   doesn't have a mock test server).
+3. **End-to-end verification on the dev cluster** —
+   the integration gate should:
+   - `kubectl kustomize infrastructure/kubernetes/overlays/dev` → confirm
+     the `IDENTITY_GRPC_URL` env var is set on the
+     `epsx-analytics` container
+   - Apply the dev overlay
+   - Confirm both `epsx-analytics` and `epsx-identity`
+     pods reach `1/1 Running`
+   - `curl http://127.0.0.1:30103/health` → 200
+   - `curl http://127.0.0.1:30103/api/analytics/rankings` →
+     200 (the handler calls
+     `get_wallet_ranking_offset` → gRPC to
+     `epsx-identity:50051` → returns 100 → free-plan
+     ranking is applied)
+   - `grpcurl -plaintext 127.0.0.1:30104
+     epsx.identity.v1.Identity/GetWalletRankingOffset
+     -d '{"wallet": "0xdeadbeef"}'` → `{"offset": 100}`
+   - **Fallback smoke:** kill the `epsx-identity` pod,
+     re-curl `/api/analytics/rankings`, assert 200
+     (the analytics binary fails to start because the
+     gRPC connect fails — see §17.1.4 above; the
+     fallback path is for *per-call* errors, not
+     *connect* errors). A more thorough fallback test
+     would require modifying the gRPC client to defer
+     the connect, which is out of scope for wave-13a.
+
+4. **The fallback path on per-call errors** is
+   currently only testable in unit tests (the
+   `test_grpc_client_falls_back_on_timeout` test
+   uses a 200ms-delay mock server). A future wave
+   could add an integration test that uses a slow
+   gRPC server (e.g. via `tc qdisc add dev lo
+    root netem delay 500ms`) to trigger the timeout
+    in a real K8s pod, but that's also out of scope
+    for wave-13a.

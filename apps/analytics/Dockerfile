@@ -18,7 +18,16 @@ FROM rust:slim-bookworm AS builder
 WORKDIR /workspace
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    pkg-config libssl-dev libpq-dev ca-certificates && rm -rf /var/lib/apt/lists/*
+    pkg-config libssl-dev libpq-dev ca-certificates \
+    # wave-13a Track B: `tonic-build` (invoked from
+    # `apps/analytics/build.rs`) shells out to `protoc`
+    # at compile time. The wave-12 Dockerfile didn't need
+    # it (no proto schema). Track A's
+    # `epsx-identity-service` Dockerfile hit this same
+    # trap and added it in its second commit — Track B
+    # adds it here in the same pass.
+    protobuf-compiler \
+    && rm -rf /var/lib/apt/lists/*
 
 ENV CARGO_TARGET_DIR=/workspace/target
 

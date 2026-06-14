@@ -26,11 +26,13 @@ images:
     newTag: dev
   - name: epsx-admin-frontend
     newTag: dev
-  # wave12(integration): the new epsx-analytics binary uses a
-  # per-wave image tag rather than `dev` to keep the analytics
-  # cutover traceable across waves.
+  # wave13a(integration): bumped analytics tag from
+  # `:wave12-dev` to `:wave13a-dev` so the dev overlay
+  # runs the wave-13a gRPC-client binary (the in-process
+  # stub was swapped for `GrpcWalletRankingOffsetQuery`).
+  # Identity already at `:wave13a-dev` from Track A.
   - name: epsx-analytics
-    newTag: wave12-dev
+    newTag: wave13a-dev
   # wave13a(track-a): the new epsx-identity binary uses a
   # per-wave image tag (`:wave13a-dev`) to keep the identity
   # cutover traceable across waves. Mirrors the wave-12
