@@ -54,6 +54,9 @@ fn RenderDashboard(ctx: PageContext) -> Element {
                     AdminPulseHeader {}
                     // 5-up stat row (AdminStatsCards).
                     AdminStatsCards {}
+                    // Operational Modules — 6-card bento grid (port of
+                    // `dashboard-bento-tools.tsx`).
+                    OperationalModulesBento {}
                     // WalletsByChain — donut + per-chain legend.
                     WalletsByChain {}
                     // ActivityStream + RecentTransactions + SystemAlerts in a 3-col grid.
@@ -108,6 +111,169 @@ fn AdminPulseHeader() -> Element {
                         div { class: "px-4 text-center",
                             div { class: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1", "Alerts" }
                             div { class: "font-mono font-bold text-warning", "0" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ===== OperationalModulesBento ==============================================
+//
+// Port of `dashboard-bento-tools.tsx` (121 LoC) — 6-card bento grid
+// linking to the main operational modules (Wallet Database, Security
+// & Perms, Global Audit Log, Broadcast Hub, Dev Infrastructure,
+// Settings). Each card shows: icon, status pill, title, description.
+//
+// Layout: 3-col responsive grid; 2 cards span 2 cols; Security card
+// spans 2 rows.
+
+#[component]
+fn OperationalModulesBento() -> Element {
+    rsx! {
+        div { class: "admin-bento-tools mt-6",
+            div { class: "mb-4 flex items-center justify-between",
+                h2 { class: "text-sm font-bold text-muted-foreground uppercase tracking-widest",
+                    "Operational Modules"
+                }
+            }
+            div { class: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-[220px]",
+                // Wallet Database — 2 cols, 1 row
+                a { class: "group relative overflow-hidden rounded-2xl border border-border/20 bg-card/60 backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_30px_-5px_rgba(255,255,255,0.1)] hover:border-white/20 col-span-1 lg:col-span-2 row-span-1 flex flex-col",
+                    href: "/wallet-management",
+                    div { class: "absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 opacity-50 transition-opacity group-hover:opacity-100" }
+                    div { class: "relative p-6 flex flex-col h-full z-10",
+                        div { class: "flex justify-between items-start mb-4",
+                            div { class: "p-3 rounded-xl bg-background/50 border border-white/5 backdrop-blur-md shadow-inner text-cyan-400",
+                                Icon { name: "wallet".to_string(), size: Some(24) }
+                            }
+                            div { class: "text-[10px] font-mono uppercase tracking-widest px-3 py-1 bg-background/50 border border-white/5 rounded-full text-cyan-400",
+                                "1,247 Registered"
+                            }
+                        }
+                        div { class: "mt-auto",
+                            h3 { class: "text-xl sm:text-2xl font-black tracking-tight text-foreground mb-2 group-hover:text-white transition-colors",
+                                "Wallet Database"
+                            }
+                            p { class: "text-sm font-medium text-muted-foreground line-clamp-3 leading-relaxed",
+                                "Deep inspect connected wallets, view connection history, and force disconnect active sessions."
+                            }
+                        }
+                    }
+                }
+                // Security & Perms — 1 col, 2 rows
+                a { class: "group relative overflow-hidden rounded-2xl border border-border/20 bg-card/60 backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_30px_-5px_rgba(255,255,255,0.1)] hover:border-white/20 col-span-1 row-span-2 flex flex-col",
+                    href: "/wallet-management/access",
+                    div { class: "absolute inset-0 bg-gradient-to-br from-purple-500/20 to-fuchsia-500/20 opacity-50 transition-opacity group-hover:opacity-100" }
+                    div { class: "relative p-6 flex flex-col h-full z-10",
+                        div { class: "flex justify-between items-start mb-4",
+                            div { class: "p-3 rounded-xl bg-background/50 border border-white/5 backdrop-blur-md shadow-inner text-purple-400",
+                                Icon { name: "shield".to_string(), size: Some(24) }
+                            }
+                            div { class: "text-[10px] font-mono uppercase tracking-widest px-3 py-1 bg-background/50 border border-white/5 rounded-full text-purple-400",
+                                "24 Active Nodes"
+                            }
+                        }
+                        div { class: "mt-auto",
+                            h3 { class: "text-xl sm:text-2xl font-black tracking-tight text-foreground mb-2 group-hover:text-white transition-colors",
+                                "Security & Perms"
+                            }
+                            p { class: "text-sm font-medium text-muted-foreground line-clamp-3 leading-relaxed",
+                                "Critical access control. Manage robust permissions across all modules."
+                            }
+                        }
+                    }
+                }
+                // Global Audit Log — 1 col, 1 row
+                a { class: "group relative overflow-hidden rounded-2xl border border-border/20 bg-card/60 backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_30px_-5px_rgba(255,255,255,0.1)] hover:border-white/20 col-span-1 row-span-1 flex flex-col",
+                    href: "/audit-log",
+                    div { class: "absolute inset-0 bg-gradient-to-br from-pink-500/20 to-rose-500/20 opacity-50 transition-opacity group-hover:opacity-100" }
+                    div { class: "relative p-6 flex flex-col h-full z-10",
+                        div { class: "flex justify-between items-start mb-4",
+                            div { class: "p-3 rounded-xl bg-background/50 border border-white/5 backdrop-blur-md shadow-inner text-pink-400",
+                                Icon { name: "file-text".to_string(), size: Some(24) }
+                            }
+                            div { class: "text-[10px] font-mono uppercase tracking-widest px-3 py-1 bg-background/50 border border-white/5 rounded-full text-pink-400",
+                                "Monitoring Active"
+                            }
+                        }
+                        div { class: "mt-auto",
+                            h3 { class: "text-xl sm:text-2xl font-black tracking-tight text-foreground mb-2 group-hover:text-white transition-colors",
+                                "Global Audit Log"
+                            }
+                            p { class: "text-sm font-medium text-muted-foreground line-clamp-3 leading-relaxed",
+                                "Immutable history of all administrative cross-system actions."
+                            }
+                        }
+                    }
+                }
+                // Broadcast Hub — 1 col, 1 row
+                a { class: "group relative overflow-hidden rounded-2xl border border-border/20 bg-card/60 backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_30px_-5px_rgba(255,255,255,0.1)] hover:border-white/20 col-span-1 row-span-1 flex flex-col",
+                    href: "/notifications",
+                    div { class: "absolute inset-0 bg-gradient-to-br from-amber-500/20 to-orange-500/20 opacity-50 transition-opacity group-hover:opacity-100" }
+                    div { class: "relative p-6 flex flex-col h-full z-10",
+                        div { class: "flex justify-between items-start mb-4",
+                            div { class: "p-3 rounded-xl bg-background/50 border border-white/5 backdrop-blur-md shadow-inner text-amber-400",
+                                Icon { name: "bell".to_string(), size: Some(24) }
+                            }
+                            div { class: "text-[10px] font-mono uppercase tracking-widest px-3 py-1 bg-background/50 border border-white/5 rounded-full text-amber-400",
+                                "3 Pending Broadcasts"
+                            }
+                        }
+                        div { class: "mt-auto",
+                            h3 { class: "text-xl sm:text-2xl font-black tracking-tight text-foreground mb-2 group-hover:text-white transition-colors",
+                                "Broadcast Hub"
+                            }
+                            p { class: "text-sm font-medium text-muted-foreground line-clamp-3 leading-relaxed",
+                                "Push critical system alerts and global updates."
+                            }
+                        }
+                    }
+                }
+                // Dev Infrastructure — 2 cols, 1 row
+                a { class: "group relative overflow-hidden rounded-2xl border border-border/20 bg-card/60 backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_30px_-5px_rgba(255,255,255,0.1)] hover:border-white/20 col-span-1 lg:col-span-2 row-span-1 flex flex-col",
+                    href: "/developer-portal",
+                    div { class: "absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 opacity-50 transition-opacity group-hover:opacity-100" }
+                    div { class: "relative p-6 flex flex-col h-full z-10",
+                        div { class: "flex justify-between items-start mb-4",
+                            div { class: "p-3 rounded-xl bg-background/50 border border-white/5 backdrop-blur-md shadow-inner text-emerald-400",
+                                Icon { name: "database".to_string(), size: Some(24) }
+                            }
+                            div { class: "text-[10px] font-mono uppercase tracking-widest px-3 py-1 bg-background/50 border border-white/5 rounded-full text-emerald-400",
+                                "SYS_OK"
+                            }
+                        }
+                        div { class: "mt-auto",
+                            h3 { class: "text-xl sm:text-2xl font-black tracking-tight text-foreground mb-2 group-hover:text-white transition-colors",
+                                "Dev Infrastructure"
+                            }
+                            p { class: "text-sm font-medium text-muted-foreground line-clamp-3 leading-relaxed",
+                                "Manage system API keys, global integrations and webhooks."
+                            }
+                        }
+                    }
+                }
+                // Settings — 1 col, 1 row
+                a { class: "group relative overflow-hidden rounded-2xl border border-border/20 bg-card/60 backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_30px_-5px_rgba(255,255,255,0.1)] hover:border-white/20 col-span-1 row-span-1 flex flex-col",
+                    href: "/settings",
+                    div { class: "absolute inset-0 bg-gradient-to-br from-slate-500/20 to-gray-500/20 opacity-50 transition-opacity group-hover:opacity-100" }
+                    div { class: "relative p-6 flex flex-col h-full z-10",
+                        div { class: "flex justify-between items-start mb-4",
+                            div { class: "p-3 rounded-xl bg-background/50 border border-white/5 backdrop-blur-md shadow-inner text-slate-400",
+                                Icon { name: "settings".to_string(), size: Some(24) }
+                            }
+                            div { class: "text-[10px] font-mono uppercase tracking-widest px-3 py-1 bg-background/50 border border-white/5 rounded-full text-slate-400",
+                                "V2.4.0"
+                            }
+                        }
+                        div { class: "mt-auto",
+                            h3 { class: "text-xl sm:text-2xl font-black tracking-tight text-foreground mb-2 group-hover:text-white transition-colors",
+                                "Settings"
+                            }
+                            p { class: "text-sm font-medium text-muted-foreground line-clamp-3 leading-relaxed",
+                                "Core Platform config."
+                            }
                         }
                     }
                 }
@@ -434,6 +600,7 @@ mod tests {
         let html = dioxus_ssr::render_element(el);
         for marker in &[
             "admin-stats-cards",
+            "admin-bento-tools",
             "wallets-by-chain",
             "recent-transactions",
             "system-alerts",

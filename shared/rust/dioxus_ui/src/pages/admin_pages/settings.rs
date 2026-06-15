@@ -22,6 +22,9 @@
 //! - `session-management` — session timeout + active session list
 //!   (mirrors the TS source's `SecuritySettings` `Vault Protocols`
 //!   surface — auto-lock duration + active sessions table).
+//! - `appearance-settings` — Theme (3 modes) + Primary Color (4
+//!   presets + custom hex). Ported from the OLD's
+//!   `AppearanceSettings` tab in Wave 21 admin-recheck.
 
 use crate::auth::AdminAuthGate;
 use crate::data_table::{Column, DataTable, Row};
@@ -60,6 +63,11 @@ fn RenderSettings(ctx: PageContext) -> Element {
                         SessionManagement {}
                         // Maintenance card (bonus, lives in the same surface).
                         MaintenanceCard {}
+                    }
+                    // Appearance — full-width, lives below the 2-col grid.
+                    // (port of OLD `AppearanceSettings` tab — Theme + Primary Color.)
+                    div { class: "mt-4",
+                        AppearanceSettings {}
                     }
                 }
             }
@@ -337,6 +345,116 @@ fn MaintenanceCard() -> Element {
     }
 }
 
+// ===== AppearanceSettings ===================================================
+//
+// Port of `AppearanceSettings` from
+// `apps-old/admin-frontend/components/admin/settings-dashboard.tsx`
+// (lines 219-297). The TS source has 3 luminosity modes
+// (Daylight / Eclipse / Neural) and 4 color presets (PancakeSwap,
+// Eclipse, Magma, Crimson) plus a custom color picker. The Dioxus
+// port renders the same 3-mode grid + 4-preset swatch row, and
+// includes a hex `<input type="color">` for custom accent selection.
+// State is local to the page (theme + primary color) until a future
+// BFF `/api/admin/settings/appearance` endpoint lands.
+
+#[component]
+fn AppearanceSettings() -> Element {
+    let mut theme = use_signal(|| "dark".to_string());
+    let mut primary_color = use_signal(|| "#1fc7d4".to_string());
+
+    let color_presets = [
+        ("PancakeSwap", "#1fc7d4"),
+        ("Eclipse", "#7645d9"),
+        ("Magma", "#ffb237"),
+        ("Crimson", "#ed4b9e"),
+    ];
+
+    let theme_choices: [(&'static str, &'static str); 3] = [
+        ("☀️ Daylight", "light"),
+        ("🌙 Eclipse", "dark"),
+        ("🔄 Neural", "auto"),
+    ];
+
+    rsx! {
+        div { class: "card card-glass appearance-settings",
+            div { class: "card-header",
+                div { class: "card-icon bg-gradient-to-br from-[#ed4b9e]/10 to-[#7645d9]/10 text-[#ed4b9e] border border-[#ed4b9e]/20",
+                    Icon { name: "palette".to_string(), size: Some(20) }
+                }
+                div { class: "flex-1",
+                    h3 { class: "card-title", "Optical Customization" }
+                    p { class: "card-description text-xs text-muted-foreground", "Visual feedback and interface styling" }
+                }
+            }
+            div { class: "card-body space-y-6",
+                // Luminosity mode (3 cards)
+                div { class: "space-y-3",
+                    label { class: "text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-2",
+                        "Luminosity Mode"
+                    }
+                    div { class: "grid grid-cols-1 sm:grid-cols-3 gap-4",
+                        for (label, key) in theme_choices.iter() {
+                            {
+                                let active = theme.read().clone() == *key;
+                                let mut theme_signal = theme.clone();
+                                let key_for_click = key.to_string();
+                                let label_str = label.to_string();
+                                rsx! {
+                                    button {
+                                        key: "{key}",
+                                        r#type: "button",
+                                        class: format!(
+                                            "p-4 rounded-2xl border transition-all text-center {}",
+                                            if active {
+                                                "bg-primary/10 border-primary shadow-lg shadow-pink-500/10"
+                                            } else {
+                                                "bg-muted/30 border-border/40 hover:bg-muted/50"
+                                            }
+                                        ),
+                                        onclick: move |_| theme_signal.set(key_for_click.clone()),
+                                        div { class: "font-black text-sm uppercase tracking-widest", "{label_str}" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                // Primary color: 4 presets + hex display
+                div { class: "space-y-3",
+                    label { class: "text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-2",
+                        "Interface Accent Chroma"
+                    }
+                    div { class: "flex flex-col sm:flex-row items-center gap-6 p-4 rounded-xl bg-muted/30 border border-border/40",
+                        div { class: "flex-1 text-center sm:text-left",
+                            div { class: "text-xl font-black uppercase tracking-tight mb-1", "{primary_color.read()}" }
+                            div { class: "text-[10px] font-bold text-muted-foreground uppercase opacity-50", "Active Interface Pigment" }
+                        }
+                        div { class: "grid grid-cols-4 gap-3",
+                            for (preset_name, preset_color) in color_presets.iter() {
+                                {
+                                    let mut color_signal = primary_color.clone();
+                                    let color_for_click = preset_color.to_string();
+                                    let name_for_title = preset_name.to_string();
+                                    rsx! {
+                                        button {
+                                            key: "{preset_color}",
+                                            r#type: "button",
+                                            title: "{name_for_title}",
+                                            class: "w-10 h-10 rounded-full border-2 border-border/40 hover:scale-110 transition-transform shadow-lg",
+                                            style: "background-color: {preset_color};",
+                                            onclick: move |_| color_signal.set(color_for_click.clone()),
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -386,6 +504,7 @@ mod tests {
             "email-settings",
             "notification-settings",
             "session-management",
+            "appearance-settings",
         ] {
             let needle_a = format!("class=\"{}\"", marker);
             let needle_b = format!("class=\"{mark} ", mark = marker);

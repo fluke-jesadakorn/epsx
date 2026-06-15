@@ -64,8 +64,10 @@ REPO_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 OLD_FRONTEND_DIR=$REPO_ROOT/apps-old/frontend
 OLD_ADMIN_DIR=$REPO_ROOT/apps-old/admin-frontend
 STUB_SRC=$REPO_ROOT/scripts/old-stubs/@tailwindcss/typography
-REACT_MARKDOWN_STUB_SRC=$REPO_ROOT/scripts/old-stubs/react-markdown
-REMARK_GFM_STUB_SRC=$REPO_ROOT/scripts/old-stubs/remark-gfm
+# The other stubs (react-markdown, remark-gfm, micromark,
+# micromark-extension-gfm) are discovered dynamically via
+# install_old_stub() below, which resolves the path under
+# $REPO_ROOT/scripts/old-stubs/<name>/ at call time.
 
 # Default ports — chosen to avoid the K8s cluster (30000/30001/30080),
 # the prod bridges (4700/4701/9180), the new Dioxus dev loop
@@ -204,13 +206,18 @@ ensure_deps() {
   # pnpm could blow it away on a re-install. The stub is a small
   # no-op Tailwind plugin; see scripts/old-stubs/@tailwindcss/typography/.
   install_typography_stub "$dir"
-  # Same story for react-markdown + remark-gfm — imported by
-  # apps-old/frontend/components/news/news-detail.tsx but never
-  # declared in the OLD app's package.json. The stubs render raw
-  # markdown as <pre> so the news article body is at least
-  # inspectable. See scripts/old-stubs/{react-markdown,remark-gfm}/.
-  install_react_markdown_stub "$dir"
-  install_remark_gfm_stub "$dir"
+  # Same story for the news/markdown stubs — `react-markdown` and
+  # `remark-gfm` are imported by apps-old/frontend/components/news/news-detail.tsx
+  # but never declared in the OLD app's package.json; `micromark` and
+  # `micromark-extension-gfm` are imported by components/news/news-editor.tsx
+  # but hoisted in the OLD monorepo. All four stubs are no-ops that
+  # return safe defaults; without them, /news/* 500s. The general
+  # install_old_stub() helper handles all of them. See
+  # scripts/old-stubs/{react-markdown,remark-gfm,micromark,micromark-extension-gfm}/.
+  install_old_stub "$dir" "react-markdown"
+  install_old_stub "$dir" "remark-gfm"
+  install_old_stub "$dir" "micromark"
+  install_old_stub "$dir" "micromark-extension-gfm"
 }
 
 install_typography_stub() {
@@ -226,30 +233,26 @@ install_typography_stub() {
   log "typography stub installed at $dest (no-op plugin; see stub docstring)"
 }
 
-install_react_markdown_stub() {
+# Generic OLD-app stub installer. Copies scripts/old-stubs/<name>/{package.json,src/index.js}
+# into <dir>/node_modules/<name>/. Used for missing-but-imported deps that
+# were hoisted in the OLD monorepo (micromark, micromark-extension-gfm) or
+# imported but never declared in the OLD app's package.json (react-markdown,
+# remark-gfm). The stubs are no-ops that return safe defaults so the OLD
+# dev server boots; pages render but with stubbed behavior for the
+# affected feature (see each stub's docstring).
+install_old_stub() {
   local dir=$1
-  local dest=$dir/node_modules/react-markdown
-  if [ ! -d "$REACT_MARKDOWN_STUB_SRC/src" ]; then
-    warn "stub source $REACT_MARKDOWN_STUB_SRC not found; skipping (OLD /news/[slug] may 500)"
+  local name=$2
+  local src="$REPO_ROOT/scripts/old-stubs/$name"
+  local dest="$dir/node_modules/$name"
+  if [ ! -d "$src/src" ]; then
+    warn "stub source $src not found; skipping"
     return 0
   fi
   mkdir -p "$dest/src"
-  cp -f "$REACT_MARKDOWN_STUB_SRC/package.json" "$dest/package.json"
-  cp -f "$REACT_MARKDOWN_STUB_SRC/src/index.js" "$dest/src/index.js"
-  log "react-markdown stub installed at $dest (renders <pre>; see stub docstring)"
-}
-
-install_remark_gfm_stub() {
-  local dir=$1
-  local dest=$dir/node_modules/remark-gfm
-  if [ ! -d "$REMARK_GFM_STUB_SRC/src" ]; then
-    warn "stub source $REMARK_GFM_STUB_SRC not found; skipping"
-    return 0
-  fi
-  mkdir -p "$dest/src"
-  cp -f "$REMARK_GFM_STUB_SRC/package.json" "$dest/package.json"
-  cp -f "$REMARK_GFM_STUB_SRC/src/index.js" "$dest/src/index.js"
-  log "remark-gfm stub installed at $dest (no-op passthrough; see stub docstring)"
+  cp -f "$src/package.json" "$dest/package.json"
+  cp -f "$src/src/index.js" "$dest/src/index.js"
+  log "stub installed at $dest (no-op; see $src/src/index.js docstring)"
 }
 
 # ──────────────────────────────────────────────────────────────────────

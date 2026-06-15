@@ -17,13 +17,20 @@
 //! 4. `ApiKeyRevokeModal` — the revoke confirmation modal.
 //!    Mirrors the inline `<ApiKeyManager>` `onRevoke` handler
 //!    from the source.
+//! 4b. `ApiKeyEditExpirationModal` — the edit-expiration modal
+//!     (port of OLD's `EditExpirationModal` from
+//!     `components/admin/developer-portal/modals/edit-expiration-modal.tsx`).
+//!     Added in wave21 admin-recheck — per-key expiration edit
+//!     with quick presets (7/30/90/365 days) + custom datetime
+//!     + "remove expiration" toggle.
 //! 5. `UsageAnalyticsTab` — the 7-day API call chart +
 //!    per-key breakdown. Mirrors
 //!    `components/admin/developer-portal/usage-analytics.tsx`.
 //! 6. `DocumentationTab` — the API docs viewer with
-//!    authentication, endpoints, modules, errors sections.
-//!    Mirrors
+//!    authentication, endpoints, modules, errors, rate-limits
+//!    sections. Mirrors
 //!    `components/admin/developer-portal/documentation-viewer.tsx`.
+//!    (Rate Limits section added in wave21 admin-recheck.)
 //! 7. `DeveloperPortalStats` — the stat-card row reused by
 //!    the overview (4 cards: total / active / requests /
 //!    modules). Implemented via the Wave 6B
@@ -215,15 +222,38 @@ fn ModuleCard(display_name: String, name: String, category: String, status: Stri
 #[component]
 fn ApiKeysTab() -> Element {
     let columns = vec![
-        Column { key: "name".into(), label: "Name".into(), sortable: true, align: crate::primitives::data_table::Align::Left, width: Some("30%".into()), class_name: None },
-        Column { key: "key".into(), label: "Key".into(), sortable: false, align: crate::primitives::data_table::Align::Left, width: Some("40%".into()), class_name: None },
-        Column { key: "created".into(), label: "Created".into(), sortable: true, align: crate::primitives::data_table::Align::Left, width: Some("15%".into()), class_name: None },
-        Column { key: "last_used".into(), label: "Last used".into(), sortable: true, align: crate::primitives::data_table::Align::Right, width: Some("15%".into()), class_name: None },
+        Column { key: "name".into(), label: "Name / Client".into(), sortable: true, align: crate::primitives::data_table::Align::Left, width: Some("20%".into()), class_name: None },
+        Column { key: "key".into(), label: "API Key".into(), sortable: false, align: crate::primitives::data_table::Align::Left, width: Some("20%".into()), class_name: None },
+        Column { key: "scope".into(), label: "Scope".into(), sortable: true, align: crate::primitives::data_table::Align::Left, width: Some("15%".into()), class_name: None },
+        Column { key: "expires".into(), label: "Expires".into(), sortable: true, align: crate::primitives::data_table::Align::Left, width: Some("15%".into()), class_name: None },
+        Column { key: "status".into(), label: "Status".into(), sortable: true, align: crate::primitives::data_table::Align::Left, width: Some("15%".into()), class_name: None },
+        Column { key: "actions".into(), label: "Actions".into(), sortable: false, align: crate::primitives::data_table::Align::Right, width: Some("15%".into()), class_name: None },
     ];
     let rows = vec![
-        Row { id: "1".into(), cells: vec!["Production".into(), "epsx_live_xxxxxxxxxxxxx".into(), "2024-08-01".into(), "5 min ago".into()] },
-        Row { id: "2".into(), cells: vec!["Staging".into(), "epsx_test_xxxxxxxxxxxxx".into(), "2024-08-15".into(), "1 hour ago".into()] },
-        Row { id: "3".into(), cells: vec!["Dev".into(), "epsx_dev_xxxxxxxxxxxxxxxx".into(), "2024-09-01".into(), "Just now".into()] },
+        Row { id: "1".into(), cells: vec![
+            "Production".into(),
+            "epsx_live_xxxxxxxxxxxxx".into(),
+            "Portfolio, Payments".into(),
+            "2025-12-31".into(),
+            "active".into(),
+            "Revoke · Edit exp".into(),
+        ]},
+        Row { id: "2".into(), cells: vec![
+            "Staging".into(),
+            "epsx_test_xxxxxxxxxxxxx".into(),
+            "Portfolio".into(),
+            "Never".into(),
+            "active".into(),
+            "Revoke · Edit exp".into(),
+        ]},
+        Row { id: "3".into(), cells: vec![
+            "Dev".into(),
+            "epsx_dev_xxxxxxxxxxxxxxxx".into(),
+            "Analytics".into(),
+            "2024-10-01".into(),
+            "expired".into(),
+            "Revoke · Edit exp".into(),
+        ]},
     ];
     rsx! {
         div { class: "space-y-4 api-keys-tab",
@@ -233,6 +263,21 @@ fn ApiKeysTab() -> Element {
                     p { class: "text-sm text-muted-foreground", "Create and manage API keys for third-party integrations" }
                 }
                 a { class: "btn btn-primary", href: "/developer-portal/api-keys/create", Icon { name: "plus".to_string(), size: Some(16) } " Create API key" }
+            }
+            // Status filter pills (all / active / revoked / expired)
+            // mirroring the OLD's 4-tab filter bar.
+            div { class: "flex bg-muted/30 border border-border/20 rounded-xl p-1 w-fit",
+                {(["all", "active", "revoked", "expired"]).iter().map(|status| {
+                    let status_str = status.to_string();
+                    rsx! {
+                        button {
+                            key: "{status}",
+                            r#type: "button",
+                            class: "px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all",
+                            "{status}"
+                        }
+                    }
+                })}
             }
             DataTable {
                 columns,
@@ -393,6 +438,87 @@ fn ApiKeyRevokeModal(client_name: String) -> Element {
     }
 }
 
+// ===== ApiKeyEditExpirationModal ============================================
+//
+// Port of `EditExpirationModal` from
+// `apps-old/admin-frontend/components/admin/developer-portal/modals/edit-expiration-modal.tsx`
+// (lines 81-205). Used to update a key's expiration date. Mirrors
+// the OLD's: KeyInfo card (client_name + current expiration),
+// PresetButtons (7/30/90/365 day presets), datetime-local input,
+// "remove expiration" checkbox, Cancel/Update Expiration buttons.
+
+#[component]
+fn ApiKeyEditExpirationModal(client_name: String, current_expiration: String) -> Element {
+    rsx! {
+        div { class: "alert-dialog api-key-edit-expiration-modal",
+            div { class: "alert-dialog-content",
+                div { class: "alert-dialog-header",
+                    h2 { class: "alert-dialog-title",
+                        Icon { name: "calendar".to_string(), size: Some(20), class_name: Some("text-blue-400".to_string()) }
+                        " Edit Expiration"
+                    }
+                }
+                Form { method: "POST".to_string(), action: "/api/v1/developer/api-keys/update-expiration".to_string(),
+                    input { r#type: "hidden", name: "client_name", value: "{client_name}" }
+                    div { class: "space-y-4",
+                        // KeyInfo — current key + expiration
+                        div { class: "p-4 rounded-lg bg-muted/30 border border-border/40",
+                            div { class: "text-sm space-y-1",
+                                div { class: "flex justify-between",
+                                    span { class: "text-muted-foreground", "API Key:" }
+                                    span { class: "font-medium text-foreground", "{client_name}" }
+                                }
+                                div { class: "flex justify-between",
+                                    span { class: "text-muted-foreground", "Current Expiration:" }
+                                    span { class: "font-medium text-foreground",
+                                        if current_expiration.is_empty() { "Never" } else { "{current_expiration}" }
+                                    }
+                                }
+                            }
+                        }
+                        // Quick Presets
+                        div {
+                            label { class: "block text-sm font-medium text-muted-foreground mb-2", "Quick Presets" }
+                            div { class: "flex flex-wrap gap-2",
+                                button { class: "btn btn-sm btn-outline", r#type: "button", "7 Days" }
+                                button { class: "btn btn-sm btn-outline", r#type: "button", "30 Days" }
+                                button { class: "btn btn-sm btn-outline", r#type: "button", "90 Days" }
+                                button { class: "btn btn-sm btn-outline", r#type: "button", "1 Year" }
+                            }
+                        }
+                        // Custom date
+                        div {
+                            label { class: "block text-sm font-medium text-muted-foreground mb-2", "Custom Expiration Date" }
+                            input {
+                                r#type: "datetime-local",
+                                name: "expires_at",
+                                class: "input w-full",
+                            }
+                        }
+                        // Remove-expiration checkbox
+                        div { class: "flex items-center gap-2",
+                            input {
+                                r#type: "checkbox",
+                                id: "remove-expiration",
+                                name: "remove_expiration",
+                                value: "1",
+                                class: "w-4 h-4",
+                            }
+                            label { r#for: "remove-expiration", class: "text-sm text-muted-foreground",
+                                "Remove expiration (key never expires)"
+                            }
+                        }
+                    }
+                    FormActions {
+                        a { class: "btn btn-outline", href: "/developer-portal", "Cancel" }
+                        button { class: "btn btn-primary", r#type: "submit", "Update Expiration" }
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ============================================================================
 // Section 5: UsageAnalyticsTab
 // ============================================================================
@@ -519,6 +645,25 @@ fn DocumentationTab() -> Element {
                     }
                 }
             }
+            // Rate Limits — port of OLD's `RateLimitsSection` (5-tier
+            // hourly/daily limits). Added in wave21 admin-recheck.
+            div { class: "card card-glass",
+                div { class: "card-body",
+                    h3 { class: "text-lg font-semibold mb-2", "Rate Limits" }
+                    p { class: "text-sm text-muted-foreground mb-3",
+                        "API access is tier-gated. Each tier grants a per-hour and per-day request budget."
+                    }
+                    div { class: "bg-warning/10 border border-warning/20 rounded-lg p-4",
+                        div { class: "space-y-2 text-sm",
+                            div { strong { "Bronze:" } " 100 requests/hour, 1,000 requests/day" }
+                            div { strong { "Silver:" } " 500 requests/hour, 5,000 requests/day" }
+                            div { strong { "Gold:" } " 2,000 requests/hour, 20,000 requests/day" }
+                            div { strong { "Platinum:" } " 10,000 requests/hour, 100,000 requests/day" }
+                            div { strong { "Enterprise:" } " Unlimited (fair usage policy)" }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -611,8 +756,9 @@ fn RenderCreateKey(ctx: PageContext) -> Element {
 //   2. "API keys tab"              → "API key management" + DataTable
 //   3. "API key create form"       → "Create API key" + "Module permissions"
 //   4. "API key revoke modal"      → "Revoke API key?"
+//   4b. "API key edit expiration modal" → "Edit Expiration" + "Quick Presets" + "Remove expiration" (added in wave21 admin-recheck)
 //   5. "Usage analytics tab"      → "API calls (7d)" + per-key cards
-//   6. "Documentation tab"         → "Authentication" + "Endpoints" + "Modules"
+//   6. "Documentation tab"         → "Authentication" + "Endpoints" + "Modules" + "Errors" + "Rate Limits" (Rate Limits added in wave21 admin-recheck)
 //   7. "Developer portal stats"    → "Total API keys" / "Active keys" / "Total requests" / "Available modules"
 // ============================================================================
 
@@ -704,6 +850,14 @@ mod tests {
         let html = render_to_string(el);
         assert!(html.contains("Revoke API key?"), "section 4 (ApiKeyRevokeModal) marker missing");
 
+        // Section 4b: ApiKeyEditExpirationModal (port of OLD's
+        // EditExpirationModal — added in wave21 admin-recheck).
+        let el = rsx! { ApiKeyEditExpirationModal { client_name: "Production".to_string(), current_expiration: "2025-12-31".to_string() } };
+        let html = render_to_string(el);
+        assert!(html.contains("Edit Expiration"), "section 4b (ApiKeyEditExpirationModal) marker missing");
+        assert!(html.contains("Quick Presets"), "section 4b 'Quick Presets' label missing");
+        assert!(html.contains("Remove expiration"), "section 4b 'Remove expiration' checkbox missing");
+
         // Section 5: UsageAnalyticsTab.
         let el = rsx! { UsageAnalyticsTab {} };
         let html = render_to_string(el);
@@ -717,6 +871,7 @@ mod tests {
         assert!(html.contains("Authentication"), "section 6 'Authentication' section missing");
         assert!(html.contains("Endpoints"), "section 6 'Endpoints' section missing");
         assert!(html.contains("Modules"), "section 6 'Modules' section missing");
+        assert!(html.contains("Rate Limits"), "section 6 'Rate Limits' section missing (added in wave21 admin-recheck)");
     }
 
     /// The create-key page renders the form, not the gate panel,

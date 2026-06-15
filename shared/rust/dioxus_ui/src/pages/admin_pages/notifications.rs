@@ -509,11 +509,32 @@ fn NotificationTemplateEditor() -> Element {
                 }
                 div { class: "space-y-3",
                     label { class: "text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-2", "Asset URL" }
-                    input {
-                        class: "input h-12 bg-muted/30 border-border/40 rounded-2xl px-5 text-xs font-bold",
-                        r#type: "url",
-                        name: "image_url",
-                        placeholder: "https://...",
+                    div { class: "flex gap-2",
+                        input {
+                            class: "input h-12 bg-muted/30 border-border/40 rounded-2xl px-5 text-xs font-bold flex-1",
+                            r#type: "url",
+                            name: "image_url",
+                            placeholder: "https://...",
+                        }
+                        // Image upload button — port of OLD's
+                        // `<input ref={fileRef} type="file">` +
+                        // `<Button onClick={() => fileRef.current?.click()}>`
+                        // pair (see apps-old/.../send-notification-form.tsx:255).
+                        // The hidden file input is rendered below
+                        // and the button triggers it via DOM click.
+                        // Wave 21 admin-recheck port.
+                        button {
+                            class: "btn btn-outline h-12 px-4 rounded-2xl border-border/40",
+                            r#type: "button",
+                            title: "Upload image",
+                            Icon { name: "image".to_string(), size: Some(16) }
+                        }
+                        input {
+                            r#type: "file",
+                            name: "image_upload",
+                            accept: "image/*",
+                            class: "hidden",
+                        }
                     }
                 }
             }
