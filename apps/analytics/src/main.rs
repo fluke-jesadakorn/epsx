@@ -469,15 +469,28 @@ async fn main() -> anyhow::Result<()> {
     let local_bus = LocalRankingOffsetBus::new(1024);
     let sse_consumer_bus = local_bus.clone();
 
-    // `reqwest::Client` is the long-lived HTTP client. A
-    // 60s read timeout is generous (SSE streams are
-    // long-lived; we want the read to time out only on
-    // truly hung connections, not on legitimate idle
-    // periods). A future wave 14+ can add a connection
-    // pool size limit + a per-request timeout if the
-    // identity service grows slow.
+    // `reqwest::Client` is the long-lived HTTP client.
+    //
+    // **Wave 15: do NOT set `.timeout(_)` on this client.**
+    // `reqwest::ClientBuilder::timeout()` is the **total
+    // request timeout** — measured from `client.get(url).send()`
+    // until the response body stream ends. For a long-lived
+    // SSE stream that never ends, a 60s timeout kills the
+    // stream at t+60s regardless of activity, and the
+    // cancellation surfaces through hyper's chunked-decoder
+    // as "error decoding response body" (the user-visible
+    // error in the wave-14/14b reports). `reqwest = 0.12`
+    // does NOT expose a separate read-timeout / idle-timeout
+    // knob — the closest is `.connect_timeout()`, which
+    // bounds only the TCP connect phase (a hung TCP
+    // handshake, NOT a slow body). So the right answer is
+    // no client-level timeout for SSE; the consumer's
+    // reconnect logic (`run_sse_consumer` in
+    // `sse_consumer.rs`) handles hung connections via
+    // exponential backoff on `consume_once` errors. The
+    // 20s keepalive ping in the identity service
+    // (`wave14b`) is the liveness check.
     let sse_client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(60))
         .build()
         .context("building reqwest client for SSE consumer")?;
 

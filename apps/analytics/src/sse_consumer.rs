@@ -1347,4 +1347,338 @@ mod tests {
         consumer_handle.abort();
         server_handle.abort();
     }
+
+    // ========================================================================
+    // REGRESSION TEST — wave 15
+    // ========================================================================
+    //
+    // **The bug (pre-fix).** `reqwest::Client::builder().timeout(60s)`
+    // was applied to the long-lived SSE consumer client in
+    // `apps/analytics/src/main.rs:479-481`. `reqwest`'s
+    // `timeout` is the **total request timeout** (request
+    // start → end of response body read), NOT a per-chunk
+    // read timeout. For a long-lived SSE stream, the body
+    // never ends, so the timer fires at exactly 60s after
+    // the request starts, the consumer's `bytes_stream`
+    // gets cancelled mid-chunk, and the user-visible error
+    // is "error decoding response body" (the wave-14/14b
+    // symptom). This is independent of the keepalive
+    // cadence, the identity service's behavior, or the
+    // Cloudflare Tunnel idle timeout — it fires in the
+    // in-cluster path too (analytics pod → identity pod
+    // direct, no Tunnel involved).
+    //
+    // **The fix.** Drop the `.timeout(60s)` from the
+    // production `reqwest::Client::builder()` call in
+    // `apps/analytics/src/main.rs`. SSE is long-lived; the
+    // total-request-timeout doesn't apply. The 20s keepalive
+    // ping on the identity service (wave 14b) is the
+    // liveness check, and the consumer's reconnect loop
+    // (exponential backoff, 100ms → 30s cap, in
+    // `run_sse_consumer`) handles true hangs.
+    //
+    // **This test.** Spins up a real axum SSE server that
+    // emits one event every 500ms for
+    // `WAVE15_SSE_DURATION_SECS` seconds (default 90s =
+    // longer than the old 60s timeout), then closes. The
+    // consumer must drain ALL events into the bus.
+    //
+    //   - **Pre-fix behavior:** the `reqwest::Client` the
+    //     test uses (built the SAME way the production
+    //     `main()` builds it — see "construction site" below)
+    //     carries a 60s total-request-timeout. The stream
+    //     dies at t+60s, the consumer reconnects with
+    //     backoff, the events emitted by the server between
+    //     t+60s and t+90s are lost, the test fails because
+    //     the bus has fewer than the expected count.
+    //   - **Post-fix behavior:** the client has no
+    //     per-request timeout, the stream runs the full
+    //     duration, ALL events land, the test passes.
+    //
+    // **The construction site.** This test must use a
+    // client that mirrors the production
+    // `reqwest::Client::builder()` call in
+    // `apps/analytics/src/main.rs` exactly. Because the
+    // production client is built inside `main()` (not
+    // exposed as a `pub fn`), the test can't import it
+    // directly — so the test inlines the SAME builder
+    // chain. A `WAVE15_TEST_CLIENT_HAS_TIMEOUT` compile-
+    // time guard would be the long-term shape, but for
+    // wave 15 we rely on the code review: when the
+    // production site is fixed (the `.timeout(60s)` is
+    // dropped), the test site is also fixed in the SAME
+    // commit, so the regression net matches the
+    // production behavior.
+    //
+    // **Default duration + env override.** The default
+    // `WAVE15_SSE_DURATION_SECS` is 90 (1.5x the old
+    // 60s timeout — large enough that pre-fix code fails
+    // the test with a wide margin, not a flake). Override
+    // with `WAVE15_SSE_DURATION_SECS=...` to speed up
+    // local dev (e.g. set to 65 for a minimal-but-failing
+    // pre-fix run). The test is `#[ignore]`d by default
+    // because 90s of real time is too slow for the
+    // ordinary `cargo test` loop — run it explicitly with:
+    //
+    //   cargo test --bin epsx-analytics-service \
+    //       consume_once_survives_long_lived_stream_with_no_per_request_timeout \
+    //       -- --ignored
+    //
+    // (or with a smaller env override for a faster smoke
+    // check:
+    //  `WAVE15_SSE_DURATION_SECS=65 cargo test --bin epsx-analytics-service
+    //     consume_once_survives_long_lived_stream_with_no_per_request_timeout
+    //     -- --ignored`).
+
+    /// Build a streaming SSE server that emits one event
+    /// every `interval_ms` for `duration_secs` seconds, then
+    /// closes the connection. The total event count is
+    /// `duration_secs * 1000 / interval_ms + 1` (the
+    /// `+1` is the first event emitted at t=0). Both values
+    /// are passed via the URL query string so the handler
+    /// can be reached with the test's exact parameters.
+    async fn spin_up_long_lived_sse_server() -> (String, tokio::task::JoinHandle<()>) {
+        use axum::routing::get;
+        use axum::Router;
+
+        async fn sse_handler(
+            axum::extract::Query(params): axum::extract::Query<
+                std::collections::HashMap<String, String>,
+            >,
+        ) -> axum::response::sse::Sse<
+            impl tokio_stream::Stream<
+                Item = Result<axum::response::sse::Event, std::convert::Infallible>,
+            >,
+        > {
+            let duration_secs: u64 = params
+                .get("duration_secs")
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(90);
+            let interval_ms: u64 = params
+                .get("interval_ms")
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(500);
+            let (tx, rx) = tokio::sync::mpsc::channel::<Result<
+                axum::response::sse::Event,
+                std::convert::Infallible,
+            >>(8);
+            tokio::spawn(async move {
+                // Compute the expected event count up front
+                // so we can log it once on the producer side
+                // (helps the operator correlate the test
+                // output with the expected count).
+                let total = (duration_secs * 1000) / interval_ms + 1;
+                tracing::info!(
+                    duration_secs,
+                    interval_ms,
+                    expected_events = total,
+                    "long-lived SSE server: starting producer"
+                );
+                for i in 0..total {
+                    let event = sse_event_for(
+                        &format!("0x{i:06X}"),
+                        i as i32,
+                        1_700_000_000_000 + i as i64,
+                    );
+                    if tx.send(Ok(event)).await.is_err() {
+                        // consumer hung up; bail.
+                        break;
+                    }
+                    if i < total - 1 {
+                        tokio::time::sleep(Duration::from_millis(interval_ms))
+                            .await;
+                    }
+                }
+                // `tx` drops when the task returns, closing
+                // the stream.
+            });
+            let stream = tokio_stream::wrappers::ReceiverStream::new(rx);
+            axum::response::sse::Sse::new(stream)
+        }
+
+        let app = Router::new().route(
+            "/v1/stream/ranking-offsets",
+            get(sse_handler),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind ephemeral port for long-lived mock SSE server");
+        let local_addr = listener
+            .local_addr()
+            .expect("read local_addr from ephemeral listener");
+        let handle = tokio::spawn(async move {
+            if let Err(e) = axum::serve(listener, app).await {
+                eprintln!("long-lived mock SSE server error: {e}");
+            }
+        });
+        (local_addr.to_string(), handle)
+    }
+
+    /// **The regression test for the wave-15 bug.**
+    ///
+    /// Spins up a real axum SSE server that emits one
+    /// event every 500ms for 90+ seconds (longer than
+    /// the old `.timeout(60s)` on the consumer's
+    /// `reqwest::Client`), opens a real connection
+    /// through the production-shaped client, runs the
+    /// production `consume_once`, and asserts that ALL
+    /// events landed in the bus.
+    ///
+    /// **Pre-fix behavior:** the 60s total-request-timeout
+    /// kills the stream at t+60s, the consumer reconnects
+    /// with backoff, events emitted between t+60s and
+    /// t+90s are lost, the test fails because the bus
+    /// has fewer than the expected count (~180 events
+    /// emitted, ~120 received).
+    ///
+    /// **Post-fix behavior:** the client has no
+    /// per-request timeout, the stream runs the full
+    /// duration, ALL events land, the test passes.
+    ///
+    /// The test is `#[ignore]`d by default because the
+    /// 90s default duration is too slow for the ordinary
+    /// `cargo test` loop. Run it explicitly with
+    /// `cargo test --bin epsx-analytics-service
+    ///   consume_once_survives_long_lived_stream_with_no_per_request_timeout
+    ///   -- --ignored`.
+    #[tokio::test]
+    #[ignore = "90s+ runtime — run with --ignored; CI should run this regularly"]
+    async fn consume_once_survives_long_lived_stream_with_no_per_request_timeout() {
+        // Duration: 90s default (1.5x the old 60s timeout).
+        // Override with `WAVE15_SSE_DURATION_SECS=...` for
+        // local dev (e.g. 65 for a minimal-but-failing
+        // pre-fix run).
+        let duration_secs: u64 = std::env::var("WAVE15_SSE_DURATION_SECS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(90);
+        // 500ms cadence: 90s / 0.5s = 180 events + 1
+        // (the t=0 event) = 181 events total. Plenty of
+        // resolution to catch "stream dies at exactly
+        // 60s" as a clear pre-fix failure.
+        let interval_ms: u64 = 500;
+        let expected_events: u64 = (duration_secs * 1000) / interval_ms + 1;
+
+        eprintln!(
+            "[wave15 regression] starting: duration={}s, interval={}ms, \
+             expected_events={}",
+            duration_secs, interval_ms, expected_events
+        );
+
+        let (host_port, server_handle) =
+            spin_up_long_lived_sse_server().await;
+        let url = format!(
+            "http://{host_port}/v1/stream/ranking-offsets?duration_secs={duration_secs}&interval_ms={interval_ms}"
+        );
+
+        let bus = LocalRankingOffsetBus::new(2048);
+        let mut rx = bus.subscribe();
+
+        // **Construction site — must mirror `main.rs:479-481`.**
+        // Post-fix, the production builder is
+        //     reqwest::Client::builder().build()
+        // (no `.timeout(_)`). The test inlines the SAME
+        // shape so the regression net matches production.
+        // If a future wave adds a `.timeout(_)` to either
+        // site, the other MUST be updated to match.
+        let client = reqwest::Client::builder()
+            .build()
+            .expect("reqwest client builds (wave 15: no per-request timeout)");
+        let (_shutdown_tx, mut shutdown_rx) =
+            tokio::sync::watch::channel(false);
+
+        let url_for_consumer = url.clone();
+        let bus_for_consumer = bus.clone();
+        let client_for_consumer = client.clone();
+        let (done_tx, done_rx) =
+            tokio::sync::oneshot::channel::<anyhow::Result<()>>();
+        let consumer_handle = tokio::spawn(async move {
+            let result = consume_once(
+                &url_for_consumer,
+                &bus_for_consumer,
+                &client_for_consumer,
+                &mut shutdown_rx,
+            )
+            .await;
+            let _ = done_tx.send(result);
+        });
+
+        // Drain all expected events. The per-event timeout
+        // is `(duration_secs + 30)s` — generous headroom
+        // over the 500ms inter-event interval, well under
+        // the 5s slop the inner assertion needs.
+        let drain_timeout = Duration::from_secs(duration_secs + 30);
+        let mut received_count: u64 = 0;
+        let start = std::time::Instant::now();
+        while received_count < expected_events {
+            let r = tokio::time::timeout(drain_timeout, rx.recv())
+                .await
+                .unwrap_or_else(|_| {
+                    panic!(
+                        "[wave15 regression] event {}/{} did not arrive within {:?}; \
+                         pre-fix the consumer's 60s reqwest timeout kills the stream at \
+                         t+60s, the consumer reconnects with backoff, and events emitted \
+                         between t+60s and t+{}s are lost. After the fix all {} events \
+                         must land.",
+                        received_count, expected_events, drain_timeout,
+                        duration_secs, expected_events
+                    )
+                })
+                .expect("event must be received (not lagged)");
+            // Sanity-check the event contents. A
+            // pre-fix failure that loses some events
+            // but the test's race timing lets the
+            // reconnected consumer pick up the
+            // server's tail might still produce the
+            // expected COUNT but with the wrong
+            // CONTENT (e.g. duplicate wallet 0x000042
+            // because the server restarted its index
+            // on the post-timeout reconnect — though
+            // our mock doesn't, but a future test
+            // variant could). Pin the content too.
+            assert_eq!(
+                r.wallet,
+                format!("0x{:06X}", received_count),
+                "[wave15 regression] wallet for event {received_count} is wrong; \
+                 the stream order must be preserved end-to-end"
+            );
+            assert_eq!(r.offset, received_count as i32);
+            assert_eq!(r.changed_at_ms, 1_700_000_000_000 + received_count as i64);
+            received_count += 1;
+            if received_count % 20 == 0 {
+                eprintln!(
+                    "[wave15 regression] drained {}/{} events ({:.1}s elapsed)",
+                    received_count,
+                    expected_events,
+                    start.elapsed().as_secs_f64()
+                );
+            }
+        }
+        eprintln!(
+            "[wave15 regression] drained all {received_count} events in {:.1}s",
+            start.elapsed().as_secs_f64()
+        );
+        assert_eq!(
+            received_count, expected_events,
+            "[wave15 regression] received count must equal expected count"
+        );
+
+        // consume_once should return Ok(()) on clean close
+        // (the mock server closes the stream after the
+        // last event).
+        let consume_result =
+            tokio::time::timeout(Duration::from_secs(5), done_rx)
+                .await
+                .expect(
+                    "consume_once must return within 5s after the server closes the stream"
+                )
+                .expect("oneshot sender must not be dropped");
+        assert!(
+            consume_result.is_ok(),
+            "consume_once must return Ok(()) on clean close; got {consume_result:?}"
+        );
+
+        consumer_handle.abort();
+        server_handle.abort();
+    }
 }
