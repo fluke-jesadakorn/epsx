@@ -202,6 +202,13 @@ ensure_deps() {
   # pnpm could blow it away on a re-install. The stub is a small
   # no-op Tailwind plugin; see scripts/old-stubs/@tailwindcss/typography/.
   install_typography_stub "$dir"
+  # Same for the news-editor markdown stubs (`micromark` and
+  # `micromark-extension-gfm` are imported in
+  # components/news/news-editor.tsx but never declared in package.json —
+  # they were hoisted in the OLD monorepo). Without these stubs,
+  # /news/* 500s in webpack.
+  install_old_stub "$dir" "micromark"
+  install_old_stub "$dir" "micromark-extension-gfm"
 }
 
 install_typography_stub() {
@@ -215,6 +222,26 @@ install_typography_stub() {
   cp -f "$STUB_SRC/package.json" "$dest/package.json"
   cp -f "$STUB_SRC/src/index.js" "$dest/src/index.js"
   log "typography stub installed at $dest (no-op plugin; see stub docstring)"
+}
+
+# Generic OLD-app stub installer. Copies scripts/old-stubs/<name>/{package.json,src/index.js}
+# into <dir>/node_modules/<name>/. Used for missing-but-imported deps that
+# were hoisted in the OLD monorepo. The stubs are no-ops that return
+# safe defaults so the OLD dev server boots; pages render but with
+# stubbed behavior for the affected feature (see each stub's docstring).
+install_old_stub() {
+  local dir=$1
+  local name=$2
+  local src="$REPO_ROOT/scripts/old-stubs/$name"
+  local dest="$dir/node_modules/$name"
+  if [ ! -d "$src/src" ]; then
+    warn "stub source $src not found; skipping"
+    return 0
+  fi
+  mkdir -p "$dest/src"
+  cp -f "$src/package.json" "$dest/package.json"
+  cp -f "$src/src/index.js" "$dest/src/index.js"
+  log "stub installed at $dest (no-op; see $src/src/index.js docstring)"
 }
 
 # ──────────────────────────────────────────────────────────────────────

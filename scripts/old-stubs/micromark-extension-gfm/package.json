@@ -1,0 +1,6 @@
+{
+  "name": "micromark-extension-gfm",
+  "version": "3.0.0-stub",
+  "main": "src/index.js",
+  "type": "commonjs"
+}
