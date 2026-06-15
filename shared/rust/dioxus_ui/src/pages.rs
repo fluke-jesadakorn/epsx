@@ -217,6 +217,7 @@ pub fn page_title_for(p: &str) -> String {
         "/payment" | "/payment/[type]/[id]" => t("nav.payment"),
         "/permissions" => t("nav.permissions"),
         "/plans" => t("nav.plans"),
+        "/pricing" => t("nav.plans"),
         "/portfolio" => t("nav.portfolio"),
         "/developer" | "/developer/usage" | "/developer/docs" => t("nav.developer"),
         "/manual" => t("nav.manual"),
