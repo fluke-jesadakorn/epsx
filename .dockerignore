@@ -1,13 +1,8 @@
-# EPSX Docker Ignore
-# Minimal build context for performance
-
-# Dependencies (rebuilt in container)
 node_modules/
 .pnp/
 yarn.lock
 package-lock.json
 
-# Build Artifacts
 .next/
 dist/
 build/
@@ -17,19 +12,17 @@ tmp/
 .turbo/
 .swc/
 
-# Rust Build Artifacts
 target/
 **/*.rs.bk
+.worktrees/
 !Cargo.lock
 
-# Environment Files
 .env*
 !.env.example
 !.env.development
 !.env.staging
 !.env.production
 
-# Testing
 coverage/
 .nyc_output/
 __tests__/
@@ -40,7 +33,6 @@ tests/
 playwright-report/
 test-results/
 
-# Logs
 logs/
 *.log
 npm-debug.log*
@@ -48,65 +40,50 @@ yarn-debug.log*
 .pnpm-debug.log*
 debug/
 
-# Version Control
 .git/
 .gitignore
 
-# IDE
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
 
-# Documentation
 *.md
 !README.md
 docs/
 
-# OS Files
 .DS_Store
 Thumbs.db
 
-# TypeScript
 *.tsbuildinfo
 
-# Deployment
 .vercel/
 .firebase/
 .github/
 docker-compose.override.yml
 
-# Scripts
 scripts/
-# Dockerfiles kept for multi-stage builds
 .dockerignore
 
-# Config Files
 .eslintrc*
 .prettier*
-# turbo.json - needed by Dockerfile COPY
 
-# Secrets
 *.pem
 *.key
 secrets/
 .secret/
 
-# Database
 *.db
 *.sqlite
 
-# Caches
 .yarn/
 .pnpm-store/
 
-# Deployment Artifacts
 deploy.tar.gz
 deploy-prod.tar.gz
 *.tar.gz
 
-# Smart Contracts (exclude source, keep deployments)
 apps/contracts/src/
 apps/contracts/lib/
 apps/contracts/out/
