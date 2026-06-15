@@ -69,8 +69,21 @@ tokio-stream.workspace = true
 #     version is 0.9 (we pin to 0.9 here for consistency
 #     with the rest of the workspace — `rand::random::<u64>()`
 #     is unchanged from 0.8).
+#   - `reqwest-eventsource`: Wave 14 — the canonical SSE
+#     client for `reqwest`. We replaced the hand-rolled
+#     `bytes_stream` + `find_sse_event` parser with
+#     `EventSource` because the hand-rolled parser hit a
+#     reqwest body-decoder edge case on the 2nd chunk of
+#     long-lived `text/event-stream` responses (the decoder
+#     returned "error decoding response body" on the 2nd
+#     chunk in production). `EventSource` handles
+#     long-lived streams correctly out of the box.
+#     `reqwest-eventsource = 0.6.x` is compatible with
+#     `reqwest = 0.12` (the version pinned in the
+#     workspace).
 reqwest = { workspace = true, features = ["stream"] }
 rand = "0.9"
+reqwest-eventsource = "0.6"
 
 [build-dependencies]
 tonic-build.workspace = true
