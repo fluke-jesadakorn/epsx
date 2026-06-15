@@ -22,8 +22,6 @@ use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
-use crate::layout::PageHeader;
-use crate::auth::AuthGate;
 use crate::auth::ProgressiveAuthBanner;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
@@ -42,50 +40,49 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                     feature: Some("personalized news".to_string()),
                 }
             }
-            AuthGate { user: ctx.user.clone(), feature: Some("news articles".to_string()),
-                div { class: "container page-content max-w-7xl",
-                    // === wave6-auth-pages-depth-track-d news header ===
-                    div { class: "mb-12 text-center news-header",
-                        div { class: "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/5 text-cyan-500 text-xs font-semibold mb-5",
-                            Icon { name: "newspaper".to_string(), size: Some(14) }
-                            " EPSX Platform"
-                        }
-                        h1 { class: "text-4xl sm:text-5xl font-extrabold mb-4",
-                            "News & "
-                            span { class: "bg-gradient-to-r from-purple-500 to-cyan-500 bg-clip-text text-transparent", "Updates" }
-                        }
-                        p { class: "text-muted-foreground max-w-xl mx-auto leading-relaxed",
-                            "Stay informed with the latest platform updates, feature releases, and market insights from the EPSX team."
-                        }
-                        if total > 0 {
-                            p { class: "mt-3 text-sm text-muted-foreground/60",
-                                {
-                                    let noun = if total == 1 { "article" } else { "articles" };
-                                    format!("{total} {noun}")
-                                }
+            // === wave22-t3-news-blog news header + list (no AuthGate; public page) ===
+            div { class: "container page-content news-page",
+                // === wave6-auth-pages-depth-track-d news header ===
+                div { class: "mb-12 text-center news-header",
+                    div { class: "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/5 text-cyan-500 text-xs font-semibold mb-5",
+                        Icon { name: "newspaper".to_string(), size: Some(14) }
+                        " EPSX Platform"
+                    }
+                    h1 { class: "text-4xl sm:text-5xl font-extrabold mb-4",
+                        "News & "
+                        span { class: "gradient-text-purple", "Updates" }
+                    }
+                    p { class: "text-muted-foreground max-w-xl mx-auto leading-relaxed",
+                        "Stay informed with the latest platform updates, feature releases, and market insights from the EPSX team."
+                    }
+                    if total > 0 {
+                        p { class: "mt-3 text-sm text-muted-foreground/60",
+                            {
+                                let noun = if total == 1 { "article" } else { "articles" };
+                                format!("{total} {noun}")
                             }
                         }
                     }
-                    // === wave6-auth-pages-depth-track-d news filters ===
-                    NewsFilters {}
-                    // === wave6-auth-pages-depth-track-d news list ===
-                    div { class: "news-list-section mt-8",
-                        if posts.is_empty() {
-                            NewsEmptyState {}
-                        } else {
-                            // Featured card is the first post
-                            NewsFeaturedCard { post: posts[0].clone() }
-                            // Rest of the posts
-                            if posts.len() > 1 {
-                                div { class: "news-list-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8",
-                                    for p in posts.iter().skip(1) {
-                                        ArticleCard { post: p.clone() }
-                                    }
+                }
+                // === wave6-auth-pages-depth-track-d news filters ===
+                NewsFilters {}
+                // === wave6-auth-pages-depth-track-d news list ===
+                div { class: "news-list-section mt-8",
+                    if posts.is_empty() {
+                        NewsEmptyState {}
+                    } else {
+                        // Featured card is the first post
+                        NewsFeaturedCard { post: posts[0].clone() }
+                        // Rest of the posts
+                        if posts.len() > 1 {
+                            div { class: "news-list-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8",
+                                for p in posts.iter().skip(1) {
+                                    ArticleCard { post: p.clone() }
                                 }
                             }
-                            // Pagination
-                            NewsPagination { page: 1, total_pages: ((total + 11) / 12).max(1) }
                         }
+                        // Pagination
+                        NewsPagination { page: 1, total_pages: ((total + 11) / 12).max(1) }
                     }
                 }
             }

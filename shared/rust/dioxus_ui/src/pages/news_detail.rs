@@ -20,7 +20,6 @@ use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
-use crate::auth::AuthGate;
 use crate::auth::ProgressiveAuthBanner;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
@@ -34,61 +33,59 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                     feature: Some("news articles".to_string()),
                 }
             }
-            AuthGate { user: ctx.user.clone(), feature: Some("news articles".to_string()),
-                // === wave6-auth-pages-depth-track-d news-detail body ===
-                article { class: "news-detail-body",
-                    // === wave6-auth-pages-depth-track-d news-detail hero ===
-                    section { class: "relative w-full overflow-hidden news-detail-hero",
-                        div { class: "absolute inset-0 bg-gradient-to-br from-cyan-500/8 via-background to-purple-500/8" }
-                        div { class: "relative z-10 max-w-4xl mx-auto px-4 sm:px-6 pt-8 pb-12 flex flex-col min-h-[240px] sm:min-h-[300px]",
-                            a { class: "inline-flex items-center gap-2 text-sm mb-auto transition-colors news-detail-back",
-                                href: "/news",
-                                Icon { name: "arrow-left".to_string(), size: Some(16) }
-                                " Back to News"
+            // === wave22-t3-news-blog news-detail body (no AuthGate; public page) ===
+            article { class: "news-detail-body",
+                // === wave6-auth-pages-depth-track-d news-detail hero ===
+                section { class: "relative w-full overflow-hidden news-detail-hero",
+                    div { class: "absolute inset-0 bg-gradient-to-br from-cyan-500/8 via-background to-purple-500/8" }
+                    div { class: "relative z-10 max-w-4xl mx-auto px-4 sm:px-6 pt-8 pb-12 flex flex-col min-h-[240px] sm:min-h-[300px]",
+                        a { class: "inline-flex items-center gap-2 text-sm mb-auto transition-colors news-detail-back",
+                            href: "/news",
+                            Icon { name: "arrow-left".to_string(), size: Some(16) }
+                            " Back to News"
+                        }
+                        div {
+                            div { class: "flex flex-wrap gap-2 mb-5",
+                                span { class: "px-3 py-1 rounded-full text-[11px] font-bold tracking-[0.15em] uppercase bg-cyan-500/15 text-cyan-500 border border-cyan-500/25", "EPSX" }
+                                span { class: "px-3 py-1 rounded-full text-[11px] font-bold tracking-[0.15em] uppercase bg-cyan-500/15 text-cyan-500 border border-cyan-500/25", "Update" }
                             }
-                            div {
-                                div { class: "flex flex-wrap gap-2 mb-5",
-                                    span { class: "px-3 py-1 rounded-full text-[11px] font-bold tracking-[0.15em] uppercase bg-cyan-500/15 text-cyan-500 border border-cyan-500/25", "EPSX" }
-                                    span { class: "px-3 py-1 rounded-full text-[11px] font-bold tracking-[0.15em] uppercase bg-cyan-500/15 text-cyan-500 border border-cyan-500/25", "Update" }
-                                }
-                                h1 { class: "text-3xl sm:text-4xl lg:text-[2.75rem] font-extrabold leading-[1.1] tracking-tight mb-5 text-foreground",
-                                    "{title}"
-                                }
-                                div { class: "flex items-center gap-5 text-sm text-muted-foreground",
-                                    span { class: "flex items-center gap-1.5", Icon { name: "calendar".to_string(), size: Some(14) } " {date}" }
-                                    span { class: "flex items-center gap-1.5", Icon { name: "clock".to_string(), size: Some(14) } " {read_time} read" }
-                                    span { class: "flex items-center gap-1.5", Icon { name: "user".to_string(), size: Some(14) } " {author}" }
-                                }
+                            h1 { class: "text-3xl sm:text-4xl lg:text-[2.75rem] font-extrabold leading-[1.1] tracking-tight mb-5 text-foreground",
+                                "{title}"
+                            }
+                            div { class: "flex items-center gap-5 text-sm text-muted-foreground",
+                                span { class: "flex items-center gap-1.5", Icon { name: "calendar".to_string(), size: Some(14) } " {date}" }
+                                span { class: "flex items-center gap-1.5", Icon { name: "clock".to_string(), size: Some(14) } " {read_time} read" }
+                                span { class: "flex items-center gap-1.5", Icon { name: "user".to_string(), size: Some(14) } " {author}" }
                             }
                         }
                     }
-                    // === wave6-auth-pages-depth-track-d news-detail accent bar ===
-                    div { class: "h-[3px] news-detail-accent bg-gradient-to-r from-cyan-500 via-purple-500 to-cyan-500" }
-                    // === wave6-auth-pages-depth-track-d news-detail article body ===
-                    div { class: "max-w-3xl mx-auto px-4 sm:px-6 pt-12 pb-20 news-detail-content",
-                        div { class: "prose prose-lg prose-neutral max-w-none",
-                            for (heading, paragraphs) in content_blocks.iter() {
-                                if !heading.is_empty() {
-                                    h2 { class: "text-2xl font-bold mt-12 mb-4 pb-3 border-b border-cyan-500/20 news-detail-h2", "{heading}" }
-                                }
-                                for p in paragraphs.iter() {
-                                    p { class: "leading-[1.8] text-muted-foreground news-detail-p", "{p}" }
-                                }
+                }
+                // === wave6-auth-pages-depth-track-d news-detail accent bar ===
+                div { class: "h-[3px] news-detail-accent bg-gradient-to-r from-cyan-500 via-purple-500 to-cyan-500" }
+                // === wave6-auth-pages-depth-track-d news-detail article body ===
+                div { class: "max-w-3xl mx-auto px-4 sm:px-6 pt-12 pb-20 news-detail-content",
+                    div { class: "prose prose-lg prose-neutral max-w-none",
+                        for (heading, paragraphs) in content_blocks.iter() {
+                            if !heading.is_empty() {
+                                h2 { class: "text-2xl font-bold mt-12 mb-4 pb-3 border-b border-cyan-500/20 news-detail-h2", "{heading}" }
                             }
-                        }
-                        div { class: "mt-16 pt-8 border-t border-border/20 news-detail-footer",
-                            a { class: "inline-flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground bg-card/50 hover:bg-card border border-border/20 hover:border-border/40 transition-all group news-detail-back-link",
-                                href: "/news",
-                                Icon { name: "arrow-left".to_string(), size: Some(16) }
-                                " Back to all articles"
+                            for p in paragraphs.iter() {
+                                p { class: "leading-[1.8] text-muted-foreground news-detail-p", "{p}" }
                             }
                         }
                     }
-                    // === wave6-auth-pages-depth-track-d news-detail related list ===
-                    RelatedNewsList {}
-                    div { class: "mt-6 text-sm text-muted-foreground max-w-3xl mx-auto px-4 sm:px-6",
-                        "Slug: " code { class: "font-mono", "{slug}" }
+                    div { class: "mt-16 pt-8 border-t border-border/20 news-detail-footer",
+                        a { class: "inline-flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground bg-card/50 hover:bg-card border border-border/20 hover:border-border/40 transition-all group news-detail-back-link",
+                            href: "/news",
+                            Icon { name: "arrow-left".to_string(), size: Some(16) }
+                            " Back to all articles"
+                        }
                     }
+                }
+                // === wave6-auth-pages-depth-track-d news-detail related list ===
+                RelatedNewsList {}
+                div { class: "mt-6 text-sm text-muted-foreground max-w-3xl mx-auto px-4 sm:px-6",
+                    "Slug: " code { class: "font-mono", "{slug}" }
                 }
             }
         }
