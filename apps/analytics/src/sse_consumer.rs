@@ -85,8 +85,50 @@
 //! diff list, so a three-way merge is mechanical.
 //!
 //! Spec: `docs/wave8-service-boundary/ROADMAP.md` §17.2.
+//!
+//! ## Wave 16: warn-once + downgrade for first-connect chunked-decoder error
+//!
+//! The `reqwest`/`reqwest_eventsource` body-decoder fires a
+//! `Transport(ReqwestError)` with Display `"error decoding
+//! response body"` exactly ONCE per consumer process lifetime,
+//! at ~42-53s after the very first connect, BEFORE any
+//! app-level events have crossed the wire. This is a
+//! hyper-chunked-decoder edge case on the first parse of a
+//! `Transfer-Encoding: chunked` long-lived response — the
+//! consumer's exponential-backoff reconnect handles it
+//! cleanly with no data loss.
+//!
+//! Wave 15 verifier evidence documented this as a known
+//! pre-existing first-connect edge case distinct from the
+//! 60s-cadence bug they fixed. Wave 16 silences the
+//! resulting WARN log line as a noise-reduction step, NOT
+//! a correctness fix. The behavior:
+//!
+//!   - First occurrence in this process: log `warn!` with
+//!     a one-time marker ("known recoverable chunked-decoder
+//!     edge case; subsequent identical errors suppressed for
+//!     this process") + the process start time + error time
+//!     so timing analysis is preserved.
+//!   - Subsequent identical-pattern errors: log at `debug!`
+//!     level (still observable, but no longer page-worthy).
+//!   - Return semantics unchanged: the warn-once is purely
+//!     a log filter — the outer-loop `return Err(...)` path
+//!     that drives the exponential backoff is preserved
+//!     verbatim.
+//!
+//! The `static WARN_ONCE_CHUNKED_DECODER` `AtomicBool` flips
+//! the FIRST time the heuristic matches and stays flipped for
+//! the rest of the process. See
+//! `consume_once_first_connect_chunked_decoder_warn_once` for
+//! the unit test that pins this behavior.
+//!
+//! See `~/.mavis/agents/mavis/memory/rust-sse-over-proxies.md`
+//! §"SSE first-connect edge case (chunked-decoder parsing)"
+//! for the full repro recipe and distinguishing signal vs the
+//! 60s-cadence timeout bug.
 
-use std::time::Duration;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
 
 use futures::StreamExt;
 use reqwest::Client;
@@ -95,6 +137,139 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 use tokio::time::sleep;
 use tracing::{debug, info, warn};
+
+/// Process start time, captured at module-load. Used by the
+/// wave-16 warn-once heuristic to distinguish the
+/// "first-connect chunked-decoder" error (fires ~42-53s
+/// after process start) from any sustained-stream error
+/// that might fire later.
+///
+/// Using `Instant` (monotonic) is intentional — wall-clock
+/// skew between the process and the host doesn't matter for
+/// this heuristic; we only need elapsed-since-start.
+static PROCESS_START: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
+
+/// Process-lifetime flag for the wave-16 warn-once behavior.
+/// Flips the first time the chunked-decoder heuristic matches
+/// (in the `Err(e)` arm of `consume_once`'s event loop), and
+/// stays flipped for the rest of the process. Subsequent
+/// identical-pattern errors log at `debug!` and are otherwise
+/// treated the same as the first occurrence (the
+/// `return Err(anyhow::anyhow!(...))` path is preserved
+/// verbatim, so the outer-loop reconnect-with-backoff
+/// behavior is unchanged).
+///
+/// **Why a single global flag and not a per-`consume_once`
+/// flag:** the chunked-decoder edge case fires exactly once
+/// per process (it's tied to the first parse of a fresh
+/// chunked stream, which only happens on the first
+/// `consume_once` call). A per-call flag would miss the
+/// "subsequent identical errors" case if a future wave
+/// re-introduces a second chunked-decoder trigger.
+///
+/// **Why `AtomicBool` and not `tokio::sync::Once` / `OnceLock`:
+/// we want the flag to be both writer (the heuristic arm)
+/// and observer (the warn-vs-debug branch) callable from
+/// any context, including `&self` methods that can't
+/// borrow. `AtomicBool::compare_exchange` gives us a
+/// single-writer / multi-reader flag with no `await` point
+/// and no allocation. Cheap on the hot path.
+static WARN_ONCE_CHUNKED_DECODER: AtomicBool = AtomicBool::new(false);
+
+/// Heuristic: is this error the known first-connect
+/// chunked-decoder edge case? Matches the wave-15 verifier
+/// evidence — Display contains "error decoding" (the
+/// reqwest/hyper chunked-decoder signature), and the error
+/// fires within the first 60s of process lifetime (the
+/// edge case fires at ~42-53s).
+///
+/// **Tightness:** anything that does NOT contain "error
+/// decoding" in its Display falls through to the
+/// unchanged `warn!` path. Real transport errors (TLS
+/// handshake failures, connection refused, mid-stream
+/// 5xx) won't match — they have different Display
+/// strings ("error trying to connect", "HTTP status
+/// server error", etc.).
+///
+/// **Timing window:** the 60s cap is generous on purpose.
+/// The wave-15 evidence shows the edge case fires
+/// 42-53s after process start; 60s gives 1.5x headroom
+/// and still won't accidentally mask a mid-stream
+/// chunked-decoder failure during sustained streaming
+/// (those only fire at 60s cadence from the timeout,
+/// which is now gone — see wave 15). The window is
+/// only consulted ONCE per process (gated by
+/// `WARN_ONCE_CHUNKED_DECODER`), so a long-lived
+/// stream's mid-flight errors are never filtered.
+fn is_first_connect_chunked_decoder_err(e: &reqwest_eventsource::Error) -> bool {
+    let s = e.to_string();
+    if !s.contains("error decoding") {
+        return false;
+    }
+    match PROCESS_START.get() {
+        // If the static isn't initialized yet, treat as
+        // first-connect (the very first consume_once call
+        // initializes it below). This is the
+        // cold-start-safe fallback.
+        None => true,
+        Some(start) => start.elapsed() < Duration::from_secs(60),
+    }
+}
+
+/// Wave 16: emit the warn-or-debug log line for a hard
+/// SSE EventSource error, applying the
+/// first-connect-chunked-decoder warn-once heuristic.
+///
+/// **Behavior:**
+///   - First matching error: `warn!` with a one-time
+///     marker + process-start-to-error elapsed ms.
+///   - Subsequent matching errors: `debug!` only.
+///   - Non-matching errors: unchanged `warn!` (the
+///     pre-wave-16 behavior).
+///
+/// **Extracted from the `consume_once` match arm so the
+/// heuristic + flag flip are directly unit-testable.**
+/// The caller in `consume_once` always follows this call
+/// with `event_source.close()` + `return Err(anyhow!(...))`
+/// to drive the outer-loop reconnect — this function
+/// intentionally does NOT touch return semantics.
+fn log_sse_hard_error(url: &str, e: &reqwest_eventsource::Error) {
+    if is_first_connect_chunked_decoder_err(e) {
+        let first = WARN_ONCE_CHUNKED_DECODER
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_ok();
+        if first {
+            let elapsed = PROCESS_START
+                .get()
+                .map(|t| t.elapsed())
+                .unwrap_or_default();
+            warn!(
+                url = %url,
+                error = %e,
+                process_start_to_error_ms = elapsed.as_millis() as u64,
+                "SSE EventSource first-connect chunked-decoder error \
+                 (known recoverable edge case; subsequent identical \
+                 errors suppressed to debug! for this process); \
+                 returning Err for outer-loop backoff + reconnect"
+            );
+        } else {
+            debug!(
+                url = %url,
+                error = %e,
+                "SSE EventSource chunked-decoder error (subsequent \
+                 occurrence suppressed to debug!; see warn-once log \
+                 line for the one-time marker)"
+            );
+        }
+    } else {
+        warn!(
+            url = %url,
+            error = %e,
+            "SSE EventSource hard error; returning Err for outer-loop \
+             backoff + reconnect"
+        );
+    }
+}
 
 /// Local pub-sub bus: the SSE consumer publishes
 /// `RankingOffsetChange` events here, in-process consumers
@@ -262,6 +437,16 @@ async fn consume_once(
     client: &Client,
     shutdown: &mut tokio::sync::watch::Receiver<bool>,
 ) -> anyhow::Result<()> {
+    // Wave 16: lazy-initialize the process-start time on
+    // the first `consume_once` call. This is the
+    // cold-start-safe equivalent of a `static_init!` —
+    // the heuristic consults `PROCESS_START.get()` (Option)
+    // and treats `None` as "still in the first 60s of
+    // process lifetime" so the very first error on a
+    // freshly-launched consumer is always eligible for
+    // the warn-once path even if the static is uninitialized.
+    let _ = PROCESS_START.set(Instant::now());
+
     info!(url = %url, "SSE consumer connecting (reqwest_eventsource)");
     // Build an `EventSource` from the same `reqwest::Client`
     // the production `main()` builds. `EventSource::new`
@@ -340,12 +525,17 @@ async fn consume_once(
                         return Ok(());
                     }
                     other => {
-                        warn!(
-                            url = %url,
-                            error = %other,
-                            "SSE EventSource hard error; returning Err for \
-                             outer-loop backoff + reconnect"
-                        );
+                        // Wave 16: warn-once + downgrade for the
+                        // known first-connect chunked-decoder
+                        // edge case (see module doc + the
+                        // `log_sse_hard_error` helper). The
+                        // helper handles the heuristic + flag
+                        // flip + warn-or-debug log emission;
+                        // the return semantics below are
+                        // unchanged — we still `return Err(...)`
+                        // so the outer-loop exponential backoff
+                        // kicks in exactly as before.
+                        log_sse_hard_error(url, &other);
                         event_source.close();
                         return Err(anyhow::anyhow!(
                             "SSE EventSource error: {other}"
@@ -1680,5 +1870,221 @@ mod tests {
 
         consumer_handle.abort();
         server_handle.abort();
+    }
+
+    // ========================================================================
+    // REGRESSION TEST — wave 16 (warn-once + downgrade for first-connect
+    //                   chunked-decoder error)
+    // ========================================================================
+    //
+    // **Hypothesis:** the warn-once flag in
+    // `WARN_ONCE_CHUNKED_DECODER` flips exactly once per
+    // process, and the `log_sse_hard_error` helper emits
+    // 1 `warn!` line + 2 `debug!` lines for 3 consecutive
+    // matching errors. Non-matching errors (any error whose
+    // Display does NOT contain "error decoding") fall
+    // through to the unchanged `warn!` path and never
+    // touch the flag.
+    //
+    // **Why this test does NOT drive a real EventSource:**
+    // the actual first-connect chunked-decoder edge case
+    // fires at ~42-53s on a fresh consumer process (see
+    // `~/.mavis/agents/mavis/memory/rust-sse-over-proxies.md`
+    // §"SSE first-connect edge case"). A real round-trip
+    // test would take 45-60s and need a backend that emits
+    // a malformed `Transfer-Encoding: chunked` response.
+    // The heuristic is the load-bearing logic; we exercise
+    // it directly with a synthetic
+    // `reqwest_eventsource::Error` whose Display contains
+    // the substring "error decoding".
+    //
+    // **Why `Error::InvalidLastEventId`:** it's the only
+    // `reqwest_eventsource::Error` variant whose Display
+    // we can fully control from outside the crate (its
+    // Display is `"Invalid \`Last-Event-ID\`: {s}"`). The
+    // other variants either need inner `reqwest::Error`
+    // values (opaque) or `nom::error::Error` values (not a
+    // direct dep). By passing a string that embeds "error
+    // decoding" we synthesize an error that displays as
+    // `"Invalid \`Last-Event-ID\`: error decoding response
+    // body"`, which the heuristic matches.
+    //
+    // **Threading note:** the `WARN_ONCE_CHUNKED_DECODER`
+    // static is process-lifetime, so this test is NOT
+    // reentrant within a single binary. By design the test
+    // is the only one in the analytics crate that touches
+    // the flag (the production path goes through
+    // `consume_once`, which is exercised end-to-end by
+    // the other `consume_once_*` tests, but those use real
+    // axum servers that emit valid SSE and never hit the
+    // `other` arm in the `match e`). If a future test ever
+    // needs to verify the un-flipped state, it should be
+    // wrapped in a test-binary of its own (a separate
+    // `[[test]]` target) so the static is fresh.
+    #[test]
+    fn consume_once_first_connect_chunked_decoder_warn_once() {
+        use std::io::Write;
+        use std::sync::{Arc, Mutex};
+        use tracing_subscriber::fmt::MakeWriter;
+
+        /// In-memory writer that captures every `write!`
+        /// call into a shared `Vec<u8>`. Used as the
+        /// `MakeWriter` for a per-test
+        /// `tracing_subscriber::fmt` layer so the test can
+        /// read back the captured log lines and assert on
+        /// the warn-vs-debug ratio.
+        #[derive(Clone)]
+        struct VecWriter(Arc<Mutex<Vec<u8>>>);
+        impl Write for VecWriter {
+            fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                self.0.lock().unwrap().extend_from_slice(buf);
+                Ok(buf.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        impl<'a> MakeWriter<'a> for VecWriter {
+            type Writer = VecWriter;
+            fn make_writer(&'a self) -> Self::Writer {
+                self.clone()
+            }
+        }
+
+        let buf = Arc::new(Mutex::new(Vec::<u8>::new()));
+        let writer = VecWriter(buf.clone());
+        let subscriber = tracing_subscriber::fmt()
+            .with_writer(writer)
+            .with_max_level(tracing::Level::TRACE)
+            .with_ansi(false)
+            .with_target(false)
+            .finish();
+
+        // Synthesize a matching-pattern error: its Display
+        // is `"Invalid \`Last-Event-ID\`: error decoding
+        // response body (synthetic for test)"`, which
+        // contains the substring "error decoding".
+        fn matching_err() -> reqwest_eventsource::Error {
+            reqwest_eventsource::Error::InvalidLastEventId(
+                "error decoding response body (synthetic for test)"
+                    .to_string(),
+            )
+        }
+        // Non-matching error: Display does NOT contain
+        // "error decoding".
+        fn non_matching_err() -> reqwest_eventsource::Error {
+            reqwest_eventsource::Error::InvalidLastEventId(
+                "totally unrelated Last-Event-ID (synthetic for test)"
+                    .to_string(),
+            )
+        }
+
+        tracing::subscriber::with_default(subscriber, || {
+            // Sanity: PROCESS_START is uninitialized in
+            // the test binary → the heuristic falls into
+            // the `None => true` branch, so a
+            // matching-pattern error is always treated as
+            // first-connect regardless of the test's
+            // wall-clock elapsed time. (See
+            // `is_first_connect_chunked_decoder_err`.)
+            assert!(
+                is_first_connect_chunked_decoder_err(&matching_err()),
+                "heuristic must match an error whose Display contains \
+                 'error decoding' when PROCESS_START is uninitialized"
+            );
+            assert!(
+                !is_first_connect_chunked_decoder_err(&non_matching_err()),
+                "heuristic must NOT match an error whose Display does \
+                 not contain 'error decoding'"
+            );
+
+            // First call: flips the flag → emits 1 warn!.
+            log_sse_hard_error(
+                "http://test.invalid/v1/stream/ranking-offsets",
+                &matching_err(),
+            );
+            // Second + third calls: flag already flipped →
+            // emit 2 debug! lines.
+            log_sse_hard_error(
+                "http://test.invalid/v1/stream/ranking-offsets",
+                &matching_err(),
+            );
+            log_sse_hard_error(
+                "http://test.invalid/v1/stream/ranking-offsets",
+                &matching_err(),
+            );
+
+            // Non-matching error: must always emit warn!
+            // regardless of the flag state, and must NOT
+            // touch the flag.
+            log_sse_hard_error(
+                "http://test.invalid/v1/stream/ranking-offsets",
+                &non_matching_err(),
+            );
+        });
+
+        // Read back the captured log lines and assert.
+        let captured = String::from_utf8(buf.lock().unwrap().clone())
+            .expect("captured log buffer is valid utf-8");
+
+        let warn_count = captured
+            .matches("WARN SSE EventSource first-connect")
+            .count()
+            + captured
+                .matches("WARN SSE EventSource hard error")
+                .count();
+        let debug_count = captured
+            .matches("DEBUG SSE EventSource chunked-decoder")
+            .count();
+
+        // 3 matching calls → 1 warn (first) + 2 debug
+        // (subsequent) for the chunked-decoder path.
+        // 1 non-matching call → 1 warn on the
+        // pre-wave-16 path. Total: 2 warn + 2 debug.
+        assert_eq!(
+            warn_count, 2,
+            "expected 2 WARN lines total (1 first-connect + 1 hard-error), \
+             got {warn_count}. Captured log:\n{captured}"
+        );
+        assert_eq!(
+            debug_count, 2,
+            "expected 2 DEBUG lines (subsequent chunked-decoder \
+             occurrences), got {debug_count}. Captured log:\n{captured}"
+        );
+
+        // The first-connect WARN must include the
+        // one-time marker phrase + the
+        // `process_start_to_error_ms` field.
+        assert!(
+            captured.contains("known recoverable edge case"),
+            "first-connect WARN must include the one-time marker \
+             phrase 'known recoverable edge case'. Captured:\n{captured}"
+        );
+        assert!(
+            captured.contains("process_start_to_error_ms="),
+            "first-connect WARN must include the \
+             `process_start_to_error_ms` field. Captured:\n{captured}"
+        );
+
+        // The non-matching WARN must use the
+        // pre-wave-16 "hard error" message (NOT the
+        // first-connect marker).
+        assert!(
+            captured.contains("returning Err for outer-loop backoff + reconnect"),
+            "non-matching error must emit the unchanged 'hard error' \
+             WARN. Captured:\n{captured}"
+        );
+
+        // The flag must remain flipped after all calls.
+        // (The next call to `log_sse_hard_error` with a
+        // matching error — outside this test — would
+        // emit `debug!` again, confirming the
+        // one-shot semantics.)
+        assert!(
+            WARN_ONCE_CHUNKED_DECODER.load(Ordering::Acquire),
+            "WARN_ONCE_CHUNKED_DECODER must remain flipped after the \
+             first matching call; it is process-lifetime and not \
+             auto-reset"
+        );
     }
 }

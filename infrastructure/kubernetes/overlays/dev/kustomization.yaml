@@ -31,8 +31,15 @@ images:
   # runs the wave-13a gRPC-client binary (the in-process
   # stub was swapped for `GrpcWalletRankingOffsetQuery`).
   # Identity already at `:wave13a-dev` from Track A.
+  # wave16: bumped analytics tag from `:wave13a-dev` to
+  # `:wave16-dev` so the dev overlay runs the wave-16
+  # warn-once + downgrade binary (silences the
+  # pre-existing first-connect chunked-decoder error
+  # observed in wave 15's verifier evidence; no
+  # correctness change). See deliverable-wave16-*
+  # for the full noise-reduction scope.
   - name: epsx-analytics
-    newTag: wave13a-dev
+    newTag: wave16-dev
   # wave13b(track-a): bumped identity tag from
   # `:wave13a-dev` to `:wave13b-dev` so the dev overlay
   # runs the wave-13b build of the identity binary
