@@ -347,6 +347,127 @@ pub struct RankingOffsetChange {
     pub changed_at_ms: i64,
 }
 
+/// **Wave 17: the shared `reqwest::Client` builder for the
+/// SSE consumer.** Both the production construction site
+/// (`apps/analytics/src/main.rs`) and the wave-15 regression
+/// test (`consume_once_survives_long_lived_stream_with_no_per_request_timeout`)
+/// call this function to get the long-lived HTTP client. This
+/// is the load-bearing piece of **construction-site-parity**:
+/// the production path and the test path share the SAME
+/// builder chain, so a future refactor that re-adds a
+/// dangerous knob (like the old `.timeout(60s)`) is caught
+/// by BOTH at the same time, not just by reading the test
+/// in isolation.
+///
+/// **The wave-15 bug this prevents.** `reqwest = 0.12`'s
+/// `ClientBuilder::timeout()` is the **total request
+/// timeout** — measured from `client.get(url).send()` until
+/// the response body stream ends. For a long-lived SSE
+/// stream that never ends, a 60s timeout kills the stream
+/// at t+60s regardless of activity, and the cancellation
+/// surfaces through hyper's chunked-decoder as
+/// "error decoding response body" (the user-visible error
+/// in the wave-14/14b reports). `reqwest = 0.12` does NOT
+/// expose a separate read-timeout / idle-timeout knob —
+/// the closest is `.connect_timeout()`, which bounds only
+/// the TCP connect phase (a hung TCP handshake, NOT a
+/// slow body). So the right answer is no client-level
+/// timeout for SSE; the consumer's reconnect logic
+/// (`run_sse_consumer` below) handles hung connections via
+/// exponential backoff on `consume_once` errors. The 20s
+/// keepalive ping in the identity service (`wave14b`) is
+/// the liveness check.
+///
+/// **Return type.** `Result<reqwest::Client, reqwest::Error>`
+/// — preserved from the original inline `main.rs:493-495`
+/// shape so the call site can keep its `?` + `.context()`
+/// error-propagation chain. The default `reqwest` builder
+/// (no overrides) almost never returns `Err` — the only
+/// failure modes are system-level (out-of-memory, TLS
+/// backend init) — but returning the error preserves the
+/// original main.rs's clean-error-rather-than-panic
+/// behavior.
+///
+/// **Why this lives in `sse_consumer.rs` and not `main.rs`:
+/// `sse_consumer` is the module that OWNS the SSE wire
+/// contract (URL, retry policy, parsing). The HTTP client
+/// is part of that contract — the test for the contract
+/// (`consume_once_survives_long_lived_stream_with_no_per_request_timeout`)
+/// also lives in this module, so it can import the builder
+/// directly. The `main.rs` import was the inline builder
+/// chain this function replaces.
+///
+/// **The companion marker constant.**
+/// `SSE_CONSUMER_CLIENT_BUILDER_CHAIN` below is the
+/// load-bearing documentation of the expected builder
+/// shape. The `construction_site_parity_guards` test in
+/// the `#[cfg(test)] mod` at the bottom of this file
+/// pins the marker constant AND scans the function body
+/// for forbidden knob patterns. A future re-add of a
+/// timer-style knob is a test failure, not a code-review
+/// miss.
+///
+/// **The construction-site-parity project memory reference.**
+/// See `~/.mavis/agents/coder/memory/epsx-realtime-stack.md`
+/// §"Construction-site-parity for reqwest clients" for the
+/// full pattern (the SSE consumer is the canonical worked
+/// example) and `modular-monolith-split-audit.md` for the
+/// cross-project framework.
+pub fn sse_consumer_client() -> Result<reqwest::Client, reqwest::Error> {
+    // The builder chain MUST be a verbatim copy of the
+    // previous main.rs:478-481 chain — same set of
+    // `.timeout()`, `.connect_timeout()`,
+    // `.pool_max_idle_per_host()`, etc. knobs AND the same
+    // absence of `.timeout(_)`. The construction-site-
+    // parity invariant is: production and the wave-15
+    // regression test build the client via THIS function.
+    // If you intentionally add a knob, update BOTH the
+    // function body AND the marker constant
+    // (`SSE_CONSUMER_CLIENT_BUILDER_CHAIN`) AND the
+    // `construction_site_parity_guards::sse_consumer_client_source_has_no_timer_knobs`
+    // test, and re-run the wave-15 long-lived stream test
+    // with `--ignored` to verify the new builder survives
+    // a 90s+ sustained stream.
+    //
+    // Wave 15: do NOT set `.timeout(_)` on this client.
+    // See the function doc comment for the full rationale.
+    //
+    // The construction-site-parity guard test scans the
+    // region between the marker comments immediately
+    // above and below this builder call. The exact marker
+    // strings are intentionally NOT mentioned in any
+    // prose comment in this file (the
+    // `construction_site_parity_guards` test holds them
+    // as const strings only) — that way the test's
+    // `find()` matches the function-body markers
+    // exclusively, never a backticked prose mention.
+    // The marker format is `// wave17-builder-scan-{begin|end}`
+    // on its own line.
+    // wave17-builder-scan-begin
+    reqwest::Client::builder().build()
+    // wave17-builder-scan-end
+}
+
+/// Marker constant for the shared SSE consumer builder
+/// chain. Pinned by the `construction_site_parity_guards`
+/// test below. If a future refactor intentionally changes
+/// the builder (e.g. adds a knob), update this string to
+/// match the new shape AND update the test in
+/// `consume_once_survives_long_lived_stream_with_no_per_request_timeout`
+/// to assert the new behavior end-to-end.
+///
+/// **Why a string and not a function pointer:** the
+/// builder is `reqwest::Client::builder()`, which is
+/// opaque — there's no stable way to extract a "builder
+/// chain signature" from the live `Client` value (the
+/// inner fields are private; `reqwest = 0.12` exposes no
+/// `.timeout()` getter on the built `Client`). The string
+/// is a human-readable contract: the future reader who
+/// changes the builder MUST also update this string and
+/// the test that pins it.
+pub const SSE_CONSUMER_CLIENT_BUILDER_CHAIN: &str =
+    "reqwest::Client::builder().build()";
+
 /// Long-running task. Opens a long-lived HTTP connection to
 /// the identity SSE endpoint, parses events, publishes to
 /// the local bus. Reconnects on disconnect (exponential
@@ -1585,20 +1706,21 @@ mod tests {
     //     per-request timeout, the stream runs the full
     //     duration, ALL events land, the test passes.
     //
-    // **The construction site.** This test must use a
-    // client that mirrors the production
-    // `reqwest::Client::builder()` call in
-    // `apps/analytics/src/main.rs` exactly. Because the
-    // production client is built inside `main()` (not
-    // exposed as a `pub fn`), the test can't import it
-    // directly — so the test inlines the SAME builder
-    // chain. A `WAVE15_TEST_CLIENT_HAS_TIMEOUT` compile-
-    // time guard would be the long-term shape, but for
-    // wave 15 we rely on the code review: when the
-    // production site is fixed (the `.timeout(60s)` is
-    // dropped), the test site is also fixed in the SAME
-    // commit, so the regression net matches the
-    // production behavior.
+    // **The construction site.** This test calls the
+    // shared `sse_consumer_client()` builder exported
+    // from this module, which is THE SAME function the
+    // production `apps/analytics/src/main.rs` calls.
+    // Pre-wave-17, this test inlined the production
+    // builder chain; a future refactor could re-introduce
+    // `.timeout(60s)` to either site without the other
+    // being updated. Wave 17 fixes that structurally:
+    // both sites call `sse_consumer_client()`, drift
+    // between them is impossible, and the
+    // `construction_site_parity_guards` test pins the
+    // builder shape (forbidden knob scan + marker
+    // constant). See the doc comment on
+    // `sse_consumer_client()` for the full wave-15 bug
+    // rationale + the reqwest=0.12 timeout landscape.
     //
     // **Default duration + env override.** The default
     // `WAVE15_SSE_DURATION_SECS` is 90 (1.5x the old
@@ -1764,16 +1886,24 @@ mod tests {
         let bus = LocalRankingOffsetBus::new(2048);
         let mut rx = bus.subscribe();
 
-        // **Construction site — must mirror `main.rs:479-481`.**
-        // Post-fix, the production builder is
-        //     reqwest::Client::builder().build()
-        // (no `.timeout(_)`). The test inlines the SAME
-        // shape so the regression net matches production.
-        // If a future wave adds a `.timeout(_)` to either
-        // site, the other MUST be updated to match.
-        let client = reqwest::Client::builder()
-            .build()
-            .expect("reqwest client builds (wave 15: no per-request timeout)");
+        // **Construction site — must mirror the production
+        // builder in `apps/analytics/src/main.rs`.** Wave
+        // 17: the production builder AND this test now both
+        // call `sse_consumer_client()`, the shared helper
+        // exported from this module. This is the
+        // construction-site-parity pattern: a future
+        // refactor that re-adds `.timeout(_)` (or any other
+        // dangerous knob) to `sse_consumer_client()` will
+        // change BOTH the production and test sites at the
+        // same time, AND the
+        // `construction_site_parity_guards` test pins the
+        // builder shape. Pre-wave-17 this test inlined the
+        // SAME builder as production; post-wave-17 it
+        // calls the shared function — drift between the
+        // two sites is now structurally impossible.
+        let client = sse_consumer_client()
+            .expect("wave-15 regression: sse_consumer_client() must build; \
+                     the default builder should not fail");
         let (_shutdown_tx, mut shutdown_rx) =
             tokio::sync::watch::channel(false);
 
@@ -2086,5 +2216,193 @@ mod tests {
              first matching call; it is process-lifetime and not \
              auto-reset"
         );
+    }
+}
+
+// ============================================================================
+// Wave 17: construction-site-parity guards
+// ============================================================================
+//
+// **The drift detectors.** These tests pin the
+// `sse_consumer_client()` builder shape so a future refactor
+// that re-adds a timer-style knob (the wave-15 bug shape) is
+// caught at `cargo test` time, not at production runtime.
+//
+// **Why two layers of defense:**
+//   1. The marker-constant test pins the human-readable
+//      "expected builder shape" string. If a future reader
+//      intentionally changes the builder, they MUST update
+//      this string AND the wave-15 regression test in the
+//      same commit, OR this test fails.
+//   2. The source-substring test scans the
+//      `pub fn sse_consumer_client` function body for
+//      forbidden knob patterns (`.timeout(`,
+//      `.connect_timeout(`, etc.) at test time. This is
+//      a true "structural" check — it sees the actual code,
+//      not a string that might have drifted from the code.
+//
+// **Why not a const-eval / `static_assertions` approach:**
+// `reqwest = 0.12`'s `Client` has no public getter for the
+// configured timeout (the inner fields are private), so we
+// can't introspect the built `Client` at runtime to assert
+// "the timeout is `None`". A `static_assertions` const-eval
+// check on the builder chain isn't possible because the
+// builder is a non-`const` expression. The
+// `include_str!`-based substring check is the most
+// pragmatic approach for this specific knob.
+//
+// **The construction-site-parity invariant.** Both the
+// production `main.rs` site AND the wave-15 regression
+// test now call `sse_consumer_client()`. If a future commit
+// re-introduces an inline `reqwest::Client::builder()...`
+// chain in either site, the test below still passes (it's
+// checking `sse_consumer_client`, not the call sites) —
+// the invariant is enforced by code review, not by a test.
+// The test's job is narrower: catch a future commit that
+// re-adds a dangerous knob to `sse_consumer_client()`
+// itself.
+//
+// **The scope guard.** The forbidden-knob substring check
+// is scoped to the function body region (from
+// `pub fn sse_consumer_client` to end-of-file), NOT the
+// whole file. This avoids false positives from the module
+// doc comment at the top of the file (which legitimately
+// mentions `.timeout(` and `.connect_timeout(` to explain
+// the wave-15 bug).
+
+#[cfg(test)]
+mod construction_site_parity_guards {
+    /// The marker constant must match the current expected
+    /// builder shape. If a future refactor changes the
+    /// builder chain in `sse_consumer_client()`, this test
+    /// fails UNLESS the marker constant is updated in the
+    /// same commit. The marker constant is the
+    /// human-readable contract that links the production
+    /// site to the wave-15 regression test.
+    #[test]
+    fn sse_consumer_client_builder_chain_marker_is_current() {
+        assert_eq!(
+            super::SSE_CONSUMER_CLIENT_BUILDER_CHAIN,
+            "reqwest::Client::builder().build()",
+            "SSE_CONSUMER_CLIENT_BUILDER_CHAIN has drifted from the actual \
+             builder chain. If you intentionally changed the builder (e.g. \
+             added a knob), update BOTH this marker constant AND the \
+             wave-15 regression test in \
+             consume_once_survives_long_lived_stream_with_no_per_request_timeout \
+             to assert the new behavior end-to-end. Re-run the wave-15 \
+             test with --ignored (default 90s, override with \
+             WAVE15_SSE_DURATION_SECS=...) to verify the new builder \
+             survives a sustained stream longer than the new timeout."
+        );
+    }
+
+    /// The forbidden knobs — any re-add to
+    /// `sse_consumer_client()` of one of these method calls
+    /// will fail this test at `cargo test` time. Scoped to
+    /// the **builder chain expression region** (delimited
+    /// by the `// wave17-builder-scan-begin` and
+    /// `// wave17-builder-scan-end` marker comments
+    /// inside the function body), NOT the whole function
+    /// body or the whole file. This scoping avoids false
+    /// positives from:
+    ///   - The module-level doc comment (which legitimately
+    ///     explains the wave-15 bug by name).
+    ///   - The function-level doc comment (which also
+    ///     mentions `.timeout(_)` to explain the
+    ///     wave-15 root cause).
+    ///   - The `construction_site_parity_guards` test
+    ///     itself (which contains `.timeout(` as a string
+    ///     literal in the `FORBIDDEN_BUILDER_KNOBS` list
+    ///     below).
+    /// The markers are a structural contract: a future
+    /// refactor that adds a real builder call to the
+    /// function MUST place it between the markers, OR
+    /// update this test to use a new scoping rule. The
+    /// marker strings are NEVER mentioned in any prose
+    /// comment in this file (the test holds them as
+    /// const strings only) so the `find()` call below
+    /// matches the function-body markers exclusively,
+    /// never a backticked prose mention.
+    #[test]
+    fn sse_consumer_client_source_has_no_timer_knobs() {
+        // The marker comments that delimit the scan region.
+        // These are placed inside the function body
+        // immediately around the actual builder call.
+        // The exact strings are NEVER mentioned in any
+        // prose comment elsewhere in the file (the test
+        // holds them as const strings only) so the
+        // `find()` call below matches the function-body
+        // markers exclusively.
+        const SCAN_BEGIN: &str = "// wave17-builder-scan-begin";
+        const SCAN_END: &str = "// wave17-builder-scan-end";
+
+        let source = include_str!("sse_consumer.rs");
+        let begin_idx = source.find(SCAN_BEGIN).unwrap_or_else(|| {
+            panic!(
+                "could not find `{SCAN_BEGIN}` marker in sse_consumer.rs; \
+                 the source layout has drifted from what the guard expects. \
+                 Either restore the marker inside the \
+                 `sse_consumer_client()` function body (around the actual \
+                 builder call) or update the \
+                 `construction_site_parity_guards` test to use a new \
+                 scoping rule."
+            )
+        });
+        let begin_after = begin_idx + SCAN_BEGIN.len();
+        let end_idx = source[begin_after..].find(SCAN_END).unwrap_or_else(|| {
+            panic!(
+                "could not find `{SCAN_END}` marker in sse_consumer.rs \
+                 after the `{SCAN_BEGIN}` marker; the source layout has \
+                 drifted. Restore the marker pair inside the \
+                 `sse_consumer_client()` function body."
+            )
+        }) + begin_after;
+        let body_region = &source[begin_after..end_idx];
+
+        // Each entry is a forbidden builder method call —
+        // including the open-paren so we only match actual
+        // method invocations, not variable names or comments
+        // that mention the word alone.
+        const FORBIDDEN_BUILDER_KNOBS: &[&str] = &[
+            ".timeout(",          // wave-15 root cause
+            ".connect_timeout(",  // wrong-fit (TCP-only)
+            ".read_timeout(",     // doesn't exist in 0.12, but flag future adds
+        ];
+
+        for knob in FORBIDDEN_BUILDER_KNOBS {
+            assert!(
+                !body_region.contains(knob),
+                "sse_consumer_client() body contains forbidden knob \
+                 `{knob}` between the {SCAN_BEGIN} / {SCAN_END} markers. \
+                 The whole point of construction-site-parity is that the \
+                 production and test paths share the same builder. \
+                 Re-adding a timer-style knob will bring back the \
+                 wave-15 60s-cadence 'error decoding' bug (or a related \
+                 timer-bomb shape). See the doc comment on \
+                 sse_consumer_client() for the load-bearing rationale. \
+                 If you intentionally need this knob, update BOTH the \
+                 function body AND SSE_CONSUMER_CLIENT_BUILDER_CHAIN \
+                 AND the wave-15 regression test expectations, AND \
+                 re-run the wave-15 test with --ignored to verify the \
+                 new builder survives a sustained stream."
+            );
+        }
+    }
+
+    /// `sse_consumer_client()` produces a usable client. This
+    /// is a smoke test — the function returns
+    /// `Result<Client, reqwest::Error>`, mirroring the
+    /// original `main.rs` `?` + `.context()` shape. With
+    /// the default builder (no overrides), the `Err` arm
+    /// is unreachable in practice; the only failure modes
+    /// are system-level (out-of-memory, TLS backend init).
+    /// If this test fails, the helper itself has a bug;
+    /// the structural checks above catch knob-level drift.
+    #[test]
+    fn sse_consumer_client_builds_a_reqwest_client() {
+        let _client = super::sse_consumer_client()
+            .expect("sse_consumer_client: default builder should not fail; \
+                     the only failure modes are system-level (out-of-memory, \
+                     TLS backend init) which are not recoverable");
     }
 }

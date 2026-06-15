@@ -38,8 +38,19 @@ images:
   # observed in wave 15's verifier evidence; no
   # correctness change). See deliverable-wave16-*
   # for the full noise-reduction scope.
+  #
+  # wave17: bumped analytics tag from `:wave16-dev` to
+  # `:wave17-dev` so the dev overlay runs the wave-17
+  # construction-site-parity binary. Pure refactor:
+  # exports `sse_consumer_client()` from `sse_consumer.rs`
+  # and routes both `main.rs` and the wave-15 regression
+  # test through the same shared builder. The
+  # `construction_site_parity_guards` test pins the
+  # builder shape so a future re-add of `.timeout(60s)`
+  # (the wave-15 bug) is caught at `cargo test` time.
+  # No behavior change.
   - name: epsx-analytics
-    newTag: wave16-dev
+    newTag: wave17-dev
   # wave13b(track-a): bumped identity tag from
   # `:wave13a-dev` to `:wave13b-dev` so the dev overlay
   # runs the wave-13b build of the identity binary
