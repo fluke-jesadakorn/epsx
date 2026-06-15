@@ -83,7 +83,7 @@ use grpc_client::GrpcWalletRankingOffsetQuery;
 // handler is mounted on the axum router below.
 
 mod sse_consumer;
-use sse_consumer::{run_sse_consumer, LocalRankingOffsetBus};
+use sse_consumer::{run_sse_consumer, sse_consumer_client, LocalRankingOffsetBus};
 
 // ============================================================================
 // 5-route builder
@@ -471,27 +471,24 @@ async fn main() -> anyhow::Result<()> {
 
     // `reqwest::Client` is the long-lived HTTP client.
     //
-    // **Wave 15: do NOT set `.timeout(_)` on this client.**
-    // `reqwest::ClientBuilder::timeout()` is the **total
-    // request timeout** — measured from `client.get(url).send()`
-    // until the response body stream ends. For a long-lived
-    // SSE stream that never ends, a 60s timeout kills the
-    // stream at t+60s regardless of activity, and the
-    // cancellation surfaces through hyper's chunked-decoder
-    // as "error decoding response body" (the user-visible
-    // error in the wave-14/14b reports). `reqwest = 0.12`
-    // does NOT expose a separate read-timeout / idle-timeout
-    // knob — the closest is `.connect_timeout()`, which
-    // bounds only the TCP connect phase (a hung TCP
-    // handshake, NOT a slow body). So the right answer is
-    // no client-level timeout for SSE; the consumer's
-    // reconnect logic (`run_sse_consumer` in
-    // `sse_consumer.rs`) handles hung connections via
-    // exponential backoff on `consume_once` errors. The
-    // 20s keepalive ping in the identity service
-    // (`wave14b`) is the liveness check.
-    let sse_client = reqwest::Client::builder()
-        .build()
+    // **Wave 17: the builder is now a one-line call to the
+    // shared `sse_consumer_client()` in `sse_consumer.rs`.**
+    // The previous inline `reqwest::Client::builder()...`
+    // chain (with its 18-line "do NOT set `.timeout(_)`"
+    // doc comment) is now centralized in the sse_consumer
+    // module so the wave-15 regression test
+    // (`consume_once_survives_long_lived_stream_with_no_per_request_timeout`)
+    // uses the EXACT SAME builder as production. This is
+    // the **construction-site-parity** pattern: a future
+    // refactor that re-adds a dangerous knob (e.g. the old
+    // `.timeout(60s)`) is caught by both the production and
+    // test sites at the same time, plus the
+    // `construction_site_parity_guards` test pins the
+    // builder shape. See the doc comment on
+    // `sse_consumer_client()` in `sse_consumer.rs` for the
+    // full wave-15 bug rationale + the reqwest=0.12 timeout
+    // landscape.
+    let sse_client = sse_consumer_client()
         .context("building reqwest client for SSE consumer")?;
 
     let identity_sse_url = std::env::var("IDENTITY_SSE_URL")
