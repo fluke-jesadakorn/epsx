@@ -4,3 +4,4 @@
 pub mod middleware;
 pub mod auth_helpers;
 pub mod static_assets;
+pub mod dev_bypass;
