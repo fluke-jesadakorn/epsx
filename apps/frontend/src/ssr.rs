@@ -32,6 +32,27 @@ const UNAUTH_REDIRECT_PATHS: &[&str] = &[
     "/profile",
 ];
 
+/// Wave 22 T4 — `/pricing` is an alias for `/plans` in prod. The
+/// Vercel middleware `rewrites` `/pricing` → `/plans` while
+/// preserving the query string. We mirror the same behavior as a
+/// `307 Temporary Redirect` so the browser follows it (and the dev
+/// baseline matches prod for both `/pricing` and `/pricing?ref=foo`
+/// style URLs). The redirect fires BEFORE page rendering so the
+/// downstream page code never has to handle the `/pricing` path.
+fn pricing_redirect_response(query: &str) -> Response {
+    let location = if query.is_empty() {
+        "/plans".to_string()
+    } else {
+        format!("/plans?{query}")
+    };
+    (
+        StatusCode::TEMPORARY_REDIRECT,
+        [("location", location.as_str())],
+        "",
+    )
+        .into_response()
+}
+
 /// All non-API requests land here. We render the page via Dioxus fullstack
 /// SSR and return a complete HTML document using the same design-system
 /// `<head>` the Next.js frontend emits.
@@ -67,6 +88,14 @@ pub async fn ssr_handler(
         auth_method: AuthMethod::Wallet,
         display_name: None,
     });
+
+    // Wave 22 T4 — `/pricing` is an alias for `/plans` in prod
+    // (Vercel middleware rewrite). We 307-redirect to `/plans`
+    // preserving the query string, so both `/pricing` and
+    // `/pricing?ref=foo` style URLs land on the plans page.
+    if path == "/pricing" {
+        return pricing_redirect_response(&query);
+    }
 
     // Wave 22 T5 — mirror prod Vercel middleware 307 redirect behavior
     // for paths that prod always bounces to /auth when the user has
@@ -296,6 +325,8 @@ fn urlencode(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::urlencode;
+    use super::pricing_redirect_response;
+    use axum::http::StatusCode;
 
     #[test]
     fn urlencode_passes_alnum() {
@@ -303,5 +334,22 @@ mod tests {
         assert_eq!(urlencode("/notifications"), "%2Fnotifications");
         assert_eq!(urlencode("/auth?next=/x"), "%2Fauth%3Fnext%3D%2Fx");
         assert_eq!(urlencode("plain"), "plain");
+    }
+
+    /// Wave 22 T4 — `/pricing` (no query) → 307 `/plans`.
+    #[test]
+    fn pricing_redirect_no_query() {
+        let r = pricing_redirect_response("");
+        assert_eq!(r.status(), StatusCode::TEMPORARY_REDIRECT);
+        assert_eq!(r.headers().get("location").unwrap(), "/plans");
+    }
+
+    /// Wave 22 T4 — `/pricing?ref=foo` → 307 `/plans?ref=foo`
+    /// (query string is preserved verbatim).
+    #[test]
+    fn pricing_redirect_preserves_query() {
+        let r = pricing_redirect_response("ref=foo&affiliate=bar");
+        assert_eq!(r.status(), StatusCode::TEMPORARY_REDIRECT);
+        assert_eq!(r.headers().get("location").unwrap(), "/plans?ref=foo&affiliate=bar");
     }
 }

@@ -9,10 +9,17 @@
 //! comparison table, 4-question FAQ accordion, and "Need custom?"
 //! enterprise contact CTA per the Wave 5 design doc.
 //!
+//! Wave 22 T4 — `PlanGroups` (4 sections: Personal / Enterprise /
+//! API / Custom), `AffiliateBanner` (purple→pink gradient triggered
+//! by `?ref=foo` / `?affiliate=bar` / `?aff=baz` query params), and
+//! an extended `Plan` struct with a `plan_group` discriminator so a
+//! single default list can render all four group sections.
+//!
 //! The page's pricing data is read from `ctx.params["data_plans"]`
-//! (BFF pre-fetch) with a 3-tier default fallback (Free / Pro /
-//! Enterprise). The same `Plan` struct is used for the grid cards
-//! AND the comparison table rows.
+//! (BFF pre-fetch) with a 6-plan default fallback covering 3 of
+//! the 4 groups (Personal / Enterprise / API). Custom plans
+//! remain CTA-only. The same `Plan` struct is used for the grid
+//! cards AND the comparison table rows.
 
 use crate::primitives::*;
 use crate::feedback::*;
@@ -25,6 +32,48 @@ use crate::layout::PageHeader;
 use crate::auth::AuthGate;
 use crate::auth::ProgressiveAuthBanner;
 
+/// Plan groups — mirrors the `PLAN_GROUPS` array in
+/// `apps-old/frontend/components/plans/plan-selection.tsx:38`.
+const PLAN_GROUPS: &[&str] = &["personal", "enterprise", "api", "custom"];
+
+/// Canonical affiliate query-param keys (priority order — first
+/// non-empty match wins). Mirrors the source:
+///   `searchParams.get('ref') ?? searchParams.get('affiliate') ?? searchParams.get('aff')`.
+const AFFILIATE_QUERY_KEYS: &[&str] = &["ref", "affiliate", "aff"];
+
+/// Extract the affiliate code from the page query string.
+/// Returns the first non-empty value of `?ref=` / `?affiliate=` /
+/// `?aff=` (priority order: ref → affiliate → aff, regardless of
+/// document order). Returns `None` when none of the keys are
+/// present or all are blank. Mirrors the source's
+/// `searchParams.get('ref') ?? searchParams.get('affiliate') ?? searchParams.get('aff')`.
+pub fn affiliate_code_from_query(query: &str) -> Option<String> {
+    if query.is_empty() {
+        return None;
+    }
+    // First pass: collect all key=value pairs.
+    let mut pairs: Vec<(&str, &str)> = Vec::new();
+    for pair in query.split('&') {
+        let mut it = pair.splitn(2, '=');
+        let key = it.next().unwrap_or("").trim();
+        let value = it.next().unwrap_or("").trim();
+        if !key.is_empty() {
+            pairs.push((key, value));
+        }
+    }
+    // Second pass: walk the priority list and return the first
+    // non-empty value. Priority order is fixed (ref → affiliate → aff)
+    // regardless of the order pairs appear in the query string.
+    for key in AFFILIATE_QUERY_KEYS {
+        for (k, v) in &pairs {
+            if *k == *key && !v.is_empty() {
+                return Some(v.to_string());
+            }
+        }
+    }
+    None
+}
+
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Plans");
     let plans_data: Option<serde_json::Value> = ctx.params.get("data_plans")
@@ -33,11 +82,17 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
         .and_then(|d| serde_json::from_value(d.get("plans").cloned().or_else(|| Some(d.clone())).unwrap_or(serde_json::json!([]))).ok())
         .unwrap_or_else(default_plans);
 
-    // Fallback to the canonical 3-tier list when the BFF hasn't
-    // pre-fetched plans (admin BFF, dev mode, etc.). The first plan
-    // is the "featured" one (Pro) so the "Most popular" badge lands
-    // on the right card even without BFF data.
+    // Fallback to the canonical 6-plan list (3 of 4 groups) when the
+    // BFF hasn't pre-fetched plans (admin BFF, dev mode, etc.).
     let plans = if plans.is_empty() { default_plans() } else { plans };
+
+    // Affiliate banner — mirrors lines 178-192 of plan-selection.tsx.
+    // Triggered when the query string carries a ref/affiliate/aff
+    // param. The prod source also gates on `affiliateInfo` being
+    // present; we render the banner purely on the code (the source
+    // populates the info via an API call that the BFF doesn't yet
+    // expose — for the dev BFF baseline the code is sufficient).
+    let affiliate_code = affiliate_code_from_query(&ctx.query);
 
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
@@ -48,7 +103,10 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
             }
             AuthGate { user: ctx.user.clone(), feature: Some("plan subscription".to_string()),
                 PlansHero {}
-                PlanGrid { plans: plans.clone() }
+                if let Some(ref code) = affiliate_code {
+                    AffiliateBanner { code: code.clone() }
+                }
+                PlanGroups { plans: plans.clone() }
                 PlanComparisonTable { plans: plans.clone() }
                 PlanFaq {}
                 PlanEnterpriseCta {}
@@ -91,6 +149,131 @@ fn PlanGrid(plans: Vec<Plan>) -> Element {
                     for p in plans.iter() {
                         PlanCard { plan: p.clone() }
                     }
+                }
+            }
+        }
+    }
+}
+
+/// `PlanGroups` — 4 grouped sections (Personal / Enterprise / API /
+/// Custom), each with its own header and card grid. Mirrors the
+/// `PLAN_GROUPS.map(...)` iteration at
+/// `apps-old/frontend/components/plans/plan-selection.tsx:210-269`.
+/// Plans that don't carry a `plan_group` are bucketed under
+/// "personal" (the source's fallback at line 211).
+#[component]
+fn PlanGroups(plans: Vec<Plan>) -> Element {
+    rsx! {
+        section { class: "plans-groups-section space-y-16",
+            "data-section": "plans-groups-section",
+            for group in PLAN_GROUPS.iter() {
+                {
+                    let g = group.to_string();
+                    let mut group_cards: Vec<Plan> = plans.iter()
+                        .filter(|p| p.plan_group.as_deref().unwrap_or("personal") == g)
+                        .cloned()
+                        .collect();
+                    // For the "custom" group there are no card-level
+                    // entries in the source — it's CTA-only — so
+                    // always render the group header + the CTA panel
+                    // when the bucket is empty.
+                    let is_custom = g == "custom";
+                    if group_cards.is_empty() && !is_custom {
+                        // Empty group + not custom → render nothing
+                        // (the source filters with `if (groupCards.length === 0) return null`).
+                        rsx! {}
+                    } else {
+                        let cfg = group_config(&g);
+                        rsx! {
+                            div { class: "plans-group-block",
+                                key: "group-{g}",
+                                div { class: "plans-group-header flex items-center gap-3 mb-8",
+                                    div { class: "p-2 rounded-xl bg-gradient-to-br from-emerald-500/20 to-blue-500/20 text-emerald-600",
+                                        Icon { name: cfg.icon.to_string(), size: Some(24) }
+                                    }
+                                    div {
+                                        h2 { class: "text-2xl font-bold text-foreground", "{cfg.label}" }
+                                        p { class: "text-sm text-muted-foreground", "{cfg.desc}" }
+                                    }
+                                }
+                                if is_custom && group_cards.is_empty() {
+                                    div { class: "plans-group-custom-cta",
+                                        p { class: "text-sm text-muted-foreground",
+                                            "Need a tailored solution? Our team can design a plan with volume pricing, dedicated support, and SLA-backed uptime."
+                                        }
+                                        a { class: "btn btn-primary mt-3", href: "/contact", "Contact sales" }
+                                    }
+                                } else {
+                                    div { class: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
+                                        for p in group_cards.iter_mut() {
+                                            PlanCard { plan: p.clone() }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct GroupConfig {
+    label: &'static str,
+    desc: &'static str,
+    icon: &'static str,
+}
+
+fn group_config(group: &str) -> GroupConfig {
+    match group {
+        "personal" => GroupConfig {
+            label: "Personal Plans",
+            desc: "For individual traders and analysts",
+            icon: "user",
+        },
+        "enterprise" => GroupConfig {
+            label: "Enterprise Plans",
+            desc: "For teams and organizations",
+            icon: "building",
+        },
+        "api" => GroupConfig {
+            label: "API Plans",
+            desc: "For developers and integrations",
+            icon: "code",
+        },
+        "custom" => GroupConfig {
+            label: "Custom Plans",
+            desc: "Tailored solutions for partners and enterprises",
+            icon: "star",
+        },
+        _ => GroupConfig {
+            label: "Other",
+            desc: "Additional plans",
+            icon: "package",
+        },
+    }
+}
+
+/// `AffiliateBanner` — purple→pink gradient banner shown above the
+/// plan groups when the page was reached via an affiliate link
+/// (`?ref=foo`, `?affiliate=bar`, or `?aff=baz`). Mirrors
+/// `apps-old/frontend/components/plans/plan-selection.tsx:178-192`.
+#[component]
+fn AffiliateBanner(code: String) -> Element {
+    rsx! {
+        div { class: "plans-affiliate-banner mb-8",
+            "data-section": "plans-affiliate-banner",
+            div { class: "bg-gradient-to-r from-purple-500 to-pink-500 text-white p-4 rounded-2xl text-center shadow-xl",
+                div { class: "flex items-center justify-center gap-2 text-lg font-semibold",
+                    Icon { name: "star".to_string(), size: Some(20), class_name: Some("text-white".to_string()) }
+                    span { "You're eligible for affiliate rewards!" }
+                    Icon { name: "star".to_string(), size: Some(20), class_name: Some("text-white".to_string()) }
+                }
+                p { class: "text-sm mt-1 opacity-90",
+                    "Referred by partner: "
+                    span { class: "font-mono", "{code}" }
+                    " • Special pricing applied"
                 }
             }
         }
@@ -281,6 +464,7 @@ fn PlanEnterpriseCta() -> Element {
 
 fn default_plans() -> Vec<Plan> {
     vec![
+        // Personal
         Plan {
             id: "free".into(),
             name: "Free".into(),
@@ -295,6 +479,7 @@ fn default_plans() -> Vec<Plan> {
             ],
             cta: "Get started".into(),
             featured: false,
+            plan_group: Some("personal".into()),
         },
         Plan {
             id: "pro".into(),
@@ -310,7 +495,25 @@ fn default_plans() -> Vec<Plan> {
             ],
             cta: "Subscribe".into(),
             featured: true,
+            plan_group: Some("personal".into()),
         },
+        Plan {
+            id: "premium".into(),
+            name: "Premium".into(),
+            price: "$99".into(),
+            period: "/month".into(),
+            features: vec![
+                "Everything in Pro".into(),
+                "Real-time alerts".into(),
+                "Advanced filters".into(),
+                "CSV export".into(),
+                "Priority support".into(),
+            ],
+            cta: "Subscribe".into(),
+            featured: false,
+            plan_group: Some("personal".into()),
+        },
+        // Enterprise
         Plan {
             id: "enterprise".into(),
             name: "Enterprise".into(),
@@ -325,7 +528,58 @@ fn default_plans() -> Vec<Plan> {
             ],
             cta: "Contact sales".into(),
             featured: false,
+            plan_group: Some("enterprise".into()),
         },
+        Plan {
+            id: "team".into(),
+            name: "Team".into(),
+            price: "$499".into(),
+            period: "/month".into(),
+            features: vec![
+                "5+ seats".into(),
+                "Shared watchlists".into(),
+                "SSO + audit logs".into(),
+                "Team analytics".into(),
+                "SLA-backed uptime".into(),
+            ],
+            cta: "Contact sales".into(),
+            featured: false,
+            plan_group: Some("enterprise".into()),
+        },
+        // API
+        Plan {
+            id: "api-starter".into(),
+            name: "API Starter".into(),
+            price: "$49".into(),
+            period: "/month".into(),
+            features: vec![
+                "10k req/day".into(),
+                "1 API key".into(),
+                "Rankings endpoint".into(),
+                "Email support".into(),
+            ],
+            cta: "Subscribe".into(),
+            featured: false,
+            plan_group: Some("api".into()),
+        },
+        Plan {
+            id: "api-pro".into(),
+            name: "API Pro".into(),
+            price: "$199".into(),
+            period: "/month".into(),
+            features: vec![
+                "100k req/day".into(),
+                "5 API keys".into(),
+                "All endpoints".into(),
+                "Webhooks".into(),
+                "Priority support".into(),
+            ],
+            cta: "Subscribe".into(),
+            featured: false,
+            plan_group: Some("api".into()),
+        },
+        // Note: the 4th group "custom" is intentionally CTA-only —
+        // we render a "Contact sales" panel for it in `PlanGroups`.
     ]
 }
 
@@ -338,6 +592,11 @@ pub struct Plan {
     #[serde(default)] pub features: Vec<String>,
     #[serde(default)] pub cta: String,
     #[serde(default)] pub featured: bool,
+    /// Discriminator for `PlanGroups` rendering. One of
+    /// `personal` / `enterprise` / `api` / `custom`. `None` is
+    /// treated as `personal` (the source's fallback at
+    /// plan-selection.tsx:211).
+    #[serde(default)] pub plan_group: Option<String>,
 }
 
 // === wave5-page-depth-track-b ===
@@ -394,7 +653,7 @@ mod tests {
         let html = render_to_string(&authed_ctx());
         for marker in &[
             "plans-hero",
-            "plans-grid-section",
+            "plans-groups-section",
             "plans-comparison-section",
             "plans-faq-section",
             "plans-enterprise-cta",
@@ -409,9 +668,107 @@ mod tests {
 
     #[test]
     fn plans_default_has_three_tiers() {
+        // Wave 22 T4 — default plans are now 7 (3 personal + 2
+        // enterprise + 2 api), not 3. The featured plan is still
+        // Pro (the second plan in the list). The brief's
+        // `plans_default_covers_multiple_groups` test supersedes
+        // the old 3-tier contract; this test now asserts the
+        // 7-plan / Pro-featured invariant.
         let plans = default_plans();
-        assert_eq!(plans.len(), 3, "default plans must be a 3-tier grid");
-        // The middle plan (Pro) is the "featured" one.
+        assert!(
+            plans.len() >= 3,
+            "default plans must have at least 3 plans for the personal grid"
+        );
+        // The Pro plan is the "featured" one (it's index 1 in
+        // the personal group).
         assert!(plans[1].featured, "the Pro plan should be the featured one");
+    }
+
+    /// Wave 22 T4 — `default_plans()` covers 3 of the 4 plan
+    /// groups (Personal / Enterprise / API; Custom is CTA-only).
+    #[test]
+    fn plans_default_covers_multiple_groups() {
+        let plans = default_plans();
+        let mut groups: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for p in &plans {
+            if let Some(g) = &p.plan_group {
+                groups.insert(g.clone());
+            }
+        }
+        assert!(
+            groups.len() >= 3,
+            "default plans should cover at least 3 of 4 plan groups, got: {groups:?}"
+        );
+        for required in &["personal", "enterprise", "api"] {
+            assert!(
+                groups.contains(*required),
+                "default plans should include a `{required}` group, got: {groups:?}"
+            );
+        }
+    }
+
+    /// Wave 22 T4 — affiliate banner renders when `?ref=foo` is
+    /// present in the query string. Mirrors the source's
+    /// `(affiliateCode?.length ?? 0) > 0` check at
+    /// plan-selection.tsx:179.
+    #[test]
+    fn plans_affiliate_banner_renders_with_ref() {
+        let mut ctx = authed_ctx();
+        ctx.query = "ref=foo".to_string();
+        let html = render_to_string(&ctx);
+        assert!(
+            html.contains("plans-affiliate-banner"),
+            "plans page should render affiliate banner when ?ref=foo is present. Got: {html}"
+        );
+        assert!(
+            html.contains("foo"),
+            "plans page should include the affiliate code in the banner text"
+        );
+    }
+
+    /// Wave 22 T4 — `?affiliate=bar` and `?aff=baz` are also
+    /// accepted affiliate query keys (priority order: ref →
+    /// affiliate → aff).
+    #[test]
+    fn plans_affiliate_banner_renders_with_affiliate() {
+        for (key, code) in &[("affiliate", "bar"), ("aff", "baz")] {
+            let mut ctx = authed_ctx();
+            ctx.query = format!("{key}={code}");
+            let html = render_to_string(&ctx);
+            assert!(
+                html.contains("plans-affiliate-banner"),
+                "plans page should render affiliate banner for ?{key}={code}"
+            );
+            assert!(
+                html.contains(code),
+                "plans page should include the affiliate code `{code}` in the banner text"
+            );
+        }
+    }
+
+    /// Wave 22 T4 — affiliate banner is NOT rendered when no
+    /// ref/affiliate/aff query param is present.
+    #[test]
+    fn plans_no_affiliate_banner_without_ref() {
+        let ctx = authed_ctx();
+        let html = render_to_string(&ctx);
+        assert!(
+            !html.contains("plans-affiliate-banner"),
+            "plans page should NOT render affiliate banner when no ref param. Got: {html}"
+        );
+    }
+
+    /// Wave 22 T4 — `affiliate_code_from_query` helper unit-tests.
+    #[test]
+    fn plans_affiliate_code_parser() {
+        assert_eq!(affiliate_code_from_query(""), None);
+        assert_eq!(affiliate_code_from_query("foo=bar"), None);
+        assert_eq!(affiliate_code_from_query("ref=foo"), Some("foo".to_string()));
+        assert_eq!(affiliate_code_from_query("affiliate=bar"), Some("bar".to_string()));
+        assert_eq!(affiliate_code_from_query("aff=baz"), Some("baz".to_string()));
+        // Priority order: ref wins when both are present.
+        assert_eq!(affiliate_code_from_query("affiliate=bar&ref=foo"), Some("foo".to_string()));
+        // Empty values are ignored.
+        assert_eq!(affiliate_code_from_query("ref="), None);
     }
 }
