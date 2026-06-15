@@ -646,7 +646,20 @@ pub fn design_system_head(title: &str, description: &str) -> String {
   @media (min-width: 640px) {{ .section {{ padding: 5rem 2rem; }} }}
   @media (min-width: 1024px) {{ .section {{ padding: 6rem 2rem; }} }}
 
-  /* === Container === */
+  /* === Container ===
+   * Tailwind 2.2.19's .container has width:100% per breakpoint but does
+   * NOT center itself (no margin: 0 auto). Wave 22 home/auth/contact/about
+   * pages use the bare `.container` class — the Dioxus page source emits
+   * it directly. Add the centering + width caps here so they match the
+   * 80rem max-width used by `.container-x`.
+   * See: https://v2.tailwindcss.com/docs/container
+   */
+  .container {{ margin-left: auto; margin-right: auto; padding-left: 1rem; padding-right: 1rem; }}
+  @media (min-width: 640px)  {{ .container {{ max-width: 640px;  padding-left: 1.5rem; padding-right: 1.5rem; }} }}
+  @media (min-width: 768px)  {{ .container {{ max-width: 768px;  padding-left: 1.5rem; padding-right: 1.5rem; }} }}
+  @media (min-width: 1024px) {{ .container {{ max-width: 1024px; padding-left: 2rem;   padding-right: 2rem;   }} }}
+  @media (min-width: 1280px) {{ .container {{ max-width: 1280px; padding-left: 2rem;   padding-right: 2rem;   }} }}
+  @media (min-width: 1536px) {{ .container {{ max-width: 80rem;  padding-left: 2rem;   padding-right: 2rem;   }} }}
   .container-x {{ max-width: 80rem; margin-left: auto; margin-right: auto; padding-left: 1rem; padding-right: 1rem; }}
   @media (min-width: 640px) {{ .container-x {{ padding-left: 1.5rem; padding-right: 1.5rem; }} }}
   @media (min-width: 1024px) {{ .container-x {{ padding-left: 2rem; padding-right: 2rem; }} }}
@@ -1525,6 +1538,8 @@ pub fn design_system_head(title: &str, description: &str) -> String {
   }}
   .form-section-title {{
     font-size: 1rem;
+  }}
+  /*
    * Wave 1 — Track C: interactive primitive parity
    * ----------------------------------------------------------------
    * Block comment cataloguing every new class added by the Track C
@@ -2077,6 +2092,7 @@ pub fn design_system_head(title: &str, description: &str) -> String {
     background: currentColor;
     transform: translate(-50%, -50%);
     border-radius: 1px;
+  }}
   .modal-close {{
     display: inline-flex;
     align-items: center;
@@ -3505,7 +3521,7 @@ pub fn design_system_head(title: &str, description: &str) -> String {
    * contact, privacy, terms, not_found, error_page, offline,
    * access_denied). All rules below are scoped to the new
    * section-marker class names added by the Track B page
-   * ports in `shared/rust/dioxus_ui/src/pages/*.rs`. We deliberately
+   * ports in shared/rust/dioxus_ui/src/pages/.rs. We deliberately
    * reuse the existing design-system classes (`.card`,
    * `.card-glass`, `.btn`, `.btn-primary`, `.btn-outline`,
    * `.btn-gradient`, `.section-title`, `.section-sub`, `.orb-*`,
