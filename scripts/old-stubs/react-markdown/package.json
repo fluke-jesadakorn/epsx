@@ -1,0 +1,8 @@
+{
+  "name": "react-markdown",
+  "version": "9.0.0-stub",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  }
+}

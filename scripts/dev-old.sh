@@ -64,6 +64,8 @@ REPO_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 OLD_FRONTEND_DIR=$REPO_ROOT/apps-old/frontend
 OLD_ADMIN_DIR=$REPO_ROOT/apps-old/admin-frontend
 STUB_SRC=$REPO_ROOT/scripts/old-stubs/@tailwindcss/typography
+REACT_MARKDOWN_STUB_SRC=$REPO_ROOT/scripts/old-stubs/react-markdown
+REMARK_GFM_STUB_SRC=$REPO_ROOT/scripts/old-stubs/remark-gfm
 
 # Default ports — chosen to avoid the K8s cluster (30000/30001/30080),
 # the prod bridges (4700/4701/9180), the new Dioxus dev loop
@@ -202,6 +204,13 @@ ensure_deps() {
   # pnpm could blow it away on a re-install. The stub is a small
   # no-op Tailwind plugin; see scripts/old-stubs/@tailwindcss/typography/.
   install_typography_stub "$dir"
+  # Same story for react-markdown + remark-gfm — imported by
+  # apps-old/frontend/components/news/news-detail.tsx but never
+  # declared in the OLD app's package.json. The stubs render raw
+  # markdown as <pre> so the news article body is at least
+  # inspectable. See scripts/old-stubs/{react-markdown,remark-gfm}/.
+  install_react_markdown_stub "$dir"
+  install_remark_gfm_stub "$dir"
 }
 
 install_typography_stub() {
@@ -215,6 +224,32 @@ install_typography_stub() {
   cp -f "$STUB_SRC/package.json" "$dest/package.json"
   cp -f "$STUB_SRC/src/index.js" "$dest/src/index.js"
   log "typography stub installed at $dest (no-op plugin; see stub docstring)"
+}
+
+install_react_markdown_stub() {
+  local dir=$1
+  local dest=$dir/node_modules/react-markdown
+  if [ ! -d "$REACT_MARKDOWN_STUB_SRC/src" ]; then
+    warn "stub source $REACT_MARKDOWN_STUB_SRC not found; skipping (OLD /news/[slug] may 500)"
+    return 0
+  fi
+  mkdir -p "$dest/src"
+  cp -f "$REACT_MARKDOWN_STUB_SRC/package.json" "$dest/package.json"
+  cp -f "$REACT_MARKDOWN_STUB_SRC/src/index.js" "$dest/src/index.js"
+  log "react-markdown stub installed at $dest (renders <pre>; see stub docstring)"
+}
+
+install_remark_gfm_stub() {
+  local dir=$1
+  local dest=$dir/node_modules/remark-gfm
+  if [ ! -d "$REMARK_GFM_STUB_SRC/src" ]; then
+    warn "stub source $REMARK_GFM_STUB_SRC not found; skipping"
+    return 0
+  fi
+  mkdir -p "$dest/src"
+  cp -f "$REMARK_GFM_STUB_SRC/package.json" "$dest/package.json"
+  cp -f "$REMARK_GFM_STUB_SRC/src/index.js" "$dest/src/index.js"
+  log "remark-gfm stub installed at $dest (no-op passthrough; see stub docstring)"
 }
 
 # ──────────────────────────────────────────────────────────────────────
