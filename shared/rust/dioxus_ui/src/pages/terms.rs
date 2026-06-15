@@ -25,7 +25,7 @@ use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::marketing("Terms of service");
+    let meta = PageMeta::marketing("Terms and Conditions");
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
             div { class: "container page-content legal-page terms-page",

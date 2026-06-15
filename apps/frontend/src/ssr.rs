@@ -73,7 +73,19 @@ pub async fn ssr_handler(
     // no session. The redirect fires BEFORE page rendering, so the
     // browser follows to /auth and the dev baseline matches the
     // prod baseline PNG (the auth page) for these routes.
-    if user.is_none() && UNAUTH_REDIRECT_PATHS.contains(&path.as_str()) {
+    //
+    // Two categories of path:
+    //  - Exact-match paths in UNAUTH_REDIRECT_PATHS (e.g. /permissions,
+    //    /notifications, /profile)
+    //  - /chat/* sub-paths (e.g. /chat/<conv-id>, /chat/history) — prod
+    //    lists `/chat` as public, but sub-paths are protected and 307
+    //    to /auth. /chat itself stays public (browsable).
+    let needs_unauth_redirect = user.is_none()
+        && (UNAUTH_REDIRECT_PATHS.contains(&path.as_str())
+            || (path.starts_with("/chat/")
+                && !path.is_empty()
+                && path != "/chat"));
+    if needs_unauth_redirect {
         let next = if query.is_empty() {
             path.clone()
         } else {
