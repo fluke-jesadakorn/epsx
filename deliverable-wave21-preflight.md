@@ -1,324 +1,293 @@
-# Wave 21 Preflight — Dev Loop + Auth Bypass + Route Inventory
+# Wave 21 Preflight — Dev Loop + Auth Bypass + Route Inventory (RETRY)
 
-**Date:** 2026-06-15 13:10 (Asia/Bangkok, UTC+7)
+**Date:** 2026-06-15 13:45 (Asia/Bangkok, UTC+7)
 **Branch:** `wave21/preflight` (worktree `.worktrees/wave21-preflight`)
-**Commits on branch (2):**
+**Commits on branch (4):**
 - `5603dbaa` — wave21(preflight): EPSX_DEV_AUTH_BYPASS=1 — dev-only auth skip for both BFFs
 - `f2bfad50` — wave21(preflight): dev-loop scripts + route inventory for pixel-recheck
+- `0c4c12f2` — wave21(preflight): add root deliverable.md for the recheck setup
+- **`79b48814` — wave21(preflight): dev-old.sh uses next dev --webpack + typography stub (THIS RETRY)**
 
-## TL;DR
+## Why this retry
 
-The preflight is done. The user's brief had one factual error (it said
-`apps/admin` is BFF-only — it's not; it has SSR), but the rest of the
-premise held: there's no out-of-the-box dev loop, and there's no auth
-bypass for the pixel-recheck workflow. Both gaps are now closed.
+The verifier on the first submission rejected because `dev-old.sh`
+would start the OLD apps but every page returned 500 with `Can't
+resolve 'zod' from shared/env/schema.ts`. The user pivoted me to
+use the **build/start escape hatch** (production mode) if dev mode
+keeps tripping. I went the other way: **found the actual root cause
+and kept dev mode**. Dev mode now works on both OLD apps at first
+run, end-to-end. Production-mode is no longer needed.
 
-- **A. Admin UI origin** — `bff-admin` (binary in `apps/admin/`) serves
-  SSR for all `/admin/*` paths via `apps/admin/src/ssr.rs::ssr_handler` →
-  `epsx_dioxus_ui::pages::admin_pages::dispatch`. UI source lives in
-  `shared/rust/dioxus_ui/src/pages/admin_pages/`. The brief's
-  "BFF-only" assumption was wrong.
-- **B. Local dev loop** — `scripts/wave21-dev-loop.sh` brings up both
-  new Dioxus BFFs (`bff-frontend` :4000, `bff-admin` :4001) against the
-  dev K8s cluster's backend via `kubectl port-forward` (read-only, no
-  cluster state change).
-- **C. Auth bypass** — `EPSX_DEV_AUTH_BYPASS=1` env var makes both BFFs
-  treat every request as logged-in as a hardcoded dev admin. Default
-  OFF. Revert by `unset` + restart. Verified end-to-end with live curl
-  on both binaries.
-- **D. OLD app run script** — `scripts/dev-old.sh` runs the OLD Next.js
-  apps (`apps-old/frontend` :5000, `apps-old/admin-frontend` :5001)
-  using pnpm + the wave-20 dev infra (5433/6380/9100).
-- **E. Route inventory** — `docs/wave21-pixel-recheck/route-inventory.md`
-  has a 28-row frontend table and a 27-row admin table, with status
-  (found / redirect). 100% path-level parity on both sides.
+## The two pre-existing bugs the verifier hit, fixed here
 
----
+### 1. Turbopack project-root sandbox vs OLD apps' @/shared/* aliases
 
-## A. Admin UI origin — verdict and evidence
+**Symptom:** Edge Middleware compile fails with `Can't resolve 'zod'`
+when Turbopack is the bundler.
 
-**Verdict: the admin UI IS served by the `bff-admin` binary via an
-SSR fallback. The brief's "apps/admin is BFF-only" claim is wrong.**
+**Root cause:** The OLD apps' `tsconfig.json` has
+`"@/shared/*": ["../../shared/*"]` — a path alias that pulls files
+from outside the OLD app dir (parent's `shared/`). The pulled files
+(e.g. `shared/env/schema.ts`) then do `import { z } from 'zod'`
+(bare-module import). Turbopack's Edge Middleware runtime walks up
+from the *resolved file location* (which is now `shared/env/schema.ts`,
+at the repo root) to find `zod`, and it doesn't look in
+`apps-old/admin-frontend/node_modules/zod` — it only looks at the
+project root (`<repo_root>/node_modules/zod`) and the file's own
+`node_modules` ancestors, which don't have it.
 
-The fallback is at `apps/admin/src/main.rs:122`:
+**Fix:** switch from `--turbo` (Next 16 default) to `--webpack` via
+the `--webpack` flag. The OLD apps' `next.config.ts` already has
+`config.resolve.modules = [appNodeModules, ...]` which is exactly
+the right plumbing — webpack honors it, Turbopack ignores it. HMR
+is slower, but for a side-by-side pixel diff that's fine.
 
-```rust
-.fallback(ssr::ssr_handler)
+### 2. @tailwindcss/typography is referenced but never declared
+
+**Symptom:** Every page request 500s with
+`tailwindcss: ... Can't resolve '@tailwindcss/typography' in '...styles'`.
+
+**Root cause:** `apps-old/{frontend,admin-frontend}/styles/index.css`
+line 2 says `@plugin "@tailwindcss/typography";` (a Tailwind v4
+plugin directive) but **neither OLD app declares `@tailwindcss/typography`
+in its `package.json`**. In the OLD monorepo it was hoisted; in a
+standalone OLD-app dev loop the dep is missing, and the plugin's
+real dep tree (`lodash.castarray`, `lodash.isplainobject`,
+`lodash.merge`, `postcss-selector-parser`) is also missing.
+
+**Fix:** add a no-op stub at `scripts/old-stubs/@tailwindcss/typography/`
+that `dev-old.sh` copies into each OLD app's `node_modules` on every
+run. The stub's docstring documents the trade-off: `prose` /
+`prose-sm` utility classes won't apply typography styles in this
+mode — but the dev server boots and pages render. The brief said
+"do not modify the old code"; installing `@tailwindcss/typography`
++ 4 lodash deps would require modifying the OLD app's `package.json`,
+which is forbidden.
+
+## End-to-end smoke test of the fixed dev-old.sh
+
+```
+$ ./scripts/dev-old.sh up
+[dev-old] preflight: verifying wave-20 infra...
+[dev-old] Postgres 5433 OK
+[dev-old] Redis 6380 OK
+[dev-old] MinIO 9100 OK
+[dev-old] deps already installed in apps-old/frontend — skipping pnpm install
+[dev-old] typography stub installed at apps-old/frontend/node_modules/@tailwindcss/typography
+[dev-old] deps already installed in apps-old/admin-frontend — skipping pnpm install
+[dev-old] typography stub installed at apps-old/admin-frontend/node_modules/@tailwindcss/typography
+[dev-old] starting apps-old/frontend on :5000 (next dev --webpack)...
+[dev-old] old-frontend listening on :5000
+[dev-old] starting apps-old/admin-frontend on :5001 (next dev --webpack)...
+[dev-old] old-admin listening on :5001
+
+$ curl -sS -m 5 -o /dev/null -w "HTTP %{http_code}\n" http://localhost:5000/api/health
+HTTP 200
+$ curl -sS -m 90 -o /tmp/w21-fe-root.html -w "HTTP %{http_code} in %{time_total}s\n" http://localhost:5000/
+HTTP 200 in 15.100481s
+$ wc -c /tmp/w21-fe-root.html
+   94091 /tmp/w21-fe-root.html
+
+$ curl -sS -m 5 -o /dev/null -w "HTTP %{http_code}\n" http://localhost:5001/api/health
+HTTP 200
+$ curl -sS -m 60 -o /tmp/w21-ad-root.html -w "HTTP %{http_code} in %{time_total}s\n" http://localhost:5001/
+HTTP 200 in 18.363208s
+$ wc -c /tmp/w21-ad-root.html
+  112787 /tmp/w21-ad-root.html
+$ curl -sS -m 60 -o /tmp/w21-ad-analytics.html -w "HTTP %{http_code} in %{time_total}s\n" http://localhost:5001/analytics
+HTTP 200 in 4.568340s
+$ wc -c /tmp/w21-ad-analytics.html
+  227192 /tmp/w21-ad-analytics.html
 ```
 
-`ssr_handler` (`apps/admin/src/ssr.rs:26-143`) calls
-`admin_pages::dispatch(&ctx)` for any path starting with `/admin`. The
-page body comes from `shared/rust/dioxus_ui/src/pages/admin_pages/*`,
-and the `AdminLayout::Auth` chrome (Header / Sidebar / Footer) wraps
-it. The admin BFF therefore serves BOTH the JSON API (`/api/v1/*`)
-AND the HTML SSR pages.
+First compile is slow (~15s per page) because Next.js dev mode
+JIT-compiles each route on first hit. Subsequent visits are
+sub-second. The OLD apps' pages are real HTML, not 500 error pages.
 
-**Where the admin UI source lives:**
-- Pages: `shared/rust/dioxus_ui/src/pages/admin_pages/*.rs` (21 files,
-  one per admin route family)
-- Dispatcher: `shared/rust/dioxus_ui/src/pages/admin_pages.rs::dispatch`
-- SSR wrapper: `apps/admin/src/ssr.rs` (uses `AdminLayout::Auth` from
-  `shared/rust/dioxus_ui::layout::shell`)
-- Server (BFF): `apps/admin/src/main.rs` (binary `bff-admin`, port 3001)
+The remaining log noise (`Module not found: Can't resolve
+'@react-native-async-storage/async-storage' in @metamask/sdk`) is
+a pre-existing browser-bundle warning — pages still render with full
+HTML despite it.
 
-**Why this matters for the pixel-recheck:** the recheck tracks should
-hit `bff-admin` on port 3001 for all `/admin/*` URLs. On the local dev
-loop, that's port 4001.
+## What did NOT change from the first submission
 
----
+- **(A) Admin UI origin verdict:** `bff-admin` serves SSR via
+  `apps/admin/src/ssr.rs::ssr_handler` →
+  `epsx_dioxus_ui::pages::admin_pages::dispatch`. The brief's
+  "BFF-only" claim was wrong. Source: `shared/rust/dioxus_ui/src/pages/admin_pages/`.
+- **(B) Local dev loop for the NEW apps:**
+  `scripts/wave21-dev-loop.sh` brings up `bff-frontend` :4000 and
+  `bff-admin` :4001 against the dev K8s backend via
+  `kubectl port-forward :18080`. Read-only on the cluster.
+- **(C) Auth bypass (`EPSX_DEV_AUTH_BYPASS=1`):** Default OFF,
+  reverts by `unset` + restart. 5 unit tests + live smoke verified
+  end-to-end on both BFFs (curl /admin and /dashboard → 200 with
+  bypass user `0x...d3v1` in HTML; env unset → 0 hits for bypass
+  user). Commit: `5603dbaa`.
+- **(E) Route inventory:**
+  `docs/wave21-pixel-recheck/route-inventory.md` has 28/28 frontend
+  + 27/27 admin pages found (100% path-level parity). Two admin
+  routes redirect to canonical sub-pages; the recheck tracks should
+  follow the redirect.
 
-## B. Local dev loop — commands
+## Commands (copy-pasteable)
 
-The chosen approach is **(a) `cargo run` against a local config**, with
-`kubectl port-forward` to the dev K8s backend. No Docker, no image
-rebuilds, no `:dev` image touched.
-
-### Bring up the NEW Dioxus apps (for the recheck)
+### NEW Dioxus apps (against the dev K8s backend)
 
 ```bash
-# From the worktree root:
-cd /Users/fluke/.worktrees/wave21-preflight
-
 # 1. Make sure the K8s dev backend is reachable on :18080:
 KUBECONFIG=/tmp/k3s-default-clean.yaml kubectl port-forward \
   -n epsx-dev svc/epsx-backend 18080:8080 &
 
 # 2. Start both BFFs in dev mode (auth bypass ON by default):
+cd /Users/fluke/Desktop/Work/epsx/.worktrees/wave21-preflight
 ./scripts/wave21-dev-loop.sh up
 
 # To disable the bypass (e.g. to see the SIWE gate):
 ./scripts/wave21-dev-loop.sh up --no-bypass
 
-# To start just one BFF:
-./scripts/wave21-dev-loop.sh frontend   # :4000
-./scripts/wave21-dev-loop.sh admin      # :4001
-
 # Tear down:
 ./scripts/wave21-dev-loop.sh down
-
-# Status:
-./scripts/wave21-dev-loop.sh status
 ```
 
-### Ports
+### OLD Next.js apps (for the visual diff)
 
-| Port | Service |
-|---|---|
-| `18080` | `kubectl port-forward svc/epsx-backend :8080` (dev backend) |
-| `4000`  | `bff-frontend` (NEW Dioxus user-facing BFF) |
-| `4001`  | `bff-admin` (NEW Dioxus admin BFF) |
-| `5000`  | OLD `apps-old/frontend` (Next.js) — see D |
-| `5001`  | OLD `apps-old/admin-frontend` (Next.js) — see D |
-
-These are deliberately clear of:
-- 3000/3001 (cluster-internal)
-- 30080/30101/30102/30103 (K8s NodePorts)
-- 4700/4701/9180 (prod Cloudflare-tunnel bridges)
-- 5432/5433/6379/6380/9100 (DB/Redis/MinIO)
-- 8929/5050 (other colima port-forwards)
-
-### Why this approach (not Docker / image-rebuild)
-
-- The brief said "do NOT touch the K8s cluster, the dev overlay, or the
-  `:dev` images" — `cargo run` is the only option that doesn't touch any
-  of those.
-- `kubectl port-forward` is read-only (no cluster state change), so
-  even though it goes through kubectl it's safe.
-- Release builds are slow (50s+ on first build); the script uses
-  `--release` for production-like behavior, but the smoke I ran
-  before writing this deliverable used the prebuilt `target/debug`
-  binaries (already built during `cargo test`).
-
----
-
-## C. Auth bypass — diff summary and verification
-
-**Files changed (6):**
-1. `shared/rust/bff/src/lib.rs` — added `pub mod dev_bypass;`
-2. `shared/rust/bff/src/dev_bypass.rs` — NEW (140 lines incl. 5 tests)
-3. `apps/admin/src/auth.rs` — `current_user` and `require_user` short-circuit
-4. `apps/admin/src/main.rs` — startup WARN log
-5. `apps/frontend/src/auth.rs` — same as #3
-6. `apps/frontend/src/main.rs` — same as #4
-
-**Commit:** `5603dbaa` (branch `wave21/preflight`).
-
-**Behavior:**
-- Default OFF — when `EPSX_DEV_AUTH_BYPASS` is unset, `current_user`
-  returns the existing JWT-verify path result. **Zero behavior change
-  from prior code.**
-- ON (`EPSX_DEV_AUTH_BYPASS=1`) — `current_user` returns
-  `Some(AuthUser { user_id: "dev-bypass", address: "0x...d3v1",
-  chain_id: "0x38", roles: ["admin", "super_admin"] })` regardless of
-  cookies or headers. `require_admin` / `require_editor` accept it
-  (it has admin role), so SSR pages render with full admin permissions.
-- Revert: `unset EPSX_DEV_AUTH_BYPASS` + restart. **No code revert
-  needed.**
-
-**Tests:** 5 unit tests in `epsx_bff::dev_bypass::tests`:
-- `off_by_default`
-- `off_when_set_to_other_values` (only literal `"1"` enables)
-- `on_when_set_to_one` (pin the user shape)
-- `idempotent_returns_same_user_each_call`
-- `turn_off_then_on_works`
-
-Mutex-serialized because `std::env::set_var` is not thread-safe (per
-`memory/tokio-runtime-quirks.md`).
-
-**Live smoke verification (just ran, all PASSED):**
-
-```text
-$ EPSX_DEV_AUTH_BYPASS=1 PORT=4501 target/debug/bff-admin &
-INFO  Observability initialized for bff-admin
-WARN  EPSX_DEV_AUTH_BYPASS=1 — every request is treated as logged in as dev admin (0x...d3v1). NEVER enable in production.
-INFO  Admin BFF listening on http://0.0.0.0:4501
-
-$ curl -sS -w "HTTP %{http_code}\n" http://localhost:4501/api/health
-HTTP 200
-$ curl -sS -w "HTTP %{http_code}\n" http://localhost:4501/admin
-HTTP 200
-$ grep -c "admin-header" /tmp/admin-page.html    # AdminLayout::Auth chrome
-7
-$ grep -o "d3v1" /tmp/admin-page.html             # bypass user address in HTML
-d3v1
-
-$ EPSX_DEV_AUTH_BYPASS=1 PORT=4500 target/debug/bff-frontend &
-WARN  EPSX_DEV_AUTH_BYPASS=1 — every request is treated as logged in as dev admin (0x...d3v1). NEVER enable in production.
-INFO  Frontend BFF listening on http://0.0.0.0:4500
-
-$ curl -sS -w "HTTP %{http_code}\n" http://localhost:4500/dashboard
-HTTP 200
-$ grep -o "d3v1" /tmp/fe-page.html                # bypass user in SSR HTML
-d3v1
-
-# OFF (no env var):
-$ unset EPSX_DEV_AUTH_BYPASS; target/debug/bff-frontend &
-INFO  Observability initialized for bff-frontend
-# (no WARN line)
-$ curl -sS http://localhost:4500/dashboard | grep -c "d3v1"
-0                                            # bypass user NOT in HTML
-```
-
-Existing tests still pass: 8 frontend auth tests + 10 admin auth tests
-+ 5 dev_bypass tests = 23 tests, all green.
-
----
-
-## D. OLD app run script — `scripts/dev-old.sh`
-
-**Full path:** `/Users/fluke/Desktop/Work/epsx/.worktrees/wave21-preflight/scripts/dev-old.sh`
-
-**Behavior:**
-- Pre-flights the wave-20 dev infra (Postgres 5433, Redis 6380, MinIO
-  9100, K8s port-forward 18080) before doing anything.
-- Writes a minimal `.env.development` at the repo root pointing at the
-  dev infra (idempotent — won't overwrite unless `EPSX_FORCE_ENV_WRITE=1`).
-- Runs `pnpm install` (idempotent — skips if `node_modules` already
-  exists).
-- Starts `apps-old/frontend` on :5000 and `apps-old/admin-frontend` on
-  :5001 via `pnpm dev`.
-
-**Commands:**
 ```bash
-# Both apps:
-./scripts/dev-old.sh up
-
-# One at a time:
-./scripts/dev-old.sh up frontend   # :5000
-./scripts/dev-old.sh up admin      # :5001
-
-# Stop:
+cd /Users/fluke/Desktop/Work/epsx/.worktrees/wave21-preflight
+./scripts/dev-old.sh up          # both apps
+./scripts/dev-old.sh up frontend # just :5000
+./scripts/dev-old.sh up admin    # just :5001
 ./scripts/dev-old.sh down
-
-# Status:
 ./scripts/dev-old.sh status
 ```
 
-**Note on auth:** the OLD apps do NOT have the auth bypass. They go
-through the dev SIWE flow. To log in, either use the same dev wallet
-flow you would in dev, or paste a valid `epsx_token` cookie from a
-real dev session into your browser. (The new Dioxus apps have the
-bypass; the OLD apps don't — that's the whole point of the side-by-side
-recheck.)
+### URL map
 
----
+| Port | Service |
+|---|---|
+| `18080` | K8s dev backend (`kubectl port-forward svc/epsx-backend :8080`) |
+| `4000`  | `bff-frontend` (NEW Dioxus user-facing BFF) |
+| `4001`  | `bff-admin` (NEW Dioxus admin BFF) |
+| `5000`  | OLD `apps-old/frontend` (Next.js, `--webpack`) |
+| `5001`  | OLD `apps-old/admin-frontend` (Next.js, `--webpack`) |
 
-## E. Route inventory — see `docs/wave21-pixel-recheck/route-inventory.md`
+## Files created or modified in THIS retry
 
-The inventory file is committed and contains:
+- `scripts/dev-old.sh` — switched to `next dev --webpack`, added
+  `install_typography_stub()` step
+- `scripts/old-stubs/@tailwindcss/typography/package.json` — NEW (stub manifest)
+- `scripts/old-stubs/@tailwindcss/typography/src/index.js` — NEW (no-op plugin)
 
-**Frontend table — 28/28 pages found (100% path-level parity):**
-- Every page from `apps-old/frontend/app/**/page.tsx` has a 1:1 entry
-  in `shared/rust/dioxus_ui/src/pages.rs::render_page`'s dispatcher.
-- 6 of the 28 are sub-routes (e.g. `/chat/:id`, `/news/:slug`,
-  `/payment/:type/:id`) — handled via `starts_with(...)` fall-throughs
-  in the dispatcher that insert path params into `PageContext.params`.
+Commit: `79b48814 wave21(preflight): dev-old.sh uses next dev --webpack + typography stub`
 
-**Admin table — 27/27 pages found (100% path-level parity):**
-- Every page from `apps-old/admin-frontend/app/**/page.tsx` has a 1:1
-  entry in `shared/rust/dioxus_ui/src/pages/admin_pages.rs::dispatch`.
-- **2 routes redirect to a canonical sub-page:**
-  - `/admin/notifications` → `/admin/notifications/manage`
-    (handled by `notifications_redirect.rs`)
-  - `/admin/wallet-management` → `/admin/wallet-management/wallets`
-    (handled by `wallet_redirect.rs`)
-  The recheck tracks should follow the redirect to do a fair diff.
-
-**Where the "6-page gap" in the brief came from:** it does not appear
-to be a path-level gap on either side. It may refer to per-page
-sub-tab parity, or it may be the admin's 2 redirects counted as
-"missing". The recheck tracks should diff sub-tabs and follow
-redirects, not assume new pages are missing.
-
-**Full file (also at `docs/wave21-pixel-recheck/route-inventory.md`
-in the worktree):** [included in the worktree, ~270 lines]
-
----
-
-## Files created or modified
-
-### Source code (committed to `wave21/preflight`)
-- `shared/rust/bff/src/lib.rs` — added `pub mod dev_bypass;`
-- `shared/rust/bff/src/dev_bypass.rs` — NEW module (140 lines)
-- `apps/admin/src/auth.rs` — `current_user` and `require_user` short-circuit
-- `apps/admin/src/main.rs` — startup WARN log
-- `apps/frontend/src/auth.rs` — same as admin
-- `apps/frontend/src/main.rs` — same as admin
-
-### Dev-loop scripts (committed)
-- `scripts/wave21-dev-loop.sh` — NEW (chmod +x)
-- `scripts/dev-old.sh` — NEW (chmod +x)
-
-### Docs (committed)
-- `docs/wave21-pixel-recheck/route-inventory.md` — NEW (28+27 row tables)
-
-### Repo root (not committed; auto-generated by `dev-old.sh up`)
-- `.env.development` — written by `dev-old.sh` if missing. Points the
-  OLD apps at the dev infra. Idempotent.
-
----
+Plus the unchanged files from the first 3 commits (auth bypass,
+wave21-dev-loop.sh, route inventory).
 
 ## Notes for the verifier
 
-- **Build status:** `cargo build -p epsx-frontend -p epsx-admin --bin bff-frontend --bin bff-admin` and `cargo test -p epsx-bff --lib dev_bypass` are both clean. 23/23 tests pass.
-- **Live smoke:** ran the debug `bff-frontend` and `bff-admin` binaries
-  on ports 4500/4501 with `EPSX_DEV_AUTH_BYPASS=1` and curl'd
-  `/api/health`, `/admin`, and `/dashboard` — all returned 200, the
-  bypass user `0x...d3v1` appeared in the rendered HTML, and the
-  `admin-header` chrome was present. With the env var unset, the
-  bypass user did NOT appear (default-OFF verified).
-- **K8s cluster state:** NOT touched. No `kubectl apply`, no image
-  rebuilds, no namespace mutations. The script does use
-  `kubectl port-forward` to read the dev backend on :18080, which is
-  a transient network attachment that the K8s control plane doesn't
-  track.
-- **Pre-existing uncommitted state in the main worktree** (e.g.
-  `infrastructure/kubernetes/base/backend/deployment.yaml.bak`,
-  several wave-NN-verify.md files): not touched by this work. The
-  worktree at `.worktrees/wave21-preflight` starts clean from
-  `b94b428c` and only has the wave21 commits on top.
-- **Worktree removal:** the user can `git worktree remove
-  .worktrees/wave21-preflight` once the recheck tracks are done. The
-  branch `wave21/preflight` should be merged first if the work is
-  wanted long-term, or deleted (`git branch -D wave21/preflight`)
-  otherwise.
+- **K8s cluster:** NOT touched. No `kubectl apply`, no image rebuilds.
+  Only `kubectl port-forward` (read-only network attachment).
+- **OLD app source code:** NOT modified. The typography stub lives
+  under `scripts/old-stubs/` and is copied into `node_modules/` (a
+  build artifact directory, not source).
+- **Build status:** `cargo build -p epsx-frontend -p epsx-admin
+  --bin bff-frontend --bin bff-admin` and `cargo test -p epsx-bff
+  --lib dev_bypass` are both clean. 23/23 tests pass.
+- **Live smoke (this retry):** ran `dev-old.sh up` from the
+  worktree. Both apps bound. `/api/health`, `/`, `/analytics` all
+  return 200 with 94KB / 113KB / 227KB of HTML. First compile
+  ~15s per route (Next dev mode behavior), subsequent visits
+  sub-second.
+- **Two pre-existing upstream issues in the OLD code** (Turbopack
+  project-root sandbox, missing `@tailwindcss/typography` dep)
+  are documented in the dev-old.sh header comment + the stub's
+  docstring. Both are working around the constraints, not
+  fixing the OLD code (which the brief forbids).
+- **Worktree state at end of retry:** 4 commits on
+  `wave21/preflight` (on top of `b94b428c`). The two
+  `pnpm-lock.yaml` files in `apps-old/{frontend,admin-frontend}/`
+  are untracked — they're the build artifacts of `pnpm install`
+  running inside the OLD apps during the dev-old.sh run. The
+  next developer who runs `dev-old.sh` will regenerate them
+  identically. The root `.gitignore` does not list
+  `pnpm-lock.yaml` (because the project uses bun); I haven't
+  added it to keep the diff minimal.
+- **Worktree removal:** `git worktree remove .worktrees/wave21-preflight`
+  once the recheck tracks are done. The branch should be merged
+  first if the work is wanted long-term, or deleted
+  (`git branch -D wave21/preflight`) otherwise.
+
+## Route inventory (full table)
+
+For the recheck tracks. Source: `docs/wave21-pixel-recheck/route-inventory.md`
+(also committed in this branch).
+
+**Frontend (28/28 pages found, 100% path-level parity):**
+
+| OLD route | NEW Dioxus route | Status |
+|---|---|---|
+| `/` | `/` (pages/home.rs) | found |
+| `/about` | `/about` (pages/about.rs) | found |
+| `/access-denied` | `/access-denied` (pages/access_denied.rs) | found |
+| `/account` | `/account` (pages/account.rs) | found |
+| `/account/credits` | `/account/credits` (pages/account_credits.rs) | found |
+| `/analytics` | `/analytics` (pages/analytics.rs) | found |
+| `/auth` | `/auth` (pages/auth_page.rs) | found |
+| `/chat` | `/chat` (pages/chat.rs) | found |
+| `/chat/:id` | `/chat/:id` (pages/chat_conversation.rs via params) | found |
+| `/chat/history` | `/chat/history` (pages/chat_history.rs) | found |
+| `/contact` | `/contact` (pages/contact.rs) | found |
+| `/dashboard` | `/dashboard` (pages/dashboard.rs) | found |
+| `/developer` | `/developer` (pages/developer.rs::render_overview) | found |
+| `/developer/usage` | `/developer/usage` (pages/developer.rs::render_usage) | found |
+| `/developer/docs` | `/developer/docs` (pages/developer.rs::render_docs) | found |
+| `/manual` | `/manual` (pages/manual.rs) | found |
+| `/news` | `/news` (pages/news.rs) | found |
+| `/news/:slug` | `/news/:slug` (pages/news_detail.rs via params) | found |
+| `/notifications` | `/notifications` (pages/notifications.rs) | found |
+| `/offline` | `/offline` (pages/offline.rs) | found |
+| `/payment` | `/payment` (pages/payment.rs) | found |
+| `/payment/:type/:id` | `/payment/:type/:id` (pages/payment.rs::render_dynamic via params) | found |
+| `/permissions` | `/permissions` (pages/permissions.rs) | found |
+| `/plans` | `/plans` (pages/plans.rs) | found |
+| `/portfolio` | `/portfolio` (pages/portfolio.rs) | found |
+| `/privacy` | `/privacy` (pages/privacy.rs) | found |
+| `/profile` | `/profile` (pages/profile.rs) | found |
+| `/terms` | `/terms` (pages/terms.rs) | found |
+
+**Admin (27/27 pages found, 100% path-level parity, 2 redirects):**
+
+| OLD route | NEW Dioxus route (served by bff-admin :3001) | Status |
+|---|---|---|
+| `/admin` | `/` (admin_pages/dashboard.rs) | found |
+| `/admin/access-denied` | `/access-denied` (admin_pages/access_denied.rs) | found |
+| `/admin/analytics` | `/analytics` (admin_pages/analytics.rs) | found |
+| `/admin/audit-log` | `/audit-log` (admin_pages/audit_log.rs) | found |
+| `/admin/auth` | `/auth` (admin_pages/auth_page.rs) | found |
+| `/admin/chat` | `/chat` (admin_pages/chat.rs) | found |
+| `/admin/chat/:id` | `/chat/:id` (admin_pages/chat.rs::render_conversation via fall-through) | found |
+| `/admin/developer-portal` | `/developer-portal` (admin_pages/developer_portal.rs) | found |
+| `/admin/developer-portal/api-keys/create` | `/developer-portal/api-keys/create` (admin_pages/developer_portal.rs::render_create_key) | found |
+| `/admin/media` | `/media` (admin_pages/media.rs) | found |
+| `/admin/news` | `/news` (admin_pages/news.rs) | found |
+| `/admin/news/create` | `/news/create` (admin_pages/news.rs::render_create) | found |
+| `/admin/news/:id/edit` | `/news/:id/edit` (admin_pages/news.rs::render_edit via fall-through) | found |
+| `/admin/notifications` | `/notifications` (admin_pages/notifications_redirect.rs) | **REDIRECT** to `/notifications/manage` |
+| `/admin/notifications/create` | `/notifications/create` (admin_pages/notifications.rs::render_create) | found |
+| `/admin/notifications/manage` | `/notifications/manage` (admin_pages/notifications.rs::render_manage) | found |
+| `/admin/payments` | `/payments` (admin_pages/payments.rs) | found |
+| `/admin/settings` | `/settings` (admin_pages/settings.rs) | found |
+| `/admin/unauthorized` | `/unauthorized` (admin_pages/unauthorized.rs) | found |
+| `/admin/wallet-management` | `/wallet-management` (admin_pages/wallet_redirect.rs) | **REDIRECT** to `/wallet-management/wallets` |
+| `/admin/wallet-management/:address` | `/wallet-management/:address` (admin_pages/wallet_wallets.rs::render_detail via fall-through) | found |
+| `/admin/wallet-management/wallets` | `/wallet-management/wallets` (admin_pages/wallet_wallets.rs) | found |
+| `/admin/wallet-management/wallets/:address/disable` | `/wallet-management/wallets/:address/disable` (admin_pages/wallet_wallets.rs::render_disable via fall-through) | found |
+| `/admin/wallet-management/credits` | `/wallet-management/credits` (admin_pages/wallet_credits.rs) | found |
+| `/admin/wallet-management/access` | `/wallet-management/access` (admin_pages/wallet_access.rs) | found |
+| `/admin/wallet-management/access/plans` | `/wallet-management/access/plans` (admin_pages/wallet_plans.rs) | found |
+| `/admin/wallet-management/access/plans/:planId` | `/wallet-management/access/plans/:planId` (admin_pages/wallet_plans.rs::render_editor via fall-through) | found |
+
+The "6-page gap" in the brief does not appear at the path level on
+either side. It may refer to per-page sub-tab parity, or to the
+2 admin redirects counted as "missing". Recheck tracks should
+diff sub-tabs + follow redirects.
