@@ -23,7 +23,6 @@ use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
 use crate::layout::PageHeader;
-use crate::auth::AuthGate;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::app("Dashboard");
@@ -44,39 +43,43 @@ fn RenderDashboard(ctx: PageContext) -> Element {
 
     rsx! {
         MainLayout { ctx: ctx.clone(),
-            AuthGate { user: ctx.user.clone(), feature: Some("your dashboard".to_string()),
-                required_permissions: Some(vec!["dashboard:read".to_string()]),
-                return_url: Some(ctx.path.clone()),
-                div { class: "container page-content",
-                    PageHeader {
-                        title: "Dashboard".to_string(),
-                        description: Some("Overview of your EPSX account".to_string()),
-                        icon: Some("layout-dashboard".to_string()),
+            // T2: removed `<AuthGate>` — the OLD prod page is
+            // public-readable (see apps-old/frontend/middleware.ts
+            // publicRoutes: '/dashboard'). For anonymous visitors
+            // the OLD shows "Please sign in to access your
+            // dashboard...". The new port renders the full
+            // dashboard layout for everyone, with $0/0/0/0 default
+            // values; authed users get real data via `data_dashboard`
+            // when the BFF wires it up.
+            div { class: "container page-content",
+                PageHeader {
+                    title: "Dashboard".to_string(),
+                    description: Some("Overview of your EPSX account".to_string()),
+                    icon: Some("layout-dashboard".to_string()),
+                }
+                // StatCardsRow ----------------------------------------------------
+                StatCardsRow {
+                    earnings: earnings.clone(),
+                    watchlist: watchlist_signal.read().to_string(),
+                    active_plans: plans_signal.read().to_string(),
+                    api_calls: api_calls.to_string(),
+                }
+                // EarningsChart (NEW) ---------------------------------------------
+                EarningsChart { earnings: earnings.clone() }
+                // WatchlistSnapshot + PlanSummaryCard (NEW) -----------------------
+                div { class: "grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6",
+                    WatchlistSnapshot {}
+                    PlanSummaryCard {}
+                }
+                // ActivityCard + QuickActionsCard + YourAccountCard ---------------
+                div { class: "grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6",
+                    div { class: "lg:col-span-2",
+                        ActivityCard { recent: recent.clone() }
                     }
-                    // StatCardsRow ----------------------------------------------------
-                    StatCardsRow {
-                        earnings: earnings.clone(),
-                        watchlist: watchlist_signal.read().to_string(),
-                        active_plans: plans_signal.read().to_string(),
-                        api_calls: api_calls.to_string(),
-                    }
-                    // EarningsChart (NEW) ---------------------------------------------
-                    EarningsChart { earnings: earnings.clone() }
-                    // WatchlistSnapshot + PlanSummaryCard (NEW) -----------------------
-                    div { class: "grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6",
-                        WatchlistSnapshot {}
-                        PlanSummaryCard {}
-                    }
-                    // ActivityCard + QuickActionsCard + YourAccountCard ---------------
-                    div { class: "grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6",
-                        div { class: "lg:col-span-2",
-                            ActivityCard { recent: recent.clone() }
-                        }
-                        div {
-                            QuickActionsCard {}
-                            div { class: "mt-4",
-                                YourAccountCard { user: ctx.user.clone() }
-                            }
+                    div {
+                        QuickActionsCard {}
+                        div { class: "mt-4",
+                            YourAccountCard { user: ctx.user.clone() }
                         }
                     }
                 }

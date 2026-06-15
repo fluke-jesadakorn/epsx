@@ -20,6 +20,7 @@ pub mod payment;
 pub mod permissions;
 pub mod plans;
 pub mod portfolio;
+pub mod portfolio_address;
 pub mod developer;
 pub mod manual;
 pub mod news_detail;
@@ -165,7 +166,16 @@ pub fn render_page(ctx: &PageContext, is_admin: bool) -> (PageMeta, Element) {
         "/privacy" => privacy::render(ctx),
         "/terms" => terms::render(ctx),
         _ => {
-            if p.starts_with("/chat/") {
+            if p.starts_with("/portfolio/") {
+                // T2: per-address portfolio route. Mirrors the OLD
+                // prod 307-to-/portfolio behaviour via inline
+                // meta-refresh (see portfolio_address.rs).
+                let addr = p.trim_start_matches("/portfolio/")
+                    .trim_end_matches('/').to_string();
+                let mut c = ctx.clone();
+                c.params.insert("address".into(), addr);
+                portfolio_address::render(&c)
+            } else if p.starts_with("/chat/") {
                 let id = p.trim_start_matches("/chat/").trim_end_matches('/').to_string();
                 let mut c = ctx.clone();
                 c.params.insert("id".into(), id);

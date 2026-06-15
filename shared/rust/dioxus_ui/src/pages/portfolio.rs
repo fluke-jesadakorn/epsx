@@ -26,7 +26,6 @@ use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
 use crate::layout::PageHeader;
-use crate::auth::AuthGate;
 use crate::charts::{ChartDonut, ChartLine, DataPoint, Series};
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
@@ -39,52 +38,56 @@ fn RenderPortfolio(ctx: PageContext) -> Element {
     let mut tab = use_signal(|| "holdings".to_string());
     rsx! {
         MainLayout { ctx: ctx.clone(),
-            AuthGate { user: ctx.user.clone(), feature: Some("your portfolio".to_string()),
-                required_permissions: Some(vec!["payments:read".to_string()]),
-                return_url: Some(ctx.path.clone()),
-                div { class: "container page-content",
-                    // === wave6-auth-pages-depth-track-d portfolio header ===
-                    PageHeader { title: "Portfolio".to_string(), description: Some("Track your holdings and watchlist performance".to_string()), icon: Some("briefcase".to_string()) }
-                    // === wave6-auth-pages-depth-track-d portfolio stat cards ===
-                    div { class: "grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 portfolio-stats",
-                        StatCard { label: "Total value".to_string(), value: "$12,345.67".to_string(), icon: Some("trending-up".to_string()) }
-                        StatCard { label: "24h change".to_string(), value: "+$234.56 (+1.9%)".to_string(), icon: Some("arrow-up-right".to_string()) }
-                        StatCard { label: "Assets".to_string(), value: "8".to_string(), icon: Some("layers".to_string()) }
-                    }
-                    // === wave6-auth-pages-depth-track-d portfolio performance chart ===
-                    div { class: "grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6 portfolio-charts",
-                        div { class: "card card-glass lg:col-span-2 portfolio-performance-chart",
-                            div { class: "card-header", h3 { class: "card-title", "Performance (30d)" } }
-                            div { class: "card-body",
-                                PerformanceChart {}
-                            }
-                        }
-                        div { class: "card card-glass portfolio-allocation-chart",
-                            div { class: "card-header", h3 { class: "card-title", "Allocation" } }
-                            div { class: "card-body",
-                                ChartDonut { data: vec![("BNB".to_string(), 35.0, "#f3ba2f".to_string()), ("USDT".to_string(), 30.0, "#26a17b".to_string()), ("ETH".to_string(), 20.0, "#627eea".to_string()), ("EPSX".to_string(), 10.0, "#22d3ee".to_string()), ("Other".to_string(), 5.0, "#9ca3af".to_string())], size: 180, thickness: 28 }
-                            }
-                        }
-                    }
-                    // === wave6-auth-pages-depth-track-d portfolio tab nav ===
-                    div { class: "tabs mb-4 portfolio-tab-nav",
-                        button { class: if *tab.read() == "holdings" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("holdings".to_string()), "Holdings" }
-                        button { class: if *tab.read() == "watchlist" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("watchlist".to_string()), "Watchlist" }
-                        button { class: if *tab.read() == "transactions" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("transactions".to_string()), "Transactions" }
-                    }
-                    // === wave6-auth-pages-depth-track-d portfolio top-movers (always shown) ===
-                    TopMoversCard {}
-                    // === wave6-auth-pages-depth-track-d portfolio tab panels ===
-                    if *tab.read() == "holdings" { HoldingsTable {} }
-                    else if *tab.read() == "watchlist" {
-                        div { class: "space-y-4 portfolio-watchlist-panel",
-                            // === wave6-auth-pages-depth-track-d portfolio add-to-watchlist ===
-                            AddToWatchlistForm {}
-                            WatchlistTable {}
-                        }
-                    }
-                    else { TransactionsTable {} }
+            // T2: removed `<AuthGate>` — the OLD prod page is
+            // public-readable (see apps-old/frontend/middleware.ts
+            // publicRoutes: '/portfolio'). The OLD shows a "Sign
+            // In Required" card for anonymous visitors and the
+            // full portfolio for authed users. The new port
+            // renders the full portfolio layout for everyone, with
+            // the dev-mode stat values; authed users get real
+            // data via `data_portfolio` when the BFF wires it up.
+            div { class: "container page-content",
+                // === wave6-auth-pages-depth-track-d portfolio header ===
+                PageHeader { title: "Portfolio".to_string(), description: Some("Track your holdings and watchlist performance".to_string()), icon: Some("briefcase".to_string()) }
+                // === wave6-auth-pages-depth-track-d portfolio stat cards ===
+                div { class: "grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 portfolio-stats",
+                    StatCard { label: "Total value".to_string(), value: "$12,345.67".to_string(), icon: Some("trending-up".to_string()) }
+                    StatCard { label: "24h change".to_string(), value: "+$234.56 (+1.9%)".to_string(), icon: Some("arrow-up-right".to_string()) }
+                    StatCard { label: "Assets".to_string(), value: "8".to_string(), icon: Some("layers".to_string()) }
                 }
+                // === wave6-auth-pages-depth-track-d portfolio performance chart ===
+                div { class: "grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6 portfolio-charts",
+                    div { class: "card card-glass lg:col-span-2 portfolio-performance-chart",
+                        div { class: "card-header", h3 { class: "card-title", "Performance (30d)" } }
+                        div { class: "card-body",
+                            PerformanceChart {}
+                        }
+                    }
+                    div { class: "card card-glass portfolio-allocation-chart",
+                        div { class: "card-header", h3 { class: "card-title", "Allocation" } }
+                        div { class: "card-body",
+                            ChartDonut { data: vec![("BNB".to_string(), 35.0, "#f3ba2f".to_string()), ("USDT".to_string(), 30.0, "#26a17b".to_string()), ("ETH".to_string(), 20.0, "#627eea".to_string()), ("EPSX".to_string(), 10.0, "#22d3ee".to_string()), ("Other".to_string(), 5.0, "#9ca3af".to_string())], size: 180, thickness: 28 }
+                        }
+                    }
+                }
+                // === wave6-auth-pages-depth-track-d portfolio tab nav ===
+                div { class: "tabs mb-4 portfolio-tab-nav",
+                    button { class: if *tab.read() == "holdings" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("holdings".to_string()), "Holdings" }
+                    button { class: if *tab.read() == "watchlist" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("watchlist".to_string()), "Watchlist" }
+                    button { class: if *tab.read() == "transactions" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("transactions".to_string()), "Transactions" }
+                }
+                // === wave6-auth-pages-depth-track-d portfolio top-movers (always shown) ===
+                TopMoversCard {}
+                // === wave6-auth-pages-depth-track-d portfolio tab panels ===
+                if *tab.read() == "holdings" { HoldingsTable {} }
+                else if *tab.read() == "watchlist" {
+                    div { class: "space-y-4 portfolio-watchlist-panel",
+                        // === wave6-auth-pages-depth-track-d portfolio add-to-watchlist ===
+                        AddToWatchlistForm {}
+                        WatchlistTable {}
+                    }
+                }
+                else { TransactionsTable {} }
             }
         }
     }
