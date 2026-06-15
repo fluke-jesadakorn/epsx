@@ -18,9 +18,30 @@
 #   2. Writes a minimal `.env.development` in the repo root with the
 #      dev DB URLs + port-forwarded backend URL.
 #   3. Runs `pnpm install` in each OLD app (idempotent).
-#   4. Starts each app via `pnpm dev` on ports that don't collide with
-#      the K8s cluster (suggest 5000 + 5001) and the new Dioxus dev
-#      loop (4000 + 4001, see scripts/wave21-dev-loop.sh).
+#   4. Installs the @tailwindcss/typography stub (committed at
+#      scripts/old-stubs/) — the OLD code references this Tailwind
+#      v4 plugin in styles/index.css but doesn't declare it in
+#      package.json. The stub is a no-op so the dev server boots;
+#      `prose` utility classes won't apply typography styles in this
+#      mode (see stub's docstring for the trade-off rationale).
+#   5. Starts each app via `next dev --webpack` on ports that don't
+#      collide (suggest 5000 + 5001) and the new Dioxus dev loop
+#      (4000 + 4001, see scripts/wave21-dev-loop.sh).
+#
+# Why `--webpack` and not `--turbo` (the default in Next.js 16):
+#   - The OLD apps' tsconfig.json has `"@/shared/*": ["../../shared/*"]`,
+#     a path alias that pulls files from outside the OLD app dir.
+#   - With Turbopack (the Next 16 default), the @/shared/* alias
+#     resolves to files OUTSIDE the project root, and the Edge
+#     Middleware runtime can't follow bare-module imports from
+#     those files. First symptom: `Can't resolve 'zod'` from
+#     shared/env/schema.ts (zod lives at the OLD app's
+#     node_modules, not at the workspace root).
+#   - With `--webpack`, the OLD apps' next.config.ts takes effect
+#     (it has `config.resolve.modules = [appNodeModules, ...]`)
+#     and bare-module imports from shared/* resolve correctly.
+#   - The downside is slower HMR vs Turbopack, but for a side-by-
+#     side pixel diff that's fine — we're not editing the OLD code.
 #
 # Usage:
 #   ./scripts/dev-old.sh up         # install + run both apps
@@ -42,6 +63,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 REPO_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 OLD_FRONTEND_DIR=$REPO_ROOT/apps-old/frontend
 OLD_ADMIN_DIR=$REPO_ROOT/apps-old/admin-frontend
+STUB_SRC=$REPO_ROOT/scripts/old-stubs/@tailwindcss/typography
 
 # Default ports — chosen to avoid the K8s cluster (30000/30001/30080),
 # the prod bridges (4700/4701/9180), the new Dioxus dev loop
@@ -172,22 +194,40 @@ ensure_deps() {
   local dir=$1
   if [ -d "$dir/node_modules" ]; then
     log "deps already installed in $dir — skipping pnpm install"
+  else
+    log "installing deps in $dir (this may take a few minutes the first time)..."
+    ( cd "$dir" && pnpm install --no-frozen-lockfile )
+  fi
+  # Always install the typography stub — it lives in node_modules and
+  # pnpm could blow it away on a re-install. The stub is a small
+  # no-op Tailwind plugin; see scripts/old-stubs/@tailwindcss/typography/.
+  install_typography_stub "$dir"
+}
+
+install_typography_stub() {
+  local dir=$1
+  local dest=$dir/node_modules/@tailwindcss/typography
+  if [ ! -d "$STUB_SRC/src" ]; then
+    warn "stub source $STUB_SRC not found; skipping (OLD pages may 500 on Tailwind compile)"
     return 0
   fi
-  log "installing deps in $dir (this may take a few minutes the first time)..."
-  ( cd "$dir" && pnpm install --no-frozen-lockfile )
+  mkdir -p "$dest/src"
+  cp -f "$STUB_SRC/package.json" "$dest/package.json"
+  cp -f "$STUB_SRC/src/index.js" "$dest/src/index.js"
+  log "typography stub installed at $dest (no-op plugin; see stub docstring)"
 }
 
 # ──────────────────────────────────────────────────────────────────────
 # Start apps
 # ──────────────────────────────────────────────────────────────────────
 start_frontend() {
-  log "starting apps-old/frontend on :$OLD_FRONTEND_PORT..."
+  log "starting apps-old/frontend on :$OLD_FRONTEND_PORT (next dev --webpack)..."
   (
     cd "$OLD_FRONTEND_DIR"
     PORT="$OLD_FRONTEND_PORT" \
     ENV=development \
-    pnpm dev \
+    NEXT_TELEMETRY_DISABLED=1 \
+    ./node_modules/.bin/next dev -H 0.0.0.0 -p "$OLD_FRONTEND_PORT" --webpack \
       > "$LOG_DIR/old-frontend.log" 2>&1 &
     echo $! > "$PID_DIR/old-frontend.pid"
   )
@@ -195,13 +235,14 @@ start_frontend() {
 }
 
 start_admin() {
-  log "starting apps-old/admin-frontend on :$OLD_ADMIN_PORT..."
+  log "starting apps-old/admin-frontend on :$OLD_ADMIN_PORT (next dev --webpack)..."
   (
     cd "$OLD_ADMIN_DIR"
     PORT="$OLD_ADMIN_PORT" \
     ENV=development \
     NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-admin \
-    pnpm dev \
+    NEXT_TELEMETRY_DISABLED=1 \
+    ./node_modules/.bin/next dev -H 0.0.0.0 -p "$OLD_ADMIN_PORT" --webpack \
       > "$LOG_DIR/old-admin.log" 2>&1 &
     echo $! > "$PID_DIR/old-admin.pid"
   )
@@ -223,6 +264,9 @@ print_urls() {
   Auth:  OLD apps use the dev SIWE flow (no bypass). To log in,
          use the dev wallet / paste a valid epsx_token cookie from
          a real dev session.
+  Mode:  next dev --webpack (Turbopack off — see header comment
+         for why; the OLD apps' tsconfig path-aliases for @/shared/*
+         don't play with Turbopack's project-root sandbox).
   ──────────────────────────────────────────────────────────
 
 EOF
