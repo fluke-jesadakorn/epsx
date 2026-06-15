@@ -58,12 +58,24 @@ pub fn bearer_token(headers: &HeaderMap) -> Option<String> {
 /// Resolve a verified `AuthUser` from the request. Returns `None` if no
 /// token is present or verification fails. This is the only function
 /// API handlers and the SSR layer should call to get the current user.
+///
+/// Wave 21 — if `EPSX_DEV_AUTH_BYPASS=1` is set, returns the hardcoded
+/// dev admin user (`epsx_bff::dev_bypass::dev_bypass_user()`) instead of
+/// reading the `epsx_token` cookie / `Authorization` header. This is
+/// the dev-loop / pixel-recheck escape hatch; default is OFF, no
+/// behavior change when unset.
 pub fn current_user(headers: &HeaderMap, jwt: &JwtAuth) -> Option<AuthUser> {
+    if let Some(user) = epsx_bff::dev_bypass::dev_bypass_user() {
+        return Some(user);
+    }
     let token = bearer_token(headers)?;
     jwt.verify(&token).ok()
 }
 
 pub fn require_user(headers: &HeaderMap, jwt: &JwtAuth) -> Result<AuthUser, AuthError> {
+    if let Some(user) = epsx_bff::dev_bypass::dev_bypass_user() {
+        return Ok(user);
+    }
     let token = bearer_token(headers).ok_or(AuthError::Missing)?;
     jwt.verify(&token)
 }
