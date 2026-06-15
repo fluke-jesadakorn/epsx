@@ -95,6 +95,15 @@ pub struct AnalyticsTrackBody {
 async fn main() {
     epsx_observability::Observability::init("bff-frontend");
 
+    // Wave 21 — dev auth bypass banner. Always evaluated (cheap) so the
+    // log line is honest about the process state. Default is OFF; the
+    // env var must be set to "1" to flip it on.
+    if epsx_bff::dev_bypass::is_dev_bypass_enabled() {
+        tracing::warn!(
+            "EPSX_DEV_AUTH_BYPASS=1 — every request is treated as logged in as dev admin (0x...d3v1). NEVER enable in production."
+        );
+    }
+
     let api_url = std::env::var("API_URL").unwrap_or_else(|_| "http://localhost:8080".to_string());
     let port: u16 = std::env::var("PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(3000);
     let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());

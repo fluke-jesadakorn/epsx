@@ -136,11 +136,17 @@ pub fn bearer_token(headers: &HeaderMap) -> Option<String> {
 }
 
 pub fn current_user(headers: &HeaderMap, jwt: &JwtAuth) -> Option<AuthUser> {
+    if let Some(user) = epsx_bff::dev_bypass::dev_bypass_user() {
+        return Some(user);
+    }
     let token = bearer_token(headers)?;
     jwt.verify(&token).ok()
 }
 
 pub fn require_user(headers: &HeaderMap, jwt: &JwtAuth) -> Result<AuthUser, AuthError> {
+    if let Some(user) = epsx_bff::dev_bypass::dev_bypass_user() {
+        return Ok(user);
+    }
     let token = bearer_token(headers).ok_or(AuthError::Missing)?;
     jwt.verify(&token)
 }
