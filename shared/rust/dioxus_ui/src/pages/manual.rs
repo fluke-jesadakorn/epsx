@@ -24,7 +24,7 @@ use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
-use crate::layout::PageHeader;
+use crate::auth::ProgressiveAuthBanner;
 
 /// One feature entry in the manual. Mirrors the `Feature` interface in
 /// `apps-old/frontend/app/manual/data.ts`. The `screenshots` list is
@@ -115,14 +115,15 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Manual");
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
-            div { class: "container page-content manual-page",
-                PageHeader {
-                    title: "Manual".to_string(),
-                    description: Some("Feature reference, with screenshots".to_string()),
-                    icon: Some("book".to_string()),
+            if ctx.user.is_none() {
+                ProgressiveAuthBanner {
+                    feature: Some("the manual".to_string()),
                 }
+            }
+            // === wave22-t3-news-blog manual (public page; no AuthGate) ===
+            div { class: "manual-page",
                 ManualIntro {}
-                div { class: "manual-grid",
+                div { class: "manual-grid container page-content",
                     ManualSidebar {}
                     ManualContent {}
                 }
