@@ -8,6 +8,7 @@
 
 use axum::{
     extract::{Request, State},
+    http::StatusCode,
     response::{IntoResponse, Response},
 };
 use epsx_dioxus_ui::auth::User;
@@ -19,6 +20,17 @@ use std::sync::Arc;
 
 use super::AppState;
 use super::auth;
+
+/// Paths that 307-redirect to /auth when the user is unauthenticated,
+/// matching the prod (https://epsx.io) Vercel middleware behavior. The
+/// prod baseline shows the /auth page for these routes; without the
+/// redirect the dev bff returns 200 + "Sign in required" gate, which
+/// diverges from prod and inflates pixel diff.
+const UNAUTH_REDIRECT_PATHS: &[&str] = &[
+    "/permissions",
+    "/notifications",
+    "/profile",
+];
 
 /// All non-API requests land here. We render the page via Dioxus fullstack
 /// SSR and return a complete HTML document using the same design-system
@@ -55,6 +67,26 @@ pub async fn ssr_handler(
         auth_method: AuthMethod::Wallet,
         display_name: None,
     });
+
+    // Wave 22 T5 — mirror prod Vercel middleware 307 redirect behavior
+    // for paths that prod always bounces to /auth when the user has
+    // no session. The redirect fires BEFORE page rendering, so the
+    // browser follows to /auth and the dev baseline matches the
+    // prod baseline PNG (the auth page) for these routes.
+    if user.is_none() && UNAUTH_REDIRECT_PATHS.contains(&path.as_str()) {
+        let next = if query.is_empty() {
+            path.clone()
+        } else {
+            format!("{path}?{query}")
+        };
+        let location = format!("/auth?next={}", urlencode(&next));
+        return (
+            StatusCode::TEMPORARY_REDIRECT,
+            [("location", location.as_str())],
+            "",
+        )
+            .into_response();
+    }
 
     // Parse dynamic-route params from path
     let mut params = HashMap::new();
@@ -229,4 +261,35 @@ window.epsxAuth = {
   }
 };
 "#
+}
+
+/// Minimal URL-encoder for the `next=` query parameter. Only handles
+/// the characters Vercel's middleware actually encodes; intentionally
+/// avoids pulling in a full url-encoding crate for this one call site.
+fn urlencode(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for b in s.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char);
+            }
+            _ => {
+                out.push_str(&format!("%{:02X}", b));
+            }
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::urlencode;
+
+    #[test]
+    fn urlencode_passes_alnum() {
+        // Matches Vercel's prod middleware `epsx.return_url=%2F<path>` shape.
+        assert_eq!(urlencode("/notifications"), "%2Fnotifications");
+        assert_eq!(urlencode("/auth?next=/x"), "%2Fauth%3Fnext%3D%2Fx");
+        assert_eq!(urlencode("plain"), "plain");
+    }
 }
