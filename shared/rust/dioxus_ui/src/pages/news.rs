@@ -31,6 +31,22 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let posts: Vec<NewsPost> = data.as_ref()
         .and_then(|d| serde_json::from_value(d.get("posts").cloned().unwrap_or(serde_json::json!([]))).ok())
         .unwrap_or_else(default_posts);
+    // Wave 23 T4: read the search query from the page context (set by
+    // the BFF from `?q=...`) so SSR-rendered HTML already reflects the
+    // filtered list. The client-side filter below re-applies the same
+    // match so live typing narrows the list without a server round-trip.
+    let initial_query: String = ctx
+        .params
+        .get("q")
+        .cloned()
+        .or_else(|| ctx.query_param("q"))
+        .unwrap_or_default();
+    let initial_category: String = ctx
+        .params
+        .get("category")
+        .cloned()
+        .or_else(|| ctx.query_param("category"))
+        .unwrap_or_else(|| "all".to_string());
     let total = posts.len();
 
     (meta, rsx! {
@@ -41,53 +57,63 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                 }
             }
             // === wave22-t3-news-blog news header + list (no AuthGate; public page) ===
-            div { class: "container page-content news-page",
-                // === wave6-auth-pages-depth-track-d news header ===
-                div { class: "mb-12 text-center news-header",
-                    div { class: "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/5 text-cyan-500 text-xs font-semibold mb-5",
-                        Icon { name: "newspaper".to_string(), size: Some(14) }
-                        " EPSX Platform"
-                    }
-                    h1 { class: "text-4xl sm:text-5xl font-extrabold mb-4",
-                        "News & "
-                        span { class: "gradient-text-purple", "Updates" }
-                    }
-                    p { class: "text-muted-foreground max-w-xl mx-auto leading-relaxed",
-                        "Stay informed with the latest platform updates, feature releases, and market insights from the EPSX team."
-                    }
-                    if total > 0 {
-                        p { class: "mt-3 text-sm text-muted-foreground/60",
-                            {
-                                let noun = if total == 1 { "article" } else { "articles" };
-                                format!("{total} {noun}")
-                            }
-                        }
-                    }
-                }
-                // === wave6-auth-pages-depth-track-d news filters ===
-                NewsFilters {}
-                // === wave6-auth-pages-depth-track-d news list ===
-                div { class: "news-list-section mt-8",
-                    if posts.is_empty() {
-                        NewsEmptyState {}
-                    } else {
-                        // Featured card is the first post
-                        NewsFeaturedCard { post: posts[0].clone() }
-                        // Rest of the posts
-                        if posts.len() > 1 {
-                            div { class: "news-list-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8",
-                                for p in posts.iter().skip(1) {
-                                    ArticleCard { post: p.clone() }
-                                }
-                            }
-                        }
-                        // Pagination
-                        NewsPagination { page: 1, total_pages: ((total + 11) / 12).max(1) }
-                    }
-                }
+            // === wave23-t4-components filter provider + body ===
+            NewsPageBody {
+                posts: posts.clone(),
+                initial_query: initial_query.clone(),
+                initial_category: initial_category.clone(),
+                total: total,
             }
         }
     })
+}
+
+/// Inner body component. Wave 23 T4: this is a Dioxus `#[component]`
+/// (not the page's outer `render` function) so it can call hooks
+/// (`use_context_provider`, `use_signal`, etc.). The outer `render`
+/// is a plain function that returns `(PageMeta, Element)` and is
+/// called from the BFF, which has no Dioxus runtime.
+#[component]
+fn NewsPageBody(
+    posts: Vec<NewsPost>,
+    initial_query: String,
+    initial_category: String,
+    total: usize,
+) -> Element {
+    // Provide a shared (q, cat) signal pair to the filter + list.
+    let _ = filter_state::provide_news_filter();
+    rsx! {
+        div { class: "container page-content news-page",
+            // === wave6-auth-pages-depth-track-d news header ===
+            div { class: "mb-12 text-center news-header",
+                div { class: "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/5 text-cyan-500 text-xs font-semibold mb-5",
+                    Icon { name: "newspaper".to_string(), size: Some(14) }
+                    " EPSX Platform"
+                }
+                h1 { class: "text-4xl sm:text-5xl font-extrabold mb-4",
+                    "News & "
+                    span { class: "gradient-text-purple", "Updates" }
+                }
+                p { class: "text-muted-foreground max-w-xl mx-auto leading-relaxed",
+                    "Stay informed with the latest platform updates, feature releases, and market insights from the EPSX team."
+                }
+                if total > 0 {
+                    p { class: "mt-3 text-sm text-muted-foreground/60",
+                        {
+                            let noun = if total == 1 { "article" } else { "articles" };
+                            format!("{total} {noun}")
+                        }
+                    }
+                }
+            }
+            // === wave6-auth-pages-depth-track-d news filters ===
+            NewsFilters { initial_query: initial_query.clone(), initial_category: initial_category.clone() }
+            // === wave6-auth-pages-depth-track-d news list ===
+            // Wave 23 T4: pass the same query/category into the
+            // list so the live filter and the SSR filter agree.
+            NewsList { posts: posts.clone(), initial_query: initial_query.clone(), initial_category: initial_category.clone() }
+        }
+    }
 }
 
 fn default_posts() -> Vec<NewsPost> {
@@ -110,30 +136,234 @@ pub struct NewsPost {
     #[serde(default)] pub cover_image_url: Option<String>,
 }
 
-/// `NewsFilters` — category select, date range, search input. Static
-/// form (no client-side filtering yet — that's a Wave 7 enhancement);
-/// the section marker is here so tests can assert the surface area.
+/// `NewsFilters` — category select, date range, search input. Wave 23
+/// T4: now reactive. Typing in the search box updates a shared signal
+/// (provided by `NewsList`) which re-renders the visible posts in
+/// place. The category select also updates the signal; the date range
+/// is informational only (no client-side date filter is implemented —
+/// the prod source has the same constraint).
+///
+/// - `initial_query` — SSR-side seed from the page context's
+///   `?q=…` query param, so the first paint already reflects the
+///   filtered list.
+/// - `initial_category` — same idea for `?category=…`.
 #[component]
-fn NewsFilters() -> Element {
+fn NewsFilters(
+    initial_query: String,
+    initial_category: String,
+) -> Element {
+    // Lift the filter state up into NewsList so the two stay in sync
+    // even if the filter component is re-mounted. We expose it as
+    // context-style props here for simplicity (one consumer).
+    let (mut q, mut cat) = use_news_filter();
+    // Seed from SSR on first paint.
+    use_effect(move || {
+        if !initial_query.is_empty() {
+            q.set(initial_query.clone());
+        }
+    });
+    use_effect(move || {
+        if initial_category != "all" {
+            cat.set(initial_category.clone());
+        }
+    });
     rsx! {
         div { class: "card card-glass news-filters",
             div { class: "card-body flex flex-col md:flex-row gap-4 items-stretch md:items-end",
                 div { class: "field flex-1",
                     label { class: "field-label", "Search" }
-                    input { class: "input", r#type: "search", placeholder: "Search articles…" }
+                    input {
+                        class: "input",
+                        r#type: "search",
+                        placeholder: "Search articles…",
+                        value: "{q.read()}",
+                        oninput: move |e| q.set(e.value().to_string()),
+                    }
                 }
                 div { class: "field md:w-48",
                     label { class: "field-label", "Category" }
-                    SelectField { name: "category".to_string(), options: vec![("all".to_string(), "All".to_string()), ("updates".to_string(), "Updates".to_string()), ("engineering".to_string(), "Engineering".to_string()), ("product".to_string(), "Product".to_string())], value: Some("all".to_string()), required: false, label: None, help: None, error: None, placeholder: None, onchange: None }
+                    SelectField {
+                        name: "category".to_string(),
+                        options: vec![
+                            ("all".to_string(), "All".to_string()),
+                            ("updates".to_string(), "Updates".to_string()),
+                            ("engineering".to_string(), "Engineering".to_string()),
+                            ("product".to_string(), "Product".to_string()),
+                        ],
+                        value: Some(cat.read().clone()),
+                        required: false,
+                        label: None,
+                        help: None,
+                        error: None,
+                        placeholder: None,
+                        onchange: Some(EventHandler::new(move |e: FormEvent| cat.set(e.value()))),
+                    }
                 }
                 div { class: "field md:w-48",
                     label { class: "field-label", "Date range" }
-                    SelectField { name: "range".to_string(), options: vec![("all".to_string(), "All time".to_string()), ("7d".to_string(), "Last 7 days".to_string()), ("30d".to_string(), "Last 30 days".to_string()), ("90d".to_string(), "Last 90 days".to_string())], value: Some("all".to_string()), required: false, label: None, help: None, error: None, placeholder: None, onchange: None }
+                    SelectField {
+                        name: "range".to_string(),
+                        options: vec![
+                            ("all".to_string(), "All time".to_string()),
+                            ("7d".to_string(), "Last 7 days".to_string()),
+                            ("30d".to_string(), "Last 30 days".to_string()),
+                            ("90d".to_string(), "Last 90 days".to_string()),
+                        ],
+                        value: Some("all".to_string()),
+                        required: false,
+                        label: None,
+                        help: None,
+                        error: None,
+                        placeholder: None,
+                        onchange: None,
+                    }
                 }
-                button { class: "btn btn-outline", r#type: "button", Icon { name: "search".to_string(), size: Some(16) } " Search" }
+                button {
+                    class: "btn btn-outline",
+                    r#type: "button",
+                    onclick: move |_| {
+                        // The "Search" button forces a hard navigation
+                        // to /news?q=…&category=… so the BFF can re-render
+                        // with the filter applied server-side. Useful
+                        // for users who want a permalink / share a
+                        // filtered list.
+                        spawn(async move {
+                            let script = format!(
+                                "window.location.href = '/news?q={q}&category={c}';",
+                                q = url_encode(&q.read()),
+                                c = url_encode(&cat.read()),
+                            );
+                            let _ = document::eval(script.as_str()).await;
+                        });
+                    },
+                    Icon { name: "search".to_string(), size: Some(16) }
+                    " Search"
+                }
             }
         }
     }
+}
+
+/// `NewsList` — renders the filtered list. Wave 23 T4: subscribes to
+/// the same `q` / `cat` signals as `NewsFilters` and re-renders the
+/// visible posts in place. The featured card is always the first
+/// surviving post (or hidden if the filter yields 0/1 results).
+#[component]
+fn NewsList(
+    posts: Vec<NewsPost>,
+    initial_query: String,
+    initial_category: String,
+) -> Element {
+    let (mut q, mut cat) = use_news_filter();
+    // Seed from SSR.
+    use_effect(move || {
+        if !initial_query.is_empty() {
+            q.set(initial_query.clone());
+        }
+    });
+    use_effect(move || {
+        if initial_category != "all" {
+            cat.set(initial_category.clone());
+        }
+    });
+
+    let query = q.read().to_lowercase();
+    let category = cat.read().clone();
+    let filtered: Vec<NewsPost> = posts
+        .iter()
+        .filter(|p| {
+            // Category filter: a post matches if its tags include the
+            // selected category, or if the filter is "all".
+            let cat_ok = category == "all"
+                || p.tags.iter().any(|t| t.to_lowercase() == category.to_lowercase());
+            // Query filter: substring match on title + excerpt + tags.
+            let q_ok = query.is_empty()
+                || p.title.to_lowercase().contains(&query)
+                || p.excerpt.to_lowercase().contains(&query)
+                || p.tags.iter().any(|t| t.to_lowercase().contains(&query));
+            cat_ok && q_ok
+        })
+        .cloned()
+        .collect();
+    let total = filtered.len();
+
+    rsx! {
+        div { class: "news-list-section mt-8",
+            if filtered.is_empty() {
+                NewsEmptyState {}
+            } else {
+                if filtered.len() == 1 {
+                    ArticleCard { post: filtered[0].clone() }
+                } else {
+                    NewsFeaturedCard { post: filtered[0].clone() }
+                    div { class: "news-list-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8",
+                        for p in filtered.iter().skip(1) {
+                            ArticleCard { post: p.clone() }
+                        }
+                    }
+                }
+                if total > 0 {
+                    p { class: "mt-6 text-xs text-muted-foreground text-center news-list-count",
+                        {
+                            let noun = if total == 1 { "article" } else { "articles" };
+                            format!("{total} {noun}")
+                        }
+                    }
+                }
+                NewsPagination { page: 1, total_pages: ((total + 11) / 12).max(1) }
+            }
+        }
+    }
+}
+
+/// Shared filter signals used by `NewsFilters` + `NewsList`. The two
+/// components live in the same render tree, so we use a small
+/// Dioxus context to share the `(q, cat)` `Signal` pair. The signals
+/// reset on full page navigation (which is the correct SSR
+/// behaviour: the BFF re-renders with `?q=…&category=…` from the URL).
+mod filter_state {
+    use dioxus::prelude::*;
+
+    #[derive(Clone, Copy)]
+    pub struct NewsFilter {
+        pub q: Signal<String>,
+        pub cat: Signal<String>,
+    }
+
+    pub fn use_news_filter() -> NewsFilter {
+        use_context::<NewsFilter>()
+    }
+
+    pub fn provide_news_filter() -> NewsFilter {
+        let q = use_signal(String::new);
+        let cat = use_signal(|| "all".to_string());
+        let f = NewsFilter { q, cat };
+        use_context_provider(|| f);
+        f
+    }
+}
+
+fn use_news_filter() -> (Signal<String>, Signal<String>) {
+    let f = filter_state::use_news_filter();
+    (f.q, f.cat)
+}
+
+fn url_encode(s: &str) -> String {
+    // Minimal URL-encoding for query-param values. Anything outside
+    // `[A-Za-z0-9._~-]` is escaped as `%XX`. Good enough for the
+    // search button's `window.location.href` setter.
+    let mut out = String::with_capacity(s.len());
+    for b in s.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'.' | b'_' | b'~' | b'-' => {
+                out.push(b as char);
+            }
+            _ => {
+                out.push_str(&format!("%{:02X}", b));
+            }
+        }
+    }
+    out
 }
 
 /// Featured card — large hero card with optional cover image, "Featured"

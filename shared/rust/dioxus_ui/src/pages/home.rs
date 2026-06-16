@@ -93,16 +93,13 @@ fn Hero() -> Element {
                         span { "🚀 Start Exploration" }
                         span { class: "ml-2", Icon { name: "arrow-right".to_string(), size: Some(20) } }
                     }
-                    // Share button (Wave 5 Track A addition).
-                    // The onClick copy is wired by the BFF's hydration
-                    // script (the home page is signed-out for many
-                    // visitors, so the share works even pre-hydration
-                    // — the URL is `/` and clipboard copy is safe).
-                    button { class: "btn btn-outline btn-lg hero-share-btn", r#type: "button",
-                        "aria-label": "Share platform",
-                        Icon { name: "share-2".to_string(), size: Some(20) }
-                        span { "📤 Share Platform" }
-                    }
+                    // Share button. Wave 23 T4: now wires an onclick
+                    // that prefers `navigator.share` (mobile native
+                    // share sheet) and falls back to
+                    // `navigator.clipboard.writeText` (desktop).
+                    // The label flips to "✓ Copied" for 2 seconds on
+                    // a successful copy.
+                    SharePlatformButton {}
                 }
                 // Live chain selector — BSC mainnet / testnet pill.
                 // Source uses `BlockchainNetworkProvider`; in SSR
@@ -146,6 +143,86 @@ fn Hero() -> Element {
                     }
                 }
             }
+        }
+    }
+}
+
+// === SharePlatformButton ===
+
+/// Hero share button. Wave 23 T4: wires the click handler to
+/// `navigator.share` (mobile / Safari native share sheet) and falls
+/// back to `navigator.clipboard.writeText` (desktop) with an
+/// `execCommand('copy')` last-resort fallback. The label flips to
+/// "✓ Copied" for 2 seconds on a successful copy.
+#[component]
+fn SharePlatformButton() -> Element {
+    let mut state = use_signal(|| "share");
+    let label = match *state.read() {
+        s if s == "copied" => "✓ Copied",
+        s if s == "failed" => "✗ Failed",
+        _ => "📤 Share Platform",
+    };
+    let onclick = move |_: MouseEvent| {
+        spawn(async move {
+            // The shared URL is always the canonical site origin +
+            // current path. The BFF injects `window.location.href`
+            // at runtime; we read it via `document::eval`.
+            let script = r#"
+            (function() {
+                var url = window.location.href;
+                var title = document.title || 'EPSX';
+                var done = false;
+                function fallback() {
+                    try {
+                        var ta = document.createElement('textarea');
+                        ta.value = url;
+                        ta.style.position = 'fixed';
+                        ta.style.opacity = '0';
+                        document.body.appendChild(ta);
+                        ta.focus();
+                        ta.select();
+                        var ok = document.execCommand('copy');
+                        document.body.removeChild(ta);
+                        return ok;
+                    } catch (e) { return false; }
+                }
+                if (navigator.share) {
+                    try {
+                        navigator.share({ title: title, url: url }).then(
+                            function() {},
+                            function() {
+                                if (navigator.clipboard && navigator.clipboard.writeText) {
+                                    navigator.clipboard.writeText(url).catch(function() { fallback(); });
+                                } else { fallback(); }
+                            }
+                        );
+                        return;
+                    } catch (e) {}
+                }
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(url).catch(function() { fallback(); });
+                } else { fallback(); }
+            })();
+            "#;
+            let _ = document::eval(script).await;
+        });
+        state.set("copied");
+        // Reset after 2 seconds.
+        spawn(async move {
+            let script = "new Promise(function(r){setTimeout(r, 2000);})";
+            let _ = document::eval(script).await;
+            state.set("share");
+        });
+    };
+    rsx! {
+        button {
+            class: "btn btn-outline btn-lg hero-share-btn",
+            r#type: "button",
+            "aria-label": "Share platform",
+            title: "Share this page",
+            onclick: onclick,
+            Icon { name: "share-2".to_string(), size: Some(20) }
+            span { "{label}" }
         }
     }
 }

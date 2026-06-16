@@ -30,6 +30,8 @@ use dioxus::prelude::*;
 use super::footer::Footer;
 use super::navbar::NavigationClient;
 use crate::pages::PageContext;
+use crate::theme::ThemeRoot;
+use crate::theme::UnifiedThemeToggle;
 
 /// Standard frontend layout — renders the sticky navigation chrome +
 /// the page body + the site footer.
@@ -48,6 +50,13 @@ use crate::pages::PageContext;
 ///   `ConnectedWalletDropdown` slot — see the TODO inside the body.)
 /// - `children` — the page body. Rendered verbatim between the
 ///   chrome and the footer.
+///
+/// Wave 23 T4: the layout now wraps the body in `ThemeRoot` (CSS
+/// vars + pre-paint theme bootstrap) and passes a
+/// `UnifiedThemeToggle` to the navbar so the click target actually
+/// flips light/dark mode. Before this, the navbar rendered the
+/// theme button but `MainLayout` never supplied a handler, so the
+/// click was a no-op and the `.dark` class was never applied.
 #[allow(non_snake_case)] // PascalCase is intentional — see design doc §1.
 #[component]
 pub fn MainLayout(ctx: PageContext, children: Element) -> Element {
@@ -57,20 +66,23 @@ pub fn MainLayout(ctx: PageContext, children: Element) -> Element {
     // forwards `is_connected` / `is_authenticated` / `wallet_address`
     // into NavigationClient + the wallet dropdown slot).
     rsx! {
-        // === wave3a-wiring-track-a ===
-        // Chrome cluster. NavigationClient already short-circuits on
-        // `path == "/auth"` (renders Fragment {}) so we always render
-        // the component and let it decide chrome visibility.
-        NavigationClient {
-            is_hydrated: Some(true),
-            current_path: Some(path),
-            // Wave 3a defaults — BFF wires real values in Track B.
-            is_connected: Some(false),
-            is_authenticated: Some(user.is_some()),
-            is_loading: Some(false),
+        ThemeRoot {
+            // === wave3a-wiring-track-a ===
+            // Chrome cluster. NavigationClient already short-circuits on
+            // `path == "/auth"` (renders Fragment {}) so we always render
+            // the component and let it decide chrome visibility.
+            NavigationClient {
+                is_hydrated: Some(true),
+                current_path: Some(path),
+                // Wave 3a defaults — BFF wires real values in Track B.
+                is_connected: Some(false),
+                is_authenticated: Some(user.is_some()),
+                is_loading: Some(false),
+                theme_toggle: Some(rsx! { UnifiedThemeToggle {} }),
+            }
+            { children }
+            Footer {}
         }
-        { children }
-        Footer {}
     }
 }
 
@@ -86,6 +98,9 @@ pub fn MainLayout(ctx: PageContext, children: Element) -> Element {
 ///   `MainLayout` and to make future per-route BFF plumbing (e.g.
 ///   passing the `return_url` query param to a sub-component) trivial.
 /// - `children` — the auth content.
+///
+/// Wave 23 T4: wraps the body in `ThemeRoot` so the auth page
+/// picks up the persisted dark/light preference on first paint.
 #[allow(non_snake_case)] // PascalCase is intentional — see design doc §1.
 #[component]
 pub fn AuthLayout(ctx: PageContext, children: Element) -> Element {
@@ -97,7 +112,9 @@ pub fn AuthLayout(ctx: PageContext, children: Element) -> Element {
     // === wave3a-wiring-track-a ===
     // Full-bleed: no header, no footer. Just the page body.
     rsx! {
-        Fragment { { children } }
+        ThemeRoot {
+            Fragment { { children } }
+        }
     }
 }
 

@@ -173,7 +173,7 @@ fn PaymentFlowSteps(step: Signal<usize>, pay_type: Signal<String>, amount: Signa
                         Form { method: "POST".to_string(), action: "/api/v1/payments/confirm".to_string(),
                             div { class: "field", label { class: "field-label", "Amount" } input { class: "input", name: "amount", r#type: "number", step: "0.01", required: true, value: "{amount.read()}", oninput: move |e| amount.set(e.value().to_string()) } }
                             div { class: "field", label { class: "field-label", "Token" }
-                                SelectField { name: "token".to_string(), options: vec![("USDT".to_string(), "USDT".to_string()), ("USDC".to_string(), "USDC".to_string()), ("BNB".to_string(), "BNB".to_string()), ("EPSX".to_string(), "EPSX".to_string())], value: Some(token.read().clone()), required: true, label: None, help: None, error: None, placeholder: None, onchange: None }
+                                SelectField { name: "token".to_string(), options: vec![("USDT".to_string(), "USDT".to_string()), ("USDC".to_string(), "USDC".to_string()), ("BNB".to_string(), "BNB".to_string()), ("EPSX".to_string(), "EPSX".to_string())], value: Some(token.read().clone()), required: true, label: None, help: None, error: None, placeholder: None, onchange: Some(EventHandler::new(move |e: FormEvent| token.set(e.value()))) }
                             }
                             div { class: "flex justify-between mt-4",
                                 button { class: "btn btn-outline", r#type: "button", onclick: move |_| step.set(0), "Back" }

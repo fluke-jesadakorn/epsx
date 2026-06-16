@@ -133,19 +133,62 @@ fn MailtoBtn() -> Element {
     }
 }
 
-/// Copy email button. SSR renders the initial state; client JS
-/// (added in Wave 6) flips the label to "Copied!" for 2 seconds.
-/// The SSR markup always shows "Copy" so the page is usable
-/// without JS.
+/// Copy email button. Wave 23 T4: now wires the click handler to
+/// `navigator.clipboard.writeText` (with `execCommand('copy')`
+/// fallback) and flips the label to "Copied!" for 2 seconds.
+/// Previously the button had no `onclick` and was a no-op outside
+/// of any Wave 6 client JS that never landed.
 #[component]
 fn CopyEmailBtn() -> Element {
+    let mut copied = use_signal(|| false);
+    let email = SUPPORT_EMAIL.to_string();
     rsx! {
         button {
             class: "btn btn-ghost contact-copy-btn",
             r#type: "button",
-            "data-copy": "{SUPPORT_EMAIL}",
+            "data-copy": "{email}",
+            "aria-label": "Copy email address",
+            onclick: move |_| {
+                let t = email.clone();
+                spawn(async move {
+                    let script = format!(
+                        r#"
+                        (function() {{
+                            var text = {t_json};
+                            if (navigator.clipboard && navigator.clipboard.writeText) {{
+                                navigator.clipboard.writeText(text).catch(function() {{ fallback(text); }});
+                            }} else {{
+                                fallback(text);
+                            }}
+                            function fallback(t) {{
+                                try {{
+                                    var ta = document.createElement('textarea');
+                                    ta.value = t;
+                                    ta.style.position = 'fixed';
+                                    ta.style.opacity = '0';
+                                    document.body.appendChild(ta);
+                                    ta.focus();
+                                    ta.select();
+                                    document.execCommand('copy');
+                                    document.body.removeChild(ta);
+                                }} catch (e) {{}}
+                            }}
+                        }})();
+                        "#,
+                        t_json = serde_json::to_string(&t).unwrap_or_else(|_| "''".to_string()),
+                    );
+                    let _ = document::eval(script.as_str()).await;
+                });
+                copied.set(true);
+                // Reset label after 2 seconds.
+                spawn(async move {
+                    let script = "new Promise(function(r){setTimeout(r, 2000);})";
+                    let _ = document::eval(script).await;
+                    copied.set(false);
+                });
+            },
             Icon { name: "check".to_string(), size: Some(14) }
-            span { "Copy" }
+            span { if *copied.read() { "Copied!" } else { "Copy" } }
         }
     }
 }

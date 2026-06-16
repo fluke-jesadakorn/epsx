@@ -22,13 +22,29 @@ pub fn Pagination(current_page: u32, total_pages: u32, base_href: String, query_
     }
 }
 
+/// Pick a page size (10 / 25 / 50 / 100). Wave 23 T4: the
+/// `onchange` handler used to be a no-op `move |_| {}`, so changing
+/// the dropdown never propagated. Now it navigates to
+/// `base_href?limit=<value>` so the BFF re-renders with the new
+/// size.
 #[component]
 pub fn LimitSelector(current: u32, base_href: String) -> Element {
     let limits = [10u32, 25, 50, 100];
     rsx! {
         div { class: "limit-selector",
             span { "Show" }
-            select { class: "input input-sm", onchange: move |_| {},
+            select {
+                class: "input input-sm",
+                onchange: move |e| {
+                    let value = e.value();
+                    let href = format!("{base_href}?limit={value}");
+                    spawn(async move {
+                        let script = format!(
+                            "window.location.href = {href:?};",
+                        );
+                        let _ = document::eval(script.as_str()).await;
+                    });
+                },
                 for l in limits {
                     option { value: "{l}", selected: l == current, "{l}" }
                 }
