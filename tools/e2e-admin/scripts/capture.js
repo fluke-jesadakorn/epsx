@@ -94,10 +94,18 @@ const routeMap = new Map(routesData.routes.map((r) => [r.slug, r.path]));
     console.log(`[${slug}] ${url}`);
 
     // each route gets a fresh context to avoid state carry-over (esp. for
-    // 307 redirects that would otherwise accumulate auth cookies)
+    // 307 redirects that would otherwise accumulate auth cookies).
+    // Wave 24 T5' — force `colorScheme: 'dark'` so the BFF's FOUC script
+    // resolves to dark mode (matches prod's `admin.epsx.io` which is
+    // dark by default). Without this, headless Chromium reports
+    // `prefers-color-scheme: light` and the BFF renders light mode
+    // while prod ships dark mode, producing ~100% pixel diff on every
+    // admin page.
+    const COLOR_SCHEME = process.env.EPSX_COLOR_SCHEME || "dark";
     const context = await browser.newContext({
       viewport: { width: VIEWPORT[0], height: VIEWPORT[1] },
       ignoreHTTPSErrors: true,
+      colorScheme: COLOR_SCHEME,
     });
 
     // add cookies for the BASE origin

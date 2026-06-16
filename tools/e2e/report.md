@@ -1,6 +1,6 @@
 # Wave 23 T1 — E2E Component Interaction Report
 
-Generated: 2026-06-16T07:30:32.469Z
+Generated: 2026-06-16T08:01:17.882Z
 
 Prod: `https://epsx.io`  |  Dev: BFF port-forward (default `localhost:30101`)
 
@@ -8,34 +8,34 @@ Prod: `https://epsx.io`  |  Dev: BFF port-forward (default `localhost:30101`)
 
 | # | Slug | Path | pixel_diff_% | console_errors_dev | broken_links_dev | broken_buttons_dev | missing_components |
 |---|------|------|-------------:|-------------------:|-----------------:|-------------------:|-------------------:|
-| 1 | `home` | `/` | 99.97 | 0 | 5 | 4 | 5 |
-| 2 | `about` | `/about` | 99.99 | 0 | 0 | 0 | 0 |
-| 3 | `access-denied` | `/access-denied` | 99.93 | 0 | 0 | 2 | 0 |
-| 4 | `account` | `/account` | 99.82 | 4 | 2 | 3 | 2 |
-| 5 | `account-credits` | `/account/credits` | 99.67 | 2 | 0 | 2 | 0 |
-| 6 | `analytics` | `/analytics` | 99.74 | 0 | 10 | 13 | 10 |
+| 1 | `home` | `/` | 93.79 | 0 | 5 | 4 | 5 |
+| 2 | `about` | `/about` | 100 | 0 | 0 | 0 | 0 |
+| 3 | `access-denied` | `/access-denied` | 93.82 | 0 | 0 | 2 | 0 |
+| 4 | `account` | `/account` | 93.75 | 4 | 2 | 3 | 2 |
+| 5 | `account-credits` | `/account/credits` | 93.46 | 2 | 0 | 2 | 0 |
+| 6 | `analytics` | `/analytics` | 79.62 | 0 | 10 | 13 | 10 |
 | 7 | `auth` | `/auth` | 99.96 | 0 | 0 | 0 | 0 |
-| 8 | `chat` | `/chat` | 99.86 | 0 | 0 | 3 | 0 |
+| 8 | `chat` | `/chat` | 93.82 | 0 | 0 | 3 | 0 |
 | 9 | `chat-sample-conv-id` | `/chat/sample-conv-id` | 99.96 | 0 | 0 | 0 | 0 |
 | 10 | `chat-history` | `/chat/history` | 99.96 | 0 | 0 | 0 | 0 |
-| 11 | `contact` | `/contact` | 99.98 | 0 | 0 | 0 | 0 |
-| 12 | `dashboard` | `/dashboard` | 99.86 | 0 | 0 | 2 | 0 |
-| 13 | `developer` | `/developer` | 99.94 | 0 | 0 | 2 | 0 |
-| 14 | `developer-usage` | `/developer/usage` | 99.94 | 0 | 0 | 2 | 0 |
-| 15 | `developer-docs` | `/developer/docs` | 99.96 | 0 | 0 | 2 | 0 |
-| 16 | `manual` | `/manual` | 95.24 | 0 | 0 | 2 | 0 |
-| 17 | `news` | `/news` | 99.91 | 0 | 0 | 2 | 0 |
-| 18 | `news-sample-slug` | `/news/sample-slug` | 99.68 | 1 | 0 | 4 | 0 |
+| 11 | `contact` | `/contact` | 99.97 | 0 | 0 | 0 | 0 |
+| 12 | `dashboard` | `/dashboard` | 93.79 | 0 | 0 | 2 | 0 |
+| 13 | `developer` | `/developer` | 99.82 | 0 | 0 | 2 | 0 |
+| 14 | `developer-usage` | `/developer/usage` | 99.8 | 0 | 0 | 2 | 0 |
+| 15 | `developer-docs` | `/developer/docs` | 99.79 | 0 | 0 | 2 | 0 |
+| 16 | `manual` | `/manual` | 89.01 | 0 | 0 | 2 | 0 |
+| 17 | `news` | `/news` | 93.82 | 0 | 0 | 2 | 0 |
+| 18 | `news-sample-slug` | `/news/sample-slug` | 93.77 | 1 | 0 | 4 | 0 |
 | 19 | `notifications` | `/notifications` | 99.96 | 0 | 0 | 0 | 0 |
-| 20 | `offline` | `/offline` | 99.88 | 0 | 0 | 0 | 0 |
-| 21 | `payment` | `/payment` | 99.95 | 0 | 0 | 2 | 0 |
-| 22 | `payment-intent-sample-id` | `/payment/intent/sample-id` | 99.95 | 0 | 0 | 2 | 0 |
+| 20 | `offline` | `/offline` | 99.97 | 0 | 0 | 0 | 0 |
+| 21 | `payment` | `/payment` | 99.34 | 0 | 0 | 2 | 0 |
+| 22 | `payment-intent-sample-id` | `/payment/intent/sample-id` | 99.09 | 0 | 0 | 2 | 0 |
 | 23 | `permissions` | `/permissions` | 99.96 | 0 | 0 | 0 | 0 |
-| 24 | `plans` | `/plans` | 99.79 | 1 | 0 | 3 | 0 |
-| 25 | `portfolio` | `/portfolio` | 99.79 | 0 | 0 | 5 | 0 |
-| 26 | `privacy` | `/privacy` | 99.99 | 0 | 0 | 2 | 0 |
+| 24 | `plans` | `/plans` | 82.5 | 1 | 0 | 3 | 0 |
+| 25 | `portfolio` | `/portfolio` | 64.73 | 0 | 0 | 5 | 0 |
+| 26 | `privacy` | `/privacy` | 93.82 | 0 | 0 | 2 | 0 |
 | 27 | `profile` | `/profile` | 99.96 | 0 | 0 | 0 | 0 |
-| 28 | `terms` | `/terms` | 99.99 | 0 | 0 | 2 | 0 |
+| 28 | `terms` | `/terms` | 93.81 | 0 | 0 | 2 | 0 |
 
 ## Issue digest (aggregated across routes)
 
