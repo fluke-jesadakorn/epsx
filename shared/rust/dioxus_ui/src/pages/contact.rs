@@ -133,62 +133,21 @@ fn MailtoBtn() -> Element {
     }
 }
 
-/// Copy email button. Wave 23 T4: now wires the click handler to
-/// `navigator.clipboard.writeText` (with `execCommand('copy')`
-/// fallback) and flips the label to "Copied!" for 2 seconds.
-/// Previously the button had no `onclick` and was a no-op outside
-/// of any Wave 6 client JS that never landed.
+/// Copy email button. Wave 23 T4 v2: now wires the click handler
+/// via the inline `onclick="epsx.copyText(…)"` attribute emitted by
+/// `epsx_templates::email_copy_button_html`. The previous
+/// `onclick: move |_| { … }` Dioxus closure was being stripped at
+/// SSR time (hydration-less), so the button was visible but did
+/// nothing. The new pattern wires the handler at first paint
+/// through the global `epsx` namespace loaded by
+/// `epsx_templates::global_js()`. The label flips to "Copied!" for
+/// 2 seconds via `epsx.copyText`'s built-in flash logic.
 #[component]
 fn CopyEmailBtn() -> Element {
-    let mut copied = use_signal(|| false);
-    let email = SUPPORT_EMAIL.to_string();
+    let html = epsx_templates::email_copy_button_html(SUPPORT_EMAIL);
     rsx! {
-        button {
-            class: "btn btn-ghost contact-copy-btn",
-            r#type: "button",
-            "data-copy": "{email}",
-            "aria-label": "Copy email address",
-            onclick: move |_| {
-                let t = email.clone();
-                spawn(async move {
-                    let script = format!(
-                        r#"
-                        (function() {{
-                            var text = {t_json};
-                            if (navigator.clipboard && navigator.clipboard.writeText) {{
-                                navigator.clipboard.writeText(text).catch(function() {{ fallback(text); }});
-                            }} else {{
-                                fallback(text);
-                            }}
-                            function fallback(t) {{
-                                try {{
-                                    var ta = document.createElement('textarea');
-                                    ta.value = t;
-                                    ta.style.position = 'fixed';
-                                    ta.style.opacity = '0';
-                                    document.body.appendChild(ta);
-                                    ta.focus();
-                                    ta.select();
-                                    document.execCommand('copy');
-                                    document.body.removeChild(ta);
-                                }} catch (e) {{}}
-                            }}
-                        }})();
-                        "#,
-                        t_json = serde_json::to_string(&t).unwrap_or_else(|_| "''".to_string()),
-                    );
-                    let _ = document::eval(script.as_str()).await;
-                });
-                copied.set(true);
-                // Reset label after 2 seconds.
-                spawn(async move {
-                    let script = "new Promise(function(r){setTimeout(r, 2000);})";
-                    let _ = document::eval(script).await;
-                    copied.set(false);
-                });
-            },
-            Icon { name: "check".to_string(), size: Some(14) }
-            span { if *copied.read() { "Copied!" } else { "Copy" } }
+        span { class: "contact-copy-btn-wrap inline-block",
+            dangerous_inner_html: "{html}"
         }
     }
 }

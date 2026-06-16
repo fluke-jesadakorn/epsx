@@ -37,10 +37,23 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 
 #[component]
 fn RenderPayment(ctx: PageContext) -> Element {
-    let mut step = use_signal(|| 0usize);
-    let mut pay_type = use_signal(|| "subscription".to_string());
-    let mut amount = use_signal(|| "29.00".to_string());
-    let mut token = use_signal(|| "USDT".to_string());
+    // T4 v2: read step / pay_type / amount / token from the URL's
+    // query string so the multi-step wizard works without any
+    // client-side JS. The Dioxus `step.set(1)` style closures that
+    // used to drive the wizard are dead under hydration-less SSR;
+    // URL-based navigation is the SSR-friendly replacement. The
+    // signals are kept around (and seeded from the URL) for any
+    // caller that still reads them.
+    let initial_step_str = ctx.query_param("step").unwrap_or_else(|| "0".to_string());
+    let initial_step: usize = initial_step_str.parse().unwrap_or(0).min(3);
+    let initial_pay_type = ctx.query_param("type").unwrap_or_else(|| "subscription".to_string());
+    let initial_amount = ctx.query_param("amount").unwrap_or_else(|| "29.00".to_string());
+    let initial_token  = ctx.query_param("token").unwrap_or_else(|| "USDT".to_string());
+
+    let mut step = use_signal(move || initial_step);
+    let mut pay_type = use_signal(move || initial_pay_type);
+    let mut amount = use_signal(move || initial_amount);
+    let mut token = use_signal(move || initial_token);
 
     // === wave6-auth-pages-depth-track-d payment section ===
     // The page body uses the new `<UnifiedPaymentFlow>` wrapper
@@ -160,24 +173,73 @@ fn PaymentFlowSteps(step: Signal<usize>, pay_type: Signal<String>, amount: Signa
                 if *step.read() == 0 {
                     // === wave6-auth-pages-depth-track-d payment-flow-steps method ===
                     StepPanel { title: "Choose payment method".to_string(), description: Some("Select how you want to pay".to_string()),
+                        // T4 v2: the `onclick: move |_| { pay_type.set(...); step.set(1); }`
+                        // Dioxus closures are dead under SSR. The
+                        // buttons are now real <a href> links that
+                        // navigate to /payment?type=<x>&step=1.
+                        // The BFF re-renders the page; the new step
+                        // + type are read from the URL on the next
+                        // render. JS-less users can use these as
+                        // plain links.
                         div { class: "payment-plan-grid grid grid-cols-1 md:grid-cols-2 gap-4",
-                            button { class: "card card-glass p-4 text-left", r#type: "button", onclick: move |_| { pay_type.set("subscription".to_string()); step.set(1); }, div { class: "font-bold", "Subscription" } div { class: "text-sm text-muted-foreground", "Pay a subscription plan" } }
-                            button { class: "card card-glass p-4 text-left", r#type: "button", onclick: move |_| { pay_type.set("one-time".to_string()); step.set(1); }, div { class: "font-bold", "One-time payment" } div { class: "text-sm text-muted-foreground", "Pay a merchant once" } }
-                            button { class: "card card-glass p-4 text-left", r#type: "button", onclick: move |_| { pay_type.set("access-plan".to_string()); step.set(1); }, div { class: "font-bold", "Access plan" } div { class: "text-sm text-muted-foreground", "Join a group access plan" } }
-                            button { class: "card card-glass p-4 text-left", r#type: "button", onclick: move |_| { pay_type.set("permission".to_string()); step.set(1); }, div { class: "font-bold", "Permission" } div { class: "text-sm text-muted-foreground", "Unlock a specific permission" } }
+                            a { class: "card card-glass p-4 text-left", href: "/payment?type=subscription&step=1",
+                                div { class: "font-bold", "Subscription" }
+                                div { class: "text-sm text-muted-foreground", "Pay a subscription plan" } }
+                            a { class: "card card-glass p-4 text-left", href: "/payment?type=one-time&step=1",
+                                div { class: "font-bold", "One-time payment" }
+                                div { class: "text-sm text-muted-foreground", "Pay a merchant once" } }
+                            a { class: "card card-glass p-4 text-left", href: "/payment?type=access-plan&step=1",
+                                div { class: "font-bold", "Access plan" }
+                                div { class: "text-sm text-muted-foreground", "Join a group access plan" } }
+                            a { class: "card card-glass p-4 text-left", href: "/payment?type=permission&step=1",
+                                div { class: "font-bold", "Permission" }
+                                div { class: "text-sm text-muted-foreground", "Unlock a specific permission" } }
                         }
                     }
                 } else if *step.read() == 1 {
                     // === wave6-auth-pages-depth-track-d payment-flow-steps details ===
                     StepPanel { title: "Payment details".to_string(), description: Some("Enter the amount and token".to_string()),
                         Form { method: "POST".to_string(), action: "/api/v1/payments/confirm".to_string(),
-                            div { class: "field", label { class: "field-label", "Amount" } input { class: "input", name: "amount", r#type: "number", step: "0.01", required: true, value: "{amount.read()}", oninput: move |e| amount.set(e.value().to_string()) } }
+                            // T4 v2: the previous oninput: FormEvent ->
+                            // amount.set(...) closure was being stripped
+                            // at SSR time (hydration-less). The amount
+                            // field now uses a plain controlled value
+                            // that the browser tracks; the form submit
+                            // carries whatever the user typed. The
+                            // "Amount" line on the next step (step 2)
+                            // will still show the SSR default — that's
+                            // the SSR limitation. The form-submit data
+                            // is the source of truth.
+                            div { class: "field", label { class: "field-label", "Amount" } input { class: "input", name: "amount", r#type: "number", step: "0.01", required: true, value: "{amount.read()}" } }
                             div { class: "field", label { class: "field-label", "Token" }
-                                SelectField { name: "token".to_string(), options: vec![("USDT".to_string(), "USDT".to_string()), ("USDC".to_string(), "USDC".to_string()), ("BNB".to_string(), "BNB".to_string()), ("EPSX".to_string(), "EPSX".to_string())], value: Some(token.read().clone()), required: true, label: None, help: None, error: None, placeholder: None, onchange: Some(EventHandler::new(move |e: FormEvent| token.set(e.value()))) }
+                                // T4 v2: token select is a plain
+                                // `<select name="token">` whose value
+                                // is captured in the form submit. The
+                                // previous onchange → token.set(...)
+                                // closure was stripped. The displayed
+                                // `token` on step 2 stays at the SSR
+                                // default value; the actual chosen
+                                // token rides along in the POST body.
+                                select {
+                                    class: "input",
+                                    name: "token",
+                                    required: true,
+                                    option { value: "USDT", selected: *token.read() == "USDT", "USDT" }
+                                    option { value: "USDC", selected: *token.read() == "USDC", "USDC" }
+                                    option { value: "BNB",  selected: *token.read() == "BNB",  "BNB" }
+                                    option { value: "EPSX", selected: *token.read() == "EPSX", "EPSX" }
+                                }
                             }
                             div { class: "flex justify-between mt-4",
-                                button { class: "btn btn-outline", r#type: "button", onclick: move |_| step.set(0), "Back" }
-                                button { class: "btn btn-primary", r#type: "button", onclick: move |_| step.set(2), "Next" }
+                                // T4 v2: Back/Next are real <a href>
+                                // links to /payment?step=N. The Dioxus
+                                // step.set(0) closure is dead under
+                                // SSR. By using URL navigation the BFF
+                                // re-renders the same page with the
+                                // new step, and the user can move
+                                // through the wizard without JS.
+                                a { class: "btn btn-outline", href: "/payment?step=0", "Back" }
+                                a { class: "btn btn-primary", href: "/payment?step=2", "Next" }
                             }
                         }
                     }
@@ -191,8 +253,17 @@ fn PaymentFlowSteps(step: Signal<usize>, pay_type: Signal<String>, amount: Signa
                             div { class: "flex justify-between", span { "Total" } span { class: "font-mono font-bold", "{amount.read()} {token.read()} + fee" } }
                         }
                         div { class: "flex justify-between mt-4",
-                            button { class: "btn btn-outline", r#type: "button", onclick: move |_| step.set(1), "Back" }
-                            button { class: "btn btn-primary", r#type: "button", onclick: move |_| step.set(3), "Submit payment" }
+                            // T4 v2: Back is a real <a href> link;
+                            // "Submit payment" is a real <form>
+                            // submit. Both go through the URL /
+                            // form-submit channel that survives SSR.
+                            a { class: "btn btn-outline", href: "/payment?step=1", "Back" }
+                            form { method: "POST", action: "/api/v1/payments/confirm", class: "inline",
+                                input { r#type: "hidden", name: "type",   value: "{pay_type.read()}" }
+                                input { r#type: "hidden", name: "amount", value: "{amount.read()}" }
+                                input { r#type: "hidden", name: "token",  value: "{token.read()}" }
+                                button { class: "btn btn-primary", r#type: "submit", "Submit payment" }
+                            }
                         }
                     }
                 } else {

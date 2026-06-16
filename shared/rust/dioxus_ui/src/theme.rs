@@ -2,18 +2,24 @@ use dioxus::prelude::*;
 
 /// Theme + design tokens — exposes the same CSS variables the Next.js app uses.
 ///
-/// Wave 23 T4: rewrote this module to actually work end-to-end. The original
-/// shipped the `.dark` CSS-variable block but nothing in the crate ever added
-/// the `dark` class to `<html>`, so dark mode was dead code. This file now:
+/// Wave 23 T4 v2: rewritten to use INLINE `onclick="epsx.toggleTheme()"`
+/// (via `epsx_templates::global_js`), not a Dioxus `onclick:` closure. The
+/// closure was being stripped by SSR (Dioxus is hydration-less in this
+/// project per `docs/wave3a-wiring/design.md`), so the toggle button was
+/// visually present but a no-op at runtime. The inline pattern works
+/// because the JS function lives in the global script block that
+/// `epsx_templates::global_js()` emits on every page.
 ///
+/// This module now:
 /// 1. Ships the CSS variables (light + dark) — unchanged.
 /// 2. `ThemeRoot` injects a one-shot inline script that reads the persisted
 ///    theme from `localStorage` (or `prefers-color-scheme`) and applies the
 ///    `dark` class to `<html>` before paint, eliminating the FOUC the prod
 ///    `theme-toggle.tsx` warns about.
 /// 3. `UnifiedThemeToggle` is the click target the navbar (and the auth
-///    pages) render. Clicking it flips the `dark` class on `<html>` and
-///    persists the new value to `localStorage`.
+///    pages) render. It now renders the button as raw HTML via
+///    `dangerous_inner_html` with `onclick="epsx.toggleTheme()"` baked in,
+///    so the click handler actually fires on the client.
 /// 4. `use_theme` exposes a reactive `Signal<ThemeMode>` so other components
 ///    (e.g. the admin settings page) can reflect the active mode.
 pub const EPSX_CSS_VARS: &str = r#"
@@ -153,8 +159,12 @@ pub fn use_theme() -> Signal<ThemeMode> {
 
 /// Click-target theme toggle. Renders a single sun/moon button. Clicking
 /// it flips the `dark` class on `<html>`, updates `data-theme`, and
-/// persists the new value to `localStorage`. The internal `Signal` is
-/// kept in sync with the DOM via a `use_effect` block.
+/// persists the new value to `localStorage` — all driven by
+/// `epsx.toggleTheme()` (defined in `epsx_templates::global_js`),
+/// which is wired in via a literal `onclick="epsx.toggleTheme()"`
+/// HTML attribute. This avoids the Dioxus-SSR-stripped-closure trap
+/// (Dioxus is hydration-less; the `onclick: move |_| {}` macro form
+/// produces a button with no runtime handler).
 ///
 /// Usage (in the navbar / nav-actions):
 /// ```ignore
@@ -162,60 +172,39 @@ pub fn use_theme() -> Signal<ThemeMode> {
 /// ```
 #[component]
 pub fn UnifiedThemeToggle() -> Element {
-    let mut mode = use_theme();
+    let mode = use_theme();
 
-    // On mount, sync the signal with whatever the pre-paint script
-    // applied. This is browser-only; SSR keeps the default (Light).
-    use_effect(move || {
-        spawn(async move {
-            let script =
-                r#"document.documentElement.getAttribute('data-theme') || 'light'"#;
-            if let Ok(value) = document::eval(script).join::<String>().await {
-                mode.set(ThemeMode::from_str(value.trim()));
-            }
-        });
-    });
-
-    let onclick = move |_: MouseEvent| {
-        let next = mode.read().toggle();
-        // Apply to DOM + persist. Wrap in `spawn` so the await is
-        // properly driven by the Dioxus runtime.
-        spawn(async move {
-            let script = format!(
-                r#"
-                (function() {{
-                    try {{
-                        var root = document.documentElement;
-                        if ('{next}' === 'dark') {{
-                            root.classList.add('dark');
-                        }} else {{
-                            root.classList.remove('dark');
-                        }}
-                        root.setAttribute('data-theme', '{next}');
-                        localStorage.setItem('epsx-theme', '{next}');
-                    }} catch (e) {{}}
-                }})();
-                "#,
-                next = next.as_str()
-            );
-            let _ = document::eval(script.as_str()).await;
-        });
-        mode.set(next);
-    };
-
-    let (icon, label) = match *mode.read() {
+    // Compute the icon + label for the current mode. The `data-theme`
+    // attribute is set by the pre-paint `THEME_BOOT_SCRIPT` (see
+    // `ThemeRoot`); the icon visibility toggling is also handled by
+    // `epsx.toggleTheme()` in `global_js` (it calls `updateThemeIcon`
+    // on the same element after flipping the class).
+    let (_icon, label) = match *mode.read() {
         ThemeMode::Light => ("sun", "Switch to dark mode"),
-        ThemeMode::Dark => ("moon", "Switch to light mode"),
+        ThemeMode::Dark  => ("moon", "Switch to light mode"),
     };
+
+    // Build the full button as a raw HTML string so we can emit a
+    // literal `onclick="epsx.toggleTheme()"` attribute (the Dioxus
+    // `onclick:` macro attribute gets stripped at SSR time). Render
+    // via `dangerous_inner_html` on a wrapping `<span>`.
+    let sun_svg  = epsx_templates::lucide("sun",  "18", "").to_string();
+    let moon_svg = epsx_templates::lucide("moon", "18", "").to_string();
+    let sun_display  = if *mode.read() == ThemeMode::Light { "none" } else { "" };
+    let moon_display = if *mode.read() == ThemeMode::Dark  { "none" } else { "" };
+    let safe_label = epsx_templates::html_attr_escape_pub(label);
+    let html = format!(
+        r#"<button type="button" class="theme-toggle btn btn-icon btn-ghost" aria-label="{label}" title="{label}" onclick="epsx.toggleTheme()"><span class="theme-toggle-icon theme-toggle-sun"  style="display:{sun_disp};width:1.125rem;height:1.125rem;">{sun}</span><span class="theme-toggle-icon theme-toggle-moon" style="display:{moon_disp};width:1.125rem;height:1.125rem;">{moon}</span></button>"#,
+        label     = safe_label,
+        sun_disp  = sun_display,
+        moon_disp = moon_display,
+        sun       = sun_svg,
+        moon      = moon_svg,
+    );
 
     rsx! {
-        button {
-            class: "theme-toggle btn btn-icon btn-ghost",
-            r#type: "button",
-            "aria-label": "{label}",
-            title: "{label}",
-            onclick: onclick,
-            span { class: "theme-toggle-icon", dangerous_inner_html: "{epsx_templates::lucide(icon, \"18\", \"\")}" }
+        span { class: "theme-toggle-wrap inline-flex",
+            dangerous_inner_html: "{html}"
         }
     }
 }
@@ -263,6 +252,45 @@ mod tests {
         assert!(
             THEME_BOOT_SCRIPT.contains(THEME_STORAGE_KEY),
             "boot script must read epsx-theme from localStorage"
+        );
+    }
+
+    /// Wave 23 T4 v2 — `epsx_templates::global_js` (in
+    /// `shared/rust/templates/src/lib.rs`) must export
+    /// `epsx.toggleTheme`, `epsx.setTheme`, `epsx.currentTheme`.
+    /// The `UnifiedThemeToggle` component renders the inline
+    /// `onclick="epsx.toggleTheme()"` attribute; if any of these
+    /// three names disappear from the global namespace the click
+    /// handler stops firing under SSR (Dioxus closures are
+    /// stripped). This test catches that regression at compile-
+    /// test time without needing a live browser.
+    #[test]
+    fn global_js_exports_theme_namespace() {
+        let js = epsx_templates::global_js();
+        assert!(js.contains("function toggleTheme()"), "global_js must define function toggleTheme");
+        assert!(js.contains("function setTheme(t)"), "global_js must define function setTheme");
+        assert!(js.contains("function currentTheme()"), "global_js must define function currentTheme");
+        // The return statement must include toggleTheme + setTheme
+        // in the public object so callers can access them via
+        // `window.epsx.toggleTheme()`.
+        assert!(js.contains("toggleTheme,"), "global_js return must include toggleTheme");
+        assert!(js.contains("setTheme,"), "global_js return must include setTheme");
+    }
+
+    /// Wave 23 T4 v2 — the `setTheme` function in `global_js` must
+    /// write to the same localStorage key the boot script reads.
+    /// A mismatch causes the two halves of the theme system to
+    /// silently desync (the user sees a flash of the wrong theme
+    /// on reload). The previous T4's `setTheme` wrote
+    /// `epsx_theme` (underscore) while the boot script read
+    /// `epsx-theme` (hyphen) — a 1-char typo that broke the
+    /// whole feature. This test pins the two halves together.
+    #[test]
+    fn set_theme_writes_to_canonical_storage_key() {
+        let js = epsx_templates::global_js();
+        assert!(
+            js.contains("localStorage.setItem('epsx-theme'"),
+            "setTheme() must write 'epsx-theme' (canonical key, matches the boot script)"
         );
     }
 }

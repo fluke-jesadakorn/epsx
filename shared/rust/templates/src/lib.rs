@@ -5182,10 +5182,17 @@ window.epsx = (function() {
     }
     if (t === 'light') document.documentElement.classList.remove('dark');
     else document.documentElement.classList.add('dark');
-    try { localStorage.setItem('epsx_theme', t); } catch (e) {}
+    // Canonical storage key: matches the pre-paint `THEME_BOOT_SCRIPT`
+    // in `shared/rust/dioxus_ui/src/theme.rs` (the boot script reads
+    // `epsx-theme` on every page load). Keeping both halves in sync
+    // is what prevents the FOUC on reload.
+    try { localStorage.setItem('epsx-theme', t); } catch (e) {}
     const btn = document.getElementById('epsx-theme-toggle');
     if (btn) updateThemeIcon(btn, t);
-    if (typeof updateThemeBtns === 'function') updateThemeBtns();
+    document.querySelectorAll('.theme-toggle-sun, .theme-toggle-moon').forEach(el => {
+      const isSun = el.classList.contains('theme-toggle-sun');
+      el.style.display = (isSun && t === 'light') ? 'none' : ((!isSun && t === 'dark') ? 'none' : '');
+    });
   }
   function currentTheme() {
     return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
@@ -5501,7 +5508,212 @@ window.epsx = (function() {
     startCountdowns();
   });
 
-  return { toast, setTheme, currentTheme, toggleTheme, openModal, closeModal, toggleDropdown, openSheet, closeSheet, activateTab, toggleNavDropdown, toggleNavAccordion, toggleNav, openAuth, closeAuth, apiGet, apiPost, loadRankings, startCountdown, startCountdowns, companyCardHTML, toggleMobileMenu };
+  // ============ Copy-to-clipboard ============
+  // Used by Dioxus-rendered buttons that need an inline onclick handler
+  // (the Dioxus onclick: closure is stripped at SSR time, so we emit
+  // onclick="epsx.copyText('the text', this)" as a raw HTML attribute
+  // via the templates builder fns and `dangerous_inner_html`).
+  //
+  // Args:
+  //   text  — the string to copy. May contain single quotes, double
+  //           quotes, newlines, unicode; the builder fn escapes these
+  //           into a single-quoted JS string literal before the
+  //           onclick hits the DOM.
+  //   btn   — the clicked element. Used to flip its label to
+  //           "✓ Copied" / "Copied!" for 2 s, then restore.
+  function copyText(text, btn) {
+    function fallback(t) {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = t;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '-9999px';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        var ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+        document.body.removeChild(ta);
+        return ok;
+      } catch (e) { return false; }
+    }
+    function flash(label) {
+      if (!btn) return;
+      // The button may have multiple text nodes; we update the last
+      // <span> child if present, else the button's textContent.
+      var span = btn.querySelector('span');
+      var orig = btn.getAttribute('data-orig-label');
+      if (!orig) {
+        orig = span ? span.textContent : btn.textContent;
+        btn.setAttribute('data-orig-label', orig);
+      }
+      if (span) span.textContent = label;
+      else btn.textContent = label;
+      setTimeout(function() {
+        if (span) span.textContent = orig;
+        else btn.textContent = orig;
+        btn.removeAttribute('data-orig-label');
+      }, 2000);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(
+        function() { flash('✓ Copied'); },
+        function() {
+          if (fallback(text)) flash('✓ Copied');
+          else flash('Copy failed');
+        }
+      );
+    } else {
+      if (fallback(text)) flash('✓ Copied');
+      else flash('Copy failed');
+    }
+  }
+
+  // ============ Share (Web Share API + clipboard fallback) ============
+  // On mobile: navigator.share() with a title + url + text payload.
+  // On desktop (no share API): fall back to clipboard.writeText of the
+  // URL so the user can paste it.
+  function shareText(text, title, btn) {
+    var payload = {
+      title: title || document.title || 'EPSX',
+      text:  text  || '',
+      url:   window.location.href,
+    };
+    if (navigator.share) {
+      try {
+        navigator.share(payload).then(
+          function() {},
+          function(e) { console.warn('navigator.share rejected:', e); }
+        );
+        return;
+      } catch (e) {
+        // fall through to clipboard
+      }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(payload.url).then(
+        function() {
+          if (!btn) return;
+          var span = btn.querySelector('span');
+          var orig = btn.getAttribute('data-orig-label');
+          if (!orig) {
+            orig = span ? span.textContent : btn.textContent;
+            btn.setAttribute('data-orig-label', orig);
+          }
+          if (span) span.textContent = '✓ Copied';
+          else btn.textContent = '✓ Copied';
+          setTimeout(function() {
+            if (span) span.textContent = orig;
+            else btn.textContent = orig;
+            btn.removeAttribute('data-orig-label');
+          }, 2000);
+        },
+        function() { console.warn('shareText clipboard fallback failed'); }
+      );
+    }
+  }
+
+  // ============ News search submit ============
+  // Reads the q / category / range inputs from the named <form>, encodes
+  // them into a URL, and navigates. The BFF's /news route re-renders
+  // with the filter applied server-side, giving a permalink-able URL.
+  function submitNewsSearch(formId) {
+    var form = document.getElementById(formId);
+    if (!form) return;
+    function enc(name) {
+      var el = form.querySelector('[name="' + name + '"]');
+      if (!el) return '';
+      return encodeURIComponent(el.value || '');
+    }
+    var q   = enc('q');
+    var cat = enc('category');
+    var url = '/news';
+    var params = [];
+    if (q)   params.push('q=' + q);
+    if (cat) params.push('category=' + cat);
+    if (params.length) url += '?' + params.join('&');
+    window.location.href = url;
+  }
+
+  // ============ Select / dropdown navigation helper ============
+  // Used by `<select data-epsx-navigate="1" data-base-href="…">`
+  // (rendered via `epsx_templates::navigate_select_html`). On
+  // `change`, reads the selected value, builds `<base_href>?<qp>=<value>`,
+  // and navigates. The BFF re-renders with the new query.
+  function bindNavigateSelects(root) {
+    (root || document).querySelectorAll('[data-epsx-navigate="1"]').forEach(function(sel) {
+      if (sel.__epsxBound) return;
+      sel.__epsxBound = true;
+      sel.addEventListener('change', function() {
+        var base  = sel.getAttribute('data-base-href') || '/';
+        var qp    = sel.getAttribute('data-qp')        || 'limit';
+        var value = sel.value;
+        var sep   = base.indexOf('?') === -1 ? '?' : '&';
+        window.location.href = base + sep + encodeURIComponent(qp) + '=' + encodeURIComponent(value);
+      });
+    });
+  }
+  document.addEventListener('DOMContentLoaded', function() { bindNavigateSelects(); });
+
+  // ============ Tabs delegated keyboard handler ============
+  // WAI-ARIA roving-tabindex + arrow-key activation for any
+  // `<div role="tablist" data-epsx-tabs="…">` that contains
+  // `<button role="tab">` children with a `data-tab-name`
+  // attribute. Activating a tab calls
+  // `epsx.activateTab(group, name)` (which already exists in this
+  // global script block) AND optionally navigates if the tab has
+  // a `data-tab-href` attribute.
+  function bindTabLists(root) {
+    (root || document).querySelectorAll('[data-epsx-tabs]').forEach(function(list) {
+      if (list.__epsxBound) return;
+      list.__epsxBound = true;
+      var group = list.getAttribute('data-epsx-tabs');
+      function tabs() {
+        return Array.prototype.slice.call(list.querySelectorAll('[role="tab"]'));
+      }
+      function setSelected(idx) {
+        var all = tabs();
+        if (idx < 0 || idx >= all.length) return;
+        all.forEach(function(t, i) {
+          t.setAttribute('tabindex', i === idx ? '0' : '-1');
+          t.setAttribute('aria-selected', i === idx ? 'true' : 'false');
+        });
+        all[idx].focus();
+      }
+      list.addEventListener('keydown', function(e) {
+        var all = tabs();
+        if (!all.length) return;
+        var cur = all.findIndex(function(t){ return t.getAttribute('tabindex') === '0'; });
+        if (cur === -1) cur = 0;
+        var next = cur;
+        var vertical = list.getAttribute('aria-orientation') === 'vertical';
+        switch (e.key) {
+          case 'ArrowRight': if (!vertical) next = (cur + 1) % all.length; break;
+          case 'ArrowLeft':  if (!vertical) next = (cur - 1 + all.length) % all.length; break;
+          case 'ArrowDown':  if (vertical)  next = (cur + 1) % all.length; break;
+          case 'ArrowUp':    if (vertical)  next = (cur - 1 + all.length) % all.length; break;
+          case 'Home': next = 0; break;
+          case 'End':  next = all.length - 1; break;
+          default: return;
+        }
+        e.preventDefault();
+        setSelected(next);
+      });
+      list.addEventListener('click', function(e) {
+        var tab = e.target.closest('[role="tab"]');
+        if (!tab || !list.contains(tab)) return;
+        var name = tab.getAttribute('data-tab-name');
+        if (name) activateTab(group, name);
+        var href = tab.getAttribute('data-tab-href');
+        if (href) window.location.href = href;
+      });
+    });
+  }
+  document.addEventListener('DOMContentLoaded', function() { bindTabLists(); });
+
+  return { toast, setTheme, currentTheme, toggleTheme, openModal, closeModal, toggleDropdown, openSheet, closeSheet, activateTab, toggleNavDropdown, toggleNavAccordion, toggleNav, openAuth, closeAuth, apiGet, apiPost, loadRankings, startCountdown, startCountdowns, companyCardHTML, toggleMobileMenu, copyText, shareText, submitNewsSearch, bindNavigateSelects, bindTabLists };
 })();
 </script>
 
@@ -5555,6 +5767,222 @@ pub fn theme_toggle_button() -> &'static str {
   <i data-icon="sun" data-lucide="sun" style="display:none;width:1.125rem;height:1.125rem;"></i>
   <i data-icon="moon" data-lucide="moon" style="width:1.125rem;height:1.125rem;"></i>
 </button>"##
+}
+
+// === wave23-t4-components-v2: inline-onclick HTML builders ===
+//
+// Why these exist: Dioxus 0.7 SSR is hydration-less — every
+// `onclick: move |_| { ... }` closure is stripped from the rendered
+// HTML and never wired up on the client. The only way to attach
+// runtime behaviour to a SSR-rendered button is to emit a literal
+// `onclick="epsx.foo(...)"` HTML attribute. The fns below build
+// those raw HTML strings; the calling Dioxus component renders
+// them via `dangerous_inner_html` on a wrapping `<span>` (or the
+// element itself, where Dioxus allows it).
+//
+// All `onclick` values are constructed via `js_string_literal()`
+// which properly escapes `'`, `"`, `\`, newlines, and `</` so the
+// resulting HTML is XSS-safe. Pair each builder with a matching
+// function in `global_js()` (the public `epsx.*` namespace).
+
+/// Escape an arbitrary `&str` so it is safe to embed as a JS
+/// single-quoted string literal. Handles `\'`, `\\`, `\n`, `\r`,
+/// `\t`, `\xNN`, `\uNNNN`, and `</` (to keep the browser's HTML
+/// parser from breaking out of the surrounding attribute when the
+/// text contains the closing-tag sequence).
+fn js_string_literal(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('\'');
+    for c in s.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '\'' => out.push_str("\\'"),
+            '"'  => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            '\x08' => out.push_str("\\b"),
+            '\x0c' => out.push_str("\\f"),
+            '<'  => out.push_str("\\x3c"),  // break `</script>` / `</...>` matches
+            '>'  => out.push_str("\\x3e"),
+            '&'  => out.push_str("\\x26"),
+            c if (c as u32) < 0x20 => {
+                use std::fmt::Write;
+                let _ = write!(&mut out, "\\u{:04x}", c as u32);
+            }
+            c => out.push(c),
+        }
+    }
+    out.push('\'');
+    out
+}
+
+/// Build the onclick value for a copy-to-clipboard button. Returns
+/// the raw expression body, e.g. `epsx.copyText('hello', this)`.
+/// The builder fns below wrap this in `onclick="..."` and the
+/// rest of the button markup.
+pub fn onclick_copy_text(text: &str) -> String {
+    format!("epsx.copyText({}, this)", js_string_literal(text))
+}
+
+/// Build the onclick value for a share button. Calls
+/// `epsx.shareText(text, title, this)`; the title may be empty.
+pub fn onclick_share_text(text: &str, title: &str) -> String {
+    format!(
+        "epsx.shareText({}, {}, this)",
+        js_string_literal(text),
+        js_string_literal(title)
+    )
+}
+
+/// Build the onclick value for a search-form submit button. The
+/// Dioxus component renders a `<form id="…">` with the named
+/// inputs; this onclick collects them and navigates to the BFF
+/// route with `?q=…&category=…`.
+pub fn onclick_submit_news_search(form_id: &str) -> String {
+    format!(
+        "epsx.submitNewsSearch({})",
+        js_string_literal(form_id)
+    )
+}
+
+/// Returns a complete `<button>…</button>` HTML string that
+/// copies `text` to the clipboard when clicked. The `label`
+/// parameter is the resting label; on a successful copy the
+/// `epsx.copyText` JS flips the inner `<span>` to "✓ Copied" for
+/// 2 s, then restores.
+///
+/// Usage from a Dioxus component:
+/// ```ignore
+/// rsx! {
+///     span { class: "inline-block",
+///         dangerous_inner_html: "{epsx_templates::copy_button_html(&text, \"Copy\")}" }
+/// }
+/// ```
+pub fn copy_button_html(text: &str, label: &str) -> String {
+    let onclick = onclick_copy_text(text);
+    format!(
+        r#"<button type="button" class="btn btn-sm btn-outline copy-btn" data-copy="{safe_text}" onclick="{onclick}" aria-label="Copy to clipboard"><span>{label}</span></button>"#,
+        safe_text = html_attr_escape(text),
+        onclick = onclick,
+        label = html_text_escape(label),
+    )
+}
+
+/// Returns a complete `<button>…</button>` HTML string for the
+/// contact page's "Copy email" button. Visually matches the
+/// `contact-copy-btn` class so existing CSS still applies.
+pub fn email_copy_button_html(email: &str) -> String {
+    let onclick = onclick_copy_text(email);
+    format!(
+        r#"<button type="button" class="btn btn-ghost contact-copy-btn" data-copy="{safe_email}" onclick="{onclick}" aria-label="Copy email address"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="check"><polyline points="20 6 9 17 4 12"></polyline></svg><span>Copy</span></button>"#,
+        safe_email = html_attr_escape(email),
+        onclick = onclick,
+    )
+}
+
+/// Returns a complete `<button>…</button>` HTML string for a
+/// share button. Uses the Web Share API on mobile; on desktop
+/// falls back to copying the URL to the clipboard.
+pub fn share_button_html(text: &str, title: &str, label: &str) -> String {
+    let onclick = onclick_share_text(text, title);
+    format!(
+        r#"<button type="button" class="share-btn" data-share-text="{safe_text}" data-share-title="{safe_title}" onclick="{onclick}" aria-label="Share"><span>{label}</span></button>"#,
+        safe_text = html_attr_escape(text),
+        safe_title = html_attr_escape(title),
+        onclick = onclick,
+        label = html_text_escape(label),
+    )
+}
+
+/// Returns a complete `<button>…</button>` HTML string for the
+/// news search submit button. Clicking it calls
+/// `epsx.submitNewsSearch(form_id)`, which collects the named
+/// inputs and navigates to `/news?q=…&category=…`.
+pub fn news_search_submit_button_html(form_id: &str, label: &str) -> String {
+    let onclick = onclick_submit_news_search(form_id);
+    format!(
+        r#"<button type="button" class="btn btn-outline" onclick="{onclick}">{label}</button>"#,
+        onclick = onclick,
+        label   = html_text_escape(label),
+    )
+}
+
+/// Returns a complete `<select data-epsx-navigate="1" …>…</select>`
+/// HTML string. The `global_js` `bindNavigateSelects()` listener
+/// picks it up on DOMContentLoaded and wires a `change` handler
+/// that navigates to `<base_href>?<qp>=<value>`. Used by the
+/// pagination `LimitSelector` and the payment page's Token picker.
+pub fn navigate_select_html(
+    base_href: &str,
+    query_param: &str,
+    current: &str,
+    options: &[(String, String)],
+) -> String {
+    let mut opts = String::new();
+    for (val, lbl) in options {
+        let sel = if val == current { " selected" } else { "" };
+        opts.push_str(&format!(
+            r#"<option value="{val}"{sel}>{lbl}</option>"#,
+            val  = html_attr_escape(val),
+            sel  = sel,
+            lbl  = html_text_escape(lbl),
+        ));
+    }
+    format!(
+        r#"<select class="input input-sm" data-epsx-navigate="1" data-base-href="{base}" data-qp="{qp}">{opts}</select>"#,
+        base = html_attr_escape(base_href),
+        qp   = html_attr_escape(query_param),
+        opts = opts,
+    )
+}
+
+/// Escape a string for safe inclusion in a double-quoted HTML
+/// attribute value. The escape table covers `&`, `<`, `>`, `"`,
+/// and `'`. Used by the builder fns above to neutralise the
+/// `data-*` attribute values that mirror the user-supplied text.
+fn html_attr_escape(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&#39;"),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+/// Public re-export of `html_attr_escape` for Dioxus components
+/// that need to build raw HTML strings via `dangerous_inner_html`
+/// (e.g. inline `onclick="..."` attributes that need to be
+/// XSS-safe). Prefer using the higher-level `copy_button_html` /
+/// `share_button_html` / `email_copy_button_html` builders for
+/// common cases; this is for bespoke markup.
+pub fn html_attr_escape_pub(s: &str) -> String {
+    html_attr_escape(s)
+}
+
+/// Public re-export of `html_text_escape` for the same reason.
+pub fn html_text_escape_pub(s: &str) -> String {
+    html_text_escape(s)
+}
+
+/// Escape a string for safe inclusion as HTML text content.
+fn html_text_escape(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            c => out.push(c),
+        }
+    }
+    out
 }
 
 /// Returns the standard EPSX logo (gradient text "EPSX").

@@ -39,75 +39,22 @@ pub fn FileUpload(
 
 // === CopyButton ===
 /// Click-to-copy button. Copies `text` to the system clipboard via
-/// `navigator.clipboard.writeText`. Falls back to a hidden
-/// `<textarea>` + `document.execCommand('copy')` when the modern API
-/// is unavailable (insecure context, older browsers). The label
-/// flips to "✓ Copied" for 2 seconds after a successful copy.
+/// `epsx.copyText(text, this)` (defined in `epsx_templates::global_js`).
+/// The label flips to "✓ Copied" for 2 seconds after a successful copy.
 ///
-/// Wave 23 T4 fix: the previous version stored `text` in a local
-/// variable and immediately dropped it, so the click handler did
-/// nothing. This version actually calls `writeText` and reports
-/// success/failure.
+/// Wave 23 T4 v2 fix: the previous version stored `text` in a local
+/// Dioxus `onclick: move |_| { ... }` closure that was STRIPPED at
+/// SSR time (Dioxus 0.7 SSR is hydration-less in this project).
+/// The new version emits the button as raw HTML with a literal
+/// `onclick="epsx.copyText('…', this)"` attribute via
+/// `epsx_templates::copy_button_html`, so the click handler is
+/// wired up at first paint and survives the SSR boundary.
 #[component]
 pub fn CopyButton(text: String, #[props(default = "Copy".to_string())] label: String) -> Element {
-    let mut copied = use_signal(|| false);
-    let text_for_click = text.clone();
+    let html = epsx_templates::copy_button_html(&text, &label);
     rsx! {
-        button {
-            class: "btn btn-sm btn-outline copy-btn",
-            r#type: "button",
-            "data-copy": "{text_for_click}",
-            onclick: move |_| {
-                let t = text_for_click.clone();
-                spawn(async move {
-                    // Use JSON.stringify to safely embed the text in JS
-                    // (handles quotes, backslashes, newlines, unicode).
-                    let script = format!(
-                        r#"
-                        (function() {{
-                            var text = {t_json};
-                            var done = function(ok) {{
-                                try {{
-                                    var btn = document.activeElement;
-                                    if (btn && btn.classList && btn.classList.contains('copy-btn')) {{
-                                        // No DOM mutation here; the
-                                        // label flip is driven by the
-                                        // Rust signal via the
-                                        // `copied.set(true)` call below
-                                        // when the script succeeds.
-                                    }}
-                                }} catch (e) {{}}
-                            }};
-                            if (navigator.clipboard && navigator.clipboard.writeText) {{
-                                navigator.clipboard.writeText(text).then(
-                                    function() {{ done(true); }},
-                                    function() {{ fallback(text); done(true); }}
-                                );
-                            }} else {{
-                                fallback(text); done(true);
-                            }}
-                            function fallback(t) {{
-                                try {{
-                                    var ta = document.createElement('textarea');
-                                    ta.value = t;
-                                    ta.style.position = 'fixed';
-                                    ta.style.opacity = '0';
-                                    document.body.appendChild(ta);
-                                    ta.focus();
-                                    ta.select();
-                                    document.execCommand('copy');
-                                    document.body.removeChild(ta);
-                                }} catch (e) {{}}
-                            }}
-                        }})();
-                        "#,
-                        t_json = serde_json::to_string(&t).unwrap_or_else(|_| "''".to_string()),
-                    );
-                    let _ = document::eval(script.as_str()).await;
-                });
-                copied.set(true);
-            },
-            if *copied.read() { "✓ Copied" } else { "{label}" }
+        span { class: "copy-btn-wrap inline-block",
+            dangerous_inner_html: "{html}"
         }
     }
 }

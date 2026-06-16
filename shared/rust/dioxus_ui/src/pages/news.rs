@@ -80,8 +80,10 @@ fn NewsPageBody(
     initial_category: String,
     total: usize,
 ) -> Element {
-    // Provide a shared (q, cat) signal pair to the filter + list.
-    let _ = filter_state::provide_news_filter();
+    // (T4 v2: removed `filter_state::provide_news_filter()` — the
+    // shared Signal pair is dead code under hydration-less SSR.
+    // The BFF's URL-based filter is the single source of truth.)
+    let _ = total; // (kept for backwards compat with the caller; not used in v2)
     rsx! {
         div { class: "container page-content news-page",
             // === wave6-auth-pages-depth-track-d news header ===
@@ -137,138 +139,121 @@ pub struct NewsPost {
 }
 
 /// `NewsFilters` — category select, date range, search input. Wave 23
-/// T4: now reactive. Typing in the search box updates a shared signal
-/// (provided by `NewsList`) which re-renders the visible posts in
-/// place. The category select also updates the signal; the date range
-/// is informational only (no client-side date filter is implemented —
-/// the prod source has the same constraint).
+/// Wave 23 T4 v2: now uses a vanilla HTML `<form>` with native
+/// `<input name="q">` + `<select name="category">` elements, and a
+/// submit button whose `onclick` is wired via
+/// `epsx.submitNewsSearch('news-filters-form')` (defined in
+/// `epsx_templates::global_js`).
 ///
-/// - `initial_query` — SSR-side seed from the page context's
-///   `?q=…` query param, so the first paint already reflects the
-///   filtered list.
-/// - `initial_category` — same idea for `?category=…`.
+/// The previous version's `oninput: move |e| q.set(e.value())`
+/// Dioxus closure was being stripped at SSR time (Dioxus 0.7 SSR
+/// is hydration-less in this project per
+/// `docs/wave3a-wiring/design.md`). Even though the input was
+/// visually a working search box, typing into it had no effect
+/// and the list never re-rendered. The new approach:
+/// 1. The form holds the SSR-prefilled values as `value="…"` /
+///    `selected` attributes (so the initial paint already
+///    reflects the filter from the URL).
+/// 2. The submit button calls `epsx.submitNewsSearch(formId)`,
+///    which reads `q` and `category` from the named form's
+///    inputs and navigates to `/news?q=…&category=…`.
+/// 3. The BFF re-renders with the new filter applied
+///    server-side; the URL is permalink-able.
+/// 4. A `<noscript>` fallback inside the form provides a
+///    hard-submit `<button type="submit">` so non-JS clients can
+///    still filter (the form's default `action` is `/news`).
+///
+/// Live filter-as-you-type would require a global delegated
+/// `input` handler in `global_js`; that's tracked as a follow-up
+/// if the spec demands it. For now, the form-based filter is the
+/// minimum that actually works at runtime.
 #[component]
 fn NewsFilters(
     initial_query: String,
     initial_category: String,
 ) -> Element {
-    // Lift the filter state up into NewsList so the two stay in sync
-    // even if the filter component is re-mounted. We expose it as
-    // context-style props here for simplicity (one consumer).
-    let (mut q, mut cat) = use_news_filter();
-    // Seed from SSR on first paint.
-    use_effect(move || {
-        if !initial_query.is_empty() {
-            q.set(initial_query.clone());
-        }
-    });
-    use_effect(move || {
-        if initial_category != "all" {
-            cat.set(initial_category.clone());
-        }
-    });
+    let cat = initial_category.clone();
     rsx! {
-        div { class: "card card-glass news-filters",
+        form {
+            id: "news-filters-form",
+            class: "card card-glass news-filters",
+            method: "get",
+            action: "/news",
             div { class: "card-body flex flex-col md:flex-row gap-4 items-stretch md:items-end",
                 div { class: "field flex-1",
-                    label { class: "field-label", "Search" }
+                    label { class: "field-label", r#for: "news-q", "Search" }
                     input {
                         class: "input",
+                        id: "news-q",
+                        name: "q",
                         r#type: "search",
                         placeholder: "Search articles…",
-                        value: "{q.read()}",
-                        oninput: move |e| q.set(e.value().to_string()),
+                        value: "{initial_query}",
                     }
                 }
                 div { class: "field md:w-48",
-                    label { class: "field-label", "Category" }
-                    SelectField {
-                        name: "category".to_string(),
-                        options: vec![
-                            ("all".to_string(), "All".to_string()),
-                            ("updates".to_string(), "Updates".to_string()),
-                            ("engineering".to_string(), "Engineering".to_string()),
-                            ("product".to_string(), "Product".to_string()),
-                        ],
-                        value: Some(cat.read().clone()),
-                        required: false,
-                        label: None,
-                        help: None,
-                        error: None,
-                        placeholder: None,
-                        onchange: Some(EventHandler::new(move |e: FormEvent| cat.set(e.value()))),
+                    label { class: "field-label", r#for: "news-category", "Category" }
+                    select {
+                        class: "input",
+                        id: "news-category",
+                        name: "category",
+                        option { value: "all",          selected: cat == "all",          "All" }
+                        option { value: "updates",      selected: cat == "updates",      "Updates" }
+                        option { value: "engineering",  selected: cat == "engineering",  "Engineering" }
+                        option { value: "product",      selected: cat == "product",      "Product" }
                     }
                 }
                 div { class: "field md:w-48",
-                    label { class: "field-label", "Date range" }
-                    SelectField {
-                        name: "range".to_string(),
-                        options: vec![
-                            ("all".to_string(), "All time".to_string()),
-                            ("7d".to_string(), "Last 7 days".to_string()),
-                            ("30d".to_string(), "Last 30 days".to_string()),
-                            ("90d".to_string(), "Last 90 days".to_string()),
-                        ],
-                        value: Some("all".to_string()),
-                        required: false,
-                        label: None,
-                        help: None,
-                        error: None,
-                        placeholder: None,
-                        onchange: None,
+                    label { class: "field-label", r#for: "news-range", "Date range" }
+                    select {
+                        class: "input",
+                        id: "news-range",
+                        name: "range",
+                        option { value: "all", "All time" }
+                        option { value: "7d",  "Last 7 days" }
+                        option { value: "30d", "Last 30 days" }
+                        option { value: "90d", "Last 90 days" }
                     }
                 }
-                button {
-                    class: "btn btn-outline",
-                    r#type: "button",
-                    onclick: move |_| {
-                        // The "Search" button forces a hard navigation
-                        // to /news?q=…&category=… so the BFF can re-render
-                        // with the filter applied server-side. Useful
-                        // for users who want a permalink / share a
-                        // filtered list.
-                        spawn(async move {
-                            let script = format!(
-                                "window.location.href = '/news?q={q}&category={c}';",
-                                q = url_encode(&q.read()),
-                                c = url_encode(&cat.read()),
-                            );
-                            let _ = document::eval(script.as_str()).await;
-                        });
-                    },
-                    Icon { name: "search".to_string(), size: Some(16) }
-                    " Search"
+                // Search submit button — rendered as raw HTML with a
+                // literal `onclick="epsx.submitNewsSearch('…')"`
+                // attribute (the Dioxus `onclick:` macro form is
+                // stripped at SSR time, so we use
+                // `dangerous_inner_html` on a wrapping span).
+                span { class: "news-search-submit-wrap inline-block",
+                    dangerous_inner_html: r#"<button type="button" class="btn btn-outline" onclick="epsx.submitNewsSearch('news-filters-form')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-search" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg> Search</button>"#
+                }
+                // No-JS fallback: a real <button type="submit">
+                // submits the form via the browser's default action
+                // (action="/news", method="get"). Only visible to
+                // browsers that don't run the inline onclick.
+                noscript {
+                    button { class: "btn btn-outline", r#type: "submit", "Search" }
                 }
             }
         }
     }
 }
 
-/// `NewsList` — renders the filtered list. Wave 23 T4: subscribes to
-/// the same `q` / `cat` signals as `NewsFilters` and re-renders the
-/// visible posts in place. The featured card is always the first
-/// surviving post (or hidden if the filter yields 0/1 results).
+/// `NewsList` — renders the (server-side-filtered) list. Wave 23 T4 v2:
+/// the filter is applied by the BFF at render time using the URL's
+/// `?q=…&category=…` query params. The Dioxus-side re-filtering of
+/// `posts` is now a no-op because the BFF already returns only the
+/// matching posts. We keep the local filter as a safety net (in
+/// case the BFF is bypassed in tests / a sample dataset) and to
+/// preserve the visible "0 results" empty state when the BFF
+/// returns nothing.
+///
+/// The featured card is always the first surviving post (or hidden
+/// if the filter yields 0/1 results).
 #[component]
 fn NewsList(
     posts: Vec<NewsPost>,
     initial_query: String,
     initial_category: String,
 ) -> Element {
-    let (mut q, mut cat) = use_news_filter();
-    // Seed from SSR.
-    use_effect(move || {
-        if !initial_query.is_empty() {
-            q.set(initial_query.clone());
-        }
-    });
-    use_effect(move || {
-        if initial_category != "all" {
-            cat.set(initial_category.clone());
-        }
-    });
-
-    let query = q.read().to_lowercase();
-    let category = cat.read().clone();
+    let query = initial_query.to_lowercase();
+    let category = initial_category.clone();
     let filtered: Vec<NewsPost> = posts
         .iter()
         .filter(|p| {
@@ -316,55 +301,11 @@ fn NewsList(
     }
 }
 
-/// Shared filter signals used by `NewsFilters` + `NewsList`. The two
-/// components live in the same render tree, so we use a small
-/// Dioxus context to share the `(q, cat)` `Signal` pair. The signals
-/// reset on full page navigation (which is the correct SSR
-/// behaviour: the BFF re-renders with `?q=…&category=…` from the URL).
-mod filter_state {
-    use dioxus::prelude::*;
-
-    #[derive(Clone, Copy)]
-    pub struct NewsFilter {
-        pub q: Signal<String>,
-        pub cat: Signal<String>,
-    }
-
-    pub fn use_news_filter() -> NewsFilter {
-        use_context::<NewsFilter>()
-    }
-
-    pub fn provide_news_filter() -> NewsFilter {
-        let q = use_signal(String::new);
-        let cat = use_signal(|| "all".to_string());
-        let f = NewsFilter { q, cat };
-        use_context_provider(|| f);
-        f
-    }
-}
-
-fn use_news_filter() -> (Signal<String>, Signal<String>) {
-    let f = filter_state::use_news_filter();
-    (f.q, f.cat)
-}
-
-fn url_encode(s: &str) -> String {
-    // Minimal URL-encoding for query-param values. Anything outside
-    // `[A-Za-z0-9._~-]` is escaped as `%XX`. Good enough for the
-    // search button's `window.location.href` setter.
-    let mut out = String::with_capacity(s.len());
-    for b in s.bytes() {
-        match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'.' | b'_' | b'~' | b'-' => {
-                out.push(b as char);
-            }
-            _ => {
-                out.push_str(&format!("%{:02X}", b));
-            }
-        }
-    }
-    out
-}
+// (filter_state module + use_news_filter removed in T4 v2: the
+// shared (q, cat) Signal pair is dead code under SSR-less Dioxus
+// — the closures were never wired up, so the live filter never
+// worked. The BFF's URL-based filter is now the single source of
+// truth.)
 
 /// Featured card — large hero card with optional cover image, "Featured"
 /// badge, tags, title, summary, and "Read article" CTA. Mirrors

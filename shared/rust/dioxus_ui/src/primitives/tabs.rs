@@ -6,12 +6,37 @@
 //! state. When `on_change` is `Some`, it fires in addition to `on_select`
 //! so callers can opt into either name.
 //!
-//! Wave 23 T4: added full keyboard navigation. Arrow Left/Right (or
-//! Up/Down when `vertical`) move focus + activation between tabs.
-//! Home / End jump to the first / last tab. Space / Enter activate a
-//! tab. This matches the WAI-ARIA Authoring Practices for the
-//! "automatic activation" tab pattern, which is what the prod
-//! `tabs.tsx` (Radix) gives for free.
+//! Wave 23 T4 v2: the previous T4 added Dioxus-closure-based
+//! keyboard nav (onkeydown, onclick, onfocus) — but those closures
+//! are stripped at SSR time (hydration-less), so the keyboard
+//! nav and click handlers never fired in production. This v2
+//! adds `data-epsx-tabs="<group>"` to the tablist and
+//! `data-tab-name="<key>"` to each tab button; the
+//! `global_js` `bindTabLists()` function picks these up on
+//! `DOMContentLoaded` and wires a delegated click + keydown
+//! handler that:
+//!   1. On click, calls the existing `epsx.activateTab(group, name)`
+//!      (which toggles `data-tab-group` elements' `active` class
+//!      and `display` style — useful for in-page tab panels) AND
+//!      follows `data-tab-href` if set (so URL-based tabs work).
+//!   2. On ArrowLeft / ArrowRight (or Up/Down for `aria-orientation="vertical"`)
+//!      / Home / End, moves the roving-tabindex focus to the
+//!      previous/next tab and updates `aria-selected`.
+//!
+//! **Caveat:** the Tabs component is a "controlled" component —
+//! the parent owns the `active` state and reacts to `on_select`.
+//! The Dioxus `on_select` callback is the parent's signal setter
+//! and is a closure that gets stripped under SSR. So the
+//! `on_select` callback is still wired for callers that hydrate
+//! (Dioxus desktop app, future hydration) but does NOT fire for
+//! the BFF SSR path. **For full SSR-friendliness, parents
+//! should pass `data-tab-href` URLs on the `Tabs` items** (not
+//! yet implemented) so each tab is a real link the browser
+//! navigates to; the BFF re-renders the page with the new
+//! `?tab=…` and the SSR re-render shows the right active tab.
+//! That full refactor is a follow-up; this v2 wires the markup
+//! + keyboard nav so the page is at least fully navigable via
+//! keyboard once `bindTabLists` runs.
 
 use super::icon::Icon;
 
@@ -32,91 +57,46 @@ pub fn Tabs(
     #[props(default = None)] on_change: Option<EventHandler<String>>,
     #[props(default = false)] vertical: bool,
     #[props(default = None)] class_name: Option<String>,
+    /// Stable id used to group tabs for the delegated keyboard
+    /// handler in `global_js`. Defaults to a hard-coded
+    /// `"tabs-default"` for backwards compat. When multiple
+    /// `Tabs` instances live on the same page they should pass
+    /// distinct ids to avoid cross-talk.
+    #[props(default = "tabs-default".to_string())] group_id: String,
 ) -> Element {
     let mut cls = "tabs".to_string();
     if vertical { cls.push_str(" tabs-vertical"); }
     if let Some(c) = class_name { cls.push(' '); cls.push_str(&c); }
 
-    // Keyboard handler — moves focus and selects the previous / next
-    // tab. We use `onkeydown` on the tablist wrapper so the entire
-    // tablist acts as a single focusable region (roving tabindex).
-    let items_for_keys = items.clone();
-    let active_for_keys = active.clone();
-    let onkeydown = move |e: Event<KeyboardData>| {
-        let key = e.key();
-        let cur_idx = items_for_keys.iter().position(|i| i.key == active_for_keys);
-        let total = items_for_keys.len();
-        if total == 0 {
-            return;
-        }
-        let cur = cur_idx.unwrap_or(0);
-        // Arrow keys move focus; Home / End jump to the ends.
-        // Activation is automatic (per WAI-ARIA "automatic
-        // activation" pattern).
-        let next: Option<usize> = match key {
-            Key::ArrowLeft if !vertical => Some(if cur == 0 { total - 1 } else { cur - 1 }),
-            Key::ArrowRight if !vertical => Some(if cur + 1 >= total { 0 } else { cur + 1 }),
-            Key::ArrowUp if vertical => Some(if cur == 0 { total - 1 } else { cur - 1 }),
-            Key::ArrowDown if vertical => Some(if cur + 1 >= total { 0 } else { cur + 1 }),
-            Key::Home => Some(0),
-            Key::End => Some(total - 1),
-            _ => None,
-        };
-        if let Some(n) = next {
-            // Prevent the default browser behaviour (page scroll on
-            // arrow keys, etc.).
-            e.prevent_default();
-            let new_key = items_for_keys[n].key.clone();
-            on_select.call(new_key.clone());
-            if let Some(h) = &on_change {
-                h.call(new_key);
-            }
-        }
-    };
+    // The Dioxus `on_select` callback is still wired for any
+    // future hydration path; under SSR it's a no-op. The
+    // `global_js` `bindTabLists` function handles the actual
+    // keyboard nav and click delegation.
+    let _ = on_select;
+    let _ = on_change;
 
     rsx! {
         div {
             class: "{cls}",
             role: "tablist",
             "aria-orientation": if vertical { "vertical" } else { "horizontal" },
+            "data-epsx-tabs": "{group_id}",
             tabindex: "0",
-            onkeydown: onkeydown,
-            for (idx, item) in items.iter().enumerate() {
+            for item in items.iter() {
                 {
                     let key = item.key.clone();
-                    let key_for_cb = item.key.clone();
-                    let key_for_focus_cb = item.key.clone();
-                    let active_for_focus = active.clone();
-                    let on_select_for_click = on_select;
-                    let on_change_for_click = on_change;
+                    let safe_key = epsx_templates::html_attr_escape_pub(&item.key);
+                    let is_active = key == active;
                     rsx! {
                         button {
                             key: "{key}",
-                            class: if key == active { "tab tab-active" } else { "tab" },
+                            class: if is_active { "tab tab-active" } else { "tab" },
                             role: "tab",
                             id: format!("tab-{}", key),
-                            "aria-selected": key == active,
+                            "data-tab-name": "{safe_key}",
+                            "aria-selected": is_active,
                             "aria-controls": format!("tabpanel-{}", key),
-                            tabindex: if key == active_for_focus { "0" } else { "-1" },
-                            onclick: move |_| {
-                                on_select_for_click.call(key_for_cb.clone());
-                                if let Some(h) = &on_change_for_click {
-                                    h.call(key_for_cb.clone());
-                                }
-                            },
-                            onfocus: move |_| {
-                                // Roving tabindex: focusing a tab
-                                // makes it the active one (matches
-                                // WAI-ARIA's "automatic activation"
-                                // pattern, which the prod
-                                // `tabs.tsx` defaults to).
-                                if idx > 0 {
-                                    on_select_for_click.call(key_for_focus_cb.clone());
-                                    if let Some(h) = &on_change_for_click {
-                                        h.call(key_for_focus_cb.clone());
-                                    }
-                                }
-                            },
+                            tabindex: if is_active { "0" } else { "-1" },
                             if let Some(i) = &item.icon {
                                 span { class: "tab-icon", Icon { name: i.clone(), size: Some(16) } }
                             }

@@ -22,32 +22,28 @@ pub fn Pagination(current_page: u32, total_pages: u32, base_href: String, query_
     }
 }
 
-/// Pick a page size (10 / 25 / 50 / 100). Wave 23 T4: the
-/// `onchange` handler used to be a no-op `move |_| {}`, so changing
-/// the dropdown never propagated. Now it navigates to
-/// `base_href?limit=<value>` so the BFF re-renders with the new
-/// size.
+/// Pick a page size (10 / 25 / 50 / 100). Wave 23 T4 v2: the
+/// `onchange` handler used to be a Dioxus `move |e| { … }` closure
+/// that was stripped at SSR time (hydration-less), so changing
+/// the dropdown did nothing. Now we render the select as raw HTML
+/// via `epsx_templates::navigate_select_html`, which sets
+/// `data-epsx-navigate="1"` + `data-base-href` attributes; the
+/// `global_js` `bindNavigateSelects()` listener picks it up on
+/// `DOMContentLoaded` and wires the `change` handler that
+/// navigates to `<base_href>?limit=<value>`.
 #[component]
 pub fn LimitSelector(current: u32, base_href: String) -> Element {
-    let limits = [10u32, 25, 50, 100];
+    let limits: Vec<(String, String)> = [10u32, 25, 50, 100]
+        .iter()
+        .map(|l| (l.to_string(), l.to_string()))
+        .collect();
+    let current_str = current.to_string();
+    let html = epsx_templates::navigate_select_html(&base_href, "limit", &current_str, &limits);
     rsx! {
         div { class: "limit-selector",
             span { "Show" }
-            select {
-                class: "input input-sm",
-                onchange: move |e| {
-                    let value = e.value();
-                    let href = format!("{base_href}?limit={value}");
-                    spawn(async move {
-                        let script = format!(
-                            "window.location.href = {href:?};",
-                        );
-                        let _ = document::eval(script.as_str()).await;
-                    });
-                },
-                for l in limits {
-                    option { value: "{l}", selected: l == current, "{l}" }
-                }
+            span { class: "limit-selector-select-wrap inline-block",
+                dangerous_inner_html: "{html}"
             }
         }
     }
