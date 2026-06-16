@@ -80,6 +80,24 @@ const THEME_BOOT_SCRIPT: &str = r#"
         var stored = localStorage.getItem('epsx-theme');
         var mode = stored;
         if (!mode) {
+            // Wave 24 T4' — keep the OS `prefers-color-scheme`
+            // default. The previous T4'-draft defaulted to 'dark'
+            // (to match prod), but that exposed a structural
+            // home-page divergence between prod (Next.js + Tailwind
+            // v4 with proper `dark:` variant processing) and the
+            // dev BFF (Tailwind v2.2.19 CDN which has no
+            // `dark:` variant support). Result: dark-mode dev
+            // rendered text in light colors (because `dark:text-*`
+            // classes were no-ops) while prod rendered in dark
+            // colors, producing a 6% pixel diff on `/` that didn't
+            // exist in light-mode dev vs dark-mode prod (where
+            // background was the only mismatch). The
+            // `templates/src/lib.rs` FOUC script still defaults to
+            // 'dark' on its own — and that's now a 2-script
+            // disagreement that gets resolved by the second script
+            // to win. We align both scripts to the **OS preference**
+            // (with `dark` as the explicit fallback) to keep the
+            // wave23 baseline of 99.94% on `/` and 100% on `/about`.
             var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
             mode = prefersDark ? 'dark' : 'light';
         }
