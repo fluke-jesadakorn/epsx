@@ -136,16 +136,24 @@ pub fn bearer_token(headers: &HeaderMap) -> Option<String> {
 }
 
 pub fn current_user(headers: &HeaderMap, jwt: &JwtAuth) -> Option<AuthUser> {
-    if let Some(user) = epsx_bff::dev_bypass::dev_bypass_user() {
-        return Some(user);
+    // Wave 24 t3p — `EPSX_DEV_AUTH_FORCE_UNAUTH=1` flips the bypass
+    // short-circuit off (so the pixel-recheck harness can drive the
+    // admin SSR with the unauth codepath). See
+    // `epsx_bff::dev_bypass::DEV_FORCE_UNAUTH_ENV` for the rationale.
+    if !epsx_bff::dev_bypass::is_dev_force_unauth_enabled() {
+        if let Some(user) = epsx_bff::dev_bypass::dev_bypass_user() {
+            return Some(user);
+        }
     }
     let token = bearer_token(headers)?;
     jwt.verify(&token).ok()
 }
 
 pub fn require_user(headers: &HeaderMap, jwt: &JwtAuth) -> Result<AuthUser, AuthError> {
-    if let Some(user) = epsx_bff::dev_bypass::dev_bypass_user() {
-        return Ok(user);
+    if !epsx_bff::dev_bypass::is_dev_force_unauth_enabled() {
+        if let Some(user) = epsx_bff::dev_bypass::dev_bypass_user() {
+            return Ok(user);
+        }
     }
     let token = bearer_token(headers).ok_or(AuthError::Missing)?;
     jwt.verify(&token)

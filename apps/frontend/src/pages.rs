@@ -13,15 +13,24 @@ pub fn slug_to_mdx(slug: &str) -> Option<&'static str> {
         // 9 unique MDX files (welcome covers roadmap/launch; pricing covers
         // service tiers; subscription-vaults covers portfolio; paymaster
         // covers metrics; the other 5 each have their own file).
+        //
+        // Wave 24 t3p — added the prod-shape slugs (5 new entries:
+        // service-tier-alignment, performance-metrics-positioning,
+        // real-time-market-data-redis-streams, future-secure-web3-auth,
+        // scalable-postgresql-time-series,
+        // predictive-ai-models-market-sentiment) so the dev SSR
+        // resolves them to the same MDX file the prod client uses
+        // (each prod slug was renamed from the engineering-team
+        // naming, but the underlying content is the same article).
         "strategic-roadmap-future" | "strategic-launch-epsx" | "platform-update" => Some("welcome"),
-        "integrated-service-solutions" | "platform-update-q2" | "service-tier-changes" => Some("pricing"),
+        "service-tier-alignment" | "integrated-service-solutions" | "platform-update-q2" | "service-tier-changes" => Some("pricing"),
         "enhanced-portfolio-management" | "portfolio-enhancements" | "new-portfolio-features" => Some("subscription-vaults"),
-        "proprietary-performance-metrics" | "metrics-deep-dive" | "performance-analysis" => Some("paymaster"),
-        "scalable-foundation" | "scalability-update" | "infrastructure-deep-dive" => Some("scalable-foundation"),
-        "smarter-decisions-ai" | "ai-deep-dive" | "model-explainer" => Some("smarter-decisions-ai"),
+        "performance-metrics-positioning" | "proprietary-performance-metrics" | "metrics-deep-dive" | "performance-analysis" => Some("paymaster"),
+        "scalable-postgresql-time-series" | "scalable-foundation" | "scalability-update" | "infrastructure-deep-dive" => Some("scalable-foundation"),
+        "predictive-ai-models-market-sentiment" | "smarter-decisions-ai" | "ai-deep-dive" | "model-explainer" => Some("smarter-decisions-ai"),
         "optimizing-high-throughput-analytics-rust" | "rust-performance" | "throughput-deep-dive" => Some("optimizing-high-throughput-analytics-rust"),
-        "real-time-intelligence" | "real-time-data" | "live-pipeline" => Some("real-time-intelligence"),
-        "securing-the-future" | "security-overview" | "siwe-explained" => Some("securing-the-future"),
+        "real-time-market-data-redis-streams" | "real-time-intelligence" | "real-time-data" | "live-pipeline" => Some("real-time-intelligence"),
+        "future-secure-web3-auth" | "securing-the-future" | "security-overview" | "siwe-explained" => Some("securing-the-future"),
         _ => None,
     }
 }

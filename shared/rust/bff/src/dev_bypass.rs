@@ -33,6 +33,47 @@ use epsx_auth::AuthUser;
 /// Any other value is treated as unset.
 pub const DEV_BYPASS_ENV: &str = "EPSX_DEV_AUTH_BYPASS";
 
+/// Wave 24 t3p — env var that forces the dev BFF to behave as if the
+/// request is unauthenticated, even when `EPSX_DEV_AUTH_BYPASS=1` is
+/// also set. This is the pixel-recheck escape hatch for the
+/// `redirect-chain-differs` issue: with the bypass on, every request
+/// is treated as authed → `current_user()` returns `Some(dev-admin)`
+/// → `user.is_none()` is always `false` → the SSR's
+/// `needs_unauth_redirect` branch never fires → the dev baseline
+/// differs from prod (prod is unauth, so prod 307-redirects to
+/// `/auth?return_url=…` for protected pages).
+///
+/// Setting `EPSX_DEV_AUTH_FORCE_UNAUTH=1` flips that single bit:
+/// `current_user()` returns `None` even though the dev-admin cookie
+/// is still set on the request. The pixel-recheck harness can then
+/// run with both vars set:
+///
+/// ```bash
+/// EPSX_DEV_AUTH_BYPASS=1 EPSX_DEV_AUTH_FORCE_UNAUTH=1 \
+///     bash tools/e2e/capture-dev.sh
+/// ```
+///
+/// and get a dev baseline that 307-redirects the same way prod does
+/// for protected pages, so the redirect chains match.
+///
+/// When `EPSX_DEV_AUTH_FORCE_UNAUTH=1` is set WITHOUT
+/// `EPSX_DEV_AUTH_BYPASS=1`, behavior is the same as the bypass-off
+/// default — every request falls through to the normal JWT-verify
+/// path. The "force" semantics only kick in when the bypass is
+/// already on.
+///
+/// Default is OFF, no behavior change when unset.
+pub const DEV_FORCE_UNAUTH_ENV: &str = "EPSX_DEV_AUTH_FORCE_UNAUTH";
+
+/// Returns `true` if the force-unauth flag is set, `false` otherwise.
+/// Caller should treat this as a one-bit override on top of
+/// `dev_bypass_user()`: when both the bypass and the force-unauth
+/// flag are on, the caller must return `None` instead of
+/// `dev_bypass_user()`.
+pub fn is_dev_force_unauth_enabled() -> bool {
+    std::env::var(DEV_FORCE_UNAUTH_ENV).ok().as_deref() == Some("1")
+}
+
 /// Hardcoded dev-only user. Returned by `dev_bypass_user()` when the
 /// env var is set. NOT for production use.
 fn dev_user() -> AuthUser {
@@ -154,5 +195,29 @@ mod tests {
         assert!(dev_bypass_user().is_some());
         std::env::remove_var(DEV_BYPASS_ENV);
         assert!(dev_bypass_user().is_none());
+    }
+
+    // === Wave 24 t3p — force-unauth env var ===
+
+    #[test]
+    fn force_unauth_off_by_default() {
+        let _g = ENV_LOCK.lock().unwrap();
+        std::env::remove_var(DEV_FORCE_UNAUTH_ENV);
+        assert!(!is_dev_force_unauth_enabled());
+    }
+
+    #[test]
+    fn force_unauth_strict_one() {
+        let _g = ENV_LOCK.lock().unwrap();
+        for v in ["0", "true", "yes", "on", "TRUE", "1\n"] {
+            std::env::set_var(DEV_FORCE_UNAUTH_ENV, v);
+            let expected = v == "1";
+            assert_eq!(
+                is_dev_force_unauth_enabled(),
+                expected,
+                "value {v:?} should give expected={expected}"
+            );
+        }
+        std::env::remove_var(DEV_FORCE_UNAUTH_ENV);
     }
 }
