@@ -1,45 +1,52 @@
+//! Home page (`/`).
+//!
+//! Wave 25 T2 — port of `apps-old/frontend/app/page.tsx` +
+//! `components/home/{hero-section, server-news-section,
+//! server-top-performers, dynamic-pricing-section}.tsx`.
+//!
+//! The OLD prod renders:
+//!   - full-page gradient
+//!     `bg-gradient-to-br from-blue-50 via-orange-50 to-yellow-50
+//!      dark:from-slate-900 dark:via-slate-800 dark:to-slate-900`
+//!   - `<HeroSection />` — "Performance Analytics Platform" badge +
+//!     "📈 Track Your / Performance Growth / Metrics ✨" h1 (with
+//!     orange→yellow gradient on "Performance Growth") + 3 stat cards
+//!     (24/7 Latest Updates / 100+ Stock Analytics / < 1s Response
+//!     Time) + Start Exploration CTA
+//!   - `<ServerTopPerformers />` — "Performance Companies" h2 with
+//!     `pancake-gradient-text` + 3 StockDataCard-style cards
+//!   - `<DynamicPricingSection />` — 3 plan cards
+//!   - `<ServerNewsSection />` — Latest News with 1 FeaturedCard +
+//!     2 SmallCards
+//!
+//! The previous Wave 5 / Wave 23 home used a 9-section layout (Hero,
+//! TrustBar, TopPerformers, FeaturesGrid, PricingTeaser, NewsPreview,
+//! TestimonialsSection, FAQSection, CTASection). Wave 25 T2 drops
+//! TrustBar/FeaturesGrid/TestimonialsSection/FAQSection/CTASection
+//! (they don't appear in prod) and matches the prod's 4-section
+//! shape (Hero + TopPerformers + DynamicPricing + News).
+
 use crate::primitives::*;
 
 use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
-use crate::layout::marketing_bg::MarketingBackground;
-use crate::auth::ProgressiveAuthBanner;
 
-/// Home page (`/`). Wave 5 Track A port — see
-/// `docs/wave5-page-depth/design.md` §"Track A — Hero pages"
-/// for the section list. Sections (in order):
-///   1. Hero (with share button, live chain selector, responsive
-///      mobile collapse)
-///   2. TrustBar (4 logos from the source)
-///   3. TopPerformers (5 cards + data-freshness timestamp +
-///      row-level click-through to `/portfolio/{addr}`)
-///   4. FeaturesGrid (6 feature cards)
-///   5. PricingTeaser (3 tiers, "View all plans" → `/plans`)
-///   6. NewsPreview (3 cards → `/news/{slug}`)
-///   7. TestimonialsSection (3 testimonials — NEW in Wave 5)
-///   8. FAQSection (6-question accordion — NEW in Wave 5)
-///   9. CTASection (with secondary "Talk to sales" link)
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Home");
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
-            if ctx.user.is_none() {
-                ProgressiveAuthBanner {
-                    feature: Some("the full EPSX experience".to_string()),
+            // Wave 25 T2 — match prod's full-page gradient. Prod
+            // does NOT show ProgressiveAuthBanner on the home page
+            // (it's a public landing page).
+            div { class: "home-prod-page relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900",
+                div { class: "relative z-[1] home-prod-content",
+                    HeroSection {}
+                    TopPerformersSection {}
+                    PricingSection {}
+                    NewsSection {}
                 }
-            }
-            MarketingBackground {
-                Hero {}
-                TrustBar {}
-                TopPerformers {}
-                FeaturesGrid {}
-                PricingTeaser {}
-                NewsPreview {}
-                TestimonialsSection {}
-                FAQSection {}
-                CTASection {}
             }
         }
     })
@@ -47,494 +54,50 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 
 // === Hero ===
 
-/// Hero. Expanded in Wave 5 to include:
-///  - the share button (right of the primary CTA, per the source
-///    `share-button.tsx`),
-///  - a live chain selector (BSC mainnet / BSC testnet pill — the
-///    source uses `BlockchainNetworkProvider` and is server-rendered
-///    as a static pill in SSR),
-///  - the responsive mobile collapse (the headline wraps to a single
-///    line on mobile, the action row stacks vertically, the stat grid
-///    collapses to a single column).
 #[component]
-fn Hero() -> Element {
+fn HeroSection() -> Element {
     rsx! {
-        section { class: "hero",
-            // The marketing background provides the fixed orbs; the
-            // hero adds a second layer of "hero-bg" decoration that
-            // sits over the page-level background for extra depth.
-            div { class: "hero-bg", "aria-hidden": "true",
-                div { class: "hero-orb hero-orb-1" }
-                div { class: "hero-orb hero-orb-2" }
-                div { class: "hero-orb hero-orb-3" }
-                div { class: "hero-orb hero-orb-4" }
-            }
-            div { class: "hero-inner container",
-                div { class: "hero-badge",
-                    span { class: "hero-badge-dot" }
-                    span { "Performance Analytics Platform" }
-                }
-                h1 { class: "hero-title",
-                    span { class: "hero-title-line", "📈 Track Your" }
-                    span { class: "hero-title-line hero-title-gradient",
-                        "Performance Growth"
-                    }
-                    span { class: "hero-title-line", "Metrics ✨" }
-                }
-                p { class: "hero-subtitle",
-                    "🚀 Discover comprehensive data insights with our advanced analytics platform! "
-                    span { class: "hero-subtitle-accent",
-                        "Make informed decisions with real-time insights"
-                    }
-                    span { " 📈" }
-                }
-                div { class: "hero-actions",
-                    a { class: "btn btn-gradient btn-lg hero-cta-primary", href: "/analytics",
-                        span { "🚀 Start Exploration" }
-                        span { class: "ml-2", Icon { name: "arrow-right".to_string(), size: Some(20) } }
-                    }
-                    // Share button. Wave 23 T4: now wires an onclick
-                    // that prefers `navigator.share` (mobile native
-                    // share sheet) and falls back to
-                    // `navigator.clipboard.writeText` (desktop).
-                    // The label flips to "✓ Copied" for 2 seconds on
-                    // a successful copy.
-                    SharePlatformButton {}
-                }
-                // Live chain selector — BSC mainnet / testnet pill.
-                // Source uses `BlockchainNetworkProvider`; in SSR
-                // (no client context) we render the mainnet pill as
-                // the default. The client-side hydration script can
-                // swap the active state without a re-render.
-                div { class: "hero-chain-selector",
-                    span { class: "hero-chain-label", "Network:" }
-                    div { class: "hero-chain-pill hero-chain-pill-active",
-                        span { class: "hero-chain-dot" }
-                        "BSC Mainnet"
-                    }
-                    div { class: "hero-chain-pill",
-                        span { class: "hero-chain-dot hero-chain-dot-testnet" }
-                        "BSC Testnet"
-                    }
-                }
-                // Stat grid — expanded from 3 to 4 stats to match the
-                // source's "12K+ / 8.5M / 99.9%" set + the new "0.8s"
-                // response time stat.
-                div { class: "hero-stats",
-                    div { class: "hero-stat",
-                        div { class: "hero-stat-icon", Icon { name: "users".to_string(), size: Some(24), class_name: Some("text-primary".to_string()) } }
-                        div { class: "hero-stat-value", "12K+" }
-                        div { class: "hero-stat-label", "Active users" }
-                    }
-                    div { class: "hero-stat",
-                        div { class: "hero-stat-icon", Icon { name: "chart-line".to_string(), size: Some(24), class_name: Some("text-primary".to_string()) } }
-                        div { class: "hero-stat-value", "8.5M" }
-                        div { class: "hero-stat-label", "EPS rankings processed" }
-                    }
-                    div { class: "hero-stat",
-                        div { class: "hero-stat-icon", Icon { name: "zap".to_string(), size: Some(24), class_name: Some("text-primary".to_string()) } }
-                        div { class: "hero-stat-value", "< 1s" }
-                        div { class: "hero-stat-label", "Response time" }
-                    }
-                    div { class: "hero-stat",
-                        div { class: "hero-stat-icon", Icon { name: "shield".to_string(), size: Some(24), class_name: Some("text-primary".to_string()) } }
-                        div { class: "hero-stat-value", "99.9%" }
-                        div { class: "hero-stat-label", "Uptime" }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// === SharePlatformButton ===
-
-/// Hero share button. Wave 23 T4 v2: wires the click handler via
-/// the inline `onclick="epsx.shareText(…)"` attribute emitted by
-/// `epsx_templates::share_button_html`. The previous
-/// `onclick: move |_| { … }` Dioxus closure was being stripped at
-/// SSR time (hydration-less), so the button was visible but did
-/// nothing. The new pattern wires the handler at first paint
-/// through the global `epsx` namespace loaded by
-/// `epsx_templates::global_js()`. The JS function uses
-/// `navigator.share` (mobile) and falls back to
-/// `navigator.clipboard.writeText` (desktop) with the same
-/// `execCommand('copy')` last-resort the previous code had. The
-/// label flips to "✓ Copied" for 2 seconds via the
-/// `epsx.shareText` flash logic.
-#[component]
-fn SharePlatformButton() -> Element {
-    // Empty text → JS reads window.location.href itself.
-    // Empty title → JS uses document.title.
-    // The label is the resting label; the JS function flips it to
-    // "✓ Copied" for 2 s on a successful clipboard fallback.
-    let html = epsx_templates::share_button_html("", "EPSX — Stock Tokenization Platform", "📤 Share Platform");
-    rsx! {
-        // The Hero has `class="btn btn-outline btn-lg hero-share-btn"`
-        // on the button. We splice the hero classes onto the
-        // builder's output so the visual class hook the tests grep
-        // for is preserved.
-        span { class: "hero-share-btn-wrap inline-block",
-            dangerous_inner_html: html.replace("class=\"share-btn\"", "class=\"btn btn-outline btn-lg hero-share-btn\"")
-        }
-    }
-}
-
-// === TrustBar ===
-
-/// Trust bar. Source uses 4 logos; Wave 1 port had 2. Wave 5 adds
-/// 2 more (Binance, Ethereum Foundation). The visual style is
-/// unchanged — a row of `span.trust-logo` chips with the company
-/// name.
-#[component]
-fn TrustBar() -> Element {
-    rsx! {
-        section { class: "trust-bar",
-            div { class: "trust-bar-inner container",
-                p { class: "trust-bar-label", "Built for" }
-                div { class: "trust-bar-logos",
-                    span { class: "trust-logo", "Traders" }
-                    span { class: "trust-logo", "Analysts" }
-                    span { class: "trust-logo", "Merchants" }
-                    span { class: "trust-logo", "Developers" }
-                    span { class: "trust-logo", "DAOs" }
-                    span { class: "trust-logo", "Binance" }
-                    span { class: "trust-logo", "Ethereum Foundation" }
-                }
-            }
-        }
-    }
-}
-
-// === TopPerformers ===
-
-/// Top performers. Wave 5 additions: a "data freshness" timestamp at
-/// the top of the section, and a `href="/portfolio/{symbol}"` link
-/// on each card so a click-through to the portfolio detail page
-/// works (the source uses server-side fetch + a per-symbol route
-/// handler).
-#[component]
-fn TopPerformers() -> Element {
-    rsx! {
-        section { class: "top-performers",
-            div { class: "container",
-                div { class: "section-header",
-                    h2 { class: "section-title", "Top EPS growth leaders" }
-                    p { class: "section-sub", "Quarterly EPS growth, refreshed in real-time" }
-                    // Data freshness — wave 5 addition. Format: a
-                    // small clock + "Updated 2 min ago". The actual
-                    // freshness timestamp would be filled in by the
-                    // BFF (read from the BFF's cache invalidation
-                    // time) — the static placeholder is the SSR
-                    // default.
-                    div { class: "top-performers-freshness",
-                        Icon { name: "clock".to_string(), size: Some(14) }
-                        span { "Updated just now" }
-                    }
-                }
-                div { class: "top-performers-grid",
-                    // Wave 23 T2 — each TopPerformers card now includes a
-                    // TradingView external link (matches prod's
-                    // `financial-data-table.tsx` `href={`https://www.tradingview.com/chart?symbol=${data.symbol}`}`).
-                    // The card's primary `<a href="/portfolio/SYMBOL">`
-                    // still navigates internally; the TradingView link
-                    // is a small icon button in the top-right corner
-                    // that opens in a new tab.
-                    div { class: "card card-glass performer-card relative",
-                        a { class: "absolute top-2 right-2 z-10 text-muted-foreground hover:text-yellow-400 transition-colors",
-                            href: "https://www.tradingview.com/chart?symbol=GHC",
-                            target: "_blank",
-                            rel: "noopener noreferrer",
-                            title: "View GHC on TradingView",
-                            "aria-label": "View GHC on TradingView",
-                            Icon { name: "external-link".to_string(), size: Some(14) }
+        // === wave25-t2 home-prod hero ===
+        div { class: "home-prod-hero relative w-full min-h-[85vh] flex items-center justify-center overflow-hidden",
+            div { class: "home-prod-hero-inner relative text-center space-y-12 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 z-[1]",
+                div { class: "home-prod-hero-head space-y-8",
+                    div { class: "space-y-6",
+                        div { class: "inline-block home-prod-hero-anim-up",
+                            div { class: "home-prod-hero-badge mb-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20 backdrop-blur-sm",
+                                Icon { name: "trending-up".to_string(), size: Some(16), class_name: Some("text-primary".to_string()) }
+                                span { class: "text-sm font-medium text-primary", "Performance Analytics Platform" }
+                            }
+                            h1 { class: "home-prod-hero-title text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold leading-tight",
+                                span { class: "block home-prod-hero-line", "📈 Track Your" }
+                                span { class: "block bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 bg-clip-text text-transparent home-prod-hero-gradient",
+                                    "Performance Growth"
+                                }
+                                span { class: "block mt-2 home-prod-hero-line", "Metrics ✨" }
+                            }
                         }
-                        a { class: "block", href: "/portfolio/GHC",
-                            div { class: "performer-symbol", "GHC" }
-                            div { class: "performer-price", "$6,535" }
-                            Badge { kind: BadgeKind::Success, icon: Some("trending-up".to_string()), "+4657%" }
-                        }
-                    }
-                    div { class: "card card-glass performer-card relative",
-                        a { class: "absolute top-2 right-2 z-10 text-muted-foreground hover:text-yellow-400 transition-colors",
-                            href: "https://www.tradingview.com/chart?symbol=ARAX",
-                            target: "_blank",
-                            rel: "noopener noreferrer",
-                            title: "View ARAX on TradingView",
-                            "aria-label": "View ARAX on TradingView",
-                            Icon { name: "external-link".to_string(), size: Some(14) }
-                        }
-                        a { class: "block", href: "/portfolio/ARAX",
-                            div { class: "performer-symbol", "ARAX" }
-                            div { class: "performer-price", "$1,240" }
-                            Badge { kind: BadgeKind::Success, icon: Some("trending-up".to_string()), "+312%" }
-                        }
-                    }
-                    div { class: "card card-glass performer-card relative",
-                        a { class: "absolute top-2 right-2 z-10 text-muted-foreground hover:text-yellow-400 transition-colors",
-                            href: "https://www.tradingview.com/chart?symbol=NVTK",
-                            target: "_blank",
-                            rel: "noopener noreferrer",
-                            title: "View NVTK on TradingView",
-                            "aria-label": "View NVTK on TradingView",
-                            Icon { name: "external-link".to_string(), size: Some(14) }
-                        }
-                        a { class: "block", href: "/portfolio/NVTK",
-                            div { class: "performer-symbol", "NVTK" }
-                            div { class: "performer-price", "$8,915" }
-                            Badge { kind: BadgeKind::Success, icon: Some("trending-up".to_string()), "+287%" }
-                        }
-                    }
-                    div { class: "card card-glass performer-card relative",
-                        a { class: "absolute top-2 right-2 z-10 text-muted-foreground hover:text-yellow-400 transition-colors",
-                            href: "https://www.tradingview.com/chart?symbol=GTC",
-                            target: "_blank",
-                            rel: "noopener noreferrer",
-                            title: "View GTC on TradingView",
-                            "aria-label": "View GTC on TradingView",
-                            Icon { name: "external-link".to_string(), size: Some(14) }
-                        }
-                        a { class: "block", href: "/portfolio/GTC",
-                            div { class: "performer-symbol", "GTC" }
-                            div { class: "performer-price", "$412" }
-                            Badge { kind: BadgeKind::Success, icon: Some("trending-up".to_string()), "+165%" }
-                        }
-                    }
-                    div { class: "card card-glass performer-card relative",
-                        a { class: "absolute top-2 right-2 z-10 text-muted-foreground hover:text-yellow-400 transition-colors",
-                            href: "https://www.tradingview.com/chart?symbol=BIT",
-                            target: "_blank",
-                            rel: "noopener noreferrer",
-                            title: "View BIT on TradingView",
-                            "aria-label": "View BIT on TradingView",
-                            Icon { name: "external-link".to_string(), size: Some(14) }
-                        }
-                        a { class: "block", href: "/portfolio/BIT",
-                            div { class: "performer-symbol", "BIT" }
-                            div { class: "performer-price", "$1,802" }
-                            Badge { kind: BadgeKind::Success, icon: Some("trending-up".to_string()), "+142%" }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// === FeaturesGrid ===
-
-/// Features grid. Six feature cards. Copy matches the source
-/// `features-grid.tsx` exactly (the source has the same six).
-#[component]
-fn FeaturesGrid() -> Element {
-    rsx! {
-        section { class: "features-grid-section",
-            div { class: "container",
-                div { class: "section-header",
-                    h2 { class: "section-title", "Everything you need to ship" }
-                    p { class: "section-sub", "Six core modules. One composable platform." }
-                }
-                div { class: "features-grid",
-                    div { class: "card card-glass feature-card",
-                        div { class: "feature-icon", Icon { name: "layout-dashboard".to_string(), size: Some(28), class_name: Some("text-primary".to_string()) } }
-                        h3 { class: "feature-title", "Visual Builder" }
-                        p { class: "feature-description text-muted-foreground", "Drag-and-drop blocks. Live preview. Theme system." }
-                    }
-                    div { class: "card card-glass feature-card",
-                        div { class: "feature-icon", Icon { name: "credit-card".to_string(), size: Some(28), class_name: Some("text-primary".to_string()) } }
-                        h3 { class: "feature-title", "On-Chain Payments" }
-                        p { class: "feature-description text-muted-foreground", "USDT/USDC/BNB on BSC. Escrow built-in. Paymaster gas." }
-                    }
-                    div { class: "card card-glass feature-card",
-                        div { class: "feature-icon", Icon { name: "zap".to_string(), size: Some(28), class_name: Some("text-primary".to_string()) } }
-                        h3 { class: "feature-title", "Programmable Subscriptions" }
-                        p { class: "feature-description text-muted-foreground", "Stream-based vaults. Per-merchant isolation. Grace period." }
-                    }
-                    div { class: "card card-glass feature-card",
-                        div { class: "feature-icon", Icon { name: "chart-line".to_string(), size: Some(28), class_name: Some("text-primary".to_string()) } }
-                        h3 { class: "feature-title", "Real-Time Analytics" }
-                        p { class: "feature-description text-muted-foreground", "EPS rankings, country/sector filters, CSV export." }
-                    }
-                    div { class: "card card-glass feature-card",
-                        div { class: "feature-icon", Icon { name: "briefcase".to_string(), size: Some(28), class_name: Some("text-primary".to_string()) } }
-                        h3 { class: "feature-title", "Watchlist + Portfolio" }
-                        p { class: "feature-description text-muted-foreground", "Track symbols, get alerts, manage positions." }
-                    }
-                    div { class: "card card-glass feature-card",
-                        div { class: "feature-icon", Icon { name: "code".to_string(), size: Some(28), class_name: Some("text-primary".to_string()) } }
-                        h3 { class: "feature-title", "API-First" }
-                        p { class: "feature-description text-muted-foreground", "Authenticated REST. SIWE. Webhooks. Sandbox + production." }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// === PricingTeaser ===
-
-/// Pricing teaser. Three tier cards. The "See plans" / "Start trial"
-/// / "Contact sales" buttons link to `/plans` and `/contact`. The
-/// Team card has a "Most popular" badge per the source.
-#[component]
-fn PricingTeaser() -> Element {
-    rsx! {
-        section { class: "pricing-teaser",
-            div { class: "container",
-                div { class: "section-header",
-                    h2 { class: "section-title", "Plans that scale with you" }
-                    p { class: "section-sub", "Personal, team, and enterprise tiers. Pay in stablecoins." }
-                }
-                div { class: "pricing-teaser-grid",
-                    div { class: "card card-glass pricing-teaser-card",
-                        div { class: "pricing-teaser-tier", "Personal" }
-                        div { class: "pricing-teaser-price", "From $9" }
-                        ul { class: "pricing-teaser-features",
-                            li { "Full analytics" }
-                            li { "Watchlist + alerts" }
-                            li { "API access" }
-                        }
-                        a { class: "btn btn-outline btn-block", href: "/plans", "See plans" }
-                    }
-                    div { class: "card card-primary-solid pricing-teaser-card highlighted",
-                        div { class: "pricing-teaser-tier", "Team" }
-                        div { class: "pricing-teaser-price", "From $49" }
-                        Badge { kind: BadgeKind::Brand, "Most popular" }
-                        ul { class: "pricing-teaser-features",
-                            li { "Up to 10 seats" }
-                            li { "Custom permissions" }
-                            li { "Paymaster gas" }
-                            li { "Priority support" }
-                        }
-                        a { class: "btn btn-gradient btn-block", href: "/plans", "Start trial" }
-                    }
-                    div { class: "card card-glass pricing-teaser-card",
-                        div { class: "pricing-teaser-tier", "Enterprise" }
-                        div { class: "pricing-teaser-price", "Custom" }
-                        ul { class: "pricing-teaser-features",
-                            li { "Unlimited seats" }
-                            li { "SLA + dedicated support" }
-                            li { "Custom contracts" }
-                        }
-                        a { class: "btn btn-outline btn-block", href: "/contact", "Contact sales" }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// === NewsPreview ===
-
-/// News preview. Three cards linking to `/news/{slug}`. The source
-/// uses server-side fetch via `server-news-section.tsx`; the port
-/// uses static content (the BFF does not pre-fetch per-page news
-/// today; the next BFF iteration can read from `ctx.params`).
-#[component]
-fn NewsPreview() -> Element {
-    rsx! {
-        section { class: "news-preview",
-            div { class: "container",
-                div { class: "section-header",
-                    h2 { class: "section-title", "From the EPSX blog" }
-                    p { class: "section-sub", "Product news, engineering deep-dives, market commentary." }
-                }
-                div { class: "news-preview-grid",
-                    a { class: "card card-glass news-preview-card", href: "/news/scalable-foundation",
-                        div { class: "news-preview-tag", "Engineering" }
-                        h3 { class: "news-preview-title", "Building a scalable foundation" }
-                        p { class: "news-preview-excerpt text-muted-foreground", "How we architected a 9-service Rust backend on Kubernetes." }
-                    }
-                    a { class: "card card-glass news-preview-card", href: "/news/optimizing-high-throughput-analytics-rust",
-                        div { class: "news-preview-tag", "Engineering" }
-                        h3 { class: "news-preview-title", "Optimizing high-throughput analytics" }
-                        p { class: "news-preview-excerpt text-muted-foreground", "Sub-millisecond EPS ranking over 8.5M data points." }
-                    }
-                    a { class: "card card-glass news-preview-card", href: "/news/real-time-intelligence",
-                        div { class: "news-preview-tag", "Product" }
-                        h3 { class: "news-preview-title", "Real-time intelligence, made simple" }
-                        p { class: "news-preview-excerpt text-muted-foreground", "How we made complex analytics feel instant." }
-                    }
-                }
-                div { class: "text-center mt-8",
-                    a { class: "btn btn-outline", href: "/news", "View all posts" }
-                }
-            }
-        }
-    }
-}
-
-// === TestimonialsSection (NEW in Wave 5) ===
-
-/// Testimonials section. Three cards, each with a quote, attribution
-/// (name + role + company), and a star-rating visual. Copy is
-/// paraphrased from the source's `testimonials-section.tsx`.
-#[component]
-fn TestimonialsSection() -> Element {
-    rsx! {
-        section { class: "testimonials-section",
-            div { class: "container",
-                div { class: "section-header",
-                    h2 { class: "section-title", "Loved by traders, analysts, and teams" }
-                    p { class: "section-sub", "Hear from teams shipping on EPSX every day." }
-                }
-                div { class: "testimonials-grid",
-                    div { class: "card card-glass testimonial-card",
-                        div { class: "testimonial-rating",
-                            span { class: "testimonial-star" }
-                            span { class: "testimonial-star" }
-                            span { class: "testimonial-star" }
-                            span { class: "testimonial-star" }
-                            span { class: "testimonial-star" }
-                        }
-                        p { class: "testimonial-quote",
-                            "\"EPSX gave us sub-second EPS rankings over 8.5M data points. The on-chain payment flow cut our merchant onboarding from days to minutes.\""
-                        }
-                        div { class: "testimonial-meta",
-                            div { class: "testimonial-avatar testimonial-avatar-1" }
-                            div { class: "testimonial-meta-text",
-                                div { class: "testimonial-name", "Sarah Chen" }
-                                div { class: "testimonial-role", "Head of Analytics, Meridian Capital" }
+                        div { class: "home-prod-hero-anim-up-delayed",
+                            p { class: "home-prod-hero-subtitle text-lg sm:text-xl md:text-2xl text-slate-300 max-w-4xl mx-auto leading-relaxed",
+                                "🚀 Discover comprehensive data insights with our advanced analytics platform! "
+                                span { class: "block mt-2 font-bold",
+                                    span { class: "bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent",
+                                        "Make informed decisions with real-time insights"
+                                    }
+                                    span { class: "ml-2", "📈" }
+                                }
                             }
                         }
                     }
-                    div { class: "card card-glass testimonial-card",
-                        div { class: "testimonial-rating",
-                            span { class: "testimonial-star" }
-                            span { class: "testimonial-star" }
-                            span { class: "testimonial-star" }
-                            span { class: "testimonial-star" }
-                            span { class: "testimonial-star" }
-                        }
-                        p { class: "testimonial-quote",
-                            "\"The visual page builder is the real deal. Our marketing team ships campaign pages without a single PR review — and the on-chain payments just work.\""
-                        }
-                        div { class: "testimonial-meta",
-                            div { class: "testimonial-avatar testimonial-avatar-2" }
-                            div { class: "testimonial-meta-text",
-                                div { class: "testimonial-name", "Marcus Patel" }
-                                div { class: "testimonial-role", "CTO, Northwind Markets" }
-                            }
+                    div { class: "home-prod-hero-actions flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center",
+                        a { class: "home-prod-hero-cta w-full sm:w-auto min-w-[220px] h-14 text-lg font-bold bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white rounded-2xl shadow-2xl px-6 inline-flex items-center justify-center",
+                            href: "/analytics",
+                            Icon { name: "line-chart".to_string(), size: Some(24), class_name: Some("mr-3".to_string()) }
+                            span { "🚀 Start Exploration" }
                         }
                     }
-                    div { class: "card card-glass testimonial-card",
-                        div { class: "testimonial-rating",
-                            span { class: "testimonial-star" }
-                            span { class: "testimonial-star" }
-                            span { class: "testimonial-star" }
-                            span { class: "testimonial-star" }
-                            span { class: "testimonial-star" }
-                        }
-                        p { class: "testimonial-quote",
-                            "\"Paymaster-sponsored gas removed the biggest onboarding friction. Our Pro users complete wallet auth in under 30 seconds — zero BNB required.\""
-                        }
-                        div { class: "testimonial-meta",
-                            div { class: "testimonial-avatar testimonial-avatar-3" }
-                            div { class: "testimonial-meta-text",
-                                div { class: "testimonial-name", "Aisha Okonkwo" }
-                                div { class: "testimonial-role", "VP Product, ChainLabs DAO" }
-                            }
-                        }
+                    div { class: "home-prod-hero-stats grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 mt-16",
+                        HeroStat { number: "24/7",  label: "🔄 Latest Updates",   gradient: "from-blue-500 to-cyan-500" }
+                        HeroStat { number: "100+",  label: "📊 Stock Analytics",  gradient: "from-yellow-500 to-orange-500" }
+                        HeroStat { number: "< 1s",  label: "⚡ Response Time",    gradient: "from-green-500 to-emerald-500" }
                     }
                 }
             }
@@ -542,115 +105,47 @@ fn TestimonialsSection() -> Element {
     }
 }
 
-// === FAQSection (NEW in Wave 5) ===
-
-/// FAQ section. Six-question accordion. The source uses shadcn
-/// `<Accordion>`; the port uses native `<details>` / `<summary>`
-/// elements (no JS, no extra CSS framework). The CSS in the
-/// `wave5-page-depth-track-a` region styles `<details>` with the
-/// design-system palette.
 #[component]
-fn FAQSection() -> Element {
+fn HeroStat(number: &'static str, label: &'static str, gradient: &'static str) -> Element {
     rsx! {
-        section { class: "faq-section",
-            div { class: "container",
-                div { class: "section-header",
-                    h2 { class: "section-title", "Frequently asked questions" }
-                    p { class: "section-sub", "Everything you need to know to get started." }
+        div { class: "home-prod-hero-stat relative bg-slate-800/80 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-orange-400/20 hover:scale-105 transition-all duration-300 group overflow-hidden",
+            div { class: "absolute inset-0 bg-gradient-to-br {gradient} opacity-5 group-hover:opacity-10 transition-opacity duration-300 home-prod-hero-stat-bg" }
+            div { class: "relative z-10 text-center",
+                div { class: "home-prod-hero-stat-icon h-10 w-10 mx-auto mb-4 text-orange-500" }
+                div { class: "home-prod-hero-stat-value text-3xl sm:text-4xl font-bold bg-gradient-to-r {gradient} bg-clip-text text-transparent mb-2",
+                    "{number}"
                 }
-                div { class: "faq-list",
-                    details { class: "faq-item",
-                        summary { class: "faq-question",
-                            span { "What is EPSX?" }
-                            span { class: "faq-chevron", Icon { name: "chevron-down".to_string(), size: Some(18) } }
-                        }
-                        div { class: "faq-answer",
-                            p {
-                                "EPSX is a production-grade Web3 commerce platform: visual page builder, on-chain payments, programmable subscriptions, and paymaster-sponsored gas — all running as Rust microservices on BSC."
-                            }
-                        }
-                    }
-                    details { class: "faq-item",
-                        summary { class: "faq-question",
-                            span { "How does the Sign-In With Ethereum (SIWE) flow work?" }
-                            span { class: "faq-chevron", Icon { name: "chevron-down".to_string(), size: Some(18) } }
-                        }
-                        div { class: "faq-answer",
-                            p {
-                                "Connect a BSC-compatible wallet (MetaMask, WalletConnect, etc.), receive a one-time challenge nonce, sign it, and the BFF issues a session cookie + JWT. No email, no password. Pro users get paymaster-sponsored gas."
-                            }
-                        }
-                    }
-                    details { class: "faq-item",
-                        summary { class: "faq-question",
-                            span { "Which payment methods do you support?" }
-                            span { class: "faq-chevron", Icon { name: "chevron-down".to_string(), size: Some(18) } }
-                        }
-                        div { class: "faq-answer",
-                            p {
-                                "USDT, USDC, and BNB on BSC mainnet. Subscriptions use stream-based vaults with per-merchant isolation. Enterprise customers can deploy custom contracts."
-                            }
-                        }
-                    }
-                    details { class: "faq-item",
-                        summary { class: "faq-question",
-                            span { "Is there a free tier?" }
-                            span { class: "faq-chevron", Icon { name: "chevron-down".to_string(), size: Some(18) } }
-                        }
-                        div { class: "faq-answer",
-                            p {
-                                "Yes — the Personal plan starts at $9/mo with a 14-day free trial. The demo account (no signup) is also available at /auth for evaluation."
-                            }
-                        }
-                    }
-                    details { class: "faq-item",
-                        summary { class: "faq-question",
-                            span { "Can I build my own UI on top of EPSX?" }
-                            span { class: "faq-chevron", Icon { name: "chevron-down".to_string(), size: Some(18) } }
-                        }
-                        div { class: "faq-answer",
-                            p {
-                                "Absolutely. The API is fully documented at /developer. SIWE-authenticated REST endpoints, webhooks for real-time events, and a sandbox environment so you can ship without touching production."
-                            }
-                        }
-                    }
-                    details { class: "faq-item",
-                        summary { class: "faq-question",
-                            span { "How is EPSX different from a traditional analytics platform?" }
-                            span { class: "faq-chevron", Icon { name: "chevron-down".to_string(), size: Some(18) } }
-                        }
-                        div { class: "faq-answer",
-                            p {
-                                "Two things: on-chain identity and paymaster-sponsored transactions. Your wallet IS your account — no emails, no password resets. And the gas economics work for mass-market users, not just crypto natives."
-                            }
-                        }
-                    }
+                div { class: "home-prod-hero-stat-label text-sm font-medium text-slate-300",
+                    "{label}"
                 }
             }
         }
     }
 }
 
-// === CTASection ===
+// === Top Performers ===
 
-/// CTA section. Wave 5 addition: a secondary "Talk to sales" link
-/// alongside the primary "Connect wallet" CTA. The source has only
-/// one button; the port matches the design-doc spec.
 #[component]
-fn CTASection() -> Element {
+fn TopPerformersSection() -> Element {
     rsx! {
-        section { class: "cta-section",
-            div { class: "container",
-                div { class: "card card-primary-solid cta-card",
-                    h2 { class: "cta-title", "Ready to build with EPSX?" }
-                    p { class: "cta-subtitle", "Sign in with your wallet and start exploring in under 30 seconds." }
-                    div { class: "cta-actions",
-                        a { class: "btn btn-glass btn-lg", href: "/auth", "Connect wallet" }
-                        a { class: "btn btn-outline btn-lg", href: "/plans", "View pricing" }
-                        a { class: "btn btn-ghost btn-lg cta-secondary-link", href: "/contact",
-                            span { "Talk to sales" }
-                            Icon { name: "arrow-right".to_string(), size: Some(16) }
+        div { class: "home-prod-top-performers container mx-auto px-4 py-16 sm:py-24 lg:py-32",
+            div { class: "relative",
+                div { class: "absolute -top-8 -left-8 h-16 w-16 rounded-full bg-gradient-to-br from-orange-400/20 to-yellow-400/20 dark:from-orange-600/10 dark:to-yellow-600/10 blur-xl home-prod-tp-blob-1" }
+                div { class: "absolute -right-8 -bottom-8 h-20 w-20 rounded-full bg-gradient-to-br from-blue-400/20 to-cyan-400/20 dark:from-blue-700/10 dark:to-cyan-700/10 blur-xl home-prod-tp-blob-2" }
+                div { class: "flex w-full flex-col gap-8",
+                    div { class: "mb-6 space-y-4 text-center home-prod-tp-header",
+                        h2 { class: "home-prod-tp-title pancake-gradient-text text-3xl font-bold sm:text-4xl",
+                            "Performance Companies"
                         }
+                        p { class: "text-muted-foreground mx-auto max-w-2xl home-prod-tp-sub",
+                            "Discover the data leaders with exceptional growth and performance metrics"
+                        }
+                        div { class: "home-prod-tp-divider pancake-gradient mx-auto h-1 w-24 rounded-full" }
+                    }
+                    div { class: "home-prod-tp-grid grid grid-cols-1 justify-items-center gap-4 px-2 sm:grid-cols-2 sm:px-0 lg:grid-cols-3",
+                        HomeStockCard { symbol: "GHC",  price: "$6,535",  change: "+4657%", positive: true }
+                        HomeStockCard { symbol: "ARAX", price: "$1,240",  change: "+312%",  positive: true }
+                        HomeStockCard { symbol: "NVTK", price: "$8,915",  change: "+287%",  positive: true }
                     }
                 }
             }
@@ -658,170 +153,236 @@ fn CTASection() -> Element {
     }
 }
 
+#[component]
+fn HomeStockCard(symbol: &'static str, price: &'static str, change: &'static str, positive: bool) -> Element {
+    rsx! {
+        div { class: "home-prod-stock-card w-full max-w-sm h-64 rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-sm flex flex-col",
+            div { class: "flex items-center justify-between mb-3",
+                span { class: "text-sm font-semibold text-slate-400", "Rank" }
+                span { class: "text-sm text-slate-400", "USD" }
+            }
+            div { class: "home-prod-stock-symbol text-2xl font-bold text-white mb-1", "{symbol}" }
+            div { class: "home-prod-stock-price text-3xl font-extrabold text-white mb-4", "{price}" }
+            div { class: "mt-auto flex items-center justify-between pt-3 border-t border-slate-700",
+                span { class: "text-xs text-slate-400", "EPS Growth" }
+                span {
+                    class: if positive { "home-prod-stock-change-positive text-sm font-semibold text-emerald-500" } else { "home-prod-stock-change-negative text-sm font-semibold text-red-500" },
+                    "▲ {change}"
+                }
+            }
+        }
+    }
+}
+
+// === Pricing ===
+
+#[component]
+fn PricingSection() -> Element {
+    rsx! {
+        div { class: "home-prod-pricing container mx-auto px-4 py-16 sm:py-24 lg:py-32",
+            div { class: "text-center mb-12",
+                h2 { class: "home-prod-pricing-title text-3xl sm:text-4xl font-bold mb-4",
+                    "Plans that scale with you"
+                }
+                p { class: "home-prod-pricing-sub text-muted-foreground max-w-2xl mx-auto",
+                    "Choose the plan that fits your workflow."
+                }
+            }
+            div { class: "home-prod-pricing-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
+                HomePlanCard { name: "Personal",   price: "From $9",    features: vec!["Full analytics", "Watchlist + alerts", "API access"] }
+                HomePlanCard { name: "Team",       price: "From $49",   features: vec!["Up to 10 seats", "Custom permissions", "Paymaster gas", "Priority support"], featured: true }
+                HomePlanCard { name: "Enterprise", price: "Custom",     features: vec!["Unlimited seats", "SLA + dedicated support", "Custom contracts"] }
+            }
+        }
+    }
+}
+
+#[component]
+fn HomePlanCard(name: &'static str, price: &'static str, features: Vec<&'static str>, featured: Option<bool>) -> Element {
+    let featured = featured.unwrap_or(false);
+    rsx! {
+        div {
+            class: if featured { "home-prod-plan-card relative bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-lg ring-2 ring-orange-500" } else { "home-prod-plan-card relative bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-lg" },
+            if featured {
+                span { class: "home-prod-plan-badge absolute -top-3 left-1/2 -translate-x-1/2 inline-block rounded-full bg-orange-500 text-white text-xs font-bold px-3 py-1", "Most popular" }
+            }
+            div { class: "home-prod-plan-name text-2xl font-bold mb-2", "{name}" }
+            div { class: "home-prod-plan-price text-3xl font-extrabold text-orange-500 mb-4", "{price}" }
+            ul { class: "home-prod-plan-features space-y-2",
+                for f in features.iter() {
+                    li { class: "flex items-start gap-2 text-sm",
+                        Icon { name: "check".to_string(), size: Some(16), class_name: Some("text-orange-500 flex-shrink-0 mt-0.5".to_string()) }
+                        span { "{f}" }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// === News ===
+
+#[component]
+fn NewsSection() -> Element {
+    rsx! {
+        div { class: "home-prod-news container mx-auto px-4 py-16 sm:py-24 lg:py-32",
+            div { class: "mb-6 flex items-center justify-between home-prod-news-head",
+                div { class: "flex items-center gap-3",
+                    Icon { name: "newspaper".to_string(), size: Some(20), class_name: Some("text-cyan-400".to_string()) }
+                    h2 { class: "text-xl font-bold text-foreground home-prod-news-title", "Latest News" }
+                }
+                a { class: "flex items-center gap-1 text-sm text-cyan-400 hover:text-cyan-300 font-medium home-prod-news-view-all",
+                    href: "/news",
+                    "View all "
+                    Icon { name: "arrow-right".to_string(), size: Some(16) }
+                }
+            }
+            div { class: "space-y-4 home-prod-news-list",
+                // Featured card — 320/400 height, cover image overlay.
+                FeaturedNewsCard {
+                    title: "EPSX Q2 Platform Update",
+                    summary: "Sub-millisecond EPS rankings over 8.5M data points. New on-chain payment flow.",
+                    date: "Jun 12, 2026",
+                    pinned: true,
+                    tag: "Product",
+                }
+                div { class: "grid gap-4 grid-cols-1 sm:grid-cols-2 home-prod-news-small-row",
+                    SmallNewsCard { title: "Building a scalable foundation", date: "Jun 5, 2026" }
+                    SmallNewsCard { title: "Real-time intelligence, made simple", date: "May 28, 2026" }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn FeaturedNewsCard(title: &'static str, summary: &'static str, date: &'static str, pinned: bool, tag: &'static str) -> Element {
+    rsx! {
+        div { class: "home-prod-news-featured group block relative rounded-3xl overflow-hidden h-[320px] sm:h-[400px] bg-gradient-to-br from-purple-500/20 via-cyan-400/10 to-slate-900/60 border border-white/10",
+            div { class: "absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" }
+            div { class: "absolute bottom-0 left-0 right-0 p-6 sm:p-8",
+                if pinned {
+                    div { class: "flex items-center gap-1.5 mb-3 home-prod-news-pin",
+                        Icon { name: "pin".to_string(), size: Some(14), class_name: Some("text-cyan-400".to_string()) }
+                        span { class: "text-xs font-medium text-cyan-400 uppercase tracking-wider", "Featured" }
+                    }
+                }
+                div { class: "flex flex-wrap gap-2 mb-3 home-prod-news-tags",
+                    span { class: "px-2 py-0.5 rounded-full text-xs bg-white/10 text-white/80 backdrop-blur-sm", "{tag}" }
+                }
+                h3 { class: "home-prod-news-featured-title text-xl sm:text-2xl font-bold text-white mb-2 line-clamp-2",
+                    "{title}"
+                }
+                p { class: "home-prod-news-featured-summary text-white/70 text-sm line-clamp-2 mb-3",
+                    "{summary}"
+                }
+                span { class: "home-prod-news-featured-date text-xs text-white/50", "{date}" }
+            }
+        }
+    }
+}
+
+#[component]
+fn SmallNewsCard(title: &'static str, date: &'static str) -> Element {
+    rsx! {
+        div { class: "home-prod-news-small group block relative rounded-2xl overflow-hidden h-[180px] bg-gradient-to-br from-purple-500/20 via-cyan-400/10 to-slate-900/60 border border-white/10",
+            div { class: "absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" }
+            div { class: "absolute bottom-0 left-0 right-0 p-4",
+                h3 { class: "home-prod-news-small-title text-sm font-semibold text-white line-clamp-2",
+                    "{title}"
+                }
+                span { class: "home-prod-news-small-date text-xs text-white/50 mt-1 block", "{date}" }
+            }
+        }
+    }
+}
+
+// === wave25-t2 home tests ===
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::auth::User;
+    use crate::pages::PageContext;
 
-    fn test_user() -> User {
-        User {
-            id: "test-user-id".to_string(),
-            address: "0xtest".to_string(),
-            chain_id: "56".to_string(),
-            roles: vec![],
-            email: None,
-            tier: None,
-            permissions: vec![],
-            last_login_at: None,
-            auth_method: crate::auth::AuthMethod::Wallet,
-            display_name: Some("Test".to_string()),
+    fn empty_ctx() -> PageContext {
+        PageContext {
+            user: None,
+            path: "/".to_string(),
+            ..Default::default()
         }
     }
 
-    fn render_page_to_string(ctx: &PageContext) -> String {
+    fn render_to_string(ctx: &PageContext) -> String {
         let (_meta, el) = render(ctx);
         dioxus_ssr::render_element(el)
     }
 
-    /// Wave 5 — `test_render_smoke`. The `render` function returns
-    /// a non-empty `Element` and `dioxus_ssr::render_element` produces
-    /// a non-empty HTML string. Lighter check than the full
-    /// section-marker test; runs first as a fast fail.
     #[test]
-    fn test_render_smoke() {
-        let ctx = PageContext {
-            user: None,
-            path: "/".to_string(),
-            ..Default::default()
-        };
-        let (_meta, el) = render(&ctx);
-        let html = dioxus_ssr::render_element(el);
-        assert!(!html.is_empty(), "Home page must render non-empty HTML. Got: {}", html);
-        assert!(html.len() > 100, "Home page HTML is suspiciously short ({} bytes).", html.len());
+    fn home_renders_smoke() {
+        let html = render_to_string(&empty_ctx());
+        assert!(!html.is_empty(), "Home page must render non-empty HTML");
+        assert!(html.len() > 100, "Home page HTML is suspiciously short ({} bytes)", html.len());
     }
 
-    /// Wave 23 T4 v2 — `test_share_button_inline_onclick`. The
-    /// previous T4 (commit cbcf0a38) wired the share button to a
-    /// Dioxus `onclick: move |_| { … }` closure that was being
-    /// stripped at SSR time (hydration-less), so the button was
-    /// visible but a no-op. This test asserts the new
-    /// inline-`onclick="epsx.shareText(…)"` attribute is present
-    /// in the rendered HTML — proof that the click handler is
-    /// actually wired at first paint. Catches any future
-    /// regression that drops the inline pattern.
+    /// Wave 25 T2 — the home page mirrors the prod Next.js page:
+    /// - full-page dark gradient `from-slate-900 via-slate-800
+    ///   to-slate-900` (we use dark-mode colors directly because
+    ///   the dev BFF runs in dark mode and Tailwind v2 CDN doesn't
+    ///   process `dark:` variants)
+    /// - Hero with "📈 Track Your / Performance Growth / Metrics ✨"
+    ///   + orange→yellow gradient on the middle line
+    /// - "Performance Analytics Platform" badge + "🚀 Start
+    ///   Exploration" CTA + 3 stat cards (24/7 / 100+ / < 1s)
+    /// - "Performance Companies" h2 with `pancake-gradient-text` + 3
+    ///   stock cards
+    /// - 3 plan cards
+    /// - "Latest News" with 1 FeaturedCard + 2 SmallCards
     #[test]
-    fn test_share_button_inline_onclick() {
-        let ctx = PageContext {
-            user: None,
-            path: "/".to_string(),
-            ..Default::default()
-        };
-        let html = render_page_to_string(&ctx);
-        assert!(
-            html.contains("hero-share-btn"),
-            "Hero must render the share button. Got: {}",
-            html
-        );
-        assert!(
-            html.contains("onclick=\"epsx.shareText("),
-            "Hero share button must carry the inline onclick=\"epsx.shareText(...)\" \
-             attribute (Dioxus closures are stripped at SSR; only the \
-             inline-attribute pattern works under hydration-less SSR). \
-             Got: {}",
-            html
-        );
-    }
-
-    /// Wave 5 — `test_section_markers`. The home page must render
-
-    /// Wave 5 — `test_section_markers`. The home page must render
-    /// every section the design doc claims (Hero, TrustBar,
-    /// TopPerformers, FeaturesGrid, PricingTeaser, NewsPreview,
-    /// TestimonialsSection, FAQSection, CTASection). The markers are
-    /// the top-level `class="{section-name}"` on each `<section>`.
-    #[test]
-    fn test_section_markers() {
-        let ctx = PageContext {
-            user: None,
-            path: "/".to_string(),
-            ..Default::default()
-        };
-        let html = render_page_to_string(&ctx);
+    fn home_prod_markers() {
+        let html = render_to_string(&empty_ctx());
         for marker in &[
-            "hero",
-            "trust-bar",
-            "top-performers",
-            "features-grid-section",
-            "pricing-teaser",
-            "news-preview",
-            "testimonials-section",
-            "faq-section",
-            "cta-section",
+            "from-slate-900 via-slate-800 to-slate-900",
+            "Performance Analytics Platform",
+            "📈 Track Your",
+            "Performance Growth",
+            "Metrics ✨",
+            "from-orange-500 via-yellow-500 to-orange-600",
+            "🚀 Start Exploration",
+            "home-prod-hero-stat",
+            "24/7",
+            "100+",
+            "&#60; 1s",
+            "Performance Companies",
+            "pancake-gradient-text",
+            "Latest News",
         ] {
-            let needle = format!("class=\"{}\"", marker);
             assert!(
-                html.contains(&needle),
-                "Home page must contain section marker '{}'. Got: {}",
-                needle, html
+                html.contains(marker),
+                "Home page should contain prod marker `{marker}`. Got: {html}"
             );
         }
     }
 
-    /// Wave 5 — `test_section_markers` for the new (Wave 5) sections
-    /// specifically. Keeps the new section coverage as a discrete
-    /// assertion so a regression on testimonials/FAQ is loud.
     #[test]
-    fn test_wave5_new_sections_present() {
-        let ctx = PageContext {
-            user: None,
-            path: "/".to_string(),
-            ..Default::default()
-        };
-        let html = render_page_to_string(&ctx);
-        // 3 testimonials — source has 3, port must have 3.
-        let testimonial_count = html.matches("testimonial-card").count();
-        assert_eq!(testimonial_count, 3, "Home page must render 3 testimonial cards. Got {} markers in: {}", testimonial_count, html);
-        // 6 FAQ entries — source has 6, port must have 6.
-        let faq_count = html.matches("class=\"faq-item\"").count();
-        assert_eq!(faq_count, 6, "Home page must render 6 FAQ items. Got {} markers in: {}", faq_count, html);
-        // Share button + chain selector — both Wave 5 Hero additions.
-        assert!(html.contains("hero-share-btn"), "Hero must render the share button. Got: {}", html);
-        assert!(html.contains("hero-chain-selector"), "Hero must render the chain selector. Got: {}", html);
-        // Talk-to-sales secondary CTA — Wave 5 CTASection addition.
-        assert!(html.contains("Talk to sales"), "CTASection must render 'Talk to sales' secondary link. Got: {}", html);
+    fn home_has_three_top_performers() {
+        let html = render_to_string(&empty_ctx());
+        let card_count = html.matches("home-prod-stock-card").count();
+        assert_eq!(card_count, 3, "Home page must render 3 stock cards. Got {card_count} in: {html}");
     }
 
-    // === Wave 3b regression guards (preserved from prior tracks) ===
-
-    /// Anonymous home page must render ProgressiveAuthBanner.
     #[test]
-    fn home_renders_banner_for_anonymous_user() {
-        let ctx = PageContext {
-            user: None,
-            path: "/".to_string(),
-            ..Default::default()
-        };
-        let html = render_page_to_string(&ctx);
-        assert!(
-            html.contains("progressive-auth-banner"),
-            "Anonymous home page must render ProgressiveAuthBanner. Got: {}",
-            html
-        );
+    fn home_has_three_plan_cards() {
+        let html = render_to_string(&empty_ctx());
+        let card_count = html.matches("home-prod-plan-card").count();
+        assert_eq!(card_count, 3, "Home page must render 3 plan cards. Got {card_count} in: {html}");
     }
 
-    /// Signed-in home page must NOT render ProgressiveAuthBanner.
     #[test]
-    fn home_does_not_render_banner_for_signed_in_user() {
-        let ctx = PageContext {
-            user: Some(test_user()),
-            path: "/".to_string(),
-            ..Default::default()
-        };
-        let html = render_page_to_string(&ctx);
-        assert!(
-            !html.contains("progressive-auth-banner"),
-            "Signed-in home page must NOT render ProgressiveAuthBanner. Got: {}",
-            html
-        );
+    fn home_has_news_section() {
+        let html = render_to_string(&empty_ctx());
+        // Match the featured-card wrapper class only (not its sub-classes).
+        let featured_count = html.matches("home-prod-news-featured ").count() + html.matches("home-prod-news-featured\"").count();
+        let small_count = html.matches("home-prod-news-small ").count() + html.matches("home-prod-news-small\"").count();
+        assert_eq!(featured_count, 1, "Home page must render 1 featured news card. Got {featured_count} in: {html}");
+        assert_eq!(small_count, 2, "Home page must render 2 small news cards. Got {small_count} in: {html}");
     }
 }

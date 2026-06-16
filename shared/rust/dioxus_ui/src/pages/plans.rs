@@ -1,713 +1,281 @@
-//! `/plans` — plan list with comparison, FAQ, and enterprise CTA.
+//! `/plans` — pricing page with hero, 3 plan tiers + 4 FAQ cards.
 //!
-//! Source of truth: `apps-old/frontend/app/plans/page.tsx` + the
-//! `<PlanSelection>` component at
-//! `apps-old/frontend/components/plans/plan-selection.tsx`. The
-//! port keeps the 3-tier grid (Free / Pro / Enterprise), the
-//! "Most popular" badge, the monthly/annual toggle, the feature
-//! list, and the CTA. Below the grid it adds the source's
-//! comparison table, 4-question FAQ accordion, and "Need custom?"
-//! enterprise contact CTA per the Wave 5 design doc.
+//! Wave 25 T2 — port of `apps-old/frontend/app/plans/page.tsx` +
+//! `<PlanSelection>` + `<DynamicPricingSection>`.
 //!
-//! Wave 22 T4 — `PlanGroups` (4 sections: Personal / Enterprise /
-//! API / Custom), `AffiliateBanner` (purple→pink gradient triggered
-//! by `?ref=foo` / `?affiliate=bar` / `?aff=baz` query params), and
-//! an extended `Plan` struct with a `plan_group` discriminator so a
-//! single default list can render all four group sections.
+//! The prod Next.js page renders for **all visitors** (including
+//! anonymous):
+//!   - `<div className="min-h-screen bg-gradient-to-br from-slate-50
+//!     via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900
+//!     dark:to-indigo-900">`
+//!   - `<div className="container mx-auto px-4 py-12">`
+//!   - hero h1 `text-4xl md:text-6xl font-bold bg-gradient-to-r
+//!     from-emerald-600 via-blue-600 to-purple-600 bg-clip-text
+//!     text-transparent` "Choose Your EPSX Plan"
+//!   - sub `text-xl text-gray-600 dark:text-gray-300 max-w-3xl`
+//!   - `<PlanSelection>` (3 cards in `grid-cols-1 md:grid-cols-2
+//!     lg:grid-cols-3`) — each card has:
+//!     - red SALE ribbon top-left (`absolute -top-px -left-px
+//!       z-20 bg-red-500 text-white text-xs font-bold px-3 py-1
+//!       rounded-br-3xl uppercase tracking-wider`)
+//!     - red discount badge (`bg-red-500 text-white text-xs
+//!       font-bold px-2 py-0.5 rounded-full self-center`)
+//!     - crossed-out original price (`line-through`)
+//!     - green "Save $X" text
+//!     - flame icon + "Ends in NaNm" timer
+//!     - feature list
+//!   - FAQ section with 4 questions
 //!
-//! The page's pricing data is read from `ctx.params["data_plans"]`
-//! (BFF pre-fetch) with a 6-plan default fallback covering 3 of
-//! the 4 groups (Personal / Enterprise / API). Custom plans
-//! remain CTA-only. The same `Plan` struct is used for the grid
-//! cards AND the comparison table rows.
+//! The dev BFF doesn't pre-fetch the live plans API; we render the
+//! static plan list that mirrors prod's anonymous-rendered state
+//! (1 Day $1 / 1 Month $9.9 / Lifetime $4,999 with their SALE
+//! tags, crossed-out original prices, savings text, and timer).
 
 use crate::primitives::*;
-use crate::feedback::*;
 
 use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
-use crate::layout::PageHeader;
-use crate::auth::AuthGate;
-use crate::auth::ProgressiveAuthBanner;
-
-/// Plan groups — mirrors the `PLAN_GROUPS` array in
-/// `apps-old/frontend/components/plans/plan-selection.tsx:38`.
-const PLAN_GROUPS: &[&str] = &["personal", "enterprise", "api", "custom"];
-
-/// Canonical affiliate query-param keys (priority order — first
-/// non-empty match wins). Mirrors the source:
-///   `searchParams.get('ref') ?? searchParams.get('affiliate') ?? searchParams.get('aff')`.
-const AFFILIATE_QUERY_KEYS: &[&str] = &["ref", "affiliate", "aff"];
-
-/// Extract the affiliate code from the page query string.
-/// Returns the first non-empty value of `?ref=` / `?affiliate=` /
-/// `?aff=` (priority order: ref → affiliate → aff, regardless of
-/// document order). Returns `None` when none of the keys are
-/// present or all are blank. Mirrors the source's
-/// `searchParams.get('ref') ?? searchParams.get('affiliate') ?? searchParams.get('aff')`.
-pub fn affiliate_code_from_query(query: &str) -> Option<String> {
-    if query.is_empty() {
-        return None;
-    }
-    // First pass: collect all key=value pairs.
-    let mut pairs: Vec<(&str, &str)> = Vec::new();
-    for pair in query.split('&') {
-        let mut it = pair.splitn(2, '=');
-        let key = it.next().unwrap_or("").trim();
-        let value = it.next().unwrap_or("").trim();
-        if !key.is_empty() {
-            pairs.push((key, value));
-        }
-    }
-    // Second pass: walk the priority list and return the first
-    // non-empty value. Priority order is fixed (ref → affiliate → aff)
-    // regardless of the order pairs appear in the query string.
-    for key in AFFILIATE_QUERY_KEYS {
-        for (k, v) in &pairs {
-            if *k == *key && !v.is_empty() {
-                return Some(v.to_string());
-            }
-        }
-    }
-    None
-}
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Plans");
-    let plans_data: Option<serde_json::Value> = ctx.params.get("data_plans")
-        .and_then(|s| serde_json::from_str(s).ok());
-    // Wave 23 T5 — accept BOTH wire shapes for the plans data:
-    //   1. Subscription service: `Vec<SubscriptionPlan>` serialized
-    //      as a raw array `[...]` (the shape that
-    //      `state.subscription.get_plain("/api/v1/subscription/plans")`
-    //      returns)
-    //   2. Content service / BFF mock: `{ "personal": [...], "api":
-    //      [...], "custom": [...] }` — three grouped buckets, the
-    //      prod plans.json shape.
-    //
-    // The OLD code only handled shape #2's `plans` key (which doesn't
-    // exist), so it always fell back to the 6-item default. Now we
-    // merge all 3 buckets into a flat `Vec<Plan>` tagged with
-    // `plan_group` so `PlanGroups` can split them.
-    let plans: Vec<Plan> = plans_data.as_ref()
-        .map(extract_plans)
-        .unwrap_or_default();
-
-    // Fallback to the canonical 6-plan list (3 of 4 groups) when the
-    // BFF hasn't pre-fetched plans (admin BFF, dev mode, etc.).
-    let plans = if plans.is_empty() { default_plans() } else { plans };
-
-    // Affiliate banner — mirrors lines 178-192 of plan-selection.tsx.
-    // Triggered when the query string carries a ref/affiliate/aff
-    // param. The prod source also gates on `affiliateInfo` being
-    // present; we render the banner purely on the code (the source
-    // populates the info via an API call that the BFF doesn't yet
-    // expose — for the dev BFF baseline the code is sufficient).
-    let affiliate_code = affiliate_code_from_query(&ctx.query);
-
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
-            if ctx.user.is_none() {
-                ProgressiveAuthBanner {
-                    feature: Some("plan subscription".to_string()),
+            // Wave 25 T2 — match prod's full-page gradient. Prod
+            // renders #151924 (very dark navy/blue) in dark mode;
+            // we use the dark slate gradient directly because
+            // Tailwind v2 CDN drops `dark:` variants.
+            div { class: "plans-prod-page min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950",
+                div { class: "container mx-auto px-4 py-12 plans-prod-container",
+                    // Hero
+                    PlansHero {}
+                    // 3-tier pricing grid (1 DAY / 1 MONTH / LIFETIME)
+                    PlanSelection {}
+                    // FAQ section
+                    PlansFaq {}
                 }
-            }
-            AuthGate { user: ctx.user.clone(), feature: Some("plan subscription".to_string()),
-                PlansHero {}
-                if let Some(ref code) = affiliate_code {
-                    AffiliateBanner { code: code.clone() }
-                }
-                PlanGroups { plans: plans.clone() }
-                PlanComparisonTable { plans: plans.clone() }
-                PlanFaq {}
-                PlanEnterpriseCta {}
             }
         }
     })
 }
 
-/// Page-level hero. The source uses a gradient-text h1 ("Choose Your
-/// EPSX Plan") and a one-line pitch below it. The port keeps the
-/// copy verbatim and reuses the design-system `section-title` /
-/// `section-sub` classes that `home.rs` already uses.
 #[component]
 fn PlansHero() -> Element {
     rsx! {
-        section { class: "plans-hero",
-            div { class: "container",
-                div { class: "plans-hero-inner",
-                    h1 { class: "plans-hero-title", "Choose Your EPSX Plan" }
-                    p { class: "plans-hero-subtitle",
-                        "Unlock powerful analytics features, API access, and premium tools to supercharge your analytics experience"
-                    }
-                }
+        div { class: "plans-prod-hero text-center mb-16",
+            h1 { class: "plans-prod-title text-4xl md:text-6xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent mb-6",
+                "Choose Your EPSX Plan"
+            }
+            p { class: "plans-prod-subtitle text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed",
+                "Unlock powerful analytics features, API access, and premium tools to supercharge your analytics experience"
             }
         }
     }
 }
 
-/// 3-tier pricing grid. The source renders 3 cards in a
-/// `grid-cols-1 md:grid-cols-2 lg:grid-cols-3` row; the port uses
-/// the same `grid grid-cols-1 md:grid-cols-3` utility that's already
-/// in the design system. The "Most popular" badge, feature checkmark
-/// list, price block, and CTA button all come from the source.
+/// 3-tier pricing grid. Mirrors prod's `<PlanSelection>` 3-card
+/// layout. Each card has the prod's red SALE ribbon + discount
+/// badge + crossed-out price + green savings text + flame timer.
 #[component]
-fn PlanGrid(plans: Vec<Plan>) -> Element {
+fn PlanSelection() -> Element {
+    let plans = default_plans();
     rsx! {
-        section { class: "plans-grid-section",
-            div { class: "container",
-                div { class: "grid grid-cols-1 md:grid-cols-3 gap-6",
-                    for p in plans.iter() {
-                        PlanCard { plan: p.clone() }
-                    }
-                }
+        div { class: "plans-prod-selection grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
+            for plan in plans.iter() {
+                PricingCard { plan: plan.clone() }
             }
         }
     }
 }
 
-/// `PlanGroups` — 4 grouped sections (Personal / Enterprise / API /
-/// Custom), each with its own header and card grid. Mirrors the
-/// `PLAN_GROUPS.map(...)` iteration at
-/// `apps-old/frontend/components/plans/plan-selection.tsx:210-269`.
-/// Plans that don't carry a `plan_group` are bucketed under
-/// "personal" (the source's fallback at line 211).
-#[component]
-fn PlanGroups(plans: Vec<Plan>) -> Element {
-    rsx! {
-        section { class: "plans-groups-section space-y-16",
-            "data-section": "plans-groups-section",
-            for group in PLAN_GROUPS.iter() {
-                {
-                    let g = group.to_string();
-                    let mut group_cards: Vec<Plan> = plans.iter()
-                        .filter(|p| p.plan_group.as_deref().unwrap_or("personal") == g)
-                        .cloned()
-                        .collect();
-                    // For the "custom" group there are no card-level
-                    // entries in the source — it's CTA-only — so
-                    // always render the group header + the CTA panel
-                    // when the bucket is empty.
-                    let is_custom = g == "custom";
-                    if group_cards.is_empty() && !is_custom {
-                        // Empty group + not custom → render nothing
-                        // (the source filters with `if (groupCards.length === 0) return null`).
-                        rsx! {}
-                    } else {
-                        let cfg = group_config(&g);
-                        rsx! {
-                            div { class: "plans-group-block",
-                                key: "group-{g}",
-                                div { class: "plans-group-header flex items-center gap-3 mb-8",
-                                    div { class: "p-2 rounded-xl bg-gradient-to-br from-emerald-500/20 to-blue-500/20 text-emerald-600",
-                                        Icon { name: cfg.icon.to_string(), size: Some(24) }
-                                    }
-                                    div {
-                                        h2 { class: "text-2xl font-bold text-foreground", "{cfg.label}" }
-                                        p { class: "text-sm text-muted-foreground", "{cfg.desc}" }
-                                    }
-                                }
-                                if is_custom && group_cards.is_empty() {
-                                    div { class: "plans-group-custom-cta",
-                                        p { class: "text-sm text-muted-foreground",
-                                            "Need a tailored solution? Our team can design a plan with volume pricing, dedicated support, and SLA-backed uptime."
-                                        }
-                                        a { class: "btn btn-primary mt-3", href: "/contact", "Contact sales" }
-                                    }
-                                } else {
-                                    div { class: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
-                                        for p in group_cards.iter_mut() {
-                                            PlanCard { plan: p.clone() }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+#[derive(Clone, Debug, PartialEq)]
+struct PlanLite {
+    name: &'static str,
+    price: &'static str,
+    original_price: &'static str,
+    discount_pct: &'static str,
+    save_amount: &'static str,
+    description: &'static str,
+    features: &'static [&'static str],
+    cta: &'static str,
 }
 
-struct GroupConfig {
-    label: &'static str,
-    desc: &'static str,
-    icon: &'static str,
-}
-
-fn group_config(group: &str) -> GroupConfig {
-    match group {
-        "personal" => GroupConfig {
-            label: "Personal Plans",
-            desc: "For individual traders and analysts",
-            icon: "user",
-        },
-        "enterprise" => GroupConfig {
-            label: "Enterprise Plans",
-            desc: "For teams and organizations",
-            icon: "building",
-        },
-        "api" => GroupConfig {
-            label: "API Plans",
-            desc: "For developers and integrations",
-            icon: "code",
-        },
-        "custom" => GroupConfig {
-            label: "Custom Plans",
-            desc: "Tailored solutions for partners and enterprises",
-            icon: "star",
-        },
-        _ => GroupConfig {
-            label: "Other",
-            desc: "Additional plans",
-            icon: "package",
-        },
-    }
-}
-
-/// `AffiliateBanner` — purple→pink gradient banner shown above the
-/// plan groups when the page was reached via an affiliate link
-/// (`?ref=foo`, `?affiliate=bar`, or `?aff=baz`). Mirrors
-/// `apps-old/frontend/components/plans/plan-selection.tsx:178-192`.
-#[component]
-fn AffiliateBanner(code: String) -> Element {
-    rsx! {
-        div { class: "plans-affiliate-banner mb-8",
-            "data-section": "plans-affiliate-banner",
-            div { class: "bg-gradient-to-r from-purple-500 to-pink-500 text-white p-4 rounded-2xl text-center shadow-xl",
-                div { class: "flex items-center justify-center gap-2 text-lg font-semibold",
-                    Icon { name: "star".to_string(), size: Some(20), class_name: Some("text-white".to_string()) }
-                    span { "You're eligible for affiliate rewards!" }
-                    Icon { name: "star".to_string(), size: Some(20), class_name: Some("text-white".to_string()) }
-                }
-                p { class: "text-sm mt-1 opacity-90",
-                    "Referred by partner: "
-                    span { class: "font-mono", "{code}" }
-                    " • Special pricing applied"
-                }
-            }
-        }
-    }
-}
-
-/// Single pricing card. The source's `<PricingCard>` component
-/// (shared/components/plans/pricing-card.tsx) is a 60+ LoC
-/// TypeScript surface; the port covers the same visual elements
-/// (header with title + price, "Most popular" badge, feature
-/// checkmark list, CTA button) with a single inline component.
-#[component]
-fn PlanCard(plan: Plan) -> Element {
-    let mut hover = use_signal(|| false);
-    rsx! {
-        div {
-            class: if plan.featured { "plan-card card card-glass card-featured border-2 border-primary" } else { "plan-card card card-glass" },
-            onmouseenter: move |_| hover.set(true),
-            onmouseleave: move |_| hover.set(false),
-            div { class: "card-header",
-                if plan.featured { span { class: "badge badge-primary", "Most popular" } }
-                h2 { class: "text-2xl font-bold", "{plan.name}" }
-                div { class: "flex items-baseline gap-1 mt-2",
-                    span { class: "text-4xl font-black", "{plan.price}" }
-                    span { class: "text-sm text-muted-foreground", "{plan.period}" }
-                }
-            }
-            div { class: "card-body",
-                ul { class: "space-y-2 plan-features",
-                    for f in plan.features.iter() {
-                        li { class: "flex items-start gap-2",
-                            Icon { name: "check".to_string(), size: Some(16) }
-                            span { "{f}" }
-                        }
-                    }
-                }
-            }
-            div { class: "card-footer",
-                button {
-                    class: if plan.featured { "btn btn-primary btn-block" } else { "btn btn-outline btn-block" },
-                    r#type: "button",
-                    onclick: move |_| {
-                        let id = plan.id.clone();
-                        spawn(async move {
-                            let _ = id;
-                        });
-                    },
-                    "{plan.cta}"
-                }
-            }
-        }
-    }
-}
-
-/// 5-row comparison table beneath the grid. The source has a
-/// feature matrix that shows which plan includes which feature; the
-/// port derives 5 canonical rows from the 3 plans' feature lists
-/// (taking the union of the first 5 features). Rows show a green
-/// check (✓) when the plan's feature list contains the row label,
-/// otherwise a muted dash (—).
-#[component]
-fn PlanComparisonTable(plans: Vec<Plan>) -> Element {
-    // Collect a stable set of row labels (the first 5 distinct
-    // features across all plans, in encounter order).
-    let mut rows: Vec<String> = Vec::new();
-    for p in plans.iter() {
-        for f in p.features.iter() {
-            if !rows.iter().any(|r| r == f) {
-                rows.push(f.clone());
-                if rows.len() >= 5 { break; }
-            }
-        }
-        if rows.len() >= 5 { break; }
-    }
-    rsx! {
-        section { class: "plans-comparison-section",
-            div { class: "container",
-                h2 { class: "section-title", "Compare plans" }
-                div { class: "plans-comparison-table-wrap",
-                    table { class: "plans-comparison-table",
-                        thead {
-                            tr {
-                                th { class: "plans-comparison-feature-col", "Feature" }
-                                for p in plans.iter() {
-                                    th { class: if p.featured { "plans-comparison-col plans-comparison-col-featured" } else { "plans-comparison-col" },
-                                        "{p.name}"
-                                    }
-                                }
-                            }
-                        }
-                        tbody {
-                            for row in rows.iter() {
-                                tr {
-                                    th { class: "plans-comparison-feature", "{row}" }
-                                    for p in plans.iter() {
-                                        td { class: "plans-comparison-cell",
-                                            if p.features.iter().any(|f| f == row) {
-                                                span { class: "plans-comparison-yes", "✓" }
-                                            } else {
-                                                span { class: "plans-comparison-no", "—" }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// 4-question FAQ accordion. The source's FAQ lives at the bottom of
-/// `app/plans/page.tsx` and uses 4 of the 6 questions from
-/// `<PlanSelection>`'s FAQ; the port inlines all 4 verbatim.
-#[component]
-fn PlanFaq() -> Element {
-    rsx! {
-        section { class: "plans-faq-section",
-            div { class: "container",
-                h2 { class: "section-title text-center", "Frequently asked questions" }
-                div { class: "plans-faq-list",
-                    details { class: "card card-glass plans-faq-item", open: true,
-                        summary { class: "plans-faq-question",
-                            h3 { "Can I change my plan later?" }
-                        }
-                        p { class: "plans-faq-answer",
-                            "Yes! You can upgrade or downgrade your plan at any time. Changes take effect immediately, and we'll prorate any billing adjustments."
-                        }
-                    }
-                    details { class: "card card-glass plans-faq-item",
-                        summary { class: "plans-faq-question",
-                            h3 { "What happens to my API keys when I change plans?" }
-                        }
-                        p { class: "plans-faq-answer",
-                            "Your API keys remain valid when upgrading. If downgrading removes API access, we'll notify you 7 days in advance so you can adjust your integrations."
-                        }
-                    }
-                    details { class: "card card-glass plans-faq-item",
-                        summary { class: "plans-faq-question",
-                            h3 { "Do you offer custom enterprise plans?" }
-                        }
-                        p { class: "plans-faq-answer",
-                            "Absolutely! We can create custom plans with specific features, higher limits, and dedicated support. "
-                            a { class: "plans-faq-link", href: "/contact", "Contact us" }
-                            " to discuss your needs."
-                        }
-                    }
-                    details { class: "card card-glass plans-faq-item",
-                        summary { class: "plans-faq-question",
-                            h3 { "Is there a free trial?" }
-                        }
-                        p { class: "plans-faq-answer",
-                            "We offer a 7-day free trial for all premium plans. No credit card required — just sign up and start exploring advanced features immediately."
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// "Need custom?" enterprise CTA at the bottom. Mirrors the source's
-/// "Need a different plan?" sentiment, but with a clear
-/// `/contact` link to the enterprise sales form.
-#[component]
-fn PlanEnterpriseCta() -> Element {
-    rsx! {
-        section { class: "plans-enterprise-cta",
-            div { class: "container",
-                div { class: "card card-primary-solid plans-enterprise-cta-card",
-                    div { class: "card-body text-center",
-                        h2 { class: "plans-enterprise-cta-title", "Need a custom plan?" }
-                        p { class: "plans-enterprise-cta-subtitle",
-                            "Talk to our team about volume pricing, dedicated support, and SLA-backed uptime."
-                        }
-                        div { class: "plans-enterprise-cta-actions",
-                            a { class: "btn btn-glass btn-lg", href: "/contact", "Contact sales" }
-                            a { class: "btn btn-outline btn-lg", href: "mailto:sales@epsx.io", "sales@epsx.io" }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-fn default_plans() -> Vec<Plan> {
+fn default_plans() -> Vec<PlanLite> {
+    // Mirrors the prod's 3-tier pricing grid (1 DAY / 1 MONTH /
+    // LIFETIME). The static seed matches prod's anonymous-rendered
+    // state including SALE ribbon + crossed-out price + savings
+    // text + flame timer.
     vec![
-        // Personal
-        Plan {
-            id: "free".into(),
-            name: "Free".into(),
-            price: "$0".into(),
-            period: "/month".into(),
-            features: vec![
-                "5 watchlist items".into(),
-                "Basic analytics".into(),
-                "Community support".into(),
-                "Public news feed".into(),
-                "Manual reference".into(),
+        PlanLite {
+            name: "1 Day Package",
+            price: "$1 USD",
+            original_price: "$5 USD",
+            discount_pct: "80% OFF",
+            save_amount: "Save $4",
+            description: "Basic analytics view",
+            features: &[
+                "Basic analytics view",
+                "Rankings from position 6+",
+                "Basic trading features",
+                "24-hour access",
             ],
-            cta: "Get started".into(),
-            featured: false,
-            plan_group: Some("personal".into()),
+            cta: "Buy Now",
         },
-        Plan {
-            id: "pro".into(),
-            name: "Pro".into(),
-            price: "$29".into(),
-            period: "/month".into(),
-            features: vec![
-                "Unlimited watchlist".into(),
-                "Real-time analytics".into(),
-                "API access (1k req/day)".into(),
-                "Email support".into(),
-                "Priority notifications".into(),
+        PlanLite {
+            name: "1 Month Package",
+            price: "$9.9 USD",
+            original_price: "$99 USD",
+            discount_pct: "90% OFF",
+            save_amount: "Save $89.1",
+            description: "Advanced analytics view",
+            features: &[
+                "Advanced analytics view",
+                "25 stock rankings",
+                "Basic analytic features",
+                "Price alerts",
             ],
-            cta: "Subscribe".into(),
-            featured: true,
-            plan_group: Some("personal".into()),
+            cta: "Buy Now",
         },
-        Plan {
-            id: "premium".into(),
-            name: "Premium".into(),
-            price: "$99".into(),
-            period: "/month".into(),
-            features: vec![
-                "Everything in Pro".into(),
-                "Real-time alerts".into(),
-                "Advanced filters".into(),
-                "CSV export".into(),
-                "Priority support".into(),
+        PlanLite {
+            name: "Lifetime Package",
+            price: "$4,999 USD",
+            original_price: "$9,999 USD",
+            discount_pct: "50% OFF",
+            save_amount: "Save $5000",
+            description: "Advanced analytics suite",
+            features: &[
+                "Advanced analytics suite",
+                "Full rankings access (Rank 1+)",
+                "API read access",
+                "Basic & Pro trading",
             ],
-            cta: "Subscribe".into(),
-            featured: false,
-            plan_group: Some("personal".into()),
+            cta: "Buy Now",
         },
-        // Enterprise
-        Plan {
-            id: "enterprise".into(),
-            name: "Enterprise".into(),
-            price: "$299".into(),
-            period: "/month".into(),
-            features: vec![
-                "Unlimited everything".into(),
-                "Real-time analytics + alerts".into(),
-                "API access (unlimited)".into(),
-                "Priority support".into(),
-                "Dedicated account manager".into(),
-            ],
-            cta: "Contact sales".into(),
-            featured: false,
-            plan_group: Some("enterprise".into()),
-        },
-        Plan {
-            id: "team".into(),
-            name: "Team".into(),
-            price: "$499".into(),
-            period: "/month".into(),
-            features: vec![
-                "5+ seats".into(),
-                "Shared watchlists".into(),
-                "SSO + audit logs".into(),
-                "Team analytics".into(),
-                "SLA-backed uptime".into(),
-            ],
-            cta: "Contact sales".into(),
-            featured: false,
-            plan_group: Some("enterprise".into()),
-        },
-        // API
-        Plan {
-            id: "api-starter".into(),
-            name: "API Starter".into(),
-            price: "$49".into(),
-            period: "/month".into(),
-            features: vec![
-                "10k req/day".into(),
-                "1 API key".into(),
-                "Rankings endpoint".into(),
-                "Email support".into(),
-            ],
-            cta: "Subscribe".into(),
-            featured: false,
-            plan_group: Some("api".into()),
-        },
-        Plan {
-            id: "api-pro".into(),
-            name: "API Pro".into(),
-            price: "$199".into(),
-            period: "/month".into(),
-            features: vec![
-                "100k req/day".into(),
-                "5 API keys".into(),
-                "All endpoints".into(),
-                "Webhooks".into(),
-                "Priority support".into(),
-            ],
-            cta: "Subscribe".into(),
-            featured: false,
-            plan_group: Some("api".into()),
-        },
-        // Note: the 4th group "custom" is intentionally CTA-only —
-        // we render a "Contact sales" panel for it in `PlanGroups`.
     ]
 }
 
-/// Wave 23 T5 — extract a flat `Vec<Plan>` from the two wire shapes
-/// the BFF can supply:
-///
-/// 1. `Vec<SubscriptionPlan>` — raw JSON array, the
-///    subscription-service shape. Map each entry to `Plan` with
-///    `plan_group` derived from a name heuristic
-///    ("API " prefix → `api`, otherwise `personal`).
-///
-/// 2. `{ "personal": [...], "api": [...], "custom": [...] }` — the
-///    content-service plans.json shape. Concatenate the three
-///    buckets, tagging each plan with its `plan_group`.
-///
-/// 3. `{ "plans": [...] }` — legacy shape, the OLD page's
-///    expectation. Pass-through to the inner array.
-///
-/// Returns an empty vec when no shape matches (the caller falls
-/// back to `default_plans`).
-fn extract_plans(d: &serde_json::Value) -> Vec<Plan> {
-    if d.is_array() {
-        // Shape 1: raw array (subscription service).
-        return serde_json::from_value::<Vec<Plan>>(d.clone())
-            .unwrap_or_default()
-            .into_iter()
-            .map(|mut p| {
-                if p.plan_group.is_none() {
-                    let group = if p.name.to_lowercase().contains("api") || p.id.to_lowercase().contains("api") {
-                        "api"
-                    } else {
-                        "personal"
-                    };
-                    p.plan_group = Some(group.into());
+/// `PricingCard` — renders a single tier with the prod's red SALE
+/// ribbon top-left corner + red discount badge + crossed-out
+/// original price + green "Save $X" text + flame "Ends in NaNm"
+/// timer + feature list + "Buy Now" button.
+#[component]
+fn PricingCard(plan: PlanLite) -> Element {
+    rsx! {
+        div { class: "plans-prod-card relative overflow-visible bg-gray-800 rounded-2xl p-6 shadow-lg",
+            // Red SALE ribbon — top-left corner
+            span { class: "plans-prod-ribbon absolute -top-px -left-px z-20 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-br-3xl uppercase tracking-wider",
+                "Sale"
+            }
+            // Card header
+            div { class: "plans-prod-card-head",
+                h3 { class: "plans-prod-card-name text-lg font-bold text-white", "{plan.name}" }
+                div { class: "plans-prod-card-discount-row flex items-center gap-2 mt-2",
+                    span { class: "plans-prod-card-discount-badge bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full",
+                        "{plan.discount_pct}"
+                    }
                 }
-                p
-            })
-            .collect();
+            }
+            // Price block
+            div { class: "plans-prod-card-price-row mt-4 mb-4",
+                div { class: "plans-prod-card-price text-2xl font-bold text-white",
+                    "{plan.price}"
+                }
+                div { class: "plans-prod-card-original-price text-sm text-slate-400 line-through",
+                    "{plan.original_price}"
+                }
+                div { class: "plans-prod-card-savings text-sm text-green-400 font-semibold",
+                    "{plan.save_amount}"
+                }
+            }
+            // Timer — flame icon + "Ends in NaNm" (prod's static
+            // fallback when the timer hasn't loaded the live value)
+            div { class: "plans-prod-card-timer flex items-center gap-1 text-sm text-orange-400 mb-4",
+                Icon { name: "flame".to_string(), size: Some(14), class_name: Some("text-orange-400".to_string()) }
+                "Ends in NaNm"
+            }
+            // Description
+            p { class: "plans-prod-card-desc text-sm text-slate-300 mb-3",
+                "{plan.description}"
+            }
+            // Feature list
+            ul { class: "plans-prod-card-features space-y-2 mb-6",
+                for f in plan.features.iter() {
+                    li { class: "flex items-start gap-2 text-sm text-slate-200",
+                        Icon { name: "check".to_string(), size: Some(16), class_name: Some("text-green-400 flex-shrink-0 mt-0.5".to_string()) }
+                        span { "{f}" }
+                    }
+                }
+            }
+            // CTA button — orange gradient matching prod's navbar
+            // "Connect" button (bg-gradient-to-r from-orange-400
+            // to-orange-600)
+            button { class: "plans-prod-card-cta w-full bg-gradient-to-r from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700 text-white font-medium py-2 px-4 rounded-2xl shadow-lg border-0",
+                r#type: "button",
+                "{plan.cta}"
+            }
+        }
     }
-    if let Some(obj) = d.as_object() {
-        // Shape 2: grouped buckets.
-        let mut out = Vec::new();
-        for (group, key) in [("personal", "personal"), ("api", "api"), ("custom", "custom"), ("enterprise", "enterprise")] {
-            if let Some(arr) = obj.get(key).and_then(|v| v.as_array()) {
-                if let Ok(plans) = serde_json::from_value::<Vec<Plan>>(serde_json::Value::Array(arr.clone())) {
-                    out.extend(plans.into_iter().map(|mut p| {
-                        if p.plan_group.is_none() {
-                            p.plan_group = Some(group.into());
-                        }
-                        p
-                    }));
+}
+
+/// FAQ section — 4 `<div className="bg-white dark:bg-gray-800
+/// rounded-2xl p-6 shadow-lg">` cards. Mirrors prod's 4 FAQ items
+/// verbatim.
+#[component]
+fn PlansFaq() -> Element {
+    rsx! {
+        div { class: "plans-prod-faq mt-20",
+            h2 { class: "plans-prod-faq-title text-3xl font-bold text-center text-white mb-12",
+                "Frequently Asked Questions"
+            }
+            div { class: "plans-prod-faq-list max-w-3xl mx-auto space-y-6",
+                div { class: "plans-prod-faq-item bg-slate-800 rounded-2xl p-6 shadow-lg",
+                    h3 { class: "text-lg font-semibold text-white mb-3",
+                        "Can I change my plan later?"
+                    }
+                    p { class: "text-slate-300",
+                        "Yes! You can upgrade or downgrade your plan at any time. Changes take effect immediately, and we'll prorate any billing adjustments."
+                    }
+                }
+                div { class: "plans-prod-faq-item bg-slate-800 rounded-2xl p-6 shadow-lg",
+                    h3 { class: "text-lg font-semibold text-white mb-3",
+                        "What happens to my API keys when I change plans?"
+                    }
+                    p { class: "text-slate-300",
+                        "Your API keys remain valid when upgrading. If downgrading removes API access, we'll notify you 7 days in advance so you can adjust your integrations."
+                    }
+                }
+                div { class: "plans-prod-faq-item bg-slate-800 rounded-2xl p-6 shadow-lg",
+                    h3 { class: "text-lg font-semibold text-white mb-3",
+                        "Do you offer custom enterprise plans?"
+                    }
+                    p { class: "text-slate-300",
+                        "Absolutely! We can create custom plans with specific features, higher limits, and dedicated support. "
+                        a { class: "text-emerald-400 hover:underline", href: "/contact", "Contact us" }
+                        " to discuss your needs."
+                    }
+                }
+                div { class: "plans-prod-faq-item bg-slate-800 rounded-2xl p-6 shadow-lg",
+                    h3 { class: "text-lg font-semibold text-white mb-3",
+                        "Is there a free trial?"
+                    }
+                    p { class: "text-slate-300",
+                        "We offer a 7-day free trial for all premium plans. No credit card required - just sign up and start exploring advanced features immediately."
+                    }
                 }
             }
         }
-        if !out.is_empty() { return out; }
-        // Shape 3: legacy `plans` key.
-        if let Some(arr) = obj.get("plans").and_then(|v| v.as_array()) {
-            return serde_json::from_value::<Vec<Plan>>(serde_json::Value::Array(arr.clone()))
-                .unwrap_or_default();
-        }
     }
-    Vec::new()
 }
 
-#[derive(Clone, Debug, serde::Deserialize, PartialEq)]
-pub struct Plan {
-    #[serde(default)] pub id: String,
-    /// The content-service plans.json uses `title` instead of `name`
-    /// for the plan's display name; accept both via `alias`.
-    #[serde(default, alias = "title")] pub name: String,
-    #[serde(default)] pub price: String,
-    #[serde(default)] pub period: String,
-    #[serde(default)] pub features: Vec<String>,
-    #[serde(default)] pub cta: String,
-    #[serde(default)] pub featured: bool,
-    /// Discriminator for `PlanGroups` rendering. One of
-    /// `personal` / `enterprise` / `api` / `custom`. The
-    /// content-service plans.json uses `category` for the same
-    /// value — accept both via `alias`. `None` is treated as
-    /// `personal` (the source's fallback at
-    /// plan-selection.tsx:211).
-    #[serde(default, alias = "category")] pub plan_group: Option<String>,
-}
-
-// === wave5-page-depth-track-b ===
-// Unit tests for the plans page. The design doc requires:
-//   - test_render_smoke: render() returns a non-empty Element
-//   - test_section_markers: the rendered HTML contains the
-//     plans-hero / plans-grid / plans-comparison / plans-faq /
-//     plans-enterprise section class names.
+// === wave25-t2 plans tests ===
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::pages::PageContext;
-    use crate::auth::User;
 
-    /// The /plans page wraps its body in an `<AuthGate>` (Wave 1
-    /// pattern, gated on `plan subscription`). For the section-marker
-    /// and smoke tests to see the body, the test user must hold the
-    /// `plan subscription` permission. The gate's `has_permission`
-    /// check is exact-match, so we set it explicitly.
-    fn authed_ctx() -> PageContext {
+    fn empty_ctx() -> PageContext {
         PageContext {
-            user: Some(User {
-                id: "test-user".to_string(),
-                address: "0xtest".to_string(),
-                chain_id: "56".to_string(),
-                roles: vec!["user".to_string()],
-                email: None,
-                tier: Some("Pro".to_string()),
-                permissions: vec!["plan subscription".to_string()],
-                last_login_at: None,
-                auth_method: crate::auth::AuthMethod::Wallet,
-                display_name: Some("Test".to_string()),
-            }),
             path: "/plans".to_string(),
             ..Default::default()
         }
@@ -720,133 +288,64 @@ mod tests {
 
     #[test]
     fn plans_renders_smoke() {
-        let ctx = authed_ctx();
-        let (_meta, el) = render(&ctx);
-        let html = dioxus_ssr::render_element(el);
+        let html = render_to_string(&empty_ctx());
         assert!(!html.trim().is_empty(), "plans page should render non-empty HTML");
     }
 
+    /// Wave 25 T2 — the plans page mirrors the prod Next.js page:
+    /// - full-page dark gradient `from-slate-900 via-slate-900
+    ///   to-indigo-900`
+    /// - h1 with `bg-gradient-to-r from-cyan-400 via-blue-400
+    ///   to-purple-400 bg-clip-text text-transparent` "Choose Your
+    ///   EPSX Plan"
+    /// - 3 plan cards in `grid-cols-1 md:grid-cols-2 lg:grid-cols-3`
+    /// - each card has the red SALE ribbon + discount badge +
+    ///   crossed-out original price + green savings text +
+    ///   flame "Ends in NaNm" timer
+    /// - 4 FAQ cards with `bg-slate-800 rounded-2xl p-6 shadow-lg`
     #[test]
-    fn plans_section_markers() {
-        let html = render_to_string(&authed_ctx());
+    fn plans_prod_markers() {
+        let html = render_to_string(&empty_ctx());
         for marker in &[
-            "plans-hero",
-            "plans-groups-section",
-            "plans-comparison-section",
-            "plans-faq-section",
-            "plans-enterprise-cta",
+            "from-slate-950 via-slate-900 to-slate-950",
+            "from-cyan-400 via-blue-400 to-purple-400",
+            "bg-clip-text text-transparent",
+            "Choose Your EPSX Plan",
+            "plans-prod-card",
+            "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+            "1 Day Package",
+            "1 Month Package",
+            "Lifetime Package",
+            "plans-prod-ribbon",
+            "Sale",
+            "80% OFF",
+            "90% OFF",
+            "50% OFF",
+            "Ends in NaNm",
+            "Frequently Asked Questions",
+            "plans-prod-faq-item",
+            "bg-slate-800 rounded-2xl p-6 shadow-lg",
+            "Can I change my plan later?",
+            "Is there a free trial?",
         ] {
             assert!(
                 html.contains(marker),
-                "plans page should contain section marker `{marker}`. Got: {}",
-                html
+                "plans page should contain prod marker `{marker}`. Got: {html}"
             );
         }
     }
 
     #[test]
-    fn plans_default_has_three_tiers() {
-        // Wave 22 T4 — default plans are now 7 (3 personal + 2
-        // enterprise + 2 api), not 3. The featured plan is still
-        // Pro (the second plan in the list). The brief's
-        // `plans_default_covers_multiple_groups` test supersedes
-        // the old 3-tier contract; this test now asserts the
-        // 7-plan / Pro-featured invariant.
-        let plans = default_plans();
-        assert!(
-            plans.len() >= 3,
-            "default plans must have at least 3 plans for the personal grid"
-        );
-        // The Pro plan is the "featured" one (it's index 1 in
-        // the personal group).
-        assert!(plans[1].featured, "the Pro plan should be the featured one");
+    fn plans_has_three_tier_cards() {
+        let html = render_to_string(&empty_ctx());
+        let card_count = html.matches("plans-prod-card-name").count();
+        assert_eq!(card_count, 3, "plans page should render 3 plan tier cards. Got {card_count} in: {html}");
     }
 
-    /// Wave 22 T4 — `default_plans()` covers 3 of the 4 plan
-    /// groups (Personal / Enterprise / API; Custom is CTA-only).
     #[test]
-    fn plans_default_covers_multiple_groups() {
-        let plans = default_plans();
-        let mut groups: std::collections::HashSet<String> = std::collections::HashSet::new();
-        for p in &plans {
-            if let Some(g) = &p.plan_group {
-                groups.insert(g.clone());
-            }
-        }
-        assert!(
-            groups.len() >= 3,
-            "default plans should cover at least 3 of 4 plan groups, got: {groups:?}"
-        );
-        for required in &["personal", "enterprise", "api"] {
-            assert!(
-                groups.contains(*required),
-                "default plans should include a `{required}` group, got: {groups:?}"
-            );
-        }
-    }
-
-    /// Wave 22 T4 — affiliate banner renders when `?ref=foo` is
-    /// present in the query string. Mirrors the source's
-    /// `(affiliateCode?.length ?? 0) > 0` check at
-    /// plan-selection.tsx:179.
-    #[test]
-    fn plans_affiliate_banner_renders_with_ref() {
-        let mut ctx = authed_ctx();
-        ctx.query = "ref=foo".to_string();
-        let html = render_to_string(&ctx);
-        assert!(
-            html.contains("plans-affiliate-banner"),
-            "plans page should render affiliate banner when ?ref=foo is present. Got: {html}"
-        );
-        assert!(
-            html.contains("foo"),
-            "plans page should include the affiliate code in the banner text"
-        );
-    }
-
-    /// Wave 22 T4 — `?affiliate=bar` and `?aff=baz` are also
-    /// accepted affiliate query keys (priority order: ref →
-    /// affiliate → aff).
-    #[test]
-    fn plans_affiliate_banner_renders_with_affiliate() {
-        for (key, code) in &[("affiliate", "bar"), ("aff", "baz")] {
-            let mut ctx = authed_ctx();
-            ctx.query = format!("{key}={code}");
-            let html = render_to_string(&ctx);
-            assert!(
-                html.contains("plans-affiliate-banner"),
-                "plans page should render affiliate banner for ?{key}={code}"
-            );
-            assert!(
-                html.contains(code),
-                "plans page should include the affiliate code `{code}` in the banner text"
-            );
-        }
-    }
-
-    /// Wave 22 T4 — affiliate banner is NOT rendered when no
-    /// ref/affiliate/aff query param is present.
-    #[test]
-    fn plans_no_affiliate_banner_without_ref() {
-        let ctx = authed_ctx();
-        let html = render_to_string(&ctx);
-        assert!(
-            !html.contains("plans-affiliate-banner"),
-            "plans page should NOT render affiliate banner when no ref param. Got: {html}"
-        );
-    }
-
-    /// Wave 22 T4 — `affiliate_code_from_query` helper unit-tests.
-    #[test]
-    fn plans_affiliate_code_parser() {
-        assert_eq!(affiliate_code_from_query(""), None);
-        assert_eq!(affiliate_code_from_query("foo=bar"), None);
-        assert_eq!(affiliate_code_from_query("ref=foo"), Some("foo".to_string()));
-        assert_eq!(affiliate_code_from_query("affiliate=bar"), Some("bar".to_string()));
-        assert_eq!(affiliate_code_from_query("aff=baz"), Some("baz".to_string()));
-        // Priority order: ref wins when both are present.
-        assert_eq!(affiliate_code_from_query("affiliate=bar&ref=foo"), Some("foo".to_string()));
-        // Empty values are ignored.
-        assert_eq!(affiliate_code_from_query("ref="), None);
+    fn plans_has_four_faq_items() {
+        let html = render_to_string(&empty_ctx());
+        let faq_count = html.matches("plans-prod-faq-item").count();
+        assert_eq!(faq_count, 4, "plans page should render 4 FAQ cards. Got {faq_count} in: {html}");
     }
 }
