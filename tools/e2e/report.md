@@ -1,6 +1,6 @@
 # Wave 23 T1 — E2E Component Interaction Report
 
-Generated: 2026-06-16T16:27:29.084Z
+Generated: 2026-06-16T19:50:47.590Z
 
 Prod: `https://epsx.io`  |  Dev: BFF port-forward (default `localhost:30101`)
 
@@ -8,7 +8,7 @@ Prod: `https://epsx.io`  |  Dev: BFF port-forward (default `localhost:30101`)
 
 | # | Slug | Path | pixel_diff_% | console_errors_dev | broken_links_dev | broken_buttons_dev | missing_components |
 |---|------|------|-------------:|-------------------:|-----------------:|-------------------:|-------------------:|
-| 1 | `home` | `/` | 93.79 | 0 | 5 | 4 | 5 |
+| 1 | `home` | `/` | 72.31 | 0 | 6 | 5 | 6 |
 | 2 | `about` *(SKIP)* | `/about` | 0 | 0 | 0 | 0 | 0 |
 | 3 | `access-denied` | `/access-denied` | 93.82 | 0 | 0 | 2 | 0 |
 | 4 | `account` | `/account` | 93.75 | 4 | 2 | 3 | 2 |
@@ -23,7 +23,7 @@ Prod: `https://epsx.io`  |  Dev: BFF port-forward (default `localhost:30101`)
 | 13 | `developer` | `/developer` | 99.82 | 0 | 0 | 2 | 0 |
 | 14 | `developer-usage` | `/developer/usage` | 99.8 | 0 | 0 | 2 | 0 |
 | 15 | `developer-docs` | `/developer/docs` | 99.79 | 0 | 0 | 2 | 0 |
-| 16 | `manual` | `/manual` | 89.01 | 0 | 0 | 2 | 0 |
+| 16 | `manual` | `/manual` | 92.81 | 35 | 0 | 2 | 0 |
 | 17 | `news` | `/news` | 93.82 | 0 | 0 | 2 | 0 |
 | 18 | `news-sample-slug` | `/news/sample-slug` | 93.79 | 1 | 0 | 4 | 0 |
 | 19 | `notifications` | `/notifications` | 99.96 | 0 | 0 | 0 | 0 |
@@ -31,9 +31,9 @@ Prod: `https://epsx.io`  |  Dev: BFF port-forward (default `localhost:30101`)
 | 21 | `payment` | `/payment` | 99.34 | 0 | 0 | 2 | 0 |
 | 22 | `payment-intent-sample-id` | `/payment/intent/sample-id` | 99.09 | 0 | 0 | 2 | 0 |
 | 23 | `permissions` | `/permissions` | 99.96 | 0 | 0 | 0 | 0 |
-| 24 | `plans` | `/plans` | 82.5 | 1 | 0 | 3 | 0 |
-| 25 | `portfolio` | `/portfolio` | 64.73 | 0 | 0 | 5 | 0 |
-| 26 | `privacy` | `/privacy` | 93.82 | 0 | 0 | 2 | 0 |
+| 24 | `plans` | `/plans` | 59.1 | 1 | 0 | 3 | 0 |
+| 25 | `portfolio` | `/portfolio` | 73.86 | 0 | 0 | 5 | 0 |
+| 26 | `privacy` | `/privacy` | 6.22 | 0 | 0 | 2 | 0 |
 | 27 | `profile` | `/profile` | 99.96 | 0 | 0 | 0 | 0 |
 | 28 | `terms` | `/terms` | 93.81 | 0 | 0 | 2 | 0 |
 
@@ -49,14 +49,15 @@ Prod: `https://epsx.io`  |  Dev: BFF port-forward (default `localhost:30101`)
 
 | Kind | Total occurrences | Routes affected |
 |------|------------------:|----------------:|
-| `missing-buttons` | 59 | 19 |
+| `missing-buttons` | 60 | 19 |
+| `console-error-dev-only` | 35 | 1 |
 | `redirect-chain-differs` | 25 | 25 |
-| `missing-hrefs` | 17 | 3 |
+| `missing-hrefs` | 18 | 3 |
 | `skipped-route` | 3 | 3 |
 
 ## Top 5 issues (by occurrence)
 
-### `missing-buttons` — 59 occurrences
+### `missing-buttons` — 60 occurrences
 
 Affected routes (first 10):
 
@@ -71,22 +72,28 @@ Affected routes (first 10):
 - `developer-usage` — sample: `"Market"`
 - `developer-docs` — sample: `"Market"`
 
+### `console-error-dev-only` — 35 occurrences
+
+Affected routes (first 10):
+
+- `manual` — sample: `"[error] Failed to load resource: the server responded with a status of 404 (Not Found)"`
+
 ### `redirect-chain-differs` — 25 occurrences
 
 Affected routes (first 10):
 
-- `home` — prod→`1: https://epsx.io/` dev→`0: http://localhost:30200/`
-- `access-denied` — prod→`1: https://epsx.io/access-denied` dev→`0: http://localhost:30200/access-denied`
-- `account` — prod→`1: https://epsx.io/account` dev→`0: http://localhost:30200/account`
-- `account-credits` — prod→`1: https://epsx.io/account/credits` dev→`0: http://localhost:30200/account/credits`
-- `analytics` — prod→`1: https://epsx.io/analytics` dev→`0: http://localhost:30200/analytics`
-- `auth` — prod→`1: https://epsx.io/auth` dev→`0: http://localhost:30200/auth`
-- `chat` — prod→`1: https://epsx.io/chat` dev→`0: http://localhost:30200/chat`
-- `chat-sample-conv-id` — prod→`1: https://epsx.io/auth` dev→`1: http://localhost:30200/auth`
-- `chat-history` — prod→`1: https://epsx.io/auth` dev→`1: http://localhost:30200/auth`
-- `dashboard` — prod→`1: https://epsx.io/dashboard` dev→`0: http://localhost:30200/dashboard`
+- `home` — prod→`1: https://epsx.io/` dev→`0: http://localhost:30199/`
+- `access-denied` — prod→`1: https://epsx.io/access-denied` dev→`0: http://localhost:30199/access-denied`
+- `account` — prod→`1: https://epsx.io/account` dev→`0: http://localhost:30199/account`
+- `account-credits` — prod→`1: https://epsx.io/account/credits` dev→`0: http://localhost:30199/account/credits`
+- `analytics` — prod→`1: https://epsx.io/analytics` dev→`0: http://localhost:30199/analytics`
+- `auth` — prod→`1: https://epsx.io/auth` dev→`0: http://localhost:30199/auth`
+- `chat` — prod→`1: https://epsx.io/chat` dev→`0: http://localhost:30199/chat`
+- `chat-sample-conv-id` — prod→`1: https://epsx.io/auth` dev→`1: http://localhost:30199/auth`
+- `chat-history` — prod→`1: https://epsx.io/auth` dev→`1: http://localhost:30199/auth`
+- `dashboard` — prod→`1: https://epsx.io/dashboard` dev→`0: http://localhost:30199/dashboard`
 
-### `missing-hrefs` — 17 occurrences
+### `missing-hrefs` — 18 occurrences
 
 Affected routes (first 10):
 
