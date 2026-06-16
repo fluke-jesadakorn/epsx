@@ -26,6 +26,7 @@ pub mod chat;
 pub mod i18n;
 pub mod pages;
 pub mod theme;
+pub mod components;
 
 #[cfg(test)]
 mod tests;

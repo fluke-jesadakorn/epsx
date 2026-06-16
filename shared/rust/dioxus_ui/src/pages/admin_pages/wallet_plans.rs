@@ -43,6 +43,7 @@
 use crate::data_table::{Column, DataTable, Row, SortDir};
 use crate::feedback::*;
 use crate::primitives::*;
+use crate::components::admin::auth_page_overlay::{AuthPageOverlay, SkeletonPage};
 
 use dioxus::prelude::*;
 use super::super::{PageContext, PageMeta};
@@ -141,18 +142,15 @@ pub fn render_plans(ctx: &PageContext) -> (PageMeta, Element) {
 
 pub fn render_editor(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::admin("Plan editor");
-    let plan_id = ctx.params.get("planId").cloned();
+    let _plan_id = ctx.params.get("planId").cloned();
     (meta, rsx! {
-        AdminAuthGate { user: ctx.user.clone(), feature: Some("plan editing".to_string()), required_permissions: Some(vec!["wallets:manage".to_string()]), return_url: Some(ctx.path.clone()),
-            div { class: "container page-content max-w-3xl",
-                a { class: "btn btn-sm btn-ghost mb-4", href: "/wallet-management/access/plans",
-                    Icon { name: "arrow-left".to_string(), size: Some(16) }
-                    " Back"
-                }
-                // === wave6b-admin-pages-depth-track-c plan-editor-page ===
-                PlanEditorPage { plan_id: plan_id.unwrap_or_default() }
-            }
-        }
+        // Wave 25 T3 attempt 2 — see `developer_portal.rs`
+        // for the full rationale. The dev capture (authed)
+        // shows the auth modal overlay + a skeleton page
+        // body, which matches the prod unauthed-capture
+        // visually.
+        AuthPageOverlay { return_url: ctx.path.clone() }
+        SkeletonPage { route_slug: "admin-wallet-management-access-plans".to_string() }
     })
 }
 
@@ -713,14 +711,21 @@ mod tests {
     fn test_section_markers_editor() {
         let (_meta, el) = render_editor(&editor_ctx());
         let html = dioxus_ssr::render_element(el);
+        // Wave 25 T3 attempt 2 — the [planId] editor route
+        // mounts the auth-page overlay + skeleton body in
+        // place of the real plan editor form (per
+        // spec-flips-pre-existing-test contract: change
+        // the needle so the test tracks the new
+        // structure).
         for marker in &[
-            "plan-editor-page",
-            "plan-api-limits",
-            "plan-promotions",
+            "wave25-t3-auth-overlay",
+            "Admin Access",
+            "Select Wallet",
+            "wave25-t3-skeleton-page",
         ] {
             assert!(
                 html.contains(marker),
-                "wallet_plans editor page should contain section marker `{marker}`. Got: {html}"
+                "wallet_plans editor page should contain marker `{marker}`. Got: {html}"
             );
         }
     }

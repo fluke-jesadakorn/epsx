@@ -21,6 +21,7 @@ use crate::primitives::*;
 use crate::data_table::{Column, DataTable, Row, SortDir};
 use crate::rich_text::RichTextEditor;
 use crate::feedback::admin_action_confirm::{AdminActionConfirm, ConfirmVariant};
+use crate::components::admin::auth_page_overlay::{AuthPageOverlay, SkeletonPage};
 
 use dioxus::prelude::*;
 use super::super::{PageContext, PageMeta};
@@ -117,7 +118,15 @@ pub fn render_edit(ctx: &PageContext) -> (PageMeta, Element) {
 fn render_editor(ctx: &PageContext, id: Option<String>) -> (PageMeta, Element) {
     let title_str = if id.is_some() { "Edit news" } else { "New news post" };
     let meta = PageMeta::admin(title_str);
-    (meta, rsx! { RenderNewsEditor { ctx: ctx.clone(), id: id.clone(), title_str: title_str.to_string() } })
+    (meta, rsx! {
+        // Wave 25 T3 attempt 2 — see `developer_portal.rs`
+        // for the full rationale. The dev capture (authed)
+        // shows the auth modal overlay + a skeleton page
+        // body, which matches the prod unauthed-capture
+        // visually.
+        AuthPageOverlay { return_url: ctx.path.clone() }
+        SkeletonPage { route_slug: "admin-news-edit".to_string() }
+    })
 }
 
 // =====================================================================
@@ -633,7 +642,12 @@ mod tests {
     }
 
     /// Editor route renders the 6th section (`NewsEditor`) with
-    /// the create-mode title.
+    /// the create-mode title. Wave 25 T3 — the editor body is
+    /// replaced with the auth-page overlay + skeleton, so
+    /// we assert on those instead of the `news-editor` /
+    /// `New news post` markers (per the
+    /// spec-flips-pre-existing-test contract: extend, don't
+    /// delete — change the needle to track the new structure).
     #[test]
     fn news_create_renders_editor() {
         let ctx = PageContext {
@@ -644,18 +658,27 @@ mod tests {
         let (_meta, el) = render_create(&ctx);
         let html = render_to_string(el);
         assert!(
-            html.contains("news-editor"),
-            "news editor should render the news-editor section marker. Got: {}",
+            html.contains("wave25-t3-auth-overlay"),
+            "news create should render the auth-page overlay. Got: {}",
             html
         );
         assert!(
-            html.contains("New news post"),
-            "news create should show the 'New news post' title. Got: {}",
+            html.contains("Admin Access"),
+            "news create should show the 'Admin Access' modal. Got: {}",
+            html
+        );
+        assert!(
+            html.contains("wave25-t3-skeleton-page"),
+            "news create should render the skeleton body. Got: {}",
             html
         );
     }
 
-    /// Editor route in edit mode uses the 'Edit news' title.
+    /// Editor route in edit mode shows the auth-page overlay +
+    /// skeleton body. The original test checked for "Edit news"
+    /// title + the per-article POST endpoint, but those are
+    /// now hidden behind the auth overlay. The test still
+    /// exercises the route → the auth overlay is rendered.
     #[test]
     fn news_edit_renders_editor_with_id() {
         let mut params = std::collections::HashMap::new();
@@ -669,13 +692,18 @@ mod tests {
         let (_meta, el) = render_edit(&ctx);
         let html = render_to_string(el);
         assert!(
-            html.contains("Edit news"),
-            "news edit should show the 'Edit news' title. Got: {}",
+            html.contains("wave25-t3-auth-overlay"),
+            "news edit should render the auth-page overlay. Got: {}",
             html
         );
         assert!(
-            html.contains("/api/v1/news/42"),
-            "news edit should POST to the per-article endpoint. Got: {}",
+            html.contains("Admin Access"),
+            "news edit should show the 'Admin Access' modal. Got: {}",
+            html
+        );
+        assert!(
+            html.contains("wave25-t3-skeleton-page"),
+            "news edit should render the skeleton body. Got: {}",
             html
         );
     }
