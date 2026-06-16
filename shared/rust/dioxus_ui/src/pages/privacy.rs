@@ -27,24 +27,42 @@ use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
 
+/// Inline CSS rules for Tailwind v2 CDN arbitrary-value classes
+/// that the CDN doesn't generate. We inject these into the page so
+/// `bg-[#hex]`, `rounded-[24px]`, etc. render with the correct
+/// colors and shape. Without this block, the card bg is
+/// transparent (default) and the card border is invisible.
+const PRIVACY_INLINE_CSS: &str = r#"
+.privacy-page-prod { background-color: #08060B !important; color: #ffffff !important; }
+.privacy-prod-card { background-color: #27262c !important; border-color: #383241 !important; border-radius: 24px !important; }
+.privacy-prod-title { background-image: linear-gradient(to right, #c084fc, #f472b6) !important; -webkit-background-clip: text !important; background-clip: text !important; color: transparent !important; }
+.privacy-prod-last-updated { color: #9ca3af !important; }
+.privacy-prod-h3 { color: #c084fc !important; }
+.privacy-prod-p, .privacy-prod-list { color: #d1d5db !important; }
+"#;
+
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Privacy policy");
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
-            div { class: "privacy-page-prod min-h-screen bg-[#08060B] text-white",
+            // Inject inline CSS for Tailwind v2 CDN arbitrary-value
+            // classes that the CDN doesn't generate. Scoped to this
+            // page only.
+            style { "{PRIVACY_INLINE_CSS}" }
+            div { class: "privacy-page-prod min-h-screen",
                 div { class: "max-w-4xl mx-auto p-6",
                     // Hero — gradient h1 + Last updated text
                     div { class: "text-center mb-12",
-                        h1 { class: "privacy-prod-title text-4xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent",
+                        h1 { class: "privacy-prod-title text-4xl font-bold mb-4",
                             "Privacy Policy"
                         }
-                        p { class: "text-gray-400 privacy-prod-last-updated",
+                        p { class: "privacy-prod-last-updated",
                             "Last updated: "
                             "{LAST_UPDATED}"
                         }
                     }
                     // Card body — purple-bordered dark card with 7 sections
-                    div { class: "privacy-prod-card p-8 bg-[#27262c] border border-[#383241] rounded-[24px] shadow-xl",
+                    div { class: "privacy-prod-card p-8 border shadow-xl",
                         PrivacyProse {}
                     }
                 }
@@ -176,8 +194,9 @@ mod tests {
     }
 
     /// Wave 25 T2 — privacy page mirrors the prod Next.js page:
-    /// - dark page background `#08060B` via `bg-[#08060B]`
-    /// - dark card `#27262c` with purple border `#383241`
+    /// - dark page background `#08060B` via inline `<style>` block
+    /// - dark card `#27262c` with purple border `#383241` via
+    ///   inline `<style>` block
     /// - purple-gradient h1 (`from-purple-400 to-pink-400`)
     /// - 7 sections with `text-purple-400` h3 headings
     #[test]
@@ -186,14 +205,15 @@ mod tests {
         let (_meta, el) = render(&ctx);
         let html = dioxus_ssr::render_element(el);
         for marker in &[
-            "bg-[#08060B]",
-            "bg-[#27262c]",
-            "border-[#383241]",
-            "from-purple-400 to-pink-400",
+            "privacy-page-prod",
+            "background-color: #08060B",
+            "background-color: #27262c",
+            "border-color: #383241",
+            "linear-gradient(to right, #c084fc, #f472b6)",
             "privacy-prod-card",
             "privacy-prod-h3",
-            "text-purple-400",
-            "rounded-[24px]",
+            "color: #c084fc",
+            "border-radius: 24px",
             "shadow-xl",
         ] {
             assert!(
@@ -208,9 +228,12 @@ mod tests {
         let ctx = empty_ctx();
         let (_meta, el) = render(&ctx);
         let html = dioxus_ssr::render_element(el);
-        // Section headings count — `privacy-prod-h3` appears 7×
+        // Section headings count — `privacy-prod-h3` appears 7× in
+        // the section titles (the inline `<style>` block also
+        // contains the selector `privacy-prod-h3 { color: #c084fc }`,
+        // which adds one more match).
         let h3_count = html.matches("privacy-prod-h3").count();
-        assert_eq!(h3_count, 7, "privacy page should render 7 `privacy-prod-h3` section headings. Got {h3_count} in: {html}");
+        assert_eq!(h3_count, 8, "privacy page should render 7 `privacy-prod-h3` section headings (8 matches total — 7 in markup + 1 in inline CSS). Got {h3_count} in: {html}");
         // Per-section numbered titles.
         for n in 1..=7 {
             let marker = format!("{n}.");

@@ -3,32 +3,33 @@
 //! Wave 25 T2 — port of `apps-old/frontend/app/plans/page.tsx` +
 //! `<PlanSelection>` + `<DynamicPricingSection>`.
 //!
-//! The OLD prod renders:
+//! The prod Next.js page renders for **all visitors** (including
+//! anonymous):
 //!   - `<div className="min-h-screen bg-gradient-to-br from-slate-50
 //!     via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900
 //!     dark:to-indigo-900">`
-//!     - `<div className="container mx-auto px-4 py-12">`
-//!       - hero h1 `text-4xl md:text-6xl font-bold bg-gradient-to-r
-//!         from-emerald-600 via-blue-600 to-purple-600
-//!         bg-clip-text text-transparent` "Choose Your EPSX Plan"
-//!       - sub `text-xl text-gray-600 dark:text-gray-300 max-w-3xl`
-//!       - `<PlanSelection>` (3-tier grid; full implementation lives
-//!         in components/plans/plan-selection.tsx but the cards have
-//!         `bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg`)
-//!       - FAQ section h2 "Frequently Asked Questions"
-//!         - 4 `<div className="bg-white dark:bg-gray-800 rounded-2xl
-//!           p-6 shadow-lg">` cards
+//!   - `<div className="container mx-auto px-4 py-12">`
+//!   - hero h1 `text-4xl md:text-6xl font-bold bg-gradient-to-r
+//!     from-emerald-600 via-blue-600 to-purple-600 bg-clip-text
+//!     text-transparent` "Choose Your EPSX Plan"
+//!   - sub `text-xl text-gray-600 dark:text-gray-300 max-w-3xl`
+//!   - `<PlanSelection>` (3 cards in `grid-cols-1 md:grid-cols-2
+//!     lg:grid-cols-3`) — each card has:
+//!     - red SALE ribbon top-left (`absolute -top-px -left-px
+//!       z-20 bg-red-500 text-white text-xs font-bold px-3 py-1
+//!       rounded-br-3xl uppercase tracking-wider`)
+//!     - red discount badge (`bg-red-500 text-white text-xs
+//!       font-bold px-2 py-0.5 rounded-full self-center`)
+//!     - crossed-out original price (`line-through`)
+//!     - green "Save $X" text
+//!     - flame icon + "Ends in NaNm" timer
+//!     - feature list
+//!   - FAQ section with 4 questions
 //!
-//! The previous Wave 22 T4 port used a 4-group PlanGroups + comparison
-//! table + custom CTA — structurally divergent from prod's simpler
-//! 3-tier + FAQ layout. The T2 rewrite matches prod: hero gradient
-//! + 3 tier cards (rendered by `PricingTeaser`-style component) +
-//! 4 FAQ cards. Plan data is the same 3 default plans from the
-//! previous port (Free / Pro / Premium).
-//!
-//! File ownership rule (Wave 25 T2): this file may add plan data
-//! types + helpers; it does NOT modify `theme.rs` or
-//! `templates/src/lib.rs`.
+//! The dev BFF doesn't pre-fetch the live plans API; we render the
+//! static plan list that mirrors prod's anonymous-rendered state
+//! (1 Day $1 / 1 Month $9.9 / Lifetime $4,999 with their SALE
+//! tags, crossed-out original prices, savings text, and timer).
 
 use crate::primitives::*;
 
@@ -36,28 +37,22 @@ use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
-use crate::auth::ProgressiveAuthBanner;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Plans");
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
-            // Wave 25 T2 — match prod's full-page gradient:
-            // bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50
-            // dark:from-gray-900 dark:via-gray-900 dark:to-indigo-900
-            div { class: "plans-prod-page min-h-screen bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-900",
+            // Wave 25 T2 — match prod's full-page gradient. Prod
+            // renders #151924 (very dark navy/blue) in dark mode;
+            // we use the dark slate gradient directly because
+            // Tailwind v2 CDN drops `dark:` variants.
+            div { class: "plans-prod-page min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950",
                 div { class: "container mx-auto px-4 py-12 plans-prod-container",
-                    if ctx.user.is_none() {
-                        ProgressiveAuthBanner { feature: Some("plan subscription".to_string()) }
-                    }
-                    // /plans is public-readable in prod (the
-                    // middleware allows anonymous viewing). We
-                    // render the hero + plan cards + FAQ for
-                    // everyone — no AuthGate wrapper. The "Sign in"
-                    // CTA in the pricing cards redirects unauthed
-                    // users to /auth when clicked.
+                    // Hero
                     PlansHero {}
+                    // 3-tier pricing grid (1 DAY / 1 MONTH / LIFETIME)
                     PlanSelection {}
+                    // FAQ section
                     PlansFaq {}
                 }
             }
@@ -79,19 +74,16 @@ fn PlansHero() -> Element {
     }
 }
 
-/// 3-tier pricing grid. Mirrors the prod's `<PlanSelection>` 3-card
-/// layout. Prod renders 3 tiers from the BFF's plans API (1 Day
-/// Package, 1 Month Package, Lifetime Package) with SALE tags.
-/// Since the dev BFF doesn't pre-fetch `data_plans`, we use static
-/// tiers that mirror the prod's visual surface (3 cards in a grid,
-/// highlighted middle card with "Most popular" badge).
+/// 3-tier pricing grid. Mirrors prod's `<PlanSelection>` 3-card
+/// layout. Each card has the prod's red SALE ribbon + discount
+/// badge + crossed-out price + green savings text + flame timer.
 #[component]
 fn PlanSelection() -> Element {
     let plans = default_plans();
     rsx! {
         div { class: "plans-prod-selection grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
             for plan in plans.iter() {
-                PlanCard { plan: plan.clone() }
+                PricingCard { plan: plan.clone() }
             }
         }
     }
@@ -101,24 +93,26 @@ fn PlanSelection() -> Element {
 struct PlanLite {
     name: &'static str,
     price: &'static str,
-    period: &'static str,
+    original_price: &'static str,
+    discount_pct: &'static str,
+    save_amount: &'static str,
     description: &'static str,
     features: &'static [&'static str],
     cta: &'static str,
-    featured: bool,
 }
 
 fn default_plans() -> Vec<PlanLite> {
     // Mirrors the prod's 3-tier pricing grid (1 DAY / 1 MONTH /
-    // LIFETIME). The SALE tags are an AnimatedNumberedBadge that
-    // the prod uses for promo pricing — we render the same visual
-    // surface but with static dollar amounts that match the prod's
-    // anonymous-rendered state.
+    // LIFETIME). The static seed matches prod's anonymous-rendered
+    // state including SALE ribbon + crossed-out price + savings
+    // text + flame timer.
     vec![
         PlanLite {
             name: "1 Day Package",
-            price: "$1",
-            period: "USD",
+            price: "$1 USD",
+            original_price: "$5 USD",
+            discount_pct: "80% OFF",
+            save_amount: "Save $4",
             description: "Basic analytics view",
             features: &[
                 "Basic analytics view",
@@ -127,12 +121,13 @@ fn default_plans() -> Vec<PlanLite> {
                 "24-hour access",
             ],
             cta: "Buy Now",
-            featured: false,
         },
         PlanLite {
             name: "1 Month Package",
-            price: "$9.9",
-            period: "USD",
+            price: "$9.9 USD",
+            original_price: "$99 USD",
+            discount_pct: "90% OFF",
+            save_amount: "Save $89.1",
             description: "Advanced analytics view",
             features: &[
                 "Advanced analytics view",
@@ -141,12 +136,13 @@ fn default_plans() -> Vec<PlanLite> {
                 "Price alerts",
             ],
             cta: "Buy Now",
-            featured: true,
         },
         PlanLite {
             name: "Lifetime Package",
-            price: "$4,999",
-            period: "USD",
+            price: "$4,999 USD",
+            original_price: "$9,999 USD",
+            discount_pct: "50% OFF",
+            save_amount: "Save $5000",
             description: "Advanced analytics suite",
             features: &[
                 "Advanced analytics suite",
@@ -155,37 +151,66 @@ fn default_plans() -> Vec<PlanLite> {
                 "Basic & Pro trading",
             ],
             cta: "Buy Now",
-            featured: false,
         },
     ]
 }
 
+/// `PricingCard` — renders a single tier with the prod's red SALE
+/// ribbon top-left corner + red discount badge + crossed-out
+/// original price + green "Save $X" text + flame "Ends in NaNm"
+/// timer + feature list + "Buy Now" button.
 #[component]
-fn PlanCard(plan: PlanLite) -> Element {
+fn PricingCard(plan: PlanLite) -> Element {
     rsx! {
-        div {
-            class: if plan.featured { "plans-prod-card plans-prod-card-featured relative flex flex-col bg-slate-800 rounded-2xl p-6 shadow-lg ring-2 ring-emerald-500" } else { "plans-prod-card relative flex flex-col bg-slate-800 rounded-2xl p-6 shadow-lg" },
-            if plan.featured {
-                span { class: "plans-prod-badge absolute -top-3 left-1/2 -translate-x-1/2 inline-block rounded-full bg-emerald-500 text-white text-xs font-bold px-3 py-1", "Most popular" }
+        div { class: "plans-prod-card relative overflow-visible bg-gray-800 rounded-2xl p-6 shadow-lg",
+            // Red SALE ribbon — top-left corner
+            span { class: "plans-prod-ribbon absolute -top-px -left-px z-20 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-br-3xl uppercase tracking-wider",
+                "Sale"
             }
+            // Card header
             div { class: "plans-prod-card-head",
-                h3 { class: "plans-prod-card-name text-2xl font-bold text-white", "{plan.name}" }
-                p { class: "plans-prod-card-desc text-sm text-slate-400 mt-1", "{plan.description}" }
+                h3 { class: "plans-prod-card-name text-lg font-bold text-white", "{plan.name}" }
+                div { class: "plans-prod-card-discount-row flex items-center gap-2 mt-2",
+                    span { class: "plans-prod-card-discount-badge bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full",
+                        "{plan.discount_pct}"
+                    }
+                }
             }
-            div { class: "plans-prod-card-price-row flex items-baseline gap-1 mt-4 mb-6",
-                span { class: "plans-prod-card-price text-4xl font-extrabold text-white", "{plan.price}" }
-                span { class: "plans-prod-card-period text-sm text-slate-400", "{plan.period}" }
+            // Price block
+            div { class: "plans-prod-card-price-row mt-4 mb-4",
+                div { class: "plans-prod-card-price text-2xl font-bold text-white",
+                    "{plan.price}"
+                }
+                div { class: "plans-prod-card-original-price text-sm text-slate-400 line-through",
+                    "{plan.original_price}"
+                }
+                div { class: "plans-prod-card-savings text-sm text-green-400 font-semibold",
+                    "{plan.save_amount}"
+                }
             }
-            ul { class: "plans-prod-card-features space-y-2 mb-6 flex-1",
+            // Timer — flame icon + "Ends in NaNm" (prod's static
+            // fallback when the timer hasn't loaded the live value)
+            div { class: "plans-prod-card-timer flex items-center gap-1 text-sm text-orange-400 mb-4",
+                Icon { name: "flame".to_string(), size: Some(14), class_name: Some("text-orange-400".to_string()) }
+                "Ends in NaNm"
+            }
+            // Description
+            p { class: "plans-prod-card-desc text-sm text-slate-300 mb-3",
+                "{plan.description}"
+            }
+            // Feature list
+            ul { class: "plans-prod-card-features space-y-2 mb-6",
                 for f in plan.features.iter() {
-                    li { class: "flex items-start gap-2 text-sm text-slate-300",
-                        Icon { name: "check".to_string(), size: Some(16), class_name: Some("text-emerald-400 flex-shrink-0 mt-0.5".to_string()) }
+                    li { class: "flex items-start gap-2 text-sm text-slate-200",
+                        Icon { name: "check".to_string(), size: Some(16), class_name: Some("text-green-400 flex-shrink-0 mt-0.5".to_string()) }
                         span { "{f}" }
                     }
                 }
             }
-            button {
-                class: if plan.featured { "plans-prod-card-cta w-full rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 px-4 transition-colors" } else { "plans-prod-card-cta w-full rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 px-4 transition-colors" },
+            // CTA button — orange gradient matching prod's navbar
+            // "Connect" button (bg-gradient-to-r from-orange-400
+            // to-orange-600)
+            button { class: "plans-prod-card-cta w-full bg-gradient-to-r from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700 text-white font-medium py-2 px-4 rounded-2xl shadow-lg border-0",
                 r#type: "button",
                 "{plan.cta}"
             }
@@ -204,7 +229,7 @@ fn PlansFaq() -> Element {
                 "Frequently Asked Questions"
             }
             div { class: "plans-prod-faq-list max-w-3xl mx-auto space-y-6",
-                div { class: "plans-prod-faq-item bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg",
+                div { class: "plans-prod-faq-item bg-slate-800 rounded-2xl p-6 shadow-lg",
                     h3 { class: "text-lg font-semibold text-white mb-3",
                         "Can I change my plan later?"
                     }
@@ -247,23 +272,10 @@ fn PlansFaq() -> Element {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::auth::User;
-    use crate::auth::user::AuthMethod;
+    use crate::pages::PageContext;
 
-    fn authed_ctx() -> PageContext {
+    fn empty_ctx() -> PageContext {
         PageContext {
-            user: Some(User {
-                id: "test-user".to_string(),
-                address: "0xtest".to_string(),
-                chain_id: "56".to_string(),
-                roles: vec!["user".to_string()],
-                email: None,
-                tier: Some("Pro".to_string()),
-                permissions: vec!["plan subscription".to_string()],
-                last_login_at: None,
-                auth_method: AuthMethod::Wallet,
-                display_name: Some("Test".to_string()),
-            }),
             path: "/plans".to_string(),
             ..Default::default()
         }
@@ -276,30 +288,40 @@ mod tests {
 
     #[test]
     fn plans_renders_smoke() {
-        let html = render_to_string(&authed_ctx());
+        let html = render_to_string(&empty_ctx());
         assert!(!html.trim().is_empty(), "plans page should render non-empty HTML");
     }
 
     /// Wave 25 T2 — the plans page mirrors the prod Next.js page:
-    /// - full-page gradient `from-slate-900 via-slate-900 to-indigo-900`
-    ///   (we use dark-mode colors directly because the dev BFF runs
-    ///   in dark mode and Tailwind v2 CDN doesn't process `dark:`
-    ///   variants)
-    /// - h1 with `bg-gradient-to-r from-emerald-400 via-blue-400
+    /// - full-page dark gradient `from-slate-900 via-slate-900
+    ///   to-indigo-900`
+    /// - h1 with `bg-gradient-to-r from-cyan-400 via-blue-400
     ///   to-purple-400 bg-clip-text text-transparent` "Choose Your
     ///   EPSX Plan"
     /// - 3 plan cards in `grid-cols-1 md:grid-cols-2 lg:grid-cols-3`
+    /// - each card has the red SALE ribbon + discount badge +
+    ///   crossed-out original price + green savings text +
+    ///   flame "Ends in NaNm" timer
     /// - 4 FAQ cards with `bg-slate-800 rounded-2xl p-6 shadow-lg`
     #[test]
     fn plans_prod_markers() {
-        let html = render_to_string(&authed_ctx());
+        let html = render_to_string(&empty_ctx());
         for marker in &[
-            "from-slate-900 via-slate-900 to-indigo-900",
-            "from-emerald-400 via-blue-400 to-purple-400",
+            "from-slate-950 via-slate-900 to-slate-950",
+            "from-cyan-400 via-blue-400 to-purple-400",
             "bg-clip-text text-transparent",
             "Choose Your EPSX Plan",
             "plans-prod-card",
             "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+            "1 Day Package",
+            "1 Month Package",
+            "Lifetime Package",
+            "plans-prod-ribbon",
+            "Sale",
+            "80% OFF",
+            "90% OFF",
+            "50% OFF",
+            "Ends in NaNm",
             "Frequently Asked Questions",
             "plans-prod-faq-item",
             "bg-slate-800 rounded-2xl p-6 shadow-lg",
@@ -315,14 +337,14 @@ mod tests {
 
     #[test]
     fn plans_has_three_tier_cards() {
-        let html = render_to_string(&authed_ctx());
+        let html = render_to_string(&empty_ctx());
         let card_count = html.matches("plans-prod-card-name").count();
         assert_eq!(card_count, 3, "plans page should render 3 plan tier cards. Got {card_count} in: {html}");
     }
 
     #[test]
     fn plans_has_four_faq_items() {
-        let html = render_to_string(&authed_ctx());
+        let html = render_to_string(&empty_ctx());
         let faq_count = html.matches("plans-prod-faq-item").count();
         assert_eq!(faq_count, 4, "plans page should render 4 FAQ cards. Got {faq_count} in: {html}");
     }

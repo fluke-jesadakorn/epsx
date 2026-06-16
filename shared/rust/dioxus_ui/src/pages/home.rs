@@ -32,18 +32,14 @@ use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
-use crate::auth::ProgressiveAuthBanner;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Home");
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
-            if ctx.user.is_none() {
-                ProgressiveAuthBanner { feature: Some("the full EPSX experience".to_string()) }
-            }
-            // Wave 25 T2 — match prod's full-page gradient (dark variants only
-            // because the dev BFF runs in dark mode + Tailwind v2 CDN
-            // drops `dark:` variants).
+            // Wave 25 T2 — match prod's full-page gradient. Prod
+            // does NOT show ProgressiveAuthBanner on the home page
+            // (it's a public landing page).
             div { class: "home-prod-page relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900",
                 div { class: "relative z-[1] home-prod-content",
                     HeroSection {}

@@ -23,7 +23,6 @@ use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
-use crate::auth::ProgressiveAuthBanner;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct ManualFeature {
@@ -96,13 +95,9 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Manual");
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
-            if ctx.user.is_none() {
-                ProgressiveAuthBanner {
-                    feature: Some("the manual".to_string()),
-                }
-            }
             // Wave 25 T2 — match prod's `bg-gray-950 text-gray-100`
-            // + flex layout with sticky sidebar.
+            // + flex layout with sticky sidebar. Prod does NOT show
+            // ProgressiveAuthBanner on /manual.
             div { class: "manual-page-prod min-h-screen bg-gray-950 text-gray-100",
                 div { class: "flex",
                     ManualSidebar {}

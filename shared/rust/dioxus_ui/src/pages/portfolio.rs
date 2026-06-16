@@ -4,23 +4,27 @@
 //! `components/portfolio/{portfolio-dashboard, portfolio-grid,
 //! stock-search, watchlist-provider}.tsx`.
 //!
-//! The OLD prod renders:
-//!   - `<div className="relative min-h-screen bg-gray-50
-//!     dark:bg-slate-950">`
+//! The prod Next.js page renders for **anonymous visitors**:
+//!   - `<div className="relative min-h-screen bg-gray-50 dark:bg-slate-950">`
 //!     - fixed bg layer with 3 gradient orbs
 //!     - `<div className="mx-auto max-w-7xl px-4 py-6 sm:py-8">`
 //!       - header: Heart icon + "Portfolio" + "Track your watchlisted
 //!         stocks" + "Live" badge
-//!       - `<StockSearch rankings={allRankings} />` (search input +
-//!         results grid)
-//!       - `<PortfolioGrid watchedStocks={...} />` (cards or empty state)
+//!       - purple "Unlock Full Analytics Access" upsell banner
+//!         (`bg-gradient-to-r from-purple-900/40 via-purple-800/30
+//!         to-pink-900/40`)
+//!       - blue "Sign In Required" card (`p-6 bg-blue-50 border
+//!         border-blue-200 rounded-lg dark:bg-blue-900/20
+//!         dark:border-blue-700`) with gold padlock icon, "Sign In
+//!         Required" heading, "To view your portfolio, you need
+//!         basic authentication." subtext, bright blue "Sign In"
+//!         button, blue "Learn More" link, blue "Need help?" footer
 //!
-//! The previous Wave 6A port used a tabs-based layout (Holdings /
-//! Watchlist / Transactions) which structurally diverged from prod.
-//! The T2 rewrite matches prod: header + search + watchlist grid of
-//! cards. Static seed data (6 watchlist stocks + 8 search results) is
-//! used because the BFF doesn't pre-fetch `data_portfolio` for this
-//! route (anonymous visitors see the same canned list).
+//! Authed visitors see the search input + watchlist grid (rendered
+//! when `ctx.user.is_some()`). The auth gate is a custom
+//! prod-style card (not the generic `<AuthGate>` because that has a
+//! dark navy theme + purple wallet icon, while prod uses a blue
+//! theme + gold padlock).
 
 use crate::primitives::*;
 use crate::feedback::*;
@@ -29,8 +33,6 @@ use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
-use crate::layout::PageHeader;
-use crate::auth::AuthGate;
 use crate::auth::ProgressiveAuthBanner;
 
 /// Static seed — 6 watched stocks (the prod's default watchlist for an
@@ -44,26 +46,25 @@ const WATCHED_STOCKS: &[(&str, &str, &str, f64, &str, &str)] = &[
     ("TSLA",  "Tesla Inc.",                "$245.18", -1.23, "-$3.05",  "USD"),
 ];
 
-/// Static seed — 8 search-result stocks the `<StockSearch>` dropdown
-/// shows when the user types a query.
-const SEARCH_RANKINGS: &[(&str, &str, &str, f64, &str, &str)] = &[
-    ("META",  "Meta Platforms Inc.",       "$498.21",  1.45, "+$7.12",  "USD"),
-    ("NFLX",  "Netflix Inc.",              "$612.50", -0.89, "-$5.51",  "USD"),
-    ("AMD",   "Advanced Micro Devices",    "$162.34",  3.21, "+$5.05",  "USD"),
-    ("INTC",  "Intel Corp.",               "$31.45",  -2.34, "-$0.75",  "USD"),
-    ("CRM",   "Salesforce Inc.",           "$285.67",  0.78, "+$2.21",  "USD"),
-    ("ORCL",  "Oracle Corp.",              "$125.34",  1.12, "+$1.39",  "USD"),
-    ("ADBE",  "Adobe Inc.",                "$565.21", -0.34, "-$1.93",  "USD"),
-    ("PYPL",  "PayPal Holdings Inc.",      "$68.45",   0.89, "+$0.60",  "USD"),
-];
+/// Inline CSS rules for Tailwind v2 CDN arbitrary-value classes
+/// that the CDN doesn't generate. We inject these into the page so
+/// `h-[400px]`-style dimensions and `bg-gradient-to-r` classes
+/// render correctly.
+const PORTFOLIO_INLINE_CSS: &str = r#"
+.portfolio-prod-bg > div[style*="radial-gradient"] { opacity: 1 !important; }
+.absolute.-top-40.-left-40 { width: 400px !important; height: 400px !important; }
+.absolute.top-1\/3.-right-32 { width: 300px !important; height: 300px !important; }
+"#;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::app("Portfolio");
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
-            // T2 — wrap the whole page in a relative + min-h-screen
-            // shell, then a fixed bg layer with 3 orbs (mirrors prod's
-            // bg-gray-50 dark:bg-slate-950 + bg-gradient + 3 orbs).
+            style { "{PORTFOLIO_INLINE_CSS}" }
+            // Wave 25 T2 — match prod's bg-gray-50 dark:bg-slate-950
+            // shell (we use the dark color directly because Tailwind
+            // v2 CDN drops `dark:` variants). The fixed bg layer has
+            // 3 gradient orbs + a radial dark overlay.
             div { class: "portfolio-prod-page relative min-h-screen bg-slate-950",
                 div { class: "fixed inset-0 z-0 portfolio-prod-bg",
                     div { class: "absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950" }
@@ -76,18 +77,13 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                         // Header — Heart icon + "Portfolio" + sub
                         // + "Live" badge.
                         PortfolioHeader {}
+                        // Purple "Unlock Full Analytics Access" upsell
+                        // banner — only for anon visitors (authed
+                        // users skip it).
                         if ctx.user.is_none() {
-                            ProgressiveAuthBanner { feature: Some("view your portfolio".to_string()) }
-                        }
-                        // NOTE: prod's /portfolio for anon visitors
-                        // shows a centered "Sign In Required" card
-                        // (RequireSignIn gate from
-                        // progressive-auth-gate). We render the
-                        // same gate so the pixel-diff stays near the
-                        // baseline (the watchlist grid below is for
-                        // the authed path; anon visitors see the
-                        // gate card).
-                        AuthGate { user: ctx.user.clone(), feature: Some("view your portfolio".to_string()),
+                            PortfolioUpsellBanner {}
+                            PortfolioSignInCard {}
+                        } else {
                             StockSearch {}
                             PortfolioGrid {}
                         }
@@ -109,17 +105,103 @@ fn PortfolioHeader() -> Element {
                 div { class: "portfolio-prod-icon flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500",
                     Icon { name: "heart".to_string(), size: Some(20), class_name: Some("text-white".to_string()) }
                 }
-div {
                 div {
                     h1 { class: "text-2xl font-bold text-white portfolio-prod-title", "Portfolio" }
                     p { class: "text-sm text-slate-400 portfolio-prod-subtitle", "Track your watchlisted stocks" }
                 }
             }
-            }
             div { class: "flex gap-2 portfolio-prod-badges",
                 div { class: "portfolio-prod-live flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5",
                     Icon { name: "trending-up".to_string(), size: Some(14), class_name: Some("text-emerald-400".to_string()) }
                     span { class: "text-xs font-medium text-emerald-400", "Live" }
+                }
+            }
+        }
+    }
+}
+
+/// Purple "Unlock Full Analytics Access" upsell banner. Mirrors
+/// prod's `relative mb-6 overflow-hidden rounded-2xl border
+/// border-purple-500/30 bg-gradient-to-r from-purple-900/40 via-
+/// purple-800/30 to-pink-900/40 backdrop-blur-sm`.
+#[component]
+fn PortfolioUpsellBanner() -> Element {
+    rsx! {
+        div { class: "portfolio-prod-upsell relative mb-6 overflow-hidden rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-900/40 via-purple-800/30 to-pink-900/40 backdrop-blur-sm p-6",
+            div { class: "flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
+                div { class: "flex items-start gap-3",
+                    div { class: "flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/20",
+                        Icon { name: "lock".to_string(), size: Some(20), class_name: Some("text-purple-300".to_string()) }
+                    }
+                    div {
+                        h2 { class: "text-xl font-bold text-white mb-2",
+                            "Unlock Full Analytics Access"
+                        }
+                        p { class: "text-sm text-purple-100 mb-3",
+                            "Get access to all rankings and premium features"
+                        }
+                        ul { class: "space-y-1 text-sm text-purple-100",
+                            li { class: "flex items-center gap-2",
+                                Icon { name: "check".to_string(), size: Some(14), class_name: Some("text-purple-300".to_string()) }
+                                "Top 100 stock rankings"
+                            }
+                            li { class: "flex items-center gap-2",
+                                Icon { name: "check".to_string(), size: Some(14), class_name: Some("text-purple-300".to_string()) }
+                                "Real-time EPS data"
+                            }
+                            li { class: "flex items-center gap-2",
+                                Icon { name: "check".to_string(), size: Some(14), class_name: Some("text-purple-300".to_string()) }
+                                "AI-powered insights"
+                            }
+                        }
+                    }
+                }
+                a { class: "portfolio-prod-upsell-cta group inline-flex shrink-0 items-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-500/30 transition-all duration-200 hover:-translate-y-0.5",
+                    href: "/auth",
+                    "Sign In Free"
+                }
+            }
+        }
+    }
+}
+
+/// "Sign In Required" blue card. Mirrors prod's
+/// `p-6 bg-blue-50 border border-blue-200 rounded-lg
+/// dark:bg-blue-900/20 dark:border-blue-700` panel with a gold
+/// padlock icon, "Sign In Required" heading, "To view your
+/// portfolio, you need basic authentication." subtext, a bright
+/// blue "Sign In" button, a blue "Learn More" link, and a small
+/// blue "Need help?" footer.
+#[component]
+fn PortfolioSignInCard() -> Element {
+    rsx! {
+        div { class: "portfolio-prod-signin p-6 bg-blue-900/20 border border-blue-700 rounded-lg",
+            div { class: "flex flex-col items-center text-center",
+                // Gold padlock icon
+                div { class: "mb-3",
+                    Icon { name: "lock".to_string(), size: Some(40), class_name: Some("text-yellow-400".to_string()) }
+                }
+                // Heading
+                h3 { class: "portfolio-prod-signin-title text-lg font-medium text-blue-100",
+                    "Sign In Required"
+                }
+                // Subtext
+                p { class: "portfolio-prod-signin-sub text-sm text-blue-300 mt-2 mb-4",
+                    "To view your portfolio, you need basic authentication."
+                }
+                // Primary "Sign In" button — bright blue
+                a { class: "portfolio-prod-signin-btn w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-center block",
+                    href: "/auth",
+                    "Sign In"
+                }
+                // "Learn More" link — blue text
+                a { class: "portfolio-prod-signin-link w-full px-4 py-2 text-blue-400 hover:text-blue-300 font-medium text-sm text-center block mt-1",
+                    href: "/contact",
+                    "Learn More"
+                }
+                // Footer — "Need help?"
+                p { class: "portfolio-prod-signin-footer text-xs text-blue-400 mt-4",
+                    "Need help? Check our support documentation or contact support."
                 }
             }
         }
@@ -188,20 +270,15 @@ fn StockCard(symbol: &'static str, company_name: &'static str, price: &'static s
     let change_str = if positive { format!("+{change_pct:.2}%") } else { format!("{change_pct:.2}%") };
     let rank_pill_text = if symbol == "NVDA" { "Premium" } else { "Standard" };
     rsx! {
-        // === wave25-t2 portfolio-prod stock-card ===
         div { class: "portfolio-prod-stock-card group relative h-[350px] rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-sm hover:shadow-md transition-all",
-            // Heart icon top-right (watchlisted state — filled)
             div { class: "absolute top-3 right-3 portfolio-prod-stock-heart",
                 Icon { name: "heart".to_string(), size: Some(16), class_name: Some("text-emerald-400 fill-emerald-400".to_string()) }
             }
-            // Rank pill
             div { class: "portfolio-prod-stock-rank inline-block rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-400 mb-3",
                 "{rank_pill_text}"
             }
-            // Symbol + company
             div { class: "portfolio-prod-stock-symbol text-2xl font-bold text-white mb-1", "{symbol}" }
             div { class: "portfolio-prod-stock-company text-xs text-slate-400 mb-4 truncate", "{company_name}" }
-            // Price + change
             div { class: "portfolio-prod-stock-price-row flex items-baseline gap-2 mb-3",
                 span { class: "portfolio-prod-stock-price text-xl font-bold text-white", "{price}" }
                 span {
@@ -209,11 +286,9 @@ fn StockCard(symbol: &'static str, company_name: &'static str, price: &'static s
                     "{change_str}"
                 }
             }
-            // Change amount
             div { class: if positive { "portfolio-prod-stock-change-amt text-xs text-emerald-400 mb-4" } else { "portfolio-prod-stock-change-amt text-xs text-red-400 mb-4" },
                 "{change_amount}"
             }
-            // Currency badge + EPS growth footer
             div { class: "portfolio-prod-stock-footer flex items-center justify-between pt-3 border-t border-slate-700",
                 span { class: "portfolio-prod-stock-currency text-xs text-slate-400", "{currency}" }
                 span { class: "portfolio-prod-stock-eps text-xs font-semibold text-emerald-400", "EPS ▲" }
@@ -243,6 +318,14 @@ mod tests {
                 auth_method: AuthMethod::Wallet,
                 display_name: Some("Test".to_string()),
             }),
+            path: "/portfolio".to_string(),
+            ..Default::default()
+        }
+    }
+
+    fn anon_ctx() -> PageContext {
+        PageContext {
+            user: None,
             path: "/portfolio".to_string(),
             ..Default::default()
         }
@@ -297,8 +380,51 @@ mod tests {
         let ctx = authed_ctx();
         let (_meta, el) = render(&ctx);
         let html = dioxus_ssr::render_element(el);
-        // 6 stock cards rendered.
         let card_count = html.matches("portfolio-prod-stock-card").count();
         assert_eq!(card_count, 6, "portfolio page should render 6 stock cards. Got {card_count} in: {html}");
+    }
+
+    /// Wave 25 T2 — anon visitor sees prod's purple "Unlock Full
+    /// Analytics Access" upsell banner + blue "Sign In Required"
+    /// card (with gold padlock, blue Sign In button, blue Learn More
+    /// link, blue Need help? footer).
+    #[test]
+    fn portfolio_anon_signin_card_matches_prod() {
+        let (_meta, el) = render(&anon_ctx());
+        let html = dioxus_ssr::render_element(el);
+        for marker in &[
+            "portfolio-prod-upsell",
+            "Unlock Full Analytics Access",
+            "Sign In Free",
+            "portfolio-prod-signin",
+            "p-6 bg-blue-900/20 border border-blue-700 rounded-lg",
+            "Sign In Required",
+            "To view your portfolio, you need basic authentication.",
+            "Need help? Check our support documentation",
+            "Learn More",
+            "text-yellow-400",
+        ] {
+            assert!(
+                html.contains(marker),
+                "portfolio anon should contain prod marker `{marker}`. Got: {html}"
+            );
+        }
+    }
+
+    /// Wave 25 T2 — anon visitor does NOT see the authed-user
+    /// search input or watchlist grid (those are gated behind
+    /// the sign-in card).
+    #[test]
+    fn portfolio_anon_no_search_or_grid() {
+        let (_meta, el) = render(&anon_ctx());
+        let html = dioxus_ssr::render_element(el);
+        assert!(
+            !html.contains("portfolio-prod-search-input"),
+            "anon should not see the search input (prod gates this behind sign-in)"
+        );
+        assert!(
+            !html.contains("portfolio-prod-stock-card"),
+            "anon should not see the stock cards (prod gates this behind sign-in)"
+        );
     }
 }
