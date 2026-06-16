@@ -78,10 +78,17 @@ fn apply_security_headers_to(headers: &mut axum::http::HeaderMap, _path: &str, a
         headers.insert("strict-transport-security", HeaderValue::from_static("max-age=31536000; includeSubDomains"));
     }
     if !headers.contains_key("content-security-policy") {
+        // Wave 24 t3p — `https://unpkg.com` added to script-src.
+        // The footer layout includes `<script src="https://unpkg.com/lucide@latest">`
+        // for the Lucide icon set (matches the OLD prod layout). The
+        // cdn.jsdelivr.net origin was already allowlisted; unpkg was
+        // missed. Without it, every route logged a CSP console
+        // error and the icons never rendered. Same allowlist for
+        // admin + non-admin — the footer is shared.
         let csp = if admin {
-            "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' ws: wss:; frame-ancestors 'self';"
+            "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' ws: wss:; frame-ancestors 'self';"
         } else {
-            "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' ws: wss:; frame-ancestors 'none';"
+            "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' ws: wss:; frame-ancestors 'none';"
         };
         if let Ok(v) = HeaderValue::from_str(csp) {
             headers.insert("content-security-policy", v);

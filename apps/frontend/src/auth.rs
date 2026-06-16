@@ -64,17 +64,29 @@ pub fn bearer_token(headers: &HeaderMap) -> Option<String> {
 /// reading the `epsx_token` cookie / `Authorization` header. This is
 /// the dev-loop / pixel-recheck escape hatch; default is OFF, no
 /// behavior change when unset.
+///
+/// Wave 24 t3p — if `EPSX_DEV_AUTH_FORCE_UNAUTH=1` is ALSO set, the
+/// bypass short-circuit is skipped and the request falls through to
+/// the normal JWT-verify path (which will return `None` because the
+/// dev-bypass cookie is NOT a real JWT). This is the pixel-recheck
+/// escape hatch for the `redirect-chain-differs` issue — see
+/// `epsx_bff::dev_bypass::DEV_FORCE_UNAUTH_ENV` for the full
+/// rationale. Default is OFF, no behavior change when unset.
 pub fn current_user(headers: &HeaderMap, jwt: &JwtAuth) -> Option<AuthUser> {
-    if let Some(user) = epsx_bff::dev_bypass::dev_bypass_user() {
-        return Some(user);
+    if !epsx_bff::dev_bypass::is_dev_force_unauth_enabled() {
+        if let Some(user) = epsx_bff::dev_bypass::dev_bypass_user() {
+            return Some(user);
+        }
     }
     let token = bearer_token(headers)?;
     jwt.verify(&token).ok()
 }
 
 pub fn require_user(headers: &HeaderMap, jwt: &JwtAuth) -> Result<AuthUser, AuthError> {
-    if let Some(user) = epsx_bff::dev_bypass::dev_bypass_user() {
-        return Ok(user);
+    if !epsx_bff::dev_bypass::is_dev_force_unauth_enabled() {
+        if let Some(user) = epsx_bff::dev_bypass::dev_bypass_user() {
+            return Ok(user);
+        }
     }
     let token = bearer_token(headers).ok_or(AuthError::Missing)?;
     jwt.verify(&token)
@@ -362,6 +374,7 @@ mod tests {
     fn current_user_returns_dev_admin_when_bypass_is_on() {
         let _g = BYPASS_ENV_LOCK.lock().unwrap();
         std::env::set_var("EPSX_DEV_AUTH_BYPASS", "1");
+        std::env::remove_var("EPSX_DEV_AUTH_FORCE_UNAUTH");
         let u = current_user(&empty_headers(), &dev_jwt())
             .expect("current_user should return Some when bypass is ON");
         assert_eq!(u.user_id, "dev-bypass", "bypass user_id should be the hardcoded dev-bypass");
@@ -379,6 +392,7 @@ mod tests {
     fn current_user_returns_none_when_bypass_is_off() {
         let _g = BYPASS_ENV_LOCK.lock().unwrap();
         std::env::remove_var("EPSX_DEV_AUTH_BYPASS");
+        std::env::remove_var("EPSX_DEV_AUTH_FORCE_UNAUTH");
         // No token in the headers → current_user must return None,
         // NOT fall through to the bypass (which is off).
         let u = current_user(&empty_headers(), &dev_jwt());
@@ -401,6 +415,7 @@ mod tests {
         // mode, no client cooperation needed.
         let _g = BYPASS_ENV_LOCK.lock().unwrap();
         std::env::set_var("EPSX_DEV_AUTH_BYPASS", "1");
+        std::env::remove_var("EPSX_DEV_AUTH_FORCE_UNAUTH");
         let mut h = HeaderMap::new();
         // Add a bogus cookie + bearer — the bypass must ignore them.
         h.insert("cookie", "epsx_token=bogus".parse().unwrap());
@@ -410,5 +425,32 @@ mod tests {
         assert_eq!(u.user_id, "dev-bypass");
         assert_eq!(u.address, "0x000000000000000000000000000000000000d3v1");
         std::env::remove_var("EPSX_DEV_AUTH_BYPASS");
+    }
+
+    // ── Wave 24 t3p — force-unauth override ───────────────────────
+    //
+    // `EPSX_DEV_AUTH_FORCE_UNAUTH=1` flips the bypass short-circuit
+    // off. With both vars set, `current_user` must return None when
+    // the request carries no real JWT, mirroring the unauth prod
+    // baseline for the pixel-recheck harness.
+    #[test]
+    fn current_user_force_unauth_overrides_bypass() {
+        let _g = BYPASS_ENV_LOCK.lock().unwrap();
+        std::env::set_var("EPSX_DEV_AUTH_BYPASS", "1");
+        std::env::set_var("EPSX_DEV_AUTH_FORCE_UNAUTH", "1");
+        // No real token in the headers; with force-unauth, the bypass
+        // must NOT short-circuit. JWT verify fails on no token → None.
+        let u = current_user(&empty_headers(), &dev_jwt());
+        assert!(u.is_none(),
+                "current_user must return None when both bypass and force-unauth are ON. \
+                 Got: {u:?}");
+        // require_user must return Err(Missing) — not Ok(dev-bypass).
+        let r = require_user(&empty_headers(), &dev_jwt());
+        assert!(r.is_err(),
+                "require_user must return Err(Missing) when both bypass and force-unauth are ON. \
+                 Got: {r:?}");
+        // Clean up both vars so the other tests don't see a leak.
+        std::env::remove_var("EPSX_DEV_AUTH_BYPASS");
+        std::env::remove_var("EPSX_DEV_AUTH_FORCE_UNAUTH");
     }
 }

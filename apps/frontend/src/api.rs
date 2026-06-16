@@ -672,14 +672,29 @@ pub async fn api_news(_state: State<AppState>) -> Json<serde_json::Value> {
     // dev `NewsPost` render model wants, so the page renders a
     // real-looking card without falling back to the OLD 3-post
     // hardcoded list.
+    // Wave 24 t3p — sync the dev BFF news fallback list to the prod
+    // slugs captured by T1's prod baseline
+    // (tools/e2e/baselines/prod/news.html). The OLD list (7 entries,
+    // engineering-team slugs) didn't match the prod HTML (10 entries,
+    // content-team slugs), so the T1 E2E harness's
+    // `missing-hrefs` issue list lit up
+    // (`/news/strategic-roadmap-future`, etc.) every cycle. The
+    // content service is in `ImagePullBackOff` (wave 22 follow-up
+    // #2) so we can't fetch the live prod list — the slugs below
+    // are pulled from the captured prod HTML. Titles / excerpts /
+    // tags are best-effort stubs (prod renders only title + slug +
+    // tags, so the extras won't show in the dev baseline anyway).
     let articles = vec![
-        article("scalable-foundation", "Building a scalable foundation", "How we architected a 9-service Rust backend.", "2025-01-15", &["Engineering", "Architecture"], "/news-img/scalable-foundation.png", true),
-        article("optimizing-high-throughput-analytics-rust", "Optimizing high-throughput analytics", "Sub-millisecond EPS ranking over 8.5M data points.", "2025-01-10", &["Engineering", "Rust"], "/news-img/optimizing.png", false),
-        article("real-time-intelligence", "Real-time intelligence, made simple", "How we made complex analytics feel instant.", "2025-01-05", &["Product", "UX"], "/news-img/realtime.png", false),
-        article("securing-the-future", "Securing the future", "SIWE, RBAC, audit logs, and rate limiting.", "2024-12-28", &["Engineering", "Security"], "/news-img/securing.png", false),
-        article("smarter-decisions-ai", "Smarter decisions, with AI", "Layering machine learning on top of on-chain data.", "2024-12-20", &["Product", "AI"], "/news-img/ai.png", false),
-        article("paymaster", "Paymaster gas sponsorship", "Premium users can pay with zero gas.", "2024-12-15", &["Product", "Web3"], "/news-img/paymaster.png", false),
-        article("subscription-vaults", "Subscription vaults", "Per-merchant stream-based subscription contracts on BSC.", "2024-12-10", &["Engineering", "Smart Contracts"], "/news-img/vaults.png", false),
+        article("strategic-roadmap-future", "Strategic Roadmap and Future Capabilities", "A preview of upcoming system enhancements, including automated alerts and expanded analytical depth.", "2025-02-01", &["roadmap", "strategy"], "/news-img/strategic-roadmap-future.png", true),
+        article("enhanced-portfolio-management", "Enhanced Portfolio Management Solutions", "Tools and insights for the modern portfolio manager.", "2025-02-01", &["portfolio", "product"], "/news-img/enhanced-portfolio-management.png", false),
+        article("service-tier-alignment", "Integrated Service Solutions: Professional Tier Alignment", "How EPSX services scale across professional subscription tiers.", "2025-02-01", &["service", "tiers"], "/news-img/service-tier-alignment.png", false),
+        article("performance-metrics-positioning", "Proprietary Performance Metrics and Strategic Positioning", "The metrics that set EPSX apart.", "2025-02-01", &["metrics", "strategy"], "/news-img/performance-metrics-positioning.png", false),
+        article("strategic-launch-epsx", "Strategic Launch of EPSX: Institutional-Grade Market Insights", "Our strategic launch announcement.", "2025-02-01", &["launch", "announcement"], "/news-img/strategic-launch-epsx.png", false),
+        article("optimizing-high-throughput-analytics-rust", "Strategic Analysis Performance for Operational Excellence", "How EPSX leverages high-performance data processing to deliver precise rankings and insights.", "2025-02-01", &["performance", "engineering"], "/news-img/optimizing-high-throughput-analytics-rust.png", false),
+        article("real-time-market-data-redis-streams", "Real-Time Intelligence: Capturing Market Opportunities as They Happen", "How the EPSX dashboard removes the gap between on-chain events and your decision-making.", "2025-02-01", &["real-time", "redis"], "/news-img/real-time-market-data-redis-streams.png", false),
+        article("future-secure-web3-auth", "Securing the Future: Enterprise-Grade Trust in a Web3 World", "SIWE, RBAC, audit logs, and rate limiting.", "2025-02-01", &["security", "web3"], "/news-img/future-secure-web3-auth.png", false),
+        article("scalable-postgresql-time-series", "Built for Ambition: A Scalable Foundation for Global Analytics", "Scaling a global analytics platform with an industrial-strength architecture.", "2025-02-01", &["database", "scalability"], "/news-img/scalable-postgresql-time-series.png", false),
+        article("predictive-ai-models-market-sentiment", "Smarter Decisions: How EPSX AI Navigates Market Complexity", "Layering machine learning on top of on-chain data.", "2025-02-01", &["ai", "product"], "/news-img/predictive-ai-models-market-sentiment.png", false),
     ];
     let total = articles.len();
     Json(serde_json::json!({ "articles": articles, "total": total }))

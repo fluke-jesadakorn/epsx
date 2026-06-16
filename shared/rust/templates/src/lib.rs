@@ -3670,7 +3670,16 @@ pub fn design_system_head(title: &str, description: &str) -> String {
   .manual-category-details > summary::-webkit-details-marker {{ display: none; }}
   .manual-category-title {{ font-size: 1.25rem; font-weight: 700; margin: 0; }}
   .manual-category-count {{ font-size: 0.75rem; color: var(--text-muted, #94a3b8); }}
-  .manual-feature-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; padding: 0.5rem 0 1rem; }}
+  .manual-feature-grid {{
+    display: grid; grid-template-columns: 1fr;
+    gap: 1.5rem; padding: 0.5rem 0 1rem;
+  }}
+  @media (min-width: 640px) {{
+    .manual-feature-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+  }}
+  @media (min-width: 1024px) {{
+    .manual-feature-grid {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
+  }}
   .manual-feature-card {{ display: flex; flex-direction: column; padding: 0; overflow: hidden; }}
   .manual-feature-screenshot {{
     aspect-ratio: 16 / 9; background: rgba(0,0,0,0.2);
