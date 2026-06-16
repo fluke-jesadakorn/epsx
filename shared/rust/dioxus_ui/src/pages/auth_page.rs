@@ -7,7 +7,70 @@ use crate::auth::ConnectButton;
 use crate::auth::ConnectButtonSize;
 use crate::layout::main_layout::AuthLayout;
 
-const AUTH_HYDRATION_SCRIPT: &str = "(function(){var t=localStorage.getItem('epsx_token');if(t){var d=new URLSearchParams(location.search).get('return_url')||'/';location.replace(d);}window.addEventListener('storage',function(){var t=localStorage.getItem('epsx_token');if(t)location.replace('/');});})();";
+/// Auth-page hydration script — runs after the SSR HTML is in the
+/// DOM and watches for the SIWE / OAuth / demo login to complete.
+///
+/// The script must be defensive:
+/// - The dev BFF may set the auth token in a cookie OR in
+///   `localStorage` (the latter written by the post-login handler
+///   in a future wave; for now the dev flow is cookie-only).
+/// - The return URL may come from EITHER the `?return_url=<path>`
+///   query string OR the `epsx_return_url` cookie the SSR redirect
+///   sets (matching prod's `epsx.return_url` cookie, see
+///   `apps-old/frontend/middleware.ts::handleUnauthenticated`).
+/// - We poll for the auth signal at a fixed interval — the
+///   `storage` event alone isn't enough because the dev flow
+///   uses cookies, not `localStorage` writes.
+///
+/// Wave 23 T3 — the redirect target is read from the query string
+/// first (URL is the source of truth for in-flight bounces), then
+/// the cookie (set by the SSR redirect layer), then `/` as a final
+/// fallback. The script never blocks — it just sets a timer that
+/// resolves either when the auth signal arrives or after 60s.
+const AUTH_HYDRATION_SCRIPT: &str = r#"(function(){
+  function readCookie(name){
+    var m=document.cookie.match(new RegExp('(^|; )'+name+'=([^;]*)'));
+    return m?decodeURIComponent(m[2]):'';
+  }
+  function getReturnUrl(){
+    var q=new URLSearchParams(location.search).get('return_url');
+    if(q) return q;
+    var c=readCookie('epsx_return_url');
+    if(c) return c;
+    return '/';
+  }
+  function isAuthed(){
+    if(localStorage.getItem('epsx_token')) return true;
+    if(readCookie('epsx_token')) return true;
+    return false;
+  }
+  function clearReturnUrlCookie(){
+    document.cookie='epsx_return_url=; Path=/; Max-Age=0';
+  }
+  if(isAuthed()){
+    var d=getReturnUrl();
+    clearReturnUrlCookie();
+    location.replace(d);
+    return;
+  }
+  var n=0;
+  var t=setInterval(function(){
+    n++;
+    if(isAuthed()){
+      clearInterval(t);
+      var d=getReturnUrl();
+      clearReturnUrlCookie();
+      location.replace(d);
+    } else if(n>=120){ clearInterval(t); }
+  },500);
+  window.addEventListener('storage',function(){
+    if(localStorage.getItem('epsx_token')){
+      var d=getReturnUrl();
+      clearReturnUrlCookie();
+      location.replace(d);
+    }
+  });
+})();"#;
 
 /// Auth page (`/auth`). Wave 5 Track A port — see
 /// `docs/wave5-page-depth/design.md` §"Track A — Hero pages" /

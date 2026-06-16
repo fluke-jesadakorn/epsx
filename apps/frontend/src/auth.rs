@@ -338,4 +338,77 @@ mod tests {
         sorted.sort();
         assert_eq!(perms, sorted, "permissions_for_roles must return sorted output");
     }
+
+    // ── Wave 23 T3 — `current_user` dev-bypass short-circuit ─────
+    //
+    // `current_user` MUST return the hardcoded dev admin when
+    // `EPSX_DEV_AUTH_BYPASS=1`, regardless of the request headers.
+    // This is the pixel-recheck / dev-loop escape hatch — the
+    // harness sets the env var and the SSR layer treats every
+    // request as logged in. Default OFF (env var unset) must
+    // fall through to the normal JWT-verify path.
+    //
+    // `std::env::set_var` is not thread-safe; serialize with a
+    // Mutex to avoid races against parallel tests in the same
+    // process. (Per `memory/tokio-runtime-quirks.md`.)
+    use std::sync::Mutex;
+    static BYPASS_ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    fn empty_headers() -> HeaderMap { HeaderMap::new() }
+
+    fn dev_jwt() -> Arc<JwtAuth> { jwt_auth_from_env() }
+
+    #[test]
+    fn current_user_returns_dev_admin_when_bypass_is_on() {
+        let _g = BYPASS_ENV_LOCK.lock().unwrap();
+        std::env::set_var("EPSX_DEV_AUTH_BYPASS", "1");
+        let u = current_user(&empty_headers(), &dev_jwt())
+            .expect("current_user should return Some when bypass is ON");
+        assert_eq!(u.user_id, "dev-bypass", "bypass user_id should be the hardcoded dev-bypass");
+        assert_eq!(u.address, "0x000000000000000000000000000000000000d3v1",
+                   "bypass address should be the 20-byte hex placeholder, not a real wallet");
+        assert!(u.is_admin(), "bypass user must satisfy is_admin() so AdminAuthGate passes");
+        // require_user must also short-circuit through the bypass.
+        let r = require_user(&empty_headers(), &dev_jwt())
+            .expect("require_user should return Ok when bypass is ON");
+        assert_eq!(r.user_id, "dev-bypass");
+        std::env::remove_var("EPSX_DEV_AUTH_BYPASS");
+    }
+
+    #[test]
+    fn current_user_returns_none_when_bypass_is_off() {
+        let _g = BYPASS_ENV_LOCK.lock().unwrap();
+        std::env::remove_var("EPSX_DEV_AUTH_BYPASS");
+        // No token in the headers → current_user must return None,
+        // NOT fall through to the bypass (which is off).
+        let u = current_user(&empty_headers(), &dev_jwt());
+        assert!(u.is_none(),
+                "current_user must return None when bypass is OFF and no token is present. \
+                 Got: {u:?}");
+        // require_user must also return Missing.
+        let r = require_user(&empty_headers(), &dev_jwt());
+        assert!(r.is_err(),
+                "require_user must return Err(Missing) when bypass is OFF and no token is present. \
+                 Got: {r:?}");
+    }
+
+    #[test]
+    fn current_user_bypass_ignores_request_headers() {
+        // The dev bypass should NOT inspect the `Cookie` or
+        // `Authorization` headers — it returns the hardcoded user
+        // regardless. This is the core guarantee: setting the
+        // env var turns the whole BFF into a "logged in as admin"
+        // mode, no client cooperation needed.
+        let _g = BYPASS_ENV_LOCK.lock().unwrap();
+        std::env::set_var("EPSX_DEV_AUTH_BYPASS", "1");
+        let mut h = HeaderMap::new();
+        // Add a bogus cookie + bearer — the bypass must ignore them.
+        h.insert("cookie", "epsx_token=bogus".parse().unwrap());
+        h.insert("authorization", "Bearer also-bogus".parse().unwrap());
+        let u = current_user(&h, &dev_jwt())
+            .expect("bypass must return the dev admin regardless of incoming headers");
+        assert_eq!(u.user_id, "dev-bypass");
+        assert_eq!(u.address, "0x000000000000000000000000000000000000d3v1");
+        std::env::remove_var("EPSX_DEV_AUTH_BYPASS");
+    }
 }

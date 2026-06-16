@@ -42,6 +42,173 @@ pub struct NewsQuery {
 
 pub async fn api_health() -> &'static str { "ok" }
 
+/// Wave 23 T3 — OAuth start handler (`/api/v1/auth/oauth/{provider}`).
+///
+/// The auth page's "Continue with Google" button (`pages/auth_page.rs`)
+/// links to `/api/v1/auth/oauth/google`. Pre-wave-23 the dev BFF had
+/// no route registered, so the click fell through to the SSR fallback
+/// and rendered the `/auth` page (200 OK) — the click was *silently*
+/// observable only as a navigation back to the auth page.
+///
+/// This handler returns a 501 with a clear "not implemented" JSON
+/// body. The browser shows the error in DevTools and the click
+/// handler can detect the failure. The response is intentionally
+/// NOT a 302 redirect to `/auth?error=...` — we don't want the user
+/// to think the OAuth flow succeeded when the backend has no
+/// provider integration yet.
+///
+/// When the Rust identity service grows an OAuth start handler
+/// (`/api/v1/identity/auth/oauth/{provider}/start` style), this
+/// route becomes a thin proxy that 307-redirects to the identity
+/// service's start URL, passing through the `?return_url=` and any
+/// CSRF/PKCE state. The handler is structured so the upgrade is a
+/// single `match` arm swap, not a rewrite.
+pub async fn api_oauth_start(
+    AxPath(provider): AxPath<String>,
+) -> Response {
+    // Whitelist the providers the auth page actually exposes.
+    // Anything else returns 404 to avoid a SSRF probe surface.
+    let allowed = matches!(provider.as_str(), "google" | "github" | "apple" | "twitter");
+    if !allowed {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "error": "unknown_provider",
+                "provider": provider,
+                "allowed": ["google", "github", "apple", "twitter"],
+            })),
+        )
+            .into_response();
+    }
+    (
+        StatusCode::NOT_IMPLEMENTED,
+        Json(serde_json::json!({
+            "error": "oauth_not_configured",
+            "provider": provider,
+            "message": "OAuth provider integration is not yet wired in the dev BFF. Use the wallet / demo / email auth flows instead.",
+        })),
+    )
+        .into_response()
+}
+
+#[cfg(test)]
+mod oauth_tests {
+    //! Unit tests for the wave-23-T3 OAuth start stub.
+    //!
+    //! The handler is a placeholder until the Rust identity service
+    //! grows a real provider-redirect integration. These tests pin
+    //! the current shape: 501 for whitelisted providers, 404 for
+    //! unknown providers, and a clear JSON body so the click is
+    //! observable in DevTools (not a silent 404).
+    use super::*;
+    use axum::http::StatusCode;
+
+    #[tokio::test]
+    async fn oauth_start_returns_501_for_google() {
+        let r = api_oauth_start(AxPath("google".to_string())).await;
+        assert_eq!(r.status(), StatusCode::NOT_IMPLEMENTED);
+        let body = r.into_body();
+        // Drain the body to a string for the JSON-shape assertion.
+        let bytes = axum::body::to_bytes(body, 1024).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(v["error"], "oauth_not_configured");
+        assert_eq!(v["provider"], "google");
+        assert!(v["message"].as_str().unwrap().contains("not yet wired"));
+    }
+
+    #[tokio::test]
+    async fn oauth_start_returns_501_for_github_apple_twitter() {
+        for provider in ["github", "apple", "twitter"] {
+            let r = api_oauth_start(AxPath(provider.to_string())).await;
+            assert_eq!(
+                r.status(),
+                StatusCode::NOT_IMPLEMENTED,
+                "{provider} should be in the allow-list and return 501"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn oauth_start_returns_404_for_unknown_provider() {
+        // SSRF probe guard: providers outside the allow-list must
+        // return 404, not 501. This prevents a probe-for-anything
+        // surface from being exposed even before the real OAuth
+        // integration is wired.
+        for provider in ["facebook", "okta", "auth0", "../../etc/passwd"] {
+            let r = api_oauth_start(AxPath(provider.to_string())).await;
+            assert_eq!(
+                r.status(),
+                StatusCode::NOT_FOUND,
+                "{provider} should be outside the allow-list and return 404"
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod logout_tests {
+    //! Unit tests for the wave-23-T3 logout endpoint.
+    //!
+    //! Pins the post-wave-23 contract: the dev logout handler must
+    //! clear EVERY auth-related cookie the dev BFF writes (4 SIWE
+    //! cookies + 1 return_url cookie), not just the bearer. The
+    //! prod Vercel middleware clears 7 cookies on logout
+    //! (`shared/auth/middleware.ts::handleAuthenticatedOnLogin`);
+    //! the dev shape is a strict subset (4 + 1) and must remain
+    //! consistent. A new cookie added to the SIWE / demo login
+    //! flow without a corresponding `build_clear_cookie` line in
+    //! `logout` would silently leak — this test catches that.
+    use super::*;
+    use axum::http::header;
+
+    #[tokio::test]
+    async fn logout_clears_all_known_auth_cookies() {
+        let r = logout().await;
+        assert_eq!(r.status(), StatusCode::OK);
+
+        // Collect the Set-Cookie header values (may be more than one).
+        let cookies: Vec<String> = r
+            .headers()
+            .get_all(header::SET_COOKIE)
+            .iter()
+            .map(|h| h.to_str().unwrap_or("").to_string())
+            .collect();
+
+        // Each expected cookie name must appear with `Max-Age=0`
+        // (the conventional "delete" shape in the dev BFF).
+        for name in [
+            "epsx_token",
+            "epsx_user_id",
+            "epsx_user_address",
+            "epsx_chain_id",
+            "epsx_return_url",
+        ] {
+            let hit = cookies.iter().find(|c| c.starts_with(&format!("{name}=")));
+            assert!(
+                hit.is_some(),
+                "logout must clear cookie {name}, but only emitted: {cookies:?}"
+            );
+            let v = hit.unwrap();
+            assert!(
+                v.contains("Max-Age=0"),
+                "logout cookie {name} must have Max-Age=0 to actually delete it. Got: {v}"
+            );
+            assert!(
+                v.contains("Path=/"),
+                "logout cookie {name} must have Path=/ to match the original Set-Cookie path. Got: {v}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn logout_response_body_is_ok() {
+        let r = logout().await;
+        let bytes = axum::body::to_bytes(r.into_body(), 1024).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(v["ok"], true);
+    }
+}
+
 pub async fn get_page(
     State(state): State<AppState>,
     AxPath(slug): AxPath<String>,
@@ -234,7 +401,33 @@ pub async fn refresh_token(State(state): State<AppState>) -> Response {
 
 pub async fn logout() -> Response {
     let mut response = Json(serde_json::json!({"ok": true})).into_response();
-    for name in ["epsx_token", "epsx_user_id", "epsx_user_address", "epsx_chain_id"] {
+    // Wave 23 T3 — clear ALL auth-related cookies, including the
+    // dev's `epsx.return_url` post-login bounce cookie. Prod's
+    // Vercel middleware clears seven cookies on logout
+    // (`shared/auth/middleware.ts::handleAuthenticatedOnLogin`):
+    // `epsx.access_token`, `epsx.refresh_token`, `epsx.id_token`,
+    // `epsx.user`, `epsx.sid`, `epsx.auth_time`, `epsx.expires_at`.
+    //
+    // The dev BFF uses a simpler four-cookie set (`epsx_token`,
+    // `epsx_user_id`, `epsx_user_address`, `epsx_chain_id`),
+    // corresponding to the dev's SIWE / demo login response shape
+    // (see `siwe_login` + `demo_login` in this file). Plus
+    // `epsx_return_url` which is set by the SSR layer on unauth
+    // redirects (mirroring the prod Vercel middleware's
+    // `epsx.return_url` cookie). The cookie is `__Host-` prefixed
+    // in prod but the dev shape is the unprefixed form — the
+    // `build_clear_cookie` helper uses the same `Path=/; HttpOnly;
+    // SameSite=Lax; Max-Age=0` shape for all names, which works
+    // for both prefixed and unprefixed variants because the
+    // browser matches on the `Name=...; Path=...; Max-Age=0`
+    // tuple, not the prefix.
+    for name in [
+        "epsx_token",
+        "epsx_user_id",
+        "epsx_user_address",
+        "epsx_chain_id",
+        "epsx_return_url",
+    ] {
         if let Ok(v) = super::auth::build_clear_cookie(name).parse() {
             response.headers_mut().append("set-cookie", v);
         }

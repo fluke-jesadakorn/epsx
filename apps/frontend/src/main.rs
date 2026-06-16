@@ -133,6 +133,15 @@ async fn main() {
         .route("/api/v1/auth/refresh", post(refresh_token))
         .route("/api/v1/auth/logout", post(logout))
         .route("/api/v1/auth/me", get(auth_me))
+        // Wave 23 T3 — OAuth start route. The auth page links to
+        // `/api/v1/auth/oauth/{provider}` (e.g. `google`) and the
+        // dev BFF must respond with a real HTTP status (not 404) so
+        // the click is observable. We 501 with a clear "not
+        // implemented" JSON when the backend identity service has no
+        // OAuth integration yet (current state of the Rust backend
+        // — see `shared/rust/epsx-identity-shared`); a future wave
+        // can wire the real provider redirect.
+        .route("/api/v1/auth/oauth/{provider}", get(api_oauth_start))
         .route("/api/v1/notifications", any(notifications_api))
         .route("/api/v1/notifications/{id}/read", post(notification_read))
         .route("/api/v1/notifications/{id}/delete", post(notification_delete))
