@@ -211,9 +211,16 @@ async fn fetch_page_data(
     use epsx_client::RequestContext;
     let _ = user; // suppress unused warning until more endpoints are wired
 
-    // /dashboard: fetch stat cards + recent activity
-    if path == "/dashboard" && user.is_some() {
-        if let Ok(v) = state.analytics.get_with_ctx("/api/v1/analytics/metrics/dashboard", &RequestContext::from_headers(headers)).await {
+    // /dashboard: fetch stat cards + recent activity.
+    // Wave 23 T5 — use the BFF's own `/api/v1/dashboard` endpoint
+    // (which returns a payload matching the dev `DashboardData`
+    // struct) rather than the analytics service's missing
+    // `/api/v1/analytics/metrics/dashboard` endpoint. Same shape
+    // the page expects; no double hop.
+    if path == "/dashboard" {
+        if let Ok(v) = state.analytics.get_plain("/api/v1/dashboard").await {
+            params.insert("data_dashboard".into(), v.to_string());
+        } else if let Ok(v) = state.analytics.get_with_ctx("/api/v1/analytics/metrics/dashboard", &RequestContext::from_headers(headers)).await {
             params.insert("data_dashboard".into(), v.to_string());
         }
     }
@@ -223,23 +230,122 @@ async fn fetch_page_data(
             params.insert("data_notifications".into(), v.to_string());
         }
     }
-    // /plans: fetch plans
+    // /plans: fetch plans. Wave 23 T5 — try the BFF's own
+    // `/api/v1/plans` endpoint FIRST (returns the content-service
+    // plans.json shape with all the prod `category` / `title` /
+    // `price_usd` / `discount_pct` fields). The
+    // subscription-service raw array shape is also accepted by
+    // `plans.rs::extract_plans`, so we fall back to it if the BFF
+    // call fails. The content-service endpoint comes last (it's
+    // the canonical shape but the content service is in
+    // `ImagePullBackOff` per wave-22 follow-up #2).
     if path == "/plans" {
-        if let Ok(v) = state.subscription.get_plain("/api/v1/subscription/plans").await {
+        if let Ok(v) = state.subscription.get_plain("/api/v1/plans").await {
+            params.insert("data_plans".into(), v.to_string());
+        } else if let Ok(v) = state.subscription.get_plain("/api/v1/subscription/plans").await {
+            params.insert("data_plans".into(), v.to_string());
+        } else if let Ok(v) = state.content.get_plain("/api/v1/content/plans").await {
             params.insert("data_plans".into(), v.to_string());
         }
     }
-    // /news: fetch news
+    // /news: fetch news. Wave 23 T5 — try the BFF's own
+    // `/api/v1/news` endpoint first (returns the content-service
+    // `articles` shape with the dev page's `tags` / `read_time` /
+    // `author` / `cover_image_url` fields). Falls back to the
+    // content service for prod parity (also dead, but the right
+    // path when it comes back).
     if path == "/news" {
-        if let Ok(v) = state.content.get_plain("/api/v1/content/news").await {
+        if let Ok(v) = state.content.get_plain("/api/v1/news").await {
+            params.insert("data_news".into(), v.to_string());
+        } else if let Ok(v) = state.content.get_plain("/api/v1/content/news").await {
             params.insert("data_news".into(), v.to_string());
         }
     }
-    // /portfolio: fetch holdings
-    if path.starts_with("/portfolio") && user.is_some() {
+    // /news/[slug]: fetch the article body. Wave 23 T5 — try the
+    // BFF's own `/api/v1/news/<slug>` first (returns a markdown
+    // body the dev `news_detail.rs::body_to_chunks` parser can
+    // chunk). Falls back to the content service
+    // `/api/v1/content/news/<slug>` for prod parity.
+    if path.starts_with("/news/") {
+        if let Some(slug) = path.strip_prefix("/news/").map(|s| s.trim_end_matches('/').to_string()) {
+            if !slug.is_empty() && !slug.contains('/') {
+                if let Ok(v) = state.content.get_plain(&format!("/api/v1/news/{}", slug)).await {
+                    params.insert("data_news_post".into(), v.to_string());
+                } else if let Ok(v) = state.content.get_plain(&format!("/api/v1/content/news/{}", slug)).await {
+                    params.insert("data_news_post".into(), v.to_string());
+                }
+            }
+        }
+    }
+    // /portfolio: fetch holdings. Wave 23 T5 — try the BFF's own
+    // `/api/v1/portfolio/<addr>` endpoint first (returns a
+    // payload matching the dev `HoldingsTable` row tuple). Falls
+    // back to the wallet service (which has no portfolio endpoint
+    // today but is the right path when it gets one).
+    if path.starts_with("/portfolio") {
         if let Some(addr) = user.as_ref().map(|u| u.address.clone()) {
-            if let Ok(v) = state.wallet.get_plain(&format!("/api/v1/wallet/portfolio/{}", addr)).await {
+            if let Ok(v) = state.wallet.get_plain(&format!("/api/v1/portfolio/{}", addr)).await {
                 params.insert("data_portfolio".into(), v.to_string());
+            } else if let Ok(v) = state.wallet.get_plain(&format!("/api/v1/wallet/portfolio/{}", addr)).await {
+                params.insert("data_portfolio".into(), v.to_string());
+            }
+        }
+    }
+    // /account: wallet address + member-since + balance + method.
+    // Wave 23 T5 — was previously not wired, page always rendered
+    // the OLD "Not Connected / Join Now / $0 / Web3 Vault"
+    // placeholder set. Now `data_account` returns either the user's
+    // real values (authed) or the placeholder (anon).
+    if path == "/account" {
+        if let Ok(v) = state.identity.get_plain("/api/v1/account").await {
+            params.insert("data_account".into(), v.to_string());
+        } else if let Ok(v) = state.identity.get_plain("/api/v1/auth/me").await {
+            params.insert("data_account".into(), v.to_string());
+        }
+    }
+    // /account/credits: lifetime earned/spent + transactions.
+    // Wave 23 T5 — was previously not wired, page always rendered
+    // the OLD "$0 / no transactions" baseline.
+    if path == "/account/credits" {
+        if let Ok(v) = state.identity.get_plain("/api/v1/credits").await {
+            params.insert("data_credits".into(), v.to_string());
+        }
+    }
+    // /developer: stats cards + API key list.
+    // Wave 23 T5 — was previously not wired, the page rendered its
+    // hardcoded `sample_api_keys()` fixture for everyone.
+    if path == "/developer" {
+        if let Ok(v) = state.identity.get_plain("/api/v1/developer").await {
+            params.insert("data_developer".into(), v.to_string());
+        }
+    }
+    if path == "/developer/usage" {
+        if let Ok(v) = state.identity.get_plain("/api/v1/developer/usage").await {
+            params.insert("data_developer_usage".into(), v.to_string());
+        }
+    }
+    if path == "/developer/docs" {
+        if let Ok(v) = state.identity.get_plain("/api/v1/developer/docs").await {
+            params.insert("data_developer_docs".into(), v.to_string());
+        }
+    }
+    // /analytics: summary stats + top movers.
+    // Wave 23 T5 — was previously not wired.
+    if path == "/analytics" {
+        if let Ok(v) = state.analytics.get_plain("/api/v1/analytics/summary").await {
+            params.insert("data_analytics".into(), v.to_string());
+        }
+    }
+    // /payment/intent/[id]: payment intent details.
+    // Wave 23 T5 — was previously not wired. The dev `payment.rs`
+    // reads `type` + `id` from the path params but ignores them
+    // (renders a static form), so this is a forward-looking hook.
+    if path.starts_with("/payment/intent/") {
+        if let Some(id) = path.strip_prefix("/payment/intent/").map(|s| s.trim_end_matches('/').to_string()) {
+            if !id.is_empty() {
+                if let Ok(v) = state.payment.get_plain(&format!("/api/v1/payment/{}", id)).await {
+                    params.insert("data_payment".into(), v.to_string());
+                }
             }
         }
     }

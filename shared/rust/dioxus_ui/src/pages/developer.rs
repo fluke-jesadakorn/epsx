@@ -72,6 +72,66 @@ struct ApiKey {
     usage_count: u64,
 }
 
+// Wave 23 T5 — `ApiKey` is the internal render model (no
+// `Deserialize` derive, used directly in `ApiKeysList`). The
+// BFF's `data_developer` payload has the same field names, so we
+// add a `Deserialize` derive here and rely on serde to do a
+// field-by-field match. The OLD code didn't have a `Deserialize`
+// derive because the page rendered hardcoded `sample_api_keys()`
+// for every visitor.
+#[derive(Clone, Debug, serde::Deserialize, PartialEq)]
+struct ApiKeyWire {
+    #[serde(default)] id: String,
+    #[serde(default)] name: String,
+    #[serde(default)] key: String,
+    #[serde(default)] scopes: Vec<String>,
+    #[serde(default)] is_active: bool,
+    #[serde(default)] created_at: String,
+    #[serde(default)] usage_count: u64,
+}
+
+impl From<ApiKeyWire> for ApiKey {
+    fn from(w: ApiKeyWire) -> Self {
+        ApiKey {
+            id: w.id, name: w.name, key: w.key,
+            scopes: w.scopes, is_active: w.is_active,
+            created_at: w.created_at, usage_count: w.usage_count,
+        }
+    }
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+struct DeveloperStatsWire {
+    #[serde(default)] tier: String,
+    #[serde(default)] rate_limit: String,
+    #[serde(default)] total_usage: u64,
+    #[serde(default)] expires: String,
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+struct DeveloperData {
+    #[serde(default)] stats: Option<DeveloperStatsWire>,
+    #[serde(default)] api_keys: Option<Vec<ApiKeyWire>>,
+}
+
+impl DeveloperStatsWire {
+    fn into_props(self) -> DeveloperStatsProps {
+        DeveloperStatsProps {
+            tier: self.tier,
+            rate_limit: self.rate_limit,
+            total_usage: self.total_usage,
+            expires: self.expires,
+        }
+    }
+}
+
+struct DeveloperStatsProps {
+    tier: String,
+    rate_limit: String,
+    total_usage: u64,
+    expires: String,
+}
+
 fn sample_api_keys() -> Vec<ApiKey> {
     vec![
         ApiKey {
@@ -951,7 +1011,22 @@ fn DeveloperOverviewBody(ctx: PageContext) -> Element {
     // Local state for create-form permission selection.
     let mut selected_perms = use_signal(|| vec!["read".to_string(), "analytics:read".to_string()]);
 
-    let api_keys = sample_api_keys();
+    // Wave 23 T5 — read live data from `data_developer` (BFF proxy:
+    // /api/v1/developer). The OLD page rendered hardcoded
+    // `sample_api_keys()` for every visitor. With the BFF wired, the
+    // page renders the real API key list + real stats. Falls back to
+    // the static sample set when the BFF hasn't supplied data
+    // (admin BFF, dev mode, etc.) so the surface area stays
+    // unit-testable.
+    let data: Option<DeveloperData> = ctx.params.get("data_developer")
+        .and_then(|s| serde_json::from_str(s).ok());
+    let api_keys: Vec<ApiKey> = data.as_ref()
+        .and_then(|d| d.api_keys.clone())
+        .map(|v| v.into_iter().map(ApiKey::from).collect())
+        .unwrap_or_else(sample_api_keys);
+    let stats: Option<DeveloperStatsProps> = data.as_ref()
+        .and_then(|d| d.stats.clone())
+        .map(|s| s.into_props());
     let available = sample_permissions_available();
 
     rsx! {
@@ -968,13 +1043,13 @@ fn DeveloperOverviewBody(ctx: PageContext) -> Element {
                         }
                         // 1. Stats cards
                         DeveloperStatsCards {
-                            api_access: "Active".to_string(),
+                            api_access: stats.as_ref().map(|s| s.tier.clone()).unwrap_or_else(|| "Active".to_string()),
                             api_access_sub: Some("Pro, Enterprise".to_string()),
-                            rate_limit: "1000/min".to_string(),
+                            rate_limit: stats.as_ref().map(|s| s.rate_limit.clone()).unwrap_or_else(|| "1000/min".to_string()),
                             rate_limit_sub: Some("50,000/day".to_string()),
-                            total_usage: "170,414".to_string(),
-                            total_usage_sub: Some("3 API keys".to_string()),
-                            expires: "2026-08-15".to_string(),
+                            total_usage: stats.as_ref().map(|s| s.total_usage.to_string()).unwrap_or_else(|| "170,414".to_string()),
+                            total_usage_sub: Some(format!("{} API keys", api_keys.len())),
+                            expires: stats.as_ref().map(|s| s.expires.clone()).unwrap_or_else(|| "2026-08-15".to_string()),
                             expires_sub: Some("288 days left".to_string()),
                         }
                         // 2. Create form (top, sticky)

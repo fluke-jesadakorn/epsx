@@ -357,19 +357,33 @@ pub async fn api_rankings(_state: State<AppState>) -> Json<serde_json::Value> {
 }
 
 pub async fn api_plans(_state: State<AppState>) -> Json<serde_json::Value> {
+    // Wave 23 T5 — match the content-service `marketing/plans.json`
+    // shape: three grouped buckets (`personal` / `api` / `custom`)
+    // where each entry carries `category` (mirrors `plan_group`) +
+    // `title` (mirrors `name`) + display string `price` + numeric
+    // `price_usd` + `original_price` / `original_usd` /
+    // `discount_pct` / `savings` for the SALE badge. The OLD mock
+    // shape `{id, name, price, currency, interval, features}` was
+    // the subscription-service shape and didn't have any of those
+    // fields, so the plan cards rendered with no price/sale badge.
     Json(serde_json::json!({
         "personal": [
-            { "id": "1day", "name": "1 day", "price": 1, "currency": "USDT", "interval": "day", "features": ["Basic analytics"] },
-            { "id": "1month", "name": "1 month", "price": 9, "currency": "USDT", "interval": "month", "features": ["Full analytics", "Watchlist", "Alerts"] },
-            { "id": "1year", "name": "1 year", "price": 79, "currency": "USDT", "interval": "year", "features": ["Everything in monthly", "API access"] },
-            { "id": "lifetime", "name": "Lifetime", "price": 499, "currency": "USDT", "interval": "lifetime", "features": ["Everything", "Paymaster gas"] }
+            { "id": "1day", "category": "personal", "name": "1 Day Package", "price": "$1", "price_usd": 1.0, "original_price": "$5", "original_usd": 5.0, "discount_pct": 80, "savings": "Save $4", "badge": "SALE", "countdown_hours": 24, "sale_active": true,
+              "period": "/day", "currency": "USDT", "interval": "day", "features": ["Basic analytics view", "Rankings from position 6+", "Basic trading features", "24-hour access", "Explore the platform"] },
+            { "id": "1month", "category": "personal", "name": "1 Month Package", "price": "$9.9", "price_usd": 9.9, "original_price": "$99", "original_usd": 99.0, "discount_pct": 90, "savings": "Save $89.1", "badge": "SALE", "countdown_hours": 168, "sale_active": true,
+              "period": "/month", "currency": "USDT", "interval": "month", "features": ["Advanced analytics view", "25 stock rankings", "Basic analytic features", "Price alerts", "Email support", "30-day access"] },
+            { "id": "lifetime", "category": "personal", "name": "Lifetime Package", "price": "$4999", "price_usd": 4999.0, "original_price": "$9999", "original_usd": 9999.0, "discount_pct": 50, "savings": "Save $5000", "badge": "SALE", "countdown_hours": 720, "sale_active": true,
+              "period": "", "currency": "USDT", "interval": "lifetime", "features": ["Advanced analytics suite", "Full rankings access (Rank 1+)", "API read access", "Basic & Pro trading", "Priority support", "Lifetime access"] }
         ],
         "api": [
-            { "id": "api_personal", "name": "API Personal", "price": 19, "currency": "USDT", "interval": "month", "features": ["10k calls/day"] },
-            { "id": "api_company",  "name": "API Company",  "price": 99, "currency": "USDT", "interval": "month", "features": ["1M calls/day", "Priority support"] }
+            { "id": "api-personal", "category": "api", "name": "API Personal", "price": "$999", "price_usd": 999.0, "original_price": "$3999", "original_usd": 3999.0, "discount_pct": 75, "savings": "Save $3000", "badge": "SALE", "countdown_hours": 360, "sale_active": true,
+              "period": "/month", "currency": "USDT", "interval": "month", "features": ["Analytics view access", "API read access", "Data export capability", "Full developer documentation", "30-day access"] },
+            { "id": "api-company", "category": "api", "name": "API Company", "price": "$2999", "price_usd": 2999.0, "original_price": "$6999", "original_usd": 6999.0, "discount_pct": 57, "savings": "Save $4000", "badge": "SALE", "countdown_hours": 360, "sale_active": true,
+              "period": "/month", "currency": "USDT", "interval": "month", "features": ["Advanced analytics suite", "Full trading suite (Basic, Pro & Advanced)", "API read & write access", "Data export", "Notifications management", "365-day company access", "Dedicated support"] }
         ],
         "custom": [
-            { "id": "revenue_share", "name": "Revenue Share", "price": null, "currency": "USDT", "interval": "month", "features": ["Pay-as-you-earn", "Negotiated rate"] }
+            { "id": "revenue-share", "category": "custom", "name": "Custom", "price": "Revenue Share", "price_usd": 0.0, "original_price": "", "original_usd": 0.0, "discount_pct": 0, "savings": "Volume-based", "badge": "", "countdown_hours": 0, "sale_active": false,
+              "period": "", "currency": "USDT", "interval": "month", "features": ["Custom feature set & permissions", "Dedicated support & SLA", "Volume-based pricing", "Custom API rate limits", "White-label options", "Priority onboarding"] }
         ]
     }))
 }
@@ -459,38 +473,337 @@ pub async fn api_subscription_create_plan(Json(body): Json<CreatePlanBody>) -> J
 }
 
 pub async fn api_news(_state: State<AppState>) -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "items": [
-            { "slug": "scalable-foundation", "title": "Building a scalable foundation", "excerpt": "How we architected a 9-service Rust backend.", "date": "2025-01-15", "tag1": "Engineering", "tag2": "Architecture", "featured": true, "image": "/news-img/scalable-foundation.png" },
-            { "slug": "optimizing-high-throughput-analytics-rust", "title": "Optimizing high-throughput analytics", "excerpt": "Sub-millisecond EPS ranking over 8.5M data points.", "date": "2025-01-10", "tag1": "Engineering", "tag2": "Rust", "featured": false, "image": "/news-img/optimizing.png" },
-            { "slug": "real-time-intelligence", "title": "Real-time intelligence, made simple", "excerpt": "How we made complex analytics feel instant.", "date": "2025-01-05", "tag1": "Product", "tag2": "UX", "featured": false, "image": "/news-img/realtime.png" },
-            { "slug": "securing-the-future", "title": "Securing the future", "excerpt": "SIWE, RBAC, audit logs, and rate limiting.", "date": "2024-12-28", "tag1": "Engineering", "tag2": "Security", "featured": false, "image": "/news-img/securing.png" },
-            { "slug": "smarter-decisions-ai", "title": "Smarter decisions, with AI", "excerpt": "Layering machine learning on top of on-chain data.", "date": "2024-12-20", "tag1": "Product", "tag2": "AI", "featured": false, "image": "/news-img/ai.png" },
-            { "slug": "paymaster", "title": "Paymaster gas sponsorship", "excerpt": "Premium users can pay with zero gas.", "date": "2024-12-15", "tag1": "Product", "tag2": "Web3", "featured": false, "image": "/news-img/paymaster.png" },
-            { "slug": "subscription-vaults", "title": "Subscription vaults", "excerpt": "Per-merchant stream-based subscription contracts on BSC.", "date": "2024-12-10", "tag1": "Engineering", "tag2": "Smart Contracts", "featured": false, "image": "/news-img/vaults.png" }
-        ],
-        "total": 7
-    }))
+    // Wave 23 T5 — shape matches the content-service `/api/v1/content/news`
+    // payload (`articles` + `total`). Each entry also carries the
+    // `author` / `read_time` / `tags` / `cover_image_url` fields the
+    // dev `NewsPost` render model wants, so the page renders a
+    // real-looking card without falling back to the OLD 3-post
+    // hardcoded list.
+    let articles = vec![
+        article("scalable-foundation", "Building a scalable foundation", "How we architected a 9-service Rust backend.", "2025-01-15", &["Engineering", "Architecture"], "/news-img/scalable-foundation.png", true),
+        article("optimizing-high-throughput-analytics-rust", "Optimizing high-throughput analytics", "Sub-millisecond EPS ranking over 8.5M data points.", "2025-01-10", &["Engineering", "Rust"], "/news-img/optimizing.png", false),
+        article("real-time-intelligence", "Real-time intelligence, made simple", "How we made complex analytics feel instant.", "2025-01-05", &["Product", "UX"], "/news-img/realtime.png", false),
+        article("securing-the-future", "Securing the future", "SIWE, RBAC, audit logs, and rate limiting.", "2024-12-28", &["Engineering", "Security"], "/news-img/securing.png", false),
+        article("smarter-decisions-ai", "Smarter decisions, with AI", "Layering machine learning on top of on-chain data.", "2024-12-20", &["Product", "AI"], "/news-img/ai.png", false),
+        article("paymaster", "Paymaster gas sponsorship", "Premium users can pay with zero gas.", "2024-12-15", &["Product", "Web3"], "/news-img/paymaster.png", false),
+        article("subscription-vaults", "Subscription vaults", "Per-merchant stream-based subscription contracts on BSC.", "2024-12-10", &["Engineering", "Smart Contracts"], "/news-img/vaults.png", false),
+    ];
+    let total = articles.len();
+    Json(serde_json::json!({ "articles": articles, "total": total }))
+}
+
+fn article(
+    slug: &str,
+    title: &str,
+    excerpt: &str,
+    date: &str,
+    tags: &[&str],
+    cover: &str,
+    featured: bool,
+) -> serde_json::Value {
+    let tag_vec: Vec<String> = tags.iter().map(|s| s.to_string()).collect();
+    serde_json::json!({
+        "slug": slug,
+        "title": title,
+        "excerpt": excerpt,
+        "summary": excerpt,
+        "date": date,
+        "published_at": date,
+        "author": "EPSX Team",
+        "read_time": "4 min",
+        "tags": tag_vec,
+        "tag1": tags.get(0).copied().unwrap_or(""),
+        "tag2": tags.get(1).copied().unwrap_or(""),
+        "image": cover,
+        "cover_image_url": cover,
+        "featured": featured,
+    })
 }
 
 pub async fn api_news_post(AxPath(slug): AxPath<String>, _state: State<AppState>) -> Json<serde_json::Value> {
-    let title = slug.replace('-', " ");
+    // Wave 23 T5 — return a real article body (markdown-ish) so the
+    // detail page can render a full article rather than the OLD
+    // "full article body for '<slug>' coming soon" placeholder. The
+    // body is split into 3 sections (intro / What's new / Get
+    // started) by the page's `body_to_chunks` parser.
+    let (title, tags, read_time, author, date): (String, Vec<&str>, String, String, String) = match slug.as_str() {
+        "scalable-foundation" => (
+            "Building a scalable foundation".to_string(),
+            vec!["Engineering", "Architecture"],
+            "5 min".to_string(),
+            "EPSX Engineering".to_string(),
+            "2025-01-15".to_string(),
+        ),
+        "optimizing-high-throughput-analytics-rust" => (
+            "Optimizing high-throughput analytics".to_string(),
+            vec!["Engineering", "Rust"],
+            "6 min".to_string(),
+            "EPSX Engineering".to_string(),
+            "2025-01-10".to_string(),
+        ),
+        "real-time-intelligence" => (
+            "Real-time intelligence, made simple".to_string(),
+            vec!["Product", "UX"],
+            "4 min".to_string(),
+            "EPSX Product".to_string(),
+            "2025-01-05".to_string(),
+        ),
+        "securing-the-future" => (
+            "Securing the future".to_string(),
+            vec!["Engineering", "Security"],
+            "5 min".to_string(),
+            "EPSX Engineering".to_string(),
+            "2024-12-28".to_string(),
+        ),
+        "smarter-decisions-ai" => (
+            "Smarter decisions, with AI".to_string(),
+            vec!["Product", "AI"],
+            "4 min".to_string(),
+            "EPSX Product".to_string(),
+            "2024-12-20".to_string(),
+        ),
+        "paymaster" => (
+            "Paymaster gas sponsorship".to_string(),
+            vec!["Product", "Web3"],
+            "3 min".to_string(),
+            "EPSX Product".to_string(),
+            "2024-12-15".to_string(),
+        ),
+        "subscription-vaults" => (
+            "Subscription vaults".to_string(),
+            vec!["Engineering", "Smart Contracts"],
+            "7 min".to_string(),
+            "EPSX Engineering".to_string(),
+            "2024-12-10".to_string(),
+        ),
+        _ => {
+            let title: String = slug.replace('-', " ");
+            (title, vec!["EPSX", "Update"], "3 min".to_string(), "EPSX Team".to_string(), "2025-01-15".to_string())
+        }
+    };
+    let body = format!(
+        "EPSX now runs on a 9-service Rust backend spanning identity, content, analytics, payments, and more. This is a real production deployment serving thousands of requests per minute.\n\n\
+         ## What's new\n\n\
+         Every service is independently deployable. Each exposes typed gRPC and HTTP/JSON endpoints, ships its own Prometheus metrics, and rolls out via blue/green K8s deployments. The result is a system we can update in seconds without downtime.\n\n\
+         ## How it scales\n\n\
+         Behind the API gateway, the analytics service indexes 8.5M data points and answers EPS ranking queries in under 5ms p99. PostgreSQL handles the relational workload; Redis caches hot paths; ClickHouse (in production) handles the OLAP side.\n\n\
+         ## Get started\n\n\
+         Connect your wallet at /auth, then explore /dashboard, /analytics, and /portfolio to see the data flow end-to-end. API keys are issued from /developer.\n"
+    );
+    let tag_vec: Vec<String> = tags.iter().map(|s| s.to_string()).collect();
     Json(serde_json::json!({
         "slug": slug,
         "title": title,
-        "body": format!("This is the full article body for '{}'. In production, this is read from content/pages/{}.mdx and rendered via the content service.", title, slug),
-        "date": "2025-01-15",
-        "author": "EPSX Team"
+        "body": body,
+        "date": date,
+        "published_at": date,
+        "author": author,
+        "read_time": read_time,
+        "tags": tag_vec,
+        "tag1": tags.get(0).copied().unwrap_or(""),
+        "tag2": tags.get(1).copied().unwrap_or(""),
     }))
 }
 
 pub async fn api_portfolio(AxPath(addr): AxPath<String>, _state: State<AppState>) -> Json<serde_json::Value> {
+    // Wave 23 T5 — return a real-shaped portfolio payload (matches
+    // the dev `portfolio.rs` `HoldingsTable` + `TransactionsTable`
+    // + `TopMoversCard` row tuples). The OLD mock returned empty
+    // arrays and `$0` for total_value_usd, so the portfolio page
+    // always rendered the "no data" baseline.
     Json(serde_json::json!({
         "address": addr,
-        "total_value_usd": 0.0,
-        "watchlist": [],
+        "total_value_usd": 12_345.67,
+        "change_24h_usd": 234.56,
+        "change_24h_pct": 1.9,
+        "asset_count": 8,
+        "holdings": [
+            { "asset": "BNB",   "amount": "5.234",    "value_usd": 2_892.45, "change_24h_pct":  1.2 },
+            { "asset": "USDT",  "amount": "5,000.00", "value_usd": 5_000.00, "change_24h_pct":  0.0 },
+            { "asset": "ETH",   "amount": "1.2",      "value_usd": 3_540.00, "change_24h_pct":  0.8 },
+            { "asset": "EPSX",  "amount": "10,000",   "value_usd":   845.00, "change_24h_pct":  5.4 }
+        ],
+        "watchlist": [
+            { "asset": "BTC",   "price": "$63,245",  "change_24h_pct":  2.1 },
+            { "asset": "SOL",   "price": "$145.32",  "change_24h_pct": -0.5 },
+            { "asset": "MATIC", "price": "$0.45",    "change_24h_pct":  0.1 }
+        ],
+        "transactions": [
+            { "time": "2024-09-20 10:32", "type": "Buy",     "asset": "BNB",  "amount": "0.5",   "value_usd":   276.50 },
+            { "time": "2024-09-19 15:21", "type": "Receive", "asset": "USDT", "amount": "1,000", "value_usd": 1_000.00 },
+            { "time": "2024-09-19 09:14", "type": "Sell",    "asset": "ETH",  "amount": "0.2",   "value_usd":   590.00 },
+            { "time": "2024-09-18 12:00", "type": "Swap",    "asset": "EPSX", "amount": "500",   "value_usd":    42.25 }
+        ],
         "subscriptions": [],
-        "transactions": [],
-        "auth_required": true
+        "auth_required": false
+    }))
+}
+
+// ---- Wave 23 T5: new data_X endpoints for previously-unwired
+// data-bound pages. Each returns a payload shape matching the
+// dev page's typed struct (see e.g. `AccountData` in
+// `pages/account.rs`). These are static mocks — the live
+// services are in `ImagePullBackOff` per wave-22 follow-up #2,
+// so we serve canned data the dev pages can deserialize
+// without the backend being up. ----
+
+pub async fn api_account(_state: State<AppState>, headers: axum::http::HeaderMap) -> Json<serde_json::Value> {
+    // If the request carries a session token (or the dev bypass is
+    // enabled), show the user's wallet address + member-since (Jan
+    // 2025). Anonymous requests get the OLD prod placeholder set:
+    // Not Connected / Join Now / $0 / Web3 Vault. The dev
+    // `account.rs` already supports this shape via `data_account`.
+    let has_session = epsx_bff::dev_bypass::is_dev_bypass_enabled()
+        || super::auth::get_cookie(&headers, "epsx_token")
+            .map(|t| !t.is_empty())
+            .unwrap_or(false);
+    if has_session {
+        Json(serde_json::json!({
+            "wallet_address": "0xDEMO0000000000000000000000000000000000",
+            "member_since": "January 2025",
+            "available_balance": 1_234.56,
+            "method": "wallet",
+        }))
+    } else {
+        Json(serde_json::json!({
+            "wallet_address": null,
+            "member_since": "Join Now",
+            "available_balance": 0.0,
+            "method": "Web3 Vault",
+        }))
+    }
+}
+
+pub async fn api_credits(_state: State<AppState>, headers: axum::http::HeaderMap) -> Json<serde_json::Value> {
+    let has_session = epsx_bff::dev_bypass::is_dev_bypass_enabled()
+        || super::auth::get_cookie(&headers, "epsx_token")
+            .map(|t| !t.is_empty())
+            .unwrap_or(false);
+    if has_session {
+        Json(serde_json::json!({
+            "available_balance": 250.0,
+            "lifetime_earned": 1_250.0,
+            "lifetime_spent": 1_000.0,
+            "transactions": [
+                { "date": "2025-01-10", "title": "API call reward",    "reason": "Daily bonus",   "amount":  50.0, "kind": "credit" },
+                { "date": "2025-01-08", "title": "Premium analysis",   "reason": "Usage spend",   "amount": -20.0, "kind": "debit"  },
+                { "date": "2025-01-05", "title": "Referral signup",    "reason": "Friend joined", "amount": 100.0, "kind": "credit" },
+                { "date": "2025-01-02", "title": "Watchlist alert",    "reason": "Pro plan",      "amount": -10.0, "kind": "debit"  }
+            ]
+        }))
+    } else {
+        Json(serde_json::json!({
+            "available_balance": 0.0,
+            "lifetime_earned": 0.0,
+            "lifetime_spent": 0.0,
+            "transactions": []
+        }))
+    }
+}
+
+pub async fn api_developer(_state: State<AppState>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "stats": {
+            "tier": "Pro",
+            "rate_limit": "10,000 / day",
+            "total_usage": 170_414,
+            "expires": "2026-12-31"
+        },
+        "api_keys": [
+            { "id": "k_prod",   "name": "Production", "key": "epsx_live_4f8a2c1b9d3e7f5a", "scopes": ["read","write","analytics:read"], "is_active": true,  "created_at": "2024-08-01", "usage_count": 142_310 },
+            { "id": "k_staging","name": "Staging",    "key": "epsx_test_7c1d4e2f8a3b6c9d", "scopes": ["read","analytics:read"],        "is_active": true,  "created_at": "2024-08-15", "usage_count":  28_104 },
+            { "id": "k_legacy", "name": "Legacy CI",  "key": "epsx_live_2e5a8b1c4f7d3a9b", "scopes": ["read"],                         "is_active": false, "created_at": "2024-03-10", "usage_count":   1_842 }
+        ]
+    }))
+}
+
+pub async fn api_developer_usage(_state: State<AppState>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "summary": {
+            "calls_today": 12_481,
+            "calls_7d": 84_205,
+            "calls_30d": 358_910,
+            "errors_429": 4,
+            "errors_500": 0
+        },
+        "per_key": [
+            { "key_id": "k_prod",    "name": "Production", "calls_today":  8_231, "errors_429": 2, "errors_500": 0 },
+            { "key_id": "k_staging", "name": "Staging",    "calls_today":  3_750, "errors_429": 1, "errors_500": 0 },
+            { "key_id": "k_legacy",  "name": "Legacy CI",  "calls_today":    500, "errors_429": 1, "errors_500": 0 }
+        ],
+        "history": [
+            { "date": "2025-01-15", "calls":  9_812, "errors_429": 1, "errors_500": 0 },
+            { "date": "2025-01-14", "calls": 11_450, "errors_429": 0, "errors_500": 0 },
+            { "date": "2025-01-13", "calls":  8_902, "errors_429": 2, "errors_500": 0 },
+            { "date": "2025-01-12", "calls": 12_481, "errors_429": 4, "errors_500": 0 }
+        ]
+    }))
+}
+
+pub async fn api_developer_docs(_state: State<AppState>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "endpoints": [
+            { "method": "GET",  "path": "/api/v1/rankings",    "description": "List current EPS rankings",      "category": "Rankings" },
+            { "method": "GET",  "path": "/api/v1/news",        "description": "List published news articles",  "category": "News" },
+            { "method": "GET",  "path": "/api/v1/plans",       "description": "List subscription plans",       "category": "Plans" },
+            { "method": "POST", "path": "/api/v1/auth/siwe",   "description": "Sign in with Ethereum",         "category": "Auth" }
+        ]
+    }))
+}
+
+pub async fn api_analytics(_state: State<AppState>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "stats": {
+            "total_views": 12_345,
+            "total_users": 1,
+            "revenue": 0.0
+        },
+        "recent_activity": [],
+        "top_movers": [
+            { "asset": "EPSX", "change_24h_pct":  5.4, "change_24h_usd": 43.20 },
+            { "asset": "BNB",  "change_24h_pct":  1.2, "change_24h_usd": 34.40 },
+            { "asset": "ETH",  "change_24h_pct":  0.8, "change_24h_usd": 28.10 }
+        ]
+    }))
+}
+
+pub async fn api_dashboard(_state: State<AppState>, headers: axum::http::HeaderMap) -> Json<serde_json::Value> {
+    let has_session = epsx_bff::dev_bypass::is_dev_bypass_enabled()
+        || super::auth::get_cookie(&headers, "epsx_token")
+            .map(|t| !t.is_empty())
+            .unwrap_or(false);
+    if has_session {
+        Json(serde_json::json!({
+            "total_earnings": "$1,234.56",
+            "watchlist_count": 3,
+            "active_plans": 1,
+            "api_calls_today": 1_247,
+            "recent": [
+                { "kind": "trade",   "title": "Buy BNB",         "description": "0.5 BNB at $552.00",  "timestamp": "5 min ago" },
+                { "kind": "alert",   "title": "Price alert",     "description": "EPSX broke $0.10",    "timestamp": "2 hr ago"  },
+                { "kind": "earning", "title": "Daily reward",    "description": "+10 credits",         "timestamp": "1 day ago" }
+            ]
+        }))
+    } else {
+        Json(serde_json::json!({
+            "total_earnings": "$0.00",
+            "watchlist_count": 0,
+            "active_plans": 0,
+            "api_calls_today": 0,
+            "recent": []
+        }))
+    }
+}
+
+pub async fn api_payment(_state: State<AppState>, AxPath(id): AxPath<String>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "id": id,
+        "type": "subscription",
+        "status": "pending",
+        "amount": "29.00",
+        "currency": "USDT",
+        "merchant": "0xM1",
+        "plan_id": "sub_1",
+        "expires_at": chrono::Utc::now().timestamp() + 86_400
     }))
 }
