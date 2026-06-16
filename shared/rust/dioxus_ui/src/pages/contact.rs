@@ -133,19 +133,21 @@ fn MailtoBtn() -> Element {
     }
 }
 
-/// Copy email button. SSR renders the initial state; client JS
-/// (added in Wave 6) flips the label to "Copied!" for 2 seconds.
-/// The SSR markup always shows "Copy" so the page is usable
-/// without JS.
+/// Copy email button. Wave 23 T4 v2: now wires the click handler
+/// via the inline `onclick="epsx.copyText(…)"` attribute emitted by
+/// `epsx_templates::email_copy_button_html`. The previous
+/// `onclick: move |_| { … }` Dioxus closure was being stripped at
+/// SSR time (hydration-less), so the button was visible but did
+/// nothing. The new pattern wires the handler at first paint
+/// through the global `epsx` namespace loaded by
+/// `epsx_templates::global_js()`. The label flips to "Copied!" for
+/// 2 seconds via `epsx.copyText`'s built-in flash logic.
 #[component]
 fn CopyEmailBtn() -> Element {
+    let html = epsx_templates::email_copy_button_html(SUPPORT_EMAIL);
     rsx! {
-        button {
-            class: "btn btn-ghost contact-copy-btn",
-            r#type: "button",
-            "data-copy": "{SUPPORT_EMAIL}",
-            Icon { name: "check".to_string(), size: Some(14) }
-            span { "Copy" }
+        span { class: "contact-copy-btn-wrap inline-block",
+            dangerous_inner_html: "{html}"
         }
     }
 }

@@ -31,6 +31,22 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let posts: Vec<NewsPost> = data.as_ref()
         .and_then(|d| serde_json::from_value(d.get("posts").cloned().unwrap_or(serde_json::json!([]))).ok())
         .unwrap_or_else(default_posts);
+    // Wave 23 T4: read the search query from the page context (set by
+    // the BFF from `?q=...`) so SSR-rendered HTML already reflects the
+    // filtered list. The client-side filter below re-applies the same
+    // match so live typing narrows the list without a server round-trip.
+    let initial_query: String = ctx
+        .params
+        .get("q")
+        .cloned()
+        .or_else(|| ctx.query_param("q"))
+        .unwrap_or_default();
+    let initial_category: String = ctx
+        .params
+        .get("category")
+        .cloned()
+        .or_else(|| ctx.query_param("category"))
+        .unwrap_or_else(|| "all".to_string());
     let total = posts.len();
 
     (meta, rsx! {
@@ -41,53 +57,65 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                 }
             }
             // === wave22-t3-news-blog news header + list (no AuthGate; public page) ===
-            div { class: "container page-content news-page",
-                // === wave6-auth-pages-depth-track-d news header ===
-                div { class: "mb-12 text-center news-header",
-                    div { class: "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/5 text-cyan-500 text-xs font-semibold mb-5",
-                        Icon { name: "newspaper".to_string(), size: Some(14) }
-                        " EPSX Platform"
-                    }
-                    h1 { class: "text-4xl sm:text-5xl font-extrabold mb-4",
-                        "News & "
-                        span { class: "gradient-text-purple", "Updates" }
-                    }
-                    p { class: "text-muted-foreground max-w-xl mx-auto leading-relaxed",
-                        "Stay informed with the latest platform updates, feature releases, and market insights from the EPSX team."
-                    }
-                    if total > 0 {
-                        p { class: "mt-3 text-sm text-muted-foreground/60",
-                            {
-                                let noun = if total == 1 { "article" } else { "articles" };
-                                format!("{total} {noun}")
-                            }
-                        }
-                    }
-                }
-                // === wave6-auth-pages-depth-track-d news filters ===
-                NewsFilters {}
-                // === wave6-auth-pages-depth-track-d news list ===
-                div { class: "news-list-section mt-8",
-                    if posts.is_empty() {
-                        NewsEmptyState {}
-                    } else {
-                        // Featured card is the first post
-                        NewsFeaturedCard { post: posts[0].clone() }
-                        // Rest of the posts
-                        if posts.len() > 1 {
-                            div { class: "news-list-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8",
-                                for p in posts.iter().skip(1) {
-                                    ArticleCard { post: p.clone() }
-                                }
-                            }
-                        }
-                        // Pagination
-                        NewsPagination { page: 1, total_pages: ((total + 11) / 12).max(1) }
-                    }
-                }
+            // === wave23-t4-components filter provider + body ===
+            NewsPageBody {
+                posts: posts.clone(),
+                initial_query: initial_query.clone(),
+                initial_category: initial_category.clone(),
+                total: total,
             }
         }
     })
+}
+
+/// Inner body component. Wave 23 T4: this is a Dioxus `#[component]`
+/// (not the page's outer `render` function) so it can call hooks
+/// (`use_context_provider`, `use_signal`, etc.). The outer `render`
+/// is a plain function that returns `(PageMeta, Element)` and is
+/// called from the BFF, which has no Dioxus runtime.
+#[component]
+fn NewsPageBody(
+    posts: Vec<NewsPost>,
+    initial_query: String,
+    initial_category: String,
+    total: usize,
+) -> Element {
+    // (T4 v2: removed `filter_state::provide_news_filter()` — the
+    // shared Signal pair is dead code under hydration-less SSR.
+    // The BFF's URL-based filter is the single source of truth.)
+    let _ = total; // (kept for backwards compat with the caller; not used in v2)
+    rsx! {
+        div { class: "container page-content news-page",
+            // === wave6-auth-pages-depth-track-d news header ===
+            div { class: "mb-12 text-center news-header",
+                div { class: "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/5 text-cyan-500 text-xs font-semibold mb-5",
+                    Icon { name: "newspaper".to_string(), size: Some(14) }
+                    " EPSX Platform"
+                }
+                h1 { class: "text-4xl sm:text-5xl font-extrabold mb-4",
+                    "News & "
+                    span { class: "gradient-text-purple", "Updates" }
+                }
+                p { class: "text-muted-foreground max-w-xl mx-auto leading-relaxed",
+                    "Stay informed with the latest platform updates, feature releases, and market insights from the EPSX team."
+                }
+                if total > 0 {
+                    p { class: "mt-3 text-sm text-muted-foreground/60",
+                        {
+                            let noun = if total == 1 { "article" } else { "articles" };
+                            format!("{total} {noun}")
+                        }
+                    }
+                }
+            }
+            // === wave6-auth-pages-depth-track-d news filters ===
+            NewsFilters { initial_query: initial_query.clone(), initial_category: initial_category.clone() }
+            // === wave6-auth-pages-depth-track-d news list ===
+            // Wave 23 T4: pass the same query/category into the
+            // list so the live filter and the SSR filter agree.
+            NewsList { posts: posts.clone(), initial_query: initial_query.clone(), initial_category: initial_category.clone() }
+        }
+    }
 }
 
 fn default_posts() -> Vec<NewsPost> {
@@ -110,31 +138,174 @@ pub struct NewsPost {
     #[serde(default)] pub cover_image_url: Option<String>,
 }
 
-/// `NewsFilters` — category select, date range, search input. Static
-/// form (no client-side filtering yet — that's a Wave 7 enhancement);
-/// the section marker is here so tests can assert the surface area.
+/// `NewsFilters` — category select, date range, search input. Wave 23
+/// Wave 23 T4 v2: now uses a vanilla HTML `<form>` with native
+/// `<input name="q">` + `<select name="category">` elements, and a
+/// submit button whose `onclick` is wired via
+/// `epsx.submitNewsSearch('news-filters-form')` (defined in
+/// `epsx_templates::global_js`).
+///
+/// The previous version's `oninput: move |e| q.set(e.value())`
+/// Dioxus closure was being stripped at SSR time (Dioxus 0.7 SSR
+/// is hydration-less in this project per
+/// `docs/wave3a-wiring/design.md`). Even though the input was
+/// visually a working search box, typing into it had no effect
+/// and the list never re-rendered. The new approach:
+/// 1. The form holds the SSR-prefilled values as `value="…"` /
+///    `selected` attributes (so the initial paint already
+///    reflects the filter from the URL).
+/// 2. The submit button calls `epsx.submitNewsSearch(formId)`,
+///    which reads `q` and `category` from the named form's
+///    inputs and navigates to `/news?q=…&category=…`.
+/// 3. The BFF re-renders with the new filter applied
+///    server-side; the URL is permalink-able.
+/// 4. A `<noscript>` fallback inside the form provides a
+///    hard-submit `<button type="submit">` so non-JS clients can
+///    still filter (the form's default `action` is `/news`).
+///
+/// Live filter-as-you-type would require a global delegated
+/// `input` handler in `global_js`; that's tracked as a follow-up
+/// if the spec demands it. For now, the form-based filter is the
+/// minimum that actually works at runtime.
 #[component]
-fn NewsFilters() -> Element {
+fn NewsFilters(
+    initial_query: String,
+    initial_category: String,
+) -> Element {
+    let cat = initial_category.clone();
     rsx! {
-        div { class: "card card-glass news-filters",
+        form {
+            id: "news-filters-form",
+            class: "card card-glass news-filters",
+            method: "get",
+            action: "/news",
             div { class: "card-body flex flex-col md:flex-row gap-4 items-stretch md:items-end",
                 div { class: "field flex-1",
-                    label { class: "field-label", "Search" }
-                    input { class: "input", r#type: "search", placeholder: "Search articles…" }
+                    label { class: "field-label", r#for: "news-q", "Search" }
+                    input {
+                        class: "input",
+                        id: "news-q",
+                        name: "q",
+                        r#type: "search",
+                        placeholder: "Search articles…",
+                        value: "{initial_query}",
+                    }
                 }
                 div { class: "field md:w-48",
-                    label { class: "field-label", "Category" }
-                    SelectField { name: "category".to_string(), options: vec![("all".to_string(), "All".to_string()), ("updates".to_string(), "Updates".to_string()), ("engineering".to_string(), "Engineering".to_string()), ("product".to_string(), "Product".to_string())], value: Some("all".to_string()), required: false, label: None, help: None, error: None, placeholder: None, onchange: None }
+                    label { class: "field-label", r#for: "news-category", "Category" }
+                    select {
+                        class: "input",
+                        id: "news-category",
+                        name: "category",
+                        option { value: "all",          selected: cat == "all",          "All" }
+                        option { value: "updates",      selected: cat == "updates",      "Updates" }
+                        option { value: "engineering",  selected: cat == "engineering",  "Engineering" }
+                        option { value: "product",      selected: cat == "product",      "Product" }
+                    }
                 }
                 div { class: "field md:w-48",
-                    label { class: "field-label", "Date range" }
-                    SelectField { name: "range".to_string(), options: vec![("all".to_string(), "All time".to_string()), ("7d".to_string(), "Last 7 days".to_string()), ("30d".to_string(), "Last 30 days".to_string()), ("90d".to_string(), "Last 90 days".to_string())], value: Some("all".to_string()), required: false, label: None, help: None, error: None, placeholder: None, onchange: None }
+                    label { class: "field-label", r#for: "news-range", "Date range" }
+                    select {
+                        class: "input",
+                        id: "news-range",
+                        name: "range",
+                        option { value: "all", "All time" }
+                        option { value: "7d",  "Last 7 days" }
+                        option { value: "30d", "Last 30 days" }
+                        option { value: "90d", "Last 90 days" }
+                    }
                 }
-                button { class: "btn btn-outline", r#type: "button", Icon { name: "search".to_string(), size: Some(16) } " Search" }
+                // Search submit button — rendered as raw HTML with a
+                // literal `onclick="epsx.submitNewsSearch('…')"`
+                // attribute (the Dioxus `onclick:` macro form is
+                // stripped at SSR time, so we use
+                // `dangerous_inner_html` on a wrapping span).
+                span { class: "news-search-submit-wrap inline-block",
+                    dangerous_inner_html: r#"<button type="button" class="btn btn-outline" onclick="epsx.submitNewsSearch('news-filters-form')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-search" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg> Search</button>"#
+                }
+                // No-JS fallback: a real <button type="submit">
+                // submits the form via the browser's default action
+                // (action="/news", method="get"). Only visible to
+                // browsers that don't run the inline onclick.
+                noscript {
+                    button { class: "btn btn-outline", r#type: "submit", "Search" }
+                }
             }
         }
     }
 }
+
+/// `NewsList` — renders the (server-side-filtered) list. Wave 23 T4 v2:
+/// the filter is applied by the BFF at render time using the URL's
+/// `?q=…&category=…` query params. The Dioxus-side re-filtering of
+/// `posts` is now a no-op because the BFF already returns only the
+/// matching posts. We keep the local filter as a safety net (in
+/// case the BFF is bypassed in tests / a sample dataset) and to
+/// preserve the visible "0 results" empty state when the BFF
+/// returns nothing.
+///
+/// The featured card is always the first surviving post (or hidden
+/// if the filter yields 0/1 results).
+#[component]
+fn NewsList(
+    posts: Vec<NewsPost>,
+    initial_query: String,
+    initial_category: String,
+) -> Element {
+    let query = initial_query.to_lowercase();
+    let category = initial_category.clone();
+    let filtered: Vec<NewsPost> = posts
+        .iter()
+        .filter(|p| {
+            // Category filter: a post matches if its tags include the
+            // selected category, or if the filter is "all".
+            let cat_ok = category == "all"
+                || p.tags.iter().any(|t| t.to_lowercase() == category.to_lowercase());
+            // Query filter: substring match on title + excerpt + tags.
+            let q_ok = query.is_empty()
+                || p.title.to_lowercase().contains(&query)
+                || p.excerpt.to_lowercase().contains(&query)
+                || p.tags.iter().any(|t| t.to_lowercase().contains(&query));
+            cat_ok && q_ok
+        })
+        .cloned()
+        .collect();
+    let total = filtered.len();
+
+    rsx! {
+        div { class: "news-list-section mt-8",
+            if filtered.is_empty() {
+                NewsEmptyState {}
+            } else {
+                if filtered.len() == 1 {
+                    ArticleCard { post: filtered[0].clone() }
+                } else {
+                    NewsFeaturedCard { post: filtered[0].clone() }
+                    div { class: "news-list-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8",
+                        for p in filtered.iter().skip(1) {
+                            ArticleCard { post: p.clone() }
+                        }
+                    }
+                }
+                if total > 0 {
+                    p { class: "mt-6 text-xs text-muted-foreground text-center news-list-count",
+                        {
+                            let noun = if total == 1 { "article" } else { "articles" };
+                            format!("{total} {noun}")
+                        }
+                    }
+                }
+                NewsPagination { page: 1, total_pages: ((total + 11) / 12).max(1) }
+            }
+        }
+    }
+}
+
+// (filter_state module + use_news_filter removed in T4 v2: the
+// shared (q, cat) Signal pair is dead code under SSR-less Dioxus
+// — the closures were never wired up, so the live filter never
+// worked. The BFF's URL-based filter is now the single source of
+// truth.)
 
 /// Featured card — large hero card with optional cover image, "Featured"
 /// badge, tags, title, summary, and "Read article" CTA. Mirrors

@@ -38,20 +38,23 @@ pub fn FileUpload(
 }
 
 // === CopyButton ===
+/// Click-to-copy button. Copies `text` to the system clipboard via
+/// `epsx.copyText(text, this)` (defined in `epsx_templates::global_js`).
+/// The label flips to "✓ Copied" for 2 seconds after a successful copy.
+///
+/// Wave 23 T4 v2 fix: the previous version stored `text` in a local
+/// Dioxus `onclick: move |_| { ... }` closure that was STRIPPED at
+/// SSR time (Dioxus 0.7 SSR is hydration-less in this project).
+/// The new version emits the button as raw HTML with a literal
+/// `onclick="epsx.copyText('…', this)"` attribute via
+/// `epsx_templates::copy_button_html`, so the click handler is
+/// wired up at first paint and survives the SSR boundary.
 #[component]
 pub fn CopyButton(text: String, #[props(default = "Copy".to_string())] label: String) -> Element {
-    let mut copied = use_signal(|| false);
-    let text_for_click = text.clone();
+    let html = epsx_templates::copy_button_html(&text, &label);
     rsx! {
-        button {
-            class: "btn btn-sm btn-outline copy-btn",
-            r#type: "button",
-            onclick: move |_| {
-                let t = text_for_click.clone();
-                let _ = t;
-                copied.set(true);
-            },
-            if *copied.read() { "✓ Copied" } else { "{label}" }
+        span { class: "copy-btn-wrap inline-block",
+            dangerous_inner_html: "{html}"
         }
     }
 }

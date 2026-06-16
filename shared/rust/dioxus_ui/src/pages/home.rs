@@ -93,16 +93,13 @@ fn Hero() -> Element {
                         span { "🚀 Start Exploration" }
                         span { class: "ml-2", Icon { name: "arrow-right".to_string(), size: Some(20) } }
                     }
-                    // Share button (Wave 5 Track A addition).
-                    // The onClick copy is wired by the BFF's hydration
-                    // script (the home page is signed-out for many
-                    // visitors, so the share works even pre-hydration
-                    // — the URL is `/` and clipboard copy is safe).
-                    button { class: "btn btn-outline btn-lg hero-share-btn", r#type: "button",
-                        "aria-label": "Share platform",
-                        Icon { name: "share-2".to_string(), size: Some(20) }
-                        span { "📤 Share Platform" }
-                    }
+                    // Share button. Wave 23 T4: now wires an onclick
+                    // that prefers `navigator.share` (mobile native
+                    // share sheet) and falls back to
+                    // `navigator.clipboard.writeText` (desktop).
+                    // The label flips to "✓ Copied" for 2 seconds on
+                    // a successful copy.
+                    SharePlatformButton {}
                 }
                 // Live chain selector — BSC mainnet / testnet pill.
                 // Source uses `BlockchainNetworkProvider`; in SSR
@@ -146,6 +143,39 @@ fn Hero() -> Element {
                     }
                 }
             }
+        }
+    }
+}
+
+// === SharePlatformButton ===
+
+/// Hero share button. Wave 23 T4 v2: wires the click handler via
+/// the inline `onclick="epsx.shareText(…)"` attribute emitted by
+/// `epsx_templates::share_button_html`. The previous
+/// `onclick: move |_| { … }` Dioxus closure was being stripped at
+/// SSR time (hydration-less), so the button was visible but did
+/// nothing. The new pattern wires the handler at first paint
+/// through the global `epsx` namespace loaded by
+/// `epsx_templates::global_js()`. The JS function uses
+/// `navigator.share` (mobile) and falls back to
+/// `navigator.clipboard.writeText` (desktop) with the same
+/// `execCommand('copy')` last-resort the previous code had. The
+/// label flips to "✓ Copied" for 2 seconds via the
+/// `epsx.shareText` flash logic.
+#[component]
+fn SharePlatformButton() -> Element {
+    // Empty text → JS reads window.location.href itself.
+    // Empty title → JS uses document.title.
+    // The label is the resting label; the JS function flips it to
+    // "✓ Copied" for 2 s on a successful clipboard fallback.
+    let html = epsx_templates::share_button_html("", "EPSX — Stock Tokenization Platform", "📤 Share Platform");
+    rsx! {
+        // The Hero has `class="btn btn-outline btn-lg hero-share-btn"`
+        // on the button. We splice the hero classes onto the
+        // builder's output so the visual class hook the tests grep
+        // for is preserved.
+        span { class: "hero-share-btn-wrap inline-block",
+            dangerous_inner_html: html.replace("class=\"share-btn\"", "class=\"btn btn-outline btn-lg hero-share-btn\"")
         }
     }
 }
@@ -669,6 +699,40 @@ mod tests {
         assert!(!html.is_empty(), "Home page must render non-empty HTML. Got: {}", html);
         assert!(html.len() > 100, "Home page HTML is suspiciously short ({} bytes).", html.len());
     }
+
+    /// Wave 23 T4 v2 — `test_share_button_inline_onclick`. The
+    /// previous T4 (commit cbcf0a38) wired the share button to a
+    /// Dioxus `onclick: move |_| { … }` closure that was being
+    /// stripped at SSR time (hydration-less), so the button was
+    /// visible but a no-op. This test asserts the new
+    /// inline-`onclick="epsx.shareText(…)"` attribute is present
+    /// in the rendered HTML — proof that the click handler is
+    /// actually wired at first paint. Catches any future
+    /// regression that drops the inline pattern.
+    #[test]
+    fn test_share_button_inline_onclick() {
+        let ctx = PageContext {
+            user: None,
+            path: "/".to_string(),
+            ..Default::default()
+        };
+        let html = render_page_to_string(&ctx);
+        assert!(
+            html.contains("hero-share-btn"),
+            "Hero must render the share button. Got: {}",
+            html
+        );
+        assert!(
+            html.contains("onclick=\"epsx.shareText("),
+            "Hero share button must carry the inline onclick=\"epsx.shareText(...)\" \
+             attribute (Dioxus closures are stripped at SSR; only the \
+             inline-attribute pattern works under hydration-less SSR). \
+             Got: {}",
+            html
+        );
+    }
+
+    /// Wave 5 — `test_section_markers`. The home page must render
 
     /// Wave 5 — `test_section_markers`. The home page must render
     /// every section the design doc claims (Hero, TrustBar,
