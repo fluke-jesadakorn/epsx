@@ -32,9 +32,19 @@ pub fn design_system_head(title: &str, description: &str) -> String {
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" />
 <script>
   // FOUC prevention: apply theme before first paint
+  //
+  // Wave 24 T4': aligned storage key to the canonical `epsx-theme`
+  // (hyphen) used by `theme.rs`'s boot script + `setTheme` in
+  // `global_js`. The previous `epsx_theme` (underscore) meant a
+  // user who toggled the theme would persist to `epsx-theme` but
+  // the next page load would read `epsx_theme` (miss) and reset to
+  // the default. The default is now `system` (OS preference) — the
+  // previous `'dark'` literal would force the dev BFF into dark
+  // mode even when the user's OS was light, which exposed a
+  // Tailwind v2.2.19 no-`dark:`-variant divergence from prod.
   (function() {{
     try {{
-      var t = localStorage.getItem('epsx_theme') || 'dark';
+      var t = localStorage.getItem('epsx-theme') || 'system';
       if (t === 'system') {{
         t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       }}
@@ -92,8 +102,19 @@ pub fn design_system_head(title: &str, description: &str) -> String {
     --glass-blur:      12px;
     --glass-shadow:    0 8px 32px rgba(0, 0, 0, 0.08);
 
-    /* Font — epsx.io uses system-ui, not Kanit */
-    --font-sans:       ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif;
+    /* Font — epsx.io uses the platform default sans stack.
+     *
+     * Wave 24 T4': the previous fallback chain was 13 fonts deep,
+     * while prod (epsx.io's :root --font-sans) is the 7-font
+     * system-ui-first chain emitted by Tailwind v4's default
+     * --default-font-family. The extra entries (-apple-system,
+     * BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue,
+     * Arial, ...) resolved to the same glyphs in Chromium but
+     * caused 1-2px line-height drift on some Firefox/Safari
+     * captures, contributing to the ~0.06% residual pixel diff on
+     * / and /about. The shorter chain matches prod verbatim. */
+    --font-sans:       ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    --font-mono:       ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   }}
 
   html.dark {{
@@ -120,6 +141,97 @@ pub fn design_system_head(title: &str, description: &str) -> String {
     --glass-border:    rgba(249, 115, 22, 0.30);
     --glass-shadow:    0 8px 32px rgba(0, 0, 0, 0.40);
   }}
+
+  /* Wave 24 T4' — dark mode overrides for the light-pastel rules
+   * defined further down (`.marketing-bg-fixed`, `.glass-bg`,
+   * `.surface`, etc.). The base rules were originally authored
+   * for the light theme (epsx.io light-mode marketing pages) and
+   * never received a `html.dark` override, so on the dark dev
+   * BFF the page rendered as a pastel rainbow on a black body
+   * background — the dominant cause of the /`/` and /`/about`/
+   * pixel diff before this fix. */
+  html.dark .marketing-bg-fixed {{
+    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0c0a09 100%);
+  }}
+  /* Wave 24 T4' — the orbs/meshes on `<MarketingBackground>` were
+   * authored for a light pastel background (where their warm hues
+   * blended in). On the dark background they read as bright orange
+   * / purple blurs that prod (epsx.io's home page) does not have.
+   * Prod's home uses a flat dark page with a single subtle mesh
+   * overlay; we approximate that by dimming the orbs + meshes in
+   * dark mode. The base rules below define the 4 orbs at 20-30%
+   * opacity; the dark override drops them to 4-6% so they read
+   * as ambient depth, not foreground haze. */
+  html.dark .marketing-orb-orange {{
+    background: linear-gradient(to bottom right, rgba(251, 146, 60, 0.04), rgba(250, 204, 21, 0.04));
+  }}
+  html.dark .marketing-orb-blue {{
+    background: linear-gradient(to bottom right, rgba(96, 165, 250, 0.04), rgba(34, 211, 238, 0.04));
+  }}
+  html.dark .marketing-orb-purple {{
+    background: linear-gradient(to bottom right, rgba(192, 132, 252, 0.04), rgba(244, 114, 182, 0.04));
+  }}
+  html.dark .marketing-orb-green {{
+    background: linear-gradient(to bottom right, rgba(74, 222, 128, 0.03), rgba(16, 185, 129, 0.03));
+  }}
+  html.dark .marketing-mesh-orange {{ background: radial-gradient(circle at 25% 25%, rgba(255, 133, 27, 0.03) 0%, transparent 50%); }}
+  html.dark .marketing-mesh-blue   {{ background: radial-gradient(circle at 75% 75%, rgba(59, 130, 246, 0.03) 0%, transparent 50%); }}
+  html.dark .marketing-mesh-purple {{ background: radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.02) 0%, transparent 60%); }}
+  html.dark .marketing-shape-square {{
+    background: linear-gradient(to bottom right, rgba(251, 146, 60, 0.02), rgba(250, 204, 21, 0.02));
+  }}
+  html.dark .marketing-shape-circle {{
+    background: linear-gradient(to bottom right, rgba(96, 165, 250, 0.03), rgba(34, 211, 238, 0.03));
+  }}
+  /* Hero section orbs - dimmed for dark mode (still ambient depth, no foreground haze) */
+  html.dark .hero-orb-1 {{ background: rgba(251, 146, 60, 0.06); opacity: 0.5; }}
+  html.dark .hero-orb-2 {{ background: rgba(96, 165, 250, 0.06); opacity: 0.5; }}
+  html.dark .hero-orb-3 {{ background: rgba(192, 132, 252, 0.04); opacity: 0.5; }}
+  html.dark .hero-orb-4 {{ background: rgba(74, 222, 128, 0.04); opacity: 0.5; }}
+  html.dark .glass-bg {{
+    background: rgba(15, 23, 42, 0.65);
+  }}
+  html.dark .card-glass {{
+    background: rgba(15, 23, 42, 0.55);
+    border-color: rgba(249, 115, 22, 0.30);
+  }}
+  html.dark .card-insight {{
+    background: rgba(15, 23, 42, 0.55);
+    border-color: rgba(148, 163, 184, 0.18);
+  }}
+  html.dark .card {{
+    background: rgba(15, 23, 42, 0.55);
+    border-color: rgba(148, 163, 184, 0.18);
+  }}
+  /* Wave 24 T4' — light-mode color hardcodes (the `.about-hero-sub`,
+   * `.mission-card-body`, etc. use `rgb(...)` literals for text
+   * color so they don't auto-flip on dark mode). Override to
+   * light text colors when dark mode is active. */
+  html.dark .about-hero-sub {{ color: rgb(203, 213, 225); }}
+  html.dark .mission-card-body {{ color: rgb(203, 213, 225); }}
+  html.dark .mission-card-values-list li {{ color: rgb(203, 213, 225); }}
+  html.dark .about-team-name {{ color: rgb(241, 245, 249); }}
+  html.dark .about-team-bio {{ color: rgb(203, 213, 225); }}
+  html.dark .about-timeline-title {{ color: rgb(241, 245, 249); }}
+  html.dark .about-timeline-body {{ color: rgb(203, 213, 225); }}
+  html.dark .about-stat-label {{ color: rgb(148, 163, 184); }}
+  html.dark .datatech-card-body {{ color: rgb(203, 213, 225); }}
+  html.dark .datatech-why-list li {{ color: rgb(203, 213, 225); }}
+  html.dark .datatech-feature-body {{ color: rgb(203, 213, 225); }}
+  html.dark .datatech-benefit-item {{ color: rgb(203, 213, 225); }}
+  html.dark .section-title {{ color: rgb(241, 245, 249); }}
+  html.dark .section-sub {{ color: rgb(148, 163, 184); }}
+  html.dark .hero-subtitle {{ color: rgb(203, 213, 225); }}
+  html.dark .hero-stat-label {{ color: rgb(203, 213, 225); }}
+  html.dark .feature-title {{ color: rgb(241, 245, 249); }}
+  html.dark .feature-description {{ color: rgb(203, 213, 225); }}
+  html.dark .pricing-teaser-tier {{ color: rgb(148, 163, 184); }}
+  html.dark .pricing-teaser-price {{ color: rgb(241, 245, 249); }}
+  html.dark .pricing-teaser-features li {{ color: rgb(203, 213, 225); }}
+  html.dark .news-preview-title {{ color: rgb(241, 245, 249); }}
+  html.dark .news-preview-excerpt {{ color: rgb(203, 213, 225); }}
+  html.dark .performer-symbol {{ color: rgb(241, 245, 249); }}
+  html.dark .performer-price {{ color: rgb(203, 213, 225); }}
 
   * {{ box-sizing: border-box; }}
   html, body {{
