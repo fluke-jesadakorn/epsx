@@ -112,3 +112,8 @@ webDesign/
 infrastructure/kubernetes/base/backend/secret.yaml
 infrastructure/kubernetes/kubeconfig-colima-insecure.yaml
 infrastructure/kubernetes/snapshots/
+
+# Wave 23 — E2E test harness artifacts
+tools/e2e/baselines/
+tools/e2e/diff/
+tools/e2e/logs/
