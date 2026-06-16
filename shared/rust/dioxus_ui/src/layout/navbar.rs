@@ -317,27 +317,23 @@ pub fn GroupDropdown(group: NavGroup, current_path: String) -> Element {
     }
 }
 
-/// Desktop navigation: logo + group dropdowns. Hidden below `lg` via
-/// the `hidden lg:flex` classes. Mirrors the TS `DesktopNav` 1:1.
+/// Desktop navigation group dropdowns. The brand/logo is rendered once
+/// in `NavigationClient` (matches prod's `NavigationClient` which has
+/// a single mobile/desktop-shared logo link — see
+/// `apps-old/frontend/components/nav/navigation-client.tsx` lines
+/// 85-90). Hidden below `lg` via the `hidden lg:flex` classes; on
+/// mobile the `MobileNav` hamburger exposes the same groups via
+/// `<MobileGroupAccordion>`.
 #[component]
 pub fn DesktopNav(current_path: String) -> Element {
     rsx! {
-        div { class: "hidden lg:flex items-center gap-6",
-            // Logo (desktop)
-            a { class: "navbar-brand", href: "/",
-                span { class: "navbar-logo",
-                    dangerous_inner_html: "{epsx_templates::epsx_icon_svg()}"
-                }
-                span { class: "text-xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#488BFA] to-[#A43FF3] leading-none mt-0.5", "EPSX" }
-            }
-            nav { class: "flex items-center gap-0.5",
-                for group in NAV_GROUPS.iter() {
-                    {
-                        let g = (*group).clone();
-                        let p = current_path.clone();
-                        rsx! {
-                            GroupDropdown { group: g, current_path: p }
-                        }
+        div { class: "hidden lg:flex items-center gap-0.5",
+            for group in NAV_GROUPS.iter() {
+                {
+                    let g = (*group).clone();
+                    let p = current_path.clone();
+                    rsx! {
+                        GroupDropdown { group: g, current_path: p }
                     }
                 }
             }
@@ -463,8 +459,17 @@ pub fn NavigationClient(
     rsx! {
         header { class: "epsx-header sticky top-0 z-50",
             div { class: "mx-auto flex h-14 max-w-7xl items-center justify-between px-4 md:px-6",
-                // Mobile logo (visible <lg; DesktopNav has its own logo >=lg)
-                a { class: "lg:hidden navbar-brand",
+                // Brand — single always-visible link. Matches prod's
+                // `NavigationClient` which renders one logo shared by
+                // mobile + desktop (see
+                // `apps-old/frontend/components/nav/navigation-client.tsx`
+                // lines 85-90). Previously this section emitted TWO
+                // `a.navbar-brand` elements (one `lg:hidden` + one
+                // inside `hidden lg:flex`); that duplicated selector
+                // broke Playwright's `document.querySelector('a.navbar-brand')`
+                // click test (it picked the first, mobile-only link
+                // which is hidden at desktop viewports).
+                a { class: "navbar-brand flex items-center gap-2.5 group",
                     href: "/",
                     span { class: "navbar-logo",
                         dangerous_inner_html: "{epsx_templates::epsx_icon_svg()}"

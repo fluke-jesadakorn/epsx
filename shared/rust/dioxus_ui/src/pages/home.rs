@@ -203,30 +203,87 @@ fn TopPerformers() -> Element {
                     }
                 }
                 div { class: "top-performers-grid",
-                    a { class: "card card-glass performer-card", href: "/portfolio/GHC",
-                        div { class: "performer-symbol", "GHC" }
-                        div { class: "performer-price", "$6,535" }
-                        Badge { kind: BadgeKind::Success, icon: Some("trending-up".to_string()), "+4657%" }
+                    // Wave 23 T2 — each TopPerformers card now includes a
+                    // TradingView external link (matches prod's
+                    // `financial-data-table.tsx` `href={`https://www.tradingview.com/chart?symbol=${data.symbol}`}`).
+                    // The card's primary `<a href="/portfolio/SYMBOL">`
+                    // still navigates internally; the TradingView link
+                    // is a small icon button in the top-right corner
+                    // that opens in a new tab.
+                    div { class: "card card-glass performer-card relative",
+                        a { class: "absolute top-2 right-2 z-10 text-muted-foreground hover:text-yellow-400 transition-colors",
+                            href: "https://www.tradingview.com/chart?symbol=GHC",
+                            target: "_blank",
+                            rel: "noopener noreferrer",
+                            title: "View GHC on TradingView",
+                            "aria-label": "View GHC on TradingView",
+                            Icon { name: "external-link".to_string(), size: Some(14) }
+                        }
+                        a { class: "block", href: "/portfolio/GHC",
+                            div { class: "performer-symbol", "GHC" }
+                            div { class: "performer-price", "$6,535" }
+                            Badge { kind: BadgeKind::Success, icon: Some("trending-up".to_string()), "+4657%" }
+                        }
                     }
-                    a { class: "card card-glass performer-card", href: "/portfolio/ARAX",
-                        div { class: "performer-symbol", "ARAX" }
-                        div { class: "performer-price", "$1,240" }
-                        Badge { kind: BadgeKind::Success, icon: Some("trending-up".to_string()), "+312%" }
+                    div { class: "card card-glass performer-card relative",
+                        a { class: "absolute top-2 right-2 z-10 text-muted-foreground hover:text-yellow-400 transition-colors",
+                            href: "https://www.tradingview.com/chart?symbol=ARAX",
+                            target: "_blank",
+                            rel: "noopener noreferrer",
+                            title: "View ARAX on TradingView",
+                            "aria-label": "View ARAX on TradingView",
+                            Icon { name: "external-link".to_string(), size: Some(14) }
+                        }
+                        a { class: "block", href: "/portfolio/ARAX",
+                            div { class: "performer-symbol", "ARAX" }
+                            div { class: "performer-price", "$1,240" }
+                            Badge { kind: BadgeKind::Success, icon: Some("trending-up".to_string()), "+312%" }
+                        }
                     }
-                    a { class: "card card-glass performer-card", href: "/portfolio/NVTK",
-                        div { class: "performer-symbol", "NVTK" }
-                        div { class: "performer-price", "$8,915" }
-                        Badge { kind: BadgeKind::Success, icon: Some("trending-up".to_string()), "+287%" }
+                    div { class: "card card-glass performer-card relative",
+                        a { class: "absolute top-2 right-2 z-10 text-muted-foreground hover:text-yellow-400 transition-colors",
+                            href: "https://www.tradingview.com/chart?symbol=NVTK",
+                            target: "_blank",
+                            rel: "noopener noreferrer",
+                            title: "View NVTK on TradingView",
+                            "aria-label": "View NVTK on TradingView",
+                            Icon { name: "external-link".to_string(), size: Some(14) }
+                        }
+                        a { class: "block", href: "/portfolio/NVTK",
+                            div { class: "performer-symbol", "NVTK" }
+                            div { class: "performer-price", "$8,915" }
+                            Badge { kind: BadgeKind::Success, icon: Some("trending-up".to_string()), "+287%" }
+                        }
                     }
-                    a { class: "card card-glass performer-card", href: "/portfolio/GTC",
-                        div { class: "performer-symbol", "GTC" }
-                        div { class: "performer-price", "$412" }
-                        Badge { kind: BadgeKind::Success, icon: Some("trending-up".to_string()), "+165%" }
+                    div { class: "card card-glass performer-card relative",
+                        a { class: "absolute top-2 right-2 z-10 text-muted-foreground hover:text-yellow-400 transition-colors",
+                            href: "https://www.tradingview.com/chart?symbol=GTC",
+                            target: "_blank",
+                            rel: "noopener noreferrer",
+                            title: "View GTC on TradingView",
+                            "aria-label": "View GTC on TradingView",
+                            Icon { name: "external-link".to_string(), size: Some(14) }
+                        }
+                        a { class: "block", href: "/portfolio/GTC",
+                            div { class: "performer-symbol", "GTC" }
+                            div { class: "performer-price", "$412" }
+                            Badge { kind: BadgeKind::Success, icon: Some("trending-up".to_string()), "+165%" }
+                        }
                     }
-                    a { class: "card card-glass performer-card", href: "/portfolio/BIT",
-                        div { class: "performer-symbol", "BIT" }
-                        div { class: "performer-price", "$1,802" }
-                        Badge { kind: BadgeKind::Success, icon: Some("trending-up".to_string()), "+142%" }
+                    div { class: "card card-glass performer-card relative",
+                        a { class: "absolute top-2 right-2 z-10 text-muted-foreground hover:text-yellow-400 transition-colors",
+                            href: "https://www.tradingview.com/chart?symbol=BIT",
+                            target: "_blank",
+                            rel: "noopener noreferrer",
+                            title: "View BIT on TradingView",
+                            "aria-label": "View BIT on TradingView",
+                            Icon { name: "external-link".to_string(), size: Some(14) }
+                        }
+                        a { class: "block", href: "/portfolio/BIT",
+                            div { class: "performer-symbol", "BIT" }
+                            div { class: "performer-price", "$1,802" }
+                            Badge { kind: BadgeKind::Success, icon: Some("trending-up".to_string()), "+142%" }
+                        }
                     }
                 }
             }

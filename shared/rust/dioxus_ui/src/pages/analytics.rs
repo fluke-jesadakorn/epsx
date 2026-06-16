@@ -407,7 +407,22 @@ fn AnalyticsCardGrid(cards: Vec<AnalyticsRankingCard>) -> Element {
                                             }
                                             p { class: "mt-0.5 text-xs text-muted-foreground truncate", "{card.company_name}" }
                                         }
-                                        span { class: "text-xs text-muted-foreground", "#{card.rank}" }
+                                        div { class: "flex items-center gap-2",
+                                            // Wave 23 T2 — TradingView external link, mirrors the
+                                            // prod `card-dashboard-sections.tsx` link
+                                            // `href={`https://www.tradingview.com/symbols/${cardData.symbol}`}`.
+                                            // Renders a small icon-only link in the corner of each card.
+                                            a {
+                                                class: "text-muted-foreground hover:text-yellow-400 transition-colors",
+                                                href: "https://www.tradingview.com/symbols/{card.symbol}",
+                                                target: "_blank",
+                                                rel: "noopener noreferrer",
+                                                title: "View {card.symbol} on TradingView",
+                                                "aria-label": "View {card.symbol} on TradingView",
+                                                Icon { name: "external-link".to_string(), size: Some(14) }
+                                            }
+                                            span { class: "text-xs text-muted-foreground", "#{card.rank}" }
+                                        }
                                     }
                                     div { class: "flex items-end justify-between",
                                         div {
