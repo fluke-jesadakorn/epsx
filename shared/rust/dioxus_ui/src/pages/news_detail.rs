@@ -25,7 +25,23 @@ use crate::auth::ProgressiveAuthBanner;
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("News article");
     let slug = ctx.params.get("slug").cloned().unwrap_or_default();
-    let (title, date, read_time, author, content_blocks) = article_for(&slug);
+    // Wave 23 T5 — read live article data from `data_news_post` (BFF
+    // proxy: /api/v1/news/<slug> → content-service news_post()).
+    // Fall back to the hardcoded `article_for` static map when the
+    // BFF has no data (matches the OLD "Welcome to EPSX" default
+    // the static Next.js page emitted for unknown slugs).
+    let data: Option<serde_json::Value> = ctx.params.get("data_news_post")
+        .and_then(|s| serde_json::from_str(s).ok());
+    let (title, date, read_time, author, body_html, tags) = match data.as_ref()
+        .and_then(|d| serde_json::from_value::<ArticleRaw>(d.clone()).ok())
+        .map(ArticleRendered::from_raw)
+    {
+        Some(a) => (a.title, a.date, a.read_time, a.author, a.body, a.tags),
+        None => {
+            let (t, d, r, au, blocks) = article_for(&slug);
+            (t.to_string(), d.to_string(), r.to_string(), au.to_string(), blocks_to_html(&blocks), vec!["EPSX".to_string(), "Update".to_string()])
+        }
+    };
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
             if ctx.user.is_none() {
@@ -46,8 +62,9 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                         }
                         div {
                             div { class: "flex flex-wrap gap-2 mb-5",
-                                span { class: "px-3 py-1 rounded-full text-[11px] font-bold tracking-[0.15em] uppercase bg-cyan-500/15 text-cyan-500 border border-cyan-500/25", "EPSX" }
-                                span { class: "px-3 py-1 rounded-full text-[11px] font-bold tracking-[0.15em] uppercase bg-cyan-500/15 text-cyan-500 border border-cyan-500/25", "Update" }
+                                for tag in tags.iter() {
+                                    span { class: "px-3 py-1 rounded-full text-[11px] font-bold tracking-[0.15em] uppercase bg-cyan-500/15 text-cyan-500 border border-cyan-500/25", "{tag}" }
+                                }
                             }
                             h1 { class: "text-3xl sm:text-4xl lg:text-[2.75rem] font-extrabold leading-[1.1] tracking-tight mb-5 text-foreground",
                                 "{title}"
@@ -65,11 +82,11 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                 // === wave6-auth-pages-depth-track-d news-detail article body ===
                 div { class: "max-w-3xl mx-auto px-4 sm:px-6 pt-12 pb-20 news-detail-content",
                     div { class: "prose prose-lg prose-neutral max-w-none",
-                        for (heading, paragraphs) in content_blocks.iter() {
-                            if !heading.is_empty() {
-                                h2 { class: "text-2xl font-bold mt-12 mb-4 pb-3 border-b border-cyan-500/20 news-detail-h2", "{heading}" }
+                        for chunk in body_html.iter() {
+                            if let Some(h) = &chunk.heading {
+                                h2 { class: "text-2xl font-bold mt-12 mb-4 pb-3 border-b border-cyan-500/20 news-detail-h2", "{h}" }
                             }
-                            for p in paragraphs.iter() {
+                            for p in chunk.paragraphs.iter() {
                                 p { class: "leading-[1.8] text-muted-foreground news-detail-p", "{p}" }
                             }
                         }
@@ -182,6 +199,101 @@ fn RelatedCard(slug: String, title: String, read_time: String) -> Element {
             div { class: "font-bold line-clamp-2", "{title}" }
         }
     }
+}
+
+/// `ArticleRaw` — wire shape for `data_news_post` (BFF
+/// `/api/v1/news/<slug>`). Same field names as the news-list
+/// `NewsPostRaw` plus a `body` field (the article's HTML/MD
+/// rendered body) and `published` (ISO timestamp). Wave 23 T5.
+#[derive(Clone, Debug, serde::Deserialize)]
+struct ArticleRaw {
+    #[serde(default)] title: String,
+    #[serde(default)] date: String,
+    #[serde(default)] published: String,
+    #[serde(default)] author: String,
+    #[serde(default)] body: String,
+    #[serde(default)] tag1: String,
+    #[serde(default)] tag2: String,
+    #[serde(default)] tags: Vec<String>,
+    #[serde(default)] read_time: String,
+}
+
+/// `BodyChunk` — one section of the rendered article. `heading =
+/// None` means "no heading, just paragraphs" (matches the original
+/// `Vec<(heading, paragraphs)>` model that the static
+/// `article_for` returned).
+#[derive(Clone, Debug)]
+struct BodyChunk {
+    heading: Option<String>,
+    paragraphs: Vec<String>,
+}
+
+/// `ArticleRendered` — the post-deserialization rendering model.
+struct ArticleRendered {
+    title: String,
+    date: String,
+    read_time: String,
+    author: String,
+    body: Vec<BodyChunk>,
+    tags: Vec<String>,
+}
+
+impl ArticleRendered {
+    fn from_raw(r: ArticleRaw) -> Self {
+        let date = if !r.date.is_empty() { r.date } else { r.published };
+        let author = if r.author.is_empty() { "EPSX Team".into() } else { r.author };
+        let read_time = if r.read_time.is_empty() { "3 min".into() } else { r.read_time };
+        let body = body_to_chunks(&r.body);
+        let mut tags = r.tags;
+        if tags.is_empty() {
+            if !r.tag1.is_empty() { tags.push(r.tag1); }
+            if !r.tag2.is_empty() { tags.push(r.tag2); }
+        }
+        if tags.is_empty() {
+            tags = vec!["EPSX".to_string(), "Update".to_string()];
+        }
+        ArticleRendered { title: r.title, date, read_time, author, body, tags }
+    }
+}
+
+fn body_to_chunks(body: &str) -> Vec<BodyChunk> {
+    if body.is_empty() { return Vec::new(); }
+    let mut chunks = Vec::new();
+    let mut current_paragraphs: Vec<String> = Vec::new();
+    for line in body.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            if !current_paragraphs.is_empty() {
+                chunks.push(BodyChunk { heading: None, paragraphs: std::mem::take(&mut current_paragraphs) });
+            }
+        } else if let Some(h) = trimmed.strip_prefix("## ") {
+            if !current_paragraphs.is_empty() {
+                chunks.push(BodyChunk { heading: None, paragraphs: std::mem::take(&mut current_paragraphs) });
+            }
+            chunks.push(BodyChunk { heading: Some(h.trim().to_string()), paragraphs: Vec::new() });
+        } else if let Some(h) = trimmed.strip_prefix("# ") {
+            if !current_paragraphs.is_empty() {
+                chunks.push(BodyChunk { heading: None, paragraphs: std::mem::take(&mut current_paragraphs) });
+            }
+            chunks.push(BodyChunk { heading: Some(h.trim().to_string()), paragraphs: Vec::new() });
+        } else {
+            current_paragraphs.push(trimmed.to_string());
+        }
+    }
+    if !current_paragraphs.is_empty() {
+        chunks.push(BodyChunk { heading: None, paragraphs: current_paragraphs });
+    }
+    chunks
+}
+
+/// Convert the OLD static `Vec<(heading, paragraphs)>` model into
+/// the new `Vec<BodyChunk>` so the fallback path can share the same
+/// rendering code path.
+fn blocks_to_html(blocks: &[(&'static str, Vec<&'static str>)]) -> Vec<BodyChunk> {
+    blocks.iter().map(|(h, ps)| BodyChunk {
+        heading: if h.is_empty() { None } else { Some((*h).to_string()) },
+        paragraphs: ps.iter().map(|s| (*s).to_string()).collect(),
+    }).collect()
 }
 
 #[cfg(test)]

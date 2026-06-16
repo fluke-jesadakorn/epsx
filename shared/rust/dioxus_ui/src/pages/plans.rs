@@ -78,9 +78,22 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Plans");
     let plans_data: Option<serde_json::Value> = ctx.params.get("data_plans")
         .and_then(|s| serde_json::from_str(s).ok());
+    // Wave 23 T5 — accept BOTH wire shapes for the plans data:
+    //   1. Subscription service: `Vec<SubscriptionPlan>` serialized
+    //      as a raw array `[...]` (the shape that
+    //      `state.subscription.get_plain("/api/v1/subscription/plans")`
+    //      returns)
+    //   2. Content service / BFF mock: `{ "personal": [...], "api":
+    //      [...], "custom": [...] }` — three grouped buckets, the
+    //      prod plans.json shape.
+    //
+    // The OLD code only handled shape #2's `plans` key (which doesn't
+    // exist), so it always fell back to the 6-item default. Now we
+    // merge all 3 buckets into a flat `Vec<Plan>` tagged with
+    // `plan_group` so `PlanGroups` can split them.
     let plans: Vec<Plan> = plans_data.as_ref()
-        .and_then(|d| serde_json::from_value(d.get("plans").cloned().or_else(|| Some(d.clone())).unwrap_or(serde_json::json!([]))).ok())
-        .unwrap_or_else(default_plans);
+        .map(extract_plans)
+        .unwrap_or_default();
 
     // Fallback to the canonical 6-plan list (3 of 4 groups) when the
     // BFF hasn't pre-fetched plans (admin BFF, dev mode, etc.).
@@ -583,20 +596,85 @@ fn default_plans() -> Vec<Plan> {
     ]
 }
 
+/// Wave 23 T5 — extract a flat `Vec<Plan>` from the two wire shapes
+/// the BFF can supply:
+///
+/// 1. `Vec<SubscriptionPlan>` — raw JSON array, the
+///    subscription-service shape. Map each entry to `Plan` with
+///    `plan_group` derived from a name heuristic
+///    ("API " prefix → `api`, otherwise `personal`).
+///
+/// 2. `{ "personal": [...], "api": [...], "custom": [...] }` — the
+///    content-service plans.json shape. Concatenate the three
+///    buckets, tagging each plan with its `plan_group`.
+///
+/// 3. `{ "plans": [...] }` — legacy shape, the OLD page's
+///    expectation. Pass-through to the inner array.
+///
+/// Returns an empty vec when no shape matches (the caller falls
+/// back to `default_plans`).
+fn extract_plans(d: &serde_json::Value) -> Vec<Plan> {
+    if d.is_array() {
+        // Shape 1: raw array (subscription service).
+        return serde_json::from_value::<Vec<Plan>>(d.clone())
+            .unwrap_or_default()
+            .into_iter()
+            .map(|mut p| {
+                if p.plan_group.is_none() {
+                    let group = if p.name.to_lowercase().contains("api") || p.id.to_lowercase().contains("api") {
+                        "api"
+                    } else {
+                        "personal"
+                    };
+                    p.plan_group = Some(group.into());
+                }
+                p
+            })
+            .collect();
+    }
+    if let Some(obj) = d.as_object() {
+        // Shape 2: grouped buckets.
+        let mut out = Vec::new();
+        for (group, key) in [("personal", "personal"), ("api", "api"), ("custom", "custom"), ("enterprise", "enterprise")] {
+            if let Some(arr) = obj.get(key).and_then(|v| v.as_array()) {
+                if let Ok(plans) = serde_json::from_value::<Vec<Plan>>(serde_json::Value::Array(arr.clone())) {
+                    out.extend(plans.into_iter().map(|mut p| {
+                        if p.plan_group.is_none() {
+                            p.plan_group = Some(group.into());
+                        }
+                        p
+                    }));
+                }
+            }
+        }
+        if !out.is_empty() { return out; }
+        // Shape 3: legacy `plans` key.
+        if let Some(arr) = obj.get("plans").and_then(|v| v.as_array()) {
+            return serde_json::from_value::<Vec<Plan>>(serde_json::Value::Array(arr.clone()))
+                .unwrap_or_default();
+        }
+    }
+    Vec::new()
+}
+
 #[derive(Clone, Debug, serde::Deserialize, PartialEq)]
 pub struct Plan {
     #[serde(default)] pub id: String,
-    #[serde(default)] pub name: String,
+    /// The content-service plans.json uses `title` instead of `name`
+    /// for the plan's display name; accept both via `alias`.
+    #[serde(default, alias = "title")] pub name: String,
     #[serde(default)] pub price: String,
     #[serde(default)] pub period: String,
     #[serde(default)] pub features: Vec<String>,
     #[serde(default)] pub cta: String,
     #[serde(default)] pub featured: bool,
     /// Discriminator for `PlanGroups` rendering. One of
-    /// `personal` / `enterprise` / `api` / `custom`. `None` is
-    /// treated as `personal` (the source's fallback at
+    /// `personal` / `enterprise` / `api` / `custom`. The
+    /// content-service plans.json uses `category` for the same
+    /// value — accept both via `alias`. `None` is treated as
+    /// `personal` (the source's fallback at
     /// plan-selection.tsx:211).
-    #[serde(default)] pub plan_group: Option<String>,
+    #[serde(default, alias = "category")] pub plan_group: Option<String>,
 }
 
 // === wave5-page-depth-track-b ===

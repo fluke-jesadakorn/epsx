@@ -153,6 +153,18 @@ async fn main() {
         .route("/api/v1/news", get(api_news))
         .route("/api/v1/news/{slug}", get(api_news_post))
         .route("/api/v1/portfolio/{addr}", get(api_portfolio))
+        // Wave 23 T5 — new data_X endpoints for previously-unwired
+        // data-bound pages (account, credits, developer, analytics,
+        // payment). Each returns a canned payload shape matching
+        // the dev page's typed struct.
+        .route("/api/v1/account", get(api_account))
+        .route("/api/v1/credits", get(api_credits))
+        .route("/api/v1/developer", get(api_developer))
+        .route("/api/v1/developer/usage", get(api_developer_usage))
+        .route("/api/v1/developer/docs", get(api_developer_docs))
+        .route("/api/v1/analytics/summary", get(api_analytics))
+        .route("/api/v1/dashboard", get(api_dashboard))
+        .route("/api/v1/payment/{id}", get(api_payment))
         .route("/api/v1/wallet/chains", get(api_wallet_chains))
         .route("/api/v1/wallet/connect", post(api_wallet_connect))
         .route("/api/v1/subscription/plans", get(api_subscription_plans))

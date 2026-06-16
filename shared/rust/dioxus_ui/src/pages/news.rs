@@ -28,8 +28,26 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("News");
     let data: Option<serde_json::Value> = ctx.params.get("data_news")
         .and_then(|s| serde_json::from_str(s).ok());
+    // Wave 23 T5 — accept BOTH prod's `articles` shape (content
+    // service /api/v1/content/news) and the BFF's `items` shape
+    // (apps/frontend/src/api.rs::api_news). Both are wire-only
+    // fallbacks while the backend content service is in
+    // `ImagePullBackOff` (wave-22 follow-up #2).
     let posts: Vec<NewsPost> = data.as_ref()
-        .and_then(|d| serde_json::from_value(d.get("posts").cloned().unwrap_or(serde_json::json!([]))).ok())
+        .and_then(|d| {
+            let arr = d.get("articles")
+                .or_else(|| d.get("items"))
+                .or_else(|| d.get("posts"))
+                .cloned()
+                .unwrap_or(serde_json::json!([]));
+            serde_json::from_value::<Vec<NewsPostRaw>>(arr)
+                .ok()
+                .map(|raws| raws.into_iter().map(NewsPost::from_raw).collect())
+        })
+        // T4 fallback: if the BFF returned nothing (or the wire shape
+        // didn't match), use the 3-post default so the page is never
+        // empty in dev. In prod, the content service always returns
+        // ≥1 article; the fallback only fires in the wire-down case.
         .unwrap_or_else(default_posts);
     // Wave 23 T4: read the search query from the page context (set by
     // the BFF from `?q=...`) so SSR-rendered HTML already reflects the
@@ -118,6 +136,12 @@ fn NewsPageBody(
     }
 }
 
+/// Wave 23 T4 — kept as the empty-state fallback. When the BFF
+/// returns no data (or its wire shape is one of the 3 accepted
+/// variants but contains 0 entries), the page renders the 3-post
+/// default so the news section is never empty in dev. In prod, the
+/// content service always returns ≥1 article; the fallback only
+/// fires in the wire-down case.
 fn default_posts() -> Vec<NewsPost> {
     vec![
         NewsPost { slug: "welcome-to-epsx".into(), title: "Welcome to EPSX".into(), excerpt: "We're excited to launch the new EPSX platform — a Web3 commerce and analytics platform built for modern teams.".into(), author: "EPSX Team".into(), published_at: "2024-09-15".into(), read_time: "3 min".into(), cover_image_url: None, tags: vec!["Update".into()] },
@@ -136,6 +160,65 @@ pub struct NewsPost {
     #[serde(default)] pub read_time: String,
     #[serde(default)] pub tags: Vec<String>,
     #[serde(default)] pub cover_image_url: Option<String>,
+}
+
+/// `NewsPostRaw` — the wire shape from the content service
+/// (`/api/v1/content/news`) and the BFF's `api_news` mock. Different
+/// field names from `NewsPost` (which is the internal render model):
+/// - `date`        → `published_at`
+/// - `image`       → `cover_image_url`
+/// - `tag1`,`tag2` → `tags` (joined, in order)
+///
+/// `serde(default)` on every field keeps this resilient to either
+/// upstream omitting fields. Wave 23 T5 — was previously reading the
+/// wrong key (`posts`) and never matched either wire shape.
+#[derive(Clone, Debug, serde::Deserialize)]
+struct NewsPostRaw {
+    #[serde(default)] slug: String,
+    #[serde(default)] title: String,
+    #[serde(default)] excerpt: String,
+    #[serde(default)] summary: String,
+    #[serde(default)] author: String,
+    #[serde(default)] date: String,
+    #[serde(default)] published_at: String,
+    #[serde(default)] read_time: String,
+    #[serde(default)] tag1: String,
+    #[serde(default)] tag2: String,
+    #[serde(default)] tags: Vec<String>,
+    #[serde(default)] image: Option<String>,
+    #[serde(default)] cover_image_url: Option<String>,
+    #[serde(default)] featured: bool,
+}
+
+impl NewsPost {
+    fn from_raw(r: NewsPostRaw) -> Self {
+        // Prefer explicit `excerpt`, fall back to `summary` (the
+        // content-service shape uses `summary` for the same field).
+        let excerpt = if !r.excerpt.is_empty() { r.excerpt } else { r.summary };
+        // `date` and `published_at` carry the same value on the wire;
+        // accept either. Prefer the ISO `published_at` when both
+        // are present.
+        let published_at = if !r.published_at.is_empty() { r.published_at } else { r.date };
+        // Build the tag list from `tags` (already an array) or
+        // `tag1`+`tag2` (separate fields).
+        let mut tags = r.tags;
+        if tags.is_empty() {
+            if !r.tag1.is_empty() { tags.push(r.tag1); }
+            if !r.tag2.is_empty() { tags.push(r.tag2); }
+        }
+        // Image: prefer `cover_image_url`, fall back to `image`.
+        let cover_image_url = r.cover_image_url.or(r.image);
+        NewsPost {
+            slug: r.slug,
+            title: r.title,
+            excerpt,
+            author: r.author,
+            published_at,
+            read_time: r.read_time,
+            tags,
+            cover_image_url,
+        }
+    }
 }
 
 /// `NewsFilters` — category select, date range, search input. Wave 23

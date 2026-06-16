@@ -36,6 +36,39 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 #[component]
 fn RenderPortfolio(ctx: PageContext) -> Element {
     let mut tab = use_signal(|| "holdings".to_string());
+    // Wave 23 T5 — read live data from `data_portfolio` (BFF
+    // proxy: /api/v1/portfolio/<addr>). The OLD page rendered
+    // hardcoded `BNB/USDT/ETH/EPSX` holdings + `BTC/SOL/MATIC`
+    // watchlist for every visitor. With the BFF wired, authed
+    // users see the real address's holdings; anonymous users see
+    // the canned sample set + a "Connect wallet" CTA.
+    let data: Option<PortfolioData> = ctx.params.get("data_portfolio")
+        .and_then(|s| serde_json::from_str(s).ok());
+    let total_value = data.as_ref()
+        .and_then(|d| d.total_value_usd)
+        .map(format_usd)
+        .unwrap_or_else(|| "$12,345.67".to_string());
+    let change_24h = data.as_ref()
+        .and_then(|d| d.change_24h_pct)
+        .map(|p| format!("{:+.2}%", p))
+        .unwrap_or_else(|| "+1.9%".to_string());
+    let change_24h_full = data.as_ref()
+        .and_then(|d| d.change_24h_pct)
+        .map(|p| format!("{:+.2}%", p))
+        .unwrap_or_else(|| "+$234.56 (+1.9%)".to_string());
+    let assets = data.as_ref()
+        .and_then(|d| d.asset_count)
+        .unwrap_or(8)
+        .to_string();
+    let holdings: Vec<HoldingRow> = data.as_ref()
+        .and_then(|d| d.holdings.clone())
+        .unwrap_or_else(default_holdings);
+    let watchlist: Vec<WatchRow> = data.as_ref()
+        .and_then(|d| d.watchlist.clone())
+        .unwrap_or_else(default_watchlist);
+    let transactions: Vec<TxRow> = data.as_ref()
+        .and_then(|d| d.transactions.clone())
+        .unwrap_or_else(default_transactions);
     rsx! {
         MainLayout { ctx: ctx.clone(),
             // T2: removed `<AuthGate>` — the OLD prod page is
@@ -51,9 +84,9 @@ fn RenderPortfolio(ctx: PageContext) -> Element {
                 PageHeader { title: "Portfolio".to_string(), description: Some("Track your holdings and watchlist performance".to_string()), icon: Some("briefcase".to_string()) }
                 // === wave6-auth-pages-depth-track-d portfolio stat cards ===
                 div { class: "grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 portfolio-stats",
-                    StatCard { label: "Total value".to_string(), value: "$12,345.67".to_string(), icon: Some("trending-up".to_string()) }
-                    StatCard { label: "24h change".to_string(), value: "+$234.56 (+1.9%)".to_string(), icon: Some("arrow-up-right".to_string()) }
-                    StatCard { label: "Assets".to_string(), value: "8".to_string(), icon: Some("layers".to_string()) }
+                    StatCard { label: "Total value".to_string(), value: total_value, icon: Some("trending-up".to_string()) }
+                    StatCard { label: "24h change".to_string(), value: change_24h_full, icon: Some("arrow-up-right".to_string()) }
+                    StatCard { label: "Assets".to_string(), value: assets, icon: Some("layers".to_string()) }
                 }
                 // === wave6-auth-pages-depth-track-d portfolio performance chart ===
                 div { class: "grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6 portfolio-charts",
@@ -79,15 +112,15 @@ fn RenderPortfolio(ctx: PageContext) -> Element {
                 // === wave6-auth-pages-depth-track-d portfolio top-movers (always shown) ===
                 TopMoversCard {}
                 // === wave6-auth-pages-depth-track-d portfolio tab panels ===
-                if *tab.read() == "holdings" { HoldingsTable {} }
+                if *tab.read() == "holdings" { HoldingsTable { rows: holdings.clone() } }
                 else if *tab.read() == "watchlist" {
                     div { class: "space-y-4 portfolio-watchlist-panel",
                         // === wave6-auth-pages-depth-track-d portfolio add-to-watchlist ===
                         AddToWatchlistForm {}
-                        WatchlistTable {}
+                        WatchlistTable { rows: watchlist.clone() }
                     }
                 }
-                else { TransactionsTable {} }
+                else { TransactionsTable { rows: transactions.clone() } }
             }
         }
     }
@@ -122,13 +155,7 @@ fn PerformanceChart() -> Element {
 }
 
 #[component]
-fn HoldingsTable() -> Element {
-    let rows = vec![
-        ("BNB", "5.234", "$2,892.45", "+1.2%"),
-        ("USDT", "5,000.00", "$5,000.00", "0%"),
-        ("ETH", "1.2", "$3,540.00", "+0.8%"),
-        ("EPSX", "10,000", "$845.00", "+5.4%"),
-    ];
+fn HoldingsTable(rows: Vec<HoldingRow>) -> Element {
     rsx! {
         div { class: "card card-glass portfolio-holdings-table",
             div { class: "card-body p-0",
@@ -136,12 +163,12 @@ fn HoldingsTable() -> Element {
                     table { class: "table",
                         thead { tr { th { "Asset" } th { "Amount" } th { "Value" } th { "24h" } } }
                         tbody {
-                            for (a, amt, val, ch) in rows {
+                            for h in rows.iter() {
                                 tr {
-                                    td { span { class: "font-semibold", "{a}" } }
-                                    td { class: "font-mono", "{amt}" }
-                                    td { class: "font-mono", "{val}" }
-                                    td { class: if ch.starts_with('+') { "text-success" } else { "text-muted-foreground" }, "{ch}" }
+                                    td { span { class: "font-semibold", "{h.asset}" } }
+                                    td { class: "font-mono", "{h.amount}" }
+                                    td { class: "font-mono", "{h.value()}" }
+                                    td { class: if h.change().starts_with('+') { "text-success" } else { "text-muted-foreground" }, "{h.change()}" }
                                 }
                             }
                         }
@@ -155,12 +182,11 @@ fn HoldingsTable() -> Element {
 /// `WatchlistTable` — list of watched assets with a "Remove" button
 /// per row. Mirrors the watchlist surface in `watchlist-provider.tsx`.
 #[component]
-fn WatchlistTable() -> Element {
-    let mut rows = use_signal(|| vec![
-        ("BTC".to_string(), "$63,245".to_string(), "+2.1%".to_string()),
-        ("SOL".to_string(), "$145.32".to_string(), "-0.5%".to_string()),
-        ("MATIC".to_string(), "$0.45".to_string(), "+0.1%".to_string()),
-    ]);
+fn WatchlistTable(rows: Vec<WatchRow>) -> Element {
+    // Wave 23 T5 — initial rows come from `data_portfolio` (BFF
+    // proxy). The signal still tracks per-row removals so the
+    // "Remove" button works client-side.
+    let mut state = use_signal(|| rows);
     rsx! {
         // === wave6-auth-pages-depth-track-d portfolio watchlist-table (bare marker) ===
         div { class: "card card-glass portfolio-watchlist-table watchlist-table",
@@ -169,16 +195,16 @@ fn WatchlistTable() -> Element {
                     table { class: "table",
                         thead { tr { th { "Asset" } th { "Price" } th { "24h" } th { "" } } }
                         tbody {
-                            for (i, (a, p, ch)) in rows.read().iter().cloned().enumerate() {
+                            for (i, w) in state.read().iter().cloned().enumerate() {
                                 tr {
-                                    td { span { class: "font-semibold", "{a}" } }
-                                    td { class: "font-mono", "{p}" }
-                                    td { class: if ch.starts_with('+') { "text-success" } else { "text-danger" }, "{ch}" }
+                                    td { span { class: "font-semibold", "{w.asset}" } }
+                                    td { class: "font-mono", "{w.price}" }
+                                    td { class: if w.change.starts_with('+') { "text-success" } else { "text-danger" }, "{w.change}" }
                                     td { button { class: "btn btn-sm btn-outline", r#type: "button",
                                         onclick: move |_| {
-                                            let mut v = rows.read().clone();
+                                            let mut v = state.read().clone();
                                             if i < v.len() { v.remove(i); }
-                                            rows.set(v);
+                                            state.set(v);
                                         },
                                         "Remove"
                                     } }
@@ -215,13 +241,7 @@ fn AddToWatchlistForm() -> Element {
 }
 
 #[component]
-fn TransactionsTable() -> Element {
-    let rows = vec![
-        ("2024-09-20 10:32", "Buy", "BNB", "0.5", "$276.50"),
-        ("2024-09-19 15:21", "Receive", "USDT", "1,000", "$1,000.00"),
-        ("2024-09-19 09:14", "Sell", "ETH", "0.2", "$590.00"),
-        ("2024-09-18 12:00", "Swap", "EPSX", "500", "$42.25"),
-    ];
+fn TransactionsTable(rows: Vec<TxRow>) -> Element {
     rsx! {
         div { class: "card card-glass portfolio-transactions-table",
             div { class: "card-body p-0",
@@ -229,13 +249,13 @@ fn TransactionsTable() -> Element {
                     table { class: "table",
                         thead { tr { th { "Time" } th { "Type" } th { "Asset" } th { "Amount" } th { "Value" } } }
                         tbody {
-                            for (t, ty, a, amt, v) in rows {
+                            for t in rows.iter() {
                                 tr {
-                                    td { class: "text-sm text-muted-foreground", "{t}" }
-                                    td { span { class: "badge badge-info", "{ty}" } }
-                                    td { span { class: "font-semibold", "{a}" } }
-                                    td { class: "font-mono", "{amt}" }
-                                    td { class: "font-mono", "{v}" }
+                                    td { class: "text-sm text-muted-foreground", "{t.time}" }
+                                    td { span { class: "badge badge-info", "{t.kind}" } }
+                                    td { span { class: "font-semibold", "{t.asset}" } }
+                                    td { class: "font-mono", "{t.amount}" }
+                                    td { class: "font-mono", "{t.value}" }
                                 }
                             }
                         }
@@ -306,6 +326,106 @@ fn TopMoversCard() -> Element {
             }
         }
     }
+}
+
+// =============================================================================
+// Wave 23 T5 — data model for `data_portfolio` (BFF proxy:
+// /api/v1/portfolio/<addr>). Mirrors the OLD prod wire shape plus
+// the BFF mock's enriched holdings/watchlist/transactions fields.
+// =============================================================================
+
+#[derive(Clone, Debug, serde::Deserialize)]
+struct PortfolioData {
+    #[serde(default)] total_value_usd: Option<f64>,
+    #[serde(default)] change_24h_usd: Option<f64>,
+    #[serde(default)] change_24h_pct: Option<f64>,
+    #[serde(default)] asset_count: Option<i64>,
+    #[serde(default)] holdings: Option<Vec<HoldingRow>>,
+    #[serde(default)] watchlist: Option<Vec<WatchRow>>,
+    #[serde(default)] transactions: Option<Vec<TxRow>>,
+    #[serde(default)] subscriptions: Option<Vec<serde_json::Value>>,
+}
+
+#[derive(Clone, Debug, serde::Deserialize, PartialEq)]
+struct HoldingRow {
+    #[serde(default, alias = "asset")] asset: String,
+    #[serde(default, alias = "amount")] amount: String,
+    #[serde(default)] value_usd: Option<f64>,
+    #[serde(default)] change_24h_pct: Option<f64>,
+}
+
+impl HoldingRow {
+    fn value(&self) -> String {
+        self.value_usd.map(format_usd).unwrap_or_else(|| "—".to_string())
+    }
+    fn change(&self) -> String {
+        self.change_24h_pct.map(|p| format!("{:+.2}%", p)).unwrap_or_else(|| "0%".to_string())
+    }
+}
+
+#[derive(Clone, Debug, serde::Deserialize, PartialEq)]
+struct WatchRow {
+    #[serde(default, alias = "asset")] asset: String,
+    #[serde(default, alias = "price")] price: String,
+    #[serde(default, alias = "change_24h_pct")] change: String,
+}
+
+#[derive(Clone, Debug, serde::Deserialize, PartialEq)]
+struct TxRow {
+    #[serde(default, alias = "time")] time: String,
+    #[serde(default, alias = "type", alias = "kind")] kind: String,
+    #[serde(default, alias = "asset")] asset: String,
+    #[serde(default, alias = "amount")] amount: String,
+    #[serde(default, alias = "value_usd")] value: String,
+}
+
+fn default_holdings() -> Vec<HoldingRow> {
+    let rows: Vec<(String, String, f64, f64)> = vec![
+        ("BNB".into(),   "5.234".into(),    2_892.45,  1.2),
+        ("USDT".into(),  "5,000.00".into(), 5_000.00,  0.0),
+        ("ETH".into(),   "1.2".into(),      3_540.00,  0.8),
+        ("EPSX".into(),  "10,000".into(),     845.00,  5.4),
+    ];
+    rows.into_iter().map(|(asset, amount, value_usd, change_24h_pct)| HoldingRow {
+        asset, amount, value_usd: Some(value_usd), change_24h_pct: Some(change_24h_pct),
+    }).collect()
+}
+
+fn default_watchlist() -> Vec<WatchRow> {
+    vec![
+        WatchRow { asset: "BTC".into(),   price: "$63,245".into(), change: "+2.1%".into() },
+        WatchRow { asset: "SOL".into(),   price: "$145.32".into(), change: "-0.5%".into() },
+        WatchRow { asset: "MATIC".into(), price: "$0.45".into(),   change: "+0.1%".into() },
+    ]
+}
+
+fn default_transactions() -> Vec<TxRow> {
+    vec![
+        TxRow { time: "2024-09-20 10:32".into(), kind: "Buy".into(),     asset: "BNB".into(),  amount: "0.5".into(),   value: "$276.50".into() },
+        TxRow { time: "2024-09-19 15:21".into(), kind: "Receive".into(), asset: "USDT".into(), amount: "1,000".into(), value: "$1,000.00".into() },
+        TxRow { time: "2024-09-19 09:14".into(), kind: "Sell".into(),    asset: "ETH".into(),  amount: "0.2".into(),   value: "$590.00".into() },
+        TxRow { time: "2024-09-18 12:00".into(), kind: "Swap".into(),    asset: "EPSX".into(), amount: "500".into(),   value: "$42.25".into() },
+    ]
+}
+
+fn format_usd(v: f64) -> String {
+    // Format as `$X,XXX.XX` (no leading currency symbol beyond `$`,
+    // no fractional cents, comma thousands). Matches the OLD prod
+    // StatCard string format.
+    let sign = if v < 0.0 { "-" } else { "" };
+    let v = v.abs();
+    let whole = v.trunc() as i64;
+    let cents = (v.fract() * 100.0).round() as i64;
+    let mut s = whole.to_string();
+    // Insert commas every 3 digits from the right.
+    let bytes = s.as_bytes().to_vec();
+    let mut out = Vec::new();
+    for (i, b) in bytes.iter().rev().enumerate() {
+        if i > 0 && i % 3 == 0 { out.push(b','); }
+        out.push(*b);
+    }
+    s = out.into_iter().rev().map(|b| b as char).collect();
+    format!("{sign}${s}.{cents:02}")
 }
 
 #[cfg(test)]
