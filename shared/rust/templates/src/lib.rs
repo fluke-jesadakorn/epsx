@@ -29,6 +29,14 @@ pub fn design_system_head(title: &str, description: &str) -> String {
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
 <title>{title}</title>
+<!-- Wave 25 T1: Tailwind v2.2.19 CDN kept (T1' reverted from v3 — see deliverable).
+     The v3 JIT upgrade regressed /plans by +10.14% pixel_diff and the mean
+     match stayed flat (5.16% vs 5.96% baseline). The v2.2.19 CDN's lack of
+     `dark:` variant support is a real issue but the dominant divergence
+     between dev and prod is structural Dioxus-page layout, not `dark:foo`
+     class processing. Reverted to v2.2.19 so /plans and the overall mean
+     match don't regress. Subtasks 1.2 (skip config) + 1.3 (URL strip) are
+     still shipped. -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" />
 <script>
   // FOUC prevention: apply theme before first paint

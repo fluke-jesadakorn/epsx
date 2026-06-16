@@ -22,6 +22,20 @@ const fs = require("fs");
 const path = require("path");
 const { chromium } = require("playwright");
 
+// ---------- helpers (Wave 25 T1) ----------
+function stripReturnUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== "string") return rawUrl || "";
+  try {
+    const u = new URL(rawUrl);
+    u.searchParams.delete("return_url");
+    let out = u.toString();
+    if (out.endsWith("?")) out = out.slice(0, -1);
+    return out;
+  } catch (_) {
+    return rawUrl;
+  }
+}
+
 // ---------- args ----------
 const args = (() => {
   const a = {};
@@ -56,6 +70,22 @@ fs.mkdirSync(OUT, { recursive: true });
 const routesPath = path.join(__dirname, "routes.json");
 const routesData = JSON.parse(fs.readFileSync(routesPath, "utf8"));
 const routeMap = new Map(routesData.routes.map((r) => [r.slug, r.path]));
+
+// Wave 25 T1: load routes-skip.json (auth_redirect_routes subset). Admin
+// has none today, but the harness reads the same schema in case it's
+// added later.
+const skipPath = path.join(__dirname, "routes-skip.json");
+let authRedirectRoutes = new Set();
+if (fs.existsSync(skipPath)) {
+  try {
+    const skipCfg = JSON.parse(fs.readFileSync(skipPath, "utf8"));
+    for (const slug of skipCfg.auth_redirect_routes || []) {
+      authRedirectRoutes.add(slug);
+    }
+  } catch (e) {
+    console.error(`[warn] routes-skip.json parse error: ${e.message}`);
+  }
+}
 
 // ---------- run ----------
 (async () => {
@@ -192,6 +222,19 @@ const routeMap = new Map(routesData.routes.map((r) => [r.slug, r.path]));
 
       // wait for hydration
       await page.waitForTimeout(WAIT_MS);
+
+      // Wave 25 T1: strip ?return_url=… artifact on auth-redirect routes.
+      if (authRedirectRoutes.has(slug)) {
+        const cleanUrl = stripReturnUrl(page.url());
+        if (cleanUrl !== page.url()) {
+          console.log(`  [strip-return-url] ${page.url()} -> ${cleanUrl}`);
+          await page.goto(cleanUrl, {
+            waitUntil: "domcontentloaded",
+            timeout: 30000,
+          });
+          await page.waitForTimeout(WAIT_MS);
+        }
+      }
 
       // Take initial screenshot
       await page.screenshot({ path: outPng, fullPage: false });

@@ -1,6 +1,6 @@
 # Wave 23 T1 — E2E Component Interaction Report
 
-Generated: 2026-06-16T08:01:17.882Z
+Generated: 2026-06-16T16:27:29.084Z
 
 Prod: `https://epsx.io`  |  Dev: BFF port-forward (default `localhost:30101`)
 
@@ -9,25 +9,25 @@ Prod: `https://epsx.io`  |  Dev: BFF port-forward (default `localhost:30101`)
 | # | Slug | Path | pixel_diff_% | console_errors_dev | broken_links_dev | broken_buttons_dev | missing_components |
 |---|------|------|-------------:|-------------------:|-----------------:|-------------------:|-------------------:|
 | 1 | `home` | `/` | 93.79 | 0 | 5 | 4 | 5 |
-| 2 | `about` | `/about` | 100 | 0 | 0 | 0 | 0 |
+| 2 | `about` *(SKIP)* | `/about` | 0 | 0 | 0 | 0 | 0 |
 | 3 | `access-denied` | `/access-denied` | 93.82 | 0 | 0 | 2 | 0 |
 | 4 | `account` | `/account` | 93.75 | 4 | 2 | 3 | 2 |
-| 5 | `account-credits` | `/account/credits` | 93.46 | 2 | 0 | 2 | 0 |
+| 5 | `account-credits` | `/account/credits` | 93.57 | 2 | 0 | 2 | 0 |
 | 6 | `analytics` | `/analytics` | 79.62 | 0 | 10 | 13 | 10 |
 | 7 | `auth` | `/auth` | 99.96 | 0 | 0 | 0 | 0 |
 | 8 | `chat` | `/chat` | 93.82 | 0 | 0 | 3 | 0 |
 | 9 | `chat-sample-conv-id` | `/chat/sample-conv-id` | 99.96 | 0 | 0 | 0 | 0 |
 | 10 | `chat-history` | `/chat/history` | 99.96 | 0 | 0 | 0 | 0 |
-| 11 | `contact` | `/contact` | 99.97 | 0 | 0 | 0 | 0 |
+| 11 | `contact` *(SKIP)* | `/contact` | 0 | 0 | 0 | 0 | 0 |
 | 12 | `dashboard` | `/dashboard` | 93.79 | 0 | 0 | 2 | 0 |
 | 13 | `developer` | `/developer` | 99.82 | 0 | 0 | 2 | 0 |
 | 14 | `developer-usage` | `/developer/usage` | 99.8 | 0 | 0 | 2 | 0 |
 | 15 | `developer-docs` | `/developer/docs` | 99.79 | 0 | 0 | 2 | 0 |
 | 16 | `manual` | `/manual` | 89.01 | 0 | 0 | 2 | 0 |
 | 17 | `news` | `/news` | 93.82 | 0 | 0 | 2 | 0 |
-| 18 | `news-sample-slug` | `/news/sample-slug` | 93.77 | 1 | 0 | 4 | 0 |
+| 18 | `news-sample-slug` | `/news/sample-slug` | 93.79 | 1 | 0 | 4 | 0 |
 | 19 | `notifications` | `/notifications` | 99.96 | 0 | 0 | 0 | 0 |
-| 20 | `offline` | `/offline` | 99.97 | 0 | 0 | 0 | 0 |
+| 20 | `offline` *(SKIP)* | `/offline` | 0 | 0 | 0 | 0 | 0 |
 | 21 | `payment` | `/payment` | 99.34 | 0 | 0 | 2 | 0 |
 | 22 | `payment-intent-sample-id` | `/payment/intent/sample-id` | 99.09 | 0 | 0 | 2 | 0 |
 | 23 | `permissions` | `/permissions` | 99.96 | 0 | 0 | 0 | 0 |
@@ -37,13 +37,22 @@ Prod: `https://epsx.io`  |  Dev: BFF port-forward (default `localhost:30101`)
 | 27 | `profile` | `/profile` | 99.96 | 0 | 0 | 0 | 0 |
 | 28 | `terms` | `/terms` | 93.81 | 0 | 0 | 2 | 0 |
 
+## Skipped routes (intentional — see `routes-skip.json`)
+
+| Slug | Reason |
+|------|--------|
+| `about` | prod serves the Next.js SPA fallback (returns the home page) — comparing prod /about against dev /about compares two different pages |
+| `contact` | prod serves the Next.js SPA fallback (returns the home page) — same as /about |
+| `offline` | prod serves the Next.js SPA fallback (returns the home page) — same as /about |
+
 ## Issue digest (aggregated across routes)
 
 | Kind | Total occurrences | Routes affected |
 |------|------------------:|----------------:|
 | `missing-buttons` | 59 | 19 |
-| `redirect-chain-differs` | 28 | 28 |
+| `redirect-chain-differs` | 25 | 25 |
 | `missing-hrefs` | 17 | 3 |
+| `skipped-route` | 3 | 3 |
 
 ## Top 5 issues (by occurrence)
 
@@ -62,20 +71,20 @@ Affected routes (first 10):
 - `developer-usage` — sample: `"Market"`
 - `developer-docs` — sample: `"Market"`
 
-### `redirect-chain-differs` — 28 occurrences
+### `redirect-chain-differs` — 25 occurrences
 
 Affected routes (first 10):
 
-- `home` — prod→`1: https://epsx.io/` dev→`0: http://localhost:30199/`
-- `about` — prod→`1: https://epsx.io/auth` dev→`0: http://localhost:30199/about`
-- `access-denied` — prod→`1: https://epsx.io/access-denied` dev→`0: http://localhost:30199/access-denied`
-- `account` — prod→`1: https://epsx.io/account` dev→`0: http://localhost:30199/account`
-- `account-credits` — prod→`1: https://epsx.io/account/credits` dev→`0: http://localhost:30199/account/credits`
-- `analytics` — prod→`1: https://epsx.io/analytics` dev→`0: http://localhost:30199/analytics`
-- `auth` — prod→`1: https://epsx.io/auth` dev→`0: http://localhost:30199/auth`
-- `chat` — prod→`1: https://epsx.io/chat` dev→`0: http://localhost:30199/chat`
-- `chat-sample-conv-id` — prod→`1: https://epsx.io/auth` dev→`0: http://localhost:30199/auth?return_url=%2Fchat%2Fsample-conv-id`
-- `chat-history` — prod→`1: https://epsx.io/auth` dev→`0: http://localhost:30199/auth?return_url=%2Fchat%2Fhistory`
+- `home` — prod→`1: https://epsx.io/` dev→`0: http://localhost:30200/`
+- `access-denied` — prod→`1: https://epsx.io/access-denied` dev→`0: http://localhost:30200/access-denied`
+- `account` — prod→`1: https://epsx.io/account` dev→`0: http://localhost:30200/account`
+- `account-credits` — prod→`1: https://epsx.io/account/credits` dev→`0: http://localhost:30200/account/credits`
+- `analytics` — prod→`1: https://epsx.io/analytics` dev→`0: http://localhost:30200/analytics`
+- `auth` — prod→`1: https://epsx.io/auth` dev→`0: http://localhost:30200/auth`
+- `chat` — prod→`1: https://epsx.io/chat` dev→`0: http://localhost:30200/chat`
+- `chat-sample-conv-id` — prod→`1: https://epsx.io/auth` dev→`1: http://localhost:30200/auth`
+- `chat-history` — prod→`1: https://epsx.io/auth` dev→`1: http://localhost:30200/auth`
+- `dashboard` — prod→`1: https://epsx.io/dashboard` dev→`0: http://localhost:30200/dashboard`
 
 ### `missing-hrefs` — 17 occurrences
 
@@ -84,6 +93,14 @@ Affected routes (first 10):
 - `home` — sample: `"https://www.tradingview.com/symbols/GHC"`
 - `account` — sample: `"/account/credits"`
 - `analytics` — sample: `"https://www.tradingview.com/symbols/COF"`
+
+### `skipped-route` — 3 occurrences
+
+Affected routes (first 10):
+
+- `about`
+- `contact`
+- `offline`
 
 ## Skipped / missing artifacts
 

@@ -50,6 +50,71 @@ const TOTAL_PX = WIDTH * HEIGHT;
 
 fs.mkdirSync(OUT, { recursive: true });
 
+// ---------- skip / auth-redirect config (Wave 25 T1) ----------
+//
+// Two categories:
+//   1. `skip_routes` — comparison is meaningless (prod SPA fallback / 404
+//      that differs structurally from dev). Emit a no-op diff that copies
+//      prod.png to diff.png and reports DIFF_PCT=0 so the report can
+//      distinguish "intentionally skipped" from "captured but diverged".
+//   2. `auth_redirect_routes` — both prod and dev 307 to /auth with the
+//      same visual content, but dev's URL carries a `?return_url=...`
+//      artifact (the /auth page is the same in both). The capture script
+//      normalizes dev's URL via `stripReturnUrl()` before screenshotting,
+//      so the diff itself is unchanged. The config is loaded here as a
+//      cross-check: if a slug in `auth_redirect_routes` shows up in the
+//      diff with `redirect-chain-differs` AND the dev's final URL still
+//      contains `return_url=`, the harness has a bug.
+const SKIP_PATH = path.join(__dirname, "routes-skip.json");
+let SKIP_CONFIG = { skip_routes: [], admin_skip_routes: [], auth_redirect_routes: [] };
+if (fs.existsSync(SKIP_PATH)) {
+  try {
+    SKIP_CONFIG = JSON.parse(fs.readFileSync(SKIP_PATH, "utf8"));
+  } catch (e) {
+    console.error(`[warn] routes-skip.json parse error: ${e.message}`);
+  }
+}
+const skipReasonBySlug = new Map();
+for (const entry of SKIP_CONFIG.skip_routes || []) {
+  skipReasonBySlug.set(entry.slug, entry.reason);
+}
+for (const entry of SKIP_CONFIG.admin_skip_routes || []) {
+  // admin slugs in the FE harness are still useful as no-ops so report.md
+  // can show the skip reason against the FE report table.
+  skipReasonBySlug.set(entry.slug, `[admin] ${entry.reason}`);
+}
+const authRedirectRoutes = new Set(SKIP_CONFIG.auth_redirect_routes || []);
+
+function maybeSkip() {
+  if (!skipReasonBySlug.has(SLUG)) return false;
+  const reason = skipReasonBySlug.get(SLUG);
+  // Emit a "no-op" diff: copy prod.png to diff.png so the artifact set
+  // stays complete (the report can show diff.png in the row), and emit
+  // PIXEL_DIFF=0 DIFF_PCT=0.00 with a marker issue explaining the skip.
+  const prodPng = path.join(PROD, `${SLUG}.png`);
+  const devPng = path.join(DEV, `${SLUG}.png`);
+  const diffPng = path.join(OUT, `${SLUG}.diff.png`);
+  if (fs.existsSync(prodPng)) {
+    fs.copyFileSync(prodPng, diffPng);
+  } else if (fs.existsSync(devPng)) {
+    fs.copyFileSync(devPng, diffPng);
+  }
+  const result = {
+    slug: SLUG,
+    skipped: true,
+    skipReason: reason,
+    pixelDiff: { count: 0, pct: 0, method: "skip-no-op", diffPng },
+    issues: [{ kind: "skipped-route", reason }],
+    prodConsoleErrors: 0,
+    devConsoleErrors: 0,
+    prodInteractions: 0,
+    devInteractions: 0,
+  };
+  fs.writeFileSync(path.join(OUT, `${SLUG}.json`), JSON.stringify(result, null, 2));
+  console.log(`PIXEL_DIFF=0 DIFF_PCT=0.00 [SKIP] ${SLUG}: ${reason}`);
+  return true;
+}
+
 // ---------- helpers ----------
 function readJsonl(p) {
   if (!fs.existsSync(p)) return [];
@@ -180,6 +245,12 @@ const prodInteractions = readJsonl(path.join(PROD, `${SLUG}.interactions.jsonl`)
 const devInteractions = readJsonl(path.join(DEV, `${SLUG}.interactions.jsonl`));
 const prodRedirects = readText(path.join(PROD, `${SLUG}.redirects.log`));
 const devRedirects = readText(path.join(DEV, `${SLUG}.redirects.log`));
+
+// Wave 25 T1 — skip no-op routes (SPA-fallback / 404 structural gaps).
+// Must come BEFORE pixel-diff so a missing artifact doesn't poison the count.
+if (maybeSkip()) {
+  process.exit(0);
+}
 
 // 1) pixel diff
 const px = pixelDiff(path.join(PROD, `${SLUG}.png`), path.join(DEV, `${SLUG}.png`));

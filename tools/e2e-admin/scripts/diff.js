@@ -57,6 +57,50 @@ const TOTAL_PX = WIDTH * HEIGHT;
 
 fs.mkdirSync(OUT, { recursive: true });
 
+// ---------- skip / auth-redirect config (Wave 25 T1) ----------
+// Admin has 2 SPA-fallback / 404 routes (admin-dashboard, admin-policies)
+// and no auth_redirect_routes (admin redirects don't carry `?return_url=`).
+const SKIP_PATH = path.join(__dirname, "routes-skip.json");
+let SKIP_CONFIG = { skip_routes: [], auth_redirect_routes: [] };
+if (fs.existsSync(SKIP_PATH)) {
+  try {
+    SKIP_CONFIG = JSON.parse(fs.readFileSync(SKIP_PATH, "utf8"));
+  } catch (e) {
+    console.error(`[warn] routes-skip.json parse error: ${e.message}`);
+  }
+}
+const skipReasonBySlug = new Map();
+for (const entry of SKIP_CONFIG.skip_routes || []) {
+  skipReasonBySlug.set(entry.slug, entry.reason);
+}
+
+function maybeSkip() {
+  if (!skipReasonBySlug.has(SLUG)) return false;
+  const reason = skipReasonBySlug.get(SLUG);
+  const prodPng = path.join(PROD, `${SLUG}.png`);
+  const devPng = path.join(DEV, `${SLUG}.png`);
+  const diffPng = path.join(OUT, `${SLUG}.diff.png`);
+  if (fs.existsSync(prodPng)) {
+    fs.copyFileSync(prodPng, diffPng);
+  } else if (fs.existsSync(devPng)) {
+    fs.copyFileSync(devPng, diffPng);
+  }
+  const result = {
+    slug: SLUG,
+    skipped: true,
+    skipReason: reason,
+    pixelDiff: { count: 0, pct: 0, method: "skip-no-op", diffPng },
+    issues: [{ kind: "skipped-route", reason }],
+    prodConsoleErrors: 0,
+    devConsoleErrors: 0,
+    prodInteractions: 0,
+    devInteractions: 0,
+  };
+  fs.writeFileSync(path.join(OUT, `${SLUG}.json`), JSON.stringify(result, null, 2));
+  console.log(`PIXEL_DIFF=0 DIFF_PCT=0.00 [SKIP] ${SLUG}: ${reason}`);
+  return true;
+}
+
 // ---------- helpers ----------
 function readJsonl(p) {
   if (!fs.existsSync(p)) return [];
@@ -180,6 +224,11 @@ const prodInteractions = readJsonl(path.join(PROD, `${SLUG}.interactions.jsonl`)
 const devInteractions = readJsonl(path.join(DEV, `${SLUG}.interactions.jsonl`));
 const prodRedirects = readText(path.join(PROD, `${SLUG}.redirects.log`));
 const devRedirects = readText(path.join(DEV, `${SLUG}.redirects.log`));
+
+// Wave 25 T1 — skip no-op routes (SPA-fallback / 404 structural gaps).
+if (maybeSkip()) {
+  process.exit(0);
+}
 
 // 1) pixel diff
 const px = pixelDiff(path.join(PROD, `${SLUG}.png`), path.join(DEV, `${SLUG}.png`));

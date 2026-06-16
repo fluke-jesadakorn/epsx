@@ -22,6 +22,32 @@ const fs = require("fs");
 const path = require("path");
 const { chromium } = require("playwright");
 
+// ---------- helpers (Wave 25 T1) ----------
+// Wave 25 T1: when the dev BFF 307s an auth-gated route to /auth, it embeds
+// `?return_url=…` (or `&return_url=…`) in the redirect target so the auth
+// form can round-trip the user back after sign-in. The /auth form typically
+// renders the `return_url` value as a hidden field or echo, so a raw pixel
+// diff between prod /auth and dev /auth?return_url=/chat/sample-conv-id
+// picks up a per-route diff that's structurally the same page.
+// `stripReturnUrl` removes both `?return_url=…` and `&return_url=…` query
+// params from a URL string (handles fragment, multi-param, and trailing
+// slashes correctly).
+function stripReturnUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== "string") return rawUrl || "";
+  try {
+    const u = new URL(rawUrl);
+    u.searchParams.delete("return_url");
+    // Some BFFs use `&return_url=` (positional); URL parses it correctly.
+    // Also clean the empty trailing `?` from `u.toString()`.
+    let out = u.toString();
+    if (out.endsWith("?")) out = out.slice(0, -1);
+    return out;
+  } catch (_) {
+    // Not a parseable URL — return the input as-is.
+    return rawUrl;
+  }
+}
+
 // ---------- args ----------
 const args = (() => {
   const a = {};
@@ -52,6 +78,23 @@ fs.mkdirSync(OUT, { recursive: true });
 const routesPath = path.join(__dirname, "routes.json");
 const routesData = JSON.parse(fs.readFileSync(routesPath, "utf8"));
 const routeMap = new Map(routesData.routes.map((r) => [r.slug, r.path]));
+
+// Wave 25 T1: load routes-skip.json (auth_redirect_routes subset). When we
+// capture dev for one of these slugs, the dev BFF will 307 to /auth with a
+// `?return_url=…` artifact; we strip that before screenshotting so the diff
+// is the same /auth page both sides.
+const skipPath = path.join(__dirname, "routes-skip.json");
+let authRedirectRoutes = new Set();
+if (fs.existsSync(skipPath)) {
+  try {
+    const skipCfg = JSON.parse(fs.readFileSync(skipPath, "utf8"));
+    for (const slug of skipCfg.auth_redirect_routes || []) {
+      authRedirectRoutes.add(slug);
+    }
+  } catch (e) {
+    console.error(`[warn] routes-skip.json parse error: ${e.message}`);
+  }
+}
 
 // ---------- run ----------
 (async () => {
@@ -188,6 +231,23 @@ const routeMap = new Map(routesData.routes.map((r) => [r.slug, r.path]));
 
       // wait for hydration
       await page.waitForTimeout(WAIT_MS);
+
+      // Wave 25 T1: if this slug is in `auth_redirect_routes`, the dev
+      // BFF will have 307'd to /auth?return_url=… — strip the artifact
+      // param and re-navigate so the screenshot is the bare /auth page
+      // (matches what prod captures). This makes the diff reflect the
+      // structural /auth divergence, not the URL echo.
+      if (authRedirectRoutes.has(slug)) {
+        const cleanUrl = stripReturnUrl(page.url());
+        if (cleanUrl !== page.url()) {
+          console.log(`  [strip-return-url] ${page.url()} -> ${cleanUrl}`);
+          await page.goto(cleanUrl, {
+            waitUntil: "domcontentloaded",
+            timeout: 30000,
+          });
+          await page.waitForTimeout(WAIT_MS);
+        }
+      }
 
       // Take initial screenshot
       await page.screenshot({ path: outPng, fullPage: false });

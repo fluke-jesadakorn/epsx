@@ -86,7 +86,14 @@ for (const route of routes) {
     brokenButtonsDev: brokenButtons,
     missingComponents: missingComponents,
     issues: r.issues || [],
+    skipped: r.skipped || false,
+    skipReason: r.skipReason || null,
   });
+  if (r.skipped) {
+    // Don't include skipped routes in the "structural divergence" roll-up;
+    // the report's bottom table lists them with a `SKIP` badge.
+    continue;
+  }
   if (r.pixelDiff) {
     totalPixelDiff += r.pixelDiff.count;
     totalPx += (1280 * 800); // 1 PNG
@@ -103,9 +110,21 @@ md += "| # | Slug | Path | pixel_diff_% | console_errors_dev | broken_links_dev 
 md += "|---|------|------|-------------:|-------------------:|-----------------:|-------------------:|-------------------:|\n";
 let i = 1;
 for (const row of rows) {
-  md += `| ${i++} | \`${row.slug}\` | \`${row.path}\` | ${row.pixelDiffPct} | ${row.consoleErrorsDev} | ${row.brokenLinksDev} | ${row.brokenButtonsDev} | ${row.missingComponents} |\n`;
+  const skipTag = row.skipped ? " *(SKIP)*" : "";
+  md += `| ${i++} | \`${row.slug}\`${skipTag} | \`${row.path}\` | ${row.pixelDiffPct} | ${row.consoleErrorsDev} | ${row.brokenLinksDev} | ${row.brokenButtonsDev} | ${row.missingComponents} |\n`;
 }
 md += "\n";
+
+const skippedRows = rows.filter((r) => r.skipped);
+if (skippedRows.length > 0) {
+  md += "## Skipped routes (intentional — see `routes-skip.json`)\n\n";
+  md += "| Slug | Reason |\n";
+  md += "|------|--------|\n";
+  for (const r of skippedRows) {
+    md += `| \`${r.slug}\` | ${r.skipReason} |\n`;
+  }
+  md += "\n";
+}
 
 md += "## Issue digest (aggregated across routes)\n\n";
 if (issuesByKind.size === 0) {

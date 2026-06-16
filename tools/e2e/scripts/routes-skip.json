@@ -1,0 +1,35 @@
+{
+  "comment": "Wave 25 T1 — route-coverage gaps that the E2E harness must skip or normalize. See `tools/e2e/scripts/diff.js` (loadSkipConfig) and `tools/e2e/scripts/capture.js` (stripReturnUrl). Each entry is a slug from `routes.json` (not a URL path).",
+  "skip_routes": [
+    {
+      "slug": "about",
+      "reason": "prod serves the Next.js SPA fallback (returns the home page) — comparing prod /about against dev /about compares two different pages"
+    },
+    {
+      "slug": "contact",
+      "reason": "prod serves the Next.js SPA fallback (returns the home page) — same as /about"
+    },
+    {
+      "slug": "offline",
+      "reason": "prod serves the Next.js SPA fallback (returns the home page) — same as /about"
+    }
+  ],
+  "admin_skip_routes": [
+    {
+      "slug": "admin-dashboard",
+      "reason": "prod admin /dashboard returns 404 (auth-gated, no anonymous user); dev returns 200 — the dev is a real Dioxus page, the prod is Next.js's not-found"
+    },
+    {
+      "slug": "admin-policies",
+      "reason": "prod admin /policies returns 404 (auth-gated, no anonymous user); dev returns 200 — same as admin-dashboard"
+    }
+  ],
+  "auth_redirect_routes": [
+    "chat-sample-conv-id",
+    "chat-history",
+    "notifications",
+    "permissions",
+    "profile"
+  ],
+  "admin_auth_redirect_routes": []
+}
