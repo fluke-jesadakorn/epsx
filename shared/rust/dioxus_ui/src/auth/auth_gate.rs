@@ -4,8 +4,10 @@
 //! - `required_permissions: Vec<String>` — render the list of missing
 //!   permissions so the user knows why the gate fired.
 //! - `return_url: Option<String>` — appended to the "Connect Wallet"
-//!   link as a `?next=<url>` query string so the SIWE flow can bounce
-//!   the user back to the original destination post-login.
+//!   link as a `?return_url=<url>` query string so the SIWE flow can
+//!   bounce the user back to the original destination post-login.
+//!   Matches the prod (Next.js / Vercel middleware) convention
+//!   (`apps-old/frontend/middleware.ts` reads `?return_url=`).
 //! - `AdminAuthGate` — admin-only variant. Wraps `AuthGate` and adds
 //!   the admin-specific copy (shield icon, "Admin" badge, role check
 //!   via `is_admin`).
@@ -31,7 +33,9 @@ use dioxus::prelude::*;
 /// - `required_permissions` — when the user is signed in but missing
 ///   one of the listed permissions, the gate also fires. Renders a
 ///   bulleted list of the missing permissions in the panel.
-/// - `return_url` — appended to the connect link as `?next=<url>`.
+/// - `return_url` — appended to the connect link as `?return_url=<url>`
+///   (matches prod's `apps-old/frontend/middleware.ts` which reads
+///   `?return_url=...`).
 /// - `is_gated: bool` — when `false`, the gate is a no-op.
 #[component]
 pub fn AuthGate(
@@ -44,7 +48,8 @@ pub fn AuthGate(
     /// gate takes priority).
     #[props(default = None)] required_permissions: Option<Vec<String>>,
     /// URL the user should be sent to after a successful sign-in.
-    /// Forwarded as a `?next=...` query string on the connect link.
+    /// Forwarded as a `?return_url=...` query string on the connect
+    /// link (matches the prod Vercel middleware convention).
     #[props(default = None)] return_url: Option<String>,
     /// Optional override for the gate headline. Defaults to
     /// "Sign in required".
@@ -96,8 +101,17 @@ pub fn AuthGate(
     }
 
     // Case 3 — signed out. The original Wave 1 behavior.
+    //
+    // The query-string parameter name is `?return_url=` to match the
+    // prod Vercel middleware convention (`shared/auth/middleware.ts`
+    // `handleExplicitReturnUrl` reads `return_url`, not `next`).
+    // The auth page's hydration script
+    // (`pages/auth_page.rs::AUTH_HYDRATION_SCRIPT`) and the prod
+    // `apps-old/frontend/app/auth/page.tsx` `useSearchParams`
+    // hook both read `return_url`, so the BFF middleware redirect
+    // and the page-level redirect must agree.
     let connect_href = match &return_url {
-        Some(u) if !u.is_empty() => format!("/auth?next={}", u),
+        Some(u) if !u.is_empty() => format!("/auth?return_url={}", url_encode_query_value(u)),
         _ => "/auth".to_string(),
     };
     let headline = reason.unwrap_or_else(|| "Sign in required".to_string());
@@ -174,7 +188,7 @@ pub fn AdminAuthGate(
         }
     }
     let connect_href = match &return_url {
-        Some(u) if !u.is_empty() => format!("/admin?next={}", u),
+        Some(u) if !u.is_empty() => format!("/admin?return_url={}", url_encode_query_value(u)),
         _ => "/admin".to_string(),
     };
     let headline = reason.unwrap_or_else(|| "Admin access required".to_string());
@@ -215,5 +229,71 @@ pub fn AdminAuthGate(
                 a { class: "btn btn-outline", href: "/", "Back to home" }
             }
         }
+    }
+}
+
+/// Minimal URL-component encoder for the `?return_url=<value>` query
+/// parameter on the connect link. Mirrors the per-byte encoder in
+/// `apps/frontend/src/ssr.rs::urlencode` so the SSR redirect and the
+/// gate's `?return_url=` link produce the same string shape for the
+/// same path (e.g. `/notifications` → `%2Fnotifications`).
+///
+/// Wave 23 T3 — introduced when the `?next=` → `?return_url=` rename
+/// was done. Using a URL-encoded value is critical for paths that
+/// already contain a `?` (e.g. `/pricing?ref=foo`): the prod Vercel
+/// middleware reads `return_url` with `searchParams.get(...)` which
+/// only returns the value before the first `&` if the value is not
+/// pre-encoded.
+fn url_encode_query_value(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for b in s.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char);
+            }
+            _ => {
+                out.push_str(&format!("%{:02X}", b));
+            }
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    //! Tests for the `url_encode_query_value` helper used in the
+    //! `?return_url=<path>` connect link builder. Mirrors the
+    //! `apps/frontend/src/ssr.rs::urlencode` test (same shape, same
+    //! spec) so the SSR redirect and the gate's link produce
+    //! equivalent encodings.
+    use super::url_encode_query_value;
+
+    #[test]
+    fn passes_alnum() {
+        assert_eq!(url_encode_query_value("plain"), "plain");
+        assert_eq!(url_encode_query_value("foo123"), "foo123");
+    }
+
+    #[test]
+    fn encodes_path_slash() {
+        // `/notifications` → `%2Fnotifications` (matches prod Vercel).
+        assert_eq!(url_encode_query_value("/notifications"), "%2Fnotifications");
+    }
+
+    #[test]
+    fn encodes_query_separators() {
+        // A path that already contains `?` / `=` / `&` must round-trip
+        // through the auth flow correctly. Pre-encoding prevents
+        // `searchParams.get("return_url")` from returning only the
+        // first segment.
+        assert_eq!(url_encode_query_value("/x?a=1"), "%2Fx%3Fa%3D1");
+        assert_eq!(url_encode_query_value("/x?a=1&b=2"), "%2Fx%3Fa%3D1%26b%3D2");
+    }
+
+    #[test]
+    fn preserves_unreserved_punctuation() {
+        // `-` `_` `.` `~` are the four "unreserved" RFC 3986
+        // characters that don't need encoding.
+        assert_eq!(url_encode_query_value("a-b_c.d~e"), "a-b_c.d~e");
     }
 }

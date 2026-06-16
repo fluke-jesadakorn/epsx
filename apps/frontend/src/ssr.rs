@@ -5,6 +5,16 @@
 //! data from the gateway (cached in the SSR result), and renders the
 //! Dioxus VNode with all data baked in. The page renders fully on the
 //! server; client-side hydration then takes over for interactivity.
+//!
+//! Auth gating (Wave 23 T3): when an unauthenticated request lands on
+//! a protected path, we 307-redirect to `/auth?return_url=<path>` to
+//! match the prod Vercel middleware convention
+//! (`apps-old/frontend/middleware.ts::handleUnauthenticated` reads
+//! `?return_url=` and reads/writes the `epsx.return_url` cookie).
+//! The auth page's hydration script
+//! (`shared/rust/dioxus_ui/src/pages/auth_page.rs::AUTH_HYDRATION_SCRIPT`)
+//! and the page-level `AuthGate` connect links all use the same
+//! `?return_url=` parameter, so the round-trip works.
 
 use axum::{
     extract::{Request, State},
@@ -120,10 +130,28 @@ pub async fn ssr_handler(
         } else {
             format!("{path}?{query}")
         };
-        let location = format!("/auth?next={}", urlencode(&next));
+        // Wave 23 T3 — prod Vercel middleware uses `?return_url=` (NOT
+        // `?next=`). Standardize the dev SSR redirect to match. The
+        // auth page's hydration script reads `return_url` from the
+        // query string (or the `epsx_return_url` cookie set here)
+        // and bounces the user back to that path after sign-in
+        // completes. Pre-encoding via `urlencode` matches the shape
+        // `apps-old/frontend/middleware.ts::handleUnauthenticated`
+        // sets in the `epsx.return_url` cookie.
+        //
+        // The 5-minute cookie TTL is `MAX_AGE_RETURN_URL` and
+        // matches prod's `handleUnauthenticated` `maxAge: 300`.
+        // The cookie is HttpOnly + SameSite=Lax; it does NOT need
+        // the `__Host-` prefix because dev runs over plain HTTP
+        // (port 30101 port-forward).
+        let location = format!("/auth?return_url={}", urlencode(&next));
+        let cookie = auth::build_set_cookie("epsx_return_url", &urlencode(&next), 300);
         return (
             StatusCode::TEMPORARY_REDIRECT,
-            [("location", location.as_str())],
+            [
+                ("location", location.as_str()),
+                ("set-cookie", cookie.as_str()),
+            ],
             "",
         )
             .into_response();
@@ -332,8 +360,21 @@ mod tests {
     fn urlencode_passes_alnum() {
         // Matches Vercel's prod middleware `epsx.return_url=%2F<path>` shape.
         assert_eq!(urlencode("/notifications"), "%2Fnotifications");
-        assert_eq!(urlencode("/auth?next=/x"), "%2Fauth%3Fnext%3D%2Fx");
+        // Wave 23 T3 — query parameter is now `?return_url=` (NOT
+        // `?next=`). The encoder must still produce the same per-byte
+        // shape regardless of the query parameter name.
+        assert_eq!(urlencode("/auth?return_url=/x"), "%2Fauth%3Freturn_url%3D%2Fx");
         assert_eq!(urlencode("plain"), "plain");
+    }
+
+    /// Wave 23 T3 — `?return_url=<path>` round-trip: a path that
+    /// already contains a query string must be re-encoded so the
+    /// `searchParams.get("return_url")` call on the auth page only
+    /// sees the encoded value (not the inner `?` / `&`).
+    #[test]
+    fn urlencode_encodes_inner_query_separators() {
+        assert_eq!(urlencode("/pricing?ref=foo"), "%2Fpricing%3Fref%3Dfoo");
+        assert_eq!(urlencode("/x?a=1&b=2"), "%2Fx%3Fa%3D1%26b%3D2");
     }
 
     /// Wave 22 T4 — `/pricing` (no query) → 307 `/plans`.
