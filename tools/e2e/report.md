@@ -1,6 +1,6 @@
 # Wave 23 T1 — E2E Component Interaction Report
 
-Generated: 2026-06-17T03:33:29.059Z
+Generated: 2026-06-17T07:41:43.174Z
 
 Prod: `https://epsx.io`  |  Dev: BFF port-forward (default `localhost:30101`)
 
@@ -19,11 +19,11 @@ Prod: `https://epsx.io`  |  Dev: BFF port-forward (default `localhost:30101`)
 | 9 | `chat-sample-conv-id` | `/chat/sample-conv-id` | 99.96 | 0 | 0 | 0 | 0 |
 | 10 | `chat-history` | `/chat/history` | 99.96 | 0 | 0 | 0 | 0 |
 | 11 | `contact` *(SKIP)* | `/contact` | 0 | 0 | 0 | 0 | 0 |
-| 12 | `dashboard` | `/dashboard` | 93.79 | 0 | 0 | 2 | 0 |
+| 12 | `dashboard` | `/dashboard` | 93.74 | 0 | 0 | 2 | 0 |
 | 13 | `developer` | `/developer` | 99.82 | 0 | 0 | 2 | 0 |
-| 14 | `developer-usage` | `/developer/usage` | 99.8 | 0 | 0 | 2 | 0 |
+| 14 | `developer-usage` | `/developer/usage` | 80.66 | 0 | 0 | 2 | 0 |
 | 15 | `developer-docs` | `/developer/docs` | 99.79 | 0 | 0 | 2 | 0 |
-| 16 | `manual` | `/manual` | 92.81 | 35 | 0 | 2 | 0 |
+| 16 | `manual` | `/manual` | 92.96 | 35 | 0 | 2 | 0 |
 | 17 | `news` | `/news` | 93.82 | 0 | 0 | 2 | 0 |
 | 18 | `news-sample-slug` | `/news/sample-slug` | 93.79 | 1 | 0 | 4 | 0 |
 | 19 | `notifications` | `/notifications` | 99.96 | 0 | 0 | 0 | 0 |
@@ -32,7 +32,7 @@ Prod: `https://epsx.io`  |  Dev: BFF port-forward (default `localhost:30101`)
 | 22 | `payment-intent-sample-id` | `/payment/intent/sample-id` | 99.09 | 0 | 0 | 2 | 0 |
 | 23 | `permissions` | `/permissions` | 99.96 | 0 | 0 | 0 | 0 |
 | 24 | `plans` | `/plans` | 59.08 | 1 | 0 | 3 | 0 |
-| 25 | `portfolio` | `/portfolio` | 73.86 | 0 | 0 | 5 | 0 |
+| 25 | `portfolio` | `/portfolio` | 74.11 | 0 | 0 | 5 | 0 |
 | 26 | `privacy` | `/privacy` | 6.22 | 0 | 0 | 2 | 0 |
 | 27 | `profile` | `/profile` | 99.96 | 0 | 0 | 0 | 0 |
 | 28 | `terms` | `/terms` | 93.81 | 0 | 0 | 2 | 0 |
