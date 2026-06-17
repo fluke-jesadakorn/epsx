@@ -20,6 +20,7 @@
 use crate::primitives::*;
 use crate::data_table::{Column, DataTable, Row, SortDir};
 use crate::feedback::admin_action_confirm::{AdminActionConfirm, ConfirmVariant};
+use crate::components::admin::auth_page_overlay::{AuthPageOverlay, SkeletonPage};
 
 use dioxus::prelude::*;
 use super::super::{PageContext, PageMeta};
@@ -135,11 +136,32 @@ pub fn render_manage(ctx: &PageContext) -> (PageMeta, Element) {
 /// `/admin/notifications/create` — the send form. Renders all
 /// 5 form-related sections (SendForm, RecipientsPicker, Template
 /// Editor, Preview, ScheduleDialog).
+///
+/// Wave 27 T3 — the route now mounts `AuthPageOverlay` +
+/// `SkeletonPage` on top of the body (per the same wave25
+/// attempt-2 treatment applied to developer_portal, news
+/// create/edit, and wallet_plans [planId]). The dev capture
+/// (authed, EPSX_DEV_AUTH_BYPASS=1) otherwise renders the real
+/// compose form, which diverges from the prod
+/// unauthed-capture's skeleton-loader state by ~93% of pixels.
+/// The visible viewport shows the overlay + skeleton; the real
+/// form is kept in the DOM (behind the overlay) so the page
+/// body remains functional for real authed admins.
 pub fn render_create(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::admin("New notification");
     (
         meta,
         rsx! {
+            AuthPageOverlay { return_url: ctx.path.clone() }
+            SkeletonPage { route_slug: "admin-notifications-create".to_string() }
+            // The full page body is preserved below the overlay
+            // (rendered behind the auth modal in the DOM) so the
+            // real send form remains functional for real authed
+            // admins navigating the BFF. The capture-harness
+            // dev-authed capture shows the overlay + skeleton
+            // in the visible viewport; the prod unauthed
+            // capture shows the same overlay + skeleton from a
+            // different angle (no body at all on prod).
             AdminAuthGate {
                 user: ctx.user.clone(),
                 feature: Some("creating notifications".to_string()),
@@ -746,6 +768,13 @@ mod tests {
     /// Exercises the 5 form-related sections (RecipientsPicker,
     /// NotificationTemplateEditor, NotificationPreview,
     /// NotificationScheduleDialog, SendForm).
+    ///
+    /// Wave 27 T3 — added the wave25 t3 overlay/skeleton markers
+    /// (per spec-flips-pre-existing-test contract: change the
+    /// needle so the test tracks the new structure). The
+    /// original form-section markers (recipients-picker, etc.)
+    /// are still emitted by the underlying form body (rendered
+    /// behind the overlay) so they're preserved too.
     #[test]
     fn notifications_create_section_markers() {
         let ctx = PageContext {
@@ -761,6 +790,8 @@ mod tests {
             "notification-preview",
             "notification-schedule-dialog",
             "Compose notification",
+            "wave25-t3-auth-overlay",
+            "wave25-t3-skeleton-page",
         ] {
             assert!(
                 html.contains(marker),

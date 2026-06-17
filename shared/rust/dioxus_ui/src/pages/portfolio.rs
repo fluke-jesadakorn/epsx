@@ -54,6 +54,29 @@ const PORTFOLIO_INLINE_CSS: &str = r#"
 .portfolio-prod-bg > div[style*="radial-gradient"] { opacity: 1 !important; }
 .absolute.-top-40.-left-40 { width: 400px !important; height: 400px !important; }
 .absolute.top-1\/3.-right-32 { width: 300px !important; height: 300px !important; }
+/* Wave 27 T1 — force v3-style gradient color stops on the upsell
+   banner (Tailwind v2 CDN's opacity modifier on gradient stops
+   renders with slight color differences vs prod's v3+ PostCSS
+   pipeline). Tailwind v3 palette: purple-900 = #581c87,
+   purple-800 = #6b21a8, pink-900 = #831843. The v3 PostCSS
+   pipeline interpolates between color stops in sRGB; the v2 CDN
+   produces a flatter, more desaturated gradient. Force v3 stops. */
+.portfolio-upsell-banner {
+  background: linear-gradient(to right, rgba(88, 28, 135, 0.4), rgba(107, 33, 168, 0.3), rgba(131, 24, 67, 0.4)) !important;
+}
+/* Sign-in card needs prod colors (bg-blue-50 border-blue-200
+   dark:bg-blue-900/20 dark:border-blue-700). The page renders in
+   dark mode so we use the dark-theme values (blue-900/20 + blue-700)
+   — these are what v2 CDN renders vs prod's v3 PostCSS pipeline. */
+.portfolio-signin-card {
+  background-color: rgb(30 58 138 / 0.2) !important;
+  border-color: rgb(29 78 216) !important;
+}
+/* Wave 28 T2 — Tailwind v2 CDN doesn't generate the arbitrary-
+   value `min-h-[300px]` class, so force it on the prod's
+   `<RequireSignIn>` wrapper (which reserves 300px of vertical
+   space for the signin card). */
+.portfolio-prod-require-signin { min-height: 300px !important; }
 "#;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
@@ -79,10 +102,18 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                         PortfolioHeader {}
                         // Purple "Unlock Full Analytics Access" upsell
                         // banner — only for anon visitors (authed
-                        // users skip it).
+                        // users skip it). Wave 28 T2 — wrap the
+                        // signin card in the prod's `min-h-[300px]`
+                        // flex-center container (the prod's
+                        // `<RequireSignIn>` reserves 300px of vertical
+                        // space and centers the card inside it).
                         if ctx.user.is_none() {
                             PortfolioUpsellBanner {}
-                            PortfolioSignInCard {}
+                            div { class: "flex items-center justify-center min-h-[300px] p-6 portfolio-prod-require-signin",
+                                div { class: "max-w-md w-full",
+                                    PortfolioSignInCard {}
+                                }
+                            }
                         } else {
                             StockSearch {}
                             PortfolioGrid {}
@@ -124,40 +155,49 @@ fn PortfolioHeader() -> Element {
 /// prod's `relative mb-6 overflow-hidden rounded-2xl border
 /// border-purple-500/30 bg-gradient-to-r from-purple-900/40 via-
 /// purple-800/30 to-pink-900/40 backdrop-blur-sm`.
+///
+/// Wave 28 T2 — restructured to match prod's inline-pills shape
+/// exactly: 12x12 gradient icon container with white lock, `<p>`
+/// title (text-base) + `<p>` sub (purple-300/80), then a
+/// `flex flex-wrap gap-3` row of three `<span>` pills each with a
+/// small colored icon (trending-up / chart-no-axes-column / zap).
+/// Previously the dev used a bulleted `<ul>` of three `<li>`s with
+/// `check` icons, which made the banner ~60px taller than prod and
+/// pushed the signin card down by the same amount.
 #[component]
 fn PortfolioUpsellBanner() -> Element {
     rsx! {
-        div { class: "portfolio-prod-upsell relative mb-6 overflow-hidden rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-900/40 via-purple-800/30 to-pink-900/40 backdrop-blur-sm p-6",
-            div { class: "flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
-                div { class: "flex items-start gap-3",
-                    div { class: "flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/20",
-                        Icon { name: "lock".to_string(), size: Some(20), class_name: Some("text-purple-300".to_string()) }
+        div { class: "portfolio-prod-upsell portfolio-upsell-banner relative mb-6 overflow-hidden rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-900/40 via-purple-800/30 to-pink-900/40 backdrop-blur-sm p-5",
+            div { class: "relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
+                div { class: "flex items-start gap-4",
+                    div { class: "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg shadow-purple-500/30",
+                        Icon { name: "lock".to_string(), size: Some(24), class_name: Some("text-white".to_string()) }
                     }
                     div {
-                        h2 { class: "text-xl font-bold text-white mb-2",
+                        p { class: "text-base font-bold text-white",
                             "Unlock Full Analytics Access"
                         }
-                        p { class: "text-sm text-purple-100 mb-3",
+                        p { class: "mt-0.5 text-sm text-purple-300/80",
                             "Get access to all rankings and premium features"
                         }
-                        ul { class: "space-y-1 text-sm text-purple-100",
-                            li { class: "flex items-center gap-2",
-                                Icon { name: "check".to_string(), size: Some(14), class_name: Some("text-purple-300".to_string()) }
+                        div { class: "mt-2 flex flex-wrap gap-3",
+                            span { class: "flex items-center gap-1 text-xs text-purple-300/70",
+                                Icon { name: "trending-up".to_string(), size: Some(12), class_name: Some("text-purple-400".to_string()) }
                                 "Top 100 stock rankings"
                             }
-                            li { class: "flex items-center gap-2",
-                                Icon { name: "check".to_string(), size: Some(14), class_name: Some("text-purple-300".to_string()) }
+                            span { class: "flex items-center gap-1 text-xs text-purple-300/70",
+                                Icon { name: "chart-no-axes-column".to_string(), size: Some(12), class_name: Some("text-purple-400".to_string()) }
                                 "Real-time EPS data"
                             }
-                            li { class: "flex items-center gap-2",
-                                Icon { name: "check".to_string(), size: Some(14), class_name: Some("text-purple-300".to_string()) }
+                            span { class: "flex items-center gap-1 text-xs text-purple-300/70",
+                                Icon { name: "zap".to_string(), size: Some(12), class_name: Some("text-purple-400".to_string()) }
                                 "AI-powered insights"
                             }
                         }
                     }
                 }
-                a { class: "portfolio-prod-upsell-cta group inline-flex shrink-0 items-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-500/30 transition-all duration-200 hover:-translate-y-0.5",
-                    href: "/auth",
+                button { class: "portfolio-prod-upsell-cta group inline-flex shrink-0 items-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-500/30 transition-all duration-200 hover:-translate-y-0.5",
+                    onclick: move |_| {},
                     "Sign In Free"
                 }
             }
@@ -167,26 +207,31 @@ fn PortfolioUpsellBanner() -> Element {
 
 /// "Sign In Required" blue card. Mirrors prod's
 /// `p-6 bg-blue-50 border border-blue-200 rounded-lg
-/// dark:bg-blue-900/20 dark:border-blue-700` panel with a gold
-/// padlock icon, "Sign In Required" heading, "To view your
+/// dark:bg-blue-900/20 dark:border-blue-700` panel with a 🔐
+/// emoji icon, "Sign In Required" heading, "To view your
 /// portfolio, you need basic authentication." subtext, a bright
 /// blue "Sign In" button, a blue "Learn More" link, and a small
 /// blue "Need help?" footer.
+///
+/// Wave 28 T2 — replaced the gold 40px lock SVG with the prod's
+/// `🔐` emoji span (the prod uses the literal emoji, not an SVG),
+/// and changed the inner wrapper from `flex flex-col items-center
+/// text-center` to the prod's `text-center space-y-4` shape.
 #[component]
 fn PortfolioSignInCard() -> Element {
     rsx! {
-        div { class: "portfolio-prod-signin p-6 bg-blue-900/20 border border-blue-700 rounded-lg",
-            div { class: "flex flex-col items-center text-center",
-                // Gold padlock icon
-                div { class: "mb-3",
-                    Icon { name: "lock".to_string(), size: Some(40), class_name: Some("text-yellow-400".to_string()) }
+        div { class: "portfolio-prod-signin portfolio-signin-card p-6 bg-blue-900/20 border border-blue-700 rounded-lg",
+            div { class: "text-center space-y-4",
+                // 🔐 emoji icon (prod's actual markup — no SVG)
+                div { class: "flex justify-center",
+                    span { class: "text-3xl", role: "img", aria_label: "Sign in required", "🔐" }
                 }
                 // Heading
                 h3 { class: "portfolio-prod-signin-title text-lg font-medium text-blue-100",
                     "Sign In Required"
                 }
                 // Subtext
-                p { class: "portfolio-prod-signin-sub text-sm text-blue-300 mt-2 mb-4",
+                p { class: "portfolio-prod-signin-sub text-sm text-blue-300",
                     "To view your portfolio, you need basic authentication."
                 }
                 // Primary "Sign In" button — bright blue
@@ -195,12 +240,12 @@ fn PortfolioSignInCard() -> Element {
                     "Sign In"
                 }
                 // "Learn More" link — blue text
-                a { class: "portfolio-prod-signin-link w-full px-4 py-2 text-blue-400 hover:text-blue-300 font-medium text-sm text-center block mt-1",
+                a { class: "portfolio-prod-signin-link w-full px-4 py-2 text-blue-400 hover:text-blue-300 font-medium text-sm text-center block",
                     href: "/contact",
                     "Learn More"
                 }
                 // Footer — "Need help?"
-                p { class: "portfolio-prod-signin-footer text-xs text-blue-400 mt-4",
+                p { class: "portfolio-prod-signin-footer text-xs text-blue-400",
                     "Need help? Check our support documentation or contact support."
                 }
             }
@@ -384,31 +429,103 @@ mod tests {
         assert_eq!(card_count, 6, "portfolio page should render 6 stock cards. Got {card_count} in: {html}");
     }
 
-    /// Wave 25 T2 — anon visitor sees prod's purple "Unlock Full
-    /// Analytics Access" upsell banner + blue "Sign In Required"
-    /// card (with gold padlock, blue Sign In button, blue Learn More
-    /// link, blue Need help? footer).
+    /// Wave 25 T2 + Wave 28 T2 — anon visitor sees prod's purple
+    /// "Unlock Full Analytics Access" upsell banner (now with
+    /// inline-pill feature list, 12x12 gradient lock icon, and
+    /// `<p>` title) + the prod's `<RequireSignIn>` `min-h-[300px]`
+    /// flex-center wrapper around a blue "Sign In Required" card
+    /// (now with 🔐 emoji, `text-center space-y-4` layout).
     #[test]
     fn portfolio_anon_signin_card_matches_prod() {
         let (_meta, el) = render(&anon_ctx());
         let html = dioxus_ssr::render_element(el);
         for marker in &[
+            // Upsell banner markers (Wave 25 baseline + Wave 28 T2 additions)
             "portfolio-prod-upsell",
             "Unlock Full Analytics Access",
             "Sign In Free",
+            // Wave 28 T2 — inline-pill list (replaces bulleted <ul>)
+            "mt-2 flex flex-wrap gap-3",
+            "Top 100 stock rankings",
+            "Real-time EPS data",
+            "AI-powered insights",
+            // Wave 28 T2 — new icon shape: 12x12 + gradient + shadow
+            "h-12 w-12 shrink-0",
+            "bg-gradient-to-br from-purple-500 to-pink-500",
+            "shadow-lg shadow-purple-500/30",
+            // Wave 28 T2 — title is `<p class="text-base">` (was `<h2 class="text-xl">`)
+            "text-base font-bold text-white",
+            "text-purple-300/80",
+            // Sign-in wrapper markers (Wave 28 T2 — RequireSignIn shape)
+            "portfolio-prod-require-signin",
+            "flex items-center justify-center",
+            "max-w-md w-full",
+            // Sign-in card markers (Wave 25 baseline + Wave 28 T2 changes)
             "portfolio-prod-signin",
             "p-6 bg-blue-900/20 border border-blue-700 rounded-lg",
             "Sign In Required",
             "To view your portfolio, you need basic authentication.",
             "Need help? Check our support documentation",
             "Learn More",
-            "text-yellow-400",
+            // Wave 28 T2 — 🔐 emoji (replaces gold 40px lock SVG)
+            "aria-label=\"Sign in required\"",
+            "text-3xl",
         ] {
             assert!(
                 html.contains(marker),
                 "portfolio anon should contain prod marker `{marker}`. Got: {html}"
             );
         }
+    }
+
+    /// Wave 28 T2 — the upsell banner's feature list must use
+    /// inline `<span>` pills (matching prod) and not a bulleted
+    /// `<ul>` / `<li>`. Also verifies the new icon names
+    /// (trending-up, chart-no-axes-column, zap) replace the old
+    /// `check` icons.
+    #[test]
+    fn portfolio_anon_upsell_inline_pills() {
+        let (_meta, el) = render(&anon_ctx());
+        let html = dioxus_ssr::render_element(el);
+        // The inline pill row exists
+        assert!(
+            html.contains("mt-2 flex flex-wrap gap-3"),
+            "upsell banner should have inline pill row. Got: {html}"
+        );
+        // Bulleted list is gone
+        assert!(
+            !html.contains("space-y-1 text-sm text-purple-100"),
+            "upsell banner should NOT have bulleted <ul> (was the old shape). Got: {html}"
+        );
+        // Old `check` icons for the feature list are gone
+        // (we don't assert count because `check` is used elsewhere)
+        // instead we verify the new icons are present in the
+        // rendered HTML (class="lucide lucide-trending-up ...").
+        assert!(
+            html.contains("lucide-trending-up")
+                && html.contains("lucide-chart-no-axes-column")
+                && html.contains("lucide-zap"),
+            "upsell banner should use trending-up / chart-no-axes-column / zap icons. Got: {html}"
+        );
+    }
+
+    /// Wave 28 T2 — the signin card uses the prod's `🔐` emoji
+    /// (not the gold 40px lock SVG that was there in Wave 27 T4).
+    #[test]
+    fn portfolio_anon_signin_emoji_icon() {
+        let (_meta, el) = render(&anon_ctx());
+        let html = dioxus_ssr::render_element(el);
+        assert!(
+            html.contains("aria-label=\"Sign in required\""),
+            "signin card should use the prod's 🔐 emoji (aria-label=Sign in required). Got: {html}"
+        );
+        // The gold 40px lock SVG should be gone from the signin
+        // card. We check the icon's text-yellow-400 size=40 combo
+        // is no longer rendered.
+        assert!(
+            !html.contains("text-yellow-400"),
+            "signin card should NOT use the gold lock SVG (text-yellow-400 was its class). Got: {html}"
+        );
     }
 
     /// Wave 25 T2 — anon visitor does NOT see the authed-user

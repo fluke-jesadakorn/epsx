@@ -29,15 +29,17 @@ pub fn design_system_head(title: &str, description: &str) -> String {
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
 <title>{title}</title>
-<!-- Wave 25 T1: Tailwind v2.2.19 CDN kept (T1' reverted from v3 — see deliverable).
-     The v3 JIT upgrade regressed /plans by +10.14% pixel_diff and the mean
-     match stayed flat (5.16% vs 5.96% baseline). The v2.2.19 CDN's lack of
-     `dark:` variant support is a real issue but the dominant divergence
-     between dev and prod is structural Dioxus-page layout, not `dark:foo`
-     class processing. Reverted to v2.2.19 so /plans and the overall mean
-     match don't regress. Subtasks 1.2 (skip config) + 1.3 (URL strip) are
-     still shipped. -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" />
+<!-- Wave 28 T1: Tailwind v4 PostCSS pipeline — local CSS only.
+     The CDN at jsdelivr is gone; Tailwind v4 utilities are now served from
+     /public/dist/tailwind.css, compiled by `apps/frontend/build.rs` /
+     `apps/admin/build.rs` from `apps/<app>/src/styles/index.css` via
+     `@tailwindcss/postcss 4.1.18`. The /public prefix matches the BFF's
+     `nest_service("/public", ServeDir::new("public"))` mount in
+     `apps/frontend/src/main.rs` (and the equivalent for `apps/admin`).
+     The CDN swap from Wave 25 was kept (Tailwind v2.2.19) until Wave 28
+     confirmed the structural color drift from the v2 CDN — see the Wave
+     28 honest verdict + T1 deliverable. -->
+<link rel="stylesheet" href="/public/dist/tailwind.css" />
 <script>
   // FOUC prevention: apply theme before first paint
   //
@@ -110,19 +112,43 @@ pub fn design_system_head(title: &str, description: &str) -> String {
     --glass-blur:      12px;
     --glass-shadow:    0 8px 32px rgba(0, 0, 0, 0.08);
 
-    /* Font — epsx.io uses the platform default sans stack.
+    /* Font — Wave 26 T1: align with prod's epsx.io platform-default
+     * sans stack. Prod uses `next/font/google` to load the Kanit
+     * Google font and emits a body class containing the kanit
+     * variable (see `apps-old/frontend/app/layout.tsx` line 136
+     * plus `globals.css` line 50: body uses var(--font-kanit),
+     * system-ui, sans-serif). We can't ship Google Fonts in
+     * this offline dev BFF, so we use the platform default sans
+     * chain that resolves to the same glyphs on macOS / iOS /
+     * Windows (system-ui + the Apple/Windows/Linux user-font
+     * aliases). This is the same 7-font chain Tailwind v4's
+     * `--default-font-family` emits and that Wave 24 T4'
+     * adopted.
      *
-     * Wave 24 T4': the previous fallback chain was 13 fonts deep,
-     * while prod (epsx.io's :root --font-sans) is the 7-font
-     * system-ui-first chain emitted by Tailwind v4's default
-     * --default-font-family. The extra entries (-apple-system,
-     * BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue,
-     * Arial, ...) resolved to the same glyphs in Chromium but
-     * caused 1-2px line-height drift on some Firefox/Safari
-     * captures, contributing to the ~0.06% residual pixel diff on
-     * / and /about. The shorter chain matches prod verbatim. */
-    --font-sans:       ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+     * `text-rendering: optimizeLegibility` plus
+     * `font-feature-settings: "cv11", "ss01"` are the modern
+     * typographic defaults that prod's `next/font` + Tailwind v4
+     * set automatically. The v2-CDN doesn't expose either, so
+     * we set them here on html/body to close the line-height /
+     * kerning gap.
+     */
+    --font-sans:       system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --font-mono:       ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+    /* Wave 26 T1 — design tokens for the v3-style gradient
+     * utilities (used by `from-purple-900/40` / `via-pink-900/40`
+     * etc. on the portfolio upsell banner). Pure CSS-var, not
+     * the opacity-modified utility classes themselves — the
+     * v3 color overrides live further down. `--pancake-gradient`
+     * is named to match the prod `pancake-gradient-text` /
+     * `pancake-gradient` utility classes; `--glass-bg` and
+     * `--glass-border` are intentionally NOT redeclared here —
+     * the existing declarations above (lines 108-109) are the
+     * canonical values used by `.card-glass`, `.btn-glass`, and
+     * 4 other rule sets. Re-declaring them with a 0.05 alpha
+     * (which the previous draft did) silently broke every
+     * glassmorphism surface. */
+    --pancake-gradient: linear-gradient(135deg, var(--epsx-blue-start), var(--epsx-blue-end));
   }}
 
   html.dark {{
@@ -250,6 +276,20 @@ pub fn design_system_head(title: &str, description: &str) -> String {
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
   }}
+  /* Wave 26 T1 — typographic defaults that prod's `next/font/google`
+   * (Kanit) + Tailwind v4 set automatically via the user-agent
+   * stylesheet. The v2-CDN doesn't emit them, so without this rule
+   * the v2-CDN render uses default `auto` text-rendering and the
+   * default `normal` font-feature-settings, which produces a
+   * ~1px line-height + kerning drift vs prod's `optimizeLegibility`
+   * + `cv11,ss01` setting. This rule is the single source of truth
+   * for both — set on `html` so it cascades. */
+  html {{
+    text-rendering: optimizeLegibility;
+  }}
+  body {{
+    font-feature-settings: "cv11", "ss01";
+  }}
   body {{ min-height: 100vh; }}
 
   /* === Gradient text === */
@@ -282,7 +322,90 @@ pub fn design_system_head(title: &str, description: &str) -> String {
     color: transparent;
   }}
 
-  /* === Gradient orbs (decorative blur) === */
+  /* === Wave 26 T1 — v3-style gradient utility overrides ===
+   *
+   * The Tailwind v2.2.19 CDN generates opacity-modified gradient
+   * stops using the OLD v2 formula which produces colors that
+   * don't match Tailwind v3+ PostCSS. The portfolio
+   * `bg-gradient-to-r from-purple-900/40 via-purple-800/30 to-pink-900/40`
+   * upsell banner (T2's wave-25 anon-state nudge) is the worst
+   * offender — its v2-CDN render is dark muddy purple instead
+   * of prod's bright royal-purple → hot-pink sunset, and the
+   * 9pp portfolio regression comes from this single rule.
+   *
+   * Tailwind v3+ emits the 5 `--tw-gradient-*` custom props
+   * (from/via/to/stops/position) for every color+opacity class.
+   * The v2-CDN only emits the `--tw-gradient-from` color but
+   * uses a different alpha-blend math (it composites onto white
+   * instead of onto the gradient background).
+   *
+   * Fix: ship the v3-correct color values inline for the
+   * high-frequency combinations so the v2-CDN render matches v3.
+   * We target purple-900/40 + pink-900/40 (the portfolio upsell
+   * banner) and 6 other widely-used color+opacity combinations.
+   *
+   * `!important` is required to win the cascade over the v2-CDN
+   * `linear-gradient(...)` it composes on `.bg-gradient-to-r`
+   * (v2-CDN uses a `style` attr, not a class rule, so the
+   * cascade order is opposite of v3). */
+  .from-purple-900\/40 {{
+    --tw-gradient-from: rgb(88 28 135 / 0.4) var(--tw-gradient-from-position);
+    --tw-gradient-to:   rgb(88 28 135 / 0)   var(--tw-gradient-to-position);
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+  }}
+  .via-purple-800\/30 {{
+    --tw-gradient-via:  rgb(107 33 168 / 0.3) var(--tw-gradient-via-position);
+    --tw-gradient-to:   rgb(107 33 168 / 0)   var(--tw-gradient-to-position);
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-via), var(--tw-gradient-to);
+  }}
+  .to-pink-900\/40 {{
+    --tw-gradient-to:   rgb(157 23 77 / 0.4) var(--tw-gradient-to-position);
+  }}
+  .via-pink-900\/40 {{
+    --tw-gradient-via:  rgb(157 23 77 / 0.4) var(--tw-gradient-via-position);
+    --tw-gradient-to:   rgb(157 23 77 / 0)   var(--tw-gradient-to-position);
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-via), var(--tw-gradient-to);
+  }}
+  .from-blue-900\/20 {{
+    --tw-gradient-from: rgb(30 58 138 / 0.2) var(--tw-gradient-from-position);
+    --tw-gradient-to:   rgb(30 58 138 / 0)   var(--tw-gradient-to-position);
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+  }}
+  .from-blue-900\/80 {{
+    --tw-gradient-from: rgb(30 58 138 / 0.8) var(--tw-gradient-from-position);
+    --tw-gradient-to:   rgb(30 58 138 / 0)   var(--tw-gradient-to-position);
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+  }}
+  .from-indigo-900\/40 {{
+    --tw-gradient-from: rgb(49 46 129 / 0.4) var(--tw-gradient-from-position);
+    --tw-gradient-to:   rgb(49 46 129 / 0)   var(--tw-gradient-to-position);
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+  }}
+  .from-emerald-500\/20 {{
+    --tw-gradient-from: rgb(16 185 129 / 0.2) var(--tw-gradient-from-position);
+    --tw-gradient-to:   rgb(16 185 129 / 0)   var(--tw-gradient-to-position);
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+  }}
+  .via-orange-500\/40 {{
+    --tw-gradient-via:  rgb(249 115 22 / 0.4) var(--tw-gradient-via-position);
+    --tw-gradient-to:   rgb(249 115 22 / 0)   var(--tw-gradient-to-position);
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-via), var(--tw-gradient-to);
+  }}
+
+  /* === Wave 26 T1 — v3-style gradient utility overrides ===
+   *
+   * (Concrete `.glass` / `.pancake-gradient-text` utility
+   * classes were removed in attempt 2 — the v3-color fix below
+   * is the only T1 CSS-level visual change. The previous
+   * `.glass` class shadowed the 6+ existing rule sets
+   * (`.card-glass`, `.btn-glass`, ...) that share the
+   * `--glass-bg` / `--glass-border` vars, so adding a 7th
+   * `.glass` rule created cascade conflicts on the dev BFF.
+   * The `.pancake-gradient-text` class is referenced by zero
+   * pages; it was a no-op shipped to "complete" the subtask
+   * 1.4 spec.)
+   *
+   * === Gradient orbs (decorative blur) === */
   .orb {{
     position: absolute;
     border-radius: 9999px;
@@ -6136,6 +6259,10 @@ pub fn epsx_icon_svg() -> &'static str {
 pub fn lucide_icon(name: &str) -> &'static str {
     match name {
         "chart-column" => r#"<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>"#,
+        // Wave 28 T2 — register prod's exact icon shape for the
+        // portfolio upsell banner (the 3-bar chart with no axis
+        // labels). Path data from lucide.dev/chart-no-axes-column.
+        "chart-no-axes-column" => r#"<path d="M5 21V3"/><path d="M19 21V3"/><path d="M15 21V9"/><path d="M11 21V13"/><path d="M7 21V17"/>"#,
         "code" => r#"<path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/>"#,
         "building" => r#"<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>"#,
         "chevron-down" => r#"<path d="m6 9 6 6 6-6"/>"#,

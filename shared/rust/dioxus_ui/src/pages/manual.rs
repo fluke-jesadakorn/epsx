@@ -91,10 +91,25 @@ const FEATURES: &[ManualFeature] = &[
     ManualFeature { id: "developer-usage", name: "API Usage", desc: "The API usage page displays call volume charts over time, current rate limit consumption, and per-endpoint breakdown tables. Usage metrics include response times, error rates, and quota utilization.", route: "/developer/usage", screenshots: &["developer-usage"], category: "Developer" },
 ];
 
+/// Wave 27 T1 — inline CSS rules for Tailwind v2 CDN arbitrary-value
+/// classes that render with slight color differences vs prod's v3+
+/// PostCSS pipeline. Force the v3-style colors on the sidebar +
+/// category headings so the dev capture pixel-matches prod.
+const MANUAL_INLINE_CSS: &str = r#"
+.manual-sidebar { background-color: rgba(17, 24, 39, 0.5) !important; }
+.manual-sidebar-border { border-color: rgb(31, 41, 55) !important; }
+.manual-sidebar-link { color: rgb(156, 163, 175) !important; }
+.manual-sidebar-link:hover { background-color: rgb(31, 41, 55) !important; color: rgb(255, 255, 255) !important; }
+.manual-category-h2 { border-color: rgb(31, 41, 55) !important; color: rgb(243, 244, 246) !important; }
+"#;
+
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Manual");
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
+            // Wave 27 T1 — inject inline CSS so Tailwind v2 CDN renders
+            // v3-style colors on the sidebar + category h2.
+            style { "{MANUAL_INLINE_CSS}" }
             // Wave 25 T2 — match prod's `bg-gray-950 text-gray-100`
             // + flex layout with sticky sidebar. Prod does NOT show
             // ProgressiveAuthBanner on /manual.
@@ -114,12 +129,12 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 #[component]
 fn ManualSidebar() -> Element {
     rsx! {
-        aside { class: "manual-prod-sidebar sticky top-0 h-screen w-56 shrink-0 overflow-y-auto border-r border-gray-800 bg-gray-900/50 p-4",
+        aside { class: "manual-prod-sidebar manual-sidebar manual-sidebar-border sticky top-0 h-screen w-56 shrink-0 overflow-y-auto border-r border-gray-800 bg-gray-900/50 p-4",
             h2 { class: "mb-4 text-lg font-semibold text-white manual-prod-sidebar-title", "Categories" }
             nav { class: "flex flex-col gap-1 manual-prod-sidebar-nav",
                 for cat in CATEGORIES.iter() {
                     a {
-                        class: "manual-prod-sidebar-link rounded px-3 py-1.5 text-sm text-gray-400 hover:bg-gray-800 hover:text-white transition-colors",
+                        class: "manual-prod-sidebar-link manual-sidebar-link rounded px-3 py-1.5 text-sm text-gray-400 hover:bg-gray-800 hover:text-white transition-colors",
                         href: "#{cat_slug(cat)}",
                         "{cat}"
                     }
@@ -154,7 +169,7 @@ fn ManualCategorySection(category: &'static str) -> Element {
     let id = cat_slug(category);
     rsx! {
         section { class: "manual-prod-category mb-12", id: "{id}",
-            h2 { class: "manual-prod-category-title mb-4 border-b border-gray-800 pb-2 text-xl font-semibold text-white",
+            h2 { class: "manual-prod-category-title manual-category-h2 mb-4 border-b border-gray-800 pb-2 text-xl font-semibold text-white",
                 "{category}"
             }
             div { class: "grid gap-6 sm:grid-cols-2 lg:grid-cols-3 manual-prod-feature-grid",

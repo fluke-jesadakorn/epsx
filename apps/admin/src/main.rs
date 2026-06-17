@@ -126,7 +126,7 @@ async fn main() {
         .route("/api/v1/wallet/accounts", get(list_accounts))
         .route("/api/v1/wallet/accounts/{address}", get(get_account))
         // Static assets
-        .nest_service("/public", tower_http::services::ServeDir::new("public").fallback(tower_http::services::ServeFile::new("public/index.html")))
+        .nest_service("/public", tower_http::services::ServeDir::new(format!("{}/public", env!("CARGO_MANIFEST_DIR"))).fallback(tower_http::services::ServeFile::new(format!("{}/public/index.html", env!("CARGO_MANIFEST_DIR")))))
         // SSR fallback (Dioxus)
         .fallback(ssr::ssr_handler)
         .layer(axum::middleware::from_fn(security_headers))
