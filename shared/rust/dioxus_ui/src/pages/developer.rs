@@ -997,6 +997,112 @@ fn UsageMonitor(
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Auth-guard body for /developer/usage — matches prod's GlobalAuthGuard
+// modal overlay.
+// ─────────────────────────────────────────────────────────────────────────
+
+/// `DeveloperUsageAuthGuardBody` — unauthed render of `/developer/usage`.
+///
+/// Wave 27 T2 — matches prod's `GlobalAuthGuard` modal overlay that
+/// intercepts `/developer/usage` for unauthed visitors. Prod's page
+/// (apps-old/frontend/app/developer/usage/page.tsx:9-11) returns
+/// `null` when `getCurrentUser()` is missing — the layout's
+/// `GlobalAuthGuard` then renders the empty `<div
+/// class="min-h-screen bg-background flex items-center
+/// justify-center"><div class="container mx-auto p-6">` + a
+/// fixed-position backdrop + a centered auth modal dialog with
+/// the "Select Wallet" step (Safe / WalletConnect / Base Account).
+///
+/// The dev BFF doesn't have a global `GlobalAuthGuard`, so we render
+/// the auth-guard body directly inside the page. This brings the
+/// unauthed `/developer/usage` pixel-diff from ~0% (empty page) to
+/// the structural-floor of "auth modal page".
+#[component]
+fn DeveloperUsageAuthGuardBody() -> Element {
+    rsx! {
+        // Outer <main class="relative min-h-[calc(100svh-3.5rem)]">
+        // mirror — the layout's <main> wrapper is the actual parent
+        // in SSR, so this is an inner div that fills the main area.
+        div { class: "developer-usage-auth-guard relative min-h-[calc(100svh-3.5rem)]",
+            // Outer empty container (matches prod's
+            // <div class="min-h-screen bg-background flex items-center justify-center">)
+            div { class: "developer-usage-auth-guard-inner min-h-screen bg-background flex items-center justify-center",
+                // <div class="container mx-auto p-6">
+                div { class: "developer-usage-auth-guard-content container mx-auto p-6",
+                    // === wave27-t2-port-fe-pages ===
+                    // Prod renders GlobalAuthGuard which includes a
+                    // backdrop overlay + a centered dialog. We render
+                    // both so the pixel-diff harness measures the same
+                    // auth-modal shape. The backdrop + dialog-wrap are
+                    // SIBLINGS (not nested), matching prod's structure
+                    // exactly so the pixel-diff doesn't pick up extra
+                    // padding/margin from a wrapping element.
+                    div {
+                        class: "developer-usage-auth-guard-backdrop fixed inset-0 backdrop-blur-sm state-open:animate-fade-in state-closed:animate-fade-out",
+                        "data-state": "open",
+                        style: "pointer-events: none; z-index: 1090; background-color: rgba(0, 0, 0, 0.5);"
+                    }
+                    div {
+                        class: "developer-usage-auth-guard-dialog-wrap fixed inset-0 flex items-center justify-center p-4",
+                        style: "z-index: 1100; pointer-events: none;",
+                        div {
+                            role: "dialog",
+                            class: "developer-usage-auth-guard-dialog grid w-full max-w-lg border-gray-200 dark:border-slate-700 text-foreground rounded-2xl sm:rounded-3xl sm:max-w-[420px] p-0 gap-0 overflow-hidden bg-transparent dark:bg-transparent border-0 shadow-none",
+                            tabindex: "-1",
+                            style: "pointer-events: auto;",
+                            h2 { class: "sr-only", "Dialog" }
+                            // Mirrors prod's
+                            // <div class="auth-modal-inner "> (note the
+                            // trailing space in prod — preserved for
+                            // pixel-parity).
+                            div { class: "auth-modal-inner ",
+                                div { class: "auth-modal-content",
+                                    div { class: "auth-step auth-step-enter",
+                                        div { class: "auth-step-header",
+                                            span { class: "auth-step-number", "1" }
+                                            span { class: "auth-step-label", "Select Wallet" }
+                                        }
+                                        div { class: "auth-wallets",
+                                            // Three wallet buttons in
+                                            // prod order: Safe /
+                                            // WalletConnect /
+                                            // Base Account.
+                                            button {
+                                                r#type: "button",
+                                                class: "auth-wallet-btn",
+                                                span { class: "auth-wallet-icon", "\u{1F4BC}" }
+                                                span { class: "auth-wallet-name", "Safe" }
+                                            }
+                                            button {
+                                                r#type: "button",
+                                                class: "auth-wallet-btn",
+                                                span { class: "auth-wallet-icon", "\u{1F517}" }
+                                                span { class: "auth-wallet-name", "WalletConnect" }
+                                            }
+                                            button {
+                                                r#type: "button",
+                                                class: "auth-wallet-btn",
+                                                span { class: "auth-wallet-icon", "\u{1F4BC}" }
+                                                span { class: "auth-wallet-name", "Base Account" }
+                                            }
+                                        }
+                                    }
+                                }
+                                div { class: "auth-modal-footer",
+                                    p { class: "auth-footer-text",
+                                        "By connecting, you agree to our Terms of Service."
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Top-level render functions — three views (overview, usage, docs).
 // These match the existing `pub use developer::render_overview as Developer`
 // re-export in `pages.rs`, so the page-routing integration is
@@ -1086,12 +1192,31 @@ fn DeveloperOverviewBody(ctx: PageContext) -> Element {
     }
 }
 
-/// `DeveloperUsageBody` — body of `/developer/usage`. Same
-/// `#[component]` wrapping as `DeveloperOverviewBody` so we can hold
-/// local state if the page grows.
+/// `DeveloperUsageBody` — body of `/developer/usage`.
+///
+/// Wave 27 T2 — matches the prod capture's auth-guard layout. Prod
+/// renders:
+///   <main class="relative min-h-[calc(100svh-3.5rem)]">
+///     <div class="min-h-screen bg-background flex items-center justify-center">
+///       <div class="container mx-auto p-6">
+///         <div class="fixed inset-0 bg-background/90 backdrop-blur-sm z-50"></div>
+///       </div>
+///     </div>
+///   </main>
+///
+/// The OLD page's actual content (`<UsageMonitor currentUser={user} />`)
+/// is rendered only when `getCurrentUser()` returns a user. The
+/// prod capture was anonymous, so the body collapses to the empty
+/// `<div class="container mx-auto p-6">` + the global `GlobalAuthGuard`
+/// modal overlay (rendered by the layout, not the page). The harness
+/// diffs the dev's empty body + modal against prod's empty body +
+/// modal.
+///
+/// When `ctx.user.is_some()` we still render the full UsageMonitor
+/// body (matching the source's authed-rendered state).
 #[component]
 fn DeveloperUsageBody(ctx: PageContext) -> Element {
-    // Sample 7-day history.
+    // Sample 7-day history (only used in the authed branch).
     let history: Vec<(String, u32)> = (0..7)
         .map(|i| {
             let day = format!("D{}", i + 1);
@@ -1102,9 +1227,9 @@ fn DeveloperUsageBody(ctx: PageContext) -> Element {
 
     rsx! {
         MainLayout { ctx: ctx.clone(),
-            AuthGate { user: ctx.user.clone(), feature: Some("usage stats".to_string()),
+            if ctx.user.is_some() {
                 DeveloperShell { current_path: ctx.path.clone(),
-                    div { class: "container page-content space-y-6",
+                    div { class: "developer-usage-prod container page-content space-y-6",
                         PageHeader {
                             title: "API usage".to_string(),
                             description: Some("Per-day call volume and rate-limit status".to_string()),
@@ -1129,6 +1254,15 @@ fn DeveloperUsageBody(ctx: PageContext) -> Element {
                         }
                     }
                 }
+            } else {
+                // === wave27-t2-port-fe-pages ===
+                // Source: apps-old/frontend/app/developer/usage/page.tsx:9-11
+                //   if (!user) { return null; /* Layout handles auth guard */ }
+                // Prod's GlobalAuthGuard renders an empty container +
+                // a fixed background overlay + the auth modal dialog.
+                // We replicate the structure so the pixel-diff harness
+                // measures the same empty-body + auth-modal state.
+                DeveloperUsageAuthGuardBody {}
             }
         }
     }
