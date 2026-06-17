@@ -1,6 +1,6 @@
 # Wave 23 T1 — E2E Component Interaction Report
 
-Generated: 2026-06-16T19:50:47.590Z
+Generated: 2026-06-17T03:33:29.059Z
 
 Prod: `https://epsx.io`  |  Dev: BFF port-forward (default `localhost:30101`)
 
@@ -13,7 +13,7 @@ Prod: `https://epsx.io`  |  Dev: BFF port-forward (default `localhost:30101`)
 | 3 | `access-denied` | `/access-denied` | 93.82 | 0 | 0 | 2 | 0 |
 | 4 | `account` | `/account` | 93.75 | 4 | 2 | 3 | 2 |
 | 5 | `account-credits` | `/account/credits` | 93.57 | 2 | 0 | 2 | 0 |
-| 6 | `analytics` | `/analytics` | 79.62 | 0 | 10 | 13 | 10 |
+| 6 | `analytics` | `/analytics` | 79.63 | 0 | 10 | 13 | 10 |
 | 7 | `auth` | `/auth` | 99.96 | 0 | 0 | 0 | 0 |
 | 8 | `chat` | `/chat` | 93.82 | 0 | 0 | 3 | 0 |
 | 9 | `chat-sample-conv-id` | `/chat/sample-conv-id` | 99.96 | 0 | 0 | 0 | 0 |
@@ -31,7 +31,7 @@ Prod: `https://epsx.io`  |  Dev: BFF port-forward (default `localhost:30101`)
 | 21 | `payment` | `/payment` | 99.34 | 0 | 0 | 2 | 0 |
 | 22 | `payment-intent-sample-id` | `/payment/intent/sample-id` | 99.09 | 0 | 0 | 2 | 0 |
 | 23 | `permissions` | `/permissions` | 99.96 | 0 | 0 | 0 | 0 |
-| 24 | `plans` | `/plans` | 59.1 | 1 | 0 | 3 | 0 |
+| 24 | `plans` | `/plans` | 59.08 | 1 | 0 | 3 | 0 |
 | 25 | `portfolio` | `/portfolio` | 73.86 | 0 | 0 | 5 | 0 |
 | 26 | `privacy` | `/privacy` | 6.22 | 0 | 0 | 2 | 0 |
 | 27 | `profile` | `/profile` | 99.96 | 0 | 0 | 0 | 0 |
@@ -99,7 +99,7 @@ Affected routes (first 10):
 
 - `home` — sample: `"https://www.tradingview.com/symbols/GHC"`
 - `account` — sample: `"/account/credits"`
-- `analytics` — sample: `"https://www.tradingview.com/symbols/COF"`
+- `analytics` — sample: `"https://www.tradingview.com/symbols/LMT"`
 
 ### `skipped-route` — 3 occurrences
 
