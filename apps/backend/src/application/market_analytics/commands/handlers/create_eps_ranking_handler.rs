@@ -6,22 +6,24 @@ use crate::application::market_analytics::commands::{
 use crate::domain::market_analytics::{
     EPSRankingRepositoryPort, EPSRanking, RankingType, RankingPeriod, SectorCategory, Country
 };
-use crate::domain::shared_kernel::DomainEventBus;
+// wave11(track-c) R7: kernel-level port for publishing domain events.
+// See `epsx_contracts::event_publisher_port` for the design notes.
+use epsx_contracts::event_publisher_port::EventPublisherPort;
 
 /// Command handler for creating EPS rankings
 pub struct CreateEPSRankingCommandHandler {
     ranking_repository: Arc<dyn EPSRankingRepositoryPort>,
-    event_bus: Arc<dyn DomainEventBus>,
+    event_publisher: Arc<dyn EventPublisherPort>,
 }
 
 impl CreateEPSRankingCommandHandler {
     pub fn new(
         ranking_repository: Arc<dyn EPSRankingRepositoryPort>,
-        event_bus: Arc<dyn DomainEventBus>,
+        event_publisher: Arc<dyn EventPublisherPort>,
     ) -> Self {
         Self {
             ranking_repository,
-            event_bus,
+            event_publisher,
         }
     }
 }
@@ -64,9 +66,18 @@ impl CommandHandler<CreateEPSRankingCommand> for CreateEPSRankingCommandHandler 
         self.ranking_repository.save(&ranking).await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
-        // 6. Publish domain events
+        // 6. Publish domain events via the new `EventPublisherPort` (R7).
+        //    See `create_payment_command.rs` for the OwnedEvent
+        //    wrapper rationale.
         for event in ranking.uncommitted_events() {
-            self.event_bus.publish(&**event);
+            let owned: Box<dyn crate::domain::shared_kernel::DomainEvent> =
+                Box::new(epsx_contracts::domain_event::OwnedEvent::from_borrowed(&**event));
+            if let Err(e) = self.event_publisher.publish(owned).await {
+                tracing::warn!(
+                    error = %e,
+                    "EventPublisherPort.publish returned error; command continues"
+                );
+            }
         }
 
         // 7. Return response

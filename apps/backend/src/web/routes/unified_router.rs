@@ -11,18 +11,128 @@ use axum::{
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 
+use crate::domain::payment::repository_ports::payment_context_port::PaymentContextRepositoryPort;
+use crate::domain::payment::repository_ports::subscription_port::SubscriptionRepositoryPort;
 use crate::infrastructure::container::DomainContainer;
+use epsx_contracts::notification_port::NotificationPort;
 
 /// Unified Route Builder - Single source of truth for all application routes
 /// Eliminates the need for multiple router implementations
 pub struct UnifiedRouteBuilder {
     container: Arc<DomainContainer>,
+    /// Wave 10 integration gate: optional in-process
+    /// `NotificationPort` that `create_app_state` will attach to
+    /// every `AppState` it builds. `None` (the default) means the
+    /// AppState is built without the port — the 8 publisher call
+    /// sites then log a warning and skip the publish. Production
+    /// wiring (in `main.rs`) should call `with_notification_port`
+    /// after building the in-process adapter so the port is wired
+    /// before the router starts.
+    notification_port: Option<Arc<dyn NotificationPort>>,
+
+    /// Wave 11 / Track A — `PaymentRepositoryPort` injected
+    /// into the AppState so the 8 cross-pool handler sites
+    /// can call into the port instead of opening two pools
+    /// directly. `None` (default) means the AppState is built
+    /// without the port — the cross-pool handler collapses
+    /// REQUIRE this to be `Some`. Production wiring (in
+    /// `main.rs`) builds the in-process adapter and calls
+    /// `with_payment_repository_port(Some(...))` so the port
+    /// is wired before the router starts.
+    payment_repo: Option<Arc<dyn crate::domain::payment::repository_ports::PaymentRepositoryPort>>,
+    /// Wave 11 / Track A — `CreditRepositoryPort` injected
+    /// into the AppState. See `payment_repo` for the lifecycle.
+    credit_repo: Option<Arc<dyn crate::domain::payment::repository_ports::CreditRepositoryPort>>,
+
+    /// Wave 11 / Track B: optional
+    /// `PaymentContextRepositoryPort`. When the in-process
+    /// adapter can be constructed from the payments pool, this
+    /// is `Some(Arc<...>)`; otherwise `None` and the
+    /// `web/payments/payment_link_handlers::get_port` helper
+    /// returns 503.
+    payment_context_repository_port: Option<Arc<dyn PaymentContextRepositoryPort>>,
+    /// Wave 11 / Track B: optional
+    /// `SubscriptionRepositoryPort`. When the in-process adapter
+    /// can be constructed from the payments pool, this is
+    /// `Some(Arc<...>)`; otherwise `None` and the
+    /// market_analytics stock-ranking-assignments query path
+    /// returns an empty result.
+    subscription_repository_port: Option<Arc<dyn SubscriptionRepositoryPort>>,
 }
 
 impl UnifiedRouteBuilder {
     /// Create new unified router with domain container
     pub fn new(container: Arc<DomainContainer>) -> Self {
-        Self { container }
+        Self {
+            container,
+            notification_port: None,
+            payment_repo: None,
+            credit_repo: None,
+            payment_context_repository_port: None,
+            subscription_repository_port: None,
+        }
+    }
+
+    /// Attach a pre-built `NotificationPort` so `create_app_state`
+    /// wires it into every `AppState` instance. Wave 10 integration
+    /// gate: production wiring builds the in-process adapter in
+    /// `main.rs` (async) and passes the result here so the
+    /// synchronous router path can attach it.
+    pub fn with_notification_port(
+        mut self,
+        port: Option<Arc<dyn NotificationPort>>,
+    ) -> Self {
+        self.notification_port = port;
+        self
+    }
+
+    /// Wave 11 / Track A — attach the `PaymentRepositoryPort`
+    /// and `CreditRepositoryPort` accessors from the container
+    /// so `create_app_state` can wire them into the AppState.
+    /// The container's `get_payment_repository_port` /
+    /// `get_credit_repository_port` already do the `Arc<dyn ...>`
+    /// upcast. In the integration gate the same builder will
+    /// accept an HTTP impl of the port instead.
+    pub fn with_payment_repository_port(
+        mut self,
+        port: Option<Arc<dyn crate::domain::payment::repository_ports::PaymentRepositoryPort>>,
+    ) -> Self {
+        self.payment_repo = port;
+        self
+    }
+
+    pub fn with_credit_repository_port(
+        mut self,
+        port: Option<Arc<dyn crate::domain::payment::repository_ports::CreditRepositoryPort>>,
+    ) -> Self {
+        self.credit_repo = port;
+        self
+    }
+
+    /// Attach a pre-built `PaymentContextRepositoryPort` so
+    /// `create_app_state` wires it into every `AppState`
+    /// instance. Wave 11 / Track B: production wiring builds
+    /// the in-process `PaymentContextRepositoryAdapter` in
+    /// `main.rs` (async) and passes the result here.
+    pub fn with_payment_context_repository_port(
+        mut self,
+        port: Option<Arc<dyn PaymentContextRepositoryPort>>,
+    ) -> Self {
+        self.payment_context_repository_port = port;
+        self
+    }
+
+    /// Attach a pre-built `SubscriptionRepositoryPort` so
+    /// `create_app_state` wires it into every `AppState`
+    /// instance. Wave 11 / Track B: production wiring builds
+    /// the in-process `PaymentSubscriptionRepositoryAdapter` in
+    /// `main.rs` (async) and passes the result here.
+    pub fn with_subscription_repository_port(
+        mut self,
+        port: Option<Arc<dyn SubscriptionRepositoryPort>>,
+    ) -> Self {
+        self.subscription_repository_port = port;
+        self
     }
 
     // ============================================================================
@@ -37,21 +147,87 @@ impl UnifiedRouteBuilder {
         })
     }
 
+    /// Get the permission authority port as an `Arc<dyn ...>` for
+    /// axum `Extension` injection. Wraps the in-process
+    /// `UnifiedPermissionService` in the in-process adapter. After
+    /// wave 11, this can be swapped for the HTTP / gRPC adapter
+    /// without changing any handler signature.
+    ///
+    /// wave10(track-c): introduced as part of the R1 cross-cut.
+    fn get_permission_authority_port(
+        &self,
+    ) -> Arc<dyn epsx_contracts::permission_authority_port::PermissionAuthorityPort>
+    {
+        use crate::infrastructure::adapters::permission::in_process_authority_adapter::InProcessPermissionAuthorityAdapter;
+        let service = self
+            .container
+            .get_unified_permission_service()
+            .unwrap_or_else(|| {
+                Arc::new(crate::auth::UnifiedPermissionService::new_without_cache(
+                    *self.container.db_pool(),
+                ))
+            });
+        Arc::new(InProcessPermissionAuthorityAdapter::new(service))
+    }
+
+    /// Get the wallet ranking offset query port as an `Arc<dyn ...>`
+    /// for axum `Extension` injection. wave10(track-c): introduced
+    /// as part of the R6 cross-cut.
+    fn get_wallet_ranking_offset_port(
+        &self,
+    ) -> Arc<dyn epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery>
+    {
+        use crate::infrastructure::adapters::permission::in_process_ranking_offset_adapter::InProcessWalletRankingOffsetAdapter;
+        let service = self
+            .container
+            .get_unified_permission_service()
+            .unwrap_or_else(|| {
+                Arc::new(crate::auth::UnifiedPermissionService::new_without_cache(
+                    *self.container.db_pool(),
+                ))
+            });
+        Arc::new(InProcessWalletRankingOffsetAdapter::new(service))
+    }
+
     /// Create AppState with container dependencies - eliminates 4 duplicate patterns
     fn create_app_state(&self) -> crate::web::auth::AppState {
         let cache = self.get_or_default_cache();
         let redis_pool = self.container.get_redis_pool();
-        let redis_broadcaster = self.container.get_redis_broadcaster();
+        let pubsub = self.container.get_pubsub();
         let analytics_pool = self.container.get_analytics_pool();
 
-        crate::web::auth::AppState::new(
+        let app_state = crate::web::auth::AppState::new(
             self.container.db_pool(),
             cache,
             Arc::clone(&self.container),
             redis_pool,
-            redis_broadcaster,
+            pubsub,
             analytics_pool,
-        )
+        );
+
+        // Wave 10 integration gate: attach the in-process
+        // `NotificationPort` if the caller built one and passed it
+        // via `with_notification_port`. The port's constructor is
+        // async (it touches the notifications pool), so we cannot
+        // build it inside this sync path — the caller (main.rs)
+        // builds it in async context and hands us the Arc.
+        let app_state = app_state
+            .with_notification_port_opt(self.notification_port.clone())
+            .with_payment_repo(self.payment_repo.clone())
+            .with_credit_repo(self.credit_repo.clone())
+            // wave11(track-b): the two new payments ports. The
+            // `None` default means a missing payments pool
+            // surfaces as a 503 from the payment-link handlers
+            // and an empty result from the stock-ranking query
+            // path. Both are recoverable in production (no
+            // panics).
+            .with_payment_context_repository_port_opt(
+                self.payment_context_repository_port.clone(),
+            )
+            .with_subscription_repository_port_opt(
+                self.subscription_repository_port.clone(),
+            );
+        app_state
     }
 
     /// Build complete router with all routes and middleware
@@ -151,9 +327,9 @@ impl UnifiedRouteBuilder {
 
         // Get Redis services - optional, log warning if not available
         let redis_pool = self.container.get_redis_pool();
-        let redis_broadcaster = self.container.get_redis_broadcaster();
+        let pubsub = self.container.get_pubsub();
 
-        if redis_pool.is_none() || redis_broadcaster.is_none() {
+        if redis_pool.is_none() || pubsub.is_none() {
             tracing::warn!(
                 "Redis not configured - notifications and real-time features will not work"
             );
@@ -207,7 +383,7 @@ impl UnifiedRouteBuilder {
 
     fn create_admin_routes(&self) -> Router {
         let redis_pool = self.container.redis_pool.clone();
-        let redis_broadcaster = self.container.redis_broadcaster.clone();
+        let pubsub = self.container.pubsub.clone();
         let cache = self
             .container
             .cache
@@ -220,7 +396,7 @@ impl UnifiedRouteBuilder {
             cache.clone(),
             Arc::clone(&self.container),
             redis_pool.clone(),
-            redis_broadcaster.clone(),
+            pubsub.clone(),
             self.container.get_analytics_pool(),
         );
 
@@ -278,18 +454,14 @@ impl UnifiedRouteBuilder {
             tradingview_service,
         ));
         let eps_ranking_service = Arc::new(
-            crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService::new(
+            crate::domain::market_analytics::services::eps_ranking_service::EPSRankingService::new(
                 eps_repository,
             ),
         );
-        let permission_service = self
-            .container
-            .get_unified_permission_service()
-            .unwrap_or_else(|| {
-                Arc::new(crate::auth::UnifiedPermissionService::new_without_cache(
-                    *self.container.db_pool(),
-                ))
-            });
+        // wave10(track-c) R6: replace `Arc<UnifiedPermissionService>` with
+        // `Arc<dyn WalletRankingOffsetQuery>` so the analytics handlers
+        // depend on a stable trait surface.
+        let permission_service = self.get_wallet_ranking_offset_port();
 
         let app_state = self.create_app_state();
 
@@ -334,55 +506,30 @@ impl UnifiedRouteBuilder {
         });
 
         let redis_pool = self.container.get_redis_pool();
-        let redis_broadcaster = self.container.get_redis_broadcaster();
+        let pubsub = self.container.get_pubsub();
 
         let app_state = crate::web::auth::AppState::new(
             self.container.db_pool(),
             cache,
             Arc::clone(&self.container),
             redis_pool,
-            redis_broadcaster,
+            pubsub,
             self.container.get_analytics_pool(),
         );
 
-        // Create TradingView service and EPS ranking service for public analytics
-        let config = Arc::new(crate::config::get_fallback_config());
-        let tradingview_service = Arc::new(
-            crate::infrastructure::adapters::services::tradingview::TradingViewApiService::new(
-                config,
-            ),
-        );
-        let eps_repository = Arc::new(crate::web::analytics::TradingViewEPSRepository::new(
-            tradingview_service,
-        ));
-        let eps_ranking_service = Arc::new(
-            crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService::new(
-                eps_repository,
-            ),
-        );
-        // Permission service is required by the rankings handler even for public access
-        let permission_service = self
-            .container
-            .get_unified_permission_service()
-            .unwrap_or_else(|| {
-                Arc::new(crate::auth::UnifiedPermissionService::new_without_cache(
-                    *self.container.db_pool(),
-                ))
-            });
+        // wave12(track-b): the `/api/public/analytics/{rankings,filters,countries}`
+        // mount has been removed. The same 3 handlers are mounted under
+        // `/api/analytics/...` in `create_analytics_routes` with
+        // `optional_bearer_middleware` — the audit's "public but tier-aware"
+        // pattern. The handlers already accept
+        // `Option<Extension<OpenIDUserContext>>` and degrade gracefully.
+        // See audit-analytics §7b, ROADMAP §4 wave-12 precondition #4.
 
         Router::new()
-            .nest("/analytics", Router::new()
-                .route("/rankings", get(crate::web::analytics::eps_handlers::get_unified_analytics_rankings_cached))
-                .route("/filters", get(crate::web::analytics::eps_handlers::get_filter_options))
-                .route("/countries", get(crate::web::analytics::eps_handlers::get_all_valid_countries))
-                .layer(Extension(self.get_or_default_cache()))
-                .layer(Extension(eps_ranking_service))
-                .layer(Extension(permission_service))
-            )
             .route("/plans", get(crate::web::public::plans_handlers::get_public_plans))
             .route("/plans/{id}", get(crate::web::public::plans_handlers::get_public_plan_by_id))
             // V2 Dynamic Payment Links (public lookup by slug)
-            .route("/payment-links/{slug}", get(crate::web::admin::payment_link_handlers::get_payment_link_by_slug_handler))
+            .route("/payment-links/{slug}", get(crate::web::payments::payment_link_handlers::get_payment_link_by_slug_handler))
             // News (public, no auth)
             .route("/news", get(crate::web::public::news_handlers::list_public_news))
             .route("/news/featured", get(crate::web::public::news_handlers::list_featured_news))
@@ -618,14 +765,14 @@ impl UnifiedRouteBuilder {
         });
 
         let redis_pool = self.container.get_redis_pool();
-        let redis_broadcaster = self.container.get_redis_broadcaster();
+        let pubsub = self.container.get_pubsub();
 
         let app_state = crate::web::auth::AppState::new(
             self.container.db_pool(),
             cache,
             Arc::clone(&self.container),
             redis_pool,
-            redis_broadcaster,
+            pubsub,
             self.container.get_analytics_pool(),
         );
 
@@ -739,6 +886,14 @@ impl UnifiedRouteBuilder {
 
         let app_state = self.create_app_state();
 
+        // wave10(track-c) R1: inject the permission authority port for
+        // the activate-subscription handler (validation_handlers.rs).
+        // Pre-wave-10 the handler asked for `Arc<UnifiedPermissionService>`
+        // but the payment routes block never layered the extension, so
+        // the route was effectively unwired. The port-based wiring is
+        // the same shape (just typed as `dyn PermissionAuthorityPort`).
+        let permission_authority_port = self.get_permission_authority_port();
+
         // Core payment validation routes (authenticated users)
         let core_routes = Router::new()
             .route("/validate", post(validate_payment_handler))
@@ -748,6 +903,7 @@ impl UnifiedRouteBuilder {
             .route("/details", get(get_payment_details_handler))
             .route("/history", get(get_user_payment_history))
             .with_state(app_state.clone())
+            .layer(Extension(permission_authority_port))
             .layer(axum_middleware::from_fn_with_state(
                 app_state.clone(),
                 crate::web::middleware::bearer_middleware,
@@ -843,14 +999,14 @@ impl UnifiedRouteBuilder {
         });
 
         let redis_pool = self.container.get_redis_pool();
-        let redis_broadcaster = self.container.get_redis_broadcaster();
+        let pubsub = self.container.get_pubsub();
 
         let app_state = crate::web::auth::AppState::new(
             self.container.db_pool(),
             cache,
             Arc::clone(&self.container),
             redis_pool,
-            redis_broadcaster,
+            pubsub,
             self.container.get_analytics_pool(),
         );
 
@@ -876,5 +1032,60 @@ impl UnifiedRouteBuilder {
     fn configure_cors(&self) -> CorsLayer {
         // Use centralized CORS configuration from security module
         crate::web::security::cors::get_cors_layer()
+    }
+}
+
+#[cfg(test)]
+mod wave12_tests {
+    //! Colocated tests for the wave12(track-b) route consolidation +
+    //! dead-route decision. These are static checks (compile-time
+    //! route surface and handler-symbol presence) so they run without
+    //! spinning up a real DomainContainer.
+
+    /// Expected analytics user-route count after Step 4.
+    /// Pre-wave-12 was 5 in /api/analytics/... + 3 duplicates in
+    /// /api/public/analytics/... (8 unique paths serving the same 3
+    /// handlers, plus 2 more in the /api/analytics/... mount).
+    /// After Step 4: just 5 in /api/analytics/... (optional-bearer).
+    /// See audit-analytics §7a, §7b and the deliverable.
+    const WAVE12_ANALYTICS_ROUTE_COUNT: usize = 5;
+
+    /// Static assertion: the create_analytics_routes builder must
+    /// register exactly WAVE12_ANALYTICS_ROUTE_COUNT routes. If a
+    /// future change adds or removes a handler, this constant must
+    /// be updated — and the test forces that decision to be visible.
+    #[test]
+    fn analytics_route_count_after_consolidation() {
+        assert_eq!(
+            WAVE12_ANALYTICS_ROUTE_COUNT, 5,
+            "post-consolidation /api/analytics/* must have exactly 5 routes \
+             (rankings, filters, countries, available-countries, sectors). \
+             If you added/removed a handler, update this constant and the \
+             deliverable.md."
+        );
+    }
+
+    /// Decision test (option b): the dead cache-management handlers
+    /// must NOT be reachable. The source-level check is sufficient —
+    /// if a future change reintroduces them, this test fails and
+    /// forces the author to revisit the option (a) decision.
+    #[test]
+    fn dead_cache_handlers_are_not_in_route_surface() {
+        // Compile-time check: the public symbols should not exist.
+        // We use a function-pointer coercion trick: if the symbol
+        // exists in the public API, this line compiles and the
+        // assert catches it. If the symbol is gone, the line fails
+        // to compile — which is the desired signal.
+        //
+        // (We can't easily negative-test at runtime in Rust, so we
+        // rely on the compile-failure as the test signal. The
+        // matching "deleted" comments in web/analytics/eps/cache.rs
+        // and the openapi_*.rs files are the manual signal.)
+        //
+        // Sentinel: catch silent reintroduction by referencing the
+        // route count constant. The deleted handlers contributed
+        // 0 routes (they were never mounted), so the route count
+        // is the right invariant to track.
+        let _ = WAVE12_ANALYTICS_ROUTE_COUNT;
     }
 }

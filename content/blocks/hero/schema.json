@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json.schemastore.org/block-type.json",
+  "type": "hero",
+  "name": "Hero Section",
+  "category": "marketing",
+  "description": "Full-width hero banner with title, subtitle, and CTA",
+  "props": {
+    "title": { "type": "string", "required": true, "description": "Main heading" },
+    "subtitle": { "type": "string", "description": "Supporting text" },
+    "ctaText": { "type": "string", "description": "Button text" },
+    "ctaLink": { "type": "string", "format": "url", "description": "Button URL" },
+    "background": { "type": "string", "enum": ["gradient", "image", "solid"], "default": "gradient" },
+    "backgroundImage": { "type": "string", "format": "url", "description": "Background image URL" },
+    "alignment": { "type": "string", "enum": ["left", "center", "right"], "default": "center" }
+  }
+}

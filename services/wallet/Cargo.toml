@@ -1,0 +1,31 @@
+[package]
+name = "epsx-wallet"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "wallet"
+path = "src/main.rs"
+
+[dependencies]
+epsx-kernel = { path = "../../shared/rust/kernel" }
+epsx-web3 = { path = "../../shared/rust/web3" }
+epsx-observability = { path = "../../shared/rust/observability" }
+axum.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+clap.workspace = true
+chrono.workspace = true
+alloy.workspace = true
+alloy-consensus.workspace = true
+alloy-network.workspace = true
+alloy-primitives.workspace = true
+alloy-provider.workspace = true
+alloy-signer-local.workspace = true
+alloy-sol-types.workspace = true
+alloy-contract.workspace = true
+alloy-transport-http.workspace = true
+alloy-rpc-types.workspace = true

@@ -1,4 +1,4 @@
-use crate::domain::shared_kernel::value_objects::UserId;
+use epsx_contracts::value_objects::UserId;
 use chrono::{ DateTime, Utc };
 use serde::{ Deserialize, Serialize };
 

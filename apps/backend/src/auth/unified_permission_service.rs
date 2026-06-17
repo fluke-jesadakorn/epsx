@@ -29,7 +29,7 @@ use std::sync::Arc;
 use tracing::{debug, info, warn, error};
 use uuid::Uuid;
 
-use crate::core::errors::AppError;
+use epsx_contracts::errors::AppError;
 use crate::infrastructure::cache::unified_permission_cache::UnifiedPermissionCache;
 
 // ============================================================================
@@ -834,8 +834,8 @@ impl UnifiedPermissionService {
         })?;
 
         if rows.is_empty() {
-            info!("No active plans for wallet {}, using {} offset {}", wallet_lower, crate::core::constants::FREE_PLAN_NAME, crate::core::constants::FREE_PLAN_RANKING_OFFSET);
-            return Ok(crate::core::constants::FREE_PLAN_RANKING_OFFSET);
+            info!("No active plans for wallet {}, using {} offset {}", wallet_lower, epsx_contracts::constants::FREE_PLAN_NAME, epsx_contracts::constants::FREE_PLAN_RANKING_OFFSET);
+            return Ok(epsx_contracts::constants::FREE_PLAN_RANKING_OFFSET);
         }
 
         // Collect plan IDs to check permissions
@@ -865,7 +865,7 @@ impl UnifiedPermissionService {
         .unwrap_or_default();
 
         // Find minimum ranking_offset from permission strings + metadata fallback
-        let mut min_offset = crate::core::constants::FREE_PLAN_RANKING_OFFSET;
+        let mut min_offset = epsx_contracts::constants::FREE_PLAN_RANKING_OFFSET;
 
         for row in &rows {
             // Check plan_metadata (legacy fallback)

@@ -1,0 +1,24 @@
+[package]
+name = "epsx-pay"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "bff-pay"
+path = "src/main.rs"
+
+[dependencies]
+epsx-kernel = { path = "../../shared/rust/kernel" }
+epsx-client = { path = "../../shared/rust/client" }
+epsx-observability = { path = "../../shared/rust/observability" }
+epsx-templates = { path = "../../shared/rust/templates" }
+axum.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+
+[features]
+default = ["ssr"]
+ssr = []

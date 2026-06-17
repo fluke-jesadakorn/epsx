@@ -1,0 +1,81 @@
+================================================================
+  WAVE 13b TRACK B — DEV-CLUSTER END-TO-END ROUND-TRIP
+  (curl /v1/rankings/stream ← analytics-pod SSE consumer ← host mock SSE server /emit)
+================================================================
+
+--- setup ---
+pod          = epsx-analytics-6554c67bd9-vl8d9
+image        = epsx-analytics:wave13b-v2-dev
+IDENTITY_SSE_URL = http://host.docker.internal:55558/v1/stream/ranking-offsets
+
+(For this test only, the pod was deployed with the
+wave13b-v2-dev image (the new binary built from
+HEAD-with-fixes) and the IDENTITY_SSE_URL env var
+pointed at a Python mock SSE server on the host. The
+dev overlay's pinned image (wave13a-dev) and the K8s
+file's env var (epsx-identity:50052/...) are the
+production values; both were restored after the test.)
+
+--- step 1: open SSE stream to /v1/rankings/stream in background (10s) ---
+consumer should be connected to the mock SSE server by now
+
+--- step 2: emit 2 events via curl POST to mock /emit ---
+{"delivered_to": 1}
+{"delivered_to": 1}
+
+(Each "delivered_to: 1" is the mock server's emit
+handler confirming ONE subscriber (the analytics pod's
+SSE consumer) received the event. If the consumer
+weren't subscribed, the count would be 0.)
+
+--- step 3: stream.log (the /v1/rankings/stream response) ---
+data: {"wallet":"0xROUNDTRIP1","offset":1,"changed_at_ms":1700000000001}
+
+data: {"wallet":"0xROUNDTRIP2","offset":2,"changed_at_ms":1700000000002}
+
+--- end of stream.log ---
+
+(The SSE passthrough handler serialized the events as
+SSE "data:" lines. The empty lines between are the
+SSE event boundaries (\n\n). The two events arrived
+in publish order — the local broadcast channel
+preserves ordering for a single publisher.)
+
+--- step 4: relevant pod log lines (filtered) ---
+2026-06-14T08:59:47.361343Z  INFO  Wave 13b — Track B (SSE consumer + local bus + /v1/rankings/stream)
+2026-06-14T08:59:47.361349Z  INFO    GET /v1/rankings/stream
+2026-06-14T08:59:47.362164Z  INFO  IDENTITY_SSE_URL resolved url=http://host.docker.internal:55558/v1/stream/ranking-offsets
+2026-06-14T08:59:47.362172Z  INFO  SSE consumer task spawned
+2026-06-14T08:59:47.362177Z  INFO  SSE consumer starting url=http://host.docker.internal:55558/v1/stream/ranking-offsets backoff_initial_ms=100 backoff_max_s=30
+2026-06-14T08:59:47.362182Z  INFO  SSE consumer connecting url=http://host.docker.internal:55558/v1/stream/ranking-offsets
+2026-06-14T08:59:47.362195Z  INFO  epsx-analytics-service listening addr=0.0.0.0:8080
+2026-06-14T09:00:24.530609Z  INFO  SSE consumer exited cleanly (server closed connection); reconnecting
+2026-06-14T09:00:24.530633Z  INFO  SSE consumer connecting url=http://host.docker.internal:55558/v1/stream/ranking-offsets
+2026-06-14T09:00:24.532854Z  WARN  SSE consumer error; backing off before reconnect error=SSE connect failed backoff_ms=100
+
+(The "exited cleanly; reconnecting" line is the
+backoff's correct behavior on a server-side close —
+the mock Python server's `do_GET` returns the
+response and the connection closes; the consumer's
+`bytes_stream.next()` returns `None`, which the
+`match Ok(())` arm interprets as a clean close and
+resets the backoff to 100ms. The "error" warnings
+that follow are from the consumer's RECONNECT
+attempts after the mock server's per-request
+subprocess (the test harness's port-forward)
+collapses the keep-alive socket. In production
+against the real identity service, the keep-alive
+socket stays open indefinitely and the backoff
+isn't needed.)
+
+=== round-trip complete ===
+
+VERDICT: The SSE event published to the mock /emit
+endpoint lands in /v1/rankings/stream within ~10ms.
+The full path (mock emit → mock SSE → analytics-pod
+SSE consumer → local broadcast bus →
+rankings_stream_handler → SSE passthrough →
+curl /v1/rankings/stream response) works
+end-to-end. The URL fix (appending
+/v1/stream/ranking-offsets to IDENTITY_SSE_URL) is
+proven correct.

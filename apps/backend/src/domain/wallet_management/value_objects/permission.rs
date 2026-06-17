@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::shared_kernel::ValueObject;
-use crate::domain::shared_kernel::value_object::ValueObjectError;
+use epsx_contracts::value_object::ValueObjectError;
 
 /// Web3 Permission Type - determines how permission is validated
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

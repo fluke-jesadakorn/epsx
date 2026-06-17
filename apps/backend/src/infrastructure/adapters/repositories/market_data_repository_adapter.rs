@@ -181,7 +181,7 @@ mod tests {
 
     #[test]
     fn test_legacy_stock_to_ddd_conversion() {
-        use crate::domain::shared_kernel::value_objects::Symbol;
+        use epsx_contracts::value_objects::Symbol;
 
         let symbol = Symbol::new("AAPL").unwrap();
         let legacy_stock = LegacyStock::new(symbol.to_string(), "Apple Inc.".to_string());

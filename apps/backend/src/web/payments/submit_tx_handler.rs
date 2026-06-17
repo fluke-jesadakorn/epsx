@@ -20,7 +20,7 @@ use crate::{
         auth::AppState,
         middleware::{OpenIDUserContext, UnifiedErrorResponse},
     },
-    infrastructure::database::{get_payments_pool, get_diesel_pool},
+    infrastructure::database::get_payments_pool,
 };
 
 // ============================================================================
@@ -155,42 +155,24 @@ pub async fn submit_transaction_handler(
     };
 
     // C3+C5: Server-side plan price & eligibility validation
-    let primary_pool = get_diesel_pool().await.map_err(|e| {
-        error!("Failed to get primary database pool: {}", e);
-        UnifiedErrorResponse::new(500, "Database error", "Cannot connect to primary database")
+    // Wave 11 / Track A: collapse the `get_diesel_pool()` + `SELECT
+    // FROM plans` block to a single `port.validate_submit_tx` call.
+    // The port joins `plans` with the in-process payment repo; after
+    // the wave-11 schema cutover (integration gate step 4) the JOIN
+    // runs single-pool on the payments schema.
+    let payment_repo = _app_state.payment_repo.as_ref().ok_or_else(|| {
+        error!("PaymentRepositoryPort not wired in AppState — wave 11 track A scaffolding incomplete");
+        UnifiedErrorResponse::new(500, "Internal error", "Payment service is not initialized")
     })?;
-    let mut primary_conn = primary_pool.get().await.map_err(|e| {
-        error!("Failed to get primary connection: {}", e);
-        UnifiedErrorResponse::new(500, "Database error", "Cannot establish primary database connection")
-    })?;
-
-    #[derive(diesel::QueryableByName)]
-    struct PlanCheck {
-        #[diesel(sql_type = diesel::sql_types::Numeric)]
-        price: BigDecimal,
-        #[diesel(sql_type = diesel::sql_types::Bool)]
-        is_active: bool,
-        #[diesel(sql_type = diesel::sql_types::Text)]
-        plan_type: String,
-        #[diesel(sql_type = diesel::sql_types::Jsonb)]
-        plan_metadata: serde_json::Value,
-    }
-
-    let plan_check: Option<PlanCheck> = diesel::sql_query(
-        "SELECT COALESCE(price, 0) as price, is_active, COALESCE(plan_type, 'subscription') as plan_type, COALESCE(plan_metadata, '{}'::jsonb) as plan_metadata FROM plans WHERE id = $1"
-    )
-    .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-    .get_result(&mut primary_conn)
-    .await
-    .optional()
-    .map_err(|e| {
-        error!("Failed to query plan: {}", e);
-        UnifiedErrorResponse::new(500, "Database error", "Failed to verify plan")
-    })?;
-
-    let plan_info = plan_check.ok_or_else(|| {
-        UnifiedErrorResponse::new(404, "Plan not found", "The specified plan does not exist")
-    })?;
+    let wallet_address_vo = crate::domain::wallet_management::value_objects::WalletAddress::new(wallet_address.clone())
+        .map_err(|e| UnifiedErrorResponse::new(400, "Invalid wallet", format!("Wallet address is invalid: {}", e)))?;
+    let plan_info = payment_repo
+        .validate_submit_tx(plan_uuid, &wallet_address_vo)
+        .await
+        .map_err(|e| {
+            error!("Failed to validate plan via PaymentRepositoryPort: {}", e);
+            UnifiedErrorResponse::new(500, "Database error", format!("Failed to verify plan: {}", e))
+        })?;
 
     // C5: Check plan eligibility
     if !plan_info.is_active {
@@ -211,7 +193,9 @@ pub async fn submit_transaction_handler(
 
     // C3: Validate amount matches plan price (allow 5% tolerance for rounding & promotion edge cases)
     // Check both base price and promotional price (if promotion is active)
-    let base_price = &plan_info.price;
+    let base_price = BigDecimal::from_str(&plan_info.plan_price)
+        .map_err(|_| UnifiedErrorResponse::new(500, "Database error", "Plan price format invalid"))?;
+    let effective_price_decimal = BigDecimal::from_str(&plan_info.effective_price).ok();
     let effective_price = plan_info.plan_metadata.get("promotion")
         .and_then(|promo_val| {
             serde_json::from_value::<crate::domain::subscription_management::promotion::Promotion>(promo_val.clone()).ok()
@@ -220,19 +204,20 @@ pub async fn submit_transaction_handler(
             let bp = base_price.to_string().parse::<f64>().unwrap_or(0.0);
             let ep = promo.calculate_effective_price(bp);
             BigDecimal::from_str(&format!("{:.2}", ep)).unwrap_or_else(|_| base_price.clone())
-        });
+        })
+        .or(effective_price_decimal);
 
-    let price_to_validate = effective_price.as_ref().unwrap_or(base_price);
+    let price_to_validate = effective_price.as_ref().unwrap_or(&base_price);
     let price_diff = (&payment_amount - price_to_validate).abs();
     let tolerance = price_to_validate * BigDecimal::from_str("0.05").unwrap_or_else(|_| BigDecimal::from(0)); // 5% tolerance
     if price_diff > tolerance && *price_to_validate > 0 {
         // Also check against base price in case promotion just expired
-        let base_diff = (&payment_amount - base_price).abs();
-        let base_tolerance = base_price * BigDecimal::from_str("0.05").unwrap_or_else(|_| BigDecimal::from(0)); // 5% tolerance
-        if base_diff > base_tolerance && *base_price > 0 {
+        let base_diff = (&payment_amount - &base_price).abs();
+        let base_tolerance = &base_price * BigDecimal::from_str("0.05").unwrap_or_else(|_| BigDecimal::from(0)); // 5% tolerance
+        if base_diff > base_tolerance && base_price > 0 {
             error!(
                 "Amount mismatch: submitted={}, plan_price={}, effective_price={:?}, plan_id={}, tolerance={}%",
-                payment_amount, plan_info.price, effective_price, plan_uuid, 5
+                payment_amount, plan_info.plan_price, effective_price, plan_uuid, 5
             );
             return Err(UnifiedErrorResponse::new(
                 400,
@@ -565,19 +550,27 @@ pub async fn submit_transaction_handler(
         let notif_ref = payment_reference.clone();
         let notif_state = _app_state.clone();
         tokio::spawn(async move {
-            use crate::infrastructure::services::NotificationService;
-            use crate::web::notifications::{NotificationPriority, NotificationType};
-            let _ = NotificationService::send(
-                &notif_state,
-                &notif_wallet,
-                NotificationType::Payment,
-                NotificationPriority::Normal,
-                "Payment Confirmed",
-                "Your payment has been confirmed",
-                Some(serde_json::json!({ "payment_reference": notif_ref })),
-                None,
-            )
-            .await;
+            // Wave 10 / R3: route through the NotificationPort.
+            use epsx_contracts::notification_port::SendNotificationRequest;
+            if let Some(port) = notif_state.notification_port.as_ref() {
+                let _ = port
+                    .send(SendNotificationRequest {
+                        recipient_wallet_address: notif_wallet.clone(),
+                        notification_type: "payment".to_string(),
+                        priority: "normal".to_string(),
+                        title: "Payment Confirmed".to_string(),
+                        message: "Your payment has been confirmed".to_string(),
+                        data: Some(serde_json::json!({ "payment_reference": notif_ref })),
+                        action_url: None,
+                    })
+                    .await;
+            } else {
+                tracing::warn!(
+                    "notification_port not wired in AppState; payment-confirmed \
+                     notification for wallet={} dropped",
+                    notif_wallet
+                );
+            }
         });
 
         format!("Payment completed using ${} wallet credits", credit_to_use)

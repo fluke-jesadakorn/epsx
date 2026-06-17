@@ -5,9 +5,9 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
-use crate::domain::shared_kernel::services::eps_ranking_service::EPSRepository;
+use crate::domain::market_analytics::services::eps_ranking_service::EPSRepository;
 use crate::domain::shared_kernel::entities::eps_growth::{EPSGrowthData, EPSRanking};
-use crate::core::errors::AppError;
+use epsx_contracts::errors::AppError;
 
 /// TradingView-based EPS Repository implementation
 #[derive(Clone)]
@@ -112,7 +112,7 @@ impl EPSRepository for TradingViewEPSRepository {
             )
             .await
             .map_err(|e| AppError::new(
-                crate::core::errors::ErrorKind::ExternalServiceError,
+                epsx_contracts::errors::ErrorKind::ExternalServiceError,
                 format!("TradingView API error: {}", e)
             ))?;
 
@@ -140,7 +140,7 @@ impl EPSRepository for TradingViewEPSRepository {
             )
             .await
             .map_err(|e| AppError::new(
-                crate::core::errors::ErrorKind::ExternalServiceError,
+                epsx_contracts::errors::ErrorKind::ExternalServiceError,
                 format!("TradingView API error: {}", e)
             ))?;
 

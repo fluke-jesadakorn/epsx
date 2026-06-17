@@ -16,7 +16,7 @@ use crate::web::middleware::bearer_middleware::OpenIDUserContext;
 pub async fn admin_me_handler(
     Extension(ctx): Extension<OpenIDUserContext>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    if !crate::core::permissions::has_permission(&ctx.permissions, "admin:dashboard:view") {
+    if !epsx_contracts::permissions::has_permission(&ctx.permissions, "admin:dashboard:view") {
         return Err((StatusCode::FORBIDDEN, Json(json!({
             "success": false,
             "error": { "message": "Admin permissions required" }

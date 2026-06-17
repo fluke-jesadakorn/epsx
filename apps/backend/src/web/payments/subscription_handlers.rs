@@ -46,7 +46,7 @@ fn extract_ranking_offset(metadata: &serde_json::Value, offset_permission: Optio
         }
     }
     // Default: free tier sees ranks 101+ (offset 100)
-    crate::core::constants::FREE_PLAN_RANKING_OFFSET
+    epsx_contracts::constants::FREE_PLAN_RANKING_OFFSET
 }
 
 // ============================================================================
@@ -262,7 +262,7 @@ pub async fn get_user_plans_handler(
         plan_expires_at: None,
         days_remaining: 0,
         status: "no_plan".to_string(),
-        ranking_offset: crate::core::constants::FREE_PLAN_RANKING_OFFSET,
+        ranking_offset: epsx_contracts::constants::FREE_PLAN_RANKING_OFFSET,
         can_upgrade: true,
         tier_level: 0,
         all_plans: vec![],

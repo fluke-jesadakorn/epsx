@@ -6,5 +6,9 @@ spec:
   selector:
     app: epsx-admin
   ports:
-    - port: 3000
-      targetPort: 3000
+    # wave11(k8s-frontend-migration): the Rust admin BFF
+    # binds on 3001, not 3000. Service + NodePort both
+    # follow.
+    - name: http
+      port: 3001
+      targetPort: 3001

@@ -1,0 +1,152 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-analytics
+  labels:
+    app: epsx-analytics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: epsx-analytics
+  template:
+    metadata:
+      labels:
+        app: epsx-analytics
+    spec:
+      containers:
+        - name: epsx-analytics
+          image: epsx-analytics:wave12
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: "8080"
+            - name: RUST_LOG
+              value: "info"
+            - name: RUST_BACKTRACE
+              value: "0"
+            - name: RUST_ENV
+              value: "production"
+            - name: ENV
+              value: "production"
+            # wave-12 marker: lets ops distinguish the
+            # wave-12 build of the analytics binary from
+            # pre-wave-12 versions (none exist today, but
+            # the env var is forward-looking).
+            - name: EPSX_ANALYTICS_VERSION
+              value: "wave13b"
+            # wave-13b Track B: HTTP/1.1 SSE endpoint on
+            # the `epsx-identity-service` binary (port
+            # 50052 from Track A — see
+            # `infrastructure/kubernetes/base/identity/service.yaml`).
+            # The new binary opens a long-lived HTTP
+            # connection to this URL on startup, parses
+            # `RankingOffsetChange` events from the SSE
+            # `data:` field, and publishes them to an
+            # in-process tokio broadcast channel that the
+            # `/v1/rankings/stream` HTTP passthrough
+            # subscribes to.
+            #
+            # The K8s service DNS `epsx-identity` is the
+            # same in dev / staging / prod (all namespaces
+            # export a service named `epsx-identity`).
+            # The `50052` port is the new SSE port
+            # added in Track A; the existing
+            # `50051` (gRPC) port is on a separate
+            # service port that the gRPC client uses
+            # (see `IDENTITY_GRPC_URL` above).
+            #
+            # Reconnect: the consumer's backoff is
+            # `100ms → ... → 30s cap` + 0-50% jitter
+            # (see `apps/analytics/src/sse_consumer.rs`).
+            # A misconfigured identity service (e.g. the
+            # SSE port is not yet rolled out) only delays
+            # the first event delivery — it does NOT
+            # block the 5 analytics routes.
+            - name: IDENTITY_SSE_URL
+              # The full path is required — `http://epsx-identity:50052`
+              # without a path resolves to `/` on the identity
+              # service, which returns 404 (no root handler).
+              # The SSE endpoint is at `/v1/stream/ranking-offsets`
+              # (Track A's HTTP/1.1 mount, served on the same
+              # port as the gRPC seam on a separate listener).
+              # The in-code default in `apps/analytics/src/main.rs`
+              # also includes the path; this K8s value used to
+              # omit it (a wave-13b attempt-#3 verifier-caught
+              # bug — production was 404'ing on every
+              # consumer start; the test passed because it
+              # constructed the URL with the path inline
+              # instead of reading the same env var the
+              # production code uses). The dev-overlay
+              # `IDENTITY_SSE_URL` here MUST stay in lockstep
+              # with the in-code default in `main()`; the
+              # integration test
+              # `test_sse_consumer_end_to_end_via_real_http`
+              # has an anti-test-pollution guard that fails
+              # the test if the two diverge.
+              value: "http://epsx-identity:50052/v1/stream/ranking-offsets"
+            # wave-13a Track B: tonic gRPC endpoint for the
+            # `epsx-identity-service` binary. The K8s
+            # service name `epsx-identity` resolves to the
+            # ClusterIP of the identity service in the same
+            # namespace. The client falls back to the
+            # in-process `FreePlanWalletRankingOffsetQuery`
+            # stub on connect failure or 100ms timeout, so
+            # a missing/misconfigured identity service
+            # never blocks the analytics request — it just
+            # returns the free-plan offset (the same
+            # behavior the wave-12 in-process stub always
+            # had).
+            #
+            # Dev override: the `dev` overlay does not need
+            # to patch this — the K8s service DNS is the
+            # same in dev / staging / prod (all `epsx-dev`,
+            # `epsx-staging`, `epsx-prod` namespaces
+            # export a service named `epsx-identity`).
+            - name: IDENTITY_GRPC_URL
+              value: "http://epsx-identity:50051"
+            # The new binary has NO PostgreSQL connections
+            # (Q2 ROADMAP §7) and no Redis dependency by
+            # default. Wave-13+ can add env vars here for
+            # a Redis-backed cache swap-in.
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          resources:
+            # The new binary is lighter than the monolith
+            # (no DB pools, no JWT verification, no
+            # permission service) — 512Mi / 1 CPU is
+            # sufficient for the 5 routes it serves.
+            limits:
+              memory: 512Mi
+              cpu: "1"
+            requests:
+              memory: 128Mi
+              cpu: "0.25"
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 100Mi

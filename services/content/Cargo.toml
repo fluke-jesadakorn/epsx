@@ -1,0 +1,24 @@
+[package]
+name = "epsx-content"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "content"
+path = "src/main.rs"
+
+[dependencies]
+epsx-kernel = { path = "../../shared/rust/kernel" }
+epsx-renderer = { path = "../../shared/rust/renderer" }
+epsx-observability = { path = "../../shared/rust/observability" }
+axum.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+clap.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+notify.workspace = true
+notify-debouncer-mini.workspace = true

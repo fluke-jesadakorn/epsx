@@ -1,0 +1,22 @@
+[package]
+name = "epsx-gateway"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "gateway"
+path = "src/main.rs"
+
+[dependencies]
+epsx-kernel = { path = "../../shared/rust/kernel" }
+epsx-observability = { path = "../../shared/rust/observability" }
+epsx-auth = { path = "../../shared/rust/auth" }
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+clap.workspace = true
+reqwest.workspace = true

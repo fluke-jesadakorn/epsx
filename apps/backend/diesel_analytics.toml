@@ -1,9 +1,16 @@
 # Diesel Configuration for Analytics Database
-# Usage: diesel migration run --config diesel_analytics.toml
+# Usage: diesel migration run --config-file diesel_analytics.toml
+#
+# wave12(track-b): schema name changed from `analytics` to `infra_logs`
+# (per audit-analytics §5a — the schema is shared infrastructure, not
+# analytics-domain storage). The file path was renamed from
+# `src/schemas/analytics.rs` to `src/schemas/infra_logs.rs` to match the
+# new module path (see `apps/backend/src/schemas/mod.rs`).
 
 [print_schema]
-file = "src/schemas/analytics.rs"
+file = "src/schemas/infra_logs.rs"
 import_types = ["diesel::sql_types::*"]
+schema = "infra_logs"
 filter = { only_tables = ["analytics_events", "audit_logs", "wallet_activity_logs", "aggregate_snapshots", "api_modules", "api_key_module_access", "api_key_usage_logs", "api_key_permissions", "event_store", "assignment_audit_log", "permission_audit_log", "unified_audit_log"] }
 with_docs = true
 

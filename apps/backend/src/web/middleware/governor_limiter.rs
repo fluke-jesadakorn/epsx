@@ -1,57 +1,19 @@
-use axum::body::Body;
 use axum::extract::{Request, State};
 use axum::http::StatusCode;
 use axum::middleware::Next;
 use axum::response::Response;
-use tower_governor::{
-    governor::GovernorConfigBuilder,
-    key_extractor::SmartIpKeyExtractor,
-    GovernorLayer,
-};
 
 use crate::web::auth::AppState;
 use tracing::warn;
 
-// Rate limiting configurations using tower-governor v0.8 API
-// Returns GovernorLayer directly so it can be used with .layer()
-pub fn auth_rate_limiter() -> GovernorLayer<SmartIpKeyExtractor, governor::middleware::StateInformationMiddleware, Body> {
-    // 5 requests per minute for auth endpoints
-    let config = GovernorConfigBuilder::default()
-        .per_second(60)
-        .burst_size(5)
-        .key_extractor(SmartIpKeyExtractor)
-        .use_headers()
-        .finish()
-        .unwrap();
-
-    GovernorLayer::new(config)
-}
-
-pub fn chat_rate_limiter() -> GovernorLayer<SmartIpKeyExtractor, governor::middleware::StateInformationMiddleware, Body> {
-    // 10 requests per minute for chat endpoints
-    let config = GovernorConfigBuilder::default()
-        .per_second(60)
-        .burst_size(10)
-        .key_extractor(SmartIpKeyExtractor)
-        .use_headers()
-        .finish()
-        .unwrap();
-
-    GovernorLayer::new(config)
-}
-
-pub fn email_rate_limiter() -> GovernorLayer<SmartIpKeyExtractor, governor::middleware::StateInformationMiddleware, Body> {
-    // 3 requests per minute for email operations
-    let config = GovernorConfigBuilder::default()
-        .per_second(60)
-        .burst_size(3)
-        .key_extractor(SmartIpKeyExtractor)
-        .use_headers()
-        .finish()
-        .unwrap();
-
-    GovernorLayer::new(config)
-}
+// Re-export the 3 pure rate-limiter factories that moved into the
+// `epsx-web-middleware` shared crate during the wave 10 prep pass.
+// `unified_router.rs` still does
+// `crate::web::middleware::governor_limiter::auth_rate_limiter()` so
+// we re-export from here to keep that path working.
+pub use epsx_web_middleware::governor_limiters::{
+    auth_rate_limiter, chat_rate_limiter, email_rate_limiter,
+};
 
 pub async fn threat_aware_middleware(
     State(_app_state): State<AppState>,

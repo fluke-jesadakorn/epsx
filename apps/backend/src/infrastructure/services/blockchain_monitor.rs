@@ -8,7 +8,7 @@ use diesel_async::{RunQueryDsl};
 use chrono::{Utc, Duration};
 
 use uuid::Uuid;
-use crate::domain::shared_kernel::app_error::AppError;
+use epsx_contracts::errors::AppError;
 use crate::infrastructure::blockchain::{BscEventListener, PaymentEvent};
 use crate::domain::wallet_management::{
     aggregates::WalletMetadata,
@@ -52,7 +52,7 @@ impl BlockchainMonitor {
     pub async fn start_monitoring(&self) -> Result<(), AppError> {
         let mut is_running = self.is_running.write().await;
         if *is_running {
-            return Err(AppError::infrastructure_error("Monitor already running"));
+            return Err(AppError::internal_server_error("Monitor already running"));
         }
         *is_running = true;
         drop(is_running);
@@ -139,7 +139,7 @@ impl BlockchainMonitor {
 
         // Step 2: Insert event as processing
         let amount_bd = bigdecimal::BigDecimal::from_str(&event.amount.to_string())
-            .map_err(|e| AppError::infrastructure_error(format!("Failed to convert amount: {}", e)))?;
+            .map_err(|e| AppError::internal_server_error(format!("Failed to convert amount: {}", e)))?;
 
         diesel::sql_query(
             r#"
@@ -171,7 +171,7 @@ impl BlockchainMonitor {
 
         // Step 3: Resolve wallet address and plan UUID
         let wallet_addr = WalletAddress::new(event.user_address.clone())
-            .map_err(|e| AppError::validation_error("wallet_address", format!("Invalid wallet address: {}", e)))?;
+            .map_err(|e| AppError::validation_error(format!("Invalid wallet_address: {}", e)))?;
 
         #[derive(QueryableByName)]
         struct IdResult {
@@ -188,7 +188,7 @@ impl BlockchainMonitor {
         .get_result::<IdResult>(&mut conn)
         .await
         .map(|r| r.id)
-        .map_err(|_| AppError::entity_not_found("Subscription plan", event.context_id.to_string()))?;
+        .map_err(|_| AppError::entity_not_found(format!("Subscription plan {}", event.context_id)))?;
 
         let now = Utc::now();
         let standard_duration_days: i64 = 30;
@@ -196,7 +196,7 @@ impl BlockchainMonitor {
         // Step 4: Ensure wallet_users entry exists (required for FK constraint)
         let metadata = WalletMetadata::default();
         let metadata_json = serde_json::to_value(&metadata)
-            .map_err(|e| AppError::infrastructure_error(format!("Failed to serialize metadata: {}", e)))?;
+            .map_err(|e| AppError::internal_server_error(format!("Failed to serialize metadata: {}", e)))?;
 
         diesel::sql_query(
             r#"

@@ -1,0 +1,33 @@
+{
+  "comment": "Wave 23 — 28 routes from .wave22/ROUTES.md",
+  "routes": [
+    {"slug": "home",                          "path": "/"},
+    {"slug": "about",                         "path": "/about"},
+    {"slug": "access-denied",                 "path": "/access-denied"},
+    {"slug": "account",                       "path": "/account"},
+    {"slug": "account-credits",               "path": "/account/credits"},
+    {"slug": "analytics",                     "path": "/analytics"},
+    {"slug": "auth",                          "path": "/auth"},
+    {"slug": "chat",                          "path": "/chat"},
+    {"slug": "chat-sample-conv-id",           "path": "/chat/sample-conv-id"},
+    {"slug": "chat-history",                  "path": "/chat/history"},
+    {"slug": "contact",                       "path": "/contact"},
+    {"slug": "dashboard",                     "path": "/dashboard"},
+    {"slug": "developer",                     "path": "/developer"},
+    {"slug": "developer-usage",               "path": "/developer/usage"},
+    {"slug": "developer-docs",                "path": "/developer/docs"},
+    {"slug": "manual",                        "path": "/manual"},
+    {"slug": "news",                          "path": "/news"},
+    {"slug": "news-sample-slug",              "path": "/news/sample-slug"},
+    {"slug": "notifications",                 "path": "/notifications"},
+    {"slug": "offline",                       "path": "/offline"},
+    {"slug": "payment",                       "path": "/payment"},
+    {"slug": "payment-intent-sample-id",      "path": "/payment/intent/sample-id"},
+    {"slug": "permissions",                   "path": "/permissions"},
+    {"slug": "plans",                         "path": "/plans"},
+    {"slug": "portfolio",                     "path": "/portfolio"},
+    {"slug": "privacy",                       "path": "/privacy"},
+    {"slug": "profile",                       "path": "/profile"},
+    {"slug": "terms",                         "path": "/terms"}
+  ]
+}

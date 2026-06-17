@@ -1,7 +1,7 @@
 // Delete Wallet Command
 // Represents the intent to delete a wallet from the system
 
-use crate::domain::shared_kernel::value_objects::UserId;
+use epsx_contracts::value_objects::UserId;
 use crate::application::shared::{Command, ApplicationResult};
 use serde::{Deserialize, Serialize};
 

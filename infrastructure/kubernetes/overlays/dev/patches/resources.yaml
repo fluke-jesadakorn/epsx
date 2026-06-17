@@ -1,0 +1,84 @@
+# Dev resource limits — same shape as staging but smaller. Dev runs
+# 1 replica of each service, 1 monolith backend, 1 new binary.
+# RAM is the bottleneck (the default colima profile is 16 GB total
+# and the host JVM / Rust compiler + dev tooling takes ~2 GB when
+# running), so we keep per-pod requests low.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-backend
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: migrate
+          resources:
+            limits:
+              memory: 256Mi
+              cpu: "0.5"
+            requests:
+              memory: 64Mi
+              cpu: "0.1"
+      containers:
+        - name: epsx-backend
+          resources:
+            limits:
+              memory: 1Gi
+              cpu: "1.5"
+            requests:
+              memory: 256Mi
+              cpu: "0.25"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-frontend
+spec:
+  template:
+    spec:
+      containers:
+        - name: epsx-frontend
+          resources:
+            limits:
+              memory: 384Mi
+              cpu: "0.75"
+            requests:
+              memory: 96Mi
+              cpu: "0.15"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-admin
+spec:
+  template:
+    spec:
+      containers:
+        - name: epsx-admin
+          resources:
+            limits:
+              memory: 384Mi
+              cpu: "0.75"
+            requests:
+              memory: 96Mi
+              cpu: "0.15"
+---
+# wave12(integration): dev resource limits for the new analytics
+# binary — same as the base manifest, called out here for clarity.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-analytics
+spec:
+  template:
+    spec:
+      containers:
+        - name: epsx-analytics
+          resources:
+            limits:
+              memory: 384Mi
+              cpu: "0.75"
+            requests:
+              memory: 96Mi
+              cpu: "0.15"

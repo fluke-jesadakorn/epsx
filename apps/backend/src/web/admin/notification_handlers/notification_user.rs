@@ -10,10 +10,10 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 
 use crate::{
-    core::errors::{AppError, ErrorKind},
     infrastructure::services::audit_service::{AuditCtx, AuditEntry},
     web::{auth::AppState, pagination::Pagination},
 };
+use epsx_contracts::errors::{AppError, ErrorKind};
 use super::notification_types::*;
 use super::super::notification_query_helper::NotificationQueryFilter;
 use super::super::wallet_notification_repository::WalletNotificationRepository;

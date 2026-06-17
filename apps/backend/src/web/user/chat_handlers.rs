@@ -4,7 +4,6 @@ use axum::{
     response::IntoResponse,
     Extension, Json,
 };
-use futures::StreamExt;
 use serde::Deserialize;
 use std::time::Duration;
 use tracing::{error, info};
@@ -74,19 +73,15 @@ pub async fn create_conversation(
     {
         Ok(conv) => {
             // Publish to Redis for admin notification
-            if let Some(broadcaster) = &app_state.redis_broadcaster {
+            if let Some(pubsub) = &app_state.pubsub {
                 let event = serde_json::json!({
                     "type": "new_conversation",
                     "conversation_id": conv.id,
                     "wallet_address": ctx.wallet_address,
                     "subject": conv.subject,
                 });
-                let _ = broadcaster
-                    .publish_to_channel(
-                        "chat:new",
-                        &serde_json::to_string(&event).unwrap_or_default(),
-                    )
-                    .await;
+                let payload = serde_json::to_vec(&event).unwrap_or_default();
+                let _ = pubsub.publish("chat:new", &payload).await;
             }
 
             info!(
@@ -239,21 +234,20 @@ pub async fn send_message(
     {
         Ok(msg) => {
             // Publish to Redis
-            if let Some(broadcaster) = &app_state.redis_broadcaster {
+            if let Some(pubsub) = &app_state.pubsub {
                 let event = serde_json::json!({
                     "type": "new_message",
                     "conversation_id": id,
                     "message": msg,
                 });
-                let payload = serde_json::to_string(&event).unwrap_or_default();
+                let payload = serde_json::to_vec(&event).unwrap_or_default();
                 // Notify assigned agent
                 if let Some(agent) = &conv.assigned_agent {
-                    let _ = broadcaster
-                        .publish_to_channel(&format!("chat:agent:{}", agent), &payload)
-                        .await;
+                    let channel = format!("chat:agent:{}", agent);
+                    let _ = pubsub.publish(&channel, &payload).await;
                 }
                 // Notify admin channel
-                let _ = broadcaster.publish_to_channel("chat:new", &payload).await;
+                let _ = pubsub.publish("chat:new", &payload).await;
             }
 
             // Send notification to assigned agent (or broadcast if unassigned)
@@ -263,30 +257,40 @@ pub async fn send_message(
             let notif_subject = conv.subject.clone();
             let notif_agent = conv.assigned_agent.clone();
             tokio::spawn(async move {
-                use crate::infrastructure::services::NotificationService;
-                use crate::web::notifications::{NotificationPriority, NotificationType};
-                if let Some(agent) = notif_agent {
-                    let _ = NotificationService::send(
-                        &notif_state,
-                        &agent,
-                        NotificationType::Chat,
-                        NotificationPriority::Normal,
-                        &format!("New message: {}", notif_subject),
-                        &notif_content,
-                        Some(serde_json::json!({ "conversation_id": notif_conv_id })),
-                        Some("/chat".to_string()),
-                    )
-                    .await;
+                // Wave 10 / R3: route through the NotificationPort.
+                use epsx_contracts::notification_port::{
+                    BroadcastNotificationRequest, SendNotificationRequest,
+                };
+                if let Some(port) = notif_state.notification_port.as_ref() {
+                    if let Some(agent) = notif_agent {
+                        let _ = port
+                            .send(SendNotificationRequest {
+                                recipient_wallet_address: agent,
+                                notification_type: "chat".to_string(),
+                                priority: "normal".to_string(),
+                                title: format!("New message: {}", notif_subject),
+                                message: notif_content.clone(),
+                                data: Some(serde_json::json!({ "conversation_id": notif_conv_id })),
+                                action_url: Some("/chat".to_string()),
+                            })
+                            .await;
+                    } else {
+                        let _ = port
+                            .broadcast(BroadcastNotificationRequest {
+                                notification_type: "chat".to_string(),
+                                priority: "normal".to_string(),
+                                title: format!("New message: {}", notif_subject),
+                                message: notif_content.clone(),
+                                data: Some(serde_json::json!({ "conversation_id": notif_conv_id })),
+                            })
+                            .await;
+                    }
                 } else {
-                    let _ = NotificationService::broadcast(
-                        &notif_state,
-                        NotificationType::Chat,
-                        NotificationPriority::Normal,
-                        &format!("New message: {}", notif_subject),
-                        &notif_content,
-                        Some(serde_json::json!({ "conversation_id": notif_conv_id })),
-                    )
-                    .await;
+                    tracing::warn!(
+                        "notification_port not wired in AppState; chat notification \
+                         for conversation={} dropped",
+                        notif_conv_id
+                    );
                 }
             });
 
@@ -342,19 +346,18 @@ pub async fn update_status(
     match ChatRepository::update_status(&app_state.db_pool, id, &body.status).await {
         Ok(conv) => {
             // Publish status_changed to admin channels
-            if let Some(broadcaster) = &app_state.redis_broadcaster {
+            if let Some(pubsub) = &app_state.pubsub {
                 let event = serde_json::json!({
                     "type": "status_changed",
                     "conversation_id": id,
                     "status": body.status,
                     "conversation": conv,
                 });
-                let payload = serde_json::to_string(&event).unwrap_or_default();
-                let _ = broadcaster.publish_to_channel("chat:new", &payload).await;
+                let payload = serde_json::to_vec(&event).unwrap_or_default();
+                let _ = pubsub.publish("chat:new", &payload).await;
                 if let Some(agent) = &conv.assigned_agent {
-                    let _ = broadcaster
-                        .publish_to_channel(&format!("chat:agent:{}", agent), &payload)
-                        .await;
+                    let channel = format!("chat:agent:{}", agent);
+                    let _ = pubsub.publish(&channel, &payload).await;
                 }
             }
             Ok(Json(UnifiedApiResponse::success(conv)))
@@ -399,18 +402,17 @@ pub async fn mark_read(
     match ChatRepository::mark_read_by_user(&app_state.db_pool, id).await {
         Ok(()) => {
             // Notify assigned agent that user has read messages
-            if let Some(broadcaster) = &app_state.redis_broadcaster {
+            if let Some(pubsub) = &app_state.pubsub {
                 let event = serde_json::json!({
                     "type": "messages_read",
                     "conversation_id": id,
                     "reader": "user",
                 });
-                let payload = serde_json::to_string(&event).unwrap_or_default();
-                let _ = broadcaster.publish_to_channel("chat:new", &payload).await;
+                let payload = serde_json::to_vec(&event).unwrap_or_default();
+                let _ = pubsub.publish("chat:new", &payload).await;
                 if let Some(agent) = &conv.assigned_agent {
-                    let _ = broadcaster
-                        .publish_to_channel(&format!("chat:agent:{}", agent), &payload)
-                        .await;
+                    let channel = format!("chat:agent:{}", agent);
+                    let _ = pubsub.publish(&channel, &payload).await;
                 }
             }
             Ok(Json(UnifiedApiResponse::success(())))
@@ -518,19 +520,19 @@ pub async fn chat_stream(
     State(app_state): State<AppState>,
     Query(_query): Query<ChatSSEQuery>,
     request: axum::extract::Request,
-) -> Result<impl IntoResponse, crate::core::errors::AppError> {
+) -> Result<impl IntoResponse, epsx_contracts::errors::AppError> {
     let token = crate::web::middleware::bearer_middleware::extract_bearer_token_from_headers(
         request.headers(),
     )
     .ok_or_else(|| {
-        crate::core::errors::AppError::unauthorized("Authentication required for chat stream")
+        epsx_contracts::errors::AppError::unauthorized("Authentication required for chat stream")
     })?;
 
     let token_service = app_state
         .domain_container
         .get_token_service()
         .ok_or_else(|| {
-            crate::core::errors::AppError::internal_server_error(
+            epsx_contracts::errors::AppError::internal_server_error(
                 "Authentication service unavailable",
             )
         })?;
@@ -539,33 +541,33 @@ pub async fn chat_stream(
         .validate_access_token(&token)
         .await
         .map_err(|_| {
-            crate::core::errors::AppError::unauthorized("Invalid or expired authentication token")
+            epsx_contracts::errors::AppError::unauthorized("Invalid or expired authentication token")
         })?;
     let wallet_address = claims.wallet_address.to_lowercase();
 
     info!("Chat SSE connection: wallet={}", wallet_address);
 
-    let redis_broadcaster = app_state.redis_broadcaster.clone();
+    let pubsub = app_state.pubsub.clone();
     let channel = format!("chat:wallet:{}", wallet_address);
 
-    let mut pubsub = match &redis_broadcaster {
-        Some(broadcaster) => Some(broadcaster.subscribe_to_channel(&channel).await?),
+    let mut message_stream = match &pubsub {
+        Some(port) => Some(port.subscribe(&[channel.as_str()])?),
         None => None,
     };
 
     let stream = async_stream::stream! {
         yield Ok::<Event, axum::Error>(Event::default().event("ping").data("connected"));
 
-        if let Some(ref mut ps) = pubsub {
-            let mut msg_stream = ps.on_message();
-            while let Some(msg) = msg_stream.next().await {
-                let payload: String = match msg.get_payload() {
-                    Ok(p) => p,
+        if let Some(ref mut stream) = message_stream {
+            while let Some(payload) = stream.next_message().await {
+                match String::from_utf8(payload) {
+                    Ok(s) => {
+                        yield Ok::<Event, axum::Error>(
+                            Event::default().event("chat_message").data(s)
+                        );
+                    }
                     Err(_) => continue,
-                };
-                yield Ok::<Event, axum::Error>(
-                    Event::default().event("chat_message").data(payload)
-                );
+                }
             }
         }
     };

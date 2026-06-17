@@ -120,7 +120,7 @@ impl UnifiedWeb3AuthService {
 
     /// Assign Free Plan to a newly created wallet
     pub(super) async fn assign_free_plan_to_wallet(&self, wallet_address: &str) {
-        use crate::core::constants::{FREE_PLAN_SLUG, FREE_PLAN_NAME, FREE_PLAN_RANKING_OFFSET, FREE_PLAN_RANKINGS_LIMIT};
+        use epsx_contracts::constants::{FREE_PLAN_SLUG, FREE_PLAN_NAME, FREE_PLAN_RANKING_OFFSET, FREE_PLAN_RANKINGS_LIMIT};
 
         let wallet_address = wallet_address.trim().to_lowercase();
 

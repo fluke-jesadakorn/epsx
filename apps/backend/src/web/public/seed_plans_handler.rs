@@ -12,7 +12,7 @@ use axum::{
 };
 use crate::web::auth::AppState;
 use diesel_async::RunQueryDsl;
-use crate::core::constants::*;
+use epsx_contracts::constants::*;
 use uuid::Uuid;
 
 #[derive(Serialize, ToSchema)]

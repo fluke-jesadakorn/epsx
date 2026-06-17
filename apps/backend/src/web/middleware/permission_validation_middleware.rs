@@ -96,7 +96,7 @@ pub async fn perm_guard(
     next: Next,
 ) -> Response {
     match request.extensions().get::<OpenIDUserContext>() {
-        Some(ctx) if crate::core::permissions::has_permission(&ctx.permissions, required) => {
+        Some(ctx) if epsx_contracts::permissions::has_permission(&ctx.permissions, required) => {
             next.run(request).await
         }
         Some(ctx) => {
@@ -123,7 +123,7 @@ pub async fn perm_guard(
 
 /// Check if user has permission using ONLY JWT claims (NO DATABASE!)
 fn check_jwt_permission(user_context: &OpenIDUserContext, required: &str) -> bool {
-    crate::core::permissions::has_permission(&user_context.permissions, required)
+    epsx_contracts::permissions::has_permission(&user_context.permissions, required)
 }
 
 fn is_payment_admin_path(path: &str) -> bool {

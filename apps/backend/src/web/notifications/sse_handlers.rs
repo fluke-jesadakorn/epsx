@@ -8,7 +8,8 @@ use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-use crate::{core::errors::AppError, web::auth::AppState};
+use crate::web::auth::AppState;
+use epsx_contracts::errors::AppError;
 
 // ============================================================================
 // SSE NOTIFICATION TYPES
@@ -150,15 +151,20 @@ pub async fn sse_notifications_handler(
         wallet_address
     );
 
-    // Subscribe to Redis pub/sub (if available)
-    let redis_broadcaster = app_state.redis_broadcaster.clone();
+    // Subscribe to PubsubPort (if available)
+    let pubsub = app_state.pubsub.clone();
 
-    if redis_broadcaster.is_none() {
-        tracing::warn!("Redis not available - SSE will only send queued notifications");
+    if pubsub.is_none() {
+        tracing::warn!("PubsubPort not available - SSE will only send queued notifications");
     }
 
-    let mut pubsub = match &redis_broadcaster {
-        Some(broadcaster) => Some(broadcaster.subscribe_to_wallet(&wallet_address).await?),
+    let mut message_stream = match &pubsub {
+        Some(port) => {
+            let wallet_channel = format!("notifications:wallet:{}", wallet_address);
+            let channels: Vec<String> = vec![wallet_channel, "notifications:all".to_string()];
+            let channel_refs: Vec<&str> = channels.iter().map(|s| s.as_str()).collect();
+            Some(port.subscribe(&channel_refs)?)
+        }
         None => None,
     };
 
@@ -168,7 +174,7 @@ pub async fn sse_notifications_handler(
     // Clone for async stream - need to get notifications pool inside stream
     let wallet_for_stream = wallet_address.clone();
 
-    // Create stream from Redis pub/sub messages
+    // Create stream from PubsubPort messages
     let redis_stream = async_stream::stream! {
         // First, send queued notifications
         for notification in queued_notifications {
@@ -215,28 +221,27 @@ pub async fn sse_notifications_handler(
             }
         }
 
-        // Then stream real-time notifications from Redis (if available)
-        if let Some(ref mut ps) = pubsub {
-            let mut message_stream = ps.on_message();
-            while let Some(msg) = message_stream.next().await {
-            let payload: String = match msg.get_payload() {
-                Ok(p) => p,
+        // Then stream real-time notifications from the PubsubPort (if available)
+        if let Some(ref mut stream) = message_stream {
+            while let Some(payload) = stream.next_message().await {
+            let payload_str = match String::from_utf8(payload) {
+                Ok(s) => s,
                 Err(e) => {
-                    tracing::error!("Failed to get Redis message payload: {}", e);
+                    tracing::error!("Failed to decode pubsub message as UTF-8: {}", e);
                     continue;
                 }
             };
 
-            let notification: SSENotification = match serde_json::from_str(&payload) {
+            let notification: SSENotification = match serde_json::from_str(&payload_str) {
                 Ok(n) => n,
                 Err(e) => {
-                    tracing::error!("Failed to deserialize notification from Redis: {}", e);
+                    tracing::error!("Failed to deserialize notification from PubsubPort: {}", e);
                     continue;
                 }
             };
 
             tracing::info!(
-                "Received notification from Redis: wallet={}, id={}, title={}",
+                "Received notification from PubsubPort: wallet={}, id={}, title={}",
                 wallet_for_stream,
                 notification.id,
                 notification.title
@@ -259,9 +264,9 @@ pub async fn sse_notifications_handler(
             }
             }
 
-            tracing::info!("Redis pub/sub stream ended for wallet: {}", wallet_for_stream);
+            tracing::info!("PubsubPort stream ended for wallet: {}", wallet_for_stream);
         } else {
-            tracing::info!("Redis not available - SSE connection will only show queued notifications");
+            tracing::info!("PubsubPort not available - SSE connection will only show queued notifications");
         }
     };
 

@@ -13,8 +13,18 @@ use super::plan_handlers::{
   delete_plan_handler,
   create_subscription_handler,
   admin_list_user_access_handler,
-  list_subscriptions_handler,
 };
+// wave11(track-b) move: the admin subscription list handler
+// moved to `crate::web::payments::admin::subscription_admin_handlers`
+// and now goes through
+// `Arc<dyn SubscriptionRepositoryPort>`. The pre-wave-11
+// `super::plan_handlers::list_subscriptions_handler` is a
+// `#[deprecated]` stub (returns 410 GONE) and is no longer
+// used in the route mount below. See
+// `docs/wave8-service-boundary/ROADMAP.md` §4 wave-11
+// preconditions item 3.
+#[allow(deprecated)]
+use super::plan_handlers::list_subscriptions_handler as _legacy_list_subscriptions_handler;
 // Promotion management handlers
 use super::promotion_handlers::{
   create_promotion_handler,
@@ -113,6 +123,7 @@ use super::notification_handlers::{
   get_notification_stats_handler,
   acknowledge_notification_handler,
   delete_admin_notification_handler,
+  upload_notification_image,
 };
 // System settings handlers
 // use super::system_settings_handlers::{
@@ -148,7 +159,18 @@ pub fn create_admin_routes() -> Router<AppState> {
   let plans_read = Router::new()
     .route("/plans", get(list_plans_handler))
     .route("/plans/{plan_id}", get(get_plan_handler))
-    .route("/subscriptions", get(list_subscriptions_handler))
+    // wave11(track-b): the admin `/api/admin/subscriptions`
+    // route now points at the moved handler in
+    // `web/payments::admin::subscription_admin_handlers`.
+    // The legacy `list_subscriptions_handler` in
+    // `super::plan_handlers` is a `#[deprecated]` stub that
+    // returns 410 GONE — keeping the legacy import above so
+    // the compiler flags any new caller that uses the old
+    // name with a deprecation warning.
+    .route(
+      "/subscriptions",
+      get(crate::web::payments::admin::subscription_admin_handlers::list_subscriptions_admin_handler),
+    )
     .route("/plans/user-access/list", get(admin_list_user_access_handler))
     .route("/plans/history", get(get_plan_history))
     .layer(from_fn_with_state("admin:plans:read", perm_guard));
@@ -249,7 +271,7 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/notifications/{id}/acknowledge", put(acknowledge_notification_handler))
     .route("/notifications/{id}", delete(delete_admin_notification_handler))
     .route("/notifications/overview", get(admin_notification_overview_handler))
-    .route("/notifications/upload-image", post(super::media_handlers::upload_notification_image))
+    .route("/notifications/upload-image", post(upload_notification_image))
     .layer(from_fn_with_state("admin:notifications:manage", perm_guard));
 
   // Developer portal
@@ -265,10 +287,19 @@ pub fn create_admin_routes() -> Router<AppState> {
     .layer(from_fn_with_state("admin:developer:manage", perm_guard));
 
   // Payment links
+  //
+  // wave11(track-b): the handlers live at
+  // `crate::web::payments::payment_link_handlers` now (folded
+  // out of `web::admin::payment_link_handlers`). The route
+  // mount and the perm-guard layer stay here because the admin
+  // scope is what gates the writes; the public slug lookup
+  // (`/api/public/payment-links/{slug}`) is mounted separately
+  // from `unified_router::create_public_routes` and uses no
+  // perm guard.
   let payment_links = Router::new()
-    .route("/payment-links", get(super::payment_link_handlers::list_payment_links_handler).post(super::payment_link_handlers::create_payment_link_handler))
-    .route("/payment-links/{id}", get(super::payment_link_handlers::get_payment_link_handler).put(super::payment_link_handlers::update_payment_link_handler).delete(super::payment_link_handlers::delete_payment_link_handler))
-    .route("/payment-links/{id}/record-usage", post(super::payment_link_handlers::record_payment_usage_handler))
+    .route("/payment-links", get(crate::web::payments::payment_link_handlers::list_payment_links_handler).post(crate::web::payments::payment_link_handlers::create_payment_link_handler))
+    .route("/payment-links/{id}", get(crate::web::payments::payment_link_handlers::get_payment_link_handler).put(crate::web::payments::payment_link_handlers::update_payment_link_handler).delete(crate::web::payments::payment_link_handlers::delete_payment_link_handler))
+    .route("/payment-links/{id}/record-usage", post(crate::web::payments::payment_link_handlers::record_payment_usage_handler))
     .layer(from_fn_with_state("admin:payments:manage", perm_guard));
 
   // Support chat

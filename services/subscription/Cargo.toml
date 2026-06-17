@@ -1,0 +1,29 @@
+[package]
+name = "epsx-subscription"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "subscription"
+path = "src/main.rs"
+
+[dependencies]
+epsx-kernel = { path = "../../shared/rust/kernel" }
+epsx-config = { path = "../../shared/rust/config" }
+epsx-database = { path = "../../shared/rust/database" }
+epsx-events = { path = "../../shared/rust/events" }
+epsx-web3 = { path = "../../shared/rust/web3" }
+epsx-observability = { path = "../../shared/rust/observability" }
+axum.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+clap.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+
+[dependencies.alloy]
+workspace = true
+features = ["contract", "signer-local"]

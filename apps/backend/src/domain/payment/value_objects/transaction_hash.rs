@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
 
-pub use crate::domain::shared_kernel::value_objects::{Currency, Network};
+pub use epsx_contracts::value_objects::{Currency, Network};
 
 /// Transaction Hash Value Object
 /// Represents blockchain transaction identifiers with network-specific validation

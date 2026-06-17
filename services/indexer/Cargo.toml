@@ -1,0 +1,22 @@
+[package]
+name = "epsx-indexer"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "indexer"
+path = "src/main.rs"
+
+[dependencies]
+epsx-kernel = { path = "../../shared/rust/kernel" }
+epsx-web3 = { path = "../../shared/rust/web3" }
+epsx-observability = { path = "../../shared/rust/observability" }
+axum.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+clap.workspace = true
+chrono.workspace = true
+alloy.workspace = true

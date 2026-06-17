@@ -514,7 +514,7 @@ impl From<DieselNotification> for DomainNotification {
 
 ### Error Handling with Diesel
 ```rust
-use crate::core::errors::{AppError, AppResult};
+use epsx_contracts::errors::{AppError, AppResult};
 
 async fn diesel_operation() -> AppResult<User> {
     let user = users::table

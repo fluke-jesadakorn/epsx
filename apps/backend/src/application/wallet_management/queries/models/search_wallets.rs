@@ -8,7 +8,7 @@ use crate::application::shared::{
     SortParams, 
     ValidationUtils
 };
-use crate::domain::shared_kernel::value_objects::UserId;
+use epsx_contracts::value_objects::UserId;
 // use crate::domain::wallet_management::value_objects::Email; // REMOVED - Web3-first uses wallet addresses
 
 /// Query to search for users with various criteria (Web3-first: wallet-based)

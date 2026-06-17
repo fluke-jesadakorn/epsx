@@ -4,8 +4,8 @@ use axum::{
     response::IntoResponse,
     Extension, Json,
 };
-use futures::StreamExt;
 use serde::Deserialize;
+
 use std::time::Duration;
 use tracing::{error, info};
 use uuid::Uuid;
@@ -137,16 +137,15 @@ pub async fn admin_send_reply(
     {
         Ok(msg) => {
             // Publish to user's channel
-            if let Some(broadcaster) = &app_state.redis_broadcaster {
+            if let Some(pubsub) = &app_state.pubsub {
                 let event = serde_json::json!({
                     "type": "new_message",
                     "conversation_id": id,
                     "message": msg,
                 });
-                let payload = serde_json::to_string(&event).unwrap_or_default();
-                let _ = broadcaster
-                    .publish_to_channel(&format!("chat:wallet:{}", conv.wallet_address), &payload)
-                    .await;
+                let payload = serde_json::to_vec(&event).unwrap_or_default();
+                let channel = format!("chat:wallet:{}", conv.wallet_address);
+                let _ = pubsub.publish(&channel, &payload).await;
             }
 
             // Notify user about new support message
@@ -155,19 +154,27 @@ pub async fn admin_send_reply(
             let notif_content = body.content.chars().take(100).collect::<String>();
             let notif_state = app_state.clone();
             tokio::spawn(async move {
-                use crate::infrastructure::services::NotificationService;
-                use crate::web::notifications::{NotificationPriority, NotificationType};
-                let _ = NotificationService::send(
-                    &notif_state,
-                    &notif_wallet,
-                    NotificationType::Chat,
-                    NotificationPriority::Normal,
-                    "New Support Message",
-                    &notif_content,
-                    Some(serde_json::json!({ "conversation_id": notif_conv_id })),
-                    Some(format!("/chat/{}", notif_conv_id)),
-                )
-                .await;
+                // Wave 10 / R3: route through the NotificationPort.
+                use epsx_contracts::notification_port::SendNotificationRequest;
+                if let Some(port) = notif_state.notification_port.as_ref() {
+                    let _ = port
+                        .send(SendNotificationRequest {
+                            recipient_wallet_address: notif_wallet.clone(),
+                            notification_type: "chat".to_string(),
+                            priority: "normal".to_string(),
+                            title: "New Support Message".to_string(),
+                            message: notif_content.clone(),
+                            data: Some(serde_json::json!({ "conversation_id": notif_conv_id })),
+                            action_url: Some(format!("/chat/{}", notif_conv_id)),
+                        })
+                        .await;
+                } else {
+                    tracing::warn!(
+                        "notification_port not wired in AppState; admin chat-reply \
+                         notification for conversation={} dropped",
+                        notif_conv_id
+                    );
+                }
             });
 
             info!(
@@ -199,18 +206,17 @@ pub async fn admin_assign_agent(
     match ChatRepository::assign_agent(&app_state.db_pool, id, Some(agent)).await {
         Ok(conv) => {
             // Publish agent_assigned to relevant channels
-            if let Some(broadcaster) = &app_state.redis_broadcaster {
+            if let Some(pubsub) = &app_state.pubsub {
                 let event = serde_json::json!({
                     "type": "agent_assigned",
                     "conversation_id": id,
                     "assigned_agent": agent,
                     "conversation": conv,
                 });
-                let payload = serde_json::to_string(&event).unwrap_or_default();
-                let _ = broadcaster.publish_to_channel("chat:new", &payload).await;
-                let _ = broadcaster
-                    .publish_to_channel(&format!("chat:agent:{}", agent), &payload)
-                    .await;
+                let payload = serde_json::to_vec(&event).unwrap_or_default();
+                let _ = pubsub.publish("chat:new", &payload).await;
+                let channel = format!("chat:agent:{}", agent);
+                let _ = pubsub.publish(&channel, &payload).await;
             }
             info!("Agent {} assigned to conversation {}", agent, id);
             Ok(Json(UnifiedApiResponse::success(conv)))
@@ -257,21 +263,17 @@ pub async fn admin_update_status(
     match ChatRepository::update_status(&app_state.db_pool, id, &body.status).await {
         Ok(conv) => {
             // Publish status_changed to user + admin channels
-            if let Some(broadcaster) = &app_state.redis_broadcaster {
+            if let Some(pubsub) = &app_state.pubsub {
                 let event = serde_json::json!({
                     "type": "status_changed",
                     "conversation_id": id,
                     "status": body.status,
                     "conversation": conv,
                 });
-                let payload = serde_json::to_string(&event).unwrap_or_default();
-                let _ = broadcaster
-                    .publish_to_channel(
-                        &format!("chat:wallet:{}", existing.wallet_address),
-                        &payload,
-                    )
-                    .await;
-                let _ = broadcaster.publish_to_channel("chat:new", &payload).await;
+                let payload = serde_json::to_vec(&event).unwrap_or_default();
+                let channel = format!("chat:wallet:{}", existing.wallet_address);
+                let _ = pubsub.publish(&channel, &payload).await;
+                let _ = pubsub.publish("chat:new", &payload).await;
             }
             Ok(Json(UnifiedApiResponse::success(conv)))
         }
@@ -306,16 +308,15 @@ pub async fn admin_mark_read(
     match ChatRepository::mark_read_by_agent(&app_state.db_pool, id).await {
         Ok(()) => {
             // Notify user that agent has read their messages
-            if let Some(broadcaster) = &app_state.redis_broadcaster {
+            if let Some(pubsub) = &app_state.pubsub {
                 let event = serde_json::json!({
                     "type": "messages_read",
                     "conversation_id": id,
                     "reader": "agent",
                 });
-                let payload = serde_json::to_string(&event).unwrap_or_default();
-                let _ = broadcaster
-                    .publish_to_channel(&format!("chat:wallet:{}", conv.wallet_address), &payload)
-                    .await;
+                let payload = serde_json::to_vec(&event).unwrap_or_default();
+                let channel = format!("chat:wallet:{}", conv.wallet_address);
+                let _ = pubsub.publish(&channel, &payload).await;
             }
             Ok(Json(UnifiedApiResponse::success(())))
         }
@@ -391,13 +392,13 @@ pub async fn admin_chat_stream(
     State(app_state): State<AppState>,
     Query(_query): Query<AdminChatSSEQuery>,
     request: axum::extract::Request,
-) -> Result<impl IntoResponse, crate::core::errors::AppError> {
+) -> Result<impl IntoResponse, epsx_contracts::errors::AppError> {
     let token = crate::web::middleware::bearer_middleware::extract_bearer_token_from_headers(
         request.headers(),
     )
     .ok_or_else(|| {
-        crate::core::errors::AppError::new(
-            crate::core::errors::ErrorKind::AuthenticationError,
+        epsx_contracts::errors::AppError::new(
+            epsx_contracts::errors::ErrorKind::AuthenticationError,
             "Authentication required for admin chat stream",
         )
     })?;
@@ -406,7 +407,7 @@ pub async fn admin_chat_stream(
         .domain_container
         .get_token_service()
         .ok_or_else(|| {
-            crate::core::errors::AppError::internal_server_error(
+            epsx_contracts::errors::AppError::internal_server_error(
                 "Authentication service unavailable",
             )
         })?;
@@ -415,8 +416,8 @@ pub async fn admin_chat_stream(
         .validate_access_token(&token)
         .await
         .map_err(|_| {
-            crate::core::errors::AppError::new(
-                crate::core::errors::ErrorKind::AuthenticationError,
+            epsx_contracts::errors::AppError::new(
+                epsx_contracts::errors::ErrorKind::AuthenticationError,
                 "Invalid or expired authentication token",
             )
         })?;
@@ -427,9 +428,9 @@ pub async fn admin_chat_stream(
         .filter(|s| *s != "openid" && *s != "profile")
         .map(|s| s.to_string())
         .collect();
-    if !crate::core::permissions::is_admin(&permissions) {
-        return Err(crate::core::errors::AppError::new(
-            crate::core::errors::ErrorKind::AuthorizationError,
+    if !epsx_contracts::permissions::is_admin(&permissions) {
+        return Err(epsx_contracts::errors::AppError::new(
+            epsx_contracts::errors::ErrorKind::AuthorizationError,
             "Admin access required",
         ));
     }
@@ -437,22 +438,21 @@ pub async fn admin_chat_stream(
 
     info!("Admin Chat SSE connection: wallet={}", wallet_address);
 
-    let redis_broadcaster = app_state.redis_broadcaster.clone();
+    let pubsub = app_state.pubsub.clone();
 
     // Subscribe to new conversation channel + agent-specific channel
-    let mut pubsub = match &redis_broadcaster {
-        Some(broadcaster) => {
-            let mut ps = broadcaster.subscribe_to_channel("chat:new").await?;
+    let mut message_stream = match &pubsub {
+        Some(port) => {
+            // Collect all channels we need to subscribe to. The
+            // admin chat stream is multi-channel: every admin gets
+            // `chat:new`, and a specific agent also gets
+            // `chat:agent:<wallet>`.
+            let mut channels: Vec<String> = vec!["chat:new".to_string()];
             if wallet_address != "all" {
-                let agent_channel = format!("chat:agent:{}", wallet_address);
-                ps.subscribe(&agent_channel).await.map_err(|e| {
-                    crate::core::errors::AppError::new(
-                        crate::core::errors::ErrorKind::InternalError,
-                        format!("Redis subscribe failed: {}", e),
-                    )
-                })?;
+                channels.push(format!("chat:agent:{}", wallet_address));
             }
-            Some(ps)
+            let channel_refs: Vec<&str> = channels.iter().map(|s| s.as_str()).collect();
+            Some(port.subscribe(&channel_refs)?)
         }
         None => None,
     };
@@ -460,16 +460,16 @@ pub async fn admin_chat_stream(
     let stream = async_stream::stream! {
         yield Ok::<Event, axum::Error>(Event::default().event("ping").data("connected"));
 
-        if let Some(ref mut ps) = pubsub {
-            let mut msg_stream = ps.on_message();
-            while let Some(msg) = msg_stream.next().await {
-                let payload: String = match msg.get_payload() {
-                    Ok(p) => p,
+        if let Some(ref mut stream) = message_stream {
+            while let Some(payload) = stream.next_message().await {
+                match String::from_utf8(payload) {
+                    Ok(s) => {
+                        yield Ok::<Event, axum::Error>(
+                            Event::default().event("chat_event").data(s)
+                        );
+                    }
                     Err(_) => continue,
-                };
-                yield Ok::<Event, axum::Error>(
-                    Event::default().event("chat_event").data(payload)
-                );
+                }
             }
         }
     };

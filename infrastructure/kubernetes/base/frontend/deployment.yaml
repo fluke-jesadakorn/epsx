@@ -14,7 +14,14 @@ spec:
     spec:
       containers:
         - name: epsx-frontend
-          image: registry.jesadakorn.com/jesadakorn/epsx/frontend:prod-latest
+          # wave11(k8s-frontend-migration): the new Rust
+          # dioxus BFF (apps/frontend, binary bff-frontend)
+          # replaces the pre-migration Next.js frontend in
+          # apps-old/frontend. Image is built locally (see
+          # apps/frontend/Dockerfile) and tagged with the
+          # per-overlay tag (`:dev`, `:staging`, `:prod`)
+          # by the kustomization.
+          image: epsx-frontend:dev
           imagePullPolicy: IfNotPresent
           envFrom:
             - secretRef:

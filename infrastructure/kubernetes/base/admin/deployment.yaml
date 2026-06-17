@@ -14,7 +14,14 @@ spec:
     spec:
       containers:
         - name: epsx-admin
-          image: registry.jesadakorn.com/jesadakorn/epsx/admin:prod-latest
+          # wave11(k8s-frontend-migration): the new Rust
+          # dioxus admin BFF (apps/admin, binary bff-admin)
+          # replaces the pre-migration Next.js admin
+          # frontend in apps-old/admin-frontend. Image is
+          # built locally (see apps/admin/Dockerfile) and
+          # tagged with the per-overlay tag (`:dev`,
+          # `:staging`, `:prod`) by the kustomization.
+          image: epsx-admin:dev
           imagePullPolicy: IfNotPresent
           envFrom:
             - secretRef:
@@ -22,16 +29,20 @@ spec:
           env:
             - name: MINIO_ENDPOINT
               value: "http://host.docker.internal:9100"
+            # wave11(k8s-frontend-migration): the Rust admin
+            # BFF binds on 3001 (per apps/admin/src/main.rs
+            # default). The pre-migration Next.js admin was
+            # on 3000; this corrects the port mismatch.
             - name: PORT
-              value: "3000"
+              value: "3001"
             - name: HOSTNAME
               value: "0.0.0.0"
           ports:
-            - containerPort: 3000
+            - containerPort: 3001
           livenessProbe:
             httpGet:
               path: /api/health
-              port: 3000
+              port: 3001
             initialDelaySeconds: 30
             periodSeconds: 15
             timeoutSeconds: 5
@@ -39,7 +50,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /api/health
-              port: 3000
+              port: 3001
             initialDelaySeconds: 15
             periodSeconds: 15
             timeoutSeconds: 5

@@ -6,8 +6,17 @@ use axum::{
 };
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use crate::schemas::payments::subscriptions;
-use crate::infrastructure::models::payment::SubscriptionDb;
+// wave11(track-b) move: `SubscriptionDb` import removed from
+// this file. The `list_subscriptions_handler` was the only
+// consumer; it moved to
+// `web/payments/admin/subscription_admin_handlers.rs` and
+// now goes through `Arc<dyn SubscriptionRepositoryPort>`.
+// The `create_subscription_handler` below still uses
+// `NewSubscriptionDb` directly because the primary-DB
+// `wallet_plan_assignments` UPSERT in the same handler
+// needs the row write in the same function — the wave-12
+// follow-up will split that primary-DB half into its own
+// plan-assignment port.
 use std::collections::HashMap;
 
 use rust_decimal::Decimal;
@@ -395,7 +404,7 @@ pub async fn delete_plan_handler(
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Block deletion of constant Free Plan
-    if id == crate::core::constants::FREE_PLAN_ID {
+    if id == epsx_contracts::constants::FREE_PLAN_ID {
         return Err(StatusCode::FORBIDDEN);
     }
 
@@ -691,99 +700,31 @@ pub async fn admin_list_user_access_handler(
     })))
 }
 
-/// List all subscriptions (Admin)
+/// List all subscriptions (Admin) — MOVED in wave 11.
+///
+/// Wave 11 / Track B: this function moved to
+/// `crate::web::payments::admin::subscription_admin_handlers::list_subscriptions_admin_handler`
+/// and now goes through
+/// `Arc<dyn SubscriptionRepositoryPort>`. The route mount in
+/// `unified_router.rs::create_payment_routes` was updated to
+/// point at the new handler.
+///
+/// The old function body is preserved here as a
+/// `#[deprecated]` stub that returns 410 GONE so any
+/// pre-wave-11 caller that still has the old import path
+/// compiled in fails loud. Delete the stub in wave 12+.
+///
+/// See `docs/wave8-service-boundary/ROADMAP.md` §4 wave-11
+/// preconditions item 3.
+#[deprecated(
+    since = "0.2.0",
+    note = "Use `crate::web::payments::admin::subscription_admin_handlers::list_subscriptions_admin_handler` — wave11(track-b) moved this handler to the payments area and routes it through `Arc<dyn SubscriptionRepositoryPort>`."
+)]
+#[allow(dead_code)]
 pub async fn list_subscriptions_handler(
-    State(_state): State<AppState>,
-    Query(query): Query<SubscriptionListQuery>,
+    _state: State<AppState>,
+    _query: Query<SubscriptionListQuery>,
 ) -> Result<JsonResponse<serde_json::Value>, StatusCode> {
-    let pg = crate::web::pagination::Pagination::from_signed(query.page, query.limit, 20, 100);
-
-    let payments_pool = crate::infrastructure::database::get_payments_pool().await.map_err(|e| {
-        tracing::error!("Failed to get payments database pool: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-    let mut payments_conn = payments_pool.get().await.map_err(|e| {
-        tracing::error!("Failed to get payments database connection: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    let mut db_query = subscriptions::table.into_boxed();
-
-    if let Some(status) = query.status {
-        db_query = db_query.filter(subscriptions::status.eq(status));
-    }
-
-    if let Some(search) = query.search {
-        db_query = db_query.filter(subscriptions::wallet_address.ilike(format!("%{}%", search)));
-    }
-
-    let results = db_query
-        .limit(pg.limit as i64)
-        .offset(pg.offset)
-        .load::<SubscriptionDb>(&mut payments_conn)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to load subscriptions: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-
-    let mut response_subscriptions = Vec::new();
-    for sub in results {
-        let metadata = sub.metadata.clone().unwrap_or(serde_json::json!({}));
-        let access_context = metadata.get("access_context")
-            .and_then(|v| v.as_str())
-            .unwrap_or("internal")
-            .to_string();
-        
-        // Filter by access_context if provided
-        if let Some(ref filter_context) = query.access_context {
-            if &access_context != filter_context {
-                continue;
-            }
-        }
-
-        let plan_name = metadata.get("permission_plan_name")
-            .and_then(|v| v.as_str())
-            .unwrap_or("Unknown Plan")
-            .to_string();
-            
-        let api_key_name = metadata.get("api_key_name")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-        
-        // Reconstruct the response DTO manually to avoid type mismatch issues
-        // and handle the missing fields gracefully
-        let permissions_granted = get_permissions_from_plan_template(&plan_name);
-        let plan_type = derive_plan_from_permissions(&permissions_granted);
-        let quota_limits = generate_quota_from_permissions(&permissions_granted);
-
-        response_subscriptions.push(serde_json::json!({
-            "id": sub.id.to_string(),
-            "wallet_address": sub.wallet_address,
-            "plan_id": sub.plan_id,
-            "plan_name": plan_name,
-            "permission_plan_name": plan_name,
-            "permissions_granted": permissions_granted,
-            "plan_type": plan_type,
-            "access_context": access_context,
-            "api_key_name": api_key_name,
-            "status": sub.status,
-            "expires_at": sub.expires_at,
-            "auto_renew": sub.auto_renew.unwrap_or(false),
-            "created_at": sub.started_at.unwrap_or(Utc::now()),
-            "updated_at": sub.started_at.unwrap_or(Utc::now()),
-            "metadata": sub.metadata,
-            "current_usage": serde_json::json!({"api_calls": 0, "rankings_viewed": 0}),
-            "quota_limits": quota_limits,
-        }));
-    }
-
-    Ok(JsonResponse(serde_json::json!({
-        "success": true,
-        "data": {
-            "subscriptions": response_subscriptions,
-            "total": response_subscriptions.len() 
-        }
-    })))
+    Err(StatusCode::GONE)
 }
 

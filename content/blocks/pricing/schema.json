@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json.schemastore.org/block-type.json",
+  "type": "pricing",
+  "name": "Pricing Table",
+  "category": "commerce",
+  "description": "Pricing plans comparison",
+  "props": {
+    "plans": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "required": true },
+          "price": { "type": "string", "required": true },
+          "currency": { "type": "string", "default": "USDT" },
+          "interval": { "type": "string", "enum": ["month", "year", "one-time"] },
+          "features": { "type": "array", "items": { "type": "string" } },
+          "ctaText": { "type": "string", "default": "Subscribe" },
+          "highlighted": { "type": "boolean", "default": false }
+        }
+      }
+    }
+  }
+}

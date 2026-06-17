@@ -66,34 +66,11 @@ pub struct NewWalletNotificationDb {
     pub updated_at: DateTime<Utc>,
 }
 
-/*
-/// Diesel Queryable model for notification_subscriptions table
-#[derive(Debug, Clone, Queryable, Selectable)]
-#[diesel(table_name = crate::schemas::notifications::notification_subscriptions)]
-pub struct NotificationSubscriptionDb {
-    pub id: Uuid,
-    pub wallet_address: String,
-    pub instance_id: String,
-    pub connection_id: String,
-    pub connected_at: DateTime<Utc>,
-    pub last_ping_at: DateTime<Utc>,
-    pub disconnected_at: Option<DateTime<Utc>>,
-    pub user_agent: Option<String>,
-    pub ip_address: Option<String>, // Using wrapper for INET
-    pub redis_channel: Option<String>,
-}
-
-/// Diesel Insertable model for creating new notification subscriptions
-#[derive(Debug, Clone, Insertable)]
-#[diesel(table_name = crate::schemas::notifications::notification_subscriptions)]
-pub struct NewNotificationSubscriptionDb {
-    pub wallet_address: String,
-    pub instance_id: String,
-    pub connection_id: String,
-    pub connected_at: DateTime<Utc>,
-    pub last_ping_at: DateTime<Utc>,
-    pub user_agent: Option<String>,
-    // IP address handling might require custom types or raw SQL insert
-    pub redis_channel: Option<String>,
-}
-*/
+// wave10(track-c): the two `notification_subscriptions` models
+// (`NotificationSubscriptionDb`, `NewNotificationSubscriptionDb`)
+// that used to live in this file as a `/* … */` block of
+// commented-out code have been removed. The underlying table is
+// dropped in
+// `apps/backend/migrations/notifications/20260613000000_drop_notification_subscriptions/up.sql`.
+// See the deliverable.md for the rg evidence (no live INSERT
+// or SELECT in apps/backend/src/).

@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 use std::sync::Arc;
 
 use super::PaymentEvent;
-use crate::domain::shared_kernel::app_error::AppError;
+use epsx_contracts::errors::AppError;
 
 /// Service for verifying blockchain payment transactions
 pub struct PaymentVerifier {
@@ -20,10 +20,10 @@ impl PaymentVerifier {
         supported_tokens: Vec<String>
     ) -> Result<Self, AppError> {
         let provider = Provider::<Http>::try_from(rpc_url)
-            .map_err(|e| AppError::infrastructure_error(format!("Failed to create provider: {}", e)))?;
+            .map_err(|e| AppError::internal_server_error(format!("Failed to create provider: {}", e)))?;
 
         let contract_address = contract_address.parse::<H160>()
-            .map_err(|e| AppError::infrastructure_error(format!("Invalid contract address: {}", e)))?;
+            .map_err(|e| AppError::internal_server_error(format!("Invalid contract address: {}", e)))?;
 
         Ok(Self {
             provider: Arc::new(provider),
@@ -35,11 +35,11 @@ impl PaymentVerifier {
     /// Verify transaction exists and is confirmed
     pub async fn verify_transaction(&self, tx_hash: &str) -> Result<bool, AppError> {
         let tx_hash = tx_hash.parse::<H256>()
-            .map_err(|e| AppError::infrastructure_error(format!("Invalid transaction hash: {}", e)))?;
+            .map_err(|e| AppError::internal_server_error(format!("Invalid transaction hash: {}", e)))?;
 
         // Get transaction receipt
         let receipt = self.provider.get_transaction_receipt(tx_hash).await
-            .map_err(|e| AppError::infrastructure_error(format!("Failed to get receipt: {}", e)))?;
+            .map_err(|e| AppError::internal_server_error(format!("Failed to get receipt: {}", e)))?;
 
         match receipt {
             Some(receipt) => {
@@ -77,17 +77,17 @@ impl PaymentVerifier {
     /// Get transaction confirmations
     pub async fn get_confirmations(&self, tx_hash: &str) -> Result<u64, AppError> {
         let tx_hash = tx_hash.parse::<H256>()
-            .map_err(|e| AppError::infrastructure_error(format!("Invalid transaction hash: {}", e)))?;
+            .map_err(|e| AppError::internal_server_error(format!("Invalid transaction hash: {}", e)))?;
 
         // Get transaction receipt
         let receipt = self.provider.get_transaction_receipt(tx_hash).await
-            .map_err(|e| AppError::infrastructure_error(format!("Failed to get receipt: {}", e)))?;
+            .map_err(|e| AppError::internal_server_error(format!("Failed to get receipt: {}", e)))?;
 
         match receipt {
             Some(receipt) => {
                 if let Some(block_number) = receipt.block_number {
                     let current_block = self.provider.get_block_number().await
-                        .map_err(|e| AppError::infrastructure_error(format!("Failed to get block number: {}", e)))?;
+                        .map_err(|e| AppError::internal_server_error(format!("Failed to get block number: {}", e)))?;
 
                     let confirmations = current_block.as_u64().saturating_sub(block_number.as_u64());
                     Ok(confirmations)

@@ -1,9 +1,9 @@
-use crate::domain::shared_kernel::value_object::ValueObjectError;
+use epsx_contracts::value_object::ValueObjectError;
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
 
-pub use crate::domain::shared_kernel::value_objects::payments::{Currency, Network};
+pub use epsx_contracts::value_objects::payments::{Currency, Network};
 
 /// Payment Method Value Object
 /// Represents different ways users can make payments

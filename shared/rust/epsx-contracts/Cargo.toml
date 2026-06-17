@@ -1,0 +1,28 @@
+[package]
+name = "epsx-contracts"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "EPSX shared kernel — cross-cutting types, traits, and errors used by all services. Wave 9 service-boundary extraction."
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+tracing.workspace = true
+async-trait.workspace = true
+axum.workspace = true
+regex.workspace = true
+tokio.workspace = true
+futures.workspace = true
+# Diesel From-conversions live in the kernel because `?`-propagation
+# in handlers needs them. Services that do not use Diesel can ignore them.
+# `deadpool` and `bb8` features gate `pooled_connection`, which the kernel
+# uses for the `From<diesel_async::pooled_connection::PoolError>` impl.
+diesel = { version = "2.1", default-features = false }
+diesel-async = { version = "0.4", default-features = false, features = ["deadpool", "bb8"] }
+
+[dev-dependencies]
+serde_json.workspace = true

@@ -7,13 +7,15 @@ pub use crate::web::analytics::eps::*;
 // Re-export handler functions with their original names for routing compatibility
 pub use rankings::get_eps_rankings;
 pub use metadata::{get_available_countries, get_all_valid_countries, get_sectors_by_country, get_filter_options};
-pub use cache::{get_unified_analytics_rankings_cached, get_cache_stats, force_cache_refresh};
+// wave12(track-b) option b: deleted get_cache_stats and force_cache_refresh
+// (dead routes, see audit-analytics §7d and ROADMAP §4 wave-12 precondition #5).
+pub use cache::get_unified_analytics_rankings_cached;
 
 // Re-export key DTOs that are used in routes
 pub use types::{
     EPSRankingQueryParams, EPSRankingsApiResponse, EPSPaginationResponse,
     CountriesResponse, SectorsResponse, FiltersResponse,
-    CardDashboardResponse, CacheStatsResponse, CacheRefreshResponse
+    CardDashboardResponse
 };
 
 // Test module for backward compatibility verification

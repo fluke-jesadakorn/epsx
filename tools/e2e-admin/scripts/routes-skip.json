@@ -1,0 +1,14 @@
+{
+  "comment": "Wave 25 T1 — admin route-coverage gaps that the E2E harness must skip. See `tools/e2e-admin/scripts/diff.js` (loadSkipConfig). The admin harness has no auth_redirect_routes today (admin redirects don't carry `?return_url=` — they 307 to /auth with a clean URL).",
+  "skip_routes": [
+    {
+      "slug": "admin-dashboard",
+      "reason": "prod admin /dashboard returns 404 (auth-gated, no anonymous user); dev returns 200 — the dev is a real Dioxus page, the prod is Next.js's not-found"
+    },
+    {
+      "slug": "admin-policies",
+      "reason": "prod admin /policies returns 404 (auth-gated, no anonymous user); dev returns 200 — same as admin-dashboard"
+    }
+  ],
+  "auth_redirect_routes": []
+}

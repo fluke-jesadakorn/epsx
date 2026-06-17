@@ -1,0 +1,15 @@
+{
+  "id": "custom-html",
+  "version": "1.0.0",
+  "name": "Custom HTML",
+  "category": "advanced",
+  "schema": "blocks/custom-html/schema.json",
+  "defaultProps": {
+    "html": "<div>Custom HTML</div>",
+    "css": "",
+    "scripts": ""
+  },
+  "preview": "/assets/blocks/custom-html.png",
+  "component": "CustomHtml",
+  "adminOnly": true
+}

@@ -243,18 +243,30 @@ pub async fn create_assignment(
     let notif_plan_id = response.plan_id.clone();
     let notif_state = app_state.clone();
     tokio::spawn(async move {
-        use crate::infrastructure::services::NotificationService;
-        use crate::web::notifications::{NotificationType, NotificationPriority};
-        let _ = NotificationService::send(
-            &notif_state,
-            &notif_wallet,
-            NotificationType::Permission,
-            NotificationPriority::Normal,
-            "Plan Updated",
-            &format!("You have been assigned to the {} plan", notif_plan),
-            Some(serde_json::json!({ "plan_id": notif_plan_id, "plan_name": notif_plan })),
-            Some("/plans".to_string()),
-        ).await;
+        // Wave 10 / R3: route through the NotificationPort.
+        use epsx_contracts::notification_port::SendNotificationRequest;
+        if let Some(port) = notif_state.notification_port.as_ref() {
+            let _ = port
+                .send(SendNotificationRequest {
+                    recipient_wallet_address: notif_wallet.clone(),
+                    notification_type: "permission".to_string(),
+                    priority: "normal".to_string(),
+                    title: "Plan Updated".to_string(),
+                    message: format!("You have been assigned to the {} plan", notif_plan),
+                    data: Some(serde_json::json!({
+                        "plan_id": notif_plan_id,
+                        "plan_name": notif_plan,
+                    })),
+                    action_url: Some("/plans".to_string()),
+                })
+                .await;
+        } else {
+            tracing::warn!(
+                "notification_port not wired in AppState; plan-assigned \
+                 notification for wallet={} dropped",
+                notif_wallet
+            );
+        }
     });
 
     AdminResponse::created(response, "Wallet assigned to permission plan successfully").into_response()

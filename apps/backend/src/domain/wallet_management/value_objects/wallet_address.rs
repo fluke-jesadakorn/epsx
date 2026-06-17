@@ -5,7 +5,7 @@ use std::str::FromStr;
 use thiserror::Error;
 
 use crate::domain::shared_kernel::ValueObject;
-use crate::core::errors::AppError;
+use epsx_contracts::errors::AppError;
 
 /// Wallet Address value object
 /// Represents a blockchain wallet address (Ethereum-compatible)
@@ -76,8 +76,8 @@ impl WalletAddress {
     
     /// Convert to UserId for compatibility with legacy session system
     /// In Web3-first architecture, wallet address IS the user ID
-    pub fn to_user_id(&self) -> crate::domain::shared_kernel::value_objects::UserId {
-        crate::domain::shared_kernel::value_objects::UserId::from_string(self.value.clone())
+    pub fn to_user_id(&self) -> epsx_contracts::value_objects::UserId {
+        epsx_contracts::value_objects::UserId::from_string(self.value.clone())
             .expect("Valid WalletAddress should always convert to UserId - this is a programming error")
     }
 

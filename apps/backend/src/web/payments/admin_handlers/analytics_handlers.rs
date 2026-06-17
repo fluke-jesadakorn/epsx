@@ -1,16 +1,21 @@
 //! Admin Payment Analytics Handlers
+//!
+//! Wave 11 / Track A: the 4 separate `diesel::sql_query` blocks
+//! (daily revenue, plan breakdown, payment methods, trends) +
+//! the cross-pool `plans::table` join collapse to a single
+//! `PaymentRepositoryPort::get_analytics_rollup(window)` call.
+//! The port method runs each of the 4 aggregations as a
+//! single SQL query (with the `plans` JOIN done inline on the
+//! payments side).
 
 use axum::{
     extract::State,
     response::Json,
 };
-use uuid::Uuid;
-use chrono::Utc;
 use tracing::{info, error};
 
 use crate::{
     web::middleware::UnifiedErrorResponse,
-    schemas::primary::plans,
 };
 
 use super::types::*;
@@ -18,259 +23,62 @@ use super::types::*;
 pub async fn admin_get_payment_analytics_handler(
     State(app_state): State<crate::web::auth::AppState>,
 ) -> Result<Json<PaymentAnalyticsResponse>, Json<UnifiedErrorResponse>> {
-    use diesel::prelude::*;
-    use diesel_async::RunQueryDsl;
-    use crate::infrastructure::database::get_payments_pool;
+    use crate::domain::payment::repository_ports::AnalyticsWindow;
 
     info!("Admin getting payment analytics");
 
-    // Get PAYMENTS database connection
-    let payments_pool = get_payments_pool().await.map_err(|e| {
-        error!("Failed to get payments database pool: {}", e);
-        Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to get payments database pool"))
+    // Wave 11 / Track A: collapse the 4 sql_query blocks +
+    // the cross-pool `plans::table` lookup to a single port
+    // call. The window is the last-30-days default that the
+    // previous handler used.
+    let payment_repo = app_state.payment_repo.as_ref().ok_or_else(|| {
+        error!("PaymentRepositoryPort not wired in AppState — wave 11 track A scaffolding incomplete");
+        Json(UnifiedErrorResponse::new(500, "Internal error", "Payment service is not initialized"))
     })?;
-    let mut payments_conn = payments_pool.get().await
+    let rollup = payment_repo
+        .get_analytics_rollup(AnalyticsWindow::Last30Days)
+        .await
         .map_err(|e| {
-            error!("Failed to get payments database connection: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to establish payments database connection"))
+            error!("Failed to get analytics rollup: {}", e);
+            Json(UnifiedErrorResponse::new(500, "Query failed", format!("Failed to load analytics: {}", e)))
         })?;
 
-    // Get PRIMARY database connection for plan name lookup
-    let mut primary_conn = app_state.db_pool.get().await
-        .map_err(|e| {
-            error!("Failed to get primary database connection: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to establish primary database connection"))
-        })?;
-
-    // === 1. Daily Revenue (last 30 days) ===
-    let thirty_days_ago = Utc::now() - chrono::Duration::days(30);
-
-    #[derive(diesel::QueryableByName)]
-    struct DailyRevenueRow {
-        #[diesel(sql_type = diesel::sql_types::Date)]
-        payment_date: chrono::NaiveDate,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Numeric>)]
-        daily_revenue: Option<bigdecimal::BigDecimal>,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
-        payment_count: i64,
-    }
-
-    let daily_revenue_rows = diesel::sql_query(
-        r#"
-        SELECT
-            DATE(created_at) as payment_date,
-            SUM(amount) as daily_revenue,
-            COUNT(*) as payment_count
-        FROM payments
-        WHERE created_at >= $1
-          AND (status = 'completed' OR status = 'confirmed')
-        GROUP BY DATE(created_at)
-        ORDER BY payment_date DESC
-        LIMIT 30
-        "#
-    )
-    .bind::<diesel::sql_types::Timestamptz, _>(thirty_days_ago)
-    .load::<DailyRevenueRow>(&mut payments_conn)
-    .await
-    .unwrap_or_default();
-
-    let daily_revenue: Vec<DailyRevenue> = daily_revenue_rows.into_iter().map(|row| {
-        DailyRevenue {
-            date: row.payment_date.format("%Y-%m-%d").to_string(),
-            revenue: row.daily_revenue.map(|bd| bd.to_string().parse::<f64>().unwrap_or(0.0)).unwrap_or(0.0),
-            payment_count: row.payment_count as u32,
-        }
-    }).collect();
-
-    // === 2. Plan Breakdown ===
-    #[derive(diesel::QueryableByName)]
-    struct PlanBreakdownRow {
-        #[diesel(sql_type = diesel::sql_types::Uuid)]
-        plan_id: Uuid,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Numeric>)]
-        total_revenue: Option<bigdecimal::BigDecimal>,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
-        subscription_count: i64,
-    }
-
-    let plan_rows = diesel::sql_query(
-        r#"
-        SELECT
-            plan_id,
-            SUM(amount) as total_revenue,
-            COUNT(*) as subscription_count
-        FROM payments
-        WHERE status = 'completed' OR status = 'confirmed'
-        GROUP BY plan_id
-        ORDER BY total_revenue DESC NULLS LAST
-        LIMIT 10
-        "#
-    )
-    .load::<PlanBreakdownRow>(&mut payments_conn)
-    .await
-    .unwrap_or_default();
-
-    // Batch fetch plan names to avoid N+1 queries
-    let breakdown_plan_ids: Vec<Uuid> = plan_rows.iter().map(|r| r.plan_id).collect();
-    let breakdown_plans_map: std::collections::HashMap<Uuid, String> = if breakdown_plan_ids.is_empty() {
-        std::collections::HashMap::new()
-    } else {
-        plans::table
-            .filter(plans::id.eq_any(&breakdown_plan_ids))
-            .select((plans::id, plans::name))
-            .load::<(Uuid, String)>(&mut primary_conn)
-            .await
-            .unwrap_or_default()
-            .into_iter()
-            .collect()
-    };
-    let plan_breakdown: Vec<PlanBreakdown> = plan_rows.into_iter().map(|row| {
-        let plan_name = breakdown_plans_map.get(&row.plan_id)
-            .cloned()
-            .unwrap_or_else(|| "Unknown Plan".to_string());
-        let revenue = row.total_revenue.map(|bd| bd.to_string().parse::<f64>().unwrap_or(0.0)).unwrap_or(0.0);
-        let count = row.subscription_count as u32;
-        let arpu = if count > 0 { revenue / count as f64 } else { 0.0 };
-        PlanBreakdown {
-            plan_id: row.plan_id,
-            plan_name,
-            subscription_count: count,
-            revenue,
-            average_revenue_per_user: arpu,
-        }
-    }).collect();
-
-    // === 3. Payment Methods (by currency/token) ===
-    #[derive(diesel::QueryableByName)]
-    struct PaymentMethodRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
-        currency: String,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
-        payment_count: i64,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Numeric>)]
-        total_revenue: Option<bigdecimal::BigDecimal>,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
-        successful_count: i64,
-    }
-
-    let method_rows = diesel::sql_query(
-        r#"
-        SELECT
-            currency,
-            COUNT(*) as payment_count,
-            SUM(CASE WHEN status IN ('completed', 'confirmed') THEN amount ELSE 0 END) as total_revenue,
-            SUM(CASE WHEN status IN ('completed', 'confirmed') THEN 1 ELSE 0 END) as successful_count
-        FROM payments
-        GROUP BY currency
-        ORDER BY payment_count DESC
-        "#
-    )
-    .load::<PaymentMethodRow>(&mut payments_conn)
-    .await
-    .unwrap_or_default();
-
-    let payment_methods: Vec<PaymentMethodStats> = method_rows.into_iter().map(|row| {
-        let total = row.payment_count as f64;
-        let success = row.successful_count as f64;
-        PaymentMethodStats {
-            method: row.currency,
-            count: row.payment_count as u32,
-            revenue: row.total_revenue.map(|bd| bd.to_string().parse::<f64>().unwrap_or(0.0)).unwrap_or(0.0),
-            success_rate: if total > 0.0 { (success / total) * 100.0 } else { 0.0 },
-        }
-    }).collect();
-
-    // === 4. Payment Trends ===
-    // Calculate growth rate (compare last 30 days vs previous 30 days)
-    let sixty_days_ago = Utc::now() - chrono::Duration::days(60);
-
-    #[derive(diesel::QueryableByName)]
-    struct PeriodStats {
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Numeric>)]
-        total_revenue: Option<bigdecimal::BigDecimal>,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
-        total_count: i64,
-    }
-
-    let current_period: PeriodStats = diesel::sql_query(
-        r#"
-        SELECT COALESCE(SUM(amount), 0) as total_revenue, COUNT(*) as total_count
-        FROM payments
-        WHERE created_at >= $1 AND (status = 'completed' OR status = 'confirmed')
-        "#
-    )
-    .bind::<diesel::sql_types::Timestamptz, _>(thirty_days_ago)
-    .get_result(&mut payments_conn)
-    .await
-    .unwrap_or(PeriodStats { total_revenue: None, total_count: 0 });
-
-    let previous_period: PeriodStats = diesel::sql_query(
-        r#"
-        SELECT COALESCE(SUM(amount), 0) as total_revenue, COUNT(*) as total_count
-        FROM payments
-        WHERE created_at >= $1 AND created_at < $2 AND (status = 'completed' OR status = 'confirmed')
-        "#
-    )
-    .bind::<diesel::sql_types::Timestamptz, _>(sixty_days_ago)
-    .bind::<diesel::sql_types::Timestamptz, _>(thirty_days_ago)
-    .get_result(&mut payments_conn)
-    .await
-    .unwrap_or(PeriodStats { total_revenue: None, total_count: 0 });
-
-    let current_rev = current_period.total_revenue.map(|bd| bd.to_string().parse::<f64>().unwrap_or(0.0)).unwrap_or(0.0);
-    let previous_rev = previous_period.total_revenue.map(|bd| bd.to_string().parse::<f64>().unwrap_or(0.0)).unwrap_or(0.0);
-
-    let growth_rate = if previous_rev > 0.0 {
-        ((current_rev - previous_rev) / previous_rev) * 100.0
-    } else if current_rev > 0.0 {
-        100.0 // 100% growth if previous was 0
-    } else {
-        0.0
-    };
-
-    // Combine subscription metrics into a single query
-    #[derive(diesel::QueryableByName)]
-    struct SubMetrics {
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Float8>)]
-        avg_sub_length: Option<f64>,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
-        cancelled_count: i64,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
-        active_count: i64,
-    }
-
-    let sub_metrics = diesel::sql_query(
-        r#"
-        SELECT
-            AVG(EXTRACT(EPOCH FROM (expires_at - started_at)) / 86400.0) FILTER (WHERE status = 'active') as avg_sub_length,
-            COUNT(*) FILTER (WHERE status = 'cancelled' AND cancelled_at >= $1) as cancelled_count,
-            COUNT(*) FILTER (WHERE status = 'active') as active_count
-        FROM subscriptions
-        "#
-    )
-    .bind::<diesel::sql_types::Timestamptz, _>(thirty_days_ago)
-    .get_result::<SubMetrics>(&mut payments_conn)
-    .await
-    .unwrap_or(SubMetrics { avg_sub_length: None, cancelled_count: 0, active_count: 1 });
-
-    let avg_sub_length = sub_metrics.avg_sub_length.unwrap_or(30.0);
-    let cancelled_count = sub_metrics.cancelled_count;
-    let active_count = sub_metrics.active_count.max(1);
-    let churn_rate = (cancelled_count as f64 / active_count as f64) * 100.0;
-
-    // Customer lifetime value estimate (average revenue * average subscription length / 30)
-    let avg_payment: f64 = if current_period.total_count > 0 {
-        current_rev / current_period.total_count as f64
-    } else {
-        0.0
-    };
-    let customer_lifetime_value = avg_payment * (avg_sub_length / 30.0);
-
+    // Convert the port DTOs to the response DTOs.
+    let daily_revenue: Vec<DailyRevenue> = rollup
+        .daily_revenue
+        .into_iter()
+        .map(|d| DailyRevenue {
+            date: d.date,
+            revenue: d.revenue,
+            payment_count: d.payment_count,
+        })
+        .collect();
+    let plan_breakdown: Vec<PlanBreakdown> = rollup
+        .plan_breakdown
+        .into_iter()
+        .map(|p| PlanBreakdown {
+            plan_id: p.plan_id,
+            plan_name: p.plan_name,
+            subscription_count: p.subscription_count,
+            revenue: p.total_revenue,
+            average_revenue_per_user: p.average_revenue_per_user,
+        })
+        .collect();
+    let payment_methods: Vec<PaymentMethodStats> = rollup
+        .payment_methods
+        .into_iter()
+        .map(|m| PaymentMethodStats {
+            method: m.currency,
+            count: m.payment_count,
+            revenue: m.total_revenue,
+            success_rate: m.success_rate,
+        })
+        .collect();
     let trends = PaymentTrends {
-        growth_rate,
-        churn_rate,
-        average_subscription_length: avg_sub_length,
-        customer_lifetime_value,
+        growth_rate: rollup.trends.growth_rate,
+        churn_rate: rollup.trends.churn_rate,
+        average_subscription_length: rollup.trends.average_subscription_length,
+        customer_lifetime_value: rollup.trends.customer_lifetime_value,
     };
 
     let analytics = PaymentAnalytics {

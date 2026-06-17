@@ -1,0 +1,61 @@
+---
+title: "Real-Time Intelligence: Capturing Market Opportunities as They Happen"
+slug: "real-time-intelligence"
+date: "March 10, 2026"
+author: "EPSX Engineering"
+excerpt: "The EPSX dashboard removes the gap between on-chain events and your decision-making. Learn how our Redis-powered real-time data pipeline keeps you at the absolute forefront of the market."
+tags: ["redis", "real-time", "engineering"]
+---
+
+# Real-Time Intelligence: Capturing Market Opportunities as They Happen
+
+In crypto, **15 minutes is an eternity**. By the time most analytics platforms refresh their data, the trade is gone. EPSX is built around the idea that real-time is a baseline, not a feature.
+
+## The latency budget
+
+For a price update to feel "live," the entire pipeline — on-chain event → database → API → browser — has to complete in under **2 seconds**. Here's how we hit that:
+
+### Indexer → Postgres: <500ms
+
+The indexer watches BSC blocks (3s block time) and batch-inserts relevant events (transfers, swaps, mints). We use Postgres `LISTEN/NOTIFY` to wake up downstream consumers the moment a batch is committed.
+
+### Postgres → Redis: <100ms
+
+The API layer keeps a Redis cache of the most-accessed data: top-100 token prices, top-10 wallet balances, narrative scores. After every indexer write, we invalidate the relevant cache keys with a Pub/Sub message.
+
+### Redis → API: <10ms
+
+A simple `GET` against the Redis pool, with a connection pre-warmed in the request handler's tower middleware.
+
+### API → browser: <200ms
+
+Server-Sent Events for the dashboard. The browser opens a long-lived HTTP connection, and we push deltas as they happen — no polling.
+
+Total budget: **~800ms** end-to-end for a swap event to show up in your dashboard.
+
+## What "real-time" actually means for users
+
+- **Live price ticker** on every token page, updated every block
+- **Wallet activity feed** that shows new transactions within seconds
+- **Alert engine** that fires on price moves, large transfers, and narrative shifts
+- **Ranking changes** are highlighted so you can spot momentum in real time
+
+## What we deliberately did NOT do
+
+- **WebSockets everywhere** — they add operational complexity (reconnection, scaling) that SSE doesn't
+- **Push everything to all clients** — we delta-sync, not full-state-sync
+- **Real-time for real-time's sake** — some data (historical analytics) is fine to be eventually consistent
+
+## The trade-offs
+
+Real-time costs more:
+
+- **5x the infrastructure** vs. 5-minute polling
+- **Cache invalidation is hard** — we have a `cache-version` table that gets bumped on every schema change
+- **More failure modes** — Pub/Sub can drop messages, SSE connections can die
+
+But for a trading platform, the cost is worth it. A user who sees a 10% move 30 seconds before the competition can capture a meaningful edge.
+
+## Try it
+
+Open the [Rankings](/rankings) page and watch the score column — it updates every 15 minutes, but the underlying price data is real-time. Click any token to see the live ticker.

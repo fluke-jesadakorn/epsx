@@ -210,6 +210,19 @@ mod tests {
     use super::*;
     use uuid::Uuid;
 
+    // wave 10 prep: dummy DATABASE_URL so Config::from_env() doesn't fail.
+    fn ensure_dummy_db_url() {
+        if std::env::var("DATABASE_URL").is_err() {
+            // SAFETY: see scanner.rs tests::ensure_dummy_db_url — same rationale.
+            unsafe {
+                std::env::set_var(
+                    "DATABASE_URL",
+                    "postgres://test:test@localhost:5432/test",
+                );
+            }
+        }
+    }
+
     #[test]
     fn test_frontend_eps_data_creation() {
         let data = FrontendEPSData {
@@ -253,6 +266,7 @@ mod tests {
 
     #[test]
     fn test_tradingview_config_defaults() {
+        ensure_dummy_db_url();
         use crate::config::*;
         
         let config = Config::from_env().unwrap();

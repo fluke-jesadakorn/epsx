@@ -1,0 +1,67 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# ============================================================================
+# wave13(dev-k8s) — Dev K8s overlay
+#
+# Spun up on the `default` colima profile (8 CPU / 16 GB / k3s v1.35.0).
+# Uses the `epsx-dev` namespace + NodePorts 30100+ to avoid clashing
+# with staging (30000+) and prod (30080+).
+#
+# Image tags: `:dev` (not `:staging`, not `:prod`) so a wave-N push
+# to this overlay never accidentally lands in a higher environment.
+# The new epsx-analytics binary uses `:wave12-dev` to mirror the
+# wave12(integration) tag pattern.
+# ============================================================================
+
+namespace: epsx-dev
+
+resources:
+  - ../../base
+
+images:
+  - name: epsx-backend
+    newTag: dev
+  - name: epsx-frontend
+    newTag: dev
+  - name: epsx-admin-frontend
+    newTag: dev
+  # wave13a(integration): bumped analytics tag from
+  # `:wave12-dev` to `:wave13a-dev` so the dev overlay
+  # runs the wave-13a gRPC-client binary (the in-process
+  # stub was swapped for `GrpcWalletRankingOffsetQuery`).
+  # Identity already at `:wave13a-dev` from Track A.
+  # wave16: bumped analytics tag from `:wave13a-dev` to
+  # `:wave16-dev` so the dev overlay runs the wave-16
+  # warn-once + downgrade binary (silences the
+  # pre-existing first-connect chunked-decoder error
+  # observed in wave 15's verifier evidence; no
+  # correctness change). See deliverable-wave16-*
+  # for the full noise-reduction scope.
+  #
+  # wave17: bumped analytics tag from `:wave16-dev` to
+  # `:wave17-dev` so the dev overlay runs the wave-17
+  # construction-site-parity binary. Pure refactor:
+  # exports `sse_consumer_client()` from `sse_consumer.rs`
+  # and routes both `main.rs` and the wave-15 regression
+  # test through the same shared builder. The
+  # `construction_site_parity_guards` test pins the
+  # builder shape so a future re-add of `.timeout(60s)`
+  # (the wave-15 bug) is caught at `cargo test` time.
+  # No behavior change.
+  - name: epsx-analytics
+    newTag: wave17-dev
+  # wave13b(track-a): bumped identity tag from
+  # `:wave13a-dev` to `:wave13b-dev` so the dev overlay
+  # runs the wave-13b build of the identity binary
+  # (SSE stream on port 50052 + admin emit hook). The
+  # gRPC seam on 50051 is unchanged.
+  - name: epsx-identity
+    newTag: wave13b-dev
+
+patches:
+  - path: patches/replicas.yaml
+  - path: patches/resources.yaml
+  - path: patches/services-nodeport.yaml
+  - path: patches/services-identity.yaml
+  - path: patches/skip-migrate.yaml

@@ -1,0 +1,184 @@
+[workspace]
+resolver = "2"
+members = [
+    "shared/rust/kernel",
+    "shared/rust/epsx-database-pools",
+    "shared/rust/epsx-contracts",
+    "shared/rust/epsx-identity-service",
+    "shared/rust/events",
+    "shared/rust/config",
+    "shared/rust/crypto",
+    "shared/rust/auth",
+    "shared/rust/epsx-identity-shared",
+    "shared/rust/database",
+    "shared/rust/observability",
+    "shared/rust/web3",
+    "shared/rust/client",
+    "shared/rust/renderer",
+    "shared/rust/templates",
+    "shared/rust/dioxus_ui",
+    "shared/rust/bff",
+    "shared/rust/epsx-web-middleware",
+    "services/gateway",
+    "services/identity",
+    "services/wallet",
+    "services/payment",
+    "services/subscription",
+    "services/content",
+    "services/notification",
+    "services/analytics",
+    "services/indexer",
+    "apps/frontend",
+    "apps/admin",
+    "apps/backend",
+    "apps/analytics",
+    "apps/pay",
+    "apps/preview",
+]
+
+[workspace.dependencies]
+# Core
+anyhow = "1.0"
+async-trait = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+tokio = { version = "1.0", features = ["full", "rt-multi-thread"] }
+futures = "0.3"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
+uuid = { version = "1.7", features = ["v4", "v7", "serde"] }
+url = "2.5"
+once_cell = "1.19"
+
+# HTTP / gRPC
+axum = { version = "0.8", features = ["ws", "macros", "multipart"] }
+tower = { version = "0.5", features = ["util", "timeout", "limit"] }
+tower-http = { version = "0.5", features = ["cors", "trace", "request-id", "set-header"] }
+http = "1.0"
+tonic = { version = "0.12", features = ["tls", "transport"] }
+# Bumped from 0.12 → 0.13 in wave 13a Track A (epsx-identity-service)
+# to align with `tonic-build = 0.12.3`'s hard-pinned
+# `prost-build = 0.13` transitive dep. Without this bump, the
+# generated `#[derive(::prost::Message)]` calls (using prost
+# 0.13) don't match `tonic::codec::ProstCodec`'s prost 0.12
+# type. This bump is workspace-scoped — no source file in
+# epsx-monolith imports `prost::*` directly today, so the
+# change is mechanical with no API fallout.
+prost = "0.13"
+prost-types = "0.13"
+# Added in wave 13a Track B (gRPC client in analytics) so the
+# workspace `build.rs` can call `tonic_build::configure()` to
+# generate Rust types from `shared/proto/identity.proto`. The
+# server-side codegen path uses the same dep (Track A's
+# `epsx-identity-service/build.rs`).
+tonic-build = "0.12"
+# `tokio-stream` is needed for the wave-13a Track B mock
+# tonic server's `serve_with_incoming` pattern (the
+# `TcpListenerStream` adapter converts a
+# `tokio::net::TcpListener` to a `Stream` tonic can
+# consume). Used in the gRPC client tests, not in
+# production code.
+tokio-stream = { version = "0.1", features = ["net"] }
+
+# Database
+sqlx = { version = "0.8", features = ["postgres", "runtime-tokio", "chrono", "uuid", "json", "migrate"] }
+redis = { version = "0.28", features = ["tokio-comp", "connection-manager", "streams"] }
+deadpool = { version = "0.9", features = ["rt_tokio_1"] }
+deadpool-redis = "0.23"
+
+# Alloy / Web3
+alloy = { version = "1.0", features = ["full", "reqwest"] }
+alloy-provider = { version = "1.0", features = ["reqwest"] }
+alloy-network = "1.0"
+alloy-primitives = "1.0"
+alloy-sol-types = "1.0"
+alloy-contract = { version = "1.0", features = ["pubsub"] }
+alloy-signer-local = "1.0"
+alloy-transport-http = "1.0"
+alloy-rpc-types = "1.0"
+alloy-consensus = "1.0"
+alloy-signers = "1.0"
+siwe = "0.6"
+
+# Auth / Crypto
+jsonwebtoken = "9.2"
+sha2 = "0.10"
+rsa = "0.9"
+argon2 = "0.5"
+rand = "0.9"
+
+# Config
+config = { version = "0.14", features = ["toml"] }
+dotenvy = "0.15"
+
+# Observability
+opentelemetry = { version = "0.27", features = ["trace", "metrics", "logs"] }
+opentelemetry-sdk = { version = "0.27", features = ["trace", "metrics", "logs"] }
+opentelemetry-otlp = { version = "0.27", features = ["tonic"] }
+opentelemetry-prometheus = "0.27"
+metrics = "0.23"
+metrics-exporter-prometheus = "0.15"
+
+# Utilities
+clap = { version = "4.5", features = ["derive", "env"] }
+serde_yaml = "0.9"
+regex = "1.10"
+base64 = "0.22"
+hex = "0.4"
+md5 = "0.7"
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+notify = "6.1"
+notify-debouncer-mini = "0.4"
+git2 = "0.19"
+handlebars = "5.1"
+lettre = "0.11"
+pulldown-cmark = "0.10"
+pulldown-cmark-to-cmark = "15"
+syntect = "5.2"
+tera = "1.20"
+
+# Dioxus 0.7 (stable)
+dioxus = { version = "0.7", features = ["fullstack", "ssr", "router", "web"] }
+dioxus-ssr = "0.7"
+dioxus-fullstack = { version = "0.7", features = ["axum"] }
+dioxus-server = "0.7"
+dioxus-web = "0.7"
+dioxus-router = "0.7"
+
+# Testing
+axum-test = { version = "15", dev = true }
+tokio-test = { version = "0.4", dev = true }
+mockall = { version = "0.13", dev = true }
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/epsx/epsx"
+authors = ["EPSX Team"]
+
+[profile.dev]
+opt-level = 0
+debug = true
+overflow-checks = true
+
+[profile.release]
+opt-level = 3
+strip = true
+lto = "thin"
+codegen-units = 1
+overflow-checks = false
+
+# ----------------------------------------------------------------------------
+# Vendored patches
+# ----------------------------------------------------------------------------
+# `aws-runtime` 1.7.4 (the latest, pulled in transitively by `aws-config 1.8.x`
+# and `aws-sdk-*` 1.135+) ships with an E0282 type-inference error in
+# `src/auth/sigv4.rs:278` that blocks `cargo check` of the `epsx` backend. The
+# bug is unfixed upstream (no 1.7.5 release). We vendor the crate locally and
+# apply a minimal let-binding fix to disambiguate the generic `T` on
+# `DeferredSignerSender::send`. Re-evaluate on every `aws-runtime` bump.
+[patch.crates-io]
+aws-runtime = { path = "vendor/aws-runtime" }

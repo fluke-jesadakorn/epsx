@@ -1,0 +1,6 @@
+{
+  "name": "micromark",
+  "version": "4.0.0-stub",
+  "main": "src/index.js",
+  "type": "commonjs"
+}

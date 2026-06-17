@@ -10,17 +10,19 @@ use crate::config::contracts::Chain;
 use crate::infrastructure::cache::Cache;
 use crate::infrastructure::cache::unified_permission_cache::UnifiedPermissionCache;
 use crate::infrastructure::redis::RedisPool;
-use crate::web::notifications::RedisNotificationBroadcaster;
+use crate::infrastructure::adapters::RedisPubsubAdapter;
 use crate::infrastructure::adapters::repositories::{
     wallet_user::WalletUserRepositoryAdapter,
 
     permission_plan_repository_adapter::PermissionPlanRepositoryAdapter,
     payment_repository_adapter::PaymentRepositoryAdapter,
+    credit_repository_adapter::CreditRepositoryAdapter,
     notification_repository_adapter::NotificationRepositoryAdapter,
 };
 use crate::infrastructure::adapters::services::{
     permission_adapter::{Web3PermissionServiceAdapter, BlockchainConfig},
 };
+use epsx_contracts::pubsub_port::PubsubPort;
 use crate::domain::wallet_management::{
     WalletPermissionService,
     WalletUserRepositoryPort,
@@ -28,14 +30,16 @@ use crate::domain::wallet_management::{
 };
 use crate::domain::auth::ports::IdentityProviderPort;
 
-use crate::domain::payment::repository_ports::{PaymentRepositoryPort, TransactionHistoryProvider};
+use crate::domain::payment::repository_ports::{
+    PaymentRepositoryPort, CreditRepositoryPort, TransactionHistoryProvider,
+};
 use crate::auth::auth_service::UnifiedWeb3AuthService;
 use crate::auth::token_service::OpenIDTokenService;
 use crate::auth::key_manager::KeyManager;
 use crate::auth::UnifiedPermissionService;
 use crate::infrastructure::cqrs::{EventStore, PostgresEventStore, TransactionalOutbox};
 use crate::infrastructure::blockchain::{ContractSubscriber, PaymentEvent};
-use crate::domain::shared_kernel::app_error::AppError;
+use epsx_contracts::errors::AppError;
 use crate::infrastructure::storage::S3Storage;
 use tracing::info;
 
@@ -53,6 +57,7 @@ pub struct SimpleContainer {
 
     pub permission_plan_repository: Option<Arc<PermissionPlanRepositoryAdapter>>,
     pub payment_repository: Option<Arc<PaymentRepositoryAdapter>>,
+    pub credit_repository: Option<Arc<CreditRepositoryAdapter>>,
     pub notification_repository: Option<Arc<NotificationRepositoryAdapter>>,
     pub wallet_permission_service: Option<Arc<WalletPermissionService>>,
     pub web3_permission_adapter: Option<Arc<Web3PermissionServiceAdapter>>,
@@ -62,13 +67,25 @@ pub struct SimpleContainer {
 
     pub event_bus: Option<Arc<dyn crate::domain::DomainEventBus>>,
 
+    // wave11(track-c): kernel-level `EventPublisherPort` (ROADMAP §5 R7).
+    // The container builds the in-process adapter wrapping the legacy
+    // bus at `build()`. The port is the seam that the 19 application
+    // command handlers depend on; a future network impl (HTTP / gRPC)
+    // is a wave-N+2 concern. See
+    // `infrastructure::adapters::events::InProcessEventPublisher` for
+    // the design notes.
+    pub event_publisher: Option<Arc<dyn epsx_contracts::event_publisher_port::EventPublisherPort>>,
+
     // Unified Permission Service (single source of truth for permissions)
     pub unified_permission_service: Option<Arc<UnifiedPermissionService>>,
     pub permission_cache: Option<Arc<UnifiedPermissionCache>>,
 
     // Redis infrastructure for real-time notifications
     pub redis_pool: Option<Arc<RedisPool>>,
-    pub redis_broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
+    /// Generic pubsub port. Notifications + chat both publish and
+    /// subscribe through this port. See
+    /// `docs/wave8-service-boundary/ROADMAP.md` §5 R2.
+    pub pubsub: Option<Arc<dyn PubsubPort>>,
 
     // CQRS Infrastructure (Event Sourcing)
     pub event_store: Option<Arc<dyn EventStore>>,
@@ -103,18 +120,20 @@ impl SimpleContainer {
 
             permission_plan_repository: None,
             payment_repository: None,
+            credit_repository: None,
             notification_repository: None,
             wallet_permission_service: None,
             web3_permission_adapter: None,
             auth_service: None,
             token_service: None,
             event_bus: None,
+            event_publisher: None,
             // Unified Permission Service
             unified_permission_service: None,
             permission_cache: None,
             // Redis
             redis_pool: None,
-            redis_broadcaster: None,
+            pubsub: None,
             // CQRS
             event_store: None,
             transactional_outbox: None,
@@ -185,6 +204,11 @@ impl SimpleContainer {
         
         // Payment Repository (uses payments_pool if available)
         let payment_repository = payments_pool.as_ref().map(|pool| Arc::new(PaymentRepositoryAdapter::new(**pool)));
+
+        // Credit Repository (uses payments_pool — same schema as
+        // `wallet_credits` / `credit_transactions` live in the
+        // payments migrations).
+        let credit_repository = payments_pool.as_ref().map(|pool| Arc::new(CreditRepositoryAdapter::new(**pool)));
 
         // Notification Repository (uses notifications_pool if available)
         let notification_repository = if let Some(pool) = &notifications_pool {
@@ -288,20 +312,36 @@ impl SimpleContainer {
             }
         };
 
-        // Create Redis pool and notification broadcaster
+        // Create Redis pool and pubsub port
         let redis_timeout = std::time::Duration::from_secs(5);
-        let (redis_pool, redis_broadcaster, permission_cache, unified_permission_service) = match redis_url {
+        let (redis_pool, pubsub, permission_cache, unified_permission_service) = match redis_url {
             Some(ref url) => {
-                // Try to create Redis pool for notifications
-                let (pool, broadcaster) = match tokio::time::timeout(redis_timeout, RedisPool::new(url)).await {
+                // Try to create Redis pool for pubsub (notifications + chat)
+                let (pool, port): (Option<Arc<RedisPool>>, Option<Arc<dyn PubsubPort>>) = match tokio::time::timeout(redis_timeout, RedisPool::new(url)).await {
                     Ok(Ok(pool)) => {
                         let pool_arc = Arc::new(pool);
-                        let broadcaster = Arc::new(RedisNotificationBroadcaster::new(Arc::clone(&pool_arc)));
-                        tracing::info!("Redis notification system initialized");
-                        (Some(pool_arc), Some(broadcaster))
+                        // Mint a redis::Client alongside the pool so the
+                        // PubsubPort can open fresh PubSub connections
+                        // (the pool only exposes a ConnectionManager, not
+                        // a Client).
+                        let port: Option<Arc<dyn PubsubPort>> = match redis::Client::open(url.as_str()) {
+                            Ok(client) => {
+                                let adapter = RedisPubsubAdapter::from_pool_and_client(
+                                    client,
+                                    Arc::clone(&pool_arc),
+                                );
+                                tracing::info!("Redis pubsub system initialized (PubsubPort)");
+                                Some(Arc::new(adapter) as Arc<dyn PubsubPort>)
+                            }
+                            Err(e) => {
+                                tracing::warn!("Failed to create redis::Client for pubsub adapter: {}", e);
+                                None
+                            }
+                        };
+                        (Some(pool_arc), port)
                     }
                     Ok(Err(e)) => {
-                        tracing::warn!("Failed to create Redis pool: {} (notifications will not work)", e);
+                        tracing::warn!("Failed to create Redis pool: {} (pubsub will not work)", e);
                         (None, None)
                     }
                     Err(_) => {
@@ -316,13 +356,13 @@ impl SimpleContainer {
                         // PERMISSION CACHE DISABLED FOR SECURITY CONTROL
                         let perm_service = Arc::new(UnifiedPermissionService::new_without_cache(*db_pool));
                         tracing::info!("UnifiedPermissionService initialized (cache disabled for security control)");
-                        (pool, broadcaster, None, perm_service)
+                        (pool, port, None, perm_service)
                     }
                     Err(e) => {
                         tracing::warn!("Failed to create Redis client for permission cache: {}", e);
                         let perm_service = Arc::new(UnifiedPermissionService::new_without_cache(*db_pool));
                         tracing::info!("UnifiedPermissionService initialized (without Redis cache)");
-                        (pool, broadcaster, None, perm_service)
+                        (pool, port, None, perm_service)
                     }
                 }
             }
@@ -399,6 +439,7 @@ impl SimpleContainer {
 
             permission_plan_repository: Some(permission_plan_repository),
             payment_repository,
+            credit_repository,
             notification_repository,
             wallet_permission_service: Some(wallet_permission_service),
             web3_permission_adapter: Some(web3_permission_adapter),
@@ -407,13 +448,24 @@ impl SimpleContainer {
             identity_provider: None,
 
             plan_repository: Some(plan_repository),
-            event_bus: Some(event_bus),
+            event_bus: Some(event_bus.clone()),
+            // wave11(track-c): wrap the legacy bus in the in-process
+            // `EventPublisherPort` adapter. The adapter logs at
+            // `tracing::info!` and forwards to the bus via
+            // `tokio::spawn`. See `InProcessEventPublisher` for
+            // the design notes. The bus remains available on
+            // `event_bus` for the 5 legacy unit tests that assert
+            // on `SimpleEventBus::published_events()`; the port
+            // is the seam the application command handlers use.
+            event_publisher: Some(Arc::new(
+                crate::infrastructure::adapters::events::InProcessEventPublisher::with_bus(event_bus),
+            )),
             // Unified Permission Service
             unified_permission_service: Some(unified_permission_service),
             permission_cache,
             // Redis notifications
             redis_pool,
-            redis_broadcaster,
+            pubsub,
             // CQRS
             event_store: Some(event_store),
             transactional_outbox: Some(transactional_outbox),
@@ -557,18 +609,20 @@ impl SimpleContainer {
 
             permission_plan_repository: None,
             payment_repository: None,
+            credit_repository: None,
             notification_repository: None,
             wallet_permission_service: None,
             web3_permission_adapter: None,
             auth_service: None,
             token_service: None,
             event_bus: None,
+            event_publisher: None,
             // Unified Permission Service
             unified_permission_service: None,
             permission_cache: None,
             // Redis
             redis_pool: None,
-            redis_broadcaster: None,
+            pubsub: None,
             // CQRS
             event_store: None,
             transactional_outbox: None,
@@ -640,6 +694,14 @@ impl SimpleContainer {
         self.payment_repository.as_ref().map(|repo| Arc::clone(repo) as Arc<dyn PaymentRepositoryPort>)
     }
 
+    /// Wave 11 / Track A: `CreditRepositoryPort` accessor. Used
+    /// by the credit handlers (admin credits, user balance,
+    /// history) and by `submit_tx_handler.rs` after the
+    /// cross-pool collapse.
+    pub fn get_credit_repository_port(&self) -> Option<Arc<dyn CreditRepositoryPort>> {
+        self.credit_repository.as_ref().map(|repo| Arc::clone(repo) as Arc<dyn CreditRepositoryPort>)
+    }
+
     pub fn get_notification_repository(&self) -> Option<Arc<NotificationRepositoryAdapter>> {
         self.notification_repository.as_ref().map(Arc::clone)
     }
@@ -674,8 +736,8 @@ impl SimpleContainer {
         self.redis_pool.as_ref().map(Arc::clone)
     }
 
-    pub fn get_redis_broadcaster(&self) -> Option<Arc<RedisNotificationBroadcaster>> {
-        self.redis_broadcaster.as_ref().map(Arc::clone)
+    pub fn get_pubsub(&self) -> Option<Arc<dyn PubsubPort>> {
+        self.pubsub.as_ref().map(Arc::clone)
     }
 
     pub fn get_transaction_history_provider(&self) -> Option<Arc<dyn TransactionHistoryProvider>> {

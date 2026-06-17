@@ -1,0 +1,70 @@
+---
+title: "Securing the Future: Enterprise-Grade Trust in a Web3 World"
+slug: "securing-the-future"
+date: "March 10, 2026"
+author: "EPSX Security"
+excerpt: "EPSX leads the industry in user privacy and security by adopting wallet-first authentication. Learn how our implementation of SIWE protects your assets and identity."
+tags: ["security", "siwe", "web3"]
+---
+
+# Securing the Future: Enterprise-Grade Trust in a Web3 World
+
+The traditional web has spent 30 years building identity and auth. Web3 throws most of that out — and rightly so. But the new model has to be **at least as secure** as the old one. Here's how EPSX approaches it.
+
+## The principles
+
+1. **Wallet-first** — Your wallet is your identity. No email, no password, no KYC for basic features.
+2. **No custodial risk** — We never hold your private keys. We never can.
+3. **Signed actions, not sessions** — Critical actions (withdrawals, settings changes) require a fresh wallet signature, not just a session cookie.
+4. **Transparent permissions** — Every role and scope is visible to you, in plaintext, before you sign.
+5. **Replay protection** — Every signature has a unique nonce, a 5-minute expiry, and a one-time use.
+
+## How SIWE works in EPSX
+
+**Sign-In With Ethereum (EIP-4361)** is the standard. The flow:
+
+1. User clicks "Connect Wallet" in our app
+2. App requests a **challenge** from our identity service (`POST /api/v1/identity/auth/challenge` with `{address, chain_id}`)
+3. Identity service generates a random 17-char nonce, stores it in Redis with a 5-minute TTL, and returns a fully-formed SIWE message
+4. App asks the wallet to `personal_sign` the message
+5. App posts the signature back (`POST /api/v1/identity/auth/siwe` with `{message, signature, chain_id}`)
+6. Identity service:
+   - Looks up the nonce in Redis (and **deletes it** to prevent replay)
+   - Verifies the signature against the message
+   - Issues a real JWT (signed with HS256)
+   - Returns the JWT + a refresh token
+7. App stores the JWT in an `HttpOnly`, `SameSite=Lax` cookie — never in `localStorage`
+8. Subsequent API calls send the JWT as `Authorization: Bearer <token>` or in the cookie
+
+## What we don't do
+
+- **No `localStorage` tokens** — XSS-safe by design
+- **No refresh tokens in cookies** — they're returned to the client which decides where to store them
+- **No long-lived sessions** — access tokens expire in 1 hour, refresh tokens in 7 days
+- **No "remember me" for sensitive actions** — withdrawals always require a fresh signature
+
+## Threat model
+
+We assume:
+
+- The user's browser is reasonably up-to-date
+- The user's wallet is honest (hardware wallets recommended)
+- The DNS is honest (we use DNSSEC where possible)
+- Our infrastructure is partially compromised (zero-trust between services)
+
+We do NOT assume:
+
+- The user's email is secure (we don't ask for one)
+- The user's phone is secure (no SMS 2FA)
+- The network is private (everything is TLS 1.3)
+
+## What we're working on
+
+- **Session-bound cookies** — Bind the session cookie to the wallet address so a stolen cookie is useless
+- **Hardware wallet attestation** — Verify that the signing device is what it claims to be
+- **Multi-sig for high-value accounts** — Require N-of-M signatures for merchant accounts above a threshold
+- **Bug bounty** — Coming Q3 2026
+
+## Read the code
+
+The full implementation is in the EPSX monorepo under `services/identity/`. The SIWE verifier uses the official `siwe` crate, the JWT issuer uses `jsonwebtoken`, and the nonce store is Redis. We welcome security researchers — contact us at `security@epsx.io`.

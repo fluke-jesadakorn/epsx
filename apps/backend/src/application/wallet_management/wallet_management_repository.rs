@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 
-use crate::core::errors::{AppError, ErrorKind};
+use epsx_contracts::errors::{AppError, ErrorKind};
 
 /// Wallet basic information record
 #[derive(Debug, Clone)]

@@ -9,7 +9,7 @@ use crate::infrastructure::repositories::audit_log_repository::DieselAuditLogRep
 use serde::Deserialize;
 use utoipa::{ToSchema, IntoParams};
 use crate::web::auth::AppState;
-use crate::domain::shared_kernel::value_objects::UserId;
+use epsx_contracts::value_objects::UserId;
 
 #[derive(Debug, Deserialize, ToSchema, IntoParams)]
 pub struct AuditLogQueryParams {

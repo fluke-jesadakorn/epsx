@@ -5,8 +5,8 @@ use std::fmt::{self, Display};
 use serde::{Serialize, Deserialize};
 
 /// Re-export Currency and Network from shared kernel
-pub use crate::domain::shared_kernel::value_objects::Currency as SharedCurrency;
-pub use crate::domain::shared_kernel::value_objects::Network as SharedNetwork;
+pub use epsx_contracts::value_objects::Currency as SharedCurrency;
+pub use epsx_contracts::value_objects::Network as SharedNetwork;
 
 // For compatibility, also re-export with original names
 pub use SharedCurrency as Currency;

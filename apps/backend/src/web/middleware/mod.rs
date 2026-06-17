@@ -2,7 +2,13 @@
 // Phase 7.2: Pure Web3 authentication only, OIDC/JWT removed
 
 // Essential security middleware (core functionality)
-pub mod security_headers;
+// Moved to `epsx-web-middleware` in wave 10 prep (no backend coupling).
+// Re-exported here so existing call sites keep working.
+pub use epsx_web_middleware::security_headers::{
+    security_headers_middleware,
+    request_id_middleware,
+    RequestId,
+};
 
 // Web3 wallet authentication middleware (pure SIWE - improved implementation)
 pub mod auth_middleware;
@@ -20,12 +26,6 @@ pub mod usage_tracking_middleware;
 // CRITICAL: Bulletproof Permission Validation Middleware (Phase 1.2)
 // THE SINGLE SOURCE OF TRUTH for all permission enforcement
 pub mod permission_validation_middleware;
-
-// Security headers exports (only functions actually used)
-pub use security_headers::{
-  security_headers_middleware,
-  request_id_middleware,
-};
 
 // Web3 auth exports (improved wallet-first authentication)
 pub use auth_middleware::{

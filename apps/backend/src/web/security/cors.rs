@@ -5,7 +5,7 @@ use tower_http::cors::{CorsLayer, AllowOrigin};
 use std::time::Duration;
 
 use crate::config::env::{get_env_var, is_production};
-use crate::core::constants::*;
+use epsx_contracts::constants::*;
 
 /// Get the appropriate CORS layer based on environment
 pub fn get_cors_layer() -> CorsLayer {

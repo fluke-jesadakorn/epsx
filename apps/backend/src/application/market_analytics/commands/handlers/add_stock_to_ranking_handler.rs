@@ -6,22 +6,22 @@ use crate::application::market_analytics::commands::{
 use crate::domain::market_analytics::{
     EPSRankingRepositoryPort, StockSymbol, EPSValue, GrowthFactor, MarketSector, Country
 };
-use crate::domain::shared_kernel::DomainEventBus;
+use epsx_contracts::event_publisher_port::EventPublisherPort;
 
 /// Command handler for adding stocks to rankings
 pub struct AddStockToRankingCommandHandler {
     ranking_repository: Arc<dyn EPSRankingRepositoryPort>,
-    event_bus: Arc<dyn DomainEventBus>,
+    event_publisher: Arc<dyn EventPublisherPort>,
 }
 
 impl AddStockToRankingCommandHandler {
     pub fn new(
         ranking_repository: Arc<dyn EPSRankingRepositoryPort>,
-        event_bus: Arc<dyn DomainEventBus>,
+        event_publisher: Arc<dyn EventPublisherPort>,
     ) -> Self {
         Self {
             ranking_repository,
-            event_bus,
+            event_publisher,
         }
     }
 }
@@ -71,7 +71,13 @@ impl CommandHandler<AddStockToRankingCommand> for AddStockToRankingCommandHandle
 
         // 6. Publish domain events
         for event in ranking.uncommitted_events() {
-            self.event_bus.publish(&**event);
+            let owned: Box<dyn crate::domain::shared_kernel::DomainEvent> = Box::new(epsx_contracts::domain_event::OwnedEvent::from_borrowed(&**event));
+            if let Err(e) = self.event_publisher.publish(owned).await {
+                tracing::warn!(
+                    error = %e,
+                    "EventPublisherPort.publish returned error; command continues"
+                );
+            }
         }
 
         // 7. Return response

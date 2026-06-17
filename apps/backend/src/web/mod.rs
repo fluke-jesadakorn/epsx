@@ -39,9 +39,63 @@ fn configure_cors_for_frontend() -> CorsLayer {
 
 /// Create the main application router with unified architecture
 /// Single source of truth - eliminates all route duplication and competing router systems
-pub fn create_router(container: Arc<DomainContainer>) -> Router {
-  // Use unified route builder - consolidates all 3 previous router systems
+///
+/// `async` since wave 11 — the two new payments ports are
+/// built from the payments pool here, which is an async
+/// operation.
+pub async fn create_router(
+    container: Arc<DomainContainer>,
+    notification_port: Option<Arc<dyn epsx_contracts::notification_port::NotificationPort>>,
+) -> Router {
+  // Use unified route builder - consolidates all 3 previous router systems.
+  // Wave 11 / Track A: pull the PaymentRepositoryPort and
+  // CreditRepositoryPort accessors from the container so the
+  // 8 cross-pool handler collapses in `web/payments/*` have
+  // a port to call. If the container wasn't initialized with
+  // these (e.g. test harness), the AppState ends up with
+  // `payment_repo = None` and the handlers panic-fast at
+  // startup with a clear "port not wired" message rather
+  // than silently falling back to the cross-pool path.
+  // Wave 11 / Track B: also wire the two new
+  // payment-bounded-context ports (PaymentContext + Subscription).
+  let payment_repo = container.get_payment_repository_port();
+  let credit_repo = container.get_credit_repository_port();
+  let payment_context_port: Option<Arc<dyn crate::domain::payment::repository_ports::PaymentContextRepositoryPort>> = {
+      use crate::infrastructure::adapters::repositories::payment_context_repository_adapter::PaymentContextRepositoryAdapter;
+      match crate::infrastructure::database::get_payments_pool().await {
+          Ok(pool) => Some(Arc::new(PaymentContextRepositoryAdapter::new(pool)) as Arc<dyn crate::domain::payment::repository_ports::PaymentContextRepositoryPort>),
+          Err(e) => {
+              tracing::warn!(
+                  "PaymentContextRepositoryPort NOT wired ({}); \
+                   /api/public/payment-links/{{slug}} will return 503 \
+                   and the admin CRUD endpoints will return 503.",
+                  e
+              );
+              None
+          }
+      }
+  };
+  let subscription_port: Option<Arc<dyn crate::domain::payment::repository_ports::SubscriptionRepositoryPort>> = {
+      use crate::infrastructure::adapters::repositories::payment::PaymentSubscriptionRepositoryAdapter;
+      match crate::infrastructure::database::get_payments_pool().await {
+          Ok(pool) => Some(Arc::new(PaymentSubscriptionRepositoryAdapter::new(pool)) as Arc<dyn crate::domain::payment::repository_ports::SubscriptionRepositoryPort>),
+          Err(e) => {
+              tracing::warn!(
+                  "SubscriptionRepositoryPort NOT wired ({}); \
+                   the market_analytics stock-ranking-assignments \
+                   query will return an empty result.",
+                  e
+              );
+              None
+          }
+      }
+  };
   routes::UnifiedRouteBuilder::new(container.clone())
+    .with_notification_port(notification_port)
+    .with_payment_repository_port(payment_repo)
+    .with_credit_repository_port(credit_repo)
+    .with_payment_context_repository_port(payment_context_port)
+    .with_subscription_repository_port(subscription_port)
     .build()
 }
 

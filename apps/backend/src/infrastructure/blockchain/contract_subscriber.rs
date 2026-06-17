@@ -2,7 +2,7 @@
 // Real-time payment event monitoring with reconnection and HTTP fallback
 
 use crate::config::contracts::{Chain, ChainContractConfig, PAYMENT_EVENT_TOPIC};
-use crate::domain::shared_kernel::app_error::AppError;
+use epsx_contracts::errors::AppError;
 use crate::infrastructure::blockchain::{PaymentEvent, parse_payment_event, PaymentVerifier};
 
 use ethers::types::U256;
@@ -166,13 +166,13 @@ impl ContractSubscriber {
 
         // Parse contract address
         let contract_addr = self.config.contract_address.ok_or_else(|| {
-            AppError::infrastructure_error("No contract address configured")
+            AppError::internal_server_error("No contract address configured")
         })?;
 
         // Connect with timeout
         let ws_url = self.config.ws_url.clone();
         let url = url::Url::parse(&ws_url)
-            .map_err(|e| AppError::infrastructure_error(format!("Invalid WebSocket URL: {}", e)))?;
+            .map_err(|e| AppError::internal_server_error(format!("Invalid WebSocket URL: {}", e)))?;
 
         info!("Connecting to WebSocket: {}", ws_url);
         let (ws_stream, _) = tokio::time::timeout(
@@ -180,8 +180,8 @@ impl ContractSubscriber {
             connect_async(url),
         )
         .await
-        .map_err(|_| AppError::infrastructure_error("WebSocket connection timeout".to_string()))?
-        .map_err(|e| AppError::infrastructure_error(format!("WebSocket connection failed: {}", e)))?;
+        .map_err(|_| AppError::internal_server_error("WebSocket connection timeout".to_string()))?
+        .map_err(|e| AppError::internal_server_error(format!("WebSocket connection failed: {}", e)))?;
 
         info!("WebSocket connected for {}", self.chain);
         self.state = SubscriptionState::Connected;
@@ -203,10 +203,10 @@ impl ContractSubscriber {
         };
 
         let subscribe_msg = serde_json::to_string(&subscribe_request)
-            .map_err(|e| AppError::infrastructure_error(format!("JSON serialization error: {}", e)))?;
+            .map_err(|e| AppError::internal_server_error(format!("JSON serialization error: {}", e)))?;
 
         ws_sender.send(WsMessage::Text(subscribe_msg)).await
-            .map_err(|e| AppError::infrastructure_error(format!("Failed to send subscription: {}", e)))?;
+            .map_err(|e| AppError::internal_server_error(format!("Failed to send subscription: {}", e)))?;
 
         info!("Subscription request sent for contract {} on {}", contract_hex, self.chain);
 
@@ -246,7 +246,7 @@ impl ContractSubscriber {
             }
         }
 
-        Err(AppError::infrastructure_error("WebSocket connection ended".to_string()))
+        Err(AppError::internal_server_error("WebSocket connection ended".to_string()))
     }
 
     /// Handle incoming WebSocket message
@@ -265,7 +265,7 @@ impl ContractSubscriber {
         let response: JsonRpcResponse = serde_json::from_str(text)
             .map_err(|e| {
                 debug!("Failed to parse JSON (non-subscription message?): {}", e);
-                AppError::infrastructure_error(format!("JSON parse error: {}", e))
+                AppError::internal_server_error(format!("JSON parse error: {}", e))
             })?;
 
         // Handle subscription confirmation
@@ -328,10 +328,10 @@ impl ContractSubscriber {
         }
 
         let log_data: LogData = serde_json::from_value(value.clone())
-            .map_err(|e| AppError::infrastructure_error(format!("Failed to parse log: {}", e)))?;
+            .map_err(|e| AppError::internal_server_error(format!("Failed to parse log: {}", e)))?;
 
         let address = log_data.address.parse::<ethers::types::H160>()
-            .map_err(|e| AppError::infrastructure_error(format!("Invalid address: {}", e)))?;
+            .map_err(|e| AppError::internal_server_error(format!("Invalid address: {}", e)))?;
 
         let topics: Vec<ethers::types::H256> = log_data.topics.iter()
             .filter_map(|t| t.parse::<ethers::types::H256>().ok())
@@ -343,14 +343,14 @@ impl ContractSubscriber {
 
         let block_number = log_data.block_number.trim_start_matches("0x");
         let block_num = U256::from_str_radix(block_number, 16)
-            .map_err(|e| AppError::infrastructure_error(format!("Invalid block number: {}", e)))?;
+            .map_err(|e| AppError::internal_server_error(format!("Invalid block number: {}", e)))?;
 
         let tx_hash = log_data.transaction_hash.parse::<ethers::types::H256>()
-            .map_err(|e| AppError::infrastructure_error(format!("Invalid tx hash: {}", e)))?;
+            .map_err(|e| AppError::internal_server_error(format!("Invalid tx hash: {}", e)))?;
 
         let log_index = log_data.log_index.trim_start_matches("0x");
         let log_idx = U256::from_str_radix(log_index, 16)
-            .map_err(|e| AppError::infrastructure_error(format!("Invalid log index: {}", e)))?;
+            .map_err(|e| AppError::internal_server_error(format!("Invalid log index: {}", e)))?;
 
         Ok(ethers::types::Log {
             address,
@@ -373,7 +373,7 @@ impl ContractSubscriber {
         warn!("HTTP polling not implemented in contract_subscriber - use BscEventListener for polling");
         // The existing BscEventListener already handles HTTP polling
         // This is a fallback placeholder
-        Err(AppError::infrastructure_error("Use BscEventListener for HTTP polling".to_string()))
+        Err(AppError::internal_server_error("Use BscEventListener for HTTP polling".to_string()))
     }
 
     /// Get current state

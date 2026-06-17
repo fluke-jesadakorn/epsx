@@ -16,7 +16,7 @@ use futures_util::StreamExt;
 use serde_json::{ json, Value };
 use tracing::{ debug, info, warn };
 
-use crate::core::errors::AppError;
+use epsx_contracts::errors::AppError;
 
 const DEFAULT_WS_URL: &str = "wss://data.tradingview.com/socket.io/websocket";
 const DEFAULT_ORIGIN: &str = "https://www.tradingview.com";

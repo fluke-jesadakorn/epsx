@@ -1,139 +1,176 @@
-//! Reusable notification service
+//! Reusable notification service (legacy shim for pre-wave-10 callers)
 //!
-//! Encapsulates DB insert + Redis publish for sending notifications.
-//! Used by automatic triggers (plan changes, chat, payments) to avoid
-//! duplicating notification logic across handlers.
+//! Wave 10 service-boundary refactor. This file now contains a thin
+//! shim around `InProcessNotificationAdapter` to keep the
+//! `NotificationService::send` / `NotificationService::broadcast`
+//! static API working for any code that still imports it
+//! (defensive — the 7 publisher call sites are being migrated to the
+//! port in the same wave). New code MUST go through
+//! `NotificationPort` directly.
+//!
+//! ## Migration status
+//!
+//! The 7 publisher call sites (in `web/payments/credit_handlers.rs`,
+//! `web/payments/submit_tx_handler.rs`, `web/user/chat_handlers.rs`,
+//! `web/admin/chat_handlers.rs`,
+//! `web/admin/permissions/assignments/create.rs`,
+//! `web/admin/permissions/assignments/remove.rs`, and
+//! `infrastructure/services/plan_expiration_service.rs`) now call
+//! `AppState::notification_port` (the `Arc<dyn NotificationPort>`),
+//! not `NotificationService::send` / `broadcast`. The static
+//! functions here are kept as a defensive fallback for any code path
+//! that still uses them; they will be removed in wave 11 once the
+//! migration is verified.
 
-use chrono::Utc;
-use std::sync::Arc;
-use uuid::Uuid;
+use epsx_contracts::errors::{AppError, AppResult};
+use epsx_contracts::notification_port::{
+    BroadcastNotificationRequest, SendNotificationRequest,
+};
 
-use crate::core::errors::AppError;
+use crate::infrastructure::adapters::notification::in_process_adapter::InProcessNotificationAdapter;
 use crate::web::auth::AppState;
-use crate::web::admin::wallet_notification_repository::WalletNotificationRepository;
-use crate::web::notifications::{NotificationType, NotificationPriority, SSENotification};
 
+/// Legacy shim around `InProcessNotificationAdapter`. The struct is
+/// kept so `use crate::infrastructure::services::NotificationService;`
+/// still resolves and so the (now deprecated) static methods
+/// `NotificationService::send` / `NotificationService::broadcast`
+/// keep compiling. New code MUST go through `NotificationPort`.
+#[deprecated(
+    since = "0.1.0",
+    note = "Go through `AppState::notification_port` (`Arc<dyn NotificationPort>`) instead. The static methods on this shim will be removed in wave 11."
+)]
 pub struct NotificationService;
 
 impl NotificationService {
-    /// Send a notification to a specific wallet address.
-    /// Persists to DB and publishes via Redis for real-time delivery.
+    /// Construct a fresh in-process adapter. Sugar for the
+    /// `InProcessNotificationAdapter::try_new` constructor.
+    pub async fn new() -> AppResult<InProcessNotificationAdapter> {
+        InProcessNotificationAdapter::try_new(None).await
+    }
+
+    /// Synchronous env-var check. Re-exported so existing callers
+    /// that already import it keep working.
+    pub fn check_notifications_url_configured() -> AppResult<()> {
+        InProcessNotificationAdapter::check_notifications_url_configured()
+    }
+
+    /// Legacy static API. **Deprecated.** Routes through the
+    /// in-process adapter; equivalent to calling
+    /// `AppState::notification_port.send(req)`. Returns
+    /// `AppError::Configuration` if `NOTIFICATIONS_DATABASE_URL` is
+    /// unset (the pool-fallback fix).
+    #[allow(deprecated)]
     pub async fn send(
         app_state: &AppState,
-        wallet_address: &str,
-        notification_type: NotificationType,
-        priority: NotificationPriority,
+        recipient_wallet_address: &str,
+        notification_type: crate::web::notifications::NotificationType,
+        priority: crate::web::notifications::NotificationPriority,
         title: &str,
         message: &str,
         data: Option<serde_json::Value>,
         action_url: Option<String>,
     ) -> Result<String, AppError> {
-        let id = Uuid::new_v4();
-        let notif_type = format!("{:?}", notification_type).to_lowercase();
-        let notif_priority = format!("{:?}", priority).to_lowercase();
-        let wallet = wallet_address.to_lowercase();
-
-        // Get notifications DB pool
-        let pool = if let Ok(p) = crate::infrastructure::database::get_notifications_pool().await {
-            Arc::new(p)
-        } else {
-            app_state.db_pool.clone()
-        };
-        let repo = WalletNotificationRepository::new(pool);
-
-        // Persist to database
-        repo.create(
-            id,
-            &wallet,
-            &notif_type,
-            title,
-            message,
-            data.clone(),
-            &notif_priority,
-            None,
-            action_url.clone(),
-            None,
-        ).await?;
-
-        // Build SSE notification
-        let sse = SSENotification {
-            id: id.to_string(),
-            wallet_address: wallet.clone(),
-            notification_type,
+        let port = app_state
+            .notification_port
+            .as_ref()
+            .ok_or_else(|| AppError::configuration_error("notification_port not initialized in AppState"))?;
+        port.send(SendNotificationRequest {
+            recipient_wallet_address: recipient_wallet_address.to_string(),
+            notification_type: InProcessNotificationAdapter::format_notification_type_tag(notification_type),
+            priority: InProcessNotificationAdapter::format_notification_priority_tag(priority),
             title: title.to_string(),
             message: message.to_string(),
             data,
-            priority,
-            timestamp: Utc::now(),
-            expires_at: None,
-        };
-
-        // Publish via Redis (fire-and-forget, don't fail the parent operation)
-        if let Some(broadcaster) = &app_state.redis_broadcaster {
-            if let Err(e) = broadcaster.publish_to_wallet(&wallet, &sse).await {
-                tracing::warn!("Failed to publish notification via Redis: {}", e);
-            }
-        }
-
-        Ok(id.to_string())
+            action_url,
+        })
+        .await
     }
 
-    /// Broadcast a notification to all users.
-    /// Persists to DB with wallet_address='all' and publishes via Redis broadcast channel.
+    /// Legacy static API. **Deprecated.** Routes through the
+    /// in-process adapter. Returns `AppError::Configuration` if
+    /// `NOTIFICATIONS_DATABASE_URL` is unset.
+    #[allow(deprecated)]
     pub async fn broadcast(
         app_state: &AppState,
-        notification_type: NotificationType,
-        priority: NotificationPriority,
+        notification_type: crate::web::notifications::NotificationType,
+        priority: crate::web::notifications::NotificationPriority,
         title: &str,
         message: &str,
         data: Option<serde_json::Value>,
     ) -> Result<String, AppError> {
-        let id = Uuid::new_v4();
-        let notif_type = format!("{:?}", notification_type).to_lowercase();
-        let notif_priority = format!("{:?}", priority).to_lowercase();
-
-        // Get notifications DB pool
-        let pool = if let Ok(p) = crate::infrastructure::database::get_notifications_pool().await {
-            Arc::new(p)
-        } else {
-            app_state.db_pool.clone()
-        };
-        let repo = WalletNotificationRepository::new(pool);
-
-        // Persist to database
-        repo.create(
-            id,
-            "all",
-            &notif_type,
-            title,
-            message,
-            data.clone(),
-            &notif_priority,
-            None,
-            None,
-            None,
-        ).await?;
-
-        // Build SSE notification
-        let sse = SSENotification {
-            id: id.to_string(),
-            wallet_address: "all".to_string(),
-            notification_type,
+        let port = app_state
+            .notification_port
+            .as_ref()
+            .ok_or_else(|| AppError::configuration_error("notification_port not initialized in AppState"))?;
+        port.broadcast(BroadcastNotificationRequest {
+            notification_type: InProcessNotificationAdapter::format_notification_type_tag(notification_type),
+            priority: InProcessNotificationAdapter::format_notification_priority_tag(priority),
             title: title.to_string(),
             message: message.to_string(),
             data,
-            priority,
-            timestamp: Utc::now(),
-            expires_at: None,
-        };
+        })
+        .await
+        .map(|_| "ok".to_string())
+    }
+}
 
-        // Publish via Redis broadcast
-        if let Some(broadcaster) = &app_state.redis_broadcaster {
-            if let Err(e) = broadcaster.publish_to_all(&sse).await {
-                tracing::warn!("Failed to broadcast notification via Redis: {}", e);
-            }
+// =============================================================================
+// TESTS
+// =============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The env-var check is the regression test for the
+    /// pool-fallback fix. When `NOTIFICATIONS_DATABASE_URL` is unset,
+    /// it must return `AppError::ConfigurationError` rather than
+    /// silently allowing a fallback to the primary pool.
+    #[test]
+    fn notifications_pool_returns_error_when_unset() {
+        // Snapshot the prior value (if any) and unset.
+        let prior = std::env::var("NOTIFICATIONS_DATABASE_URL").ok();
+        std::env::remove_var("NOTIFICATIONS_DATABASE_URL");
+
+        // The unset case.
+        let result = NotificationService::check_notifications_url_configured();
+        assert!(
+            result.is_err(),
+            "expected Err when NOTIFICATIONS_DATABASE_URL is unset"
+        );
+        let err = result.unwrap_err();
+        assert_eq!(err.kind, epsx_contracts::errors::ErrorKind::ConfigurationError);
+        assert!(
+            err.message.contains("NOTIFICATIONS_DATABASE_URL"),
+            "error message should name the missing env var, got: {}",
+            err.message
+        );
+
+        // The empty-string case.
+        std::env::set_var("NOTIFICATIONS_DATABASE_URL", "");
+        let result = NotificationService::check_notifications_url_configured();
+        assert!(
+            result.is_err(),
+            "expected Err when NOTIFICATIONS_DATABASE_URL is empty"
+        );
+        assert_eq!(
+            result.unwrap_err().kind,
+            epsx_contracts::errors::ErrorKind::ConfigurationError
+        );
+
+        // The configured case — should pass.
+        std::env::set_var("NOTIFICATIONS_DATABASE_URL", "postgres://user:pw@host/db");
+        let result = NotificationService::check_notifications_url_configured();
+        assert!(
+            result.is_ok(),
+            "expected Ok when NOTIFICATIONS_DATABASE_URL is set, got: {:?}",
+            result
+        );
+
+        // Restore the prior value (best-effort).
+        match prior {
+            Some(v) => std::env::set_var("NOTIFICATIONS_DATABASE_URL", v),
+            None => std::env::remove_var("NOTIFICATIONS_DATABASE_URL"),
         }
-
-        Ok(id.to_string())
     }
 }

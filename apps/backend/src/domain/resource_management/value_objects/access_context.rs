@@ -108,7 +108,7 @@ impl AccessContextConfig {
     }
 
     pub fn has_permission(&self, permission: &str) -> bool {
-        crate::core::permissions::has_permission(&self.permissions, permission)
+        epsx_contracts::permissions::has_permission(&self.permissions, permission)
     }
 
     pub fn has_feature(&self, feature: &str) -> bool {

@@ -20,7 +20,14 @@ use crate::{
         auth::AppState,
         middleware::{OpenIDUserContext, UnifiedErrorResponse},
     },
-    auth::{UnifiedPermissionService, GrantPermissionRequest},
+};
+// wave10(track-c): the activate-subscription handler is the
+// cross-cut that ROADMAP §4 wave 11 calls out. Migrated from
+// `crate::auth::UnifiedPermissionService` (concrete) to
+// `Arc<dyn PermissionAuthorityPort>` (trait) so the future
+// `epsx-payments` binary can serve this port over the wire.
+use epsx_contracts::permission_authority_port::{
+    GrantPermissionRequest, PermissionAuthorityPort,
 };
 use std::sync::Arc;
 
@@ -194,7 +201,7 @@ pub async fn validate_payment_handler(
 pub async fn activate_subscription_handler(
     State(app_state): State<AppState>,
     Extension(user_context): Extension<OpenIDUserContext>,
-    Extension(permission_service): Extension<Arc<UnifiedPermissionService>>,
+    Extension(permission_service): Extension<Arc<dyn PermissionAuthorityPort>>,
     Json(payload): Json<ActivateSubscriptionRequest>,
 ) -> Result<Json<ActivateSubscriptionResponse>, Json<UnifiedErrorResponse>> {
     info!(

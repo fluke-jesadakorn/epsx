@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json.schemastore.org/block-type.json",
+  "type": "testimonial",
+  "name": "Testimonial",
+  "category": "social-proof",
+  "description": "Single customer testimonial with quote and author",
+  "props": {
+    "quote": { "type": "string", "required": true, "description": "The testimonial quote" },
+    "author": { "type": "string", "required": true, "description": "Author name" },
+    "role": { "type": "string", "description": "Author role or company" },
+    "avatar": { "type": "string", "format": "url", "description": "Author avatar URL" },
+    "rating": { "type": "integer", "minimum": 1, "maximum": 5, "description": "Star rating" }
+  }
+}

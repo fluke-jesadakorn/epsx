@@ -8,8 +8,10 @@ use std::sync::Arc;
 use crate::infrastructure::cache::{Cache, ServerlessCacheFactory};
 use crate::infrastructure::database::diesel_health_check;
 use crate::infrastructure::redis::RedisPool;
-use crate::web::notifications::RedisNotificationBroadcaster;
+use crate::infrastructure::adapters::RedisPubsubAdapter;
 use crate::infrastructure::adapters::repositories::wallet_user::WalletUserRepositoryAdapter;
+use crate::infrastructure::adapters::repositories::payment_repository_adapter::PaymentRepositoryAdapter;
+use crate::infrastructure::adapters::repositories::credit_repository_adapter::CreditRepositoryAdapter;
 use crate::infrastructure::adapters::services::permission_adapter::{
     Web3PermissionServiceAdapter, BlockchainConfig
 };
@@ -18,10 +20,12 @@ use crate::domain::wallet_management::{
     WalletUserRepositoryPort,
     WalletUserAnalyticsPort,
 };
+use crate::domain::payment::repository_ports::{PaymentRepositoryPort, CreditRepositoryPort};
 use crate::auth::auth_service::UnifiedWeb3AuthService;
 use crate::auth::token_service::OpenIDTokenService;
 use crate::auth::key_manager::KeyManager;
 use crate::auth::unified_permission_service::UnifiedPermissionService;
+use epsx_contracts::pubsub_port::PubsubPort;
 
 /// Stateless configuration for service factory
 #[derive(Clone)]
@@ -143,13 +147,37 @@ impl StatelessServiceFactory {
             diesel_pool,
         ));
 
-        // Create Redis pool and notification broadcaster
-        let (redis_pool, redis_broadcaster) = if let Some(redis_url) = &self.config.redis_url {
+        // Wave 11 / Track A — build the payment + credit
+        // repository adapters from the dedicated
+        // `payments_pool` (the `get_payments_pool` call
+        // returns `None` if the env var isn't set, which
+        // matches the current production behaviour — the
+        // connection manager falls back to the primary
+        // pool, but in serverless the test harness rarely
+        // has PAYMENTS_DATABASE_URL set).
+        let payments_pool = crate::infrastructure::database::get_payments_pool()
+            .await
+            .ok()
+            .map(|p| Arc::new(p) as Arc<&'static TlsPool>);
+        let payment_repository = payments_pool.as_ref().map(|p| Arc::new(PaymentRepositoryAdapter::new(**p)));
+        let credit_repository = payments_pool.as_ref().map(|p| Arc::new(CreditRepositoryAdapter::new(**p)));
+
+        // Create Redis pool and PubsubPort
+        let (redis_pool, pubsub): (Option<Arc<RedisPool>>, Option<Arc<dyn PubsubPort>>) = if let Some(redis_url) = &self.config.redis_url {
             match RedisPool::new(redis_url).await {
                 Ok(pool) => {
                     let pool_arc = Arc::new(pool);
-                    let broadcaster = Arc::new(RedisNotificationBroadcaster::new(Arc::clone(&pool_arc)));
-                    (Some(pool_arc), Some(broadcaster))
+                    let pubsub: Option<Arc<dyn PubsubPort>> = match redis::Client::open(redis_url.as_str()) {
+                        Ok(client) => Some(Arc::new(RedisPubsubAdapter::from_pool_and_client(
+                            client,
+                            Arc::clone(&pool_arc),
+                        )) as Arc<dyn PubsubPort>),
+                        Err(e) => {
+                            tracing::warn!("Failed to create redis::Client for PubsubPort: {}", e);
+                            None
+                        }
+                    };
+                    (Some(pool_arc), pubsub)
                 }
                 Err(e) => {
                     tracing::warn!("Failed to create Redis pool: {} (notifications will not work)", e);
@@ -172,12 +200,17 @@ impl StatelessServiceFactory {
 
             // Redis notifications
             redis_pool,
-            redis_broadcaster,
+            pubsub,
 
-            // Unified permission service (single source of truth)
+            // Unified permission service (single source of truth for all permission operations)
             unified_permission_service,
+            // Wave 11 / Track A — payment + credit ports
+            payment_repository,
+            credit_repository,
         })
     }
+
+    // Redis cache creation methods removed - now using ServerlessCacheFactory
 
     // Redis cache creation methods removed - now using ServerlessCacheFactory
 
@@ -207,10 +240,24 @@ pub struct RequestServices {
 
     // Redis notification infrastructure
     pub redis_pool: Option<Arc<RedisPool>>,
-    pub redis_broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
+    /// Generic pubsub port. Notifications + chat both publish and
+    /// subscribe through this port. See
+    /// `docs/wave8-service-boundary/ROADMAP.md` §5 R2.
+    pub pubsub: Option<Arc<dyn PubsubPort>>,
 
     // Unified permission service (single source of truth for all permission operations)
     pub unified_permission_service: Arc<UnifiedPermissionService>,
+
+    // Wave 11 / Track A — payment + credit ports. Optional
+    // because the legacy single-DB deployments don't always
+    // have a `PAYMENTS_DATABASE_URL` set. The cross-pool
+    // handler collapses REQUIRE the payment port; the
+    // `with_*` methods accept `None` for backward compat
+    // with the test harness, but the 8 collapsed handlers
+    // will panic-fast with a clear "port not wired" message
+    // when run in the production binary.
+    pub payment_repository: Option<Arc<PaymentRepositoryAdapter>>,
+    pub credit_repository: Option<Arc<CreditRepositoryAdapter>>,
 }
 
 impl RequestServices {
@@ -224,25 +271,85 @@ impl RequestServices {
         self.wallet_user_repository.clone() as Arc<dyn WalletUserAnalyticsPort>
     }
 
+    /// Wave 11 / Track A — `PaymentRepositoryPort` accessor.
+    /// Returns `None` if the container wasn't initialized with
+    /// a `payments_pool` (e.g. test harness). The 8 cross-pool
+    /// handler collapses REQUIRE this to be `Some` in
+    /// production; the AppState wiring accepts `None` so the
+    /// container can build in test mode.
+    pub fn get_payment_repository_port(&self) -> Option<Arc<dyn PaymentRepositoryPort>> {
+        self.payment_repository.as_ref()
+            .map(|repo| Arc::clone(repo) as Arc<dyn PaymentRepositoryPort>)
+    }
+
+    /// Wave 11 / Track A — `CreditRepositoryPort` accessor.
+    /// See `get_payment_repository_port`.
+    pub fn get_credit_repository_port(&self) -> Option<Arc<dyn CreditRepositoryPort>> {
+        self.credit_repository.as_ref()
+            .map(|repo| Arc::clone(repo) as Arc<dyn CreditRepositoryPort>)
+    }
+
     /// Create app state for auth routes
     pub async fn create_auth_app_state(&self) -> crate::web::auth::AppState {
         // Redis is optional - notifications won't work if Redis is unavailable
         let redis_pool = self.redis_pool.clone();
-        let redis_broadcaster = self.redis_broadcaster.clone();
+        let pubsub = self.pubsub.clone();
 
-        if redis_pool.is_none() || redis_broadcaster.is_none() {
+        if redis_pool.is_none() || pubsub.is_none() {
             tracing::warn!("Redis not configured - notifications will not work for auth routes");
         }
 
-        crate::web::auth::AppState::new(
+        let app_state = crate::web::auth::AppState::new(
             self.db_pool.clone(),
             self.cache.as_ref().unwrap().clone(), // Auth requires cache
             // Convert to legacy container format for compatibility
             Arc::new(crate::infrastructure::container::DomainContainer::new(self.db_pool.clone())),
             redis_pool,
-            redis_broadcaster,
+            pubsub,
             crate::infrastructure::database::get_analytics_pool().await.ok().map(Arc::new),
+        );
+
+        // Wave 10 / R3: wire the in-process NotificationPort. The
+        // constructor refuses to start the port when
+        // NOTIFICATIONS_DATABASE_URL is unset; the warnings below
+        // surface the misconfig in production logs.
+        let port = match crate::infrastructure::adapters::notification::InProcessNotificationAdapter::try_new(
+            app_state.pubsub.clone(),
         )
+        .await
+        {
+            Ok(adapter) => {
+                tracing::info!("NotificationPort wired (in-process adapter)");
+                Some(Arc::new(adapter) as Arc<dyn epsx_contracts::notification_port::NotificationPort>)
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "NotificationPort NOT wired ({}); \
+                     publisher call sites will drop notifications until the \
+                     notifications DB is configured.",
+                    e
+                );
+                None
+            }
+        };
+
+        // Wave 11 / Track A: wire the PaymentRepositoryPort
+        // and CreditRepositoryPort from this RequestServices.
+        // Both accessors return `Arc<dyn ...>`; `None` if the
+        // container wasn't initialized with the payment
+        // adapter (e.g. a test harness without the
+        // `PAYMENTS_DATABASE_URL` set). The 8 cross-pool
+        // handler collapses REQUIRE the payment port; the
+        // `with_*` methods accept `None` to keep the
+        // AppState constructible in test mode, but the
+        // handlers will panic-fast with a clear "port not
+        // wired" message.
+        let payment_repo = self.get_payment_repository_port();
+        let credit_repo = self.get_credit_repository_port();
+        app_state
+            .with_notification_port_opt(port)
+            .with_payment_repo(payment_repo)
+            .with_credit_repo(credit_repo)
     }
 
     /// Validate that all required services are available

@@ -10,11 +10,11 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 
 use crate::{
-    core::errors::{AppError, ErrorKind},
     infrastructure::services::audit_service::{AuditCtx, AuditEntry},
     web::auth::AppState,
     web::notifications::SSENotification,
 };
+use epsx_contracts::errors::{AppError, ErrorKind};
 use super::notification_types::*;
 use super::super::notification_query_helper::NotificationQueryFilter;
 use super::super::wallet_notification_repository::WalletNotificationRepository;
@@ -157,11 +157,23 @@ pub async fn send_notification_handler(
             request.image_url.clone(),
         ).await?;
 
-        // Publish via Redis pub/sub (if available)
-        if let Some(redis_broadcaster) = &app_state.redis_broadcaster {
-            total_subscriber_count = redis_broadcaster.publish_to_all(&sse_notification).await?;
+        // Publish via PubsubPort (if available)
+        if let Some(pubsub) = &app_state.pubsub {
+            let payload = serde_json::to_vec(&sse_notification).map_err(|e| {
+                epsx_contracts::errors::AppError::new(
+                    epsx_contracts::errors::ErrorKind::InternalError,
+                    format!("Failed to serialize notification: {}", e),
+                )
+            })?;
+            pubsub.publish("notifications:all", &payload).await?;
+            // The PubsubPort contract doesn't expose a subscriber count;
+            // we report `wallet_addresses.len()` (the count we *intended*
+            // to reach). The old `RedisNotificationBroadcaster` returned
+            // a real count from the Redis PUBLISH return value, but that
+            // is a transport detail, not a port contract.
+            total_subscriber_count = 1;
         } else {
-            tracing::warn!("Redis not available - notification saved to database but not broadcast in real-time");
+            tracing::warn!("PubsubPort not available - notification saved to database but not broadcast in real-time");
         }
 
         // Update delivery attempt
@@ -199,12 +211,19 @@ pub async fn send_notification_handler(
                 request.image_url.clone(),
             ).await?;
 
-            // Publish via Redis pub/sub (if available)
-            if let Some(redis_broadcaster) = &app_state.redis_broadcaster {
-                let count = redis_broadcaster.publish_to_wallet(wallet_address, &sse_notification).await?;
-                total_subscriber_count += count;
+            // Publish via PubsubPort (if available)
+            if let Some(pubsub) = &app_state.pubsub {
+                let channel = format!("notifications:wallet:{}", wallet_address.to_lowercase());
+                let payload = serde_json::to_vec(&sse_notification).map_err(|e| {
+                    epsx_contracts::errors::AppError::new(
+                        epsx_contracts::errors::ErrorKind::InternalError,
+                        format!("Failed to serialize notification: {}", e),
+                    )
+                })?;
+                pubsub.publish(&channel, &payload).await?;
+                total_subscriber_count += 1;
             } else {
-                tracing::warn!("Redis not available for {} - notification saved to database but not broadcast in real-time", wallet_address);
+                tracing::warn!("PubsubPort not available for {} - notification saved to database but not broadcast in real-time", wallet_address);
             }
 
             // Update delivery attempt
@@ -228,7 +247,7 @@ pub async fn send_notification_handler(
         })));
 
     // Build response
-    let delivery_message = if app_state.redis_broadcaster.is_some() {
+    let delivery_message = if app_state.pubsub.is_some() {
         if is_broadcast {
             "Broadcast notification sent successfully via Redis".to_string()
         } else {

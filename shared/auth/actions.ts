@@ -3,24 +3,18 @@
 import { cookies } from 'next/headers';
 import { logger } from '../utils/logger';
 import { getBackendUrl } from '../utils/url-resolver';
-import type {
-  ChallengeResponse,
-  SignatureVerificationRequest,
-  SignatureVerificationResponse,
-} from './api';
+import type { ChallengeResponse, SignatureVerificationRequest, SignatureVerificationResponse } from './api';
 import type { UserInfoResponse } from './client';
 import { COOKIES, COOKIE_OPTIONS, HTTP_ONLY_COOKIES } from './cookies';
 
-function sanitizeUserForClientCookie(
-  user: UserInfoResponse | Record<string, unknown>
-): Record<string, unknown> {
-  const sanitized = { ...(user as Record<string, unknown>) };
-  delete sanitized.access;
-  delete sanitized.access_token;
-  delete sanitized.refresh_token;
-  delete sanitized.id_token;
-  delete sanitized.token;
-  return sanitized;
+function sanitizeUserForClientCookie(user: UserInfoResponse | Record<string, unknown>): Record<string, unknown> {
+    const sanitized = { ...(user as Record<string, unknown>) };
+    delete sanitized.access;
+    delete sanitized.access_token;
+    delete sanitized.refresh_token;
+    delete sanitized.id_token;
+    delete sanitized.token;
+    return sanitized;
 }
 
 /**
@@ -28,405 +22,329 @@ function sanitizeUserForClientCookie(
  * This MUST be called from a Client Component or another Server Action.
  */
 export async function loginAction(
-  accessToken: string,
-  user: UserInfoResponse | Record<string, unknown>,
-  refreshToken?: string
+    accessToken: string,
+    user: UserInfoResponse | Record<string, unknown>,
+    refreshToken?: string
 ) {
-  try {
-    logger.info('[AUTH] loginAction called with:', {
-      hasAccessToken: Boolean(accessToken),
-      tokenLength: accessToken.length,
-      hasUser: Boolean(user),
-      hasRefreshToken: Boolean(refreshToken),
-      cookieName: COOKIES.access_token,
-      env: process.env.NODE_ENV,
-    });
+    try {
+        logger.info('[AUTH] loginAction called with:', {
+            hasAccessToken: Boolean(accessToken),
+            tokenLength: accessToken.length,
+            hasUser: Boolean(user),
+            hasRefreshToken: Boolean(refreshToken),
+            cookieName: COOKIES.access_token,
+            env: process.env.NODE_ENV,
+        });
 
-    if (accessToken === '') {
-      logger.error('[AUTH] Error: loginAction: Missing access_token');
-      return { success: false, error: 'Missing access_token' };
+        if (accessToken === '') {
+            logger.error('[AUTH] Error: loginAction: Missing access_token');
+            return { success: false, error: 'Missing access_token' };
+        }
+
+        const cookieStore = await cookies();
+
+        // 1. Set Access Token (HttpOnly)
+        // Log equivalent set-cookie header params for debugging
+        logger.info('[AUTH] Setting access_token cookie:', {
+            name: COOKIES.access_token,
+            secure: COOKIE_OPTIONS.httpOnly.secure,
+            sameSite: COOKIE_OPTIONS.httpOnly.sameSite,
+            domain: COOKIE_OPTIONS.httpOnly.domain,
+            path: COOKIE_OPTIONS.httpOnly.path,
+        });
+
+        cookieStore.set(COOKIES.access_token, accessToken, {
+            ...COOKIE_OPTIONS.httpOnly,
+            maxAge: COOKIE_OPTIONS.maxAge.access_token,
+        });
+
+        // 2. Set User Data (Client Accessible - but set from server)
+        cookieStore.set(COOKIES.user, JSON.stringify(sanitizeUserForClientCookie(user)), {
+            ...COOKIE_OPTIONS.clientSide,
+            maxAge: COOKIE_OPTIONS.maxAge.user,
+        });
+
+        // 3. Set Refresh Token (HttpOnly) if available
+        if (refreshToken !== undefined && refreshToken !== '') {
+            cookieStore.set(COOKIES.refresh_token, refreshToken, {
+                ...COOKIE_OPTIONS.httpOnly,
+                maxAge: COOKIE_OPTIONS.maxAge.refresh_token,
+            });
+        }
+
+        // 4. Set Authentication Timestamp
+        cookieStore.set(COOKIES.auth_time, Date.now().toString(), {
+            ...COOKIE_OPTIONS.clientSide,
+            maxAge: COOKIE_OPTIONS.maxAge.auth_time,
+        });
+
+        // 5. Set expires_at timestamp
+        const expiresAt = Date.now() + (COOKIE_OPTIONS.maxAge.access_token * 1000);
+        cookieStore.set(COOKIES.expires_at, expiresAt.toString(), {
+            ...COOKIE_OPTIONS.clientSide,
+            maxAge: COOKIE_OPTIONS.maxAge.expires_at,
+        });
+
+        logger.info('[AUTH] loginAction: All cookies set successfully', {
+            accessToken: COOKIES.access_token,
+            user: COOKIES.user,
+            authTime: COOKIES.auth_time,
+            expiresAt: COOKIES.expires_at,
+        });
+
+        return { success: true };
+    } catch (error) {
+        logger.error('Login action failed:', error instanceof Error ? error.message : String(error));
+        return { success: false, error: 'Internal server error' };
     }
-
-    const cookieStore = await cookies();
-
-    // 1. Set Access Token (HttpOnly)
-    // Log equivalent set-cookie header params for debugging
-    logger.info('[AUTH] Setting access_token cookie:', {
-      name: COOKIES.access_token,
-      secure: COOKIE_OPTIONS.httpOnly.secure,
-      sameSite: COOKIE_OPTIONS.httpOnly.sameSite,
-      domain: COOKIE_OPTIONS.httpOnly.domain,
-      path: COOKIE_OPTIONS.httpOnly.path,
-    });
-
-    cookieStore.set(COOKIES.access_token, accessToken, {
-      ...COOKIE_OPTIONS.httpOnly,
-      maxAge: COOKIE_OPTIONS.maxAge.access_token,
-    });
-
-    // 2. Set User Data (Client Accessible - but set from server)
-    cookieStore.set(
-      COOKIES.user,
-      JSON.stringify(sanitizeUserForClientCookie(user)),
-      {
-        ...COOKIE_OPTIONS.clientSide,
-        maxAge: COOKIE_OPTIONS.maxAge.user,
-      }
-    );
-
-    // 3. Set Refresh Token (HttpOnly) if available
-    if (refreshToken !== undefined && refreshToken !== '') {
-      cookieStore.set(COOKIES.refresh_token, refreshToken, {
-        ...COOKIE_OPTIONS.httpOnly,
-        maxAge: COOKIE_OPTIONS.maxAge.refresh_token,
-      });
-    }
-
-    // 4. Set Authentication Timestamp
-    cookieStore.set(COOKIES.auth_time, Date.now().toString(), {
-      ...COOKIE_OPTIONS.clientSide,
-      maxAge: COOKIE_OPTIONS.maxAge.auth_time,
-    });
-
-    // 5. Set expires_at timestamp
-    const expiresAt = Date.now() + COOKIE_OPTIONS.maxAge.access_token * 1000;
-    cookieStore.set(COOKIES.expires_at, expiresAt.toString(), {
-      ...COOKIE_OPTIONS.clientSide,
-      maxAge: COOKIE_OPTIONS.maxAge.expires_at,
-    });
-
-    logger.info('[AUTH] loginAction: All cookies set successfully', {
-      accessToken: COOKIES.access_token,
-      user: COOKIES.user,
-      authTime: COOKIES.auth_time,
-      expiresAt: COOKIES.expires_at,
-    });
-
-    return { success: true };
-  } catch (error) {
-    logger.error(
-      'Login action failed:',
-      error instanceof Error ? error.message : String(error)
-    );
-    return { success: false, error: 'Internal server error' };
-  }
 }
 
 /**
  * Server Action to clear the user session.
  */
 export async function logoutAction() {
-  try {
-    const cookieStore = await cookies();
-
-    // Get wallet address before clearing cookies (best-effort, never block logout)
-    const userCookie = cookieStore.get(COOKIES.user)?.value;
-    let walletAddress = '';
-    if (userCookie !== undefined && userCookie !== '') {
-      try {
-        const decoded = decodeURIComponent(userCookie);
-        const user = JSON.parse(decoded) as UserInfoResponse;
-        walletAddress = user.wallet_address;
-      } catch {
-        // Cookie may be malformed (invalid encoding or JSON) — continue with logout
-      }
-    }
-
-    logger.info('[AUTH] logoutAction: Starting logout', {
-      walletAddress: walletAddress.slice(0, 8),
-    });
-
-    // Always attempt backend logout — even without wallet address, the backend
-    // can use the access token cookie or session to invalidate the session
     try {
-      const { getBackendUrl: getBackendUrlFn } =
-        await import('../utils/url-resolver');
-      const backendUrl = getBackendUrlFn('server');
-      const accessToken = cookieStore.get(COOKIES.access_token)?.value;
+        const cookieStore = await cookies();
 
-      await fetch(`${backendUrl}/api/auth/web3/logout`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(accessToken !== undefined && accessToken !== ''
-            ? { Authorization: `Bearer ${accessToken}` }
-            : {}),
-        },
-        body: JSON.stringify({ wallet_address: walletAddress }),
-        cache: 'no-store',
-      });
+        // Get wallet address before clearing cookies (best-effort, never block logout)
+        const userCookie = cookieStore.get(COOKIES.user)?.value;
+        let walletAddress = '';
+        if (userCookie !== undefined && userCookie !== '') {
+            try {
+                const decoded = decodeURIComponent(userCookie);
+                const user = JSON.parse(decoded) as UserInfoResponse;
+                walletAddress = user.wallet_address;
+            } catch {
+                // Cookie may be malformed (invalid encoding or JSON) — continue with logout
+            }
+        }
 
-      logger.info('[AUTH] logoutAction: Backend logout called');
-    } catch (e) {
-      // Best effort - continue clearing cookies even if backend call fails
-      logger.warn(
-        '[AUTH] logoutAction: Backend logout failed (continuing)',
-        e instanceof Error ? e.message : String(e)
-      );
-    }
+        logger.info('[AUTH] logoutAction: Starting logout', { walletAddress: walletAddress.slice(0, 8) });
 
-    // Clear all known cookies
-    // Use set(maxAge=0) instead of delete() — delete() omits the Secure flag,
-    // which prevents deletion of __Host- prefixed cookies (browser spec requires Secure).
-    const isProd = process.env.NODE_ENV === 'production';
-    Object.entries(COOKIES).forEach(([key, cookieName]) => {
-      const isHttpOnly = (HTTP_ONLY_COOKIES as readonly string[]).includes(key);
-      try {
-        cookieStore.set(cookieName, '', {
-          maxAge: 0,
-          httpOnly: isHttpOnly,
-          secure: isProd,
-          sameSite: 'lax',
-          path: '/',
+        // Always attempt backend logout — even without wallet address, the backend
+        // can use the access token cookie or session to invalidate the session
+        try {
+            const { getBackendUrl: getBackendUrlFn } = await import('../utils/url-resolver');
+            const backendUrl = getBackendUrlFn('server');
+            const accessToken = cookieStore.get(COOKIES.access_token)?.value;
+
+            await fetch(`${backendUrl}/api/auth/web3/logout`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(accessToken !== undefined && accessToken !== '' ? { Authorization: `Bearer ${accessToken}` } : {}),
+                },
+                body: JSON.stringify({ wallet_address: walletAddress }),
+                cache: 'no-store',
+            });
+
+            logger.info('[AUTH] logoutAction: Backend logout called');
+        } catch (e) {
+            // Best effort - continue clearing cookies even if backend call fails
+            logger.warn('[AUTH] logoutAction: Backend logout failed (continuing)',
+                e instanceof Error ? e.message : String(e));
+        }
+
+        // Clear all known cookies
+        // Use set(maxAge=0) instead of delete() — delete() omits the Secure flag,
+        // which prevents deletion of __Host- prefixed cookies (browser spec requires Secure).
+        const isProd = process.env.NODE_ENV === 'production';
+        Object.entries(COOKIES).forEach(([key, cookieName]) => {
+            const isHttpOnly = (HTTP_ONLY_COOKIES as readonly string[]).includes(key);
+            try {
+                cookieStore.set(cookieName, '', {
+                    maxAge: 0,
+                    httpOnly: isHttpOnly,
+                    secure: isProd,
+                    sameSite: 'lax',
+                    path: '/',
+                });
+            } catch { /* ignore individual cookie failures */ }
         });
-      } catch {
-        /* ignore individual cookie failures */
-      }
-    });
 
-    logger.info('[AUTH] logoutAction: All cookies cleared');
-    return { success: true };
-  } catch (error) {
-    logger.error(
-      'Logout action failed:',
-      error instanceof Error ? error.message : String(error)
-    );
-    return { success: false, error: 'Internal server error' };
-  }
+        logger.info('[AUTH] logoutAction: All cookies cleared');
+        return { success: true };
+    } catch (error) {
+        logger.error('Logout action failed:', error instanceof Error ? error.message : String(error));
+        return { success: false, error: 'Internal server error' };
+    }
 }
 
 /**
  * Server Action to refresh the access token using the refresh token.
  * This eliminates the need for the /api/proxy route for token refresh.
  */
-type RefreshSessionActionResult =
-  | { success: true; access_token: string; expires_in?: number }
-  | { success: false; error: string };
+export async function refreshSessionAction() {
+    try {
+        const cookieStore = await cookies();
+        const refreshToken = cookieStore.get(COOKIES.refresh_token)?.value;
 
-export async function refreshSessionAction(): Promise<RefreshSessionActionResult> {
-  try {
-    const cookieStore = await cookies();
-    const refreshToken = cookieStore.get(COOKIES.refresh_token)?.value;
+        if (refreshToken === undefined || refreshToken === '') {
+            logger.warn('[AUTH] refreshSessionAction: No refresh token found');
+            return { success: false, error: 'No refresh token available' };
+        }
 
-    if (refreshToken === undefined || refreshToken === '') {
-      logger.warn('[AUTH] refreshSessionAction: No refresh token found');
-      return { success: false, error: 'No refresh token available' };
+        // Import dynamically to avoid bundling issues
+        const { getBackendUrl: getBackendUrlFn } = await import('../utils/url-resolver');
+        const backendUrl = getBackendUrlFn('server');
+
+        // Determine client_id from environment
+        const clientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID ?? 'epsx-frontend';
+
+        // Call backend refresh endpoint directly
+        const response = await fetch(`${backendUrl}/api/auth/session/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refresh_token: refreshToken, client_id: clientId }),
+            cache: 'no-store',
+        });
+
+        if (!response.ok) {
+            logger.error('[AUTH] refreshSessionAction: Backend refresh failed', String(response.status));
+            return { success: false, error: 'Token refresh failed' };
+        }
+
+        const data = (await response.json()) as {
+            access_token?: string;
+            expires_in?: number;
+            refresh_token?: string;
+            user?: Record<string, unknown>;
+        };
+
+        if (data.access_token === undefined || data.access_token === '') {
+            logger.error('[AUTH] refreshSessionAction: No access_token in response');
+            return { success: false, error: 'Invalid refresh response' };
+        }
+
+        updateSessionCookies(cookieStore, data);
+
+        logger.info('[AUTH] refreshSessionAction: Token refreshed successfully');
+        return { success: true, expires_in: data.expires_in };
+    } catch (error) {
+        logger.error('[AUTH] refreshSessionAction error:', error instanceof Error ? error.message : String(error));
+        return { success: false, error: 'Internal server error' };
     }
-
-    // Import dynamically to avoid bundling issues
-    const { getBackendUrl: getBackendUrlFn } =
-      await import('../utils/url-resolver');
-    const backendUrl = getBackendUrlFn('server');
-
-    // Determine client_id from environment
-    const clientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID ?? 'epsx-frontend';
-
-    // Call backend refresh endpoint directly
-    const response = await fetch(`${backendUrl}/api/auth/session/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        refresh_token: refreshToken,
-        client_id: clientId,
-      }),
-      cache: 'no-store',
-    });
-
-    if (!response.ok) {
-      logger.error(
-        '[AUTH] refreshSessionAction: Backend refresh failed',
-        String(response.status)
-      );
-      return { success: false, error: 'Token refresh failed' };
-    }
-
-    const data = (await response.json()) as {
-      access_token?: string;
-      expires_in?: number;
-      refresh_token?: string;
-      user?: Record<string, unknown>;
-    };
-
-    if (data.access_token === undefined || data.access_token === '') {
-      logger.error('[AUTH] refreshSessionAction: No access_token in response');
-      return { success: false, error: 'Invalid refresh response' };
-    }
-
-    updateSessionCookies(cookieStore, data);
-
-    logger.info('[AUTH] refreshSessionAction: Token refreshed successfully');
-    return {
-      success: true,
-      access_token: data.access_token,
-      expires_in: data.expires_in,
-    };
-  } catch (error) {
-    logger.error(
-      '[AUTH] refreshSessionAction error:',
-      error instanceof Error ? error.message : String(error)
-    );
-    return { success: false, error: 'Internal server error' };
-  }
 }
 
 /**
  * Internal helper to update session cookies after token refresh
  */
 function updateSessionCookies(
-  cookieStore: Awaited<ReturnType<typeof cookies>>,
-  data: {
-    access_token?: string;
-    expires_in?: number;
-    refresh_token?: string;
-    user?: Record<string, unknown>;
-  }
+    cookieStore: Awaited<ReturnType<typeof cookies>>,
+    data: { access_token?: string; expires_in?: number; refresh_token?: string; user?: Record<string, unknown> }
 ) {
-  if (data.access_token === undefined || data.access_token === '') {
-    return;
-  }
+    if (data.access_token === undefined || data.access_token === '') { return; }
 
-  const accessToken = data.access_token;
+    const accessToken = data.access_token;
 
-  // 1. Update Access Token
-  cookieStore.set(COOKIES.access_token, accessToken, {
-    ...COOKIE_OPTIONS.httpOnly,
-    maxAge: data.expires_in ?? COOKIE_OPTIONS.maxAge.access_token,
-  });
-
-  // 2. Update Refresh Token if provided
-  if (data.refresh_token !== undefined && data.refresh_token !== '') {
-    cookieStore.set(COOKIES.refresh_token, data.refresh_token, {
-      ...COOKIE_OPTIONS.httpOnly,
-      maxAge: COOKIE_OPTIONS.maxAge.refresh_token,
+    // 1. Update Access Token
+    cookieStore.set(COOKIES.access_token, accessToken, {
+        ...COOKIE_OPTIONS.httpOnly,
+        maxAge: data.expires_in ?? COOKIE_OPTIONS.maxAge.access_token,
     });
-  }
 
-  // 3. Update User Data
-  const existingUserCookie = cookieStore.get(COOKIES.user)?.value;
-  if (existingUserCookie !== undefined && existingUserCookie !== '') {
-    const existingUser = sanitizeUserForClientCookie(
-      JSON.parse(decodeURIComponent(existingUserCookie)) as Record<
-        string,
-        unknown
-      >
-    );
-    if (data.user) {
-      Object.assign(existingUser, sanitizeUserForClientCookie(data.user));
+    // 2. Update Refresh Token if provided
+    if (data.refresh_token !== undefined && data.refresh_token !== '') {
+        cookieStore.set(COOKIES.refresh_token, data.refresh_token, {
+            ...COOKIE_OPTIONS.httpOnly,
+            maxAge: COOKIE_OPTIONS.maxAge.refresh_token,
+        });
     }
 
-    cookieStore.set(COOKIES.user, JSON.stringify(existingUser), {
-      ...COOKIE_OPTIONS.clientSide,
-      maxAge: COOKIE_OPTIONS.maxAge.user,
-    });
-  } else if (data.user) {
-    cookieStore.set(
-      COOKIES.user,
-      JSON.stringify(sanitizeUserForClientCookie(data.user)),
-      {
-        ...COOKIE_OPTIONS.clientSide,
-        maxAge: COOKIE_OPTIONS.maxAge.user,
-      }
-    );
-  }
+    // 3. Update User Data
+    const existingUserCookie = cookieStore.get(COOKIES.user)?.value;
+    if (existingUserCookie !== undefined && existingUserCookie !== '') {
+        const existingUser = sanitizeUserForClientCookie(JSON.parse(decodeURIComponent(existingUserCookie)) as Record<string, unknown>);
+        if (data.user) { Object.assign(existingUser, sanitizeUserForClientCookie(data.user)); }
 
-  // 4. Update expires_at
-  const expiresAt =
-    Date.now() + (data.expires_in ?? COOKIE_OPTIONS.maxAge.access_token) * 1000;
-  cookieStore.set(COOKIES.expires_at, expiresAt.toString(), {
-    ...COOKIE_OPTIONS.clientSide,
-    maxAge: COOKIE_OPTIONS.maxAge.expires_at,
-  });
+        cookieStore.set(COOKIES.user, JSON.stringify(existingUser), {
+            ...COOKIE_OPTIONS.clientSide,
+            maxAge: COOKIE_OPTIONS.maxAge.user,
+        });
+    } else if (data.user) {
+        cookieStore.set(COOKIES.user, JSON.stringify(sanitizeUserForClientCookie(data.user)), {
+            ...COOKIE_OPTIONS.clientSide,
+            maxAge: COOKIE_OPTIONS.maxAge.user,
+        });
+    }
+
+    // 4. Update expires_at
+    const expiresAt = Date.now() + ((data.expires_in ?? COOKIE_OPTIONS.maxAge.access_token) * 1000);
+    cookieStore.set(COOKIES.expires_at, expiresAt.toString(), {
+        ...COOKIE_OPTIONS.clientSide,
+        maxAge: COOKIE_OPTIONS.maxAge.expires_at,
+    });
 }
 
 /** Retry wrapper for network failures (5xx/network errors only, not client errors) */
-async function fetchWithRetry(
-  url: string,
-  init: RequestInit,
-  retries = 2
-): Promise<Response> {
-  const delay = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
-  for (let i = 0; i <= retries; i++) {
-    try {
-      const res = await fetch(url, init);
-      // Don't retry client errors (4xx) - only server errors (5xx)
-      if (res.ok || res.status < 500) {
-        return res;
-      }
-      if (i < retries) {
-        await delay(1000);
-      }
-    } catch {
-      if (i === retries) {
-        throw new Error(
-          'Network request failed. Please check your connection and try again.'
-        );
-      }
-      await delay(1000);
+async function fetchWithRetry(url: string, init: RequestInit, retries = 2): Promise<Response> {
+    const delay = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+    for (let i = 0; i <= retries; i++) {
+        try {
+            const res = await fetch(url, init);
+            // Don't retry client errors (4xx) - only server errors (5xx)
+            if (res.ok || res.status < 500) { return res; }
+            if (i < retries) { await delay(1000); }
+        } catch {
+            if (i === retries) { throw new Error('Network request failed. Please check your connection and try again.'); }
+            await delay(1000);
+        }
     }
-  }
-  throw new Error('Request failed after retries');
+    throw new Error('Request failed after retries');
 }
 
 /**
  * Server Action: Request SIWE challenge via server-to-server call.
  * Proxies through Next.js server so browser doesn't need direct backend access.
  */
-export async function challengeAction(
-  walletAddress: string
-): Promise<ChallengeResponse> {
-  const url = `${getBackendUrl('server')}/api/auth/web3/challenge`;
+export async function challengeAction(walletAddress: string): Promise<ChallengeResponse> {
+    const url = `${getBackendUrl('server')}/api/auth/web3/challenge`;
 
-  const body: Record<string, string> = { wallet_address: walletAddress };
+    const body: Record<string, string> = { wallet_address: walletAddress };
 
-  const res = await fetchWithRetry(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(body),
-    cache: 'no-store',
-  });
+    const res = await fetchWithRetry(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(body),
+        cache: 'no-store',
+    });
 
-  if (!res.ok) {
-    const err = (await res
-      .json()
-      .catch(() => ({ error: 'Unknown error' }))) as { error?: string };
-    throw new Error(err.error ?? `Challenge failed: ${res.statusText}`);
-  }
+    if (!res.ok) {
+        const err = (await res.json().catch(() => ({ error: 'Unknown error' }))) as { error?: string };
+        throw new Error(err.error ?? `Challenge failed: ${res.statusText}`);
+    }
 
-  const data = (await res.json()) as ChallengeResponse;
-  if (!data.success) {
-    throw new Error(data.error ?? 'Challenge generation failed');
-  }
+    const data = (await res.json()) as ChallengeResponse;
+    if (!data.success) {
+        throw new Error(data.error ?? 'Challenge generation failed');
+    }
 
-  return data;
+    return data;
 }
 
 /**
  * Server Action: Verify wallet signature via server-to-server call.
  * Proxies through Next.js server so browser doesn't need direct backend access.
  */
-export async function verifyAction(
-  req: SignatureVerificationRequest
-): Promise<SignatureVerificationResponse> {
-  const url = `${getBackendUrl('server')}/api/auth/web3/verify`;
+export async function verifyAction(req: SignatureVerificationRequest): Promise<SignatureVerificationResponse> {
+    const url = `${getBackendUrl('server')}/api/auth/web3/verify`;
 
-  const res = await fetchWithRetry(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(req),
-    cache: 'no-store',
-  });
+    const res = await fetchWithRetry(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(req),
+        cache: 'no-store',
+    });
 
-  if (!res.ok) {
-    const err = (await res
-      .json()
-      .catch(() => ({ error: 'Unknown error' }))) as { error?: string };
-    throw new Error(err.error ?? `Verification failed: ${res.statusText}`);
-  }
+    if (!res.ok) {
+        const err = (await res.json().catch(() => ({ error: 'Unknown error' }))) as { error?: string };
+        throw new Error(err.error ?? `Verification failed: ${res.statusText}`);
+    }
 
-  const data = (await res.json()) as SignatureVerificationResponse;
-  if (!data.success) {
-    throw new Error(data.error ?? 'Signature verification failed');
-  }
+    const data = (await res.json()) as SignatureVerificationResponse;
+    if (!data.success) {
+        throw new Error(data.error ?? 'Signature verification failed');
+    }
 
-  return data;
+    return data;
 }

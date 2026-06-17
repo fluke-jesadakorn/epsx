@@ -382,12 +382,12 @@ impl UnifiedWeb3AuthService {
 
     /// Check if a user has a specific permission (no DB call — validates against token claims)
     pub fn has_permission(user_permissions: &[String], required_permission: &str) -> bool {
-        crate::core::permissions::has_permission(user_permissions, required_permission)
+        epsx_contracts::permissions::has_permission(user_permissions, required_permission)
     }
 
     /// Check if a user has admin privileges
     pub fn is_admin(user_permissions: &[String]) -> bool {
-        crate::core::permissions::is_admin(user_permissions)
+        epsx_contracts::permissions::is_admin(user_permissions)
     }
 
     /// Get manual/plan permissions from normalized tables

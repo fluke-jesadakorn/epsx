@@ -3,7 +3,7 @@ use std::time::Duration;
 use anyhow::{Result, Context};
 use ethers::providers::{Provider, Http, Middleware};
 use ethers::types::{Address, U256};
-use crate::core::errors::AppError;
+use epsx_contracts::errors::AppError;
 
 #[derive(Clone)]
 pub struct BlockchainValidationClient {

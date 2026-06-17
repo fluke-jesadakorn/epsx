@@ -4,6 +4,9 @@
 use crate::prelude::*;
 
 use tracing::{info, error};
+// wave11(track-c) R7: kernel-level port for publishing domain events.
+// See `epsx_contracts::event_publisher_port` for the design notes.
+use epsx_contracts::event_publisher_port::EventPublisherPort;
 
 use crate::domain::payment::{
     Payment, PaymentId, PaymentAmount, PaymentMethod, PaymentRepositoryPort
@@ -75,17 +78,20 @@ pub struct PaymentInstructions {
 /// Command handler for creating payments
 pub struct CreatePaymentCommandHandler {
     payment_repository: Arc<dyn PaymentRepositoryPort>,
-    event_bus: Arc<dyn DomainEventBus>,
+    // wave11(track-c) R7: migrated from `Arc<dyn DomainEventBus>` to the
+    // kernel-level `EventPublisherPort`. The publish is async on the
+    // port (was sync on the bus).
+    event_publisher: Arc<dyn EventPublisherPort>,
 }
 
 impl CreatePaymentCommandHandler {
     pub fn new(
         payment_repository: Arc<dyn PaymentRepositoryPort>,
-        event_bus: Arc<dyn DomainEventBus>,
+        event_publisher: Arc<dyn EventPublisherPort>,
     ) -> Self {
         Self {
             payment_repository,
-            event_bus,
+            event_publisher,
         }
     }
     
@@ -154,9 +160,22 @@ impl CommandHandler<CreatePaymentCommand> for CreatePaymentCommandHandler {
                 ApplicationError::infrastructure(format!("Failed to save payment: {}", e))
             })?;
         
-        // Publish domain events
+        // Publish domain events via the new `EventPublisherPort` (R7).
+        // The aggregate exposes a borrowed slice
+        // `&[Box<dyn DomainEvent>]`; the port takes owned
+        // `Box<dyn DomainEvent>`. We wrap each event in an
+        // `OwnedEvent` (one JSON round-trip + preserved event type
+        // header) and pass the owned box to the port. The wrapper
+        // lives in `epsx_contracts::domain_event`.
         for event in payment.uncommitted_events() {
-            self.event_bus.publish(&**event);
+            let owned: Box<dyn crate::domain::shared_kernel::DomainEvent> =
+                Box::new(epsx_contracts::domain_event::OwnedEvent::from_borrowed(&**event));
+            if let Err(e) = self.event_publisher.publish(owned).await {
+                tracing::warn!(
+                    error = %e,
+                    "EventPublisherPort.publish returned error; command continues"
+                );
+            }
         }
         
         // Generate payment instructions
@@ -185,6 +204,13 @@ mod tests {
     use std::sync::Arc;
     use async_trait::async_trait;
     use crate::domain::payment::value_objects::{Currency, PaymentMethodType, Network};
+    use crate::domain::payment::repository_ports::{
+        ActivateSubscriptionCommand as PortActivateSubscriptionCommand,
+        CreatePaymentCommand as PortCreatePaymentCommand,
+        PaymentRowWithPlanName, Subscription, SubscriptionFilters,
+        AnalyticsWindow, AnalyticsRollup, SubmitTxValidation,
+    };
+    use crate::domain::payment::PaymentStatus;
     
     // Mock payment repository
     struct MockPaymentRepository;
@@ -237,22 +263,99 @@ mod tests {
                 last_payment_date: None,
             })
         }
+
+        // Wave 11 / Track A: stubs for the 11 new port methods. The
+        // existing test only exercises the create_payment flow, so
+        // these stubs are no-ops returning default values. The new
+        // N+1 / round-trip tests live in the cross-pool adapter's
+        // own test module, not here.
+        async fn get_tx_status_with_plan_name(
+            &self, _tx_hash: &str,
+        ) -> Result<Option<crate::domain::payment::repository_ports::PaymentRowWithPlanName>, String> {
+            Ok(None)
+        }
+        async fn get_admin_payment_details_with_plan_name(
+            &self, _payment_id: PaymentId,
+        ) -> Result<Option<crate::domain::payment::repository_ports::PaymentRowWithPlanName>, String> {
+            Ok(None)
+        }
+        async fn list_user_payments_with_plan_names(
+            &self, _wallet_address: &WalletAddress, _page: u32, _per_page: u32,
+        ) -> Result<Vec<crate::domain::payment::repository_ports::PaymentRowWithPlanName>, String> {
+            Ok(vec![])
+        }
+        async fn list_admin_subscriptions_with_plan_names(
+            &self, _filters: crate::domain::payment::repository_ports::SubscriptionFilters, _page: u32, _per_page: u32,
+        ) -> Result<Vec<(crate::domain::payment::repository_ports::Subscription, Option<String>)>, String> {
+            Ok(vec![])
+        }
+        async fn list_admin_subscriptions_with_plan_names_paginated(
+            &self, _filters: crate::domain::payment::repository_ports::SubscriptionFilters, _page: u32, _per_page: u32,
+        ) -> Result<(Vec<(crate::domain::payment::repository_ports::Subscription, Option<String>)>, u64), String> {
+            Ok((vec![], 0))
+        }
+        async fn get_analytics_rollup(
+            &self, _window: crate::domain::payment::repository_ports::AnalyticsWindow,
+        ) -> Result<crate::domain::payment::repository_ports::AnalyticsRollup, String> {
+            unimplemented!("mock test helper — the round-trip test lives in the cross-pool adapter")
+        }
+        async fn validate_submit_tx(
+            &self, _plan_id: uuid::Uuid, _wallet_address: &WalletAddress,
+        ) -> Result<crate::domain::payment::repository_ports::SubmitTxValidation, String> {
+            unimplemented!("mock test helper — the round-trip test lives in the cross-pool adapter")
+        }
+        async fn create_payment(
+            &self, _cmd: PortCreatePaymentCommand,
+        ) -> Result<Payment, String> {
+            unimplemented!("mock test helper — the round-trip test lives in the cross-pool adapter")
+        }
+        async fn update_payment_status(
+            &self, _payment_id: PaymentId, _new_status: PaymentStatus, _audit_note: Option<String>,
+        ) -> Result<(), String> {
+            Ok(())
+        }
+        async fn grant_subscription(
+            &self, _cmd: PortActivateSubscriptionCommand,
+        ) -> Result<Subscription, String> {
+            unimplemented!("mock test helper — the round-trip test lives in the cross-pool adapter")
+        }
+        async fn revoke_subscription(
+            &self, _subscription_id: uuid::Uuid, _reason: Option<String>,
+        ) -> Result<(), String> {
+            Ok(())
+        }
     }
     
-    // Mock event bus
-    struct MockEventBus;
-    
-    impl DomainEventBus for MockEventBus {
-        fn publish(&self, _event: &dyn crate::domain::shared_kernel::DomainEvent) {
-            // No-op
+    // Mock event publisher (wave11(track-c) R7: replaces MockEventBus).
+    // Uses a `Mutex<Vec<String>>` to capture published event types
+    // for test assertions.
+    struct MockEventPublisher {
+        published: std::sync::Mutex<Vec<String>>,
+    }
+
+    impl MockEventPublisher {
+        fn new() -> Self {
+            Self { published: std::sync::Mutex::new(Vec::new()) }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl epsx_contracts::event_publisher_port::EventPublisherPort for MockEventPublisher {
+        async fn publish(
+            &self,
+            event: Box<dyn crate::domain::shared_kernel::DomainEvent>,
+        ) -> crate::prelude::AppResult<()> {
+            self.published.lock().unwrap().push(event.event_type().to_string());
+            Ok(())
         }
     }
     
     #[tokio::test]
     async fn test_create_payment_command() {
         let payment_repo = Arc::new(MockPaymentRepository);
-        let event_bus = Arc::new(MockEventBus);
-        let handler = CreatePaymentCommandHandler::new(payment_repo, event_bus);
+        let event_publisher: Arc<dyn epsx_contracts::event_publisher_port::EventPublisherPort> =
+            Arc::new(MockEventPublisher::new());
+        let handler = CreatePaymentCommandHandler::new(payment_repo, event_publisher);
         
         let wallet_address = WalletAddress::new("0x742d35Cc6634C0532925a3b8D369D7763F3c45c6").unwrap();
         let amount = PaymentAmount::new(rust_decimal::Decimal::from(100), Currency::USDT).unwrap();

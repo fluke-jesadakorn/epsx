@@ -1,0 +1,98 @@
+# Dev NodePort assignments.
+#
+# Strategy: dev uses 30100-30199 range to avoid clashing with
+# staging (30000-30099) and prod (30080-30099). Specifically:
+#   - 30100 = monolith backend
+#   - 30101 = frontend
+#   - 30102 = admin
+#   - 30103 = new epsx-analytics binary (wave 12)
+#   - 30104 = new epsx-identity binary, gRPC seam (wave 13a)
+#   - 30105 = new epsx-identity binary, HTTP/1.1 SSE side (wave 13b)
+#
+# All NodePorts forward to the service's port: 8080 for backend,
+# 3000 for frontend/admin, 8080 for the analytics binary, 50051
+# for the identity gRPC seam, 50052 for the identity SSE/admin
+# emit side.
+#
+# These NodePorts are reachable on the colima VM's eth0 IP
+# (192.168.5.3). Operators access dev via:
+#   curl -k https://dev.epsx.io/api/...
+# which the existing Cloudflare Tunnel routes here via the
+# dev /etc/cloudflared/config.yaml. (Tunnel config is a separate
+# concern; the wave-13a smoke test reaches the binary directly
+# at http://192.168.5.3:30104/... for the gRPC health probe
+# fallback. The wave-13b integration gate reaches the binary
+# directly at http://192.168.5.3:30105/v1/stream/ranking-offsets
+# for the SSE round-trip.)
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: epsx-backend
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30100
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: epsx-frontend
+spec:
+  type: NodePort
+  ports:
+    - port: 3000
+      targetPort: 3000
+      nodePort: 30101
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: epsx-admin
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 3001
+      targetPort: 3001
+      nodePort: 30102
+---
+# wave12(integration): the new epsx-analytics binary
+# (port 8080) is exposed on NodePort 30103. Cloudflare
+# Tunnel routes the 5 /api/analytics/* paths to a port-bridge
+# that maps to this NodePort. The monolith (NodePort 30100)
+# continues to serve the 3 admin /api/admin/analytics/*
+# routes and any pre-cutover /api/analytics/* traffic during
+# the migration window.
+apiVersion: v1
+kind: Service
+metadata:
+  name: epsx-analytics
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30103
+---
+# wave13a(track-a): the wave-13a NodePort (30104) for the
+# new epsx-identity binary was pre-allocated by the
+# wave-13(dev-k8s) commit (HEAD `949533e7`). The
+# corresponding `epsx-identity` Service is now in
+# `infrastructure/kubernetes/base/identity/service.yaml`;
+# the NodePort patch lives in
+# `patches/services-identity.yaml` and is wired into the
+# overlay's `patches:` list in `kustomization.yaml`.
+# ---
+# wave13b(track-a): the wave-13b NodePort (30105) for the
+# new SSE/HTTP-1.1 side of the epsx-identity binary was
+# pre-allocated in the wave-13(dev-k8s) NodePort plan
+# (see the table at the top of this file) but not yet
+# wired. The wave-13b(track-a) commit adds the matching
+# `sse` port to `patches/services-identity.yaml` (the
+# `nodePort: 30105` line on the sse port entry). The
+# integration gate's smoke test reaches the binary at
+# `http://192.168.5.3:30105/v1/stream/ranking-offsets`
+# to verify the SSE round-trip end-to-end.

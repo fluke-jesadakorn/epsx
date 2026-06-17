@@ -1,0 +1,31 @@
+[package]
+name = "epsx-identity"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "identity"
+path = "src/main.rs"
+
+[dependencies]
+epsx-kernel = { path = "../../shared/rust/kernel" }
+epsx-config = { path = "../../shared/rust/config" }
+epsx-crypto = { path = "../../shared/rust/crypto" }
+epsx-database = { path = "../../shared/rust/database" }
+epsx-events = { path = "../../shared/rust/events" }
+epsx-observability = { path = "../../shared/rust/observability" }
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+clap.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+siwe.workspace = true
+redis.workspace = true
+deadpool-redis.workspace = true

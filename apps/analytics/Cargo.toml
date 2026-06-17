@@ -1,0 +1,89 @@
+[package]
+name = "epsx-analytics-service"
+version.workspace = true
+edition.workspace = true
+description = "EPSX Analytics microservice binary (wave 12 track A — market-analytics lift)"
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+default-run = "epsx-analytics-service"
+
+[[bin]]
+name = "epsx-analytics-service"
+path = "src/main.rs"
+
+[dependencies]
+# The monolith library — we re-export the moved domain/application/web
+# subtrees from here so the new binary compiles against the same
+# `epsx::domain::market_analytics::*` / `epsx::web::analytics::*` paths
+# the monolith uses. No files are physically moved; this crate is a
+# thin shell that wires a standalone axum router.
+epsx = { path = "../backend" }
+
+# Wave 10 R6 port (kernel-level). Stays in `epsx-contracts` so the
+# new binary and the monolith call the same trait surface for the
+# plan-tier ranking offset query. Per CLAUDE.md "Permissions & Plan
+# Logic — Backend Only" — the new binary IS a Rust backend, so the
+# in-process adapter pattern is the correct shape today; wave-13+
+# can swap to an HTTP / gRPC adapter without changing handler
+# signatures.
+epsx-contracts = { path = "../../shared/rust/epsx-contracts" }
+
+# HTTP / runtime
+axum.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+http.workspace = true
+async-trait.workspace = true
+futures.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+# Wave 13a Track B — gRPC client against the epsx-identity
+# binary. `tonic` is the runtime transport; `prost` is the
+# message codec; `tonic-build` runs in `build.rs` to generate
+# the client stub from `shared/proto/identity.proto` at
+# compile time. See `src/grpc_client.rs` for the client impl
+# and the fallback contract.
+tonic.workspace = true
+prost.workspace = true
+tokio-stream.workspace = true
+
+# Wave 13b Track B — SSE consumer that opens a long-lived
+# HTTP connection to the identity service's
+# `/v1/stream/ranking-offsets` endpoint, parses
+# `RankingOffsetChange` events from the `data:` field, and
+# fans them out to in-process consumers via a local tokio
+# broadcast channel.
+#   - `reqwest`: HTTP client with the `stream` feature so
+#     `Response::bytes_stream()` is available (the workspace
+#     `reqwest = 0.12` is pinned to `["json", "rustls-tls"]`
+#     — we add `stream` locally to avoid bumping the
+#     workspace dep).
+#   - `rand`: jitter for the reconnect backoff. Workspace
+#     version is 0.9 (we pin to 0.9 here for consistency
+#     with the rest of the workspace — `rand::random::<u64>()`
+#     is unchanged from 0.8).
+#   - `reqwest-eventsource`: Wave 14 — the canonical SSE
+#     client for `reqwest`. We replaced the hand-rolled
+#     `bytes_stream` + `find_sse_event` parser with
+#     `EventSource` because the hand-rolled parser hit a
+#     reqwest body-decoder edge case on the 2nd chunk of
+#     long-lived `text/event-stream` responses (the decoder
+#     returned "error decoding response body" on the 2nd
+#     chunk in production). `EventSource` handles
+#     long-lived streams correctly out of the box.
+#     `reqwest-eventsource = 0.6.x` is compatible with
+#     `reqwest = 0.12` (the version pinned in the
+#     workspace).
+reqwest = { workspace = true, features = ["stream"] }
+rand = "0.9"
+reqwest-eventsource = "0.6"
+
+[build-dependencies]
+tonic-build.workspace = true

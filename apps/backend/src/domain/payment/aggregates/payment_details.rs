@@ -8,7 +8,7 @@ use crate::domain::payment::value_objects::{CryptoAddress, TransactionHash, Curr
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CryptoPaymentDetails {
     pub currency: Currency,
-    pub network: crate::domain::shared_kernel::value_objects::payments::Network,
+    pub network: epsx_contracts::value_objects::payments::Network,
     pub payment_address: Option<CryptoAddress>,
     pub transaction_hash: Option<TransactionHash>,
     pub confirmations: u32,
@@ -46,7 +46,7 @@ pub enum BlockchainVerificationStatus {
 }
 
 impl CryptoPaymentDetails {
-    pub fn new(currency: Currency, network: crate::domain::shared_kernel::value_objects::payments::Network) -> Self {
+    pub fn new(currency: Currency, network: epsx_contracts::value_objects::payments::Network) -> Self {
         Self {
             currency,
             network,

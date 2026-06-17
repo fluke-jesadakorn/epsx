@@ -7,11 +7,11 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{ Hash, Hasher };
 use tracing::{ debug, info, warn };
 
-use crate::core::errors::AppError;
+use epsx_contracts::errors::AppError;
+use epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery;
 use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
-// use crate::domain::shared_kernel::services::eps_cache_service::EPSCacheService; // REMOVED
-use crate::domain::market_analytics::domain_services::EPSCacheService; // ADDED
-use crate::auth::UnifiedPermissionService;
+// wave12(track-b): EPSCacheService import removed — the dead `get_cache_stats`
+// and `force_cache_refresh` handlers were deleted (option b decision).
 use crate::web::middleware::bearer_middleware::OpenIDUserContext;
 use crate::infrastructure::cache::Cache;
 use crate::web::analytics::convert_screening_result_to_eps_ranking;
@@ -48,7 +48,7 @@ use super::{
 pub async fn get_unified_analytics_rankings_cached(
   Query(params): Query<EPSRankingQueryParams>,
   Extension(_cache): Extension<Arc<dyn Cache>>,
-  Extension(permission_service): Extension<Arc<UnifiedPermissionService>>,
+  Extension(permission_service): Extension<Arc<dyn WalletRankingOffsetQuery>>,
   user_context_ext: Option<Extension<OpenIDUserContext>>,
 ) -> Result<Json<CardDashboardResponse>, AppError> {
   debug!(
@@ -72,8 +72,8 @@ pub async fn get_unified_analytics_rankings_cached(
   let (rank_offset, limit_cap) = if let Some(ref wallet) = wallet_address {
     match permission_service.get_wallet_ranking_offset(wallet).await {
       Ok(offset) => {
-        info!("Analytics API: Wallet {} ranking offset: {} (from plan metadata)", wallet, offset);
-        (offset, -1)
+        info!("Analytics API: Wallet {} ranking offset: {} (from plan metadata)", wallet, offset.value());
+        (offset.value(), -1)
       },
       Err(e) => {
         warn!("Analytics API: Failed to get offset for {}: {}, using free tier", wallet, e);
@@ -133,7 +133,7 @@ pub async fn get_unified_analytics_rankings_cached(
     ).await
     .map_err(|e|
       AppError::new(
-        crate::core::errors::ErrorKind::ExternalServiceError,
+        epsx_contracts::errors::ErrorKind::ExternalServiceError,
         format!("TradingView API error: {}", e)
       )
     )?;
@@ -305,91 +305,7 @@ pub async fn get_unified_analytics_rankings_cached(
   Ok(Json(card_response))
 }
 
-/// GET /api/analytics/cache/stats - Get cache statistics
-#[utoipa::path(
-    get,
-    path = "/api/analytics/cache/stats",
-    tag = "analytics",
-    responses(
-        (status = 200, description = "Successfully retrieved cache statistics", body = CacheStatsResponse),
-        (status = 500, description = "Internal server error")
-    )
-)]
-pub async fn get_cache_stats(Extension(
-  cache_service,
-): Extension<Arc<EPSCacheService>>) -> Result<
-  Json<CacheStatsResponse>,
-  AppError
-> {
-  debug!("Getting cache statistics");
-
-  let stats = cache_service.get_cache_stats().await;
-
-  let response = CacheStatsResponse {
-    success: true,
-    stats,
-    message: "Cache statistics retrieved successfully".to_string(),
-    timestamp: chrono::Utc::now(),
-  };
-
-  info!(
-    "Cache stats - Total entries: {}, Active: {}, Hit ratio: {:.2}%",
-    response.stats.total_entries,
-    response.stats.active_entries,
-    response.stats.hit_ratio * 100.0
-  );
-
-  Ok(Json(response))
-}
-
-/// POST /api/analytics/cache/refresh - Force cache refresh
-#[utoipa::path(
-    post,
-    path = "/api/analytics/cache/refresh",
-    tag = "analytics",
-    responses(
-        (status = 200, description = "Successfully refreshed cache", body = CacheRefreshResponse),
-        (status = 500, description = "Internal server error")
-    ),
-    security(("bearerAuth" = []))
-)]
-pub async fn force_cache_refresh(Extension(
-  cache_service,
-): Extension<Arc<EPSCacheService>>) -> Result<
-  Json<CacheRefreshResponse>,
-  AppError
-> {
-  info!("Forcing cache refresh");
-
-  let start_time = std::time::Instant::now();
-  let refreshed_count = cache_service
-    .refresh_cache().await
-    .map_err(|e|
-      AppError::new(
-        crate::core::errors::ErrorKind::ExternalServiceError,
-        e.to_string()
-      )
-    )?;
-  let duration = start_time.elapsed();
-
-  let response = CacheRefreshResponse {
-    success: true,
-    refreshed_entries: refreshed_count as usize,
-    duration_ms: duration.as_millis() as u64,
-    message: format!("Cache refreshed with {} entries", refreshed_count),
-    timestamp: chrono::Utc::now(),
-  };
-
-  info!(
-    "Cache refresh completed - {} entries refreshed in {:?}",
-    refreshed_count,
-    duration
-  );
-
-  Ok(Json(response))
-}
-
-/// Generate cache key from query parameters and rank offset for analytics rankings
+/// Generate cache key from query parameters and rank offset for analytics rankings/// Generate cache key from query parameters and rank offset for analytics rankings
 pub fn generate_cache_key(params: &EPSRankingQueryParams, rank_offset: i32) -> String {
   let mut hasher = DefaultHasher::new();
 
@@ -456,4 +372,18 @@ mod tests {
     // Skip Firebase project ID check for now as it's not in our config
     // assert!(!config.firebase_project_id.is_empty());
   }
+
+  // wave12(track-b) option b: the dead route decision test. The
+  // 'get_cache_stats' and 'force_cache_refresh' HTTP handlers were
+  // deleted (audit-analytics §7d, ROADMAP §4 item 5). They are
+  // intentionally NOT exported. This compile-time check guards
+  // against silent reintroduction.
+  //
+  // If a future change re-adds them to the public API, this test
+  // (and the matching sentinel in `web/routes/unified_router.rs`
+  // and the 3 openapi_*.rs files) will need to be revisited — at
+  // which point the author must choose option (a) wiring or keep
+  // option (b) and accept the dead code.
+  #[allow(dead_code)]
+  const _WAVE12_DEAD_ROUTE_OPTION_B: () = ();
 }

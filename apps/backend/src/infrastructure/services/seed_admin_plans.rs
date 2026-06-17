@@ -8,7 +8,7 @@ use tracing::{info, error};
 use uuid::Uuid;
 
 use crate::prelude::TlsPool;
-use crate::core::constants::{
+use epsx_contracts::constants::{
     SUPER_ADMIN_PLAN_ID, SUPER_ADMIN_PLAN_NAME, SUPER_ADMIN_PLAN_SLUG,
     MODERATOR_PLAN_ID, MODERATOR_PLAN_NAME, MODERATOR_PLAN_SLUG,
     SUPPORT_PLAN_ID, SUPPORT_PLAN_NAME, SUPPORT_PLAN_SLUG,

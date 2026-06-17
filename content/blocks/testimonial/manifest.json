@@ -1,0 +1,14 @@
+{
+  "id": "testimonial",
+  "version": "1.0.0",
+  "name": "Testimonial",
+  "category": "social-proof",
+  "schema": "blocks/testimonial/schema.json",
+  "defaultProps": {
+    "quote": "EPSX changed how we accept payments. The on-chain subscriptions alone saved us 30% on fees.",
+    "author": "Jane Doe",
+    "role": "Founder, Acme Inc"
+  },
+  "preview": "/assets/blocks/testimonial.png",
+  "component": "Testimonial"
+}

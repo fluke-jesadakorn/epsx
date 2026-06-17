@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 
 use crate::application::shared::{Query, ApplicationResult, ValidationUtils};
-use crate::domain::shared_kernel::value_objects::UserId;
+use epsx_contracts::value_objects::UserId;
 // use crate::domain::wallet_management::value_objects::Email; // REMOVED - Web3-first uses wallet addresses
 
 /// Query to get a user by ID
