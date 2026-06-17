@@ -27,6 +27,20 @@
 @source "../../../../shared/rust/dioxus_ui/src";
 @source "../../../../shared/rust/templates/src";
 
+/* Wave 29 T1 — import the prod shared-auth-component CSS so the
+ * `DeveloperUsageAuthGuardBody` markup (which uses `.auth-modal-inner`,
+ * `.auth-step-number`, `.auth-wallets`, `.auth-wallet-btn`, etc.)
+ * actually gets the prod's modal styling. Prod includes this CSS via
+ * `import './auth.css'` side-effect imports in
+ * `shared/components/auth/auth-modal.tsx` + `auth-status.tsx`. The dev
+ * doesn't go through those React components, so we have to import
+ * the CSS file directly. Without this, the auth-modal renders with
+ * raw inherited colors (RGB ~1,3,9 dark blue-tinted background)
+ * instead of prod's `rgb(25, 25, 35)` modal body + button gray —
+ * which accounts for ~50% of the 16.34% → ~30% match gap on
+ * `/developer/usage`. */
+@import "../../../../shared/components/auth/auth.css";
+
 /* Match prod's @custom-variant dark selector so `dark:` variants resolve
  * correctly. */
 @custom-variant dark (&:where(.dark, .dark *));

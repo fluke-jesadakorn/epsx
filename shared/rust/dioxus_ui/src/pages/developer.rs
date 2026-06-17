@@ -1047,7 +1047,19 @@ fn DeveloperUsageAuthGuardBody() -> Element {
                         style: "z-index: 1100; pointer-events: none;",
                         div {
                             role: "dialog",
-                            class: "developer-usage-auth-guard-dialog grid w-full max-w-lg border-gray-200 dark:border-slate-700 text-foreground rounded-2xl sm:rounded-3xl sm:max-w-[420px] p-0 gap-0 overflow-hidden bg-transparent dark:bg-transparent border-0 shadow-none",
+                            // Wave 29 T1 — removed `sm:max-w-[420px]`
+                            // override so the modal falls back to
+                            // `max-w-lg` (32rem = 512px) on small+
+                            // viewports, matching prod's actual rendered
+                            // modal width (511px). Prod's
+                            // `sm:max-w-[420px]` is in the source but
+                            // NOT emitted in the compiled prod CSS
+                            // (`grep -r sm:max-w apps-old/frontend/.next/dev/static/css/`
+                            // returns 0 results), so prod actually
+                            // renders at 512px (max-w-lg wins). Wave 27
+                            // T2's `sm:max-w-[420px]` was a source-only
+                            // match, not a rendered-pixel match.
+                            class: "developer-usage-auth-guard-dialog grid w-full max-w-lg border-gray-200 dark:border-slate-700 text-foreground rounded-2xl sm:rounded-3xl p-0 gap-0 overflow-hidden bg-transparent dark:bg-transparent border-0 shadow-none",
                             tabindex: "-1",
                             style: "pointer-events: auto;",
                             h2 { class: "sr-only", "Dialog" }

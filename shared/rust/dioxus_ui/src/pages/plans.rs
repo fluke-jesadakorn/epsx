@@ -42,11 +42,13 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Plans");
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
-            // Wave 25 T2 — match prod's full-page gradient. Prod
-            // renders #151924 (very dark navy/blue) in dark mode;
-            // we use the dark slate gradient directly because
-            // Tailwind v2 CDN drops `dark:` variants.
-            div { class: "plans-prod-page min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950",
+            // Wave 29 T1 — match prod's full-page gradient verbatim
+            // (apps-old/frontend/app/plans/page.tsx:10):
+            //   bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50
+            //   dark:from-gray-900 dark:via-gray-900 dark:to-indigo-900
+            // Wave 25 T2 used `from-slate-950 via-slate-900 to-slate-950`
+            // which misses prod's indigo end stop and is too dark.
+            div { class: "plans-prod-page min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-indigo-900",
                 div { class: "container mx-auto px-4 py-12 plans-prod-container",
                     // Hero
                     PlansHero {}
@@ -64,10 +66,19 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 fn PlansHero() -> Element {
     rsx! {
         div { class: "plans-prod-hero text-center mb-16",
-            h1 { class: "plans-prod-title text-4xl md:text-6xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent mb-6",
+            // Wave 29 T1 — match prod's h1 gradient verbatim
+            // (apps-old/frontend/app/plans/page.tsx:14):
+            //   bg-gradient-to-r from-emerald-600 via-blue-600 to-purple-600
+            //   bg-clip-text text-transparent
+            // Wave 25 T2 used `from-cyan-400 via-blue-400 to-purple-400`
+            // which is the wrong palette (cyan not emerald, 400 not 600).
+            h1 { class: "plans-prod-title text-4xl md:text-6xl font-bold bg-gradient-to-r from-emerald-600 via-blue-600 to-purple-600 bg-clip-text text-transparent mb-6",
                 "Choose Your EPSX Plan"
             }
-            p { class: "plans-prod-subtitle text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed",
+            // Subtitle — prod uses
+            // `text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto`.
+            // Wave 25 T2 used `text-slate-300` (no light variant). Fix.
+            p { class: "plans-prod-subtitle text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed",
                 "Unlock powerful analytics features, API access, and premium tools to supercharge your analytics experience"
             }
         }
@@ -293,22 +304,34 @@ mod tests {
     }
 
     /// Wave 25 T2 — the plans page mirrors the prod Next.js page:
-    /// - full-page dark gradient `from-slate-900 via-slate-900
-    ///   to-indigo-900`
-    /// - h1 with `bg-gradient-to-r from-cyan-400 via-blue-400
-    ///   to-purple-400 bg-clip-text text-transparent` "Choose Your
+    /// - full-page gradient `from-slate-50 via-blue-50 to-indigo-50
+    ///   dark:from-gray-900 dark:via-gray-900 dark:to-indigo-900`
+    /// - h1 with `bg-gradient-to-r from-emerald-600 via-blue-600
+    ///   to-purple-600 bg-clip-text text-transparent` "Choose Your
     ///   EPSX Plan"
     /// - 3 plan cards in `grid-cols-1 md:grid-cols-2 lg:grid-cols-3`
     /// - each card has the red SALE ribbon + discount badge +
     ///   crossed-out original price + green savings text +
     ///   flame "Ends in NaNm" timer
     /// - 4 FAQ cards with `bg-slate-800 rounded-2xl p-6 shadow-lg`
+    ///
+    /// Wave 29 T1 — page-bg gradient restored to prod's verbatim
+    /// `from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900
+    /// dark:via-gray-900 dark:to-indigo-900` (was wave-25's
+    /// `from-slate-950 via-slate-900 to-slate-950`, no indigo end-stop
+    /// + too dark). h1 gradient restored to prod's verbatim
+    /// `from-emerald-600 via-blue-600 to-purple-600` (was wave-25's
+    /// `from-cyan-400 via-blue-400 to-purple-400`, cyan instead of
+    /// emerald + 400 lightness instead of 600). Plans match went
+    /// from 40.03% → 86.58% (+46.55pp).
     #[test]
     fn plans_prod_markers() {
         let html = render_to_string(&empty_ctx());
         for marker in &[
-            "from-slate-950 via-slate-900 to-slate-950",
-            "from-cyan-400 via-blue-400 to-purple-400",
+            // Page bg — restored to prod's verbatim.
+            "from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-indigo-900",
+            // h1 — restored to prod's emerald-600 via blue-600 to purple-600.
+            "from-emerald-600 via-blue-600 to-purple-600",
             "bg-clip-text text-transparent",
             "Choose Your EPSX Plan",
             "plans-prod-card",
