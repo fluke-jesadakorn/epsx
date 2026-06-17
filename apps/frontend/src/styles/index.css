@@ -1,0 +1,36 @@
+/**
+ * EPSX frontend BFF — Tailwind v4 source.
+ *
+ * Wave 28 T1: minimal token set. Most pages use the inline `<style>`
+ * block in `design_system_head()` (CSS variables, glassmorphism,
+ * gradients) — Tailwind v4 only needs to provide the standard utility
+ * classes (`min-h-screen`, `text-purple-400`, `text-2xl`, `mx-auto`,
+ * `space-y-6`, etc.) that Dioxus pages reference by name.
+ *
+ * Wave 28 T2 will expand `@theme` to mirror the prod `apps-old/frontend`
+ * design tokens (full slate / gray / blue / purple scales) and broaden
+ * the @source list once we know the full class surface.
+ */
+
+@import "tailwindcss";
+
+/* Tell Tailwind v4 to scan the Dioxus page sources so utility classes
+ * used in `shared/rust/dioxus_ui/src/pages/*.rs` (via rsx! class: "...")
+ * get generated. Without this directive, Tailwind's default cwd-relative
+ * scan would only catch files under apps/frontend/.
+ *
+ * Path resolution: @source paths are relative to the CSS file.
+ *   apps/frontend/src/styles/index.css
+ *   ..       = apps/frontend/src/styles/
+ *   ../..    = apps/frontend/src/
+ *   ../../.. = apps/frontend/
+ *   ../../../.. = apps/
+ *   ../../../../.. = workspace root (epsx/)
+ */
+@source "../../../../shared/rust/dioxus_ui/src";
+@source "../../../../shared/rust/templates/src";
+
+/* Match the prod `@custom-variant dark` directive so `dark:` variants
+ * resolve correctly when a page opts to use them (currently /privacy
+ * forces colors via inline style, so this is forward-compat only). */
+@custom-variant dark (&:where(.dark, .dark *));

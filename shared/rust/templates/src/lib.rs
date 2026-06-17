@@ -29,15 +29,17 @@ pub fn design_system_head(title: &str, description: &str) -> String {
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
 <title>{title}</title>
-<!-- Wave 25 T1: Tailwind v2.2.19 CDN kept (T1' reverted from v3 — see deliverable).
-     The v3 JIT upgrade regressed /plans by +10.14% pixel_diff and the mean
-     match stayed flat (5.16% vs 5.96% baseline). The v2.2.19 CDN's lack of
-     `dark:` variant support is a real issue but the dominant divergence
-     between dev and prod is structural Dioxus-page layout, not `dark:foo`
-     class processing. Reverted to v2.2.19 so /plans and the overall mean
-     match don't regress. Subtasks 1.2 (skip config) + 1.3 (URL strip) are
-     still shipped. -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" />
+<!-- Wave 28 T1: Tailwind v4 PostCSS pipeline — local CSS only.
+     The CDN at jsdelivr is gone; Tailwind v4 utilities are now served from
+     /public/dist/tailwind.css, compiled by `apps/frontend/build.rs` /
+     `apps/admin/build.rs` from `apps/<app>/src/styles/index.css` via
+     `@tailwindcss/postcss 4.1.18`. The /public prefix matches the BFF's
+     `nest_service("/public", ServeDir::new("public"))` mount in
+     `apps/frontend/src/main.rs` (and the equivalent for `apps/admin`).
+     The CDN swap from Wave 25 was kept (Tailwind v2.2.19) until Wave 28
+     confirmed the structural color drift from the v2 CDN — see the Wave
+     28 honest verdict + T1 deliverable. -->
+<link rel="stylesheet" href="/public/dist/tailwind.css" />
 <script>
   // FOUC prevention: apply theme before first paint
   //

@@ -1,0 +1,29 @@
+/**
+ * EPSX admin BFF — Tailwind v4 source.
+ *
+ * Wave 28 T1: minimal token set. The admin app uses the same
+ * `design_system_head()` helper as the frontend, so the inline CSS
+ * block in that helper already provides the brand palette + light/dark
+ * variables. Tailwind v4 here just needs to compile the standard
+ * utility classes the Dioxus admin pages reference.
+ *
+ * Wave 28 T2 will expand `@theme` to mirror the prod
+ * `apps-old/admin-frontend` design tokens (semantic color tokens +
+ * hsl(var(--token)) values for background / foreground / primary /
+ * card / etc).
+ *
+ * Path resolution for @source: from apps/admin/src/styles/index.css:
+ *   ..        = apps/admin/src/styles/
+ *   ../..     = apps/admin/src/
+ *   ../../..  = apps/admin/
+ *   ../../../.. = apps/
+ *   ../../../../.. = workspace root (epsx/)
+ */
+
+@import "tailwindcss";
+
+@source "../../../../shared/rust/dioxus_ui/src";
+@source "../../../../shared/rust/templates/src";
+
+/* Match the prod `@custom-variant dark` directive. */
+@custom-variant dark (&:where(.dark, .dark *));

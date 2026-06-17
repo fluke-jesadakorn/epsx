@@ -171,7 +171,7 @@ async fn main() {
         .route("/api/v1/subscription/merchant/{addr}", get(api_subscription_merchant))
         .route("/api/v1/subscription/subscribe", post(api_subscription_subscribe))
         .route("/api/v1/subscription/plans/create", post(api_subscription_create_plan))
-        .nest_service("/public", tower_http::services::ServeDir::new("public").fallback(tower_http::services::ServeFile::new("public/index.html")))
+        .nest_service("/public", tower_http::services::ServeDir::new(format!("{}/public", env!("CARGO_MANIFEST_DIR"))).fallback(tower_http::services::ServeFile::new(format!("{}/public/index.html", env!("CARGO_MANIFEST_DIR")))))
         .fallback(ssr::ssr_handler)
         .layer(axum::middleware::from_fn(security_headers))
         .with_state(state);
