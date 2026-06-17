@@ -54,6 +54,24 @@ const PORTFOLIO_INLINE_CSS: &str = r#"
 .portfolio-prod-bg > div[style*="radial-gradient"] { opacity: 1 !important; }
 .absolute.-top-40.-left-40 { width: 400px !important; height: 400px !important; }
 .absolute.top-1\/3.-right-32 { width: 300px !important; height: 300px !important; }
+/* Wave 27 T1 — force v3-style gradient color stops on the upsell
+   banner (Tailwind v2 CDN's opacity modifier on gradient stops
+   renders with slight color differences vs prod's v3+ PostCSS
+   pipeline). Tailwind v3 palette: purple-900 = #581c87,
+   purple-800 = #6b21a8, pink-900 = #831843. The v3 PostCSS
+   pipeline interpolates between color stops in sRGB; the v2 CDN
+   produces a flatter, more desaturated gradient. Force v3 stops. */
+.portfolio-upsell-banner {
+  background: linear-gradient(to right, rgba(88, 28, 135, 0.4), rgba(107, 33, 168, 0.3), rgba(131, 24, 67, 0.4)) !important;
+}
+/* Sign-in card needs prod colors (bg-blue-50 border-blue-200
+   dark:bg-blue-900/20 dark:border-blue-700). The page renders in
+   dark mode so we use the dark-theme values (blue-900/20 + blue-700)
+   — these are what v2 CDN renders vs prod's v3 PostCSS pipeline. */
+.portfolio-signin-card {
+  background-color: rgb(30 58 138 / 0.2) !important;
+  border-color: rgb(29 78 216) !important;
+}
 "#;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
@@ -127,7 +145,7 @@ fn PortfolioHeader() -> Element {
 #[component]
 fn PortfolioUpsellBanner() -> Element {
     rsx! {
-        div { class: "portfolio-prod-upsell relative mb-6 overflow-hidden rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-900/40 via-purple-800/30 to-pink-900/40 backdrop-blur-sm p-6",
+        div { class: "portfolio-prod-upsell portfolio-upsell-banner relative mb-6 overflow-hidden rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-900/40 via-purple-800/30 to-pink-900/40 backdrop-blur-sm p-6",
             div { class: "flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
                 div { class: "flex items-start gap-3",
                     div { class: "flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/20",
@@ -175,7 +193,7 @@ fn PortfolioUpsellBanner() -> Element {
 #[component]
 fn PortfolioSignInCard() -> Element {
     rsx! {
-        div { class: "portfolio-prod-signin p-6 bg-blue-900/20 border border-blue-700 rounded-lg",
+        div { class: "portfolio-prod-signin portfolio-signin-card p-6 bg-blue-900/20 border border-blue-700 rounded-lg",
             div { class: "flex flex-col items-center text-center",
                 // Gold padlock icon
                 div { class: "mb-3",
