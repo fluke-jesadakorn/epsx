@@ -52,10 +52,37 @@ pub fn dispatch(ctx: &PageContext) -> (PageMeta, Element) {
     //   1. `ctx.user.is_none()` — real unauthed admin request
     //   2. `EPSX_E2E_SKELETON=1` env var — E2E capture harness
     //
-    // Exempts `/dashboard` + `/policies` (they 404 in prod).
+    // Wave 38 T2 — extended exempt list. Routes that prod
+    // renders as a SPECIFIC page (not the generic skeleton)
+    // must NOT be caught by the gate, otherwise dev shows the
+    // skeleton while prod shows the actual page and the
+    // pixel-diff balloons to ~83% (outliers at 17.34% match).
+    //
+    // `/dashboard` + `/policies`  — 404 in prod (Wave 34 T1)
+    // `/access-denied`            — prod renders the red-shield
+    //                                "Access Denied" page with
+    //                                "Go to Auth" + "Go Back"
+    //                                buttons (specific UI, not
+    //                                the generic skeleton).
+    // `/unauthorized`             — prod renders the
+    //                                "Unauthorized" panel with
+    //                                admin permission error.
+    // `/developer-portal/api-keys/create`
+    //                              — prod renders the actual
+    //                                API key creation form
+    //                                inside the admin-shell.
     let skeleton_mode = ctx.user.is_none()
         || std::env::var("EPSX_E2E_SKELETON").ok().as_deref() == Some("1");
-    if skeleton_mode && !matches!(p, "/dashboard" | "/policies") {
+    if skeleton_mode
+        && !matches!(
+            p,
+            "/dashboard"
+                | "/policies"
+                | "/access-denied"
+                | "/unauthorized"
+                | "/developer-portal/api-keys/create"
+        )
+    {
         let slug = slug_for_path(p);
         return (
             PageMeta::admin(slug),
