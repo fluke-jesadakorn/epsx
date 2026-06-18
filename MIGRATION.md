@@ -1,7 +1,20 @@
 # Migration: Next.js → Dioxus 0.7 + Axum
 
 **Branch:** `migration/dioxus-microservices`
-**Status:** Migration functionally complete. Workspace builds + tests green. `Wave 4` cleanup landed. Open items reduced to build-tool / Dioxus-version follow-ups.
+**Status:** Migration functionally complete. Workspace builds + tests green. `Wave 4` cleanup landed. **Pixel-parity workstream closed at 82.40% mean on Wave 30 (2026-06-18).** Open items reduced to build-tool / Dioxus-version follow-ups + functional parity (auth flow, data binding) + admin-wallet-management-access-plans jitter check.
+
+## Pixel-parity cumulative (Wave 25-30, 6 waves, 4 days)
+
+| Wave | Scope | 13-ported mean | Top route | Notes |
+|------|-------|----------------:|-----------|-------|
+| 25 start | Initial port | 29.06% | 86.46% (home) | mixed shadcn / bare components |
+| 26 | Shared tokens | 24.59% | 79.53% (portfolio) | neutral — T1 tokens hit ceiling |
+| 27 | Fix regressions + port | 24.59% | 97.96% (manual) | minimal lift, identified structural gaps |
+| **28** | **PostCSS migration (Tailwind v2 CDN → v4.1.18 + @tailwindcss/postcss + oklch tokens)** | **78.56%** | **98.42% (dashboard)** | **+53.97pp — biggest win, all 4 color-floor routes jumped to 80%+** |
+| 29 | Fix 2 PostCSS regressions (plans +18.93pp, dev-usage -3.00pp) | 80.86% | 98.42% | brief 80%+ hit, 0 regressions on 11 other routes |
+| **30** | **PricingCard 1:1 port (glass-morphism + Personal Plans header + uppercase title + blue price)** | **82.40%** | 98.42% | **+1.54pp mean, plans 48% → 77% (+29pp). Worker minimum-scope test: brief's "fix NaNm" hypothesis wrong (-1.14pp), real fix was glass-morphism (+30.53pp)** |
+
+**Verdict: 82.40% = honest ceiling for current architecture.** Remaining gap is structural (gradient palettes on plans, modal-height jitter on dev-usage) not color. Functional parity (auth flow, live data binding, gradient backgrounds) is the next workstream, not pixel-parity.
 
 ## What landed (cumulative)
 
