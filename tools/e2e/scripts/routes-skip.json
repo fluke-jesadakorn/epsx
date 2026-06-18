@@ -16,7 +16,10 @@
     "chat-history",
     "notifications",
     "permissions",
-    "profile"
+    "profile",
+    "about",
+    "contact",
+    "offline"
   ],
   "admin_auth_redirect_routes": []
 }

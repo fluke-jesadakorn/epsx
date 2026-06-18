@@ -36,10 +36,22 @@ use super::auth;
 /// prod baseline shows the /auth page for these routes; without the
 /// redirect the dev bff returns 200 + "Sign in required" gate, which
 /// diverges from prod and inflates pixel diff.
+///
+/// Wave 35b T1: added `/about`, `/contact`, `/offline` — the three
+/// marketing/utility routes that prod's Next.js middleware also
+/// auth-gates (its `protectedPaths` list in
+/// `apps-old/frontend/middleware.ts::config.matcher`). Without this
+/// redirect, dev served the real Dioxus pages (Wave 5/6 ports) while
+/// prod served the /auth redirect target → 0% pixel match. With the
+/// redirect, both dev and prod serve the /auth page and the diff
+/// converges to ~100%.
 const UNAUTH_REDIRECT_PATHS: &[&str] = &[
     "/permissions",
     "/notifications",
     "/profile",
+    "/about",
+    "/contact",
+    "/offline",
 ];
 
 /// Wave 22 T4 — `/pricing` is an alias for `/plans` in prod. The
@@ -497,5 +509,65 @@ mod tests {
         let r = pricing_redirect_response("ref=foo&affiliate=bar");
         assert_eq!(r.status(), StatusCode::TEMPORARY_REDIRECT);
         assert_eq!(r.headers().get("location").unwrap(), "/plans?ref=foo&affiliate=bar");
+    }
+
+    // === Wave 35b T1 — AuthGate 307-redirect for marketing routes ===
+
+    /// Wave 35b T1 — `UNAUTH_REDIRECT_PATHS` must include the three
+    /// marketing/utility routes (`/about`, `/contact`, `/offline`)
+    /// that prod's Next.js middleware also auth-gates. Without this
+    /// entry, dev serves the real Dioxus page (200) while prod serves
+    /// the /auth page (after 307), driving the diff to ~0%.
+    #[test]
+    fn unauth_redirect_paths_includes_marketing_routes() {
+        let paths = super::UNAUTH_REDIRECT_PATHS;
+        assert!(
+            paths.contains(&"/about"),
+            "UNAUTH_REDIRECT_PATHS must contain `/about` (Wave 35b T1)"
+        );
+        assert!(
+            paths.contains(&"/contact"),
+            "UNAUTH_REDIRECT_PATHS must contain `/contact` (Wave 35b T1)"
+        );
+        assert!(
+            paths.contains(&"/offline"),
+            "UNAUTH_REDIRECT_PATHS must contain `/offline` (Wave 35b T1)"
+        );
+    }
+
+    /// Wave 35b T1 — pre-existing protected paths from Wave 22/23
+    /// (`/permissions`, `/notifications`, `/profile`) must remain in
+    /// the list. This test guards against accidental removal during
+    /// the Wave 35b edit.
+    #[test]
+    fn unauth_redirect_paths_keeps_wave22_23_entries() {
+        let paths = super::UNAUTH_REDIRECT_PATHS;
+        for path in &["/permissions", "/notifications", "/profile"] {
+            assert!(
+                paths.contains(path),
+                "UNAUTH_REDIRECT_PATHS must still contain `{path}` (Wave 22/23 entry, do not regress)"
+            );
+        }
+    }
+
+    /// Wave 35b T1 — the redirect target must use the prod-shaped
+    /// `?return_url=<urlencoded path>` query string (matches
+    /// `apps-old/frontend/middleware.ts::handleUnauthenticated`).
+    /// Encoding the slash as `%2F` is critical: the auth page's
+    /// hydration script uses `searchParams.get("return_url")` which
+    /// only returns the first segment if the slash is left raw.
+    #[test]
+    fn unauth_redirect_uses_return_url_shape() {
+        // The exact encoder logic is in `urlencode`; this test pins
+        // the SHAPE so future edits can't accidentally rename it
+        // back to `?next=` (Wave 23 T3 explicitly retired `?next=`).
+        assert_eq!(urlencode("/about"), "%2Fabout");
+        assert_eq!(urlencode("/contact"), "%2Fcontact");
+        assert_eq!(urlencode("/offline"), "%2Foffline");
+        // The redirect location string shape:
+        assert_eq!(
+            format!("/auth?return_url={}", urlencode("/about")),
+            "/auth?return_url=%2Fabout"
+        );
     }
 }
