@@ -1,5 +1,6 @@
-//! Admin-only shared components — Wave 37 T1 admin primitives port
-//! + Wave 38a T1 admin wallet domain port.
+//! Admin-only shared components — Wave 37 T1 admin primitives port,
+//! Wave 38a T1 admin wallet domain port, + Wave 38b T2 admin payments/
+//! news/policies/plans domain components.
 //!
 //! This module is the admin-specific component namespace, mirroring
 //! `apps-old/admin-frontend/components/ui/` (primitives layer) and
@@ -75,10 +76,12 @@ pub mod auth_page_overlay;
 
 // =====================================================================
 // Wave 38a T1 — admin wallet domain components
+// + Wave 38b T2 — admin payments/news/policies/plans domain components
 // =====================================================================
 //
-// 12 NEW components ported from
-// `apps-old/admin-frontend/components/wallet/`. Naming notes:
+// 12 + 12 NEW components ported from
+// `apps-old/admin-frontend/components/{wallet,shared,payments,
+// news,plans,policies}/`. Naming notes:
 // - `WalletStatsBar` and `WalletTableRow` had inline collisions
 //   with file-local `fn`s in
 //   `pages::admin_pages::wallet_wallets`, so the shared versions
@@ -99,6 +102,18 @@ pub mod wallet_stats_bar;
 pub mod wallet_status_badge;
 pub mod wallet_table;
 pub mod wallet_table_row;
+pub mod page_layout;
+pub mod status_pages;
+pub mod payments_management;
+pub mod user_access_management;
+pub mod payment_links_ui;
+pub mod payment_links_management;
+pub mod news_management;
+pub mod news_editor;
+pub mod plan_management;
+pub mod plan_analytics_dashboard;
+pub mod policy_builder;
+pub mod permission_transfer_list;
 
 // Re-exports of the NEW admin-specific components for caller
 // convenience: `use crate::components::admin::PancakeButton` works
@@ -123,6 +138,7 @@ pub use theme_toggle::{
 pub use toast::{Toast, ToastDescription, ToastTitle, ToastViewport};
 
 // Wave 38a T1 — admin wallet domain re-exports.
+// + Wave 38b T2 — admin domain component re-exports.
 pub use disable_wallet_modal::{
     DisableDuration, DisablePlatform, DisableReasonCategory, DisableWalletData,
     DisableWalletModal,
@@ -142,6 +158,11 @@ pub use wallet_stats_bar::{
 pub use wallet_status_badge::{WalletStatusBadge, WalletStatusKind};
 pub use wallet_table::WalletTable;
 pub use wallet_table_row::{AdminWalletTableRow, WalletRowData, WalletRowStatus};
+pub use page_layout::{
+    PageAuthRequired, PageEmpty, PageError, PageGradient, PageHeader, PageLayout,
+    PageMaxWidth, PageSkeleton, PageTabItem, PageTabs,
+};
+pub use status_pages::{AccessDeniedContent, ErrorContent, NotFoundContent};
 
 // =====================================================================
 // Re-exports of existing primitives (admin-namespaced aliases)
