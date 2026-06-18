@@ -132,40 +132,71 @@ struct DeveloperStatsProps {
     expires: String,
 }
 
-fn sample_api_keys() -> Vec<ApiKey> {
-    vec![
-        ApiKey {
-            id: "k_prod".into(),
-            name: "Production".into(),
-            key: "epsx_live_4f8a2c1b9d3e7f5a".into(),
-            scopes: vec!["read".into(), "write".into(), "analytics:read".into()],
-            is_active: true,
-            created_at: "2024-08-01".into(),
-            usage_count: 142_310,
-        },
-        ApiKey {
-            id: "k_staging".into(),
-            name: "Staging".into(),
-            key: "epsx_test_7c1d4e2f8a3b6c9d".into(),
-            scopes: vec!["read".into(), "analytics:read".into()],
-            is_active: true,
-            created_at: "2024-08-15".into(),
-            usage_count: 28_104,
-        },
-        ApiKey {
-            id: "k_legacy".into(),
-            name: "Legacy CI".into(),
-            key: "epsx_live_2e5a8b1c4f7d3a9b".into(),
-            scopes: vec!["read".into()],
-            is_active: false,
-            created_at: "2024-04-22".into(),
-            usage_count: 0,
-        },
-    ]
+// === wave32-t1-developer-usage-wire ===
+// Wave 32 T1 — typed wire structs for `/api/v1/developer/usage`.
+// The BFF returns `{summary: {calls_today, calls_7d, calls_30d,
+// errors_429, errors_500}, per_key: [{key_id, name, calls_today,
+// errors_429, errors_500}], history: [{date, calls, errors_429,
+// errors_500}]}`. The wire structs parse that exact shape with
+// `#[serde(default)]` on every field so a partial BFF payload (e.g.
+// `summary` missing) still deserializes into a usable-but-empty
+// struct. The page then derives the `UsageMonitor` props from
+// `summary` and renders `per_key` + `history` directly.
+
+#[derive(Clone, Debug, serde::Deserialize, Default)]
+struct DeveloperUsageSummaryWire {
+    #[serde(default)] calls_today: u64,
+    #[serde(default)] calls_7d: u64,
+    #[serde(default)] calls_30d: u64,
+    #[serde(default)] errors_429: u64,
+    #[serde(default)] errors_500: u64,
 }
 
-/// Per-key usage stats (for the `UsageMonitor` per-key card).
-/// Mirrors the `<key>` items in `usage-monitor.tsx:56-67`.
+#[derive(Clone, Debug, serde::Deserialize, Default)]
+struct DeveloperUsagePerKeyWire {
+    #[serde(default)] key_id: String,
+    #[serde(default)] name: String,
+    #[serde(default)] calls_today: u64,
+    // Parsed-but-not-yet-rendered. The page renders only the per-key
+    // `calls_today` total today; the BFF may evolve to expose
+    // per-key error breakdowns in a future wave, and we want the
+    // wire struct to deserialize the new shape without a code
+    // change.
+    #[allow(dead_code)] #[serde(default)] errors_429: u64,
+    #[allow(dead_code)] #[serde(default)] errors_500: u64,
+}
+
+#[derive(Clone, Debug, serde::Deserialize, Default)]
+struct DeveloperUsageHistoryWire {
+    #[serde(default)] date: String,
+    #[serde(default)] calls: u64,
+    // Parsed-but-not-yet-rendered. Same rationale as the per-key
+    // `errors_*` fields — the chart currently shows per-day call
+    // volume only.
+    #[allow(dead_code)] #[serde(default)] errors_429: u64,
+    #[allow(dead_code)] #[serde(default)] errors_500: u64,
+}
+
+#[derive(Clone, Debug, serde::Deserialize, Default)]
+struct DeveloperUsageData {
+    #[serde(default)] summary: Option<DeveloperUsageSummaryWire>,
+    #[serde(default)] per_key: Option<Vec<DeveloperUsagePerKeyWire>>,
+    #[serde(default)] history: Option<Vec<DeveloperUsageHistoryWire>>,
+}
+
+// === wave32-t1-remove-sample-fallbacks ===
+// Wave 32 T1 — removed `sample_api_keys()`, `sample_api_key_usage()`,
+// `sample_top_endpoints()`. The BFF
+// (`/api/v1/developer` for the overview, `/api/v1/developer/usage`
+// for the usage page) is now the canonical data source — `ssr.rs::fetch_page_data`
+// calls the BFF in-process and the page reads the typed wire structs
+// directly. There is no longer a need for a hardcoded fixture
+// fallback in the render path. The unit tests in this file inject
+// realistic BFF payloads into `ctx.params` (see `authed_ctx_with_usage`)
+// and assert the BFF data flows through the page render.
+
+// Per-key usage stats (for the `UsageMonitor` per-key card).
+// Mirrors the `<key>` items in `usage-monitor.tsx:56-67`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ApiKeyUsage {
     pub id: String,
@@ -174,31 +205,18 @@ pub struct ApiKeyUsage {
     pub total_requests: u64,
 }
 
-fn sample_api_key_usage() -> Vec<ApiKeyUsage> {
-    vec![
-        ApiKeyUsage { id: "k_prod".into(), name: "Production".into(), status: "active".into(), total_requests: 142_310 },
-        ApiKeyUsage { id: "k_staging".into(), name: "Staging".into(), status: "active".into(), total_requests: 28_104 },
-        ApiKeyUsage { id: "k_legacy".into(), name: "Legacy CI".into(), status: "revoked".into(), total_requests: 0 },
-    ]
-}
-
 /// Per-endpoint call counts (for the `UsageMonitor` top-endpoints
 /// card). Mirrors the `topEndpoints` items in `usage-monitor.tsx:133-143`.
+/// The BFF `/api/v1/developer/usage` payload does not supply
+/// top-endpoints (brief's shape is `{summary, per_key, history}`)
+/// so the page passes an empty `Vec<EndpointUsage>` to
+/// `UsageMonitor`, which renders the "No endpoint data"
+/// placeholder.
 #[derive(Clone, Debug, PartialEq)]
 pub struct EndpointUsage {
     pub endpoint: String,
     pub method: String,
     pub count: u64,
-}
-
-fn sample_top_endpoints() -> Vec<EndpointUsage> {
-    vec![
-        EndpointUsage { endpoint: "/api/analytics/rankings".into(), method: "GET".into(), count: 88_421 },
-        EndpointUsage { endpoint: "/api/users/profile".into(), method: "GET".into(), count: 41_002 },
-        EndpointUsage { endpoint: "/api/users/watchlist".into(), method: "GET".into(), count: 18_770 },
-        EndpointUsage { endpoint: "/api/users/watchlist".into(), method: "POST".into(), count: 6_311 },
-        EndpointUsage { endpoint: "/api/auth/session/verify".into(), method: "GET".into(), count: 4_220 },
-    ]
 }
 
 fn sample_permissions_available() -> Vec<String> {
@@ -1129,19 +1147,22 @@ fn DeveloperOverviewBody(ctx: PageContext) -> Element {
     // Local state for create-form permission selection.
     let mut selected_perms = use_signal(|| vec!["read".to_string(), "analytics:read".to_string()]);
 
-    // Wave 23 T5 — read live data from `data_developer` (BFF proxy:
-    // /api/v1/developer). The OLD page rendered hardcoded
-    // `sample_api_keys()` for every visitor. With the BFF wired, the
-    // page renders the real API key list + real stats. Falls back to
-    // the static sample set when the BFF hasn't supplied data
-    // (admin BFF, dev mode, etc.) so the surface area stays
-    // unit-testable.
+    // === wave32-t1-remove-sample-fallbacks ===
+    // Wave 32 T1 — read live data from `data_developer` (BFF proxy:
+    // /api/v1/developer). The previous wave-23 T5 fallback to
+    // `sample_api_keys()` is REMOVED. The BFF in-process call
+    // (`ssr.rs::fetch_page_data` for `/developer`) always supplies
+    // a payload in the dev/prod path; an empty list now means
+    // "BFF returned no keys" rather than a 1:1 fallback to
+    // hardcoded data. This matches the brief: "If the page is
+    // wired to BFF, REMOVE `sample_api_keys()` (delete the
+    // function and all calls)".
     let data: Option<DeveloperData> = ctx.params.get("data_developer")
         .and_then(|s| serde_json::from_str(s).ok());
     let api_keys: Vec<ApiKey> = data.as_ref()
         .and_then(|d| d.api_keys.clone())
         .map(|v| v.into_iter().map(ApiKey::from).collect())
-        .unwrap_or_else(sample_api_keys);
+        .unwrap_or_default();
     let stats: Option<DeveloperStatsProps> = data.as_ref()
         .and_then(|d| d.stats.clone())
         .map(|s| s.into_props());
@@ -1228,14 +1249,61 @@ fn DeveloperOverviewBody(ctx: PageContext) -> Element {
 /// body (matching the source's authed-rendered state).
 #[component]
 fn DeveloperUsageBody(ctx: PageContext) -> Element {
-    // Sample 7-day history (only used in the authed branch).
-    let history: Vec<(String, u32)> = (0..7)
-        .map(|i| {
-            let day = format!("D{}", i + 1);
-            let count = 800 + (i * 50) + (i * 73 % 200) as u32;
-            (day, count)
-        })
-        .collect();
+    // === wave32-t1-developer-usage-wire ===
+    // Wave 32 T1 — read the BFF payload from `data_developer_usage`
+    // (set by `ssr.rs::fetch_page_data` for the `/developer/usage`
+    // path). When present, derive the 4 stat-card numbers +
+    // per-key table + history chart from the BFF data. When absent
+    // (unit tests, admin BFF without this path, etc.) fall back to
+    // the historical hardcoded numbers so the surface area stays
+    // unit-testable. The fallback is kept narrow on purpose: the
+    // BFF is now the canonical data source, this is just a
+    // backstop for SSR-with-no-BFF.
+    let usage: Option<DeveloperUsageData> = ctx.params.get("data_developer_usage")
+        .and_then(|s| serde_json::from_str(s).ok());
+
+    // 4 stat cards (Total Requests / Requests 24h / Error Rate 24h /
+    // Success Rate) — derive from the BFF summary.
+    let summary = usage.as_ref().and_then(|u| u.summary.clone());
+    let total_requests = summary.as_ref().map(|s| s.calls_30d).unwrap_or(170_414);
+    let requests_24h = summary.as_ref().map(|s| s.calls_today).unwrap_or(2_891);
+    let (error_rate_24h, success_rate) = match summary.as_ref() {
+        Some(s) if s.calls_today > 0 => {
+            let total_errors = s.errors_429.saturating_add(s.errors_500);
+            let err_pct = (total_errors as f64 / s.calls_today as f64) * 100.0;
+            (err_pct, 100.0 - err_pct)
+        }
+        _ => (0.42_f64, 99.6_f64),
+    };
+
+    // Per-key usage — derive from BFF `per_key[]` (the BFF doesn't
+    // supply a `status` field, so all keys render as "active" —
+    // matches the prod rendering where revoked keys are filtered
+    // out server-side).
+    let per_key: Vec<ApiKeyUsage> = usage.as_ref()
+        .and_then(|u| u.per_key.clone())
+        .map(|keys| keys.into_iter().map(|k| ApiKeyUsage {
+            id: k.key_id,
+            name: k.name,
+            status: "active".to_string(),
+            total_requests: k.calls_today,
+        }).collect())
+        .unwrap_or_default();
+
+    // History chart — derive from BFF `history[]` (date, calls).
+    // Empty when BFF didn't supply history (BFF is the canonical
+    // source — the historical `(0..7).map(|i| ...)` sample loop is
+    // removed).
+    let history: Vec<(String, u32)> = usage.as_ref()
+        .and_then(|u| u.history.clone())
+        .map(|h| h.into_iter().map(|p| (p.date, p.calls as u32)).collect())
+        .unwrap_or_default();
+
+    // Top endpoints — BFF `/api/v1/developer/usage` does not
+    // supply a `top_endpoints` field (per the brief's shape
+    // `{summary, per_key, history}`). Pass an empty vec so the
+    // component renders the "No endpoint data" placeholder.
+    let top_endpoints: Vec<EndpointUsage> = vec![];
 
     rsx! {
         MainLayout { ctx: ctx.clone(),
@@ -1247,15 +1315,16 @@ fn DeveloperUsageBody(ctx: PageContext) -> Element {
                             description: Some("Per-day call volume and rate-limit status".to_string()),
                             icon: Some("chart-line".to_string()),
                         }
-                        // 7. UsageMonitor
+                        // 7. UsageMonitor — props now derived from
+                        // the BFF `data_developer_usage` payload.
                         UsageMonitor {
-                            total_requests: 170_414,
-                            requests_24h: 2_891,
-                            error_rate_24h: 0.42,
-                            success_rate: 99.6,
+                            total_requests,
+                            requests_24h,
+                            error_rate_24h,
+                            success_rate,
                             history,
-                            per_key: sample_api_key_usage(),
-                            top_endpoints: sample_top_endpoints(),
+                            per_key,
+                            top_endpoints,
                         }
                         // Legacy 3-card row (kept for regression
                         // parity with the pre-Wave-6A shape).
@@ -1542,6 +1611,37 @@ mod tests {
         }
     }
 
+    /// Authed context pre-populated with a realistic
+    /// `data_developer_usage` BFF payload (mirrors
+    /// `apps/frontend/src/api.rs::developer_usage_value()`).
+    /// Used by the wave-32-T1 test that asserts the BFF data
+    /// flows through the `/developer/usage` page render.
+    fn authed_ctx_with_usage() -> PageContext {
+        let mut ctx = authed_ctx();
+        ctx.path = "/developer/usage".to_string();
+        ctx.params.insert(
+            "data_developer_usage".to_string(),
+            r#"{
+                "summary": {
+                    "calls_today": 12481,
+                    "calls_7d": 84205,
+                    "calls_30d": 358910,
+                    "errors_429": 4,
+                    "errors_500": 0
+                },
+                "per_key": [
+                    { "key_id": "k_prod",    "name": "Production", "calls_today": 8231, "errors_429": 2, "errors_500": 0 },
+                    { "key_id": "k_staging", "name": "Staging",    "calls_today": 3750, "errors_429": 1, "errors_500": 0 }
+                ],
+                "history": [
+                    { "date": "2025-01-15", "calls": 9812,  "errors_429": 1, "errors_500": 0 },
+                    { "date": "2025-01-14", "calls": 11450, "errors_429": 0, "errors_500": 0 }
+                ]
+            }"#.to_string(),
+        );
+        ctx
+    }
+
     fn render_overview_to_string(ctx: &PageContext) -> String {
         let (_meta, el) = render_overview(ctx);
         dioxus_ssr::render_element(el)
@@ -1585,9 +1685,25 @@ mod tests {
     // /developer/usage body (authed ctx) and asserts the new
     // UsageMonitor per-key + top-endpoints sub-cards are present
     // and contain a sample key name + endpoint path.
+    //
+    // === wave32-t1-developer-usage-wire ===
+    // Wave 32 T1 — extended to inject the BFF `data_developer_usage`
+    // payload (per the wave-32 brief: "Read the JSON from
+    // `ctx.params['developer_usage']`. If present, render `per_key`
+    // as the API key cards"). The previous assertions were tied
+    // to the now-removed `sample_api_key_usage()` + `sample_top_endpoints()`
+    // hardcoded fixtures. Per the spec-flips-pre-existing-test
+    // pattern, the assertions are EXTENDED (not deleted): the
+    // "Production" seed comes from the BFF per_key data; the
+    // "/api/analytics/rankings" assertion is replaced with the
+    // "No endpoint data" assertion (BFF doesn't supply endpoints).
+    //
+    // Note: the rendered HTML shows raw numbers (`358910`, `8231`)
+    // — Dioxus's `{}` formatter doesn't add thousand-separators.
+    // Assertions match the actual rendered format.
     #[test]
     fn test_usage_monitor_per_key() {
-        let ctx = authed_ctx();
+        let ctx = authed_ctx_with_usage();
         let (_meta, el) = render_usage(&ctx);
         let html = dioxus_ssr::render_element(el);
         assert!(
@@ -1598,15 +1714,70 @@ mod tests {
             html.contains("usage-monitor-top-endpoints"),
             "usage body should contain top-endpoints card marker. Got: {html}"
         );
-        // Sample data check — the seeded Production key shows up.
+        // BFF data check — the Production key from the injected
+        // `data_developer_usage.per_key[0]` shows up in the
+        // per-key table.
         assert!(
             html.contains("Production"),
-            "usage body should render the seeded Production API key. Got: {html}"
+            "usage body should render the BFF `per_key[0].name=Production` API key. Got: {html}"
         );
-        // Sample data check — the top endpoint path shows up.
+        // BFF data check — the per-key `calls_today` number is
+        // rendered (proves the wire→props pipeline is wired).
         assert!(
-            html.contains("/api/analytics/rankings"),
-            "usage body should render the top endpoint path. Got: {html}"
+            html.contains("8231"),
+            "usage body should render the BFF `per_key[0].calls_today=8231`. Got: {html}"
+        );
+        // BFF data check — the 30-day total from `summary.calls_30d`
+        // is rendered (proves the summary→total_requests wiring).
+        assert!(
+            html.contains("358910"),
+            "usage body should render the BFF `summary.calls_30d=358910`. Got: {html}"
+        );
+        // BFF data check — the 24h total from `summary.calls_today`
+        // is rendered (proves the summary→requests_24h wiring).
+        assert!(
+            html.contains("12481"),
+            "usage body should render the BFF `summary.calls_today=12481`. Got: {html}"
+        );
+        // BFF does NOT supply `top_endpoints` — the card renders
+        // the "No endpoint data" placeholder (replaces the
+        // pre-wave-32 assertion that checked
+        // `/api/analytics/rankings` from the removed sample data).
+        assert!(
+            html.contains("No endpoint data"),
+            "usage body should render 'No endpoint data' placeholder when BFF has no top_endpoints. Got: {html}"
+        );
+    }
+
+    // === wave32-t1-developer-usage-wire ===
+    // Wave 32 T1 — `test_usage_monitor_no_bff_data`. Renders the
+    // /developer/usage body with NO `data_developer_usage` BFF
+    // payload and asserts the page still renders (empty data
+    // paths, the 4 stat cards fall back to the historical default
+    // numbers, the per-key + history cards render "No API keys
+    // yet" / "No data" placeholders). This is the no-op test
+    // path for callers (admin BFF, unit tests, dev mode) that
+    // don't plumb the BFF payload.
+    #[test]
+    fn test_usage_monitor_no_bff_data() {
+        let ctx = authed_ctx();
+        let (_meta, el) = render_usage(&ctx);
+        let html = dioxus_ssr::render_element(el);
+        assert!(
+            html.contains("usage-monitor-per-key"),
+            "usage body should contain per-key card marker even without BFF data. Got: {html}"
+        );
+        // No BFF data → no per_key rows → "No API keys yet"
+        // placeholder.
+        assert!(
+            html.contains("No API keys yet"),
+            "usage body should render 'No API keys yet' placeholder when BFF has no per_key. Got: {html}"
+        );
+        // No BFF data → no history → "No data" placeholder in
+        // the history chart card.
+        assert!(
+            html.contains("No data"),
+            "usage body should render 'No data' placeholder when BFF has no history. Got: {html}"
         );
     }
 

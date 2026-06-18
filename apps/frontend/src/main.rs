@@ -164,6 +164,17 @@ async fn main() {
         .route("/api/v1/developer/docs", get(api_developer_docs))
         .route("/api/v1/analytics/summary", get(api_analytics))
         .route("/api/v1/dashboard", get(api_dashboard))
+        // Wave 31 T1 / Wave 32 T1 — `/api/v1/dashboard/stats` is
+        // the explicit stats endpoint. Wave 31 T1 added the route
+        // (returned the inner `data` sub-object). Wave 32 T1
+        // changed the shape to the full envelope
+        // `{success: true, data: {stats, recentActivity}}` per
+        // the brief: "should return full envelope `{success, data:
+        // {...}}` (brief's shape). My attempt returned only inner
+        // `data` sub-object." The SSR layer still extracts the
+        // inner `data` for the page's `ctx.params["data_dashboard"]`
+        // lookup — see `ssr.rs::fetch_page_data`.
+        .route("/api/v1/dashboard/stats", get(api_dashboard_stats))
         .route("/api/v1/payment/{id}", get(api_payment))
         .route("/api/v1/wallet/chains", get(api_wallet_chains))
         .route("/api/v1/wallet/connect", post(api_wallet_connect))

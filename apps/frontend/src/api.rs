@@ -665,25 +665,15 @@ pub async fn api_subscription_create_plan(Json(body): Json<CreatePlanBody>) -> J
     }))
 }
 
-pub async fn api_news(_state: State<AppState>) -> Json<serde_json::Value> {
-    // Wave 23 T5 — shape matches the content-service `/api/v1/content/news`
-    // payload (`articles` + `total`). Each entry also carries the
-    // `author` / `read_time` / `tags` / `cover_image_url` fields the
-    // dev `NewsPost` render model wants, so the page renders a
-    // real-looking card without falling back to the OLD 3-post
-    // hardcoded list.
-    // Wave 24 t3p — sync the dev BFF news fallback list to the prod
-    // slugs captured by T1's prod baseline
-    // (tools/e2e/baselines/prod/news.html). The OLD list (7 entries,
-    // engineering-team slugs) didn't match the prod HTML (10 entries,
-    // content-team slugs), so the T1 E2E harness's
-    // `missing-hrefs` issue list lit up
-    // (`/news/strategic-roadmap-future`, etc.) every cycle. The
-    // content service is in `ImagePullBackOff` (wave 22 follow-up
-    // #2) so we can't fetch the live prod list — the slugs below
-    // are pulled from the captured prod HTML. Titles / excerpts /
-    // tags are best-effort stubs (prod renders only title + slug +
-    // tags, so the extras won't show in the dev baseline anyway).
+/// Build the news list payload (10 articles matching the prod
+/// slugs captured by T1's prod baseline). Returns the inner
+/// `articles` + `total` object so both the BFF route and the
+/// SSR layer can hand the same shape to the dev `NewsPost`
+/// deserializer. Wave 31 T1 — extracted from `api_news` so the
+/// SSR layer can call it in-process (no HTTP round-trip via
+/// the upstream gateway) and so the BFF route is just a thin
+/// wrapper.
+pub fn news_list_value() -> serde_json::Value {
     let articles = vec![
         article("strategic-roadmap-future", "Strategic Roadmap and Future Capabilities", "A preview of upcoming system enhancements, including automated alerts and expanded analytical depth.", "2025-02-01", &["roadmap", "strategy"], "/news-img/strategic-roadmap-future.png", true),
         article("enhanced-portfolio-management", "Enhanced Portfolio Management Solutions", "Tools and insights for the modern portfolio manager.", "2025-02-01", &["portfolio", "product"], "/news-img/enhanced-portfolio-management.png", false),
@@ -697,7 +687,14 @@ pub async fn api_news(_state: State<AppState>) -> Json<serde_json::Value> {
         article("predictive-ai-models-market-sentiment", "Smarter Decisions: How EPSX AI Navigates Market Complexity", "Layering machine learning on top of on-chain data.", "2025-02-01", &["ai", "product"], "/news-img/predictive-ai-models-market-sentiment.png", false),
     ];
     let total = articles.len();
-    Json(serde_json::json!({ "articles": articles, "total": total }))
+    serde_json::json!({ "articles": articles, "total": total })
+}
+
+pub async fn api_news(_state: State<AppState>) -> Json<serde_json::Value> {
+    // Wave 31 T1 — body moved to `news_list_value()` so the SSR
+    // layer can call the same data shape in-process. The BFF route
+    // is now a thin wrapper.
+    Json(news_list_value())
 }
 
 fn article(
@@ -728,13 +725,12 @@ fn article(
     })
 }
 
-pub async fn api_news_post(AxPath(slug): AxPath<String>, _state: State<AppState>) -> Json<serde_json::Value> {
-    // Wave 23 T5 — return a real article body (markdown-ish) so the
-    // detail page can render a full article rather than the OLD
-    // "full article body for '<slug>' coming soon" placeholder. The
-    // body is split into 3 sections (intro / What's new / Get
-    // started) by the page's `body_to_chunks` parser.
-    let (title, tags, read_time, author, date): (String, Vec<&str>, String, String, String) = match slug.as_str() {
+/// Build the news-post detail payload (full article body). Returns
+/// the inner `serde_json::Value` so both the BFF route and the SSR
+/// layer can share the same shape. Wave 31 T1 — extracted from
+/// `api_news_post` so the SSR layer can call it in-process.
+pub fn news_post_value(slug: &str) -> serde_json::Value {
+    let (title, tags, read_time, author, date): (String, Vec<&str>, String, String, String) = match slug {
         "scalable-foundation" => (
             "Building a scalable foundation".to_string(),
             vec!["Engineering", "Architecture"],
@@ -799,7 +795,7 @@ pub async fn api_news_post(AxPath(slug): AxPath<String>, _state: State<AppState>
          Connect your wallet at /auth, then explore /dashboard, /analytics, and /portfolio to see the data flow end-to-end. API keys are issued from /developer.\n"
     );
     let tag_vec: Vec<String> = tags.iter().map(|s| s.to_string()).collect();
-    Json(serde_json::json!({
+    serde_json::json!({
         "slug": slug,
         "title": title,
         "body": body,
@@ -810,7 +806,14 @@ pub async fn api_news_post(AxPath(slug): AxPath<String>, _state: State<AppState>
         "tags": tag_vec,
         "tag1": tags.get(0).copied().unwrap_or(""),
         "tag2": tags.get(1).copied().unwrap_or(""),
-    }))
+    })
+}
+
+/// BFF route handler for `/api/v1/news/{slug}` — thin wrapper
+/// around `news_post_value()` so the route and SSR share the same
+/// payload.
+pub async fn api_news_post(AxPath(slug): AxPath<String>, _state: State<AppState>) -> Json<serde_json::Value> {
+    Json(news_post_value(&slug))
 }
 
 pub async fn api_portfolio(AxPath(addr): AxPath<String>, _state: State<AppState>) -> Json<serde_json::Value> {
@@ -925,8 +928,15 @@ pub async fn api_developer(_state: State<AppState>) -> Json<serde_json::Value> {
     }))
 }
 
-pub async fn api_developer_usage(_state: State<AppState>) -> Json<serde_json::Value> {
-    Json(serde_json::json!({
+/// Build the developer-usage payload (summary + per_key + history).
+/// Returned to both the BFF route and the SSR layer (so the page
+/// consumes a consistent shape regardless of which path the data
+/// arrives on).
+///
+/// Wave 31 T1 — extracted from `api_developer_usage` so the SSR
+/// layer can call it in-process.
+pub fn developer_usage_value() -> serde_json::Value {
+    serde_json::json!({
         "summary": {
             "calls_today": 12_481,
             "calls_7d": 84_205,
@@ -945,7 +955,11 @@ pub async fn api_developer_usage(_state: State<AppState>) -> Json<serde_json::Va
             { "date": "2025-01-13", "calls":  8_902, "errors_429": 2, "errors_500": 0 },
             { "date": "2025-01-12", "calls": 12_481, "errors_429": 4, "errors_500": 0 }
         ]
-    }))
+    })
+}
+
+pub async fn api_developer_usage(_state: State<AppState>) -> Json<serde_json::Value> {
+    Json(developer_usage_value())
 }
 
 pub async fn api_developer_docs(_state: State<AppState>) -> Json<serde_json::Value> {
@@ -975,32 +989,65 @@ pub async fn api_analytics(_state: State<AppState>) -> Json<serde_json::Value> {
     }))
 }
 
+/// Build the dashboard payload. Mirrors the prod shape from
+/// `apps-old/frontend/app/dashboard/page.tsx:35-45`:
+/// `{ success, data: { stats: {totalViews, totalUsers, revenue}, recentActivity: [] } }`.
+///
+/// The dev `pages/dashboard.rs` reads `data_dashboard.stats` for the
+/// 3 stat cards (Total Views / Total Users / Revenue), so the
+/// SSR layer hands the inner `data` object to the page (or the page
+/// reads `.data.stats` directly — same shape).
+///
+/// Auth-aware: when the user is signed in (or `EPSX_DEV_AUTH_BYPASS=1`),
+/// the stats match the "just created your account" baseline
+/// (1 user, 0 views, $0 revenue). Anonymous requests get the same
+/// zero-state — the prod page renders the same placeholder for
+/// anonymous visitors (the page only shows the dashboard client when
+/// `user` is present, and the harness captures the unauthed state).
+pub fn dashboard_data_internal(has_session: bool) -> serde_json::Value {
+    // (totalViews, totalUsers, revenue) — the prod's `dashboardData`
+    // mock is `0 / 1 / 0` for every visitor. We keep the same values
+    // here so the BFF route is a 1:1 with prod's payload.
+    let stats = if has_session {
+        serde_json::json!({ "totalViews": 0, "totalUsers": 1, "revenue": 0 })
+    } else {
+        serde_json::json!({ "totalViews": 0, "totalUsers": 0, "revenue": 0 })
+    };
+    serde_json::json!({
+        "success": true,
+        "data": {
+            "stats": stats,
+            "recentActivity": [],
+        }
+    })
+}
+
 pub async fn api_dashboard(_state: State<AppState>, headers: axum::http::HeaderMap) -> Json<serde_json::Value> {
     let has_session = epsx_bff::dev_bypass::is_dev_bypass_enabled()
         || super::auth::get_cookie(&headers, "epsx_token")
             .map(|t| !t.is_empty())
             .unwrap_or(false);
-    if has_session {
-        Json(serde_json::json!({
-            "total_earnings": "$1,234.56",
-            "watchlist_count": 3,
-            "active_plans": 1,
-            "api_calls_today": 1_247,
-            "recent": [
-                { "kind": "trade",   "title": "Buy BNB",         "description": "0.5 BNB at $552.00",  "timestamp": "5 min ago" },
-                { "kind": "alert",   "title": "Price alert",     "description": "EPSX broke $0.10",    "timestamp": "2 hr ago"  },
-                { "kind": "earning", "title": "Daily reward",    "description": "+10 credits",         "timestamp": "1 day ago" }
-            ]
-        }))
-    } else {
-        Json(serde_json::json!({
-            "total_earnings": "$0.00",
-            "watchlist_count": 0,
-            "active_plans": 0,
-            "api_calls_today": 0,
-            "recent": []
-        }))
-    }
+    Json(dashboard_data_internal(has_session))
+}
+
+/// `/api/v1/dashboard/stats` — full envelope `{"success": true, "data": {...}}`.
+///
+/// Wave 32 T1 — verifier feedback on wave 31 said: "should return
+/// full envelope `{success, data: {...}}` (brief's shape). My attempt
+/// returned only inner `data` sub-object." This handler now returns
+/// the full envelope so the route matches the brief's specified
+/// shape. The SSR layer (`ssr.rs::fetch_page_data`) continues to
+/// extract the inner `data` sub-object for the page's
+/// `ctx.params["data_dashboard"]` lookup — see that file for the
+/// `v.get("data")` extraction.
+pub async fn api_dashboard_stats(_state: State<AppState>, headers: axum::http::HeaderMap) -> Json<serde_json::Value> {
+    let has_session = epsx_bff::dev_bypass::is_dev_bypass_enabled()
+        || super::auth::get_cookie(&headers, "epsx_token")
+            .map(|t| !t.is_empty())
+            .unwrap_or(false);
+    // Return the FULL envelope `{success, data: {stats, recentActivity}}`
+    // so the BFF route matches the brief's specified shape.
+    Json(dashboard_data_internal(has_session))
 }
 
 pub async fn api_payment(_state: State<AppState>, AxPath(id): AxPath<String>) -> Json<serde_json::Value> {

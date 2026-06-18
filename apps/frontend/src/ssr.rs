@@ -237,20 +237,53 @@ async fn fetch_page_data(
     headers: &axum::http::HeaderMap,
 ) {
     use epsx_client::RequestContext;
-    let _ = user; // suppress unused warning until more endpoints are wired
+    // Wave 31 T1 — for the 3 live-data-plumbing routes (dashboard,
+    // news, developer/usage) we now call the BFF's own handler
+    // helpers IN-PROCESS rather than going through the upstream
+    // gateway. This means the BFF route and the SSR layer share the
+    // exact same JSON shape, and the dev pages always have live data
+    // even when the upstream gateway/services are down. The previous
+    // `state.X.get_plain("/api/v1/...")` calls hit the gateway and
+    // returned 502 when the upstream was unavailable, so the page
+    // fell back to its hardcoded mock — defeating the purpose of
+    // "live data plumbing".
+
+    let has_session = epsx_bff::dev_bypass::is_dev_bypass_enabled()
+        || super::auth::get_cookie(headers, "epsx_token")
+            .map(|t| !t.is_empty())
+            .unwrap_or(false);
 
     // /dashboard: fetch stat cards + recent activity.
-    // Wave 23 T5 — use the BFF's own `/api/v1/dashboard` endpoint
-    // (which returns a payload matching the dev `DashboardData`
-    // struct) rather than the analytics service's missing
-    // `/api/v1/analytics/metrics/dashboard` endpoint. Same shape
-    // the page expects; no double hop.
+    // Wave 31 T1 — call the BFF's own `dashboard_data_internal()`
+    // helper in-process. Inject the INNER `data` sub-object (not the
+    // full envelope) so the page's existing
+    // `params["data_dashboard"]["stats"]` lookup continues to work
+    // (the page reads `.get("stats")` directly — see
+    // `pages/dashboard.rs::RenderDashboard`).
     if path == "/dashboard" {
-        if let Ok(v) = state.analytics.get_plain("/api/v1/dashboard").await {
-            params.insert("data_dashboard".into(), v.to_string());
-        } else if let Ok(v) = state.analytics.get_with_ctx("/api/v1/analytics/metrics/dashboard", &RequestContext::from_headers(headers)).await {
-            params.insert("data_dashboard".into(), v.to_string());
+        let v = crate::api::dashboard_data_internal(has_session);
+        if let Some(data) = v.get("data") {
+            params.insert("data_dashboard".into(), data.to_string());
         }
+    }
+    // /news: fetch news. Wave 31 T1 — call the BFF's own
+    // `news_list_value()` helper in-process.
+    if path == "/news" {
+        params.insert("data_news".into(), crate::api::news_list_value().to_string());
+    }
+    // /news/[slug]: fetch the article body. Wave 31 T1 — call the
+    // BFF's own `news_post_value(slug)` helper in-process.
+    if path.starts_with("/news/") {
+        if let Some(slug) = path.strip_prefix("/news/").map(|s| s.trim_end_matches('/').to_string()) {
+            if !slug.is_empty() && !slug.contains('/') {
+                params.insert("data_news_post".into(), crate::api::news_post_value(&slug).to_string());
+            }
+        }
+    }
+    // /developer/usage: fetch usage stats. Wave 31 T1 — call the
+    // BFF's own `developer_usage_value()` helper in-process.
+    if path == "/developer/usage" {
+        params.insert("data_developer_usage".into(), crate::api::developer_usage_value().to_string());
     }
     // /notifications: fetch list
     if path == "/notifications" && user.is_some() {
@@ -274,35 +307,6 @@ async fn fetch_page_data(
             params.insert("data_plans".into(), v.to_string());
         } else if let Ok(v) = state.content.get_plain("/api/v1/content/plans").await {
             params.insert("data_plans".into(), v.to_string());
-        }
-    }
-    // /news: fetch news. Wave 23 T5 — try the BFF's own
-    // `/api/v1/news` endpoint first (returns the content-service
-    // `articles` shape with the dev page's `tags` / `read_time` /
-    // `author` / `cover_image_url` fields). Falls back to the
-    // content service for prod parity (also dead, but the right
-    // path when it comes back).
-    if path == "/news" {
-        if let Ok(v) = state.content.get_plain("/api/v1/news").await {
-            params.insert("data_news".into(), v.to_string());
-        } else if let Ok(v) = state.content.get_plain("/api/v1/content/news").await {
-            params.insert("data_news".into(), v.to_string());
-        }
-    }
-    // /news/[slug]: fetch the article body. Wave 23 T5 — try the
-    // BFF's own `/api/v1/news/<slug>` first (returns a markdown
-    // body the dev `news_detail.rs::body_to_chunks` parser can
-    // chunk). Falls back to the content service
-    // `/api/v1/content/news/<slug>` for prod parity.
-    if path.starts_with("/news/") {
-        if let Some(slug) = path.strip_prefix("/news/").map(|s| s.trim_end_matches('/').to_string()) {
-            if !slug.is_empty() && !slug.contains('/') {
-                if let Ok(v) = state.content.get_plain(&format!("/api/v1/news/{}", slug)).await {
-                    params.insert("data_news_post".into(), v.to_string());
-                } else if let Ok(v) = state.content.get_plain(&format!("/api/v1/content/news/{}", slug)).await {
-                    params.insert("data_news_post".into(), v.to_string());
-                }
-            }
         }
     }
     // /portfolio: fetch holdings. Wave 23 T5 — try the BFF's own
@@ -345,11 +349,6 @@ async fn fetch_page_data(
     if path == "/developer" {
         if let Ok(v) = state.identity.get_plain("/api/v1/developer").await {
             params.insert("data_developer".into(), v.to_string());
-        }
-    }
-    if path == "/developer/usage" {
-        if let Ok(v) = state.identity.get_plain("/api/v1/developer/usage").await {
-            params.insert("data_developer_usage".into(), v.to_string());
         }
     }
     if path == "/developer/docs" {
