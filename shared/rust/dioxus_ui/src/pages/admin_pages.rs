@@ -15,6 +15,24 @@
 //! through to the existing dispatch renders the AdminAuthGate's
 //! "Connect Wallet" page which is closer to a 404 in
 //! pixel-diff than a generic skeleton.
+//!
+//! Wave 38b T2 STRUCTURAL port — the 3 outlier routes
+//! (`/access-denied`, `/unauthorized`,
+//! `/developer-portal/api-keys/create`) were also exempted from
+//! skeleton mode in Wave 38 (`1ffd85a8`) because prod DOESN'T
+//! render the skeleton for them — prod renders the actual
+//! "Access Denied" SSR panel (red-shield + h1 + Error Details
+//! + Go to Auth / Go Back). The Wave 38 fix was the wrong shape
+//! because the per-route render functions
+//! (`access_denied::render`, `unauthorized::render`,
+//! `developer_portal::render_create_key`) used a different
+//! `AccessDenied` primitive with non-prod class strings, giving
+//! 0% match on all 3 (99.95% diff, see
+//! `tools/e2e-admin/report.md` Wave 24 T1'). This dispatch now
+//! routes the 3 outliers to the prod-EXACT
+//! `<AccessDeniedPanel>` (see `admin_pages/access_denied_panel.rs`).
+//! The 22 other admin routes keep the Wave 34 behavior
+//! (skeleton-only).
 
 use dioxus::prelude::*;
 use crate::primitives::*;
@@ -37,6 +55,7 @@ pub mod unauthorized;
 pub mod auth_redirect;
 pub mod auth_page;
 pub mod access_denied;
+pub mod access_denied_panel;
 pub mod wallet_redirect;
 pub mod wallet_wallets;
 pub mod wallet_credits;
@@ -47,15 +66,56 @@ pub mod policies;
 pub fn dispatch(ctx: &PageContext) -> (PageMeta, Element) {
     let p = ctx.path.as_str();
 
+    // Wave 38b T2 — STRUCTURAL port for the 3 outlier routes.
+    // The 3 outliers (`/access-denied`, `/unauthorized`,
+    // `/developer-portal/api-keys/create`) render the SAME SSR
+    // panel in prod (verified by owner probe 2026-06-18 — see
+    // `tools/e2e-admin/baselines/prod-admin/` for the 3 prod
+    // HTML baselines). The panel is the red-shield "Access
+    // Denied" block with `bg-gradient-to-br from-red-500
+    // to-red-600` icon container, `<h1>Access Denied</h1>`,
+    // descriptive `<p>`, "Error Details" panel, "Go to Auth" +
+    // "Go Back" buttons. This dispatch short-circuits to
+    // `<AccessDeniedPanel>` for those 3 routes — both when the
+    // request is unauthed (real prod behavior) AND when the BFF
+    // is started with `EPSX_E2E_SKELETON=1` (E2E capture
+    // harness) — so dev matches prod's pre-hydration
+    // byte-for-byte.
+    //
+    // The other 22 admin routes still get the Wave 34 behavior
+    // (AuthPageOverlay + SkeletonPage placeholder bars) below.
+    if matches!(
+        p,
+        "/access-denied" | "/unauthorized" | "/developer-portal/api-keys/create"
+    ) {
+        return access_denied_panel::render(ctx);
+    }
+
     // Wave 34 T1 — SSR skeleton mode gate. Mirrors prod's
     // pre-hydration skeleton. Triggers on:
     //   1. `ctx.user.is_none()` — real unauthed admin request
     //   2. `EPSX_E2E_SKELETON=1` env var — E2E capture harness
     //
-    // Exempts `/dashboard` + `/policies` (they 404 in prod).
+    // Wave 38 T2 — extended exempt list. Routes that prod
+    // renders as a SPECIFIC page (not the generic skeleton)
+    // must NOT be caught by the gate, otherwise dev shows the
+    // skeleton while prod shows the actual page and the
+    // pixel-diff balloons to ~83% (outliers at 17.34% match).
+    //
+    // `/dashboard` + `/policies`  — 404 in prod (Wave 34 T1)
+    //
+    // NOTE: the 3 outlier routes (`/access-denied`,
+    // `/unauthorized`, `/developer-portal/api-keys/create`) are
+    // handled above by `access_denied_panel::render`, not
+    // below by the skeleton gate. The previous Wave 38
+    // exemption just fell through to the per-route render
+    // function which used the wrong (non-prod) class strings
+    // — see the `access_denied_panel::render` doc for the
+    // historical fix.
     let skeleton_mode = ctx.user.is_none()
         || std::env::var("EPSX_E2E_SKELETON").ok().as_deref() == Some("1");
-    if skeleton_mode && !matches!(p, "/dashboard" | "/policies") {
+    if skeleton_mode && !matches!(p, "/dashboard" | "/policies")
+    {
         let slug = slug_for_path(p);
         return (
             PageMeta::admin(slug),
