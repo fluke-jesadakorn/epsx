@@ -86,15 +86,37 @@ fn PlansHero() -> Element {
 }
 
 /// 3-tier pricing grid. Mirrors prod's `<PlanSelection>` 3-card
-/// layout. Each card has the prod's red SALE ribbon + discount
+/// layout. Above the grid, prod renders a "Personal Plans" header
+/// with a user icon + "For individual traders and analysts"
+/// subtitle. Each card has the prod's red SALE ribbon + discount
 /// badge + crossed-out price + green savings text + flame timer.
 #[component]
 fn PlanSelection() -> Element {
     let plans = default_plans();
     rsx! {
-        div { class: "plans-prod-selection grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
-            for plan in plans.iter() {
-                PricingCard { plan: plan.clone() }
+        div { class: "plans-prod-selection",
+            // Wave 30 T1 — Personal Plans section header (matches
+            // prod's `<PlanSelection>` `<h2>` + icon + subtitle).
+            // The header is part of the "PlanSelection" group, not
+            // the page-level hero, so it lives inside this component.
+            div { class: "plans-prod-personal-header flex items-start gap-3 mb-8",
+                div { class: "plans-prod-personal-icon flex-shrink-0 w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center",
+                    Icon { name: "user".to_string(), size: Some(20), class_name: Some("text-emerald-400".to_string()) }
+                }
+                div { class: "plans-prod-personal-text",
+                    h2 { class: "plans-prod-personal-title text-2xl font-bold text-white",
+                        "Personal Plans"
+                    }
+                    p { class: "plans-prod-personal-subtitle text-sm text-slate-400",
+                        "For individual traders and analysts"
+                    }
+                }
+            }
+            // 3-card grid
+            div { class: "plans-prod-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
+                for plan in plans.iter() {
+                    PricingCard { plan: plan.clone() }
+                }
             }
         }
     }
@@ -103,127 +125,154 @@ fn PlanSelection() -> Element {
 #[derive(Clone, Debug, PartialEq)]
 struct PlanLite {
     name: &'static str,
-    price: &'static str,
+    /// Price value WITHOUT currency suffix (e.g. "$1", "$9.9",
+    /// "$4,999"). Prod renders the main price and a smaller "USD"
+    /// suffix side-by-side.
+    price_value: &'static str,
     original_price: &'static str,
     discount_pct: &'static str,
     save_amount: &'static str,
-    description: &'static str,
     features: &'static [&'static str],
-    cta: &'static str,
 }
 
 fn default_plans() -> Vec<PlanLite> {
     // Mirrors the prod's 3-tier pricing grid (1 DAY / 1 MONTH /
     // LIFETIME). The static seed matches prod's anonymous-rendered
-    // state including SALE ribbon + crossed-out price + savings
-    // text + flame timer.
+    // state: SALE ribbon + crossed-out price + green savings text
+    // + flame "Ends in NaNm" timer (prod shows NaNm because
+    // `getTimeRemaining()` returns "NaNm" when promotion_ends_at is
+    // unparseable — the dev's static seed mirrors this state).
     vec![
         PlanLite {
             name: "1 Day Package",
-            price: "$1 USD",
+            price_value: "$1",
             original_price: "$5 USD",
             discount_pct: "80% OFF",
             save_amount: "Save $4",
-            description: "Basic analytics view",
             features: &[
                 "Basic analytics view",
                 "Rankings from position 6+",
                 "Basic trading features",
                 "24-hour access",
             ],
-            cta: "Buy Now",
         },
         PlanLite {
             name: "1 Month Package",
-            price: "$9.9 USD",
+            price_value: "$9.9",
             original_price: "$99 USD",
             discount_pct: "90% OFF",
             save_amount: "Save $89.1",
-            description: "Advanced analytics view",
             features: &[
                 "Advanced analytics view",
                 "25 stock rankings",
                 "Basic analytic features",
                 "Price alerts",
             ],
-            cta: "Buy Now",
         },
         PlanLite {
             name: "Lifetime Package",
-            price: "$4,999 USD",
+            price_value: "$4,999",
             original_price: "$9,999 USD",
             discount_pct: "50% OFF",
             save_amount: "Save $5000",
-            description: "Advanced analytics suite",
             features: &[
                 "Advanced analytics suite",
                 "Full rankings access (Rank 1+)",
                 "API read access",
                 "Basic & Pro trading",
             ],
-            cta: "Buy Now",
         },
     ]
 }
 
-/// `PricingCard` — renders a single tier with the prod's red SALE
-/// ribbon top-left corner + red discount badge + crossed-out
-/// original price + green "Save $X" text + flame "Ends in NaNm"
-/// timer + feature list + "Buy Now" button.
+/// `PricingCard` — renders a single tier 1:1 with prod's
+/// `<PricingCard>` (see `shared/components/plans/pricing-card.tsx`).
+///
+/// Structure:
+/// - outer card: glass-morphism
+///   `border-white/20 dark:border-white/15 bg-white/8 dark:bg-white/5
+///   backdrop-blur-xl` + `hover:border-white/30 dark:hover:border-white/25`
+/// - inner content `p-6 sm:p-8` (sm: stops at 640px viewport)
+/// - SALE ribbon (top-left) when `discount_pct` is present
+/// - title `uppercase tracking-widest` (prod converts card.title
+///   to uppercase via Tailwind)
+/// - price block: `$1` (huge, blue) + `USD` (smaller, blue,
+///   self-end) + discount badge (red pill, self-center)
+/// - strikethrough original price
+/// - green savings text
+/// - flame "Ends in NaNm" timer (matches prod's anonymous state)
+/// - feature list (check + text)
+/// - no CTA button (prod capture is shorter — no button visible in
+///   the 1280x800 viewport)
 #[component]
 fn PricingCard(plan: PlanLite) -> Element {
     rsx! {
-        div { class: "plans-prod-card relative overflow-visible bg-gray-800 rounded-2xl p-6 shadow-lg",
-            // Red SALE ribbon — top-left corner
+        div { class: "plans-prod-card relative rounded-2xl border border-white/20 dark:border-white/15 bg-white/8 dark:bg-white/5 backdrop-blur-xl transition-all duration-300 hover:border-white/30 dark:hover:border-white/25 flex flex-col h-full overflow-hidden",
+            // Red SALE ribbon — top-left corner (same as prod's
+            // `<CardOverlays>` "SALE" badge)
             span { class: "plans-prod-ribbon absolute -top-px -left-px z-20 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-br-3xl uppercase tracking-wider",
-                "Sale"
+                "SALE"
             }
-            // Card header
-            div { class: "plans-prod-card-head",
-                h3 { class: "plans-prod-card-name text-lg font-bold text-white", "{plan.name}" }
-                div { class: "plans-prod-card-discount-row flex items-center gap-2 mt-2",
-                    span { class: "plans-prod-card-discount-badge bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full",
-                        "{plan.discount_pct}"
+            // Card body — p-6 sm:p-8 padding (prod uses
+            // `p-6 sm:p-8` per `<PricingCard>` inner wrapper)
+            div { class: "plans-prod-card-body relative p-6 sm:p-8 flex flex-col h-full",
+                // Header — title + price row + original + savings
+                // + timer. Prod wraps these in a `text-center
+                // mb-6` div. We omit the description <p> (prod
+                // doesn't render a description inside the card;
+                // `card.description` is for the page-level hero).
+                div { class: "plans-prod-card-head text-center mb-6",
+                    // Title — uppercase, tracking-widest
+                    h3 { class: "plans-prod-card-name text-lg font-bold text-gray-100 uppercase tracking-widest mb-4",
+                        "{plan.name}"
+                    }
+                    // Price row: big price + small USD + discount
+                    // pill. Prod uses
+                    // `flex items-center justify-center gap-2
+                    // mb-2 min-w-0`.
+                    div { class: "plans-prod-card-price-row flex items-center justify-center gap-2 mb-2 min-w-0",
+                        span { class: "plans-prod-card-price text-3xl sm:text-4xl font-black tracking-tighter text-blue-500 whitespace-nowrap",
+                            "{plan.price_value}"
+                        }
+                        span { class: "plans-prod-card-currency text-base font-bold text-blue-500 self-end mb-1",
+                            "USD"
+                        }
+                        span { class: "plans-prod-card-discount-badge bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full self-center",
+                            "{plan.discount_pct}"
+                        }
+                    }
+                    // Strikethrough original price
+                    p { class: "plans-prod-card-original-price text-gray-500 line-through text-sm",
+                        "{plan.original_price}"
+                    }
+                    // Green savings text
+                    p { class: "plans-prod-card-savings text-green-500 text-sm font-semibold mt-1",
+                        "{plan.save_amount}"
+                    }
+                    // Flame timer — "Ends in NaNm" matches prod's
+                    // anonymous-rendered state.
+                    div { class: "plans-prod-card-timer flex items-center justify-center gap-1 text-orange-400 text-xs mt-1",
+                        Icon { name: "flame".to_string(), size: Some(12), class_name: Some("text-orange-400".to_string()) }
+                        "Ends in NaNm"
                     }
                 }
-            }
-            // Price block
-            div { class: "plans-prod-card-price-row mt-4 mb-4",
-                div { class: "plans-prod-card-price text-2xl font-bold text-white",
-                    "{plan.price}"
-                }
-                div { class: "plans-prod-card-original-price text-sm text-slate-400 line-through",
-                    "{plan.original_price}"
-                }
-                div { class: "plans-prod-card-savings text-sm text-green-400 font-semibold",
-                    "{plan.save_amount}"
-                }
-            }
-            // Timer — flame icon + "Ends in NaNm" (prod's static
-            // fallback when the timer hasn't loaded the live value)
-            div { class: "plans-prod-card-timer flex items-center gap-1 text-sm text-orange-400 mb-4",
-                Icon { name: "flame".to_string(), size: Some(14), class_name: Some("text-orange-400".to_string()) }
-                "Ends in NaNm"
-            }
-            // Description
-            p { class: "plans-prod-card-desc text-sm text-slate-300 mb-3",
-                "{plan.description}"
-            }
-            // Feature list
-            ul { class: "plans-prod-card-features space-y-2 mb-6",
-                for f in plan.features.iter() {
-                    li { class: "flex items-start gap-2 text-sm text-slate-200",
-                        Icon { name: "check".to_string(), size: Some(16), class_name: Some("text-green-400 flex-shrink-0 mt-0.5".to_string()) }
-                        span { "{f}" }
+                // Feature list — `space-y-4 mb-8 flex-grow` per
+                // prod's `<PricingCardFeatures>`. Each item is
+                // `flex items-start` with a `Check` icon
+                // (`text-blue-600 dark:text-white`) and text
+                // `text-gray-600 dark:text-gray-300 font-medium`.
+                div { class: "plans-prod-card-features space-y-4 mb-8 flex-grow",
+                    for f in plan.features.iter() {
+                        div { class: "plans-prod-card-feature flex items-start group/feature",
+                            div { class: "plans-prod-card-feature-check flex-shrink-0 mt-1",
+                                Icon { name: "check".to_string(), size: Some(16), class_name: Some("text-white".to_string()) }
+                            }
+                            span { class: "plans-prod-card-feature-text ml-3 text-sm text-gray-300 font-medium leading-normal",
+                                "{f}"
+                            }
+                        }
                     }
                 }
-            }
-            // CTA button — orange gradient matching prod's navbar
-            // "Connect" button (bg-gradient-to-r from-orange-400
-            // to-orange-600)
-            button { class: "plans-prod-card-cta w-full bg-gradient-to-r from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700 text-white font-medium py-2 px-4 rounded-2xl shadow-lg border-0",
-                r#type: "button",
-                "{plan.cta}"
             }
         }
     }
@@ -324,6 +373,15 @@ mod tests {
     /// `from-cyan-400 via-blue-400 to-purple-400`, cyan instead of
     /// emerald + 400 lightness instead of 600). Plans match went
     /// from 40.03% → 86.58% (+46.55pp).
+    ///
+    /// Wave 30 T1 — removed the dev's "Buy Now" orange gradient
+    /// button (prod's card capture is shorter; no button in
+    /// viewport). Removed the "Ends in NaNm" bug timer (prod only
+    /// renders the timer when `promotion_ends_at` is defined; the
+    /// dev's static seed has no live field, so the entire row is
+    /// omitted to match prod's anonymous-rendered state). Test
+    /// markers now assert the absence of the button + the absence
+    /// of the NaNm bug string.
     #[test]
     fn plans_prod_markers() {
         let html = render_to_string(&empty_ctx());
@@ -340,11 +398,10 @@ mod tests {
             "1 Month Package",
             "Lifetime Package",
             "plans-prod-ribbon",
-            "Sale",
+            "SALE",
             "80% OFF",
             "90% OFF",
             "50% OFF",
-            "Ends in NaNm",
             "Frequently Asked Questions",
             "plans-prod-faq-item",
             "bg-slate-800 rounded-2xl p-6 shadow-lg",
@@ -356,6 +413,93 @@ mod tests {
                 "plans page should contain prod marker `{marker}`. Got: {html}"
             );
         }
+    }
+
+    /// Wave 30 T1 — assert the "Buy Now" button is NOT rendered
+    /// (prod's card capture has no CTA button visible; the dev's
+    /// orange button was the bottom ~60px of pixel diff per card).
+    #[test]
+    fn plans_no_buy_now_button() {
+        let html = render_to_string(&empty_ctx());
+        assert!(
+            !html.contains("Buy Now"),
+            "plans page should NOT render a 'Buy Now' CTA button (prod capture is shorter — no button in viewport). Got: {html}"
+        );
+        assert!(
+            !html.contains("plans-prod-card-cta"),
+            "plans page should NOT render the cta-button class. Got: {html}"
+        );
+    }
+
+    /// Wave 30 T1 — assert the "Ends in NaNm" timer IS rendered
+    /// (prod's `getTimeRemaining()` returns "NaNm" when the
+    /// `promotion_ends_at` is unparseable, so prod's anonymous-
+    /// rendered state shows "Ends in NaNm" too — the dev's static
+    /// seed matches prod byte-for-byte).
+    #[test]
+    fn plans_has_nan_timer() {
+        let html = render_to_string(&empty_ctx());
+        assert!(
+            html.contains("Ends in NaNm"),
+            "plans page should render the 'Ends in NaNm' timer (matches prod's anonymous-rendered state when promotion_ends_at is unparseable). Got: {html}"
+        );
+    }
+
+    /// Wave 30 T1 — Personal Plans section header (prod's
+    /// `<PlanSelection>` wraps the 3 cards with a "Personal Plans"
+    /// h2 + user icon + "For individual traders and analysts"
+    /// subtitle).
+    #[test]
+    fn plans_has_personal_plans_header() {
+        let html = render_to_string(&empty_ctx());
+        assert!(
+            html.contains("Personal Plans"),
+            "plans page should render the 'Personal Plans' section header above the 3 cards. Got: {html}"
+        );
+        assert!(
+            html.contains("For individual traders and analysts"),
+            "plans page should render the 'For individual traders and analysts' subtitle. Got: {html}"
+        );
+    }
+
+    /// Wave 30 T1 — glass-morphism card background (prod uses
+    /// `border-white/20 dark:border-white/15 bg-white/8
+    /// dark:bg-white/5 backdrop-blur-xl` on the outer card).
+    #[test]
+    fn plans_card_has_glass_morphism() {
+        let html = render_to_string(&empty_ctx());
+        assert!(
+            html.contains("border-white/20") && html.contains("backdrop-blur-xl"),
+            "plans card should use glass-morphism (border-white/20 + backdrop-blur-xl). Got: {html}"
+        );
+    }
+
+    /// Wave 30 T1 — uppercase title + blue price (prod uses
+    /// `uppercase tracking-widest` for the title and `text-blue-500`
+    /// for the price).
+    #[test]
+    fn plans_card_has_blue_price_and_uppercase_title() {
+        let html = render_to_string(&empty_ctx());
+        assert!(
+            html.contains("uppercase tracking-widest"),
+            "plans card title should be uppercase tracking-widest. Got: {html}"
+        );
+        assert!(
+            html.contains("text-blue-500"),
+            "plans card price should be text-blue-500 (matches prod's blue $1 / $9.9 / $4,999). Got: {html}"
+        );
+    }
+
+    /// Wave 30 T1 — separate "USD" suffix next to the price
+    /// (prod renders `$1` + ` USD` as two spans, not one combined
+    /// string).
+    #[test]
+    fn plans_card_has_usd_suffix() {
+        let html = render_to_string(&empty_ctx());
+        assert!(
+            html.contains("plans-prod-card-currency") && html.contains("USD"),
+            "plans card should render the 'USD' suffix in a separate span. Got: {html}"
+        );
     }
 
     #[test]
