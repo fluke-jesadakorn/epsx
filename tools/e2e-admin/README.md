@@ -20,6 +20,33 @@ bash tools/e2e-admin/diff-admin.sh                         #  5 min
 cat tools/e2e-admin/report.md                              # read
 ```
 
+## Wave 34 T1 — `EPSX_E2E_SKELETON=1` is mandatory
+
+Prod renders a generic admin skeleton (`AuthPageOverlay` + `SkeletonPage`)
+on every admin route before client-side hydration runs. To match this in
+the dev capture, the admin BFF **must** be launched with
+`EPSX_E2E_SKELETON=1`. Without it, the dev SSR renders full port content
+and the pixel diff against prod's pre-hydration capture is ~80%.
+
+```bash
+# Launch admin BFF with skeleton mode (matches prod pre-hydration)
+EPSX_E2E_SKELETON=1 API_URL=http://localhost:8080 PORT=3001 \
+  ./target/release/bff-admin
+```
+
+The `capture-dev-admin.sh` script will print a `WARN` line if it detects
+the dev BFF isn't running with the env var (it checks the
+`wave25-t3-skeleton-page` marker on `/`). You can also bypass this
+explicitly:
+
+```bash
+# Force real content rendering (for tracking per-page port fidelity)
+EPSX_E2E_SKELETON=0 bash tools/e2e-admin/capture-dev-admin.sh
+```
+
+Note: this env var ONLY affects admin routes. The frontend BFF does NOT
+need it (frontend routes are full-content by design).
+
 ## Auth
 
 - `EPSX_ADMIN_PROD_COOKIE='session=...; csrf=...'` — full Cookie header for

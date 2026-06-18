@@ -14,6 +14,14 @@
 #   EPSX_DEV_AUTH_BYPASS   set to "1" to send 0x...d3v1 dev-bypass cookie
 #   EPSX_AUTH_COOKIE       full Cookie header (overrides bypass)
 #
+# IMPORTANT — Wave 34 T1: the admin BFF must be launched with
+# `EPSX_E2E_SKELETON=1` for the dev SSR to mirror prod's pre-hydration
+# skeleton. Without this env var, every admin route renders real
+# content (the page's full port), which causes ~80% pixel diff
+# against prod's skeleton capture. See the README for the full
+# launch command. This script only sets the env var IF not already
+# set (so callers can override for non-skeleton testing).
+#
 # Pre-flight: dev BFF must be reachable. If K8s port-forward is needed:
 #   kubectl port-forward -n epsx-dev svc/epsx-admin 3001:3000 &
 set -u
@@ -42,6 +50,18 @@ if [[ -z "$HTTP_CODE" || "$HTTP_CODE" == "000" ]]; then
   exit 3
 fi
 echo "  pre-flight: $BASE/ -> HTTP $HTTP_CODE (4xx is OK for stub/dev-empty)"
+
+# Wave 34 T1 — warn if EPSX_E2E_SKELETON isn't set on the dev BFF.
+# Without it, the dev SSR renders real content (not skeleton), which
+# diverges from prod's pre-hydration capture. We can only detect this
+# via the HTML response (skeleton markers). The check below is
+# advisory — set EPSX_E2E_SKELETON=1 when launching the BFF.
+SAMPLE_HTML=$(curl -s --max-time 5 "$BASE/" 2>/dev/null || true)
+if [[ "$SAMPLE_HTML" != *"wave25-t3-skeleton-page"* ]]; then
+  echo "  WARN: $BASE/ doesn't show wave25-t3-skeleton-page marker." >&2
+  echo "        Launch the BFF with EPSX_E2E_SKELETON=1 for Wave 34 T1 parity." >&2
+  echo "        (continuing with current capture — results will show ~80% pixel diff)" >&2
+fi
 
 SUBSET="${1:-all}"
 if [[ "$SUBSET" == "all" ]]; then
