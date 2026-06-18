@@ -101,7 +101,25 @@ impl PageContext {
 pub struct PageMeta {
     pub title: String,
     pub description: String,
-    pub body_class: String,
+    /// Optional class appended to the `<body>` element by the BFF
+    /// page shell (see `epsx_templates::page_shell_with_body_class`).
+    ///
+    /// **Wave 38c T1** — changed from `String` to `Option<String>`
+    /// so the body class can be scoped per-route. The Wave 38b T2
+    /// change set a prod-EXACT body class on `PageMeta::admin()`
+    /// ("h-screen bg-background text-foreground overflow-hidden
+    /// font-sans") to make the 3 admin outliers' centered
+    /// "Access Denied" panel render correctly. But that body class
+    /// applied to all 22 admin routes and regressed 6 of them
+    /// (~88.5% → ~75.5% match) because their header+sidebar flex
+    /// layout depends on the default `min-h-screen` flow.
+    ///
+    /// Now `PageMeta::admin()` returns `body_class: None` (no
+    /// override — the page shell falls through to the bare
+    /// `min-h-screen` default that the 22 admin routes need). The
+    /// 3 outliers use `PageMeta::admin_with_body_class(...)` to
+    /// keep the prod-EXACT body class ONLY on those 3 routes.
+    pub body_class: Option<String>,
     pub include_footer: bool,
     pub use_epsx_header: bool,
 }
@@ -111,7 +129,7 @@ impl PageMeta {
         Self {
             title: format!("{} — EPSX", title),
             description: "EPSX — Web3 commerce platform: visual page builder, on-chain payments, programmable subscriptions.".to_string(),
-            body_class: "page-bg".to_string(),
+            body_class: Some("page-bg".to_string()),
             include_footer: true,
             use_epsx_header: true,
         }
@@ -120,26 +138,55 @@ impl PageMeta {
         Self {
             title: format!("{} — EPSX", title),
             description: "EPSX".to_string(),
-            body_class: "".to_string(),
+            body_class: None,
             include_footer: false,
             use_epsx_header: false,
         }
     }
+    /// Default admin meta — **no** body class override.
+    ///
+    /// Wave 38c T1 — reverts the Wave 38b T2 global body-class
+    /// change. The 22 admin routes depend on the page shell's
+    /// default `min-h-screen` flow for their header+sidebar
+    /// layout. Setting `h-screen overflow-hidden` (the prod-EXACT
+    /// body class) on the body element collapsed the document
+    /// height and broke the flex-flow that positions the sidebar
+    /// + main content.
+    ///
+    /// For the 3 outlier routes that DO need the prod-EXACT
+    /// body class (`/access-denied`, `/unauthorized`,
+    /// `/developer-portal/api-keys/create`), use
+    /// [`PageMeta::admin_with_body_class`] instead.
     pub fn admin(title: &str) -> Self {
         Self {
             title: format!("{} — Admin", title),
             description: "EPSX Admin".to_string(),
-            // Wave 38b T2 — body class mirrors prod's
-            // `__variable_a460b5 h-screen bg-background
-            // text-foreground overflow-hidden font-sans`.
-            // The `__variable_a460b5` is the Next.js
-            // font-variable wrapper (CSS-var font family);
-            // the Tailwind v4 BFF dev uses font-sans
-            // directly. We also need `h-screen overflow-
-            // hidden` so the body fills the viewport
-            // (matches prod's `flex h-screen flex-col`
-            // inner container).
-            body_class: "__variable_a460b5 h-screen bg-background text-foreground overflow-hidden font-sans".to_string(),
+            body_class: None,
+            include_footer: false,
+            use_epsx_header: false,
+        }
+    }
+    /// Admin meta with an explicit body-class override.
+    ///
+    /// **Wave 38c T1** — for the 3 admin outlier routes that
+    /// render the centered "Access Denied" panel (the panel needs
+    /// `flex h-screen flex-col` on its outer wrapper which only
+    /// positions correctly when the body itself is
+    /// `h-screen overflow-hidden`). Pass the prod-EXACT body class
+    /// string from `access_denied_panel::render` — kept narrow
+    /// to ONLY the 3 outlier paths so the 22 other admin routes
+    /// are not affected.
+    ///
+    /// Body class mirrors prod's
+    /// `__variable_a460b5 h-screen bg-background text-foreground
+    /// overflow-hidden font-sans`. The `__variable_a460b5` is the
+    /// Next.js font-variable wrapper (CSS-var font family); the
+    /// Tailwind v4 BFF dev uses `font-sans` directly.
+    pub fn admin_with_body_class(title: &str, body_class: impl Into<String>) -> Self {
+        Self {
+            title: format!("{} — Admin", title),
+            description: "EPSX Admin".to_string(),
+            body_class: Some(body_class.into()),
             include_footer: false,
             use_epsx_header: false,
         }

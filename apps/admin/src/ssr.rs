@@ -164,7 +164,15 @@ pub async fn ssr_handler(
         &String::new(),
         &body_html,
         meta.include_footer,
-        &meta.body_class,
+        // Wave 38c T1 — body_class is now Option<String>. None
+        // means "no body class override beyond the page shell's
+        // default `min-h-screen`". The 3 admin outliers
+        // (`/access-denied`, `/unauthorized`,
+        // `/developer-portal/api-keys/create`) set their own body
+        // class via `PageMeta::admin_with_body_class(...)` to
+        // mirror prod's `h-screen overflow-hidden font-sans`
+        // wrapper.
+        meta.body_class.as_deref().unwrap_or(""),
     );
 
     let doc = doc.replace("</body>", &format!("<script>{}</script></body>", wallet_shim()));

@@ -117,8 +117,26 @@ pub fn dispatch(ctx: &PageContext) -> (PageMeta, Element) {
     if skeleton_mode && !matches!(p, "/dashboard" | "/policies")
     {
         let slug = slug_for_path(p);
+        // Wave 38c T2 — admin-chat is the 4th route that needs
+        // the prod-EXACT body class. The other 21 admin routes
+        // work fine with `PageMeta::admin()` (no body class), but
+        // admin-chat's pixel-match vs prod drops from 88.94% →
+        // 75.92% when the body class is removed (verified via
+        // full 29-route E2E re-capture on 2026-06-19). The body
+        // class sets `bg-background` to the dark `--bg` token
+        // which the auth-page-overlay's `bg-background` inherits
+        // through the body, keeping dev's overlay color aligned
+        // with prod's measured `rgb(30-35, 35-40, 40-55)`.
+        let meta = if p == "/chat" {
+            PageMeta::admin_with_body_class(
+                slug,
+                "__variable_a460b5 h-screen bg-background text-foreground overflow-hidden font-sans",
+            )
+        } else {
+            PageMeta::admin(slug)
+        };
         return (
-            PageMeta::admin(slug),
+            meta,
             rsx! {
                 AuthPageOverlay { return_url: ctx.path.clone() }
                 SkeletonPage { route_slug: slug.to_string() }
