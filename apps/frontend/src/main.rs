@@ -164,6 +164,12 @@ async fn main() {
         .route("/api/v1/developer/docs", get(api_developer_docs))
         .route("/api/v1/analytics/summary", get(api_analytics))
         .route("/api/v1/dashboard", get(api_dashboard))
+        // Wave 31 T1 — `/api/v1/dashboard/stats` is the explicit
+        // stats endpoint (returns the prod `dashboardData.data`
+        // shape directly). Mirrors the brief: "add `/api/v1/dashboard/stats`
+        // BFF route" so the page's 3-card stats row has a
+        // named-stat endpoint, not just the full dashboard blob.
+        .route("/api/v1/dashboard/stats", get(api_dashboard_stats))
         .route("/api/v1/payment/{id}", get(api_payment))
         .route("/api/v1/wallet/chains", get(api_wallet_chains))
         .route("/api/v1/wallet/connect", post(api_wallet_connect))
