@@ -82,13 +82,28 @@ pub async fn ssr_handler(
     // Use the dedicated admin dispatcher regardless of `is_admin` so the
     // admin's own auth middleware (if installed) can decide. The frontend
     // BFF will have the same UX.
-    let (meta, body_element) = if path.starts_with("/admin") {
+    //
+    // Wave 38b T2 — also derive the `layout_path` (the path with
+    // the `/admin` prefix stripped) and pass it as the
+    // `AdminLayout::Auth`'s `current_path`. The `default_no_layout_
+    // paths()` registry uses the un-prefixed path (e.g.
+    // `/access-denied`) so the layout's `is_no_layout` check
+    // (`current_path == *p || current_path.starts_with(p)`) only
+    // matches when we pass the stripped path. Previously the BFF
+    // passed the raw `/admin/access-denied` path which made the
+    // check fail — the AuthGate overlay then masked the
+    // red-shield Access Denied panel and ballooned the
+    // pixel-diff to ~99%.
+    let (meta, body_element, layout_path) = if path.starts_with("/admin") {
         let p = path.trim_start_matches("/admin").to_string();
+        let stripped = if p.is_empty() { "/".to_string() } else { p };
         let mut c = ctx.clone();
-        c.path = if p.is_empty() { "/".to_string() } else { p };
-        admin_pages::dispatch(&c)
+        c.path = stripped.clone();
+        let (m, b) = admin_pages::dispatch(&c);
+        (m, b, stripped)
     } else {
-        render_page(&ctx, true)
+        let (m, b) = render_page(&ctx, true);
+        (m, b, path.clone())
     };
 
     // Wave 3a Track C — wrap the page body in `AdminLayout::Auth` so the
@@ -101,6 +116,18 @@ pub async fn ssr_handler(
     // admin yet) and let the layout's `is_authenticated` default to
     // `false` — pages still get the chrome and the AuthGate will
     // overlay when needed.
+    //
+    // Wave 38b T2 — `no_layout_paths` extension. The 3 outlier
+    // routes (`/access-denied`, `/unauthorized`,
+    // `/developer-portal/api-keys/create`) render the SAME SSR
+    // "Access Denied" panel in prod (verified by owner probe
+    // 2026-06-18) — there is NO admin sidebar / header / footer
+    // on those pages. The 2 first routes are already in the
+    // shared `default_no_layout_paths()`; we add the 3rd here so
+    // the dev BFF strips the chrome and the AuthGate overlay
+    // (which would otherwise mask the centered Access Denied
+    // panel and balloon the pixel-diff to ~99% per Wave 24 T1'
+    // report).
     let server_user: Option<ServerUser> = user.as_ref().map(|u| ServerUser {
         id: u.id.clone(),
         email: u.email.clone().unwrap_or_default(),
@@ -108,12 +135,19 @@ pub async fn ssr_handler(
         role: u.roles.first().cloned().unwrap_or_default(),
     });
     let is_authenticated = user.is_some();
+    let no_layout_paths_override = Some(vec![
+        "/login".to_string(),
+        "/unauthorized".to_string(),
+        "/access-denied".to_string(),
+        "/permissions/policies".to_string(),
+        "/developer-portal/api-keys/create".to_string(),
+    ]);
     let body_element = AdminLayout::Auth {
-        current_path: path.clone(),
+        current_path: layout_path.clone(),
         server_user,
         is_authenticated,
         is_gated: None,
-        no_layout_paths: None,
+        no_layout_paths: no_layout_paths_override,
     }
     .render(
         body_element,
@@ -193,12 +227,23 @@ mod tests {
         c.path = if admin_path.is_empty() { "/".to_string() } else { admin_path };
         let (_meta, body) = admin_pages::dispatch(&c);
         let server_user: Option<ServerUser> = None;
+        // Wave 38b T2 — mirror the production `no_layout_paths`
+        // override from `ssr_handler` so the test exercises the
+        // same render path as the live BFF (the 3 outliers skip
+        // the chrome + AuthGate).
+        let no_layout_paths_override = Some(vec![
+            "/login".to_string(),
+            "/unauthorized".to_string(),
+            "/access-denied".to_string(),
+            "/permissions/policies".to_string(),
+            "/developer-portal/api-keys/create".to_string(),
+        ]);
         let body = AdminLayout::Auth {
             current_path: path.to_string(),
             server_user,
             is_authenticated: false,
             is_gated: None,
-            no_layout_paths: None,
+            no_layout_paths: no_layout_paths_override,
         }
         .render(body, None, None, None);
         dioxus_ssr::render_element(body)

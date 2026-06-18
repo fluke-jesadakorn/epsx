@@ -129,7 +129,17 @@ impl PageMeta {
         Self {
             title: format!("{} — Admin", title),
             description: "EPSX Admin".to_string(),
-            body_class: "admin-bg".to_string(),
+            // Wave 38b T2 — body class mirrors prod's
+            // `__variable_a460b5 h-screen bg-background
+            // text-foreground overflow-hidden font-sans`.
+            // The `__variable_a460b5` is the Next.js
+            // font-variable wrapper (CSS-var font family);
+            // the Tailwind v4 BFF dev uses font-sans
+            // directly. We also need `h-screen overflow-
+            // hidden` so the body fills the viewport
+            // (matches prod's `flex h-screen flex-col`
+            // inner container).
+            body_class: "__variable_a460b5 h-screen bg-background text-foreground overflow-hidden font-sans".to_string(),
             include_footer: false,
             use_epsx_header: false,
         }
