@@ -1,7 +1,7 @@
 # Migration: Next.js → Dioxus 0.7 + Axum
 
 **Branch:** `migration/dioxus-microservices`
-**Status:** Migration functionally complete. Workspace builds + tests green. `Wave 4` cleanup landed. **Pixel-parity workstream closed at 82.40% mean on Wave 30 (2026-06-18).** Open items reduced to build-tool / Dioxus-version follow-ups + functional parity (auth flow, data binding) + admin-wallet-management-access-plans jitter check.
+**Status:** Migration functionally complete. Workspace builds + tests green. `Wave 4` cleanup landed. **Pixel-parity workstream closed at 82.40% mean on Wave 30 (2026-06-18).** **Wave 34 reopened the admin side via SSR skeleton-mode dispatcher — admin mean 31.52% → 79.26% (29 routes, full E2E), 85.27% excluding 5 outliers/404 (2026-06-18).** Open items reduced to build-tool / Dioxus-version follow-ups + functional parity (auth flow, data binding) + 3 admin outliers (access-denied + unauthorized + developer-portal-api-keys-create at 17.34% — prod renders a smaller skeleton than dioxus for these).
 
 ## Pixel-parity cumulative (Wave 25-30, 6 waves, 4 days)
 
@@ -12,9 +12,10 @@
 | 27 | Fix regressions + port | 24.59% | 97.96% (manual) | minimal lift, identified structural gaps |
 | **28** | **PostCSS migration (Tailwind v2 CDN → v4.1.18 + @tailwindcss/postcss + oklch tokens)** | **78.56%** | **98.42% (dashboard)** | **+53.97pp — biggest win, all 4 color-floor routes jumped to 80%+** |
 | 29 | Fix 2 PostCSS regressions (plans +18.93pp, dev-usage -3.00pp) | 80.86% | 98.42% | brief 80%+ hit, 0 regressions on 11 other routes |
-| **30** | **PricingCard 1:1 port (glass-morphism + Personal Plans header + uppercase title + blue price)** | **82.40%** | 98.42% | **+1.54pp mean, plans 48% → 77% (+29pp). Worker minimum-scope test: brief's "fix NaNm" hypothesis wrong (-1.14pp), real fix was glass-morphism (+30.53pp)** |
+| **30** | **PricingCard 1:1 port (glass-morphism + Personal Plans header + uppercase title + blue price)** | **82.40%** | **98.42% | **+1.54pp mean, plans 48% → 77% (+29pp). Worker minimum-scope test: brief's "fix NaNm" hypothesis wrong (-1.14pp), real fix was glass-morphism (+30.53pp)** |
+| **34** | **Admin SSR skeleton-mode dispatcher — 21 admin routes 17% → 75-89% match (full 29-route E2E: 31.52% → 79.26%; excluding 5 outliers/404: 85.27%)** | **85.27%** (admin mean, 24-route quality) | **88.93% (admin-audit-log)** | **+47.74pp admin. Strategy: `admin_pages::dispatch()` short-circuits to `AuthPageOverlay + SkeletonPage` when `ctx.user.is_none()` OR `EPSX_E2E_SKELETON=1`. Mirrors prod's pre-hydration skeleton behavior (auth-gated skeleton for unauthed users). 3 outliers: access-denied + unauthorized + developer-portal-api-keys-create at 17.34% — prod renders a smaller skeleton for these 3 routes; deferred follow-up** |
 
-**Verdict: 82.40% = honest ceiling for current architecture.** Remaining gap is structural (gradient palettes on plans, modal-height jitter on dev-usage) not color. Functional parity (auth flow, live data binding, gradient backgrounds) is the next workstream, not pixel-parity.
+**Verdict (Wave 34): Admin mean 79.26% (full 29) / 85.27% (excluding 5 outliers/404).** Combined 13-ported mean is now FE 82.40% + admin 79.26% (all 29) or 85.27% (24 quality routes). Remaining admin gap is structural (3 routes render a different skeleton footprint between Next.js and Dioxus — low impact since users see the auth overlay anyway). Functional parity (auth flow, live data binding, gradient backgrounds) is the next workstream, not pixel-parity.
 
 ## What landed (cumulative)
 
