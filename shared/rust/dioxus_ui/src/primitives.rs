@@ -50,6 +50,29 @@ pub mod loading_button;
 pub mod input_with_icon;
 pub mod breadcrumb;
 pub mod pagination_nav;
+// === Wave 36b T2 ports — shadcn-namespace + new primitives ===
+pub mod label;
+pub mod popover;
+pub mod scroll_area;
+pub mod textarea;
+pub mod toast;
+pub mod kbd_shortcut;
+pub mod section;
+pub mod code_block;
+pub mod callout;
+pub mod pill;
+pub mod progress_circle;
+pub mod timeline;
+pub mod toggle;
+pub mod stack;
+pub mod empty_state_compact;
+pub mod chip;
+pub mod list;
+pub mod layout_utils;
+pub mod metric_pill;
+pub mod tag_input;
+pub mod skeleton_variants;
+pub mod cards_v2;
 
 pub use button::*;
 pub use card::*;
@@ -93,3 +116,8 @@ pub use loading_button::*;
 pub use input_with_icon::*;
 pub use breadcrumb::*;
 pub use pagination_nav::*;
+// === Wave 36b T2 — exported via primitives namespace path
+// (no `pub use` to avoid collisions with form::Label, misc::ScrollArea,
+// overlays::Popover, form::Textarea, feedback::toast::ToastProvider etc.)
+// Use `crate::primitives::label::Label`, `crate::primitives::popover::Popover`,
+// etc. for the new shadcn-namespace components. ===
