@@ -116,7 +116,19 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
         ),
     };
     let slug = slug_for_path(&ctx.path);
-    let meta = PageMeta::admin(slug);
+    // Wave 38c T1 — scope the prod-EXACT body class to ONLY the
+    // 3 outlier routes. The previous Wave 38b T2 change set this
+    // body class globally via `PageMeta::admin()` which regressed
+    // 6 other admin routes (chat, media, news, etc.) because they
+    // depend on the default `min-h-screen` flex-flow for their
+    // header+sidebar layout. Using `admin_with_body_class` keeps
+    // the body class narrowly scoped to the 3 outliers that NEED
+    // `h-screen overflow-hidden` for the centered Access Denied
+    // panel to position correctly.
+    let meta = PageMeta::admin_with_body_class(
+        slug,
+        "__variable_a460b5 h-screen bg-background text-foreground overflow-hidden font-sans",
+    );
     (
         meta,
         rsx! {
@@ -366,5 +378,36 @@ mod tests {
         let (_, el) = render(&ctx);
         let html = dioxus_ssr::render_element(el);
         assert!(html.contains("contact your administrator"), "/developer-portal/api-keys/create should render the long description. Got: {html}");
+    }
+
+    /// `test_access_denied_panel_body_class_scoped` — Wave 38c T1.
+    /// The 3 outlier routes must set `PageMeta.body_class` to the
+    /// prod-EXACT `h-screen overflow-hidden font-sans` body class
+    /// (so the centered Access Denied panel renders correctly).
+    /// The 22 other admin routes use `PageMeta::admin()` which now
+    /// returns `body_class: None` (so the 6 regressed routes
+    /// revert to the default `min-h-screen` flow).
+    #[test]
+    fn test_access_denied_panel_body_class_scoped() {
+        for path in &[
+            "/access-denied",
+            "/unauthorized",
+            "/developer-portal/api-keys/create",
+        ] {
+            let ctx = PageContext {
+                path: path.to_string(),
+                ..Default::default()
+            };
+            let (meta, _el) = render(&ctx);
+            assert!(
+                meta.body_class.is_some(),
+                "{path} must set a body class (prod-EXACT h-screen overflow-hidden font-sans). Got: None",
+            );
+            let cls = meta.body_class.as_deref().unwrap_or("");
+            assert!(
+                cls.contains("h-screen") && cls.contains("overflow-hidden"),
+                "{path} body class must include `h-screen` and `overflow-hidden`. Got: {cls}",
+            );
+        }
     }
 }

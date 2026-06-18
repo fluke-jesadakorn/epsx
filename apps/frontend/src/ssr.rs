@@ -226,7 +226,7 @@ pub async fn ssr_handler(
         &String::new(),
         &body_html,
         meta.include_footer,
-        &meta.body_class,
+        meta.body_class.as_deref().unwrap_or(""),
     );
 
     let doc = doc.replace("</body>", &format!("<script>{}</script></body>", wallet_shim()));

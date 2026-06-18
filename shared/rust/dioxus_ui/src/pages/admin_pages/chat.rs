@@ -440,6 +440,14 @@ fn ChatStatsPanel() -> Element {
 // ============================================================================
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
+    // Wave 38c T2 — the body class is set by `admin_pages::dispatch`
+    // for `/chat` (the 4th route that needs the prod-EXACT body
+    // class). This render() function only runs in non-skeleton mode
+    // (authed user OR skeleton env var unset), where the dispatch
+    // gate falls through to chat::render() with the regular
+    // PageMeta::admin() (no body class override). The body class
+    // is handled at the dispatch layer so both the skeleton-mode
+    // short-circuit AND the non-skeleton authed path stay in sync.
     let meta = PageMeta::admin("Support chat");
     (meta, rsx! { RenderAdminChat { ctx: ctx.clone() } })
 }
