@@ -1,10 +1,13 @@
-//! Admin-only shared components — Wave 37 T1 admin primitives port.
+//! Admin-only shared components — Wave 37 T1 admin primitives port
+//! + Wave 38a T1 admin wallet domain port.
 //!
 //! This module is the admin-specific component namespace, mirroring
-//! `apps-old/admin-frontend/components/ui/`. It re-exports the
-//! existing generic primitives under `admin::*` names so admin pages
-//! can do `use crate::components::admin::*` and reach every
-//! admin-side primitive without crossing module boundaries.
+//! `apps-old/admin-frontend/components/ui/` (primitives layer) and
+//! `apps-old/admin-frontend/components/wallet/` (wallet-domain
+//! layer). It re-exports the existing generic primitives under
+//! `admin::*` names so admin pages can do `use
+//! crate::components::admin::*` and reach every admin-side primitive
+//! without crossing module boundaries.
 //!
 //! ## Two-layer strategy
 //!
@@ -15,7 +18,9 @@
 //!
 //! 2. **New admin-specific primitives** for components that didn't
 //!    exist in Dioxus yet — `AuthPageOverlay` (Wave 25 T3),
-//!    `PancakeButton`, `PancakeCard`, `AnalyticsStatsCard`, etc.
+//!    `PancakeButton`, `PancakeCard`, `AnalyticsStatsCard`, the
+//!    wallet-domain components (`WalletStatusBadge`,
+//!    `WalletLabelBadge`, `AdminWalletStatsBar`, etc.), etc.
 //!    Each has a colocated `#[cfg(test)] mod tests` with at least
 //!    2 tests (smoke render + key prop handling).
 //!
@@ -33,6 +38,19 @@
 //! | `textarea` | `textarea.tsx` (wp variant default) | 37 T1 (NEW) |
 //! | `theme_toggle` | `theme-toggle.tsx` (re-exports) | 37 T1 (NEW) |
 //! | `toast` | `toast.tsx` (re-exports) | 37 T1 (NEW) |
+//! | `disable_wallet_modal` | `disable-wallet-modal.tsx` | 38a T1 (NEW) |
+//! | `reenable_wallet_modal` | `reenable-wallet-modal.tsx` | 38a T1 (NEW) |
+//! | `wallet_card` | `wallet-card.tsx` | 38a T1 (NEW) |
+//! | `wallet_detail_header` | `wallet-detail-header.tsx` | 38a T1 (NEW) |
+//! | `wallet_filter_bar` | `wallet-filter-bar.tsx` | 38a T1 (NEW) |
+//! | `wallet_header` | `wallet-header.tsx` | 38a T1 (NEW) |
+//! | `wallet_label_badge` | `wallet-label-badge.tsx` | 38a T1 (NEW) |
+//! | `wallet_management_tabs` | `wallet-management-tabs.tsx` | 38a T1 (NEW) |
+//! | `wallet_section` | `wallet-section.tsx` | 38a T1 (NEW) |
+//! | `wallet_stats_bar` | `wallet-stats-bar.tsx` | 38a T1 (NEW) |
+//! | `wallet_status_badge` | `wallet-status-badge.tsx` | 38a T1 (NEW) |
+//! | `wallet_table` | `wallet-table.tsx` | 38a T1 (NEW) |
+//! | `wallet_table_row` | `wallet-table-row.tsx` | 38a T1 (NEW) |
 //!
 //! The remaining 20+ primitives (button, badge, card, etc.) are
 //! re-exported from `crate::primitives::*` at the bottom of this
@@ -55,6 +73,33 @@ pub mod toast;
 // Pre-existing admin primitives
 pub mod auth_page_overlay;
 
+// =====================================================================
+// Wave 38a T1 — admin wallet domain components
+// =====================================================================
+//
+// 12 NEW components ported from
+// `apps-old/admin-frontend/components/wallet/`. Naming notes:
+// - `WalletStatsBar` and `WalletTableRow` had inline collisions
+//   with file-local `fn`s in
+//   `pages::admin_pages::wallet_wallets`, so the shared versions
+//   are renamed with the `Admin` prefix to keep both
+//   co-existent during migration.
+// - All other components use their natural source names
+//   (`WalletStatusBadge`, `WalletLabelBadge`, `WalletCard`, etc.).
+pub mod disable_wallet_modal;
+pub mod reenable_wallet_modal;
+pub mod wallet_card;
+pub mod wallet_detail_header;
+pub mod wallet_filter_bar;
+pub mod wallet_header;
+pub mod wallet_label_badge;
+pub mod wallet_management_tabs;
+pub mod wallet_section;
+pub mod wallet_stats_bar;
+pub mod wallet_status_badge;
+pub mod wallet_table;
+pub mod wallet_table_row;
+
 // Re-exports of the NEW admin-specific components for caller
 // convenience: `use crate::components::admin::PancakeButton` works
 // without specifying the module.
@@ -76,6 +121,27 @@ pub use theme_toggle::{
     OptimizedThemeToggle, SimpleThemeToggle, ThemeToggle, ThemeToggleCSS,
 };
 pub use toast::{Toast, ToastDescription, ToastTitle, ToastViewport};
+
+// Wave 38a T1 — admin wallet domain re-exports.
+pub use disable_wallet_modal::{
+    DisableDuration, DisablePlatform, DisableReasonCategory, DisableWalletData,
+    DisableWalletModal,
+};
+pub use reenable_wallet_modal::{ReenableDisableInfo, ReenableWalletData, ReenableWalletModal};
+pub use wallet_card::{WalletCard, WalletCardData};
+pub use wallet_detail_header::WalletDetailHeader;
+pub use wallet_filter_bar::{WalletFilterBar, WalletFilters};
+pub use wallet_header::{WalletHeader, WalletHeaderData};
+pub use wallet_label_badge::{WalletLabelBadge, WalletLabelSize};
+pub use wallet_management_tabs::WalletManagementTabs;
+pub use wallet_section::WalletSection;
+pub use wallet_stats_bar::{
+    AdminWalletStatsBar, PlatformDistributionPanel, WalletPlatformDistribution,
+    WalletStatsChanges, WalletStatsData,
+};
+pub use wallet_status_badge::{WalletStatusBadge, WalletStatusKind};
+pub use wallet_table::WalletTable;
+pub use wallet_table_row::{AdminWalletTableRow, WalletRowData, WalletRowStatus};
 
 // =====================================================================
 // Re-exports of existing primitives (admin-namespaced aliases)
