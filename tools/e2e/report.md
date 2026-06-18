@@ -1,6 +1,6 @@
 # Wave 23 T1 — E2E Component Interaction Report
 
-Generated: 2026-06-17T18:58:20.027Z
+Generated: 2026-06-18T02:26:02.602Z
 
 Prod: `https://epsx.io`  |  Dev: BFF port-forward (default `localhost:30101`)
 
@@ -31,7 +31,7 @@ Prod: `https://epsx.io`  |  Dev: BFF port-forward (default `localhost:30101`)
 | 21 | `payment` | `/payment` | 99.34 | 0 | 0 | 2 | 0 |
 | 22 | `payment-intent-sample-id` | `/payment/intent/sample-id` | 99.09 | 0 | 0 | 2 | 0 |
 | 23 | `permissions` | `/permissions` | 99.96 | 0 | 0 | 0 | 0 |
-| 24 | `plans` | `/plans` | 51.94 | 1 | 0 | 3 | 0 |
+| 24 | `plans` | `/plans` | 22.55 | 1 | 0 | 3 | 0 |
 | 25 | `portfolio` | `/portfolio` | 20.47 | 0 | 0 | 4 | 0 |
 | 26 | `privacy` | `/privacy` | 6.18 | 0 | 0 | 2 | 0 |
 | 27 | `profile` | `/profile` | 99.96 | 0 | 0 | 0 | 0 |
