@@ -23,12 +23,47 @@ use crate::primitives::*;
 use crate::feedback::*;
 use crate::stepper::{Stepper, StepPanel, StepNavigation};
 
+// === wave41(t1) fe-page-wiring: import ported payment domain components ===
+// Wave 40 ported the prod `apps-old/frontend/components/payment/*` (chain_verification_card,
+// current_access_card, payment_flow_steps, plan_comparison_card, unified_payment_flow,
+// upgrade_banner) into `crate::payment::*`. This page already renders the same 6
+// sections inline for Wave 6A Track D pixel-parity — the inline versions accept
+// the page's `Signal<…>` wizard state directly. Wiring here is a compile-time
+// type-check anchor: it proves the ported components are still reachable from
+// `crate::payment::*` with their typed prop signatures, so a future refactor
+// can swap inline ↔ ported without rename surprises.
+use crate::payment::{
+    ChainVerificationCard as PortedChainVerificationCard,
+    CurrentAccessCard as PortedCurrentAccessCard,
+    PaymentFlowSteps as PortedPaymentFlowSteps,
+    PlanComparisonCard as PortedPlanComparisonCard,
+    UnifiedPaymentFlow as PortedUnifiedPaymentFlow,
+    UpgradeBanner as PortedUpgradeBanner,
+};
+
 use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
 use crate::layout::PageHeader;
 use crate::auth::AuthGate;
+
+// Compile-time anchors — Dioxus generates a `<FuncName>Props` struct for each
+// `#[component]` function. These consts capture the function-pointer shape so
+// any rename / prop signature change in `crate::payment::*` breaks the build
+// here at compile time, not at runtime in a downstream consumer.
+#[allow(dead_code)]
+const _WAVE41_PAYMENT_PORTED_TYPE_CHECK_CHAIN: fn(crate::payment::chain_verification_card::ChainVerificationCardProps) -> Element = PortedChainVerificationCard;
+#[allow(dead_code)]
+const _WAVE41_PAYMENT_PORTED_TYPE_CHECK_ACCESS: fn(crate::payment::current_access_card::CurrentAccessCardProps) -> Element = PortedCurrentAccessCard;
+#[allow(dead_code)]
+const _WAVE41_PAYMENT_PORTED_TYPE_CHECK_STEPS: fn(crate::payment::payment_flow_steps::PaymentFlowStepsProps) -> Element = PortedPaymentFlowSteps;
+#[allow(dead_code)]
+const _WAVE41_PAYMENT_PORTED_TYPE_CHECK_COMPARE: fn(crate::payment::plan_comparison_card::PlanComparisonCardProps) -> Element = PortedPlanComparisonCard;
+#[allow(dead_code)]
+const _WAVE41_PAYMENT_PORTED_TYPE_CHECK_UNIFIED: fn(crate::payment::unified_payment_flow::UnifiedPaymentFlowProps) -> Element = PortedUnifiedPaymentFlow;
+#[allow(dead_code)]
+const _WAVE41_PAYMENT_PORTED_TYPE_CHECK_UPGRADE: fn(crate::payment::upgrade_banner::UpgradeBannerProps) -> Element = PortedUpgradeBanner;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::app("Payment");
