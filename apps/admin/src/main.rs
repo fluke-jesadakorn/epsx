@@ -1,7 +1,7 @@
 use axum::{
     extract::{Path as AxPath, State},
     http::{HeaderMap, StatusCode},
-    response::{IntoResponse, Response},
+    response::{IntoResponse, Redirect, Response},
     routing::{delete, get, post, put},
     Json, Router,
 };
@@ -80,6 +80,10 @@ async fn main() {
         .route("/api/v1/auth/refresh", post(refresh_token))
         .route("/api/v1/auth/demo", post(demo_login))
         .route("/api/v1/auth/me", get(current_user))
+        // Wave 43 T1 A3 — prod-mirror middleware: redirect
+        // `/wallet-management` → `/wallet-management/wallets` to
+        // match prod's Vercel middleware (3-hop redirect chain).
+        .route("/wallet-management", get(wallet_redirect_to_wallets))
         // Users (identity)
         .route("/api/v1/users", get(list_users).post(create_user))
         .route("/api/v1/users/{id}", get(get_user).put(update_user).delete(delete_user))
@@ -139,6 +143,16 @@ async fn main() {
 }
 
 async fn api_health() -> &'static str { "ok" }
+
+// Wave 43 T1 A3 — mirror prod's Vercel middleware:
+// `/wallet-management` → `/wallet-management/wallets` (308 Permanent).
+// Prod uses Vercel middleware that fires before the page handler;
+// dev's `Router::fallback(ssr_handler)` would otherwise render
+// `wallet_redirect::render()` which is NOT what prod shows for the
+// bare `/wallet-management` URL (prod redirects to /wallets).
+async fn wallet_redirect_to_wallets() -> Response {
+    Redirect::permanent("/wallet-management/wallets").into_response()
+}
 
 // ===== Auth =====
 async fn siwe_login(

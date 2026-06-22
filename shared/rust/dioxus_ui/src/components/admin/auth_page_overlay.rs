@@ -72,7 +72,17 @@ use dioxus::prelude::*;
 /// `.fixed.inset-0.z-50` container:
 ///
 /// `position:fixed;top:0;left:0;right:0;bottom:0;z-index:50;display:flex;...`
-const OVERLAY_CONTAINER_STYLE: &str = "position:fixed;top:0;left:0;right:0;bottom:0;z-index:50;display:flex;min-height:100vh;width:100%;overflow:hidden;";
+///
+/// Wave 43 T1 B1 — `pointer-events:none` on the OUTER container
+/// (not just the inner orbs) so the admin nav header below the
+/// overlay at z-50 is clickable through the overlay. The modal
+/// card keeps `pointer-events:auto` (see `MODAL_CARD_STYLE`) so
+/// the 3 wallet buttons remain clickable. Without this, the
+/// Playwright capture-harness reports 12-19 broken-clicks per
+/// route (admin-auth, admin-wallet-management,
+/// admin-wallet-management-access) because every nav `<a>` is
+/// occluded by the z-50 overlay.
+const OVERLAY_CONTAINER_STYLE: &str = "position:fixed;top:0;left:0;right:0;bottom:0;z-index:50;display:flex;min-height:100vh;width:100%;overflow:hidden;pointer-events:none;";
 
 /// `pointer-events: none` on the outer overlay + `auto` on the
 /// auth modal so the capture-harness's "click first button"
