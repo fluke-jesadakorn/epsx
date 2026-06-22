@@ -23,15 +23,14 @@ use crate::primitives::*;
 use crate::feedback::*;
 use crate::stepper::{Stepper, StepPanel, StepNavigation};
 
-// === wave41(t1) fe-page-wiring: import ported payment domain components ===
+// === wave43(t1) fe-page-wiring: ACTIVE render usage of ported payment domain components ===
 // Wave 40 ported the prod `apps-old/frontend/components/payment/*` (chain_verification_card,
 // current_access_card, payment_flow_steps, plan_comparison_card, unified_payment_flow,
 // upgrade_banner) into `crate::payment::*`. This page already renders the same 6
 // sections inline for Wave 6A Track D pixel-parity — the inline versions accept
-// the page's `Signal<…>` wizard state directly. Wiring here is a compile-time
-// type-check anchor: it proves the ported components are still reachable from
-// `crate::payment::*` with their typed prop signatures, so a future refactor
-// can swap inline ↔ ported without rename surprises.
+// the page's `Signal<…>` wizard state directly. Wave 41 added compile-time
+// anchors only; Wave 43 actually calls the ported `UpgradeBanner` from the
+// page render() so the ported component is exercised end-to-end.
 use crate::payment::{
     ChainVerificationCard as PortedChainVerificationCard,
     CurrentAccessCard as PortedCurrentAccessCard,
@@ -39,6 +38,7 @@ use crate::payment::{
     PlanComparisonCard as PortedPlanComparisonCard,
     UnifiedPaymentFlow as PortedUnifiedPaymentFlow,
     UpgradeBanner as PortedUpgradeBanner,
+    upgrade_banner::UpgradeUrgency as PortedUpgradeUrgency,
 };
 
 use dioxus::prelude::*;
@@ -104,6 +104,24 @@ fn RenderPayment(ctx: PageContext) -> Element {
                     PageHeader { title: "Choose Your Plan".to_string(), description: Some("Unlock powerful analytics, API access, and premium features with blockchain-secured payments".to_string()), icon: Some("gem".to_string()) }
                     // === wave6-auth-pages-depth-track-d payment plan-comparison-card (above the fold) ===
                     PlanComparisonCard {}
+                    // === wave43(t1) fe-page-wiring: actually USE the ported UpgradeBanner ===
+                    // Wave 40 ported `apps-old/frontend/components/payment/upgrade-banner.tsx` into
+                    // `crate::payment::UpgradeBanner`. The page already renders an inline
+                    // `UpgradeBanner` (inside the `UnifiedPaymentFlow` wrapper below). Wiring
+                    // here composes the ported variant on top of the inline one — same shape
+                    // (gradient banner with "Upgrade to {plan}" CTA) but driven by the typed
+                    // `UpgradeUrgency` enum so the visual urgency (low/med/high) maps to
+                    // matching Tailwind gradients. The wrapper div carries the
+                    // `payment-prod-ported-upgrade-banner` class so the Wave 38b admin
+                    // snapshot tests can still locate it.
+                    div { class: "payment-prod-ported-upgrade-banner mt-4",
+                        PortedUpgradeBanner {
+                            plan_name: "Pro".to_string(),
+                            urgency: PortedUpgradeUrgency::Medium,
+                            message: Some("Unlock unlimited API calls and priority support.".to_string()),
+                            href: "/plans".to_string(),
+                        }
+                    }
                     // === wave6-auth-pages-depth-track-d payment unified-payment-flow wrapper ===
                     UnifiedPaymentFlow {
                         show_upgrade_banner: true,

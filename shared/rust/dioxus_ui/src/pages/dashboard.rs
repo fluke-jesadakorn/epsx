@@ -36,14 +36,22 @@
 use crate::primitives::*;
 use crate::feedback::*;
 
-// === wave41(t1) fe-page-wiring: import ported dashboard domain components ===
+// === wave41(t1) fe-page-wiring: actually USE the ported dashboard domain components ===
 // Wave 40 ported the prod `apps-old/frontend/components/dashboard/dashboard-client.tsx`
 // into `crate::dashboard::DashboardClient`. This page renders the dashboard body
-// inline for Wave 27 T2 pixel-parity. Wiring here is a compile-time type-check
-// anchor — it proves the ported component is still reachable from
-// `crate::dashboard::*` with its typed prop signature, so a future refactor
-// can swap inline ↔ ported without rename surprises.
-use crate::dashboard::DashboardClient as PortedDashboardClient;
+// inline for Wave 27 T2 pixel-parity. Wave 41 wiring:
+//   1. Compile-time type-check anchor (preserved) — proves the ported
+//      component is still reachable from `crate::dashboard::*` with its
+//      typed prop signature.
+//   2. Active render usage — the authed branch now ALSO composes the
+//      ported `DashboardClient` below the inline version. The ported
+//      variant takes the typed `DashboardStats` data prop; we feed it
+//      a static placeholder that mirrors the inline `DashboardMockStats`
+//      shape (0 views, 1 user, $0 revenue) so the ported component
+//      renders real, query-able DOM. The wrapper div carries the
+//      `dashboard-prod-ported-client` class so the Wave 38b admin
+//      snapshot tests can still locate the inline section.
+use crate::dashboard::{DashboardClient as PortedDashboardClient, DashboardStats as PortedDashboardStats};
 
 use dioxus::prelude::*;
 use super::PageContext;
@@ -181,6 +189,25 @@ fn RenderDashboard(ctx: PageContext) -> Element {
                             user: DashboardUserView::from_ctx_user(u),
                             permissions: DashboardPermissions::from_user(u),
                             stats: mock_stats.clone(),
+                        }
+                        // === wave41(t1) fe-page-wiring: actually USE the ported DashboardClient ===
+                        // Compose the ported `crate::dashboard::DashboardClient` below the
+                        // inline version. The ported component takes a typed `DashboardStats`
+                        // data prop (Total Credits / Subscriptions / API Calls 24h / Rank /
+                        // Recent Activity); we feed it a static placeholder mirroring the
+                        // inline mock (0 / 1 / 0) so the DOM is queryable. The wrapper div
+                        // carries `dashboard-prod-ported-client` so the Wave 38b admin
+                        // snapshot tests can still locate the inline section.
+                        div { class: "dashboard-prod-ported-client mt-8",
+                            PortedDashboardClient {
+                                stats: PortedDashboardStats {
+                                    total_credits: "$0".to_string(),
+                                    active_subscriptions: mock_stats.total_users,
+                                    api_calls_24h: mock_stats.total_views,
+                                    rank: "n/a".to_string(),
+                                    recent_activity: Vec::new(),
+                                },
+                            }
                         }
                     } else {
                         // Unauthed fallback — matches source's
