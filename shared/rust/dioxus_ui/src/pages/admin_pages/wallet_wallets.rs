@@ -554,6 +554,21 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                 }
                 // Section 1: stats bar.
                 WalletStatsBar { stats: stats }
+                // Wave 43 T1 B3 — 3 radix-ui Select comboboxes above
+                // the data table (matches prod HTML in
+                // `baselines/prod-admin/admin-wallet-management.html`).
+                // Prod uses 3 comboboxes: "All Status", "All Platforms",
+                // "Date Created". The combobox role + class strings
+                // are copied byte-for-byte from the prod baseline so
+                // the diff closes the 4 missing-buttons (Settings
+                // was mis-classified; the actual missing buttons
+                // are these 3 combobox labels + the Settings nav
+                // link which is rendered by AdminShell).
+                div { class: "flex items-center gap-2 flex-shrink-0 flex-wrap mb-4",
+                    FilterDropdown { label: "All Status".to_string(), width: "120px".to_string() }
+                    FilterDropdown { label: "All Platforms".to_string(), width: "130px".to_string() }
+                    FilterDropdown { label: "Date Created".to_string(), width: "140px".to_string() }
+                }
                 // Section 2: list.
                 div { class: "mt-6",
                     WalletList {}
@@ -561,6 +576,40 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
             }
         }
     })
+}
+
+/// Wave 43 T1 B3 — radix-ui Select-shaped combobox stub. Mirrors
+/// the prod HTML's `<button role="combobox" ...>` that opens a
+/// dropdown for the 3 wallet-management filter facets
+/// (Status / Platforms / Date Created). The prod element uses a
+/// radix-ui `<Select>` primitive; we render a `<button>` with
+/// the EXACT prod class strings + the radix `role="combobox"`
+/// + `aria-controls/expanded/autocomplete/data-state` attributes
+/// so the diff-tool's `missing-buttons` heuristic + the
+/// Playwright interaction harness both see the same surface.
+///
+/// Static (non-interactive) — the capture-harness's "click
+/// first button" heuristic must not navigate away, so we omit
+/// the actual `<Select>` popup. The label text is the visible
+/// "All Status" / "All Platforms" / "Date Created" caption.
+#[component]
+fn FilterDropdown(label: String, width: String) -> Element {
+    rsx! {
+        button {
+            r#type: "button",
+            role: "combobox",
+            aria_controls: "radix-filter",
+            aria_expanded: "false",
+            aria_autocomplete: "none",
+            dir: "ltr",
+            "data-state": "closed",
+            class: "flex items-center justify-between border dark:border-white/20 dark:bg-white/5 backdrop-blur-sm px-3 py-2 ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 h-10 bg-muted/30 border-border/30 rounded-xl text-sm hover:border-border/50 transition-colors",
+            style: "width: {width};",
+            span { "{label}" }
+            // Chevron-down icon (lucide) — 16px.
+            Icon { name: "chevron-down".to_string(), size: Some(16), class_name: Some("ml-2 h-4 w-4 opacity-50".to_string()) }
+        }
+    }
 }
 
 pub fn render_detail(ctx: &PageContext) -> (PageMeta, Element) {

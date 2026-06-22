@@ -179,8 +179,20 @@ function pixelDiff(prodPng, devPng) {
 }
 
 // ---------- HTML structural diff ----------
+// Wave 43 T1 A1 — strip <script>...</script> blocks before extracting links/buttons.
+// The global_js() inline script in dev/admin HTMLs contains JS comments like
+// `// <button role="tab">` and `// <a href="...">`. The naive regex matchers
+// below don't know about JS comments — they'd capture from those literal
+// tags inside the script and walk to the real `</button>` / `</a>` later in
+// the page, producing false-positive "missing-buttons: Go to Auth" issues.
+function stripScripts(html) {
+  return html.replace(/<script\b[\s\S]*?<\/script>/gi, "");
+}
 function structuralDiff(prodHtml, devHtml) {
   if (!prodHtml || !devHtml) return { missing: [], extra: [], missingButtons: [] };
+  // Strip <script> blocks before regex extraction (Wave 43 T1 A1).
+  const prodClean = stripScripts(prodHtml);
+  const devClean = stripScripts(devHtml);
   const extractLinks = (html) => {
     const re = /<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
     const out = [];
@@ -202,14 +214,14 @@ function structuralDiff(prodHtml, devHtml) {
     }
     return out;
   };
-  const prodLinks = extractLinks(prodHtml);
-  const devLinks = extractLinks(devHtml);
+  const prodLinks = extractLinks(prodClean);
+  const devLinks = extractLinks(devClean);
   const prodHrefs = new Set(prodLinks.map((l) => l.href));
   const devHrefs = new Set(devLinks.map((l) => l.href));
   const missing = [...prodHrefs].filter((h) => !devHrefs.has(h));
   const extra = [...devHrefs].filter((h) => !prodHrefs.has(h));
-  const prodButtons = new Set(extractButtons(prodHtml).map((b) => b.text));
-  const devButtons = new Set(extractButtons(devHtml).map((b) => b.text));
+  const prodButtons = new Set(extractButtons(prodClean).map((b) => b.text));
+  const devButtons = new Set(extractButtons(devClean).map((b) => b.text));
   const missingButtons = [...prodButtons].filter((b) => !devButtons.has(b));
   return { missing, extra, missingButtons };
 }
