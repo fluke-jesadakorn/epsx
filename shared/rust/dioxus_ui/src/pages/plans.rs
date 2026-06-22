@@ -54,6 +54,15 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                     PlansHero {}
                     // 3-tier pricing grid (1 DAY / 1 MONTH / LIFETIME)
                     PlanSelection {}
+                    // === wave44(t2) — API Plans section (2 cards) ===
+                    // Prod renders a second `<section>` after Personal
+                    // Plans with "API Plans" header (code-xml icon +
+                    // "For developers and integrations" subtitle) and
+                    // a 2-card grid (API Personal, API Company).
+                    // Without this, pixel-diff shows the right column
+                    // (~10pp) and "missing-buttons: Get Started"
+                    // appears in plans.json.
+                    ApiPlans {}
                     // FAQ section
                     PlansFaq {}
                 }
@@ -273,6 +282,23 @@ fn PricingCard(plan: PlanLite) -> Element {
                         }
                     }
                 }
+                // === wave44(t2) — Get Started CTA (bottom of card, mt-auto) ===
+                // Prod renders `<button class="w-full py-4 rounded-xl
+                // font-bold text-base transition-all duration-300 relative
+                // overflow-hidden bg-gradient-to-r from-cyan-500 to-blue-600
+                // text-white hover:shadow-lg hover:shadow-cyan-500/25">`
+                // with `<span class="relative flex items-center
+                // justify-center gap-2">Get Started</span>`. Without this,
+                // pixel-diff shows a red band at the bottom of each card
+                // (~3pp per card × 3 = ~9pp total for /plans).
+                div { class: "plans-prod-card-cta mt-auto",
+                    button { class: "plans-prod-card-cta-btn w-full py-4 rounded-xl font-bold text-base transition-all duration-300 relative overflow-hidden bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:shadow-lg hover:shadow-cyan-500/25",
+                        span { class: "plans-prod-card-cta-label relative flex items-center justify-center gap-2",
+                            Icon { name: "trending-up".to_string(), size: Some(16), class_name: Some("w-4 h-4".to_string()) }
+                            "Get Started"
+                        }
+                    }
+                }
             }
         }
     }
@@ -322,6 +348,88 @@ fn PlansFaq() -> Element {
                     p { class: "text-slate-300",
                         "We offer a 7-day free trial for all premium plans. No credit card required - just sign up and start exploring advanced features immediately."
                     }
+                }
+            }
+        }
+    }
+}
+
+// === wave44(t2) — API Plans section ===
+//
+// Prod's plans page has TWO pricing grids stacked:
+//   1. Personal Plans — 3 cards (1 Day / 1 Month / Lifetime) under
+//      `<PlanSelection>`.
+//   2. API Plans — 2 cards (API Personal, API Company) under
+//      `<DynamicPricingSection>`. Section header: code-xml icon +
+//      "API Plans" h2 + "For developers and integrations" p.
+//
+// We re-use the same `PricingCard` rendering (same glass-morphism,
+// same SALE ribbon, same feature list, same Get Started CTA) but
+// feed in a different plan list via `default_api_plans()`.
+fn default_api_plans() -> Vec<PlanLite> {
+    vec![
+        PlanLite {
+            name: "API Personal",
+            price_value: "$999",
+            original_price: "$3,999 USD",
+            discount_pct: "75% OFF",
+            save_amount: "Save $3000",
+            features: &[
+                "Analytics view access",
+                "API read access",
+                "Data export capability",
+                "Full developer documentation",
+                "30-day access",
+            ],
+        },
+        PlanLite {
+            name: "API Company",
+            price_value: "$2,999",
+            original_price: "$6,999 USD",
+            discount_pct: "57% OFF",
+            save_amount: "Save $4000",
+            features: &[
+                "Advanced analytics suite",
+                "Full trading suite (Basic, Pro & Advanced)",
+                "API read & write access",
+                "Data export",
+                "Notifications management",
+                "365-day company access",
+                "Dedicated support",
+            ],
+        },
+    ]
+}
+
+#[component]
+fn ApiPlans() -> Element {
+    let plans = default_api_plans();
+    rsx! {
+        section { class: "plans-prod-api-section mt-20",
+            // API Plans header — code-xml icon + h2 + subtitle.
+            // Prod uses `bg-gradient-to-br from-emerald-500/20
+            // to-blue-500/20` for the icon container and `lucide-code-xml`
+            // for the icon (we substitute `code` which has the closest
+            // registered path data; the dev icon registry does not have
+            // a `code-xml` entry, see epsx-templates lucide_icon()).
+            div { class: "plans-prod-api-header flex items-center gap-3 mb-8",
+                div { class: "plans-prod-api-icon p-2 rounded-xl bg-gradient-to-br from-emerald-500/20 to-blue-500/20 text-emerald-600 dark:text-emerald-400",
+                    Icon { name: "code".to_string(), size: Some(24), class_name: Some("h-6 w-6".to_string()) }
+                }
+                div { class: "plans-prod-api-text",
+                    h2 { class: "plans-prod-api-title text-2xl font-bold text-white",
+                        "API Plans"
+                    }
+                    p { class: "plans-prod-api-subtitle text-sm text-gray-500 dark:text-gray-400",
+                        "For developers and integrations"
+                    }
+                }
+            }
+            // 2-card grid (md:grid-cols-2). Prod caps at lg:grid-cols-3
+            // but with only 2 cards the visual is the same.
+            div { class: "plans-prod-api-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
+                for plan in plans.iter() {
+                    PricingCard { plan: plan.clone() }
                 }
             }
         }
