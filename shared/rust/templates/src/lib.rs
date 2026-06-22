@@ -6239,17 +6239,44 @@ fn html_text_escape(s: &str) -> String {
 
 /// Returns the standard EPSX logo (gradient text "EPSX").
 /// Returns the EPSX hexagon-with-chart icon (matches epsx.io's `/logos/epsx-icon.svg`).
+///
+/// Wave 44 t2: replaced the simplified inline path data with the actual
+/// prod SVG file (`apps-old/frontend/public/logos/epsx-icon.svg`) so the
+/// rendered pixels match. The previous shape was a stylized approximation
+/// using `viewBox=0 0 32 32` with a 2-stop gradient — the prod SVG is
+/// `viewBox=0 0 256 256` with a 4-stop gradient and three analytics bars
+/// + polyline + 3 circles. Without this, every page in the nav has a
+/// ~7K-pixel diff in the top-left brand area (manual, privacy, plans,
+/// etc. all had 7159px red diff in cell 0,0).
+///
+/// Note: prod wraps this in `<img src="/logos/epsx-icon.svg" class="h-8 w-8">`
+/// (CSS-sized to 32x32). The dev SSR sizes via the parent's `h-8 w-8`
+/// Tailwind class — same visual size. We keep the same `class="epsx-icon"`
+/// attr for selectors that hook the wrapper.
 pub fn epsx_icon_svg() -> &'static str {
-    r##"<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" class="epsx-icon" aria-hidden="true">
+    r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" class="epsx-icon" aria-hidden="true">
   <defs>
-    <linearGradient id="epsx-logo-grad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#488BFA"/>
-      <stop offset="1" stop-color="#A43FF3"/>
+    <linearGradient id="epsx-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#488BFA" />
+      <stop offset="33%" stop-color="#6D6FFA" />
+      <stop offset="66%" stop-color="#8D54F7" />
+      <stop offset="100%" stop-color="#A43FF3" />
     </linearGradient>
   </defs>
-  <path d="M16 1.5L29 8.5V23.5L16 30.5L3 23.5V8.5L16 1.5Z" stroke="url(#epsx-logo-grad)" stroke-width="2" fill="rgba(72,139,250,0.1)"/>
-  <path d="M8 22L13 16L17 19L24 9" stroke="url(#epsx-logo-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  <circle cx="24" cy="9" r="1.5" fill="#488BFA"/>
+
+  <polygon points="128,8 231.92,68 231.92,188 128,248 24.08,188 24.08,68"
+           fill="none" stroke="url(#epsx-grad)" stroke-width="20" stroke-linejoin="round" />
+
+  <rect x="76" y="140" width="24" height="40" fill="url(#epsx-grad)" />
+  <rect x="116" y="110" width="24" height="70" fill="url(#epsx-grad)" />
+  <rect x="156" y="80" width="24" height="100" fill="url(#epsx-grad)" />
+
+  <polyline points="88,140 128,110 168,80"
+            fill="none" stroke="url(#epsx-grad)" stroke-width="12" stroke-linejoin="round" />
+
+  <circle cx="88" cy="140" r="16" fill="url(#epsx-grad)" />
+  <circle cx="128" cy="110" r="16" fill="url(#epsx-grad)" />
+  <circle cx="168" cy="80" r="16" fill="url(#epsx-grad)" />
 </svg>"##
 }
 

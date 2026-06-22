@@ -14,6 +14,7 @@
 use dioxus::prelude::*;
 
 use super::mobile_nav::MobileNav;
+use crate::primitives::icon::Icon;
 
 /// Right-side action cluster. Mirrors the TS `NavActions` component
 /// 1:1, but takes widget slots as `Element` props instead of importing
@@ -78,9 +79,34 @@ pub fn NavActions(
                 if let Some(wallet) = wallet_button_desktop.clone() {
                     {wallet}
                 }
-                // Wave 44 t2 Connect button removed (was using r# raw string
-                // inside rsx! macro which doesn't parse). Will be re-added
-                // in Plan 10 with proper SVG-as-constant approach.
+                // === wave44(t2) fe-port: Connect button when unauthenticated ===
+                // Prod shows an orange-gradient "Connect" button to the right
+                // of the theme toggle for anonymous visitors. Without this,
+                // pixel-diff shows red across the entire top-right corner
+                // (~3-5pp per route).
+                //
+                // Wave 44 v2: use the Icon component (which delegates to
+                // epsx_templates::lucide) instead of inlining raw SVG via
+                // `dangerous_inner_html`. The previous `r##"..."##` syntax
+                // tripped Dioxus 0.7's rsx! macro parser, which broke
+                // `cargo build -p epsx-frontend` after the merge. Using the
+                // existing Icon component produces an identical lucide SVG
+                // (verified against `epsx_templates::lucide("wallet", ...)`).
+                //
+                // Wave 44 v3: align gradient + padding with prod's actual
+                // button. Prod uses `from-orange-400 to-orange-600` (orange
+                // single-hue) with `px-4` (not the `from-orange-500
+                // to-yellow-500 px-5` we initially ported). Re-checked
+                // against tools/e2e/baselines/prod/dashboard.html line
+                // ~46739: prod has `bg-gradient-to-r from-orange-400
+                // to-orange-600 ... h-10 px-4 text-sm`.
+                if !is_authenticated && wallet_button_desktop.is_none() {
+                    a { class: "epsx-connect-btn inline-flex items-center justify-center gap-2 rounded-2xl font-medium text-white bg-gradient-to-r from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700 transition-all duration-200 shadow-lg hover:shadow-xl border-0 px-4 h-10 text-sm",
+                        href: "/auth",
+                        Icon { name: "wallet".to_string(), size: Some(16), class_name: Some("h-4 w-4 text-white".to_string()) }
+                        span { "Connect" }
+                    }
+                }
             }
             // Tablet actions — sm only (md:hidden to hide on desktop)
             div { class: "hidden sm:flex md:hidden items-center gap-1.5",
@@ -95,8 +121,14 @@ pub fn NavActions(
                 if let Some(wallet) = wallet_button_tablet.clone() {
                     {wallet}
                 }
-                // Wave 44 t2 Connect pill removed (was using r# raw string
-                // inside rsx! macro which doesn't parse). Re-add in Plan 10.
+                // === wave44(t2) — tablet Connect pill (compact height) ===
+                if !is_authenticated && wallet_button_tablet.is_none() {
+                    a { class: "epsx-connect-btn-connect-btn-compact inline-flex items-center justify-center gap-1.5 rounded-2xl font-medium text-white bg-gradient-to-r from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700 transition-all duration-200 shadow-lg hover:shadow-xl border-0 px-3 h-8 text-xs",
+                        href: "/auth",
+                        Icon { name: "wallet".to_string(), size: Some(12), class_name: Some("h-3 w-3 text-white".to_string()) }
+                        span { "Connect" }
+                    }
+                }
             }
             // Mobile hamburger — lg:hidden (matches TS `lg:hidden` on the
             // hamburger button inside <MobileNav>)
