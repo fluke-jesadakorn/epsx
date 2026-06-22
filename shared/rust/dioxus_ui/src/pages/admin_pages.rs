@@ -114,7 +114,35 @@ pub fn dispatch(ctx: &PageContext) -> (PageMeta, Element) {
     // historical fix.
     let skeleton_mode = ctx.user.is_none()
         || std::env::var("EPSX_E2E_SKELETON").ok().as_deref() == Some("1");
-    if skeleton_mode && !matches!(p, "/dashboard" | "/policies")
+    // Wave 42 T2 — extend skeleton exempt list with the 4 routes
+    // whose pages have been wired with Wave 38b ported components
+    // (`payments.rs`, `news.rs`, `chat.rs`). With the previous
+    // exempt list (`/dashboard` | `/policies` — both prod 404s)
+    // these 4 routes never reached their `render()` function in
+    // skeleton mode, so all the Wave 42 T2 wiring work was
+    // invisible to the pixel-diff harness (diff stayed at the
+    // ~12% skeleton-vs-skeleton noise floor on `admin-payments`,
+    // `admin-news`, `admin-chat`, etc.).
+    //
+    // With the bypass, the dev SSR calls the per-page `render()`
+    // directly. The dev-bypass user (`EPSX_DEV_AUTH_BYPASS=1`)
+    // is admin, so the per-page `<AdminAuthGate required_permissions=...>`
+    // passes through and the wired content renders. The diff will
+    // increase from the ~12% skeleton-vs-skeleton noise floor to
+    // reflect the actual rendered content (Payments Hub / News /
+    // Chat). The admin mean moves correspondingly.
+    if skeleton_mode
+        && !matches!(
+            p,
+            "/dashboard"
+                | "/policies"
+                | "/payments"
+                | "/news"
+                | "/news/create"
+                | "/chat"
+        )
+        && !p.starts_with("/chat/")
+        && !(p.starts_with("/news/") && p.ends_with("/edit"))
     {
         let slug = slug_for_path(p);
         // Wave 38c T2 — admin-chat is the 4th route that needs
