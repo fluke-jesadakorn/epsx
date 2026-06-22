@@ -1,19 +1,18 @@
 #!/usr/bin/env bash
-# start-bff-dev.sh — start the dev BFF with the env vars needed for
-# E2E pixel-diff measurement. Wave 46 discovered that without
-# EPSX_DEV_AUTH_BYPASS=1, the ssr_handler redirects auth-gated routes
-# (about, contact, profile, permissions, offline, notifications,
-# chat/<sub>) to /auth, which makes the E2E diff 100% (correct for the
-# redirect but useless for measuring real page content).
+# start-bff-dev.sh - start the dev BFF with the env vars used for historical
+# E2E pixel-diff measurement (matches Wave 25-44 baseline config).
+#
+# USES:
+#   - EPSX_AUTH_BYPASS_DEV=1  capture script adds dev-bypass cookie
+#   - EPSX_E2E_SKELETON=1     render skeleton for unauthed content
+#   - EPSX_ENABLE_DEMO_LOGIN=1 admin only
+#
+# DOES NOT use EPSX_DEV_AUTH_BYPASS=1 (would force-unauth on BFF and break
+# routes like /portfolio that match prod's anon landing).
 #
 # Usage:
 #   bash tools/e2e/start-bff-dev.sh                # frontend on :3000
 #   bash tools/e2e/start-bff-dev.sh admin          # admin on :3001
-#
-# Env vars (all optional, defaults shown):
-#   EPSX_DEV_AUTH_BYPASS=1   auth bypass (recommended for E2E)
-#   EPSX_AUTH_BYPASS_DEV=1   for capture script
-#   EPSX_E2E_SKELETON=1      render skeleton for unauthed content
 set -e
 
 ROLE="${1:-frontend}"
@@ -37,8 +36,7 @@ case "$ROLE" in
     ;;
 esac
 
-# Default env vars for E2E
-export EPSX_DEV_AUTH_BYPASS="${EPSX_DEV_AUTH_BYPASS:-1}"
+# Default env vars matching historical E2E baseline
 export EPSX_AUTH_BYPASS_DEV="${EPSX_AUTH_BYPASS_DEV:-1}"
 export EPSX_E2E_SKELETON="${EPSX_E2E_SKELETON:-1}"
 # Admin also needs these
@@ -51,8 +49,7 @@ lsof -ti:$PORT 2>/dev/null | xargs -r kill -9 2>/dev/null || true
 sleep 1
 
 # Start
-env EPSX_DEV_AUTH_BYPASS="$EPSX_DEV_AUTH_BYPASS" \
-    EPSX_AUTH_BYPASS_DEV="$EPSX_AUTH_BYPASS_DEV" \
+env EPSX_AUTH_BYPASS_DEV="$EPSX_AUTH_BYPASS_DEV" \
     EPSX_E2E_SKELETON="$EPSX_E2E_SKELETON" \
     EPSX_ENABLE_DEMO_LOGIN="$EPSX_ENABLE_DEMO_LOGIN" \
     nohup ./$BIN > "$LOG" 2>&1 &
