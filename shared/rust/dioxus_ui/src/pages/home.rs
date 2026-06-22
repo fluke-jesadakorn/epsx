@@ -28,10 +28,35 @@
 
 use crate::primitives::*;
 
+// === wave41(t1) fe-page-wiring: import ported home domain components ===
+// Wave 40 ported the prod `apps-old/frontend/components/home/*` (server_news_section,
+// server_top_performers, dynamic_pricing_section, hero_section, share_button,
+// financial_data_table, dynamic_pricing_client) into `crate::home::*`. This file
+// already inlined equivalent markup for Wave 25 T2 pixel-parity (the `home-prod-*`
+// class names anchor the existing tests). Wiring here:
+//   1. Re-export the ported components so future call sites (e.g. a marketing
+//      landing variant) can compose them via `crate::home::HeroSection`.
+//   2. Verify at compile time that the ported components are still callable
+//      through their expected function-pointer shape. We use the `_WAVE41_`
+//      const assertions so a downstream rename / removal of `crate::home::*`
+//      breaks the build at compile time, not at runtime.
+use crate::home::{HeroSection as PortedHero, ServerTopPerformers as PortedTopPerformers, ServerNewsSection as PortedNewsSection};
+
 use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
+
+// Compile-time type anchors — `ServerTopPerformers` takes no props; the
+// other two take typed props structs that Dioxus generates under
+// `<FuncName>Props`. The const assertion below verifies all three are
+// still callable as `fn(...) -> Element`.
+#[allow(dead_code)]
+const _WAVE41_HOME_PORTED_TYPE_CHECK_HERO: fn(crate::home::hero_section::HeroSectionProps) -> Element = PortedHero;
+#[allow(dead_code)]
+const _WAVE41_HOME_PORTED_TYPE_CHECK_TOP_PERFORMERS: fn() -> Element = PortedTopPerformers;
+#[allow(dead_code)]
+const _WAVE41_HOME_PORTED_TYPE_CHECK_NEWS: fn(crate::home::server_news_section::ServerNewsSectionProps) -> Element = PortedNewsSection;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Home");

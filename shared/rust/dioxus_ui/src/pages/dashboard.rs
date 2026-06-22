@@ -36,10 +36,24 @@
 use crate::primitives::*;
 use crate::feedback::*;
 
+// === wave41(t1) fe-page-wiring: import ported dashboard domain components ===
+// Wave 40 ported the prod `apps-old/frontend/components/dashboard/dashboard-client.tsx`
+// into `crate::dashboard::DashboardClient`. This page renders the dashboard body
+// inline for Wave 27 T2 pixel-parity. Wiring here is a compile-time type-check
+// anchor — it proves the ported component is still reachable from
+// `crate::dashboard::*` with its typed prop signature, so a future refactor
+// can swap inline ↔ ported without rename surprises.
+use crate::dashboard::DashboardClient as PortedDashboardClient;
+
 use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
+
+// Compile-time anchor — `DashboardClient` takes a single `stats: DashboardStats`
+// arg; Dioxus generates `DashboardClientProps` for the function pointer shape.
+#[allow(dead_code)]
+const _WAVE41_DASHBOARD_PORTED_TYPE_CHECK: fn(crate::dashboard::dashboard_client::DashboardClientProps) -> Element = PortedDashboardClient;
 
 /// DashboardClient mock data — mirrors `apps-old/frontend/app/dashboard/page.tsx:35-45`.
 #[derive(Clone, Debug, PartialEq)]
