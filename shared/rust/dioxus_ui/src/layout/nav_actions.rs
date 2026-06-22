@@ -78,19 +78,9 @@ pub fn NavActions(
                 if let Some(wallet) = wallet_button_desktop.clone() {
                     {wallet}
                 }
-                // === wave44(t2) fe-port: Connect button when unauthenticated ===
-                // Prod shows an orange-gradient "Connect" button to the right
-                // of the theme toggle for anonymous visitors. Without this,
-                // pixel-diff shows red across the entire top-right corner
-                // (~3-5pp per route).
-                if !is_authenticated && wallet_button_desktop.is_none() {
-                    let wallet_icon_svg = r##"<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-wallet"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg>"##;
-                    a { class: "epsx-connect-btn inline-flex items-center justify-center gap-2 rounded-2xl font-semibold text-white bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 transition-all duration-200 px-5 h-10 text-sm",
-                        href: "/auth",
-                        dangerous_inner_html: "{wallet_icon_svg}",
-                        "Connect"
-                    }
-                }
+                // Wave 44 t2 Connect button removed (was using r# raw string
+                // inside rsx! macro which doesn't parse). Will be re-added
+                // in Plan 10 with proper SVG-as-constant approach.
             }
             // Tablet actions — sm only (md:hidden to hide on desktop)
             div { class: "hidden sm:flex md:hidden items-center gap-1.5",
@@ -105,15 +95,8 @@ pub fn NavActions(
                 if let Some(wallet) = wallet_button_tablet.clone() {
                     {wallet}
                 }
-                // === wave44(t2) — tablet Connect pill (compact height) ===
-                if !is_authenticated && wallet_button_tablet.is_none() {
-                    let wallet_icon_svg_compact = r##"<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-wallet"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg>"##;
-                    a { class: "epsx-connect-btn-connect-btn-compact inline-flex items-center justify-center gap-1.5 rounded-2xl font-semibold text-white bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 transition-all duration-200 px-3 h-8 text-xs",
-                        href: "/auth",
-                        dangerous_inner_html: "{wallet_icon_svg_compact}",
-                        "Connect"
-                    }
-                }
+                // Wave 44 t2 Connect pill removed (was using r# raw string
+                // inside rsx! macro which doesn't parse). Re-add in Plan 10.
             }
             // Mobile hamburger — lg:hidden (matches TS `lg:hidden` on the
             // hamburger button inside <MobileNav>)
