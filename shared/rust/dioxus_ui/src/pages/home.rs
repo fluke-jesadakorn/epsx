@@ -113,10 +113,19 @@ fn HeroSection() -> Element {
                         }
                     }
                     div { class: "home-prod-hero-actions flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center",
+                        // === wave44(t2) fe-port: add Share Platform CTA next to Start Exploration ===
+                        // Prod renders both buttons side-by-side (line-chart + share-2 icons,
+                        // orange→yellow gradient, 220px min-width). Wave 41 only ported Start
+                        // Exploration; this fill-in matches prod pixel-parity.
                         a { class: "home-prod-hero-cta w-full sm:w-auto min-w-[220px] h-14 text-lg font-bold bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white rounded-2xl shadow-2xl px-6 inline-flex items-center justify-center",
                             href: "/analytics",
                             Icon { name: "line-chart".to_string(), size: Some(24), class_name: Some("mr-3".to_string()) }
                             span { "🚀 Start Exploration" }
+                        }
+                        a { class: "home-prod-hero-cta w-full sm:w-auto min-w-[220px] h-14 text-lg font-bold bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white rounded-2xl shadow-2xl px-6 inline-flex items-center justify-center",
+                            href: "/news",
+                            Icon { name: "share-2".to_string(), size: Some(24), class_name: Some("mr-3".to_string()) }
+                            span { "📤 Share Platform" }
                         }
                     }
                     div { class: "home-prod-hero-stats grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 mt-16",
@@ -372,6 +381,7 @@ mod tests {
             "Metrics ✨",
             "from-orange-500 via-yellow-500 to-orange-600",
             "🚀 Start Exploration",
+            "📤 Share Platform",
             "home-prod-hero-stat",
             "24/7",
             "100+",

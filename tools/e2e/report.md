@@ -1,6 +1,6 @@
 # Wave 23 T1 — E2E Component Interaction Report
 
-Generated: 2026-06-19T04:38:18.309Z
+Generated: 2026-06-22T13:18:13.218Z
 
 Prod: `https://epsx.io`  |  Dev: BFF port-forward (default `localhost:30101`)
 
@@ -8,82 +8,50 @@ Prod: `https://epsx.io`  |  Dev: BFF port-forward (default `localhost:30101`)
 
 | # | Slug | Path | pixel_diff_% | console_errors_dev | broken_links_dev | broken_buttons_dev | missing_components |
 |---|------|------|-------------:|-------------------:|-----------------:|-------------------:|-------------------:|
-| 1 | `home` | `/` | 13.54 | 0 | 6 | 5 | 6 |
-| 2 | `about` | `/about` | 100 | 0 | 0 | 0 | 0 |
-| 3 | `access-denied` | `/access-denied` | 93.76 | 0 | 0 | 2 | 0 |
-| 4 | `account` | `/account` | 93.68 | 4 | 2 | 3 | 2 |
-| 5 | `account-credits` | `/account/credits` | 93.47 | 2 | 0 | 2 | 0 |
-| 6 | `analytics` | `/analytics` | 78.11 | 0 | 10 | 10 | 10 |
-| 7 | `auth` | `/auth` | 99.96 | 0 | 0 | 0 | 0 |
-| 8 | `chat` | `/chat` | 93.76 | 0 | 0 | 3 | 0 |
-| 9 | `chat-sample-conv-id` | `/chat/sample-conv-id` | 94.77 | 0 | 0 | 0 | 0 |
-| 10 | `chat-history` | `/chat/history` | 97.23 | 0 | 0 | 0 | 0 |
-| 11 | `contact` | `/contact` | 99.98 | 0 | 0 | 0 | 0 |
-| 12 | `dashboard` | `/dashboard` | 49.05 | 0 | 0 | 2 | 0 |
-| 13 | `developer` | `/developer` | 99.83 | 0 | 0 | 2 | 0 |
-| 14 | `developer-usage` | `/developer/usage` | 99.8 | 0 | 0 | 2 | 0 |
-| 15 | `developer-docs` | `/developer/docs` | 99.8 | 0 | 0 | 2 | 0 |
-| 16 | `manual` | `/manual` | 2.04 | 0 | 0 | 2 | 0 |
-| 17 | `news` | `/news` | 93.76 | 0 | 0 | 2 | 0 |
-| 18 | `news-sample-slug` | `/news/sample-slug` | 93.7 | 1 | 0 | 4 | 0 |
-| 19 | `notifications` | `/notifications` | 99.96 | 0 | 0 | 0 | 0 |
-| 20 | `offline` | `/offline` | 99.96 | 0 | 0 | 0 | 0 |
-| 21 | `payment` | `/payment` | 99.34 | 0 | 0 | 2 | 0 |
-| 22 | `payment-intent-sample-id` | `/payment/intent/sample-id` | 99.09 | 0 | 0 | 2 | 0 |
-| 23 | `permissions` | `/permissions` | 99.96 | 0 | 0 | 0 | 0 |
-| 24 | `plans` | `/plans` | 22.55 | 1 | 0 | 3 | 0 |
-| 25 | `portfolio` | `/portfolio` | 20.47 | 0 | 0 | 4 | 0 |
-| 26 | `privacy` | `/privacy` | 6.18 | 0 | 0 | 2 | 0 |
-| 27 | `profile` | `/profile` | 99.96 | 0 | 0 | 0 | 0 |
-| 28 | `terms` | `/terms` | 93.76 | 0 | 0 | 2 | 0 |
+| 1 | `home` | `/` | 12.28 | 0 | 3 | 5 | 3 |
+| 2 | `dashboard` | `/dashboard` | 1.58 | 0 | 0 | 1 | 0 |
+| 3 | `manual` | `/manual` | 2.04 | 0 | 0 | 1 | 0 |
+| 4 | `plans` | `/plans` | 22.55 | 1 | 0 | 2 | 0 |
+| 5 | `portfolio` | `/portfolio` | 20.47 | 0 | 0 | 3 | 0 |
+| 6 | `privacy` | `/privacy` | 6.18 | 0 | 0 | 1 | 0 |
 
 ## Issue digest (aggregated across routes)
 
 | Kind | Total occurrences | Routes affected |
 |------|------------------:|----------------:|
-| `missing-buttons` | 56 | 19 |
-| `redirect-chain-differs` | 28 | 28 |
-| `missing-hrefs` | 18 | 3 |
+| `missing-buttons` | 13 | 6 |
+| `redirect-chain-differs` | 6 | 6 |
+| `missing-hrefs` | 3 | 1 |
 
 ## Top 5 issues (by occurrence)
 
-### `missing-buttons` — 56 occurrences
+### `missing-buttons` — 13 occurrences
 
 Affected routes (first 10):
 
-- `home` — sample: `"Market"`
-- `access-denied` — sample: `"Market"`
-- `account` — sample: `"Market"`
-- `account-credits` — sample: `"Market"`
-- `analytics` — sample: `"Market"`
-- `chat` — sample: `"Market"`
-- `dashboard` — sample: `"Market"`
-- `developer` — sample: `"Market"`
-- `developer-usage` — sample: `"Market"`
-- `developer-docs` — sample: `"Market"`
+- `home` — sample: `"Connect"`
+- `dashboard` — sample: `"Connect"`
+- `manual` — sample: `"Connect"`
+- `plans` — sample: `"Connect"`
+- `portfolio` — sample: `"Connect"`
+- `privacy` — sample: `"Connect"`
 
-### `redirect-chain-differs` — 28 occurrences
+### `redirect-chain-differs` — 6 occurrences
 
 Affected routes (first 10):
 
-- `home` — prod→`1: https://epsx.io/` dev→`0: http://localhost:30101/`
-- `about` — prod→`1: https://epsx.io/auth` dev→`0: http://localhost:30101/about`
-- `access-denied` — prod→`1: https://epsx.io/access-denied` dev→`0: http://localhost:30101/access-denied`
-- `account` — prod→`1: https://epsx.io/account` dev→`0: http://localhost:30101/account`
-- `account-credits` — prod→`1: https://epsx.io/account/credits` dev→`0: http://localhost:30101/account/credits`
-- `analytics` — prod→`1: https://epsx.io/analytics` dev→`0: http://localhost:30101/analytics`
-- `auth` — prod→`1: https://epsx.io/auth` dev→`0: http://localhost:30101/auth`
-- `chat` — prod→`1: https://epsx.io/chat` dev→`0: http://localhost:30101/chat`
-- `chat-sample-conv-id` — prod→`1: https://epsx.io/auth` dev→`0: http://localhost:30101/chat/sample-conv-id`
-- `chat-history` — prod→`1: https://epsx.io/auth` dev→`0: http://localhost:30101/chat/history`
+- `home` — prod→`1: https://epsx.io/` dev→`0: http://localhost:3000/`
+- `dashboard` — prod→`1: https://epsx.io/dashboard` dev→`0: http://localhost:3000/dashboard`
+- `manual` — prod→`1: https://epsx.io/manual` dev→`0: http://localhost:3000/manual`
+- `plans` — prod→`1: https://epsx.io/plans` dev→`0: http://localhost:3000/plans`
+- `portfolio` — prod→`1: https://epsx.io/portfolio` dev→`0: http://localhost:3000/portfolio`
+- `privacy` — prod→`1: https://epsx.io/privacy` dev→`0: http://localhost:3000/privacy`
 
-### `missing-hrefs` — 18 occurrences
+### `missing-hrefs` — 3 occurrences
 
 Affected routes (first 10):
 
-- `home` — sample: `"https://www.tradingview.com/symbols/4657"`
-- `account` — sample: `"/account/credits"`
-- `analytics` — sample: `"https://www.tradingview.com/symbols/SPGI"`
+- `home` — sample: `"/news/optimizing-high-throughput-analytics-rust"`
 
 ## Skipped / missing artifacts
 

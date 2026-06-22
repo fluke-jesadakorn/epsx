@@ -213,10 +213,15 @@ function structuralDiff(prodHtml, devHtml) {
     return out;
   };
   const extractButtons = (html) => {
+    // Wave 44 T2: strip <script>...</script> before button extraction so
+    // the regex doesn't match `<button role="tab">` inside JS comments in
+    // `templates::global_js` (which would otherwise lazily consume the
+    // next real `</button>`, skipping real buttons like Market/Developer).
+    const stripped = html.replace(/<script\b[\s\S]*?<\/script>/gi, "");
     const re = /<button\s+[^>]*>([\s\S]*?)<\/button>/gi;
     const out = [];
     let m;
-    while ((m = re.exec(html)) !== null) {
+    while ((m = re.exec(stripped)) !== null) {
       const text = m[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
       out.push({ text });
     }
