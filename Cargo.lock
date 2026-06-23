@@ -4605,7 +4605,10 @@ name = "epsx-pay-bff"
 version = "0.1.0"
 dependencies = [
  "axum 0.8.9",
+ "dioxus",
+ "dioxus-ssr",
  "epsx-client",
+ "epsx-dioxus-ui",
  "epsx-kernel",
  "epsx-observability",
  "epsx-templates",
