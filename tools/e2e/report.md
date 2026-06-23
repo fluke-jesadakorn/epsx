@@ -1,6 +1,6 @@
 # Wave 23 T1 — E2E Component Interaction Report
 
-Generated: 2026-06-23T05:53:22.583Z
+Generated: 2026-06-23T07:07:17.890Z
 
 Prod: `https://epsx.io`  |  Dev: BFF port-forward (default `localhost:30101`)
 
@@ -9,45 +9,45 @@ Prod: `https://epsx.io`  |  Dev: BFF port-forward (default `localhost:30101`)
 | # | Slug | Path | pixel_diff_% | console_errors_dev | broken_links_dev | broken_buttons_dev | missing_components |
 |---|------|------|-------------:|-------------------:|-----------------:|-------------------:|-------------------:|
 | 1 | `home` | `/` | 12.38 | 0 | 6 | 4 | 6 |
-| 2 | `about` | `/about` | 99.96 | 0 | 0 | 2 | 0 |
-| 3 | `access-denied` | `/access-denied` | 93.86 | 0 | 0 | 1 | 0 |
-| 4 | `account` | `/account` | 93.78 | 4 | 2 | 2 | 2 |
-| 5 | `account-credits` | `/account/credits` | 93.54 | 2 | 0 | 1 | 0 |
-| 6 | `analytics` | `/analytics` | 79.75 | 0 | 10 | 13 | 10 |
-| 7 | `auth` | `/auth` | 99.96 | 0 | 0 | 2 | 0 |
-| 8 | `chat` | `/chat` | 93.83 | 0 | 0 | 2 | 0 |
-| 9 | `chat-sample-conv-id` | `/chat/sample-conv-id` | 99.96 | 0 | 0 | 2 | 0 |
-| 10 | `chat-history` | `/chat/history` | 99.96 | 0 | 0 | 2 | 0 |
-| 11 | `contact` | `/contact` | 99.96 | 0 | 0 | 2 | 0 |
-| 12 | `dashboard` | `/dashboard` | 1.75 | 0 | 0 | 1 | 0 |
-| 13 | `developer` | `/developer` | 99.82 | 0 | 0 | 4 | 0 |
-| 14 | `developer-usage` | `/developer/usage` | 79.64 | 0 | 0 | 1 | 0 |
-| 15 | `developer-docs` | `/developer/docs` | 99.8 | 0 | 0 | 4 | 0 |
+| 2 | `about` | `/about` | 88.55 | 0 | 0 | 1 | 0 |
+| 3 | `access-denied` | `/access-denied` | 59.82 | 0 | 0 | 1 | 0 |
+| 4 | `account` | `/account` | 93.85 | 4 | 2 | 2 | 2 |
+| 5 | `account-credits` | `/account/credits` | 93.21 | 2 | 0 | 1 | 0 |
+| 6 | `analytics` | `/analytics` | 90.27 | 0 | 10 | 13 | 10 |
+| 7 | `auth` | `/auth` | 88.65 | 0 | 0 | 1 | 0 |
+| 8 | `chat` | `/chat` | 93.61 | 0 | 0 | 2 | 0 |
+| 9 | `chat-sample-conv-id` | `/chat/sample-conv-id` | 88.37 | 0 | 0 | 1 | 0 |
+| 10 | `chat-history` | `/chat/history` | 88.41 | 0 | 0 | 1 | 0 |
+| 11 | `contact` | `/contact` | 88.61 | 0 | 0 | 1 | 0 |
+| 12 | `dashboard` | `/dashboard` | 1.76 | 0 | 0 | 1 | 0 |
+| 13 | `developer` | `/developer` | 99.73 | 0 | 0 | 4 | 0 |
+| 14 | `developer-usage` | `/developer/usage` | 7.43 | 0 | 0 | 1 | 0 |
+| 15 | `developer-docs` | `/developer/docs` | 99.69 | 0 | 0 | 4 | 0 |
 | 16 | `manual` | `/manual` | 2.22 | 0 | 0 | 1 | 0 |
-| 17 | `news` | `/news` | 93.86 | 0 | 0 | 1 | 0 |
-| 18 | `news-sample-slug` | `/news/sample-slug` | 93.8 | 1 | 0 | 3 | 0 |
-| 19 | `notifications` | `/notifications` | 99.96 | 0 | 0 | 2 | 0 |
-| 20 | `offline` | `/offline` | 99.96 | 0 | 0 | 2 | 0 |
-| 21 | `payment` | `/payment` | 99.24 | 0 | 0 | 4 | 0 |
-| 22 | `payment-intent-sample-id` | `/payment/intent/sample-id` | 99.08 | 0 | 0 | 4 | 0 |
-| 23 | `permissions` | `/permissions` | 99.96 | 0 | 0 | 2 | 0 |
-| 24 | `plans` | `/plans` | 10.98 | 1 | 0 | 1 | 0 |
+| 17 | `news` | `/news` | 93.58 | 0 | 0 | 1 | 0 |
+| 18 | `news-sample-slug` | `/news/sample-slug` | 85 | 1 | 0 | 3 | 0 |
+| 19 | `notifications` | `/notifications` | 88.4 | 0 | 0 | 1 | 0 |
+| 20 | `offline` | `/offline` | 88.61 | 0 | 0 | 1 | 0 |
+| 21 | `payment` | `/payment` | 99.95 | 0 | 1 | 8 | 1 |
+| 22 | `payment-intent-sample-id` | `/payment/intent/sample-id` | 99.77 | 0 | 0 | 4 | 0 |
+| 23 | `permissions` | `/permissions` | 88.42 | 0 | 0 | 1 | 0 |
+| 24 | `plans` | `/plans` | 10.97 | 1 | 0 | 1 | 0 |
 | 25 | `portfolio` | `/portfolio` | 8.81 | 0 | 0 | 3 | 0 |
 | 26 | `privacy` | `/privacy` | 6.25 | 0 | 0 | 1 | 0 |
-| 27 | `profile` | `/profile` | 99.96 | 0 | 0 | 2 | 0 |
-| 28 | `terms` | `/terms` | 93.85 | 0 | 0 | 1 | 0 |
+| 27 | `profile` | `/profile` | 88.55 | 0 | 0 | 1 | 0 |
+| 28 | `terms` | `/terms` | 93.79 | 0 | 0 | 1 | 0 |
 
 ## Issue digest (aggregated across routes)
 
 | Kind | Total occurrences | Routes affected |
 |------|------------------:|----------------:|
-| `missing-buttons` | 70 | 28 |
+| `missing-buttons` | 65 | 28 |
 | `redirect-chain-differs` | 28 | 28 |
-| `missing-hrefs` | 18 | 3 |
+| `missing-hrefs` | 19 | 4 |
 
 ## Top 5 issues (by occurrence)
 
-### `missing-buttons` — 70 occurrences
+### `missing-buttons` — 65 occurrences
 
 Affected routes (first 10):
 
@@ -77,13 +77,14 @@ Affected routes (first 10):
 - `chat-sample-conv-id` — prod→`1: https://epsx.io/auth` dev→`1: http://localhost:3000/auth`
 - `chat-history` — prod→`1: https://epsx.io/auth` dev→`1: http://localhost:3000/auth`
 
-### `missing-hrefs` — 18 occurrences
+### `missing-hrefs` — 19 occurrences
 
 Affected routes (first 10):
 
 - `home` — sample: `"https://www.tradingview.com/symbols/UNIABEXAL"`
 - `account` — sample: `"/account/credits"`
 - `analytics` — sample: `"https://www.tradingview.com/symbols/PH"`
+- `payment` — sample: `"/"`
 
 ## Skipped / missing artifacts
 
