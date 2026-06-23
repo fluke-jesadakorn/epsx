@@ -123,15 +123,17 @@ pub fn CheckoutButton(props: CheckoutButtonProps) -> Element {
     //
     // 1. POST to `/api/v1/pay/intent` (the BFF proxy at
     //    `props.api_base` forwards to `pay-svc`).
-    // 2. Parse the response — `pay_url` field contains the
+    // 2. Parse the response — the `intent.id` field is the
     //    redirect target.
-    // 3. `window.location.href = pay_url` to navigate.
+    // 3. `window.location.href = /pay?intent={id}` to navigate.
     //
-    // Implementation uses the Dioxus `eval` JS bridge because
-    // the SSR mode doesn't expose `window` to Rust closures.
-    // For SSR-only render (no hydration), the eval never runs
-    // and the button is a no-op (the page-shell `disabled` state
-    // handles the visible-but-inert case).
+    // Implementation uses the Dioxus `document::eval` JS
+    // bridge (same pattern Wave 1 used in `auth_modal`,
+    // `modal`, and `rich_text`) because the SSR mode doesn't
+    // expose `window` to Rust closures. For SSR-only render
+    // (no hydration), the eval never runs and the button is
+    // a visual no-op (the page-shell `disabled` state handles
+    // the visible-but-inert case).
     let api_base = props.api_base.clone();
     let pay_url_fallback = props.pay_url.clone();
     let onclick = move |_evt| {
@@ -139,16 +141,16 @@ pub fn CheckoutButton(props: CheckoutButtonProps) -> Element {
         let pay_url_fallback = pay_url_fallback.clone();
         let body_str = body_str.clone();
         spawn(async move {
-            // Use `document::eval` for the fetch + redirect.
-            // Dioxus 0.7 exposes `eval()` on the RuntimeScope
-            // via the `document` feature. For SSR, this is a
-            // no-op so we don't ship a runtime-only handler in
-            // the SSR shell.
-            //
             // Inline JS payload — runs in the browser context.
             // The fetch is intentionally NOT pre-encoded; the
             // browser-side JSON.stringify matches our Rust
             // serde_json output for the simple shapes we use.
+            //
+            // Follows the auth_modal.rs / modal.rs / rich_text.rs
+            // pattern: `let _ = document::eval(script.as_str()).await;`
+            // The `_` discard is intentional — the script is
+            // fire-and-forget (we redirect on completion, so
+            // there's nothing to await in the Rust closure).
             let script = format!(
                 r#"
                 (async () => {{
@@ -179,10 +181,12 @@ pub fn CheckoutButton(props: CheckoutButtonProps) -> Element {
                 body = body_str,
                 fallback = pay_url_fallback,
             );
-            // The eval is fired-and-forgotten in the browser.
-            // We don't await it because there's nothing useful
-            // to do in the SSR render thread after the redirect.
-            let _ = script; // silence unused warning
+            // Dispatch to the browser via the Dioxus eval bridge.
+            // SSR is a no-op (the `RuntimeScope` doesn't have a
+            // `document`); the button visual is correct without
+            // hydration. On the client, this runs the IIFE
+            // immediately and the user is redirected.
+            let _ = document::eval(script.as_str()).await;
         });
     };
 

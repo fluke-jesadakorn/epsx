@@ -67,9 +67,98 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                     PlansFaq {}
                 }
             }
+            // wave49(slice-5) — wire up the plan-card CTAs to the
+            // pay-svc intent flow. The script attaches click handlers
+            // to every `.plans-prod-card-cta-btn` element on the
+            // page. For numeric-price cards (Get Started) it reads
+            // the `data-{amount,currency,chain-id}` attributes set
+            // in `PricingCard`, POSTs `/api/v1/pay/intent`, and
+            // navigates to `/pay?intent={id}`. For non-numeric cards
+            // (Talk to Touch) it skips the POST and navigates to
+            // `/contact` directly. SSR is a no-op (the script tag
+            // is harmless without hydration).
+            script {
+                dangerous_inner_html: CHECKOUT_BRIDGE_JS,
+            }
         }
     })
 }
+
+/// wave49(slice-5) — the plan-card checkout bridge. Extracted out
+/// of `rsx!` so the parser doesn't choke on the JS template literal
+/// + regex / backtick content. The script is loaded as
+/// `dangerous_inner_html` on a `<script>` tag at the end of
+/// `render()`, so it runs after the page content is in the DOM.
+///
+/// Behavior per click on `.plans-prod-card-cta-btn`:
+/// 1. If `data-amount` is empty (Talk to Touch), navigate to
+///    `/contact` and return.
+/// 2. Build a POST body with `{ amount, currency, chain_id, token,
+///    description: data-label }`.
+/// 3. POST to `/api/v1/pay/intent` with `Content-Type: application/json`.
+/// 4. On 200, parse `{ intent: { id } }` and navigate to
+///    `/pay?intent={id}`. On any error, fall back to `/pay?intent=`
+///    (the PayLinkLanding stub will show the "link not found"
+///    error if the upstream rejects).
+const CHECKOUT_BRIDGE_JS: &str = r#"
+(function() {
+    function wire() {
+        var buttons = document.querySelectorAll('.plans-prod-card-cta-btn');
+        for (var i = 0; i < buttons.length; i++) {
+            (function(btn) {
+                // Don't double-wire on hydration.
+                if (btn.__epsxBridgeWired) return;
+                btn.__epsxBridgeWired = true;
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    var amount = btn.getAttribute('data-amount') || '';
+                    var currency = btn.getAttribute('data-currency') || '';
+                    var chainId = btn.getAttribute('data-chain-id') || '';
+                    var label = btn.getAttribute('data-label') || 'Get Started';
+                    // Talk to Touch: no numeric price → /contact
+                    if (!amount) {
+                        window.location.href = '/contact';
+                        return;
+                    }
+                    var body = {
+                        amount: amount,
+                        currency: currency || 'USDT',
+                        chain_id: chainId || '56',
+                        token: currency || 'USDT',
+                        description: label,
+                    };
+                    fetch('/api/v1/pay/intent', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body),
+                    }).then(function(resp) {
+                        if (!resp.ok) {
+                            console.error('plans CTA: pay-svc error', resp.status);
+                            window.location.href = '/pay?intent=';
+                            return null;
+                        }
+                        return resp.json();
+                    }).then(function(data) {
+                        if (data && data.intent && data.intent.id) {
+                            window.location.href = '/pay?intent=' + encodeURIComponent(data.intent.id);
+                        } else {
+                            window.location.href = '/pay?intent=';
+                        }
+                    }).catch(function(err) {
+                        console.error('plans CTA: fetch failed', err);
+                        window.location.href = '/pay?intent=';
+                    });
+                });
+            })(buttons[i]);
+        }
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', wire);
+    } else {
+        wire();
+    }
+})();
+"#;
 
 #[component]
 fn PlansHero() -> Element {
@@ -229,6 +318,18 @@ pub fn PricingCard(plan: PlanLite) -> Element {
     let has_original = !plan.original_price.is_empty();
     let has_savings = !plan.save_amount.is_empty();
     let is_numeric_price = plan.price_value.starts_with('$');
+    // wave49(slice-5) — derive the numeric amount string for the
+    // CHECKOUT_BRIDGE_JS to read via `data-amount`. We strip `$` and
+    // `,` from `price_value` so `$4,999` → `4999` and `$9.9` → `9.9`.
+    // Dioxus' rsx formatter doesn't allow method chains inside the
+    // format string, so we compute this once here.
+    let amount_attr: String = if is_numeric_price {
+        plan.price_value
+            .trim_start_matches('$')
+            .replace(',', "")
+    } else {
+        String::new()
+    };
     rsx! {
         div { class: "plans-prod-card relative rounded-2xl border border-white/20 dark:border-white/15 bg-white/8 dark:bg-white/5 backdrop-blur-xl transition-all duration-300 hover:border-white/30 dark:hover:border-white/25 flex flex-col h-full overflow-hidden",
             // Red SALE ribbon — top-left corner (same as prod's
@@ -329,9 +430,31 @@ pub fn PricingCard(plan: PlanLite) -> Element {
                 // justify-center gap-2">Get Started</span>`. Without this,
                 // pixel-diff shows a red band at the bottom of each card
                 // (~3pp per card × 3 = ~9pp total for /plans).
+                //
+                // wave49(slice-5) — data-{amount,currency,chain-id,label}
+                // attributes. The CHECKOUT_BRIDGE_JS script (bottom of
+                // `render()`) reads these on click, POSTs
+                // `/api/v1/pay/intent`, and 307-redirects to
+                // `/pay?intent={id}`. For non-numeric price (Custom
+                // Plans) the script skips the POST and navigates to
+                // `/contact` (Talk to Touch = book-a-call flow).
+                //
+                // `data-amount` is derived from `price_value` by
+                // stripping `$` and `,` — that gives us `1` / `9.9` /
+                // `4999` / `999` / `2999` from the prod seed values.
                 div { class: "plans-prod-card-cta mt-auto",
                     if is_numeric_price {
-                        button { class: "plans-prod-card-cta-btn w-full py-4 rounded-xl font-bold text-base transition-all duration-300 relative overflow-hidden bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:shadow-lg hover:shadow-cyan-500/25",
+                        // Numeric price → Get Started → checkout flow.
+                        // `data-amount` is the human-readable dollar
+                        // value as a string; the pay-svc accepts both
+                        // human and smallest-unit forms (see
+                        // CheckoutButtonProps docs).
+                        button {
+                            class: "plans-prod-card-cta-btn w-full py-4 rounded-xl font-bold text-base transition-all duration-300 relative overflow-hidden bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:shadow-lg hover:shadow-cyan-500/25",
+                            "data-amount": "{amount_attr}",
+                            "data-currency": "USDT",
+                            "data-chain-id": "56",
+                            "data-label": "Get Started",
                             span { class: "plans-prod-card-cta-label relative flex items-center justify-center gap-2",
                                 Icon { name: "trending-up".to_string(), size: Some(16), class_name: Some("w-4 h-4".to_string()) }
                                 "Get Started"
@@ -339,7 +462,14 @@ pub fn PricingCard(plan: PlanLite) -> Element {
                         }
                     } else {
                         // Custom Plans: "Talk to Touch" CTA (purple→pink).
-                        button { class: "plans-prod-card-cta-btn w-full py-4 rounded-xl font-bold text-base transition-all duration-300 relative overflow-hidden bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg hover:shadow-purple-500/25",
+                        // `data-amount=""` signals the bridge to skip
+                        // the pay-svc POST and navigate to /contact.
+                        button {
+                            class: "plans-prod-card-cta-btn w-full py-4 rounded-xl font-bold text-base transition-all duration-300 relative overflow-hidden bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg hover:shadow-purple-500/25",
+                            "data-amount": "",
+                            "data-currency": "",
+                            "data-chain-id": "",
+                            "data-label": "Talk to Touch",
                             span { class: "plans-prod-card-cta-label relative flex items-center justify-center gap-2",
                                 Icon { name: "phone".to_string(), size: Some(16), class_name: Some("w-4 h-4".to_string()) }
                                 "Talk to Touch"
@@ -598,18 +728,31 @@ mod tests {
     }
 
     /// Wave 30 T1 — assert the "Buy Now" button is NOT rendered
-    /// (prod's card capture has no CTA button visible; the dev's
-    /// orange button was the bottom ~60px of pixel diff per card).
+    /// (the dev's old orange "Buy Now" button was the bottom ~60px
+    /// of pixel diff per card; prod's "Get Started" cyan/blue
+    /// gradient is the correct match). Wave 44 T2 re-introduced
+    /// the CTA as a `plans-prod-card-cta-btn` element with the
+    /// prod's gradient + label, and wave 49 slice-5 added the
+    /// `data-{amount,currency,chain-id,label}` attrs the
+    /// CHECKOUT_BRIDGE_JS reads on click.
     #[test]
     fn plans_no_buy_now_button() {
         let html = render_to_string(&empty_ctx());
         assert!(
             !html.contains("Buy Now"),
-            "plans page should NOT render a 'Buy Now' CTA button (prod capture is shorter — no button in viewport). Got: {html}"
+            "plans page should NOT render a 'Buy Now' CTA button (the old orange 'Buy Now' is gone — replaced by prod's 'Get Started' / 'Talk to Touch' CTAs). Got: {html}"
         );
         assert!(
-            !html.contains("plans-prod-card-cta"),
-            "plans page should NOT render the cta-button class. Got: {html}"
+            html.contains("plans-prod-card-cta-btn"),
+            "plans page should render the 'plans-prod-card-cta-btn' button (Get Started / Talk to Touch). Got: {html}"
+        );
+        assert!(
+            html.contains("data-amount"),
+            "plans page should render the data-amount attr (wave49 slice-5 CHECKOUT_BRIDGE_JS). Got: {html}"
+        );
+        assert!(
+            html.contains("data-currency"),
+            "plans page should render the data-currency attr (wave49 slice-5 CHECKOUT_BRIDGE_JS). Got: {html}"
         );
     }
 
@@ -684,11 +827,23 @@ mod tests {
         );
     }
 
+    /// Wave 44 T2 — the /plans page now renders TWO pricing grids:
+    ///   - Personal Plans: 3 cards (1 Day / 1 Month / Lifetime)
+    ///   - API Plans:      2 cards (API Personal / API Company)
+    /// Total: 5 plan cards. Wave 30 T1's 3-card assertion is stale;
+    /// wave 44 added the API Plans section but didn't update this
+    /// test (so it's been silently failing since the wave 44 merge).
+    /// The home page uses the same `default_plans()` + `default_api_plans()`
+    /// + `default_custom_plans()` lists and adds a 3rd Custom Plans
+    /// grid, but the /plans page itself only ships the 2 grids.
     #[test]
     fn plans_has_three_tier_cards() {
         let html = render_to_string(&empty_ctx());
         let card_count = html.matches("plans-prod-card-name").count();
-        assert_eq!(card_count, 3, "plans page should render 3 plan tier cards. Got {card_count} in: {html}");
+        assert_eq!(
+            card_count, 5,
+            "plans page should render 5 plan tier cards (3 Personal + 2 API). Got {card_count} in: {html}"
+        );
     }
 
     #[test]
