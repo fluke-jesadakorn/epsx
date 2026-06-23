@@ -58,6 +58,14 @@ images:
   # gRPC seam on 50051 is unchanged.
   - name: epsx-identity
     newTag: wave13b-dev
+  # wave49(slice-1): pay.epsx.io microservice — dev tags.
+  # Per-wave-49 image tag so the dev overlay runs the
+  # wave-49 build (the first build after the
+  # `epsx-payment` → `epsx-pay-svc` rename).
+  - name: epsx-pay-svc
+    newTag: wave49-dev
+  - name: epsx-pay-bff
+    newTag: wave49-dev
 
 patches:
   - path: patches/replicas.yaml
@@ -65,3 +73,8 @@ patches:
   - path: patches/services-nodeport.yaml
   - path: patches/services-identity.yaml
   - path: patches/skip-migrate.yaml
+  # wave49(slice-1): pay.epsx.io NodePort + replicas +
+  # resources for the dev overlay (NodePort 30106 + 30107).
+  - path: patches/pay-services-nodeport.yaml
+  - path: patches/pay-replicas.yaml
+  - path: patches/pay-resources.yaml

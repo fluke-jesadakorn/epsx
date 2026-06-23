@@ -135,7 +135,16 @@ services:
     environment:
       # Database Connection
       DATABASE_URL: postgresql://${DB_USER:-epsx_user}:${DB_PASSWORD:-password}@postgres:5432/${DB_NAME:-epsx_dev}
-      PAYMENTS_DATABASE_URL: postgresql://${DB_USER:-epsx_user}:${DB_PASSWORD:-password}@postgres:5432/epsx_payments_dev
+      # wave49(slice-1): renamed from `epsx_payments_dev` to
+      # `epsx_pay_dev` to match the wave49 pay.epsx.io DB
+      # rename. The monolith still uses this connection
+      # string (apps/backend/src/infrastructure/database/
+      # diesel_connection_manager.rs); the env var NAME is
+      # unchanged because that would require touching
+      # multiple monolith files. Slice 4 will remove the
+      # monolith's payment handlers entirely; the env var
+      # goes away with them.
+      PAYMENTS_DATABASE_URL: postgresql://${DB_USER:-epsx_user}:${DB_PASSWORD:-password}@postgres:5432/epsx_pay_dev
       NOTIFICATIONS_DATABASE_URL: postgresql://${DB_USER:-epsx_user}:${DB_PASSWORD:-password}@postgres:5432/epsx_notifications_dev
       ANALYTICS_DATABASE_URL: postgresql://${DB_USER:-epsx_user}:${DB_PASSWORD:-password}@postgres:5432/epsx_analytics_dev
       RUST_LOG: info

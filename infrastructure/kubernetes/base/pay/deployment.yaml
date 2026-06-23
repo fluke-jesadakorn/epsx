@@ -1,0 +1,97 @@
+# ============================================================================
+# wave49(slice-1): epsx-pay-svc (formerly epsx-payment) — Axum backend
+# service for the pay.epsx.io microservice. Port 8103 (unchanged from the
+# pre-extraction services/payment binary). Health endpoint at /health
+# (same pattern as epsx-analytics).
+#
+# Build image: epsx-pay-svc:prod (built via apps/payment/Dockerfile in
+# a follow-up commit; this Slice 1 manifest reuses the same build
+# context as the monolith backend — the workspace root + a
+# `cargo build --release --bin pay-service` invocation).
+#
+# The base manifest is ClusterIP-only (services in the same namespace
+# can dial http://epsx-pay-svc:8103). The dev/staging/prod overlays
+# add NodePort patches for external smoke testing through Cloudflare
+# Tunnel (see patches/pay-services-nodeport.yaml).
+# ============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-pay-svc
+  labels:
+    app: epsx-pay-svc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: epsx-pay-svc
+  template:
+    metadata:
+      labels:
+        app: epsx-pay-svc
+    spec:
+      containers:
+        - name: epsx-pay-svc
+          image: epsx-pay-svc:prod
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: HOST, value: "0.0.0.0" }
+            - { name: PORT, value: "8103" }
+            - { name: RUST_LOG, value: "info" }
+            - { name: RUST_BACKTRACE, value: "0" }
+            - { name: RUST_ENV, value: "production" }
+            - { name: ENV, value: "production" }
+            # wave49 marker: lets ops distinguish the
+            # pay.epsx.io microservice build from the pre-extraction
+            # monolith `payment` handler paths.
+            - { name: EPSX_PAY_SVC_VERSION, value: "wave49" }
+            # Database connection string — the old
+            # `epsx_payment` Postgres database was renamed to
+            # `epsx_pay` in wave49(slice-1.M) via
+            # `ALTER DATABASE epsx_payment RENAME TO epsx_pay`.
+            # Same role, same password, same host — only the
+            # database name in the connection string changed.
+            - name: DATABASE_URL
+              value: "postgresql://epsx:epsx@host.docker.internal:5432/epsx_pay?sslmode=disable"
+            # BSC mainnet chain id; the pay-svc binary listens
+            # to this via `--chain-id` (default 56).
+            - { name: CHAIN_ID, value: "56" }
+            # Escrow contract address — wired through the
+            # `epsx_contracts` crate. The "0" default is the
+            # placeholder used by the stub; the real address is
+            # injected from a K8s secret in a follow-up wave
+            # (slice-3 will add the secret + production escrow).
+            - { name: ESCROW_CONTRACT, value: "0" }
+          ports:
+            - { containerPort: 8103 }
+          livenessProbe:
+            httpGet: { path: /health, port: 8103 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /health, port: 8103 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          resources:
+            # The new binary is lighter than the monolith —
+            # no auth flow, no permission service, no JWT
+            # verification. 256Mi / 0.5 CPU is generous for
+            # the 12 endpoints it serves. The slice-3 wave
+            # will add the payment_links / payment_history
+            # / admin endpoints; if those add meaningful DB
+            # query load we will bump this in the slice-3
+            # commit.
+            limits: { memory: 256Mi, cpu: "0.5" }
+            requests: { memory: 64Mi, cpu: "0.1" }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: { sizeLimit: 100Mi }

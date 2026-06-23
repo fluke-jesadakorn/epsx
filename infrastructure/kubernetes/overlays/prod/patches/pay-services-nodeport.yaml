@@ -1,0 +1,44 @@
+# ============================================================================
+# wave49(slice-1): prod NodePort patches for the pay.epsx.io
+# microservice. Both deployments are exposed via NodePort so
+# Cloudflare Tunnel (running on the host) can reach them through
+# the port-bridge LaunchAgent (`com.epsx.pay-port-bridge`).
+#
+# Allocation follows the prod 30000-30099 pattern:
+#   - 30082 = epsx-pay-svc (backend service, port 8103)
+#   - 30083 = epsx-pay-bff (Dioxus SSR BFF, port 3002)
+#
+# The port-bridge LaunchAgent listens on 4747 + 4748 on the host
+# and forwards to 30082 + 30083 on the colima VM's eth0 IP
+# (192.168.5.3). The Cloudflare Tunnel config
+# (infrastructure/cloudflare/cloudflared-config.prod.yml) routes
+# `pay.epsx.io` → http://localhost:4747 (→ 30082 → epsx-pay-svc:8103).
+#
+# The NodePort assignments for `api.epsx.io` (30080) and
+# `admin.epsx.io` (30001) are unchanged. The new NodePorts do
+# NOT overlap with any existing assignment.
+# ============================================================================
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: epsx-pay-svc
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 8103
+      targetPort: 8103
+      nodePort: 30082
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: epsx-pay-bff
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 3002
+      targetPort: 3002
+      nodePort: 30083

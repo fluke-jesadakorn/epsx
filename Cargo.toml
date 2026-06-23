@@ -22,7 +22,7 @@ members = [
     "services/gateway",
     "services/identity",
     "services/wallet",
-    "services/payment",
+    "services/pay",
     "services/subscription",
     "services/content",
     "services/notification",

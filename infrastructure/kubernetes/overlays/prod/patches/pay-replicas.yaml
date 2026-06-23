@@ -1,0 +1,18 @@
+# ============================================================================
+# wave49(slice-1): prod replicas for pay.epsx.io microservice.
+# Single replica per prod pattern (single-node colima, no HA).
+# ============================================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-pay-svc
+spec:
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-pay-bff
+spec:
+  replicas: 1

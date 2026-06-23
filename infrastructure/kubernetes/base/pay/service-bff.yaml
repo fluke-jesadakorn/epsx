@@ -1,0 +1,19 @@
+# ============================================================================
+# wave49(slice-1): epsx-pay-bff ClusterIP Service. Reachable from
+# Cloudflare Tunnel via the port-bridge LaunchAgent
+# (`com.epsx.pay-port-bridge` — see infrastructure/scripts/).
+# ============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: epsx-pay-bff
+  labels:
+    app: epsx-pay-bff
+spec:
+  type: ClusterIP
+  selector:
+    app: epsx-pay-bff
+  ports:
+    - name: http
+      port: 3002
+      targetPort: 3002

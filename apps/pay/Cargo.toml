@@ -1,5 +1,5 @@
 [package]
-name = "epsx-pay"
+name = "epsx-pay-bff"
 version.workspace = true
 edition.workspace = true
 

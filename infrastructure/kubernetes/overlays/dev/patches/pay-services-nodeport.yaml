@@ -1,0 +1,36 @@
+# ============================================================================
+# wave49(slice-1): dev NodePort patches. Uses the dev 30100-30199
+# range (consistent with epsx-analytics 30103, epsx-identity
+# 30104/30105). New allocations:
+#   - 30106 = epsx-pay-svc (port 8103)
+#   - 30107 = epsx-pay-bff (port 3002)
+#
+# Operators access dev via:
+#   curl -k https://dev-pay.epsx.io/api/health
+# which Cloudflare Tunnel routes here via the dev
+# /etc/cloudflared/config.yaml.
+# ============================================================================
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: epsx-pay-svc
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 8103
+      targetPort: 8103
+      nodePort: 30106
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: epsx-pay-bff
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 3002
+      targetPort: 3002
+      nodePort: 30107

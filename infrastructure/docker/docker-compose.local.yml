@@ -304,6 +304,76 @@ services:
           cpus: "0.25"
     logging: *default-logging
 
+  # wave49(slice-1): pay.epsx.io microservice (local).
+  pay-svc:
+    image: epsx-pay-svc:wave49-dev
+    container_name: epsx-local-pay-svc
+    restart: unless-stopped
+    environment:
+      ENV: development
+      RUST_ENV: development
+      RUST_LOG: info,epsx=debug
+      DATABASE_URL: postgresql://${DB_USER:-epsx_user}:${DB_PASSWORD:-password}@postgres:5432/epsx_pay?sslmode=disable
+      CHAIN_ID: 56
+      ESCROW_CONTRACT: "0"
+      PORT: 8103
+      HOST: 0.0.0.0
+    ports:
+      - "127.0.0.1:8103:8103"
+    networks:
+      - epsx_prod
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8103/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=50M
+    deploy:
+      resources:
+        limits: { memory: 256M, cpus: "0.5" }
+        reservations: { memory: 64M, cpus: "0.1" }
+    logging: *default-logging
+
+  pay-bff:
+    image: epsx-pay-bff:wave49-dev
+    container_name: epsx-local-pay-bff
+    restart: unless-stopped
+    depends_on:
+      pay-svc:
+        condition: service_healthy
+    environment:
+      ENV: development
+      RUST_ENV: development
+      RUST_LOG: info,epsx=debug
+      API_URL: http://pay-svc:8103
+      PORT: 3002
+      HOST: 0.0.0.0
+    ports:
+      - "127.0.0.1:3002:3002"
+    networks:
+      - epsx_prod
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3002/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=50M
+    deploy:
+      resources:
+        limits: { memory: 256M, cpus: "0.5" }
+        reservations: { memory: 64M, cpus: "0.1" }
+    logging: *default-logging
+
 networks:
   epsx_prod:
     driver: bridge

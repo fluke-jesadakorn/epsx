@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.epsx.pay-port-bridge</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-lc</string>
+        <!--
+          wave49(slice-1): the pay.epsx.io port-bridge. Forwards
+            4747 (host) → 30082 (colima VM eth0 NodePort) → epsx-pay-svc:8103
+            4748 (host) → 30083 (colima VM eth0 NodePort) → epsx-pay-bff:3002
+
+          The Cloudflare Tunnel ingress for `pay.epsx.io` points
+          at `http://localhost:4747` (this LaunchAgent's listener).
+          The Tunnel then carries HTTPS traffic to the BFF, which
+          internally dials the service in-cluster via
+          `API_URL=http://epsx-pay-svc:8103`.
+
+          The 4747/4748 port assignments are arbitrary — they were
+          chosen to avoid collisions with the existing
+          `com.epsx.port-bridge` LaunchAgent (8080/4810/9180).
+
+          Operators install with:
+            cp infrastructure/scripts/com.epsx.pay-port-bridge.plist ~/Library/LaunchAgents/
+            launchctl load ~/Library/LaunchAgents/com.epsx.pay-port-bridge.plist
+        -->
+        <string>/opt/homebrew/bin/socat TCP-LISTEN:4747,fork,reuseaddr TCP:127.0.0.1:30082 &amp; /opt/homebrew/bin/socat TCP-LISTEN:4748,fork,reuseaddr TCP:127.0.0.1:30083 &amp; wait</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/pay-port-bridge.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/pay-port-bridge.err</string>
+</dict>
+</plist>

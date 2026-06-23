@@ -1,0 +1,23 @@
+# ============================================================================
+# wave49(slice-1): epsx-pay-svc ClusterIP Service. Cluster-internal DNS
+# `epsx-pay-svc:8103` is consumed by the epsx-pay-bff (BFF) and by
+# future slices' admin / wallet / monolith proxies.
+#
+# The base service is ClusterIP only. The dev/staging/prod overlays
+# add NodePort patches for external smoke testing via Cloudflare
+# Tunnel (see overlays/{dev,staging,prod}/patches/pay-services-nodeport.yaml).
+# ============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: epsx-pay-svc
+  labels:
+    app: epsx-pay-svc
+spec:
+  type: ClusterIP
+  selector:
+    app: epsx-pay-svc
+  ports:
+    - name: http
+      port: 8103
+      targetPort: 8103
