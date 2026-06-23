@@ -1,3 +1,22 @@
+//! EPSX Pay BFF (bff-pay).
+//!
+//! wave49(slice-2): Dioxus SSR rewrite. The previous version used
+//! inline `r##"..."##` HTML strings for the /checkout, /success,
+//! and /cancel pages. This rewrite composes the ported payment
+//! components from `shared/rust/dioxus_ui::payment::*` via real
+//! Dioxus `#[component]` functions in `crate::components::*`.
+//!
+//! Strategy:
+//! - Axum handles the API routes (`/api/v1/pay/intent*`) and
+//!   proxies them to the `epsx-pay-svc` backend via
+//!   `ServiceClient`.
+//! - The catch-all `pay_ssr_fallback` builds a `VirtualDom`
+//!   from a `PageRouter` component that dispatches by URL
+//!   path, then serializes via `dioxus_ssr::render_element`.
+//! - The serialized body is wrapped in `page_shell_with_body_class`
+//!   so the design system (Tailwind, lucide icons, FOUC prevention)
+//!   matches `epsx.io` and `admin.epsx.io`.
+
 use axum::{
     extract::Path as AxPath,
     http::StatusCode,
@@ -5,11 +24,18 @@ use axum::{
     routing::{any, get},
     Json, Router,
 };
+use dioxus::prelude::*;
 use epsx_client::ServiceClient;
 use epsx_templates::{page_shell_with_body_class, theme_toggle_button, logo};
 use serde::Deserialize;
 use std::net::SocketAddr;
 use std::sync::Arc;
+
+mod components;
+mod state;
+
+use components::{PayCancelScreen, PayCheckoutForm, PayEscrowStatus, PaySuccessScreen};
+use state::payment_wizard_state::PaymentWizardState;
 
 #[derive(Clone)]
 struct AppState {
@@ -130,21 +156,89 @@ async fn pay_status(
         .map_err(|_| StatusCode::BAD_GATEWAY)
 }
 
-async fn pay_ssr_fallback(uri: axum::http::Uri) -> Response {
-    let path = uri.path();
-    let html = render_pay_page(path);
-    Html(html).into_response()
+// ============================================================================
+// SSR fallback — Dioxus VirtualDom render via dioxus_ssr::render_element
+// ============================================================================
+
+#[derive(Props, Clone, PartialEq)]
+struct PageRouterProps {
+    path: String,
+    query: String,
 }
 
-fn render_pay_page(path: &str) -> String {
-    let (title, description, body) = if path == "/success" {
-        ("Payment Successful", "Your payment was confirmed on BSC", pay_success_body())
+#[component]
+fn PageRouter(props: PageRouterProps) -> Element {
+    let path = props.path.clone();
+    let query = props.query.clone();
+
+    // Route dispatch by path.
+    if path == "/success" {
+        // Pull intent id from query if present.
+        let intent_id = parse_query_param(&query, "intent");
+        return rsx! { PaySuccessScreen { intent_id: intent_id } };
+    }
+    if path == "/cancel" {
+        return rsx! { PayCancelScreen {} };
+    }
+    if path.starts_with("/intent/") {
+        // /intent/:id
+        let id = path.trim_start_matches("/intent/").to_string();
+        return rsx! { PayEscrowStatus { intent_id: id } };
+    }
+    // Default: / and /checkout → PayCheckoutForm
+    let state = PaymentWizardState::from_search(&query);
+    rsx! { PayCheckoutForm { state: state } }
+}
+
+fn parse_query_param(query: &str, key: &str) -> Option<String> {
+    let needle = format!("{}=", key);
+    for pair in query.trim_start_matches('?').split('&') {
+        if let Some(rest) = pair.strip_prefix(&needle) {
+            return Some(rest.to_string());
+        }
+        if let Some((k, v)) = pair.split_once('=') {
+            if k == key {
+                return Some(v.to_string());
+            }
+        }
+    }
+    None
+}
+
+async fn pay_ssr_fallback(uri: axum::http::Uri) -> Response {
+    let path = uri.path().to_string();
+    let query = uri.query().unwrap_or("").to_string();
+
+    // Build the page VDom.
+    let mut vdom = VirtualDom::new_with_props(
+        PageRouter,
+        PageRouterProps { path: path.clone(), query: query.clone() },
+    );
+
+    // Dioxus 0.7 SSR: rebuild_in_place walks the component tree
+    // and resolves all `rsx!` blocks. Without this call,
+    // `dioxus_ssr::render` panics with "tree has not been built".
+    vdom.rebuild_in_place();
+
+    // SSR render — `dioxus_ssr::render` returns the full HTML
+    // body string. We rebuild the VDom each request (cheap;
+    // ~1ms per page) so URL params + path dispatch stay pure.
+    let body_html = dioxus_ssr::render(&vdom);
+
+    // Choose title + body class per route.
+    let (title, body_class) = if path == "/success" {
+        ("Payment Successful", "page-bg")
     } else if path == "/cancel" {
-        ("Payment Cancelled", "Your payment was cancelled", pay_cancel_body())
+        ("Payment Cancelled", "page-bg")
+    } else if path.starts_with("/intent/") {
+        ("Payment status", "page-bg")
     } else {
-        ("EPSX Pay", "Complete your payment on BSC", pay_checkout_body())
+        ("EPSX Pay", "page-bg")
     };
 
+    // Minimal nav — the checkout page already includes its own
+    // shell via the design system. The nav here matches the
+    // existing inline-HTML version (logo + theme toggle).
     let nav = format!(
         r#"<nav class="navbar"><div class="container-x flex items-center justify-between" style="height:3.5rem;">
   {logo}
@@ -156,93 +250,14 @@ fn render_pay_page(path: &str) -> String {
         toggle = theme_toggle_button(),
     );
 
-    let shell = page_shell_with_body_class(title, description, &nav, &body, false, "page-bg");
-    shell
-}
+    let shell = page_shell_with_body_class(
+        title,
+        "EPSX Pay — Complete your payment on BSC",
+        &nav,
+        &body_html,
+        false,
+        body_class,
+    );
 
-fn pay_success_body() -> String {
-    r##"<section class="section" style="display:flex;align-items:center;justify-content:center;min-height:80vh;">
-<div style="text-align:center;max-width:32rem;">
-  <div style="width:5rem;height:5rem;border-radius:9999px;background:linear-gradient(135deg,#10b981,#34d399);display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;box-shadow:0 20px 25px -5px rgba(16,185,129,0.5);">
-    <i data-lucide="check" style="color:white;font-size:1.75rem;"></i>
-  </div>
-  <span class="badge badge-success" style="margin-bottom:1rem;">Confirmed</span>
-  <h1 style="font-size:2.5rem;font-weight:800;margin-bottom:1rem;">Payment Successful</h1>
-  <p style="color:var(--text-muted);font-size:1.125rem;margin-bottom:2rem;">Your payment has been confirmed on BSC. The recipient has been notified.</p>
-  <div style="display:inline-flex;gap:0.75rem;flex-wrap:wrap;justify-content:center;">
-    <a href="/" class="btn btn-gradient btn-lg"><i data-lucide="home"></i> Back to Home</a>
-    <a href="/dashboard" class="btn btn-outline btn-lg"><i data-lucide="gauge"></i> View Dashboard</a>
-  </div>
-</div>
-</section>"##.to_string()
-}
-
-fn pay_cancel_body() -> String {
-    r##"<section class="section" style="display:flex;align-items:center;justify-content:center;min-height:80vh;">
-<div style="text-align:center;max-width:32rem;">
-  <div style="width:5rem;height:5rem;border-radius:9999px;background:linear-gradient(135deg,#ef4444,#f87171);display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;box-shadow:0 20px 25px -5px rgba(239,68,68,0.5);">
-    <i data-lucide="x" style="color:white;font-size:1.75rem;"></i>
-  </div>
-  <span class="badge badge-danger" style="margin-bottom:1rem;">Cancelled</span>
-  <h1 style="font-size:2.5rem;font-weight:800;margin-bottom:1rem;">Payment Cancelled</h1>
-  <p style="color:var(--text-muted);font-size:1.125rem;margin-bottom:2rem;">Your payment was not completed. No funds have been transferred.</p>
-  <div style="display:inline-flex;gap:0.75rem;flex-wrap:wrap;justify-content:center;">
-    <a href="/" class="btn btn-gradient btn-lg"><i data-lucide="home"></i> Back to Home</a>
-    <button onclick="history.back()" class="btn btn-outline btn-lg"><i data-lucide="arrow-left"></i> Try Again</button>
-  </div>
-</div>
-</section>"##.to_string()
-}
-
-fn pay_checkout_body() -> String {
-    r##"<section class="section" style="display:flex;align-items:center;justify-content:center;min-height:80vh;">
-<div style="width:100%;max-width:28rem;">
-  <div class="card-insight" style="padding:2.5rem;">
-    <div style="text-align:center;margin-bottom:2rem;">
-      <span class="badge-pill"><i data-lucide="credit-card" style="color:var(--epsx-orange);width:1rem;height:1rem;"></i> EPSX Pay</span>
-      <h1 style="font-size:1.75rem;font-weight:800;margin-top:0.75rem;">Complete Payment</h1>
-      <p style="color:var(--text-muted);font-size:0.875rem;margin-top:0.25rem;">Powered by BSC</p>
-    </div>
-
-    <div style="background:var(--bg-secondary);border-radius:0.75rem;padding:1.25rem;margin-bottom:1rem;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
-        <span style="font-size:0.875rem;color:var(--text-muted);">Amount</span>
-        <span class="gradient-text" id="amount" style="font-size:1.5rem;font-weight:800;">0.00 USDT</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:0.875rem;color:var(--text-muted);">Chain</span>
-        <span style="font-size:0.875rem;font-weight:500;"><i data-lucide="link" style="color:var(--epsx-orange);width:1rem;height:1rem;margin-right:0.25rem;"></i>BSC (BEP-20)</span>
-      </div>
-    </div>
-
-    <button id="pay-btn" class="btn btn-gradient btn-block btn-lg" style="margin-bottom:0.75rem;">
-      <i data-lucide="wallet"></i> Connect Wallet & Pay
-    </button>
-    <p style="font-size:0.75rem;color:var(--text-subtle);text-align:center;">
-      <i data-lucide="shield" style="color:var(--epsx-green);"></i> Secured by EPSX escrow
-    </p>
-  </div>
-</div>
-</section>
-<script>
-const url = new URLSearchParams(location.search);
-document.getElementById('amount').textContent = (url.get('amount') || '0.00') + ' ' + (url.get('currency') || 'USDT');
-document.getElementById('pay-btn').onclick = async () => {
-  try {
-    const intent = await fetch('/api/v1/pay/intent', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        amount: url.get('amount') || '0',
-        currency: url.get('currency') || 'USDT',
-        description: url.get('description') || '',
-      }),
-    }).then(r => r.json());
-    if (intent && intent.intent && intent.intent.id) location.href = '/checkout/' + intent.intent.id;
-    else epsx.toast('Failed to create payment intent', 'error');
-  } catch (e) {
-    epsx.toast('Network error: ' + e.message, 'error');
-  }
-};
-</script>"##.to_string()
+    Html(shell).into_response()
 }

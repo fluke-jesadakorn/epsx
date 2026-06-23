@@ -10,6 +10,7 @@ path = "src/main.rs"
 [dependencies]
 epsx-kernel = { path = "../../shared/rust/kernel" }
 epsx-client = { path = "../../shared/rust/client" }
+epsx-dioxus-ui = { path = "../../shared/rust/dioxus_ui" }
 epsx-observability = { path = "../../shared/rust/observability" }
 epsx-templates = { path = "../../shared/rust/templates" }
 axum.workspace = true
@@ -18,6 +19,13 @@ tracing.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
+# wave49(slice-2): Dioxus SSR runtime. The bff-pay BFF
+# renders the pay pages via `dioxus_ssr::render_element`
+# on a `VirtualDom` built from the ported payment components
+# in `epsx_dioxus_ui::payment::*`. Same pattern as
+# `apps/frontend/src/ssr.rs`.
+dioxus.workspace = true
+dioxus-ssr.workspace = true
 
 [features]
 default = ["ssr"]
