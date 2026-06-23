@@ -30,7 +30,6 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
         MainLayout { ctx: ctx.clone(),
             div { class: "container page-content legal-page terms-page",
                 TermsHero {}
-                TermsToc {}
                 TermsSections {}
                 TermsSubscribeCard {}
                 TermsFooter {}
@@ -44,17 +43,23 @@ fn TermsHero() -> Element {
     rsx! {
         section { class: "legal-hero terms-hero",
             h1 { class: "legal-hero-title", "Terms and Conditions" }
+            // Wave 48 T6 — Plan 12: hardcoded '6/18/2026' to match
+            // prod (no CMS source of truth in dev).
             p { class: "legal-hero-subtitle text-muted-foreground",
-                "Last updated: today."
+                "Last updated: 6/18/2026"
             }
         }
     }
 }
 
+// Wave 48 T6 — Plan 12: prod does not render the "On this page"
+// inline TOC for /terms. Removed to match prod's clean legal page
+// (TOC + section title offsets were the dominant pixel diff driver).
+#[allow(dead_code)]
 #[component]
 fn TermsToc() -> Element {
     rsx! {
-        nav { class: "legal-toc terms-toc", "aria-label": "Table of contents",
+        nav { class: "legal-toc terms-toc hidden", "aria-label": "Table of contents",
             span { class: "legal-toc-label", "On this page:" }
             a { class: "legal-toc-link", href: "#introduction", "1. Introduction" }
             a { class: "legal-toc-link", href: "#authentication-security", "2. Authentication & Account Security" }

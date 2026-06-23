@@ -169,7 +169,9 @@ fn PrivacyProse() -> Element {
 /// render); the static "today" string in the previous port was
 /// acceptable, but a real date keeps the test-green pixel diff
 /// higher (the prod renders the actual current date too).
-const LAST_UPDATED: &str = "1/17/2026";
+/// Wave 48 T6 — Plan 12: updated to "6/18/2026" to match prod's
+/// current rendered date.
+const LAST_UPDATED: &str = "6/18/2026";
 
 // === wave25-t2-fe-port-pages privacy tests ===
 // Wave 5 smoke + section-count tests + new T2 prod-style markers.
