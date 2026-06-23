@@ -132,19 +132,19 @@ fn PlanSelection() -> Element {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-struct PlanLite {
-    name: &'static str,
+pub struct PlanLite {
+    pub name: &'static str,
     /// Price value WITHOUT currency suffix (e.g. "$1", "$9.9",
     /// "$4,999"). Prod renders the main price and a smaller "USD"
     /// suffix side-by-side.
-    price_value: &'static str,
-    original_price: &'static str,
-    discount_pct: &'static str,
-    save_amount: &'static str,
+    pub price_value: &'static str,
+    pub original_price: &'static str,
+    pub discount_pct: &'static str,
+    pub save_amount: &'static str,
     features: &'static [&'static str],
 }
 
-fn default_plans() -> Vec<PlanLite> {
+pub fn default_plans() -> Vec<PlanLite> {
     // Mirrors the prod's 3-tier pricing grid (1 DAY / 1 MONTH /
     // LIFETIME). The static seed matches prod's anonymous-rendered
     // state: SALE ribbon + crossed-out price + green savings text
@@ -214,13 +214,31 @@ fn default_plans() -> Vec<PlanLite> {
 /// - no CTA button (prod capture is shorter — no button visible in
 ///   the 1280x800 viewport)
 #[component]
-fn PricingCard(plan: PlanLite) -> Element {
+pub fn PricingCard(plan: PlanLite) -> Element {
+    // Wave 48 T1 — Plan 12 (home PricingCard swap).
+    // Made `PricingCard` handle the Custom Plans case:
+    //   - empty `discount_pct` → no SALE ribbon, no discount badge
+    //   - empty `original_price` → no strikethrough price
+    //   - non-`$`-prefix `price_value` (e.g. "Revenue Share") →
+    //     render as plain text instead of "big blue number + USD"
+    // The Personal/API plans use the full layout (SALE ribbon +
+    // discount badge + USD + strikethrough + savings + flame timer);
+    // the Custom plan uses the simplified layout (no SALE, plain
+    // price text, no strikethrough, no USD, no savings, no timer).
+    let has_discount = !plan.discount_pct.is_empty();
+    let has_original = !plan.original_price.is_empty();
+    let has_savings = !plan.save_amount.is_empty();
+    let is_numeric_price = plan.price_value.starts_with('$');
     rsx! {
         div { class: "plans-prod-card relative rounded-2xl border border-white/20 dark:border-white/15 bg-white/8 dark:bg-white/5 backdrop-blur-xl transition-all duration-300 hover:border-white/30 dark:hover:border-white/25 flex flex-col h-full overflow-hidden",
             // Red SALE ribbon — top-left corner (same as prod's
-            // `<CardOverlays>` "SALE" badge)
-            span { class: "plans-prod-ribbon absolute -top-px -left-px z-20 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-br-3xl uppercase tracking-wider",
-                "SALE"
+            // `<CardOverlays>` "SALE" badge). Only render when
+            // there's a discount (Personal/API plans). Suppressed
+            // for the Custom Plans card (no discount).
+            if has_discount {
+                span { class: "plans-prod-ribbon absolute -top-px -left-px z-20 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-br-3xl uppercase tracking-wider",
+                    "SALE"
+                }
             }
             // Card body — p-6 sm:p-8 padding (prod uses
             // `p-6 sm:p-8` per `<PricingCard>` inner wrapper)
@@ -238,31 +256,51 @@ fn PricingCard(plan: PlanLite) -> Element {
                     // Price row: big price + small USD + discount
                     // pill. Prod uses
                     // `flex items-center justify-center gap-2
-                    // mb-2 min-w-0`.
-                    div { class: "plans-prod-card-price-row flex items-center justify-center gap-2 mb-2 min-w-0",
-                        span { class: "plans-prod-card-price text-3xl sm:text-4xl font-black tracking-tighter text-blue-500 whitespace-nowrap",
-                            "{plan.price_value}"
+                    // mb-2 min-w-0`. For non-numeric price_value
+                    // (Custom Plans "Revenue Share"), render just
+                    // the plain price text without USD suffix.
+                    if is_numeric_price {
+                        div { class: "plans-prod-card-price-row flex items-center justify-center gap-2 mb-2 min-w-0",
+                            span { class: "plans-prod-card-price text-3xl sm:text-4xl font-black tracking-tighter text-blue-500 whitespace-nowrap",
+                                "{plan.price_value}"
+                            }
+                            span { class: "plans-prod-card-currency text-base font-bold text-blue-500 self-end mb-1",
+                                "USD"
+                            }
+                            if has_discount {
+                                span { class: "plans-prod-card-discount-badge bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full self-center",
+                                    "{plan.discount_pct}"
+                                }
+                            }
                         }
-                        span { class: "plans-prod-card-currency text-base font-bold text-blue-500 self-end mb-1",
-                            "USD"
-                        }
-                        span { class: "plans-prod-card-discount-badge bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full self-center",
-                            "{plan.discount_pct}"
+                    } else {
+                        // Custom Plans: plain-text price label.
+                        div { class: "plans-prod-card-price-row flex items-center justify-center mb-2 min-w-0",
+                            span { class: "plans-prod-card-price-plain text-2xl sm:text-3xl font-bold text-purple-500",
+                                "{plan.price_value}"
+                            }
                         }
                     }
-                    // Strikethrough original price
-                    p { class: "plans-prod-card-original-price text-gray-500 line-through text-sm",
-                        "{plan.original_price}"
+                    // Strikethrough original price — only when set
+                    if has_original {
+                        p { class: "plans-prod-card-original-price text-gray-500 line-through text-sm",
+                            "{plan.original_price}"
+                        }
                     }
-                    // Green savings text
-                    p { class: "plans-prod-card-savings text-green-500 text-sm font-semibold mt-1",
-                        "{plan.save_amount}"
+                    // Green savings text — only when set
+                    if has_savings {
+                        p { class: "plans-prod-card-savings text-green-500 text-sm font-semibold mt-1",
+                            "{plan.save_amount}"
+                        }
                     }
                     // Flame timer — "Ends in NaNm" matches prod's
-                    // anonymous-rendered state.
-                    div { class: "plans-prod-card-timer flex items-center justify-center gap-1 text-orange-400 text-xs mt-1",
-                        Icon { name: "flame".to_string(), size: Some(12), class_name: Some("text-orange-400".to_string()) }
-                        "Ends in NaNm"
+                    // anonymous-rendered state. Only render for
+                    // discounted plans.
+                    if has_discount {
+                        div { class: "plans-prod-card-timer flex items-center justify-center gap-1 text-orange-400 text-xs mt-1",
+                            Icon { name: "flame".to_string(), size: Some(12), class_name: Some("text-orange-400".to_string()) }
+                            "Ends in NaNm"
+                        }
                     }
                 }
                 // Feature list — `space-y-4 mb-8 flex-grow` per
@@ -292,10 +330,20 @@ fn PricingCard(plan: PlanLite) -> Element {
                 // pixel-diff shows a red band at the bottom of each card
                 // (~3pp per card × 3 = ~9pp total for /plans).
                 div { class: "plans-prod-card-cta mt-auto",
-                    button { class: "plans-prod-card-cta-btn w-full py-4 rounded-xl font-bold text-base transition-all duration-300 relative overflow-hidden bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:shadow-lg hover:shadow-cyan-500/25",
-                        span { class: "plans-prod-card-cta-label relative flex items-center justify-center gap-2",
-                            Icon { name: "trending-up".to_string(), size: Some(16), class_name: Some("w-4 h-4".to_string()) }
-                            "Get Started"
+                    if is_numeric_price {
+                        button { class: "plans-prod-card-cta-btn w-full py-4 rounded-xl font-bold text-base transition-all duration-300 relative overflow-hidden bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:shadow-lg hover:shadow-cyan-500/25",
+                            span { class: "plans-prod-card-cta-label relative flex items-center justify-center gap-2",
+                                Icon { name: "trending-up".to_string(), size: Some(16), class_name: Some("w-4 h-4".to_string()) }
+                                "Get Started"
+                            }
+                        }
+                    } else {
+                        // Custom Plans: "Talk to Touch" CTA (purple→pink).
+                        button { class: "plans-prod-card-cta-btn w-full py-4 rounded-xl font-bold text-base transition-all duration-300 relative overflow-hidden bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg hover:shadow-purple-500/25",
+                            span { class: "plans-prod-card-cta-label relative flex items-center justify-center gap-2",
+                                Icon { name: "phone".to_string(), size: Some(16), class_name: Some("w-4 h-4".to_string()) }
+                                "Talk to Touch"
+                            }
                         }
                     }
                 }
@@ -366,7 +414,7 @@ fn PlansFaq() -> Element {
 // We re-use the same `PricingCard` rendering (same glass-morphism,
 // same SALE ribbon, same feature list, same Get Started CTA) but
 // feed in a different plan list via `default_api_plans()`.
-fn default_api_plans() -> Vec<PlanLite> {
+pub fn default_api_plans() -> Vec<PlanLite> {
     vec![
         PlanLite {
             name: "API Personal",
@@ -396,6 +444,32 @@ fn default_api_plans() -> Vec<PlanLite> {
                 "Notifications management",
                 "365-day company access",
                 "Dedicated support",
+            ],
+        },
+    ]
+}
+
+/// Wave 48 T1 — Plan 12 (home PricingCard swap).
+/// Custom Plans tier — 1 card "Revenue Share" used on the home
+/// page (the home page renders Personal + API + Custom tiers stacked,
+/// matching prod's `<HomePricing>` shape). Prod renders this as a
+/// standalone card with no SALE ribbon, no discount badge — just the
+/// plan name + a "Talk to Touch" CTA button.
+pub fn default_custom_plans() -> Vec<PlanLite> {
+    vec![
+        PlanLite {
+            name: "Custom",
+            price_value: "Revenue Share",
+            original_price: "",
+            discount_pct: "",
+            save_amount: "",
+            features: &[
+                "Custom tokens with commissions",
+                "Dedicated support & SLA",
+                "Volume-based pricing",
+                "Custom API features",
+                "White-label options",
+                "Priority onboarding",
             ],
         },
     ]

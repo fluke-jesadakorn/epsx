@@ -4,7 +4,7 @@
 //! `components/home/{hero-section, server-news-section,
 //! server-top-performers, dynamic-pricing-section}.tsx`.
 //!
-//! The OLD prod renders:
+//! The CURRENT prod renders:
 //!   - full-page gradient
 //!     `bg-gradient-to-br from-blue-50 via-orange-50 to-yellow-50
 //!      dark:from-slate-900 dark:via-slate-800 dark:to-slate-900`
@@ -12,21 +12,34 @@
 //!     "📈 Track Your / Performance Growth / Metrics ✨" h1 (with
 //!     orange→yellow gradient on "Performance Growth") + 3 stat cards
 //!     (24/7 Latest Updates / 100+ Stock Analytics / < 1s Response
-//!     Time) + Start Exploration CTA
+//!     Time) + Start Exploration + Share Platform CTAs
 //!   - `<ServerTopPerformers />` — "Performance Companies" h2 with
 //!     `pancake-gradient-text` + 3 StockDataCard-style cards
-//!   - `<DynamicPricingSection />` — 3 plan cards
+//!   - `<HomePricingSection />` — three pricing tiers stacked:
+//!     (1) "💰Personal Plans" header + 3 cards (1 Day / 1 Month /
+//!         Lifetime) under `<PlanSelection>`
+//!     (2) "API Plans" header + 2 cards (API Personal / API Company)
+//!     (3) "Custom Plans" header + 1 card (Revenue Share)
 //!   - `<ServerNewsSection />` — Latest News with 1 FeaturedCard +
 //!     2 SmallCards
+//!
+//! Wave 48 T1 — Plan 12 (home PricingCard swap).
+//! Replaced the simplified `<PricingSection>` + `<HomePlanCard>`
+//! placeholder (3 generic "Personal/Team/Enterprise" cards with no
+//! SALE ribbons, no discount badges, no Get Started CTAs) with the
+//! same `<PricingCard>` + `<PlanLite>` data used on `/plans`. The home
+//! now renders Personal Plans + API Plans + Custom Plans stacked,
+//! matching prod's three-tier home pricing grid.
 //!
 //! The previous Wave 5 / Wave 23 home used a 9-section layout (Hero,
 //! TrustBar, TopPerformers, FeaturesGrid, PricingTeaser, NewsPreview,
 //! TestimonialsSection, FAQSection, CTASection). Wave 25 T2 drops
 //! TrustBar/FeaturesGrid/TestimonialsSection/FAQSection/CTASection
-//! (they don't appear in prod) and matches the prod's 4-section
-//! shape (Hero + TopPerformers + DynamicPricing + News).
+//! (they don't appear in prod) and matches the prod's section
+//! shape (Hero + TopPerformers + Pricing + News).
 
 use crate::primitives::*;
+use super::plans::{default_plans, default_api_plans, default_custom_plans, PricingCard};
 
 // === wave41(t1) fe-page-wiring: import ported home domain components ===
 // Wave 40 ported the prod `apps-old/frontend/components/home/*` (server_news_section,
@@ -69,7 +82,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                 div { class: "relative z-[1] home-prod-content",
                     HeroSection {}
                     TopPerformersSection {}
-                    PricingSection {}
+                    HomePricingSection {}
                     NewsSection {}
                 }
             }
@@ -209,45 +222,96 @@ fn HomeStockCard(symbol: &'static str, price: &'static str, change: &'static str
 }
 
 // === Pricing ===
+//
+// Wave 48 T1 — Plan 12 (home PricingCard swap).
+// Replaced the simplified `<PricingSection>` + `<HomePlanCard>` (3
+// generic cards with no SALE ribbons, no discount badges, no Get
+// Started CTAs) with the same full `<PricingCard>` used on `/plans`,
+// stacked into three tiers matching prod's home page structure:
+//   1. "💰Personal Plans" — 3 cards (1 Day / 1 Month / Lifetime)
+//   2. "API Plans" — 2 cards (API Personal / API Company)
+//   3. "Custom Plans" — 1 card (Revenue Share)
 
 #[component]
-fn PricingSection() -> Element {
+fn HomePricingSection() -> Element {
+    let personal = default_plans();
+    let api = default_api_plans();
+    let custom = default_custom_plans();
     rsx! {
+        // === Personal Plans section (Wave 25 T2 baseline + Wave 48 T1) ===
+        // Wave 25 T2 only rendered a placeholder 3-card "Plans that
+        // scale with you" section. Wave 48 T1 swaps it for the
+        // full Personal Plans grid (same as /plans page).
         div { class: "home-prod-pricing container mx-auto px-4 py-16 sm:py-24 lg:py-32",
-            div { class: "text-center mb-12",
-                h2 { class: "home-prod-pricing-title text-3xl sm:text-4xl font-bold mb-4",
-                    "Plans that scale with you"
+            div { class: "home-prod-pricing-personal-header flex items-start gap-3 mb-8",
+                div { class: "home-prod-pricing-personal-icon flex-shrink-0 w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center",
+                    Icon { name: "user".to_string(), size: Some(20), class_name: Some("text-emerald-400".to_string()) }
                 }
-                p { class: "home-prod-pricing-sub text-muted-foreground max-w-2xl mx-auto",
-                    "Choose the plan that fits your workflow."
+                div {
+                    h2 { class: "home-prod-pricing-personal-title text-2xl font-bold text-white",
+                        "💰Personal Plans"
+                    }
+                    p { class: "home-prod-pricing-personal-subtitle text-sm text-slate-400",
+                        "Choose the perfect plan for individual use and start your data journey"
+                    }
                 }
             }
             div { class: "home-prod-pricing-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
-                HomePlanCard { name: "Personal",   price: "From $9",    features: vec!["Full analytics", "Watchlist + alerts", "API access"] }
-                HomePlanCard { name: "Team",       price: "From $49",   features: vec!["Up to 10 seats", "Custom permissions", "Paymaster gas", "Priority support"], featured: true }
-                HomePlanCard { name: "Enterprise", price: "Custom",     features: vec!["Unlimited seats", "SLA + dedicated support", "Custom contracts"] }
+                for plan in personal.iter() {
+                    PricingCard { plan: plan.clone() }
+                }
             }
         }
-    }
-}
-
-#[component]
-fn HomePlanCard(name: &'static str, price: &'static str, features: Vec<&'static str>, featured: Option<bool>) -> Element {
-    let featured = featured.unwrap_or(false);
-    rsx! {
-        div {
-            class: if featured { "home-prod-plan-card relative bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-lg ring-2 ring-orange-500" } else { "home-prod-plan-card relative bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-lg" },
-            if featured {
-                span { class: "home-prod-plan-badge absolute -top-3 left-1/2 -translate-x-1/2 inline-block rounded-full bg-orange-500 text-white text-xs font-bold px-3 py-1", "Most popular" }
-            }
-            div { class: "home-prod-plan-name text-2xl font-bold mb-2", "{name}" }
-            div { class: "home-prod-plan-price text-3xl font-extrabold text-orange-500 mb-4", "{price}" }
-            ul { class: "home-prod-plan-features space-y-2",
-                for f in features.iter() {
-                    li { class: "flex items-start gap-2 text-sm",
-                        Icon { name: "check".to_string(), size: Some(16), class_name: Some("text-orange-500 flex-shrink-0 mt-0.5".to_string()) }
-                        span { "{f}" }
+        // === API Plans section (Wave 48 T1) ===
+        // Prod renders a second `<section>` after Personal Plans with
+        // "API Plans" header (code-xml icon + "For developers and
+        // integrations" subtitle) and a 2-card grid.
+        div { class: "home-prod-pricing-api-section container mx-auto px-4 pb-16 sm:pb-24 lg:pb-32",
+            div { class: "home-prod-pricing-api-header flex items-center gap-3 mb-8",
+                div { class: "home-prod-pricing-api-icon p-2 rounded-xl bg-gradient-to-br from-emerald-500/20 to-blue-500/20 text-emerald-600 dark:text-emerald-400",
+                    Icon { name: "code".to_string(), size: Some(24), class_name: Some("h-6 w-6".to_string()) }
+                }
+                div { class: "home-prod-pricing-api-text",
+                    h2 { class: "home-prod-pricing-api-title text-2xl font-bold text-white",
+                        "API Plans"
                     }
+                    p { class: "home-prod-pricing-api-subtitle text-sm text-gray-500 dark:text-gray-400",
+                        "Integrate our powerful API into your systems"
+                    }
+                }
+            }
+            div { class: "home-prod-pricing-api-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
+                for plan in api.iter() {
+                    PricingCard { plan: plan.clone() }
+                }
+            }
+        }
+        // === Custom Plans section (Wave 48 T1) ===
+        // Prod's home renders a 1-card "Custom Plans" section with a
+        // "Revenue Share" pricing label and a "Talk to Touch" CTA.
+        // We render the same card with empty discount/original fields
+        // so the PricingCard suppresses the SALE ribbon (no discount_pct)
+        // and the strikethrough price (no original_price).
+        div { class: "home-prod-pricing-custom-section container mx-auto px-4 pb-16 sm:pb-24 lg:pb-32",
+            div { class: "home-prod-pricing-custom-header flex items-center gap-3 mb-8",
+                div { class: "home-prod-pricing-custom-icon p-2 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 text-purple-600 dark:text-purple-400",
+                    Icon { name: "briefcase".to_string(), size: Some(24), class_name: Some("h-6 w-6".to_string()) }
+                }
+                div { class: "home-prod-pricing-custom-text",
+                    h2 { class: "home-prod-pricing-custom-title text-2xl font-bold text-white",
+                        "Custom Plans"
+                    }
+                    p { class: "home-prod-pricing-custom-subtitle text-sm text-gray-500 dark:text-gray-400",
+                        "Tailored solutions for partners, corporate, and enterprise needs"
+                    }
+                }
+            }
+            // 1-card grid (full width on md+ to match prod's single
+            // wide card). Prod uses `max-w-md` width on the single
+            // card; we use a single-column grid for parity.
+            div { class: "home-prod-pricing-custom-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
+                for plan in custom.iter() {
+                    PricingCard { plan: plan.clone() }
                 }
             }
         }

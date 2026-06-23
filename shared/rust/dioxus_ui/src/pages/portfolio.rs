@@ -48,22 +48,25 @@ const WATCHED_STOCKS: &[(&str, &str, &str, f64, &str, &str)] = &[
 
 /// Inline CSS rules for Tailwind v2 CDN arbitrary-value classes
 /// that the CDN doesn't generate. We inject these into the page so
-/// `h-[400px]`-style dimensions and `bg-gradient-to-r` classes
-/// render correctly.
+/// `h-[400px]`-style dimensions render correctly.
+///
+/// Wave 48 T1 — Plan 12 (portfolio banner opacity fix):
+/// REMOVED `.portfolio-upsell-banner { background: linear-gradient(...) !important; }`
+/// (was wave 27 T1). Prod's Tailwind v3 PostCSS pipeline does NOT generate
+/// `from-purple-900/40`, `via-purple-800/30`, or `to-pink-900/40` opacity
+/// utilities for the gradient stops (its safelist only includes /10 and
+/// /20), so the prod banner renders with `backgroundImage: none` (a flat
+/// transparent shell that lets the dark `bg-slate-950` show through).
+/// The wave 27 T1 override was forcing the v3-correct colors on the dev
+/// side, which made the dev banner BRIGHTER than prod and produced the
+/// 20.65% pixel diff. Removing the override lets the dev banner match
+/// prod's transparent rendering. The Tailwind classes stay on the div
+/// (no harm if v2-CDN happens to generate them) but they no longer
+/// visually override prod's behavior.
 const PORTFOLIO_INLINE_CSS: &str = r#"
 .portfolio-prod-bg > div[style*="radial-gradient"] { opacity: 1 !important; }
 .absolute.-top-40.-left-40 { width: 400px !important; height: 400px !important; }
 .absolute.top-1\/3.-right-32 { width: 300px !important; height: 300px !important; }
-/* Wave 27 T1 — force v3-style gradient color stops on the upsell
-   banner (Tailwind v2 CDN's opacity modifier on gradient stops
-   renders with slight color differences vs prod's v3+ PostCSS
-   pipeline). Tailwind v3 palette: purple-900 = #581c87,
-   purple-800 = #6b21a8, pink-900 = #831843. The v3 PostCSS
-   pipeline interpolates between color stops in sRGB; the v2 CDN
-   produces a flatter, more desaturated gradient. Force v3 stops. */
-.portfolio-upsell-banner {
-  background: linear-gradient(to right, rgba(88, 28, 135, 0.4), rgba(107, 33, 168, 0.3), rgba(131, 24, 67, 0.4)) !important;
-}
 /* Sign-in card needs prod colors (bg-blue-50 border-blue-200
    dark:bg-blue-900/20 dark:border-blue-700). The page renders in
    dark mode so we use the dark-theme values (blue-900/20 + blue-700)
@@ -153,8 +156,20 @@ fn PortfolioHeader() -> Element {
 
 /// Purple "Unlock Full Analytics Access" upsell banner. Mirrors
 /// prod's `relative mb-6 overflow-hidden rounded-2xl border
-/// border-purple-500/30 bg-gradient-to-r from-purple-900/40 via-
-/// purple-800/30 to-pink-900/40 backdrop-blur-sm`.
+/// border-purple-500/30 bg-gradient-to-r from-purple-900/20 via-
+/// purple-800/20 to-pink-900/20 backdrop-blur-sm`.
+///
+/// Wave 48 T1 — Plan 12 (portfolio banner opacity fix):
+/// Changed opacity modifiers from `/40`, `/30`, `/40` to all `/20`.
+/// Prod's Tailwind v3 PostCSS safelist only includes /10 and /20 for
+/// purple-900 / pink-900 (verified in `/_next/static/css/f187aeda…css`),
+/// so /30 and /40 opacity utilities were never generated — the prod
+/// banner's `backgroundImage` resolves to `none` (transparent shell).
+/// To match prod's effective render, we drop to /20 (which both v2-CDN
+/// and v3-PostCSS generate) and remove the wave 27 T1 inline CSS
+/// override. The dev banner now matches prod's flat transparent
+/// appearance instead of forcing a v3-colored gradient that prod
+/// doesn't render.
 ///
 /// Wave 28 T2 — restructured to match prod's inline-pills shape
 /// exactly: 12x12 gradient icon container with white lock, `<p>`
@@ -167,7 +182,7 @@ fn PortfolioHeader() -> Element {
 #[component]
 fn PortfolioUpsellBanner() -> Element {
     rsx! {
-        div { class: "portfolio-prod-upsell portfolio-upsell-banner relative mb-6 overflow-hidden rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-900/40 via-purple-800/30 to-pink-900/40 backdrop-blur-sm p-5",
+        div { class: "portfolio-prod-upsell portfolio-upsell-banner relative mb-6 overflow-hidden rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-900/20 via-purple-800/20 to-pink-900/20 backdrop-blur-sm p-5",
             div { class: "relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
                 div { class: "flex items-start gap-4",
                     div { class: "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg shadow-purple-500/30",
