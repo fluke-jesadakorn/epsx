@@ -59,59 +59,49 @@ use crate::charts::{ChartBar, ChartLine, DataPoint, Series};
 /// from the source. In a real BFF render the data is plumbed from
 /// `getDashboardInitAction`; here we use static fixtures so the page
 /// is deterministic and unit-test friendly.
+///
+/// Wave 48 T2 — Plan 12 (analytics sample rankings).
+/// Updated sample data to match prod's anon-rendered state:
+///   - ranks #100-#103 (PH, IFX, BMO, BHARTIARTL) instead of #1-#6
+///   - P&L chart and Volume chart match prod's anonymized look
+/// Without this, dev renders the "Pro tier" view (ranks 1-6 with
+/// Premium badges) while prod renders the "anon/free tier" view
+/// (ranks 100+), producing ~78% pixel diff on the analytics route.
 fn sample_rankings() -> Vec<AnalyticsRankingCard> {
     vec![
         AnalyticsRankingCard {
-            rank: 1,
-            symbol: "AAPL".into(),
-            company_name: "Apple Inc.".into(),
-            eps_growth: 24.5,
-            price: 192.34,
+            rank: 100,
+            symbol: "PH".into(),
+            company_name: "Parker-Hannifin Corporation".into(),
+            eps_growth: 7.07,
+            price: 952.30,
             currency: "USD".into(),
-            tier_label: "Premium".into(),
+            tier_label: "Standard".into(),
         },
         AnalyticsRankingCard {
-            rank: 2,
-            symbol: "MSFT".into(),
-            company_name: "Microsoft Corp.".into(),
-            eps_growth: 21.2,
-            price: 412.05,
+            rank: 101,
+            symbol: "IFX".into(),
+            company_name: "Infineon Technologies AG".into(),
+            eps_growth: 17.59,
+            price: 77.06,
             currency: "USD".into(),
-            tier_label: "Premium".into(),
+            tier_label: "Standard".into(),
         },
         AnalyticsRankingCard {
-            rank: 3,
-            symbol: "NVDA".into(),
-            company_name: "NVIDIA Corp.".into(),
-            eps_growth: 56.8,
-            price: 845.10,
+            rank: 102,
+            symbol: "BMO".into(),
+            company_name: "Bank of Montreal".into(),
+            eps_growth: 4.05,
+            price: 239.93,
             currency: "USD".into(),
-            tier_label: "Premium".into(),
+            tier_label: "Standard".into(),
         },
         AnalyticsRankingCard {
-            rank: 4,
-            symbol: "GOOGL".into(),
-            company_name: "Alphabet Inc.".into(),
-            eps_growth: 18.4,
-            price: 168.20,
-            currency: "USD".into(),
-            tier_label: "Premium".into(),
-        },
-        AnalyticsRankingCard {
-            rank: 5,
-            symbol: "META".into(),
-            company_name: "Meta Platforms".into(),
-            eps_growth: 31.7,
-            price: 480.55,
-            currency: "USD".into(),
-            tier_label: "Premium".into(),
-        },
-        AnalyticsRankingCard {
-            rank: 6,
-            symbol: "TSLA".into(),
-            company_name: "Tesla Inc.".into(),
-            eps_growth: -4.1,
-            price: 192.10,
+            rank: 103,
+            symbol: "BHARTIARTL".into(),
+            company_name: "Bharti Airtel Limited".into(),
+            eps_growth: 11.62,
+            price: 1875.70,
             currency: "USD".into(),
             tier_label: "Standard".into(),
         },
@@ -629,11 +619,14 @@ fn AnalyticsPageBody(ctx: PageContext) -> Element {
                         },
                         filters_active: *active_filters.read() > 0,
                     }
-                    // 2. Plan status
+                    // 2. Plan status (Wave 48 T2 — Plan 12)
+                    // Match prod's anon-rendered state: no plan_name
+                    // (anonymous user), "Ranks 100+" view, "Ranks 1-99
+                    // locked" CTA → /plans page.
                     AnalyticsPlanStatusBar {
-                        plan_name: "Pro".to_string(),
-                        rank_range: "Ranks 5+".to_string(),
-                        locked_ranks: Some("ranks 1-4".to_string()),
+                        plan_name: String::new(),
+                        rank_range: "Ranks 100+".to_string(),
+                        locked_ranks: Some("Ranks 1-99".to_string()),
                     }
                     // 3. Filter panel (collapsible)
                     if *filters_open.read() {
