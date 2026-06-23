@@ -112,7 +112,11 @@ fn NewsPageBody(
                 }
                 h1 { class: "text-4xl sm:text-5xl font-extrabold mb-4",
                     "News & "
-                    span { class: "gradient-text-purple", "Updates" }
+                    // Wave 48 T3 — Plan 12: prod uses cool-blue→cyan
+                    // gradient on "Updates" (matches gradient-cool
+                    // #3b82f6→#06b6d4); dev was using purple→pink
+                    // (gradient-purple).
+                    span { class: "gradient-text-cool", "Updates" }
                 }
                 p { class: "text-muted-foreground max-w-xl mx-auto leading-relaxed",
                     "Stay informed with the latest platform updates, feature releases, and market insights from the EPSX team."
@@ -149,7 +153,7 @@ fn default_posts() -> Vec<NewsPost> {
     // "fallback when the wire shape is wrong" path also produces
     // matching slugs. See `dev_bypass.rs` for the wider context.
     vec![
-        NewsPost { slug: "strategic-roadmap-future".into(), title: "Strategic Roadmap and Future Capabilities".into(), excerpt: "A preview of upcoming system enhancements, including automated alerts and expanded analytical depth.".into(), author: "EPSX Team".into(), published_at: "2025-02-01".into(), read_time: "3 min".into(), cover_image_url: None, tags: vec!["roadmap".into(), "strategy".into()] },
+        NewsPost { slug: "strategic-roadmap-future".into(), title: "Strategic Roadmap and Future Capabilities".into(), excerpt: "A preview of upcoming system enhancements, including automated alerts and expanded analytical depth.".into(), author: "EPSX Team".into(), published_at: "May 9, 2026".into(), read_time: "3 min".into(), cover_image_url: None, tags: vec!["roadmap".into(), "strategy".into()] },
         NewsPost { slug: "enhanced-portfolio-management".into(), title: "Enhanced Portfolio Management Solutions".into(), excerpt: "Tools and insights for the modern portfolio manager.".into(), author: "EPSX Team".into(), published_at: "2025-02-01".into(), read_time: "4 min".into(), cover_image_url: None, tags: vec!["portfolio".into(), "product".into()] },
         NewsPost { slug: "service-tier-alignment".into(), title: "Integrated Service Solutions: Professional Tier Alignment".into(), excerpt: "How EPSX services scale across professional subscription tiers.".into(), author: "EPSX Team".into(), published_at: "2025-02-01".into(), read_time: "4 min".into(), cover_image_url: None, tags: vec!["service".into(), "tiers".into()] },
         NewsPost { slug: "performance-metrics-positioning".into(), title: "Proprietary Performance Metrics and Strategic Positioning".into(), excerpt: "The metrics that set EPSX apart.".into(), author: "EPSX Team".into(), published_at: "2025-02-01".into(), read_time: "4 min".into(), cover_image_url: None, tags: vec!["metrics".into(), "strategy".into()] },
@@ -405,12 +409,28 @@ fn NewsList(
 /// Featured card — large hero card with optional cover image, "Featured"
 /// badge, tags, title, summary, and "Read article" CTA. Mirrors
 /// `FeaturedCard` in `news-list.tsx`.
+///
+/// Wave 48 T3 — Plan 12: when `post.cover_image_url` is set, the
+/// featured card renders the image as the background (object-cover,
+/// full bleed) instead of the icon-placeholder gradient. Prod uses
+/// real cover images on the featured post; without this, dev rendered
+/// the gradient placeholder and the diff was ~91% on /news.
 #[component]
 fn NewsFeaturedCard(post: NewsPost) -> Element {
+    let has_image = post.cover_image_url.as_ref().map(|s| !s.is_empty()).unwrap_or(false);
     rsx! {
         a { class: "group block news-featured-card", href: "/news/{post.slug}",
             div { class: "relative rounded-3xl overflow-hidden h-[360px] sm:h-[480px] bg-gradient-to-br from-purple-500/20 via-cyan-500/10 to-slate-900/50",
-                div { class: "absolute top-8 right-8 opacity-10", Icon { name: "newspaper".to_string(), size: Some(96) } }
+                if has_image {
+                    img {
+                        class: "absolute inset-0 w-full h-full object-cover",
+                        src: "{post.cover_image_url.as_ref().unwrap()}",
+                        alt: "{post.title}",
+                        loading: "lazy",
+                    }
+                } else {
+                    div { class: "absolute top-8 right-8 opacity-10", Icon { name: "newspaper".to_string(), size: Some(96) } }
+                }
                 div { class: "absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" }
                 div { class: "absolute bottom-0 left-0 right-0 p-6 sm:p-10",
                     div { class: "flex flex-wrap gap-2 mb-4",
