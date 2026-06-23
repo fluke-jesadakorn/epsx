@@ -39,6 +39,19 @@ pub enum PermissionError {
         permission: String,
         current_usage: u32,
         limit: u32,
+        /// Wave-49 TODO cleanup: rate-limit period was previously
+        /// hardcoded to `"daily"` in the error response builder.
+        /// Now carried as a typed field so callers (rate-limit
+        /// middleware, plan-service, admin tools) can declare the
+        /// period. Defaults to `UsagePeriod::Daily` for backwards
+        /// compat.
+        period: UsagePeriod,
+        /// Wave-49 TODO cleanup: the user's current plan was
+        /// hardcoded to `"basic"` in the upgrade_info section.
+        /// Now optional + typed — `None` falls through to "basic"
+        /// in the response builder so the wire shape doesn't change
+        /// for existing callers.
+        current_plan: Option<String>,
         reset_at: Option<chrono::DateTime<chrono::Utc>>,
         upgrade_plan: Option<String>,
     },
@@ -377,9 +390,16 @@ impl PermissionError {
                 }
             }
             
-            PermissionError::UsageLimitExceeded { permission, current_usage, limit, reset_at, upgrade_plan } => {
+            PermissionError::UsageLimitExceeded { permission, current_usage, limit, period, current_plan, reset_at, upgrade_plan } => {
                 let usage_percentage = (*current_usage as f32 / *limit as f32) * 100.0;
-                
+                // Wave-49 TODO cleanup: previously hardcoded to
+                // "daily" / "basic". Now derived from the variant's
+                // typed `period` field + the optional
+                // `current_plan` (falls through to "basic" when
+                // None, preserving the previous wire shape).
+                let period_str = period.as_str().to_string();
+                let current_plan_str = current_plan.clone().unwrap_or_else(|| "basic".to_string());
+
                 PermissionErrorResponse {
                     error_type: "usage_limit_exceeded".to_string(),
                     status_code: 429,
@@ -389,19 +409,19 @@ impl PermissionError {
                         wallet_address: None,
                         resource_path: None,
                         http_method: None,
-                        current_plan: None,
+                        current_plan: Some(current_plan_str.clone()),
                         required_plan: upgrade_plan.clone(),
                         expiry_info: None,
                         usage_info: Some(UsageInfo {
                             current_usage: *current_usage,
                             limit: *limit,
-                            period: "daily".to_string(), // TODO: Make configurable
+                            period: period_str,
                             reset_at: *reset_at,
                             usage_percentage,
                         }),
                         security_info: None,
                         upgrade_info: upgrade_plan.as_ref().map(|tier| UpgradeInfo {
-                            current_plan: "basic".to_string(), // TODO: Get from user context
+                            current_plan: current_plan_str,
                             required_plan: tier.clone(),
                             upgrade_url: Some("/payment".to_string()),
                             pricing_url: Some("/payment".to_string()),
@@ -413,7 +433,7 @@ impl PermissionError {
                         }),
                     },
                     suggested_actions: vec![
-                        format!("Wait until {} for limit reset", 
+                        format!("Wait until {} for limit reset",
                             reset_at.map(|t| t.format("%Y-%m-%d %H:%M UTC").to_string()).unwrap_or_default()),
                         "Upgrade your plan for higher limits".to_string(),
                         "Optimize your usage patterns".to_string(),
@@ -659,6 +679,8 @@ impl PermissionError {
             permission: permission.into(),
             current_usage: current,
             limit,
+            period: UsagePeriod::Daily,
+            current_plan: None,
             reset_at,
             upgrade_plan: Some("premium".to_string()),
         }
