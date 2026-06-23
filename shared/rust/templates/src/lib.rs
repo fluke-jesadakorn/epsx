@@ -178,7 +178,7 @@ pub fn design_system_head(title: &str, description: &str) -> String {
     --shadow-xl:       0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
     --shadow-2xl:      0 25px 50px -12px rgba(0, 0, 0, 0.8);
     --shadow-orange:   0 20px 25px -5px rgba(249, 115, 22, 0.50);
-    --gradient-page:   linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0c0a09 100%);
+    --gradient-page:   linear-gradient(135deg, #1c1917 0%, #171717 50%, #0f0f0f 100%);
     --gradient-card:   linear-gradient(135deg, rgba(59,130,246,0.10) 0%, rgba(168,85,247,0.10) 100%);
     --glass-bg:        rgba(15, 23, 42, 0.80);
     --glass-border:    rgba(249, 115, 22, 0.30);

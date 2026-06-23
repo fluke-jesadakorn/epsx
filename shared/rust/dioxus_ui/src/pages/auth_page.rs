@@ -169,9 +169,27 @@ pub fn RenderAuth() -> Element {
             div { class: "auth-page-form-col",
                 div { class: "auth-page-form-inner",
                     div { class: "card card-glass auth-card",
-                        h2 { class: "auth-card-title", "Welcome back" }
-                        p { class: "auth-card-sub", "Sign in to access dashboards, analytics, payments, and developer tools." }
-                        // === Primary CTA: SIWE ===
+                        // Wave 49 — Plan 13 (T1) — re-ported dev /auth
+                        // to match prod's wallet-only design.
+                        //   - Title: "Welcome back" → "Welcome to EPSX"
+                        //   - Sub:   "Sign in to access dashboards…" →
+                        //            "Secure authentication via Web3"
+                        //   - CTA:   "Sign in with wallet" → "Connect Wallet"
+                        //   - Removed: OR divider, email form, Google OAuth,
+                        //              "Try the demo account" button
+                        //   - Added: 3-feature security list
+                        //            (Secure Web3 Login Flow / No Account
+                        //             Credentials Needed / Decentralized
+                        //             Data Privacy)
+                        // This single fix repairs 7 routes that all
+                        // 307-redirect to /auth when the user is
+                        // unauthenticated (UNAUTH_REDIRECT_PATHS in
+                        // apps/frontend/src/ssr.rs):
+                        //   /about, /contact, /offline, /auth,
+                        //   /permissions, /profile, /notifications
+                        h2 { class: "auth-card-title", "Welcome to EPSX" }
+                        p { class: "auth-card-sub", "Secure authentication via Web3" }
+                        // === Primary CTA: SIWE (wallet-only) ===
                         div { class: "auth-card-cta",
                             ConnectButton {
                                 on_click: move |_| {
@@ -180,7 +198,7 @@ pub fn RenderAuth() -> Element {
                                     error_kind.set(String::new());
                                 },
                                 size: Some(ConnectButtonSize::Full),
-                                label: Some("Sign in with wallet".to_string()),
+                                label: Some("Connect Wallet".to_string()),
                                 disabled: *status.read() == "connecting" || *status.read() == "signing",
                             }
                         }
@@ -212,46 +230,19 @@ pub fn RenderAuth() -> Element {
                                 }
                             }
                         }
-                        // === Divider ===
-                        div { class: "auth-card-divider",
-                            span { "OR" }
-                        }
-                        // === Email magic link ===
-                        form { class: "auth-card-email-form",
-                            onsubmit: move |e| {
-                                e.prevent_default();
-                                // The BFF handles the actual magic-link
-                                // send. In SSR we just transition the
-                                // status to acknowledge the click; the
-                                // hydration script reads the form
-                                // values and POSTs to /api/v1/auth/magic.
-                                status.set("connecting".to_string());
-                                error_msg.set(String::new());
-                            },
-                            input { class: "input auth-card-email-input", r#type: "email",
-                                placeholder: "you@example.com",
-                                "aria-label": "Email address",
+                        // === 3-feature security list (prod design) ===
+                        ul { class: "auth-card-features", role: "list",
+                            li { class: "auth-card-feature",
+                                span { class: "auth-card-feature-icon", "✓" }
+                                span { "Secure Web3 Login Flow" }
                             }
-                            button { class: "btn btn-outline btn-block", r#type: "submit",
-                                Icon { name: "mail".to_string(), size: Some(16) }
-                                span { "Continue with email" }
+                            li { class: "auth-card-feature",
+                                span { class: "auth-card-feature-icon", "✓" }
+                                span { "No Account Credentials Needed" }
                             }
-                        }
-                        // === Google OAuth ===
-                        a { class: "btn btn-outline btn-block auth-card-google-btn", href: "/api/v1/auth/oauth/google",
-                            span { class: "auth-card-google-glyph", "G" }
-                            span { "Continue with Google" }
-                        }
-                        if *demo_enabled.read() {
-                            div { class: "auth-card-divider auth-card-divider-thin",
-                                span { "OR" }
-                            }
-                            button { class: "btn btn-ghost btn-block", r#type: "button",
-                                onclick: move |_| {
-                                    status.set("signing".to_string());
-                                    error_msg.set(String::new());
-                                },
-                                "Try the demo account"
+                            li { class: "auth-card-feature",
+                                span { class: "auth-card-feature-icon", "✓" }
+                                span { "Decentralized Data Privacy" }
                             }
                         }
                         // === Terms / Privacy footer ===
@@ -259,7 +250,7 @@ pub fn RenderAuth() -> Element {
                             "By connecting, you agree to our "
                             a { href: "/terms", "Terms" }
                             " and "
-                            a { href: "/privacy", "Privacy Policy" }
+                            a { href: "/privacy", "Privacy" }
                             "."
                         }
                     }
@@ -344,9 +335,12 @@ mod tests {
         }
     }
 
-    /// Wave 5 — `test_auth_options`. The auth form must expose all
-    /// three authentication options the design doc requires: SIWE
-    /// wallet connect, email magic link, and Google OAuth button.
+    /// Wave 5 — `test_auth_options`. Originally exposed SIWE +
+    /// email magic link + Google OAuth. Wave 49 T1 (Plan 13) changed
+    /// /auth to match prod's wallet-only design (Welcome to EPSX /
+    /// Connect Wallet / 3-feature security list). The 3 auth options
+    /// test now asserts the wallet-only CTA + 3-feature security
+    /// list, matching the prod baseline PNG.
     #[test]
     fn test_auth_options() {
         let ctx = PageContext {
@@ -356,15 +350,14 @@ mod tests {
         };
         let (_meta, el) = render(&ctx);
         let html = dioxus_ssr::render_element(el);
-        // SIWE — ConnectButton renders a button with class
-        // `connect-btn connect-btn-full` (the Full size variant).
+        // Primary CTA: SIWE ConnectButton renders as
+        // `connect-btn connect-btn-full` (Full size variant).
         assert!(html.contains("connect-btn"), "Auth page must render the ConnectButton (SIWE). Got: {}", html);
-        // Email magic link.
-        assert!(html.contains("Continue with email"), "Auth page must render email magic link CTA. Got: {}", html);
-        assert!(html.contains("auth-card-email-input"), "Auth page must render the email input. Got: {}", html);
-        // Google OAuth.
-        assert!(html.contains("Continue with Google"), "Auth page must render Google OAuth CTA. Got: {}", html);
-        assert!(html.contains("/api/v1/auth/oauth/google"), "Google OAuth must link to /api/v1/auth/oauth/google. Got: {}", html);
+        assert!(html.contains("Connect Wallet"), "Auth page must render the wallet-only Connect Wallet CTA. Got: {}", html);
+        // 3-feature security list (matches prod design).
+        assert!(html.contains("Secure Web3 Login Flow"), "Auth page must render 'Secure Web3 Login Flow' feature. Got: {}", html);
+        assert!(html.contains("No Account Credentials Needed"), "Auth page must render 'No Account Credentials Needed' feature. Got: {}", html);
+        assert!(html.contains("Decentralized Data Privacy"), "Auth page must render 'Decentralized Data Privacy' feature. Got: {}", html);
     }
 
     /// Wave 5 — `test_pitch_content`. The left-side marketing pitch
