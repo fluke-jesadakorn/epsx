@@ -26,6 +26,12 @@ pub mod credit_handlers;
 // §4 wave-11 preconditions item 3.
 pub mod payment_link_handlers;
 
+// wave49(slice-4): pay-proxy — `/api/v1/pay/*` reverse-proxy
+// to `pay.epsx.io`. Backwards-compat for legacy clients that
+// hit the monolith instead of going direct to pay-svc. Remove
+// when the frontend is fully on the new BFF.
+pub mod pay_proxy;
+
 // Re-export handler functions for router integration
 pub use validation_handlers::{
     validate_payment_handler,
@@ -78,3 +84,4 @@ pub use payment_link_handlers::{
     record_payment_usage_handler,
     update_payment_link_handler,
 };
+pub use pay_proxy::{pay_proxy, PayProxyState};

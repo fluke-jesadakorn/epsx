@@ -246,6 +246,15 @@ impl UnifiedRouteBuilder {
         let docs_routes = crate::web::docs::create_docs_routes();
         let permission_authority_routes = self.create_permission_authority_routes();
 
+        // wave49(slice-4): pay-proxy — `/api/v1/pay/*` reverse-proxy
+        // to pay.epsx.io. Built from a `PayProxyState` that wraps
+        // a `reqwest::Client` + the configured `PAY_URL`.
+        // Catch-all (any method, any path under `/api/v1/pay/`).
+        let pay_proxy_state = crate::web::payments::PayProxyState::from_env();
+        let pay_proxy_routes = axum::Router::new()
+            .fallback(axum::routing::any(crate::web::payments::pay_proxy))
+            .with_state(pay_proxy_state);
+
         // Combine all routes - MIXED /api/ and /api/ STRUCTURE
         let router = Router::new()
             // Core health endpoints (public, no auth)
@@ -254,6 +263,12 @@ impl UnifiedRouteBuilder {
             .merge(docs_routes)
             // Authentication routes (Web3-first auth)
             .nest("/api/auth", auth_routes)
+            // wave49(slice-4): pay-proxy (NEW mount at /api/v1/pay/*).
+            // Sits at the same Router level as `/api/auth` so the
+            // catch-all fallback works without nested-routing
+            // prefix juggling. Bypasses all auth middleware (the
+            // upstream pay-svc enforces its own auth).
+            .nest("/api/v1/pay", pay_proxy_routes)
             // All routes under standardized /api/ prefix
             .nest(
                 "/api",

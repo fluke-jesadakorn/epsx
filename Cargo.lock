@@ -4092,6 +4092,7 @@ dependencies = [
  "diesel-async",
  "diesel_migrations",
  "dotenv",
+ "epsx-client",
  "epsx-contracts",
  "epsx-database-pools",
  "epsx-identity-shared",

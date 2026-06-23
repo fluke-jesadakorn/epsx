@@ -14,6 +14,7 @@
 use dioxus::prelude::*;
 
 pub mod chain_verification_card;
+pub mod checkout_button;
 pub mod current_access_card;
 pub mod payment_flow_steps;
 pub mod plan_comparison_card;
@@ -21,6 +22,7 @@ pub mod unified_payment_flow;
 pub mod upgrade_banner;
 
 pub use chain_verification_card::{ChainVerificationCard, ChainVerificationStatus};
+pub use checkout_button::{CheckoutButton, CheckoutButtonProps, CheckoutVariant};
 pub use current_access_card::{CurrentAccessCard, CurrentAccessInfo};
 pub use payment_flow_steps::{PaymentFlowStep, PaymentFlowSteps, PaymentFlowStepsState};
 pub use plan_comparison_card::{PlanComparisonCard, PlanComparisonRow};

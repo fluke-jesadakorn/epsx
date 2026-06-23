@@ -66,8 +66,61 @@ const _WAVE41_PAYMENT_PORTED_TYPE_CHECK_UNIFIED: fn(crate::payment::unified_paym
 const _WAVE41_PAYMENT_PORTED_TYPE_CHECK_UPGRADE: fn(crate::payment::upgrade_banner::UpgradeBannerProps) -> Element = PortedUpgradeBanner;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::app("Payment");
-    (meta, rsx! { RenderPayment { ctx: ctx.clone() } })
+    // wave49(slice-4): the old monolithic /payment page is now
+    // owned by `pay.epsx.io`. The frontend BFF (epsx.io) just
+    // redirects here so legacy links + browser back-button
+    // still work. The actual page renders inside the
+    // bff-pay Dioxus SSR (apps/pay/src/components/checkout_form.rs)
+    // and is reachable at https://pay.epsx.io.
+    //
+    // We use a meta refresh + JS redirect for maximum
+    // compatibility — `Refresh: 0; url=…` header doesn't work
+    // for SSR'd HTML in Dioxus 0.7, so the `<meta http-equiv>`
+    // tag is the simplest cross-browser fallback. The
+    // `Refresh` HTTP header is set by the BFF instead (see
+    // `apps/frontend/src/ssr.rs::pay_redirect` if added).
+    let target = std::env::var("PAY_URL")
+        .unwrap_or_else(|_| "https://pay.epsx.io".to_string());
+    let query = ctx.query.clone();
+    let target_with_query = if query.is_empty() {
+        target.clone()
+    } else {
+        format!("{}?{}", target, query)
+    };
+
+    let mut meta = PageMeta::marketing("EPSX Pay");
+    meta.title = "Redirecting to EPSX Pay…".to_string();
+    meta.description = "EPSX Pay — secure BSC escrow payments".to_string();
+
+    (meta, rsx! {
+        div { class: "pay-redirect-stub page-bg",
+            style: "display:flex;align-items:center;justify-content:center;min-height:60vh;text-align:center;",
+            div {
+                h1 { class: "pay-redirect-stub-title",
+                    style: "font-size:1.5rem;font-weight:800;margin-bottom:1rem;",
+                    "Redirecting to EPSX Pay…"
+                }
+                p { class: "pay-redirect-stub-subtitle",
+                    style: "color:var(--text-muted);margin-bottom:1.5rem;",
+                    "The payment system is now at pay.epsx.io."
+                }
+                a { class: "pay-redirect-stub-cta btn btn-gradient btn-lg",
+                    href: "{target_with_query}",
+                    "Continue to pay.epsx.io"
+                }
+            }
+            // JS redirect for browser-back-button compat. Dioxus 0.7's
+            // `meta` element doesn't expose `http-equiv` as a
+            // typed attribute (only `name` + `content`), so we
+            // skip the meta-refresh fallback and rely on the
+            // JS-only redirect. The BFF layer can also set the
+            // HTTP `Refresh` header if needed (see
+            // apps/frontend/src/ssr.rs::pay_redirect).
+            script {
+                dangerous_inner_html: "setTimeout(function(){{ location.href = '{target_with_query}'; }}, 100);"
+            }
+        }
+    })
 }
 
 #[component]
