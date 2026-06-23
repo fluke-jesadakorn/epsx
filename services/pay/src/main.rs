@@ -68,11 +68,19 @@ struct Args {
     port: u16,
     #[arg(long, default_value = "0.0.0.0")]
     host: String,
-    #[arg(long, default_value = "postgres://epsx:epsx@localhost:5432/epsx_pay")]
+    // Read from DATABASE_URL env so the K8s manifest can override
+    // the localhost default. Without `env = "DATABASE_URL"` the
+    // env var would be set in the pod but clap would still pick
+    // up the default and the service would try to connect to
+    // localhost:5432 (which fails inside a pod).
+    #[arg(long, env = "DATABASE_URL", default_value = "postgres://epsx:epsx@localhost:5432/epsx_pay")]
     database_url: String,
-    #[arg(long, default_value = "56")]
+    // CHAIN_ID + ESCROW_CONTRACT defaults match the kustomize
+    // env vars (56 + "0" placeholder), but reading from env
+    // keeps the two sources of truth in sync.
+    #[arg(long, env = "CHAIN_ID", default_value = "56")]
     chain_id: u64,
-    #[arg(long, default_value = "0")]
+    #[arg(long, env = "ESCROW_CONTRACT", default_value = "0")]
     escrow_contract: String,
 }
 
