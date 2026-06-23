@@ -21,7 +21,7 @@ use axum::{
     extract::Path as AxPath,
     http::StatusCode,
     response::{Html, IntoResponse, Response},
-    routing::{any, get},
+    routing::{any, get, post},
     Json, Router,
 };
 use dioxus::prelude::*;
@@ -85,6 +85,13 @@ async fn main() {
         .route("/api/v1/pay/intent/{id}", any(get_pay_intent))
         .route("/api/v1/pay/intent/{id}/execute", any(execute_pay))
         .route("/api/v1/pay/intent/{id}/status", any(pay_status))
+        // wave49(slice-3): pay_links + pay_history proxies.
+        // Mirror the service's endpoint shape so the BFF
+        // doesn't need its own type re-shaping.
+        .route("/api/v1/pay/links", post(create_pay_link))
+        .route("/api/v1/pay/links/{slug}", get(get_pay_link))
+        .route("/api/v1/pay/links/{slug}/redeem", post(redeem_pay_link))
+        .route("/api/v1/pay/history/{address}", get(get_pay_history))
         .fallback(pay_ssr_fallback)
         .with_state(state);
 
@@ -157,6 +164,50 @@ async fn pay_status(
 }
 
 // ============================================================================
+// wave49(slice-3): pay_links + pay_history proxy handlers
+// ============================================================================
+
+async fn create_pay_link(
+    axum::extract::State(state): axum::extract::State<AppState>,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Response, StatusCode> {
+    state.pay.post_plain("/api/v1/pay/links", &body).await
+        .map(|v| Json(v).into_response())
+        .map_err(|_| StatusCode::BAD_GATEWAY)
+}
+
+async fn get_pay_link(
+    axum::extract::State(state): axum::extract::State<AppState>,
+    AxPath(slug): AxPath<String>,
+) -> Result<Response, StatusCode> {
+    let path = format!("/api/v1/pay/links/{}", slug);
+    state.pay.get_plain(&path).await
+        .map(|v| Json(v).into_response())
+        .map_err(|_| StatusCode::BAD_GATEWAY)
+}
+
+async fn redeem_pay_link(
+    axum::extract::State(state): axum::extract::State<AppState>,
+    AxPath(slug): AxPath<String>,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Response, StatusCode> {
+    let path = format!("/api/v1/pay/links/{}/redeem", slug);
+    state.pay.post_plain(&path, &body).await
+        .map(|v| Json(v).into_response())
+        .map_err(|_| StatusCode::BAD_GATEWAY)
+}
+
+async fn get_pay_history(
+    axum::extract::State(state): axum::extract::State<AppState>,
+    AxPath(address): AxPath<String>,
+) -> Result<Response, StatusCode> {
+    let path = format!("/api/v1/pay/history/{}", address);
+    state.pay.get_plain(&path).await
+        .map(|v| Json(v).into_response())
+        .map_err(|_| StatusCode::BAD_GATEWAY)
+}
+
+// ============================================================================
 // SSR fallback — Dioxus VirtualDom render via dioxus_ssr::render_element
 // ============================================================================
 
@@ -185,9 +236,47 @@ fn PageRouter(props: PageRouterProps) -> Element {
         let id = path.trim_start_matches("/intent/").to_string();
         return rsx! { PayEscrowStatus { intent_id: id } };
     }
+    if path.starts_with("/r/") {
+        // /r/:slug — shareable payment link landing page.
+        // For slice-3 we render a minimal placeholder; slice-3.5+
+        // will resolve the slug via GET /api/v1/pay/links/:slug
+        // and redirect to /pay?intent=<resolved.intent.id>.
+        let slug = path.trim_start_matches("/r/").to_string();
+        return rsx! { PayLinkLanding { slug } };
+    }
     // Default: / and /checkout → PayCheckoutForm
     let state = PaymentWizardState::from_search(&query);
     rsx! { PayCheckoutForm { state: state } }
+}
+
+/// `/r/:slug` placeholder — slice-3 ships the route as a
+/// stub. Slice-3.5+ will fetch `GET /api/v1/pay/links/:slug`,
+/// extract `intent.id` from the response, and either
+/// server-side redirect to `/pay?intent={id}` or render the
+/// checkout directly.
+#[component]
+fn PayLinkLanding(slug: String) -> Element {
+    rsx! {
+        div { class: "pay-link-landing page-bg",
+            section { class: "section",
+                style: "display:flex;align-items:center;justify-content:center;min-height:60vh;text-align:center;",
+                div {
+                    h1 { class: "pay-link-landing-title",
+                        style: "font-size:1.75rem;font-weight:800;margin-bottom:1rem;",
+                        "Resolving payment link…"
+                    }
+                    p { class: "pay-link-landing-slug",
+                        style: "font-family:monospace;color:var(--text-muted);margin-bottom:1.5rem;",
+                        "{slug}"
+                    }
+                    p { class: "pay-link-landing-note",
+                        style: "font-size:0.875rem;color:var(--text-subtle);",
+                        "Slice-3 ships the route as a stub. Slice-3.5+ will resolve the slug server-side and redirect to the checkout."
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn parse_query_param(query: &str, key: &str) -> Option<String> {
