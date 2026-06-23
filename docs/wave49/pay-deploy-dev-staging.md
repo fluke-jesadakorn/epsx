@@ -2,7 +2,7 @@
 
 **Status:** DEPLOYED + SMOKE-PASS on both dev (`epsx-dev` ns) and staging (`epsx-staging` ns). Not deployed to prod (out of scope).
 
-**Commit:** `4f6bfcd9` (1 fix + 1 doc).
+**Commits:** `4f6bfcd9` (clap env= fix) + `d0197026` (this doc) + `e38dc5df` (cloudflared + DNS script + port-bridge plist).
 
 ## Cluster
 
@@ -65,21 +65,46 @@ Diff: 11 insertions, 3 deletions, 1 file.
 
 ## What still needs operator action
 
-1. **Cloudflare DNS** — manual step, not done here:
-   - `pay.epsx.io`        CNAME → `<tunnel>.cfargotunnel.com` (prod tunnel)
-   - `staging-pay.epsx.io` CNAME → same tunnel (path-routed)
-   - `dev-pay.epsx.io`     CNAME → same tunnel (path-routed)
-   The tunnel configs in `infrastructure/cloudflare/cloudflared-config.{prod,dev}.yml` already
-   have `pay.epsx.io` entries pointing at the local port-bridge `localhost:4747` →
-   `socat` → NodePort 30082 (prod). Staging entry needs the same treatment.
+1. **Cloudflare DNS** — script ready, needs token. The Cloudflare API
+   token is not on this machine. Operator runs:
 
-2. **Cloudflared `pay.epsx.io` route** — same configs as above. Currently the
-   prod tunnel has `pay.epsx.io` → `http://localhost:4747`. The dev tunnel has
-   `dev-pay.epsx.io` → `http://localhost:4747`. Staging is missing the entry.
+   ```bash
+   export CLOUDFLARE_API_TOKEN='<token with Zone.DNS:Edit on epsx.io>'
+   cd /Users/fluke/Desktop/Work/epsx
+   ./infrastructure/scripts/dns-create-pay.sh
+   ```
 
-3. **Port-bridge plist** — `infrastructure/scripts/com.epsx.pay-port-bridge.plist`
-   is in the repo but not loaded into launchctl. `launchctl load` is the operator
-   step. Once loaded, ports 4747 + 4748 bridge to NodePort 30082 + 30083.
+   This creates (idempotently) the three CNAMEs:
+
+   | Hostname | Target |
+   |----------|--------|
+   | `pay.epsx.io` | `6bee9b58-eede-4b4c-815c-94c0ee38fe58.cfargotunnel.com` (prod) |
+   | `staging-pay.epsx.io` | same tunnel (staging) |
+   | `dev-pay.epsx.io` | same tunnel (dev) |
+
+   All three target the same Cloudflare Tunnel (6bee9b58). The tunnel
+   ingress rules (cloudflared-config.prod.yml + cloudflared-config.dev.yml)
+   route each hostname to a different host port (4747 = staging/prod,
+   4749 = dev), which the port-bridge plist forwards to the colima
+   NodePorts (30082 = staging, 30106 = dev). DNS-only path is
+   straightforward; no A/AAAA/MX records are touched.
+
+2. **Cloudflared config** — done in `e38dc5df`. `staging-pay.epsx.io` is
+   now in `cloudflared-config.dev.yml`. `dev-pay.epsx.io` was repointed
+   from 4747 to 4749 so dev → NodePort 30106 (dev namespace) instead of
+   30082 (staging namespace). Prod config (`cloudflared-config.prod.yml`)
+   still routes `pay.epsx.io` → 4747, which maps to NodePort 30082 in
+   the prod namespace once the prod overlay is applied.
+
+3. **Port-bridge plist** — loaded into launchd. Confirmed listening on
+   4747/4748/4749/4750. All four health checks 200.
+
+   | Host port | → colima NodePort | → K8s ns | → pod |
+   |-----------|-------------------|----------|-------|
+   | 4747 | 30082 | epsx-staging | epsx-pay-svc |
+   | 4748 | 30083 | epsx-staging | epsx-pay-bff |
+   | 4749 | 30106 | epsx-dev | epsx-pay-svc |
+   | 4750 | 30107 | epsx-dev | epsx-pay-bff |
 
 4. **Prod DB rename** — `ALTER DATABASE epsx_payments RENAME TO epsx_pay;` is
    a manual ops step on Neon. The pay-svc DATABASE_URL points to `epsx_pay`
