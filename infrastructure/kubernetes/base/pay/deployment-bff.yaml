@@ -1,0 +1,77 @@
+# ============================================================================
+# wave49(slice-1): epsx-pay-bff (formerly apps/pay bff-pay binary) — Dioxus
+# SSR BFF for the pay.epsx.io subdomain. Port 3002 (unchanged).
+#
+# The BFF is a thin proxy that:
+#   1. Serves the SSR'd /pay, /checkout, /success, /cancel pages
+#      (currently inline HTML strings in main.rs; slice-2 will
+#      replace with real Dioxus components).
+#   2. Proxies /api/v1/pay/intent* requests to the epsx-pay-svc
+#      backend via the ServiceClient (api_url=http://epsx-pay-svc:8103).
+#
+# Build image: epsx-pay-bff:prod (built via apps/pay/Dockerfile).
+# ============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-pay-bff
+  labels:
+    app: epsx-pay-bff
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: epsx-pay-bff
+  template:
+    metadata:
+      labels:
+        app: epsx-pay-bff
+    spec:
+      containers:
+        - name: epsx-pay-bff
+          image: epsx-pay-bff:prod
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: HOST, value: "0.0.0.0" }
+            - { name: PORT, value: "3002" }
+            - { name: RUST_LOG, value: "info" }
+            - { name: RUST_BACKTRACE, value: "0" }
+            - { name: RUST_ENV, value: "production" }
+            - { name: ENV, value: "production" }
+            # wave49 marker
+            - { name: EPSX_PAY_BFF_VERSION, value: "wave49" }
+            # The BFF dials the service in-cluster via K8s
+            # service DNS (`epsx-pay-svc` resolves to the
+            # ClusterIP in the same namespace). Slice-2 will
+            # add identity/content/analytics dials too; for
+            # now the BFF only talks to epsx-pay-svc.
+            - name: API_URL
+              value: "http://epsx-pay-svc:8103"
+          ports:
+            - { containerPort: 3002 }
+          livenessProbe:
+            httpGet: { path: /api/health, port: 3002 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /api/health, port: 3002 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          resources:
+            # Same budget as the existing BFFs (frontend,
+            # admin) — the pay BFF serves ~the same workload
+            # (SSR + thin JSON proxy).
+            limits: { memory: 512Mi, cpu: "1" }
+            requests: { memory: 128Mi, cpu: "0.25" }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: { sizeLimit: 100Mi }

@@ -22,8 +22,25 @@ images:
   - name: registry.jesadakorn.com/jesadakorn/epsx/analytics
     newName: epsx-analytics
     newTag: wave12
+  # wave49(slice-1): the new epsx-pay-svc + epsx-pay-bff
+  # binaries for pay.epsx.io. Per-wave-49 image tag, not
+  # `prod`, for the same reason as analytics — they are
+  # built from this wave's workspace state and only that
+  # state is known to compile.
+  - name: registry.jesadakorn.com/jesadakorn/epsx/pay-svc
+    newName: epsx-pay-svc
+    newTag: wave49
+  - name: registry.jesadakorn.com/jesadakorn/epsx/pay-bff
+    newName: epsx-pay-bff
+    newTag: wave49
 
 patches:
   - path: patches/replicas.yaml
   - path: patches/resources.yaml
   - path: patches/services-nodeport.yaml
+  # wave49(slice-1): pay.epsx.io NodePort + replica +
+  # resource overlays. See patch files for the specific
+  # NodePort assignments per env.
+  - path: patches/pay-services-nodeport.yaml
+  - path: patches/pay-replicas.yaml
+  - path: patches/pay-resources.yaml

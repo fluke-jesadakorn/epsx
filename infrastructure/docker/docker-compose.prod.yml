@@ -35,7 +35,7 @@ services:
       DATABASE_IDLE_TIMEOUT: ${DATABASE_IDLE_TIMEOUT}
       ANALYTICS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_analytics?sslmode=disable
       NOTIFICATIONS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_notifications?sslmode=disable
-      PAYMENTS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_payments?sslmode=disable
+      PAYMENTS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_pay?sslmode=disable
       REDIS_URL: redis://:${REDIS_PASSWORD}@host.docker.internal:6379
       WEB3_APP_SECRET: ${WEB3_APP_SECRET}
       WALLET_SIGNATURE_SECRET: ${WALLET_SIGNATURE_SECRET}
@@ -194,6 +194,90 @@ services:
         reservations:
           memory: 256M
           cpus: "0.5"
+    logging: *default-logging
+
+  # wave49(slice-1): pay.epsx.io microservice — backend
+  # service (epsx-pay-svc) + Dioxus SSR BFF (epsx-pay-bff).
+  # Mirrors the backend / admin-frontend service shape.
+  pay-svc:
+    image: epsx-pay-svc:prod
+    container_name: epsx-prod-pay-svc
+    restart: unless-stopped
+    environment:
+      ENV: ${ENV}
+      RUST_ENV: production
+      RUST_LOG: info,epsx=info
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_pay?sslmode=disable
+      CHAIN_ID: ${CHAIN_ID}
+      ESCROW_CONTRACT: ${PAYMENT_ESCROW_CONTRACT_MAINNET:-}
+      PORT: 8103
+      HOST: 0.0.0.0
+    ports:
+      - "127.0.0.1:8103:8103"
+    networks:
+      epsx_prod:
+        aliases:
+          - epsx-pay-svc.epsx-prod.svc.cluster.local
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8103/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
+    logging: *default-logging
+
+  pay-bff:
+    image: epsx-pay-bff:prod
+    container_name: epsx-prod-pay-bff
+    restart: unless-stopped
+    depends_on:
+      pay-svc:
+        condition: service_healthy
+    environment:
+      ENV: ${ENV}
+      RUST_ENV: production
+      RUST_LOG: info,epsx=info
+      API_URL: http://pay-svc:8103
+      PORT: 3002
+      HOST: 0.0.0.0
+    ports:
+      - "127.0.0.1:3002:3002"
+    networks:
+      epsx_prod:
+        aliases:
+          - epsx-pay-bff.epsx-prod.svc.cluster.local
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3002/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
     logging: *default-logging
 
 networks:

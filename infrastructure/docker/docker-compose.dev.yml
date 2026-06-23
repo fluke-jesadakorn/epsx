@@ -48,6 +48,76 @@ services:
           cpus: "0.5"
     logging: *default-logging
 
+  # wave49(slice-1): pay.epsx.io microservice (dev).
+  pay-svc:
+    image: epsx-pay-svc:wave49-dev
+    container_name: epsx-dev-pay-svc
+    restart: unless-stopped
+    environment:
+      ENV: ${ENV}
+      RUST_ENV: development
+      RUST_LOG: info,epsx=debug
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_pay?sslmode=disable
+      CHAIN_ID: ${CHAIN_ID:-56}
+      ESCROW_CONTRACT: ${PAYMENT_ESCROW_CONTRACT_MAINNET:-0}
+      PORT: 8103
+      HOST: 0.0.0.0
+    ports:
+      - "127.0.0.1:8103:8103"
+    networks:
+      - epsx_dev
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8103/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M
+    deploy:
+      resources:
+        limits: { memory: 256M, cpus: "0.5" }
+        reservations: { memory: 64M, cpus: "0.1" }
+    logging: *default-logging
+
+  pay-bff:
+    image: epsx-pay-bff:wave49-dev
+    container_name: epsx-dev-pay-bff
+    restart: unless-stopped
+    depends_on:
+      pay-svc:
+        condition: service_healthy
+    environment:
+      ENV: ${ENV}
+      RUST_ENV: development
+      RUST_LOG: info,epsx=debug
+      API_URL: http://pay-svc:8103
+      PORT: 3002
+      HOST: 0.0.0.0
+    ports:
+      - "127.0.0.1:3002:3002"
+    networks:
+      - epsx_dev
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3002/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M
+    deploy:
+      resources:
+        limits: { memory: 256M, cpus: "0.5" }
+        reservations: { memory: 64M, cpus: "0.1" }
+    logging: *default-logging
+
 networks:
   epsx_dev:
     external: true

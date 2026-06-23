@@ -21,6 +21,16 @@ ingress:
     originRequest:
       connectTimeout: 30s
 
+  # wave49(slice-1): dev-pay.epsx.io → pay BFF.
+  # In dev, we route the pay BFF through the same host
+  # port mapping as prod (port-bridge 4747 → NodePort
+  # 30082 → epsx-pay-svc:8103). Local smoke tests can
+  # also hit http://localhost:3002 directly.
+  - hostname: dev-pay.epsx.io
+    service: http://localhost:4747
+    originRequest:
+      connectTimeout: 30s
+
   - service: http_status:404
 
 loglevel: info

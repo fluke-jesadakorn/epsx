@@ -1,10 +1,10 @@
 [package]
-name = "epsx-payment"
+name = "epsx-pay-svc"
 version.workspace = true
 edition.workspace = true
 
 [[bin]]
-name = "payment"
+name = "pay-service"
 path = "src/main.rs"
 
 [dependencies]

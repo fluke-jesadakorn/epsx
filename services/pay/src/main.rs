@@ -16,13 +16,13 @@ use tracing::info;
 use alloy::primitives::Address;
 
 #[derive(Parser)]
-#[command(name = "epsx-payment", about = "EPSX Payment Service")]
+#[command(name = "epsx-pay-svc", about = "EPSX Pay Service")]
 struct Args {
     #[arg(long, default_value = "8103")]
     port: u16,
     #[arg(long, default_value = "0.0.0.0")]
     host: String,
-    #[arg(long, default_value = "postgres://epsx:epsx@localhost:5432/epsx_payment")]
+    #[arg(long, default_value = "postgres://epsx:epsx@localhost:5432/epsx_pay")]
     database_url: String,
     #[arg(long, default_value = "56")]
     chain_id: u64,
@@ -39,7 +39,7 @@ struct AppState {
 }
 
 #[derive(Serialize, Deserialize, FromRow, Clone)]
-struct PaymentIntent {
+struct PayIntent {
     id: String,
     chain_id: String,
     payer: String,
@@ -73,7 +73,7 @@ struct EscrowRecord {
 }
 
 #[derive(Serialize, Deserialize)]
-struct CreateIntentRequest {
+struct CreatePayIntentRequest {
     payer: String,
     payee: String,
     amount: String,
@@ -83,9 +83,9 @@ struct CreateIntentRequest {
 }
 
 #[derive(Serialize, Deserialize)]
-struct IntentResponse {
-    intent: PaymentIntent,
-    payment_url: String,
+struct PayIntentResponse {
+    intent: PayIntent,
+    pay_url: String,
     expires_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -115,8 +115,8 @@ struct ResolveDisputeRequest {
 }
 
 #[derive(Serialize, Deserialize)]
-struct IntentListResponse {
-    items: Vec<PaymentIntent>,
+struct PayIntentListResponse {
+    items: Vec<PayIntent>,
     total: i64,
 }
 
@@ -128,13 +128,13 @@ struct EscrowListResponse {
 
 #[tokio::main]
 async fn main() {
-    epsx_observability::Observability::init("payment");
+    epsx_observability::Observability::init("pay-svc");
     let args = Args::parse();
 
     let db = sqlx::PgPool::connect(&args.database_url).await.expect("Failed to connect to database");
 
     sqlx::query(
-        "CREATE TABLE IF NOT EXISTS payment_intents (
+        "CREATE TABLE IF NOT EXISTS pay_intents (
             id VARCHAR(66) PRIMARY KEY,
             chain_id VARCHAR(10) NOT NULL,
             payer VARCHAR(42) NOT NULL,
@@ -149,7 +149,7 @@ async fn main() {
             created_at TIMESTAMPTZ DEFAULT NOW(),
             updated_at TIMESTAMPTZ DEFAULT NOW()
         )"
-    ).execute(&db).await.expect("Failed to create payment_intents table");
+    ).execute(&db).await.expect("Failed to create pay_intents table");
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS escrows (
@@ -169,8 +169,8 @@ async fn main() {
         )"
     ).execute(&db).await.expect("Failed to create escrows table");
 
-    sqlx::query("CREATE INDEX IF NOT EXISTS idx_intents_payer ON payment_intents (payer, status)").execute(&db).await.expect("Failed to create intent index");
-    sqlx::query("CREATE INDEX IF NOT EXISTS idx_intents_payee ON payment_intents (payee, status)").execute(&db).await.expect("Failed to create intent index");
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_pay_intents_payer ON pay_intents (payer, status)").execute(&db).await.expect("Failed to create intent index");
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_pay_intents_payee ON pay_intents (payee, status)").execute(&db).await.expect("Failed to create intent index");
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_escrows_status ON escrows (status)").execute(&db).await.expect("Failed to create escrow index");
 
     let provider: Arc<RwLock<Option<Arc<dyn alloy::providers::Provider + Send + Sync>>>> =
@@ -182,17 +182,17 @@ async fn main() {
 
     let app = Router::new()
         .route("/health", get(health))
-        .route("/api/v1/payment/intents", post(create_intent).get(list_intents))
-        .route("/api/v1/payment/intents/{id}", get(get_intent))
-        .route("/api/v1/payment/intents/{id}/confirm", post(confirm_intent))
-        .route("/api/v1/payment/intents/{id}/cancel", post(cancel_intent))
-        .route("/api/v1/payment/escrows", get(list_escrows))
-        .route("/api/v1/payment/escrows/{id}", get(get_escrow))
-        .route("/api/v1/payment/escrows/{id}/release", post(release_escrow))
-        .route("/api/v1/payment/escrows/{id}/refund", post(refund_escrow))
-        .route("/api/v1/payment/escrows/{id}/dispute", post(dispute_escrow))
-        .route("/api/v1/payment/escrows/{id}/resolve", post(resolve_dispute))
-        .route("/api/v1/payment/escrows/{id}/confirm-deposit", post(confirm_escrow_deposit))
+        .route("/api/v1/pay/intents", post(create_pay_intent).get(list_pay_intents))
+        .route("/api/v1/pay/intents/{id}", get(get_pay_intent))
+        .route("/api/v1/pay/intents/{id}/confirm", post(confirm_pay_intent))
+        .route("/api/v1/pay/intents/{id}/cancel", post(cancel_pay_intent))
+        .route("/api/v1/pay/escrows", get(list_escrows))
+        .route("/api/v1/pay/escrows/{id}", get(get_escrow))
+        .route("/api/v1/pay/escrows/{id}/release", post(release_escrow))
+        .route("/api/v1/pay/escrows/{id}/refund", post(refund_escrow))
+        .route("/api/v1/pay/escrows/{id}/dispute", post(dispute_escrow))
+        .route("/api/v1/pay/escrows/{id}/resolve", post(resolve_dispute))
+        .route("/api/v1/pay/escrows/{id}/confirm-deposit", post(confirm_escrow_deposit))
         .with_state(AppState {
             db,
             chain_id: args.chain_id,
@@ -201,17 +201,17 @@ async fn main() {
         });
 
     let addr: SocketAddr = format!("{}:{}", args.host, args.port).parse().unwrap();
-    info!("Payment service listening on {}", addr);
+    info!("Pay service listening on {}", addr);
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
 async fn health() -> StatusCode { StatusCode::OK }
 
-async fn create_intent(
+async fn create_pay_intent(
     State(state): State<AppState>,
-    Json(req): Json<CreateIntentRequest>,
-) -> Result<Json<IntentResponse>, StatusCode> {
+    Json(req): Json<CreatePayIntentRequest>,
+) -> Result<Json<PayIntentResponse>, StatusCode> {
     // Validate addresses
     let _payer = Address::from_str(&req.payer).map_err(|_| StatusCode::BAD_REQUEST)?;
     let _payee = Address::from_str(&req.payee).map_err(|_| StatusCode::BAD_REQUEST)?;
@@ -237,7 +237,7 @@ async fn create_intent(
         .unwrap();
 
     sqlx::query(
-        "INSERT INTO payment_intents (id, chain_id, payer, payee, amount, token_address, status, description, expires_at, created_at, updated_at)
+        "INSERT INTO pay_intents (id, chain_id, payer, payee, amount, token_address, status, description, expires_at, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, $9, $9)"
     )
     .bind(&id)
@@ -251,9 +251,9 @@ async fn create_intent(
     .bind(now)
     .execute(&state.db)
     .await
-    .map_err(|e| { tracing::error!("intent insert: {}", e); StatusCode::INTERNAL_SERVER_ERROR })?;
+    .map_err(|e| { tracing::error!("pay intent insert: {}", e); StatusCode::INTERNAL_SERVER_ERROR })?;
 
-    let intent = PaymentIntent {
+    let intent = PayIntent {
         id: id.clone(),
         chain_id: state.chain_id.to_string(),
         payer: req.payer.to_lowercase(),
@@ -269,25 +269,25 @@ async fn create_intent(
         updated_at: now,
     };
 
-    let payment_url = format!("/pay?intent={}", id);
+    let pay_url = format!("/pay?intent={}", id);
 
-    Ok(Json(IntentResponse {
+    Ok(Json(PayIntentResponse {
         intent,
-        payment_url,
+        pay_url,
         expires_at,
     }))
 }
 
-async fn list_intents(
+async fn list_pay_intents(
     State(state): State<AppState>,
     axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
-) -> Result<Json<IntentListResponse>, StatusCode> {
+) -> Result<Json<PayIntentListResponse>, StatusCode> {
     let payer = params.get("payer").cloned();
     let status = params.get("status").cloned();
     let limit: i64 = params.get("limit").and_then(|s| s.parse().ok()).unwrap_or(50);
     let offset: i64 = params.get("offset").and_then(|s| s.parse().ok()).unwrap_or(0);
 
-    let mut q = "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at FROM payment_intents WHERE 1=1".to_string();
+    let mut q = "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at FROM pay_intents WHERE 1=1".to_string();
     let mut args: Vec<String> = vec![];
     if let Some(p) = &payer {
         args.push(p.clone());
@@ -299,14 +299,14 @@ async fn list_intents(
     }
     q.push_str(&format!(" ORDER BY created_at DESC LIMIT {} OFFSET {}", limit, offset));
 
-    let mut query = sqlx::query_as::<_, PaymentIntent>(&q);
+    let mut query = sqlx::query_as::<_, PayIntent>(&q);
     for a in &args { query = query.bind(a); }
-    let items: Vec<PaymentIntent> = query.fetch_all(&state.db).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let items: Vec<PayIntent> = query.fetch_all(&state.db).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let total: i64 = if args.is_empty() {
-        sqlx::query_scalar("SELECT COUNT(*) FROM payment_intents").fetch_one(&state.db).await.unwrap_or(0)
+        sqlx::query_scalar("SELECT COUNT(*) FROM pay_intents").fetch_one(&state.db).await.unwrap_or(0)
     } else {
-        let mut q2 = "SELECT COUNT(*) FROM payment_intents WHERE 1=1".to_string();
+        let mut q2 = "SELECT COUNT(*) FROM pay_intents WHERE 1=1".to_string();
         if let Some(_p) = &payer { q2.push_str(" AND payer = $1"); }
         if let Some(_s) = &status {
             let idx = if payer.is_some() { 2 } else { 1 };
@@ -317,15 +317,15 @@ async fn list_intents(
         query2.fetch_one(&state.db).await.unwrap_or(0)
     };
 
-    Ok(Json(IntentListResponse { items, total }))
+    Ok(Json(PayIntentListResponse { items, total }))
 }
 
-async fn get_intent(
+async fn get_pay_intent(
     State(state): State<AppState>,
     AxPath(id): AxPath<String>,
-) -> Result<Json<PaymentIntent>, StatusCode> {
-    let intent: PaymentIntent = sqlx::query_as::<_, PaymentIntent>(
-        "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at FROM payment_intents WHERE id = $1"
+) -> Result<Json<PayIntent>, StatusCode> {
+    let intent: PayIntent = sqlx::query_as::<_, PayIntent>(
+        "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at FROM pay_intents WHERE id = $1"
     )
     .bind(&id)
     .fetch_optional(&state.db)
@@ -335,19 +335,19 @@ async fn get_intent(
     Ok(Json(intent))
 }
 
-async fn confirm_intent(
+async fn confirm_pay_intent(
     State(state): State<AppState>,
     AxPath(id): AxPath<String>,
     Json(req): Json<serde_json::Value>,
-) -> Result<Json<PaymentIntent>, StatusCode> {
+) -> Result<Json<PayIntent>, StatusCode> {
     let tx_hash = req.get("tx_hash").and_then(|v| v.as_str()).unwrap_or_default().to_string();
     if tx_hash.is_empty() {
         return Err(StatusCode::BAD_REQUEST);
     }
 
     // Create escrow record for this payment
-    let intent: PaymentIntent = sqlx::query_as::<_, PaymentIntent>(
-        "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at FROM payment_intents WHERE id = $1"
+    let intent: PayIntent = sqlx::query_as::<_, PayIntent>(
+        "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at FROM pay_intents WHERE id = $1"
     )
     .bind(&id)
     .fetch_optional(&state.db)
@@ -377,7 +377,7 @@ async fn confirm_intent(
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    sqlx::query("UPDATE payment_intents SET status = 'escrowed', escrow_id = $1, tx_hash = $2, updated_at = NOW() WHERE id = $3")
+    sqlx::query("UPDATE pay_intents SET status = 'escrowed', escrow_id = $1, tx_hash = $2, updated_at = NOW() WHERE id = $3")
         .bind(&escrow_id)
         .bind(&tx_hash)
         .bind(&id)
@@ -385,19 +385,19 @@ async fn confirm_intent(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    get_intent(State(state), AxPath(id)).await
+    get_pay_intent(State(state), AxPath(id)).await
 }
 
-async fn cancel_intent(
+async fn cancel_pay_intent(
     State(state): State<AppState>,
     AxPath(id): AxPath<String>,
-) -> Result<Json<PaymentIntent>, StatusCode> {
-    sqlx::query("UPDATE payment_intents SET status = 'cancelled', updated_at = NOW() WHERE id = $1 AND status = 'pending'")
+) -> Result<Json<PayIntent>, StatusCode> {
+    sqlx::query("UPDATE pay_intents SET status = 'cancelled', updated_at = NOW() WHERE id = $1 AND status = 'pending'")
         .bind(&id)
         .execute(&state.db)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    get_intent(State(state), AxPath(id)).await
+    get_pay_intent(State(state), AxPath(id)).await
 }
 
 async fn list_escrows(

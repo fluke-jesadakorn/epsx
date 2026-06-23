@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 struct AppState {
-    payment: Arc<ServiceClient>,
+    pay: Arc<ServiceClient>,
     identity: Arc<ServiceClient>,
     content: Arc<ServiceClient>,
     analytics: Arc<ServiceClient>,
@@ -21,7 +21,7 @@ struct AppState {
 }
 
 #[derive(Deserialize)]
-struct IntentBody {
+struct PayIntentBody {
     amount: String,
     currency: String,
     description: Option<String>,
@@ -46,7 +46,7 @@ async fn main() {
 
     let cfg = epsx_client::ClientConfig { base_url: api_url.clone(), timeout: std::time::Duration::from_secs(30) };
     let state = AppState {
-        payment: Arc::new(ServiceClient::new(cfg.clone())),
+        pay: Arc::new(ServiceClient::new(cfg.clone())),
         identity: Arc::new(ServiceClient::new(cfg.clone())),
         content: Arc::new(ServiceClient::new(cfg.clone())),
         analytics: Arc::new(ServiceClient::new(cfg.clone())),
@@ -55,11 +55,11 @@ async fn main() {
 
     let app = Router::new()
         .route("/api/health", get(api_health))
-        .route("/api/v1/pay/intent", any(create_intent))
-        .route("/api/v1/pay/intent/{id}", any(get_intent))
-        .route("/api/v1/pay/intent/{id}/execute", any(execute_payment))
-        .route("/api/v1/pay/intent/{id}/status", any(payment_status))
-        .fallback(ssr_fallback)
+        .route("/api/v1/pay/intent", any(create_pay_intent))
+        .route("/api/v1/pay/intent/{id}", any(get_pay_intent))
+        .route("/api/v1/pay/intent/{id}/execute", any(execute_pay))
+        .route("/api/v1/pay/intent/{id}/status", any(pay_status))
+        .fallback(pay_ssr_fallback)
         .with_state(state);
 
     let addr: SocketAddr = format!("{}:{}", host, port).parse().unwrap();
@@ -72,9 +72,9 @@ async fn api_health() -> &'static str {
     "ok"
 }
 
-async fn create_intent(
+async fn create_pay_intent(
     axum::extract::State(state): axum::extract::State<AppState>,
-    Json(body): Json<IntentBody>,
+    Json(body): Json<PayIntentBody>,
 ) -> Result<Response, StatusCode> {
     let chain_decimal = body.chain_id.as_deref()
         .and_then(|s| u64::from_str_radix(s.trim_start_matches("0x"), 16).ok())
@@ -88,7 +88,7 @@ async fn create_intent(
     let token = body.token.clone()
         .or_else(|| Some(body.currency.clone()))
         .unwrap_or_else(|| "USDT".to_string());
-    let res = state.payment.post_plain("/api/v1/payment/intents", &serde_json::json!({
+    let res = state.pay.post_plain("/api/v1/pay/intents", &serde_json::json!({
         "amount": body.amount,
         "token": token,
         "chain_id": chain_decimal,
@@ -99,50 +99,50 @@ async fn create_intent(
     res.map(|v| Json(v).into_response()).map_err(|_| StatusCode::BAD_GATEWAY)
 }
 
-async fn get_intent(
+async fn get_pay_intent(
     axum::extract::State(state): axum::extract::State<AppState>,
     AxPath(id): AxPath<String>,
 ) -> Result<Response, StatusCode> {
-    let path = format!("/api/v1/payment/intents/{}", id);
-    state.payment.get_plain(&path).await
+    let path = format!("/api/v1/pay/intents/{}", id);
+    state.pay.get_plain(&path).await
         .map(|v| Json(v).into_response())
         .map_err(|_| StatusCode::BAD_GATEWAY)
 }
 
-async fn execute_payment(
+async fn execute_pay(
     axum::extract::State(state): axum::extract::State<AppState>,
     AxPath(id): AxPath<String>,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Response, StatusCode> {
-    let path = format!("/api/v1/payment/intents/{}/execute", id);
-    state.payment.post_plain(&path, &body).await
+    let path = format!("/api/v1/pay/intents/{}/execute", id);
+    state.pay.post_plain(&path, &body).await
         .map(|v| Json(v).into_response())
         .map_err(|_| StatusCode::BAD_GATEWAY)
 }
 
-async fn payment_status(
+async fn pay_status(
     axum::extract::State(state): axum::extract::State<AppState>,
     AxPath(id): AxPath<String>,
 ) -> Result<Response, StatusCode> {
-    let path = format!("/api/v1/payment/intents/{}", id);
-    state.payment.get_plain(&path).await
+    let path = format!("/api/v1/pay/intents/{}", id);
+    state.pay.get_plain(&path).await
         .map(|v| Json(v).into_response())
         .map_err(|_| StatusCode::BAD_GATEWAY)
 }
 
-async fn ssr_fallback(uri: axum::http::Uri) -> Response {
+async fn pay_ssr_fallback(uri: axum::http::Uri) -> Response {
     let path = uri.path();
-    let html = render_page(path);
+    let html = render_pay_page(path);
     Html(html).into_response()
 }
 
-fn render_page(path: &str) -> String {
+fn render_pay_page(path: &str) -> String {
     let (title, description, body) = if path == "/success" {
-        ("Payment Successful", "Your payment was confirmed on BSC", success_body())
+        ("Payment Successful", "Your payment was confirmed on BSC", pay_success_body())
     } else if path == "/cancel" {
-        ("Payment Cancelled", "Your payment was cancelled", cancel_body())
+        ("Payment Cancelled", "Your payment was cancelled", pay_cancel_body())
     } else {
-        ("EPSX Pay", "Complete your payment on BSC", checkout_body())
+        ("EPSX Pay", "Complete your payment on BSC", pay_checkout_body())
     };
 
     let nav = format!(
@@ -160,7 +160,7 @@ fn render_page(path: &str) -> String {
     shell
 }
 
-fn success_body() -> String {
+fn pay_success_body() -> String {
     r##"<section class="section" style="display:flex;align-items:center;justify-content:center;min-height:80vh;">
 <div style="text-align:center;max-width:32rem;">
   <div style="width:5rem;height:5rem;border-radius:9999px;background:linear-gradient(135deg,#10b981,#34d399);display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;box-shadow:0 20px 25px -5px rgba(16,185,129,0.5);">
@@ -177,7 +177,7 @@ fn success_body() -> String {
 </section>"##.to_string()
 }
 
-fn cancel_body() -> String {
+fn pay_cancel_body() -> String {
     r##"<section class="section" style="display:flex;align-items:center;justify-content:center;min-height:80vh;">
 <div style="text-align:center;max-width:32rem;">
   <div style="width:5rem;height:5rem;border-radius:9999px;background:linear-gradient(135deg,#ef4444,#f87171);display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;box-shadow:0 20px 25px -5px rgba(239,68,68,0.5);">
@@ -194,7 +194,7 @@ fn cancel_body() -> String {
 </section>"##.to_string()
 }
 
-fn checkout_body() -> String {
+fn pay_checkout_body() -> String {
     r##"<section class="section" style="display:flex;align-items:center;justify-content:center;min-height:80vh;">
 <div style="width:100%;max-width:28rem;">
   <div class="card-insight" style="padding:2.5rem;">

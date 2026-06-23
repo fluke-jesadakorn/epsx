@@ -4601,7 +4601,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "epsx-pay"
+name = "epsx-pay-bff"
 version = "0.1.0"
 dependencies = [
  "axum 0.8.9",
@@ -4617,7 +4617,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "epsx-payment"
+name = "epsx-pay-svc"
 version = "0.1.0"
 dependencies = [
  "alloy",

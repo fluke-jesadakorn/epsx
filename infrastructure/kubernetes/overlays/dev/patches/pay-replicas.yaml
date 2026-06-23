@@ -1,0 +1,17 @@
+# ============================================================================
+# wave49(slice-1): dev replicas.
+# ============================================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-pay-svc
+spec:
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-pay-bff
+spec:
+  replicas: 1

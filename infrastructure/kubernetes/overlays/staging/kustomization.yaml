@@ -18,8 +18,16 @@ images:
   # keep the analytics cutover traceable across waves.
   - name: epsx-analytics
     newTag: wave12-staging
+  # wave49(slice-1): epsx-pay-svc + epsx-pay-bff staging.
+  - name: epsx-pay-svc
+    newTag: wave49-staging
+  - name: epsx-pay-bff
+    newTag: wave49-staging
 
 patches:
   - path: patches/replicas.yaml
   - path: patches/resources.yaml
   - path: patches/services-nodeport.yaml
+  - path: patches/pay-services-nodeport.yaml
+  - path: patches/pay-replicas.yaml
+  - path: patches/pay-resources.yaml
