@@ -38,48 +38,24 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
             div { class: "container page-content access-denied-page",
+                // Wave 49 T2 (Plan 13) — prod's /access-denied does
+                // NOT render the "Common reasons" card below the
+                // AccessDenied primitive. Removed to match prod.
                 AccessDenied {
                     reason: reason,
                     required_permissions: required_permissions,
                     return_url: Some(back_href),
                     contact_href: Some("/contact".to_string()),
                 }
-                AccessDeniedReasons {}
             }
         }
     })
 }
 
-/// Common-reasons panel — explains why a user might land on
-/// /access-denied. Mirrors the source's "Permission Required"
-/// sub-list in `app/error.tsx` (which renders for 403s). Listed
-/// as a static card below the AccessDenied primitive.
-#[component]
-fn AccessDeniedReasons() -> Element {
-    rsx! {
-        section { class: "access-denied-reasons",
-            div { class: "card card-glass access-denied-reasons-card",
-                div { class: "card-body",
-                    h3 { class: "access-denied-reasons-title", "Common reasons" }
-                    ul { class: "access-denied-reasons-list",
-                        li { class: "access-denied-reasons-item",
-                            span { class: "access-denied-reasons-bullet", "•" }
-                            span { "You need to sign in first" }
-                        }
-                        li { class: "access-denied-reasons-item",
-                            span { class: "access-denied-reasons-bullet", "•" }
-                            span { "Your account lacks the required permissions" }
-                        }
-                        li { class: "access-denied-reasons-item",
-                            span { class: "access-denied-reasons-bullet", "•" }
-                            span { "This page requires a higher subscription tier" }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
+/// Common-reasons panel — REMOVED in Wave 49 T2 (Plan 13).
+/// Prod's /access-denied does not render this card; the dev was
+/// over-designed relative to prod. Kept as a comment so future
+/// contributors don't re-add it without checking prod first.
 
 // === wave5-page-depth-track-b ===
 // Unit test for the access-denied page. Smoke test only — the

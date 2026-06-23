@@ -249,11 +249,11 @@ fn PageRouter(props: PageRouterProps) -> Element {
     rsx! { PayCheckoutForm { state: state } }
 }
 
-/// `/r/:slug` placeholder — slice-3 ships the route as a
-/// stub. Slice-3.5+ will fetch `GET /api/v1/pay/links/:slug`,
-/// extract `intent.id` from the response, and either
-/// server-side redirect to `/pay?intent={id}` or render the
-/// checkout directly.
+/// `/r/:slug` placeholder — slice-5 server-side resolves the
+/// slug via the pay-svc. The SSR fallback calls
+/// `resolve_pay_link_redirect(slug)` first; if it returns
+/// `Some(redirect)` we 307 to `/pay?intent={id}`. Otherwise we
+/// fall through to this stub so the user sees a useful error.
 #[component]
 fn PayLinkLanding(slug: String) -> Element {
     rsx! {
@@ -263,7 +263,7 @@ fn PayLinkLanding(slug: String) -> Element {
                 div {
                     h1 { class: "pay-link-landing-title",
                         style: "font-size:1.75rem;font-weight:800;margin-bottom:1rem;",
-                        "Resolving payment link…"
+                        "Payment link not found"
                     }
                     p { class: "pay-link-landing-slug",
                         style: "font-family:monospace;color:var(--text-muted);margin-bottom:1.5rem;",
@@ -271,11 +271,66 @@ fn PayLinkLanding(slug: String) -> Element {
                     }
                     p { class: "pay-link-landing-note",
                         style: "font-size:0.875rem;color:var(--text-subtle);",
-                        "Slice-3 ships the route as a stub. Slice-3.5+ will resolve the slug server-side and redirect to the checkout."
+                        "This link may have expired or reached its usage limit. Create a new link or contact the sender."
+                    }
+                    a { class: "pay-link-landing-cta btn btn-gradient btn-lg",
+                        href: "/",
+                        "Back to Home"
                     }
                 }
             }
         }
+    }
+}
+
+/// wave49(slice-5): resolve a pay-link slug to its intent id
+/// and return a 307 redirect to `/pay?intent={id}`. Returns
+/// `None` when the link doesn't exist (404), is expired (410),
+/// or the upstream pay-svc is unreachable (502). The SSR
+/// fallback uses the None case to render the
+/// `PayLinkLanding` stub with a clear error.
+async fn resolve_pay_link_redirect(slug: &str) -> Option<Response> {
+    // Build a temporary state to talk to the pay-svc. We can't
+    // use the axum router's `State` from inside a free function,
+    // so we construct a ServiceClient on demand. The timeout is
+    // tight (3s) so a slow upstream doesn't block the page.
+    let api_url = std::env::var("API_URL")
+        .unwrap_or_else(|_| "http://epsx-pay-svc:8103".to_string());
+    let cfg = epsx_client::ClientConfig {
+        base_url: api_url,
+        timeout: std::time::Duration::from_secs(3),
+    };
+    let client = epsx_client::ServiceClient::new(cfg);
+
+    // GET /api/v1/pay/links/{slug} → returns
+    // { "link": { "intent_id": "...", ... }, "url": "/r/{slug}" }
+    let path = format!("/api/v1/pay/links/{}", slug);
+    let resp = match client.get_plain(&path).await {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::warn!("resolve_pay_link_redirect({}) upstream error: {}", slug, e);
+            return None;
+        }
+    };
+
+    // Extract intent_id from the response. The service returns
+    // either { "link": {...} } or an error payload like
+    // { "error": "not_found" }. Defensively handle both shapes.
+    let intent_id = resp
+        .get("link")
+        .and_then(|l| l.get("intent_id"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    match intent_id {
+        Some(id) => {
+            // 307 redirect — preserves the request method per
+            // HTTP spec. The browser GETs the new URL and the
+            // SSR fallback re-dispatches to PayCheckoutForm.
+            let target = format!("/pay?intent={}", id);
+            Some(axum::response::Redirect::to(&target).into_response())
+        }
+        None => None,
     }
 }
 
@@ -297,6 +352,21 @@ fn parse_query_param(query: &str, key: &str) -> Option<String> {
 async fn pay_ssr_fallback(uri: axum::http::Uri) -> Response {
     let path = uri.path().to_string();
     let query = uri.query().unwrap_or("").to_string();
+
+    // wave49(slice-5): server-side resolve for `/r/:slug`
+    // shareable payment links. The BFF fetches the link via
+    // the pay-svc, extracts `intent.id`, and 307-redirects to
+    // `/pay?intent={id}` so the checkout form takes over.
+    // Falls through to the regular SSR fallback if the link
+    // can't be resolved (expired / unknown slug).
+    if path.starts_with("/r/") && !path.contains("//") {
+        let slug = path.trim_start_matches("/r/").trim_end_matches('/').to_string();
+        if !slug.is_empty() {
+            if let Some(redirect) = resolve_pay_link_redirect(&slug).await {
+                return redirect;
+            }
+        }
+    }
 
     // Build the page VDom.
     let mut vdom = VirtualDom::new_with_props(

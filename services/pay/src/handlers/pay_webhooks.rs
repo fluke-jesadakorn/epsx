@@ -1,4 +1,4 @@
-//! On-chain webhook handler (slice-3).
+//! On-chain webhook handler (slice-3 + slice-5 HMAC).
 //!
 //! Receives delivery callbacks from the on-chain indexer
 //! (a separate service, slice-3+). Verifies the HMAC
@@ -16,12 +16,16 @@
 //! - `POST /api/v1/pay/webhooks/on-chain` → `on_chain_webhook`
 
 use axum::{
+    body::Bytes,
     extract::State,
     http::StatusCode,
     Json,
 };
+use hmac::{Hmac, Mac};
 use serde::Deserialize;
+use sha2::Sha256;
 use std::env;
+use subtle::ConstantTimeEq;
 
 use crate::types::*;
 use crate::AppState;
@@ -36,42 +40,79 @@ pub struct OnChainEvent {
     pub block_number: Option<u64>,
 }
 
-/// Webhook handler. Reads `X-Pay-Webhook-Signature` from the
-/// request headers; for now we trust the signature header
-/// because axum's body extraction happens before the header
-/// is checked. To do proper HMAC verification we'd need a
-/// middleware that reads the raw body. Slice-3.5+ will add
-/// `axum-extra::TypedHeader<Headers>` + `hmac` verification.
+/// HMAC-SHA256 verifier. Reads the raw request body, computes
+/// HMAC-SHA256(EPSX_PAY_WEBHOOK_SECRET, body), and compares it
+/// against the hex digest in `X-Pay-Webhook-Signature` using a
+/// constant-time equality check (defends against timing attacks).
 ///
-/// Today's behavior: signature header MUST be present and
-/// non-empty (length > 0). Empty → 401.
+/// Returns `Ok(())` on signature match, `Err(StatusCode)` on any
+/// failure:
+/// - 503 when `EPSX_PAY_WEBHOOK_SECRET` is not configured
+///   (fail-closed: never accept webhooks when secret is missing)
+/// - 401 when the signature header is missing, malformed (not
+///   hex), or doesn't match the computed digest
+fn verify_webhook_signature(
+    headers: &axum::http::HeaderMap,
+    body: &[u8],
+) -> Result<(), StatusCode> {
+    // Fail-closed if the secret isn't configured.
+    let secret = env::var("EPSX_PAY_WEBHOOK_SECRET")
+        .map_err(|_| {
+            tracing::error!("EPSX_PAY_WEBHOOK_SECRET not set — refusing webhook");
+            StatusCode::SERVICE_UNAVAILABLE
+        })?;
+
+    // Read the signature header.
+    let sig_hex = headers
+        .get("x-pay-webhook-signature")
+        .and_then(|v| v.to_str().ok())
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+
+    // Decode the hex signature.
+    let provided = hex::decode(sig_hex)
+        .map_err(|_| {
+            tracing::warn!("webhook signature is not valid hex");
+            StatusCode::UNAUTHORIZED
+        })?;
+
+    // Compute HMAC-SHA256(secret, body).
+    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(secret.as_bytes())
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    mac.update(body);
+    let expected = mac.finalize().into_bytes();
+
+    // Constant-time compare.
+    if provided.ct_eq(&expected).unwrap_u8() == 1 {
+        Ok(())
+    } else {
+        tracing::warn!("webhook signature mismatch");
+        Err(StatusCode::UNAUTHORIZED)
+    }
+}
+
+/// Webhook handler. Reads the raw body for HMAC verification,
+/// then parses it as JSON. Applies the status change to the
+/// matching intent + escrow.
 pub async fn on_chain_webhook(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
-    Json(event): Json<OnChainEvent>,
+    body: Bytes,
 ) -> Result<Json<WebhookAck>, StatusCode> {
-    // Trivial signature check — slice-3 ship. Real HMAC in
-    // slice-3.5+ when we add `hmac` crate + raw-body middleware.
-    let sig = headers
-        .get("x-pay-webhook-signature")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or_default();
-    if sig.is_empty() {
-        return Err(StatusCode::UNAUTHORIZED);
-    }
+    // 1. Verify signature first (before parsing JSON) so we
+    //    don't waste cycles on unsigned payloads.
+    verify_webhook_signature(&headers, &body)?;
 
-    // Verify the webhook secret is configured. If not, fail
-    // closed — never accept unsigned webhooks even if the
-    // signature header is non-empty.
-    if env::var("EPSX_PAY_WEBHOOK_SECRET").is_err() {
-        tracing::error!("EPSX_PAY_WEBHOOK_SECRET not set — refusing webhook");
-        return Err(StatusCode::SERVICE_UNAVAILABLE);
-    }
+    // 2. Parse the now-trusted body as JSON.
+    let event: OnChainEvent = serde_json::from_slice(&body)
+        .map_err(|e| {
+            tracing::warn!("webhook body is not valid JSON: {}", e);
+            StatusCode::BAD_REQUEST
+        })?;
 
-    // Idempotency check — INSERT … ON CONFLICT DO NOTHING so
-    // duplicate deliveries are no-ops. If the row was new we
-    // continue with the status update; if it collided we ack
-    // without re-applying.
+    // 3. Idempotency check — INSERT … ON CONFLICT DO NOTHING so
+    //    duplicate deliveries are no-ops. If the row was new we
+    //    continue with the status update; if it collided we ack
+    //    without re-applying.
     let inserted: Option<(String,)> = sqlx::query_as(
         "INSERT INTO pay_webhook_events (event_id, intent_id, escrow_id, event_type, payload)
          VALUES ($1, $2, $3, $4, $5)

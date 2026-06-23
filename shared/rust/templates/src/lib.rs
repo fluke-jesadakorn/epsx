@@ -900,6 +900,32 @@ pub fn design_system_head(title: &str, description: &str) -> String {
     min-height: 100vh;
   }}
 
+  /* === App-page background (Wave 49 T2 / Plan 13) ===
+   * Prod's app pages (/account, /account/credits, /analytics, /chat*,
+   * /notifications, /permissions, /profile) render with a subtle
+   * purple/magenta radial-glow body gradient instead of the warm-
+   * neutral `--gradient-page` used by marketing pages (/, /plans,
+   * /privacy, /terms, etc.). Sampled prod corners:
+   *   /account         #13182b → #401c68 → #412148 (top-left → center → bot-right)
+   *   /analytics       #13072b → #0f172b → #050617 (deep purple-navy)
+   *   /permissions     #201511 → #151318 → #151217 (warm-brown → dark gray)
+   * The dominant signal is a purple radial glow centered ~50%/50%
+   * with low alpha, sitting on a deep navy base. Implemented as a
+   * 2-layer background: a deep-purple linear gradient base + a soft
+   * purple radial overlay matching prod's center hot-spot. */
+  .page-bg-app {{
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 40%, rgba(139, 92, 246, 0.18) 0%, rgba(168, 85, 247, 0.08) 35%, transparent 70%),
+      linear-gradient(135deg, #0a0e1a 0%, #13182b 30%, #1a1138 60%, #2a1748 100%);
+    min-height: 100vh;
+  }}
+  /* Light-mode equivalent — sampled prod light-mode /account uses a
+   * subtle blue/violet pastel gradient. The class is rarely used in
+   * light mode (most captures are dark) but defined for parity. */
+  html:not(.dark) .page-bg-app {{
+    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 50%, #fce7f3 100%);
+  }}
+
   /* === Section === */
   .section {{ padding: 4rem 1.5rem; }}
   .section-tight {{ padding: 2.5rem 1.5rem; }}

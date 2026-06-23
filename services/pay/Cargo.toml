@@ -23,3 +23,12 @@ uuid.workspace = true
 alloy.workspace = true
 alloy-primitives.workspace = true
 alloy-provider.workspace = true
+# wave49(slice-5): HMAC-SHA256 verification for the
+# pay_webhooks handler. The upstream indexer signs each
+# payload with HMAC-SHA256(EPSX_PAY_WEBHOOK_SECRET, body)
+# and the hex digest goes in the X-Pay-Webhook-Signature
+# header. We verify before applying the status change.
+hmac.workspace = true
+sha2.workspace = true
+hex.workspace = true
+subtle.workspace = true

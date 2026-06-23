@@ -65,7 +65,14 @@ pub fn AccessDenied(
             }
             div { class: "access-denied-actions",
                 if show_back_val {
-                    a { class: "btn btn-outline", href: "{back_href}", "Back" }
+                    // Wave 49 T2 (Plan 13) — prod renders "< Go Home"
+                    // (button with left arrow + label) instead of
+                    // "Back" (text-only button). Matches prod's
+                    // access-denied design (epsx.io/access-denied).
+                    a { class: "btn btn-outline", href: "{back_href}",
+                        Icon { name: "arrow-left".to_string(), size: Some(16) }
+                        span { "Go Home" }
+                    }
                 }
                 a { class: "btn btn-primary", href: "{contact_href_val}", "Request Access" }
             }

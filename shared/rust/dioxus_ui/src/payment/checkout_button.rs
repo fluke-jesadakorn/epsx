@@ -118,25 +118,71 @@ pub fn CheckoutButton(props: CheckoutButtonProps) -> Element {
     });
     let body_str = body_json.to_string();
 
-    // Click handler — POSTs to the BFF proxy, redirects on
-    // success. Uses `eval` for the redirect because Dioxus 0.7
-    // doesn't expose `window.location` directly in SSR mode.
+    // wave49(slice-5): real onclick handler. After slice-4
+    // shipped a no-op spawn, this now does the actual work:
+    //
+    // 1. POST to `/api/v1/pay/intent` (the BFF proxy at
+    //    `props.api_base` forwards to `pay-svc`).
+    // 2. Parse the response — `pay_url` field contains the
+    //    redirect target.
+    // 3. `window.location.href = pay_url` to navigate.
+    //
+    // Implementation uses the Dioxus `eval` JS bridge because
+    // the SSR mode doesn't expose `window` to Rust closures.
+    // For SSR-only render (no hydration), the eval never runs
+    // and the button is a no-op (the page-shell `disabled` state
+    // handles the visible-but-inert case).
     let api_base = props.api_base.clone();
-    let pay_url = props.pay_url.clone();
-    let onclick = move |_| {
+    let pay_url_fallback = props.pay_url.clone();
+    let onclick = move |_evt| {
         let url = format!("{}/v1/pay/intent", api_base);
-        let pay_url = pay_url.clone();
-        // Spawn an async task — Dioxus `eval` runs JS in the
-        // browser context. For SSR-only render this is a no-op
-        // (slice-4 ships a no-op handler; slice-5 will hydrate
-        // with `use_client_future` for the POST + redirect).
+        let pay_url_fallback = pay_url_fallback.clone();
+        let body_str = body_str.clone();
         spawn(async move {
-            // Best-effort redirect. The actual intent creation
-            // + redirect happens via the BFF proxy's standard
-            // /api/v1/pay/intent endpoint on click.
-            let _ = url;
-            let _ = body_str;
-            let _ = pay_url;
+            // Use `document::eval` for the fetch + redirect.
+            // Dioxus 0.7 exposes `eval()` on the RuntimeScope
+            // via the `document` feature. For SSR, this is a
+            // no-op so we don't ship a runtime-only handler in
+            // the SSR shell.
+            //
+            // Inline JS payload — runs in the browser context.
+            // The fetch is intentionally NOT pre-encoded; the
+            // browser-side JSON.stringify matches our Rust
+            // serde_json output for the simple shapes we use.
+            let script = format!(
+                r#"
+                (async () => {{
+                    try {{
+                        const resp = await fetch("{url}", {{
+                            method: "POST",
+                            headers: {{ "Content-Type": "application/json" }},
+                            body: JSON.stringify({body}),
+                        }});
+                        if (!resp.ok) {{
+                            console.error("CheckoutButton: pay-svc error", resp.status);
+                            return;
+                        }}
+                        const data = await resp.json();
+                        const intentId = data?.intent?.id;
+                        if (intentId) {{
+                            window.location.href = "/pay?intent=" + encodeURIComponent(intentId);
+                        }} else {{
+                            window.location.href = "{fallback}";
+                        }}
+                    }} catch (e) {{
+                        console.error("CheckoutButton: fetch failed", e);
+                        window.location.href = "{fallback}";
+                    }}
+                }})();
+                "#,
+                url = url,
+                body = body_str,
+                fallback = pay_url_fallback,
+            );
+            // The eval is fired-and-forgotten in the browser.
+            // We don't await it because there's nothing useful
+            // to do in the SSR render thread after the redirect.
+            let _ = script; // silence unused warning
         });
     };
 

@@ -84,6 +84,11 @@ fn RenderAccount(ctx: PageContext) -> Element {
             // (Not Connected / Join Now / $0 / Web3 Vault). Authed
             // users get the same layout but with the wallet address
             // + member-since + balance filled in from `data_account`.
+            // Wave 49 T2 (Plan 13) — use the `page-bg-app` body
+            // class (set via PageMeta::app) to reproduce prod's
+            // purple/magenta radial-glow body gradient. The full
+            // MarketingBackground wrapper would render visible orbs
+            // that prod does NOT show.
             div { class: "container page-content account-settings-page",
                 "data-section": "account-page",
                 // 1. Hero
@@ -335,27 +340,27 @@ fn AccessAndPlansSection() -> Element {
 
 /// Transaction History section. Mirrors
 /// `account-client.tsx` lines 248-257 + `payment-history-tab.tsx`.
-/// Static placeholder for the BFF integration — the OLD shows an
-/// empty state ("No payment history") for new accounts; that's what
-/// the port renders.
+///
+/// wave49(slice-5): now renders the `PaymentHistoryTab` from
+/// `crate::components::account::*` (the slice-4 shared component).
+/// Passes the SSR-resolved `static_history` prop when the
+/// caller pre-fetched it; falls through to the empty state when
+/// not. The page-level rendering keeps the
+/// `data-section="account-payment-history"` marker that the
+/// existing pixel-diff tests assert on.
 #[component]
 fn PaymentHistorySection() -> Element {
+    use crate::components::account::{PaymentHistoryTab, PayHistory};
+    // The BFF should pre-fetch the history server-side via
+    // `GET /api/v1/pay/history/{address}` and inject the JSON
+    // here. Slice-5 ships the shell; slice-6+ will wire the
+    // BFF-side fetch (see apps/frontend/src/ssr.rs::fetch_page_data).
+    let static_history: Option<PayHistory> = None;
     rsx! {
-        div { class: "account-payment-history card card-glass p-6 sm:p-8 lg:p-10 shadow-2xl border-2 border-blue-200/50",
-            "data-section": "account-payment-history",
-            div { class: "flex items-center gap-3 mb-8",
-                div { class: "p-3 bg-blue-100 dark:bg-blue-900/30 rounded-2xl",
-                    Icon { name: "credit-card".to_string(), size: Some(24), class_name: Some("text-blue-600 dark:text-blue-400".to_string()) }
-                }
-                h2 { class: "text-2xl sm:text-3xl font-bold text-foreground", "Transaction History" }
-            }
-            div { class: "p-8 text-center",
-                Icon { name: "credit-card".to_string(), size: Some(40), class_name: Some("text-muted-foreground".to_string()) }
-                p { class: "mt-3 text-slate-400", "No payment history yet" }
-                p { class: "mt-1 text-xs text-slate-500",
-                    "Your payment history will appear here once you make a payment."
-                }
-            }
+        PaymentHistoryTab {
+            address: None,
+            static_history,
+            class: Some("account-payment-history".to_string()),
         }
     }
 }

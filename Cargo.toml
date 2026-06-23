@@ -105,6 +105,12 @@ siwe = "0.6"
 # Auth / Crypto
 jsonwebtoken = "9.2"
 sha2 = "0.10"
+# wave49(slice-5): HMAC-SHA256 + constant-time compare for
+# the pay_webhooks handler. `hmac` 0.12 is the de-facto
+# standard; `subtle` provides ConstantTimeEq (defends against
+# timing attacks on the signature comparison).
+hmac = "0.12"
+subtle = "2.6"
 rsa = "0.9"
 argon2 = "0.5"
 rand = "0.9"

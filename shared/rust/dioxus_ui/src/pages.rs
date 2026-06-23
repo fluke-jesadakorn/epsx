@@ -138,7 +138,15 @@ impl PageMeta {
         Self {
             title: format!("{} — EPSX", title),
             description: "EPSX".to_string(),
-            body_class: None,
+            // Wave 49 T2 (Plan 13) — switch app pages to the
+            // `page-bg-app` body class so they render with prod's
+            // purple/magenta radial-glow background gradient
+            // instead of plain dark. Sampled prod corners:
+            // /account #13182b → #401c68 → #412148 (top-left →
+            // center → bot-right) — purple/magenta hues. Without
+            // this, dev renders plain dark (warm-neutral #171717)
+            // which diverges from prod by 93%.
+            body_class: Some("page-bg-app".to_string()),
             include_footer: false,
             use_epsx_header: false,
         }
