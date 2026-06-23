@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple/PropertyList-1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
@@ -9,25 +9,31 @@
         <string>/bin/bash</string>
         <string>-lc</string>
         <!--
-          wave49(slice-1): the pay.epsx.io port-bridge. Forwards
-            4747 (host) → 30082 (colima VM eth0 NodePort) → epsx-pay-svc:8103
-            4748 (host) → 30083 (colima VM eth0 NodePort) → epsx-pay-bff:3002
+          wave49(slice-1, slice-6): the pay.epsx.io port-bridge.
+          Forwards from host listeners (4747-4750) to the colima
+          VM NodePorts (30082/30083 = staging, 30106/30107 = dev).
 
-          The Cloudflare Tunnel ingress for `pay.epsx.io` points
-          at `http://localhost:4747` (this LaunchAgent's listener).
-          The Tunnel then carries HTTPS traffic to the BFF, which
-          internally dials the service in-cluster via
-          `API_URL=http://epsx-pay-svc:8103`.
+          The Cloudflare Tunnel ingresses for `pay.epsx.io`,
+          `staging-pay.epsx.io`, `dev-pay.epsx.io` all point at
+          `http://localhost:4747`. The Tunnel then carries
+          HTTPS traffic to the BFF, which internally dials
+          the service in-cluster via `API_URL=http://epsx-pay-svc:8103`.
 
-          The 4747/4748 port assignments are arbitrary — they were
-          chosen to avoid collisions with the existing
+          The 4747-4750 port assignments are arbitrary — they
+          were chosen to avoid collisions with the existing
           `com.epsx.port-bridge` LaunchAgent (8080/4810/9180).
+
+          Port mapping:
+            4747 (host) → 30082 (colima) → epsx-pay-svc  (staging)
+            4748 (host) → 30083 (colima) → epsx-pay-bff  (staging)
+            4749 (host) → 30106 (colima) → epsx-pay-svc  (dev)
+            4750 (host) → 30107 (colima) → epsx-pay-bff  (dev)
 
           Operators install with:
             cp infrastructure/scripts/com.epsx.pay-port-bridge.plist ~/Library/LaunchAgents/
             launchctl load ~/Library/LaunchAgents/com.epsx.pay-port-bridge.plist
         -->
-        <string>/opt/homebrew/bin/socat TCP-LISTEN:4747,fork,reuseaddr TCP:127.0.0.1:30082 &amp; /opt/homebrew/bin/socat TCP-LISTEN:4748,fork,reuseaddr TCP:127.0.0.1:30083 &amp; wait</string>
+        <string>/opt/homebrew/bin/socat TCP-LISTEN:4747,fork,reuseaddr TCP:127.0.0.1:30082 &amp; /opt/homebrew/bin/socat TCP-LISTEN:4748,fork,reuseaddr TCP:127.0.0.1:30083 &amp; /opt/homebrew/bin/socat TCP-LISTEN:4749,fork,reuseaddr TCP:127.0.0.1:30106 &amp; /opt/homebrew/bin/socat TCP-LISTEN:4750,fork,reuseaddr TCP:127.0.0.1:30107 &amp; wait</string>
     </array>
     <key>RunAtLoad</key>
     <true/>

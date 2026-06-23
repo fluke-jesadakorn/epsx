@@ -21,12 +21,23 @@ ingress:
     originRequest:
       connectTimeout: 30s
 
-  # wave49(slice-1): dev-pay.epsx.io → pay BFF.
-  # In dev, we route the pay BFF through the same host
-  # port mapping as prod (port-bridge 4747 → NodePort
-  # 30082 → epsx-pay-svc:8103). Local smoke tests can
-  # also hit http://localhost:3002 directly.
+  # wave49(slice-1, slice-6): dev-pay.epsx.io → dev pay BFF.
+  # Routes through port-bridge 4749 (host) → NodePort 30106
+  # (colima) → epsx-pay-svc in the `epsx-dev` namespace.
+  # Distinguished from the staging route by the 4749 port
+  # (vs 4747 for staging); DNS records are created with
+  # `infrastructure/scripts/dns-create-pay.sh dev-pay.epsx.io`.
   - hostname: dev-pay.epsx.io
+    service: http://localhost:4749
+    originRequest:
+      connectTimeout: 30s
+
+  # wave49(slice-6): staging-pay.epsx.io → staging pay BFF.
+  # Routes through port-bridge 4747 (host) → NodePort 30082
+  # (colima) → epsx-pay-svc in the `epsx-staging` namespace.
+  # Operators create the DNS record with
+  # `infrastructure/scripts/dns-create-pay.sh staging-pay.epsx.io`.
+  - hostname: staging-pay.epsx.io
     service: http://localhost:4747
     originRequest:
       connectTimeout: 30s
