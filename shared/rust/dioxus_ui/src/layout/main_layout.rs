@@ -18,12 +18,12 @@
 //!   `PageMeta` + `Element`. The layout swap happens INSIDE the page
 //!   render functions, not in the BFF.
 //!
-//! Conflict avoidance: Track B will add `pub wallet: ConnectedWalletState`
-//! to `PageContext` and use it to forward wallet / auth state into
-//! `NavigationClient` and the wallet dropdown. This file's signatures
-//! do not depend on that — we forward `ctx` and the BFF will own the
-//! actual plumb of wallet props. A `TODO: pass ctx.wallet here in
-//! Track B` comment marks the spot.
+//! Wave 3a Track B (completed): `PageContext.wallet: ConnectedWalletState`
+//! is plumbed (was added in wave-3a). This layout now forwards it
+//! into `NavigationClient` (see the body below for the priority
+//! order — SIWE session wins over the wallet cookie for
+//! `is_authenticated`). The previous `TODO: pass ctx.wallet here in
+//! Track B` comment is resolved.
 
 use dioxus::prelude::*;
 
@@ -62,9 +62,24 @@ use crate::theme::UnifiedThemeToggle;
 pub fn MainLayout(ctx: PageContext, children: Element) -> Element {
     let path = ctx.path.clone();
     let user = ctx.user.clone();
-    // TODO: pass ctx.wallet here in Track B (ConnectedWalletState
-    // forwards `is_connected` / `is_authenticated` / `wallet_address`
-    // into NavigationClient + the wallet dropdown slot).
+    // Wave 3a Track B (TODO cleanup): wire the BFF-supplied
+    // `ConnectedWalletState` from `ctx.wallet` into the
+    // NavigationClient chrome. Without this the wallet pill always
+    // renders the "disconnected" placeholder even when the user
+    // has connected via SIWE, because the layout was passing
+    // hardcoded `is_connected: Some(false)` regardless of the
+    // actual cookie state.
+    //
+    // Priority order: if the SIWE session has a user, the user is
+    // considered authenticated even if the wallet cookie expired
+    // (the session lifetime is independent). Wallet connection
+    // status is sourced from the wallet cookie only.
+    let wallet = ctx.wallet.clone();
+    // `ConnectedWalletState` derives connection from the presence
+    // of `address` — there's no separate `is_connected` boolean.
+    let is_connected = Some(wallet.address.is_some());
+    let is_authenticated = Some(user.is_some() || wallet.is_authenticated);
+    let wallet_address = wallet.address.clone();
     rsx! {
         ThemeRoot {
             // === wave3a-wiring-track-a ===
@@ -74,10 +89,10 @@ pub fn MainLayout(ctx: PageContext, children: Element) -> Element {
             NavigationClient {
                 is_hydrated: Some(true),
                 current_path: Some(path),
-                // Wave 3a defaults — BFF wires real values in Track B.
-                is_connected: Some(false),
-                is_authenticated: Some(user.is_some()),
+                is_connected,
+                is_authenticated,
                 is_loading: Some(false),
+                wallet_address,
                 theme_toggle: Some(rsx! { UnifiedThemeToggle {} }),
             }
             { children }
