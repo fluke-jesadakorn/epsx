@@ -12,6 +12,8 @@ mod tests {
         value_objects::WalletAddress,
         repository_ports::WalletUserRepositoryPort,
     };
+    use crate::infrastructure::database::diesel_connection_manager::{TlsConnectionManager, TlsPool};
+    use deadpool::managed::Pool;
     use epsx_contracts::errors::AppError;
     use chrono::{Utc, Duration};
     use serde_json::json;
@@ -669,9 +671,36 @@ mod tests {
 
     /// Create a test database pool
     async fn create_test_database_pool() -> &'static TlsPool {
-        // For testing, this would create a separate test database
-        // For now, this is a placeholder that would need actual database setup
-        todo!("Implement test database pool creation with isolated test database");
+        // Wave-49 TODO cleanup: tests now use the live
+        // `epsx_payments_dev` database (renamed to `epsx_pay_dev`
+        // by the wave-49 pay.epsx.io extraction). Tests are
+        // designed to be hermetic via the
+        // `TransactionTestSetup::cleanup()` method which deletes
+        // rows with the test wallet addresses after each test.
+        //
+        // For CI / true isolation we'd want a separate test DB
+        // (e.g. `epsx_payments_test`), but for dev local-only
+        // tests the live dev DB is fine. Connection string is
+        // hardcoded for now; future wave will read from
+        // `TEST_DATABASE_URL` env var.
+        use std::sync::OnceLock;
+        static POOL: OnceLock<TlsPool> = OnceLock::new();
+        POOL.get_or_init(|| {
+            let manager = TlsConnectionManager::new(
+                std::env::var("TEST_DATABASE_URL").unwrap_or_else(|_| {
+                    "postgres://epsx_user:password@localhost:5432/epsx_pay_dev".to_string()
+                })
+            );
+            // Build the pool synchronously — `Pool::builder` is
+            // sync; only `build()` is async.
+            futures::executor::block_on(async {
+                Pool::builder(manager)
+                    .max_size(2)
+                    .build()
+                    .expect("failed to build test pool")
+            })
+        });
+        POOL.get().expect("pool init")
     }
 }
 
