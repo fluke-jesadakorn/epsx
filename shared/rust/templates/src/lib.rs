@@ -152,9 +152,18 @@ pub fn design_system_head(title: &str, description: &str) -> String {
   }}
 
   html.dark {{
-    --bg:              #030712;
-    --bg-secondary:    #0f172a;
-    --bg-tertiary:     #1e293b;
+    /* Wave 49 T1 (Plan 13): dev previously set --bg to #030712
+     * (very dark blue with cyan tint). Prod (epsx.io) uses a
+     * neutral warm-dark background (sampled #211511 / #171717 /
+     * #1c1411 / #121212 across marketing pages). Changing --bg
+     * to a warm-neutral grey fixes the auth/about/contact/offline
+     * pages' background pixel diff in one shot — those pages
+     * inherit --bg from html rather than using MarketingBackground.
+     * Side effects: every dark-mode page now has a slightly warmer
+     * tone; visually this matches prod's design language. */
+    --bg:              #1c1917;
+    --bg-secondary:    #171717;
+    --bg-tertiary:     #262626;
     --surface:         rgba(15, 23, 42, 0.80);
     --surface-hover:   rgba(15, 23, 42, 0.95);
     --surface-solid:   #0f172a;
@@ -185,7 +194,15 @@ pub fn design_system_head(title: &str, description: &str) -> String {
    * background — the dominant cause of the /`/` and /`/about`/
    * pixel diff before this fix. */
   html.dark .marketing-bg-fixed {{
-    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0c0a09 100%);
+    /* Wave 49 T1 (Plan 13): dev previously used a slate→indigo→stone
+     * gradient (#0f172a → #1e1b4b → #0c0a09) which produced visibly
+     * purple/blue backgrounds (sampled #201e2c / #1e1b49 / #17193e
+     * across the viewport). Prod (epsx.io) uses a neutral warm-dark
+     * background (sampled #211511 / #171717 / #1c1411 / #121212) with
+     * an orange radial-glow overlay from `.marketing-bg-gradient`.
+     * The fix drops to a flat warm-neutral base color so the existing
+     * orange radial overlay reads correctly and matches prod. */
+    background: #171717;
   }}
   /* Wave 24 T4' — the orbs/meshes on `<MarketingBackground>` were
    * authored for a light pastel background (where their warm hues
@@ -6315,6 +6332,14 @@ pub fn lucide_icon(name: &str) -> &'static str {
         "user" => r#"<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>"#,
         "settings" => r#"<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>"#,
         "check" => r#"<path d="M20 6 9 17l-5-5"/>"#,
+        // Wave-49 TODO cleanup (alert.rs): shadcn's <Alert> uses
+        // 'check-circle' for the Success variant. Register the
+        // shape so the Alert component can render the exact lucide
+        // name instead of the 'check' substitute.
+        "check-circle" => r#"<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>"#,
+        // Wave-49 TODO cleanup (alert.rs): shadcn's <Alert> uses
+        // 'alert-triangle' for the Warning variant.
+        "alert-triangle" => r#"<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/>"#,
         "plus" => r#"<path d="M5 12h14"/><path d="M12 5v14"/>"#,
         "search" => r#"<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>"#,
         "share" => r#"<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/>"#,

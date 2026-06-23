@@ -30,23 +30,18 @@ impl AlertKind {
     /// override via the `icon` prop on `<Alert>`.
     ///
     /// Icon names must exist in `epsx_templates::lucide`'s registry.
-    /// We pick closest semantic matches from the registered set:
-    /// - `check`        for Success
-    /// - `bell`         for Warning (semantic "notify")
-    /// - `x`            for Danger (visual "stop")
+    /// Picks the exact shadcn names (added in wave-49):
+    /// - `check-circle` for Success (TS shadcn `<AlertCircle>` with
+    ///   `class="text-green-500"` equivalent)
+    /// - `alert-triangle` for Warning (TS shadcn `<AlertTriangle>`)
+    /// - `alert-circle` for Danger (TS shadcn `<AlertCircle>`)
     /// - `info`         for Default / Info
-    ///
-    /// TODO: add lucide registry entries for the proper shadcn names
-    /// (`check-circle`, `alert-triangle`, `alert-circle`) so the
-    /// rendered icons match the TS shadcn output exactly. The
-    /// current substitutes are visually distinct but semantically
-    /// close.
     pub fn default_icon(&self) -> &'static str {
         match self {
             AlertKind::Default => "info",
-            AlertKind::Success => "check",
-            AlertKind::Warning => "bell",
-            AlertKind::Danger => "x",
+            AlertKind::Success => "check-circle",
+            AlertKind::Warning => "alert-triangle",
+            AlertKind::Danger => "alert-circle",
             AlertKind::Info => "info",
         }
     }
