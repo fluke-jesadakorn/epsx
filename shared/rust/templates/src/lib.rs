@@ -1238,6 +1238,19 @@ pub fn design_system_head(title: &str, description: &str) -> String {
   html.dark .epsx-nav-trigger:hover {{ color: white; }}
   .epsx-nav-trigger .nav-icon {{ color: var(--epsx-orange); width: 1rem; height: 1rem; flex-shrink: 0; }}
   .epsx-nav-trigger .nav-chev {{ color: var(--epsx-orange); width: 0.75rem; height: 0.75rem; transition: transform 0.2s ease; }}
+  /* === Position anchor for the absolute-positioned `.epsx-nav-menu` ===
+     Without `position: relative` here, the dropdown menu's
+     `position: absolute; top: calc(100% + 0.5rem); left: 0;` would
+     anchor to the nearest positioned ancestor — which is the sticky
+     `<header class="epsx-header">` (sticky elements ARE a positioning
+     context). The result was the menu rendering at top-left of the
+     page (100% of the 3.5rem sticky header height) instead of
+     directly under the trigger button. Adding `position: relative`
+     to `.epsx-nav-wrap` makes the wrap the containing block so
+     `top: 100%` = the wrap's full height (the trigger's bottom
+     edge + 0.5rem) and `left: 0` = the trigger's left edge —
+     matching prod's Radix `align: "start"; sideOffset: 8` exactly. */
+  .epsx-nav-wrap {{ position: relative; display: inline-block; }}
   .epsx-nav-wrap.open .epsx-nav-trigger .nav-chev {{ transform: rotate(180deg); }}
 
   /* === Nav dropdown content (epsx.io Radix menu) === */
@@ -5595,7 +5608,6 @@ window.epsx = (function() {
           <div class="epsx-mobile-section-title">Developer</div>
           <a href="/developer" class="epsx-mobile-link"><i data-lucide="key" style="width:1rem;height:1rem;color:var(--epsx-orange);"></i> API Keys</a>
           <a href="/developer/docs" class="epsx-mobile-link"><i data-lucide="book" style="width:1rem;height:1rem;color:var(--epsx-orange);"></i> Documentation</a>
-          <a href="/developer/usage" class="epsx-mobile-link"><i data-lucide="layout-dashboard" style="width:1rem;height:1rem;color:var(--epsx-orange);"></i> Usage</a>
         </div>
         <div class="epsx-mobile-section">
           <div class="epsx-mobile-section-title">Company</div>
@@ -5642,7 +5654,23 @@ window.epsx = (function() {
     if (back) back.remove();
   }
   function authHTML() {
-    // Mirror epsx.io's auth-modal-inner / auth-wallet-btn structure exactly
+    // Mirror epsx.io's auth-modal-inner / auth-wallet-btn structure exactly.
+    //
+    // Wave 50 — wired the 3 wallet buttons to `epsx.connectWallet()`
+    // (the page-shell wallet shim's full EIP-4361 challenge → sign →
+    // verify flow) instead of the previous `window.location.href=
+    // '/api/v1/auth/siwe?provider=...'` redirect, which was a GET to
+    // a POST-only endpoint and did nothing. The 3 buttons now all
+    // trigger the same connect flow (window.ethereum / MetaMask /
+    // any injected EIP-1193 provider). For users without a wallet,
+    // the shim toasts "Install MetaMask or another BSC wallet".
+    //
+    // Closing the modal first means the auth status events propagate
+    // to whichever page the user lands on after the verify reload.
+    //
+    // Also added a "Try the demo account" button below the wallet
+    // list so users without MetaMask installed can still sign in via
+    // `/api/v1/auth/demo` — calls `epsx.connectWalletDemo()`.
     return `
       <div class="auth-modal-inner animate-zoom-in" style="max-width:420px;width:100%;">
         <div class="auth-modal-content">
@@ -5652,17 +5680,23 @@ window.epsx = (function() {
               <span class="auth-step-label">Select Wallet</span>
             </div>
             <div class="auth-wallets">
-              <button class="auth-wallet-btn" type="button" onclick="window.location.href='/api/v1/auth/siwe?provider=safe'">
+              <button class="auth-wallet-btn" type="button" onclick="closeAuth();window.epsx &amp;&amp; window.epsx.connectWallet &amp;&amp; window.epsx.connectWallet();">
                 <span class="auth-wallet-icon">💼</span>
                 <span class="auth-wallet-name">Safe</span>
               </button>
-              <button class="auth-wallet-btn" type="button" onclick="window.location.href='/api/v1/auth/siwe?provider=walletconnect'">
+              <button class="auth-wallet-btn" type="button" onclick="closeAuth();window.epsx &amp;&amp; window.epsx.connectWallet &amp;&amp; window.epsx.connectWallet();">
                 <span class="auth-wallet-icon">🔗</span>
                 <span class="auth-wallet-name">WalletConnect</span>
               </button>
-              <button class="auth-wallet-btn" type="button" onclick="window.location.href='/api/v1/auth/siwe?provider=base'">
+              <button class="auth-wallet-btn" type="button" onclick="closeAuth();window.epsx &amp;&amp; window.epsx.connectWallet &amp;&amp; window.epsx.connectWallet();">
                 <span class="auth-wallet-icon">💼</span>
                 <span class="auth-wallet-name">Base Account</span>
+              </button>
+            </div>
+            <div style="margin-top:0.75rem;border-top:1px solid rgba(255,255,255,0.10);padding-top:0.75rem;">
+              <button class="auth-wallet-btn" type="button" onclick="closeAuth();window.epsx &amp;&amp; window.epsx.connectWalletDemo &amp;&amp; window.epsx.connectWalletDemo();" style="background:rgba(255,255,255,0.04);">
+                <span class="auth-wallet-icon">🧪</span>
+                <span class="auth-wallet-name">Try the demo account</span>
               </button>
             </div>
           </div>
@@ -6583,6 +6617,15 @@ pub fn epsx_header() -> String {
       </a>"##;
 
     // Developer dropdown items
+    //
+    // **Wave 49+** — matches prod's `NAV_GROUPS` in
+    // `apps/frontend/components/nav/nav-config.ts` (Developer
+    // group has exactly 2 items: API Keys, Documentation). The
+    // previous dev version also rendered a "Usage" item pointing
+    // at `/developer/usage` — prod has no such link in the
+    // navbar (Usage is reached from the Developer Portal page,
+    // not the global nav). Removing the third item brings the
+    // dev BFF to 2+2+4 = 8 nav items, identical to prod.
     let developer_items = r##"
       <a href="/developer" class="epsx-nav-item">
         <i data-lucide="key" class="item-icon"></i>
@@ -6596,13 +6639,6 @@ pub fn epsx_header() -> String {
         <div>
           <div class="item-label">Documentation</div>
           <div class="item-desc">Integration guides &amp; reference</div>
-        </div>
-      </a>
-      <a href="/developer/usage" class="epsx-nav-item">
-        <i data-lucide="layout-dashboard" class="item-icon"></i>
-        <div>
-          <div class="item-label">Usage</div>
-          <div class="item-desc">API usage &amp; analytics</div>
         </div>
       </a>"##;
 
@@ -6662,7 +6698,7 @@ pub fn epsx_header() -> String {
       <span class="text-xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#488BFA] to-[#A43FF3] leading-none mt-0.5">EPSX</span>
     </a>
 
-    <nav class="hidden lg:flex items-center gap-1">
+    <nav class="hidden md:flex items-center gap-1">
       {market}
       {developer}
       {company}

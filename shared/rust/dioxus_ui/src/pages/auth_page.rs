@@ -78,9 +78,15 @@ const AUTH_HYDRATION_SCRIPT: &str = r#"(function(){
 ///   - LEFT: marketing pitch (hero copy + 3 value props + 1 testimonial)
 ///   - RIGHT: the auth form (SIWE ConnectButton + email magic link +
 ///     Google OAuth button)
-/// Error states: "wallet not installed", "wrong network", "signature
-/// rejected". Loading states: spinner during challenge fetch, button
-/// disabled + "Check your wallet..." text during signature.
+///
+/// Wave 50 — wired up the full SIWE flow:
+/// - The `<ConnectButton data_connect_wallet=true>` renders a raw
+///   `<button data-connect-wallet="true">` (the page-shell
+///   `wallet_shim()` attaches the click → `window.epsx.connectWallet()`).
+/// - Loading + error banners are rendered statically with stable ids;
+///   an inline `<script>` listens for the `epsx:wallet:status` events
+///   the shim broadcasts and toggles `hidden` + content. No Dioxus
+///   hydration is required — every interactive state is SSR-safe.
 #[component]
 pub fn AuthPage() -> Element {
     rsx! { RenderAuth {} }
@@ -88,19 +94,13 @@ pub fn AuthPage() -> Element {
 
 #[component]
 pub fn RenderAuth() -> Element {
-    // Auth flow state machine:
-    //   idle      — initial state, no auth attempted
-    //   connecting — challenge is being fetched / wallet is connecting
-    //   signing   — wallet is asking the user to sign the SIWE message
-    //   verifying — BFF is verifying the signature
-    //   error     — last attempt failed (msg in `error_msg` signal)
-    let mut status = use_signal(|| "idle".to_string());
-    let mut error_msg = use_signal(String::new);
-    let mut error_kind = use_signal(|| "".to_string()); // "no_wallet" | "wrong_network" | "rejected" | ""
-    let mut demo_enabled = use_signal(|| true);
+    // The component is purely declarative — every interactive state
+    // (loading / error / success) is driven by the inline script
+    // below. The Dioxus `use_signal` calls were removed because
+    // their closures don't survive SSR; the SSR'd HTML carries the
+    // initial state (idle, no error, no loading) and JS toggles the
+    // visibility from there.
 
-    // On mount, check if a wallet is already connected via window.epsxWallet
-    // and pre-fill the address. Client-side hydration handles this.
     rsx! {
         div { class: "auth-page",
             // === LEFT column: marketing pitch ===
@@ -190,43 +190,59 @@ pub fn RenderAuth() -> Element {
                         h2 { class: "auth-card-title", "Welcome to EPSX" }
                         p { class: "auth-card-sub", "Secure authentication via Web3" }
                         // === Primary CTA: SIWE (wallet-only) ===
+                        // Wave 50 — `data_connect_wallet=true` makes
+                        // ConnectButton emit a raw `<button
+                        // data-connect-wallet="true">` element. The
+                        // page-shell `wallet_shim()` script attaches a
+                        // click listener that calls
+                        // `window.epsx.connectWallet()` (the full
+                        // EIP-4361 challenge → sign → verify flow).
+                        // This survives SSR (Dioxus onclick closures
+                        // get stripped; data-* + external JS does not).
                         div { class: "auth-card-cta",
                             ConnectButton {
-                                on_click: move |_| {
-                                    status.set("connecting".to_string());
-                                    error_msg.set(String::new());
-                                    error_kind.set(String::new());
-                                },
                                 size: Some(ConnectButtonSize::Full),
                                 label: Some("Connect Wallet".to_string()),
-                                disabled: *status.read() == "connecting" || *status.read() == "signing",
+                                data_connect_wallet: Some(true),
                             }
                         }
-                        // === Error banner (per error kind) ===
-                        if !error_msg.read().is_empty() {
-                            div { class: "auth-card-error", role: "alert",
-                                div { class: "auth-card-error-icon",
-                                    Icon { name: "triangle-alert".to_string(), size: Some(16) }
-                                }
-                                div { class: "auth-card-error-body",
-                                    div { class: "auth-card-error-title",
-                                        if *error_kind.read() == "no_wallet" { "Wallet not installed" }
-                                        else if *error_kind.read() == "wrong_network" { "Wrong network" }
-                                        else if *error_kind.read() == "rejected" { "Signature rejected" }
-                                        else { "Sign-in failed" }
-                                    }
-                                    div { class: "auth-card-error-msg", "{error_msg.read()}" }
-                                }
+                        // === Loading state (hidden by default) ===
+                        // The inline script at the bottom of the page
+                        // toggles `hidden` and updates the message as
+                        // the SIWE flow progresses through challenge →
+                        // signing → verifying. Static markup so the SSR
+                        // snapshot carries the full UI even with
+                        // hydration off.
+                        div {
+                            id: "auth-card-status",
+                            class: "auth-card-status",
+                            "aria-live": "polite",
+                            hidden: true,
+                            div { class: "spinner spinner-sm" }
+                            span {
+                                id: "auth-card-status-msg",
+                                "Waiting for wallet..."
                             }
                         }
-                        // === Loading state ===
-                        if *status.read() == "connecting" || *status.read() == "signing" || *status.read() == "verifying" {
-                            div { class: "auth-card-status", "aria-live": "polite",
-                                div { class: "spinner spinner-sm" }
-                                span {
-                                    if *status.read() == "connecting" { "Waiting for wallet..." }
-                                    else if *status.read() == "signing" { "Check your wallet..." }
-                                    else { "Verifying signature..." }
+                        // === Error banner (hidden by default) ===
+                        div {
+                            id: "auth-card-error",
+                            class: "auth-card-error",
+                            role: "alert",
+                            hidden: true,
+                            div { class: "auth-card-error-icon",
+                                Icon { name: "triangle-alert".to_string(), size: Some(16) }
+                            }
+                            div { class: "auth-card-error-body",
+                                div {
+                                    id: "auth-card-error-title",
+                                    class: "auth-card-error-title",
+                                    "Sign-in failed"
+                                }
+                                div {
+                                    id: "auth-card-error-msg",
+                                    class: "auth-card-error-msg",
+                                    ""
                                 }
                             }
                         }
@@ -264,11 +280,84 @@ pub fn RenderAuth() -> Element {
                         a { href: "/", "Go to Homepage" }
                     }
                     script { dangerous_inner_html: AUTH_HYDRATION_SCRIPT }
+                    // === Wave 50 — wallet status event listener ===
+                    //
+                    // Toggles the loading + error banner visibility
+                    // based on `epsx:wallet:status` events broadcast by
+                    // the page-shell `wallet_shim()`. Pure DOM
+                    // manipulation — no Dioxus hydration needed.
+                    script { dangerous_inner_html: WALLET_STATUS_LISTENER_SCRIPT }
                 }
             }
         }
     }
 }
+
+/// Inline `<script>` that listens for the `epsx:wallet:status` events
+/// the page-shell `wallet_shim()` broadcasts and toggles the loading
+/// + error banner visibility.
+///
+/// Status shape:
+///   `{ status: 'idle'|'challenge'|'signing'|'verifying'|'success'|'error',
+///      kind?: 'no_wallet'|'wrong_network'|'rejected'|'error',
+///      message?: string,
+///      address?: string }`
+///
+/// The script is intentionally minimal — it only manipulates the four
+/// known elements (CTA button + status banner + error title + error
+/// message). No innerHTML injection, no fetch, no library deps.
+const WALLET_STATUS_LISTENER_SCRIPT: &str = r#"(function(){
+  function $(id){ return document.getElementById(id); }
+  var ctaBtn = document.getElementById('auth-card-cta-btn') ||
+               document.querySelector('[data-connect-wallet]');
+  var statusEl = $('auth-card-status');
+  var statusMsg = $('auth-card-status-msg');
+  var errorEl = $('auth-card-error');
+  var errorTitle = $('auth-card-error-title');
+  var errorMsg = $('auth-card-error-msg');
+
+  function show(d) {
+    if (!d) return;
+    if (d.status === 'challenge') {
+      statusMsg.textContent = 'Requesting challenge...';
+      statusEl.hidden = false;
+      errorEl.hidden = true;
+      if (ctaBtn) ctaBtn.disabled = true;
+    } else if (d.status === 'signing') {
+      statusMsg.textContent = 'Check your wallet...';
+      statusEl.hidden = false;
+      errorEl.hidden = true;
+      if (ctaBtn) ctaBtn.disabled = true;
+    } else if (d.status === 'verifying') {
+      statusMsg.textContent = 'Verifying signature...';
+      statusEl.hidden = false;
+      errorEl.hidden = true;
+      if (ctaBtn) ctaBtn.disabled = true;
+    } else if (d.status === 'success') {
+      // Page reload handled by the shim.
+      statusEl.hidden = true;
+      errorEl.hidden = true;
+    } else if (d.status === 'error') {
+      var title = 'Sign-in failed';
+      if (d.kind === 'no_wallet') title = 'Wallet not installed';
+      else if (d.kind === 'wrong_network') title = 'Wrong network';
+      else if (d.kind === 'rejected') title = 'Signature rejected';
+      errorTitle.textContent = title;
+      errorMsg.textContent = d.message || 'Authentication failed. Please try again.';
+      errorEl.hidden = false;
+      statusEl.hidden = true;
+      if (ctaBtn) ctaBtn.disabled = false;
+    } else if (d.status === 'idle') {
+      statusEl.hidden = true;
+      errorEl.hidden = true;
+      if (ctaBtn) ctaBtn.disabled = false;
+    }
+  }
+
+  document.addEventListener('epsx:wallet:status', function(e) {
+    show((e && e.detail) || {});
+  });
+})();"#;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Sign in");
@@ -384,5 +473,94 @@ mod tests {
         }
         // Social proof.
         assert!(html.contains("2,500+"), "Auth page must render the '2,500+' social proof. Got: {}", html);
+    }
+
+    // ── Wave 50 — SSR-friendly wallet wiring tests ────────────────
+
+    /// The ConnectButton on the auth page must carry
+    /// `data-connect-wallet="true"` so the page-shell `wallet_shim()`
+    /// script attaches a click listener that calls
+    /// `window.epsx.connectWallet()`. Without this attribute, the
+    /// click handler is a Dioxus closure (stripped at SSR time) and
+    /// clicking the button is a visual no-op.
+    #[test]
+    fn test_connect_button_has_data_connect_wallet() {
+        let ctx = PageContext {
+            user: None,
+            path: "/auth".to_string(),
+            ..Default::default()
+        };
+        let (_meta, el) = render(&ctx);
+        let html = dioxus_ssr::render_element(el);
+        assert!(
+            html.contains("data-connect-wallet=\"true\""),
+            "Auth page ConnectButton must emit data-connect-wallet=\"true\" so the wallet shim can wire the click. Got: {html}"
+        );
+    }
+
+    /// The auth page must include the inline `<script>` that listens
+    /// for `epsx:wallet:status` events. Without this script the user
+    /// has no visual feedback when the SIWE flow progresses through
+    /// challenge → signing → verifying.
+    #[test]
+    fn test_includes_wallet_status_listener_script() {
+        let ctx = PageContext {
+            user: None,
+            path: "/auth".to_string(),
+            ..Default::default()
+        };
+        let (_meta, el) = render(&ctx);
+        let html = dioxus_ssr::render_element(el);
+        assert!(
+            html.contains("epsx:wallet:status"),
+            "Auth page must include the wallet status listener script. Got: {html}"
+        );
+        // Verify the script toggles all 5 status labels.
+        for label in &[
+            "Requesting challenge...",
+            "Check your wallet...",
+            "Verifying signature...",
+            "Wallet not installed",
+            "Signature rejected",
+        ] {
+            assert!(
+                html.contains(label),
+                "Wallet status listener script must reference '{}'. Got: {html}",
+                label
+            );
+        }
+    }
+
+    /// The auth page must render the loading + error banner elements
+    /// with stable ids so the JS listener can toggle them. Initial
+    /// state: `hidden` (idle, no error, no loading).
+    #[test]
+    fn test_status_and_error_elements_present_with_stable_ids() {
+        let ctx = PageContext {
+            user: None,
+            path: "/auth".to_string(),
+            ..Default::default()
+        };
+        let (_meta, el) = render(&ctx);
+        let html = dioxus_ssr::render_element(el);
+        for id in &[
+            "auth-card-status",
+            "auth-card-status-msg",
+            "auth-card-error",
+            "auth-card-error-title",
+            "auth-card-error-msg",
+        ] {
+            assert!(
+                html.contains(&format!("id=\"{id}\"")),
+                "Auth page must render element with id=\"{id}\". Got: {html}"
+            );
+        }
+        // Initial state: hidden=true on both banners.
+        // We can't easily assert the `hidden` attribute per-element
+        // without parsing — but the static text "Sign-in failed"
+        // (the default error title) and "Waiting for wallet..." (the
+        // default status msg) must both be present.
+        assert!(html.contains("Waiting for wallet..."), "Auth page must include the initial loading message. Got: {html}");
+        assert!(html.contains("Sign-in failed"), "Auth page must include the default error title. Got: {html}");
     }
 }

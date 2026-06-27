@@ -220,12 +220,56 @@ pub async fn ssr_handler(
     let (meta, body_element) = render_page(&ctx, false);
     let body_html = dioxus_ssr::render_element(body_element);
 
+    // === Wave 49+ — SSR-safe navbar ===
+    //
+    // The Dioxus `<NavigationClient>` / `<GroupDropdown>` chain uses
+    // Dioxus `onclick:` closures to toggle the desktop dropdowns.
+    // Dioxus 0.7 SSR is hydration-less — those closures are stripped
+    // from the rendered HTML, so clicking "Market / Developer /
+    // Company" does nothing and the user can never reach the
+    // Rankings / Portfolio / Developer Portal / About / News /
+    // Contact / Support pages from the navbar.
+    //
+    // The fix: use `epsx_templates::epsx_header()` (the static HTML
+    // sticky header that mirrors prod's `epsx.io` NavMenu) which
+    // emits raw `onclick="epsx.toggleNav(this)"` attributes that the
+    // `global_js()` controller already understands. The dropdown
+    // menu items are rendered unconditionally (visibility is
+    // controlled by CSS `.epsx-nav-wrap.open .epsx-nav-menu { display:
+    // block; }`) — so every link is in the DOM and clickable.
+    //
+    // The auth page hides the navbar via the `path == "/auth"`
+    // short-circuit (the dedicated `<AuthLayout>` is full-bleed).
+    let nav_html = if path == "/auth" {
+        String::new()
+    } else {
+        epsx_templates::epsx_header()
+    };
+
+    // === Wave 49+ — re-enable footer ===
+    //
+    // Wave 38c dropped `PageMeta::include_footer` to `false` (and
+    // removed `<Footer />` from `<MainLayout>`) to fix a structural
+    // double-footer on marketing pages. That fix left the public
+    // site with NO footer at all — Terms / Privacy / About /
+    // Contact / Rankings / Portfolio / Pricing / API Keys /
+    // Documentation / Support / News links were unreachable from
+    // the footer on every page except `/terms` (which has its own
+    // page-local `TermsFooter`).
+    //
+    // We force the templates `footer()` on at the BFF layer so
+    // every page gets a clickable 4-column footer with the same
+    // links the templates navbar exposes. The Dioxus `<Footer />`
+    // is no longer rendered by `<MainLayout>`, so there is no
+    // double-footer risk.
+    let include_footer = true;
+
     let doc = epsx_templates::page_shell_with_body_class(
         &meta.title,
         &meta.description,
-        &String::new(),
+        &nav_html,
         &body_html,
-        meta.include_footer,
+        include_footer,
         meta.body_class.as_deref().unwrap_or(""),
     );
 
@@ -391,8 +435,37 @@ async fn fetch_page_data(
 }
 
 /// Inline JS shim that bridges the Rust/Dioxus UI to the browser's
-/// `window.ethereum` and `window.epsxWallet` namespaces. This is the Web3
-/// counterpart to wagmi/RainbowKit from the Next.js frontend.
+/// `window.ethereum`, `window.epsxWallet`, and `window.epsxAuth` namespaces.
+/// This is the Web3 counterpart to wagmi/RainbowKit from the Next.js
+/// frontend.
+///
+/// Wave 50 — wired up the FULL SIWE flow on `window.epsx.connectWallet()`
+/// so the auth-page `<ConnectButton>` actually works. The previous shim
+/// only exposed `epsxAuth.{challenge,siweLogin,logout,me}` — nothing in
+/// the DOM called any of them, so clicking "Connect Wallet" was a visual
+/// no-op. The new flow:
+///
+/// 1. Detect `window.ethereum` (MetaMask / injected EIP-1193).
+/// 2. `eth_requestAccounts` → wallet address.
+/// 3. `eth_chainId` → numeric chain id.
+/// 4. `POST /api/v1/auth/challenge { address, chain_id }` → SIWE message.
+/// 5. `personal_sign` the message with the user's wallet.
+/// 6. `POST /api/v1/auth/siwe { message, signature, chain_id }` →
+///    the BFF verifies, sets the `epsx_token` + `epsx_user_address` +
+///    `epsx_user_id` + `epsx_chain_id` HttpOnly cookies, and returns
+///    the user payload.
+/// 7. On success, the BFF page reload picks up the cookies via
+///    `auth::current_user` and the user is signed in.
+///
+/// Step status (challenge / signing / verifying / success / error) is
+/// broadcast via `epsx:wallet:status` `CustomEvent`s on `document` so
+/// the auth page's `<ConnectButton>` can render the loading + error UI
+/// without depending on hydration (Dioxus 0.7 SSR is hydration-less in
+/// this project — every interactive flow that needs to survive SSR
+/// goes through a global JS namespace + DOM events).
+///
+/// `epsx.connectWalletDemo()` mirrors the same shape but uses the
+/// `/api/v1/auth/demo` endpoint for users without a wallet installed.
 fn wallet_shim() -> &'static str {
     r#"
 window.epsxWallet = {
@@ -446,6 +519,182 @@ window.epsxAuth = {
     return res.json();
   }
 };
+
+// Broadcasts a status event the auth page can listen to.
+// Status payloads: { status: 'idle'|'challenge'|'signing'|'verifying'|'success'|'error', message?, address? }
+window.epsxWalletStatus = function(detail) {
+  try {
+    document.dispatchEvent(new CustomEvent('epsx:wallet:status', { detail: detail || {} }));
+  } catch (e) { /* no-op */ }
+};
+
+// Set the `epsx_wallet` cookie so SSR (the next page reload) sees the
+// connected wallet via `ConnectedWalletState::from_cookies`. Same
+// shape the wagmi-equivalent client writes.
+window.epsxSetWalletCookie = function(address, chainId, connectorId) {
+  try {
+    const payload = JSON.stringify({
+      address: address,
+      connector_id: connectorId || 'injected',
+      chain_id: String(chainId)
+    });
+    document.cookie = 'epsx_wallet=' + encodeURIComponent(payload) + '; Path=/; Max-Age=86400; SameSite=Lax';
+  } catch (e) { /* no-op */ }
+};
+
+// === Wave 50 — full SIWE flow ===
+//
+// `window.epsx.connectWallet()` runs the EIP-4361 (Sign-In With
+// Ethereum) challenge → sign → verify dance against the BFF's
+// `/api/v1/auth/{challenge,siwe}` endpoints. The BFF mints the JWT
+// cookie on verify-success, so we just need to set the wallet
+// cookie + reload to land the user on the protected route they
+// were bounced from.
+//
+// Error → friendly UI mapping:
+//   - 4001 / "User rejected" / "User denied" → kind: 'rejected'
+//   - window.ethereum missing                  → kind: 'no_wallet'
+//   - chain-id mismatch (we don't auto-switch — prod's
+//     middleware lets the user see the chain warning)
+//   - any other failure                        → kind: 'error'
+window.epsx.connectWallet = async function() {
+  if (typeof window.ethereum === 'undefined') {
+    window.epsxWalletStatus({ status: 'error', kind: 'no_wallet', message: 'No wallet detected. Install MetaMask or another BSC wallet.' });
+    if (window.epsx && window.epsx.toast) {
+      window.epsx.toast('Install MetaMask or another BSC wallet', 'warning');
+    }
+    return;
+  }
+  try {
+    // Step 1: request accounts
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    if (!accounts || !accounts[0]) {
+      throw new Error('No accounts returned by wallet');
+    }
+    const address = accounts[0];
+
+    // Step 2: chain id
+    const chainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
+    const chainId = String(parseInt(chainIdHex, 16));
+
+    // Step 3: challenge
+    window.epsxWalletStatus({ status: 'challenge', address: address });
+    const challengeRes = await fetch('/api/v1/auth/challenge', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ address: address, chain_id: chainId })
+    });
+    if (!challengeRes.ok) {
+      const txt = await challengeRes.text();
+      throw new Error('Challenge failed: ' + (txt || challengeRes.status));
+    }
+    const challengeData = await challengeRes.json();
+    const message = challengeData.message || challengeData.challenge;
+    if (!message) throw new Error('Challenge response missing message');
+
+    // Step 4: sign
+    window.epsxWalletStatus({ status: 'signing', address: address });
+    const signature = await window.ethereum.request({
+      method: 'personal_sign',
+      params: [message, address]
+    });
+
+    // Step 5: verify
+    window.epsxWalletStatus({ status: 'verifying', address: address });
+    const verifyRes = await fetch('/api/v1/auth/siwe', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message: message, signature: signature, chain_id: chainId })
+    });
+    if (!verifyRes.ok) {
+      const txt = await verifyRes.text();
+      throw new Error('Verification failed: ' + (txt || verifyRes.status));
+    }
+
+    // Step 6: persist wallet cookie for SSR reload
+    window.epsxSetWalletCookie(address, chainId, 'injected');
+
+    // Step 7: broadcast success + reload
+    window.epsxWalletStatus({ status: 'success', address: address });
+    if (window.epsx && window.epsx.toast) {
+      window.epsx.toast('Signed in! Reloading…', 'success');
+    }
+    setTimeout(function() { location.reload(); }, 500);
+  } catch (e) {
+    let kind = 'error';
+    let msg = (e && e.message) ? e.message : String(e);
+    const lower = msg.toLowerCase();
+    if (e && (e.code === 4001 || lower.indexOf('user rejected') !== -1 || lower.indexOf('user denied') !== -1)) {
+      kind = 'rejected';
+      msg = 'Signature cancelled. Click Connect Wallet to try again.';
+    } else if (lower.indexOf('no wallet') !== -1 || lower.indexOf('install') !== -1) {
+      kind = 'no_wallet';
+    } else if (lower.indexOf('chain') !== -1 || lower.indexOf('network') !== -1) {
+      kind = 'wrong_network';
+    }
+    window.epsxWalletStatus({ status: 'error', kind: kind, message: msg });
+    if (window.epsx && window.epsx.toast) {
+      window.epsx.toast(msg, 'error');
+    }
+  }
+};
+
+// Demo login (no wallet required) — uses `/api/v1/auth/demo`.
+window.epsx.connectWalletDemo = async function() {
+  window.epsxWalletStatus({ status: 'challenge' });
+  try {
+    const res = await fetch('/api/v1/auth/demo', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error('Demo login unavailable: ' + (txt || res.status));
+    }
+    window.epsxWalletStatus({ status: 'success' });
+    if (window.epsx && window.epsx.toast) {
+      window.epsx.toast('Demo session created!', 'success');
+    }
+    setTimeout(function() { location.reload(); }, 500);
+  } catch (e) {
+    const msg = (e && e.message) ? e.message : String(e);
+    window.epsxWalletStatus({ status: 'error', kind: 'error', message: msg });
+    if (window.epsx && window.epsx.toast) {
+      window.epsx.toast(msg, 'error');
+    }
+  }
+};
+
+// Wire up `data-connect-wallet` + `data-connect-wallet-demo` buttons
+// (the auth page renders ConnectButton with `data-connect-wallet` so
+// the click is handled here, not via the Dioxus closure which gets
+// stripped at SSR time).
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('[data-connect-wallet]').forEach(function(el) {
+    el.addEventListener('click', function(e) {
+      e.preventDefault();
+      window.epsx.connectWallet();
+    });
+  });
+  document.querySelectorAll('[data-connect-wallet-demo]').forEach(function(el) {
+    el.addEventListener('click', function(e) {
+      e.preventDefault();
+      window.epsx.connectWalletDemo();
+    });
+  });
+  // Listen for status events and update DOM hints (the auth page
+  // also has its own listener — this is for the navbar "Connect"
+  // pill which just shows a toast).
+  document.addEventListener('epsx:wallet:status', function(evt) {
+    var d = (evt && evt.detail) || {};
+    if (d.status === 'success' && window.epsx && window.epsx.toast) {
+      window.epsx.toast('Signed in', 'success');
+    } else if (d.status === 'error' && d.message && window.epsx && window.epsx.toast) {
+      window.epsx.toast(d.message, 'error');
+    }
+  });
+});
 "#
 }
 
