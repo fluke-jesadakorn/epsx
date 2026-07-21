@@ -1,0 +1,355 @@
+{
+  "schemaVersion": 1,
+  "artifact": "a2-3-identity-authorization",
+  "contractId": "A2.3h-identity-direct-service-authorization-audit",
+  "purpose": "deterministic-audit-and-readiness-stop",
+  "productionReady": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "safety": {
+    "databaseAccess": false,
+    "redisAccess": false,
+    "networkAccess": false,
+    "jwksAccess": false,
+    "serviceExecution": false,
+    "browserExecution": false,
+    "containerExecution": false,
+    "deployment": false,
+    "migrationExecution": false
+  },
+  "source": {
+    "ref": "origin/development",
+    "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "interpretation": "Pinned source records canonical route, SIWE, refresh, JWKS, wallet-identity, and granular-permission evidence. Source behavior is not automatically a safe production target; A1 and A2 fail-closed constraints take precedence where source evidence is incomplete.",
+    "evidence": [
+      {
+        "id": "source-auth-handlers",
+        "file": "apps/backend/src/web/auth/handlers.rs",
+        "blob": "bf567639d7c742597c3b7ebefaea1becc039b9eb",
+        "anchors": [
+          "pub async fn generate_challenge_handler(",
+          "pub async fn verify_signature_handler(",
+          "pub async fn refresh_token_handler(",
+          "pub async fn get_session_handler("
+        ]
+      },
+      {
+        "id": "source-siwe-authority",
+        "file": "apps/backend/src/auth/auth_service.rs",
+        "blob": "1a8414c6996b74eb8c200911309431955186cf3c",
+        "anchors": [
+          "request.message != nonce_record.message",
+          "domain: Some(expected_domain)",
+          "nonce: Some(request.nonce.clone())",
+          "self.cleanup_nonce(&wallet_address, &request.nonce).await?"
+        ]
+      },
+      {
+        "id": "source-siwe-challenge",
+        "file": "apps/backend/src/auth/challenge_service.rs",
+        "blob": "a39f95fdd498d09e69638182fa47fb5f2f607f1b",
+        "anchors": [
+          "pub async fn generate_challenge(",
+          "web3_auth_nonces::message.eq(&message)",
+          "chain_id: std::env::var(\"CHAIN_ID\")",
+          "pub(super) async fn cleanup_nonce("
+        ]
+      },
+      {
+        "id": "source-token-lifecycle",
+        "file": "apps/backend/src/auth/token_service.rs",
+        "blob": "fb88b092bde0de2e558fb463a135f66cf2eb0f39",
+        "anchors": [
+          "pub async fn consume_refresh_token(",
+          "filter(openid_refresh_tokens::is_revoked.eq(false))",
+          "validation.set_issuer(std::slice::from_ref(&self.issuer))",
+          "pub fn validate_client_id(&self, client_id: &str)"
+        ]
+      },
+      {
+        "id": "source-jwks-authority",
+        "file": "apps/backend/src/auth/key_manager.rs",
+        "blob": "0ee5fae699f1c2b2e6b66c1588d3c56f7497641d",
+        "anchors": [
+          "pub fn get_key(&self, kid: &str)",
+          "pub fn rotate_keys(&mut self)",
+          "pub fn generate_jwks(&self)"
+        ]
+      },
+      {
+        "id": "source-admin-user-boundary",
+        "file": "apps/backend/src/web/admin/routes.rs",
+        "blob": "34213a7e565671943afea848f6f7dbb87beed435",
+        "anchors": [
+          ".route(\"/wallets/{wallet_address}\", get(get_user_handler))",
+          ".layer(from_fn_with_state(\"admin:users:read\", perm_guard))",
+          ".layer(from_fn_with_state(\"admin:users:update\", perm_guard))"
+        ]
+      },
+      {
+        "id": "source-durable-auth-schema",
+        "file": "apps/backend/src/schemas/primary.rs",
+        "blob": "520cc17d876a8d76f30801ee93f07fe2a8707397",
+        "anchors": [
+          "openid_refresh_tokens (token_id)",
+          "is_revoked -> Bool",
+          "web3_auth_nonces (nonce)"
+        ]
+      }
+    ]
+  },
+  "targetEvidence": [
+    {
+      "id": "target-identity-router",
+      "file": "services/identity/src/main.rs",
+      "anchors": [
+        "let app = Router::new()",
+        ".route(\"/api/v1/identity/auth/challenge\"",
+        ".route(\"/api/v1/identity/auth/siwe\"",
+        ".route(\"/api/v1/identity/users/{id}\""
+      ],
+      "finding": "All eleven recorded shapes exist, but the router has no strict direct-service authorization classifier."
+    },
+    {
+      "id": "target-candidate-token",
+      "file": "shared/rust/crypto/src/lib.rs",
+      "anchors": [
+        "pub struct Claims {",
+        "pub fn generate_tokens(",
+        "let access_claims = Claims {",
+        "let refresh_claims = Claims {",
+        "pub fn verify_token(&self, token: &str)"
+      ],
+      "finding": "Candidate access and refresh credentials use the same noncanonical claim shape and verifier and do not expose the canonical RS256 issuer, kid, exact audience, scope, wallet-address, or credential-type contract."
+    },
+    {
+      "id": "target-shared-access-verifier",
+      "file": "shared/rust/epsx-service-auth/src/lib.rs",
+      "anchors": [
+        "pub const FRONTEND_AUDIENCE: &str = \"epsx-frontend\";",
+        "pub const ADMIN_AUDIENCE: &str = \"epsx-admin\";",
+        "if header.alg != Algorithm::RS256",
+        "validation.set_issuer",
+        "claims.sub != claims.wallet_address"
+      ],
+      "finding": "The shared extracted-service verifier defines the canonical fail-closed access-token boundary, but services/identity does not consume it."
+    },
+    {
+      "id": "target-a1-gate-doc",
+      "file": "docs/migration/A1_4_AUTH_SESSION_GATE.md",
+      "anchors": [
+        "wrong audience is rejected",
+        "refresh cookie is never accepted as an access token",
+        "durable refresh-token rotation/old-token rejection/logout revocation"
+      ],
+      "finding": "A1 proves hermetic contracts only and explicitly leaves live SIWE, nonce, durable rotation/revocation, and production behavior blocked."
+    },
+    {
+      "id": "target-a1-gate-contract",
+      "file": "docs/migration/contracts/auth-session-gate.json",
+      "anchors": [
+        "\"productionReady\": false",
+        "\"liveWalletFlowProven\": false",
+        "\"durableRefreshStoreProven\": false"
+      ],
+      "finding": "The machine-readable A1 gate prohibits promoting hermetic evidence to production readiness."
+    },
+    {
+      "id": "target-a2-route-contract",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "anchors": [
+        "\"name\": \"identity\"",
+        "\"id\": \"identity.post.auth-challenge\"",
+        "\"id\": \"identity.delete.user\""
+      ],
+      "finding": "The A2 inventory records the exact eleven identity route decisions and existing canonical admin permission names."
+    }
+  ],
+  "statusCounts": {
+    "aligned": 0,
+    "partial": 1,
+    "blocked": 10
+  },
+  "routes": [
+    {
+      "id": "identity.get.health",
+      "method": "GET",
+      "path": "/health",
+      "status": "partial",
+      "intendedBoundary": "anonymous exact GET/HEAD health only; strip credentials and spoofable identity headers before dispatch",
+      "audience": "none-public",
+      "requiredPermission": null,
+      "ownership": null,
+      "blockerIds": ["B01"],
+      "observed": "The handler is anonymous, but the service has no strict method/path/arity normalization boundary."
+    },
+    {
+      "id": "identity.post.auth-challenge",
+      "method": "POST",
+      "path": "/api/v1/identity/auth/challenge",
+      "status": "blocked",
+      "intendedBoundary": "anonymous public SIWE bootstrap only after bounded input, throttling, exact relying-party fields, and durable single-use nonce issuance are proven",
+      "audience": "none-public-bootstrap",
+      "requiredPermission": null,
+      "ownership": "requested wallet is a challenge selector only and proves no identity",
+      "blockerIds": ["B01", "B06", "B08", "B09", "B15", "B17", "B20"],
+      "observed": "The candidate writes a Redis nonce with TTL, but public request bounds, route throttling, durable parity, and the complete SIWE binding contract are unproven."
+    },
+    {
+      "id": "identity.post.auth-siwe",
+      "method": "POST",
+      "path": "/api/v1/identity/auth/siwe",
+      "status": "blocked",
+      "intendedBoundary": "anonymous public verification bootstrap that atomically consumes the exact stored challenge only after signature and full SIWE binding validation",
+      "audience": "one server-approved BFF audience selected by a proven flow",
+      "requiredPermission": null,
+      "ownership": "signed SIWE address equals stored challenge wallet and the issued token subject/wallet",
+      "blockerIds": ["B03", "B06", "B07", "B08", "B09", "B15", "B16", "B17", "B18", "B20"],
+      "observed": "The candidate performs Redis GET then DEL and deletes before signature verification; issued tokens do not satisfy the canonical A1/A2 contract."
+    },
+    {
+      "id": "identity.post.auth-refresh",
+      "method": "POST",
+      "path": "/api/v1/identity/auth/refresh",
+      "status": "blocked",
+      "intendedBoundary": "refresh credential only; atomically consume and rotate a durable server-side session while retaining its server-bound frontend or admin audience",
+      "audience": "server-bound original BFF audience; never caller-selected and never both",
+      "requiredPermission": null,
+      "ownership": "durable refresh session subject equals the canonical wallet subject reloaded server-side",
+      "blockerIds": ["B02", "B03", "B04", "B05", "B15", "B16", "B17", "B18", "B20"],
+      "observed": "The candidate verifies a long-lived JWT with the same verifier and claim shape as access tokens and has no durable consume/rotate/revoke store."
+    },
+    {
+      "id": "identity.get.auth-me",
+      "method": "GET",
+      "path": "/api/v1/identity/auth/me",
+      "status": "blocked",
+      "intendedBoundary": "canonical RS256/JWKS access token with exactly one frontend or admin audience",
+      "audience": "epsx-frontend or epsx-admin, exactly one",
+      "requiredPermission": null,
+      "ownership": "response wallet/subject is derived exclusively from the verified access token and resolved server-side",
+      "blockerIds": ["B01", "B02", "B03", "B04", "B13", "B16", "B17", "B20"],
+      "observed": "The candidate accepts its noncanonical shared-secret token and queries a candidate UUID subject; it does not consume the shared access-token verifier."
+    },
+    {
+      "id": "identity.post.auth-demo",
+      "method": "POST",
+      "path": "/api/v1/identity/auth/demo",
+      "status": "blocked",
+      "intendedBoundary": "unreachable in production and production-like builds; return 404 before body parsing, SQL, or token issuance",
+      "audience": "none-unreachable",
+      "requiredPermission": null,
+      "ownership": null,
+      "blockerIds": ["B01", "B10", "B18"],
+      "observed": "A mutable environment flag can enable caller-selected demo identity creation and real candidate token issuance."
+    },
+    {
+      "id": "identity.get.users",
+      "method": "GET",
+      "path": "/api/v1/identity/users",
+      "status": "blocked",
+      "intendedBoundary": "canonical RS256/JWKS access token with exact admin audience and granular read permission",
+      "audience": "epsx-admin only",
+      "requiredPermission": "admin:users:read",
+      "ownership": "admin operator identity comes only from the verified token; listed user identity is server-derived",
+      "blockerIds": ["B01", "B02", "B03", "B11", "B13", "B16", "B18", "B20"],
+      "observed": "The candidate uses a database role named admin instead of exact audience plus canonical permission."
+    },
+    {
+      "id": "identity.post.users",
+      "method": "POST",
+      "path": "/api/v1/identity/users",
+      "status": "blocked",
+      "intendedBoundary": "canonical RS256/JWKS access token with exact admin audience and granular create permission",
+      "audience": "epsx-admin only",
+      "requiredPermission": "admin:users:create",
+      "ownership": "operator is verified; target wallet and allowed attributes are validated server-side and never grant caller-invented authority",
+      "blockerIds": ["B01", "B02", "B03", "B11", "B13", "B14", "B15", "B16", "B18", "B19", "B20"],
+      "observed": "The candidate authorizes by admin role and accepts caller-selected roles without the pinned granular permission and audited provisioning contract."
+    },
+    {
+      "id": "identity.get.user",
+      "method": "GET",
+      "path": "/api/v1/identity/users/{id}",
+      "status": "blocked",
+      "intendedBoundary": "canonical RS256/JWKS access token with exact admin audience and granular read permission",
+      "audience": "epsx-admin only",
+      "requiredPermission": "admin:users:read",
+      "ownership": "path id is a selector only; canonical wallet/user mapping is resolved and authorized server-side",
+      "blockerIds": ["B01", "B02", "B03", "B11", "B12", "B13", "B16", "B18", "B20"],
+      "observed": "The candidate detail handler has no authorization check and its UUID identity does not establish parity with the pinned wallet-address authority."
+    },
+    {
+      "id": "identity.put.user",
+      "method": "PUT",
+      "path": "/api/v1/identity/users/{id}",
+      "status": "blocked",
+      "intendedBoundary": "canonical RS256/JWKS access token with exact admin audience and granular update permission",
+      "audience": "epsx-admin only",
+      "requiredPermission": "admin:users:update",
+      "ownership": "operator and target identity are server-derived; role/permission changes follow backend authority and audit rules",
+      "blockerIds": ["B01", "B02", "B03", "B11", "B13", "B14", "B15", "B16", "B18", "B19", "B20"],
+      "observed": "The candidate authorizes by admin role and can replace caller-selected roles without the granular permission or canonical permission model."
+    },
+    {
+      "id": "identity.delete.user",
+      "method": "DELETE",
+      "path": "/api/v1/identity/users/{id}",
+      "status": "blocked",
+      "intendedBoundary": "canonical RS256/JWKS access token with exact admin audience and granular delete permission",
+      "audience": "epsx-admin only",
+      "requiredPermission": "admin:users:delete",
+      "ownership": "operator and target identity are server-derived; deletion semantics must preserve canonical authority, sessions, dependencies, and audit",
+      "blockerIds": ["B01", "B02", "B03", "B05", "B11", "B13", "B15", "B16", "B18", "B19", "B20"],
+      "observed": "The candidate authorizes by admin role and performs a direct delete without proven session revocation, dependency, audit, or canonical identity semantics."
+    }
+  ],
+  "invariants": [
+    {"id": "I01", "status": "required-unproven", "rule": "Only exact normalized method/path/arity shapes reach a handler; encoded ambiguity, reserved dynamic segments, extra slashes, and unknown shapes fail before authentication or I/O."},
+    {"id": "I02", "status": "required-unproven", "rule": "Access credentials use canonical RS256, kid/JWKS lookup, issuer, expiry/nbf/iat, exactly one approved BFF audience, sub equal to canonical wallet, and canonical scope grammar."},
+    {"id": "I03", "status": "required-unproven", "rule": "Refresh credentials are distinguishable from access credentials, stored durably, bound to subject and one BFF audience, atomically consumed and rotated, and revocable on logout or account security changes."},
+    {"id": "I04", "status": "required-unproven", "rule": "SIWE verification binds the exact stored message, nonce, canonical wallet, relying-party domain, URI, chain, issued/expiry times, and signature before one atomic nonce-consumption transition."},
+    {"id": "I05", "status": "required-unproven", "rule": "Public bootstrap bodies, time, concurrency, and request rates are bounded and yield typed non-secret error responses."},
+    {"id": "I06", "status": "required-unproven", "rule": "Admin routes require the exact admin audience and the existing granular permission recorded for each operation; a database role or spoofable header is never authority."},
+    {"id": "I07", "status": "required-unproven", "rule": "The canonical identity key remains the normalized wallet address unless a reviewed, migrated, reversible server-side wallet-to-ID mapping proves equivalent semantics."},
+    {"id": "I08", "status": "required-unproven", "rule": "Demo identity and token issuance are structurally unreachable in production and production-like configurations."},
+    {"id": "I09", "status": "required-unproven", "rule": "All identity schema changes are reviewed additive migrations; startup never creates or rewrites authority tables and environment variables never mutate admin authority."},
+    {"id": "I10", "status": "required-unproven", "rule": "Live database, Redis, JWKS rotation, BFF cookie, logout, revocation, cross-owner, cross-audience, shadow, cutover, and rollback behavior is proven before traffic migration."}
+  ],
+  "blockers": [
+    {"id": "B01", "category": "routing", "severity": "stop", "status": "blocked", "summary": "No strict direct-service method/path/arity classifier or spoofable-header stripping boundary exists.", "resolution": "Install a tested fail-closed classifier before handlers and all database, Redis, token, or signature work."},
+    {"id": "B02", "category": "token-cryptography", "severity": "stop", "status": "blocked", "summary": "The candidate identity service uses a defaultable shared-secret JWT configuration.", "resolution": "Use the canonical RS256 issuer/key lifecycle and refuse missing or unsafe production key configuration."},
+    {"id": "B03", "category": "token-contract", "severity": "stop", "status": "blocked", "summary": "Candidate claims omit the canonical issuer, kid, exact audience, scope, wallet-address, and required validity contract.", "resolution": "Issue the A1 canonical claims and verify them through the same accepted RS256/JWKS contract."},
+    {"id": "B04", "category": "credential-type", "severity": "stop", "status": "blocked", "summary": "Candidate access and refresh JWTs have the same claims and verifier, so credential type is not enforced.", "resolution": "Make refresh credentials unambiguously distinct and ensure access tokens can never enter refresh paths."},
+    {"id": "B05", "category": "session-lifecycle", "severity": "stop", "status": "blocked", "summary": "No durable refresh session, atomic rotation, old-token rejection, reuse handling, or logout/account revocation exists in the candidate.", "resolution": "Implement and test the durable A1 lifecycle with atomic transactions and generic failure responses."},
+    {"id": "B06", "category": "nonce-lifecycle", "severity": "stop", "status": "blocked", "summary": "Candidate Redis GET then DEL is not an atomic, durable single-use nonce transition.", "resolution": "Use an atomic compare-and-consume operation bound to the stored challenge and expiry."},
+    {"id": "B07", "category": "siwe-ordering", "severity": "stop", "status": "blocked", "summary": "The candidate deletes a nonce before signature validation, enabling invalid attempts to consume a legitimate challenge.", "resolution": "Validate all signed fields and signature, then atomically transition the exact unused nonce while preventing concurrent reuse."},
+    {"id": "B08", "category": "siwe-binding", "severity": "stop", "status": "blocked", "summary": "Full parity for stored message, requested chain, signed chain, address, domain, URI, issued-at, expiry, and audience selection is not proven.", "resolution": "Lock and test every SIWE relying-party and wallet binding against the accepted source/A1 contract."},
+    {"id": "B09", "category": "public-abuse", "severity": "stop", "status": "blocked", "summary": "Challenge and SIWE bodies, rates, concurrency, signature cost, and error behavior are not bounded at the candidate router.", "resolution": "Add explicit size/time/rate/concurrency limits with deterministic typed errors and abuse telemetry."},
+    {"id": "B10", "category": "demo-access", "severity": "stop", "status": "blocked", "summary": "A mutable environment flag can expose demo user creation and real candidate token issuance.", "resolution": "Remove the production route or compile it out; production-like configurations must return 404 before body and I/O."},
+    {"id": "B11", "category": "admin-authorization", "severity": "stop", "status": "blocked", "summary": "Candidate admin checks use a database role instead of exact admin audience plus operation-specific permission.", "resolution": "Use the shared verifier and the existing admin:users read/create/update/delete grants recorded by A2."},
+    {"id": "B12", "category": "unauthenticated-read", "severity": "stop", "status": "blocked", "summary": "GET /users/{id} reaches a user record without any authorization check.", "resolution": "Require exact admin audience and admin:users:read before parsing the selector or touching SQL."},
+    {"id": "B13", "category": "identity-semantics", "severity": "stop", "status": "blocked", "summary": "Candidate UUID subjects and {id} selectors are not reconciled with the pinned wallet-address identity authority.", "resolution": "Choose and migrate a canonical server-side wallet/user mapping with reconciliation, foreign/missing hiding, and rollback."},
+    {"id": "B14", "category": "authority-mutation", "severity": "stop", "status": "blocked", "summary": "Startup environment configuration can mutate an existing user into an admin role, and user mutations accept role arrays.", "resolution": "Move all authority changes behind backend permission logic, validation, durable audit, idempotency, and explicit operator workflows."},
+    {"id": "B15", "category": "schema", "severity": "stop", "status": "blocked", "summary": "The candidate creates its users authority table at runtime and has no reviewed migration/reconciliation proof.", "resolution": "Move schema ownership to additive migrations and prove data mapping, constraints, reconciliation, and rollback offline then in an approved disposable environment."},
+    {"id": "B16", "category": "issuer-jwks", "severity": "stop", "status": "blocked", "summary": "Candidate issuance has no canonical kid/JWKS discovery, rotation, overlap, cache, unknown-kid, or rollback behavior.", "resolution": "Adopt the canonical issuer and prove current/backup key rotation and service verifier behavior without exposing private material."},
+    {"id": "B17", "category": "gateway-bff", "severity": "stop", "status": "blocked", "summary": "Gateway split, BFF audience selection, cookie pairing, refresh, logout, and token-free browser behavior are not proven end to end for the candidate service.", "resolution": "Complete A1/A2 integration fixtures, then disposable live and production-shaped rehearsal with explicit rollback."},
+    {"id": "B18", "category": "api-semantics", "severity": "stop", "status": "blocked", "summary": "Source-compatible request/response/status, secret-handling, audit, validation, and conflict semantics are incomplete.", "resolution": "Lock typed DTOs/envelopes/statuses, redact credentials, and prove success plus denial/error/conflict cases before enabling routes."},
+    {"id": "B19", "category": "account-lifecycle", "severity": "stop", "status": "blocked", "summary": "Create/update/delete behavior has no canonical account lifecycle, dependency, session-revocation, tombstone, or recovery contract.", "resolution": "Specify backend-owned lifecycle transitions, referential behavior, session effects, audit, idempotency, and recovery before mutations execute."},
+    {"id": "B20", "category": "runtime-proof", "severity": "stop", "status": "blocked", "summary": "No database, Redis, live JWKS, service, cross-audience, cross-owner, concurrency, shadow, canary, cutover, or rollback proof was run.", "resolution": "After static blockers close, run separately approved disposable integration and production-shaped evidence; do not infer readiness from this audit."}
+  ],
+  "requiredExecutionOrder": [
+    "E01 freeze canonical wallet identity, route DTO/status, and exactly-one-audience contracts",
+    "E02 add strict fail-closed route classification and public-body/rate bounds",
+    "E03 adopt canonical RS256 issuer and shared access-token verifier",
+    "E04 implement atomic durable SIWE nonce issue/verify/consume semantics",
+    "E05 implement durable audience-bound refresh rotation, reuse rejection, and revocation",
+    "E06 enforce exact admin audience and existing granular permissions before selectors or SQL",
+    "E07 migrate and reconcile wallet/user/session/nonce schemas additively with rollback",
+    "E08 lock typed request, response, status, audit, redaction, and account-lifecycle semantics",
+    "E09 run hermetic negative, concurrency, and rotation fixtures",
+    "E10 run approved disposable PostgreSQL/Redis/JWKS/BFF integration and source-shadow comparison",
+    "E11 rehearse canary, observability, revocation emergency path, and rollback",
+    "E12 request explicit production deployment approval only after every STOP is closed"
+  ]
+}
