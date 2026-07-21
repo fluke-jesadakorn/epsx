@@ -36,7 +36,6 @@
     "auth.me",
     "auth.refresh-rotation",
     "auth.logout-revocation",
-    "cookies.admin-session",
     "http.unknown-route",
     "auth.backend-capabilities",
     "pay.intent-create-read",
@@ -56,10 +55,11 @@
         "successStatuses": [200],
         "invariants": ["backend owns nonce and SIWE message", "wallet address is validated", "errors are non-success responses"]
       },
-      "observed": {"status": "blocked", "summary": "Frontend now uses the typed canonical challenge contract; admin parity and a live wallet-to-backend flow are still pending."},
+      "observed": {"status": "blocked", "summary": "Frontend and admin now use the typed canonical challenge contract; a live wallet-to-backend flow is still pending."},
       "evidence": [
         {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": "path = \"/api/auth/web3/challenge\""},
-        {"file": "apps/frontend/src/api.rs", "anchor": "let request = ChallengeRequest"}
+        {"file": "apps/frontend/src/api.rs", "anchor": "let request = ChallengeRequest"},
+        {"file": "apps/admin/src/session_auth.rs", "anchor": "let request = ChallengeRequest"}
       ]
     },
     {
@@ -73,11 +73,13 @@
         "successStatuses": [200],
         "invariants": ["success=false never creates a session", "browser JSON contains no tokens", "RS256 access token uses backend permissions"]
       },
-      "observed": {"status": "blocked", "summary": "Frontend now verifies the returned RS256 token and exposes token-free browser JSON; admin parity and live SIWE proof are still pending."},
+      "observed": {"status": "blocked", "summary": "Frontend and admin verify the returned RS256 token and expose token-free browser JSON; live SIWE proof is still pending."},
       "evidence": [
         {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": "path = \"/api/auth/web3/verify\""},
         {"file": "apps/frontend/src/api.rs", "anchor": "let request = VerifyRequest"},
-        {"file": "apps/frontend/src/api.rs", "anchor": "state.verifier.verify(exchange.tokens.access_token())"}
+        {"file": "apps/frontend/src/api.rs", "anchor": "state.verifier.verify(exchange.tokens.access_token())"},
+        {"file": "apps/admin/src/session_auth.rs", "anchor": "client_id: ADMIN_CLIENT_ID.to_string()"},
+        {"file": "apps/admin/src/session_auth.rs", "anchor": "state.verifier.verify(exchange.tokens.access_token())"}
       ]
     },
     {
@@ -91,11 +93,12 @@
         "successStatuses": [200],
         "invariants": ["access token is verified fail closed", "profile and permissions come from backend", "refresh token is rejected"]
       },
-      "observed": {"status": "blocked", "summary": "Frontend now verifies locally and cross-checks the canonical backend profile; admin parity and live proof are still pending."},
+      "observed": {"status": "blocked", "summary": "Frontend and admin verify locally and cross-check the canonical backend profile; live proof is still pending."},
       "evidence": [
         {"file": "apps/backend/src/web/routes/unified_router.rs", "anchor": ".nest(\"/users\", user_routes)"},
         {"file": "apps/backend/src/web/routes/unified_router.rs", "anchor": "\"/profile\""},
-        {"file": "apps/frontend/src/api.rs", "anchor": "pub async fn auth_me"}
+        {"file": "apps/frontend/src/api.rs", "anchor": "pub async fn auth_me"},
+        {"file": "apps/admin/src/session_auth.rs", "anchor": "pub async fn auth_me"}
       ]
     },
     {
@@ -109,11 +112,13 @@
         "successStatuses": [200],
         "invariants": ["opaque refresh token is HttpOnly", "rotation is atomic", "old token reuse returns 401", "both cookies rotate together"]
       },
-      "observed": {"status": "blocked", "summary": "Monolith and frontend rotation contracts are aligned in focused tests; admin rotation and real old-token-reuse proof are still pending."},
+      "observed": {"status": "blocked", "summary": "Monolith, frontend, and admin rotation contracts are aligned in focused tests; real old-token-reuse proof is still pending."},
       "evidence": [
         {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": "path = \"/api/auth/session/refresh\""},
-        {"file": "apps/backend/src/auth/token_service.rs", "anchor": "pub async fn consume_refresh_token"},
-        {"file": "apps/frontend/src/api.rs", "anchor": "let request = RefreshRequest"}
+        {"file": "shared/rust/epsx-identity-shared/src/token_service.rs", "anchor": "pub async fn consume_refresh_token"},
+        {"file": "apps/frontend/src/api.rs", "anchor": "let request = RefreshRequest"},
+        {"file": "apps/admin/src/session_auth.rs", "anchor": "client_id: ADMIN_CLIENT_ID"},
+        {"file": "apps/admin/src/session_auth.rs", "anchor": "establish_session(&state, exchange, None, true).await"}
       ]
     },
     {
@@ -127,11 +132,12 @@
         "successStatuses": [200],
         "invariants": ["backend revokes refresh token", "operation is idempotent", "BFF clears access and refresh cookies even on upstream failure"]
       },
-      "observed": {"status": "blocked", "summary": "Monolith revocation and frontend always-clear behavior are implemented; admin parity and a live revocation flow are still pending."},
+      "observed": {"status": "blocked", "summary": "Monolith revocation plus frontend and admin always-clear behavior are implemented; a live revocation flow is still pending."},
       "evidence": [
         {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": ".revoke_refresh_token(refresh_token)"},
         {"file": "shared/rust/epsx-identity-shared/src/token_service.rs", "anchor": "pub async fn revoke_refresh_token"},
-        {"file": "apps/frontend/src/api.rs", "anchor": "pub async fn logout(State(state): State<AppState>"}
+        {"file": "apps/frontend/src/api.rs", "anchor": "pub async fn logout(State(state): State<AppState>"},
+        {"file": "apps/admin/src/session_auth.rs", "anchor": "pub async fn logout(State(state): State<AppState>"}
       ]
     },
     {
@@ -162,10 +168,11 @@
         "successStatuses": [200],
         "invariants": ["same canonical host-only cookie contract as frontend", "admin login establishes SSR session", "tokens never appear in browser JSON"]
       },
-      "observed": {"status": "blocked", "summary": "Admin proxies identity JSON without setting the cookie consumed by SSR."},
+      "observed": {"status": "aligned", "summary": "Admin verifies the epsx-admin RS256 audience, atomically sets the shared HttpOnly cookie pair, and returns token-free JSON in executable mock tests; live browser proof remains pending."},
       "evidence": [
-        {"file": "apps/admin/src/main.rs", "anchor": "state.identity.post_plain(\"/api/v1/identity/auth/siwe\""},
-        {"file": "apps/admin/src/auth.rs", "anchor": "EPSX_COOKIE_SECURE"}
+        {"file": "apps/admin/src/main.rs", "anchor": "session::{JwksVerifier, JwksVerifierConfig, ADMIN_CLIENT_ID, JWKS_PATH}"},
+        {"file": "apps/admin/src/session_auth.rs", "anchor": "append_session_cookies("},
+        {"file": "apps/admin/src/session_auth_tests.rs", "anchor": "admin_siwe_requires_admin_audience_and_returns_no_tokens"}
       ]
     },
     {
@@ -196,11 +203,11 @@
         "successStatuses": [200],
         "invariants": ["backend computes capabilities", "BFF never expands roles into permissions", "every mutation independently enforces authorization"]
       },
-      "observed": {"status": "blocked", "summary": "Frontend no longer expands roles locally, but admin still does and candidate service middleware is not fail closed."},
+      "observed": {"status": "blocked", "summary": "Frontend and admin no longer expand roles locally, but candidate service middleware is not yet fail closed."},
       "evidence": [
-        {"file": "apps/backend/src/auth/token_service.rs", "anchor": "pub scope: String"},
+        {"file": "shared/rust/epsx-identity-shared/src/token_service.rs", "anchor": "pub scope: String"},
         {"file": "apps/frontend/src/auth.rs", "anchor": "roles: Vec::new()"},
-        {"file": "apps/admin/src/ssr.rs", "anchor": "permissions_for_roles(&u.roles)"}
+        {"file": "apps/admin/src/auth.rs", "anchor": "roles: Vec::new()"}
       ]
     },
     {
@@ -288,7 +295,7 @@
       "observed": {"status": "blocked", "summary": "Frontend, admin, pay and several services return static health success without dependency checks."},
       "evidence": [
         {"file": "apps/frontend/src/api.rs", "anchor": "pub async fn api_health() -> &'static str"},
-        {"file": "apps/admin/src/main.rs", "anchor": "async fn api_health() -> &'static str { \"ok\" }"},
+        {"file": "apps/admin/src/main.rs", "anchor": "async fn api_health() -> &'static str"},
         {"file": "apps/pay/src/main.rs", "anchor": "async fn api_health() -> &'static str"}
       ]
     },

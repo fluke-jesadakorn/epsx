@@ -14,57 +14,28 @@ use axum::{
     extract::{Request, State},
     response::{IntoResponse, Response},
 };
-use epsx_dioxus_ui::auth::User as UiUser;
-use epsx_dioxus_ui::auth::user::AuthMethod;
 use epsx_dioxus_ui::layout::shell::{AdminLayout, ServerUser};
 use epsx_dioxus_ui::pages::{admin_pages, render_page, PageContext};
 use std::collections::HashMap;
 
-use super::AppState;
 use super::auth;
+use super::AppState;
 
-pub async fn ssr_handler(
-    State(state): State<AppState>,
-    request: Request,
-) -> Response {
+pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Response {
     let (parts, _body) = request.into_parts();
     let path = parts.uri.path().to_string();
     let query = parts.uri.query().unwrap_or("").to_string();
     let headers = parts.headers.clone();
 
-    // Resolve verified user from cookies/bearer
-    let jwt = auth::jwt_auth_from_env();
-    let user = auth::current_user(&headers, &jwt).map(|u| UiUser {
-        id: u.user_id,
-        address: u.address,
-        chain_id: u.chain_id,
-        roles: u.roles.clone(),
-        email: None,
-        tier: None,
-        // Wave 7 — populate `permissions` from the JWT roles so the
-        // `AdminAuthGate` component (which does exact-string match
-        // against `required_permissions`) stops misfiring for admin
-        // users. Previously this was `vec![]`, which made every
-        // admin page render the gate panel instead of the body,
-        // causing the wave6b smoke to flag 5 PARTIAL routes.
-        //
-        // UI-layer concern only: the canonical permission grammar
-        // (`platform:resource:action` with wildcards) lives in
-        // `apps/backend/src/core/permissions.rs`. This expansion
-        // table mirrors the role strings the backend mints into
-        // the JWT, so an admin token mints an admin perm set, an
-        // editor token mints content perms, etc.
-        permissions: auth::permissions_for_roles(&u.roles),
-        // Wave 2 Track C — auth metadata fields. The admin BFF
-        // doesn't have rich auth metadata, so we leave the new
-        // optional fields at their defaults.
-        last_login_at: None,
-        auth_method: AuthMethod::Wallet,
-        display_name: None,
-    });
+    // Resolve only a cryptographically verified canonical cookie/bearer user.
+    // Permissions are backend-issued and remain verbatim; the admin UI does no
+    // role-to-permission expansion.
+    let user = auth::current_user(&headers, state.verifier.as_ref(), state.cookie_environment)
+        .await
+        .map(|session| auth::ui_user(session, None));
 
     // Admin: always render the admin page dispatcher
-    let mut params = HashMap::new();
+    let params = HashMap::new();
     // Wave 3a Track B — admin doesn't render the wallet dropdown yet,
     // so the BFF just plumbs the default `ConnectedWalletState`. The
     // type is here so Track A's MainLayout can read `ctx.wallet`
@@ -75,7 +46,7 @@ pub async fn ssr_handler(
         query: query.clone(),
         params,
         api_url: state.api_url.clone(),
-        demo_login_enabled: true,
+        demo_login_enabled: state.demo_login_enabled,
         wallet: epsx_dioxus_ui::auth::wallet_button::ConnectedWalletState::default(),
     };
 
@@ -136,6 +107,7 @@ pub async fn ssr_handler(
     });
     let is_authenticated = user.is_some();
     let no_layout_paths_override = Some(vec![
+        "/auth".to_string(),
         "/login".to_string(),
         "/unauthorized".to_string(),
         "/access-denied".to_string(),
@@ -161,7 +133,7 @@ pub async fn ssr_handler(
     // around the `<AdminShell>` in each page's render function),
     // so the unauthed case is still covered.
     let wave6b_paths: &[&str] = &[
-        "/",                  // admin home → dashboard::render → AdminShell
+        "/", // admin home → dashboard::render → AdminShell
         "/dashboard",
         "/analytics",
         "/media",
@@ -182,12 +154,7 @@ pub async fn ssr_handler(
             is_gated: None,
             no_layout_paths: no_layout_paths_override,
         }
-        .render(
-            body_element,
-            None,
-            None,
-            None,
-        )
+        .render(body_element, None, None, None)
     };
 
     let body_html = dioxus_ssr::render_element(body_element);
@@ -209,24 +176,20 @@ pub async fn ssr_handler(
         meta.body_class.as_deref().unwrap_or(""),
     );
 
-    let doc = doc.replace("</body>", &format!("<script>{}</script></body>", wallet_shim()));
+    let doc = doc.replace(
+        "</body>",
+        &format!(
+            "<script>{}</script></body>",
+            epsx_bff::browser_auth::browser_auth_script()
+        ),
+    );
 
     (
         axum::http::StatusCode::OK,
         [("content-type", "text/html; charset=utf-8")],
         doc,
-    ).into_response()
-}
-
-fn wallet_shim() -> &'static str {
-    r#"
-window.epsxWallet = {
-  isAvailable: () => typeof window.ethereum !== 'undefined',
-  request: (m, p) => window.ethereum ? window.ethereum.request({ method: m, params: p || [] }) : Promise.reject(new Error('No wallet')),
-  address: () => window.ethereum && window.ethereum.selectedAddress || null,
-  chainId: () => window.ethereum && window.ethereum.chainId || '0x38',
-};
-"#
+    )
+        .into_response()
 }
 
 #[cfg(test)]
@@ -266,7 +229,11 @@ mod tests {
         let ctx = build_ctx(path);
         let admin_path = path.trim_start_matches("/admin").to_string();
         let mut c = ctx.clone();
-        c.path = if admin_path.is_empty() { "/".to_string() } else { admin_path };
+        c.path = if admin_path.is_empty() {
+            "/".to_string()
+        } else {
+            admin_path
+        };
         let (_meta, body) = admin_pages::dispatch(&c);
         let server_user: Option<ServerUser> = None;
         // Wave 38b T2 — mirror the production `no_layout_paths`

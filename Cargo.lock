@@ -4145,6 +4145,7 @@ name = "epsx-admin"
 version = "0.1.0"
 dependencies = [
  "axum 0.8.9",
+ "base64 0.22.1",
  "dioxus",
  "dioxus-server",
  "dioxus-ssr",
@@ -4158,6 +4159,10 @@ dependencies = [
  "epsx-observability",
  "epsx-templates",
  "http 1.4.2",
+ "jsonwebtoken 9.3.1",
+ "rand 0.8.6",
+ "reqwest 0.12.28",
+ "rsa",
  "serde",
  "serde_json",
  "tokio",

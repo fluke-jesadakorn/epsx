@@ -27,9 +27,16 @@ serde.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
 http = { workspace = true }
+reqwest.workspace = true
 tower = { workspace = true }
 tower-http = { workspace = true, features = ["set-header", "fs", "cors"] }
 
 [features]
 default = ["ssr"]
 ssr = []
+
+[dev-dependencies]
+base64.workspace = true
+jsonwebtoken.workspace = true
+rsa.workspace = true
+rand = "0.8"
