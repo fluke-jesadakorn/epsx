@@ -328,13 +328,13 @@
       "path":"/offline","batch":"B7-policy-fallback","status":"partial","dependencies":[],
       "source":{"file":"apps/frontend/app/offline/page.tsx","anchors":["export default function OfflinePage()","window.location.reload()"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/offline.rs","handler":"offline::render","anchors":["pub fn render(_ctx: &PageContext)","\"data-offline-reload\": \"true\""]},
-      "payloads":{"staticOrSample":["intentional offline help text"],"placeholderOrSkeleton":[]},
-      "loader":{"kind":"none","endpoints":[],"evidence":[]},
-      "authOwner":{"auth":"public recovery surface; current BFF returns 200 without a session","owner":"none"},
-      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["focused Playwright proves retry-button focus and Enter reload after connectivity returns"],"controls":["public retry button plus home and notifications links; no javascript URL"]},
+      "payloads":{"staticOrSample":["intentional public offline help shell; four-row composition retained but unsupported cached notification/analytics/settings and sync claims corrected"],"placeholderOrSkeleton":[]},
+      "loader":{"kind":"public-service-worker-shell","endpoints":["GET /service-worker.js"],"evidence":[{"file":"apps/frontend/src/main.rs","anchor":".route(\"/service-worker.js\", get(service_worker))"},{"file":"apps/frontend/src/ssr.rs","anchor":"const OFFLINE_PATH = '/offline';"}]},
+      "authOwner":{"auth":"public recovery surface; worker install fetch omits credentials and requires a server-owned public-cache marker","owner":"none; exact query-free /offline document only"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["focused Playwright proves retry-button focus and Enter reload after connectivity returns"],"controls":["public retry button plus home and notifications links; no javascript URL","newly controlled mobile and desktop clients navigate to exact /offline while disconnected","CacheStorage remains one exact GET /offline entry after API/auth/account/profile/notification/analytics/admin/payment/user-query and query-bearing /offline probes","worker registration and CacheStorage are explicitly removed after each isolated browser context"]},
       "states":{"loading":"not-applicable","empty":"not-applicable","error":"present","retry":"present"},
-      "hydration":{"need":"browser","status":"implemented","reason":"frontend SSR injects a constant CSP-compatible reload listener with no request or user data"},
-      "blockers":["localhost proof covers public render, online-to-offline retained content, responsive layout, keyboard retry, and recovery; fresh disconnected navigation, service-worker/cache delivery, and the advertised cached features remain unproven"]
+      "hydration":{"need":"browser","status":"implemented","reason":"frontend SSR injects constant CSP-compatible worker registration and reload listeners with no request or user data; worker intercepts exact query-free /offline navigation only"},
+      "blockers":["fresh controlled disconnected navigation and exact public-shell-only cache safety are proven, but the route remains partial until the safety-required copy drift is explicitly accepted: the pinned source advertises cached notifications, analytics, settings, and later sync that the production-safe cache intentionally forbids"]
     },
     {
       "path":"/privacy","batch":"B7-policy-fallback","status":"partial","dependencies":[],

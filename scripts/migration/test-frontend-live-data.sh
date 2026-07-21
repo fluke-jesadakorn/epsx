@@ -30,6 +30,8 @@ bun -e '
 const contract = await Bun.file(process.argv[1]).json();
 const docs = contract.routes.find(route => route.path === "/developer/docs");
 if (!docs || docs.status !== "partial" || docs.loader.kind !== "version-pinned-static" || docs.loader.endpoints.length !== 0 || docs.interactions.search.length !== 0 || docs.hydration.status !== "implemented" || docs.blockers.length !== 1) process.exit(1);
+const offline = contract.routes.find(route => route.path === "/offline");
+if (!offline || offline.status !== "partial" || offline.loader.kind !== "public-service-worker-shell" || JSON.stringify(offline.loader.endpoints) !== JSON.stringify(["GET /service-worker.js"]) || offline.loader.evidence.length !== 2 || offline.hydration.status !== "implemented" || offline.blockers.length !== 1 || !offline.blockers[0].includes("copy drift")) process.exit(1);
 ' "$contract"
 
 FRONTEND_CONTRACT_IN="$contract" FRONTEND_CONTRACT_OUT="$temp_dir/tampered.json" bun -e '

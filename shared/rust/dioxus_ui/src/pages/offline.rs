@@ -1,14 +1,14 @@
 //! `/offline` — PWA offline fallback page.
 //!
-//! Source of truth: `apps-old/frontend/app/offline/page.tsx`. The
+//! Source of truth: `origin/development@373bd231:apps/frontend/app/offline/page.tsx`. The
 //! port keeps:
 //! - centered icon + "You're offline" title + "Check your
 //!   connection and try again" sub
 //! - "Try Again" reload button (the source's
 //!   `window.location.reload()`)
 //! - "Home" / "Notifications" quick links
-//! - the "Available offline" feature list (4 bullets, the last
-//!   one flagged as limited)
+//! - the "Available offline" feature list, corrected to describe
+//!   only the public recovery shell that is actually cached
 //! - the "Tip" footer
 //!
 //! The retry control is a real button. The frontend BFF attaches a
@@ -59,9 +59,10 @@ fn OfflineIcon() -> Element {
     }
 }
 
-/// "Available offline" feature list. Mirrors the source's 4-bullet
-/// list (3 fully-available items + 1 limited item flagged in
-/// orange). Static, no client-side state.
+/// "Available offline" feature list. The pinned source advertised cached
+/// notification, analytics, and settings data that neither implementation
+/// safely provided. Preserve the four-row composition while naming only the
+/// proven public recovery shell; sensitive/user data is never cached.
 #[component]
 fn AvailableOfflineList() -> Element {
     rsx! {
@@ -70,19 +71,19 @@ fn AvailableOfflineList() -> Element {
             ul { class: "offline-available-list",
                 li { class: "offline-available-item",
                     span { class: "offline-available-dot offline-available-dot-yes" }
-                    span { "View cached notifications" }
+                    span { "Open this offline help page" }
                 }
                 li { class: "offline-available-item",
                     span { class: "offline-available-dot offline-available-dot-yes" }
-                    span { "Browse previously loaded analytics" }
+                    span { "Read connection recovery guidance" }
                 }
                 li { class: "offline-available-item",
                     span { class: "offline-available-dot offline-available-dot-yes" }
-                    span { "Access user settings" }
+                    span { "Retry when your connection returns" }
                 }
                 li { class: "offline-available-item",
                     span { class: "offline-available-dot offline-available-dot-limited" }
-                    span { "Limited: real-time data and trading" }
+                    span { "Connection required: account and live features" }
                 }
             }
         }
@@ -124,16 +125,15 @@ fn OfflineActions() -> Element {
     }
 }
 
-/// Tip footer — mirrors the source's "<p>Tip: This app works
-/// offline with limited functionality. Your data will sync when
-/// you're back online.</p>".
+/// Tip footer. This intentionally corrects the source's unsupported claim
+/// that user data will sync: this public-shell cache stores no user data.
 #[component]
 fn OfflineTip() -> Element {
     rsx! {
         div { class: "offline-tip",
             p { class: "offline-tip-label", "Tip:" }
             p { class: "offline-tip-text",
-                "This app works offline with limited functionality. Your data will sync when you're back online."
+                "This public help page is the only page stored for offline use. Account, notification, analytics, trading, and payment data always require a connection."
             }
         }
     }
@@ -160,8 +160,14 @@ mod tests {
         let ctx = empty_ctx();
         let (_meta, el) = render(&ctx);
         let html = dioxus_ssr::render_element(el);
-        assert!(!html.trim().is_empty(), "offline page should render non-empty HTML");
-        assert!(html.contains("offline"), "offline page should mention `offline`");
+        assert!(
+            !html.trim().is_empty(),
+            "offline page should render non-empty HTML"
+        );
+        assert!(
+            html.contains("offline"),
+            "offline page should mention `offline`"
+        );
     }
 
     #[test]
@@ -176,5 +182,19 @@ mod tests {
         assert!(html.contains("role=\"status\""));
         assert!(html.contains("aria-live=\"polite\""));
         assert!(!html.contains("javascript:"));
+    }
+
+    #[test]
+    fn offline_copy_claims_only_the_public_recovery_shell() {
+        let (_meta, el) = render(&empty_ctx());
+        let html = dioxus_ssr::render_element(el);
+
+        assert!(html.contains("Open this offline help page"));
+        assert!(html.contains("the only page stored for offline use"));
+        assert!(html.contains("data always require a connection"));
+        assert!(!html.contains("View cached notifications"));
+        assert!(!html.contains("previously loaded analytics"));
+        assert!(!html.contains("Access user settings"));
+        assert!(!html.contains("Your data will sync"));
     }
 }

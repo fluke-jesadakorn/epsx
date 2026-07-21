@@ -16,7 +16,7 @@
 
 use axum::{
     extract::{Request, State},
-    http::StatusCode,
+    http::{header, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
 };
 use epsx_dioxus_ui::auth::wallet_button::ConnectedWalletState;
@@ -266,10 +266,29 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     };
     let doc = doc.replace(
         "</body>",
-        &format!("<script>{}</script>{route_runtime}</body>", wallet_shim()),
+        &format!(
+            "<script>{}</script>{}{route_runtime}</body>",
+            wallet_shim(),
+            offline_worker_registration_script()
+        ),
     );
 
-    (status, [("content-type", "text/html; charset=utf-8")], doc).into_response()
+    let mut response =
+        (status, [("content-type", "text/html; charset=utf-8")], doc).into_response();
+    if path == "/offline" {
+        // This marker is the service worker's fail-closed permission to cache
+        // the response. The worker fetches it with credentials omitted and
+        // refuses any response that loses this exact public-shell contract.
+        response.headers_mut().insert(
+            header::CACHE_CONTROL,
+            HeaderValue::from_static("public, max-age=0, must-revalidate"),
+        );
+        response.headers_mut().insert(
+            "x-epsx-public-cache",
+            HeaderValue::from_static("offline-shell-v1"),
+        );
+    }
+    response
 }
 
 /// Fetch page-specific data and add it to `params` as JSON-serialized
@@ -507,6 +526,92 @@ fn offline_runtime_script() -> &'static str {
 </script>"#
 }
 
+/// Register the public recovery worker from every frontend document so a
+/// user can install the `/offline` shell before the connection is lost. The
+/// worker itself caches no current page, request data, API response, session,
+/// or owner resource.
+fn offline_worker_registration_script() -> &'static str {
+    r#"<script data-epsx-offline-worker-registration>
+(function () {
+  if (!('serviceWorker' in navigator) || !window.isSecureContext) return;
+  navigator.serviceWorker.register('/service-worker.js', {
+    scope: '/',
+    updateViaCache: 'none'
+  }).catch(function () {
+    // Offline recovery is progressive enhancement. Registration failure must
+    // not prevent the network-rendered application from remaining usable.
+  });
+})();
+</script>"#
+}
+
+/// Versioned, public-shell-only service worker. Its entire CacheStorage write
+/// surface is one credential-free, query-free `/offline` document bearing a
+/// server-owned public-cache marker. All other requests, including API, auth,
+/// user, owner, admin, notification, analytics, and payment traffic, bypass
+/// the worker without a cache read or write.
+pub(crate) fn offline_service_worker_script() -> &'static str {
+    r#"'use strict';
+
+const CACHE_PREFIX = 'epsx-public-offline-';
+const CACHE_NAME = 'epsx-public-offline-v1';
+const OFFLINE_PATH = '/offline';
+const PUBLIC_CACHE_MARKER = 'offline-shell-v1';
+
+self.addEventListener('install', function (event) {
+  event.waitUntil((async function () {
+    const response = await fetch(new Request(OFFLINE_PATH, {
+      method: 'GET',
+      credentials: 'omit',
+      cache: 'reload',
+      redirect: 'error'
+    }));
+    const contentType = response.headers.get('content-type') || '';
+    const responseUrl = new URL(response.url);
+    if (!response.ok || response.type !== 'basic' ||
+        responseUrl.origin !== self.location.origin ||
+        responseUrl.pathname !== OFFLINE_PATH || responseUrl.search !== '' ||
+        !contentType.startsWith('text/html') ||
+        response.headers.get('x-epsx-public-cache') !== PUBLIC_CACHE_MARKER) {
+      throw new Error('offline shell did not satisfy the public cache contract');
+    }
+    const cache = await caches.open(CACHE_NAME);
+    await cache.put(OFFLINE_PATH, response.clone());
+    await self.skipWaiting();
+  })());
+});
+
+self.addEventListener('activate', function (event) {
+  event.waitUntil((async function () {
+    const names = await caches.keys();
+    await Promise.all(names.map(function (name) {
+      if (name.startsWith(CACHE_PREFIX) && name !== CACHE_NAME) {
+        return caches.delete(name);
+      }
+      return Promise.resolve(false);
+    }));
+    await self.clients.claim();
+  })());
+});
+
+function isExactOfflineNavigation(request) {
+  if (request.method !== 'GET' || request.mode !== 'navigate') return false;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin || url.search !== '' || url.hash !== '') return false;
+  return url.pathname === OFFLINE_PATH;
+}
+
+self.addEventListener('fetch', function (event) {
+  if (!isExactOfflineNavigation(event.request)) return;
+  event.respondWith(fetch(event.request).catch(async function () {
+    const cache = await caches.open(CACHE_NAME);
+    const cached = await cache.match(OFFLINE_PATH, { ignoreSearch: false });
+    return cached || Response.error();
+  }));
+});
+"#
+}
+
 /// `/manual` retains the pinned source's screenshot viewer without requiring
 /// Dioxus hydration. This route-scoped script reads only static DOM attributes,
 /// supplies image-error fallbacks, and implements dialog focus restoration,
@@ -738,6 +843,8 @@ mod tests {
     use super::developer_docs_runtime_script;
     use super::manual_runtime_script;
     use super::offline_runtime_script;
+    use super::offline_service_worker_script;
+    use super::offline_worker_registration_script;
     use super::pricing_redirect_response;
     use super::safe_return_url;
     use super::urlencode;
@@ -871,6 +978,36 @@ mod tests {
         assert!(!script.contains("javascript:"));
         assert!(!script.contains("reason"));
         assert!(!script.contains("return_url"));
+    }
+
+    #[test]
+    fn offline_worker_registration_is_constant_and_body_free() {
+        let script = offline_worker_registration_script();
+        assert!(script.contains("data-epsx-offline-worker-registration"));
+        assert!(script.contains("register('/service-worker.js'"));
+        assert!(script.contains("updateViaCache: 'none'"));
+        assert!(!script.contains("fetch("));
+        assert!(!script.contains("cookie"));
+        assert!(!script.contains("Authorization"));
+        assert!(!script.contains("location.search"));
+    }
+
+    #[test]
+    fn offline_worker_cache_write_is_exact_public_shell_only() {
+        let script = offline_service_worker_script();
+        assert!(script.contains("credentials: 'omit'"));
+        assert!(script.contains("url.pathname === OFFLINE_PATH"));
+        assert!(script.contains("url.search !== ''"));
+        assert!(script.contains("request.mode !== 'navigate'"));
+        assert!(script.contains("response.type !== 'basic'"));
+        assert!(script.contains("responseUrl.origin !== self.location.origin"));
+        assert!(script.contains("responseUrl.pathname !== OFFLINE_PATH"));
+        assert!(script.contains("response.headers.get('x-epsx-public-cache')"));
+        assert!(script.contains("cache.put(OFFLINE_PATH"));
+        assert!(!script.contains("cache.add"));
+        assert!(!script.contains("cache.addAll"));
+        assert!(!script.contains("cache.put(event.request"));
+        assert!(!script.contains("ignoreSearch: true"));
     }
 
     #[test]

@@ -319,6 +319,7 @@ pub fn build_app(state: AppState) -> Router {
             "/api/v1/subscription/plans/create",
             post(api_subscription_create_plan),
         )
+        .route("/service-worker.js", get(service_worker))
         .nest_service(
             "/public",
             tower_http::services::ServeDir::new(format!("{}/public", env!("CARGO_MANIFEST_DIR")))
@@ -330,6 +331,21 @@ pub fn build_app(state: AppState) -> Router {
         .fallback(fallback_handler)
         .layer(axum::middleware::from_fn(security_headers))
         .with_state(state)
+}
+
+/// Public, body-free service-worker entry point for the `/offline` recovery
+/// shell. The worker script is constant, does not inspect credentials, and is
+/// deliberately revalidated so deployments cannot strand an old cache policy.
+async fn service_worker() -> Response {
+    (
+        [
+            ("content-type", "text/javascript; charset=utf-8"),
+            ("cache-control", "no-cache, no-store, must-revalidate"),
+            ("service-worker-allowed", "/"),
+        ],
+        ssr::offline_service_worker_script(),
+    )
+        .into_response()
 }
 
 fn is_api_path(path: &str) -> bool {
@@ -448,5 +464,60 @@ mod routing_tests {
         let response = request(Method::GET, "/pricing?ref=test").await;
         assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
         assert_eq!(response.headers()[header::LOCATION], "/plans?ref=test");
+    }
+
+    #[tokio::test]
+    async fn offline_worker_is_public_static_and_revalidated() {
+        let response = request(Method::GET, "/service-worker.js").await;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers()[header::CONTENT_TYPE],
+            "text/javascript; charset=utf-8"
+        );
+        assert_eq!(
+            response.headers()[header::CACHE_CONTROL],
+            "no-cache, no-store, must-revalidate"
+        );
+        assert_eq!(response.headers()["service-worker-allowed"], "/");
+        assert!(response.headers().get(header::SET_COOKIE).is_none());
+
+        let body = to_bytes(response.into_body(), 128 * 1024).await.unwrap();
+        let script = String::from_utf8_lossy(&body);
+        assert!(script.contains("const OFFLINE_PATH = '/offline';"));
+        assert!(script.contains("credentials: 'omit'"));
+        assert!(script.contains("url.search !== ''"));
+        assert!(script.contains("request.mode !== 'navigate'"));
+        assert!(script.contains("cache.put(OFFLINE_PATH"));
+        assert!(!script.contains("cache.addAll"));
+        assert!(!script.contains("event.request.clone()"));
+
+        assert_eq!(
+            request(Method::POST, "/service-worker.js").await.status(),
+            StatusCode::METHOD_NOT_ALLOWED
+        );
+    }
+
+    #[tokio::test]
+    async fn offline_shell_explicitly_declares_public_cache_contract() {
+        let response = request(Method::GET, "/offline").await;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers()[header::CACHE_CONTROL],
+            "public, max-age=0, must-revalidate"
+        );
+        assert_eq!(
+            response.headers()["x-epsx-public-cache"],
+            "offline-shell-v1"
+        );
+        assert!(response.headers().get(header::SET_COOKIE).is_none());
+
+        let body = to_bytes(response.into_body(), 2 * 1024 * 1024)
+            .await
+            .unwrap();
+        let html = String::from_utf8_lossy(&body);
+        assert!(html.contains("data-epsx-offline-worker-registration"));
+        assert!(html.contains("Open this offline help page"));
+        assert!(!html.contains("View cached notifications"));
+        assert!(!html.contains("Your data will sync"));
     }
 }
