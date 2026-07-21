@@ -18,6 +18,12 @@ use uuid::Uuid;
 use crate::auth_service::Web3VerificationRequest;
 use crate::key_manager::KeyManager;
 
+const SECONDS_PER_DAY: i64 = 24 * 60 * 60;
+
+fn refresh_token_expiry_seconds(days: i64) -> i64 {
+    days.saturating_mul(SECONDS_PER_DAY)
+}
+
 /// OpenID Connect Token Service
 /// Issues standard OAuth2/OpenID tokens after successful Web3 wallet authentication
 #[derive(Clone)]
@@ -35,12 +41,13 @@ pub struct OpenIDTokenService {
 /// Compliant with OAuth2/OpenID Connect specification
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct OpenIDTokenResponse {
-    pub access_token: String,  // JWT Bearer token for API access
-    pub token_type: String,    // Always "Bearer"
-    pub expires_in: i64,       // Seconds until expiration
-    pub refresh_token: String, // For token renewal
-    pub id_token: String,      // OpenID identity token
-    pub scope: String,         // "openid profile permissions"
+    pub access_token: String,      // JWT Bearer token for API access
+    pub token_type: String,        // Always "Bearer"
+    pub expires_in: i64,           // Seconds until access-token expiration
+    pub refresh_token: String,     // For token renewal
+    pub refresh_expires_in: i64,   // Seconds until refresh-token expiration
+    pub id_token: String,          // OpenID identity token
+    pub scope: String,             // "openid profile permissions"
 }
 
 /// Standard OpenID Connect Access Token Claims
@@ -228,7 +235,7 @@ impl OpenIDTokenService {
 
         // Create access token (for API authorization)
         let access_token =
-            self.create_access_token(wallet_address, permissions, auth_time, &jti)?;
+            self.create_access_token(wallet_address, permissions, client_id, auth_time, &jti)?;
 
         // Create ID token (for user identity)
         let id_token = self.create_id_token(
@@ -248,6 +255,7 @@ impl OpenIDTokenService {
             token_type: "Bearer".to_string(),
             expires_in: self.access_token_expiry_hours * 3600, // Convert to seconds
             refresh_token,
+            refresh_expires_in: refresh_token_expiry_seconds(self.refresh_token_expiry_days),
             id_token,
             scope: "openid profile permissions".to_string(),
         })
@@ -276,6 +284,7 @@ impl OpenIDTokenService {
         let access_token = self.create_access_token(
             &refresh_info.wallet_address,
             &user_profile.permissions,
+            client_id,
             auth_time,
             &jti,
         )?;
@@ -293,6 +302,7 @@ impl OpenIDTokenService {
             token_type: "Bearer".to_string(),
             expires_in: self.access_token_expiry_hours * 3600,
             refresh_token: new_refresh_token,
+            refresh_expires_in: refresh_token_expiry_seconds(self.refresh_token_expiry_days),
             id_token,
             scope: "openid profile permissions".to_string(),
         })
@@ -570,31 +580,23 @@ impl OpenIDTokenService {
         &self,
         wallet_address: &str,
         permissions: &[String],
+        client_id: &str,
         auth_time: i64,
         jti: &str,
     ) -> Result<String, OpenIDTokenError> {
         let now = Utc::now();
         let expiry = now + Duration::hours(self.access_token_expiry_hours);
 
-        // Convert permissions array to OIDC standard scope string
-        // Format: "openid profile permission1 permission2 permission3"
-        let scope = format!("openid profile {}", permissions.join(" "));
-
-        let claims = AccessTokenClaims {
-            // Standard OIDC claims
-            iss: self.issuer.clone(),
-            sub: wallet_address.to_string(),
-            aud: self.audiences.clone(),
-            exp: expiry.timestamp(),
-            iat: now.timestamp(),
-            jti: jti.to_string(),
-            scope, // OIDC standard scope claim
-
-            // EPSX custom claims
-            wallet_address: wallet_address.to_string(),
-            auth_method: "web3_siwe".to_string(),
+        let claims = build_access_token_claims(
+            &self.issuer,
+            wallet_address,
+            permissions,
+            client_id,
+            now.timestamp(),
+            expiry.timestamp(),
             auth_time,
-        };
+            jti,
+        );
 
         let mut header = Header::new(Algorithm::RS256);
         header.kid = Some(self.key_manager.current_key().kid.clone());
@@ -735,6 +737,31 @@ impl OpenIDTokenService {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
+fn build_access_token_claims(
+    issuer: &str,
+    wallet_address: &str,
+    permissions: &[String],
+    client_id: &str,
+    issued_at: i64,
+    expires_at: i64,
+    auth_time: i64,
+    jti: &str,
+) -> AccessTokenClaims {
+    AccessTokenClaims {
+        iss: issuer.to_string(),
+        sub: wallet_address.to_string(),
+        aud: vec![client_id.to_string()],
+        exp: expires_at,
+        iat: issued_at,
+        jti: jti.to_string(),
+        scope: format!("openid profile {}", permissions.join(" ")),
+        wallet_address: wallet_address.to_string(),
+        auth_method: "web3_siwe".to_string(),
+        auth_time,
+    }
+}
+
 fn validate_access_token_with_key_manager(
     token: &str,
     issuer: &str,
@@ -798,6 +825,28 @@ mod tests {
 
     fn test_audiences() -> Vec<String> {
         vec!["epsx-frontend".to_string(), "epsx-admin".to_string()]
+    }
+
+    #[test]
+    fn refresh_token_ttl_is_exposed_in_seconds() {
+        assert_eq!(refresh_token_expiry_seconds(30), 2_592_000);
+    }
+
+    #[test]
+    fn access_token_claims_are_bound_to_one_client_audience() {
+        let claims = build_access_token_claims(
+            TEST_ISSUER,
+            "0x1234567890123456789012345678901234567890",
+            &["epsx:analytics:read".to_string()],
+            "epsx-admin",
+            1_000,
+            4_600,
+            1_000,
+            "test-jti",
+        );
+
+        assert_eq!(claims.aud, vec!["epsx-admin"]);
+        assert!(!claims.aud.iter().any(|audience| audience == "epsx-frontend"));
     }
 
     fn test_claims() -> AccessTokenClaims {

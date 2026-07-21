@@ -42,6 +42,9 @@ pub struct SignatureVerificationRequest {
     /// Challenge nonce
     #[schema(example = "abc123def456")]
     pub nonce: String,
+    /// BFF audience receiving the session ("epsx-frontend" or "epsx-admin")
+    #[serde(default)]
+    pub client_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
@@ -247,7 +250,12 @@ pub async fn verify_signature_handler(
 
     // Web3 plan bridge functionality integrated into permission service
 
-    // Verify signature using Web3AuthService
+    // Verify signature using Web3AuthService and bind the access token to this BFF.
+    let client_id = request
+        .client_id
+        .as_deref()
+        .unwrap_or("epsx-frontend")
+        .to_string();
     let verification_request = Web3VerificationRequest {
         message: request.message,
         signature: request.signature,
@@ -255,7 +263,10 @@ pub async fn verify_signature_handler(
         nonce: request.nonce,
     };
 
-    match web3_auth_service.verify_and_authenticate(verification_request).await {
+    match web3_auth_service
+        .verify_and_authenticate_for_client(verification_request, &client_id)
+        .await
+    {
         Ok(auth_result) => {
             // Signature verification successful - auth_result contains validated data
             info!("Signature verification successful for wallet: {}", auth_result.wallet_address);
@@ -311,7 +322,8 @@ pub async fn verify_signature_handler(
                 "permissions_granted": permissions_granted,
                 "access_token": auth_result.bearer_token.clone().unwrap_or(auth_result.access_token),
                 "refresh_token": auth_result.refresh_token,
-                "expires_in": expires_in
+                "expires_in": expires_in,
+                "refresh_expires_in": auth_result.refresh_expires_in
             })))
         }
         Err(Web3AuthError::ExpiredNonce(msg)) => {
@@ -482,6 +494,7 @@ pub async fn refresh_token_handler(
                 "access_token": tokens.access_token,
                 "refresh_token": tokens.refresh_token,
                 "expires_in": tokens.expires_in,
+                "refresh_expires_in": tokens.refresh_expires_in,
                 "user": {
                     "wallet": wallet_address,
                     "permissions": permissions
@@ -859,6 +872,28 @@ mod tests {
             Some("0x1234567890123456789012345678901234567890")
         );
         assert!(request.refresh_token.is_none());
+    }
+
+    #[test]
+    fn verify_request_defaults_client_and_accepts_admin_audience() {
+        let legacy: SignatureVerificationRequest = serde_json::from_value(json!({
+            "message": "message",
+            "signature": "0xsignature",
+            "wallet_address": "0x1234567890123456789012345678901234567890",
+            "nonce": "nonce"
+        }))
+        .unwrap();
+        assert!(legacy.client_id.is_none());
+
+        let admin: SignatureVerificationRequest = serde_json::from_value(json!({
+            "message": "message",
+            "signature": "0xsignature",
+            "wallet_address": "0x1234567890123456789012345678901234567890",
+            "nonce": "nonce",
+            "client_id": "epsx-admin"
+        }))
+        .unwrap();
+        assert_eq!(admin.client_id.as_deref(), Some("epsx-admin"));
     }
 
     #[test]

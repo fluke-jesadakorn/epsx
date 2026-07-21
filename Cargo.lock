@@ -4241,14 +4241,21 @@ dependencies = [
 name = "epsx-bff"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "axum 0.8.9",
+ "base64 0.22.1",
  "epsx-auth",
  "epsx-client",
  "epsx-crypto",
  "epsx-templates",
  "http 1.4.2",
+ "jsonwebtoken 9.3.1",
+ "rand 0.8.6",
+ "reqwest 0.12.28",
+ "rsa",
  "serde",
  "serde_json",
+ "thiserror 1.0.69",
  "tokio",
  "tower 0.5.3",
  "tower-http 0.5.2",

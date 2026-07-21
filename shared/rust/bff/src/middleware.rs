@@ -4,7 +4,7 @@ use axum::{
     extract::{Request, State},
     http::{header, HeaderValue},
     middleware::Next,
-    response::{IntoResponse, Redirect, Response},
+    response::Response,
 };
 use epsx_auth::JwtAuth;
 use std::sync::Arc;
@@ -35,14 +35,6 @@ impl SecurityConfig {
 
 pub async fn security_headers(req: Request, next: Next) -> Response {
     let path = req.uri().path().to_string();
-    let query = req.uri().query().unwrap_or("").to_string();
-
-    if query.contains("logout=1") {
-        let mut resp = Redirect::to(&path).into_response();
-        clear_epsx_cookies(&mut resp);
-        apply_security_headers_to(resp.headers_mut(), &path, false, false);
-        return resp;
-    }
 
     let mut resp = next.run(req).await;
     let admin = is_admin_path(&path);
@@ -101,16 +93,6 @@ fn apply_security_headers_to(headers: &mut axum::http::HeaderMap, _path: &str, a
     }
 }
 
-fn clear_epsx_cookies(resp: &mut Response) {
-    let names = ["epsx_token", "epsx_user_id", "epsx_user_address", "epsx_chain_id", "epsx_refresh"];
-    for n in names {
-        let v = format!("{}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0", n);
-        if let Ok(hv) = HeaderValue::from_str(&v) {
-            resp.headers_mut().append(header::SET_COOKIE, hv);
-        }
-    }
-}
-
 pub async fn verify_bearer_or_cookie(
     State(cfg): State<Arc<SecurityConfig>>,
     req: Request,
@@ -127,7 +109,7 @@ pub async fn verify_bearer_or_cookie(
                 .and_then(|s| {
                     s.split(';').find_map(|p| {
                         let p = p.trim();
-                        if let Some(rest) = p.strip_prefix("epsx_token=") { Some(rest.to_string()) } else { None }
+                        p.strip_prefix("epsx_token=").map(str::to_string)
                     })
                 })
         });
@@ -139,4 +121,36 @@ pub async fn verify_bearer_or_cookie(
         }
     }
     next.run(req).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{body::Body, middleware, routing::get, Router};
+    use http::{Request, StatusCode};
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn logout_query_has_no_clear_only_auth_side_effect() {
+        let app = Router::new()
+            .route("/", get(|| async { "next-handler-ran" }))
+            .layer(middleware::from_fn(security_headers));
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/?logout=1")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert!(response
+            .headers()
+            .get_all(header::SET_COOKIE)
+            .iter()
+            .next()
+            .is_none());
+    }
 }

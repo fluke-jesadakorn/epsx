@@ -52,6 +52,7 @@ pub struct Web3AuthResult {
     pub bearer_token: Option<String>,
     pub token_expires_at: Option<DateTime<Utc>>,
     pub refresh_token: Option<String>,
+    pub refresh_expires_in: Option<i64>,
     pub is_new_user: bool,
 }
 
@@ -103,6 +104,9 @@ pub enum Web3AuthError {
 
     #[error("Invalid timestamp: {0}")]
     InvalidTimestamp(String),
+
+    #[error("Token generation failed: {0}")]
+    TokenGenerationFailed(String),
 }
 
 impl UnifiedWeb3AuthService {
@@ -134,6 +138,16 @@ impl UnifiedWeb3AuthService {
     pub async fn verify_and_authenticate(
         &self,
         request: Web3VerificationRequest,
+    ) -> Result<Web3AuthResult, Web3AuthError> {
+        self.verify_and_authenticate_for_client(request, "epsx-frontend")
+            .await
+    }
+
+    /// Verify a Web3 signature and issue a token scoped to one configured BFF audience.
+    pub async fn verify_and_authenticate_for_client(
+        &self,
+        request: Web3VerificationRequest,
+        client_id: &str,
     ) -> Result<Web3AuthResult, Web3AuthError> {
         let wallet_address = request.wallet_address.trim().to_lowercase();
 
@@ -266,29 +280,25 @@ impl UnifiedWeb3AuthService {
         let (_user_id, is_new_user) = self.get_or_create_user(&wallet_address).await?;
         let permissions = self.get_wallet_permissions(&wallet_address).await?;
 
-        let (access_token, bearer_token, token_expires_at, refresh_token) =
-            if let Some(ref openid_service) = self.openid_service {
-                match openid_service
-                    .issue_tokens_for_user(&wallet_address, &permissions, "epsx-frontend")
-                    .await
-                {
-                    Ok(tokens) => {
-                        let expiry = Utc::now() + Duration::seconds(tokens.expires_in);
-                        (
-                            tokens.access_token.clone(),
-                            Some(tokens.access_token),
-                            Some(expiry),
-                            Some(tokens.refresh_token),
-                        )
-                    }
-                    Err(e) => {
-                        error!("Failed to generate OpenID tokens: {}", e);
-                        (format!("web3_session_{}", wallet_address), None, None, None)
-                    }
-                }
-            } else {
-                (format!("web3_session_{}", wallet_address), None, None, None)
-            };
+        let openid_service = self.openid_service.as_ref().ok_or_else(|| {
+            error!("OpenID token service is unavailable after SIWE verification");
+            Web3AuthError::TokenGenerationFailed(
+                "OpenID token service is unavailable".to_string(),
+            )
+        })?;
+        let tokens = openid_service
+            .issue_tokens_for_user(&wallet_address, &permissions, client_id)
+            .await
+            .map_err(|error| {
+                error!("Failed to generate OpenID tokens: {}", error);
+                Web3AuthError::TokenGenerationFailed(error.to_string())
+            })?;
+        let expiry = Utc::now() + Duration::seconds(tokens.expires_in);
+        let access_token = tokens.access_token.clone();
+        let bearer_token = Some(tokens.access_token);
+        let token_expires_at = Some(expiry);
+        let refresh_token = Some(tokens.refresh_token);
+        let refresh_expires_in = Some(tokens.refresh_expires_in);
 
         Ok(Web3AuthResult {
             wallet_address,
@@ -297,6 +307,7 @@ impl UnifiedWeb3AuthService {
             bearer_token,
             token_expires_at,
             refresh_token,
+            refresh_expires_in,
             is_new_user,
         })
     }

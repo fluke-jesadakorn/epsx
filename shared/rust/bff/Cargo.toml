@@ -9,6 +9,10 @@ tokio.workspace = true
 tracing.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
+async-trait.workspace = true
+jsonwebtoken.workspace = true
+reqwest.workspace = true
 http.workspace = true
 tower = { workspace = true, features = ["util"] }
 tower-http = { workspace = true, features = ["set-header", "fs", "cors"] }
@@ -16,3 +20,8 @@ epsx-auth = { path = "../auth" }
 epsx-crypto = { path = "../crypto" }
 epsx-client = { path = "../client" }
 epsx-templates = { path = "../templates" }
+
+[dev-dependencies]
+base64.workspace = true
+rsa.workspace = true
+rand = "0.8"
