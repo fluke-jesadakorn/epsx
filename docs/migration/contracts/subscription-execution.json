@@ -1,0 +1,883 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A9.0-subscription-execution",
+  "purpose": "deterministic-audit-and-readiness-stop",
+  "productionReady": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "safety": {
+    "writesDatabase": false,
+    "contactsChain": false,
+    "contactsNetwork": false,
+    "deploys": false,
+    "mutatesRuntime": false,
+    "readinessMeaning": "Exit 3 is a truthful stop: integrity is proven, production subscription readiness is not."
+  },
+  "source": {
+    "ref": "origin/development",
+    "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "evidence": [
+      {
+        "id": "src-public-plan-client",
+        "file": "shared/api/plans.ts",
+        "blob": "e5970dcd3b92f54378359a2133ede11196014fa7",
+        "anchor": "return this.client.get<PublicPlan[]>('/api/public/plans', filters as Record<string, string>);"
+      },
+      {
+        "id": "src-admin-subscription-client",
+        "file": "shared/api/plans.ts",
+        "blob": "e5970dcd3b92f54378359a2133ede11196014fa7",
+        "anchor": "return this.client.post<SubscriptionResponse>('/api/admin/subscriptions', data);"
+      },
+      {
+        "id": "src-plan-access-client",
+        "file": "shared/api/plans.ts",
+        "blob": "e5970dcd3b92f54378359a2133ede11196014fa7",
+        "anchor": "return this.client.get<PlanAccessData>('/api/payments/plans/my-plan-access');"
+      },
+      {
+        "id": "src-plan-switch-client",
+        "file": "shared/api/credits.ts",
+        "blob": "95bd3d3e76da8561e852d3e627ec6b8f21187948",
+        "anchor": "return this.client.post<PlanSwitchData>('/api/payments/plans/switch', { new_plan_id: newPlanId });"
+      },
+      {
+        "id": "src-free-tier-action-fallback",
+        "file": "apps/frontend/app/actions/plans.ts",
+        "blob": "392234a7b5b109810ae136dc3a37165c2ebcfc3d",
+        "anchor": "logger.debug('Failed to fetch plan access, returning default free tier:', error);"
+      },
+      {
+        "id": "src-free-tier-hook-fallback",
+        "file": "apps/frontend/hooks/use-plan-access.ts",
+        "blob": "99210f764db16e8eab0b4fd070b73b37b78e8f19",
+        "anchor": "setPlanAccess(DEFAULT_FREE_TIER);"
+      },
+      {
+        "id": "src-payment-route-mounts",
+        "file": "apps/backend/src/web/routes/unified_router.rs",
+        "blob": "46b97779e8726757560d7946d1a47114bed28861",
+        "anchor": ".route(\"/plans/my-plan-access\", get(get_user_plans_handler))"
+      },
+      {
+        "id": "src-admin-list-route",
+        "file": "apps/backend/src/web/routes/unified_router.rs",
+        "blob": "46b97779e8726757560d7946d1a47114bed28861",
+        "anchor": "\"/admin/subscriptions\","
+      },
+      {
+        "id": "src-owner-plan-read",
+        "file": "apps/backend/src/web/payments/subscription_handlers.rs",
+        "blob": "a051eb373cc94258cfe001cb66c90f3bbb9646d2",
+        "anchor": ".bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)"
+      },
+      {
+        "id": "src-manual-renewal",
+        "file": "apps/backend/src/web/payments/subscription_handlers.rs",
+        "blob": "a051eb373cc94258cfe001cb66c90f3bbb9646d2",
+        "anchor": "No auto-renewal - users must pay again when their plan expires"
+      },
+      {
+        "id": "src-non-atomic-switch",
+        "file": "apps/backend/src/web/payments/subscription_handlers.rs",
+        "blob": "a051eb373cc94258cfe001cb66c90f3bbb9646d2",
+        "anchor": "// 5. Direct plan switch: deactivate old, create new assignment"
+      },
+      {
+        "id": "src-canned-manual-activation",
+        "file": "apps/backend/src/web/payments/validation_handlers.rs",
+        "blob": "316e66a3c4a7d7ee1b9628fd0356b915c98e7c45",
+        "anchor": "// Note: For blockchain payments, the BlockchainMonitor handles subscription creation"
+      },
+      {
+        "id": "src-admin-subscription-query",
+        "file": "apps/backend/src/web/payments/admin_handlers/subscription_handlers.rs",
+        "blob": "4de7efbf0999823ad9089662bfa2d7bbedc64bfd",
+        "anchor": "pub async fn admin_list_subscriptions_handler("
+      },
+      {
+        "id": "src-activation-command",
+        "file": "apps/backend/src/application/payment/commands/activate_subscription_command.rs",
+        "blob": "13a160c9d2f7ebee373b786fee755e7168bdb30e",
+        "anchor": "pub transaction_hash: TransactionHash,"
+      },
+      {
+        "id": "src-monitor-finality",
+        "file": "apps/backend/src/infrastructure/blockchain/tx_monitor_service.rs",
+        "blob": "decfe180641b9904831c7ebae956429447cbb7a0",
+        "anchor": "min_confirmations: if is_mainnet { 15 } else { 3 },"
+      },
+      {
+        "id": "src-monitor-cross-store",
+        "file": "apps/backend/src/infrastructure/blockchain/tx_monitor_service.rs",
+        "blob": "decfe180641b9904831c7ebae956429447cbb7a0",
+        "anchor": "// 1. Update payment status to confirmed (RC-3: after plan assignment succeeds)"
+      },
+      {
+        "id": "src-repository-cancel",
+        "file": "apps/backend/src/infrastructure/adapters/repositories/subscription_repository_adapter.rs",
+        "blob": "28a79fd6081a2ab8c22f6a1649eaba6fa1a28aee",
+        "anchor": "pub async fn cancel(&self, id: Uuid) -> AppResult<()> {"
+      },
+      {
+        "id": "src-subscription-schema",
+        "file": "apps/backend/migrations/payments/00000000000001_consolidated_baseline_v4/up.sql",
+        "blob": "02bd7c603211580e7cf39eaf29f69f96d4bd88db",
+        "anchor": "CONSTRAINT unique_active_subscription"
+      }
+    ]
+  },
+  "targetEvidence": [
+    {
+      "id": "tgt-runtime-plan-ddl",
+      "file": "services/subscription/src/main.rs",
+      "anchor": "CREATE TABLE IF NOT EXISTS subscription_plans ("
+    },
+    {
+      "id": "tgt-runtime-subscription-ddl",
+      "file": "services/subscription/src/main.rs",
+      "anchor": "CREATE TABLE IF NOT EXISTS subscriptions ("
+    },
+    {
+      "id": "tgt-caller-owner-fields",
+      "file": "services/subscription/src/main.rs",
+      "anchor": "struct CreateSubscriptionRequest {"
+    },
+    {
+      "id": "tgt-active-on-create",
+      "file": "services/subscription/src/main.rs",
+      "anchor": "status VARCHAR(20) DEFAULT 'active',"
+    },
+    {
+      "id": "tgt-unscoped-list",
+      "file": "services/subscription/src/main.rs",
+      "anchor": "SELECT * FROM subscriptions ORDER BY created_at DESC"
+    },
+    {
+      "id": "tgt-unscoped-cancel",
+      "file": "services/subscription/src/main.rs",
+      "anchor": "UPDATE subscriptions SET status = 'cancelled' WHERE id = $1 RETURNING *"
+    },
+    {
+      "id": "tgt-zero-vault",
+      "file": "services/subscription/src/main.rs",
+      "anchor": "\"vault_address\": \"0x0000000000000000000000000000000000000000\""
+    },
+    {
+      "id": "tgt-gateway-subscription-mount",
+      "file": "services/gateway/src/lib.rs",
+      "anchor": ".route(\"/api/v1/subscription/{*path}\", any(proxy_subscription))"
+    },
+    {
+      "id": "tgt-gateway-auth-only",
+      "file": "services/gateway/src/policy.rs",
+      "anchor": "(&Method::GET | &Method::POST, [\"api\", \"v1\", \"subscription\", \"subscriptions\"])"
+    },
+    {
+      "id": "tgt-gateway-plan-permission",
+      "file": "services/gateway/src/policy.rs",
+      "anchor": "AccessPolicy::Permission(\"admin:plans:manage\")"
+    },
+    {
+      "id": "tgt-admin-list-proxy",
+      "file": "apps/admin/src/main.rs",
+      "anchor": ".get_with_ctx(\"/api/v1/subscription/subscriptions\", &ctx)"
+    },
+    {
+      "id": "tgt-admin-empty-cancel",
+      "file": "apps/admin/src/main.rs",
+      "anchor": ".post_with_ctx(&path, &serde_json::json!({}), &ctx)"
+    },
+    {
+      "id": "tgt-admin-forced-created",
+      "file": "apps/admin/src/main.rs",
+      "anchor": ".map(|v| (StatusCode::CREATED, Json(v)).into_response())"
+    },
+    {
+      "id": "tgt-frontend-canned-plans",
+      "file": "apps/frontend/src/api.rs",
+      "anchor": "{ \"id\": \"sub_1\", \"merchant_id\": \"0xM1\""
+    },
+    {
+      "id": "tgt-frontend-canned-subscribe",
+      "file": "apps/frontend/src/api.rs",
+      "anchor": "pub async fn api_subscription_subscribe("
+    },
+    {
+      "id": "tgt-frontend-plan-fallback-chain",
+      "file": "apps/frontend/src/ssr.rs",
+      "anchor": ".get_plain(\"/api/v1/subscription/plans\")"
+    },
+    {
+      "id": "tgt-ui-static-plans",
+      "file": "shared/rust/dioxus_ui/src/pages/plans.rs",
+      "anchor": "let plans = default_plans();"
+    },
+    {
+      "id": "tgt-ui-unlinked-intent",
+      "file": "shared/rust/dioxus_ui/src/pages/plans.rs",
+      "anchor": "fetch('/api/v1/pay/intent', {"
+    },
+    {
+      "id": "tgt-ui-payment-error-redirect",
+      "file": "shared/rust/dioxus_ui/src/pages/plans.rs",
+      "anchor": "window.location.href = '/pay?intent=';"
+    },
+    {
+      "id": "tgt-admin-ui-sample-plans",
+      "file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_plans.rs",
+      "anchor": "PlanListSidebar { plans: sample_plans(), user: ctx.user.clone(), return_url: ctx.path.clone() }"
+    },
+    {
+      "id": "tgt-ranking-free-stub",
+      "file": "shared/rust/epsx-identity-service/src/identity_service.rs",
+      "anchor": "FreePlanRankingOffsetService: returning free-plan offset (wave 13a stub;"
+    },
+    {
+      "id": "tgt-analytics-free-stub",
+      "file": "apps/analytics/src/main.rs",
+      "anchor": "FreePlanRankingOffsetService"
+    },
+    {
+      "id": "tgt-pay-intent-route",
+      "file": "services/pay/src/main.rs",
+      "anchor": ".route(\"/api/v1/pay/intents/{id}/confirm\", post(handlers::intents::confirm_pay_intent))"
+    },
+    {
+      "id": "tgt-pay-bff-create",
+      "file": "apps/pay/src/main.rs",
+      "anchor": ".post_plain(\"/api/v1/pay/intents\", &serde_json::json!({"
+    },
+    {
+      "id": "tgt-identity-no-entitlement-route",
+      "file": "services/identity/src/main.rs",
+      "anchor": "CREATE TABLE IF NOT EXISTS users ("
+    }
+  ],
+  "routeContracts": [
+    {
+      "id": "public-plan-read",
+      "source": {
+        "method": "GET",
+        "path": "/api/public/plans",
+        "body": [],
+        "response": "ApiResponse<PublicPlan[]>",
+        "successStatuses": [200]
+      },
+      "targetObserved": [
+        "GET /api/v1/subscription/plans returns raw SubscriptionPlan[]",
+        "frontend BFF returns a separate canned {plans:[...]} payload",
+        "Dioxus page renders default_plans() instead of the fetched projection"
+      ],
+      "ownerKey": "public-active-plan-projection",
+      "status": "blocked",
+      "blockerIds": ["B01", "B06", "B07", "B18"]
+    },
+    {
+      "id": "owner-current-access",
+      "source": {
+        "method": "GET",
+        "path": "/api/payments/plans/my-plan-access",
+        "body": [],
+        "response": "ApiResponse<PlanAccessData>",
+        "successStatuses": [200]
+      },
+      "targetObserved": [
+        "no current-plan/access endpoint exists in subscription service or frontend BFF",
+        "ranking projection always returns the free-plan offset"
+      ],
+      "ownerKey": "verified-jwt-wallet",
+      "status": "blocked",
+      "blockerIds": ["B02", "B03", "B12", "B13", "B18"]
+    },
+    {
+      "id": "owner-create-activation",
+      "source": {
+        "method": "POST",
+        "path": "/api/payments/submit then verified monitor activation",
+        "body": ["transaction_hash", "plan_id", "expected_amount", "currency"],
+        "response": "payment monitoring status followed by owner plan access",
+        "successStatuses": [202]
+      },
+      "targetObserved": [
+        "POST /api/v1/subscription/subscriptions accepts caller user_id/account_id/payment_token",
+        "database default makes the row active immediately",
+        "pay intent has no durable plan or subscription identity"
+      ],
+      "ownerKey": "verified-jwt-wallet-and-finalized-payment",
+      "status": "blocked",
+      "blockerIds": ["B03", "B04", "B05", "B06", "B15", "B16"]
+    },
+    {
+      "id": "owner-list",
+      "source": {
+        "method": "GET",
+        "path": "/api/payments/plans",
+        "body": [],
+        "response": "ApiResponse<PlanAccessData>",
+        "successStatuses": [200]
+      },
+      "targetObserved": [
+        "GET /api/v1/subscription/subscriptions returns every row",
+        "gateway requires authentication but service performs no owner predicate"
+      ],
+      "ownerKey": "verified-jwt-wallet",
+      "status": "blocked",
+      "blockerIds": ["B02", "B03", "B06"]
+    },
+    {
+      "id": "owner-detail",
+      "source": {
+        "method": "GET",
+        "path": "/api/payments/plans/expiry",
+        "body": [],
+        "response": "owner expiry/status projection",
+        "successStatuses": [200, 404]
+      },
+      "targetObserved": [
+        "GET /api/v1/subscription/subscriptions/{id} selects by id alone"
+      ],
+      "ownerKey": "verified-jwt-wallet",
+      "status": "blocked",
+      "blockerIds": ["B02", "B03", "B06"]
+    },
+    {
+      "id": "owner-cancel",
+      "source": {
+        "method": "POST",
+        "path": "/api/payments/plans/cancel/{id}",
+        "body": ["reason"],
+        "response": "owner-scoped cancellation result",
+        "successStatuses": [200, 404, 409]
+      },
+      "targetObserved": [
+        "POST /api/v1/subscription/subscriptions/{id}/cancel updates by id alone",
+        "admin BFF posts an empty body and exposes no owner/admin semantic distinction"
+      ],
+      "ownerKey": "verified-jwt-wallet-or-admin-payments-manage",
+      "status": "blocked",
+      "blockerIds": ["B03", "B06", "B09", "B17"]
+    },
+    {
+      "id": "owner-switch-preview",
+      "source": {
+        "method": "GET+POST",
+        "path": "/api/payments/plans/upgrade_preview and /api/payments/plans/switch",
+        "body": ["new_plan_id"],
+        "response": "ApiResponse<upgrade preview or PlanSwitchData>",
+        "successStatuses": [200, 400, 409]
+      },
+      "targetObserved": [
+        "no preview or switch route exists",
+        "source switch deactivates then inserts without an explicit transaction and must be hardened"
+      ],
+      "ownerKey": "verified-jwt-wallet",
+      "status": "blocked",
+      "blockerIds": ["B08", "B11", "B15", "B19"]
+    },
+    {
+      "id": "renewal-expiry",
+      "source": {
+        "method": "EVENT+GET",
+        "path": "new verified payment extends access; /api/payments/plans/expiry reads expiry",
+        "body": ["verified_payment_identity", "plan_id"],
+        "response": "one extension per finalized payment and active/grace/expired projection",
+        "successStatuses": [200, 202]
+      },
+      "targetObserved": [
+        "no renewal route, expiry worker, grace transition, lease, or revoke flow exists",
+        "period start/end remain nullable on create"
+      ],
+      "ownerKey": "verified-payment-event",
+      "status": "blocked",
+      "blockerIds": ["B10", "B11", "B12", "B15", "B16"]
+    },
+    {
+      "id": "verified-payment-activation",
+      "source": {
+        "method": "INTERNAL EVENT",
+        "path": "blockchain monitor after confirmation threshold",
+        "body": ["chain_id", "transaction_hash", "log_index", "wallet", "plan_id", "amount", "token", "confirmed_at"],
+        "response": "idempotent activation outcome",
+        "successStatuses": [200, 202]
+      },
+      "targetObserved": [
+        "subscription service has no internal event consumer",
+        "pay confirmation has no subscription/entitlement handoff"
+      ],
+      "ownerKey": "trusted-payment-service",
+      "status": "blocked",
+      "blockerIds": ["B04", "B05", "B15", "B16"]
+    },
+    {
+      "id": "admin-subscription-mutations",
+      "source": {
+        "method": "POST+GET+PUT+POST",
+        "path": "/api/admin/subscriptions[/{id}[/cancel]]",
+        "body": ["user_id", "plan_id", "status", "expires_at", "auto_renew", "metadata"],
+        "response": "ApiResponse<SubscriptionResponse> or {subscriptions,total} or {cancelled}",
+        "successStatuses": [200, 201, 404, 409]
+      },
+      "targetObserved": [
+        "admin BFF only lists, reads, and cancels via /api/v1/subscriptions",
+        "subscription service has no update route and admin UI renders sample plans"
+      ],
+      "ownerKey": "admin-payments-view-or-manage",
+      "status": "blocked",
+      "blockerIds": ["B06", "B07", "B09", "B17"]
+    },
+    {
+      "id": "admin-plan-mutations",
+      "source": {
+        "method": "GET+POST+PUT+DELETE",
+        "path": "/api/admin/plans[/{id}]",
+        "body": ["canonical plan fields and permissions"],
+        "response": "ApiResponse<Plan or PaginatedResponse<Plan>>",
+        "successStatuses": [200, 201, 204, 404, 409]
+      },
+      "targetObserved": [
+        "subscription service maintains a second subscription_plans table",
+        "create accepts merchant/chain/interval fields and admin BFF forces 201 around raw service JSON"
+      ],
+      "ownerKey": "admin-plans-read-or-manage",
+      "status": "blocked",
+      "blockerIds": ["B01", "B06", "B07", "B14", "B17"]
+    },
+    {
+      "id": "entitlement-ranking-projection",
+      "source": {
+        "method": "INTERNAL EVENT+GET",
+        "path": "wallet_plan_assignments/permissions then owner plan-access and ranking reads",
+        "body": ["subscription_id", "wallet", "plan_id", "effective_at", "expires_at", "cause_id"],
+        "response": "grant/revoke result plus authoritative ranking offset",
+        "successStatuses": [200, 202]
+      },
+      "targetObserved": [
+        "subscription service never grants or revokes entitlements",
+        "identity and analytics return the free-plan ranking offset for paid users"
+      ],
+      "ownerKey": "subscription-lifecycle-event",
+      "status": "blocked",
+      "blockerIds": ["B12", "B13", "B16"]
+    }
+  ],
+  "planAuthority": {
+    "status": "required-unproven",
+    "rule": "Rust backend business logic owns the canonical plan catalog, permission set, price, billing cycle, promotion, ranking offset, and active flag. Subscription and UI consume versioned projections; they do not invent or mutate a parallel catalog.",
+    "currentDrift": [
+      "canonical plans and wallet_plan_assignments remain in the backend",
+      "subscription service creates subscription_plans at process start",
+      "content/static/canned frontend plans form additional divergent projections"
+    ]
+  },
+  "ownershipRules": [
+    {
+      "id": "O1",
+      "status": "required-unproven",
+      "rule": "Public callers may read only active public plan projections; all subscription state requires a verified principal."
+    },
+    {
+      "id": "O2",
+      "status": "required-unproven",
+      "rule": "User list/detail/cancel/switch/current-access derive wallet/user identity from the verified JWT and include it in every database predicate; body or path owner identifiers are never authoritative."
+    },
+    {
+      "id": "O3",
+      "status": "required-unproven",
+      "rule": "Non-owner subscription identifiers return the same 404 as missing identifiers and do not reveal existence."
+    },
+    {
+      "id": "O4",
+      "status": "required-unproven",
+      "rule": "Admin subscription reads require admin:payments:view; mutations require admin:payments:manage; plan reads/mutations require admin:plans:read/manage."
+    },
+    {
+      "id": "O5",
+      "status": "required-unproven",
+      "rule": "Internal activation accepts only authenticated payment-service events whose verified wallet and plan projection match the immutable payment record."
+    }
+  ],
+  "idempotencyRules": [
+    {
+      "id": "I1",
+      "status": "required-unproven",
+      "rule": "A unique finalized-payment identity (chain_id, transaction_hash, log_index) can activate or extend access exactly once."
+    },
+    {
+      "id": "I2",
+      "status": "required-unproven",
+      "rule": "Each external mutation carries Idempotency-Key plus canonical request hash; same key/same hash replays the stored response and same key/different hash returns 409."
+    },
+    {
+      "id": "I3",
+      "status": "required-unproven",
+      "rule": "Lifecycle transition and outbox append commit in one local transaction; consumers record event_id before applying entitlement effects."
+    },
+    {
+      "id": "I4",
+      "status": "required-unproven",
+      "rule": "Cancel, expire, grant, revoke, switch, and reconciliation transitions are monotonic or valid state-machine moves and are safe under retries."
+    },
+    {
+      "id": "I5",
+      "status": "required-unproven",
+      "rule": "Retryable dependency failures retain pending work with bounded backoff and a dead-letter/reconciliation path; they never return a false active/success result."
+    }
+  ],
+  "lifecycleStateMachine": {
+    "status": "required-unproven",
+    "states": ["pending_payment", "active", "grace_period", "cancel_at_period_end", "cancelled", "expired", "suspended"],
+    "allowedTransitions": [
+      "pending_payment->active after verified finality",
+      "active->active on one verified renewal extension",
+      "active->cancel_at_period_end on owner cancellation when paid access remains",
+      "active->cancelled on authorized immediate administrative cancellation",
+      "active->grace_period at period end when configured",
+      "active|grace_period|cancel_at_period_end->expired at the effective expiry boundary",
+      "active|grace_period->suspended on explicit administrative risk action",
+      "suspended->active only through an audited authorized recovery"
+    ],
+    "forbiddenTransitions": [
+      "public create->active without verified payment",
+      "cancelled|expired->active without a new verified cause",
+      "same payment identity extending more than once",
+      "switch leaving two effective subscription plans or no effective plan after a reported success"
+    ],
+    "autoRenewPolicy": "false until a separately designed and authorized payment mandate exists; source behavior is manual repayment"
+  },
+  "activeSubscriptionPolicy": {
+    "status": "required-unproven",
+    "rule": "A wallet has at most one effective active subscription-plan assignment at a time. Historical cancelled/expired rows remain append-only. Enterprise/manual/system grants may overlap only through an explicit plan-category policy and deterministic best-access selection.",
+    "databaseProofRequired": [
+      "normalized owner key",
+      "partial unique or exclusion constraint for effective subscription category",
+      "valid period and status checks",
+      "transactional switch",
+      "concurrent create/switch integration test"
+    ]
+  },
+  "statusSemantics": {
+    "createPending": 202,
+    "createAdmin": 201,
+    "readSuccess": 200,
+    "cancelSuccess": 200,
+    "foreignOrMissing": 404,
+    "validationFailure": 400,
+    "unauthenticated": 401,
+    "forbidden": 403,
+    "conflictOrReplayMismatch": 409,
+    "dependencyUnavailable": 503,
+    "envelope": "one versioned ApiResponse compatibility adapter until all source callers migrate; internal service DTOs remain explicit and never silently change status/envelope"
+  },
+  "uiStateRules": [
+    {
+      "id": "U1",
+      "status": "required-unproven",
+      "rule": "Public plans render live loading, non-empty, honest empty, error, and retry states; static/canned tiers are fixture-only."
+    },
+    {
+      "id": "U2",
+      "status": "required-unproven",
+      "rule": "Authenticated current-access failure is distinct from no plan; free-tier fallback must not convert dependency or authorization errors into authoritative access."
+    },
+    {
+      "id": "U3",
+      "status": "required-unproven",
+      "rule": "Checkout carries immutable plan_id/price-version and displays pending finality, confirmed activation, replay-safe retry, cancellation, and terminal failure."
+    },
+    {
+      "id": "U4",
+      "status": "required-unproven",
+      "rule": "Owner and admin subscription tables bind live BFF data and provide loading, empty, error, retry, pagination, forbidden, conflict, and mutation-in-progress states."
+    }
+  ],
+  "durableStateDependencies": [
+    "versioned canonical plan catalog and price snapshot",
+    "subscription lifecycle rows with normalized owner and effective period",
+    "unique verified payment activation identity",
+    "idempotency request/response records",
+    "transactional lifecycle outbox",
+    "consumer inbox/deduplication records",
+    "entitlement and ranking projection with cause/event identity",
+    "expiry scheduler lease/checkpoint",
+    "append-only lifecycle audit trail",
+    "reconciliation cursor/results and dead-letter state"
+  ],
+  "migrationAndReconciliation": {
+    "status": "required-unproven",
+    "steps": [
+      "ship additive schema through reviewed migrations; remove runtime CREATE TABLE authority",
+      "select one source of record across subscriptions and wallet_plan_assignments and document category overlap semantics",
+      "snapshot counts and invalid/duplicate owner-plan/payment identities without changing rows",
+      "backfill normalized owners, plan versions, periods, payment causes, and state history in restartable batches",
+      "quarantine ambiguous rows instead of inventing entitlement or payment proof",
+      "dual-read/shadow-compare active plan, expiry, ranking offset, and permissions per wallet",
+      "reconcile payments-to-subscriptions-to-entitlements with deterministic discrepancy classes",
+      "enable constraints only after zero unexplained conflicts and retain rollback projection"
+    ]
+  },
+  "schedulerOutboxRules": [
+    {
+      "id": "S1",
+      "status": "required-unproven",
+      "rule": "Expiry workers claim due rows with a lease or SKIP LOCKED, transition in a transaction, append outbox, and tolerate duplicate/crashed runs."
+    },
+    {
+      "id": "S2",
+      "status": "required-unproven",
+      "rule": "Outbox publication has observable lag/retry/dead-letter metrics and never marks delivered before the broker/consumer contract is satisfied."
+    },
+    {
+      "id": "S3",
+      "status": "required-unproven",
+      "rule": "Entitlement grant/revoke consumers are idempotent; reconciliation repairs missed delivery without extending billing periods."
+    }
+  ],
+  "rollback": {
+    "status": "required-unproven",
+    "triggers": [
+      "owner leakage or authorization mismatch",
+      "duplicate activation/extension",
+      "active-plan, expiry, ranking, or permission shadow mismatch above the accepted threshold",
+      "outbox or entitlement lag exceeds the agreed SLO",
+      "unexplained backfill/reconciliation discrepancy"
+    ],
+    "actions": [
+      "stop new mutation traffic to the Rust subscription service",
+      "keep the source backend read/write authority enabled",
+      "drain or quarantine undelivered outbox events without replaying billing effects",
+      "use immutable audit/payment cause records to reverse only incorrect entitlement projections",
+      "preserve additive schema and lifecycle history; never destructive rollback",
+      "re-run shadow comparison and reconciliation before any subsequent cutover"
+    ]
+  },
+  "blockers": [
+    {
+      "id": "B01",
+      "category": "public-plan-projection",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Public plan DTOs and live rendering do not match the pinned client contract.",
+      "resolution": "Expose the canonical active PublicPlan projection through a versioned compatibility route and bind the page to it.",
+      "evidenceIds": ["src-public-plan-client", "tgt-frontend-canned-plans", "tgt-ui-static-plans"]
+    },
+    {
+      "id": "B02",
+      "category": "owner-reads",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Current access, owner list, and owner expiry/detail contracts are absent or unscoped.",
+      "resolution": "Implement JWT-derived owner projections and source-compatible adapters with foreign-as-missing behavior.",
+      "evidenceIds": ["src-plan-access-client", "src-owner-plan-read", "tgt-unscoped-list"]
+    },
+    {
+      "id": "B03",
+      "category": "authorization-ownership",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "The gateway authenticates subscription mutations but the service trusts caller owner fields and selects by id alone.",
+      "resolution": "Verify service identity/JWT context and include canonical owner in every user query and mutation predicate.",
+      "evidenceIds": ["tgt-caller-owner-fields", "tgt-unscoped-list", "tgt-unscoped-cancel", "tgt-gateway-auth-only"]
+    },
+    {
+      "id": "B04",
+      "category": "activation",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Creating a subscription activates it without verified payment finality.",
+      "resolution": "Create pending state or accept an authenticated finalized-payment event and activate only after A6 proof.",
+      "evidenceIds": ["src-monitor-finality", "tgt-active-on-create", "tgt-pay-intent-route"]
+    },
+    {
+      "id": "B05",
+      "category": "payment-linkage",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Checkout/pay intents carry no durable plan price version or subscription activation cause.",
+      "resolution": "Bind pay intent to immutable plan/price/owner data and publish verified activation identity after finality.",
+      "evidenceIds": ["src-activation-command", "tgt-ui-unlinked-intent", "tgt-pay-bff-create"]
+    },
+    {
+      "id": "B06",
+      "category": "http-contract-drift",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Prefixes, methods, bodies, envelopes, fields, and success statuses drift across source client, gateway, BFF, and service.",
+      "resolution": "Publish exact versioned DTO/status tables and compatibility adapters, then pass route and contract fixtures.",
+      "evidenceIds": ["src-admin-subscription-client", "src-payment-route-mounts", "tgt-gateway-subscription-mount", "tgt-admin-forced-created"]
+    },
+    {
+      "id": "B07",
+      "category": "plan-authority",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "The backend, subscription service, content/static UI, and canned BFF can each describe different plans.",
+      "resolution": "Keep plan/permission/ranking business authority in Rust backend and make every other store a versioned projection.",
+      "evidenceIds": ["src-public-plan-client", "tgt-runtime-plan-ddl", "tgt-frontend-canned-plans", "tgt-admin-ui-sample-plans"]
+    },
+    {
+      "id": "B08",
+      "category": "switch-preview",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Upgrade preview and plan switch are missing in the target.",
+      "resolution": "Implement owner-scoped preview and one-transaction switch using canonical prices and deterministic proration.",
+      "evidenceIds": ["src-plan-switch-client", "src-non-atomic-switch", "tgt-gateway-subscription-mount"]
+    },
+    {
+      "id": "B09",
+      "category": "cancel-admin-semantics",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Cancel lacks owner/admin distinction, reason/audit, conflict rules, and source response parity.",
+      "resolution": "Define immediate versus period-end cancellation, enforce owner or admin permission, append audit/outbox, and preserve response semantics.",
+      "evidenceIds": ["src-repository-cancel", "tgt-unscoped-cancel", "tgt-admin-empty-cancel"]
+    },
+    {
+      "id": "B10",
+      "category": "renewal-expiry",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "There is no proven renewal, grace, expiry, revoke, or scheduler lifecycle.",
+      "resolution": "Preserve manual repayment semantics, calculate periods deterministically, and add a leased idempotent expiry/revoke worker.",
+      "evidenceIds": ["src-manual-renewal", "tgt-runtime-subscription-ddl"]
+    },
+    {
+      "id": "B11",
+      "category": "active-overlap-constraint",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Neither the target nor the source UNIQUE(wallet,plan) proves at most one effective subscription plan under concurrency.",
+      "resolution": "Define category overlap policy, add partial/exclusion constraints, and prove concurrent create/switch behavior.",
+      "evidenceIds": ["src-subscription-schema", "src-non-atomic-switch", "tgt-runtime-subscription-ddl"]
+    },
+    {
+      "id": "B12",
+      "category": "entitlements",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Subscription transitions do not durably grant or revoke permission entitlements.",
+      "resolution": "Emit transactional lifecycle events and apply idempotent cause-linked entitlement grants/revokes with reconciliation.",
+      "evidenceIds": ["src-canned-manual-activation", "tgt-identity-no-entitlement-route", "tgt-ranking-free-stub"]
+    },
+    {
+      "id": "B13",
+      "category": "ranking-offset",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Identity and analytics report free-plan ranking access regardless of paid lifecycle state.",
+      "resolution": "Serve ranking offset from the authoritative entitlement projection and distinguish unavailable from free/no-plan.",
+      "evidenceIds": ["src-owner-plan-read", "tgt-ranking-free-stub", "tgt-analytics-free-stub"]
+    },
+    {
+      "id": "B14",
+      "category": "schema-migration",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Subscription schema is created at service startup with no reviewed migrations, backfill, constraints, or reconciliation.",
+      "resolution": "Use additive migration files, inventory/backfill existing records, quarantine ambiguity, then validate constraints.",
+      "evidenceIds": ["tgt-runtime-plan-ddl", "tgt-runtime-subscription-ddl", "src-subscription-schema"]
+    },
+    {
+      "id": "B15",
+      "category": "idempotency-atomicity",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "No activation replay key, mutation idempotency record, or transactional switch/renewal proof exists.",
+      "resolution": "Add payment-cause uniqueness, request-hash idempotency, transactional state changes, and crash/replay tests.",
+      "evidenceIds": ["src-monitor-cross-store", "src-non-atomic-switch", "tgt-active-on-create"]
+    },
+    {
+      "id": "B16",
+      "category": "outbox-reconciliation",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Cross-service payment/subscription/entitlement effects have no proven outbox, inbox, retry, dead-letter, or reconciliation path.",
+      "resolution": "Commit lifecycle+outbox locally, consume idempotently, expose lag/failure metrics, and ship deterministic reconciliation.",
+      "evidenceIds": ["src-monitor-cross-store", "tgt-pay-intent-route", "tgt-runtime-subscription-ddl"]
+    },
+    {
+      "id": "B17",
+      "category": "admin-surface",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Admin BFF/UI omit source CRUD and use raw/static data with inconsistent response statuses.",
+      "resolution": "Implement permission-scoped live list/detail/create/update/cancel and plan CRUD with loading/empty/error/retry/conflict UX.",
+      "evidenceIds": ["src-admin-subscription-client", "src-admin-list-route", "tgt-admin-list-proxy", "tgt-admin-ui-sample-plans"]
+    },
+    {
+      "id": "B18",
+      "category": "frontend-truthfulness",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Frontend uses canned/static plans, hides fetch failure, and cannot represent live empty/error/retry or activation pending states.",
+      "resolution": "Bind live projections and render explicit state machines; never treat service failure as free/no-plan or navigate with an empty intent.",
+      "evidenceIds": ["src-free-tier-action-fallback", "src-free-tier-hook-fallback", "tgt-frontend-plan-fallback-chain", "tgt-ui-static-plans", "tgt-ui-payment-error-redirect"]
+    },
+    {
+      "id": "B19",
+      "category": "source-hardening",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Pinned source behavior is the compatibility baseline, not complete production proof: manual activation is non-persistent, permission errors are swallowed, and monitor/switch writes are non-atomic.",
+      "resolution": "Preserve externally relied-on contracts while replacing these internals with the verified state machine, transactions, outbox, and reconciliation before cutover.",
+      "evidenceIds": ["src-canned-manual-activation", "src-monitor-cross-store", "src-non-atomic-switch"]
+    },
+    {
+      "id": "B20",
+      "category": "cutover-rollback",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "No subscription shadow-traffic, deploy, SLO, cutover, or rollback evidence exists.",
+      "resolution": "Deploy behind routing flags, shadow compare, canary mutations, define stop triggers, and retain source authority until acceptance is met.",
+      "evidenceIds": ["tgt-gateway-subscription-mount", "tgt-runtime-subscription-ddl", "src-owner-plan-read"]
+    }
+  ],
+  "requiredExecutionOrder": [
+    {
+      "order": 1,
+      "id": "freeze-contract-and-authority",
+      "acceptance": "Versioned plan/subscription DTOs, status/envelope rules, owner keys, manual-renewal policy, and single plan authority are approved."
+    },
+    {
+      "order": 2,
+      "id": "add-schema-and-audit",
+      "acceptance": "Reviewed additive migrations provide lifecycle, payment cause, constraints, idempotency, outbox/inbox, scheduler, audit, and reconciliation state; no startup DDL remains."
+    },
+    {
+      "order": 3,
+      "id": "backfill-and-reconcile",
+      "acceptance": "Restartable dry-run and apply modes reconcile subscriptions, wallet assignments, payments, permissions, and ranking with zero unexplained discrepancies."
+    },
+    {
+      "order": 4,
+      "id": "secure-owner-and-admin-boundaries",
+      "acceptance": "User routes derive owner from verified JWT, foreign IDs return 404, internal events authenticate service identity, and canonical admin permissions pass negative tests."
+    },
+    {
+      "order": 5,
+      "id": "integrate-verified-payment",
+      "acceptance": "Only finalized A6 events activate/extend once; amount/token/receiver/chain/plan version match and replay/crash tests pass."
+    },
+    {
+      "order": 6,
+      "id": "implement-lifecycle",
+      "acceptance": "Create/read/cancel/preview/switch/renew/expiry/grace state transitions are transactional, constrained, audited, and concurrency-tested."
+    },
+    {
+      "order": 7,
+      "id": "project-entitlements",
+      "acceptance": "Grant/revoke and ranking projections consume lifecycle events idempotently, fail truthfully, meet lag SLOs, and reconcile from cause history."
+    },
+    {
+      "order": 8,
+      "id": "complete-bff-and-ui",
+      "acceptance": "Source-compatible adapters and live owner/admin UX pass loading, empty, error, retry, forbidden, conflict, pending-finality, and success tests without canned production data."
+    },
+    {
+      "order": 9,
+      "id": "shadow-canary-cutover",
+      "acceptance": "Route/contract fixtures, lifecycle integration, shadow comparison, canary, observability, reconciliation, and rollback drill pass before source authority is disabled."
+    }
+  ]
+}
