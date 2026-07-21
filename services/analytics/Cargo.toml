@@ -13,7 +13,9 @@ epsx-config = { path = "../../shared/rust/config" }
 epsx-database = { path = "../../shared/rust/database" }
 epsx-events = { path = "../../shared/rust/events" }
 epsx-observability = { path = "../../shared/rust/observability" }
+epsx-service-auth = { path = "../../shared/rust/epsx-service-auth" }
 axum.workspace = true
+async-trait.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 serde.workspace = true
@@ -24,3 +26,8 @@ uuid.workspace = true
 chrono.workspace = true
 metrics.workspace = true
 metrics-exporter-prometheus.workspace = true
+reqwest.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tower.workspace = true

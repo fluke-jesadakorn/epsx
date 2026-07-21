@@ -167,6 +167,15 @@
         "MAX_REQUEST_BODY_BYTES",
         "response_headers.remove(header::SET_COOKIE)"
       ]
+    },
+    {
+      "id": "analytics-service-auth-boundary",
+      "file": "services/analytics/src/lib.rs",
+      "anchors": [
+        "authenticate_headers(",
+        "principal.audience != ADMIN_AUDIENCE",
+        "AccessPolicy::InternalOnly | AccessPolicy::Blocked"
+      ]
     }
   ],
   "requiredCases": [
@@ -214,9 +223,9 @@
       "internal-webhook": 4
     },
     "byObservedStatus": {
-      "partial": 33,
-      "blocked": 82,
-      "aligned": 2
+      "partial": 36,
+      "blocked": 78,
+      "aligned": 3
     }
   },
   "services": [
@@ -3023,9 +3032,9 @@
     },
     {
       "name": "analytics",
-      "source": "services/analytics/src/main.rs",
+      "source": "services/analytics/src/lib.rs",
       "routerAnchor": "let app = Router::new()",
-      "currentBoundary": "HTTP metric observation is installed, but no authentication or permission guard is present; track accepts caller user_id.",
+      "currentBoundary": "The shared RS256/JWKS boundary classifies exact methods and paths before handlers: track requires a verified frontend/admin principal, operator reads require the admin audience plus admin:analytics:view, and internal/unknown surfaces return 404. Legacy UUID event attribution remains unresolved.",
       "routes": [
         {
           "id": "analytics.get.health",
@@ -3042,15 +3051,16 @@
           "risk": "none",
           "caseProfile": "public",
           "observed": {
-            "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "status": "aligned",
+            "summary": "GET/HEAD health is the service's only anonymous allowlist; other methods are denied before handler dispatch."
           },
           "dependencies": [
             "A2",
             "A12"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "analytics-service-auth-boundary"
           ]
         },
         {
@@ -3059,24 +3069,25 @@
           "path": "/api/v1/analytics/track",
           "routeAnchor": ".route(\"/api/v1/analytics/track\"",
           "classification": "authenticated-user",
-          "identitySource": "monolith-rs256-jwks",
+          "identitySource": "epsx-service-auth-rs256-jwks",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
-          "ownershipKey": "event user_id is derived from authenticated subject; caller cannot attribute another user",
+          "ownershipKey": "caller user_id is accepted for request compatibility but cleared before the store; canonical wallet-to-event attribution remains unresolved",
           "operationKind": "domain-mutation",
           "mutation": true,
           "risk": "high",
           "caseProfile": "authenticated",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "A verified frontend/admin principal is required before the handler/store, and caller user_id is persisted as NULL. Canonical wallet attribution remains unresolved because the legacy field is UUID."
           },
           "dependencies": [
             "A2",
             "A12"
           ],
           "canonicalEvidence": [
-            "backend-token-contract"
+            "backend-token-contract",
+            "analytics-service-auth-boundary"
           ]
         },
         {
@@ -3085,7 +3096,7 @@
           "path": "/api/v1/analytics/events",
           "routeAnchor": ".route(\"/api/v1/analytics/events\"",
           "classification": "permission-specific-admin-operator",
-          "identitySource": "monolith-rs256-jwks",
+          "identitySource": "epsx-service-auth-rs256-jwks",
           "requiredPermission": "admin:analytics:view",
           "permissionStatus": "canonical",
           "ownershipKey": null,
@@ -3094,15 +3105,16 @@
           "risk": "none",
           "caseProfile": "granular-admin",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The service requires an exact admin audience and literal admin:analytics:view grant before the handler/store; broader service data semantics remain outside this slice."
           },
           "dependencies": [
             "A2",
             "A12"
           ],
           "canonicalEvidence": [
-            "backend-permission-guard"
+            "backend-permission-guard",
+            "analytics-service-auth-boundary"
           ]
         },
         {
@@ -3111,7 +3123,7 @@
           "path": "/api/v1/analytics/metrics/{metric}",
           "routeAnchor": ".route(\"/api/v1/analytics/metrics/{metric}\"",
           "classification": "permission-specific-admin-operator",
-          "identitySource": "monolith-rs256-jwks",
+          "identitySource": "epsx-service-auth-rs256-jwks",
           "requiredPermission": "admin:analytics:view",
           "permissionStatus": "canonical",
           "ownershipKey": null,
@@ -3120,15 +3132,16 @@
           "risk": "none",
           "caseProfile": "granular-admin",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The service requires an exact admin audience and literal admin:analytics:view grant before the handler/store; broader service data semantics remain outside this slice."
           },
           "dependencies": [
             "A2",
             "A12"
           ],
           "canonicalEvidence": [
-            "backend-permission-guard"
+            "backend-permission-guard",
+            "analytics-service-auth-boundary"
           ]
         },
         {
@@ -3137,7 +3150,7 @@
           "path": "/api/v1/analytics/revenue",
           "routeAnchor": ".route(\"/api/v1/analytics/revenue\"",
           "classification": "permission-specific-admin-operator",
-          "identitySource": "monolith-rs256-jwks",
+          "identitySource": "epsx-service-auth-rs256-jwks",
           "requiredPermission": "admin:analytics:view",
           "permissionStatus": "canonical",
           "ownershipKey": null,
@@ -3146,15 +3159,16 @@
           "risk": "none",
           "caseProfile": "granular-admin",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The service requires an exact admin audience and literal admin:analytics:view grant before the handler/store; broader service data semantics remain outside this slice."
           },
           "dependencies": [
             "A2",
             "A12"
           ],
           "canonicalEvidence": [
-            "backend-permission-guard"
+            "backend-permission-guard",
+            "analytics-service-auth-boundary"
           ]
         },
         {
@@ -3173,14 +3187,15 @@
           "caseProfile": "internal",
           "observed": {
             "status": "blocked",
-            "summary": "The route is mounted without a gateway-internal allowlist; handler-level verification is incomplete or absent."
+            "summary": "The service explicitly returns 404 before the handler/store until authenticated internal-service identity exists."
           },
           "dependencies": [
             "A2",
             "A12"
           ],
           "canonicalEvidence": [
-            "service-internal-boundary"
+            "service-internal-boundary",
+            "analytics-service-auth-boundary"
           ],
           "notes": "Scrape endpoint must be restricted to trusted observability callers."
         },
@@ -3200,14 +3215,15 @@
           "caseProfile": "internal",
           "observed": {
             "status": "blocked",
-            "summary": "The route is mounted without a gateway-internal allowlist; handler-level verification is incomplete or absent."
+            "summary": "The service explicitly returns 404 before the handler/store until authenticated internal-service identity exists."
           },
           "dependencies": [
             "A2",
             "A12"
           ],
           "canonicalEvidence": [
-            "service-internal-boundary"
+            "service-internal-boundary",
+            "analytics-service-auth-boundary"
           ],
           "notes": "Alias of the same restricted scrape handler."
         }
