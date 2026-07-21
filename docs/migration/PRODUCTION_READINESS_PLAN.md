@@ -364,6 +364,12 @@ bounded path set. Shared contract files require coordination through package A0.
   cross-owner denial, internal service identity, and handler-level permission
   enforcement remain open. See `docs/migration/A2_GATEWAY_AUTHORIZATION.md`.
 
+- **A2.2 status:** the canonical RS256/JWKS verifier and strict bearer-header
+  API now live in `epsx-service-auth`, and the gateway consumes that shared
+  implementation. No direct service router has adopted it yet, so this
+  extraction is reusable security infrastructure rather than service-level
+  authorization proof.
+
 ### A3 — Additive migrations and data reconciliation (P0)
 
 - **Scope:** new migration directories only, database provisioning scripts,
@@ -406,8 +412,9 @@ bounded path set. Shared contract files require coordination through package A0.
   fall back to the free plan on authority failure.
 
 - **A4.0/A8.1 status:** the deterministic permission-grammar inventory covers
-  64 UI/service records. Sixteen source-backed admin gate literals are aligned;
-  readiness intentionally stops with 16 legacy security gates and two
+  66 UI/service records. A8.2 additionally separates wallet-access and plan
+  read surfaces from their mutation controls using literal backend guards;
+  readiness intentionally stops with 13 legacy security gates and two
   presentation-only drift records. Entitlement and ranking-offset parity in the
   acceptance condition above is not yet implemented.
 
