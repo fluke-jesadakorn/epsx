@@ -1,0 +1,3356 @@
+{
+  "schemaVersion": 1,
+  "artifact": "service-authorization-baseline",
+  "scope": {
+    "phase": "A2.0",
+    "branch": "migration/dioxus-microservices",
+    "purpose": "Planning and fixture integrity only. This artifact does not assert runtime authorization or production readiness.",
+    "generatedFrom": "Current Axum Router mounts in candidate services plus canonical apps/backend authorization expectations.",
+    "productionReadinessClaim": false
+  },
+  "classificationDefinitions": {
+    "public-allowlist": "Explicitly approved anonymous endpoint; only the enumerated method and path may bypass authentication.",
+    "authenticated-user": "Valid canonical access token required; response or mutation is scoped to the authenticated subject where applicable.",
+    "owner-only": "Valid canonical access token plus server-side comparison between the token subject/wallet and stored or derived ownership.",
+    "permission-specific-admin-operator": "Valid canonical access token plus the exact granular backend permission; admin role/name alone is insufficient.",
+    "internal-webhook": "External user credentials are insufficient; require signed webhook material or authenticated service/operator identity.",
+    "unknown": "Policy is unresolved or wildcard-mixed; target behavior is fail closed until split and classified."
+  },
+  "identityContract": {
+    "issuer": "apps/backend canonical identity",
+    "algorithm": "RS256",
+    "keyDiscovery": "JWKS with kid selection",
+    "audience": "exact service or approved BFF audience; wrong audience denied",
+    "permissionSource": "verified token claims/backend permission service",
+    "ownershipRule": "derive subject/wallet from verified claims and compare server-side; never trust body/query/path alone"
+  },
+  "caseProfiles": {
+    "public": {
+      "anonymous": "allow",
+      "expired": "not-applicable",
+      "wrongAudience": "not-applicable",
+      "crossOwner": "not-applicable",
+      "ordinaryUser": "allow",
+      "granularAdmin": "allow"
+    },
+    "authenticated": {
+      "anonymous": "deny",
+      "expired": "deny",
+      "wrongAudience": "deny",
+      "crossOwner": "not-applicable",
+      "ordinaryUser": "allow",
+      "granularAdmin": "allow"
+    },
+    "owner": {
+      "anonymous": "deny",
+      "expired": "deny",
+      "wrongAudience": "deny",
+      "crossOwner": "deny",
+      "ordinaryUser": "conditional",
+      "granularAdmin": "conditional"
+    },
+    "granular-admin": {
+      "anonymous": "deny",
+      "expired": "deny",
+      "wrongAudience": "deny",
+      "crossOwner": "not-applicable",
+      "ordinaryUser": "deny",
+      "granularAdmin": "allow"
+    },
+    "internal": {
+      "anonymous": "deny",
+      "expired": "deny",
+      "wrongAudience": "deny",
+      "crossOwner": "not-applicable",
+      "ordinaryUser": "deny",
+      "granularAdmin": "deny"
+    },
+    "unknown": {
+      "anonymous": "deny",
+      "expired": "deny",
+      "wrongAudience": "deny",
+      "crossOwner": "deny",
+      "ordinaryUser": "deny",
+      "granularAdmin": "conditional"
+    }
+  },
+  "canonicalEvidence": [
+    {
+      "id": "backend-token-contract",
+      "file": "apps/backend/src/auth/token_service.rs",
+      "anchors": [
+        "Validation::new(Algorithm::RS256)",
+        "validation.set_audience(&self.audiences)",
+        "Header::new(Algorithm::RS256)"
+      ]
+    },
+    {
+      "id": "backend-public-boundary",
+      "file": "apps/backend/src/web/routes/unified_router.rs",
+      "anchors": [
+        ".route(\"/web3/challenge\"",
+        ".route(\"/plans\"",
+        ".route(\"/news\""
+      ]
+    },
+    {
+      "id": "backend-permission-guard",
+      "file": "apps/backend/src/web/admin/routes.rs",
+      "anchors": [
+        "from_fn_with_state(\"admin:users:read\", perm_guard)",
+        "from_fn_with_state(\"admin:analytics:view\", perm_guard)",
+        "from_fn_with_state(\"admin:content:manage\", perm_guard)"
+      ]
+    },
+    {
+      "id": "backend-payment-permissions",
+      "file": "apps/backend/src/web/middleware/permission_validation_middleware.rs",
+      "anchors": [
+        "admin:payments:view",
+        "admin:payments:manage"
+      ]
+    },
+    {
+      "id": "backend-plan-permissions",
+      "file": "apps/backend/src/web/admin/routes.rs",
+      "anchors": [
+        "from_fn_with_state(\"admin:plans:read\", perm_guard)",
+        "from_fn_with_state(\"admin:plans:manage\", perm_guard)"
+      ]
+    },
+    {
+      "id": "pay-webhook-hmac",
+      "file": "services/pay/src/handlers/pay_webhooks.rs",
+      "anchors": [
+        "EPSX_PAY_WEBHOOK_SECRET",
+        "provided.ct_eq(&expected)",
+        "ON CONFLICT (event_id) DO NOTHING"
+      ]
+    },
+    {
+      "id": "service-internal-boundary",
+      "file": "docs/migration/PRODUCTION_READINESS_PLAN.md",
+      "anchors": [
+        "### A2 — Fail-closed service authorization (P0)"
+      ]
+    },
+    {
+      "id": "gateway-fail-closed-target",
+      "file": "docs/migration/PRODUCTION_READINESS_PLAN.md",
+      "anchors": [
+        "Add a public-route allowlist; everything else is protected by default."
+      ]
+    }
+  ],
+  "requiredCases": [
+    "anonymous",
+    "expired",
+    "wrongAudience",
+    "crossOwner",
+    "ordinaryUser",
+    "granularAdmin"
+  ],
+  "allowedCaseOutcomes": [
+    "allow",
+    "deny",
+    "conditional",
+    "not-applicable"
+  ],
+  "allowedObservedStatuses": [
+    "blocked",
+    "partial",
+    "aligned"
+  ],
+  "evidenceResolution": "For every route, the evidence location is its parent service.source and the exact route.routeAnchor substring. canonicalEvidence entries provide backend or handler-policy anchors.",
+  "inventorySummary": {
+    "serviceCount": 9,
+    "routeCount": 117,
+    "mutationCount": 57,
+    "highRiskMutationCount": 57,
+    "byService": {
+      "gateway": 16,
+      "identity": 11,
+      "wallet": 9,
+      "pay": 22,
+      "subscription": 9,
+      "content": 23,
+      "notification": 14,
+      "analytics": 7,
+      "indexer": 6
+    },
+    "byClassification": {
+      "public-allowlist": 34,
+      "unknown": 16,
+      "authenticated-user": 3,
+      "permission-specific-admin-operator": 30,
+      "owner-only": 30,
+      "internal-webhook": 4
+    },
+    "byObservedStatus": {
+      "partial": 34,
+      "blocked": 82,
+      "aligned": 1
+    }
+  },
+  "services": [
+    {
+      "name": "gateway",
+      "source": "services/gateway/src/main.rs",
+      "routerAnchor": "let app = Router::new()",
+      "currentBoundary": "Legacy shared HS256 middleware enriches requests but does not make non-public routes fail closed; wildcard proxies forward caller headers.",
+      "routes": [
+        {
+          "id": "gateway.any.health",
+          "method": "ANY",
+          "path": "/health",
+          "routeAnchor": ".route(\"/health\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "health",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ],
+          "nonDomainMutationReason": "All methods invoke the same read-only health handler.",
+          "notes": "Method-independent health endpoint; the future allowlist should normally narrow this to GET/HEAD."
+        },
+        {
+          "id": "gateway.any.identity-proxy",
+          "method": "ANY",
+          "path": "/api/v1/identity/{*path}",
+          "routeAnchor": ".route(\"/api/v1/identity/{*path}\"",
+          "classification": "unknown",
+          "identitySource": "undecided-fail-closed",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "unknown",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ],
+          "notes": "Contains public auth bootstrap and protected identity routes; split or enforce downstream policy."
+        },
+        {
+          "id": "gateway.any.wallet-proxy",
+          "method": "ANY",
+          "path": "/api/v1/wallet/{*path}",
+          "routeAnchor": ".route(\"/api/v1/wallet/{*path}\"",
+          "classification": "unknown",
+          "identitySource": "undecided-fail-closed",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "unknown",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ]
+        },
+        {
+          "id": "gateway.any.payment-proxy",
+          "method": "ANY",
+          "path": "/api/v1/payment/{*path}",
+          "routeAnchor": ".route(\"/api/v1/payment/{*path}\"",
+          "classification": "unknown",
+          "identitySource": "undecided-fail-closed",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "unknown",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ],
+          "notes": "Gateway prefix is payment while the pay service is mounted at /api/v1/pay; routing parity is an A6 dependency."
+        },
+        {
+          "id": "gateway.any.subscription-proxy",
+          "method": "ANY",
+          "path": "/api/v1/subscription/{*path}",
+          "routeAnchor": ".route(\"/api/v1/subscription/{*path}\"",
+          "classification": "unknown",
+          "identitySource": "undecided-fail-closed",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "unknown",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ]
+        },
+        {
+          "id": "gateway.any.content-proxy",
+          "method": "ANY",
+          "path": "/api/v1/content/{*path}",
+          "routeAnchor": ".route(\"/api/v1/content/{*path}\"",
+          "classification": "unknown",
+          "identitySource": "undecided-fail-closed",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "unknown",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ]
+        },
+        {
+          "id": "gateway.any.news-alias",
+          "method": "ANY",
+          "path": "/api/v1/news",
+          "routeAnchor": ".route(\"/api/v1/news\"",
+          "classification": "unknown",
+          "identitySource": "undecided-fail-closed",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "unknown",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ],
+          "notes": "Rewrite alias may expose GET today but any() also mounts mutation-capable methods.",
+          "aliasTarget": "/api/v1/content/news"
+        },
+        {
+          "id": "gateway.any.news-tail-alias",
+          "method": "ANY",
+          "path": "/api/v1/news/{*path}",
+          "routeAnchor": ".route(\"/api/v1/news/{*path}\"",
+          "classification": "unknown",
+          "identitySource": "undecided-fail-closed",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "unknown",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ],
+          "aliasTarget": "/api/v1/content/news/{*path}"
+        },
+        {
+          "id": "gateway.any.portfolio-alias",
+          "method": "ANY",
+          "path": "/api/v1/portfolio/{*path}",
+          "routeAnchor": ".route(\"/api/v1/portfolio/{*path}\"",
+          "classification": "unknown",
+          "identitySource": "undecided-fail-closed",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "unknown",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ],
+          "aliasTarget": "/api/v1/content/portfolio/{*path}"
+        },
+        {
+          "id": "gateway.any.plans-alias",
+          "method": "ANY",
+          "path": "/api/v1/plans",
+          "routeAnchor": ".route(\"/api/v1/plans\"",
+          "classification": "unknown",
+          "identitySource": "undecided-fail-closed",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "unknown",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A9",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ],
+          "aliasTarget": "/api/v1/content/plans"
+        },
+        {
+          "id": "gateway.any.plans-tail-alias",
+          "method": "ANY",
+          "path": "/api/v1/plans/{*path}",
+          "routeAnchor": ".route(\"/api/v1/plans/{*path}\"",
+          "classification": "unknown",
+          "identitySource": "undecided-fail-closed",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "unknown",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A9",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ],
+          "aliasTarget": "/api/v1/content/plans/{*path}"
+        },
+        {
+          "id": "gateway.any.rankings-alias",
+          "method": "ANY",
+          "path": "/api/v1/rankings",
+          "routeAnchor": ".route(\"/api/v1/rankings\"",
+          "classification": "unknown",
+          "identitySource": "undecided-fail-closed",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "unknown",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ],
+          "aliasTarget": "/api/v1/content/rankings"
+        },
+        {
+          "id": "gateway.any.rankings-tail-alias",
+          "method": "ANY",
+          "path": "/api/v1/rankings/{*path}",
+          "routeAnchor": ".route(\"/api/v1/rankings/{*path}\"",
+          "classification": "unknown",
+          "identitySource": "undecided-fail-closed",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "unknown",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ],
+          "aliasTarget": "/api/v1/content/rankings/{*path}"
+        },
+        {
+          "id": "gateway.any.notification-proxy",
+          "method": "ANY",
+          "path": "/api/v1/notification/{*path}",
+          "routeAnchor": ".route(\"/api/v1/notification/{*path}\"",
+          "classification": "unknown",
+          "identitySource": "undecided-fail-closed",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "unknown",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ]
+        },
+        {
+          "id": "gateway.any.analytics-proxy",
+          "method": "ANY",
+          "path": "/api/v1/analytics/{*path}",
+          "routeAnchor": ".route(\"/api/v1/analytics/{*path}\"",
+          "classification": "unknown",
+          "identitySource": "undecided-fail-closed",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "unknown",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ]
+        },
+        {
+          "id": "gateway.any.indexer-proxy",
+          "method": "ANY",
+          "path": "/api/v1/indexer/{*path}",
+          "routeAnchor": ".route(\"/api/v1/indexer/{*path}\"",
+          "classification": "unknown",
+          "identitySource": "undecided-fail-closed",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "unknown",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "identity",
+      "source": "services/identity/src/main.rs",
+      "routerAnchor": "let app = Router::new()",
+      "currentBoundary": "No router auth layer. Candidate tokens are not the canonical monolith RS256/JWKS contract.",
+      "routes": [
+        {
+          "id": "identity.get.health",
+          "method": "GET",
+          "path": "/health",
+          "routeAnchor": ".route(\"/health\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "health",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ]
+        },
+        {
+          "id": "identity.post.auth-challenge",
+          "method": "POST",
+          "path": "/api/v1/identity/auth/challenge",
+          "routeAnchor": ".route(\"/api/v1/identity/auth/challenge\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "auth-bootstrap",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "The handler issues one-time Redis nonces, but issuer/path/audience parity remains dependent on A1."
+          },
+          "dependencies": [
+            "A1",
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ],
+          "nonDomainMutationReason": "Public SIWE nonce issuance is an authentication bootstrap, not an authenticated domain mutation."
+        },
+        {
+          "id": "identity.post.auth-siwe",
+          "method": "POST",
+          "path": "/api/v1/identity/auth/siwe",
+          "routeAnchor": ".route(\"/api/v1/identity/auth/siwe\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "auth-bootstrap",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "The handler verifies a nonce and signature, but does not yet establish the canonical monolith RS256 session contract."
+          },
+          "dependencies": [
+            "A1",
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ],
+          "nonDomainMutationReason": "Public signature verification establishes a session and must remain allowlisted."
+        },
+        {
+          "id": "identity.post.auth-refresh",
+          "method": "POST",
+          "path": "/api/v1/identity/auth/refresh",
+          "routeAnchor": ".route(\"/api/v1/identity/auth/refresh\"",
+          "classification": "authenticated-user",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "refresh session subject == canonical token subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "authenticated",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A1",
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ],
+          "notes": "Access tokens must never be accepted in place of refresh credentials."
+        },
+        {
+          "id": "identity.get.auth-me",
+          "method": "GET",
+          "path": "/api/v1/identity/auth/me",
+          "routeAnchor": ".route(\"/api/v1/identity/auth/me\"",
+          "classification": "authenticated-user",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "response subject == canonical token subject",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "authenticated",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A1",
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "identity.post.auth-demo",
+          "method": "POST",
+          "path": "/api/v1/identity/auth/demo",
+          "routeAnchor": ".route(\"/api/v1/identity/auth/demo\"",
+          "classification": "unknown",
+          "identitySource": "undecided-fail-closed",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "unknown",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A1",
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ],
+          "notes": "Development-only login has no approved production policy; remove or compile/runtime gate it."
+        },
+        {
+          "id": "identity.get.users",
+          "method": "GET",
+          "path": "/api/v1/identity/users",
+          "routeAnchor": ".route(\"/api/v1/identity/users\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:users:read",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "identity.post.users",
+          "method": "POST",
+          "path": "/api/v1/identity/users",
+          "routeAnchor": ".route(\"/api/v1/identity/users\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:users:create",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "identity.get.user",
+          "method": "GET",
+          "path": "/api/v1/identity/users/{id}",
+          "routeAnchor": ".route(\"/api/v1/identity/users/{id}\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:users:read",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "identity.put.user",
+          "method": "PUT",
+          "path": "/api/v1/identity/users/{id}",
+          "routeAnchor": ".route(\"/api/v1/identity/users/{id}\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:users:update",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "identity.delete.user",
+          "method": "DELETE",
+          "path": "/api/v1/identity/users/{id}",
+          "routeAnchor": ".route(\"/api/v1/identity/users/{id}\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:users:delete",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "wallet",
+      "source": "services/wallet/src/main.rs",
+      "routerAnchor": "let app = Router::new()",
+      "currentBoundary": "No canonical auth or ownership guard; request bodies can supply arbitrary addresses and raw private keys.",
+      "routes": [
+        {
+          "id": "wallet.get.health",
+          "method": "GET",
+          "path": "/health",
+          "routeAnchor": ".route(\"/health\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "health",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ]
+        },
+        {
+          "id": "wallet.post.accounts",
+          "method": "POST",
+          "path": "/api/v1/wallet/accounts",
+          "routeAnchor": ".route(\"/api/v1/wallet/accounts\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "requested account address == authenticated wallet; server must not accept caller-selected role",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "wallet.get.accounts",
+          "method": "GET",
+          "path": "/api/v1/wallet/accounts",
+          "routeAnchor": ".route(\"/api/v1/wallet/accounts\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "query is constrained to authenticated wallet accounts",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "wallet.get.account",
+          "method": "GET",
+          "path": "/api/v1/wallet/accounts/{address}",
+          "routeAnchor": ".route(\"/api/v1/wallet/accounts/{address}\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "path address == authenticated wallet",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "wallet.get.balance",
+          "method": "GET",
+          "path": "/api/v1/wallet/balance/{chain}/{address}",
+          "routeAnchor": ".route(\"/api/v1/wallet/balance/{chain}/{address}\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ],
+          "notes": "Public chain balance lookup; do not join private account metadata."
+        },
+        {
+          "id": "wallet.post.send",
+          "method": "POST",
+          "path": "/api/v1/wallet/send",
+          "routeAnchor": ".route(\"/api/v1/wallet/send\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "from address == authenticated wallet and signer belongs to that wallet",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A4"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ],
+          "notes": "High-risk: current body accepts a raw private_key; production must use custody/signing policy and never log or persist the key."
+        },
+        {
+          "id": "wallet.post.sign-message",
+          "method": "POST",
+          "path": "/api/v1/wallet/sign-message",
+          "routeAnchor": ".route(\"/api/v1/wallet/sign-message\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "signing address == authenticated wallet and signer belongs to that wallet",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A4"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ],
+          "notes": "High-risk signing operation; raw caller private keys are not an acceptable production ownership proof."
+        },
+        {
+          "id": "wallet.post.verify-message",
+          "method": "POST",
+          "path": "/api/v1/wallet/verify-message",
+          "routeAnchor": ".route(\"/api/v1/wallet/verify-message\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "pure-computation",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ],
+          "nonDomainMutationReason": "Signature recovery is a read-only cryptographic computation."
+        },
+        {
+          "id": "wallet.post.estimate-gas",
+          "method": "POST",
+          "path": "/api/v1/wallet/estimate-gas",
+          "routeAnchor": ".route(\"/api/v1/wallet/estimate-gas\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "pure-computation",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ],
+          "nonDomainMutationReason": "Gas estimation does not submit a transaction or change EPSX domain state."
+        }
+      ]
+    },
+    {
+      "name": "pay",
+      "source": "services/pay/src/main.rs",
+      "routerAnchor": "let app = Router::new()",
+      "currentBoundary": "No canonical user/admin guard on financial routes. The on-chain webhook alone performs fail-closed HMAC verification.",
+      "routes": [
+        {
+          "id": "pay.get.health",
+          "method": "GET",
+          "path": "/health",
+          "routeAnchor": ".route(\"/health\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "health",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ]
+        },
+        {
+          "id": "pay.post.intents",
+          "method": "POST",
+          "path": "/api/v1/pay/intents",
+          "routeAnchor": ".route(\"/api/v1/pay/intents\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "request payer == authenticated wallet",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "pay.get.intents",
+          "method": "GET",
+          "path": "/api/v1/pay/intents",
+          "routeAnchor": ".route(\"/api/v1/pay/intents\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "server constrains payer/payee query to authenticated wallet",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ],
+          "notes": "Current optional payer query can be omitted to list every intent."
+        },
+        {
+          "id": "pay.get.intent",
+          "method": "GET",
+          "path": "/api/v1/pay/intents/{id}",
+          "routeAnchor": ".route(\"/api/v1/pay/intents/{id}\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "authenticated wallet is stored payer or payee",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "pay.post.intent-confirm",
+          "method": "POST",
+          "path": "/api/v1/pay/intents/{id}/confirm",
+          "routeAnchor": ".route(\"/api/v1/pay/intents/{id}/confirm\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "authenticated wallet is stored payer and tx sender matches payer",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "pay.post.intent-cancel",
+          "method": "POST",
+          "path": "/api/v1/pay/intents/{id}/cancel",
+          "routeAnchor": ".route(\"/api/v1/pay/intents/{id}/cancel\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "authenticated wallet is stored payer",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "pay.get.escrows",
+          "method": "GET",
+          "path": "/api/v1/pay/escrows",
+          "routeAnchor": ".route(\"/api/v1/pay/escrows\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "server constrains results to rows where authenticated wallet is payer or payee",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ],
+          "notes": "Current query returns all escrows."
+        },
+        {
+          "id": "pay.get.escrow",
+          "method": "GET",
+          "path": "/api/v1/pay/escrows/{id}",
+          "routeAnchor": ".route(\"/api/v1/pay/escrows/{id}\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "authenticated wallet is stored payer or payee",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "pay.post.escrow-release",
+          "method": "POST",
+          "path": "/api/v1/pay/escrows/{id}/release",
+          "routeAnchor": ".route(\"/api/v1/pay/escrows/{id}/release\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "authenticated wallet is stored payer and escrow state permits release",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "pay.post.escrow-refund",
+          "method": "POST",
+          "path": "/api/v1/pay/escrows/{id}/refund",
+          "routeAnchor": ".route(\"/api/v1/pay/escrows/{id}/refund\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "authenticated wallet is stored payee, or explicit granular operator permission is present",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ],
+          "notes": "Exact payer/payee state-machine authority requires A6 contract finalization."
+        },
+        {
+          "id": "pay.post.escrow-dispute",
+          "method": "POST",
+          "path": "/api/v1/pay/escrows/{id}/dispute",
+          "routeAnchor": ".route(\"/api/v1/pay/escrows/{id}/dispute\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "authenticated wallet is stored payer or payee and escrow state permits dispute",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "pay.post.escrow-resolve",
+          "method": "POST",
+          "path": "/api/v1/pay/escrows/{id}/resolve",
+          "routeAnchor": ".route(\"/api/v1/pay/escrows/{id}/resolve\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:payments:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ],
+          "notes": "Dispute resolution is operator authority, not participant ownership."
+        },
+        {
+          "id": "pay.post.escrow-confirm-deposit",
+          "method": "POST",
+          "path": "/api/v1/pay/escrows/{id}/confirm-deposit",
+          "routeAnchor": ".route(\"/api/v1/pay/escrows/{id}/confirm-deposit\"",
+          "classification": "internal-webhook",
+          "identitySource": "hmac-or-indexer-service-identity",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "trusted event escrow id and verified chain transaction map to stored escrow",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "internal",
+          "observed": {
+            "status": "blocked",
+            "summary": "The route is mounted without a gateway-internal allowlist; handler-level verification is incomplete or absent."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "service-internal-boundary"
+          ],
+          "notes": "Consolidate with the signed on-chain webhook or require indexer service identity."
+        },
+        {
+          "id": "pay.post.links",
+          "method": "POST",
+          "path": "/api/v1/pay/links",
+          "routeAnchor": ".route(\"/api/v1/pay/links\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "authenticated wallet is stored payee/merchant for referenced intent",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "pay.get.link",
+          "method": "GET",
+          "path": "/api/v1/pay/links/{slug}",
+          "routeAnchor": ".route(\"/api/v1/pay/links/{slug}\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ],
+          "notes": "Public checkout lookup must return only checkout-safe fields."
+        },
+        {
+          "id": "pay.post.link-redeem",
+          "method": "POST",
+          "path": "/api/v1/pay/links/{slug}/redeem",
+          "routeAnchor": ".route(\"/api/v1/pay/links/{slug}/redeem\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "request payer == authenticated wallet and resolved intent payer",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "pay.get.history",
+          "method": "GET",
+          "path": "/api/v1/pay/history/{address}",
+          "routeAnchor": ".route(\"/api/v1/pay/history/{address}\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "path address == authenticated wallet",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "pay.post.on-chain-webhook",
+          "method": "POST",
+          "path": "/api/v1/pay/webhooks/on-chain",
+          "routeAnchor": ".route(\"/api/v1/pay/webhooks/on-chain\"",
+          "classification": "internal-webhook",
+          "identitySource": "hmac-sha256-body",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "signed event intent/escrow identifiers map to stored records",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "internal",
+          "observed": {
+            "status": "aligned",
+            "summary": "Handler fails closed when EPSX_PAY_WEBHOOK_SECRET or signature is absent, compares HMAC in constant time, and deduplicates event_id."
+          },
+          "dependencies": [
+            "A2",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "pay-webhook-hmac"
+          ]
+        },
+        {
+          "id": "pay.get.admin-intents",
+          "method": "GET",
+          "path": "/api/v1/admin/pay/intents",
+          "routeAnchor": ".route(\"/api/v1/admin/pay/intents\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:payments:view",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-payment-permissions"
+          ]
+        },
+        {
+          "id": "pay.post.admin-force-cancel",
+          "method": "POST",
+          "path": "/api/v1/admin/pay/intents/{id}/force-cancel",
+          "routeAnchor": ".route(\"/api/v1/admin/pay/intents/{id}/force-cancel\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:payments:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-payment-permissions"
+          ]
+        },
+        {
+          "id": "pay.post.admin-force-release",
+          "method": "POST",
+          "path": "/api/v1/admin/pay/escrows/{id}/force-release",
+          "routeAnchor": ".route(\"/api/v1/admin/pay/escrows/{id}/force-release\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:payments:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-payment-permissions"
+          ]
+        },
+        {
+          "id": "pay.post.admin-force-refund",
+          "method": "POST",
+          "path": "/api/v1/admin/pay/escrows/{id}/force-refund",
+          "routeAnchor": ".route(\"/api/v1/admin/pay/escrows/{id}/force-refund\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:payments:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-payment-permissions"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "subscription",
+      "source": "services/subscription/src/main.rs",
+      "routerAnchor": "let app = Router::new()",
+      "currentBoundary": "No auth layer; callers can choose user_id and read or cancel any subscription.",
+      "routes": [
+        {
+          "id": "subscription.get.health",
+          "method": "GET",
+          "path": "/health",
+          "routeAnchor": ".route(\"/health\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "health",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ]
+        },
+        {
+          "id": "subscription.post.plans",
+          "method": "POST",
+          "path": "/api/v1/subscription/plans",
+          "routeAnchor": ".route(\"/api/v1/subscription/plans\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:plans:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "subscription.get.plans",
+          "method": "GET",
+          "path": "/api/v1/subscription/plans",
+          "routeAnchor": ".route(\"/api/v1/subscription/plans\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "backend-plan-permissions"
+          ]
+        },
+        {
+          "id": "subscription.get.plan",
+          "method": "GET",
+          "path": "/api/v1/subscription/plans/{id}",
+          "routeAnchor": ".route(\"/api/v1/subscription/plans/{id}\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "backend-plan-permissions"
+          ]
+        },
+        {
+          "id": "subscription.post.subscriptions",
+          "method": "POST",
+          "path": "/api/v1/subscription/subscriptions",
+          "routeAnchor": ".route(\"/api/v1/subscription/subscriptions\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "request user_id == authenticated subject and account_id belongs to authenticated wallet",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "subscription.get.subscriptions",
+          "method": "GET",
+          "path": "/api/v1/subscription/subscriptions",
+          "routeAnchor": ".route(\"/api/v1/subscription/subscriptions\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "server constrains user_id to authenticated subject",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "subscription.get.subscription",
+          "method": "GET",
+          "path": "/api/v1/subscription/subscriptions/{id}",
+          "routeAnchor": ".route(\"/api/v1/subscription/subscriptions/{id}\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "stored subscription user_id == authenticated subject",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "subscription.post.subscription-cancel",
+          "method": "POST",
+          "path": "/api/v1/subscription/subscriptions/{id}/cancel",
+          "routeAnchor": ".route(\"/api/v1/subscription/subscriptions/{id}/cancel\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "stored subscription user_id == authenticated subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "subscription.get.vault",
+          "method": "GET",
+          "path": "/api/v1/subscription/vault/{chain_id}",
+          "routeAnchor": ".route(\"/api/v1/subscription/vault/{chain_id}\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ],
+          "notes": "Public chain configuration only; never include secrets."
+        }
+      ]
+    },
+    {
+      "name": "content",
+      "source": "services/content/src/main.rs",
+      "routerAnchor": "let app = Router::new()",
+      "currentBoundary": "No content permission guards; draft/editor data and all CMS mutations are anonymously reachable.",
+      "routes": [
+        {
+          "id": "content.get.health",
+          "method": "GET",
+          "path": "/health",
+          "routeAnchor": ".route(\"/health\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "health",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ]
+        },
+        {
+          "id": "content.get.page-editor",
+          "method": "GET",
+          "path": "/api/v1/content/pages/{slug}",
+          "routeAnchor": ".route(\"/api/v1/content/pages/{slug}\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:content:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ],
+          "notes": "Editor/draft representation is distinct from the public render route."
+        },
+        {
+          "id": "content.put.page",
+          "method": "PUT",
+          "path": "/api/v1/content/pages/{slug}",
+          "routeAnchor": ".route(\"/api/v1/content/pages/{slug}\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:content:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "content.post.pages",
+          "method": "POST",
+          "path": "/api/v1/content/pages",
+          "routeAnchor": ".route(\"/api/v1/content/pages\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:content:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "content.get.pages",
+          "method": "GET",
+          "path": "/api/v1/content/pages",
+          "routeAnchor": ".route(\"/api/v1/content/pages\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:content:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "content.post.page-publish",
+          "method": "POST",
+          "path": "/api/v1/content/pages/{id}/publish",
+          "routeAnchor": ".route(\"/api/v1/content/pages/{id}/publish\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:content:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "content.get.page-render",
+          "method": "GET",
+          "path": "/api/v1/content/pages/{slug}/render",
+          "routeAnchor": ".route(\"/api/v1/content/pages/{slug}/render\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ],
+          "notes": "Must return published content only."
+        },
+        {
+          "id": "content.get.themes",
+          "method": "GET",
+          "path": "/api/v1/content/themes",
+          "routeAnchor": ".route(\"/api/v1/content/themes\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ],
+          "notes": "Public theme metadata only; editor secrets/drafts excluded."
+        },
+        {
+          "id": "content.post.themes",
+          "method": "POST",
+          "path": "/api/v1/content/themes",
+          "routeAnchor": ".route(\"/api/v1/content/themes\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:content:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "content.get.theme",
+          "method": "GET",
+          "path": "/api/v1/content/themes/{id}",
+          "routeAnchor": ".route(\"/api/v1/content/themes/{id}\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ]
+        },
+        {
+          "id": "content.put.theme",
+          "method": "PUT",
+          "path": "/api/v1/content/themes/{id}",
+          "routeAnchor": ".route(\"/api/v1/content/themes/{id}\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:content:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "content.get.blocks",
+          "method": "GET",
+          "path": "/api/v1/content/blocks",
+          "routeAnchor": ".route(\"/api/v1/content/blocks\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ],
+          "notes": "Static component schema allowlist."
+        },
+        {
+          "id": "content.get.block-schema",
+          "method": "GET",
+          "path": "/api/v1/content/blocks/{block_type}",
+          "routeAnchor": ".route(\"/api/v1/content/blocks/{block_type}\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ],
+          "notes": "Static component schema allowlist."
+        },
+        {
+          "id": "content.post.edit-start",
+          "method": "POST",
+          "path": "/api/v1/content/edit/start",
+          "routeAnchor": ".route(\"/api/v1/content/edit/start\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:content:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "content.post.edit-commit",
+          "method": "POST",
+          "path": "/api/v1/content/edit/commit",
+          "routeAnchor": ".route(\"/api/v1/content/edit/commit\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:content:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "content.get.edit-sessions",
+          "method": "GET",
+          "path": "/api/v1/content/edit/sessions",
+          "routeAnchor": ".route(\"/api/v1/content/edit/sessions\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:content:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "content.get.navigation",
+          "method": "GET",
+          "path": "/api/v1/content/navigation",
+          "routeAnchor": ".route(\"/api/v1/content/navigation\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ]
+        },
+        {
+          "id": "content.get.site",
+          "method": "GET",
+          "path": "/api/v1/content/site",
+          "routeAnchor": ".route(\"/api/v1/content/site\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ],
+          "notes": "Published site settings only."
+        },
+        {
+          "id": "content.get.news",
+          "method": "GET",
+          "path": "/api/v1/content/news",
+          "routeAnchor": ".route(\"/api/v1/content/news\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ]
+        },
+        {
+          "id": "content.get.news-post",
+          "method": "GET",
+          "path": "/api/v1/content/news/{slug}",
+          "routeAnchor": ".route(\"/api/v1/content/news/{slug}\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ]
+        },
+        {
+          "id": "content.get.plans",
+          "method": "GET",
+          "path": "/api/v1/content/plans",
+          "routeAnchor": ".route(\"/api/v1/content/plans\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A9",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ]
+        },
+        {
+          "id": "content.get.rankings",
+          "method": "GET",
+          "path": "/api/v1/content/rankings",
+          "routeAnchor": ".route(\"/api/v1/content/rankings\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ],
+          "notes": "Public or optional-auth response must apply backend-owned entitlement filtering; frontend must not decide access."
+        },
+        {
+          "id": "content.get.portfolio",
+          "method": "GET",
+          "path": "/api/v1/content/portfolio/{addr}",
+          "routeAnchor": ".route(\"/api/v1/content/portfolio/{addr}\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ],
+          "notes": "Only public-chain derived data; private portfolio metadata is owner-only elsewhere."
+        }
+      ]
+    },
+    {
+      "name": "notification",
+      "source": "services/notification/src/main.rs",
+      "routerAnchor": "let app = Router::new()",
+      "currentBoundary": "No auth layer; query/body user_id is caller-controlled and omission can expose or mutate all notifications.",
+      "routes": [
+        {
+          "id": "notification.get.health",
+          "method": "GET",
+          "path": "/health",
+          "routeAnchor": ".route(\"/health\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "health",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ]
+        },
+        {
+          "id": "notification.get.templates",
+          "method": "GET",
+          "path": "/api/v1/notification/templates",
+          "routeAnchor": ".route(\"/api/v1/notification/templates\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "notification.post.templates",
+          "method": "POST",
+          "path": "/api/v1/notification/templates",
+          "routeAnchor": ".route(\"/api/v1/notification/templates\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "notification.get.template",
+          "method": "GET",
+          "path": "/api/v1/notification/templates/{id}",
+          "routeAnchor": ".route(\"/api/v1/notification/templates/{id}\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "notification.delete.template",
+          "method": "DELETE",
+          "path": "/api/v1/notification/templates/{id}",
+          "routeAnchor": ".route(\"/api/v1/notification/templates/{id}\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "notification.post.send",
+          "method": "POST",
+          "path": "/api/v1/notification/send",
+          "routeAnchor": ".route(\"/api/v1/notification/send\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "notification.get.list",
+          "method": "GET",
+          "path": "/api/v1/notification/list",
+          "routeAnchor": ".route(\"/api/v1/notification/list\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "server derives user_id from authenticated subject and rejects/ignores caller-selected user_id",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "notification.get.unread-count",
+          "method": "GET",
+          "path": "/api/v1/notification/unread-count",
+          "routeAnchor": ".route(\"/api/v1/notification/unread-count\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "server derives user_id from authenticated subject",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "notification.post.mark-all-read",
+          "method": "POST",
+          "path": "/api/v1/notification/mark-all-read",
+          "routeAnchor": ".route(\"/api/v1/notification/mark-all-read\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "server derives user_id from authenticated subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "notification.post.clear-all",
+          "method": "POST",
+          "path": "/api/v1/notification/clear-all",
+          "routeAnchor": ".route(\"/api/v1/notification/clear-all\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "server derives user_id from authenticated subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "notification.post.read",
+          "method": "POST",
+          "path": "/api/v1/notification/{id}/read",
+          "routeAnchor": ".route(\"/api/v1/notification/{id}/read\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "stored notification user_id == authenticated subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "notification.post.unread",
+          "method": "POST",
+          "path": "/api/v1/notification/{id}/unread",
+          "routeAnchor": ".route(\"/api/v1/notification/{id}/unread\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "stored notification user_id == authenticated subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "notification.get.notification",
+          "method": "GET",
+          "path": "/api/v1/notification/{id}",
+          "routeAnchor": ".route(\"/api/v1/notification/{id}\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "stored notification user_id == authenticated subject",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "notification.delete.notification",
+          "method": "DELETE",
+          "path": "/api/v1/notification/{id}",
+          "routeAnchor": ".route(\"/api/v1/notification/{id}\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "stored notification user_id == authenticated subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "analytics",
+      "source": "services/analytics/src/main.rs",
+      "routerAnchor": "let app = Router::new()",
+      "currentBoundary": "HTTP metric observation is installed, but no authentication or permission guard is present; track accepts caller user_id.",
+      "routes": [
+        {
+          "id": "analytics.get.health",
+          "method": "GET",
+          "path": "/health",
+          "routeAnchor": ".route(\"/health\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "health",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ]
+        },
+        {
+          "id": "analytics.post.track",
+          "method": "POST",
+          "path": "/api/v1/analytics/track",
+          "routeAnchor": ".route(\"/api/v1/analytics/track\"",
+          "classification": "authenticated-user",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "event user_id is derived from authenticated subject; caller cannot attribute another user",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "authenticated",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "analytics.get.events",
+          "method": "GET",
+          "path": "/api/v1/analytics/events",
+          "routeAnchor": ".route(\"/api/v1/analytics/events\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:analytics:view",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "analytics.get.metric",
+          "method": "GET",
+          "path": "/api/v1/analytics/metrics/{metric}",
+          "routeAnchor": ".route(\"/api/v1/analytics/metrics/{metric}\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:analytics:view",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "analytics.get.revenue",
+          "method": "GET",
+          "path": "/api/v1/analytics/revenue",
+          "routeAnchor": ".route(\"/api/v1/analytics/revenue\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:analytics:view",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "analytics.get.metrics-prometheus",
+          "method": "GET",
+          "path": "/api/v1/analytics/metrics/prometheus",
+          "routeAnchor": ".route(\"/api/v1/analytics/metrics/prometheus\"",
+          "classification": "internal-webhook",
+          "identitySource": "operator-network-or-service-identity",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "internal",
+          "observed": {
+            "status": "blocked",
+            "summary": "The route is mounted without a gateway-internal allowlist; handler-level verification is incomplete or absent."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "service-internal-boundary"
+          ],
+          "notes": "Scrape endpoint must be restricted to trusted observability callers."
+        },
+        {
+          "id": "analytics.get.prometheus-metrics",
+          "method": "GET",
+          "path": "/api/v1/analytics/prometheus/metrics",
+          "routeAnchor": ".route(\"/api/v1/analytics/prometheus/metrics\"",
+          "classification": "internal-webhook",
+          "identitySource": "operator-network-or-service-identity",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "internal",
+          "observed": {
+            "status": "blocked",
+            "summary": "The route is mounted without a gateway-internal allowlist; handler-level verification is incomplete or absent."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "service-internal-boundary"
+          ],
+          "notes": "Alias of the same restricted scrape handler."
+        }
+      ]
+    },
+    {
+      "name": "indexer",
+      "source": "services/indexer/src/main.rs",
+      "routerAnchor": "let app = Router::new()",
+      "currentBoundary": "No auth layer; read models are public by intent, but the any-method sync trigger is anonymously reachable.",
+      "routes": [
+        {
+          "id": "indexer.get.health",
+          "method": "GET",
+          "path": "/health",
+          "routeAnchor": ".route(\"/health\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "health",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ]
+        },
+        {
+          "id": "indexer.get.status",
+          "method": "GET",
+          "path": "/api/v1/indexer/status/{chain}",
+          "routeAnchor": ".route(\"/api/v1/indexer/status/{chain}\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ]
+        },
+        {
+          "id": "indexer.get.block",
+          "method": "GET",
+          "path": "/api/v1/indexer/block/{chain}/{number}",
+          "routeAnchor": ".route(\"/api/v1/indexer/block/{chain}/{number}\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ]
+        },
+        {
+          "id": "indexer.get.transaction",
+          "method": "GET",
+          "path": "/api/v1/indexer/tx/{chain}/{hash}",
+          "routeAnchor": ".route(\"/api/v1/indexer/tx/{chain}/{hash}\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ]
+        },
+        {
+          "id": "indexer.get.transfers",
+          "method": "GET",
+          "path": "/api/v1/indexer/transfers/{chain}/{address}",
+          "routeAnchor": ".route(\"/api/v1/indexer/transfers/{chain}/{address}\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ]
+        },
+        {
+          "id": "indexer.any.sync",
+          "method": "ANY",
+          "path": "/api/v1/indexer/sync",
+          "routeAnchor": ".route(\"/api/v1/indexer/sync\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:indexer:manage",
+          "permissionStatus": "proposed",
+          "ownershipKey": null,
+          "operationKind": "operator-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ],
+          "notes": "Narrow to POST and approve the proposed granular permission or replace it with authenticated internal service identity."
+        }
+      ]
+    }
+  ]
+}
