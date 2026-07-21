@@ -1,339 +1,454 @@
-//! /news/[slug] — news article detail.
+//! Public news detail backed by the content service's slug-scoped outcome.
 //!
-//! Wave 6A Track D — port of `apps-old/frontend/app/news/[slug]/page.tsx` +
-//! `components/news/news-detail.tsx`.
-//!
-//! Section coverage (matches design doc §"Track D — news_detail"):
-//! - `NewsDetailBody` — hero (with optional cover image + scrim) +
-//!   tags + title + meta (date + read time) + accent bar + body
-//! - `RelatedNewsList` — 3 related articles (cross-link)
-//!
-//! The source uses `MarkdownAsync` for body rendering; we render a
-//! simple structured body via hardcoded headings/paragraphs that
-/// match the static default post. The full markdown pipeline is a
-/// Wave 7 enhancement (would need a markdown parser dep).
+//! Unknown content is a real not-found state. Dependency and envelope failures
+//! are explicit retryable errors; neither path synthesizes an article.
 
-use crate::primitives::*;
-use crate::feedback::*;
-
-use dioxus::prelude::*;
-use super::PageContext;
-use super::PageMeta;
+use super::{PageContext, PageMeta, PageStatus};
 use crate::layout::main_layout::MainLayout;
-use crate::auth::ProgressiveAuthBanner;
+use crate::primitives::*;
+use dioxus::prelude::*;
 
-pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::marketing("News article");
-    let slug = ctx.params.get("slug").cloned().unwrap_or_default();
-    // Wave 23 T5 — read live article data from `data_news_post` (BFF
-    // proxy: /api/v1/news/<slug> → content-service news_post()).
-    // Fall back to the hardcoded `article_for` static map when the
-    // BFF has no data (matches the OLD "Welcome to EPSX" default
-    // the static Next.js page emitted for unknown slugs).
-    let data: Option<serde_json::Value> = ctx.params.get("data_news_post")
-        .and_then(|s| serde_json::from_str(s).ok());
-    let (title, date, read_time, author, body_html, tags) = match data.as_ref()
-        .and_then(|d| serde_json::from_value::<ArticleRaw>(d.clone()).ok())
-        .map(ArticleRendered::from_raw)
-    {
-        Some(a) => (a.title, a.date, a.read_time, a.author, a.body, a.tags),
-        None => {
-            let (t, d, r, au, blocks) = article_for(&slug);
-            (t.to_string(), d.to_string(), r.to_string(), au.to_string(), blocks_to_html(&blocks), vec!["EPSX".to_string(), "Update".to_string()])
-        }
-    };
-    (meta, rsx! {
-        MainLayout { ctx: ctx.clone(),
-            if ctx.user.is_none() {
-                ProgressiveAuthBanner {
-                    feature: Some("news articles".to_string()),
-                }
-            }
-            // === wave22-t3-news-blog news-detail body (no AuthGate; public page) ===
-            article { class: "news-detail-body",
-                // === wave6-auth-pages-depth-track-d news-detail hero ===
-                section { class: "relative w-full overflow-hidden news-detail-hero",
-                    div { class: "absolute inset-0 bg-gradient-to-br from-cyan-500/8 via-background to-purple-500/8" }
-                    div { class: "relative z-10 max-w-4xl mx-auto px-4 sm:px-6 pt-8 pb-12 flex flex-col min-h-[240px] sm:min-h-[300px]",
-                        a { class: "inline-flex items-center gap-2 text-sm mb-auto transition-colors news-detail-back",
-                            href: "/news",
-                            Icon { name: "arrow-left".to_string(), size: Some(16) }
-                            " Back to News"
-                        }
-                        div {
-                            div { class: "flex flex-wrap gap-2 mb-5",
-                                for tag in tags.iter() {
-                                    span { class: "px-3 py-1 rounded-full text-[11px] font-bold tracking-[0.15em] uppercase bg-cyan-500/15 text-cyan-500 border border-cyan-500/25", "{tag}" }
-                                }
-                            }
-                            h1 { class: "text-3xl sm:text-4xl lg:text-[2.75rem] font-extrabold leading-[1.1] tracking-tight mb-5 text-foreground",
-                                "{title}"
-                            }
-                            div { class: "flex items-center gap-5 text-sm text-muted-foreground",
-                                span { class: "flex items-center gap-1.5", Icon { name: "calendar".to_string(), size: Some(14) } " {date}" }
-                                span { class: "flex items-center gap-1.5", Icon { name: "clock".to_string(), size: Some(14) } " {read_time} read" }
-                                span { class: "flex items-center gap-1.5", Icon { name: "user".to_string(), size: Some(14) } " {author}" }
-                            }
-                        }
-                    }
-                }
-                // === wave6-auth-pages-depth-track-d news-detail accent bar ===
-                div { class: "h-[3px] news-detail-accent bg-gradient-to-r from-cyan-500 via-purple-500 to-cyan-500" }
-                // === wave6-auth-pages-depth-track-d news-detail article body ===
-                div { class: "max-w-3xl mx-auto px-4 sm:px-6 pt-12 pb-20 news-detail-content",
-                    div { class: "prose prose-lg prose-neutral max-w-none",
-                        for chunk in body_html.iter() {
-                            if let Some(h) = &chunk.heading {
-                                h2 { class: "text-2xl font-bold mt-12 mb-4 pb-3 border-b border-cyan-500/20 news-detail-h2", "{h}" }
-                            }
-                            for p in chunk.paragraphs.iter() {
-                                p { class: "leading-[1.8] text-muted-foreground news-detail-p", "{p}" }
-                            }
-                        }
-                    }
-                    div { class: "mt-16 pt-8 border-t border-border/20 news-detail-footer",
-                        a { class: "inline-flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground bg-card/50 hover:bg-card border border-border/20 hover:border-border/40 transition-all group news-detail-back-link",
-                            href: "/news",
-                            Icon { name: "arrow-left".to_string(), size: Some(16) }
-                            " Back to all articles"
-                        }
-                    }
-                }
-                // === wave6-auth-pages-depth-track-d news-detail related list ===
-                RelatedNewsList {}
-                div { class: "mt-6 text-sm text-muted-foreground max-w-3xl mx-auto px-4 sm:px-6",
-                    "Slug: " code { class: "font-mono", "{slug}" }
-                }
-            }
-        }
-    })
+#[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
+struct NewsArticle {
+    id: Option<String>,
+    slug: String,
+    title: String,
+    #[serde(default)]
+    summary: Option<String>,
+    body: String,
+    cover_image_url: Option<String>,
+    author: Option<String>,
+    published_at: Option<String>,
+    read_time: Option<String>,
+    tags: Vec<String>,
 }
 
-/// Look up the article metadata for a slug. Returns a default
-/// "Welcome to EPSX" article if the slug is unknown (matches the
-/// static Next.js fallback). Each `content_blocks` entry is a
-/// `(heading, paragraphs)` tuple; an empty heading means "no
-/// heading, just paragraphs" (used for the intro).
-fn article_for(slug: &str) -> (&'static str, &'static str, &'static str, &'static str, Vec<(&'static str, Vec<&'static str>)>) {
-    match slug {
-        "bsc-integration" => (
-            "BSC mainnet integration live",
-            "September 10, 2024",
-            "5 min",
-            "EPSX Engineering",
-            vec![
-                ("", vec![
-                    "Full BSC mainnet support is now live with low fees and fast finality for all EPSX features.",
-                ]),
-                ("What's available", vec![
-                    "Every EPSX feature — payments, subscriptions, permissions, analytics — now settles on BNB Smart Chain. End-to-end transaction costs drop by an order of magnitude vs. legacy mainnets.",
-                    "Connect with MetaMask, WalletConnect, or Trust Wallet. No special RPC config required; we ship public endpoints in the SDK.",
-                ]),
-                ("What changes for you", vec![
-                    "Existing users don't need to do anything. New wallets created from this point forward default to BSC; older wallets are still accessible via the in-app chain switcher.",
-                ]),
-            ],
-        ),
-        "subscription-v2" => (
-            "Subscription v2: programmable plans",
-            "September 1, 2024",
-            "4 min",
-            "EPSX Product",
-            vec![
-                ("", vec![
-                    "Create, edit, and manage on-chain subscription plans with full merchant controls and refunds.",
-                ]),
-                ("New plan primitives", vec![
-                    "Plans now support tiered pricing, group access, and time-bounded upgrades. Merchants can define per-tier features, cap concurrent subscribers, and offer prorated refunds.",
-                ]),
-                ("Migration", vec![
-                    "v1 plans continue to work. v2 plan authoring is opt-in from the merchant dashboard.",
-                ]),
-            ],
-        ),
-        _ => (
-            "Welcome to EPSX",
-            "September 15, 2024",
-            "3 min",
-            "EPSX Team",
-            vec![
-                ("", vec![
-                    "We're excited to launch the new EPSX platform — a Web3 commerce and analytics platform built for modern teams.",
-                ]),
-                ("What's new", vec![
-                    "EPSX brings together everything you need to run a modern Web3 business: a visual page builder, on-chain payments, programmable subscriptions, real-time analytics, and developer APIs — all in one platform.",
-                ]),
-                ("Built on BSC", vec![
-                    "We chose BSC mainnet for its low fees, fast finality, and broad wallet support. All EPSX features work seamlessly with MetaMask, WalletConnect, and Trust Wallet.",
-                ]),
-                ("Get started", vec![
-                    "Connect your wallet to access dashboards, analytics, payments, and developer tools. No email, no password — just your wallet.",
-                ]),
-            ],
-        ),
-    }
+#[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
+#[serde(tag = "state", rename_all = "snake_case")]
+enum NewsDetailOutcome {
+    Ready { article: NewsArticle },
+    NotFound,
+    Error { code: String },
 }
 
-/// `RelatedNewsList` — 3 cross-linked related articles. Mirrors the
-/// bottom of `news-detail.tsx` (the "related" section in the source
-/// is implicit; we make it explicit so the section marker exists).
-#[component]
-fn RelatedNewsList() -> Element {
-    rsx! {
-        section { class: "max-w-3xl mx-auto px-4 sm:px-6 pb-12 news-related-list",
-            h3 { class: "text-lg font-bold mb-4", "Related articles" }
-            div { class: "grid grid-cols-1 sm:grid-cols-3 gap-4",
-                RelatedCard { slug: "welcome-to-epsx".to_string(), title: "Welcome to EPSX".to_string(), read_time: "3 min".to_string() }
-                RelatedCard { slug: "bsc-integration".to_string(), title: "BSC mainnet integration live".to_string(), read_time: "5 min".to_string() }
-                RelatedCard { slug: "subscription-v2".to_string(), title: "Subscription v2: programmable plans".to_string(), read_time: "4 min".to_string() }
-            }
-        }
-    }
-}
-
-#[component]
-fn RelatedCard(slug: String, title: String, read_time: String) -> Element {
-    rsx! {
-        a { class: "card card-glass p-4 hover:border-cyan-500/40 transition-all news-related-card", href: "/news/{slug}",
-            div { class: "text-xs text-muted-foreground mb-2", "{read_time} read" }
-            div { class: "font-bold line-clamp-2", "{title}" }
-        }
-    }
-}
-
-/// `ArticleRaw` — wire shape for `data_news_post` (BFF
-/// `/api/v1/news/<slug>`). Same field names as the news-list
-/// `NewsPostRaw` plus a `body` field (the article's HTML/MD
-/// rendered body) and `published` (ISO timestamp). Wave 23 T5.
-#[derive(Clone, Debug, serde::Deserialize)]
-struct ArticleRaw {
-    #[serde(default)] title: String,
-    #[serde(default)] date: String,
-    #[serde(default)] published: String,
-    #[serde(default)] author: String,
-    #[serde(default)] body: String,
-    #[serde(default)] tag1: String,
-    #[serde(default)] tag2: String,
-    #[serde(default)] tags: Vec<String>,
-    #[serde(default)] read_time: String,
-}
-
-/// `BodyChunk` — one section of the rendered article. `heading =
-/// None` means "no heading, just paragraphs" (matches the original
-/// `Vec<(heading, paragraphs)>` model that the static
-/// `article_for` returned).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct BodyChunk {
     heading: Option<String>,
     paragraphs: Vec<String>,
 }
 
-/// `ArticleRendered` — the post-deserialization rendering model.
-struct ArticleRendered {
-    title: String,
-    date: String,
-    read_time: String,
-    author: String,
-    body: Vec<BodyChunk>,
-    tags: Vec<String>,
+fn safe_slug(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 128
+        && !value.starts_with('-')
+        && !value.ends_with('-')
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
 }
 
-impl ArticleRendered {
-    fn from_raw(r: ArticleRaw) -> Self {
-        let date = if !r.date.is_empty() { r.date } else { r.published };
-        let author = if r.author.is_empty() { "EPSX Team".into() } else { r.author };
-        let read_time = if r.read_time.is_empty() { "3 min".into() } else { r.read_time };
-        let body = body_to_chunks(&r.body);
-        let mut tags = r.tags;
-        if tags.is_empty() {
-            if !r.tag1.is_empty() { tags.push(r.tag1); }
-            if !r.tag2.is_empty() { tags.push(r.tag2); }
-        }
-        if tags.is_empty() {
-            tags = vec!["EPSX".to_string(), "Update".to_string()];
-        }
-        ArticleRendered { title: r.title, date, read_time, author, body, tags }
+fn safe_text(value: &str, max: usize) -> bool {
+    value.chars().count() <= max && !value.chars().any(char::is_control)
+}
+
+fn safe_cover(value: &str) -> bool {
+    !value.is_empty()
+        && !value.chars().any(char::is_control)
+        && !value.contains('\\')
+        && ((value.starts_with('/') && !value.starts_with("//")) || value.starts_with("https://"))
+}
+
+fn valid_display_date(value: &str) -> bool {
+    const MONTHS: [&str; 12] = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+    ];
+    let Some((month, rest)) = value.split_once(' ') else {
+        return false;
+    };
+    let Some((day, year)) = rest.split_once(", ") else {
+        return false;
+    };
+    MONTHS.contains(&month)
+        && day.parse::<u8>().is_ok_and(|day| (1..=31).contains(&day))
+        && year.len() == 4
+        && year.bytes().all(|byte| byte.is_ascii_digit())
+}
+
+fn valid_article(article: &NewsArticle, expected_slug: &str) -> bool {
+    safe_slug(&article.slug)
+        && article.slug == expected_slug
+        && !article.title.trim().is_empty()
+        && safe_text(&article.title, 300)
+        && article
+            .summary
+            .as_deref()
+            .is_none_or(|summary| safe_text(summary, 2_000))
+        && !article.body.trim().is_empty()
+        && article.body.chars().count() <= 500_000
+        && article.tags.len() <= 32
+        && article
+            .tags
+            .iter()
+            .all(|tag| !tag.trim().is_empty() && safe_text(tag, 64))
+        && article.cover_image_url.as_deref().is_none_or(safe_cover)
+        && article
+            .published_at
+            .as_deref()
+            .is_none_or(valid_display_date)
+}
+
+fn parse_outcome(ctx: &PageContext, slug: &str) -> NewsDetailOutcome {
+    if !safe_slug(slug) {
+        return NewsDetailOutcome::NotFound;
     }
+    let Some(raw) = ctx.params.get("data_news_post") else {
+        return NewsDetailOutcome::Error {
+            code: "missing_content_outcome".to_string(),
+        };
+    };
+    let Ok(outcome) = serde_json::from_str::<NewsDetailOutcome>(raw) else {
+        return NewsDetailOutcome::Error {
+            code: "malformed_content_response".to_string(),
+        };
+    };
+    match outcome {
+        NewsDetailOutcome::Ready { article } if valid_article(&article, slug) => {
+            NewsDetailOutcome::Ready { article }
+        }
+        NewsDetailOutcome::NotFound => NewsDetailOutcome::NotFound,
+        NewsDetailOutcome::Error { code } if !code.is_empty() && safe_text(&code, 64) => {
+            NewsDetailOutcome::Error { code }
+        }
+        _ => NewsDetailOutcome::Error {
+            code: "malformed_content_response".to_string(),
+        },
+    }
+}
+
+pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
+    let slug = ctx.params.get("slug").cloned().unwrap_or_default();
+    let outcome = parse_outcome(ctx, &slug);
+    let mut meta = PageMeta::marketing("News article");
+    match &outcome {
+        NewsDetailOutcome::Ready { article } => {
+            meta.title = format!("{} — EPSX News", article.title);
+            meta.description = article
+                .summary
+                .clone()
+                .filter(|summary| !summary.trim().is_empty())
+                .unwrap_or_else(|| article.title.clone());
+        }
+        NewsDetailOutcome::NotFound => {
+            meta.title = "Article Not Found — EPSX".to_string();
+            meta.description = "The requested published news article was not found.".to_string();
+            meta.status = PageStatus::NotFound;
+        }
+        NewsDetailOutcome::Error { .. } => {
+            meta.title = "News unavailable — EPSX".to_string();
+            meta.description = "The requested news article could not be loaded.".to_string();
+        }
+    }
+    let retry_href = if ctx.query.is_empty() {
+        ctx.path.clone()
+    } else {
+        format!("{}?{}", ctx.path, ctx.query)
+    };
+
+    (
+        meta,
+        rsx! {
+            MainLayout { ctx: ctx.clone(),
+                match outcome {
+                    NewsDetailOutcome::Ready { article } => rsx! { NewsArticleView { article } },
+                    NewsDetailOutcome::NotFound => rsx! { NewsNotFound {} },
+                    NewsDetailOutcome::Error { .. } => rsx! { NewsDetailError { retry_href } },
+                }
+            }
+        },
+    )
+}
+
+#[component]
+fn NewsArticleView(article: NewsArticle) -> Element {
+    let chunks = body_to_chunks(&article.body);
+    let read_time = article
+        .read_time
+        .clone()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| format!("{} min", read_minutes(&article.body)));
+    rsx! {
+        article { class: "news-detail-body",
+            section { class: "relative w-full overflow-hidden isolate news-detail-hero",
+                if let Some(cover) = &article.cover_image_url {
+                    img { class: "absolute inset-0 w-full h-full object-cover", src: cover, alt: "" }
+                    div { class: "absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20" }
+                } else {
+                    div { class: "absolute inset-0 bg-gradient-to-br from-cyan-500/8 via-background to-purple-500/8" }
+                }
+                div { class: "relative z-10 max-w-4xl mx-auto px-4 sm:px-6 pt-8 pb-12 flex flex-col min-h-[240px] sm:min-h-[300px]",
+                    a { class: "inline-flex items-center gap-2 text-sm mb-auto transition-colors news-detail-back", href: "/news",
+                        Icon { name: "arrow-left".to_string(), size: Some(16) }
+                        " Back to News"
+                    }
+                    div {
+                        if !article.tags.is_empty() {
+                            div { class: "flex flex-wrap gap-2 mb-5",
+                                for tag in article.tags.iter() {
+                                    span { class: "px-3 py-1 rounded-full text-[11px] font-bold tracking-[0.15em] uppercase bg-cyan-500/15 text-cyan-500 border border-cyan-500/25", "{tag}" }
+                                }
+                            }
+                        }
+                        h1 { class: "text-3xl sm:text-4xl lg:text-[2.75rem] font-extrabold leading-[1.1] tracking-tight mb-5", "{article.title}" }
+                        div { class: "flex flex-wrap items-center gap-5 text-sm text-muted-foreground",
+                            if let Some(date) = &article.published_at {
+                                span { class: "flex items-center gap-1.5", Icon { name: "calendar".to_string(), size: Some(14) } " {date}" }
+                            }
+                            span { class: "flex items-center gap-1.5", Icon { name: "clock".to_string(), size: Some(14) } " {read_time} read" }
+                            if let Some(author) = &article.author {
+                                span { class: "flex items-center gap-1.5", Icon { name: "user".to_string(), size: Some(14) } " {author}" }
+                            }
+                        }
+                    }
+                }
+            }
+            div { class: "h-[3px] news-detail-accent bg-gradient-to-r from-cyan-500 via-purple-500 to-cyan-500" }
+            div { class: "max-w-3xl mx-auto px-4 sm:px-6 pt-12 pb-20 news-detail-content",
+                div { class: "prose prose-lg prose-neutral max-w-none",
+                    for chunk in chunks.iter() {
+                        if let Some(heading) = &chunk.heading {
+                            h2 { class: "text-2xl font-bold mt-12 mb-4 pb-3 border-b border-cyan-500/20 news-detail-h2", "{heading}" }
+                        }
+                        for paragraph in chunk.paragraphs.iter() {
+                            p { class: "leading-[1.8] text-muted-foreground news-detail-p", "{paragraph}" }
+                        }
+                    }
+                }
+                div { class: "mt-16 pt-8 border-t border-border/20 news-detail-footer",
+                    a { class: "inline-flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground bg-card/50 hover:bg-card border border-border/20 hover:border-border/40 transition-all group news-detail-back-link", href: "/news",
+                        Icon { name: "arrow-left".to_string(), size: Some(16) }
+                        " Back to all articles"
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn NewsNotFound() -> Element {
+    rsx! {
+        main { class: "news-detail-not-found container page-content flex min-h-[60vh] items-center justify-center",
+            section { class: "card card-glass max-w-xl p-8 sm:p-12 text-center", aria_labelledby: "news-not-found-title",
+                div { class: "mx-auto mb-4 text-cyan-500", Icon { name: "newspaper".to_string(), size: Some(40) } }
+                h1 { id: "news-not-found-title", class: "text-2xl font-bold", "Article not found" }
+                p { class: "mt-3 text-sm text-muted-foreground", "This article is not available as published content." }
+                a { class: "btn btn-primary mt-6", href: "/news", "Browse all news" }
+            }
+        }
+    }
+}
+
+#[component]
+fn NewsDetailError(retry_href: String) -> Element {
+    rsx! {
+        main { class: "news-detail-error container page-content flex min-h-[60vh] items-center justify-center",
+            section { class: "card card-glass max-w-xl p-8 sm:p-12 text-center", role: "alert",
+                div { class: "mx-auto mb-4 text-cyan-500", Icon { name: "triangle-alert".to_string(), size: Some(40) } }
+                h1 { class: "text-2xl font-bold", "Article temporarily unavailable" }
+                p { class: "mt-3 text-sm text-muted-foreground", "We could not load this published article. No default article is being shown." }
+                div { class: "mt-6 flex flex-wrap justify-center gap-3",
+                    a { class: "btn btn-primary", href: retry_href, "Try again" }
+                    a { class: "btn btn-outline", href: "/news", "Back to news" }
+                }
+            }
+        }
+    }
+}
+
+fn read_minutes(body: &str) -> usize {
+    body.split_whitespace().count().div_ceil(200).max(1)
+}
+
+fn strip_markup(value: &str) -> String {
+    let mut plain = String::new();
+    let mut in_tag = false;
+    for character in value.chars() {
+        match character {
+            '<' => in_tag = true,
+            '>' if in_tag => in_tag = false,
+            _ if !in_tag => plain.push(character),
+            _ => {}
+        }
+    }
+    plain.trim().to_string()
 }
 
 fn body_to_chunks(body: &str) -> Vec<BodyChunk> {
-    if body.is_empty() { return Vec::new(); }
     let mut chunks = Vec::new();
-    let mut current_paragraphs: Vec<String> = Vec::new();
+    let mut paragraphs = Vec::new();
     for line in body.lines() {
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            if !current_paragraphs.is_empty() {
-                chunks.push(BodyChunk { heading: None, paragraphs: std::mem::take(&mut current_paragraphs) });
+        let line = line.trim();
+        if line.is_empty() {
+            if !paragraphs.is_empty() {
+                chunks.push(BodyChunk {
+                    heading: None,
+                    paragraphs: std::mem::take(&mut paragraphs),
+                });
             }
-        } else if let Some(h) = trimmed.strip_prefix("## ") {
-            if !current_paragraphs.is_empty() {
-                chunks.push(BodyChunk { heading: None, paragraphs: std::mem::take(&mut current_paragraphs) });
+            continue;
+        }
+        let heading = line
+            .strip_prefix("## ")
+            .or_else(|| line.strip_prefix("# "))
+            .map(str::trim)
+            .map(str::to_string)
+            .or_else(|| {
+                (line.starts_with("<h1") || line.starts_with("<h2")).then(|| strip_markup(line))
+            });
+        if let Some(heading) = heading.filter(|value| !value.is_empty()) {
+            if !paragraphs.is_empty() {
+                chunks.push(BodyChunk {
+                    heading: None,
+                    paragraphs: std::mem::take(&mut paragraphs),
+                });
             }
-            chunks.push(BodyChunk { heading: Some(h.trim().to_string()), paragraphs: Vec::new() });
-        } else if let Some(h) = trimmed.strip_prefix("# ") {
-            if !current_paragraphs.is_empty() {
-                chunks.push(BodyChunk { heading: None, paragraphs: std::mem::take(&mut current_paragraphs) });
-            }
-            chunks.push(BodyChunk { heading: Some(h.trim().to_string()), paragraphs: Vec::new() });
+            chunks.push(BodyChunk {
+                heading: Some(heading),
+                paragraphs: Vec::new(),
+            });
         } else {
-            current_paragraphs.push(trimmed.to_string());
+            let paragraph = strip_markup(line);
+            if !paragraph.is_empty() {
+                paragraphs.push(paragraph);
+            }
         }
     }
-    if !current_paragraphs.is_empty() {
-        chunks.push(BodyChunk { heading: None, paragraphs: current_paragraphs });
+    if !paragraphs.is_empty() {
+        chunks.push(BodyChunk {
+            heading: None,
+            paragraphs,
+        });
     }
     chunks
-}
-
-/// Convert the OLD static `Vec<(heading, paragraphs)>` model into
-/// the new `Vec<BodyChunk>` so the fallback path can share the same
-/// rendering code path.
-fn blocks_to_html(blocks: &[(&'static str, Vec<&'static str>)]) -> Vec<BodyChunk> {
-    blocks.iter().map(|(h, ps)| BodyChunk {
-        heading: if h.is_empty() { None } else { Some((*h).to_string()) },
-        paragraphs: ps.iter().map(|s| (*s).to_string()).collect(),
-    }).collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::auth::User;
-    use crate::pages::PageContext;
-    use crate::auth::user::AuthMethod;
 
-    fn ctx(path: &str, slug: &str) -> PageContext {
-        let user = User {
-            id: "u1".to_string(),
-            address: "0x1234…abcd".to_string(),
-            chain_id: "56".to_string(),
-            roles: vec!["user".to_string()],
-            email: Some("test@epsx.io".to_string()),
-            tier: Some("Pro".to_string()),
-            permissions: vec!["news:read".to_string()],
-            last_login_at: None,
-            auth_method: AuthMethod::Wallet,
-            display_name: Some("Test".to_string()),
+    fn context(slug: &str, outcome: serde_json::Value) -> PageContext {
+        let mut ctx = PageContext {
+            path: format!("/news/{slug}"),
+            ..Default::default()
         };
-        let mut c = PageContext { user: Some(user), path: path.to_string(), ..Default::default() };
-        c.params.insert("slug".into(), slug.to_string());
-        c
+        ctx.params.insert("slug".to_string(), slug.to_string());
+        ctx.params
+            .insert("data_news_post".to_string(), outcome.to_string());
+        ctx
+    }
+
+    fn article(title: &str, body: &str) -> serde_json::Value {
+        serde_json::json!({
+            "id": "article-1",
+            "slug": "live-article",
+            "title": title,
+            "summary": "Live article summary",
+            "body": body,
+            "cover_image_url": null,
+            "author": null,
+            "published_at": "July 22, 2026",
+            "read_time": null,
+            "tags": ["engineering"]
+        })
     }
 
     #[test]
-    fn test_render_smoke() {
-        let (_meta, element) = render(&ctx("/news/welcome-to-epsx", "welcome-to-epsx"));
+    fn ready_article_uses_live_title_body_metadata_and_safe_text_rendering() {
+        let ctx = context(
+            "live-article",
+            serde_json::json!({
+                "state": "ready",
+                "article": article("Live <script>alert(1)</script>", "## Update\n\n<p>Safe <img src=x onerror=alert(1)> body</p>")
+            }),
+        );
+        let (meta, element) = render(&ctx);
         let html = dioxus_ssr::render_element(element);
-        assert!(html.contains("Welcome to EPSX"), "news detail must render title. Got: {}", html);
+        assert_eq!(meta.title, "Live <script>alert(1)</script> — EPSX News");
+        assert_eq!(meta.description, "Live article summary");
+        assert!(html.contains("Live "));
+        assert!(html.contains("alert(1)"));
+        assert!(!html.contains("<script>alert(1)</script>"));
+        assert!(html.contains("Safe  body"));
+        assert!(html.contains("July 22, 2026"));
+        assert!(!html.contains("onerror="));
+        assert!(!html.contains("Related articles"));
+        assert!(!html.contains("Welcome to EPSX"));
     }
 
     #[test]
-    fn test_section_markers() {
-        let (_meta, element) = render(&ctx("/news/welcome-to-epsx", "welcome-to-epsx"));
+    fn not_found_is_explicit_and_never_synthesizes_an_article() {
+        let (meta, element) = render(&context(
+            "missing-article",
+            serde_json::json!({"state": "not_found"}),
+        ));
         let html = dioxus_ssr::render_element(element);
-        for marker in ["news-detail-hero", "news-detail-content", "news-related-list", "news-detail-accent"] {
-            assert!(html.contains(marker), "missing section marker: {}", marker);
-        }
+        assert_eq!(meta.status, PageStatus::NotFound);
+        assert!(html.contains("Article not found"));
+        assert!(!html.contains("coming soon"));
+        assert!(!html.contains("Welcome to EPSX"));
+    }
+
+    #[test]
+    fn missing_malformed_or_slug_mismatched_outcome_renders_retryable_error() {
+        let mut missing = PageContext {
+            path: "/news/live-article".to_string(),
+            ..Default::default()
+        };
+        missing
+            .params
+            .insert("slug".to_string(), "live-article".to_string());
+        let (_, element) = render(&missing);
+        assert!(dioxus_ssr::render_element(element).contains("temporarily unavailable"));
+
+        let (_, mismatched) = render(&context(
+            "live-article",
+            serde_json::json!({
+                "state": "ready",
+                "article": {
+                    "id": null,
+                    "slug": "another-article",
+                    "title": "Wrong owner",
+                    "summary": null,
+                    "body": "Body",
+                    "cover_image_url": null,
+                    "author": null,
+                    "published_at": null,
+                    "read_time": null,
+                    "tags": []
+                }
+            }),
+        ));
+        let html = dioxus_ssr::render_element(mismatched);
+        assert!(html.contains("temporarily unavailable"));
+        assert!(!html.contains("Wrong owner"));
+
+        let mut malformed_date = article("Malformed date", "Body");
+        malformed_date["published_at"] = serde_json::json!("not-a-date");
+        let (_, malformed_date) = render(&context(
+            "live-article",
+            serde_json::json!({"state": "ready", "article": malformed_date}),
+        ));
+        assert!(dioxus_ssr::render_element(malformed_date).contains("temporarily unavailable"));
     }
 }

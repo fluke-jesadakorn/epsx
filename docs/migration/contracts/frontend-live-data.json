@@ -51,26 +51,26 @@
     {
       "path":"/news","batch":"B1-public-content","status":"partial","dependencies":["A5"],
       "source":{"file":"apps/frontend/app/news/page.tsx","anchors":["export default async function NewsPage","searchParams: Promise<{ page?: string }>"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/news.rs","handler":"news::render","anchors":["pub fn render(ctx: &PageContext)",".unwrap_or_else(default_posts)"]},
-      "payloads":{"staticOrSample":["default_posts fallback"],"placeholderOrSkeleton":[]},
-      "loader":{"kind":"in-process","endpoints":["crate::api::news_list_value"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"crate::api::news_list_value().to_string()"}]},
-      "authOwner":{"auth":"middleware-required in rendered target","owner":"none"},
-      "interactions":{"forms":[],"pagination":["GET page links"],"search":["GET q and category form"],"wallet":[],"keyboard":["native form keyboard submission"],"controls":["category and article links"]},
-      "states":{"loading":"missing","empty":"present","error":"missing","retry":"missing"},
-      "hydration":{"need":"none","status":"not-applicable","reason":"SSR-safe GET controls"},
-      "blockers":["in-process canned content and default_posts can mask content-service failure; error and retry are absent"]
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/news.rs","handler":"news::render","anchors":["pub fn render(ctx: &PageContext)","enum NewsListOutcome"]},
+      "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
+      "loader":{"kind":"gateway-strict","endpoints":["GET /api/v1/content/news?page=1&limit=100"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"crate::api::load_news_list(state.content.as_ref(), &query).await"}]},
+      "authOwner":{"auth":"public","owner":"none"},
+      "interactions":{"forms":["native GET q plus exact all/updates/engineering/product category form; unknown categories and the removed public limit fail with 400"],"pagination":["fixed 12-item URL-stable GET page links preserve q and category; out-of-range empty pages expose a filter-preserving Previous page link"],"search":["bounded q and exact rendered category fields are validated, filtered, and reflected by SSR"],"wallet":[],"keyboard":["native form submission, pagination, and empty-page recovery links require no hydration"],"controls":["category selector, search submit, article links, enabled pagination links, and out-of-range recovery"]},
+      "states":{"loading":"not-applicable","empty":"present","error":"present","retry":"present"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"SSR waits for a tagged content outcome; all controls are native GET links/form controls"},
+      "blockers":["A5 must lock the canonical public-news envelope, status, query, category, date, correlation, timeout, and retry contract; the current strict adapter fixes display pages at 12 but fetches at most 100 records before filtering and paginating locally","focused adapter and render tests prove exact/legacy envelope rejection, truthful outcomes, URL state, recovery, deterministic dates, and escaping, but a live content-service plus browser runtime proof is still missing"]
     },
     {
       "path":"/news/:slug","batch":"B1-public-content","status":"partial","dependencies":["A5"],
       "source":{"file":"apps/frontend/app/news/[slug]/page.tsx","anchors":["export default async function NewsDetailPage","generateMetadata"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/news_detail.rs","handler":"news_detail::render","anchors":["pub fn render(ctx: &PageContext)","let data: Option<serde_json::Value> = ctx.params.get(\"data_news_post\")"]},
-      "payloads":{"staticOrSample":["article_for fallback article set"],"placeholderOrSkeleton":[]},
-      "loader":{"kind":"in-process","endpoints":["crate::api::news_post_value"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"crate::api::news_post_value(&slug).to_string()"}]},
-      "authOwner":{"auth":"middleware-required in rendered target","owner":"slug-scoped public content"},
-      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":[],"controls":["back and related-article links"]},
-      "states":{"loading":"missing","empty":"present","error":"missing","retry":"missing"},
-      "hydration":{"need":"none","status":"not-applicable","reason":"SSR article view"},
-      "blockers":["static article fallback masks upstream failure and has no error/retry contract"]
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/news_detail.rs","handler":"news_detail::render","anchors":["pub fn render(ctx: &PageContext)","enum NewsDetailOutcome"]},
+      "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
+      "loader":{"kind":"gateway-strict","endpoints":["GET /api/v1/content/news/{slug}"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"crate::api::load_news_post(state.content.as_ref(), slug).await"}]},
+      "authOwner":{"auth":"public","owner":"requested slug must equal the returned published-content slug"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native back and retry links require no hydration"],"controls":["back to news and same-URL retry links"]},
+      "states":{"loading":"not-applicable","empty":"present","error":"present","retry":"present"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"SSR waits for a tagged ready, not-found, or dependency-error outcome"},
+      "blockers":["A5 must lock the canonical detail envelope, status, body/date format, correlation, timeout, and retry contract; the current content service returns rendered HTML while the pinned source expects Markdown and synthesizes a matching coming-soon article for unknown slugs, so full GFM parity and end-to-end 404 behavior are not truthful","focused adapter and render tests prove strict error/legacy shapes, safely escaped body and outer metadata, deterministic dates, exact route/slug classification, propagated 404/error/retry, and slug equality only against hermetic upstreams; live service and browser runtime proof remain missing"]
     },
     {
       "path":"/auth","batch":"B2-identity","status":"blocked","dependencies":["A1","A5"],

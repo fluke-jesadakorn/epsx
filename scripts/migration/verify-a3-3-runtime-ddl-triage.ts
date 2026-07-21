@@ -310,8 +310,8 @@ const classify = (finding: (typeof scannerFindings)[number], index: number) => {
 };
 const classified = scannerFindings.map(classify);
 
-if (!Array.isArray(contract.findings) || contract.findings.length !== 37) {
-  fail("the contract must enumerate exactly 37 scanner findings");
+if (!Array.isArray(contract.findings) || contract.findings.length !== 35) {
+  fail("the contract must enumerate exactly 35 scanner findings");
 }
 exact("enumerated findings", classified, contract.findings);
 if (new Set(classified.map((item) => item.id)).size !== classified.length) {
@@ -324,8 +324,8 @@ const actionable = classified.filter((item) => item.classification === "actionab
 const reviewedExceptions = classified.filter(
   (item) => item.classification === "reviewed-exception",
 );
-if (actionable.length !== 31 || reviewedExceptions.length !== 6) {
-  fail(`expected 31 actionable and 6 exceptions, observed ${actionable.length}/${reviewedExceptions.length}`);
+if (actionable.length !== 29 || reviewedExceptions.length !== 6) {
+  fail(`expected 29 actionable and 6 exceptions, observed ${actionable.length}/${reviewedExceptions.length}`);
 }
 if (actionable.some((item) => item.reviewedExceptionId !== null)) {
   fail("an actionable finding cannot carry a reviewed exception ID");
@@ -379,7 +379,7 @@ if (jsonOutput) {
     `a3-3-runtime-ddl-triage: ${Object.keys(groups.service).length} service groups, ${Object.keys(groups.file).length} file groups, ${Object.keys(groups.ddlKind).length} DDL kinds, ${Object.keys(groups.bootTimeRisk).length} boot-time risk groups`,
   );
   console.log(
-    "a3-3-runtime-ddl-triage: OK — deterministic offline/static integrity only; all 31 actionable findings remain blocked",
+    "a3-3-runtime-ddl-triage: OK — deterministic offline/static integrity only; all 29 actionable findings remain blocked",
   );
 }
 

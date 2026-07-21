@@ -1,0 +1,293 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A3.7-subscription-schema-boundary",
+  "purpose": "offline-static-subscription-schema-boundary-only",
+  "productionReady": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "scope": {
+    "service": "services/subscription",
+    "database": "epsx_subscription",
+    "schema": "public",
+    "tables": [
+      "subscription_plans",
+      "subscriptions"
+    ],
+    "status": "partial"
+  },
+  "safety": {
+    "deploymentAuthorized": false,
+    "databaseAccessAuthorized": false,
+    "migrationExecutionAuthorized": false,
+    "networkAccessAuthorized": false,
+    "runtimeMutationAuthorized": false,
+    "readinessMeaning": "Integrity proves source and migration bytes only; it is not an upgrade, adoption, data mapping, or live database pass."
+  },
+  "developmentBaseline": {
+    "sourceRef": "origin/development",
+    "sourceCommit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "candidateServicePath": "services/subscription",
+    "candidateServicePresent": false,
+    "mappingStatus": "blocked",
+    "summary": "The development baseline has no candidate subscription service and its monolith uses wallet-plan assignment semantics that are not equivalent to this candidate two-table model.",
+    "evidence": [
+      {
+        "path": "apps/backend/migrations/payments/00000000000001_consolidated_baseline_v4/up.sql",
+        "bytesSha256": "832ff33f0138e67bf9c1e6a0a58a5ae99d61493913b80785cf71f177b8bf23fa",
+        "anchors": [
+          "CREATE TABLE subscriptions (",
+          "wallet_address VARCHAR(42) NOT NULL",
+          "expires_at TIMESTAMPTZ NOT NULL"
+        ]
+      },
+      {
+        "path": "apps/backend/src/web/payments/subscription_handlers.rs",
+        "bytesSha256": "81c3e8ea1622703ebe81cd4733b17d9f0c77d8577af442fd9843ba7f16557ad1",
+        "anchors": [
+          "Uses wallet_plan_assignments table for all plan access data",
+          "WHERE LOWER(wga.wallet_address) = LOWER($1)",
+          "FREE_PLAN_RANKING_OFFSET"
+        ]
+      }
+    ]
+  },
+  "runtimeBoundary": {
+    "rustRoot": "services/subscription",
+    "rustInventory": [
+      "services/subscription/src/lib.rs",
+      "services/subscription/src/main.rs"
+    ],
+    "scannerFindingBefore": 2,
+    "scannerFindingAfter": 0,
+    "removedAnchors": [
+      "CREATE TABLE IF NOT EXISTS subscription_plans (",
+      "CREATE TABLE IF NOT EXISTS subscriptions ("
+    ],
+    "compatibilityQueryConstant": "SUBSCRIPTION_SCHEMA_COMPATIBILITY_QUERY",
+    "compatibilityFunction": "verify_schema_compatibility",
+    "compatibilityQueryBytes": 7709,
+    "compatibilityQuerySha256": "2e1ec012660141d05fedb22f5c37ee02817ce034b97830433e3a33238d8099a3",
+    "qualifiedRelationOccurrences": {
+      "public.subscription_plans": 3,
+      "public.subscriptions": 4
+    },
+    "queryRequiredAnchors": [
+      "WITH expected_columns (",
+      "LEFT JOIN information_schema.columns AS actual",
+      "AND COALESCE(\n            CASE expected.default_kind",
+      "AND COALESCE((SELECT compatible FROM column_compatibility), false)",
+      "SELECT COUNT(*) = 20 AS compatible",
+      "constraint_record.contype = 'p'",
+      "constraint_record.contype = 'f'",
+      "constraint_record.confupdtype = 'a'",
+      "AND index_record.indisvalid",
+      "AND index_record.indisready",
+      "to_regclass('public.subscription_plans') IS NOT NULL",
+      "to_regclass('public.subscriptions') IS NOT NULL"
+    ],
+    "mainSequence": [
+      "sqlx::PgPool::connect(&args.database_url)",
+      "verify_schema_compatibility(&db)",
+      "tokio::net::TcpListener::bind(addr)",
+      "axum::serve(listener, app)"
+    ]
+  },
+  "modelBoundary": {
+    "source": "services/subscription/src/main.rs",
+    "sliceStart": "#[derive(Serialize, FromRow)]\nstruct SubscriptionPlan",
+    "sliceEnd": "\n\n#[tokio::main]",
+    "bytes": 1265,
+    "sha256": "c6d87859984b684de8d30619d4a4b49a4332f65605a49aee9fa04e351c00fcb7",
+    "responseModels": [
+      {
+        "name": "SubscriptionPlan",
+        "fields": [
+          {"name": "id", "rustType": "Uuid", "databaseType": "uuid", "nullable": false},
+          {"name": "merchant_id", "rustType": "Uuid", "databaseType": "uuid", "nullable": false},
+          {"name": "name", "rustType": "String", "databaseType": "varchar(100)", "nullable": false},
+          {"name": "description", "rustType": "Option<String>", "databaseType": "text", "nullable": true},
+          {"name": "amount", "rustType": "String", "databaseType": "varchar(78)", "nullable": false},
+          {"name": "currency", "rustType": "String", "databaseType": "varchar(10)", "nullable": false},
+          {"name": "chain_id", "rustType": "String", "databaseType": "varchar(10)", "nullable": false},
+          {"name": "interval", "rustType": "i32", "databaseType": "integer", "nullable": false},
+          {"name": "active", "rustType": "Option<bool>", "databaseType": "boolean", "nullable": true},
+          {"name": "created_at", "rustType": "Option<chrono::DateTime<chrono::Utc>>", "databaseType": "timestamptz", "nullable": true}
+        ]
+      },
+      {
+        "name": "Subscription",
+        "fields": [
+          {"name": "id", "rustType": "Uuid", "databaseType": "uuid", "nullable": false},
+          {"name": "user_id", "rustType": "Uuid", "databaseType": "uuid", "nullable": false},
+          {"name": "plan_id", "rustType": "Option<Uuid>", "databaseType": "uuid", "nullable": true},
+          {"name": "status", "rustType": "Option<String>", "databaseType": "varchar(20)", "nullable": true},
+          {"name": "account_id", "rustType": "Option<String>", "databaseType": "varchar(42)", "nullable": true},
+          {"name": "payment_token", "rustType": "Option<String>", "databaseType": "varchar(42)", "nullable": true},
+          {"name": "vault_position_id", "rustType": "Option<String>", "databaseType": "varchar(100)", "nullable": true},
+          {"name": "current_period_start", "rustType": "Option<chrono::DateTime<chrono::Utc>>", "databaseType": "timestamptz", "nullable": true},
+          {"name": "current_period_end", "rustType": "Option<chrono::DateTime<chrono::Utc>>", "databaseType": "timestamptz", "nullable": true},
+          {"name": "created_at", "rustType": "Option<chrono::DateTime<chrono::Utc>>", "databaseType": "timestamptz", "nullable": true}
+        ]
+      }
+    ],
+    "requestModels": [
+      {
+        "name": "CreatePlanRequest",
+        "fields": [
+          {"name": "merchant_id", "rustType": "Uuid"},
+          {"name": "name", "rustType": "String"},
+          {"name": "description", "rustType": "Option<String>"},
+          {"name": "amount", "rustType": "String"},
+          {"name": "currency", "rustType": "String"},
+          {"name": "chain_id", "rustType": "String"},
+          {"name": "interval", "rustType": "i32"}
+        ]
+      },
+      {
+        "name": "CreateSubscriptionRequest",
+        "fields": [
+          {"name": "user_id", "rustType": "Uuid"},
+          {"name": "plan_id", "rustType": "Uuid"},
+          {"name": "account_id", "rustType": "Option<String>"},
+          {"name": "payment_token", "rustType": "Option<String>"}
+        ]
+      }
+    ],
+    "requiredPlanInputMapping": {
+      "column": "public.subscriptions.plan_id",
+      "responseType": "Option<Uuid>",
+      "createRequestType": "Uuid",
+      "status": "explicit-required-create-input",
+      "rationaleAnchor": "New subscriptions require an explicit target even though legacy rows"
+    },
+    "queryAsOccurrences": {
+      "SubscriptionPlan": 3,
+      "Subscription": 4
+    },
+    "sqlOperationOccurrences": {
+      "planInsertReturning": 1,
+      "planSelect": 2,
+      "subscriptionInsertReturning": 1,
+      "subscriptionSelect": 2,
+      "subscriptionUpdateReturning": 1
+    },
+    "pathUuidExtractorAnchor": "axum::extract::Path(id): axum::extract::Path<Uuid>",
+    "pathUuidExtractorOccurrences": 3,
+    "idBindOccurrences": 3,
+    "requestBindFields": [
+      "merchant_id",
+      "name",
+      "description",
+      "amount",
+      "currency",
+      "chain_id",
+      "interval",
+      "user_id",
+      "plan_id",
+      "account_id",
+      "payment_token"
+    ],
+    "responseSchemaFieldsCovered": 20,
+    "nullableResponseFieldsCovered": 11
+  },
+  "migrationRoot": {
+    "path": "services/subscription/migrations",
+    "runner": null,
+    "transactionOwner": "future-reviewed-runner",
+    "orderedMigrations": [
+      {
+        "version": "20260722010000",
+        "path": "services/subscription/migrations/20260722010000_create_subscription_tables.sql",
+        "bytes": 844,
+        "sha256": "20f38597d2d64bad3589036c2fe20aab2be89e5d240c540d401b46713c701349",
+        "guards": [
+          "CREATE TABLE IF NOT EXISTS public.subscription_plans (",
+          "CREATE TABLE IF NOT EXISTS public.subscriptions ("
+        ]
+      }
+    ]
+  },
+  "requiredTables": [
+    {
+      "name": "subscription_plans",
+      "columns": [
+        {"ordinal": 1, "name": "id", "sqlAnchor": "id UUID PRIMARY KEY DEFAULT gen_random_uuid(),"},
+        {"ordinal": 2, "name": "merchant_id", "sqlAnchor": "merchant_id UUID NOT NULL,"},
+        {"ordinal": 3, "name": "name", "sqlAnchor": "name VARCHAR(100) NOT NULL,"},
+        {"ordinal": 4, "name": "description", "sqlAnchor": "description TEXT,"},
+        {"ordinal": 5, "name": "amount", "sqlAnchor": "amount VARCHAR(78) NOT NULL,"},
+        {"ordinal": 6, "name": "currency", "sqlAnchor": "currency VARCHAR(10) NOT NULL,"},
+        {"ordinal": 7, "name": "chain_id", "sqlAnchor": "chain_id VARCHAR(10) NOT NULL,"},
+        {"ordinal": 8, "name": "interval", "sqlAnchor": "interval INTEGER NOT NULL,"},
+        {"ordinal": 9, "name": "active", "sqlAnchor": "active BOOLEAN DEFAULT true,"},
+        {"ordinal": 10, "name": "created_at", "sqlAnchor": "created_at TIMESTAMPTZ DEFAULT NOW()"}
+      ]
+    },
+    {
+      "name": "subscriptions",
+      "columns": [
+        {"ordinal": 1, "name": "id", "sqlAnchor": "id UUID PRIMARY KEY DEFAULT gen_random_uuid(),"},
+        {"ordinal": 2, "name": "user_id", "sqlAnchor": "user_id UUID NOT NULL,"},
+        {"ordinal": 3, "name": "plan_id", "sqlAnchor": "plan_id UUID REFERENCES public.subscription_plans(id),"},
+        {"ordinal": 4, "name": "status", "sqlAnchor": "status VARCHAR(20) DEFAULT 'active',"},
+        {"ordinal": 5, "name": "account_id", "sqlAnchor": "account_id VARCHAR(42),"},
+        {"ordinal": 6, "name": "payment_token", "sqlAnchor": "payment_token VARCHAR(42),"},
+        {"ordinal": 7, "name": "vault_position_id", "sqlAnchor": "vault_position_id VARCHAR(100),"},
+        {"ordinal": 8, "name": "current_period_start", "sqlAnchor": "current_period_start TIMESTAMPTZ,"},
+        {"ordinal": 9, "name": "current_period_end", "sqlAnchor": "current_period_end TIMESTAMPTZ,"},
+        {"ordinal": 10, "name": "created_at", "sqlAnchor": "created_at TIMESTAMPTZ DEFAULT NOW()"}
+      ]
+    }
+  ],
+  "isolatedScannerDelta": {
+    "runtimeRustDdlFindings": {"before": 37, "after": 35, "delta": -2},
+    "actionableFindings": {"before": 31, "after": 29, "delta": -2},
+    "subscriptionFindings": {"before": 2, "after": 0, "delta": -2},
+    "reviewedExceptions": {"before": 6, "after": 6, "delta": 0},
+    "status": "isolated-projection-only-canonical-rebaseline-owned-elsewhere"
+  },
+  "nonClaims": [
+    "The candidate two-table schema is not a proven mapping from the development monolith wallet-plan assignment source of truth.",
+    "The legacy UUID user_id column does not establish canonical wallet ownership or safe owner-scoped subscription access.",
+    "String amount, interval, and status columns do not prove authoritative billing, renewal, plan-access, or ranking semantics.",
+    "Static query and migration inspection does not prove compatibility, adoption, preservation, or reconciliation against a live database."
+  ],
+  "blockers": [
+    {
+      "id": "B01",
+      "category": "migration-runner",
+      "status": "blocked",
+      "summary": "No reviewed runner discovers, orders, records, or executes the subscription migration root."
+    },
+    {
+      "id": "B02",
+      "category": "baseline-adoption",
+      "status": "blocked",
+      "summary": "No safe version-ledger adoption flow for already matching deployed subscription tables has been designed or proven."
+    },
+    {
+      "id": "B03",
+      "category": "populated-upgrade",
+      "status": "blocked",
+      "summary": "No populated development-source or candidate-source upgrade fixture has executed this migration while preserving rows."
+    },
+    {
+      "id": "B04",
+      "category": "reconciliation",
+      "status": "blocked",
+      "summary": "No wallet, plan, subscription, row-count, constraint, or semantic reconciliation has been executed."
+    },
+    {
+      "id": "B05",
+      "category": "concurrent-startup",
+      "status": "blocked",
+      "summary": "No concurrent migration and subscription-service startup ordering test has run."
+    },
+    {
+      "id": "B06",
+      "category": "live-database",
+      "status": "blocked",
+      "summary": "Neither the migration nor the read-only compatibility check has run against a live database."
+    }
+  ]
+}

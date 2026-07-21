@@ -1,0 +1,348 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A3.8-identity-lifecycle-schema",
+  "purpose": "offline-static-additive-identity-lifecycle-schema-only",
+  "productionReady": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "scope": {
+    "service": "services/identity",
+    "database": "epsx_identity",
+    "schema": "public",
+    "status": "partial-schema-only",
+    "routesEnabled": false
+  },
+  "safety": {
+    "deploymentAuthorized": false,
+    "databaseAccessAuthorized": false,
+    "migrationExecutionAuthorized": false,
+    "networkAccessAuthorized": false,
+    "jwksAccessAuthorized": false,
+    "serviceExecutionAuthorized": false,
+    "runtimeIntegrationAuthorized": false,
+    "dataRewriteAuthorized": false,
+    "readinessMeaning": "Integrity proves immutable source evidence and exact additive SQL bytes only; it is not migration, upgrade, runtime, concurrency, JWKS, or live-database evidence."
+  },
+  "authority": {
+    "historicalAudit": {
+      "path": "docs/migration/contracts/a2-3-identity-authorization.json",
+      "sha256": "7b71f7adda0767bea01aabb8d9ff8dd0a0ed6d3c9982375fce16c78ae74b3027",
+      "contractId": "A2.3h-identity-direct-service-authorization-audit"
+    },
+    "failClosedRuntime": {
+      "path": "docs/migration/contracts/a2-3-identity-fail-closed-runtime.json",
+      "sha256": "5cf05d13c06c11d0ad785b4b1329356d0e8a793f54752d4b12c43b22d2a352a2",
+      "contractId": "A2.3i-identity-direct-service-fail-closed-runtime"
+    },
+    "interpretation": "A3.8 may define additive persistence shape only. A2.3i continues to hide every identity lifecycle route."
+  },
+  "sourceEvidence": {
+    "developmentCommit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "developmentRefLabel": "origin/development",
+    "historicalCandidateCommit": "0cdd7ba1967d52e299000b7290873cd4d19dfd09",
+    "failClosedCommit": "f5aa5b393cc0856a1ab2cba42746daa05b8c25c1",
+    "items": [
+      {
+        "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+        "path": "apps/backend/migrations/core/00000000000001_consolidated_baseline_v6/up.sql",
+        "blob": "3cf683bc589f7252fd1be64ab62b69958fc292de",
+        "anchors": [
+          "CREATE TABLE wallet_users (",
+          "CREATE TABLE web3_auth_nonces (",
+          "CREATE TABLE openid_refresh_tokens ("
+        ]
+      },
+      {
+        "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+        "path": "apps/backend/migrations/core/20260427000000_allow_multiple_web3_nonces/up.sql",
+        "blob": "c970600c13978919ab6cc88fc9702511f9f50e1a",
+        "anchors": [
+          "ADD CONSTRAINT web3_auth_nonces_pkey PRIMARY KEY (nonce)",
+          "CREATE INDEX IF NOT EXISTS idx_web3_auth_nonces_wallet_address"
+        ]
+      },
+      {
+        "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+        "path": "apps/backend/src/auth/auth_service.rs",
+        "blob": "1a8414c6996b74eb8c200911309431955186cf3c",
+        "anchors": [
+          "self.cleanup_nonce(&wallet_address, &request.nonce).await?;",
+          "Signature verification failed"
+        ]
+      },
+      {
+        "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+        "path": "apps/backend/src/auth/challenge_service.rs",
+        "blob": "a39f95fdd498d09e69638182fa47fb5f2f607f1b",
+        "anchors": [
+          "chain_id: std::env::var(\"CHAIN_ID\")",
+          ".and_then(|v| v.parse::<u64>().ok())"
+        ]
+      },
+      {
+        "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+        "path": "apps/backend/src/auth/token_service.rs",
+        "blob": "fb88b092bde0de2e558fb463a135f66cf2eb0f39",
+        "anchors": [
+          "Atomically consume a refresh token and create its replacement.",
+          "openid_refresh_tokens::token_id.eq(&old_token)",
+          "openid_refresh_tokens::is_revoked.eq(true)"
+        ]
+      },
+      {
+        "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+        "path": "apps/backend/migrations/_archive/core/20251126010000_consolidated_schema/up.sql",
+        "blob": "e4af122b12a9f775d528ad0b62fecb34e8b6dfbb",
+        "anchors": [
+          "CREATE TABLE sessions (",
+          "access_token TEXT NOT NULL,",
+          "refresh_token TEXT,"
+        ]
+      },
+      {
+        "commit": "0cdd7ba1967d52e299000b7290873cd4d19dfd09",
+        "path": "services/identity/src/main.rs",
+        "blob": "012e1321aba54280d5b0cdaa81ee133a28ac3dfc",
+        "anchors": [
+          "CREATE TABLE IF NOT EXISTS users (",
+          "let stored: Option<String> = conn.get(&key).await",
+          "let _: i64 = conn.del(&key).await",
+          "verify_token(&req.refresh_token)",
+          "let chain_id_num: u64 = req.chain_id.parse()"
+        ]
+      },
+      {
+        "commit": "f5aa5b393cc0856a1ab2cba42746daa05b8c25c1",
+        "path": "services/identity/src/lib.rs",
+        "blob": "b6a8f64a7afb78b149455e898184ad8042fd33b3",
+        "anchors": [
+          ".route(\"/api/v1/identity/auth/challenge\", post(not_found))",
+          ".route(\"/api/v1/identity/auth/siwe\", post(not_found))",
+          ".route(\"/api/v1/identity/auth/refresh\", post(not_found))",
+          "AccessPolicy::UnsafeLifecycle | AccessPolicy::Blocked"
+        ]
+      },
+      {
+        "commit": "f5aa5b393cc0856a1ab2cba42746daa05b8c25c1",
+        "path": "services/identity/src/main.rs",
+        "blob": "c8363672f6a50202e9ed4dd7046fb772e67e271a",
+        "anchors": [
+          "Identity persistence, SIWE nonce consumption, refresh rotation",
+          "let app = build_router(verifier);",
+          "identity service listening with lifecycle routes disabled"
+        ]
+      }
+    ],
+    "schemaHistoryMatch": "identity-table-create-alter-drop-lexical-inventory",
+    "schemaHistoryPaths": [
+      "apps/backend/migrations/_archive/core/2025-12-19-093202-0000_create_wallet_activity_logs/down.sql",
+      "apps/backend/migrations/_archive/core/2025-12-19-093202-0000_create_wallet_activity_logs/up.sql",
+      "apps/backend/migrations/_archive/core/2025-12-29-113000_add_plan_fields_to_wallet_users/down.sql",
+      "apps/backend/migrations/_archive/core/2025-12-29-113000_add_plan_fields_to_wallet_users/up.sql",
+      "apps/backend/migrations/_archive/core/20251126010000_consolidated_schema/down.sql",
+      "apps/backend/migrations/_archive/core/20251126010000_consolidated_schema/up.sql",
+      "apps/backend/migrations/_archive/core_v4_incremental/00000000000001_consolidated_schema_v4/down.sql",
+      "apps/backend/migrations/_archive/core_v4_incremental/00000000000001_consolidated_schema_v4/up.sql",
+      "apps/backend/migrations/_archive/core_v4_incremental/2026-01-14-170000_remove_sessions_table/down.sql",
+      "apps/backend/migrations/_archive/core_v4_incremental/2026-01-14-170000_remove_sessions_table/up.sql",
+      "apps/backend/migrations/_archive/core_v4_incremental/2026-01-22-120002_rename_permission_groups_to_permission_plans/down.sql",
+      "apps/backend/migrations/_archive/core_v4_incremental/2026-01-22-120002_rename_permission_groups_to_permission_plans/up.sql",
+      "apps/backend/migrations/analytics/00000000000000_diesel_initial_setup/up.sql",
+      "apps/backend/migrations/core/00000000000000_diesel_initial_setup/up.sql",
+      "apps/backend/migrations/core/00000000000001_consolidated_baseline_v6/down.sql",
+      "apps/backend/migrations/core/00000000000001_consolidated_baseline_v6/up.sql",
+      "apps/backend/migrations/core/00000000000001_consolidated_schema_v5/down.sql",
+      "apps/backend/migrations/core/00000000000001_consolidated_schema_v5/up.sql",
+      "apps/backend/migrations/core/20260427000000_allow_multiple_web3_nonces/down.sql",
+      "apps/backend/migrations/core/20260427000000_allow_multiple_web3_nonces/up.sql",
+      "apps/backend/migrations/notifications/00000000000000_diesel_initial_setup/up.sql",
+      "apps/backend/migrations/payments/00000000000000_diesel_initial_setup/up.sql"
+    ]
+  },
+  "migrationRoot": {
+    "path": "services/identity/migrations",
+    "runner": null,
+    "transactionOwner": "future-reviewed-runner",
+    "orderedMigrations": [
+      {
+        "version": "20260722000000",
+        "path": "services/identity/migrations/20260722000000_create_identity_lifecycle.sql",
+        "bytes": 6417,
+        "sha256": "6415b7621d424b639e1f4692c924d4f42539fbf810d774024bc8bbbd152d008c",
+        "statementCount": 10,
+        "guardedTableCount": 4,
+        "guardedIndexCount": 6
+      }
+    ]
+  },
+  "schemaDesign": {
+    "tables": [
+      "public.identity_users",
+      "public.identity_siwe_challenges",
+      "public.identity_refresh_families",
+      "public.identity_refresh_sessions"
+    ],
+    "requiredAnchors": [
+      "CREATE TABLE IF NOT EXISTS public.identity_users (",
+      "user_id UUID PRIMARY KEY,",
+      "wallet_address VARCHAR(42) NOT NULL,",
+      "CONSTRAINT identity_users_wallet_address_unique UNIQUE (wallet_address)",
+      "wallet_address ~ '^0x[0-9a-f]{40}$'",
+      "CREATE TABLE IF NOT EXISTS public.identity_siwe_challenges (",
+      "challenge_id UUID PRIMARY KEY,",
+      "client_id VARCHAR(64) NOT NULL,",
+      "CONSTRAINT identity_siwe_challenges_client_id CHECK (",
+      "client_id IN ('epsx-frontend', 'epsx-admin')",
+      "chain_id VARCHAR(20) NOT NULL,",
+      "WHEN chain_id ~ '^(0|[1-9][0-9]{0,19})$'",
+      "THEN chain_id::NUMERIC <= 18446744073709551615",
+      "nonce_hash BYTEA NOT NULL,",
+      "message_hash BYTEA NOT NULL,",
+      "consumed_at TIMESTAMPTZ,",
+      "CONSTRAINT identity_siwe_challenges_nonce_hash_unique UNIQUE (nonce_hash)",
+      "OCTET_LENGTH(nonce_hash) = 32",
+      "OCTET_LENGTH(message_hash) = 32",
+      "CREATE INDEX IF NOT EXISTS identity_siwe_challenges_active_lookup_idx",
+      "ON public.identity_siwe_challenges (wallet_address, client_id, nonce_hash)",
+      "WHERE consumed_at IS NULL;",
+      "CREATE TABLE IF NOT EXISTS public.identity_refresh_families (",
+      "CONSTRAINT identity_refresh_families_ownership_unique UNIQUE (family_id, user_id, client_id)",
+      "CREATE TABLE IF NOT EXISTS public.identity_refresh_sessions (",
+      "family_id UUID NOT NULL,",
+      "parent_session_id UUID,",
+      "client_id IN ('epsx-frontend', 'epsx-admin')",
+      "token_hash BYTEA NOT NULL,",
+      "hash_key_id VARCHAR(64) NOT NULL,",
+      "hash_version SMALLINT NOT NULL DEFAULT 1,",
+      "generation INTEGER NOT NULL DEFAULT 0,",
+      "CONSTRAINT identity_refresh_sessions_family_fk",
+      "FOREIGN KEY (family_id, user_id, client_id)",
+      "REFERENCES public.identity_refresh_families (family_id, user_id, client_id)",
+      "CONSTRAINT identity_refresh_sessions_lineage_parent_key",
+      "UNIQUE (session_id, user_id, family_id, client_id)",
+      "CONSTRAINT identity_refresh_sessions_parent_lineage_fk",
+      "FOREIGN KEY (parent_session_id, user_id, family_id, client_id)",
+      "REFERENCES public.identity_refresh_sessions (session_id, user_id, family_id, client_id)",
+      "CONSTRAINT identity_refresh_sessions_parent_unique UNIQUE (parent_session_id)",
+      "CONSTRAINT identity_refresh_sessions_not_self_parent CHECK (",
+      "parent_session_id IS NULL OR parent_session_id <> session_id",
+      "CONSTRAINT identity_refresh_sessions_token_hash_unique UNIQUE (hash_key_id, token_hash)",
+      "ON DELETE RESTRICT",
+      "WHERE consumed_at IS NULL AND revoked_at IS NULL;",
+      "CREATE UNIQUE INDEX IF NOT EXISTS identity_refresh_sessions_one_root_per_family_idx",
+      "WHERE parent_session_id IS NULL;"
+    ],
+    "forbiddenAuthorityTerms": [
+      "roles",
+      "permissions",
+      "plans",
+      "tier_level",
+      "subscription"
+    ],
+    "forbiddenSecretColumns": [
+      "access_token",
+      "refresh_token",
+      "raw_token",
+      "jwt_secret",
+      "password",
+      "signature"
+    ]
+  },
+  "lifecycleDesign": {
+    "identity": "Application-generated UUID subjects map one-to-one to lowercase EVM wallet addresses; permission, plan, role, and subscription authority is intentionally absent.",
+    "siweChallenge": "Issuance must store the exact requested frontend or admin client with the challenge; verification and atomic consume must match that stored client, and token issuance must use only the returned stored client.",
+    "crossClientReplay": "A challenge issued for one client must fail verification, consume, and token issuance when presented for the other client, even when wallet, chain, domain, nonce digest, and message digest otherwise match.",
+    "refreshRotation": "Runtime must conditionally consume one active unexpired digest and insert one child in the same transaction; declarative family and parent keys preserve user, family, and client lineage, but exact child generation equals parent generation plus one remains a transactional concurrency STOP.",
+    "refreshRevocationRace": "Refresh rotation and family revocation must share one atomic row-locking or serializable boundary: rotation must lock the family row, require revoked_at IS NULL, and let concurrent revocation win by failing rotation before parent consume or child insert.",
+    "refreshStorage": "Only a keyed 32-byte token digest and non-secret key identifier/version are stored; the schema does not claim or enforce a particular digest algorithm, and raw refresh tokens and signing secrets never enter this schema.",
+    "runtimeImplemented": false,
+    "concurrencyProven": false,
+    "crossClientReplayProven": false,
+    "exactGenerationIncrementProven": false,
+    "revokeVsRotateProven": false
+  },
+  "negativeStaticCases": [
+    "challenge-client-binding-removed",
+    "challenge-cross-client-replay-authorized",
+    "chain-id-u64-upper-bound-removed",
+    "refresh-family-owner-mismatch",
+    "refresh-parent-lineage-mismatch",
+    "refresh-self-parent-authorized",
+    "refresh-single-successor-unique-removed",
+    "refresh-one-root-index-removed",
+    "refresh-revoke-vs-rotate-overclaim",
+    "if-not-exists-catalog-adoption-overclaim",
+    "digest-algorithm-overclaim"
+  ],
+  "nonClaims": [
+    "The guarded tables do not prove compatibility with any existing users, wallet_users, web3_auth_nonces, openid_refresh_tokens, or sessions relation.",
+    "The schema does not implement SIWE signature verification, stored-message/client binding, conditional consume SQL, cross-client replay denial, refresh rotation SQL, or reuse response.",
+    "No roles, permissions, plans, tiers, subscriptions, or frontend authorization decisions are introduced by this package.",
+    "A byte-pinned migration file without a reviewed runner and version ledger is not executable upgrade evidence.",
+    "IF NOT EXISTS provides name idempotence only: it neither validates catalog compatibility nor proves that an existing relation safely adopted this migration version.",
+    "Thirty-two-byte digest columns and key-version metadata do not prove which digest algorithm runtime will use or that its cryptographic implementation is correct.",
+    "The schema does not prove row-lock ordering between family revocation and refresh rotation or that revocation wins before any parent consume or child insert."
+  ],
+  "blockers": [
+    {
+      "id": "B01",
+      "category": "migration-runner",
+      "status": "blocked",
+      "summary": "No reviewed runner discovers, orders, records, or executes the identity migration root."
+    },
+    {
+      "id": "B02",
+      "category": "baseline-mapping",
+      "status": "blocked",
+      "summary": "Existing users and core wallet/auth relations have no approved source-to-target baseline mapping."
+    },
+    {
+      "id": "B03",
+      "category": "backfill",
+      "status": "blocked",
+      "summary": "No additive identity, challenge, or refresh-session backfill has been designed and reconciled."
+    },
+    {
+      "id": "B04",
+      "category": "populated-upgrade",
+      "status": "blocked",
+      "summary": "No populated source-version fixture has executed the ordered migration while preserving rows."
+    },
+    {
+      "id": "B05",
+      "category": "concurrency",
+      "status": "blocked",
+      "summary": "No concurrent nonce consume, cross-client replay, exact generation increment, revoke-vs-rotate ordering, refresh rotation, reuse, revocation, or startup test has run."
+    },
+    {
+      "id": "B06",
+      "category": "reconciliation",
+      "status": "blocked",
+      "summary": "No pre/post row, identity, constraint, orphan, expiry, or active-session reconciliation has run."
+    },
+    {
+      "id": "B07",
+      "category": "runtime-integration",
+      "status": "blocked",
+      "summary": "Identity lifecycle routes remain disabled and no audited repository or transaction implementation uses this schema."
+    },
+    {
+      "id": "B08",
+      "category": "external-jwks",
+      "status": "blocked",
+      "summary": "Canonical issuer, key rotation, audience, and external JWKS integration have not been exercised."
+    },
+    {
+      "id": "B09",
+      "category": "live-database",
+      "status": "blocked",
+      "summary": "Neither migration nor compatibility behavior has run against a disposable or live database."
+    },
+    {
+      "id": "B10",
+      "category": "catalog-compatibility",
+      "status": "blocked",
+      "summary": "IF NOT EXISTS proves only name idempotence; no catalog compatibility check or version-ledger adoption protocol rejects an incompatible existing relation."
+    }
+  ]
+}

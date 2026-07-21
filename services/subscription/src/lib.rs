@@ -14,6 +14,181 @@ use thiserror::Error;
 pub const PLANS_READ_PERMISSION: &str = "admin:plans:read";
 pub const PLANS_MANAGE_PERMISSION: &str = "admin:plans:manage";
 
+const SUBSCRIPTION_SCHEMA_COMPATIBILITY_QUERY: &str = r#"
+WITH expected_columns (
+    table_name,
+    column_name,
+    ordinal_position,
+    data_type,
+    udt_name,
+    is_nullable,
+    character_maximum_length,
+    default_kind
+) AS (
+    VALUES
+        ('subscription_plans', 'id', 1, 'uuid', 'uuid', 'NO', NULL::bigint, 'uuid'),
+        ('subscription_plans', 'merchant_id', 2, 'uuid', 'uuid', 'NO', NULL::bigint, 'none'),
+        ('subscription_plans', 'name', 3, 'character varying', 'varchar', 'NO', 100::bigint, 'none'),
+        ('subscription_plans', 'description', 4, 'text', 'text', 'YES', NULL::bigint, 'none'),
+        ('subscription_plans', 'amount', 5, 'character varying', 'varchar', 'NO', 78::bigint, 'none'),
+        ('subscription_plans', 'currency', 6, 'character varying', 'varchar', 'NO', 10::bigint, 'none'),
+        ('subscription_plans', 'chain_id', 7, 'character varying', 'varchar', 'NO', 10::bigint, 'none'),
+        ('subscription_plans', 'interval', 8, 'integer', 'int4', 'NO', NULL::bigint, 'none'),
+        ('subscription_plans', 'active', 9, 'boolean', 'bool', 'YES', NULL::bigint, 'true'),
+        ('subscription_plans', 'created_at', 10, 'timestamp with time zone', 'timestamptz', 'YES', NULL::bigint, 'now'),
+        ('subscriptions', 'id', 1, 'uuid', 'uuid', 'NO', NULL::bigint, 'uuid'),
+        ('subscriptions', 'user_id', 2, 'uuid', 'uuid', 'NO', NULL::bigint, 'none'),
+        ('subscriptions', 'plan_id', 3, 'uuid', 'uuid', 'YES', NULL::bigint, 'none'),
+        ('subscriptions', 'status', 4, 'character varying', 'varchar', 'YES', 20::bigint, 'active'),
+        ('subscriptions', 'account_id', 5, 'character varying', 'varchar', 'YES', 42::bigint, 'none'),
+        ('subscriptions', 'payment_token', 6, 'character varying', 'varchar', 'YES', 42::bigint, 'none'),
+        ('subscriptions', 'vault_position_id', 7, 'character varying', 'varchar', 'YES', 100::bigint, 'none'),
+        ('subscriptions', 'current_period_start', 8, 'timestamp with time zone', 'timestamptz', 'YES', NULL::bigint, 'none'),
+        ('subscriptions', 'current_period_end', 9, 'timestamp with time zone', 'timestamptz', 'YES', NULL::bigint, 'none'),
+        ('subscriptions', 'created_at', 10, 'timestamp with time zone', 'timestamptz', 'YES', NULL::bigint, 'now')
+),
+column_compatibility AS (
+    SELECT bool_and(
+        actual.column_name IS NOT NULL
+        AND actual.ordinal_position = expected.ordinal_position
+        AND actual.data_type = expected.data_type
+        AND actual.udt_name = expected.udt_name
+        AND actual.is_nullable = expected.is_nullable
+        AND actual.character_maximum_length IS NOT DISTINCT FROM expected.character_maximum_length
+        AND COALESCE(
+            CASE expected.default_kind
+                WHEN 'uuid' THEN actual.column_default = 'gen_random_uuid()'
+                WHEN 'true' THEN actual.column_default = 'true'
+                WHEN 'now' THEN actual.column_default IN ('now()', 'CURRENT_TIMESTAMP')
+                WHEN 'active' THEN actual.column_default IN (
+                    '''active''::character varying',
+                    '''active''::text',
+                    '''active'''
+                )
+                ELSE actual.column_default IS NULL
+            END,
+            false
+        )
+    ) AS compatible
+    FROM expected_columns AS expected
+    LEFT JOIN information_schema.columns AS actual
+      ON actual.table_schema = 'public'
+     AND actual.table_name = expected.table_name
+     AND actual.column_name = expected.column_name
+),
+column_inventory_compatibility AS (
+    SELECT COUNT(*) = 20 AS compatible
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name IN ('subscription_plans', 'subscriptions')
+),
+primary_key_compatibility AS (
+    SELECT COUNT(*) = 2 AS compatible
+    FROM pg_catalog.pg_constraint AS constraint_record
+    JOIN pg_catalog.pg_class AS table_record
+      ON table_record.oid = constraint_record.conrelid
+    JOIN pg_catalog.pg_namespace AS namespace_record
+      ON namespace_record.oid = table_record.relnamespace
+    JOIN pg_catalog.pg_attribute AS attribute_record
+      ON attribute_record.attrelid = table_record.oid
+     AND attribute_record.attnum = constraint_record.conkey[1]
+    WHERE namespace_record.nspname = 'public'
+      AND table_record.relname IN ('subscription_plans', 'subscriptions')
+      AND constraint_record.contype = 'p'
+      AND constraint_record.convalidated
+      AND cardinality(constraint_record.conkey) = 1
+      AND attribute_record.attname = 'id'
+),
+primary_key_index_compatibility AS (
+    SELECT COUNT(*) = 2 AS compatible
+    FROM pg_catalog.pg_constraint AS constraint_record
+    JOIN pg_catalog.pg_class AS table_record
+      ON table_record.oid = constraint_record.conrelid
+    JOIN pg_catalog.pg_namespace AS namespace_record
+      ON namespace_record.oid = table_record.relnamespace
+    JOIN pg_catalog.pg_index AS index_record
+      ON index_record.indexrelid = constraint_record.conindid
+    WHERE namespace_record.nspname = 'public'
+      AND table_record.relname IN ('subscription_plans', 'subscriptions')
+      AND constraint_record.contype = 'p'
+      AND constraint_record.convalidated
+      AND index_record.indisprimary
+      AND index_record.indisunique
+      AND index_record.indisvalid
+      AND index_record.indisready
+),
+foreign_key_compatibility AS (
+    SELECT COUNT(*) = 1
+      AND (
+          SELECT COUNT(*)
+          FROM pg_catalog.pg_constraint AS all_foreign_keys
+          JOIN pg_catalog.pg_class AS all_source_tables
+            ON all_source_tables.oid = all_foreign_keys.conrelid
+          JOIN pg_catalog.pg_namespace AS all_source_namespaces
+            ON all_source_namespaces.oid = all_source_tables.relnamespace
+          WHERE all_source_namespaces.nspname = 'public'
+            AND all_source_tables.relname IN ('subscription_plans', 'subscriptions')
+            AND all_foreign_keys.contype = 'f'
+      ) = 1 AS compatible
+    FROM pg_catalog.pg_constraint AS constraint_record
+    JOIN pg_catalog.pg_class AS source_table
+      ON source_table.oid = constraint_record.conrelid
+    JOIN pg_catalog.pg_namespace AS source_namespace
+      ON source_namespace.oid = source_table.relnamespace
+    JOIN pg_catalog.pg_attribute AS source_column
+      ON source_column.attrelid = source_table.oid
+     AND source_column.attnum = constraint_record.conkey[1]
+    JOIN pg_catalog.pg_class AS target_table
+      ON target_table.oid = constraint_record.confrelid
+    JOIN pg_catalog.pg_namespace AS target_namespace
+      ON target_namespace.oid = target_table.relnamespace
+    JOIN pg_catalog.pg_attribute AS target_column
+      ON target_column.attrelid = target_table.oid
+     AND target_column.attnum = constraint_record.confkey[1]
+    WHERE source_namespace.nspname = 'public'
+      AND source_table.relname = 'subscriptions'
+      AND source_column.attname = 'plan_id'
+      AND target_namespace.nspname = 'public'
+      AND target_table.relname = 'subscription_plans'
+      AND target_column.attname = 'id'
+      AND constraint_record.contype = 'f'
+      AND constraint_record.convalidated
+      AND cardinality(constraint_record.conkey) = 1
+      AND cardinality(constraint_record.confkey) = 1
+      AND constraint_record.confupdtype = 'a'
+      AND constraint_record.confdeltype = 'a'
+)
+SELECT
+    to_regclass('public.subscription_plans') IS NOT NULL
+    AND to_regclass('public.subscriptions') IS NOT NULL
+    AND COALESCE((SELECT compatible FROM column_compatibility), false)
+    AND (SELECT compatible FROM column_inventory_compatibility)
+    AND (SELECT compatible FROM primary_key_compatibility)
+    AND (SELECT compatible FROM primary_key_index_compatibility)
+    AND (SELECT compatible FROM foreign_key_compatibility)
+"#;
+
+#[derive(Debug, Error)]
+pub enum SubscriptionSchemaError {
+    #[error("subscription schema compatibility query failed")]
+    Query(#[source] sqlx::Error),
+    #[error(
+        "subscription schema is incompatible; run the reviewed subscription migration before startup"
+    )]
+    Incompatible,
+}
+
+pub async fn verify_schema_compatibility(db: &sqlx::PgPool) -> Result<(), SubscriptionSchemaError> {
+    let compatible = sqlx::query_scalar::<_, bool>(SUBSCRIPTION_SCHEMA_COMPATIBILITY_QUERY)
+        .fetch_one(db)
+        .await
+        .map_err(SubscriptionSchemaError::Query)?;
+    if !compatible {
+        return Err(SubscriptionSchemaError::Incompatible);
+    }
+    Ok(())
+}
+
 #[derive(Debug, Error)]
 pub enum SubscriptionConfigError {
     #[error("HTTP client configuration failed")]
@@ -259,6 +434,59 @@ mod tests {
 
     async fn status(app: &Router, request: axum::http::Request<Body>) -> StatusCode {
         app.clone().oneshot(request).await.unwrap().status()
+    }
+
+    #[test]
+    fn schema_compatibility_query_is_read_only_and_complete() {
+        let query = SUBSCRIPTION_SCHEMA_COMPATIBILITY_QUERY;
+        assert!(query.trim_start().starts_with("WITH expected_columns ("));
+        assert_eq!(
+            query
+                .lines()
+                .filter(|line| line.trim_start().starts_with("('subscription_plans', '"))
+                .count(),
+            10
+        );
+        assert_eq!(
+            query
+                .lines()
+                .filter(|line| line.trim_start().starts_with("('subscriptions', '"))
+                .count(),
+            10
+        );
+        for anchor in [
+            "LEFT JOIN information_schema.columns AS actual",
+            "AND COALESCE(\n            CASE expected.default_kind",
+            "AND COALESCE((SELECT compatible FROM column_compatibility), false)",
+            "to_regclass('public.subscription_plans') IS NOT NULL",
+            "to_regclass('public.subscriptions') IS NOT NULL",
+            "constraint_record.confupdtype = 'a'",
+            "constraint_record.confdeltype = 'a'",
+            "AND index_record.indisvalid",
+            "AND index_record.indisready",
+        ] {
+            assert!(query.contains(anchor), "missing schema anchor: {anchor}");
+        }
+
+        let uppercase = query.to_ascii_uppercase();
+        for forbidden in [
+            "INSERT ",
+            "UPDATE ",
+            "DELETE ",
+            "CREATE ",
+            "ALTER ",
+            "DROP ",
+            "TRUNCATE ",
+            "GRANT ",
+            "REVOKE ",
+            "CALL ",
+            "DO ",
+        ] {
+            assert!(
+                !uppercase.contains(forbidden),
+                "schema query contains command token: {forbidden}"
+            );
+        }
     }
 
     #[tokio::test]

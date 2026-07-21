@@ -15,11 +15,12 @@
 //! down — same behaviour the previous string-template fallback had.
 
 use axum::{
-    extract::{Path as AxPath, State},
+    extract::{Path as AxPath, Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
+use chrono::{DateTime, NaiveDate};
 use epsx_bff::{
     cookies::{append_clear_session_cookies, append_session_cookies},
     session::{
@@ -28,7 +29,8 @@ use epsx_bff::{
         CHALLENGE_PATH, FRONTEND_CLIENT_ID, LOGOUT_PATH, PROFILE_PATH, REFRESH_PATH, VERIFY_PATH,
     },
 };
-use serde::Deserialize;
+use epsx_client::{ClientError, ServiceClient};
+use serde::{Deserialize, Serialize};
 
 use super::AppState;
 
@@ -40,10 +42,182 @@ pub struct AnalyticsTrackBody {
     pub chain_id: Option<String>,
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Clone, Debug, Deserialize, Default, PartialEq, Eq)]
 pub struct NewsQuery {
     pub page: Option<u32>,
-    pub limit: Option<u32>,
+    pub q: Option<String>,
+    pub category: Option<String>,
+    // Accepted only so both Axum and the raw SSR parser can reject the old
+    // public knob explicitly. News parity uses the pinned fixed page size.
+    limit: Option<u32>,
+}
+
+const NEWS_PAGE_SIZE: u32 = 12;
+const NEWS_UPSTREAM_FETCH_LIMIT: u32 = 100;
+const NEWS_LIST_PATH: &str = "/api/v1/content/news?page=1&limit=100";
+const NEWS_CATEGORIES: [&str; 4] = ["all", "updates", "engineering", "product"];
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct NormalizedNewsQuery {
+    page: u32,
+    limit: u32,
+    q: String,
+    category: String,
+}
+
+impl NewsQuery {
+    pub(crate) fn from_raw_query(raw: &str) -> Result<Self, ()> {
+        let url =
+            reqwest::Url::parse(&format!("https://frontend.invalid/?{raw}")).map_err(|_| ())?;
+        let mut query = Self::default();
+        let mut seen = std::collections::HashSet::new();
+        for (key, value) in url.query_pairs() {
+            let key = key.as_ref();
+            if !matches!(key, "page" | "limit" | "q" | "category") {
+                continue;
+            }
+            if !seen.insert(key.to_string()) {
+                return Err(());
+            }
+            match key {
+                "page" => query.page = Some(value.parse().map_err(|_| ())?),
+                "limit" => query.limit = Some(value.parse().map_err(|_| ())?),
+                "q" => query.q = Some(value.into_owned()),
+                "category" => query.category = Some(value.into_owned()),
+                _ => unreachable!(),
+            }
+        }
+        Ok(query)
+    }
+
+    fn normalize(&self) -> Result<NormalizedNewsQuery, ()> {
+        let q = self.q.clone().unwrap_or_default();
+        if self.limit.is_some() {
+            return Err(());
+        }
+        let category = self.category.clone().unwrap_or_else(|| "all".to_string());
+        let safe_text = |value: &str, max: usize| {
+            value.chars().count() <= max && !value.chars().any(|ch| ch.is_control())
+        };
+        if !safe_text(&q, 200)
+            || !safe_text(&category, 64)
+            || !NEWS_CATEGORIES.contains(&category.as_str())
+        {
+            return Err(());
+        }
+        Ok(NormalizedNewsQuery {
+            page: self.page.unwrap_or(1).max(1),
+            limit: NEWS_PAGE_SIZE,
+            q,
+            category,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct UpstreamNewsArticle {
+    #[serde(default)]
+    id: Option<String>,
+    slug: String,
+    #[serde(default, rename = "href")]
+    _href: Option<String>,
+    title: String,
+    #[serde(default)]
+    summary: Option<String>,
+    #[serde(default)]
+    excerpt: Option<String>,
+    #[serde(default)]
+    content: Option<String>,
+    #[serde(default)]
+    body: Option<String>,
+    #[serde(default)]
+    cover_image_url: Option<String>,
+    #[serde(default)]
+    image: Option<String>,
+    #[serde(default)]
+    author_wallet: Option<String>,
+    #[serde(default)]
+    author: Option<String>,
+    #[serde(default)]
+    status: Option<String>,
+    #[serde(default)]
+    tags: Vec<String>,
+    #[serde(default)]
+    tag1: String,
+    #[serde(default)]
+    tag2: String,
+    #[serde(default)]
+    published_at: Option<String>,
+    #[serde(default)]
+    published: Option<String>,
+    #[serde(default)]
+    date: Option<String>,
+    #[serde(default)]
+    read_time: Option<String>,
+    #[serde(default)]
+    featured: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub(crate) struct NewsListArticle {
+    pub id: Option<String>,
+    pub slug: String,
+    pub title: String,
+    pub summary: String,
+    pub cover_image_url: Option<String>,
+    pub author: Option<String>,
+    pub published_at: Option<String>,
+    pub read_time: Option<String>,
+    pub tags: Vec<String>,
+    pub featured: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub(crate) struct NewsDetailArticle {
+    pub id: Option<String>,
+    pub slug: String,
+    pub title: String,
+    pub summary: Option<String>,
+    pub body: String,
+    pub cover_image_url: Option<String>,
+    pub author: Option<String>,
+    pub published_at: Option<String>,
+    pub read_time: Option<String>,
+    pub tags: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub(crate) enum NewsListLoadOutcome {
+    Ready {
+        articles: Vec<NewsListArticle>,
+        total: u64,
+        page: u32,
+        limit: u32,
+        total_pages: u32,
+        query: String,
+        category: String,
+    },
+    Empty {
+        total: u64,
+        page: u32,
+        limit: u32,
+        total_pages: u32,
+        query: String,
+        category: String,
+    },
+    Error {
+        code: String,
+    },
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub(crate) enum NewsDetailLoadOutcome {
+    Ready { article: NewsDetailArticle },
+    NotFound,
+    Error { code: String },
 }
 
 pub async fn api_health() -> &'static str {
@@ -869,165 +1043,739 @@ pub async fn api_subscription_create_plan(
     }))
 }
 
-/// Build the news list payload (10 articles matching the prod
-/// slugs captured by T1's prod baseline). Returns the inner
-/// `articles` + `total` object so both the BFF route and the
-/// SSR layer can hand the same shape to the dev `NewsPost`
-/// deserializer. Wave 31 T1 — extracted from `api_news` so the
-/// SSR layer can call it in-process (no HTTP round-trip via
-/// the upstream gateway) and so the BFF route is just a thin
-/// wrapper.
-pub fn news_list_value() -> serde_json::Value {
-    let articles = vec![
-        article("strategic-roadmap-future", "Strategic Roadmap and Future Capabilities", "A preview of upcoming system enhancements, including automated alerts and expanded analytical depth.", "2025-02-01", &["roadmap", "strategy"], "/news-img/strategic-roadmap-future.png", true),
-        article("enhanced-portfolio-management", "Enhanced Portfolio Management Solutions", "Tools and insights for the modern portfolio manager.", "2025-02-01", &["portfolio", "product"], "/news-img/enhanced-portfolio-management.png", false),
-        article("service-tier-alignment", "Integrated Service Solutions: Professional Tier Alignment", "How EPSX services scale across professional subscription tiers.", "2025-02-01", &["service", "tiers"], "/news-img/service-tier-alignment.png", false),
-        article("performance-metrics-positioning", "Proprietary Performance Metrics and Strategic Positioning", "The metrics that set EPSX apart.", "2025-02-01", &["metrics", "strategy"], "/news-img/performance-metrics-positioning.png", false),
-        article("strategic-launch-epsx", "Strategic Launch of EPSX: Institutional-Grade Market Insights", "Our strategic launch announcement.", "2025-02-01", &["launch", "announcement"], "/news-img/strategic-launch-epsx.png", false),
-        article("optimizing-high-throughput-analytics-rust", "Strategic Analysis Performance for Operational Excellence", "How EPSX leverages high-performance data processing to deliver precise rankings and insights.", "2025-02-01", &["performance", "engineering"], "/news-img/optimizing-high-throughput-analytics-rust.png", false),
-        article("real-time-market-data-redis-streams", "Real-Time Intelligence: Capturing Market Opportunities as They Happen", "How the EPSX dashboard removes the gap between on-chain events and your decision-making.", "2025-02-01", &["real-time", "redis"], "/news-img/real-time-market-data-redis-streams.png", false),
-        article("future-secure-web3-auth", "Securing the Future: Enterprise-Grade Trust in a Web3 World", "SIWE, RBAC, audit logs, and rate limiting.", "2025-02-01", &["security", "web3"], "/news-img/future-secure-web3-auth.png", false),
-        article("scalable-postgresql-time-series", "Built for Ambition: A Scalable Foundation for Global Analytics", "Scaling a global analytics platform with an industrial-strength architecture.", "2025-02-01", &["database", "scalability"], "/news-img/scalable-postgresql-time-series.png", false),
-        article("predictive-ai-models-market-sentiment", "Smarter Decisions: How EPSX AI Navigates Market Complexity", "Layering machine learning on top of on-chain data.", "2025-02-01", &["ai", "product"], "/news-img/predictive-ai-models-market-sentiment.png", false),
+pub(crate) fn valid_news_slug(slug: &str) -> bool {
+    !slug.is_empty()
+        && slug.len() <= 128
+        && !slug.starts_with('-')
+        && !slug.ends_with('-')
+        && slug
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+}
+
+fn valid_cover_image_url(value: &str) -> bool {
+    if value.is_empty() || value.chars().any(char::is_control) || value.contains('\\') {
+        return false;
+    }
+    if value.starts_with('/') {
+        return !value.starts_with("//");
+    }
+    reqwest::Url::parse(value).is_ok_and(|url| {
+        url.scheme() == "https"
+            && url.username().is_empty()
+            && url.password().is_none()
+            && url.fragment().is_none()
+    })
+}
+
+struct DecodedNewsPayload {
+    data: serde_json::Value,
+    legacy: bool,
+}
+
+fn object_has_only_keys(
+    object: &serde_json::Map<String, serde_json::Value>,
+    allowed: &[&str],
+) -> bool {
+    object.keys().all(|key| allowed.contains(&key.as_str()))
+}
+
+fn upstream_error_is_clear(error: Option<&serde_json::Value>) -> bool {
+    match error {
+        None | Some(serde_json::Value::Null) => true,
+        Some(serde_json::Value::String(message)) => message.is_empty(),
+        Some(_) => false,
+    }
+}
+
+fn upstream_success_data(value: serde_json::Value) -> Result<DecodedNewsPayload, ()> {
+    let Some(object) = value.as_object() else {
+        return Err(());
+    };
+    if object.contains_key("success") {
+        if !object_has_only_keys(object, &["success", "data", "error"])
+            || object.get("success").and_then(serde_json::Value::as_bool) != Some(true)
+            || !upstream_error_is_clear(object.get("error"))
+        {
+            return Err(());
+        }
+        return Ok(DecodedNewsPayload {
+            data: object.get("data").cloned().ok_or(())?,
+            legacy: false,
+        });
+    }
+    Ok(DecodedNewsPayload {
+        data: value,
+        legacy: true,
+    })
+}
+
+fn normalize_tags(mut article: UpstreamNewsArticle) -> UpstreamNewsArticle {
+    if article.tags.is_empty() {
+        if !article.tag1.is_empty() {
+            article.tags.push(std::mem::take(&mut article.tag1));
+        }
+        if !article.tag2.is_empty() {
+            article.tags.push(std::mem::take(&mut article.tag2));
+        }
+    }
+    article
+}
+
+fn normalize_news_date(value: Option<String>) -> Result<Option<String>, ()> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    let date = DateTime::parse_from_rfc3339(&value)
+        .map(|date| date.date_naive())
+        .or_else(|_| NaiveDate::parse_from_str(&value, "%Y-%m-%d"))
+        .or_else(|_| NaiveDate::parse_from_str(&value, "%B %e, %Y"))
+        .map_err(|_| ())?;
+    const MONTHS: [&str; 12] = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
     ];
-    let total = articles.len();
-    serde_json::json!({ "articles": articles, "total": total })
+    use chrono::Datelike;
+    Ok(Some(format!(
+        "{} {}, {}",
+        MONTHS[date.month0() as usize],
+        date.day(),
+        date.year()
+    )))
 }
 
-pub async fn api_news(_state: State<AppState>) -> Json<serde_json::Value> {
-    // Wave 31 T1 — body moved to `news_list_value()` so the SSR
-    // layer can call the same data shape in-process. The BFF route
-    // is now a thin wrapper.
-    Json(news_list_value())
+fn validate_common_article(article: &UpstreamNewsArticle) -> Result<(), ()> {
+    if !valid_news_slug(&article.slug)
+        || article.title.trim().is_empty()
+        || article.title.chars().count() > 300
+        || article
+            .status
+            .as_deref()
+            .is_some_and(|status| status != "published")
+        || article.tags.len() > 32
+        || article.tags.iter().any(|tag| {
+            tag.trim().is_empty() || tag.chars().count() > 64 || tag.chars().any(char::is_control)
+        })
+        || article
+            .cover_image_url
+            .as_deref()
+            .or(article.image.as_deref())
+            .is_some_and(|url| !valid_cover_image_url(url))
+    {
+        return Err(());
+    }
+    Ok(())
 }
 
-fn article(
-    slug: &str,
-    title: &str,
-    excerpt: &str,
-    date: &str,
-    tags: &[&str],
-    cover: &str,
-    featured: bool,
-) -> serde_json::Value {
-    let tag_vec: Vec<String> = tags.iter().map(|s| s.to_string()).collect();
-    serde_json::json!({
-        "slug": slug,
-        "title": title,
-        "excerpt": excerpt,
-        "summary": excerpt,
-        "date": date,
-        "published_at": date,
-        "author": "EPSX Team",
-        "read_time": "4 min",
-        "tags": tag_vec,
-        "tag1": tags.get(0).copied().unwrap_or(""),
-        "tag2": tags.get(1).copied().unwrap_or(""),
-        "image": cover,
-        "cover_image_url": cover,
-        "featured": featured,
+fn normalize_list_article(article: UpstreamNewsArticle) -> Result<NewsListArticle, ()> {
+    let article = normalize_tags(article);
+    validate_common_article(&article)?;
+    let published_at = normalize_news_date(
+        article
+            .published_at
+            .clone()
+            .or(article.published.clone())
+            .or(article.date.clone()),
+    )?;
+    let summary = article.summary.or(article.excerpt).unwrap_or_default();
+    if summary.chars().count() > 2_000 || summary.chars().any(char::is_control) {
+        return Err(());
+    }
+    Ok(NewsListArticle {
+        id: article.id,
+        slug: article.slug,
+        title: article.title,
+        summary,
+        cover_image_url: article.cover_image_url.or(article.image),
+        author: article.author_wallet.or(article.author),
+        published_at,
+        read_time: article.read_time,
+        tags: article.tags,
+        featured: article.featured,
     })
 }
 
-/// Build the news-post detail payload (full article body). Returns
-/// the inner `serde_json::Value` so both the BFF route and the SSR
-/// layer can share the same shape. Wave 31 T1 — extracted from
-/// `api_news_post` so the SSR layer can call it in-process.
-pub fn news_post_value(slug: &str) -> serde_json::Value {
-    let (title, tags, read_time, author, date): (String, Vec<&str>, String, String, String) =
-        match slug {
-            "scalable-foundation" => (
-                "Building a scalable foundation".to_string(),
-                vec!["Engineering", "Architecture"],
-                "5 min".to_string(),
-                "EPSX Engineering".to_string(),
-                "2025-01-15".to_string(),
-            ),
-            "optimizing-high-throughput-analytics-rust" => (
-                "Optimizing high-throughput analytics".to_string(),
-                vec!["Engineering", "Rust"],
-                "6 min".to_string(),
-                "EPSX Engineering".to_string(),
-                "2025-01-10".to_string(),
-            ),
-            "real-time-intelligence" => (
-                "Real-time intelligence, made simple".to_string(),
-                vec!["Product", "UX"],
-                "4 min".to_string(),
-                "EPSX Product".to_string(),
-                "2025-01-05".to_string(),
-            ),
-            "securing-the-future" => (
-                "Securing the future".to_string(),
-                vec!["Engineering", "Security"],
-                "5 min".to_string(),
-                "EPSX Engineering".to_string(),
-                "2024-12-28".to_string(),
-            ),
-            "smarter-decisions-ai" => (
-                "Smarter decisions, with AI".to_string(),
-                vec!["Product", "AI"],
-                "4 min".to_string(),
-                "EPSX Product".to_string(),
-                "2024-12-20".to_string(),
-            ),
-            "paymaster" => (
-                "Paymaster gas sponsorship".to_string(),
-                vec!["Product", "Web3"],
-                "3 min".to_string(),
-                "EPSX Product".to_string(),
-                "2024-12-15".to_string(),
-            ),
-            "subscription-vaults" => (
-                "Subscription vaults".to_string(),
-                vec!["Engineering", "Smart Contracts"],
-                "7 min".to_string(),
-                "EPSX Engineering".to_string(),
-                "2024-12-10".to_string(),
-            ),
-            _ => {
-                let title: String = slug.replace('-', " ");
-                (
-                    title,
-                    vec!["EPSX", "Update"],
-                    "3 min".to_string(),
-                    "EPSX Team".to_string(),
-                    "2025-01-15".to_string(),
-                )
+fn normalize_detail_article(
+    article: UpstreamNewsArticle,
+    expected_slug: &str,
+) -> Result<NewsDetailArticle, ()> {
+    let article = normalize_tags(article);
+    validate_common_article(&article)?;
+    if article.slug != expected_slug {
+        return Err(());
+    }
+    if article.summary.as_deref().is_some_and(|summary| {
+        summary.chars().count() > 2_000 || summary.chars().any(char::is_control)
+    }) {
+        return Err(());
+    }
+    let published_at = normalize_news_date(
+        article
+            .published_at
+            .clone()
+            .or(article.published.clone())
+            .or(article.date.clone()),
+    )?;
+    let body = article.content.or(article.body).ok_or(())?;
+    if body.trim().is_empty() || body.chars().count() > 500_000 {
+        return Err(());
+    }
+    Ok(NewsDetailArticle {
+        id: article.id,
+        slug: article.slug,
+        title: article.title,
+        summary: article.summary,
+        body,
+        cover_image_url: article.cover_image_url.or(article.image),
+        author: article.author_wallet.or(article.author),
+        published_at,
+        read_time: article.read_time,
+        tags: article.tags,
+    })
+}
+
+fn parse_news_list(value: serde_json::Value) -> Result<Vec<NewsListArticle>, ()> {
+    let payload = upstream_success_data(value)?;
+    let object = payload.data.as_object().ok_or(())?;
+    let allowed = if payload.legacy {
+        &["articles", "total"][..]
+    } else {
+        &["articles", "total", "page", "limit"][..]
+    };
+    if !object_has_only_keys(object, allowed)
+        || !object.contains_key("articles")
+        || !object.contains_key("total")
+    {
+        return Err(());
+    }
+    if object.get("page").is_some_and(|page| {
+        page.as_u64()
+            .is_none_or(|page| page == 0 || page > u32::MAX as u64)
+    }) || object.get("limit").is_some_and(|limit| {
+        limit
+            .as_u64()
+            .is_none_or(|limit| limit == 0 || limit > NEWS_UPSTREAM_FETCH_LIMIT as u64)
+    }) {
+        return Err(());
+    }
+    let raw_articles = object
+        .get("articles")
+        .and_then(serde_json::Value::as_array)
+        .ok_or(())?;
+    let upstream_total = object
+        .get("total")
+        .and_then(serde_json::Value::as_u64)
+        .ok_or(())?;
+    if upstream_total < raw_articles.len() as u64
+        || raw_articles.len() > NEWS_UPSTREAM_FETCH_LIMIT as usize
+    {
+        return Err(());
+    }
+    raw_articles
+        .iter()
+        .cloned()
+        .map(|value| serde_json::from_value(value).map_err(|_| ()))
+        .map(|result| result.and_then(normalize_list_article))
+        .collect()
+}
+
+fn parse_news_detail(
+    value: serde_json::Value,
+    expected_slug: &str,
+) -> Result<NewsDetailArticle, ()> {
+    let payload = upstream_success_data(value)?;
+    let object = payload.data.as_object().ok_or(())?;
+    if payload.legacy {
+        const LEGACY_DETAIL_KEYS: [&str; 4] = ["slug", "title", "body", "published"];
+        if object.len() != LEGACY_DETAIL_KEYS.len()
+            || !LEGACY_DETAIL_KEYS
+                .iter()
+                .all(|key| object.contains_key(*key))
+        {
+            return Err(());
+        }
+    }
+    let article = serde_json::from_value(payload.data).map_err(|_| ())?;
+    normalize_detail_article(article, expected_slug)
+}
+
+fn news_dependency_error(error: ClientError) -> String {
+    if matches!(&error, ClientError::Timeout)
+        || matches!(&error, ClientError::Http(http) if http.is_timeout())
+    {
+        "content_timeout".to_string()
+    } else {
+        "content_unavailable".to_string()
+    }
+}
+
+/// Load, validate, filter, and paginate public news without a canned fallback.
+/// The current content service exposes at most 100 records, so category/search
+/// remain a BFF display concern until A5 freezes a canonical query contract.
+pub(crate) async fn load_news_list(
+    client: &ServiceClient,
+    query: &NewsQuery,
+) -> NewsListLoadOutcome {
+    let normalized = match query.normalize() {
+        Ok(query) => query,
+        Err(()) => {
+            return NewsListLoadOutcome::Error {
+                code: "invalid_news_query".to_string(),
             }
-        };
-    let body = format!(
-        "EPSX now runs on a 9-service Rust backend spanning identity, content, analytics, payments, and more. This is a real production deployment serving thousands of requests per minute.\n\n\
-         ## What's new\n\n\
-         Every service is independently deployable. Each exposes typed gRPC and HTTP/JSON endpoints, ships its own Prometheus metrics, and rolls out via blue/green K8s deployments. The result is a system we can update in seconds without downtime.\n\n\
-         ## How it scales\n\n\
-         Behind the API gateway, the analytics service indexes 8.5M data points and answers EPS ranking queries in under 5ms p99. PostgreSQL handles the relational workload; Redis caches hot paths; ClickHouse (in production) handles the OLAP side.\n\n\
-         ## Get started\n\n\
-         Connect your wallet at /auth, then explore /dashboard, /analytics, and /portfolio to see the data flow end-to-end. API keys are issued from /developer.\n"
-    );
-    let tag_vec: Vec<String> = tags.iter().map(|s| s.to_string()).collect();
-    serde_json::json!({
-        "slug": slug,
-        "title": title,
-        "body": body,
-        "date": date,
-        "published_at": date,
-        "author": author,
-        "read_time": read_time,
-        "tags": tag_vec,
-        "tag1": tags.get(0).copied().unwrap_or(""),
-        "tag2": tags.get(1).copied().unwrap_or(""),
-    })
+        }
+    };
+    let value = match client.get_plain(NEWS_LIST_PATH).await {
+        Ok(value) => value,
+        Err(error) => {
+            return NewsListLoadOutcome::Error {
+                code: news_dependency_error(error),
+            }
+        }
+    };
+    let articles = match parse_news_list(value) {
+        Ok(articles) => articles,
+        Err(()) => {
+            return NewsListLoadOutcome::Error {
+                code: "malformed_content_response".to_string(),
+            }
+        }
+    };
+    let needle = normalized.q.to_lowercase();
+    let filtered: Vec<NewsListArticle> = articles
+        .into_iter()
+        .filter(|article| {
+            let category_matches = normalized.category == "all"
+                || article
+                    .tags
+                    .iter()
+                    .any(|tag| tag.eq_ignore_ascii_case(&normalized.category));
+            let query_matches = needle.is_empty()
+                || article.title.to_lowercase().contains(&needle)
+                || article.summary.to_lowercase().contains(&needle)
+                || article
+                    .tags
+                    .iter()
+                    .any(|tag| tag.to_lowercase().contains(&needle));
+            category_matches && query_matches
+        })
+        .collect();
+    let total = filtered.len() as u64;
+    let total_pages = if total == 0 {
+        0
+    } else {
+        total.div_ceil(normalized.limit as u64) as u32
+    };
+    let start = (normalized.page - 1) as usize * normalized.limit as usize;
+    let page_articles: Vec<NewsListArticle> = filtered
+        .into_iter()
+        .skip(start)
+        .take(normalized.limit as usize)
+        .collect();
+    if page_articles.is_empty() {
+        NewsListLoadOutcome::Empty {
+            total,
+            page: normalized.page,
+            limit: normalized.limit,
+            total_pages,
+            query: normalized.q,
+            category: normalized.category,
+        }
+    } else {
+        NewsListLoadOutcome::Ready {
+            articles: page_articles,
+            total,
+            page: normalized.page,
+            limit: normalized.limit,
+            total_pages,
+            query: normalized.q,
+            category: normalized.category,
+        }
+    }
 }
 
-/// BFF route handler for `/api/v1/news/{slug}` — thin wrapper
-/// around `news_post_value()` so the route and SSR share the same
-/// payload.
+pub(crate) async fn load_news_post(client: &ServiceClient, slug: &str) -> NewsDetailLoadOutcome {
+    if !valid_news_slug(slug) {
+        return NewsDetailLoadOutcome::NotFound;
+    }
+    let path = format!("/api/v1/content/news/{slug}");
+    let value = match client.get_plain(&path).await {
+        Ok(value) => value,
+        Err(ClientError::NotFound) => return NewsDetailLoadOutcome::NotFound,
+        Err(error) => {
+            return NewsDetailLoadOutcome::Error {
+                code: news_dependency_error(error),
+            }
+        }
+    };
+    match parse_news_detail(value, slug) {
+        Ok(article) => NewsDetailLoadOutcome::Ready { article },
+        Err(()) => NewsDetailLoadOutcome::Error {
+            code: "malformed_content_response".to_string(),
+        },
+    }
+}
+
+fn news_api_error(status: StatusCode, code: &str) -> Response {
+    (
+        status,
+        Json(serde_json::json!({ "success": false, "error": code })),
+    )
+        .into_response()
+}
+
+pub async fn api_news(State(state): State<AppState>, Query(query): Query<NewsQuery>) -> Response {
+    match load_news_list(state.content.as_ref(), &query).await {
+        NewsListLoadOutcome::Ready {
+            articles,
+            total,
+            page,
+            limit,
+            ..
+        } => Json(serde_json::json!({
+            "success": true,
+            "data": { "articles": articles, "total": total, "page": page, "limit": limit }
+        }))
+        .into_response(),
+        NewsListLoadOutcome::Empty {
+            total, page, limit, ..
+        } => Json(serde_json::json!({
+            "success": true,
+            "data": { "articles": [], "total": total, "page": page, "limit": limit }
+        }))
+        .into_response(),
+        NewsListLoadOutcome::Error { code } => {
+            let status = if code == "invalid_news_query" {
+                StatusCode::BAD_REQUEST
+            } else {
+                StatusCode::BAD_GATEWAY
+            };
+            news_api_error(status, &code)
+        }
+    }
+}
+
 pub async fn api_news_post(
     AxPath(slug): AxPath<String>,
-    _state: State<AppState>,
-) -> Json<serde_json::Value> {
-    Json(news_post_value(&slug))
+    State(state): State<AppState>,
+) -> Response {
+    match load_news_post(state.content.as_ref(), &slug).await {
+        NewsDetailLoadOutcome::Ready { article } => Json(serde_json::json!({
+            "success": true,
+            "data": article
+        }))
+        .into_response(),
+        NewsDetailLoadOutcome::NotFound => news_api_error(StatusCode::NOT_FOUND, "not_found"),
+        NewsDetailLoadOutcome::Error { code } => news_api_error(StatusCode::BAD_GATEWAY, &code),
+    }
+}
+
+#[cfg(test)]
+mod news_adapter_tests {
+    use super::*;
+    use axum::{routing::get, Router};
+    use std::time::Duration;
+
+    async fn spawn_mock(router: Router) -> String {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(listener, router).await.unwrap();
+        });
+        format!("http://{address}")
+    }
+
+    fn client(base_url: String) -> ServiceClient {
+        ServiceClient::new(epsx_client::ClientConfig {
+            base_url,
+            timeout: Duration::from_secs(1),
+        })
+    }
+
+    fn article(slug: &str, title: &str, tags: &[&str]) -> serde_json::Value {
+        serde_json::json!({
+            "id": format!("id-{slug}"),
+            "slug": slug,
+            "title": title,
+            "summary": format!("Summary for {title}"),
+            "content": format!("Body for {title}"),
+            "cover_image_url": null,
+            "author_wallet": "0x1111",
+            "status": "published",
+            "tags": tags,
+            "published_at": "2026-07-22T00:00:00Z",
+            "read_time": null,
+            "featured": false
+        })
+    }
+
+    #[tokio::test]
+    async fn list_adapter_uses_live_payload_and_url_stable_filters_and_pagination() {
+        let mut articles: Vec<serde_json::Value> = (1..=13)
+            .map(|index| {
+                article(
+                    &format!("rust-{index}"),
+                    &format!("Rust article {index}"),
+                    &["engineering"],
+                )
+            })
+            .collect();
+        articles.push(article("product-note", "Product note", &["product"]));
+        let payload = serde_json::json!({
+            "success": true,
+            "data": {
+                "articles": articles,
+                "total": 14,
+                "page": 1,
+                "limit": 100
+            },
+            "error": null
+        });
+        let router = Router::new().route(
+            "/api/v1/content/news",
+            get(move || {
+                let payload = payload.clone();
+                async move { Json(payload) }
+            }),
+        );
+        let outcome = load_news_list(
+            &client(spawn_mock(router).await),
+            &NewsQuery {
+                page: Some(2),
+                limit: None,
+                q: Some("rust".to_string()),
+                category: Some("engineering".to_string()),
+            },
+        )
+        .await;
+        match outcome {
+            NewsListLoadOutcome::Ready {
+                articles,
+                total,
+                page,
+                limit,
+                total_pages,
+                query,
+                category,
+                ..
+            } => {
+                assert_eq!(articles.len(), 1);
+                assert_eq!(articles[0].slug, "rust-13");
+                assert_eq!(articles[0].published_at.as_deref(), Some("July 22, 2026"));
+                assert_eq!(total, 13);
+                assert_eq!(page, 2);
+                assert_eq!(limit, NEWS_PAGE_SIZE);
+                assert_eq!(total_pages, 2);
+                assert_eq!(query, "rust");
+                assert_eq!(category, "engineering");
+            }
+            other => panic!("expected ready live list, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn empty_malformed_and_unavailable_list_outcomes_never_become_articles() {
+        let empty_router = Router::new().route(
+            "/api/v1/content/news",
+            get(|| async { Json(serde_json::json!({"articles": [], "total": 0})) }),
+        );
+        assert!(matches!(
+            load_news_list(
+                &client(spawn_mock(empty_router).await),
+                &NewsQuery::default()
+            )
+            .await,
+            NewsListLoadOutcome::Empty { total: 0, .. }
+        ));
+
+        let malformed_router = Router::new().route(
+            "/api/v1/content/news",
+            get(|| async { Json(serde_json::json!({"articles": [{"slug": "fake"}]})) }),
+        );
+        assert!(matches!(
+            load_news_list(
+                &client(spawn_mock(malformed_router).await),
+                &NewsQuery::default()
+            )
+            .await,
+            NewsListLoadOutcome::Error { code } if code == "malformed_content_response"
+        ));
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let unavailable = listener.local_addr().unwrap();
+        drop(listener);
+        assert!(matches!(
+            load_news_list(
+                &client(format!("http://{unavailable}")),
+                &NewsQuery::default()
+            )
+            .await,
+            NewsListLoadOutcome::Error { code } if code == "content_unavailable"
+        ));
+    }
+
+    #[tokio::test]
+    async fn detail_adapter_preserves_slug_ownership_not_found_and_malformed_states() {
+        let valid = article("live-article", "Live article", &["engineering"]);
+        let valid_router = Router::new().route(
+            "/api/v1/content/news/live-article",
+            get(move || {
+                let valid = valid.clone();
+                async move { Json(serde_json::json!({"success": true, "data": valid})) }
+            }),
+        );
+        assert!(matches!(
+            load_news_post(&client(spawn_mock(valid_router).await), "live-article").await,
+            NewsDetailLoadOutcome::Ready { article }
+                if article.slug == "live-article"
+                    && article.published_at.as_deref() == Some("July 22, 2026")
+        ));
+
+        let missing_router = Router::new().route(
+            "/api/v1/content/news/missing",
+            get(|| async { StatusCode::NOT_FOUND }),
+        );
+        assert!(matches!(
+            load_news_post(&client(spawn_mock(missing_router).await), "missing").await,
+            NewsDetailLoadOutcome::NotFound
+        ));
+
+        let mismatch = article("other-article", "Wrong owner", &["engineering"]);
+        let mismatch_router = Router::new().route(
+            "/api/v1/content/news/live-article",
+            get(move || {
+                let mismatch = mismatch.clone();
+                async move {
+                    Json(serde_json::json!({
+                        "success": true,
+                        "data": mismatch,
+                        "error": null
+                    }))
+                }
+            }),
+        );
+        assert!(matches!(
+            load_news_post(&client(spawn_mock(mismatch_router).await), "live-article").await,
+            NewsDetailLoadOutcome::Error { code } if code == "malformed_content_response"
+        ));
+        assert!(matches!(
+            load_news_post(&client("http://127.0.0.1:9".to_string()), "../escape").await,
+            NewsDetailLoadOutcome::NotFound
+        ));
+    }
+
+    #[test]
+    fn error_bearing_or_shape_ambiguous_payloads_never_become_success() {
+        for payload in [
+            serde_json::json!({"articles": [], "total": 0, "error": "boom"}),
+            serde_json::json!({
+                "success": true,
+                "data": {"articles": [], "total": 0},
+                "error": "boom"
+            }),
+            serde_json::json!({
+                "success": true,
+                "data": {"articles": [], "total": 0, "error": "nested"},
+                "error": null
+            }),
+            serde_json::json!({
+                "success": true,
+                "data": {"articles": [], "total": 0},
+                "error": null,
+                "message": "ambiguous"
+            }),
+        ] {
+            assert!(parse_news_list(payload).is_err());
+        }
+        assert!(parse_news_list(serde_json::json!({
+            "success": true,
+            "data": {"articles": [], "total": 0},
+            "error": ""
+        }))
+        .is_ok());
+
+        assert!(parse_news_detail(
+            serde_json::json!({
+                "slug": "live-article",
+                "title": "Live article",
+                "body": "Body",
+                "published": "July 22, 2026",
+                "error": "boom"
+            }),
+            "live-article"
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn malformed_dates_fail_closed_and_current_legacy_detail_is_normalized() {
+        assert_eq!(
+            normalize_news_date(Some("May 9, 2026".to_string())).unwrap(),
+            Some("May 9, 2026".to_string())
+        );
+        let mut malformed = article("live-article", "Live article", &["engineering"]);
+        malformed["published_at"] = serde_json::json!("not-a-date");
+        assert!(parse_news_detail(
+            serde_json::json!({"success": true, "data": malformed.clone(), "error": null}),
+            "live-article"
+        )
+        .is_err());
+
+        assert!(parse_news_list(serde_json::json!({
+            "success": true,
+            "data": {"articles": [malformed], "total": 1, "page": 1, "limit": 100},
+            "error": null
+        }))
+        .is_err());
+
+        let legacy = parse_news_detail(
+            serde_json::json!({
+                "slug": "live-article",
+                "title": "Live article",
+                "body": "Body",
+                "published": "2026-07-22T00:00:00Z"
+            }),
+            "live-article",
+        )
+        .expect("current exact legacy shape should remain supported");
+        assert_eq!(legacy.published_at.as_deref(), Some("July 22, 2026"));
+    }
+
+    #[test]
+    fn raw_query_parser_rejects_ambiguous_or_malformed_owned_fields() {
+        let valid = NewsQuery::from_raw_query("q=rust&category=engineering&page=2")
+            .unwrap()
+            .normalize()
+            .unwrap();
+        assert_eq!(valid.limit, NEWS_PAGE_SIZE);
+        assert!(NewsQuery::from_raw_query("page=1&page=2").is_err());
+        assert!(NewsQuery::from_raw_query("page=not-a-number").is_err());
+        assert!(NewsQuery::from_raw_query("category=security")
+            .unwrap()
+            .normalize()
+            .is_err());
+        assert!(NewsQuery::from_raw_query("category=Engineering")
+            .unwrap()
+            .normalize()
+            .is_err());
+        assert!(NewsQuery::from_raw_query("limit=1")
+            .unwrap()
+            .normalize()
+            .is_err());
+        assert!(NewsQuery::from_raw_query(&format!("q={}", "x".repeat(201)))
+            .unwrap()
+            .normalize()
+            .is_err());
+    }
 }
 
 pub async fn api_portfolio(

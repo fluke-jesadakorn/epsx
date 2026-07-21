@@ -21,7 +21,9 @@ use axum::{
 };
 use epsx_dioxus_ui::auth::wallet_button::ConnectedWalletState;
 use epsx_dioxus_ui::auth::User;
-use epsx_dioxus_ui::pages::{is_known_frontend_route, render_page, PageContext, PageStatus};
+use epsx_dioxus_ui::pages::{
+    is_known_frontend_route, render_page, PageContext, PageMeta, PageStatus,
+};
 use std::collections::HashMap;
 
 use super::auth;
@@ -44,6 +46,18 @@ const UNAUTH_REDIRECT_PATHS: &[&str] = &[
     "/about",
     "/contact",
 ];
+
+fn news_detail_route_slug(path: &str) -> Option<&str> {
+    let slug = path.strip_prefix("/news/")?;
+    (!slug.is_empty() && !slug.contains('/') && crate::api::valid_news_slug(slug)).then_some(slug)
+}
+
+fn escaped_page_metadata(meta: &PageMeta) -> (String, String) {
+    (
+        epsx_templates::html_text_escape_pub(&meta.title),
+        epsx_templates::html_attr_escape_pub(&meta.description),
+    )
+}
 
 /// Wave 22 T4 — `/pricing` is an alias for `/plans` in prod. The
 /// Vercel middleware `rewrites` `/pricing` → `/plans` while
@@ -140,10 +154,8 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
 
     // Parse dynamic-route params from path
     let mut params = HashMap::new();
-    if let Some(rest) = path.strip_prefix("/news/") {
-        if !rest.is_empty() && !rest.contains('/') {
-            params.insert("slug".into(), rest.to_string());
-        }
+    if let Some(slug) = news_detail_route_slug(&path) {
+        params.insert("slug".into(), slug.to_string());
     }
     if let Some(rest) = path.strip_prefix("/chat/") {
         if !rest.is_empty() && !rest.contains('/') {
@@ -167,6 +179,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
         fetch_page_data(
             &state,
             &path,
+            &query,
             &user,
             &mut params,
             &headers,
@@ -198,10 +211,10 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     };
 
     let (meta, body_element) = render_page(&ctx, false);
-    let status = match meta.status {
+    let status = news_ssr_status(&path, &ctx.params).unwrap_or_else(|| match meta.status {
         PageStatus::Ok => StatusCode::OK,
         PageStatus::NotFound => StatusCode::NOT_FOUND,
-    };
+    });
     let body_html = dioxus_ssr::render_element(body_element);
 
     // === Wave 49+ — SSR-safe navbar ===
@@ -248,9 +261,10 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     // double-footer risk.
     let include_footer = true;
 
+    let (metadata_title, metadata_description) = escaped_page_metadata(&meta);
     let doc = epsx_templates::page_shell_with_body_class_and_keywords(
-        &meta.title,
-        &meta.description,
+        &metadata_title,
+        &metadata_description,
         meta.keywords.as_deref(),
         &nav_html,
         &body_html,
@@ -297,6 +311,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
 async fn fetch_page_data(
     state: &AppState,
     path: &str,
+    query: &str,
     user: &Option<User>,
     params: &mut HashMap<String, String>,
     headers: &axum::http::HeaderMap,
@@ -307,16 +322,10 @@ async fn fetch_page_data(
     // Browser cookies are not authorization headers. After local RS256/JWKS
     // verification, explicitly forward the canonical token as a bearer value.
     request_context.auth_token = verified_access_token.map(str::to_owned);
-    // Wave 31 T1 — for the 3 live-data-plumbing routes (dashboard,
-    // news, developer/usage) we now call the BFF's own handler
-    // helpers IN-PROCESS rather than going through the upstream
-    // gateway. This means the BFF route and the SSR layer share the
-    // exact same JSON shape, and the dev pages always have live data
-    // even when the upstream gateway/services are down. The previous
-    // `state.X.get_plain("/api/v1/...")` calls hit the gateway and
-    // returned 502 when the upstream was unavailable, so the page
-    // fell back to its hardcoded mock — defeating the purpose of
-    // "live data plumbing".
+    // SSR data is represented as an explicit outcome. A dependency failure is
+    // rendered as a failure and never replaced with production-looking sample
+    // data. Dashboard and developer usage still have older in-process adapters;
+    // news is deliberately no longer part of that fallback set.
 
     let has_session = user.is_some();
 
@@ -333,28 +342,29 @@ async fn fetch_page_data(
             params.insert("data_dashboard".into(), data.to_string());
         }
     }
-    // /news: fetch news. Wave 31 T1 — call the BFF's own
-    // `news_list_value()` helper in-process.
+    // /news: load the content dependency through the same strict adapter used
+    // by the JSON BFF route. The outcome keeps empty distinct from unavailable
+    // or malformed and carries the URL-stable q/category/page selection.
     if path == "/news" {
+        let outcome = match crate::api::NewsQuery::from_raw_query(query) {
+            Ok(query) => crate::api::load_news_list(state.content.as_ref(), &query).await,
+            Err(()) => crate::api::NewsListLoadOutcome::Error {
+                code: "invalid_news_query".to_string(),
+            },
+        };
         params.insert(
             "data_news".into(),
-            crate::api::news_list_value().to_string(),
+            serde_json::to_string(&outcome).expect("news list outcome is serializable"),
         );
     }
-    // /news/[slug]: fetch the article body. Wave 31 T1 — call the
-    // BFF's own `news_post_value(slug)` helper in-process.
-    if path.starts_with("/news/") {
-        if let Some(slug) = path
-            .strip_prefix("/news/")
-            .map(|s| s.trim_end_matches('/').to_string())
-        {
-            if !slug.is_empty() && !slug.contains('/') {
-                params.insert(
-                    "data_news_post".into(),
-                    crate::api::news_post_value(&slug).to_string(),
-                );
-            }
-        }
+    // /news/[slug]: the content service owns slug resolution. Unknown records
+    // remain not-found, while dependency/malformed responses remain errors.
+    if let Some(slug) = news_detail_route_slug(path) {
+        let outcome = crate::api::load_news_post(state.content.as_ref(), slug).await;
+        params.insert(
+            "data_news_post".into(),
+            serde_json::to_string(&outcome).expect("news detail outcome is serializable"),
+        );
     }
     // /developer/usage: fetch usage stats. Wave 31 T1 — call the
     // BFF's own `developer_usage_value()` helper in-process.
@@ -499,6 +509,33 @@ async fn fetch_page_data(
                 }
             }
         }
+    }
+}
+
+fn news_ssr_status(path: &str, params: &HashMap<String, String>) -> Option<StatusCode> {
+    let key = if path == "/news" {
+        "data_news"
+    } else {
+        news_detail_route_slug(path)?;
+        "data_news_post"
+    };
+    let Some(raw) = params.get(key) else {
+        return Some(StatusCode::SERVICE_UNAVAILABLE);
+    };
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(raw) else {
+        return Some(StatusCode::SERVICE_UNAVAILABLE);
+    };
+    match value.get("state").and_then(serde_json::Value::as_str) {
+        Some("ready" | "empty") => Some(StatusCode::OK),
+        Some("not_found") => Some(StatusCode::NOT_FOUND),
+        Some("error")
+            if value.get("code").and_then(serde_json::Value::as_str)
+                == Some("invalid_news_query") =>
+        {
+            Some(StatusCode::BAD_REQUEST)
+        }
+        Some("error") | None => Some(StatusCode::SERVICE_UNAVAILABLE),
+        Some(_) => Some(StatusCode::SERVICE_UNAVAILABLE),
     }
 }
 
@@ -841,13 +878,18 @@ fn safe_return_url(query: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::developer_docs_runtime_script;
+    use super::escaped_page_metadata;
     use super::manual_runtime_script;
+    use super::news_detail_route_slug;
+    use super::news_ssr_status;
     use super::offline_runtime_script;
     use super::offline_service_worker_script;
     use super::offline_worker_registration_script;
     use super::pricing_redirect_response;
     use super::safe_return_url;
     use super::urlencode;
+    use epsx_dioxus_ui::pages::PageMeta;
+    use std::collections::HashMap;
 
     #[test]
     fn return_url_must_remain_same_origin() {
@@ -862,6 +904,93 @@ mod tests {
         assert_eq!(safe_return_url("return_url=%2F%2Fevil.example%2Fx"), "/");
         assert_eq!(safe_return_url("return_url=%5C%5Cevil.example"), "/");
         assert_eq!(safe_return_url("return_url=%2Fauth"), "/");
+    }
+
+    #[test]
+    fn news_outcomes_drive_truthful_http_statuses() {
+        let mut params = HashMap::new();
+        params.insert(
+            "data_news".to_string(),
+            serde_json::json!({"state": "empty"}).to_string(),
+        );
+        assert_eq!(news_ssr_status("/news", &params), Some(StatusCode::OK));
+
+        params.insert(
+            "data_news".to_string(),
+            serde_json::json!({"state": "error", "code": "invalid_news_query"}).to_string(),
+        );
+        assert_eq!(
+            news_ssr_status("/news", &params),
+            Some(StatusCode::BAD_REQUEST)
+        );
+
+        params.insert(
+            "data_news_post".to_string(),
+            serde_json::json!({"state": "not_found"}).to_string(),
+        );
+        assert_eq!(
+            news_ssr_status("/news/missing", &params),
+            Some(StatusCode::NOT_FOUND)
+        );
+
+        params.insert(
+            "data_news_post".to_string(),
+            serde_json::json!({"state": "error", "code": "content_unavailable"}).to_string(),
+        );
+        assert_eq!(
+            news_ssr_status("/news/live-article", &params),
+            Some(StatusCode::SERVICE_UNAVAILABLE)
+        );
+        assert_eq!(
+            news_ssr_status("/news/live-article", &HashMap::new()),
+            Some(StatusCode::SERVICE_UNAVAILABLE)
+        );
+        let dependency_error = HashMap::from([(
+            "data_news_post".to_string(),
+            serde_json::json!({"state": "error", "code": "content_unavailable"}).to_string(),
+        )]);
+        for invalid in [
+            "/news/live-article/",
+            "/news/not/a-route",
+            "/news/%2Fsecret",
+            "/news/%2E%2E",
+            "/news/%zz",
+            "/news/UPPER",
+            "/news/-leading-hyphen",
+        ] {
+            assert_eq!(news_detail_route_slug(invalid), None, "{invalid}");
+            assert_eq!(
+                news_ssr_status(invalid, &dependency_error),
+                None,
+                "{invalid}"
+            );
+        }
+        assert_eq!(
+            news_detail_route_slug("/news/live-article"),
+            Some("live-article")
+        );
+        assert_eq!(news_ssr_status("/about", &HashMap::new()), None);
+    }
+
+    #[test]
+    fn dynamic_news_metadata_is_context_escaped_in_the_full_shell() {
+        let mut meta = PageMeta::marketing("News article");
+        meta.title = "Close </title><script>alert(\"metadata-title\")</script> & news".into();
+        meta.description =
+            "Summary \"quoted\"'><script>alert('metadata-summary')</script> & more".into();
+        let (title, description) = escaped_page_metadata(&meta);
+        let shell = epsx_templates::page_shell(&title, &description, "", "", false);
+
+        assert_eq!(shell.matches("<title>").count(), 1);
+        assert_eq!(shell.matches("</title>").count(), 1);
+        assert!(!shell.contains("</title><script>alert(\"metadata-title\")"));
+        assert!(shell.contains(
+            "<title>Close &lt;/title&gt;&lt;script&gt;alert(\"metadata-title\")&lt;/script&gt; &amp; news</title>"
+        ));
+        assert!(!shell.contains("\"><script>alert('metadata-summary')"));
+        assert!(shell.contains(
+            "content=\"Summary &quot;quoted&quot;&#39;&gt;&lt;script&gt;alert(&#39;metadata-summary&#39;)&lt;/script&gt; &amp; more\""
+        ));
     }
     use axum::http::StatusCode;
 

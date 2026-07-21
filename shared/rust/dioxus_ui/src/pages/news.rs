@@ -1,127 +1,238 @@
-//! /news — news article listing.
+//! Public news listing backed only by an explicit SSR content outcome.
 //!
-//! Wave 6A Track D — port of `apps-old/frontend/app/news/page.tsx` +
-//! `components/news/news-list.tsx`.
-//!
-//! Section coverage (matches design doc §"Track D — news"):
-//! - `NewsHeader` — "EPSX Platform" badge + gradient "News & Updates"
-//!   h1 + total articles count
-//! - `NewsFilters` — category, date range, search input
-//! - `NewsList` — featured card (1) + grid of `ArticleCard`s (rest)
-//!   + pagination + empty state
-//!
-//! The Next.js source uses `getPublicNews` server action; we accept
-//! the same payload shape via `ctx.params["data_news"]` and fall
-//! back to the static 3-post default when none is provided — same
-//! pattern Wave 5 uses for marketing pages.
+//! The frontend BFF owns transport and envelope adaptation. This page owns
+//! presentation-only search/category/page controls and never substitutes
+//! sample articles when the content dependency is empty, unavailable, or
+//! malformed.
 
-use crate::primitives::*;
-use crate::feedback::*;
-
-use dioxus::prelude::*;
-use super::PageContext;
-use super::PageMeta;
+use super::{PageContext, PageMeta};
 use crate::layout::main_layout::MainLayout;
-use crate::auth::ProgressiveAuthBanner;
+use crate::primitives::*;
+use dioxus::prelude::*;
 
-pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::marketing("News");
-    let data: Option<serde_json::Value> = ctx.params.get("data_news")
-        .and_then(|s| serde_json::from_str(s).ok());
-    // Wave 23 T5 — accept BOTH prod's `articles` shape (content
-    // service /api/v1/content/news) and the BFF's `items` shape
-    // (apps/frontend/src/api.rs::api_news). Both are wire-only
-    // fallbacks while the backend content service is in
-    // `ImagePullBackOff` (wave-22 follow-up #2).
-    let posts: Vec<NewsPost> = data.as_ref()
-        .and_then(|d| {
-            let arr = d.get("articles")
-                .or_else(|| d.get("items"))
-                .or_else(|| d.get("posts"))
-                .cloned()
-                .unwrap_or(serde_json::json!([]));
-            serde_json::from_value::<Vec<NewsPostRaw>>(arr)
-                .ok()
-                .map(|raws| raws.into_iter().map(NewsPost::from_raw).collect())
-        })
-        // T4 fallback: if the BFF returned nothing (or the wire shape
-        // didn't match), use the 3-post default so the page is never
-        // empty in dev. In prod, the content service always returns
-        // ≥1 article; the fallback only fires in the wire-down case.
-        .unwrap_or_else(default_posts);
-    // Wave 23 T4: read the search query from the page context (set by
-    // the BFF from `?q=...`) so SSR-rendered HTML already reflects the
-    // filtered list. The client-side filter below re-applies the same
-    // match so live typing narrows the list without a server round-trip.
-    let initial_query: String = ctx
-        .params
-        .get("q")
-        .cloned()
-        .or_else(|| ctx.query_param("q"))
-        .unwrap_or_default();
-    let initial_category: String = ctx
-        .params
-        .get("category")
-        .cloned()
-        .or_else(|| ctx.query_param("category"))
-        .unwrap_or_else(|| "all".to_string());
-    let total = posts.len();
+const NEWS_PAGE_SIZE: u32 = 12;
+const NEWS_CATEGORIES: [&str; 4] = ["all", "updates", "engineering", "product"];
 
-    (meta, rsx! {
-        MainLayout { ctx: ctx.clone(),
-            if ctx.user.is_none() {
-                ProgressiveAuthBanner {
-                    feature: Some("personalized news".to_string()),
-                }
-            }
-            // === wave22-t3-news-blog news header + list (no AuthGate; public page) ===
-            // === wave23-t4-components filter provider + body ===
-            NewsPageBody {
-                posts: posts.clone(),
-                initial_query: initial_query.clone(),
-                initial_category: initial_category.clone(),
-                total: total,
-            }
-        }
-    })
+#[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
+struct NewsPost {
+    id: Option<String>,
+    slug: String,
+    title: String,
+    summary: String,
+    cover_image_url: Option<String>,
+    author: Option<String>,
+    published_at: Option<String>,
+    read_time: Option<String>,
+    tags: Vec<String>,
+    featured: bool,
 }
 
-/// Inner body component. Wave 23 T4: this is a Dioxus `#[component]`
-/// (not the page's outer `render` function) so it can call hooks
-/// (`use_context_provider`, `use_signal`, etc.). The outer `render`
-/// is a plain function that returns `(PageMeta, Element)` and is
-/// called from the BFF, which has no Dioxus runtime.
+#[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
+#[serde(tag = "state", rename_all = "snake_case")]
+enum NewsListOutcome {
+    Ready {
+        articles: Vec<NewsPost>,
+        total: u64,
+        page: u32,
+        limit: u32,
+        total_pages: u32,
+        query: String,
+        category: String,
+    },
+    Empty {
+        total: u64,
+        page: u32,
+        limit: u32,
+        total_pages: u32,
+        query: String,
+        category: String,
+    },
+    Error {
+        code: String,
+    },
+}
+
+fn safe_text(value: &str, max: usize) -> bool {
+    value.chars().count() <= max && !value.chars().any(char::is_control)
+}
+
+fn safe_slug(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 128
+        && !value.starts_with('-')
+        && !value.ends_with('-')
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+}
+
+fn safe_cover(value: &str) -> bool {
+    !value.is_empty()
+        && !value.chars().any(char::is_control)
+        && !value.contains('\\')
+        && ((value.starts_with('/') && !value.starts_with("//")) || value.starts_with("https://"))
+}
+
+fn valid_display_date(value: &str) -> bool {
+    const MONTHS: [&str; 12] = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+    ];
+    let Some((month, rest)) = value.split_once(' ') else {
+        return false;
+    };
+    let Some((day, year)) = rest.split_once(", ") else {
+        return false;
+    };
+    MONTHS.contains(&month)
+        && day.parse::<u8>().is_ok_and(|day| (1..=31).contains(&day))
+        && year.len() == 4
+        && year.bytes().all(|byte| byte.is_ascii_digit())
+}
+
+fn valid_post(post: &NewsPost) -> bool {
+    safe_slug(&post.slug)
+        && !post.title.trim().is_empty()
+        && safe_text(&post.title, 300)
+        && safe_text(&post.summary, 2_000)
+        && post.tags.len() <= 32
+        && post
+            .tags
+            .iter()
+            .all(|tag| !tag.trim().is_empty() && safe_text(tag, 64))
+        && post.cover_image_url.as_deref().is_none_or(safe_cover)
+        && post.published_at.as_deref().is_none_or(valid_display_date)
+}
+
+fn parse_outcome(ctx: &PageContext) -> NewsListOutcome {
+    let Some(raw) = ctx.params.get("data_news") else {
+        return NewsListOutcome::Error {
+            code: "missing_content_outcome".to_string(),
+        };
+    };
+    let Ok(outcome) = serde_json::from_str::<NewsListOutcome>(raw) else {
+        return NewsListOutcome::Error {
+            code: "malformed_content_response".to_string(),
+        };
+    };
+    let valid = match &outcome {
+        NewsListOutcome::Ready {
+            articles,
+            total,
+            page,
+            limit,
+            total_pages,
+            query,
+            category,
+        } => {
+            let expected_pages = (*limit > 0).then(|| total.div_ceil(*limit as u64) as u32);
+            !articles.is_empty()
+                && *total >= articles.len() as u64
+                && *page > 0
+                && *limit == NEWS_PAGE_SIZE
+                && articles.len() <= *limit as usize
+                && Some(*total_pages) == expected_pages
+                && *page <= *total_pages
+                && safe_text(query, 200)
+                && NEWS_CATEGORIES.contains(&category.as_str())
+                && articles.iter().all(valid_post)
+        }
+        NewsListOutcome::Empty {
+            total,
+            page,
+            limit,
+            total_pages,
+            query,
+            category,
+        } => {
+            let expected_pages = (*limit > 0).then(|| {
+                if *total == 0 {
+                    0
+                } else {
+                    total.div_ceil(*limit as u64) as u32
+                }
+            });
+            *page > 0
+                && *limit == NEWS_PAGE_SIZE
+                && Some(*total_pages) == expected_pages
+                && ((*total == 0 && *page == 1) || (*total > 0 && *page > *total_pages))
+                && safe_text(query, 200)
+                && NEWS_CATEGORIES.contains(&category.as_str())
+        }
+        NewsListOutcome::Error { code } => !code.is_empty() && safe_text(code, 64),
+    };
+    if valid {
+        outcome
+    } else {
+        NewsListOutcome::Error {
+            code: "malformed_content_response".to_string(),
+        }
+    }
+}
+
+pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
+    let mut meta = PageMeta::marketing("News");
+    meta.title = "News — EPSX".to_string();
+    meta.description = "Latest news and updates from EPSX analytics platform".to_string();
+    let outcome = parse_outcome(ctx);
+    let retry_href = if ctx.query.is_empty() {
+        "/news".to_string()
+    } else {
+        format!("/news?{}", ctx.query)
+    };
+
+    (
+        meta,
+        rsx! {
+            MainLayout { ctx: ctx.clone(),
+                NewsPageBody { outcome, retry_href }
+            }
+        },
+    )
+}
+
 #[component]
-fn NewsPageBody(
-    posts: Vec<NewsPost>,
-    initial_query: String,
-    initial_category: String,
-    total: usize,
-) -> Element {
-    // (T4 v2: removed `filter_state::provide_news_filter()` — the
-    // shared Signal pair is dead code under hydration-less SSR.
-    // The BFF's URL-based filter is the single source of truth.)
-    let _ = total; // (kept for backwards compat with the caller; not used in v2)
+fn NewsPageBody(outcome: NewsListOutcome, retry_href: String) -> Element {
+    let (query, category, total) = match &outcome {
+        NewsListOutcome::Ready {
+            query,
+            category,
+            total,
+            ..
+        }
+        | NewsListOutcome::Empty {
+            query,
+            category,
+            total,
+            ..
+        } => (query.clone(), category.clone(), Some(*total)),
+        NewsListOutcome::Error { .. } => (String::new(), "all".to_string(), None),
+    };
+
     rsx! {
         div { class: "container page-content news-page",
-            // === wave6-auth-pages-depth-track-d news header ===
-            div { class: "mb-12 text-center news-header",
+            header { class: "mb-12 text-center news-header",
                 div { class: "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/5 text-cyan-500 text-xs font-semibold mb-5",
                     Icon { name: "newspaper".to_string(), size: Some(14) }
                     " EPSX Platform"
                 }
                 h1 { class: "text-4xl sm:text-5xl font-extrabold mb-4",
-                    "News & "
-                    // Wave 48 T3 — Plan 12: prod uses cool-blue→cyan
-                    // gradient on "Updates" (matches gradient-cool
-                    // #3b82f6→#06b6d4); dev was using purple→pink
-                    // (gradient-purple).
-                    span { class: "gradient-text-cool", "Updates" }
+                    "News & " span { class: "gradient-text-cool", "Updates" }
                 }
                 p { class: "text-muted-foreground max-w-xl mx-auto leading-relaxed",
                     "Stay informed with the latest platform updates, feature releases, and market insights from the EPSX team."
                 }
-                if total > 0 {
+                if let Some(total) = total {
                     p { class: "mt-3 text-sm text-muted-foreground/60",
                         {
                             let noun = if total == 1 { "article" } else { "articles" };
@@ -130,154 +241,54 @@ fn NewsPageBody(
                     }
                 }
             }
-            // === wave6-auth-pages-depth-track-d news filters ===
-            NewsFilters { initial_query: initial_query.clone(), initial_category: initial_category.clone() }
-            // === wave6-auth-pages-depth-track-d news list ===
-            // Wave 23 T4: pass the same query/category into the
-            // list so the live filter and the SSR filter agree.
-            NewsList { posts: posts.clone(), initial_query: initial_query.clone(), initial_category: initial_category.clone() }
+            NewsFilters { initial_query: query.clone(), initial_category: category.clone() }
+            match outcome {
+                NewsListOutcome::Ready {
+                    articles,
+                    total,
+                    page,
+                    total_pages,
+                    query,
+                    category,
+                    ..
+                } => rsx! {
+                    NewsList {
+                        posts: articles,
+                        total,
+                        page,
+                        total_pages,
+                        query,
+                        category,
+                    }
+                },
+                NewsListOutcome::Empty { total, page, total_pages, query, category, .. } => rsx! {
+                    NewsEmptyState {
+                        filtered: !query.is_empty() || category != "all",
+                        page,
+                        total,
+                        total_pages,
+                        query,
+                        category,
+                    }
+                },
+                NewsListOutcome::Error { code } => rsx! {
+                    NewsErrorState { code, retry_href }
+                },
+            }
         }
     }
 }
 
-/// Wave 23 T4 — kept as the empty-state fallback. When the BFF
-/// returns no data (or its wire shape is one of the 3 accepted
-/// variants but contains 0 entries), the page renders the 3-post
-/// default so the news section is never empty in dev. In prod, the
-/// content service always returns ≥1 article; the fallback only
-/// fires in the wire-down case.
-fn default_posts() -> Vec<NewsPost> {
-    // Wave 24 t3p — synced to the prod slugs captured by T1's prod
-    // baseline. Mirrors the BFF `apps/frontend/src/api.rs` article
-    // list (10 entries, content-team naming) so the page's
-    // "fallback when the wire shape is wrong" path also produces
-    // matching slugs. See `dev_bypass.rs` for the wider context.
-    vec![
-        NewsPost { slug: "strategic-roadmap-future".into(), title: "Strategic Roadmap and Future Capabilities".into(), excerpt: "A preview of upcoming system enhancements, including automated alerts and expanded analytical depth.".into(), author: "EPSX Team".into(), published_at: "May 9, 2026".into(), read_time: "3 min".into(), cover_image_url: None, tags: vec!["roadmap".into(), "strategy".into()] },
-        NewsPost { slug: "enhanced-portfolio-management".into(), title: "Enhanced Portfolio Management Solutions".into(), excerpt: "Tools and insights for the modern portfolio manager.".into(), author: "EPSX Team".into(), published_at: "2025-02-01".into(), read_time: "4 min".into(), cover_image_url: None, tags: vec!["portfolio".into(), "product".into()] },
-        NewsPost { slug: "service-tier-alignment".into(), title: "Integrated Service Solutions: Professional Tier Alignment".into(), excerpt: "How EPSX services scale across professional subscription tiers.".into(), author: "EPSX Team".into(), published_at: "2025-02-01".into(), read_time: "4 min".into(), cover_image_url: None, tags: vec!["service".into(), "tiers".into()] },
-        NewsPost { slug: "performance-metrics-positioning".into(), title: "Proprietary Performance Metrics and Strategic Positioning".into(), excerpt: "The metrics that set EPSX apart.".into(), author: "EPSX Team".into(), published_at: "2025-02-01".into(), read_time: "4 min".into(), cover_image_url: None, tags: vec!["metrics".into(), "strategy".into()] },
-        NewsPost { slug: "strategic-launch-epsx".into(), title: "Strategic Launch of EPSX: Institutional-Grade Market Insights".into(), excerpt: "Our strategic launch announcement.".into(), author: "EPSX Team".into(), published_at: "2025-02-01".into(), read_time: "4 min".into(), cover_image_url: None, tags: vec!["launch".into(), "announcement".into()] },
-        NewsPost { slug: "optimizing-high-throughput-analytics-rust".into(), title: "Strategic Analysis Performance for Operational Excellence".into(), excerpt: "How EPSX leverages high-performance data processing to deliver precise rankings and insights.".into(), author: "EPSX Team".into(), published_at: "2025-02-01".into(), read_time: "5 min".into(), cover_image_url: None, tags: vec!["performance".into(), "engineering".into()] },
-        NewsPost { slug: "real-time-market-data-redis-streams".into(), title: "Real-Time Intelligence: Capturing Market Opportunities as They Happen".into(), excerpt: "How the EPSX dashboard removes the gap between on-chain events and your decision-making.".into(), author: "EPSX Team".into(), published_at: "2025-02-01".into(), read_time: "4 min".into(), cover_image_url: None, tags: vec!["real-time".into(), "redis".into()] },
-        NewsPost { slug: "future-secure-web3-auth".into(), title: "Securing the Future: Enterprise-Grade Trust in a Web3 World".into(), excerpt: "SIWE, RBAC, audit logs, and rate limiting.".into(), author: "EPSX Team".into(), published_at: "2025-02-01".into(), read_time: "5 min".into(), cover_image_url: None, tags: vec!["security".into(), "web3".into()] },
-        NewsPost { slug: "scalable-postgresql-time-series".into(), title: "Built for Ambition: A Scalable Foundation for Global Analytics".into(), excerpt: "Scaling a global analytics platform with an industrial-strength architecture.".into(), author: "EPSX Team".into(), published_at: "2025-02-01".into(), read_time: "5 min".into(), cover_image_url: None, tags: vec!["database".into(), "scalability".into()] },
-        NewsPost { slug: "predictive-ai-models-market-sentiment".into(), title: "Smarter Decisions: How EPSX AI Navigates Market Complexity".into(), excerpt: "Layering machine learning on top of on-chain data.".into(), author: "EPSX Team".into(), published_at: "2025-02-01".into(), read_time: "4 min".into(), cover_image_url: None, tags: vec!["ai".into(), "product".into()] },
-    ]
-}
-
-#[derive(Clone, Debug, serde::Deserialize, PartialEq)]
-pub struct NewsPost {
-    #[serde(default)] pub slug: String,
-    #[serde(default)] pub title: String,
-    #[serde(default)] pub excerpt: String,
-    #[serde(default)] pub author: String,
-    #[serde(default)] pub published_at: String,
-    #[serde(default)] pub read_time: String,
-    #[serde(default)] pub tags: Vec<String>,
-    #[serde(default)] pub cover_image_url: Option<String>,
-}
-
-/// `NewsPostRaw` — the wire shape from the content service
-/// (`/api/v1/content/news`) and the BFF's `api_news` mock. Different
-/// field names from `NewsPost` (which is the internal render model):
-/// - `date`        → `published_at`
-/// - `image`       → `cover_image_url`
-/// - `tag1`,`tag2` → `tags` (joined, in order)
-///
-/// `serde(default)` on every field keeps this resilient to either
-/// upstream omitting fields. Wave 23 T5 — was previously reading the
-/// wrong key (`posts`) and never matched either wire shape.
-#[derive(Clone, Debug, serde::Deserialize)]
-struct NewsPostRaw {
-    #[serde(default)] slug: String,
-    #[serde(default)] title: String,
-    #[serde(default)] excerpt: String,
-    #[serde(default)] summary: String,
-    #[serde(default)] author: String,
-    #[serde(default)] date: String,
-    #[serde(default)] published_at: String,
-    #[serde(default)] read_time: String,
-    #[serde(default)] tag1: String,
-    #[serde(default)] tag2: String,
-    #[serde(default)] tags: Vec<String>,
-    #[serde(default)] image: Option<String>,
-    #[serde(default)] cover_image_url: Option<String>,
-    #[serde(default)] featured: bool,
-}
-
-impl NewsPost {
-    fn from_raw(r: NewsPostRaw) -> Self {
-        // Prefer explicit `excerpt`, fall back to `summary` (the
-        // content-service shape uses `summary` for the same field).
-        let excerpt = if !r.excerpt.is_empty() { r.excerpt } else { r.summary };
-        // `date` and `published_at` carry the same value on the wire;
-        // accept either. Prefer the ISO `published_at` when both
-        // are present.
-        let published_at = if !r.published_at.is_empty() { r.published_at } else { r.date };
-        // Build the tag list from `tags` (already an array) or
-        // `tag1`+`tag2` (separate fields).
-        let mut tags = r.tags;
-        if tags.is_empty() {
-            if !r.tag1.is_empty() { tags.push(r.tag1); }
-            if !r.tag2.is_empty() { tags.push(r.tag2); }
-        }
-        // Image: prefer `cover_image_url`, fall back to `image`.
-        let cover_image_url = r.cover_image_url.or(r.image);
-        NewsPost {
-            slug: r.slug,
-            title: r.title,
-            excerpt,
-            author: r.author,
-            published_at,
-            read_time: r.read_time,
-            tags,
-            cover_image_url,
-        }
-    }
-}
-
-/// `NewsFilters` — category select, date range, search input. Wave 23
-/// Wave 23 T4 v2: now uses a vanilla HTML `<form>` with native
-/// `<input name="q">` + `<select name="category">` elements, and a
-/// submit button whose `onclick` is wired via
-/// `epsx.submitNewsSearch('news-filters-form')` (defined in
-/// `epsx_templates::global_js`).
-///
-/// The previous version's `oninput: move |e| q.set(e.value())`
-/// Dioxus closure was being stripped at SSR time (Dioxus 0.7 SSR
-/// is hydration-less in this project per
-/// `docs/wave3a-wiring/design.md`). Even though the input was
-/// visually a working search box, typing into it had no effect
-/// and the list never re-rendered. The new approach:
-/// 1. The form holds the SSR-prefilled values as `value="…"` /
-///    `selected` attributes (so the initial paint already
-///    reflects the filter from the URL).
-/// 2. The submit button calls `epsx.submitNewsSearch(formId)`,
-///    which reads `q` and `category` from the named form's
-///    inputs and navigates to `/news?q=…&category=…`.
-/// 3. The BFF re-renders with the new filter applied
-///    server-side; the URL is permalink-able.
-/// 4. A `<noscript>` fallback inside the form provides a
-///    hard-submit `<button type="submit">` so non-JS clients can
-///    still filter (the form's default `action` is `/news`).
-///
-/// Live filter-as-you-type would require a global delegated
-/// `input` handler in `global_js`; that's tracked as a follow-up
-/// if the spec demands it. For now, the form-based filter is the
-/// minimum that actually works at runtime.
 #[component]
-fn NewsFilters(
-    initial_query: String,
-    initial_category: String,
-) -> Element {
-    let cat = initial_category.clone();
+fn NewsFilters(initial_query: String, initial_category: String) -> Element {
+    let category = initial_category;
     rsx! {
         form {
             id: "news-filters-form",
             class: "card card-glass news-filters",
             method: "get",
             action: "/news",
+            role: "search",
             div { class: "card-body flex flex-col md:flex-row gap-4 items-stretch md:items-end",
                 div { class: "field flex-1",
                     label { class: "field-label", r#for: "news-q", "Search" }
@@ -286,8 +297,9 @@ fn NewsFilters(
                         id: "news-q",
                         name: "q",
                         r#type: "search",
+                        maxlength: "200",
                         placeholder: "Search articles…",
-                        value: "{initial_query}",
+                        value: initial_query,
                     }
                 }
                 div { class: "field md:w-48",
@@ -296,153 +308,78 @@ fn NewsFilters(
                         class: "input",
                         id: "news-category",
                         name: "category",
-                        option { value: "all",          selected: cat == "all",          "All" }
-                        option { value: "updates",      selected: cat == "updates",      "Updates" }
-                        option { value: "engineering",  selected: cat == "engineering",  "Engineering" }
-                        option { value: "product",      selected: cat == "product",      "Product" }
+                        option { value: "all", selected: category == "all", "All" }
+                        option { value: "updates", selected: category == "updates", "Updates" }
+                        option { value: "engineering", selected: category == "engineering", "Engineering" }
+                        option { value: "product", selected: category == "product", "Product" }
                     }
                 }
-                div { class: "field md:w-48",
-                    label { class: "field-label", r#for: "news-range", "Date range" }
-                    select {
-                        class: "input",
-                        id: "news-range",
-                        name: "range",
-                        option { value: "all", "All time" }
-                        option { value: "7d",  "Last 7 days" }
-                        option { value: "30d", "Last 30 days" }
-                        option { value: "90d", "Last 90 days" }
-                    }
-                }
-                // Search submit button — rendered as raw HTML with a
-                // literal `onclick="epsx.submitNewsSearch('…')"`
-                // attribute (the Dioxus `onclick:` macro form is
-                // stripped at SSR time, so we use
-                // `dangerous_inner_html` on a wrapping span).
-                span { class: "news-search-submit-wrap inline-block",
-                    dangerous_inner_html: r#"<button type="button" class="btn btn-outline" onclick="epsx.submitNewsSearch('news-filters-form')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-search" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg> Search</button>"#
-                }
-                // No-JS fallback: a real <button type="submit">
-                // submits the form via the browser's default action
-                // (action="/news", method="get"). Only visible to
-                // browsers that don't run the inline onclick.
-                noscript {
-                    button { class: "btn btn-outline", r#type: "submit", "Search" }
+                button { class: "btn btn-outline", r#type: "submit",
+                    Icon { name: "search".to_string(), size: Some(16) }
+                    " Search"
                 }
             }
         }
     }
 }
 
-/// `NewsList` — renders the (server-side-filtered) list. Wave 23 T4 v2:
-/// the filter is applied by the BFF at render time using the URL's
-/// `?q=…&category=…` query params. The Dioxus-side re-filtering of
-/// `posts` is now a no-op because the BFF already returns only the
-/// matching posts. We keep the local filter as a safety net (in
-/// case the BFF is bypassed in tests / a sample dataset) and to
-/// preserve the visible "0 results" empty state when the BFF
-/// returns nothing.
-///
-/// The featured card is always the first surviving post (or hidden
-/// if the filter yields 0/1 results).
 #[component]
 fn NewsList(
     posts: Vec<NewsPost>,
-    initial_query: String,
-    initial_category: String,
+    total: u64,
+    page: u32,
+    total_pages: u32,
+    query: String,
+    category: String,
 ) -> Element {
-    let query = initial_query.to_lowercase();
-    let category = initial_category.clone();
-    let filtered: Vec<NewsPost> = posts
-        .iter()
-        .filter(|p| {
-            // Category filter: a post matches if its tags include the
-            // selected category, or if the filter is "all".
-            let cat_ok = category == "all"
-                || p.tags.iter().any(|t| t.to_lowercase() == category.to_lowercase());
-            // Query filter: substring match on title + excerpt + tags.
-            let q_ok = query.is_empty()
-                || p.title.to_lowercase().contains(&query)
-                || p.excerpt.to_lowercase().contains(&query)
-                || p.tags.iter().any(|t| t.to_lowercase().contains(&query));
-            cat_ok && q_ok
-        })
-        .cloned()
-        .collect();
-    let total = filtered.len();
-
     rsx! {
-        div { class: "news-list-section mt-8",
-            if filtered.is_empty() {
-                NewsEmptyState {}
+        section { class: "news-list-section mt-8", aria_label: "News articles",
+            if posts.len() == 1 {
+                ArticleCard { post: posts[0].clone() }
             } else {
-                if filtered.len() == 1 {
-                    ArticleCard { post: filtered[0].clone() }
-                } else {
-                    NewsFeaturedCard { post: filtered[0].clone() }
-                    div { class: "news-list-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8",
-                        for p in filtered.iter().skip(1) {
-                            ArticleCard { post: p.clone() }
-                        }
+                NewsFeaturedCard { post: posts[0].clone() }
+                div { class: "news-list-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8",
+                    for post in posts.iter().skip(1) {
+                        ArticleCard { post: post.clone() }
                     }
                 }
-                if total > 0 {
-                    p { class: "mt-6 text-xs text-muted-foreground text-center news-list-count",
-                        {
-                            let noun = if total == 1 { "article" } else { "articles" };
-                            format!("{total} {noun}")
-                        }
-                    }
-                }
-                NewsPagination { page: 1, total_pages: ((total + 11) / 12).max(1) }
             }
+            p { class: "mt-6 text-xs text-muted-foreground text-center news-list-count", aria_live: "polite",
+                {
+                    let noun = if total == 1 { "article" } else { "articles" };
+                    format!("{total} {noun}")
+                }
+            }
+            NewsPagination { page, total_pages, query, category }
         }
     }
 }
 
-// (filter_state module + use_news_filter removed in T4 v2: the
-// shared (q, cat) Signal pair is dead code under SSR-less Dioxus
-// — the closures were never wired up, so the live filter never
-// worked. The BFF's URL-based filter is now the single source of
-// truth.)
-
-/// Featured card — large hero card with optional cover image, "Featured"
-/// badge, tags, title, summary, and "Read article" CTA. Mirrors
-/// `FeaturedCard` in `news-list.tsx`.
-///
-/// Wave 48 T3 — Plan 12: when `post.cover_image_url` is set, the
-/// featured card renders the image as the background (object-cover,
-/// full bleed) instead of the icon-placeholder gradient. Prod uses
-/// real cover images on the featured post; without this, dev rendered
-/// the gradient placeholder and the diff was ~91% on /news.
 #[component]
 fn NewsFeaturedCard(post: NewsPost) -> Element {
-    let has_image = post.cover_image_url.as_ref().map(|s| !s.is_empty()).unwrap_or(false);
     rsx! {
         a { class: "group block news-featured-card", href: "/news/{post.slug}",
-            div { class: "relative rounded-3xl overflow-hidden h-[360px] sm:h-[480px] bg-gradient-to-br from-purple-500/20 via-cyan-500/10 to-slate-900/50",
-                if has_image {
-                    img {
-                        class: "absolute inset-0 w-full h-full object-cover",
-                        src: "{post.cover_image_url.as_ref().unwrap()}",
-                        alt: "{post.title}",
-                        loading: "lazy",
-                    }
+            article { class: "relative rounded-3xl overflow-hidden h-[360px] sm:h-[480px] bg-gradient-to-br from-purple-500/20 via-cyan-500/10 to-slate-900/50",
+                if let Some(cover) = &post.cover_image_url {
+                    img { class: "absolute inset-0 w-full h-full object-cover", src: cover, alt: "", loading: "eager" }
                 } else {
                     div { class: "absolute top-8 right-8 opacity-10", Icon { name: "newspaper".to_string(), size: Some(96) } }
                 }
                 div { class: "absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" }
                 div { class: "absolute bottom-0 left-0 right-0 p-6 sm:p-10",
                     div { class: "flex flex-wrap gap-2 mb-4",
-                        span { class: "px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/20 text-cyan-500 backdrop-blur-sm border border-cyan-500/30", "Featured" }
+                        span { class: "px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/20 text-cyan-500 border border-cyan-500/30", "Featured" }
+                        for tag in post.tags.iter().take(2) {
+                            span { class: "px-3 py-1 rounded-full text-xs font-medium bg-white/10 text-white/80", "{tag}" }
+                        }
                     }
-                    h2 { class: "text-2xl sm:text-3xl font-extrabold text-white mb-3 group-hover:text-cyan-500 transition-colors line-clamp-2",
-                        "{post.title}"
+                    h2 { class: "text-2xl sm:text-3xl font-extrabold text-white mb-3 group-hover:text-cyan-500 transition-colors line-clamp-2", "{post.title}" }
+                    if !post.summary.is_empty() {
+                        p { class: "text-white/70 text-sm sm:text-base line-clamp-2 max-w-3xl", "{post.summary}" }
                     }
-                    p { class: "text-white/70 text-sm sm:text-base line-clamp-2 max-w-3xl", "{post.excerpt}" }
                     div { class: "mt-5 flex items-center gap-4",
-                        span { class: "text-xs text-white/40", "{post.published_at}" }
-                        span { class: "flex items-center gap-1.5 text-xs font-semibold text-cyan-500 group-hover:gap-2.5 transition-all", "Read article " Icon { name: "arrow-right".to_string(), size: Some(14) } }
+                        if let Some(date) = &post.published_at { span { class: "text-xs text-white/60", "{date}" } }
+                        span { class: "flex items-center gap-1.5 text-xs font-semibold text-cyan-500", "Read article " Icon { name: "arrow-right".to_string(), size: Some(14) } }
                     }
                 }
             }
@@ -450,22 +387,33 @@ fn NewsFeaturedCard(post: NewsPost) -> Element {
     }
 }
 
-/// Article card — smaller card in the grid layout. Mirrors
-/// `ArticleCard` in `news-list.tsx`.
 #[component]
 fn ArticleCard(post: NewsPost) -> Element {
     rsx! {
         a { class: "group block h-full news-article-card", href: "/news/{post.slug}",
             article { class: "rounded-2xl bg-card border border-border/20 overflow-hidden hover:border-cyan-500/40 transition-all h-full flex flex-col",
                 div { class: "relative w-full h-48 overflow-hidden bg-gradient-to-br from-purple-500/15 via-cyan-500/5 to-transparent flex items-center justify-center",
-                    Icon { name: "newspaper".to_string(), size: Some(40) }
+                    if let Some(cover) = &post.cover_image_url {
+                        img { class: "w-full h-full object-cover", src: cover, alt: "", loading: "lazy" }
+                    } else {
+                        Icon { name: "newspaper".to_string(), size: Some(40) }
+                    }
                 }
                 div { class: "p-5 flex flex-col flex-1",
+                    if !post.tags.is_empty() {
+                        div { class: "flex flex-wrap gap-1.5 mb-3",
+                            for tag in post.tags.iter().take(2) {
+                                span { class: "px-2 py-0.5 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-500", "{tag}" }
+                            }
+                        }
+                    }
                     h2 { class: "font-bold group-hover:text-cyan-500 transition-colors line-clamp-2 mb-2 leading-snug", "{post.title}" }
-                    p { class: "text-sm text-muted-foreground line-clamp-3 flex-1 leading-relaxed", "{post.excerpt}" }
+                    if !post.summary.is_empty() {
+                        p { class: "text-sm text-muted-foreground line-clamp-3 flex-1 leading-relaxed", "{post.summary}" }
+                    }
                     div { class: "mt-4 pt-4 border-t border-border/10 flex items-center justify-between",
-                        span { class: "text-xs text-muted-foreground", "{post.published_at}" }
-                        span { class: "text-xs text-cyan-500 font-semibold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1", "Read " Icon { name: "arrow-right".to_string(), size: Some(12) } }
+                        if let Some(date) = &post.published_at { span { class: "text-xs text-muted-foreground", "{date}" } }
+                        span { class: "text-xs text-cyan-500 font-semibold flex items-center gap-1", "Read " Icon { name: "arrow-right".to_string(), size: Some(12) } }
                     }
                 }
             }
@@ -473,45 +421,135 @@ fn ArticleCard(post: NewsPost) -> Element {
     }
 }
 
-/// Empty state — when there are no articles, show a centered
-/// newspaper icon + "No articles yet" message. Mirrors
-/// `EmptyState` in `news-list.tsx`.
 #[component]
-fn NewsEmptyState() -> Element {
+fn NewsEmptyState(
+    filtered: bool,
+    page: u32,
+    total: u64,
+    total_pages: u32,
+    query: String,
+    category: String,
+) -> Element {
+    let title = if filtered || total > 0 {
+        "No matching articles"
+    } else {
+        "No published articles yet"
+    };
+    let message = if total > 0 && page > total_pages {
+        "This page has no articles. Use Previous to return to an available page."
+    } else if filtered {
+        "Try a different search or category."
+    } else {
+        "Published updates will appear here when they are available."
+    };
+    let recovery_href =
+        (total > 0 && page > total_pages).then(|| page_href(total_pages, &query, &category));
     rsx! {
-        div { class: "flex flex-col items-center justify-center py-24 gap-5 news-empty-state",
+        section { class: "flex flex-col items-center justify-center py-24 gap-5 news-empty-state", aria_live: "polite",
             div { class: "p-6 rounded-full bg-gradient-to-br from-purple-500/10 via-cyan-500/5 to-transparent border border-border/20",
                 Icon { name: "newspaper".to_string(), size: Some(40) }
             }
             div { class: "text-center",
-                p { class: "font-semibold text-lg", "No articles yet" }
-                p { class: "text-sm text-muted-foreground mt-1.5 max-w-xs leading-relaxed",
-                    "Check back soon for updates, announcements, and insights from the EPSX team."
+                h2 { class: "font-semibold text-lg", "{title}" }
+                p { class: "text-sm text-muted-foreground mt-1.5 max-w-xs leading-relaxed", "{message}" }
+            }
+            if let Some(href) = recovery_href {
+                a { class: "btn btn-outline", href, "Previous page" }
+            }
+        }
+    }
+}
+
+#[component]
+fn NewsErrorState(code: String, retry_href: String) -> Element {
+    let invalid_query = code == "invalid_news_query";
+    rsx! {
+        section { class: "news-error-state card card-glass mt-8 p-8 sm:p-12 text-center", role: "alert",
+            div { class: "mx-auto mb-4 text-cyan-500", Icon { name: "triangle-alert".to_string(), size: Some(36) } }
+            h2 { class: "text-xl font-bold",
+                if invalid_query { "These news filters are invalid" } else { "News is temporarily unavailable" }
+            }
+            p { class: "mt-2 text-sm text-muted-foreground max-w-md mx-auto",
+                if invalid_query {
+                    "Reset the filters and try again."
+                } else {
+                    "We could not load published articles. No cached or sample content is being shown."
+                }
+            }
+            div { class: "mt-6 flex flex-wrap justify-center gap-3",
+                a { class: "btn btn-primary", href: retry_href, "Try again" }
+                if invalid_query {
+                    a { class: "btn btn-outline", href: "/news", "Reset filters" }
                 }
             }
         }
     }
 }
 
-/// Pagination — Previous / N of M / Next. Mirrors `Pagination` in
-/// `news-list.tsx`. Hidden when there is only one page.
-#[component]
-fn NewsPagination(page: usize, total_pages: usize) -> Element {
-    if total_pages <= 1 { return rsx! { Fragment {} }; }
-    rsx! {
-        div { class: "flex items-center justify-center gap-3 mt-12 news-pagination",
-            a { class: "flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border border-border/20 bg-card hover:bg-muted/50 transition-colors news-pagination-prev",
-                href: if page == 1 { "javascript:void(0)".to_string() } else { format!("/news?page={}", page - 1) },
-                Icon { name: "arrow-left".to_string(), size: Some(14) }
-                " Previous"
+fn encode_query_component(value: &str) -> String {
+    let mut encoded = String::new();
+    for byte in value.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                encoded.push(byte as char)
             }
-            span { class: "px-4 py-2 rounded-xl text-sm text-muted-foreground bg-muted/20 border border-border/10",
+            _ => encoded.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    encoded
+}
+
+fn page_href(page: u32, query: &str, category: &str) -> String {
+    let mut pairs = Vec::new();
+    if !query.is_empty() {
+        pairs.push(format!("q={}", encode_query_component(query)));
+    }
+    if category != "all" {
+        pairs.push(format!("category={}", encode_query_component(category)));
+    }
+    if page > 1 {
+        pairs.push(format!("page={page}"));
+    }
+    if pairs.is_empty() {
+        "/news".to_string()
+    } else {
+        format!("/news?{}", pairs.join("&"))
+    }
+}
+
+#[component]
+fn NewsPagination(page: u32, total_pages: u32, query: String, category: String) -> Element {
+    if total_pages <= 1 {
+        return rsx! { Fragment {} };
+    }
+    rsx! {
+        nav { class: "flex items-center justify-center gap-3 mt-12 news-pagination", aria_label: "News pages",
+            if page > 1 {
+                a { class: "flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border border-border/20 bg-card hover:bg-muted/50 transition-colors news-pagination-prev",
+                    href: page_href(page - 1, &query, &category),
+                    Icon { name: "arrow-left".to_string(), size: Some(14) }
+                    " Previous"
+                }
+            } else {
+                span { class: "flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border border-border/20 opacity-40", aria_disabled: "true",
+                    Icon { name: "arrow-left".to_string(), size: Some(14) }
+                    " Previous"
+                }
+            }
+            span { class: "px-4 py-2 rounded-xl text-sm text-muted-foreground bg-muted/20 border border-border/10", aria_current: "page",
                 "{page} of {total_pages}"
             }
-            a { class: "flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border border-border/20 bg-card hover:bg-muted/50 transition-colors news-pagination-next",
-                href: format!("/news?page={}", page + 1),
-                " Next"
-                Icon { name: "arrow-right".to_string(), size: Some(14) }
+            if page < total_pages {
+                a { class: "flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border border-border/20 bg-card hover:bg-muted/50 transition-colors news-pagination-next",
+                    href: page_href(page + 1, &query, &category),
+                    "Next "
+                    Icon { name: "arrow-right".to_string(), size: Some(14) }
+                }
+            } else {
+                span { class: "flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border border-border/20 opacity-40", aria_disabled: "true",
+                    "Next "
+                    Icon { name: "arrow-right".to_string(), size: Some(14) }
+                }
             }
         }
     }
@@ -520,40 +558,189 @@ fn NewsPagination(page: usize, total_pages: usize) -> Element {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::auth::User;
-    use crate::pages::PageContext;
-    use crate::auth::user::AuthMethod;
 
-    fn ctx(path: &str) -> PageContext {
-        let user = User {
-            id: "u1".to_string(),
-            address: "0x1234…abcd".to_string(),
-            chain_id: "56".to_string(),
-            roles: vec!["user".to_string()],
-            email: Some("test@epsx.io".to_string()),
-            tier: Some("Pro".to_string()),
-            permissions: vec!["news:read".to_string()],
-            last_login_at: None,
-            auth_method: AuthMethod::Wallet,
-            display_name: Some("Test".to_string()),
+    fn context(outcome: serde_json::Value, query: &str) -> PageContext {
+        let mut ctx = PageContext {
+            path: "/news".to_string(),
+            query: query.to_string(),
+            ..Default::default()
         };
-        PageContext { user: Some(user), path: path.to_string(), ..Default::default() }
+        ctx.params
+            .insert("data_news".to_string(), outcome.to_string());
+        ctx
+    }
+
+    fn article(title: &str) -> serde_json::Value {
+        serde_json::json!({
+            "id": "article-1",
+            "slug": "live-article",
+            "title": title,
+            "summary": "Only upstream content",
+            "cover_image_url": null,
+            "author": null,
+            "published_at": "July 22, 2026",
+            "read_time": null,
+            "tags": ["engineering"],
+            "featured": true
+        })
     }
 
     #[test]
-    fn test_render_smoke() {
-        let (_meta, element) = render(&ctx("/news"));
+    fn ready_state_renders_only_supplied_articles_and_escapes_text() {
+        let ctx = context(
+            serde_json::json!({
+                "state": "ready",
+                "articles": [article("Live <script>alert(1)</script>")],
+                "total": 1,
+                "page": 1,
+                "limit": 12,
+                "total_pages": 1,
+                "query": "",
+                "category": "all"
+            }),
+            "",
+        );
+        let (_, element) = render(&ctx);
         let html = dioxus_ssr::render_element(element);
-        // Dioxus HTML-escapes the `&` to `&#38;`; match the escaped form.
-        assert!(html.contains("News &#38;"), "/news header must render. Got: {}", html);
+        assert!(html.contains("Live "));
+        assert!(html.contains("alert(1)"));
+        assert!(html.contains("July 22, 2026"));
+        assert!(!html.contains("<script>alert(1)</script>"));
+        assert!(!html.contains("Strategic Roadmap and Future Capabilities"));
     }
 
     #[test]
-    fn test_section_markers() {
-        let (_meta, element) = render(&ctx("/news"));
+    fn missing_or_malformed_data_is_an_error_without_a_sample_fallback() {
+        let (_, missing) = render(&PageContext {
+            path: "/news".to_string(),
+            ..Default::default()
+        });
+        let missing = dioxus_ssr::render_element(missing);
+        assert!(missing.contains("News is temporarily unavailable"));
+        assert!(missing.contains("No cached or sample content"));
+
+        let (_, malformed) = render(&context(
+            serde_json::json!({
+                "state": "ready",
+                "articles": [{"slug": "missing-title"}],
+                "total": 1,
+                "page": 1,
+                "limit": 12,
+                "total_pages": 1,
+                "query": "",
+                "category": "all"
+            }),
+            "",
+        ));
+        assert!(dioxus_ssr::render_element(malformed).contains("News is temporarily unavailable"));
+
+        let (_, zero_limit) = render(&context(
+            serde_json::json!({
+                "state": "empty",
+                "total": 0,
+                "page": 1,
+                "limit": 0,
+                "total_pages": 0,
+                "query": "",
+                "category": "all"
+            }),
+            "",
+        ));
+        assert!(dioxus_ssr::render_element(zero_limit).contains("News is temporarily unavailable"));
+
+        let mut bad_date = article("Malformed date");
+        bad_date["published_at"] = serde_json::json!("yesterday");
+        let (_, bad_date) = render(&context(
+            serde_json::json!({
+                "state": "ready",
+                "articles": [bad_date],
+                "total": 1,
+                "page": 1,
+                "limit": 12,
+                "total_pages": 1,
+                "query": "",
+                "category": "all"
+            }),
+            "",
+        ));
+        assert!(dioxus_ssr::render_element(bad_date).contains("News is temporarily unavailable"));
+
+        let (_, unknown_category) = render(&context(
+            serde_json::json!({
+                "state": "empty",
+                "total": 0,
+                "page": 1,
+                "limit": 12,
+                "total_pages": 0,
+                "query": "",
+                "category": "security"
+            }),
+            "",
+        ));
+        assert!(dioxus_ssr::render_element(unknown_category)
+            .contains("News is temporarily unavailable"));
+    }
+
+    #[test]
+    fn empty_state_is_distinct_from_dependency_failure() {
+        let (_, element) = render(&context(
+            serde_json::json!({
+                "state": "empty",
+                "total": 0,
+                "page": 1,
+                "limit": 12,
+                "total_pages": 0,
+                "query": "",
+                "category": "all"
+            }),
+            "",
+        ));
         let html = dioxus_ssr::render_element(element);
-        for marker in ["news-header", "news-filters", "news-list-section"] {
-            assert!(html.contains(marker), "missing section marker: {}", marker);
-        }
+        assert!(html.contains("No published articles yet"));
+        assert!(!html.contains("temporarily unavailable"));
+    }
+
+    #[test]
+    fn out_of_range_empty_page_has_filter_preserving_keyboard_recovery() {
+        let (_, element) = render(&context(
+            serde_json::json!({
+                "state": "empty",
+                "total": 13,
+                "page": 100,
+                "limit": 12,
+                "total_pages": 2,
+                "query": "rust & web",
+                "category": "engineering"
+            }),
+            "q=rust%20%26%20web&category=engineering&page=100",
+        ));
+        let html = dioxus_ssr::render_element(element);
+        assert!(html.contains("Previous page"));
+        let expected = "/news?q=rust%20%26%20web&category=engineering&page=2";
+        assert_eq!(page_href(2, "rust & web", "engineering"), expected);
+        assert!(
+            html.contains(expected)
+                || html.contains(&expected.replace('&', "&amp;"))
+                || html.contains(&expected.replace('&', "&#38;"))
+        );
+    }
+
+    #[test]
+    fn pagination_preserves_search_and_category_without_javascript_urls() {
+        assert_eq!(
+            page_href(2, "rust & web", "engineering"),
+            "/news?q=rust%20%26%20web&category=engineering&page=2"
+        );
+        let pagination = dioxus_ssr::render_element(rsx! {
+            NewsPagination {
+                page: 2,
+                total_pages: 3,
+                query: "rust & web".to_string(),
+                category: "engineering".to_string(),
+            }
+        });
+        assert!(pagination.contains("page=3"));
+        assert!(!pagination.contains("javascript:"));
+        assert!(pagination.contains("aria-label=\"News pages\""));
     }
 }
