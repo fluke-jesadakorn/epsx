@@ -186,8 +186,11 @@ and revocation behavior remain canonical.
 
 ### Data and migration safety
 
-- Candidate services generally create schemas at runtime and lack versioned
-  service migrations/backfills.
+- Runtime-DDL triage still reports 31 actionable findings across candidate
+  services. Event analytics has removed its startup `CREATE TABLE` and now has
+  a pinned additive migration plus a read-only schema compatibility check, but
+  no runner, baseline adoption, populated upgrade, reconciliation,
+  concurrent-startup, or live-database proof exists.
 - Provisioning creates `epsx_payments_*` databases while pay service manifests
   and compose files also refer to `epsx_pay`; other candidate service database
   names are not consistently provisioned.
@@ -207,9 +210,10 @@ timing evidence. Existing production data must not be dropped to simplify a cut.
 
 ### Infrastructure and release safety
 
-- Rendering the production overlay currently produces `epsx-admin:dev`,
-  `epsx-frontend:dev`, and `epsx-identity:dev`; image replacement keys do not
-  match base image names. Pay tags also do not resolve to the intended wave tag.
+- Exact production Kustomize image matching is repaired for admin, frontend,
+  and pay: local rendering replaces the first two `:dev` tags with `:prod` and
+  resolves pay to `:wave49`. Identity still renders as `epsx-identity:dev`, and
+  no workload image is digest-pinned.
 - Most candidate microservices are absent from the production Kustomize base.
 - Health endpoints are generally liveness-only and do not prove database,
   Redis, identity, chain RPC, or downstream readiness.
@@ -228,12 +232,12 @@ passed`. It is not a percentage estimate of engineering effort.
 | Visual/responsive/accessibility | 1 | Historical screenshots exist; current accepted baseline is incomplete | All routes pass agreed viewport, state, keyboard, and accessibility thresholds. |
 | Interaction parity | 0 | No complete click/form/wallet/navigation matrix | Every interactive control has E2E success and failure coverage. |
 | Auth/session parity | 1 | A1.4 hermetic gate covers 71 focused tests across both BFFs; durable database-backed rotation/revocation and a real wallet flow remain unproven | SIWE -> SSR me -> rotation -> revocation works across both BFFs. |
-| Backend authorization | 1 | Gateway is fail-closed with exact RS256/JWKS and granular edge policy; direct services and owner checks remain blocked | Anonymous/cross-owner calls fail at both gateway and service boundaries; granular backend permissions pass. |
+| Backend authorization | 1 | Gateway is fail-closed with exact RS256/JWKS and granular edge policy; the 117-route service matrix is 11 aligned, 47 partial, and 59 blocked | Anonymous/cross-owner calls fail at both gateway and service boundaries; granular backend permissions pass. |
 | Live data parity | 0 | Frontend mocks and admin empty params remain | Sample payloads removed and real empty/error states proven. |
 | Checkout/on-chain parity | 0 | Route mismatch and DB-only escrow transitions | Verified receipts and contract transactions drive state. |
 | Backend/API contract parity | 1 | Both BFFs now return explicit HTML/JSON 404s and preserve 405/redirect semantics; payment prefixes and broader payload/status drift remain | Versioned contract matrix passes for monolith and replacement. |
-| Migration/data safety | 0 | Runtime DDL, naming drift, baseline edits, expired partitions | Upgrade/backfill/reconcile/rollback tests pass on production-shaped data. |
-| Production manifests/routing | 0 | Dev tags and direct pay-service ingress remain | Rendered manifests use approved immutable images and intended BFF ingress. |
+| Migration/data safety | 0 | 31 actionable runtime-DDL findings and all 16 migration risks remain blocked; naming drift, baseline edits, and expired partitions remain | Upgrade/backfill/reconcile/rollback tests pass on production-shaped data. |
+| Production manifests/routing | 0 | Admin/frontend/pay transforms are repaired, but identity still uses `:dev`, images lack digests, and direct pay-service ingress remains | Rendered manifests use approved immutable images and intended BFF ingress. |
 | Observability/readiness | 0 | Shallow health checks and incomplete cross-service traces | Dependency readiness, SLO metrics, alerts, and trace IDs pass drills. |
 | Canary/rollback | 0 | Not demonstrated | Shadow, canary, abort thresholds, and rollback rehearsal are approved. |
 
@@ -430,16 +434,25 @@ bounded path set. Shared contract files require coordination through package A0.
   custody, truthful chain behavior, schema migration, and runtime integration
   remain STOP conditions.
 
-- **A2.3h status:** the identity direct-service audit pins the exact eleven
-  route shapes and deliberately promotes none of them to aligned. Health is
-  partial; ten routes are blocked by twenty STOP conditions. The candidate
-  still uses defaultable shared-secret access/refresh tokens, deletes a SIWE
-  nonce non-atomically before signature verification, lacks durable refresh
-  rotation/revocation, exposes demo issuance behind mutable configuration,
-  authorizes admin operations by role instead of exact audience plus the four
-  existing granular permissions, and creates its authority table at startup.
-  Integrity and tamper tests pass while readiness intentionally exits `3`;
-  this audit performs no database, Redis, JWKS, service, or migration work.
+- **A2.3h status:** this is an immutable historical pre-remediation identity
+  audit pinned to commit `0cdd7ba1967d52e299000b7290873cd4d19dfd09`; it does
+  not describe the current runtime. At that snapshot the audit pinned the exact
+  eleven route shapes, promoted none to aligned, classified health as partial
+  and ten routes as blocked, and recorded twenty STOP conditions including
+  defaultable shared-secret tokens, non-atomic nonce consumption, absent
+  durable refresh rotation/revocation, mutable demo issuance, role-based admin
+  authorization, and runtime authority-table creation. Its integrity and tamper
+  tests pass while readiness intentionally exits `3`.
+
+- **A2.3i status:** the current identity boundary makes all eleven exact route
+  boundaries fail closed. Only `GET`/`HEAD /health` is functional and aligned;
+  the other ten route shapes are structurally unavailable and blocked.
+  Protected candidates verify the canonical audience and, for admin shapes,
+  the exact literal granular permission before returning an intentional `404`.
+  The global 117-route service-authorization matrix is now 11 aligned, 47
+  partial, and 59 blocked. Twelve STOP blockers remain: there is no database,
+  Redis, external JWKS, service-integration, migration, or deployment proof,
+  and the disabled identity lifecycle is not production functionality.
 
 ### A3 — Additive migrations and data reconciliation (P0)
 
@@ -472,12 +485,22 @@ bounded path set. Shared contract files require coordination through package A0.
   preflight, reconciliation, migration, repair, or database mutation has run.
 
 - **A3.3 status:** the checksum-pinned runtime-DDL triage reproduces the
-  migration-safety scanner over 1,123 tracked Rust files and enumerates all 39
-  findings in stable order. Six are exact reviewed test exceptions; all 33
-  remaining findings stay blocked across thirteen service groups and fourteen
-  files. The inventory carries the two A3.6 remediation requirements forward
-  unchanged, invents no priority, dependency, database state, or forward SQL,
-  and exits `2` with `STOP` for readiness. No database or migration was run.
+  migration-safety scanner over 1,124 tracked Rust files and enumerates all 37
+  findings in stable order. Six are exact reviewed test exceptions; all 31
+  actionable findings stay blocked across eleven service groups and twelve
+  files. It invents no priority, dependency, database state, or forward SQL and
+  exits `2` with `STOP` for readiness. No database or migration was run. The
+  wider migration-safety inventory covers all 9/9 roots and 167 SQL files; its
+  510 destructive-token findings remain classified, and all 16/16 risks remain
+  blocked.
+
+- **A3.6 status:** event analytics removed its one startup `CREATE TABLE` and
+  now carries a checksum-pinned, 260-byte additive `public.events` migration
+  plus a read-only exact schema-compatibility check before listener bind. This
+  is partial evidence only: there is no migration runner, baseline-adoption
+  proof, populated upgrade, row reconciliation, concurrent-startup test, or
+  live-database evidence. Readiness therefore remains `STOP`; no migration or
+  database action was run.
 
 ### A4 — Canonical permission and entitlement authority (P0)
 
@@ -762,13 +785,20 @@ bounded path set. Shared contract files require coordination through package A0.
   These commands validate artifacts only. They do not authorize `kubectl apply`
   against production, DNS/Cloudflare changes, or production migrations.
 
-- **A13.0 status:** a hermetic local render gate records 18 stop blockers. The
-  current artifact contains three `:dev` images, no digest-pinned images, public
-  pay ingress that bypasses the BFF, literal pay database credentials, a zero
-  escrow address, no webhook configuration, eight absent candidate services,
-  and no startup or dependency-readiness checks. The P0 ledger is one passed,
-  four partial, and two blocked; readiness intentionally exits `3`. No cluster
-  access or infrastructure mutation is performed by this gate.
+- **A13.0 status:** the initial hermetic local render baseline recorded 18 stop
+  blockers, including three `:dev` images and a pay tag that missed the intended
+  wave. It also recorded no digest-pinned images, public pay ingress that
+  bypasses the BFF, literal pay database credentials, a zero escrow address, no
+  webhook configuration, eight absent candidate services, and no startup or
+  dependency-readiness checks. This entry preserves the pre-remediation
+  baseline rather than describing the current render.
+
+- **A13.1 status:** the exact production Kustomize image transform is repaired:
+  the hermetic local render replaces admin and frontend `:dev` tags with
+  `:prod`, and pay `:prod` with `:wave49`. Identity still renders with `:dev`,
+  no image has an immutable digest, and 17 STOP blockers remain. Readiness
+  intentionally exits `3`; the evidence used no live cluster and performed no
+  deployment or infrastructure mutation.
 
 ## Release gates
 
