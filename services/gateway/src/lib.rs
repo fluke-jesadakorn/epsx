@@ -1,7 +1,6 @@
 pub mod auth;
 pub mod policy;
 
-use auth::{extract_bearer, AccessTokenVerifier, VerifiedPrincipal, ADMIN_AUDIENCE};
 use axum::{
     body::{to_bytes, Body},
     extract::{Request, State},
@@ -9,6 +8,9 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{any, get},
     Json, Router,
+};
+use epsx_service_auth::{
+    authenticate_headers, AccessTokenVerifier, VerifiedPrincipal, ADMIN_AUDIENCE,
 };
 use policy::{classify, AccessPolicy};
 use serde_json::json;
@@ -240,18 +242,12 @@ async fn authorize_request(
             headers.remove(header::AUTHORIZATION);
             Ok(None)
         }
-        AccessPolicy::Authenticated => {
-            let token = extract_bearer(headers).map_err(|_| GatewayError::Unauthorized)?;
-            verifier
-                .verify(token)
-                .await
-                .map(Some)
-                .map_err(|_| GatewayError::Unauthorized)
-        }
+        AccessPolicy::Authenticated => authenticate_headers(verifier, headers)
+            .await
+            .map(Some)
+            .map_err(|_| GatewayError::Unauthorized),
         AccessPolicy::Permission(permission) => {
-            let token = extract_bearer(headers).map_err(|_| GatewayError::Unauthorized)?;
-            let principal = verifier
-                .verify(token)
+            let principal = authenticate_headers(verifier, headers)
                 .await
                 .map_err(|_| GatewayError::Unauthorized)?;
             if principal.audience != ADMIN_AUDIENCE || !principal.has_permission(permission) {
@@ -516,14 +512,17 @@ mod tests {
 
     #[async_trait]
     impl AccessTokenVerifier for FakeVerifier {
-        async fn verify(&self, token: &str) -> Result<VerifiedPrincipal, auth::VerifyError> {
+        async fn verify(
+            &self,
+            token: &str,
+        ) -> Result<VerifiedPrincipal, epsx_service_auth::VerifyError> {
             self.calls.fetch_add(1, Ordering::SeqCst);
             let (audience, permissions) = match token {
-                "front" => (auth::FRONTEND_AUDIENCE, vec![]),
+                "front" => (epsx_service_auth::FRONTEND_AUDIENCE, vec![]),
                 "admin-no-scope" => (ADMIN_AUDIENCE, vec![]),
                 "admin-users" => (ADMIN_AUDIENCE, vec!["admin:users:read".into()]),
                 "admin-global" => (ADMIN_AUDIENCE, vec!["admin:*:*".into()]),
-                _ => return Err(auth::VerifyError::Validation),
+                _ => return Err(epsx_service_auth::VerifyError::Validation),
             };
             Ok(VerifiedPrincipal {
                 subject: "0xabc".into(),

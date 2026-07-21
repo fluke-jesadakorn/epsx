@@ -4,6 +4,18 @@ This slice replaces the gateway's optional shared-secret JWT enrichment with a
 deny-by-default authorization boundary. It is a gateway milestone, not an
 overall service-authorization or production-readiness claim.
 
+The verifier foundation now lives in the dependency-light
+`shared/rust/epsx-service-auth` crate. The gateway consumes that shared crate;
+later service middleware can call `authenticate_headers` and place the returned
+`VerifiedPrincipal` into request extensions without reading caller-supplied
+identity, wallet, role, or permission headers. This extraction does not claim
+that any direct service has adopted the boundary yet.
+
+`services/gateway/src/auth.rs` remains a re-export facade because the locked A2
+fixture still resolves that path in this bounded slice. A later fixture update
+should repoint implementation evidence to the shared crate; no verifier logic
+is duplicated in the facade.
+
 ## Implemented boundary
 
 - Access tokens are accepted only when they have an RS256 header, a non-empty
@@ -50,7 +62,9 @@ defaults, but those defaults are rejected when production mode is selected.
 
 ```bash
 cargo test -p epsx-gateway --no-fail-fast
+cargo test -p epsx-service-auth --no-fail-fast
 cargo check -p epsx-gateway --all-targets --locked
+cargo check -p epsx-service-auth --all-targets --locked
 ./scripts/migration/verify-service-authorization.sh
 ```
 
@@ -66,6 +80,9 @@ assert the upstream was not contacted.
 - Direct access to candidate services bypasses this gateway boundary. Those
   routers still need equivalent canonical authentication or private network
   enforcement before production exposure.
+- `epsx-service-auth` provides the verifier and service-facing header API only;
+  identity, pay, wallet, subscription, notification, analytics, and indexer
+  routers have not been wired to it in this foundation slice.
 - Gateway `Authenticated` classification establishes a verified principal but
   cannot prove record ownership. Wallet, pay, subscription, notification, and
   other owner-only handlers must compare the verified subject/wallet to stored

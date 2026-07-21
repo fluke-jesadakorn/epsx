@@ -1,8 +1,6 @@
 use clap::{Parser, ValueEnum};
-use epsx_gateway::{
-    auth::{JwksVerifier, JwksVerifierConfig},
-    build_http_client, build_router, AppState, GatewayUrls,
-};
+use epsx_gateway::{build_http_client, build_router, AppState, GatewayUrls};
+use epsx_service_auth::{JwksVerifier, JwksVerifierConfig};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 #[derive(Parser)]

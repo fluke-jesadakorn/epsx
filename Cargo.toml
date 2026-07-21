@@ -9,6 +9,7 @@ members = [
     "shared/rust/config",
     "shared/rust/crypto",
     "shared/rust/auth",
+    "shared/rust/epsx-service-auth",
     "shared/rust/epsx-identity-shared",
     "shared/rust/database",
     "shared/rust/observability",
