@@ -278,7 +278,7 @@
       "dependencies": ["A2", "A3", "A13"],
       "observed": {"status": "blocked", "summary": "Analytics, content, identity, indexer, notification, pay, subscription, and wallet services execute CREATE TABLE/INDEX during startup."},
       "evidence": [
-        {"ref": "worktree", "file": "services/analytics/src/main.rs", "anchor": "CREATE TABLE IF NOT EXISTS events"},
+        {"ref": "worktree", "file": "services/analytics/src/lib.rs", "anchor": "CREATE TABLE IF NOT EXISTS events"},
         {"ref": "worktree", "file": "services/content/src/main.rs", "anchor": "CREATE TABLE IF NOT EXISTS pages"},
         {"ref": "worktree", "file": "services/identity/src/main.rs", "anchor": "CREATE TABLE IF NOT EXISTS users"},
         {"ref": "worktree", "file": "services/indexer/src/main.rs", "anchor": "CREATE TABLE IF NOT EXISTS blocks"},
@@ -374,7 +374,7 @@
   ],
   "staticScan": {
     "migrationSql": {"trackedFiles": 166, "findings": 510, "sha256": "42ecabca57eef316e4f826b816136ff317df75278f8b36838b4f20bdb171eec9"},
-    "runtimeRustDdl": {"trackedFiles": 1109, "findings": 39, "sha256": "90e34fc33373f868be836fde6d44dcb36a7053c3c673dbb6751bc03caa6227af"},
+    "runtimeRustDdl": {"trackedFiles": 1122, "findings": 39, "sha256": "c26777c94fb27c123415510a757d23a5ff2cc6a874b1e201317bac44dd6728e3"},
     "sourceDiff": {"changedPaths": 15, "sha256": "3528913dace61a0b974292d309fedda40ff3fec55c77f7f840ac67d6aa567ae2"},
     "reviewedExceptions": [
       {"id": "exception.runtime-test-sql-injection", "scope": "runtimeRustDdl", "file": "apps/backend/__test__/web3/web3_security_tests.rs", "anchor": "DROP TABLE wallet_permissions", "reason": "Test-only malicious input literal; it is not executed as schema DDL."},

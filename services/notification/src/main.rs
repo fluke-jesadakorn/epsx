@@ -204,11 +204,11 @@ async fn main() {
     )
     .execute(&db)
     .await
-    .expect("Failed to create index");
+    .expect("Failed to initialize notification user index");
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_notif_status ON notifications (status)")
         .execute(&db)
         .await
-        .expect("Failed to create index");
+        .expect("Failed to initialize notification status index");
 
     // Seed default templates
     seed_default_templates(&db).await;
