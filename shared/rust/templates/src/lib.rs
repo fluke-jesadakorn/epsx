@@ -10,6 +10,14 @@
 
 pub mod components;
 
+fn escape_html_attribute(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('"', "&quot;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
 /// Returns the full `<head>` block matching the original Next.js design.
 ///
 /// Includes:
@@ -22,11 +30,25 @@ pub mod components;
 /// - FOUC prevention script that applies the saved theme before first paint
 /// - Toast / modal / dropdown / tab / chat-widget global controllers
 pub fn design_system_head(title: &str, description: &str) -> String {
+    design_system_head_with_keywords(title, description, None)
+}
+
+/// Variant of [`design_system_head`] that preserves route-owned search
+/// keywords when the canonical source defines them.
+pub fn design_system_head_with_keywords(
+    title: &str,
+    description: &str,
+    keywords: Option<&str>,
+) -> String {
+    let keywords_meta = keywords
+        .map(escape_html_attribute)
+        .map(|value| format!(r#"<meta name="keywords" content="{value}" />\n"#))
+        .unwrap_or_default();
     format!(
         r##"<meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover" />
 <meta name="description" content="{description}" />
-<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+{keywords_meta}<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
 <title>{title}</title>
 <!-- Wave 28 T1: Tailwind v4 PostCSS pipeline — local CSS only.
@@ -3680,20 +3702,21 @@ pub fn design_system_head(title: &str, description: &str) -> String {
   .auth-page-fallback a {{ color: rgb(113, 113, 122); text-decoration: underline; text-underline-offset: 2px; }}
 
   /* === About page sections === */
-  .about-hero-section {{ padding: 6rem 0 3rem; text-align: center; }}
+  .about-hero-section {{ padding: 4rem 0 2rem; text-align: center; }}
   .about-hero-content {{ max-width: 48rem; margin: 0 auto; }}
   .about-hero-title {{
-    font-size: 3.5rem; line-height: 1.1; font-weight: 800; margin: 0 0 1.5rem;
+    font-size: 3rem; line-height: 1.1; font-weight: 800; margin: 0 0 1rem;
     background: linear-gradient(to right, rgb(249, 115, 22), rgb(234, 179, 8), rgb(234, 88, 12));
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }}
-  @media (min-width: 640px) {{ .about-hero-title {{ font-size: 4rem; }} }}
-  .about-hero-sub {{ font-size: 1.125rem; line-height: 1.7; color: rgb(82, 82, 91); margin: 0 auto 2rem; max-width: 48rem; }}
+  @media (min-width: 640px) {{ .about-hero-title {{ font-size: 3.75rem; }} }}
+  .about-hero-sub {{ font-size: 1.125rem; line-height: 1.7; color: rgb(82, 82, 91); margin: 0 auto 1.5rem; max-width: 48rem; }}
   .about-hero-underline {{ width: 10rem; height: 0.25rem; margin: 0 auto; border-radius: 9999px; background: linear-gradient(to right, rgb(249, 115, 22), rgb(234, 179, 8), rgb(234, 88, 12)); }}
 
-  .mission-section {{ padding: 5rem 0; }}
-  .mission-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; }}
-  .mission-card {{ padding: 2.5rem 2rem; }}
+  .mission-section {{ padding: 4rem 0; }}
+  .mission-grid {{ display: grid; grid-template-columns: 1fr; gap: 3rem; align-items: center; }}
+  @media (min-width: 1024px) {{ .mission-grid {{ grid-template-columns: 1fr 1fr; }} }}
+  .mission-card {{ padding: 2rem; }}
   .mission-card-icon {{ display: inline-flex; padding: 0.75rem; border-radius: 0.75rem; background: rgba(251, 146, 60, 0.10); margin-bottom: 1.5rem; }}
   .mission-card-title {{
     font-size: 1.75rem; font-weight: 800; margin: 0 0 1rem;
@@ -3757,8 +3780,9 @@ pub fn design_system_head(title: &str, description: &str) -> String {
   .about-timeline-title {{ font-size: 1.25rem; font-weight: 700; color: rgb(24, 24, 27); margin: 0 0 0.5rem; }}
   .about-timeline-body {{ font-size: 0.9375rem; line-height: 1.7; color: rgb(63, 63, 70); margin: 0; }}
 
-  .datatech-section {{ padding: 5rem 0; }}
-  .datatech-overview-grid {{ display: grid; grid-template-columns: 1fr; gap: 1.5rem; margin-top: 2.5rem; }}
+  .datatech-section {{ padding: 2rem 0; }}
+  @media (min-width: 640px) {{ .datatech-section {{ padding: 4rem 0; }} }}
+  .datatech-overview-grid {{ display: grid; grid-template-columns: 1fr; gap: 1.5rem; }}
   @media (min-width: 1024px) {{ .datatech-overview-grid {{ grid-template-columns: 2fr 1fr; }} }}
   .datatech-card {{ padding: 2.5rem 2rem; position: relative; overflow: hidden; }}
   .datatech-card-title {{
@@ -3776,7 +3800,8 @@ pub fn design_system_head(title: &str, description: &str) -> String {
   .datatech-why-check {{ color: rgb(16, 185, 129); font-weight: 700; }}
   .datatech-card-why .datatech-card-title {{ background: linear-gradient(to right, rgb(59, 130, 246), rgb(6, 182, 212)); -webkit-background-clip: text; background-clip: text; color: transparent; }}
 
-  .datatech-features-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 1.5rem; }}
+  .datatech-features-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 2rem; }}
+  @media (min-width: 640px) {{ .datatech-features-grid {{ gap: 2rem; }} }}
   .datatech-feature {{ padding: 2rem 1.5rem; position: relative; overflow: hidden; }}
   .datatech-feature-title {{
     font-size: 1.25rem; font-weight: 800; margin: 0 0 0.75rem; background-clip: text; -webkit-background-clip: text; color: transparent;
@@ -3790,7 +3815,7 @@ pub fn design_system_head(title: &str, description: &str) -> String {
   .datatech-feature-body {{ font-size: 0.9375rem; line-height: 1.6; color: rgb(63, 63, 70); margin: 0 0 0.75rem; }}
   .datatech-feature-detail {{ font-size: 0.8125rem; line-height: 1.6; color: rgb(113, 113, 122); margin: 0; }}
 
-  .datatech-benefits {{ padding: 2.5rem 2rem; margin-top: 1.5rem; position: relative; overflow: hidden; }}
+  .datatech-benefits {{ padding: 2.5rem 2rem; margin-top: 2rem; position: relative; overflow: hidden; }}
   .datatech-benefits-title {{
     font-size: 1.75rem; font-weight: 800; margin: 0 0 1.5rem;
     background: linear-gradient(to right, rgb(16, 185, 129), rgb(5, 150, 105));
@@ -5450,7 +5475,8 @@ pub fn design_system_head(title: &str, description: &str) -> String {
     /* The auto-redirect UI shown briefly before the redirect. */
   }}
   /* end wave6b-admin-pages-depth-track-d */
-</style>"##
+</style>"##,
+        keywords_meta = keywords_meta,
     )
 }
 
@@ -6752,6 +6778,27 @@ pub fn page_shell_with_body_class(
     include_footer: bool,
     body_class: &str,
 ) -> String {
+    page_shell_with_body_class_and_keywords(
+        title,
+        description,
+        None,
+        nav,
+        body,
+        include_footer,
+        body_class,
+    )
+}
+
+/// Same as [`page_shell_with_body_class`] with optional route-owned keywords.
+pub fn page_shell_with_body_class_and_keywords(
+    title: &str,
+    description: &str,
+    keywords: Option<&str>,
+    nav: &str,
+    body: &str,
+    include_footer: bool,
+    body_class: &str,
+) -> String {
     let footer_html = if include_footer { footer() } else { "" };
     format!(
         r##"<!DOCTYPE html>
@@ -6768,7 +6815,7 @@ pub fn page_shell_with_body_class(
 {footer}
 </body>
 </html>"##,
-        head = design_system_head(title, description),
+        head = design_system_head_with_keywords(title, description, keywords),
         js = global_js(),
         nav = nav,
         body = body,
@@ -6785,3 +6832,24 @@ pub fn page_shell_with_body_class(
 // no-op and the navbar cluster already exists from Wave 2. The
 // marker block is reserved here per the Wave 3a CSS region
 // convention (see `docs/wave3a-wiring/design.md` §3).
+
+#[cfg(test)]
+mod page_head_tests {
+    use super::*;
+
+    #[test]
+    fn optional_keywords_are_escaped_and_omitted_by_default() {
+        let legacy = design_system_head("Title", "Description");
+        assert!(!legacy.contains("name=\"keywords\""));
+
+        let head = design_system_head_with_keywords(
+            "Title",
+            "Description",
+            Some("analytics & \"markets\" <global>"),
+        );
+        assert!(head.contains(
+            "<meta name=\"keywords\" content=\"analytics &amp; &quot;markets&quot; &lt;global&gt;\" />"
+        ));
+        assert!(!head.contains("<global>"));
+    }
+}

@@ -8,11 +8,13 @@ The source baseline is pinned to `origin/development@373bd231cb7a616c3d4c0ddc1d6
 
 The current result is deliberately not a completion claim:
 
-- **2 aligned:** `/access-denied` and `/manual`, after focused Rust and real localhost Playwright proof for content/escaping, semantics, responsive layout, and keyboard navigation.
-- **8 partial:** `/about`, `/contact`, `/developer/docs`, `/news`, `/news/:slug`, `/offline`, `/privacy`, `/terms`.
+- **3 aligned:** `/about`, `/access-denied`, and `/manual`, after focused Rust and real localhost Playwright proof for content/escaping, semantics, responsive layout, and keyboard navigation.
+- **7 partial:** `/contact`, `/developer/docs`, `/news`, `/news/:slug`, `/offline`, `/privacy`, `/terms`.
 - **18 blocked:** every other route in the contract.
 
 The B7.1 proof closes `/access-denied` only. `/offline` now has a public accessible retry button and proves an already-rendered page survives an offline transition and reloads after reconnection, but fresh disconnected/service-worker cache delivery is absent. `/privacy` and `/terms` have responsive, hierarchy, and keyboard proof, yet their Google Sign-in/OIDC legal copy is not approved for the canonical wallet/SIWE flow. Terms also targets `/api/public/subscribe`, for which no matching email-subscription handler exists.
+
+The focused B1 `/about` proof removes the prior invented team biographies, company statistics, roadmap, values, and hiring claims. It accepts only the pinned hero, DataTech lifecycle, benefits, mission, and vision copy in the pinned order, carries the exact title/description/keywords through an escaped optional metadata field, and proves the middleware-required route through an ephemeral localhost RS256/JWKS session. The fixture binds only loopback, uses a five-minute token and temporary key, and stops both processes after the mobile/desktop run; it adds no authentication bypass.
 
 The focused B5 `/manual` proof accepts the pinned 35-feature catalog verbatim, verifies every referenced WebP through the localhost BFF, and proves the responsive category index, route links, screenshot fallback/dialog, and focus behavior at mobile and desktop viewports. It adds no permission, plan, ranking, feature-flag, or subscription decisions to the frontend.
 
@@ -25,7 +27,7 @@ Anchors are literal substrings. Source anchors are verified with `git show` at t
 | Route | Pinned source anchor | Current target anchor | Observed loader | State |
 |---|---|---|---|---|
 | `/` | `apps/frontend/app/page.tsx :: export default async function HomePage` | `pages/home.rs :: pub fn render(ctx: &PageContext)` | none; fixed performers/plans/news | blocked |
-| `/about` | `apps/frontend/app/about/page.tsx :: export default function AboutPage()` | `pages/about.rs :: let members = vec![` | none; placeholder team copy | partial |
+| `/about` | `apps/frontend/app/about/page.tsx :: title: 'About Us - EPSX Analytics Platform'` | `pages/about.rs :: meta.title = TITLE.to_string();` | accepted pinned static content only; authenticated responsive/metadata/keyboard proof | aligned |
 | `/access-denied` | `apps/frontend/app/access-denied/page.tsx :: export default function AccessDeniedPage` | `pages/access_denied.rs :: .query_param("reason")` | bounded/control-filtered decoded text, escaped output, safe links, mobile/desktop keyboard proof | aligned |
 | `/account` | `apps/frontend/app/account/page.tsx :: export default async function AccountPage()` | `pages/account.rs :: ctx.params.get("data_account")` | `GET /api/v1/account`, fallback `/api/v1/auth/me` | blocked |
 | `/account/credits` | `apps/frontend/app/account/credits/page.tsx :: export default function CreditsPage()` | `pages/account_credits.rs :: ctx.params.get("data_credits")` | `GET /api/v1/credits` | blocked |
@@ -86,7 +88,7 @@ The cross-cutting stop conditions are:
 
 Close one batch at a time; do not mark a route aligned merely because another route in its batch passes.
 
-1. **B1 public content:** `/`, `/about`, `/news`, `/news/:slug`. Establish canonical content/pricing/ranking producers, remove invented fallbacks, and prove URL search/pagination plus article not-found/error/retry.
+1. **B1 public content:** `/`, `/about`, `/news`, `/news/:slug`. `/about` is aligned from its accepted pinned static source. Establish canonical content/pricing/ranking producers for the remaining routes, remove invented fallbacks, and prove URL search/pagination plus article not-found/error/retry.
 2. **B2 identity:** `/auth`, `/account`, `/account/credits`, `/profile`. Finish A1, add owner adapters, payment/credit pagination, and durable profile/preference mutations.
 3. **B3 insights:** `/analytics`, `/dashboard`, `/portfolio`, `/permissions`. Consume live payloads, implement backend query/pagination/export/watchlist contracts, and render A4 decisions without policy duplication.
 4. **B4 communication:** `/chat`, `/chat/:id`, `/chat/history`, `/notifications`. Add owner-scoped list/detail/create/send/resolve/read/preference APIs, SSE reconnect, and keyboard/pagination/error behavior.
@@ -106,6 +108,7 @@ Audit integrity and deterministic report:
 ./scripts/migration/test-frontend-live-data.sh
 bunx playwright test e2e/frontend/policy-fallback-runtime.spec.ts --project=frontend --workers=1
 bunx playwright test e2e/frontend/manual-runtime.spec.ts --project=frontend --workers=1
+./scripts/migration/run-about-runtime-proof.sh
 ```
 
 Readiness is expected to stop today:

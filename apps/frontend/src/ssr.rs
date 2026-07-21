@@ -248,9 +248,10 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     // double-footer risk.
     let include_footer = true;
 
-    let doc = epsx_templates::page_shell_with_body_class(
+    let doc = epsx_templates::page_shell_with_body_class_and_keywords(
         &meta.title,
         &meta.description,
+        meta.keywords.as_deref(),
         &nav_html,
         &body_html,
         include_footer,

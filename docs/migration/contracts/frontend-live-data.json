@@ -37,16 +37,16 @@
       "blockers":["replace performer, pricing, and news fixtures with live contracts; restore loading/error/empty/retry behavior"]
     },
     {
-      "path":"/about","batch":"B1-public-content","status":"partial","dependencies":["A5"],
-      "source":{"file":"apps/frontend/app/about/page.tsx","anchors":["export default function AboutPage()","DataTech Platform Section"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/about.rs","handler":"about::render","anchors":["pub fn render(ctx: &PageContext)","let members = vec!["]},
-      "payloads":{"staticOrSample":["static company narrative and six invented team records"],"placeholderOrSkeleton":["module documents six placeholder team-member cards"]},
+      "path":"/about","batch":"B1-public-content","status":"aligned","dependencies":[],
+      "source":{"file":"apps/frontend/app/about/page.tsx","anchors":["title: 'About Us - EPSX Analytics Platform'","<DataTechSection />"]},
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/about.rs","handler":"about::render","anchors":["meta.title = TITLE.to_string();","MissionAndVision {}"]},
+      "payloads":{"staticOrSample":["accepted pinned hero, DataTech lifecycle, benefits, mission, and vision copy"],"placeholderOrSkeleton":[]},
       "loader":{"kind":"none","endpoints":[],"evidence":[]},
       "authOwner":{"auth":"middleware-required in pinned source; target BFF also redirects anonymous","owner":"none"},
-      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":[],"controls":["contact and news links"]},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["authenticated localhost proof covers theme, mobile menu, and desktop Company navigation"],"controls":["no page-local controls in pinned source; shared theme and navigation controls proven"]},
       "states":{"loading":"not-applicable","empty":"not-applicable","error":"not-applicable","retry":"not-applicable"},
       "hydration":{"need":"none","status":"not-applicable","reason":"static information page"},
-      "blockers":["replace placeholder team claims with approved content or remove the section"]
+      "blockers":[]
     },
     {
       "path":"/news","batch":"B1-public-content","status":"partial","dependencies":["A5"],

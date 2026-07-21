@@ -107,6 +107,9 @@ pub enum PageStatus {
 pub struct PageMeta {
     pub title: String,
     pub description: String,
+    /// Optional comma-separated search keywords supplied by the canonical
+    /// source page. Most routes omit this; consumers must not invent values.
+    pub keywords: Option<String>,
     /// Explicit render outcome consumed by the Rust BFFs when selecting the
     /// HTTP status. This avoids inferring a 404 from presentation text.
     pub status: PageStatus,
@@ -161,6 +164,7 @@ impl PageMeta {
         Self {
             title: format!("{} — EPSX", title),
             description: "EPSX — Web3 commerce platform: visual page builder, on-chain payments, programmable subscriptions.".to_string(),
+            keywords: None,
             status: PageStatus::Ok,
             body_class: Some("page-bg".to_string()),
             include_footer: false,
@@ -175,6 +179,7 @@ impl PageMeta {
         Self {
             title: format!("{} — EPSX", title),
             description: "EPSX".to_string(),
+            keywords: None,
             status: PageStatus::Ok,
             // Wave 49 T2 (Plan 13) — switch app pages to the
             // `page-bg-app` body class so they render with prod's
@@ -214,6 +219,7 @@ impl PageMeta {
         Self {
             title: format!("{} — Admin", title),
             description: "EPSX Admin".to_string(),
+            keywords: None,
             status: PageStatus::Ok,
             body_class: None,
             include_footer: false,
@@ -240,6 +246,7 @@ impl PageMeta {
         Self {
             title: format!("{} — Admin", title),
             description: "EPSX Admin".to_string(),
+            keywords: None,
             status: PageStatus::Ok,
             body_class: Some(body_class.into()),
             include_footer: false,
