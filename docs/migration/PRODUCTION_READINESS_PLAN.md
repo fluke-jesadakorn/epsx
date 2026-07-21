@@ -430,6 +430,17 @@ bounded path set. Shared contract files require coordination through package A0.
   custody, truthful chain behavior, schema migration, and runtime integration
   remain STOP conditions.
 
+- **A2.3h status:** the identity direct-service audit pins the exact eleven
+  route shapes and deliberately promotes none of them to aligned. Health is
+  partial; ten routes are blocked by twenty STOP conditions. The candidate
+  still uses defaultable shared-secret access/refresh tokens, deletes a SIWE
+  nonce non-atomically before signature verification, lacks durable refresh
+  rotation/revocation, exposes demo issuance behind mutable configuration,
+  authorizes admin operations by role instead of exact audience plus the four
+  existing granular permissions, and creates its authority table at startup.
+  Integrity and tamper tests pass while readiness intentionally exits `3`;
+  this audit performs no database, Redis, JWKS, service, or migration work.
+
 ### A3 — Additive migrations and data reconciliation (P0)
 
 - **Scope:** new migration directories only, database provisioning scripts,
@@ -459,6 +470,14 @@ bounded path set. Shared contract files require coordination through package A0.
   symlink, and output-race inputs, and emits only redacted deterministic
   fingerprints. Exit `0` still declares `productionReady: false`; no live
   preflight, reconciliation, migration, repair, or database mutation has run.
+
+- **A3.3 status:** the checksum-pinned runtime-DDL triage reproduces the
+  migration-safety scanner over 1,123 tracked Rust files and enumerates all 39
+  findings in stable order. Six are exact reviewed test exceptions; all 33
+  remaining findings stay blocked across thirteen service groups and fourteen
+  files. The inventory carries the two A3.6 remediation requirements forward
+  unchanged, invents no priority, dependency, database state, or forward SQL,
+  and exits `2` with `STOP` for readiness. No database or migration was run.
 
 ### A4 — Canonical permission and entitlement authority (P0)
 
@@ -570,7 +589,7 @@ bounded path set. Shared contract files require coordination through package A0.
   Close routes in small batches; all 28 must pass interaction and live-data
   fixtures before the frontend gate moves to done.
 
-- **A7.0–A7.3 status:** the exact 28-route live-data contract now records three
+- **A7.0–A7.3/B7.2 status:** the exact 28-route live-data contract now records three
   aligned routes, seven partial routes, and 18 blocked routes. `/about`
   removes invented claims and matches the pinned source order, copy, metadata,
   landmarks, and responsive keyboard behavior. `/access-denied`
@@ -580,8 +599,14 @@ bounded path set. Shared contract files require coordination through package A0.
   fallback. `/developer/docs` now matches the pinned ten-endpoint catalog and
   proves responsive navigation, accordions, language tabs, copy controls, and
   keyboard behavior, while live requests remain disabled pending A1/A4/A5.
-  `/offline` is public and has a native retry control, but fresh
-  disconnected cache/service-worker delivery is not proven. Privacy and terms
+  `/offline` is public and now proves a fresh controlled mobile and desktop
+  navigation while disconnected after installation from another page. Its
+  worker fetches exact `/offline` with credentials omitted and CacheStorage is
+  proven to contain only that query-free public shell; API, auth, account,
+  notification, analytics, admin, payment, and query-bearing requests bypass
+  the cache. The route remains partial because truthful public-shell-only copy
+  intentionally differs from the pinned source's unsupported claims that
+  sensitive feature data is cached and later synchronized. Privacy and terms
   remain partial pending wallet/SIWE legal approval; terms also lacks a real
   subscription handler. The remaining 25 routes keep readiness at exit `3`.
 
