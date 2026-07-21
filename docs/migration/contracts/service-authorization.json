@@ -232,9 +232,9 @@
       "internal-webhook": 4
     },
     "byObservedStatus": {
-      "partial": 42,
-      "blocked": 71,
-      "aligned": 4
+      "partial": 54,
+      "blocked": 58,
+      "aligned": 5
     }
   },
   "services": [
@@ -2695,7 +2695,7 @@
       "name": "notification",
       "source": "services/notification/src/main.rs",
       "routerAnchor": "let app = Router::new()",
-      "currentBoundary": "No auth layer; query/body user_id is caller-controlled and omission can expose or mutate all notifications.",
+      "currentBoundary": "The direct service now classifies exact methods and paths before handlers, uses the shared RS256/JWKS verifier, requires admin:notifications:manage for templates/send, and binds owner operations to the verified wallet string. Runtime schema, delivery, and legacy owner-data compatibility remain incomplete.",
       "routes": [
         {
           "id": "notification.get.health",
@@ -2712,8 +2712,8 @@
           "risk": "none",
           "caseProfile": "public",
           "observed": {
-            "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "status": "aligned",
+            "summary": "GET/HEAD health is the direct service's only anonymous allowlist; other methods are denied before handler dispatch."
           },
           "dependencies": [
             "A2",
@@ -2738,8 +2738,8 @@
           "risk": "none",
           "caseProfile": "granular-admin",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience plus canonical admin:notifications:manage before the template query; template data semantics remain outside this slice."
           },
           "dependencies": [
             "A2",
@@ -2764,8 +2764,8 @@
           "risk": "high",
           "caseProfile": "granular-admin",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience plus canonical admin:notifications:manage before mutation; template validation and cache/DB atomicity remain unresolved."
           },
           "dependencies": [
             "A2",
@@ -2790,8 +2790,8 @@
           "risk": "none",
           "caseProfile": "granular-admin",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience plus canonical admin:notifications:manage before the template query; template data semantics remain outside this slice."
           },
           "dependencies": [
             "A2",
@@ -2816,8 +2816,8 @@
           "risk": "high",
           "caseProfile": "granular-admin",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience plus canonical admin:notifications:manage before deletion; Handlebars cache invalidation remains unresolved."
           },
           "dependencies": [
             "A2",
@@ -2842,8 +2842,8 @@
           "risk": "high",
           "caseProfile": "granular-admin",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience plus canonical admin:notifications:manage before send side effects; delivery/idempotency and SMTP fail-open behavior remain blockers."
           },
           "dependencies": [
             "A2",
@@ -2868,8 +2868,8 @@
           "risk": "none",
           "caseProfile": "owner",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "A verified frontend/admin principal is required; caller user_id must equal the verified wallet and every list/count query uses that owner key. Legacy non-wallet rows and runtime DB behavior remain unproven."
           },
           "dependencies": [
             "A2",
@@ -2894,8 +2894,8 @@
           "risk": "none",
           "caseProfile": "owner",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "A verified frontend/admin principal is required; caller user_id must equal the verified wallet and the count query uses that owner key. Runtime DB behavior remains unproven."
           },
           "dependencies": [
             "A2",
@@ -2920,8 +2920,8 @@
           "risk": "high",
           "caseProfile": "owner",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "A verified frontend/admin principal is required; cross-owner user_id is forbidden and the update always filters by the verified wallet. Runtime mutation behavior remains unproven."
           },
           "dependencies": [
             "A2",
@@ -2946,8 +2946,8 @@
           "risk": "high",
           "caseProfile": "owner",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "A verified frontend/admin principal is required; cross-owner user_id is forbidden and deletion always filters by the verified wallet. Runtime mutation and recovery behavior remain unproven."
           },
           "dependencies": [
             "A2",
@@ -2972,8 +2972,8 @@
           "risk": "high",
           "caseProfile": "owner",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "A verified frontend/admin principal is required and the update predicate requires both notification id and verified-wallet user_id. Runtime DB behavior remains unproven."
           },
           "dependencies": [
             "A2",
@@ -2998,8 +2998,8 @@
           "risk": "high",
           "caseProfile": "owner",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "A verified frontend/admin principal is required and the update predicate requires both notification id and verified-wallet user_id. Runtime DB behavior remains unproven."
           },
           "dependencies": [
             "A2",
@@ -3024,8 +3024,8 @@
           "risk": "none",
           "caseProfile": "owner",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "A verified frontend/admin principal is required and the query predicate requires both notification id and verified-wallet user_id, returning 404 for non-owned rows. Runtime DB behavior remains unproven."
           },
           "dependencies": [
             "A2",
@@ -3050,8 +3050,8 @@
           "risk": "high",
           "caseProfile": "owner",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "A verified frontend/admin principal is required and deletion requires both notification id and verified-wallet user_id, returning 404 for non-owned rows. Runtime mutation/recovery behavior remains unproven."
           },
           "dependencies": [
             "A2",
