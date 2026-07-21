@@ -150,16 +150,19 @@ and revocation behavior remain canonical.
 
 ### Backend-only permissions and plans
 
-- Gateway JWT middleware enriches a request when a valid token exists but does
-  not require authentication by itself.
+- The gateway now verifies exact RS256/JWKS issuer and frontend/admin audience
+  claims, uses a method-and-path allowlist, and denies unknown, internal, and
+  unresolved payment routes before upstream I/O. This is an edge boundary only;
+  it does not prove owner checks or direct-service isolation.
 - Candidate subscription, wallet, content, notification, analytics, indexer,
   and pay routes lack complete authentication, ownership, and granular
   authorization enforcement.
 - Pay admin force-cancel/release/refund handlers explicitly rely on an external
   future gateway check and currently mutate database state directly.
-- Admin UI auth code expands roles into hardcoded permission sets. Such mapping
-  may be used only for presentation hints; the backend must independently decide
-  every protected operation.
+- Both BFFs preserve verified backend permissions without expanding roles.
+  Sixteen unambiguous admin gates now consume literal backend route permissions;
+  16 legacy security-gate values remain unresolved or require operation-level
+  splits. UI gates remain presentation controls, never policy authority.
 - The deployed identity ranking service returns offset `100` for all wallets,
   including paid users. This is not acceptable entitlement behavior.
 
@@ -222,16 +225,16 @@ passed`. It is not a percentage estimate of engineering effort.
 | Visual/responsive/accessibility | 1 | Historical screenshots exist; current accepted baseline is incomplete | All routes pass agreed viewport, state, keyboard, and accessibility thresholds. |
 | Interaction parity | 0 | No complete click/form/wallet/navigation matrix | Every interactive control has E2E success and failure coverage. |
 | Auth/session parity | 1 | A1.4 hermetic gate covers 71 focused tests across both BFFs; durable database-backed rotation/revocation and a real wallet flow remain unproven | SIWE -> SSR me -> rotation -> revocation works across both BFFs. |
-| Backend authorization | 0 | Candidate services/gateway are not fail-closed | Anonymous/cross-owner calls fail; granular backend permissions pass. |
+| Backend authorization | 1 | Gateway is fail-closed with exact RS256/JWKS and granular edge policy; direct services and owner checks remain blocked | Anonymous/cross-owner calls fail at both gateway and service boundaries; granular backend permissions pass. |
 | Live data parity | 0 | Frontend mocks and admin empty params remain | Sample payloads removed and real empty/error states proven. |
 | Checkout/on-chain parity | 0 | Route mismatch and DB-only escrow transitions | Verified receipts and contract transactions drive state. |
-| Backend/API contract parity | 0 | Prefix, payload, status, and cookie drift remain | Versioned contract matrix passes for monolith and replacement. |
+| Backend/API contract parity | 1 | Both BFFs now return explicit HTML/JSON 404s and preserve 405/redirect semantics; payment prefixes and broader payload/status drift remain | Versioned contract matrix passes for monolith and replacement. |
 | Migration/data safety | 0 | Runtime DDL, naming drift, baseline edits, expired partitions | Upgrade/backfill/reconcile/rollback tests pass on production-shaped data. |
 | Production manifests/routing | 0 | Dev tags and direct pay-service ingress remain | Rendered manifests use approved immutable images and intended BFF ingress. |
 | Observability/readiness | 0 | Shallow health checks and incomplete cross-service traces | Dependency readiness, SLO metrics, alerts, and trace IDs pass drills. |
 | Canary/rollback | 0 | Not demonstrated | Shadow, canary, abort thresholds, and rollback rehearsal are approved. |
 
-**Current evidence score: 8/28.** This score records gate evidence only. It must
+**Current evidence score: 10/28.** This score records gate evidence only. It must
 not be used to forecast dates or authorize production traffic.
 
 ## Dependency DAG
@@ -355,6 +358,12 @@ bounded path set. Shared contract files require coordination through package A0.
   The matrix must cover anonymous, expired, wrong audience, ordinary user,
   cross-owner, and granular-admin cases for every mutation.
 
+- **A2.1 status:** gateway edge enforcement passes 18 focused tests and the
+  117-route authorization fixture remains integrity-clean. The fixture still
+  reports readiness as not proven because direct-service verification,
+  cross-owner denial, internal service identity, and handler-level permission
+  enforcement remain open. See `docs/migration/A2_GATEWAY_AUTHORIZATION.md`.
+
 ### A3 — Additive migrations and data reconciliation (P0)
 
 - **Scope:** new migration directories only, database provisioning scripts,
@@ -396,6 +405,12 @@ bounded path set. Shared contract files require coordination through package A0.
   monolith decision and ranking offset. Protected paid data must not silently
   fall back to the free plan on authority failure.
 
+- **A4.0/A8.1 status:** the deterministic permission-grammar inventory covers
+  64 UI/service records. Sixteen source-backed admin gate literals are aligned;
+  readiness intentionally stops with 16 legacy security gates and two
+  presentation-only drift records. Entitlement and ranking-offset parity in the
+  acceptance condition above is not yet implemented.
+
 ### A5 — BFF/API contract alignment (P0)
 
 - **Scope:** `shared/rust/client`, frontend/admin/pay proxy handlers, and gateway
@@ -412,6 +427,12 @@ bounded path set. Shared contract files require coordination through package A0.
   cargo test -p epsx-gateway
   ./scripts/migration/verify-bff-contracts.sh
   ```
+
+- **A5.0 status:** shared route dispatch and both BFF fallbacks now distinguish
+  known routes, malformed dynamic arity, HTML page misses, JSON API misses,
+  registered-path method mismatches, and intentional redirects. Payment route
+  prefixes, live payloads, correlation/retry policy, and the pay BFF remain in
+  later A5/A6 slices.
 
 ### A6 — Checkout and escrow vertical slice (P0)
 
