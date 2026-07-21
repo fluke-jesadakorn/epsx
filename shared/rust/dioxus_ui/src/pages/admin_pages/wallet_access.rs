@@ -42,7 +42,7 @@ use crate::auth::AdminAuthGate;
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::admin("Access control");
     (meta, rsx! {
-        AdminAuthGate { user: ctx.user.clone(), feature: Some("access control".to_string()), required_permissions: Some(vec!["wallets:manage".to_string()]), return_url: Some(ctx.path.clone()),
+        AdminAuthGate { user: ctx.user.clone(), feature: Some("access control".to_string()), required_permissions: Some(vec!["admin:permissions:read".to_string()]), return_url: Some(ctx.path.clone()),
             div { class: "container page-content",
                 // Page header
                 div { class: "flex items-center justify-between mb-6",
@@ -50,16 +50,41 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                         h1 { class: "text-2xl font-bold", "Wallet access manager" }
                         p { class: "text-muted-foreground", "Manage per-wallet access to plans and permissions" }
                     }
-                    button { class: "btn btn-primary", r#type: "button",
-                        Icon { name: "user-check".to_string(), size: Some(16) }
-                        " Grant access"
+                    WalletAccessManageGate { user: ctx.user.clone(), return_url: ctx.path.clone(),
+                        div { class: "wallet-access-grant-control",
+                            button { class: "btn btn-primary", r#type: "button",
+                                Icon { name: "user-check".to_string(), size: Some(16) }
+                                " Grant access"
+                            }
+                        }
                     }
                 }
                 // === wave6b-admin-pages-depth-track-c wallet-access-manager ===
-                WalletAccessManager {}
+                WalletAccessManager { user: ctx.user.clone(), return_url: ctx.path.clone() }
             }
         }
     })
+}
+
+/// UI-only consumption of the backend permission-system mutation guard.
+/// Keeping this wrapper around individual control groups lets read-only admins
+/// inspect access data without exposing grant/revoke/apply actions.
+#[component]
+fn WalletAccessManageGate(
+    user: Option<crate::auth::User>,
+    return_url: String,
+    children: Element,
+) -> Element {
+    rsx! {
+        AdminAuthGate {
+            user,
+            feature: Some("wallet access mutation controls".to_string()),
+            required_permissions: Some(vec!["admin:permissions:manage".to_string()]),
+            return_url: Some(return_url),
+            class_name: Some("hidden".to_string()),
+            {children}
+        }
+    }
 }
 
 // ============================================================================
@@ -67,7 +92,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 // ============================================================================
 
 #[component]
-fn WalletAccessManager() -> Element {
+fn WalletAccessManager(user: Option<crate::auth::User>, return_url: String) -> Element {
     let has_changes = false;
     let _ = has_changes;
     rsx! {
@@ -77,7 +102,7 @@ fn WalletAccessManager() -> Element {
                 div { class: "flex items-center gap-2",
                     Icon { name: "shield-check".to_string(), size: Some(18) }
                     h2 { class: "text-lg font-bold", "Permissions" }
-                    span { class: "text-xs text-muted-foreground", "Drag items between columns or use the bulk action buttons." }
+                    span { class: "text-xs text-muted-foreground", "Review available and authorized plan assignments." }
                 }
                 div { class: "flex items-center gap-2",
                     button { class: "btn btn-outline btn-sm", r#type: "button",
@@ -91,14 +116,16 @@ fn WalletAccessManager() -> Element {
             div { class: "flex items-center justify-between p-3 bg-muted/30 border-b border-border/20",
                 div { class: "flex items-center gap-2 text-sm text-muted-foreground",
                     Icon { name: "info".to_string(), size: Some(14) }
-                    "Select items in either column, then use the buttons between the columns to grant or revoke."
+                    "Review plan assignments. Mutation controls require manage access."
                 }
-                div { class: "flex items-center gap-2",
-                    button { class: "btn btn-outline btn-sm", r#type: "button", disabled: true,
-                        "Discard changes"
-                    }
-                    button { class: "btn btn-primary btn-sm", r#type: "button", disabled: true,
-                        "Apply changes"
+                WalletAccessManageGate { user: user.clone(), return_url: return_url.clone(),
+                    div { class: "wallet-access-apply-controls flex items-center gap-2",
+                        button { class: "btn btn-outline btn-sm", r#type: "button", disabled: true,
+                            "Discard changes"
+                        }
+                        button { class: "btn btn-primary btn-sm", r#type: "button", disabled: true,
+                            "Apply changes"
+                        }
                     }
                 }
             }
@@ -106,7 +133,11 @@ fn WalletAccessManager() -> Element {
             // Two-column grid
             div { class: "grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 p-4 bg-muted/30",
                 AvailableColumn {}
-                ColumnsActions {}
+                WalletAccessManageGate { user: user.clone(), return_url: return_url.clone(),
+                    div { class: "wallet-access-transfer-controls",
+                        ColumnsActions {}
+                    }
+                }
                 AuthorizedColumn {}
             }
         }
@@ -154,7 +185,7 @@ fn AuthorizedColumn() -> Element {
                 AuthorizedItem { name: String::from("Free"), category: String::from("personal"), perm_count: 2usize, expires: String::from("Never") }
             }
             div { class: "mt-4 text-xs text-muted-foreground text-center",
-                "Drag a plan from the left column to grant access."
+                "Plans currently assigned to this wallet."
             }
         }
     }
@@ -163,7 +194,7 @@ fn AuthorizedColumn() -> Element {
 #[component]
 fn AvailableItem(name: String, category: String, perm_count: usize) -> Element {
     rsx! {
-        div { class: "flex items-center justify-between p-2 rounded-lg border border-border/40 hover:border-primary/40 cursor-grab transition-colors",
+        div { class: "flex items-center justify-between p-2 rounded-lg border border-border/40 hover:border-primary/40 transition-colors",
             div { class: "flex items-center gap-2 min-w-0",
                 div { class: "h-6 w-6 rounded bg-muted/50 flex items-center justify-center",
                     Icon { name: "briefcase".to_string(), size: Some(12) }
@@ -360,7 +391,7 @@ mod tests {
     use crate::auth::user::AuthMethod;
     use crate::pages::PageContext;
 
-    fn authed_ctx() -> PageContext {
+    fn ctx_with_permissions(permissions: &[&str]) -> PageContext {
         PageContext {
             user: Some(User {
                 id: "admin-1".to_string(),
@@ -369,7 +400,7 @@ mod tests {
                 roles: vec!["admin".to_string()],
                 email: Some("admin@epsx.io".to_string()),
                 tier: Some("Admin".to_string()),
-                permissions: vec!["wallets:manage".to_string()],
+                permissions: permissions.iter().map(|permission| (*permission).to_string()).collect(),
                 last_login_at: None,
                 auth_method: AuthMethod::Wallet,
                 display_name: Some("Admin".to_string()),
@@ -379,11 +410,19 @@ mod tests {
         }
     }
 
+    fn read_only_ctx() -> PageContext {
+        ctx_with_permissions(&["admin:permissions:read"])
+    }
+
+    fn manager_ctx() -> PageContext {
+        ctx_with_permissions(&["admin:permissions:read", "admin:permissions:manage"])
+    }
+
     /// Wave 6B — `test_render_smoke`. The page renders non-empty HTML
-    /// when the admin is authed and holds `wallets:manage`.
+    /// when the admin is authed and holds the canonical read permission.
     #[test]
     fn test_render_smoke() {
-        let (_meta, el) = render(&authed_ctx());
+        let (_meta, el) = render(&read_only_ctx());
         let html = dioxus_ssr::render_element(el);
         assert!(!html.is_empty(), "wallet_access page must render non-empty HTML. Got: {}", html);
         assert!(html.contains("Wallet access manager"), "wallet_access page must contain the title. Got: {}", html);
@@ -397,7 +436,7 @@ mod tests {
     /// click). We assert the manager marker is visible by default.
     #[test]
     fn test_section_markers() {
-        let (_meta, el) = render(&authed_ctx());
+        let (_meta, el) = render(&read_only_ctx());
         let html = dioxus_ssr::render_element(el);
         for marker in &[
             "wallet-access-manager",
@@ -407,5 +446,42 @@ mod tests {
                 "wallet_access page should contain section marker `{marker}`. Got: {html}"
             );
         }
+    }
+
+    #[test]
+    fn read_only_admin_sees_access_data_without_mutation_controls() {
+        let (_meta, el) = render(&read_only_ctx());
+        let html = dioxus_ssr::render_element(el);
+        assert!(html.contains("Available plans"), "read-only admin must see available-plan data. Got: {html}");
+        assert!(html.contains("Authorized plans"), "read-only admin must see authorized-plan data. Got: {html}");
+        for marker in [
+            "wallet-access-grant-control",
+            "wallet-access-apply-controls",
+            "wallet-access-transfer-controls",
+        ] {
+            assert!(!html.contains(marker), "read-only admin must not see mutation control `{marker}`. Got: {html}");
+        }
+    }
+
+    #[test]
+    fn manager_sees_operation_level_mutation_controls() {
+        let (_meta, el) = render(&manager_ctx());
+        let html = dioxus_ssr::render_element(el);
+        for marker in [
+            "wallet-access-grant-control",
+            "wallet-access-apply-controls",
+            "wallet-access-transfer-controls",
+        ] {
+            assert!(html.contains(marker), "manager must see mutation control `{marker}`. Got: {html}");
+        }
+    }
+
+    #[test]
+    fn manager_without_read_permission_cannot_view_access_page() {
+        let ctx = ctx_with_permissions(&["admin:permissions:manage"]);
+        let (_meta, el) = render(&ctx);
+        let html = dioxus_ssr::render_element(el);
+        assert!(!html.contains("Wallet access manager"), "missing read permission must hide the access page. Got: {html}");
+        assert!(html.contains("admin:permissions:read"), "missing read gate must name the backend read permission. Got: {html}");
     }
 }

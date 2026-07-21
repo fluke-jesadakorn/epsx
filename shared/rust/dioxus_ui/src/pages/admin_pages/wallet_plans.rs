@@ -59,7 +59,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
         AdminAuthGate {
             user: ctx.user.clone(),
             feature: Some("access control".to_string()),
-            required_permissions: Some(vec!["wallets:manage".to_string()]),
+            required_permissions: Some(vec!["admin:plans:read".to_string()]),
             return_url: Some(ctx.path.clone()),
             div { class: "container page-content",
                 div { class: "mb-6",
@@ -100,32 +100,39 @@ pub fn render_plans(ctx: &PageContext) -> (PageMeta, Element) {
         Column { key: "interval".into(), label: "Interval".into(), sortable: true, align: crate::primitives::data_table::Align::Left, width: Some("15%".into()), class_name: None },
         Column { key: "subs".into(), label: "Subscribers".into(), sortable: true, align: crate::primitives::data_table::Align::Right, width: Some("15%".into()), class_name: None },
         Column { key: "status".into(), label: "Status".into(), sortable: true, align: crate::primitives::data_table::Align::Center, width: Some("15%".into()), class_name: None },
-        Column { key: "actions".into(), label: "Actions".into(), sortable: false, align: crate::primitives::data_table::Align::Right, width: Some("15%".into()), class_name: None },
     ];
     let rows = vec![
-        Row { id: "1".into(), cells: vec!["Free".into(), "$0".into(), "monthly".into(), "—".into(), "Active".into(), "Edit".into()] },
-        Row { id: "2".into(), cells: vec!["Pro".into(), "$29".into(), "monthly".into(), "412".into(), "Active".into(), "Edit".into()] },
-        Row { id: "3".into(), cells: vec!["Enterprise".into(), "$299".into(), "monthly".into(), "32".into(), "Active".into(), "Edit".into()] },
-        Row { id: "4".into(), cells: vec!["Whale".into(), "$999".into(), "monthly".into(), "5".into(), "Active".into(), "Edit".into()] },
+        Row { id: "1".into(), cells: vec!["Free".into(), "$0".into(), "monthly".into(), "—".into(), "Active".into()] },
+        Row { id: "2".into(), cells: vec!["Pro".into(), "$29".into(), "monthly".into(), "412".into(), "Active".into()] },
+        Row { id: "3".into(), cells: vec!["Enterprise".into(), "$299".into(), "monthly".into(), "32".into(), "Active".into()] },
+        Row { id: "4".into(), cells: vec!["Whale".into(), "$999".into(), "monthly".into(), "5".into(), "Active".into()] },
     ];
     (meta, rsx! {
-        AdminAuthGate { user: ctx.user.clone(), feature: Some("plan management".to_string()), required_permissions: Some(vec!["wallets:manage".to_string()]), return_url: Some(ctx.path.clone()),
+        AdminAuthGate { user: ctx.user.clone(), feature: Some("plan list".to_string()), required_permissions: Some(vec!["admin:plans:read".to_string()]), return_url: Some(ctx.path.clone()),
             div { class: "container page-content",
                 div { class: "flex items-center justify-between mb-6",
                     div {
                         h1 { class: "text-2xl font-bold", "Plans" }
                         p { class: "text-muted-foreground", "Subscription plans with permissions and pricing" }
                     }
-                    a { class: "btn btn-primary", href: "/wallet-management/access/plans/new",
-                        Icon { name: "plus".to_string(), size: Some(16) }
-                        " New plan"
+                    PlanManageGate { user: ctx.user.clone(), return_url: ctx.path.clone(),
+                        div { class: "plan-new-control",
+                            a { class: "btn btn-primary", href: "/wallet-management/access/plans/new",
+                                Icon { name: "plus".to_string(), size: Some(16) }
+                                " New plan"
+                            }
+                        }
                     }
                 }
                 // === wave6b-admin-pages-depth-track-c plan-list-sidebar ===
-                PlanListSidebar { plans: sample_plans() }
+                PlanListSidebar { plans: sample_plans(), user: ctx.user.clone(), return_url: ctx.path.clone() }
                 // The drawer shell — when a plan is selected the
                 // PlanEditorDrawer slides in from the right
-                PlanEditorDrawer {}
+                PlanManageGate { user: ctx.user.clone(), return_url: ctx.path.clone(),
+                    div { class: "plan-editor-mutation-control",
+                        PlanEditorDrawer {}
+                    }
+                }
                 // The list (DataTable) view is a parallel view used
                 // when sidebar is collapsed on smaller screens.
                 div { class: "mt-6",
@@ -134,6 +141,27 @@ pub fn render_plans(ctx: &PageContext) -> (PageMeta, Element) {
             }
         }
     })
+}
+
+/// UI-only consumer of the backend plan-mutation permission. Reusing one
+/// wrapper keeps all plan mutation controls tied to the same canonical guard
+/// while the surrounding list remains readable with `admin:plans:read`.
+#[component]
+fn PlanManageGate(
+    user: Option<crate::auth::User>,
+    return_url: String,
+    children: Element,
+) -> Element {
+    rsx! {
+        AdminAuthGate {
+            user,
+            feature: Some("plan mutation controls".to_string()),
+            required_permissions: Some(vec!["admin:plans:manage".to_string()]),
+            return_url: Some(return_url),
+            class_name: Some("hidden".to_string()),
+            {children}
+        }
+    }
 }
 
 // ============================================================================
@@ -159,7 +187,11 @@ pub fn render_editor(ctx: &PageContext) -> (PageMeta, Element) {
 // ============================================================================
 
 #[component]
-fn PlanListSidebar(plans: Vec<Plan>) -> Element {
+fn PlanListSidebar(
+    plans: Vec<Plan>,
+    user: Option<crate::auth::User>,
+    return_url: String,
+) -> Element {
     // Group plans by `plan_group` (the source's 4 groups).
     let groups = ["Personal Plans", "Enterprise Plans", "API Plans", "Custom Plans"];
     let group_icons = ["user", "building", "code", "settings"];
@@ -184,9 +216,13 @@ fn PlanListSidebar(plans: Vec<Plan>) -> Element {
                             placeholder: "Search plans...",
                         }
                     }
-                    button { class: "btn btn-primary btn-sm", r#type: "button",
-                        Icon { name: "plus".to_string(), size: Some(14) }
-                        " New"
+                    PlanManageGate { user: user.clone(), return_url: return_url.clone(),
+                        div { class: "plan-sidebar-new-control",
+                            button { class: "btn btn-primary btn-sm", r#type: "button",
+                                Icon { name: "plus".to_string(), size: Some(14) }
+                                " New"
+                            }
+                        }
                     }
                 }
             }
@@ -218,6 +254,8 @@ fn PlanListSidebar(plans: Vec<Plan>) -> Element {
                                             max_members: p.max_members,
                                             is_public: p.is_public,
                                             updated_at: p.updated_at.clone(),
+                                            user: user.clone(),
+                                            return_url: return_url.clone(),
                                         }
                                     }
                                 }
@@ -246,12 +284,12 @@ fn GroupHeader(label: String, icon: String, count: usize) -> Element {
 // ============================================================================
 
 #[component]
-fn PlanItemCard(name: String, category: String, is_active: bool, is_system: bool, perm_count: usize, members: u32, max_members: Option<u32>, is_public: bool, updated_at: String) -> Element {
+fn PlanItemCard(name: String, category: String, is_active: bool, is_system: bool, perm_count: usize, members: u32, max_members: Option<u32>, is_public: bool, updated_at: String, user: Option<crate::auth::User>, return_url: String) -> Element {
     let group_border = "border-l-blue-500/60"; // personal default
     let group_hover = "hover:bg-muted/30";
     rsx! {
         // === wave6b-admin-pages-depth-track-c plan-item-card ===
-        div { class: "plan-item-card p-3 cursor-pointer {group_hover} transition-colors border-l-4 group relative bg-transparent {group_border}",
+        div { class: "plan-item-card p-3 {group_hover} transition-colors border-l-4 group relative bg-transparent {group_border}",
             div { class: "flex items-center justify-between gap-2",
                 div { class: "flex items-center gap-2 min-w-0",
                     if is_system {
@@ -271,8 +309,12 @@ fn PlanItemCard(name: String, category: String, is_active: bool, is_system: bool
                     }
                 }
                 div { class: "flex items-center gap-1.5 shrink-0",
-                    button { class: "btn btn-ghost btn-sm", r#type: "button", title: "Duplicate plan",
-                        Icon { name: "share".to_string(), size: Some(14) }
+                    PlanManageGate { user: user.clone(), return_url: return_url.clone(),
+                        div { class: "plan-duplicate-control",
+                            button { class: "btn btn-ghost btn-sm", r#type: "button", title: "Duplicate plan",
+                                Icon { name: "share".to_string(), size: Some(14) }
+                            }
+                        }
                     }
                     span { class: "px-1.5 py-0.5 bg-muted/30 text-[10px] h-5 rounded text-muted-foreground", "{perm_count}" }
                 }
@@ -644,7 +686,7 @@ mod tests {
     use crate::auth::user::AuthMethod;
     use crate::pages::PageContext;
 
-    fn authed_ctx() -> PageContext {
+    fn ctx_with_permissions(permissions: &[&str]) -> PageContext {
         PageContext {
             user: Some(User {
                 id: "admin-1".to_string(),
@@ -653,7 +695,7 @@ mod tests {
                 roles: vec!["admin".to_string()],
                 email: Some("admin@epsx.io".to_string()),
                 tier: Some("Admin".to_string()),
-                permissions: vec!["wallets:manage".to_string()],
+                permissions: permissions.iter().map(|permission| (*permission).to_string()).collect(),
                 last_login_at: None,
                 auth_method: AuthMethod::Wallet,
                 display_name: Some("Admin".to_string()),
@@ -663,8 +705,20 @@ mod tests {
         }
     }
 
+    fn reader_ctx() -> PageContext {
+        ctx_with_permissions(&["admin:plans:read"])
+    }
+
+    fn manager_ctx() -> PageContext {
+        ctx_with_permissions(&["admin:plans:read", "admin:plans:manage"])
+    }
+
+    fn manage_only_ctx() -> PageContext {
+        ctx_with_permissions(&["admin:plans:manage"])
+    }
+
     fn editor_ctx() -> PageContext {
-        let mut ctx = authed_ctx();
+        let mut ctx = manager_ctx();
         ctx.path = "/wallet-management/access/plans/pro".to_string();
         ctx.params.insert("planId".to_string(), "pro".to_string());
         ctx
@@ -672,10 +726,10 @@ mod tests {
 
     /// Wave 6B — `test_render_smoke`. The plans list page renders
     /// non-empty HTML when the admin is authed and holds
-    /// `wallets:manage`.
+    /// `admin:plans:manage`.
     #[test]
     fn test_render_smoke() {
-        let (_meta, el) = render_plans(&authed_ctx());
+        let (_meta, el) = render_plans(&manager_ctx());
         let html = dioxus_ssr::render_element(el);
         assert!(!html.is_empty(), "wallet_plans page must render non-empty HTML. Got: {}", html);
         assert!(html.contains("Plans"), "wallet_plans page must contain the plans title. Got: {}", html);
@@ -688,7 +742,7 @@ mod tests {
     /// route, tested separately below.
     #[test]
     fn test_section_markers() {
-        let (_meta, el) = render_plans(&authed_ctx());
+        let (_meta, el) = render_plans(&manager_ctx());
         let html = dioxus_ssr::render_element(el);
         for marker in &[
             "plan-list-sidebar",
@@ -734,11 +788,57 @@ mod tests {
     /// (so the drawer marker shows up on the list view).
     #[test]
     fn test_section_markers_list_includes_drawer() {
-        let (_meta, el) = render_plans(&authed_ctx());
+        let (_meta, el) = render_plans(&manager_ctx());
         let html = dioxus_ssr::render_element(el);
         assert!(
             html.contains("plan-editor-drawer"),
             "wallet_plans list page should contain plan-editor-drawer marker. Got: {html}"
         );
+    }
+
+    #[test]
+    fn read_permission_can_view_plan_summary_route() {
+        let (_meta, el) = render(&reader_ctx());
+        let html = dioxus_ssr::render_element(el);
+        assert!(html.contains("Total wallets"), "plan reader must see summary data. Got: {html}");
+        assert!(html.contains("Active plans"), "plan reader must see plan counts. Got: {html}");
+    }
+
+    #[test]
+    fn read_only_admin_sees_plan_data_without_mutation_controls() {
+        let (_meta, el) = render_plans(&reader_ctx());
+        let html = dioxus_ssr::render_element(el);
+        assert!(html.contains("plan-list-sidebar"), "read-only admin must see the plan list. Got: {html}");
+        assert!(html.contains("Free"), "read-only admin must see plan data. Got: {html}");
+        for marker in [
+            "plan-new-control",
+            "plan-sidebar-new-control",
+            "plan-duplicate-control",
+            "plan-editor-mutation-control",
+        ] {
+            assert!(!html.contains(marker), "read-only admin must not see mutation control `{marker}`. Got: {html}");
+        }
+    }
+
+    #[test]
+    fn manage_without_read_cannot_view_plan_summary_route() {
+        let (_meta, el) = render(&manage_only_ctx());
+        let html = dioxus_ssr::render_element(el);
+        assert!(!html.contains("Total wallets"), "missing read permission must hide summary data. Got: {html}");
+        assert!(html.contains("admin:plans:read"), "summary gate must name the backend read permission. Got: {html}");
+    }
+
+    #[test]
+    fn manager_sees_plan_mutation_controls() {
+        let (_meta, el) = render_plans(&manager_ctx());
+        let html = dioxus_ssr::render_element(el);
+        for marker in [
+            "plan-new-control",
+            "plan-sidebar-new-control",
+            "plan-duplicate-control",
+            "plan-editor-mutation-control",
+        ] {
+            assert!(html.contains(marker), "plan manager must see mutation control `{marker}`. Got: {html}");
+        }
     }
 }

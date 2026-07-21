@@ -30,16 +30,16 @@ record carries source type, file, line, permission, surface, grammar
 classification, and a remediation package. A candidate permission is present
 only when a real backend route guard or token source literally supports it.
 
-The current scan contains 64 records:
+The current scan contains 66 records:
 
 | Usage | Records | Readiness effect |
 | --- | ---: | --- |
-| Dioxus security gates | 32 | 16 canonical after A8.1; 16 legacy two-segment values still block |
+| Dioxus security gates | 34 | 21 canonical after A8.2; 13 legacy two-segment values still block |
 | Dioxus presentation literals | 1 | Reported as presentation drift, not an enforcement blocker |
 | Dioxus presentation dynamic pass-throughs | 1 | Reported as presentation drift, not an enforcement blocker |
 | Service-authorization permissions | 30 | All canonical three-segment values |
 
-Across every source there are 46 canonical three-segment values, 16 legacy
+Across every source there are 51 canonical three-segment values, 13 legacy
 two-segment values, 1 unknown dynamic presentation value, and 1
 impossible/cross-grammar presentation value. There are currently no wildcard-aligned
 inventory values.
@@ -62,14 +62,14 @@ literals; it does not move business policy into Dioxus:
 | Settings | `admin:settings:manage` | aligned |
 | Wallet list/detail | `admin:users:read` | aligned |
 | Wallet disable mutation | `admin:users:update` | aligned |
-| Wallet access | split by operation: `admin:permissions:read` / `admin:permissions:manage` | deferred; mixed surface |
-| Wallet plans | split by operation: `admin:plans:read` / `admin:plans:manage` | deferred; mixed surface |
+| Wallet access | split by operation: `admin:permissions:read` / `admin:permissions:manage` | aligned in A8.2; data remains visible to readers and mutation controls are nested |
+| Wallet plans | split by operation: `admin:plans:read` / `admin:plans:manage` | aligned in A8.2; list data remains visible to readers and mutation controls are nested |
 
 The admin auth and policies gates have no single source-backed backend guard
-candidate in this audit. Wallet access and wallet plans need operation-level
-gate splits before their source-backed read/manage pairs can be consumed. The
-generic unauthorized value is presentation-only. These remain explicit
-residuals; the inventory deliberately does not guess or over-broaden them.
+candidate in this audit. The generic unauthorized value is presentation-only.
+These remain explicit residuals; the inventory deliberately does not guess or
+over-broaden them. The two new A8.2 nested manage-gate source records are
+canonical evidence and do not increase the readiness blocker count.
 
 The frontend analytics gate is also unresolved. Token examples use
 `epsx:analytics:read`, while wallet permission assignment uses
