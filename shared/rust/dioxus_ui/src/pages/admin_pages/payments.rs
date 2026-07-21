@@ -59,7 +59,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
         AdminAuthGate {
             user: ctx.user.clone(),
             feature: Some("payment management".to_string()),
-            required_permissions: Some(vec!["payments:manage".to_string()]),
+            required_permissions: Some(vec!["admin:payments:manage".to_string()]),
             return_url: Some(ctx.path.clone()),
             RenderPaymentsHub { ctx: ctx.clone() }
         }
@@ -652,7 +652,7 @@ mod tests {
                 roles: vec!["admin".to_string()],
                 email: Some("admin@epsx.io".to_string()),
                 tier: Some("Admin".to_string()),
-                permissions: vec!["payments:manage".to_string()],
+                permissions: vec!["admin:payments:manage".to_string()],
                 last_login_at: None,
                 auth_method: AuthMethod::Wallet,
                 display_name: Some("Admin".to_string()),
@@ -668,7 +668,7 @@ mod tests {
     }
 
     /// Wave 6B — `test_render_smoke`. The page renders non-empty HTML
-    /// when the admin is authed and holds `payments:manage`.
+    /// when the admin is authed and holds `admin:payments:manage`.
     #[test]
     fn test_render_smoke() {
         let (_meta, el) = render(&authed_ctx());

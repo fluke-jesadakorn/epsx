@@ -405,7 +405,7 @@ fn RenderAdminChat(ctx: PageContext) -> Element {
         AdminAuthGate {
             user: ctx.user.clone(),
             feature: Some("support chat".to_string()),
-            required_permissions: Some(vec!["chat:manage".to_string()]),
+            required_permissions: Some(vec!["admin:chat:manage".to_string()]),
             return_url: Some(ctx.path.clone()),
             div { class: "container page-content admin-chat-page",
                 // Page header.
@@ -456,7 +456,7 @@ fn RenderAdminConversationPage(ctx: PageContext) -> Element {
         AdminAuthGate {
             user: ctx.user.clone(),
             feature: Some("support conversations".to_string()),
-            required_permissions: Some(vec!["chat:manage".to_string()]),
+            required_permissions: Some(vec!["admin:chat:manage".to_string()]),
             return_url: Some(ctx.path.clone()),
             div { class: "container page-content",
                 a { class: "btn btn-sm btn-ghost mb-4", href: "/chat", Icon { name: "arrow-left".to_string(), size: Some(16) } " Back" }
@@ -484,7 +484,7 @@ mod tests {
     use crate::pages::PageContext;
     use crate::auth::User;
 
-    /// Build an admin `User` with the `chat:manage` permission.
+    /// Build an admin `User` with the `admin:chat:manage` permission.
     fn test_user_admin() -> User {
         User {
             id: "test-admin".to_string(),
@@ -493,7 +493,7 @@ mod tests {
             roles: vec!["admin".to_string()],
             email: Some("admin@epsx.io".to_string()),
             tier: Some("admin".to_string()),
-            permissions: vec!["chat:manage".to_string()],
+            permissions: vec!["admin:chat:manage".to_string()],
             ..Default::default()
         }
     }

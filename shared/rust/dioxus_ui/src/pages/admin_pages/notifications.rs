@@ -60,7 +60,7 @@ pub fn render_manage(ctx: &PageContext) -> (PageMeta, Element) {
             AdminAuthGate {
                 user: ctx.user.clone(),
                 feature: Some("notification management".to_string()),
-                required_permissions: Some(vec!["notifications:manage".to_string()]),
+                required_permissions: Some(vec!["admin:notifications:manage".to_string()]),
                 return_url: Some(ctx.path.clone()),
                 div { class: "container page-content",
                     // Header row: title + create button
@@ -165,7 +165,7 @@ pub fn render_create(ctx: &PageContext) -> (PageMeta, Element) {
             AdminAuthGate {
                 user: ctx.user.clone(),
                 feature: Some("creating notifications".to_string()),
-                required_permissions: Some(vec!["notifications:manage".to_string()]),
+                required_permissions: Some(vec!["admin:notifications:manage".to_string()]),
                 return_url: Some(ctx.path.clone()),
                 div { class: "container page-content max-w-3xl",
                     a { class: "btn btn-sm btn-ghost mb-4", href: "/notifications/manage",
@@ -729,7 +729,7 @@ mod tests {
     #[test]
     fn notifications_manage_renders_smoke() {
         let ctx = PageContext {
-            user: Some(test_user_admin_with(&["notifications:manage"])),
+            user: Some(test_user_admin_with(&["admin:notifications:manage"])),
             path: "/admin/notifications/manage".to_string(),
             ..Default::default()
         };
@@ -743,7 +743,7 @@ mod tests {
     #[test]
     fn notifications_manage_section_markers() {
         let ctx = PageContext {
-            user: Some(test_user_admin_with(&["notifications:manage"])),
+            user: Some(test_user_admin_with(&["admin:notifications:manage"])),
             path: "/admin/notifications/manage".to_string(),
             ..Default::default()
         };
@@ -778,7 +778,7 @@ mod tests {
     #[test]
     fn notifications_create_section_markers() {
         let ctx = PageContext {
-            user: Some(test_user_admin_with(&["notifications:manage"])),
+            user: Some(test_user_admin_with(&["admin:notifications:manage"])),
             path: "/admin/notifications/create".to_string(),
             ..Default::default()
         };

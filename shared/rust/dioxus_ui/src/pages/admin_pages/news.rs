@@ -85,7 +85,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
             AdminAuthGate {
                 user: ctx.user.clone(),
                 feature: Some("news management".to_string()),
-                required_permissions: Some(vec!["news:manage".to_string()]),
+                required_permissions: Some(vec!["admin:content:manage".to_string()]),
                 return_url: Some(ctx.path.clone()),
                 PageLayout {
                     max_width: Some(PageMaxWidth::SevenXl),
@@ -349,7 +349,7 @@ fn RenderNewsEditor(ctx: PageContext, id: Option<String>, title_str: String) -> 
         AdminAuthGate {
             user: ctx.user.clone(),
             feature: Some("news editing".to_string()),
-            required_permissions: Some(vec!["news:manage".to_string()]),
+            required_permissions: Some(vec!["admin:content:manage".to_string()]),
             return_url: Some(ctx.path.clone()),
             div { class: "container page-content max-w-4xl news-editor",
                 a { class: "btn btn-sm btn-ghost mb-4", href: "/news",
@@ -418,7 +418,7 @@ mod tests {
     #[test]
     fn news_renders_smoke() {
         let ctx = PageContext {
-            user: Some(test_user_admin_with(&["news:manage"])),
+            user: Some(test_user_admin_with(&["admin:content:manage"])),
             path: "/admin/news".to_string(),
             ..Default::default()
         };
@@ -440,7 +440,7 @@ mod tests {
     #[test]
     fn news_section_markers() {
         let ctx = PageContext {
-            user: Some(test_user_admin_with(&["news:manage"])),
+            user: Some(test_user_admin_with(&["admin:content:manage"])),
             path: "/admin/news".to_string(),
             ..Default::default()
         };
@@ -475,7 +475,7 @@ mod tests {
     #[test]
     fn news_create_renders_editor() {
         let ctx = PageContext {
-            user: Some(test_user_admin_with(&["news:manage"])),
+            user: Some(test_user_admin_with(&["admin:content:manage"])),
             path: "/admin/news/create".to_string(),
             ..Default::default()
         };
@@ -508,7 +508,7 @@ mod tests {
         let mut params = std::collections::HashMap::new();
         params.insert("id".to_string(), "42".to_string());
         let ctx = PageContext {
-            user: Some(test_user_admin_with(&["news:manage"])),
+            user: Some(test_user_admin_with(&["admin:content:manage"])),
             path: "/admin/news/42/edit".to_string(),
             params,
             ..Default::default()

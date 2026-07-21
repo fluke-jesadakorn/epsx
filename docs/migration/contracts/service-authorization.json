@@ -140,6 +140,33 @@
       "anchors": [
         "Add a public-route allowlist; everything else is protected by default."
       ]
+    },
+    {
+      "id": "gateway-rs256-verifier",
+      "file": "services/gateway/src/auth.rs",
+      "anchors": [
+        "Validation::new(Algorithm::RS256)",
+        "validation.set_issuer",
+        "UNKNOWN_KID_REFRESH_INTERVAL"
+      ]
+    },
+    {
+      "id": "gateway-access-policy",
+      "file": "services/gateway/src/policy.rs",
+      "anchors": [
+        "pub enum AccessPolicy",
+        "AccessPolicy::CredentialExchange",
+        "_ => AccessPolicy::Blocked"
+      ]
+    },
+    {
+      "id": "gateway-proxy-boundary",
+      "file": "services/gateway/src/lib.rs",
+      "anchors": [
+        "strip_spoofable_identity_headers",
+        "MAX_REQUEST_BODY_BYTES",
+        "response_headers.remove(header::SET_COOKIE)"
+      ]
     }
   ],
   "requiredCases": [
@@ -187,21 +214,21 @@
       "internal-webhook": 4
     },
     "byObservedStatus": {
-      "partial": 34,
+      "partial": 33,
       "blocked": 82,
-      "aligned": 1
+      "aligned": 2
     }
   },
   "services": [
     {
       "name": "gateway",
-      "source": "services/gateway/src/main.rs",
+      "source": "services/gateway/src/lib.rs",
       "routerAnchor": "let app = Router::new()",
-      "currentBoundary": "Legacy shared HS256 middleware enriches requests but does not make non-public routes fail closed; wildcard proxies forward caller headers.",
+      "currentBoundary": "Method-and-normalized-path policy verifies canonical RS256/JWKS access tokens, strips spoofable identity and hop-by-hop headers, and denies unknown, internal, and payment-drift routes before upstream I/O. Owner comparisons and direct-service parity remain blocked downstream.",
       "routes": [
         {
-          "id": "gateway.any.health",
-          "method": "ANY",
+          "id": "gateway.get.health",
+          "method": "GET",
           "path": "/health",
           "routeAnchor": ".route(\"/health\"",
           "classification": "public-allowlist",
@@ -214,17 +241,16 @@
           "risk": "none",
           "caseProfile": "public",
           "observed": {
-            "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "status": "aligned",
+            "summary": "The gateway mounts health as GET/HEAD only and the explicit policy table identifies it as public."
           },
           "dependencies": [
             "A2"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
-          ],
-          "nonDomainMutationReason": "All methods invoke the same read-only health handler.",
-          "notes": "Method-independent health endpoint; the future allowlist should normally narrow this to GET/HEAD."
+            "backend-public-boundary",
+            "gateway-access-policy"
+          ]
         },
         {
           "id": "gateway.any.identity-proxy",

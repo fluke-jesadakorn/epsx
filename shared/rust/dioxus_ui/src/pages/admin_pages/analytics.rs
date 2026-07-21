@@ -39,7 +39,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 fn RenderAnalytics(ctx: PageContext) -> Element {
     let mut export_open = use_signal(|| false);
     rsx! {
-        AdminAuthGate { user: ctx.user.clone(), feature: Some("platform analytics".to_string()), required_permissions: Some(vec!["analytics:read".to_string()]), return_url: Some(ctx.path.clone()),
+        AdminAuthGate { user: ctx.user.clone(), feature: Some("platform analytics".to_string()), required_permissions: Some(vec!["admin:analytics:view".to_string()]), return_url: Some(ctx.path.clone()),
             AdminShell {
                 ctx: ctx.clone(),
                 page_title: "Platform analytics".to_string(),
@@ -362,7 +362,7 @@ mod tests {
     use crate::auth::user::{AuthMethod, User};
 
     /// Authenticated admin context — the page gates on
-    /// `analytics:read`, so the fixture user must hold that
+    /// `admin:analytics:view`, so the fixture user must hold that
     /// permission to pass the gate.
     fn admin_ctx() -> PageContext {
         PageContext {
@@ -373,7 +373,7 @@ mod tests {
                 roles: vec!["admin".to_string()],
                 email: Some("admin@epsx.io".to_string()),
                 tier: Some("Admin".to_string()),
-                permissions: vec!["analytics:read".to_string()],
+                permissions: vec!["admin:analytics:view".to_string()],
                 last_login_at: None,
                 auth_method: AuthMethod::Wallet,
                 display_name: Some("Admin".to_string()),

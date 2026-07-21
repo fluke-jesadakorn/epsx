@@ -40,7 +40,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 #[component]
 fn RenderDashboard(ctx: PageContext) -> Element {
     rsx! {
-        AdminAuthGate { user: ctx.user.clone(), feature: Some("the admin dashboard".to_string()), required_permissions: Some(vec!["admin:*".to_string()]), return_url: Some(ctx.path.clone()),
+        AdminAuthGate { user: ctx.user.clone(), feature: Some("the admin dashboard".to_string()), required_permissions: Some(vec!["admin:dashboard:view".to_string()]), return_url: Some(ctx.path.clone()),
             AdminShell {
                 ctx: ctx.clone(),
                 page_title: "Command Center".to_string(),
@@ -561,7 +561,7 @@ mod tests {
     use crate::auth::user::{AuthMethod, User};
 
     /// Build an authenticated admin `PageContext` with the
-    /// `admin:*` permission the gate checks.
+    /// `admin:dashboard:view` permission the gate checks.
     fn admin_ctx() -> PageContext {
         PageContext {
             user: Some(User {
@@ -571,7 +571,7 @@ mod tests {
                 roles: vec!["admin".to_string()],
                 email: Some("admin@epsx.io".to_string()),
                 tier: Some("Admin".to_string()),
-                permissions: vec!["admin:*".to_string()],
+                permissions: vec!["admin:dashboard:view".to_string()],
                 last_login_at: None,
                 auth_method: AuthMethod::Wallet,
                 display_name: Some("Admin".to_string()),

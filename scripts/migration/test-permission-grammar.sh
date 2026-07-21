@@ -19,7 +19,7 @@ if [ "$readiness_status" -ne 3 ]; then
   echo "permission-grammar self-test: expected readiness exit 3, got $readiness_status" >&2
   exit 1
 fi
-grep -q "32 security-gate blockers" "$temp_dir/readiness.out"
+grep -q "16 security-gate blockers" "$temp_dir/readiness.out"
 grep -q "presentation-drift=2" "$temp_dir/readiness.out"
 
 bun "$script_dir/verify-permission-grammar.ts" --emit-inventory >"$temp_dir/scan-one.json"

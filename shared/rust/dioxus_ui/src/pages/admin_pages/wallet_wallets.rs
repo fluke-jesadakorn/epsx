@@ -541,7 +541,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
         AdminAuthGate {
             user: ctx.user.clone(),
             feature: Some("the wallet management page".to_string()),
-            required_permissions: Some(vec!["wallets:manage".to_string()]),
+            required_permissions: Some(vec!["admin:users:read".to_string()]),
             return_url: Some(ctx.path.clone()),
             div { class: "container page-content",
                 // Header.
@@ -624,7 +624,7 @@ fn RenderWalletDetailPage(ctx: PageContext) -> Element {
         AdminAuthGate {
             user: ctx.user.clone(),
             feature: Some("wallet detail".to_string()),
-            required_permissions: Some(vec!["wallets:manage".to_string()]),
+            required_permissions: Some(vec!["admin:users:read".to_string()]),
             return_url: Some(ctx.path.clone()),
             div { class: "container page-content",
                 a { class: "btn btn-sm btn-ghost mb-4", href: "/wallet-management/wallets", Icon { name: "arrow-left".to_string(), size: Some(16) } " Back to wallets" }
@@ -648,7 +648,7 @@ fn RenderDisable(ctx: PageContext) -> Element {
         AdminAuthGate {
             user: ctx.user.clone(),
             feature: Some("disabling wallets".to_string()),
-            required_permissions: Some(vec!["wallets:manage".to_string()]),
+            required_permissions: Some(vec!["admin:users:update".to_string()]),
             return_url: Some(ctx.path.clone()),
             div { class: "container page-content max-w-2xl",
                 a { class: "btn btn-sm btn-ghost mb-4", href: format!("/wallet-management/wallets/{}", address), Icon { name: "arrow-left".to_string(), size: Some(16) } " Back" }
@@ -694,7 +694,7 @@ mod tests {
     use crate::pages::PageContext;
     use crate::auth::User;
 
-    /// Build an admin `User` with the `wallets:manage` permission.
+    /// Build an admin `User` with the operation-specific wallet permissions.
     fn test_user_admin() -> User {
         User {
             id: "test-admin".to_string(),
@@ -703,7 +703,7 @@ mod tests {
             roles: vec!["admin".to_string()],
             email: Some("admin@epsx.io".to_string()),
             tier: Some("admin".to_string()),
-            permissions: vec!["wallets:manage".to_string()],
+            permissions: vec!["admin:users:read".to_string(), "admin:users:update".to_string()],
             ..Default::default()
         }
     }

@@ -719,7 +719,7 @@ fn RenderCreateKey(ctx: PageContext) -> Element {
         AdminAuthGate {
             user: ctx.user.clone(),
             feature: Some("creating API keys".to_string()),
-            required_permissions: Some(vec!["developer:manage".to_string()]),
+            required_permissions: Some(vec!["admin:developer:manage".to_string()]),
             return_url: Some(ctx.path.clone()),
             div { class: "container page-content",
                 a { class: "btn btn-sm btn-ghost mb-4", href: "/developer-portal", Icon { name: "arrow-left".to_string(), size: Some(16) } " Back" }
@@ -749,7 +749,7 @@ mod tests {
     use crate::pages::PageContext;
     use crate::auth::User;
 
-    /// Build an admin `User` with the `developer:manage` permission.
+    /// Build an admin `User` with the `admin:developer:manage` permission.
     fn test_user_admin() -> User {
         User {
             id: "test-admin".to_string(),
@@ -758,7 +758,7 @@ mod tests {
             roles: vec!["admin".to_string()],
             email: Some("admin@epsx.io".to_string()),
             tier: Some("admin".to_string()),
-            permissions: vec!["developer:manage".to_string()],
+            permissions: vec!["admin:developer:manage".to_string()],
             ..Default::default()
         }
     }

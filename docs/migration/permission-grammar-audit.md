@@ -34,39 +34,42 @@ The current scan contains 64 records:
 
 | Usage | Records | Readiness effect |
 | --- | ---: | --- |
-| Dioxus security gates | 32 | 31 legacy two-segment and 1 impossible scoped wildcard; all 32 block |
+| Dioxus security gates | 32 | 16 canonical after A8.1; 16 legacy two-segment values still block |
 | Dioxus presentation literals | 1 | Reported as presentation drift, not an enforcement blocker |
 | Dioxus presentation dynamic pass-throughs | 1 | Reported as presentation drift, not an enforcement blocker |
 | Service-authorization permissions | 30 | All canonical three-segment values |
 
-Across every source there are 30 canonical three-segment values, 31 legacy
-two-segment values, 1 unknown dynamic presentation value, and 2
-impossible/cross-grammar values. There are currently no wildcard-aligned
+Across every source there are 46 canonical three-segment values, 16 legacy
+two-segment values, 1 unknown dynamic presentation value, and 1
+impossible/cross-grammar presentation value. There are currently no wildcard-aligned
 inventory values.
 
-## Source-backed admin remediation map
+## Source-backed admin consumption map
 
-These are migration candidates, not policy changes:
+The unambiguous A8.1 rows are now consumed by the UI. This changes only gate
+literals; it does not move business policy into Dioxus:
 
-| Dioxus surface | Source-backed backend candidate |
-| --- | --- |
-| Dashboard | `admin:dashboard:view` |
-| Analytics and audit log | `admin:analytics:view` |
-| Notifications | `admin:notifications:manage` |
-| Developer portal | `admin:developer:manage` |
-| Payments | `admin:payments:manage` |
-| Chat | `admin:chat:manage` |
-| News | `admin:content:manage` |
-| Media | `admin:media:manage` |
-| Settings | `admin:settings:manage` |
-| Wallet list/detail | `admin:users:read` |
-| Wallet disable mutation | `admin:users:update` |
-| Wallet access | split by operation: `admin:permissions:read` / `admin:permissions:manage` |
-| Wallet plans | split by operation: `admin:plans:read` / `admin:plans:manage` |
+| Dioxus surface | Source-backed backend permission | A8.1 state |
+| --- | --- | --- |
+| Dashboard | `admin:dashboard:view` | aligned |
+| Analytics and audit log | `admin:analytics:view` | aligned |
+| Notifications | `admin:notifications:manage` | aligned |
+| Developer portal | `admin:developer:manage` | aligned |
+| Payments | `admin:payments:manage` | aligned |
+| Chat | `admin:chat:manage` | aligned |
+| News | `admin:content:manage` | aligned |
+| Media | `admin:media:manage` | aligned |
+| Settings | `admin:settings:manage` | aligned |
+| Wallet list/detail | `admin:users:read` | aligned |
+| Wallet disable mutation | `admin:users:update` | aligned |
+| Wallet access | split by operation: `admin:permissions:read` / `admin:permissions:manage` | deferred; mixed surface |
+| Wallet plans | split by operation: `admin:plans:read` / `admin:plans:manage` | deferred; mixed surface |
 
-The admin auth, policies, and generic unauthorized presentation surfaces have
-no single source-backed backend guard candidate in this audit. They remain A4
-decisions; the inventory deliberately does not guess.
+The admin auth and policies gates have no single source-backed backend guard
+candidate in this audit. Wallet access and wallet plans need operation-level
+gate splits before their source-backed read/manage pairs can be consumed. The
+generic unauthorized value is presentation-only. These remain explicit
+residuals; the inventory deliberately does not guess or over-broaden them.
 
 The frontend analytics gate is also unresolved. Token examples use
 `epsx:analytics:read`, while wallet permission assignment uses

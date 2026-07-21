@@ -33,7 +33,7 @@ fn RenderMedia(ctx: PageContext) -> Element {
     let mut bucket = use_signal(|| "news".to_string());
     let mut view = use_signal(|| "grid".to_string());
     rsx! {
-        AdminAuthGate { user: ctx.user.clone(), feature: Some("media management".to_string()), required_permissions: Some(vec!["media:manage".to_string()]), return_url: Some(ctx.path.clone()),
+        AdminAuthGate { user: ctx.user.clone(), feature: Some("media management".to_string()), required_permissions: Some(vec!["admin:media:manage".to_string()]), return_url: Some(ctx.path.clone()),
             AdminShell {
                 ctx: ctx.clone(),
                 page_title: "Media Browser".to_string(),
@@ -263,7 +263,7 @@ mod tests {
     use crate::auth::user::{AuthMethod, User};
 
     /// Authenticated admin context — the page gates on
-    /// `media:manage`, so the fixture user must hold that
+    /// `admin:media:manage`, so the fixture user must hold that
     /// permission.
     fn admin_ctx() -> PageContext {
         PageContext {
@@ -274,7 +274,7 @@ mod tests {
                 roles: vec!["admin".to_string()],
                 email: Some("admin@epsx.io".to_string()),
                 tier: Some("Admin".to_string()),
-                permissions: vec!["media:manage".to_string()],
+                permissions: vec!["admin:media:manage".to_string()],
                 last_login_at: None,
                 auth_method: AuthMethod::Wallet,
                 display_name: Some("Admin".to_string()),

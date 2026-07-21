@@ -272,7 +272,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
             AdminAuthGate {
                 user: ctx.user.clone(),
                 feature: Some("the audit log".to_string()),
-                required_permissions: Some(vec!["audit:read".to_string()]),
+                required_permissions: Some(vec!["admin:analytics:view".to_string()]),
                 return_url: Some(ctx.path.clone()),
                 div { class: "container page-content",
                     // --- Page header ---
@@ -688,7 +688,7 @@ fn AuditExportButton() -> Element {
 //
 // Wave 6B design doc requires per-page `test_render_smoke` and
 // `test_section_markers`. We reuse the Wave 5/6A `test_user_with`
-// fixture (admin-scoped variant: just grant the `audit:read`
+// fixture (admin-scoped variant: just grant the `admin:analytics:view`
 // permission and the `admin` role).
 #[cfg(test)]
 mod tests {
@@ -696,7 +696,7 @@ mod tests {
     use crate::pages::PageContext;
     use crate::auth::User;
 
-    /// Build an admin-scoped `User` that holds the `audit:read`
+    /// Build an admin-scoped `User` that holds the `admin:analytics:view`
     /// permission. Mirrors the Wave 6A pattern of extending
     /// `tests::mod::test_user_with` with admin roles inline.
     fn test_user_admin_with(perms: &[&str]) -> User {
@@ -734,7 +734,7 @@ mod tests {
     #[test]
     fn audit_log_renders_smoke() {
         let ctx = PageContext {
-            user: Some(test_user_admin_with(&["audit:read"])),
+            user: Some(test_user_admin_with(&["admin:analytics:view"])),
             path: "/admin/audit-log".to_string(),
             ..Default::default()
         };
@@ -750,7 +750,7 @@ mod tests {
     #[test]
     fn audit_log_section_markers() {
         let ctx = PageContext {
-            user: Some(test_user_admin_with(&["audit:read"])),
+            user: Some(test_user_admin_with(&["admin:analytics:view"])),
             path: "/admin/audit-log".to_string(),
             ..Default::default()
         };
@@ -774,7 +774,7 @@ mod tests {
     }
 
     /// The admin gate fires for non-admin users, regardless of
-    /// whether they hold the `audit:read` permission. Mirrors
+    /// whether they hold the `admin:analytics:view` permission. Mirrors
     /// the prior audit.rs test suite.
     #[test]
     fn audit_log_gates_non_admin_user() {
@@ -814,12 +814,12 @@ mod tests {
         );
     }
 
-    /// An admin user with the required `audit:read` permission
+    /// An admin user with the required `admin:analytics:view` permission
     /// must see the page body, NOT the gate panel.
     #[test]
     fn audit_log_renders_body_for_admin_user() {
         let ctx = PageContext {
-            user: Some(test_user_admin_with(&["audit:read"])),
+            user: Some(test_user_admin_with(&["admin:analytics:view"])),
             path: "/admin/audit-log".to_string(),
             ..Default::default()
         };
@@ -837,11 +837,11 @@ mod tests {
         );
     }
 
-    /// An admin user missing the `audit:read` permission must
+    /// An admin user missing the `admin:analytics:view` permission must
     /// still be bounced by the admin variant of the gate.
     #[test]
     fn audit_log_gates_admin_user_missing_permission() {
-        let u = test_user_admin_with(&[]); // admin role, no audit:read
+        let u = test_user_admin_with(&[]); // admin role, no admin:analytics:view
         let ctx = PageContext {
             user: Some(u),
             path: "/admin/audit-log".to_string(),
@@ -861,7 +861,7 @@ mod tests {
     #[test]
     fn audit_filters_renders_all_nine_categories() {
         let ctx = PageContext {
-            user: Some(test_user_admin_with(&["audit:read"])),
+            user: Some(test_user_admin_with(&["admin:analytics:view"])),
             path: "/admin/audit-log".to_string(),
             ..Default::default()
         };
@@ -882,7 +882,7 @@ mod tests {
     #[test]
     fn audit_severity_breakdown_renders_count() {
         let ctx = PageContext {
-            user: Some(test_user_admin_with(&["audit:read"])),
+            user: Some(test_user_admin_with(&["admin:analytics:view"])),
             path: "/admin/audit-log".to_string(),
             ..Default::default()
         };

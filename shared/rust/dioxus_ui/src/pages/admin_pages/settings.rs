@@ -42,7 +42,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 #[component]
 fn RenderSettings(ctx: PageContext) -> Element {
     rsx! {
-        AdminAuthGate { user: ctx.user.clone(), feature: Some("platform settings".to_string()), required_permissions: Some(vec!["settings:manage".to_string()]), return_url: Some(ctx.path.clone()),
+        AdminAuthGate { user: ctx.user.clone(), feature: Some("platform settings".to_string()), required_permissions: Some(vec!["admin:settings:manage".to_string()]), return_url: Some(ctx.path.clone()),
             AdminShell {
                 ctx: ctx.clone(),
                 page_title: "Settings".to_string(),
@@ -461,7 +461,7 @@ mod tests {
     use crate::auth::user::{AuthMethod, User};
 
     /// Authenticated admin context — the page gates on
-    /// `settings:manage`, so the fixture user must hold that
+    /// `admin:settings:manage`, so the fixture user must hold that
     /// permission.
     fn admin_ctx() -> PageContext {
         PageContext {
@@ -472,7 +472,7 @@ mod tests {
                 roles: vec!["admin".to_string()],
                 email: Some("admin@epsx.io".to_string()),
                 tier: Some("Admin".to_string()),
-                permissions: vec!["settings:manage".to_string()],
+                permissions: vec!["admin:settings:manage".to_string()],
                 last_login_at: None,
                 auth_method: AuthMethod::Wallet,
                 display_name: Some("Admin".to_string()),

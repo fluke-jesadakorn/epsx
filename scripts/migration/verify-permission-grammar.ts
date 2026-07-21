@@ -449,6 +449,13 @@ function validateFixture(
       const supported = remediation.evidence.some((id) => evidenceSource.get(id)?.includes(candidate));
       if (!supported) errors.push(`${record.surface} candidate lacks a literal source guard/token anchor: ${candidate}`);
     }
+    if (
+      record.classification === "canonical-3-segment" &&
+      remediation.candidates.length === 1 &&
+      record.permission !== remediation.candidates[0]
+    ) {
+      errors.push(`${record.surface} canonical UI gate does not consume its sole source-backed candidate`);
+    }
   }
   return errors;
 }
