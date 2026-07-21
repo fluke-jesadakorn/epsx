@@ -370,6 +370,28 @@ bounded path set. Shared contract files require coordination through package A0.
   extraction is reusable security infrastructure rather than service-level
   authorization proof.
 
+- **A2.3a status:** the candidate event-analytics service now consumes the
+  shared verifier directly. Health is the sole anonymous allowlist, tracking
+  requires a verified frontend/admin principal, operator reads require the
+  admin audience plus `admin:analytics:view`, and internal/unknown routes fail
+  closed before storage. Canonical wallet attribution, internal-service
+  identity, runtime migrations, and analytics semantics remain unresolved.
+
+- **A2.3b status:** the candidate content service also consumes the shared
+  verifier. Public route shapes are explicit, CMS mutations require the admin
+  audience plus canonical `admin:content:manage`, and editor-session routes
+  remain fail-closed rather than persisting a caller-selected UUID. Published-
+  only filtering, editor identity mapping, runtime migrations, content-domain
+  semantics, and cache/validation behavior remain unresolved.
+
+- **A2.3c status:** the notification service now consumes the shared verifier.
+  Health is its only anonymous surface, template/send operations require the
+  admin audience plus `admin:notifications:manage`, and all eight user routes
+  derive and bind their SQL owner key from the verified wallet. The service
+  matrix is now five aligned, 54 partial, and 58 blocked. Runtime DDL and legacy
+  owner migration, internal publisher identity, delivery idempotency/outbox,
+  SMTP behavior, template consistency, and DB integration remain unresolved.
+
 ### A3 — Additive migrations and data reconciliation (P0)
 
 - **Scope:** new migration directories only, database provisioning scripts,
@@ -461,6 +483,12 @@ bounded path set. Shared contract files require coordination through package A0.
   verified. Replaying create, webhook, confirm, release, or refund must not
   duplicate value or state transitions.
 
+- **A6.0 status:** the pinned payment execution contract inventories nine
+  route/lifecycle surfaces and 17 evidence-backed stop blockers. Its integrity
+  and tamper tests pass, while readiness intentionally exits `3`; route-prefix,
+  ownership, idempotency, receipt/finality, escrow transaction, webhook,
+  migration, ingress, and end-to-end browser proof remain unimplemented.
+
 ### A7 — Frontend live data and interaction parity (P1)
 
 - **Scope:** `apps/frontend` loaders/API handlers and frontend pages in
@@ -481,6 +509,16 @@ bounded path set. Shared contract files require coordination through package A0.
 
   Close routes in small batches; all 28 must pass interaction and live-data
   fixtures before the frontend gate moves to done.
+
+- **A7.0–A7.2 status:** the exact 28-route live-data contract now records two
+  aligned routes, eight partial routes, and 18 blocked routes. `/access-denied`
+  has bounded and escaped query rendering plus responsive keyboard browser
+  proof. `/manual` exactly matches the pinned 35-feature catalog and proves all
+  screenshot assets, responsive layout, links, dialog focus, and image-error
+  fallback. `/offline` is public and has a native retry control, but fresh
+  disconnected cache/service-worker delivery is not proven. Privacy and terms
+  remain partial pending wallet/SIWE legal approval; terms also lacks a real
+  subscription handler. The remaining 26 routes keep readiness at exit `3`.
 
 ### A8 — Admin live data and mutation parity (P1)
 
@@ -513,6 +551,15 @@ bounded path set. Shared contract files require coordination through package A0.
   ./scripts/migration/verify-entitlement-parity.sh
   ```
 
+- **A9.0 status:** the pinned subscription contract inventories 12
+  route/lifecycle surfaces, 18 source anchors, 25 target anchors, and 20 stop
+  blockers. It locks backend plan authority, owner/admin/service boundaries,
+  verified-payment activation, manual renewal and expiry, effective-plan
+  uniqueness, idempotency, outbox/reconciliation, entitlement/ranking
+  projection, truthful UI states, and rollback. Integrity and tamper gates pass;
+  readiness intentionally exits `3`. No lifecycle runtime or schema claim is
+  made by the audit.
+
 ### A10 — Content vertical slice (P1)
 
 - **Scope:** `services/content`, content migrations, public reads, authorized
@@ -525,6 +572,16 @@ bounded path set. Shared contract files require coordination through package A0.
   cargo test -p epsx-content
   ./scripts/migration/verify-content-lifecycle.sh
   ```
+
+- **A10.0 status:** the pinned content lifecycle contract records 14 source
+  anchors, 32 target anchors, eight route batches, 16 lifecycle requirements,
+  and 20 stop blockers. It preserves A2.3b as partial and keeps editor routes
+  fail-closed until canonical actor mapping and session ownership exist. The
+  ordered implementation covers published-only immutable revisions, typed
+  page/theme/block CRUD, media, filesystem trust, migrations/reconciliation,
+  backend-owned plans/rankings/portfolio, wire/status parity, truthful UI
+  states, audit/outbox/idempotency, shadowing, and rollback. Integrity passes;
+  readiness intentionally exits `3`.
 
 ### A11 — Notification vertical slice (P1)
 
@@ -539,6 +596,12 @@ bounded path set. Shared contract files require coordination through package A0.
   ./scripts/migration/verify-notification-ownership.sh
   ./scripts/migration/verify-notification-delivery.sh
   ```
+
+- **A11 authorization status:** direct health/admin/owner request boundaries
+  are enforced by A2.3c, but the vertical slice remains incomplete until
+  additive migrations, legacy owner reconciliation, internal publisher
+  identity, durable outbox/retry/dead-letter delivery, safe SMTP behavior,
+  realtime ownership, observability, and rollback are proven.
 
 ### A12 — Analytics/indexer vertical slice (P1)
 
@@ -555,6 +618,16 @@ bounded path set. Shared contract files require coordination through package A0.
   ./scripts/migration/verify-ranking-entitlements.sh
   ./scripts/migration/verify-indexer-replay.sh
   ```
+
+- **A12.0 status:** the audit enforces four distinct domains—market analytics,
+  event analytics, chain indexing, and identity ranking-offset projection. It
+  pins 14 source and 36 target anchors across 16 blocked surfaces, 31 required
+  rules, 12 ordered execution phases, and 24 stop blockers. Direct service
+  authorization, truthful live/stale UX, authoritative plan offsets, event
+  taxonomy/privacy/revenue, canonical finality/reorg-aware indexing, durable
+  backfill/reconciliation, observability, distinct workloads, and per-domain
+  shadow/cutover/rollback remain open. Integrity passes; readiness intentionally
+  exits `3`.
 
 ### A13 — Infrastructure, shadow, and rollback (P1/P2)
 
@@ -577,6 +650,14 @@ bounded path set. Shared contract files require coordination through package A0.
 
   These commands validate artifacts only. They do not authorize `kubectl apply`
   against production, DNS/Cloudflare changes, or production migrations.
+
+- **A13.0 status:** a hermetic local render gate records 18 stop blockers. The
+  current artifact contains three `:dev` images, no digest-pinned images, public
+  pay ingress that bypasses the BFF, literal pay database credentials, a zero
+  escrow address, no webhook configuration, eight absent candidate services,
+  and no startup or dependency-readiness checks. The P0 ledger is one passed,
+  four partial, and two blocked; readiness intentionally exits `3`. No cluster
+  access or infrastructure mutation is performed by this gate.
 
 ## Release gates
 
