@@ -1,11 +1,9 @@
 //! Admin handlers (slice-3).
 //!
 //! Force-cancel / force-release / force-refund for ops + admin
-//! tooling. Today these endpoints trust the caller — there's
-//! no auth check at the service layer because the monolith
-//! backend already filters by admin role before calling.
-//! Slice-3.5+ will add JWT verification via `epsx_identity`
-//! when the Identity service exposes admin tokens.
+//! tooling. The direct service middleware now verifies the admin
+//! audience and canonical payment permission before Axum can
+//! extract the principal or invoke these handlers.
 //!
 //! Endpoints:
 //! - `GET  /api/v1/admin/pay/intents`                   → `admin_list_pay_intents`
@@ -14,10 +12,11 @@
 //! - `POST /api/v1/admin/pay/escrows/:id/force-refund`  → `admin_force_refund_escrow`
 
 use axum::{
-    extract::{Path as AxPath, State},
+    extract::{Extension, Path as AxPath, State},
     http::StatusCode,
     Json,
 };
+use epsx_service_auth::VerifiedPrincipal;
 
 use crate::types::*;
 use crate::AppState;
@@ -28,18 +27,104 @@ use crate::AppState;
 
 pub async fn admin_list_pay_intents(
     State(state): State<AppState>,
+    Extension(_principal): Extension<VerifiedPrincipal>,
     axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> Result<Json<PayIntentListResponse>, StatusCode> {
-    // Reuse the public list endpoint shape — admin gets the
-    // same paginated/filtered list. Auth is checked upstream
-    // in the monolith (apps/backend) before this is reached
-    // via the proxy; in dev/staging the monolith trusts the
-    // session cookie, in prod the API gateway enforces
-    // `pay:admin` scope.
-    crate::handlers::intents::list_pay_intents(
-        State(state),
-        axum::extract::Query(params),
-    ).await
+    let payer = params.get("payer").cloned();
+    let status = params.get("status").cloned();
+    let limit = params
+        .get("limit")
+        .and_then(|value| value.parse::<i64>().ok())
+        .unwrap_or(50)
+        .clamp(1, 100);
+    let offset = params
+        .get("offset")
+        .and_then(|value| value.parse::<i64>().ok())
+        .unwrap_or(0)
+        .max(0);
+
+    let (items, total): (Vec<PayIntent>, i64) = match (payer.as_deref(), status.as_deref()) {
+        (Some(payer), Some(status)) => {
+            let items = sqlx::query_as::<_, PayIntent>(
+                "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at
+                 FROM pay_intents WHERE payer = $1 AND status = $2
+                 ORDER BY created_at DESC LIMIT $3 OFFSET $4",
+            )
+            .bind(payer.to_ascii_lowercase())
+            .bind(status)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&state.db)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            let total = sqlx::query_scalar(
+                "SELECT COUNT(*) FROM pay_intents WHERE payer = $1 AND status = $2",
+            )
+            .bind(payer.to_ascii_lowercase())
+            .bind(status)
+            .fetch_one(&state.db)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            (items, total)
+        }
+        (Some(payer), None) => {
+            let payer = payer.to_ascii_lowercase();
+            let items = sqlx::query_as::<_, PayIntent>(
+                "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at
+                 FROM pay_intents WHERE payer = $1
+                 ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+            )
+            .bind(&payer)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&state.db)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            let total = sqlx::query_scalar("SELECT COUNT(*) FROM pay_intents WHERE payer = $1")
+                .bind(&payer)
+                .fetch_one(&state.db)
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            (items, total)
+        }
+        (None, Some(status)) => {
+            let items = sqlx::query_as::<_, PayIntent>(
+                "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at
+                 FROM pay_intents WHERE status = $1
+                 ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+            )
+            .bind(status)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&state.db)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            let total = sqlx::query_scalar("SELECT COUNT(*) FROM pay_intents WHERE status = $1")
+                .bind(status)
+                .fetch_one(&state.db)
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            (items, total)
+        }
+        (None, None) => {
+            let items = sqlx::query_as::<_, PayIntent>(
+                "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at
+                 FROM pay_intents ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+            )
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&state.db)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            let total = sqlx::query_scalar("SELECT COUNT(*) FROM pay_intents")
+                .fetch_one(&state.db)
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            (items, total)
+        }
+    };
+
+    Ok(Json(PayIntentListResponse { items, total }))
 }
 
 // ============================================================================
@@ -71,10 +156,7 @@ pub async fn admin_force_cancel_pay_intent(
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    tracing::warn!(
-        "admin force-cancel: intent_id={}, prev_status=any",
-        id
-    );
+    tracing::warn!("admin force-cancel: intent_id={}, prev_status=any", id);
 
     Ok(Json(intent))
 }

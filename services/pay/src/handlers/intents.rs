@@ -13,11 +13,13 @@
 //! - `POST /api/v1/pay/intents/:id/cancel`  → `cancel_pay_intent`
 
 use axum::{
-    extract::{Path as AxPath, State},
+    extract::{Extension, Path as AxPath, State},
     http::StatusCode,
     Json,
 };
 use epsx_kernel::{ChainId, Token};
+use epsx_pay_svc::canonical_owner;
+use epsx_service_auth::VerifiedPrincipal;
 use std::str::FromStr;
 use tracing;
 
@@ -34,8 +36,10 @@ pub async fn create_pay_intent(
     Json(req): Json<CreatePayIntentRequest>,
 ) -> Result<Json<PayIntentResponse>, StatusCode> {
     // Validate addresses
-    let _payer = alloy::primitives::Address::from_str(&req.payer).map_err(|_| StatusCode::BAD_REQUEST)?;
-    let _payee = alloy::primitives::Address::from_str(&req.payee).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let _payer =
+        alloy::primitives::Address::from_str(&req.payer).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let _payee =
+        alloy::primitives::Address::from_str(&req.payee).map_err(|_| StatusCode::BAD_REQUEST)?;
 
     // Resolve token address
     let chain_id_enum = ChainId(state.chain_id);
@@ -46,7 +50,8 @@ pub async fn create_pay_intent(
         "BNB" => Token::BNB,
         _ => return Err(StatusCode::BAD_REQUEST),
     };
-    let token_address = token.address(chain_id_enum)
+    let token_address = token
+        .address(chain_id_enum)
         .map(|a| a.0)
         .unwrap_or_else(|| "0x0000000000000000000000000000000000000000".to_string());
 
@@ -105,42 +110,66 @@ pub async fn create_pay_intent(
 
 pub async fn list_pay_intents(
     State(state): State<AppState>,
+    Extension(principal): Extension<VerifiedPrincipal>,
     axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> Result<Json<PayIntentListResponse>, StatusCode> {
-    let payer = params.get("payer").cloned();
+    let owner = canonical_owner(&principal, params.get("payer").map(String::as_str))?;
     let status = params.get("status").cloned();
-    let limit: i64 = params.get("limit").and_then(|s| s.parse().ok()).unwrap_or(50);
-    let offset: i64 = params.get("offset").and_then(|s| s.parse().ok()).unwrap_or(0);
+    let limit = params
+        .get("limit")
+        .and_then(|value| value.parse::<i64>().ok())
+        .unwrap_or(50)
+        .clamp(1, 100);
+    let offset = params
+        .get("offset")
+        .and_then(|value| value.parse::<i64>().ok())
+        .unwrap_or(0)
+        .max(0);
 
-    let mut q = "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at FROM pay_intents WHERE 1=1".to_string();
-    let mut args: Vec<String> = vec![];
-    if let Some(p) = &payer {
-        args.push(p.clone());
-        q.push_str(&format!(" AND payer = ${}", args.len()));
-    }
-    if let Some(s) = &status {
-        args.push(s.clone());
-        q.push_str(&format!(" AND status = ${}", args.len()));
-    }
-    q.push_str(&format!(" ORDER BY created_at DESC LIMIT {} OFFSET {}", limit, offset));
-
-    let mut query = sqlx::query_as::<_, PayIntent>(&q);
-    for a in &args { query = query.bind(a); }
-    let items: Vec<PayIntent> = query.fetch_all(&state.db).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let total: i64 = if args.is_empty() {
-        sqlx::query_scalar("SELECT COUNT(*) FROM pay_intents").fetch_one(&state.db).await.unwrap_or(0)
+    let items: Vec<PayIntent> = if let Some(status) = status.as_deref() {
+        sqlx::query_as::<_, PayIntent>(
+            "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at
+             FROM pay_intents
+             WHERE (payer = $1 OR payee = $1) AND status = $2
+             ORDER BY created_at DESC LIMIT $3 OFFSET $4",
+        )
+        .bind(&owner)
+        .bind(status)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&state.db)
+        .await
     } else {
-        let mut q2 = "SELECT COUNT(*) FROM pay_intents WHERE 1=1".to_string();
-        if let Some(_p) = &payer { q2.push_str(" AND payer = $1"); }
-        if let Some(_s) = &status {
-            let idx = if payer.is_some() { 2 } else { 1 };
-            q2.push_str(&format!(" AND status = ${}", idx));
-        }
-        let mut query2 = sqlx::query_scalar(&q2);
-        for a in &args { query2 = query2.bind(a); }
-        query2.fetch_one(&state.db).await.unwrap_or(0)
-    };
+        sqlx::query_as::<_, PayIntent>(
+            "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at
+             FROM pay_intents
+             WHERE payer = $1 OR payee = $1
+             ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+        )
+        .bind(&owner)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&state.db)
+        .await
+    }
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let total: i64 = if let Some(status) = status.as_deref() {
+        sqlx::query_scalar(
+            "SELECT COUNT(*) FROM pay_intents
+             WHERE (payer = $1 OR payee = $1) AND status = $2",
+        )
+        .bind(&owner)
+        .bind(status)
+        .fetch_one(&state.db)
+        .await
+    } else {
+        sqlx::query_scalar("SELECT COUNT(*) FROM pay_intents WHERE payer = $1 OR payee = $1")
+            .bind(&owner)
+            .fetch_one(&state.db)
+            .await
+    }
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Json(PayIntentListResponse { items, total }))
 }
@@ -151,12 +180,16 @@ pub async fn list_pay_intents(
 
 pub async fn get_pay_intent(
     State(state): State<AppState>,
+    Extension(principal): Extension<VerifiedPrincipal>,
     AxPath(id): AxPath<String>,
 ) -> Result<Json<PayIntent>, StatusCode> {
+    let owner = canonical_owner(&principal, None)?;
     let intent: PayIntent = sqlx::query_as::<_, PayIntent>(
-        "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at FROM pay_intents WHERE id = $1"
+        "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at
+         FROM pay_intents WHERE id = $1 AND (payer = $2 OR payee = $2)"
     )
     .bind(&id)
+    .bind(&owner)
     .fetch_optional(&state.db)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
@@ -218,7 +251,16 @@ pub async fn confirm_pay_intent(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    get_pay_intent(State(state), AxPath(id)).await
+    let updated: PayIntent = sqlx::query_as::<_, PayIntent>(
+        "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at
+         FROM pay_intents WHERE id = $1",
+    )
+    .bind(&id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .ok_or(StatusCode::NOT_FOUND)?;
+    Ok(Json(updated))
 }
 
 // ============================================================================
@@ -234,5 +276,14 @@ pub async fn cancel_pay_intent(
         .execute(&state.db)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    get_pay_intent(State(state), AxPath(id)).await
+    let intent: PayIntent = sqlx::query_as::<_, PayIntent>(
+        "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at
+         FROM pay_intents WHERE id = $1",
+    )
+    .bind(&id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .ok_or(StatusCode::NOT_FOUND)?;
+    Ok(Json(intent))
 }

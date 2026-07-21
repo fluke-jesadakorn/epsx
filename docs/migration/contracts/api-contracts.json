@@ -279,9 +279,9 @@
         "successStatuses": [200],
         "invariants": ["verified admin capability", "service fails closed even if directly reached", "denied requests write no rows", "security audit event is emitted"]
       },
-      "observed": {"status": "blocked", "summary": "The service explicitly trusts callers and Cloudflare currently exposes the service rather than the pay BFF."},
+      "observed": {"status": "blocked", "summary": "The direct service validates admin manage credentials and then returns 404 before force handlers, but the DB-only lifecycle, durable audit, and public-host BFF route remain unresolved."},
       "evidence": [
-        {"file": "services/pay/src/handlers/pay_admin.rs", "anchor": "Today these endpoints trust the caller"},
+        {"file": "services/pay/src/lib.rs", "anchor": "A valid operator credential still cannot reach the current"},
         {"file": "services/pay/src/main.rs", "anchor": "/api/v1/admin/pay/intents/{id}/force-cancel"},
         {"file": "infrastructure/cloudflare/cloudflared-config.prod.yml", "anchor": "service: http://localhost:4747"}
       ]

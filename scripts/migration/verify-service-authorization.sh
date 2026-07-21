@@ -61,7 +61,7 @@ EXPECTED_OUTCOMES = {"allow", "deny", "conditional", "not-applicable"}
 EXPECTED_STATUSES = {"blocked", "partial", "aligned"}
 EXPECTED_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE", "ANY"}
 STATE_CHANGING_METHODS = {"POST", "PUT", "PATCH", "DELETE", "ANY"}
-ALIGNED_PROTECTED_EXCEPTIONS = {"pay.post.on-chain-webhook"}
+ALIGNED_PROTECTED_EXCEPTIONS: set[str] = set()
 PERMISSION_RE = re.compile(r"^[a-z][a-z0-9-]*:[a-z0-9*-]+:[a-z0-9*-]+$")
 ID_RE = re.compile(r"^[a-z0-9]+(?:[.-][a-z0-9]+)*$")
 

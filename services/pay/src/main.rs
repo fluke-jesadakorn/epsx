@@ -19,7 +19,13 @@
 //! which lives under `/api/v1/admin/pay/*` for symmetry with
 //! the monolith's existing admin router):
 //!
-//! Public (pay service, no auth):
+//! The direct service boundary is enforced by `epsx_pay_svc::protect_router`.
+//! Only health and usable payment-link lookup are anonymous. Owner reads use
+//! a verified JWT wallet; the admin read uses the canonical view
+//! permission. Every financial mutation remains unreachable under A6; admin
+//! mutation shapes validate manage credentials and then return 404.
+//!
+//! Mounted pay routes:
 //! - POST   /api/v1/pay/intents
 //! - GET    /api/v1/pay/intents
 //! - GET    /api/v1/pay/intents/{id}
@@ -38,7 +44,7 @@
 //! - GET    /api/v1/pay/history/{address}       (slice-3)
 //! - POST   /api/v1/pay/webhooks/on-chain       (slice-3)
 //!
-//! Admin (gated by monolith or future identity service):
+//! Admin (direct admin-audience and permission checks):
 //! - GET    /api/v1/admin/pay/intents                       (slice-3)
 //! - POST   /api/v1/admin/pay/intents/{id}/force-cancel     (slice-3)
 //! - POST   /api/v1/admin/pay/escrows/{id}/force-release    (slice-3)
@@ -49,7 +55,8 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use clap::Parser;
+use clap::{Parser, ValueEnum};
+use epsx_pay_svc::{build_auth_verifier, protect_router};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -82,6 +89,18 @@ struct Args {
     chain_id: u64,
     #[arg(long, env = "ESCROW_CONTRACT", default_value = "0")]
     escrow_contract: String,
+    #[arg(long, env = "OIDC_ISSUER")]
+    oidc_issuer: String,
+    #[arg(long, env = "OIDC_JWKS_URL")]
+    jwks_url: Option<String>,
+    #[arg(long, env = "EPSX_ENV", value_enum, default_value = "development")]
+    environment: Environment,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum Environment {
+    Development,
+    Production,
 }
 
 #[derive(Clone)]
@@ -98,6 +117,16 @@ async fn health() -> StatusCode { StatusCode::OK }
 async fn main() {
     epsx_observability::Observability::init("pay-svc");
     let args = Args::parse();
+
+    let production = matches!(args.environment, Environment::Production);
+    let jwks_url = args.jwks_url.unwrap_or_else(|| {
+        format!(
+            "{}/.well-known/jwks.json",
+            args.oidc_issuer.trim_end_matches('/')
+        )
+    });
+    let verifier = build_auth_verifier(&args.oidc_issuer, &jwks_url, production)
+        .expect("pay OIDC configuration must be valid");
 
     let db = sqlx::PgPool::connect(&args.database_url)
         .await
@@ -143,6 +172,7 @@ async fn main() {
         .route("/api/v1/admin/pay/escrows/{id}/force-release", post(handlers::pay_admin::admin_force_release_escrow))
         .route("/api/v1/admin/pay/escrows/{id}/force-refund", post(handlers::pay_admin::admin_force_refund_escrow))
         .with_state(app_state);
+    let app = protect_router(app, verifier);
 
     let addr: SocketAddr = format!("{}:{}", args.host, args.port).parse().unwrap();
     info!("Pay service listening on {}", addr);

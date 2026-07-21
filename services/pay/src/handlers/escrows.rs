@@ -14,10 +14,12 @@
 //! - `POST /api/v1/pay/escrows/:id/confirm-deposit` → `confirm_escrow_deposit`
 
 use axum::{
-    extract::{Path as AxPath, State},
+    extract::{Extension, Path as AxPath, State},
     http::StatusCode,
     Json,
 };
+use epsx_pay_svc::canonical_owner;
+use epsx_service_auth::VerifiedPrincipal;
 
 use crate::types::*;
 use crate::AppState;
@@ -28,16 +30,30 @@ use crate::AppState;
 
 pub async fn list_escrows(
     State(state): State<AppState>,
+    Extension(principal): Extension<VerifiedPrincipal>,
     axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> Result<Json<EscrowListResponse>, StatusCode> {
+    let owner = canonical_owner(&principal, None)?;
     let status = params.get("status").cloned();
-    let limit: i64 = params.get("limit").and_then(|s| s.parse().ok()).unwrap_or(50);
-    let offset: i64 = params.get("offset").and_then(|s| s.parse().ok()).unwrap_or(0);
+    let limit = params
+        .get("limit")
+        .and_then(|value| value.parse::<i64>().ok())
+        .unwrap_or(50)
+        .clamp(1, 100);
+    let offset = params
+        .get("offset")
+        .and_then(|value| value.parse::<i64>().ok())
+        .unwrap_or(0)
+        .max(0);
 
     let items: Vec<EscrowRecord> = if let Some(s) = &status {
         sqlx::query_as::<_, EscrowRecord>(
-            "SELECT id, chain_id, payer, payee, amount, token_address, fee_amount, status, on_chain_id, tx_hash, dispute_reason, created_at, updated_at FROM escrows WHERE status = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3"
+            "SELECT id, chain_id, payer, payee, amount, token_address, fee_amount, status, on_chain_id, tx_hash, dispute_reason, created_at, updated_at
+             FROM escrows
+             WHERE (payer = $1 OR payee = $1) AND status = $2
+             ORDER BY created_at DESC LIMIT $3 OFFSET $4"
         )
+        .bind(&owner)
         .bind(s)
         .bind(limit)
         .bind(offset)
@@ -45,8 +61,12 @@ pub async fn list_escrows(
         .await
     } else {
         sqlx::query_as::<_, EscrowRecord>(
-            "SELECT id, chain_id, payer, payee, amount, token_address, fee_amount, status, on_chain_id, tx_hash, dispute_reason, created_at, updated_at FROM escrows ORDER BY created_at DESC LIMIT $1 OFFSET $2"
+            "SELECT id, chain_id, payer, payee, amount, token_address, fee_amount, status, on_chain_id, tx_hash, dispute_reason, created_at, updated_at
+             FROM escrows
+             WHERE payer = $1 OR payee = $1
+             ORDER BY created_at DESC LIMIT $2 OFFSET $3"
         )
+        .bind(&owner)
         .bind(limit)
         .bind(offset)
         .fetch_all(&state.db)
@@ -54,7 +74,22 @@ pub async fn list_escrows(
     }
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM escrows").fetch_one(&state.db).await.unwrap_or(0);
+    let total: i64 = if let Some(status) = status.as_deref() {
+        sqlx::query_scalar(
+            "SELECT COUNT(*) FROM escrows
+             WHERE (payer = $1 OR payee = $1) AND status = $2",
+        )
+        .bind(&owner)
+        .bind(status)
+        .fetch_one(&state.db)
+        .await
+    } else {
+        sqlx::query_scalar("SELECT COUNT(*) FROM escrows WHERE payer = $1 OR payee = $1")
+            .bind(&owner)
+            .fetch_one(&state.db)
+            .await
+    }
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Json(EscrowListResponse { items, total }))
 }
@@ -65,12 +100,16 @@ pub async fn list_escrows(
 
 pub async fn get_escrow(
     State(state): State<AppState>,
+    Extension(principal): Extension<VerifiedPrincipal>,
     AxPath(id): AxPath<String>,
 ) -> Result<Json<EscrowRecord>, StatusCode> {
+    let owner = canonical_owner(&principal, None)?;
     let escrow: EscrowRecord = sqlx::query_as::<_, EscrowRecord>(
-        "SELECT id, chain_id, payer, payee, amount, token_address, fee_amount, status, on_chain_id, tx_hash, dispute_reason, created_at, updated_at FROM escrows WHERE id = $1"
+        "SELECT id, chain_id, payer, payee, amount, token_address, fee_amount, status, on_chain_id, tx_hash, dispute_reason, created_at, updated_at
+         FROM escrows WHERE id = $1 AND (payer = $2 OR payee = $2)"
     )
     .bind(&id)
+    .bind(&owner)
     .fetch_optional(&state.db)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
@@ -92,7 +131,7 @@ pub async fn release_escrow(
         .execute(&state.db)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    get_escrow(State(state), AxPath(id)).await
+    get_escrow_unscoped(&state, &id).await
 }
 
 // ============================================================================
@@ -110,7 +149,7 @@ pub async fn refund_escrow(
         .execute(&state.db)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    get_escrow(State(state), AxPath(id)).await
+    get_escrow_unscoped(&state, &id).await
 }
 
 // ============================================================================
@@ -128,7 +167,7 @@ pub async fn dispute_escrow(
         .execute(&state.db)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    get_escrow(State(state), AxPath(id)).await
+    get_escrow_unscoped(&state, &id).await
 }
 
 // ============================================================================
@@ -141,13 +180,15 @@ pub async fn resolve_dispute(
     Json(req): Json<ResolveDisputeRequest>,
 ) -> Result<Json<EscrowRecord>, StatusCode> {
     let new_status = if req.to_payee { "released" } else { "refunded" };
-    sqlx::query("UPDATE escrows SET status = $1, updated_at = NOW() WHERE id = $2 AND status = 'disputed'")
-        .bind(new_status)
-        .bind(&id)
-        .execute(&state.db)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    get_escrow(State(state), AxPath(id)).await
+    sqlx::query(
+        "UPDATE escrows SET status = $1, updated_at = NOW() WHERE id = $2 AND status = 'disputed'",
+    )
+    .bind(new_status)
+    .bind(&id)
+    .execute(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    get_escrow_unscoped(&state, &id).await
 }
 
 // ============================================================================
@@ -159,15 +200,36 @@ pub async fn confirm_escrow_deposit(
     AxPath(id): AxPath<String>,
     Json(req): Json<serde_json::Value>,
 ) -> Result<Json<EscrowRecord>, StatusCode> {
-    let on_chain_id = req.get("on_chain_id").and_then(|v| v.as_str()).unwrap_or_default();
-    let tx_hash = req.get("tx_hash").and_then(|v| v.as_str()).unwrap_or_default();
+    let on_chain_id = req
+        .get("on_chain_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default();
+    let tx_hash = req
+        .get("tx_hash")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default();
 
-    sqlx::query("UPDATE escrows SET on_chain_id = $1, tx_hash = $2, updated_at = NOW() WHERE id = $3")
-        .bind(on_chain_id)
-        .bind(tx_hash)
-        .bind(&id)
-        .execute(&state.db)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    get_escrow(State(state), AxPath(id)).await
+    sqlx::query(
+        "UPDATE escrows SET on_chain_id = $1, tx_hash = $2, updated_at = NOW() WHERE id = $3",
+    )
+    .bind(on_chain_id)
+    .bind(tx_hash)
+    .bind(&id)
+    .execute(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    get_escrow_unscoped(&state, &id).await
+}
+
+async fn get_escrow_unscoped(state: &AppState, id: &str) -> Result<Json<EscrowRecord>, StatusCode> {
+    let escrow: EscrowRecord = sqlx::query_as::<_, EscrowRecord>(
+        "SELECT id, chain_id, payer, payee, amount, token_address, fee_amount, status, on_chain_id, tx_hash, dispute_reason, created_at, updated_at
+         FROM escrows WHERE id = $1",
+    )
+    .bind(id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .ok_or(StatusCode::NOT_FOUND)?;
+    Ok(Json(escrow))
 }

@@ -128,6 +128,16 @@
       ]
     },
     {
+      "id": "pay-direct-service-auth",
+      "file": "services/pay/src/lib.rs",
+      "anchors": [
+        "pub fn protect_router",
+        "pub fn canonical_owner",
+        "AccessPolicy::UnsafeFinancialMutation",
+        "A valid operator credential still cannot reach the current"
+      ]
+    },
+    {
       "id": "service-internal-boundary",
       "file": "docs/migration/PRODUCTION_READINESS_PLAN.md",
       "anchors": [
@@ -241,9 +251,9 @@
       "internal-webhook": 4
     },
     "byObservedStatus": {
-      "partial": 48,
-      "blocked": 62,
-      "aligned": 7
+      "partial": 52,
+      "blocked": 57,
+      "aligned": 8
     }
   },
   "services": [
@@ -1218,7 +1228,7 @@
       "name": "pay",
       "source": "services/pay/src/main.rs",
       "routerAnchor": "let app = Router::new()",
-      "currentBoundary": "No canonical user/admin guard on financial routes. The on-chain webhook alone performs fail-closed HMAC verification.",
+      "currentBoundary": "The direct service now classifies exact methods and path arity before handlers, uses the shared RS256/JWKS verifier for owner/admin reads, binds owner reads to the verified wallet, and keeps every A6 financial/internal mutation unreachable. Health and usable checkout-safe link lookup are the only anonymous surfaces.",
       "routes": [
         {
           "id": "pay.get.health",
@@ -1235,14 +1245,15 @@
           "risk": "none",
           "caseProfile": "public",
           "observed": {
-            "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "status": "aligned",
+            "summary": "Exact GET/HEAD health is explicitly anonymous at the direct service and credentials plus spoofable identity headers are stripped before dispatch."
           },
           "dependencies": [
             "A2"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "pay-direct-service-auth"
           ]
         },
         {
@@ -1261,7 +1272,7 @@
           "caseProfile": "owner",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service returns 404 before authentication, extraction, or SQL because the handler trusts caller-controlled amount and quote coordinates without A6 server authority or idempotency."
           },
           "dependencies": [
             "A2",
@@ -1269,7 +1280,8 @@
             "A6"
           ],
           "canonicalEvidence": [
-            "backend-token-contract"
+            "backend-token-contract",
+            "pay-direct-service-auth"
           ]
         },
         {
@@ -1287,8 +1299,8 @@
           "risk": "none",
           "caseProfile": "owner",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The direct service requires an exact frontend/admin audience; SQL always constrains payer or payee to the verified wallet and a conflicting payer query is hidden. Runtime DB and gateway parity remain unproven."
           },
           "dependencies": [
             "A2",
@@ -1296,9 +1308,10 @@
             "A6"
           ],
           "canonicalEvidence": [
-            "backend-token-contract"
+            "backend-token-contract",
+            "pay-direct-service-auth"
           ],
-          "notes": "Current optional payer query can be omitted to list every intent."
+          "notes": "Pagination and optional status filtering cannot remove the verified-wallet owner predicate."
         },
         {
           "id": "pay.get.intent",
@@ -1315,8 +1328,8 @@
           "risk": "none",
           "caseProfile": "owner",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The direct service requires an exact frontend/admin audience and the detail query requires id plus verified-wallet payer/payee ownership, hiding foreign and missing rows alike. Runtime DB behavior remains unproven."
           },
           "dependencies": [
             "A2",
@@ -1324,7 +1337,8 @@
             "A6"
           ],
           "canonicalEvidence": [
-            "backend-token-contract"
+            "backend-token-contract",
+            "pay-direct-service-auth"
           ]
         },
         {
@@ -1343,7 +1357,7 @@
           "caseProfile": "owner",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service returns 404 before the handler because transaction hash input has no receipt, Transfer, finality, reorg, atomicity, or idempotency proof."
           },
           "dependencies": [
             "A2",
@@ -1351,7 +1365,8 @@
             "A6"
           ],
           "canonicalEvidence": [
-            "backend-token-contract"
+            "backend-token-contract",
+            "pay-direct-service-auth"
           ]
         },
         {
@@ -1370,7 +1385,7 @@
           "caseProfile": "owner",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service returns 404 before the DB-only cancellation handler because A6 idempotency, transaction, audit, ownership, and lifecycle semantics are not proven."
           },
           "dependencies": [
             "A2",
@@ -1378,7 +1393,8 @@
             "A6"
           ],
           "canonicalEvidence": [
-            "backend-token-contract"
+            "backend-token-contract",
+            "pay-direct-service-auth"
           ]
         },
         {
@@ -1396,8 +1412,8 @@
           "risk": "none",
           "caseProfile": "owner",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The direct service requires an exact frontend/admin audience and every list/count query constrains payer or payee to the verified wallet. Runtime DB and lifecycle semantics remain unproven."
           },
           "dependencies": [
             "A2",
@@ -1405,9 +1421,10 @@
             "A6"
           ],
           "canonicalEvidence": [
-            "backend-token-contract"
+            "backend-token-contract",
+            "pay-direct-service-auth"
           ],
-          "notes": "Current query returns all escrows."
+          "notes": "Pagination and optional status filtering cannot remove the verified-wallet participant predicate."
         },
         {
           "id": "pay.get.escrow",
@@ -1424,8 +1441,8 @@
           "risk": "none",
           "caseProfile": "owner",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The direct service requires an exact frontend/admin audience and the detail query requires id plus verified-wallet payer/payee participation, hiding foreign and missing rows alike. Runtime DB behavior remains unproven."
           },
           "dependencies": [
             "A2",
@@ -1433,7 +1450,8 @@
             "A6"
           ],
           "canonicalEvidence": [
-            "backend-token-contract"
+            "backend-token-contract",
+            "pay-direct-service-auth"
           ]
         },
         {
@@ -1452,7 +1470,7 @@
           "caseProfile": "owner",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service returns 404 before the DB-only release handler because A6 participant authority, idempotency, transaction, contract execution, and receipt semantics are not proven."
           },
           "dependencies": [
             "A2",
@@ -1460,7 +1478,8 @@
             "A6"
           ],
           "canonicalEvidence": [
-            "backend-token-contract"
+            "backend-token-contract",
+            "pay-direct-service-auth"
           ]
         },
         {
@@ -1479,7 +1498,7 @@
           "caseProfile": "owner",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service returns 404 before the DB-only refund handler because A6 participant authority, idempotency, transaction, contract execution, and receipt semantics are not proven."
           },
           "dependencies": [
             "A2",
@@ -1487,7 +1506,8 @@
             "A6"
           ],
           "canonicalEvidence": [
-            "backend-token-contract"
+            "backend-token-contract",
+            "pay-direct-service-auth"
           ],
           "notes": "Exact payer/payee state-machine authority requires A6 contract finalization."
         },
@@ -1507,7 +1527,7 @@
           "caseProfile": "owner",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service returns 404 before the DB-only dispute handler because A6 participant authority, idempotency, transaction, audit, and state-machine semantics are not proven."
           },
           "dependencies": [
             "A2",
@@ -1515,7 +1535,8 @@
             "A6"
           ],
           "canonicalEvidence": [
-            "backend-token-contract"
+            "backend-token-contract",
+            "pay-direct-service-auth"
           ]
         },
         {
@@ -1534,7 +1555,7 @@
           "caseProfile": "granular-admin",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service requires the exact admin audience plus admin:payments:manage, then returns 404 before the DB-only resolution handler until A6 arbitrator, transaction, audit, and contract execution semantics are proven."
           },
           "dependencies": [
             "A2",
@@ -1542,7 +1563,8 @@
             "A6"
           ],
           "canonicalEvidence": [
-            "backend-permission-guard"
+            "backend-permission-guard",
+            "pay-direct-service-auth"
           ],
           "notes": "Dispute resolution is operator authority, not participant ownership."
         },
@@ -1552,7 +1574,7 @@
           "path": "/api/v1/pay/escrows/{id}/confirm-deposit",
           "routeAnchor": ".route(\"/api/v1/pay/escrows/{id}/confirm-deposit\"",
           "classification": "internal-webhook",
-          "identitySource": "hmac-or-indexer-service-identity",
+          "identitySource": "fail-closed-no-approved-service-identity",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": "trusted event escrow id and verified chain transaction map to stored escrow",
@@ -1562,7 +1584,7 @@
           "caseProfile": "internal",
           "observed": {
             "status": "blocked",
-            "summary": "The route is mounted without a gateway-internal allowlist; handler-level verification is incomplete or absent."
+            "summary": "The direct service returns 404 before the handler; no approved indexer/provider identity, signed timestamp, replay window, receipt/finality proof, or atomic transition exists."
           },
           "dependencies": [
             "A2",
@@ -1570,7 +1592,8 @@
             "A6"
           ],
           "canonicalEvidence": [
-            "service-internal-boundary"
+            "service-internal-boundary",
+            "pay-direct-service-auth"
           ],
           "notes": "Consolidate with the signed on-chain webhook or require indexer service identity."
         },
@@ -1590,7 +1613,7 @@
           "caseProfile": "owner",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service returns 404 before link creation because referenced-intent ownership, idempotency, durable audit, expiry validation, and the A6 write authority are not proven."
           },
           "dependencies": [
             "A2",
@@ -1598,7 +1621,8 @@
             "A6"
           ],
           "canonicalEvidence": [
-            "backend-token-contract"
+            "backend-token-contract",
+            "pay-direct-service-auth"
           ]
         },
         {
@@ -1616,15 +1640,16 @@
           "risk": "none",
           "caseProfile": "public",
           "observed": {
-            "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "status": "aligned",
+            "summary": "The exact slug lookup is explicitly anonymous, strips credentials, returns only the checkout-safe candidate link projection, and rejects expired or exhausted links with 410. Overall checkout parity remains an A6 concern."
           },
           "dependencies": [
             "A2",
             "A6"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "pay-direct-service-auth"
           ],
           "notes": "Public checkout lookup must return only checkout-safe fields."
         },
@@ -1644,7 +1669,7 @@
           "caseProfile": "owner",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service returns 404 before redeem because payer ownership, idempotency, atomic usage/accounting, and finalized payment semantics are not proven."
           },
           "dependencies": [
             "A2",
@@ -1652,7 +1677,8 @@
             "A6"
           ],
           "canonicalEvidence": [
-            "backend-token-contract"
+            "backend-token-contract",
+            "pay-direct-service-auth"
           ]
         },
         {
@@ -1670,8 +1696,8 @@
           "risk": "none",
           "caseProfile": "owner",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The direct service requires an exact frontend/admin audience, requires the path address to equal the verified wallet, and binds every history/count query to that wallet. Runtime DB and response parity remain unproven."
           },
           "dependencies": [
             "A2",
@@ -1679,7 +1705,8 @@
             "A6"
           ],
           "canonicalEvidence": [
-            "backend-token-contract"
+            "backend-token-contract",
+            "pay-direct-service-auth"
           ]
         },
         {
@@ -1688,7 +1715,7 @@
           "path": "/api/v1/pay/webhooks/on-chain",
           "routeAnchor": ".route(\"/api/v1/pay/webhooks/on-chain\"",
           "classification": "internal-webhook",
-          "identitySource": "hmac-sha256-body",
+          "identitySource": "fail-closed-no-approved-service-identity",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": "signed event intent/escrow identifiers map to stored records",
@@ -1697,15 +1724,16 @@
           "risk": "high",
           "caseProfile": "internal",
           "observed": {
-            "status": "aligned",
-            "summary": "Handler fails closed when EPSX_PAY_WEBHOOK_SECRET or signature is absent, compares HMAC in constant time, and deduplicates event_id."
+            "status": "blocked",
+            "summary": "The direct service returns 404 before the HMAC handler because body HMAC and event-id dedupe do not prove provider identity, signed time/replay bounds, canonical chain identity, or an atomic inbox-transition-outbox transaction."
           },
           "dependencies": [
             "A2",
             "A6"
           ],
           "canonicalEvidence": [
-            "pay-webhook-hmac"
+            "pay-webhook-hmac",
+            "pay-direct-service-auth"
           ]
         },
         {
@@ -1723,15 +1751,16 @@
           "risk": "none",
           "caseProfile": "granular-admin",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience plus canonical admin:payments:view before the list query. Runtime DB, audit, and source-compatible envelope semantics remain unproven."
           },
           "dependencies": [
             "A2",
             "A6"
           ],
           "canonicalEvidence": [
-            "backend-payment-permissions"
+            "backend-payment-permissions",
+            "pay-direct-service-auth"
           ]
         },
         {
@@ -1750,14 +1779,15 @@
           "caseProfile": "granular-admin",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service requires the exact admin audience plus admin:payments:manage, then returns 404 before the force-cancel handler because A6 transition, idempotency, audit, and recovery semantics are not proven."
           },
           "dependencies": [
             "A2",
             "A6"
           ],
           "canonicalEvidence": [
-            "backend-payment-permissions"
+            "backend-payment-permissions",
+            "pay-direct-service-auth"
           ]
         },
         {
@@ -1776,14 +1806,15 @@
           "caseProfile": "granular-admin",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service requires the exact admin audience plus admin:payments:manage, then returns 404 before force release because A6 contract execution, transition, idempotency, audit, and recovery semantics are not proven."
           },
           "dependencies": [
             "A2",
             "A6"
           ],
           "canonicalEvidence": [
-            "backend-payment-permissions"
+            "backend-payment-permissions",
+            "pay-direct-service-auth"
           ]
         },
         {
@@ -1802,14 +1833,15 @@
           "caseProfile": "granular-admin",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service requires the exact admin audience plus admin:payments:manage, then returns 404 before force refund because A6 contract execution, transition, idempotency, audit, and recovery semantics are not proven."
           },
           "dependencies": [
             "A2",
             "A6"
           ],
           "canonicalEvidence": [
-            "backend-payment-permissions"
+            "backend-payment-permissions",
+            "pay-direct-service-auth"
           ]
         }
       ]
