@@ -1,0 +1,647 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A6.0-payment-execution",
+  "purpose": "deterministic-audit-and-readiness-stop",
+  "productionReady": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "source": {
+    "ref": "origin/development",
+    "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "evidence": [
+      {
+        "id": "src-submit",
+        "file": "shared/api/payments.ts",
+        "blob": "6f913d8618c12fc46b517b572b35fc51cf8ca329",
+        "anchor": "return this.client.post<TransactionStatusData>('/api/payments/submit', request);"
+      },
+      {
+        "id": "src-checkout-submit",
+        "file": "apps/frontend/components/payment/hooks/use-payment-flow.ts",
+        "blob": "19881dc5a9ddc9e1d35f16bc1e8d3863739d79ba",
+        "anchor": "const result = await submitTransactionAction({"
+      },
+      {
+        "id": "src-browser-receipt",
+        "file": "apps/frontend/components/payment/hooks/use-direct-token-transfer.ts",
+        "blob": "a6b943082e86a878382517c19395ad2116b1844f",
+        "anchor": "if (receiptData && receiptData.status !== 'success') {"
+      },
+      {
+        "id": "src-status-poll",
+        "file": "apps/frontend/components/payment/hooks/use-payment-polling.ts",
+        "blob": "fc6af19ee80808651ed9d5b03093df5da22d2cb9",
+        "anchor": "if (d.status === 'confirmed') { clearPoll(); setStep('success'); refetchPlanAccess(); return; }"
+      },
+      {
+        "id": "src-admin-list",
+        "file": "apps/admin-frontend/app/payments/actions.ts",
+        "blob": "fc5d4f089825a1a87787324a2661f76eb7ac9375",
+        "anchor": "return await check403(await client.get('/api/payments/admin/list', params));"
+      },
+      {
+        "id": "src-confirm-cents",
+        "file": "apps/frontend/app/api/payments/confirm/route.ts",
+        "blob": "18dba8e8157aa9b05a72b31347c717acfb3ba05b",
+        "anchor": "amount: Math.round(amount * 100), // Convert to cents (integer)"
+      },
+      {
+        "id": "src-public-plans",
+        "file": "shared/api/plans.ts",
+        "blob": "e5970dcd3b92f54378359a2133ede11196014fa7",
+        "anchor": "GET /api/public/plans"
+      },
+      {
+        "id": "src-plan-switch",
+        "file": "shared/api/credits.ts",
+        "blob": "95bd3d3e76da8561e852d3e627ec6b8f21187948",
+        "anchor": "return this.client.post<PlanSwitchData>('/api/payments/plans/switch', { new_plan_id: newPlanId });"
+      }
+    ]
+  },
+  "targetEvidence": [
+    {
+      "id": "tgt-canned-plans",
+      "file": "apps/frontend/src/api.rs",
+      "anchor": "pub async fn api_plans(_state: State<AppState>) -> Json<serde_json::Value> {"
+    },
+    {
+      "id": "tgt-canned-subscriptions",
+      "file": "apps/frontend/src/api.rs",
+      "anchor": "{ \"id\": \"sub_1\", \"merchant_id\": \"0xM1\""
+    },
+    {
+      "id": "tgt-canned-payment",
+      "file": "apps/frontend/src/api.rs",
+      "anchor": "\"amount\": \"29.00\""
+    },
+    {
+      "id": "tgt-payment-redirect",
+      "file": "shared/rust/dioxus_ui/src/pages/payment.rs",
+      "anchor": "let target = std::env::var(\"PAY_URL\")"
+    },
+    {
+      "id": "tgt-pay-bff-singular",
+      "file": "apps/pay/src/main.rs",
+      "anchor": ".route(\"/api/v1/pay/intent/{id}/execute\", any(execute_pay))"
+    },
+    {
+      "id": "tgt-pay-bff-service-execute",
+      "file": "apps/pay/src/main.rs",
+      "anchor": "let path = format!(\"/api/v1/pay/intents/{}/execute\", id);"
+    },
+    {
+      "id": "tgt-pay-bff-zero-parties",
+      "file": "apps/pay/src/main.rs",
+      "anchor": ".unwrap_or_else(|| \"0x0000000000000000000000000000000000000000\".to_string());"
+    },
+    {
+      "id": "tgt-pay-success-static",
+      "file": "apps/pay/src/components/success_screen.rs",
+      "anchor": "Your payment has been confirmed on BSC. The recipient has been notified."
+    },
+    {
+      "id": "tgt-gateway-payment-mount",
+      "file": "services/gateway/src/lib.rs",
+      "anchor": ".route(\"/api/v1/payment/{*path}\", any(proxy_payment))"
+    },
+    {
+      "id": "tgt-gateway-payment-block",
+      "file": "services/gateway/src/policy.rs",
+      "anchor": "Financial rewrites require the A6 ownership/handler parity proof."
+    },
+    {
+      "id": "tgt-pay-routes",
+      "file": "services/pay/src/main.rs",
+      "anchor": ".route(\"/api/v1/pay/intents/{id}/confirm\", post(handlers::intents::confirm_pay_intent))"
+    },
+    {
+      "id": "tgt-pay-runtime-ddl",
+      "file": "services/pay/src/db.rs",
+      "anchor": "CREATE TABLE IF NOT EXISTS pay_intents ("
+    },
+    {
+      "id": "tgt-pay-confirm-unverified",
+      "file": "services/pay/src/handlers/intents.rs",
+      "anchor": "let tx_hash = req.get(\"tx_hash\").and_then(|v| v.as_str()).unwrap_or_default().to_string();"
+    },
+    {
+      "id": "tgt-pay-confirm-split-write",
+      "file": "services/pay/src/handlers/intents.rs",
+      "anchor": "UPDATE pay_intents SET status = 'escrowed', escrow_id = $1, tx_hash = $2"
+    },
+    {
+      "id": "tgt-pay-webhook-inbox",
+      "file": "services/pay/src/handlers/pay_webhooks.rs",
+      "anchor": "ON CONFLICT (event_id) DO NOTHING"
+    },
+    {
+      "id": "tgt-pay-admin-force",
+      "file": "services/pay/src/handlers/pay_admin.rs",
+      "anchor": "Force-cancel ignores the `status = 'pending'` guard"
+    },
+    {
+      "id": "tgt-admin-empty-confirm",
+      "file": "apps/admin/src/main.rs",
+      "anchor": ".post_with_ctx(&path, &serde_json::json!({}), &ctx)"
+    },
+    {
+      "id": "tgt-subscription-runtime-ddl",
+      "file": "services/subscription/src/main.rs",
+      "anchor": "CREATE TABLE IF NOT EXISTS subscription_plans ("
+    },
+    {
+      "id": "tgt-subscription-active-insert",
+      "file": "services/subscription/src/main.rs",
+      "anchor": "INSERT INTO subscriptions (user_id, plan_id, account_id, payment_token)"
+    },
+    {
+      "id": "tgt-subscription-zero-vault",
+      "file": "services/subscription/src/main.rs",
+      "anchor": "\"vault_address\": \"0x0000000000000000000000000000000000000000\""
+    },
+    {
+      "id": "tgt-canonical-routes",
+      "file": "apps/backend/src/web/routes/unified_router.rs",
+      "anchor": ".route(\"/submit\", post(submit_transaction_handler))"
+    },
+    {
+      "id": "tgt-canonical-owner",
+      "file": "apps/backend/src/web/payments/submit_tx_handler.rs",
+      "anchor": "let wallet_address = user_context.wallet_address.clone();"
+    },
+    {
+      "id": "tgt-canonical-finality",
+      "file": "apps/backend/src/infrastructure/blockchain/tx_monitor_service.rs",
+      "anchor": "min_confirmations: if is_mainnet { 15 } else { 3 },"
+    },
+    {
+      "id": "tgt-canonical-replay-index",
+      "file": "apps/backend/migrations/payments/20260220100000_add_unique_tx_hash_and_expiry/up.sql",
+      "anchor": "CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_unique_tx_hash"
+    },
+    {
+      "id": "tgt-pay-host-service",
+      "file": "infrastructure/kubernetes/overlays/prod/patches/pay-services-nodeport.yaml",
+      "anchor": "nodePort: 30082"
+    },
+    {
+      "id": "tgt-pay-host-tunnel",
+      "file": "infrastructure/cloudflare/cloudflared-config.prod.yml",
+      "anchor": "service: http://localhost:4747"
+    },
+    {
+      "id": "tgt-escrow-placeholder",
+      "file": "infrastructure/kubernetes/base/pay/deployment.yaml",
+      "anchor": "{ name: ESCROW_CONTRACT, value: \"0\" }"
+    }
+  ],
+  "routeContracts": [
+    {
+      "id": "payment-submit",
+      "source": {
+        "method": "POST",
+        "path": "/api/payments/submit",
+        "body": ["transaction_hash", "plan_id", "expected_amount", "currency"],
+        "response": "ApiResponse<TransactionStatusData>",
+        "successStatuses": [202]
+      },
+      "targetObserved": [
+        "frontend route absent",
+        "pay BFF POST /api/v1/pay/intent",
+        "pay service POST /api/v1/pay/intents then POST /{id}/confirm"
+      ],
+      "ownerKey": "verified-jwt-wallet",
+      "status": "blocked",
+      "blockerIds": ["B01", "B04", "B05", "B06", "B08", "B09", "B15"]
+    },
+    {
+      "id": "payment-status",
+      "source": {
+        "method": "GET",
+        "path": "/api/payments/status/{transaction_hash}",
+        "body": [],
+        "response": "ApiResponse<TransactionStatusData>",
+        "successStatuses": [200]
+      },
+      "targetObserved": ["frontend route absent", "pay intent read is owner-unscoped", "pay BFF adds /status but reads intent"],
+      "ownerKey": "verified-jwt-wallet",
+      "status": "blocked",
+      "blockerIds": ["B01", "B05", "B06", "B09", "B15"]
+    },
+    {
+      "id": "payment-validate",
+      "source": {
+        "method": "POST",
+        "path": "/api/payments/validate",
+        "body": ["plan_id", "transaction_hash", "amount_cents", "currency", "network", "wallet_address_legacy"],
+        "response": "ApiResponse<PaymentValidationResult>",
+        "successStatuses": [200]
+      },
+      "targetObserved": ["frontend and pay microservice routes absent", "canonical backend route exists"],
+      "ownerKey": "verified-jwt-wallet-not-body-wallet",
+      "status": "blocked",
+      "blockerIds": ["B01", "B06", "B14", "B15"]
+    },
+    {
+      "id": "payment-history",
+      "source": {
+        "method": "GET",
+        "path": "/api/payments/history?limit&offset&status",
+        "body": [],
+        "response": "ApiResponse<{payments,total}>",
+        "successStatuses": [200]
+      },
+      "targetObserved": ["pay service GET /api/v1/pay/history/{address} trusts path address"],
+      "ownerKey": "verified-jwt-wallet",
+      "status": "blocked",
+      "blockerIds": ["B01", "B04", "B06", "B15"]
+    },
+    {
+      "id": "plan-lifecycle",
+      "source": {
+        "method": "GET|POST",
+        "path": "/api/payments/plans/{my-plan-access|upgrade_preview|switch}",
+        "body": ["new_plan_id_on_switch"],
+        "response": "source plan-access/preview/switch envelopes",
+        "successStatuses": [200]
+      },
+      "targetObserved": ["frontend exposes unrelated canned subscription routes", "canonical backend routes exist"],
+      "ownerKey": "verified-jwt-wallet",
+      "status": "blocked",
+      "blockerIds": ["B01", "B12", "B14", "B15"]
+    },
+    {
+      "id": "admin-payment",
+      "source": {
+        "method": "GET|PUT|POST",
+        "path": "/api/payments/admin/*",
+        "body": ["operation-specific"],
+        "response": "source admin payment envelopes",
+        "successStatuses": [200]
+      },
+      "targetObserved": ["admin BFF uses /api/v1/payment/*", "gateway blocks payment prefix", "service force routes unauthenticated"],
+      "ownerKey": "admin-audience+admin:payments:manage",
+      "status": "blocked",
+      "blockerIds": ["B04", "B06", "B07", "B10", "B15"]
+    },
+    {
+      "id": "escrow-mutations",
+      "source": {
+        "method": "POST",
+        "path": "/api/v1/pay/escrows/{id}/{release|refund|dispute|resolve}",
+        "body": ["operation-specific-no-conflicting-resource-id"],
+        "response": "locked escrow resource envelope",
+        "successStatuses": [200]
+      },
+      "targetObserved": ["DB-only transitions", "redundant body escrow_id", "signature ignored", "no participant authorization"],
+      "ownerKey": "verified-participant-or-admin-by-operation",
+      "status": "blocked",
+      "blockerIds": ["B06", "B07", "B08", "B10", "B15"]
+    },
+    {
+      "id": "on-chain-webhook",
+      "source": {
+        "method": "POST",
+        "path": "/api/v1/pay/webhooks/on-chain",
+        "body": ["event_id", "chain_id", "tx_hash", "log_index", "block_hash", "block_number", "event_type"],
+        "response": "ack envelope",
+        "successStatuses": [200, 202]
+      },
+      "targetObserved": ["body-only HMAC", "event_id-only inbox", "inbox insert and state update are non-atomic"],
+      "ownerKey": "internal-service-identity",
+      "status": "blocked",
+      "blockerIds": ["B08", "B09", "B11"]
+    },
+    {
+      "id": "subscription-lifecycle",
+      "source": {
+        "method": "GET|POST|PUT|DELETE",
+        "path": "/api/admin/subscriptions* and /api/payments/plans/*",
+        "body": ["source subscription and plan DTOs"],
+        "response": "source subscription and plan envelopes",
+        "successStatuses": [200, 201]
+      },
+      "targetObserved": ["separate unauthenticated service CRUD", "active-on-insert", "zero vault", "no deployment found"],
+      "ownerKey": "verified-wallet-or-admin-per-operation",
+      "status": "blocked",
+      "blockerIds": ["B07", "B12", "B13", "B14", "B15", "B17"]
+    }
+  ],
+  "ownershipRules": [
+    {
+      "id": "authenticated-payment-owner",
+      "status": "required-unproven",
+      "rule": "payer, payment owner, status and history scope derive only from the verified JWT wallet; body/path wallet fields never grant ownership"
+    },
+    {
+      "id": "server-authoritative-quote",
+      "status": "required-unproven",
+      "rule": "receiver, token, chain, amount, currency, plan price and eligibility derive from server configuration and durable plan records"
+    },
+    {
+      "id": "foreign-resource-hiding",
+      "status": "required-unproven",
+      "rule": "authenticated reads of foreign owner-scoped resources return the same 404 as missing resources"
+    },
+    {
+      "id": "admin-payment-permission",
+      "status": "required-unproven",
+      "rule": "payment and escrow admin mutations require admin audience and admin:payments:manage"
+    },
+    {
+      "id": "admin-plan-permission",
+      "status": "required-unproven",
+      "rule": "plan mutation requires admin audience and admin:plans:manage"
+    },
+    {
+      "id": "escrow-participants",
+      "status": "required-unproven",
+      "rule": "reads are participant scoped; release is payer-or-admin, refund payee-or-admin, dispute either participant, resolve admin-or-configured-arbitrator"
+    }
+  ],
+  "idempotencyRules": [
+    {
+      "id": "request-key",
+      "status": "required-unproven",
+      "rule": "Idempotency-Key is scoped by verified principal and operation and persists request hash plus original response"
+    },
+    {
+      "id": "request-replay",
+      "status": "required-unproven",
+      "rule": "same key and body returns the recorded response; same key with a different body returns 409"
+    },
+    {
+      "id": "transaction-replay",
+      "status": "required-unproven",
+      "rule": "payment submission is unique on chain_id and tx_hash; chain event identity is unique on chain_id, tx_hash and log_index"
+    },
+    {
+      "id": "atomic-transition",
+      "status": "required-unproven",
+      "rule": "state transitions compare expected state, require exactly one affected row, and atomically write aggregate, audit, inbox/outbox and entitlement changes"
+    }
+  ],
+  "finalityRules": [
+    {
+      "id": "receipt",
+      "status": "required-unproven",
+      "rule": "backend verifies configured chain, successful receipt and canonical block identity"
+    },
+    {
+      "id": "erc20-transfer",
+      "status": "required-unproven",
+      "rule": "backend verifies supported token and exact Transfer sender, receiver and amount; browser receipt alone is insufficient"
+    },
+    {
+      "id": "confirmations",
+      "status": "required-unproven",
+      "rule": "chain policy controls finality; compatibility baseline is 15 confirmations on BSC mainnet and 3 off-mainnet"
+    },
+    {
+      "id": "reorg",
+      "status": "required-unproven",
+      "rule": "block hash, block number and log index are persisted; reorgs before finality cannot activate payment, escrow, subscription or plan access"
+    }
+  ],
+  "statusSemantics": {
+    "create": 201,
+    "acceptedForMonitoring": 202,
+    "read": 200,
+    "unauthenticated": 401,
+    "forbidden": 403,
+    "foreignOrMissing": 404,
+    "conflictOrReplayMismatch": 409,
+    "expired": 410,
+    "validationPolicy": "choose-and-lock-400-or-422"
+  },
+  "nonProductionSurfaces": [
+    {
+      "id": "frontend-canned-plans-payment-subscriptions",
+      "reason": "Hard-coded plans, payment amount/status and subscription records are not durable financial state.",
+      "evidenceIds": ["tgt-canned-plans", "tgt-canned-payment", "tgt-canned-subscriptions"]
+    },
+    {
+      "id": "frontend-payment-redirect",
+      "reason": "Redirecting the legacy payment page does not prove quote, wallet, submit, poll or activation compatibility.",
+      "evidenceIds": ["tgt-payment-redirect"]
+    },
+    {
+      "id": "pay-bff-unwired-checkout",
+      "reason": "The BFF route calls a nonexistent execute endpoint and defaults missing payer/payee to the zero address.",
+      "evidenceIds": ["tgt-pay-bff-service-execute", "tgt-pay-bff-zero-parties"]
+    },
+    {
+      "id": "pay-static-success",
+      "reason": "The success path renders confirmation copy without reading a verified terminal backend state.",
+      "evidenceIds": ["tgt-pay-success-static"]
+    },
+    {
+      "id": "pay-runtime-schema-and-db-only-escrow",
+      "reason": "Runtime DDL and unverified split state changes are not a production migration or on-chain escrow implementation.",
+      "evidenceIds": ["tgt-pay-runtime-ddl", "tgt-pay-confirm-split-write", "tgt-escrow-placeholder"]
+    },
+    {
+      "id": "subscription-active-on-insert-zero-vault",
+      "reason": "Immediate activation and a zero vault address do not prove funded recurring access.",
+      "evidenceIds": ["tgt-subscription-active-insert", "tgt-subscription-zero-vault"]
+    },
+    {
+      "id": "admin-force-and-empty-bodies",
+      "reason": "Force operations and empty mutation bodies lack the downstream authorization and typed execution proof.",
+      "evidenceIds": ["tgt-pay-admin-force", "tgt-admin-empty-confirm"]
+    }
+  ],
+  "durableStateDependencies": [
+    "one declared payment and subscription write authority",
+    "versioned reversible migrations with foreign keys checks and unique chain identities",
+    "principal-scoped idempotency key and request hash store",
+    "atomic aggregate audit inbox outbox and entitlement transaction",
+    "receipt transfer block hash block number log index and confirmation evidence",
+    "unique active subscription and explicit period lifecycle constraints",
+    "cutover backfill reconciliation rollback and orphan-recovery ledgers"
+  ],
+  "deploymentDependencies": [
+    "public pay hostname terminates at the authenticated BFF while raw services remain private",
+    "gateway prefix rewrites and method policies are parity tested",
+    "subscription service has a reviewed deployment and health/readiness configuration",
+    "escrow vault receiver and token addresses are nonzero per-chain reviewed configuration",
+    "webhook caller has rotatable service identity and key material",
+    "reconciliation monitoring alerting and operator runbooks are installed before cutover"
+  ],
+  "blockers": [
+    {
+      "id": "B01",
+      "severity": "stop",
+      "status": "blocked",
+      "category": "frontend-contract",
+      "summary": "Rust frontend lacks source-compatible payment APIs and returns canned plan/subscription/payment data.",
+      "evidenceIds": ["src-submit", "src-public-plans", "tgt-canned-plans", "tgt-canned-payment", "tgt-canned-subscriptions"],
+      "resolution": "Implement compatibility handlers backed by the declared write authority; remove canned financial responses."
+    },
+    {
+      "id": "B02",
+      "severity": "stop",
+      "status": "blocked",
+      "category": "checkout-ux",
+      "summary": "The frontend redirects to a pay host whose BFF checkout is not a verified executable wallet flow.",
+      "evidenceIds": ["src-checkout-submit", "src-browser-receipt", "tgt-payment-redirect", "tgt-pay-bff-singular", "tgt-pay-success-static"],
+      "resolution": "Wire quote, wallet transaction, backend submission, polling and verified terminal screens end to end."
+    },
+    {
+      "id": "B03",
+      "severity": "stop",
+      "status": "blocked",
+      "category": "deployment-routing",
+      "summary": "pay.epsx.io tunnel reaches the pay service NodePort rather than the pay BFF described by its comment.",
+      "evidenceIds": ["tgt-pay-host-service", "tgt-pay-host-tunnel"],
+      "resolution": "Choose and test the public BFF service/NodePort route; keep the raw service private."
+    },
+    {
+      "id": "B04",
+      "severity": "stop",
+      "status": "blocked",
+      "category": "gateway-routing",
+      "summary": "Gateway mounts /api/v1/payment while the service uses /api/v1/pay and deliberately blocks financial routing.",
+      "evidenceIds": ["tgt-gateway-payment-mount", "tgt-gateway-payment-block", "tgt-pay-routes"],
+      "resolution": "Lock one prefix or an explicit rewrite with exact method and ownership tests."
+    },
+    {
+      "id": "B05",
+      "severity": "stop",
+      "status": "blocked",
+      "category": "pay-bff-contract",
+      "summary": "Pay BFF singular routes call a nonexistent service execute endpoint instead of the service confirm endpoint.",
+      "evidenceIds": ["tgt-pay-bff-singular", "tgt-pay-bff-service-execute", "tgt-pay-routes"],
+      "resolution": "Implement typed, authenticated compatibility calls and exact response/status mapping."
+    },
+    {
+      "id": "B06",
+      "severity": "stop",
+      "status": "blocked",
+      "category": "ownership",
+      "summary": "Pay service trusts caller payer/payee/address data and exposes owner-unscoped reads and mutations.",
+      "evidenceIds": ["tgt-pay-routes", "tgt-pay-confirm-unverified", "tgt-canonical-owner"],
+      "resolution": "Enforce verified owner keys at gateway and service and server-authoritative payment coordinates."
+    },
+    {
+      "id": "B07",
+      "severity": "stop",
+      "status": "blocked",
+      "category": "admin-contract",
+      "summary": "Admin BFF route/body contracts drift; empty confirm/release bodies cannot satisfy downstream models and service permissions are absent.",
+      "evidenceIds": ["src-admin-list", "tgt-admin-empty-confirm", "tgt-pay-admin-force"],
+      "resolution": "Lock typed admin DTOs and enforce admin audience plus operation permissions downstream."
+    },
+    {
+      "id": "B08",
+      "severity": "stop",
+      "status": "blocked",
+      "category": "atomicity-idempotency",
+      "summary": "Financial mutations have no request idempotency and confirm performs split non-transactional writes.",
+      "evidenceIds": ["tgt-pay-confirm-unverified", "tgt-pay-confirm-split-write", "tgt-pay-webhook-inbox"],
+      "resolution": "Add idempotency records, request hashes, compare-and-set transitions and atomic inbox/outbox transactions."
+    },
+    {
+      "id": "B09",
+      "severity": "stop",
+      "status": "blocked",
+      "category": "chain-finality",
+      "summary": "Pay confirm accepts any nonempty transaction hash without receipt, Transfer, amount, receiver, token or finality verification.",
+      "evidenceIds": ["tgt-pay-confirm-unverified", "tgt-canonical-finality"],
+      "resolution": "Reuse or port canonical receipt/Transfer verification and persist reorg/finality evidence before activation."
+    },
+    {
+      "id": "B10",
+      "severity": "stop",
+      "status": "blocked",
+      "category": "escrow",
+      "summary": "Escrow operations are DB status changes with unproven participant/admin authority, transition guards and on-chain execution.",
+      "evidenceIds": ["tgt-pay-admin-force", "tgt-escrow-placeholder", "tgt-admin-empty-confirm"],
+      "resolution": "Lock participant permissions, contract configuration, signed/on-chain execution, CAS transitions and reconciliation."
+    },
+    {
+      "id": "B11",
+      "severity": "stop",
+      "status": "blocked",
+      "category": "webhook",
+      "summary": "Webhook uses body HMAC and event_id dedupe but lacks service identity, timestamp replay window and atomic state application.",
+      "evidenceIds": ["tgt-pay-webhook-inbox"],
+      "resolution": "Require service identity plus key ID/timestamp/digest and atomically apply chain-event inbox, transition and outbox."
+    },
+    {
+      "id": "B12",
+      "severity": "stop",
+      "status": "blocked",
+      "category": "subscription",
+      "summary": "Subscription CRUD trusts caller identity and activates immediately without payment/finality/vault verification.",
+      "evidenceIds": ["tgt-subscription-active-insert", "tgt-subscription-zero-vault"],
+      "resolution": "Derive owner/admin identity, require finalized funding, add period and uniqueness constraints, and remove zero/canned vault data."
+    },
+    {
+      "id": "B13",
+      "severity": "stop",
+      "status": "blocked",
+      "category": "durable-schema",
+      "summary": "Pay and subscription services create tables at runtime without versioned migration constraints or an outbox.",
+      "evidenceIds": ["tgt-pay-runtime-ddl", "tgt-subscription-runtime-ddl"],
+      "resolution": "Create reviewed, reversible migrations with FKs, checks, uniqueness, audit, idempotency and inbox/outbox tables."
+    },
+    {
+      "id": "B14",
+      "severity": "stop",
+      "status": "blocked",
+      "category": "system-of-record",
+      "summary": "Canonical backend and extracted services have independent payment/subscription write models with no cutover or reconciliation contract.",
+      "evidenceIds": ["tgt-canonical-routes", "tgt-canonical-replay-index", "tgt-pay-runtime-ddl", "tgt-subscription-runtime-ddl"],
+      "resolution": "Declare one write authority, migration/backfill, reconciliation, rollback and retirement sequence."
+    },
+    {
+      "id": "B15",
+      "severity": "stop",
+      "status": "blocked",
+      "category": "http-semantics",
+      "summary": "Route prefixes, verbs, request DTOs, envelopes and success/error statuses are not parity-locked.",
+      "evidenceIds": ["src-submit", "src-confirm-cents", "tgt-pay-bff-singular", "tgt-pay-routes"],
+      "resolution": "Add typed contract fixtures for every route and lock the status semantics in this contract."
+    },
+    {
+      "id": "B16",
+      "severity": "stop",
+      "status": "blocked",
+      "category": "verification-operations",
+      "summary": "No complete replay, reorg, recovery, reconciliation, browser, service authorization or financial observability proof exists.",
+      "evidenceIds": ["tgt-pay-confirm-unverified", "tgt-pay-webhook-inbox", "tgt-subscription-active-insert"],
+      "resolution": "Add deterministic tests and production-shaped metrics/alerts/runbooks without using production in the gate."
+    },
+    {
+      "id": "B17",
+      "severity": "stop",
+      "status": "blocked",
+      "category": "deployment-config",
+      "summary": "Subscription deployment is absent from the audited infrastructure and pay escrow contract remains a zero placeholder.",
+      "evidenceIds": ["tgt-escrow-placeholder", "tgt-subscription-zero-vault"],
+      "resolution": "Add reviewed non-placeholder configuration and deployment manifests only after execution and authorization proofs pass."
+    }
+  ],
+  "requiredExecutionOrder": [
+    "declare-single-write-authority-and-cutover",
+    "lock-source-compatible-http-contract",
+    "enforce-owner-and-admin-permissions",
+    "add-versioned-durable-migrations-and-atomicity",
+    "implement-receipt-transfer-finality-and-reorg-handling",
+    "implement-escrow-and-webhook-service-identity",
+    "wire-verified-checkout-and-admin-ux",
+    "prove-contract-integration-recovery-and-browser-gates",
+    "review-blocker-evidence-before-readiness-change"
+  ],
+  "safety": {
+    "networkAccess": false,
+    "databaseAccess": false,
+    "chainAccess": false,
+    "deployment": false,
+    "runtimeMutation": false,
+    "cargoLockMutation": false,
+    "readinessMeaning": "STOP until every blocker has reviewed implementation evidence"
+  }
+}
