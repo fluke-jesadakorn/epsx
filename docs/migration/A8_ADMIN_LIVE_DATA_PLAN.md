@@ -65,7 +65,7 @@ Other surfaces currently gate read-only data behind broad manage permissions, no
 
 The admin BFF exposes proxy routes for several identity, wallet, payment, subscription, content, notification, analytics, and indexer operations. The pages generally do not consume them. Presence of a proxy handler is therefore not route readiness.
 
-The generic `err_to_status` function maps every upstream 4xx service error to 400 and every upstream 5xx service error to 502. That prevents accurate forbidden, not-found, validation, conflict, duplicate/idempotency, rate-limit, and dependency-error states. A5 must lock method, content type, request body, response envelope, error code, retryability, correlation, timeout, and exact status preservation before a page can align.
+The shared client now represents upstream failures as body-free typed status errors. The admin BFF preserves a closed allowlist of safe upstream client statuses (400, 401, 403, 404, 409, 422, and 429) and explicit dependency classes (502, 503, and 504); typed timeout and connection failures map to 504 and 503. Unknown, arbitrary, and upstream 500 statuses fail closed to 502, legacy service strings are never parsed, and upstream bodies and headers are never forwarded. This is only an A5 prerequisite: handlers still emit bare statuses without a stable error code, message, validation detail, retryability, or correlation envelope, and pages do not consume those error states. A5 must still lock method, content type, request body, response envelope, and UI handling before a page can align.
 
 Several target forms also have explicit drift:
 

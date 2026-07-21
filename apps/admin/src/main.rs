@@ -67,14 +67,98 @@ fn ctx_from(headers: &HeaderMap) -> RequestContext {
     RequestContext::from_headers(headers)
 }
 
+fn safe_upstream_status(status: u16) -> Option<StatusCode> {
+    match status {
+        400 => Some(StatusCode::BAD_REQUEST),
+        401 => Some(StatusCode::UNAUTHORIZED),
+        403 => Some(StatusCode::FORBIDDEN),
+        404 => Some(StatusCode::NOT_FOUND),
+        409 => Some(StatusCode::CONFLICT),
+        422 => Some(StatusCode::UNPROCESSABLE_ENTITY),
+        429 => Some(StatusCode::TOO_MANY_REQUESTS),
+        502 => Some(StatusCode::BAD_GATEWAY),
+        503 => Some(StatusCode::SERVICE_UNAVAILABLE),
+        504 => Some(StatusCode::GATEWAY_TIMEOUT),
+        _ => None,
+    }
+}
+
 fn err_to_status(e: epsx_client::ClientError) -> StatusCode {
     use epsx_client::ClientError::*;
     match e {
         Unauthorized => StatusCode::UNAUTHORIZED,
         NotFound => StatusCode::NOT_FOUND,
-        Service(s) if s.starts_with("status 4") => StatusCode::BAD_REQUEST,
-        Service(s) if s.starts_with("status 5") => StatusCode::BAD_GATEWAY,
-        _ => StatusCode::BAD_GATEWAY,
+        Timeout => StatusCode::GATEWAY_TIMEOUT,
+        Http(error) if error.is_timeout() => StatusCode::GATEWAY_TIMEOUT,
+        Http(error) if error.is_connect() => StatusCode::SERVICE_UNAVAILABLE,
+        UpstreamStatus(status) => safe_upstream_status(status).unwrap_or(StatusCode::BAD_GATEWAY),
+        Http(_) | Service(_) | Serde(_) => StatusCode::BAD_GATEWAY,
+    }
+}
+
+#[cfg(test)]
+mod upstream_error_mapping_tests {
+    use super::*;
+    use epsx_client::ClientError;
+
+    #[test]
+    fn preserves_the_closed_safe_upstream_status_set() {
+        for (code, expected) in [
+            ("400", StatusCode::BAD_REQUEST),
+            ("401", StatusCode::UNAUTHORIZED),
+            ("403", StatusCode::FORBIDDEN),
+            ("404", StatusCode::NOT_FOUND),
+            ("409", StatusCode::CONFLICT),
+            ("422", StatusCode::UNPROCESSABLE_ENTITY),
+            ("429", StatusCode::TOO_MANY_REQUESTS),
+            ("502", StatusCode::BAD_GATEWAY),
+            ("503", StatusCode::SERVICE_UNAVAILABLE),
+            ("504", StatusCode::GATEWAY_TIMEOUT),
+        ] {
+            let error = ClientError::UpstreamStatus(code.parse().unwrap());
+            assert_eq!(err_to_status(error), expected, "upstream status {code}");
+        }
+    }
+
+    #[test]
+    fn rejects_arbitrary_or_unsafe_upstream_statuses() {
+        for code in [200, 402, 418, 500, 599, 4030] {
+            assert_eq!(
+                err_to_status(ClientError::UpstreamStatus(code)),
+                StatusCode::BAD_GATEWAY,
+                "{code}"
+            );
+        }
+    }
+
+    #[test]
+    fn typed_auth_resource_and_timeout_errors_keep_their_semantics() {
+        assert_eq!(
+            err_to_status(ClientError::Unauthorized),
+            StatusCode::UNAUTHORIZED
+        );
+        assert_eq!(err_to_status(ClientError::NotFound), StatusCode::NOT_FOUND);
+        assert_eq!(
+            err_to_status(ClientError::Timeout),
+            StatusCode::GATEWAY_TIMEOUT
+        );
+    }
+
+    #[test]
+    fn legacy_service_details_are_never_parsed_or_exposed_as_statuses() {
+        let sensitive = "Bearer secret\r\nset-cookie: stolen=yes";
+        assert_eq!(
+            err_to_status(ClientError::Service(format!(
+                "status 403 Forbidden: {sensitive}"
+            ))),
+            StatusCode::BAD_GATEWAY
+        );
+        assert_eq!(
+            err_to_status(ClientError::Service(format!(
+                "status 500 Internal Server Error: {sensitive}"
+            ))),
+            StatusCode::BAD_GATEWAY
+        );
     }
 }
 

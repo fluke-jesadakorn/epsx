@@ -43,10 +43,11 @@
     {
       "file": "apps/admin/src/main.rs",
       "anchors": [
-        "Service(s) if s.starts_with(\"status 4\") => StatusCode::BAD_REQUEST",
-        "Service(s) if s.starts_with(\"status 5\") => StatusCode::BAD_GATEWAY"
+        "fn safe_upstream_status(status: u16) -> Option<StatusCode>",
+        "UpstreamStatus(status) => safe_upstream_status(status).unwrap_or(StatusCode::BAD_GATEWAY)",
+        "Http(error) if error.is_timeout() => StatusCode::GATEWAY_TIMEOUT"
       ],
-      "finding": "Upstream 4xx statuses are flattened to 400 and 5xx statuses to 502, preventing page-specific forbidden/conflict/not-found behavior."
+      "finding": "The BFF preserves a closed safe status set and explicit dependency classes without forwarding upstream details, but still returns bare statuses rather than a typed error envelope consumed by pages."
     },
     {
       "file": "shared/rust/dioxus_ui/src/pages/admin_pages.rs",
@@ -95,7 +96,7 @@
     "Dynamic chat, news, wallet, disable, and plan identifiers need strict decode, length, grammar, and canonicalization rules.",
     "Read and manage permissions must be split per operation and rechecked by the owning Rust service for every mutation.",
     "BFF route protection proves authentication only; it does not prove downstream operation authorization.",
-    "BFF 4xx and 5xx status flattening loses forbidden, not-found, conflict, rate-limit, and validation semantics.",
+    "BFF error responses remain bare statuses without stable codes, validation details, retryability, or correlation, and admin pages do not consume the preserved status semantics.",
     "Forms are not accepted until method, content type, body, response envelope, redirect, and error behavior match an implemented endpoint.",
     "No durable pending, success, error, retry, conflict, or rollback UX is proven for admin mutations.",
     "List search, filtering, sorting, and pagination must survive refresh and back/forward navigation and remain backend-driven.",
@@ -144,7 +145,7 @@
       "data": {"reads": ["events", "metrics", "revenue", "plan access", "watchlist"], "endpoints": ["GET /api/v1/analytics/events", "GET /api/v1/analytics/metrics/:metric", "GET /api/v1/analytics/revenue"], "current": "static chart/table values", "fallbacks": ["fixed generated-on and success metadata"]},
       "permissions": {"read": ["admin:analytics:view"], "manage": [], "current": "UI gate and direct analytics service auth exist, but this page does not consume them"},
       "mutations": [{"name": "export", "method": "client event", "endpoint": "missing", "current": "logs format and closes dialog"}],
-      "contracts": {"bodies": [], "envelopes": ["unverified analytics proxy JSON"], "statuses": ["BFF flattens upstream failures"]},
+      "contracts": {"bodies": [], "envelopes": ["unverified analytics proxy JSON"], "statuses": ["BFF preserves allowlisted status only; the page has no typed error handling"]},
       "states": {"loading": "missing", "empty": "missing", "error": "missing", "retry": "missing", "forbidden": "present", "conflict": "not-applicable"},
       "ux": {"keyboard": "unproven", "responsive": "source classes only", "hydration": "missing for filters/export"},
       "blockers": ["wire canonical analytics data and export, preserve query state, and prove empty/degraded/error/retry plus accessible interaction"]
@@ -326,7 +327,7 @@
       "data": {"reads": ["payments", "subscriptions/access", "payment links", "escrows"], "endpoints": ["GET /api/v1/payments", "GET /api/v1/subscriptions", "GET /api/v1/escrows"], "current": "sample payments/access/links", "fallbacks": ["invented financial records and statuses"]},
       "permissions": {"read": ["admin:payments:read (required target)"], "manage": ["admin:payments:manage"], "current": "manage gates all reads"},
       "mutations": [{"name": "confirm/cancel/release/create link/access", "method": "mixed", "endpoint": "partially present in BFF", "current": "page controls do not call canonical endpoints"}],
-      "contracts": {"bodies": ["financial mutation bodies unresolved"], "envelopes": ["BFF proxy bodies untyped at page boundary"], "statuses": ["upstream status flattening"]},
+      "contracts": {"bodies": ["financial mutation bodies unresolved"], "envelopes": ["BFF proxy bodies untyped at page boundary"], "statuses": ["allowlisted BFF status is preserved; typed financial/finality errors remain absent"]},
       "states": {"loading": "missing", "empty": "missing", "error": "missing", "retry": "missing", "forbidden": "present", "conflict": "missing"},
       "ux": {"keyboard": "unproven", "responsive": "unproven", "hydration": "missing for tabs/filters/dialogs"},
       "blockers": ["remove sample money/status data, split read/manage, complete A6/A9, preserve exact finality/conflict statuses, and prove every financial mutation end to end"]
@@ -417,7 +418,7 @@
       "data": {"reads": ["plan detail", "permissions", "subscriber count"], "endpoints": ["GET /api/v1/subscription/plans/:id"], "current": "skeleton/sample plan editor", "fallbacks": ["sample plans"]},
       "permissions": {"read": ["admin:plans:read"], "manage": ["admin:plans:manage"], "current": "nested operation gates exist in list/editor components; page data is not live"},
       "mutations": [{"name": "create/update/duplicate plan", "method": "POST native form", "endpoint": "/api/v1/subscription/plans[/id]", "current": "BFF supports POST create but no PUT/PATCH update route"}],
-      "contracts": {"bodies": ["form body versus JSON API mismatch"], "envelopes": ["unverified plan response"], "statuses": ["validation/conflict/version errors flattened"]},
+      "contracts": {"bodies": ["form body versus JSON API mismatch"], "envelopes": ["unverified plan response"], "statuses": ["allowlisted validation/conflict status is preserved; typed version errors remain absent"]},
       "states": {"loading": "present", "empty": "missing", "error": "missing", "retry": "missing", "forbidden": "present", "conflict": "missing"},
       "ux": {"keyboard": "unproven", "responsive": "unproven", "hydration": "missing for editor"},
       "blockers": ["validate planId, load A9 plan detail, keep policy in backend, align create/update body/method, and prove optimistic conflict, validation, pending, error, and recovery"]
@@ -443,7 +444,7 @@
       "data": {"reads": ["wallets", "pagination", "aggregate stats"], "endpoints": ["GET /api/v1/wallet/accounts"], "current": "three sample wallet rows and stats", "fallbacks": ["invented addresses/balances/permissions"]},
       "permissions": {"read": ["admin:users:read"], "manage": ["admin:users:update"], "current": "UI read gate; downstream wallet service contract incomplete"},
       "mutations": [],
-      "contracts": {"bodies": [], "envelopes": ["wallet proxy JSON unconsumed"], "statuses": ["upstream errors flattened"]},
+      "contracts": {"bodies": [], "envelopes": ["wallet proxy JSON unconsumed"], "statuses": ["allowlisted BFF status is preserved; typed errors remain unconsumed"]},
       "states": {"loading": "missing", "empty": "missing", "error": "missing", "retry": "missing", "forbidden": "present", "conflict": "not-applicable"},
       "ux": {"keyboard": "unproven", "responsive": "unproven", "hydration": "missing for table controls"},
       "blockers": ["consume authoritative paginated wallets and stats, preserve query state, remove samples, and prove empty/error/retry/forbidden plus table keyboard/responsive behavior"]

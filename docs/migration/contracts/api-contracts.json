@@ -315,8 +315,9 @@
         "successStatuses": [400, 401, 403, 404, 409, 422, 429, 500, 502, 503],
         "invariants": ["stable code and message fields", "upstream status is preserved", "validation and retryability are explicit", "no secret or internal error leakage"]
       },
-      "observed": {"status": "blocked", "summary": "Many proxies collapse every client/upstream failure into a bare 502 or service-specific JSON shape."},
+      "observed": {"status": "blocked", "summary": "The admin BFF preserves a closed safe upstream status set, but still returns bare statuses without the required envelope; other proxies still collapse errors or emit service-specific JSON shapes."},
       "evidence": [
+        {"file": "apps/admin/src/main.rs", "anchor": "fn safe_upstream_status(status: u16) -> Option<StatusCode>"},
         {"file": "apps/pay/src/main.rs", "anchor": "map_err(|_| StatusCode::BAD_GATEWAY)"},
         {"file": "shared/rust/client/src/lib.rs", "anchor": "pub enum ClientError"}
       ]

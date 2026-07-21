@@ -237,14 +237,14 @@
       "anchor": ".get_plain(\"/api/v1/content/blocks\")"
     },
     {
-      "id": "target-admin-status-collapse",
+      "id": "target-admin-status-allowlist",
       "file": "apps/admin/src/main.rs",
-      "anchor": "Service(s) if s.starts_with(\"status 4\") => StatusCode::BAD_REQUEST"
+      "anchor": "UpstreamStatus(status) => safe_upstream_status(status).unwrap_or(StatusCode::BAD_GATEWAY)"
     },
     {
-      "id": "target-client-status-collapse",
+      "id": "target-client-typed-status",
       "file": "shared/rust/client/src/lib.rs",
-      "anchor": "Err(ClientError::Service(format!(\"status {}: {}\", status, text)))"
+      "anchor": "UpstreamStatus(u16)"
     },
     {
       "id": "target-news-ui-fallback",
@@ -635,7 +635,7 @@
       "status": "blocked",
       "summary": "Page create/update accept weakly validated slugs, locale, theme, status, SEO, and blocks without optimistic concurrency.",
       "resolution": "Add typed validation, version/ETag preconditions, schema checks, exact 409/422 semantics, and parity fixtures.",
-      "evidenceIds": ["target-page-create", "target-page-status", "target-client-status-collapse"]
+      "evidenceIds": ["target-page-create", "target-page-status", "target-client-typed-status"]
     },
     {
       "id": "B05",
@@ -741,9 +741,9 @@
       "category": "bff-wire-status",
       "severity": "stop",
       "status": "blocked",
-      "summary": "Service, gateway, frontend BFF, and admin BFF have competing prefixes/bodies and collapse or synthesize envelopes and statuses.",
+      "summary": "Service, gateway, frontend BFF, and admin BFF have competing prefixes/bodies; the admin BFF preserves an allowlisted status but still emits a bare response while other hops collapse or synthesize envelopes and statuses.",
       "resolution": "Freeze one route matrix and add cross-hop fixtures for body/envelope/pagination/status/request-ID/header preservation.",
-      "evidenceIds": ["source-route-inventory", "target-gateway-rewrite", "target-frontend-routes", "target-admin-status-collapse", "target-client-status-collapse"]
+      "evidenceIds": ["source-route-inventory", "target-gateway-rewrite", "target-frontend-routes", "target-admin-status-allowlist", "target-client-typed-status"]
     },
     {
       "id": "B17",

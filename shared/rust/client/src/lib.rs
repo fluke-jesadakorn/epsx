@@ -9,6 +9,8 @@ pub enum ClientError {
     Http(#[from] reqwest::Error),
     #[error("Service error: {0}")]
     Service(String),
+    #[error("Upstream returned HTTP status {0}")]
+    UpstreamStatus(u16),
     #[error("Timeout")]
     Timeout,
     #[error("Unauthorized")]
@@ -210,13 +212,74 @@ impl ServiceClient {
             }
             let body = res.json().await?;
             Ok(body)
-        } else if status.as_u16() == 401 {
-            Err(ClientError::Unauthorized)
-        } else if status.as_u16() == 404 {
-            Err(ClientError::NotFound)
         } else {
-            let text = res.text().await.unwrap_or_default();
-            Err(ClientError::Service(format!("status {}: {}", status, text)))
+            Err(response_status_error(status))
         }
+    }
+}
+
+fn response_status_error(status: reqwest::StatusCode) -> ClientError {
+    match status.as_u16() {
+        401 => ClientError::Unauthorized,
+        404 => ClientError::NotFound,
+        status => ClientError::UpstreamStatus(status),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    #[test]
+    fn response_errors_keep_a_typed_status_without_an_upstream_body() {
+        for code in [400, 403, 409, 422, 429, 500, 502, 503, 504, 599] {
+            let status = reqwest::StatusCode::from_u16(code).unwrap();
+            assert!(matches!(
+                response_status_error(status),
+                ClientError::UpstreamStatus(value) if value == code
+            ));
+        }
+    }
+
+    #[test]
+    fn response_errors_keep_specialized_auth_and_resource_variants() {
+        assert!(matches!(
+            response_status_error(reqwest::StatusCode::UNAUTHORIZED),
+            ClientError::Unauthorized
+        ));
+        assert!(matches!(
+            response_status_error(reqwest::StatusCode::NOT_FOUND),
+            ClientError::NotFound
+        ));
+    }
+
+    #[tokio::test]
+    async fn service_client_discards_upstream_error_bodies_and_headers() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = [0_u8; 1024];
+            let _ = socket.read(&mut request).await.unwrap();
+            let body = "upstream credential=secret";
+            let response = format!(
+                "HTTP/1.1 403 Forbidden\r\nContent-Length: {}\r\nX-Upstream-Secret: header-secret\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            socket.write_all(response.as_bytes()).await.unwrap();
+        });
+
+        let client = ServiceClient::new(ClientConfig {
+            base_url: format!("http://{address}"),
+            timeout: Duration::from_secs(1),
+        });
+        let error = client.get_plain("/denied").await.unwrap_err();
+        server.await.unwrap();
+
+        assert!(matches!(&error, ClientError::UpstreamStatus(403)));
+        let display = error.to_string();
+        assert!(!display.contains("credential=secret"));
+        assert!(!display.contains("header-secret"));
     }
 }
