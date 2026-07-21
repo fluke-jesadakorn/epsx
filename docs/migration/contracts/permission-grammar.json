@@ -172,6 +172,8 @@
     {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":1761,"permission":"admin:payments:manage","surface":"service:pay:pay.post.admin-force-release","classification":"canonical-3-segment","remediation":null},
     {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":1787,"permission":"admin:payments:manage","surface":"service:pay:pay.post.admin-force-refund","classification":"canonical-3-segment","remediation":null},
     {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":1847,"permission":"admin:plans:manage","surface":"service:subscription:subscription.post.plans","classification":"canonical-3-segment","remediation":null},
+    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":1873,"permission":"admin:plans:read","surface":"service:subscription:subscription.get.plans","classification":"canonical-3-segment","remediation":null},
+    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":1900,"permission":"admin:plans:read","surface":"service:subscription:subscription.get.plan","classification":"canonical-3-segment","remediation":null},
     {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":2095,"permission":"admin:content:manage","surface":"service:content:content.get.page-editor","classification":"canonical-3-segment","remediation":null},
     {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":2123,"permission":"admin:content:manage","surface":"service:content:content.put.page","classification":"canonical-3-segment","remediation":null},
     {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":2150,"permission":"admin:content:manage","surface":"service:content:content.post.pages","classification":"canonical-3-segment","remediation":null},
@@ -193,15 +195,15 @@
     {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":3408,"permission":"admin:indexer:manage","surface":"service:indexer:indexer.any.sync","classification":"canonical-3-segment","remediation":null}
   ],
   "summary": {
-    "total": 66,
+    "total": 68,
     "sourceCounts": {
       "dioxus-security-gate": 34,
       "dioxus-presentation-literal": 1,
       "dioxus-presentation-dynamic": 1,
-      "service-authorization": 30
+      "service-authorization": 32
     },
     "classificationCounts": {
-      "canonical-3-segment": 51,
+      "canonical-3-segment": 53,
       "wildcard-aligned": 0,
       "legacy-2-segment": 13,
       "unknown": 1,

@@ -14,6 +14,7 @@ epsx-database = { path = "../../shared/rust/database" }
 epsx-events = { path = "../../shared/rust/events" }
 epsx-web3 = { path = "../../shared/rust/web3" }
 epsx-observability = { path = "../../shared/rust/observability" }
+epsx-service-auth = { path = "../../shared/rust/epsx-service-auth" }
 axum.workspace = true
 tokio.workspace = true
 tracing.workspace = true
@@ -23,7 +24,13 @@ sqlx.workspace = true
 clap.workspace = true
 uuid.workspace = true
 chrono.workspace = true
+reqwest.workspace = true
+thiserror.workspace = true
 
 [dependencies.alloy]
 workspace = true
 features = ["contract", "signer-local"]
+
+[dev-dependencies]
+async-trait.workspace = true
+tower.workspace = true

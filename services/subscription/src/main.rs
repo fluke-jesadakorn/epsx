@@ -1,5 +1,11 @@
-use axum::{extract::State, http::StatusCode, routing::{get, post}, Json, Router};
-use clap::Parser;
+use axum::{
+    extract::State,
+    http::StatusCode,
+    routing::{get, post},
+    Json, Router,
+};
+use clap::{Parser, ValueEnum};
+use epsx_subscription::{build_auth_verifier, protect_router};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use std::net::SocketAddr;
@@ -11,8 +17,23 @@ struct Args {
     port: u16,
     #[arg(long, default_value = "0.0.0.0")]
     host: String,
-    #[arg(long, default_value = "postgres://epsx:epsx@localhost:5432/epsx_subscription")]
+    #[arg(
+        long,
+        default_value = "postgres://epsx:epsx@localhost:5432/epsx_subscription"
+    )]
     database_url: String,
+    #[arg(long, env = "OIDC_ISSUER")]
+    oidc_issuer: String,
+    #[arg(long, env = "OIDC_JWKS_URL")]
+    jwks_url: Option<String>,
+    #[arg(long, env = "EPSX_ENV", value_enum, default_value = "development")]
+    environment: Environment,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum Environment {
+    Development,
+    Production,
 }
 
 #[derive(Clone)]
@@ -72,7 +93,19 @@ async fn main() {
     epsx_observability::Observability::init("subscription");
     let args = Args::parse();
 
-    let db = sqlx::PgPool::connect(&args.database_url).await.expect("Failed to connect to database");
+    let production = matches!(args.environment, Environment::Production);
+    let jwks_url = args.jwks_url.unwrap_or_else(|| {
+        format!(
+            "{}/.well-known/jwks.json",
+            args.oidc_issuer.trim_end_matches('/')
+        )
+    });
+    let verifier = build_auth_verifier(&args.oidc_issuer, &jwks_url, production)
+        .expect("subscription OIDC configuration must be valid");
+
+    let db = sqlx::PgPool::connect(&args.database_url)
+        .await
+        .expect("Failed to connect to database");
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS subscription_plans (
@@ -86,8 +119,11 @@ async fn main() {
             interval INTEGER NOT NULL,
             active BOOLEAN DEFAULT true,
             created_at TIMESTAMPTZ DEFAULT NOW()
-        )"
-    ).execute(&db).await.expect("Failed to create plans table");
+        )",
+    )
+    .execute(&db)
+    .await
+    .expect("Failed to create plans table");
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS subscriptions (
@@ -101,11 +137,15 @@ async fn main() {
             current_period_start TIMESTAMPTZ,
             current_period_end TIMESTAMPTZ,
             created_at TIMESTAMPTZ DEFAULT NOW()
-        )"
-    ).execute(&db).await.expect("Failed to create subscriptions table");
+        )",
+    )
+    .execute(&db)
+    .await
+    .expect("Failed to create subscriptions table");
 
     let state = AppState { db };
 
+    #[rustfmt::skip]
     let app = Router::new()
         .route("/health", get(health))
         .route("/api/v1/subscription/plans", post(create_plan).get(list_plans))
@@ -115,6 +155,7 @@ async fn main() {
         .route("/api/v1/subscription/subscriptions/{id}/cancel", post(cancel_subscription))
         .route("/api/v1/subscription/vault/{chain_id}", get(get_vault_config))
         .with_state(state);
+    let app = protect_router(app, verifier);
 
     let addr: SocketAddr = format!("{}:{}", args.host, args.port).parse().unwrap();
     tracing::info!("Subscription service listening on {}", addr);
@@ -122,7 +163,9 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn health() -> StatusCode { StatusCode::OK }
+async fn health() -> StatusCode {
+    StatusCode::OK
+}
 
 async fn create_plan(
     State(state): State<AppState>,
@@ -135,9 +178,15 @@ async fn create_plan(
     Ok(Json(plan))
 }
 
-async fn list_plans(State(state): State<AppState>) -> Result<Json<Vec<SubscriptionPlan>>, StatusCode> {
-    let plans: Vec<SubscriptionPlan> = sqlx::query_as::<_, SubscriptionPlan>("SELECT * FROM subscription_plans WHERE active = true ORDER BY created_at DESC")
-        .fetch_all(&state.db).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+async fn list_plans(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<SubscriptionPlan>>, StatusCode> {
+    let plans: Vec<SubscriptionPlan> = sqlx::query_as::<_, SubscriptionPlan>(
+        "SELECT * FROM subscription_plans WHERE active = true ORDER BY created_at DESC",
+    )
+    .fetch_all(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Json(plans))
 }
 
@@ -145,8 +194,12 @@ async fn get_plan(
     State(state): State<AppState>,
     axum::extract::Path(id): axum::extract::Path<String>,
 ) -> Result<Json<SubscriptionPlan>, StatusCode> {
-    let plan: SubscriptionPlan = sqlx::query_as::<_, SubscriptionPlan>("SELECT * FROM subscription_plans WHERE id = $1")
-        .bind(&id).fetch_one(&state.db).await.map_err(|_| StatusCode::NOT_FOUND)?;
+    let plan: SubscriptionPlan =
+        sqlx::query_as::<_, SubscriptionPlan>("SELECT * FROM subscription_plans WHERE id = $1")
+            .bind(&id)
+            .fetch_one(&state.db)
+            .await
+            .map_err(|_| StatusCode::NOT_FOUND)?;
     Ok(Json(plan))
 }
 
@@ -161,9 +214,14 @@ async fn create_subscription(
     Ok(Json(sub))
 }
 
-async fn list_subscriptions(State(state): State<AppState>) -> Result<Json<Vec<Subscription>>, StatusCode> {
-    let subs: Vec<Subscription> = sqlx::query_as::<_, Subscription>("SELECT * FROM subscriptions ORDER BY created_at DESC")
-        .fetch_all(&state.db).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+async fn list_subscriptions(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<Subscription>>, StatusCode> {
+    let subs: Vec<Subscription> =
+        sqlx::query_as::<_, Subscription>("SELECT * FROM subscriptions ORDER BY created_at DESC")
+            .fetch_all(&state.db)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Json(subs))
 }
 
@@ -171,8 +229,12 @@ async fn get_subscription(
     State(state): State<AppState>,
     axum::extract::Path(id): axum::extract::Path<String>,
 ) -> Result<Json<Subscription>, StatusCode> {
-    let sub: Subscription = sqlx::query_as::<_, Subscription>("SELECT * FROM subscriptions WHERE id = $1")
-        .bind(&id).fetch_one(&state.db).await.map_err(|_| StatusCode::NOT_FOUND)?;
+    let sub: Subscription =
+        sqlx::query_as::<_, Subscription>("SELECT * FROM subscriptions WHERE id = $1")
+            .bind(&id)
+            .fetch_one(&state.db)
+            .await
+            .map_err(|_| StatusCode::NOT_FOUND)?;
     Ok(Json(sub))
 }
 
@@ -181,8 +243,12 @@ async fn cancel_subscription(
     axum::extract::Path(id): axum::extract::Path<String>,
 ) -> Result<Json<Subscription>, StatusCode> {
     let sub: Subscription = sqlx::query_as::<_, Subscription>(
-        "UPDATE subscriptions SET status = 'cancelled' WHERE id = $1 RETURNING *"
-    ).bind(&id).fetch_one(&state.db).await.map_err(|_| StatusCode::NOT_FOUND)?;
+        "UPDATE subscriptions SET status = 'cancelled' WHERE id = $1 RETURNING *",
+    )
+    .bind(&id)
+    .fetch_one(&state.db)
+    .await
+    .map_err(|_| StatusCode::NOT_FOUND)?;
     Ok(Json(sub))
 }
 

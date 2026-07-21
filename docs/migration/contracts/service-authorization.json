@@ -224,17 +224,17 @@
       "indexer": 6
     },
     "byClassification": {
-      "public-allowlist": 34,
+      "public-allowlist": 32,
       "unknown": 16,
       "authenticated-user": 3,
-      "permission-specific-admin-operator": 30,
+      "permission-specific-admin-operator": 32,
       "owner-only": 30,
       "internal-webhook": 4
     },
     "byObservedStatus": {
-      "partial": 54,
+      "partial": 53,
       "blocked": 58,
-      "aligned": 5
+      "aligned": 6
     }
   },
   "services": [
@@ -1809,7 +1809,7 @@
       "name": "subscription",
       "source": "services/subscription/src/main.rs",
       "routerAnchor": "let app = Router::new()",
-      "currentBoundary": "No auth layer; callers can choose user_id and read or cancel any subscription.",
+      "currentBoundary": "The direct service now classifies exact methods and path arity before handlers, uses the shared RS256/JWKS verifier, separates admin plan read/manage grants, and blocks owner and placeholder-vault handlers before SQL. Public plan projection, trusted wallet-to-UUID ownership, and the A9 lifecycle remain unresolved.",
       "routes": [
         {
           "id": "subscription.get.health",
@@ -1826,8 +1826,8 @@
           "risk": "none",
           "caseProfile": "public",
           "observed": {
-            "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "status": "aligned",
+            "summary": "The direct service explicitly allows only exact GET/HEAD health anonymously and strips bearer and spoofable identity headers before dispatch."
           },
           "dependencies": [
             "A2",
@@ -1852,8 +1852,8 @@
           "risk": "high",
           "caseProfile": "granular-admin",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience plus canonical admin:plans:manage before SQL; plan authority, validation, runtime migration, and transaction semantics remain A9 blockers."
           },
           "dependencies": [
             "A2",
@@ -1868,26 +1868,26 @@
           "method": "GET",
           "path": "/api/v1/subscription/plans",
           "routeAnchor": ".route(\"/api/v1/subscription/plans\"",
-          "classification": "public-allowlist",
-          "identitySource": "none-public",
-          "requiredPermission": null,
-          "permissionStatus": "not-applicable",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:plans:read",
+          "permissionStatus": "canonical",
           "ownershipKey": null,
           "operationKind": "read",
           "mutation": false,
           "risk": "none",
-          "caseProfile": "public",
+          "caseProfile": "granular-admin",
           "observed": {
             "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "summary": "The direct service requires the exact admin audience plus canonical admin:plans:read. Anonymous exposure is intentionally denied because no safe public/publication projection or canonical DTO exists."
           },
           "dependencies": [
             "A2",
             "A9"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary",
-            "backend-plan-permissions"
+            "backend-plan-permissions",
+            "service-internal-boundary"
           ]
         },
         {
@@ -1895,26 +1895,26 @@
           "method": "GET",
           "path": "/api/v1/subscription/plans/{id}",
           "routeAnchor": ".route(\"/api/v1/subscription/plans/{id}\"",
-          "classification": "public-allowlist",
-          "identitySource": "none-public",
-          "requiredPermission": null,
-          "permissionStatus": "not-applicable",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:plans:read",
+          "permissionStatus": "canonical",
           "ownershipKey": null,
           "operationKind": "read",
           "mutation": false,
           "risk": "none",
-          "caseProfile": "public",
+          "caseProfile": "granular-admin",
           "observed": {
             "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "summary": "The exact one-segment detail route requires the admin audience plus admin:plans:read. Public DTO/status semantics and the canonical plan authority remain unresolved."
           },
           "dependencies": [
             "A2",
             "A9"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary",
-            "backend-plan-permissions"
+            "backend-plan-permissions",
+            "service-internal-boundary"
           ]
         },
         {
@@ -1933,7 +1933,7 @@
           "caseProfile": "owner",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service returns 404 before verification or SQL because canonical wallet ownership cannot be mapped to the UUID user_id and activation is not backed by finalized payment."
           },
           "dependencies": [
             "A2",
@@ -1960,7 +1960,7 @@
           "caseProfile": "owner",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service returns 404 before SQL instead of exposing the existing unscoped query; a trusted wallet-to-UUID mapping and owner predicate remain required."
           },
           "dependencies": [
             "A2",
@@ -1986,7 +1986,7 @@
           "caseProfile": "owner",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The exact detail shape returns 404 before SQL because stored UUID ownership cannot be compared to the verified wallet without a trusted mapping."
           },
           "dependencies": [
             "A2",
@@ -2012,7 +2012,7 @@
           "caseProfile": "owner",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The exact cancel shape returns 404 before SQL, preventing id-only cancellation until ownership, lifecycle, audit, and conflict semantics are implemented."
           },
           "dependencies": [
             "A2",
@@ -2038,8 +2038,8 @@
           "risk": "none",
           "caseProfile": "public",
           "observed": {
-            "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "status": "blocked",
+            "summary": "The direct service returns 404 before the handler so its zero vault address cannot be presented as usable production configuration."
           },
           "dependencies": [
             "A2",
