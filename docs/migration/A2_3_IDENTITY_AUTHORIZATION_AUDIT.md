@@ -1,13 +1,21 @@
 # A2.3h identity direct-service authorization audit
 
-Status: **static integrity is executable; identity production readiness remains STOP**.
+Status: **historical snapshot integrity is executable; identity production
+readiness remains STOP**.
 
-This package audits the exact eleven `services/identity` route shapes recorded
-by A2 against the pinned `origin/development` identity/session authority, the
-current A1 hermetic gate, and the shared extracted-service access-token
-verifier. It changes no runtime code or existing contract. Source behavior is
-evidence, not an automatic production target: A1/A2 fail-closed requirements
-take precedence where the source itself is incomplete.
+This package preserves the A2.3h audit of the exact eleven `services/identity`
+route shapes recorded by A2. Its target-side evidence is an immutable
+pre-remediation snapshot of `migration/dioxus-microservices` at commit
+`0cdd7ba1967d52e299000b7290873cd4d19dfd09`, verified through exact Git blob
+IDs and anchors. The snapshot is the authority consumed by A2.3i; it is not a
+claim about current runtime status after A2.3i replaced the unsafe candidate
+boundary. The historical classification remains exactly zero aligned, one
+partial, ten blocked, and twenty STOP blockers.
+
+The source side remains pinned to `origin/development` identity/session
+authority. Source behavior is evidence, not an automatic production target:
+A1/A2 fail-closed requirements take precedence where the source itself is
+incomplete.
 
 The machine-readable contract is
 `docs/migration/contracts/a2-3-identity-authorization.json`. The verifier is
@@ -67,11 +75,15 @@ are the ones already recorded in the A2 contract.
 ./scripts/migration/test-a2-3-identity-authorization.sh
 ```
 
-Integrity verifies the pinned source commit/blobs/anchors, current target
-anchors, the exact A2 route IDs/methods/paths/permissions, conservative status
-counts, ten required invariants, twenty STOP blockers, and the twelve-step
-execution order. `--mode readiness` intentionally exits `3` while all twenty
-STOP blockers remain. A passing integrity run never means production ready.
+Integrity verifies the pinned source commit/blobs/anchors, the exact A2.3h
+target commit/blobs/anchors, the target-snapshot A2 route
+IDs/methods/paths/permissions, conservative historical status counts, ten
+required invariants, twenty STOP blockers, and the twelve-step execution order.
+It never reads mutable target runtime or route-baseline files. `--mode
+readiness` intentionally exits `3` while all twenty STOP blockers remain. A
+passing integrity run proves the historical audit snapshot only; current
+runtime boundary evidence belongs to A2.3i and neither package means production
+ready.
 
 ## Execution boundary
 

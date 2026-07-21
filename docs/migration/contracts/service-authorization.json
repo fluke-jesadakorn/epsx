@@ -271,9 +271,9 @@
       "internal-webhook": 4
     },
     "byObservedStatus": {
-      "partial": 50,
-      "blocked": 57,
-      "aligned": 10
+      "partial": 47,
+      "blocked": 59,
+      "aligned": 11
     }
   },
   "services": [
@@ -714,9 +714,9 @@
     },
     {
       "name": "identity",
-      "source": "services/identity/src/main.rs",
-      "routerAnchor": "let app = Router::new()",
-      "currentBoundary": "No router auth layer. Candidate tokens are not the canonical monolith RS256/JWKS contract.",
+      "source": "services/identity/src/lib.rs",
+      "routerAnchor": "pub fn build_router(verifier: Arc<dyn AccessTokenVerifier>) -> Router",
+      "currentBoundary": "The direct service classifies exact methods and normalized paths before dispatch, exposes only GET/HEAD health anonymously, verifies the exact frontend/admin audiences for auth/me, requires the exact admin audience and literal canonical user permission for five admin routes, and then returns 404 before all candidate lifecycle, body, identity, or persistence semantics.",
       "routes": [
         {
           "id": "identity.get.health",
@@ -733,8 +733,8 @@
           "risk": "none",
           "caseProfile": "public",
           "observed": {
-            "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "status": "aligned",
+            "summary": "The direct service explicitly allows only exact GET/HEAD health anonymously, strips bearer and spoofable identity headers before dispatch, and denies every other method or path shape."
           },
           "dependencies": [
             "A2"
@@ -758,8 +758,8 @@
           "risk": "none",
           "caseProfile": "public",
           "observed": {
-            "status": "partial",
-            "summary": "The handler issues one-time Redis nonces, but issuer/path/audience parity remains dependent on A1."
+            "status": "blocked",
+            "summary": "The exact POST shape returns 404 before authentication, body extraction, nonce generation, Redis, or handler dispatch; durable bounded challenge issuance remains structurally disabled."
           },
           "dependencies": [
             "A1",
@@ -785,8 +785,8 @@
           "risk": "none",
           "caseProfile": "public",
           "observed": {
-            "status": "partial",
-            "summary": "The handler verifies a nonce and signature, but does not yet establish the canonical monolith RS256 session contract."
+            "status": "blocked",
+            "summary": "The exact POST shape returns 404 before authentication, body extraction, nonce consumption, signature verification, token issuance, or handler dispatch; the canonical SIWE session lifecycle remains structurally disabled."
           },
           "dependencies": [
             "A1",
@@ -813,7 +813,7 @@
           "caseProfile": "authenticated",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The exact POST shape returns 404 before access-token authentication, refresh credential parsing, rotation, revocation, or handler dispatch; access tokens can never reach refresh semantics."
           },
           "dependencies": [
             "A1",
@@ -840,7 +840,7 @@
           "caseProfile": "authenticated",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service requires a verified canonical access token with exactly the frontend or admin audience, then returns 404 before candidate subject response semantics; authenticated identity projection remains unavailable."
           },
           "dependencies": [
             "A1",
@@ -866,7 +866,7 @@
           "caseProfile": "unknown",
           "observed": {
             "status": "blocked",
-            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+            "summary": "The exact POST shape returns 404 before authentication, body extraction, token issuance, bootstrap mutation, or handler dispatch; development-only login remains structurally disabled."
           },
           "dependencies": [
             "A1",
@@ -893,7 +893,7 @@
           "caseProfile": "granular-admin",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service requires the exact admin audience plus literal admin:users:read before returning 404; list DTO, filtering, pagination, and persistence semantics remain unavailable."
           },
           "dependencies": [
             "A2"
@@ -918,7 +918,7 @@
           "caseProfile": "granular-admin",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service requires the exact admin audience plus literal admin:users:create before returning 404 ahead of body extraction or persistence; validated creation semantics remain unavailable."
           },
           "dependencies": [
             "A2"
@@ -931,7 +931,7 @@
           "id": "identity.get.user",
           "method": "GET",
           "path": "/api/v1/identity/users/{id}",
-          "routeAnchor": ".route(\"/api/v1/identity/users/{id}\"",
+          "routeAnchor": "\"/api/v1/identity/users/{id}\",",
           "classification": "permission-specific-admin-operator",
           "identitySource": "monolith-rs256-jwks",
           "requiredPermission": "admin:users:read",
@@ -943,7 +943,7 @@
           "caseProfile": "granular-admin",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service requires a safe single-segment id, the exact admin audience, and literal admin:users:read before returning 404; detail DTO and persistence semantics remain unavailable."
           },
           "dependencies": [
             "A2"
@@ -956,7 +956,7 @@
           "id": "identity.put.user",
           "method": "PUT",
           "path": "/api/v1/identity/users/{id}",
-          "routeAnchor": ".route(\"/api/v1/identity/users/{id}\"",
+          "routeAnchor": "\"/api/v1/identity/users/{id}\",",
           "classification": "permission-specific-admin-operator",
           "identitySource": "monolith-rs256-jwks",
           "requiredPermission": "admin:users:update",
@@ -968,7 +968,7 @@
           "caseProfile": "granular-admin",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service requires a safe single-segment id, the exact admin audience, and literal admin:users:update before returning 404 ahead of body extraction or persistence; validated update semantics remain unavailable."
           },
           "dependencies": [
             "A2"
@@ -981,7 +981,7 @@
           "id": "identity.delete.user",
           "method": "DELETE",
           "path": "/api/v1/identity/users/{id}",
-          "routeAnchor": ".route(\"/api/v1/identity/users/{id}\"",
+          "routeAnchor": "\"/api/v1/identity/users/{id}\",",
           "classification": "permission-specific-admin-operator",
           "identitySource": "monolith-rs256-jwks",
           "requiredPermission": "admin:users:delete",
@@ -993,7 +993,7 @@
           "caseProfile": "granular-admin",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service requires a safe single-segment id, the exact admin audience, and literal admin:users:delete before returning 404; deletion, audit, and recovery semantics remain unavailable."
           },
           "dependencies": [
             "A2"

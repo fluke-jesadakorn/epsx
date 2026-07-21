@@ -98,73 +98,84 @@
       }
     ]
   },
-  "targetEvidence": [
-    {
-      "id": "target-identity-router",
-      "file": "services/identity/src/main.rs",
-      "anchors": [
-        "let app = Router::new()",
-        ".route(\"/api/v1/identity/auth/challenge\"",
-        ".route(\"/api/v1/identity/auth/siwe\"",
-        ".route(\"/api/v1/identity/users/{id}\""
-      ],
-      "finding": "All eleven recorded shapes exist, but the router has no strict direct-service authorization classifier."
-    },
-    {
-      "id": "target-candidate-token",
-      "file": "shared/rust/crypto/src/lib.rs",
-      "anchors": [
-        "pub struct Claims {",
-        "pub fn generate_tokens(",
-        "let access_claims = Claims {",
-        "let refresh_claims = Claims {",
-        "pub fn verify_token(&self, token: &str)"
-      ],
-      "finding": "Candidate access and refresh credentials use the same noncanonical claim shape and verifier and do not expose the canonical RS256 issuer, kid, exact audience, scope, wallet-address, or credential-type contract."
-    },
-    {
-      "id": "target-shared-access-verifier",
-      "file": "shared/rust/epsx-service-auth/src/lib.rs",
-      "anchors": [
-        "pub const FRONTEND_AUDIENCE: &str = \"epsx-frontend\";",
-        "pub const ADMIN_AUDIENCE: &str = \"epsx-admin\";",
-        "if header.alg != Algorithm::RS256",
-        "validation.set_issuer",
-        "claims.sub != claims.wallet_address"
-      ],
-      "finding": "The shared extracted-service verifier defines the canonical fail-closed access-token boundary, but services/identity does not consume it."
-    },
-    {
-      "id": "target-a1-gate-doc",
-      "file": "docs/migration/A1_4_AUTH_SESSION_GATE.md",
-      "anchors": [
-        "wrong audience is rejected",
-        "refresh cookie is never accepted as an access token",
-        "durable refresh-token rotation/old-token rejection/logout revocation"
-      ],
-      "finding": "A1 proves hermetic contracts only and explicitly leaves live SIWE, nonce, durable rotation/revocation, and production behavior blocked."
-    },
-    {
-      "id": "target-a1-gate-contract",
-      "file": "docs/migration/contracts/auth-session-gate.json",
-      "anchors": [
-        "\"productionReady\": false",
-        "\"liveWalletFlowProven\": false",
-        "\"durableRefreshStoreProven\": false"
-      ],
-      "finding": "The machine-readable A1 gate prohibits promoting hermetic evidence to production readiness."
-    },
-    {
-      "id": "target-a2-route-contract",
-      "file": "docs/migration/contracts/service-authorization.json",
-      "anchors": [
-        "\"name\": \"identity\"",
-        "\"id\": \"identity.post.auth-challenge\"",
-        "\"id\": \"identity.delete.user\""
-      ],
-      "finding": "The A2 inventory records the exact eleven identity route decisions and existing canonical admin permission names."
-    }
-  ],
+  "targetSnapshot": {
+    "ref": "migration/dioxus-microservices",
+    "commit": "0cdd7ba1967d52e299000b7290873cd4d19dfd09",
+    "interpretation": "Immutable pre-remediation target authority consumed by A2.3i. The ref records provenance only; the exact commit, blobs, and anchors prove the historical A2.3h findings and do not describe current runtime status.",
+    "evidence": [
+      {
+        "id": "target-identity-router",
+        "file": "services/identity/src/main.rs",
+        "blob": "012e1321aba54280d5b0cdaa81ee133a28ac3dfc",
+        "anchors": [
+          "let app = Router::new()",
+          ".route(\"/api/v1/identity/auth/challenge\"",
+          ".route(\"/api/v1/identity/auth/siwe\"",
+          ".route(\"/api/v1/identity/users/{id}\""
+        ],
+        "finding": "All eleven recorded shapes exist, but the router has no strict direct-service authorization classifier."
+      },
+      {
+        "id": "target-candidate-token",
+        "file": "shared/rust/crypto/src/lib.rs",
+        "blob": "134c1749b0a05dd0ec432efc6515bede62d0c737",
+        "anchors": [
+          "pub struct Claims {",
+          "pub fn generate_tokens(",
+          "let access_claims = Claims {",
+          "let refresh_claims = Claims {",
+          "pub fn verify_token(&self, token: &str)"
+        ],
+        "finding": "Candidate access and refresh credentials use the same noncanonical claim shape and verifier and do not expose the canonical RS256 issuer, kid, exact audience, scope, wallet-address, or credential-type contract."
+      },
+      {
+        "id": "target-shared-access-verifier",
+        "file": "shared/rust/epsx-service-auth/src/lib.rs",
+        "blob": "2111f6fef250677c0589bf1ece8388a38b57d75b",
+        "anchors": [
+          "pub const FRONTEND_AUDIENCE: &str = \"epsx-frontend\";",
+          "pub const ADMIN_AUDIENCE: &str = \"epsx-admin\";",
+          "if header.alg != Algorithm::RS256",
+          "validation.set_issuer",
+          "claims.sub != claims.wallet_address"
+        ],
+        "finding": "The shared extracted-service verifier defines the canonical fail-closed access-token boundary, but services/identity does not consume it."
+      },
+      {
+        "id": "target-a1-gate-doc",
+        "file": "docs/migration/A1_4_AUTH_SESSION_GATE.md",
+        "blob": "3764bb1bb6c42c2f87127104271edfcbb7ec2f67",
+        "anchors": [
+          "wrong audience is rejected",
+          "refresh cookie is never accepted as an access token",
+          "durable refresh-token rotation/old-token rejection/logout revocation"
+        ],
+        "finding": "A1 proves hermetic contracts only and explicitly leaves live SIWE, nonce, durable rotation/revocation, and production behavior blocked."
+      },
+      {
+        "id": "target-a1-gate-contract",
+        "file": "docs/migration/contracts/auth-session-gate.json",
+        "blob": "730ab2e872e7463e839e152abc6ed10ad888b421",
+        "anchors": [
+          "\"productionReady\": false",
+          "\"liveWalletFlowProven\": false",
+          "\"durableRefreshStoreProven\": false"
+        ],
+        "finding": "The machine-readable A1 gate prohibits promoting hermetic evidence to production readiness."
+      },
+      {
+        "id": "target-a2-route-contract",
+        "file": "docs/migration/contracts/service-authorization.json",
+        "blob": "448b8b02f6ce8b5ad8eda019a414eaa0e24489a2",
+        "anchors": [
+          "\"name\": \"identity\"",
+          "\"id\": \"identity.post.auth-challenge\"",
+          "\"id\": \"identity.delete.user\""
+        ],
+        "finding": "The A2 inventory records the exact eleven identity route decisions and existing canonical admin permission names."
+      }
+    ]
+  },
   "statusCounts": {
     "aligned": 0,
     "partial": 1,

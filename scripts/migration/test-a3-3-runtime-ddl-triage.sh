@@ -43,6 +43,21 @@ cmp -s "$TEST_DIR/report-1.json" "$TEST_DIR/report-2.json" || {
   echo "a3-3-runtime-ddl-triage-self-test: ERROR: JSON report is nondeterministic" >&2
   exit 1
 }
+bun -e '
+  import { readFileSync } from "node:fs";
+  const report = JSON.parse(readFileSync(process.argv[1], "utf8"));
+  const expected = {
+    trackedRustFiles: 1124,
+    findings: 37,
+    reviewedExceptions: 6,
+    actionable: 31,
+    sha256: "946b85dabbf5eaccd629c08f6fb3c0ac13f1e28643363359b9abfc050a3aa903",
+  };
+  if (JSON.stringify(report.scanner) !== JSON.stringify(expected)) process.exit(1);
+' "$TEST_DIR/report-1.json" || {
+  echo "a3-3-runtime-ddl-triage-self-test: ERROR: refreshed scanner inventory is not exact" >&2
+  exit 1
+}
 
 cp "$CONTRACT" "$TEST_DIR/production-ready.json"
 bun -e '
@@ -94,4 +109,4 @@ expect_failure upstream-checksum bun "$VERIFY" --upstream "$TEST_DIR/migration-s
 ln -s "$CONTRACT" "$TEST_DIR/contract-link.json"
 expect_failure symlink-contract bun "$VERIFY" --contract "$TEST_DIR/contract-link.json"
 
-echo "a3-3-runtime-ddl-triage-self-test: PASS — deterministic report, readiness STOP, and 6 fail-closed tamper/path cases"
+echo "a3-3-runtime-ddl-triage-self-test: PASS — exact 37/6/31 scanner inventory, deterministic report, readiness STOP, and 6 fail-closed tamper/path cases"

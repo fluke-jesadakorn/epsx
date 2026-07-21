@@ -64,6 +64,70 @@ STATE_CHANGING_METHODS = {"POST", "PUT", "PATCH", "DELETE", "ANY"}
 ALIGNED_PROTECTED_EXCEPTIONS: set[str] = set()
 PERMISSION_RE = re.compile(r"^[a-z][a-z0-9-]*:[a-z0-9*-]+:[a-z0-9*-]+$")
 ID_RE = re.compile(r"^[a-z0-9]+(?:[.-][a-z0-9]+)*$")
+EXPECTED_IDENTITY_SOURCE = "services/identity/src/lib.rs"
+EXPECTED_IDENTITY_ROUTER_ANCHOR = (
+    "pub fn build_router(verifier: Arc<dyn AccessTokenVerifier>) -> Router"
+)
+EXPECTED_IDENTITY_SOURCE_ANCHORS = (
+    "fn classify(method: &Method, path: &str) -> AccessPolicy",
+    "AccessPolicy::UnsafeLifecycle | AccessPolicy::Blocked =>",
+    "AccessPolicy::AuthenticatedCandidate =>",
+    "AccessPolicy::AdminPermission(required) =>",
+    "authenticate_headers(state.verifier.as_ref(), request.headers()).await",
+    "principal.audience != ADMIN_AUDIENCE || !literal_permission",
+    'pub const USERS_READ_PERMISSION: &str = "admin:users:read";',
+    'pub const USERS_CREATE_PERMISSION: &str = "admin:users:create";',
+    'pub const USERS_UPDATE_PERMISSION: &str = "admin:users:update";',
+    'pub const USERS_DELETE_PERMISSION: &str = "admin:users:delete";',
+)
+EXPECTED_IDENTITY_ROUTES = {
+    "identity.get.health": (
+        "GET", "/health", "public-allowlist", "none-public", None, "aligned"
+    ),
+    "identity.post.auth-challenge": (
+        "POST", "/api/v1/identity/auth/challenge", "public-allowlist",
+        "none-public", None, "blocked",
+    ),
+    "identity.post.auth-siwe": (
+        "POST", "/api/v1/identity/auth/siwe", "public-allowlist",
+        "none-public", None, "blocked",
+    ),
+    "identity.post.auth-refresh": (
+        "POST", "/api/v1/identity/auth/refresh", "authenticated-user",
+        "monolith-rs256-jwks", None, "blocked",
+    ),
+    "identity.get.auth-me": (
+        "GET", "/api/v1/identity/auth/me", "authenticated-user",
+        "monolith-rs256-jwks", None, "blocked",
+    ),
+    "identity.post.auth-demo": (
+        "POST", "/api/v1/identity/auth/demo", "unknown",
+        "undecided-fail-closed", None, "blocked",
+    ),
+    "identity.get.users": (
+        "GET", "/api/v1/identity/users", "permission-specific-admin-operator",
+        "monolith-rs256-jwks", "admin:users:read", "blocked",
+    ),
+    "identity.post.users": (
+        "POST", "/api/v1/identity/users", "permission-specific-admin-operator",
+        "monolith-rs256-jwks", "admin:users:create", "blocked",
+    ),
+    "identity.get.user": (
+        "GET", "/api/v1/identity/users/{id}",
+        "permission-specific-admin-operator", "monolith-rs256-jwks",
+        "admin:users:read", "blocked",
+    ),
+    "identity.put.user": (
+        "PUT", "/api/v1/identity/users/{id}",
+        "permission-specific-admin-operator", "monolith-rs256-jwks",
+        "admin:users:update", "blocked",
+    ),
+    "identity.delete.user": (
+        "DELETE", "/api/v1/identity/users/{id}",
+        "permission-specific-admin-operator", "monolith-rs256-jwks",
+        "admin:users:delete", "blocked",
+    ),
+}
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -344,6 +408,47 @@ def validate(
         if not isinstance(routes, list) or not routes:
             errors.append(f"{context}.routes must be a non-empty array")
             continue
+
+        if name == "identity":
+            if source != EXPECTED_IDENTITY_SOURCE:
+                errors.append(
+                    "identity.source must resolve the direct-service router/classifier in "
+                    + EXPECTED_IDENTITY_SOURCE
+                )
+            if service.get("routerAnchor") != EXPECTED_IDENTITY_ROUTER_ANCHOR:
+                errors.append("identity.routerAnchor must pin build_router in services/identity/src/lib.rs")
+            if source_text:
+                for identity_anchor in EXPECTED_IDENTITY_SOURCE_ANCHORS:
+                    if identity_anchor not in source_text:
+                        errors.append(
+                            "identity direct-service router/classifier anchor missing: "
+                            + repr(identity_anchor)
+                        )
+            identity_by_id = {
+                route.get("id"): route
+                for route in routes
+                if isinstance(route, dict) and isinstance(route.get("id"), str)
+            }
+            if set(identity_by_id) != set(EXPECTED_IDENTITY_ROUTES):
+                errors.append("identity routes must preserve exactly the canonical 11 route ids")
+            for identity_id, expected in EXPECTED_IDENTITY_ROUTES.items():
+                identity_route = identity_by_id.get(identity_id)
+                if not isinstance(identity_route, dict):
+                    continue
+                observed = identity_route.get("observed")
+                actual = (
+                    identity_route.get("method"),
+                    identity_route.get("path"),
+                    identity_route.get("classification"),
+                    identity_route.get("identitySource"),
+                    identity_route.get("requiredPermission"),
+                    observed.get("status") if isinstance(observed, dict) else None,
+                )
+                if actual != expected:
+                    errors.append(
+                        f"{identity_id}: strict identity boundary drift; "
+                        f"expected {expected!r}, found {actual!r}"
+                    )
 
         for route_index, route in enumerate(routes):
             route_context = f"{name}.routes[{route_index}]"
@@ -631,6 +736,58 @@ if not any(
     raise SystemExit("validator self-test failed: cross-owner mutation was accepted")
 self_tests += 1
 
+legacy_identity_source = copy.deepcopy(doc)
+identity_service = next(
+    service for service in legacy_identity_source["services"]
+    if service.get("name") == "identity"
+)
+identity_service["source"] = "services/identity/src/main.rs"
+if not any(
+    "identity.source must resolve" in error
+    for error in validate(legacy_identity_source, check_sources=False)
+):
+    raise SystemExit("validator self-test failed: legacy identity source was accepted")
+self_tests += 1
+
+enabled_lifecycle = copy.deepcopy(doc)
+challenge = next(
+    route for _, route in flatten_routes(enabled_lifecycle)
+    if route.get("id") == "identity.post.auth-challenge"
+)
+challenge["observed"]["status"] = "aligned"
+if not any(
+    "strict identity boundary drift" in error
+    for error in validate(enabled_lifecycle, check_sources=False)
+):
+    raise SystemExit("validator self-test failed: enabled identity lifecycle was accepted")
+self_tests += 1
+
+wildcard_identity_permission = copy.deepcopy(doc)
+read_users = next(
+    route for _, route in flatten_routes(wildcard_identity_permission)
+    if route.get("id") == "identity.get.users"
+)
+read_users["requiredPermission"] = "admin:users:*"
+if not any(
+    "strict identity boundary drift" in error
+    for error in validate(wildcard_identity_permission, check_sources=False)
+):
+    raise SystemExit("validator self-test failed: wildcard identity permission was accepted")
+self_tests += 1
+
+legacy_identity_anchor = copy.deepcopy(doc)
+identity_service = next(
+    service for service in legacy_identity_anchor["services"]
+    if service.get("name") == "identity"
+)
+identity_service["routerAnchor"] = "let app = Router::new()"
+if not any(
+    "identity.routerAnchor must pin build_router" in error
+    for error in validate(legacy_identity_anchor, check_sources=False)
+):
+    raise SystemExit("validator self-test failed: legacy identity router anchor was accepted")
+self_tests += 1
+
 summary = doc["inventorySummary"]
 print("service authorization fixture integrity: PASS")
 print("runtime authorization / production readiness: NOT PROVEN")
@@ -652,5 +809,5 @@ print(
         for name, count in sorted(summary["byObservedStatus"].items())
     )
 )
-print(f"validator-negative-self-tests={self_tests}/3")
+print(f"validator-negative-self-tests={self_tests}/7")
 PY

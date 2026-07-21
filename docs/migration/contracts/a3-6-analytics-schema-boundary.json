@@ -1,0 +1,162 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A3.6-analytics-schema-boundary",
+  "purpose": "offline-static-analytics-schema-boundary-only",
+  "productionReady": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "scope": {
+    "service": "services/analytics",
+    "database": "epsx_analytics",
+    "schema": "public",
+    "table": "events",
+    "status": "partial"
+  },
+  "safety": {
+    "deploymentAuthorized": false,
+    "databaseAccessAuthorized": false,
+    "migrationExecutionAuthorized": false,
+    "networkAccessAuthorized": false,
+    "runtimeMutationAuthorized": false,
+    "readinessMeaning": "Integrity proves source and migration bytes only; it is not an upgrade, adoption, or live database pass."
+  },
+  "runtimeBoundary": {
+    "rustRoot": "services/analytics",
+    "scannerFindingBefore": 1,
+    "scannerFindingAfter": 0,
+    "removedAnchor": "CREATE TABLE IF NOT EXISTS events (",
+    "compatibilityQueryConstant": "ANALYTICS_SCHEMA_COMPATIBILITY_QUERY",
+    "compatibilityFunction": "verify_schema_compatibility",
+    "compatibilityQueryBytes": 2743,
+    "compatibilityQuerySha256": "12b087199aa864aab033a701b089b04c3d9b686476d3af806435ea10750114c0",
+    "qualifiedEventsRelation": "public.events",
+    "qualifiedEventsSqlOccurrences": 7,
+    "queryRequiredAnchors": [
+      "WITH expected_columns (",
+      "LEFT JOIN information_schema.columns AS actual",
+      "COALESCE(\n            CASE expected.default_kind",
+      "SELECT COUNT(*) = 6",
+      "FROM pg_catalog.pg_constraint AS constraint_record",
+      "to_regclass('public.events') IS NOT NULL"
+    ],
+    "mainSequence": [
+      "sqlx::PgPool::connect(&args.database_url)",
+      "verify_schema_compatibility(&db)",
+      "tokio::net::TcpListener::bind(addr)",
+      "axum::serve(listener, app)"
+    ]
+  },
+  "migrationRoot": {
+    "path": "services/analytics/migrations",
+    "runner": null,
+    "transactionOwner": "future-reviewed-runner",
+    "orderedMigrations": [
+      {
+        "version": "20260722000000",
+        "path": "services/analytics/migrations/20260722000000_create_events.sql",
+        "bytes": 260,
+        "sha256": "03a154e1d8761e412face94c4cd848616e9e2c8ca43d8d5ffb44c52701c2e7dd",
+        "guard": "CREATE TABLE IF NOT EXISTS public.events ("
+      }
+    ]
+  },
+  "requiredColumns": [
+    {
+      "ordinal": 1,
+      "name": "id",
+      "sqlAnchor": "id UUID PRIMARY KEY DEFAULT gen_random_uuid(),"
+    },
+    {
+      "ordinal": 2,
+      "name": "user_id",
+      "sqlAnchor": "user_id UUID,"
+    },
+    {
+      "ordinal": 3,
+      "name": "event_name",
+      "sqlAnchor": "event_name VARCHAR(100) NOT NULL,"
+    },
+    {
+      "ordinal": 4,
+      "name": "properties_json",
+      "sqlAnchor": "properties_json JSONB DEFAULT '{}',"
+    },
+    {
+      "ordinal": 5,
+      "name": "chain_id",
+      "sqlAnchor": "chain_id VARCHAR(10),"
+    },
+    {
+      "ordinal": 6,
+      "name": "created_at",
+      "sqlAnchor": "created_at TIMESTAMPTZ DEFAULT NOW()"
+    }
+  ],
+  "isolatedScannerDelta": {
+    "runtimeRustDdlFindings": {
+      "before": 39,
+      "after": 38,
+      "delta": -1
+    },
+    "actionableFindings": {
+      "before": 33,
+      "after": 32,
+      "delta": -1
+    },
+    "analyticsFindings": {
+      "before": 1,
+      "after": 0,
+      "delta": -1
+    },
+    "reviewedExceptions": {
+      "before": 6,
+      "after": 6,
+      "delta": 0
+    },
+    "status": "isolated-projection-only-canonical-rebaseline-owned-elsewhere"
+  },
+  "nonClaims": [
+    "The legacy UUID user_id column does not provide canonical wallet attribution.",
+    "Event counts do not provide authoritative subscription or revenue values.",
+    "A guarded fresh-schema file does not prove safe baseline adoption of an existing table.",
+    "Static query inspection does not prove compatibility against a live database."
+  ],
+  "blockers": [
+    {
+      "id": "B01",
+      "category": "migration-runner",
+      "status": "blocked",
+      "summary": "No reviewed runner discovers, orders, records, or executes the analytics migration root."
+    },
+    {
+      "id": "B02",
+      "category": "baseline-adoption",
+      "status": "blocked",
+      "summary": "No safe version-ledger adoption flow for an already matching deployed events table has been designed or proven."
+    },
+    {
+      "id": "B03",
+      "category": "populated-upgrade",
+      "status": "blocked",
+      "summary": "No populated source-version upgrade fixture has executed this migration and preserved rows."
+    },
+    {
+      "id": "B04",
+      "category": "reconciliation",
+      "status": "blocked",
+      "summary": "No pre/post row-count, constraint, or semantic reconciliation has been executed."
+    },
+    {
+      "id": "B05",
+      "category": "concurrent-startup",
+      "status": "blocked",
+      "summary": "No concurrent migration and service-startup ordering test has run."
+    },
+    {
+      "id": "B06",
+      "category": "live-database",
+      "status": "blocked",
+      "summary": "Neither the migration nor the read-only compatibility check has run against a live database."
+    }
+  ]
+}

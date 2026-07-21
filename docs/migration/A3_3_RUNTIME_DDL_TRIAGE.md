@@ -10,15 +10,15 @@ canonical remediation assignment remains A3.6 in the upstream risks.
 ## Fixed evidence boundary
 
 - Upstream contract SHA-256:
-  `47faa9926396f2169e8691a0bb1888b4d80c6c71eccb997ffed02918ea6486bc`
-- Tracked Rust files: 1,123
-- Scanner findings: 39
+  `6b4c3779cd5fcb8c9539bf071fad55c14eb31fdf7b9a567ae7a86ffaf25f58d1`
+- Tracked Rust files: 1,124
+- Scanner findings: 37
 - Exact reviewed exceptions: 6
-- Actionable findings: 33, all `blocked`
+- Actionable findings: 31, all `blocked`
 - Production ready: `false`
 - Readiness result: `STOP`
 
-The triage contract enumerates all 39 findings in the scanner's stable order with the exact
+The triage contract enumerates all 37 findings in the scanner's stable order with the exact
 file, line, normalized DDL kind, classification, reviewed-exception ID (when present), service
 group, boot-time risk group, and blocked status. The upstream scanner digest also pins the
 normalized source text without duplicating that text here.
@@ -46,7 +46,7 @@ closed.
 
 | Classification | Findings | Readiness meaning |
 |---|---:|---|
-| Actionable | 33 | Remains blocked |
+| Actionable | 31 | Remains blocked |
 | Exact reviewed exception | 6 | Not runtime application DDL; does not prove remediation |
 
 ### DDL kind
@@ -56,38 +56,36 @@ closed.
 | `CREATE DATABASE` | 3 |
 | `CREATE INDEX` | 10 |
 | `CREATE SCHEMA` | 4 |
-| `CREATE TABLE` | 21 |
+| `CREATE TABLE` | 19 |
 | `DROP TABLE` | 1 |
 
 The six reviewed exceptions account for one `DROP TABLE`, four `CREATE SCHEMA`, and one
-`CREATE TABLE` lexical match. The remaining 33 actionable findings account for three
-`CREATE DATABASE`, ten `CREATE INDEX`, and twenty `CREATE TABLE` matches.
+`CREATE TABLE` lexical match. The remaining 31 actionable findings account for three
+`CREATE DATABASE`, ten `CREATE INDEX`, and eighteen `CREATE TABLE` matches.
 
 ### Boot-time risk triage
 
 | Evidence-backed group | Findings | Interpretation |
 |---|---:|---|
-| `service-startup-schema-mutation` | 30 | SQL in the eight services named by upstream `runtime.service-schema-ddl` |
+| `service-startup-schema-mutation` | 28 | SQL in the six services still named by upstream `runtime.service-schema-ddl` evidence |
 | `runtime-database-bootstrap` | 1 | `CREATE DATABASE` in the tracked migration binary |
 | `lexical-match-not-schema-ddl` | 2 | “create database pool” error strings; still actionable because they are not upstream exceptions |
 | `reviewed-exception-not-runtime-ddl` | 6 | Exact test-only exceptions already reviewed upstream |
 
 Lexical triage never silently creates an exception. The two pool-message matches therefore
-remain in the 33 actionable findings until the canonical migration-safety contract is changed
+remain in the 31 actionable findings until the canonical migration-safety contract is changed
 through its explicit exception review process.
 
 ### Service group
 
 | Service group | Findings | Actionable | Reviewed exceptions |
 |---|---:|---:|---:|
-| analytics | 1 | 1 | 0 |
 | backend-blockchain-monitor | 1 | 1 | 0 |
 | backend-main | 1 | 1 | 0 |
 | backend-migrate | 1 | 1 | 0 |
 | backend-security-test | 1 | 0 | 1 |
 | backend-smoke-test | 5 | 0 | 5 |
 | content | 4 | 4 | 0 |
-| identity | 1 | 1 | 0 |
 | indexer | 5 | 5 | 0 |
 | notification | 4 | 4 | 0 |
 | pay | 10 | 10 | 0 |
@@ -104,9 +102,7 @@ through its explicit exception review process.
 | `apps/backend/src/main.rs` | 1 |
 | `apps/backend/tests/wave11_smoke.rs` | 2 |
 | `apps/backend/tests/wave12_smoke.rs` | 3 |
-| `services/analytics/src/lib.rs` | 1 |
 | `services/content/src/main.rs` | 4 |
-| `services/identity/src/main.rs` | 1 |
 | `services/indexer/src/main.rs` | 5 |
 | `services/notification/src/main.rs` | 4 |
 | `services/pay/src/db.rs` | 10 |
@@ -129,6 +125,12 @@ These requirements are copied from the checksum-pinned upstream risk objects and
 for byte at the field level. This triage adds no priority, dependency, database-state claim, or
 forward SQL.
 
+The canonical inventory now also records `services/analytics/migrations` as a partial manual
+migration root with `runner: null`. That classification acknowledges the tracked additive SQL
+without claiming runner wiring, deployed-baseline adoption, source-version upgrade, or
+reconciliation proof. Removing the analytics and identity startup DDL findings therefore does
+not align either upstream A3.6 risk.
+
 ## Offline verification
 
 ```bash
@@ -147,4 +149,4 @@ scripts/migration/verify-a3-3-runtime-ddl-triage.ts --readiness
 ```
 
 An integrity pass is expected. A readiness pass is not: `--readiness` always exits `2` while the
-33 actionable findings are blocked and executable database proof is absent.
+31 actionable findings are blocked and executable database proof is absent.

@@ -1,5 +1,7 @@
 use clap::{Parser, ValueEnum};
-use epsx_analytics::{build_auth_verifier, build_router, init_schema, SqlAnalyticsStore};
+use epsx_analytics::{
+    build_auth_verifier, build_router, verify_schema_compatibility, SqlAnalyticsStore,
+};
 use metrics_exporter_prometheus::PrometheusBuilder;
 use std::{net::SocketAddr, sync::Arc};
 
@@ -46,9 +48,9 @@ async fn main() {
     let db = sqlx::PgPool::connect(&args.database_url)
         .await
         .expect("Failed to connect to database");
-    init_schema(&db)
+    verify_schema_compatibility(&db)
         .await
-        .expect("Failed to initialize analytics schema");
+        .expect("analytics schema must be compatible before serving");
     let _prometheus_handle = PrometheusBuilder::new()
         .install_recorder()
         .expect("Failed to install Prometheus recorder");

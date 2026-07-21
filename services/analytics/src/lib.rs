@@ -89,19 +89,94 @@ impl SqlAnalyticsStore {
     }
 }
 
-pub async fn init_schema(db: &sqlx::PgPool) -> Result<(), sqlx::Error> {
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS events (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            user_id UUID,
-            event_name VARCHAR(100) NOT NULL,
-            properties_json JSONB DEFAULT '{}',
-            chain_id VARCHAR(10),
-            created_at TIMESTAMPTZ DEFAULT NOW()
-        )",
+const ANALYTICS_SCHEMA_COMPATIBILITY_QUERY: &str = r#"
+WITH expected_columns (
+    column_name,
+    data_type,
+    udt_name,
+    is_nullable,
+    character_maximum_length,
+    default_kind
+) AS (
+    VALUES
+        ('id', 'uuid', 'uuid', 'NO', NULL::bigint, 'uuid'),
+        ('user_id', 'uuid', 'uuid', 'YES', NULL::bigint, 'none'),
+        ('event_name', 'character varying', 'varchar', 'NO', 100::bigint, 'none'),
+        ('properties_json', 'jsonb', 'jsonb', 'YES', NULL::bigint, 'empty_json'),
+        ('chain_id', 'character varying', 'varchar', 'YES', 10::bigint, 'none'),
+        ('created_at', 'timestamp with time zone', 'timestamptz', 'YES', NULL::bigint, 'now')
+),
+column_compatibility AS (
+    SELECT bool_and(
+        actual.column_name IS NOT NULL
+        AND actual.data_type = expected.data_type
+        AND actual.udt_name = expected.udt_name
+        AND actual.is_nullable = expected.is_nullable
+        AND actual.character_maximum_length IS NOT DISTINCT FROM expected.character_maximum_length
+        AND COALESCE(
+            CASE expected.default_kind
+                WHEN 'uuid' THEN actual.column_default = 'gen_random_uuid()'
+                WHEN 'empty_json' THEN actual.column_default = '''{}''::jsonb'
+                WHEN 'now' THEN actual.column_default IN ('now()', 'CURRENT_TIMESTAMP')
+                ELSE actual.column_default IS NULL
+            END,
+            false
+        )
+    ) AS compatible
+    FROM expected_columns AS expected
+    LEFT JOIN information_schema.columns AS actual
+      ON actual.table_schema = 'public'
+     AND actual.table_name = 'events'
+     AND actual.column_name = expected.column_name
+),
+primary_key_compatibility AS (
+    SELECT EXISTS (
+        SELECT 1
+        FROM pg_catalog.pg_constraint AS constraint_record
+        JOIN pg_catalog.pg_class AS table_record
+          ON table_record.oid = constraint_record.conrelid
+        JOIN pg_catalog.pg_namespace AS namespace_record
+          ON namespace_record.oid = table_record.relnamespace
+        JOIN pg_catalog.pg_attribute AS attribute_record
+          ON attribute_record.attrelid = table_record.oid
+         AND attribute_record.attnum = constraint_record.conkey[1]
+        WHERE namespace_record.nspname = 'public'
+          AND table_record.relname = 'events'
+          AND constraint_record.contype = 'p'
+          AND cardinality(constraint_record.conkey) = 1
+          AND attribute_record.attname = 'id'
+    ) AS compatible
+)
+SELECT
+    to_regclass('public.events') IS NOT NULL
+    AND (
+        SELECT COUNT(*) = 6
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'events'
     )
-    .execute(db)
-    .await?;
+    AND COALESCE((SELECT compatible FROM column_compatibility), false)
+    AND (SELECT compatible FROM primary_key_compatibility)
+"#;
+
+#[derive(Debug, Error)]
+pub enum AnalyticsSchemaError {
+    #[error("analytics schema compatibility query failed")]
+    Query(#[source] sqlx::Error),
+    #[error(
+        "analytics schema is incompatible; run the reviewed analytics migration before startup"
+    )]
+    Incompatible,
+}
+
+pub async fn verify_schema_compatibility(db: &sqlx::PgPool) -> Result<(), AnalyticsSchemaError> {
+    let compatible = sqlx::query_scalar::<_, bool>(ANALYTICS_SCHEMA_COMPATIBILITY_QUERY)
+        .fetch_one(db)
+        .await
+        .map_err(AnalyticsSchemaError::Query)?;
+    if !compatible {
+        return Err(AnalyticsSchemaError::Incompatible);
+    }
     Ok(())
 }
 
@@ -121,7 +196,7 @@ impl AnalyticsStore for SqlAnalyticsStore {
             .clone()
             .unwrap_or_else(|| serde_json::json!({}));
         sqlx::query(
-            "INSERT INTO events (id, user_id, event_name, properties_json, chain_id) \
+            "INSERT INTO public.events (id, user_id, event_name, properties_json, chain_id) \
              VALUES ($1, $2, $3, $4, $5)",
         )
         .bind(id)
@@ -140,22 +215,24 @@ impl AnalyticsStore for SqlAnalyticsStore {
     }
 
     async fn list_events(&self) -> Result<serde_json::Value, AnalyticsStoreError> {
-        let events: Vec<Event> =
-            sqlx::query_as::<_, Event>("SELECT * FROM events ORDER BY created_at DESC LIMIT 100")
-                .fetch_all(&self.db)
-                .await
-                .map_err(|_| AnalyticsStoreError)?;
+        let events: Vec<Event> = sqlx::query_as::<_, Event>(
+            "SELECT * FROM public.events ORDER BY created_at DESC LIMIT 100",
+        )
+        .fetch_all(&self.db)
+        .await
+        .map_err(|_| AnalyticsStoreError)?;
         serde_json::to_value(events).map_err(|_| AnalyticsStoreError)
     }
 
     async fn metric(&self, metric: &str) -> Result<serde_json::Value, AnalyticsStoreError> {
-        let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM events WHERE event_name = $1")
-            .bind(metric)
-            .fetch_one(&self.db)
-            .await
-            .map_err(|_| AnalyticsStoreError)?;
+        let count: (i64,) =
+            sqlx::query_as("SELECT COUNT(*) FROM public.events WHERE event_name = $1")
+                .bind(metric)
+                .fetch_one(&self.db)
+                .await
+                .map_err(|_| AnalyticsStoreError)?;
         let last_24h: (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM events WHERE event_name = $1 \
+            "SELECT COUNT(*) FROM public.events WHERE event_name = $1 \
              AND created_at >= NOW() - INTERVAL '24 hours'",
         )
         .bind(metric)
@@ -163,7 +240,7 @@ impl AnalyticsStore for SqlAnalyticsStore {
         .await
         .map_err(|_| AnalyticsStoreError)?;
         let unique_users: (Option<i64>,) = sqlx::query_as(
-            "SELECT COUNT(DISTINCT user_id) FROM events \
+            "SELECT COUNT(DISTINCT user_id) FROM public.events \
              WHERE event_name = $1 AND user_id IS NOT NULL",
         )
         .bind(metric)
@@ -180,13 +257,14 @@ impl AnalyticsStore for SqlAnalyticsStore {
     }
 
     async fn revenue(&self) -> Result<serde_json::Value, AnalyticsStoreError> {
-        let active_plans: (i64,) =
-            sqlx::query_as("SELECT COUNT(*) FROM events WHERE event_name = 'subscription.created'")
-                .fetch_one(&self.db)
-                .await
-                .map_err(|_| AnalyticsStoreError)?;
+        let active_plans: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM public.events WHERE event_name = 'subscription.created'",
+        )
+        .fetch_one(&self.db)
+        .await
+        .map_err(|_| AnalyticsStoreError)?;
         let last_30d: (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM events WHERE event_name = 'subscription.created' \
+            "SELECT COUNT(*) FROM public.events WHERE event_name = 'subscription.created' \
              AND created_at >= NOW() - INTERVAL '30 days'",
         )
         .fetch_one(&self.db)

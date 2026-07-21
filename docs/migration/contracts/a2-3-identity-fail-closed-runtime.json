@@ -1,0 +1,238 @@
+{
+  "schemaVersion": 1,
+  "artifact": "a2-3-identity-fail-closed-runtime",
+  "contractId": "A2.3i-identity-direct-service-fail-closed-runtime",
+  "purpose": "hermetic-fail-closed-runtime-evidence",
+  "productionReady": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "safety": {
+    "databaseAccess": false,
+    "redisAccess": false,
+    "networkAccess": false,
+    "jwksAccess": false,
+    "serviceExecution": false,
+    "browserExecution": false,
+    "containerExecution": false,
+    "deployment": false,
+    "migrationExecution": false
+  },
+  "authority": {
+    "contract": "docs/migration/contracts/a2-3-identity-authorization.json",
+    "sha256": "7b71f7adda0767bea01aabb8d9ff8dd0a0ed6d3c9982375fce16c78ae74b3027",
+    "contractId": "A2.3h-identity-direct-service-authorization-audit",
+    "interpretation": "A2.3h authorizes a strict fail-closed boundary only; it does not authorize identity lifecycle or persistence behavior."
+  },
+  "runtimeEvidence": [
+    {
+      "file": "services/identity/src/lib.rs",
+      "anchors": [
+        "pub fn build_router(verifier: Arc<dyn AccessTokenVerifier>) -> Router",
+        "AccessPolicy::UnsafeLifecycle | AccessPolicy::Blocked",
+        "principal.audience != FRONTEND_AUDIENCE && principal.audience != ADMIN_AUDIENCE",
+        ".any(|permission| permission == required)",
+        "return StatusCode::NOT_FOUND.into_response();"
+      ]
+    },
+    {
+      "file": "services/identity/src/main.rs",
+      "anchors": [
+        "let verifier = build_auth_verifier",
+        "let app = build_router(verifier);",
+        "identity service listening with lifecycle routes disabled"
+      ]
+    },
+    {
+      "file": "services/identity/Cargo.toml",
+      "anchors": [
+        "epsx-service-auth = { path = \"../../shared/rust/epsx-service-auth\" }",
+        "reqwest.workspace = true",
+        "thiserror.workspace = true"
+      ]
+    }
+  ],
+  "sourceTopology": {
+    "runtimePins": [
+      {
+        "file": "services/identity/src/lib.rs",
+        "endMarker": "#[cfg(test)]",
+        "bytes": 8391,
+        "sha256": "7f91f6b14bbe3b7117f91ebdb784c97a9f29129514a36ac74a097b66b21ae06d"
+      },
+      {
+        "file": "services/identity/src/main.rs",
+        "endMarker": null,
+        "bytes": 1891,
+        "sha256": "9f435f6949f66a14940debc46ad7ea7afd90ced65a095433341cba1d8c40b6a4"
+      },
+      {
+        "file": "services/identity/Cargo.toml",
+        "endMarker": null,
+        "bytes": 526,
+        "sha256": "db40a72812c755d82ff10df6937eb39793bfc972b8a6a1713d8299e983fb7705"
+      }
+    ],
+    "routerPaths": [
+      "/health",
+      "/api/v1/identity/auth/challenge",
+      "/api/v1/identity/auth/siwe",
+      "/api/v1/identity/auth/refresh",
+      "/api/v1/identity/auth/me",
+      "/api/v1/identity/auth/demo",
+      "/api/v1/identity/users",
+      "/api/v1/identity/users/{id}"
+    ],
+    "routerFragments": [
+      ".route(\"/health\", get(health))",
+      ".route(\"/api/v1/identity/auth/challenge\", post(not_found))",
+      ".route(\"/api/v1/identity/auth/siwe\", post(not_found))",
+      ".route(\"/api/v1/identity/auth/refresh\", post(not_found))",
+      ".route(\"/api/v1/identity/auth/me\", get(not_found))",
+      ".route(\"/api/v1/identity/auth/demo\", post(not_found))",
+      ".route(\"/api/v1/identity/users\", get(not_found).post(not_found))",
+      ".route( \"/api/v1/identity/users/{id}\", get(not_found).put(not_found).delete(not_found), )",
+      ".fallback(not_found)",
+      "protect_router(router, verifier)"
+    ],
+    "anonymousPolicy": "(&Method::GET | &Method::HEAD, \"/health\") => AccessPolicy::Public"
+  },
+  "statusCounts": {
+    "boundaryAligned": 11,
+    "functionalityAligned": 1,
+    "functionalityBlocked": 10
+  },
+  "routes": [
+    {
+      "id": "identity.get.health",
+      "methods": ["GET", "HEAD"],
+      "path": "/health",
+      "boundary": "public-strip-authorization-and-spoofable-identity-headers",
+      "functionality": "aligned",
+      "audience": "none-public",
+      "permission": null
+    },
+    {
+      "id": "identity.post.auth-challenge",
+      "methods": ["POST"],
+      "path": "/api/v1/identity/auth/challenge",
+      "boundary": "404-before-auth-body-redis-or-handler",
+      "functionality": "blocked",
+      "audience": "none-disabled",
+      "permission": null
+    },
+    {
+      "id": "identity.post.auth-siwe",
+      "methods": ["POST"],
+      "path": "/api/v1/identity/auth/siwe",
+      "boundary": "404-before-auth-body-signature-redis-sql-or-handler",
+      "functionality": "blocked",
+      "audience": "none-disabled",
+      "permission": null
+    },
+    {
+      "id": "identity.post.auth-refresh",
+      "methods": ["POST"],
+      "path": "/api/v1/identity/auth/refresh",
+      "boundary": "404-before-auth-body-credential-store-or-handler",
+      "functionality": "blocked",
+      "audience": "none-disabled",
+      "permission": null
+    },
+    {
+      "id": "identity.get.auth-me",
+      "methods": ["GET"],
+      "path": "/api/v1/identity/auth/me",
+      "boundary": "canonical-access-token-frontend-or-admin-then-404-before-identity-store",
+      "functionality": "blocked",
+      "audience": "epsx-frontend-or-epsx-admin-exactly-one",
+      "permission": null
+    },
+    {
+      "id": "identity.post.auth-demo",
+      "methods": ["POST"],
+      "path": "/api/v1/identity/auth/demo",
+      "boundary": "404-before-auth-body-token-sql-or-handler",
+      "functionality": "blocked",
+      "audience": "none-disabled",
+      "permission": null
+    },
+    {
+      "id": "identity.get.users",
+      "methods": ["GET"],
+      "path": "/api/v1/identity/users",
+      "boundary": "admin-literal-permission-then-404-before-store",
+      "functionality": "blocked",
+      "audience": "epsx-admin",
+      "permission": "admin:users:read"
+    },
+    {
+      "id": "identity.post.users",
+      "methods": ["POST"],
+      "path": "/api/v1/identity/users",
+      "boundary": "admin-literal-permission-then-404-before-body-or-store",
+      "functionality": "blocked",
+      "audience": "epsx-admin",
+      "permission": "admin:users:create"
+    },
+    {
+      "id": "identity.get.user",
+      "methods": ["GET"],
+      "path": "/api/v1/identity/users/{id}",
+      "boundary": "admin-literal-permission-then-404-before-selector-or-store",
+      "functionality": "blocked",
+      "audience": "epsx-admin",
+      "permission": "admin:users:read"
+    },
+    {
+      "id": "identity.put.user",
+      "methods": ["PUT"],
+      "path": "/api/v1/identity/users/{id}",
+      "boundary": "admin-literal-permission-then-404-before-selector-body-or-store",
+      "functionality": "blocked",
+      "audience": "epsx-admin",
+      "permission": "admin:users:update"
+    },
+    {
+      "id": "identity.delete.user",
+      "methods": ["DELETE"],
+      "path": "/api/v1/identity/users/{id}",
+      "boundary": "admin-literal-permission-then-404-before-selector-or-store",
+      "functionality": "blocked",
+      "audience": "epsx-admin",
+      "permission": "admin:users:delete"
+    }
+  ],
+  "invariants": [
+    "only exact GET and HEAD health are anonymous and dispatched",
+    "public health strips Authorization and spoofable identity headers",
+    "unsafe challenge SIWE refresh and demo shapes return 404 before authentication body or handler",
+    "wrong method path arity encoding reserved selector and unknown shapes return 404 before verification",
+    "auth me consumes only the shared canonical access verifier",
+    "auth me accepts only exact frontend or admin audience then stays hidden",
+    "user routes require exact admin audience",
+    "user routes require their literal existing permission and reject wildcard substitution",
+    "user routes stay hidden before selector body SQL or mutation semantics",
+    "production issuer and JWKS configuration requires HTTPS and nonlocal hosts"
+  ],
+  "removedUnsafeStartup": [
+    "defaultable candidate shared-secret JWT",
+    "runtime CREATE TABLE",
+    "Redis pool for disabled lifecycle routes",
+    "EPSX_BOOTSTRAP_ADMIN startup mutation",
+    "environment-enabled demo token issuance"
+  ],
+  "residualStopBlockers": [
+    "additive identity and session schema ownership",
+    "canonical wallet-address identity reconciliation",
+    "durable exact SIWE challenge storage",
+    "full SIWE message domain URI chain time address and nonce binding",
+    "atomic verify-then-consume nonce transition",
+    "canonical access-token issuer and key lifecycle",
+    "durable refresh session issuance and audience binding",
+    "atomic refresh rotation old-token rejection reuse response and revocation",
+    "transactional user administration and dependency effects",
+    "bounded throttled public request envelopes",
+    "source-compatible response error audit and redaction contracts",
+    "disposable integration shadow canary and rollback evidence"
+  ]
+}

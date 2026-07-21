@@ -58,7 +58,7 @@ export NO_PROXY="127.0.0.1,localhost,::1"
 unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
 
 summary=$(bun -e '
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 
 const [rootInput, contractInput] = process.argv.slice(1);
@@ -81,6 +81,10 @@ const parse = (path, label) => {
   try { return JSON.parse(readFileSync(path, "utf8")); }
   catch (error) { fail(`invalid ${label} JSON: ${error.message}`); }
 };
+const parseText = (content, label) => {
+  try { return JSON.parse(content); }
+  catch (error) { fail(`invalid ${label} JSON: ${error.message}`); }
+};
 const safeRelative = (value, label) => {
   if (typeof value !== "string" || !value || value.includes("\0") || value.includes("\\") || isAbsolute(value)) {
     fail(`unsafe evidence path for ${label}: ${JSON.stringify(value)}`);
@@ -93,15 +97,6 @@ const safeRelative = (value, label) => {
   const rel = relative(root, candidate);
   if (rel.startsWith("..") || isAbsolute(rel)) fail(`unsafe evidence path for ${label}: ${JSON.stringify(value)}`);
   return value;
-};
-const currentContent = (value, label) => {
-  const rel = safeRelative(value, label);
-  const candidate = resolve(root, rel);
-  if (!existsSync(candidate)) fail(`missing target evidence file for ${label}: ${rel}`);
-  const canonical = realpathSync(candidate);
-  const relCanonical = relative(root, canonical);
-  if (relCanonical.startsWith("..") || isAbsolute(relCanonical)) fail(`unsafe evidence path for ${label}: ${JSON.stringify(value)}`);
-  return readFileSync(canonical, "utf8");
 };
 const strings = (value, label) => {
   if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || !item)) fail(`${label} must be an array of non-empty strings`);
@@ -137,15 +132,22 @@ for (const item of source.evidence) {
   anchored(git("show", `${source.commit}:${file}`), item.anchors, `source ${item.id}`);
 }
 
-if (!Array.isArray(contract.targetEvidence) || contract.targetEvidence.length !== 6) fail("exactly six target evidence records are required");
-for (const item of contract.targetEvidence) {
+const target = contract.targetSnapshot;
+if (!target || target.ref !== "migration/dioxus-microservices" || target.commit !== "0cdd7ba1967d52e299000b7290873cd4d19dfd09") fail("invalid pinned target ref/commit");
+if (git("rev-parse", `${target.commit}^{commit}`) !== target.commit) fail("missing pinned target commit");
+if (typeof target.interpretation !== "string" || !target.interpretation.includes("do not describe current runtime status")) fail("target interpretation must remain historical and immutable");
+if (!Array.isArray(target.evidence) || target.evidence.length !== 6) fail("exactly six pinned target evidence records are required");
+for (const item of target.evidence) {
   if (!item || typeof item.id !== "string" || !/^[a-z][a-z0-9-]+$/.test(item.id) || evidenceIds.has(item.id)) fail(`invalid or duplicate evidence id: ${item?.id}`);
   evidenceIds.add(item.id);
-  anchored(currentContent(item.file, item.id), item.anchors, `target ${item.id}`);
+  const file = safeRelative(item.file, item.id);
+  if (!/^[0-9a-f]{40}$/.test(item.blob)) fail(`${item.id}: invalid target blob`);
+  if (git("rev-parse", `${target.commit}:${file}`) !== item.blob) fail(`${item.id}: stale target blob for ${file}`);
+  anchored(git("show", `${target.commit}:${file}`), item.anchors, `target ${item.id}`);
   if (typeof item.finding !== "string" || !item.finding) fail(`${item.id}: finding is required`);
 }
 
-const serviceContract = parse(resolve(root, "docs/migration/contracts/service-authorization.json"), "service authorization contract");
+const serviceContract = parseText(git("show", `${target.commit}:docs/migration/contracts/service-authorization.json`), "target snapshot service authorization contract");
 const identityService = serviceContract.services?.find((service) => service.name === "identity");
 if (!identityService || !Array.isArray(identityService.routes) || identityService.routes.length !== 11) fail("A2 service contract must expose exactly eleven identity routes");
 if (!Array.isArray(contract.routes) || contract.routes.length !== 11) fail("identity audit must contain exactly eleven routes");
@@ -213,7 +215,7 @@ const report = {
   schemaVersion: 1,
   contractId: contract.contractId,
   source: { ref: source.ref, commit: source.commit, evidence: source.evidence.length },
-  targetEvidence: contract.targetEvidence.length,
+  targetSnapshot: { ref: target.ref, commit: target.commit, evidence: target.evidence.length },
   routeCount: contract.routes.length,
   statuses,
   routes: contract.routes.map((route) => ({ id: route.id, method: route.method, path: route.path, status: route.status, audience: route.audience, requiredPermission: route.requiredPermission, blockerCount: route.blockerIds.length })),
@@ -232,7 +234,7 @@ if [ "$mode" = "report" ]; then
 fi
 
 if [ "$mode" = "integrity" ]; then
-  echo "identity-authorization: PASS integrity (7 source pins; 6 target anchors; 11 routes: 0 aligned, 1 partial, 10 blocked; 10 invariants; 20 STOP blockers)"
+  echo "identity-authorization: PASS integrity (7 source pins; 6 immutable target pins; 11 routes: 0 aligned, 1 partial, 10 blocked; 10 invariants; 20 STOP blockers)"
   echo "identity-authorization: LIMIT — no database, Redis, JWKS, service, browser, migration, deployment, or production readiness was proven"
   exit 0
 fi

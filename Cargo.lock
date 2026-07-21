@@ -915,12 +915,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "arcstr"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03918c3dbd7701a85c6b9887732e2921175f26c350b4563841d0958c21d57e6d"
-
-[[package]]
 name = "ark-ff"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1146,17 +1140,6 @@ dependencies = [
  "compression-core",
  "pin-project-lite",
  "tokio",
-]
-
-[[package]]
-name = "async-lock"
-version = "3.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "290f7f2596bd5b78a9fec8088ccd89180d7f9f55b94b0576823bbbdc72ee8311"
-dependencies = [
- "event-listener",
- "event-listener-strategy",
- "pin-project-lite",
 ]
 
 [[package]]
@@ -3039,31 +3022,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "421fe0f90f2ab22016f32a9881be5134fdd71c65298917084b0c7477cbc3856e"
 dependencies = [
  "async-trait",
- "deadpool-runtime 0.1.4",
+ "deadpool-runtime",
  "num_cpus",
  "retain_mut",
  "tokio",
-]
-
-[[package]]
-name = "deadpool"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "883466cb8db62725aee5f4a6011e8a5d42912b42632df32aad57fc91127c6e04"
-dependencies = [
- "deadpool-runtime 0.3.1",
- "num_cpus",
- "tokio",
-]
-
-[[package]]
-name = "deadpool-redis"
-version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bafa30c49dafe086d10116074e422ad7fc1c3cf554697e744a3ab112599ebd09"
-dependencies = [
- "deadpool 0.13.0",
- "redis 1.2.2",
 ]
 
 [[package]]
@@ -3071,15 +3033,6 @@ name = "deadpool-runtime"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "092966b41edc516079bdf31ec78a2e0588d1d0c08f78b91d8307215928642b2b"
-dependencies = [
- "tokio",
-]
-
-[[package]]
-name = "deadpool-runtime"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2657f61fb1dd8bf37a8d51093cc7cee4e77125b22f7753f49b289f831bec2bae"
 dependencies = [
  "tokio",
 ]
@@ -3190,7 +3143,7 @@ checksum = "acada1517534c92d3f382217b485db8a8638f111b0e3f2a2a8e26165050f77be"
 dependencies = [
  "async-trait",
  "bb8",
- "deadpool 0.9.5",
+ "deadpool",
  "diesel",
  "futures-util",
  "scoped-futures",
@@ -4087,7 +4040,7 @@ dependencies = [
  "chrono",
  "clap",
  "dashmap",
- "deadpool 0.9.5",
+ "deadpool",
  "diesel",
  "diesel-async",
  "diesel_migrations",
@@ -4109,7 +4062,7 @@ dependencies = [
  "md5",
  "once_cell",
  "rand 0.8.6",
- "redis 0.28.2",
+ "redis",
  "regex",
  "reqwest 0.11.27",
  "rsa",
@@ -4383,7 +4336,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "deadpool 0.9.5",
+ "deadpool",
  "diesel",
  "diesel-async",
  "epsx-contracts",
@@ -4415,7 +4368,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "epsx-kernel",
- "redis 0.28.2",
+ "redis",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
@@ -4480,27 +4433,17 @@ dependencies = [
 name = "epsx-identity"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "axum 0.8.9",
- "chrono",
  "clap",
- "deadpool-redis",
- "epsx-config",
- "epsx-crypto",
- "epsx-database",
- "epsx-events",
- "epsx-kernel",
  "epsx-observability",
- "redis 0.28.2",
- "serde",
+ "epsx-service-auth",
+ "reqwest 0.12.28",
  "serde_json",
- "siwe",
- "sqlx",
+ "thiserror 1.0.69",
  "tokio",
  "tower 0.5.3",
- "tower-http 0.5.2",
  "tracing",
- "tracing-subscriber",
- "uuid 1.23.3",
 ]
 
 [[package]]
@@ -4536,7 +4479,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "dashmap",
- "deadpool 0.9.5",
+ "deadpool",
  "diesel",
  "diesel-async",
  "epsx-crypto",
@@ -5203,16 +5146,6 @@ checksum = "e13b66accf52311f30a0db42147dadea9850cb48cd070028831ae5f5d4b856ab"
 dependencies = [
  "concurrent-queue",
  "parking",
- "pin-project-lite",
-]
-
-[[package]]
-name = "event-listener-strategy"
-version = "0.5.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8be9f3dfaaffdae2972880079a491a1a8bb7cbed0b8dd7a347f668b4150a3b93"
-dependencies = [
- "event-listener",
  "pin-project-lite",
 ]
 
@@ -8641,29 +8574,6 @@ dependencies = [
  "tokio-rustls 0.26.4",
  "tokio-util",
  "url",
-]
-
-[[package]]
-name = "redis"
-version = "1.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a12e6b5f4d8ef33944e833e2b1859ad478deab6e431d7337b30ee2efe21f7543"
-dependencies = [
- "arcstr",
- "async-lock",
- "bytes",
- "cfg-if",
- "combine",
- "futures-util",
- "itoa",
- "percent-encoding",
- "pin-project-lite",
- "ryu",
- "socket2 0.6.4",
- "tokio",
- "tokio-util",
- "url",
- "xxhash-rust",
 ]
 
 [[package]]

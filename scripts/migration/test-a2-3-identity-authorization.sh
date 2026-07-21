@@ -28,7 +28,7 @@ grep -q "10 blocked routes, 1 partial route, 20 STOP blockers" "$temp_dir/readin
 cmp "$temp_dir/report-one.json" "$temp_dir/report-two.json"
 bun -e '
 const report = await Bun.file(process.argv[1]).json();
-if (report.routeCount !== 11 || report.statuses.aligned !== 0 || report.statuses.partial !== 1 || report.statuses.blocked !== 10 || report.invariantCount !== 10 || report.blockerCount !== 20 || report.executionSteps !== 12 || report.productionReady !== false || report.readinessExit !== 3) process.exit(1);
+if (report.targetSnapshot?.ref !== "migration/dioxus-microservices" || report.targetSnapshot?.commit !== "0cdd7ba1967d52e299000b7290873cd4d19dfd09" || report.targetSnapshot?.evidence !== 6 || report.routeCount !== 11 || report.statuses.aligned !== 0 || report.statuses.partial !== 1 || report.statuses.blocked !== 10 || report.invariantCount !== 10 || report.blockerCount !== 20 || report.executionSteps !== 12 || report.productionReady !== false || report.readinessExit !== 3) process.exit(1);
 ' "$temp_dir/report-one.json"
 
 A23_IDENTITY_IN="$contract" A23_IDENTITY_OUT="$temp_dir/promoted.json" bun -e '
@@ -68,9 +68,33 @@ set -e
 [ "$stale_status" -eq 1 ] || { cat "$temp_dir/stale-source.out" >&2; exit 1; }
 grep -q "stale source blob" "$temp_dir/stale-source.out"
 
+A23_IDENTITY_IN="$contract" A23_IDENTITY_OUT="$temp_dir/stale-target-commit.json" bun -e '
+const value = await Bun.file(process.env.A23_IDENTITY_IN).json();
+value.targetSnapshot.commit = "0000000000000000000000000000000000000000";
+await Bun.write(process.env.A23_IDENTITY_OUT, `${JSON.stringify(value, null, 2)}\n`);
+'
+set +e
+"$verify" --mode integrity --contract "$temp_dir/stale-target-commit.json" >"$temp_dir/stale-target-commit.out" 2>&1
+target_commit_status=$?
+set -e
+[ "$target_commit_status" -eq 1 ] || { cat "$temp_dir/stale-target-commit.out" >&2; exit 1; }
+grep -q "invalid pinned target ref/commit" "$temp_dir/stale-target-commit.out"
+
+A23_IDENTITY_IN="$contract" A23_IDENTITY_OUT="$temp_dir/stale-target-blob.json" bun -e '
+const value = await Bun.file(process.env.A23_IDENTITY_IN).json();
+value.targetSnapshot.evidence[0].blob = "0000000000000000000000000000000000000000";
+await Bun.write(process.env.A23_IDENTITY_OUT, `${JSON.stringify(value, null, 2)}\n`);
+'
+set +e
+"$verify" --mode integrity --contract "$temp_dir/stale-target-blob.json" >"$temp_dir/stale-target-blob.out" 2>&1
+target_blob_status=$?
+set -e
+[ "$target_blob_status" -eq 1 ] || { cat "$temp_dir/stale-target-blob.out" >&2; exit 1; }
+grep -q "stale target blob" "$temp_dir/stale-target-blob.out"
+
 A23_IDENTITY_IN="$contract" A23_IDENTITY_OUT="$temp_dir/traversal.json" bun -e '
 const value = await Bun.file(process.env.A23_IDENTITY_IN).json();
-value.targetEvidence[0].file = "../outside";
+value.targetSnapshot.evidence[0].file = "../outside";
 await Bun.write(process.env.A23_IDENTITY_OUT, `${JSON.stringify(value, null, 2)}\n`);
 '
 set +e
@@ -106,4 +130,4 @@ set -e
 [ "$live_status" -eq 1 ] || { cat "$temp_dir/live.out" >&2; exit 1; }
 grep -q "never contacts databases, Redis, JWKS, or services" "$temp_dir/live.out"
 
-echo "identity authorization self-test: PASS (integrity=0, readiness-stop=3, deterministic=stable, status/permission/blob/path/blocker/prod/live tamper=1)"
+echo "identity authorization self-test: PASS (integrity=0, readiness-stop=3, deterministic=stable, status/permission/source-blob/target-commit/target-blob/path/blocker/prod/live tamper=1)"

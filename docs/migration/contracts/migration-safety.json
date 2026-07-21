@@ -16,6 +16,7 @@
     "root.analytics",
     "root.notifications",
     "root.payments",
+    "root.service-analytics",
     "root.archive",
     "root.backend-runner",
     "root.manual-runner",
@@ -57,6 +58,15 @@
       "runner": "apps/backend/diesel_payments.toml",
       "observed": {"status": "partial", "summary": "Active root exists, but source baseline history was deleted and the plans replica needs a manual initial copy."},
       "evidence": [{"ref": "worktree", "file": "apps/backend/diesel_payments.toml", "anchor": "dir = \"migrations/payments/\""}]
+    },
+    {
+      "id": "root.service-analytics",
+      "database": "analytics service/public",
+      "path": "services/analytics/migrations",
+      "kind": "manual-runner",
+      "runner": null,
+      "observed": {"status": "partial", "summary": "A tracked additive analytics service migration now exists, but no runner, deployed-baseline adoption, source-version upgrade, or reconciliation proof is wired."},
+      "evidence": [{"ref": "worktree", "file": "services/analytics/migrations/20260722000000_create_events.sql", "anchor": "CREATE TABLE IF NOT EXISTS public.events"}]
     },
     {
       "id": "root.archive",
@@ -276,11 +286,9 @@
       "dataSafetyInvariant": "Service startup must not mutate schema; schema changes run once through a versioned, observable migration job before application rollout.",
       "requiredRemediation": {"package": "A3.6", "mode": "additive-remediation", "summary": "Move all runtime CREATE/ALTER/DROP DDL into per-service versioned migrations and make services fail readiness when required versions are absent.", "requiredProof": ["runtime DDL scan at zero", "fresh and source-version upgrade tests", "concurrent-startup test"]},
       "dependencies": ["A2", "A3", "A13"],
-      "observed": {"status": "blocked", "summary": "Analytics, content, identity, indexer, notification, pay, subscription, and wallet services execute CREATE TABLE/INDEX during startup."},
+      "observed": {"status": "blocked", "summary": "Content, indexer, notification, pay, subscription, and wallet services still contain runtime CREATE TABLE/INDEX findings; exact test and lexical findings remain separately classified by the static scanner."},
       "evidence": [
-        {"ref": "worktree", "file": "services/analytics/src/lib.rs", "anchor": "CREATE TABLE IF NOT EXISTS events"},
         {"ref": "worktree", "file": "services/content/src/main.rs", "anchor": "CREATE TABLE IF NOT EXISTS pages"},
-        {"ref": "worktree", "file": "services/identity/src/main.rs", "anchor": "CREATE TABLE IF NOT EXISTS users"},
         {"ref": "worktree", "file": "services/indexer/src/main.rs", "anchor": "CREATE TABLE IF NOT EXISTS blocks"},
         {"ref": "worktree", "file": "services/notification/src/main.rs", "anchor": "CREATE TABLE IF NOT EXISTS notifications"},
         {"ref": "worktree", "file": "services/pay/src/db.rs", "anchor": "CREATE TABLE IF NOT EXISTS pay_intents"},
@@ -296,8 +304,9 @@
       "dataSafetyInvariant": "Every persisted service schema must have an immutable, ordered migration root and upgrade path from the deployed monolith state.",
       "requiredRemediation": {"package": "A3.6", "mode": "additive-remediation", "summary": "Create immutable migration roots for each persisted service, baseline existing schemas without recreating data, and wire a pre-rollout migration job.", "requiredProof": ["migration root inventory", "baseline adoption test on populated schemas", "upgrade idempotency test"]},
       "dependencies": ["A2", "A3", "A7", "A9", "A10", "A11", "A12"],
-      "observed": {"status": "blocked", "summary": "Service schema creation exists in Rust but no corresponding tracked service migration roots exist."},
+      "observed": {"status": "blocked", "summary": "Analytics has a tracked additive SQL root but no migration runner or populated-baseline adoption proof; the other persisted services still lack corresponding tracked service migration roots."},
       "evidence": [
+        {"ref": "worktree", "file": "services/analytics/migrations/20260722000000_create_events.sql", "anchor": "CREATE TABLE IF NOT EXISTS public.events"},
         {"ref": "worktree", "file": "services/pay/src/db.rs", "anchor": "Database init + schema migrations"},
         {"ref": "worktree", "file": "apps/backend/src/bin/migrate.rs", "anchor": "embed_migrations!(\"migrations/core\")"}
       ]
@@ -373,8 +382,8 @@
     }
   ],
   "staticScan": {
-    "migrationSql": {"trackedFiles": 166, "findings": 510, "sha256": "42ecabca57eef316e4f826b816136ff317df75278f8b36838b4f20bdb171eec9"},
-    "runtimeRustDdl": {"trackedFiles": 1123, "findings": 39, "sha256": "b381315d8480abb3b03ba515909477ace12e9c9cfb75d65ca97eaab40daf90e1"},
+    "migrationSql": {"trackedFiles": 167, "findings": 510, "sha256": "42ecabca57eef316e4f826b816136ff317df75278f8b36838b4f20bdb171eec9"},
+    "runtimeRustDdl": {"trackedFiles": 1124, "findings": 37, "sha256": "946b85dabbf5eaccd629c08f6fb3c0ac13f1e28643363359b9abfc050a3aa903"},
     "sourceDiff": {"changedPaths": 15, "sha256": "3528913dace61a0b974292d309fedda40ff3fec55c77f7f840ac67d6aa567ae2"},
     "reviewedExceptions": [
       {"id": "exception.runtime-test-sql-injection", "scope": "runtimeRustDdl", "file": "apps/backend/__test__/web3/web3_security_tests.rs", "anchor": "DROP TABLE wallet_permissions", "reason": "Test-only malicious input literal; it is not executed as schema DDL."},
