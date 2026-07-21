@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "purpose": "offline-static-runtime-ddl-triage-only",
+  "productionReady": false,
+  "upstream": {
+    "path": "docs/migration/contracts/migration-safety.json",
+    "sha256": "47faa9926396f2169e8691a0bb1888b4d80c6c71eccb997ffed02918ea6486bc",
+    "runtimeRustDdl": {
+      "trackedFiles": 1123,
+      "findings": 39,
+      "sha256": "b381315d8480abb3b03ba515909477ace12e9c9cfb75d65ca97eaab40daf90e1",
+      "reviewedExceptions": 6,
+      "actionable": 33
+    }
+  },
+  "statusPolicy": {
+    "actionableStatus": "blocked",
+    "readinessResult": "STOP",
+    "exceptionMeaning": "An exact reviewed exception from the checksum-pinned migration-safety contract; not an A3 remediation completion.",
+    "actionableMeaning": "A scanner finding without an exact reviewed exception; it remains blocked even when lexical triage indicates that a future reviewed exception may be appropriate."
+  },
+  "riskRequirements": [
+    {
+      "id": "runtime.service-schema-ddl",
+      "dataSafetyInvariant": "Service startup must not mutate schema; schema changes run once through a versioned, observable migration job before application rollout.",
+      "remediationPackage": "A3.6",
+      "remediationMode": "additive-remediation",
+      "summary": "Move all runtime CREATE/ALTER/DROP DDL into per-service versioned migrations and make services fail readiness when required versions are absent.",
+      "requiredProof": [
+        "runtime DDL scan at zero",
+        "fresh and source-version upgrade tests",
+        "concurrent-startup test"
+      ]
+    },
+    {
+      "id": "runtime.missing-service-migrations",
+      "dataSafetyInvariant": "Every persisted service schema must have an immutable, ordered migration root and upgrade path from the deployed monolith state.",
+      "remediationPackage": "A3.6",
+      "remediationMode": "additive-remediation",
+      "summary": "Create immutable migration roots for each persisted service, baseline existing schemas without recreating data, and wire a pre-rollout migration job.",
+      "requiredProof": [
+        "migration root inventory",
+        "baseline adoption test on populated schemas",
+        "upgrade idempotency test"
+      ]
+    }
+  ],
+  "expectedGroups": {
+    "classification": {
+      "actionable": 33,
+      "reviewed-exception": 6
+    },
+    "ddlKind": {
+      "CREATE DATABASE": 3,
+      "CREATE INDEX": 10,
+      "CREATE SCHEMA": 4,
+      "CREATE TABLE": 21,
+      "DROP TABLE": 1
+    },
+    "bootTimeRisk": {
+      "lexical-match-not-schema-ddl": 2,
+      "reviewed-exception-not-runtime-ddl": 6,
+      "runtime-database-bootstrap": 1,
+      "service-startup-schema-mutation": 30
+    },
+    "service": {
+      "analytics": 1,
+      "backend-blockchain-monitor": 1,
+      "backend-main": 1,
+      "backend-migrate": 1,
+      "backend-security-test": 1,
+      "backend-smoke-test": 5,
+      "content": 4,
+      "identity": 1,
+      "indexer": 5,
+      "notification": 4,
+      "pay": 10,
+      "subscription": 2,
+      "wallet": 3
+    },
+    "file": {
+      "apps/backend/__test__/web3/web3_security_tests.rs": 1,
+      "apps/backend/src/bin/blockchain_monitor.rs": 1,
+      "apps/backend/src/bin/migrate.rs": 1,
+      "apps/backend/src/main.rs": 1,
+      "apps/backend/tests/wave11_smoke.rs": 2,
+      "apps/backend/tests/wave12_smoke.rs": 3,
+      "services/analytics/src/lib.rs": 1,
+      "services/content/src/main.rs": 4,
+      "services/identity/src/main.rs": 1,
+      "services/indexer/src/main.rs": 5,
+      "services/notification/src/main.rs": 4,
+      "services/pay/src/db.rs": 10,
+      "services/subscription/src/main.rs": 2,
+      "services/wallet/src/main.rs": 3
+    }
+  },
+  "findings": [
+    {"id":"finding.001","file":"apps/backend/__test__/web3/web3_security_tests.rs","line":205,"ddlKind":"DROP TABLE","classification":"reviewed-exception","reviewedExceptionId":"exception.runtime-test-sql-injection","service":"backend-security-test","bootTimeRisk":"reviewed-exception-not-runtime-ddl","status":"blocked"},
+    {"id":"finding.002","file":"apps/backend/src/bin/blockchain_monitor.rs","line":84,"ddlKind":"CREATE DATABASE","classification":"actionable","reviewedExceptionId":null,"service":"backend-blockchain-monitor","bootTimeRisk":"lexical-match-not-schema-ddl","status":"blocked"},
+    {"id":"finding.003","file":"apps/backend/src/bin/migrate.rs","line":74,"ddlKind":"CREATE DATABASE","classification":"actionable","reviewedExceptionId":null,"service":"backend-migrate","bootTimeRisk":"runtime-database-bootstrap","status":"blocked"},
+    {"id":"finding.004","file":"apps/backend/src/main.rs","line":38,"ddlKind":"CREATE DATABASE","classification":"actionable","reviewedExceptionId":null,"service":"backend-main","bootTimeRisk":"lexical-match-not-schema-ddl","status":"blocked"},
+    {"id":"finding.005","file":"apps/backend/tests/wave11_smoke.rs","line":116,"ddlKind":"CREATE SCHEMA","classification":"reviewed-exception","reviewedExceptionId":"exception.runtime-wave11-smoke-schema","service":"backend-smoke-test","bootTimeRisk":"reviewed-exception-not-runtime-ddl","status":"blocked"},
+    {"id":"finding.006","file":"apps/backend/tests/wave11_smoke.rs","line":117,"ddlKind":"CREATE TABLE","classification":"reviewed-exception","reviewedExceptionId":"exception.runtime-wave11-smoke-table","service":"backend-smoke-test","bootTimeRisk":"reviewed-exception-not-runtime-ddl","status":"blocked"},
+    {"id":"finding.007","file":"apps/backend/tests/wave12_smoke.rs","line":129,"ddlKind":"CREATE SCHEMA","classification":"reviewed-exception","reviewedExceptionId":"exception.runtime-wave12-smoke-detect-present","service":"backend-smoke-test","bootTimeRisk":"reviewed-exception-not-runtime-ddl","status":"blocked"},
+    {"id":"finding.008","file":"apps/backend/tests/wave12_smoke.rs","line":135,"ddlKind":"CREATE SCHEMA","classification":"reviewed-exception","reviewedExceptionId":"exception.runtime-wave12-smoke-detect-legacy","service":"backend-smoke-test","bootTimeRisk":"reviewed-exception-not-runtime-ddl","status":"blocked"},
+    {"id":"finding.009","file":"apps/backend/tests/wave12_smoke.rs","line":139,"ddlKind":"CREATE SCHEMA","classification":"reviewed-exception","reviewedExceptionId":"exception.runtime-wave12-smoke-message","service":"backend-smoke-test","bootTimeRisk":"reviewed-exception-not-runtime-ddl","status":"blocked"},
+    {"id":"finding.010","file":"services/analytics/src/lib.rs","line":94,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"analytics","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.011","file":"services/content/src/main.rs","line":180,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"content","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.012","file":"services/content/src/main.rs","line":196,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"content","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.013","file":"services/content/src/main.rs","line":209,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"content","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.014","file":"services/content/src/main.rs","line":223,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"content","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.015","file":"services/identity/src/main.rs","line":79,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"identity","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.016","file":"services/indexer/src/main.rs","line":126,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"indexer","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.017","file":"services/indexer/src/main.rs","line":144,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"indexer","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.018","file":"services/indexer/src/main.rs","line":161,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"indexer","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.019","file":"services/indexer/src/main.rs","line":179,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"indexer","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.020","file":"services/indexer/src/main.rs","line":185,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"indexer","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.021","file":"services/notification/src/main.rs","line":166,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"notification","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.022","file":"services/notification/src/main.rs","line":183,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"notification","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.023","file":"services/notification/src/main.rs","line":203,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"notification","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.024","file":"services/notification/src/main.rs","line":208,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"notification","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.025","file":"services/pay/src/db.rs","line":32,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.026","file":"services/pay/src/db.rs","line":51,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.027","file":"services/pay/src/db.rs","line":70,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.028","file":"services/pay/src/db.rs","line":83,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.029","file":"services/pay/src/db.rs","line":94,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.030","file":"services/pay/src/db.rs","line":95,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.031","file":"services/pay/src/db.rs","line":96,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.032","file":"services/pay/src/db.rs","line":97,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.033","file":"services/pay/src/db.rs","line":98,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.034","file":"services/pay/src/db.rs","line":99,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.035","file":"services/subscription/src/main.rs","line":111,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"subscription","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.036","file":"services/subscription/src/main.rs","line":129,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"subscription","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.037","file":"services/wallet/src/main.rs","line":164,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"wallet","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.038","file":"services/wallet/src/main.rs","line":179,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"wallet","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.039","file":"services/wallet/src/main.rs","line":192,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"wallet","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"}
+  ]
+}
