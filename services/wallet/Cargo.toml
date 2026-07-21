@@ -11,6 +11,7 @@ path = "src/main.rs"
 epsx-kernel = { path = "../../shared/rust/kernel" }
 epsx-web3 = { path = "../../shared/rust/web3" }
 epsx-observability = { path = "../../shared/rust/observability" }
+epsx-service-auth = { path = "../../shared/rust/epsx-service-auth" }
 axum.workspace = true
 tokio.workspace = true
 tracing.workspace = true
@@ -29,3 +30,9 @@ alloy-sol-types.workspace = true
 alloy-contract.workspace = true
 alloy-transport-http.workspace = true
 alloy-rpc-types.workspace = true
+reqwest.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+async-trait.workspace = true
+tower.workspace = true

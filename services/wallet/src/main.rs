@@ -1,13 +1,15 @@
 use alloy::signers::{local::PrivateKeySigner, Signer};
 use alloy_primitives::{Address, U256};
 use axum::{
-    extract::{Path as AxPath, State},
+    extract::{Extension, Path as AxPath, State},
     http::StatusCode,
     routing::{get, post},
     Json, Router,
 };
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use epsx_kernel::{ChainId, Token};
+use epsx_service_auth::VerifiedPrincipal;
+use epsx_wallet::{build_auth_verifier, canonical_owner, protect_router};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use std::net::SocketAddr;
@@ -23,8 +25,23 @@ struct Args {
     port: u16,
     #[arg(long, default_value = "0.0.0.0")]
     host: String,
-    #[arg(long, default_value = "postgres://epsx:epsx@localhost:5432/epsx_wallet")]
+    #[arg(
+        long,
+        default_value = "postgres://epsx:epsx@localhost:5432/epsx_wallet"
+    )]
     database_url: String,
+    #[arg(long, env = "OIDC_ISSUER")]
+    oidc_issuer: String,
+    #[arg(long, env = "OIDC_JWKS_URL")]
+    jwks_url: Option<String>,
+    #[arg(long, env = "EPSX_ENV", value_enum, default_value = "development")]
+    environment: Environment,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum Environment {
+    Development,
+    Production,
 }
 
 #[derive(Clone)]
@@ -32,17 +49,6 @@ struct AppState {
     db: sqlx::PgPool,
     chain_id: Arc<RwLock<u64>>,
     provider: Arc<RwLock<Option<Arc<dyn alloy::providers::Provider + Send + Sync>>>>,
-}
-
-#[derive(Serialize, Deserialize, FromRow, Clone)]
-struct Account {
-    address: String,
-    chain_id: String,
-    label: Option<String>,
-    role: String,
-    encrypted_pk: Option<String>,
-    #[serde(with = "chrono::serde::ts_seconds")]
-    created_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -54,7 +60,7 @@ struct CreateAccountRequest {
     address: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, FromRow)]
 struct AccountResponse {
     address: String,
     chain_id: String,
@@ -140,7 +146,19 @@ async fn main() {
     epsx_observability::Observability::init("wallet");
     let args = Args::parse();
 
-    let db = sqlx::PgPool::connect(&args.database_url).await.expect("Failed to connect to database");
+    let production = matches!(args.environment, Environment::Production);
+    let jwks_url = args.jwks_url.unwrap_or_else(|| {
+        format!(
+            "{}/.well-known/jwks.json",
+            args.oidc_issuer.trim_end_matches('/')
+        )
+    });
+    let verifier = build_auth_verifier(&args.oidc_issuer, &jwks_url, production)
+        .expect("wallet OIDC configuration must be valid");
+
+    let db = sqlx::PgPool::connect(&args.database_url)
+        .await
+        .expect("Failed to connect to database");
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS accounts (
@@ -151,8 +169,11 @@ async fn main() {
             encrypted_pk TEXT,
             created_at TIMESTAMPTZ DEFAULT NOW(),
             PRIMARY KEY (address, chain_id)
-        )"
-    ).execute(&db).await.expect("Failed to create accounts table");
+        )",
+    )
+    .execute(&db)
+    .await
+    .expect("Failed to create accounts table");
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS nonces (
@@ -161,8 +182,11 @@ async fn main() {
             nonce BIGINT NOT NULL DEFAULT 0,
             updated_at TIMESTAMPTZ DEFAULT NOW(),
             PRIMARY KEY (address, chain_id)
-        )"
-    ).execute(&db).await.expect("Failed to create nonces table");
+        )",
+    )
+    .execute(&db)
+    .await
+    .expect("Failed to create nonces table");
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS signed_transactions (
@@ -173,8 +197,11 @@ async fn main() {
             value VARCHAR(78),
             data_hash VARCHAR(66),
             created_at TIMESTAMPTZ DEFAULT NOW()
-        )"
-    ).execute(&db).await.expect("Failed to create signed_transactions table");
+        )",
+    )
+    .execute(&db)
+    .await
+    .expect("Failed to create signed_transactions table");
 
     let chain_id = Arc::new(RwLock::new(56u64));
     let provider: Arc<RwLock<Option<Arc<dyn alloy::providers::Provider + Send + Sync>>>> =
@@ -193,7 +220,12 @@ async fn main() {
         .route("/api/v1/wallet/sign-message", post(sign_message))
         .route("/api/v1/wallet/verify-message", post(verify_message))
         .route("/api/v1/wallet/estimate-gas", post(estimate_gas))
-        .with_state(AppState { db, chain_id, provider });
+        .with_state(AppState {
+            db,
+            chain_id,
+            provider,
+        });
+    let app = protect_router(app, verifier);
 
     let addr: SocketAddr = format!("{}:{}", args.host, args.port).parse().unwrap();
     info!("Wallet service listening on {}", addr);
@@ -201,7 +233,9 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn health() -> StatusCode { StatusCode::OK }
+async fn health() -> StatusCode {
+    StatusCode::OK
+}
 
 async fn create_account(
     State(state): State<AppState>,
@@ -246,10 +280,16 @@ async fn create_account(
 
 async fn list_accounts(
     State(state): State<AppState>,
-) -> Result<Json<Vec<Account>>, StatusCode> {
-    let accounts: Vec<Account> = sqlx::query_as::<_, Account>(
-        "SELECT address, chain_id, label, role, encrypted_pk, created_at FROM accounts ORDER BY created_at DESC"
+    Extension(principal): Extension<VerifiedPrincipal>,
+) -> Result<Json<Vec<AccountResponse>>, StatusCode> {
+    let owner = canonical_owner(&principal, None)?;
+    let accounts: Vec<AccountResponse> = sqlx::query_as::<_, AccountResponse>(
+        "SELECT address, chain_id, label, role
+         FROM accounts
+         WHERE lower(address) = $1
+         ORDER BY created_at DESC",
     )
+    .bind(owner)
     .fetch_all(&state.db)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -258,12 +298,17 @@ async fn list_accounts(
 
 async fn get_account(
     State(state): State<AppState>,
+    Extension(principal): Extension<VerifiedPrincipal>,
     AxPath(address): AxPath<String>,
-) -> Result<Json<Account>, StatusCode> {
-    let account: Account = sqlx::query_as::<_, Account>(
-        "SELECT address, chain_id, label, role, encrypted_pk, created_at FROM accounts WHERE address = $1 LIMIT 1"
+) -> Result<Json<AccountResponse>, StatusCode> {
+    let owner = canonical_owner(&principal, Some(&address))?;
+    let account: AccountResponse = sqlx::query_as::<_, AccountResponse>(
+        "SELECT address, chain_id, label, role
+         FROM accounts
+         WHERE lower(address) = $1
+         LIMIT 1",
     )
-    .bind(&address.to_lowercase())
+    .bind(owner)
     .fetch_optional(&state.db)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
@@ -286,16 +331,24 @@ async fn get_balance(
     }
 
     let native_balance = if let Some(p) = state.provider.read().await.as_ref() {
-        epsx_web3::fetch_balance(p.as_ref(), addr).await.unwrap_or(U256::ZERO)
+        epsx_web3::fetch_balance(p.as_ref(), addr)
+            .await
+            .unwrap_or(U256::ZERO)
     } else {
         U256::ZERO
     };
 
-    let tokens: Vec<TokenBalance> = Token::for_chain(chain_id_n).iter().map(|t| TokenBalance {
-        symbol: t.symbol().to_string(),
-        address: t.address(ChainId(chain_id_n)).map(|a| a.0).unwrap_or_default(),
-        decimals: t.decimals(),
-    }).collect();
+    let tokens: Vec<TokenBalance> = Token::for_chain(chain_id_n)
+        .iter()
+        .map(|t| TokenBalance {
+            symbol: t.symbol().to_string(),
+            address: t
+                .address(ChainId(chain_id_n))
+                .map(|a| a.0)
+                .unwrap_or_default(),
+            decimals: t.decimals(),
+        })
+        .collect();
 
     Ok(Json(BalanceInfo {
         native: native_balance.to_string(),
@@ -307,7 +360,8 @@ async fn send_transaction(
     State(state): State<AppState>,
     Json(req): Json<SendTxRequest>,
 ) -> Result<Json<SendTxResponse>, StatusCode> {
-    let signer = PrivateKeySigner::from_str(&req.private_key).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let signer =
+        PrivateKeySigner::from_str(&req.private_key).map_err(|_| StatusCode::BAD_REQUEST)?;
     let from_addr = signer.address();
     let expected_from = Address::from_str(&req.from).map_err(|_| StatusCode::BAD_REQUEST)?;
     if from_addr != expected_from {
@@ -319,7 +373,7 @@ async fn send_transaction(
     let nonce: i64 = sqlx::query_scalar(
         "INSERT INTO nonces (address, chain_id, nonce) VALUES ($1, $2, 0)
          ON CONFLICT (address, chain_id) DO UPDATE SET nonce = nonces.nonce + 1, updated_at = NOW()
-         RETURNING nonce"
+         RETURNING nonce",
     )
     .bind(&req.from.to_lowercase())
     .bind(req.chain_id.to_string())
@@ -352,8 +406,12 @@ async fn send_transaction(
 async fn sign_message(
     Json(req): Json<SignMessageRequest>,
 ) -> Result<Json<SignMessageResponse>, StatusCode> {
-    let signer = PrivateKeySigner::from_str(&req.private_key).map_err(|_| StatusCode::BAD_REQUEST)?;
-    let sig = signer.sign_message(req.message.as_bytes()).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let signer =
+        PrivateKeySigner::from_str(&req.private_key).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let sig = signer
+        .sign_message(req.message.as_bytes())
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let sig_bytes = sig.as_bytes();
     Ok(Json(SignMessageResponse {
         signature: format!("0x{}", alloy::hex::encode(sig_bytes)),
@@ -365,9 +423,12 @@ async fn verify_message(
     Json(req): Json<VerifyMessageRequest>,
 ) -> Result<Json<VerifyMessageResponse>, StatusCode> {
     use alloy::signers::Signature;
-    let sig_bytes = alloy::hex::decode(req.signature.trim_start_matches("0x")).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let sig_bytes = alloy::hex::decode(req.signature.trim_start_matches("0x"))
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
     let sig = Signature::try_from(sig_bytes.as_slice()).map_err(|_| StatusCode::BAD_REQUEST)?;
-    let recovered = sig.recover_address_from_msg(req.message.as_bytes()).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let recovered = sig
+        .recover_address_from_msg(req.message.as_bytes())
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
     let expected = Address::from_str(&req.expected_address).map_err(|_| StatusCode::BAD_REQUEST)?;
     Ok(Json(VerifyMessageResponse {
         valid: recovered == expected,
@@ -380,9 +441,12 @@ async fn estimate_gas(
     Json(req): Json<EstimateGasRequest>,
 ) -> Result<Json<EstimateGasResponse>, StatusCode> {
     let _to = Address::from_str(&req.to).map_err(|_| StatusCode::BAD_REQUEST)?;
-    let _value = U256::from_str_radix(req.value.trim_start_matches("0x").trim_start_matches("0X"), 10)
-        .or_else(|_| U256::from_str_radix(req.value.trim_start_matches("0x"), 16))
-        .map_err(|_| StatusCode::BAD_REQUEST)?;
+    let _value = U256::from_str_radix(
+        req.value.trim_start_matches("0x").trim_start_matches("0X"),
+        10,
+    )
+    .or_else(|_| U256::from_str_radix(req.value.trim_start_matches("0x"), 16))
+    .map_err(|_| StatusCode::BAD_REQUEST)?;
 
     let (max_fee, priority_fee) = if let Some(p) = state.provider.read().await.as_ref() {
         match epsx_web3::estimate_eip1559(p.as_ref()).await {

@@ -204,6 +204,26 @@
         "principal.audience != ADMIN_AUDIENCE",
         "AccessPolicy::UnsafeProjection => return StatusCode::NOT_FOUND.into_response()"
       ]
+    },
+    {
+      "id": "wallet-service-auth-boundary",
+      "file": "services/wallet/src/lib.rs",
+      "anchors": [
+        "pub const WALLET_JSON_BODY_LIMIT_BYTES",
+        "pub fn protect_router",
+        "pub fn canonical_owner",
+        "AccessPolicy::UnsafeProjection",
+        "AccessPolicy::UnsafeCustodyMutation"
+      ]
+    },
+    {
+      "id": "wallet-owner-predicates",
+      "file": "services/wallet/src/main.rs",
+      "anchors": [
+        "Extension(principal): Extension<VerifiedPrincipal>",
+        "SELECT address, chain_id, label, role",
+        "WHERE lower(address) = $1"
+      ]
     }
   ],
   "requiredCases": [
@@ -251,9 +271,9 @@
       "internal-webhook": 4
     },
     "byObservedStatus": {
-      "partial": 52,
+      "partial": 50,
       "blocked": 57,
-      "aligned": 8
+      "aligned": 10
     }
   },
   "services": [
@@ -988,7 +1008,7 @@
       "name": "wallet",
       "source": "services/wallet/src/main.rs",
       "routerAnchor": "let app = Router::new()",
-      "currentBoundary": "No canonical auth or ownership guard; request bodies can supply arbitrary addresses and raw private keys.",
+      "currentBoundary": "The direct service classifies exact methods and normalized path arity before handlers, consumes the shared RS256/JWKS verifier for account reads, binds every account query to the verified wallet, exposes only health and bounded signature recovery anonymously, and keeps unsafe custody, chain and estimate handlers unreachable.",
       "routes": [
         {
           "id": "wallet.get.health",
@@ -1005,14 +1025,15 @@
           "risk": "none",
           "caseProfile": "public",
           "observed": {
-            "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "status": "aligned",
+            "summary": "Exact GET/HEAD health is explicitly anonymous at the direct service; bearer credentials and spoofable identity headers are stripped before dispatch."
           },
           "dependencies": [
             "A2"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "wallet-service-auth-boundary"
           ]
         },
         {
@@ -1031,13 +1052,14 @@
           "caseProfile": "owner",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service returns 404 before authentication, JSON extraction, key generation/import, role selection or SQL because caller-selected account identity, raw private keys and caller-selected roles are not a proven custody or provisioning contract."
           },
           "dependencies": [
             "A2"
           ],
           "canonicalEvidence": [
-            "backend-token-contract"
+            "backend-token-contract",
+            "wallet-service-auth-boundary"
           ]
         },
         {
@@ -1046,7 +1068,7 @@
           "path": "/api/v1/wallet/accounts",
           "routeAnchor": ".route(\"/api/v1/wallet/accounts\"",
           "classification": "owner-only",
-          "identitySource": "monolith-rs256-jwks",
+          "identitySource": "epsx-service-auth-rs256-jwks",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": "query is constrained to authenticated wallet accounts",
@@ -1055,14 +1077,16 @@
           "risk": "none",
           "caseProfile": "owner",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The direct service requires an exact frontend/admin audience, canonicalizes the verified token wallet, binds the list query to that wallet, and selects only address, chain, label and role; runtime database and source-envelope parity remain unproven."
           },
           "dependencies": [
             "A2"
           ],
           "canonicalEvidence": [
-            "backend-token-contract"
+            "backend-token-contract",
+            "wallet-service-auth-boundary",
+            "wallet-owner-predicates"
           ]
         },
         {
@@ -1071,7 +1095,7 @@
           "path": "/api/v1/wallet/accounts/{address}",
           "routeAnchor": ".route(\"/api/v1/wallet/accounts/{address}\"",
           "classification": "owner-only",
-          "identitySource": "monolith-rs256-jwks",
+          "identitySource": "epsx-service-auth-rs256-jwks",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": "path address == authenticated wallet",
@@ -1080,14 +1104,16 @@
           "risk": "none",
           "caseProfile": "owner",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The direct service requires an exact frontend/admin audience, requires the path address to equal the verified canonical wallet, binds SQL to that wallet, excludes encrypted key material, and hides foreign and missing accounts alike; runtime DB parity remains unproven."
           },
           "dependencies": [
             "A2"
           ],
           "canonicalEvidence": [
-            "backend-token-contract"
+            "backend-token-contract",
+            "wallet-service-auth-boundary",
+            "wallet-owner-predicates"
           ]
         },
         {
@@ -1105,16 +1131,17 @@
           "risk": "none",
           "caseProfile": "public",
           "observed": {
-            "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "status": "blocked",
+            "summary": "The direct service returns 404 before handler, provider or token metadata work because the current shared mutable provider can race across chains and provider failures are misreported as a zero balance."
           },
           "dependencies": [
             "A2"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "wallet-service-auth-boundary"
           ],
-          "notes": "Public chain balance lookup; do not join private account metadata."
+          "notes": "A public balance projection remains a candidate only after chain selection, provider failure, freshness and response semantics are proven."
         },
         {
           "id": "wallet.post.send",
@@ -1132,14 +1159,15 @@
           "caseProfile": "owner",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service returns 404 before authentication, private-key extraction, nonce mutation, transaction logging or response because custody, canonical nonce, signing, broadcast, idempotency and truthful transaction-hash semantics are not proven."
           },
           "dependencies": [
             "A2",
             "A4"
           ],
           "canonicalEvidence": [
-            "backend-token-contract"
+            "backend-token-contract",
+            "wallet-service-auth-boundary"
           ],
           "notes": "High-risk: current body accepts a raw private_key; production must use custody/signing policy and never log or persist the key."
         },
@@ -1159,14 +1187,15 @@
           "caseProfile": "owner",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service returns 404 before authentication or JSON extraction because caller-supplied raw private keys are neither an acceptable ownership proof nor a production custody/signing contract."
           },
           "dependencies": [
             "A2",
             "A4"
           ],
           "canonicalEvidence": [
-            "backend-token-contract"
+            "backend-token-contract",
+            "wallet-service-auth-boundary"
           ],
           "notes": "High-risk signing operation; raw caller private keys are not an acceptable production ownership proof."
         },
@@ -1185,14 +1214,15 @@
           "risk": "none",
           "caseProfile": "public",
           "observed": {
-            "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "status": "aligned",
+            "summary": "The exact POST shape is explicitly anonymous and limited to 8192 JSON bytes; credentials and spoofable identity headers are stripped before bounded, read-only Alloy signature recovery with no SQL, provider, custody or state mutation."
           },
           "dependencies": [
             "A2"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "wallet-service-auth-boundary"
           ],
           "nonDomainMutationReason": "Signature recovery is a read-only cryptographic computation."
         },
@@ -1211,14 +1241,15 @@
           "risk": "none",
           "caseProfile": "public",
           "observed": {
-            "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "status": "blocked",
+            "summary": "The direct service returns 404 before JSON extraction or provider work because the handler ignores key request fields, returns a canned 21000 gas limit and silently substitutes fee defaults on provider failure."
           },
           "dependencies": [
             "A2"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "wallet-service-auth-boundary"
           ],
           "nonDomainMutationReason": "Gas estimation does not submit a transaction or change EPSX domain state."
         }
