@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "package": "A3.1a",
+  "purpose": "diesel-history-preflight-only",
+  "productionReady": false,
+  "source": {
+    "ref": "origin/development",
+    "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db"
+  },
+  "roots": [
+    {
+      "id": "core",
+      "path": "apps/backend/migrations/core",
+      "canonicalBaseline": "00000000000001_consolidated_schema_v5",
+      "alternateBaselines": ["00000000000001_consolidated_baseline_v6"],
+      "recoveryClass": "forward-converge-v5-v6"
+    },
+    {
+      "id": "analytics",
+      "path": "apps/backend/migrations/analytics",
+      "canonicalBaseline": "00000000000001_consolidated_analytics_v2",
+      "alternateBaselines": ["00000000000001_consolidated_baseline_v3"],
+      "recoveryClass": "forward-move-public-to-infra-logs"
+    },
+    {
+      "id": "notifications",
+      "path": "apps/backend/migrations/notifications",
+      "canonicalBaseline": "00000000000001_consolidated_baseline_v2",
+      "alternateBaselines": ["00000000000001_consolidated_notifications_v2"],
+      "recoveryClass": "identical-alias-retain-table"
+    },
+    {
+      "id": "payments",
+      "path": "apps/backend/migrations/payments",
+      "canonicalBaseline": "00000000000001_consolidated_payments_v3",
+      "alternateBaselines": ["00000000000001_consolidated_baseline_v4"],
+      "recoveryClass": "forward-converge-v3-v4"
+    }
+  ],
+  "trustedSourceFiles": [
+    {
+      "path": "apps/backend/migrations/core/00000000000001_consolidated_schema_v5/up.sql",
+      "sha256": "d55f8733a272099a2c57050a2d62e288523c296b7b8dda10459fc84cdabcdb4a"
+    },
+    {
+      "path": "apps/backend/migrations/core/00000000000001_consolidated_schema_v5/down.sql",
+      "sha256": "da5264feaffe06a112cb6da1e1ebf42ded2dbd4e984d73a89aa534e4c8871fa0"
+    },
+    {
+      "path": "apps/backend/migrations/analytics/00000000000001_consolidated_analytics_v2/up.sql",
+      "sha256": "a755ec5d4cb2c031b63178e016c7893437f767b7720e419196566e4add398647"
+    },
+    {
+      "path": "apps/backend/migrations/analytics/00000000000001_consolidated_analytics_v2/down.sql",
+      "sha256": "cf20d5c55c25862fae1a1a29c8c63d25d08688fe0cbdc4139687a4c6d65254d9"
+    },
+    {
+      "path": "apps/backend/migrations/analytics/20260216100000_create_unified_audit_log/up.sql",
+      "sha256": "28908b170df4592a43851bc0a364576da3b61319edf97b69dd3a13cee8280f3d"
+    },
+    {
+      "path": "apps/backend/migrations/analytics/20260216100000_create_unified_audit_log/down.sql",
+      "sha256": "b3bd5123fcfa77c75d3ab7b72d1c37c7841f45ea9392653a48bd927ef3b8b8e9"
+    },
+    {
+      "path": "apps/backend/migrations/notifications/00000000000001_consolidated_baseline_v2/up.sql",
+      "sha256": "e625fc31232a8526d997c89325e4868cef66d0df55182ba5800a25ace97962c7"
+    },
+    {
+      "path": "apps/backend/migrations/notifications/00000000000001_consolidated_baseline_v2/down.sql",
+      "sha256": "2ea697e62f51c4071b48cc2da073aea707db9512c561f5728fdaca11837b2ec4"
+    },
+    {
+      "path": "apps/backend/migrations/payments/00000000000001_consolidated_payments_v3/up.sql",
+      "sha256": "90a5ec8794adfc3ed453b3731a2266530611275b46667198205350042e088eb9"
+    },
+    {
+      "path": "apps/backend/migrations/payments/00000000000001_consolidated_payments_v3/down.sql",
+      "sha256": "623ef5a3dfd90fba754feda004297b49ed581c0e8730f6dac3157eff6a8a36a1"
+    }
+  ],
+  "approvedRelocations": [],
+  "approvedWorktreeAdditions": [],
+  "stopPolicy": {
+    "historicalSqlDrift": true,
+    "deletedHistoricalSql": true,
+    "addedUnreviewedSql": true,
+    "duplicateNormalizedVersion": true,
+    "missingCanonicalBaseline": true,
+    "alternateBaselineActive": true,
+    "destructiveForwardSql": true,
+    "searchPathMutation": true,
+    "migrationTableMutation": true
+  },
+  "recoveryMatrix": [
+    {
+      "domain": "core",
+      "acceptedEvidenceClasses": ["v5", "v6", "known-partial-v5", "known-partial-v6"],
+      "unknownOrHybrid": "stop",
+      "strategy": "new-unique-forward-reconciliation"
+    },
+    {
+      "domain": "analytics",
+      "acceptedEvidenceClasses": ["public-v2", "public-v3", "infra-logs-v3"],
+      "unknownOrHybrid": "stop",
+      "strategy": "schema-qualified-forward-object-move"
+    },
+    {
+      "domain": "notifications",
+      "acceptedEvidenceClasses": ["baseline-v2-table-present", "recorded-drop-table-absent"],
+      "unknownOrHybrid": "stop",
+      "strategy": "retain-or-forward-restore-after-operator-evidence"
+    },
+    {
+      "domain": "payments",
+      "acceptedEvidenceClasses": ["v3", "v4", "known-partial-v3", "known-partial-v4"],
+      "unknownOrHybrid": "stop",
+      "strategy": "new-unique-forward-reconciliation"
+    }
+  ]
+}
