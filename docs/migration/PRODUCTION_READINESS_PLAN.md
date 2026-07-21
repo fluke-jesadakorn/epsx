@@ -1,6 +1,6 @@
 # Production readiness plan: Dioxus and Rust microservices
 
-Last evidence review: 2026-07-21 (Asia/Bangkok)
+Last evidence review: 2026-07-22 (Asia/Bangkok)
 
 ## Purpose and safety boundary
 
@@ -130,17 +130,18 @@ migrated merely because a binary and route table exist.
 
 ### Authentication and session behavior
 
-- Frontend SIWE currently falls back to monolith `/api/auth/web3/*` routes because
-  the planned gateway/HTTP identity path is not running.
-- The monolith issues persistent-key RS256 OIDC-style tokens. Shared Dioxus auth
-  currently verifies an HS256 schema with different claims. Issuance success can
-  therefore still produce an unauthenticated SSR request.
-- Admin auth proxy handlers return upstream JSON but do not establish the
-  `epsx_token` cookie consumed by SSR.
-- Frontend refresh constructs the wrong client path, does not provide the
-  monolith refresh cookie contract, and does not rotate/revoke a session.
-- Frontend logout clears local cookies without revoking the durable backend
-  refresh session.
+- The monolith remains the canonical issuer and durable session store. It emits
+  persistent-key RS256 tokens and a bounded current/backup JWKS document.
+- Both Rust BFFs now use their exact frontend/admin audience, verify issuer,
+  audience, lifetime, subject/wallet equality, algorithm, and `kid` before
+  establishing or forwarding a session, and preserve backend permissions
+  verbatim.
+- Both BFFs use the shared host-only HttpOnly access/refresh cookie pair, rotate
+  it from the refresh cookie only, return token-free browser JSON, and always
+  clear local state on logout. Logout is wired to monolith refresh revocation.
+- A1.4 provides hermetic mock-backed proof for these contracts, but no real
+  wallet/nonces or disposable-database test yet proves old-token rejection and
+  durable revocation across the complete flow.
 - The candidate HTTP identity service uses the same claim shape for access and
   refresh tokens and has no durable refresh rotation/revocation model.
 
@@ -220,7 +221,7 @@ passed`. It is not a percentage estimate of engineering effort.
 | Shared UI package baseline | 2 | Targeted unit/doctest repair in this slice | `cargo test -p epsx-dioxus-ui --lib` and `--doc` pass. |
 | Visual/responsive/accessibility | 1 | Historical screenshots exist; current accepted baseline is incomplete | All routes pass agreed viewport, state, keyboard, and accessibility thresholds. |
 | Interaction parity | 0 | No complete click/form/wallet/navigation matrix | Every interactive control has E2E success and failure coverage. |
-| Auth/session parity | 0 | Token, cookie, refresh, and logout contracts conflict | SIWE -> SSR me -> rotation -> revocation works across both BFFs. |
+| Auth/session parity | 1 | A1.4 hermetic gate covers 71 focused tests across both BFFs; durable database-backed rotation/revocation and a real wallet flow remain unproven | SIWE -> SSR me -> rotation -> revocation works across both BFFs. |
 | Backend authorization | 0 | Candidate services/gateway are not fail-closed | Anonymous/cross-owner calls fail; granular backend permissions pass. |
 | Live data parity | 0 | Frontend mocks and admin empty params remain | Sample payloads removed and real empty/error states proven. |
 | Checkout/on-chain parity | 0 | Route mismatch and DB-only escrow transitions | Verified receipts and contract transactions drive state. |
@@ -230,7 +231,7 @@ passed`. It is not a percentage estimate of engineering effort.
 | Observability/readiness | 0 | Shallow health checks and incomplete cross-service traces | Dependency readiness, SLO metrics, alerts, and trace IDs pass drills. |
 | Canary/rollback | 0 | Not demonstrated | Shadow, canary, abort thresholds, and rollback rehearsal are approved. |
 
-**Current evidence score: 7/28.** This score records gate evidence only. It must
+**Current evidence score: 8/28.** This score records gate evidence only. It must
 not be used to forecast dates or authorize production traffic.
 
 ## Dependency DAG
@@ -321,6 +322,14 @@ bounded path set. Shared contract files require coordination through package A0.
   The script must prove challenge, signed verification, SSR `/me`, refresh-token
   rotation, old-token rejection, logout revocation, secure cookie attributes,
   and access-token rejection when a refresh token is supplied.
+
+- **A1.4 status:** the local hermetic gate passes only when its 71 focused tests
+  and both baseline fixture checks pass. It proves BFF audience/verifier,
+  token-redaction, cookie, local rotation/clearing, proxy rejection, and safe
+  return-target contracts. It deliberately does not satisfy the full A1
+  acceptance condition: real wallet signing, nonce consumption, durable
+  database-backed old-token rejection/revocation, and production-shaped browser
+  behavior remain blocked. See `docs/migration/A1_4_AUTH_SESSION_GATE.md`.
 
 ### A2 — Fail-closed service authorization (P0)
 
