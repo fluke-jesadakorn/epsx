@@ -21,7 +21,7 @@ use axum::{
 };
 use epsx_dioxus_ui::auth::wallet_button::ConnectedWalletState;
 use epsx_dioxus_ui::auth::User;
-use epsx_dioxus_ui::pages::{render_page, PageContext};
+use epsx_dioxus_ui::pages::{is_known_frontend_route, render_page, PageContext, PageStatus};
 use std::collections::HashMap;
 
 use super::auth;
@@ -97,6 +97,8 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
         return pricing_redirect_response(&query);
     }
 
+    let route_is_known = is_known_frontend_route(&path);
+
     if path == "/auth" && user.is_some() {
         return (
             StatusCode::TEMPORARY_REDIRECT,
@@ -118,7 +120,8 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     //  - /chat/* sub-paths (e.g. /chat/<conv-id>, /chat/history) — prod
     //    lists `/chat` as public, but sub-paths are protected and 307
     //    to /auth. /chat itself stays public (browsable).
-    let needs_unauth_redirect = user.is_none()
+    let needs_unauth_redirect = route_is_known
+        && user.is_none()
         && (UNAUTH_REDIRECT_PATHS.contains(&path.as_str())
             || (path.starts_with("/chat/") && !path.is_empty() && path != "/chat"));
     if needs_unauth_redirect {
@@ -144,22 +147,20 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     let mut params = HashMap::new();
     if let Some(rest) = path.strip_prefix("/news/") {
         if !rest.is_empty() && !rest.contains('/') {
-            params.insert("slug".into(), rest.trim_end_matches('/').to_string());
+            params.insert("slug".into(), rest.to_string());
         }
     }
     if let Some(rest) = path.strip_prefix("/chat/") {
         if !rest.is_empty() && !rest.contains('/') {
-            params.insert("id".into(), rest.trim_end_matches('/').to_string());
+            params.insert("id".into(), rest.to_string());
         }
     }
     if let Some(rest) = path.strip_prefix("/payment/") {
         let mut it = rest.splitn(2, '/');
         let ptype = it.next().unwrap_or("").to_string();
-        let pid = it.next().unwrap_or("").trim_end_matches('/').to_string();
-        if !ptype.is_empty() {
+        let pid = it.next().unwrap_or("").to_string();
+        if !ptype.is_empty() && !pid.is_empty() && !pid.contains('/') {
             params.insert("type".into(), ptype);
-        }
-        if !pid.is_empty() {
             params.insert("id".into(), pid);
         }
     }
@@ -167,15 +168,17 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     // Page-specific server-side data fetching. Each block reads from
     // the gateway via `state.*` and adds the result to `params` so the
     // page can consume it.
-    fetch_page_data(
-        &state,
-        &path,
-        &user,
-        &mut params,
-        &headers,
-        verified_access_token.as_deref(),
-    )
-    .await;
+    if route_is_known {
+        fetch_page_data(
+            &state,
+            &path,
+            &user,
+            &mut params,
+            &headers,
+            verified_access_token.as_deref(),
+        )
+        .await;
+    }
 
     // Wave 3a Track B — plumb server-side wallet state into the page
     // context. We delegate the cookie read to
@@ -200,6 +203,10 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     };
 
     let (meta, body_element) = render_page(&ctx, false);
+    let status = match meta.status {
+        PageStatus::Ok => StatusCode::OK,
+        PageStatus::NotFound => StatusCode::NOT_FOUND,
+    };
     let body_html = dioxus_ssr::render_element(body_element);
 
     // === Wave 49+ — SSR-safe navbar ===
@@ -261,7 +268,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     );
 
     (
-        axum::http::StatusCode::OK,
+        status,
         [("content-type", "text/html; charset=utf-8")],
         doc,
     )

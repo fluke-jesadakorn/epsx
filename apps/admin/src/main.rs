@@ -1,6 +1,6 @@
 use axum::{
     extract::{Path as AxPath, Request, State},
-    http::{header, HeaderMap, HeaderValue, StatusCode},
+    http::{header, HeaderMap, HeaderValue, Method, StatusCode},
     middleware::Next,
     response::{IntoResponse, Redirect, Response},
     routing::{delete, get, post},
@@ -316,7 +316,7 @@ fn build_app(state: AppState) -> Router {
                 ))),
         )
         // SSR fallback (Dioxus)
-        .fallback(ssr::ssr_handler)
+        .fallback(fallback_handler)
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             require_verified_admin_session,
@@ -331,13 +331,15 @@ async fn require_verified_admin_session(
     next: Next,
 ) -> Response {
     let path = request.uri().path();
-    let public_api = path == "/api/health"
-        || path.starts_with("/api/v1/auth/")
-        || matches!(
-            path,
-            "/api/v1/blocks" | "/api/v1/content/navigation" | "/api/v1/content/site"
-        );
-    if !path.starts_with("/api/v1/") || public_api {
+    if is_api_path(path) && !is_known_admin_api_path(path) {
+        return api_not_found_response();
+    }
+    if !is_known_protected_admin_api_path(path) {
+        return next.run(request).await;
+    }
+    if !is_allowed_protected_admin_api_method(request.method(), path) {
+        // The path is registered, but this method is not. Let Axum's
+        // MethodRouter return its canonical 405 without demanding a session.
         return next.run(request).await;
     }
 
@@ -363,6 +365,320 @@ async fn require_verified_admin_session(
     };
     request.headers_mut().insert(header::AUTHORIZATION, value);
     next.run(request).await
+}
+
+fn is_api_path(path: &str) -> bool {
+    path == "/api" || path.starts_with("/api/")
+}
+
+fn api_segments(path: &str) -> Option<Vec<&str>> {
+    if !is_api_path(path) || path.ends_with('/') {
+        return None;
+    }
+    let segments: Vec<_> = path.trim_start_matches('/').split('/').collect();
+    segments.iter().all(|segment| !segment.is_empty()).then_some(segments)
+}
+
+fn is_known_public_admin_api_path(path: &str) -> bool {
+    let Some(segments) = api_segments(path) else { return false; };
+    matches!(
+        segments.as_slice(),
+        ["api", "health"]
+            | ["api", "v1", "auth", "challenge"]
+            | ["api", "v1", "auth", "siwe"]
+            | ["api", "v1", "auth", "login"]
+            | ["api", "v1", "auth", "refresh"]
+            | ["api", "v1", "auth", "demo"]
+            | ["api", "v1", "auth", "me"]
+            | ["api", "v1", "auth", "logout"]
+            | ["api", "v1", "blocks"]
+            | ["api", "v1", "content", "navigation"]
+            | ["api", "v1", "content", "site"]
+    )
+}
+
+/// Exact path-shape allowlist for registered protected admin API routes. The
+/// authentication middleware uses this before verification so an unknown API
+/// miss cannot be converted into a 401 or SSR HTML response.
+fn is_known_protected_admin_api_path(path: &str) -> bool {
+    let Some(segments) = api_segments(path) else { return false; };
+    matches!(
+        segments.as_slice(),
+        ["api", "v1", "users"]
+            | ["api", "v1", "users", _]
+            | ["api", "v1", "payments"]
+            | ["api", "v1", "payments", _]
+            | ["api", "v1", "payments", _, "confirm"]
+            | ["api", "v1", "payments", _, "cancel"]
+            | ["api", "v1", "escrows"]
+            | ["api", "v1", "escrows", _, "release"]
+            | ["api", "v1", "subscriptions"]
+            | ["api", "v1", "subscriptions", _]
+            | ["api", "v1", "subscriptions", _, "cancel"]
+            | ["api", "v1", "subscription", "plans"]
+            | ["api", "v1", "subscription", "plans", _]
+            | ["api", "v1", "pages"]
+            | ["api", "v1", "pages", _]
+            | ["api", "v1", "pages", _, "publish"]
+            | ["api", "v1", "themes"]
+            | ["api", "v1", "themes", _]
+            | ["api", "v1", "notifications"]
+            | ["api", "v1", "notifications", "templates"]
+            | ["api", "v1", "notifications", "templates", _]
+            | ["api", "v1", "notifications", "send"]
+            | ["api", "v1", "notifications", _]
+            | ["api", "v1", "notifications", _, "read"]
+            | ["api", "v1", "analytics", "events"]
+            | ["api", "v1", "analytics", "metrics", _]
+            | ["api", "v1", "analytics", "revenue"]
+            | ["api", "v1", "analytics", "track"]
+            | ["api", "v1", "indexer", "status", _]
+            | ["api", "v1", "indexer", "block", _, _]
+            | ["api", "v1", "indexer", "tx", _, _]
+            | ["api", "v1", "indexer", "transfers", _, _]
+            | ["api", "v1", "wallet", "accounts"]
+            | ["api", "v1", "wallet", "accounts", _]
+    )
+}
+
+fn is_allowed_protected_admin_api_method(method: &Method, path: &str) -> bool {
+    let Some(segments) = api_segments(path) else { return false; };
+    let is_read = method == Method::GET || method == Method::HEAD;
+    match segments.as_slice() {
+        ["api", "v1", "users"] => is_read || method == Method::POST,
+        ["api", "v1", "users", _] => {
+            is_read || method == Method::PUT || method == Method::DELETE
+        }
+        ["api", "v1", "payments"]
+        | ["api", "v1", "payments", _]
+        | ["api", "v1", "escrows"]
+        | ["api", "v1", "subscriptions"]
+        | ["api", "v1", "subscriptions", _]
+        | ["api", "v1", "subscription", "plans", _]
+        | ["api", "v1", "analytics", "events"]
+        | ["api", "v1", "analytics", "metrics", _]
+        | ["api", "v1", "analytics", "revenue"]
+        | ["api", "v1", "indexer", "status", _]
+        | ["api", "v1", "indexer", "block", _, _]
+        | ["api", "v1", "indexer", "tx", _, _]
+        | ["api", "v1", "indexer", "transfers", _, _]
+        | ["api", "v1", "wallet", "accounts"]
+        | ["api", "v1", "wallet", "accounts", _] => is_read,
+        ["api", "v1", "payments", _, "confirm"]
+        | ["api", "v1", "payments", _, "cancel"]
+        | ["api", "v1", "escrows", _, "release"]
+        | ["api", "v1", "subscriptions", _, "cancel"]
+        | ["api", "v1", "pages", _, "publish"]
+        | ["api", "v1", "notifications", _, "read"]
+        | ["api", "v1", "notifications", "send"]
+        | ["api", "v1", "analytics", "track"] => method == Method::POST,
+        ["api", "v1", "subscription", "plans"]
+        | ["api", "v1", "pages"]
+        | ["api", "v1", "themes"]
+        | ["api", "v1", "notifications", "templates"] => {
+            is_read || method == Method::POST
+        }
+        ["api", "v1", "pages", _] | ["api", "v1", "themes", _] => {
+            is_read || method == Method::PUT
+        }
+        ["api", "v1", "notifications"] => is_read,
+        ["api", "v1", "notifications", "templates", _]
+        | ["api", "v1", "notifications", _] => method == Method::DELETE,
+        _ => false,
+    }
+}
+
+fn is_known_admin_api_path(path: &str) -> bool {
+    is_known_public_admin_api_path(path) || is_known_protected_admin_api_path(path)
+}
+
+fn api_not_found_response() -> Response {
+    (
+        StatusCode::NOT_FOUND,
+        Json(serde_json::json!({
+            "error": "not_found",
+            "message": "API route not found"
+        })),
+    )
+        .into_response()
+}
+
+async fn fallback_handler(State(state): State<AppState>, request: Request) -> Response {
+    if is_api_path(request.uri().path()) {
+        api_not_found_response()
+    } else {
+        ssr::ssr_handler(State(state), request).await
+    }
+}
+
+#[cfg(test)]
+mod routing_tests {
+    use super::*;
+    use axum::{
+        body::{to_bytes, Body},
+        http::{header, Method, Request, StatusCode},
+    };
+    use tower::ServiceExt;
+
+    fn test_state() -> AppState {
+        let base_url = "http://127.0.0.1:9";
+        let config = epsx_client::ClientConfig {
+            base_url: base_url.to_string(),
+            timeout: Duration::from_millis(50),
+        };
+        let client = Arc::new(ServiceClient::new(config));
+        let verifier = JwksVerifierConfig::new(
+            format!("{base_url}{JWKS_PATH}"),
+            "https://issuer.test",
+            ADMIN_CLIENT_ID,
+            Duration::from_secs(60),
+        )
+        .unwrap();
+        AppState {
+            identity: client.clone(),
+            wallet: client.clone(),
+            payment: client.clone(),
+            subscription: client.clone(),
+            content: client.clone(),
+            notification: client.clone(),
+            analytics: client.clone(),
+            indexer: client,
+            verifier: Arc::new(JwksVerifier::with_http(verifier).unwrap()),
+            cookie_environment: CookieEnvironment::Local,
+            api_url: base_url.to_string(),
+            demo_login_enabled: false,
+        }
+    }
+
+    async fn request(method: Method, uri: &str) -> Response {
+        build_app(test_state())
+            .oneshot(Request::builder().method(method).uri(uri).body(Body::empty()).unwrap())
+            .await
+            .unwrap()
+    }
+
+    #[test]
+    fn protected_api_predicate_covers_every_registered_shape() {
+        for path in [
+            "/api/v1/users",
+            "/api/v1/users/id",
+            "/api/v1/payments",
+            "/api/v1/payments/id",
+            "/api/v1/payments/id/confirm",
+            "/api/v1/payments/id/cancel",
+            "/api/v1/escrows",
+            "/api/v1/escrows/id/release",
+            "/api/v1/subscriptions",
+            "/api/v1/subscriptions/id",
+            "/api/v1/subscriptions/id/cancel",
+            "/api/v1/subscription/plans",
+            "/api/v1/subscription/plans/id",
+            "/api/v1/pages",
+            "/api/v1/pages/slug",
+            "/api/v1/pages/slug/publish",
+            "/api/v1/themes",
+            "/api/v1/themes/id",
+            "/api/v1/notifications",
+            "/api/v1/notifications/id",
+            "/api/v1/notifications/id/read",
+            "/api/v1/notifications/templates",
+            "/api/v1/notifications/templates/id",
+            "/api/v1/notifications/send",
+            "/api/v1/analytics/events",
+            "/api/v1/analytics/metrics/usage",
+            "/api/v1/analytics/revenue",
+            "/api/v1/analytics/track",
+            "/api/v1/indexer/status/bsc",
+            "/api/v1/indexer/block/bsc/1",
+            "/api/v1/indexer/tx/bsc/hash",
+            "/api/v1/indexer/transfers/bsc/address",
+            "/api/v1/wallet/accounts",
+            "/api/v1/wallet/accounts/address",
+        ] {
+            assert!(is_known_protected_admin_api_path(path), "{path}");
+        }
+
+        for path in [
+            "/api/v1/users/id/extra",
+            "/api/v1/auth/unknown",
+            "/api/v1/indexer/block/bsc",
+            "/api/v1/notifications/templates/id/extra",
+        ] {
+            assert!(!is_known_admin_api_path(path), "{path}");
+        }
+    }
+
+    #[tokio::test]
+    async fn ssr_unknown_and_malformed_routes_bypass_unauth_skeleton() {
+        assert_eq!(request(Method::GET, "/").await.status(), StatusCode::OK);
+
+        for path in [
+            "/missing-page",
+            "/chat/",
+            "/chat/id/extra",
+            "/news//edit",
+            "/news/id/edit/extra",
+            "/wallet-management/address/extra",
+            "/wallet-management/access/plans/id/extra",
+            "/wallet-management/wallets/address/disable/extra",
+        ] {
+            let response = request(Method::GET, path).await;
+            assert_eq!(response.status(), StatusCode::NOT_FOUND, "{path}");
+            assert_eq!(response.headers()[header::CONTENT_TYPE], "text/html; charset=utf-8", "{path}");
+            let body = to_bytes(response.into_body(), 2 * 1024 * 1024).await.unwrap();
+            let html = String::from_utf8_lossy(&body);
+            assert!(html.contains("Page not found"), "{path}");
+            assert!(!html.contains("admin-skeleton"), "{path}");
+        }
+
+        assert_eq!(request(Method::HEAD, "/missing-page").await.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn unknown_api_is_json_before_auth_and_known_route_remains_protected() {
+        for path in [
+            "/api",
+            "/api/",
+            "/api/v1/users/id/extra",
+            "/api/v1/auth/unknown",
+        ] {
+            let response = request(Method::GET, path).await;
+            assert_eq!(response.status(), StatusCode::NOT_FOUND, "{path}");
+            assert_eq!(response.headers()[header::CONTENT_TYPE], "application/json", "{path}");
+            let body: serde_json::Value = serde_json::from_slice(
+                &to_bytes(response.into_body(), 16 * 1024).await.unwrap(),
+            )
+            .unwrap();
+            assert_eq!(body["error"], "not_found", "{path}");
+        }
+
+        let head = request(Method::HEAD, "/api/v1/users/id/extra").await;
+        assert_eq!(head.status(), StatusCode::NOT_FOUND);
+        assert_eq!(head.headers()[header::CONTENT_TYPE], "application/json");
+
+        assert_eq!(request(Method::GET, "/api/v1/users").await.status(), StatusCode::UNAUTHORIZED);
+        assert_eq!(request(Method::HEAD, "/api/v1/users").await.status(), StatusCode::UNAUTHORIZED);
+        assert_eq!(
+            request(Method::POST, "/api/v1/users/id").await.status(),
+            StatusCode::METHOD_NOT_ALLOWED
+        );
+        assert_eq!(
+            request(Method::GET, "/api/v1/auth/challenge").await.status(),
+            StatusCode::METHOD_NOT_ALLOWED
+        );
+    }
+
+    #[tokio::test]
+    async fn admin_redirect_statuses_and_targets_are_preserved() {
+        let wallet = request(Method::GET, "/wallet-management").await;
+        assert_eq!(wallet.status(), StatusCode::PERMANENT_REDIRECT);
+        assert_eq!(wallet.headers()[header::LOCATION], "/wallet-management/wallets");
+
+        let notifications = request(Method::GET, "/notifications").await;
+        assert_eq!(notifications.status(), StatusCode::OK);
+        let body = to_bytes(notifications.into_body(), 2 * 1024 * 1024).await.unwrap();
+        assert!(String::from_utf8_lossy(&body).contains("window.location.replace('/notifications/manage');"));
+    }
 }
 
 async fn api_health() -> &'static str {

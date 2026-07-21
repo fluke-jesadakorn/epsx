@@ -66,6 +66,12 @@ pub mod policies;
 pub fn dispatch(ctx: &PageContext) -> (PageMeta, Element) {
     let p = ctx.path.as_str();
 
+    // Route existence is decided before the unauthenticated skeleton. Unknown
+    // and malformed routes must render the actual not-found page.
+    if !is_known_route(p) {
+        return not_found::render(ctx);
+    }
+
     // Wave 38b T2 — STRUCTURAL port for the 3 outlier routes.
     // The 3 outliers (`/access-denied`, `/unauthorized`,
     // `/developer-portal/api-keys/create`) render the SAME SSR
@@ -89,6 +95,12 @@ pub fn dispatch(ctx: &PageContext) -> (PageMeta, Element) {
         "/access-denied" | "/unauthorized" | "/developer-portal/api-keys/create"
     ) {
         return access_denied_panel::render(ctx);
+    }
+
+    // This route is an intentional 200 + JavaScript redirect. Keep its target
+    // observable even when there is no admin session.
+    if p == "/notifications" {
+        return notifications_redirect::render(ctx);
     }
 
     // Wave 34 T1 — SSR skeleton mode gate. Mirrors prod's
@@ -170,27 +182,27 @@ pub fn dispatch(ctx: &PageContext) -> (PageMeta, Element) {
         "/wallet-management/access/plans" => wallet_plans::render(ctx),
         _ => {
             if p.starts_with("/chat/") {
-                let id = p.trim_start_matches("/chat/").trim_end_matches('/').to_string();
+                let id = super::one_segment(p, "/chat/").unwrap().to_string();
                 let mut c = ctx.clone();
                 c.params.insert("id".into(), id);
                 chat::render_conversation(&c)
             } else if p.starts_with("/news/") && p.ends_with("/edit") {
-                let rest = p.trim_start_matches("/news/").trim_end_matches("/edit").trim_end_matches('/');
+                let (rest, _) = super::two_segments(p, "/news/").unwrap();
                 let mut c = ctx.clone();
                 c.params.insert("id".into(), rest.to_string());
                 news::render_edit(&c)
             } else if p.starts_with("/wallet-management/wallets/") && p.ends_with("/disable") {
-                let rest = p.trim_start_matches("/wallet-management/wallets/").trim_end_matches("/disable").trim_end_matches('/');
+                let (rest, _) = super::two_segments(p, "/wallet-management/wallets/").unwrap();
                 let mut c = ctx.clone();
                 c.params.insert("address".into(), rest.to_string());
                 wallet_wallets::render_disable(&c)
             } else if p.starts_with("/wallet-management/access/plans/") {
-                let rest = p.trim_start_matches("/wallet-management/access/plans/").trim_end_matches('/');
+                let rest = super::one_segment(p, "/wallet-management/access/plans/").unwrap();
                 let mut c = ctx.clone();
                 c.params.insert("planId".into(), rest.to_string());
                 wallet_plans::render_editor(&c)
             } else if p.starts_with("/wallet-management/") {
-                let addr = p.trim_start_matches("/wallet-management/").trim_end_matches('/');
+                let addr = super::one_segment(p, "/wallet-management/").unwrap();
                 if !addr.is_empty() && !addr.contains('/') {
                     let mut c = ctx.clone();
                     c.params.insert("address".into(), addr.to_string());
@@ -203,6 +215,42 @@ pub fn dispatch(ctx: &PageContext) -> (PageMeta, Element) {
             }
         }
     }
+}
+
+pub fn is_known_route(path: &str) -> bool {
+    matches!(
+        path,
+        "/" | "/index"
+            | "/analytics"
+            | "/audit-log"
+            | "/chat"
+            | "/developer-portal"
+            | "/developer-portal/api-keys/create"
+            | "/media"
+            | "/news"
+            | "/news/create"
+            | "/notifications"
+            | "/notifications/create"
+            | "/notifications/manage"
+            | "/payments"
+            | "/policies"
+            | "/settings"
+            | "/unauthorized"
+            | "/auth"
+            | "/access-denied"
+            | "/wallet-management"
+            | "/wallet-management/wallets"
+            | "/wallet-management/credits"
+            | "/wallet-management/access"
+            | "/wallet-management/access/plans"
+    ) || super::one_segment(path, "/chat/").is_some()
+        || matches!(super::two_segments(path, "/news/"), Some((_, "edit")))
+        || matches!(
+            super::two_segments(path, "/wallet-management/wallets/"),
+            Some((_, "disable"))
+        )
+        || super::one_segment(path, "/wallet-management/access/plans/").is_some()
+        || super::one_segment(path, "/wallet-management/").is_some()
 }
 
 /// Wave 34 T1 — map an admin path to the route slug used in
@@ -294,5 +342,39 @@ mod tests {
     fn test_slug_for_path_unknown_falls_back() {
         assert_eq!(slug_for_path("/no-such-route"), "admin-unknown");
         assert_eq!(slug_for_path(""), "admin-unknown");
+    }
+
+    #[test]
+    fn route_matching_is_strict_and_unknown_bypasses_skeleton() {
+        for path in [
+            "/chat/conversation-1",
+            "/news/article-1/edit",
+            "/wallet-management/0xabc",
+            "/wallet-management/access/plans/pro",
+            "/wallet-management/wallets/0xabc/disable",
+        ] {
+            let ctx = PageContext { path: path.into(), ..Default::default() };
+            let (meta, _) = dispatch(&ctx);
+            assert_eq!(meta.status, super::super::PageStatus::Ok, "{path}");
+        }
+
+        for path in [
+            "/missing",
+            "/chat/",
+            "/chat/one/two",
+            "/news//edit",
+            "/news/id/edit/extra",
+            "/wallet-management/",
+            "/wallet-management/id/extra",
+            "/wallet-management/access/plans/",
+            "/wallet-management/access/plans/id/extra",
+            "/wallet-management/wallets//disable",
+            "/wallet-management/wallets/id/disable/extra",
+        ] {
+            let ctx = PageContext { path: path.into(), ..Default::default() };
+            let (meta, body) = dispatch(&ctx);
+            assert_eq!(meta.status, super::super::PageStatus::NotFound, "{path}");
+            assert!(dioxus_ssr::render_element(body).contains("Page not found"), "{path}");
+        }
     }
 }

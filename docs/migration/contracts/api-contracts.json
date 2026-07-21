@@ -36,7 +36,6 @@
     "auth.me",
     "auth.refresh-rotation",
     "auth.logout-revocation",
-    "http.unknown-route",
     "auth.backend-capabilities",
     "pay.intent-create-read",
     "pay.intent-confirm-cancel",
@@ -186,10 +185,16 @@
         "successStatuses": [404],
         "invariants": ["not-found body returns HTTP 404", "API misses return JSON 404", "redirects preserve intended status"]
       },
-      "observed": {"status": "blocked", "summary": "Both SSR fallbacks return HTTP 200 for unmatched rendered routes."},
+      "observed": {"status": "aligned", "summary": "Both Rust BFFs use explicit not-found metadata for HTML 404s, return JSON for unknown API paths before admin authentication, retain Axum 405 handling for registered-path method mismatches, and preserve redirect contracts in executable local router tests."},
       "evidence": [
-        {"file": "apps/frontend/src/ssr.rs", "anchor": "axum::http::StatusCode::OK"},
-        {"file": "apps/admin/src/ssr.rs", "anchor": "axum::http::StatusCode::OK"}
+        {"file": "shared/rust/dioxus_ui/src/pages.rs", "anchor": "pub enum PageStatus"},
+        {"file": "shared/rust/dioxus_ui/src/pages.rs", "anchor": "pub fn is_known_frontend_route(path: &str) -> bool"},
+        {"file": "shared/rust/dioxus_ui/src/pages/admin_pages.rs", "anchor": "if !is_known_route(p)"},
+        {"file": "apps/frontend/src/ssr.rs", "anchor": "PageStatus::NotFound => StatusCode::NOT_FOUND"},
+        {"file": "apps/frontend/src/main.rs", "anchor": "async fn unknown_api_is_json_and_known_method_mismatch_stays_405()"},
+        {"file": "apps/admin/src/ssr.rs", "anchor": "PageStatus::NotFound => axum::http::StatusCode::NOT_FOUND"},
+        {"file": "apps/admin/src/main.rs", "anchor": "if is_api_path(path) && !is_known_admin_api_path(path)"},
+        {"file": "apps/admin/src/main.rs", "anchor": "async fn unknown_api_is_json_before_auth_and_known_route_remains_protected()"}
       ]
     },
     {

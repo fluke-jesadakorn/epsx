@@ -13,8 +13,10 @@
 //!   proxied to the gateway via `epsx_client::ServiceClient`.
 
 use axum::{
+    extract::{Request, State},
+    response::{IntoResponse, Response},
     routing::{any, get, post},
-    Router,
+    Json, Router,
 };
 use epsx_bff::{
     cookies::CookieEnvironment,
@@ -325,7 +327,126 @@ pub fn build_app(state: AppState) -> Router {
                     env!("CARGO_MANIFEST_DIR")
                 ))),
         )
-        .fallback(ssr::ssr_handler)
+        .fallback(fallback_handler)
         .layer(axum::middleware::from_fn(security_headers))
         .with_state(state)
+}
+
+fn is_api_path(path: &str) -> bool {
+    path == "/api" || path.starts_with("/api/")
+}
+
+fn api_not_found_response() -> Response {
+    (
+        axum::http::StatusCode::NOT_FOUND,
+        Json(serde_json::json!({
+            "error": "not_found",
+            "message": "API route not found"
+        })),
+    )
+        .into_response()
+}
+
+async fn fallback_handler(State(state): State<AppState>, request: Request) -> Response {
+    if is_api_path(request.uri().path()) {
+        api_not_found_response()
+    } else {
+        ssr::ssr_handler(State(state), request).await
+    }
+}
+
+#[cfg(test)]
+mod routing_tests {
+    use super::*;
+    use axum::{
+        body::{to_bytes, Body},
+        http::{header, Method, Request, StatusCode},
+    };
+    use tower::ServiceExt;
+
+    fn test_state() -> AppState {
+        let base_url = "http://127.0.0.1:9";
+        let config = epsx_client::ClientConfig {
+            base_url: base_url.to_string(),
+            timeout: Duration::from_millis(50),
+        };
+        let client = Arc::new(ServiceClient::new(config));
+        let verifier = JwksVerifierConfig::new(
+            format!("{base_url}{JWKS_PATH}"),
+            "https://issuer.test",
+            FRONTEND_CLIENT_ID,
+            Duration::from_secs(60),
+        )
+        .unwrap();
+        AppState {
+            identity: client.clone(),
+            notification: client.clone(),
+            content: client.clone(),
+            analytics: client.clone(),
+            wallet: client.clone(),
+            payment: client.clone(),
+            subscription: client,
+            verifier: Arc::new(JwksVerifier::with_http(verifier).unwrap()),
+            cookie_environment: CookieEnvironment::Local,
+            api_url: base_url.to_string(),
+            demo_login_enabled: false,
+        }
+    }
+
+    async fn request(method: Method, uri: &str) -> Response {
+        build_app(test_state())
+            .oneshot(Request::builder().method(method).uri(uri).body(Body::empty()).unwrap())
+            .await
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn ssr_known_unknown_and_malformed_routes_have_explicit_status() {
+        assert_eq!(request(Method::GET, "/").await.status(), StatusCode::OK);
+
+        for path in [
+            "/missing-page",
+            "/portfolio/",
+            "/portfolio/address/extra",
+            "/chat/id/extra",
+            "/news/slug/extra",
+            "/payment/intent",
+            "/payment/intent/id/extra",
+        ] {
+            let response = request(Method::GET, path).await;
+            assert_eq!(response.status(), StatusCode::NOT_FOUND, "{path}");
+            assert_eq!(response.headers()[header::CONTENT_TYPE], "text/html; charset=utf-8", "{path}");
+            let body = to_bytes(response.into_body(), 2 * 1024 * 1024).await.unwrap();
+            assert!(String::from_utf8_lossy(&body).contains("Page not found"), "{path}");
+        }
+
+        assert_eq!(request(Method::HEAD, "/missing-page").await.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn unknown_api_is_json_and_known_method_mismatch_stays_405() {
+        for path in ["/api", "/api/", "/api/v1/plans/extra"] {
+            let response = request(Method::GET, path).await;
+            assert_eq!(response.status(), StatusCode::NOT_FOUND, "{path}");
+            assert_eq!(response.headers()[header::CONTENT_TYPE], "application/json", "{path}");
+            let body: serde_json::Value = serde_json::from_slice(
+                &to_bytes(response.into_body(), 16 * 1024).await.unwrap(),
+            )
+            .unwrap();
+            assert_eq!(body["error"], "not_found", "{path}");
+        }
+
+        let head = request(Method::HEAD, "/api/v1/plans/extra").await;
+        assert_eq!(head.status(), StatusCode::NOT_FOUND);
+        assert_eq!(head.headers()[header::CONTENT_TYPE], "application/json");
+
+        assert_eq!(request(Method::POST, "/api/v1/plans").await.status(), StatusCode::METHOD_NOT_ALLOWED);
+    }
+
+    #[tokio::test]
+    async fn pricing_redirect_status_and_target_are_preserved() {
+        let response = request(Method::GET, "/pricing?ref=test").await;
+        assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
+        assert_eq!(response.headers()[header::LOCATION], "/plans?ref=test");
+    }
 }

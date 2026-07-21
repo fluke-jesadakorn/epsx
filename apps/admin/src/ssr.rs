@@ -15,7 +15,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use epsx_dioxus_ui::layout::shell::{AdminLayout, ServerUser};
-use epsx_dioxus_ui::pages::{admin_pages, render_page, PageContext};
+use epsx_dioxus_ui::pages::{admin_pages, render_page, PageContext, PageStatus};
 use std::collections::HashMap;
 
 use super::auth;
@@ -141,7 +141,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
         "/settings",
     ];
     let is_wave6b = wave6b_paths.contains(&layout_path.as_str());
-    let body_element = if is_wave6b {
+    let body_element = if meta.status == PageStatus::NotFound || is_wave6b {
         // Page provides its own chrome via `<AdminShell>`; don't
         // double-wrap. The page's own `<AdminAuthGate>` still
         // handles the unauthed overlay.
@@ -158,6 +158,10 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     };
 
     let body_html = dioxus_ssr::render_element(body_element);
+    let status = match meta.status {
+        PageStatus::Ok => axum::http::StatusCode::OK,
+        PageStatus::NotFound => axum::http::StatusCode::NOT_FOUND,
+    };
 
     let doc = epsx_templates::page_shell_with_body_class(
         &meta.title,
@@ -185,7 +189,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     );
 
     (
-        axum::http::StatusCode::OK,
+        status,
         [("content-type", "text/html; charset=utf-8")],
         doc,
     )

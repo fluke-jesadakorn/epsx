@@ -98,9 +98,18 @@ impl PageContext {
     pub fn is_authed(&self) -> bool { self.user.is_some() }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PageStatus {
+    Ok,
+    NotFound,
+}
+
 pub struct PageMeta {
     pub title: String,
     pub description: String,
+    /// Explicit render outcome consumed by the Rust BFFs when selecting the
+    /// HTTP status. This avoids inferring a 404 from presentation text.
+    pub status: PageStatus,
     /// Optional class appended to the `<body>` element by the BFF
     /// page shell (see `epsx_templates::page_shell_with_body_class`).
     ///
@@ -152,6 +161,7 @@ impl PageMeta {
         Self {
             title: format!("{} — EPSX", title),
             description: "EPSX — Web3 commerce platform: visual page builder, on-chain payments, programmable subscriptions.".to_string(),
+            status: PageStatus::Ok,
             body_class: Some("page-bg".to_string()),
             include_footer: false,
             use_epsx_header: true,
@@ -165,6 +175,7 @@ impl PageMeta {
         Self {
             title: format!("{} — EPSX", title),
             description: "EPSX".to_string(),
+            status: PageStatus::Ok,
             // Wave 49 T2 (Plan 13) — switch app pages to the
             // `page-bg-app` body class so they render with prod's
             // purple/magenta radial-glow background gradient
@@ -203,6 +214,7 @@ impl PageMeta {
         Self {
             title: format!("{} — Admin", title),
             description: "EPSX Admin".to_string(),
+            status: PageStatus::Ok,
             body_class: None,
             include_footer: false,
             use_epsx_header: false,
@@ -228,16 +240,74 @@ impl PageMeta {
         Self {
             title: format!("{} — Admin", title),
             description: "EPSX Admin".to_string(),
+            status: PageStatus::Ok,
             body_class: Some(body_class.into()),
             include_footer: false,
             use_epsx_header: false,
         }
     }
+
+    pub fn not_found() -> Self {
+        let mut meta = Self::marketing("Not found");
+        meta.status = PageStatus::NotFound;
+        meta
+    }
+}
+
+fn one_segment<'a>(path: &'a str, prefix: &str) -> Option<&'a str> {
+    let segment = path.strip_prefix(prefix)?;
+    (!segment.is_empty() && !segment.contains('/')).then_some(segment)
+}
+
+fn two_segments<'a>(path: &'a str, prefix: &str) -> Option<(&'a str, &'a str)> {
+    let rest = path.strip_prefix(prefix)?;
+    let mut parts = rest.splitn(3, '/');
+    let first = parts.next()?;
+    let second = parts.next()?;
+    (parts.next().is_none() && !first.is_empty() && !second.is_empty())
+        .then_some((first, second))
+}
+
+pub fn is_known_frontend_route(path: &str) -> bool {
+    matches!(
+        path,
+        "/" | "/index"
+            | "/auth"
+            | "/dashboard"
+            | "/profile"
+            | "/account"
+            | "/account/credits"
+            | "/analytics"
+            | "/chat"
+            | "/chat/history"
+            | "/contact"
+            | "/about"
+            | "/news"
+            | "/notifications"
+            | "/payment"
+            | "/permissions"
+            | "/plans"
+            | "/portfolio"
+            | "/developer"
+            | "/developer/usage"
+            | "/developer/docs"
+            | "/manual"
+            | "/access-denied"
+            | "/offline"
+            | "/privacy"
+            | "/terms"
+    ) || one_segment(path, "/portfolio/").is_some()
+        || one_segment(path, "/chat/").is_some()
+        || one_segment(path, "/news/").is_some()
+        || two_segments(path, "/payment/").is_some()
 }
 
 pub fn render_page(ctx: &PageContext, is_admin: bool) -> (PageMeta, Element) {
     let p = ctx.path.as_str();
     if is_admin { return admin_pages::dispatch(ctx); }
+    if !is_known_frontend_route(p) {
+        return not_found::render(ctx);
+    }
     match p {
         "/" | "/index" => home::render(ctx),
         "/auth" => auth_page::render(ctx),
@@ -269,18 +339,17 @@ pub fn render_page(ctx: &PageContext, is_admin: bool) -> (PageMeta, Element) {
                 // T2: per-address portfolio route. Mirrors the OLD
                 // prod 307-to-/portfolio behaviour via inline
                 // meta-refresh (see portfolio_address.rs).
-                let addr = p.trim_start_matches("/portfolio/")
-                    .trim_end_matches('/').to_string();
+                let addr = one_segment(p, "/portfolio/").unwrap().to_string();
                 let mut c = ctx.clone();
                 c.params.insert("address".into(), addr);
                 portfolio_address::render(&c)
             } else if p.starts_with("/chat/") {
-                let id = p.trim_start_matches("/chat/").trim_end_matches('/').to_string();
+                let id = one_segment(p, "/chat/").unwrap().to_string();
                 let mut c = ctx.clone();
                 c.params.insert("id".into(), id);
                 chat_conversation::render(&c)
             } else if p.starts_with("/news/") {
-                let slug = p.trim_start_matches("/news/").trim_end_matches('/').to_string();
+                let slug = one_segment(p, "/news/").unwrap().to_string();
                 let mut c = ctx.clone();
                 c.params.insert("slug".into(), slug);
                 news_detail::render(&c)
@@ -325,5 +394,39 @@ pub fn page_title_for(p: &str) -> String {
         "/privacy" => "Privacy".to_string(),
         "/terms" => "Terms".to_string(),
         _ => "EPSX".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod dispatch_tests {
+    use super::*;
+
+    #[test]
+    fn frontend_dynamic_routes_require_exact_nonempty_arity() {
+        for path in [
+            "/portfolio/0xabc",
+            "/chat/conversation-1",
+            "/news/article-1",
+            "/payment/intent/payment-1",
+        ] {
+            let ctx = PageContext { path: path.into(), ..Default::default() };
+            assert_eq!(render_page(&ctx, false).0.status, PageStatus::Ok, "{path}");
+        }
+
+        for path in [
+            "/portfolio/",
+            "/portfolio/a/b",
+            "/chat/",
+            "/chat/a/b",
+            "/news/",
+            "/news/a/b",
+            "/payment/intent",
+            "/payment//id",
+            "/payment/intent/",
+            "/payment/intent/id/extra",
+        ] {
+            let ctx = PageContext { path: path.into(), ..Default::default() };
+            assert_eq!(render_page(&ctx, false).0.status, PageStatus::NotFound, "{path}");
+        }
     }
 }

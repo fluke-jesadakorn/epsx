@@ -14,7 +14,7 @@ use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::marketing("Not found");
+    let meta = PageMeta::not_found();
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
             div { class: "container page-content",
@@ -106,7 +106,8 @@ mod tests {
     #[test]
     fn not_found_renders_smoke() {
         let ctx = empty_ctx();
-        let (_meta, el) = render(&ctx);
+        let (meta, el) = render(&ctx);
+        assert_eq!(meta.status, crate::pages::PageStatus::NotFound);
         let html = dioxus_ssr::render_element(el);
         assert!(!html.trim().is_empty(), "not-found page should render non-empty HTML");
         // Sanity: 404 + title visible.
