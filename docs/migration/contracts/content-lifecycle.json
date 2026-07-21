@@ -1,0 +1,859 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A10.0-content-lifecycle",
+  "purpose": "deterministic-audit-and-readiness-stop",
+  "productionReady": false,
+  "lifecycleParity": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "safety": {
+    "networkAccess": false,
+    "databaseAccess": false,
+    "filesystemMutation": false,
+    "deployment": false,
+    "runtimeMutation": false,
+    "cargoLockMutation": false,
+    "readinessMeaning": "STOP until every content lifecycle blocker has reviewed implementation and reconciliation evidence"
+  },
+  "source": {
+    "ref": "origin/development",
+    "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "evidence": [
+      {
+        "id": "source-route-inventory",
+        "file": "apps/backend/src/web/routes/unified_router.rs",
+        "blob": "46b97779e8726757560d7946d1a47114bed28861",
+        "anchor": ".route(\"/news/featured\", get(crate::web::public::news_handlers::list_featured_news))"
+      },
+      {
+        "id": "source-news-public",
+        "file": "apps/backend/src/web/public/news_handlers.rs",
+        "blob": "882e4356842318964936d385f6ef70f76b45fd76",
+        "anchor": "let limit = query.limit.unwrap_or(10).clamp(1, 100);"
+      },
+      {
+        "id": "source-news-repository",
+        "file": "apps/backend/src/infrastructure/repositories/news_repository.rs",
+        "blob": "3a20f29fa878db8ddcaa9d2085c052423c9fbc14",
+        "anchor": ".filter(news_articles::status.eq(\"published\"))"
+      },
+      {
+        "id": "source-news-admin",
+        "file": "apps/backend/src/web/admin/news_handlers.rs",
+        "blob": "24f589a296247407c0a97caf8fa04ee397eebdbe",
+        "anchor": "author_wallet: ctx.wallet_address.to_lowercase(),"
+      },
+      {
+        "id": "source-news-schema",
+        "file": "apps/backend/migrations/core/20260227000000_create_news/up.sql",
+        "blob": "b1421b397c7920bf22c733fb8315e6b2dbc13583",
+        "anchor": "status VARCHAR(20) NOT NULL DEFAULT 'draft',"
+      },
+      {
+        "id": "source-public-plans",
+        "file": "apps/backend/src/web/public/plans_handlers.rs",
+        "blob": "471270ea83821ae5ffd01c95b9bb6f45f850077c",
+        "anchor": ".filter(|plan| plan.is_public) // Only include public plans"
+      },
+      {
+        "id": "source-ranking-entitlement",
+        "file": "apps/backend/src/web/analytics/eps/rankings.rs",
+        "blob": "810461faff9c402631134d9ab8167e764c8d3038",
+        "anchor": "rank_offset, // SECURITY: Enforced from user permissions"
+      },
+      {
+        "id": "source-portfolio-owner",
+        "file": "apps/backend/src/web/user/unified_user_handlers.rs",
+        "blob": "bb3ce3ff53fbe327d8026eeb1f2c36df3e9f3357",
+        "anchor": "let wallet = ctx.wallet_address.to_lowercase();"
+      },
+      {
+        "id": "source-watchlist-idempotency",
+        "file": "apps/backend/src/web/user/watchlist_handlers.rs",
+        "blob": "5f31b34a2981c0d0d6146ff6f7899f599a1dc1ba",
+        "anchor": ".on_conflict((user_watchlist::wallet_address, user_watchlist::symbol))"
+      },
+      {
+        "id": "source-news-action",
+        "file": "apps/frontend/app/actions/news.ts",
+        "blob": "90e68522c7f98836f5b9daf6453d20cfe05438b8",
+        "anchor": "return newsClient().listPublished(page, limit);"
+      },
+      {
+        "id": "source-plans-action",
+        "file": "apps/frontend/app/actions/plans.ts",
+        "blob": "392234a7b5b109810ae136dc3a37165c2ebcfc3d",
+        "anchor": "return plansApi.getPublicPlans(filters);"
+      },
+      {
+        "id": "source-watchlist-action",
+        "file": "apps/frontend/app/actions/watchlist.ts",
+        "blob": "eebeb3f5bb3e339d7f594433ed17cca1cf1aee10",
+        "anchor": "'/api/users/portfolio/overview'"
+      },
+      {
+        "id": "source-news-empty-ui",
+        "file": "apps/frontend/components/news/news-list.tsx",
+        "blob": "99ff164588cede61f6bed263f65e344314dd9acb",
+        "anchor": "No articles yet"
+      },
+      {
+        "id": "source-portfolio-empty-ui",
+        "file": "apps/frontend/components/portfolio/portfolio-grid.tsx",
+        "blob": "8a020b600a5f6a7ac01a80612b6f68492a59bf10",
+        "anchor": "No stocks in watchlist"
+      }
+    ]
+  },
+  "targetEvidence": [
+    {
+      "id": "target-content-router",
+      "file": "services/content/src/main.rs",
+      "anchor": ".route(\"/api/v1/content/pages/{slug}\", get(get_page).put(update_page))"
+    },
+    {
+      "id": "target-runtime-ddl",
+      "file": "services/content/src/main.rs",
+      "anchor": "CREATE TABLE IF NOT EXISTS pages ("
+    },
+    {
+      "id": "target-render-draft-query",
+      "file": "services/content/src/main.rs",
+      "anchor": "FROM pages WHERE slug = $1"
+    },
+    {
+      "id": "target-page-create",
+      "file": "services/content/src/main.rs",
+      "anchor": "INSERT INTO pages (slug, title, locale, blocks_json, seo_json, theme_id)"
+    },
+    {
+      "id": "target-page-status",
+      "file": "services/content/src/main.rs",
+      "anchor": "let new_status = req.status.unwrap_or(current.status);"
+    },
+    {
+      "id": "target-publish-direct",
+      "file": "services/content/src/main.rs",
+      "anchor": "UPDATE pages SET status = 'published', published_at = NOW(), updated_at = NOW()"
+    },
+    {
+      "id": "target-theme-empty-overwrite",
+      "file": "services/content/src/main.rs",
+      "anchor": "let colors = body.get(\"colors\").cloned().unwrap_or_else(|| serde_json::json!({}));"
+    },
+    {
+      "id": "target-block-admin-public",
+      "file": "services/content/src/main.rs",
+      "anchor": "default_props_json, admin_only FROM block_types ORDER BY category, name"
+    },
+    {
+      "id": "target-editor-client-user",
+      "file": "services/content/src/main.rs",
+      "anchor": ".bind(&req.user_id)"
+    },
+    {
+      "id": "target-watcher-enabled",
+      "file": "services/content/src/main.rs",
+      "anchor": "if !args.no_watch {"
+    },
+    {
+      "id": "target-registry-file-read",
+      "file": "services/content/src/main.rs",
+      "anchor": "std::fs::read_to_string(&manifest_path)"
+    },
+    {
+      "id": "target-registry-db-sync",
+      "file": "services/content/src/main.rs",
+      "anchor": "INSERT INTO block_types (block_type, name, category, schema_json, default_props_json, admin_only)"
+    },
+    {
+      "id": "target-site-file-read",
+      "file": "services/content/src/main.rs",
+      "anchor": "std::fs::read_to_string(&settings_path)"
+    },
+    {
+      "id": "target-news-fallback",
+      "file": "services/content/src/main.rs",
+      "anchor": "Article for <code>{slug}</code> coming soon."
+    },
+    {
+      "id": "target-plans-file-read",
+      "file": "services/content/src/main.rs",
+      "anchor": "marketing/plans.json"
+    },
+    {
+      "id": "target-ranking-static",
+      "file": "services/content/src/main.rs",
+      "anchor": "\"ticker\": \"GHC\""
+    },
+    {
+      "id": "target-portfolio-placeholder",
+      "file": "services/content/src/main.rs",
+      "anchor": "\"auth_required\": true"
+    },
+    {
+      "id": "target-auth-boundary",
+      "file": "services/content/src/lib.rs",
+      "anchor": "AccessPolicy::EditorIdentityRequired | AccessPolicy::Blocked => {"
+    },
+    {
+      "id": "target-gateway-rewrite",
+      "file": "services/gateway/src/lib.rs",
+      "anchor": "\"/api/v1/news\",\n    \"/api/v1/content/news\""
+    },
+    {
+      "id": "target-frontend-routes",
+      "file": "apps/frontend/src/main.rs",
+      "anchor": ".route(\"/api/v1/news/{slug}\", get(api_news_post))"
+    },
+    {
+      "id": "target-bff-ranking-static",
+      "file": "apps/frontend/src/api.rs",
+      "anchor": "{ \"symbol\": \"GHC\",  \"price\": 6535.0"
+    },
+    {
+      "id": "target-bff-plan-static",
+      "file": "apps/frontend/src/api.rs",
+      "anchor": "\"name\": \"1 Day Package\""
+    },
+    {
+      "id": "target-bff-news-static",
+      "file": "apps/frontend/src/api.rs",
+      "anchor": "article(\"strategic-roadmap-future\", \"Strategic Roadmap and Future Capabilities\""
+    },
+    {
+      "id": "target-bff-news-any-slug",
+      "file": "apps/frontend/src/api.rs",
+      "anchor": "let title: String = slug.replace('-', \" \");"
+    },
+    {
+      "id": "target-bff-portfolio-static",
+      "file": "apps/frontend/src/api.rs",
+      "anchor": "\"total_value_usd\": 12_345.67"
+    },
+    {
+      "id": "target-admin-plain-content",
+      "file": "apps/admin/src/main.rs",
+      "anchor": ".get_plain(\"/api/v1/content/blocks\")"
+    },
+    {
+      "id": "target-admin-status-collapse",
+      "file": "apps/admin/src/main.rs",
+      "anchor": "Service(s) if s.starts_with(\"status 4\") => StatusCode::BAD_REQUEST"
+    },
+    {
+      "id": "target-client-status-collapse",
+      "file": "shared/rust/client/src/lib.rs",
+      "anchor": "Err(ClientError::Service(format!(\"status {}: {}\", status, text)))"
+    },
+    {
+      "id": "target-news-ui-fallback",
+      "file": "shared/rust/dioxus_ui/src/pages/news.rs",
+      "anchor": ".unwrap_or_else(default_posts);"
+    },
+    {
+      "id": "target-portfolio-ui-static",
+      "file": "shared/rust/dioxus_ui/src/pages/portfolio.rs",
+      "anchor": "Static seed — 6 watched stocks"
+    },
+    {
+      "id": "target-analytics-ui-static",
+      "file": "shared/rust/dioxus_ui/src/pages/analytics.rs",
+      "anchor": "let rankings = sample_rankings();"
+    },
+    {
+      "id": "target-frontend-security-layer",
+      "file": "apps/frontend/src/main.rs",
+      "anchor": ".layer(axum::middleware::from_fn(security_headers))"
+    }
+  ],
+  "currentBoundary": {
+    "authorization": "partial",
+    "editorRoutes": "fail-closed-404",
+    "lifecycleParityClaim": false,
+    "productionClaim": false,
+    "evidenceIds": [
+      "target-auth-boundary",
+      "target-content-router"
+    ],
+    "note": "A2.3b established an exact method/path authorization boundary. Public reads are allowlisted, admin page/theme mutations require admin:content:manage, and editor routes are deliberately unreachable. It did not establish lifecycle, data, wire, or UX parity."
+  },
+  "routeBatches": [
+    {
+      "id": "public-page-render",
+      "status": "blocked",
+      "ownerKey": "content-publication",
+      "routes": [
+        "GET /api/v1/content/pages/{slug}/render"
+      ],
+      "contract": "Locale-aware published snapshot only; draft, deleted, unknown locale, and unknown slug are indistinguishable 404s; validators and cache policy are deterministic.",
+      "blockerIds": ["B01", "B02", "B03", "B09", "B12"]
+    },
+    {
+      "id": "public-content-discovery",
+      "status": "blocked",
+      "ownerKey": "content-catalog",
+      "routes": [
+        "GET /api/v1/content/themes",
+        "GET /api/v1/content/themes/{id}",
+        "GET /api/v1/content/blocks",
+        "GET /api/v1/content/blocks/{type}",
+        "GET /api/v1/content/navigation",
+        "GET /api/v1/content/site"
+      ],
+      "contract": "Public-safe published catalog only; admin-only schemas and unpublished navigation are excluded; cache and not-found semantics survive gateway and BFF hops.",
+      "blockerIds": ["B03", "B05", "B06", "B11", "B12", "B16"]
+    },
+    {
+      "id": "public-news-media",
+      "status": "blocked",
+      "ownerKey": "content-news",
+      "routes": [
+        "GET /api/v1/news",
+        "GET /api/v1/news/featured",
+        "GET /api/v1/news/{slug}",
+        "GET /api/v1/news/images/{filename}"
+      ],
+      "contract": "Published-only paginated news, real 404 detail, pinned featured ordering, safe immutable media references, and one canonical envelope through BFF/gateway.",
+      "blockerIds": ["B01", "B02", "B03", "B09", "B10", "B12", "B16", "B18"]
+    },
+    {
+      "id": "public-plans",
+      "status": "blocked",
+      "ownerKey": "subscription-plans",
+      "routes": [
+        "GET /api/v1/plans",
+        "GET /api/v1/plans/{id}"
+      ],
+      "contract": "Subscription-owned active and public plans only, exact filtering and ordering, one response shape, and invalidated positive/negative caches.",
+      "blockerIds": ["B03", "B12", "B13", "B16", "B18"]
+    },
+    {
+      "id": "public-rankings",
+      "status": "blocked",
+      "ownerKey": "analytics-entitlement",
+      "routes": [
+        "GET /api/v1/rankings"
+      ],
+      "contract": "Live analytics data with rank offset and result cap derived only by backend permission/plan authority; anonymous defaults remain backend-owned.",
+      "blockerIds": ["B14", "B16", "B18", "B19"]
+    },
+    {
+      "id": "authenticated-portfolio-watchlist",
+      "status": "blocked",
+      "ownerKey": "portfolio-owner",
+      "routes": [
+        "GET /api/v1/users/portfolio/overview",
+        "GET /api/v1/users/watchlist",
+        "POST /api/v1/users/watchlist",
+        "DELETE /api/v1/users/watchlist/{symbol}"
+      ],
+      "contract": "Server-derived owner identity, owner-scoped idempotent watchlist mutation, live rankings join, and no address-selected public portfolio lookup.",
+      "blockerIds": ["B14", "B15", "B16", "B17", "B18"]
+    },
+    {
+      "id": "admin-content-lifecycle",
+      "status": "blocked",
+      "ownerKey": "content-admin",
+      "routes": [
+        "GET|POST /api/v1/content/pages",
+        "GET|PUT /api/v1/content/pages/{slug}",
+        "POST /api/v1/content/pages/{slug}/publish",
+        "GET|POST /api/v1/content/themes",
+        "GET|PUT /api/v1/content/themes/{id}",
+        "CRUD /api/v1/content/blocks",
+        "CRUD /api/v1/content/news",
+        "POST /api/v1/content/news/media"
+      ],
+      "contract": "Validated versioned CRUD, server actor attribution, transactional publish, media integrity, exact status/envelope propagation, audit/outbox, and idempotency.",
+      "blockerIds": ["B04", "B05", "B06", "B09", "B10", "B12", "B16", "B17", "B19"]
+    },
+    {
+      "id": "editor-sessions",
+      "status": "blocked",
+      "ownerKey": "content-editor",
+      "routes": [
+        "POST /api/v1/content/edit/start",
+        "POST /api/v1/content/edit/commit",
+        "GET /api/v1/content/edit/sessions"
+      ],
+      "contract": "Remain fail-closed until verified principal mapping, page/session ownership, expiry, optimistic concurrency, commit validation, and audit evidence exist.",
+      "blockerIds": ["B07", "B08", "B09", "B17"]
+    }
+  ],
+  "lifecycleRequirements": [
+    {
+      "id": "published-only-read",
+      "status": "blocked",
+      "blockerIds": ["B01", "B09"],
+      "acceptance": [
+        "Every anonymous query filters an immutable published revision, never a mutable draft row.",
+        "Draft, archived, deleted, scheduled, and failed-publish resources return the same public 404 behavior as unknown resources."
+      ]
+    },
+    {
+      "id": "locale-slug-not-found-cache",
+      "status": "blocked",
+      "blockerIds": ["B02", "B03"],
+      "acceptance": [
+        "Canonical slug normalization and uniqueness are scoped by locale with explicit fallback rules.",
+        "Positive and negative cache keys include locale and revision; publish, unpublish, rename, and delete invalidate them."
+      ]
+    },
+    {
+      "id": "page-crud-validation",
+      "status": "blocked",
+      "blockerIds": ["B04"],
+      "acceptance": [
+        "Create/update reject empty or noncanonical slug/title, invalid locale/theme/status, invalid SEO, and blocks that fail registered schemas.",
+        "Updates require a version/ETag and return 409 on stale writes without replacing concurrent edits."
+      ]
+    },
+    {
+      "id": "theme-crud-validation",
+      "status": "blocked",
+      "blockerIds": ["B05"],
+      "acceptance": [
+        "Theme token documents are schema-validated and partial updates preserve unspecified values.",
+        "Exactly one safe default is enforced transactionally and in-use themes cannot be deleted unsafely."
+      ]
+    },
+    {
+      "id": "block-crud-validation",
+      "status": "blocked",
+      "blockerIds": ["B06"],
+      "acceptance": [
+        "Block definitions have versioned schemas, compatibility rules, and validated defaults.",
+        "Anonymous catalogs and rendered pages exclude admin_only blocks and secrets."
+      ]
+    },
+    {
+      "id": "editor-identity-session-ownership",
+      "status": "blocked",
+      "blockerIds": ["B07", "B08"],
+      "acceptance": [
+        "Actor identity comes only from a verified principal extension and never from JSON or spoofable headers.",
+        "Start/commit/list enforce actor and page ownership, expiry, lock/version rules, and replay-safe closure."
+      ]
+    },
+    {
+      "id": "publish-workflow",
+      "status": "blocked",
+      "blockerIds": ["B09", "B17"],
+      "acceptance": [
+        "Publish validates a versioned draft, writes an immutable revision, flips the public pointer, and records audit/outbox in one transaction.",
+        "Unpublish, schedule, cancel, and republish have explicit state transitions and replay behavior."
+      ]
+    },
+    {
+      "id": "media-references",
+      "status": "blocked",
+      "blockerIds": ["B10"],
+      "acceptance": [
+        "Upload enforces size, MIME sniffing, extension, digest, object namespace, and authorization before returning a reference.",
+        "Publish verifies referenced objects; deletion/garbage collection cannot remove media used by a published revision."
+      ]
+    },
+    {
+      "id": "file-watcher-sync-trust",
+      "status": "blocked",
+      "blockerIds": ["B11"],
+      "acceptance": [
+        "Production authority is declared; filesystem input is either disabled or signed/versioned and path-confined.",
+        "Reload replaces registry atomically, rejects the whole invalid generation, and reconciles removals as well as additions."
+      ]
+    },
+    {
+      "id": "migration-backfill-reconciliation",
+      "status": "blocked",
+      "blockerIds": ["B12"],
+      "acceptance": [
+        "Versioned reversible migrations replace runtime DDL and include constraints/indexes for locale, revision, state, ownership, outbox, and idempotency.",
+        "Dry-run backfill plus repeatable reconciliation proves counts, hashes, orphan handling, and rerun safety."
+      ]
+    },
+    {
+      "id": "backend-owned-entitlement-ranking",
+      "status": "blocked",
+      "blockerIds": ["B13", "B14", "B15"],
+      "acceptance": [
+        "Plan visibility, rank offset/cap, and portfolio ownership remain backend-owned and cannot be selected by UI/BFF input.",
+        "Live sources replace content files and canned responses with parity fixtures for anonymous, free, paid, admin, and foreign-owner cases."
+      ]
+    },
+    {
+      "id": "bff-wire-contract",
+      "status": "blocked",
+      "blockerIds": ["B16"],
+      "acceptance": [
+        "Each public/admin route has one canonical prefix, body, envelope, pagination, field naming, and status matrix.",
+        "Gateway, ServiceClient, frontend BFF, and admin BFF preserve 401/403/404/409/422/429/5xx and request IDs without collapsing them."
+      ]
+    },
+    {
+      "id": "public-cache-security-headers",
+      "status": "blocked",
+      "blockerIds": ["B03", "B10", "B16"],
+      "acceptance": [
+        "HTML/JSON/media define Cache-Control, Vary, ETag, content type, nosniff, CSP, frame, referrer, and request-ID behavior by route.",
+        "Private/admin responses are non-cacheable and public caches cannot vary on or forward credentials."
+      ]
+    },
+    {
+      "id": "audit-outbox-idempotency",
+      "status": "blocked",
+      "blockerIds": ["B17"],
+      "acceptance": [
+        "Every mutation records actor, request ID, before/after revision, reason, timestamp, and result in an immutable audit trail.",
+        "Mutation idempotency keys are owner-scoped with request hashes; outbox dispatch is retryable and replay mismatches return 409."
+      ]
+    },
+    {
+      "id": "ui-state-machine",
+      "status": "blocked",
+      "blockerIds": ["B18"],
+      "acceptance": [
+        "News, plans, rankings, portfolio, and admin/editor screens distinguish loading, real empty, forbidden, not found, retryable error, and success.",
+        "Wire failure never renders canned production-looking content; retry is accessible, bounded, and preserves filters/forms."
+      ]
+    },
+    {
+      "id": "rollback",
+      "status": "blocked",
+      "blockerIds": ["B19", "B20"],
+      "acceptance": [
+        "Shadow reads and reconciliation thresholds define go/no-go before route ownership changes.",
+        "Rollback restores prior routing and read authority without reversing committed published data or losing audit/outbox events."
+      ]
+    }
+  ],
+  "backendOwnershipRules": [
+    {
+      "id": "owner-plan-visibility",
+      "status": "required-unproven",
+      "rule": "Subscription backend owns public/active plan eligibility and promotion validity."
+    },
+    {
+      "id": "owner-ranking-access",
+      "status": "required-unproven",
+      "rule": "Permission/plan backend derives rank offset and cap; UI, gateway, BFF, and content service cannot widen them."
+    },
+    {
+      "id": "owner-portfolio",
+      "status": "required-unproven",
+      "rule": "Verified subject owns portfolio/watchlist selection; arbitrary address path input cannot select protected data."
+    },
+    {
+      "id": "owner-editor",
+      "status": "required-unproven",
+      "rule": "Verified admin principal owns author/editor identity and content mutation attribution."
+    }
+  ],
+  "wireRules": [
+    {
+      "id": "wire-prefix",
+      "status": "required-unproven",
+      "rule": "One external prefix maps to one internal route without alternate canned handlers."
+    },
+    {
+      "id": "wire-envelope",
+      "status": "required-unproven",
+      "rule": "Success, pagination, and error envelopes are identical through service, gateway, and both BFFs."
+    },
+    {
+      "id": "wire-status",
+      "status": "required-unproven",
+      "rule": "HTTP status remains authoritative and exact; envelope codes cannot disguise a 200 and clients cannot collapse distinct 4xx statuses."
+    }
+  ],
+  "auditRules": [
+    {
+      "id": "audit-actor",
+      "status": "required-unproven",
+      "rule": "Every mutation audit record uses server-derived actor and correlated request ID."
+    },
+    {
+      "id": "audit-outbox",
+      "status": "required-unproven",
+      "rule": "Public pointer, audit record, and outbox event commit atomically."
+    },
+    {
+      "id": "audit-idempotency",
+      "status": "required-unproven",
+      "rule": "Owner-scoped idempotency replays the original result and rejects a key reused with a different request hash."
+    }
+  ],
+  "rollbackRules": [
+    {
+      "id": "rollback-route",
+      "status": "required-unproven",
+      "rule": "Every route batch has an independently reversible gateway/BFF ownership switch."
+    },
+    {
+      "id": "rollback-data",
+      "status": "required-unproven",
+      "rule": "Rollback never deletes migrated rows, published revisions, audit events, or outbox records."
+    },
+    {
+      "id": "rollback-threshold",
+      "status": "required-unproven",
+      "rule": "Documented mismatch, 4xx/5xx, latency, and stale-cache thresholds trigger automatic route rollback."
+    }
+  ],
+  "blockers": [
+    {
+      "id": "B01",
+      "category": "publication",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Anonymous page rendering does not filter a published revision and can expose a draft row.",
+      "resolution": "Introduce immutable revisions/public pointers and prove draft, archived, deleted, and scheduled content are public 404s.",
+      "evidenceIds": ["source-news-repository", "target-render-draft-query"]
+    },
+    {
+      "id": "B02",
+      "category": "locale-slug-not-found",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Locale, slug normalization/uniqueness, fallback, rename, redirect, and true not-found semantics are not defined end to end.",
+      "resolution": "Define locale-scoped canonical keys and HTTP 404/redirect policy, then add service/gateway/BFF contract fixtures.",
+      "evidenceIds": ["source-news-repository", "target-page-create", "target-news-fallback", "target-bff-news-any-slug"]
+    },
+    {
+      "id": "B03",
+      "category": "cache-security",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Content HTML/JSON/media cache keys, validators, invalidation, negative caching, credential variance, and security headers lack a route contract.",
+      "resolution": "Specify and test Cache-Control/Vary/ETag/security headers and transactional invalidation for publish/unpublish/rename/delete.",
+      "evidenceIds": ["source-news-public", "source-public-plans", "target-frontend-security-layer", "target-gateway-rewrite"]
+    },
+    {
+      "id": "B04",
+      "category": "page-crud",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Page create/update accept weakly validated slugs, locale, theme, status, SEO, and blocks without optimistic concurrency.",
+      "resolution": "Add typed validation, version/ETag preconditions, schema checks, exact 409/422 semantics, and parity fixtures.",
+      "evidenceIds": ["target-page-create", "target-page-status", "target-client-status-collapse"]
+    },
+    {
+      "id": "B05",
+      "category": "theme-crud",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Theme JSON is unversioned and weakly validated; partial updates replace omitted token groups with empty objects.",
+      "resolution": "Version and validate theme tokens, preserve omitted fields, enforce one default, and protect referenced themes.",
+      "evidenceIds": ["target-theme-empty-overwrite", "target-content-router"]
+    },
+    {
+      "id": "B06",
+      "category": "block-crud",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Block types have no complete admin CRUD/version workflow and anonymous catalog queries do not exclude admin_only definitions.",
+      "resolution": "Implement versioned schema CRUD/compatibility validation and enforce public-safe projections in catalog and render paths.",
+      "evidenceIds": ["target-block-admin-public", "target-registry-db-sync", "target-admin-plain-content"]
+    },
+    {
+      "id": "B07",
+      "category": "editor-identity",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Editor handlers bind caller-supplied user_id and A2.3b therefore keeps every editor route fail-closed at 404.",
+      "resolution": "Map verified admin principal to a server-owned actor and keep routes blocked until spoofing/permission fixtures pass.",
+      "evidenceIds": ["source-news-admin", "target-editor-client-user", "target-auth-boundary"]
+    },
+    {
+      "id": "B08",
+      "category": "editor-session",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Edit sessions lack proven actor/page ownership, expiry, exclusivity/version, close/replay, and visibility rules.",
+      "resolution": "Specify session state transitions and enforce owner/version/expiry on start, commit, list, and cleanup.",
+      "evidenceIds": ["target-editor-client-user", "target-auth-boundary"]
+    },
+    {
+      "id": "B09",
+      "category": "publish-workflow",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Publish is a direct mutable status update without draft validation, immutable revision, transaction, audit, outbox, or cache invalidation.",
+      "resolution": "Implement an explicit transactional lifecycle state machine with immutable revisions, compare-and-set, audit/outbox, and invalidation.",
+      "evidenceIds": ["source-news-admin", "source-news-schema", "target-publish-direct"]
+    },
+    {
+      "id": "B10",
+      "category": "media",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Media upload/reference validation, digesting, object ownership, published-reference integrity, and garbage collection are absent from the target contract.",
+      "resolution": "Add safe object metadata and reference tables plus size/MIME/digest/auth checks and published-reference-aware deletion.",
+      "evidenceIds": ["source-news-public", "source-news-admin", "target-news-fallback"]
+    },
+    {
+      "id": "B11",
+      "category": "filesystem-trust",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Runtime filesystem watcher and DB sync trust mutable local manifests without generation signatures, atomic replacement, removal reconciliation, or declared authority.",
+      "resolution": "Disable mutable production watch or use signed versioned bundles; validate path confinement and atomically reconcile complete generations.",
+      "evidenceIds": ["target-watcher-enabled", "target-registry-file-read", "target-registry-db-sync", "target-site-file-read"]
+    },
+    {
+      "id": "B12",
+      "category": "migration-reconciliation",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Runtime CREATE TABLE statements replace versioned migrations, and no legacy backfill or repeatable reconciliation proof exists.",
+      "resolution": "Add reviewed reversible migrations, constraints/indexes, dry-run backfill, hash/count/orphan reconciliation, and rerun evidence.",
+      "evidenceIds": ["source-news-schema", "target-runtime-ddl", "target-registry-db-sync"]
+    },
+    {
+      "id": "B13",
+      "category": "public-plans",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Target public plans come from content JSON/canned BFF data rather than subscription-owned active/public plans and legacy filter/cache semantics.",
+      "resolution": "Make subscription backend authoritative, filter is_public and is_active for list/detail, and prove shape/order/cache parity.",
+      "evidenceIds": ["source-public-plans", "source-plans-action", "target-plans-file-read", "target-bff-plan-static"]
+    },
+    {
+      "id": "B14",
+      "category": "ranking-entitlement",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Target rankings are static and bypass backend-owned permission/plan rank offset and cap enforcement.",
+      "resolution": "Route live analytics through backend permission authority and prove anonymous/free/paid boundary fixtures cannot be widened downstream.",
+      "evidenceIds": ["source-ranking-entitlement", "target-ranking-static", "target-bff-ranking-static", "target-analytics-ui-static"]
+    },
+    {
+      "id": "B15",
+      "category": "portfolio-ownership",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Target exposes address-selected public placeholder/canned portfolio data instead of a verified-owner watchlist plus live ranking join.",
+      "resolution": "Restore authenticated owner-scoped overview/watchlist routes, idempotent mutations, and foreign-owner denial fixtures.",
+      "evidenceIds": ["source-portfolio-owner", "source-watchlist-idempotency", "source-watchlist-action", "target-portfolio-placeholder", "target-bff-portfolio-static"]
+    },
+    {
+      "id": "B16",
+      "category": "bff-wire-status",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Service, gateway, frontend BFF, and admin BFF have competing prefixes/bodies and collapse or synthesize envelopes and statuses.",
+      "resolution": "Freeze one route matrix and add cross-hop fixtures for body/envelope/pagination/status/request-ID/header preservation.",
+      "evidenceIds": ["source-route-inventory", "target-gateway-rewrite", "target-frontend-routes", "target-admin-status-collapse", "target-client-status-collapse"]
+    },
+    {
+      "id": "B17",
+      "category": "audit-outbox-idempotency",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Content mutations have no proven immutable audit trail, transactional outbox, owner-scoped idempotency key, or replay mismatch behavior.",
+      "resolution": "Persist actor/request/before-after/reason/result with outbox and idempotency in the same transaction; prove replay and 409 mismatch.",
+      "evidenceIds": ["source-news-admin", "source-watchlist-idempotency", "target-publish-direct"]
+    },
+    {
+      "id": "B18",
+      "category": "ui-states",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "UI fallbacks replace wire failure or real empty states with production-looking canned news, ranking, plan, and portfolio content and lack full error/retry states.",
+      "resolution": "Implement explicit loading/empty/forbidden/not-found/error/retry/success states and remove canned fallback from production paths.",
+      "evidenceIds": ["source-news-empty-ui", "source-portfolio-empty-ui", "target-news-ui-fallback", "target-portfolio-ui-static", "target-analytics-ui-static"]
+    },
+    {
+      "id": "B19",
+      "category": "observability-readiness",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "No shadow-read mismatch, stale-cache, lifecycle transition, outbox lag, reconciliation, or route-specific SLO evidence gates cutover.",
+      "resolution": "Instrument correlated metrics/logs/traces and define reviewed readiness thresholds with deterministic reconciliation reports.",
+      "evidenceIds": ["target-content-router", "target-gateway-rewrite", "target-frontend-routes"]
+    },
+    {
+      "id": "B20",
+      "category": "rollback",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "No per-batch route rollback, data-forward rollback, cache purge, or trigger threshold is proven.",
+      "resolution": "Document and rehearse independent route ownership rollback that preserves migrated/published/audit/outbox data and purges incompatible caches.",
+      "evidenceIds": ["source-route-inventory", "target-gateway-rewrite", "target-content-router"]
+    }
+  ],
+  "requiredExecutionOrder": [
+    {
+      "step": 1,
+      "phase": "freeze-wire-and-ownership",
+      "dependsOn": [],
+      "exitEvidence": "Reviewed route, status, envelope, identity, entitlement, cache, and source-of-truth decision records."
+    },
+    {
+      "step": 2,
+      "phase": "schema-and-migrations",
+      "dependsOn": [1],
+      "exitEvidence": "Reversible migrations and migration-lint evidence; runtime DDL removed by implementation batch."
+    },
+    {
+      "step": 3,
+      "phase": "backfill-and-reconciliation",
+      "dependsOn": [2],
+      "exitEvidence": "Dry-run and rerun reports with counts, hashes, orphans, and zero unexplained mismatch."
+    },
+    {
+      "step": 4,
+      "phase": "validated-admin-crud",
+      "dependsOn": [2],
+      "exitEvidence": "Page/theme/block/news/media schema, concurrency, ownership, status, and authorization fixtures."
+    },
+    {
+      "step": 5,
+      "phase": "transactional-publication",
+      "dependsOn": [3, 4],
+      "exitEvidence": "Immutable revision, public pointer, audit/outbox/idempotency, and invalidation transaction tests."
+    },
+    {
+      "step": 6,
+      "phase": "public-content-reads",
+      "dependsOn": [5],
+      "exitEvidence": "Published-only locale/slug/not-found/cache/header fixtures for page/catalog/news/media."
+    },
+    {
+      "step": 7,
+      "phase": "backend-owned-plans-rankings-portfolio",
+      "dependsOn": [1, 3],
+      "exitEvidence": "Live source and anonymous/free/paid/owner/foreign-owner entitlement parity fixtures."
+    },
+    {
+      "step": 8,
+      "phase": "gateway-and-bff-contracts",
+      "dependsOn": [6, 7],
+      "exitEvidence": "Cross-hop prefix/body/envelope/status/request-ID/cache/security-header fixture matrix."
+    },
+    {
+      "step": 9,
+      "phase": "ui-state-machines",
+      "dependsOn": [8],
+      "exitEvidence": "Loading/empty/forbidden/not-found/error/retry/success component and browser coverage without canned fallback."
+    },
+    {
+      "step": 10,
+      "phase": "editor-sessions",
+      "dependsOn": [4, 5],
+      "exitEvidence": "Server-derived editor identity plus ownership/version/expiry/commit/replay fixtures; only then unblock routes."
+    },
+    {
+      "step": 11,
+      "phase": "shadow-and-observe",
+      "dependsOn": [8, 9, 10],
+      "exitEvidence": "Reviewed shadow mismatch, stale-cache, outbox lag, reconciliation, latency, and error-rate report."
+    },
+    {
+      "step": 12,
+      "phase": "batch-cutover-and-rollback-rehearsal",
+      "dependsOn": [11],
+      "exitEvidence": "Each route batch meets thresholds and its route/data/cache rollback is rehearsed before ownership changes."
+    }
+  ]
+}
