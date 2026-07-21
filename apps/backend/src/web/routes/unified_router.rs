@@ -234,6 +234,7 @@ impl UnifiedRouteBuilder {
     pub fn build(self) -> Router {
         // Create route plans
         let health_routes = self.create_health_routes();
+        let well_known_routes = self.create_well_known_routes();
         let auth_routes = self.create_auth_routes();
         let admin_routes = self.create_admin_routes();
         let analytics_routes = self.create_analytics_routes();
@@ -259,6 +260,8 @@ impl UnifiedRouteBuilder {
         let router = Router::new()
             // Core health endpoints (public, no auth)
             .merge(health_routes)
+            // OpenID public-key discovery (public, no auth)
+            .merge(well_known_routes)
             // API documentation (public, no auth)
             .merge(docs_routes)
             // Authentication routes (Web3-first auth)
@@ -317,6 +320,15 @@ impl UnifiedRouteBuilder {
     // ============================================================================
     // HEALTH ROUTES
     // ============================================================================
+
+    fn create_well_known_routes(&self) -> Router {
+        Router::new()
+            .route(
+                "/.well-known/jwks.json",
+                get(crate::web::auth::handlers::jwks_handler),
+            )
+            .with_state(self.create_app_state())
+    }
 
     fn create_health_routes(&self) -> Router {
         let health_state = crate::web::health::HealthState {

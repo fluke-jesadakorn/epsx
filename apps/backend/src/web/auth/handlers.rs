@@ -3,23 +3,25 @@
 
 use axum::{
     extract::{Query, State},
-    http::{HeaderMap, StatusCode},
+    http::{header::CACHE_CONTROL, HeaderMap, HeaderValue, StatusCode},
     Json,
 };
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 // use std::sync::Arc; // Removed - unused import
-use tracing::{info, error, warn};
+use tracing::{error, info, warn};
 
-use utoipa::{ToSchema, IntoParams};
+use utoipa::{IntoParams, ToSchema};
 
 use crate::{
-    auth::auth_service::{
-        Web3VerificationRequest, Web3AuthError,
-    },
+    auth::auth_service::{Web3AuthError, Web3VerificationRequest},
+    auth::key_manager::JWKS,
     infrastructure::services::audit_service::{AuditCtx, AuditEntry},
     web::auth::AppState,
 };
+
+const JWKS_CACHE_CONTROL: &str = "public, max-age=300, must-revalidate";
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct ChallengeRequest {
@@ -44,9 +46,83 @@ pub struct SignatureVerificationRequest {
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct LogoutRequest {
-    /// Ethereum wallet address to logout
+    /// Ethereum wallet address to logout. Retained for backward compatibility and audit context.
     #[schema(example = "0x1234567890123456789012345678901234567890")]
-    pub wallet_address: String,
+    #[serde(default)]
+    pub wallet_address: Option<String>,
+    /// Opaque refresh token to revoke. Server-side BFFs may alternatively send a canonical cookie.
+    #[serde(default)]
+    pub refresh_token: Option<String>,
+}
+
+fn canonical_refresh_token_from_cookies(headers: &HeaderMap) -> Option<String> {
+    let cookies = headers.get("cookie")?.to_str().ok()?;
+
+    cookies.split(';').find_map(|cookie| {
+        let (name, value) = cookie.trim().split_once('=')?;
+        if !matches!(
+            name.trim(),
+            "epsx.refresh_token" | "__Host-epsx.refresh_token"
+        ) {
+            return None;
+        }
+
+        let value = value.trim();
+        (!value.is_empty()).then(|| value.to_string())
+    })
+}
+
+fn logout_refresh_token(request: Option<&LogoutRequest>, headers: &HeaderMap) -> Option<String> {
+    request
+        .and_then(|request| request.refresh_token.as_deref())
+        .map(str::trim)
+        .filter(|token| !token.is_empty())
+        .map(str::to_string)
+        .or_else(|| canonical_refresh_token_from_cookies(headers))
+}
+
+fn remaining_access_token_seconds(
+    token_expires_at: Option<DateTime<Utc>>,
+    now: DateTime<Utc>,
+) -> Option<i64> {
+    token_expires_at.map(|expires_at| (expires_at - now).num_seconds().max(0))
+}
+
+fn logout_success_response(wallet_address: Option<&str>) -> Value {
+    json!({
+        "success": true,
+        "message": "Logged out successfully",
+        "wallet_address": wallet_address
+    })
+}
+
+fn jwks_response_headers() -> HeaderMap {
+    let mut headers = HeaderMap::new();
+    headers.insert(CACHE_CONTROL, HeaderValue::from_static(JWKS_CACHE_CONTROL));
+    headers
+}
+
+/// Publish the configured OpenID signing public keys. Private key material never enters the DTO.
+pub async fn jwks_handler(
+    State(app_state): State<AppState>,
+) -> Result<(HeaderMap, Json<JWKS>), StatusCode> {
+    let token_service = app_state
+        .domain_container
+        .get_token_service()
+        .ok_or_else(|| {
+            error!("Token service not available for JWKS publication");
+            StatusCode::SERVICE_UNAVAILABLE
+        })?;
+
+    let jwks = token_service
+        .get_key_manager()
+        .generate_jwks()
+        .map_err(|error| {
+            error!("Failed to generate JWKS: {}", error);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    Ok((jwks_response_headers(), Json(jwks)))
 }
 
 #[derive(Debug, Deserialize, Serialize, ToSchema, IntoParams)]
@@ -223,6 +299,9 @@ pub async fn verify_signature_handler(
                 .id(&auth_result.wallet_address)
                 .after(serde_json::json!({ "wallet": auth_result.wallet_address })));
 
+            let expires_in =
+                remaining_access_token_seconds(auth_result.token_expires_at, Utc::now());
+
             Ok(Json(json!({
                 "success": true,
                 "authenticated": true,
@@ -231,7 +310,8 @@ pub async fn verify_signature_handler(
                 "permissions": user_permissions,
                 "permissions_granted": permissions_granted,
                 "access_token": auth_result.bearer_token.clone().unwrap_or(auth_result.access_token),
-                "refresh_token": auth_result.refresh_token
+                "refresh_token": auth_result.refresh_token,
+                "expires_in": expires_in
             })))
         }
         Err(Web3AuthError::ExpiredNonce(msg)) => {
@@ -275,25 +355,56 @@ pub async fn verify_signature_handler(
     request_body = LogoutRequest,
     responses(
         (status = 200, description = "Logout successful", body = Value),
+        (status = 503, description = "Token service unavailable"),
         (status = 500, description = "Internal server error")
     ),
     tag = "auth"
 )]
 pub async fn logout_handler(
-    State(_app_state): State<AppState>,
-    Json(request): Json<LogoutRequest>,
+    State(app_state): State<AppState>,
+    headers: HeaderMap,
+    request: Option<Json<LogoutRequest>>,
 ) -> Result<Json<Value>, StatusCode> {
-    info!("Web3 logout for wallet: {}", request.wallet_address);
+    let request = request.as_ref().map(|Json(request)| request);
+    let wallet_address = request
+        .and_then(|request| request.wallet_address.as_deref())
+        .map(str::trim)
+        .filter(|wallet| !wallet.is_empty());
+    let refresh_token = logout_refresh_token(request, &headers);
 
-    // For Web3 auth, logout is primarily client-side
-    // We don't need to invalidate server-side sessions like traditional auth
-    // Just confirm the logout action
+    info!(
+        "Web3 logout requested for wallet: {}",
+        wallet_address.unwrap_or("unknown")
+    );
 
-    Ok(Json(json!({
-        "success": true,
-        "message": "Logged out successfully",
-        "wallet_address": request.wallet_address
-    })))
+    if let Some(refresh_token) = refresh_token.as_deref() {
+        let token_service = app_state.domain_container.get_token_service().ok_or_else(|| {
+            error!("Token service unavailable while processing logout");
+            StatusCode::SERVICE_UNAVAILABLE
+        })?;
+
+        // UPDATE affects zero rows for an unknown or already-revoked token. That is deliberately
+        // indistinguishable from a newly revoked token so this endpoint cannot become a token oracle.
+        token_service
+            .revoke_refresh_token(refresh_token)
+            .await
+            .map_err(|error| {
+                error!("Failed to process refresh-token revocation: {}", error);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+    }
+
+    let audit_context = wallet_address
+        .map(|wallet| AuditCtx::from_wallet(wallet, &headers))
+        .unwrap_or_else(|| AuditCtx::from_headers(&headers));
+    app_state.audit.log(
+        audit_context,
+        AuditEntry::new("session", "logout", "auth").after(json!({
+            "refresh_token_supplied": refresh_token.is_some()
+        })),
+    );
+
+    Ok(Json(logout_success_response(wallet_address)))
 }
 
 /// Token refresh request body
@@ -716,5 +827,105 @@ pub async fn get_user_permissions_handler(
             error!("Failed to get user permissions: {}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::header::COOKIE;
+    use chrono::Duration;
+
+    #[test]
+    fn jwks_cache_control_is_public_and_bounded() {
+        let headers = jwks_response_headers();
+        assert_eq!(
+            headers.get(CACHE_CONTROL).and_then(|value| value.to_str().ok()),
+            Some("public, max-age=300, must-revalidate")
+        );
+        assert!(!JWKS_CACHE_CONTROL.contains("private"));
+        assert!(!JWKS_CACHE_CONTROL.contains("no-store"));
+    }
+
+    #[test]
+    fn logout_request_remains_compatible_with_wallet_only_body() {
+        let request: LogoutRequest = serde_json::from_value(json!({
+            "wallet_address": "0x1234567890123456789012345678901234567890"
+        }))
+        .unwrap();
+
+        assert_eq!(
+            request.wallet_address.as_deref(),
+            Some("0x1234567890123456789012345678901234567890")
+        );
+        assert!(request.refresh_token.is_none());
+    }
+
+    #[test]
+    fn logout_prefers_body_refresh_token_over_cookie() {
+        let request = LogoutRequest {
+            wallet_address: None,
+            refresh_token: Some("body-token".to_string()),
+        };
+        let mut headers = HeaderMap::new();
+        headers.insert(COOKIE, "epsx.refresh_token=cookie-token".parse().unwrap());
+
+        assert_eq!(
+            logout_refresh_token(Some(&request), &headers).as_deref(),
+            Some("body-token")
+        );
+    }
+
+    #[test]
+    fn logout_accepts_each_canonical_refresh_cookie() {
+        for cookie in [
+            "epsx.refresh_token=plain-token",
+            "__Host-epsx.refresh_token=host-token",
+        ] {
+            let mut headers = HeaderMap::new();
+            headers.insert(COOKIE, cookie.parse().unwrap());
+            assert!(logout_refresh_token(None, &headers).is_some());
+        }
+    }
+
+    #[test]
+    fn logout_ignores_empty_and_noncanonical_tokens() {
+        let request = LogoutRequest {
+            wallet_address: None,
+            refresh_token: Some("   ".to_string()),
+        };
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            COOKIE,
+            "epsx_token=legacy; epsx.refresh_token=".parse().unwrap(),
+        );
+
+        assert!(logout_refresh_token(Some(&request), &headers).is_none());
+    }
+
+    #[test]
+    fn logout_success_is_generic_and_never_contains_token_material() {
+        let response = logout_success_response(Some(
+            "0x1234567890123456789012345678901234567890",
+        ));
+        let serialized = response.to_string();
+
+        assert_eq!(response["success"], true);
+        assert!(!serialized.contains("refresh_token"));
+        assert!(!serialized.contains("body-token"));
+    }
+
+    #[test]
+    fn verify_expiry_is_derived_from_absolute_expiration() {
+        let now = Utc::now();
+        assert_eq!(
+            remaining_access_token_seconds(Some(now + Duration::seconds(3600)), now),
+            Some(3600)
+        );
+        assert_eq!(
+            remaining_access_token_seconds(Some(now - Duration::seconds(1)), now),
+            Some(0)
+        );
+        assert_eq!(remaining_access_token_seconds(None, now), None);
     }
 }

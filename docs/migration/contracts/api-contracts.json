@@ -128,10 +128,10 @@
         "successStatuses": [200],
         "invariants": ["backend revokes refresh token", "operation is idempotent", "BFF clears access and refresh cookies even on upstream failure"]
       },
-      "observed": {"status": "blocked", "summary": "The monolith logout is acknowledgement-only and frontend logout clears only local legacy cookies."},
+      "observed": {"status": "blocked", "summary": "The monolith now revokes supplied refresh tokens idempotently, but the BFF still must forward the canonical token and clear both access and refresh cookies on every outcome."},
       "evidence": [
-        {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": "For Web3 auth, logout is primarily client-side"},
-        {"file": "apps/backend/src/auth/token_service.rs", "anchor": "pub async fn revoke_refresh_token"},
+        {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": ".revoke_refresh_token(refresh_token)"},
+        {"file": "shared/rust/epsx-identity-shared/src/token_service.rs", "anchor": "pub async fn revoke_refresh_token"},
         {"file": "apps/frontend/src/api.rs", "anchor": "pub async fn logout()"}
       ]
     },

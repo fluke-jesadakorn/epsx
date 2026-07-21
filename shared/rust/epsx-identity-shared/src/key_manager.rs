@@ -16,6 +16,7 @@ use crate::config::get_env_var;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JWK {
     pub kty: String,  // Key Type
+    #[serde(rename = "use")]
     pub use_: String, // Public Key Use
     pub alg: String,  // Algorithm  
     pub kid: String,  // Key ID
@@ -290,6 +291,45 @@ mod tests {
         
         assert_eq!(jwks.keys.len(), 1);
         assert_eq!(jwks.keys[0].kid, manager.current_key.kid);
+    }
+
+    #[test]
+    fn test_jwks_serialization_contains_public_material_only() {
+        let manager = KeyManager::new().unwrap();
+        let serialized = serde_json::to_value(manager.generate_jwks().unwrap()).unwrap();
+        let key = &serialized["keys"][0];
+
+        assert_eq!(key["kty"], "RSA");
+        assert_eq!(key["use"], "sig");
+        assert_eq!(key["alg"], "RS256");
+        assert!(key["kid"].as_str().is_some_and(|value| !value.is_empty()));
+        assert!(key["n"].as_str().is_some_and(|value| !value.is_empty()));
+        assert!(key["e"].as_str().is_some_and(|value| !value.is_empty()));
+        assert!(key.get("use_").is_none());
+
+        let serialized = serialized.to_string();
+        for forbidden in [
+            "private_key",
+            "encoding_key",
+            "decoding_key",
+            "PRIVATE KEY",
+        ] {
+            assert!(!serialized.contains(forbidden));
+        }
+    }
+
+    #[test]
+    fn test_jwks_includes_current_and_backup_public_keys() {
+        let mut manager = KeyManager::new().unwrap();
+        let original_kid = manager.current_key().kid.clone();
+        let current_kid = manager.rotate_keys().unwrap();
+        let jwks = manager.generate_jwks().unwrap();
+        let kids: std::collections::HashSet<_> =
+            jwks.keys.into_iter().map(|key| key.kid).collect();
+
+        assert_eq!(kids.len(), 2);
+        assert!(kids.contains(&original_kid));
+        assert!(kids.contains(&current_kid));
     }
     
     #[test]

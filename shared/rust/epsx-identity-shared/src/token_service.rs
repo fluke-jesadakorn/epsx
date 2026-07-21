@@ -8,7 +8,7 @@ use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
 use diesel::prelude::*;
 use diesel_async::{AsyncConnection, RunQueryDsl};
-use jsonwebtoken::{encode, Algorithm, Header};
+use jsonwebtoken::{decode, decode_header, encode, Algorithm, Header, Validation};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::info;
@@ -394,25 +394,12 @@ impl OpenIDTokenService {
         &self,
         token: &str,
     ) -> Result<AccessTokenClaims, OpenIDTokenError> {
-        let mut validation = jsonwebtoken::Validation::new(Algorithm::RS256);
-        validation.set_audience(&self.audiences);
-        validation.set_issuer(std::slice::from_ref(&self.issuer));
-
-        // Allow some leeway for clock skew
-        validation.leeway = 60;
-
-        // Decode and verify
-        let key_manager = &self.key_manager;
-        let token_data = jsonwebtoken::decode::<AccessTokenClaims>(
+        validate_access_token_with_key_manager(
             token,
-            &key_manager.current_key().decoding_key,
-            &validation,
+            &self.issuer,
+            &self.audiences,
+            &self.key_manager,
         )
-        .map_err(|e| {
-            OpenIDTokenError::Web3AuthenticationFailed(format!("Token validation failed: {}", e))
-        })?;
-
-        Ok(token_data.claims)
     }
 
     // Private helper methods
@@ -748,6 +735,55 @@ impl OpenIDTokenService {
     }
 }
 
+fn validate_access_token_with_key_manager(
+    token: &str,
+    issuer: &str,
+    audiences: &[String],
+    key_manager: &KeyManager,
+) -> Result<AccessTokenClaims, OpenIDTokenError> {
+    let header = decode_header(token).map_err(|error| {
+        OpenIDTokenError::Web3AuthenticationFailed(format!(
+            "Token header validation failed: {}",
+            error
+        ))
+    })?;
+
+    if header.alg != Algorithm::RS256 {
+        return Err(OpenIDTokenError::Web3AuthenticationFailed(
+            "Token algorithm must be RS256".to_string(),
+        ));
+    }
+
+    let kid = header
+        .kid
+        .as_deref()
+        .map(str::trim)
+        .filter(|kid| !kid.is_empty())
+        .ok_or_else(|| {
+            OpenIDTokenError::Web3AuthenticationFailed(
+                "Token header is missing a key ID".to_string(),
+            )
+        })?;
+
+    let key = key_manager.get_key(kid).ok_or_else(|| {
+        OpenIDTokenError::Web3AuthenticationFailed("Token key ID is not recognized".to_string())
+    })?;
+
+    let mut validation = Validation::new(Algorithm::RS256);
+    validation.set_audience(audiences);
+    validation.set_issuer(&[issuer]);
+    validation.leeway = 60;
+
+    decode::<AccessTokenClaims>(token, &key.decoding_key, &validation)
+        .map(|token_data| token_data.claims)
+        .map_err(|error| {
+            OpenIDTokenError::Web3AuthenticationFailed(format!(
+                "Token validation failed: {}",
+                error
+            ))
+        })
+}
+
 /// Wallet user profile for token generation
 #[derive(Debug, Clone)]
 struct WalletUserProfile {
@@ -756,6 +792,196 @@ struct WalletUserProfile {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    const TEST_ISSUER: &str = "https://api.epsx.io";
+
+    fn test_audiences() -> Vec<String> {
+        vec!["epsx-frontend".to_string(), "epsx-admin".to_string()]
+    }
+
+    fn test_claims() -> AccessTokenClaims {
+        let now = Utc::now().timestamp();
+        AccessTokenClaims {
+            iss: TEST_ISSUER.to_string(),
+            sub: "0x1234567890123456789012345678901234567890".to_string(),
+            aud: test_audiences(),
+            exp: now + 3600,
+            iat: now,
+            jti: "test-jti".to_string(),
+            scope: "openid profile epsx:analytics:read".to_string(),
+            wallet_address: "0x1234567890123456789012345678901234567890".to_string(),
+            auth_method: "web3_siwe".to_string(),
+            auth_time: now,
+        }
+    }
+
+    fn encode_test_token(
+        key_manager: &KeyManager,
+        algorithm: Algorithm,
+        kid: Option<String>,
+    ) -> String {
+        encode_test_claims(key_manager, algorithm, kid, &test_claims())
+    }
+
+    fn encode_test_claims(
+        key_manager: &KeyManager,
+        algorithm: Algorithm,
+        kid: Option<String>,
+        claims: &AccessTokenClaims,
+    ) -> String {
+        let mut header = Header::new(algorithm);
+        header.kid = kid;
+        encode(&header, claims, &key_manager.current_key().encoding_key).unwrap()
+    }
+
+    #[test]
+    fn access_token_validation_accepts_current_kid() {
+        let key_manager = KeyManager::new().unwrap();
+        let token = encode_test_token(
+            &key_manager,
+            Algorithm::RS256,
+            Some(key_manager.current_key().kid.clone()),
+        );
+
+        let claims = validate_access_token_with_key_manager(
+            &token,
+            TEST_ISSUER,
+            &test_audiences(),
+            &key_manager,
+        )
+        .unwrap();
+
+        assert_eq!(claims.wallet_address, test_claims().wallet_address);
+    }
+
+    #[test]
+    fn access_token_validation_accepts_backup_kid_after_rotation() {
+        let mut key_manager = KeyManager::new().unwrap();
+        let original_kid = key_manager.current_key().kid.clone();
+        let token = encode_test_token(&key_manager, Algorithm::RS256, Some(original_kid));
+        key_manager.rotate_keys().unwrap();
+
+        let claims = validate_access_token_with_key_manager(
+            &token,
+            TEST_ISSUER,
+            &test_audiences(),
+            &key_manager,
+        )
+        .unwrap();
+
+        assert_eq!(claims.sub, test_claims().sub);
+    }
+
+    #[test]
+    fn access_token_validation_rejects_unknown_kid() {
+        let key_manager = KeyManager::new().unwrap();
+        let token = encode_test_token(
+            &key_manager,
+            Algorithm::RS256,
+            Some("unknown-key".to_string()),
+        );
+
+        assert!(validate_access_token_with_key_manager(
+            &token,
+            TEST_ISSUER,
+            &test_audiences(),
+            &key_manager,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn access_token_validation_rejects_missing_kid() {
+        let key_manager = KeyManager::new().unwrap();
+        let token = encode_test_token(&key_manager, Algorithm::RS256, None);
+
+        assert!(validate_access_token_with_key_manager(
+            &token,
+            TEST_ISSUER,
+            &test_audiences(),
+            &key_manager,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn access_token_validation_rejects_empty_kid() {
+        let key_manager = KeyManager::new().unwrap();
+        let token = encode_test_token(
+            &key_manager,
+            Algorithm::RS256,
+            Some("   ".to_string()),
+        );
+
+        assert!(validate_access_token_with_key_manager(
+            &token,
+            TEST_ISSUER,
+            &test_audiences(),
+            &key_manager,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn access_token_validation_rejects_wrong_algorithm() {
+        let key_manager = KeyManager::new().unwrap();
+        let token = encode_test_token(
+            &key_manager,
+            Algorithm::RS384,
+            Some(key_manager.current_key().kid.clone()),
+        );
+
+        assert!(validate_access_token_with_key_manager(
+            &token,
+            TEST_ISSUER,
+            &test_audiences(),
+            &key_manager,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn access_token_validation_rejects_wrong_issuer() {
+        let key_manager = KeyManager::new().unwrap();
+        let mut claims = test_claims();
+        claims.iss = "https://attacker.invalid".to_string();
+        let token = encode_test_claims(
+            &key_manager,
+            Algorithm::RS256,
+            Some(key_manager.current_key().kid.clone()),
+            &claims,
+        );
+
+        assert!(validate_access_token_with_key_manager(
+            &token,
+            TEST_ISSUER,
+            &test_audiences(),
+            &key_manager,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn access_token_validation_rejects_wrong_audience() {
+        let key_manager = KeyManager::new().unwrap();
+        let mut claims = test_claims();
+        claims.aud = vec!["untrusted-client".to_string()];
+        let token = encode_test_claims(
+            &key_manager,
+            Algorithm::RS256,
+            Some(key_manager.current_key().kid.clone()),
+            &claims,
+        );
+
+        assert!(validate_access_token_with_key_manager(
+            &token,
+            TEST_ISSUER,
+            &test_audiences(),
+            &key_manager,
+        )
+        .is_err());
+    }
 
     #[tokio::test]
     async fn test_valid_client_ids() {
