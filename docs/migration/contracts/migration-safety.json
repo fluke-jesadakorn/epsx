@@ -1,0 +1,388 @@
+{
+  "schemaVersion": 1,
+  "purpose": "fixture-and-static-integrity-only",
+  "baseline": {
+    "sourceRef": "origin/development",
+    "sourceCommit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "targetRef": "migration/dioxus-microservices"
+  },
+  "statusMeaning": {
+    "blocked": "No executable, data-preserving upgrade proof exists for this gap.",
+    "partial": "Repository structure exists, but upgrade and reconciliation proof is incomplete.",
+    "aligned": "An additive implementation and executable upgrade proof both exist."
+  },
+  "mandatoryRootIds": [
+    "root.core",
+    "root.analytics",
+    "root.notifications",
+    "root.payments",
+    "root.archive",
+    "root.backend-runner",
+    "root.manual-runner",
+    "root.infrastructure-bootstrap"
+  ],
+  "migrationRoots": [
+    {
+      "id": "root.core",
+      "database": "core",
+      "path": "apps/backend/migrations/core",
+      "kind": "active-diesel",
+      "runner": "apps/backend/diesel.toml",
+      "observed": {"status": "partial", "summary": "Active root exists, but contains a duplicate baseline version and destructive forward migrations."},
+      "evidence": [{"ref": "worktree", "file": "apps/backend/diesel.toml", "anchor": "dir = \"migrations/core/\""}]
+    },
+    {
+      "id": "root.analytics",
+      "database": "analytics/infra_logs",
+      "path": "apps/backend/migrations/analytics",
+      "kind": "active-diesel",
+      "runner": "apps/backend/diesel_analytics.toml",
+      "observed": {"status": "partial", "summary": "Active root exists, but applied baseline history was deleted and rewritten for an in-place schema rename."},
+      "evidence": [{"ref": "worktree", "file": "apps/backend/diesel_analytics.toml", "anchor": "dir = \"migrations/analytics/\""}]
+    },
+    {
+      "id": "root.notifications",
+      "database": "notifications",
+      "path": "apps/backend/migrations/notifications",
+      "kind": "active-diesel",
+      "runner": "apps/backend/diesel_notifications.toml",
+      "observed": {"status": "partial", "summary": "Active root exists, but source baseline history was deleted and an active migration drops a table."},
+      "evidence": [{"ref": "worktree", "file": "apps/backend/diesel_notifications.toml", "anchor": "dir = \"migrations/notifications/\""}]
+    },
+    {
+      "id": "root.payments",
+      "database": "payments",
+      "path": "apps/backend/migrations/payments",
+      "kind": "active-diesel",
+      "runner": "apps/backend/diesel_payments.toml",
+      "observed": {"status": "partial", "summary": "Active root exists, but source baseline history was deleted and the plans replica needs a manual initial copy."},
+      "evidence": [{"ref": "worktree", "file": "apps/backend/diesel_payments.toml", "anchor": "dir = \"migrations/payments/\""}]
+    },
+    {
+      "id": "root.archive",
+      "database": "multiple",
+      "path": "apps/backend/migrations/_archive",
+      "kind": "tracked-archive",
+      "runner": null,
+      "observed": {"status": "partial", "summary": "Archive is outside configured Diesel roots but remains tracked and contains destructive rollback/forward SQL."},
+      "evidence": [{"ref": "worktree", "file": "apps/backend/migrations/_archive/core/20251126010000_consolidated_schema/down.sql", "anchor": "DROP TABLE IF EXISTS wallet_users"}]
+    },
+    {
+      "id": "root.backend-runner",
+      "database": "core/analytics/notifications/payments",
+      "path": "apps/backend/scripts",
+      "kind": "manual-runner",
+      "runner": "apps/backend/scripts/migrate_all.sh",
+      "observed": {"status": "partial", "summary": "Diesel runner targets the four backend roots, but no source-version upgrade matrix or reconciliation proof is wired."},
+      "evidence": [{"ref": "worktree", "file": "apps/backend/scripts/migrate_all.sh", "anchor": "Starting Automatic Migration for All Databases"}]
+    },
+    {
+      "id": "root.manual-runner",
+      "database": "multiple",
+      "path": "scripts/database",
+      "kind": "manual-runner",
+      "runner": "scripts/database/init-databases.sh",
+      "observed": {"status": "partial", "summary": "Manual runners exist outside Diesel history and can continue after SQL errors."},
+      "evidence": [{"ref": "worktree", "file": "scripts/database/init-databases.sh", "anchor": "already applied or skipped"}]
+    },
+    {
+      "id": "root.infrastructure-bootstrap",
+      "database": "host/bootstrap",
+      "path": "infrastructure/migration",
+      "kind": "manual-runner",
+      "runner": "infrastructure/migration/setup-and-run.sh",
+      "observed": {"status": "partial", "summary": "Infrastructure migration is a machine/bootstrap runner rather than versioned database history; it must not be treated as schema-upgrade proof."},
+      "evidence": [{"ref": "worktree", "file": "infrastructure/migration/setup-and-run.sh", "anchor": "EPSX New Machine Setup"}]
+    }
+  ],
+  "allowedRiskClasses": [
+    "applied-history-mutation",
+    "version-collision",
+    "destructive-forward-migration",
+    "destructive-rollback",
+    "runtime-ddl",
+    "missing-versioned-migration",
+    "database-name-drift",
+    "partition-horizon",
+    "manual-backfill",
+    "replica-reconciliation",
+    "migration-runner"
+  ],
+  "mandatoryRiskIds": [
+    "history.analytics-v2-deleted",
+    "history.notifications-v2-deleted",
+    "history.payments-v3-deleted",
+    "history.analytics-v3-rewritten",
+    "history.analytics-audit-rewritten",
+    "version.core-baseline-collision",
+    "forward.core-data-drops",
+    "forward.notification-subscriptions-drop",
+    "rollback.destructive-sql-corpus",
+    "runtime.service-schema-ddl",
+    "runtime.missing-service-migrations",
+    "naming.pay-database-drift",
+    "partition.analytics-expired-horizon",
+    "backfill.plan-replica-manual",
+    "backfill.pay-database-rename-unversioned",
+    "runner.manual-sql-errors-swallowed"
+  ],
+  "knownBlockedIds": [
+    "history.analytics-v2-deleted",
+    "history.notifications-v2-deleted",
+    "history.payments-v3-deleted",
+    "history.analytics-v3-rewritten",
+    "history.analytics-audit-rewritten",
+    "version.core-baseline-collision",
+    "forward.core-data-drops",
+    "forward.notification-subscriptions-drop",
+    "rollback.destructive-sql-corpus",
+    "runtime.service-schema-ddl",
+    "runtime.missing-service-migrations",
+    "naming.pay-database-drift",
+    "partition.analytics-expired-horizon",
+    "backfill.plan-replica-manual",
+    "backfill.pay-database-rename-unversioned",
+    "runner.manual-sql-errors-swallowed"
+  ],
+  "risks": [
+    {
+      "id": "history.analytics-v2-deleted",
+      "database": "analytics",
+      "riskClass": "applied-history-mutation",
+      "severity": "critical",
+      "dataSafetyInvariant": "A migration version recorded as applied must remain byte-addressable; replacement must use a new forward-only version.",
+      "requiredRemediation": {"package": "A3.1", "mode": "forward-fix", "summary": "Restore the v2 migration exactly and add a new additive schema-transition migration with reconcile and rollback-safe validation.", "requiredProof": ["source-to-current upgrade test", "Diesel migration-history continuity assertion", "row-count and schema reconcile report"]},
+      "dependencies": ["A0", "A3"],
+      "observed": {"status": "blocked", "summary": "The source v2 analytics baseline is deleted on the target branch."},
+      "evidence": [
+        {"ref": "origin/development", "file": "apps/backend/migrations/analytics/00000000000001_consolidated_analytics_v2/up.sql", "anchor": "EPSX Analytics Consolidated Schema v2"},
+        {"ref": "worktree", "file": "apps/backend/migrations/analytics/00000000000001_consolidated_baseline_v3/up.sql", "anchor": "EPSX Analytics Consolidated Schema v3"}
+      ]
+    },
+    {
+      "id": "history.notifications-v2-deleted",
+      "database": "notifications",
+      "riskClass": "applied-history-mutation",
+      "severity": "critical",
+      "dataSafetyInvariant": "Deleting a consolidated baseline must never strand an existing Diesel migration-history row or reinterpret its schema.",
+      "requiredRemediation": {"package": "A3.1", "mode": "forward-fix", "summary": "Restore the deleted source baseline and express all notification changes as later additive versions.", "requiredProof": ["source-to-current upgrade test", "migration-history continuity assertion", "notification row-count reconcile"]},
+      "dependencies": ["A0", "A3", "A11"],
+      "observed": {"status": "blocked", "summary": "The source consolidated_notifications_v2 files are deleted."},
+      "evidence": [
+        {"ref": "origin/development", "file": "apps/backend/migrations/notifications/00000000000001_consolidated_notifications_v2/up.sql", "anchor": "notification_subscriptions"},
+        {"ref": "worktree", "file": "apps/backend/migrations/notifications/00000000000001_consolidated_baseline_v2/up.sql", "anchor": "EPSX NOTIFICATIONS CONSOLIDATED SCHEMA v2"}
+      ]
+    },
+    {
+      "id": "history.payments-v3-deleted",
+      "database": "payments",
+      "riskClass": "applied-history-mutation",
+      "severity": "critical",
+      "dataSafetyInvariant": "Financial migration history must be append-only and reproducible from every deployed baseline.",
+      "requiredRemediation": {"package": "A3.1", "mode": "forward-fix", "summary": "Restore the v3 payment baseline and add later guarded migrations instead of replacing history.", "requiredProof": ["source-to-current upgrade test", "financial table row/count/hash reconcile", "migration-history continuity assertion"]},
+      "dependencies": ["A0", "A3", "A6"],
+      "observed": {"status": "blocked", "summary": "The source consolidated_payments_v3 files are deleted."},
+      "evidence": [
+        {"ref": "origin/development", "file": "apps/backend/migrations/payments/00000000000001_consolidated_payments_v3/up.sql", "anchor": "EPSX PAYMENTS CONSOLIDATED SCHEMA v3"},
+        {"ref": "worktree", "file": "apps/backend/migrations/payments/00000000000001_consolidated_baseline_v4/up.sql", "anchor": "EPSX PAYMENTS CONSOLIDATED SCHEMA v4"}
+      ]
+    },
+    {
+      "id": "history.analytics-v3-rewritten",
+      "database": "analytics/infra_logs",
+      "riskClass": "applied-history-mutation",
+      "severity": "critical",
+      "dataSafetyInvariant": "A schema rename must be a new ALTER/transfer migration, never an edit to an already-applied baseline.",
+      "requiredRemediation": {"package": "A3.2", "mode": "forward-fix", "summary": "Restore the source v3 bytes and add a new guarded analytics-to-infra_logs schema transfer with dual-read/reconcile proof.", "requiredProof": ["upgrade test from source v3", "table and sequence ownership reconcile", "zero-row-loss report"]},
+      "dependencies": ["A3", "A12"],
+      "observed": {"status": "blocked", "summary": "The v3 baseline was rewritten in place to create infra_logs-qualified objects."},
+      "evidence": [
+        {"ref": "origin/development", "file": "apps/backend/migrations/analytics/00000000000001_consolidated_baseline_v3/up.sql", "anchor": "CREATE TABLE api_key_usage_logs"},
+        {"ref": "worktree", "file": "apps/backend/migrations/analytics/00000000000001_consolidated_baseline_v3/up.sql", "anchor": "CREATE TABLE infra_logs.api_key_usage_logs"}
+      ]
+    },
+    {
+      "id": "history.analytics-audit-rewritten",
+      "database": "analytics/infra_logs",
+      "riskClass": "applied-history-mutation",
+      "severity": "high",
+      "dataSafetyInvariant": "An applied audit-log migration must retain its original bytes; relocation requires a later additive copy/reconcile migration.",
+      "requiredRemediation": {"package": "A3.2", "mode": "forward-fix", "summary": "Restore the original audit migration and add a new migration that copies/reconciles audit rows into infra_logs.", "requiredProof": ["audit row-count and primary-key reconcile", "source-to-current upgrade test"]},
+      "dependencies": ["A3", "A12"],
+      "observed": {"status": "blocked", "summary": "The existing audit migration was rewritten from the default schema to infra_logs."},
+      "evidence": [
+        {"ref": "origin/development", "file": "apps/backend/migrations/analytics/20260216100000_create_unified_audit_log/up.sql", "anchor": "CREATE TABLE IF NOT EXISTS unified_audit_log"},
+        {"ref": "worktree", "file": "apps/backend/migrations/analytics/20260216100000_create_unified_audit_log/up.sql", "anchor": "CREATE TABLE IF NOT EXISTS infra_logs.unified_audit_log"}
+      ]
+    },
+    {
+      "id": "version.core-baseline-collision",
+      "database": "core",
+      "riskClass": "version-collision",
+      "severity": "critical",
+      "dataSafetyInvariant": "Every active Diesel migration version must resolve to exactly one immutable migration directory.",
+      "requiredRemediation": {"package": "A3.1", "mode": "forward-fix", "summary": "Determine deployed history, restore the canonical version, and move divergent changes into a later unique version without deleting either applied record.", "requiredProof": ["unique-version static gate", "upgrade tests for each observed deployed history"]},
+      "dependencies": ["A0", "A3"],
+      "observed": {"status": "blocked", "summary": "Two active core directories share version 00000000000001."},
+      "evidence": [
+        {"ref": "worktree", "file": "apps/backend/migrations/core/00000000000001_consolidated_baseline_v6/up.sql", "anchor": "EPSX CONSOLIDATED SCHEMA baseline (v6)"},
+        {"ref": "worktree", "file": "apps/backend/migrations/core/00000000000001_consolidated_schema_v5/up.sql", "anchor": "EPSX CONSOLIDATED SCHEMA v5"}
+      ]
+    },
+    {
+      "id": "forward.core-data-drops",
+      "database": "core",
+      "riskClass": "destructive-forward-migration",
+      "severity": "critical",
+      "dataSafetyInvariant": "Forward upgrades must preserve data until a verified backfill, application cutover, retention window, and reconcile gate complete.",
+      "requiredRemediation": {"package": "A3.3", "mode": "additive-remediation", "summary": "Replace table/column drops with additive rename/copy/deprecation migrations and a separately approved cleanup version after reconciliation.", "requiredProof": ["pre/post row and column reconcile", "rollback/cutover drill", "application compatibility test"]},
+      "dependencies": ["A3", "A4"],
+      "observed": {"status": "blocked", "summary": "Active forward migrations drop features tables and display_order."},
+      "evidence": [
+        {"ref": "worktree", "file": "apps/backend/migrations/core/20260215100000_remove_features/up.sql", "anchor": "DROP TABLE IF EXISTS features"},
+        {"ref": "worktree", "file": "apps/backend/migrations/core/20260212000000_consolidate_tier_level/up.sql", "anchor": "ALTER TABLE plans DROP COLUMN IF EXISTS display_order"}
+      ]
+    },
+    {
+      "id": "forward.notification-subscriptions-drop",
+      "database": "notifications",
+      "riskClass": "destructive-forward-migration",
+      "severity": "critical",
+      "dataSafetyInvariant": "A notification table may be retired only after deployed usage, row retention, and rollback requirements are proven against live-shaped data.",
+      "requiredRemediation": {"package": "A3.4", "mode": "additive-remediation", "summary": "Quarantine/rename the table first, capture usage and row counts, then perform a later cleanup only after an approved retention gate.", "requiredProof": ["source-to-current upgrade test with populated rows", "consumer query audit", "retention and rollback drill"]},
+      "dependencies": ["A3", "A11"],
+      "observed": {"status": "blocked", "summary": "An active forward migration drops notification_subscriptions with CASCADE based on a source survey, not executable upgrade proof."},
+      "evidence": [{"ref": "worktree", "file": "apps/backend/migrations/notifications/20260613000000_drop_notification_subscriptions/up.sql", "anchor": "DROP TABLE IF EXISTS notification_subscriptions CASCADE"}]
+    },
+    {
+      "id": "rollback.destructive-sql-corpus",
+      "database": "multiple",
+      "riskClass": "destructive-rollback",
+      "severity": "high",
+      "dataSafetyInvariant": "Production rollback must use forward fixes or restore-tested backups; destructive down migrations must never be an unreviewed recovery mechanism.",
+      "requiredRemediation": {"package": "A3.5", "mode": "forward-fix", "summary": "Classify every destructive down/archive statement, document non-production-only rollback policy, and create restore-tested forward recovery procedures.", "requiredProof": ["statement-level reviewed inventory", "backup restore drill", "forward-recovery test"]},
+      "dependencies": ["A3", "A13"],
+      "observed": {"status": "blocked", "summary": "Tracked active and archived SQL contains DROP, DELETE, CASCADE, and rollback statements; no restore drill is encoded."},
+      "evidence": [
+        {"ref": "worktree", "file": "apps/backend/migrations/core/00000000000001_consolidated_baseline_v6/down.sql", "anchor": "DROP TABLE IF EXISTS wallet_users CASCADE"},
+        {"ref": "worktree", "file": "apps/backend/migrations/analytics/00000000000001_consolidated_baseline_v3/down.sql", "anchor": "DROP SCHEMA IF EXISTS infra_logs CASCADE"}
+      ]
+    },
+    {
+      "id": "runtime.service-schema-ddl",
+      "database": "candidate-service databases",
+      "riskClass": "runtime-ddl",
+      "severity": "critical",
+      "dataSafetyInvariant": "Service startup must not mutate schema; schema changes run once through a versioned, observable migration job before application rollout.",
+      "requiredRemediation": {"package": "A3.6", "mode": "additive-remediation", "summary": "Move all runtime CREATE/ALTER/DROP DDL into per-service versioned migrations and make services fail readiness when required versions are absent.", "requiredProof": ["runtime DDL scan at zero", "fresh and source-version upgrade tests", "concurrent-startup test"]},
+      "dependencies": ["A2", "A3", "A13"],
+      "observed": {"status": "blocked", "summary": "Analytics, content, identity, indexer, notification, pay, subscription, and wallet services execute CREATE TABLE/INDEX during startup."},
+      "evidence": [
+        {"ref": "worktree", "file": "services/analytics/src/main.rs", "anchor": "CREATE TABLE IF NOT EXISTS events"},
+        {"ref": "worktree", "file": "services/content/src/main.rs", "anchor": "CREATE TABLE IF NOT EXISTS pages"},
+        {"ref": "worktree", "file": "services/identity/src/main.rs", "anchor": "CREATE TABLE IF NOT EXISTS users"},
+        {"ref": "worktree", "file": "services/indexer/src/main.rs", "anchor": "CREATE TABLE IF NOT EXISTS blocks"},
+        {"ref": "worktree", "file": "services/notification/src/main.rs", "anchor": "CREATE TABLE IF NOT EXISTS notifications"},
+        {"ref": "worktree", "file": "services/pay/src/db.rs", "anchor": "CREATE TABLE IF NOT EXISTS pay_intents"},
+        {"ref": "worktree", "file": "services/subscription/src/main.rs", "anchor": "CREATE TABLE IF NOT EXISTS subscription_plans"},
+        {"ref": "worktree", "file": "services/wallet/src/main.rs", "anchor": "CREATE TABLE IF NOT EXISTS accounts"}
+      ]
+    },
+    {
+      "id": "runtime.missing-service-migrations",
+      "database": "candidate-service databases",
+      "riskClass": "missing-versioned-migration",
+      "severity": "critical",
+      "dataSafetyInvariant": "Every persisted service schema must have an immutable, ordered migration root and upgrade path from the deployed monolith state.",
+      "requiredRemediation": {"package": "A3.6", "mode": "additive-remediation", "summary": "Create immutable migration roots for each persisted service, baseline existing schemas without recreating data, and wire a pre-rollout migration job.", "requiredProof": ["migration root inventory", "baseline adoption test on populated schemas", "upgrade idempotency test"]},
+      "dependencies": ["A2", "A3", "A7", "A9", "A10", "A11", "A12"],
+      "observed": {"status": "blocked", "summary": "Service schema creation exists in Rust but no corresponding tracked service migration roots exist."},
+      "evidence": [
+        {"ref": "worktree", "file": "services/pay/src/db.rs", "anchor": "Database init + schema migrations"},
+        {"ref": "worktree", "file": "apps/backend/src/bin/migrate.rs", "anchor": "embed_migrations!(\"migrations/core\")"}
+      ]
+    },
+    {
+      "id": "naming.pay-database-drift",
+      "database": "pay/payments",
+      "riskClass": "database-name-drift",
+      "severity": "critical",
+      "dataSafetyInvariant": "All environments, migration jobs, services, and secrets must resolve one canonical database without creating an empty parallel database.",
+      "requiredRemediation": {"package": "A3.7", "mode": "reconcile", "summary": "Choose one canonical pay database name, add an idempotent preflight/reconcile plan, and update every provisioning/migration consumer atomically.", "requiredProof": ["configuration matrix test", "database identity preflight", "row-count reconcile between any existing names"]},
+      "dependencies": ["A3", "A6", "A13"],
+      "observed": {"status": "blocked", "summary": "Runtime uses epsx_pay while provisioning and migration tooling still creates epsx_payments_* databases."},
+      "evidence": [
+        {"ref": "worktree", "file": "services/pay/src/main.rs", "anchor": "localhost:5432/epsx_pay"},
+        {"ref": "worktree", "file": "infrastructure/docker/scripts/init-databases-prod.sh", "anchor": "CREATE DATABASE epsx_payments_prod"},
+        {"ref": "worktree", "file": "infrastructure/kubernetes/scripts/create-secrets.sh", "anchor": "epsx_payments_${DB_SUFFIX}"}
+      ]
+    },
+    {
+      "id": "partition.analytics-expired-horizon",
+      "database": "analytics/infra_logs",
+      "riskClass": "partition-horizon",
+      "severity": "critical",
+      "dataSafetyInvariant": "A time-partitioned write path must always have a current/future partition or a deliberately monitored default partition before accepting traffic.",
+      "requiredRemediation": {"package": "A3.8", "mode": "additive-remediation", "summary": "Add a versioned default/current partition, automated future partition creation, and alerting before routing writes.", "requiredProof": ["write test beyond current date", "future-horizon monitor test", "partition attach/reconcile test"]},
+      "dependencies": ["A3", "A12", "A13"],
+      "observed": {"status": "blocked", "summary": "api_key_usage_logs partitions stop at 2026-04-01 and no default partition is defined; current date is beyond the horizon."},
+      "evidence": [
+        {"ref": "worktree", "file": "apps/backend/migrations/analytics/00000000000001_consolidated_baseline_v3/up.sql", "anchor": "FOR VALUES FROM ('2026-03-01') TO ('2026-04-01')"},
+        {"ref": "worktree", "file": "apps/backend/migrations/analytics/00000000000001_consolidated_baseline_v3/up.sql", "anchor": "PARTITION BY RANGE (request_at)"}
+      ]
+    },
+    {
+      "id": "backfill.plan-replica-manual",
+      "database": "core/payments schemas",
+      "riskClass": "replica-reconciliation",
+      "severity": "critical",
+      "dataSafetyInvariant": "A replica must be fully backfilled and reconciled before any reader cuts over; triggers alone do not copy pre-existing rows.",
+      "requiredRemediation": {"package": "A3.9", "mode": "backfill", "summary": "Wire the initial copy into a resumable, versioned cutover job with high-water mark, conflict updates, and row/content reconciliation before reads switch.", "requiredProof": ["populated-source upgrade test", "row and content checksum reconcile", "concurrent-write catch-up test"]},
+      "dependencies": ["A3", "A4", "A6", "A13"],
+      "observed": {"status": "blocked", "summary": "The migration creates an empty replica plus future-write trigger; initial rows require a separately invoked script using DO NOTHING."},
+      "evidence": [
+        {"ref": "worktree", "file": "apps/backend/migrations/payments/20260613000000_replicate_plans_into_payments_schema/up.sql", "anchor": "NOT the data"},
+        {"ref": "worktree", "file": "infrastructure/scripts/wave11-replicate-plans.sh", "anchor": "production teams run it once"},
+        {"ref": "worktree", "file": "infrastructure/scripts/wave11-replicate-plans.sh", "anchor": "ON CONFLICT (id) DO NOTHING"}
+      ]
+    },
+    {
+      "id": "backfill.pay-database-rename-unversioned",
+      "database": "pay",
+      "riskClass": "manual-backfill",
+      "severity": "critical",
+      "dataSafetyInvariant": "A database rename/copy must have a checked, idempotent, observable reconciliation procedure before configuration changes target the new name.",
+      "requiredRemediation": {"package": "A3.7", "mode": "reconcile", "summary": "Add a versioned operational migration record and preflight that detects old/new databases, prevents split-brain, and proves row parity before cutover.", "requiredProof": ["old-only/new-only/both-state tests", "split-brain prevention test", "row parity report"]},
+      "dependencies": ["A3", "A6", "A13"],
+      "observed": {"status": "blocked", "summary": "A manifest comment claims ALTER DATABASE was performed, but no tracked executable rename/reconcile artifact exists."},
+      "evidence": [{"ref": "worktree", "file": "infrastructure/kubernetes/base/pay/deployment.yaml", "anchor": "ALTER DATABASE epsx_payment RENAME TO epsx_pay"}]
+    },
+    {
+      "id": "runner.manual-sql-errors-swallowed",
+      "database": "analytics/notifications/payments",
+      "riskClass": "migration-runner",
+      "severity": "high",
+      "dataSafetyInvariant": "Migration runners must stop on the first error and record versions transactionally; partial application must never be reported as success.",
+      "requiredRemediation": {"package": "A3.10", "mode": "forward-fix", "summary": "Remove direct SQL loops, standardize on Diesel migration history, and add fail-fast preflight plus post-run version assertions.", "requiredProof": ["injected-failure test", "partial-state resume test", "version-table assertion"]},
+      "dependencies": ["A3", "A13"],
+      "observed": {"status": "blocked", "summary": "Manual initialization and recovery loops swallow psql errors as already applied/skipped and continue."},
+      "evidence": [
+        {"ref": "worktree", "file": "scripts/database/init-databases.sh", "anchor": "already applied or skipped"},
+        {"ref": "worktree", "file": "scripts/database/recover_epsx_dev.sh", "anchor": "Failed/Skipped"}
+      ]
+    }
+  ],
+  "staticScan": {
+    "migrationSql": {"trackedFiles": 166, "findings": 510, "sha256": "42ecabca57eef316e4f826b816136ff317df75278f8b36838b4f20bdb171eec9"},
+    "runtimeRustDdl": {"trackedFiles": 1109, "findings": 39, "sha256": "90e34fc33373f868be836fde6d44dcb36a7053c3c673dbb6751bc03caa6227af"},
+    "sourceDiff": {"changedPaths": 15, "sha256": "3528913dace61a0b974292d309fedda40ff3fec55c77f7f840ac67d6aa567ae2"},
+    "reviewedExceptions": [
+      {"id": "exception.runtime-test-sql-injection", "scope": "runtimeRustDdl", "file": "apps/backend/__test__/web3/web3_security_tests.rs", "anchor": "DROP TABLE wallet_permissions", "reason": "Test-only malicious input literal; it is not executed as schema DDL."},
+      {"id": "exception.runtime-wave11-smoke-schema", "scope": "runtimeRustDdl", "file": "apps/backend/tests/wave11_smoke.rs", "anchor": "CREATE SCHEMA IF NOT EXISTS payments", "reason": "Test assertion fixture for migration text, not runtime application DDL."},
+      {"id": "exception.runtime-wave11-smoke-table", "scope": "runtimeRustDdl", "file": "apps/backend/tests/wave11_smoke.rs", "anchor": "CREATE TABLE IF NOT EXISTS payments.plans", "reason": "Test assertion fixture for migration text, not runtime application DDL."},
+      {"id": "exception.runtime-wave12-smoke-detect-present", "scope": "runtimeRustDdl", "file": "apps/backend/tests/wave12_smoke.rs", "anchor": "content.contains(\"CREATE SCHEMA\")", "reason": "Test assertion searches migration contents; it does not execute schema DDL."},
+      {"id": "exception.runtime-wave12-smoke-detect-legacy", "scope": "runtimeRustDdl", "file": "apps/backend/tests/wave12_smoke.rs", "anchor": "l.contains(\"CREATE SCHEMA\")", "reason": "Test assertion searches migration contents; it does not execute schema DDL."},
+      {"id": "exception.runtime-wave12-smoke-message", "scope": "runtimeRustDdl", "file": "apps/backend/tests/wave12_smoke.rs", "anchor": "legacy `CREATE SCHEMA analytics`", "reason": "Test failure-message literal describing forbidden SQL; it does not execute schema DDL."}
+    ]
+  }
+}
