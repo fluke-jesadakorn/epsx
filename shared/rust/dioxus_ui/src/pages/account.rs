@@ -536,12 +536,13 @@ mod tests {
         }
     }
 
-    fn needle(marker: &str) -> [String; 4] {
+    fn needle(marker: &str) -> [String; 5] {
         [
             format!("class=\"{}\"", marker),
             format!("class=\"{mark} ", mark = marker),
             format!(" {}\"", marker),
             format!(" {} ", marker),
+            format!("data-section=\"{}\"", marker),
         ]
     }
 
@@ -570,7 +571,7 @@ mod tests {
         ] {
             let n = needle(marker);
             assert!(
-                html.contains(&n[0]) || html.contains(&n[1]) || html.contains(&n[2]) || html.contains(&n[3]),
+                html.contains(&n[0]) || html.contains(&n[1]) || html.contains(&n[2]) || html.contains(&n[3]) || html.contains(&n[4]),
                 "account page must contain section marker '{}'. Got: {}",
                 marker, html
             );
@@ -609,13 +610,12 @@ mod tests {
     }
 
     #[test]
-    fn test_default_wallet_is_not_connected() {
+    fn test_wallet_falls_back_to_authenticated_user() {
         let (_meta, el) = render(&authed_ctx());
         let html = dioxus_ssr::render_element(el);
-        // When the BFF hasn't wired `data_account` (the default
-        // dev case), the wallet field shows "Not Connected" —
-        // matching the OLD prod render.
-        assert!(html.contains("Not Connected"),
-            "default wallet field must show 'Not Connected'. Got: {}", html);
+        // Without `data_account`, the current page intentionally uses the
+        // authenticated user's address before falling back to "Not Connected".
+        assert!(html.contains("0x1234abcd"),
+            "wallet field must fall back to the authenticated user's address. Got: {}", html);
     }
 }

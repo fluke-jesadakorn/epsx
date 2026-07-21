@@ -662,23 +662,20 @@ mod tests {
         let ctx = authed_ctx("/payment");
         let (_meta, element) = render(&ctx);
         let html = dioxus_ssr::render_element(element);
-        assert!(html.contains("Choose Your Plan"), "/payment hero must render. Got: {}", html);
+        assert!(html.contains("Redirecting to EPSX Pay"), "/payment must render the pay-service redirect. Got: {}", html);
+        assert!(html.contains("https://pay.epsx.io"), "/payment must link to the default pay origin. Got: {}", html);
     }
 
     #[test]
-    fn test_section_markers() {
+    fn test_redirect_section_markers() {
         let ctx = authed_ctx("/payment");
         let (_meta, element) = render(&ctx);
         let html = dioxus_ssr::render_element(element);
         for marker in [
-            "plan-comparison-card",
-            "unified-payment-flow",
-            "current-access-card",
-            "chain-verification-card",
-            "upgrade-banner",
-            "payment-flow-steps",
-            "payment-step-indicator",
-            "payment-security-footer",
+            "pay-redirect-stub",
+            "pay-redirect-stub-title",
+            "pay-redirect-stub-subtitle",
+            "pay-redirect-stub-cta",
         ] {
             assert!(html.contains(marker), "missing section marker: {}", marker);
         }

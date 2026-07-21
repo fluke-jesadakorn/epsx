@@ -1,4 +1,4 @@
-//! `/terms` — Terms of Service page with sticky table of contents.
+//! `/terms` — Terms of Service page.
 //!
 //! Source of truth: `apps-old/frontend/app/terms/page.tsx` —
 //! 6 sections, ported 1:1 from the OLD source for Wave 22
@@ -14,8 +14,8 @@
 //! 5. Service Changes & Termination
 //! 6. Authentication Standards
 //!
-//! A sticky `<nav>` table of contents at the top lists all 6
-//! sections so users can jump to any anchor.
+//! The current production-aligned render omits the inline table of
+//! contents while retaining stable section IDs for direct anchors.
 
 use crate::primitives::*;
 
@@ -259,18 +259,18 @@ mod tests {
     }
 
     #[test]
-    fn terms_toc_lists_all_six_sections() {
-        // The sticky TOC at the top must link to every section id
-        // it advertises — catches a regression where a section is
-        // added but the TOC is forgotten.
+    fn terms_omits_inline_toc_but_keeps_section_ids() {
+        // Production does not render the inline TOC. Stable section IDs
+        // remain available for direct links and accessibility tooling.
         let ctx = empty_ctx();
         let (_meta, el) = render(&ctx);
         let html = dioxus_ssr::render_element(el);
+        assert!(!html.contains("legal-toc"), "terms page must not render the retired inline TOC. Got: {html}");
         for slug in TERMS_SECTION_SLUGS {
-            let anchor = format!("href=\"#{slug}\"");
+            let section_id = format!("id=\"{slug}\"");
             assert!(
-                html.contains(&anchor),
-                "terms TOC should contain anchor `{anchor}`. Got: {}",
+                html.contains(&section_id),
+                "terms page should retain stable section marker `{section_id}`. Got: {}",
                 html
             );
         }

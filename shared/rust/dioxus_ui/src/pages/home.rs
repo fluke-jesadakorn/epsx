@@ -432,7 +432,7 @@ mod tests {
     ///   Exploration" CTA + 3 stat cards (24/7 / 100+ / < 1s)
     /// - "Performance Companies" h2 with `pancake-gradient-text` + 3
     ///   stock cards
-    /// - 3 plan cards
+    /// - 6 plan cards across Personal (3), API (2), and Custom (1)
     /// - "Latest News" with 1 FeaturedCard + 2 SmallCards
     #[test]
     fn home_prod_markers() {
@@ -469,10 +469,10 @@ mod tests {
     }
 
     #[test]
-    fn home_has_three_plan_cards() {
+    fn home_has_six_plan_cards_across_pricing_sections() {
         let html = render_to_string(&empty_ctx());
-        let card_count = html.matches("home-prod-plan-card").count();
-        assert_eq!(card_count, 3, "Home page must render 3 plan cards. Got {card_count} in: {html}");
+        let card_count = html.matches("class=\"plans-prod-card ").count();
+        assert_eq!(card_count, 6, "Home page must render 6 plan cards. Got {card_count} in: {html}");
     }
 
     #[test]

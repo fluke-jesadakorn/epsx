@@ -33,17 +33,24 @@
 //!
 //! ## Usage
 //!
-//! ```rust
-//! use crate::layout::admin_shell::AdminShell;
+//! ```rust,no_run
+//! use dioxus::prelude::*;
+//! use epsx_dioxus_ui::layout::admin_shell::AdminShell;
+//! use epsx_dioxus_ui::pages::PageContext;
 //!
-//! AdminShell {
-//!     ctx: ctx.clone(),
-//!     page_title: "Command Center".to_string(),
-//!     breadcrumbs: vec![
-//!         ("Dashboard".to_string(), "/".to_string()),
-//!         ("Command Center".to_string(), "/".to_string()),
-//!     ],
-//!     AdminStatsCards { /* ... */ }
+//! fn AdminExample() -> Element {
+//!     let ctx = PageContext::default();
+//!     rsx! {
+//!         AdminShell {
+//!             ctx,
+//!             page_title: "Command Center".to_string(),
+//!             breadcrumbs: vec![
+//!                 ("Dashboard".to_string(), "/".to_string()),
+//!                 ("Command Center".to_string(), "/".to_string()),
+//!             ],
+//!             div { "Admin content" }
+//!         }
+//!     }
 //! }
 //! ```
 //!

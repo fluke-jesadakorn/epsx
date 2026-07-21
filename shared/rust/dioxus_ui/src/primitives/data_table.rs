@@ -8,15 +8,22 @@
 //! fetched — the caller controls that (typical: SSR'd rows + client
 //! re-fetches).
 //!
-//! ```
-//! DataTable {
-//!     columns: vec![
-//!         Column { key: "addr".into(), label: "Address".into(), sortable: true, ..Default::default() },
-//!         Column { key: "bal".into(), label: "Balance".into(), align: Align::Right, ..Default::default() },
-//!     ],
-//!     rows: vec![
-//!         Row { id: "1".into(), cells: vec!["0xabc".into(), "1.0".into()] },
-//!     ],
+//! ```rust,no_run
+//! use dioxus::prelude::*;
+//! use epsx_dioxus_ui::{Align, Column, DataTable, Row};
+//!
+//! fn TableExample() -> Element {
+//!     rsx! {
+//!         DataTable {
+//!             columns: vec![
+//!                 Column { key: "addr".into(), label: "Address".into(), sortable: true, ..Default::default() },
+//!                 Column { key: "bal".into(), label: "Balance".into(), align: Align::Right, ..Default::default() },
+//!             ],
+//!             rows: vec![
+//!                 Row { id: "1".into(), cells: vec!["0xabc".into(), "1.0".into()] },
+//!             ],
+//!         }
+//!     }
 //! }
 //! ```
 //!
