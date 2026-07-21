@@ -374,7 +374,7 @@
   ],
   "staticScan": {
     "migrationSql": {"trackedFiles": 166, "findings": 510, "sha256": "42ecabca57eef316e4f826b816136ff317df75278f8b36838b4f20bdb171eec9"},
-    "runtimeRustDdl": {"trackedFiles": 1122, "findings": 39, "sha256": "c26777c94fb27c123415510a757d23a5ff2cc6a874b1e201317bac44dd6728e3"},
+    "runtimeRustDdl": {"trackedFiles": 1123, "findings": 39, "sha256": "b381315d8480abb3b03ba515909477ace12e9c9cfb75d65ca97eaab40daf90e1"},
     "sourceDiff": {"changedPaths": 15, "sha256": "3528913dace61a0b974292d309fedda40ff3fec55c77f7f840ac67d6aa567ae2"},
     "reviewedExceptions": [
       {"id": "exception.runtime-test-sql-injection", "scope": "runtimeRustDdl", "file": "apps/backend/__test__/web3/web3_security_tests.rs", "anchor": "DROP TABLE wallet_permissions", "reason": "Test-only malicious input literal; it is not executed as schema DDL."},
