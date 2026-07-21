@@ -185,6 +185,15 @@
         "principal.audience != ADMIN_AUDIENCE",
         "AccessPolicy::EditorIdentityRequired | AccessPolicy::Blocked"
       ]
+    },
+    {
+      "id": "indexer-service-auth-boundary",
+      "file": "services/indexer/src/lib.rs",
+      "anchors": [
+        "authenticate_headers(",
+        "principal.audience != ADMIN_AUDIENCE",
+        "AccessPolicy::UnsafeProjection => return StatusCode::NOT_FOUND.into_response()"
+      ]
     }
   ],
   "requiredCases": [
@@ -232,9 +241,9 @@
       "internal-webhook": 4
     },
     "byObservedStatus": {
-      "partial": 53,
-      "blocked": 58,
-      "aligned": 6
+      "partial": 48,
+      "blocked": 62,
+      "aligned": 7
     }
   },
   "services": [
@@ -3266,7 +3275,7 @@
       "name": "indexer",
       "source": "services/indexer/src/main.rs",
       "routerAnchor": "let app = Router::new()",
-      "currentBoundary": "No auth layer; read models are public by intent, but the any-method sync trigger is anonymously reachable.",
+      "currentBoundary": "The direct service uses the shared RS256/JWKS verifier, allows only exact GET/HEAD health anonymously, narrows sync to POST with admin:indexer:manage, and returns 404 before every non-health handler because the current projections and sync ingestion are not truthful or durable.",
       "routes": [
         {
           "id": "indexer.get.health",
@@ -3283,15 +3292,16 @@
           "risk": "none",
           "caseProfile": "public",
           "observed": {
-            "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "status": "aligned",
+            "summary": "The direct service explicitly allows only exact GET/HEAD health anonymously and strips bearer and spoofable identity headers before dispatch."
           },
           "dependencies": [
             "A2",
             "A12"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "indexer-service-auth-boundary"
           ]
         },
         {
@@ -3309,15 +3319,16 @@
           "risk": "none",
           "caseProfile": "public",
           "observed": {
-            "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "status": "blocked",
+            "summary": "The direct service returns 404 before DB/RPC access because status mixes an in-memory/provider fallback with DB MAX and cannot yet report a durable canonical/finalized head truthfully."
           },
           "dependencies": [
             "A2",
             "A12"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "indexer-service-auth-boundary"
           ]
         },
         {
@@ -3335,15 +3346,16 @@
           "risk": "none",
           "caseProfile": "public",
           "observed": {
-            "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "status": "blocked",
+            "summary": "The direct service returns 404 before SQL because the current sync loop persists number-derived placeholder block hashes and has no canonical/finality/reorg model."
           },
           "dependencies": [
             "A2",
             "A12"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "indexer-service-auth-boundary"
           ]
         },
         {
@@ -3361,22 +3373,23 @@
           "risk": "none",
           "caseProfile": "public",
           "observed": {
-            "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "status": "blocked",
+            "summary": "The direct service returns 404 before SQL because ingestion does not persist canonical chain-scoped transactions, receipts, finality, or reorg state."
           },
           "dependencies": [
             "A2",
             "A12"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "indexer-service-auth-boundary"
           ]
         },
         {
           "id": "indexer.get.transfers",
           "method": "GET",
           "path": "/api/v1/indexer/transfers/{chain}/{address}",
-          "routeAnchor": ".route(\"/api/v1/indexer/transfers/{chain}/{address}\"",
+          "routeAnchor": "\"/api/v1/indexer/transfers/{chain}/{address}\"",
           "classification": "public-allowlist",
           "identitySource": "none-public",
           "requiredPermission": null,
@@ -3387,26 +3400,27 @@
           "risk": "none",
           "caseProfile": "public",
           "observed": {
-            "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "status": "blocked",
+            "summary": "The direct service returns 404 before SQL because ingestion never decodes or persists canonical transfer logs and the read contract has no cursor/finality semantics."
           },
           "dependencies": [
             "A2",
             "A12"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "indexer-service-auth-boundary"
           ]
         },
         {
-          "id": "indexer.any.sync",
-          "method": "ANY",
+          "id": "indexer.post.sync",
+          "method": "POST",
           "path": "/api/v1/indexer/sync",
           "routeAnchor": ".route(\"/api/v1/indexer/sync\"",
           "classification": "permission-specific-admin-operator",
           "identitySource": "monolith-rs256-jwks",
           "requiredPermission": "admin:indexer:manage",
-          "permissionStatus": "proposed",
+          "permissionStatus": "canonical",
           "ownershipKey": null,
           "operationKind": "operator-mutation",
           "mutation": true,
@@ -3414,16 +3428,17 @@
           "caseProfile": "granular-admin",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The exact POST shape verifies the admin audience and admin:indexer:manage with the shared verifier, then returns 404 before sync because the handler writes placeholder blocks from an in-memory cursor."
           },
           "dependencies": [
             "A2",
             "A12"
           ],
           "canonicalEvidence": [
-            "backend-permission-guard"
+            "backend-permission-guard",
+            "indexer-service-auth-boundary"
           ],
-          "notes": "Narrow to POST and approve the proposed granular permission or replace it with authenticated internal service identity."
+          "notes": "Gateway and direct-service policy agree on POST plus admin:indexer:manage; A12 must still replace placeholder ingestion with bounded, leased, durable canonical sync before enabling the handler."
         }
       ]
     }

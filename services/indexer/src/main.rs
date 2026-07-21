@@ -2,11 +2,11 @@ use alloy::providers::Provider;
 use axum::{
     extract::{Path as AxPath, State},
     http::StatusCode,
-    response::IntoResponse,
-    routing::{any, get},
+    routing::{get, post},
     Json, Router,
 };
-use clap::Parser;
+use clap::{Parser, ValueEnum};
+use epsx_indexer::{build_auth_verifier, protect_router};
 use serde::Serialize;
 use sqlx::FromRow;
 use std::net::SocketAddr;
@@ -22,7 +22,10 @@ struct Args {
     port: u16,
     #[arg(long, default_value = "0.0.0.0")]
     host: String,
-    #[arg(long, default_value = "postgres://epsx:epsx@localhost:5432/epsx_indexer")]
+    #[arg(
+        long,
+        default_value = "postgres://epsx:epsx@localhost:5432/epsx_indexer"
+    )]
     database_url: String,
     #[arg(long, default_value = "56")]
     chain_id: u64,
@@ -30,6 +33,18 @@ struct Args {
     poll_interval: u64,
     #[arg(long, default_value = "true")]
     sync_on_start: bool,
+    #[arg(long, env = "OIDC_ISSUER")]
+    oidc_issuer: String,
+    #[arg(long, env = "OIDC_JWKS_URL")]
+    jwks_url: Option<String>,
+    #[arg(long, env = "EPSX_ENV", value_enum, default_value = "development")]
+    environment: Environment,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum Environment {
+    Development,
+    Production,
 }
 
 #[derive(Clone)]
@@ -93,7 +108,19 @@ async fn main() {
     epsx_observability::Observability::init("indexer");
     let args = Args::parse();
 
-    let db = sqlx::PgPool::connect(&args.database_url).await.expect("Failed to connect to database");
+    let production = matches!(args.environment, Environment::Production);
+    let jwks_url = args.jwks_url.unwrap_or_else(|| {
+        format!(
+            "{}/.well-known/jwks.json",
+            args.oidc_issuer.trim_end_matches('/')
+        )
+    });
+    let verifier = build_auth_verifier(&args.oidc_issuer, &jwks_url, production)
+        .expect("indexer OIDC configuration must be valid");
+
+    let db = sqlx::PgPool::connect(&args.database_url)
+        .await
+        .expect("Failed to connect to database");
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS blocks (
@@ -107,8 +134,11 @@ async fn main() {
             gas_limit BIGINT,
             tx_count INTEGER DEFAULT 0,
             PRIMARY KEY (chain_id, number)
-        )"
-    ).execute(&db).await.expect("Failed to create blocks table");
+        )",
+    )
+    .execute(&db)
+    .await
+    .expect("Failed to create blocks table");
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS transactions (
@@ -121,8 +151,11 @@ async fn main() {
             status INTEGER,
             timestamp TIMESTAMPTZ,
             input_data BYTEA
-        )"
-    ).execute(&db).await.expect("Failed to create transactions table");
+        )",
+    )
+    .execute(&db)
+    .await
+    .expect("Failed to create transactions table");
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS token_transfers (
@@ -136,12 +169,18 @@ async fn main() {
             block_number BIGINT NOT NULL,
             timestamp TIMESTAMPTZ NOT NULL,
             PRIMARY KEY (chain_id, tx_hash, log_index)
-        )"
-    ).execute(&db).await.expect("Failed to create token_transfers table");
+        )",
+    )
+    .execute(&db)
+    .await
+    .expect("Failed to create token_transfers table");
 
     sqlx::query(
-        "CREATE INDEX IF NOT EXISTS idx_blocks_timestamp ON blocks (chain_id, timestamp DESC)"
-    ).execute(&db).await.expect("Failed to create blocks index");
+        "CREATE INDEX IF NOT EXISTS idx_blocks_timestamp ON blocks (chain_id, timestamp DESC)",
+    )
+    .execute(&db)
+    .await
+    .expect("Failed to create blocks index");
     sqlx::query(
         "CREATE INDEX IF NOT EXISTS idx_transfers_token ON token_transfers (chain_id, token_address, timestamp DESC)"
     ).execute(&db).await.expect("Failed to create transfers index");
@@ -184,9 +223,13 @@ async fn main() {
         .route("/api/v1/indexer/status/{chain}", get(get_chain_status))
         .route("/api/v1/indexer/block/{chain}/{number}", get(get_block))
         .route("/api/v1/indexer/tx/{chain}/{hash}", get(get_transaction))
-        .route("/api/v1/indexer/transfers/{chain}/{address}", get(get_address_transfers))
-        .route("/api/v1/indexer/sync", any(trigger_sync))
+        .route(
+            "/api/v1/indexer/transfers/{chain}/{address}",
+            get(get_address_transfers),
+        )
+        .route("/api/v1/indexer/sync", post(trigger_sync))
         .with_state(sync_state);
+    let app = protect_router(app, verifier);
 
     let addr: SocketAddr = format!("{}:{}", args.host, args.port).parse().unwrap();
     info!("Indexer service listening on {}", addr);
@@ -194,18 +237,26 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn health() -> StatusCode { StatusCode::OK }
+async fn health() -> StatusCode {
+    StatusCode::OK
+}
 
 async fn get_chain_status(
     State(state): State<AppState>,
     AxPath(chain_id): AxPath<String>,
 ) -> Result<Json<ChainStatus>, StatusCode> {
-    let result: Option<(Option<i64>,)> = sqlx::query_as("SELECT MAX(number) FROM blocks WHERE chain_id = $1")
-        .bind(&chain_id).fetch_optional(&state.db).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let result: Option<(Option<i64>,)> =
+        sqlx::query_as("SELECT MAX(number) FROM blocks WHERE chain_id = $1")
+            .bind(&chain_id)
+            .fetch_optional(&state.db)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let indexer_block = result.and_then(|r| r.0).unwrap_or(0) as u64;
 
     let latest_block = if let Some(p) = state.provider.read().await.as_ref() {
-        epsx_web3::fetch_block_number(p.as_ref()).await.unwrap_or(indexer_block)
+        epsx_web3::fetch_block_number(p.as_ref())
+            .await
+            .unwrap_or(indexer_block)
     } else {
         indexer_block
     };
@@ -277,7 +328,9 @@ async fn trigger_sync(
     if let Err(e) = sync_chain_once(state.clone()).await {
         return Ok(Json(serde_json::json!({ "success": false, "error": e })));
     }
-    Ok(Json(serde_json::json!({ "success": true, "indexer_block": *state.last_block.read().await })))
+    Ok(Json(
+        serde_json::json!({ "success": true, "indexer_block": *state.last_block.read().await }),
+    ))
 }
 
 async fn sync_chain(state: AppState, poll_interval: u64) -> Result<(), String> {
@@ -294,7 +347,9 @@ async fn sync_chain_once(state: AppState) -> Result<(), String> {
     if state.provider.read().await.is_none() {
         let chain_id_enum = epsx_kernel::ChainId(state.chain_id);
         match epsx_web3::provider_for_chain(chain_id_enum) {
-            Ok(p) => { *state.provider.write().await = Some(Arc::from(p)); }
+            Ok(p) => {
+                *state.provider.write().await = Some(Arc::from(p));
+            }
             Err(e) => return Err(format!("provider init: {}", e)),
         }
     }
@@ -302,9 +357,15 @@ async fn sync_chain_once(state: AppState) -> Result<(), String> {
     let provider_opt = state.provider.read().await.clone();
     let provider = provider_opt.ok_or_else(|| "no provider".to_string())?;
 
-    let latest = epsx_web3::fetch_block_number(&*provider).await.map_err(|e| e.to_string())?;
+    let latest = epsx_web3::fetch_block_number(&*provider)
+        .await
+        .map_err(|e| e.to_string())?;
     let current = *state.last_block.read().await;
-    let from = if current == 0 { latest.saturating_sub(10) } else { current + 1 };
+    let from = if current == 0 {
+        latest.saturating_sub(10)
+    } else {
+        current + 1
+    };
 
     if from > latest {
         return Ok(());

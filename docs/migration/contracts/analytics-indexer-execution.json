@@ -214,7 +214,7 @@
       "id": "tgt-indexer-db-default",
       "domain": "indexer",
       "file": "services/indexer/src/main.rs",
-      "anchor": "#[arg(long, default_value = \"postgres://epsx:epsx@localhost:5432/epsx_indexer\")]"
+      "anchor": "default_value = \"postgres://epsx:epsx@localhost:5432/epsx_indexer\""
     },
     {
       "id": "tgt-indexer-runtime-ddl",
@@ -232,13 +232,13 @@
       "id": "tgt-indexer-public-routes",
       "domain": "indexer",
       "file": "services/indexer/src/main.rs",
-      "anchor": ".route(\"/api/v1/indexer/transfers/{chain}/{address}\", get(get_address_transfers))"
+      "anchor": "\"/api/v1/indexer/transfers/{chain}/{address}\""
     },
     {
-      "id": "tgt-indexer-any-sync",
+      "id": "tgt-indexer-post-sync",
       "domain": "indexer",
       "file": "services/indexer/src/main.rs",
-      "anchor": ".route(\"/api/v1/indexer/sync\", any(trigger_sync))"
+      "anchor": ".route(\"/api/v1/indexer/sync\", post(trigger_sync))"
     },
     {
       "id": "tgt-indexer-memory-checkpoint",
@@ -262,7 +262,7 @@
       "id": "tgt-indexer-shallow-health",
       "domain": "indexer",
       "file": "services/indexer/src/main.rs",
-      "anchor": "async fn health() -> StatusCode { StatusCode::OK }"
+      "anchor": "async fn health() -> StatusCode {"
     },
     {
       "id": "tgt-identity-free-stub",
@@ -418,7 +418,7 @@
       "id": "indexer-status",
       "domain": "indexer",
       "sourceContract": "new domain: canonical head, durable indexed head, finality, lag and degraded reason",
-      "targetObserved": "status mixes DB MAX with provider fallback and calls lag under 100 healthy",
+      "targetObserved": "direct boundary returns 404 before status; the disabled handler still mixes DB MAX with provider fallback and calls lag under 100 healthy",
       "status": "blocked",
       "blockerIds": ["B15", "B16", "B18", "B19", "B22", "B23"]
     },
@@ -426,7 +426,7 @@
       "id": "indexer-block-transaction",
       "domain": "indexer",
       "sourceContract": "new domain: canonical block/transaction records keyed by chain with finality/reorg state",
-      "targetObserved": "sync inserts number-derived placeholder hashes and no transactions",
+      "targetObserved": "direct boundary returns 404 before reads/sync; the disabled sync handler still inserts number-derived placeholder hashes and no transactions",
       "status": "blocked",
       "blockerIds": ["B15", "B16", "B17", "B18", "B19", "B20"]
     },
@@ -434,7 +434,7 @@
       "id": "indexer-transfers",
       "domain": "indexer",
       "sourceContract": "new domain: decoded, checksummed/token-normalized logs with cursor pagination",
-      "targetObserved": "read query exists but ingestion never decodes or inserts transfer logs",
+      "targetObserved": "direct boundary returns 404 before the read; ingestion still never decodes or inserts transfer logs",
       "status": "blocked",
       "blockerIds": ["B15", "B16", "B17", "B19", "B20"]
     },
@@ -442,7 +442,7 @@
       "id": "indexer-sync",
       "domain": "indexer",
       "sourceContract": "internal/admin bounded backfill command with idempotent lease, progress and cancellation",
-      "targetObserved": "direct service mounts any method without service auth; in-memory checkpoint drives a maximum 101-block loop",
+      "targetObserved": "direct service narrows to POST, verifies admin:indexer:manage, then returns 404; the disabled handler still drives a maximum 101-block loop from an in-memory checkpoint",
       "status": "blocked",
       "blockerIds": ["B15", "B16", "B18", "B19", "B20", "B22"]
     },
@@ -611,9 +611,9 @@
       "category": "indexer-authorization",
       "severity": "stop",
       "status": "blocked",
-      "summary": "Indexer direct routes are unauthenticated and sync accepts any HTTP method despite gateway-only policy.",
-      "resolution": "Enforce service-local exact route/method policy, internal/admin identity for sync and a deliberate privacy policy for address history.",
-      "evidenceIds": ["tgt-indexer-public-routes", "tgt-indexer-any-sync", "tgt-gateway-indexer-public", "tgt-gateway-indexer-manage"]
+      "summary": "The direct boundary now fails all non-health handlers closed and verifies admin:indexer:manage for POST sync, but truthful reads are unavailable and address-history privacy is still undecided.",
+      "resolution": "Preserve the service-local exact route/method policy, decide deliberate public versus owner/admin address-history privacy, and enable only canonical truthful projections and bounded sync.",
+      "evidenceIds": ["tgt-indexer-public-routes", "tgt-indexer-post-sync", "tgt-gateway-indexer-public", "tgt-gateway-indexer-manage"]
     },
     {
       "id": "B16",
@@ -658,7 +658,7 @@
       "status": "blocked",
       "summary": "Backfill range, concurrency, retries, provider quotas, cancellation, progress and resume semantics are undefined.",
       "resolution": "Implement bounded resumable jobs with leases, adaptive rate limiting, poison-record handling and immutable progress audit.",
-      "evidenceIds": ["tgt-indexer-any-sync", "tgt-indexer-memory-checkpoint"]
+      "evidenceIds": ["tgt-indexer-post-sync", "tgt-indexer-memory-checkpoint"]
     },
     {
       "id": "B21",
@@ -906,7 +906,7 @@
     {
       "id": "N09",
       "reason": "Indexer checkpoint and sync authorization are not durable/service-local.",
-      "evidenceIds": ["tgt-indexer-memory-checkpoint", "tgt-indexer-any-sync"]
+      "evidenceIds": ["tgt-indexer-memory-checkpoint", "tgt-indexer-post-sync"]
     },
     {
       "id": "N10",
