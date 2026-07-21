@@ -1,0 +1,332 @@
+{
+  "schemaVersion": 1,
+  "purpose": "fixture-integrity-only",
+  "baseline": {
+    "sourceRef": "origin/development",
+    "sourceCommit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "targetRef": "migration/dioxus-microservices",
+    "targetCommitBeforeHarness": "f86d204b"
+  },
+  "statusMeaning": {
+    "blocked": "The required end-to-end release contract is not satisfied.",
+    "partial": "Some local behavior exists, but the full contract is not proven.",
+    "aligned": "The contract has implementation and executable evidence."
+  },
+  "mandatoryIds": [
+    "auth.siwe-challenge",
+    "auth.siwe-verify",
+    "auth.me",
+    "auth.refresh-rotation",
+    "auth.logout-revocation",
+    "cookies.frontend-session",
+    "cookies.admin-session",
+    "http.unknown-route",
+    "auth.backend-capabilities",
+    "pay.intent-create-read",
+    "pay.intent-confirm-cancel",
+    "pay.escrow-mutations",
+    "pay.admin-force-mutations",
+    "ops.dependency-readiness",
+    "http.error-envelope",
+    "http.correlation-id"
+  ],
+  "knownP0Ids": [
+    "auth.siwe-challenge",
+    "auth.siwe-verify",
+    "auth.me",
+    "auth.refresh-rotation",
+    "auth.logout-revocation",
+    "cookies.frontend-session",
+    "cookies.admin-session",
+    "http.unknown-route",
+    "auth.backend-capabilities",
+    "pay.intent-create-read",
+    "pay.intent-confirm-cancel",
+    "pay.escrow-mutations",
+    "pay.admin-force-mutations"
+  ],
+  "contracts": [
+    {
+      "id": "auth.siwe-challenge",
+      "surface": "authentication",
+      "priority": "P0",
+      "dependencies": ["A0", "A1"],
+      "required": {
+        "methods": ["POST"],
+        "endpoint": "/api/v1/auth/challenge -> /api/auth/web3/challenge",
+        "successStatuses": [200],
+        "invariants": ["backend owns nonce and SIWE message", "wallet address is validated", "errors are non-success responses"]
+      },
+      "observed": {"status": "blocked", "summary": "Frontend proxies the monolith route, but the shared frontend/admin contract and failure semantics are not aligned."},
+      "evidence": [
+        {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": "path = \"/api/auth/web3/challenge\""},
+        {"file": "apps/frontend/src/api.rs", "anchor": "{}/api/auth/web3/challenge"}
+      ]
+    },
+    {
+      "id": "auth.siwe-verify",
+      "surface": "authentication",
+      "priority": "P0",
+      "dependencies": ["A0", "A1"],
+      "required": {
+        "methods": ["POST"],
+        "endpoint": "/api/v1/auth/siwe -> /api/auth/web3/verify",
+        "successStatuses": [200],
+        "invariants": ["success=false never creates a session", "browser JSON contains no tokens", "RS256 access token uses backend permissions"]
+      },
+      "observed": {"status": "blocked", "summary": "The frontend treats upstream HTTP success as login success and BFF verification expects incompatible HS256 role claims."},
+      "evidence": [
+        {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": "path = \"/api/auth/web3/verify\""},
+        {"file": "apps/frontend/src/api.rs", "anchor": "{}/api/auth/web3/verify"},
+        {"file": "shared/rust/auth/src/lib.rs", "anchor": "pub fn from_secret(secret: &str)"}
+      ]
+    },
+    {
+      "id": "auth.me",
+      "surface": "authentication",
+      "priority": "P0",
+      "dependencies": ["A1", "A4"],
+      "required": {
+        "methods": ["GET"],
+        "endpoint": "/api/v1/auth/me -> /api/users/profile",
+        "successStatuses": [200],
+        "invariants": ["access token is verified fail closed", "profile and permissions come from backend", "refresh token is rejected"]
+      },
+      "observed": {"status": "blocked", "summary": "Frontend/admin me paths still target the inactive identity contract or locally decode incompatible claims."},
+      "evidence": [
+        {"file": "apps/backend/src/web/routes/unified_router.rs", "anchor": ".nest(\"/users\", user_routes)"},
+        {"file": "apps/backend/src/web/routes/unified_router.rs", "anchor": "\"/profile\""},
+        {"file": "apps/frontend/src/api.rs", "anchor": "/api/v1/identity/auth/me"}
+      ]
+    },
+    {
+      "id": "auth.refresh-rotation",
+      "surface": "authentication",
+      "priority": "P0",
+      "dependencies": ["A1"],
+      "required": {
+        "methods": ["POST"],
+        "endpoint": "/api/v1/auth/refresh -> /api/auth/session/refresh",
+        "successStatuses": [200],
+        "invariants": ["opaque refresh token is HttpOnly", "rotation is atomic", "old token reuse returns 401", "both cookies rotate together"]
+      },
+      "observed": {"status": "blocked", "summary": "The monolith has atomic rotation, but the BFF calls the inactive identity path and does not maintain the refresh cookie."},
+      "evidence": [
+        {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": "path = \"/api/auth/session/refresh\""},
+        {"file": "apps/backend/src/auth/token_service.rs", "anchor": "pub async fn consume_refresh_token"},
+        {"file": "apps/frontend/src/api.rs", "anchor": "/api/v1/identity/auth/refresh"}
+      ]
+    },
+    {
+      "id": "auth.logout-revocation",
+      "surface": "authentication",
+      "priority": "P0",
+      "dependencies": ["A1"],
+      "required": {
+        "methods": ["POST", "DELETE"],
+        "endpoint": "/api/v1/auth/logout -> /api/auth/web3/logout",
+        "successStatuses": [200],
+        "invariants": ["backend revokes refresh token", "operation is idempotent", "BFF clears access and refresh cookies even on upstream failure"]
+      },
+      "observed": {"status": "blocked", "summary": "The monolith logout is acknowledgement-only and frontend logout clears only local legacy cookies."},
+      "evidence": [
+        {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": "For Web3 auth, logout is primarily client-side"},
+        {"file": "apps/backend/src/auth/token_service.rs", "anchor": "pub async fn revoke_refresh_token"},
+        {"file": "apps/frontend/src/api.rs", "anchor": "pub async fn logout()"}
+      ]
+    },
+    {
+      "id": "cookies.frontend-session",
+      "surface": "cookies",
+      "priority": "P0",
+      "dependencies": ["A1"],
+      "required": {
+        "methods": ["SET-COOKIE"],
+        "endpoint": "frontend authentication responses",
+        "successStatuses": [200],
+        "invariants": ["production uses __Host-epsx.access_token and __Host-epsx.refresh_token", "HttpOnly Secure SameSite=Lax Path=/", "no Domain", "Max-Age follows backend TTL"]
+      },
+      "observed": {"status": "blocked", "summary": "Frontend uses legacy epsx_token and Secure is optional instead of a production startup invariant."},
+      "evidence": [
+        {"file": "apps/frontend/src/auth.rs", "anchor": "EPSX_COOKIE_SECURE"},
+        {"file": "apps/frontend/src/api.rs", "anchor": "build_set_cookie(\"epsx_token\""}
+      ]
+    },
+    {
+      "id": "cookies.admin-session",
+      "surface": "cookies",
+      "priority": "P0",
+      "dependencies": ["A1"],
+      "required": {
+        "methods": ["SET-COOKIE"],
+        "endpoint": "admin authentication responses",
+        "successStatuses": [200],
+        "invariants": ["same canonical host-only cookie contract as frontend", "admin login establishes SSR session", "tokens never appear in browser JSON"]
+      },
+      "observed": {"status": "blocked", "summary": "Admin proxies identity JSON without setting the cookie consumed by SSR."},
+      "evidence": [
+        {"file": "apps/admin/src/main.rs", "anchor": "state.identity.post_plain(\"/api/v1/identity/auth/siwe\""},
+        {"file": "apps/admin/src/auth.rs", "anchor": "EPSX_COOKIE_SECURE"}
+      ]
+    },
+    {
+      "id": "http.unknown-route",
+      "surface": "http",
+      "priority": "P0",
+      "dependencies": ["A0", "A5"],
+      "required": {
+        "methods": ["GET", "HEAD"],
+        "endpoint": "unmatched frontend and admin paths",
+        "successStatuses": [404],
+        "invariants": ["not-found body returns HTTP 404", "API misses return JSON 404", "redirects preserve intended status"]
+      },
+      "observed": {"status": "blocked", "summary": "Both SSR fallbacks return HTTP 200 for unmatched rendered routes."},
+      "evidence": [
+        {"file": "apps/frontend/src/ssr.rs", "anchor": "axum::http::StatusCode::OK"},
+        {"file": "apps/admin/src/ssr.rs", "anchor": "axum::http::StatusCode::OK"}
+      ]
+    },
+    {
+      "id": "auth.backend-capabilities",
+      "surface": "authorization",
+      "priority": "P0",
+      "dependencies": ["A1", "A2", "A4"],
+      "required": {
+        "methods": ["TOKEN", "GET"],
+        "endpoint": "RS256 scope plus canonical profile/permission endpoints",
+        "successStatuses": [200],
+        "invariants": ["backend computes capabilities", "BFF never expands roles into permissions", "every mutation independently enforces authorization"]
+      },
+      "observed": {"status": "blocked", "summary": "Frontend and admin still expand roles locally while candidate service middleware is not fail closed."},
+      "evidence": [
+        {"file": "apps/backend/src/auth/token_service.rs", "anchor": "pub scope: String"},
+        {"file": "apps/frontend/src/ssr.rs", "anchor": "permissions_for_roles(&u.roles)"},
+        {"file": "apps/admin/src/ssr.rs", "anchor": "permissions_for_roles(&u.roles)"}
+      ]
+    },
+    {
+      "id": "pay.intent-create-read",
+      "surface": "payments",
+      "priority": "P0",
+      "dependencies": ["A1", "A2", "A5", "A6"],
+      "required": {
+        "methods": ["POST", "GET"],
+        "endpoint": "/api/v1/pay/intents and /api/v1/pay/intents/{id}",
+        "successStatuses": [200, 201],
+        "invariants": ["BFF and service paths agree", "payer identity and ownership are verified", "create is idempotent", "upstream status and error survive proxying"]
+      },
+      "observed": {"status": "blocked", "summary": "Frontend lacks the CTA endpoint, singular/plural proxy shapes drift, and the public pay origin bypasses the BFF."},
+      "evidence": [
+        {"file": "apps/pay/src/main.rs", "anchor": ".route(\"/api/v1/pay/intent\""},
+        {"file": "services/pay/src/main.rs", "anchor": ".route(\"/api/v1/pay/intents\""},
+        {"file": "shared/rust/dioxus_ui/src/pages/plans.rs", "anchor": "fetch('/api/v1/pay/intent'"}
+      ]
+    },
+    {
+      "id": "pay.intent-confirm-cancel",
+      "surface": "payments",
+      "priority": "P0",
+      "dependencies": ["A2", "A5", "A6"],
+      "required": {
+        "methods": ["POST"],
+        "endpoint": "/api/v1/pay/intents/{id}/confirm|cancel",
+        "successStatuses": [200],
+        "invariants": ["confirm validates chain receipt, amount, token, payer and payee", "cancel enforces owner and state", "BFF does not call an absent execute route"]
+      },
+      "observed": {"status": "blocked", "summary": "Pay BFF calls /execute while the service exposes /confirm and /cancel; confirmation trusts a supplied transaction hash."},
+      "evidence": [
+        {"file": "apps/pay/src/main.rs", "anchor": "/api/v1/pay/intents/{}/execute"},
+        {"file": "services/pay/src/main.rs", "anchor": "/api/v1/pay/intents/{id}/confirm"},
+        {"file": "services/pay/src/handlers/intents.rs", "anchor": "pub async fn confirm_pay_intent"}
+      ]
+    },
+    {
+      "id": "pay.escrow-mutations",
+      "surface": "payments",
+      "priority": "P0",
+      "dependencies": ["A2", "A3", "A6"],
+      "required": {
+        "methods": ["POST"],
+        "endpoint": "/api/v1/pay/escrows/{id}/{release|refund|dispute|resolve|confirm-deposit}",
+        "successStatuses": [200],
+        "invariants": ["verified identity and ownership", "contract transaction and receipt drive state", "replay causes zero duplicate value", "audit record is durable"]
+      },
+      "observed": {"status": "blocked", "summary": "Mutations are publicly mounted and primarily update PostgreSQL state without verified contract execution."},
+      "evidence": [
+        {"file": "services/pay/src/main.rs", "anchor": "/api/v1/pay/escrows/{id}/release"},
+        {"file": "services/pay/src/handlers/escrows.rs", "anchor": "pub async fn release_escrow"}
+      ]
+    },
+    {
+      "id": "pay.admin-force-mutations",
+      "surface": "payments",
+      "priority": "P0",
+      "dependencies": ["A1", "A2", "A6"],
+      "required": {
+        "methods": ["POST"],
+        "endpoint": "/api/v1/admin/pay/{intents|escrows}/...",
+        "successStatuses": [200],
+        "invariants": ["verified admin capability", "service fails closed even if directly reached", "denied requests write no rows", "security audit event is emitted"]
+      },
+      "observed": {"status": "blocked", "summary": "The service explicitly trusts callers and Cloudflare currently exposes the service rather than the pay BFF."},
+      "evidence": [
+        {"file": "services/pay/src/handlers/pay_admin.rs", "anchor": "Today these endpoints trust the caller"},
+        {"file": "services/pay/src/main.rs", "anchor": "/api/v1/admin/pay/intents/{id}/force-cancel"},
+        {"file": "infrastructure/cloudflare/cloudflared-config.prod.yml", "anchor": "service: http://localhost:4747"}
+      ]
+    },
+    {
+      "id": "ops.dependency-readiness",
+      "surface": "operations",
+      "priority": "P1",
+      "dependencies": ["A13"],
+      "required": {
+        "methods": ["GET"],
+        "endpoint": "/health/live and /health/ready per deployed process",
+        "successStatuses": [200, 503],
+        "invariants": ["liveness is process-only", "readiness checks required dependencies", "dependency failure returns non-2xx", "startup probe is distinct"]
+      },
+      "observed": {"status": "blocked", "summary": "Frontend, admin, pay and several services return static health success without dependency checks."},
+      "evidence": [
+        {"file": "apps/frontend/src/api.rs", "anchor": "pub async fn api_health() -> &'static str { \"ok\" }"},
+        {"file": "apps/admin/src/main.rs", "anchor": "async fn api_health() -> &'static str { \"ok\" }"},
+        {"file": "apps/pay/src/main.rs", "anchor": "async fn api_health() -> &'static str"}
+      ]
+    },
+    {
+      "id": "http.error-envelope",
+      "surface": "http",
+      "priority": "P1",
+      "dependencies": ["A0", "A5"],
+      "required": {
+        "methods": ["ALL"],
+        "endpoint": "all BFF and service APIs",
+        "successStatuses": [400, 401, 403, 404, 409, 422, 429, 500, 502, 503],
+        "invariants": ["stable code and message fields", "upstream status is preserved", "validation and retryability are explicit", "no secret or internal error leakage"]
+      },
+      "observed": {"status": "blocked", "summary": "Many proxies collapse every client/upstream failure into a bare 502 or service-specific JSON shape."},
+      "evidence": [
+        {"file": "apps/pay/src/main.rs", "anchor": "map_err(|_| StatusCode::BAD_GATEWAY)"},
+        {"file": "shared/rust/client/src/lib.rs", "anchor": "pub enum ClientError"}
+      ]
+    },
+    {
+      "id": "http.correlation-id",
+      "surface": "observability",
+      "priority": "P1",
+      "dependencies": ["A5", "A13"],
+      "required": {
+        "methods": ["ALL"],
+        "endpoint": "all browser, BFF, gateway and service requests",
+        "successStatuses": [200],
+        "invariants": ["accept or create one request ID", "forward it downstream", "return it to caller", "include it in logs, traces and sensitive audit events"]
+      },
+      "observed": {"status": "blocked", "summary": "The client can add x-request-id only when a RequestContext is used, while many BFF proxy calls use plain methods."},
+      "evidence": [
+        {"file": "shared/rust/client/src/lib.rs", "anchor": "req = req.header(\"x-request-id\""},
+        {"file": "shared/rust/client/src/lib.rs", "anchor": "self.apply_ctx(self.inner.get(self.url(path)), None)"},
+        {"file": "apps/backend/src/web/routes/unified_router.rs", "anchor": "request_id_middleware"}
+      ]
+    }
+  ]
+}
