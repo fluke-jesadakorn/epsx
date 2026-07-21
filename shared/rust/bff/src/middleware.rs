@@ -85,10 +85,15 @@ fn apply_security_headers_to(headers: &mut axum::http::HeaderMap, _path: &str, a
         // missed. Without it, every route logged a CSP console
         // error and the icons never rendered. Same allowlist for
         // admin + non-admin — the footer is shared.
+        //
+        // Wave 50b — added `https://unpkg.com https://cdn.jsdelivr.net`
+        // to `connect-src` too. Browsers fetch `*.map` sourcemaps via
+        // XHR/fetch (connect-src), not script-src, so the previous
+        // allowlist left a CSP console error every page load.
         let csp = if admin {
-            "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' ws: wss:; frame-ancestors 'self';"
+            "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' ws: wss: https://cdn.jsdelivr.net https://unpkg.com; frame-ancestors 'self';"
         } else {
-            "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' ws: wss:; frame-ancestors 'none';"
+            "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' ws: wss: https://cdn.jsdelivr.net https://unpkg.com; frame-ancestors 'none';"
         };
         if let Ok(v) = HeaderValue::from_str(csp) {
             headers.insert("content-security-policy", v);

@@ -142,19 +142,53 @@ pub async fn ssr_handler(
         "/permissions/policies".to_string(),
         "/developer-portal/api-keys/create".to_string(),
     ]);
-    let body_element = AdminLayout::Auth {
-        current_path: layout_path.clone(),
-        server_user,
-        is_authenticated,
-        is_gated: None,
-        no_layout_paths: no_layout_paths_override,
-    }
-    .render(
-        body_element,
-        None,
-        None,
-        None,
-    );
+    // === Wave 49+ — Wave 6B pages provide their own chrome ===
+    //
+    // The 5 Wave 6B admin pages (`/admin/dashboard`,
+    // `/admin/analytics`, `/admin/media`, `/admin/policies`,
+    // `/admin/settings`) wrap themselves in `<AdminShell>` (from
+    // `shared/rust/dioxus_ui::layout::admin_shell`), which renders
+    // the full sidebar + breadcrumb header + main + footer chrome.
+    // The BFF's `AdminLayout::Auth` ALSO renders that chrome (via
+    // `shell::MainLayout`). Wrapping a Wave 6B page in
+    // `AdminLayout::Auth` therefore produced a structural
+    // double-sidebar / double-header / double-footer bug on every
+    // tablet+ viewport.
+    //
+    // The fix: for the 5 Wave 6B paths we skip the BFF-level
+    // `AdminLayout::Auth` wrap entirely. The page's own
+    // `<AdminAuthGate>` still handles the auth gate (it's wrapped
+    // around the `<AdminShell>` in each page's render function),
+    // so the unauthed case is still covered.
+    let wave6b_paths: &[&str] = &[
+        "/",                  // admin home → dashboard::render → AdminShell
+        "/dashboard",
+        "/analytics",
+        "/media",
+        "/policies",
+        "/settings",
+    ];
+    let is_wave6b = wave6b_paths.contains(&layout_path.as_str());
+    let body_element = if is_wave6b {
+        // Page provides its own chrome via `<AdminShell>`; don't
+        // double-wrap. The page's own `<AdminAuthGate>` still
+        // handles the unauthed overlay.
+        body_element
+    } else {
+        AdminLayout::Auth {
+            current_path: layout_path.clone(),
+            server_user,
+            is_authenticated,
+            is_gated: None,
+            no_layout_paths: no_layout_paths_override,
+        }
+        .render(
+            body_element,
+            None,
+            None,
+            None,
+        )
+    };
 
     let body_html = dioxus_ssr::render_element(body_element);
 

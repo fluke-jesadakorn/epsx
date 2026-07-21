@@ -60,6 +60,13 @@ pub struct SiweLoginBody {
     pub message: String,
     pub signature: String,
     pub chain_id: String,
+    /// Wallet address (lowercased) that produced the signature. Wave 50b —
+    /// the monolithic backend's `SignatureVerificationRequest` requires
+    /// `wallet_address`, so we propagate it from the auth-page JS.
+    pub address: String,
+    /// Challenge nonce returned by `/api/auth/web3/challenge`. Wave 50b —
+    /// the monolithic backend requires it as a separate field.
+    pub nonce: String,
 }
 
 #[derive(Deserialize)]

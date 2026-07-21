@@ -55,6 +55,7 @@
 
 use crate::auth::User;
 use crate::layout::breadcrumbs::{BreadcrumbItem, Breadcrumbs, Crumb};
+use crate::layout::footer::AdminFooter;
 use crate::layout::sidebar::{AdminSidebar, SidebarItem};
 use crate::pages::PageContext;
 
@@ -134,7 +135,19 @@ pub fn AdminShell(
                     items: Some(items),
                 }
             }
-            // Right side — breadcrumb header + main content.
+            // Right side — breadcrumb header + main content + footer.
+            // Mirrors prod's `apps/admin-frontend/components/layout/main-layout.tsx`:
+            //   <div class="flex flex-1 flex-col h-full overflow-hidden">
+            //     <Header ... />
+            //     <div class="flex-1 flex flex-col min-h-0 overflow-hidden">
+            //       <main class="flex-1 overflow-y-auto overflow-x-hidden p-0">
+            //         {children}
+            //       </main>
+            //       <footer class="border-t border-border/40 bg-card px-4 py-3">
+            //         EPSX Admin Dashboard / Version 2.0
+            //       </footer>
+            //     </div>
+            //   </div>
             div { class: "flex flex-1 flex-col h-full overflow-hidden",
                 // Breadcrumb + page-title header.
                 header { class: "admin-shell-header",
@@ -152,6 +165,12 @@ pub fn AdminShell(
                 }
                 // Main content — the page's children render here.
                 main { class: "admin-shell-main", {children} }
+                // Footer — the prod-EXACT 2-line admin footer
+                // ("EPSX Admin Dashboard" / "Version 2.0"). Lives
+                // inside the right-side flex column so the sidebar
+                // does not get a footer column (matches prod's
+                // `MainLayout`).
+                AdminFooter {}
             }
         }
     }
@@ -236,6 +255,52 @@ mod tests {
         assert!(
             html.contains("admin-shell-main"),
             "AdminShell should render its `admin-shell-main` content slot. Got: {html}"
+        );
+    }
+
+    /// The shell must render the prod-EXACT admin footer
+    /// (`<AdminFooter />` → `<footer class="admin-footer">` with
+    /// "EPSX Admin Dashboard" / "Version 2.0"). This matches
+    /// `apps/admin-frontend/components/layout/main-layout.tsx`
+    /// lines 55-65. Without this footer the dev BFF diverges
+    /// from prod on every Wave 6B admin page that uses
+    /// `AdminShell` directly (analytics, dashboard, media,
+    /// policies, settings).
+    #[test]
+    fn admin_shell_renders_admin_footer() {
+        let ctx = admin_ctx();
+        let body = rsx! {
+            AdminShell {
+                ctx: ctx.clone(),
+                page_title: "Settings".to_string(),
+                breadcrumbs: vec![("Settings".to_string(), "/settings".to_string())],
+                div { class: "page-content" }
+            }
+        };
+        let html = dioxus_ssr::render_element(body);
+        // The AdminFooter component renders a `<footer>` with the
+        // `admin-footer` class and the two label spans.
+        assert!(
+            html.contains("admin-footer"),
+            "AdminShell must render an <footer class=\"admin-footer\">. Got: {html}"
+        );
+        assert!(
+            html.contains("EPSX Admin Dashboard"),
+            "AdminShell footer must show 'EPSX Admin Dashboard'. Got: {html}"
+        );
+        assert!(
+            html.contains("Version 2.0"),
+            "AdminShell footer must show 'Version 2.0'. Got: {html}"
+        );
+        // Footer must be AFTER `<main>` (the right-side flex
+        // column layout: header → main → footer). The simplest
+        // way to assert ordering is to find the byte offset of
+        // `<main` and the first `<footer` and assert main < footer.
+        let main_off = html.find("<main").expect("AdminShell must render <main>");
+        let footer_off = html.find("<footer").expect("AdminShell must render <footer>");
+        assert!(
+            main_off < footer_off,
+            "AdminShell footer must come AFTER <main>. main_off={main_off} footer_off={footer_off}. Got: {html}"
         );
     }
 

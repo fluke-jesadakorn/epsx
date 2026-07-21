@@ -86,3 +86,82 @@ pub fn AdminFooter() -> Element {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The `Footer` primitive renders a 4-column site footer
+    /// (`<footer class="site-footer">`) with the four standard
+    /// column headings (Platform / Developers / Company) and a
+    /// copyright bottom strip. It's a public primitive — pages
+    /// can opt in by calling `<Footer />` directly, even though
+    /// `MainLayout` no longer renders it by default (the public
+    /// site has no footer in prod).
+    #[test]
+    fn footer_renders_four_columns_and_copyright() {
+        let html = dioxus_ssr::render_element(rsx! { Footer {} });
+        assert!(
+            html.contains("site-footer"),
+            "Footer must render <footer class=\"site-footer\">. Got: {html}"
+        );
+        // 4 columns by class name.
+        for col in &["footer-col", "footer-grid", "footer-brand", "footer-heading", "footer-list", "footer-bottom"] {
+            assert!(
+                html.contains(col),
+                "Footer must contain the `{col}` class. Got: {html}"
+            );
+        }
+        // 3 column headings.
+        for h in &["Platform", "Developers", "Company"] {
+            assert!(html.contains(h), "Footer must include heading `{h}`. Got: {html}");
+        }
+        // Bottom strip.
+        assert!(
+            html.contains("2025 EPSX"),
+            "Footer must include the copyright year + brand. Got: {html}"
+        );
+    }
+
+    /// `SiteFooter` is the alias for `Footer` — it must render the
+    /// same `<footer class="site-footer">` element so call sites
+    /// that imported either name keep working.
+    #[test]
+    fn site_footer_is_an_alias_for_footer() {
+        let html_a = dioxus_ssr::render_element(rsx! { Footer {} });
+        let html_b = dioxus_ssr::render_element(rsx! { SiteFooter {} });
+        assert_eq!(
+            html_a, html_b,
+            "SiteFooter must produce the same HTML as Footer (it's a re-export alias)"
+        );
+    }
+
+    /// `AdminFooter` renders the prod-EXACT 2-line admin strip
+    /// ("EPSX Admin Dashboard" / "Version 2.0") with the
+    /// `admin-footer` class. This is what the `shell::MainLayout`
+    /// and the `admin_shell::AdminShell` components render at the
+    /// bottom of every admin page — it's the only footer the
+    /// dev BFF currently emits (no public-site footer at all).
+    #[test]
+    fn admin_footer_renders_admin_dashboard_strip() {
+        let html = dioxus_ssr::render_element(rsx! { AdminFooter {} });
+        assert!(
+            html.contains("admin-footer"),
+            "AdminFooter must render <footer class=\"admin-footer\">. Got: {html}"
+        );
+        assert!(
+            html.contains("EPSX Admin Dashboard"),
+            "AdminFooter must show 'EPSX Admin Dashboard'. Got: {html}"
+        );
+        assert!(
+            html.contains("Version 2.0"),
+            "AdminFooter must show 'Version 2.0'. Got: {html}"
+        );
+        // Must use the same border/bg/padding class chain as the
+        // prod `<footer>` (matches the prod `MainLayout`).
+        assert!(
+            html.contains("border-t border-border/40 bg-card px-4 py-3"),
+            "AdminFooter must use the prod class chain. Got: {html}"
+        );
+    }
+}

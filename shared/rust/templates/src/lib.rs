@@ -5680,21 +5680,21 @@ window.epsx = (function() {
               <span class="auth-step-label">Select Wallet</span>
             </div>
             <div class="auth-wallets">
-              <button class="auth-wallet-btn" type="button" onclick="closeAuth();window.epsx &amp;&amp; window.epsx.connectWallet &amp;&amp; window.epsx.connectWallet();">
+              <button class="auth-wallet-btn" type="button" onclick="window.epsx &amp;&amp; window.epsx.closeAuth &amp;&amp; window.epsx.closeAuth();window.epsx &amp;&amp; window.epsx.connectWallet &amp;&amp; window.epsx.connectWallet();">
                 <span class="auth-wallet-icon">💼</span>
                 <span class="auth-wallet-name">Safe</span>
               </button>
-              <button class="auth-wallet-btn" type="button" onclick="closeAuth();window.epsx &amp;&amp; window.epsx.connectWallet &amp;&amp; window.epsx.connectWallet();">
+              <button class="auth-wallet-btn" type="button" onclick="window.epsx &amp;&amp; window.epsx.closeAuth &amp;&amp; window.epsx.closeAuth();window.epsx &amp;&amp; window.epsx.connectWallet &amp;&amp; window.epsx.connectWallet();">
                 <span class="auth-wallet-icon">🔗</span>
                 <span class="auth-wallet-name">WalletConnect</span>
               </button>
-              <button class="auth-wallet-btn" type="button" onclick="closeAuth();window.epsx &amp;&amp; window.epsx.connectWallet &amp;&amp; window.epsx.connectWallet();">
+              <button class="auth-wallet-btn" type="button" onclick="window.epsx &amp;&amp; window.epsx.closeAuth &amp;&amp; window.epsx.closeAuth();window.epsx &amp;&amp; window.epsx.connectWallet &amp;&amp; window.epsx.connectWallet();">
                 <span class="auth-wallet-icon">💼</span>
                 <span class="auth-wallet-name">Base Account</span>
               </button>
             </div>
             <div style="margin-top:0.75rem;border-top:1px solid rgba(255,255,255,0.10);padding-top:0.75rem;">
-              <button class="auth-wallet-btn" type="button" onclick="closeAuth();window.epsx &amp;&amp; window.epsx.connectWalletDemo &amp;&amp; window.epsx.connectWalletDemo();" style="background:rgba(255,255,255,0.04);">
+              <button class="auth-wallet-btn" type="button" onclick="window.epsx &amp;&amp; window.epsx.closeAuth &amp;&amp; window.epsx.closeAuth();window.epsx &amp;&amp; window.epsx.connectWalletDemo &amp;&amp; window.epsx.connectWalletDemo();" style="background:rgba(255,255,255,0.04);">
                 <span class="auth-wallet-icon">🧪</span>
                 <span class="auth-wallet-name">Try the demo account</span>
               </button>

@@ -120,20 +120,47 @@ pub struct PageMeta {
     /// 3 outliers use `PageMeta::admin_with_body_class(...)` to
     /// keep the prod-EXACT body class ONLY on those 3 routes.
     pub body_class: Option<String>,
+    /// Default policy for whether a consuming BFF emits the legacy
+    /// templates `footer()` (a 4-column "Platform / Developers /
+    /// Company" block) at the page-shell level.
+    ///
+    /// **All current `PageMeta` variants return `false`.** The admin
+    /// BFF honors this value because admin chrome ships its own
+    /// `<AdminFooter />` inside the layout (`shell::MainLayout` and
+    /// `AdminShell`). The frontend BFF deliberately overrides this
+    /// metadata and enables its SSR-safe templates footer in
+    /// `apps/frontend/src/ssr.rs`; that remains safe because
+    /// `MainLayout` no longer renders a Dioxus `<Footer />`.
+    ///
+    /// Consumers that honor this flag may add an explicit opt-in
+    /// variant. Do not flip a shared default without first auditing
+    /// the full layout chain for duplicate chrome.
     pub include_footer: bool,
     pub use_epsx_header: bool,
 }
 
 impl PageMeta {
+    /// Marketing pages (home, about, contact, plans, news, ...).
+    ///
+    /// Defaults to no page-owned footer. Previously this variant set
+    /// `include_footer: true`, which combined with the Dioxus
+    /// `<Footer />` rendered inside `MainLayout` produced a structural
+    /// double-footer on every marketing page. `MainLayout` no longer
+    /// calls `<Footer />`; the frontend BFF may still add its one
+    /// SSR-safe templates footer outside the Dioxus subtree.
     pub fn marketing(title: &str) -> Self {
         Self {
             title: format!("{} — EPSX", title),
             description: "EPSX — Web3 commerce platform: visual page builder, on-chain payments, programmable subscriptions.".to_string(),
             body_class: Some("page-bg".to_string()),
-            include_footer: true,
+            include_footer: false,
             use_epsx_header: true,
         }
     }
+    /// App pages (dashboard, profile, account, analytics, ...).
+    ///
+    /// Defaults to no page-owned footer. The frontend BFF may apply
+    /// its outer SSR-safe templates footer as a consumer override.
     pub fn app(title: &str) -> Self {
         Self {
             title: format!("{} — EPSX", title),
@@ -165,6 +192,13 @@ impl PageMeta {
     /// body class (`/access-denied`, `/unauthorized`,
     /// `/developer-portal/api-keys/create`), use
     /// [`PageMeta::admin_with_body_class`] instead.
+    ///
+    /// **No footer at the page-shell level.** Admin chrome is
+    /// rendered by the layout (`shell::MainLayout` for the
+    /// 22 in-skeleton routes, `AdminShell` for the Wave 6B
+    /// pages); both layouts render `<AdminFooter />` in-body so
+    /// the 2-line "EPSX Admin Dashboard / Version 2.0" strip is
+    /// always visible.
     pub fn admin(title: &str) -> Self {
         Self {
             title: format!("{} — Admin", title),

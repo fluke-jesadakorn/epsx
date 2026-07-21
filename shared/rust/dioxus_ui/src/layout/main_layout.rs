@@ -27,76 +27,74 @@
 
 use dioxus::prelude::*;
 
-use super::footer::Footer;
-use super::navbar::NavigationClient;
 use crate::pages::PageContext;
 use crate::theme::ThemeRoot;
-use crate::theme::UnifiedThemeToggle;
 
-/// Standard frontend layout — renders the sticky navigation chrome +
-/// the page body + the site footer.
+/// Standard frontend layout — renders the page body wrapped in the
+/// shared theme bootstrap.
 ///
-/// On `path == "/auth"` the chrome short-circuits (no header); the
-/// footer is still rendered to keep the page visually anchored. (The
-/// `AuthLayout` wrapper is the recommended way to do an
-/// actually-full-bleed auth page; this fallback keeps historical
-/// `path == "/auth"` behavior safe even if a page forgets the
-/// dedicated wrapper.)
+/// **Wave 49+ — SSR-safe navbar/footer moved to the page shell.**
 ///
-/// - `ctx` — the BFF-supplied page context. `ctx.path` decides
-///   chrome visibility; `ctx.user` is forwarded to the chrome for
-///   the wallet pill in the actions slot. (Track B will additionally
-///   forward `ctx.wallet` for the new `ConnectButton` /
-///   `ConnectedWalletDropdown` slot — see the TODO inside the body.)
-/// - `children` — the page body. Rendered verbatim between the
-///   chrome and the footer.
+/// This layout previously rendered `<NavigationClient />` (the
+/// Dioxus sticky header) and `<Footer />` inline around the body.
+/// Both were broken under Dioxus 0.7 SSR:
 ///
-/// Wave 23 T4: the layout now wraps the body in `ThemeRoot` (CSS
-/// vars + pre-paint theme bootstrap) and passes a
-/// `UnifiedThemeToggle` to the navbar so the click target actually
-/// flips light/dark mode. Before this, the navbar rendered the
-/// theme button but `MainLayout` never supplied a handler, so the
+/// - `<NavigationClient />` uses Dioxus `onclick:` closures to
+///   toggle the Market / Developer / Company dropdowns. SSR is
+///   hydration-less, so the closures were stripped from the HTML
+///   and clicking the navbar items did nothing.
+///
+/// - `<Footer />` was removed in Wave 38c to fix a structural
+///   double-footer with the templates `footer()`, but was never
+///   re-added. Most pages rendered no footer at all, so the
+///   Terms / Privacy / About / Contact / Rankings / Portfolio /
+///   Pricing / API Keys / Documentation / Support / News links
+///   were unreachable from the footer on every page except
+///   `/terms` (which has its own page-local `TermsFooter`).
+///
+/// The fix lives at the BFF layer: `apps/frontend/src/ssr.rs`
+/// now passes `epsx_templates::epsx_header()` (which emits raw
+/// `onclick="epsx.toggleNav(this)"` attributes that survive SSR)
+/// as the `nav` arg to `page_shell_with_body_class`, and forces
+/// `include_footer = true` so the templates 4-column footer
+/// renders after `</main>`. The navbar / footer are now in the
+/// page-shell `<body>`, OUTSIDE the Dioxus subtree, so they work
+/// without hydration.
+///
+/// This layout's only remaining responsibility is:
+/// 1. Wrap the body in `<ThemeRoot>` so the page picks up the
+///    persisted dark/light preference on first paint (sets the
+///    `--bg` / `--text` CSS vars + pre-paint theme bootstrap).
+/// 2. Provide a stable call signature (`<MainLayout ctx={ctx}>`)
+///    so existing pages keep compiling.
+///
+/// On `path == "/auth"` the page shell passes an empty nav and
+/// the dedicated `<AuthLayout>` is full-bleed.
+///
+/// - `ctx` — the BFF-supplied page context. Currently unused
+///   inside the body (theme + footer + navbar are now handled at
+///   the page-shell level); kept on the signature for symmetry
+///   with `<AuthLayout>` and to make future per-route BFF plumbing
+///   (e.g. injecting the `return_url` query param into a
+///   sub-component) trivial.
+/// - `children` — the page body. Rendered verbatim inside
+///   `<ThemeRoot>`.
+///
+/// Wave 23 T4: the layout wraps the body in `ThemeRoot` (CSS vars
+/// + pre-paint theme bootstrap). Before this, the theme toggle
+/// in the navbar was rendered but no handler was wired, so the
 /// click was a no-op and the `.dark` class was never applied.
 #[allow(non_snake_case)] // PascalCase is intentional — see design doc §1.
 #[component]
 pub fn MainLayout(ctx: PageContext, children: Element) -> Element {
-    let path = ctx.path.clone();
-    let user = ctx.user.clone();
-    // Wave 3a Track B (TODO cleanup): wire the BFF-supplied
-    // `ConnectedWalletState` from `ctx.wallet` into the
-    // NavigationClient chrome. Without this the wallet pill always
-    // renders the "disconnected" placeholder even when the user
-    // has connected via SIWE, because the layout was passing
-    // hardcoded `is_connected: Some(false)` regardless of the
-    // actual cookie state.
-    //
-    // Priority order: if the SIWE session has a user, the user is
-    // considered authenticated even if the wallet cookie expired
-    // (the session lifetime is independent). Wallet connection
-    // status is sourced from the wallet cookie only.
-    let wallet = ctx.wallet.clone();
-    // `ConnectedWalletState` derives connection from the presence
-    // of `address` — there's no separate `is_connected` boolean.
-    let is_connected = Some(wallet.address.is_some());
-    let is_authenticated = Some(user.is_some() || wallet.is_authenticated);
-    let wallet_address = wallet.address.clone();
+    // Suppress the unused-variable warning for `ctx` without renaming
+    // the prop (renaming would break the `<MainLayout ctx={ctx}>` call
+    // sites in the pages). We deliberately accept the prop because
+    // future plumbing may forward it.
+    let _ = ctx;
     rsx! {
         ThemeRoot {
-            // === wave3a-wiring-track-a ===
-            // Chrome cluster. NavigationClient already short-circuits on
-            // `path == "/auth"` (renders Fragment {}) so we always render
-            // the component and let it decide chrome visibility.
-            NavigationClient {
-                is_hydrated: Some(true),
-                current_path: Some(path),
-                is_connected,
-                is_authenticated,
-                is_loading: Some(false),
-                wallet_address,
-                theme_toggle: Some(rsx! { UnifiedThemeToggle {} }),
-            }
             { children }
-            Footer {}
         }
     }
 }
@@ -156,47 +154,70 @@ mod tests {
     }
 
     #[test]
-    fn main_layout_renders_header_and_footer() {
+    fn main_layout_preserves_body_and_emits_no_chrome() {
         let ctx = ctx_for("/");
         let html = render_to_string(rsx! {
             MainLayout { ctx,
                 div { class: "page-body-marker", "hello body" }
             }
         });
-        // <header> from NavigationClient
+        // Wave 49+ — `<NavigationClient />` was removed from
+        // `MainLayout` (its Dioxus onclick handlers were stripped
+        // by SSR, leaving the dropdowns un-clickable). The navbar
+        // and footer are now rendered at the BFF page-shell level
+        // (`apps/frontend/src/ssr.rs` passes `epsx_templates::
+        // epsx_header()` as the nav + forces `include_footer = true`).
+        // This layout wraps the body in `<ThemeRoot>` and emits no
+        // `<header>` / `<footer>` of its own.
         assert!(
-            html.contains("<header"),
-            "MainLayout(/) should render a <header> element. Got: {}",
+            !html.contains("<header"),
+            "MainLayout must NOT render <header> (navbar lives at the page-shell level now). Got: {}",
             html
         );
-        // <footer> from the Footer component
         assert!(
-            html.contains("<footer"),
-            "MainLayout(/) should render a <footer> element. Got: {}",
+            !html.contains("<footer"),
+            "MainLayout must NOT render <footer> (footer lives at the page-shell level now). Got: {}",
+            html
+        );
+        // Body content must still be present.
+        assert!(
+            html.contains("page-body-marker"),
+            "MainLayout must preserve body content. Got: {}",
+            html
+        );
+        assert!(
+            html.contains("hello body"),
+            "MainLayout must preserve body text. Got: {}",
             html
         );
     }
 
     #[test]
-    fn main_layout_hides_chrome_on_auth() {
+    fn auth_layout_is_full_bleed() {
         let ctx = ctx_for("/auth");
         let html = render_to_string(rsx! {
-            MainLayout { ctx,
+            AuthLayout { ctx,
                 div { class: "auth-body-marker", "sign in content" }
             }
         });
-        // NavigationClient short-circuits on path == "/auth" and
-        // returns Fragment {}. The Footer component's <footer> may
-        // still appear, but the chrome <header> must NOT.
+        // AuthLayout has always been full-bleed (no header, no
+        // footer); the BFF also passes an empty nav for path
+        // "/auth" so the page-shell level doesn't add a navbar
+        // either.
         assert!(
             !html.contains("<header"),
-            "MainLayout(/auth) must NOT render <header>. Got: {}",
+            "AuthLayout must NOT render <header>. Got: {}",
+            html
+        );
+        assert!(
+            !html.contains("<footer"),
+            "AuthLayout must NOT render <footer>. Got: {}",
             html
         );
         // Auth body content must still be present.
         assert!(
             html.contains("auth-body-marker"),
-            "MainLayout(/auth) must preserve body content. Got: {}",
+            "AuthLayout must preserve body content. Got: {}",
             html
         );
     }
@@ -221,5 +242,28 @@ mod tests {
             "MainLayout must preserve body text. Got: {}",
             html
         );
+    }
+
+    /// `PageMeta::include_footer` is the default policy exposed to
+    /// consuming BFFs. All current variants opt out so admin pages do
+    /// not duplicate their in-layout `<AdminFooter />`. The frontend
+    /// BFF deliberately overrides the value and emits one SSR-safe
+    /// templates footer outside the Dioxus subtree. This test guards
+    /// the metadata default, not that consumer-specific override.
+    #[test]
+    fn all_page_meta_variants_default_to_no_legacy_footer() {
+        use crate::pages::PageMeta;
+        // Marketing — was the source of the double-footer bug.
+        let m = PageMeta::marketing("Home");
+        assert!(!m.include_footer, "PageMeta::marketing must not include footer");
+        // App — was the source of the spurious single-footer.
+        let a = PageMeta::app("Dashboard");
+        assert!(!a.include_footer, "PageMeta::app must not include footer");
+        // Admin — admin chrome is rendered by `shell::MainLayout` /
+        // `AdminShell`, NOT by the templates `footer()`.
+        let d = PageMeta::admin("Command Center");
+        assert!(!d.include_footer, "PageMeta::admin must not include footer");
+        let d_bc = PageMeta::admin_with_body_class("Access Denied", "h-screen");
+        assert!(!d_bc.include_footer, "PageMeta::admin_with_body_class must not include footer");
     }
 }

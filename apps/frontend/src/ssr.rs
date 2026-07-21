@@ -591,6 +591,11 @@ window.epsx.connectWallet = async function() {
     const challengeData = await challengeRes.json();
     const message = challengeData.message || challengeData.challenge;
     if (!message) throw new Error('Challenge response missing message');
+    // Wave 50b — monolithic backend's `/api/auth/web3/verify` requires
+    // `nonce` as a separate field (it's also embedded in the SIWE message,
+    // but the backend doesn't parse it out).
+    const nonce = challengeData.nonce;
+    if (!nonce) throw new Error('Challenge response missing nonce');
 
     // Step 4: sign
     window.epsxWalletStatus({ status: 'signing', address: address });
@@ -604,7 +609,10 @@ window.epsx.connectWallet = async function() {
     const verifyRes = await fetch('/api/v1/auth/siwe', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ message: message, signature: signature, chain_id: chainId })
+      // Wave 50b — include `address` + `nonce` so the BFF can forward
+      // `wallet_address` + `nonce` to the monolithic backend's verify
+      // endpoint (its `SignatureVerificationRequest` requires both).
+      body: JSON.stringify({ message: message, signature: signature, chain_id: chainId, address: address, nonce: nonce })
     });
     if (!verifyRes.ok) {
       const txt = await verifyRes.text();

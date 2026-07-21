@@ -252,13 +252,18 @@ pub async fn siwe_login(
     State(state): State<AppState>,
     Json(body): Json<super::SiweLoginBody>,
 ) -> Response {
-    let url = format!("{}/api/v1/identity/auth/siwe", state.api_url.trim_end_matches('/'));
+    // Wave 50b — point at the monolithic backend's `/api/auth/web3/verify`.
+    // The microservice identity handler at `/api/v1/identity/auth/siwe` is
+    // not running locally (the gateway + identity services haven't been
+    // built yet), so we go straight to the monolithic backend.
+    let url = format!("{}/api/auth/web3/verify", state.api_url.trim_end_matches('/'));
     let resp = match state.identity.clone_for_bearer()
         .post(&url)
         .json(&serde_json::json!({
             "message": body.message,
             "signature": body.signature,
-            "chain_id": body.chain_id,
+            "wallet_address": body.address,
+            "nonce": body.nonce,
         }))
         .send().await
     {
@@ -273,13 +278,20 @@ pub async fn siwe_login(
     if !status.is_success() {
         return (status, Json(value)).into_response();
     }
-    let user = value.get("user").cloned().unwrap_or(serde_json::json!({}));
+    // Monolithic backend response shape:
+    //   { access_token, refresh_token, wallet_address, ... }
+    // (no nested `user`, no `expires_in`).
     let access = value.get("access_token").and_then(|v| v.as_str()).unwrap_or("").to_string();
     let refresh = value.get("refresh_token").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let expires = value.get("expires_in").and_then(|v| v.as_u64()).unwrap_or(3600);
-    let user_id = user.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let address = user.get("address").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let chain_id = user.get("chain_id").and_then(|v| v.as_str()).unwrap_or("56").to_string();
+    // Default to WEB3_SESSION_DURATION_HOURS=24h — backend doesn't echo
+    // `expires_in` in this code path.
+    let expires = value.get("expires_in").and_then(|v| v.as_u64()).unwrap_or(86400);
+    let wallet = value.get("wallet_address").and_then(|v| v.as_str())
+        .unwrap_or(&body.address)
+        .to_string();
+    let user_id = wallet.clone();
+    let address = wallet.clone();
+    let chain_id = body.chain_id.clone();
 
     let body = super::AuthApiResponse {
         access_token: access.clone(),
@@ -287,7 +299,7 @@ pub async fn siwe_login(
         expires_in: Some(expires),
         user: serde_json::json!({
             "id": user_id, "address": address, "chain_id": chain_id,
-            "roles": user.get("roles").cloned().unwrap_or(serde_json::json!([])),
+            "roles": value.get("roles").cloned().unwrap_or(serde_json::json!([])),
         }),
         demo: false,
     };
@@ -310,11 +322,15 @@ pub async fn auth_challenge(
     State(state): State<AppState>,
     Json(body): Json<super::ChallengeBody>,
 ) -> Response {
-    let url = format!("{}/api/v1/identity/auth/challenge", state.api_url.trim_end_matches('/'));
+    // Wave 50b — point at the monolithic backend's `/api/auth/web3/challenge`
+    // (the BFF was originally written against a planned gateway+identity
+    // service layout at `/api/v1/identity/*` that isn't running locally yet,
+    // so for now we proxy straight to the monolithic backend).
+    let url = format!("{}/api/auth/web3/challenge", state.api_url.trim_end_matches('/'));
     let resp = match state.identity.clone_for_bearer()
         .post(&url)
         .json(&serde_json::json!({
-            "address": body.address,
+            "wallet_address": body.address,
             "chain_id": body.chain_id,
         }))
         .send().await
