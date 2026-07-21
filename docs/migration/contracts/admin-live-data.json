@@ -6,6 +6,15 @@
     "ref": "origin/development",
     "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db"
   },
+  "sourceMiddleware": {
+    "file": "apps/admin-frontend/middleware.ts",
+    "anchors": [
+      "if (request.nextUrl.searchParams.has('logout'))",
+      "const token = getServerAuthToken(request.cookies);",
+      "const verifyResponse = await verifyAdminAccess(request, token);"
+    ],
+    "finding": "The source handles logout cookie clearing, session presence, and backend-owned admin verification before either page-level redirect executes."
+  },
   "routeInventory": "docs/migration/contracts/routes.json",
   "expectedRouteCount": 27,
   "stateValues": ["present", "missing", "not-applicable"],
@@ -57,6 +66,15 @@
         "c.params.insert(\"planId\".into(), rest.to_string())"
       ],
       "finding": "The dispatcher validates route shape and extracts dynamic params, but route presence is not live-data or mutation proof."
+    },
+    {
+      "file": "apps/admin/src/main.rs",
+      "anchors": [
+        "admin_redirect_targets_are_fixed_but_transport_drift_remains_visible",
+        "Redirect::permanent(\"/wallet-management/wallets\")",
+        "window.location.replace('/notifications/manage');"
+      ],
+      "finding": "In-process tests prove only that the current GET targets are fixed and query input cannot choose an external target. Notifications remains a 200 script document and wallet management remains a pre-SSR 308; this is not source redirect parity."
     }
   ],
   "redirects": [
@@ -65,18 +83,28 @@
       "target": "/notifications/manage",
       "transport": "document-javascript",
       "currentStatus": 200,
-      "sourceSemantics": "Next.js redirect() response",
+      "sourceSemantics": "Pinned Next.js page-level redirect() runs only after source middleware logout/session/admin-verification decisions",
+      "sourceNextVersion": "16.0.10",
+      "fixedTargetProven": true,
+      "queryCannotChooseTarget": true,
+      "inProcessTest": {"file": "apps/admin/src/main.rs", "anchor": "admin_redirect_targets_are_fixed_but_transport_drift_remains_visible"},
+      "proofGaps": ["authenticated-browser-history-rsc-client-navigation", "pinned-origin-method-body-cache-matrix", "source-middleware-logout-session-ordering"],
       "status": "partial",
-      "blocker": "replace the 200 script page with a tested same-origin HTTP redirect and lock the accepted status/cache/history semantics"
+      "blocker": "Replace or formally accept the 200 script transport only after authenticated browser/history/RSC/client-navigation proof, a pinned-origin method/body/cache matrix, and source middleware/logout/session ordering parity."
     },
     {
       "path": "/wallet-management",
       "target": "/wallet-management/wallets",
-      "transport": "http-permanent",
+      "transport": "http-permanent-pre-ssr",
       "currentStatus": 308,
-      "sourceSemantics": "Next.js redirect() response",
+      "sourceSemantics": "Pinned Next.js page-level redirect() runs only after source middleware logout/session/admin-verification decisions",
+      "sourceNextVersion": "16.0.10",
+      "fixedTargetProven": true,
+      "queryCannotChooseTarget": true,
+      "inProcessTest": {"file": "apps/admin/src/main.rs", "anchor": "admin_redirect_targets_are_fixed_but_transport_drift_remains_visible"},
+      "proofGaps": ["authenticated-browser-history-rsc-client-navigation", "pinned-origin-method-body-cache-matrix", "source-middleware-logout-session-ordering"],
       "status": "partial",
-      "blocker": "prove the permanent redirect is intentional or match the source temporary redirect semantics, including query and method behavior"
+      "blocker": "The pre-SSR 308 target is fixed, but permanence and bypass ordering are not source parity until authenticated browser/history/RSC/client-navigation proof, a pinned-origin method/body/cache matrix, and source middleware/logout/session ordering parity exist."
     }
   ],
   "batches": [
@@ -107,7 +135,7 @@
     "Chat, notification, analytics, media, and audit surfaces remain dependent on A11 service contracts.",
     "Every route needs authenticated browser proof at mobile and desktop widths, keyboard operation, focus restoration, and overflow checks.",
     "Every data or mutation path needs correlation, audit event, metrics/log redaction, timeout, retry, and recovery evidence under A12.",
-    "The two intentional redirects require explicit transport/status/history/cache acceptance; route presence alone is insufficient.",
+    "The two intentional redirects still need authenticated browser/history/RSC/client-navigation proof, a pinned-origin method/body/cache matrix, and source middleware/logout/session ordering parity.",
     "Production readiness remains STOP until all 27 routes are aligned and every route and global blocker is cleared."
   ],
   "routes": [
@@ -285,13 +313,13 @@
       "source": {"file": "apps/admin-frontend/app/notifications/page.tsx", "anchors": ["export default function NotificationsPage", "redirect('/notifications/manage')"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications_redirect.rs", "handler": "notifications_redirect::render", "anchors": ["pub fn render(_ctx: &PageContext)", "window.location.replace('/notifications/manage');"]},
       "params": {"names": [], "current": "none"},
-      "data": {"reads": [], "endpoints": [], "current": "intentional redirect only", "fallbacks": []},
-      "permissions": {"read": [], "manage": [], "current": "destination owns authorization"},
+      "data": {"reads": [], "endpoints": [], "current": "intentional fixed-target JavaScript redirect document only", "fallbacks": []},
+      "permissions": {"read": [], "manage": [], "current": "destination owns authorization, but authenticated source middleware/logout/session ordering parity is unproven"},
       "mutations": [],
-      "contracts": {"bodies": [], "envelopes": [], "statuses": ["target 200 script document; source HTTP redirect"]},
+      "contracts": {"bodies": [], "envelopes": [], "statuses": ["current GET returns a 200 HTML document whose script calls window.location.replace('/notifications/manage')", "the source page-level redirect executes only after source middleware logout/session/admin-verification decisions", "an in-process test proves only that the fixed script target is unchanged by a redirect-shaped query; method, body, and cache behavior are not accepted"]},
       "states": {"loading": "not-applicable", "empty": "not-applicable", "error": "missing", "retry": "missing", "forbidden": "not-applicable", "conflict": "not-applicable"},
-      "ux": {"keyboard": "fallback navigation unproven", "responsive": "not-applicable", "hydration": "inline script required"},
-      "blockers": ["use and test accepted same-origin HTTP redirect semantics, including script-disabled behavior, cache/history, query, and status"]
+      "ux": {"keyboard": "script-disabled fallback and authenticated browser/history/RSC/client navigation are unproven", "responsive": "not-applicable", "hydration": "inline script required"},
+      "blockers": ["prove authenticated browser/history/RSC/client-navigation behavior", "record and accept a pinned-origin method/body/cache matrix", "prove parity with source middleware logout/session/admin-verification ordering"]
     },
     {
       "path": "/notifications/create", "batch": "B7-mutations", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
@@ -363,13 +391,13 @@
       "source": {"file": "apps/admin-frontend/app/wallet-management/page.tsx", "anchors": ["export default function WalletManagementPage", "redirect('/wallet-management/wallets')"]},
       "target": {"file": "apps/admin/src/main.rs", "handler": "wallet_redirect_to_wallets", "anchors": [".route(\"/wallet-management\", get(wallet_redirect_to_wallets))", "Redirect::permanent(\"/wallet-management/wallets\")"]},
       "params": {"names": [], "current": "none"},
-      "data": {"reads": [], "endpoints": [], "current": "intentional redirect only", "fallbacks": []},
-      "permissions": {"read": [], "manage": [], "current": "destination owns authorization"},
+      "data": {"reads": [], "endpoints": [], "current": "intentional fixed-target pre-SSR permanent redirect only", "fallbacks": []},
+      "permissions": {"read": [], "manage": [], "current": "destination owns authorization, but the pre-SSR redirect bypasses target SSR session resolution and source middleware/logout/session ordering parity is unproven"},
       "mutations": [],
-      "contracts": {"bodies": [], "envelopes": [], "statuses": ["target 308; source Next redirect default is not locked as permanent"]},
+      "contracts": {"bodies": [], "envelopes": [], "statuses": ["current GET returns a pre-SSR 308 with fixed Location /wallet-management/wallets", "the source page-level redirect executes only after source middleware logout/session/admin-verification decisions", "an in-process test proves only that redirect-shaped query input cannot change Location; permanence plus method, body, and cache behavior are not accepted"]},
       "states": {"loading": "not-applicable", "empty": "not-applicable", "error": "not-applicable", "retry": "not-applicable", "forbidden": "not-applicable", "conflict": "not-applicable"},
-      "ux": {"keyboard": "not-applicable", "responsive": "not-applicable", "hydration": "not-applicable"},
-      "blockers": ["accept permanent semantics explicitly or match the source temporary redirect, then prove query/method/cache/history behavior"]
+      "ux": {"keyboard": "authenticated browser/history/RSC/client navigation is unproven", "responsive": "not-applicable", "hydration": "not required by the current pre-SSR 308"},
+      "blockers": ["prove authenticated browser/history/RSC/client-navigation behavior", "record and accept a pinned-origin method/body/cache matrix", "prove parity with source middleware logout/session/admin-verification ordering"]
     },
     {
       "path": "/wallet-management/:address", "batch": "B6-wallets-plans", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A9", "A11", "A12"],

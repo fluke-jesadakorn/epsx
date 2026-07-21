@@ -114,6 +114,34 @@ if (resolvedSource !== contract.source.commit) {
   fail(`stale source ref/commit: ${contract.source.ref} resolves to ${resolvedSource}, fixture pins ${contract.source.commit}`);
 }
 git("cat-file", "-e", `${contract.source.commit}^{commit}`);
+const sourceAdminPackage = JSON.parse(
+  git("show", `${contract.source.commit}:apps/admin-frontend/package.json`),
+) as Json;
+if (sourceAdminPackage.dependencies?.next !== "16.0.10") {
+  fail("pinned admin source must use Next.js 16.0.10 for redirect semantics");
+}
+const sourceMiddlewareFile = safeRelative(contract.sourceMiddleware?.file, "sourceMiddleware.file");
+const sourceMiddlewareContent = git("show", `${contract.source.commit}:${sourceMiddlewareFile}`);
+let sourceMiddlewareAnchorOffset = -1;
+for (const [anchorIndex, anchor] of strings(
+  contract.sourceMiddleware?.anchors,
+  "sourceMiddleware.anchors",
+).entries()) {
+  const anchorOffset = sourceMiddlewareContent.indexOf(anchor);
+  if (anchorOffset < 0) {
+    fail(`missing source middleware anchor sourceMiddleware.anchors[${anchorIndex}]: ${anchor}`);
+  }
+  if (anchorOffset <= sourceMiddlewareAnchorOffset) {
+    fail("source middleware anchors must retain logout, session, then admin-verification ordering");
+  }
+  sourceMiddlewareAnchorOffset = anchorOffset;
+}
+if (
+  typeof contract.sourceMiddleware?.finding !== "string" ||
+  contract.sourceMiddleware.finding.length === 0
+) {
+  fail("sourceMiddleware.finding is required");
+}
 
 const inventoryRel = safeRelative(contract.routeInventory, "routeInventory");
 const inventory = parse(resolve(root, inventoryRel), "route inventory");
@@ -158,13 +186,51 @@ const inventoryRedirects = expected
   .filter((route: Json) => route.target?.kind === "redirect")
   .map((route: Json) => `${route.path}\0${route.target.redirectTo}`)
   .sort();
+const expectedRedirectCurrent = new Map<string, { transport: string; status: number }>([
+  ["/notifications", { transport: "document-javascript", status: 200 }],
+  ["/wallet-management", { transport: "http-permanent-pre-ssr", status: 308 }],
+]);
+const expectedRedirectProofGaps = [
+  "authenticated-browser-history-rsc-client-navigation",
+  "pinned-origin-method-body-cache-matrix",
+  "source-middleware-logout-session-ordering",
+];
+const expectedRedirectRouteBlockers = [
+  "prove authenticated browser/history/RSC/client-navigation behavior",
+  "record and accept a pinned-origin method/body/cache matrix",
+  "prove parity with source middleware logout/session/admin-verification ordering",
+];
 const contractRedirects = contract.redirects
   .map((redirect: Json, index: number) => {
-    if (redirect.status !== "partial" || typeof redirect.blocker !== "string" || redirect.blocker.length === 0) {
-      fail(`redirects[${index}] must remain partial with a blocker until redirect behavior is proven`);
+    const expectedCurrent = expectedRedirectCurrent.get(redirect.path);
+    if (!expectedCurrent) fail(`redirects[${index}] has an unexpected path`);
+    if (
+      redirect.status !== "partial" ||
+      typeof redirect.blocker !== "string" ||
+      redirect.blocker.length === 0 ||
+      redirect.transport !== expectedCurrent.transport ||
+      redirect.currentStatus !== expectedCurrent.status ||
+      redirect.sourceNextVersion !== "16.0.10" ||
+      redirect.fixedTargetProven !== true ||
+      redirect.queryCannotChooseTarget !== true
+    ) {
+      fail(`redirects[${index}] must retain the observed transport/status and remain partial with fixed-target-only proof`);
     }
-    if (typeof redirect.transport !== "string" || typeof redirect.sourceSemantics !== "string") {
-      fail(`redirects[${index}] must record transport and source semantics`);
+    if (JSON.stringify(redirect.proofGaps) !== JSON.stringify(expectedRedirectProofGaps)) {
+      fail(`redirects[${index}] must retain the exact three redirect proof gaps`);
+    }
+    if (typeof redirect.sourceSemantics !== "string" || redirect.sourceSemantics.length === 0) {
+      fail(`redirects[${index}] must record the pinned source redirect ordering`);
+    }
+    const testContent = currentFile(
+      redirect.inProcessTest?.file,
+      `redirects[${index}].inProcessTest.file`,
+    );
+    if (
+      typeof redirect.inProcessTest?.anchor !== "string" ||
+      !testContent.includes(redirect.inProcessTest.anchor)
+    ) {
+      fail(`missing redirect in-process test anchor redirects[${index}].inProcessTest.anchor`);
     }
     return `${redirect.path}\0${redirect.target}`;
   })
@@ -219,6 +285,13 @@ for (const [routeIndex, route] of contract.routes.entries()) {
   const blockers = strings(route.blockers, `${label}.blockers`);
   if (route.status === "aligned" && blockers.length !== 0) fail(`${label} aligned route cannot have blockers`);
   if (route.status !== "aligned" && blockers.length === 0) fail(`${label} non-aligned route must have a blocker`);
+  if (
+    baseline.target?.kind === "redirect" &&
+    (route.status !== "partial" ||
+      JSON.stringify(blockers) !== JSON.stringify(expectedRedirectRouteBlockers))
+  ) {
+    fail(`${label} intentional redirect must remain partial with the exact three route proof blockers`);
+  }
 
   if (route.source?.file !== baseline.sourcePage) fail(`${label}.source.file disagrees with routes.json`);
   if (route.target?.handler !== baseline.target?.handler) fail(`${label}.target.handler disagrees with routes.json`);

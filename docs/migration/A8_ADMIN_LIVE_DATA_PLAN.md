@@ -9,7 +9,9 @@ The source is pinned to `origin/development@373bd231cb7a616c3d4c0ddc1d60e0099a88
 - `/notifications` → `/notifications/manage` currently returns a 200 document whose script calls `location.replace`;
 - `/wallet-management` → `/wallet-management/wallets` currently returns an HTTP 308.
 
-Neither redirect is aligned merely because its destination exists. Their status, transport, cache, method, query, history, script-disabled, and authorization behavior need explicit acceptance against the source `redirect()` semantics.
+Neither redirect is aligned merely because its destination exists. The pinned source middleware handles `?logout`, session presence, and backend-owned admin verification before either page-level `redirect()` executes. The target notification route traverses SSR but returns a 200 script document; the wallet route returns its established 308 before SSR and therefore bypasses the target SSR session path. An in-process test proves only that both current GET targets are fixed and redirect-shaped query input cannot choose an external destination. It does not prove source parity, query preservation or dropping, cache behavior, method/body handling, browser history, RSC/client navigation, or authenticated middleware/logout/session ordering.
+
+Both routes therefore remain partial until three evidence gaps close: authenticated browser/history/RSC/client-navigation behavior, a pinned-origin method/body/cache matrix, and parity with the source middleware/logout/session ordering. Runtime behavior remains unchanged while those gaps are open.
 
 The baseline is deliberately strict:
 
@@ -95,10 +97,10 @@ Execute a batch only after its named dependencies are evidence-ready. A route mo
 
 1. **B1 command and security — `/`, `/analytics`, `/audit-log`, `/settings`.** Define canonical aggregate/read models; remove sample operational success; establish a dedicated audit permission; wire query-driven ranges, filters, pagination, and export; render dependency-specific empty/degraded/error/retry states; implement settings as typed versioned backend mutations.
 2. **B2 auth and denial — `/access-denied`, `/auth`, `/unauthorized`, `/developer-portal/api-keys/create`.** `/access-denied` and `/unauthorized` are aligned by the B2.1 adapter/browser proof. Finish A1's durable revoked-session behavior for the auth lifecycle, match `/auth` redirect/status behavior, and decide whether API-key creation remains intentionally denied or regains its source mutation flow.
-3. **B3 support — `/chat`, `/chat/:id`, `/notifications`, `/notifications/manage`.** Add read/manage splits and authoritative list/detail data; implement cursor/query preservation, non-leaking detail errors, assignment/status conflicts, message delivery/reconnect, scheduled notification conflicts, and accepted HTTP redirect behavior.
+3. **B3 support — `/chat`, `/chat/:id`, `/notifications`, `/notifications/manage`.** Keep `/notifications` partial until its three redirect proof gaps close. Add read/manage splits and authoritative list/detail data; implement cursor/query preservation, non-leaking detail errors, assignment/status conflicts, message delivery/reconnect, and scheduled notification conflicts.
 4. **B4 content and media — `/media`, `/news`, `/news/create`, `/news/:id/edit`.** Finish A10 authority; wire list/detail/revision data; validate upload size/type/hash; establish publish/cache semantics; add optimistic revisions, autosave/recovery, unsaved-change protection, and accessible editor/upload state.
 5. **B5 commerce — `/payments`, `/wallet-management/credits`, `/wallet-management/access`, `/wallet-management/access/plans`.** Finish A4/A6/A9; remove invented money and ledger data; consume backend decisions; keep existing read/manage UI separation; implement idempotent audited credit/access operations; preserve finality and conflict statuses.
-6. **B6 wallets and plan detail — `/wallet-management`, `/wallet-management/wallets`, `/wallet-management/:address`, `/wallet-management/access/plans/:planId`.** Accept or correct redirect permanence; add URL-driven list pagination/filtering; canonicalize chain/address and plan ID; consume owner/resource-safe reads; align plan create/update method and body; prove optimistic conflict and non-leaking errors.
+6. **B6 wallets and plan detail — `/wallet-management`, `/wallet-management/wallets`, `/wallet-management/:address`, `/wallet-management/access/plans/:planId`.** Keep `/wallet-management` partial until the established 308 is formally accepted or corrected with all three redirect proof gaps closed. Add URL-driven list pagination/filtering; canonicalize chain/address and plan ID; consume owner/resource-safe reads; align plan create/update method and body; prove optimistic conflict and non-leaking errors.
 7. **B7 focused mutations — `/notifications/create`, `/developer-portal`, `/wallet-management/wallets/:address/disable`.** Align endpoint paths and bodies; add secret-once API-key behavior; authorize and audit notification delivery and wallet disable; implement idempotency, rate-limit, conflict, pending/success/error/retry, cancellation, and focus restoration.
 
 ## Per-route proof matrix
@@ -118,13 +120,13 @@ Execute a batch only after its named dependencies are evidence-ready. A route mo
 | `/news` | sample articles and publication history | manage gates reads | blocked |
 | `/news/create` | static editor; no durable create | manage UI gate only | blocked |
 | `/news/:id/edit` | ID-backed load/update absent | manage UI gate only | blocked |
-| `/notifications` | 200 JavaScript redirect | destination owns auth | partial |
+| `/notifications` | 200 JavaScript redirect; fixed GET target only | destination owns auth; source middleware/logout/session ordering parity unproven | partial |
 | `/notifications/create` | singular form path mismatches BFF | manage UI gate; service proof open | blocked |
 | `/notifications/manage` | sample list and delivery stats | manage gates reads | blocked |
 | `/payments` | sample payments/access/links | manage gates reads | blocked |
 | `/settings` | sample keys/sessions/settings | manage gates reads | blocked |
 | `/unauthorized` | exact static denial panel with sanitized links and canonical logout action | presentation only; A1 remains logout-revocation authority | aligned |
-| `/wallet-management` | HTTP 308 redirect | destination owns auth | partial |
+| `/wallet-management` | pre-SSR HTTP 308; fixed GET target only | destination owns auth; source middleware/logout/session ordering parity unproven | partial |
 | `/wallet-management/:address` | sample detail independent of address | read UI gate; downstream proof open | blocked |
 | `/wallet-management/access` | sample assignments | UI read/manage split exists; backend live proof open | blocked |
 | `/wallet-management/access/plans` | static hub | read gate; target intent/data contract open | blocked |
@@ -166,7 +168,7 @@ Readiness is intentionally a STOP gate:
 # exits 3 while any route or cross-cutting blocker remains
 ```
 
-The self-test proves deterministic emit output, readiness exit `3`, conservative status tamper rejection, path traversal rejection, stale target-anchor rejection, stale pinned-source-anchor rejection, and redirect-set tamper rejection. It performs no network, database, chain, browser, cluster, or deployment operation.
+The self-test proves deterministic emit output, readiness exit `3`, conservative status tamper rejection, path traversal rejection, stale target-anchor rejection, stale pinned-source-anchor rejection, redirect-set tamper rejection, and redirect-semantics tamper rejection. It performs no network, database, chain, browser, cluster, or deployment operation.
 
 ## Exit criteria
 

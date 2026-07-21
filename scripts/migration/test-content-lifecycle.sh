@@ -26,8 +26,9 @@ expect_integrity_failure() {
 
 "$verify" --mode integrity >"$temp_dir/integrity.out" 2>&1
 grep -q "20 stop blockers, 8 route batches" "$temp_dir/integrity.out"
-grep -q "authorization is partial" "$temp_dir/integrity.out"
-grep -q "no lifecycle parity or production readiness" "$temp_dir/integrity.out"
+grep -q "authorization and A3.10 schema are partial" "$temp_dir/integrity.out"
+grep -q "four content runtime DDL findings are removed" "$temp_dir/integrity.out"
+grep -q "lifecycle parity, and production readiness remain absent" "$temp_dir/integrity.out"
 
 set +e
 "$verify" --mode readiness >"$temp_dir/readiness.out" 2>&1
@@ -48,6 +49,8 @@ const report = JSON.parse(await Bun.file(process.argv[1]).text());
 if (report.readinessExit !== 3 || report.productionReady !== false || report.lifecycleParity !== false) process.exit(1);
 if (report.blockers.length !== 20 || report.routeBatches.length !== 8 || report.lifecycleRequirements.length !== 16) process.exit(1);
 if (report.currentBoundary.authorization !== "partial" || report.currentBoundary.editorRoutes !== "fail-closed-404") process.exit(1);
+if (report.currentBoundary.contentSchemaBoundary !== "partial-a3.10" || report.currentBoundary.contentRuntimeDdlFindingsRemoved !== 4 || report.currentBoundary.contentRuntimeDdlFindingsRemaining !== 0) process.exit(1);
+if (report.currentBoundary.contentMigrationRunner !== "absent" || report.currentBoundary.contentPopulatedUpgradeProof !== false) process.exit(1);
 ' "$temp_dir/report-one.json"
 
 CONTENT_CONTRACT_IN="$contract" CONTENT_CONTRACT_OUT="$temp_dir/missing-source-anchor.json" bun -e '
@@ -92,6 +95,13 @@ await Bun.write(process.env.CONTENT_CONTRACT_OUT, `${JSON.stringify(contract, nu
 '
 expect_integrity_failure "$temp_dir/readiness-tamper.json" "readiness sentinel changed" "readiness-tamper"
 
+CONTENT_CONTRACT_IN="$contract" CONTENT_CONTRACT_OUT="$temp_dir/schema-boundary-tamper.json" bun -e '
+const contract = await Bun.file(process.env.CONTENT_CONTRACT_IN).json();
+contract.currentBoundary.contentMigrationRunner = "wired";
+await Bun.write(process.env.CONTENT_CONTRACT_OUT, `${JSON.stringify(contract, null, 2)}\n`);
+'
+expect_integrity_failure "$temp_dir/schema-boundary-tamper.json" "A2.3b/A3.10 boundary facts drifted" "schema-boundary-tamper"
+
 CONTENT_CONTRACT_IN="$contract" CONTENT_CONTRACT_OUT="$temp_dir/blocker-tamper.json" bun -e '
 const contract = await Bun.file(process.env.CONTENT_CONTRACT_IN).json();
 contract.blockers[0].status = "ready";
@@ -99,4 +109,4 @@ await Bun.write(process.env.CONTENT_CONTRACT_OUT, `${JSON.stringify(contract, nu
 '
 expect_integrity_failure "$temp_dir/blocker-tamper.json" "stop blocker state changed" "blocker-tamper"
 
-echo "content-lifecycle self-test: PASS (integrity=0, readiness-stop=3, deterministic=stable, source/target-anchor+stale-ref/blob+path+sentinel/blocker tamper=1)"
+echo "content-lifecycle self-test: PASS (integrity=0, readiness-stop=3, deterministic=stable, source/target-anchor+stale-ref/blob+path+sentinel/schema-boundary/blocker tamper=1)"

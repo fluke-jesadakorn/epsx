@@ -13,6 +13,331 @@ use thiserror::Error;
 
 const CONTENT_MANAGE_PERMISSION: &str = "admin:content:manage";
 
+const CONTENT_SCHEMA_COMPATIBILITY_QUERY: &str = r#"
+WITH expected_columns (
+    table_name,
+    column_name,
+    ordinal_position,
+    data_type,
+    udt_name,
+    is_nullable,
+    character_maximum_length,
+    default_kind
+) AS (
+    VALUES
+        ('pages', 'id', 1, 'uuid', 'uuid', 'NO', NULL::bigint, 'uuid'),
+        ('pages', 'slug', 2, 'character varying', 'varchar', 'NO', 255::bigint, 'none'),
+        ('pages', 'title', 3, 'character varying', 'varchar', 'NO', 255::bigint, 'none'),
+        ('pages', 'locale', 4, 'character varying', 'varchar', 'NO', 10::bigint, 'en'),
+        ('pages', 'status', 5, 'character varying', 'varchar', 'NO', 20::bigint, 'draft'),
+        ('pages', 'blocks_json', 6, 'jsonb', 'jsonb', 'NO', NULL::bigint, 'empty_array'),
+        ('pages', 'seo_json', 7, 'jsonb', 'jsonb', 'YES', NULL::bigint, 'empty_object'),
+        ('pages', 'theme_id', 8, 'uuid', 'uuid', 'YES', NULL::bigint, 'none'),
+        ('pages', 'created_at', 9, 'timestamp with time zone', 'timestamptz', 'NO', NULL::bigint, 'now'),
+        ('pages', 'updated_at', 10, 'timestamp with time zone', 'timestamptz', 'NO', NULL::bigint, 'now'),
+        ('pages', 'published_at', 11, 'timestamp with time zone', 'timestamptz', 'YES', NULL::bigint, 'none'),
+        ('themes', 'id', 1, 'uuid', 'uuid', 'NO', NULL::bigint, 'uuid'),
+        ('themes', 'name', 2, 'character varying', 'varchar', 'NO', 100::bigint, 'none'),
+        ('themes', 'colors_json', 3, 'jsonb', 'jsonb', 'NO', NULL::bigint, 'empty_object'),
+        ('themes', 'fonts_json', 4, 'jsonb', 'jsonb', 'NO', NULL::bigint, 'empty_object'),
+        ('themes', 'spacing_json', 5, 'jsonb', 'jsonb', 'NO', NULL::bigint, 'empty_object'),
+        ('themes', 'breakpoints_json', 6, 'jsonb', 'jsonb', 'NO', NULL::bigint, 'empty_object'),
+        ('themes', 'radius_json', 7, 'jsonb', 'jsonb', 'YES', NULL::bigint, 'empty_object'),
+        ('themes', 'is_default', 8, 'boolean', 'bool', 'NO', NULL::bigint, 'false'),
+        ('block_types', 'id', 1, 'uuid', 'uuid', 'NO', NULL::bigint, 'uuid'),
+        ('block_types', 'block_type', 2, 'character varying', 'varchar', 'NO', 50::bigint, 'none'),
+        ('block_types', 'name', 3, 'character varying', 'varchar', 'NO', 100::bigint, 'none'),
+        ('block_types', 'category', 4, 'character varying', 'varchar', 'NO', 50::bigint, 'none'),
+        ('block_types', 'description', 5, 'text', 'text', 'YES', NULL::bigint, 'none'),
+        ('block_types', 'schema_json', 6, 'jsonb', 'jsonb', 'NO', NULL::bigint, 'empty_object'),
+        ('block_types', 'default_props_json', 7, 'jsonb', 'jsonb', 'NO', NULL::bigint, 'empty_object'),
+        ('block_types', 'admin_only', 8, 'boolean', 'bool', 'NO', NULL::bigint, 'false'),
+        ('block_types', 'updated_at', 9, 'timestamp with time zone', 'timestamptz', 'NO', NULL::bigint, 'now'),
+        ('edit_sessions', 'id', 1, 'uuid', 'uuid', 'NO', NULL::bigint, 'uuid'),
+        ('edit_sessions', 'page_id', 2, 'uuid', 'uuid', 'NO', NULL::bigint, 'none'),
+        ('edit_sessions', 'user_id', 3, 'uuid', 'uuid', 'NO', NULL::bigint, 'none'),
+        ('edit_sessions', 'status', 4, 'character varying', 'varchar', 'NO', 20::bigint, 'active'),
+        ('edit_sessions', 'started_at', 5, 'timestamp with time zone', 'timestamptz', 'NO', NULL::bigint, 'now'),
+        ('edit_sessions', 'ended_at', 6, 'timestamp with time zone', 'timestamptz', 'YES', NULL::bigint, 'none')
+),
+expected_tables (table_name, column_count) AS (
+    VALUES
+        ('pages', 11),
+        ('themes', 8),
+        ('block_types', 9),
+        ('edit_sessions', 6)
+),
+column_compatibility AS (
+    SELECT bool_and(
+        actual.column_name IS NOT NULL
+        AND actual.ordinal_position = expected.ordinal_position
+        AND actual.data_type = expected.data_type
+        AND actual.udt_name = expected.udt_name
+        AND actual.is_nullable = expected.is_nullable
+        AND actual.character_maximum_length IS NOT DISTINCT FROM expected.character_maximum_length
+        AND COALESCE(
+            CASE expected.default_kind
+                WHEN 'uuid' THEN actual.column_default = 'gen_random_uuid()'
+                WHEN 'en' THEN actual.column_default IN (
+                    '''en''::character varying',
+                    '''en''::text',
+                    '''en'''
+                )
+                WHEN 'draft' THEN actual.column_default IN (
+                    '''draft''::character varying',
+                    '''draft''::text',
+                    '''draft'''
+                )
+                WHEN 'active' THEN actual.column_default IN (
+                    '''active''::character varying',
+                    '''active''::text',
+                    '''active'''
+                )
+                WHEN 'empty_array' THEN actual.column_default = '''[]''::jsonb'
+                WHEN 'empty_object' THEN actual.column_default = '''{}''::jsonb'
+                WHEN 'false' THEN actual.column_default = 'false'
+                WHEN 'now' THEN actual.column_default IN ('now()', 'CURRENT_TIMESTAMP')
+                ELSE actual.column_default IS NULL
+            END,
+            false
+        )
+    ) AS compatible
+    FROM expected_columns AS expected
+    LEFT JOIN information_schema.columns AS actual
+      ON actual.table_schema = 'public'
+     AND actual.table_name = expected.table_name
+     AND actual.column_name = expected.column_name
+),
+column_inventory_compatibility AS (
+    SELECT COUNT(*) = 34 AS compatible
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name IN ('pages', 'themes', 'block_types', 'edit_sessions')
+),
+relation_compatibility AS (
+    SELECT COUNT(*) = 4
+       AND COALESCE(bool_and(
+            table_record.relkind = 'r'
+            AND table_record.relpersistence = 'p'
+       ), false) AS compatible
+    FROM pg_catalog.pg_class AS table_record
+    JOIN pg_catalog.pg_namespace AS namespace_record
+      ON namespace_record.oid = table_record.relnamespace
+    WHERE namespace_record.nspname = 'public'
+      AND table_record.relname IN ('pages', 'themes', 'block_types', 'edit_sessions')
+),
+primary_key_compatibility AS (
+    SELECT COUNT(*) = 4
+       AND COUNT(DISTINCT table_record.relname) = 4
+       AND COALESCE(bool_and(
+            constraint_record.convalidated
+            AND NOT constraint_record.condeferrable
+            AND NOT constraint_record.condeferred
+            AND cardinality(constraint_record.conkey) = 1
+            AND attribute_record.attname = 'id'
+       ), false) AS compatible
+    FROM pg_catalog.pg_constraint AS constraint_record
+    JOIN pg_catalog.pg_class AS table_record
+      ON table_record.oid = constraint_record.conrelid
+    JOIN pg_catalog.pg_namespace AS namespace_record
+      ON namespace_record.oid = table_record.relnamespace
+    JOIN pg_catalog.pg_attribute AS attribute_record
+      ON attribute_record.attrelid = table_record.oid
+     AND attribute_record.attnum = constraint_record.conkey[1]
+    WHERE namespace_record.nspname = 'public'
+      AND table_record.relname IN ('pages', 'themes', 'block_types', 'edit_sessions')
+      AND constraint_record.contype = 'p'
+),
+unique_key_compatibility AS (
+    SELECT COUNT(*) = 3
+       AND COUNT(DISTINCT (table_record.relname, attribute_record.attname)) = 3
+       AND COALESCE(bool_and(
+            constraint_record.convalidated
+            AND NOT constraint_record.condeferrable
+            AND NOT constraint_record.condeferred
+            AND cardinality(constraint_record.conkey) = 1
+            AND index_record.indisunique
+            AND NOT index_record.indisprimary
+            AND index_record.indisvalid
+            AND index_record.indisready
+            AND index_record.indimmediate
+            AND index_record.indnkeyatts = 1
+            AND index_record.indnatts = 1
+            AND index_record.indpred IS NULL
+            AND index_record.indexprs IS NULL
+            AND (
+                (table_record.relname = 'pages' AND attribute_record.attname = 'slug')
+                OR (table_record.relname = 'themes' AND attribute_record.attname = 'name')
+                OR (table_record.relname = 'block_types' AND attribute_record.attname = 'block_type')
+            )
+       ), false) AS compatible
+    FROM pg_catalog.pg_constraint AS constraint_record
+    JOIN pg_catalog.pg_class AS table_record
+      ON table_record.oid = constraint_record.conrelid
+    JOIN pg_catalog.pg_namespace AS namespace_record
+      ON namespace_record.oid = table_record.relnamespace
+    JOIN pg_catalog.pg_attribute AS attribute_record
+      ON attribute_record.attrelid = table_record.oid
+     AND attribute_record.attnum = constraint_record.conkey[1]
+    JOIN pg_catalog.pg_index AS index_record
+      ON index_record.indexrelid = constraint_record.conindid
+    WHERE namespace_record.nspname = 'public'
+      AND table_record.relname IN ('pages', 'themes', 'block_types', 'edit_sessions')
+      AND constraint_record.contype = 'u'
+),
+foreign_key_compatibility AS (
+    SELECT COUNT(*) = 1
+       AND COALESCE(bool_and(
+            source_namespace.nspname = 'public'
+            AND source_table.relname = 'edit_sessions'
+            AND source_column.attname = 'page_id'
+            AND target_namespace.nspname = 'public'
+            AND target_table.relname = 'pages'
+            AND target_column.attname = 'id'
+            AND constraint_record.convalidated
+            AND cardinality(constraint_record.conkey) = 1
+            AND cardinality(constraint_record.confkey) = 1
+            AND constraint_record.confupdtype = 'a'
+            AND constraint_record.confdeltype = 'c'
+            AND constraint_record.confmatchtype = 's'
+            AND NOT constraint_record.condeferrable
+            AND NOT constraint_record.condeferred
+       ), false) AS compatible
+    FROM pg_catalog.pg_constraint AS constraint_record
+    JOIN pg_catalog.pg_class AS source_table
+      ON source_table.oid = constraint_record.conrelid
+    JOIN pg_catalog.pg_namespace AS source_namespace
+      ON source_namespace.oid = source_table.relnamespace
+    JOIN pg_catalog.pg_attribute AS source_column
+      ON source_column.attrelid = source_table.oid
+     AND source_column.attnum = constraint_record.conkey[1]
+    JOIN pg_catalog.pg_class AS target_table
+      ON target_table.oid = constraint_record.confrelid
+    JOIN pg_catalog.pg_namespace AS target_namespace
+      ON target_namespace.oid = target_table.relnamespace
+    JOIN pg_catalog.pg_attribute AS target_column
+      ON target_column.attrelid = target_table.oid
+     AND target_column.attnum = constraint_record.confkey[1]
+    WHERE constraint_record.contype = 'f'
+      AND (
+          (
+              source_namespace.nspname = 'public'
+              AND source_table.relname IN ('pages', 'themes', 'block_types', 'edit_sessions')
+          )
+          OR (
+              target_namespace.nspname = 'public'
+              AND target_table.relname IN ('pages', 'themes', 'block_types', 'edit_sessions')
+          )
+      )
+),
+unique_index_inventory_compatibility AS (
+    SELECT COUNT(*) = 7
+       AND COUNT(DISTINCT (
+            table_record.relname,
+            attribute_record.attname,
+            constraint_record.contype
+       )) = 7
+       AND COALESCE(bool_and(
+            constraint_record.oid IS NOT NULL
+            AND constraint_record.convalidated
+            AND NOT constraint_record.condeferrable
+            AND NOT constraint_record.condeferred
+            AND cardinality(constraint_record.conkey) = 1
+            AND constraint_record.conkey[1] = attribute_record.attnum
+            AND index_relation.relkind = 'i'
+            AND index_relation.relpersistence = 'p'
+            AND index_record.indisunique
+            AND index_record.indisvalid
+            AND index_record.indisready
+            AND index_record.indimmediate
+            AND index_record.indisprimary = (constraint_record.contype = 'p')
+            AND index_record.indnkeyatts = 1
+            AND index_record.indnatts = 1
+            AND index_record.indpred IS NULL
+            AND index_record.indexprs IS NULL
+            AND index_record.indcollation[0] = attribute_record.attcollation
+            AND access_method.amname = 'btree'
+            AND opclass_record.opcdefault
+            AND (
+                (
+                    constraint_record.contype = 'p'
+                    AND table_record.relname IN ('pages', 'themes', 'block_types', 'edit_sessions')
+                    AND attribute_record.attname = 'id'
+                    AND type_record.typname = 'uuid'
+                    AND attribute_record.attcollation = 0
+                    AND opclass_record.opcname = 'uuid_ops'
+                )
+                OR (
+                    constraint_record.contype = 'u'
+                    AND type_record.typname = 'varchar'
+                    AND attribute_record.attcollation <> 0
+                    AND opclass_record.opcname = 'text_ops'
+                    AND (
+                        (table_record.relname = 'pages' AND attribute_record.attname = 'slug')
+                        OR (table_record.relname = 'themes' AND attribute_record.attname = 'name')
+                        OR (table_record.relname = 'block_types' AND attribute_record.attname = 'block_type')
+                    )
+                )
+            )
+       ), false) AS compatible
+    FROM pg_catalog.pg_index AS index_record
+    JOIN pg_catalog.pg_class AS table_record
+      ON table_record.oid = index_record.indrelid
+    JOIN pg_catalog.pg_namespace AS namespace_record
+      ON namespace_record.oid = table_record.relnamespace
+    JOIN pg_catalog.pg_class AS index_relation
+      ON index_relation.oid = index_record.indexrelid
+    LEFT JOIN pg_catalog.pg_constraint AS constraint_record
+      ON constraint_record.conrelid = table_record.oid
+     AND constraint_record.conindid = index_record.indexrelid
+     AND constraint_record.contype IN ('p', 'u')
+    LEFT JOIN pg_catalog.pg_attribute AS attribute_record
+      ON attribute_record.attrelid = table_record.oid
+     AND attribute_record.attnum = index_record.indkey[0]
+     AND NOT attribute_record.attisdropped
+    LEFT JOIN pg_catalog.pg_type AS type_record
+      ON type_record.oid = attribute_record.atttypid
+    LEFT JOIN pg_catalog.pg_opclass AS opclass_record
+      ON opclass_record.oid = index_record.indclass[0]
+    LEFT JOIN pg_catalog.pg_am AS access_method
+      ON access_method.oid = index_relation.relam
+    WHERE namespace_record.nspname = 'public'
+      AND table_record.relname IN ('pages', 'themes', 'block_types', 'edit_sessions')
+      AND index_record.indisunique
+)
+SELECT
+    to_regclass('public.pages') IS NOT NULL
+    AND to_regclass('public.themes') IS NOT NULL
+    AND to_regclass('public.block_types') IS NOT NULL
+    AND to_regclass('public.edit_sessions') IS NOT NULL
+    AND COALESCE((SELECT compatible FROM column_compatibility), false)
+    AND (SELECT compatible FROM column_inventory_compatibility)
+    AND (SELECT compatible FROM relation_compatibility)
+    AND (SELECT compatible FROM primary_key_compatibility)
+    AND (SELECT compatible FROM unique_key_compatibility)
+    AND (SELECT compatible FROM foreign_key_compatibility)
+    AND (SELECT compatible FROM unique_index_inventory_compatibility)
+"#;
+
+#[derive(Debug, Error)]
+pub enum ContentSchemaError {
+    #[error("content schema compatibility query failed")]
+    Query(#[source] sqlx::Error),
+    #[error("content schema is incompatible; run the reviewed content migration before startup")]
+    Incompatible,
+}
+
+pub async fn verify_schema_compatibility(db: &sqlx::PgPool) -> Result<(), ContentSchemaError> {
+    let compatible = sqlx::query_scalar::<_, bool>(CONTENT_SCHEMA_COMPATIBILITY_QUERY)
+        .fetch_one(db)
+        .await
+        .map_err(ContentSchemaError::Query)?;
+    if !compatible {
+        return Err(ContentSchemaError::Incompatible);
+    }
+    Ok(())
+}
+
 #[derive(Debug, Error)]
 pub enum ContentConfigError {
     #[error("HTTP client configuration failed")]
@@ -404,5 +729,47 @@ mod tests {
             true,
         )
         .is_err());
+    }
+
+    #[test]
+    fn schema_probe_is_read_only_null_safe_and_public_qualified() {
+        let query = CONTENT_SCHEMA_COMPATIBILITY_QUERY;
+        assert!(query.trim_start().starts_with("WITH expected_columns ("));
+        for relation in ["pages", "themes", "block_types", "edit_sessions"] {
+            assert!(query.contains(&format!("to_regclass('public.{relation}')")));
+        }
+        for mutation in [
+            "INSERT", "UPDATE", "DELETE", "CREATE", "ALTER", "DROP", "TRUNCATE", "CALL", "DO",
+        ] {
+            assert!(
+                !query
+                    .split(|character: char| !character.is_ascii_alphabetic())
+                    .any(|token| token.eq_ignore_ascii_case(mutation)),
+                "schema compatibility query contains mutation token {mutation}"
+            );
+        }
+        assert!(query.contains("SELECT COUNT(*) = 34 AS compatible"));
+        assert!(query.contains("AND COALESCE(\n            CASE expected.default_kind"));
+        assert!(
+            query.contains("AND COALESCE((SELECT compatible FROM column_compatibility), false)")
+        );
+        assert!(query.contains("index_record.indisvalid"));
+        assert!(query.contains("index_record.indisready"));
+        assert!(
+            query.contains("COUNT(DISTINCT (table_record.relname, attribute_record.attname)) = 3")
+        );
+        assert!(query.contains("NOT constraint_record.condeferrable"));
+        assert!(query.contains("NOT constraint_record.condeferred"));
+        assert!(query.contains("index_record.indimmediate"));
+        assert!(query.contains("unique_index_inventory_compatibility AS ("));
+        assert!(query.contains("FROM pg_catalog.pg_index AS index_record"));
+        assert!(query.contains("LEFT JOIN pg_catalog.pg_constraint AS constraint_record"));
+        assert!(query.contains("constraint_record.oid IS NOT NULL"));
+        assert!(query.contains("index_record.indcollation[0] = attribute_record.attcollation"));
+        assert!(query.contains("opclass_record.opcname = 'uuid_ops'"));
+        assert!(query.contains("opclass_record.opcname = 'text_ops'"));
+        assert!(query.contains("index_record.indisunique\n"));
+        assert!(query.contains("constraint_record.confdeltype = 'c'"));
+        assert!(query.contains("OR (\n              target_namespace.nspname = 'public'"));
     }
 }

@@ -88,4 +88,16 @@ set -e
 [ "$redirect_status" -eq 1 ] || { cat "$temp_dir/redirect-tamper.out" >&2; exit 1; }
 grep -q "redirect set must equal" "$temp_dir/redirect-tamper.out"
 
-echo "admin-live-data self-test: PASS (integrity=0, readiness-stop=3, deterministic emit, tamper/path/stale-target/stale-source/redirect=1)"
+ADMIN_CONTRACT_IN="$contract" ADMIN_CONTRACT_OUT="$temp_dir/redirect-semantics-tamper.json" bun -e '
+const value = await Bun.file(process.env.ADMIN_CONTRACT_IN).json();
+value.redirects[0].proofGaps = [];
+await Bun.write(process.env.ADMIN_CONTRACT_OUT, `${JSON.stringify(value, null, 2)}\n`);
+'
+set +e
+"$verify" --mode integrity --fixture "$temp_dir/redirect-semantics-tamper.json" >"$temp_dir/redirect-semantics-tamper.out" 2>&1
+redirect_semantics_status=$?
+set -e
+[ "$redirect_semantics_status" -eq 1 ] || { cat "$temp_dir/redirect-semantics-tamper.out" >&2; exit 1; }
+grep -q "must retain the exact three redirect proof gaps" "$temp_dir/redirect-semantics-tamper.out"
+
+echo "admin-live-data self-test: PASS (integrity=0, readiness-stop=3, deterministic emit, tamper/path/stale-target/stale-source/redirect-set/redirect-semantics=1)"

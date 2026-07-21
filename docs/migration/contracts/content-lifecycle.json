@@ -109,22 +109,22 @@
     {
       "id": "target-content-router",
       "file": "services/content/src/main.rs",
-      "anchor": ".route(\"/api/v1/content/pages/{slug}\", get(get_page).put(update_page))"
+      "anchor": "\"/api/v1/content/pages/{slug}\",\n            get(get_page).put(update_page),"
     },
     {
-      "id": "target-runtime-ddl",
-      "file": "services/content/src/main.rs",
-      "anchor": "CREATE TABLE IF NOT EXISTS pages ("
+      "id": "target-content-schema-boundary",
+      "file": "docs/migration/contracts/a3-10-content-schema-boundary.json",
+      "anchor": "\"contentFindings\": {\"before\": 4, \"after\": 0, \"delta\": -4}"
     },
     {
       "id": "target-render-draft-query",
       "file": "services/content/src/main.rs",
-      "anchor": "FROM pages WHERE slug = $1"
+      "anchor": "FROM public.pages WHERE slug = $1"
     },
     {
       "id": "target-page-create",
       "file": "services/content/src/main.rs",
-      "anchor": "INSERT INTO pages (slug, title, locale, blocks_json, seo_json, theme_id)"
+      "anchor": "INSERT INTO public.pages (slug, title, locale, blocks_json, seo_json, theme_id)"
     },
     {
       "id": "target-page-status",
@@ -134,22 +134,22 @@
     {
       "id": "target-publish-direct",
       "file": "services/content/src/main.rs",
-      "anchor": "UPDATE pages SET status = 'published', published_at = NOW(), updated_at = NOW()"
+      "anchor": "SET status = 'published', published_at = NOW(), updated_at = NOW()"
     },
     {
       "id": "target-theme-empty-overwrite",
       "file": "services/content/src/main.rs",
-      "anchor": "let colors = body.get(\"colors\").cloned().unwrap_or_else(|| serde_json::json!({}));"
+      "anchor": "let colors = body\n        .get(\"colors\")\n        .cloned()\n        .unwrap_or_else(|| serde_json::json!({}));"
     },
     {
       "id": "target-block-admin-public",
       "file": "services/content/src/main.rs",
-      "anchor": "default_props_json, admin_only FROM block_types ORDER BY category, name"
+      "anchor": "FROM public.block_types ORDER BY category, name"
     },
     {
       "id": "target-editor-client-user",
       "file": "services/content/src/main.rs",
-      "anchor": ".bind(&req.user_id)"
+      "anchor": "uuid::Uuid::parse_str(&req.user_id)"
     },
     {
       "id": "target-watcher-enabled",
@@ -164,7 +164,7 @@
     {
       "id": "target-registry-db-sync",
       "file": "services/content/src/main.rs",
-      "anchor": "INSERT INTO block_types (block_type, name, category, schema_json, default_props_json, admin_only)"
+      "anchor": "INSERT INTO public.block_types (block_type, name, category, schema_json, default_props_json, admin_only)"
     },
     {
       "id": "target-site-file-read",
@@ -217,14 +217,14 @@
       "anchor": "\"name\": \"1 Day Package\""
     },
     {
-      "id": "target-bff-news-static",
+      "id": "target-bff-news-upstream",
       "file": "apps/frontend/src/api.rs",
-      "anchor": "article(\"strategic-roadmap-future\", \"Strategic Roadmap and Future Capabilities\""
+      "anchor": "let value = match client.get_plain(NEWS_LIST_PATH).await {"
     },
     {
-      "id": "target-bff-news-any-slug",
+      "id": "target-bff-news-not-found",
       "file": "apps/frontend/src/api.rs",
-      "anchor": "let title: String = slug.replace('-', \" \");"
+      "anchor": "Err(ClientError::NotFound) => return NewsDetailLoadOutcome::NotFound,"
     },
     {
       "id": "target-bff-portfolio-static",
@@ -247,9 +247,9 @@
       "anchor": "UpstreamStatus(u16)"
     },
     {
-      "id": "target-news-ui-fallback",
+      "id": "target-news-ui-error-state",
       "file": "shared/rust/dioxus_ui/src/pages/news.rs",
-      "anchor": ".unwrap_or_else(default_posts);"
+      "anchor": "No cached or sample content is being shown."
     },
     {
       "id": "target-portfolio-ui-static",
@@ -270,13 +270,19 @@
   "currentBoundary": {
     "authorization": "partial",
     "editorRoutes": "fail-closed-404",
+    "contentSchemaBoundary": "partial-a3.10",
+    "contentRuntimeDdlFindingsRemoved": 4,
+    "contentRuntimeDdlFindingsRemaining": 0,
+    "contentMigrationRunner": "absent",
+    "contentPopulatedUpgradeProof": false,
     "lifecycleParityClaim": false,
     "productionClaim": false,
     "evidenceIds": [
       "target-auth-boundary",
-      "target-content-router"
+      "target-content-router",
+      "target-content-schema-boundary"
     ],
-    "note": "A2.3b established an exact method/path authorization boundary. Public reads are allowlisted, admin page/theme mutations require admin:content:manage, and editor routes are deliberately unreachable. It did not establish lifecycle, data, wire, or UX parity."
+    "note": "A2.3b established an exact method/path authorization boundary. A3.10 removed four content runtime DDL findings and added a tracked additive schema root, but no runner, populated-source upgrade, backfill, or reconciliation proof exists. Public reads are allowlisted, admin page/theme mutations require admin:content:manage, editor routes are deliberately unreachable, and lifecycle/data/wire/UX parity remains unproved."
   },
   "routeBatches": [
     {
@@ -615,9 +621,9 @@
       "category": "locale-slug-not-found",
       "severity": "stop",
       "status": "blocked",
-      "summary": "Locale, slug normalization/uniqueness, fallback, rename, redirect, and true not-found semantics are not defined end to end.",
+      "summary": "The frontend news adapter now preserves upstream not-found, but locale, slug normalization/uniqueness, content-service fallback, rename, redirect, and true not-found semantics are not defined end to end.",
       "resolution": "Define locale-scoped canonical keys and HTTP 404/redirect policy, then add service/gateway/BFF contract fixtures.",
-      "evidenceIds": ["source-news-repository", "target-page-create", "target-news-fallback", "target-bff-news-any-slug"]
+      "evidenceIds": ["source-news-repository", "target-page-create", "target-news-fallback", "target-bff-news-not-found"]
     },
     {
       "id": "B03",
@@ -705,9 +711,9 @@
       "category": "migration-reconciliation",
       "severity": "stop",
       "status": "blocked",
-      "summary": "Runtime CREATE TABLE statements replace versioned migrations, and no legacy backfill or repeatable reconciliation proof exists.",
-      "resolution": "Add reviewed reversible migrations, constraints/indexes, dry-run backfill, hash/count/orphan reconciliation, and rerun evidence.",
-      "evidenceIds": ["source-news-schema", "target-runtime-ddl", "target-registry-db-sync"]
+      "summary": "A3.10 removed four runtime CREATE TABLE findings and added a tracked additive content migration, but no runner/version ledger, populated-source upgrade, legacy-news backfill, or repeatable reconciliation proof exists; publication revisions/outbox/idempotency remain outside that fresh-schema boundary.",
+      "resolution": "Wire a reviewed fail-fast migration runner and version ledger, design forward-only adoption for populated schemas, add revision/outbox/idempotency migrations, and prove dry-run backfill plus hash/count/orphan reconciliation and rerun safety.",
+      "evidenceIds": ["source-news-schema", "target-content-schema-boundary", "target-registry-db-sync"]
     },
     {
       "id": "B13",
@@ -759,9 +765,9 @@
       "category": "ui-states",
       "severity": "stop",
       "status": "blocked",
-      "summary": "UI fallbacks replace wire failure or real empty states with production-looking canned news, ranking, plan, and portfolio content and lack full error/retry states.",
+      "summary": "The news UI now exposes explicit empty/error/retry states without sample fallback, but portfolio and analytics still render production-looking static data and complete lifecycle state coverage remains unproved across the route batches.",
       "resolution": "Implement explicit loading/empty/forbidden/not-found/error/retry/success states and remove canned fallback from production paths.",
-      "evidenceIds": ["source-news-empty-ui", "source-portfolio-empty-ui", "target-news-ui-fallback", "target-portfolio-ui-static", "target-analytics-ui-static"]
+      "evidenceIds": ["source-news-empty-ui", "source-portfolio-empty-ui", "target-news-ui-error-state", "target-portfolio-ui-static", "target-analytics-ui-static"]
     },
     {
       "id": "B19",

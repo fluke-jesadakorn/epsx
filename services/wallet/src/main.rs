@@ -9,7 +9,9 @@ use axum::{
 use clap::{Parser, ValueEnum};
 use epsx_kernel::{ChainId, Token};
 use epsx_service_auth::VerifiedPrincipal;
-use epsx_wallet::{build_auth_verifier, canonical_owner, protect_router};
+use epsx_wallet::{
+    build_auth_verifier, canonical_owner, protect_router, verify_schema_compatibility,
+};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use std::net::SocketAddr;
@@ -65,7 +67,7 @@ struct AccountResponse {
     address: String,
     chain_id: String,
     label: Option<String>,
-    role: String,
+    role: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -159,49 +161,9 @@ async fn main() {
     let db = sqlx::PgPool::connect(&args.database_url)
         .await
         .expect("Failed to connect to database");
-
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS accounts (
-            address VARCHAR(42) NOT NULL,
-            chain_id VARCHAR(10) NOT NULL,
-            label TEXT,
-            role VARCHAR(50) DEFAULT 'user',
-            encrypted_pk TEXT,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            PRIMARY KEY (address, chain_id)
-        )",
-    )
-    .execute(&db)
-    .await
-    .expect("Failed to create accounts table");
-
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS nonces (
-            address VARCHAR(42) NOT NULL,
-            chain_id VARCHAR(10) NOT NULL,
-            nonce BIGINT NOT NULL DEFAULT 0,
-            updated_at TIMESTAMPTZ DEFAULT NOW(),
-            PRIMARY KEY (address, chain_id)
-        )",
-    )
-    .execute(&db)
-    .await
-    .expect("Failed to create nonces table");
-
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS signed_transactions (
-            id SERIAL PRIMARY KEY,
-            chain_id VARCHAR(10) NOT NULL,
-            sender VARCHAR(42) NOT NULL,
-            recipient VARCHAR(42),
-            value VARCHAR(78),
-            data_hash VARCHAR(66),
-            created_at TIMESTAMPTZ DEFAULT NOW()
-        )",
-    )
-    .execute(&db)
-    .await
-    .expect("Failed to create signed_transactions table");
+    verify_schema_compatibility(&db)
+        .await
+        .expect("wallet schema must be compatible before serving");
 
     let chain_id = Arc::new(RwLock::new(56u64));
     let provider: Arc<RwLock<Option<Arc<dyn alloy::providers::Provider + Send + Sync>>>> =
@@ -213,7 +175,10 @@ async fn main() {
 
     let app = Router::new()
         .route("/health", get(health))
-        .route("/api/v1/wallet/accounts", post(create_account).get(list_accounts))
+        .route(
+            "/api/v1/wallet/accounts",
+            post(create_account).get(list_accounts),
+        )
         .route("/api/v1/wallet/accounts/{address}", get(get_account))
         .route("/api/v1/wallet/balance/{chain}/{address}", get(get_balance))
         .route("/api/v1/wallet/send", post(send_transaction))
@@ -241,25 +206,25 @@ async fn create_account(
     State(state): State<AppState>,
     Json(req): Json<CreateAccountRequest>,
 ) -> Result<Json<AccountResponse>, StatusCode> {
-    let chain_id = req.chain_id.to_string();
+    let chain_id = database_chain_id(req.chain_id)?;
     let role = req.role.unwrap_or_else(|| "user".to_string());
+    if role.chars().count() > 50 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
 
     let address = if let Some(provided) = req.address.as_ref() {
-        if !provided.starts_with("0x") || provided.len() != 42 {
-            return Err(StatusCode::BAD_REQUEST);
-        }
-        provided.to_lowercase()
+        canonical_evm_address(provided)?.1
     } else {
         let signer: PrivateKeySigner = if let Some(pk) = req.private_key.as_ref() {
             PrivateKeySigner::from_str(pk).map_err(|_| StatusCode::BAD_REQUEST)?
         } else {
             PrivateKeySigner::random()
         };
-        format!("{:#x}", signer.address()).to_lowercase()
+        canonical_address(signer.address())
     };
 
     sqlx::query(
-        "INSERT INTO accounts (address, chain_id, label, role) VALUES ($1, $2, $3, $4)
+        "INSERT INTO public.accounts (address, chain_id, label, role) VALUES ($1, $2, $3, $4)
          ON CONFLICT (address, chain_id) DO UPDATE SET label = EXCLUDED.label, role = EXCLUDED.role"
     )
     .bind(&address)
@@ -274,7 +239,7 @@ async fn create_account(
         address,
         chain_id,
         label: req.label,
-        role,
+        role: Some(role),
     }))
 }
 
@@ -285,7 +250,7 @@ async fn list_accounts(
     let owner = canonical_owner(&principal, None)?;
     let accounts: Vec<AccountResponse> = sqlx::query_as::<_, AccountResponse>(
         "SELECT address, chain_id, label, role
-         FROM accounts
+         FROM public.accounts
          WHERE lower(address) = $1
          ORDER BY created_at DESC",
     )
@@ -304,7 +269,7 @@ async fn get_account(
     let owner = canonical_owner(&principal, Some(&address))?;
     let account: AccountResponse = sqlx::query_as::<_, AccountResponse>(
         "SELECT address, chain_id, label, role
-         FROM accounts
+         FROM public.accounts
          WHERE lower(address) = $1
          LIMIT 1",
     )
@@ -363,44 +328,119 @@ async fn send_transaction(
     let signer =
         PrivateKeySigner::from_str(&req.private_key).map_err(|_| StatusCode::BAD_REQUEST)?;
     let from_addr = signer.address();
-    let expected_from = Address::from_str(&req.from).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let (expected_from, sender) = canonical_evm_address(&req.from)?;
     if from_addr != expected_from {
         return Err(StatusCode::BAD_REQUEST);
     }
-    let _to_addr = Address::from_str(&req.to).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let (_, recipient) = canonical_evm_address(&req.to)?;
 
-    // Get next nonce from DB
+    let chain_id = database_chain_id(req.chain_id)?;
+    let value = canonical_transaction_value(&req.value)?;
+    let data_hash = normalize_data_hash(req.data.as_deref())?;
+    let mut transaction = state
+        .db
+        .begin()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
     let nonce: i64 = sqlx::query_scalar(
-        "INSERT INTO nonces (address, chain_id, nonce) VALUES ($1, $2, 0)
-         ON CONFLICT (address, chain_id) DO UPDATE SET nonce = nonces.nonce + 1, updated_at = NOW()
+        "INSERT INTO public.nonces AS wallet_nonces (address, chain_id, nonce) VALUES ($1, $2, 0)
+         ON CONFLICT (address, chain_id) DO UPDATE SET nonce = wallet_nonces.nonce + 1, updated_at = NOW()
          RETURNING nonce",
     )
-    .bind(&req.from.to_lowercase())
-    .bind(req.chain_id.to_string())
-    .fetch_one(&state.db)
+    .bind(&sender)
+    .bind(&chain_id)
+    .fetch_one(&mut *transaction)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let tx_hash = format!("0x{:064x}", nonce);
+    let response_nonce = u64::try_from(nonce).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let tx_hash = format!("0x{:064x}", response_nonce);
 
     sqlx::query(
-        "INSERT INTO signed_transactions (chain_id, sender, recipient, value, data_hash) VALUES ($1, $2, $3, $4, $5)"
+        "INSERT INTO public.signed_transactions (chain_id, sender, recipient, value, data_hash) VALUES ($1, $2, $3, $4, $5)"
     )
-    .bind(req.chain_id.to_string())
-    .bind(&req.from.to_lowercase())
-    .bind(&req.to.to_lowercase())
-    .bind(&req.value)
-    .bind(req.data.as_ref().map(|d| format!("0x{}", alloy::hex::encode(alloy::hex::decode(d.trim_start_matches("0x")).unwrap_or_default()))))
-    .execute(&state.db)
+    .bind(&chain_id)
+    .bind(&sender)
+    .bind(&recipient)
+    .bind(&value)
+    .bind(data_hash)
+    .execute(&mut *transaction)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    transaction
+        .commit()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Json(SendTxResponse {
         tx_hash,
-        sender: format!("{:#x}", from_addr),
-        nonce: nonce as u64,
+        sender,
+        nonce: response_nonce,
         note: "Transaction prepared. Use frontend wallet to broadcast (signing delegated to user wallet for security)".to_string(),
     }))
+}
+
+fn canonical_evm_address(value: &str) -> Result<(Address, String), StatusCode> {
+    if value.len() != 42 || !(value.starts_with("0x") || value.starts_with("0X")) {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let address = Address::from_str(value).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let canonical = canonical_address(address);
+    if canonical.len() != 42
+        || !canonical.starts_with("0x")
+        || !canonical[2..]
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+    {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    Ok((address, canonical))
+}
+
+fn canonical_address(address: Address) -> String {
+    format!("{address:#x}").to_ascii_lowercase()
+}
+
+fn canonical_transaction_value(value: &str) -> Result<String, StatusCode> {
+    if value.is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let parsed = if let Some(hex) = value
+        .strip_prefix("0x")
+        .or_else(|| value.strip_prefix("0X"))
+    {
+        if hex.is_empty() || !hex.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+        U256::from_str_radix(hex, 16).map_err(|_| StatusCode::BAD_REQUEST)?
+    } else {
+        if !value.bytes().all(|byte| byte.is_ascii_digit()) {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+        U256::from_str_radix(value, 10).map_err(|_| StatusCode::BAD_REQUEST)?
+    };
+    Ok(parsed.to_string())
+}
+
+fn database_chain_id(chain_id: u64) -> Result<String, StatusCode> {
+    let chain_id = chain_id.to_string();
+    if chain_id.len() > 10 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    Ok(chain_id)
+}
+
+fn normalize_data_hash(data: Option<&str>) -> Result<Option<String>, StatusCode> {
+    let Some(data) = data else {
+        return Ok(None);
+    };
+    let bytes =
+        alloy::hex::decode(data.trim_start_matches("0x")).map_err(|_| StatusCode::BAD_REQUEST)?;
+    if bytes.len() > 32 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    Ok(Some(format!("0x{}", alloy::hex::encode(bytes))))
 }
 
 async fn sign_message(
@@ -462,4 +502,78 @@ async fn estimate_gas(
         max_fee_per_gas: max_fee.to_string(),
         max_priority_fee_per_gas: priority_fee.to_string(),
     }))
+}
+
+#[cfg(test)]
+mod schema_bind_tests {
+    use super::*;
+
+    #[test]
+    fn database_chain_ids_fit_the_legacy_varchar_boundary() {
+        assert_eq!(database_chain_id(56).unwrap(), "56");
+        assert_eq!(database_chain_id(9_999_999_999).unwrap(), "9999999999");
+        assert_eq!(
+            database_chain_id(10_000_000_000),
+            Err(StatusCode::BAD_REQUEST)
+        );
+    }
+
+    #[test]
+    fn transaction_data_fits_the_legacy_hash_boundary_and_rejects_bad_hex() {
+        assert_eq!(normalize_data_hash(None).unwrap(), None);
+        assert_eq!(
+            normalize_data_hash(Some("0xAa00")).unwrap(),
+            Some("0xaa00".to_string())
+        );
+        assert_eq!(
+            normalize_data_hash(Some("xyz")),
+            Err(StatusCode::BAD_REQUEST)
+        );
+        assert_eq!(
+            normalize_data_hash(Some(&format!("0x{}", "aa".repeat(33)))),
+            Err(StatusCode::BAD_REQUEST)
+        );
+    }
+
+    #[test]
+    fn alloy_addresses_are_hex_parsed_and_canonicalized_before_database_use() {
+        let mixed = "0x111111111111111111111111111111111111AaAa";
+        let (_, canonical) = canonical_evm_address(mixed).unwrap();
+        assert_eq!(canonical, "0x111111111111111111111111111111111111aaaa");
+        assert_eq!(canonical.len(), 42);
+        for invalid in [
+            "",
+            "0xabc",
+            "1111111111111111111111111111111111111111",
+            "0xgggggggggggggggggggggggggggggggggggggggg",
+        ] {
+            assert_eq!(canonical_evm_address(invalid), Err(StatusCode::BAD_REQUEST));
+        }
+    }
+
+    #[test]
+    fn transaction_values_are_u256_parsed_and_stored_as_canonical_decimal() {
+        assert_eq!(canonical_transaction_value("0").unwrap(), "0");
+        assert_eq!(canonical_transaction_value("00042").unwrap(), "42");
+        assert_eq!(canonical_transaction_value("0x2a").unwrap(), "42");
+        let max = "115792089237316195423570985008687907853269984665640564039457584007913129639935";
+        assert_eq!(canonical_transaction_value(max).unwrap(), max);
+        for invalid in [
+            "",
+            " ",
+            "-1",
+            "+1",
+            "1.0",
+            "0x",
+            "0xzz",
+            "115792089237316195423570985008687907853269984665640564039457584007913129639936",
+            "0x10000000000000000000000000000000000000000000000000000000000000000",
+        ] {
+            assert_eq!(
+                canonical_transaction_value(invalid),
+                Err(StatusCode::BAD_REQUEST),
+                "{invalid:?}"
+            );
+        }
+    }
 }

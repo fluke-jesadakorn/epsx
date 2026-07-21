@@ -6,7 +6,7 @@ use axum::{
     Json, Router,
 };
 use clap::{Parser, ValueEnum};
-use epsx_content::{build_auth_verifier, protect_router};
+use epsx_content::{build_auth_verifier, protect_router, verify_schema_compatibility};
 use epsx_renderer::{render_page, Block, Page};
 use notify::RecursiveMode;
 use notify_debouncer_mini::new_debouncer;
@@ -26,7 +26,10 @@ struct Args {
     port: u16,
     #[arg(long, default_value = "0.0.0.0")]
     host: String,
-    #[arg(long, default_value = "postgres://epsx:epsx@localhost:5432/epsx_content")]
+    #[arg(
+        long,
+        default_value = "postgres://epsx:epsx@localhost:5432/epsx_content"
+    )]
     database_url: String,
     #[arg(long, default_value = "../content")]
     content_path: String,
@@ -136,7 +139,7 @@ struct DbTheme {
 
 #[derive(Serialize, FromRow)]
 struct DbBlockType {
-    id: String,
+    id: uuid::Uuid,
     block_type: String,
     name: String,
     category: String,
@@ -174,61 +177,12 @@ async fn main() {
     let verifier = build_auth_verifier(&args.oidc_issuer, &jwks_url, production)
         .expect("content OIDC configuration must be valid");
 
-    let db = sqlx::PgPool::connect(&args.database_url).await.expect("Failed to connect to database");
-
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS pages (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            slug VARCHAR(255) UNIQUE NOT NULL,
-            title VARCHAR(255) NOT NULL,
-            locale VARCHAR(10) DEFAULT 'en',
-            status VARCHAR(20) DEFAULT 'draft',
-            blocks_json JSONB DEFAULT '[]',
-            seo_json JSONB DEFAULT '{}',
-            theme_id UUID,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW(),
-            published_at TIMESTAMPTZ
-        )"
-    ).execute(&db).await.expect("Failed to create pages table");
-
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS themes (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            name VARCHAR(100) NOT NULL,
-            colors_json JSONB DEFAULT '{}',
-            fonts_json JSONB DEFAULT '{}',
-            spacing_json JSONB DEFAULT '{}',
-            breakpoints_json JSONB DEFAULT '{}',
-            radius_json JSONB DEFAULT '{}',
-            is_default BOOLEAN DEFAULT false
-        )"
-    ).execute(&db).await.expect("Failed to create themes table");
-
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS block_types (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            block_type VARCHAR(50) UNIQUE NOT NULL,
-            name VARCHAR(100) NOT NULL,
-            category VARCHAR(50) NOT NULL,
-            description TEXT,
-            schema_json JSONB DEFAULT '{}',
-            default_props_json JSONB DEFAULT '{}',
-            admin_only BOOLEAN DEFAULT false,
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-        )"
-    ).execute(&db).await.expect("Failed to create block_types table");
-
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS edit_sessions (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            page_id UUID REFERENCES pages(id) ON DELETE CASCADE,
-            user_id UUID NOT NULL,
-            status VARCHAR(20) DEFAULT 'active',
-            started_at TIMESTAMPTZ DEFAULT NOW(),
-            ended_at TIMESTAMPTZ
-        )"
-    ).execute(&db).await.expect("Failed to create edit_sessions table");
+    let db = sqlx::PgPool::connect(&args.database_url)
+        .await
+        .expect("Failed to connect to database");
+    verify_schema_compatibility(&db)
+        .await
+        .expect("content schema must be compatible; run the reviewed content migration first");
 
     let content_path = PathBuf::from(&args.content_path);
     let block_registry = Arc::new(RwLock::new(BlockRegistry::default()));
@@ -257,16 +211,29 @@ async fn main() {
         });
     }
 
-    let state = AppState { db, content_path, block_registry };
+    let state = AppState {
+        db,
+        content_path,
+        block_registry,
+    };
 
     let app = Router::new()
         .route("/health", get(health))
-        .route("/api/v1/content/pages/{slug}", get(get_page).put(update_page))
+        .route(
+            "/api/v1/content/pages/{slug}",
+            get(get_page).put(update_page),
+        )
         .route("/api/v1/content/pages", post(create_page).get(list_pages))
         .route("/api/v1/content/pages/{id}/publish", post(publish_page))
         .route("/api/v1/content/pages/{slug}/render", get(render_page_html))
-        .route("/api/v1/content/themes", get(list_themes).post(create_theme))
-        .route("/api/v1/content/themes/{id}", get(get_theme).put(update_theme))
+        .route(
+            "/api/v1/content/themes",
+            get(list_themes).post(create_theme),
+        )
+        .route(
+            "/api/v1/content/themes/{id}",
+            get(get_theme).put(update_theme),
+        )
         .route("/api/v1/content/blocks", get(list_block_types))
         .route("/api/v1/content/blocks/{block_type}", get(get_block_schema))
         .route("/api/v1/content/edit/start", post(start_edit_session))
@@ -289,11 +256,18 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn health() -> StatusCode { StatusCode::OK }
+async fn health() -> StatusCode {
+    StatusCode::OK
+}
 
-async fn not_found() -> StatusCode { StatusCode::NOT_FOUND }
+async fn not_found() -> StatusCode {
+    StatusCode::NOT_FOUND
+}
 
-async fn load_block_registry(path: &PathBuf, registry: &Arc<RwLock<BlockRegistry>>) -> Result<(), String> {
+async fn load_block_registry(
+    path: &PathBuf,
+    registry: &Arc<RwLock<BlockRegistry>>,
+) -> Result<(), String> {
     let mut reg = registry.write().await;
 
     let blocks_dir = path.join("blocks");
@@ -301,11 +275,16 @@ async fn load_block_registry(path: &PathBuf, registry: &Arc<RwLock<BlockRegistry
         let entries = std::fs::read_dir(&blocks_dir).map_err(|e| e.to_string())?;
         for entry in entries.flatten() {
             let block_dir = entry.path();
-            if !block_dir.is_dir() { continue; }
+            if !block_dir.is_dir() {
+                continue;
+            }
             let manifest_path = block_dir.join("manifest.json");
-            if !manifest_path.exists() { continue; }
+            if !manifest_path.exists() {
+                continue;
+            }
             let raw = std::fs::read_to_string(&manifest_path).map_err(|e| e.to_string())?;
-            let manifest: serde_json::Value = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+            let manifest: serde_json::Value =
+                serde_json::from_str(&raw).map_err(|e| e.to_string())?;
             reg.blocks.push(BlockManifest {
                 id: manifest["id"].as_str().unwrap_or("").to_string(),
                 version: manifest["version"].as_str().unwrap_or("1.0.0").to_string(),
@@ -323,7 +302,9 @@ async fn load_block_registry(path: &PathBuf, registry: &Arc<RwLock<BlockRegistry
         let entries = std::fs::read_dir(&themes_dir).map_err(|e| e.to_string())?;
         for entry in entries.flatten() {
             let p = entry.path();
-            if p.extension().and_then(|s| s.to_str()) != Some("json") { continue; }
+            if p.extension().and_then(|s| s.to_str()) != Some("json") {
+                continue;
+            }
             let raw = std::fs::read_to_string(&p).map_err(|e| e.to_string())?;
             let v: serde_json::Value = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
             reg.themes.push(ThemeManifest {
@@ -356,22 +337,32 @@ async fn load_block_registry(path: &PathBuf, registry: &Arc<RwLock<BlockRegistry
         }
     }
 
-    info!("Loaded {} blocks, {} themes, {} nav items",
-        reg.blocks.len(), reg.themes.len(), reg.navigation.len());
+    info!(
+        "Loaded {} blocks, {} themes, {} nav items",
+        reg.blocks.len(),
+        reg.themes.len(),
+        reg.navigation.len()
+    );
     Ok(())
 }
 
 async fn watch_files(path: PathBuf, registry: Arc<RwLock<BlockRegistry>>) -> Result<(), String> {
     let (tx, rx) = std::sync::mpsc::channel();
     let mut debouncer = new_debouncer(Duration::from_millis(500), tx).map_err(|e| e.to_string())?;
-    debouncer.watcher().watch(&path, RecursiveMode::Recursive).map_err(|e| e.to_string())?;
+    debouncer
+        .watcher()
+        .watch(&path, RecursiveMode::Recursive)
+        .map_err(|e| e.to_string())?;
     info!("File watcher started for {}", path.display());
 
     for res in rx {
         match res {
             Ok(events) => {
                 if !events.is_empty() {
-                    info!("Detected {} file change(s), reloading registry", events.len());
+                    info!(
+                        "Detected {} file change(s), reloading registry",
+                        events.len()
+                    );
                     if let Err(e) = load_block_registry(&path, &registry).await {
                         error!("Reload failed: {}", e);
                     }
@@ -385,8 +376,12 @@ async fn watch_files(path: PathBuf, registry: Arc<RwLock<BlockRegistry>>) -> Res
 
 async fn sync_blocks_to_db(db: &sqlx::PgPool, registry: &BlockRegistry) -> Result<(), String> {
     for block in &registry.blocks {
+        let schema = serde_json::json!({
+            "type": block.id,
+            "props": block.default_props
+        });
         sqlx::query(
-            "INSERT INTO block_types (block_type, name, category, schema_json, default_props_json, admin_only)
+            "INSERT INTO public.block_types (block_type, name, category, schema_json, default_props_json, admin_only)
              VALUES ($1, $2, $3, $4, $5, $6)
              ON CONFLICT (block_type) DO UPDATE SET
                 name = EXCLUDED.name,
@@ -399,11 +394,8 @@ async fn sync_blocks_to_db(db: &sqlx::PgPool, registry: &BlockRegistry) -> Resul
         .bind(&block.id)
         .bind(&block.name)
         .bind(&block.category)
-        .bind(serde_json::to_string(&serde_json::json!({
-            "type": block.id,
-            "props": block.default_props
-        })).unwrap_or_else(|_| "{}".to_string()))
-        .bind(serde_json::to_string(&block.default_props).unwrap_or_else(|_| "{}".to_string()))
+        .bind(&schema)
+        .bind(&block.default_props)
         .bind(block.admin_only)
         .execute(db)
         .await
@@ -415,11 +407,15 @@ async fn sync_blocks_to_db(db: &sqlx::PgPool, registry: &BlockRegistry) -> Resul
 
 async fn sync_themes_to_db(db: &sqlx::PgPool, content_path: &PathBuf) -> Result<(), String> {
     let themes_dir = content_path.join("themes");
-    if !themes_dir.exists() { return Ok(()); }
+    if !themes_dir.exists() {
+        return Ok(());
+    }
     let entries = std::fs::read_dir(&themes_dir).map_err(|e| e.to_string())?;
     for entry in entries.flatten() {
         let p = entry.path();
-        if p.extension().and_then(|s| s.to_str()) != Some("json") { continue; }
+        if p.extension().and_then(|s| s.to_str()) != Some("json") {
+            continue;
+        }
         let raw = std::fs::read_to_string(&p).map_err(|e| e.to_string())?;
         let v: serde_json::Value = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
         let name = v["name"].as_str().unwrap_or("default");
@@ -427,10 +423,13 @@ async fn sync_themes_to_db(db: &sqlx::PgPool, content_path: &PathBuf) -> Result<
         let colors = v.get("colors").cloned().unwrap_or(serde_json::json!({}));
         let fonts = v.get("fonts").cloned().unwrap_or(serde_json::json!({}));
         let spacing = v.get("spacing").cloned().unwrap_or(serde_json::json!({}));
-        let breakpoints = v.get("breakpoints").cloned().unwrap_or(serde_json::json!({}));
+        let breakpoints = v
+            .get("breakpoints")
+            .cloned()
+            .unwrap_or(serde_json::json!({}));
         let radius = v.get("radius").cloned().unwrap_or(serde_json::json!({}));
         sqlx::query(
-            "INSERT INTO themes (name, colors_json, fonts_json, spacing_json, breakpoints_json, radius_json, is_default)
+            "INSERT INTO public.themes (name, colors_json, fonts_json, spacing_json, breakpoints_json, radius_json, is_default)
              VALUES ($1, $2, $3, $4, $5, $6, $7)
              ON CONFLICT (name) DO UPDATE SET
                 colors_json = EXCLUDED.colors_json,
@@ -441,11 +440,11 @@ async fn sync_themes_to_db(db: &sqlx::PgPool, content_path: &PathBuf) -> Result<
                 is_default = EXCLUDED.is_default"
         )
         .bind(name)
-        .bind(colors.to_string())
-        .bind(fonts.to_string())
-        .bind(spacing.to_string())
-        .bind(breakpoints.to_string())
-        .bind(radius.to_string())
+        .bind(&colors)
+        .bind(&fonts)
+        .bind(&spacing)
+        .bind(&breakpoints)
+        .bind(&radius)
         .bind(is_default)
         .execute(db)
         .await
@@ -460,7 +459,9 @@ async fn get_page(
     AxPath(slug): AxPath<String>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let row: DbPage = sqlx::query_as::<_, DbPage>(
-        "SELECT id, slug, title, locale, status, blocks_json, seo_json, theme_id, created_at, updated_at, published_at FROM pages WHERE slug = $1"
+        "SELECT id, slug, title, locale, status, blocks_json::text AS blocks_json, \
+                seo_json::text AS seo_json, theme_id, created_at, updated_at, published_at \
+         FROM public.pages WHERE slug = $1",
     )
     .bind(&slug)
     .fetch_optional(&state.db)
@@ -468,8 +469,11 @@ async fn get_page(
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
     .ok_or(StatusCode::NOT_FOUND)?;
 
-    let blocks: serde_json::Value = serde_json::from_str(&row.blocks_json).unwrap_or_else(|_| serde_json::json!([]));
-    let seo: serde_json::Value = row.seo_json.as_deref()
+    let blocks: serde_json::Value =
+        serde_json::from_str(&row.blocks_json).unwrap_or_else(|_| serde_json::json!([]));
+    let seo: serde_json::Value = row
+        .seo_json
+        .as_deref()
         .and_then(|s| serde_json::from_str(s).ok())
         .unwrap_or_else(|| serde_json::json!({}));
     Ok(Json(serde_json::json!({
@@ -490,8 +494,14 @@ async fn get_page(
 }
 
 async fn list_pages(State(state): State<AppState>) -> Result<Json<Vec<DbPage>>, StatusCode> {
-    let pages: Vec<DbPage> = sqlx::query_as::<_, DbPage>("SELECT id, slug, title, locale, status, blocks_json, seo_json, theme_id, created_at, updated_at, published_at FROM pages ORDER BY updated_at DESC")
-        .fetch_all(&state.db).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let pages: Vec<DbPage> = sqlx::query_as::<_, DbPage>(
+        "SELECT id, slug, title, locale, status, blocks_json::text AS blocks_json, \
+                seo_json::text AS seo_json, theme_id, created_at, updated_at, published_at \
+         FROM public.pages ORDER BY updated_at DESC",
+    )
+    .fetch_all(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Json(pages))
 }
 
@@ -500,15 +510,20 @@ async fn create_page(
     Json(req): Json<CreatePageRequest>,
 ) -> Result<Json<DbPage>, StatusCode> {
     let locale = req.locale.unwrap_or_else(|| "en".to_string());
-    let blocks = serde_json::to_value(req.blocks.unwrap_or_default()).unwrap_or_else(|_| serde_json::json!([]));
+    let blocks = serde_json::to_value(req.blocks.unwrap_or_default())
+        .unwrap_or_else(|_| serde_json::json!([]));
     let seo = req.seo.unwrap_or_else(|| serde_json::json!({}));
 
-    let theme_uuid: Option<uuid::Uuid> = req.theme_id
+    let theme_uuid: Option<uuid::Uuid> = req
+        .theme_id
         .as_deref()
         .and_then(|s| uuid::Uuid::parse_str(s).ok());
 
     let page: DbPage = sqlx::query_as::<_, DbPage>(
-        "INSERT INTO pages (slug, title, locale, blocks_json, seo_json, theme_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *"
+        "INSERT INTO public.pages (slug, title, locale, blocks_json, seo_json, theme_id) \
+         VALUES ($1, $2, $3, $4, $5, $6) \
+         RETURNING id, slug, title, locale, status, blocks_json::text AS blocks_json, \
+                   seo_json::text AS seo_json, theme_id, created_at, updated_at, published_at",
     )
     .bind(&req.slug)
     .bind(&req.title)
@@ -518,7 +533,10 @@ async fn create_page(
     .bind(theme_uuid)
     .fetch_one(&state.db)
     .await
-    .map_err(|e| { tracing::error!("create_page: {}", e); StatusCode::INTERNAL_SERVER_ERROR })?;
+    .map_err(|e| {
+        tracing::error!("create_page: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
     Ok(Json(page))
 }
 
@@ -528,7 +546,9 @@ async fn update_page(
     Json(req): Json<UpdatePageRequest>,
 ) -> Result<Json<DbPage>, StatusCode> {
     let current: DbPage = sqlx::query_as::<_, DbPage>(
-        "SELECT id, slug, title, locale, status, blocks_json, seo_json, theme_id, created_at, updated_at, published_at FROM pages WHERE slug = $1"
+        "SELECT id, slug, title, locale, status, blocks_json::text AS blocks_json, \
+                seo_json::text AS seo_json, theme_id, created_at, updated_at, published_at \
+         FROM public.pages WHERE slug = $1",
     )
     .bind(&slug)
     .fetch_optional(&state.db)
@@ -543,19 +563,25 @@ async fn update_page(
     };
     let new_seo = match req.seo {
         Some(s) => s,
-        None => current.seo_json
+        None => current
+            .seo_json
             .as_deref()
             .and_then(|s| serde_json::from_str(s).ok())
             .unwrap_or(serde_json::json!({})),
     };
-    let new_theme_uuid: Option<uuid::Uuid> = req.theme_id
+    let new_theme_uuid: Option<uuid::Uuid> = req
+        .theme_id
         .as_deref()
         .and_then(|s| uuid::Uuid::parse_str(s).ok())
         .or(current.theme_id);
     let new_status = req.status.unwrap_or(current.status);
 
     let page: DbPage = sqlx::query_as::<_, DbPage>(
-        "UPDATE pages SET title = $2, blocks_json = $3, seo_json = $4, theme_id = $5, status = $6, updated_at = NOW() WHERE id = $1 RETURNING *"
+        "UPDATE public.pages \
+         SET title = $2, blocks_json = $3, seo_json = $4, theme_id = $5, status = $6, updated_at = NOW() \
+         WHERE id = $1 \
+         RETURNING id, slug, title, locale, status, blocks_json::text AS blocks_json, \
+                   seo_json::text AS seo_json, theme_id, created_at, updated_at, published_at"
     )
     .bind(current.id)
     .bind(&new_title)
@@ -575,7 +601,11 @@ async fn publish_page(
     AxPath(slug): AxPath<String>,
 ) -> Result<Json<DbPage>, StatusCode> {
     let page: DbPage = sqlx::query_as::<_, DbPage>(
-        "UPDATE pages SET status = 'published', published_at = NOW(), updated_at = NOW() WHERE slug = $1 RETURNING *"
+        "UPDATE public.pages \
+         SET status = 'published', published_at = NOW(), updated_at = NOW() \
+         WHERE slug = $1 \
+         RETURNING id, slug, title, locale, status, blocks_json::text AS blocks_json, \
+                   seo_json::text AS seo_json, theme_id, created_at, updated_at, published_at",
     )
     .bind(&slug)
     .fetch_optional(&state.db)
@@ -592,7 +622,9 @@ async fn render_page_html(
     AxPath(slug): AxPath<String>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let page: DbPage = sqlx::query_as::<_, DbPage>(
-        "SELECT id, slug, title, locale, status, blocks_json, seo_json, theme_id, created_at, updated_at, published_at FROM pages WHERE slug = $1"
+        "SELECT id, slug, title, locale, status, blocks_json::text AS blocks_json, \
+                seo_json::text AS seo_json, theme_id, created_at, updated_at, published_at \
+         FROM public.pages WHERE slug = $1",
     )
     .bind(&slug)
     .fetch_optional(&state.db)
@@ -600,26 +632,40 @@ async fn render_page_html(
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
     .ok_or(StatusCode::NOT_FOUND)?;
 
-    let blocks_json: serde_json::Value = serde_json::from_str(&page.blocks_json).unwrap_or_else(|_| serde_json::json!([]));
+    let blocks_json: serde_json::Value =
+        serde_json::from_str(&page.blocks_json).unwrap_or_else(|_| serde_json::json!([]));
     let blocks: Vec<Block> = serde_json::from_value(blocks_json).unwrap_or_default();
 
     let domain_page = Page {
         slug: page.slug.clone(),
         title: page.title.clone(),
         blocks,
-        seo: page.seo_json.as_deref().and_then(|s| serde_json::from_str(s).ok()).unwrap_or_else(|| serde_json::json!({})),
+        seo: page
+            .seo_json
+            .as_deref()
+            .and_then(|s| serde_json::from_str(s).ok())
+            .unwrap_or_else(|| serde_json::json!({})),
         theme: page.theme_id.map(|u| u.to_string()),
     };
 
     let html = render_page(&domain_page);
-    Ok((StatusCode::OK, [("content-type", "text/html; charset=utf-8")], html))
+    Ok((
+        StatusCode::OK,
+        [("content-type", "text/html; charset=utf-8")],
+        html,
+    ))
 }
 
 async fn list_themes(State(state): State<AppState>) -> Result<Json<Vec<DbTheme>>, StatusCode> {
     let themes: Vec<DbTheme> = sqlx::query_as::<_, DbTheme>(
-        "SELECT id, name, colors_json, fonts_json, spacing_json, breakpoints_json, radius_json, is_default FROM themes"
+        "SELECT id, name, colors_json::text AS colors_json, fonts_json::text AS fonts_json, \
+                spacing_json::text AS spacing_json, breakpoints_json::text AS breakpoints_json, \
+                radius_json::text AS radius_json, is_default \
+         FROM public.themes",
     )
-    .fetch_all(&state.db).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    .fetch_all(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Json(themes))
 }
 
@@ -629,10 +675,15 @@ async fn get_theme(
 ) -> Result<Json<DbTheme>, StatusCode> {
     let theme_uuid = uuid::Uuid::parse_str(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
     let theme: DbTheme = sqlx::query_as::<_, DbTheme>(
-        "SELECT id, name, colors_json, fonts_json, spacing_json, breakpoints_json, radius_json, is_default FROM themes WHERE id = $1"
+        "SELECT id, name, colors_json::text AS colors_json, fonts_json::text AS fonts_json, \
+                spacing_json::text AS spacing_json, breakpoints_json::text AS breakpoints_json, \
+                radius_json::text AS radius_json, is_default \
+         FROM public.themes WHERE id = $1",
     )
     .bind(theme_uuid)
-    .fetch_optional(&state.db).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
     .ok_or(StatusCode::NOT_FOUND)?;
     Ok(Json(theme))
 }
@@ -641,16 +692,33 @@ async fn create_theme(
     State(state): State<AppState>,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<DbTheme>, StatusCode> {
-    let name = body.get("name").and_then(|v| v.as_str()).unwrap_or("default");
+    let name = body
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("default");
     let colors = body.get("colors").cloned().unwrap_or(serde_json::json!({}));
     let fonts = body.get("fonts").cloned().unwrap_or(serde_json::json!({}));
-    let spacing = body.get("spacing").cloned().unwrap_or(serde_json::json!({}));
-    let breakpoints = body.get("breakpoints").cloned().unwrap_or(serde_json::json!({}));
+    let spacing = body
+        .get("spacing")
+        .cloned()
+        .unwrap_or(serde_json::json!({}));
+    let breakpoints = body
+        .get("breakpoints")
+        .cloned()
+        .unwrap_or(serde_json::json!({}));
     let radius = body.get("radius").cloned().unwrap_or(serde_json::json!({}));
-    let is_default = body.get("is_default").and_then(|v| v.as_bool()).unwrap_or(false);
+    let is_default = body
+        .get("is_default")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
 
     let theme: DbTheme = sqlx::query_as::<_, DbTheme>(
-        "INSERT INTO themes (name, colors_json, fonts_json, spacing_json, breakpoints_json, radius_json, is_default) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *"
+        "INSERT INTO public.themes \
+            (name, colors_json, fonts_json, spacing_json, breakpoints_json, radius_json, is_default) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7) \
+         RETURNING id, name, colors_json::text AS colors_json, fonts_json::text AS fonts_json, \
+                   spacing_json::text AS spacing_json, breakpoints_json::text AS breakpoints_json, \
+                   radius_json::text AS radius_json, is_default"
     )
     .bind(name)
     .bind(&colors)
@@ -669,14 +737,34 @@ async fn update_theme(
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<DbTheme>, StatusCode> {
     let theme_uuid = uuid::Uuid::parse_str(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
-    let colors = body.get("colors").cloned().unwrap_or_else(|| serde_json::json!({}));
-    let fonts = body.get("fonts").cloned().unwrap_or_else(|| serde_json::json!({}));
-    let spacing = body.get("spacing").cloned().unwrap_or_else(|| serde_json::json!({}));
-    let breakpoints = body.get("breakpoints").cloned().unwrap_or_else(|| serde_json::json!({}));
-    let radius = body.get("radius").cloned().unwrap_or_else(|| serde_json::json!({}));
+    let colors = body
+        .get("colors")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({}));
+    let fonts = body
+        .get("fonts")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({}));
+    let spacing = body
+        .get("spacing")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({}));
+    let breakpoints = body
+        .get("breakpoints")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({}));
+    let radius = body
+        .get("radius")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({}));
 
     let theme: DbTheme = sqlx::query_as::<_, DbTheme>(
-        "UPDATE themes SET colors_json = $2, fonts_json = $3, spacing_json = $4, breakpoints_json = $5, radius_json = $6 WHERE id = $1 RETURNING *"
+        "UPDATE public.themes \
+         SET colors_json = $2, fonts_json = $3, spacing_json = $4, breakpoints_json = $5, radius_json = $6 \
+         WHERE id = $1 \
+         RETURNING id, name, colors_json::text AS colors_json, fonts_json::text AS fonts_json, \
+                   spacing_json::text AS spacing_json, breakpoints_json::text AS breakpoints_json, \
+                   radius_json::text AS radius_json, is_default"
     )
     .bind(theme_uuid)
     .bind(&colors)
@@ -689,11 +777,17 @@ async fn update_theme(
     Ok(Json(theme))
 }
 
-async fn list_block_types(State(state): State<AppState>) -> Result<Json<Vec<DbBlockType>>, StatusCode> {
+async fn list_block_types(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<DbBlockType>>, StatusCode> {
     let blocks: Vec<DbBlockType> = sqlx::query_as::<_, DbBlockType>(
-        "SELECT id, block_type, name, category, description, schema_json, default_props_json, admin_only FROM block_types ORDER BY category, name"
+        "SELECT id, block_type, name, category, description, schema_json::text AS schema_json, \
+                default_props_json::text AS default_props_json, admin_only \
+         FROM public.block_types ORDER BY category, name",
     )
-    .fetch_all(&state.db).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    .fetch_all(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Json(blocks))
 }
 
@@ -702,33 +796,40 @@ async fn get_block_schema(
     AxPath(block_type): AxPath<String>,
 ) -> Result<Json<DbBlockType>, StatusCode> {
     let block: DbBlockType = sqlx::query_as::<_, DbBlockType>(
-        "SELECT id, block_type, name, category, description, schema_json, default_props_json, admin_only FROM block_types WHERE block_type = $1"
+        "SELECT id, block_type, name, category, description, schema_json::text AS schema_json, \
+                default_props_json::text AS default_props_json, admin_only \
+         FROM public.block_types WHERE block_type = $1",
     )
     .bind(&block_type)
-    .fetch_optional(&state.db).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
     .ok_or(StatusCode::NOT_FOUND)?;
     Ok(Json(block))
 }
 
 #[derive(Serialize, FromRow)]
 struct EditSession {
-    id: String,
-    page_id: String,
-    user_id: String,
+    id: uuid::Uuid,
+    page_id: uuid::Uuid,
+    user_id: uuid::Uuid,
     status: String,
-    started_at: chrono::NaiveDateTime,
-    ended_at: Option<chrono::NaiveDateTime>,
+    started_at: chrono::DateTime<chrono::Utc>,
+    ended_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 async fn start_edit_session(
     State(state): State<AppState>,
     Json(req): Json<StartEditRequest>,
 ) -> Result<Json<EditSession>, StatusCode> {
+    let page_id = uuid::Uuid::parse_str(&req.page_id).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let user_id = uuid::Uuid::parse_str(&req.user_id).map_err(|_| StatusCode::BAD_REQUEST)?;
     let session: EditSession = sqlx::query_as::<_, EditSession>(
-        "INSERT INTO edit_sessions (page_id, user_id) VALUES ($1, $2) RETURNING *"
+        "INSERT INTO public.edit_sessions (page_id, user_id) VALUES ($1, $2) \
+         RETURNING id, page_id, user_id, status, started_at, ended_at",
     )
-    .bind(&req.page_id)
-    .bind(&req.user_id)
+    .bind(page_id)
+    .bind(user_id)
     .fetch_one(&state.db)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -739,21 +840,25 @@ async fn commit_edit_session(
     State(state): State<AppState>,
     Json(req): Json<CommitEditRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
+    let session_id = uuid::Uuid::parse_str(&req.session_id).map_err(|_| StatusCode::BAD_REQUEST)?;
     let session: EditSession = sqlx::query_as::<_, EditSession>(
-        "UPDATE edit_sessions SET status = 'committed', ended_at = NOW() WHERE id = $1 RETURNING *"
+        "UPDATE public.edit_sessions SET status = 'committed', ended_at = NOW() WHERE id = $1 \
+         RETURNING id, page_id, user_id, status, started_at, ended_at",
     )
-    .bind(&req.session_id)
+    .bind(session_id)
     .fetch_optional(&state.db)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
     .ok_or(StatusCode::NOT_FOUND)?;
 
     if req.publish {
-        sqlx::query("UPDATE pages SET status = 'published', published_at = NOW() WHERE id = $1")
-            .bind(&session.page_id)
-            .execute(&state.db)
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        sqlx::query(
+            "UPDATE public.pages SET status = 'published', published_at = NOW() WHERE id = $1",
+        )
+        .bind(session.page_id)
+        .execute(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     }
 
     Ok(Json(serde_json::json!({
@@ -765,26 +870,37 @@ async fn commit_edit_session(
     })))
 }
 
-async fn list_edit_sessions(State(state): State<AppState>) -> Result<Json<Vec<EditSession>>, StatusCode> {
+async fn list_edit_sessions(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<EditSession>>, StatusCode> {
     let sessions: Vec<EditSession> = sqlx::query_as::<_, EditSession>(
-        "SELECT id, page_id, user_id, status, started_at, ended_at FROM edit_sessions ORDER BY started_at DESC LIMIT 100"
+        "SELECT id, page_id, user_id, status, started_at, ended_at \
+         FROM public.edit_sessions ORDER BY started_at DESC LIMIT 100",
     )
-    .fetch_all(&state.db).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    .fetch_all(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Json(sessions))
 }
 
-async fn get_navigation(State(state): State<AppState>) -> Result<Json<serde_json::Value>, StatusCode> {
+async fn get_navigation(
+    State(state): State<AppState>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
     let reg = state.block_registry.read().await;
     Ok(Json(serde_json::json!({
         "items": reg.navigation
     })))
 }
 
-async fn get_site_settings(State(state): State<AppState>) -> Result<Json<serde_json::Value>, StatusCode> {
+async fn get_site_settings(
+    State(state): State<AppState>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
     let settings_path = state.content_path.join("settings").join("site.json");
     if settings_path.exists() {
-        let raw = std::fs::read_to_string(&settings_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        let v: serde_json::Value = serde_json::from_str(&raw).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let raw = std::fs::read_to_string(&settings_path)
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let v: serde_json::Value =
+            serde_json::from_str(&raw).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         Ok(Json(v))
     } else {
         Ok(Json(serde_json::json!({})))
@@ -798,8 +914,12 @@ async fn get_site_settings(State(state): State<AppState>) -> Result<Json<serde_j
 
 fn read_content_json(content_path: &PathBuf, rel: &str) -> Option<serde_json::Value> {
     let p = content_path.join(rel);
-    if !p.exists() { return None; }
-    std::fs::read_to_string(&p).ok().and_then(|s| serde_json::from_str(&s).ok())
+    if !p.exists() {
+        return None;
+    }
+    std::fs::read_to_string(&p)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
 }
 
 async fn news_list(State(state): State<AppState>) -> Json<serde_json::Value> {
@@ -808,14 +928,29 @@ async fn news_list(State(state): State<AppState>) -> Json<serde_json::Value> {
     Json(articles)
 }
 
-async fn news_post(AxPath(slug): AxPath<String>, State(state): State<AppState>) -> Result<Json<serde_json::Value>, StatusCode> {
+async fn news_post(
+    AxPath(slug): AxPath<String>,
+    State(state): State<AppState>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
     let pages_dir = state.content_path.join("pages");
-    let candidates = ["welcome", "pricing", "subscription-vaults", "paymaster", "about"];
+    let candidates = [
+        "welcome",
+        "pricing",
+        "subscription-vaults",
+        "paymaster",
+        "about",
+    ];
     let mapped = match slug.as_str() {
         "strategic-roadmap-future" | "strategic-launch-epsx" | "platform-update" => Some("welcome"),
-        "integrated-service-solutions" | "platform-update-q2" | "service-tier-changes" => Some("pricing"),
-        "enhanced-portfolio-management" | "portfolio-enhancements" | "new-portfolio-features" => Some("subscription-vaults"),
-        "proprietary-performance-metrics" | "metrics-deep-dive" | "performance-analysis" => Some("paymaster"),
+        "integrated-service-solutions" | "platform-update-q2" | "service-tier-changes" => {
+            Some("pricing")
+        }
+        "enhanced-portfolio-management" | "portfolio-enhancements" | "new-portfolio-features" => {
+            Some("subscription-vaults")
+        }
+        "proprietary-performance-metrics" | "metrics-deep-dive" | "performance-analysis" => {
+            Some("paymaster")
+        }
         _ => None,
     };
 
@@ -870,10 +1005,13 @@ async fn news_post(AxPath(slug): AxPath<String>, State(state): State<AppState>) 
 }
 
 async fn plans_list(State(state): State<AppState>) -> Json<serde_json::Value> {
-    Json(read_content_json(&state.content_path, "marketing/plans.json")
-        .unwrap_or_else(|| serde_json::json!({
-            "personal": [], "api": [], "custom": []
-        })))
+    Json(
+        read_content_json(&state.content_path, "marketing/plans.json").unwrap_or_else(|| {
+            serde_json::json!({
+                "personal": [], "api": [], "custom": []
+            })
+        }),
+    )
 }
 
 async fn rankings_list() -> Json<serde_json::Value> {
@@ -898,4 +1036,72 @@ async fn portfolio_get(AxPath(addr): AxPath<String>) -> Json<serde_json::Value> 
         "auth_required": true,
         "message": "Sign in to view your portfolio"
     }))
+}
+
+#[cfg(test)]
+mod schema_model_tests {
+    use super::*;
+
+    #[test]
+    fn page_jsonb_text_projection_preserves_legacy_wire_strings() {
+        let now = chrono::DateTime::parse_from_rfc3339("2026-07-22T00:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let page = DbPage {
+            id: uuid::Uuid::nil(),
+            slug: "home".into(),
+            title: "Home".into(),
+            locale: "en".into(),
+            status: "draft".into(),
+            blocks_json: "[]".into(),
+            seo_json: Some("{}".into()),
+            theme_id: None,
+            created_at: now,
+            updated_at: now,
+            published_at: None,
+        };
+        let value = serde_json::to_value(page).unwrap();
+        assert_eq!(value["id"], uuid::Uuid::nil().to_string());
+        assert_eq!(value["blocks_json"], "[]");
+        assert_eq!(value["seo_json"], "{}");
+        assert!(value["theme_id"].is_null());
+        assert!(value["published_at"].is_null());
+    }
+
+    #[test]
+    fn uuid_and_timestamptz_models_keep_string_json_shapes() {
+        let page_id = uuid::Uuid::new_v4();
+        let user_id = uuid::Uuid::new_v4();
+        let started_at = chrono::DateTime::parse_from_rfc3339("2026-07-22T01:02:03Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let session = EditSession {
+            id: uuid::Uuid::new_v4(),
+            page_id,
+            user_id,
+            status: "active".into(),
+            started_at,
+            ended_at: None,
+        };
+        let value = serde_json::to_value(session).unwrap();
+        assert_eq!(value["page_id"], page_id.to_string());
+        assert_eq!(value["user_id"], user_id.to_string());
+        assert_eq!(value["started_at"], "2026-07-22T01:02:03Z");
+        assert!(value["ended_at"].is_null());
+
+        let block = DbBlockType {
+            id: uuid::Uuid::nil(),
+            block_type: "hero".into(),
+            name: "Hero".into(),
+            category: "marketing".into(),
+            description: None,
+            schema_json: "{}".into(),
+            default_props_json: "{}".into(),
+            admin_only: false,
+        };
+        let value = serde_json::to_value(block).unwrap();
+        assert_eq!(value["id"], uuid::Uuid::nil().to_string());
+        assert_eq!(value["schema_json"], "{}");
+        assert!(value["description"].is_null());
+    }
 }

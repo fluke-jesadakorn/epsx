@@ -1,0 +1,280 @@
+{
+  "schemaVersion": 1,
+  "contractId": "a3.9.wallet-schema-boundary.v1",
+  "purpose": "offline-static-wallet-schema-boundary-only",
+  "productionReady": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "scope": {
+    "service": "services/wallet",
+    "database": "epsx_wallet",
+    "schema": "public",
+    "tables": [
+      "accounts",
+      "nonces",
+      "signed_transactions"
+    ],
+    "status": "partial"
+  },
+  "developmentBaseline": {
+    "sourceRefLabel": "origin/development",
+    "targetCommit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "candidatePath": "services/wallet",
+    "candidateServicePresent": false,
+    "status": "blocked",
+    "summary": "The immutable development commit contains no services/wallet candidate; this service and its legacy three-table store originate on the migration branch."
+  },
+  "safety": {
+    "databaseContacted": false,
+    "migrationExecuted": false,
+    "listenerStarted": false,
+    "networkContacted": false,
+    "containerStarted": false,
+    "productionContacted": false,
+    "readinessMeaning": "Static integrity only; readiness remains STOP until all six residual migration/database blockers have executable evidence."
+  },
+  "runtimeBoundary": {
+    "rustRoot": "services/wallet",
+    "rustInventory": [
+      "services/wallet/src/lib.rs",
+      "services/wallet/src/main.rs"
+    ],
+    "scannerFindingBefore": 3,
+    "scannerFindingAfter": 0,
+    "removedAnchors": [
+      "CREATE TABLE IF NOT EXISTS accounts (",
+      "CREATE TABLE IF NOT EXISTS nonces (",
+      "CREATE TABLE IF NOT EXISTS signed_transactions ("
+    ],
+    "compatibilityQueryConstant": "WALLET_SCHEMA_COMPATIBILITY_QUERY",
+    "compatibilityFunction": "verify_schema_compatibility",
+    "compatibilityQueryBytes": 22561,
+    "compatibilityQuerySha256": "a46ba81e71d77d13f35c40437e79ff0f45e3365efe6898908e5b18177082c71d",
+    "queryRequiredAnchors": [
+      "actual.table_schema = 'public'",
+      "actual.datetime_precision IS NOT DISTINCT FROM expected.datetime_precision",
+      "actual.collation_name IS NULL",
+      "pg_catalog.current_setting('server_version_num')::integer >= 180000",
+      "NOT exposure.exposed",
+      "expected.is_nullable = 'YES'",
+      "expected.is_nullable = 'NO'",
+      "pg_catalog.to_jsonb(constraint_record) ->> 'conenforced'",
+      "actual.is_identity = 'NO'",
+      "actual.is_generated = 'NEVER'",
+      "COUNT(*) = 1",
+      "constraint_record.contype = 'p'",
+      "NOT constraint_record.condeferrable",
+      "NOT constraint_record.condeferred",
+      "constraint_record.convalidated",
+      "constraint_record.conindid = constraint_index.indexrelid",
+      "LEFT JOIN pg_catalog.pg_index AS constraint_index",
+      "constraint_index.indimmediate",
+      "constraint_record.contype <> 'n'",
+      "index_record.indisprimary",
+      "index_record.indisunique",
+      "index_record.indimmediate",
+      "index_record.indpred IS NULL",
+      "index_record.indexprs IS NULL",
+      "unnest(index_record.indcollation) WITH ORDINALITY",
+      "attribute_record.attcollation",
+      "operator_class.opcnamespace",
+      "access_method.amname = 'btree'",
+      "FROM pg_catalog.pg_inherits AS inheritance_record",
+      "pg_catalog.pg_get_serial_sequence(",
+      "FROM pg_catalog.pg_attrdef AS default_record",
+      "pg_catalog.pg_get_expr(default_record.adbin, default_record.adrelid) IN (",
+      "actual.column_default IN (",
+      "JOIN pg_catalog.pg_depend AS default_dependency",
+      "default_dependency.refobjid = pg_catalog.to_regclass(",
+      "other_dependency.refobjid <> pg_catalog.to_regclass(",
+      "relation_record.relname = 'signed_transactions_id_seq'",
+      "COALESCE((SELECT compatible FROM serial_default_dependency_compatibility), false)",
+      "COALESCE((SELECT compatible FROM column_compatibility), false)",
+      "COALESCE((SELECT compatible FROM not_null_constraint_compatibility), false)",
+      "COALESCE((SELECT compatible FROM index_compatibility), false)"
+    ],
+    "adversarialGuards": {
+      "constraintInventoryJoin": "LEFT JOIN pg_catalog.pg_index AS constraint_index",
+      "inheritanceInventory": "FROM pg_catalog.pg_inherits AS inheritance_record",
+      "relationNotExistsStructure": "exactly-one-not-exists-before-pg-inherits",
+      "notNullCatalogExposure": "pg_catalog.current_setting('server_version_num')::integer >= 180000",
+      "prePg18NoRowPath": "NOT exposure.exposed",
+      "notNullEnforcement": "pg_catalog.to_jsonb(constraint_record) ->> 'conenforced'",
+      "nullableColumnRule": "expected nullable columns have no contype=n constraint",
+      "allowedSerialDefaultExpressions": [
+        "nextval('signed_transactions_id_seq'::regclass)",
+        "nextval('public.signed_transactions_id_seq'::regclass)"
+      ],
+      "rejectedSerialDefaultShape": "double-nextval-expression"
+    },
+    "qualifiedRelationOccurrences": {
+      "public.accounts": 3,
+      "public.nonces": 1,
+      "public.signed_transactions": 1
+    },
+    "mainSequence": [
+      "let db = sqlx::PgPool::connect(&args.database_url)",
+      "verify_schema_compatibility(&db)",
+      "let listener = tokio::net::TcpListener::bind(addr)",
+      "axum::serve(listener, app)"
+    ]
+  },
+  "migrationRoot": {
+    "path": "services/wallet/migrations",
+    "runner": null,
+    "transactionOwner": "future-reviewed-runner",
+    "orderedMigrations": [
+      {
+        "version": "20260722020000",
+        "path": "services/wallet/migrations/20260722020000_create_wallet_store.sql",
+        "bytes": 775,
+        "sha256": "cf79bdb4e999d4cfb54648ba8d82e845af7c5feaccd20d5ca2143ff673ca1731",
+        "guards": [
+          "CREATE TABLE IF NOT EXISTS public.accounts (",
+          "CREATE TABLE IF NOT EXISTS public.nonces (",
+          "CREATE TABLE IF NOT EXISTS public.signed_transactions ("
+        ]
+      }
+    ]
+  },
+  "requiredTables": [
+    {
+      "name": "accounts",
+      "columns": [
+        { "ordinal": 1, "name": "address", "databaseType": "varchar(42)", "nullable": false, "default": null, "datetimePrecision": null, "collation": "database-default", "sqlAnchor": "address VARCHAR(42) NOT NULL," },
+        { "ordinal": 2, "name": "chain_id", "databaseType": "varchar(10)", "nullable": false, "default": null, "datetimePrecision": null, "collation": "database-default", "sqlAnchor": "chain_id VARCHAR(10) NOT NULL," },
+        { "ordinal": 3, "name": "label", "databaseType": "text", "nullable": true, "default": null, "datetimePrecision": null, "collation": "database-default", "sqlAnchor": "label TEXT," },
+        { "ordinal": 4, "name": "role", "databaseType": "varchar(50)", "nullable": true, "default": "'user'::character varying", "datetimePrecision": null, "collation": "database-default", "sqlAnchor": "role VARCHAR(50) DEFAULT 'user'," },
+        { "ordinal": 5, "name": "encrypted_pk", "databaseType": "text", "nullable": true, "default": null, "datetimePrecision": null, "collation": "database-default", "sqlAnchor": "encrypted_pk TEXT," },
+        { "ordinal": 6, "name": "created_at", "databaseType": "timestamptz", "nullable": true, "default": "now()", "datetimePrecision": 6, "collation": null, "sqlAnchor": "created_at TIMESTAMPTZ DEFAULT NOW()," }
+      ],
+      "primaryKey": ["address", "chain_id"],
+      "primaryKeyConstraint": { "keyColumns": ["address", "chain_id"], "deferrable": false, "initiallyDeferred": false, "validated": true, "indexBinding": "onlyIndex" },
+      "onlyIndex": { "method": "btree", "unique": true, "primary": true, "immediate": true, "keyColumns": ["address", "chain_id"], "collation": "matches-key-column-collation", "operatorClasses": ["text_ops", "text_ops"], "operatorClassNamespaces": ["pg_catalog", "pg_catalog"] }
+    },
+    {
+      "name": "nonces",
+      "columns": [
+        { "ordinal": 1, "name": "address", "databaseType": "varchar(42)", "nullable": false, "default": null, "datetimePrecision": null, "collation": "database-default", "sqlAnchor": "address VARCHAR(42) NOT NULL," },
+        { "ordinal": 2, "name": "chain_id", "databaseType": "varchar(10)", "nullable": false, "default": null, "datetimePrecision": null, "collation": "database-default", "sqlAnchor": "chain_id VARCHAR(10) NOT NULL," },
+        { "ordinal": 3, "name": "nonce", "databaseType": "bigint", "nullable": false, "default": "0", "datetimePrecision": null, "collation": null, "sqlAnchor": "nonce BIGINT NOT NULL DEFAULT 0," },
+        { "ordinal": 4, "name": "updated_at", "databaseType": "timestamptz", "nullable": true, "default": "now()", "datetimePrecision": 6, "collation": null, "sqlAnchor": "updated_at TIMESTAMPTZ DEFAULT NOW()," }
+      ],
+      "primaryKey": ["address", "chain_id"],
+      "primaryKeyConstraint": { "keyColumns": ["address", "chain_id"], "deferrable": false, "initiallyDeferred": false, "validated": true, "indexBinding": "onlyIndex" },
+      "onlyIndex": { "method": "btree", "unique": true, "primary": true, "immediate": true, "keyColumns": ["address", "chain_id"], "collation": "matches-key-column-collation", "operatorClasses": ["text_ops", "text_ops"], "operatorClassNamespaces": ["pg_catalog", "pg_catalog"] }
+    },
+    {
+      "name": "signed_transactions",
+      "columns": [
+        { "ordinal": 1, "name": "id", "databaseType": "serial/integer", "nullable": false, "default": "nextval exact owned public.signed_transactions_id_seq OID", "datetimePrecision": null, "collation": null, "sqlAnchor": "id SERIAL PRIMARY KEY," },
+        { "ordinal": 2, "name": "chain_id", "databaseType": "varchar(10)", "nullable": false, "default": null, "datetimePrecision": null, "collation": "database-default", "sqlAnchor": "chain_id VARCHAR(10) NOT NULL," },
+        { "ordinal": 3, "name": "sender", "databaseType": "varchar(42)", "nullable": false, "default": null, "datetimePrecision": null, "collation": "database-default", "sqlAnchor": "sender VARCHAR(42) NOT NULL," },
+        { "ordinal": 4, "name": "recipient", "databaseType": "varchar(42)", "nullable": true, "default": null, "datetimePrecision": null, "collation": "database-default", "sqlAnchor": "recipient VARCHAR(42)," },
+        { "ordinal": 5, "name": "value", "databaseType": "varchar(78)", "nullable": true, "default": null, "datetimePrecision": null, "collation": "database-default", "sqlAnchor": "value VARCHAR(78)," },
+        { "ordinal": 6, "name": "data_hash", "databaseType": "varchar(66)", "nullable": true, "default": null, "datetimePrecision": null, "collation": "database-default", "sqlAnchor": "data_hash VARCHAR(66)," },
+        { "ordinal": 7, "name": "created_at", "databaseType": "timestamptz", "nullable": true, "default": "now()", "datetimePrecision": 6, "collation": null, "sqlAnchor": "created_at TIMESTAMPTZ DEFAULT NOW()" }
+      ],
+      "primaryKey": ["id"],
+      "primaryKeyConstraint": { "keyColumns": ["id"], "deferrable": false, "initiallyDeferred": false, "validated": true, "indexBinding": "onlyIndex" },
+      "onlyIndex": { "method": "btree", "unique": true, "primary": true, "immediate": true, "keyColumns": ["id"], "collation": "matches-key-column-collation", "operatorClasses": ["int4_ops"], "operatorClassNamespaces": ["pg_catalog"] },
+      "serialSequence": { "name": "public.signed_transactions_id_seq", "type": "integer", "start": 1, "increment": 1, "min": 1, "max": 2147483647, "cache": 1, "cycle": false, "ownedBy": "public.signed_transactions.id", "defaultDependency": "exact-sequence-oid-only" }
+    }
+  ],
+  "modelBoundary": {
+    "source": "services/wallet/src/main.rs",
+    "accountSlice": {
+      "start": "#[derive(Serialize, Deserialize)]\nstruct CreateAccountRequest",
+      "end": "\n\n#[derive(Serialize, Deserialize)]\nstruct BalanceInfo",
+      "bytes": 366,
+      "sha256": "add15a62670aaff63bca0700b555f1c123ebde26cd08ce959daa74acafe027ff"
+    },
+    "transactionSlice": {
+      "start": "#[derive(Serialize, Deserialize)]\nstruct SendTxRequest",
+      "end": "\n\n#[derive(Serialize, Deserialize)]\nstruct EstimateGasRequest",
+      "bytes": 345,
+      "sha256": "32049c0547322eb90b086b8c9c9a6f65f7776c8149099e307bfe05395a713e23"
+    },
+    "sendOperationSlice": {
+      "start": "async fn send_transaction(",
+      "end": "\n\nfn canonical_evm_address(",
+      "bytes": 2076,
+      "sha256": "ddda6f94bbb6448d0608536ad194e4d6f7d267f5ef37d8d067e2e3fdb562682a"
+    },
+    "bindHelperSlice": {
+      "start": "fn canonical_evm_address(",
+      "end": "\n\nasync fn sign_message(",
+      "bytes": 2078,
+      "sha256": "7147c5016b3acb4e9d0de8ed0cc08d9b81edfefc7c6bc4948f52dbdb61ee7dba"
+    },
+    "responseModels": [
+      {
+        "name": "AccountResponse",
+        "fields": [
+          { "name": "address", "rustType": "String", "databaseType": "varchar(42)", "nullable": false },
+          { "name": "chain_id", "rustType": "String", "databaseType": "varchar(10)", "nullable": false },
+          { "name": "label", "rustType": "Option<String>", "databaseType": "text", "nullable": true },
+          { "name": "role", "rustType": "Option<String>", "databaseType": "varchar(50)", "nullable": true }
+        ]
+      }
+    ],
+    "databaseScalarTypes": [
+      { "relationColumn": "public.nonces.nonce", "rustType": "i64", "databaseType": "bigint", "sourceAnchor": "let nonce: i64 = sqlx::query_scalar(" },
+      { "responseField": "SendTxResponse.nonce", "rustType": "u64", "conversionAnchor": "u64::try_from(nonce)" }
+    ],
+    "boundedBindAnchors": [
+      "canonical_evm_address(provided)?.1",
+      "canonical_evm_address(&req.from)?",
+      "canonical_evm_address(&req.to)?",
+      "canonical_transaction_value(&req.value)?",
+      "database_chain_id(req.chain_id)?",
+      "role.chars().count() > 50",
+      "bytes.len() > 32"
+    ],
+    "transactionBoundary": {
+      "beginAnchor": ".db\n        .begin()",
+      "nonceFetchAnchor": ".fetch_one(&mut *transaction)",
+      "checkedNonceAnchor": "u64::try_from(nonce)",
+      "signedInsertAnchor": ".execute(&mut *transaction)",
+      "commitAnchor": ".commit()",
+      "executorOccurrences": 2,
+      "status": "static-source-pinned-routes-remain-disabled"
+    },
+    "requestBindFields": [
+      "address",
+      "chain_id",
+      "label",
+      "role",
+      "from",
+      "to",
+      "value",
+      "data"
+    ],
+    "uuidFields": 0,
+    "nullableResponseFields": 2,
+    "hermeticBinaryTests": 4
+  },
+  "isolatedScannerDelta": {
+    "runtimeRustDdlFindings": { "before": 35, "after": 32, "delta": -3 },
+    "actionableFindings": { "before": 29, "after": 26, "delta": -3 },
+    "walletFindings": { "before": 3, "after": 0, "delta": -3 },
+    "reviewedExceptions": { "before": 6, "after": 6, "delta": 0 },
+    "findingIdsAtInspection": ["finding.033", "finding.034", "finding.035"],
+    "assignedHistoricalRange": ["finding.035", "finding.036", "finding.037"],
+    "status": "isolated-projection-only-canonical-rebaseline-owned-elsewhere"
+  },
+  "nonClaims": [
+    "The guarded migration is not evidence that any deployed database safely adopted a migration version.",
+    "The static compatibility query has not been parsed or executed by a live PostgreSQL server.",
+    "No populated source-version database has preserved and reconciled real wallet rows through this migration.",
+    "This package does not enable the intentionally blocked wallet custody and projection routes."
+  ],
+  "blockers": [
+    { "id": "B01", "category": "migration-runner", "status": "blocked", "summary": "No reviewed wallet migration runner or durable version ledger owns this ordered migration root." },
+    { "id": "B02", "category": "baseline-adoption", "status": "blocked", "summary": "Safe version adoption for already matching deployed wallet tables has not been specified or tested." },
+    { "id": "B03", "category": "populated-upgrade", "status": "blocked", "summary": "No populated source-version wallet database has demonstrated row-preserving upgrade behavior." },
+    { "id": "B04", "category": "reconciliation", "status": "blocked", "summary": "No pre/post row, key, default, constraint, index, or serial-sequence reconciliation has run." },
+    { "id": "B05", "category": "concurrent-startup", "status": "blocked", "summary": "Migration ordering against concurrent wallet replicas and compatibility probes remains untested." },
+    { "id": "B06", "category": "live-database", "status": "blocked", "summary": "Neither the migration nor the compatibility query has run against a live PostgreSQL database." }
+  ]
+}

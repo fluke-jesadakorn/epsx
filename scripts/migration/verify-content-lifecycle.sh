@@ -133,10 +133,21 @@ for (const item of contract.targetEvidence) {
 }
 
 const boundary = contract.currentBoundary;
-if (!boundary || boundary.authorization !== "partial" || boundary.editorRoutes !== "fail-closed-404" || boundary.lifecycleParityClaim !== false || boundary.productionClaim !== false) {
-  fail("A2.3b boundary facts drifted or overclaim readiness");
+if (
+  !boundary ||
+  boundary.authorization !== "partial" ||
+  boundary.editorRoutes !== "fail-closed-404" ||
+  boundary.contentSchemaBoundary !== "partial-a3.10" ||
+  boundary.contentRuntimeDdlFindingsRemoved !== 4 ||
+  boundary.contentRuntimeDdlFindingsRemaining !== 0 ||
+  boundary.contentMigrationRunner !== "absent" ||
+  boundary.contentPopulatedUpgradeProof !== false ||
+  boundary.lifecycleParityClaim !== false ||
+  boundary.productionClaim !== false
+) {
+  fail("A2.3b/A3.10 boundary facts drifted or overclaim readiness");
 }
-if (!Array.isArray(boundary.evidenceIds) || boundary.evidenceIds.length < 2) fail("A2.3b boundary evidence is incomplete");
+if (!Array.isArray(boundary.evidenceIds) || boundary.evidenceIds.length < 3) fail("A2.3b/A3.10 boundary evidence is incomplete");
 for (const id of boundary.evidenceIds) if (!evidenceIds.has(id)) fail(`currentBoundary: unknown evidence id ${id}`);
 
 const expectedBatches = [
@@ -225,6 +236,11 @@ const report = {
   currentBoundary: {
     authorization: boundary.authorization,
     editorRoutes: boundary.editorRoutes,
+    contentSchemaBoundary: boundary.contentSchemaBoundary,
+    contentRuntimeDdlFindingsRemoved: boundary.contentRuntimeDdlFindingsRemoved,
+    contentRuntimeDdlFindingsRemaining: boundary.contentRuntimeDdlFindingsRemaining,
+    contentMigrationRunner: boundary.contentMigrationRunner,
+    contentPopulatedUpgradeProof: boundary.contentPopulatedUpgradeProof,
     lifecycleParityClaim: false
   },
   routeBatches: contract.routeBatches.map((item) => ({ id: item.id, status: item.status, routes: item.routes.length })),
@@ -252,7 +268,7 @@ fi
 
 if [ "$mode" = "integrity" ]; then
   echo "content-lifecycle: PASS — pinned evidence and contract integrity verified (20 stop blockers, 8 route batches)"
-  echo "content-lifecycle: LIMIT — A2.3b authorization is partial, editor routes remain fail-closed 404, and no lifecycle parity or production readiness was proven"
+  echo "content-lifecycle: LIMIT — A2.3b authorization and A3.10 schema are partial; four content runtime DDL findings are removed, but runner/upgrade/reconciliation proof, lifecycle parity, and production readiness remain absent"
   exit 0
 fi
 

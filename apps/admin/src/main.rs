@@ -753,15 +753,36 @@ mod routing_tests {
     }
 
     #[tokio::test]
-    async fn admin_redirect_statuses_and_targets_are_preserved() {
-        let wallet = request(Method::GET, "/wallet-management").await;
-        assert_eq!(wallet.status(), StatusCode::PERMANENT_REDIRECT);
-        assert_eq!(wallet.headers()[header::LOCATION], "/wallet-management/wallets");
+    async fn admin_redirect_targets_are_fixed_but_transport_drift_remains_visible() {
+        for uri in [
+            "/wallet-management",
+            "/wallet-management?next=https%3A%2F%2Fevil.example%2Fsteal",
+        ] {
+            let wallet = request(Method::GET, uri).await;
+            assert_eq!(wallet.status(), StatusCode::PERMANENT_REDIRECT, "{uri}");
+            assert_eq!(
+                wallet.headers()[header::LOCATION],
+                "/wallet-management/wallets",
+                "{uri}"
+            );
+        }
 
-        let notifications = request(Method::GET, "/notifications").await;
-        assert_eq!(notifications.status(), StatusCode::OK);
-        let body = to_bytes(notifications.into_body(), 2 * 1024 * 1024).await.unwrap();
-        assert!(String::from_utf8_lossy(&body).contains("window.location.replace('/notifications/manage');"));
+        for uri in [
+            "/notifications",
+            "/notifications?next=https%3A%2F%2Fevil.example%2Fsteal",
+        ] {
+            let notifications = request(Method::GET, uri).await;
+            assert_eq!(notifications.status(), StatusCode::OK, "{uri}");
+            let body = to_bytes(notifications.into_body(), 2 * 1024 * 1024)
+                .await
+                .unwrap();
+            let html = String::from_utf8_lossy(&body);
+            assert!(
+                html.contains("window.location.replace('/notifications/manage');"),
+                "{uri}"
+            );
+            assert!(!html.contains("evil.example"), "{uri}");
+        }
     }
 }
 

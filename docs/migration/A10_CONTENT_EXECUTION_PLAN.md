@@ -17,7 +17,7 @@ The required outcome is production-usable lifecycle behavior, not merely similar
 
 This A10.0 deliverable does **not** modify runtime code, Cargo manifests, `Cargo.lock`, existing fixtures, UI, BFF, infrastructure, deployment state, databases, or production filesystems. Its verifier reads local Git/files only, refuses production-looking or data-service environments, performs no network/database/object-store/chain access, and reserves readiness as exit `3`.
 
-## 2. Truth statement: what A2.3b did and did not prove
+## 2. Truth statement: what A2.3b and A3.10 did and did not prove
 
 A2.3b is a useful boundary, but only a partial one:
 
@@ -29,6 +29,14 @@ A2.3b is a useful boundary, but only a partial one:
 - it does not validate drafts versus published revisions, data provenance, CRUD validation, session ownership, publication atomicity, media integrity, migrations/backfill, entitlements, wire compatibility, UI states, reconciliation, or rollback.
 
 Editor routes must stay fail-closed until phases 4, 5, and 10 below produce reviewed identity, ownership, concurrency, audit, and replay evidence. Making them reachable earlier is a regression, not progress.
+
+A3.10 is also a bounded improvement, not lifecycle completion:
+
+- it removed all four content-service runtime DDL findings and added a tracked additive migration root;
+- it kept the service fail-fast on an absent or incompatible schema;
+- the root has no reviewed runner or version ledger and has not been adopted on a populated source schema;
+- it does not provide immutable revisions, a public pointer, audit/outbox/idempotency tables, legacy-news backfill, reconciliation, or rollback evidence;
+- therefore content schema status remains `partial-a3.10` and readiness remains stopped.
 
 ## 3. Pinned development evidence
 
@@ -60,16 +68,16 @@ The contract pins 32 current-worktree anchors. The exact full anchor strings liv
 | Current area | Evidence IDs and anchors | Audit finding |
 |---|---|---|
 | Router/auth | `target-content-router` (`pages/{slug}` CRUD route), `target-auth-boundary` (`EditorIdentityRequired \| Blocked`), `target-gateway-rewrite` (`/api/v1/news` → `/api/v1/content/news`) | Authorization is partial; public and admin route classification exists, editor routes are 404, lifecycle is unproved. |
-| Runtime schema | `target-runtime-ddl` (`CREATE TABLE IF NOT EXISTS pages (`) | Service startup performs DDL; no repository migration, version, backfill, or reconciliation gate exists. |
-| Page lifecycle | `target-render-draft-query` (`FROM pages WHERE slug = $1`), `target-page-create` (`INSERT INTO pages...`), `target-page-status` (`req.status`), `target-publish-direct` (`UPDATE pages SET status = 'published'`) | Public render can load a mutable non-published row; CRUD/publish lack canonical validation, optimistic concurrency, immutable revisions, audit/outbox, and invalidation. |
+| Schema boundary | `target-content-schema-boundary` (content findings `4 → 0`) | A3.10 removed startup DDL and added an additive root, but the root has no runner/version ledger, populated-source adoption, backfill, or reconciliation proof and does not model the required lifecycle revisions/outbox/idempotency. |
+| Page lifecycle | `target-render-draft-query` (`FROM public.pages WHERE slug = $1`), `target-page-create` (`INSERT INTO public.pages...`), `target-page-status` (`req.status`), `target-publish-direct` (`SET status = 'published'`) | Public render can load a mutable non-published row; CRUD/publish lack canonical validation, optimistic concurrency, immutable revisions, audit/outbox, and invalidation. |
 | Theme/block | `target-theme-empty-overwrite` (missing colors → `{}`), `target-block-admin-public` (public select includes `admin_only`), `target-registry-db-sync` (filesystem upsert) | Partial theme updates are destructive; public block projection can expose admin-only definitions; schemas are not lifecycle-versioned. |
-| Editor | `target-editor-client-user` (`.bind(&req.user_id)`), `target-auth-boundary` | Handler trusts body identity, so A2.3b correctly keeps the surface unreachable; ownership/expiry/version/replay are absent. |
+| Editor | `target-editor-client-user` (`Uuid::parse_str(&req.user_id)`), `target-auth-boundary` | Handler trusts body identity, so A2.3b correctly keeps the surface unreachable; ownership/expiry/version/replay are absent. |
 | Filesystem trust | `target-watcher-enabled`, `target-registry-file-read`, `target-registry-db-sync`, `target-site-file-read` | Mutable local files feed runtime registry/DB/site responses. Reload appends into the existing vectors and does not reconcile deletions or reject a full bad generation atomically. |
 | News/plans | `target-news-fallback` (unknown slug returns “coming soon”), `target-plans-file-read` (`marketing/plans.json`) | Unknown news receives a synthesized 200; plans are content files rather than subscription-owned public/active records. |
 | Ranking/portfolio | `target-ranking-static` (`GHC` row), `target-portfolio-placeholder` (`auth_required: true`) | Ranking is canned and has no entitlement authority; portfolio is public and address-selected, not verified-owner data. |
-| Frontend BFF | `target-frontend-routes`, `target-bff-ranking-static`, `target-bff-plan-static`, `target-bff-news-static`, `target-bff-news-any-slug`, `target-bff-portfolio-static` | BFF shadows service routes with canned bodies, accepts any news slug, and returns production-looking portfolio/ranking/plan/news responses. |
+| Frontend BFF | `target-frontend-routes`, `target-bff-ranking-static`, `target-bff-plan-static`, `target-bff-news-upstream`, `target-bff-news-not-found`, `target-bff-portfolio-static` | News now uses strict live upstream adapters and preserves upstream not-found, but the content service still synthesizes an unknown-slug article and ranking/plan/portfolio BFF responses remain production-looking canned data. |
 | Admin/client | `target-admin-plain-content`, `target-admin-status-allowlist`, `target-client-typed-status` | Some reads omit request context. The client now discards upstream error details and the admin BFF preserves an allowlisted status, but the bare response still lacks the versioned code/message/validation/retry/correlation envelope required by A5. |
-| UI | `target-news-ui-fallback`, `target-portfolio-ui-static`, `target-analytics-ui-static` | Wire failure/empty can become canned content. Full loading/empty/forbidden/not-found/error/retry/success state machines are absent. |
+| UI | `target-news-ui-error-state`, `target-portfolio-ui-static`, `target-analytics-ui-static` | News now exposes explicit empty/error/retry behavior without sample fallback; portfolio and analytics remain static, and complete state coverage across all lifecycle surfaces is absent. |
 | Headers | `target-frontend-security-layer` | A frontend security middleware is installed, but no per-content-route cache/security contract is proven across all hops. |
 
 ## 5. Development-to-target contract comparison
@@ -79,7 +87,7 @@ The contract pins 32 current-worktree anchors. The exact full anchor strings liv
 | Published reads | News repository filters `status = published`; ordered by publication time. | Page render selects by slug only; news list reads JSON; unknown detail is synthesized. | Anonymous reads resolve a locale+slug to an immutable published revision; every non-public state is 404. |
 | Draft/admin reads | Admin news supports drafts, publish/unpublish, pin/unpin. | Protected page list/get exists, but page status is arbitrary; editor is 404. | Draft projection is admin-only, actor-attributed, versioned, non-cacheable, and never shares a public DTO/cache key. |
 | Slug/locale | News slug is unique with suffix generation; no locale. | Page has locale column but lookup/unique key is slug-only; unknown news returns 200. | Normalize slug once; unique `(locale, slug)`; explicit default/fallback/rename/redirect policy; unknown/draft/deleted is HTTP 404. |
-| Pagination | News page min 1, limit 1–100; featured limit 1–10. | Content JSON/BFF shapes are fixed and inconsistent. | Freeze query defaults/caps, sort tie-breaker, total/cursor/page fields, malformed-query status, and empty-page behavior. |
+| Pagination | News page min 1, limit 1–100; featured limit 1–10. | Frontend news now normalizes a fixed 12-item page from a bounded upstream read, but the canonical cross-hop query/order/featured contract is not frozen. | Freeze query defaults/caps, sort tie-breaker, total/cursor/page fields, malformed-query status, and empty-page behavior. |
 | Public plans | DB-backed, list filters `is_public`, Redis TTL 900, tier sort; detail has a visibility gap. | Content JSON and BFF buckets are canned. | Subscription service owns records; both list/detail require `is_public && is_active`; filter/order/promotion/cache semantics are identical. |
 | Ranking access | Backend permission service derives rank offset/cap; anonymous uses backend free offset. | Content/BFF/UI contain sample companies. | Only backend permission/plan authority derives access; downstream may render but never widen results. |
 | Portfolio/watchlist | Verified OpenID wallet scopes DB watchlist; add is conflict-do-nothing; overview joins rankings. | Arbitrary public address path returns placeholder or canned holdings. | Authenticated subject selects owner; foreign address is not a selector; mutations are validated/idempotent and overview uses live analytics. |
@@ -90,8 +98,8 @@ The contract pins 32 current-worktree anchors. The exact full anchor strings liv
 | Publish | News publish/unpublish changes status/time but has no complete revision/outbox contract. | Direct status update; commit can separately publish after closing session. | One transaction validates draft/version/media, creates immutable revision, flips public pointer, writes audit+outbox+idempotency, then invalidates cache. |
 | Media | Upload to object storage; public route rejects traversal and can redirect to CDN; local fallback exists. | No target upload/reference lifecycle. | Size/MIME sniff/digest/namespace checks, durable metadata, published-reference integrity, content-addressed immutable delivery, safe GC. |
 | Filesystem sync | Not the legacy news authority. | Mutable manifests/settings/news/plans are runtime authority; reload accumulates entries. | DB/versioned bundle authority is explicit. Production watch is disabled or signed/path-confined; reload is atomic and reconciles removals. |
-| Wire/status | Legacy public/user routes and frontend actions provide prior paths/shapes, with some status/empty bugs. | Gateway rewrites coexist with frontend canned handlers; admin/client collapse statuses. | One route matrix freezes external/internal prefixes, request body, envelope, pagination, status, request ID, cache/security headers. |
-| UI states | News and portfolio have real empty UI; failures can still be degraded upstream. | Canned fallbacks prevent real empty/error states. | Each data surface implements loading, empty, forbidden, not found, retryable error, retry, and success without fake content. |
+| Wire/status | Legacy public/user routes and frontend actions provide prior paths/shapes, with some status/empty bugs. | Gateway rewrites coexist with a live news adapter and canned ranking/plan/portfolio handlers; admin/client behavior is not one frozen cross-hop contract. | One route matrix freezes external/internal prefixes, request body, envelope, pagination, status, request ID, cache/security headers. |
+| UI states | News and portfolio have real empty UI; failures can still be degraded upstream. | News now distinguishes empty/error/retry without fake content, while portfolio/analytics remain static and the remaining lifecycle surfaces lack a complete state matrix. | Each data surface implements loading, empty, forbidden, not found, retryable error, retry, and success without fake content. |
 
 ## 6. Stop blockers
 
@@ -108,13 +116,13 @@ Readiness stays stopped until all 20 blockers in the contract have implementatio
 9. `B09` publish is not a transactional immutable lifecycle.
 10. `B10` media metadata/reference validation and safe garbage collection missing.
 11. `B11` watcher/sync trust, atomic replacement, and deletion reconciliation missing.
-12. `B12` runtime DDL remains; migrations/backfill/reconciliation missing.
+12. `B12` A3.10 removed runtime DDL, but migration runner/adoption, lifecycle revisions, backfill, and reconciliation remain missing.
 13. `B13` plan authority/visibility/shape/cache parity missing.
 14. `B14` ranking data and entitlements are canned/bypassed.
 15. `B15` portfolio/watchlist owner semantics are replaced by an arbitrary public address route.
 16. `B16` prefixes, bodies, envelopes, statuses, IDs, and headers diverge across hops.
 17. `B17` audit, outbox, and mutation idempotency are missing.
-18. `B18` UI state machines are hidden by canned fallbacks.
+18. `B18` news states improved, but portfolio/analytics still use static data and complete UI state coverage is unproved.
 19. `B19` shadow/reconciliation/SLO readiness evidence is missing.
 20. `B20` per-batch route/data/cache rollback is unproved.
 
@@ -155,11 +163,11 @@ Agent packet: contract steward.
 
 Agent packet: data model/migration owner.
 
-- Add versioned, reversible migrations; remove service-startup DDL only in the implementation batch.
+- Build forward-only lifecycle migrations on the A3.10 fresh-schema boundary; retain zero content runtime DDL.
 - Minimum durable model: content identity `(kind, locale, slug)`, mutable draft/version, immutable revision, public pointer, theme versions/default invariant, block type/version, media object/reference, editor session, mutation idempotency, audit, outbox.
 - Add state constraints, foreign keys, unique keys, indexes, timestamps, actor/request fields, and retention rules.
 - Never drop legacy data to simplify the move; use additive/rename/backfill transitions with `IF EXISTS`/`IF NOT EXISTS` guards where appropriate.
-- Exit: migration up/down or forward-repair evidence, schema tests, migration lint, and no runtime DDL dependency.
+- Exit: reviewed runner/version ledger, populated-source adoption or forward-repair evidence, schema tests, migration lint, and continued zero runtime DDL.
 
 ### Phase 3 — backfill and reconciliation
 
@@ -324,7 +332,7 @@ Run from repository root with database/Redis/object-store/chain variables unset 
 
 Expected results:
 
-- integrity exits `0` only when the pinned ref/commit, 14 blobs/anchors, 32 current anchors, partial A2.3b truth, eight batches, 16 lifecycle requirements, 20 blocked stop findings, rules, and 12-phase order are intact;
+- integrity exits `0` only when the pinned ref/commit, 14 blobs/anchors, 32 current anchors, partial A2.3b authorization plus partial A3.10 schema truth, eight batches, 16 lifecycle requirements, 20 blocked stop findings, rules, and 12-phase order are intact;
 - report exits `0` and emits deterministic JSON;
 - readiness exits `3` while the contract remains intentionally non-production;
 - self-test proves deterministic reports and detects missing source/target anchors, stale source commit/blob, unsafe evidence path, readiness-sentinel tampering, and blocker-state tampering;

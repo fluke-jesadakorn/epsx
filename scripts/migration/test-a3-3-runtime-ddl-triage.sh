@@ -48,10 +48,10 @@ bun -e '
   const report = JSON.parse(readFileSync(process.argv[1], "utf8"));
   const expected = {
     trackedRustFiles: 1124,
-    findings: 35,
+    findings: 28,
     reviewedExceptions: 6,
-    actionable: 29,
-    sha256: "09417a5cbb0997bdc3277e4a5d51bc7ef618dd78caa61ed965c868b684b5b129",
+    actionable: 22,
+    sha256: "eb754053bb0c2b7ff05babcb695c00eb0ca86653b4bd9199e183b4f2a69ee1c4",
   };
   if (JSON.stringify(report.scanner) !== JSON.stringify(expected)) process.exit(1);
 ' "$TEST_DIR/report-1.json" || {
@@ -109,4 +109,4 @@ expect_failure upstream-checksum bun "$VERIFY" --upstream "$TEST_DIR/migration-s
 ln -s "$CONTRACT" "$TEST_DIR/contract-link.json"
 expect_failure symlink-contract bun "$VERIFY" --contract "$TEST_DIR/contract-link.json"
 
-echo "a3-3-runtime-ddl-triage-self-test: PASS — exact 35/6/29 scanner inventory, deterministic report, readiness STOP, and 6 fail-closed tamper/path cases"
+echo "a3-3-runtime-ddl-triage-self-test: PASS — exact 28/6/22 scanner inventory, deterministic report, readiness STOP, and 6 fail-closed tamper/path cases"

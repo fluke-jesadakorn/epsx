@@ -3,25 +3,27 @@
 Status: **offline/static integrity complete; production readiness STOP**.
 
 This package deterministically expands the runtime Rust DDL evidence already pinned by
-[`migration-safety.json`](contracts/migration-safety.json). It does not inspect a database,
-run a migration, create forward SQL, or claim that any runtime DDL gap is remediated. The
-canonical remediation assignment remains A3.6 in the upstream risks.
+[`migration-safety.json`](contracts/migration-safety.json). It records the static A3.9/A3.10
+removal of the wallet and content findings, but does not inspect a database, run a migration,
+or claim the broader runner/upgrade/reconciliation risks are complete. The canonical
+remediation assignment remains A3.6 in the upstream risks.
 
 ## Fixed evidence boundary
 
 - Upstream contract SHA-256:
-  `ccac1d6e97fd0d4e706d6fe3f4094a369b6f7974bdec9c3fd74d6f181ef57f1b`
+  `fcfb0614bc343262d0bcdbf9b475b79a53eb356427405185ed6508bc36d03aeb`
 - Tracked Rust files: 1,124
-- Scanner findings: 35
+- Scanner findings: 28
 - Exact reviewed exceptions: 6
-- Actionable findings: 29, all `blocked`
-- Tracked migration SQL files: 169
-- Destructive SQL findings: 510 (unchanged digest
-  `42ecabca57eef316e4f826b816136ff317df75278f8b36838b4f20bdb171eec9`)
+- Actionable findings: 22, all `blocked`
+- Tracked migration SQL files: 171
+- Registered migration roots: 13
+- Destructive SQL findings: 511 (digest
+  `cda0fbb7411db38cc02a4c4d7ec97d26b15aaff5a5faa9281ff96e3e763e9132`)
 - Production ready: `false`
 - Readiness result: `STOP`
 
-The triage contract enumerates all 35 findings in the scanner's stable order with the exact
+The triage contract enumerates all 28 findings in the scanner's stable order with the exact
 file, line, normalized DDL kind, classification, reviewed-exception ID (when present), service
 group, boot-time risk group, and blocked status. The upstream scanner digest also pins the
 normalized source text without duplicating that text here.
@@ -49,7 +51,7 @@ closed.
 
 | Classification | Findings | Readiness meaning |
 |---|---:|---|
-| Actionable | 29 | Remains blocked |
+| Actionable | 22 | Remains blocked |
 | Exact reviewed exception | 6 | Not runtime application DDL; does not prove remediation |
 
 ### DDL kind
@@ -59,24 +61,24 @@ closed.
 | `CREATE DATABASE` | 3 |
 | `CREATE INDEX` | 10 |
 | `CREATE SCHEMA` | 4 |
-| `CREATE TABLE` | 17 |
+| `CREATE TABLE` | 10 |
 | `DROP TABLE` | 1 |
 
 The six reviewed exceptions account for one `DROP TABLE`, four `CREATE SCHEMA`, and one
-`CREATE TABLE` lexical match. The remaining 29 actionable findings account for three
-`CREATE DATABASE`, ten `CREATE INDEX`, and sixteen `CREATE TABLE` matches.
+`CREATE TABLE` lexical match. The remaining 22 actionable findings account for three
+`CREATE DATABASE`, ten `CREATE INDEX`, and nine `CREATE TABLE` matches.
 
 ### Boot-time risk triage
 
 | Evidence-backed group | Findings | Interpretation |
 |---|---:|---|
-| `service-startup-schema-mutation` | 26 | SQL in the five services still named by upstream `runtime.service-schema-ddl` evidence |
+| `service-startup-schema-mutation` | 19 | SQL in the three services still named by upstream `runtime.service-schema-ddl` evidence |
 | `runtime-database-bootstrap` | 1 | `CREATE DATABASE` in the tracked migration binary |
 | `lexical-match-not-schema-ddl` | 2 | “create database pool” error strings; still actionable because they are not upstream exceptions |
 | `reviewed-exception-not-runtime-ddl` | 6 | Exact test-only exceptions already reviewed upstream |
 
 Lexical triage never silently creates an exception. The two pool-message matches therefore
-remain in the 29 actionable findings until the canonical migration-safety contract is changed
+remain in the 22 actionable findings until the canonical migration-safety contract is changed
 through its explicit exception review process.
 
 ### Service group
@@ -88,11 +90,9 @@ through its explicit exception review process.
 | backend-migrate | 1 | 1 | 0 |
 | backend-security-test | 1 | 0 | 1 |
 | backend-smoke-test | 5 | 0 | 5 |
-| content | 4 | 4 | 0 |
 | indexer | 5 | 5 | 0 |
 | notification | 4 | 4 | 0 |
 | pay | 10 | 10 | 0 |
-| wallet | 3 | 3 | 0 |
 
 ### File group
 
@@ -104,11 +104,9 @@ through its explicit exception review process.
 | `apps/backend/src/main.rs` | 1 |
 | `apps/backend/tests/wave11_smoke.rs` | 2 |
 | `apps/backend/tests/wave12_smoke.rs` | 3 |
-| `services/content/src/main.rs` | 4 |
 | `services/indexer/src/main.rs` | 5 |
 | `services/notification/src/main.rs` | 4 |
 | `services/pay/src/db.rs` | 10 |
-| `services/wallet/src/main.rs` | 3 |
 
 ## Remediation requirements carried forward unchanged
 
@@ -127,11 +125,13 @@ for byte at the field level. This triage adds no priority, dependency, database-
 forward SQL.
 
 The canonical inventory records `services/analytics/migrations`,
-`services/identity/migrations`, and `services/subscription/migrations` as partial manual
+`services/identity/migrations`, `services/subscription/migrations`,
+`services/wallet/migrations`, and `services/content/migrations` as partial manual
 migration roots with `runner: null`. Those classifications acknowledge the tracked additive
 SQL without claiming runner/version-ledger wiring, deployed-baseline adoption, source-version
-upgrade, backfill, or reconciliation proof. Removing the analytics, identity, and subscription
-startup DDL findings therefore does not align either upstream A3.6 risk.
+upgrade, backfill, or reconciliation proof. A3.9 and A3.10 removed three wallet and four
+content startup-DDL findings respectively, but those lexical reductions do not align either
+upstream A3.6 risk.
 
 ## Offline verification
 
@@ -151,4 +151,4 @@ scripts/migration/verify-a3-3-runtime-ddl-triage.ts --readiness
 ```
 
 An integrity pass is expected. A readiness pass is not: `--readiness` always exits `2` while the
-29 actionable findings are blocked and executable database proof is absent.
+22 actionable findings are blocked and executable database proof is absent.

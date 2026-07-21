@@ -4,13 +4,13 @@
   "productionReady": false,
   "upstream": {
     "path": "docs/migration/contracts/migration-safety.json",
-    "sha256": "ccac1d6e97fd0d4e706d6fe3f4094a369b6f7974bdec9c3fd74d6f181ef57f1b",
+    "sha256": "fcfb0614bc343262d0bcdbf9b475b79a53eb356427405185ed6508bc36d03aeb",
     "runtimeRustDdl": {
       "trackedFiles": 1124,
-      "findings": 35,
-      "sha256": "09417a5cbb0997bdc3277e4a5d51bc7ef618dd78caa61ed965c868b684b5b129",
+      "findings": 28,
+      "sha256": "eb754053bb0c2b7ff05babcb695c00eb0ca86653b4bd9199e183b4f2a69ee1c4",
       "reviewedExceptions": 6,
-      "actionable": 29
+      "actionable": 22
     }
   },
   "statusPolicy": {
@@ -47,21 +47,21 @@
   ],
   "expectedGroups": {
     "classification": {
-      "actionable": 29,
+      "actionable": 22,
       "reviewed-exception": 6
     },
     "ddlKind": {
       "CREATE DATABASE": 3,
       "CREATE INDEX": 10,
       "CREATE SCHEMA": 4,
-      "CREATE TABLE": 17,
+      "CREATE TABLE": 10,
       "DROP TABLE": 1
     },
     "bootTimeRisk": {
       "lexical-match-not-schema-ddl": 2,
       "reviewed-exception-not-runtime-ddl": 6,
       "runtime-database-bootstrap": 1,
-      "service-startup-schema-mutation": 26
+      "service-startup-schema-mutation": 19
     },
     "service": {
       "backend-blockchain-monitor": 1,
@@ -69,11 +69,9 @@
       "backend-migrate": 1,
       "backend-security-test": 1,
       "backend-smoke-test": 5,
-      "content": 4,
       "indexer": 5,
       "notification": 4,
-      "pay": 10,
-      "wallet": 3
+      "pay": 10
     },
     "file": {
       "apps/backend/__test__/web3/web3_security_tests.rs": 1,
@@ -82,11 +80,9 @@
       "apps/backend/src/main.rs": 1,
       "apps/backend/tests/wave11_smoke.rs": 2,
       "apps/backend/tests/wave12_smoke.rs": 3,
-      "services/content/src/main.rs": 4,
       "services/indexer/src/main.rs": 5,
       "services/notification/src/main.rs": 4,
-      "services/pay/src/db.rs": 10,
-      "services/wallet/src/main.rs": 3
+      "services/pay/src/db.rs": 10
     }
   },
   "findings": [
@@ -99,31 +95,24 @@
     {"id":"finding.007","file":"apps/backend/tests/wave12_smoke.rs","line":129,"ddlKind":"CREATE SCHEMA","classification":"reviewed-exception","reviewedExceptionId":"exception.runtime-wave12-smoke-detect-present","service":"backend-smoke-test","bootTimeRisk":"reviewed-exception-not-runtime-ddl","status":"blocked"},
     {"id":"finding.008","file":"apps/backend/tests/wave12_smoke.rs","line":135,"ddlKind":"CREATE SCHEMA","classification":"reviewed-exception","reviewedExceptionId":"exception.runtime-wave12-smoke-detect-legacy","service":"backend-smoke-test","bootTimeRisk":"reviewed-exception-not-runtime-ddl","status":"blocked"},
     {"id":"finding.009","file":"apps/backend/tests/wave12_smoke.rs","line":139,"ddlKind":"CREATE SCHEMA","classification":"reviewed-exception","reviewedExceptionId":"exception.runtime-wave12-smoke-message","service":"backend-smoke-test","bootTimeRisk":"reviewed-exception-not-runtime-ddl","status":"blocked"},
-    {"id":"finding.010","file":"services/content/src/main.rs","line":180,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"content","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.011","file":"services/content/src/main.rs","line":196,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"content","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.012","file":"services/content/src/main.rs","line":209,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"content","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.013","file":"services/content/src/main.rs","line":223,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"content","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.014","file":"services/indexer/src/main.rs","line":126,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"indexer","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.015","file":"services/indexer/src/main.rs","line":144,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"indexer","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.016","file":"services/indexer/src/main.rs","line":161,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"indexer","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.017","file":"services/indexer/src/main.rs","line":179,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"indexer","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.018","file":"services/indexer/src/main.rs","line":185,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"indexer","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.019","file":"services/notification/src/main.rs","line":166,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"notification","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.020","file":"services/notification/src/main.rs","line":183,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"notification","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.021","file":"services/notification/src/main.rs","line":203,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"notification","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.022","file":"services/notification/src/main.rs","line":208,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"notification","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.023","file":"services/pay/src/db.rs","line":32,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.024","file":"services/pay/src/db.rs","line":51,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.025","file":"services/pay/src/db.rs","line":70,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.026","file":"services/pay/src/db.rs","line":83,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.027","file":"services/pay/src/db.rs","line":94,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.028","file":"services/pay/src/db.rs","line":95,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.029","file":"services/pay/src/db.rs","line":96,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.030","file":"services/pay/src/db.rs","line":97,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.031","file":"services/pay/src/db.rs","line":98,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.032","file":"services/pay/src/db.rs","line":99,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.033","file":"services/wallet/src/main.rs","line":164,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"wallet","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.034","file":"services/wallet/src/main.rs","line":179,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"wallet","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.035","file":"services/wallet/src/main.rs","line":192,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"wallet","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"}
+    {"id":"finding.010","file":"services/indexer/src/main.rs","line":126,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"indexer","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.011","file":"services/indexer/src/main.rs","line":144,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"indexer","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.012","file":"services/indexer/src/main.rs","line":161,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"indexer","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.013","file":"services/indexer/src/main.rs","line":179,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"indexer","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.014","file":"services/indexer/src/main.rs","line":185,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"indexer","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.015","file":"services/notification/src/main.rs","line":166,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"notification","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.016","file":"services/notification/src/main.rs","line":183,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"notification","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.017","file":"services/notification/src/main.rs","line":203,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"notification","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.018","file":"services/notification/src/main.rs","line":208,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"notification","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.019","file":"services/pay/src/db.rs","line":32,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.020","file":"services/pay/src/db.rs","line":51,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.021","file":"services/pay/src/db.rs","line":70,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.022","file":"services/pay/src/db.rs","line":83,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.023","file":"services/pay/src/db.rs","line":94,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.024","file":"services/pay/src/db.rs","line":95,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.025","file":"services/pay/src/db.rs","line":96,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.026","file":"services/pay/src/db.rs","line":97,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.027","file":"services/pay/src/db.rs","line":98,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
+    {"id":"finding.028","file":"services/pay/src/db.rs","line":99,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"}
   ]
 }
