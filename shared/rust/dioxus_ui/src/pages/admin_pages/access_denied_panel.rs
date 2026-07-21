@@ -1,291 +1,360 @@
-//! `AccessDeniedPanel` — Wave 38b T2 STRUCTURAL port.
+//! Source-parity denial panels for the admin `/access-denied` and
+//! `/unauthorized` routes.
 //!
-//! Replaces the per-route `access_denied::render()` /
-//! `unauthorized::render()` / `developer_portal::render_create_key()`
-//! for the 3 admin outliers. Prod renders the SAME SSR HTML for all 3
-//! routes (verified by owner probe 2026-06-18 against
-//! `tools/e2e-admin/baselines/prod-admin/{admin-access-denied,
-//! admin-unauthorized,admin-developer-portal-api-keys-create}.html`):
-//!
-//! 1. **SPECIFIC content** (red-shield Access Denied panel)
-//!    - `flex flex-col items-center justify-center min-h-[60vh]
-//!      p-6 sm:p-8 lg:p-12` outer wrapper
-//!    - `w-full max-w-lg` inner
-//!    - `w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-red-500
-//!      to-red-600 rounded-3xl` icon container holding the
-//!      `lucide-shield-x` glyph
-//!    - `<h1>Access Denied</h1>` + descriptive `<p>`
-//!    - `bg-muted/30 rounded-2xl border border-border/20 shadow-lg
-//!      overflow-hidden` panel with `<h3>Error Details</h3>` header
-//!    - `flex flex-col sm:flex-row gap-3` button row: "Go to Auth"
-//!      (red gradient) + "Go Back" (muted bg)
-//!
-//! 2. The 3 routes differ ONLY in the description `<p>` text:
-//!    - `/access-denied`            → "You don't have permission
-//!                                     to access this resource."
-//!    - `/unauthorized`             → "You don't have permission
-//!                                     to access the admin panel.
-//!                                     Please contact your
-//!                                     administrator if you believe
-//!                                     this is an error."
-//!    - `/developer-portal/api-keys/create` → same as unauthorized.
-//!
-//! The component is body-only — the AdminLayout::Auth wrapper in
-//! `apps/admin/src/ssr.rs` is responsible for the body-level
-//! background orbs and `<body class="h-screen ...">` wrapper.
-//! `/access-denied` + `/unauthorized` are already in
-//! `default_no_layout_paths()` so they skip the admin sidebar/header
-//! and the body becomes the centered Access Denied panel. The
-//! `/developer-portal/api-keys/create` route is the 3rd outlier —
-//! prod also renders it without sidebar/header (verified probe
-//! 2026-06-18).
-//!
-//! ## Why this is a "structural" port
-//!
-//! Wave 34 added SSR skeleton mode that catches all admin routes
-//! and renders the `<AuthPageOverlay>` + `<SkeletonPage>` placeholder
-//! bars. The 3 outlier routes (access-denied, unauthorized,
-//! developer-portal/api-keys/create) DON'T render the skeleton in
-//! prod — prod renders the actual Access Denied content. The Wave
-//! 38 brief said "exempt the 3 from skeleton mode" (commit
-//! `1ffd85a8`) but the post-exempt state falls through to
-//! `access_denied::render()` which uses the existing
-//! `<AccessDenied>` primitive with completely different class
-//! strings (access-denied / access-denied-title / access-denied-
-//! icon, etc.) — which is why match% on these routes was 0% (99.95%
-//! diff, see `tools/e2e-admin/report.md` Wave 24 T1').
-//!
-//! This component uses the PROD-EXACT Tailwind class strings from
-//! the prod baseline HTML (`text-2xl sm:text-3xl font-bold
-//! text-foreground mb-2`, `bg-muted/30 rounded-2xl border
-//! border-border/20 shadow-lg`, `bg-gradient-to-r from-red-500
-//! to-red-600`, etc.) so the pixel-diff closes back to ≥85% match.
-//!
-//! ## Tests
-//!
-//! Two unit tests:
-//! 1. `test_access_denied_panel_smoke` — the title / description /
-//!    "Error Details" / "Go to Auth" / "Go Back" markers all
-//!    render in the output HTML.
-//! 2. `test_access_denied_panel_red_shield_class` — the prod-EXACT
-//!    `bg-gradient-to-br from-red-500 to-red-600` icon container
-//!    classes are present (this is the highest-signal visual cue
-//!    that the dev is rendering the right thing).
+//! The pinned Next.js source uses the same `AccessDeniedContent` component for
+//! both routes. `/access-denied` additionally accepts `route`, `reason`,
+//! `context`, `permission`, and `detail` query values. This SSR port restores
+//! that contract while bounding and control-filtering every decoded value.
+//! Dioxus owns HTML escaping; query data is never interpolated into markup or
+//! script source.
 
-use dioxus::prelude::*;
-use super::super::{PageContext, PageMeta};
+use super::super::{PageContext, PageMeta, PageStatus};
 use crate::primitives::icon::Icon;
+use dioxus::prelude::*;
 
-/// Render the red-shield Access Denied panel for one of the 3
-/// outlier admin routes. Mirrors the prod SSR HTML byte-for-byte
-/// (modulo the icon SVG path data, which is identical because the
-/// `shield-x` lucide glyph is the prod-EXACT one).
-///
-/// `path` selects the description text:
-/// - `/access-denied`                          → "You don't have
-///                                               permission to
-///                                               access this
-///                                               resource."
-/// - `/unauthorized`                           → "You don't have
-///                                               permission to
-///                                               access the admin
-///                                               panel. Please
-///                                               contact your
-///                                               administrator if
-///                                               you believe this
-///                                               is an error."
-/// - `/developer-portal/api-keys/create`      → same as
-///                                               unauthorized.
+const DEFAULT_REASON: &str = "You don't have permission to access this resource.";
+const ADMIN_REASON: &str = "You don't have permission to access the admin panel. Please contact your administrator if you believe this is an error.";
+const ADMIN_DESCRIPTION: &str =
+    "Administrative interface for EPSX data analytics platform - User management and system monitoring";
+const ADMIN_KEYWORDS: &str = "EPSX, admin, analytics, user management, dashboard";
+const DENIAL_BODY_CLASS: &str =
+    "__variable_a460b5 h-screen bg-background text-foreground overflow-hidden font-sans";
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct DenialModel {
+    reason: String,
+    route: Option<String>,
+    context: Option<String>,
+    permission: Option<String>,
+    detail: Option<String>,
+    safe_return_target: String,
+}
+
+/// Render the source denial component. The API-key-create route still uses the
+/// historical static denial copy, but is not claimed as A8-aligned by this
+/// package because its source is a mutation form rather than a denial page.
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let (title, description) = match ctx.path.as_str() {
-        "/access-denied" => (
-            "Access Denied".to_string(),
-            "You don't have permission to access this resource.".to_string(),
-        ),
-        "/unauthorized" => (
-            "Access Denied".to_string(),
-            "You don't have permission to access the admin panel. Please contact your administrator if you believe this is an error.".to_string(),
-        ),
-        "/developer-portal/api-keys/create" => (
-            "Access Denied".to_string(),
-            "You don't have permission to access the admin panel. Please contact your administrator if you believe this is an error.".to_string(),
-        ),
-        _ => (
-            "Access Denied".to_string(),
-            "You don't have permission to access this resource.".to_string(),
-        ),
+    let model = match ctx.path.as_str() {
+        "/access-denied" => access_denied_model(ctx),
+        "/unauthorized" | "/developer-portal/api-keys/create" => DenialModel {
+            reason: ADMIN_REASON.to_string(),
+            route: None,
+            context: None,
+            permission: None,
+            detail: None,
+            safe_return_target: "/".to_string(),
+        },
+        _ => DenialModel {
+            reason: DEFAULT_REASON.to_string(),
+            route: None,
+            context: None,
+            permission: None,
+            detail: None,
+            safe_return_target: "/".to_string(),
+        },
     };
-    let slug = slug_for_path(&ctx.path);
-    // Wave 38c T1 — scope the prod-EXACT body class to ONLY the
-    // 3 outlier routes. The previous Wave 38b T2 change set this
-    // body class globally via `PageMeta::admin()` which regressed
-    // 6 other admin routes (chat, media, news, etc.) because they
-    // depend on the default `min-h-screen` flex-flow for their
-    // header+sidebar layout. Using `admin_with_body_class` keeps
-    // the body class narrowly scoped to the 3 outliers that NEED
-    // `h-screen overflow-hidden` for the centered Access Denied
-    // panel to position correctly.
-    let meta = PageMeta::admin_with_body_class(
-        slug,
-        "__variable_a460b5 h-screen bg-background text-foreground overflow-hidden font-sans",
-    );
+
+    let meta = denial_meta();
     (
         meta,
         rsx! {
-            AccessDeniedPanelInner { title, description }
+            AccessDeniedPanelInner { model }
         },
     )
 }
 
-/// Map the outlier path to the route slug used in
-/// `tools/e2e-admin/scripts/routes.json`. Mirrors the
-/// `slug_for_path` entries in `admin_pages.rs` for the same
-/// routes so the test-time slug matches the E2E harness's slug.
-fn slug_for_path(path: &str) -> &'static str {
-    match path {
-        "/access-denied" => "admin-access-denied",
-        "/unauthorized" => "admin-unauthorized",
-        "/developer-portal/api-keys/create" => "admin-developer-portal-api-keys-create",
-        _ => "admin-unknown",
+fn denial_meta() -> PageMeta {
+    PageMeta {
+        // Both source pages inherit the root admin metadata; neither declares
+        // route-owned metadata.
+        title: "EPSX Admin".to_string(),
+        description: ADMIN_DESCRIPTION.to_string(),
+        keywords: Some(ADMIN_KEYWORDS.to_string()),
+        status: PageStatus::Ok,
+        body_class: Some(DENIAL_BODY_CLASS.to_string()),
+        include_footer: false,
+        use_epsx_header: false,
     }
 }
 
-/// Inner component — the actual prod-EXACT HTML. Pulled into a
-/// component so the JSX is reusable in unit tests (the test
-/// calls `rsx! { AccessDeniedPanelInner { ... } }` directly).
-///
-/// The body includes the SAME background-gradient orbs that prod
-/// renders (the 3-blur-orb container behind the panel). These
-/// orbs are normally rendered by prod's Next.js layout; on dev
-/// the BFF's `page_shell` is a thin wrapper without orbs, so
-/// we include them here to match prod's pixel-for-pixel.
-///
-/// The orbs use inline `style` attributes (not Tailwind
-/// `dark:bg-primary/10` etc.) because the dev BFF's Tailwind v4
-/// pipeline does not emit `dark:` variant classes for the
-/// arbitrary `bg-primary/10` / `bg-[#1fc7d4]/5` / `bg-[#ed4b9e]/5`
-/// patterns — only the base `bg-primary/0` (transparent) class
-/// is compiled, leaving the orbs invisible. Inline style with
-/// `rgba(...)` is the workaround that gives the orbs the same
-/// prod-EXACT color tint at 5-10% alpha.
+fn access_denied_model(ctx: &PageContext) -> DenialModel {
+    // `useSearchParams()` performs the URL-form decode. The source then calls
+    // `decodeURIComponent()` once more for reason/detail/route/permission;
+    // `context` is intentionally decoded only once. Invalid percent escapes
+    // remain literal here instead of crashing the whole client render.
+    let reason = source_query_value(ctx, "reason", 240, true)
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| DEFAULT_REASON.to_string());
+    let route = source_query_value(ctx, "route", 256, true).filter(|value| !value.is_empty());
+    let context = source_query_value(ctx, "context", 64, false).filter(|value| !value.is_empty());
+    let permission =
+        source_query_value(ctx, "permission", 160, true).filter(|value| !value.is_empty());
+    let detail = source_query_value(ctx, "detail", 240, true).filter(|value| !value.is_empty());
+    let safe_return_target = safe_return_target(route.as_deref()).to_string();
+
+    DenialModel {
+        reason,
+        route,
+        context,
+        permission,
+        detail,
+        safe_return_target,
+    }
+}
+
+fn source_query_value(
+    ctx: &PageContext,
+    key: &str,
+    max_chars: usize,
+    source_decodes_again: bool,
+) -> Option<String> {
+    let raw = ctx.query_param(key)?;
+    let once = decode_query_text(&raw, max_chars);
+    Some(if source_decodes_again {
+        decode_query_text(&once, max_chars)
+    } else {
+        once
+    })
+}
+
+/// URL-form decode with bounded output. `+` becomes a space, valid `%HH`
+/// escapes are decoded, malformed escapes stay literal, and control bytes are
+/// removed before the character limit is applied.
+fn decode_query_text(value: &str, max_chars: usize) -> String {
+    let bytes = value.as_bytes();
+    let byte_limit = max_chars.saturating_mul(4).max(max_chars);
+    let mut decoded = Vec::with_capacity(bytes.len().min(byte_limit));
+    let mut index = 0;
+    while index < bytes.len() && decoded.len() < byte_limit {
+        match bytes[index] {
+            b'+' => {
+                decoded.push(b' ');
+                index += 1;
+            }
+            b'%' if index + 2 < bytes.len() => {
+                if let (Some(high), Some(low)) =
+                    (hex_value(bytes[index + 1]), hex_value(bytes[index + 2]))
+                {
+                    decoded.push((high << 4) | low);
+                    index += 3;
+                } else {
+                    decoded.push(bytes[index]);
+                    index += 1;
+                }
+            }
+            byte => {
+                decoded.push(byte);
+                index += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&decoded)
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(max_chars)
+        .collect()
+}
+
+fn hex_value(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}
+
+/// Accept only a local path as a post-auth/history fallback. Auth, denial,
+/// browser-internal, static, and API targets are rejected so the page cannot
+/// create a loop or turn a display-only query field into an open redirect.
+fn safe_return_target(candidate: Option<&str>) -> &str {
+    let Some(candidate) = candidate.map(str::trim) else {
+        return "/";
+    };
+    if candidate.is_empty()
+        || !candidate.starts_with('/')
+        || candidate.starts_with("//")
+        || candidate.contains('\\')
+        || candidate.chars().any(char::is_control)
+    {
+        return "/";
+    }
+    let path = candidate
+        .split_once(['?', '#'])
+        .map(|(path, _)| path)
+        .unwrap_or(candidate);
+    if path.split('/').any(|segment| matches!(segment, "." | "..")) {
+        return "/";
+    }
+    if [
+        "/.well-known",
+        "/_next",
+        "/api",
+        "/auth",
+        "/login",
+        "/access-denied",
+        "/unauthorized",
+        "/favicon",
+        "/public",
+        "/static",
+    ]
+    .iter()
+    .any(|prefix| path == *prefix || path.starts_with(&format!("{prefix}/")))
+    {
+        "/"
+    } else {
+        candidate
+    }
+}
+
+fn url_encode_query_value(value: &str) -> String {
+    let mut output = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                output.push(byte as char)
+            }
+            _ => output.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    output
+}
+
 #[component]
-fn AccessDeniedPanelInner(title: String, description: String) -> Element {
+fn AccessDeniedPanelInner(model: DenialModel) -> Element {
+    let auth_href = format!(
+        "/auth?return_url={}",
+        url_encode_query_value(&model.safe_return_target)
+    );
+    let context_is_admin = model.context.as_deref() == Some("admin");
+
     rsx! {
-        // Background gradient orbs (prod-EXACT — see
-        // `tools/e2e-admin/baselines/prod-admin/admin-access-
-        // denied.html` for the source).
         div {
             class: "fixed inset-0 z-[-1] overflow-hidden pointer-events-none",
-            // Base gradient bg.
+            "aria-hidden": "true",
             div { class: "absolute inset-0 bg-gradient-to-br from-background via-muted to-background" }
-            // Grid pattern (dark mode opacity 40%).
             div { class: "absolute inset-0 bg-grid-pattern opacity-0 dark:opacity-40" }
-            // 3 blur orbs — inline styles because the Tailwind v4
-            // dev pipeline does not compile the `dark:bg-*/N`
-            // variants for these custom hex/primary colors.
             div {
                 class: "absolute -top-[10%] -left-[10%] w-[40%] h-[40%] rounded-full blur-[120px] animate-pulse",
-                style: "background:hsla(var(--primary)/0.10);",
+                "data-admin-denial-orb": "primary",
+                style: "background:rgba(59,130,246,0.10);",
             }
             div {
                 class: "absolute top-[20%] -right-[5%] w-[30%] h-[30%] rounded-full blur-[100px]",
+                "data-admin-denial-orb": "cyan",
                 style: "background:rgba(31,199,212,0.05);",
             }
             div {
                 class: "absolute -bottom-[10%] left-[20%] w-[50%] h-[50%] rounded-full blur-[150px] animate-pulse",
+                "data-admin-denial-orb": "pink",
                 style: "background:rgba(237,75,158,0.05);",
             }
         }
-        // Main flex column — prod-EXACT `<div class="flex
-        // h-screen flex-col overflow-hidden relative z-0">`.
-        // The inline `background` style overrides the dev BFF's
-        // `body { background: var(--bg); }` rule (which is
-        // `rgb(3, 7, 18)` — too dark vs prod's measured
-        // background `rgb(25-35, 25-40, 40-55)`). The fixed
-        // `rgb(30, 35, 48)` matches the prod mean and
-        // keeps the diff tight.
         div {
-            class: "flex h-screen flex-col overflow-hidden relative z-0",
-            style: "background:rgb(30,35,48);",
-            // Inner flex-1 wrapper — prod-EXACT `<div
-            // class="flex-1 relative overflow-hidden">`.
-            div {
-                class: "flex-1 relative overflow-hidden",
-                // Outer wrapper — same as prod's
-                // `<div class="flex flex-col items-center
-                // justify-center min-h-[60vh] p-6 sm:p-8
-                // lg:p-12">`.
+            class: "admin-denial-runtime-root flex h-screen flex-col overflow-y-auto overflow-x-hidden relative z-0 bg-background",
+            "data-admin-denial-runtime": "true",
+            section {
+                class: "flex flex-col items-center justify-center min-h-full p-6 sm:p-8 lg:p-12",
+                role: "alert",
+                "aria-labelledby": "admin-denial-title",
                 div {
-                    class: "flex flex-col items-center justify-center min-h-[60vh] p-6 sm:p-8 lg:p-12",
-                    // Inner card.
+                    class: "w-full max-w-lg",
                     div {
-                        class: "w-full max-w-lg",
-                        // Red shield icon block.
+                        class: "flex justify-center mb-6",
                         div {
-                            class: "flex justify-center mb-6",
-                            div {
-                                class: "w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-red-500 to-red-600 rounded-3xl flex items-center justify-center border-2 border-red-400/30 shadow-lg shadow-red-500/30",
+                            class: "w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-red-500 to-red-600 rounded-3xl flex items-center justify-center border-2 border-red-400/30 shadow-lg shadow-red-500/30",
+                            "aria-hidden": "true",
+                            Icon {
+                                name: "shield-x".to_string(),
+                                size: Some(40),
+                                class_name: Some("lucide lucide-shield-x w-10 h-10 sm:w-12 sm:h-12 text-white".to_string()),
+                            }
+                        }
+                    }
+                    div {
+                        class: "text-center mb-6",
+                        h1 {
+                            id: "admin-denial-title",
+                            class: "text-2xl sm:text-3xl font-bold text-foreground mb-2",
+                            "Access Denied"
+                        }
+                        p { class: "text-base sm:text-lg text-muted-foreground break-words", "{model.reason}" }
+                    }
+                    div {
+                        class: "bg-muted/30 rounded-2xl border border-border/20 shadow-lg overflow-hidden mb-6",
+                        "aria-label": "Error details",
+                        div {
+                            class: "p-6",
+                            h3 {
+                                class: "text-sm font-semibold text-foreground mb-4 flex items-center gap-2",
                                 Icon {
-                                    name: "shield-x".to_string(),
-                                    size: Some(40),
-                                    class_name: Some("lucide lucide-shield-x w-10 h-10 sm:w-12 sm:h-12 text-white".to_string()),
+                                    name: "triangle-alert".to_string(),
+                                    size: Some(16),
+                                    class_name: Some("lucide lucide-triangle-alert w-4 h-4 text-destructive".to_string()),
                                 }
+                                "Error Details"
                             }
-                        }
-                        // Headline + description.
-                        div {
-                            class: "text-center mb-6",
-                            h1 {
-                                class: "text-2xl sm:text-3xl font-bold text-foreground mb-2",
-                                "{title}"
-                            }
-                            p {
-                                class: "text-base sm:text-lg text-muted-foreground",
-                                "{description}"
-                            }
-                        }
-                        // Error Details panel.
-                        div {
-                            class: "bg-muted/30 rounded-2xl border border-border/20 shadow-lg overflow-hidden mb-6",
                             div {
-                                class: "p-6",
-                                h3 {
-                                    class: "text-sm font-semibold text-foreground mb-4 flex items-center gap-2",
-                                    Icon {
-                                        name: "triangle-alert".to_string(),
-                                        size: Some(16),
-                                        class_name: Some("lucide lucide-triangle-alert w-4 h-4 text-destructive".to_string()),
+                                class: "space-y-3 text-sm",
+                                if let Some(route) = model.route.as_ref() {
+                                    div { class: "flex justify-between items-start gap-4",
+                                        span { class: "text-muted-foreground shrink-0", "Requested Route:" }
+                                        code { class: "text-foreground bg-muted/30 border border-border/20 px-2 py-1 rounded text-right break-all min-w-0", "{route}" }
                                     }
-                                    "Error Details"
                                 }
-                                div {
-                                    class: "space-y-3 text-sm",
+                                if let Some(context) = model.context.as_ref() {
+                                    div { class: "flex justify-between items-center gap-4",
+                                        span { class: "text-muted-foreground", "Context:" }
+                                        span { class: "text-foreground capitalize break-all text-right min-w-0", "{context}" }
+                                    }
+                                }
+                                if let Some(permission) = model.permission.as_ref() {
+                                    div { class: "flex justify-between items-start gap-4",
+                                        span { class: "text-muted-foreground shrink-0", "Required Permission:" }
+                                        code { class: "text-foreground bg-muted/30 border border-border/20 px-2 py-1 rounded text-right break-all min-w-0", "{permission}" }
+                                    }
+                                }
+                                if let Some(detail) = model.detail.as_ref() {
+                                    div { class: "flex justify-between items-start gap-4 border-t border-border/20 pt-3 mt-1",
+                                        span { class: "text-muted-foreground shrink-0", "Backend Detail:" }
+                                        span { class: "text-foreground text-right break-words min-w-0", "{detail}" }
+                                    }
                                 }
                             }
                         }
-                        // Action buttons.
-                        div {
-                            class: "flex flex-col sm:flex-row gap-3",
-                            button {
-                                r#type: "button",
-                                class: "flex-1 inline-flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-2xl font-semibold shadow-lg shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 hover-lift transition-all",
-                                Icon {
-                                    name: "rotate-ccw".to_string(),
-                                    size: Some(20),
-                                    class_name: Some("lucide lucide-rotate-ccw w-5 h-5".to_string()),
+                        if context_is_admin {
+                            div { class: "border-t border-border/20 bg-gradient-to-r from-purple-500/10 to-orange-500/10 p-4",
+                                p { class: "text-sm text-foreground",
+                                    span { class: "font-medium", "Admin Access Required:" }
+                                    " Only authorized administrators can access this panel. Contact your system administrator if you believe this is an error."
                                 }
-                                "Go to Auth"
                             }
-                            button {
-                                r#type: "button",
-                                class: "flex-1 inline-flex items-center justify-center gap-2 px-6 py-4 bg-muted/30 border border-border/20 text-foreground rounded-2xl font-semibold hover:bg-muted/50 transition-colors",
-                                Icon {
-                                    name: "arrow-left".to_string(),
-                                    size: Some(20),
-                                    class_name: Some("lucide lucide-arrow-left w-5 h-5".to_string()),
-                                }
-                                "Go Back"
+                        }
+                    }
+                    nav {
+                        class: "flex flex-col sm:flex-row gap-3",
+                        "aria-label": "Access denied actions",
+                        a {
+                            href: "{auth_href}",
+                            "data-admin-denial-auth": "true",
+                            class: "flex-1 inline-flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-2xl font-semibold shadow-lg shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 hover-lift transition-all",
+                            Icon {
+                                name: "rotate-ccw".to_string(),
+                                size: Some(20),
+                                class_name: Some("lucide lucide-rotate-ccw w-5 h-5".to_string()),
                             }
+                            "Go to Auth"
+                        }
+                        a {
+                            href: "/",
+                            "data-admin-denial-back": "true",
+                            class: "flex-1 inline-flex items-center justify-center gap-2 px-6 py-4 bg-muted/30 border border-border/20 text-foreground rounded-2xl font-semibold hover:bg-muted/50 transition-colors",
+                            Icon {
+                                name: "arrow-left".to_string(),
+                                size: Some(20),
+                                class_name: Some("lucide lucide-arrow-left w-5 h-5".to_string()),
+                            }
+                            "Go Back"
                         }
                     }
                 }
@@ -297,117 +366,121 @@ fn AccessDeniedPanelInner(title: String, description: String) -> Element {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pages::PageContext;
 
-    /// `test_access_denied_panel_smoke` — the title / description /
-    /// "Error Details" / "Go to Auth" / "Go Back" markers all
-    /// render in the output HTML. The shield-x icon is also
-    /// present (it's registered in `epsx_templates::lucide`).
-    #[test]
-    fn test_access_denied_panel_smoke() {
-        let html = dioxus_ssr::render_element(rsx! {
-            AccessDeniedPanelInner {
-                title: "Access Denied".to_string(),
-                description: "You don't have permission to access this resource.".to_string(),
-            }
-        });
-        for marker in &["Access Denied", "Error Details", "Go to Auth", "Go Back"] {
-            assert!(
-                html.contains(marker),
-                "access-denied panel must contain `{marker}`. Got: {html}"
-            );
-        }
-    }
-
-    /// `test_access_denied_panel_red_shield_class` — the
-    /// prod-EXACT `bg-gradient-to-br from-red-500 to-red-600`
-    /// icon container classes are present. This is the
-    /// highest-signal visual cue that the dev is rendering the
-    /// right thing (the red shield is the dominant visual
-    /// marker on the page).
-    #[test]
-    fn test_access_denied_panel_red_shield_class() {
-        let html = dioxus_ssr::render_element(rsx! {
-            AccessDeniedPanelInner {
-                title: "Access Denied".to_string(),
-                description: "test description".to_string(),
-            }
-        });
-        assert!(
-            html.contains("bg-gradient-to-br from-red-500 to-red-600"),
-            "access-denied panel must render the red-shield gradient container. Got: {html}"
-        );
-        assert!(
-            html.contains("lucide-shield-x"),
-            "access-denied panel must render the shield-x icon. Got: {html}"
-        );
-        assert!(
-            html.contains("min-h-[60vh]"),
-            "access-denied panel must render the prod-EXACT centering wrapper. Got: {html}"
-        );
-    }
-
-    /// `test_access_denied_panel_routes` — each of the 3
-    /// outlier routes gets the right description text.
-    #[test]
-    fn test_access_denied_panel_routes() {
-        // /access-denied — short description
+    fn render_path(path: &str, query: &str) -> (PageMeta, String) {
         let ctx = PageContext {
+            path: path.to_string(),
+            query: query.to_string(),
+            ..Default::default()
+        };
+        let (meta, element) = render(&ctx);
+        (meta, dioxus_ssr::render_element(element))
+    }
+
+    #[test]
+    fn denial_routes_preserve_source_copy_metadata_and_semantics() {
+        let (access_meta, access) = render_path("/access-denied", "");
+        assert_eq!(access_meta.title, "EPSX Admin");
+        assert_eq!(access_meta.description, ADMIN_DESCRIPTION);
+        assert_eq!(access_meta.keywords.as_deref(), Some(ADMIN_KEYWORDS));
+        assert_eq!(access_meta.status, PageStatus::Ok);
+        assert_eq!(access.matches("<h1").count(), 1);
+        assert!(
+            access.contains("You don&#39;t have permission to access this resource."),
+            "{access}"
+        );
+        assert!(access.contains("role=\"alert\""));
+        assert!(access.contains("aria-label=\"Access denied actions\""));
+
+        let (_, unauthorized) = render_path("/unauthorized", "reason=ignored&route=%2Fevil");
+        assert!(unauthorized.contains("contact your administrator"));
+        assert!(!unauthorized.contains("Requested Route:"));
+        assert!(!unauthorized.contains("ignored"));
+    }
+
+    #[test]
+    fn access_denied_decodes_bounds_and_escapes_all_source_query_fields() {
+        let query = concat!(
+            "reason=Denied+%253Cscript+data-probe%253Ealert%25281%2529%253C%252Fscript%253E",
+            "&route=%252Fpayments%253Ftab%253Dhistory%2526probe%253D%253Cimg%253E",
+            "&context=admin",
+            "&permission=admin%253Apayments%253Aread%253Csvg%253E",
+            "&detail=backend+%253Cb%253Esecret%253C%252Fb%253E"
+        );
+        let (_, html) = render_path("/access-denied", query);
+
+        assert!(html.contains("Denied &#60;script data-probe&#62;alert(1)&#60;/script&#62;"));
+        assert!(html.contains("/payments?tab=history&#38;probe=&#60;img&#62;"));
+        assert!(html.contains("admin"));
+        assert!(html.contains("admin:payments:read&#60;svg&#62;"));
+        assert!(html.contains("backend &#60;b&#62;secret&#60;/b&#62;"));
+        assert!(html.contains("Admin Access Required:"));
+        assert!(!html.contains("<script data-probe>"));
+        assert!(!html.contains("<img>"));
+        assert!(!html.contains("<svg>"));
+        assert!(!html.contains("<b>secret</b>"));
+        assert!(html
+            .contains("href=\"/auth?return_url=%2Fpayments%3Ftab%3Dhistory%26probe%3D%3Cimg%3E\""));
+        assert!(html.contains("href=\"/\" data-admin-denial-back=\"true\""));
+
+        let long = format!("reason={}&detail={}", "x".repeat(600), "y".repeat(600));
+        let model = access_denied_model(&PageContext {
             path: "/access-denied".to_string(),
+            query: long,
             ..Default::default()
-        };
-        let (_, el) = render(&ctx);
-        let html = dioxus_ssr::render_element(el);
-        assert!(html.contains("access this resource"), "/access-denied should render the short description. Got: {html}");
-        assert!(!html.contains("contact your administrator"), "/access-denied should NOT render the long description. Got: {html}");
-
-        // /unauthorized — long description
-        let ctx = PageContext {
-            path: "/unauthorized".to_string(),
-            ..Default::default()
-        };
-        let (_, el) = render(&ctx);
-        let html = dioxus_ssr::render_element(el);
-        assert!(html.contains("contact your administrator"), "/unauthorized should render the long description. Got: {html}");
-
-        // /developer-portal/api-keys/create — same as unauthorized
-        let ctx = PageContext {
-            path: "/developer-portal/api-keys/create".to_string(),
-            ..Default::default()
-        };
-        let (_, el) = render(&ctx);
-        let html = dioxus_ssr::render_element(el);
-        assert!(html.contains("contact your administrator"), "/developer-portal/api-keys/create should render the long description. Got: {html}");
+        });
+        assert_eq!(model.reason.chars().count(), 240);
+        assert_eq!(model.detail.unwrap().chars().count(), 240);
+        assert_eq!(
+            decode_query_text("bad%2Gline%00%0Abreak", 40),
+            "bad%2Glinebreak"
+        );
     }
 
-    /// `test_access_denied_panel_body_class_scoped` — Wave 38c T1.
-    /// The 3 outlier routes must set `PageMeta.body_class` to the
-    /// prod-EXACT `h-screen overflow-hidden font-sans` body class
-    /// (so the centered Access Denied panel renders correctly).
-    /// The 22 other admin routes use `PageMeta::admin()` which now
-    /// returns `body_class: None` (so the 6 regressed routes
-    /// revert to the default `min-h-screen` flow).
     #[test]
-    fn test_access_denied_panel_body_class_scoped() {
-        for path in &[
-            "/access-denied",
-            "/unauthorized",
-            "/developer-portal/api-keys/create",
+    fn unsafe_or_reserved_return_targets_fail_closed() {
+        for unsafe_target in [
+            "https://evil.example",
+            "//evil.example/path",
+            "/\\evil.example",
+            "/auth",
+            "/auth/continue",
+            "/section/../auth",
+            "/access-denied?loop=1",
+            "/api/v1/auth/logout",
+            "",
         ] {
-            let ctx = PageContext {
-                path: path.to_string(),
-                ..Default::default()
-            };
-            let (meta, _el) = render(&ctx);
-            assert!(
-                meta.body_class.is_some(),
-                "{path} must set a body class (prod-EXACT h-screen overflow-hidden font-sans). Got: None",
-            );
-            let cls = meta.body_class.as_deref().unwrap_or("");
-            assert!(
-                cls.contains("h-screen") && cls.contains("overflow-hidden"),
-                "{path} body class must include `h-screen` and `overflow-hidden`. Got: {cls}",
+            assert_eq!(
+                safe_return_target(Some(unsafe_target)),
+                "/",
+                "{unsafe_target}"
             );
         }
+        assert_eq!(
+            safe_return_target(Some("/payments?tab=history#latest")),
+            "/payments?tab=history#latest"
+        );
+
+        let (_, html) = render_path(
+            "/access-denied",
+            "route=https%253A%252F%252Fevil.example%252Fsteal",
+        );
+        assert!(html.contains("href=\"/auth?return_url=%2F\""));
+        assert!(html.contains("href=\"/\" data-admin-denial-back=\"true\""));
+        assert!(!html.contains("href=\"https://evil.example"));
+        assert!(!html.contains("javascript:"));
+    }
+
+    #[test]
+    fn denial_layout_is_scrollable_and_theme_aware() {
+        let (meta, html) = render_path("/access-denied", "");
+        let body_class = meta.body_class.unwrap();
+        assert!(body_class.contains("h-screen"));
+        assert!(body_class.contains("overflow-hidden"));
+        assert!(html.contains("overflow-y-auto overflow-x-hidden"));
+        assert!(html.contains("bg-background"));
+        assert!(!html.contains("background:rgb(30,35,48)"));
+        assert!(html.contains("data-admin-denial-orb=\"primary\""));
+        assert!(html.contains("background:rgba(59,130,246,0.10)"));
     }
 }

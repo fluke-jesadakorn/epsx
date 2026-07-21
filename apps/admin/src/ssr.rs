@@ -163,9 +163,10 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
         PageStatus::NotFound => axum::http::StatusCode::NOT_FOUND,
     };
 
-    let doc = epsx_templates::page_shell_with_body_class(
+    let doc = epsx_templates::page_shell_with_body_class_and_keywords(
         &meta.title,
         &meta.description,
+        meta.keywords.as_deref(),
         &String::new(),
         &body_html,
         meta.include_footer,
@@ -180,20 +181,58 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
         meta.body_class.as_deref().unwrap_or(""),
     );
 
+    let denial_runtime = matches!(layout_path.as_str(), "/access-denied" | "/unauthorized")
+        .then_some(admin_denial_runtime_script())
+        .unwrap_or("");
     let doc = doc.replace(
         "</body>",
         &format!(
-            "<script>{}</script></body>",
-            epsx_bff::browser_auth::browser_auth_script()
+            "<script>{}</script>{denial_runtime}</body>",
+            epsx_bff::browser_auth::browser_auth_script(),
         ),
     );
 
-    (
-        status,
-        [("content-type", "text/html; charset=utf-8")],
-        doc,
-    )
-        .into_response()
+    (status, [("content-type", "text/html; charset=utf-8")], doc).into_response()
+}
+
+/// The denial pages are rendered as hydration-free SSR. This constant,
+/// route-scoped controller restores the source actions without embedding any
+/// query or user value in JavaScript. Reauthentication uses the canonical
+/// same-origin logout endpoint and always follows the already-sanitized auth
+/// link. The back action uses history only for a same-origin referrer; the
+/// anchor remains a safe static fallback when the page was opened directly.
+fn admin_denial_runtime_script() -> &'static str {
+    r#"<script data-epsx-admin-denial-runtime>
+(function () {
+  var root = document.querySelector('[data-admin-denial-runtime="true"]');
+  if (!root) return;
+  var auth = root.querySelector('[data-admin-denial-auth="true"]');
+  var back = root.querySelector('[data-admin-denial-back="true"]');
+
+  if (auth) auth.addEventListener('click', async function (event) {
+    event.preventDefault();
+    var target = auth.getAttribute('href') || '/auth?return_url=%2F';
+    auth.setAttribute('aria-busy', 'true');
+    try {
+      await fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'same-origin' });
+    } catch (_) {
+      // The BFF clears its local cookies even when upstream revocation fails.
+    } finally {
+      window.location.assign(target);
+    }
+  });
+
+  if (back) back.addEventListener('click', function (event) {
+    if (!document.referrer || window.history.length <= 1) return;
+    try {
+      var previous = new URL(document.referrer);
+      if (previous.origin !== window.location.origin) return;
+      event.preventDefault();
+      window.history.back();
+    } catch (_) {}
+  });
+})();
+</script>"#
 }
 
 #[cfg(test)]
@@ -273,5 +312,20 @@ mod tests {
             "expected rendered admin dashboard HTML to include `admin-header` from the `Header` component rendered by `AdminLayout::Auth`; got: {}",
             html
         );
+    }
+
+    #[test]
+    fn denial_runtime_uses_only_same_origin_endpoints_and_static_dom_values() {
+        let script = admin_denial_runtime_script();
+        assert!(script.contains("data-epsx-admin-denial-runtime"));
+        assert!(script.contains("fetch('/api/v1/auth/logout'"));
+        assert!(script.contains("credentials: 'same-origin'"));
+        assert!(script.contains("previous.origin !== window.location.origin"));
+        assert!(script.contains("window.location.assign(target)"));
+        assert!(!script.contains("innerHTML"));
+        assert!(!script.contains("localStorage"));
+        assert!(!script.contains("access_token"));
+        assert!(!script.contains("refresh_token"));
+        assert!(!script.contains("javascript:"));
     }
 }

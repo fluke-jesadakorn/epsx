@@ -125,17 +125,17 @@
       "blockers": ["consume authoritative dashboard aggregates and recent-wallet data; remove sample health and success values; prove degraded/empty/error/retry states"]
     },
     {
-      "path": "/access-denied", "batch": "B2-auth-denial", "status": "partial", "dependencies": ["A1", "A4", "A5"],
+      "path": "/access-denied", "batch": "B2-auth-denial", "status": "aligned", "dependencies": ["A1"],
       "source": {"file": "apps/admin-frontend/app/access-denied/page.tsx", "anchors": ["function AccessDeniedPageContent", "searchParams.get('permission')"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/access_denied_panel.rs", "handler": "access_denied_panel::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"Error Details\""]},
-      "params": {"names": ["route", "reason", "context", "permission"], "current": "panel renders request query context; input safety and bounds need explicit proof"},
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/access_denied_panel.rs", "handler": "access_denied_panel::render", "anchors": ["pub fn render(ctx: &PageContext)", "fn access_denied_model(ctx: &PageContext)", "data-admin-denial-runtime"]},
+      "params": {"names": ["route", "reason", "context", "permission", "detail"], "current": "source-compatible URL-form decoding with the source's explicit second decode where applicable; control-filtered and bounded to 64-256 characters; Dioxus-escaped output; route is display plus sanitized reauthentication return target only"},
       "data": {"reads": [], "endpoints": [], "current": "static denial surface", "fallbacks": []},
       "permissions": {"read": [], "manage": [], "current": "presentation only; backend remains denial authority"},
       "mutations": [],
-      "contracts": {"bodies": [], "envelopes": [], "statuses": ["SSR 200 denial document"]},
+      "contracts": {"bodies": ["canonical same-origin POST /api/v1/auth/logout for reauthentication"], "envelopes": ["page script never reads logout JSON or token material"], "statuses": ["SSR 200 denial document", "logout always proceeds to sanitized /auth target while BFF clears local cookies"]},
       "states": {"loading": "not-applicable", "empty": "not-applicable", "error": "present", "retry": "not-applicable", "forbidden": "present", "conflict": "not-applicable"},
-      "ux": {"keyboard": "unproven", "responsive": "visual parity comments only", "hydration": "not-applicable"},
-      "blockers": ["prove bounded escaped query rendering, safe return targets, keyboard focus, responsive overflow, and accepted denial status semantics"]
+      "ux": {"keyboard": "Playwright proves source-order focus, Enter-driven canonical reauthentication, and source history.back behavior with an accessible static root fallback", "responsive": "Playwright proves light and dark rendering at 390x844 and 1440x900 with no horizontal overflow, an internal vertical scroll container, and non-transparent computed dark decoration", "hydration": "constant route-scoped SSR controller; no query, user, or token data enters script source"},
+      "blockers": []
     },
     {
       "path": "/analytics", "batch": "B1-command-security", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
@@ -346,17 +346,17 @@
       "blockers": ["define typed setting ownership and read/manage scopes, load redacted values, and implement auditable conflict-aware mutations with session safety"]
     },
     {
-      "path": "/unauthorized", "batch": "B2-auth-denial", "status": "partial", "dependencies": ["A1", "A4", "A5"],
+      "path": "/unauthorized", "batch": "B2-auth-denial", "status": "aligned", "dependencies": ["A1"],
       "source": {"file": "apps/admin-frontend/app/unauthorized/page.tsx", "anchors": ["export default function UnauthorizedPage", "<AccessDeniedContent"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/access_denied_panel.rs", "handler": "access_denied_panel::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"Go to Auth\""]},
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/access_denied_panel.rs", "handler": "access_denied_panel::render", "anchors": ["pub fn render(ctx: &PageContext)", "ADMIN_REASON", "Access denied actions"]},
       "params": {"names": [], "current": "static denial surface"},
       "data": {"reads": [], "endpoints": [], "current": "static", "fallbacks": []},
       "permissions": {"read": [], "manage": [], "current": "presentation only"},
       "mutations": [],
-      "contracts": {"bodies": [], "envelopes": [], "statuses": ["SSR 200 denial document"]},
+      "contracts": {"bodies": ["canonical same-origin POST /api/v1/auth/logout for reauthentication"], "envelopes": ["page script never reads logout JSON or token material"], "statuses": ["SSR 200 denial document", "logout always proceeds to /auth with root fallback while BFF clears local cookies"]},
       "states": {"loading": "not-applicable", "empty": "not-applicable", "error": "present", "retry": "not-applicable", "forbidden": "present", "conflict": "not-applicable"},
-      "ux": {"keyboard": "unproven", "responsive": "visual parity comments only", "hydration": "not-applicable"},
-      "blockers": ["prove accepted copy/status, safe same-origin navigation, keyboard focus order, mobile/desktop layout, and no session-data leakage"]
+      "ux": {"keyboard": "Playwright proves source-order focus, Enter-driven canonical reauthentication, and source history.back behavior with an accessible static root fallback", "responsive": "Playwright proves light and dark rendering at 390x844 and 1440x900 with no horizontal overflow and non-transparent computed dark decoration", "hydration": "constant route-scoped SSR controller; no query, user, or token data enters script source"},
+      "blockers": []
     },
     {
       "path": "/wallet-management", "batch": "B6-wallets-plans", "status": "partial", "dependencies": ["A1", "A5"],

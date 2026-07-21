@@ -13,12 +13,14 @@ Neither redirect is aligned merely because its destination exists. Their status,
 
 The baseline is deliberately strict:
 
-- **0 aligned**;
-- **4 partial:** `/access-denied`, `/notifications`, `/unauthorized`, and `/wallet-management`;
+- **2 aligned:** `/access-denied` and `/unauthorized`;
+- **2 partial:** `/notifications` and `/wallet-management`;
 - **23 blocked**;
-- **27 non-aligned** and **20 cross-cutting STOP blockers**.
+- **25 non-aligned** and **20 cross-cutting STOP blockers**.
 
-The two static denial surfaces are partial because markup presence and historical pixel-parity comments do not prove query safety, accepted HTTP semantics, keyboard focus, responsive overflow, or navigation behavior. Every operational page stays blocked because the admin SSR constructs `PageContext` with an empty `params` map and does not load page data. Fixed rows and values therefore remain samples even when a matching BFF proxy route exists.
+The B2.1 proof closes the two source denial surfaces. `/access-denied` now preserves all five source query fields with bounded, control-filtered decoding and escaped output; `route` is used only for display and the sanitized reauthentication return target. `/unauthorized` retains the exact static source copy and ignores query input. Both inherit the pinned admin title, description, and keywords, return an accepted SSR 200 denial document, expose one heading plus alert/navigation landmarks, use only sanitized same-origin links, invoke the canonical same-origin logout endpoint before reauthentication, and preserve source `history.back()` behavior with an accessible static `/` fallback. Focus order, light and dark rendering at 390×844 and 1440×900, non-transparent computed dark decoration, responsive overflow, unsafe targets, cookie clearing, and zero browser/page errors are covered by an ephemeral loopback admin RS256/JWKS Playwright fixture. This does not close A1's separate disposable-PostgreSQL proof for durable refresh-token revocation.
+
+Every operational page stays blocked because the admin SSR constructs `PageContext` with an empty `params` map and does not load page data. Fixed rows and values therefore remain samples even when a matching BFF proxy route exists.
 
 ## What the gate proves
 
@@ -31,7 +33,7 @@ Integrity mode is deterministic and offline. It verifies:
 5. all 27 routes occur in exactly one of seven execution batches;
 6. the two redirects equal the inventory's exact redirect-classified set;
 7. every route inventories dynamic params, reads, fallbacks, read/manage gates, mutations, request/envelope/status findings, six async states, keyboard, responsive behavior, hydration, dependencies, and at least one blocker while non-aligned;
-8. the accepted baseline remains 0 aligned / 4 partial / 23 blocked until evidence is deliberately updated.
+8. the accepted baseline remains 2 aligned / 2 partial / 23 blocked until evidence is deliberately updated.
 
 This gate does **not** prove a service is reachable, a database is migrated, a browser interaction works, a mutation is durable, or production is ready. Readiness mode exits `3` while any route or global blocker remains.
 
@@ -92,7 +94,7 @@ Financial, credit, plan, subscription, entitlement, publication, and permission 
 Execute a batch only after its named dependencies are evidence-ready. A route moves to aligned only after focused Rust adapter tests and an authenticated local browser fixture prove every applicable contract field.
 
 1. **B1 command and security — `/`, `/analytics`, `/audit-log`, `/settings`.** Define canonical aggregate/read models; remove sample operational success; establish a dedicated audit permission; wire query-driven ranges, filters, pagination, and export; render dependency-specific empty/degraded/error/retry states; implement settings as typed versioned backend mutations.
-2. **B2 auth and denial — `/access-denied`, `/auth`, `/unauthorized`, `/developer-portal/api-keys/create`.** Close A1 return-target and revoked-session behavior; decide whether API-key creation remains intentionally denied; bound and escape denial query fields; match accepted redirect/status behavior; prove safe same-origin links, focus order, and mobile/desktop overflow.
+2. **B2 auth and denial — `/access-denied`, `/auth`, `/unauthorized`, `/developer-portal/api-keys/create`.** `/access-denied` and `/unauthorized` are aligned by the B2.1 adapter/browser proof. Finish A1's durable revoked-session behavior for the auth lifecycle, match `/auth` redirect/status behavior, and decide whether API-key creation remains intentionally denied or regains its source mutation flow.
 3. **B3 support — `/chat`, `/chat/:id`, `/notifications`, `/notifications/manage`.** Add read/manage splits and authoritative list/detail data; implement cursor/query preservation, non-leaking detail errors, assignment/status conflicts, message delivery/reconnect, scheduled notification conflicts, and accepted HTTP redirect behavior.
 4. **B4 content and media — `/media`, `/news`, `/news/create`, `/news/:id/edit`.** Finish A10 authority; wire list/detail/revision data; validate upload size/type/hash; establish publish/cache semantics; add optimistic revisions, autosave/recovery, unsaved-change protection, and accessible editor/upload state.
 5. **B5 commerce — `/payments`, `/wallet-management/credits`, `/wallet-management/access`, `/wallet-management/access/plans`.** Finish A4/A6/A9; remove invented money and ledger data; consume backend decisions; keep existing read/manage UI separation; implement idempotent audited credit/access operations; preserve finality and conflict statuses.
@@ -104,7 +106,7 @@ Execute a batch only after its named dependencies are evidence-ready. A route mo
 | Route | Current data/mutation truth | Permission finding | State |
 |---|---|---|---|
 | `/` | fixed dashboard KPIs, wallets, health, alerts | dashboard read UI gate only | blocked |
-| `/access-denied` | static/query denial panel | presentation only | partial |
+| `/access-denied` | bounded/escaped source query denial panel with sanitized links and canonical logout action | presentation only; A1 remains logout-revocation authority | aligned |
 | `/analytics` | static charts/table; export only logs | analytics read gate; page does not consume service | blocked |
 | `/audit-log` | sample actors, IPs, actions | analytics permission is semantically suspect | blocked |
 | `/auth` | delayed query-driven script redirect | auth bootstrap coupled to permission | blocked |
@@ -121,7 +123,7 @@ Execute a batch only after its named dependencies are evidence-ready. A route mo
 | `/notifications/manage` | sample list and delivery stats | manage gates reads | blocked |
 | `/payments` | sample payments/access/links | manage gates reads | blocked |
 | `/settings` | sample keys/sessions/settings | manage gates reads | blocked |
-| `/unauthorized` | static denial panel | presentation only | partial |
+| `/unauthorized` | exact static denial panel with sanitized links and canonical logout action | presentation only; A1 remains logout-revocation authority | aligned |
 | `/wallet-management` | HTTP 308 redirect | destination owns auth | partial |
 | `/wallet-management/:address` | sample detail independent of address | read UI gate; downstream proof open | blocked |
 | `/wallet-management/access` | sample assignments | UI read/manage split exists; backend live proof open | blocked |
@@ -154,6 +156,7 @@ Applicable assertions include:
 ./scripts/migration/verify-admin-live-data.sh --mode integrity
 ./scripts/migration/verify-admin-live-data.sh --mode emit
 ./scripts/migration/test-admin-live-data.sh
+./scripts/migration/run-admin-denial-runtime-proof.sh
 ```
 
 Readiness is intentionally a STOP gate:

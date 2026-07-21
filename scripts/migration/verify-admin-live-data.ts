@@ -274,8 +274,8 @@ if (JSON.stringify(expectedPaths) !== JSON.stringify(actualPaths)) fail("27-rout
 if (batchMembership.size !== 27 || [...batchMembership.keys()].some((path) => !seen.has(path))) {
   fail("batch membership must cover the exact 27-source-route set");
 }
-if (statuses.aligned !== 0 || statuses.partial !== 4 || statuses.blocked !== 23) {
-  fail("baseline status count must remain conservative at 0 aligned, 4 partial, and 23 blocked until evidence is updated deliberately");
+if (statuses.aligned !== 2 || statuses.partial !== 2 || statuses.blocked !== 23) {
+  fail("baseline status count must remain conservative at 2 aligned, 2 partial, and 23 blocked until evidence is updated deliberately");
 }
 
 const nonAligned = statuses.partial + statuses.blocked;
