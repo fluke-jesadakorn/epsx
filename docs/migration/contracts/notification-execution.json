@@ -1,0 +1,800 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A11.0-notification-execution",
+  "purpose": "deterministic-audit-and-readiness-stop",
+  "productionReady": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "source": {
+    "ref": "origin/development",
+    "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "evidence": [
+      {
+        "id": "src-route-prefixes",
+        "file": "shared/config/route-constants.ts",
+        "blob": "bba07cfab077dfa9f65617348e0378d64e3780fb",
+        "anchor": "NOTIFICATIONS: '/api/notifications',"
+      },
+      {
+        "id": "src-user-list-client",
+        "file": "shared/api/notifications.ts",
+        "blob": "d442b658906fa31e5302380853b4f19bdf46d851",
+        "anchor": "async getNotifications(filters: NotificationFilters = {}): Promise<NotificationsResponse> {"
+      },
+      {
+        "id": "src-user-preferences-client",
+        "file": "shared/api/notifications.ts",
+        "blob": "d442b658906fa31e5302380853b4f19bdf46d851",
+        "anchor": "async updatePreferences(preferences: Partial<NotificationPreferences>): Promise<{"
+      },
+      {
+        "id": "src-sse-client",
+        "file": "shared/api/notifications.ts",
+        "blob": "d442b658906fa31e5302380853b4f19bdf46d851",
+        "anchor": "this.sseConnection = new EventSource(sseUrl, { withCredentials: true });"
+      },
+      {
+        "id": "src-push-client",
+        "file": "shared/api/notifications.ts",
+        "blob": "d442b658906fa31e5302380853b4f19bdf46d851",
+        "anchor": "async subscribeToPush(subscription: PushSubscription): Promise<PushSubscriptionData> {"
+      },
+      {
+        "id": "src-backend-routes",
+        "file": "apps/backend/src/web/routes/unified_router.rs",
+        "blob": "46b97779e8726757560d7946d1a47114bed28861",
+        "anchor": ".route(\"/{id}/acknowledge\", put(acknowledge_notification_handler))"
+      },
+      {
+        "id": "src-sse-owner-auth",
+        "file": "apps/backend/src/web/notifications/sse_handlers.rs",
+        "blob": "be610a99cbeadf2f25b1f873ea700bbddcfaffc9",
+        "anchor": "let wallet_address = claims.wallet_address.to_lowercase();"
+      },
+      {
+        "id": "src-sse-offline-replay",
+        "file": "apps/backend/src/web/notifications/sse_handlers.rs",
+        "blob": "be610a99cbeadf2f25b1f873ea700bbddcfaffc9",
+        "anchor": "let queued_notifications = if wallet_address != \"all\" {"
+      },
+      {
+        "id": "src-offline-queue",
+        "file": "apps/backend/src/web/notifications/offline_queue.rs",
+        "blob": "ca6ba965acfc14b5f3965e609ac3e58fe5558625",
+        "anchor": "WHERE (recipient_wallet_address = $1 OR recipient_wallet_address = 'all')"
+      },
+      {
+        "id": "src-redis-fanout",
+        "file": "apps/backend/src/web/notifications/redis_broadcaster.rs",
+        "blob": "96be2055f23da0ac7173973114bf4547bf184cad",
+        "anchor": "let channel = format!(\"notifications:wallet:{}\", wallet_address.to_lowercase());"
+      },
+      {
+        "id": "src-admin-send",
+        "file": "apps/backend/src/web/admin/notification_handlers/notification_admin.rs",
+        "blob": "aceed80e12e6b7f82124226ff9c479d0114cab5b",
+        "anchor": "total_subscriber_count = redis_broadcaster.publish_to_all(&sse_notification).await?;"
+      },
+      {
+        "id": "src-admin-permission",
+        "file": "apps/backend/src/web/admin/routes.rs",
+        "blob": "34213a7e565671943afea848f6f7dbb87beed435",
+        "anchor": ".layer(from_fn_with_state(\"admin:notifications:manage\", perm_guard));"
+      },
+      {
+        "id": "src-owner-preferences",
+        "file": "apps/backend/src/web/user/unified_user_handlers.rs",
+        "blob": "bb3ce3ff53fbe327d8026eeb1f2c36df3e9f3357",
+        "anchor": "pub async fn update_user_notification_preferences("
+      },
+      {
+        "id": "src-notification-schema",
+        "file": "apps/backend/migrations/notifications/00000000000001_consolidated_baseline_v2/up.sql",
+        "blob": "db5ed1153a360559b07852842a132427535aa34c",
+        "anchor": "CREATE TABLE wallet_notifications ("
+      }
+    ]
+  },
+  "targetEvidence": [
+    {
+      "id": "tgt-direct-owner-auth",
+      "file": "services/notification/src/lib.rs",
+      "anchor": "pub fn canonical_owner("
+    },
+    {
+      "id": "tgt-direct-admin-auth",
+      "file": "services/notification/src/lib.rs",
+      "anchor": "pub const NOTIFICATIONS_MANAGE_PERMISSION: &str = \"admin:notifications:manage\";"
+    },
+    {
+      "id": "tgt-service-routes",
+      "file": "services/notification/src/main.rs",
+      "anchor": ".route(\"/api/v1/notification/send\", post(send_notification))"
+    },
+    {
+      "id": "tgt-runtime-template-ddl",
+      "file": "services/notification/src/main.rs",
+      "anchor": "\"CREATE TABLE IF NOT EXISTS templates ("
+    },
+    {
+      "id": "tgt-runtime-notification-ddl",
+      "file": "services/notification/src/main.rs",
+      "anchor": "\"CREATE TABLE IF NOT EXISTS notifications ("
+    },
+    {
+      "id": "tgt-runtime-sample-seed",
+      "file": "services/notification/src/main.rs",
+      "anchor": "seed_sample_notifications(&db).await;"
+    },
+    {
+      "id": "tgt-query-extra-columns",
+      "file": "services/notification/src/main.rs",
+      "anchor": "read_at, title, notification_type, priority, action_url FROM notifications"
+    },
+    {
+      "id": "tgt-inapp-stub",
+      "file": "services/notification/src/main.rs",
+      "anchor": "// For now, just return sent status"
+    },
+    {
+      "id": "tgt-email-mock-success",
+      "file": "services/notification/src/main.rs",
+      "anchor": "[EMAIL MOCK] To: {} Subject: {} Body: {}"
+    },
+    {
+      "id": "tgt-email-blocking-send",
+      "file": "services/notification/src/main.rs",
+      "anchor": "Ok(msg) => match smtp.send(&msg) {"
+    },
+    {
+      "id": "tgt-template-nonstrict",
+      "file": "services/notification/src/main.rs",
+      "anchor": "hb.set_strict_mode(false);"
+    },
+    {
+      "id": "tgt-template-upsert",
+      "file": "services/notification/src/main.rs",
+      "anchor": "ON CONFLICT (name) DO UPDATE SET body = EXCLUDED.body, subject = EXCLUDED.subject, variables = EXCLUDED.variables, updated_at = NOW()"
+    },
+    {
+      "id": "tgt-template-delete-cache",
+      "file": "services/notification/src/main.rs",
+      "anchor": "sqlx::query(\"DELETE FROM templates WHERE id = $1\")"
+    },
+    {
+      "id": "tgt-admin-claimed-recipient",
+      "file": "services/notification/src/main.rs",
+      "anchor": "struct SendNotificationRequest {"
+    },
+    {
+      "id": "tgt-owner-list-filter",
+      "file": "services/notification/src/main.rs",
+      "anchor": "WHERE user_id = $1 AND status = $2"
+    },
+    {
+      "id": "tgt-overloaded-status",
+      "file": "services/notification/src/main.rs",
+      "anchor": "status = CASE WHEN status = 'pending' THEN 'sent' ELSE status END"
+    },
+    {
+      "id": "tgt-bare-health",
+      "file": "services/notification/src/main.rs",
+      "anchor": "async fn health() -> StatusCode {"
+    },
+    {
+      "id": "tgt-observability-init-only",
+      "file": "services/notification/src/main.rs",
+      "anchor": "epsx_observability::Observability::init(\"notification\");"
+    },
+    {
+      "id": "tgt-gateway-mount",
+      "file": "services/gateway/src/lib.rs",
+      "anchor": ".route(\"/api/v1/notification/{*path}\", any(proxy_notification))"
+    },
+    {
+      "id": "tgt-gateway-admin-policy",
+      "file": "services/gateway/src/policy.rs",
+      "anchor": "AccessPolicy::Permission(\"admin:notifications:manage\")"
+    },
+    {
+      "id": "tgt-frontend-any-method",
+      "file": "apps/frontend/src/main.rs",
+      "anchor": ".route(\"/api/v1/notifications\", any(notifications_api))"
+    },
+    {
+      "id": "tgt-frontend-list-bff",
+      "file": "apps/frontend/src/api.rs",
+      "anchor": "\"{}/api/v1/notification/list\","
+    },
+    {
+      "id": "tgt-frontend-ssr-list",
+      "file": "apps/frontend/src/ssr.rs",
+      "anchor": ".get_with_ctx(\"/api/v1/notification/list\", &request_context)"
+    },
+    {
+      "id": "tgt-user-ui-sample-fallback",
+      "file": "shared/rust/dioxus_ui/src/pages/notifications.rs",
+      "anchor": ".unwrap_or_else(sample_notifications);"
+    },
+    {
+      "id": "tgt-user-ui-inert-bulk",
+      "file": "shared/rust/dioxus_ui/src/pages/notifications.rs",
+      "anchor": "button { class: \"btn btn-sm btn-outline\", r#type: \"button\", \"Mark all read\" }"
+    },
+    {
+      "id": "tgt-browser-permission-simulated",
+      "file": "shared/rust/dioxus_ui/src/pages/notifications.rs",
+      "anchor": "onclick: move |_| permission.set(\"granted\".to_string()),"
+    },
+    {
+      "id": "tgt-user-preferences-inert",
+      "file": "shared/rust/dioxus_ui/src/pages/notifications.rs",
+      "anchor": "SwitchInput { checked: *enabled.read(), label: None }"
+    },
+    {
+      "id": "tgt-nav-count-first-page",
+      "file": "apps/frontend/src/ui.rs",
+      "anchor": "const unread = items.filter(i => !i.read_at).length;"
+    },
+    {
+      "id": "tgt-admin-bff-send",
+      "file": "apps/admin/src/main.rs",
+      "anchor": ".route(\"/api/v1/notifications/send\", post(send_notification))"
+    },
+    {
+      "id": "tgt-admin-ui-samples",
+      "file": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs",
+      "anchor": "fn sample_notifications() -> Vec<Notification> {"
+    },
+    {
+      "id": "tgt-proto-preferences-only",
+      "file": "proto/notification/v1/notification.proto",
+      "anchor": "rpc GetPreferences(GetPreferencesRequest) returns (GetPreferencesResponse);"
+    },
+    {
+      "id": "tgt-http-adapter-future",
+      "file": "shared/rust/epsx-contracts/src/notification_port.rs",
+      "anchor": "`HttpNotificationAdapter` (added in the integration gate, not"
+    },
+    {
+      "id": "tgt-inprocess-publish-swallowed",
+      "file": "apps/backend/src/infrastructure/adapters/notification/in_process_adapter.rs",
+      "anchor": "failure is logged, not propagated"
+    },
+    {
+      "id": "tgt-publisher-drop-path",
+      "file": "apps/backend/src/main.rs",
+      "anchor": "publisher call sites will drop notifications until the notifications DB is configured."
+    },
+    {
+      "id": "tgt-subscription-tracking-dropped",
+      "file": "apps/backend/migrations/notifications/20260613000000_drop_notification_subscriptions/up.sql",
+      "anchor": "DROP TABLE IF EXISTS notification_subscriptions CASCADE;"
+    },
+    {
+      "id": "tgt-kustomize-without-notification",
+      "file": "infrastructure/kubernetes/base/kustomization.yaml",
+      "anchor": "- pay/service-bff.yaml"
+    }
+  ],
+  "directAuthPrerequisite": {
+    "status": "partial",
+    "proven": [
+      "health is the only anonymous service surface",
+      "owner routes require an allowed frontend or admin audience",
+      "owner queries derive the wallet key from the verified principal",
+      "template and send routes require admin audience plus admin:notifications:manage",
+      "unknown and method-drift service paths fail closed"
+    ],
+    "notProven": [
+      "source-compatible lifecycle and response contracts",
+      "internal publisher service identity",
+      "durable delivery or realtime delivery",
+      "preferences, push, templates, retries, or observability",
+      "migration, reconciliation, cutover, or rollback safety"
+    ],
+    "evidenceIds": [
+      "tgt-direct-owner-auth",
+      "tgt-direct-admin-auth",
+      "tgt-service-routes"
+    ]
+  },
+  "surfaceContracts": [
+    {
+      "id": "owner-list-and-count",
+      "source": "GET /api/notifications and GET /api/notifications/unread-count with source envelopes, filters, pagination, broadcasts, expiry, and read semantics",
+      "targetObserved": "GET /api/v1/notification/list and /unread-count are owner-authenticated but expose a different schema and status filter",
+      "ownerKey": "verified-jwt-wallet",
+      "status": "blocked",
+      "blockerIds": ["B01", "B02", "B04", "B05"]
+    },
+    {
+      "id": "owner-lifecycle-mutations",
+      "source": "PUT read/unread/acknowledge, DELETE one/clear-all, and PUT mark-all-read with source response envelopes",
+      "targetObserved": "POST read/unread/mark-all/clear-all plus hard deletes; acknowledge is absent",
+      "ownerKey": "verified-jwt-wallet",
+      "status": "blocked",
+      "blockerIds": ["B01", "B04", "B05"]
+    },
+    {
+      "id": "owner-preferences",
+      "source": "GET and update notification preferences for email, push, type, priority, and quiet hours",
+      "targetObserved": "protobuf declarations and inert UI controls exist but no HTTP handlers or durable preference enforcement",
+      "ownerKey": "verified-jwt-wallet",
+      "status": "blocked",
+      "blockerIds": ["B06", "B18"]
+    },
+    {
+      "id": "realtime-sse-and-offline-replay",
+      "source": "authenticated SSE stream sends queued owner+broadcast records, then Redis fanout, keepalive, reconnect, and acknowledgement",
+      "targetObserved": "notification microservice has no stream, Redis subscriber, replay cursor, or acknowledge route",
+      "ownerKey": "verified-jwt-wallet-bound-stream",
+      "status": "blocked",
+      "blockerIds": ["B07", "B08", "B12", "B14"]
+    },
+    {
+      "id": "browser-push",
+      "source": "subscribe, unsubscribe, and status routes backed by browser permission state",
+      "targetObserved": "UI changes a local signal to granted and service has no push subscription or delivery implementation",
+      "ownerKey": "verified-jwt-wallet+browser-subscription",
+      "status": "blocked",
+      "blockerIds": ["B09", "B18"]
+    },
+    {
+      "id": "admin-send-broadcast-schedule",
+      "source": "admin send supports wallet, plan, broadcast, priority, expiry, action/image data, and scheduling",
+      "targetObserved": "admin send accepts user_id, channel, and recipient independently; supports only immediate email/in_app",
+      "ownerKey": "admin-audience+admin:notifications:manage",
+      "status": "blocked",
+      "blockerIds": ["B01", "B10", "B13", "B16"]
+    },
+    {
+      "id": "template-lifecycle",
+      "source": "production template parity requires validated create/read/update/delete/version/render behavior",
+      "targetObserved": "create/list/get/delete exists with non-strict Handlebars and an independently mutable in-memory cache",
+      "ownerKey": "admin-audience+admin:notifications:manage",
+      "status": "blocked",
+      "blockerIds": ["B01", "B17", "B18"]
+    },
+    {
+      "id": "email-delivery",
+      "source": "email channel must have durable enqueue, provider result, retry, terminal failure, and privacy-safe telemetry",
+      "targetObserved": "SMTP is synchronous; missing SMTP logs content and reports sent=true",
+      "ownerKey": "authorized-publisher+validated-recipient",
+      "status": "blocked",
+      "blockerIds": ["B12", "B13", "B14", "B15", "B18"]
+    },
+    {
+      "id": "inapp-delivery",
+      "source": "persisted wallet notification plus realtime fanout and offline replay",
+      "targetObserved": "send_in_app returns sent=true without publishing and persistence happens later in the request",
+      "ownerKey": "authorized-publisher+canonical-wallet-recipient",
+      "status": "blocked",
+      "blockerIds": ["B08", "B12", "B13", "B16"]
+    },
+    {
+      "id": "internal-publishers",
+      "source": "payment, subscription, permission, chat, and expiry producers publish through a stable application port",
+      "targetObserved": "canonical backend still uses an in-process adapter; HTTP adapter and internal service identity are absent, and failures may be dropped",
+      "ownerKey": "mTLS-or-signed-internal-service-principal",
+      "status": "blocked",
+      "blockerIds": ["B11", "B12", "B13", "B14"]
+    },
+    {
+      "id": "admin-history-stats-delete",
+      "source": "admin-wide list, filters, stats, acknowledge, and delete under admin notification permission",
+      "targetObserved": "admin BFF calls owner-scoped list and lacks source-compatible stats/acknowledge/global history semantics",
+      "ownerKey": "admin-audience+operation-specific-notification-permission",
+      "status": "blocked",
+      "blockerIds": ["B01", "B05", "B19"]
+    },
+    {
+      "id": "migration-cutover-operations",
+      "source": "wallet_notifications data, preferences, realtime semantics, publishers, and UI remain available through a reversible cutover",
+      "targetObserved": "separate runtime-created notifications/templates tables, no deployment, no backfill/reconciliation, and no single-writer declaration",
+      "ownerKey": "operator-controlled-reviewed-runbook",
+      "status": "blocked",
+      "blockerIds": ["B02", "B03", "B20", "B21", "B22"]
+    }
+  ],
+  "ownershipRules": [
+    {
+      "id": "owner-wallet",
+      "status": "required-unproven",
+      "rule": "Every owner read or mutation derives the normalized wallet solely from the verified principal and hides foreign IDs with 404."
+    },
+    {
+      "id": "admin-operation",
+      "status": "required-unproven",
+      "rule": "Admin reads and mutations use explicit operation permissions; manage does not silently grant unrelated read, delivery, or template authority."
+    },
+    {
+      "id": "publisher-service",
+      "status": "required-unproven",
+      "rule": "Domain publishers use a non-browser internal service identity scoped to approved event types and recipient derivation rules."
+    },
+    {
+      "id": "recipient-binding",
+      "status": "required-unproven",
+      "rule": "user_id, wallet recipient, email recipient, broadcast, plan targeting, and channel cannot contradict one another."
+    },
+    {
+      "id": "broadcast-boundary",
+      "status": "required-unproven",
+      "rule": "Broadcast and plan fanout require explicit authorization, audience resolution, bounded cardinality, and auditable actor identity."
+    }
+  ],
+  "deliveryRules": [
+    {
+      "id": "persist-before-dispatch",
+      "status": "required-unproven",
+      "rule": "Persist the notification and delivery jobs atomically before any transport dispatch."
+    },
+    {
+      "id": "separate-states",
+      "status": "required-unproven",
+      "rule": "Notification read state, per-channel delivery state, provider acceptance, client acknowledgement, click state, and terminal failure are independent fields."
+    },
+    {
+      "id": "smtp-acceptance",
+      "status": "required-unproven",
+      "rule": "SMTP/provider acceptance is not user delivery; absent provider configuration must never report sent."
+    },
+    {
+      "id": "inapp-fanout",
+      "status": "required-unproven",
+      "rule": "In-app success requires durable persistence; realtime fanout is best-effort and replayable from durable state."
+    },
+    {
+      "id": "retry-policy",
+      "status": "required-unproven",
+      "rule": "Transient errors use bounded exponential backoff with jitter; permanent errors terminate without retry."
+    },
+    {
+      "id": "dead-letter",
+      "status": "required-unproven",
+      "rule": "Exhausted jobs enter a queryable dead-letter state with redrive authorization and audit history."
+    },
+    {
+      "id": "ordering-replay",
+      "status": "required-unproven",
+      "rule": "SSE replay uses a durable monotonic cursor or Last-Event-ID policy and deduplicates reconnect delivery."
+    },
+    {
+      "id": "preference-enforcement",
+      "status": "required-unproven",
+      "rule": "Preferences, quiet hours, legal/security exceptions, expiry, and channel eligibility are evaluated by the backend before jobs are created."
+    }
+  ],
+  "idempotencyRules": [
+    {
+      "id": "publisher-key",
+      "status": "required-unproven",
+      "rule": "Publisher requests require an idempotency key scoped to service principal and event type with a request hash."
+    },
+    {
+      "id": "domain-event-key",
+      "status": "required-unproven",
+      "rule": "Domain delivery is unique by source event identity, recipient, template/version, and channel."
+    },
+    {
+      "id": "job-claim",
+      "status": "required-unproven",
+      "rule": "Workers claim jobs with leases and compare-and-set transitions so crashes cannot produce uncontrolled duplicate sends."
+    },
+    {
+      "id": "provider-key",
+      "status": "required-unproven",
+      "rule": "Provider message IDs and accepted responses are recorded for deduplication and reconciliation."
+    },
+    {
+      "id": "mutation-replay",
+      "status": "required-unproven",
+      "rule": "Read/unread/delete/bulk operations are retry-safe and return stable affected-count semantics."
+    }
+  ],
+  "privacyRules": [
+    {
+      "id": "log-minimization",
+      "status": "required-unproven",
+      "rule": "Logs and traces never contain message bodies, template variables, email addresses, tokens, or raw provider payloads."
+    },
+    {
+      "id": "content-safety",
+      "status": "required-unproven",
+      "rule": "Template rendering is strict, size-bounded, allowlisted, and safe for text and HTML contexts."
+    },
+    {
+      "id": "safe-actions",
+      "status": "required-unproven",
+      "rule": "Action and image URLs are restricted to approved schemes/origins and cannot create script or tracking injection."
+    },
+    {
+      "id": "retention-erasure",
+      "status": "required-unproven",
+      "rule": "Retention, expiry, user deletion, legal hold, and account erasure semantics are explicit per channel."
+    },
+    {
+      "id": "secret-handling",
+      "status": "required-unproven",
+      "rule": "SMTP, push, Redis, database, and internal identity secrets come from managed secrets and are never accepted in browser payloads."
+    }
+  ],
+  "migrationRequirements": [
+    "declare the canonical source and target schemas and one write authority",
+    "use additive versioned migrations rather than startup DDL",
+    "backfill wallet_notifications, read/click/delivery fields, preferences, templates, and publisher event identities",
+    "preserve normalized wallet ownership and broadcast semantics",
+    "run count, checksum, state-distribution, orphan, and duplicate reconciliation",
+    "support resumable batches with checkpoints and bounded locks",
+    "prove forward compatibility, rollback compatibility, and no destructive migration without reviewed necessity"
+  ],
+  "observabilityRequirements": [
+    "queue depth and oldest-job age by channel",
+    "enqueue, attempt, provider-acceptance, terminal-failure, retry, and dead-letter counters",
+    "SSE active connections, reconnects, lag, replay count, and fanout failures",
+    "preference suppressions and invalid-recipient metrics without PII labels",
+    "template render failures and version distribution",
+    "alerts and runbooks for delivery lag, error budget, dead letters, reconciliation drift, and provider outages"
+  ],
+  "cutoverRequirements": [
+    "shadow reads compare source and target without exposing target results",
+    "publisher canary uses explicit allowlisted event types and tenants/wallets",
+    "single-writer switch is configuration-controlled and audited",
+    "rollback preserves idempotency and does not replay already accepted provider sends",
+    "SSE clients reconnect across the switch without losing or duplicating durable events",
+    "legacy writes are disabled only after reconciliation and rollback-window approval"
+  ],
+  "blockers": [
+    {
+      "id": "B01",
+      "category": "compatibility",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Source and target methods, prefixes, payloads, fields, envelopes, and status codes are not locked by executable compatibility tests.",
+      "resolution": "Implement an explicit adapter or versioned API and contract-test every A11 surface against the pinned source behavior.",
+      "evidenceIds": ["src-route-prefixes", "src-user-list-client", "src-backend-routes", "tgt-service-routes", "tgt-frontend-any-method"]
+    },
+    {
+      "id": "B02",
+      "category": "schema",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Legacy wallet_notifications and candidate notifications/templates are incompatible write models, and the candidate DDL omits columns its queries require.",
+      "resolution": "Choose one schema authority, add versioned constraints and mappings, and prove clean-database plus upgraded-database behavior.",
+      "evidenceIds": ["src-notification-schema", "tgt-runtime-notification-ddl", "tgt-query-extra-columns"]
+    },
+    {
+      "id": "B03",
+      "category": "migrations",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "The service mutates schema and seeds templates/sample user data during startup.",
+      "resolution": "Move all DDL and controlled seed data to additive reviewed migrations; prohibit sample data in production startup.",
+      "evidenceIds": ["tgt-runtime-template-ddl", "tgt-runtime-notification-ddl", "tgt-runtime-sample-seed"]
+    },
+    {
+      "id": "B04",
+      "category": "ownership",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Direct owner authentication is present, but normalization, broadcast inclusion, foreign-resource behavior, and source owner contract parity are unproven.",
+      "resolution": "Lock canonical wallet normalization and owner-scoped integration tests for every single and bulk operation.",
+      "evidenceIds": ["src-sse-owner-auth", "src-offline-queue", "tgt-direct-owner-auth", "tgt-owner-list-filter"]
+    },
+    {
+      "id": "B05",
+      "category": "state-machine",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Delivery status and user read state are overloaded, and source acknowledge/click/delivery semantics are missing.",
+      "resolution": "Define independent channel delivery and user engagement state machines with guarded transitions and exact affected-row checks.",
+      "evidenceIds": ["src-backend-routes", "tgt-overloaded-status", "tgt-owner-list-filter"]
+    },
+    {
+      "id": "B06",
+      "category": "preferences",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Owner notification preferences and quiet-hour enforcement are not implemented in the target HTTP service.",
+      "resolution": "Add owner-scoped durable preferences, validation, defaults, legal exception policy, and enqueue-time enforcement.",
+      "evidenceIds": ["src-user-preferences-client", "src-owner-preferences", "tgt-proto-preferences-only", "tgt-user-preferences-inert"]
+    },
+    {
+      "id": "B07",
+      "category": "realtime",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "The extracted notification service has no authenticated SSE or equivalent realtime delivery route.",
+      "resolution": "Implement principal-bound streaming with bounded connections, keepalive, origin policy, backpressure, and disconnect cleanup.",
+      "evidenceIds": ["src-sse-client", "src-sse-owner-auth", "src-redis-fanout", "tgt-service-routes"]
+    },
+    {
+      "id": "B08",
+      "category": "offline-replay",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Offline replay, broadcast replay, durable cursor, reconnect dedupe, and client acknowledgement are absent.",
+      "resolution": "Define replay ordering and Last-Event-ID semantics backed by durable state and idempotent acknowledgement.",
+      "evidenceIds": ["src-sse-offline-replay", "src-offline-queue", "tgt-inapp-stub", "tgt-subscription-tracking-dropped"]
+    },
+    {
+      "id": "B09",
+      "category": "push",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Browser permission is simulated locally and push subscription/delivery lifecycle is absent.",
+      "resolution": "Implement real browser permission handling, owner-scoped subscription storage, key rotation, unsubscribe, and push delivery outcomes.",
+      "evidenceIds": ["src-push-client", "tgt-browser-permission-simulated", "tgt-proto-preferences-only"]
+    },
+    {
+      "id": "B10",
+      "category": "admin-targeting",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Admin send permits independently supplied user_id, channel, and recipient without a canonical target-resolution contract.",
+      "resolution": "Validate mutually exclusive wallet/plan/broadcast targets, normalize recipients, bound fanout, and audit the verified actor.",
+      "evidenceIds": ["src-admin-send", "src-admin-permission", "tgt-admin-claimed-recipient", "tgt-direct-admin-auth"]
+    },
+    {
+      "id": "B11",
+      "category": "internal-identity",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Domain publishers have no HTTP adapter or scoped internal service identity for the extracted service.",
+      "resolution": "Add authenticated service-to-service publish APIs, event-type scopes, replay protection, and caller audit metadata.",
+      "evidenceIds": ["tgt-http-adapter-future", "tgt-publisher-drop-path", "tgt-direct-admin-auth"]
+    },
+    {
+      "id": "B12",
+      "category": "atomicity",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Producer state, notification persistence, channel jobs, and realtime fanout are not joined by an outbox/inbox transaction.",
+      "resolution": "Use transactional outbox at producers, deduplicating inbox at notification service, and atomic notification+job creation.",
+      "evidenceIds": ["tgt-inapp-stub", "tgt-inprocess-publish-swallowed", "tgt-publisher-drop-path"]
+    },
+    {
+      "id": "B13",
+      "category": "idempotency",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Publish, send, template mutation, and delivery jobs have no locked idempotency or deduplication keys.",
+      "resolution": "Persist scoped request hashes, source event identities, job leases, provider IDs, and stable replay responses.",
+      "evidenceIds": ["tgt-template-upsert", "tgt-admin-claimed-recipient", "tgt-email-blocking-send"]
+    },
+    {
+      "id": "B14",
+      "category": "retry-dead-letter",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "There is no durable queue, retry classification/backoff, lease recovery, dead-letter store, or redrive workflow.",
+      "resolution": "Add durable per-channel jobs, bounded retries with jitter, dead letters, authorized redrive, and crash-recovery tests.",
+      "evidenceIds": ["tgt-email-blocking-send", "tgt-inprocess-publish-swallowed", "tgt-publisher-drop-path"]
+    },
+    {
+      "id": "B15",
+      "category": "email",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Missing SMTP configuration logs PII/content and reports success; configured SMTP performs a blocking send in an async request.",
+      "resolution": "Fail closed on provider configuration, enqueue asynchronously, enforce TLS/provider policy, sanitize telemetry, and record provider outcomes.",
+      "evidenceIds": ["tgt-email-mock-success", "tgt-email-blocking-send"]
+    },
+    {
+      "id": "B16",
+      "category": "in-app",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "The in_app transport reports delivered without realtime fanout or client receipt.",
+      "resolution": "Return durable accepted state, publish best-effort after commit, and derive delivered/acknowledged only from explicit events.",
+      "evidenceIds": ["src-redis-fanout", "tgt-inapp-stub", "tgt-overloaded-status"]
+    },
+    {
+      "id": "B17",
+      "category": "templates",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Template rendering is non-strict, update responses can lose the row identity, and delete does not synchronize the in-memory registry.",
+      "resolution": "Add strict typed variables, versions, preview, validation, size limits, atomic cache invalidation, and deterministic rollback.",
+      "evidenceIds": ["tgt-template-nonstrict", "tgt-template-upsert", "tgt-template-delete-cache"]
+    },
+    {
+      "id": "B18",
+      "category": "privacy-security",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "PII logging, HTML/template rendering, URL fields, retention, erasure, and secret handling lack a verified policy.",
+      "resolution": "Enforce the privacy rules, sanitize content and URLs, redact telemetry, and test retention/erasure and secret boundaries.",
+      "evidenceIds": ["tgt-email-mock-success", "tgt-template-nonstrict", "tgt-user-preferences-inert"]
+    },
+    {
+      "id": "B19",
+      "category": "observability",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Generic tracing initialization and a bare 200 health endpoint do not prove queue, provider, database, Redis, or delivery health.",
+      "resolution": "Add dependency readiness, RED metrics, queue age/depth, channel outcomes, SLOs, alerts, dashboards, and runbooks.",
+      "evidenceIds": ["tgt-bare-health", "tgt-observability-init-only"]
+    },
+    {
+      "id": "B20",
+      "category": "backfill-reconciliation",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "No resumable backfill or reconciliation proves legacy history, broadcasts, preferences, templates, and delivery state in the target.",
+      "resolution": "Build dry-run and resumable migration tooling with counts, checksums, distributions, duplicates, orphans, and repair reports.",
+      "evidenceIds": ["src-notification-schema", "tgt-runtime-notification-ddl", "tgt-subscription-tracking-dropped"]
+    },
+    {
+      "id": "B21",
+      "category": "deployment",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "The notification crate is a workspace member but has no Kubernetes deployment/service, managed secrets, dependency probes, or worker topology.",
+      "resolution": "Add immutable artifact deployment, service/worker separation, secrets, resource limits, startup/readiness probes, network policy, and rollback manifests.",
+      "evidenceIds": ["tgt-service-routes", "tgt-kustomize-without-notification", "tgt-bare-health"]
+    },
+    {
+      "id": "B22",
+      "category": "cutover-rollback",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "There is no declared single writer, shadow comparison, canary, reconciliation approval, or duplicate-safe rollback procedure.",
+      "resolution": "Execute the locked cutover requirements with explicit go/no-go evidence and preserve the legacy path through the rollback window.",
+      "evidenceIds": ["tgt-http-adapter-future", "tgt-publisher-drop-path", "tgt-kustomize-without-notification"]
+    }
+  ],
+  "requiredExecutionOrder": [
+    {
+      "batch": "N1",
+      "name": "compatibility-and-authority",
+      "exit": "One versioned API contract, owner/admin/internal authority matrix, and one declared write authority are approved."
+    },
+    {
+      "batch": "N2",
+      "name": "durable-schema-and-migration",
+      "exit": "Additive migrations, constraints, state machines, idempotency, inbox/outbox, jobs, and clean/upgrade tests pass."
+    },
+    {
+      "batch": "N3",
+      "name": "publishers-and-targeting",
+      "exit": "Internal service identity, HTTP adapter, source event dedupe, wallet/plan/broadcast resolution, and producer recovery tests pass."
+    },
+    {
+      "batch": "N4",
+      "name": "delivery-workers",
+      "exit": "Email and in-app workers prove accepted/sent/failed semantics, retry, dead-letter, redrive, provider reconciliation, and privacy controls."
+    },
+    {
+      "batch": "N5",
+      "name": "realtime-preferences-push",
+      "exit": "SSE replay/reconnect/ack, backend-enforced preferences/quiet hours, and real browser push lifecycle pass integration tests."
+    },
+    {
+      "batch": "N6",
+      "name": "template-admin-and-user-ux",
+      "exit": "Template versioning and every source user/admin interaction pass browser, accessibility, responsive, and error-state tests without sample fallback."
+    },
+    {
+      "batch": "N7",
+      "name": "backfill-observability-and-operations",
+      "exit": "Dry-run/backfill/reconciliation reports are clean and dependency health, metrics, alerts, dashboards, and runbooks are verified."
+    },
+    {
+      "batch": "N8",
+      "name": "shadow-canary-cutover-rollback",
+      "exit": "Shadow parity, canary, single-writer switch, duplicate-safe rollback rehearsal, and post-cutover reconciliation meet reviewed thresholds."
+    }
+  ],
+  "safety": {
+    "deploymentAuthorized": false,
+    "productionAccessAuthorized": false,
+    "databaseAccessAuthorized": false,
+    "redisAccessAuthorized": false,
+    "smtpAccessAuthorized": false,
+    "externalNetworkAuthorized": false,
+    "migrationExecutionAuthorized": false,
+    "readinessMeaning": "Integrity validates local pinned evidence only; it does not prove runtime, delivery, migration, deployment, or production readiness."
+  }
+}
