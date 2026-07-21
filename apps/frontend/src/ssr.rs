@@ -261,6 +261,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     let route_runtime = match path.as_str() {
         "/offline" => offline_runtime_script(),
         "/manual" => manual_runtime_script(),
+        "/developer/docs" => developer_docs_runtime_script(),
         _ => "",
     };
     let doc = doc.replace(
@@ -445,15 +446,10 @@ async fn fetch_page_data(
             params.insert("data_developer".into(), v.to_string());
         }
     }
-    if path == "/developer/docs" {
-        if let Ok(v) = state
-            .identity
-            .get_with_ctx("/api/v1/developer/docs", &request_context)
-            .await
-        {
-            params.insert("data_developer_docs".into(), v.to_string());
-        }
-    }
+    // `/developer/docs` intentionally does not fetch the historical
+    // `/api/v1/developer/docs` canned fixture. Its version-pinned catalog is
+    // rendered directly until A5 provides a generated contract that can prove
+    // route/auth/rate-limit drift end to end.
     // /analytics: summary stats + top movers.
     // Wave 23 T5 — was previously not wired.
     if path == "/analytics" {
@@ -577,6 +573,116 @@ fn manual_runtime_script() -> &'static str {
 </script>"#
 }
 
+/// `/developer/docs` is rendered by hydration-less Dioxus SSR. This constant,
+/// route-scoped controller restores the pinned source's mobile navigator,
+/// accessible endpoint accordions, language tabs, and copy controls. It reads
+/// only the static documentation DOM and never sends an API request or handles
+/// a credential; the source's live executor remains fail-closed until A4/A5.
+fn developer_docs_runtime_script() -> &'static str {
+    r#"<script data-epsx-developer-docs-runtime>
+(function () {
+  var root = document.querySelector('.developer-docs-page');
+  if (!root) return;
+  var sidebar = root.querySelector('[data-docs-sidebar="true"]');
+  var sidebarToggle = root.querySelector('[data-docs-sidebar-toggle="true"]');
+  var overlay = root.querySelector('[data-docs-sidebar-overlay="true"]');
+  var sidebarWasOpened = false;
+
+  function setSidebar(open) {
+    if (!sidebar || !sidebarToggle || !overlay) return;
+    sidebar.classList.toggle('open', open);
+    sidebarToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    sidebarToggle.setAttribute('aria-label', open ? 'Close API reference navigation' : 'Open API reference navigation');
+    sidebarToggle.querySelector('span').textContent = open ? '×' : '☰';
+    overlay.hidden = !open;
+    if (open) {
+      sidebarWasOpened = true;
+      var firstLink = sidebar.querySelector('[data-docs-section-link]');
+      if (firstLink) firstLink.focus();
+    } else if (sidebarWasOpened) {
+      window.requestAnimationFrame(function () { sidebarToggle.focus(); });
+    }
+  }
+
+  if (sidebarToggle) sidebarToggle.addEventListener('click', function () {
+    setSidebar(sidebarToggle.getAttribute('aria-expanded') !== 'true');
+  });
+  if (overlay) overlay.addEventListener('click', function () { setSidebar(false); });
+  root.querySelectorAll('[data-docs-section-link]').forEach(function (link) {
+    link.addEventListener('click', function (event) {
+      event.preventDefault();
+      root.querySelectorAll('[data-docs-section-link]').forEach(function (item) { item.classList.remove('active'); });
+      link.classList.add('active');
+      var section = document.getElementById('section-' + link.getAttribute('data-docs-section-link'));
+      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (window.matchMedia('(max-width: 1023px)').matches) setSidebar(false);
+    });
+  });
+
+  root.querySelectorAll('[data-docs-endpoint-toggle="true"]').forEach(function (button) {
+    var body = document.getElementById(button.getAttribute('aria-controls'));
+    if (!body) return;
+    button.addEventListener('click', function () {
+      var open = button.getAttribute('aria-expanded') !== 'true';
+      button.setAttribute('aria-expanded', open ? 'true' : 'false');
+      body.hidden = !open;
+      var chevron = button.querySelector('.docs-endpoint-card-chevron');
+      if (chevron) chevron.textContent = open ? '▾' : '▸';
+    });
+  });
+
+  root.querySelectorAll('.docs-code-example').forEach(function (example) {
+    var tabs = Array.prototype.slice.call(example.querySelectorAll('[data-docs-code-tab]'));
+    var panels = Array.prototype.slice.call(example.querySelectorAll('[data-docs-code-panel]'));
+    function select(index, focus) {
+      tabs.forEach(function (tab, tabIndex) {
+        var selected = tabIndex === index;
+        tab.classList.toggle('active', selected);
+        tab.setAttribute('aria-selected', selected ? 'true' : 'false');
+        tab.tabIndex = selected ? 0 : -1;
+      });
+      panels.forEach(function (panel) {
+        panel.hidden = panel.getAttribute('data-docs-code-panel') !== tabs[index].getAttribute('data-docs-code-tab');
+      });
+      if (focus) tabs[index].focus();
+    }
+    tabs.forEach(function (tab, index) {
+      tab.addEventListener('click', function () { select(index, false); });
+      tab.addEventListener('keydown', function (event) {
+        var next = index;
+        if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+        else if (event.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length;
+        else if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = tabs.length - 1;
+        else return;
+        event.preventDefault();
+        select(next, true);
+      });
+    });
+    var copy = example.querySelector('[data-docs-copy-code="true"]');
+    if (copy) copy.addEventListener('click', function () {
+      var current = example.querySelector('[data-docs-code-panel]:not([hidden]) code');
+      if (current && window.epsx) window.epsx.copyText(current.textContent || '', copy);
+    });
+  });
+
+  root.querySelectorAll('[data-docs-copy-response="true"]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var current = button.parentElement.querySelector('.docs-response-panel code');
+      if (current && window.epsx) window.epsx.copyText(current.textContent || '', button);
+    });
+  });
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && sidebarToggle && sidebarToggle.getAttribute('aria-expanded') === 'true') {
+      event.preventDefault();
+      setSidebar(false);
+    }
+  });
+})();
+</script>"#
+}
+
 /// Minimal URL-encoder for the `next=` query parameter. Only handles
 /// the characters Vercel's middleware actually encodes; intentionally
 /// avoids pulling in a full url-encoding crate for this one call site.
@@ -629,6 +735,7 @@ fn safe_return_url(query: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::developer_docs_runtime_script;
     use super::manual_runtime_script;
     use super::offline_runtime_script;
     use super::pricing_redirect_response;
@@ -779,5 +886,17 @@ mod tests {
         assert!(!script.contains("javascript:"));
         assert!(!script.contains("window.location"));
         assert!(!script.contains("fetch("));
+    }
+
+    #[test]
+    fn developer_docs_runtime_is_static_accessible_and_fail_closed() {
+        let script = developer_docs_runtime_script();
+        assert!(script.contains("data-epsx-developer-docs-runtime"));
+        assert!(script.contains("data-docs-endpoint-toggle"));
+        assert!(script.contains("aria-expanded"));
+        assert!(script.contains("ArrowRight"));
+        assert!(script.contains("window.epsx.copyText"));
+        assert!(!script.contains("fetch("));
+        assert!(!script.contains("Authorization"));
     }
 }

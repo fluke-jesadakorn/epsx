@@ -289,6 +289,13 @@ pub struct EndpointCategory {
     pub endpoints: Vec<EndpointDef>,
 }
 
+/// Immutable source snapshot used by the documentation renderer. The route is
+/// intentionally static until A5 supplies a generated, runtime-owned OpenAPI
+/// contract; keeping the pin beside the catalog makes drift explicit instead
+/// of pretending the unused BFF fixture is authoritative.
+pub const DEVELOPER_DOCS_SOURCE_BASELINE: &str =
+    "origin/development@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db";
+
 fn endpoint_categories() -> Vec<EndpointCategory> {
     // Default rate limits per tier — mirrors the source's
     // `defaultRateLimits` constant.
@@ -334,10 +341,10 @@ fn endpoint_categories() -> Vec<EndpointCategory> {
                     desc: "Returns paginated EPS rankings with optional filters. Free tier gets limited columns; premium unlocks all fields.".into(),
                     tier: "free".into(),
                     params: vec![
-                        EndpointParam::param("page", "number", false, "Page number"),
-                        EndpointParam::param("per_page", "number", false, "Results per page (max 100)"),
-                        EndpointParam::param("sort_by", "string", false, "Sort column (e.g. eps_growth, market_cap)"),
-                        EndpointParam::param("sort_dir", "string", false, "asc or desc"),
+                        EndpointParam { default: Some("1".into()), ..EndpointParam::param("page", "number", false, "Page number") },
+                        EndpointParam { default: Some("20".into()), ..EndpointParam::param("per_page", "number", false, "Results per page (max 100)") },
+                        EndpointParam { default: Some("eps_growth".into()), ..EndpointParam::param("sort_by", "string", false, "Sort column (e.g. eps_growth, market_cap)") },
+                        EndpointParam { default: Some("desc".into()), ..EndpointParam::param("sort_dir", "string", false, "asc or desc") },
                         EndpointParam::param("country", "string", false, "ISO country code filter (e.g. US, TH)"),
                         EndpointParam::param("sector", "string", false, "Sector filter"),
                         EndpointParam::param("search", "string", false, "Search by ticker or company name"),
@@ -470,24 +477,74 @@ pub fn cached_endpoint_categories() -> &'static Vec<EndpointCategory> {
 /// `usage-monitor.tsx:13-17` and `endpoint-card.tsx:10-14`.
 pub fn method_color_class(method: &str) -> &'static str {
     match method {
-        "GET" => "bg-blue-500/10 text-blue-400",
-        "POST" => "bg-green-500/10 text-green-400",
-        "DELETE" => "bg-red-500/10 text-red-400",
+        "GET" => "bg-blue-500/10 text-blue-500",
+        "POST" => "bg-green-500/10 text-green-500",
+        "DELETE" => "bg-red-500/10 text-red-500",
         _ => "text-muted-foreground",
     }
 }
 
-/// Public tier-color helper. Mirrors the badge color logic in
-/// `tier-badge.tsx` (free=slate, basic=blue, premium=purple,
-/// enterprise=amber).
+/// Public tier-color helper. Mirrors the pinned `tier-badge.tsx` mapping.
 pub fn tier_color_class(tier: &str) -> &'static str {
     match tier {
-        "free" => "bg-slate-500/10 text-slate-400",
-        "basic" => "bg-blue-500/10 text-blue-400",
-        "premium" => "bg-purple-500/10 text-purple-400",
-        "enterprise" => "bg-amber-500/10 text-amber-400",
-        _ => "bg-slate-500/10 text-slate-400",
+        "free" => "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+        "basic" => "bg-green-500/10 text-green-400 border-green-500/20",
+        "premium" => "bg-purple-500/10 text-purple-400 border-purple-500/20",
+        "enterprise" => "bg-orange-500/10 text-orange-400 border-orange-500/20",
+        _ => "text-muted-foreground",
     }
+}
+
+fn code_snippet(endpoint: &EndpointDef, language: &str) -> String {
+    let url = format!("https://api.epsx.io{}", endpoint.path);
+    match language {
+        "javascript" => {
+            let mut options = vec![
+                format!("  method: '{}'", endpoint.method),
+                "  headers: { 'Authorization': 'Bearer YOUR_API_KEY' }".to_string(),
+            ];
+            if endpoint.method == "POST" {
+                options.push("  body: JSON.stringify({ ticker: 'AAPL' })".to_string());
+            }
+            format!(
+                "const res = await fetch('{url}', {{\n{}\n}});\nconst data = await res.json();",
+                options.join(",\n")
+            )
+        }
+        "python" => {
+            let mut lines = vec![
+                "import requests".to_string(),
+                String::new(),
+                format!("url = \"{url}\""),
+                "headers = {\"Authorization\": \"Bearer YOUR_API_KEY\"}".to_string(),
+            ];
+            let request = match endpoint.method.as_str() {
+                "POST" => "res = requests.post(url, headers=headers, json={\"ticker\": \"AAPL\"})",
+                "DELETE" => "res = requests.delete(url, headers=headers, params={\"ticker\": \"AAPL\"})",
+                _ => "res = requests.get(url, headers=headers)",
+            };
+            lines.push(request.to_string());
+            lines.push("data = res.json()".to_string());
+            lines.join("\n")
+        }
+        _ => {
+            let mut lines = vec![
+                format!("curl -X {} \"{url}\"", endpoint.method),
+                "  -H \"Authorization: Bearer YOUR_API_KEY\"".to_string(),
+            ];
+            if endpoint.method == "POST" {
+                lines.push("  -H \"Content-Type: application/json\"".to_string());
+                lines.push("  -d '{\"ticker\": \"AAPL\"}'".to_string());
+            }
+            lines.join(" \\\n")
+        }
+    }
+}
+
+fn pretty_response(response: &str) -> String {
+    serde_json::from_str::<serde_json::Value>(response)
+        .and_then(|value| serde_json::to_string_pretty(&value))
+        .unwrap_or_else(|_| response.to_string())
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -1366,7 +1423,7 @@ pub fn render_usage(ctx: &PageContext) -> (PageMeta, Element) {
 /// `/developer/docs` — endpoints sidebar + endpoint cards.
 /// Wave 22 T4 — replaces the 3-card stub (auth/payments/
 /// subscriptions) with the real `ENDPOINT_CATEGORIES` (4
-/// categories, 9 representative endpoints) ported from
+/// categories, 10 endpoints) ported from
 /// `apps-old/frontend/components/developer/docs/data/endpoints.ts`.
 /// Renders a sidebar (categories nav + quick-start card) on the
 /// left and a stacked list of `EndpointCard` components on the
@@ -1374,25 +1431,28 @@ pub fn render_usage(ctx: &PageContext) -> (PageMeta, Element) {
 /// row. Mirrors the `endpoint-card.tsx` + `docs-sidebar.tsx` +
 /// `api-docs.tsx` source structure.
 pub fn render_docs(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::app("API documentation");
+    // The pinned page has no route-owned metadata and therefore inherits the
+    // exact root metadata from `app/layout.tsx`.
+    let mut meta = PageMeta::app("API documentation");
+    meta.title = "EPSX - Stock Analytics Platform".to_string();
+    meta.description = "Advanced stock data analytics platform".to_string();
+    // Next's metadata generator serializes keyword arrays with `join(',')`.
+    meta.keywords = Some("stock analytics,financial data,EPSX,market insights".to_string());
     let categories = cached_endpoint_categories();
 
     (meta, rsx! {
         MainLayout { ctx: ctx.clone(),
             DeveloperShell { current_path: ctx.path.clone(),
-                div { class: "container page-content",
-                    PageHeader {
-                        title: "API documentation".to_string(),
-                        description: Some("REST endpoints, request/response schemas, and examples".to_string()),
-                        icon: Some("book".to_string()),
-                    }
+                div {
+                    class: "developer-docs-page container page-content",
+                    "data-docs-source-baseline": DEVELOPER_DOCS_SOURCE_BASELINE,
                     // 8. Endpoints sidebar + endpoint cards.
                     div { class: "developer-docs flex gap-6",
                         "data-section": "developer-docs",
                         DocsSidebar { categories: categories.clone() }
                         div { class: "min-w-0 flex-1 space-y-8",
                             // Hero
-                            div { class: "developer-docs-hero",
+                            div { class: "developer-docs-hero mb-8",
                                 div { class: "h-[3px] w-16 rounded-full bg-gradient-to-r from-[#7645d9] to-[#1fc7d4]" }
                                 h1 { class: "mt-3 text-3xl font-bold text-foreground", "API Reference" }
                                 p { class: "mt-2 text-muted-foreground",
@@ -1430,14 +1490,28 @@ pub fn render_docs(ctx: &PageContext) -> (PageMeta, Element) {
 #[component]
 fn DocsSidebar(categories: Vec<EndpointCategory>) -> Element {
     rsx! {
-        aside { class: "docs-sidebar hidden w-56 shrink-0 lg:block",
-            div { class: "px-1 py-4",
+        button {
+            r#type: "button",
+            class: "docs-sidebar-toggle",
+            "data-docs-sidebar-toggle": "true",
+            "aria-controls": "developer-docs-sidebar",
+            "aria-expanded": "false",
+            "aria-label": "Open API reference navigation",
+            span { "☰" }
+        }
+        aside {
+            id: "developer-docs-sidebar",
+            class: "docs-sidebar",
+            "data-docs-sidebar": "true",
+            "aria-label": "API reference sections",
+            div { class: "px-4 py-4",
                 h3 { class: "mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground", "API Reference" }
-                nav { class: "space-y-1",
+                nav { class: "space-y-1", "aria-label": "Endpoint categories",
                     for cat in categories.iter() {
                         a {
                             class: "docs-sidebar-link flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground",
-                            href: "#{cat.id}",
+                            href: "#section-{cat.id}",
+                            "data-docs-section-link": "{cat.id}",
                             key: "{cat.id}",
                             span { class: "h-1.5 w-1.5 rounded-full bg-current opacity-50" }
                             "{cat.title}"
@@ -1457,6 +1531,13 @@ fn DocsSidebar(categories: Vec<EndpointCategory>) -> Element {
                 }
             }
         }
+        button {
+            r#type: "button",
+            class: "docs-sidebar-overlay",
+            "data-docs-sidebar-overlay": "true",
+            "aria-label": "Close API reference navigation",
+            hidden: true,
+        }
     }
 }
 
@@ -1465,7 +1546,7 @@ fn DocsSidebar(categories: Vec<EndpointCategory>) -> Element {
 #[component]
 fn EndpointSection(category: EndpointCategory) -> Element {
     rsx! {
-        section { class: "docs-endpoint-section space-y-4", id: "{category.id}",
+        section { class: "docs-endpoint-section space-y-4", id: "section-{category.id}",
             key: "{category.id}",
             div { class: "docs-endpoint-section-header",
                 h2 { class: "text-2xl font-bold text-foreground", "{category.title}" }
@@ -1486,25 +1567,37 @@ fn EndpointSection(category: EndpointCategory) -> Element {
 /// response example.
 #[component]
 fn EndpointCard(endpoint: EndpointDef) -> Element {
-    let mut expanded = use_signal(|| false);
     let method_cls = method_color_class(&endpoint.method);
     let tier_cls = tier_color_class(&endpoint.tier);
+    let card_id = format!(
+        "docs-endpoint-{}-{}",
+        endpoint.method.to_ascii_lowercase(),
+        endpoint.path.trim_matches('/').replace('/', "-")
+    );
+    let body_id = format!("{card_id}-body");
+    let curl = code_snippet(&endpoint, "curl");
+    let javascript = code_snippet(&endpoint, "javascript");
+    let python = code_snippet(&endpoint, "python");
+    let response = pretty_response(&endpoint.response_example);
     rsx! {
-        div { class: "docs-endpoint-card rounded-2xl border border-border/20 bg-card shadow-xl",
+        article { class: "docs-endpoint-card rounded-2xl border border-border/20 bg-card shadow-xl",
+            id: "{card_id}",
             key: "{endpoint.method}-{endpoint.path}",
             button {
                 r#type: "button",
                 class: "flex w-full items-center gap-3 px-5 py-4 text-left",
-                onclick: move |_| expanded.toggle(),
+                "data-docs-endpoint-toggle": "true",
+                "aria-expanded": "false",
+                "aria-controls": "{body_id}",
                 span { class: "rounded-lg px-2.5 py-1 text-xs font-bold {method_cls}", "{endpoint.method}" }
                 code { class: "flex-1 font-mono text-sm text-foreground", "{endpoint.path}" }
-                span { class: "rounded-full px-2 py-0.5 text-[10px] font-medium {tier_cls}", "{endpoint.tier}" }
-                span { class: "docs-endpoint-card-chevron h-4 w-4 text-muted-foreground",
-                    if *expanded.read() { "▾" } else { "▸" }
-                }
+                span { class: "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium capitalize {tier_cls}", "{endpoint.tier}" }
+                span { class: "docs-endpoint-card-chevron h-4 w-4 text-muted-foreground", "aria-hidden": "true", "▸" }
             }
-        if *expanded.read() {
-            div { class: "docs-endpoint-card-body border-t border-border/10 px-5 py-4 space-y-5",
+            div {
+                id: "{body_id}",
+                class: "docs-endpoint-card-body border-t border-border/10 px-5 py-4 space-y-5",
+                hidden: true,
                 p { class: "text-sm text-muted-foreground", "{endpoint.desc}" }
                 // Params table
                 if !endpoint.params.is_empty() {
@@ -1532,7 +1625,10 @@ fn EndpointCard(endpoint: EndpointDef) -> Element {
                                                     span { class: "text-xs text-muted-foreground/50", "no" }
                                                 }
                                             }
-                                            td { class: "px-3 py-2 text-xs text-muted-foreground", "{p.desc}" }
+                                            td { class: "px-3 py-2 text-xs text-muted-foreground",
+                                                "{p.desc}"
+                                                if let Some(default) = &p.default { " (default: {default})" }
+                                            }
                                         }
                                     }
                                 }
@@ -1556,19 +1652,71 @@ fn EndpointCard(endpoint: EndpointDef) -> Element {
                 // Example
                 div { class: "docs-endpoint-card-example",
                     h4 { class: "mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground", "Example" }
-                    pre { class: "rounded-xl bg-slate-900 p-3 font-mono text-xs text-gray-300",
-                        "curl -X {endpoint.method} \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  https://api.epsx.io{endpoint.path}"
+                    div { class: "docs-code-example",
+                        div {
+                            class: "docs-code-toolbar",
+                            role: "tablist",
+                            "aria-label": "Code language",
+                            for (lang, label) in [("curl", "cURL"), ("javascript", "JavaScript"), ("python", "Python")] {
+                                button {
+                                    r#type: "button",
+                                    class: if lang == "curl" { "docs-code-tab active" } else { "docs-code-tab" },
+                                    role: "tab",
+                                    "data-docs-code-tab": "{lang}",
+                                    "aria-selected": if lang == "curl" { "true" } else { "false" },
+                                    tabindex: if lang == "curl" { "0" } else { "-1" },
+                                    "{label}"
+                                }
+                            }
+                            button { r#type: "button", class: "docs-copy-button", "data-docs-copy-code": "true", span { "Copy" } }
+                        }
+                        pre { class: "docs-code-panel", "data-docs-code-panel": "curl", code { "{curl}" } }
+                        pre { class: "docs-code-panel", "data-docs-code-panel": "javascript", hidden: true, code { "{javascript}" } }
+                        pre { class: "docs-code-panel", "data-docs-code-panel": "python", hidden: true, code { "{python}" } }
                     }
                 }
                 // Response example
                 div { class: "docs-endpoint-card-response",
                     h4 { class: "mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground", "Response" }
-                    pre { class: "rounded-xl bg-slate-900 p-3 font-mono text-xs text-gray-300",
-                        "{endpoint.response_example}"
+                    div { class: "docs-response-example",
+                        button { r#type: "button", class: "docs-copy-button docs-response-copy", "data-docs-copy-response": "true", span { "Copy" } }
+                        pre { class: "docs-response-panel", code { "{response}" } }
+                    }
+                }
+
+                // The source's direct browser executor can mutate watchlists
+                // and depends on A4/A5 API-key/route contracts that are not yet
+                // closed on this branch. Preserve the visible panel and inputs,
+                // but fail closed instead of issuing an unsafe or misleading
+                // request through the frontend.
+                div { class: "docs-try-it rounded-2xl border border-border/20 bg-card shadow-xl",
+                    div { class: "docs-try-it-header", h4 { "Try it" } }
+                    div { class: "docs-try-it-body",
+                        label { class: "docs-field-label", r#for: "{card_id}-api-key", "API Key" }
+                        select { id: "{card_id}-api-key", class: "docs-field-control", disabled: true,
+                            option { value: "", "No key (anonymous)" }
+                        }
+                        for p in endpoint.params.iter() {
+                            label { class: "docs-field-label", r#for: "{card_id}-{p.name}",
+                                "{p.name}"
+                                if p.required { span { " *" } }
+                                small { " {p.kind}" }
+                            }
+                            input {
+                                id: "{card_id}-{p.name}",
+                                class: "docs-field-control",
+                                r#type: "text",
+                                placeholder: p.default.as_deref().unwrap_or(&p.desc),
+                                disabled: true,
+                            }
+                        }
+                        button { r#type: "button", class: "docs-send-button", disabled: true, "Send Request" }
+                        p { class: "docs-try-it-status", role: "status",
+                            "Live requests stay disabled until the A4/A5 API-key, ownership, and route contracts are verified."
+                        }
                     }
                 }
             }
-        }
         }
     }
 }
@@ -1788,8 +1936,15 @@ mod tests {
     #[test]
     fn test_docs_categories() {
         let ctx = authed_ctx();
-        let (_meta, el) = render_docs(&ctx);
+        let (meta, el) = render_docs(&ctx);
         let html = dioxus_ssr::render_element(el);
+        assert_eq!(meta.title, "EPSX - Stock Analytics Platform");
+        assert_eq!(meta.description, "Advanced stock data analytics platform");
+        assert_eq!(
+            meta.keywords.as_deref(),
+            Some("stock analytics,financial data,EPSX,market insights")
+        );
+        assert!(html.contains(DEVELOPER_DOCS_SOURCE_BASELINE));
         // 4 category titles from ENDPOINT_CATEGORIES. The `&` is
         // HTML-encoded by dioxus_ssr as `&#38;`, so we check for
         // the encoded form for "Portfolio & Watchlist".
@@ -1815,10 +1970,17 @@ mod tests {
             html.contains("docs-sidebar-quickstart"),
             "docs page should render the quick-start sidebar card"
         );
+        assert_eq!(html.matches("docs-endpoint-card rounded-2xl").count(), 10);
+        assert_eq!(html.matches("data-docs-endpoint-toggle=\"true\"").count(), 10);
+        assert_eq!(html.matches("docs-try-it rounded-2xl").count(), 10);
+        assert_eq!(html.matches("docs-send-button").count(), 10);
+        assert!(html.contains("Live requests stay disabled until the A4/A5"));
+        assert!(!html.contains("REST endpoints, request/response schemas, and examples"));
+        assert!(!html.contains("API documentation</h1>"));
     }
 
     /// Wave 22 T4 — `test_endpoint_catalog_units`. Cached catalog
-    /// must have 4 categories, 9 representative endpoints, and
+    /// must have 4 categories, 10 endpoints, and
     /// contain a `param()` helper signature.
     #[test]
     fn test_endpoint_catalog_units() {
@@ -1834,12 +1996,9 @@ mod tests {
         assert_eq!(portfolio.endpoints.len(), 3);
         let user = cats.iter().find(|c| c.id == "user").expect("user category");
         assert_eq!(user.endpoints.len(), 2);
-        // Total = 1 + 4 + 3 + 2 = 10. Brief says "9 representative endpoints"
-        // — the source has 10 (1 auth + 4 analytics + 3 portfolio + 2 user);
-        // we report 10 here (close enough — the brief's "9" was a rough
-        // count of the production set).
+        // Total = 1 + 4 + 3 + 2 = 10 in the pinned source.
         let total: usize = cats.iter().map(|c| c.endpoints.len()).sum();
-        assert!(total >= 9, "endpoint catalog should have at least 9 endpoints, got {total}");
+        assert_eq!(total, 10, "endpoint catalog must keep the exact pinned endpoint count");
 
         // param() helper unit-check.
         let p = EndpointParam::param("ticker", "string", true, "test");
@@ -1855,5 +2014,59 @@ mod tests {
         assert!(!method_color_class("DELETE").is_empty());
         assert!(!tier_color_class("free").is_empty());
         assert!(!tier_color_class("enterprise").is_empty());
+    }
+
+    #[test]
+    fn developer_docs_catalog_matches_pinned_visible_contract() {
+        let cats = cached_endpoint_categories();
+        let ids: Vec<&str> = cats.iter().map(|category| category.id.as_str()).collect();
+        assert_eq!(ids, vec!["auth", "analytics", "portfolio", "user"]);
+        let endpoints: Vec<(&str, &str)> = cats
+            .iter()
+            .flat_map(|category| category.endpoints.iter())
+            .map(|endpoint| (endpoint.method.as_str(), endpoint.path.as_str()))
+            .collect();
+        assert_eq!(
+            endpoints,
+            vec![
+                ("GET", "/api/auth/session/verify"),
+                ("GET", "/api/analytics/rankings"),
+                ("GET", "/api/analytics/filters"),
+                ("GET", "/api/analytics/countries"),
+                ("GET", "/api/analytics/sectors"),
+                ("GET", "/api/users/watchlist"),
+                ("POST", "/api/users/watchlist"),
+                ("DELETE", "/api/users/watchlist"),
+                ("GET", "/api/users/profile"),
+                ("GET", "/api/users/access-overview"),
+            ]
+        );
+        let rankings = &cats[1].endpoints[0];
+        let defaults: Vec<Option<&str>> = rankings
+            .params
+            .iter()
+            .take(4)
+            .map(|param| param.default.as_deref())
+            .collect();
+        assert_eq!(
+            defaults,
+            vec![Some("1"), Some("20"), Some("eps_growth"), Some("desc")]
+        );
+    }
+
+    #[test]
+    fn developer_docs_code_examples_match_pinned_generators() {
+        let post = &cached_endpoint_categories()[2].endpoints[1];
+        assert_eq!(
+            code_snippet(post, "curl"),
+            "curl -X POST \"https://api.epsx.io/api/users/watchlist\" \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"ticker\": \"AAPL\"}'"
+        );
+        assert!(
+            code_snippet(post, "javascript")
+                .contains("body: JSON.stringify({ ticker: 'AAPL' })")
+        );
+        assert!(code_snippet(post, "python").contains("requests.post"));
+        let pretty = pretty_response(&post.response_example);
+        assert!(pretty.contains("\n  \"success\": true"));
     }
 }

@@ -26,6 +26,11 @@ grep -q "STOP readiness (25 non-aligned routes" "$temp_dir/readiness.out"
 "$verify" --mode emit >"$temp_dir/emit-two.json"
 cmp "$temp_dir/emit-one.json" "$temp_dir/emit-two.json"
 bun -e 'const report = await Bun.file(process.argv[1]).json(); if (report.routeCount !== 28 || report.productionReady !== false || report.readinessExit !== 3 || report.statuses.aligned !== 3 || report.statuses.partial !== 7 || report.statuses.blocked !== 18) process.exit(1);' "$temp_dir/emit-one.json"
+bun -e '
+const contract = await Bun.file(process.argv[1]).json();
+const docs = contract.routes.find(route => route.path === "/developer/docs");
+if (!docs || docs.status !== "partial" || docs.loader.kind !== "version-pinned-static" || docs.loader.endpoints.length !== 0 || docs.interactions.search.length !== 0 || docs.hydration.status !== "implemented" || docs.blockers.length !== 1) process.exit(1);
+' "$contract"
 
 FRONTEND_CONTRACT_IN="$contract" FRONTEND_CONTRACT_OUT="$temp_dir/tampered.json" bun -e '
 const value = await Bun.file(process.env.FRONTEND_CONTRACT_IN).json();

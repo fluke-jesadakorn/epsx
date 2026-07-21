@@ -229,16 +229,16 @@
       "blockers":["wire owner-scoped API-key create/revoke with server-authorized scopes, secret-once handling, and complete async states"]
     },
     {
-      "path":"/developer/docs","batch":"B5-developer","status":"partial","dependencies":["A5"],
+      "path":"/developer/docs","batch":"B5-developer","status":"partial","dependencies":["A1","A4","A5"],
       "source":{"file":"apps/frontend/app/developer/docs/page.tsx","anchors":["export default function DocsPage()","<ApiDocs />"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/developer.rs","handler":"developer::render_docs","anchors":["pub fn render_docs(ctx: &PageContext)","cached_endpoint_categories()"]},
-      "payloads":{"staticOrSample":["hard-coded endpoint categories, request examples, and rate limits"],"placeholderOrSkeleton":[]},
-      "loader":{"kind":"gateway-unused","endpoints":["GET /api/v1/developer/docs"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"\"/api/v1/developer/docs\""}]},
-      "authOwner":{"auth":"public documentation","owner":"none"},
-      "interactions":{"forms":[],"pagination":[],"search":["missing docs search"],"wallet":[],"keyboard":["accordion buttons require hydration"],"controls":["sidebar anchors and local accordions"]},
-      "states":{"loading":"missing","empty":"missing","error":"missing","retry":"missing"},
-      "hydration":{"need":"browser","status":"partial","reason":"accordion signals exist; fetched documentation payload is ignored"},
-      "blockers":["declare generated/static docs as canonical or consume the docs contract; add search and drift verification"]
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/developer.rs","handler":"developer::render_docs","anchors":["pub fn render_docs(ctx: &PageContext)","DEVELOPER_DOCS_SOURCE_BASELINE"]},
+      "payloads":{"staticOrSample":["version-pinned source catalog: four categories, ten endpoint cards, request examples, response examples, and advertised rate limits"],"placeholderOrSkeleton":[]},
+      "loader":{"kind":"version-pinned-static","endpoints":[],"evidence":[]},
+      "authOwner":{"auth":"pinned DeveloperLayout requires a user; target keeps its pre-existing public BFF boundary and browser proof uses a verified session","owner":"none for static documentation; live API-key executor remains disabled"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["authenticated localhost proof covers mobile section navigation, endpoint accordions, code tabs, copy controls, theme, and desktop links"],"controls":["mobile/desktop category navigation, ten endpoint accordions, cURL/JavaScript/Python tabs, code/response copy; live Send Request controls fail closed"]},
+      "states":{"loading":"not-applicable","empty":"not-applicable","error":"not-applicable","retry":"not-applicable"},
+      "hydration":{"need":"browser","status":"implemented","reason":"route-scoped static controller is proven at mobile and desktop without Dioxus hydration or API requests"},
+      "blockers":["resolve the A1 pinned-layout versus current public-route auth boundary; generate/verify documentation against the A5 route/auth/envelope contract and A4 rate/entitlement decisions; enable owner-safe API-key selection and live Try It states only after those contracts close"]
     },
     {
       "path":"/developer/usage","batch":"B5-developer","status":"blocked","dependencies":["A1","A4","A5"],

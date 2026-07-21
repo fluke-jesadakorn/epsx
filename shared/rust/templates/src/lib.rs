@@ -4275,7 +4275,70 @@ pub fn design_system_head_with_keywords(
   .docs-quick-link {{ transition: background 0.15s ease, color 0.15s ease; text-decoration: none; }}
   .usage-monitor {{ }}
   .usage-monitor .chart {{ margin-top: 0.5rem; }}
-  .developer-docs {{ margin-top: 1rem; }}
+  .developer-docs {{ margin-top: 1rem; align-items: flex-start; }}
+  .developer-docs-page {{ min-width: 0; }}
+  .developer-docs > .min-w-0 {{ min-width: 0; flex: 1 1 auto; }}
+  .developer-docs-hero {{ margin-bottom: 2rem; }}
+  .developer-docs-auth-card {{ margin-bottom: 2rem; }}
+  .developer-docs-curl,
+  .docs-code-panel,
+  .docs-response-panel {{ max-width: 100%; overflow-x: auto; white-space: pre; }}
+  .docs-sidebar {{ width: 14rem; flex: 0 0 14rem; position: sticky; top: 5rem; }}
+  .docs-sidebar-toggle,
+  .docs-sidebar-overlay {{ display: none; }}
+  .docs-sidebar-link {{ text-decoration: none; }}
+  .docs-sidebar-link.active {{ background: rgba(118, 69, 217, 0.1); color: #7645d9; font-weight: 500; }}
+  .docs-endpoint-section {{ scroll-margin-top: 5rem; margin-bottom: 2.5rem; }}
+  .docs-endpoint-card {{ overflow: hidden; margin-top: 0.75rem; }}
+  .docs-endpoint-card > button {{ min-width: 0; }}
+  .docs-endpoint-card > button code {{ min-width: 0; overflow-wrap: anywhere; }}
+  .docs-endpoint-card-chevron {{ flex: 0 0 auto; }}
+  .docs-endpoint-card-body[hidden],
+  .docs-code-panel[hidden],
+  .docs-sidebar-overlay[hidden] {{ display: none !important; }}
+  .docs-endpoint-card-body {{ display: grid; gap: 1.25rem; }}
+  .docs-endpoint-card-params {{ min-width: 0; }}
+  .docs-endpoint-card-params table {{ min-width: 42rem; border-collapse: collapse; }}
+  .docs-code-example {{ overflow: hidden; border-radius: 0.75rem; }}
+  .docs-code-toolbar {{ display: flex; align-items: center; gap: 0.25rem; padding: 0.5rem 0.75rem; background: #1e293b; }}
+  .docs-code-tab,
+  .docs-copy-button {{ border: 0; border-radius: 0.375rem; padding: 0.25rem 0.625rem; background: transparent; color: #9ca3af; font-size: 0.75rem; cursor: pointer; }}
+  .docs-code-tab.active {{ background: #475569; color: #fff; }}
+  .docs-code-tab:focus-visible,
+  .docs-copy-button:focus-visible,
+  .docs-sidebar-toggle:focus-visible,
+  .docs-sidebar-link:focus-visible {{ outline: 2px solid #1fc7d4; outline-offset: 2px; }}
+  .docs-copy-button {{ margin-left: auto; background: rgba(255,255,255,0.1); color: #d1d5db; }}
+  .docs-code-panel {{ margin: 0; border-radius: 0; padding: 1rem; background: #0f172a; color: #e5e7eb; font: 0.875rem/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }}
+  .docs-response-example {{ position: relative; }}
+  .docs-response-copy {{ position: absolute; z-index: 1; top: 0.75rem; right: 0.75rem; }}
+  .docs-response-panel {{ margin: 0; border-radius: 0.75rem; padding: 1rem; padding-top: 3.25rem; background: #020617; color: #d1fae5; font: 0.875rem/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }}
+  .docs-try-it {{ overflow: hidden; }}
+  .docs-try-it-header {{ padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); }}
+  .docs-try-it-header h4 {{ margin: 0; font-size: 0.875rem; }}
+  .docs-try-it-body {{ display: grid; gap: 0.75rem; padding: 1rem; }}
+  .docs-field-label {{ display: block; color: var(--text-muted); font-size: 0.75rem; font-weight: 500; }}
+  .docs-field-label small {{ opacity: 0.7; }}
+  .docs-field-control {{ width: 100%; border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.625rem 0.75rem; background: var(--bg); color: var(--text); }}
+  .docs-field-control:disabled {{ opacity: 0.65; cursor: not-allowed; }}
+  .docs-send-button {{ border: 0; border-radius: 0.75rem; padding: 0.625rem 1rem; background: linear-gradient(90deg, #7645d9, #5a33b8); color: white; font-weight: 600; }}
+  .docs-send-button:disabled {{ opacity: 0.5; cursor: not-allowed; }}
+  .docs-try-it-status {{ margin: 0; color: var(--text-muted); font-size: 0.75rem; }}
+  @media (max-width: 1023px) {{
+    .developer-docs {{ display: block; }}
+    .docs-sidebar {{ position: fixed; z-index: 80; top: 0; left: 0; width: 14rem; height: 100dvh; padding-top: 5rem; background: var(--bg-secondary); border-right: 1px solid var(--border); transform: translateX(-100%); transition: transform 160ms ease; overflow-y: auto; }}
+    .docs-sidebar.open {{ transform: translateX(0); }}
+    .docs-sidebar-toggle {{ display: inline-flex; position: fixed; z-index: 90; right: 1rem; bottom: 1rem; width: 3rem; height: 3rem; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: linear-gradient(90deg, #7645d9, #5a33b8); color: white; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }}
+    .docs-sidebar-overlay:not([hidden]) {{ display: block; position: fixed; z-index: 70; inset: 0; border: 0; background: rgba(0,0,0,0.4); }}
+  }}
+  @media (max-width: 639px) {{
+    .developer-docs-page {{ padding-left: 0.75rem; padding-right: 0.75rem; }}
+    .developer-docs-hero h1 {{ font-size: 1.875rem; }}
+    .developer-docs-auth-card {{ padding: 1rem; }}
+    .docs-endpoint-card > button {{ gap: 0.5rem; padding: 0.875rem; }}
+    .docs-endpoint-card-body {{ padding: 0.875rem; }}
+    .docs-code-toolbar {{ flex-wrap: wrap; }}
+  }}
 
   /* end wave6-auth-pages-depth-track-b */
 =======

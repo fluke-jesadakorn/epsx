@@ -18,6 +18,8 @@ The focused B1 `/about` proof removes the prior invented team biographies, compa
 
 The focused B5 `/manual` proof accepts the pinned 35-feature catalog verbatim, verifies every referenced WebP through the localhost BFF, and proves the responsive category index, route links, screenshot fallback/dialog, and focus behavior at mobile and desktop viewports. It adds no permission, plan, ranking, feature-flag, or subscription decisions to the frontend.
 
+The focused B5 `/developer/docs` proof removes the invented page header and unused canned loader, pins the exact four-category/ten-endpoint source catalog and inherited root metadata, and restores the mobile section navigator, accessible endpoint accordions, language tabs, and code/response copy controls through a constant route-scoped controller. The mobile navigator intentionally starts closed instead of preserving the source hook's obstructive `sidebarOpen = true` first paint; it exposes an accessible toggle, overlay, Escape close, and focus restoration. The real authenticated localhost proof covers mobile and desktop layouts, exact content/order/metadata, keyboard behavior, and zero browser errors. The route remains **partial**: the pinned source's direct browser executor can mutate watchlists and depends on API keys, while A1 has not resolved the pinned authenticated DeveloperLayout versus the target's existing public BFF boundary and A4/A5 have not locked the advertised tier/rate/route contract. The Rust page therefore preserves the visible Try It controls but disables requests and exposes the reason instead of sending unsafe or misleading traffic.
+
 The most important distinction is loader presence versus a production-usable flow. `/analytics`, `/plans`, `/portfolio`, and dynamic payment have SSR fetch hooks whose `data_*` payload is not consumed by the page. Dashboard, news, and developer usage consume in-process values that can still be canned. Other pages deserialize live data but silently replace failures with samples, zeroes, or empty arrays. None of those cases is live-data readiness.
 
 ## Exact route anchors and observed loader path
@@ -39,7 +41,7 @@ Anchors are literal substrings. Source anchors are verified with `git show` at t
 | `/contact` | `apps/frontend/app/contact/page.tsx :: CopyEmailBtn` | `pages/contact.rs :: action: "/api/v1/contact"` | native `POST /api/v1/contact` | partial |
 | `/dashboard` | `apps/frontend/app/dashboard/page.tsx :: getSessionFromWeb3()` | `pages/dashboard.rs :: DashboardMockStats::default_mock` | in-process `dashboard_data_internal` | blocked |
 | `/developer` | `apps/frontend/app/developer/page.tsx :: APIKeyManager` | `pages/developer.rs :: ctx.params.get("data_developer")` | `GET /api/v1/developer` | blocked |
-| `/developer/docs` | `apps/frontend/app/developer/docs/page.tsx :: <ApiDocs />` | `pages/developer.rs :: cached_endpoint_categories()` | `GET /api/v1/developer/docs`, unused | partial |
+| `/developer/docs` | `apps/frontend/app/developer/docs/page.tsx :: <ApiDocs />` | `pages/developer.rs :: DEVELOPER_DOCS_SOURCE_BASELINE` | version-pinned static catalog; unused canned loader removed; live Try It fail-closed pending A1/A4/A5 | partial |
 | `/developer/usage` | `apps/frontend/app/developer/usage/page.tsx :: DeveloperUsagePage` | `pages/developer.rs :: data_developer_usage` | in-process `developer_usage_value` | blocked |
 | `/manual` | `apps/frontend/app/manual/page.tsx :: Complete guide to all platform features` | `pages/manual.rs :: const FEATURES:` | accepted 35-feature static catalog; responsive landmarks, links, screenshot fallback/dialog, and mobile/desktop keyboard proof | aligned |
 | `/news` | `apps/frontend/app/news/page.tsx :: searchParams: Promise<{ page?: string }>` | `pages/news.rs :: .unwrap_or_else(default_posts)` | in-process `news_list_value` | partial |
@@ -92,7 +94,7 @@ Close one batch at a time; do not mark a route aligned merely because another ro
 2. **B2 identity:** `/auth`, `/account`, `/account/credits`, `/profile`. Finish A1, add owner adapters, payment/credit pagination, and durable profile/preference mutations.
 3. **B3 insights:** `/analytics`, `/dashboard`, `/portfolio`, `/permissions`. Consume live payloads, implement backend query/pagination/export/watchlist contracts, and render A4 decisions without policy duplication.
 4. **B4 communication:** `/chat`, `/chat/:id`, `/chat/history`, `/notifications`. Add owner-scoped list/detail/create/send/resolve/read/preference APIs, SSE reconnect, and keyboard/pagination/error behavior.
-5. **B5 developer:** `/developer`, `/developer/docs`, `/developer/usage`, `/manual`. Add secret-once API-key mutations, owner usage/range pagination, and choose generated-versus-live documentation as one canonical source. `/manual` is aligned as the accepted static 35-feature catalog with responsive, keyboard, screenshot-control, fallback, and accessibility browser proof.
+5. **B5 developer:** `/developer`, `/developer/docs`, `/developer/usage`, `/manual`. Add secret-once API-key mutations and owner usage/range pagination. `/manual` is aligned as the accepted static 35-feature catalog. `/developer/docs` now has source-exact static UI, metadata, responsive, accordion, language-tab, copy, and keyboard proof, but remains partial until A1 resolves its auth boundary, A4/A5 produce a drift-checked route/rate/entitlement contract, and live Try It can execute owner-safely with complete states.
 6. **B6 commerce/support:** `/plans`, `/payment`, `/payment/:type/:id`, `/contact`. Consume canonical plans, complete A6, forbid client-owned price/eligibility decisions, and prove contact validation/rate-limit/feedback.
 7. **B7 policy/fallback:** `/access-denied`, `/offline`, `/privacy`, `/terms`. `/access-denied` is aligned. Finish service-worker/cache delivery for a fresh offline navigation, obtain product/legal approval for wallet/SIWE privacy and terms copy, and implement a real email-subscription endpoint plus pending/success/error/retry feedback.
 
@@ -109,6 +111,7 @@ Audit integrity and deterministic report:
 bunx playwright test e2e/frontend/policy-fallback-runtime.spec.ts --project=frontend --workers=1
 bunx playwright test e2e/frontend/manual-runtime.spec.ts --project=frontend --workers=1
 ./scripts/migration/run-about-runtime-proof.sh
+./scripts/migration/run-developer-docs-runtime-proof.sh
 ```
 
 Readiness is expected to stop today:
