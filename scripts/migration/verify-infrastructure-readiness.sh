@@ -87,7 +87,7 @@ let contract;
 try { contract = JSON.parse(readFileSync(contractPath, "utf8")); }
 catch (error) { fail(`invalid contract JSON: ${error.message}`); }
 
-if (contract.schemaVersion !== 1 || contract.contractId !== "A13.0-infrastructure-readiness") fail("unexpected schemaVersion or contractId");
+if (contract.schemaVersion !== 1 || contract.contractId !== "A13.1-infrastructure-readiness") fail("unexpected schemaVersion or contractId");
 if (contract.purpose !== "hermetic-prod-artifact-audit-and-readiness-stop") fail("unexpected contract purpose");
 if (contract.productionReady !== false || contract.clusterAccess !== false || contract.integrityExit !== 0 || contract.readinessExit !== 3) fail("readiness sentinel changed");
 if (contract.overlay !== "infrastructure/kubernetes/overlays/prod") fail("prod overlay path changed");
@@ -231,11 +231,33 @@ const secretSummary = {
 const expectedSecrets = { ...expected.secretSummary, envFromSecretRefs: sorted(expected.secretSummary.envFromSecretRefs) };
 same(secretSummary, expectedSecrets, "secret summary");
 
-if (!Array.isArray(contract.imageResolution) || contract.imageResolution.length !== 7) fail("seven image resolution records are required");
-for (const record of contract.imageResolution) {
-  if (!record || typeof record.id !== "string" || !record.status.startsWith(record.id === "identity" ? "missing" : "ineffective")) fail(`invalid image resolution record ${record?.id}`);
-  if (!images.includes(record.rendered)) fail(`${record.id}: rendered image evidence missing`);
-}
+const overlayKustomization = readFileSync(resolve(root, contract.overlay, "kustomization.yaml"), "utf8");
+const actualImageTransforms = [...overlayKustomization.matchAll(/^  - name: (\S+)\n    newName: (\S+)\n    newTag: (\S+)$/gm)].map((match) => ({ name: match[1], newName: match[2], newTag: match[3] }));
+const expectedImageTransforms = [
+  { name: "epsx-backend", newName: "epsx-backend", newTag: "prod" },
+  { name: "epsx-frontend", newName: "epsx-frontend", newTag: "prod" },
+  { name: "epsx-admin", newName: "epsx-admin-frontend", newTag: "prod" },
+  { name: "epsx-analytics", newName: "epsx-analytics", newTag: "wave12" },
+  { name: "epsx-pay-svc", newName: "epsx-pay-svc", newTag: "wave49" },
+  { name: "epsx-pay-bff", newName: "epsx-pay-bff", newTag: "wave49" }
+];
+same(actualImageTransforms, expectedImageTransforms, "prod image transforms");
+if (actualImageTransforms.some((item) => item.name === "epsx-identity")) fail("identity transform must remain absent until an approved artifact is declared");
+
+const expectedImageResolution = [
+  { id: "backend", base: "epsx-backend:prod", overlayMatch: "epsx-backend", declaredResult: "epsx-backend:prod", rendered: "epsx-backend:prod", status: "exact-match-render-unchanged" },
+  { id: "frontend", base: "epsx-frontend:dev", overlayMatch: "epsx-frontend", declaredResult: "epsx-frontend:prod", rendered: "epsx-frontend:prod", status: "effective-render-change" },
+  { id: "admin", base: "epsx-admin:dev", overlayMatch: "epsx-admin", declaredResult: "epsx-admin-frontend:prod", rendered: "epsx-admin-frontend:prod", status: "effective-render-change" },
+  { id: "analytics", base: "epsx-analytics:wave12", overlayMatch: "epsx-analytics", declaredResult: "epsx-analytics:wave12", rendered: "epsx-analytics:wave12", status: "exact-match-render-unchanged" },
+  { id: "pay-service", base: "epsx-pay-svc:prod", overlayMatch: "epsx-pay-svc", declaredResult: "epsx-pay-svc:wave49", rendered: "epsx-pay-svc:wave49", status: "effective-render-change" },
+  { id: "pay-bff", base: "epsx-pay-bff:prod", overlayMatch: "epsx-pay-bff", declaredResult: "epsx-pay-bff:wave49", rendered: "epsx-pay-bff:wave49", status: "effective-render-change" },
+  { id: "identity", base: "epsx-identity:dev", overlayMatch: null, declaredResult: null, rendered: "epsx-identity:dev", status: "missing-prod-transform" }
+];
+same(contract.imageResolution, expectedImageResolution, "image resolution");
+for (const record of contract.imageResolution) if (!images.includes(record.rendered)) fail(`${record.id}: rendered image evidence missing`);
+if (contract.imageResolution.filter((record) => record.status === "effective-render-change").length !== 4) fail("exactly four visible image replacements are required");
+if (contract.imageResolution.filter((record) => record.status === "exact-match-render-unchanged").length !== 2) fail("exactly two exact-key same-render replacements are required");
+if (contract.imageResolution.filter((record) => record.status === "missing-prod-transform").length !== 1) fail("identity must remain the one missing prod transform");
 
 if (!Array.isArray(contract.ingressMap) || contract.ingressMap.length !== 5) fail("five ingress records are required");
 const payIngress = contract.ingressMap.find((item) => item.hostname === "pay.epsx.io");
@@ -252,16 +274,20 @@ const p0StatusCounts = contract.p0Dependencies.reduce((counts, item) => ({ ...co
 same(p0StatusCounts, { passed: 1, partial: 4, blocked: 2 }, "P0 evidence status counts");
 for (const key of ["immutableImages", "shadow", "canary", "rollback", "secrets", "readiness"]) if (typeof contract.releasePrerequisites?.[key] !== "string" || !contract.releasePrerequisites[key]) fail(`missing release prerequisite ${key}`);
 
-if (!Array.isArray(contract.blockers) || contract.blockers.length !== 18) fail("exactly 18 stop blockers are required");
+if (!Array.isArray(contract.blockers) || contract.blockers.length !== 18) fail("exactly 18 readiness findings are required");
 const blockerIds = new Set();
 for (const blocker of contract.blockers) {
   if (!blocker || !/^I[0-9]{2}$/.test(blocker.id) || blockerIds.has(blocker.id)) fail(`invalid or duplicate blocker ${blocker?.id}`);
   blockerIds.add(blocker.id);
-  if (blocker.severity !== "stop" || blocker.status !== "blocked") fail(`${blocker.id}: stop state changed without readiness evidence`);
+  if (blocker.id === "I01") {
+    if (blocker.severity !== "resolved" || blocker.status !== "supported") fail("I01: exact image-key correction must remain supported");
+  } else if (blocker.severity !== "stop" || blocker.status !== "blocked") fail(`${blocker.id}: stop state changed without readiness evidence`);
   if (!Array.isArray(blocker.evidenceIds) || blocker.evidenceIds.length === 0) fail(`${blocker.id}: evidence references required`);
   for (const id of blocker.evidenceIds) if (!evidenceIds.has(id)) fail(`${blocker.id}: unknown evidence id ${id}`);
   if (typeof blocker.summary !== "string" || typeof blocker.resolution !== "string" || !blocker.summary || !blocker.resolution) fail(`${blocker.id}: summary/resolution required`);
 }
+const stopBlockers = contract.blockers.filter((item) => item.severity === "stop" && item.status === "blocked");
+if (stopBlockers.length !== 17) fail("exactly 17 unresolved stop blockers are required");
 if (!Array.isArray(contract.requiredExecutionOrder) || contract.requiredExecutionOrder.length !== 10) fail("execution order drifted");
 
 const semanticResources = resources.map((item) => ({ kind: item.kind, name: item.name, images: item.images, nodePorts: item.nodePorts, ports: item.ports, targetPorts: item.targetPorts, type: item.type, replicas: item.replicas, liveness: item.liveness, readiness: item.readiness, startup: item.startup, readinessSignature: item.readinessSignature }));
@@ -281,6 +307,8 @@ const report = {
   p0StatusCounts,
   p0Dependencies: contract.p0Dependencies.map((item) => ({ id: item.id, status: item.status })),
   blockers: contract.blockers.map((item) => ({ id: item.id, category: item.category, status: item.status })),
+  stopBlockers: stopBlockers.length,
+  supportedFindings: contract.blockers.filter((item) => item.status === "supported").length,
   productionReady: false,
   clusterAccess: false,
   readinessExit: 3
@@ -294,11 +322,11 @@ if [ "$mode" = "report" ]; then
 fi
 
 if [ "$mode" = "integrity" ]; then
-  echo "infrastructure-readiness: PASS — local $renderer render and pinned artifact integrity verified (18 stop blockers)"
+  echo "infrastructure-readiness: PASS — local $renderer render and pinned artifact integrity verified (1 supported image-key correction, 17 stop blockers)"
   echo "infrastructure-readiness: LIMIT — no cluster, secrets, deployment, Cloudflare/DNS mutation, shadow, canary, or rollback readiness was proven"
   exit 0
 fi
 
-echo "infrastructure-readiness: STOP — 18 stop blockers; P0 ledger is 1 passed, 4 partial, 2 blocked; readiness exit is reserved as 3" >&2
+echo "infrastructure-readiness: STOP — 17 stop blockers remain; P0 ledger is 1 passed, 4 partial, 2 blocked; readiness exit is reserved as 3" >&2
 echo "infrastructure-readiness: LIMIT — artifact integrity is not deployment authorization" >&2
 exit 3

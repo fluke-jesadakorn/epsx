@@ -9,7 +9,7 @@ temp_dir=$(mktemp -d "${TMPDIR:-/tmp}/epsx-a13-self-test.XXXXXX")
 trap 'rm -rf -- "$temp_dir"' EXIT HUP INT TERM
 
 "$verify" --mode integrity >"$temp_dir/integrity.out" 2>&1
-grep -q "18 stop blockers" "$temp_dir/integrity.out"
+grep -q "1 supported image-key correction, 17 stop blockers" "$temp_dir/integrity.out"
 grep -q "no cluster, secrets, deployment" "$temp_dir/integrity.out"
 
 set +e
@@ -28,7 +28,7 @@ grep -q "P0 ledger is 1 passed, 4 partial, 2 blocked" "$temp_dir/readiness.out"
 cmp "$temp_dir/report-one.json" "$temp_dir/report-two.json"
 bun -e '
 const report = JSON.parse(await Bun.file(process.argv[1]).text());
-if (report.resources.total !== 15 || report.images.devOccurrences !== 3 || report.images.digestOccurrences !== 0 || report.nodePorts.length !== 6 || report.blockers.length !== 18 || JSON.stringify(report.p0StatusCounts) !== JSON.stringify({ passed: 1, partial: 4, blocked: 2 }) || report.productionReady !== false || report.clusterAccess !== false || report.readinessExit !== 3) process.exit(1);
+if (report.resources.total !== 15 || report.images.devOccurrences !== 1 || report.images.digestOccurrences !== 0 || report.nodePorts.length !== 6 || report.blockers.length !== 18 || report.stopBlockers !== 17 || report.supportedFindings !== 1 || JSON.stringify(report.p0StatusCounts) !== JSON.stringify({ passed: 1, partial: 4, blocked: 2 }) || report.productionReady !== false || report.clusterAccess !== false || report.readinessExit !== 3) process.exit(1);
 ' "$temp_dir/report-one.json"
 
 A13_CONTRACT_IN="$contract" A13_CONTRACT_OUT="$temp_dir/stale-anchor.json" bun -e '
@@ -80,4 +80,20 @@ if [ "$render_code" -ne 1 ]; then
 fi
 grep -q "rendered deployments drift" "$temp_dir/render-drift.out"
 
-echo "infrastructure-readiness self-test: PASS (integrity=0, readiness-stop=3, deterministic=stable, anchor/path/render tamper=1)"
+A13_CONTRACT_IN="$contract" A13_CONTRACT_OUT="$temp_dir/image-resolution-drift.json" bun -e '
+const contract = await Bun.file(process.env.A13_CONTRACT_IN).json();
+contract.imageResolution[1].overlayMatch = "registry.invalid/epsx/frontend";
+await Bun.write(process.env.A13_CONTRACT_OUT, `${JSON.stringify(contract, null, 2)}\n`);
+'
+set +e
+"$verify" --mode integrity --contract "$temp_dir/image-resolution-drift.json" >"$temp_dir/image-resolution-drift.out" 2>&1
+image_resolution_code=$?
+set -e
+if [ "$image_resolution_code" -ne 1 ]; then
+  cat "$temp_dir/image-resolution-drift.out" >&2
+  echo "infrastructure-readiness self-test: expected image-resolution drift exit 1, got $image_resolution_code" >&2
+  exit 1
+fi
+grep -q "image resolution drift" "$temp_dir/image-resolution-drift.out"
+
+echo "infrastructure-readiness self-test: PASS (integrity=0, readiness-stop=3, deterministic=stable, anchor/path/render/image-resolution tamper=1)"

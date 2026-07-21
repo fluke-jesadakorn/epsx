@@ -7,19 +7,19 @@ resources:
   - ../../base
 
 images:
-  - name: registry.jesadakorn.com/jesadakorn/epsx/backend
+  - name: epsx-backend
     newName: epsx-backend
     newTag: prod
-  - name: registry.jesadakorn.com/jesadakorn/epsx/frontend
+  - name: epsx-frontend
     newName: epsx-frontend
     newTag: prod
-  - name: registry.jesadakorn.com/jesadakorn/epsx/admin
+  - name: epsx-admin
     newName: epsx-admin-frontend
     newTag: prod
   # wave12(integration): the new epsx-analytics binary
   # (per-wave-12 image tag, not `prod`, because the
   # monolith's `prod` tag is for the monolith build).
-  - name: registry.jesadakorn.com/jesadakorn/epsx/analytics
+  - name: epsx-analytics
     newName: epsx-analytics
     newTag: wave12
   # wave49(slice-1): the new epsx-pay-svc + epsx-pay-bff
@@ -27,10 +27,10 @@ images:
   # `prod`, for the same reason as analytics — they are
   # built from this wave's workspace state and only that
   # state is known to compile.
-  - name: registry.jesadakorn.com/jesadakorn/epsx/pay-svc
+  - name: epsx-pay-svc
     newName: epsx-pay-svc
     newTag: wave49
-  - name: registry.jesadakorn.com/jesadakorn/epsx/pay-bff
+  - name: epsx-pay-bff
     newName: epsx-pay-bff
     newTag: wave49
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractId": "A13.0-infrastructure-readiness",
+  "contractId": "A13.1-infrastructure-readiness",
   "purpose": "hermetic-prod-artifact-audit-and-readiness-stop",
   "productionReady": false,
   "clusterAccess": false,
@@ -26,10 +26,12 @@
     {
       "id": "prod-image-transforms",
       "file": "infrastructure/kubernetes/overlays/prod/kustomization.yaml",
-      "sha256": "7b32708f227aa1fd9e74dbd3c58494b139eac28fe82d721489f7e26dac7df1f0",
+      "sha256": "25d33d52669984c9787072a8a0eccb2842e812574928087029ccecb92950a279",
       "anchors": [
         "namespace: epsx-prod",
-        "name: registry.jesadakorn.com/jesadakorn/epsx/frontend",
+        "name: epsx-backend",
+        "name: epsx-frontend",
+        "name: epsx-admin",
         "newName: epsx-frontend",
         "newName: epsx-pay-svc",
         "newTag: wave49"
@@ -197,18 +199,18 @@
       { "name": "epsx-pay-svc", "type": "NodePort", "ports": [8103], "targetPorts": [8103], "nodePorts": [30082] }
     ],
     "deployments": [
-      { "name": "epsx-admin", "images": ["epsx-admin:dev"], "replicas": 1, "liveness": 1, "readiness": 1, "startup": 0, "readinessSignature": "http:/api/health:3001", "dependencyChecks": [] },
+      { "name": "epsx-admin", "images": ["epsx-admin-frontend:prod"], "replicas": 1, "liveness": 1, "readiness": 1, "startup": 0, "readinessSignature": "http:/api/health:3001", "dependencyChecks": [] },
       { "name": "epsx-analytics", "images": ["epsx-analytics:wave12"], "replicas": 1, "liveness": 1, "readiness": 1, "startup": 0, "readinessSignature": "http:/health:8080", "dependencyChecks": [] },
       { "name": "epsx-backend", "images": ["epsx-backend:prod", "epsx-backend:prod"], "replicas": 1, "liveness": 1, "readiness": 1, "startup": 0, "readinessSignature": "http:/health:8080", "dependencyChecks": [] },
-      { "name": "epsx-frontend", "images": ["epsx-frontend:dev"], "replicas": 1, "liveness": 1, "readiness": 1, "startup": 0, "readinessSignature": "http:/api/health:3000", "dependencyChecks": [] },
+      { "name": "epsx-frontend", "images": ["epsx-frontend:prod"], "replicas": 1, "liveness": 1, "readiness": 1, "startup": 0, "readinessSignature": "http:/api/health:3000", "dependencyChecks": [] },
       { "name": "epsx-identity", "images": ["epsx-identity:dev"], "replicas": 1, "liveness": 1, "readiness": 1, "startup": 0, "readinessSignature": "tcp:50051", "dependencyChecks": [] },
-      { "name": "epsx-pay-bff", "images": ["epsx-pay-bff:prod"], "replicas": 1, "liveness": 1, "readiness": 1, "startup": 0, "readinessSignature": "http:/api/health:3002", "dependencyChecks": [] },
-      { "name": "epsx-pay-svc", "images": ["epsx-pay-svc:prod"], "replicas": 1, "liveness": 1, "readiness": 1, "startup": 0, "readinessSignature": "http:/health:8103", "dependencyChecks": [] }
+      { "name": "epsx-pay-bff", "images": ["epsx-pay-bff:wave49"], "replicas": 1, "liveness": 1, "readiness": 1, "startup": 0, "readinessSignature": "http:/api/health:3002", "dependencyChecks": [] },
+      { "name": "epsx-pay-svc", "images": ["epsx-pay-svc:wave49"], "replicas": 1, "liveness": 1, "readiness": 1, "startup": 0, "readinessSignature": "http:/health:8103", "dependencyChecks": [] }
     ],
     "imageSummary": {
       "occurrences": 8,
       "unique": 7,
-      "devOccurrences": 3,
+      "devOccurrences": 1,
       "digestOccurrences": 0,
       "ifNotPresentOccurrences": 8
     },
@@ -227,12 +229,12 @@
     }
   },
   "imageResolution": [
-    { "id": "backend", "base": "epsx-backend:prod", "overlayMatch": "registry.jesadakorn.com/jesadakorn/epsx/backend", "declaredResult": "epsx-backend:prod", "rendered": "epsx-backend:prod", "status": "ineffective-match" },
-    { "id": "frontend", "base": "epsx-frontend:dev", "overlayMatch": "registry.jesadakorn.com/jesadakorn/epsx/frontend", "declaredResult": "epsx-frontend:prod", "rendered": "epsx-frontend:dev", "status": "ineffective-match" },
-    { "id": "admin", "base": "epsx-admin:dev", "overlayMatch": "registry.jesadakorn.com/jesadakorn/epsx/admin", "declaredResult": "epsx-admin-frontend:prod", "rendered": "epsx-admin:dev", "status": "ineffective-match" },
-    { "id": "analytics", "base": "epsx-analytics:wave12", "overlayMatch": "registry.jesadakorn.com/jesadakorn/epsx/analytics", "declaredResult": "epsx-analytics:wave12", "rendered": "epsx-analytics:wave12", "status": "ineffective-match-same-visible-result" },
-    { "id": "pay-service", "base": "epsx-pay-svc:prod", "overlayMatch": "registry.jesadakorn.com/jesadakorn/epsx/pay-svc", "declaredResult": "epsx-pay-svc:wave49", "rendered": "epsx-pay-svc:prod", "status": "ineffective-match" },
-    { "id": "pay-bff", "base": "epsx-pay-bff:prod", "overlayMatch": "registry.jesadakorn.com/jesadakorn/epsx/pay-bff", "declaredResult": "epsx-pay-bff:wave49", "rendered": "epsx-pay-bff:prod", "status": "ineffective-match" },
+    { "id": "backend", "base": "epsx-backend:prod", "overlayMatch": "epsx-backend", "declaredResult": "epsx-backend:prod", "rendered": "epsx-backend:prod", "status": "exact-match-render-unchanged" },
+    { "id": "frontend", "base": "epsx-frontend:dev", "overlayMatch": "epsx-frontend", "declaredResult": "epsx-frontend:prod", "rendered": "epsx-frontend:prod", "status": "effective-render-change" },
+    { "id": "admin", "base": "epsx-admin:dev", "overlayMatch": "epsx-admin", "declaredResult": "epsx-admin-frontend:prod", "rendered": "epsx-admin-frontend:prod", "status": "effective-render-change" },
+    { "id": "analytics", "base": "epsx-analytics:wave12", "overlayMatch": "epsx-analytics", "declaredResult": "epsx-analytics:wave12", "rendered": "epsx-analytics:wave12", "status": "exact-match-render-unchanged" },
+    { "id": "pay-service", "base": "epsx-pay-svc:prod", "overlayMatch": "epsx-pay-svc", "declaredResult": "epsx-pay-svc:wave49", "rendered": "epsx-pay-svc:wave49", "status": "effective-render-change" },
+    { "id": "pay-bff", "base": "epsx-pay-bff:prod", "overlayMatch": "epsx-pay-bff", "declaredResult": "epsx-pay-bff:wave49", "rendered": "epsx-pay-bff:wave49", "status": "effective-render-change" },
     { "id": "identity", "base": "epsx-identity:dev", "overlayMatch": null, "declaredResult": null, "rendered": "epsx-identity:dev", "status": "missing-prod-transform" }
   ],
   "ingressMap": [
@@ -271,8 +273,8 @@
     "readiness": "route-class dependency checks distinct from liveness and bounded startup behavior"
   },
   "blockers": [
-    { "id": "I01", "category": "image-resolution", "severity": "stop", "status": "blocked", "summary": "Prod image transformer keys do not match base image names.", "evidenceIds": ["prod-image-transforms", "frontend-dev-image", "admin-dev-image"], "resolution": "Match exact base names and assert every declared replacement changes the semantic render." },
-    { "id": "I02", "category": "dev-leakage", "severity": "stop", "status": "blocked", "summary": "Three prod-render image occurrences retain :dev tags.", "evidenceIds": ["frontend-dev-image", "admin-dev-image", "identity-dev-shallow-readiness"], "resolution": "Reject dev tags in the prod render." },
+    { "id": "I01", "category": "image-resolution", "severity": "resolved", "status": "supported", "summary": "All six declared prod image transformer keys exactly match their base image names and the semantic render applies four visible replacements.", "evidenceIds": ["prod-image-transforms", "frontend-dev-image", "admin-dev-image", "analytics-dependencies", "pay-sensitive-literals", "pay-bff-dependency"], "resolution": "Keep exact base-name keys pinned in the hermetic semantic render verifier." },
+    { "id": "I02", "category": "dev-leakage", "severity": "stop", "status": "blocked", "summary": "One prod-render image occurrence retains the untransformed identity :dev tag.", "evidenceIds": ["identity-dev-shallow-readiness"], "resolution": "Resolve and approve the identity image artifact, then reject every dev tag in the prod render." },
     { "id": "I03", "category": "image-immutability", "severity": "stop", "status": "blocked", "summary": "No rendered image is digest pinned and all use IfNotPresent.", "evidenceIds": ["backend-image-secret-probe", "pay-bff-dependency"], "resolution": "Use reviewed registry@sha256 references for init and application containers." },
     { "id": "I04", "category": "image-provenance", "severity": "stop", "status": "blocked", "summary": "Local image names and mutable prod/wave tags do not prove registry provenance or source revision.", "evidenceIds": ["prod-image-transforms", "analytics-dependencies", "pay-sensitive-literals"], "resolution": "Record build provenance, signature/SBOM policy and approved digest per workload." },
     { "id": "I05", "category": "pay-ingress", "severity": "stop", "status": "blocked", "summary": "Public pay ingress routes to the raw pay service instead of the BFF.", "evidenceIds": ["prod-cloudflare-map", "pay-host-bridge", "prod-pay-nodeports"], "resolution": "Map pay.epsx.io to host 4748/NodePort 30083 or an equivalent reviewed BFF-only path." },
