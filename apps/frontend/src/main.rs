@@ -13,28 +13,25 @@
 //!   proxied to the gateway via `epsx_client::ServiceClient`.
 
 use axum::{
-    extract::{Path as AxPath, Query, State},
-    http::{HeaderMap, StatusCode},
-    response::{Html, IntoResponse, Response},
     routing::{any, get, post},
-    Json, Router,
+    Router,
 };
-use epsx_bff::middleware::security_headers;
+use epsx_bff::{
+    cookies::CookieEnvironment,
+    middleware::security_headers,
+    session::{JwksVerifier, JwksVerifierConfig, FRONTEND_CLIENT_ID, JWKS_PATH},
+};
 use epsx_client::ServiceClient;
-use epsx_dioxus_ui::pages::{PageContext, render_page};
-use epsx_templates::page_shell_with_body_class;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use serde::Deserialize;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
-mod auth;
 mod api;
+mod auth;
 mod ssr;
 
 use api::*;
-use auth::{build_set_cookie, build_clear_cookie, get_cookie};
-
 #[derive(Clone)]
 pub struct AppState {
     pub identity: Arc<ServiceClient>,
@@ -44,6 +41,8 @@ pub struct AppState {
     pub wallet: Arc<ServiceClient>,
     pub payment: Arc<ServiceClient>,
     pub subscription: Arc<ServiceClient>,
+    pub verifier: Arc<JwksVerifier>,
+    pub cookie_environment: CookieEnvironment,
     pub api_url: String,
     pub demo_login_enabled: bool,
 }
@@ -59,6 +58,7 @@ pub struct SavePageBody {
 pub struct SiweLoginBody {
     pub message: String,
     pub signature: String,
+    #[serde(default)]
     pub chain_id: String,
     /// Wallet address (lowercased) that produced the signature. Wave 50b —
     /// the monolithic backend's `SignatureVerificationRequest` requires
@@ -78,16 +78,6 @@ pub struct DemoLoginBody {
 #[derive(Deserialize)]
 pub struct ChallengeBody {
     pub address: String,
-    pub chain_id: String,
-}
-
-#[derive(Serialize)]
-pub struct AuthApiResponse {
-    pub access_token: String,
-    pub refresh_token: Option<String>,
-    pub expires_in: Option<u64>,
-    pub user: serde_json::Value,
-    pub demo: bool,
 }
 
 #[derive(Deserialize)]
@@ -101,35 +91,155 @@ pub struct AnalyticsTrackBody {
 #[tokio::main]
 async fn main() {
     epsx_observability::Observability::init("bff-frontend");
+    let state = state_from_env().expect("valid frontend authentication configuration");
+    let port: u16 = std::env::var("PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(3000);
+    let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+    let api_url = state.api_url.clone();
+    let app = build_app(state);
 
-    // Wave 21 — dev auth bypass banner. Always evaluated (cheap) so the
-    // log line is honest about the process state. Default is OFF; the
-    // env var must be set to "1" to flip it on.
-    if epsx_bff::dev_bypass::is_dev_bypass_enabled() {
-        tracing::warn!(
-            "EPSX_DEV_AUTH_BYPASS=1 — every request is treated as logged in as dev admin (0x...d3v1). NEVER enable in production."
-        );
+    let addr: SocketAddr = format!("{}:{}", host, port).parse().unwrap();
+    tracing::info!(
+        "Frontend BFF listening on http://{} (api={})",
+        addr,
+        api_url
+    );
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+}
+
+fn state_from_env() -> Result<AppState, String> {
+    let cookie_environment = CookieEnvironment::from_env().map_err(|error| error.to_string())?;
+    let api_url = std::env::var("API_URL")
+        .or_else(|_| std::env::var("BACKEND_URL"))
+        .map_err(|_| "API_URL or BACKEND_URL is required".to_string())?;
+    let issuer = std::env::var("OIDC_ISSUER")
+        .or_else(|_| std::env::var("BACKEND_URL"))
+        .map_err(|_| "OIDC_ISSUER or BACKEND_URL is required".to_string())?;
+    validate_auth_url(&api_url, cookie_environment, "API_URL/BACKEND_URL")?;
+    validate_auth_url(&issuer, cookie_environment, "OIDC_ISSUER/BACKEND_URL")?;
+
+    let demo_login_enabled = std::env::var("EPSX_ENABLE_DEMO_LOGIN").ok().as_deref() == Some("1");
+    let dev_bypass_enabled = std::env::var("EPSX_DEV_AUTH_BYPASS").ok().as_deref() == Some("1");
+    if cookie_environment == CookieEnvironment::Production
+        && (demo_login_enabled || dev_bypass_enabled)
+    {
+        return Err("demo login and auth bypass are forbidden in production".to_string());
     }
 
-    let api_url = std::env::var("API_URL").unwrap_or_else(|_| "http://localhost:8080".to_string());
-    let port: u16 = std::env::var("PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(3000);
-    let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
-    let demo_login_enabled = std::env::var("EPSX_ENABLE_DEMO_LOGIN").ok().as_deref() == Some("1");
+    let jwks_url = format!("{}{}", api_url.trim_end_matches('/'), JWKS_PATH);
+    let verifier_config = JwksVerifierConfig::new(
+        jwks_url,
+        issuer.trim_end_matches('/'),
+        FRONTEND_CLIENT_ID,
+        Duration::from_secs(300),
+    )
+    .map_err(|error| error.to_string())?;
+    let verifier =
+        Arc::new(JwksVerifier::with_http(verifier_config).map_err(|error| error.to_string())?);
 
-    let cfg = epsx_client::ClientConfig { base_url: api_url.clone(), timeout: std::time::Duration::from_secs(15) };
-    let state = AppState {
+    let cfg = epsx_client::ClientConfig {
+        base_url: api_url.clone(),
+        timeout: Duration::from_secs(15),
+    };
+    Ok(AppState {
         identity: Arc::new(ServiceClient::new(cfg.clone())),
         notification: Arc::new(ServiceClient::new(cfg.clone())),
         content: Arc::new(ServiceClient::new(cfg.clone())),
         analytics: Arc::new(ServiceClient::new(cfg.clone())),
         wallet: Arc::new(ServiceClient::new(cfg.clone())),
         payment: Arc::new(ServiceClient::new(cfg.clone())),
-        subscription: Arc::new(ServiceClient::new(cfg.clone())),
+        subscription: Arc::new(ServiceClient::new(cfg)),
+        verifier,
+        cookie_environment,
         api_url,
         demo_login_enabled,
-    };
+    })
+}
 
-    let app = Router::new()
+fn validate_auth_url(
+    value: &str,
+    environment: CookieEnvironment,
+    label: &str,
+) -> Result<(), String> {
+    let url = reqwest::Url::parse(value).map_err(|_| format!("{label} must be an absolute URL"))?;
+    if !matches!(url.scheme(), "http" | "https")
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+    {
+        return Err(format!("{label} has forbidden URL components"));
+    }
+    if environment == CookieEnvironment::Production && url.scheme() != "https" {
+        return Err(format!("{label} must use HTTPS in production"));
+    }
+    if environment == CookieEnvironment::Production {
+        let host = url
+            .host_str()
+            .ok_or_else(|| format!("{label} must include a host"))?;
+        let local_host = host.eq_ignore_ascii_case("localhost")
+            || host.ends_with(".localhost")
+            || host
+                .parse::<std::net::IpAddr>()
+                .is_ok_and(|address| address.is_loopback());
+        if local_host {
+            return Err(format!("{label} must not use a local host in production"));
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod configuration_tests {
+    use super::*;
+
+    #[test]
+    fn production_requires_https_non_local_auth_urls() {
+        assert!(validate_auth_url(
+            "https://api.epsx.io",
+            CookieEnvironment::Production,
+            "API_URL"
+        )
+        .is_ok());
+        assert!(validate_auth_url(
+            "http://api.epsx.io",
+            CookieEnvironment::Production,
+            "API_URL"
+        )
+        .is_err());
+        assert!(validate_auth_url(
+            "https://localhost:8080",
+            CookieEnvironment::Production,
+            "API_URL"
+        )
+        .is_err());
+        assert!(validate_auth_url(
+            "https://127.0.0.1:8080",
+            CookieEnvironment::Production,
+            "API_URL"
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn local_mode_allows_http_but_rejects_ambiguous_components() {
+        assert!(
+            validate_auth_url("http://localhost:8080", CookieEnvironment::Local, "API_URL").is_ok()
+        );
+        assert!(validate_auth_url(
+            "http://localhost:8080?issuer=other",
+            CookieEnvironment::Local,
+            "API_URL"
+        )
+        .is_err());
+    }
+}
+
+pub fn build_app(state: AppState) -> Router {
+    Router::new()
         .route("/api/health", get(api_health))
         .route("/api/v1/pages/{slug}", any(get_page))
         .route("/api/v1/edit/{slug}/save", any(save_page))
@@ -151,9 +261,18 @@ async fn main() {
         .route("/api/v1/auth/oauth/{provider}", get(api_oauth_start))
         .route("/api/v1/notifications", any(notifications_api))
         .route("/api/v1/notifications/{id}/read", post(notification_read))
-        .route("/api/v1/notifications/{id}/delete", post(notification_delete))
-        .route("/api/v1/notifications/mark-all-read", post(notification_mark_all))
-        .route("/api/v1/notifications/clear-all", post(notification_clear_all))
+        .route(
+            "/api/v1/notifications/{id}/delete",
+            post(notification_delete),
+        )
+        .route(
+            "/api/v1/notifications/mark-all-read",
+            post(notification_mark_all),
+        )
+        .route(
+            "/api/v1/notifications/clear-all",
+            post(notification_clear_all),
+        )
         .route("/api/v1/analytics/track", post(track_event))
         .route("/api/v1/rankings", get(api_rankings))
         .route("/api/v1/plans", get(api_plans))
@@ -186,16 +305,27 @@ async fn main() {
         .route("/api/v1/wallet/chains", get(api_wallet_chains))
         .route("/api/v1/wallet/connect", post(api_wallet_connect))
         .route("/api/v1/subscription/plans", get(api_subscription_plans))
-        .route("/api/v1/subscription/merchant/{addr}", get(api_subscription_merchant))
-        .route("/api/v1/subscription/subscribe", post(api_subscription_subscribe))
-        .route("/api/v1/subscription/plans/create", post(api_subscription_create_plan))
-        .nest_service("/public", tower_http::services::ServeDir::new(format!("{}/public", env!("CARGO_MANIFEST_DIR"))).fallback(tower_http::services::ServeFile::new(format!("{}/public/index.html", env!("CARGO_MANIFEST_DIR")))))
+        .route(
+            "/api/v1/subscription/merchant/{addr}",
+            get(api_subscription_merchant),
+        )
+        .route(
+            "/api/v1/subscription/subscribe",
+            post(api_subscription_subscribe),
+        )
+        .route(
+            "/api/v1/subscription/plans/create",
+            post(api_subscription_create_plan),
+        )
+        .nest_service(
+            "/public",
+            tower_http::services::ServeDir::new(format!("{}/public", env!("CARGO_MANIFEST_DIR")))
+                .fallback(tower_http::services::ServeFile::new(format!(
+                    "{}/public/index.html",
+                    env!("CARGO_MANIFEST_DIR")
+                ))),
+        )
         .fallback(ssr::ssr_handler)
         .layer(axum::middleware::from_fn(security_headers))
-        .with_state(state);
-
-    let addr: SocketAddr = format!("{}:{}", host, port).parse().unwrap();
-    tracing::info!("Frontend BFF listening on http://{} (api={})", addr, std::env::var("API_URL").unwrap_or_default());
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+        .with_state(state)
 }

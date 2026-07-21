@@ -10,8 +10,6 @@ path = "src/main.rs"
 [dependencies]
 epsx-kernel = { path = "../../shared/rust/kernel" }
 epsx-client = { path = "../../shared/rust/client" }
-epsx-auth = { path = "../../shared/rust/auth" }
-epsx-crypto = { path = "../../shared/rust/crypto" }
 epsx-observability = { path = "../../shared/rust/observability" }
 epsx-templates = { path = "../../shared/rust/templates" }
 epsx-renderer = { path = "../../shared/rust/renderer" }
@@ -28,6 +26,7 @@ serde_json.workspace = true
 uuid.workspace = true
 chrono.workspace = true
 http = { workspace = true }
+reqwest.workspace = true
 hex.workspace = true
 tower = { workspace = true }
 tower-http = { workspace = true, features = ["set-header", "fs", "cors"] }
@@ -36,3 +35,9 @@ tower-http = { workspace = true, features = ["set-header", "fs", "cors"] }
 default = ["ssr"]
 ssr = []
 web = []
+
+[dev-dependencies]
+base64.workspace = true
+jsonwebtoken.workspace = true
+rsa.workspace = true
+rand = "0.8"

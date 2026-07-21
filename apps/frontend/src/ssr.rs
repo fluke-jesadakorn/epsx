@@ -11,25 +11,21 @@
 //! match the prod Vercel middleware convention
 //! (`apps-old/frontend/middleware.ts::handleUnauthenticated` reads
 //! `?return_url=` and reads/writes the `epsx.return_url` cookie).
-//! The auth page's hydration script
-//! (`shared/rust/dioxus_ui/src/pages/auth_page.rs::AUTH_HYDRATION_SCRIPT`)
-//! and the page-level `AuthGate` connect links all use the same
-//! `?return_url=` parameter, so the round-trip works.
+//! The shared wallet bridge and page-level `AuthGate` connect links use the
+//! same `?return_url=` parameter, so the round-trip remains same-origin.
 
 use axum::{
     extract::{Request, State},
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use epsx_dioxus_ui::auth::User;
-use epsx_dioxus_ui::auth::user::AuthMethod;
 use epsx_dioxus_ui::auth::wallet_button::ConnectedWalletState;
+use epsx_dioxus_ui::auth::User;
 use epsx_dioxus_ui::pages::{render_page, PageContext};
 use std::collections::HashMap;
-use std::sync::Arc;
 
-use super::AppState;
 use super::auth;
+use super::AppState;
 
 /// Paths that 307-redirect to /auth when the user is unauthenticated,
 /// matching the prod (https://epsx.io) Vercel middleware behavior. The
@@ -78,38 +74,20 @@ fn pricing_redirect_response(query: &str) -> Response {
 /// All non-API requests land here. We render the page via Dioxus fullstack
 /// SSR and return a complete HTML document using the same design-system
 /// `<head>` the Next.js frontend emits.
-pub async fn ssr_handler(
-    State(state): State<AppState>,
-    request: Request,
-) -> Response {
+pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Response {
     let (parts, _body) = request.into_parts();
     let path = parts.uri.path().to_string();
     let query = parts.uri.query().unwrap_or("").to_string();
     let headers = parts.headers.clone();
 
-    // Resolve verified user from the epsx_token cookie / Authorization
-    // header via the shared JWT service.
-    let jwt = auth::jwt_auth_from_env();
-    let user = auth::current_user(&headers, &jwt).map(|u| User {
-        id: u.user_id,
-        address: u.address,
-        chain_id: u.chain_id,
-        roles: u.roles.clone(),
-        email: None,
-        tier: None,
-        // Wave 7 — populate `permissions` from the JWT roles so the
-        // page-level `AuthGate` checks pass for the right users.
-        // Previously `vec![]`, which made every gated user page
-        // misfire (the gate's `has_permission` would always see
-        // "missing"). Mirrors the same fix in the admin BFF.
-        permissions: auth::permissions_for_roles(&u.roles),
-        // Wave 2 Track C — auth metadata fields. The frontend BFF
-        // doesn't have rich auth metadata, so we leave the new
-        // optional fields at their defaults.
-        last_login_at: None,
-        auth_method: AuthMethod::Wallet,
-        display_name: None,
-    });
+    let mut wallet = ConnectedWalletState::from_cookies(&headers);
+    let verified_session =
+        auth::verified_access_token(&headers, state.verifier.as_ref(), state.cookie_environment)
+            .await;
+    let (verified_access_token, user) = match verified_session {
+        Some((token, session)) => (Some(token), Some(auth::ui_user(session, wallet.chain_id))),
+        None => (None, None),
+    };
 
     // Wave 22 T4 — `/pricing` is an alias for `/plans` in prod
     // (Vercel middleware rewrite). We 307-redirect to `/plans`
@@ -117,6 +95,15 @@ pub async fn ssr_handler(
     // `/pricing?ref=foo` style URLs land on the plans page.
     if path == "/pricing" {
         return pricing_redirect_response(&query);
+    }
+
+    if path == "/auth" && user.is_some() {
+        return (
+            StatusCode::TEMPORARY_REDIRECT,
+            [("location", safe_return_url(&query))],
+            "",
+        )
+            .into_response();
     }
 
     // Wave 22 T5 — mirror prod Vercel middleware 307 redirect behavior
@@ -133,9 +120,7 @@ pub async fn ssr_handler(
     //    to /auth. /chat itself stays public (browsable).
     let needs_unauth_redirect = user.is_none()
         && (UNAUTH_REDIRECT_PATHS.contains(&path.as_str())
-            || (path.starts_with("/chat/")
-                && !path.is_empty()
-                && path != "/chat"));
+            || (path.starts_with("/chat/") && !path.is_empty() && path != "/chat"));
     if needs_unauth_redirect {
         let next = if query.is_empty() {
             path.clone()
@@ -151,22 +136,8 @@ pub async fn ssr_handler(
         // `apps-old/frontend/middleware.ts::handleUnauthenticated`
         // sets in the `epsx.return_url` cookie.
         //
-        // The 5-minute cookie TTL is `MAX_AGE_RETURN_URL` and
-        // matches prod's `handleUnauthenticated` `maxAge: 300`.
-        // The cookie is HttpOnly + SameSite=Lax; it does NOT need
-        // the `__Host-` prefix because dev runs over plain HTTP
-        // (port 30101 port-forward).
         let location = format!("/auth?return_url={}", urlencode(&next));
-        let cookie = auth::build_set_cookie("epsx_return_url", &urlencode(&next), 300);
-        return (
-            StatusCode::TEMPORARY_REDIRECT,
-            [
-                ("location", location.as_str()),
-                ("set-cookie", cookie.as_str()),
-            ],
-            "",
-        )
-            .into_response();
+        return (StatusCode::TEMPORARY_REDIRECT, [("location", location)], "").into_response();
     }
 
     // Parse dynamic-route params from path
@@ -185,14 +156,26 @@ pub async fn ssr_handler(
         let mut it = rest.splitn(2, '/');
         let ptype = it.next().unwrap_or("").to_string();
         let pid = it.next().unwrap_or("").trim_end_matches('/').to_string();
-        if !ptype.is_empty() { params.insert("type".into(), ptype); }
-        if !pid.is_empty() { params.insert("id".into(), pid); }
+        if !ptype.is_empty() {
+            params.insert("type".into(), ptype);
+        }
+        if !pid.is_empty() {
+            params.insert("id".into(), pid);
+        }
     }
 
     // Page-specific server-side data fetching. Each block reads from
     // the gateway via `state.*` and adds the result to `params` so the
     // page can consume it.
-    fetch_page_data(&state, &path, &user, &mut params, &headers).await;
+    fetch_page_data(
+        &state,
+        &path,
+        &user,
+        &mut params,
+        &headers,
+        verified_access_token.as_deref(),
+    )
+    .await;
 
     // Wave 3a Track B — plumb server-side wallet state into the page
     // context. We delegate the cookie read to
@@ -204,7 +187,6 @@ pub async fn ssr_handler(
     // Stub: cookie parser is a no-op for now — when the wagmi-equivalent
     // client writes a `WalletInfo` cookie, the parser will populate
     // `address` / `connector_id` / `chain_id` from it.
-    let mut wallet = ConnectedWalletState::from_cookies(&headers);
     wallet.is_authenticated = user.is_some();
 
     let ctx = PageContext {
@@ -273,13 +255,17 @@ pub async fn ssr_handler(
         meta.body_class.as_deref().unwrap_or(""),
     );
 
-    let doc = doc.replace("</body>", &format!("<script>{}</script></body>", wallet_shim()));
+    let doc = doc.replace(
+        "</body>",
+        &format!("<script>{}</script></body>", wallet_shim()),
+    );
 
     (
         axum::http::StatusCode::OK,
         [("content-type", "text/html; charset=utf-8")],
         doc,
-    ).into_response()
+    )
+        .into_response()
 }
 
 /// Fetch page-specific data and add it to `params` as JSON-serialized
@@ -291,8 +277,13 @@ async fn fetch_page_data(
     user: &Option<User>,
     params: &mut HashMap<String, String>,
     headers: &axum::http::HeaderMap,
+    verified_access_token: Option<&str>,
 ) {
     use epsx_client::RequestContext;
+    let mut request_context = RequestContext::from_headers(headers);
+    // Browser cookies are not authorization headers. After local RS256/JWKS
+    // verification, explicitly forward the canonical token as a bearer value.
+    request_context.auth_token = verified_access_token.map(str::to_owned);
     // Wave 31 T1 — for the 3 live-data-plumbing routes (dashboard,
     // news, developer/usage) we now call the BFF's own handler
     // helpers IN-PROCESS rather than going through the upstream
@@ -304,10 +295,7 @@ async fn fetch_page_data(
     // fell back to its hardcoded mock — defeating the purpose of
     // "live data plumbing".
 
-    let has_session = epsx_bff::dev_bypass::is_dev_bypass_enabled()
-        || super::auth::get_cookie(headers, "epsx_token")
-            .map(|t| !t.is_empty())
-            .unwrap_or(false);
+    let has_session = user.is_some();
 
     // /dashboard: fetch stat cards + recent activity.
     // Wave 31 T1 — call the BFF's own `dashboard_data_internal()`
@@ -325,25 +313,41 @@ async fn fetch_page_data(
     // /news: fetch news. Wave 31 T1 — call the BFF's own
     // `news_list_value()` helper in-process.
     if path == "/news" {
-        params.insert("data_news".into(), crate::api::news_list_value().to_string());
+        params.insert(
+            "data_news".into(),
+            crate::api::news_list_value().to_string(),
+        );
     }
     // /news/[slug]: fetch the article body. Wave 31 T1 — call the
     // BFF's own `news_post_value(slug)` helper in-process.
     if path.starts_with("/news/") {
-        if let Some(slug) = path.strip_prefix("/news/").map(|s| s.trim_end_matches('/').to_string()) {
+        if let Some(slug) = path
+            .strip_prefix("/news/")
+            .map(|s| s.trim_end_matches('/').to_string())
+        {
             if !slug.is_empty() && !slug.contains('/') {
-                params.insert("data_news_post".into(), crate::api::news_post_value(&slug).to_string());
+                params.insert(
+                    "data_news_post".into(),
+                    crate::api::news_post_value(&slug).to_string(),
+                );
             }
         }
     }
     // /developer/usage: fetch usage stats. Wave 31 T1 — call the
     // BFF's own `developer_usage_value()` helper in-process.
     if path == "/developer/usage" {
-        params.insert("data_developer_usage".into(), crate::api::developer_usage_value().to_string());
+        params.insert(
+            "data_developer_usage".into(),
+            crate::api::developer_usage_value().to_string(),
+        );
     }
     // /notifications: fetch list
     if path == "/notifications" && user.is_some() {
-        if let Ok(v) = state.notification.get_with_ctx("/api/v1/notification/list", &RequestContext::from_headers(headers)).await {
+        if let Ok(v) = state
+            .notification
+            .get_with_ctx("/api/v1/notification/list", &request_context)
+            .await
+        {
             params.insert("data_notifications".into(), v.to_string());
         }
     }
@@ -359,7 +363,11 @@ async fn fetch_page_data(
     if path == "/plans" {
         if let Ok(v) = state.subscription.get_plain("/api/v1/plans").await {
             params.insert("data_plans".into(), v.to_string());
-        } else if let Ok(v) = state.subscription.get_plain("/api/v1/subscription/plans").await {
+        } else if let Ok(v) = state
+            .subscription
+            .get_plain("/api/v1/subscription/plans")
+            .await
+        {
             params.insert("data_plans".into(), v.to_string());
         } else if let Ok(v) = state.content.get_plain("/api/v1/content/plans").await {
             params.insert("data_plans".into(), v.to_string());
@@ -372,9 +380,20 @@ async fn fetch_page_data(
     // today but is the right path when it gets one).
     if path.starts_with("/portfolio") {
         if let Some(addr) = user.as_ref().map(|u| u.address.clone()) {
-            if let Ok(v) = state.wallet.get_plain(&format!("/api/v1/portfolio/{}", addr)).await {
+            if let Ok(v) = state
+                .wallet
+                .get_with_ctx(&format!("/api/v1/portfolio/{}", addr), &request_context)
+                .await
+            {
                 params.insert("data_portfolio".into(), v.to_string());
-            } else if let Ok(v) = state.wallet.get_plain(&format!("/api/v1/wallet/portfolio/{}", addr)).await {
+            } else if let Ok(v) = state
+                .wallet
+                .get_with_ctx(
+                    &format!("/api/v1/wallet/portfolio/{}", addr),
+                    &request_context,
+                )
+                .await
+            {
                 params.insert("data_portfolio".into(), v.to_string());
             }
         }
@@ -385,9 +404,17 @@ async fn fetch_page_data(
     // placeholder set. Now `data_account` returns either the user's
     // real values (authed) or the placeholder (anon).
     if path == "/account" {
-        if let Ok(v) = state.identity.get_plain("/api/v1/account").await {
+        if let Ok(v) = state
+            .identity
+            .get_with_ctx("/api/v1/account", &request_context)
+            .await
+        {
             params.insert("data_account".into(), v.to_string());
-        } else if let Ok(v) = state.identity.get_plain("/api/v1/auth/me").await {
+        } else if let Ok(v) = state
+            .identity
+            .get_with_ctx("/api/v1/auth/me", &request_context)
+            .await
+        {
             params.insert("data_account".into(), v.to_string());
         }
     }
@@ -395,7 +422,11 @@ async fn fetch_page_data(
     // Wave 23 T5 — was previously not wired, page always rendered
     // the OLD "$0 / no transactions" baseline.
     if path == "/account/credits" {
-        if let Ok(v) = state.identity.get_plain("/api/v1/credits").await {
+        if let Ok(v) = state
+            .identity
+            .get_with_ctx("/api/v1/credits", &request_context)
+            .await
+        {
             params.insert("data_credits".into(), v.to_string());
         }
     }
@@ -403,19 +434,31 @@ async fn fetch_page_data(
     // Wave 23 T5 — was previously not wired, the page rendered its
     // hardcoded `sample_api_keys()` fixture for everyone.
     if path == "/developer" {
-        if let Ok(v) = state.identity.get_plain("/api/v1/developer").await {
+        if let Ok(v) = state
+            .identity
+            .get_with_ctx("/api/v1/developer", &request_context)
+            .await
+        {
             params.insert("data_developer".into(), v.to_string());
         }
     }
     if path == "/developer/docs" {
-        if let Ok(v) = state.identity.get_plain("/api/v1/developer/docs").await {
+        if let Ok(v) = state
+            .identity
+            .get_with_ctx("/api/v1/developer/docs", &request_context)
+            .await
+        {
             params.insert("data_developer_docs".into(), v.to_string());
         }
     }
     // /analytics: summary stats + top movers.
     // Wave 23 T5 — was previously not wired.
     if path == "/analytics" {
-        if let Ok(v) = state.analytics.get_plain("/api/v1/analytics/summary").await {
+        if let Ok(v) = state
+            .analytics
+            .get_with_ctx("/api/v1/analytics/summary", &request_context)
+            .await
+        {
             params.insert("data_analytics".into(), v.to_string());
         }
     }
@@ -424,9 +467,16 @@ async fn fetch_page_data(
     // reads `type` + `id` from the path params but ignores them
     // (renders a static form), so this is a forward-looking hook.
     if path.starts_with("/payment/intent/") {
-        if let Some(id) = path.strip_prefix("/payment/intent/").map(|s| s.trim_end_matches('/').to_string()) {
+        if let Some(id) = path
+            .strip_prefix("/payment/intent/")
+            .map(|s| s.trim_end_matches('/').to_string())
+        {
             if !id.is_empty() {
-                if let Ok(v) = state.payment.get_plain(&format!("/api/v1/payment/{}", id)).await {
+                if let Ok(v) = state
+                    .payment
+                    .get_with_ctx(&format!("/api/v1/payment/{}", id), &request_context)
+                    .await
+                {
                     params.insert("data_payment".into(), v.to_string());
                 }
             }
@@ -434,276 +484,9 @@ async fn fetch_page_data(
     }
 }
 
-/// Inline JS shim that bridges the Rust/Dioxus UI to the browser's
-/// `window.ethereum`, `window.epsxWallet`, and `window.epsxAuth` namespaces.
-/// This is the Web3 counterpart to wagmi/RainbowKit from the Next.js
-/// frontend.
-///
-/// Wave 50 — wired up the FULL SIWE flow on `window.epsx.connectWallet()`
-/// so the auth-page `<ConnectButton>` actually works. The previous shim
-/// only exposed `epsxAuth.{challenge,siweLogin,logout,me}` — nothing in
-/// the DOM called any of them, so clicking "Connect Wallet" was a visual
-/// no-op. The new flow:
-///
-/// 1. Detect `window.ethereum` (MetaMask / injected EIP-1193).
-/// 2. `eth_requestAccounts` → wallet address.
-/// 3. `eth_chainId` → numeric chain id.
-/// 4. `POST /api/v1/auth/challenge { address, chain_id }` → SIWE message.
-/// 5. `personal_sign` the message with the user's wallet.
-/// 6. `POST /api/v1/auth/siwe { message, signature, chain_id }` →
-///    the BFF verifies, sets the `epsx_token` + `epsx_user_address` +
-///    `epsx_user_id` + `epsx_chain_id` HttpOnly cookies, and returns
-///    the user payload.
-/// 7. On success, the BFF page reload picks up the cookies via
-///    `auth::current_user` and the user is signed in.
-///
-/// Step status (challenge / signing / verifying / success / error) is
-/// broadcast via `epsx:wallet:status` `CustomEvent`s on `document` so
-/// the auth page's `<ConnectButton>` can render the loading + error UI
-/// without depending on hydration (Dioxus 0.7 SSR is hydration-less in
-/// this project — every interactive flow that needs to survive SSR
-/// goes through a global JS namespace + DOM events).
-///
-/// `epsx.connectWalletDemo()` mirrors the same shape but uses the
-/// `/api/v1/auth/demo` endpoint for users without a wallet installed.
+/// Shared SSR-safe wallet challenge/sign/verify bridge.
 fn wallet_shim() -> &'static str {
-    r#"
-window.epsxWallet = {
-  isAvailable: () => typeof window.ethereum !== 'undefined',
-  request: (method, params) => {
-    if (!window.ethereum) return Promise.reject(new Error('No wallet'));
-    return window.ethereum.request({ method, params: params || [] });
-  },
-  personalSign: (message) => {
-    if (!window.ethereum) return Promise.reject(new Error('No wallet'));
-    return window.ethereum.request({ method: 'personal_sign', params: [message, window.ethereum.selectedAddress] });
-  },
-  address: () => window.ethereum && window.ethereum.selectedAddress ? window.ethereum.selectedAddress : null,
-  chainId: () => window.ethereum && window.ethereum.chainId ? window.ethereum.chainId : '0x38',
-  onAccountsChanged: (cb) => { if (window.ethereum) window.ethereum.on('accountsChanged', cb); },
-  onChainChanged: (cb) => { if (window.ethereum) window.ethereum.on('chainChanged', cb); },
-  addToken: (token) => {
-    if (!window.ethereum) return Promise.reject(new Error('No wallet'));
-    return window.ethereum.request({
-      method: 'wallet_watchAsset',
-      params: { type: 'ERC20', options: token }
-    });
-  }
-};
-window.epsxAuth = {
-  siweLogin: async (message, signature, chainId) => {
-    const res = await fetch('/api/v1/auth/siwe', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ message, signature, chain_id: String(chainId) })
-    });
-    return res.json();
-  },
-  challenge: async (address, chainId) => {
-    const res = await fetch('/api/v1/auth/challenge', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ address, chain_id: String(chainId) })
-    });
-    return res.json();
-  },
-  demoLogin: async () => {
-    const res = await fetch('/api/v1/auth/demo', { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify({}) });
-    return res.json();
-  },
-  logout: async () => {
-    await fetch('/api/v1/auth/logout', { method: 'POST' });
-  },
-  me: async () => {
-    const res = await fetch('/api/v1/auth/me');
-    return res.json();
-  }
-};
-
-// Broadcasts a status event the auth page can listen to.
-// Status payloads: { status: 'idle'|'challenge'|'signing'|'verifying'|'success'|'error', message?, address? }
-window.epsxWalletStatus = function(detail) {
-  try {
-    document.dispatchEvent(new CustomEvent('epsx:wallet:status', { detail: detail || {} }));
-  } catch (e) { /* no-op */ }
-};
-
-// Set the `epsx_wallet` cookie so SSR (the next page reload) sees the
-// connected wallet via `ConnectedWalletState::from_cookies`. Same
-// shape the wagmi-equivalent client writes.
-window.epsxSetWalletCookie = function(address, chainId, connectorId) {
-  try {
-    const payload = JSON.stringify({
-      address: address,
-      connector_id: connectorId || 'injected',
-      chain_id: String(chainId)
-    });
-    document.cookie = 'epsx_wallet=' + encodeURIComponent(payload) + '; Path=/; Max-Age=86400; SameSite=Lax';
-  } catch (e) { /* no-op */ }
-};
-
-// === Wave 50 — full SIWE flow ===
-//
-// `window.epsx.connectWallet()` runs the EIP-4361 (Sign-In With
-// Ethereum) challenge → sign → verify dance against the BFF's
-// `/api/v1/auth/{challenge,siwe}` endpoints. The BFF mints the JWT
-// cookie on verify-success, so we just need to set the wallet
-// cookie + reload to land the user on the protected route they
-// were bounced from.
-//
-// Error → friendly UI mapping:
-//   - 4001 / "User rejected" / "User denied" → kind: 'rejected'
-//   - window.ethereum missing                  → kind: 'no_wallet'
-//   - chain-id mismatch (we don't auto-switch — prod's
-//     middleware lets the user see the chain warning)
-//   - any other failure                        → kind: 'error'
-window.epsx.connectWallet = async function() {
-  if (typeof window.ethereum === 'undefined') {
-    window.epsxWalletStatus({ status: 'error', kind: 'no_wallet', message: 'No wallet detected. Install MetaMask or another BSC wallet.' });
-    if (window.epsx && window.epsx.toast) {
-      window.epsx.toast('Install MetaMask or another BSC wallet', 'warning');
-    }
-    return;
-  }
-  try {
-    // Step 1: request accounts
-    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-    if (!accounts || !accounts[0]) {
-      throw new Error('No accounts returned by wallet');
-    }
-    const address = accounts[0];
-
-    // Step 2: chain id
-    const chainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
-    const chainId = String(parseInt(chainIdHex, 16));
-
-    // Step 3: challenge
-    window.epsxWalletStatus({ status: 'challenge', address: address });
-    const challengeRes = await fetch('/api/v1/auth/challenge', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ address: address, chain_id: chainId })
-    });
-    if (!challengeRes.ok) {
-      const txt = await challengeRes.text();
-      throw new Error('Challenge failed: ' + (txt || challengeRes.status));
-    }
-    const challengeData = await challengeRes.json();
-    const message = challengeData.message || challengeData.challenge;
-    if (!message) throw new Error('Challenge response missing message');
-    // Wave 50b — monolithic backend's `/api/auth/web3/verify` requires
-    // `nonce` as a separate field (it's also embedded in the SIWE message,
-    // but the backend doesn't parse it out).
-    const nonce = challengeData.nonce;
-    if (!nonce) throw new Error('Challenge response missing nonce');
-
-    // Step 4: sign
-    window.epsxWalletStatus({ status: 'signing', address: address });
-    const signature = await window.ethereum.request({
-      method: 'personal_sign',
-      params: [message, address]
-    });
-
-    // Step 5: verify
-    window.epsxWalletStatus({ status: 'verifying', address: address });
-    const verifyRes = await fetch('/api/v1/auth/siwe', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      // Wave 50b — include `address` + `nonce` so the BFF can forward
-      // `wallet_address` + `nonce` to the monolithic backend's verify
-      // endpoint (its `SignatureVerificationRequest` requires both).
-      body: JSON.stringify({ message: message, signature: signature, chain_id: chainId, address: address, nonce: nonce })
-    });
-    if (!verifyRes.ok) {
-      const txt = await verifyRes.text();
-      throw new Error('Verification failed: ' + (txt || verifyRes.status));
-    }
-
-    // Step 6: persist wallet cookie for SSR reload
-    window.epsxSetWalletCookie(address, chainId, 'injected');
-
-    // Step 7: broadcast success + reload
-    window.epsxWalletStatus({ status: 'success', address: address });
-    if (window.epsx && window.epsx.toast) {
-      window.epsx.toast('Signed in! Reloading…', 'success');
-    }
-    setTimeout(function() { location.reload(); }, 500);
-  } catch (e) {
-    let kind = 'error';
-    let msg = (e && e.message) ? e.message : String(e);
-    const lower = msg.toLowerCase();
-    if (e && (e.code === 4001 || lower.indexOf('user rejected') !== -1 || lower.indexOf('user denied') !== -1)) {
-      kind = 'rejected';
-      msg = 'Signature cancelled. Click Connect Wallet to try again.';
-    } else if (lower.indexOf('no wallet') !== -1 || lower.indexOf('install') !== -1) {
-      kind = 'no_wallet';
-    } else if (lower.indexOf('chain') !== -1 || lower.indexOf('network') !== -1) {
-      kind = 'wrong_network';
-    }
-    window.epsxWalletStatus({ status: 'error', kind: kind, message: msg });
-    if (window.epsx && window.epsx.toast) {
-      window.epsx.toast(msg, 'error');
-    }
-  }
-};
-
-// Demo login (no wallet required) — uses `/api/v1/auth/demo`.
-window.epsx.connectWalletDemo = async function() {
-  window.epsxWalletStatus({ status: 'challenge' });
-  try {
-    const res = await fetch('/api/v1/auth/demo', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({})
-    });
-    if (!res.ok) {
-      const txt = await res.text();
-      throw new Error('Demo login unavailable: ' + (txt || res.status));
-    }
-    window.epsxWalletStatus({ status: 'success' });
-    if (window.epsx && window.epsx.toast) {
-      window.epsx.toast('Demo session created!', 'success');
-    }
-    setTimeout(function() { location.reload(); }, 500);
-  } catch (e) {
-    const msg = (e && e.message) ? e.message : String(e);
-    window.epsxWalletStatus({ status: 'error', kind: 'error', message: msg });
-    if (window.epsx && window.epsx.toast) {
-      window.epsx.toast(msg, 'error');
-    }
-  }
-};
-
-// Wire up `data-connect-wallet` + `data-connect-wallet-demo` buttons
-// (the auth page renders ConnectButton with `data-connect-wallet` so
-// the click is handled here, not via the Dioxus closure which gets
-// stripped at SSR time).
-document.addEventListener('DOMContentLoaded', function() {
-  document.querySelectorAll('[data-connect-wallet]').forEach(function(el) {
-    el.addEventListener('click', function(e) {
-      e.preventDefault();
-      window.epsx.connectWallet();
-    });
-  });
-  document.querySelectorAll('[data-connect-wallet-demo]').forEach(function(el) {
-    el.addEventListener('click', function(e) {
-      e.preventDefault();
-      window.epsx.connectWalletDemo();
-    });
-  });
-  // Listen for status events and update DOM hints (the auth page
-  // also has its own listener — this is for the navbar "Connect"
-  // pill which just shows a toast).
-  document.addEventListener('epsx:wallet:status', function(evt) {
-    var d = (evt && evt.detail) || {};
-    if (d.status === 'success' && window.epsx && window.epsx.toast) {
-      window.epsx.toast('Signed in', 'success');
-    } else if (d.status === 'error' && d.message && window.epsx && window.epsx.toast) {
-      window.epsx.toast(d.message, 'error');
-    }
-  });
-});
-"#
+    epsx_bff::browser_auth::browser_auth_script()
 }
 
 /// Minimal URL-encoder for the `next=` query parameter. Only handles
@@ -724,10 +507,58 @@ fn urlencode(s: &str) -> String {
     out
 }
 
+fn safe_return_url(query: &str) -> String {
+    let Ok(request_url) = reqwest::Url::parse(&format!("https://frontend.invalid/?{query}")) else {
+        return "/".to_string();
+    };
+    let Some(raw) = request_url
+        .query_pairs()
+        .find_map(|(key, value)| (key == "return_url").then(|| value.into_owned()))
+    else {
+        return "/".to_string();
+    };
+    if !raw.starts_with('/') || raw.starts_with("//") || raw.contains('\\') {
+        return "/".to_string();
+    }
+    let Ok(target) = request_url.join(&raw) else {
+        return "/".to_string();
+    };
+    if target.origin() != request_url.origin() || target.path() == "/auth" {
+        return "/".to_string();
+    }
+
+    let mut value = target.path().to_string();
+    if let Some(query) = target.query() {
+        value.push('?');
+        value.push_str(query);
+    }
+    if let Some(fragment) = target.fragment() {
+        value.push('#');
+        value.push_str(fragment);
+    }
+    value
+}
+
 #[cfg(test)]
 mod tests {
-    use super::urlencode;
     use super::pricing_redirect_response;
+    use super::safe_return_url;
+    use super::urlencode;
+
+    #[test]
+    fn return_url_must_remain_same_origin() {
+        assert_eq!(
+            safe_return_url("return_url=%2Fprofile%3Ftab%3Dauth"),
+            "/profile?tab=auth"
+        );
+        assert_eq!(
+            safe_return_url("return_url=https%3A%2F%2Fevil.example"),
+            "/"
+        );
+        assert_eq!(safe_return_url("return_url=%2F%2Fevil.example%2Fx"), "/");
+        assert_eq!(safe_return_url("return_url=%5C%5Cevil.example"), "/");
+        assert_eq!(safe_return_url("return_url=%2Fauth"), "/");
+    }
     use axum::http::StatusCode;
 
     #[test]
@@ -737,7 +568,10 @@ mod tests {
         // Wave 23 T3 — query parameter is now `?return_url=` (NOT
         // `?next=`). The encoder must still produce the same per-byte
         // shape regardless of the query parameter name.
-        assert_eq!(urlencode("/auth?return_url=/x"), "%2Fauth%3Freturn_url%3D%2Fx");
+        assert_eq!(
+            urlencode("/auth?return_url=/x"),
+            "%2Fauth%3Freturn_url%3D%2Fx"
+        );
         assert_eq!(urlencode("plain"), "plain");
     }
 
@@ -765,7 +599,10 @@ mod tests {
     fn pricing_redirect_preserves_query() {
         let r = pricing_redirect_response("ref=foo&affiliate=bar");
         assert_eq!(r.status(), StatusCode::TEMPORARY_REDIRECT);
-        assert_eq!(r.headers().get("location").unwrap(), "/plans?ref=foo&affiliate=bar");
+        assert_eq!(
+            r.headers().get("location").unwrap(),
+            "/plans?ref=foo&affiliate=bar"
+        );
     }
 
     // === Wave 35b T1 — AuthGate 307-redirect for marketing routes ===

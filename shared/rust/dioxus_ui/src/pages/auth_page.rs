@@ -1,76 +1,11 @@
 use crate::primitives::*;
 
-use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
 use crate::auth::ConnectButton;
 use crate::auth::ConnectButtonSize;
 use crate::layout::main_layout::AuthLayout;
-
-/// Auth-page hydration script — runs after the SSR HTML is in the
-/// DOM and watches for the SIWE / OAuth / demo login to complete.
-///
-/// The script must be defensive:
-/// - The dev BFF may set the auth token in a cookie OR in
-///   `localStorage` (the latter written by the post-login handler
-///   in a future wave; for now the dev flow is cookie-only).
-/// - The return URL may come from EITHER the `?return_url=<path>`
-///   query string OR the `epsx_return_url` cookie the SSR redirect
-///   sets (matching prod's `epsx.return_url` cookie, see
-///   `apps-old/frontend/middleware.ts::handleUnauthenticated`).
-/// - We poll for the auth signal at a fixed interval — the
-///   `storage` event alone isn't enough because the dev flow
-///   uses cookies, not `localStorage` writes.
-///
-/// Wave 23 T3 — the redirect target is read from the query string
-/// first (URL is the source of truth for in-flight bounces), then
-/// the cookie (set by the SSR redirect layer), then `/` as a final
-/// fallback. The script never blocks — it just sets a timer that
-/// resolves either when the auth signal arrives or after 60s.
-const AUTH_HYDRATION_SCRIPT: &str = r#"(function(){
-  function readCookie(name){
-    var m=document.cookie.match(new RegExp('(^|; )'+name+'=([^;]*)'));
-    return m?decodeURIComponent(m[2]):'';
-  }
-  function getReturnUrl(){
-    var q=new URLSearchParams(location.search).get('return_url');
-    if(q) return q;
-    var c=readCookie('epsx_return_url');
-    if(c) return c;
-    return '/';
-  }
-  function isAuthed(){
-    if(localStorage.getItem('epsx_token')) return true;
-    if(readCookie('epsx_token')) return true;
-    return false;
-  }
-  function clearReturnUrlCookie(){
-    document.cookie='epsx_return_url=; Path=/; Max-Age=0';
-  }
-  if(isAuthed()){
-    var d=getReturnUrl();
-    clearReturnUrlCookie();
-    location.replace(d);
-    return;
-  }
-  var n=0;
-  var t=setInterval(function(){
-    n++;
-    if(isAuthed()){
-      clearInterval(t);
-      var d=getReturnUrl();
-      clearReturnUrlCookie();
-      location.replace(d);
-    } else if(n>=120){ clearInterval(t); }
-  },500);
-  window.addEventListener('storage',function(){
-    if(localStorage.getItem('epsx_token')){
-      var d=getReturnUrl();
-      clearReturnUrlCookie();
-      location.replace(d);
-    }
-  });
-})();"#;
+use dioxus::prelude::*;
 
 /// Auth page (`/auth`). Wave 5 Track A port — see
 /// `docs/wave5-page-depth/design.md` §"Track A — Hero pages" /
@@ -279,7 +214,6 @@ pub fn RenderAuth() -> Element {
                     div { class: "auth-page-fallback",
                         a { href: "/", "Go to Homepage" }
                     }
-                    script { dangerous_inner_html: AUTH_HYDRATION_SCRIPT }
                     // === Wave 50 — wallet status event listener ===
                     //
                     // Toggles the loading + error banner visibility
@@ -361,11 +295,14 @@ const WALLET_STATUS_LISTENER_SCRIPT: &str = r#"(function(){
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Sign in");
-    (meta, rsx! {
-        AuthLayout { ctx: ctx.clone(),
-            RenderAuth {}
-        }
-    })
+    (
+        meta,
+        rsx! {
+            AuthLayout { ctx: ctx.clone(),
+                RenderAuth {}
+            }
+        },
+    )
 }
 
 #[cfg(test)]
@@ -383,8 +320,16 @@ mod tests {
         };
         let (_meta, el) = render(&ctx);
         let html = dioxus_ssr::render_element(el);
-        assert!(!html.is_empty(), "Auth page must render non-empty HTML. Got: {}", html);
-        assert!(html.len() > 100, "Auth page HTML is suspiciously short ({} bytes).", html.len());
+        assert!(
+            !html.is_empty(),
+            "Auth page must render non-empty HTML. Got: {}",
+            html
+        );
+        assert!(
+            html.len() > 100,
+            "Auth page HTML is suspiciously short ({} bytes).",
+            html.len()
+        );
     }
 
     /// Wave 5 — `test_section_markers`. The auth page must contain
@@ -413,13 +358,13 @@ mod tests {
         ] {
             // Match the marker as a space-bounded class token.
             let needle_a = format!("class=\"{}\"", marker);
-            let needle_b = format!("class=\"{}\"", marker);
             let needle_c = format!("{} ", marker); // leading word in multi-class
             let needle_d = format!(" {}\"", marker); // trailing word in multi-class
             assert!(
                 html.contains(&needle_a) || html.contains(&needle_c) || html.contains(&needle_d),
                 "Auth page must contain section marker '{}'. Got: {}",
-                marker, html
+                marker,
+                html
             );
         }
     }
@@ -441,12 +386,32 @@ mod tests {
         let html = dioxus_ssr::render_element(el);
         // Primary CTA: SIWE ConnectButton renders as
         // `connect-btn connect-btn-full` (Full size variant).
-        assert!(html.contains("connect-btn"), "Auth page must render the ConnectButton (SIWE). Got: {}", html);
-        assert!(html.contains("Connect Wallet"), "Auth page must render the wallet-only Connect Wallet CTA. Got: {}", html);
+        assert!(
+            html.contains("connect-btn"),
+            "Auth page must render the ConnectButton (SIWE). Got: {}",
+            html
+        );
+        assert!(
+            html.contains("Connect Wallet"),
+            "Auth page must render the wallet-only Connect Wallet CTA. Got: {}",
+            html
+        );
         // 3-feature security list (matches prod design).
-        assert!(html.contains("Secure Web3 Login Flow"), "Auth page must render 'Secure Web3 Login Flow' feature. Got: {}", html);
-        assert!(html.contains("No Account Credentials Needed"), "Auth page must render 'No Account Credentials Needed' feature. Got: {}", html);
-        assert!(html.contains("Decentralized Data Privacy"), "Auth page must render 'Decentralized Data Privacy' feature. Got: {}", html);
+        assert!(
+            html.contains("Secure Web3 Login Flow"),
+            "Auth page must render 'Secure Web3 Login Flow' feature. Got: {}",
+            html
+        );
+        assert!(
+            html.contains("No Account Credentials Needed"),
+            "Auth page must render 'No Account Credentials Needed' feature. Got: {}",
+            html
+        );
+        assert!(
+            html.contains("Decentralized Data Privacy"),
+            "Auth page must render 'Decentralized Data Privacy' feature. Got: {}",
+            html
+        );
     }
 
     /// Wave 5 — `test_pitch_content`. The left-side marketing pitch
@@ -462,17 +427,26 @@ mod tests {
         let (_meta, el) = render(&ctx);
         let html = dioxus_ssr::render_element(el);
         // Headline.
-        assert!(html.contains("Precision"), "Auth page must render the pitch headline. Got: {}", html);
+        assert!(
+            html.contains("Precision"),
+            "Auth page must render the pitch headline. Got: {}",
+            html
+        );
         // Three value props.
         for value in &["Data Accuracy", "Real-time Edge", "Secure Ownership"] {
             assert!(
                 html.contains(value),
                 "Auth page pitch must include value prop '{}'. Got: {}",
-                value, html
+                value,
+                html
             );
         }
         // Social proof.
-        assert!(html.contains("2,500+"), "Auth page must render the '2,500+' social proof. Got: {}", html);
+        assert!(
+            html.contains("2,500+"),
+            "Auth page must render the '2,500+' social proof. Got: {}",
+            html
+        );
     }
 
     // ── Wave 50 — SSR-friendly wallet wiring tests ────────────────
@@ -560,7 +534,13 @@ mod tests {
         // without parsing — but the static text "Sign-in failed"
         // (the default error title) and "Waiting for wallet..." (the
         // default status msg) must both be present.
-        assert!(html.contains("Waiting for wallet..."), "Auth page must include the initial loading message. Got: {html}");
-        assert!(html.contains("Sign-in failed"), "Auth page must include the default error title. Got: {html}");
+        assert!(
+            html.contains("Waiting for wallet..."),
+            "Auth page must include the initial loading message. Got: {html}"
+        );
+        assert!(
+            html.contains("Sign-in failed"),
+            "Auth page must include the default error title. Got: {html}"
+        );
     }
 }

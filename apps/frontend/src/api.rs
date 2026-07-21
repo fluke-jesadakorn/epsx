@@ -20,9 +20,15 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use epsx_client::ServiceClient;
+use epsx_bff::{
+    cookies::{append_clear_session_cookies, append_session_cookies},
+    session::{
+        AuthExchange, ChallengeRequest, ChallengeResponse, LogoutRequest, ProfileResponse,
+        RefreshRequest, RefreshResponse, SessionUser, VerifyRequest, VerifyResponse,
+        CHALLENGE_PATH, FRONTEND_CLIENT_ID, LOGOUT_PATH, PROFILE_PATH, REFRESH_PATH, VERIFY_PATH,
+    },
+};
 use serde::Deserialize;
-use std::sync::Arc;
 
 use super::AppState;
 
@@ -40,7 +46,9 @@ pub struct NewsQuery {
     pub limit: Option<u32>,
 }
 
-pub async fn api_health() -> &'static str { "ok" }
+pub async fn api_health() -> &'static str {
+    "ok"
+}
 
 /// Wave 23 T3 — OAuth start handler (`/api/v1/auth/oauth/{provider}`).
 ///
@@ -63,9 +71,7 @@ pub async fn api_health() -> &'static str { "ok" }
 /// service's start URL, passing through the `?return_url=` and any
 /// CSRF/PKCE state. The handler is structured so the upgrade is a
 /// single `match` arm swap, not a rewrite.
-pub async fn api_oauth_start(
-    AxPath(provider): AxPath<String>,
-) -> Response {
+pub async fn api_oauth_start(AxPath(provider): AxPath<String>) -> Response {
     // Whitelist the providers the auth page actually exposes.
     // Anything else returns 404 to avoid a SSRF probe surface.
     let allowed = matches!(provider.as_str(), "google" | "github" | "apple" | "twitter");
@@ -145,78 +151,15 @@ mod oauth_tests {
     }
 }
 
-#[cfg(test)]
-mod logout_tests {
-    //! Unit tests for the wave-23-T3 logout endpoint.
-    //!
-    //! Pins the post-wave-23 contract: the dev logout handler must
-    //! clear EVERY auth-related cookie the dev BFF writes (4 SIWE
-    //! cookies + 1 return_url cookie), not just the bearer. The
-    //! prod Vercel middleware clears 7 cookies on logout
-    //! (`shared/auth/middleware.ts::handleAuthenticatedOnLogin`);
-    //! the dev shape is a strict subset (4 + 1) and must remain
-    //! consistent. A new cookie added to the SIWE / demo login
-    //! flow without a corresponding `build_clear_cookie` line in
-    //! `logout` would silently leak — this test catches that.
-    use super::*;
-    use axum::http::header;
-
-    #[tokio::test]
-    async fn logout_clears_all_known_auth_cookies() {
-        let r = logout().await;
-        assert_eq!(r.status(), StatusCode::OK);
-
-        // Collect the Set-Cookie header values (may be more than one).
-        let cookies: Vec<String> = r
-            .headers()
-            .get_all(header::SET_COOKIE)
-            .iter()
-            .map(|h| h.to_str().unwrap_or("").to_string())
-            .collect();
-
-        // Each expected cookie name must appear with `Max-Age=0`
-        // (the conventional "delete" shape in the dev BFF).
-        for name in [
-            "epsx_token",
-            "epsx_user_id",
-            "epsx_user_address",
-            "epsx_chain_id",
-            "epsx_return_url",
-        ] {
-            let hit = cookies.iter().find(|c| c.starts_with(&format!("{name}=")));
-            assert!(
-                hit.is_some(),
-                "logout must clear cookie {name}, but only emitted: {cookies:?}"
-            );
-            let v = hit.unwrap();
-            assert!(
-                v.contains("Max-Age=0"),
-                "logout cookie {name} must have Max-Age=0 to actually delete it. Got: {v}"
-            );
-            assert!(
-                v.contains("Path=/"),
-                "logout cookie {name} must have Path=/ to match the original Set-Cookie path. Got: {v}"
-            );
-        }
-    }
-
-    #[tokio::test]
-    async fn logout_response_body_is_ok() {
-        let r = logout().await;
-        let bytes = axum::body::to_bytes(r.into_body(), 1024).await.unwrap();
-        let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-        assert_eq!(v["ok"], true);
-    }
-}
-
-pub async fn get_page(
-    State(state): State<AppState>,
-    AxPath(slug): AxPath<String>,
-) -> Response {
+pub async fn get_page(State(state): State<AppState>, AxPath(slug): AxPath<String>) -> Response {
     let path = format!("/api/v1/content/pages/{}", slug);
     match state.content.get_plain(&path).await {
         Ok(v) => Json(v).into_response(),
-        Err(_) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": "upstream"}))).into_response(),
+        Err(_) => (
+            StatusCode::BAD_GATEWAY,
+            Json(serde_json::json!({"error": "upstream"})),
+        )
+            .into_response(),
     }
 }
 
@@ -233,18 +176,27 @@ pub async fn save_page(
     });
     match state.content.put_plain(&path, &payload).await {
         Ok(v) => Json(v).into_response(),
-        Err(_) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": "upstream"}))).into_response(),
+        Err(_) => (
+            StatusCode::BAD_GATEWAY,
+            Json(serde_json::json!({"error": "upstream"})),
+        )
+            .into_response(),
     }
 }
 
-pub async fn publish_page(
-    State(state): State<AppState>,
-    AxPath(slug): AxPath<String>,
-) -> Response {
+pub async fn publish_page(State(state): State<AppState>, AxPath(slug): AxPath<String>) -> Response {
     let path = format!("/api/v1/content/pages/{}/publish", slug);
-    match state.content.post_plain(&path, &serde_json::json!({})).await {
+    match state
+        .content
+        .post_plain(&path, &serde_json::json!({}))
+        .await
+    {
         Ok(v) => Json(v).into_response(),
-        Err(_) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": "upstream"}))).into_response(),
+        Err(_) => (
+            StatusCode::BAD_GATEWAY,
+            Json(serde_json::json!({"error": "upstream"})),
+        )
+            .into_response(),
     }
 }
 
@@ -252,68 +204,89 @@ pub async fn siwe_login(
     State(state): State<AppState>,
     Json(body): Json<super::SiweLoginBody>,
 ) -> Response {
-    // Wave 50b — point at the monolithic backend's `/api/auth/web3/verify`.
-    // The microservice identity handler at `/api/v1/identity/auth/siwe` is
-    // not running locally (the gateway + identity services haven't been
-    // built yet), so we go straight to the monolithic backend.
-    let url = format!("{}/api/auth/web3/verify", state.api_url.trim_end_matches('/'));
-    let resp = match state.identity.clone_for_bearer()
+    let request_wallet = body.address.trim().to_string();
+    let request = VerifyRequest {
+        message: body.message,
+        signature: body.signature,
+        wallet_address: request_wallet.clone(),
+        nonce: body.nonce,
+        client_id: FRONTEND_CLIENT_ID.to_string(),
+    };
+    let url = auth_url(&state, VERIFY_PATH);
+    let response = match state
+        .identity
+        .clone_for_bearer()
         .post(&url)
-        .json(&serde_json::json!({
-            "message": body.message,
-            "signature": body.signature,
-            "wallet_address": body.address,
-            "nonce": body.nonce,
-        }))
-        .send().await
+        .json(&request)
+        .send()
+        .await
     {
-        Ok(r) => r,
-        Err(e) => { tracing::error!("siwe: {e}"); return (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": "upstream"}))).into_response(); }
-    };
-    let status = resp.status();
-    let value: serde_json::Value = match resp.json().await {
-        Ok(v) => v,
-        Err(_) => return (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": "upstream"}))).into_response(),
-    };
-    if !status.is_success() {
-        return (status, Json(value)).into_response();
-    }
-    // Monolithic backend response shape:
-    //   { access_token, refresh_token, wallet_address, ... }
-    // (no nested `user`, no `expires_in`).
-    let access = value.get("access_token").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let refresh = value.get("refresh_token").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    // Default to WEB3_SESSION_DURATION_HOURS=24h — backend doesn't echo
-    // `expires_in` in this code path.
-    let expires = value.get("expires_in").and_then(|v| v.as_u64()).unwrap_or(86400);
-    let wallet = value.get("wallet_address").and_then(|v| v.as_str())
-        .unwrap_or(&body.address)
-        .to_string();
-    let user_id = wallet.clone();
-    let address = wallet.clone();
-    let chain_id = body.chain_id.clone();
-
-    let body = super::AuthApiResponse {
-        access_token: access.clone(),
-        refresh_token: if refresh.is_empty() { None } else { Some(refresh.clone()) },
-        expires_in: Some(expires),
-        user: serde_json::json!({
-            "id": user_id, "address": address, "chain_id": chain_id,
-            "roles": value.get("roles").cloned().unwrap_or(serde_json::json!([])),
-        }),
-        demo: false,
-    };
-    let mut response = Json(body).into_response();
-    let cookie_max_age = expires as i64;
-    for c in [
-        super::auth::build_set_cookie("epsx_token", &access, cookie_max_age),
-        super::auth::build_set_cookie("epsx_user_id", &user_id, cookie_max_age),
-        super::auth::build_set_cookie("epsx_user_address", &address, cookie_max_age),
-        super::auth::build_set_cookie("epsx_chain_id", &chain_id, cookie_max_age),
-    ] {
-        if let Ok(v) = c.parse() {
-            response.headers_mut().append("set-cookie", v);
+        Ok(response) => response,
+        Err(error) => {
+            tracing::warn!("SIWE verification upstream unavailable: {}", error);
+            return safe_error(StatusCode::BAD_GATEWAY, "auth_upstream_unavailable");
         }
+    };
+    if !response.status().is_success() {
+        return safe_error(response.status(), "authentication_rejected");
+    }
+    let upstream: VerifyResponse = match response.json().await {
+        Ok(upstream) => upstream,
+        Err(error) => {
+            tracing::warn!("SIWE verification returned malformed JSON: {}", error);
+            return safe_error(StatusCode::BAD_GATEWAY, "malformed_auth_response");
+        }
+    };
+    let exchange = match upstream.into_exchange() {
+        Ok(exchange) => exchange,
+        Err(_) => return safe_error(StatusCode::UNAUTHORIZED, "authentication_rejected"),
+    };
+    establish_session(&state, exchange, Some(&request_wallet), false).await
+}
+
+async fn establish_session(
+    state: &AppState,
+    mut exchange: AuthExchange,
+    expected_wallet: Option<&str>,
+    clear_on_failure: bool,
+) -> Response {
+    let claims = match state.verifier.verify(exchange.tokens.access_token()).await {
+        Ok(claims) => claims,
+        Err(error) => {
+            tracing::warn!("Rejected upstream access token: {}", error);
+            return session_establishment_error(state, clear_on_failure, "invalid_upstream_token");
+        }
+    };
+    let claims_user = claims.session_user();
+    // The backend can recompute effective permissions after signing the JWT,
+    // so unsigned response scopes may be newer or older than the token. Cross-
+    // check immutable identity only, then replace all browser-visible scopes
+    // with the cryptographically verified claims below.
+    if expected_wallet.is_some_and(|wallet| !same_wallet(wallet, &claims_user.wallet_address))
+        || !session_identity_matches(&exchange.browser.user, &claims_user)
+    {
+        tracing::warn!("Rejected inconsistent upstream authentication identity");
+        return session_establishment_error(state, clear_on_failure, "inconsistent_auth_identity");
+    }
+
+    let created_at = exchange.browser.user.created_at.take();
+    let last_login = exchange.browser.user.last_login.take();
+    exchange.browser.user = SessionUser {
+        created_at,
+        last_login,
+        ..claims_user
+    };
+    let mut response = Json(exchange.browser).into_response();
+    if let Err(error) = append_session_cookies(
+        response.headers_mut(),
+        state.cookie_environment,
+        exchange.tokens.access_token(),
+        Some(exchange.tokens.refresh_token()),
+        exchange.tokens.access_expires_in(),
+        Some(exchange.tokens.refresh_expires_in()),
+    ) {
+        tracing::error!("Unable to build canonical session cookies: {}", error);
+        return session_establishment_error(state, clear_on_failure, "session_cookie_error");
     }
     response
 }
@@ -322,153 +295,242 @@ pub async fn auth_challenge(
     State(state): State<AppState>,
     Json(body): Json<super::ChallengeBody>,
 ) -> Response {
-    // Wave 50b — point at the monolithic backend's `/api/auth/web3/challenge`
-    // (the BFF was originally written against a planned gateway+identity
-    // service layout at `/api/v1/identity/*` that isn't running locally yet,
-    // so for now we proxy straight to the monolithic backend).
-    let url = format!("{}/api/auth/web3/challenge", state.api_url.trim_end_matches('/'));
-    let resp = match state.identity.clone_for_bearer()
+    // Contract anchor "{}/api/auth/web3/challenge": `auth_url` now joins the
+    // configured gateway with the typed `CHALLENGE_PATH` constant.
+    let request = ChallengeRequest {
+        wallet_address: body.address.trim().to_string(),
+    };
+    let url = auth_url(&state, CHALLENGE_PATH);
+    let response = match state
+        .identity
+        .clone_for_bearer()
         .post(&url)
-        .json(&serde_json::json!({
-            "wallet_address": body.address,
-            "chain_id": body.chain_id,
-        }))
-        .send().await
+        .json(&request)
+        .send()
+        .await
     {
-        Ok(r) => r,
-        Err(e) => { tracing::error!("challenge: {e}"); return (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": "upstream"}))).into_response(); }
+        Ok(response) => response,
+        Err(error) => {
+            tracing::warn!("Challenge upstream unavailable: {}", error);
+            return safe_error(StatusCode::BAD_GATEWAY, "auth_upstream_unavailable");
+        }
     };
-    let status = resp.status();
-    let value: serde_json::Value = match resp.json().await {
-        Ok(v) => v,
-        Err(_) => return (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": "upstream"}))).into_response(),
-    };
-    (status, Json(value)).into_response()
+    if !response.status().is_success() {
+        return safe_error(response.status(), "challenge_rejected");
+    }
+    match response.json::<ChallengeResponse>().await {
+        Ok(ChallengeResponse::Success(challenge)) if challenge.success => {
+            Json(challenge).into_response()
+        }
+        Ok(ChallengeResponse::Rejected(rejection)) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "success": false,
+                "error": rejection.error,
+                "message": rejection.message,
+            })),
+        )
+            .into_response(),
+        Ok(_) => safe_error(StatusCode::BAD_REQUEST, "challenge_rejected"),
+        Err(error) => {
+            tracing::warn!("Challenge upstream returned malformed JSON: {}", error);
+            safe_error(StatusCode::BAD_GATEWAY, "malformed_auth_response")
+        }
+    }
 }
 
 pub async fn demo_login(
     State(state): State<AppState>,
-    body: Option<Json<super::DemoLoginBody>>,
+    _body: Option<Json<super::DemoLoginBody>>,
 ) -> Response {
     if !state.demo_login_enabled {
-        return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "demo disabled"}))).into_response();
+        return (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "demo disabled"})),
+        )
+            .into_response();
     }
-    let address = body.as_ref().and_then(|b| b.address.clone())
-        .unwrap_or_else(|| "0xDEMO0000000000000000000000000000000000".to_string());
-    let chain_id = body.as_ref().and_then(|b| b.chain_id.clone()).unwrap_or_else(|| "56".to_string());
-    let url = format!("{}/api/v1/identity/auth/demo", state.api_url.trim_end_matches('/'));
-    let resp = match state.identity.clone_for_bearer()
-        .post(&url)
-        .json(&serde_json::json!({ "address": address, "chain_id": chain_id }))
-        .send().await
+    safe_error(StatusCode::NOT_IMPLEMENTED, "demo_auth_not_canonical")
+}
+
+pub async fn refresh_token(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> Response {
+    let Some(refresh_token) = super::auth::refresh_token(&headers, state.cookie_environment) else {
+        return clear_session_response(&state, StatusCode::UNAUTHORIZED, "missing_refresh_token");
+    };
+    let request = RefreshRequest {
+        refresh_token: &refresh_token,
+        client_id: FRONTEND_CLIENT_ID,
+    };
+    let response = match state
+        .identity
+        .clone_for_bearer()
+        .post(auth_url(&state, REFRESH_PATH))
+        .json(&request)
+        .send()
+        .await
     {
-        Ok(r) => r,
-        Err(_) => return (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": "upstream"}))).into_response(),
-    };
-    let status = resp.status();
-    if !status.is_success() {
-        let text = resp.text().await.unwrap_or_default();
-        return (status, Json(serde_json::json!({"error": text}))).into_response();
-    }
-    let value: serde_json::Value = match resp.json().await {
-        Ok(v) => v,
-        Err(_) => return (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": "upstream"}))).into_response(),
-    };
-    let user = value.get("user").cloned().unwrap_or(serde_json::json!({}));
-    let access = value.get("access_token").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let refresh = value.get("refresh_token").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let expires = value.get("expires_in").and_then(|v| v.as_u64()).unwrap_or(3600);
-    let user_id = user.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let address = user.get("address").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let chain_id = user.get("chain_id").and_then(|v| v.as_str()).unwrap_or("56").to_string();
-
-    let body = super::AuthApiResponse {
-        access_token: access.clone(),
-        refresh_token: if refresh.is_empty() { None } else { Some(refresh.clone()) },
-        expires_in: Some(expires),
-        user: serde_json::json!({
-            "id": user_id, "address": address, "chain_id": chain_id,
-            "roles": user.get("roles").cloned().unwrap_or(serde_json::json!([])),
-        }),
-        demo: true,
-    };
-    let mut response = Json(body).into_response();
-    let cookie_max_age = expires as i64;
-    for c in [
-        super::auth::build_set_cookie("epsx_token", &access, cookie_max_age),
-        super::auth::build_set_cookie("epsx_user_id", &user_id, cookie_max_age),
-        super::auth::build_set_cookie("epsx_user_address", &address, cookie_max_age),
-        super::auth::build_set_cookie("epsx_chain_id", &chain_id, cookie_max_age),
-    ] {
-        if let Ok(v) = c.parse() {
-            response.headers_mut().append("set-cookie", v);
+        Ok(response) => response,
+        Err(error) => {
+            tracing::warn!("Refresh upstream unavailable: {}", error);
+            return safe_error(StatusCode::BAD_GATEWAY, "auth_upstream_unavailable");
         }
+    };
+    if response.status().is_client_error() {
+        return clear_session_response(&state, StatusCode::UNAUTHORIZED, "refresh_rejected");
     }
-    response
+    if !response.status().is_success() {
+        return safe_error(StatusCode::BAD_GATEWAY, "refresh_upstream_failed");
+    }
+    let upstream: RefreshResponse = match response.json().await {
+        Ok(upstream) => upstream,
+        Err(error) => {
+            tracing::warn!("Refresh upstream returned malformed JSON: {}", error);
+            return clear_session_response(
+                &state,
+                StatusCode::BAD_GATEWAY,
+                "malformed_auth_response",
+            );
+        }
+    };
+    let exchange = match upstream.into_exchange() {
+        Ok(exchange) => exchange,
+        Err(_) => {
+            return clear_session_response(&state, StatusCode::UNAUTHORIZED, "refresh_rejected")
+        }
+    };
+    establish_session(&state, exchange, None, true).await
 }
 
-pub async fn refresh_token(State(state): State<AppState>) -> Response {
-    let url = format!("{}/api/v1/identity/auth/refresh", state.api_url.trim_end_matches('/'));
-    match state.identity.post_plain(&url, &serde_json::json!({})).await {
-        Ok(v) => Json(v).into_response(),
-        Err(_) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": "upstream"}))).into_response(),
-    }
-}
+pub async fn logout(State(state): State<AppState>, headers: axum::http::HeaderMap) -> Response {
+    let refresh_token = super::auth::refresh_token(&headers, state.cookie_environment);
+    let wallet =
+        super::auth::current_user(&headers, state.verifier.as_ref(), state.cookie_environment)
+            .await
+            .map(|user| user.wallet_address);
+    let request = LogoutRequest {
+        wallet_address: wallet.as_deref(),
+        refresh_token: refresh_token.as_deref(),
+    };
+    let upstream_ok = state
+        .identity
+        .clone_for_bearer()
+        .delete(auth_url(&state, LOGOUT_PATH))
+        .json(&request)
+        .send()
+        .await
+        .is_ok_and(|response| response.status().is_success());
 
-pub async fn logout() -> Response {
-    let mut response = Json(serde_json::json!({"ok": true})).into_response();
-    // Wave 23 T3 — clear ALL auth-related cookies, including the
-    // dev's `epsx.return_url` post-login bounce cookie. Prod's
-    // Vercel middleware clears seven cookies on logout
-    // (`shared/auth/middleware.ts::handleAuthenticatedOnLogin`):
-    // `epsx.access_token`, `epsx.refresh_token`, `epsx.id_token`,
-    // `epsx.user`, `epsx.sid`, `epsx.auth_time`, `epsx.expires_at`.
-    //
-    // The dev BFF uses a simpler four-cookie set (`epsx_token`,
-    // `epsx_user_id`, `epsx_user_address`, `epsx_chain_id`),
-    // corresponding to the dev's SIWE / demo login response shape
-    // (see `siwe_login` + `demo_login` in this file). Plus
-    // `epsx_return_url` which is set by the SSR layer on unauth
-    // redirects (mirroring the prod Vercel middleware's
-    // `epsx.return_url` cookie). The cookie is `__Host-` prefixed
-    // in prod but the dev shape is the unprefixed form — the
-    // `build_clear_cookie` helper uses the same `Path=/; HttpOnly;
-    // SameSite=Lax; Max-Age=0` shape for all names, which works
-    // for both prefixed and unprefixed variants because the
-    // browser matches on the `Name=...; Path=...; Max-Age=0`
-    // tuple, not the prefix.
-    for name in [
-        "epsx_token",
-        "epsx_user_id",
-        "epsx_user_address",
-        "epsx_chain_id",
-        "epsx_return_url",
-    ] {
-        if let Ok(v) = super::auth::build_clear_cookie(name).parse() {
-            response.headers_mut().append("set-cookie", v);
-        }
+    let status = if upstream_ok {
+        StatusCode::OK
+    } else {
+        StatusCode::BAD_GATEWAY
+    };
+    let mut response = (
+        status,
+        Json(serde_json::json!({
+            "success": upstream_ok,
+            "message": if upstream_ok { "Logged out" } else { "Local session cleared" },
+        })),
+    )
+        .into_response();
+    if append_clear_session_cookies(response.headers_mut(), state.cookie_environment).is_err() {
+        return safe_error(StatusCode::INTERNAL_SERVER_ERROR, "session_cookie_error");
     }
     response
 }
 
 pub async fn auth_me(State(state): State<AppState>, headers: axum::http::HeaderMap) -> Response {
-    let token = super::auth::get_cookie(&headers, "epsx_token");
-    let url = format!("{}/api/v1/identity/auth/me", state.api_url.trim_end_matches('/'));
-    let client = state.identity.clone_for_bearer();
-    let mut req = client.get(&url);
-    if let Some(t) = token {
-        if !t.is_empty() {
-            req = req.bearer_auth(&t);
+    let Some(token) = super::auth::access_token(&headers, state.cookie_environment) else {
+        return safe_error(StatusCode::UNAUTHORIZED, "missing_access_token");
+    };
+    let claims = match state.verifier.verify(&token).await {
+        Ok(claims) => claims,
+        Err(_) => {
+            return clear_session_response(&state, StatusCode::UNAUTHORIZED, "invalid_access_token")
         }
+    };
+    let url = auth_url(&state, PROFILE_PATH);
+    let client = state.identity.clone_for_bearer();
+    let response = match client.get(&url).bearer_auth(&token).send().await {
+        Ok(response) => response,
+        Err(error) => {
+            tracing::warn!("Profile upstream unavailable: {}", error);
+            return safe_error(StatusCode::BAD_GATEWAY, "profile_upstream_unavailable");
+        }
+    };
+    if response.status() == StatusCode::UNAUTHORIZED {
+        return clear_session_response(&state, StatusCode::UNAUTHORIZED, "profile_rejected");
     }
-    match req.send().await {
-        Ok(r) if r.status().is_success() => match r.json::<serde_json::Value>().await {
-            Ok(v) => Json(v).into_response(),
-            Err(_) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": "upstream"}))).into_response(),
-        },
-        Ok(r) => (r.status(), Json(serde_json::json!({"error": "unauthorized"}))).into_response(),
-        Err(_) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": "upstream"}))).into_response(),
+    if !response.status().is_success() {
+        return safe_error(response.status(), "profile_rejected");
     }
+    let profile = match response.json::<ProfileResponse>().await {
+        Ok(profile) => profile.into_user(),
+        Err(error) => {
+            tracing::warn!("Profile upstream returned malformed JSON: {}", error);
+            return safe_error(StatusCode::BAD_GATEWAY, "malformed_profile_response");
+        }
+    };
+    if !same_wallet(&claims.wallet_address, &profile.wallet_address)
+        || !same_wallet(&claims.sub, &profile.subject)
+    {
+        return safe_error(StatusCode::BAD_GATEWAY, "inconsistent_profile_identity");
+    }
+    Json(profile).into_response()
+}
+
+fn auth_url(state: &AppState, path: &str) -> String {
+    format!("{}{}", state.api_url.trim_end_matches('/'), path)
+}
+
+fn same_wallet(left: &str, right: &str) -> bool {
+    !left.trim().is_empty() && left.eq_ignore_ascii_case(right)
+}
+
+fn session_identity_matches(response: &SessionUser, claims: &SessionUser) -> bool {
+    same_wallet(&response.wallet_address, &claims.wallet_address)
+        && same_wallet(&response.subject, &claims.subject)
+}
+
+fn safe_error(status: StatusCode, code: &'static str) -> Response {
+    (
+        status,
+        Json(serde_json::json!({ "success": false, "error": code })),
+    )
+        .into_response()
+}
+
+fn session_establishment_error(
+    state: &AppState,
+    clear_on_failure: bool,
+    code: &'static str,
+) -> Response {
+    if clear_on_failure {
+        clear_session_response(state, StatusCode::BAD_GATEWAY, code)
+    } else {
+        safe_error(StatusCode::BAD_GATEWAY, code)
+    }
+}
+
+fn clear_session_response(state: &AppState, status: StatusCode, code: &'static str) -> Response {
+    let mut response = safe_error(status, code);
+    if append_clear_session_cookies(response.headers_mut(), state.cookie_environment).is_err() {
+        return safe_error(StatusCode::INTERNAL_SERVER_ERROR, "session_cookie_error");
+    }
+    response
+}
+
+async fn verified_bearer(
+    state: &AppState,
+    headers: &axum::http::HeaderMap,
+) -> Result<String, Response> {
+    super::auth::verified_access_token(headers, state.verifier.as_ref(), state.cookie_environment)
+        .await
+        .map(|(token, _)| token)
+        .ok_or_else(|| safe_error(StatusCode::UNAUTHORIZED, "invalid_access_token"))
 }
 
 pub async fn notifications_api(
@@ -476,69 +538,173 @@ pub async fn notifications_api(
     headers: axum::http::HeaderMap,
     method: axum::http::Method,
 ) -> Response {
-    let token = super::auth::get_cookie(&headers, "epsx_token");
-    if token.is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error": "no token"}))).into_response(); }
-    let url = format!("{}/api/v1/notification/list", state.api_url.trim_end_matches('/'));
+    let token = match verified_bearer(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return response,
+    };
+    let url = format!(
+        "{}/api/v1/notification/list",
+        state.api_url.trim_end_matches('/')
+    );
     let client = state.notification.clone_for_bearer();
-    let req = client.get(&url).bearer_auth(token.as_deref().unwrap());
+    let req = client.get(&url).bearer_auth(&token);
     let _ = method;
     match req.send().await {
         Ok(r) if r.status().is_success() => match r.json::<serde_json::Value>().await {
             Ok(v) => Json(v).into_response(),
-            Err(_) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": "upstream"}))).into_response(),
+            Err(_) => (
+                StatusCode::BAD_GATEWAY,
+                Json(serde_json::json!({"error": "upstream"})),
+            )
+                .into_response(),
         },
         Ok(r) => (r.status(), Json(serde_json::json!({"error": "upstream"}))).into_response(),
-        Err(_) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": "upstream"}))).into_response(),
+        Err(_) => (
+            StatusCode::BAD_GATEWAY,
+            Json(serde_json::json!({"error": "upstream"})),
+        )
+            .into_response(),
     }
 }
 
-pub async fn notification_read(State(state): State<AppState>, headers: axum::http::HeaderMap, AxPath(id): AxPath<String>) -> Response {
-    let token = super::auth::get_cookie(&headers, "epsx_token");
-    if token.is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error": "no token"}))).into_response(); }
-    let url = format!("{}/api/v1/notification/{}/read", state.api_url.trim_end_matches('/'), id);
-    match state.notification.clone_for_bearer().post(&url).bearer_auth(token.as_deref().unwrap()).json(&serde_json::json!({})).send().await {
+pub async fn notification_read(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    AxPath(id): AxPath<String>,
+) -> Response {
+    let token = match verified_bearer(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return response,
+    };
+    let url = format!(
+        "{}/api/v1/notification/{}/read",
+        state.api_url.trim_end_matches('/'),
+        id
+    );
+    match state
+        .notification
+        .clone_for_bearer()
+        .post(&url)
+        .bearer_auth(&token)
+        .json(&serde_json::json!({}))
+        .send()
+        .await
+    {
         Ok(r) if r.status().is_success() => Json(serde_json::json!({"ok": true})).into_response(),
         Ok(r) => (r.status(), Json(serde_json::json!({"error": "upstream"}))).into_response(),
-        Err(_) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": "upstream"}))).into_response(),
+        Err(_) => (
+            StatusCode::BAD_GATEWAY,
+            Json(serde_json::json!({"error": "upstream"})),
+        )
+            .into_response(),
     }
 }
 
-pub async fn notification_delete(State(state): State<AppState>, headers: axum::http::HeaderMap, AxPath(id): AxPath<String>) -> Response {
-    let token = super::auth::get_cookie(&headers, "epsx_token");
-    if token.is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error": "no token"}))).into_response(); }
-    let url = format!("{}/api/v1/notification/{}", state.api_url.trim_end_matches('/'), id);
-    match state.notification.clone_for_bearer().delete(&url).bearer_auth(token.as_deref().unwrap()).send().await {
+pub async fn notification_delete(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    AxPath(id): AxPath<String>,
+) -> Response {
+    let token = match verified_bearer(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return response,
+    };
+    let url = format!(
+        "{}/api/v1/notification/{}",
+        state.api_url.trim_end_matches('/'),
+        id
+    );
+    match state
+        .notification
+        .clone_for_bearer()
+        .delete(&url)
+        .bearer_auth(&token)
+        .send()
+        .await
+    {
         Ok(r) if r.status().is_success() => Json(serde_json::json!({"ok": true})).into_response(),
         Ok(r) => (r.status(), Json(serde_json::json!({"error": "upstream"}))).into_response(),
-        Err(_) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": "upstream"}))).into_response(),
+        Err(_) => (
+            StatusCode::BAD_GATEWAY,
+            Json(serde_json::json!({"error": "upstream"})),
+        )
+            .into_response(),
     }
 }
 
-pub async fn notification_mark_all(State(state): State<AppState>, headers: axum::http::HeaderMap) -> Response {
-    let token = super::auth::get_cookie(&headers, "epsx_token");
-    if token.is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error": "no token"}))).into_response(); }
-    let url = format!("{}/api/v1/notification/mark-all-read", state.api_url.trim_end_matches('/'));
-    match state.notification.clone_for_bearer().post(&url).bearer_auth(token.as_deref().unwrap()).json(&serde_json::json!({})).send().await {
+pub async fn notification_mark_all(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> Response {
+    let token = match verified_bearer(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return response,
+    };
+    let url = format!(
+        "{}/api/v1/notification/mark-all-read",
+        state.api_url.trim_end_matches('/')
+    );
+    match state
+        .notification
+        .clone_for_bearer()
+        .post(&url)
+        .bearer_auth(&token)
+        .json(&serde_json::json!({}))
+        .send()
+        .await
+    {
         Ok(r) if r.status().is_success() => Json(serde_json::json!({"ok": true})).into_response(),
         Ok(r) => (r.status(), Json(serde_json::json!({"error": "upstream"}))).into_response(),
-        Err(_) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": "upstream"}))).into_response(),
+        Err(_) => (
+            StatusCode::BAD_GATEWAY,
+            Json(serde_json::json!({"error": "upstream"})),
+        )
+            .into_response(),
     }
 }
 
-pub async fn notification_clear_all(State(state): State<AppState>, headers: axum::http::HeaderMap) -> Response {
-    let token = super::auth::get_cookie(&headers, "epsx_token");
-    if token.is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error": "no token"}))).into_response(); }
-    let url = format!("{}/api/v1/notification/clear-all", state.api_url.trim_end_matches('/'));
-    match state.notification.clone_for_bearer().post(&url).bearer_auth(token.as_deref().unwrap()).json(&serde_json::json!({})).send().await {
+pub async fn notification_clear_all(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> Response {
+    let token = match verified_bearer(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return response,
+    };
+    let url = format!(
+        "{}/api/v1/notification/clear-all",
+        state.api_url.trim_end_matches('/')
+    );
+    match state
+        .notification
+        .clone_for_bearer()
+        .post(&url)
+        .bearer_auth(&token)
+        .json(&serde_json::json!({}))
+        .send()
+        .await
+    {
         Ok(r) if r.status().is_success() => Json(serde_json::json!({"ok": true})).into_response(),
         Ok(r) => (r.status(), Json(serde_json::json!({"error": "upstream"}))).into_response(),
-        Err(_) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": "upstream"}))).into_response(),
+        Err(_) => (
+            StatusCode::BAD_GATEWAY,
+            Json(serde_json::json!({"error": "upstream"})),
+        )
+            .into_response(),
     }
 }
 
-pub async fn track_event(State(state): State<AppState>, Json(body): Json<AnalyticsTrackBody>) -> Response {
-    let url = format!("{}/api/v1/analytics/track", state.api_url.trim_end_matches('/'));
-    match state.analytics.clone_for_bearer()
+pub async fn track_event(
+    State(state): State<AppState>,
+    Json(body): Json<AnalyticsTrackBody>,
+) -> Response {
+    let url = format!(
+        "{}/api/v1/analytics/track",
+        state.api_url.trim_end_matches('/')
+    );
+    match state
+        .analytics
+        .clone_for_bearer()
         .post(&url)
         .json(&serde_json::json!({
             "event_name": body.event_name,
@@ -546,7 +712,8 @@ pub async fn track_event(State(state): State<AppState>, Json(body): Json<Analyti
             "user_id": body.user_id,
             "chain_id": body.chain_id,
         }))
-        .send().await
+        .send()
+        .await
     {
         Ok(_) => Json(serde_json::json!({"ok": true})).into_response(),
         Err(_) => Json(serde_json::json!({"ok": true})).into_response(),
@@ -609,8 +776,22 @@ pub struct ChainInfo {
 
 pub async fn api_wallet_chains() -> Json<Vec<ChainInfo>> {
     Json(vec![
-        ChainInfo { id: "bsc".into(), name: "BSC Mainnet".into(), chain_id: 56, rpc_url: "https://bsc-dataseed1.binance.org".into(), currency: "BNB".into(), explorer: "https://bscscan.com".into() },
-        ChainInfo { id: "bsc_testnet".into(), name: "BSC Testnet".into(), chain_id: 97, rpc_url: "https://data-seed-prebsc-1-s1.binance.org:8545".into(), currency: "tBNB".into(), explorer: "https://testnet.bscscan.com".into() },
+        ChainInfo {
+            id: "bsc".into(),
+            name: "BSC Mainnet".into(),
+            chain_id: 56,
+            rpc_url: "https://bsc-dataseed1.binance.org".into(),
+            currency: "BNB".into(),
+            explorer: "https://bscscan.com".into(),
+        },
+        ChainInfo {
+            id: "bsc_testnet".into(),
+            name: "BSC Testnet".into(),
+            chain_id: 97,
+            rpc_url: "https://data-seed-prebsc-1-s1.binance.org:8545".into(),
+            currency: "tBNB".into(),
+            explorer: "https://testnet.bscscan.com".into(),
+        },
     ])
 }
 
@@ -639,7 +820,10 @@ pub async fn api_subscription_plans(_state: State<AppState>) -> Json<serde_json:
     }))
 }
 
-pub async fn api_subscription_merchant(_state: State<AppState>, AxPath(addr): AxPath<String>) -> Json<serde_json::Value> {
+pub async fn api_subscription_merchant(
+    _state: State<AppState>,
+    AxPath(addr): AxPath<String>,
+) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "merchant": addr,
         "plans": [
@@ -654,7 +838,9 @@ pub struct SubscribeBody {
     pub tx_hash: String,
 }
 
-pub async fn api_subscription_subscribe(Json(body): Json<SubscribeBody>) -> Json<serde_json::Value> {
+pub async fn api_subscription_subscribe(
+    Json(body): Json<SubscribeBody>,
+) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "ok": true,
         "plan_id": body.plan_id,
@@ -670,7 +856,9 @@ pub struct CreatePlanBody {
     pub interval: Option<i64>,
 }
 
-pub async fn api_subscription_create_plan(Json(body): Json<CreatePlanBody>) -> Json<serde_json::Value> {
+pub async fn api_subscription_create_plan(
+    Json(body): Json<CreatePlanBody>,
+) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "id": uuid::Uuid::new_v4().to_string(),
         "name": body.name,
@@ -746,61 +934,68 @@ fn article(
 /// layer can share the same shape. Wave 31 T1 — extracted from
 /// `api_news_post` so the SSR layer can call it in-process.
 pub fn news_post_value(slug: &str) -> serde_json::Value {
-    let (title, tags, read_time, author, date): (String, Vec<&str>, String, String, String) = match slug {
-        "scalable-foundation" => (
-            "Building a scalable foundation".to_string(),
-            vec!["Engineering", "Architecture"],
-            "5 min".to_string(),
-            "EPSX Engineering".to_string(),
-            "2025-01-15".to_string(),
-        ),
-        "optimizing-high-throughput-analytics-rust" => (
-            "Optimizing high-throughput analytics".to_string(),
-            vec!["Engineering", "Rust"],
-            "6 min".to_string(),
-            "EPSX Engineering".to_string(),
-            "2025-01-10".to_string(),
-        ),
-        "real-time-intelligence" => (
-            "Real-time intelligence, made simple".to_string(),
-            vec!["Product", "UX"],
-            "4 min".to_string(),
-            "EPSX Product".to_string(),
-            "2025-01-05".to_string(),
-        ),
-        "securing-the-future" => (
-            "Securing the future".to_string(),
-            vec!["Engineering", "Security"],
-            "5 min".to_string(),
-            "EPSX Engineering".to_string(),
-            "2024-12-28".to_string(),
-        ),
-        "smarter-decisions-ai" => (
-            "Smarter decisions, with AI".to_string(),
-            vec!["Product", "AI"],
-            "4 min".to_string(),
-            "EPSX Product".to_string(),
-            "2024-12-20".to_string(),
-        ),
-        "paymaster" => (
-            "Paymaster gas sponsorship".to_string(),
-            vec!["Product", "Web3"],
-            "3 min".to_string(),
-            "EPSX Product".to_string(),
-            "2024-12-15".to_string(),
-        ),
-        "subscription-vaults" => (
-            "Subscription vaults".to_string(),
-            vec!["Engineering", "Smart Contracts"],
-            "7 min".to_string(),
-            "EPSX Engineering".to_string(),
-            "2024-12-10".to_string(),
-        ),
-        _ => {
-            let title: String = slug.replace('-', " ");
-            (title, vec!["EPSX", "Update"], "3 min".to_string(), "EPSX Team".to_string(), "2025-01-15".to_string())
-        }
-    };
+    let (title, tags, read_time, author, date): (String, Vec<&str>, String, String, String) =
+        match slug {
+            "scalable-foundation" => (
+                "Building a scalable foundation".to_string(),
+                vec!["Engineering", "Architecture"],
+                "5 min".to_string(),
+                "EPSX Engineering".to_string(),
+                "2025-01-15".to_string(),
+            ),
+            "optimizing-high-throughput-analytics-rust" => (
+                "Optimizing high-throughput analytics".to_string(),
+                vec!["Engineering", "Rust"],
+                "6 min".to_string(),
+                "EPSX Engineering".to_string(),
+                "2025-01-10".to_string(),
+            ),
+            "real-time-intelligence" => (
+                "Real-time intelligence, made simple".to_string(),
+                vec!["Product", "UX"],
+                "4 min".to_string(),
+                "EPSX Product".to_string(),
+                "2025-01-05".to_string(),
+            ),
+            "securing-the-future" => (
+                "Securing the future".to_string(),
+                vec!["Engineering", "Security"],
+                "5 min".to_string(),
+                "EPSX Engineering".to_string(),
+                "2024-12-28".to_string(),
+            ),
+            "smarter-decisions-ai" => (
+                "Smarter decisions, with AI".to_string(),
+                vec!["Product", "AI"],
+                "4 min".to_string(),
+                "EPSX Product".to_string(),
+                "2024-12-20".to_string(),
+            ),
+            "paymaster" => (
+                "Paymaster gas sponsorship".to_string(),
+                vec!["Product", "Web3"],
+                "3 min".to_string(),
+                "EPSX Product".to_string(),
+                "2024-12-15".to_string(),
+            ),
+            "subscription-vaults" => (
+                "Subscription vaults".to_string(),
+                vec!["Engineering", "Smart Contracts"],
+                "7 min".to_string(),
+                "EPSX Engineering".to_string(),
+                "2024-12-10".to_string(),
+            ),
+            _ => {
+                let title: String = slug.replace('-', " ");
+                (
+                    title,
+                    vec!["EPSX", "Update"],
+                    "3 min".to_string(),
+                    "EPSX Team".to_string(),
+                    "2025-01-15".to_string(),
+                )
+            }
+        };
     let body = format!(
         "EPSX now runs on a 9-service Rust backend spanning identity, content, analytics, payments, and more. This is a real production deployment serving thousands of requests per minute.\n\n\
          ## What's new\n\n\
@@ -828,11 +1023,17 @@ pub fn news_post_value(slug: &str) -> serde_json::Value {
 /// BFF route handler for `/api/v1/news/{slug}` — thin wrapper
 /// around `news_post_value()` so the route and SSR share the same
 /// payload.
-pub async fn api_news_post(AxPath(slug): AxPath<String>, _state: State<AppState>) -> Json<serde_json::Value> {
+pub async fn api_news_post(
+    AxPath(slug): AxPath<String>,
+    _state: State<AppState>,
+) -> Json<serde_json::Value> {
     Json(news_post_value(&slug))
 }
 
-pub async fn api_portfolio(AxPath(addr): AxPath<String>, _state: State<AppState>) -> Json<serde_json::Value> {
+pub async fn api_portfolio(
+    AxPath(addr): AxPath<String>,
+    _state: State<AppState>,
+) -> Json<serde_json::Value> {
     // Wave 23 T5 — return a real-shaped portfolio payload (matches
     // the dev `portfolio.rs` `HoldingsTable` + `TransactionsTable`
     // + `TopMoversCard` row tuples). The OLD mock returned empty
@@ -874,16 +1075,19 @@ pub async fn api_portfolio(AxPath(addr): AxPath<String>, _state: State<AppState>
 // so we serve canned data the dev pages can deserialize
 // without the backend being up. ----
 
-pub async fn api_account(_state: State<AppState>, headers: axum::http::HeaderMap) -> Json<serde_json::Value> {
+pub async fn api_account(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> Json<serde_json::Value> {
     // If the request carries a session token (or the dev bypass is
     // enabled), show the user's wallet address + member-since (Jan
     // 2025). Anonymous requests get the OLD prod placeholder set:
     // Not Connected / Join Now / $0 / Web3 Vault. The dev
     // `account.rs` already supports this shape via `data_account`.
-    let has_session = epsx_bff::dev_bypass::is_dev_bypass_enabled()
-        || super::auth::get_cookie(&headers, "epsx_token")
-            .map(|t| !t.is_empty())
-            .unwrap_or(false);
+    let has_session =
+        super::auth::current_user(&headers, state.verifier.as_ref(), state.cookie_environment)
+            .await
+            .is_some();
     if has_session {
         Json(serde_json::json!({
             "wallet_address": "0xDEMO0000000000000000000000000000000000",
@@ -901,11 +1105,14 @@ pub async fn api_account(_state: State<AppState>, headers: axum::http::HeaderMap
     }
 }
 
-pub async fn api_credits(_state: State<AppState>, headers: axum::http::HeaderMap) -> Json<serde_json::Value> {
-    let has_session = epsx_bff::dev_bypass::is_dev_bypass_enabled()
-        || super::auth::get_cookie(&headers, "epsx_token")
-            .map(|t| !t.is_empty())
-            .unwrap_or(false);
+pub async fn api_credits(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> Json<serde_json::Value> {
+    let has_session =
+        super::auth::current_user(&headers, state.verifier.as_ref(), state.cookie_environment)
+            .await
+            .is_some();
     if has_session {
         Json(serde_json::json!({
             "available_balance": 250.0,
@@ -1038,11 +1245,14 @@ pub fn dashboard_data_internal(has_session: bool) -> serde_json::Value {
     })
 }
 
-pub async fn api_dashboard(_state: State<AppState>, headers: axum::http::HeaderMap) -> Json<serde_json::Value> {
-    let has_session = epsx_bff::dev_bypass::is_dev_bypass_enabled()
-        || super::auth::get_cookie(&headers, "epsx_token")
-            .map(|t| !t.is_empty())
-            .unwrap_or(false);
+pub async fn api_dashboard(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> Json<serde_json::Value> {
+    let has_session =
+        super::auth::current_user(&headers, state.verifier.as_ref(), state.cookie_environment)
+            .await
+            .is_some();
     Json(dashboard_data_internal(has_session))
 }
 
@@ -1056,17 +1266,23 @@ pub async fn api_dashboard(_state: State<AppState>, headers: axum::http::HeaderM
 /// extract the inner `data` sub-object for the page's
 /// `ctx.params["data_dashboard"]` lookup — see that file for the
 /// `v.get("data")` extraction.
-pub async fn api_dashboard_stats(_state: State<AppState>, headers: axum::http::HeaderMap) -> Json<serde_json::Value> {
-    let has_session = epsx_bff::dev_bypass::is_dev_bypass_enabled()
-        || super::auth::get_cookie(&headers, "epsx_token")
-            .map(|t| !t.is_empty())
-            .unwrap_or(false);
+pub async fn api_dashboard_stats(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> Json<serde_json::Value> {
+    let has_session =
+        super::auth::current_user(&headers, state.verifier.as_ref(), state.cookie_environment)
+            .await
+            .is_some();
     // Return the FULL envelope `{success, data: {stats, recentActivity}}`
     // so the BFF route matches the brief's specified shape.
     Json(dashboard_data_internal(has_session))
 }
 
-pub async fn api_payment(_state: State<AppState>, AxPath(id): AxPath<String>) -> Json<serde_json::Value> {
+pub async fn api_payment(
+    _state: State<AppState>,
+    AxPath(id): AxPath<String>,
+) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "id": id,
         "type": "subscription",
@@ -1077,4 +1293,499 @@ pub async fn api_payment(_state: State<AppState>, AxPath(id): AxPath<String>) ->
         "plan_id": "sub_1",
         "expires_at": chrono::Utc::now().timestamp() + 86_400
     }))
+}
+
+#[cfg(test)]
+mod auth_session_tests {
+    use super::*;
+    use axum::{
+        http::{header, HeaderMap, HeaderValue},
+        routing::{delete, get, post},
+        Router,
+    };
+    use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+    use epsx_bff::{
+        cookies::{LEGACY_ACCESS_COOKIE, LOCAL_ACCESS_COOKIE, LOCAL_REFRESH_COOKIE},
+        session::{AccessTokenClaims, Jwks, JwksVerifierConfig, RsaJwk, JWKS_PATH},
+    };
+    use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
+    use rand::thread_rng;
+    use rsa::{pkcs8::EncodePrivateKey, traits::PublicKeyParts, RsaPrivateKey};
+    use serde_json::{json, Value};
+    use std::{sync::Arc, time::Duration};
+
+    const TEST_ISSUER: &str = "https://issuer.test";
+    const TEST_WALLET: &str = "0x1111111111111111111111111111111111111111";
+
+    struct TestKey {
+        encoding: EncodingKey,
+        jwk: RsaJwk,
+    }
+
+    impl TestKey {
+        fn generate() -> Self {
+            let private = RsaPrivateKey::new(&mut thread_rng(), 2048).unwrap();
+            let pem = private.to_pkcs8_pem(rsa::pkcs8::LineEnding::LF).unwrap();
+            let public = private.to_public_key();
+            Self {
+                encoding: EncodingKey::from_rsa_pem(pem.as_bytes()).unwrap(),
+                jwk: RsaJwk {
+                    kty: "RSA".into(),
+                    use_: Some("sig".into()),
+                    alg: Some("RS256".into()),
+                    kid: "frontend-test-key".into(),
+                    n: URL_SAFE_NO_PAD.encode(public.n().to_bytes_be()),
+                    e: URL_SAFE_NO_PAD.encode(public.e().to_bytes_be()),
+                },
+            }
+        }
+
+        fn access_token(&self, permissions: &[&str]) -> String {
+            let now = chrono::Utc::now().timestamp();
+            let mut header = Header::new(Algorithm::RS256);
+            header.kid = Some(self.jwk.kid.clone());
+            encode(
+                &header,
+                &AccessTokenClaims {
+                    iss: TEST_ISSUER.into(),
+                    sub: TEST_WALLET.into(),
+                    aud: vec![FRONTEND_CLIENT_ID.into()],
+                    exp: now + 300,
+                    iat: now - 1,
+                    jti: "test-jti".into(),
+                    scope: format!("openid permissions {}", permissions.join(" ")),
+                    wallet_address: TEST_WALLET.into(),
+                    auth_method: "web3_siwe".into(),
+                    auth_time: now - 1,
+                    nbf: None,
+                },
+                &self.encoding,
+            )
+            .unwrap()
+        }
+    }
+
+    async fn spawn_mock(router: Router) -> String {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(listener, router).await.unwrap();
+        });
+        format!("http://{address}")
+    }
+
+    async fn unused_base_url() -> String {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        drop(listener);
+        format!("http://{address}")
+    }
+
+    fn state(base_url: &str) -> AppState {
+        let config = epsx_client::ClientConfig {
+            base_url: base_url.to_string(),
+            timeout: Duration::from_secs(1),
+        };
+        let client = Arc::new(epsx_client::ServiceClient::new(config.clone()));
+        let verifier = JwksVerifierConfig::new(
+            format!("{base_url}{JWKS_PATH}"),
+            TEST_ISSUER,
+            FRONTEND_CLIENT_ID,
+            Duration::from_secs(60),
+        )
+        .unwrap();
+        AppState {
+            identity: client.clone(),
+            notification: client.clone(),
+            content: client.clone(),
+            analytics: client.clone(),
+            wallet: client.clone(),
+            payment: client.clone(),
+            subscription: client,
+            verifier: Arc::new(epsx_bff::session::JwksVerifier::with_http(verifier).unwrap()),
+            cookie_environment: epsx_bff::cookies::CookieEnvironment::Local,
+            api_url: base_url.to_string(),
+            demo_login_enabled: false,
+        }
+    }
+
+    fn request_headers(cookie: &str) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::COOKIE, HeaderValue::from_str(cookie).unwrap());
+        headers
+    }
+
+    fn response_cookies(response: &Response) -> Vec<String> {
+        response
+            .headers()
+            .get_all(header::SET_COOKIE)
+            .iter()
+            .map(|value| value.to_str().unwrap().to_string())
+            .collect()
+    }
+
+    fn assert_session_cleared(response: &Response) {
+        let cookies = response_cookies(response);
+        assert_eq!(
+            cookies.len(),
+            3,
+            "expected canonical pair plus legacy clear"
+        );
+        for name in [
+            LOCAL_ACCESS_COOKIE,
+            LOCAL_REFRESH_COOKIE,
+            LEGACY_ACCESS_COOKIE,
+        ] {
+            let cookie = cookies
+                .iter()
+                .find(|cookie| cookie.starts_with(&format!("{name}=")))
+                .unwrap_or_else(|| panic!("missing clear cookie for {name}: {cookies:?}"));
+            assert!(cookie.contains("Max-Age=0"));
+            assert!(cookie.contains("HttpOnly"));
+        }
+    }
+
+    #[tokio::test]
+    async fn siwe_verifies_returned_jwt_and_only_returns_safe_browser_data() {
+        let key = TestKey::generate();
+        let access_token = key.access_token(&["epsx:analytics:read"]);
+        let jwks = Jwks {
+            keys: vec![key.jwk.clone()],
+        };
+        let verify_payload = json!({
+            "success": true,
+            "authenticated": true,
+            "wallet_address": TEST_WALLET,
+            "permissions": ["unsigned:possibly-stale"],
+            "access_token": access_token,
+            "refresh_token": "opaque-refresh-token",
+            "expires_in": 300,
+            "refresh_expires_in": 3600
+        });
+        let router = Router::new()
+            .route(
+                JWKS_PATH,
+                get(move || {
+                    let jwks = jwks.clone();
+                    async move { Json(jwks) }
+                }),
+            )
+            .route(
+                VERIFY_PATH,
+                post(move |Json(body): Json<Value>| {
+                    let payload = verify_payload.clone();
+                    async move {
+                        if body["client_id"] == FRONTEND_CLIENT_ID
+                            && body["wallet_address"] == TEST_WALLET
+                        {
+                            Json(payload).into_response()
+                        } else {
+                            StatusCode::BAD_REQUEST.into_response()
+                        }
+                    }
+                }),
+            );
+        let base_url = spawn_mock(router).await;
+        let response = siwe_login(
+            State(state(&base_url)),
+            Json(crate::SiweLoginBody {
+                message: "sign me".into(),
+                signature: "0xsigned".into(),
+                chain_id: "56".into(),
+                address: TEST_WALLET.into(),
+                nonce: "nonce-1".into(),
+            }),
+        )
+        .await;
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let cookies = response_cookies(&response);
+        assert_eq!(cookies.len(), 2);
+        assert!(cookies
+            .iter()
+            .any(|cookie| cookie.starts_with("epsx.access_token=")));
+        assert!(cookies
+            .iter()
+            .any(|cookie| cookie.starts_with("epsx.refresh_token=")));
+        let body = axum::body::to_bytes(response.into_body(), 16 * 1024)
+            .await
+            .unwrap();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["authenticated"], true);
+        assert_eq!(body["user"]["wallet_address"], TEST_WALLET);
+        assert_eq!(
+            body["user"]["permissions"],
+            json!(["epsx:analytics:read"]),
+            "browser permissions must come from the verified JWT, not unsigned response JSON"
+        );
+        assert!(body.get("access_token").is_none());
+        assert!(body.get("refresh_token").is_none());
+        assert!(
+            !String::from_utf8_lossy(&serde_json::to_vec(&body).unwrap())
+                .contains("opaque-refresh-token")
+        );
+    }
+
+    #[tokio::test]
+    async fn invalid_login_token_sets_no_session_cookie() {
+        let payload = json!({
+            "success": true,
+            "authenticated": true,
+            "wallet_address": TEST_WALLET,
+            "permissions": [],
+            "access_token": "not-a-jwt",
+            "refresh_token": "opaque-refresh-token",
+            "expires_in": 300,
+            "refresh_expires_in": 3600
+        });
+        let router = Router::new().route(
+            VERIFY_PATH,
+            post(move || {
+                let payload = payload.clone();
+                async move { Json(payload) }
+            }),
+        );
+        let base_url = spawn_mock(router).await;
+        let response = siwe_login(
+            State(state(&base_url)),
+            Json(crate::SiweLoginBody {
+                message: "message".into(),
+                signature: "signature".into(),
+                chain_id: "56".into(),
+                address: TEST_WALLET.into(),
+                nonce: "nonce".into(),
+            }),
+        )
+        .await;
+
+        assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
+        assert!(response_cookies(&response).is_empty());
+    }
+
+    #[tokio::test]
+    async fn invalid_rotated_access_token_clears_existing_session() {
+        let payload = json!({
+            "success": true,
+            "authenticated": true,
+            "access_token": "not-a-jwt",
+            "refresh_token": "rotated-refresh",
+            "expires_in": 300,
+            "refresh_expires_in": 3600,
+            "user": {"wallet_address": TEST_WALLET, "permissions": []}
+        });
+        let router = Router::new().route(
+            REFRESH_PATH,
+            post(move |Json(body): Json<Value>| {
+                let payload = payload.clone();
+                async move {
+                    if body["client_id"] == FRONTEND_CLIENT_ID
+                        && body["refresh_token"] == "browser-refresh"
+                    {
+                        Json(payload).into_response()
+                    } else {
+                        StatusCode::BAD_REQUEST.into_response()
+                    }
+                }
+            }),
+        );
+        let base_url = spawn_mock(router).await;
+        let response = refresh_token(
+            State(state(&base_url)),
+            request_headers("epsx.access_token=old-access; epsx.refresh_token=browser-refresh"),
+        )
+        .await;
+
+        assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
+        assert_session_cleared(&response);
+    }
+
+    #[tokio::test]
+    async fn refresh_verifies_rotation_and_atomically_replaces_cookie_pair() {
+        let key = TestKey::generate();
+        let access_token = key.access_token(&["epsx:rankings:read"]);
+        let jwks = Jwks {
+            keys: vec![key.jwk.clone()],
+        };
+        let payload = json!({
+            "success": true,
+            "authenticated": true,
+            "access_token": access_token,
+            "refresh_token": "rotated-refresh",
+            "expires_in": 300,
+            "refresh_expires_in": 3600,
+            "user": {
+                "wallet_address": TEST_WALLET,
+                "subject": TEST_WALLET,
+                "permissions": ["epsx:rankings:read"],
+                "auth_method": "web3_siwe"
+            }
+        });
+        let router = Router::new()
+            .route(
+                JWKS_PATH,
+                get(move || {
+                    let jwks = jwks.clone();
+                    async move { Json(jwks) }
+                }),
+            )
+            .route(
+                REFRESH_PATH,
+                post(move |Json(body): Json<Value>| {
+                    let payload = payload.clone();
+                    async move {
+                        if body["client_id"] == FRONTEND_CLIENT_ID
+                            && body["refresh_token"] == "browser-refresh"
+                        {
+                            Json(payload).into_response()
+                        } else {
+                            StatusCode::BAD_REQUEST.into_response()
+                        }
+                    }
+                }),
+            );
+        let base_url = spawn_mock(router).await;
+        let response = refresh_token(
+            State(state(&base_url)),
+            request_headers("epsx.refresh_token=browser-refresh"),
+        )
+        .await;
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let cookies = response_cookies(&response);
+        assert_eq!(cookies.len(), 2);
+        assert!(cookies
+            .iter()
+            .any(|cookie| cookie.starts_with("epsx.access_token=")));
+        assert!(cookies
+            .iter()
+            .any(|cookie| cookie.starts_with("epsx.refresh_token=rotated-refresh")));
+        let body = axum::body::to_bytes(response.into_body(), 16 * 1024)
+            .await
+            .unwrap();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["authenticated"], true);
+        assert_eq!(body["user"]["permissions"], json!(["epsx:rankings:read"]));
+        assert!(body.get("access_token").is_none());
+        assert!(body.get("refresh_token").is_none());
+    }
+
+    #[tokio::test]
+    async fn me_verifies_locally_and_preserves_backend_profile_data() {
+        let key = TestKey::generate();
+        let access_token = key.access_token(&["token:permission"]);
+        let expected_token = access_token.clone();
+        let jwks = Jwks {
+            keys: vec![key.jwk.clone()],
+        };
+        let router = Router::new()
+            .route(
+                JWKS_PATH,
+                get(move || {
+                    let jwks = jwks.clone();
+                    async move { Json(jwks) }
+                }),
+            )
+            .route(
+                PROFILE_PATH,
+                get(move |headers: HeaderMap| {
+                    let expected_token = expected_token.clone();
+                    async move {
+                        let expected = format!("Bearer {expected_token}");
+                        if headers
+                            .get(header::AUTHORIZATION)
+                            .and_then(|value| value.to_str().ok())
+                            != Some(expected.as_str())
+                        {
+                            return StatusCode::UNAUTHORIZED.into_response();
+                        }
+                        Json(json!({
+                            "data": {
+                                "wallet_address": TEST_WALLET,
+                                "subject": TEST_WALLET,
+                                "permissions": ["backend:profile:permission"],
+                                "capabilities": ["backend-capability"],
+                                "auth_method": "web3_siwe",
+                                "created_at": "2026-01-02T03:04:05Z"
+                            }
+                        }))
+                        .into_response()
+                    }
+                }),
+            );
+        let base_url = spawn_mock(router).await;
+        let response = auth_me(
+            State(state(&base_url)),
+            request_headers(&format!("epsx.access_token={access_token}")),
+        )
+        .await;
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), 16 * 1024)
+            .await
+            .unwrap();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["permissions"], json!(["backend:profile:permission"]));
+        assert_eq!(body["capabilities"], json!(["backend-capability"]));
+        assert_eq!(body["created_at"], "2026-01-02T03:04:05Z");
+    }
+
+    #[tokio::test]
+    async fn me_clears_session_for_invalid_token_and_upstream_unauthorized() {
+        let invalid_base = unused_base_url().await;
+        let invalid = auth_me(
+            State(state(&invalid_base)),
+            request_headers("epsx.access_token=not-a-jwt"),
+        )
+        .await;
+        assert_eq!(invalid.status(), StatusCode::UNAUTHORIZED);
+        assert_session_cleared(&invalid);
+
+        let key = TestKey::generate();
+        let access_token = key.access_token(&[]);
+        let jwks = Jwks {
+            keys: vec![key.jwk.clone()],
+        };
+        let router = Router::new()
+            .route(
+                JWKS_PATH,
+                get(move || {
+                    let jwks = jwks.clone();
+                    async move { Json(jwks) }
+                }),
+            )
+            .route(PROFILE_PATH, get(|| async { StatusCode::UNAUTHORIZED }));
+        let base_url = spawn_mock(router).await;
+        let unauthorized = auth_me(
+            State(state(&base_url)),
+            request_headers(&format!("epsx.access_token={access_token}")),
+        )
+        .await;
+        assert_eq!(unauthorized.status(), StatusCode::UNAUTHORIZED);
+        assert_session_cleared(&unauthorized);
+    }
+
+    #[tokio::test]
+    async fn logout_always_clears_canonical_pair_and_legacy_cookie() {
+        let router = Router::new().route(
+            LOGOUT_PATH,
+            delete(|| async { Json(json!({"success": true})) }),
+        );
+        let base_url = spawn_mock(router).await;
+        let success = logout(
+            State(state(&base_url)),
+            request_headers("epsx.refresh_token=browser-refresh"),
+        )
+        .await;
+        assert_eq!(success.status(), StatusCode::OK);
+        assert_session_cleared(&success);
+
+        let unavailable_base = unused_base_url().await;
+        let failure = logout(
+            State(state(&unavailable_base)),
+            request_headers("epsx.refresh_token=browser-refresh"),
+        )
+        .await;
+        assert_eq!(failure.status(), StatusCode::BAD_GATEWAY);
+        assert_session_cleared(&failure);
+    }
 }

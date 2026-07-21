@@ -20,17 +20,23 @@ pub enum CookieEnvironment {
 }
 
 impl CookieEnvironment {
-    /// Resolve the cookie mode explicitly from `EPSX_ENV`. Missing or unknown
-    /// values are errors: a process must never silently choose development
-    /// cookie semantics in a potentially-production environment.
+    /// Resolve cookie mode from explicit environment markers. `EPSX_ENV` takes
+    /// precedence; `ENV` is the repository's existing runtime contract.
     pub fn from_env() -> Result<Self, CookieEnvironmentError> {
-        let value = std::env::var("EPSX_ENV").map_err(|_| CookieEnvironmentError::Missing)?;
+        let value = std::env::var("EPSX_ENV")
+            .or_else(|_| std::env::var("ENV"))
+            .map_err(|_| CookieEnvironmentError::Missing)?;
         Self::parse(Some(&value))
     }
 
     pub fn parse(value: Option<&str>) -> Result<Self, CookieEnvironmentError> {
         match value.map(str::trim) {
-            Some(value) if value.eq_ignore_ascii_case("production") => Ok(Self::Production),
+            Some(value)
+                if value.eq_ignore_ascii_case("production")
+                    || value.eq_ignore_ascii_case("prod") =>
+            {
+                Ok(Self::Production)
+            }
             Some(value)
                 if value.eq_ignore_ascii_case("local")
                     || value.eq_ignore_ascii_case("development")
@@ -64,9 +70,9 @@ impl CookieEnvironment {
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum CookieEnvironmentError {
-    #[error("EPSX_ENV is required to select session-cookie semantics")]
+    #[error("EPSX_ENV or ENV is required to select session-cookie semantics")]
     Missing,
-    #[error("EPSX_ENV must be one of production, local, development, or test")]
+    #[error("EPSX_ENV/ENV must be production, prod, local, development, or test")]
     Unknown,
 }
 

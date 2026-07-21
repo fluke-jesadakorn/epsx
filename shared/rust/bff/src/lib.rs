@@ -7,6 +7,7 @@
 //! legacy shared-secret token format.
 
 pub mod auth_helpers;
+pub mod browser_auth;
 pub mod cookies;
 pub mod dev_bypass;
 pub mod middleware;

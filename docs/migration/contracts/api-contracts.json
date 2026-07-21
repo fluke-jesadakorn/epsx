@@ -36,7 +36,6 @@
     "auth.me",
     "auth.refresh-rotation",
     "auth.logout-revocation",
-    "cookies.frontend-session",
     "cookies.admin-session",
     "http.unknown-route",
     "auth.backend-capabilities",
@@ -57,10 +56,10 @@
         "successStatuses": [200],
         "invariants": ["backend owns nonce and SIWE message", "wallet address is validated", "errors are non-success responses"]
       },
-      "observed": {"status": "blocked", "summary": "Frontend proxies the monolith route, but the shared frontend/admin contract and failure semantics are not aligned."},
+      "observed": {"status": "blocked", "summary": "Frontend now uses the typed canonical challenge contract; admin parity and a live wallet-to-backend flow are still pending."},
       "evidence": [
         {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": "path = \"/api/auth/web3/challenge\""},
-        {"file": "apps/frontend/src/api.rs", "anchor": "{}/api/auth/web3/challenge"}
+        {"file": "apps/frontend/src/api.rs", "anchor": "let request = ChallengeRequest"}
       ]
     },
     {
@@ -74,11 +73,11 @@
         "successStatuses": [200],
         "invariants": ["success=false never creates a session", "browser JSON contains no tokens", "RS256 access token uses backend permissions"]
       },
-      "observed": {"status": "blocked", "summary": "The frontend treats upstream HTTP success as login success and BFF verification expects incompatible HS256 role claims."},
+      "observed": {"status": "blocked", "summary": "Frontend now verifies the returned RS256 token and exposes token-free browser JSON; admin parity and live SIWE proof are still pending."},
       "evidence": [
         {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": "path = \"/api/auth/web3/verify\""},
-        {"file": "apps/frontend/src/api.rs", "anchor": "{}/api/auth/web3/verify"},
-        {"file": "shared/rust/auth/src/lib.rs", "anchor": "pub fn from_secret(secret: &str)"}
+        {"file": "apps/frontend/src/api.rs", "anchor": "let request = VerifyRequest"},
+        {"file": "apps/frontend/src/api.rs", "anchor": "state.verifier.verify(exchange.tokens.access_token())"}
       ]
     },
     {
@@ -92,11 +91,11 @@
         "successStatuses": [200],
         "invariants": ["access token is verified fail closed", "profile and permissions come from backend", "refresh token is rejected"]
       },
-      "observed": {"status": "blocked", "summary": "Frontend/admin me paths still target the inactive identity contract or locally decode incompatible claims."},
+      "observed": {"status": "blocked", "summary": "Frontend now verifies locally and cross-checks the canonical backend profile; admin parity and live proof are still pending."},
       "evidence": [
         {"file": "apps/backend/src/web/routes/unified_router.rs", "anchor": ".nest(\"/users\", user_routes)"},
         {"file": "apps/backend/src/web/routes/unified_router.rs", "anchor": "\"/profile\""},
-        {"file": "apps/frontend/src/api.rs", "anchor": "/api/v1/identity/auth/me"}
+        {"file": "apps/frontend/src/api.rs", "anchor": "pub async fn auth_me"}
       ]
     },
     {
@@ -110,11 +109,11 @@
         "successStatuses": [200],
         "invariants": ["opaque refresh token is HttpOnly", "rotation is atomic", "old token reuse returns 401", "both cookies rotate together"]
       },
-      "observed": {"status": "blocked", "summary": "The monolith has atomic rotation, but the BFF calls the inactive identity path and does not maintain the refresh cookie."},
+      "observed": {"status": "blocked", "summary": "Monolith and frontend rotation contracts are aligned in focused tests; admin rotation and real old-token-reuse proof are still pending."},
       "evidence": [
         {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": "path = \"/api/auth/session/refresh\""},
         {"file": "apps/backend/src/auth/token_service.rs", "anchor": "pub async fn consume_refresh_token"},
-        {"file": "apps/frontend/src/api.rs", "anchor": "/api/v1/identity/auth/refresh"}
+        {"file": "apps/frontend/src/api.rs", "anchor": "let request = RefreshRequest"}
       ]
     },
     {
@@ -128,11 +127,11 @@
         "successStatuses": [200],
         "invariants": ["backend revokes refresh token", "operation is idempotent", "BFF clears access and refresh cookies even on upstream failure"]
       },
-      "observed": {"status": "blocked", "summary": "The monolith now revokes supplied refresh tokens idempotently, but the BFF still must forward the canonical token and clear both access and refresh cookies on every outcome."},
+      "observed": {"status": "blocked", "summary": "Monolith revocation and frontend always-clear behavior are implemented; admin parity and a live revocation flow are still pending."},
       "evidence": [
         {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": ".revoke_refresh_token(refresh_token)"},
         {"file": "shared/rust/epsx-identity-shared/src/token_service.rs", "anchor": "pub async fn revoke_refresh_token"},
-        {"file": "apps/frontend/src/api.rs", "anchor": "pub async fn logout()"}
+        {"file": "apps/frontend/src/api.rs", "anchor": "pub async fn logout(State(state): State<AppState>"}
       ]
     },
     {
@@ -146,10 +145,10 @@
         "successStatuses": [200],
         "invariants": ["production uses __Host-epsx.access_token and __Host-epsx.refresh_token", "HttpOnly Secure SameSite=Lax Path=/", "no Domain", "Max-Age follows backend TTL"]
       },
-      "observed": {"status": "blocked", "summary": "Frontend uses legacy epsx_token and Secure is optional instead of a production startup invariant."},
+      "observed": {"status": "aligned", "summary": "Frontend uses the shared canonical host-only cookie pair, fails closed on environment selection, and retains the legacy cookie as read-only migration input."},
       "evidence": [
-        {"file": "apps/frontend/src/auth.rs", "anchor": "EPSX_COOKIE_SECURE"},
-        {"file": "apps/frontend/src/api.rs", "anchor": "build_set_cookie(\"epsx_token\""}
+        {"file": "shared/rust/bff/src/cookies.rs", "anchor": "pub const PRODUCTION_ACCESS_COOKIE"},
+        {"file": "apps/frontend/src/api.rs", "anchor": "append_session_cookies("}
       ]
     },
     {
@@ -197,10 +196,10 @@
         "successStatuses": [200],
         "invariants": ["backend computes capabilities", "BFF never expands roles into permissions", "every mutation independently enforces authorization"]
       },
-      "observed": {"status": "blocked", "summary": "Frontend and admin still expand roles locally while candidate service middleware is not fail closed."},
+      "observed": {"status": "blocked", "summary": "Frontend no longer expands roles locally, but admin still does and candidate service middleware is not fail closed."},
       "evidence": [
         {"file": "apps/backend/src/auth/token_service.rs", "anchor": "pub scope: String"},
-        {"file": "apps/frontend/src/ssr.rs", "anchor": "permissions_for_roles(&u.roles)"},
+        {"file": "apps/frontend/src/auth.rs", "anchor": "roles: Vec::new()"},
         {"file": "apps/admin/src/ssr.rs", "anchor": "permissions_for_roles(&u.roles)"}
       ]
     },
@@ -288,7 +287,7 @@
       },
       "observed": {"status": "blocked", "summary": "Frontend, admin, pay and several services return static health success without dependency checks."},
       "evidence": [
-        {"file": "apps/frontend/src/api.rs", "anchor": "pub async fn api_health() -> &'static str { \"ok\" }"},
+        {"file": "apps/frontend/src/api.rs", "anchor": "pub async fn api_health() -> &'static str"},
         {"file": "apps/admin/src/main.rs", "anchor": "async fn api_health() -> &'static str { \"ok\" }"},
         {"file": "apps/pay/src/main.rs", "anchor": "async fn api_health() -> &'static str"}
       ]
