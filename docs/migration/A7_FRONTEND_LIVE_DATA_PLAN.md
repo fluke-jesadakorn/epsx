@@ -6,13 +6,15 @@ Status: **integrity PASS target; production readiness STOP**. This is an evidenc
 
 The source baseline is pinned to `origin/development@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db`. The route set is the checked 28-route frontend application in [`contracts/routes.json`](contracts/routes.json); the gate rejects missing, additional, duplicated, or reassigned routes.
 
-The initial result is deliberately not a completion claim:
+The current result is deliberately not a completion claim:
 
-- **1 aligned:** `/access-denied`, after focused Rust and real localhost Playwright proof for escaped query data, semantics, responsive layout, and keyboard navigation.
-- **9 partial:** `/about`, `/contact`, `/developer/docs`, `/manual`, `/news`, `/news/:slug`, `/offline`, `/privacy`, `/terms`.
+- **2 aligned:** `/access-denied` and `/manual`, after focused Rust and real localhost Playwright proof for content/escaping, semantics, responsive layout, and keyboard navigation.
+- **8 partial:** `/about`, `/contact`, `/developer/docs`, `/news`, `/news/:slug`, `/offline`, `/privacy`, `/terms`.
 - **18 blocked:** every other route in the contract.
 
 The B7.1 proof closes `/access-denied` only. `/offline` now has a public accessible retry button and proves an already-rendered page survives an offline transition and reloads after reconnection, but fresh disconnected/service-worker cache delivery is absent. `/privacy` and `/terms` have responsive, hierarchy, and keyboard proof, yet their Google Sign-in/OIDC legal copy is not approved for the canonical wallet/SIWE flow. Terms also targets `/api/public/subscribe`, for which no matching email-subscription handler exists.
+
+The focused B5 `/manual` proof accepts the pinned 35-feature catalog verbatim, verifies every referenced WebP through the localhost BFF, and proves the responsive category index, route links, screenshot fallback/dialog, and focus behavior at mobile and desktop viewports. It adds no permission, plan, ranking, feature-flag, or subscription decisions to the frontend.
 
 The most important distinction is loader presence versus a production-usable flow. `/analytics`, `/plans`, `/portfolio`, and dynamic payment have SSR fetch hooks whose `data_*` payload is not consumed by the page. Dashboard, news, and developer usage consume in-process values that can still be canned. Other pages deserialize live data but silently replace failures with samples, zeroes, or empty arrays. None of those cases is live-data readiness.
 
@@ -37,7 +39,7 @@ Anchors are literal substrings. Source anchors are verified with `git show` at t
 | `/developer` | `apps/frontend/app/developer/page.tsx :: APIKeyManager` | `pages/developer.rs :: ctx.params.get("data_developer")` | `GET /api/v1/developer` | blocked |
 | `/developer/docs` | `apps/frontend/app/developer/docs/page.tsx :: <ApiDocs />` | `pages/developer.rs :: cached_endpoint_categories()` | `GET /api/v1/developer/docs`, unused | partial |
 | `/developer/usage` | `apps/frontend/app/developer/usage/page.tsx :: DeveloperUsagePage` | `pages/developer.rs :: data_developer_usage` | in-process `developer_usage_value` | blocked |
-| `/manual` | `apps/frontend/app/manual/page.tsx :: Complete guide to all platform features` | `pages/manual.rs :: const FEATURES:` | intentional static catalog; accepted-content/browser proof open | partial |
+| `/manual` | `apps/frontend/app/manual/page.tsx :: Complete guide to all platform features` | `pages/manual.rs :: const FEATURES:` | accepted 35-feature static catalog; responsive landmarks, links, screenshot fallback/dialog, and mobile/desktop keyboard proof | aligned |
 | `/news` | `apps/frontend/app/news/page.tsx :: searchParams: Promise<{ page?: string }>` | `pages/news.rs :: .unwrap_or_else(default_posts)` | in-process `news_list_value` | partial |
 | `/news/:slug` | `apps/frontend/app/news/[slug]/page.tsx :: generateMetadata` | `pages/news_detail.rs :: data_news_post` | in-process `news_post_value` | partial |
 | `/notifications` | `apps/frontend/app/notifications/page.tsx :: page: parseInt(params.page ?? '1')` | `pages/notifications.rs :: data_notifications` | `GET /api/v1/notification/list` | blocked |
@@ -88,7 +90,7 @@ Close one batch at a time; do not mark a route aligned merely because another ro
 2. **B2 identity:** `/auth`, `/account`, `/account/credits`, `/profile`. Finish A1, add owner adapters, payment/credit pagination, and durable profile/preference mutations.
 3. **B3 insights:** `/analytics`, `/dashboard`, `/portfolio`, `/permissions`. Consume live payloads, implement backend query/pagination/export/watchlist contracts, and render A4 decisions without policy duplication.
 4. **B4 communication:** `/chat`, `/chat/:id`, `/chat/history`, `/notifications`. Add owner-scoped list/detail/create/send/resolve/read/preference APIs, SSE reconnect, and keyboard/pagination/error behavior.
-5. **B5 developer:** `/developer`, `/developer/docs`, `/developer/usage`, `/manual`. Add secret-once API-key mutations, owner usage/range pagination, and choose generated-versus-live documentation as one canonical source. `/manual` stays static unless product scope changes, but closes only after accepted-content, responsive, keyboard, and accessibility browser proof.
+5. **B5 developer:** `/developer`, `/developer/docs`, `/developer/usage`, `/manual`. Add secret-once API-key mutations, owner usage/range pagination, and choose generated-versus-live documentation as one canonical source. `/manual` is aligned as the accepted static 35-feature catalog with responsive, keyboard, screenshot-control, fallback, and accessibility browser proof.
 6. **B6 commerce/support:** `/plans`, `/payment`, `/payment/:type/:id`, `/contact`. Consume canonical plans, complete A6, forbid client-owned price/eligibility decisions, and prove contact validation/rate-limit/feedback.
 7. **B7 policy/fallback:** `/access-denied`, `/offline`, `/privacy`, `/terms`. `/access-denied` is aligned. Finish service-worker/cache delivery for a fresh offline navigation, obtain product/legal approval for wallet/SIWE privacy and terms copy, and implement a real email-subscription endpoint plus pending/success/error/retry feedback.
 
@@ -103,6 +105,7 @@ Audit integrity and deterministic report:
 ./scripts/migration/verify-frontend-live-data.sh --mode emit
 ./scripts/migration/test-frontend-live-data.sh
 bunx playwright test e2e/frontend/policy-fallback-runtime.spec.ts --project=frontend --workers=1
+bunx playwright test e2e/frontend/manual-runtime.spec.ts --project=frontend --workers=1
 ```
 
 Readiness is expected to stop today:

@@ -253,16 +253,16 @@
       "blockers":["replace canned in-process usage with owner-scoped metering and A4 limits; add range/pagination/failure states"]
     },
     {
-      "path":"/manual","batch":"B5-developer","status":"partial","dependencies":[],
+      "path":"/manual","batch":"B5-developer","status":"aligned","dependencies":[],
       "source":{"file":"apps/frontend/app/manual/page.tsx","anchors":["export default function ManualPage()","Complete guide to all platform features"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/manual.rs","handler":"manual::render","anchors":["pub fn render(ctx: &PageContext)","const FEATURES:"]},
-      "payloads":{"staticOrSample":["intentional static manual catalog"],"placeholderOrSkeleton":[]},
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/manual.rs","handler":"manual::render","anchors":["pub fn render(ctx: &PageContext)","const FEATURES:","data-manual-screenshot","aria-label\": \"Manual categories"]},
+      "payloads":{"staticOrSample":["accepted intentional static 35-feature manual catalog from the pinned source"],"placeholderOrSkeleton":[]},
       "loader":{"kind":"none","endpoints":[],"evidence":[]},
       "authOwner":{"auth":"public","owner":"none"},
-      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["category and route links need browser keyboard/focus-order proof"],"controls":["category anchors and route links"]},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["mobile and desktop category anchors, screenshot dialog focus trap/Escape/restore, dynamic-route suppression, and route-link activation proven by e2e/frontend/manual-runtime.spec.ts"],"controls":["eight category anchors, 35 screenshot controls with fallback/dialog, 34 concrete route links, and one disabled dynamic route template"]},
       "states":{"loading":"not-applicable","empty":"not-applicable","error":"not-applicable","retry":"not-applicable"},
-      "hydration":{"need":"none","status":"not-applicable","reason":"intentional static guide"},
-      "blockers":["obtain accepted current manual-content parity and browser proof for responsive layout, links, keyboard focus order, and accessibility semantics"]
+      "hydration":{"need":"browser","status":"implemented","reason":"constant route-scoped BFF bridge restores source screenshot viewing and adds error fallback plus accessible dialog keyboard behavior"},
+      "blockers":[]
     },
     {
       "path":"/plans","batch":"B6-commerce-support","status":"blocked","dependencies":["A4","A5","A6"],

@@ -257,25 +257,17 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
         meta.body_class.as_deref().unwrap_or(""),
     );
 
-    let route_runtime = if path == "/offline" {
-        offline_runtime_script()
-    } else {
-        ""
+    let route_runtime = match path.as_str() {
+        "/offline" => offline_runtime_script(),
+        "/manual" => manual_runtime_script(),
+        _ => "",
     };
     let doc = doc.replace(
         "</body>",
-        &format!(
-            "<script>{}</script>{route_runtime}</body>",
-            wallet_shim()
-        ),
+        &format!("<script>{}</script>{route_runtime}</body>", wallet_shim()),
     );
 
-    (
-        status,
-        [("content-type", "text/html; charset=utf-8")],
-        doc,
-    )
-        .into_response()
+    (status, [("content-type", "text/html; charset=utf-8")], doc).into_response()
 }
 
 /// Fetch page-specific data and add it to `params` as JSON-serialized
@@ -518,6 +510,72 @@ fn offline_runtime_script() -> &'static str {
 </script>"#
 }
 
+/// `/manual` retains the pinned source's screenshot viewer without requiring
+/// Dioxus hydration. This route-scoped script reads only static DOM attributes,
+/// supplies image-error fallbacks, and implements dialog focus restoration,
+/// Escape/backdrop close, and a single-control focus trap.
+fn manual_runtime_script() -> &'static str {
+    r#"<script data-epsx-manual-runtime>
+(function () {
+  var dialog = document.querySelector('[data-manual-dialog="true"]');
+  if (!dialog) return;
+  var panel = dialog.querySelector('[data-manual-dialog-panel="true"]');
+  var image = dialog.querySelector('[data-manual-dialog-image="true"]');
+  var title = dialog.querySelector('[data-manual-dialog-title="true"]');
+  var close = dialog.querySelector('[data-manual-dialog-close="true"]');
+  var previousFocus = null;
+
+  function hideDialog() {
+    dialog.hidden = true;
+    document.body.style.overflow = '';
+    if (previousFocus && typeof previousFocus.focus === 'function') previousFocus.focus();
+    previousFocus = null;
+  }
+
+  document.querySelectorAll('[data-manual-screenshot="true"]').forEach(function (button) {
+    var thumb = button.querySelector('img');
+    function showFallback() {
+      button.setAttribute('data-image-error', 'true');
+      button.disabled = true;
+      button.removeAttribute('aria-haspopup');
+      button.setAttribute('aria-label', button.getAttribute('data-screenshot-alt') + ' screenshot unavailable');
+    }
+    if (thumb) {
+      thumb.addEventListener('error', showFallback);
+      if (thumb.complete && thumb.naturalWidth === 0) showFallback();
+    }
+    button.addEventListener('click', function () {
+      previousFocus = button;
+      image.src = button.getAttribute('data-screenshot-src') || '';
+      image.alt = button.getAttribute('data-screenshot-alt') || '';
+      title.textContent = button.getAttribute('data-screenshot-alt') || 'Feature screenshot';
+      dialog.hidden = false;
+      document.body.style.overflow = 'hidden';
+      close.focus();
+    });
+  });
+
+  close.addEventListener('click', hideDialog);
+  dialog.addEventListener('click', function (event) {
+    if (!panel.contains(event.target)) hideDialog();
+  });
+  dialog.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      hideDialog();
+    } else if (event.key === 'Tab') {
+      event.preventDefault();
+      close.focus();
+    }
+  });
+
+  document.querySelectorAll('[data-route-template="true"]').forEach(function (link) {
+    link.addEventListener('click', function (event) { event.preventDefault(); });
+  });
+})();
+</script>"#
+}
+
 /// Minimal URL-encoder for the `next=` query parameter. Only handles
 /// the characters Vercel's middleware actually encodes; intentionally
 /// avoids pulling in a full url-encoding crate for this one call site.
@@ -570,6 +628,7 @@ fn safe_return_url(query: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::manual_runtime_script;
     use super::offline_runtime_script;
     use super::pricing_redirect_response;
     use super::safe_return_url;
@@ -652,7 +711,10 @@ mod tests {
             paths.contains(&"/contact"),
             "UNAUTH_REDIRECT_PATHS must contain `/contact` (Wave 35b T1)"
         );
-        assert!(!paths.contains(&"/offline"), "offline fallback must be public");
+        assert!(
+            !paths.contains(&"/offline"),
+            "offline fallback must be public"
+        );
     }
 
     /// Wave 35b T1 — pre-existing protected paths from Wave 22/23
@@ -701,5 +763,20 @@ mod tests {
         assert!(!script.contains("javascript:"));
         assert!(!script.contains("reason"));
         assert!(!script.contains("return_url"));
+    }
+
+    #[test]
+    fn manual_runtime_binds_accessible_dialog_without_request_data() {
+        let script = manual_runtime_script();
+        assert!(script.contains("data-epsx-manual-runtime"));
+        assert!(script.contains("[data-manual-screenshot=\"true\"]"));
+        assert!(script.contains("event.key === 'Escape'"));
+        assert!(script.contains("previousFocus.focus()"));
+        assert!(script.contains("data-image-error"));
+        assert!(script.contains("thumb.complete && thumb.naturalWidth === 0"));
+        assert!(script.contains("event.preventDefault()"));
+        assert!(!script.contains("javascript:"));
+        assert!(!script.contains("window.location"));
+        assert!(!script.contains("fetch("));
     }
 }

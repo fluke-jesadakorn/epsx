@@ -1,28 +1,15 @@
-//! `/manual` — feature reference with sticky sidebar + 8 category sections.
+//! `/manual` — static feature reference with a responsive category index.
 //!
-//! Wave 25 T2 — ported from
-//! `apps-old/frontend/app/manual/{page.tsx, data.ts, screenshot-img.tsx}`
-//! to match prod's `bg-gray-950 text-gray-100` dark layout + sticky
-//! left sidebar (`bg-gray-900/50`).
-//!
-//! The source uses `flex` + `aside className="sticky top-0 h-screen
-//! w-56 shrink-0 overflow-y-auto border-r border-gray-800
-//! bg-gray-900/50 p-4"` + `main className="flex-1 p-8"`. The T2 port
-//! matches that layout exactly. Sidebar links use
-//! `text-gray-400 hover:bg-gray-800 hover:text-white`. Category
-//! `h2` headings have `border-b border-gray-800 pb-2`. Feature cards
-//! have `aspect-video` screenshots (we keep the `<img>` fallback for
-//! SSR).
-//!
-//! The CATEGORIES + FEATURES arrays are copied verbatim from
-//! `apps-old/frontend/app/manual/data.ts`.
+//! The accepted source is the pinned development implementation at
+//! `apps/frontend/app/manual/{page.tsx,data.ts,screenshot-img.tsx}`. The
+//! category and feature catalog below remains a verbatim content port. The
+//! target adds semantic labels and responsive behavior while preserving the
+//! source's dark layout, screenshot viewer, and page links.
 
-use crate::primitives::*;
-
-use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
+use dioxus::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct ManualFeature {
@@ -91,36 +78,62 @@ const FEATURES: &[ManualFeature] = &[
     ManualFeature { id: "developer-usage", name: "API Usage", desc: "The API usage page displays call volume charts over time, current rate limit consumption, and per-endpoint breakdown tables. Usage metrics include response times, error rates, and quota utilization.", route: "/developer/usage", screenshots: &["developer-usage"], category: "Developer" },
 ];
 
-/// Wave 27 T1 — inline CSS rules for Tailwind v2 CDN arbitrary-value
-/// classes that render with slight color differences vs prod's v3+
-/// PostCSS pipeline. Force the v3-style colors on the sidebar +
-/// category headings so the dev capture pixel-matches prod.
+/// Route-scoped rules provide the source colors and make its fixed desktop
+/// sidebar usable at 390px without relying on a different Tailwind compiler.
 const MANUAL_INLINE_CSS: &str = r#"
+.manual-prod-layout { display: flex; min-width: 0; }
 .manual-sidebar { background-color: rgba(17, 24, 39, 0.5) !important; }
 .manual-sidebar-border { border-color: rgb(31, 41, 55) !important; }
 .manual-sidebar-link { color: rgb(156, 163, 175) !important; }
 .manual-sidebar-link:hover { background-color: rgb(31, 41, 55) !important; color: rgb(255, 255, 255) !important; }
 .manual-category-h2 { border-color: rgb(31, 41, 55) !important; color: rgb(243, 244, 246) !important; }
+.manual-prod-content { min-width: 0; }
+.manual-prod-category { scroll-margin-top: 5rem; }
+.manual-prod-feature-head { flex-wrap: wrap; }
+.manual-prod-feature-route { overflow-wrap: anywhere; }
+.manual-prod-screenshot-button { display: block; width: 100%; height: 100%; text-align: left; }
+.manual-prod-screenshot-img { width: 100%; height: 100%; object-fit: cover; object-position: top; cursor: zoom-in; }
+.manual-prod-screenshot-fallback { display: none; width: 100%; height: 100%; align-items: center; justify-content: center; color: rgb(107, 114, 128); }
+.manual-prod-screenshot-button[data-image-error="true"] .manual-prod-screenshot-img { display: none; }
+.manual-prod-screenshot-button[data-image-error="true"] .manual-prod-screenshot-fallback { display: flex; }
+.manual-prod-dialog[hidden] { display: none; }
+.manual-prod-dialog { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; padding: 1rem; background: rgba(0, 0, 0, 0.86); }
+.manual-prod-dialog-panel { position: relative; display: flex; max-width: min(72rem, 100%); max-height: 100%; flex-direction: column; gap: 0.75rem; }
+.manual-prod-dialog-img { display: block; max-width: 100%; max-height: calc(100vh - 7rem); border-radius: 0.5rem; object-fit: contain; }
+.manual-prod-dialog-close { align-self: flex-end; border-radius: 0.375rem; background: rgb(31, 41, 55); padding: 0.5rem 0.75rem; color: white; }
+.manual-prod-dialog-caption { margin: 0; text-align: center; color: rgb(209, 213, 219); }
+.manual-sidebar-link:focus-visible,
+.manual-prod-feature-link:focus-visible,
+.manual-prod-screenshot-button:focus-visible,
+.manual-prod-dialog-close:focus-visible { outline: 3px solid rgb(96, 165, 250); outline-offset: 3px; }
+@media (max-width: 640px) {
+  .manual-prod-layout { display: block; }
+  .manual-prod-sidebar { position: relative !important; top: auto !important; width: 100% !important; height: auto !important; border-right: 0 !important; border-bottom: 1px solid rgb(31, 41, 55); padding: 0.75rem !important; }
+  .manual-prod-sidebar-title { margin-bottom: 0.5rem !important; }
+  .manual-prod-sidebar-nav { flex-direction: row !important; overflow-x: auto; padding: 0.125rem 0.125rem 0.5rem; scrollbar-width: thin; }
+  .manual-prod-sidebar-link { flex: 0 0 auto; }
+  .manual-prod-content { padding: 1rem !important; }
+}
 "#;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::marketing("Manual");
-    (meta, rsx! {
-        MainLayout { ctx: ctx.clone(),
-            // Wave 27 T1 — inject inline CSS so Tailwind v2 CDN renders
-            // v3-style colors on the sidebar + category h2.
-            style { "{MANUAL_INLINE_CSS}" }
-            // Wave 25 T2 — match prod's `bg-gray-950 text-gray-100`
-            // + flex layout with sticky sidebar. Prod does NOT show
-            // ProgressiveAuthBanner on /manual.
-            div { class: "manual-page-prod min-h-screen bg-gray-950 text-gray-100",
-                div { class: "flex",
-                    ManualSidebar {}
-                    ManualContent {}
+    let mut meta = PageMeta::marketing("Manual");
+    meta.title = "EPSX Manual - Feature Guide".to_string();
+    meta.description = "Complete feature guide with screenshots for the EPSX platform".to_string();
+    (
+        meta,
+        rsx! {
+            MainLayout { ctx: ctx.clone(),
+                style { "{MANUAL_INLINE_CSS}" }
+                div { class: "manual-page-prod min-h-screen bg-gray-950 text-gray-100",
+                    div { class: "manual-prod-layout flex",
+                        ManualSidebar {}
+                        ManualContent {}
+                    }
                 }
             }
-        }
-    })
+        },
+    )
 }
 
 /// Sticky left sidebar with 8 category anchor links — mirrors the
@@ -130,8 +143,8 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 fn ManualSidebar() -> Element {
     rsx! {
         aside { class: "manual-prod-sidebar manual-sidebar manual-sidebar-border sticky top-0 h-screen w-56 shrink-0 overflow-y-auto border-r border-gray-800 bg-gray-900/50 p-4",
-            h2 { class: "mb-4 text-lg font-semibold text-white manual-prod-sidebar-title", "Categories" }
-            nav { class: "flex flex-col gap-1 manual-prod-sidebar-nav",
+            p { class: "mb-4 text-lg font-semibold text-white manual-prod-sidebar-title", "Categories" }
+            nav { class: "flex flex-col gap-1 manual-prod-sidebar-nav", "aria-label": "Manual categories",
                 for cat in CATEGORIES.iter() {
                     a {
                         class: "manual-prod-sidebar-link manual-sidebar-link rounded px-3 py-1.5 text-sm text-gray-400 hover:bg-gray-800 hover:text-white transition-colors",
@@ -149,7 +162,7 @@ fn ManualSidebar() -> Element {
 #[component]
 fn ManualContent() -> Element {
     rsx! {
-        main { class: "manual-prod-content flex-1 p-8",
+        main { class: "manual-prod-content flex-1 p-8", id: "manual-content",
             div { class: "mx-auto max-w-6xl",
                 h1 { class: "mb-2 text-3xl font-bold manual-prod-title", "EPSX Feature Manual" }
                 p { class: "mb-8 text-gray-400 manual-prod-subtitle",
@@ -159,17 +172,20 @@ fn ManualContent() -> Element {
                     ManualCategorySection { category: cat }
                 }
             }
+            ManualScreenshotDialog {}
         }
     }
 }
 
 #[component]
 fn ManualCategorySection(category: &'static str) -> Element {
-    let features: Vec<&ManualFeature> = FEATURES.iter().filter(|f| f.category == category).collect();
+    let features: Vec<&ManualFeature> =
+        FEATURES.iter().filter(|f| f.category == category).collect();
     let id = cat_slug(category);
+    let heading_id = format!("{id}-heading");
     rsx! {
-        section { class: "manual-prod-category mb-12", id: "{id}",
-            h2 { class: "manual-prod-category-title manual-category-h2 mb-4 border-b border-gray-800 pb-2 text-xl font-semibold text-white",
+        section { class: "manual-prod-category mb-12", id: "{id}", "aria-labelledby": "{heading_id}",
+            h2 { class: "manual-prod-category-title manual-category-h2 mb-4 border-b border-gray-800 pb-2 text-xl font-semibold text-white", id: "{heading_id}",
                 "{category}"
             }
             div { class: "grid gap-6 sm:grid-cols-2 lg:grid-cols-3 manual-prod-feature-grid",
@@ -185,21 +201,33 @@ fn ManualCategorySection(category: &'static str) -> Element {
 fn ManualFeatureCard(feature: ManualFeature) -> Element {
     let screenshot_name = feature.screenshots.first().copied().unwrap_or(feature.id);
     let screenshot_src = format!("/public/screenshots/{screenshot_name}.webp");
-    let route_href = if feature.route.contains('[') { "#".to_string() } else { feature.route.to_string() };
+    let heading_id = format!("manual-feature-{}", feature.id);
+    let screenshot_label = format!("Open {} screenshot", feature.name);
+    let dynamic_route = feature.route.contains('[');
+    let route_href = if dynamic_route { "#" } else { feature.route };
     rsx! {
-        // === wave25-t2 manual-prod feature-card ===
-        div { class: "manual-prod-feature group overflow-hidden rounded-lg border border-gray-800 bg-gray-900/60 transition-colors hover:border-gray-600",
+        article { class: "manual-prod-feature group overflow-hidden rounded-lg border border-gray-800 bg-gray-900/60 transition-colors hover:border-gray-600", "aria-labelledby": "{heading_id}",
             div { class: "manual-prod-screenshot-wrap relative aspect-video w-full overflow-hidden bg-gray-800",
-                img {
-                    class: "manual-prod-screenshot-img",
-                    src: "{screenshot_src}",
-                    alt: "{feature.name}",
-                    loading: "lazy",
+                button {
+                    r#type: "button",
+                    class: "manual-prod-screenshot-button",
+                    "data-manual-screenshot": "true",
+                    "data-screenshot-src": "{screenshot_src}",
+                    "data-screenshot-alt": "{feature.name}",
+                    "aria-label": "{screenshot_label}",
+                    "aria-haspopup": "dialog",
+                    img {
+                        class: "manual-prod-screenshot-img",
+                        src: "{screenshot_src}",
+                        alt: "{feature.name}",
+                        loading: "lazy",
+                    }
+                    span { class: "manual-prod-screenshot-fallback text-sm", "aria-hidden": "true", "No screenshot" }
                 }
             }
             div { class: "p-4 manual-prod-feature-body",
                 div { class: "mb-1 flex items-center gap-2 manual-prod-feature-head",
-                    h3 { class: "font-medium text-white manual-prod-feature-name", "{feature.name}" }
+                    h3 { class: "font-medium text-white manual-prod-feature-name", id: "{heading_id}", "{feature.name}" }
                     span { class: "rounded bg-gray-800 px-1.5 py-0.5 text-xs text-gray-400 font-mono manual-prod-feature-route",
                         "{feature.route}"
                     }
@@ -208,7 +236,42 @@ fn ManualFeatureCard(feature: ManualFeature) -> Element {
                 a {
                     class: "text-sm text-blue-400 hover:text-blue-300 manual-prod-feature-link",
                     href: "{route_href}",
+                    "aria-disabled": if dynamic_route { "true" } else { "false" },
+                    "data-route-template": if dynamic_route { "true" } else { "false" },
                     "Open page →"
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn ManualScreenshotDialog() -> Element {
+    rsx! {
+        div {
+            class: "manual-prod-dialog",
+            hidden: true,
+            role: "dialog",
+            "aria-modal": "true",
+            "aria-labelledby": "manual-screenshot-dialog-title",
+            "data-manual-dialog": "true",
+            div { class: "manual-prod-dialog-panel", "data-manual-dialog-panel": "true",
+                button {
+                    r#type: "button",
+                    class: "manual-prod-dialog-close",
+                    "data-manual-dialog-close": "true",
+                    "aria-label": "Close screenshot",
+                    "Close"
+                }
+                img {
+                    class: "manual-prod-dialog-img",
+                    "data-manual-dialog-image": "true",
+                    alt: "",
+                }
+                p {
+                    class: "manual-prod-dialog-caption",
+                    id: "manual-screenshot-dialog-title",
+                    "data-manual-dialog-title": "true",
                 }
             }
         }
@@ -242,7 +305,10 @@ mod tests {
         let ctx = empty_ctx();
         let (_meta, el) = render(&ctx);
         let html = dioxus_ssr::render_element(el);
-        assert!(!html.trim().is_empty(), "manual page should render non-empty HTML");
+        assert!(
+            !html.trim().is_empty(),
+            "manual page should render non-empty HTML"
+        );
     }
 
     /// Wave 25 T2 — the manual page mirrors the prod Next.js page:
@@ -265,6 +331,8 @@ mod tests {
             "hover:bg-gray-800",
             "border-b border-gray-800",
             "aspect-video",
+            "data-manual-screenshot",
+            "data-manual-dialog",
             "Open page",
         ] {
             assert!(
@@ -300,6 +368,75 @@ mod tests {
     #[test]
     fn manual_has_eight_categories() {
         assert_eq!(CATEGORIES.len(), 8, "CATEGORIES array must have 8 entries");
+    }
+
+    #[test]
+    fn manual_matches_pinned_catalog_and_metadata() {
+        let (meta, element) = render(&empty_ctx());
+        let html = dioxus_ssr::render_element(element);
+        assert_eq!(meta.title, "EPSX Manual - Feature Guide");
+        assert_eq!(
+            meta.description,
+            "Complete feature guide with screenshots for the EPSX platform"
+        );
+        assert_eq!(FEATURES.len(), 35, "pinned source catalog has 35 features");
+        assert_eq!(html.matches("data-manual-screenshot=\"true\"").count(), 35);
+        assert_eq!(html.matches("data-route-template=").count(), 35);
+        assert!(html.contains("Complete guide to all platform features"));
+        assert!(html.contains("/public/screenshots/home.webp"));
+        assert!(html.contains("/payment/[type]/[id]"));
+    }
+
+    #[test]
+    fn manual_catalog_fingerprint_matches_pinned_source() {
+        fn feed(hash: &mut u64, value: &str) {
+            for byte in value.bytes() {
+                *hash ^= u64::from(byte);
+                *hash = hash.wrapping_mul(0x100000001b3);
+            }
+            *hash ^= 0xff;
+            *hash = hash.wrapping_mul(0x100000001b3);
+        }
+
+        let mut hash = 0xcbf29ce484222325;
+        for category in CATEGORIES {
+            feed(&mut hash, category);
+        }
+        for feature in FEATURES {
+            for value in [
+                feature.id,
+                feature.name,
+                feature.desc,
+                feature.route,
+                feature.screenshots[0],
+                feature.category,
+            ] {
+                feed(&mut hash, value);
+            }
+        }
+        assert_eq!(
+            hash, 0x5a932c075bcaa698,
+            "catalog fields must match development@373bd231 manual/data.ts"
+        );
+    }
+
+    #[test]
+    fn manual_has_accessible_landmarks_and_safe_route_controls() {
+        let html = render_to_string(&empty_ctx());
+        assert!(html.contains("aria-label=\"Manual categories\""));
+        assert!(html.contains("id=\"manual-content\""));
+        assert_eq!(
+            html.matches("aria-labelledby=\"public-heading\"").count(),
+            1
+        );
+        assert_eq!(html.matches("role=\"dialog\"").count(), 1);
+        assert_eq!(
+            html.matches("aria-haspopup=\"dialog\"").count(),
+            FEATURES.len()
+        );
+        assert!(html.contains("data-route-template=\"true\""));
+        assert!(html.contains("aria-disabled=\"true\""));
+        assert!(!html.contains("javascript:"));
     }
 
     #[test]
