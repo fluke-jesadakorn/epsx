@@ -186,11 +186,13 @@ and revocation behavior remain canonical.
 
 ### Data and migration safety
 
-- Runtime-DDL triage still reports 31 actionable findings across candidate
-  services. Event analytics has removed its startup `CREATE TABLE` and now has
-  a pinned additive migration plus a read-only schema compatibility check, but
-  no runner, baseline adoption, populated upgrade, reconciliation,
-  concurrent-startup, or live-database proof exists.
+- Runtime-DDL triage still reports 29 actionable findings across candidate
+  services. Event analytics and subscription have removed their startup DDL
+  and now have pinned additive migrations plus read-only exact schema
+  compatibility checks. Identity has a schema-only additive lifecycle
+  migration while its lifecycle routes remain disabled. These packages still
+  lack the required runner/adoption, populated-upgrade, reconciliation,
+  concurrent-startup, runtime-lifecycle, and live-database proof.
 - Provisioning creates `epsx_payments_*` databases while pay service manifests
   and compose files also refer to `epsx_pay`; other candidate service database
   names are not consistently provisioned.
@@ -236,7 +238,7 @@ passed`. It is not a percentage estimate of engineering effort.
 | Live data parity | 0 | Frontend mocks and admin empty params remain | Sample payloads removed and real empty/error states proven. |
 | Checkout/on-chain parity | 0 | Route mismatch and DB-only escrow transitions | Verified receipts and contract transactions drive state. |
 | Backend/API contract parity | 1 | Both BFFs now return explicit HTML/JSON 404s and preserve 405/redirect semantics; payment prefixes and broader payload/status drift remain | Versioned contract matrix passes for monolith and replacement. |
-| Migration/data safety | 0 | 31 actionable runtime-DDL findings and all 16 migration risks remain blocked; naming drift, baseline edits, and expired partitions remain | Upgrade/backfill/reconcile/rollback tests pass on production-shaped data. |
+| Migration/data safety | 0 | 29 actionable runtime-DDL findings and all 16 migration risks remain blocked; naming drift, baseline edits, and expired partitions remain | Upgrade/backfill/reconcile/rollback tests pass on production-shaped data. |
 | Production manifests/routing | 0 | Admin/frontend/pay transforms are repaired, but identity still uses `:dev`, images lack digests, and direct pay-service ingress remains | Rendered manifests use approved immutable images and intended BFF ingress. |
 | Observability/readiness | 0 | Shallow health checks and incomplete cross-service traces | Dependency readiness, SLO metrics, alerts, and trace IDs pass drills. |
 | Canary/rollback | 0 | Not demonstrated | Shadow, canary, abort thresholds, and rollback rehearsal are approved. |
@@ -485,12 +487,12 @@ bounded path set. Shared contract files require coordination through package A0.
   preflight, reconciliation, migration, repair, or database mutation has run.
 
 - **A3.3 status:** the checksum-pinned runtime-DDL triage reproduces the
-  migration-safety scanner over 1,124 tracked Rust files and enumerates all 37
-  findings in stable order. Six are exact reviewed test exceptions; all 31
-  actionable findings stay blocked across eleven service groups and twelve
+  migration-safety scanner over 1,124 tracked Rust files and enumerates all 35
+  findings in stable order. Six are exact reviewed test exceptions; all 29
+  actionable findings stay blocked across ten service groups and eleven
   files. It invents no priority, dependency, database state, or forward SQL and
   exits `2` with `STOP` for readiness. No database or migration was run. The
-  wider migration-safety inventory covers all 9/9 roots and 167 SQL files; its
+  wider migration-safety inventory covers all 11/11 roots and 169 SQL files; its
   510 destructive-token findings remain classified, and all 16/16 risks remain
   blocked.
 
@@ -501,6 +503,25 @@ bounded path set. Shared contract files require coordination through package A0.
   proof, populated upgrade, row reconciliation, concurrent-startup test, or
   live-database evidence. Readiness therefore remains `STOP`; no migration or
   database action was run.
+
+- **A3.7 status:** subscription removed both runtime DDL findings (**2 -> 0**),
+  added an exact guarded 844-byte two-table migration, and now stops startup on
+  any mismatch in its read-only exact schema-compatibility check. Handler SQL
+  is schema-qualified, and the Rust UUID and nullable model/request boundaries
+  match the certified columns. Six STOPs remain: there is no reviewed runner,
+  safe baseline adoption, populated upgrade, reconciliation, concurrent-startup
+  proof, or live-database execution. No migration or database action was run.
+
+- **A3.8 status:** identity has a schema-only, checksum-pinned 6,417-byte
+  additive migration with four guarded tables and six guarded indexes. It
+  models lowercase wallet-to-UUID identity mapping, client-bound hashed SIWE
+  challenges, and hashed refresh families/sessions with constrained lineage.
+  Lifecycle routes remain disabled. Ten STOPs cover runner/version-ledger and
+  catalog adoption, baseline mapping/backfill, populated upgrade, concurrency,
+  reconciliation, audited runtime transactions, issuer/JWKS integration, and
+  disposable/live-database evidence. In particular, the schema is not runtime
+  proof of generation increments or revoke-versus-rotate race safety. No
+  migration, route enablement, or production action was run.
 
 ### A4 — Canonical permission and entitlement authority (P0)
 
@@ -612,7 +633,7 @@ bounded path set. Shared contract files require coordination through package A0.
   Close routes in small batches; all 28 must pass interaction and live-data
   fixtures before the frontend gate moves to done.
 
-- **A7.0–A7.3/B7.2 status:** the exact 28-route live-data contract now records three
+- **A7.0–A7.3/B7.2 status:** the exact 28-route live-data contract records three
   aligned routes, seven partial routes, and 18 blocked routes. `/about`
   removes invented claims and matches the pinned source order, copy, metadata,
   landmarks, and responsive keyboard behavior. `/access-denied`
@@ -631,7 +652,18 @@ bounded path set. Shared contract files require coordination through package A0.
   intentionally differs from the pinned source's unsupported claims that
   sensitive feature data is cached and later synchronized. Privacy and terms
   remain partial pending wallet/SIWE legal approval; terms also lacks a real
-  subscription handler. The remaining 25 routes keep readiness at exit `3`.
+  subscription handler. `/news` and `/news/:slug` have removed their canned
+  catalog, list/detail fallbacks, synthesized frontend article, and hard-coded
+  related articles. Shared strict content adapters now give SSR and JSON paths
+  truthful `200`, validation `400`, not-found `404`, and dependency `503`
+  outcomes; the list enforces exact categories and fixed 12-item pagination,
+  while both routes normalize dates, escape outer metadata, and expose
+  accessible filter-preserving recovery/retry navigation. Both routes remain
+  partial: A5 is not frozen, the list filters and paginates locally over only
+  the upstream first 100 records, upstream detail is HTML while the accepted
+  presentation requires GFM, the content service synthesizes unknown slugs,
+  and no live-service browser proof exists. The unchanged **3 aligned / 7
+  partial / 18 blocked** result keeps readiness at exit `3`.
 
 ### A8 — Admin live data and mutation parity (P1)
 
