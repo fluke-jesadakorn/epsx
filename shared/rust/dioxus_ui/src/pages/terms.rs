@@ -74,17 +74,17 @@ fn TermsToc() -> Element {
 #[component]
 fn TermsSections() -> Element {
     rsx! {
-        article { class: "legal-sections terms-sections",
+        article { class: "legal-sections terms-sections", "aria-label": "Terms and conditions details",
             // 1. Introduction
-            section { class: "legal-section", id: "introduction",
-                h3 { class: "legal-section-title", "1. Introduction" }
+            section { class: "legal-section", id: "introduction", "aria-labelledby": "introduction-title",
+                h2 { class: "legal-section-title", id: "introduction-title", "1. Introduction" }
                 p { class: "legal-section-text",
                     "Welcome to our platform. By accessing or using our services, you agree to be bound by these terms and conditions, including our use of Google Sign-in for authentication."
                 }
             }
             // 2. Authentication & Account Security
-            section { class: "legal-section", id: "authentication-security",
-                h3 { class: "legal-section-title", "2. Authentication & Account Security" }
+            section { class: "legal-section", id: "authentication-security", "aria-labelledby": "authentication-security-title",
+                h2 { class: "legal-section-title", id: "authentication-security-title", "2. Authentication & Account Security" }
                 p { class: "legal-section-text",
                     "We use OpenID Connect authentication to provide secure authentication. By using this service:"
                 }
@@ -96,8 +96,8 @@ fn TermsSections() -> Element {
                 }
             }
             // 3. Data Collection & Usage
-            section { class: "legal-section", id: "data-collection",
-                h3 { class: "legal-section-title", "3. Data Collection & Usage" }
+            section { class: "legal-section", id: "data-collection", "aria-labelledby": "data-collection-title",
+                h2 { class: "legal-section-title", id: "data-collection-title", "3. Data Collection & Usage" }
                 p { class: "legal-section-text",
                     "We collect and process certain data as outlined in our Privacy Policy, including:"
                 }
@@ -108,8 +108,8 @@ fn TermsSections() -> Element {
                 }
             }
             // 4. User Responsibilities
-            section { class: "legal-section", id: "user-responsibilities",
-                h3 { class: "legal-section-title", "4. User Responsibilities" }
+            section { class: "legal-section", id: "user-responsibilities", "aria-labelledby": "user-responsibilities-title",
+                h2 { class: "legal-section-title", id: "user-responsibilities-title", "4. User Responsibilities" }
                 p { class: "legal-section-text",
                     "As a user of our platform, you are responsible for:"
                 }
@@ -121,8 +121,8 @@ fn TermsSections() -> Element {
                 }
             }
             // 5. Service Changes & Termination
-            section { class: "legal-section", id: "service-changes",
-                h3 { class: "legal-section-title", "5. Service Changes & Termination" }
+            section { class: "legal-section", id: "service-changes", "aria-labelledby": "service-changes-title",
+                h2 { class: "legal-section-title", id: "service-changes-title", "5. Service Changes & Termination" }
                 p { class: "legal-section-text",
                     "We reserve the right to:"
                 }
@@ -134,8 +134,8 @@ fn TermsSections() -> Element {
                 }
             }
             // 6. Authentication Standards
-            section { class: "legal-section", id: "authentication-standards",
-                h3 { class: "legal-section-title", "6. Authentication Standards" }
+            section { class: "legal-section", id: "authentication-standards", "aria-labelledby": "authentication-standards-title",
+                h2 { class: "legal-section-title", id: "authentication-standards-title", "6. Authentication Standards" }
                 p { class: "legal-section-text",
                     "Our authentication system follows OpenID Connect standards and OAuth 2.0 specifications. We implement industry-standard security protocols to protect your account and data."
                 }
@@ -153,19 +153,21 @@ fn TermsSections() -> Element {
 #[component]
 fn TermsSubscribeCard() -> Element {
     rsx! {
-        section { class: "terms-subscribe-section",
+        section { class: "terms-subscribe-section", "aria-labelledby": "terms-subscribe-title",
             div { class: "card card-glass terms-subscribe-card",
                 div { class: "card-body",
-                    h2 { class: "terms-subscribe-title", "Subscribe for updates" }
-                    p { class: "terms-subscribe-subtitle text-muted-foreground",
+                    h2 { id: "terms-subscribe-title", class: "terms-subscribe-title", "Subscribe for updates" }
+                    p { id: "terms-subscribe-description", class: "terms-subscribe-subtitle text-muted-foreground",
                         "Get a quarterly digest of platform changes and policy updates."
                     }
                     form {
                         class: "terms-subscribe-form",
                         action: "/api/public/subscribe",
                         method: "POST",
+                        "aria-describedby": "terms-subscribe-description",
                         Input {
                             r#type: InputKind::Email,
+                            id: Some("terms-subscribe-email".to_string()),
                             name: Some("email".to_string()),
                             label: Some("Email".to_string()),
                             placeholder: Some("you@example.com".to_string()),
@@ -274,5 +276,25 @@ mod tests {
                 html
             );
         }
+    }
+
+    #[test]
+    fn terms_has_accessible_hierarchy_and_keyboard_native_form_contract() {
+        let (_meta, el) = render(&empty_ctx());
+        let html = dioxus_ssr::render_element(el);
+
+        assert_eq!(html.matches("<h1").count(), 1);
+        assert_eq!(html.matches("<h2").count(), 7);
+        assert_eq!(html.matches("<h3").count(), 0);
+        assert!(html.contains("<article"));
+        assert!(html.contains("aria-label=\"Terms and conditions details\""));
+        assert_eq!(html.matches("aria-labelledby=").count(), 7);
+        assert!(html.contains("action=\"/api/public/subscribe\""));
+        assert!(html.contains("method=\"POST\""));
+        assert!(html.contains("type=\"email\""));
+        assert!(html.contains("id=\"terms-subscribe-email\""));
+        assert!(html.contains("for=\"terms-subscribe-email\""));
+        assert!(html.contains("required"));
+        assert!(html.contains("aria-describedby=\"terms-subscribe-description\""));
     }
 }

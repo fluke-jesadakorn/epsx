@@ -33,21 +33,16 @@ use super::AppState;
 /// redirect the dev bff returns 200 + "Sign in required" gate, which
 /// diverges from prod and inflates pixel diff.
 ///
-/// Wave 35b T1: added `/about`, `/contact`, `/offline` — the three
-/// marketing/utility routes that prod's Next.js middleware also
-/// auth-gates (its `protectedPaths` list in
-/// `apps-old/frontend/middleware.ts::config.matcher`). Without this
-/// redirect, dev served the real Dioxus pages (Wave 5/6 ports) while
-/// prod served the /auth redirect target → 0% pixel match. With the
-/// redirect, both dev and prod serve the /auth page and the diff
-/// converges to ~100%.
+/// Wave 35b T1 added `/about`, `/contact`, and `/offline` for pixel
+/// parity with the pinned middleware. B7 removes `/offline`: a PWA
+/// recovery surface must remain reachable without a session, especially
+/// when authentication cannot complete because the browser is disconnected.
 const UNAUTH_REDIRECT_PATHS: &[&str] = &[
     "/permissions",
     "/notifications",
     "/profile",
     "/about",
     "/contact",
-    "/offline",
 ];
 
 /// Wave 22 T4 — `/pricing` is an alias for `/plans` in prod. The
@@ -262,9 +257,17 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
         meta.body_class.as_deref().unwrap_or(""),
     );
 
+    let route_runtime = if path == "/offline" {
+        offline_runtime_script()
+    } else {
+        ""
+    };
     let doc = doc.replace(
         "</body>",
-        &format!("<script>{}</script></body>", wallet_shim()),
+        &format!(
+            "<script>{}</script>{route_runtime}</body>",
+            wallet_shim()
+        ),
     );
 
     (
@@ -496,6 +499,25 @@ fn wallet_shim() -> &'static str {
     epsx_bff::browser_auth::browser_auth_script()
 }
 
+/// `/offline` is SSR-only, so ordinary Dioxus event closures are not hydrated.
+/// Bind the retry button in the page shell without a `javascript:` URL. The
+/// script is constant and contains no request/query/user data.
+fn offline_runtime_script() -> &'static str {
+    r#"<script data-epsx-offline-runtime>
+(function () {
+  var button = document.querySelector('[data-offline-reload="true"]');
+  if (!button) return;
+  button.addEventListener('click', function () {
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    var status = document.getElementById('offline-retry-status');
+    if (status) status.textContent = 'Checking your connection…';
+    window.location.reload();
+  });
+})();
+</script>"#
+}
+
 /// Minimal URL-encoder for the `next=` query parameter. Only handles
 /// the characters Vercel's middleware actually encodes; intentionally
 /// avoids pulling in a full url-encoding crate for this one call site.
@@ -548,6 +570,7 @@ fn safe_return_url(query: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::offline_runtime_script;
     use super::pricing_redirect_response;
     use super::safe_return_url;
     use super::urlencode;
@@ -614,13 +637,12 @@ mod tests {
 
     // === Wave 35b T1 — AuthGate 307-redirect for marketing routes ===
 
-    /// Wave 35b T1 — `UNAUTH_REDIRECT_PATHS` must include the three
-    /// marketing/utility routes (`/about`, `/contact`, `/offline`)
-    /// that prod's Next.js middleware also auth-gates. Without this
-    /// entry, dev serves the real Dioxus page (200) while prod serves
-    /// the /auth page (after 307), driving the diff to ~0%.
+    /// `/offline` must remain reachable without an authenticated session.
+    /// An offline fallback that redirects through wallet auth cannot recover
+    /// a disconnected browser. `/about` and `/contact` retain their pinned
+    /// middleware behavior.
     #[test]
-    fn unauth_redirect_paths_includes_marketing_routes() {
+    fn unauth_redirect_paths_keeps_marketing_routes_but_exposes_offline() {
         let paths = super::UNAUTH_REDIRECT_PATHS;
         assert!(
             paths.contains(&"/about"),
@@ -630,10 +652,7 @@ mod tests {
             paths.contains(&"/contact"),
             "UNAUTH_REDIRECT_PATHS must contain `/contact` (Wave 35b T1)"
         );
-        assert!(
-            paths.contains(&"/offline"),
-            "UNAUTH_REDIRECT_PATHS must contain `/offline` (Wave 35b T1)"
-        );
+        assert!(!paths.contains(&"/offline"), "offline fallback must be public");
     }
 
     /// Wave 35b T1 — pre-existing protected paths from Wave 22/23
@@ -670,5 +689,17 @@ mod tests {
             format!("/auth?return_url={}", urlencode("/about")),
             "/auth?return_url=%2Fabout"
         );
+    }
+
+    #[test]
+    fn offline_runtime_binds_button_without_user_data_or_javascript_url() {
+        let script = offline_runtime_script();
+        assert!(script.contains("data-epsx-offline-runtime"));
+        assert!(script.contains("[data-offline-reload=\"true\"]"));
+        assert!(script.contains("window.location.reload()"));
+        assert!(script.contains("aria-busy"));
+        assert!(!script.contains("javascript:"));
+        assert!(!script.contains("reason"));
+        assert!(!script.contains("return_url"));
     }
 }

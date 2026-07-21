@@ -9,7 +9,7 @@ temp_dir=$(mktemp -d "${TMPDIR:-/tmp}/epsx-frontend-live-data.XXXXXX")
 trap 'rm -rf -- "$temp_dir"' EXIT HUP INT TERM
 
 "$verify" --mode integrity >"$temp_dir/integrity.out" 2>&1
-grep -q "PASS integrity (28 routes; 0 aligned, 10 partial, 18 blocked" "$temp_dir/integrity.out"
+grep -q "PASS integrity (28 routes; 1 aligned, 9 partial, 18 blocked" "$temp_dir/integrity.out"
 
 set +e
 "$verify" --mode readiness >"$temp_dir/readiness.out" 2>&1
@@ -20,12 +20,12 @@ if [ "$readiness_status" -ne 3 ]; then
   echo "frontend-live-data self-test: expected readiness exit 3, got $readiness_status" >&2
   exit 1
 fi
-grep -q "STOP readiness (28 non-aligned routes" "$temp_dir/readiness.out"
+grep -q "STOP readiness (27 non-aligned routes" "$temp_dir/readiness.out"
 
 "$verify" --mode emit >"$temp_dir/emit-one.json"
 "$verify" --mode emit >"$temp_dir/emit-two.json"
 cmp "$temp_dir/emit-one.json" "$temp_dir/emit-two.json"
-bun -e 'const report = await Bun.file(process.argv[1]).json(); if (report.routeCount !== 28 || report.productionReady !== false || report.readinessExit !== 3 || report.statuses.aligned !== 0 || report.statuses.partial !== 10 || report.statuses.blocked !== 18) process.exit(1);' "$temp_dir/emit-one.json"
+bun -e 'const report = await Bun.file(process.argv[1]).json(); if (report.routeCount !== 28 || report.productionReady !== false || report.readinessExit !== 3 || report.statuses.aligned !== 1 || report.statuses.partial !== 9 || report.statuses.blocked !== 18) process.exit(1);' "$temp_dir/emit-one.json"
 
 FRONTEND_CONTRACT_IN="$contract" FRONTEND_CONTRACT_OUT="$temp_dir/tampered.json" bun -e '
 const value = await Bun.file(process.env.FRONTEND_CONTRACT_IN).json();

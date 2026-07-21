@@ -8,11 +8,11 @@ The source baseline is pinned to `origin/development@373bd231cb7a616c3d4c0ddc1d6
 
 The initial result is deliberately not a completion claim:
 
-- **0 aligned:** this audit slice proves anchors and contract integrity, not the full browser acceptance boundary.
-- **10 partial:** `/about`, `/access-denied`, `/contact`, `/developer/docs`, `/manual`, `/news`, `/news/:slug`, `/offline`, `/privacy`, `/terms`.
+- **1 aligned:** `/access-denied`, after focused Rust and real localhost Playwright proof for escaped query data, semantics, responsive layout, and keyboard navigation.
+- **9 partial:** `/about`, `/contact`, `/developer/docs`, `/manual`, `/news`, `/news/:slug`, `/offline`, `/privacy`, `/terms`.
 - **18 blocked:** every other route in the contract.
 
-The four static/fallback routes that have no known data-flow blocker are still only partial. `/access-denied`, `/manual`, and `/privacy` need accepted current content plus responsive, keyboard, focus, and accessibility browser evidence. `/offline` additionally needs a real disconnected/service-worker navigation and recovery test. Static markup parity is not full route alignment.
+The B7.1 proof closes `/access-denied` only. `/offline` now has a public accessible retry button and proves an already-rendered page survives an offline transition and reloads after reconnection, but fresh disconnected/service-worker cache delivery is absent. `/privacy` and `/terms` have responsive, hierarchy, and keyboard proof, yet their Google Sign-in/OIDC legal copy is not approved for the canonical wallet/SIWE flow. Terms also targets `/api/public/subscribe`, for which no matching email-subscription handler exists.
 
 The most important distinction is loader presence versus a production-usable flow. `/analytics`, `/plans`, `/portfolio`, and dynamic payment have SSR fetch hooks whose `data_*` payload is not consumed by the page. Dashboard, news, and developer usage consume in-process values that can still be canned. Other pages deserialize live data but silently replace failures with samples, zeroes, or empty arrays. None of those cases is live-data readiness.
 
@@ -24,7 +24,7 @@ Anchors are literal substrings. Source anchors are verified with `git show` at t
 |---|---|---|---|---|
 | `/` | `apps/frontend/app/page.tsx :: export default async function HomePage` | `pages/home.rs :: pub fn render(ctx: &PageContext)` | none; fixed performers/plans/news | blocked |
 | `/about` | `apps/frontend/app/about/page.tsx :: export default function AboutPage()` | `pages/about.rs :: let members = vec![` | none; placeholder team copy | partial |
-| `/access-denied` | `apps/frontend/app/access-denied/page.tsx :: export default function AccessDeniedPage` | `pages/access_denied.rs :: ctx.query_param("reason")` | synchronous query presentation; browser/a11y proof open | partial |
+| `/access-denied` | `apps/frontend/app/access-denied/page.tsx :: export default function AccessDeniedPage` | `pages/access_denied.rs :: .query_param("reason")` | bounded/control-filtered decoded text, escaped output, safe links, mobile/desktop keyboard proof | aligned |
 | `/account` | `apps/frontend/app/account/page.tsx :: export default async function AccountPage()` | `pages/account.rs :: ctx.params.get("data_account")` | `GET /api/v1/account`, fallback `/api/v1/auth/me` | blocked |
 | `/account/credits` | `apps/frontend/app/account/credits/page.tsx :: export default function CreditsPage()` | `pages/account_credits.rs :: ctx.params.get("data_credits")` | `GET /api/v1/credits` | blocked |
 | `/analytics` | `apps/frontend/app/analytics/page.tsx :: export default async function AnalyticsPage` | `pages/analytics.rs :: fn sample_rankings()` | `GET /api/v1/analytics/summary`, unused | blocked |
@@ -41,13 +41,13 @@ Anchors are literal substrings. Source anchors are verified with `git show` at t
 | `/news` | `apps/frontend/app/news/page.tsx :: searchParams: Promise<{ page?: string }>` | `pages/news.rs :: .unwrap_or_else(default_posts)` | in-process `news_list_value` | partial |
 | `/news/:slug` | `apps/frontend/app/news/[slug]/page.tsx :: generateMetadata` | `pages/news_detail.rs :: data_news_post` | in-process `news_post_value` | partial |
 | `/notifications` | `apps/frontend/app/notifications/page.tsx :: page: parseInt(params.page ?? '1')` | `pages/notifications.rs :: data_notifications` | `GET /api/v1/notification/list` | blocked |
-| `/offline` | `apps/frontend/app/offline/page.tsx :: window.location.reload()` | `pages/offline.rs :: javascript:location.reload()` | disconnected routing/recovery browser proof open | partial |
+| `/offline` | `apps/frontend/app/offline/page.tsx :: window.location.reload()` | `pages/offline.rs :: data-offline-reload` | public CSP-compatible retry and reconnect proof; fresh disconnected cache delivery open | partial |
 | `/payment` | `apps/frontend/app/payment/page.tsx :: PaymentPage` | `pages/payment.rs :: /api/v1/payments/confirm` | native confirm only | blocked |
 | `/payment/:type/:id` | `apps/frontend/app/payment/[type]/[id]/page.tsx :: Fetch plans on server` | `pages/payment.rs :: pub fn render_dynamic` | `GET /api/v1/payment/{id}`, intent-only and unused | blocked |
 | `/permissions` | `apps/frontend/app/permissions/page.tsx :: usePermissionsPage({ base })` | `pages/permissions.rs :: let features = vec![` | none | blocked |
 | `/plans` | `apps/frontend/app/plans/page.tsx :: PlansPage` | `pages/plans.rs :: let plans = default_plans();` | three plan endpoints, unused | blocked |
 | `/portfolio` | `apps/frontend/app/portfolio/page.tsx :: <RequireSignIn` | `pages/portfolio.rs :: const WATCHED_STOCKS:` | two owner portfolio endpoints, unused | blocked |
-| `/privacy` | `apps/frontend/app/privacy/page.tsx :: 1. Information We Collect` | `pages/privacy.rs :: const LAST_UPDATED:` | accepted legal content/responsive/a11y proof open | partial |
+| `/privacy` | `apps/frontend/app/privacy/page.tsx :: 1. Information We Collect` | `pages/privacy.rs :: const LAST_UPDATED:` | responsive h1/h2 landmarks and keyboard proof pass; wallet/SIWE legal approval open | partial |
 | `/profile` | `apps/frontend/app/profile/page.tsx :: <WalletProfileClient wallet={session.user} />` | `pages/profile.rs :: let mut connected = use_signal(|| true);` | none | blocked |
 | `/terms` | `apps/frontend/app/terms/page.tsx :: fetch('/api/public/subscribe'` | `pages/terms.rs :: action: "/api/public/subscribe"` | native subscription POST | partial |
 
@@ -90,7 +90,7 @@ Close one batch at a time; do not mark a route aligned merely because another ro
 4. **B4 communication:** `/chat`, `/chat/:id`, `/chat/history`, `/notifications`. Add owner-scoped list/detail/create/send/resolve/read/preference APIs, SSE reconnect, and keyboard/pagination/error behavior.
 5. **B5 developer:** `/developer`, `/developer/docs`, `/developer/usage`, `/manual`. Add secret-once API-key mutations, owner usage/range pagination, and choose generated-versus-live documentation as one canonical source. `/manual` stays static unless product scope changes, but closes only after accepted-content, responsive, keyboard, and accessibility browser proof.
 6. **B6 commerce/support:** `/plans`, `/payment`, `/payment/:type/:id`, `/contact`. Consume canonical plans, complete A6, forbid client-owned price/eligibility decisions, and prove contact validation/rate-limit/feedback.
-7. **B7 policy/fallback:** `/access-denied`, `/offline`, `/privacy`, `/terms`. Prove current accepted denial/legal content, responsive and accessible keyboard behavior, real disconnected/offline recovery, and the subscription endpoint’s validation and feedback.
+7. **B7 policy/fallback:** `/access-denied`, `/offline`, `/privacy`, `/terms`. `/access-denied` is aligned. Finish service-worker/cache delivery for a fresh offline navigation, obtain product/legal approval for wallet/SIWE privacy and terms copy, and implement a real email-subscription endpoint plus pending/success/error/retry feedback.
 
 For each route, add a focused Rust unit/adapter test and a browser fixture that covers the contract’s applicable state and interaction fields. After a batch is implemented, change only evidence-backed route fields and anchors; the readiness gate will continue to exit `3` until all 28 route statuses are `aligned` and their blocker arrays are empty.
 
@@ -102,6 +102,7 @@ Audit integrity and deterministic report:
 ./scripts/migration/verify-frontend-live-data.sh --mode integrity
 ./scripts/migration/verify-frontend-live-data.sh --mode emit
 ./scripts/migration/test-frontend-live-data.sh
+bunx playwright test e2e/frontend/policy-fallback-runtime.spec.ts --project=frontend --workers=1
 ```
 
 Readiness is expected to stop today:

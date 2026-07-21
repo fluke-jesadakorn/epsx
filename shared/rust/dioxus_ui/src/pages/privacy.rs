@@ -12,7 +12,7 @@
 //!       - `<Card className="p-8 bg-[#27262c] border-[#383241]
 //!         rounded-[24px] shadow-xl">`
 //!         - `prose prose-invert prose-purple` body
-//!         - 7 numbered `<h3>` sections, each `text-2xl font-bold
+//!         - 7 numbered section headings, each `text-2xl font-bold
 //!           text-purple-400 mb-4`
 //!
 //! The previous Wave 5 port used a marketing-bg hero + legal-page TOC
@@ -71,14 +71,14 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     })
 }
 
-/// 7 numbered sections rendered with `text-purple-400` headings,
-/// matching the prod `prose prose-invert prose-purple` aesthetic.
+/// Seven numbered sections rendered with a correct h1 → h2 document
+/// hierarchy and stable labelled-section relationships.
 #[component]
 fn PrivacyProse() -> Element {
     rsx! {
-        div { class: "privacy-prod-body space-y-6",
-            section { class: "privacy-prod-section",
-                h3 { class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4",
+        article { class: "privacy-prod-body space-y-6", "aria-label": "Privacy policy details",
+            section { class: "privacy-prod-section", "aria-labelledby": "privacy-information-collected",
+                h2 { id: "privacy-information-collected", class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4",
                     "1. Information We Collect"
                 }
                 p { class: "text-gray-300 privacy-prod-p",
@@ -90,8 +90,8 @@ fn PrivacyProse() -> Element {
                     li { "Usage data and analytics" }
                 }
             }
-            section { class: "privacy-prod-section",
-                h3 { class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4",
+            section { class: "privacy-prod-section", "aria-labelledby": "privacy-information-use",
+                h2 { id: "privacy-information-use", class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4",
                     "2. How We Use Your Information"
                 }
                 p { class: "text-gray-300 privacy-prod-p",
@@ -104,8 +104,8 @@ fn PrivacyProse() -> Element {
                     li { "Security and fraud prevention" }
                 }
             }
-            section { class: "privacy-prod-section",
-                h3 { class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4",
+            section { class: "privacy-prod-section", "aria-labelledby": "privacy-third-parties",
+                h2 { id: "privacy-third-parties", class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4",
                     "3. Third-Party Services"
                 }
                 p { class: "text-gray-300 privacy-prod-p",
@@ -117,8 +117,8 @@ fn PrivacyProse() -> Element {
                     li { "We receive only basic profile information needed for account creation" }
                 }
             }
-            section { class: "privacy-prod-section",
-                h3 { class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4",
+            section { class: "privacy-prod-section", "aria-labelledby": "privacy-security",
+                h2 { id: "privacy-security", class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4",
                     "4. Data Security"
                 }
                 p { class: "text-gray-300 privacy-prod-p",
@@ -131,8 +131,8 @@ fn PrivacyProse() -> Element {
                     li { "Secure session management" }
                 }
             }
-            section { class: "privacy-prod-section",
-                h3 { class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4",
+            section { class: "privacy-prod-section", "aria-labelledby": "privacy-rights",
+                h2 { id: "privacy-rights", class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4",
                     "5. Your Rights"
                 }
                 p { class: "text-gray-300 privacy-prod-p", "You have the right to:" }
@@ -143,16 +143,16 @@ fn PrivacyProse() -> Element {
                     li { "Opt-out of communications" }
                 }
             }
-            section { class: "privacy-prod-section",
-                h3 { class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4",
+            section { class: "privacy-prod-section", "aria-labelledby": "privacy-changes",
+                h2 { id: "privacy-changes", class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4",
                     "6. Changes to Privacy Policy"
                 }
                 p { class: "text-gray-300 privacy-prod-p",
                     "We may update this privacy policy from time to time. We will notify you of any changes by posting the new policy on this page and updating the \"Last updated\" date."
                 }
             }
-            section { class: "privacy-prod-section",
-                h3 { class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4",
+            section { class: "privacy-prod-section", "aria-labelledby": "privacy-contact",
+                h2 { id: "privacy-contact", class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4",
                     "7. Contact Us"
                 }
                 p { class: "text-gray-300 privacy-prod-p",
@@ -200,7 +200,7 @@ mod tests {
     /// - dark card `#27262c` with purple border `#383241` via
     ///   inline `<style>` block
     /// - purple-gradient h1 (`from-purple-400 to-pink-400`)
-    /// - 7 sections with `text-purple-400` h3 headings
+    /// - 7 sections with `text-purple-400` accessible h2 headings
     #[test]
     fn privacy_prod_markers() {
         let ctx = empty_ctx();
@@ -244,5 +244,18 @@ mod tests {
                 "privacy page should mention section `{marker}`"
             );
         }
+    }
+
+    #[test]
+    fn privacy_has_stable_accessible_document_hierarchy() {
+        let (_meta, el) = render(&empty_ctx());
+        let html = dioxus_ssr::render_element(el);
+
+        assert_eq!(html.matches("<h1").count(), 1);
+        assert_eq!(html.matches("<h2").count(), 7);
+        assert_eq!(html.matches("aria-labelledby=\"privacy-").count(), 7);
+        assert!(html.contains("<article"));
+        assert!(html.contains("aria-label=\"Privacy policy details\""));
+        assert!(html.contains("href=\"mailto:info@epsx.io\""));
     }
 }

@@ -11,10 +11,9 @@
 //!   one flagged as limited)
 //! - the "Tip" footer
 //!
-//! The "Retry" button calls `javascript:location.reload()` to
-//! match the source. `navigator.onLine` is documented as the
-//! canonical check but the source uses a plain reload, so the
-//! port does the same — no client-side state is needed for SSR.
+//! The retry control is a real button. The frontend BFF attaches a
+//! CSP-compatible listener from its page-shell script; no
+//! `javascript:` URL or inline user data is emitted.
 
 use crate::primitives::*;
 
@@ -90,16 +89,26 @@ fn AvailableOfflineList() -> Element {
     }
 }
 
-/// Action buttons — "Try Again" (reload), "Home" (link), and
-/// "Notifications" (link). The source uses
-/// `window.location.reload()` for "Try Again" so the port does
-/// the same via a `javascript:` href.
+/// Action controls — "Try Again" (reload), "Home" (link), and
+/// "Notifications" (link). The BFF binds the reload button through
+/// `data-offline-reload`, preserving native keyboard button behavior.
 #[component]
 fn OfflineActions() -> Element {
     rsx! {
         div { class: "offline-actions",
-            a { class: "btn btn-primary btn-lg btn-block", href: "javascript:location.reload()",
+            button {
+                class: "btn btn-primary btn-lg btn-block",
+                r#type: "button",
+                "data-offline-reload": "true",
+                "aria-describedby": "offline-retry-status",
                 "Try again"
+            }
+            p {
+                id: "offline-retry-status",
+                class: "sr-only",
+                role: "status",
+                "aria-live": "polite",
+                ""
             }
             div { class: "offline-actions-row",
                 a { class: "btn btn-outline", href: "/",
@@ -153,5 +162,19 @@ mod tests {
         let html = dioxus_ssr::render_element(el);
         assert!(!html.trim().is_empty(), "offline page should render non-empty HTML");
         assert!(html.contains("offline"), "offline page should mention `offline`");
+    }
+
+    #[test]
+    fn offline_retry_is_an_accessible_script_bound_button() {
+        let (_meta, el) = render(&empty_ctx());
+        let html = dioxus_ssr::render_element(el);
+
+        assert!(html.contains("<button"));
+        assert!(html.contains("type=\"button\""));
+        assert!(html.contains("data-offline-reload=\"true\""));
+        assert!(html.contains("aria-describedby=\"offline-retry-status\""));
+        assert!(html.contains("role=\"status\""));
+        assert!(html.contains("aria-live=\"polite\""));
+        assert!(!html.contains("javascript:"));
     }
 }

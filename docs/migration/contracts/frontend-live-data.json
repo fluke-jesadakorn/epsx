@@ -313,28 +313,28 @@
       "blockers":["prove POST contract, CSRF/rate-limit behavior, validation, success/error/retry feedback, and copy-button keyboard status"]
     },
     {
-      "path":"/access-denied","batch":"B7-policy-fallback","status":"partial","dependencies":[],
+      "path":"/access-denied","batch":"B7-policy-fallback","status":"aligned","dependencies":[],
       "source":{"file":"apps/frontend/app/access-denied/page.tsx","anchors":["export default function AccessDeniedPage","searchParams.reason"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/access_denied.rs","handler":"access_denied::render","anchors":["pub fn render(ctx: &PageContext)","ctx.query_param(\"reason\")"]},
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/access_denied.rs","handler":"access_denied::render","anchors":["pub fn render(ctx: &PageContext)",".query_param(\"reason\")"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":["pinned source Suspense Loading fallback is unnecessary for synchronous SSR target"]},
       "loader":{"kind":"none","endpoints":[],"evidence":[]},
       "authOwner":{"auth":"public denial surface","owner":"none; reason/route are presentation only"},
-      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["home/contact links need browser keyboard and focus-visible proof"],"controls":["home/contact navigation"]},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["focused Playwright proves Go Home focus and Enter activation on the SSR page"],"controls":["safe home/contact navigation; decoded query text is bounded, control-filtered, and HTML-escaped"]},
       "states":{"loading":"not-applicable","empty":"not-applicable","error":"not-applicable","retry":"not-applicable"},
       "hydration":{"need":"none","status":"not-applicable","reason":"synchronous denial surface"},
-      "blockers":["prove redirect/query rendering plus responsive layout, keyboard navigation, focus visibility, and accessible denial messaging in a current browser fixture"]
+      "blockers":[]
     },
     {
       "path":"/offline","batch":"B7-policy-fallback","status":"partial","dependencies":[],
       "source":{"file":"apps/frontend/app/offline/page.tsx","anchors":["export default function OfflinePage()","window.location.reload()"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/offline.rs","handler":"offline::render","anchors":["pub fn render(_ctx: &PageContext)","href: \"javascript:location.reload()\""]},
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/offline.rs","handler":"offline::render","anchors":["pub fn render(_ctx: &PageContext)","\"data-offline-reload\": \"true\""]},
       "payloads":{"staticOrSample":["intentional offline help text"],"placeholderOrSkeleton":[]},
       "loader":{"kind":"none","endpoints":[],"evidence":[]},
-      "authOwner":{"auth":"current BFF middleware redirects anonymous","owner":"none"},
-      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["reload is a focusable link"],"controls":["reload, home, notifications links"]},
+      "authOwner":{"auth":"public recovery surface; current BFF returns 200 without a session","owner":"none"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["focused Playwright proves retry-button focus and Enter reload after connectivity returns"],"controls":["public retry button plus home and notifications links; no javascript URL"]},
       "states":{"loading":"not-applicable","empty":"not-applicable","error":"present","retry":"present"},
-      "hydration":{"need":"browser","status":"partial","reason":"browser-native reload markup exists, but disconnected navigation and recovery have not been exercised"},
-      "blockers":["prove service-worker/offline routing, disconnected render, reload recovery after connectivity returns, responsive layout, and keyboard/accessibility behavior in a browser"]
+      "hydration":{"need":"browser","status":"implemented","reason":"frontend SSR injects a constant CSP-compatible reload listener with no request or user data"},
+      "blockers":["localhost proof covers public render, online-to-offline retained content, responsive layout, keyboard retry, and recovery; fresh disconnected navigation, service-worker/cache delivery, and the advertised cached features remain unproven"]
     },
     {
       "path":"/privacy","batch":"B7-policy-fallback","status":"partial","dependencies":[],
@@ -343,10 +343,10 @@
       "payloads":{"staticOrSample":["intentional static policy copy and last-updated date"],"placeholderOrSkeleton":[]},
       "loader":{"kind":"none","endpoints":[],"evidence":[]},
       "authOwner":{"auth":"public","owner":"none"},
-      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["mailto link and document reading order need browser keyboard proof"],"controls":["mailto link"]},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["focused Playwright proves the mailto link is keyboard focusable"],"controls":["mailto link; seven labelled h2 sections under one h1"]},
       "states":{"loading":"not-applicable","empty":"not-applicable","error":"not-applicable","retry":"not-applicable"},
       "hydration":{"need":"none","status":"not-applicable","reason":"intentional static policy"},
-      "blockers":["obtain accepted current legal-content parity and browser proof for responsive typography, reading order, landmarks, link keyboard access, and accessibility"]
+      "blockers":["Rust and localhost browser hierarchy/responsive/keyboard proof passes, but product/legal approval is required because pinned Google Sign-in/OIDC copy does not describe the canonical wallet/SIWE flow"]
     },
     {
       "path":"/terms","batch":"B7-policy-fallback","status":"partial","dependencies":["A5"],
@@ -355,10 +355,10 @@
       "payloads":{"staticOrSample":["intentional static terms copy"],"placeholderOrSkeleton":["pinned source SkeletonLoader for subscribe form"]},
       "loader":{"kind":"native-form","endpoints":["POST /api/public/subscribe"],"evidence":[]},
       "authOwner":{"auth":"public","owner":"subscriber email"},
-      "interactions":{"forms":["native email subscription POST"],"pagination":[],"search":[],"wallet":[],"keyboard":["native form keyboard submission"],"controls":["privacy/contact links"]},
+      "interactions":{"forms":["native required email form targets an endpoint with no matching email-subscribe handler"],"pagination":[],"search":[],"wallet":[],"keyboard":["focused Playwright proves labelled input focus and native invalid-email blocking"],"controls":["privacy/contact links; six labelled h2 sections under one h1"]},
       "states":{"loading":"missing","empty":"not-applicable","error":"missing","retry":"missing"},
       "hydration":{"need":"none","status":"not-applicable","reason":"native form is usable without hydration"},
-      "blockers":["prove subscribe endpoint and restore validation plus success/error/retry feedback without requiring client hydration"]
+      "blockers":["product/legal approval is required for Google/OIDC copy versus wallet/SIWE; /api/public/subscribe has no matching handler, so pending/success/error/retry subscription feedback cannot be proven"]
     }
   ]
 }
