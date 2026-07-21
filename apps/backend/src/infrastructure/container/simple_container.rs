@@ -106,6 +106,14 @@ pub struct SimpleContainer {
 }
 
 impl SimpleContainer {
+    fn get_oidc_issuer() -> String {
+        std::env::var("OIDC_ISSUER")
+            .or_else(|_| std::env::var("BACKEND_URL"))
+            .unwrap_or_else(|_| "https://api.epsx.io".to_string())
+            .trim_end_matches('/')
+            .to_string()
+    }
+
     pub fn new(db_pool: Arc<&'static TlsPool>) -> Self {
         Self {
             db_pool,
@@ -232,7 +240,7 @@ impl SimpleContainer {
             .expect("Failed to initialize RSA key manager");
         let token_service_impl = OpenIDTokenService::new(
             *db_pool,
-            "https://api.epsx.io".to_string(), // issuer
+            Self::get_oidc_issuer(),
             vec!["epsx-frontend".to_string(), "epsx-admin".to_string(), "epsx-api".to_string()], // audiences
             Arc::new(key_manager),
         );

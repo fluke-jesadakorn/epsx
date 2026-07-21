@@ -45,8 +45,11 @@ impl StatelessConfig {
             database_url: std::env::var("DATABASE_URL")
                 .map_err(|_| anyhow::anyhow!("DATABASE_URL is required"))?,
             domain: Self::get_web3_domain(),
-            issuer_url: std::env::var("BACKEND_URL")
-                .unwrap_or_else(|_| "https://api.epsx.io".to_string()),
+            issuer_url: std::env::var("OIDC_ISSUER")
+                .or_else(|_| std::env::var("BACKEND_URL"))
+                .unwrap_or_else(|_| "https://api.epsx.io".to_string())
+                .trim_end_matches('/')
+                .to_string(),
             oidc_audiences: vec![
                 "epsx-frontend".to_string(),
                 "epsx-admin".to_string(),
