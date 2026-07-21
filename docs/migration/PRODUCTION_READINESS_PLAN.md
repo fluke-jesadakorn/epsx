@@ -155,14 +155,17 @@ and revocation behavior remain canonical.
   unresolved payment routes before upstream I/O. This is an edge boundary only;
   it does not prove owner checks or direct-service isolation.
 - Candidate subscription, wallet, content, notification, analytics, indexer,
-  and pay routes lack complete authentication, ownership, and granular
-  authorization enforcement.
-- Pay admin force-cancel/release/refund handlers explicitly rely on an external
-  future gateway check and currently mutate database state directly.
-- Both BFFs preserve verified backend permissions without expanding roles.
-  Sixteen unambiguous admin gates now consume literal backend route permissions;
-  16 legacy security-gate values remain unresolved or require operation-level
-  splits. UI gates remain presentation controls, never policy authority.
+  and pay routers now have direct fail-closed boundaries, but their route
+  matrices remain partial or blocked until owner models, internal-service
+  identity, domain semantics, and runtime integration are proven.
+- Pay admin force-cancel/release/refund shapes now verify the admin audience and
+  `admin:payments:manage`, then return `404` before their current DB-only
+  handlers. Those handlers remain unsuitable for production until real chain,
+  transaction, idempotency, and recovery contracts replace them.
+- Both BFFs preserve verified backend permissions without expanding roles. The
+  68-record permission inventory contains 53 canonical three-segment records,
+  13 legacy two-segment gates, one unknown record, and one impossible/cross-
+  grammar record. UI gates remain presentation controls, never policy authority.
 - The deployed identity ranking service returns offset `100` for all wallets,
   including paid users. This is not acceptable entitlement behavior.
 
@@ -366,9 +369,10 @@ bounded path set. Shared contract files require coordination through package A0.
 
 - **A2.2 status:** the canonical RS256/JWKS verifier and strict bearer-header
   API now live in `epsx-service-auth`, and the gateway consumes that shared
-  implementation. No direct service router has adopted it yet, so this
-  extraction is reusable security infrastructure rather than service-level
-  authorization proof.
+  implementation. Seven direct-service routers now consume the same verifier,
+  while each route still requires its own audience, ownership, permission, and
+  fail-closed evidence; extraction alone is not service-level authorization
+  proof.
 
 - **A2.3a status:** the candidate event-analytics service now consumes the
   shared verifier directly. Health is the sole anonymous allowlist, tracking
@@ -392,6 +396,40 @@ bounded path set. Shared contract files require coordination through package A0.
   owner migration, internal publisher identity, delivery idempotency/outbox,
   SMTP behavior, template consistency, and DB integration remain unresolved.
 
+- **A2.3d status:** the subscription service now consumes the shared verifier.
+  Health is its only anonymous surface; plan reads require the admin audience
+  plus `admin:plans:read`, and plan creation requires
+  `admin:plans:manage`. Owner-subscription and vault routes intentionally return
+  `404` before storage until the UUID owner model can be derived from the
+  verified wallet and activation can be bound to finalized payment evidence.
+  The service matrix is now six aligned, 53 partial, and 58 blocked. All 20 A9
+  lifecycle blockers remain open; this boundary does not prove subscription
+  production readiness.
+
+- **A2.3e status:** the indexer now consumes the shared verifier. Health is the
+  only anonymous surface. All four read projections return `404` before DB/RPC
+  work because canonical ingestion, finality, reorg, and privacy semantics are
+  unproven. Sync requires the admin audience plus `admin:indexer:manage`, then
+  returns `404` before placeholder ingestion. A12 retains all 24 STOP blockers.
+
+- **A2.3f status:** the pay service now consumes the shared verifier. Health and
+  a bounded active pay-link projection are the only anonymous surfaces. Owner
+  intent, escrow, and history reads bind SQL to the verified wallet; admin reads
+  require `admin:payments:view`. All 14 financial/internal mutations remain
+  unavailable; admin mutation shapes verify `admin:payments:manage` and then
+  fail closed. The service matrix is now eight aligned, 52 partial, and 57
+  blocked. All 17 A6 STOP blockers remain open.
+
+- **A2.3g status:** the wallet service now consumes the shared verifier. Health
+  and an 8 KiB-bounded, read-only signature recovery endpoint are its only
+  anonymous surfaces. Account list/detail reads accept only the exact frontend
+  or admin audience, derive the owner from the verified wallet, bind that owner
+  in SQL, and exclude encrypted key material. Account creation, balance, send,
+  signing, and gas estimation return `404` before unsafe custody/RPC handlers.
+  The service matrix is now ten aligned, 50 partial, and 57 blocked; wallet
+  custody, truthful chain behavior, schema migration, and runtime integration
+  remain STOP conditions.
+
 ### A3 — Additive migrations and data reconciliation (P0)
 
 - **Scope:** new migration directories only, database provisioning scripts,
@@ -412,6 +450,15 @@ bounded path set. Shared contract files require coordination through package A0.
   Tests must start with a development-shaped database containing representative
   users, active plans, subscriptions, payments, notifications, and usage rows.
   Upgrade and retry must be idempotent; reconciliation must be exact.
+
+- **A3.1/A3.2 status:** the read-only database preflight tooling is constrained
+  to capture checksum-pinned, non-production evidence for core, analytics,
+  notifications, and payments. The offline A3.2 classifier accepts exactly 13
+  known history/schema classes, rejects tampered, hybrid, credential-bearing,
+  unknown, traversal,
+  symlink, and output-race inputs, and emits only redacted deterministic
+  fingerprints. Exit `0` still declares `productionReady: false`; no live
+  preflight, reconciliation, migration, repair, or database mutation has run.
 
 ### A4 — Canonical permission and entitlement authority (P0)
 
@@ -434,7 +481,7 @@ bounded path set. Shared contract files require coordination through package A0.
   fall back to the free plan on authority failure.
 
 - **A4.0/A8.1 status:** the deterministic permission-grammar inventory covers
-  66 UI/service records. A8.2 additionally separates wallet-access and plan
+  68 UI/service records. A8.2 additionally separates wallet-access and plan
   read surfaces from their mutation controls using literal backend guards;
   readiness intentionally stops with 13 legacy security gates and two
   presentation-only drift records. Entitlement and ranking-offset parity in the
@@ -463,6 +510,13 @@ bounded path set. Shared contract files require coordination through package A0.
   prefixes, live payloads, correlation/retry policy, and the pay BFF remain in
   later A5/A6 slices.
 
+- **A5.1 status:** `epsx-client` now emits typed, body-free upstream status
+  errors. The admin BFF preserves only the closed safe set `400`, `401`, `403`,
+  `404`, `409`, `422`, `429`, `502`, `503`, and `504`; unknown statuses and
+  legacy string errors become `502`, while timeout and connect failures become
+  `504` and `503`. Typed error envelopes, validation detail, retryability,
+  correlation, cross-hop consistency, and page consumption remain blocked.
+
 ### A6 — Checkout and escrow vertical slice (P0)
 
 - **Scope:** `apps/pay`, `services/pay`, escrow contract adapter, receipt
@@ -489,6 +543,12 @@ bounded path set. Shared contract files require coordination through package A0.
   ownership, idempotency, receipt/finality, escrow transaction, webhook,
   migration, ingress, and end-to-end browser proof remain unimplemented.
 
+- **A6.1 authorization status:** direct pay-service access now proves verified
+  owner/admin read boundaries and hides foreign resources. It deliberately
+  keeps every financial, escrow, link, webhook, deposit, resolve, and force
+  mutation away from its current DB-only handler until A6 idempotency,
+  transaction, chain/finality, audit, and recovery contracts pass.
+
 ### A7 — Frontend live data and interaction parity (P1)
 
 - **Scope:** `apps/frontend` loaders/API handlers and frontend pages in
@@ -510,15 +570,20 @@ bounded path set. Shared contract files require coordination through package A0.
   Close routes in small batches; all 28 must pass interaction and live-data
   fixtures before the frontend gate moves to done.
 
-- **A7.0–A7.2 status:** the exact 28-route live-data contract now records two
-  aligned routes, eight partial routes, and 18 blocked routes. `/access-denied`
+- **A7.0–A7.3 status:** the exact 28-route live-data contract now records three
+  aligned routes, seven partial routes, and 18 blocked routes. `/about`
+  removes invented claims and matches the pinned source order, copy, metadata,
+  landmarks, and responsive keyboard behavior. `/access-denied`
   has bounded and escaped query rendering plus responsive keyboard browser
   proof. `/manual` exactly matches the pinned 35-feature catalog and proves all
   screenshot assets, responsive layout, links, dialog focus, and image-error
-  fallback. `/offline` is public and has a native retry control, but fresh
+  fallback. `/developer/docs` now matches the pinned ten-endpoint catalog and
+  proves responsive navigation, accordions, language tabs, copy controls, and
+  keyboard behavior, while live requests remain disabled pending A1/A4/A5.
+  `/offline` is public and has a native retry control, but fresh
   disconnected cache/service-worker delivery is not proven. Privacy and terms
   remain partial pending wallet/SIWE legal approval; terms also lacks a real
-  subscription handler. The remaining 26 routes keep readiness at exit `3`.
+  subscription handler. The remaining 25 routes keep readiness at exit `3`.
 
 ### A8 — Admin live data and mutation parity (P1)
 
@@ -536,6 +601,18 @@ bounded path set. Shared contract files require coordination through package A0.
   ```
 
   All 27 source paths, dynamic params, and two canonical redirects must pass.
+
+- **A8.0–A8.1 status:** the pinned admin contract covers the exact 27 source
+  routes and both intentional redirects in seven execution batches. It records
+  two aligned, two partial, and 23 blocked routes plus 20 cross-cutting STOP
+  blockers. `/access-denied` and `/unauthorized` now preserve bounded escaped
+  copy, inherited metadata, safe reauthentication/return behavior, keyboard
+  order, responsive light/dark layout, and authenticated local browser proof.
+  The admin SSR still provides no per-page loader, operational pages render
+  samples, several form/BFF paths drift, and preserved statuses still lack
+  typed envelopes and page-level consumption. Integrity/tamper checks pass and
+  readiness intentionally exits `3`; no live service, database, chain, or
+  deployment access is claimed.
 
 ### A9 — Subscription vertical slice (P1)
 
@@ -602,6 +679,15 @@ bounded path set. Shared contract files require coordination through package A0.
   additive migrations, legacy owner reconciliation, internal publisher
   identity, durable outbox/retry/dead-letter delivery, safe SMTP behavior,
   realtime ownership, observability, and rollback are proven.
+
+- **A11.0 status:** the deterministic lifecycle contract pins 14 source records
+  and 36 target anchors across 12 blocked surfaces. Its 22 STOP blockers cover
+  schema/startup DDL drift, truthful asynchronous delivery, preferences/SSE/
+  push, publisher inbox/outbox and idempotency, retry/dead-letter behavior,
+  templates/privacy, reconciliation, observability, deployability, single-writer
+  cutover, and duplicate-safe rollback. Integrity and tamper checks pass;
+  readiness intentionally exits `3`, and no live provider or infrastructure
+  access is part of the evidence.
 
 ### A12 — Analytics/indexer vertical slice (P1)
 
