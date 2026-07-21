@@ -11,6 +11,7 @@ path = "src/main.rs"
 epsx-kernel = { path = "../../shared/rust/kernel" }
 epsx-renderer = { path = "../../shared/rust/renderer" }
 epsx-observability = { path = "../../shared/rust/observability" }
+epsx-service-auth = { path = "../../shared/rust/epsx-service-auth" }
 axum.workspace = true
 tokio.workspace = true
 tracing.workspace = true
@@ -22,3 +23,9 @@ uuid.workspace = true
 chrono.workspace = true
 notify.workspace = true
 notify-debouncer-mini.workspace = true
+reqwest.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+async-trait.workspace = true
+tower.workspace = true

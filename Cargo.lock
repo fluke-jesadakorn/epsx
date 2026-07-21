@@ -4305,18 +4305,23 @@ dependencies = [
 name = "epsx-content"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "axum 0.8.9",
  "chrono",
  "clap",
  "epsx-kernel",
  "epsx-observability",
  "epsx-renderer",
+ "epsx-service-auth",
  "notify",
  "notify-debouncer-mini",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "sqlx",
+ "thiserror 1.0.69",
  "tokio",
+ "tower 0.5.3",
  "tracing",
  "uuid 1.23.3",
 ]

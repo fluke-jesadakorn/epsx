@@ -2,11 +2,12 @@ use axum::{
     extract::{Path as AxPath, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{any, get, post, put},
+    routing::{get, post},
     Json, Router,
 };
-use epsx_renderer::{render_block, render_page, Block, Page};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
+use epsx_content::{build_auth_verifier, protect_router};
+use epsx_renderer::{render_page, Block, Page};
 use notify::RecursiveMode;
 use notify_debouncer_mini::new_debouncer;
 use serde::{Deserialize, Serialize};
@@ -31,6 +32,18 @@ struct Args {
     content_path: String,
     #[arg(long, default_value = "false")]
     no_watch: bool,
+    #[arg(long, env = "OIDC_ISSUER")]
+    oidc_issuer: String,
+    #[arg(long, env = "OIDC_JWKS_URL")]
+    jwks_url: Option<String>,
+    #[arg(long, env = "EPSX_ENV", value_enum, default_value = "development")]
+    environment: Environment,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum Environment {
+    Development,
+    Production,
 }
 
 #[derive(Clone)]
@@ -151,6 +164,16 @@ async fn main() {
     epsx_observability::Observability::init("content");
     let args = Args::parse();
 
+    let production = matches!(args.environment, Environment::Production);
+    let jwks_url = args.jwks_url.unwrap_or_else(|| {
+        format!(
+            "{}/.well-known/jwks.json",
+            args.oidc_issuer.trim_end_matches('/')
+        )
+    });
+    let verifier = build_auth_verifier(&args.oidc_issuer, &jwks_url, production)
+        .expect("content OIDC configuration must be valid");
+
     let db = sqlx::PgPool::connect(&args.database_url).await.expect("Failed to connect to database");
 
     sqlx::query(
@@ -256,7 +279,9 @@ async fn main() {
         .route("/api/v1/content/plans", get(plans_list))
         .route("/api/v1/content/rankings", get(rankings_list))
         .route("/api/v1/content/portfolio/{addr}", get(portfolio_get))
+        .fallback(not_found)
         .with_state(state);
+    let app = protect_router(app, verifier);
 
     let addr: SocketAddr = format!("{}:{}", args.host, args.port).parse().unwrap();
     info!("Content service listening on {}", addr);
@@ -265,6 +290,8 @@ async fn main() {
 }
 
 async fn health() -> StatusCode { StatusCode::OK }
+
+async fn not_found() -> StatusCode { StatusCode::NOT_FOUND }
 
 async fn load_block_registry(path: &PathBuf, registry: &Arc<RwLock<BlockRegistry>>) -> Result<(), String> {
     let mut reg = registry.write().await;

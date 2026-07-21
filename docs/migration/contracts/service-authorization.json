@@ -176,6 +176,15 @@
         "principal.audience != ADMIN_AUDIENCE",
         "AccessPolicy::InternalOnly | AccessPolicy::Blocked"
       ]
+    },
+    {
+      "id": "content-service-auth-boundary",
+      "file": "services/content/src/lib.rs",
+      "anchors": [
+        "authenticate_headers(",
+        "principal.audience != ADMIN_AUDIENCE",
+        "AccessPolicy::EditorIdentityRequired | AccessPolicy::Blocked"
+      ]
     }
   ],
   "requiredCases": [
@@ -223,9 +232,9 @@
       "internal-webhook": 4
     },
     "byObservedStatus": {
-      "partial": 36,
-      "blocked": 78,
-      "aligned": 3
+      "partial": 42,
+      "blocked": 71,
+      "aligned": 4
     }
   },
   "services": [
@@ -2047,7 +2056,7 @@
       "name": "content",
       "source": "services/content/src/main.rs",
       "routerAnchor": "let app = Router::new()",
-      "currentBoundary": "No content permission guards; draft/editor data and all CMS mutations are anonymously reachable.",
+      "currentBoundary": "The direct service classifies exact methods and path arity before handlers, strips spoofable identity headers, protects CMS routes with admin:content:manage, and fails editor-session routes closed. Public content semantics and server-derived editor ownership remain incomplete.",
       "routes": [
         {
           "id": "content.get.health",
@@ -2064,15 +2073,16 @@
           "risk": "none",
           "caseProfile": "public",
           "observed": {
-            "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "status": "aligned",
+            "summary": "GET/HEAD health is the direct service's explicit anonymous allowlist; other methods are denied before handler dispatch."
           },
           "dependencies": [
             "A2",
             "A10"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "content-service-auth-boundary"
           ]
         },
         {
@@ -2081,7 +2091,7 @@
           "path": "/api/v1/content/pages/{slug}",
           "routeAnchor": ".route(\"/api/v1/content/pages/{slug}\"",
           "classification": "permission-specific-admin-operator",
-          "identitySource": "monolith-rs256-jwks",
+          "identitySource": "epsx-service-auth-rs256-jwks",
           "requiredPermission": "admin:content:manage",
           "permissionStatus": "canonical",
           "ownershipKey": null,
@@ -2090,15 +2100,16 @@
           "risk": "none",
           "caseProfile": "granular-admin",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The direct service requires the admin audience plus canonical admin:content:manage before the handler; draft/editor response semantics remain an A10 concern."
           },
           "dependencies": [
             "A2",
             "A10"
           ],
           "canonicalEvidence": [
-            "backend-permission-guard"
+            "backend-permission-guard",
+            "content-service-auth-boundary"
           ],
           "notes": "Editor/draft representation is distinct from the public render route."
         },
@@ -2108,7 +2119,7 @@
           "path": "/api/v1/content/pages/{slug}",
           "routeAnchor": ".route(\"/api/v1/content/pages/{slug}\"",
           "classification": "permission-specific-admin-operator",
-          "identitySource": "monolith-rs256-jwks",
+          "identitySource": "epsx-service-auth-rs256-jwks",
           "requiredPermission": "admin:content:manage",
           "permissionStatus": "canonical",
           "ownershipKey": null,
@@ -2117,15 +2128,16 @@
           "risk": "high",
           "caseProfile": "granular-admin",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The direct service requires the admin audience plus canonical admin:content:manage before the handler; mutation validation and content semantics remain outside this slice."
           },
           "dependencies": [
             "A2",
             "A10"
           ],
           "canonicalEvidence": [
-            "backend-permission-guard"
+            "backend-permission-guard",
+            "content-service-auth-boundary"
           ]
         },
         {
@@ -2134,7 +2146,7 @@
           "path": "/api/v1/content/pages",
           "routeAnchor": ".route(\"/api/v1/content/pages\"",
           "classification": "permission-specific-admin-operator",
-          "identitySource": "monolith-rs256-jwks",
+          "identitySource": "epsx-service-auth-rs256-jwks",
           "requiredPermission": "admin:content:manage",
           "permissionStatus": "canonical",
           "ownershipKey": null,
@@ -2143,15 +2155,16 @@
           "risk": "high",
           "caseProfile": "granular-admin",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The direct service requires the admin audience plus canonical admin:content:manage before the handler; mutation validation and content semantics remain outside this slice."
           },
           "dependencies": [
             "A2",
             "A10"
           ],
           "canonicalEvidence": [
-            "backend-permission-guard"
+            "backend-permission-guard",
+            "content-service-auth-boundary"
           ]
         },
         {
@@ -2160,7 +2173,7 @@
           "path": "/api/v1/content/pages",
           "routeAnchor": ".route(\"/api/v1/content/pages\"",
           "classification": "permission-specific-admin-operator",
-          "identitySource": "monolith-rs256-jwks",
+          "identitySource": "epsx-service-auth-rs256-jwks",
           "requiredPermission": "admin:content:manage",
           "permissionStatus": "canonical",
           "ownershipKey": null,
@@ -2169,15 +2182,16 @@
           "risk": "none",
           "caseProfile": "granular-admin",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The direct service requires the admin audience plus canonical admin:content:manage before the handler; list filtering and content semantics remain outside this slice."
           },
           "dependencies": [
             "A2",
             "A10"
           ],
           "canonicalEvidence": [
-            "backend-permission-guard"
+            "backend-permission-guard",
+            "content-service-auth-boundary"
           ]
         },
         {
@@ -2186,7 +2200,7 @@
           "path": "/api/v1/content/pages/{id}/publish",
           "routeAnchor": ".route(\"/api/v1/content/pages/{id}/publish\"",
           "classification": "permission-specific-admin-operator",
-          "identitySource": "monolith-rs256-jwks",
+          "identitySource": "epsx-service-auth-rs256-jwks",
           "requiredPermission": "admin:content:manage",
           "permissionStatus": "canonical",
           "ownershipKey": null,
@@ -2195,15 +2209,16 @@
           "risk": "high",
           "caseProfile": "granular-admin",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The direct service requires the admin audience plus canonical admin:content:manage before the handler; publishing workflow semantics remain outside this slice."
           },
           "dependencies": [
             "A2",
             "A10"
           ],
           "canonicalEvidence": [
-            "backend-permission-guard"
+            "backend-permission-guard",
+            "content-service-auth-boundary"
           ]
         },
         {
@@ -2222,14 +2237,15 @@
           "caseProfile": "public",
           "observed": {
             "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "summary": "The direct service explicitly allows this exact GET shape and strips bearer identity, but the handler does not yet prove published-only filtering."
           },
           "dependencies": [
             "A2",
             "A10"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "content-service-auth-boundary"
           ],
           "notes": "Must return published content only."
         },
@@ -2249,14 +2265,15 @@
           "caseProfile": "public",
           "observed": {
             "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "summary": "The direct service explicitly allows this exact anonymous GET shape, but A10 must still prove the returned theme data is safe public metadata."
           },
           "dependencies": [
             "A2",
             "A10"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "content-service-auth-boundary"
           ],
           "notes": "Public theme metadata only; editor secrets/drafts excluded."
         },
@@ -2266,7 +2283,7 @@
           "path": "/api/v1/content/themes",
           "routeAnchor": ".route(\"/api/v1/content/themes\"",
           "classification": "permission-specific-admin-operator",
-          "identitySource": "monolith-rs256-jwks",
+          "identitySource": "epsx-service-auth-rs256-jwks",
           "requiredPermission": "admin:content:manage",
           "permissionStatus": "canonical",
           "ownershipKey": null,
@@ -2275,15 +2292,16 @@
           "risk": "high",
           "caseProfile": "granular-admin",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The direct service requires the admin audience plus canonical admin:content:manage before the handler; mutation validation and theme semantics remain outside this slice."
           },
           "dependencies": [
             "A2",
             "A10"
           ],
           "canonicalEvidence": [
-            "backend-permission-guard"
+            "backend-permission-guard",
+            "content-service-auth-boundary"
           ]
         },
         {
@@ -2302,14 +2320,15 @@
           "caseProfile": "public",
           "observed": {
             "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "summary": "The direct service explicitly allows one strict dynamic segment for this anonymous GET, but A10 must still prove the returned theme data is safe public metadata."
           },
           "dependencies": [
             "A2",
             "A10"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "content-service-auth-boundary"
           ]
         },
         {
@@ -2318,7 +2337,7 @@
           "path": "/api/v1/content/themes/{id}",
           "routeAnchor": ".route(\"/api/v1/content/themes/{id}\"",
           "classification": "permission-specific-admin-operator",
-          "identitySource": "monolith-rs256-jwks",
+          "identitySource": "epsx-service-auth-rs256-jwks",
           "requiredPermission": "admin:content:manage",
           "permissionStatus": "canonical",
           "ownershipKey": null,
@@ -2327,15 +2346,16 @@
           "risk": "high",
           "caseProfile": "granular-admin",
           "observed": {
-            "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "status": "partial",
+            "summary": "The direct service requires the admin audience plus canonical admin:content:manage before the handler; mutation validation and theme semantics remain outside this slice."
           },
           "dependencies": [
             "A2",
             "A10"
           ],
           "canonicalEvidence": [
-            "backend-permission-guard"
+            "backend-permission-guard",
+            "content-service-auth-boundary"
           ]
         },
         {
@@ -2354,14 +2374,15 @@
           "caseProfile": "public",
           "observed": {
             "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "summary": "The direct service explicitly allows this exact anonymous GET shape, but A10 must still prove schemas and admin-only entries are safely filtered."
           },
           "dependencies": [
             "A2",
             "A10"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "content-service-auth-boundary"
           ],
           "notes": "Static component schema allowlist."
         },
@@ -2381,14 +2402,15 @@
           "caseProfile": "public",
           "observed": {
             "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "summary": "The direct service explicitly allows one strict dynamic segment for this anonymous GET, but A10 must still prove the selected schema is public-safe."
           },
           "dependencies": [
             "A2",
             "A10"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "content-service-auth-boundary"
           ],
           "notes": "Static component schema allowlist."
         },
@@ -2398,25 +2420,27 @@
           "path": "/api/v1/content/edit/start",
           "routeAnchor": ".route(\"/api/v1/content/edit/start\"",
           "classification": "permission-specific-admin-operator",
-          "identitySource": "monolith-rs256-jwks",
+          "identitySource": "server-derived-editor-identity-not-implemented",
           "requiredPermission": "admin:content:manage",
           "permissionStatus": "canonical",
-          "ownershipKey": null,
+          "ownershipKey": "server-derived editor UUID mapping; caller request user_id must never establish session ownership",
           "operationKind": "domain-mutation",
           "mutation": true,
           "risk": "high",
           "caseProfile": "granular-admin",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service returns 404 before handler/DB access until canonical wallet identity can be mapped to a server-derived editor UUID."
           },
           "dependencies": [
             "A2",
             "A10"
           ],
           "canonicalEvidence": [
-            "backend-permission-guard"
-          ]
+            "backend-permission-guard",
+            "content-service-auth-boundary"
+          ],
+          "notes": "Fail-closed intentionally: the compatibility body user_id is caller-selected and cannot be persisted as identity."
         },
         {
           "id": "content.post.edit-commit",
@@ -2424,24 +2448,25 @@
           "path": "/api/v1/content/edit/commit",
           "routeAnchor": ".route(\"/api/v1/content/edit/commit\"",
           "classification": "permission-specific-admin-operator",
-          "identitySource": "monolith-rs256-jwks",
+          "identitySource": "server-derived-editor-identity-not-implemented",
           "requiredPermission": "admin:content:manage",
           "permissionStatus": "canonical",
-          "ownershipKey": null,
+          "ownershipKey": "verified editor owns the referenced edit session through a server-derived identity mapping",
           "operationKind": "domain-mutation",
           "mutation": true,
           "risk": "high",
           "caseProfile": "granular-admin",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service returns 404 before handler/DB access until edit-session ownership can be derived and enforced server-side."
           },
           "dependencies": [
             "A2",
             "A10"
           ],
           "canonicalEvidence": [
-            "backend-permission-guard"
+            "backend-permission-guard",
+            "content-service-auth-boundary"
           ]
         },
         {
@@ -2450,24 +2475,25 @@
           "path": "/api/v1/content/edit/sessions",
           "routeAnchor": ".route(\"/api/v1/content/edit/sessions\"",
           "classification": "permission-specific-admin-operator",
-          "identitySource": "monolith-rs256-jwks",
+          "identitySource": "server-derived-editor-identity-not-implemented",
           "requiredPermission": "admin:content:manage",
           "permissionStatus": "canonical",
-          "ownershipKey": null,
+          "ownershipKey": "server-derived editor/session scope",
           "operationKind": "read",
           "mutation": false,
           "risk": "none",
           "caseProfile": "granular-admin",
           "observed": {
             "status": "blocked",
-            "summary": "The current service router installs no canonical RS256 authentication, ownership, or granular permission guard for this route."
+            "summary": "The direct service returns 404 before handler/DB access until editor identity and session visibility semantics are server-derived."
           },
           "dependencies": [
             "A2",
             "A10"
           ],
           "canonicalEvidence": [
-            "backend-permission-guard"
+            "backend-permission-guard",
+            "content-service-auth-boundary"
           ]
         },
         {
@@ -2486,14 +2512,15 @@
           "caseProfile": "public",
           "observed": {
             "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "summary": "The direct service explicitly allows this exact anonymous GET shape; published-navigation filtering and data semantics remain A10 work."
           },
           "dependencies": [
             "A2",
             "A10"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "content-service-auth-boundary"
           ]
         },
         {
@@ -2512,14 +2539,15 @@
           "caseProfile": "public",
           "observed": {
             "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "summary": "The direct service explicitly allows this exact anonymous GET shape; published-only settings semantics remain A10 work."
           },
           "dependencies": [
             "A2",
             "A10"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "content-service-auth-boundary"
           ],
           "notes": "Published site settings only."
         },
@@ -2539,14 +2567,15 @@
           "caseProfile": "public",
           "observed": {
             "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "summary": "The direct service explicitly allows this exact anonymous GET shape; source publication and content correctness remain A10 work."
           },
           "dependencies": [
             "A2",
             "A10"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "content-service-auth-boundary"
           ]
         },
         {
@@ -2565,14 +2594,15 @@
           "caseProfile": "public",
           "observed": {
             "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "summary": "The direct service explicitly allows one strict dynamic segment for this anonymous GET; publication and content correctness remain A10 work."
           },
           "dependencies": [
             "A2",
             "A10"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "content-service-auth-boundary"
           ]
         },
         {
@@ -2591,7 +2621,7 @@
           "caseProfile": "public",
           "observed": {
             "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "summary": "The direct service explicitly allows this exact anonymous GET shape; backend-owned plan visibility and product semantics remain unresolved."
           },
           "dependencies": [
             "A2",
@@ -2599,7 +2629,8 @@
             "A10"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "content-service-auth-boundary"
           ]
         },
         {
@@ -2618,14 +2649,15 @@
           "caseProfile": "public",
           "observed": {
             "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "summary": "The direct service explicitly allows this exact anonymous GET shape; backend-owned entitlement filtering remains unresolved."
           },
           "dependencies": [
             "A2",
             "A10"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "content-service-auth-boundary"
           ],
           "notes": "Public or optional-auth response must apply backend-owned entitlement filtering; frontend must not decide access."
         },
@@ -2645,14 +2677,15 @@
           "caseProfile": "public",
           "observed": {
             "status": "partial",
-            "summary": "Anonymous reachability matches the target, but no explicit gateway public allowlist proves the boundary."
+            "summary": "The direct service explicitly allows one strict address segment for this anonymous GET; proof that all returned data is public-chain derived remains incomplete."
           },
           "dependencies": [
             "A2",
             "A10"
           ],
           "canonicalEvidence": [
-            "backend-public-boundary"
+            "backend-public-boundary",
+            "content-service-auth-boundary"
           ],
           "notes": "Only public-chain derived data; private portfolio metadata is owner-only elsewhere."
         }
