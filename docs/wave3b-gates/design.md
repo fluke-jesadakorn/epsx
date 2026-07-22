@@ -117,8 +117,12 @@ Use the `domain:action` pattern, matching the existing precedent in
 - `media:manage` — historical frontend example only; the current media shell
   exposes no object data or action, while future authorization is backend-owned
 - `wallets:manage` — `/admin/wallet-management/*`
-- `settings:manage` — `/admin/settings`
-- `developer:read` — `/developer/*`
+- `settings:manage` — historical frontend example only; the current admin
+  settings shell exposes no configuration or action, while read/manage
+  authorization remains backend-owned
+- `developer:read` — historical frontend example only; current developer
+  shells expose no credentials, usage data, or actions, while future
+  authorization remains backend-owned
 - `admin:*` — wildcard for any admin route (used by `unauthorized.rs`,
   can be used as a coarse fallback when a track can't decide the
   specific permission)

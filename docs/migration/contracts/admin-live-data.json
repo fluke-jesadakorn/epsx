@@ -236,15 +236,15 @@
     {
       "path": "/developer-portal", "batch": "B7-mutations", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/developer-portal/page.tsx", "anchors": ["export default function DeveloperPortalRoute", "DeveloperPortalPage"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/developer_portal.rs", "handler": "developer_portal::render", "anchors": ["pub fn render(ctx: &PageContext)", "ApiKeyListItem", "action: \"/api/v1/developer/api-keys/revoke\""]},
-      "params": {"names": ["tab", "status", "cursor"], "current": "local/static tabs and rows"},
-      "data": {"reads": ["API keys", "usage", "modules", "plans"], "endpoints": [], "current": "sample key prefixes, request counts, and modules", "fallbacks": ["invented active/revoked keys"]},
-      "permissions": {"read": ["admin:developer:read (required target)"], "manage": ["admin:developer:manage"], "current": "list has no explicit operation-level read gate; create subview uses manage"},
-      "mutations": [{"name": "revoke", "method": "POST", "endpoint": "/api/v1/developer/api-keys/revoke", "current": "form endpoint absent from admin BFF"}, {"name": "update expiration", "method": "POST", "endpoint": "/api/v1/developer/api-keys/update-expiration", "current": "form endpoint absent from admin BFF"}],
-      "contracts": {"bodies": ["native form fields unverified"], "envelopes": [], "statuses": []},
-      "states": {"loading": "missing", "empty": "missing", "error": "missing", "retry": "missing", "forbidden": "present", "conflict": "missing"},
-      "ux": {"keyboard": "unproven", "responsive": "unproven", "hydration": "missing for tabs/dialogs"},
-      "blockers": ["implement read and mutation endpoints, secret-once handling, rotation/revocation conflicts, pagination, and auditable redacted browser states"]
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/developer_portal.rs", "handler": "developer_portal::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-admin-developer-portal-state\": \"unavailable\"", "fn unavailable_state_removes_samples_credentials_and_controls()"]},
+      "params": {"names": ["tab", "status", "cursor"], "current": "legacy tab, status, cursor, success, and credential query values are ignored"},
+      "data": {"reads": ["API keys", "usage", "modules", "plans"], "endpoints": [], "current": "verified-session explicit unavailable state with no credential inventory, usage, module, plan, quota, or documentation claims", "fallbacks": []},
+      "permissions": {"read": ["dedicated backend developer-portal read decision required"], "manage": ["admin:developer:manage"], "current": "session-only unavailable shell behind admin BFF audience verification; no developer role or capability is inferred by the frontend"},
+      "mutations": [],
+      "contracts": {"bodies": [], "envelopes": ["typed redacted list/detail and secret-once creation response required"], "statuses": ["safe forbidden, not-found, conflict, rate-limit, and dependency classes unresolved"]},
+      "states": {"loading": "missing", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "missing", "conflict": "not-applicable"},
+      "ux": {"keyboard": "native retry and admin-home links; focused browser proof remains open", "responsive": "responsive unavailable shell present; focused browser proof remains open", "hydration": "not required because no credential data or mutation control is exposed"},
+      "blockers": ["stop persisting and list/detail-projecting plaintext api_keys.full_key, migrate to hash plus secret-once creation, add a dedicated backend read/manage split and typed redacted BFF adapter, then prove bounded pagination, ownership/field authorization, rotation/revocation conflicts, auditability, and browser states"]
     },
     {
       "path": "/developer-portal/api-keys/create", "batch": "B2-auth-denial", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A11", "A12"],
@@ -366,15 +366,15 @@
     {
       "path": "/settings", "batch": "B1-command-security", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/settings/page.tsx", "anchors": ["export default function SettingsPage", "<SettingsDashboard />"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/settings.rs", "handler": "settings::render", "anchors": ["pub fn render(ctx: &PageContext)", "required_permissions: Some(vec![\"admin:settings:manage\".to_string()])", "let rows = vec!"]},
-      "params": {"names": ["section"], "current": "local controls only"},
-      "data": {"reads": ["platform settings", "API keys", "sessions", "appearance"], "endpoints": [], "current": "sample keys/sessions/settings", "fallbacks": ["invented credentials and device sessions"]},
-      "permissions": {"read": ["admin:settings:read (required target)"], "manage": ["admin:settings:manage"], "current": "manage gates reads"},
-      "mutations": [{"name": "appearance/session/API key/settings updates", "method": "unwired", "endpoint": "commented candidate only", "current": "signals/local controls"}],
-      "contracts": {"bodies": [], "envelopes": [], "statuses": []},
-      "states": {"loading": "missing", "empty": "missing", "error": "missing", "retry": "missing", "forbidden": "present", "conflict": "missing"},
-      "ux": {"keyboard": "unproven", "responsive": "unproven", "hydration": "missing"},
-      "blockers": ["define typed setting ownership and read/manage scopes, load redacted values, and implement auditable conflict-aware mutations with session safety"]
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/settings.rs", "handler": "settings::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-admin-settings-state\": \"unavailable\"", "fn unavailable_state_has_no_samples_secrets_sessions_or_mutation_labels()"]},
+      "params": {"names": ["section"], "current": "legacy section and local editor values are ignored"},
+      "data": {"reads": ["platform settings", "API keys", "sessions", "appearance"], "endpoints": [], "current": "verified-session explicit unavailable state with no configuration defaults, credentials, account records, device sessions, or editable values", "fallbacks": []},
+      "permissions": {"read": ["dedicated backend settings read decision required"], "manage": ["admin:settings:manage"], "current": "session-only unavailable shell behind admin BFF audience verification; no settings role or capability is inferred by the frontend"},
+      "mutations": [],
+      "contracts": {"bodies": [], "envelopes": ["typed versioned field-redacted settings response required"], "statuses": ["safe forbidden, validation, conflict, and dependency classes unresolved"]},
+      "states": {"loading": "missing", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "missing", "conflict": "not-applicable"},
+      "ux": {"keyboard": "native retry and admin-home links; focused browser proof remains open", "responsive": "responsive page-owned unavailable shell present; focused browser proof remains open", "hydration": "not required because no settings data or mutation control is exposed"},
+      "blockers": ["add a dedicated backend read/manage split and typed field-redacted BFF adapter, replace default-on-empty behavior with an authoritative versioned contract, and prove validation, optimistic concurrency, secret handling, session safety, auditability, and browser states before enabling mutations"]
     },
     {
       "path": "/unauthorized", "batch": "B2-auth-denial", "status": "aligned", "dependencies": ["A1"],
@@ -457,15 +457,15 @@
     {
       "path": "/wallet-management/credits", "batch": "B5-commerce", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A6", "A9", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/wallet-management/credits/page.tsx", "anchors": ["export default function CreditsPage", "activeTab"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_credits.rs", "handler": "wallet_credits::render", "anchors": ["pub fn render(ctx: &PageContext)", "let rows = vec![", "RenderCreditsPage"]},
-      "params": {"names": ["tab", "wallet", "cursor"], "current": "tab is local and fixed to overview"},
-      "data": {"reads": ["credit balances", "ledger transactions", "wallet lookup"], "endpoints": [], "current": "sample balances and ledger rows behind skeleton overlay", "fallbacks": ["invented monetary ledger"]},
-      "permissions": {"read": ["admin:credits:read (required target)"], "manage": ["admin:credits:manage"], "current": "no explicit page operation gates"},
-      "mutations": [{"name": "grant/revoke credits", "method": "unwired", "endpoint": "missing", "current": "forms/buttons only"}],
-      "contracts": {"bodies": ["amount/currency/reason/expiry/idempotency unresolved"], "envelopes": [], "statuses": ["insufficient/conflict/duplicate absent"]},
-      "states": {"loading": "present", "empty": "missing", "error": "missing", "retry": "missing", "forbidden": "missing", "conflict": "missing"},
-      "ux": {"keyboard": "unproven", "responsive": "unproven", "hydration": "missing"},
-      "blockers": ["define backend ledger authority and credit permissions, remove fake money, implement idempotent audited grant/revoke, and prove conflicts plus durable feedback"]
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_credits.rs", "handler": "wallet_credits::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-admin-wallet-credits-state\": \"unavailable\"", "fn assert_no_financial_fabrication_or_controls(html: &str)"]},
+      "params": {"names": ["tab", "wallet", "cursor"], "current": "legacy tab, wallet, cursor, query, and hydration values are ignored"},
+      "data": {"reads": ["credit balances", "ledger transactions", "wallet lookup"], "endpoints": [], "current": "verified-session explicit unavailable state with no inferred balances, zero defaults, aggregate metrics, wallet history, or ledger rows", "fallbacks": []},
+      "permissions": {"read": ["dedicated backend credits read decision required"], "manage": ["admin:credits:manage"], "current": "session-only unavailable shell behind admin BFF audience verification; no credit role or capability is inferred by the frontend"},
+      "mutations": [],
+      "contracts": {"bodies": ["amount/currency/reason/expiry/idempotency unresolved"], "envelopes": ["typed bounded balance/history response required"], "statuses": ["safe forbidden, insufficient, conflict, duplicate, and dependency classes unresolved"]},
+      "states": {"loading": "missing", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "missing", "conflict": "not-applicable"},
+      "ux": {"keyboard": "native retry and admin-home links; focused browser proof remains open", "responsive": "responsive unavailable shell present; focused browser proof remains open", "hydration": "not required because no financial data or mutation control is exposed"},
+      "blockers": ["separate backend credits read/manage authority, replace the GET path's get-or-create balance side effect with a non-mutating typed bounded read, add a BFF adapter, and keep grant/revoke disabled until validation, idempotency, concurrency, audit, notification durability, and financial recovery evidence pass"]
     },
     {
       "path": "/wallet-management/wallets", "batch": "B6-wallets-plans", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A9", "A11", "A12"],
