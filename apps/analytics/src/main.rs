@@ -1,11 +1,14 @@
-//! `epsx-analytics-service` binary entry point — wave 12 track A + wave 13a track B.
+//! `epsx-analytics-service` binary entry point.
 //!
 //! Wires the 5 user-facing analytics routes onto a standalone
 //! `axum` router. Owns the in-process state (`EPSCacheService`,
 //! `WebSocketEarningsService`, `TradingViewEPSRepository`) and
 //! satisfies the `WalletRankingOffsetQuery` port via a tonic
 //! gRPC client that calls the `epsx-identity-service` binary
-//! (with a 100ms timeout + in-process fallback).
+//! (with a 100ms timeout + in-process fallback). The HTTP
+//! boundary exposes only the canonical `/api/analytics/*`
+//! market namespace and verifies optional ranking credentials
+//! before dispatching to the shared backend handler.
 //!
 //! Specs:
 //!   - `docs/wave8-service-boundary/audit-analytics.md` §10
@@ -24,6 +27,7 @@ use axum::Router;
 use epsx_contracts::value_objects::ranking_offset::RankingOffset;
 use epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery;
 use epsx_contracts::errors::AppResult;
+use epsx_service_auth::AccessTokenVerifier;
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
@@ -67,23 +71,22 @@ pub mod identity_proto {
 mod grpc_client;
 use grpc_client::GrpcWalletRankingOffsetQuery;
 
-// ============================================================================
-// Wave 13b Track B — SSE consumer + local broadcast bus
-// ============================================================================
-//
-// The new binary consumes the
-// `GET /v1/stream/ranking-offsets` SSE stream from the
-// `epsx-identity-service` binary (port 50052 in the
-// dev cluster), parses `RankingOffsetChange` events, and
-// fans them out to in-process consumers via a local
-// `tokio::sync::broadcast` channel.
-//
-// See `sse_consumer.rs` for the consumer + reconnect
-// logic; the `/v1/rankings/stream` HTTP passthrough
-// handler is mounted on the axum router below.
+mod auth;
+use auth::{build_auth_verifier, protect_router};
 
+// ============================================================================
+// Historical SSE consumer tests
+// ============================================================================
+//
+// The former global ranking-offset SSE fan-out is intentionally excluded from
+// the production binary and route inventory. Its module remains test-only so
+// predecessor regression tests continue to compile while ownership and
+// authorization for a replacement event protocol remain a migration STOP.
+
+#[cfg(test)]
 mod sse_consumer;
-use sse_consumer::{run_sse_consumer, sse_consumer_client, LocalRankingOffsetBus};
+#[cfg(test)]
+use sse_consumer::LocalRankingOffsetBus;
 
 // ============================================================================
 // 5-route builder
@@ -97,54 +100,45 @@ use sse_consumer::{run_sse_consumer, sse_consumer_client, LocalRankingOffsetBus}
 //   - GET /api/analytics/sectors
 //
 // The 2 dead routes (`force_cache_refresh`, `get_cache_stats`,
-// audit §7d) are NOT mounted. The 3 admin routes
-// (`/api/admin/analytics/{metrics,time-series,modules}`) stay in
-// the monolith's admin binary per the spec's "wave 12 doesn't
-// lift the admin binary" note.
+// audit §7d) are NOT mounted. Admin analytics, audit logs, and payment-owned
+// analytics stay in their existing monolith owners; this candidate lifts only
+// the five user-facing market routes.
 //
 // The handler functions come from `epsx::web::analytics::eps_handlers`
 // via the re-export in `crate::*` (lib.rs).
 //
-// **Wave 13b Track B** also mounts
-// `GET /v1/rankings/stream` — a server-sent events
-// passthrough that proxies events from the local
-// `LocalRankingOffsetBus` (fed by the SSE consumer) to
-// web clients. The handler takes the bus via
-// `axum::extract::State` so the same `Router` instance
-// can be built once and shared.
-
-/// Build the analytics router with the 5 user-facing routes
-/// plus a `/health` endpoint for K8s liveness/readiness
-/// probes, plus the wave-13b Track B `/v1/rankings/stream`
-/// SSE passthrough.
+/// Build the analytics router with the five canonical user-facing routes plus
+/// `/health`. The event-analytics `/api/v1/analytics/*` namespace is separate,
+/// raw root aliases are not mounted, and the unsafe global ranking-offset SSE
+/// route remains unavailable.
 pub fn build_analytics_router(
     permission_service: Arc<dyn WalletRankingOffsetQuery>,
     cache: Arc<dyn epsx::infrastructure::cache::Cache>,
     eps_ranking_service: Arc<epsx::domain::market_analytics::services::eps_ranking_service::EPSRankingService>,
-    local_bus: LocalRankingOffsetBus,
+    verifier: Arc<dyn AccessTokenVerifier>,
 ) -> Router {
     use epsx::web::analytics::eps_handlers::{
         get_all_valid_countries, get_available_countries, get_filter_options,
         get_sectors_by_country, get_unified_analytics_rankings_cached,
     };
 
-    Router::new()
+    let router = Router::new()
         .route("/health", get(health_handler))
-        .route("/rankings", get(get_unified_analytics_rankings_cached))
-        .route("/filters", get(get_filter_options))
-        .route("/countries", get(get_all_valid_countries))
-        .route("/available-countries", get(get_available_countries))
-        .route("/sectors", get(get_sectors_by_country))
-        // Wave 13b Track B — SSE passthrough to web
-        // clients. The handler subscribes to the local
-        // bus and re-emits each event as an SSE
-        // `data:` line in the same JSON shape the
-        // identity service publishes.
-        .route("/v1/rankings/stream", get(rankings_stream_handler))
-        .with_state(local_bus)
+        .route(
+            "/api/analytics/rankings",
+            get(get_unified_analytics_rankings_cached),
+        )
+        .route("/api/analytics/filters", get(get_filter_options))
+        .route("/api/analytics/countries", get(get_all_valid_countries))
+        .route(
+            "/api/analytics/available-countries",
+            get(get_available_countries),
+        )
+        .route("/api/analytics/sectors", get(get_sectors_by_country))
         .layer(axum::Extension(permission_service))
         .layer(axum::Extension(cache))
-        .layer(axum::Extension(eps_ranking_service))
+        .layer(axum::Extension(eps_ranking_service));
+    protect_router(router, verifier)
 }
 
 /// Liveness/readiness probe endpoint. Returns 200 with a static
@@ -158,84 +152,6 @@ async fn health_handler() -> axum::Json<serde_json::Value> {
         "service": "epsx-analytics-service",
         "version": env!("CARGO_PKG_VERSION"),
     }))
-}
-
-// ============================================================================
-// Wave 13b Track B — /v1/rankings/stream SSE passthrough
-// ============================================================================
-//
-// Subscribes to the local `LocalRankingOffsetBus` and
-// re-emits each event as a server-sent event on the HTTP
-// response. Web clients connect with
-// `EventSource('https://api.epsx.io/v1/rankings/stream')` and
-// receive a stream of `data: <json>` lines — the JSON
-// shape is the same `RankingOffsetChange` envelope the
-// identity service publishes (no re-shaping).
-//
-// The handler is a long-lived axum response with
-// `axum::response::sse::Sse` + a `BroadcastStream` adapter
-// over the `broadcast::Receiver` returned by
-// `bus.subscribe()`. The keepalive is 15s — matches the
-// monolith's SSE handlers in
-// `apps/backend/src/web/chat/sse_handlers.rs`.
-//
-// The route is mounted via `Router::with_state(local_bus)`
-// (see `build_analytics_router`) so the bus is shared with
-// the SSE consumer task in `main()`.
-
-/// `GET /v1/rankings/stream` — SSE passthrough that
-/// proxies events from the local bus to the web client.
-///
-/// `axum::extract::State<LocalRankingOffsetBus>` is the
-/// state-injection shape (NOT `Extension`) because
-/// `Sse<impl Stream>` isn't `Clone` and axum's `State`
-/// extractor is the documented way to share a single
-/// `Arc`-wrapped value with a handler.
-async fn rankings_stream_handler(
-    axum::extract::State(bus): axum::extract::State<LocalRankingOffsetBus>,
-) -> axum::response::sse::Sse<
-    impl futures::Stream<Item = Result<axum::response::sse::Event, std::convert::Infallible>>,
-> {
-    use std::time::Duration;
-    use tokio_stream::wrappers::BroadcastStream;
-    use tokio_stream::StreamExt as _;
-
-    let rx = bus.subscribe();
-    // `BroadcastStream` yields `Result<T, RecvError>` —
-    // the only error variant is `RecvError::Lagged(n)`
-    // (we missed `n` events because the receiver fell
-    // behind the broadcast ringbuffer). We drop lagged
-    // items silently (the next event will catch the
-    // client up to the current state).
-    //
-    // `Stream::map` is `FnMut(Self::Item) -> NewItem`
-    // (NOT a `Future`); `StreamExt::filter_map` would
-    // need `FnMut(Self::Item) -> Option<NewItem>` (also
-    // synchronous). We use `.map(Result::ok)` to drop
-    // lagged items, then `.map(Option::ok)` would also
-    // be wrong — `Option` from `Result::ok` is `Option`,
-    // and `Result` from `axum::response::sse::Event` is
-    // `Result<Event, Infallible>`, so the stream's item
-    // type becomes `Option<Result<Event, Infallible>>`,
-    // not `Result<Event, Infallible>`.
-    //
-    // The cleanest shape: map `Result<change, _>` to
-    // `Result<Event, Infallible>` directly with
-    // `Option::map`. Lagged events become `None`; we
-    // then `.filter_map` to drop the `None`s.
-    let stream = BroadcastStream::new(rx).filter_map(|item| {
-        item.ok().map(|change| {
-            let json = serde_json::to_string(&change)
-                .unwrap_or_else(|_| "{}".to_string());
-            Ok::<_, std::convert::Infallible>(
-                axum::response::sse::Event::default().data(json),
-            )
-        })
-    });
-
-    axum::response::sse::Sse::new(stream).keep_alive(
-        axum::response::sse::KeepAlive::new().interval(Duration::from_secs(15)),
-    )
 }
 
 // ============================================================================
@@ -376,6 +292,40 @@ impl AnalyticsServiceState {
 
 const BINARY_NAME: &str = env!("CARGO_PKG_NAME");
 const BINARY_VERSION: &str = env!("CARGO_PKG_VERSION");
+const MARKET_ROUTES: &[(&str, &str)] = &[
+    ("GET", "/health"),
+    ("GET", "/api/analytics/rankings"),
+    ("GET", "/api/analytics/filters"),
+    ("GET", "/api/analytics/countries"),
+    ("GET", "/api/analytics/available-countries"),
+    ("GET", "/api/analytics/sectors"),
+];
+
+fn production_environment() -> bool {
+    [
+        "EPSX_ENV",
+        "APP_ENV",
+        "ENV",
+        "ENVIRONMENT",
+        "NODE_ENV",
+        "RUST_ENV",
+        "DEPLOY_ENV",
+        "DEPLOYMENT_ENV",
+    ]
+        .into_iter()
+        .filter_map(|name| std::env::var(name).ok())
+        .any(|value| is_production_marker(&value))
+}
+
+fn is_production_marker(value: &str) -> bool {
+    let normalized = value.trim().to_ascii_lowercase();
+    normalized == "prod"
+        || normalized == "production"
+        || normalized.starts_with("prod-")
+        || normalized.starts_with("production-")
+        || normalized.ends_with("-prod")
+        || normalized.ends_with("-production")
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -389,17 +339,20 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     // ---- startup banner ----
-    let routes: &[(&str, &str)] = &[
-        ("GET", "/health"),
-        ("GET", "/api/analytics/rankings"),
-        ("GET", "/api/analytics/filters"),
-        ("GET", "/api/analytics/countries"),
-        ("GET", "/api/analytics/available-countries"),
-        ("GET", "/api/analytics/sectors"),
-        // Wave 13b Track B — SSE passthrough.
-        ("GET", "/v1/rankings/stream"),
-    ];
-    print_startup_banner(routes, 8080);
+    print_startup_banner(MARKET_ROUTES, 8080);
+
+    // The direct service verifies browser access tokens itself. Missing OIDC
+    // configuration is a startup error; deployment manifests are intentionally
+    // not treated as an implicit identity boundary.
+    let oidc_issuer = std::env::var("OIDC_ISSUER").context("OIDC_ISSUER is required")?;
+    let jwks_url = std::env::var("OIDC_JWKS_URL").unwrap_or_else(|_| {
+        format!(
+            "{}/.well-known/jwks.json",
+            oidc_issuer.trim_end_matches('/')
+        )
+    });
+    let verifier = build_auth_verifier(&oidc_issuer, &jwks_url, production_environment())
+        .context("building market analytics OIDC verifier")?;
 
     // ---- DI ----
     let state = AnalyticsServiceState::build()
@@ -435,87 +388,12 @@ async fn main() -> anyhow::Result<()> {
             .context("building gRPC identity client")?,
     );
 
-    // ---- Wave 13b Track B — local SSE bus + consumer task ----
-    //
-    // The bus is the in-process pub-sub seam: the SSE
-    // consumer task publishes events here, the
-    // `/v1/rankings/stream` HTTP handler subscribes. We
-    // build the bus BEFORE the consumer (the consumer
-    // needs an owned `LocalRankingOffsetBus` for its
-    // task) and clone the bus for the handler state
-    // (the handler takes `axum::extract::State<
-    // LocalRankingOffsetBus>`, which is `Clone`).
-    //
-    // The consumer's URL defaults to
-    // `http://127.0.0.1:50052/v1/stream/ranking-offsets`
-    // (the local-dev identity binary's HTTP/1.1 SSE
-    // endpoint from Track A — the port is 50052, the
-    // path is `/v1/stream/ranking-offsets`).
-    //
-    // **The path is part of the default.** If the
-    // default were just `http://127.0.0.1:50052`, the
-    // consumer would hit `http://127.0.0.1:50052/`
-    // (404) and silently retry forever. The K8s env
-    // var override below must include the same path.
-    //
-    // The `IDENTITY_SSE_URL` env var overrides it for
-    // K8s:
-    //   - default:
-    //     `http://127.0.0.1:50052/v1/stream/ranking-offsets`
-    //   - K8s:
-    //     `http://epsx-identity:50052/v1/stream/ranking-offsets`
-    //     (set in
-    //     `infrastructure/kubernetes/base/analytics/deployment.yaml`)
-    let local_bus = LocalRankingOffsetBus::new(1024);
-    let sse_consumer_bus = local_bus.clone();
-
-    // `reqwest::Client` is the long-lived HTTP client.
-    //
-    // **Wave 17: the builder is now a one-line call to the
-    // shared `sse_consumer_client()` in `sse_consumer.rs`.**
-    // The previous inline `reqwest::Client::builder()...`
-    // chain (with its 18-line "do NOT set `.timeout(_)`"
-    // doc comment) is now centralized in the sse_consumer
-    // module so the wave-15 regression test
-    // (`consume_once_survives_long_lived_stream_with_no_per_request_timeout`)
-    // uses the EXACT SAME builder as production. This is
-    // the **construction-site-parity** pattern: a future
-    // refactor that re-adds a dangerous knob (e.g. the old
-    // `.timeout(60s)`) is caught by both the production and
-    // test sites at the same time, plus the
-    // `construction_site_parity_guards` test pins the
-    // builder shape. See the doc comment on
-    // `sse_consumer_client()` in `sse_consumer.rs` for the
-    // full wave-15 bug rationale + the reqwest=0.12 timeout
-    // landscape.
-    let sse_client = sse_consumer_client()
-        .context("building reqwest client for SSE consumer")?;
-
-    let identity_sse_url = std::env::var("IDENTITY_SSE_URL")
-        .unwrap_or_else(|_| "http://127.0.0.1:50052/v1/stream/ranking-offsets".to_string());
-    info!(url = %identity_sse_url, "IDENTITY_SSE_URL resolved");
-
-    // `shutdown` is a `watch::channel(false)` — the
-    // consumer checks `*shutdown.borrow()` at every
-    // iteration and every chunk read. A future wave 14+
-    // can wire `tokio::signal::ctrl_c()` to the sender
-    // half to do a graceful shutdown. For now we just
-    // hold the sender (dropping it on shutdown) and let
-    // the consumer run for the lifetime of the process.
-    let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
-    let _shutdown_tx = shutdown_tx; // silence unused warning
-
-    tokio::spawn(async move {
-        run_sse_consumer(identity_sse_url, sse_consumer_bus, sse_client, shutdown_rx).await;
-    });
-    info!("SSE consumer task spawned");
-
     // ---- router ----
     let app = build_analytics_router(
         permission_service,
         state.cache.clone(),
         state.eps_ranking_service.clone(),
-        local_bus,
+        verifier,
     );
 
     // ---- serve ----
@@ -532,8 +410,7 @@ async fn main() -> anyhow::Result<()> {
 fn print_startup_banner(routes: &[(&str, &str)], port: u16) {
     info!("============================================================");
     info!("  {} v{}", BINARY_NAME, BINARY_VERSION);
-    info!("  Wave 12 — Track A (analytics binary lift)");
-    info!("  Wave 13b — Track B (SSE consumer + local bus + /v1/rankings/stream)");
+    info!("  Market analytics direct-service boundary");
     info!("  0 PostgreSQL connections (Q2 ROADMAP §7)");
     info!("  Port: {}", port);
     info!("  Routes ({}):", routes.len());
@@ -550,105 +427,98 @@ fn print_startup_banner(routes: &[(&str, &str)], port: u16) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_trait::async_trait;
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
+    use epsx_service_auth::{VerifiedPrincipal, VerifyError};
     use tower::ServiceExt;
 
-    /// The integration-gate canary: the 5-route builder returns
-    /// a router with the 5 expected paths mounted.
+    struct RejectingVerifier;
+
+    #[async_trait]
+    impl AccessTokenVerifier for RejectingVerifier {
+        async fn verify(&self, _token: &str) -> Result<VerifiedPrincipal, VerifyError> {
+            Err(VerifyError::Validation)
+        }
+    }
+
+    /// The production router uses only the canonical market namespace. This
+    /// smoke test deliberately avoids invoking any provider-backed handler.
     #[tokio::test]
-    async fn test_five_route_builder() {
-        // Minimal permission stub for the test.
+    async fn test_canonical_route_inventory_and_blocked_aliases() {
+        for value in [
+            "prod",
+            "production",
+            "prod-eu",
+            "production-eu",
+            "eu-prod",
+            "eu-production",
+            " ProDuction ",
+        ] {
+            assert!(is_production_marker(value), "marker={value}");
+        }
+        for value in ["", "dev", "development", "staging", "live"] {
+            assert!(!is_production_marker(value), "marker={value}");
+        }
+
+        assert_eq!(
+            MARKET_ROUTES,
+            [
+                ("GET", "/health"),
+                ("GET", "/api/analytics/rankings"),
+                ("GET", "/api/analytics/filters"),
+                ("GET", "/api/analytics/countries"),
+                ("GET", "/api/analytics/available-countries"),
+                ("GET", "/api/analytics/sectors"),
+            ]
+        );
+
         let perm: Arc<dyn WalletRankingOffsetQuery> =
             Arc::new(FreePlanWalletRankingOffsetQuery);
-        // Minimal cache for the test.
         let cache: Arc<dyn epsx::infrastructure::cache::Cache> =
             Arc::new(epsx::infrastructure::cache::memory_cache::MemoryCache::new());
-
-        // We can't easily construct a real `EPSRankingService`
-        // without a TradingView service. The audit's live path
-        // constructs one with `EPSRankingService::new(Arc<dyn
-        // EPSRepository>)` — but in tests the `EPSRepository`
-        // trait requires a live TradingView config. Use the
-        // `EPSRankingService::default` placeholder pattern that
-        // the rest of the test suite uses for this service.
-        // For the route-mount canary, we only need *some* Arc to
-        // satisfy the function signature; the handler test
-        // (above, in `eps_handlers::tests`) covers the live
-        // behavior with real handlers + cache.
-        //
-        // If `EPSRankingService` doesn't expose a test-only
-        // constructor, fall back to the
-        // `InProcessWalletRankingOffsetAdapter` pattern: pass a
-        // `Default` placeholder and let the integration gate
-        // confirm the route table.
         use epsx::domain::market_analytics::services::eps_ranking_service::EPSRankingService;
-        // The simplest path: build a real service backed by a
-        // memory-only TradingView service. This duplicates a
-        // small piece of `AnalyticsServiceState::build` but the
-        // test stays self-contained.
         let config = Arc::new(epsx::config::get_fallback_config());
         let tradingview = Arc::new(TradingViewApiService::new(config));
         let eps_repo = Arc::new(TradingViewEPSRepository::new(tradingview));
         let eps_ranking = Arc::new(EPSRankingService::new(eps_repo));
-
-        // Wave 13b Track B — the 4th constructor arg is
-        // the local bus (a fresh empty one is fine; the
-        // test doesn't publish or subscribe).
-        let local_bus = LocalRankingOffsetBus::new(16);
-
-        let router = build_analytics_router(perm, cache, eps_ranking, local_bus);
-
-        // Walk the 7 expected paths (5 analytics + 1
-        // health + 1 wave-13b SSE passthrough). The
-        // router doesn't have a `count_routes()` API,
-        // so we send a GET to each and assert it's NOT
-        // a 404 (404 means the route isn't mounted; 400
-        // / 500 are expected for a bare-bones test
-        // because the handler signature requires query
-        // params).
-        let expected_paths = [
-            "/health",
-            "/rankings",
-            "/filters",
-            "/countries",
-            "/available-countries",
-            "/sectors",
-            // Wave 13b Track B — the SSE passthrough
-            // returns a streaming response (not a 404)
-            // because the handler is reached. We don't
-            // assert the *content* of the stream (that
-            // needs a real bus subscriber), just that
-            // the route is mounted.
-            "/v1/rankings/stream",
-        ];
-        let mut mounted_count = 0;
-        for path in expected_paths {
-            let req = Request::builder()
-                .method("GET")
-                .uri(path)
-                .body(Body::empty())
-                .unwrap();
-            let response = router.clone().oneshot(req).await.unwrap();
-            let status = response.status();
-            // The route is mounted iff the response is NOT 404.
-            // 200 / 400 / 422 / 500 all mean "the route is
-            // mounted, the handler ran, and the request didn't
-            // satisfy it for some reason". 404 means "no such
-            // route".
-            assert_ne!(
-                status,
-                StatusCode::NOT_FOUND,
-                "route {path} should be mounted but got 404"
-            );
-            if status != StatusCode::NOT_FOUND {
-                mounted_count += 1;
-            }
-        }
-        assert_eq!(
-            mounted_count, 7,
-            "expected 7 mounted routes (5 analytics + /health + /v1/rankings/stream), found {mounted_count}"
+        let router = build_analytics_router(
+            perm,
+            cache,
+            eps_ranking,
+            Arc::new(RejectingVerifier),
         );
+
+        let health = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(health.status(), StatusCode::OK);
+
+        for path in [
+            "/rankings",
+            "/api/public/analytics/rankings",
+            "/api/v1/analytics/rankings",
+            "/v1/rankings/stream",
+        ] {
+            let response = router
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri(path)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::NOT_FOUND, "path={path}");
+        }
     }
 
     /// `FreePlanWalletRankingOffsetQuery` returns the free-plan
@@ -695,21 +565,12 @@ mod tests {
         assert!(Arc::strong_count(&state.eps_cache_service) >= 1);
     }
 
-    /// Print the startup banner with the 5 routes — this also
+    /// Print the startup banner with the canonical routes — this also
     /// doubles as a "the routes are what we say they are" smoke
     /// test for the verifier.
     #[test]
     fn test_startup_banner() {
-        let routes = [
-            ("GET", "/api/analytics/rankings"),
-            ("GET", "/api/analytics/filters"),
-            ("GET", "/api/analytics/countries"),
-            ("GET", "/api/analytics/available-countries"),
-            ("GET", "/api/analytics/sectors"),
-            // Wave 13b Track B.
-            ("GET", "/v1/rankings/stream"),
-        ];
-        print_startup_banner(&routes, 8080);
+        print_startup_banner(MARKET_ROUTES, 8080);
         // No panic = pass.
     }
 

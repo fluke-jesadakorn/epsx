@@ -1,0 +1,273 @@
+{
+  "schemaVersion": 1,
+  "artifact": "a2-4-market-analytics-authorization",
+  "contractId": "A2.4-market-analytics-direct-service-authorization",
+  "purpose": "deterministic-hermetic-boundary-and-readiness-stop",
+  "productionReady": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "safety": {
+    "database": false,
+    "redis": false,
+    "identityNetwork": false,
+    "marketProvider": false,
+    "rpc": false,
+    "browser": false,
+    "serviceListener": false,
+    "deployment": false,
+    "production": false
+  },
+  "sourceBaseline": {
+    "ref": "origin/development",
+    "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "interpretation": "Compatibility evidence only; weak invalid-bearer fallback and API-key behavior are not automatically safe production targets.",
+    "evidence": [
+      {
+        "id": "src-market-client-contract",
+        "file": "shared/api/analytics.ts",
+        "blob": "95e6457879199083da6f9cf27034ce0ebc6b1815",
+        "anchor": "/api/analytics/rankings"
+      },
+      {
+        "id": "src-market-action-fallback",
+        "file": "apps/frontend/app/actions/analytics.ts",
+        "blob": "8058d826e5fcec8cb5b1a14e7019da23b5bebf6a",
+        "anchor": "return await analytics.getPublicRankings(mergedFilters);"
+      },
+      {
+        "id": "src-market-router",
+        "file": "apps/backend/src/web/routes/unified_router.rs",
+        "blob": "46b97779e8726757560d7946d1a47114bed28861",
+        "anchor": ".nest(\"/analytics\""
+      },
+      {
+        "id": "src-ranking-offset-authority",
+        "file": "apps/backend/src/web/analytics/eps/cache.rs",
+        "blob": "13f8c39b24a248186d6c24f3298023ba678bc210",
+        "anchor": "get_wallet_ranking_offset"
+      },
+      {
+        "id": "src-market-metadata",
+        "file": "apps/backend/src/web/analytics/eps/metadata.rs",
+        "blob": "fa00324d37a1400519264aa2877b65a1563239e1",
+        "anchor": "get_all_valid_countries"
+      }
+    ]
+  },
+  "targetBase": {
+    "ref": "migration/dioxus-microservices",
+    "commit": "c238954cbbf9b8a5db57ef117f0be638c4613766",
+    "interpretation": "Immutable pre-A2.4 snapshot; root routes, absent direct auth, always-free authority and global SSE were findings to remediate or retain as STOPs.",
+    "evidence": [
+      {
+        "id": "base-market-manifest",
+        "file": "apps/analytics/Cargo.toml",
+        "blob": "249c1d9561ce24a1c106c04633b0885579534a68"
+      },
+      {
+        "id": "base-market-router",
+        "file": "apps/analytics/src/main.rs",
+        "blob": "96b485a1accda0329ae4a9ad170ad805325ff2ae"
+      },
+      {
+        "id": "base-market-grpc",
+        "file": "apps/analytics/src/grpc_client.rs",
+        "blob": "67d4ebf964cc23f5dcbe1dc7dcdbc6596f84bbc8"
+      },
+      {
+        "id": "base-market-sse",
+        "file": "apps/analytics/src/sse_consumer.rs",
+        "blob": "2fc91c9eb39e04068097cf79d648c17966c00fe0"
+      },
+      {
+        "id": "base-shared-verifier",
+        "file": "shared/rust/epsx-service-auth/src/lib.rs",
+        "blob": "2111f6fef250677c0589bf1ece8388a38b57d75b"
+      }
+    ]
+  },
+  "routes": [
+    {
+      "id": "market.health",
+      "methods": ["GET", "HEAD"],
+      "path": "/health",
+      "policy": "public-credential-omitting",
+      "walletSource": null
+    },
+    {
+      "id": "market.rankings",
+      "methods": ["GET"],
+      "path": "/api/analytics/rankings",
+      "policy": "anonymous-or-strict-supplied-bearer",
+      "walletSource": "verified-principal-only"
+    },
+    {
+      "id": "market.filters",
+      "methods": ["GET"],
+      "path": "/api/analytics/filters",
+      "policy": "public-credential-omitting",
+      "walletSource": null
+    },
+    {
+      "id": "market.countries",
+      "methods": ["GET"],
+      "path": "/api/analytics/countries",
+      "policy": "public-credential-omitting",
+      "walletSource": null
+    },
+    {
+      "id": "market.available-countries",
+      "methods": ["GET"],
+      "path": "/api/analytics/available-countries",
+      "policy": "public-credential-omitting",
+      "walletSource": null
+    },
+    {
+      "id": "market.sectors",
+      "methods": ["GET"],
+      "path": "/api/analytics/sectors",
+      "policy": "public-credential-omitting",
+      "walletSource": null
+    }
+  ],
+  "invariants": [
+    {
+      "id": "canonical-market-namespace",
+      "claim": "Only /health and the five canonical /api/analytics market routes are dispatched; raw, public-duplicate, event-analytics and SSE aliases are blocked before dependencies."
+    },
+    {
+      "id": "public-credentials-omitted",
+      "claim": "Health and metadata remain public, strip Authorization and spoofable identity headers, and never invoke the verifier."
+    },
+    {
+      "id": "anonymous-rankings-retained",
+      "claim": "Rankings without Authorization remain anonymous free-tier input for source-compatible public usability."
+    },
+    {
+      "id": "supplied-credentials-strict",
+      "claim": "Any supplied rankings Authorization value must be one strict bearer and verify successfully before handler dispatch."
+    },
+    {
+      "id": "exact-browser-audiences",
+      "claim": "Only verified epsx-frontend or epsx-admin browser audiences can establish a rankings principal."
+    },
+    {
+      "id": "server-derived-wallet",
+      "claim": "The standalone rankings wallet comes only from VerifiedPrincipal and is propagated through a server-owned AnalyticsWalletContext."
+    },
+    {
+      "id": "principal-cache-isolation",
+      "claim": "Anonymous, authenticated and denied rankings responses are private no-store and vary on Authorization so intermediaries cannot reuse a principal-dependent response."
+    },
+    {
+      "id": "spoof-and-bearer-stripping",
+      "claim": "Spoofable identity headers and the raw bearer are removed before handler dispatch."
+    },
+    {
+      "id": "denial-before-handler",
+      "claim": "Invalid, duplicate, malformed, wrong-audience, unknown-path and wrong-method requests fail before handler or provider work."
+    },
+    {
+      "id": "sse-runtime-disabled",
+      "claim": "The A2.4 candidate has no global ranking-offset SSE startup task or downstream route; active pre-candidate deployment manifests remain outside this code-only slice."
+    },
+    {
+      "id": "backend-policy-authority-retained",
+      "claim": "Analytics never derives ranking offset, plan, feature, subscription or entitlement authority from token permission strings."
+    }
+  ],
+  "hermeticTests": [
+    "exact_route_and_method_inventory_is_closed",
+    "health_and_metadata_are_public_and_credential_omitting",
+    "rankings_without_credentials_remains_anonymous_free_tier_input",
+    "exact_frontend_and_admin_principals_propagate_verified_wallet",
+    "invalid_and_unsupported_credentials_fail_before_handler",
+    "malformed_and_duplicate_bearers_fail_before_verifier_or_handler",
+    "spoofable_identity_headers_are_removed_before_dispatch",
+    "route_drift_and_stream_are_404_before_verifier_or_handler",
+    "production_verifier_rejects_local_or_plain_http_authorities",
+    "test_canonical_route_inventory_and_blocked_aliases"
+  ],
+  "implementationEvidence": [
+    {
+      "id": "impl-market-manifest",
+      "file": "apps/analytics/Cargo.toml",
+      "sha256": "8edb05b7fc9f4eee4313c59e434c7a0d874f0f3efe0eaea1df26938a15497f3f"
+    },
+    {
+      "id": "impl-market-auth",
+      "file": "apps/analytics/src/auth.rs",
+      "sha256": "4cb018b22cf510302b20b7c21f546083d07fc39b3b94593212ddc328d55a3471"
+    },
+    {
+      "id": "impl-market-router",
+      "file": "apps/analytics/src/main.rs",
+      "sha256": "f58a2a04d67732e7d322bc552d63919470d6004fe518366cfb338c8a0520620f"
+    },
+    {
+      "id": "impl-market-wallet-bridge",
+      "file": "apps/backend/src/web/analytics/eps/cache.rs",
+      "sha256": "3acb066cc3af7a8415a996ab640ddeb830f1e4a1254f4aa3685cf2a90d1cfe29"
+    }
+  ],
+  "residualStops": [
+    {
+      "id": "route-owner-cutover-unproved",
+      "claim": "The monolith still owns canonical routes and no gateway, Cloudflare or workload cutover is authorized or proven."
+    },
+    {
+      "id": "public-auth-compatibility-incomplete",
+      "claim": "Legacy public duplicate paths, API-key behavior, implicit HEAD, wrong-method 405 behavior, query caps, filters, envelopes and status compatibility are not fully adjudicated."
+    },
+    {
+      "id": "plan-offset-authority-always-free",
+      "claim": "The identity gRPC server still returns free-plan offset for every wallet, so premium behavior is not authoritative."
+    },
+    {
+      "id": "authority-outage-fallback-unproved",
+      "claim": "Authenticated authority failures still silently fall back to free and can continue into provider work instead of a truthful fail-closed response."
+    },
+    {
+      "id": "provider-boundary-unproved",
+      "claim": "TradingView provenance, licensing, quotas, timeout, retry, normalization, freshness, cache and sanitized failure semantics are unproven."
+    },
+    {
+      "id": "provider-amplification-unbounded",
+      "claim": "Public rankings can request up to 1000 rows and construct fresh provider clients without a proven rate, concurrency or circuit-breaker boundary."
+    },
+    {
+      "id": "internal-identity-untrusted",
+      "claim": "The gRPC identity query has no authenticated service identity, authoritative owner binding, NetworkPolicy or immutable non-dev image proof."
+    },
+    {
+      "id": "upstream-ranking-events-unsafe",
+      "claim": "The downstream SSE path is disabled, but identity still exposes unauthenticated emit/global stream endpoints and the candidate retains dormant historical SSE source, tests and dependencies pending archive cleanup."
+    },
+    {
+      "id": "runtime-config-readiness-unproved",
+      "claim": "Checked-in overlays still select pre-A2.4 images/configuration; no reviewed candidate OIDC wiring exists and health does not check identity or market-provider readiness."
+    },
+    {
+      "id": "market-ui-unproved",
+      "claim": "No BFF loader or responsive Dioxus loading, empty, error, stale, filter, pagination, watchlist and entitlement journey consumes this contract."
+    },
+    {
+      "id": "live-runtime-unproved",
+      "claim": "No accepted real JWT, browser, provider, identity, proxy, listener, staging or fault-injection exercise exists."
+    },
+    {
+      "id": "production-actions-unauthorized",
+      "claim": "No build, image publication, database, secret, service restart, canary, rollback or production deployment is authorized by this contract."
+    }
+  ],
+  "requiredExecutionOrder": [
+    "E01 Extract a provider port and bound public request size, concurrency, retry and timeout behavior with deterministic fixtures.",
+    "E02 Make identity ranking offsets authoritative from active backend plan assignments and fail authenticated authority errors truthfully before provider work.",
+    "E03 Define authenticated internal-service identity for ranking queries; keep public emit and global SSE unavailable until a durable owner-safe protocol exists.",
+    "E04 Lock public/auth query, envelope, status, cap, API-key and freshness compatibility against the pinned source contract.",
+    "E05 Select one production market route owner and add explicit gateway or BFF routing without colliding with event analytics.",
+    "E06 Add the typed frontend BFF loader and Dioxus loading, empty, error, stale, filter, sort, pagination, watchlist and entitlement states.",
+    "E07 Run hermetic full-story tests, then separately authorized disposable and staging exercises with observability, shadow parity and rollback evidence.",
+    "E08 Request production deployment authorization only after all residual STOPs are closed."
+  ]
+}

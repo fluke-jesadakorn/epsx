@@ -25,6 +25,24 @@ use super::{
   metadata::{ get_available_countries_static, get_available_sectors_static },
 };
 
+/// Minimal request context inserted only after a transport has verified the
+/// caller. The standalone market service uses this instead of fabricating the
+/// monolith-specific `OpenIDUserContext` fields it does not receive.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AnalyticsWalletContext {
+  wallet_address: String,
+}
+
+impl AnalyticsWalletContext {
+  pub fn new(wallet_address: String) -> Self {
+    Self { wallet_address }
+  }
+
+  pub fn wallet_address(&self) -> &str {
+    &self.wallet_address
+  }
+}
+
 /// GET /api/analytics/rankings - Direct TradingView card dashboard endpoint with caching
 /// Same API contract as before, now using direct TradingView API calls (bypasses broken DDD adapter)
 #[utoipa::path(
@@ -50,6 +68,7 @@ pub async fn get_unified_analytics_rankings_cached(
   Extension(_cache): Extension<Arc<dyn Cache>>,
   Extension(permission_service): Extension<Arc<dyn WalletRankingOffsetQuery>>,
   user_context_ext: Option<Extension<OpenIDUserContext>>,
+  analytics_wallet_ext: Option<Extension<AnalyticsWalletContext>>,
 ) -> Result<Json<CardDashboardResponse>, AppError> {
   debug!(
     "Direct TradingView analytics rankings API called with params: {:?}",
@@ -57,9 +76,15 @@ pub async fn get_unified_analytics_rankings_cached(
   );
 
   let user_context = user_context_ext.map(|ext| ext.0);
+  let analytics_wallet = analytics_wallet_ext.map(|ext| ext.0);
 
-  // Extract wallet from secure user context (JWT)
-  let wallet_address = user_context.as_ref().map(|ctx| ctx.wallet_address.to_lowercase());
+  // Both transports insert server-owned request extensions only after token
+  // verification. The standalone service context wins when present because it
+  // is produced by its direct `epsx-service-auth` boundary.
+  let wallet_address = analytics_wallet
+    .as_ref()
+    .map(|context| context.wallet_address().to_lowercase())
+    .or_else(|| user_context.as_ref().map(|ctx| ctx.wallet_address.to_lowercase()));
 
   if let Some(ref w) = wallet_address {
       // DEBUG: Log wallet detection

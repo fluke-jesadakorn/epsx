@@ -4164,6 +4164,7 @@ dependencies = [
  "chrono",
  "epsx",
  "epsx-contracts",
+ "epsx-service-auth",
  "futures",
  "http 1.4.2",
  "prost",

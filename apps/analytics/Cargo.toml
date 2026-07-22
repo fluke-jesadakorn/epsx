@@ -28,6 +28,7 @@ epsx = { path = "../backend" }
 # can swap to an HTTP / gRPC adapter without changing handler
 # signatures.
 epsx-contracts = { path = "../../shared/rust/epsx-contracts" }
+epsx-service-auth = { path = "../../shared/rust/epsx-service-auth" }
 
 # HTTP / runtime
 axum.workspace = true

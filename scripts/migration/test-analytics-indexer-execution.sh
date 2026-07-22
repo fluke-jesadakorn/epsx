@@ -9,7 +9,7 @@ temp_dir=$(mktemp -d "${TMPDIR:-/tmp}/epsx-analytics-indexer-execution.XXXXXX")
 trap 'rm -rf -- "$temp_dir"' EXIT HUP INT TERM
 
 "$verify" --mode integrity >"$temp_dir/integrity.out" 2>&1
-grep -q "14 source pins, 36 target anchors, 4 separate domains, 16 surfaces, and 24 stop blockers" "$temp_dir/integrity.out"
+grep -q "14 source pins, 37 target anchors, 4 separate domains, 16 surfaces, and 24 stop blockers" "$temp_dir/integrity.out"
 grep -q "no database, Redis, chain, network, live market-data, deployment" "$temp_dir/integrity.out"
 
 set +e
@@ -29,7 +29,7 @@ cmp "$temp_dir/report-one.json" "$temp_dir/report-two.json"
 bun -e '
 const report = JSON.parse(await Bun.file(process.argv[1]).text());
 const expected = ["marketAnalytics", "eventAnalytics", "indexer", "identityRankingOffset"];
-if (report.readinessExit !== 3 || report.productionReady !== false || report.blockers.length !== 24 || report.targetEvidence !== 36 || report.refreshedBoundaryEvidence !== 7 || report.surfaceContracts.length !== 16) process.exit(1);
+if (report.readinessExit !== 3 || report.productionReady !== false || report.blockers.length !== 24 || report.targetEvidence !== 37 || report.refreshedBoundaryEvidence !== 7 || report.surfaceContracts.length !== 16) process.exit(1);
 if (expected.some((domain) => !report.domains[domain] || report.domains[domain].status !== "blocked")) process.exit(1);
 ' "$temp_dir/report-one.json"
 

@@ -136,7 +136,13 @@
       "id": "tgt-market-route-shape",
       "domain": "marketAnalytics",
       "file": "apps/analytics/src/main.rs",
-      "anchor": ".route(\"/rankings\", get(get_unified_analytics_rankings_cached))"
+      "anchor": "\"/api/analytics/rankings\","
+    },
+    {
+      "id": "tgt-market-direct-auth",
+      "domain": "marketAnalytics",
+      "file": "apps/analytics/src/auth.rs",
+      "anchor": "authenticate_headers(state.verifier.as_ref(), request.headers()).await"
     },
     {
       "id": "tgt-market-live-adapter",
@@ -157,10 +163,10 @@
       "anchor": "self.fallback.get_wallet_ranking_offset(wallet).await"
     },
     {
-      "id": "tgt-market-sse-consumer",
+      "id": "tgt-market-a2-4-contract",
       "domain": "marketAnalytics",
-      "file": "apps/analytics/src/main.rs",
-      "anchor": "run_sse_consumer(identity_sse_url, sse_consumer_bus, sse_client, shutdown_rx).await;"
+      "file": "docs/migration/contracts/a2-4-market-analytics-authorization.json",
+      "anchor": "\"contractId\": \"A2.4-market-analytics-direct-service-authorization\""
     },
     {
       "id": "tgt-market-health-shallow",
@@ -354,7 +360,7 @@
       "id": "market-public-rankings",
       "domain": "marketAnalytics",
       "sourceContract": "GET /api/public/analytics/rankings; max 10; public filter restrictions",
-      "targetObserved": "market binary exposes GET /rankings while gateway /api/v1/analytics targets event analytics",
+      "targetObserved": "candidate market binary exposes canonical /api/analytics routes and blocks raw/event aliases, while production ownership and public compatibility remain unproven",
       "status": "blocked",
       "blockerIds": ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B23"]
     },
@@ -362,7 +368,7 @@
       "id": "market-auth-rankings",
       "domain": "marketAnalytics",
       "sourceContract": "GET /api/analytics/rankings with server-resolved plan offset",
-      "targetObserved": "live adapter exists but identity always returns or falls back to free offset",
+      "targetObserved": "strict optional bearer handling propagates a verified wallet, but identity always returns or falls back to free offset",
       "status": "blocked",
       "blockerIds": ["B01", "B02", "B03", "B04", "B07", "B09", "B23"]
     },
@@ -370,7 +376,7 @@
       "id": "market-filters",
       "domain": "marketAnalytics",
       "sourceContract": "GET public/auth filters, countries and country-scoped sectors",
-      "targetObserved": "root-level routes exist; parts of metadata are static and compatibility prefixes are absent",
+      "targetObserved": "canonical metadata routes exist and raw aliases are blocked; response parity and legacy public compatibility are unproven",
       "status": "blocked",
       "blockerIds": ["B01", "B02", "B04", "B06", "B23"]
     },
@@ -503,9 +509,9 @@
       "category": "market-authorization",
       "severity": "stop",
       "status": "blocked",
-      "summary": "The standalone market service has no proven direct-service JWT boundary or authenticated wallet propagation.",
-      "resolution": "Verify tokens at the service, derive wallet from the canonical subject and apply public/auth route policies before live-data work.",
-      "evidenceIds": ["src-auth-route-boundary", "src-ranking-offset-authority", "tgt-market-route-shape"]
+      "summary": "The standalone market service has a hermetic direct-JWT and wallet-propagation boundary, but no live runtime, API-key compatibility, authoritative entitlement-failure, or production ownership proof.",
+      "resolution": "Retain strict service verification and canonical-wallet derivation while proving the remaining compatibility, authority-failure, runtime, routing and cutover behavior.",
+      "evidenceIds": ["src-auth-route-boundary", "src-ranking-offset-authority", "tgt-market-route-shape", "tgt-market-direct-auth"]
     },
     {
       "id": "B04",
@@ -559,7 +565,7 @@
       "status": "blocked",
       "summary": "Ranking-offset SSE is ephemeral and has no durable revision, cursor, replay or repair contract.",
       "resolution": "Publish versioned outbox events, persist consumer cursor, detect gaps and reconcile offsets before invalidating caches.",
-      "evidenceIds": ["tgt-market-sse-consumer", "tgt-identity-stream-route", "tgt-identity-emit-route"]
+      "evidenceIds": ["tgt-market-a2-4-contract", "tgt-identity-stream-route", "tgt-identity-emit-route"]
     },
     {
       "id": "B10",

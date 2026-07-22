@@ -506,6 +506,16 @@ bounded path set. Shared contract files require coordination through package A0.
   identity, migration runner/adoption, and analytics semantics remain
   unresolved.
 
+- **A2.4 status:** the separate market-analytics candidate now uses only the
+  canonical `/api/analytics/*` namespace, keeps metadata public, applies strict
+  optional bearer verification to rankings, propagates only the verified
+  wallet, rejects drift before handlers, and removes its unauthenticated global
+  SSE route/runtime. Ten hermetic tests cover the boundary. The monolith remains
+  route owner; public/auth/API-key compatibility, authoritative plan offsets,
+  provider controls, OIDC workload configuration, BFF/Dioxus UX, live runtime,
+  cutover, and every production action remain explicit STOPs. See
+  `docs/migration/A2_4_MARKET_ANALYTICS_AUTHORIZATION.md`.
+
 - **A2.3b status:** the candidate content service also consumes the shared
   verifier. Public route shapes are explicit, CMS mutations require the admin
   audience plus canonical `admin:content:manage`, and editor-session routes

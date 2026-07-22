@@ -67,6 +67,7 @@ unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
 
 summary=$(bun -e '
 import { readFileSync, realpathSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { isAbsolute, resolve, sep } from "node:path";
 
 const [rootInput, contractPath] = process.argv.slice(1);
@@ -133,7 +134,7 @@ for (const item of source.evidence) {
   anchored(git("show", `${source.commit}:${item.file}`), item, "source");
 }
 
-if (!Array.isArray(contract.targetEvidence) || contract.targetEvidence.length !== 36) fail("exactly thirty-six target evidence records are required");
+if (!Array.isArray(contract.targetEvidence) || contract.targetEvidence.length !== 37) fail("exactly thirty-seven target evidence records are required");
 const targetDomainCounts = Object.fromEntries(Object.keys(expectedDomains).map((domain) => [domain, 0]));
 for (const item of contract.targetEvidence) {
   if (!item || typeof item.id !== "string" || !/^[a-z][a-z0-9-]+$/.test(item.id) || evidenceIds.has(item.id)) fail(`invalid or duplicate evidence id: ${item?.id}`);
@@ -149,6 +150,31 @@ for (const item of contract.targetEvidence) {
   anchored(readFileSync(actual, "utf8"), item, "target");
 }
 for (const [domain, count] of Object.entries(targetDomainCounts)) if (count < 3) fail(`${domain}: insufficient target evidence (${count})`);
+
+const marketBoundaryEvidence = contract.targetEvidence.find((item) => item.id === "tgt-market-a2-4-contract");
+if (!marketBoundaryEvidence || marketBoundaryEvidence.domain !== "marketAnalytics" || marketBoundaryEvidence.file !== "docs/migration/contracts/a2-4-market-analytics-authorization.json") fail("A2.4 market boundary evidence is missing");
+let marketBoundary;
+try { marketBoundary = JSON.parse(readFileSync(resolve(root, marketBoundaryEvidence.file), "utf8")); }
+catch (error) { fail(`invalid A2.4 market boundary JSON: ${error.message}`); }
+if (marketBoundary.schemaVersion !== 1 || marketBoundary.contractId !== "A2.4-market-analytics-direct-service-authorization" || marketBoundary.productionReady !== false || marketBoundary.readinessExit !== 3) fail("A2.4 market boundary identity/readiness drifted");
+if (!Array.isArray(marketBoundary.implementationEvidence) || marketBoundary.implementationEvidence.length !== 4) fail("A2.4 must pin four implementation files");
+const marketFiles = new Map();
+for (const item of marketBoundary.implementationEvidence) {
+  safeRelative(item.file, `A2.4 ${item.id}`);
+  const candidate = resolve(root, item.file);
+  let actual;
+  try { actual = realpathSync(candidate); }
+  catch { fail(`missing A2.4 implementation file ${item.file}`); }
+  if (actual !== root && !actual.startsWith(`${root}${sep}`)) fail(`unsafe A2.4 implementation path ${item.file}`);
+  const content = readFileSync(actual, "utf8");
+  if (!/^[0-9a-f]{64}$/.test(item.sha256) || createHash("sha256").update(content).digest("hex") !== item.sha256) fail(`A2.4 implementation digest drifted: ${item.id}`);
+  marketFiles.set(item.file, content);
+}
+const marketAuth = marketFiles.get("apps/analytics/src/auth.rs");
+const marketMain = marketFiles.get("apps/analytics/src/main.rs");
+if (!marketAuth || !marketMain || !marketAuth.includes("authenticate_headers(state.verifier.as_ref(), request.headers()).await") || !marketAuth.includes("private, no-store")) fail("A2.4 direct-auth/cache structure drifted");
+const marketProduction = marketMain.slice(0, marketMain.indexOf("#[cfg(test)]\nmod tests"));
+if (!marketProduction.includes("protect_router(router, verifier)") || !marketProduction.includes("/api/analytics/rankings") || marketProduction.includes("run_sse_consumer(") || marketProduction.includes("rankings_stream_handler") || marketProduction.includes(".route(\"/v1/rankings/stream\"")) fail("A2.4 route/auth/SSE structure drifted");
 
 const refreshedBoundaryEvidence = {
   "tgt-event-schema-boundary": ["eventAnalytics", "docs/migration/contracts/a3-6-analytics-schema-boundary.json", "\"scannerFindingAfter\": 0"],
@@ -253,7 +279,7 @@ if [ "$mode" = "report" ]; then
 fi
 
 if [ "$mode" = "integrity" ]; then
-  echo "analytics-indexer-execution: PASS — 14 source pins, 36 target anchors, 4 separate domains, 16 surfaces, and 24 stop blockers verified"
+  echo "analytics-indexer-execution: PASS — 14 source pins, 37 target anchors, 4 separate domains, 16 surfaces, and 24 stop blockers verified"
   echo "analytics-indexer-execution: LIMIT — no database, Redis, chain, network, live market-data, deployment, or production readiness was proven"
   exit 0
 fi
