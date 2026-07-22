@@ -19,6 +19,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 mod auth;
+mod news_adapter;
 mod session_auth;
 #[cfg(test)]
 mod session_auth_tests;

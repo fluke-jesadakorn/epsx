@@ -16,6 +16,11 @@ use axum::{
 };
 use epsx_client::RequestContext;
 use epsx_dioxus_ui::layout::shell::{AdminLayout, ServerUser};
+use epsx_dioxus_ui::pages::admin_pages::news::{
+    ADMIN_NEWS_DATA_PARAM, ADMIN_NEWS_EMPTY, ADMIN_NEWS_FORBIDDEN, ADMIN_NEWS_MALFORMED,
+    ADMIN_NEWS_PAGE_PARAM, ADMIN_NEWS_READY, ADMIN_NEWS_STATE_PARAM, ADMIN_NEWS_STATUS_PARAM,
+    ADMIN_NEWS_UNAVAILABLE,
+};
 use epsx_dioxus_ui::pages::admin_pages::payments::{
     decode_admin_payment_intent_list, ADMIN_PAYMENTS_DATA_PARAM, ADMIN_PAYMENTS_EMPTY,
     ADMIN_PAYMENTS_LIMIT_PARAM, ADMIN_PAYMENTS_MALFORMED, ADMIN_PAYMENTS_OFFSET_PARAM,
@@ -26,7 +31,57 @@ use epsx_dioxus_ui::pages::{admin_pages, render_page, PageContext, PageStatus};
 use std::collections::HashMap;
 
 use super::auth;
+use super::news_adapter::{load_admin_news, AdminNewsLoad, AdminNewsQuery};
 use super::AppState;
+
+fn record_admin_news_load(
+    params: &mut HashMap<String, String>,
+    query: &AdminNewsQuery,
+    load: AdminNewsLoad,
+) {
+    params.remove(ADMIN_NEWS_DATA_PARAM);
+    params.insert(ADMIN_NEWS_PAGE_PARAM.to_string(), query.page.to_string());
+    params.insert(
+        ADMIN_NEWS_STATUS_PARAM.to_string(),
+        query.status.to_string(),
+    );
+
+    let state = match load {
+        AdminNewsLoad::Ready(payload) => {
+            params.insert(
+                ADMIN_NEWS_DATA_PARAM.to_string(),
+                serde_json::to_string(&payload)
+                    .expect("the typed admin-news projection is serializable"),
+            );
+            ADMIN_NEWS_READY
+        }
+        AdminNewsLoad::Empty(payload) => {
+            params.insert(
+                ADMIN_NEWS_DATA_PARAM.to_string(),
+                serde_json::to_string(&payload)
+                    .expect("the typed empty admin-news projection is serializable"),
+            );
+            ADMIN_NEWS_EMPTY
+        }
+        AdminNewsLoad::Forbidden => ADMIN_NEWS_FORBIDDEN,
+        AdminNewsLoad::Unavailable => ADMIN_NEWS_UNAVAILABLE,
+        AdminNewsLoad::Malformed => ADMIN_NEWS_MALFORMED,
+    };
+    params.insert(ADMIN_NEWS_STATE_PARAM.to_string(), state.to_string());
+}
+
+fn private_admin_html_response(status: axum::http::StatusCode, doc: String) -> Response {
+    (
+        status,
+        [
+            ("content-type", "text/html; charset=utf-8"),
+            ("cache-control", "private, no-store"),
+            ("vary", "Cookie, Authorization"),
+        ],
+        doc,
+    )
+        .into_response()
+}
 
 fn record_payment_intent_load(
     params: &mut HashMap<String, String>,
@@ -143,6 +198,30 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                     ADMIN_PAYMENTS_STATE_PARAM.to_string(),
                     ADMIN_PAYMENTS_MALFORMED.to_string(),
                 );
+            }
+        }
+    }
+    // The pinned admin news list still has one exact, backend-owned Rust read
+    // contract. Use that compatibility endpoint only for `/news`; the public
+    // file-backed content-service feed is not an admin record authority. The
+    // adapter projects away article bodies and rejects every contract drift.
+    if route_path == "/news" {
+        match AdminNewsQuery::from_raw(&query) {
+            Ok(news_query) => match verified_access_token.as_ref() {
+                Some(token) => {
+                    let mut request_context = RequestContext::from_headers(&headers);
+                    request_context.auth_token = Some(token.clone());
+                    let load = load_admin_news(&state.content, &news_query, &request_context).await;
+                    record_admin_news_load(&mut params, &news_query, load);
+                }
+                None => {
+                    record_admin_news_load(&mut params, &news_query, AdminNewsLoad::Unavailable)
+                }
+            },
+            Err(()) => {
+                let default_query =
+                    AdminNewsQuery::from_raw("").expect("the empty admin-news query is valid");
+                record_admin_news_load(&mut params, &default_query, AdminNewsLoad::Malformed);
             }
         }
     }
@@ -301,7 +380,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
         ),
     );
 
-    (status, [("content-type", "text/html; charset=utf-8")], doc).into_response()
+    private_admin_html_response(status, doc)
 }
 
 /// Keep security-sensitive dynamic chat, news, wallet, and plan references out
@@ -404,6 +483,7 @@ mod tests {
     use super::*;
     use epsx_dioxus_ui::{
         auth::{user::AuthMethod, User},
+        pages::admin_pages::news::{AdminNewsArticleSummary, AdminNewsList},
         pages::PageContext,
     };
 
@@ -443,6 +523,33 @@ mod tests {
             "created_at": "2026-07-22T10:00:00Z",
             "updated_at": "2026-07-22T10:00:00Z"
         })
+    }
+
+    fn news_query() -> AdminNewsQuery {
+        AdminNewsQuery::from_raw("page=2&status=published").unwrap()
+    }
+
+    fn news_payload(articles: Vec<AdminNewsArticleSummary>, total: i64) -> AdminNewsList {
+        AdminNewsList {
+            articles,
+            total,
+            page: 2,
+            limit: 20,
+        }
+    }
+
+    fn news_item() -> AdminNewsArticleSummary {
+        AdminNewsArticleSummary {
+            id: "2f68f1aa-08d7-4b40-a25f-b35e7fd0ed31".to_string(),
+            title: "Migration status".to_string(),
+            slug: "migration-status".to_string(),
+            summary: Some("A backend-authoritative update".to_string()),
+            status: "published".to_string(),
+            tags: vec!["migration".to_string()],
+            published_at: Some("2026-07-22T03:04:05Z".to_string()),
+            created_at: "2026-07-21T03:04:05Z".to_string(),
+            is_pinned: true,
+        }
     }
 
     /// Render a page through the admin BFF render path (without
@@ -656,5 +763,120 @@ mod tests {
             Some(ADMIN_PAYMENTS_UNAVAILABLE)
         );
         assert!(!params.contains_key(ADMIN_PAYMENTS_DATA_PARAM));
+    }
+
+    #[test]
+    fn admin_news_load_records_only_the_projection_and_normalized_query() {
+        let mut params = HashMap::new();
+        record_admin_news_load(
+            &mut params,
+            &news_query(),
+            AdminNewsLoad::Ready(news_payload(vec![news_item()], 41)),
+        );
+
+        assert_eq!(
+            params.get(ADMIN_NEWS_STATE_PARAM).map(String::as_str),
+            Some(ADMIN_NEWS_READY)
+        );
+        assert_eq!(
+            params.get(ADMIN_NEWS_PAGE_PARAM).map(String::as_str),
+            Some("2")
+        );
+        assert_eq!(
+            params.get(ADMIN_NEWS_STATUS_PARAM).map(String::as_str),
+            Some("published")
+        );
+        let stored: serde_json::Value =
+            serde_json::from_str(params.get(ADMIN_NEWS_DATA_PARAM).unwrap()).unwrap();
+        assert_eq!(stored["articles"][0]["slug"], "migration-status");
+        assert_eq!(stored["total"], 41);
+        for forbidden in [
+            "content",
+            "author_wallet",
+            "cover_image_url",
+            "updated_at",
+            "pinned_at",
+        ] {
+            assert!(
+                stored["articles"][0].get(forbidden).is_none(),
+                "{forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn admin_news_load_distinguishes_true_empty_from_an_out_of_range_page() {
+        let query = news_query();
+        let mut empty = HashMap::new();
+        record_admin_news_load(
+            &mut empty,
+            &query,
+            AdminNewsLoad::Empty(news_payload(Vec::new(), 0)),
+        );
+        assert_eq!(
+            empty.get(ADMIN_NEWS_STATE_PARAM).map(String::as_str),
+            Some(ADMIN_NEWS_EMPTY)
+        );
+        assert!(empty.contains_key(ADMIN_NEWS_DATA_PARAM));
+
+        let mut recoverable = HashMap::new();
+        record_admin_news_load(
+            &mut recoverable,
+            &query,
+            AdminNewsLoad::Ready(news_payload(Vec::new(), 41)),
+        );
+        assert_eq!(
+            recoverable.get(ADMIN_NEWS_STATE_PARAM).map(String::as_str),
+            Some(ADMIN_NEWS_READY)
+        );
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(
+                recoverable.get(ADMIN_NEWS_DATA_PARAM).unwrap()
+            )
+            .unwrap()["total"],
+            41
+        );
+    }
+
+    #[test]
+    fn admin_news_failure_states_remove_stale_projection_data() {
+        for (load, expected) in [
+            (AdminNewsLoad::Forbidden, ADMIN_NEWS_FORBIDDEN),
+            (AdminNewsLoad::Unavailable, ADMIN_NEWS_UNAVAILABLE),
+            (AdminNewsLoad::Malformed, ADMIN_NEWS_MALFORMED),
+        ] {
+            let mut params = HashMap::from([(
+                ADMIN_NEWS_DATA_PARAM.to_string(),
+                "stale-sensitive-news-data".to_string(),
+            )]);
+            record_admin_news_load(&mut params, &news_query(), load);
+            assert_eq!(
+                params.get(ADMIN_NEWS_STATE_PARAM).map(String::as_str),
+                Some(expected)
+            );
+            assert!(!params.contains_key(ADMIN_NEWS_DATA_PARAM));
+        }
+    }
+
+    #[test]
+    fn admin_html_is_private_no_store_and_varies_by_session_credentials() {
+        let response = private_admin_html_response(
+            axum::http::StatusCode::OK,
+            "private draft summary".to_string(),
+        );
+        assert_eq!(
+            response
+                .headers()
+                .get(axum::http::header::CACHE_CONTROL)
+                .and_then(|value| value.to_str().ok()),
+            Some("private, no-store")
+        );
+        assert_eq!(
+            response
+                .headers()
+                .get(axum::http::header::VARY)
+                .and_then(|value| value.to_str().ok()),
+            Some("Cookie, Authorization")
+        );
     }
 }

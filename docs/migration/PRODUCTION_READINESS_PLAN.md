@@ -833,7 +833,7 @@ bounded path set. Shared contract files require coordination through package A0.
 
 - **A8.0–A8.1 status:** the pinned admin contract covers the exact 27 source
   routes and all three intentional redirects in seven execution batches. It records
-  two aligned, two partial, and 23 blocked routes plus 20 cross-cutting STOP
+  two aligned, three partial, and 22 blocked routes plus 20 cross-cutting STOP
   blockers. `/access-denied` and `/unauthorized` now preserve bounded escaped
   copy, inherited metadata, safe reauthentication/return behavior, keyboard
   order, responsive light/dark layout, and authenticated local browser proof.
@@ -844,8 +844,12 @@ bounded path set. Shared contract files require coordination through package A0.
   308; fixed-target in-process proof does not establish source middleware/logout/
   session ordering, accepted method/body/cache/query semantics, or authenticated
   browser history, RSC, and client-navigation parity. The admin SSR still provides no general
-  per-page loader. Dashboard, analytics, audit-log, chat list/detail, media,
-  news list/create/edit, notification manage/create, settings, developer portal,
+  per-page loader. `/news` is now partial through a strict SSR-only read adapter
+  to the pinned Rust backend's protected admin-news list: it preserves bounded
+  page/status state, projects away bodies and identity/media fields, separates
+  empty/forbidden/unavailable/malformed outcomes, and exposes no mutation. The
+  public file-backed content feed remains prohibited as admin state. Dashboard,
+  analytics, audit-log, chat list/detail, media, news create/edit, notification manage/create, settings, developer portal,
   wallet credits/access/list/detail/disable, and wallet-plan list/detail now
   fail closed without sample records, counts, health, history, configuration,
   credentials, balances, ledger rows, assignments, catalogs, filters, forms,
@@ -854,11 +858,15 @@ bounded path set. Shared contract files require coordination through package A0.
   BFF paths still drift, and preserved statuses still lack typed envelopes and
   general page-level consumption. The target-only `/policies` addition now
   returns the shared 404 and exposes no fabricated policy state or gate.
+  The pinned admin `/analytics` route is now explicitly mapped as an EPS market-
+  ranking surface with plan-access and watchlist inputs; the target event-
+  analytics proxies are a different domain and remain prohibited as its data
+  source.
   Developer-portal readiness additionally
   stops on plaintext `api_keys.full_key` persistence/list projection; credit
   readiness stops on a GET path that can create a balance record and on the
   unresolved financial mutation authority.
-  The exact **2 aligned / 2 partial / 23 blocked**, 20-STOP integrity and tamper
+  The exact **2 aligned / 3 partial / 22 blocked**, 20-STOP integrity and tamper
   gates pass; readiness intentionally exits `3`. No live service, database,
   chain, or deployment access is claimed.
 
@@ -919,7 +927,15 @@ bounded path set. Shared contract files require coordination through package A0.
   page/theme/block CRUD, media, filesystem trust, migrations/reconciliation,
   backend-owned plans/rankings/portfolio, wire/status parity, truthful UI
   states, audit/outbox/idempotency, shadowing, and rollback. Integrity and tamper
-  tests pass; readiness intentionally exits `3`.
+  tests pass; readiness intentionally exits `3`. The admin `/news` list now has
+  a read-only compatibility adapter to the pinned Rust monolith's protected
+  `news_articles` endpoint, with strict projection and explicit failure states.
+  That improves A8 usability but closes no A10 blocker: the producer is not the
+  content service, read/manage authority is not split, ordering lacks a stable
+  tie-breaker, and migration/revision/publication/runtime proof remains absent.
+  The compatibility read itself now uses an 8 MiB pre-allocation body cap and
+  private/no-store SSR output; those safeguards do not establish A10 ownership
+  or lifecycle parity.
 
 ### A11 — Notification vertical slice (P1)
 

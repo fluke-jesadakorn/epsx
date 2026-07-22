@@ -36,11 +36,26 @@
       "anchors": [
         "let mut params = HashMap::new();",
         "record_payment_intent_load(&mut params, result);",
+        "record_admin_news_load(&mut params, &news_query, load);",
         "let (m, b) = admin_pages::dispatch(&c);",
         "fn safe_admin_layout_path(layout_path: &str, is_authenticated: bool) -> String",
         "let status = match meta.status"
       ],
-      "finding": "SSR verifies a session and keeps data params empty by default; signed-out dynamic chat, news-edit, wallet, disable, and plan shells reduce layout paths to static collections so breadcrumbs and return URLs cannot disclose route references; only the payment-intents tab now performs a bounded authenticated read and records explicit ready, empty, unavailable, or malformed state."
+      "finding": "SSR verifies a session and keeps data params empty by default; signed-out dynamic chat, news-edit, wallet, disable, and plan shells reduce layout paths to static collections so breadcrumbs and return URLs cannot disclose route references; payment intents and the admin news list now perform normalized authenticated reads with explicit non-empty, empty, forbidden where applicable, unavailable, or malformed outcomes."
+    },
+    {
+      "file": "apps/admin/src/news_adapter.rs",
+      "anchors": [
+        "pub(crate) struct AdminNewsQuery",
+        "\"/api/admin/news?page={}&limit={ADMIN_NEWS_LIMIT}\"",
+        "pub(crate) async fn load_admin_news",
+        "MAX_ADMIN_NEWS_RESPONSE_BYTES",
+        "read_response_body_limited",
+        "pub(crate) fn classify_admin_news_result",
+        "#[serde(deny_unknown_fields)]",
+        "ClientError::UpstreamStatus(403)"
+      ],
+      "finding": "The read-only compatibility adapter targets the pinned Rust backend's protected admin-news contract, caps declared and chunked response bodies at 8 MiB before JSON allocation, rejects duplicate or malformed recognized query values and structural or semantic response drift, projects away bodies and identity/media fields, and never treats dependency or error envelopes as an authoritative empty list. The public file-backed content feed is deliberately not used as admin state."
     },
     {
       "file": "apps/admin/src/main.rs",
@@ -188,14 +203,14 @@
       "path": "/analytics", "batch": "B1-command-security", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/analytics/page.tsx", "anchors": ["export default async function AnalyticsPage", "Promise.all"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/analytics.rs", "handler": "analytics::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-admin-analytics-state\": \"unavailable\"", "fn unavailable_state_has_no_samples_claims_or_controls()"]},
-      "params": {"names": ["range", "scope", "sort", "search"], "current": "query and route parameters are ignored until a backend-owned contract validates them"},
-      "data": {"reads": ["events", "metrics", "revenue", "plan access", "watchlist"], "endpoints": ["GET /api/v1/analytics/events", "GET /api/v1/analytics/metrics/:metric", "GET /api/v1/analytics/revenue"], "current": "verified-session explicit unavailable state with no analytics values, records, timestamps, or status claims", "fallbacks": []},
-      "permissions": {"read": ["admin:analytics:view"], "manage": [], "current": "session-only unavailable shell; backend analytics authorization remains authoritative and no frontend capability is inferred"},
+      "params": {"names": ["page", "limit", "country", "sector", "sort_by", "min_eps", "min_growth", "search"], "current": "the pinned market-ranking query is ignored until a backend-owned ranking contract validates every field"},
+      "data": {"reads": ["EPS market-ranking cards", "ranking pagination/access metadata", "plan access", "watchlist"], "endpoints": ["GET /api/analytics/rankings", "fallback GET /api/public/analytics/rankings"], "current": "verified-session explicit unavailable state with no rankings, plan/access claims, watchlist state, freshness, or status claims", "fallbacks": []},
+      "permissions": {"read": ["backend-owned market-ranking entitlement and field-authorization decision required"], "manage": [], "current": "session-only unavailable shell; admin:analytics:view belongs to the separate event-analytics domain and is not inferred for market rankings"},
       "mutations": [],
-      "contracts": {"bodies": [], "envelopes": ["unverified analytics proxy JSON"], "statuses": ["BFF preserves allowlisted status only; the page has no typed error handling"]},
+      "contracts": {"bodies": [], "envelopes": ["pinned CardDashboardResponse market-ranking shape remains unadapted"], "statuses": ["the current /api/v1/analytics/* BFF routes expose event analytics and must not be consumed by this page"]},
       "states": {"loading": "missing", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "missing", "conflict": "not-applicable"},
       "ux": {"keyboard": "native retry and admin-home links; focused browser proof remains open", "responsive": "page-owned responsive unavailable shell present; focused browser proof remains open", "hydration": "not required because no analytics control is exposed"},
-      "blockers": ["wire canonical authorized analytics reads and export, preserve validated query state, and prove loaded/empty/degraded/error/retry plus accessible interaction"]
+      "blockers": ["select and secure the market-ranking authority separately from event analytics, remove entitlement fallback broadening, preserve the pinned validated query/access/watchlist contract, and prove loaded/empty/stale/degraded/error/retry plus accessible interaction"]
     },
     {
       "path": "/audit-log", "batch": "B1-command-security", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
@@ -289,22 +304,22 @@
       "blockers": ["define backend media read/manage authorization and typed inventory states, consume storage-provider-backed bounded pagination, and implement validated upload/delete with progress, conflict, error, retry, integrity, and storage/cache proof"]
     },
     {
-      "path": "/news", "batch": "B4-content-media", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A10", "A11", "A12"],
+      "path": "/news", "batch": "B4-content-media", "status": "partial", "dependencies": ["A1", "A2", "A3", "A5", "A10", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/news/page.tsx", "anchors": ["export default async function NewsPage", "listNewsAction"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/news.rs", "handler": "news::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-admin-news-state\": \"unavailable\"", "fn unavailable_routes_have_no_fake_mutations_filters_or_editor_controls()"]},
-      "params": {"names": ["page", "status"], "current": "legacy list and filter parameters are ignored until a typed A10 boundary exists"},
-      "data": {"reads": ["draft/published articles", "total", "pagination"], "endpoints": [], "current": "authenticated explicit unavailable state with no inferred records or total", "fallbacks": []},
-      "permissions": {"read": ["backend content read decision required"], "manage": ["admin:content:manage before any content mutation"], "current": "session-only unavailable shell; no article data or action is exposed and frontend authorization is not inferred"},
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/news.rs", "handler": "news::render", "anchors": ["pub fn render(ctx: &PageContext)", "pub fn decode_admin_news_projection", "fn ready_projection_renders_escaped_read_only_cards()", "fn create_edit_and_list_expose_no_mutation_surfaces()"]},
+      "params": {"names": ["page", "status"], "current": "SSR accepts one bounded page and one exact all/draft/published status, rejects duplicate or malformed recognized fields, fixes limit at 20, and drops unrelated query input"},
+      "data": {"reads": ["draft/published article summaries", "total", "page", "fixed limit"], "endpoints": ["GET /api/admin/news?page=:page&limit=20[&status=draft|published]"], "current": "strict read-only projection from the pinned protected Rust backend; content, author identity, cover media, updated timestamp, and pinned timestamp are discarded before rendering", "fallbacks": []},
+      "permissions": {"read": ["legacy backend admin:content:manage compatibility guard"], "manage": ["admin:content:manage before any content mutation"], "current": "the verified admin bearer is forwarded and the Rust backend repeats its existing manage guard; the UI performs no permission expansion or decision"},
       "mutations": [],
-      "contracts": {"bodies": [], "envelopes": [], "statuses": ["typed ready/empty/error and publish conflict contracts remain absent"]},
-      "states": {"loading": "missing", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "missing", "conflict": "missing"},
-      "ux": {"keyboard": "native retry and admin-home links; focused browser proof remains open", "responsive": "responsive shell present; focused browser proof remains open", "hydration": "not required for the fail-closed shell"},
-      "blockers": ["define and enforce typed backend list/read authorization, consume A10 list data, preserve URL pagination/filter, and prove ready/empty/error/forbidden/retry plus publish conflict behavior"]
+      "contracts": {"bodies": [], "envelopes": ["strict legacy UnifiedApiResponse<NewsListResponse> decode followed by a minimal deny-unknown projection"], "statuses": ["upstream 403 becomes a forbidden page state; other dependency failures are unavailable; HTTP-200 error envelopes and malformed success bodies are never empty"]},
+      "states": {"loading": "not-applicable", "empty": "present", "error": "present", "retry": "present", "forbidden": "present", "conflict": "missing"},
+      "ux": {"keyboard": "native status, retry, and pagination links preserve normalized query state; focused browser proof remains open", "responsive": "source-inspired read-only cards and bounded page navigation are present; focused browser proof remains open", "hydration": "not required because the list has only native links and no mutation controls"},
+      "blockers": ["move the compatibility producer to content-service-owned storage with a canonical read/manage split and deterministic ordering; prove isolated backend/database and browser behavior; keep create/edit/publish/pin/delete/upload blocked until revision, conflict, audit, and mutation contracts exist"]
     },
     {
       "path": "/news/create", "batch": "B4-content-media", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A10", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/news/create/page.tsx", "anchors": ["export default function CreateNewsPage", "<NewsEditor />"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/news.rs", "handler": "news::render_create", "anchors": ["pub fn render_create(ctx: &PageContext)", "\"data-admin-news-state\": \"unavailable\"", "fn unavailable_routes_have_no_fake_mutations_filters_or_editor_controls()"]},
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/news.rs", "handler": "news::render_create", "anchors": ["pub fn render_create(ctx: &PageContext)", "render_unavailable_route(ctx, NewsRoute::Create, None)", "\"data-admin-news-state\": ADMIN_NEWS_UNAVAILABLE", "fn create_edit_and_list_expose_no_mutation_surfaces()"]},
       "params": {"names": [], "current": "legacy editor parameters are ignored"},
       "data": {"reads": ["editor categories/media/revision defaults"], "endpoints": [], "current": "authenticated explicit unavailable state; no static editor or defaults", "fallbacks": []},
       "permissions": {"read": [], "manage": ["admin:content:manage before any content mutation"], "current": "session-only unavailable shell; no frontend capability is inferred"},
@@ -317,7 +332,7 @@
     {
       "path": "/news/:id/edit", "batch": "B4-content-media", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A10", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/news/[id]/edit/page.tsx", "anchors": ["export default async function EditNewsPage", "getNewsAction(id)"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/news.rs", "handler": "news::render_edit", "anchors": ["pub fn render_edit(ctx: &PageContext)", "bounded_route_reference(ctx.params.get(\"id\")", "fn authenticated_edit_is_unavailable_and_labels_reference_unverified()"]},
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/news.rs", "handler": "news::render_edit", "anchors": ["pub fn render_edit(ctx: &PageContext)", "bounded_route_reference(ctx.params.get(\"id\")", "fn hostile_edit_reference_is_bounded_control_free_and_escaped()", "fn create_edit_and_list_expose_no_mutation_surfaces()"]},
       "params": {"names": ["id"], "current": "route reference is control-free, capped at 64 Unicode scalar values, escaped by Dioxus, and labeled unverified; no canonical lookup occurs"},
       "data": {"reads": ["article revision"], "endpoints": [], "current": "authenticated explicit unavailable state; route value never implies record existence or ownership", "fallbacks": []},
       "permissions": {"read": ["backend content read decision required"], "manage": ["admin:content:manage before any content mutation"], "current": "session-only unavailable shell; no record or frontend capability is inferred"},
