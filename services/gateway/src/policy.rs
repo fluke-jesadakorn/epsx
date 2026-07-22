@@ -137,10 +137,51 @@ pub fn classify(method: &Method, path: &str) -> AccessPolicy {
             AccessPolicy::Permission("admin:indexer:manage")
         }
 
-        // `/api/v1/payment/*` is intentionally not mapped to `/api/v1/pay/*`.
-        // Financial rewrites require the A6 ownership/handler parity proof.
+        // Account payment history is the only Pay route exposed by this
+        // gateway slice. The Pay service remains the owner authority: this
+        // boundary authenticates the caller but does not compare wallets.
+        (&Method::GET, ["api", "v1", "pay", "history", wallet]) if safe_wallet_segment(wallet) => {
+            AccessPolicy::Authenticated
+        }
+
+        // All other Pay and legacy payment shapes remain deny-by-default.
         _ => AccessPolicy::Blocked,
     }
+}
+
+pub(super) const MAX_WALLET_SEGMENT_BYTES: usize = 128;
+
+fn safe_wallet_segment(segment: &str) -> bool {
+    !segment.is_empty()
+        && segment.len() <= MAX_WALLET_SEGMENT_BYTES
+        && !segment.starts_with("force-")
+        && !matches!(
+            segment,
+            "health"
+                | "pay"
+                | "admin"
+                | "intents"
+                | "escrows"
+                | "links"
+                | "history"
+                | "webhooks"
+                | "on-chain"
+                | "sync"
+                | "confirm"
+                | "cancel"
+                | "release"
+                | "refund"
+                | "dispute"
+                | "resolve"
+                | "confirm-deposit"
+                | "redeem"
+                | "force-cancel"
+                | "force-release"
+                | "force-refund"
+        )
+        && segment
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }
 
 fn normalized_segments(path: &str) -> Option<Vec<&str>> {
@@ -256,6 +297,11 @@ mod tests {
                 Method::POST,
                 "/api/v1/indexer/sync",
                 AccessPolicy::Permission("admin:indexer:manage"),
+            ),
+            (
+                Method::GET,
+                "/api/v1/pay/history/0x1111111111111111111111111111111111111111",
+                AccessPolicy::Authenticated,
             ),
         ];
 
@@ -642,6 +688,45 @@ mod tests {
         for (method, path) in cases {
             assert_eq!(
                 classify(&method, path),
+                AccessPolicy::Blocked,
+                "{method} {path}"
+            );
+        }
+    }
+
+    #[test]
+    fn owner_history_policy_is_exact_and_rejects_unsafe_wallet_segments() {
+        let wallet = "0x1111111111111111111111111111111111111111";
+        assert_eq!(
+            classify(&Method::GET, &format!("/api/v1/pay/history/{wallet}")),
+            AccessPolicy::Authenticated
+        );
+
+        let oversized = "a".repeat(MAX_WALLET_SEGMENT_BYTES + 1);
+        let blocked = [
+            (Method::HEAD, format!("/api/v1/pay/history/{wallet}")),
+            (Method::POST, format!("/api/v1/pay/history/{wallet}")),
+            (Method::PUT, format!("/api/v1/pay/history/{wallet}")),
+            (Method::DELETE, format!("/api/v1/pay/history/{wallet}")),
+            (Method::GET, "/api/v1/pay/history".into()),
+            (Method::GET, format!("/api/v1/pay/history/{wallet}/extra")),
+            (Method::GET, format!("/api/v1/pay/history/{wallet}/")),
+            (
+                Method::GET,
+                format!("/api/v1/pay/history/{wallet}?limit=10"),
+            ),
+            (Method::GET, "/api/v1/pay/history/0xabc%2Fextra".into()),
+            (Method::GET, "/api/v1/pay/history/0xabc%252Fextra".into()),
+            (Method::GET, "/api/v1/pay/history/0xabc\\extra".into()),
+            (Method::GET, "/api/v1/pay/history/wallet:0xabc".into()),
+            (Method::GET, "/api/v1/pay/history/history".into()),
+            (Method::GET, "/api/v1/pay/history/force-release".into()),
+            (Method::GET, format!("/api/v1/pay/history/{oversized}")),
+            (Method::GET, format!("/api/v1/payment/history/{wallet}")),
+        ];
+        for (method, path) in blocked {
+            assert_eq!(
+                classify(&method, &path),
                 AccessPolicy::Blocked,
                 "{method} {path}"
             );

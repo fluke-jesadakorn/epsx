@@ -34,12 +34,17 @@
 //! All section markers are asserted in the `tests` module below.
 
 use crate::primitives::*;
-use crate::feedback::*;
 
-use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
+use crate::components::account::{
+    decode_pay_history, PaymentHistoryLoad, PaymentHistoryTab, ACCOUNT_PAYMENT_HISTORY_DATA_PARAM,
+    ACCOUNT_PAYMENT_HISTORY_EMPTY, ACCOUNT_PAYMENT_HISTORY_MALFORMED,
+    ACCOUNT_PAYMENT_HISTORY_MAX_ITEMS, ACCOUNT_PAYMENT_HISTORY_READY,
+    ACCOUNT_PAYMENT_HISTORY_STATE_PARAM, ACCOUNT_PAYMENT_HISTORY_UNAVAILABLE,
+};
 use crate::layout::main_layout::MainLayout;
+use dioxus::prelude::*;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::app("Account");
@@ -53,20 +58,23 @@ fn RenderAccount(ctx: PageContext) -> Element {
     // placeholder defaults that match the OLD prod render: a
     // connected address, a "Join Now" member-since, $0 balance, and
     // "Web3 Vault" auth method.
-    let data: Option<AccountData> = ctx.params.get("data_account")
+    let data: Option<AccountData> = ctx
+        .params
+        .get("data_account")
         .and_then(|s| serde_json::from_str(s).ok());
 
-    let wallet = data.as_ref()
+    let wallet = data
+        .as_ref()
         .and_then(|d| d.wallet_address.clone())
         .or_else(|| ctx.user.as_ref().map(|u| u.address.clone()))
         .unwrap_or_else(|| "Not Connected".to_string());
-    let member_since = data.as_ref()
+    let member_since = data
+        .as_ref()
         .and_then(|d| d.member_since.clone())
         .unwrap_or_else(|| "Join Now".to_string());
-    let available_balance = data.as_ref()
-        .map(|d| d.available_balance)
-        .unwrap_or(0.0);
-    let method = data.as_ref()
+    let available_balance = data.as_ref().map(|d| d.available_balance).unwrap_or(0.0);
+    let method = data
+        .as_ref()
         .and_then(|d| d.method.clone())
         .unwrap_or_else(|| "Web3 Vault".to_string());
     let method_pretty = if method == "wallet" || method.is_empty() {
@@ -74,6 +82,8 @@ fn RenderAccount(ctx: PageContext) -> Element {
     } else {
         method
     };
+    let payment_history_address = ctx.user.as_ref().map(|user| user.address.clone());
+    let payment_history_load = payment_history_load(&ctx);
 
     rsx! {
         MainLayout { ctx: ctx.clone(),
@@ -112,7 +122,10 @@ fn RenderAccount(ctx: PageContext) -> Element {
                 }
                 // 5. Transaction History
                 div { class: "mt-8",
-                    PaymentHistorySection {}
+                    PaymentHistorySection {
+                        address: payment_history_address,
+                        load: payment_history_load,
+                    }
                 }
                 // 6. Notification Preferences
                 div { class: "mt-8",
@@ -341,27 +354,60 @@ fn AccessAndPlansSection() -> Element {
 /// Transaction History section. Mirrors
 /// `account-client.tsx` lines 248-257 + `payment-history-tab.tsx`.
 ///
-/// wave49(slice-5): now renders the `PaymentHistoryTab` from
-/// `crate::components::account::*` (the slice-4 shared component).
-/// Passes the SSR-resolved `static_history` prop when the
-/// caller pre-fetched it; falls through to the empty state when
-/// not. The page-level rendering keeps the
-/// `data-section="account-payment-history"` marker that the
-/// existing pixel-diff tests assert on.
+/// The BFF supplies an explicit state and an owner-scoped, bounded JSON
+/// payload. Missing data remains unavailable; it is never treated as empty.
 #[component]
-fn PaymentHistorySection() -> Element {
-    use crate::components::account::{PaymentHistoryTab, PayHistory};
-    // The BFF should pre-fetch the history server-side via
-    // `GET /api/v1/pay/history/{address}` and inject the JSON
-    // here. Slice-5 ships the shell; slice-6+ will wire the
-    // BFF-side fetch (see apps/frontend/src/ssr.rs::fetch_page_data).
-    let static_history: Option<PayHistory> = None;
+fn PaymentHistorySection(address: Option<String>, load: PaymentHistoryLoad) -> Element {
     rsx! {
         PaymentHistoryTab {
-            address: None,
-            static_history,
+            address,
+            load,
             class: Some("account-payment-history".to_string()),
         }
+    }
+}
+
+fn payment_history_load(ctx: &PageContext) -> PaymentHistoryLoad {
+    let Some(user) = ctx.user.as_ref() else {
+        return PaymentHistoryLoad::SignedOut;
+    };
+
+    match ctx
+        .params
+        .get(ACCOUNT_PAYMENT_HISTORY_STATE_PARAM)
+        .map(String::as_str)
+    {
+        None | Some(ACCOUNT_PAYMENT_HISTORY_UNAVAILABLE) => PaymentHistoryLoad::Unavailable,
+        Some(ACCOUNT_PAYMENT_HISTORY_MALFORMED) => PaymentHistoryLoad::Malformed,
+        Some(ACCOUNT_PAYMENT_HISTORY_READY) | Some(ACCOUNT_PAYMENT_HISTORY_EMPTY) => {
+            let expected_empty = ctx
+                .params
+                .get(ACCOUNT_PAYMENT_HISTORY_STATE_PARAM)
+                .is_some_and(|state| state == ACCOUNT_PAYMENT_HISTORY_EMPTY);
+            let Some(value) = ctx
+                .params
+                .get(ACCOUNT_PAYMENT_HISTORY_DATA_PARAM)
+                .and_then(|raw| serde_json::from_str(raw).ok())
+            else {
+                return PaymentHistoryLoad::Malformed;
+            };
+            let Some(history) =
+                decode_pay_history(value, &user.address, ACCOUNT_PAYMENT_HISTORY_MAX_ITEMS)
+            else {
+                return PaymentHistoryLoad::Malformed;
+            };
+            let is_empty = history.intents.is_empty()
+                && history.escrows.is_empty()
+                && history.total_intents == 0
+                && history.total_escrows == 0;
+
+            match (expected_empty, is_empty) {
+                (true, true) => PaymentHistoryLoad::Empty,
+                (false, false) => PaymentHistoryLoad::Ready(history),
+                _ => PaymentHistoryLoad::Malformed,
+            }
+        }
+        Some(_) => PaymentHistoryLoad::Malformed,
     }
 }
 
@@ -422,12 +468,7 @@ fn NotificationPreferencesSection() -> Element {
 }
 
 #[component]
-fn NotifToggleRow(
-    icon: String,
-    label: String,
-    desc: String,
-    on_signal: Signal<bool>,
-) -> Element {
+fn NotifToggleRow(icon: String, label: String, desc: String, on_signal: Signal<bool>) -> Element {
     let mut sig = on_signal;
     rsx! {
         label { class: "cursor-pointer group notif-toggle-row block",
@@ -514,8 +555,9 @@ struct AccountData {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::auth::user::User;
     use crate::auth::user::AuthMethod;
+    use crate::auth::user::User;
+    use serde_json::json;
 
     fn authed_ctx() -> PageContext {
         PageContext {
@@ -546,12 +588,44 @@ mod tests {
         ]
     }
 
+    fn history_payload() -> serde_json::Value {
+        json!({
+            "address": "0x1234ABCD",
+            "intents": [{
+                "id": "intent-account-1",
+                "chain_id": "1",
+                "payer": "0x1234abcd",
+                "payee": "0xmerchant",
+                "amount": "20.00",
+                "token_address": "0xtoken",
+                "status": "confirmed",
+                "escrow_id": null,
+                "tx_hash": null,
+                "description": null,
+                "expires_at": null,
+                "created_at": "2026-07-22T10:11:12Z",
+                "updated_at": "2026-07-22T10:12:13Z"
+            }],
+            "escrows": [],
+            "total_intents": 1,
+            "total_escrows": 0
+        })
+    }
+
     #[test]
     fn test_render_smoke() {
         let (_meta, el) = render(&authed_ctx());
         let html = dioxus_ssr::render_element(el);
-        assert!(!html.is_empty(), "account page must render non-empty HTML. Got: {}", html);
-        assert!(html.len() > 100, "account HTML is suspiciously short ({} bytes).", html.len());
+        assert!(
+            !html.is_empty(),
+            "account page must render non-empty HTML. Got: {}",
+            html
+        );
+        assert!(
+            html.len() > 100,
+            "account HTML is suspiciously short ({} bytes).",
+            html.len()
+        );
     }
 
     #[test]
@@ -571,9 +645,14 @@ mod tests {
         ] {
             let n = needle(marker);
             assert!(
-                html.contains(&n[0]) || html.contains(&n[1]) || html.contains(&n[2]) || html.contains(&n[3]) || html.contains(&n[4]),
+                html.contains(&n[0])
+                    || html.contains(&n[1])
+                    || html.contains(&n[2])
+                    || html.contains(&n[3])
+                    || html.contains(&n[4]),
                 "account page must contain section marker '{}'. Got: {}",
-                marker, html
+                marker,
+                html
             );
         }
     }
@@ -582,8 +661,11 @@ mod tests {
     fn test_hero_present() {
         let (_meta, el) = render(&authed_ctx());
         let html = dioxus_ssr::render_element(el);
-        assert!(html.contains("Account Settings"),
-            "page must render the 'Account Settings' hero title. Got: {}", html);
+        assert!(
+            html.contains("Account Settings"),
+            "page must render the 'Account Settings' hero title. Got: {}",
+            html
+        );
     }
 
     #[test]
@@ -602,9 +684,13 @@ mod tests {
         ] {
             let n = needle(old_marker);
             assert!(
-                !(html.contains(&n[0]) || html.contains(&n[1]) || html.contains(&n[2]) || html.contains(&n[3])),
+                !(html.contains(&n[0])
+                    || html.contains(&n[1])
+                    || html.contains(&n[2])
+                    || html.contains(&n[3])),
                 "T2 removed the old 6-tab model; section marker '{}' must not render. Got: {}",
-                old_marker, html
+                old_marker,
+                html
             );
         }
     }
@@ -615,7 +701,88 @@ mod tests {
         let html = dioxus_ssr::render_element(el);
         // Without `data_account`, the current page intentionally uses the
         // authenticated user's address before falling back to "Not Connected".
-        assert!(html.contains("0x1234abcd"),
-            "wallet field must fall back to the authenticated user's address. Got: {}", html);
+        assert!(
+            html.contains("0x1234abcd"),
+            "wallet field must fall back to the authenticated user's address. Got: {}",
+            html
+        );
+    }
+
+    #[test]
+    fn payment_history_missing_payload_is_unavailable_not_empty() {
+        let (_meta, element) = render(&authed_ctx());
+        let html = dioxus_ssr::render_element(element);
+        assert!(html.contains("Payment history is temporarily unavailable"));
+        assert!(!html.contains("No payment history yet"));
+    }
+
+    #[test]
+    fn payment_history_signed_out_precedes_injected_state() {
+        let mut ctx = PageContext {
+            path: "/account".to_string(),
+            ..Default::default()
+        };
+        ctx.params.insert(
+            ACCOUNT_PAYMENT_HISTORY_STATE_PARAM.to_string(),
+            "empty".to_string(),
+        );
+        ctx.params.insert(
+            ACCOUNT_PAYMENT_HISTORY_DATA_PARAM.to_string(),
+            json!({
+                "address": "0x1234abcd",
+                "intents": [],
+                "escrows": [],
+                "total_intents": 0,
+                "total_escrows": 0
+            })
+            .to_string(),
+        );
+
+        assert_eq!(payment_history_load(&ctx), PaymentHistoryLoad::SignedOut);
+        let (_meta, element) = render(&ctx);
+        let html = dioxus_ssr::render_element(element);
+        assert!(html.contains("Sign in to view payment history"));
+        assert!(!html.contains("No payment history yet"));
+    }
+
+    #[test]
+    fn payment_history_ready_and_empty_states_require_matching_payloads() {
+        let mut ready = authed_ctx();
+        ready.params.insert(
+            ACCOUNT_PAYMENT_HISTORY_STATE_PARAM.to_string(),
+            "ready".to_string(),
+        );
+        ready.params.insert(
+            ACCOUNT_PAYMENT_HISTORY_DATA_PARAM.to_string(),
+            history_payload().to_string(),
+        );
+        let (_meta, element) = render(&ready);
+        let html = dioxus_ssr::render_element(element);
+        assert!(html.contains("intent-account-1"));
+        assert!(html.contains("20.00"));
+
+        let mut empty = authed_ctx();
+        empty.params.insert(
+            ACCOUNT_PAYMENT_HISTORY_STATE_PARAM.to_string(),
+            "empty".to_string(),
+        );
+        empty.params.insert(
+            ACCOUNT_PAYMENT_HISTORY_DATA_PARAM.to_string(),
+            json!({
+                "address": "0x1234abcd",
+                "intents": [],
+                "escrows": [],
+                "total_intents": 0,
+                "total_escrows": 0
+            })
+            .to_string(),
+        );
+        assert_eq!(payment_history_load(&empty), PaymentHistoryLoad::Empty);
+
+        empty.params.insert(
+            ACCOUNT_PAYMENT_HISTORY_STATE_PARAM.to_string(),
+            "ready".to_string(),
+        );
+        assert_eq!(payment_history_load(&empty), PaymentHistoryLoad::Malformed);
     }
 }

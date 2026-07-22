@@ -21,6 +21,11 @@ use axum::{
 };
 use epsx_dioxus_ui::auth::wallet_button::ConnectedWalletState;
 use epsx_dioxus_ui::auth::User;
+use epsx_dioxus_ui::components::account::{
+    decode_pay_history, ACCOUNT_PAYMENT_HISTORY_DATA_PARAM, ACCOUNT_PAYMENT_HISTORY_EMPTY,
+    ACCOUNT_PAYMENT_HISTORY_MALFORMED, ACCOUNT_PAYMENT_HISTORY_READY,
+    ACCOUNT_PAYMENT_HISTORY_STATE_PARAM, ACCOUNT_PAYMENT_HISTORY_UNAVAILABLE,
+};
 use epsx_dioxus_ui::pages::{
     is_known_frontend_route, render_page, PageContext, PageMeta, PageStatus,
 };
@@ -49,6 +54,13 @@ const UNAUTH_REDIRECT_PATHS: &[&str] = &[
 
 const NOTIFICATIONS_DATA_PARAM: &str = "data_notifications";
 const NOTIFICATIONS_STATE_PARAM: &str = "data_notifications_state";
+const ACCOUNT_PAYMENT_HISTORY_LIMIT: usize = 10;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum AccountPaymentHistoryLoadError {
+    Unavailable,
+    Malformed,
+}
 
 /// Record the notification dependency outcome without turning an upstream
 /// failure into an empty or demo list. The Dioxus page treats `ok` as
@@ -68,6 +80,84 @@ fn record_notification_load(
             params.insert(NOTIFICATIONS_STATE_PARAM.into(), "error".into());
         }
     }
+}
+
+fn account_payment_history_path(owner: &str) -> Option<String> {
+    let reserved = owner.starts_with("force-")
+        || matches!(
+            owner,
+            "health"
+                | "pay"
+                | "admin"
+                | "intents"
+                | "escrows"
+                | "links"
+                | "history"
+                | "webhooks"
+                | "on-chain"
+                | "sync"
+                | "confirm"
+                | "cancel"
+                | "release"
+                | "refund"
+                | "dispute"
+                | "resolve"
+                | "confirm-deposit"
+                | "redeem"
+                | "force-cancel"
+                | "force-release"
+                | "force-refund"
+        );
+    let safe = !reserved
+        && !owner.is_empty()
+        && owner.len() <= 128
+        && owner != "."
+        && owner != ".."
+        && owner
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'));
+    safe.then(|| {
+        format!("/api/v1/pay/history/{owner}?limit={ACCOUNT_PAYMENT_HISTORY_LIMIT}&offset=0")
+    })
+}
+
+/// Persist only a semantically validated owner-history payload. Dependency,
+/// contract, and genuine-empty outcomes remain distinct so the account page
+/// never turns an upstream failure into "No payment history yet."
+fn record_account_payment_history_load(
+    params: &mut HashMap<String, String>,
+    expected_owner: &str,
+    result: Result<serde_json::Value, AccountPaymentHistoryLoadError>,
+) {
+    params.remove(ACCOUNT_PAYMENT_HISTORY_DATA_PARAM);
+    let state = match result {
+        Ok(value) => match decode_pay_history(value, expected_owner, ACCOUNT_PAYMENT_HISTORY_LIMIT)
+        {
+            Some(history) => {
+                let empty = history.intents.is_empty()
+                    && history.escrows.is_empty()
+                    && history.total_intents == 0
+                    && history.total_escrows == 0;
+                params.insert(
+                    ACCOUNT_PAYMENT_HISTORY_DATA_PARAM.to_string(),
+                    serde_json::to_string(&history)
+                        .expect("the validated owner payment history is serializable"),
+                );
+                if empty {
+                    ACCOUNT_PAYMENT_HISTORY_EMPTY
+                } else {
+                    ACCOUNT_PAYMENT_HISTORY_READY
+                }
+            }
+            None => ACCOUNT_PAYMENT_HISTORY_MALFORMED,
+        },
+        Err(AccountPaymentHistoryLoadError::Unavailable) => ACCOUNT_PAYMENT_HISTORY_UNAVAILABLE,
+        Err(AccountPaymentHistoryLoadError::Malformed) => ACCOUNT_PAYMENT_HISTORY_MALFORMED,
+    };
+    params.insert(
+        ACCOUNT_PAYMENT_HISTORY_STATE_PARAM.to_string(),
+        state.to_string(),
+    );
 }
 
 fn news_detail_route_slug(path: &str) -> Option<&str> {
@@ -476,18 +566,42 @@ async fn fetch_page_data(
     // placeholder set. Now `data_account` returns either the user's
     // real values (authed) or the placeholder (anon).
     if path == "/account" {
-        if let Ok(v) = state
-            .identity
-            .get_with_ctx("/api/v1/account", &request_context)
-            .await
-        {
-            params.insert("data_account".into(), v.to_string());
-        } else if let Ok(v) = state
-            .identity
-            .get_with_ctx("/api/v1/auth/me", &request_context)
-            .await
-        {
-            params.insert("data_account".into(), v.to_string());
+        // Never ask an identity dependency for owner data on the public,
+        // signed-out account shell. Candidate profile reads require the same
+        // locally verified bearer used to construct `user`.
+        if user.is_some() && verified_access_token.is_some() {
+            if let Ok(v) = state
+                .identity
+                .get_with_ctx("/api/v1/account", &request_context)
+                .await
+            {
+                params.insert("data_account".into(), v.to_string());
+            } else if let Ok(v) = state
+                .identity
+                .get_with_ctx("/api/v1/auth/me", &request_context)
+                .await
+            {
+                params.insert("data_account".into(), v.to_string());
+            }
+        }
+
+        // Source parity starts with the canonical first owner-history page.
+        // The path owner is derived only from the locally verified session;
+        // URL query, connected-wallet cookies, and account payloads never
+        // select financial records. Pay repeats the owner comparison.
+        if let Some(owner) = user.as_ref().map(|user| user.address.as_str()) {
+            let result = match (verified_access_token, account_payment_history_path(owner)) {
+                (Some(_), Some(path)) => state
+                    .payment
+                    .get_with_ctx(&path, &request_context)
+                    .await
+                    .map_err(|_| {
+                        tracing::warn!("account owner payment-history dependency unavailable");
+                        AccountPaymentHistoryLoadError::Unavailable
+                    }),
+                _ => Err(AccountPaymentHistoryLoadError::Malformed),
+            };
+            record_account_payment_history_load(params, owner, result);
         }
     }
     // /account/credits: lifetime earned/spent + transactions.
@@ -1033,6 +1147,7 @@ fn safe_return_url(query: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::account_payment_history_path;
     use super::apply_ssr_cache_policy;
     use super::developer_docs_runtime_script;
     use super::escaped_page_metadata;
@@ -1044,11 +1159,139 @@ mod tests {
     use super::offline_service_worker_script;
     use super::offline_worker_registration_script;
     use super::pricing_redirect_response;
+    use super::record_account_payment_history_load;
     use super::record_notification_load;
     use super::safe_return_url;
     use super::urlencode;
     use epsx_dioxus_ui::pages::PageMeta;
     use std::collections::HashMap;
+
+    fn owner_history_payload(owner: &str, with_intent: bool) -> serde_json::Value {
+        let intents = if with_intent {
+            vec![serde_json::json!({
+                "id": "intent-1",
+                "chain_id": "56",
+                "payer": owner,
+                "payee": "0x2222222222222222222222222222222222222222",
+                "amount": "1000000",
+                "token_address": "0x3333333333333333333333333333333333333333",
+                "status": "pending",
+                "escrow_id": null,
+                "tx_hash": null,
+                "description": null,
+                "expires_at": null,
+                "created_at": "2026-07-22T10:00:00Z",
+                "updated_at": "2026-07-22T10:00:00Z"
+            })]
+        } else {
+            Vec::new()
+        };
+        serde_json::json!({
+            "address": owner,
+            "intents": intents,
+            "escrows": [],
+            "total_intents": if with_intent { 1 } else { 0 },
+            "total_escrows": 0
+        })
+    }
+
+    #[test]
+    fn account_payment_history_path_uses_only_a_safe_fixed_first_page() {
+        assert_eq!(
+            account_payment_history_path("0xAbC"),
+            Some("/api/v1/pay/history/0xAbC?limit=10&offset=0".to_string())
+        );
+        for unsafe_owner in [
+            "",
+            ".",
+            "..",
+            "0xabc/foreign",
+            "0xabc%2Fforeign",
+            "0xabc?limit=100",
+            "0xabc foreign",
+            "0xabc\nforeign",
+            "history",
+            "force-release",
+            "force-anything",
+        ] {
+            assert_eq!(
+                account_payment_history_path(unsafe_owner),
+                None,
+                "{unsafe_owner:?}"
+            );
+        }
+        assert!(account_payment_history_path(&"a".repeat(129)).is_none());
+    }
+
+    #[test]
+    fn account_payment_history_records_ready_and_authoritative_empty() {
+        let owner = "0x1111111111111111111111111111111111111111";
+        let mut params = HashMap::new();
+        record_account_payment_history_load(
+            &mut params,
+            owner,
+            Ok(owner_history_payload(owner, true)),
+        );
+        assert_eq!(
+            params
+                .get(epsx_dioxus_ui::components::account::ACCOUNT_PAYMENT_HISTORY_STATE_PARAM)
+                .map(String::as_str),
+            Some(epsx_dioxus_ui::components::account::ACCOUNT_PAYMENT_HISTORY_READY)
+        );
+        assert!(params
+            .contains_key(epsx_dioxus_ui::components::account::ACCOUNT_PAYMENT_HISTORY_DATA_PARAM));
+
+        record_account_payment_history_load(
+            &mut params,
+            owner,
+            Ok(owner_history_payload(owner, false)),
+        );
+        assert_eq!(
+            params
+                .get(epsx_dioxus_ui::components::account::ACCOUNT_PAYMENT_HISTORY_STATE_PARAM)
+                .map(String::as_str),
+            Some(epsx_dioxus_ui::components::account::ACCOUNT_PAYMENT_HISTORY_EMPTY)
+        );
+    }
+
+    #[test]
+    fn account_payment_history_never_turns_wrong_owner_or_failure_into_empty() {
+        let owner = "0x1111111111111111111111111111111111111111";
+        let mut params = HashMap::from([(
+            epsx_dioxus_ui::components::account::ACCOUNT_PAYMENT_HISTORY_DATA_PARAM.to_string(),
+            "stale-owner-data".to_string(),
+        )]);
+        record_account_payment_history_load(
+            &mut params,
+            owner,
+            Ok(owner_history_payload(
+                "0x9999999999999999999999999999999999999999",
+                true,
+            )),
+        );
+        assert_eq!(
+            params
+                .get(epsx_dioxus_ui::components::account::ACCOUNT_PAYMENT_HISTORY_STATE_PARAM)
+                .map(String::as_str),
+            Some(epsx_dioxus_ui::components::account::ACCOUNT_PAYMENT_HISTORY_MALFORMED)
+        );
+        assert!(!params
+            .contains_key(epsx_dioxus_ui::components::account::ACCOUNT_PAYMENT_HISTORY_DATA_PARAM));
+
+        record_account_payment_history_load(
+            &mut params,
+            owner,
+            Err(super::AccountPaymentHistoryLoadError::Unavailable),
+        );
+        assert_eq!(
+            params
+                .get(epsx_dioxus_ui::components::account::ACCOUNT_PAYMENT_HISTORY_STATE_PARAM)
+                .map(String::as_str),
+            Some(epsx_dioxus_ui::components::account::ACCOUNT_PAYMENT_HISTORY_UNAVAILABLE)
+        );
+        assert!(!params
+            .contains_key(epsx_dioxus_ui::components::account::ACCOUNT_PAYMENT_HISTORY_DATA_PARAM));
+    }
 
     #[test]
     fn notification_load_records_explicit_success_with_exact_payload() {

@@ -125,6 +125,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/identity/{*path}", any(proxy_identity))
         .route("/api/v1/wallet/{*path}", any(proxy_wallet))
         .route("/api/v1/payment/{*path}", any(proxy_payment))
+        .route("/api/v1/pay/{*path}", any(proxy_payment))
         .route("/api/v1/subscription/{*path}", any(proxy_subscription))
         .route("/api/v1/content/{*path}", any(proxy_content))
         .route("/api/v1/news", any(proxy_news))
@@ -317,7 +318,16 @@ async fn proxy_to_service(
     {
         Ok(response) => response,
         Err(error) => {
-            tracing::warn!(%error, %url, "gateway upstream request failed");
+            let error_class = if error.is_timeout() {
+                "timeout"
+            } else if error.is_connect() {
+                "connect"
+            } else if error.is_request() {
+                "request"
+            } else {
+                "other"
+            };
+            tracing::warn!(error_class, "gateway upstream request failed");
             return GatewayError::BadGateway.into_response();
         }
     };
@@ -463,6 +473,7 @@ mod tests {
 
     #[derive(Debug, Clone)]
     struct CapturedRequest {
+        uri: String,
         path: String,
         headers: HeaderMap,
         body: Vec<u8>,
@@ -476,6 +487,7 @@ mod tests {
 
     async fn capture_upstream(State(capture): State<Arc<Capture>>, req: Request) -> Response {
         capture.hits.fetch_add(1, Ordering::SeqCst);
+        let uri = req.uri().to_string();
         let path = req.uri().path().to_string();
         let oversized_response = path.ends_with("/large-response");
         let headers = req.headers().clone();
@@ -484,6 +496,7 @@ mod tests {
             .unwrap()
             .to_vec();
         capture.requests.lock().await.push(CapturedRequest {
+            uri,
             path,
             headers,
             body,
@@ -667,6 +680,79 @@ mod tests {
                 expected
             );
         }
+        assert_eq!(capture.hits.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn owner_history_is_authenticated_and_forwarded_without_rewrite() {
+        let (app, capture, verifier) = test_app().await;
+        let wallet = "0x1111111111111111111111111111111111111111";
+        let uri = format!("/api/v1/pay/history/{wallet}?limit=10&offset=0");
+        let request = axum::http::Request::builder()
+            .method(Method::GET)
+            .uri(&uri)
+            .header(header::AUTHORIZATION, "Bearer front")
+            .body(Body::empty())
+            .unwrap();
+
+        assert_eq!(status(&app, request).await, StatusCode::NO_CONTENT);
+        assert_eq!(verifier.calls.load(Ordering::SeqCst), 1);
+        assert_eq!(capture.hits.load(Ordering::SeqCst), 1);
+        let requests = capture.requests.lock().await;
+        assert_eq!(requests[0].uri, uri);
+        assert_eq!(requests[0].headers[header::AUTHORIZATION], "Bearer front");
+    }
+
+    #[tokio::test]
+    async fn owner_history_requires_authentication_before_upstream() {
+        let (app, capture, _) = test_app().await;
+        let request = axum::http::Request::builder()
+            .method(Method::GET)
+            .uri("/api/v1/pay/history/0x1111111111111111111111111111111111111111")
+            .body(Body::empty())
+            .unwrap();
+
+        assert_eq!(status(&app, request).await, StatusCode::UNAUTHORIZED);
+        assert_eq!(capture.hits.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn other_pay_shapes_are_not_authenticated_or_forwarded() {
+        let (app, capture, verifier) = test_app().await;
+        let wallet = "0x1111111111111111111111111111111111111111";
+        let oversized = "a".repeat(policy::MAX_WALLET_SEGMENT_BYTES + 1);
+        let cases = [
+            (Method::HEAD, format!("/api/v1/pay/history/{wallet}")),
+            (Method::POST, format!("/api/v1/pay/history/{wallet}")),
+            (Method::GET, "/api/v1/pay/history".into()),
+            (Method::GET, format!("/api/v1/pay/history/{wallet}/extra")),
+            (Method::GET, format!("/api/v1/pay/history/{wallet}/")),
+            (Method::GET, "/api/v1/pay/history/0xabc%2Fextra".into()),
+            (Method::GET, "/api/v1/pay/history/0xabc%252Fextra".into()),
+            (Method::GET, "/api/v1/pay/history/wallet:0xabc".into()),
+            (Method::GET, "/api/v1/pay/history/history".into()),
+            (Method::GET, "/api/v1/pay/history/force-release".into()),
+            (Method::GET, format!("/api/v1/pay/history/{oversized}")),
+            (Method::GET, format!("/api/v1/payment/history/{wallet}")),
+            (Method::GET, "/api/v1/pay/intents".into()),
+            (Method::POST, "/api/v1/pay/intents".into()),
+        ];
+
+        for (method, uri) in cases {
+            let request = axum::http::Request::builder()
+                .method(method.clone())
+                .uri(&uri)
+                .header(header::AUTHORIZATION, "Bearer front")
+                .body(Body::empty())
+                .unwrap();
+            assert_eq!(
+                status(&app, request).await,
+                StatusCode::NOT_FOUND,
+                "{method} {uri}"
+            );
+        }
+
+        assert_eq!(verifier.calls.load(Ordering::SeqCst), 0);
         assert_eq!(capture.hits.load(Ordering::SeqCst), 0);
     }
 

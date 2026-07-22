@@ -87,14 +87,14 @@
     {
       "path":"/account","batch":"B2-identity","status":"blocked","dependencies":["A1","A5","A6"],
       "source":{"file":"apps/frontend/app/account/page.tsx","anchors":["export default async function AccountPage()","pagination:"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/account.rs","handler":"account::render","anchors":["pub fn render(ctx: &PageContext)","ctx.params.get(\"data_account\")"]},
-      "payloads":{"staticOrSample":["zero/not-connected fallback and local preference defaults"],"placeholderOrSkeleton":[]},
-      "loader":{"kind":"gateway","endpoints":["GET /api/v1/account","GET /api/v1/auth/me"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"\"/api/v1/account\""}]},
-      "authOwner":{"auth":"optional at dispatcher; live data requires verified session","owner":"session wallet"},
-      "interactions":{"forms":[],"pagination":["pinned source payment-history pagination; absent in target"],"search":[],"wallet":["account identity display"],"keyboard":["native links/toggles only"],"controls":["notification preferences are local signals only"]},
-      "states":{"loading":"missing","empty":"present","error":"missing","retry":"missing"},
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/account.rs","handler":"account::render","anchors":["pub fn render(ctx: &PageContext)","let payment_history_load = payment_history_load(&ctx);","PaymentHistoryLoad::SignedOut"]},
+      "payloads":{"staticOrSample":["zero/not-connected account-stat fallback and local preference defaults"],"placeholderOrSkeleton":[]},
+      "loader":{"kind":"owner-gateway-explicit-outcome-first-page","endpoints":["GET /api/v1/account","GET /api/v1/auth/me","GET /api/v1/pay/history/{session-wallet}?limit=10&offset=0"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"account_payment_history_path(owner)"},{"file":"services/gateway/src/policy.rs","anchor":"safe_wallet_segment(wallet)"},{"file":"services/pay/src/handlers/pay_history.rs","anchor":"let addr = canonical_owner(&principal, Some(&address))?;"}]},
+      "authOwner":{"auth":"optional account shell; payment history requires a locally verified session, authenticated gateway forwarding, and a supported Pay audience","owner":"path owner comes only from the verified session wallet; Pay repeats canonical_owner and hides mismatches"},
+      "interactions":{"forms":[],"pagination":["canonical first page is fixed at limit 10 and offset 0; later pinned-source pagination remains absent"],"search":[],"wallet":["account identity display; payment owner never comes from query or connected-wallet cookies"],"keyboard":["native payment refresh, retry, sign-in, and page links"],"controls":["payment history refresh/retry is native; notification preferences remain local signals only"]},
+      "states":{"loading":"not-applicable","empty":"present","error":"present","retry":"present"},
       "hydration":{"need":"browser","status":"partial","reason":"preference toggles are local and not persisted"},
-      "blockers":["restore owner-scoped payment history pagination and persist account preferences; do not mask loader errors as zero account"]
+      "blockers":["prove owner separation against an isolated Pay-service/database fixture and focused browser, then add source-compatible payment-history pagination without client-selected ownership","replace zero account-stat fallbacks and persist backend-owned account preferences; A1/A5/A6 remain open"]
     },
     {
       "path":"/account/credits","batch":"B2-identity","status":"blocked","dependencies":["A1","A5"],

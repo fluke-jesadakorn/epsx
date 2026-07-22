@@ -33,6 +33,10 @@ use axum::{
 use std::time::Duration;
 use tracing::warn;
 
+const PAY_PROXY_LOG_CATEGORY: &str = "legacy_pay_proxy";
+const PAY_PROXY_ROUTE_TEMPLATE: &str = "/api/v1/pay/{*rest}";
+const PAY_PROXY_UPSTREAM_ERROR_BODY: &str = "upstream pay service unavailable";
+
 #[derive(Clone)]
 pub struct PayProxyState {
     pub pay_base_url: String,
@@ -41,14 +45,42 @@ pub struct PayProxyState {
 
 impl PayProxyState {
     pub fn from_env() -> Self {
-        let pay_base_url = std::env::var("PAY_URL")
-            .unwrap_or_else(|_| "http://epsx-pay-svc:8103".to_string());
+        let pay_base_url =
+            std::env::var("PAY_URL").unwrap_or_else(|_| "http://epsx-pay-svc:8103".to_string());
         let http = reqwest::Client::builder()
             .timeout(Duration::from_secs(30))
             .build()
             .expect("reqwest client builder");
         Self { pay_base_url, http }
     }
+}
+
+fn log_method(method: &str) -> &'static str {
+    match method {
+        "GET" => "GET",
+        "HEAD" => "HEAD",
+        "POST" => "POST",
+        "PUT" => "PUT",
+        "PATCH" => "PATCH",
+        "DELETE" => "DELETE",
+        "OPTIONS" => "OPTIONS",
+        _ => "OTHER",
+    }
+}
+
+fn warn_legacy_pay_proxy(method: &str) {
+    let method = log_method(method);
+    warn!(
+        target: "pay_proxy",
+        category = PAY_PROXY_LOG_CATEGORY,
+        route_template = PAY_PROXY_ROUTE_TEMPLATE,
+        method,
+        "legacy pay proxy request"
+    );
+}
+
+fn upstream_unavailable_response() -> Response {
+    (StatusCode::BAD_GATEWAY, PAY_PROXY_UPSTREAM_ERROR_BODY).into_response()
 }
 
 /// Catch-all pay proxy handler. Matches any path under
@@ -79,13 +111,7 @@ pub async fn pay_proxy(
         query,
     );
 
-    warn!(
-        target: "pay_proxy",
-        path = %full_path,
-        upstream = %upstream,
-        method = %method_str,
-        "proxying legacy /api/v1/pay/* request to pay.epsx.io (slice-4 backwards-compat)"
-    );
+    warn_legacy_pay_proxy(&method_str);
 
     // Read the request body.
     let body_bytes = match to_bytes(req.into_body(), 16 * 1024 * 1024).await {
@@ -100,15 +126,22 @@ pub async fn pay_proxy(
     };
 
     // Build the upstream request.
-    let method = reqwest::Method::from_bytes(method_str.as_bytes())
-        .unwrap_or(reqwest::Method::GET);
-    let mut upstream_req = state.http.request(method, &upstream).body(body_bytes.to_vec());
+    let method = reqwest::Method::from_bytes(method_str.as_bytes()).unwrap_or(reqwest::Method::GET);
+    let mut upstream_req = state
+        .http
+        .request(method, &upstream)
+        .body(body_bytes.to_vec());
 
     // Forward request headers (excluding hop-by-hop).
     for (k, v) in headers.iter() {
         if matches!(
             k.as_str(),
-            "host" | "connection" | "keep-alive" | "transfer-encoding" | "upgrade" | "content-length"
+            "host"
+                | "connection"
+                | "keep-alive"
+                | "transfer-encoding"
+                | "upgrade"
+                | "content-length"
         ) {
             continue;
         }
@@ -143,10 +176,41 @@ pub async fn pay_proxy(
             let body_bytes = resp.bytes().await.unwrap_or_default();
             Ok((status, resp_headers, Body::from(body_bytes.to_vec())).into_response())
         }
-        Err(e) => Err((
-            StatusCode::BAD_GATEWAY,
-            format!("upstream pay-svc error: {}", e),
-        )
-            .into_response()),
+        Err(_) => Err(upstream_unavailable_response()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pay_proxy_warning_metadata_is_static_and_non_identifying() {
+        assert_eq!(PAY_PROXY_LOG_CATEGORY, "legacy_pay_proxy");
+        assert_eq!(PAY_PROXY_ROUTE_TEMPLATE, "/api/v1/pay/{*rest}");
+        assert!(!PAY_PROXY_ROUTE_TEMPLATE.contains("history/0x"));
+        assert!(!PAY_PROXY_ROUTE_TEMPLATE.contains('?'));
+        assert!(!PAY_PROXY_ROUTE_TEMPLATE.contains("http"));
+        assert_eq!(log_method("GET"), "GET");
+        assert_eq!(
+            log_method("0x1111111111111111111111111111111111111111"),
+            "OTHER"
+        );
+    }
+
+    #[tokio::test]
+    async fn upstream_failure_body_never_exposes_topology_owner_or_query() {
+        let response = upstream_unavailable_response();
+        assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
+        let body = to_bytes(response.into_body(), 1_024).await.unwrap();
+        assert_eq!(body.as_ref(), PAY_PROXY_UPSTREAM_ERROR_BODY.as_bytes());
+        let text = String::from_utf8(body.to_vec()).unwrap();
+        for sensitive in [
+            "http://epsx-pay-svc:8103",
+            "/api/v1/pay/history/0x1111111111111111111111111111111111111111",
+            "limit=10&offset=0",
+        ] {
+            assert!(!text.contains(sensitive), "{sensitive}");
+        }
     }
 }
