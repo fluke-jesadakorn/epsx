@@ -1,487 +1,252 @@
-//! /admin/wallet-management/access — wallet access control manager.
+//! `/wallet-management/access` — truthful wallet-access availability.
 //!
-//! Wave 6B Track C port — brings the page from a thin shell (24 LoC) to a
-//! section-level port of the Next.js source
-//! (`apps-old/admin-frontend/app/wallet-management/access/page.tsx` 5 LoC +
-//! `components/wallet/wallet-access-manager.tsx` 137 LoC +
-//! `components/wallet/wallet-access-section.tsx` 161 LoC +
-//! `components/wallet/wallet-access-components.tsx` 545 LoC; the
-//! plan-editor subdir is shared with `wallet_plans.rs`).
-//!
-//! Section coverage (matches design doc §"Track C — wallet_access"):
-//! 1. `WalletAccessManager` — the main two-column layout (Available
-//!    column on the left, Authorized column on the right) with the
-//!    bulk-action toolbar above. Mirrors `wallet-access-manager.tsx`.
-//! 2. `PlanSelectorModal` — modal for picking a plan when granting
-//!    access. Mirrors the `CreatePlanSheet` + `PlanSelectorModal`
-//!    pattern from the plan editor sub-components.
-//! 3. `AccessGrantForm` — form for granting a wallet access to a
-//!    plan or permission. Mirrors `wallet-access-components.tsx`
-//!    `WalletAccessActionBar` + grant-side form fields.
-//! 4. `AccessRevokeDialog` — confirmation dialog (target slot for
-//!    Track B's `<AdminActionConfirm>`). Mirrors the revoke action
-//!    flow.
-//!
-//! Section markers (used by `tests::test_section_markers`):
-//!   - `wallet-access-manager`
-//!   - `plan-selector-modal`
-//!   - `access-grant-form`
-//!   - `access-revoke-dialog`
-
-use crate::feedback::*;
-use crate::primitives::*;
+//! The legacy page loaded permission plans and exposed plan and permission
+//! editing. The Rust admin BFF has no selected backend-authoritative read or
+//! mutation contract for this route, so this leaf fails closed. A verified
+//! session may see the explicit unavailable state; signed-out visitors see
+//! only the session gate. Authorization and access policy remain backend-owned.
 
 use dioxus::prelude::*;
-use super::super::{PageContext, PageMeta};
-use crate::auth::AdminAuthGate;
 
-// ============================================================================
-// Page entry
-// ============================================================================
+use crate::auth::AuthGate;
+use crate::primitives::Icon;
+
+use super::super::{PageContext, PageMeta};
+
+const WALLET_ACCESS_PATH: &str = "/wallet-management/access";
+const ADMIN_HOME_PATH: &str = "/";
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::admin("Access control");
-    (meta, rsx! {
-        AdminAuthGate { user: ctx.user.clone(), feature: Some("access control".to_string()), required_permissions: Some(vec!["admin:permissions:read".to_string()]), return_url: Some(ctx.path.clone()),
-            div { class: "container page-content",
-                // Page header
-                div { class: "flex items-center justify-between mb-6",
-                    div {
-                        h1 { class: "text-2xl font-bold", "Wallet access manager" }
-                        p { class: "text-muted-foreground", "Manage per-wallet access to plans and permissions" }
-                    }
-                    WalletAccessManageGate { user: ctx.user.clone(), return_url: ctx.path.clone(),
-                        div { class: "wallet-access-grant-control",
-                            button { class: "btn btn-primary", r#type: "button",
-                                Icon { name: "user-check".to_string(), size: Some(16) }
-                                " Grant access"
+    let meta = PageMeta::admin("Wallet access unavailable");
+
+    // Query and route parameters are deliberately ignored. Only a future
+    // backend-owned response may establish plans, permissions, assignments,
+    // or authorization to mutate them.
+    (
+        meta,
+        rsx! {
+            AuthGate {
+                user: ctx.user.clone(),
+                feature: Some("the private wallet access workspace".to_string()),
+                return_url: Some(WALLET_ACCESS_PATH.to_string()),
+                WalletAccessUnavailable {}
+            }
+        },
+    )
+}
+
+/// This leaf owns route content only. The admin BFF supplies the single
+/// authenticated layout, so rendering another shell or `<main>` here would
+/// duplicate document structure.
+#[component]
+fn WalletAccessUnavailable() -> Element {
+    rsx! {
+        div {
+            class: "container page-content admin-wallet-access py-8",
+            "data-admin-wallet-access-state": "unavailable",
+            section {
+                class: "relative overflow-hidden rounded-3xl border border-border/40 bg-card shadow-2xl",
+                role: "status",
+                aria_labelledby: "admin-wallet-access-unavailable-title",
+                div {
+                    class: "absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#1fc7d4] via-[#7645d9] to-[#ed4b9e]",
+                    aria_hidden: "true",
+                }
+                div { class: "p-8 md:p-12",
+                    div { class: "flex flex-col gap-6 sm:flex-row sm:items-start",
+                        div {
+                            class: "flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-violet-500/20 bg-violet-500/10 text-violet-400",
+                            aria_hidden: "true",
+                            Icon { name: "shield".to_string(), size: Some(30) }
+                        }
+                        div { class: "min-w-0 max-w-3xl",
+                            p { class: "text-xs font-black uppercase tracking-[0.22em] text-violet-400",
+                                "Wallet access"
+                            }
+                            h1 {
+                                id: "admin-wallet-access-unavailable-title",
+                                class: "mt-3 text-3xl font-black tracking-tight text-foreground",
+                                "Wallet access data is unavailable"
+                            }
+                            p { class: "mt-4 text-sm leading-6 text-muted-foreground",
+                                "Plan assignments and permission definitions are not shown because a verified wallet-access read contract is not connected. Missing data is not presented as an empty access list."
+                            }
+                            p { class: "mt-3 text-sm leading-6 text-muted-foreground",
+                                "Access changes remain unavailable until the backend supplies authoritative policy checks, validation, and auditable operations."
+                            }
+                            nav {
+                                class: "mt-8 flex flex-wrap gap-3",
+                                aria_label: "Wallet access recovery",
+                                a {
+                                    class: "btn btn-primary",
+                                    href: WALLET_ACCESS_PATH,
+                                    "Retry"
+                                }
+                                a {
+                                    class: "btn btn-outline",
+                                    href: ADMIN_HOME_PATH,
+                                    "Admin home"
+                                }
                             }
                         }
                     }
                 }
-                // === wave6b-admin-pages-depth-track-c wallet-access-manager ===
-                WalletAccessManager { user: ctx.user.clone(), return_url: ctx.path.clone() }
-            }
-        }
-    })
-}
-
-/// UI-only consumption of the backend permission-system mutation guard.
-/// Keeping this wrapper around individual control groups lets read-only admins
-/// inspect access data without exposing grant/revoke/apply actions.
-#[component]
-fn WalletAccessManageGate(
-    user: Option<crate::auth::User>,
-    return_url: String,
-    children: Element,
-) -> Element {
-    rsx! {
-        AdminAuthGate {
-            user,
-            feature: Some("wallet access mutation controls".to_string()),
-            required_permissions: Some(vec!["admin:permissions:manage".to_string()]),
-            return_url: Some(return_url),
-            class_name: Some("hidden".to_string()),
-            {children}
-        }
-    }
-}
-
-// ============================================================================
-// Section 1: WalletAccessManager — two-column layout
-// ============================================================================
-
-#[component]
-fn WalletAccessManager(user: Option<crate::auth::User>, return_url: String) -> Element {
-    let has_changes = false;
-    let _ = has_changes;
-    rsx! {
-        div { class: "wallet-access-manager rounded-xl bg-card/80 border border-border/40",
-            // Header bar
-            div { class: "flex items-center justify-between p-4 border-b border-border/20",
-                div { class: "flex items-center gap-2",
-                    Icon { name: "shield-check".to_string(), size: Some(18) }
-                    h2 { class: "text-lg font-bold", "Permissions" }
-                    span { class: "text-xs text-muted-foreground", "Review available and authorized plan assignments." }
-                }
-                div { class: "flex items-center gap-2",
-                    button { class: "btn btn-outline btn-sm", r#type: "button",
-                        Icon { name: "rotate-ccw".to_string(), size: Some(14) }
-                        " Refresh"
-                    }
-                }
-            }
-
-            // Action bar (Apply / Discard)
-            div { class: "flex items-center justify-between p-3 bg-muted/30 border-b border-border/20",
-                div { class: "flex items-center gap-2 text-sm text-muted-foreground",
-                    Icon { name: "info".to_string(), size: Some(14) }
-                    "Review plan assignments. Mutation controls require manage access."
-                }
-                WalletAccessManageGate { user: user.clone(), return_url: return_url.clone(),
-                    div { class: "wallet-access-apply-controls flex items-center gap-2",
-                        button { class: "btn btn-outline btn-sm", r#type: "button", disabled: true,
-                            "Discard changes"
-                        }
-                        button { class: "btn btn-primary btn-sm", r#type: "button", disabled: true,
-                            "Apply changes"
-                        }
-                    }
-                }
-            }
-
-            // Two-column grid
-            div { class: "grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 p-4 bg-muted/30",
-                AvailableColumn {}
-                WalletAccessManageGate { user: user.clone(), return_url: return_url.clone(),
-                    div { class: "wallet-access-transfer-controls",
-                        ColumnsActions {}
-                    }
-                }
-                AuthorizedColumn {}
             }
         }
     }
 }
-
-#[component]
-fn AvailableColumn() -> Element {
-    rsx! {
-        div { class: "rounded-xl border border-border/40 bg-card p-4",
-            div { class: "flex items-center justify-between mb-3",
-                h3 { class: "text-sm font-bold uppercase tracking-wider text-muted-foreground", "Available plans" }
-                button { class: "btn btn-ghost btn-sm", r#type: "button",
-                    Icon { name: "search".to_string(), size: Some(14) }
-                }
-            }
-            div { class: "flex items-center gap-2 mb-3",
-                input { class: "input", r#type: "search", placeholder: "Search plans..." }
-            }
-            div { class: "space-y-2",
-                AvailableItem { name: String::from("Pro"), category: String::from("personal"), perm_count: 5usize }
-                AvailableItem { name: String::from("Enterprise"), category: String::from("enterprise"), perm_count: 9usize }
-                AvailableItem { name: String::from("Whale"), category: String::from("enterprise"), perm_count: 9usize }
-                AvailableItem { name: String::from("API Starter"), category: String::from("api"), perm_count: 2usize }
-                AvailableItem { name: String::from("API Pro"), category: String::from("api"), perm_count: 5usize }
-            }
-        }
-    }
-}
-
-#[component]
-fn AuthorizedColumn() -> Element {
-    rsx! {
-        div { class: "rounded-xl border border-border/40 bg-card p-4",
-            div { class: "flex items-center justify-between mb-3",
-                h3 { class: "text-sm font-bold uppercase tracking-wider text-muted-foreground", "Authorized plans" }
-                button { class: "btn btn-ghost btn-sm", r#type: "button",
-                    Icon { name: "search".to_string(), size: Some(14) }
-                }
-            }
-            div { class: "flex items-center gap-2 mb-3",
-                input { class: "input", r#type: "search", placeholder: "Search authorized plans..." }
-            }
-            div { class: "space-y-2",
-                AuthorizedItem { name: String::from("Free"), category: String::from("personal"), perm_count: 2usize, expires: String::from("Never") }
-            }
-            div { class: "mt-4 text-xs text-muted-foreground text-center",
-                "Plans currently assigned to this wallet."
-            }
-        }
-    }
-}
-
-#[component]
-fn AvailableItem(name: String, category: String, perm_count: usize) -> Element {
-    rsx! {
-        div { class: "flex items-center justify-between p-2 rounded-lg border border-border/40 hover:border-primary/40 transition-colors",
-            div { class: "flex items-center gap-2 min-w-0",
-                div { class: "h-6 w-6 rounded bg-muted/50 flex items-center justify-center",
-                    Icon { name: "briefcase".to_string(), size: Some(12) }
-                }
-                div { class: "min-w-0",
-                    div { class: "text-sm font-semibold truncate", "{name}" }
-                    div { class: "text-[10px] text-muted-foreground uppercase tracking-wider", "{category}" }
-                }
-            }
-            span { class: "text-[10px] px-1.5 py-0 bg-muted/30 rounded", "{perm_count}" }
-        }
-    }
-}
-
-#[component]
-fn AuthorizedItem(name: String, category: String, perm_count: usize, expires: String) -> Element {
-    rsx! {
-        div { class: "flex items-center justify-between p-2 rounded-lg border border-success/30 bg-success/5",
-            div { class: "flex items-center gap-2 min-w-0",
-                div { class: "h-6 w-6 rounded bg-success/20 flex items-center justify-center",
-                    Icon { name: "check".to_string(), size: Some(12) }
-                }
-                div { class: "min-w-0",
-                    div { class: "text-sm font-semibold truncate", "{name}" }
-                    div { class: "text-[10px] text-muted-foreground uppercase tracking-wider", "{category} · {expires}" }
-                }
-            }
-            span { class: "text-[10px] px-1.5 py-0 bg-muted/30 rounded", "{perm_count}" }
-        }
-    }
-}
-
-#[component]
-fn ColumnsActions() -> Element {
-    rsx! {
-        div { class: "flex md:flex-col items-center justify-center gap-2",
-            button { class: "btn btn-primary btn-sm", r#type: "button", title: "Grant selected",
-                Icon { name: "arrow-right".to_string(), size: Some(14) }
-            }
-            button { class: "btn btn-outline btn-sm", r#type: "button", title: "Revoke selected",
-                Icon { name: "arrow-left".to_string(), size: Some(14) }
-            }
-        }
-    }
-}
-
-// ============================================================================
-// Section 2: PlanSelectorModal — modal for picking a plan to grant
-// ============================================================================
-
-#[component]
-fn PlanSelectorModal() -> Element {
-    rsx! {
-        // === wave6b-admin-pages-depth-track-c plan-selector-modal ===
-        div { class: "plan-selector-modal hidden fixed inset-0 z-50 items-center justify-center bg-black/50",
-            div { class: "rounded-2xl border border-border/40 bg-card max-w-lg w-full mx-4 shadow-2xl",
-                div { class: "flex items-center justify-between px-5 py-3 border-b border-border/20",
-                    h2 { class: "text-lg font-bold", "Select a plan" }
-                    button { class: "btn btn-ghost btn-sm", r#type: "button",
-                        Icon { name: "x".to_string(), size: Some(16) }
-                    }
-                }
-                div { class: "p-5",
-                    div { class: "space-y-2",
-                        PlanSelectorOption { name: String::from("Free"), category: String::from("personal"), perm_count: 2usize, is_selected: false }
-                        PlanSelectorOption { name: String::from("Pro"), category: String::from("personal"), perm_count: 5usize, is_selected: true }
-                        PlanSelectorOption { name: String::from("Enterprise"), category: String::from("enterprise"), perm_count: 9usize, is_selected: false }
-                        PlanSelectorOption { name: String::from("Whale"), category: String::from("enterprise"), perm_count: 9usize, is_selected: false }
-                    }
-                }
-                div { class: "flex items-center justify-end gap-2 px-5 py-3 border-t border-border/20",
-                    button { class: "btn btn-outline btn-sm", r#type: "button", "Cancel" }
-                    button { class: "btn btn-primary btn-sm", r#type: "button", "Grant access" }
-                }
-            }
-        }
-    }
-}
-
-#[component]
-fn PlanSelectorOption(name: String, category: String, perm_count: usize, is_selected: bool) -> Element {
-    let class = if is_selected {
-        "flex items-center justify-between p-3 rounded-lg border-2 border-primary bg-primary/5 cursor-pointer"
-    } else {
-        "flex items-center justify-between p-3 rounded-lg border border-border/40 hover:border-primary/40 cursor-pointer"
-    };
-    rsx! {
-        div { class: "{class}",
-            div { class: "flex items-center gap-3",
-                div { class: "h-8 w-8 rounded bg-muted/50 flex items-center justify-center",
-                    Icon { name: "briefcase".to_string(), size: Some(16) }
-                }
-                div {
-                    div { class: "font-semibold", "{name}" }
-                    div { class: "text-[10px] text-muted-foreground uppercase tracking-wider", "{category}" }
-                }
-            }
-            span { class: "text-[10px] px-1.5 py-0 bg-muted/30 rounded", "{perm_count} perms" }
-        }
-    }
-}
-
-// ============================================================================
-// Section 3: AccessGrantForm — form for granting access
-// ============================================================================
-
-#[component]
-fn AccessGrantForm() -> Element {
-    rsx! {
-        // === wave6b-admin-pages-depth-track-c access-grant-form ===
-        div { class: "access-grant-form rounded-2xl border border-border/20 overflow-hidden bg-card",
-            div { class: "h-[3px] bg-gradient-to-r from-[#1fc7d4] to-[#31d0aa]" }
-            div { class: "p-6",
-                h2 { class: "text-xs font-bold text-[#1fc7d4] uppercase tracking-[0.2em] mb-4 flex items-center gap-2",
-                    Icon { name: "user-check".to_string(), size: Some(16) }
-                    " Grant wallet access"
-                }
-                div { class: "space-y-4",
-                    div {
-                        label { class: "block text-xs font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2", "Wallet address *" }
-                        input { class: "input", r#type: "text", required: true, placeholder: "0x..." }
-                    }
-                    div {
-                        label { class: "block text-xs font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2", "Plan" }
-                        select { class: "input",
-                            option { value: "free", "Free" }
-                            option { value: "pro", "Pro" }
-                            option { value: "enterprise", "Enterprise" }
-                            option { value: "whale", "Whale" }
-                        }
-                    }
-                    div {
-                        label { class: "block text-xs font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2", "Expiry (optional)" }
-                        input { class: "input", r#type: "datetime-local" }
-                    }
-                    div {
-                        label { class: "block text-xs font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2", "Notes" }
-                        textarea { class: "input", rows: "3", placeholder: "Reason for granting access..." }
-                    }
-                    div { class: "flex justify-end gap-2 pt-2",
-                        button { class: "btn btn-outline", r#type: "button", "Cancel" }
-                        button { class: "btn btn-primary", r#type: "submit",
-                            Icon { name: "plus".to_string(), size: Some(14) }
-                            " Grant access"
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ============================================================================
-// Section 4: AccessRevokeDialog — destructive confirmation
-// ============================================================================
-
-#[component]
-fn AccessRevokeDialog() -> Element {
-    rsx! {
-        // === wave6b-admin-pages-depth-track-c access-revoke-dialog ===
-        div { class: "access-revoke-dialog rounded-2xl border border-destructive/30 bg-destructive/5 p-6",
-            h2 { class: "text-xs font-bold text-destructive uppercase tracking-[0.2em] mb-3 flex items-center gap-2",
-                Icon { name: "trash".to_string(), size: Some(16) }
-                " Revoke wallet access"
-            }
-            p { class: "text-sm text-foreground mb-4",
-                "Are you sure you want to revoke this wallet's plan access? The wallet will lose premium features immediately and may be downgraded to the Free plan."
-            }
-            div { class: "space-y-3",
-                div {
-                    label { class: "block text-xs font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2", "Reason (optional)" }
-                    textarea { class: "input", rows: "2", placeholder: "Reason for revoking access..." }
-                }
-                div { class: "flex justify-end gap-2 pt-2",
-                    button { class: "btn btn-outline", r#type: "button", "Cancel" }
-                    button { class: "btn btn-danger", r#type: "submit",
-                        Icon { name: "trash".to_string(), size: Some(14) }
-                        " Revoke access"
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ============================================================================
-// Tests — Wave 6B Track C
-// ============================================================================
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::auth::User;
-    use crate::auth::user::AuthMethod;
-    use crate::pages::PageContext;
+    use crate::auth::user::{AuthMethod, User};
 
-    fn ctx_with_permissions(permissions: &[&str]) -> PageContext {
+    fn authenticated_empty_claims_ctx() -> PageContext {
         PageContext {
             user: Some(User {
-                id: "admin-1".to_string(),
-                address: "0xadmin".to_string(),
+                id: "verified-session".to_string(),
+                address: "0xsession".to_string(),
                 chain_id: "56".to_string(),
-                roles: vec!["admin".to_string()],
-                email: Some("admin@epsx.io".to_string()),
-                tier: Some("Admin".to_string()),
-                permissions: permissions.iter().map(|permission| (*permission).to_string()).collect(),
+                roles: vec![],
+                email: None,
+                tier: None,
+                permissions: vec![],
                 last_login_at: None,
                 auth_method: AuthMethod::Wallet,
-                display_name: Some("Admin".to_string()),
+                display_name: None,
             }),
-            path: "/wallet-management/access".to_string(),
+            path: WALLET_ACCESS_PATH.to_string(),
             ..Default::default()
         }
     }
 
-    fn read_only_ctx() -> PageContext {
-        ctx_with_permissions(&["admin:permissions:read"])
+    fn render_html(ctx: &PageContext) -> String {
+        let (_, element) = render(ctx);
+        dioxus_ssr::render_element(element)
     }
 
-    fn manager_ctx() -> PageContext {
-        ctx_with_permissions(&["admin:permissions:read", "admin:permissions:manage"])
-    }
-
-    /// Wave 6B — `test_render_smoke`. The page renders non-empty HTML
-    /// when the admin is authed and holds the canonical read permission.
-    #[test]
-    fn test_render_smoke() {
-        let (_meta, el) = render(&read_only_ctx());
-        let html = dioxus_ssr::render_element(el);
-        assert!(!html.is_empty(), "wallet_access page must render non-empty HTML. Got: {}", html);
-        assert!(html.contains("Wallet access manager"), "wallet_access page must contain the title. Got: {}", html);
-    }
-
-    /// Wave 6B — `test_section_markers`. The default page exposes
-    /// the manager chrome. The plan selector modal, access grant
-    /// form, and revoke dialog are siblings in the same file (their
-    /// markers are present in the source but they live behind user
-    /// interaction — the modal is hidden, the forms are revealed on
-    /// click). We assert the manager marker is visible by default.
-    #[test]
-    fn test_section_markers() {
-        let (_meta, el) = render(&read_only_ctx());
-        let html = dioxus_ssr::render_element(el);
-        for marker in &[
+    fn assert_no_sample_access_or_controls(html: &str) {
+        let lowered = html.to_ascii_lowercase();
+        for forbidden in [
+            ">pro<",
+            ">enterprise<",
+            ">whale<",
+            "api starter",
+            "api pro",
+            ">free<",
+            "admin:permissions:read",
+            "admin:permissions:manage",
+            "available plans",
+            "authorized plans",
+            "grant access",
+            "revoke access",
+            "apply changes",
+            "discard changes",
+            "refresh",
+            "bulk assign",
+            "bulk remove",
+            "plan-selector-modal",
+            "access-grant-form",
+            "access-revoke-dialog",
             "wallet-access-manager",
+            "<form",
+            "<input",
+            "<textarea",
+            "<select",
+            "<button",
         ] {
             assert!(
-                html.contains(marker),
-                "wallet_access page should contain section marker `{marker}`. Got: {html}"
+                !lowered.contains(&forbidden.to_ascii_lowercase()),
+                "wallet access must not render sample state or control `{forbidden}`. Got: {html}"
             );
         }
     }
 
     #[test]
-    fn read_only_admin_sees_access_data_without_mutation_controls() {
-        let (_meta, el) = render(&read_only_ctx());
-        let html = dioxus_ssr::render_element(el);
-        assert!(html.contains("Available plans"), "read-only admin must see available-plan data. Got: {html}");
-        assert!(html.contains("Authorized plans"), "read-only admin must see authorized-plan data. Got: {html}");
-        for marker in [
-            "wallet-access-grant-control",
-            "wallet-access-apply-controls",
-            "wallet-access-transfer-controls",
-        ] {
-            assert!(!html.contains(marker), "read-only admin must not see mutation control `{marker}`. Got: {html}");
-        }
+    fn signed_out_render_keeps_private_access_state_hidden() {
+        let mut ctx = PageContext {
+            path: WALLET_ACCESS_PATH.to_string(),
+            query: "planId=private-plan&action=grant".to_string(),
+            ..Default::default()
+        };
+        ctx.params
+            .insert("wallet".to_string(), "0xPRIVATE_WALLET".to_string());
+
+        let html = render_html(&ctx);
+
+        assert!(html.contains("Sign in required"));
+        assert!(html.contains("href=\"/auth?return_url=%2Fwallet-management%2Faccess\""));
+        assert!(!html.contains("data-admin-wallet-access-state"));
+        assert!(!html.contains("Wallet access data is unavailable"));
+        assert!(!html.contains("private-plan"));
+        assert!(!html.contains("0xPRIVATE_WALLET"));
+        assert_no_sample_access_or_controls(&html);
     }
 
     #[test]
-    fn manager_sees_operation_level_mutation_controls() {
-        let (_meta, el) = render(&manager_ctx());
-        let html = dioxus_ssr::render_element(el);
-        for marker in [
-            "wallet-access-grant-control",
-            "wallet-access-apply-controls",
-            "wallet-access-transfer-controls",
-        ] {
-            assert!(html.contains(marker), "manager must see mutation control `{marker}`. Got: {html}");
-        }
+    fn authenticated_empty_role_session_reaches_unavailable_state() {
+        let html = render_html(&authenticated_empty_claims_ctx());
+
+        assert!(html.contains("data-admin-wallet-access-state=\"unavailable\""));
+        assert!(html.contains("role=\"status\""));
+        assert!(html.contains("Wallet access data is unavailable"));
+        assert!(html.contains("Missing data is not presented as an empty access list"));
+        assert!(!html.contains("Permission required"));
+        assert!(!html.contains("Admin access required"));
+        assert_no_sample_access_or_controls(&html);
     }
 
     #[test]
-    fn manager_without_read_permission_cannot_view_access_page() {
-        let ctx = ctx_with_permissions(&["admin:permissions:manage"]);
-        let (_meta, el) = render(&ctx);
-        let html = dioxus_ssr::render_element(el);
-        assert!(!html.contains("Wallet access manager"), "missing read permission must hide the access page. Got: {html}");
-        assert!(html.contains("admin:permissions:read"), "missing read gate must name the backend read permission. Got: {html}");
+    fn samples_and_grant_revoke_apply_refresh_bulk_modal_forms_are_absent() {
+        let html = render_html(&authenticated_empty_claims_ctx());
+
+        assert_no_sample_access_or_controls(&html);
+        assert_eq!(html.matches("<a ").count(), 2);
+        assert!(html.contains("href=\"/wallet-management/access\">Retry</a>"));
+        assert!(html.contains("href=\"/\">Admin home</a>"));
+        assert!(!html.contains("onclick="));
+        assert!(!html.contains("javascript:"));
+    }
+
+    #[test]
+    fn hostile_params_and_query_are_ignored() {
+        let mut ctx = authenticated_empty_claims_ctx();
+        ctx.query =
+            "planId=HOSTILE_PLAN&permission=admin%3Apermissions%3Amanage&action=apply".to_string();
+        ctx.params.insert(
+            "wallet".to_string(),
+            "HOSTILE_WALLET\"><script>alert('access')</script>".to_string(),
+        );
+        ctx.params
+            .insert("assignment".to_string(), "HOSTILE_ASSIGNMENT".to_string());
+
+        let html = render_html(&ctx);
+
+        assert!(html.contains("data-admin-wallet-access-state=\"unavailable\""));
+        for forbidden in [
+            "HOSTILE_PLAN",
+            "admin%3Apermissions%3Amanage",
+            "HOSTILE_WALLET",
+            "alert(&#39;access&#39;)",
+            "HOSTILE_ASSIGNMENT",
+        ] {
+            assert!(
+                !html.contains(forbidden),
+                "hostile value leaked: {forbidden}"
+            );
+        }
+        assert_no_sample_access_or_controls(&html);
+    }
+
+    #[test]
+    fn leaf_has_no_admin_shell_or_main() {
+        let html = render_html(&authenticated_empty_claims_ctx());
+
+        assert!(html.contains("class=\"container page-content admin-wallet-access py-8\""));
+        assert!(!html.contains("admin-shell"));
+        assert!(!html.contains("<header"));
+        assert!(!html.contains("<aside"));
+        assert!(!html.contains("<footer"));
+        assert!(!html.contains("<main"));
     }
 }

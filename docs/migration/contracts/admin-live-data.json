@@ -65,10 +65,10 @@
       "anchors": [
         "if !is_known_route(p)",
         "if p == \"/notifications\"",
-        "let return_url = if super::one_segment(p, \"/chat/\").is_some()",
+        "let return_url = signed_out_return_url(p)",
         "c.params.insert(\"planId\".into(), rest.to_string())"
       ],
-      "finding": "The dispatcher validates route shape and extracts dynamic params, and signed-out dynamic chat skeletons use only the static inbox return path so references are not disclosed before authentication; route presence is still not live-data or mutation proof."
+      "finding": "The dispatcher validates route shape and extracts dynamic params, and signed-out dynamic chat, news-edit, wallet, disable, and plan skeletons use only static collection return paths so route references are not disclosed before authentication; route presence is still not live-data or mutation proof."
     },
     {
       "file": "apps/admin/src/main.rs",
@@ -171,15 +171,15 @@
     {
       "path": "/analytics", "batch": "B1-command-security", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/analytics/page.tsx", "anchors": ["export default async function AnalyticsPage", "Promise.all"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/analytics.rs", "handler": "analytics::render", "anchors": ["pub fn render(ctx: &PageContext)", "required_permissions: Some(vec![\"admin:analytics:view\".to_string()])", "AnalyticsExportDialog"]},
-      "params": {"names": ["range", "scope", "sort", "search"], "current": "controls are not URL/backend connected"},
-      "data": {"reads": ["events", "metrics", "revenue", "plan access", "watchlist"], "endpoints": ["GET /api/v1/analytics/events", "GET /api/v1/analytics/metrics/:metric", "GET /api/v1/analytics/revenue"], "current": "static chart/table values", "fallbacks": ["fixed generated-on and success metadata"]},
-      "permissions": {"read": ["admin:analytics:view"], "manage": [], "current": "UI gate and direct analytics service auth exist, but this page does not consume them"},
-      "mutations": [{"name": "export", "method": "client event", "endpoint": "missing", "current": "logs format and closes dialog"}],
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/analytics.rs", "handler": "analytics::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-admin-analytics-state\": \"unavailable\"", "fn unavailable_state_has_no_samples_claims_or_controls()"]},
+      "params": {"names": ["range", "scope", "sort", "search"], "current": "query and route parameters are ignored until a backend-owned contract validates them"},
+      "data": {"reads": ["events", "metrics", "revenue", "plan access", "watchlist"], "endpoints": ["GET /api/v1/analytics/events", "GET /api/v1/analytics/metrics/:metric", "GET /api/v1/analytics/revenue"], "current": "verified-session explicit unavailable state with no analytics values, records, timestamps, or status claims", "fallbacks": []},
+      "permissions": {"read": ["admin:analytics:view"], "manage": [], "current": "session-only unavailable shell; backend analytics authorization remains authoritative and no frontend capability is inferred"},
+      "mutations": [],
       "contracts": {"bodies": [], "envelopes": ["unverified analytics proxy JSON"], "statuses": ["BFF preserves allowlisted status only; the page has no typed error handling"]},
-      "states": {"loading": "missing", "empty": "missing", "error": "missing", "retry": "missing", "forbidden": "present", "conflict": "not-applicable"},
-      "ux": {"keyboard": "unproven", "responsive": "source classes only", "hydration": "missing for filters/export"},
-      "blockers": ["wire canonical analytics data and export, preserve query state, and prove empty/degraded/error/retry plus accessible interaction"]
+      "states": {"loading": "missing", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "missing", "conflict": "not-applicable"},
+      "ux": {"keyboard": "native retry and admin-home links; focused browser proof remains open", "responsive": "page-owned responsive unavailable shell present; focused browser proof remains open", "hydration": "not required because no analytics control is exposed"},
+      "blockers": ["wire canonical authorized analytics reads and export, preserve validated query state, and prove loaded/empty/degraded/error/retry plus accessible interaction"]
     },
     {
       "path": "/audit-log", "batch": "B1-command-security", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
@@ -405,54 +405,54 @@
     {
       "path": "/wallet-management/:address", "batch": "B6-wallets-plans", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A9", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/wallet-management/[address]/page.tsx", "anchors": ["export default function WalletDetailPage", "decodeURIComponent"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_wallets.rs", "handler": "wallet_wallets::render_detail", "anchors": ["pub fn render_detail(ctx: &PageContext)", "ctx.params.get(\"address\")", "required_permissions: Some(vec![\"admin:users:read\".to_string()])"]},
-      "params": {"names": ["address"], "current": "single raw segment; chain/address checksum/canonicalization absent"},
-      "data": {"reads": ["wallet", "subscription", "balance", "permissions", "activity"], "endpoints": ["GET /api/v1/wallet/accounts/:address"], "current": "sample wallet detail independent of address", "fallbacks": ["fixed chains, balances, activity, and permissions"]},
-      "permissions": {"read": ["admin:users:read"], "manage": ["admin:users:update"], "current": "read UI gate present; direct-service ownership and downstream permission evidence incomplete"},
-      "mutations": [{"name": "disable/reenable/access", "method": "forms/links", "endpoint": "page routes do not match BFF account API", "current": "not durable"}],
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_wallets.rs", "handler": "wallet_wallets::render_detail", "anchors": ["pub fn render_detail(ctx: &PageContext)", "fn bounded_route_reference(raw: &str) -> String", "\"data-admin-wallets-state\": \"unavailable\""]},
+      "params": {"names": ["address"], "current": "single segment is control-filtered, bounded, escaped, explicitly unverified, and encoded only for a native retry link; chain/address checksum and canonicalization remain absent"},
+      "data": {"reads": ["wallet", "subscription", "balance", "permissions", "activity"], "endpoints": ["GET /api/v1/wallet/accounts/:address"], "current": "verified-session explicit unavailable state with only a bounded unverified route reference and no inferred wallet data", "fallbacks": []},
+      "permissions": {"read": ["admin:users:read"], "manage": ["admin:users:update"], "current": "session-only unavailable shell; backend wallet authorization and ownership remain authoritative"},
+      "mutations": [],
       "contracts": {"bodies": [], "envelopes": ["wallet proxy JSON unconsumed"], "statuses": ["non-leaking not-found absent"]},
-      "states": {"loading": "missing", "empty": "missing", "error": "missing", "retry": "missing", "forbidden": "present", "conflict": "missing"},
-      "ux": {"keyboard": "unproven", "responsive": "unproven", "hydration": "missing"},
-      "blockers": ["canonicalize address and chain, consume one authorized wallet and subscription, remove samples, and prove non-leaking errors plus operation-scoped mutations"]
+      "states": {"loading": "missing", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "missing", "conflict": "not-applicable"},
+      "ux": {"keyboard": "native retry, wallet-list, and admin-home links; focused browser proof remains open", "responsive": "responsive unavailable shell present; focused browser proof remains open", "hydration": "not required because no wallet data or operation control is exposed"},
+      "blockers": ["canonicalize address and chain, consume one backend-authorized wallet and subscription, and prove non-leaking loaded/absent/forbidden/dependency outcomes before restoring operation-scoped mutations"]
     },
     {
       "path": "/wallet-management/access", "batch": "B5-commerce", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A9", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/wallet-management/access/page.tsx", "anchors": ["export default function AccessPage", "<PlansView />"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_access.rs", "handler": "wallet_access::render", "anchors": ["pub fn render(ctx: &PageContext)", "required_permissions: Some(vec![\"admin:permissions:read\".to_string()])", "required_permissions: Some(vec![\"admin:permissions:manage\".to_string()])"]},
-      "params": {"names": ["wallet", "plan", "permission", "cursor"], "current": "sample data/local dialogs"},
-      "data": {"reads": ["wallet assignments", "plans", "permissions"], "endpoints": [], "current": "sample assignments", "fallbacks": ["static plan/permission membership"]},
-      "permissions": {"read": ["admin:permissions:read"], "manage": ["admin:permissions:manage"], "current": "operation-level UI split exists; live backend contracts remain absent"},
-      "mutations": [{"name": "grant/revoke plan or permission", "method": "unwired controls", "endpoint": "missing", "current": "local dialog only"}],
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_access.rs", "handler": "wallet_access::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-admin-wallet-access-state\": \"unavailable\"", "fn samples_and_grant_revoke_apply_refresh_bulk_modal_forms_are_absent()"]},
+      "params": {"names": ["wallet", "plan", "permission", "cursor"], "current": "query and route parameters are ignored until a backend-owned access contract validates them"},
+      "data": {"reads": ["wallet assignments", "plans", "permissions"], "endpoints": [], "current": "verified-session explicit unavailable state with no assignments, plans, permission membership, or inferred empty result", "fallbacks": []},
+      "permissions": {"read": ["admin:permissions:read"], "manage": ["admin:permissions:manage"], "current": "session-only unavailable shell; backend permission-system reads and mutations remain authoritative"},
+      "mutations": [],
       "contracts": {"bodies": ["subject/resource/version/reason unresolved"], "envelopes": [], "statuses": ["conflict/stale version absent"]},
-      "states": {"loading": "missing", "empty": "missing", "error": "missing", "retry": "missing", "forbidden": "present", "conflict": "missing"},
-      "ux": {"keyboard": "unproven", "responsive": "unproven", "hydration": "missing for mutation controls"},
-      "blockers": ["preserve the read/manage UI split while consuming A4/A9 backend decisions; implement versioned audited grants/revokes and conflict/retry UX"]
+      "states": {"loading": "missing", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "missing", "conflict": "not-applicable"},
+      "ux": {"keyboard": "native retry and admin-home links; focused browser proof remains open", "responsive": "responsive unavailable shell present; focused browser proof remains open", "hydration": "not required because no assignment data or mutation control is exposed"},
+      "blockers": ["consume A4/A9 backend read/manage decisions and typed access data; implement versioned audited grants/revokes and prove loaded/empty/forbidden/conflict/retry UX before restoring controls"]
     },
     {
       "path": "/wallet-management/access/plans", "batch": "B5-commerce", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A6", "A9", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/wallet-management/access/plans/page.tsx", "anchors": ["export default function PlansPage", "<PlansView />"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_plans.rs", "handler": "wallet_plans::render", "anchors": ["pub fn render(ctx: &PageContext)", "required_permissions: Some(vec![\"admin:plans:read\".to_string()])"]},
-      "params": {"names": [], "current": "hub links only; dispatcher handler differs from list handler"},
-      "data": {"reads": ["plan navigation/summary"], "endpoints": ["GET /api/v1/subscription/plans"], "current": "static hub", "fallbacks": []},
-      "permissions": {"read": ["admin:plans:read"], "manage": ["admin:plans:manage"], "current": "read gate exists; source target intent and route ownership need acceptance"},
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_plans.rs", "handler": "wallet_plans::render", "anchors": ["pub fn render(ctx: &PageContext)", "pub fn render_plans(ctx: &PageContext)", "\"data-admin-wallet-plans-state\": \"unavailable\""]},
+      "params": {"names": [], "current": "query and legacy hydration values are ignored until a backend-owned plan contract validates them"},
+      "data": {"reads": ["plan navigation/summary"], "endpoints": ["GET /api/v1/subscription/plans"], "current": "verified-session explicit unavailable list state with no plan catalog, metrics, prices, permissions, or inferred empty result", "fallbacks": []},
+      "permissions": {"read": ["admin:plans:read"], "manage": ["admin:plans:manage"], "current": "session-only unavailable shell; backend plan read/manage policy remains authoritative"},
       "mutations": [],
       "contracts": {"bodies": [], "envelopes": ["plan proxy JSON unconsumed"], "statuses": []},
-      "states": {"loading": "missing", "empty": "missing", "error": "missing", "retry": "missing", "forbidden": "present", "conflict": "not-applicable"},
-      "ux": {"keyboard": "unproven", "responsive": "unproven", "hydration": "not required for current hub"},
-      "blockers": ["accept hub versus list parity, consume canonical A9 plan projection where required, and prove loading/empty/error/retry and navigation behavior"]
+      "states": {"loading": "missing", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "missing", "conflict": "not-applicable"},
+      "ux": {"keyboard": "native retry and admin-home links; focused browser proof remains open", "responsive": "responsive unavailable shell present; focused browser proof remains open", "hydration": "not required because no plan data or operation control is exposed"},
+      "blockers": ["consume the canonical A9 authorized plan projection and prove loaded/empty/forbidden/dependency/retry plus navigation behavior before restoring plan controls"]
     },
     {
       "path": "/wallet-management/access/plans/:planId", "batch": "B6-wallets-plans", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A6", "A9", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/wallet-management/access/plans/[planId]/page.tsx", "anchors": ["export default async function PlanDetailPage", "<PlanEditorPage planId={planId} />"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_plans.rs", "handler": "wallet_plans::render_editor", "anchors": ["pub fn render_editor(ctx: &PageContext)", "ctx.params.get(\"planId\")", "action: if !plan_id.is_empty()"]},
-      "params": {"names": ["planId"], "current": "single segment; reserved new ID and canonical plan key not formally validated"},
-      "data": {"reads": ["plan detail", "permissions", "subscriber count"], "endpoints": ["GET /api/v1/subscription/plans/:id"], "current": "skeleton/sample plan editor", "fallbacks": ["sample plans"]},
-      "permissions": {"read": ["admin:plans:read"], "manage": ["admin:plans:manage"], "current": "nested operation gates exist in list/editor components; page data is not live"},
-      "mutations": [{"name": "create/update/duplicate plan", "method": "POST native form", "endpoint": "/api/v1/subscription/plans[/id]", "current": "BFF supports POST create but no PUT/PATCH update route"}],
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_plans.rs", "handler": "wallet_plans::render_editor", "anchors": ["pub fn render_editor(ctx: &PageContext)", "fn bounded_plan_reference(raw: &str) -> Option<String>", "\"data-admin-wallet-plans-reference\": \"bounded-unverified\""]},
+      "params": {"names": ["planId"], "current": "single segment is control-filtered, bounded, escaped, explicitly unverified, and percent-encoded only for a native retry link; reserved new ID and canonical plan key remain unvalidated"},
+      "data": {"reads": ["plan detail", "permissions", "subscriber count"], "endpoints": ["GET /api/v1/subscription/plans/:id"], "current": "verified-session explicit unavailable detail state with only a bounded unverified plan reference and no editor defaults", "fallbacks": []},
+      "permissions": {"read": ["admin:plans:read"], "manage": ["admin:plans:manage"], "current": "session-only unavailable shell; backend plan authorization remains authoritative"},
+      "mutations": [],
       "contracts": {"bodies": ["form body versus JSON API mismatch"], "envelopes": ["unverified plan response"], "statuses": ["allowlisted validation/conflict status is preserved; typed version errors remain absent"]},
-      "states": {"loading": "present", "empty": "missing", "error": "missing", "retry": "missing", "forbidden": "present", "conflict": "missing"},
-      "ux": {"keyboard": "unproven", "responsive": "unproven", "hydration": "missing for editor"},
-      "blockers": ["validate planId, load A9 plan detail, keep policy in backend, align create/update body/method, and prove optimistic conflict, validation, pending, error, and recovery"]
+      "states": {"loading": "missing", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "missing", "conflict": "not-applicable"},
+      "ux": {"keyboard": "native retry, plan-list, and admin-home links; focused browser proof remains open", "responsive": "responsive unavailable shell present; focused browser proof remains open", "hydration": "not required because no plan editor or mutation control is exposed"},
+      "blockers": ["validate planId, load the backend-authorized A9 plan detail, align create/update body and method, and prove optimistic conflict, validation, pending, error, and recovery before restoring mutations"]
     },
     {
       "path": "/wallet-management/credits", "batch": "B5-commerce", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A6", "A9", "A11", "A12"],
@@ -470,28 +470,28 @@
     {
       "path": "/wallet-management/wallets", "batch": "B6-wallets-plans", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A9", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/wallet-management/wallets/page.tsx", "anchors": ["export default async function WalletsPage", "fetchWalletsAction"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_wallets.rs", "handler": "wallet_wallets::render", "anchors": ["pub fn render(ctx: &PageContext)", "let rows = vec![", "required_permissions: Some(vec![\"admin:users:read\".to_string()])"]},
-      "params": {"names": ["page", "limit", "search", "status", "chain"], "current": "sample table ignores URL/backend pagination"},
-      "data": {"reads": ["wallets", "pagination", "aggregate stats"], "endpoints": ["GET /api/v1/wallet/accounts"], "current": "three sample wallet rows and stats", "fallbacks": ["invented addresses/balances/permissions"]},
-      "permissions": {"read": ["admin:users:read"], "manage": ["admin:users:update"], "current": "UI read gate; downstream wallet service contract incomplete"},
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_wallets.rs", "handler": "wallet_wallets::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-admin-wallets-state\": \"unavailable\"", "fn query_and_unrelated_params_never_create_wallet_state()"]},
+      "params": {"names": ["page", "limit", "search", "status", "chain"], "current": "query and unrelated params are ignored until a backend-owned list contract validates them"},
+      "data": {"reads": ["wallets", "pagination", "aggregate stats"], "endpoints": ["GET /api/v1/wallet/accounts"], "current": "verified-session explicit unavailable list state with no wallet rows, counts, balances, plans, permissions, filters, or inferred empty result", "fallbacks": []},
+      "permissions": {"read": ["admin:users:read"], "manage": ["admin:users:update"], "current": "session-only unavailable shell; backend wallet list authorization remains authoritative"},
       "mutations": [],
       "contracts": {"bodies": [], "envelopes": ["wallet proxy JSON unconsumed"], "statuses": ["allowlisted BFF status is preserved; typed errors remain unconsumed"]},
-      "states": {"loading": "missing", "empty": "missing", "error": "missing", "retry": "missing", "forbidden": "present", "conflict": "not-applicable"},
-      "ux": {"keyboard": "unproven", "responsive": "unproven", "hydration": "missing for table controls"},
-      "blockers": ["consume authoritative paginated wallets and stats, preserve query state, remove samples, and prove empty/error/retry/forbidden plus table keyboard/responsive behavior"]
+      "states": {"loading": "missing", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "missing", "conflict": "not-applicable"},
+      "ux": {"keyboard": "native retry and admin-home links; focused browser proof remains open", "responsive": "responsive unavailable shell present; focused browser proof remains open", "hydration": "not required because no wallet rows or table controls are exposed"},
+      "blockers": ["consume an authoritative authorized paginated wallet projection, preserve validated query state, and prove loaded/empty/error/retry/forbidden plus table keyboard/responsive behavior"]
     },
     {
       "path": "/wallet-management/wallets/:address/disable", "batch": "B7-mutations", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A9", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/wallet-management/wallets/[address]/disable/page.tsx", "anchors": ["export default function DisableWalletRoute", "decodeURIComponent"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_wallets.rs", "handler": "wallet_wallets::render_disable", "anchors": ["pub fn render_disable(ctx: &PageContext)", "ctx.params.get(\"address\")", "required_permissions: Some(vec![\"admin:users:update\".to_string()])"]},
-      "params": {"names": ["address"], "current": "single raw segment; checksum/canonicalization absent"},
-      "data": {"reads": ["wallet status and impact summary"], "endpoints": ["GET /api/v1/wallet/accounts/:address"], "current": "sample/derived confirmation", "fallbacks": []},
-      "permissions": {"read": ["admin:users:read"], "manage": ["admin:users:update"], "current": "manage UI gate; direct-service mutation endpoint absent"},
-      "mutations": [{"name": "disable wallet", "method": "POST", "endpoint": "/api/v1/wallet/wallets/:address/disable", "current": "BFF does not implement this route"}],
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_wallets.rs", "handler": "wallet_wallets::render_disable", "anchors": ["pub fn render_disable(ctx: &PageContext)", "Self::Disable => \"Wallet changes are unavailable\"", "fn leaves_are_body_only_and_disable_surface_has_no_mutation_affordance()"]},
+      "params": {"names": ["address"], "current": "single segment is control-filtered, bounded, escaped, explicitly unverified, and encoded only for a native retry link; checksum/canonicalization remain absent"},
+      "data": {"reads": ["wallet status and impact summary"], "endpoints": ["GET /api/v1/wallet/accounts/:address"], "current": "verified-session explicit unavailable operation state with no status or impact inferred", "fallbacks": []},
+      "permissions": {"read": ["admin:users:read"], "manage": ["admin:users:update"], "current": "session-only unavailable shell; backend read/ownership/manage decisions remain authoritative"},
+      "mutations": [],
       "contracts": {"bodies": ["reason/version/idempotency unresolved"], "envelopes": [], "statuses": ["already-disabled/conflict/not-found absent"]},
-      "states": {"loading": "missing", "empty": "missing", "error": "missing", "retry": "missing", "forbidden": "present", "conflict": "missing"},
-      "ux": {"keyboard": "unproven", "responsive": "unproven", "hydration": "native form only; feedback missing"},
-      "blockers": ["canonicalize address, load current status, implement direct-service authorized idempotent disable with reason/audit, and prove conflict, retry, cancel, and focus behavior"]
+      "states": {"loading": "missing", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "missing", "conflict": "not-applicable"},
+      "ux": {"keyboard": "native retry, wallet-list, and admin-home links; focused browser proof remains open", "responsive": "responsive unavailable shell present; focused browser proof remains open", "hydration": "not required because no disable or re-enable control is exposed"},
+      "blockers": ["canonicalize address, load backend-authorized current status, implement an idempotent disable with reason and audit, and prove conflict, retry, cancel, and focus behavior before restoring the mutation"]
     }
   ]
 }

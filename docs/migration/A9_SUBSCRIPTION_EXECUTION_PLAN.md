@@ -74,7 +74,7 @@ The locked semantics are:
 
 ### Plan authority
 
-Per repository architecture, Rust backend business logic remains the only authority for plan eligibility, permission mapping, price/billing cycle, promotion, active flag, ranking offset, and subscription rules. The subscription service may keep an immutable, versioned projection for lifecycle processing. It may not introduce an independently editable merchant catalog. Content files, the canned subscription BFF, and remaining admin samples are fixtures or display projections, never authority; the public `/plans` page now presents none of them.
+Per repository architecture, Rust backend business logic remains the only authority for plan eligibility, permission mapping, price/billing cycle, promotion, active flag, ranking offset, and subscription rules. The subscription service may keep an immutable, versioned projection for lifecycle processing. It may not introduce an independently editable merchant catalog. Content files and the canned subscription BFF are fixtures or display projections, never authority; the public `/plans` page and admin wallet-plan list/detail now present none of them and instead fail closed until typed backend adapters exist.
 
 ### Owner and service authorization
 

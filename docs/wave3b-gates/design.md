@@ -383,10 +383,10 @@ before integration.
 
 ## Risks & known sharp edges
 
-- **Permission-string proliferation**: 12+ permission strings appear
-  for the first time. The schema in §1 is the contract. If a track
-  needs a string not in §1, ADD it to the schema in the deliverable
-  and explain why. Do NOT invent a new shape (e.g. `domain/action`).
+- **Historical permission-string proliferation risk**: this wave originally
+  introduced 12+ UI permission strings. The current deterministic A4 inventory
+  has since removed literals from unavailable surfaces and is authoritative;
+  do not restore or invent frontend policy while backend contracts are absent.
 - **Wave 2 `unauthorized.rs` precedent**: it already uses
   `"admin:*"`. Track B may use the same wildcard for coarse-grained
   pages where the specific permission isn't obvious from the TS

@@ -30,29 +30,31 @@ record carries source type, file, line, permission, surface, grammar
 classification, and a remediation package. A candidate permission is present
 only when a real backend route guard or token source literally supports it.
 
-The current scan contains 46 records:
+The current scan contains 37 records:
 
 | Usage | Records | Readiness effect |
 | --- | ---: | --- |
-| Dioxus security gates | 12 | 10 canonical; 2 legacy two-segment values still block |
+| Dioxus security gates | 3 | 1 canonical; 2 legacy two-segment values still block |
 | Dioxus presentation literals | 1 | Reported as presentation drift, not an enforcement blocker |
 | Dioxus presentation dynamic pass-throughs | 1 | Reported as presentation drift, not an enforcement blocker |
 | Service-authorization permissions | 32 | All canonical three-segment values |
 
-Across every source there are 42 canonical three-segment values, 2 legacy
+Across every source there are 33 canonical three-segment values, 2 legacy
 two-segment values, 1 unknown dynamic presentation value, and 1
 impossible/cross-grammar presentation value. There are currently no wildcard-aligned
 inventory values.
 
-## Source-backed admin consumption map
+## Backend permission decision map
 
-The unambiguous A8.1 rows are now consumed by the UI. This changes only gate
-literals; it does not move business policy into Dioxus:
+This map records the source-backed backend permission or decision that future
+live UI adapters must consume. Unavailable surfaces do not consume or emulate
+those decisions: their frontend gates were removed with their sample data and
+controls, while backend enforcement remains unchanged.
 
-| Dioxus surface | Source-backed backend permission | A8.1 state |
+| Dioxus surface | Source-backed backend permission | Current A8 state |
 | --- | --- | --- |
 | Dashboard | backend dashboard read/field decision required | fail-closed UI; no operational aggregate or action is exposed |
-| Analytics | `admin:analytics:view` | aligned |
+| Analytics | backend `admin:analytics:view` plus field decision required | fail-closed UI; no metrics, records, status claims, filters, or export are exposed |
 | Audit log | dedicated backend audit read permission required | fail-closed UI; the semantically wrong analytics presentation gate was removed |
 | Notifications | backend read decision / `admin:notifications:manage` mutation authority | fail-closed manage/create UI; no records or actions are exposed |
 | Developer portal | backend read decision / `admin:developer:manage` mutation authority | fail-closed UI; no credentials, usage data, or action is exposed |
@@ -62,19 +64,22 @@ literals; it does not move business policy into Dioxus:
 | Media | backend read decision / `admin:media:manage` mutation authority | fail-closed UI; no object data or action is exposed |
 | Settings | backend read decision / `admin:settings:manage` mutation authority | fail-closed UI; no configuration, credential, session, or action is exposed |
 | Wallet credits | backend read decision / `admin:credits:manage` mutation authority | fail-closed UI; no balance, ledger data, or financial action is exposed |
-| Wallet list/detail | `admin:users:read` | aligned |
-| Wallet disable mutation | `admin:users:update` | aligned |
-| Wallet access | split by operation: `admin:permissions:read` / `admin:permissions:manage` | aligned in A8.2; data remains visible to readers and mutation controls are nested |
-| Wallet plans | split by operation: `admin:plans:read` / `admin:plans:manage` | aligned in A8.2; list data remains visible to readers and mutation controls are nested |
+| Wallet list/detail | backend `admin:users:read` plus ownership decision required | fail-closed UI; no wallet data or operation is exposed |
+| Wallet disable mutation | backend `admin:users:update` plus ownership/idempotency/audit required | fail-closed UI; no confirmation or mutation control is exposed |
+| Wallet access | backend split by operation: `admin:permissions:read` / `admin:permissions:manage` | fail-closed UI; no assignment data or grant/revoke controls are exposed |
+| Wallet plans | backend split by operation: `admin:plans:read` / `admin:plans:manage` | fail-closed UI; no plan data, editor defaults, or mutation controls are exposed |
 
-The dashboard, audit, chat, media, news, notification, developer-portal,
-settings, and wallet-credit read decisions remain backend-owned;
+The dashboard, analytics, audit, chat, media, news, notification,
+developer-portal, settings, wallet-credit, wallet, permission-system, and plan
+read/manage decisions remain backend-owned;
 removing their frontend literals does not remove or weaken any service guard.
 The admin auth and policies gates have no single source-backed backend guard
 candidate in this audit. The generic unauthorized value is presentation-only.
 These remain explicit residuals; the inventory deliberately does not guess or
-over-broaden them. The two new A8.2 nested manage-gate source records are
-canonical evidence and do not increase the readiness blocker count.
+over-broaden them. Removing nine additional A8 literals from unavailable
+analytics, wallet, wallet-access, and plan surfaces reduced the Dioxus security
+inventory without changing backend enforcement or the two-blocker readiness
+result.
 
 The frontend analytics gate is also unresolved. Token examples use
 `epsx:analytics:read`, while wallet permission assignment uses

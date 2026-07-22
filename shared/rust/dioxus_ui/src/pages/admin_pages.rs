@@ -129,13 +129,10 @@ pub fn dispatch(ctx: &PageContext) -> (PageMeta, Element) {
     if skeleton_mode && !matches!(p, "/dashboard" | "/policies")
     {
         let slug = slug_for_path(p);
-        // A conversation identifier may be security-sensitive. Keep it out of
-        // the signed-out HTML and return only to the static inbox after auth.
-        let return_url = if super::one_segment(p, "/chat/").is_some() {
-            "/chat".to_string()
-        } else {
-            ctx.path.clone()
-        };
+        // Dynamic conversation, news, wallet, and plan identifiers may be
+        // security-sensitive. Keep them out of signed-out HTML and return
+        // only to the corresponding static collection after authentication.
+        let return_url = signed_out_return_url(p);
         // Wave 38c T2 — admin-chat is the 4th route that needs
         // the prod-EXACT body class. The other 21 admin routes
         // work fine with `PageMeta::admin()` (no body class), but
@@ -222,6 +219,36 @@ pub fn dispatch(ctx: &PageContext) -> (PageMeta, Element) {
             }
         }
     }
+}
+
+fn signed_out_return_url(path: &str) -> String {
+    if super::one_segment(path, "/chat/").is_some() {
+        return "/chat".to_string();
+    }
+
+    if matches!(super::two_segments(path, "/news/"), Some((_, "edit"))) {
+        return "/news".to_string();
+    }
+
+    if matches!(
+        super::two_segments(path, "/wallet-management/wallets/"),
+        Some((_, "disable"))
+    ) || super::one_segment(path, "/wallet-management/access/plans/").is_some()
+    {
+        return if path.starts_with("/wallet-management/access/plans/") {
+            "/wallet-management/access/plans".to_string()
+        } else {
+            "/wallet-management/wallets".to_string()
+        };
+    }
+
+    if let Some(address) = super::one_segment(path, "/wallet-management/") {
+        if !matches!(address, "wallets" | "credits" | "access") {
+            return "/wallet-management/wallets".to_string();
+        }
+    }
+
+    path.to_string()
 }
 
 pub fn is_known_route(path: &str) -> bool {
@@ -385,16 +412,39 @@ mod tests {
     }
 
     #[test]
-    fn signed_out_dynamic_chat_skeleton_hides_conversation_reference() {
-        let ctx = PageContext {
-            path: "/chat/private-case-reference".into(),
-            ..Default::default()
-        };
-        let (meta, body) = dispatch(&ctx);
-        let rendered = dioxus_ssr::render_element(body);
+    fn signed_out_dynamic_skeletons_hide_private_route_references() {
+        for (path, safe_return_url) in [
+            ("/chat/private-case-reference", "/chat"),
+            ("/news/private-case-reference/edit", "/news"),
+            (
+                "/wallet-management/private-case-reference",
+                "/wallet-management/wallets",
+            ),
+            (
+                "/wallet-management/wallets/private-case-reference/disable",
+                "/wallet-management/wallets",
+            ),
+            (
+                "/wallet-management/access/plans/private-case-reference",
+                "/wallet-management/access/plans",
+            ),
+        ] {
+            let ctx = PageContext {
+                path: path.into(),
+                ..Default::default()
+            };
+            let (meta, body) = dispatch(&ctx);
+            let rendered = dioxus_ssr::render_element(body);
 
-        assert_eq!(meta.status, super::super::PageStatus::Ok);
-        assert!(!rendered.contains("private-case-reference"));
-        assert_eq!(rendered.matches("data-return-url=\"/chat\"").count(), 3);
+            assert_eq!(meta.status, super::super::PageStatus::Ok, "{path}");
+            assert!(!rendered.contains("private-case-reference"), "{path}: {rendered}");
+            assert_eq!(
+                rendered
+                    .matches(&format!("data-return-url=\"{safe_return_url}\""))
+                    .count(),
+                3,
+                "{path}: {rendered}"
+            );
+        }
     }
 }

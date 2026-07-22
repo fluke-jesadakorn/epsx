@@ -1,672 +1,244 @@
-//! /admin/wallet-management/wallets — wallet list (DataTable).
-//! /admin/wallet-management/wallets/[address] — wallet detail.
-//! /admin/wallet-management/wallets/[address]/disable — disable flow.
+//! Truthful authenticated shells for admin wallet list, detail, and disable routes.
 //!
-//! Wave 6B Track D — 8 sections per the design doc
-//! `docs/wave6b-admin-pages-depth/design.md` §"Track D — wallet_wallets + chat + ...":
-//! 1. `WalletStatsBar` — 4 stat cards (Total / Active / Disabled / Subscribed)
-//!    + a platform-distribution sub-card. Mirrors
-//!    `components/wallet/wallet-stats-bar.tsx`.
-//! 2. `WalletList` — the table of all wallets with a search/filter
-//!    bar. Mirrors `components/wallet/wallet-section.tsx` (the wrapping
-//!    `WalletSection`).
-//! 3. `WalletDetailView` — the per-wallet detail page header
-//!    (address / plan / chain / last login). Mirrors
-//!    `components/wallet/wallet-detail-view.tsx` + `wallet-detail-header.tsx`.
-//! 4. `WalletTableRow` — the row inside the list table
-//!    (address, plan, status, last login, actions dropdown). Mirrors
-//!    `components/wallet/wallet-table-row.tsx`.
-//! 5. `WalletCardSections` — the mobile card variant of the row
-//!    (identity + stats + actions). Mirrors
-//!    `components/wallet/wallet-card-sections.tsx`.
-//! 6. `WalletDetailPanel` — the right-hand side of the detail view
-//!    (subscription card + access list). Mirrors
-//!    `components/wallet/wallet-detail-panel.tsx`.
-//! 7. `WalletDisableDialog` — the "Disable wallet" modal with a
-//!    reason textarea. Mirrors `components/wallet/disable-wallet-modal.tsx`.
-//! 8. `WalletReenableDialog` — the "Re-enable wallet" modal.
-//!    Mirrors `components/wallet/reenable-wallet-modal.tsx`.
-//!
-//! Plus the legacy `render`, `render_detail`, `render_disable` top-level
-//! functions and the `DetailField` helper from the Wave 1 port.
-
-use crate::primitives::*;
-use crate::primitives::admin_metric_card::{AdminMetricCard, MetricTrend};
-use crate::data_table::{Column, DataTable, Row, SortDir};
+//! The Rust admin BFF does not yet consume a typed authoritative wallet read
+//! model, and the disable mutation is not registered. These pages therefore
+//! expose no sample addresses, balances, plans, permissions, activity, stats,
+//! filters, exports, or mutation controls. Frontend roles and permissions are
+//! never treated as policy authority.
 
 use dioxus::prelude::*;
+
+use crate::auth::AuthGate;
+use crate::primitives::Icon;
+
 use super::super::{PageContext, PageMeta};
-use crate::auth::AdminAuthGate;
 
-// ============================================================================
-// Section 1: WalletStatsBar
-// ============================================================================
-//
-// 4 stat cards (Total / Active / Disabled / Subscribed) + a
-// platform-distribution sub-card. The `WalletStatsBar` in the source
-// takes a `WalletStats` prop with `total/active/disabled/subscribed`
-// counts and a `platformDistribution: Record<Platform, number>` map.
-// The Dioxus port accepts the same shape as plain values — the
-// server-side BFF fills them in from the DB.
-//
-// CSS classes referenced: `admin-metric-card` (from the
-// `admin_metric_card` primitive), plus the existing `card-stats`
-// and `hover-scale` utilities.
+const WALLETS_PATH: &str = "/wallet-management/wallets";
+const MAX_ROUTE_REFERENCE_CHARS: usize = 64;
 
-/// Stats payload for `WalletStatsBar`. Mirrors a subset of
-/// `WalletStats` from `components/wallet/types.ts`.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct WalletStatsData {
-    pub total: u32,
-    pub active: u32,
-    pub disabled: u32,
-    pub subscribed: u32,
-    pub total_change: f32,
-    pub active_change: f32,
-    pub disabled_change: f32,
-    pub subscribed_change: f32,
-    /// Count of wallets per platform (`analytics`, `pay`, `token`,
-    /// `markets`). The source uses a record; the port accepts a
-    /// fixed 4-tuple for the display.
-    pub platform_analytics: u32,
-    pub platform_pay: u32,
-    pub platform_token: u32,
-    pub platform_markets: u32,
+#[derive(Clone, Copy, PartialEq)]
+enum WalletSurface {
+    List,
+    Detail,
+    Disable,
 }
 
-#[component]
-fn WalletStatsBar(stats: WalletStatsData) -> Element {
-    let total = stats.platform_analytics + stats.platform_pay + stats.platform_token + stats.platform_markets;
-    let pct = |n: u32| -> u32 { if total == 0 { 0 } else { (n * 100) / total } };
-    rsx! {
-        div { class: "space-y-4 wallet-stats-bar",
-            // Top row: 4 stat cards. We reuse the Wave 6B
-            // `AdminMetricCard` primitive so the per-card
-            // `+12.5%` trend pill + sparkline render uniformly.
-            div { class: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4",
-                AdminMetricCard {
-                    label: "Total wallets".to_string(),
-                    value: format!("{}", stats.total),
-                    trend: Some(MetricTrend::Up(stats.total_change)),
-                    sparkline_data: Some(vec![12.0, 14.0, 13.0, 15.0, 17.0, 16.0, 18.0]),
-                    icon: Some("wallet".to_string()),
-                }
-                AdminMetricCard {
-                    label: "Active".to_string(),
-                    value: format!("{}", stats.active),
-                    trend: Some(MetricTrend::Up(stats.active_change)),
-                    sparkline_data: Some(vec![10.0, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5]),
-                    icon: Some("users".to_string()),
-                }
-                AdminMetricCard {
-                    label: "Disabled".to_string(),
-                    value: format!("{}", stats.disabled),
-                    trend: Some(if stats.disabled_change > 0.0 { MetricTrend::Down(stats.disabled_change.abs()) } else { MetricTrend::Up(stats.disabled_change) }),
-                    sparkline_data: Some(vec![3.0, 3.0, 2.5, 2.0, 2.0, 1.5, 1.5]),
-                    icon: Some("alert-triangle".to_string()),
-                }
-                AdminMetricCard {
-                    label: "Subscribed".to_string(),
-                    value: format!("{}", stats.subscribed),
-                    trend: Some(MetricTrend::Up(stats.subscribed_change)),
-                    sparkline_data: Some(vec![5.0, 6.0, 6.0, 7.0, 7.5, 8.0, 8.5]),
-                    icon: Some("package".to_string()),
-                }
+impl WalletSurface {
+    fn marker(self) -> &'static str {
+        match self {
+            Self::List => "list",
+            Self::Detail => "detail",
+            Self::Disable => "disable",
+        }
+    }
+
+    fn meta_title(self) -> &'static str {
+        match self {
+            Self::List => "Wallets unavailable",
+            Self::Detail => "Wallet detail unavailable",
+            Self::Disable => "Wallet operation unavailable",
+        }
+    }
+
+    fn eyebrow(self) -> &'static str {
+        match self {
+            Self::List => "Wallet inventory",
+            Self::Detail => "Wallet workspace",
+            Self::Disable => "Wallet operation",
+        }
+    }
+
+    fn title(self) -> &'static str {
+        match self {
+            Self::List => "Wallet inventory is unavailable",
+            Self::Detail => "This wallet cannot be verified",
+            Self::Disable => "Wallet changes are unavailable",
+        }
+    }
+
+    fn detail(self) -> &'static str {
+        match self {
+            Self::List => {
+                "No wallet records, counts, balances, platforms, permissions, subscription summaries, or activity are shown because an authoritative wallet list contract is not connected."
             }
-            // Platform distribution sub-card. Mirrors the
-            // `PlatformDistribution` sub-component in
-            // `components/wallet/wallet-stats-bar.tsx`.
-            div { class: "card card-glass platform-distribution-card",
-                div { class: "card-header",
-                    h4 { class: "text-sm font-semibold text-foreground/80", "Platform distribution" }
-                }
-                div { class: "card-body space-y-3",
-                    PlatformDistributionRow { label: "Analytics".to_string(), emoji: "\u{1f4ca}".to_string(), count: stats.platform_analytics, percent: pct(stats.platform_analytics), color: "bg-[#1fc7d4]".to_string() }
-                    PlatformDistributionRow { label: "Pay".to_string(), emoji: "\u{1f4b3}".to_string(), count: stats.platform_pay, percent: pct(stats.platform_pay), color: "bg-[#7645d9]".to_string() }
-                    PlatformDistributionRow { label: "Token".to_string(), emoji: "\u{1fa99}".to_string(), count: stats.platform_token, percent: pct(stats.platform_token), color: "bg-[#ffb237]".to_string() }
-                    PlatformDistributionRow { label: "Markets".to_string(), emoji: "\u{1f4c8}".to_string(), count: stats.platform_markets, percent: pct(stats.platform_markets), color: "bg-[#31d0aa]".to_string() }
-                }
+            Self::Detail => {
+                "No identity, balance, chain, subscription, permission, activity, or transaction data is shown because the backend has not verified the requested wallet."
+            }
+            Self::Disable => {
+                "No status or impact is inferred, and no disable or re-enable action is offered because an authorized, idempotent, audited wallet mutation is not connected."
             }
         }
     }
 }
-
-#[component]
-fn PlatformDistributionRow(label: String, emoji: String, count: u32, percent: u32, color: String) -> Element {
-    rsx! {
-        div {
-            div { class: "flex items-center justify-between text-sm mb-1",
-                span { class: "flex items-center gap-2 text-muted-foreground",
-                    span { "{emoji}" }
-                    "{label}"
-                }
-                span { class: "font-medium text-foreground", "{count} ({percent}%)" }
-            }
-            div { class: "h-2 bg-muted rounded-full overflow-hidden",
-                div { class: "h-full rounded-full transition-all duration-500 {color}", style: "width: {percent}%" }
-            }
-        }
-    }
-}
-
-// ============================================================================
-// Section 2: WalletList (table of all wallets)
-// ============================================================================
-
-#[component]
-fn WalletList() -> Element {
-    let columns = vec![
-        Column { key: "address".into(), label: "Address".into(), sortable: true, align: crate::primitives::data_table::Align::Left, width: Some("30%".into()), class_name: None },
-        Column { key: "chain".into(), label: "Chain".into(), sortable: true, align: crate::primitives::data_table::Align::Left, width: Some("10%".into()), class_name: None },
-        Column { key: "balance".into(), label: "Balance".into(), sortable: true, align: crate::primitives::data_table::Align::Right, width: Some("15%".into()), class_name: None },
-        Column { key: "status".into(), label: "Status".into(), sortable: true, align: crate::primitives::data_table::Align::Center, width: Some("10%".into()), class_name: None },
-        Column { key: "permissions".into(), label: "Permissions".into(), sortable: false, align: crate::primitives::data_table::Align::Left, width: Some("20%".into()), class_name: None },
-        Column { key: "last_active".into(), label: "Last active".into(), sortable: true, align: crate::primitives::data_table::Align::Right, width: Some("15%".into()), class_name: None },
-    ];
-    let rows = vec![
-        Row { id: "0x1234567890abcdef1234567890abcdef12345678".into(), cells: vec!["0x1234\u{2026}5678".into(), "BSC".into(), "1.234 BNB".into(), "Active".into(), "trade, view, pay".into(), "2 min ago".into()] },
-        Row { id: "0xabcdef1234567890abcdef1234567890abcdef12".into(), cells: vec!["0xabcd\u{2026}ef12".into(), "BSC".into(), "0.5 BNB".into(), "Active".into(), "trade".into(), "1 hour ago".into()] },
-        Row { id: "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef".into(), cells: vec!["0xdead\u{2026}beef".into(), "BSC".into(), "0.0 BNB".into(), "Disabled".into(), "\u{2014}".into(), "1 day ago".into()] },
-    ];
-    rsx! {
-        DataTable {
-            columns,
-            rows,
-            striped: true,
-            page_size: 20,
-            filter_placeholder: Some("Filter by address, status, or permission...".to_string()),
-            initial_sort: Some(("last_active".to_string(), SortDir::Desc)),
-        }
-    }
-}
-
-// ============================================================================
-// Section 3: WalletDetailView
-// ============================================================================
-//
-// The per-wallet detail view: a 2-column layout. Left column is the
-// `WalletDetailPanel` (subscription / access cards). Right column is
-// the per-wallet metadata header (address / plan / chain / last
-// login / created).
-//
-// Mirrors `components/wallet/wallet-detail-view.tsx` and
-// `wallet-detail-header.tsx`.
-
-#[component]
-fn WalletDetailView(address: String) -> Element {
-    let mut tab = use_signal(|| "overview".to_string());
-    rsx! {
-        div { class: "wallet-detail-view space-y-4",
-            // Header card — WalletDetailHeader equivalent.
-            div { class: "card card-glass",
-                div { class: "card-header",
-                    h1 { class: "card-title", "Wallet" }
-                    code { class: "text-sm text-muted-foreground", "{address}" }
-                }
-                div { class: "card-body grid grid-cols-1 md:grid-cols-3 gap-4",
-                    DetailField { label: "Address".to_string(), value: address.clone() }
-                    DetailField { label: "Chain".to_string(), value: "BSC (56)".to_string() }
-                    DetailField { label: "Status".to_string(), value: "Active".to_string() }
-                    DetailField { label: "Balance".to_string(), value: "1.234 BNB".to_string() }
-                    DetailField { label: "Created".to_string(), value: "2024-01-15".to_string() }
-                    DetailField { label: "Last active".to_string(), value: "2 min ago".to_string() }
-                }
-            }
-            // Tab nav.
-            div { class: "tabs mt-4 mb-4",
-                button { class: if *tab.read() == "overview" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("overview".to_string()), "Overview" }
-                button { class: if *tab.read() == "tx" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("tx".to_string()), "Transactions" }
-                button { class: if *tab.read() == "subs" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("subs".to_string()), "Subscriptions" }
-                button { class: if *tab.read() == "perms" { "btn btn-primary" } else { "btn btn-outline" }, onclick: move |_| tab.set("perms".to_string()), "Permissions" }
-            }
-            // Tab bodies. The `Overview` and `Subscriptions` tabs
-            // delegate to `WalletDetailPanel`; the rest are inline.
-            if *tab.read() == "overview" {
-                WalletDetailPanel { address: address.clone() }
-            } else if *tab.read() == "tx" {
-                WalletTransactionTable {}
-            } else if *tab.read() == "subs" {
-                div { class: "card card-glass", div { class: "card-body",
-                    p { "Active: Pro plan ($29/mo)" }
-                    p { class: "text-muted-foreground text-sm", "Next billing: 2024-10-15" }
-                } }
-            } else {
-                div { class: "card card-glass", div { class: "card-body flex gap-2",
-                    Badge { kind: BadgeKind::Success, "trade" }
-                    Badge { kind: BadgeKind::Info, "view" }
-                    Badge { kind: BadgeKind::Warning, "pay" }
-                } }
-            }
-            // Footer action — disable button.
-            div { class: "mt-4",
-                a { class: "btn btn-danger", href: format!("/wallet-management/wallets/{}/disable", address), "Disable wallet" }
-            }
-        }
-    }
-}
-
-// ============================================================================
-// Section 4: WalletTableRow
-// ============================================================================
-//
-// The row inside the list view's table. Mirrors
-// `components/wallet/wallet-table-row.tsx` — the source uses
-// `DropdownMenu` for the actions column. The Dioxus port emits a
-// single-cell row that contains the address, plan badge, status, last
-// login, and the "View / Edit / Disable" actions. The dropdown is
-// collapsed to a single "Actions" cell to avoid coupling to
-// `primitives/dropdown.rs`'s trigger pattern.
-
-#[component]
-fn WalletTableRow(
-    address: String,
-    plan: String,
-    status: String,
-    last_active: String,
-) -> Element {
-    let status_cls = if status == "active" { "text-success" } else { "text-warning" };
-    let dot_cls = if status == "active" { "bg-success" } else { "bg-warning" };
-    rsx! {
-        div { class: "wallet-table-row",
-            div { class: "wallet-table-row-address font-mono text-xs", "{address}" }
-            div { class: "wallet-table-row-plan",
-                Badge { kind: BadgeKind::Primary, "{plan}" }
-            }
-            div { class: "wallet-table-row-status flex items-center gap-2",
-                div { class: "h-1.5 w-1.5 rounded-full {dot_cls}" }
-                span { class: "capitalize text-xs font-medium {status_cls}", "{status}" }
-            }
-            div { class: "wallet-table-row-last-login text-right text-xs text-muted-foreground", "{last_active}" }
-        }
-    }
-}
-
-// ============================================================================
-// Section 5: WalletCardSections
-// ============================================================================
-//
-// The mobile-card variant of the list row. Mirrors
-// `components/wallet/wallet-card-sections.tsx`'s `WalletCardIdentity`,
-// `WalletCardStats`, and `WalletCardActions` sub-components. The
-// Dioxus port collapses those into a single `WalletCardSections`
-// component that emits the same visual structure: identity (gradient
-// avatar + address + label), stats row (plan, joined, last login,
-// platforms), and action row (Edit + More).
-
-#[component]
-fn WalletCardSections(
-    address: String,
-    label: String,
-    plan: String,
-    joined: String,
-    last_login: String,
-) -> Element {
-    let initials: String = address.chars().skip(2).take(2).collect::<String>().to_uppercase();
-    rsx! {
-        div { class: "card card-glass wallet-card-sections p-4 space-y-4",
-            // Identity row: gradient avatar + address + label.
-            div { class: "wallet-card-identity flex items-center gap-3 min-w-0",
-                div { class: "wallet-card-avatar",
-                    div { class: "wallet-card-avatar-bg" }
-                    div { class: "wallet-card-avatar-text", "{initials}" }
-                }
-                div { class: "min-w-0 flex-1",
-                    div { class: "font-mono text-sm font-bold truncate", "{address}" }
-                    if !label.is_empty() {
-                        Badge { kind: BadgeKind::Primary, "{label}" }
-                    } else {
-                        span { class: "text-xs text-muted-foreground", "Add label" }
-                    }
-                }
-            }
-            // Stats row: 4-column grid.
-            div { class: "grid grid-cols-2 sm:grid-cols-4 gap-3",
-                WalletCardStat { label: "Plan".to_string(), value: plan.clone() }
-                WalletCardStat { label: "Joined".to_string(), value: joined.clone() }
-                WalletCardStat { label: "Last login".to_string(), value: last_login.clone() }
-                WalletCardStat { label: "Platforms".to_string(), value: "Analytics, Pay".to_string() }
-            }
-            // Action row: Edit + More.
-            div { class: "grid grid-cols-2 gap-3",
-                button { class: "btn btn-outline", r#type: "button", Icon { name: "edit".to_string(), size: Some(14) } " Edit" }
-                button { class: "btn btn-outline", r#type: "button", Icon { name: "more-horizontal".to_string(), size: Some(14) } " More actions" }
-            }
-        }
-    }
-}
-
-#[component]
-fn WalletCardStat(label: String, value: String) -> Element {
-    rsx! {
-        div { class: "flex flex-col gap-1",
-            span { class: "text-[10px] font-bold uppercase tracking-wider text-muted-foreground", "{label}" }
-            span { class: "text-sm font-semibold truncate", "{value}" }
-        }
-    }
-}
-
-// ============================================================================
-// Section 6: WalletDetailPanel
-// ============================================================================
-//
-// The right-hand panel of the detail view: a subscription summary
-// card, a recent-transactions list, and a quick-access card. Mirrors
-// `components/wallet/wallet-detail-panel.tsx` — the source uses
-// nested sub-components (`WalletSubscriptionCard`, `WalletAccessList`)
-// and a `CardGrid` layout.
-
-#[component]
-fn WalletDetailPanel(address: String) -> Element {
-    rsx! {
-        div { class: "wallet-detail-panel space-y-4",
-            // Subscription summary card.
-            div { class: "card card-glass",
-                div { class: "card-header",
-                    h3 { class: "card-title", "Subscription" }
-                    Badge { kind: BadgeKind::Success, "Active" }
-                }
-                div { class: "card-body",
-                    p { class: "text-sm text-muted-foreground", "Wallet" }
-                    code { class: "text-xs", "{address}" }
-                    div { class: "mt-3 grid grid-cols-2 gap-3",
-                        DetailField { label: "Plan".to_string(), value: "Pro".to_string() }
-                        DetailField { label: "Billed".to_string(), value: "$29 / mo".to_string() }
-                        DetailField { label: "Renews".to_string(), value: "2024-10-15".to_string() }
-                        DetailField { label: "Trial ends".to_string(), value: "\u{2014}".to_string() }
-                    }
-                }
-            }
-            // Recent transactions list.
-            div { class: "card card-glass",
-                div { class: "card-header",
-                    h3 { class: "card-title", "Recent transactions" }
-                }
-                div { class: "card-body p-0",
-                    WalletTransactionTable {}
-                }
-            }
-            // Quick-access card.
-            div { class: "card card-glass",
-                div { class: "card-header",
-                    h3 { class: "card-title", "Quick access" }
-                }
-                div { class: "card-body space-y-2",
-                    QuickAccessRow { label: "View on explorer".to_string(), href: format!("https://bscscan.com/address/{}", address) }
-                    QuickAccessRow { label: "Download transactions CSV".to_string(), href: format!("/api/v1/wallet/wallets/{}/transactions.csv", address) }
-                    QuickAccessRow { label: "Open support ticket".to_string(), href: "/chat".to_string() }
-                }
-            }
-        }
-    }
-}
-
-#[component]
-fn QuickAccessRow(label: String, href: String) -> Element {
-    rsx! {
-        a { class: "flex items-center justify-between p-2 rounded hover:bg-muted/30 text-sm", href: "{href}",
-            span { "{label}" }
-            Icon { name: "arrow-up-right".to_string(), size: Some(14) }
-        }
-    }
-}
-
-#[component]
-fn WalletTransactionTable() -> Element {
-    rsx! {
-        div { class: "table-wrap",
-            table { class: "table",
-                thead { tr { th { "Time" } th { "Type" } th { "Amount" } th { "Token" } th { "Hash" } } }
-                tbody {
-                    tr { td { "2024-09-20 10:32" } td { "in" } td { class: "font-mono", "+0.5" } td { "BNB" } td { code { class: "text-xs", "0xabc...123" } } }
-                    tr { td { "2024-09-19 15:21" } td { "out" } td { class: "font-mono", "-0.2" } td { "BNB" } td { code { class: "text-xs", "0xdef...456" } } }
-                    tr { td { "2024-09-18 09:14" } td { "in" } td { class: "font-mono", "+0.1" } td { "BNB" } td { code { class: "text-xs", "0x789...abc" } } }
-                }
-            }
-        }
-    }
-}
-
-// ============================================================================
-// Section 7: WalletDisableDialog
-// ============================================================================
-//
-// The "Disable wallet" modal. Mirrors
-// `components/wallet/disable-wallet-modal.tsx` — the source is a
-// Radix dialog with a reason textarea + cancel/confirm actions. The
-// Dioxus port emits the same shape as a `primitives::alert_dialog`
-// pattern; the actual modal open state lives in the parent route
-// (`render_disable`).
-
-#[component]
-fn WalletDisableDialog(address: String) -> Element {
-    rsx! {
-        div { class: "alert-dialog wallet-disable-dialog",
-            div { class: "alert-dialog-content",
-                div { class: "alert-dialog-header",
-                    h2 { class: "alert-dialog-title", "Disable wallet" }
-                    p { class: "alert-dialog-description",
-                        "You are about to disable the wallet "
-                        span { class: "font-mono", "{address}" }
-                        ". This will revoke all permissions and freeze any active subscriptions."
-                    }
-                }
-                Form { method: "POST".to_string(), action: format!("/api/v1/wallet/wallets/{}/disable", address),
-                    div { class: "field",
-                        label { class: "field-label", "Reason" }
-                        input { class: "input", name: "reason", required: true, placeholder: "e.g. suspicious activity" }
-                    }
-                    FormActions {
-                        button { class: "btn btn-danger", r#type: "submit", "Disable wallet" }
-                        a { class: "btn btn-outline", href: format!("/wallet-management/wallets/{}", address), "Cancel" }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ============================================================================
-// Section 8: WalletReenableDialog
-// ============================================================================
-//
-// The "Re-enable wallet" modal. Mirrors
-// `components/wallet/reenable-wallet-modal.tsx` — the source lets the
-// admin clear the original disable reason and confirm re-enable. The
-// Dioxus port mirrors the same shape: a textarea pre-filled with the
-// previous reason + cancel/confirm actions.
-
-#[component]
-fn WalletReenableDialog(address: String) -> Element {
-    rsx! {
-        div { class: "alert-dialog wallet-reenable-dialog",
-            div { class: "alert-dialog-content",
-                div { class: "alert-dialog-header",
-                    h2 { class: "alert-dialog-title", "Re-enable wallet" }
-                    p { class: "alert-dialog-description",
-                        "Re-enable the wallet "
-                        span { class: "font-mono", "{address}" }
-                        ". The previous disable reason will be cleared from the audit log."
-                    }
-                }
-                Form { method: "POST".to_string(), action: format!("/api/v1/wallet/wallets/{}/reenable", address),
-                    div { class: "field",
-                        label { class: "field-label", "Note (optional)" }
-                        input { class: "input", name: "note", placeholder: "e.g. verified identity" }
-                    }
-                    FormActions {
-                        button { class: "btn btn-success", r#type: "submit", "Re-enable wallet" }
-                        a { class: "btn btn-outline", href: format!("/wallet-management/wallets/{}", address), "Cancel" }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ============================================================================
-// DetailField helper (Wave 1)
-// ============================================================================
-
-#[component]
-fn DetailField(label: String, value: String) -> Element {
-    rsx! {
-        div { class: "detail-field",
-            div { class: "text-sm text-muted-foreground", "{label}" }
-            div { class: "font-semibold", "{value}" }
-        }
-    }
-}
-
-// ============================================================================
-// Top-level page entry points
-// ============================================================================
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::admin("Wallet management");
-    let stats = WalletStatsData {
-        total: 142,
-        active: 128,
-        disabled: 14,
-        subscribed: 87,
-        total_change: 3.2,
-        active_change: 4.1,
-        disabled_change: -2.5,
-        subscribed_change: 5.6,
-        platform_analytics: 84,
-        platform_pay: 36,
-        platform_token: 18,
-        platform_markets: 4,
-    };
-    (meta, rsx! {
-        AdminAuthGate {
-            user: ctx.user.clone(),
-            feature: Some("the wallet management page".to_string()),
-            required_permissions: Some(vec!["admin:users:read".to_string()]),
-            return_url: Some(ctx.path.clone()),
-            div { class: "container page-content",
-                // Header.
-                div { class: "flex items-center justify-between mb-6",
-                    div {
-                        h1 { class: "text-2xl font-bold", "Wallets" }
-                        p { class: "text-muted-foreground", "All wallets connected to the platform" }
-                    }
-                    a { class: "btn btn-primary", href: "/wallet-management/credits", Icon { name: "plus".to_string(), size: Some(16) } " Add wallet" }
-                }
-                // Section 1: stats bar.
-                WalletStatsBar { stats: stats }
-                // Wave 43 T1 B3 — 3 radix-ui Select comboboxes above
-                // the data table (matches prod HTML in
-                // `baselines/prod-admin/admin-wallet-management.html`).
-                // Prod uses 3 comboboxes: "All Status", "All Platforms",
-                // "Date Created". The combobox role + class strings
-                // are copied byte-for-byte from the prod baseline so
-                // the diff closes the 4 missing-buttons (Settings
-                // was mis-classified; the actual missing buttons
-                // are these 3 combobox labels + the Settings nav
-                // link which is rendered by AdminShell).
-                div { class: "flex items-center gap-2 flex-shrink-0 flex-wrap mb-4",
-                    FilterDropdown { label: "All Status".to_string(), width: "120px".to_string() }
-                    FilterDropdown { label: "All Platforms".to_string(), width: "130px".to_string() }
-                    FilterDropdown { label: "Date Created".to_string(), width: "140px".to_string() }
-                }
-                // Section 2: list.
-                div { class: "mt-6",
-                    WalletList {}
-                }
-            }
-        }
-    })
+    render_surface(ctx, WalletSurface::List, None)
 }
 
-/// Wave 43 T1 B3 — radix-ui Select-shaped combobox stub. Mirrors
-/// the prod HTML's `<button role="combobox" ...>` that opens a
-/// dropdown for the 3 wallet-management filter facets
-/// (Status / Platforms / Date Created). The prod element uses a
-/// radix-ui `<Select>` primitive; we render a `<button>` with
-/// the EXACT prod class strings + the radix `role="combobox"`
-/// + `aria-controls/expanded/autocomplete/data-state` attributes
-/// so the diff-tool's `missing-buttons` heuristic + the
-/// Playwright interaction harness both see the same surface.
-///
-/// Static (non-interactive) — the capture-harness's "click
-/// first button" heuristic must not navigate away, so we omit
-/// the actual `<Select>` popup. The label text is the visible
-/// "All Status" / "All Platforms" / "Date Created" caption.
-#[component]
-fn FilterDropdown(label: String, width: String) -> Element {
-    rsx! {
-        button {
-            r#type: "button",
-            role: "combobox",
-            aria_controls: "radix-filter",
-            aria_expanded: "false",
-            aria_autocomplete: "none",
-            dir: "ltr",
-            "data-state": "closed",
-            class: "flex items-center justify-between border dark:border-white/20 dark:bg-white/5 backdrop-blur-sm px-3 py-2 ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 h-10 bg-muted/30 border-border/30 rounded-xl text-sm hover:border-border/50 transition-colors",
-            style: "width: {width};",
-            span { "{label}" }
-            // Chevron-down icon (lucide) — 16px.
-            Icon { name: "chevron-down".to_string(), size: Some(16), class_name: Some("ml-2 h-4 w-4 opacity-50".to_string()) }
-        }
-    }
-}
-
+/// The route value is a bounded, control-free, escaped diagnostic reference.
+/// It never proves that a wallet exists, is canonical, or is authorized.
 pub fn render_detail(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::admin("Wallet detail");
-    (meta, rsx! { RenderWalletDetailPage { ctx: ctx.clone() } })
+    let reference = bounded_route_reference(
+        ctx.params
+            .get("address")
+            .map(String::as_str)
+            .unwrap_or_default(),
+    );
+    render_surface(ctx, WalletSurface::Detail, Some(reference))
 }
 
-#[component]
-fn RenderWalletDetailPage(ctx: PageContext) -> Element {
-    let address = ctx.params.get("address").cloned().unwrap_or_default();
-    rsx! {
-        AdminAuthGate {
-            user: ctx.user.clone(),
-            feature: Some("wallet detail".to_string()),
-            required_permissions: Some(vec!["admin:users:read".to_string()]),
-            return_url: Some(ctx.path.clone()),
-            div { class: "container page-content",
-                a { class: "btn btn-sm btn-ghost mb-4", href: "/wallet-management/wallets", Icon { name: "arrow-left".to_string(), size: Some(16) } " Back to wallets" }
-                // Section 3: detail view.
-                WalletDetailView { address: address.clone() }
+/// The legacy confirmation route remains non-mutating. It cannot derive impact
+/// or status from the path and exposes no submit control or mutation endpoint.
+pub fn render_disable(ctx: &PageContext) -> (PageMeta, Element) {
+    let reference = bounded_route_reference(
+        ctx.params
+            .get("address")
+            .map(String::as_str)
+            .unwrap_or_default(),
+    );
+    render_surface(ctx, WalletSurface::Disable, Some(reference))
+}
+
+fn render_surface(
+    ctx: &PageContext,
+    surface: WalletSurface,
+    route_reference: Option<String>,
+) -> (PageMeta, Element) {
+    let meta = PageMeta::admin(surface.meta_title());
+    let retry_href = route_reference
+        .as_deref()
+        .map(|reference| route_href(surface, reference))
+        .unwrap_or_else(|| WALLETS_PATH.to_string());
+
+    (
+        meta,
+        rsx! {
+            AuthGate {
+                user: ctx.user.clone(),
+                feature: Some("the private admin wallet workspace".to_string()),
+                // Never disclose a route identifier in signed-out HTML.
+                return_url: Some(WALLETS_PATH.to_string()),
+                WalletUnavailable { surface, route_reference, retry_href }
             }
+        },
+    )
+}
+
+fn bounded_route_reference(raw: &str) -> String {
+    let cleaned = raw
+        .chars()
+        .filter(|character| !character.is_control())
+        .collect::<String>();
+    let cleaned = cleaned.trim();
+
+    if cleaned.is_empty() {
+        return "not provided".to_string();
+    }
+
+    if cleaned.chars().count() <= MAX_ROUTE_REFERENCE_CHARS {
+        return cleaned.to_string();
+    }
+
+    let mut bounded = cleaned
+        .chars()
+        .take(MAX_ROUTE_REFERENCE_CHARS.saturating_sub(1))
+        .collect::<String>();
+    bounded.push('…');
+    bounded
+}
+
+fn encode_path_segment(reference: &str) -> String {
+    let mut encoded = String::with_capacity(reference.len());
+    for byte in reference.as_bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
+                encoded.push(char::from(*byte));
+            }
+            _ => {
+                const HEX: &[u8; 16] = b"0123456789ABCDEF";
+                encoded.push('%');
+                encoded.push(char::from(HEX[(byte >> 4) as usize]));
+                encoded.push(char::from(HEX[(byte & 0x0f) as usize]));
+            }
+        }
+    }
+    encoded
+}
+
+fn route_href(surface: WalletSurface, reference: &str) -> String {
+    let encoded = encode_path_segment(reference);
+    match surface {
+        WalletSurface::List => WALLETS_PATH.to_string(),
+        WalletSurface::Detail => format!("/wallet-management/{encoded}"),
+        WalletSurface::Disable => {
+            format!("/wallet-management/wallets/{encoded}/disable")
         }
     }
 }
 
-pub fn render_disable(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::admin("Disable wallet");
-    (meta, rsx! { RenderDisable { ctx: ctx.clone() } })
-}
-
 #[component]
-fn RenderDisable(ctx: PageContext) -> Element {
-    let address = ctx.params.get("address").cloned().unwrap_or_default();
-    let mut confirm = use_signal(|| false);
+fn WalletUnavailable(
+    surface: WalletSurface,
+    route_reference: Option<String>,
+    retry_href: String,
+) -> Element {
+    let title_id = format!("admin-wallet-{}-unavailable-title", surface.marker());
+
     rsx! {
-        AdminAuthGate {
-            user: ctx.user.clone(),
-            feature: Some("disabling wallets".to_string()),
-            required_permissions: Some(vec!["admin:users:update".to_string()]),
-            return_url: Some(ctx.path.clone()),
-            div { class: "container page-content max-w-2xl",
-                a { class: "btn btn-sm btn-ghost mb-4", href: format!("/wallet-management/wallets/{}", address), Icon { name: "arrow-left".to_string(), size: Some(16) } " Back" }
-                div { class: "card card-glass border-danger",
-                    div { class: "card-header",
-                        h1 { class: "card-title text-danger", "Disable wallet" }
+        div {
+            class: "container page-content max-w-6xl py-10",
+            "data-admin-wallets-state": "unavailable",
+            "data-admin-wallets-surface": surface.marker(),
+            section {
+                class: "relative overflow-hidden rounded-3xl border border-border/40 bg-card shadow-2xl",
+                role: "status",
+                aria_labelledby: title_id.clone(),
+                div {
+                    class: "absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#1fc7d4] via-[#7645d9] to-[#ed4b9e]",
+                    aria_hidden: "true",
+                }
+                div { class: "grid gap-8 p-8 md:grid-cols-[auto_1fr] md:p-12",
+                    div {
+                        class: "flex h-16 w-16 items-center justify-center rounded-2xl border border-violet-500/20 bg-violet-500/10 text-violet-400",
+                        aria_hidden: "true",
+                        Icon { name: "wallet".to_string(), size: Some(30) }
                     }
-                    div { class: "card-body",
-                        p { "You are about to disable the wallet " span { class: "font-mono", "{address}" } "." }
-                        p { class: "text-muted-foreground mt-2", "This will revoke all permissions and freeze any active subscriptions." }
-                        if !*confirm.read() {
-                            div { class: "flex gap-2 mt-4",
-                                button { class: "btn btn-danger", r#type: "button", onclick: move |_| confirm.set(true), "Continue" }
-                                a { class: "btn btn-outline", href: format!("/wallet-management/wallets/{}", address), "Cancel" }
+                    div {
+                        p { class: "text-xs font-black uppercase tracking-[0.22em] text-violet-400",
+                            {surface.eyebrow()}
+                        }
+                        h1 { id: title_id, class: "mt-3 text-3xl font-black tracking-tight text-foreground",
+                            {surface.title()}
+                        }
+                        div { class: "mt-5 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-5",
+                            p { class: "text-sm font-semibold leading-6 text-foreground",
+                                {surface.detail()}
                             }
-                        } else {
-                            // Section 7: full disable dialog.
-                            WalletDisableDialog { address: address.clone() }
+                        }
+                        if let Some(reference) = route_reference {
+                            p { class: "mt-4 rounded-xl border border-border/30 bg-background/50 px-4 py-3 text-sm text-muted-foreground",
+                                "Unverified route reference: "
+                                code { "data-admin-wallet-route-reference": "bounded", "{reference}" }
+                            }
+                        }
+                        p { class: "mt-5 max-w-3xl text-sm leading-6 text-muted-foreground",
+                            "The verified session keeps this workspace private. Only the Rust backend may authorize wallet reads or changes and return canonical typed data."
+                        }
+                        nav { class: "mt-8 flex flex-wrap gap-3", aria_label: "Wallet workspace recovery",
+                            a { class: "btn btn-primary", href: retry_href,
+                                Icon { name: "refresh-cw".to_string(), size: Some(16) }
+                                " Retry wallet availability"
+                            }
+                            if surface != WalletSurface::List {
+                                a { class: "btn btn-outline", href: WALLETS_PATH,
+                                    Icon { name: "arrow-left".to_string(), size: Some(16) }
+                                    " Wallet list"
+                                }
+                            }
+                            a { class: "btn btn-ghost", href: "/",
+                                Icon { name: "home".to_string(), size: Some(16) }
+                                " Admin home"
+                            }
                         }
                     }
                 }
@@ -675,169 +247,179 @@ fn RenderDisable(ctx: PageContext) -> Element {
     }
 }
 
-// ============================================================================
-// Section markers (used by `tests::test_section_markers`):
-//
-//   1. "Wallet stats bar"          → "Platform distribution" + 4 admin-metric-card
-//   2. "Wallet list"               → DataTable with "Filter by address, status, or permission..."
-//   3. "Wallet detail view"        → "Wallet" header + DetailField grid + tabs
-//   4. "Wallet table row"          → "wallet-table-row"
-//   5. "Wallet card sections"      → "wallet-card-sections"
-//   6. "Wallet detail panel"       → "Subscription" + "Recent transactions"
-//   7. "Wallet disable dialog"     → "Disable wallet" + reason input
-//   8. "Wallet re-enable dialog"   → "Re-enable wallet"
-// ============================================================================
-
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::pages::PageContext;
-    use crate::auth::User;
+    use std::collections::HashMap;
 
-    /// Build an admin `User` with the operation-specific wallet permissions.
-    fn test_user_admin() -> User {
-        User {
-            id: "test-admin".to_string(),
-            address: "0xADMIN0000000000000000000000000000000001".to_string(),
-            chain_id: "56".to_string(),
-            roles: vec!["admin".to_string()],
-            email: Some("admin@epsx.io".to_string()),
-            tier: Some("admin".to_string()),
-            permissions: vec!["admin:users:read".to_string(), "admin:users:update".to_string()],
+    use super::*;
+    use crate::auth::user::{AuthMethod, User};
+
+    fn authenticated_ctx() -> PageContext {
+        PageContext {
+            user: Some(User {
+                id: "verified-session".to_string(),
+                address: "0xsession".to_string(),
+                chain_id: "56".to_string(),
+                roles: vec![],
+                email: None,
+                tier: None,
+                permissions: vec![],
+                last_login_at: None,
+                auth_method: AuthMethod::Wallet,
+                display_name: None,
+            }),
+            path: WALLETS_PATH.to_string(),
             ..Default::default()
         }
     }
 
-    /// Render the admin page's `Element` to an HTML string.
-    fn render_to_string(el: Element) -> String {
-        dioxus_ssr::render_element(el)
+    fn html(element: Element) -> String {
+        dioxus_ssr::render_element(element)
     }
 
-    /// `test_render_smoke` — the page body's header text is rendered
-    /// for an admin user with the right permission. The header text
-    /// is unique to the body (the gate panel doesn't render it), so
-    /// a hit confirms we made it past the gate.
+    fn assert_no_samples_or_controls(rendered: &str) {
+        let lowered = rendered.to_ascii_lowercase();
+        for forbidden in [
+            "0x1234…5678",
+            "0xabcd…ef12",
+            "0xdead…beef",
+            "1.234 bnb",
+            "pro plan ($29/mo)",
+            "platform distribution",
+            "download transactions csv",
+            "add wallet",
+            "disable wallet",
+            "re-enable wallet",
+            "grant access",
+            "all status",
+            "all platforms",
+            "date created",
+            "<form",
+            "<input",
+            "<textarea",
+            "<select",
+            "<button",
+            "<table",
+        ] {
+            assert!(
+                !lowered.contains(&forbidden.to_ascii_lowercase()),
+                "wallet UI leaked sample state or a control `{forbidden}`: {rendered}"
+            );
+        }
+    }
+
     #[test]
-    fn test_render_smoke() {
-        let ctx = PageContext {
-            user: Some(test_user_admin()),
-            path: "/wallet-management/wallets".to_string(),
-            ..Default::default()
-        };
-        let (_, el) = render(&ctx);
-        let html = render_to_string(el);
-        assert!(
-            html.contains("All wallets connected to the platform"),
-            "Wallet management page must render the subtitle for an admin. Got: {}",
-            html
+    fn signed_out_direct_routes_hide_private_state_and_references() {
+        for (path, render_fn) in [
+            (
+                WALLETS_PATH,
+                render as fn(&PageContext) -> (PageMeta, Element),
+            ),
+            ("/wallet-management/private-reference", render_detail),
+            (
+                "/wallet-management/wallets/private-reference/disable",
+                render_disable,
+            ),
+        ] {
+            let mut ctx = PageContext {
+                path: path.to_string(),
+                ..Default::default()
+            };
+            ctx.params
+                .insert("address".to_string(), "private-reference".to_string());
+            let rendered = html(render_fn(&ctx).1);
+
+            assert!(rendered.contains("Sign in required"), "{path}: {rendered}");
+            assert!(
+                !rendered.contains("private-reference"),
+                "{path}: {rendered}"
+            );
+            assert!(!rendered.contains("data-admin-wallets-state"));
+            assert!(rendered.contains("href=\"/auth?return_url=%2Fwallet-management%2Fwallets\""));
+            assert_no_samples_or_controls(&rendered);
+        }
+    }
+
+    #[test]
+    fn empty_role_session_reaches_all_explicit_unavailable_surfaces() {
+        let mut ctx = authenticated_ctx();
+        let list = html(render(&ctx).1);
+
+        ctx.params
+            .insert("address".to_string(), "0xunverified".to_string());
+        ctx.path = "/wallet-management/0xunverified".to_string();
+        let detail = html(render_detail(&ctx).1);
+        ctx.path = "/wallet-management/wallets/0xunverified/disable".to_string();
+        let disable = html(render_disable(&ctx).1);
+
+        for (surface, rendered) in [("list", list), ("detail", detail), ("disable", disable)] {
+            assert!(rendered.contains("data-admin-wallets-state=\"unavailable\""));
+            assert!(rendered.contains(&format!("data-admin-wallets-surface=\"{surface}\"")));
+            assert!(!rendered.contains("Permission required"));
+            assert!(!rendered.contains("Admin access required"));
+            assert_no_samples_or_controls(&rendered);
+        }
+    }
+
+    #[test]
+    fn dynamic_reference_is_bounded_escaped_unverified_and_one_encoded_segment() {
+        let mut ctx = authenticated_ctx();
+        ctx.path = "/wallet-management/hostile".to_string();
+        ctx.params.insert(
+            "address".to_string(),
+            format!("{}<script>alert(1)</script>\n", "x".repeat(80)),
         );
-        // The 8 sections include the stats bar; the platform
-        // distribution label is a unique marker.
-        assert!(
-            html.contains("Platform distribution"),
-            "Wallet stats bar must render. Got: {}",
-            html
-        );
+        let rendered = html(render_detail(&ctx).1);
+
+        assert!(rendered.contains("Unverified route reference"));
+        assert!(rendered.contains("data-admin-wallet-route-reference=\"bounded\""));
+        assert!(rendered.contains('…'));
+        assert!(!rendered.contains("<script>"));
+        assert!(!rendered.contains("alert(1)"));
+        assert!(rendered.contains("href=\"/wallet-management/"));
+        assert!(!rendered.contains("\n"));
+        assert_no_samples_or_controls(&rendered);
     }
 
-    /// `test_section_markers` — assert each of the 8 design-doc
-    /// sections renders its section-marker text. The markers are
-    /// chosen as strings that appear in the rendered HTML and are
-    /// not present in the gate panel / chrome.
     #[test]
-    fn test_section_markers() {
-        let ctx = PageContext {
-            user: Some(test_user_admin()),
-            path: "/wallet-management/wallets".to_string(),
-            ..Default::default()
-        };
-        let (_, el) = render(&ctx);
-        let html = render_to_string(el);
+    fn query_and_unrelated_params_never_create_wallet_state() {
+        let mut ctx = authenticated_ctx();
+        ctx.query = "balance=999&plan=HOSTILE_PLAN&status=active".to_string();
+        ctx.params = HashMap::from([
+            ("balance".to_string(), "HOSTILE_BALANCE".to_string()),
+            ("permissions".to_string(), "HOSTILE_PERMISSION".to_string()),
+        ]);
+        let rendered = html(render(&ctx).1);
 
-        // Section 1 — WalletStatsBar.
-        assert!(html.contains("Platform distribution"), "section 1 (WalletStatsBar) marker missing");
-        assert!(html.contains("Total wallets"), "section 1 (WalletStatsBar) stat card missing");
-        assert!(html.contains("admin-metric-card"), "section 1 (AdminMetricCard primitive) marker missing");
-
-        // Section 2 — WalletList.
-        assert!(html.contains("Filter by address, status, or permission..."), "section 2 (WalletList) marker missing");
-
-        // Section 4 — WalletTableRow (rendered inside the DataTable
-        // sample row).
-        assert!(html.contains("0x1234\u{2026}5678"), "section 4 (WalletTableRow) address sample missing");
-
-        // Section 7 — WalletDisableDialog (rendered via
-        // render_disable with a confirmed step). Tested in
-        // test_disable_dialog_renders.
+        for forbidden in [
+            "999",
+            "HOSTILE_PLAN",
+            "HOSTILE_BALANCE",
+            "HOSTILE_PERMISSION",
+        ] {
+            assert!(!rendered.contains(forbidden));
+        }
+        assert!(rendered.contains("data-admin-wallets-state=\"unavailable\""));
+        assert_no_samples_or_controls(&rendered);
     }
 
-    /// The detail view (`/wallet-management/wallets/[address]`)
-    /// renders the 4 tabs (Overview / Transactions / Subscriptions /
-    /// Permissions) and the per-wallet detail panel.
     #[test]
-    fn test_wallet_detail_view_renders_tabs() {
-        let mut params = std::collections::HashMap::new();
-        params.insert("address".to_string(), "0x1234".to_string());
-        let ctx = PageContext {
-            user: Some(test_user_admin()),
-            path: "/wallet-management/wallets/0x1234".to_string(),
-            params,
-            ..Default::default()
-        };
-        let (_, el) = render_detail(&ctx);
-        let html = render_to_string(el);
-        assert!(html.contains("Overview"), "Detail view tab 'Overview' missing");
-        assert!(html.contains("Transactions"), "Detail view tab 'Transactions' missing");
-        assert!(html.contains("Subscriptions"), "Detail view tab 'Subscriptions' missing");
-        assert!(html.contains("Permissions"), "Detail view tab 'Permissions' missing");
-        // Section 6 marker — "Subscription" appears inside
-        // WalletDetailPanel's first card.
-        assert!(html.contains("Subscription"), "Section 6 (WalletDetailPanel) marker missing");
-        assert!(html.contains("Recent transactions"), "Section 6 (WalletDetailPanel) marker missing");
-    }
+    fn leaves_are_body_only_and_disable_surface_has_no_mutation_affordance() {
+        let mut ctx = authenticated_ctx();
+        ctx.params
+            .insert("address".to_string(), "0xunverified".to_string());
 
-    /// The disable dialog (`/wallet-management/wallets/[address]/disable`)
-    /// renders the reason input + the danger button when the user
-    /// confirms the first step.
-    #[test]
-    fn test_disable_dialog_renders() {
-        let mut params = std::collections::HashMap::new();
-        params.insert("address".to_string(), "0xabcd".to_string());
-        let ctx = PageContext {
-            user: Some(test_user_admin()),
-            path: "/wallet-management/wallets/0xabcd/disable".to_string(),
-            params,
-            ..Default::default()
-        };
-        let (_, el) = render_disable(&ctx);
-        let html = render_to_string(el);
-        assert!(
-            html.contains("Disable wallet"),
-            "Disable dialog title missing. Got: {}",
-            html
-        );
-        assert!(html.contains("Continue"), "Disable dialog first-step button missing");
-    }
-
-    /// The mobile-card variant (WalletCardSections) renders its
-    /// identity, stats, and action rows when invoked directly via
-    /// the `WalletList` DataTable fallback (we exercise it via
-    /// the smoke render).
-    #[test]
-    fn test_wallet_card_sections_renders() {
-        let el = rsx! {
-            WalletCardSections {
-                address: "0xABCD1234".to_string(),
-                label: "Treasury".to_string(),
-                plan: "Pro".to_string(),
-                joined: "30 days ago".to_string(),
-                last_login: "5 min ago".to_string(),
-            }
-        };
-        let html = render_to_string(el);
-        assert!(html.contains("0xABCD1234"), "WalletCardSections address missing");
-        assert!(html.contains("Treasury"), "WalletCardSections label missing");
-        assert!(html.contains("Pro"), "WalletCardSections plan missing");
-        assert!(html.contains("wallet-card-sections"), "WalletCardSections class missing");
+        for rendered in [
+            html(render(&ctx).1),
+            html(render_detail(&ctx).1),
+            html(render_disable(&ctx).1),
+        ] {
+            assert!(!rendered.contains("class=\"admin-shell"));
+            assert!(!rendered.contains("<main"));
+            assert!(!rendered.contains("<header"));
+            assert!(!rendered.contains("<aside"));
+            assert!(!rendered.contains("<footer"));
+            assert_no_samples_or_controls(&rendered);
+        }
     }
 }

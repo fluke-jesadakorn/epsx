@@ -304,14 +304,45 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     (status, [("content-type", "text/html; charset=utf-8")], doc).into_response()
 }
 
-/// Keep security-sensitive dynamic chat references out of signed-out shell
-/// breadcrumbs and wallet return URLs. The dispatcher still receives the real
-/// path so authenticated routing and authorization can resolve it normally.
+/// Keep security-sensitive dynamic chat, news, wallet, and plan references out
+/// of signed-out shell breadcrumbs and return URLs. The dispatcher still
+/// receives the real path so authenticated routing can resolve it normally.
 fn safe_admin_layout_path(layout_path: &str, is_authenticated: bool) -> String {
     if !is_authenticated {
         if let Some(reference) = layout_path.strip_prefix("/chat/") {
             if !reference.is_empty() && !reference.contains('/') {
                 return "/chat".to_string();
+            }
+        }
+
+        if let Some(rest) = layout_path.strip_prefix("/news/") {
+            if let Some((reference, suffix)) = rest.split_once('/') {
+                if !reference.is_empty() && suffix == "edit" {
+                    return "/news".to_string();
+                }
+            }
+        }
+
+        if let Some(reference) = layout_path.strip_prefix("/wallet-management/access/plans/") {
+            if !reference.is_empty() && !reference.contains('/') {
+                return "/wallet-management/access/plans".to_string();
+            }
+        }
+
+        if let Some(rest) = layout_path.strip_prefix("/wallet-management/wallets/") {
+            if let Some((reference, suffix)) = rest.split_once('/') {
+                if !reference.is_empty() && suffix == "disable" {
+                    return "/wallet-management/wallets".to_string();
+                }
+            }
+        }
+
+        if let Some(reference) = layout_path.strip_prefix("/wallet-management/") {
+            if !reference.is_empty()
+                && !reference.contains('/')
+                && !matches!(reference, "wallets" | "credits" | "access")
+            {
+                return "/wallet-management/wallets".to_string();
             }
         }
     }
@@ -500,11 +531,44 @@ mod tests {
     }
 
     #[test]
-    fn signed_out_dynamic_chat_full_layout_hides_conversation_reference() {
-        let html = render_admin_html("/admin/chat/private-case-reference");
+    fn signed_out_dynamic_full_layout_hides_private_route_references() {
+        for (path, safe_return_url) in [
+            ("/admin/chat/private-case-reference", "/chat"),
+            ("/admin/news/private-case-reference/edit", "/news"),
+            (
+                "/admin/wallet-management/private-case-reference",
+                "/wallet-management/wallets",
+            ),
+            (
+                "/admin/wallet-management/wallets/private-case-reference/disable",
+                "/wallet-management/wallets",
+            ),
+            (
+                "/admin/wallet-management/access/plans/private-case-reference",
+                "/wallet-management/access/plans",
+            ),
+        ] {
+            let html = render_admin_html(path);
 
-        assert!(!html.contains("private-case-reference"), "{html}");
-        assert!(html.contains("data-return-url=\"/chat\""), "{html}");
+            assert!(!html.contains("private-case-reference"), "{path}: {html}");
+            assert!(
+                html.contains(&format!("data-return-url=\"{safe_return_url}\"")),
+                "{path}: {html}"
+            );
+        }
+    }
+
+    #[test]
+    fn authenticated_layout_keeps_dynamic_route_references() {
+        for path in [
+            "/chat/conversation-1",
+            "/news/article-1/edit",
+            "/wallet-management/0xabc",
+            "/wallet-management/wallets/0xabc/disable",
+            "/wallet-management/access/plans/pro",
+        ] {
+            assert_eq!(safe_admin_layout_path(path, true), path);
+        }
     }
 
     #[test]

@@ -171,8 +171,8 @@ and revocation behavior remain canonical.
   handlers. Those handlers remain unsuitable for production until real chain,
   transaction, idempotency, and recovery contracts replace them.
 - Both BFFs preserve verified backend permissions without expanding roles. The
-  46-record permission inventory contains 12 Dioxus security-gate records and,
-  by grammar, 42 canonical three-segment records, two legacy two-segment gates,
+  37-record permission inventory contains three Dioxus security-gate records and,
+  by grammar, 33 canonical three-segment records, two legacy two-segment gates,
   one unknown record, and one impossible/cross-grammar record. The two legacy
   security gates remain blockers; UI gates remain presentation controls, never
   policy authority. The ten removed legacy gates were the invented
@@ -182,7 +182,9 @@ and revocation behavior remain canonical.
   frontend surfaces. Eleven additional operation gates were removed from the
   fail-closed admin dashboard, audit, chat, media, news, notification,
   developer-portal, and settings shells because those pages now expose no
-  operational records or actions; their future authorization remains
+  operational records or actions. Nine more canonical UI literals were removed
+  from fail-closed analytics, wallet list/detail/disable, wallet-access, and
+  wallet-plan surfaces; their future read/manage authorization remains
   backend-owned.
 - The deployed identity ranking service returns offset `100` for all wallets,
   including paid users. This is not acceptable entitlement behavior.
@@ -642,9 +644,9 @@ bounded path set. Shared contract files require coordination through package A0.
   fall back to the free plan on authority failure.
 
 - **A4.0/A8.1 status:** the deterministic permission-grammar inventory covers
-  46 UI/service records, including 12 Dioxus security gates. A8.2 additionally
-  separates wallet-access and plan read surfaces from their mutation controls
-  using literal backend guards;
+  37 UI/service records, including three Dioxus security gates. Unavailable
+  analytics, wallet, wallet-access, and wallet-plan surfaces now use only the
+  session boundary while all future read/manage policy remains backend-owned;
   readiness intentionally stops with two legacy security gates and two
   presentation-only drift records. Entitlement and ranking-offset parity in the
   acceptance condition above is not yet implemented.
@@ -838,13 +840,15 @@ bounded path set. Shared contract files require coordination through package A0.
   in-process proof does not establish source middleware/logout/session ordering,
   method/body/cache semantics, query policy, or authenticated browser history,
   RSC, and client-navigation parity. The admin SSR still provides no general
-  per-page loader. Dashboard, audit-log, chat list/detail, media, news
-  list/create/edit, notification manage/create, settings, developer portal,
-  and wallet credits now fail closed without sample records, counts, health,
-  history, configuration, credentials, balances, ledger rows, filters, forms,
-  upload controls, or mutations; other operational pages still render samples,
-  several form/BFF paths drift, and preserved statuses still lack typed
-  envelopes and page-level consumption. Developer-portal readiness additionally
+  per-page loader. Dashboard, analytics, audit-log, chat list/detail, media,
+  news list/create/edit, notification manage/create, settings, developer portal,
+  wallet credits/access/list/detail/disable, and wallet-plan list/detail now
+  fail closed without sample records, counts, health, history, configuration,
+  credentials, balances, ledger rows, assignments, catalogs, filters, forms,
+  upload controls, or mutations. The read-only payment-intents tab is the sole
+  operational page with a bounded typed loader; source mutation contracts and
+  BFF paths still drift, and preserved statuses still lack typed envelopes and
+  general page-level consumption. Developer-portal readiness additionally
   stops on plaintext `api_keys.full_key` persistence/list projection; credit
   readiness stops on a GET path that can create a balance record and on the
   unresolved financial mutation authority.
@@ -875,9 +879,10 @@ bounded path set. Shared contract files require coordination through package A0.
   A3.7's two-to-zero startup-DDL change, exact 844-byte candidate migration, and
   read-only startup compatibility probe without promoting any lifecycle route.
   The top-level frontend plan producer, fallback loader, static catalog, and
-  checkout mutation are now absent and `/plans` fails closed; the canned
-  `/api/v1/subscription/plans` producer, admin samples, and backend/service
-  contract gaps remain. There is still no runner/ledger,
+  checkout mutation are now absent and `/plans` fails closed. Admin wallet-plan
+  list/detail samples and controls are also absent behind explicit unavailable
+  shells; the canned `/api/v1/subscription/plans` producer, missing admin typed
+  adapter, and backend/service contract gaps remain. There is still no runner/ledger,
   adoption, populated upgrade, reconciliation,
   concurrent-startup, live-database, payment, or entitlement proof. Integrity
   and tamper gates pass; all 20 blockers remain and readiness intentionally
