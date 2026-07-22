@@ -119,7 +119,7 @@ for (const item of source.evidence) {
   anchored(content, item, "source");
 }
 
-if (!Array.isArray(contract.targetEvidence) || contract.targetEvidence.length !== 40) fail("exactly 40 target evidence records are required");
+if (!Array.isArray(contract.targetEvidence) || contract.targetEvidence.length !== 46) fail("exactly 46 target evidence records are required");
 const targetContents = new Map();
 for (const item of contract.targetEvidence) {
   if (!item || typeof item.id !== "string" || !/^[a-z][a-z0-9-]+$/.test(item.id) || evidenceIds.has(item.id)) fail(`invalid or duplicate evidence id: ${item?.id}`);
@@ -135,6 +135,12 @@ for (const item of contract.targetEvidence) {
   anchored(content, item, "target");
 }
 const exactNotificationAnchors = {
+  "tgt-frontend-get-only-list": ["apps/frontend/src/main.rs", "get(notifications_api)"],
+  "tgt-frontend-query-contract": ["apps/frontend/src/api.rs", "const NOTIFICATION_LIST_LIMIT_MAX: u16 = 100;"],
+  "tgt-frontend-body-limits": ["apps/frontend/src/api.rs", "const NOTIFICATION_LIST_BODY_MAX: usize = 2 * 1024 * 1024;"],
+  "tgt-frontend-owner-cross-check": ["apps/frontend/src/api.rs", ".validate(&user.wallet_address, query.limit)"],
+  "tgt-frontend-bearer-only": ["apps/frontend/src/api.rs", "let req = client.get(&url).bearer_auth(&token);"],
+  "tgt-frontend-unread-contract": ["apps/frontend/src/api.rs", "struct NotificationUnreadCount {"],
   "tgt-frontend-ssr-list": ["apps/frontend/src/ssr.rs", ".get_with_ctx(\"/api/v1/notification/list\", &request_context)"],
   "tgt-frontend-ssr-ok": ["apps/frontend/src/ssr.rs", "params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"ok\".into());"],
   "tgt-frontend-ssr-error": ["apps/frontend/src/ssr.rs", "params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"error\".into());"],
@@ -144,6 +150,9 @@ const exactNotificationAnchors = {
   "tgt-user-ui-auth-only": ["shared/rust/dioxus_ui/src/pages/notifications.rs", "fn authenticated_owner_needs_no_frontend_permission_grant()"],
   "tgt-user-ui-read-only-count": ["shared/rust/dioxus_ui/src/pages/notifications.rs", "let unread_label = format!(\"{unread_count} unread in loaded list\");"],
   "tgt-user-ui-disabled-controls": ["shared/rust/dioxus_ui/src/pages/notifications.rs", "fn lifecycle_delivery_and_unapproved_navigation_controls_are_absent()"],
+  "tgt-dormant-nav-unavailable": ["apps/frontend/src/ui.rs", "data-state=\"unavailable\""],
+  "tgt-active-header-mount": ["apps/frontend/src/ssr.rs", "epsx_templates::epsx_header()"],
+  "tgt-active-header-no-badge": ["shared/rust/templates/src/lib.rs", "pub fn epsx_header() -> String {"],
 };
 const targetById = new Map(contract.targetEvidence.map((item) => [item.id, item]));
 for (const [id, [file, anchor]] of Object.entries(exactNotificationAnchors)) {
@@ -156,7 +165,8 @@ for (const id of ["tgt-schema-compatibility", "tgt-additive-service-migration", 
 for (const stale of [
   "tgt-runtime-template-ddl", "tgt-runtime-notification-ddl", "tgt-runtime-sample-seed",
   "tgt-user-ui-sample-fallback", "tgt-user-ui-inert-bulk", "tgt-browser-permission-simulated",
-  "tgt-user-preferences-inert"
+  "tgt-user-preferences-inert", "tgt-frontend-any-method", "tgt-frontend-list-bff",
+  "tgt-nav-count-first-page"
 ]) {
   if (evidenceIds.has(stale)) fail(`stale pre-A3.11 target evidence remains: ${stale}`);
 }
@@ -170,6 +180,124 @@ for (const anchor of [
   "params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"ok\".into());",
   "params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"error\".into());"
 ]) if (!frontendSsr.includes(anchor)) fail(`notification SSR outcome contract drifted: ${anchor}`);
+const frontendMain = targetContents.get("tgt-frontend-get-only-list");
+const notificationRoutesStart = frontendMain.indexOf("\"/api/v1/notifications\",");
+const notificationMutationsStart = frontendMain.indexOf(".route(\"/api/v1/notifications/{id}/read\"", notificationRoutesStart);
+if (notificationRoutesStart < 0 || notificationMutationsStart < 0) fail("notification BFF read-route boundary markers drifted");
+const notificationReadRoutes = frontendMain.slice(notificationRoutesStart, notificationMutationsStart);
+for (const anchor of [
+  "get(notifications_api)",
+  "\"/api/v1/notifications/unread-count\"",
+  "get(notification_unread_count)",
+  ".head(|| async { axum::http::StatusCode::METHOD_NOT_ALLOWED })"
+]) if (!notificationReadRoutes.includes(anchor)) fail(`notification GET-only route contract drifted: ${anchor}`);
+if ((notificationReadRoutes.match(/\.head\(\|\| async \{ axum::http::StatusCode::METHOD_NOT_ALLOWED \}\)/g) ?? []).length !== 2) fail("notification list and unread routes must each reject HEAD explicitly");
+for (const forbidden of [
+  ".route(\"/api/v1/notifications\", any(notifications_api))",
+  ".route(\"/api/v1/notifications\", post(notifications_api))",
+  "any(notification_unread_count)",
+  "post(notification_unread_count)"
+]) if (notificationReadRoutes.includes(forbidden)) fail(`notification read route widened beyond GET: ${forbidden}`);
+
+const frontendApi = targetContents.get("tgt-frontend-query-contract");
+const queryStart = frontendApi.indexOf("const NOTIFICATION_LIST_LIMIT_MAX: u16 = 100;");
+const listStart = frontendApi.indexOf("pub async fn notifications_api(", queryStart);
+const unreadStructStart = frontendApi.lastIndexOf("#[derive(Debug, Deserialize, Serialize)]", frontendApi.indexOf("struct NotificationUnreadCount {"));
+const unreadFunctionStart = frontendApi.indexOf("pub async fn notification_unread_count(", listStart);
+const mutationStart = frontendApi.indexOf("pub async fn notification_read(", unreadFunctionStart);
+if ([queryStart, listStart, unreadStructStart, unreadFunctionStart, mutationStart].some((offset) => offset < 0)) fail("notification BFF read boundary markers drifted");
+const queryContract = frontendApi.slice(queryStart, unreadStructStart);
+const listFunction = frontendApi.slice(listStart, unreadFunctionStart);
+const unreadFunction = frontendApi.slice(unreadFunctionStart, mutationStart);
+const unreadBoundary = frontendApi.slice(unreadStructStart, mutationStart);
+for (const anchor of [
+  "const NOTIFICATION_LIST_OFFSET_MAX: u32 = 1_000_000;",
+  "const NOTIFICATION_LIST_BODY_MAX: usize = 2 * 1024 * 1024;",
+  "const NOTIFICATION_UNREAD_BODY_MAX: usize = 4 * 1024;",
+  "if !seen.insert(key.to_string())",
+  "if !(1..=NOTIFICATION_LIST_LIMIT_MAX).contains(&value)",
+  "if value > NOTIFICATION_LIST_OFFSET_MAX",
+  "if !matches!(value.as_ref(), \"pending\" | \"sent\" | \"failed\")",
+  "_ => return Err(())",
+  "user_id: RequiredNullable<String>",
+  ".is_some_and(|user_id| user_id.eq_ignore_ascii_case(owner))"
+]) if (!queryContract.includes(anchor)) fail(`notification list query/owner contract drifted: ${anchor}`);
+if ((queryContract.match(/#\[serde\(deny_unknown_fields\)\]/g) ?? []).length !== 2) fail("notification list and row wire DTOs must both reject unknown fields");
+for (const anchor of [
+  "struct NotificationListWire {",
+  "items: Vec<NotificationWire>,",
+  "total: i64,",
+  "struct NotificationWire {",
+  "id: String,",
+  "user_id: RequiredNullable<String>,",
+  "channel: String,",
+  "recipient: String,",
+  "template_id: RequiredNullable<String>,",
+  "subject: RequiredNullable<String>,",
+  "body: String,",
+  "data: RequiredNullable<serde_json::Value>,",
+  "status: String,",
+  "error: RequiredNullable<String>,",
+  "sent_at: RequiredNullable<DateTime<chrono::Utc>>",
+  "created_at: DateTime<chrono::Utc>,",
+  "read_at: RequiredNullable<DateTime<chrono::Utc>>",
+  "title: RequiredNullable<String>,",
+  "notification_type: RequiredNullable<String>,",
+  "priority: RequiredNullable<String>,",
+  "action_url: RequiredNullable<String>"
+]) if (!queryContract.includes(anchor)) fail(`notification exact list wire DTO drifted: ${anchor}`);
+for (const anchor of [
+  "let (token, user) = match verified_bearer_and_user(&state, &headers).await",
+  "query.upstream_suffix()",
+  "let req = client.get(&url).bearer_auth(&token);",
+  "read_notification_body_limited(response, NOTIFICATION_LIST_BODY_MAX)",
+  ".validate(&user.wallet_address, query.limit)"
+]) if (!listFunction.includes(anchor)) fail(`notification list forwarding/validation contract drifted: ${anchor}`);
+for (const anchor of [
+  "async fn read_notification_body_limited(",
+  ".content_length()",
+  "while let Some(chunk) = response.chunk().await.map_err(|_| ())?",
+  "let next_len = body.len().checked_add(chunk.len()).ok_or(())?;",
+  "if next_len > limit",
+  "let value = serde_json::from_slice::<serde_json::Value>(&body);",
+  "let payload = serde_json::from_slice::<NotificationListWire>(&body);",
+  "match (value, payload)"
+]) if (!unreadBoundary.includes(anchor)) fail(`notification bounded-body parsing contract drifted: ${anchor}`);
+for (const forbidden of ["response.json::<serde_json::Value>()", "value.clone()", "payload.clone()"]) {
+  if (listFunction.includes(forbidden)) fail(`notification list reintroduced unbounded or cloned parsing: ${forbidden}`);
+}
+for (const identityForward of ["x-user-id", "x-user-address", "x-wallet-address", ".header("]) {
+  if (listFunction.toLowerCase().includes(identityForward) || unreadFunction.toLowerCase().includes(identityForward)) fail(`notification read BFF forwards unreviewed identity metadata: ${identityForward}`);
+}
+for (const anchor of [
+  "#[serde(deny_unknown_fields)]",
+  "struct NotificationUnreadCount {",
+  "count: i64,",
+  "let token = match verified_bearer(&state, &headers).await",
+  "\"{}/api/v1/notification/unread-count\"",
+  ".bearer_auth(&token)",
+  "read_notification_body_limited(response, NOTIFICATION_UNREAD_BODY_MAX)",
+  "serde_json::from_slice::<NotificationUnreadCount>(&body)",
+  "Ok(payload) if payload.count >= 0 => Json(payload).into_response()"
+]) if (!unreadBoundary.includes(anchor)) fail(`notification unread-count contract drifted: ${anchor}`);
+
+const dormantNav = targetContents.get("tgt-dormant-nav-unavailable");
+if (!dormantNav.includes("data-state=\"unavailable\"")) fail("dormant notification badge is not explicitly unavailable");
+for (const forbidden of ["fetch(" + String.fromCharCode(39) + "/api/v1/notifications", "/api/v1/notifications?limit=1", "items.filter", ">0</span>"]) {
+  if (dormantNav.includes(forbidden)) fail(`dormant notification badge reintroduced fabricated count behavior: ${forbidden}`);
+}
+const activeSsr = targetContents.get("tgt-active-header-mount");
+const activeNavStart = activeSsr.indexOf("let nav_html = if path == \"/auth\" {");
+const activeNavEnd = activeSsr.indexOf("// === Wave 49+ — re-enable footer ===", activeNavStart);
+if (activeNavStart < 0 || activeNavEnd < 0 || !activeSsr.slice(activeNavStart, activeNavEnd).includes("epsx_templates::epsx_header()")) fail("active SSR shell no longer mounts the reviewed shared header");
+const sharedTemplates = targetContents.get("tgt-active-header-no-badge");
+const sharedHeaderStart = sharedTemplates.indexOf("pub fn epsx_header() -> String {");
+const sharedHeaderEnd = sharedTemplates.indexOf("/// A standard page shell.", sharedHeaderStart);
+if (sharedHeaderStart < 0 || sharedHeaderEnd < 0) fail("active shared header boundary markers drifted");
+const sharedHeader = sharedTemplates.slice(sharedHeaderStart, sharedHeaderEnd).toLowerCase();
+for (const forbidden of ["notification", "unread", "data-lucide=\"bell\"", "/api/v1/notifications"]) {
+  if (sharedHeader.includes(forbidden)) fail(`active shared-header badge blocker changed without reviewed integration: ${forbidden}`);
+}
 const ownerUi = targetContents.get("tgt-user-ui-target-dto");
 const ownerUiRuntime = ownerUi.split("#[cfg(test)]", 1)[0];
 for (const anchor of [
@@ -229,6 +357,9 @@ for (const surface of contract.surfaceContracts) {
   if (!Array.isArray(surface.blockerIds) || surface.blockerIds.length === 0) fail(`${surface.id}: blocker references are required`);
 }
 if (expectedSurfaces.some((id) => !surfaceIds.has(id))) fail("notification surface inventory drifted");
+const ownerReadSurface = contract.surfaceContracts.find((surface) => surface.id === "owner-list-and-count");
+const exactOwnerReadObservation = "The frontend exposes GET-only list and unread-count BFF routes with explicit HEAD-to-405 overrides; all other non-GET methods are rejected. List permits only bounded status/limit/offset, forwards only a verified bearer, streams at most 2 MiB, parses the same bytes into exact wire and passthrough JSON values, and cross-checks every current-target row against the principal wallet; unread-count streams at most 4 KiB and requires the exact non-negative current-target DTO. SSR and the read-only page preserve explicit outcomes without sample fallback or lifecycle controls. Source method/query/envelope parity and the active shared-header badge remain blocked.";
+if (ownerReadSurface?.targetObserved !== exactOwnerReadObservation) fail("owner-list-and-count target observation or active-header blocker drifted");
 
 const ruleSections = { ownershipRules: 5, deliveryRules: 8, idempotencyRules: 5, privacyRules: 5 };
 for (const [section, expected] of Object.entries(ruleSections)) {
@@ -299,7 +430,7 @@ if [ "$mode" = "report" ]; then
 fi
 
 if [ "$mode" = "integrity" ]; then
-  echo "notification-execution: PASS — 14 source records, 40 target anchors, 12 surfaces, and 22 stop blockers verified"
+  echo "notification-execution: PASS — 14 source records, 46 target anchors, 12 surfaces, and 22 stop blockers verified"
   echo "notification-execution: LIMIT — A2.3c auth and A3.11 schema boundary remain partial; no database, upgrade, reconciliation, Redis, SMTP, push, network, deployment, or production readiness was proven"
   exit 0
 fi

@@ -197,14 +197,34 @@
       "anchor": "AccessPolicy::Permission(\"admin:notifications:manage\")"
     },
     {
-      "id": "tgt-frontend-any-method",
+      "id": "tgt-frontend-get-only-list",
       "file": "apps/frontend/src/main.rs",
-      "anchor": ".route(\"/api/v1/notifications\", any(notifications_api))"
+      "anchor": "get(notifications_api)"
     },
     {
-      "id": "tgt-frontend-list-bff",
+      "id": "tgt-frontend-query-contract",
       "file": "apps/frontend/src/api.rs",
-      "anchor": "\"{}/api/v1/notification/list\","
+      "anchor": "const NOTIFICATION_LIST_LIMIT_MAX: u16 = 100;"
+    },
+    {
+      "id": "tgt-frontend-body-limits",
+      "file": "apps/frontend/src/api.rs",
+      "anchor": "const NOTIFICATION_LIST_BODY_MAX: usize = 2 * 1024 * 1024;"
+    },
+    {
+      "id": "tgt-frontend-owner-cross-check",
+      "file": "apps/frontend/src/api.rs",
+      "anchor": ".validate(&user.wallet_address, query.limit)"
+    },
+    {
+      "id": "tgt-frontend-bearer-only",
+      "file": "apps/frontend/src/api.rs",
+      "anchor": "let req = client.get(&url).bearer_auth(&token);"
+    },
+    {
+      "id": "tgt-frontend-unread-contract",
+      "file": "apps/frontend/src/api.rs",
+      "anchor": "struct NotificationUnreadCount {"
     },
     {
       "id": "tgt-frontend-ssr-list",
@@ -252,9 +272,19 @@
       "anchor": "fn lifecycle_delivery_and_unapproved_navigation_controls_are_absent()"
     },
     {
-      "id": "tgt-nav-count-first-page",
+      "id": "tgt-dormant-nav-unavailable",
       "file": "apps/frontend/src/ui.rs",
-      "anchor": "const unread = items.filter(i => !i.read_at).length;"
+      "anchor": "data-state=\"unavailable\""
+    },
+    {
+      "id": "tgt-active-header-mount",
+      "file": "apps/frontend/src/ssr.rs",
+      "anchor": "epsx_templates::epsx_header()"
+    },
+    {
+      "id": "tgt-active-header-no-badge",
+      "file": "shared/rust/templates/src/lib.rs",
+      "anchor": "pub fn epsx_header() -> String {"
     },
     {
       "id": "tgt-admin-bff-send",
@@ -323,7 +353,7 @@
     {
       "id": "owner-list-and-count",
       "source": "GET /api/notifications and GET /api/notifications/unread-count with source envelopes, filters, pagination, broadcasts, expiry, and read semantics",
-      "targetObserved": "GET /api/v1/notification/list is owner-authenticated; frontend SSR preserves explicit ok/error outcomes and the read-only UI consumes the current target DTO without sample fallback, global-count claims, action URLs, or lifecycle controls, while /unread-count and the source-compatible query/envelope remain absent",
+      "targetObserved": "The frontend exposes GET-only list and unread-count BFF routes with explicit HEAD-to-405 overrides; all other non-GET methods are rejected. List permits only bounded status/limit/offset, forwards only a verified bearer, streams at most 2 MiB, parses the same bytes into exact wire and passthrough JSON values, and cross-checks every current-target row against the principal wallet; unread-count streams at most 4 KiB and requires the exact non-negative current-target DTO. SSR and the read-only page preserve explicit outcomes without sample fallback or lifecycle controls. Source method/query/envelope parity and the active shared-header badge remain blocked.",
       "ownerKey": "verified-jwt-wallet",
       "status": "blocked",
       "blockerIds": ["B01", "B02", "B04", "B05"]
@@ -573,7 +603,7 @@
       "status": "blocked",
       "summary": "Source and target methods, prefixes, payloads, fields, envelopes, and status codes are not locked by executable compatibility tests.",
       "resolution": "Implement an explicit adapter or versioned API and contract-test every A11 surface against the pinned source behavior.",
-      "evidenceIds": ["src-route-prefixes", "src-user-list-client", "src-backend-routes", "tgt-service-routes", "tgt-frontend-any-method"]
+      "evidenceIds": ["src-route-prefixes", "src-user-list-client", "src-backend-routes", "tgt-service-routes", "tgt-frontend-get-only-list", "tgt-active-header-no-badge"]
     },
     {
       "id": "B02",

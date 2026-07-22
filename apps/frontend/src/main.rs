@@ -261,7 +261,16 @@ pub fn build_app(state: AppState) -> Router {
         // — see `shared/rust/epsx-identity-shared`); a future wave
         // can wire the real provider redirect.
         .route("/api/v1/auth/oauth/{provider}", get(api_oauth_start))
-        .route("/api/v1/notifications", any(notifications_api))
+        .route(
+            "/api/v1/notifications",
+            get(notifications_api)
+                .head(|| async { axum::http::StatusCode::METHOD_NOT_ALLOWED }),
+        )
+        .route(
+            "/api/v1/notifications/unread-count",
+            get(notification_unread_count)
+                .head(|| async { axum::http::StatusCode::METHOD_NOT_ALLOWED }),
+        )
         .route("/api/v1/notifications/{id}/read", post(notification_read))
         .route(
             "/api/v1/notifications/{id}/delete",
@@ -457,6 +466,35 @@ mod routing_tests {
         assert_eq!(head.headers()[header::CONTENT_TYPE], "application/json");
 
         assert_eq!(request(Method::POST, "/api/v1/plans").await.status(), StatusCode::METHOD_NOT_ALLOWED);
+        for method in [
+            Method::HEAD,
+            Method::POST,
+            Method::PUT,
+            Method::PATCH,
+            Method::DELETE,
+            Method::OPTIONS,
+        ] {
+            for path in [
+                "/api/v1/notifications",
+                "/api/v1/notifications/unread-count",
+            ] {
+                assert_eq!(
+                    request(method.clone(), path).await.status(),
+                    StatusCode::METHOD_NOT_ALLOWED,
+                    "{method} {path}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn dormant_nav_badge_stays_unavailable_and_never_counts_a_list_page() {
+        let source = include_str!("ui.rs");
+        assert!(source.contains("data-state=\"unavailable\""));
+        assert!(!source.contains("fetch('/api/v1/notifications"));
+        assert!(!source.contains("/api/v1/notifications?limit=1"));
+        assert!(!source.contains("items.filter"));
+        assert!(!source.contains(">0</span>"));
     }
 
     #[tokio::test]

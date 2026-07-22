@@ -15,7 +15,7 @@
 //! down — same behaviour the previous string-template fallback had.
 
 use axum::{
-    extract::{Path as AxPath, Query, State},
+    extract::{Path as AxPath, Query, RawQuery, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
@@ -701,43 +701,322 @@ async fn verified_bearer(
     state: &AppState,
     headers: &axum::http::HeaderMap,
 ) -> Result<String, Response> {
-    super::auth::verified_access_token(headers, state.verifier.as_ref(), state.cookie_environment)
+    verified_bearer_and_user(state, headers)
         .await
         .map(|(token, _)| token)
+}
+
+async fn verified_bearer_and_user(
+    state: &AppState,
+    headers: &axum::http::HeaderMap,
+) -> Result<(String, SessionUser), Response> {
+    super::auth::verified_access_token(headers, state.verifier.as_ref(), state.cookie_environment)
+        .await
         .ok_or_else(|| safe_error(StatusCode::UNAUTHORIZED, "invalid_access_token"))
+}
+
+const NOTIFICATION_LIST_LIMIT_MAX: u16 = 100;
+const NOTIFICATION_LIST_OFFSET_MAX: u32 = 1_000_000;
+// The list endpoint returns at most 100 rows. A 2 MiB cap leaves roughly
+// 20 KiB per row for the body and JSON data while preventing a chunked
+// upstream response from forcing unbounded BFF allocation. The unread
+// response is the single-field `{ "count": i64 }` DTO.
+const NOTIFICATION_LIST_BODY_MAX: usize = 2 * 1024 * 1024;
+const NOTIFICATION_UNREAD_BODY_MAX: usize = 4 * 1024;
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct NotificationListQuery {
+    limit: Option<u16>,
+    offset: Option<u32>,
+    status: Option<String>,
+}
+
+impl NotificationListQuery {
+    fn from_raw_query(raw: Option<&str>) -> Result<Self, ()> {
+        let Some(raw) = raw.filter(|raw| !raw.is_empty()) else {
+            return Ok(Self::default());
+        };
+        let url =
+            reqwest::Url::parse(&format!("https://frontend.invalid/?{raw}")).map_err(|_| ())?;
+        let mut query = Self::default();
+        let mut seen = std::collections::HashSet::new();
+        for (key, value) in url.query_pairs() {
+            let key = key.as_ref();
+            if !seen.insert(key.to_string()) {
+                return Err(());
+            }
+            match key {
+                "limit" => {
+                    let value: u16 = value.parse().map_err(|_| ())?;
+                    if !(1..=NOTIFICATION_LIST_LIMIT_MAX).contains(&value) {
+                        return Err(());
+                    }
+                    query.limit = Some(value);
+                }
+                "offset" => {
+                    let value: u32 = value.parse().map_err(|_| ())?;
+                    if value > NOTIFICATION_LIST_OFFSET_MAX {
+                        return Err(());
+                    }
+                    query.offset = Some(value);
+                }
+                "status" => {
+                    if !matches!(value.as_ref(), "pending" | "sent" | "failed") {
+                        return Err(());
+                    }
+                    query.status = Some(value.into_owned());
+                }
+                _ => return Err(()),
+            }
+        }
+        Ok(query)
+    }
+
+    fn upstream_suffix(&self) -> String {
+        let mut fields = Vec::new();
+        if let Some(limit) = self.limit {
+            fields.push(format!("limit={limit}"));
+        }
+        if let Some(offset) = self.offset {
+            fields.push(format!("offset={offset}"));
+        }
+        if let Some(status) = &self.status {
+            fields.push(format!("status={status}"));
+        }
+        if fields.is_empty() {
+            String::new()
+        } else {
+            format!("?{}", fields.join("&"))
+        }
+    }
+}
+
+#[derive(Debug)]
+enum RequiredNullable<T> {
+    Missing,
+    Present(Option<T>),
+}
+
+impl<T> Default for RequiredNullable<T> {
+    fn default() -> Self {
+        Self::Missing
+    }
+}
+
+impl<'de, T> Deserialize<'de> for RequiredNullable<T>
+where
+    T: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Option::<T>::deserialize(deserializer).map(Self::Present)
+    }
+}
+
+impl<T> RequiredNullable<T> {
+    fn as_ref(&self) -> Result<Option<&T>, ()> {
+        match self {
+            Self::Missing => Err(()),
+            Self::Present(value) => Ok(value.as_ref()),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct NotificationListWire {
+    items: Vec<NotificationWire>,
+    total: i64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(dead_code)]
+struct NotificationWire {
+    id: String,
+    #[serde(default)]
+    user_id: RequiredNullable<String>,
+    channel: String,
+    recipient: String,
+    #[serde(default)]
+    template_id: RequiredNullable<String>,
+    #[serde(default)]
+    subject: RequiredNullable<String>,
+    body: String,
+    #[serde(default)]
+    data: RequiredNullable<serde_json::Value>,
+    status: String,
+    #[serde(default)]
+    error: RequiredNullable<String>,
+    #[serde(default)]
+    sent_at: RequiredNullable<DateTime<chrono::Utc>>,
+    created_at: DateTime<chrono::Utc>,
+    #[serde(default)]
+    read_at: RequiredNullable<DateTime<chrono::Utc>>,
+    #[serde(default)]
+    title: RequiredNullable<String>,
+    #[serde(default)]
+    notification_type: RequiredNullable<String>,
+    #[serde(default)]
+    priority: RequiredNullable<String>,
+    #[serde(default)]
+    action_url: RequiredNullable<String>,
+}
+
+impl NotificationListWire {
+    fn validate(&self, owner: &str, requested_limit: Option<u16>) -> Result<(), ()> {
+        let limit = usize::from(requested_limit.unwrap_or(50));
+        if self.total < 0 || self.items.len() > limit || self.total < self.items.len() as i64 {
+            return Err(());
+        }
+        for item in &self.items {
+            if !item
+                .user_id
+                .as_ref()?
+                .is_some_and(|user_id| user_id.eq_ignore_ascii_case(owner))
+            {
+                return Err(());
+            }
+            item.template_id.as_ref()?;
+            item.subject.as_ref()?;
+            item.data.as_ref()?;
+            item.error.as_ref()?;
+            item.sent_at.as_ref()?;
+            item.read_at.as_ref()?;
+            item.title.as_ref()?;
+            item.notification_type.as_ref()?;
+            item.priority.as_ref()?;
+            item.action_url.as_ref()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct NotificationUnreadCount {
+    count: i64,
+}
+
+fn notification_upstream_error(status: StatusCode) -> Response {
+    if status == StatusCode::UNAUTHORIZED {
+        safe_error(
+            StatusCode::UNAUTHORIZED,
+            "notification_upstream_unauthorized",
+        )
+    } else {
+        safe_error(StatusCode::BAD_GATEWAY, "notification_upstream_failed")
+    }
+}
+
+async fn read_notification_body_limited(
+    mut response: reqwest::Response,
+    limit: usize,
+) -> Result<Vec<u8>, ()> {
+    if response
+        .content_length()
+        .is_some_and(|length| length > limit as u64)
+    {
+        return Err(());
+    }
+
+    let mut body = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|_| ())? {
+        let next_len = body.len().checked_add(chunk.len()).ok_or(())?;
+        if next_len > limit {
+            return Err(());
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(body)
 }
 
 pub async fn notifications_api(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
-    method: axum::http::Method,
+    RawQuery(raw_query): RawQuery,
+) -> Response {
+    let query = match NotificationListQuery::from_raw_query(raw_query.as_deref()) {
+        Ok(query) => query,
+        Err(()) => return safe_error(StatusCode::BAD_REQUEST, "invalid_notification_query"),
+    };
+    let (token, user) = match verified_bearer_and_user(&state, &headers).await {
+        Ok(session) => session,
+        Err(response) => return response,
+    };
+    let url = format!(
+        "{}/api/v1/notification/list{}",
+        state.api_url.trim_end_matches('/'),
+        query.upstream_suffix()
+    );
+    let client = state.notification.clone_for_bearer();
+    let req = client.get(&url).bearer_auth(&token);
+    match req.send().await {
+        Ok(response) if response.status().is_success() => {
+            let body = match read_notification_body_limited(response, NOTIFICATION_LIST_BODY_MAX)
+                .await
+            {
+                Ok(body) => body,
+                Err(()) => {
+                    return safe_error(StatusCode::BAD_GATEWAY, "malformed_notification_response")
+                }
+            };
+            let value = serde_json::from_slice::<serde_json::Value>(&body);
+            let payload = serde_json::from_slice::<NotificationListWire>(&body);
+            match (value, payload) {
+                (Ok(value), Ok(payload))
+                    if payload.validate(&user.wallet_address, query.limit).is_ok() =>
+                {
+                    Json(value).into_response()
+                }
+                _ => safe_error(StatusCode::BAD_GATEWAY, "malformed_notification_response"),
+            }
+        }
+        Ok(response) => notification_upstream_error(response.status()),
+        Err(_) => safe_error(StatusCode::BAD_GATEWAY, "notification_upstream_unavailable"),
+    }
+}
+
+pub async fn notification_unread_count(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
 ) -> Response {
     let token = match verified_bearer(&state, &headers).await {
         Ok(token) => token,
         Err(response) => return response,
     };
     let url = format!(
-        "{}/api/v1/notification/list",
+        "{}/api/v1/notification/unread-count",
         state.api_url.trim_end_matches('/')
     );
-    let client = state.notification.clone_for_bearer();
-    let req = client.get(&url).bearer_auth(&token);
-    let _ = method;
-    match req.send().await {
-        Ok(r) if r.status().is_success() => match r.json::<serde_json::Value>().await {
-            Ok(v) => Json(v).into_response(),
-            Err(_) => (
-                StatusCode::BAD_GATEWAY,
-                Json(serde_json::json!({"error": "upstream"})),
-            )
-                .into_response(),
-        },
-        Ok(r) => (r.status(), Json(serde_json::json!({"error": "upstream"}))).into_response(),
-        Err(_) => (
-            StatusCode::BAD_GATEWAY,
-            Json(serde_json::json!({"error": "upstream"})),
-        )
-            .into_response(),
+    match state
+        .notification
+        .clone_for_bearer()
+        .get(&url)
+        .bearer_auth(&token)
+        .send()
+        .await
+    {
+        Ok(response) if response.status().is_success() => {
+            let body = match read_notification_body_limited(response, NOTIFICATION_UNREAD_BODY_MAX)
+                .await
+            {
+                Ok(body) => body,
+                Err(()) => {
+                    return safe_error(StatusCode::BAD_GATEWAY, "malformed_notification_response")
+                }
+            };
+            match serde_json::from_slice::<NotificationUnreadCount>(&body) {
+                Ok(payload) if payload.count >= 0 => Json(payload).into_response(),
+                Ok(_) | Err(_) => {
+                    safe_error(StatusCode::BAD_GATEWAY, "malformed_notification_response")
+                }
+            }
+        }
+        Ok(response) => notification_upstream_error(response.status()),
+        Err(_) => safe_error(StatusCode::BAD_GATEWAY, "notification_upstream_unavailable"),
     }
 }
 
@@ -2044,9 +2323,111 @@ pub async fn api_payment(
 }
 
 #[cfg(test)]
+mod notification_contract_tests {
+    use super::*;
+
+    fn notification(owner: &str) -> serde_json::Value {
+        serde_json::json!({
+            "id": "notification-1",
+            "user_id": owner,
+            "channel": "in_app",
+            "recipient": owner,
+            "template_id": null,
+            "subject": "Subject",
+            "body": "Body",
+            "data": null,
+            "status": "sent",
+            "error": null,
+            "sent_at": "2026-07-22T00:00:00Z",
+            "created_at": "2026-07-22T00:00:00Z",
+            "read_at": null,
+            "title": "Title",
+            "notification_type": "system",
+            "priority": "normal",
+            "action_url": null
+        })
+    }
+
+    #[test]
+    fn list_query_allows_only_bounded_service_fields() {
+        let query =
+            NotificationListQuery::from_raw_query(Some("status=sent&offset=1000000&limit=100"))
+                .unwrap();
+        assert_eq!(query.limit, Some(100));
+        assert_eq!(query.offset, Some(1_000_000));
+        assert_eq!(query.status.as_deref(), Some("sent"));
+        assert_eq!(
+            query.upstream_suffix(),
+            "?limit=100&offset=1000000&status=sent"
+        );
+
+        for invalid in [
+            "user_id=0xother",
+            "caller=0xother",
+            "limit=0",
+            "limit=101",
+            "limit=-1",
+            "offset=-1",
+            "offset=1000001",
+            "status=read",
+            "status=sent&status=failed",
+            "limit=1&limit=2",
+            "unknown=value",
+        ] {
+            assert!(
+                NotificationListQuery::from_raw_query(Some(invalid)).is_err(),
+                "query must fail closed: {invalid}"
+            );
+        }
+    }
+
+    #[test]
+    fn exact_list_shape_requires_owner_and_every_service_field() {
+        let owner = "0x1111111111111111111111111111111111111111";
+        let valid = serde_json::json!({"items": [notification(owner)], "total": 1});
+        serde_json::from_value::<NotificationListWire>(valid)
+            .unwrap()
+            .validate(owner, Some(1))
+            .unwrap();
+
+        let mut wrong_owner = notification("0x2222222222222222222222222222222222222222");
+        wrong_owner.as_object_mut().unwrap().remove("action_url");
+        let malformed = serde_json::json!({"items": [wrong_owner], "total": 1});
+        let payload = serde_json::from_value::<NotificationListWire>(malformed).unwrap();
+        assert!(payload.validate(owner, Some(1)).is_err());
+
+        let extra = serde_json::json!({
+            "items": [notification(owner)],
+            "total": 1,
+            "sample": true
+        });
+        assert!(serde_json::from_value::<NotificationListWire>(extra).is_err());
+    }
+
+    #[test]
+    fn unread_wire_shape_is_exact_and_never_defaults_to_zero() {
+        assert_eq!(
+            serde_json::from_value::<NotificationUnreadCount>(serde_json::json!({"count": 7}))
+                .unwrap()
+                .count,
+            7
+        );
+        for malformed in [
+            serde_json::json!({}),
+            serde_json::json!({"count": 0, "items": []}),
+            serde_json::json!({"count": "0"}),
+            serde_json::Value::Null,
+        ] {
+            assert!(serde_json::from_value::<NotificationUnreadCount>(malformed).is_err());
+        }
+    }
+}
+
+#[cfg(test)]
 mod auth_session_tests {
     use super::*;
     use axum::{
+        body::Body,
         http::{header, HeaderMap, HeaderValue},
         routing::{delete, get, post},
         Router,
@@ -2061,6 +2442,7 @@ mod auth_session_tests {
     use rsa::{pkcs8::EncodePrivateKey, traits::PublicKeyParts, RsaPrivateKey};
     use serde_json::{json, Value};
     use std::{sync::Arc, time::Duration};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     const TEST_ISSUER: &str = "https://issuer.test";
     const TEST_WALLET: &str = "0x1111111111111111111111111111111111111111";
@@ -2129,6 +2511,32 @@ mod auth_session_tests {
         format!("http://{address}")
     }
 
+    async fn spawn_chunked_body(chunks: Vec<Vec<u8>>) -> String {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = [0_u8; 2048];
+            let _ = stream.read(&mut request).await.unwrap();
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n",
+                )
+                .await
+                .unwrap();
+            for chunk in chunks {
+                stream
+                    .write_all(format!("{:X}\r\n", chunk.len()).as_bytes())
+                    .await
+                    .unwrap();
+                stream.write_all(&chunk).await.unwrap();
+                stream.write_all(b"\r\n").await.unwrap();
+            }
+            stream.write_all(b"0\r\n\r\n").await.unwrap();
+        });
+        format!("http://{address}")
+    }
+
     fn state(base_url: &str) -> AppState {
         let config = epsx_client::ClientConfig {
             base_url: base_url.to_string(),
@@ -2191,6 +2599,271 @@ mod auth_session_tests {
             assert!(cookie.contains("Max-Age=0"));
             assert!(cookie.contains("HttpOnly"));
         }
+    }
+
+    fn notification_payload(owner: &str) -> Value {
+        json!({
+            "items": [{
+                "id": "notification-1",
+                "user_id": owner,
+                "channel": "in_app",
+                "recipient": owner,
+                "template_id": null,
+                "subject": "Subject",
+                "body": "Body",
+                "data": null,
+                "status": "sent",
+                "error": null,
+                "sent_at": "2026-07-22T00:00:00Z",
+                "created_at": "2026-07-22T00:00:00Z",
+                "read_at": null,
+                "title": "Title",
+                "notification_type": "system",
+                "priority": "normal",
+                "action_url": null
+            }],
+            "total": 1
+        })
+    }
+
+    async fn response_json(response: Response) -> Value {
+        serde_json::from_slice(
+            &axum::body::to_bytes(response.into_body(), 32 * 1024)
+                .await
+                .unwrap(),
+        )
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn notification_reads_forward_only_verified_bearer_and_safe_query() {
+        let key = TestKey::generate();
+        let access_token = key.access_token(&[]);
+        let expected_token = access_token.clone();
+        let jwks = Jwks {
+            keys: vec![key.jwk.clone()],
+        };
+        let observations = Arc::new(std::sync::Mutex::new(Vec::<Value>::new()));
+        let list_observations = observations.clone();
+        let router = Router::new()
+            .route(
+                JWKS_PATH,
+                get(move || {
+                    let jwks = jwks.clone();
+                    async move { Json(jwks) }
+                }),
+            )
+            .route(
+                "/api/v1/notification/list",
+                get(move |RawQuery(query): RawQuery, headers: HeaderMap| {
+                    let observations = list_observations.clone();
+                    let expected_token = expected_token.clone();
+                    async move {
+                        observations.lock().unwrap().push(json!({
+                            "query": query,
+                            "authorization": headers
+                                .get(header::AUTHORIZATION)
+                                .and_then(|value| value.to_str().ok()),
+                            "x_user_id": headers.get("x-user-id").and_then(|value| value.to_str().ok()),
+                            "x_user_address": headers
+                                .get("x-user-address")
+                                .and_then(|value| value.to_str().ok()),
+                        }));
+                        if headers
+                            .get(header::AUTHORIZATION)
+                            .and_then(|value| value.to_str().ok())
+                            != Some(format!("Bearer {expected_token}").as_str())
+                        {
+                            return StatusCode::UNAUTHORIZED.into_response();
+                        }
+                        Json(notification_payload(TEST_WALLET)).into_response()
+                    }
+                }),
+            )
+            .route(
+                "/api/v1/notification/unread-count",
+                get(|| async { Json(json!({"count": 7})) }),
+            );
+        let base_url = spawn_mock(router).await;
+        let headers = request_headers(&format!("epsx.access_token={access_token}"));
+
+        let list = notifications_api(
+            State(state(&base_url)),
+            headers.clone(),
+            RawQuery(Some("status=sent&offset=2&limit=25".to_string())),
+        )
+        .await;
+        assert_eq!(list.status(), StatusCode::OK);
+        assert_eq!(response_json(list).await["total"], 1);
+
+        let unread = notification_unread_count(State(state(&base_url)), headers).await;
+        assert_eq!(unread.status(), StatusCode::OK);
+        assert_eq!(response_json(unread).await, json!({"count": 7}));
+
+        let observations = observations.lock().unwrap();
+        assert_eq!(observations.len(), 1);
+        assert_eq!(observations[0]["query"], "limit=25&offset=2&status=sent");
+        assert_eq!(
+            observations[0]["authorization"],
+            format!("Bearer {access_token}")
+        );
+        assert!(observations[0]["x_user_id"].is_null());
+        assert!(observations[0]["x_user_address"].is_null());
+        assert!(!observations[0]["query"]
+            .as_str()
+            .unwrap()
+            .contains("user_id"));
+    }
+
+    #[tokio::test]
+    async fn notification_reads_distinguish_auth_malformed_and_upstream_failures() {
+        let missing =
+            notification_unread_count(State(state(&unused_base_url().await)), HeaderMap::new())
+                .await;
+        assert_eq!(missing.status(), StatusCode::UNAUTHORIZED);
+        assert_eq!(
+            response_json(missing).await["error"],
+            "invalid_access_token"
+        );
+
+        let key = TestKey::generate();
+        let access_token = key.access_token(&[]);
+        let jwks = Jwks {
+            keys: vec![key.jwk.clone()],
+        };
+        let router = Router::new()
+            .route(
+                JWKS_PATH,
+                get(move || {
+                    let jwks = jwks.clone();
+                    async move { Json(jwks) }
+                }),
+            )
+            .route(
+                "/api/v1/notification/list",
+                get(|RawQuery(query): RawQuery| async move {
+                    if query
+                        .as_deref()
+                        .is_some_and(|query| query.contains("status=failed"))
+                    {
+                        StatusCode::SERVICE_UNAVAILABLE.into_response()
+                    } else {
+                        Json(notification_payload(
+                            "0x2222222222222222222222222222222222222222",
+                        ))
+                        .into_response()
+                    }
+                }),
+            )
+            .route(
+                "/api/v1/notification/unread-count",
+                get(|| async { Json(json!({"count": 0, "items": []})) }),
+            );
+        let base_url = spawn_mock(router).await;
+        let headers = request_headers(&format!("epsx.access_token={access_token}"));
+
+        let wrong_owner =
+            notifications_api(State(state(&base_url)), headers.clone(), RawQuery(None)).await;
+        assert_eq!(wrong_owner.status(), StatusCode::BAD_GATEWAY);
+        assert_eq!(
+            response_json(wrong_owner).await["error"],
+            "malformed_notification_response"
+        );
+
+        let upstream = notifications_api(
+            State(state(&base_url)),
+            headers.clone(),
+            RawQuery(Some("status=failed".to_string())),
+        )
+        .await;
+        assert_eq!(upstream.status(), StatusCode::BAD_GATEWAY);
+        assert_eq!(
+            response_json(upstream).await["error"],
+            "notification_upstream_failed"
+        );
+
+        let malformed = notification_unread_count(State(state(&base_url)), headers).await;
+        assert_eq!(malformed.status(), StatusCode::BAD_GATEWAY);
+        assert_eq!(
+            response_json(malformed).await["error"],
+            "malformed_notification_response"
+        );
+    }
+
+    #[tokio::test]
+    async fn notification_body_reader_caps_chunked_responses_without_content_length() {
+        for limit in [NOTIFICATION_LIST_BODY_MAX, NOTIFICATION_UNREAD_BODY_MAX] {
+            let exact_url = spawn_chunked_body(vec![vec![b'a'; limit]]).await;
+            let exact = reqwest::get(exact_url).await.unwrap();
+            assert_eq!(
+                read_notification_body_limited(exact, limit)
+                    .await
+                    .unwrap()
+                    .len(),
+                limit
+            );
+
+            let oversized_url = spawn_chunked_body(vec![vec![b'a'; limit], vec![b'b']]).await;
+            let oversized = reqwest::get(oversized_url).await.unwrap();
+            assert!(
+                read_notification_body_limited(oversized, limit)
+                    .await
+                    .is_err(),
+                "chunked response must fail above {limit} bytes"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn notification_handlers_map_oversized_success_bodies_to_safe_502() {
+        let key = TestKey::generate();
+        let access_token = key.access_token(&[]);
+        let jwks = Jwks {
+            keys: vec![key.jwk.clone()],
+        };
+        let router = Router::new()
+            .route(
+                JWKS_PATH,
+                get(move || {
+                    let jwks = jwks.clone();
+                    async move { Json(jwks) }
+                }),
+            )
+            .route(
+                "/api/v1/notification/list",
+                get(|| async {
+                    Response::builder()
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(vec![b'x'; NOTIFICATION_LIST_BODY_MAX + 1]))
+                        .unwrap()
+                }),
+            )
+            .route(
+                "/api/v1/notification/unread-count",
+                get(|| async {
+                    Response::builder()
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(vec![b'x'; NOTIFICATION_UNREAD_BODY_MAX + 1]))
+                        .unwrap()
+                }),
+            );
+        let base_url = spawn_mock(router).await;
+        let headers = request_headers(&format!("epsx.access_token={access_token}"));
+
+        let list =
+            notifications_api(State(state(&base_url)), headers.clone(), RawQuery(None)).await;
+        assert_eq!(list.status(), StatusCode::BAD_GATEWAY);
+        assert_eq!(
+            response_json(list).await["error"],
+            "malformed_notification_response"
+        );
+
+        let unread = notification_unread_count(State(state(&base_url)), headers).await;
+        assert_eq!(unread.status(), StatusCode::BAD_GATEWAY);
+        assert_eq!(
+            response_json(unread).await["error"],
+            "malformed_notification_response"
+        );
     }
 
     #[tokio::test]

@@ -173,7 +173,7 @@ fn render_nav_actions(is_authed: bool, user: Option<&AuthUser>) -> String {
     let role = user.role_label();
     let bell = r##"<a href="/notifications" class="nav-link" style="position:relative;width:2.25rem;height:2.25rem;padding:0;justify-content:center;" title="Notifications">
         <i data-lucide="bell"></i>
-        <span id="nav-unread-badge" style="display:none;position:absolute;top:-0.125rem;right:-0.125rem;background:var(--epsx-red);color:white;font-size:0.625rem;font-weight:700;min-width:1.125rem;height:1.125rem;border-radius:9999px;padding:0 0.25rem;align-items:center;justify-content:center;">0</span>
+        <span id="nav-unread-badge" data-state="unavailable" style="display:none;position:absolute;top:-0.125rem;right:-0.125rem;background:var(--epsx-red);color:white;font-size:0.625rem;font-weight:700;min-width:1.125rem;height:1.125rem;border-radius:9999px;padding:0 0.25rem;align-items:center;justify-content:center;"></span>
     </a>"##;
     let wallet = format!(
         r##"<div class="nav-dropdown-wrap" id="nav-wallet">
@@ -203,19 +203,10 @@ fn render_nav_actions(is_authed: bool, user: Option<&AuthUser>) -> String {
     );
     let js = r##"<script>
 (function() {
-  function refreshNavUnread() {
-    const badge = document.getElementById('nav-unread-badge');
-    if (!badge) return;
-    fetch('/api/v1/notifications?limit=1').then(r => r.ok ? r.json() : null).then(data => {
-      if (!data) return;
-      const items = data.items || [];
-      const unread = items.filter(i => !i.read_at).length;
-      if (unread > 0) { badge.textContent = unread; badge.style.display = 'flex'; }
-      else { badge.style.display = 'none'; }
-    }).catch(() => {});
-  }
-  refreshNavUnread();
-  setInterval(refreshNavUnread, 30000);
+  // This legacy string renderer is not part of the active SSR module graph.
+  // Keep its badge unavailable instead of deriving a global count from one
+  // list page. The active header needs a separately reviewed shared-template
+  // integration before it may consume the unread-count BFF route.
   // Sign-out helper
   window.epsx = window.epsx || {};
   window.epsx.signOut = async function() {
