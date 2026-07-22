@@ -209,9 +209,9 @@
   },
   "targetEvidence": [
     {
-      "id": "tgt-canned-plans",
-      "file": "apps/frontend/src/api.rs",
-      "anchor": "pub async fn api_plans(_state: State<AppState>) -> Json<serde_json::Value> {"
+      "id": "tgt-plans-producer-absent",
+      "file": "apps/frontend/src/main.rs",
+      "anchor": "Market entitlements and subscription pricing remain backend-owned."
     },
     {
       "id": "tgt-canned-subscriptions",
@@ -219,14 +219,14 @@
       "anchor": "{ \"id\": \"sub_1\", \"merchant_id\": \"0xM1\""
     },
     {
-      "id": "tgt-canned-payment",
-      "file": "apps/frontend/src/api.rs",
-      "anchor": "\"amount\": \"29.00\""
+      "id": "tgt-payment-producer-absent",
+      "file": "apps/frontend/src/main.rs",
+      "anchor": "\"/api/v1/payment/not-an-authorized-intent\""
     },
     {
-      "id": "tgt-payment-redirect",
+      "id": "tgt-payment-ui-unavailable",
       "file": "shared/rust/dioxus_ui/src/pages/payment.rs",
-      "anchor": "let target = std::env::var(\"PAY_URL\")"
+      "anchor": "Checkout is not available right now"
     },
     {
       "id": "tgt-pay-bff-singular",
@@ -254,9 +254,9 @@
       "anchor": ".route(\"/api/v1/payment/{*path}\", any(proxy_payment))"
     },
     {
-      "id": "tgt-gateway-payment-block",
+      "id": "tgt-gateway-payment-deny-default",
       "file": "services/gateway/src/policy.rs",
-      "anchor": "Financial rewrites require the A6 ownership/handler parity proof."
+      "anchor": "All other Pay and legacy payment shapes remain deny-by-default."
     },
     {
       "id": "tgt-pay-routes",
@@ -670,14 +670,14 @@
   },
   "nonProductionSurfaces": [
     {
-      "id": "frontend-canned-plans-payment-subscriptions",
-      "reason": "Hard-coded plans, payment amount/status and subscription records are not durable financial state.",
-      "evidenceIds": ["tgt-canned-plans", "tgt-canned-payment", "tgt-canned-subscriptions"]
+      "id": "frontend-fail-closed-plans-payment-canned-subscriptions",
+      "reason": "The top-level plan/payment compatibility producers are removed and their public UIs fail closed, but hard-coded `/api/v1/subscription/*` records, including plan rows, remain non-durable financial state.",
+      "evidenceIds": ["tgt-plans-producer-absent", "tgt-payment-producer-absent", "tgt-canned-subscriptions"]
     },
     {
-      "id": "frontend-payment-redirect",
-      "reason": "Redirecting the legacy payment page does not prove quote, wallet, submit, poll or activation compatibility.",
-      "evidenceIds": ["tgt-payment-redirect"]
+      "id": "frontend-payment-unavailable",
+      "reason": "Failing the payment page closed avoids false mutation and completion claims but does not prove quote, wallet, submit, poll or activation compatibility.",
+      "evidenceIds": ["tgt-payment-ui-unavailable"]
     },
     {
       "id": "pay-bff-unwired-checkout",
@@ -728,8 +728,8 @@
       "severity": "stop",
       "status": "blocked",
       "category": "frontend-contract",
-      "summary": "Rust frontend lacks source-compatible payment APIs and returns canned plan/subscription/payment data.",
-      "evidenceIds": ["src-submit", "src-public-plans", "tgt-canned-plans", "tgt-canned-payment", "tgt-canned-subscriptions"],
+      "summary": "Rust frontend lacks source-compatible payment APIs; top-level plan/payment compatibility producers are removed, but canned `/api/v1/subscription/*` responses remain.",
+      "evidenceIds": ["src-submit", "src-public-plans", "tgt-plans-producer-absent", "tgt-payment-producer-absent", "tgt-canned-subscriptions"],
       "resolution": "Implement compatibility handlers backed by the declared write authority; remove canned financial responses."
     },
     {
@@ -737,8 +737,8 @@
       "severity": "stop",
       "status": "blocked",
       "category": "checkout-ux",
-      "summary": "The frontend redirects to a pay host whose BFF checkout is not a verified executable wallet flow.",
-      "evidenceIds": ["src-checkout-submit", "src-browser-receipt", "tgt-payment-redirect", "tgt-pay-bff-singular", "tgt-pay-success-static"],
+      "summary": "The frontend payment routes now fail closed; the separate pay BFF checkout is still not a verified executable wallet flow.",
+      "evidenceIds": ["src-checkout-submit", "src-browser-receipt", "tgt-payment-ui-unavailable", "tgt-pay-bff-singular", "tgt-pay-success-static"],
       "resolution": "Wire quote, wallet transaction, backend submission, polling and verified terminal screens end to end."
     },
     {
@@ -756,7 +756,7 @@
       "status": "blocked",
       "category": "gateway-routing",
       "summary": "Gateway mounts /api/v1/payment while the service uses /api/v1/pay and deliberately blocks financial routing.",
-      "evidenceIds": ["tgt-gateway-payment-mount", "tgt-gateway-payment-block", "tgt-pay-routes"],
+      "evidenceIds": ["tgt-gateway-payment-mount", "tgt-gateway-payment-deny-default", "tgt-pay-routes"],
       "resolution": "Lock one prefix or an explicit rewrite with exact method and ownership tests."
     },
     {

@@ -27,14 +27,14 @@
     {
       "path":"/","batch":"B1-public-content","status":"blocked","dependencies":["A4","A5"],
       "source":{"file":"apps/frontend/app/page.tsx","anchors":["export default async function HomePage","<Suspense fallback={<TopPerformersLoading />}>" ]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/home.rs","handler":"home::render","anchors":["pub fn render(ctx: &PageContext)","let personal = default_plans();"]},
-      "payloads":{"staticOrSample":["default plans, three fixed performer cards, and fixed news preview"],"placeholderOrSkeleton":["source TopPerformersLoading; target has no route loading state"]},
-      "loader":{"kind":"none","endpoints":[],"evidence":[]},
-      "authOwner":{"auth":"public","owner":"none"},
-      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":[],"controls":["analytics and news links only"]},
-      "states":{"loading":"missing","empty":"missing","error":"missing","retry":"missing"},
-      "hydration":{"need":"browser","status":"missing","reason":"share and live ranking/pricing controls are link/static-only"},
-      "blockers":["replace performer, pricing, and news fixtures with live contracts; restore loading/error/empty/retry behavior"]
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/home.rs","handler":"home::render","anchors":["pub fn render(ctx: &PageContext)","\"data-home-market-state\": \"unavailable\"","\"data-home-plans-state\": \"unavailable\"","\"data-home-news-state\": \"unavailable\"","fn home_does_not_render_legacy_fixtures_or_numeric_claims()"]},
+      "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
+      "loader":{"kind":"intentional-unavailable-no-home-producers","endpoints":[],"evidence":[]},
+      "authOwner":{"auth":"public","owner":"no ranking, pricing, plan, eligibility, or editorial claims are asserted; each remains backend-owned"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native analytics, plans, news, and recovery links"],"controls":["fixed market cards, plan catalogs, article fixtures, numerical/live claims, and share action removed"]},
+      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"present"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"public fail-closed sections and recovery links are fully server-rendered"},
+      "blockers":["A4/A5 must provide strict ranking, public plan, and published-news preview contracts with backend-owned access decisions, provenance/freshness, complete async outcomes, and browser proof before the unavailable sections are replaced"]
     },
     {
       "path":"/about","batch":"B1-public-content","status":"aligned","dependencies":[],
@@ -171,38 +171,38 @@
     {
       "path":"/chat","batch":"B4-communication","status":"blocked","dependencies":["A1","A5"],
       "source":{"file":"apps/frontend/app/chat/page.tsx","anchors":["export default async function ChatPage()","getServerAuthToken(cookieStore)"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/chat.rs","handler":"chat::render","anchors":["pub fn render(ctx: &PageContext)","let convos: Vec<ChatConversation> = sample_conversations();"]},
-      "payloads":{"staticOrSample":["sample conversations, topics, and messages"],"placeholderOrSkeleton":[]},
-      "loader":{"kind":"none","endpoints":[],"evidence":[]},
-      "authOwner":{"auth":"public shell; send/history require session","owner":"session wallet conversations"},
-      "interactions":{"forms":["new conversation and composer are local-only"],"pagination":[],"search":["local fixture filter"],"wallet":[],"keyboard":["composer lacks proven submit/shortcut behavior"],"controls":["topic/status filters and conversation select"]},
-      "states":{"loading":"missing","empty":"present","error":"missing","retry":"missing"},
-      "hydration":{"need":"browser","status":"partial","reason":"signals render controls but no create/send/read mutation transport"},
-      "blockers":["replace all chat fixtures; wire owner-scoped list/create/send/read/SSE and keyboard/error/retry states"]
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/chat.rs","handler":"chat::render","anchors":["pub fn render(ctx: &PageContext)","\"data-chat-state\": \"unavailable\"","fn sample_and_presence_claims_are_suppressed()","fn unavailable_inbox_has_no_fake_mutations_or_filters()"]},
+      "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
+      "loader":{"kind":"intentional-unavailable-no-owner-chat","endpoints":[],"evidence":[]},
+      "authOwner":{"auth":"required by redirect/AuthGate","owner":"no conversation ownership or data is asserted without an owner-scoped backend contract"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native retry and home links"],"controls":["sample inbox, presence, create/send, filters, selection, and local-only mutations removed"]},
+      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"present"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"authentication gate, unavailable state, and recovery links are server-rendered"},
+      "blockers":["add strict verified-owner list/create contracts, backend-derived status and presence semantics, pagination, complete async outcomes, and isolated owner/browser proof before restoring inbox interactions"]
     },
     {
       "path":"/chat/:id","batch":"B4-communication","status":"blocked","dependencies":["A1","A5"],
       "source":{"file":"apps/frontend/app/chat/[id]/page.tsx","anchors":["export default function ChatConversationPage()","useChatSSE({ enabled:"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/chat_conversation.rs","handler":"chat_conversation::render","anchors":["pub fn render(ctx: &PageContext)","let convs: Vec<ChatConversation> = sample_conversations();"]},
-      "payloads":{"staticOrSample":["sample conversations, topics, and messages"],"placeholderOrSkeleton":["pinned source has Loading conversation state"]},
-      "loader":{"kind":"none","endpoints":[],"evidence":[]},
-      "authOwner":{"auth":"required by redirect/AuthGate","owner":"conversation id must belong to session wallet"},
-      "interactions":{"forms":["message composer missing live send"],"pagination":[],"search":[],"wallet":[],"keyboard":["send shortcut missing"],"controls":["back and inbox links only"]},
-      "states":{"loading":"missing","empty":"present","error":"missing","retry":"missing"},
-      "hydration":{"need":"browser","status":"missing","reason":"pinned SSE/send/resolve interactions are absent"},
-      "blockers":["add owner-hiding conversation loader, message send, resolve, SSE reconnect, loading/error/retry, and keyboard behavior"]
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/chat_conversation.rs","handler":"chat_conversation::render","anchors":["pub fn render(ctx: &PageContext)","\"data-chat-conversation-state\": \"unavailable\"","\"data-chat-route-reference\": \"bounded\"","fn legacy_payloads_samples_and_fake_mutations_are_ignored()"]},
+      "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
+      "loader":{"kind":"intentional-unavailable-no-owner-chat-detail","endpoints":[],"evidence":[]},
+      "authOwner":{"auth":"required by redirect/AuthGate","owner":"the bounded route reference is explicitly unverified and never selects or confirms a conversation; backend ownership remains absent"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native inbox and home links"],"controls":["sample messages, send, resolve, presence, status, and fake realtime controls removed"]},
+      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"present"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"authentication gate, unavailable state, bounded escaped label, and recovery links are server-rendered"},
+      "blockers":["add a non-enumerating verified-owner detail loader, idempotent message send/resolve contracts, SSE reconnect/order/deduplication, complete async outcomes, keyboard behavior, and isolated owner/browser proof"]
     },
     {
       "path":"/chat/history","batch":"B4-communication","status":"blocked","dependencies":["A1","A5"],
       "source":{"file":"apps/frontend/app/chat/history/page.tsx","anchors":["export default function ChatHistoryPage()","const [loading, setLoading] = useState(true)"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/chat_history.rs","handler":"chat_history::render","anchors":["pub fn render(ctx: &PageContext)","let convos: Vec<ChatConversation> = sample_conversations();"]},
-      "payloads":{"staticOrSample":["sample conversation and topic history"],"placeholderOrSkeleton":["pinned source loading history state"]},
-      "loader":{"kind":"none","endpoints":[],"evidence":[]},
-      "authOwner":{"auth":"required","owner":"session wallet conversation history"},
-      "interactions":{"forms":[],"pagination":["missing"],"search":[],"wallet":[],"keyboard":["native select keyboard behavior depends on hydration"],"controls":["local topic and status filters"]},
-      "states":{"loading":"missing","empty":"present","error":"missing","retry":"missing"},
-      "hydration":{"need":"browser","status":"partial","reason":"filters use local signals only"},
-      "blockers":["replace history fixtures with owner-scoped paginated loader and explicit loading/error/retry"]
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/chat_history.rs","handler":"chat_history::render","anchors":["pub fn render(ctx: &PageContext)","\"data-chat-history-state\": \"unavailable\"","fn history_suppresses_samples_counts_and_inert_controls()"]},
+      "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
+      "loader":{"kind":"intentional-unavailable-no-owner-chat-history","endpoints":[],"evidence":[]},
+      "authOwner":{"auth":"required by redirect/AuthGate","owner":"no history ownership, counts, or status is asserted without an owner-scoped backend contract"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native retry and inbox links"],"controls":["sample history, counts, topic/status filters, resolve actions, and pagination removed"]},
+      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"present"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"authentication gate, unavailable state, and recovery links are server-rendered"},
+      "blockers":["add a strict verified-owner history DTO with bounded pagination, filter/status semantics, complete async outcomes, and isolated owner/browser proof"]
     },
     {
       "path":"/notifications","batch":"B4-communication","status":"partial","dependencies":["A1","A5"],
@@ -267,14 +267,14 @@
     {
       "path":"/plans","batch":"B6-commerce-support","status":"blocked","dependencies":["A4","A5","A6"],
       "source":{"file":"apps/frontend/app/plans/page.tsx","anchors":["export default async function PlansPage()"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/plans.rs","handler":"plans::render","anchors":["pub fn render(ctx: &PageContext)","let plans = default_plans();"]},
-      "payloads":{"staticOrSample":["default personal/API/custom plan catalogs"],"placeholderOrSkeleton":[]},
-      "loader":{"kind":"gateway-unused","endpoints":["GET /api/v1/plans","GET /api/v1/subscription/plans","GET /api/v1/content/plans"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"\"data_plans\""}]},
-      "authOwner":{"auth":"public browse; checkout owner is session wallet","owner":"backend plan/entitlement authority"},
-      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":["checkout requires auth/payment wallet"],"keyboard":["checkout buttons handled by raw script"],"controls":["checkout bridge and contact link"]},
-      "states":{"loading":"missing","empty":"missing","error":"missing","retry":"missing"},
-      "hydration":{"need":"browser","status":"partial","reason":"raw checkout bridge exists but plan loader is not consumed"},
-      "blockers":["consume canonical plans and server-owned eligibility/pricing; gate checkout on A6 verified payment flow with failure states"]
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/plans.rs","handler":"plans::render","anchors":["pub fn render(ctx: &PageContext)","\"data-plans-state\": \"unavailable\"","fn legacy_and_hostile_payloads_never_create_plan_output()","fn unavailable_surface_has_no_mutation_or_selection_control()"]},
+      "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
+      "loader":{"kind":"intentional-unavailable-no-public-plan-contract","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"`/plans` intentionally has no loader"}]},
+      "authOwner":{"auth":"public unavailable surface","owner":"no plan, price, promotion, feature, eligibility, or access claim is asserted; subscription and permission authorities remain backend-owned"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native retry, contact, and home links"],"controls":["static catalogs, prices, promotions, eligibility, checkout, countdowns, FAQs, and payment mutations removed"]},
+      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"present"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"public unavailable state and all recovery actions are server-rendered native links"},
+      "blockers":["A4/A5 must freeze a versioned subscription-owned active/public plan DTO plus backend access, eligibility, promotion, proration, cache, and async-state semantics with browser proof; A6 payment mutation remains separately stopped until explicitly authorized and proven idempotent"]
     },
     {
       "path":"/payment","batch":"B6-commerce-support","status":"blocked","dependencies":["A1","A4","A5","A6"],

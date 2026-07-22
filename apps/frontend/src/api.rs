@@ -10,9 +10,10 @@
 //!    `epsx_client::ServiceClient`.
 //! 3. Returns JSON or a 502 if the upstream is unavailable.
 //!
-//! Inline fallback data (rankings, news, plans) mirrors what the content
-//! service would return so the BFF can serve traffic when the gateway is
-//! down — same behaviour the previous string-template fallback had.
+//! Production-facing handlers fail closed when an authoritative upstream
+//! contract is unavailable. News uses strict dependency outcomes; rankings
+//! and plans have no compatibility producers until their owning backend
+//! contracts are frozen.
 
 use axum::{
     extract::{Path as AxPath, Query, RawQuery, State},
@@ -1194,50 +1195,6 @@ pub async fn track_event(
         Ok(_) => Json(serde_json::json!({"ok": true})).into_response(),
         Err(_) => Json(serde_json::json!({"ok": true})).into_response(),
     }
-}
-
-pub async fn api_rankings(_state: State<AppState>) -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "items": [
-            { "symbol": "GHC",  "price": 6535.0,  "change": 4657.0, "eps_growth": 423.0, "country": "Thailand", "sector": "Energy" },
-            { "symbol": "ARAX", "price": 1240.0,  "change": 312.0,  "eps_growth": 287.0, "country": "USA", "sector": "Tech" },
-            { "symbol": "NVTK", "price": 8915.0,  "change": 287.0,  "eps_growth": 198.0, "country": "Russia", "sector": "Energy" },
-            { "symbol": "GTC",  "price": 412.0,   "change": 165.0,  "eps_growth": 142.0, "country": "USA", "sector": "Tech" },
-            { "symbol": "BIT",  "price": 1802.0,  "change": 142.0,  "eps_growth": 98.0,  "country": "USA", "sector": "Finance" },
-        ]
-    }))
-}
-
-pub async fn api_plans(_state: State<AppState>) -> Json<serde_json::Value> {
-    // Wave 23 T5 — match the content-service `marketing/plans.json`
-    // shape: three grouped buckets (`personal` / `api` / `custom`)
-    // where each entry carries `category` (mirrors `plan_group`) +
-    // `title` (mirrors `name`) + display string `price` + numeric
-    // `price_usd` + `original_price` / `original_usd` /
-    // `discount_pct` / `savings` for the SALE badge. The OLD mock
-    // shape `{id, name, price, currency, interval, features}` was
-    // the subscription-service shape and didn't have any of those
-    // fields, so the plan cards rendered with no price/sale badge.
-    Json(serde_json::json!({
-        "personal": [
-            { "id": "1day", "category": "personal", "name": "1 Day Package", "price": "$1", "price_usd": 1.0, "original_price": "$5", "original_usd": 5.0, "discount_pct": 80, "savings": "Save $4", "badge": "SALE", "countdown_hours": 24, "sale_active": true,
-              "period": "/day", "currency": "USDT", "interval": "day", "features": ["Basic analytics view", "Rankings from position 6+", "Basic trading features", "24-hour access", "Explore the platform"] },
-            { "id": "1month", "category": "personal", "name": "1 Month Package", "price": "$9.9", "price_usd": 9.9, "original_price": "$99", "original_usd": 99.0, "discount_pct": 90, "savings": "Save $89.1", "badge": "SALE", "countdown_hours": 168, "sale_active": true,
-              "period": "/month", "currency": "USDT", "interval": "month", "features": ["Advanced analytics view", "25 stock rankings", "Basic analytic features", "Price alerts", "Email support", "30-day access"] },
-            { "id": "lifetime", "category": "personal", "name": "Lifetime Package", "price": "$4999", "price_usd": 4999.0, "original_price": "$9999", "original_usd": 9999.0, "discount_pct": 50, "savings": "Save $5000", "badge": "SALE", "countdown_hours": 720, "sale_active": true,
-              "period": "", "currency": "USDT", "interval": "lifetime", "features": ["Advanced analytics suite", "Full rankings access (Rank 1+)", "API read access", "Basic & Pro trading", "Priority support", "Lifetime access"] }
-        ],
-        "api": [
-            { "id": "api-personal", "category": "api", "name": "API Personal", "price": "$999", "price_usd": 999.0, "original_price": "$3999", "original_usd": 3999.0, "discount_pct": 75, "savings": "Save $3000", "badge": "SALE", "countdown_hours": 360, "sale_active": true,
-              "period": "/month", "currency": "USDT", "interval": "month", "features": ["Analytics view access", "API read access", "Data export capability", "Full developer documentation", "30-day access"] },
-            { "id": "api-company", "category": "api", "name": "API Company", "price": "$2999", "price_usd": 2999.0, "original_price": "$6999", "original_usd": 6999.0, "discount_pct": 57, "savings": "Save $4000", "badge": "SALE", "countdown_hours": 360, "sale_active": true,
-              "period": "/month", "currency": "USDT", "interval": "month", "features": ["Advanced analytics suite", "Full trading suite (Basic, Pro & Advanced)", "API read & write access", "Data export", "Notifications management", "365-day company access", "Dedicated support"] }
-        ],
-        "custom": [
-            { "id": "revenue-share", "category": "custom", "name": "Custom", "price": "Revenue Share", "price_usd": 0.0, "original_price": "", "original_usd": 0.0, "discount_pct": 0, "savings": "Volume-based", "badge": "", "countdown_hours": 0, "sale_active": false,
-              "period": "", "currency": "USDT", "interval": "month", "features": ["Custom feature set & permissions", "Dedicated support & SLA", "Volume-based pricing", "Custom API rate limits", "White-label options", "Priority onboarding"] }
-        ]
-    }))
 }
 
 #[derive(serde::Serialize)]

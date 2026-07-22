@@ -207,14 +207,14 @@
       "anchor": ".route(\"/api/v1/news/{slug}\", get(api_news_post))"
     },
     {
-      "id": "target-bff-ranking-static",
-      "file": "apps/frontend/src/api.rs",
-      "anchor": "{ \"symbol\": \"GHC\",  \"price\": 6535.0"
+      "id": "target-bff-ranking-absent",
+      "file": "apps/frontend/src/main.rs",
+      "anchor": "Ranking and plan compatibility producers are intentionally absent."
     },
     {
-      "id": "target-bff-plan-static",
-      "file": "apps/frontend/src/api.rs",
-      "anchor": "\"name\": \"1 Day Package\""
+      "id": "target-bff-plan-absent",
+      "file": "apps/frontend/src/main.rs",
+      "anchor": "Market entitlements and subscription pricing remain backend-owned."
     },
     {
       "id": "target-bff-news-upstream",
@@ -720,18 +720,18 @@
       "category": "public-plans",
       "severity": "stop",
       "status": "blocked",
-      "summary": "Target public plans come from content JSON/canned BFF data rather than subscription-owned active/public plans and legacy filter/cache semantics.",
+      "summary": "The target content service still reads public plans from content JSON rather than subscription-owned active/public records; the canned frontend plan producer and unused plans loader are removed, so the UI fails closed instead of presenting that data.",
       "resolution": "Make subscription backend authoritative, filter is_public and is_active for list/detail, and prove shape/order/cache parity.",
-      "evidenceIds": ["source-public-plans", "source-plans-action", "target-plans-file-read", "target-bff-plan-static"]
+      "evidenceIds": ["source-public-plans", "source-plans-action", "target-plans-file-read", "target-bff-plan-absent"]
     },
     {
       "id": "B14",
       "category": "ranking-entitlement",
       "severity": "stop",
       "status": "blocked",
-      "summary": "Target ranking producers remain static and bypass backend-owned permission/plan rank offset and cap enforcement; the analytics UI now refuses to render them and remains unavailable.",
+      "summary": "The target content-service ranking producer remains static and bypasses backend-owned permission/plan rank offset and cap enforcement; the frontend ranking producer is removed and the analytics UI refuses to render canned results.",
       "resolution": "Route live analytics through backend permission authority and prove anonymous/free/paid boundary fixtures cannot be widened downstream before replacing the fail-closed UI.",
-      "evidenceIds": ["source-ranking-entitlement", "target-ranking-static", "target-bff-ranking-static", "target-analytics-ui-unavailable"]
+      "evidenceIds": ["source-ranking-entitlement", "target-ranking-static", "target-bff-ranking-absent", "target-analytics-ui-unavailable"]
     },
     {
       "id": "B15",

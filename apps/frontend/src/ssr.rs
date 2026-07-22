@@ -491,28 +491,9 @@ async fn fetch_page_data(
             .map_err(|_| ());
         record_notification_load(params, result);
     }
-    // /plans: fetch plans. Wave 23 T5 — try the BFF's own
-    // `/api/v1/plans` endpoint FIRST (returns the content-service
-    // plans.json shape with all the prod `category` / `title` /
-    // `price_usd` / `discount_pct` fields). The
-    // subscription-service raw array shape is also accepted by
-    // `plans.rs::extract_plans`, so we fall back to it if the BFF
-    // call fails. The content-service endpoint comes last (it's
-    // the canonical shape but the content service is in
-    // `ImagePullBackOff` per wave-22 follow-up #2).
-    if path == "/plans" {
-        if let Ok(v) = state.subscription.get_plain("/api/v1/plans").await {
-            params.insert("data_plans".into(), v.to_string());
-        } else if let Ok(v) = state
-            .subscription
-            .get_plain("/api/v1/subscription/plans")
-            .await
-        {
-            params.insert("data_plans".into(), v.to_string());
-        } else if let Ok(v) = state.content.get_plain("/api/v1/content/plans").await {
-            params.insert("data_plans".into(), v.to_string());
-        }
-    }
+    // `/plans` intentionally has no loader. Pricing, eligibility, features,
+    // sale windows, and subscription decisions remain unavailable until a
+    // subscription-owned public catalog contract is frozen end to end.
     // `/portfolio` intentionally has no loader. No frozen owner-scoped
     // holdings/watchlist contract exists, so the page fails closed instead of
     // treating an ambiguous wallet-service path as authoritative.

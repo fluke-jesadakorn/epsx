@@ -233,24 +233,24 @@
       "anchor": "pub async fn api_subscription_subscribe("
     },
     {
-      "id": "tgt-frontend-plan-fallback-chain",
+      "id": "tgt-frontend-plan-loader-absent",
       "file": "apps/frontend/src/ssr.rs",
-      "anchor": ".get_plain(\"/api/v1/subscription/plans\")"
+      "anchor": "`/plans` intentionally has no loader"
     },
     {
-      "id": "tgt-ui-static-plans",
+      "id": "tgt-ui-plans-unavailable",
       "file": "shared/rust/dioxus_ui/src/pages/plans.rs",
-      "anchor": "let plans = default_plans();"
+      "anchor": "\"data-plans-state\": \"unavailable\""
     },
     {
-      "id": "tgt-ui-unlinked-intent",
+      "id": "tgt-ui-plans-no-mutation",
       "file": "shared/rust/dioxus_ui/src/pages/plans.rs",
-      "anchor": "fetch('/api/v1/pay/intent', {"
+      "anchor": "fn unavailable_surface_has_no_mutation_or_selection_control()"
     },
     {
-      "id": "tgt-ui-payment-error-redirect",
+      "id": "tgt-ui-plans-safe-recovery",
       "file": "shared/rust/dioxus_ui/src/pages/plans.rs",
-      "anchor": "window.location.href = '/pay?intent=';"
+      "anchor": "fn recovery_uses_native_safe_navigation()"
     },
     {
       "id": "tgt-admin-ui-sample-plans",
@@ -295,8 +295,8 @@
       },
       "targetObserved": [
         "GET /api/v1/subscription/plans returns raw SubscriptionPlan[]",
-        "frontend BFF returns a separate canned {plans:[...]} payload",
-        "Dioxus page renders default_plans() instead of the fetched projection"
+        "top-level plan compatibility route and SSR fallback loader are absent, but GET /api/v1/subscription/plans remains canned",
+        "Dioxus page renders an explicit unavailable state without catalog or checkout claims"
       ],
       "ownerKey": "public-active-plan-projection",
       "status": "blocked",
@@ -688,7 +688,7 @@
       "status": "blocked",
       "summary": "Public plan DTOs and live rendering do not match the pinned client contract.",
       "resolution": "Expose the canonical active PublicPlan projection through a versioned compatibility route and bind the page to it.",
-      "evidenceIds": ["src-public-plan-client", "tgt-frontend-canned-plans", "tgt-ui-static-plans"]
+      "evidenceIds": ["src-public-plan-client", "tgt-frontend-canned-plans", "tgt-ui-plans-unavailable"]
     },
     {
       "id": "B02",
@@ -724,7 +724,7 @@
       "status": "blocked",
       "summary": "Checkout/pay intents carry no durable plan price version or subscription activation cause.",
       "resolution": "Bind pay intent to immutable plan/price/owner data and publish verified activation identity after finality.",
-      "evidenceIds": ["src-activation-command", "tgt-ui-unlinked-intent", "tgt-pay-bff-create"]
+      "evidenceIds": ["src-activation-command", "tgt-ui-plans-no-mutation", "tgt-pay-bff-create"]
     },
     {
       "id": "B06",
@@ -740,7 +740,7 @@
       "category": "plan-authority",
       "severity": "stop",
       "status": "blocked",
-      "summary": "The backend, subscription service, content/static UI, and canned BFF can each describe different plans.",
+      "summary": "The backend, subscription service, canned subscription BFF, content files, and admin sample UI can each describe different plans; the public page now fails closed rather than presenting one of them.",
       "resolution": "Keep plan/permission/ranking business authority in Rust backend and make every other store a versioned projection.",
       "evidenceIds": ["src-public-plan-client", "tgt-a3-7-additive-migration", "tgt-frontend-canned-plans", "tgt-admin-ui-sample-plans"]
     },
@@ -839,9 +839,9 @@
       "category": "frontend-truthfulness",
       "severity": "stop",
       "status": "blocked",
-      "summary": "Frontend uses canned/static plans, hides fetch failure, and cannot represent live empty/error/retry or activation pending states.",
-      "resolution": "Bind live projections and render explicit state machines; never treat service failure as free/no-plan or navigate with an empty intent.",
-      "evidenceIds": ["src-free-tier-action-fallback", "src-free-tier-hook-fallback", "tgt-frontend-plan-fallback-chain", "tgt-ui-static-plans", "tgt-ui-payment-error-redirect"]
+      "summary": "The public frontend now fails closed without canned plans or payment mutation, but cannot represent live loading/empty/error/retry, eligibility, or activation-pending states.",
+      "resolution": "Bind verified live projections and render explicit state machines; never treat service failure as free/no-plan, and restore payment mutation only through the separately authorized idempotent A6 flow.",
+      "evidenceIds": ["src-free-tier-action-fallback", "src-free-tier-hook-fallback", "tgt-frontend-plan-loader-absent", "tgt-ui-plans-unavailable", "tgt-ui-plans-safe-recovery"]
     },
     {
       "id": "B19",

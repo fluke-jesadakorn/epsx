@@ -226,11 +226,11 @@
         "successStatuses": [200, 201],
         "invariants": ["BFF and service paths agree", "payer identity and ownership are verified", "create is idempotent", "upstream status and error survive proxying"]
       },
-      "observed": {"status": "blocked", "summary": "Frontend lacks the CTA endpoint, singular/plural proxy shapes drift, and the public pay origin bypasses the BFF."},
+      "observed": {"status": "blocked", "summary": "The unavailable plans UI no longer creates intents; singular/plural proxy shapes still drift, ownership/idempotency are unproved, and the public pay origin bypasses the BFF."},
       "evidence": [
         {"file": "apps/pay/src/main.rs", "anchor": ".route(\"/api/v1/pay/intent\""},
         {"file": "services/pay/src/main.rs", "anchor": "\"/api/v1/pay/intents\""},
-        {"file": "shared/rust/dioxus_ui/src/pages/plans.rs", "anchor": "fetch('/api/v1/pay/intent'"}
+        {"file": "shared/rust/dioxus_ui/src/pages/plans.rs", "anchor": "fn unavailable_surface_has_no_mutation_or_selection_control()"}
       ]
     },
     {

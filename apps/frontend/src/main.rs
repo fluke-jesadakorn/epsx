@@ -284,8 +284,8 @@ pub fn build_app(state: AppState) -> Router {
             post(notification_clear_all),
         )
         .route("/api/v1/analytics/track", post(track_event))
-        .route("/api/v1/rankings", get(api_rankings))
-        .route("/api/v1/plans", get(api_plans))
+        // Ranking and plan compatibility producers are intentionally absent.
+        // Market entitlements and subscription pricing remain backend-owned.
         .route("/api/v1/news", get(api_news))
         .route("/api/v1/news/{slug}", get(api_news_post))
         // Unowned dashboard and portfolio compatibility producers are
@@ -450,6 +450,8 @@ mod routing_tests {
             "/api",
             "/api/",
             "/api/v1/plans/extra",
+            "/api/v1/plans",
+            "/api/v1/rankings",
             "/api/v1/credits",
             "/api/v1/account",
             "/api/v1/developer",
@@ -479,7 +481,7 @@ mod routing_tests {
         assert_eq!(head.headers()[header::CONTENT_TYPE], "application/json");
 
         assert_eq!(
-            request(Method::POST, "/api/v1/plans").await.status(),
+            request(Method::POST, "/api/v1/news").await.status(),
             StatusCode::METHOD_NOT_ALLOWED
         );
         for method in [

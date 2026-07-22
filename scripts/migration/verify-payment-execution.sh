@@ -156,16 +156,16 @@ for (const item of contract.prototypeSource.evidence) {
 }
 
 const expectedTargetPins = {
-  "tgt-canned-plans": ["apps/frontend/src/api.rs", "pub async fn api_plans(_state: State<AppState>) -> Json<serde_json::Value> {"],
+  "tgt-plans-producer-absent": ["apps/frontend/src/main.rs", "Market entitlements and subscription pricing remain backend-owned."],
   "tgt-canned-subscriptions": ["apps/frontend/src/api.rs", "{ \"id\": \"sub_1\", \"merchant_id\": \"0xM1\""],
-  "tgt-canned-payment": ["apps/frontend/src/api.rs", "\"amount\": \"29.00\""],
-  "tgt-payment-redirect": ["shared/rust/dioxus_ui/src/pages/payment.rs", "let target = std::env::var(\"PAY_URL\")"],
+  "tgt-payment-producer-absent": ["apps/frontend/src/main.rs", "\"/api/v1/payment/not-an-authorized-intent\""],
+  "tgt-payment-ui-unavailable": ["shared/rust/dioxus_ui/src/pages/payment.rs", "Checkout is not available right now"],
   "tgt-pay-bff-singular": ["apps/pay/src/main.rs", ".route(\"/api/v1/pay/intent/{id}/execute\", any(execute_pay))"],
   "tgt-pay-bff-service-execute": ["apps/pay/src/main.rs", "let path = format!(\"/api/v1/pay/intents/{}/execute\", id);"],
   "tgt-pay-bff-zero-parties": ["apps/pay/src/main.rs", ".unwrap_or_else(|| \"0x0000000000000000000000000000000000000000\".to_string());"],
   "tgt-pay-success-static": ["apps/pay/src/components/success_screen.rs", "Your payment has been confirmed on BSC. The recipient has been notified."],
   "tgt-gateway-payment-mount": ["services/gateway/src/lib.rs", ".route(\"/api/v1/payment/{*path}\", any(proxy_payment))"],
-  "tgt-gateway-payment-block": ["services/gateway/src/policy.rs", "Financial rewrites require the A6 ownership/handler parity proof."],
+  "tgt-gateway-payment-deny-default": ["services/gateway/src/policy.rs", "All other Pay and legacy payment shapes remain deny-by-default."],
   "tgt-pay-routes": ["services/pay/src/main.rs", "\"/api/v1/pay/intents/{id}/confirm\","],
   "tgt-pay-schema-boundary": ["services/pay/src/main.rs", "verify_schema_compatibility(&db)"],
   "tgt-pay-confirm-unverified": ["services/pay/src/handlers/intents.rs", "let tx_hash = req"],

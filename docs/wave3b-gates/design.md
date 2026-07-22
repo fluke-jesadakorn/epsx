@@ -70,7 +70,8 @@ violates them.
 ### 1. Permission-string schema
 
 > Migration note: the later A7 evidence contract supersedes the historical
-> `/profile`, `/account`, `/account/credits`, `/analytics`, `/permissions`, and `/payment`
+> `/profile`, `/account`, `/account/credits`, `/analytics`, `/permissions`,
+> `/chat`, `/chat/history`, `/chat/:id`, and `/payment`
 > entries below.
 > The profile source is authentication-only, so its unbacked
 > `profile:read`/`profile:write` UI gates were removed. The account route does
@@ -84,8 +85,10 @@ violates them.
 > removed too. The permission route now displays only raw, locally verified
 > session strings and an unavailable state; its circular `permissions:read`
 > presentation gate was removed because canonical access decisions remain a
-> backend responsibility. None of these presentation gates may be treated as
-> policy authority.
+> backend responsibility. The three chat routes now expose no owner resource
+> or mutation while their backend contract is unavailable, so the unbacked
+> `chat:read`/`chat:write` presentation gates were removed too. None of these
+> presentation gates may be treated as policy authority.
 
 Use the `domain:action` pattern, matching the existing precedent in
 `pages/admin_pages/unauthorized.rs` (`"admin:*"`) and the TS
@@ -94,8 +97,9 @@ Use the `domain:action` pattern, matching the existing precedent in
 - `plans:subscribe` — `/plans`
 - `payments:read` — historical example only; do not apply it as a frontend
   policy gate without a canonical backend authorization contract
-- `chat:read` — `/chat`, `/chat/history`, `/chat/[id]`
-- `chat:write` — `/chat/[id]` (send/reply)
+- `chat:read` / `chat:write` — historical frontend examples only; the chat
+  routes are authentication-only and fail closed until backend owner policy
+  exists
 - `analytics:read` — historical frontend example only; `/analytics` has no
   frontend policy gate, while admin authorization remains a backend contract
 - `permissions:read` — historical frontend example only; `/permissions` has

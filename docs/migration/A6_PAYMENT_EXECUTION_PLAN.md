@@ -25,7 +25,7 @@ The environment provisioning path still emits `epsx_payments_{dev,staging,prod}`
 
 | Surface | Observed contract | Stop reason |
 |---|---|---|
-| Frontend BFF | `/api/v1/plans`, canned payment/subscription JSON | Missing source-compatible submit/status/validate/history/plan lifecycle |
+| Frontend BFF | top-level plan/payment compatibility producers removed; canned `/api/v1/subscription/*` JSON remains; public UIs fail closed | Missing source-compatible submit/status/validate/history/plan lifecycle |
 | `/payment` UI | Redirects to `pay.epsx.io` | Old wizard is unreachable; no verified end-to-end checkout |
 | Pay hostname | Cloudflare `4747 -> NodePort 30082 -> pay service` | Bypasses the pay BFF even though the config comment says BFF |
 | Pay BFF | singular `/api/v1/pay/intent*`; calls service `/execute` | Service exposes plural `/intents*` and `/confirm`, not `/execute`; no auth context forwarding |

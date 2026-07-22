@@ -171,14 +171,15 @@ and revocation behavior remain canonical.
   handlers. Those handlers remain unsuitable for production until real chain,
   transaction, idempotency, and recovery contracts replace them.
 - Both BFFs preserve verified backend permissions without expanding roles. The
-  61-record permission inventory contains 27 Dioxus security-gate records and,
-  by grammar, 53 canonical three-segment records, six legacy two-segment gates,
-  one unknown record, and one impossible/cross-grammar record. The six legacy
+  57-record permission inventory contains 23 Dioxus security-gate records and,
+  by grammar, 53 canonical three-segment records, two legacy two-segment gates,
+  one unknown record, and one impossible/cross-grammar record. The two legacy
   security gates remain blockers; UI gates remain presentation controls, never
-  policy authority. The six removed legacy gates were the invented
+  policy authority. The ten removed legacy gates were the invented
   `profile:read`/`profile:write`, duplicate `payments:read`, `analytics:read`,
-  and `permissions:read` checks on authentication-only, public-unavailable, or
-  deliberately unavailable frontend surfaces.
+  `permissions:read`, and four `chat:read`/`chat:write` checks on
+  authentication-only, public-unavailable, or deliberately unavailable
+  frontend surfaces.
 - The deployed identity ranking service returns offset `100` for all wallets,
   including paid users. This is not acceptable entitlement behavior.
 
@@ -637,10 +638,10 @@ bounded path set. Shared contract files require coordination through package A0.
   fall back to the free plan on authority failure.
 
 - **A4.0/A8.1 status:** the deterministic permission-grammar inventory covers
-  61 UI/service records, including 27 Dioxus security gates. A8.2 additionally
+  57 UI/service records, including 23 Dioxus security gates. A8.2 additionally
   separates wallet-access and plan read surfaces from their mutation controls
   using literal backend guards;
-  readiness intentionally stops with six legacy security gates and two
+  readiness intentionally stops with two legacy security gates and two
   presentation-only drift records. Entitlement and ranking-offset parity in the
   acceptance condition above is not yet implemented.
 
@@ -793,9 +794,15 @@ bounded path set. Shared contract files require coordination through package A0.
   identity; `/portfolio` removes its canned holdings, prices, Live label, and
   inert watchlist controls; `/permissions` removes hard-coded grants, history,
   features, SLA, and its circular frontend gate while labeling raw verified
-  session strings as non-canonical; and both payment routes fail closed without
-  accepting query-owned financial state, submitting a mutation, or claiming an
-  intent or completion. These routes remain blocked until their documented
+  session strings as non-canonical; home removes fixed performer, price, plan,
+  and news fixtures and exposes explicit unavailable market/plans/news sections;
+  all three chat routes remove sample conversations, messages, presence, counts,
+  filters, and fake mutations, require authentication, and fail closed without
+  an owner loader; `/plans` removes canned catalogs, pricing, promotions,
+  eligibility, checkout, its compatibility producer, and its unused SSR loader;
+  and both payment routes fail closed without accepting query-owned financial
+  state, submitting a mutation, or claiming an intent or completion. These
+  routes remain blocked until their documented
   A1/A4/A5/A6 authorities and runtime proofs exist. The resulting **2 aligned /
   9 partial / 17 blocked** inventory keeps readiness at exit `3`.
 
@@ -854,8 +861,12 @@ bounded path set. Shared contract files require coordination through package A0.
   uniqueness, idempotency, outbox/reconciliation, entitlement/ranking
   projection, truthful UI states, and rollback. The reconciled evidence records
   A3.7's two-to-zero startup-DDL change, exact 844-byte candidate migration, and
-  read-only startup compatibility probe without promoting any lifecycle route:
-  there is still no runner/ledger, adoption, populated upgrade, reconciliation,
+  read-only startup compatibility probe without promoting any lifecycle route.
+  The top-level frontend plan producer, fallback loader, static catalog, and
+  checkout mutation are now absent and `/plans` fails closed; the canned
+  `/api/v1/subscription/plans` producer, admin samples, and backend/service
+  contract gaps remain. There is still no runner/ledger,
+  adoption, populated upgrade, reconciliation,
   concurrent-startup, live-database, payment, or entitlement proof. Integrity
   and tamper gates pass; all 20 blockers remain and readiness intentionally
   exits `3`.
@@ -952,7 +963,10 @@ bounded path set. Shared contract files require coordination through package A0.
   candidate projection migration/probe and no longer fabricates startup sync.
   These static boundaries do not supply a runner/adoption path, canonical
   ingestion, durable checkpoints, receipts/raw logs, finality/reorg handling,
-  or backfill. Direct service authorization, truthful live/stale UX,
+  or backfill. Analytics, authenticated portfolio, and the public home market
+  preview now remove samples and `Live` claims and fail closed; the rankings
+  loader and canned frontend producer are absent. Direct service authorization,
+  truthful complete live/stale UX,
   authoritative plan offsets, event taxonomy/privacy/revenue, observability,
   distinct workloads, and per-domain shadow/cutover/rollback also remain open.
   Integrity passes; all 24 blockers remain and readiness intentionally exits

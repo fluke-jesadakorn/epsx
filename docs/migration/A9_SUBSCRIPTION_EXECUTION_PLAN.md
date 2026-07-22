@@ -9,7 +9,7 @@ This gate turns the subscription migration into an executable, evidence-pinned p
 
 ## Outcome
 
-The current Rust subscription slice is not safe for production traffic. A3.7 removed both startup DDL findings into one additive candidate migration and added a read-only startup compatibility probe, but there is no reviewed runner or ledger and no baseline adoption, populated upgrade, reconciliation, concurrent-startup, or live-database proof. The runtime still treats a caller-supplied subscription as immediately active, trusts caller owner fields, lists and mutates records without an owner predicate, has no verified-payment consumer, has no renewal/expiry worker, does not grant or revoke entitlements, and is disconnected from the ranking projection. The frontend and admin surfaces compound this by rendering static/canned data and by drifting from the source route, DTO, envelope, and status contracts.
+The current Rust subscription slice is not safe for production traffic. A3.7 removed both startup DDL findings into one additive candidate migration and added a read-only startup compatibility probe, but there is no reviewed runner or ledger and no baseline adoption, populated upgrade, reconciliation, concurrent-startup, or live-database proof. The runtime still treats a caller-supplied subscription as immediately active, trusts caller owner fields, lists and mutates records without an owner predicate, has no verified-payment consumer, has no renewal/expiry worker, does not grant or revoke entitlements, and is disconnected from the ranking projection. The public `/plans` path now removes its top-level compatibility producer, fallback loader, static catalog, and checkout mutation and fails closed; `/api/v1/subscription/plans` remains canned, and the admin sample surface plus backend/service contract drift remain production blockers.
 
 There are **20 stop blockers**. The implementation must retain the source's externally relied-on behavior while hardening source weaknesses: non-persistent manual activation, swallowed permission errors, non-atomic plan switches, cross-database monitor writes, and replay-prone extension behavior are evidence of required remediation, not behavior to reproduce.
 
@@ -35,7 +35,7 @@ The present target facts are:
 - The service has no current-access, preview, switch, renew, expiry, entitlement, reconciliation, or lifecycle-event endpoint/worker.
 - The vault response contains a zero address and canned token/rate data.
 - The admin BFF exposes list/detail/cancel and plan create/read only. It forces `201` around a service response and posts an empty cancel body; the admin plan UI renders `sample_plans()`.
-- The frontend BFF returns canned plans and a non-persistent subscribe echo. SSR tries multiple incompatible plan locations, while the Dioxus plans page always uses `default_plans()`.
+- The top-level `/api/v1/plans` compatibility producer and multi-endpoint SSR fallback are removed, and the Dioxus plans page renders an explicit unavailable state with no catalog, eligibility, or payment mutation. The mounted `/api/v1/subscription/plans` producer still returns canned `sub_1`/`sub_2` records, and a separate non-persistent subscribe echo is not a usable lifecycle flow.
 - Checkout creates a pay intent without an immutable `plan_id` or plan price version. Pay confirmation does not activate subscription or entitlement state.
 - `FreePlanRankingOffsetService` returns free-plan ranking access for every wallet, including paid users.
 
@@ -45,7 +45,7 @@ The exact 18 source and 25 target anchors are intentionally kept in the machine 
 
 | Capability | Pinned source contract | Current Rust target | Required production contract |
 |---|---|---|---|
-| Public plan read | `GET /api/public/plans` → `ApiResponse<PublicPlan[]>` | Raw subscription array, canned BFF array, static UI | One versioned projection of canonical backend plans; live loading/empty/error/retry UI |
+| Public plan read | `GET /api/public/plans` → `ApiResponse<PublicPlan[]>` | Raw subscription array and canned `/api/v1/subscription/plans` remain; top-level compatibility route/loader/UI fail closed | One versioned projection of canonical backend plans; live loading/empty/error/retry UI |
 | Current access | `GET /api/payments/plans/my-plan-access` → `ApiResponse<PlanAccessData>` | Absent; ranking always free | JWT-owner read of effective plan, period, grace, permissions, and ranking offset |
 | Owner create/activation | Payment submission followed by confirmed-chain monitor | Direct caller create becomes active | Pending payment or trusted finalized-payment event; never public direct-active creation |
 | Owner list | Authenticated wallet assignment projection | Returns all subscription rows | Owner derived from JWT and present in the SQL predicate |
@@ -74,7 +74,7 @@ The locked semantics are:
 
 ### Plan authority
 
-Per repository architecture, Rust backend business logic remains the only authority for plan eligibility, permission mapping, price/billing cycle, promotion, active flag, ranking offset, and subscription rules. The subscription service may keep an immutable, versioned projection for lifecycle processing. It may not introduce an independently editable merchant catalog. Content files, Dioxus defaults, and canned BFF payloads are fixtures or display projections, never authority.
+Per repository architecture, Rust backend business logic remains the only authority for plan eligibility, permission mapping, price/billing cycle, promotion, active flag, ranking offset, and subscription rules. The subscription service may keep an immutable, versioned projection for lifecycle processing. It may not introduce an independently editable merchant catalog. Content files, the canned subscription BFF, and remaining admin samples are fixtures or display projections, never authority; the public `/plans` page now presents none of them.
 
 ### Owner and service authorization
 
