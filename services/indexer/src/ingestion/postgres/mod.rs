@@ -2,6 +2,7 @@ use sqlx::PgPool;
 
 mod candidates;
 mod codec;
+mod journal;
 
 mod leases;
 mod reads;

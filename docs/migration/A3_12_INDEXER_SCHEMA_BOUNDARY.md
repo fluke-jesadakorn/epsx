@@ -177,10 +177,10 @@ database-only state construction, router construction, then listener binding. Th
 provider, block-number fetch, in-memory cursor, polling option, autonomous task, placeholder hash,
 or conflict-skipping insert.
 
-The recursively pinned Rust inventory now contains twelve files: `lib.rs`, `main.rs`, the dormant
+The recursively pinned Rust inventory now contains thirteen files: `lib.rs`, `main.rs`, the dormant
 `ingestion/{domain,memory,mod,ports,selection}.rs` module, and the private
-`ingestion/postgres/{candidates,codec,leases,mod,reads}.rs` substrate. The public ingestion module
-defines offline checked block-batch and fork-preserving selected-chain transition/port contracts.
+`ingestion/postgres/{candidates,codec,journal,leases,mod,reads}.rs` substrate. The public ingestion
+module defines offline checked block-batch and fork-preserving selected-chain transition/port contracts.
 `memory.rs` is a `cfg(test)`-only in-memory conformance implementation; it is dormant and makes no
 external canonicality, consensus-finality, or durability claim.
 
@@ -206,7 +206,21 @@ candidate readers never query the legacy `public.blocks`, `public.transactions`,
 checkpoint, startup activation, route activation, trait implementation, migration execution,
 database read, or database write occurred, so all ten STOP blockers remain unchanged.
 
-Seven ordered boundary sources are cryptographically pinned before their semantic anchors are
+The private journal slice adds two caller-transaction primitives. `replay_if_present` is documented
+as mandatory before lease validation by a future apply coordinator, but no such coordinator,
+replay-before-lease callsite, repository-trait implementation, or runtime path exists. Replay loads
+the exact header and role/ordinal-ordered members, enforces role-local dense ordinals and dense
+block numbers, reloads complete immutable candidate batches, and compares full attached content.
+Malformed stored rows map to `CorruptState`; request, record, or attached-candidate drift maps to
+`MutationIdReuse`.
+
+`append_applied_mutation` derives the exact result revision and outcome from the mutation, rejects
+an outcome mismatch, and inserts only the header and ordered members. It has no fingerprint,
+`UPDATE`, `DELETE`, transaction begin/commit/rollback, or transaction ownership. The caller is
+documented as owning transaction completion. These functions were never called and performed no
+database work, so the replay and atomic-advancement STOP blockers remain unchanged.
+
+Eight ordered boundary sources are cryptographically pinned before their semantic anchors are
 checked. Exact byte counts and SHA-256 digests prevent comment-only, case, alias, path, or ordering
 drift from passing merely because a few expected substrings remain:
 
@@ -216,8 +230,9 @@ drift from passing merely because a few expected substrings remain:
 | `services/indexer/src/ingestion/mod.rs` | 1,170 | `395e589d5eb05c5d8577d9a15bf1c131f3d1c114ff3eb3289985b97424d6d547` |
 | `services/indexer/src/ingestion/postgres/candidates.rs` | 19,643 | `9bccc08effb68e06593469f93d779cc2a12bad088b6698b3eded8d2de4128180` |
 | `services/indexer/src/ingestion/postgres/codec.rs` | 5,891 | `693e1ddba5a8f8808251ed8be68f547b5a8da1122eec954a741ca8c0c95f9915` |
+| `services/indexer/src/ingestion/postgres/journal.rs` | 43,871 | `8aa885d3194222fbeb60e9eb034b8c1af7183d54525185fef045c596d62ab839` |
 | `services/indexer/src/ingestion/postgres/leases.rs` | 11,531 | `20adcdc84b1fd970ed404d2ac9219b3de827ca01a84ece33813cfaf6ba690910` |
-| `services/indexer/src/ingestion/postgres/mod.rs` | 568 | `521534817aafdb618ebe3528cebceb3206be4e5b145c0ef2ae933794ee026d10` |
+| `services/indexer/src/ingestion/postgres/mod.rs` | 581 | `c405807a2bf7ad0c3f3550a01d8df519f71a6363cb29165b762c60a48d6bc537` |
 | `services/indexer/src/ingestion/postgres/reads.rs` | 20,505 | `b87bf78f4773b8f63d619a058d262462200bcb606c2c2c909337fe1a52809cce` |
 
 The existing direct boundary remains authoritative: only GET/HEAD `/health` reaches a handler.
@@ -235,6 +250,7 @@ rustfmt --edition 2021 --check \
   services/indexer/src/ingestion/ports.rs \
   services/indexer/src/ingestion/postgres/candidates.rs \
   services/indexer/src/ingestion/postgres/codec.rs \
+  services/indexer/src/ingestion/postgres/journal.rs \
   services/indexer/src/ingestion/postgres/leases.rs \
   services/indexer/src/ingestion/postgres/mod.rs \
   services/indexer/src/ingestion/postgres/reads.rs \
@@ -251,18 +267,19 @@ scripts/migration/verify-a3-12-indexer-schema-boundary.sh --mode report
 scripts/migration/test-a3-12-indexer-schema-boundary.sh
 ```
 
-The default library suite passes 33/33, the feature-enabled library suite passes 50/50, and the
+The default library suite passes 33/33, the feature-enabled library suite passes 56/56, and the
 binary suite passes 4/4. The locked offline binary check passes. The verifier pins provenance,
 removed runtime bytes, both migration digests, the unchanged runtime-query digest, runtime DDL
-zero, the twelve-file recursive Rust inventory, public qualification, schema/constraint/index
+zero, the thirteen-file recursive Rust inventory, public qualification, schema/constraint/index
 catalog semantics, model/bind corrections, startup ordering, absent fake sync, the default-off
-private module, seven ordered source byte/digest pins, PgPool-only holder, candidate/codec/lease/read
-anchors, fail-closed readiness, and ten residual blockers. Its self-test adversarially tampers
-readiness, source commit/path/blob, query digest/bytes, relation counts, Rust inventory, adapter
-source-pin hash/bytes/path/order, feature/privacy/database-clock/strict-child policy, and read-module/
-consistent-transaction/orphan/future/legacy/activation policy, both migration digests/guards,
-fork-store collision and key policies, global transaction key, and schema descriptors. Same-length
-column, structural-constraint,
+private module, eight ordered source byte/digest pins, PgPool-only holder, candidate/codec/lease/read/
+journal anchors, fail-closed readiness, and ten residual blockers. Its self-test adversarially
+tampers readiness, source commit/path/blob, query digest/bytes, relation counts, Rust inventory,
+adapter source-pin hash/bytes/path/order, feature/privacy/database-clock/strict-child policy,
+read-module/consistent-transaction/orphan/future/legacy/activation policy, and journal pin/privacy/
+replay/callsite/full-candidate/insert-only/fingerprint/transaction-ownership/activation policy, both
+migration digests/guards, fork-store collision and key policies, global transaction key, and schema
+descriptors. Same-length column, structural-constraint,
 weakened-check, and index substitutions are rejected, as are inheritance/RLS/opclass/collation/
 partial-index policy and blocker tampering.
 
