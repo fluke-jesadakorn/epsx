@@ -81,8 +81,8 @@ const expectedInvariants = new Map([
   ["stored-binding-propagation", "The successor copies the client and family returned by the database transition, and JWT issuance uses the preflight stored client rather than the request DTO."],
   ["stable-auth-time", "The rotation chain preserves original authentication time rather than advancing auth_time on every refresh."],
   ["family-scoped-logout", "Logout and rotation share the transaction-scoped family advisory lock; any historical token revokes only its own active family, while a legacy NULL-family token revokes only itself."],
-  ["http-refresh-boundary", "The HTTP refresh request requires an explicit client, distinguishes credential rejection from retryable dependency failure, is non-cacheable, and never echoes credentials in error bodies."],
-  ["bff-cookie-and-status-boundary", "Frontend and admin BFFs use fixed clients and distinct local cookie names; ambiguous legacy local names are clearing-only, and only an upstream 401 clears a refresh session."]
+  ["http-refresh-boundary", "The HTTP refresh request requires an explicit client, emits a closed rotated, not_rotated, rejected, or outcome_unknown marker, is non-cacheable, and never echoes credentials in error bodies."],
+  ["bff-cookie-and-status-boundary", "Frontend and admin BFFs use fixed clients and distinct local cookie names; ambiguous legacy names are clearing-only, and cookies are preserved only for an exact backend-authored not_rotated outcome."]
 ]);
 if (!Array.isArray(contract.invariants) || contract.invariants.length !== expectedInvariants.size) fail("ten runtime invariants are required");
 const observedInvariantIds = new Set();
@@ -114,7 +114,7 @@ for (const stop of contract.residualStops) {
   if (expectedStops.get(stop.id) !== stop.claim) fail(`residual STOP claim drifted for ${stop.id}`);
 }
 for (const id of expectedStops.keys()) if (!observedStopIds.has(id)) fail(`missing residual STOP ${id}`);
-if (contract.hermeticProof?.focusedTests !== 82 || contract.hermeticProof?.commands?.length !== 5) fail("hermetic proof inventory drifted");
+if (contract.hermeticProof?.focusedTests !== 101 || contract.hermeticProof?.commands?.length !== 5) fail("hermetic proof inventory drifted");
 
 const up = read(upPath);
 const down = read(downPath);
@@ -218,10 +218,18 @@ const handler = read(resolve(root, "apps/backend/src/web/auth/handlers.rs"));
 if (handler.includes("request.client_id.unwrap_or_else")) fail("implicit frontend refresh default returned");
 if (!handler.includes("pub client_id: String")) fail("refresh client is not required by the handler DTO");
 if (!handler.includes("Web3AuthError::InvalidRefreshToken") || !handler.includes("StatusCode::SERVICE_UNAVAILABLE")) fail("refresh error classification drifted");
+for (const outcome of ["REFRESH_OUTCOME_ROTATED", "REFRESH_OUTCOME_NOT_ROTATED", "REFRESH_OUTCOME_REJECTED", "REFRESH_OUTCOME_UNKNOWN"]) {
+  if (!handler.includes(outcome)) fail(`backend refresh outcome marker missing: ${outcome}`);
+}
+
+const outcomeClassifier = read(resolve(root, "shared/rust/bff/src/refresh_outcome.rs"));
+if (!outcomeClassifier.includes("Some(REFRESH_OUTCOME_NOT_ROTATED)") || !outcomeClassifier.includes("RefreshDisposition::Preserve")) fail("exact not-rotated preservation contract drifted");
+if (!outcomeClassifier.includes("_ => RefreshDisposition::Clear")) fail("missing or inconsistent refresh outcomes must fail closed");
 
 for (const file of ["apps/frontend/src/api.rs", "apps/admin/src/session_auth.rs"]) {
   const bff = read(resolve(root, file));
-  if (!bff.includes("response.status() == StatusCode::UNAUTHORIZED") || bff.includes("response.status().is_client_error()")) fail(`${file}: refresh clearing must be restricted to upstream 401`);
+  if (!bff.includes("classify_refresh_outcome(status, response.headers())")) fail(`${file}: shared outcome classifier is not used`);
+  if (!bff.includes("refresh_outcome_unknown") || !bff.includes("clear_session_response")) fail(`${file}: ambiguous outcomes do not clear locally`);
 }
 
 for (const [file, client] of [

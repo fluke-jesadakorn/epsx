@@ -24,6 +24,11 @@ use crate::{
 
 const JWKS_CACHE_CONTROL: &str = "public, max-age=300, must-revalidate";
 const AUTH_SESSION_CACHE_CONTROL: &str = "no-store";
+const REFRESH_OUTCOME_HEADER: &str = "x-epsx-refresh-outcome";
+const REFRESH_OUTCOME_ROTATED: &str = "rotated";
+const REFRESH_OUTCOME_NOT_ROTATED: &str = "not_rotated";
+const REFRESH_OUTCOME_REJECTED: &str = "rejected";
+const REFRESH_OUTCOME_UNKNOWN: &str = "outcome_unknown";
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct ChallengeRequest {
@@ -480,7 +485,9 @@ pub async fn refresh_token_handler(
 
     let Json(request) = match request {
         Ok(request) => request,
-        Err(_) => return refresh_status_response(StatusCode::BAD_REQUEST),
+        Err(_) => {
+            return refresh_status_response(StatusCode::BAD_REQUEST, REFRESH_OUTCOME_NOT_ROTATED)
+        }
     };
 
     // 1. Try to get token from request body
@@ -509,7 +516,7 @@ pub async fn refresh_token_handler(
         Some(t) => t,
         None => {
             warn!("No refresh token provided in body or cookies");
-            return refresh_status_response(StatusCode::UNAUTHORIZED);
+            return refresh_status_response(StatusCode::UNAUTHORIZED, REFRESH_OUTCOME_REJECTED);
         }
     };
 
@@ -517,13 +524,16 @@ pub async fn refresh_token_handler(
         Some(service) => service,
         None => {
             error!("Auth service not available");
-            return refresh_status_response(StatusCode::SERVICE_UNAVAILABLE);
+            return refresh_status_response(
+                StatusCode::SERVICE_UNAVAILABLE,
+                REFRESH_OUTCOME_NOT_ROTATED,
+            );
         }
     };
 
     if !matches!(request.client_id.as_str(), "epsx-frontend" | "epsx-admin") {
         warn!("Unsupported client supplied to token refresh");
-        return refresh_status_response(StatusCode::BAD_REQUEST);
+        return refresh_status_response(StatusCode::BAD_REQUEST, REFRESH_OUTCOME_NOT_ROTATED);
     }
 
     match web3_auth_service
@@ -542,38 +552,51 @@ pub async fn refresh_token_handler(
                 "permissions": permissions
             }
         })),
-        Err(Web3AuthError::InvalidClient(_)) => refresh_status_response(StatusCode::BAD_REQUEST),
+        Err(Web3AuthError::InvalidClient(_)) => {
+            refresh_status_response(StatusCode::BAD_REQUEST, REFRESH_OUTCOME_NOT_ROTATED)
+        }
         Err(Web3AuthError::InvalidRefreshToken) => {
             tracing::warn!("Token refresh credential was rejected");
-            refresh_status_response(StatusCode::UNAUTHORIZED)
+            refresh_status_response(StatusCode::UNAUTHORIZED, REFRESH_OUTCOME_REJECTED)
         }
         Err(Web3AuthError::DatabaseError(error) | Web3AuthError::BlockchainError(error)) => {
             tracing::error!("Token refresh dependency failed: {}", error);
-            refresh_status_response(StatusCode::SERVICE_UNAVAILABLE)
+            refresh_status_response(StatusCode::SERVICE_UNAVAILABLE, REFRESH_OUTCOME_UNKNOWN)
+        }
+        Err(Web3AuthError::TokenGenerationFailed(error)) => {
+            tracing::error!("Token refresh signing failed before rotation: {}", error);
+            refresh_status_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                REFRESH_OUTCOME_NOT_ROTATED,
+            )
         }
         Err(error) => {
             tracing::error!("Token refresh failed internally: {}", error);
-            refresh_status_response(StatusCode::INTERNAL_SERVER_ERROR)
+            refresh_status_response(StatusCode::INTERNAL_SERVER_ERROR, REFRESH_OUTCOME_UNKNOWN)
         }
     }
 }
 
 fn refresh_json_response(body: Value) -> Response {
     let mut response = Json(body).into_response();
-    response.headers_mut().insert(
-        CACHE_CONTROL,
-        HeaderValue::from_static(AUTH_SESSION_CACHE_CONTROL),
-    );
+    mark_refresh_response(&mut response, REFRESH_OUTCOME_ROTATED);
     response
 }
 
-fn refresh_status_response(status: StatusCode) -> Response {
+fn refresh_status_response(status: StatusCode, outcome: &'static str) -> Response {
     let mut response = status.into_response();
+    mark_refresh_response(&mut response, outcome);
+    response
+}
+
+fn mark_refresh_response(response: &mut Response, outcome: &'static str) {
     response.headers_mut().insert(
         CACHE_CONTROL,
         HeaderValue::from_static(AUTH_SESSION_CACHE_CONTROL),
     );
     response
+        .headers_mut()
+        .insert(REFRESH_OUTCOME_HEADER, HeaderValue::from_static(outcome));
 }
 
 /// Get current Web3 session status
@@ -1017,8 +1040,8 @@ mod tests {
     fn refresh_responses_are_never_cacheable() {
         for response in [
             refresh_json_response(json!({"success": true})),
-            refresh_status_response(StatusCode::UNAUTHORIZED),
-            refresh_status_response(StatusCode::SERVICE_UNAVAILABLE),
+            refresh_status_response(StatusCode::UNAUTHORIZED, REFRESH_OUTCOME_REJECTED),
+            refresh_status_response(StatusCode::SERVICE_UNAVAILABLE, REFRESH_OUTCOME_UNKNOWN),
         ] {
             assert_eq!(
                 response
@@ -1026,6 +1049,50 @@ mod tests {
                     .get(CACHE_CONTROL)
                     .and_then(|value| value.to_str().ok()),
                 Some("no-store")
+            );
+        }
+    }
+
+    #[test]
+    fn refresh_responses_attest_the_closed_rotation_outcome() {
+        let cases = [
+            (
+                refresh_json_response(json!({"success": true})),
+                StatusCode::OK,
+                REFRESH_OUTCOME_ROTATED,
+            ),
+            (
+                refresh_status_response(StatusCode::BAD_REQUEST, REFRESH_OUTCOME_NOT_ROTATED),
+                StatusCode::BAD_REQUEST,
+                REFRESH_OUTCOME_NOT_ROTATED,
+            ),
+            (
+                refresh_status_response(StatusCode::UNAUTHORIZED, REFRESH_OUTCOME_REJECTED),
+                StatusCode::UNAUTHORIZED,
+                REFRESH_OUTCOME_REJECTED,
+            ),
+            (
+                refresh_status_response(StatusCode::SERVICE_UNAVAILABLE, REFRESH_OUTCOME_UNKNOWN),
+                StatusCode::SERVICE_UNAVAILABLE,
+                REFRESH_OUTCOME_UNKNOWN,
+            ),
+        ];
+
+        for (response, status, outcome) in cases {
+            assert_eq!(response.status(), status);
+            assert_eq!(
+                response
+                    .headers()
+                    .get(REFRESH_OUTCOME_HEADER)
+                    .and_then(|value| value.to_str().ok()),
+                Some(outcome)
+            );
+            assert_eq!(
+                response
+                    .headers()
+                    .get(CACHE_CONTROL)
+                    .and_then(|value| value.to_str().ok()),
+                Some(AUTH_SESSION_CACHE_CONTROL)
             );
         }
     }

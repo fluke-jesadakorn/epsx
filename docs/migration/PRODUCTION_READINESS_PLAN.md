@@ -40,8 +40,8 @@ The default release strategy is a **controlled hybrid**:
 
 - Branch/ref: `migration/dioxus-microservices`
 - Audited commit before this plan: `975c09567fe14ce278370720bd7a0e5aa571e116`
-- Current evidence checkpoint: `7c7a8e39152acc21604eddf163e5c2aebe1bcaf9`
-  (payment authority/database crosswalk). The immediately preceding pushed
+- Current pushed evidence checkpoint: `206a8fb57f982bcbc59d926e64506d4a5d654e40`
+  (A1.6 refresh digest and replay handling). Earlier pushed
   evidence is `39f176eeda7b0b973e7522b4c7819c8cbffe279b` for the truthful read-only
   notification UI, `3b523f06d80922bb010702ef1111f56e44538c1c` for central schema-readiness
   reconciliation, and `a5f5113d0f0fe42d4fb1700eb1099f8ec99be218` for the combined notification/
@@ -165,8 +165,10 @@ migrated merely because a binary and route table exist.
   chain until old writers are proven gone.
 - Frontend and admin BFFs use distinct local cookie names because localhost
   ports do not isolate cookies. Ambiguous legacy local names are clearing-only;
-  tracked runtime fixtures use the scoped names; only upstream `401` clears a
-  refresh session; and production `__Host-` names remain host-bound.
+  tracked runtime fixtures use the scoped names; only an exact backend-authored
+  `not_rotated` outcome preserves a refresh session; rejected, unknown, missing,
+  transport-ambiguous, and invalid post-rotation outcomes clear locally without
+  retry; and production `__Host-` names remain host-bound.
 - Exact-audience lifecycle remains STOP because the duplicate core baseline
   version blocks safe root execution and no disposable PostgreSQL proof covers
   migration application, cross-client non-consumption, concurrent rotation,
@@ -303,7 +305,7 @@ passed`. It is not a percentage estimate of engineering effort.
 | Shared UI package baseline | 2 | Targeted unit/doctest repair in this slice | `cargo test -p epsx-dioxus-ui --lib` and `--doc` pass. |
 | Visual/responsive/accessibility | 1 | Historical screenshots exist; current accepted baseline is incomplete | All routes pass agreed viewport, state, keyboard, and accessibility thresholds. |
 | Interaction parity | 0 | No complete click/form/wallet/navigation matrix | Every interactive control has E2E success and failure coverage. |
-| Auth/session parity | 1 | A1.4 hermetic gate covers 82 focused tests across both BFFs and compiles original-client/family binding plus local-cookie isolation; durable PostgreSQL family-lock rotation/revocation, legacy cutover, replay response, and a real wallet flow remain unproven | SIWE -> SSR me -> client-bound rotation -> revocation works across both BFFs. |
+| Auth/session parity | 1 | The cumulative A1 auth gate covers 101 focused tests plus three fixture checks across both BFFs, including closed refresh outcomes, hermetic browser coordination, and authenticated customer/admin logout reachability; durable PostgreSQL rotation/revocation, commit-loss fault injection, real-browser behavior, and automatic refresh recovery remain unproven | SIWE -> SSR me -> client-bound rotation -> revocation works across both BFFs. |
 | Backend authorization | 1 | Gateway is fail-closed with exact RS256/JWKS and granular edge policy; the 119-route service matrix is 11 aligned, 48 partial, and 60 blocked | Anonymous/cross-owner calls fail at both gateway and service boundaries; granular backend permissions pass. |
 | Live data parity | 0 | The notification owner page, global redacted admin notification inventory, and focused news routes have sample-free explicit dependency outcomes, and notifications adds a statically verified authenticated read-only shared-header count; browser/live database proof is absent, 17 frontend routes remain blocked, other frontend mocks remain, and most admin routes still lack authoritative page data | Sample payloads removed and real empty/error states proven. |
 | Checkout/on-chain parity | 0 | Route mismatch and DB-only escrow transitions | Verified receipts and contract transactions drive state. |
@@ -405,8 +407,8 @@ bounded path set. Shared contract files require coordination through package A0.
   rotation, old-token rejection, logout revocation, secure cookie attributes,
   and access-token rejection when a refresh token is supplied.
 
-- **A1.4 status:** the local hermetic gate passes only when its 82 focused tests
-  and both baseline fixture checks pass. It proves BFF audience/verifier,
+- **A1.4 cumulative gate status:** the local hermetic gate now passes only when
+  its 101 focused tests and three fixture checks pass. It proves BFF audience/verifier,
   token-redaction, cookie, local rotation/clearing, proxy rejection, and safe
   return-target contracts. It deliberately does not satisfy the full A1
   acceptance condition: real wallet signing, nonce consumption, durable
@@ -417,7 +419,8 @@ bounded path set. Shared contract files require coordination through package A0.
   additive forward-only expansion, both Diesel schemas, canonical shared
   runtime, required-client HTTP boundary, fixed BFF clients, non-cacheable
   responses, sign-before-consume ordering, family-serialized rotation/logout,
-  401-only session clearing, and client-specific localhost cookies/fixtures.
+  closed refresh-outcome classification, and client-specific localhost
+  cookies/fixtures.
   Evidence mode is static and hermetic; readiness mode intentionally exits `3`.
   The dormant identity
   service remains `404`, the active core migration-version collision remains a
@@ -432,6 +435,18 @@ bounded path set. Shared contract files require coordination through package A0.
   PostgreSQL application, digest runtime/database integration, drained forced-
   reauthentication cutover, legacy plaintext reconciliation, key lifecycle,
   replay ordering, and every production action remain explicit STOPs.
+
+- **A1.7 status:** `scripts/migration/verify-refresh-outcome-coordination.sh`
+  pins a closed backend rotation-outcome marker, preserve-only-when-proven BFF
+  cookie handling, redirect-disabled auth transport, one shared refresh/logout
+  Web Lock, single-flight/no-retry browser behavior, token-free cross-tab
+  events, confirmed-clear navigation, and truthful customer/admin desktop and
+  mobile logout reachability. Its Bun VM runs the exact embedded bridge and
+  passes 12 concurrency/outcome/channel/click cases; the static contract pins
+  12 invariants and 65 exact-inventory anchors, and the self-test detects 16
+  tamper classes. Real browsers, proxy fault injection, PostgreSQL ordering,
+  exactly-once cookie delivery, BFF-unreachable clearing, automatic expired-
+  session recovery, and all production actions remain explicit STOPs.
 
 ### A2 — Fail-closed service authorization (P0)
 

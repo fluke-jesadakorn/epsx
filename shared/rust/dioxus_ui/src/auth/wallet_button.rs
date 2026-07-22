@@ -677,9 +677,19 @@ pub fn WalletConnectButton(
 ) -> Element {
     if let Some(u) = user {
         rsx! {
-            a { class: "btn btn-primary wallet-connect-legacy", href: "/profile",
-                span { Icon { name: "wallet".to_string(), size: Some(16) } }
-                span { "{u.short_address()}" }
+            div { class: "wallet-connect-legacy-group flex items-center gap-2",
+                a { class: "btn btn-primary wallet-connect-legacy", href: "/profile",
+                    span { Icon { name: "wallet".to_string(), size: Some(16) } }
+                    span { "{u.short_address()}" }
+                }
+                button {
+                    class: "btn btn-ghost btn-icon wallet-session-logout",
+                    r#type: "button",
+                    "data-epsx-logout": "true",
+                    title: "Sign out",
+                    "aria-label": "Sign out",
+                    Icon { name: "log-out".to_string(), size: Some(16) }
+                }
             }
         }
     } else {
@@ -718,6 +728,7 @@ pub fn connected_wallet_pill(user: User) -> Element {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::auth::user::AuthMethod;
     use axum::http::{HeaderMap, HeaderName, HeaderValue};
 
     /// Wave 3a Track B — the `from_cookies` parser must return
@@ -975,5 +986,26 @@ mod tests {
             html.contains("&lt;script&gt;alert(1)&lt;/script&gt;"),
             "ConnectButton must HTML-escape label tags. Got: {html}"
         );
+    }
+
+    #[test]
+    fn authenticated_legacy_button_exposes_shared_logout_hook() {
+        let user = User {
+            id: "admin-user".to_string(),
+            address: "0x1234567890abcdef".to_string(),
+            chain_id: "56".to_string(),
+            roles: vec!["admin".to_string()],
+            email: None,
+            tier: None,
+            permissions: vec![],
+            last_login_at: None,
+            auth_method: AuthMethod::Wallet,
+            display_name: None,
+        };
+        let html = dioxus_ssr::render_element(rsx! {
+            WalletConnectButton { user: Some(user), on_connect: None }
+        });
+        assert!(html.contains("href=\"/profile\""));
+        assert!(html.contains("data-epsx-logout=\"true\""));
     }
 }

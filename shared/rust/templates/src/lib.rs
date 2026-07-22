@@ -5687,6 +5687,15 @@ window.epsx = (function() {
   function toggleMobileMenu() {
     let sheet = document.getElementById('epsx-mobile-sheet');
     if (sheet) { sheet.remove(); return; }
+    const isAuthenticated = document.querySelector('[data-epsx-authenticated="true"]') !== null;
+    const sessionAction = isAuthenticated
+      ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-top:1rem;">
+          <a href="/account" class="epsx-connect-btn" style="text-decoration:none;width:100%;"><i data-lucide="user" style="width:1rem;height:1rem;"></i> Account</a>
+          <button class="epsx-connect-btn" type="button" data-epsx-logout style="width:100%;"><i data-lucide="log-out" style="width:1rem;height:1rem;"></i> Sign out</button>
+        </div>`
+      : `<button class="epsx-connect-btn" type="button" onclick="epsx.toggleMobileMenu();epsx.openAuth();" style="margin-top:1rem;width:100%;">
+          <i data-lucide="wallet" style="width:1rem;height:1rem;"></i> Connect Wallet
+        </button>`;
     sheet = document.createElement('div');
     sheet.id = 'epsx-mobile-sheet';
     sheet.className = 'epsx-mobile-sheet';
@@ -5715,9 +5724,7 @@ window.epsx = (function() {
           <a href="/contact" class="epsx-mobile-link"><i data-lucide="mail" style="width:1rem;height:1rem;color:var(--epsx-orange);"></i> Contact</a>
           <a href="/chat" class="epsx-mobile-link"><i data-lucide="help-circle" style="width:1rem;height:1rem;color:var(--epsx-orange);"></i> Support</a>
         </div>
-        <button class="epsx-connect-btn" type="button" onclick="epsx.toggleMobileMenu();epsx.openAuth();" style="margin-top:1rem;width:100%;">
-          <i data-lucide="wallet" style="width:1rem;height:1rem;"></i> Connect Wallet
-        </button>
+        ${sessionAction}
       </div>
     `;
     document.body.appendChild(sheet);
@@ -6698,6 +6705,13 @@ pub fn footer() -> &'static str {
 /// - Theme toggle (sun/moon)
 /// - Connect button (orange gradient)
 pub fn epsx_header() -> String {
+    epsx_header_for_session(false)
+}
+
+/// Render the public header with a truthful browser-session action.
+/// Authentication remains server-derived; the button only invokes the BFF
+/// session controller and contains no permissions or entitlement logic.
+pub fn epsx_header_for_session(is_authenticated: bool) -> String {
     // Market dropdown items (rankings, portfolio)
     let market_items = r##"
       <a href="/rankings" class="epsx-nav-item">
@@ -6773,6 +6787,40 @@ pub fn epsx_header() -> String {
       </a>"##;
 
     let logo = epsx_icon_svg();
+    let (desktop_auth, compact_auth) = if is_authenticated {
+        (
+            r##"<div class="hidden md:flex items-center gap-1.5">
+        <a href="/account" class="epsx-theme-btn" aria-label="Account">
+          <i data-lucide="user" style="width:1rem;height:1rem;"></i>
+        </a>
+        <button class="epsx-connect-btn" type="button" data-epsx-logout>
+          <i data-lucide="log-out" style="width:1rem;height:1rem;"></i>
+          Sign out
+        </button>
+      </div>"##,
+            r##"<div class="flex md:hidden items-center gap-1.5">
+        <button class="epsx-connect-btn" type="button" data-epsx-logout style="height:2rem;padding:0 0.75rem;font-size:0.75rem;border-radius:1rem;">
+          <i data-lucide="log-out" style="width:0.75rem;height:0.75rem;"></i>
+          Sign out
+        </button>
+      </div>"##,
+        )
+    } else {
+        (
+            r##"<div class="hidden md:flex items-center gap-1.5">
+        <button class="epsx-connect-btn" type="button" onclick="epsx.openAuth()">
+          <i data-lucide="wallet" style="width:1rem;height:1rem;"></i>
+          Connect
+        </button>
+      </div>"##,
+            r##"<div class="flex md:hidden items-center gap-1.5">
+        <button class="epsx-connect-btn" type="button" onclick="epsx.openAuth()" style="height:2rem;padding:0 0.75rem;font-size:0.75rem;border-radius:1rem;">
+          <i data-lucide="wallet" style="width:0.75rem;height:0.75rem;"></i>
+          Connect
+        </button>
+      </div>"##,
+        )
+    };
     let nav_block = |label: &str, icon: &str, items: &str| -> String {
         format!(
             r##"<div class="epsx-nav-wrap" data-nav="{label}">
@@ -6790,7 +6838,7 @@ pub fn epsx_header() -> String {
     };
 
     format!(
-        r##"<header class="epsx-header">
+        r##"<header class="epsx-header" data-epsx-authenticated="{authenticated}">
   <div class="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 md:px-6">
     <a href="/" class="flex items-center gap-2.5 group" style="text-decoration:none;">
       {logo}
@@ -6812,18 +6860,8 @@ pub fn epsx_header() -> String {
         <i data-lucide="sun" class="sun" style="display:none;"></i>
         <i data-lucide="moon" class="moon"></i>
       </button>
-      <div class="hidden md:flex items-center gap-1.5">
-        <button class="epsx-connect-btn" type="button" onclick="epsx.openAuth()">
-          <i data-lucide="wallet" style="width:1rem;height:1rem;"></i>
-          Connect
-        </button>
-      </div>
-      <div class="hidden sm:flex md:hidden items-center gap-1.5">
-        <button class="epsx-connect-btn" type="button" onclick="epsx.openAuth()" style="height:2rem;padding:0 0.75rem;font-size:0.75rem;border-radius:1rem;">
-          <i data-lucide="wallet" style="width:0.75rem;height:0.75rem;"></i>
-          Connect
-        </button>
-      </div>
+      {desktop_auth}
+      {compact_auth}
       <!-- Mobile menu toggle (< 640px) -->
       <button class="epsx-theme-btn md:hidden" type="button" aria-label="Open menu" onclick="epsx.toggleMobileMenu()" id="epsx-mobile-menu-btn" style="width:2.25rem;height:2.25rem;padding:0;">
         <i data-lucide="menu" style="width:1.125rem;height:1.125rem;"></i>
@@ -6835,6 +6873,9 @@ pub fn epsx_header() -> String {
         market = nav_block("Market", "chart-column", market_items),
         developer = nav_block("Developer", "code", developer_items),
         company = nav_block("Company", "building", company_items),
+        desktop_auth = desktop_auth,
+        compact_auth = compact_auth,
+        authenticated = is_authenticated,
     )
 }
 
@@ -6960,5 +7001,27 @@ mod page_head_tests {
         let badge_css = &head[badge_start..badge_end];
         assert!(badge_css.contains("background: #dc2626; color: white;"));
         assert!(!badge_css.contains("background: #ef4444; color: white;"));
+    }
+
+    #[test]
+    fn header_exposes_truthful_session_action_without_policy_logic() {
+        let public = epsx_header_for_session(false);
+        assert_eq!(public.matches("onclick=\"epsx.openAuth()\"").count(), 2);
+        assert!(public.contains("data-epsx-authenticated=\"false\""));
+        assert!(!public.contains("data-epsx-logout"));
+
+        let authenticated = epsx_header_for_session(true);
+        assert_eq!(authenticated.matches("data-epsx-logout").count(), 2);
+        assert!(authenticated.contains("data-epsx-authenticated=\"true\""));
+        assert!(authenticated.contains("class=\"flex md:hidden items-center gap-1.5\""));
+        assert!(authenticated.contains("href=\"/account\""));
+        assert!(!authenticated.contains("onclick=\"epsx.openAuth()\""));
+        assert!(!authenticated.contains("permission"));
+        assert!(!authenticated.contains("plan"));
+
+        let script = global_js();
+        assert!(script.contains("document.querySelector('[data-epsx-authenticated=\"true\"]')"));
+        assert!(script.contains("const sessionAction = isAuthenticated"));
+        assert!(script.contains("data-epsx-logout"));
     }
 }

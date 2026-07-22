@@ -6,27 +6,20 @@
 //! `useAccount` + `useDisconnect` from wagmi and `useSharedAuth` for
 //! the user / logout. The Dioxus port renders the same visual
 //! structure (rounded pill, orange wallet icon, truncated address)
-//! with a stub `on_disconnect` callback so the parent can wire the
-//! real BFF logout endpoint.
+//! with a `data-epsx-logout` hook consumed by the shared browser-session
+//! controller. The optional callback remains available for hydrated callers.
 //!
 //! ## SSR caveat
 //!
-//! The real-time "Copy / View on Explorer / Disconnect" actions are
-//! all browser-side, so this component is rendered as a visual stub
-//! in the SSR snapshot. The BFF will eventually wire the disconnect
-//! callback to `/api/v1/auth/logout`. For now the buttons are
-//! visible-but-noop, matching the Wave 22 audit's "render visible,
-//! handler is a TODO" rule.
+//! The real-time "Copy / View on Explorer" actions still require browser
+//! behavior. Disconnect is functional in hydration-free SSR because the BFF
+//! injects the shared controller and binds the fixed data attribute.
 
 use crate::primitives::icon::Icon;
 
 use dioxus::prelude::*;
 
-/// Visual stub for the connected-wallet pill. Renders the wallet
-/// icon + truncated address. Click handler is a no-op that logs
-/// to the JS console (the real disconnect flow needs the BFF
-/// `/api/v1/auth/logout` endpoint, which is wired by the auth BFF
-/// in a future wave).
+/// Connected-wallet pill with a hydration-free disconnect hook.
 #[component]
 pub fn ConnectedWalletDropdown(
     /// Wallet address (Ethereum 0x... form). When `None`, the
@@ -100,6 +93,7 @@ pub fn ConnectedWalletDropdown(
                 }
                 div {
                     class: "connected-wallet-row connected-wallet-disconnect flex items-center gap-3 px-4 py-4 cursor-pointer hover:bg-red-500/10",
+                    "data-epsx-logout": "true",
                     onclick: move |e| {
                         if let Some(cb) = on_disconnect.as_ref() {
                             cb.call(e);

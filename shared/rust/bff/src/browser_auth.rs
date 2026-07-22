@@ -68,6 +68,142 @@ async function epsxPostJson(path, payload, label) {
   return epsxReadJson(response, label);
 }
 
+var epsxSessionLockName = 'epsx.auth.session-mutation.v1';
+var epsxSessionChannelName = 'epsx.auth.session.v1';
+var epsxRefreshPromise = null;
+var epsxSessionChannel = null;
+if (typeof BroadcastChannel === 'function') {
+  try {
+    epsxSessionChannel = new BroadcastChannel(epsxSessionChannelName);
+  } catch (_) {}
+}
+
+function epsxSessionReason(reason) {
+  return reason === 'logout' || reason === 'refresh_rejected' || reason === 'refresh_unknown'
+    ? reason
+    : 'refresh_unknown';
+}
+
+function epsxDispatchSessionEvent(event) {
+  try {
+    document.dispatchEvent(new CustomEvent('epsx:auth:session', { detail: event }));
+  } catch (_) {}
+}
+
+function epsxPublishSessionEvent(type, reason) {
+  var event = { version: 1, type: type };
+  if (type === 'session-ended') event.reason = epsxSessionReason(reason);
+  if (epsxSessionChannel) {
+    try { epsxSessionChannel.postMessage(event); } catch (_) {}
+  }
+  epsxDispatchSessionEvent(event);
+}
+
+function epsxEndLocalSession(reason, target) {
+  epsxPublishSessionEvent('session-ended', reason);
+  window.location.assign(target);
+}
+
+if (epsxSessionChannel) {
+  epsxSessionChannel.onmessage = function(message) {
+    var event = message && message.data;
+    if (!event || event.version !== 1 || event.type !== 'session-ended') return;
+    epsxDispatchSessionEvent({
+      version: 1,
+      type: 'session-ended',
+      reason: epsxSessionReason(event.reason)
+    });
+    window.location.assign('/');
+  };
+}
+
+function epsxWithSessionMutation(operation, requireCrossTabLock) {
+  if (navigator.locks && typeof navigator.locks.request === 'function') {
+    return navigator.locks.request(epsxSessionLockName, { mode: 'exclusive' }, operation);
+  }
+  if (requireCrossTabLock) {
+    return Promise.reject(new Error('Session refresh requires cross-tab coordination'));
+  }
+  return operation();
+}
+
+function epsxSafeSessionTarget(raw) {
+  if (!raw || raw.charAt(0) !== '/' || raw.indexOf('//') === 0 || raw.indexOf('\\') !== -1) {
+    return '/';
+  }
+  try {
+    var target = new URL(raw, window.location.origin);
+    if (target.origin !== window.location.origin || target.username || target.password) return '/';
+    return target.pathname + target.search + target.hash;
+  } catch (_) {
+    return '/';
+  }
+}
+
+async function epsxBestEffortLocalEnd(reason) {
+  try {
+    var response = await fetch('/api/v1/auth/logout', {
+      method: 'POST',
+      credentials: 'same-origin'
+    });
+    if (response.headers.get('x-epsx-session-state') !== 'cleared') return false;
+    epsxEndLocalSession(reason, '/');
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function epsxRefreshOnce() {
+  var response;
+  try {
+    response = await fetch('/api/v1/auth/refresh', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'content-type': 'application/json' },
+      body: '{}'
+    });
+  } catch (error) {
+    await epsxBestEffortLocalEnd('refresh_unknown');
+    throw error;
+  }
+
+  var state = response.headers.get('x-epsx-session-state');
+  if (state === 'preserved') {
+    return epsxReadJson(response, 'Session refresh failed');
+  }
+  if (state !== 'rotated') {
+    epsxEndLocalSession(response.status === 401 ? 'refresh_rejected' : 'refresh_unknown', '/');
+    return epsxReadJson(response, 'Session refresh failed');
+  }
+
+  var session = await epsxReadJson(response, 'Session refresh failed');
+  epsxPublishSessionEvent('session-refreshed');
+  return session;
+}
+
+function epsxRefreshSession() {
+  if (epsxRefreshPromise) return epsxRefreshPromise;
+  epsxRefreshPromise = epsxWithSessionMutation(epsxRefreshOnce, true).finally(function() {
+    epsxRefreshPromise = null;
+  });
+  return epsxRefreshPromise;
+}
+
+function epsxLogoutSession(target) {
+  var safeTarget = epsxSafeSessionTarget(target || '/');
+  return epsxWithSessionMutation(async function() {
+    var response = await fetch('/api/v1/auth/logout', {
+      method: 'POST',
+      credentials: 'same-origin'
+    });
+    if (response.headers.get('x-epsx-session-state') !== 'cleared') {
+      throw new Error('Local session clearing was not confirmed');
+    }
+    epsxEndLocalSession('logout', safeTarget);
+  }, false);
+}
+
 window.epsxAuth = {
   challenge: (address) => epsxPostJson('/api/v1/auth/challenge', { address: address }, 'Challenge failed'),
   siweLogin: (message, signature, address, nonce, chainId) => epsxPostJson(
@@ -75,18 +211,12 @@ window.epsxAuth = {
     { message: message, signature: signature, address: address, nonce: nonce, chain_id: String(chainId || '') },
     'Verification failed'
   ),
-  refresh: () => epsxPostJson('/api/v1/auth/refresh', {}, 'Session refresh failed'),
+  refresh: epsxRefreshSession,
   me: async () => {
     var response = await fetch('/api/v1/auth/me', { credentials: 'same-origin' });
     return epsxReadJson(response, 'Session lookup failed');
   },
-  logout: async () => {
-    try {
-      await fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'same-origin' });
-    } finally {
-      window.location.assign('/');
-    }
-  }
+  logout: epsxLogoutSession
 };
 
 window.epsxWalletStatus = function(detail) {
@@ -163,6 +293,21 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 });
+
+document.addEventListener('click', function(event) {
+  var target = event.target && typeof event.target.closest === 'function'
+    ? event.target.closest('[data-epsx-logout]')
+    : null;
+  if (!target) return;
+  event.preventDefault();
+  window.epsxAuth.logout(target.getAttribute('data-epsx-logout-target') || '/').catch(function(error) {
+    window.epsxWalletStatus({
+      status: 'error',
+      kind: 'logout_unconfirmed',
+      message: error && error.message ? error.message : 'Logout could not be confirmed.'
+    });
+  });
+});
 "#
 }
 
@@ -191,9 +336,51 @@ mod tests {
     }
 
     #[test]
-    fn logout_redirects_from_finally() {
+    fn refresh_and_logout_share_one_cross_tab_mutation_lock() {
         let script = browser_auth_script();
-        assert!(script.contains("} finally {"));
-        assert!(script.contains("window.location.assign('/')"));
+        assert!(script.contains("navigator.locks.request(epsxSessionLockName"));
+        assert!(script.contains("epsxWithSessionMutation(epsxRefreshOnce, true)"));
+        assert!(script.contains("function epsxLogoutSession(target)"));
+        assert!(script.contains("}, false);"));
+    }
+
+    #[test]
+    fn refresh_has_one_in_page_flight_and_no_automatic_retry() {
+        let script = browser_auth_script();
+        assert!(script.contains("if (epsxRefreshPromise) return epsxRefreshPromise"));
+        assert_eq!(script.matches("fetch('/api/v1/auth/refresh'").count(), 1);
+        assert!(script.contains("Session refresh requires cross-tab coordination"));
+    }
+
+    #[test]
+    fn session_broadcasts_are_closed_and_token_free() {
+        let script = browser_auth_script();
+        assert!(script.contains("{ version: 1, type: type }"));
+        assert!(script.contains("type === 'session-ended'"));
+        assert!(script.contains("epsxPublishSessionEvent('session-refreshed')"));
+        assert!(!script.contains("localStorage"));
+        assert!(!script.contains("sessionStorage"));
+    }
+
+    #[test]
+    fn logout_redirects_only_after_local_clear_confirmation() {
+        let script = browser_auth_script();
+        let confirmed = script
+            .find("!== 'cleared'")
+            .expect("logout must inspect the BFF state marker");
+        let redirect = script
+            .find("epsxEndLocalSession('logout', safeTarget)")
+            .expect("confirmed logout must redirect");
+        assert!(redirect > confirmed);
+        assert!(script.contains("epsxSafeSessionTarget(target || '/')"));
+    }
+
+    #[test]
+    fn channel_failures_degrade_to_same_tab_events_and_logout_is_delegated() {
+        let script = browser_auth_script();
+        assert!(script.contains("try { epsxSessionChannel.postMessage(event); } catch (_) {}"));
+        assert!(script.contains("epsxSessionChannel = new BroadcastChannel"));
+        assert!(script.contains("event.target.closest('[data-epsx-logout]')"));
+        assert!(script.contains("epsxEndLocalSession(reason, '/')"));
     }
 }

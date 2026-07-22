@@ -22,7 +22,7 @@
     {
       "id": "refresh-client-and-family-binding",
       "status": "compiled-and-hermetic-proof-database-unproved",
-      "caseIds": ["identity-token-contract", "bff-cookie-contract", "frontend-session", "admin-session", "backend-auth-handlers"]
+      "caseIds": ["identity-token-contract", "bff-cookie-contract", "bff-refresh-outcome", "frontend-session", "admin-session", "backend-auth-handlers", "browser-session-coordination"]
     },
     {
       "id": "jwks-issuer-validity",
@@ -32,17 +32,17 @@
     {
       "id": "token-free-browser-contract",
       "status": "hermetic-proof",
-      "caseIds": ["bff-verifier", "bff-browser-bridge", "frontend-session", "admin-session"]
+      "caseIds": ["bff-verifier", "bff-browser-bridge", "bff-refresh-outcome", "frontend-session", "admin-session", "browser-session-coordination"]
     },
     {
       "id": "canonical-cookie-lifecycle",
       "status": "hermetic-proof",
-      "caseIds": ["bff-cookie-contract", "frontend-session", "frontend-cookie-reader", "admin-session", "admin-cookie-reader"]
+      "caseIds": ["bff-cookie-contract", "bff-refresh-outcome", "frontend-session", "frontend-cookie-reader", "admin-session", "admin-cookie-reader", "browser-session-coordination"]
     },
     {
       "id": "safe-public-auth-page",
       "status": "hermetic-proof",
-      "caseIds": ["bff-browser-bridge", "frontend-safe-return", "admin-session"]
+      "caseIds": ["bff-browser-bridge", "frontend-safe-return", "frontend-session-header", "admin-header-session-action", "admin-shell-session-action", "admin-ssr-session-action", "admin-session", "browser-session-coordination"]
     },
     {
       "id": "unauthenticated-proxy-rejection",
@@ -52,7 +52,7 @@
     {
       "id": "backend-logout-revocation-wiring",
       "status": "source-wired-not-durable-runtime-proven",
-      "caseIds": ["backend-auth-handlers"]
+      "caseIds": ["backend-auth-handlers", "bff-browser-bridge", "browser-session-coordination"]
     }
   ],
   "blockedClaims": [
@@ -110,21 +110,38 @@
     {
       "id": "bff-browser-bridge",
       "kind": "cargo-test",
-      "expectedTests": 3,
+      "expectedTests": 7,
       "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-bff", "browser_auth::tests", "--no-fail-fast"],
       "evidence": [
         {"file": "shared/rust/bff/src/browser_auth.rs", "anchor": "fn bridge_never_reads_or_stores_session_tokens()"},
-        {"file": "shared/rust/bff/src/browser_auth.rs", "anchor": "fn bridge_rejects_cross_origin_return_targets()"}
+        {"file": "shared/rust/bff/src/browser_auth.rs", "anchor": "fn bridge_rejects_cross_origin_return_targets()"},
+        {"file": "shared/rust/bff/src/browser_auth.rs", "anchor": "fn refresh_and_logout_share_one_cross_tab_mutation_lock()"},
+        {"file": "shared/rust/bff/src/browser_auth.rs", "anchor": "fn logout_redirects_only_after_local_clear_confirmation()"},
+        {"file": "shared/rust/bff/src/browser_auth.rs", "anchor": "fn channel_failures_degrade_to_same_tab_events_and_logout_is_delegated()"}
+      ]
+    },
+    {
+      "id": "bff-refresh-outcome",
+      "kind": "cargo-test",
+      "expectedTests": 6,
+      "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-bff", "refresh_outcome::tests", "--no-fail-fast"],
+      "evidence": [
+        {"file": "shared/rust/bff/src/refresh_outcome.rs", "anchor": "fn accepts_only_exact_closed_status_and_outcome_pairs()"},
+        {"file": "shared/rust/bff/src/refresh_outcome.rs", "anchor": "fn missing_invalid_and_intermediary_outcomes_fail_closed()"},
+        {"file": "shared/rust/bff/src/refresh_outcome.rs", "anchor": "fn duplicate_or_conflicting_outcome_headers_fail_closed()"},
+        {"file": "shared/rust/bff/src/refresh_outcome.rs", "anchor": "fn browser_state_marker_is_closed_and_token_free()"}
       ]
     },
     {
       "id": "frontend-session",
       "kind": "cargo-test",
-      "expectedTests": 11,
+      "expectedTests": 13,
       "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-frontend", "api::auth_session_tests", "--no-fail-fast"],
       "evidence": [
         {"file": "apps/frontend/src/api.rs", "anchor": "async fn siwe_verifies_returned_jwt_and_only_returns_safe_browser_data()"},
         {"file": "apps/frontend/src/api.rs", "anchor": "async fn refresh_verifies_rotation_and_atomically_replaces_cookie_pair()"},
+        {"file": "apps/frontend/src/api.rs", "anchor": "async fn refresh_transport_failure_and_redirect_fail_closed_without_replay()"},
+        {"file": "apps/frontend/src/api.rs", "anchor": "fn failed_cookie_clear_never_attests_cleared_session_state()"},
         {"file": "apps/frontend/src/api.rs", "anchor": "async fn logout_always_clears_canonical_pair_and_legacy_cookie()"}
       ]
     },
@@ -157,14 +174,56 @@
       ]
     },
     {
+      "id": "frontend-session-header",
+      "kind": "cargo-test",
+      "expectedTests": 1,
+      "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-templates", "page_head_tests::header_exposes_truthful_session_action_without_policy_logic", "--no-fail-fast"],
+      "evidence": [
+        {"file": "shared/rust/templates/src/lib.rs", "anchor": "fn header_exposes_truthful_session_action_without_policy_logic()"},
+        {"file": "apps/frontend/src/ssr.rs", "anchor": "epsx_templates::epsx_header_for_session(is_authenticated)"}
+      ]
+    },
+    {
+      "id": "admin-header-session-action",
+      "kind": "cargo-test",
+      "expectedTests": 1,
+      "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-dioxus-ui", "auth::wallet_button::tests::authenticated_legacy_button_exposes_shared_logout_hook", "--no-fail-fast"],
+      "evidence": [
+        {"file": "shared/rust/dioxus_ui/src/auth/wallet_button.rs", "anchor": "fn authenticated_legacy_button_exposes_shared_logout_hook()"},
+        {"file": "shared/rust/dioxus_ui/src/auth/wallet_button.rs", "anchor": "\"data-epsx-logout\": \"true\""}
+      ]
+    },
+    {
+      "id": "admin-shell-session-action",
+      "kind": "cargo-test",
+      "expectedTests": 1,
+      "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-dioxus-ui", "layout::admin_shell::tests::admin_shell_renders_breadcrumbs", "--no-fail-fast"],
+      "evidence": [
+        {"file": "shared/rust/dioxus_ui/src/layout/admin_shell.rs", "anchor": "authenticated AdminShell must expose the shared logout controller hook"},
+        {"file": "shared/rust/dioxus_ui/src/layout/admin_shell.rs", "anchor": "\"data-epsx-logout\": \"true\""}
+      ]
+    },
+    {
+      "id": "admin-ssr-session-action",
+      "kind": "cargo-test",
+      "expectedTests": 1,
+      "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-admin", "ssr::tests::authenticated_admin_chrome_variants_expose_shared_logout_hook", "--no-fail-fast"],
+      "evidence": [
+        {"file": "apps/admin/src/ssr.rs", "anchor": "fn authenticated_admin_chrome_variants_expose_shared_logout_hook()"},
+        {"file": "apps/admin/src/ssr.rs", "anchor": "authenticated admin SSR chrome must expose the shared logout hook"}
+      ]
+    },
+    {
       "id": "admin-session",
       "kind": "cargo-test",
-      "expectedTests": 12,
+      "expectedTests": 14,
       "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-admin", "session_auth_tests", "--no-fail-fast"],
       "evidence": [
         {"file": "apps/admin/src/session_auth_tests.rs", "anchor": "async fn admin_siwe_requires_admin_audience_and_returns_no_tokens()"},
         {"file": "apps/admin/src/session_auth_tests.rs", "anchor": "async fn frontend_audience_token_cannot_create_admin_session()"},
         {"file": "apps/admin/src/session_auth_tests.rs", "anchor": "async fn unauthenticated_admin_proxy_fails_before_upstream()"},
+        {"file": "apps/admin/src/session_auth_tests.rs", "anchor": "async fn refresh_transport_failure_clears_the_unprovable_session()"},
+        {"file": "apps/admin/src/session_auth_tests.rs", "anchor": "fn failed_cookie_clear_never_attests_cleared_session_state()"},
         {"file": "apps/admin/src/session_auth_tests.rs", "anchor": "async fn dashboard_root_loads_only_for_verified_admin_root_aliases()"},
         {"file": "apps/admin/src/session_auth_tests.rs", "anchor": "async fn wrong_or_multiple_audiences_cannot_reach_the_dashboard_upstream()"},
         {"file": "apps/admin/src/session_auth_tests.rs", "anchor": "async fn auth_page_is_public_and_redirects_to_the_fixed_admin_root()"}
@@ -192,13 +251,14 @@
     {
       "id": "backend-auth-handlers",
       "kind": "cargo-test",
-      "expectedTests": 10,
+      "expectedTests": 11,
       "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx", "--lib", "web::auth::handlers::tests", "--no-fail-fast"],
       "evidence": [
         {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": ".revoke_refresh_token(refresh_token)"},
         {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": "fn logout_accepts_each_canonical_refresh_cookie()"},
         {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": "fn refresh_request_requires_an_explicit_supported_client()"},
         {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": "fn refresh_responses_are_never_cacheable()"},
+        {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": "fn refresh_responses_attest_the_closed_rotation_outcome()"},
         {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": "fn logout_success_is_generic_and_never_contains_token_material()"}
       ]
     },
@@ -218,6 +278,16 @@
       "command": ["./scripts/migration/verify-contract-fixtures.sh"],
       "evidence": [
         {"file": "docs/migration/contracts/api-contracts.json", "anchor": "\"purpose\": \"fixture-integrity-only\""}
+      ]
+    },
+    {
+      "id": "browser-session-coordination",
+      "kind": "fixture-check",
+      "expectedTests": 0,
+      "command": ["bun", "scripts/migration/test-browser-session-coordination.js"],
+      "evidence": [
+        {"file": "scripts/migration/test-browser-session-coordination.js", "anchor": "two tab realms serialize refresh through one origin lock"},
+        {"file": "scripts/migration/test-browser-session-coordination.js", "anchor": "broadcast messages contain only the closed token-free schema"}
       ]
     }
   ]

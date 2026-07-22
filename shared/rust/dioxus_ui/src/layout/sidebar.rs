@@ -215,6 +215,16 @@ fn UserPill(is_authenticated: bool) -> Element {
                         }
                     }
                 }
+                if is_authenticated {
+                    button {
+                        class: "btn btn-ghost btn-icon admin-sidebar-logout",
+                        r#type: "button",
+                        "data-epsx-logout": "true",
+                        title: "Sign out",
+                        "aria-label": "Sign out",
+                        Icon { name: "log-out".to_string(), size: Some(16) }
+                    }
+                }
             }
         }
     }

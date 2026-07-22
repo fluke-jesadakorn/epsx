@@ -24,6 +24,10 @@ use axum::{
 use chrono::{DateTime, NaiveDate};
 use epsx_bff::{
     cookies::{append_clear_session_cookies, append_session_cookies, CookieClient},
+    refresh_outcome::{
+        classify_refresh_outcome, is_rejected_refresh_outcome, mark_session_state,
+        RefreshDisposition,
+    },
     session::{
         AuthExchange, ChallengeRequest, ChallengeResponse, LogoutRequest, ProfileResponse,
         RefreshRequest, RefreshResponse, SessionUser, VerifyRequest, VerifyResponse,
@@ -390,7 +394,7 @@ pub async fn siwe_login(
     let url = auth_url(&state, VERIFY_PATH);
     let response = match state
         .identity
-        .clone_for_bearer()
+        .auth_client()
         .post(&url)
         .json(&request)
         .send()
@@ -480,7 +484,7 @@ pub async fn auth_challenge(
     let url = auth_url(&state, CHALLENGE_PATH);
     let response = match state
         .identity
-        .clone_for_bearer()
+        .auth_client()
         .post(&url)
         .json(&request)
         .send()
@@ -535,7 +539,11 @@ pub async fn refresh_token(
     headers: axum::http::HeaderMap,
 ) -> Response {
     let Some(refresh_token) = super::auth::refresh_token(&headers, state.cookie_environment) else {
-        return clear_session_response(&state, StatusCode::UNAUTHORIZED, "missing_refresh_token");
+        return clear_refresh_session_response(
+            &state,
+            StatusCode::UNAUTHORIZED,
+            "missing_refresh_token",
+        );
     };
     let request = RefreshRequest {
         refresh_token: &refresh_token,
@@ -543,7 +551,7 @@ pub async fn refresh_token(
     };
     let response = match state
         .identity
-        .clone_for_bearer()
+        .auth_client()
         .post(auth_url(&state, REFRESH_PATH))
         .json(&request)
         .send()
@@ -552,20 +560,37 @@ pub async fn refresh_token(
         Ok(response) => response,
         Err(error) => {
             tracing::warn!("Refresh upstream unavailable: {}", error);
-            return safe_error(StatusCode::BAD_GATEWAY, "auth_upstream_unavailable");
+            return clear_refresh_session_response(
+                &state,
+                StatusCode::BAD_GATEWAY,
+                "refresh_outcome_unknown",
+            );
         }
     };
-    if response.status() == StatusCode::UNAUTHORIZED {
-        return clear_session_response(&state, StatusCode::UNAUTHORIZED, "refresh_rejected");
-    }
-    if !response.status().is_success() {
-        return safe_error(StatusCode::BAD_GATEWAY, "refresh_upstream_failed");
+    let status = response.status();
+    let rejected = is_rejected_refresh_outcome(status, response.headers());
+    match classify_refresh_outcome(status, response.headers()) {
+        RefreshDisposition::Preserve => {
+            return refresh_response(
+                safe_error(status, "refresh_not_rotated"),
+                RefreshDisposition::Preserve,
+            )
+        }
+        RefreshDisposition::Clear => {
+            let (status, code) = if rejected {
+                (StatusCode::UNAUTHORIZED, "refresh_rejected")
+            } else {
+                (StatusCode::BAD_GATEWAY, "refresh_outcome_unknown")
+            };
+            return clear_refresh_session_response(&state, status, code);
+        }
+        RefreshDisposition::Replace => {}
     }
     let upstream: RefreshResponse = match response.json().await {
         Ok(upstream) => upstream,
         Err(error) => {
             tracing::warn!("Refresh upstream returned malformed JSON: {}", error);
-            return clear_session_response(
+            return clear_refresh_session_response(
                 &state,
                 StatusCode::BAD_GATEWAY,
                 "malformed_auth_response",
@@ -575,10 +600,24 @@ pub async fn refresh_token(
     let exchange = match upstream.into_exchange() {
         Ok(exchange) => exchange,
         Err(_) => {
-            return clear_session_response(&state, StatusCode::UNAUTHORIZED, "refresh_rejected")
+            return clear_refresh_session_response(
+                &state,
+                StatusCode::UNAUTHORIZED,
+                "refresh_rejected",
+            )
         }
     };
-    establish_session(&state, exchange, None, true).await
+    let response = establish_session(&state, exchange, None, true).await;
+    if response.status().is_success() {
+        refresh_response(response, RefreshDisposition::Replace)
+    } else {
+        response
+    }
+}
+
+fn refresh_response(mut response: Response, disposition: RefreshDisposition) -> Response {
+    mark_session_state(&mut response, disposition);
+    response
 }
 
 pub async fn logout(State(state): State<AppState>, headers: axum::http::HeaderMap) -> Response {
@@ -593,7 +632,7 @@ pub async fn logout(State(state): State<AppState>, headers: axum::http::HeaderMa
     };
     let upstream_ok = state
         .identity
-        .clone_for_bearer()
+        .auth_client()
         .delete(auth_url(&state, LOGOUT_PATH))
         .json(&request)
         .send()
@@ -623,6 +662,7 @@ pub async fn logout(State(state): State<AppState>, headers: axum::http::HeaderMa
     {
         return safe_error(StatusCode::INTERNAL_SERVER_ERROR, "session_cookie_error");
     }
+    mark_session_state(&mut response, RefreshDisposition::Clear);
     response
 }
 
@@ -637,7 +677,7 @@ pub async fn auth_me(State(state): State<AppState>, headers: axum::http::HeaderM
         }
     };
     let url = auth_url(&state, PROFILE_PATH);
-    let client = state.identity.clone_for_bearer();
+    let client = state.identity.auth_client();
     let response = match client.get(&url).bearer_auth(&token).send().await {
         Ok(response) => response,
         Err(error) => {
@@ -704,24 +744,55 @@ fn session_establishment_error(
     code: &'static str,
 ) -> Response {
     if clear_on_failure {
-        clear_session_response(state, StatusCode::BAD_GATEWAY, code)
+        clear_refresh_session_response(state, StatusCode::BAD_GATEWAY, code)
     } else {
         safe_error(StatusCode::BAD_GATEWAY, code)
     }
 }
 
 fn clear_session_response(state: &AppState, status: StatusCode, code: &'static str) -> Response {
-    let mut response = safe_error(status, code);
-    if append_clear_session_cookies(
-        response.headers_mut(),
-        state.cookie_environment,
-        CookieClient::Frontend,
-    )
-    .is_err()
-    {
-        return safe_error(StatusCode::INTERNAL_SERVER_ERROR, "session_cookie_error");
+    try_clear_session_response(status, code, |headers| {
+        append_clear_session_cookies(
+            headers,
+            state.cookie_environment,
+            CookieClient::Frontend,
+        )
+        .is_ok()
+    })
+    .unwrap_or_else(|error| error)
+}
+
+fn clear_refresh_session_response(
+    state: &AppState,
+    status: StatusCode,
+    code: &'static str,
+) -> Response {
+    match try_clear_session_response(status, code, |headers| {
+        append_clear_session_cookies(
+            headers,
+            state.cookie_environment,
+            CookieClient::Frontend,
+        )
+        .is_ok()
+    }) {
+        Ok(response) => refresh_response(response, RefreshDisposition::Clear),
+        Err(error) => error,
     }
-    response
+}
+
+fn try_clear_session_response(
+    status: StatusCode,
+    code: &'static str,
+    append: impl FnOnce(&mut axum::http::HeaderMap) -> bool,
+) -> Result<Response, Response> {
+    let mut response = safe_error(status, code);
+    if !append(response.headers_mut()) {
+        return Err(safe_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "session_cookie_error",
+        ));
+    }
+    Ok(response)
 }
 
 async fn verified_bearer(
@@ -2179,6 +2250,11 @@ mod auth_session_tests {
             LEGACY_ACCESS_COOKIE, LEGACY_LOCAL_ACCESS_COOKIE, LEGACY_LOCAL_REFRESH_COOKIE,
             LOCAL_ACCESS_COOKIE, LOCAL_REFRESH_COOKIE,
         },
+        refresh_outcome::{
+            REFRESH_OUTCOME_HEADER, REFRESH_OUTCOME_NOT_ROTATED, REFRESH_OUTCOME_ROTATED,
+            SESSION_STATE_CLEARED, SESSION_STATE_HEADER, SESSION_STATE_PRESERVED,
+            SESSION_STATE_ROTATED,
+        },
         session::{AccessTokenClaims, Jwks, JwksVerifierConfig, RsaJwk, JWKS_PATH},
     };
     use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
@@ -2190,6 +2266,37 @@ mod auth_session_tests {
 
     const TEST_ISSUER: &str = "https://issuer.test";
     const TEST_WALLET: &str = "0x1111111111111111111111111111111111111111";
+
+    #[test]
+    fn failed_cookie_clear_never_attests_cleared_session_state() {
+        let response = match try_clear_session_response(
+            StatusCode::UNAUTHORIZED,
+            "forced_cookie_failure",
+            |_| false,
+        ) {
+            Ok(_) => panic!("forced cookie failure unexpectedly succeeded"),
+            Err(response) => response,
+        };
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+        assert!(response.headers().get(SESSION_STATE_HEADER).is_none());
+    }
+
+    fn upstream_refresh_response(mut response: Response, outcome: &'static str) -> Response {
+        response
+            .headers_mut()
+            .insert(REFRESH_OUTCOME_HEADER, HeaderValue::from_static(outcome));
+        response
+    }
+
+    fn assert_session_state(response: &Response, expected: &'static str) {
+        assert_eq!(
+            response
+                .headers()
+                .get(SESSION_STATE_HEADER)
+                .and_then(|value| value.to_str().ok()),
+            Some(expected)
+        );
+    }
 
     fn assert_private_notification_response(response: &Response) {
         assert_eq!(
@@ -2780,7 +2887,10 @@ mod auth_session_tests {
                     if body["client_id"] == FRONTEND_CLIENT_ID
                         && body["refresh_token"] == "browser-refresh"
                     {
-                        Json(payload).into_response()
+                        upstream_refresh_response(
+                            Json(payload).into_response(),
+                            REFRESH_OUTCOME_ROTATED,
+                        )
                     } else {
                         StatusCode::BAD_REQUEST.into_response()
                     }
@@ -2798,28 +2908,107 @@ mod auth_session_tests {
 
         assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
         assert_session_cleared(&response);
+        assert_session_state(&response, SESSION_STATE_CLEARED);
 
-        for upstream_status in [
-            StatusCode::BAD_REQUEST,
-            StatusCode::REQUEST_TIMEOUT,
-            StatusCode::TOO_MANY_REQUESTS,
-            StatusCode::SERVICE_UNAVAILABLE,
+        for (upstream_status, outcome, expected_status, expected_state, clears) in [
+            (
+                StatusCode::BAD_REQUEST,
+                Some(REFRESH_OUTCOME_NOT_ROTATED),
+                StatusCode::BAD_REQUEST,
+                SESSION_STATE_PRESERVED,
+                false,
+            ),
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Some(REFRESH_OUTCOME_NOT_ROTATED),
+                StatusCode::INTERNAL_SERVER_ERROR,
+                SESSION_STATE_PRESERVED,
+                false,
+            ),
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                None,
+                StatusCode::BAD_GATEWAY,
+                SESSION_STATE_CLEARED,
+                true,
+            ),
+            (
+                StatusCode::REQUEST_TIMEOUT,
+                Some(REFRESH_OUTCOME_NOT_ROTATED),
+                StatusCode::BAD_GATEWAY,
+                SESSION_STATE_CLEARED,
+                true,
+            ),
+            (
+                StatusCode::TOO_MANY_REQUESTS,
+                None,
+                StatusCode::BAD_GATEWAY,
+                SESSION_STATE_CLEARED,
+                true,
+            ),
         ] {
-            let retryable_base = spawn_mock(
-                Router::new().route(REFRESH_PATH, post(move || async move { upstream_status })),
-            )
+            let retryable_base = spawn_mock(Router::new().route(
+                REFRESH_PATH,
+                post(move || async move {
+                    let response = upstream_status.into_response();
+                    match outcome {
+                        Some(outcome) => upstream_refresh_response(response, outcome),
+                        None => response,
+                    }
+                }),
+            ))
             .await;
             let retryable = refresh_token(
                 State(state(&retryable_base)),
                 request_headers("epsx.frontend.refresh_token=browser-refresh"),
             )
             .await;
-            assert_eq!(retryable.status(), StatusCode::BAD_GATEWAY);
-            assert!(
-                response_cookies(&retryable).is_empty(),
-                "non-401 upstream failures must preserve the browser session"
-            );
+            assert_eq!(retryable.status(), expected_status);
+            assert_session_state(&retryable, expected_state);
+            assert_eq!(!response_cookies(&retryable).is_empty(), clears);
         }
+    }
+
+    #[tokio::test]
+    async fn refresh_transport_failure_and_redirect_fail_closed_without_replay() {
+        let unavailable = refresh_token(
+            State(state(&unused_base_url().await)),
+            request_headers("epsx.frontend.refresh_token=browser-refresh"),
+        )
+        .await;
+        assert_eq!(unavailable.status(), StatusCode::BAD_GATEWAY);
+        assert_session_cleared(&unavailable);
+        assert_session_state(&unavailable, SESSION_STATE_CLEARED);
+
+        let redirect_target = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let target_url = format!("http://{}/capture", redirect_target.local_addr().unwrap());
+        let redirect_base = spawn_mock(Router::new().route(
+            REFRESH_PATH,
+            post(move || {
+                let target_url = target_url.clone();
+                async move {
+                    (
+                        StatusCode::TEMPORARY_REDIRECT,
+                        [(header::LOCATION, target_url)],
+                    )
+                }
+            }),
+        ))
+        .await;
+        let redirected = refresh_token(
+            State(state(&redirect_base)),
+            request_headers("epsx.frontend.refresh_token=browser-refresh"),
+        )
+        .await;
+        assert_eq!(redirected.status(), StatusCode::BAD_GATEWAY);
+        assert_session_cleared(&redirected);
+        assert_session_state(&redirected, SESSION_STATE_CLEARED);
+        assert!(
+            tokio::time::timeout(Duration::from_millis(100), redirect_target.accept())
+                .await
+                .is_err(),
+            "credential-bearing refresh followed an upstream redirect"
+        );
     }
 
     #[tokio::test]
@@ -2859,7 +3048,10 @@ mod auth_session_tests {
                         if body["client_id"] == FRONTEND_CLIENT_ID
                             && body["refresh_token"] == "browser-refresh"
                         {
-                            Json(payload).into_response()
+                            upstream_refresh_response(
+                                Json(payload).into_response(),
+                                REFRESH_OUTCOME_ROTATED,
+                            )
                         } else {
                             StatusCode::BAD_REQUEST.into_response()
                         }
@@ -2874,6 +3066,7 @@ mod auth_session_tests {
         .await;
 
         assert_eq!(response.status(), StatusCode::OK);
+        assert_session_state(&response, SESSION_STATE_ROTATED);
         assert_eq!(
             response.headers().get(header::CACHE_CONTROL),
             Some(&HeaderValue::from_static("private, no-store"))
@@ -3005,6 +3198,7 @@ mod auth_session_tests {
         .await;
         assert_eq!(success.status(), StatusCode::OK);
         assert_session_cleared(&success);
+        assert_session_state(&success, SESSION_STATE_CLEARED);
 
         let unavailable_base = unused_base_url().await;
         let failure = logout(
@@ -3014,5 +3208,6 @@ mod auth_session_tests {
         .await;
         assert_eq!(failure.status(), StatusCode::BAD_GATEWAY);
         assert_session_cleared(&failure);
+        assert_session_state(&failure, SESSION_STATE_CLEARED);
     }
 }

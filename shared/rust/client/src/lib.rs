@@ -84,6 +84,7 @@ impl RequestContext {
 #[derive(Clone)]
 pub struct ServiceClient {
     inner: reqwest::Client,
+    auth_inner: reqwest::Client,
     config: ClientConfig,
 }
 
@@ -93,7 +94,16 @@ impl ServiceClient {
             .timeout(config.timeout)
             .build()
             .expect("HTTP client");
-        Self { inner, config }
+        let auth_inner = reqwest::Client::builder()
+            .timeout(config.timeout)
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .expect("auth HTTP client");
+        Self {
+            inner,
+            auth_inner,
+            config,
+        }
     }
 
     pub fn with_base_url(mut self, base_url: impl Into<String>) -> Self {
@@ -182,6 +192,15 @@ impl ServiceClient {
     /// that are not handled by `RequestContext`.
     pub fn clone_for_bearer(&self) -> reqwest::Client {
         self.inner.clone()
+    }
+
+    /// Clone the pooled client for credential-bearing authentication requests.
+    ///
+    /// Redirects are disabled so an upstream 3xx cannot replay a signed
+    /// challenge, refresh credential, logout credential, or bearer header to a
+    /// different target. The caller must classify the original response.
+    pub fn auth_client(&self) -> reqwest::Client {
+        self.auth_inner.clone()
     }
 
     /// Returns the base URL the client was configured with.

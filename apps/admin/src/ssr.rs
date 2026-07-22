@@ -791,11 +791,21 @@ fn admin_denial_runtime_script() -> &'static str {
     var target = auth.getAttribute('href') || '/auth?return_url=%2F';
     auth.setAttribute('aria-busy', 'true');
     try {
-      await fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'same-origin' });
-    } catch (_) {
-      // The BFF clears its local cookies even when upstream revocation fails.
-    } finally {
-      window.location.assign(target);
+      if (!window.epsxAuth || typeof window.epsxAuth.logout !== 'function') {
+        throw new Error('Session controller unavailable');
+      }
+      await window.epsxAuth.logout(target);
+    } catch (error) {
+      auth.removeAttribute('aria-busy');
+      try {
+        document.dispatchEvent(new CustomEvent('epsx:wallet:status', {
+          detail: {
+            status: 'error',
+            kind: 'logout_unconfirmed',
+            message: error && error.message ? error.message : 'Logout could not be confirmed.'
+          }
+        }));
+      } catch (_) {}
     }
   });
 
@@ -1066,6 +1076,29 @@ mod tests {
     }
 
     #[test]
+    fn authenticated_admin_chrome_variants_expose_shared_logout_hook() {
+        let user = User {
+            id: "admin-session".to_string(),
+            address: "0x1234".to_string(),
+            chain_id: "56".to_string(),
+            roles: vec![],
+            email: None,
+            tier: None,
+            permissions: vec![],
+            last_login_at: None,
+            auth_method: AuthMethod::Siwe,
+            display_name: None,
+        };
+        for path in ["/admin", "/admin/wallet-management/wallets"] {
+            let html = render_admin_html_with_user(path, Some(user.clone()));
+            assert!(
+                html.contains("data-epsx-logout=\"true\""),
+                "authenticated admin SSR chrome must expose the shared logout hook for {path}: {html}"
+            );
+        }
+    }
+
+    #[test]
     fn admin_mount_prefix_is_boundary_aware_and_removed_only_once() {
         assert_eq!(strip_single_admin_prefix("/admin"), Some("/"));
         assert_eq!(
@@ -1197,10 +1230,10 @@ mod tests {
     fn denial_runtime_uses_only_same_origin_endpoints_and_static_dom_values() {
         let script = admin_denial_runtime_script();
         assert!(script.contains("data-epsx-admin-denial-runtime"));
-        assert!(script.contains("fetch('/api/v1/auth/logout'"));
-        assert!(script.contains("credentials: 'same-origin'"));
+        assert!(script.contains("window.epsxAuth.logout(target)"));
+        assert!(!script.contains("fetch('/api/v1/auth/logout'"));
         assert!(script.contains("previous.origin !== window.location.origin"));
-        assert!(script.contains("window.location.assign(target)"));
+        assert!(script.contains("logout_unconfirmed"));
         assert!(!script.contains("innerHTML"));
         assert!(!script.contains("localStorage"));
         assert!(!script.contains("access_token"));

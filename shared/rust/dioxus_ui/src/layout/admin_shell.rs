@@ -65,6 +65,7 @@ use crate::layout::breadcrumbs::{BreadcrumbItem, Breadcrumbs, Crumb};
 use crate::layout::footer::AdminFooter;
 use crate::layout::sidebar::{AdminSidebar, SidebarItem};
 use crate::pages::PageContext;
+use crate::primitives::icon::Icon;
 
 use dioxus::prelude::*;
 
@@ -167,6 +168,14 @@ pub fn AdminShell(
                     div { class: "admin-shell-header-right",
                         if let Some(u) = &ctx.user {
                             span { class: "admin-user-badge", "{u.short_address()}" }
+                            button {
+                                class: "btn btn-ghost admin-session-logout",
+                                r#type: "button",
+                                "data-epsx-logout": "true",
+                                "aria-label": "Sign out",
+                                Icon { name: "log-out".to_string(), size: Some(16) }
+                                span { class: "hidden sm:inline", "Sign out" }
+                            }
                         }
                     }
                 }
@@ -262,6 +271,10 @@ mod tests {
         assert!(
             html.contains("admin-shell-main"),
             "AdminShell should render its `admin-shell-main` content slot. Got: {html}"
+        );
+        assert!(
+            html.contains("data-epsx-logout=\"true\""),
+            "authenticated AdminShell must expose the shared logout controller hook. Got: {html}"
         );
     }
 

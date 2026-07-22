@@ -2,7 +2,7 @@
 
 `scripts/migration/verify-auth-session-flow.sh` is the local, executable release
 gate for the canonical Rust BFF session contract. It is intentionally narrower
-than a live end-to-end test: it runs 82 focused tests with Cargo offline, uses
+than a live end-to-end test: its cumulative form runs 101 focused tests with Cargo offline, uses
 only loopback mock HTTP servers created by those tests, and then runs the route
 and API-contract fixture checks.
 
@@ -40,8 +40,9 @@ tests and sets `CARGO_NET_OFFLINE=true`.
   requires the HTTP client explicitly;
 - local frontend/admin cookies are client-specific because browser cookies do
   not isolate localhost ports; the ambiguous old local names are clearing-only,
-  runtime fixtures use the scoped names, and only upstream `401` clears refresh
-  state while retryable/configuration failures preserve it;
+  runtime fixtures use the scoped names, and refresh cookies are preserved only
+  for an exact backend-authored `not_rotated` outcome; rejected, ambiguous,
+  malformed, missing-marker, or transport outcomes clear locally without retry;
 - BFF logout always clears local session cookies, including when its upstream
   is unavailable; canonical rotation/logout share a transaction-scoped
   per-login family advisory lock and logout revokes only that lineage;

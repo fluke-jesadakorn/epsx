@@ -8,6 +8,10 @@ use axum::{
 };
 use epsx_bff::{
     cookies::{append_clear_session_cookies, append_session_cookies, CookieClient},
+    refresh_outcome::{
+        classify_refresh_outcome, is_rejected_refresh_outcome, mark_session_state,
+        RefreshDisposition,
+    },
     session::{
         AuthExchange, ChallengeRequest, ChallengeResponse, LogoutRequest, ProfileResponse,
         RefreshRequest, RefreshResponse, SessionUser, VerifyRequest, VerifyResponse,
@@ -31,7 +35,7 @@ pub async fn siwe_login(
     };
     let response = match state
         .identity
-        .clone_for_bearer()
+        .auth_client()
         .post(auth_url(&state, VERIFY_PATH))
         .json(&request)
         .send()
@@ -114,7 +118,7 @@ pub async fn auth_challenge(
     };
     let response = match state
         .identity
-        .clone_for_bearer()
+        .auth_client()
         .post(auth_url(&state, CHALLENGE_PATH))
         .json(&request)
         .send()
@@ -172,7 +176,11 @@ pub async fn refresh_token(
     headers: axum::http::HeaderMap,
 ) -> Response {
     let Some(refresh_token) = super::auth::refresh_token(&headers, state.cookie_environment) else {
-        return clear_session_response(&state, StatusCode::UNAUTHORIZED, "missing_refresh_token");
+        return clear_refresh_session_response(
+            &state,
+            StatusCode::UNAUTHORIZED,
+            "missing_refresh_token",
+        );
     };
     let request = RefreshRequest {
         refresh_token: &refresh_token,
@@ -180,7 +188,7 @@ pub async fn refresh_token(
     };
     let response = match state
         .identity
-        .clone_for_bearer()
+        .auth_client()
         .post(auth_url(&state, REFRESH_PATH))
         .json(&request)
         .send()
@@ -189,20 +197,37 @@ pub async fn refresh_token(
         Ok(response) => response,
         Err(error) => {
             tracing::warn!("Admin refresh upstream unavailable: {}", error);
-            return safe_error(StatusCode::BAD_GATEWAY, "auth_upstream_unavailable");
+            return clear_refresh_session_response(
+                &state,
+                StatusCode::BAD_GATEWAY,
+                "refresh_outcome_unknown",
+            );
         }
     };
-    if response.status() == StatusCode::UNAUTHORIZED {
-        return clear_session_response(&state, StatusCode::UNAUTHORIZED, "refresh_rejected");
-    }
-    if !response.status().is_success() {
-        return safe_error(StatusCode::BAD_GATEWAY, "refresh_upstream_failed");
+    let status = response.status();
+    let rejected = is_rejected_refresh_outcome(status, response.headers());
+    match classify_refresh_outcome(status, response.headers()) {
+        RefreshDisposition::Preserve => {
+            return refresh_response(
+                safe_error(status, "refresh_not_rotated"),
+                RefreshDisposition::Preserve,
+            )
+        }
+        RefreshDisposition::Clear => {
+            let (status, code) = if rejected {
+                (StatusCode::UNAUTHORIZED, "refresh_rejected")
+            } else {
+                (StatusCode::BAD_GATEWAY, "refresh_outcome_unknown")
+            };
+            return clear_refresh_session_response(&state, status, code);
+        }
+        RefreshDisposition::Replace => {}
     }
     let upstream: RefreshResponse = match response.json().await {
         Ok(upstream) => upstream,
         Err(error) => {
             tracing::warn!("Admin refresh upstream returned malformed JSON: {}", error);
-            return clear_session_response(
+            return clear_refresh_session_response(
                 &state,
                 StatusCode::BAD_GATEWAY,
                 "malformed_auth_response",
@@ -212,10 +237,24 @@ pub async fn refresh_token(
     let exchange = match upstream.into_exchange() {
         Ok(exchange) => exchange,
         Err(_) => {
-            return clear_session_response(&state, StatusCode::UNAUTHORIZED, "refresh_rejected")
+            return clear_refresh_session_response(
+                &state,
+                StatusCode::UNAUTHORIZED,
+                "refresh_rejected",
+            )
         }
     };
-    establish_session(&state, exchange, None, true).await
+    let response = establish_session(&state, exchange, None, true).await;
+    if response.status().is_success() {
+        refresh_response(response, RefreshDisposition::Replace)
+    } else {
+        response
+    }
+}
+
+fn refresh_response(mut response: Response, disposition: RefreshDisposition) -> Response {
+    mark_session_state(&mut response, disposition);
+    response
 }
 
 pub async fn logout(State(state): State<AppState>, headers: axum::http::HeaderMap) -> Response {
@@ -230,7 +269,7 @@ pub async fn logout(State(state): State<AppState>, headers: axum::http::HeaderMa
     };
     let upstream_ok = state
         .identity
-        .clone_for_bearer()
+        .auth_client()
         .delete(auth_url(&state, LOGOUT_PATH))
         .json(&request)
         .send()
@@ -260,6 +299,7 @@ pub async fn logout(State(state): State<AppState>, headers: axum::http::HeaderMa
     {
         return safe_error(StatusCode::INTERNAL_SERVER_ERROR, "session_cookie_error");
     }
+    mark_session_state(&mut response, RefreshDisposition::Clear);
     response
 }
 
@@ -275,7 +315,7 @@ pub async fn auth_me(State(state): State<AppState>, headers: axum::http::HeaderM
     };
     let response = match state
         .identity
-        .clone_for_bearer()
+        .auth_client()
         .get(auth_url(&state, PROFILE_PATH))
         .bearer_auth(&token)
         .send()
@@ -350,7 +390,7 @@ fn session_establishment_error(
     code: &'static str,
 ) -> Response {
     if clear_on_failure {
-        clear_session_response(state, StatusCode::BAD_GATEWAY, code)
+        clear_refresh_session_response(state, StatusCode::BAD_GATEWAY, code)
     } else {
         safe_error(StatusCode::BAD_GATEWAY, code)
     }
@@ -361,15 +401,46 @@ pub(crate) fn clear_session_response(
     status: StatusCode,
     code: &'static str,
 ) -> Response {
-    let mut response = safe_error(status, code);
-    if append_clear_session_cookies(
-        response.headers_mut(),
-        state.cookie_environment,
-        CookieClient::Admin,
-    )
-    .is_err()
-    {
-        return safe_error(StatusCode::INTERNAL_SERVER_ERROR, "session_cookie_error");
+    try_clear_session_response(status, code, |headers| {
+        append_clear_session_cookies(
+            headers,
+            state.cookie_environment,
+            CookieClient::Admin,
+        )
+        .is_ok()
+    })
+    .unwrap_or_else(|error| error)
+}
+
+fn clear_refresh_session_response(
+    state: &AppState,
+    status: StatusCode,
+    code: &'static str,
+) -> Response {
+    match try_clear_session_response(status, code, |headers| {
+        append_clear_session_cookies(
+            headers,
+            state.cookie_environment,
+            CookieClient::Admin,
+        )
+        .is_ok()
+    }) {
+        Ok(response) => refresh_response(response, RefreshDisposition::Clear),
+        Err(error) => error,
     }
-    response
+}
+
+pub(crate) fn try_clear_session_response(
+    status: StatusCode,
+    code: &'static str,
+    append: impl FnOnce(&mut axum::http::HeaderMap) -> bool,
+) -> Result<Response, Response> {
+    let mut response = safe_error(status, code);
+    if !append(response.headers_mut()) {
+        return Err(safe_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "session_cookie_error",
+        ));
+    }
+    Ok(response)
 }

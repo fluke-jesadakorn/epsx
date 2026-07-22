@@ -1,0 +1,254 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A1.7-refresh-outcome-coordination",
+  "status": "partial-hermetic-runtime-proof",
+  "productionReady": false,
+  "browserHermeticProof": true,
+  "browserRuntimeProof": false,
+  "databaseProof": false,
+  "deploymentAuthorized": false,
+  "sourceBaseline": {
+    "ref": "origin/development",
+    "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db"
+  },
+  "targetBase": {
+    "ref": "migration/dioxus-microservices",
+    "commit": "206a8fb57f982bcbc59d926e64506d4a5d654e40"
+  },
+  "invariants": [
+    {
+      "id": "closed-backend-outcome",
+      "claim": "Every canonical backend refresh response is no-store and carries exactly rotated, not_rotated, rejected, or outcome_unknown."
+    },
+    {
+      "id": "status-is-not-mutation-proof",
+      "claim": "A status without an exact consistent outcome marker never proves that rotation did not commit."
+    },
+    {
+      "id": "preserve-only-not-rotated",
+      "claim": "The BFF preserves cookies only for exact not_rotated responses on the closed 400, 500, or 503 matrix."
+    },
+    {
+      "id": "ambiguous-outcome-clears",
+      "claim": "Rejected, outcome_unknown, missing, invalid, intermediary, transport, and malformed post-rotation outcomes clear locally without refresh retry."
+    },
+    {
+      "id": "verified-rotation-replaces-pair",
+      "claim": "Only a rotated 200 whose body, JWT, identity, and cookie lifetimes all validate replaces the access and refresh pair."
+    },
+    {
+      "id": "credential-redirects-disabled",
+      "claim": "Credential-bearing authentication requests do not follow upstream redirects."
+    },
+    {
+      "id": "shared-origin-mutation-lock",
+      "claim": "Refresh and logout use one origin-scoped exclusive Web Lock, and unsupported locks refuse refresh before fetch."
+    },
+    {
+      "id": "single-flight-no-retry",
+      "claim": "One same-window refresh promise performs exactly one refresh fetch and has no automatic retry path."
+    },
+    {
+      "id": "token-free-cross-tab-events",
+      "claim": "Cross-tab session messages use a fixed versioned schema and contain no credential, identity, permission, or entitlement data."
+    },
+    {
+      "id": "confirmed-logout-navigation",
+      "claim": "Logout redirects and broadcasts session end only after the BFF confirms local cookie clearing."
+    },
+    {
+      "id": "shared-controller-reachability",
+      "claim": "Authenticated customer mobile/desktop actions, both active admin chrome variants, the connected-wallet hook, and admin denial actions delegate to the shared session controller."
+    },
+    {
+      "id": "backend-policy-authority-retained",
+      "claim": "Browser and BFF changes contain no permission, plan, ranking-offset, feature-flag, subscription, or entitlement authority."
+    }
+  ],
+  "evidence": [
+    {
+      "file": "apps/backend/src/web/auth/handlers.rs",
+      "anchors": [
+        "const REFRESH_OUTCOME_HEADER: &str = \"x-epsx-refresh-outcome\";",
+        "REFRESH_OUTCOME_NOT_ROTATED",
+        "REFRESH_OUTCOME_REJECTED",
+        "REFRESH_OUTCOME_UNKNOWN",
+        "fn refresh_responses_attest_the_closed_rotation_outcome()"
+      ]
+    },
+    {
+      "file": "shared/rust/bff/src/refresh_outcome.rs",
+      "anchors": [
+        "pub fn classify_refresh_outcome",
+        "fn exact_refresh_outcome",
+        "Some(REFRESH_OUTCOME_NOT_ROTATED)",
+        "_ => RefreshDisposition::Clear",
+        "pub fn mark_session_state",
+        "fn duplicate_or_conflicting_outcome_headers_fail_closed()"
+      ]
+    },
+    {
+      "file": "apps/frontend/src/api.rs",
+      "anchors": [
+        "classify_refresh_outcome(status, response.headers())",
+        "refresh_outcome_unknown",
+        "async fn refresh_transport_failure_and_redirect_fail_closed_without_replay()",
+        "fn clear_refresh_session_response",
+        "fn failed_cookie_clear_never_attests_cleared_session_state()"
+      ]
+    },
+    {
+      "file": "apps/admin/src/session_auth.rs",
+      "anchors": [
+        "classify_refresh_outcome(status, response.headers())",
+        "refresh_outcome_unknown",
+        "fn clear_refresh_session_response",
+        "mark_session_state(&mut response, RefreshDisposition::Clear)"
+      ]
+    },
+    {
+      "file": "apps/admin/src/session_auth_tests.rs",
+      "anchors": [
+        "async fn refresh_transport_failure_clears_the_unprovable_session()",
+        "fn failed_cookie_clear_never_attests_cleared_session_state()",
+        "SESSION_STATE_PRESERVED",
+        "SESSION_STATE_CLEARED"
+      ]
+    },
+    {
+      "file": "shared/rust/client/src/lib.rs",
+      "anchors": [
+        "auth_inner: reqwest::Client",
+        ".redirect(reqwest::redirect::Policy::none())",
+        "pub fn auth_client(&self) -> reqwest::Client",
+        "self.auth_inner.clone()"
+      ]
+    },
+    {
+      "file": "shared/rust/bff/src/browser_auth.rs",
+      "anchors": [
+        "epsx.auth.session-mutation.v1",
+        "navigator.locks.request(epsxSessionLockName",
+        "if (epsxRefreshPromise) return epsxRefreshPromise",
+        "Session refresh requires cross-tab coordination",
+        "fetch('/api/v1/auth/refresh'",
+        "x-epsx-session-state",
+        "event.target.closest('[data-epsx-logout]')",
+        "try { epsxSessionChannel.postMessage(event); } catch (_) {}",
+        "epsxEndLocalSession(reason, '/')"
+      ]
+    },
+    {
+      "file": "scripts/migration/test-browser-session-coordination.js",
+      "anchors": [
+        "two tab realms serialize refresh through one origin lock",
+        "cross-tab delivery reconstructs the closed event and redirects only the receiver",
+        "refresh and logout use the same exclusive lock",
+        "missing Web Locks refuses refresh before network I/O",
+        "refresh transport ambiguity ends the session only after confirmed local clearing",
+        "BroadcastChannel failures degrade to same-tab events without breaking auth",
+        "delegated authenticated-header logout click uses the shared controller",
+        "broadcast messages contain only the closed token-free schema",
+        "PASS ${passed}/${tests.length}"
+      ]
+    },
+    {
+      "file": "shared/rust/templates/src/lib.rs",
+      "anchors": [
+        "pub fn epsx_header_for_session(is_authenticated: bool)",
+        "data-epsx-authenticated=\"{authenticated}\"",
+        "const sessionAction = isAuthenticated",
+        "data-epsx-logout",
+        "fn header_exposes_truthful_session_action_without_policy_logic()"
+      ]
+    },
+    {
+      "file": "apps/frontend/src/ssr.rs",
+      "anchors": [
+        "epsx_templates::epsx_header_for_session(is_authenticated)"
+      ]
+    },
+    {
+      "file": "shared/rust/dioxus_ui/src/auth/connected_wallet_dropdown.rs",
+      "anchors": [
+        "\"data-epsx-logout\": \"true\""
+      ]
+    },
+    {
+      "file": "apps/admin/src/ssr.rs",
+      "anchors": [
+        "await window.epsxAuth.logout(target);",
+        "logout_unconfirmed",
+        "assert!(!script.contains(\"fetch('/api/v1/auth/logout'\"))",
+        "fn authenticated_admin_chrome_variants_expose_shared_logout_hook()"
+      ]
+    },
+    {
+      "file": "shared/rust/dioxus_ui/src/layout/admin_shell.rs",
+      "anchors": [
+        "\"data-epsx-logout\": \"true\"",
+        "authenticated AdminShell must expose the shared logout controller hook"
+      ]
+    },
+    {
+      "file": "shared/rust/dioxus_ui/src/auth/wallet_button.rs",
+      "anchors": [
+        "\"data-epsx-logout\": \"true\"",
+        "fn authenticated_legacy_button_exposes_shared_logout_hook()"
+      ]
+    },
+    {
+      "file": "docs/migration/A1_4_AUTH_SESSION_GATE.md",
+      "anchors": [
+        "for an exact backend-authored `not_rotated` outcome"
+      ]
+    },
+    {
+      "file": "docs/migration/A1_5_REFRESH_CLIENT_BINDING.md",
+      "anchors": [
+        "only for an exact backend-authored `not_rotated` outcome"
+      ]
+    },
+    {
+      "file": "docs/migration/PRODUCTION_READINESS_PLAN.md",
+      "anchors": [
+        "only an exact backend-authored",
+        "closed refresh-outcome classification"
+      ]
+    }
+  ],
+  "residualStops": [
+    {
+      "id": "real-browser-matrix-unproved",
+      "claim": "No accepted real-browser matrix proves Web Locks, BroadcastChannel, cookie application, navigation, or multi-tab behavior."
+    },
+    {
+      "id": "post-commit-fault-unproved",
+      "claim": "No proxy or browser fault injection proves timeout or reset behavior after backend commit."
+    },
+    {
+      "id": "postgres-refresh-ordering-unproved",
+      "claim": "No PostgreSQL exercise proves consume, replay response, commit acknowledgement ambiguity, or family-lock ordering."
+    },
+    {
+      "id": "exactly-once-delivery-unproved",
+      "claim": "A disconnect after backend rotation but before Set-Cookie delivery still forces reauthentication and has no receipt or idempotency protocol."
+    },
+    {
+      "id": "bff-unreachable-clear-unproved",
+      "claim": "JavaScript cannot prove clearing HttpOnly cookies while the BFF itself is unreachable."
+    },
+    {
+      "id": "automatic-refresh-entrypoint-unproved",
+      "claim": "The shared refresh controller has no automatic customer/admin runtime caller, so expired-cookie recovery still requires explicit reauthentication."
+    },
+    {
+      "id": "access-token-post-revocation-validity",
+      "claim": "Already-issued access tokens remain valid until expiry after logout or family revocation."
+    },
+    {
+      "id": "production-actions-unauthorized",
+      "claim": "No production browser, proxy, TLS, routing, canary, rollback, deployment, database, secret, or service action is authorized by this contract."
+    }
+  ]
+}

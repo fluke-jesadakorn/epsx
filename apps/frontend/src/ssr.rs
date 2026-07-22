@@ -354,7 +354,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     let nav_html = if path == "/auth" {
         String::new()
     } else {
-        epsx_templates::epsx_header()
+        epsx_templates::epsx_header_for_session(is_authenticated)
     };
 
     // === Wave 49+ — re-enable footer ===

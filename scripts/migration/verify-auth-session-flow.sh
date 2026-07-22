@@ -76,7 +76,7 @@ if (manifest.mode !== "local-hermetic-only" || manifest.productionReady !== fals
 if (manifest.liveWalletFlowProven !== false || manifest.durableRefreshStoreProven !== false) fail("live and durable claims must remain false");
 if (!Array.isArray(manifest.blockedClaims) || manifest.blockedClaims.length < 4) fail("blockedClaims must preserve live-flow limits");
 if (!Array.isArray(manifest.capabilities) || manifest.capabilities.length !== 8) fail("eight capability records are required");
-if (!Array.isArray(manifest.cases) || manifest.cases.length !== 15) fail("fifteen fixed cases are required");
+if (!Array.isArray(manifest.cases) || manifest.cases.length !== 21) fail("twenty-one fixed cases are required");
 
 const ids = new Set();
 let expectedTotal = 0;
@@ -103,12 +103,12 @@ for (const item of manifest.cases) {
     evidenceTotal += 1;
   }
 }
-if (expectedTotal !== 82) fail(`expected focused test total changed: ${expectedTotal}`);
+if (expectedTotal !== 101) fail(`expected focused test total changed: ${expectedTotal}`);
 for (const capability of manifest.capabilities) {
   if (!Array.isArray(capability.caseIds) || capability.caseIds.length === 0) fail(`${capability.id}: caseIds are required`);
   for (const id of capability.caseIds) if (!ids.has(id)) fail(`${capability.id}: unknown case ${id}`);
 }
-console.log(`auth-session-gate: manifest 15/15 cases, ${evidenceTotal}/${evidenceTotal} anchors, ${expectedTotal} focused tests`);
+console.log(`auth-session-gate: manifest 21/21 cases, ${evidenceTotal}/${evidenceTotal} anchors, ${expectedTotal} focused tests`);
 ' -- "$REPO_ROOT" "$MANIFEST" || exit 1
 
 OVERALL="pass"
@@ -165,17 +165,23 @@ run_test identity-token-contract 13 cargo test --offline --locked -p epsx-identi
 run_test identity-jwks-contract 6 cargo test --offline --locked -p epsx-identity-shared key_manager::tests --no-fail-fast
 run_test bff-verifier 11 cargo test --offline --locked -p epsx-bff session::tests --no-fail-fast
 run_test bff-cookie-contract 7 cargo test --offline --locked -p epsx-bff cookies::tests --no-fail-fast
-run_test bff-browser-bridge 3 cargo test --offline --locked -p epsx-bff browser_auth::tests --no-fail-fast
-run_test frontend-session 11 cargo test --offline --locked -p epsx-frontend api::auth_session_tests --no-fail-fast
+run_test bff-browser-bridge 7 cargo test --offline --locked -p epsx-bff browser_auth::tests --no-fail-fast
+run_test bff-refresh-outcome 6 cargo test --offline --locked -p epsx-bff refresh_outcome::tests --no-fail-fast
+run_test frontend-session 13 cargo test --offline --locked -p epsx-frontend api::auth_session_tests --no-fail-fast
 run_test frontend-cookie-reader 3 cargo test --offline --locked -p epsx-frontend auth::tests --no-fail-fast
 run_test frontend-production-config 1 cargo test --offline --locked -p epsx-frontend configuration_tests::production_requires_https_non_local_auth_urls --no-fail-fast
 run_test frontend-safe-return 1 cargo test --offline --locked -p epsx-frontend ssr::tests::return_url_must_remain_same_origin --no-fail-fast
-run_test admin-session 12 cargo test --offline --locked -p epsx-admin session_auth_tests --no-fail-fast
+run_test frontend-session-header 1 cargo test --offline --locked -p epsx-templates page_head_tests::header_exposes_truthful_session_action_without_policy_logic --no-fail-fast
+run_test admin-header-session-action 1 cargo test --offline --locked -p epsx-dioxus-ui auth::wallet_button::tests::authenticated_legacy_button_exposes_shared_logout_hook --no-fail-fast
+run_test admin-shell-session-action 1 cargo test --offline --locked -p epsx-dioxus-ui layout::admin_shell::tests::admin_shell_renders_breadcrumbs --no-fail-fast
+run_test admin-ssr-session-action 1 cargo test --offline --locked -p epsx-admin ssr::tests::authenticated_admin_chrome_variants_expose_shared_logout_hook --no-fail-fast
+run_test admin-session 14 cargo test --offline --locked -p epsx-admin session_auth_tests --no-fail-fast
 run_test admin-cookie-reader 3 cargo test --offline --locked -p epsx-admin auth::tests --no-fail-fast
 run_test admin-production-config 1 cargo test --offline --locked -p epsx-admin configuration_tests::production_requires_https_non_local_auth_urls --no-fail-fast
-run_test backend-auth-handlers 10 cargo test --offline --locked -p epsx --lib web::auth::handlers::tests --no-fail-fast
+run_test backend-auth-handlers 11 cargo test --offline --locked -p epsx --lib web::auth::handlers::tests --no-fail-fast
 run_check route-inventory ./scripts/migration/verify-route-inventory.sh
 run_check api-contract-fixtures ./scripts/migration/verify-contract-fixtures.sh
+run_check browser-session-coordination bun scripts/migration/test-browser-session-coordination.js
 
 bun -e '
 import { readFileSync, writeFileSync } from "node:fs";
@@ -203,8 +209,8 @@ const report = {
   productionReady: false,
   liveWalletFlowProven: false,
   durableRefreshStoreProven: false,
-  focusedTests: { expected: 82, passed: Number(passedTests) },
-  fixtureChecks: { expected: 2, passed: cases.filter((item) => item.kind === "fixture-check" && item.status === "pass").length },
+  focusedTests: { expected: 101, passed: Number(passedTests) },
+  fixtureChecks: { expected: 3, passed: cases.filter((item) => item.kind === "fixture-check" && item.status === "pass").length },
   blockedClaims: manifest.blockedClaims,
   cases
 };
@@ -212,9 +218,9 @@ writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
 ' -- "$MANIFEST" "$RESULTS" "$REPORT" "$OVERALL" "$PASSED_TESTS" || die "could not write deterministic report"
 
 echo "auth-session-gate: report $REPORT"
-if [[ "$OVERALL" != "pass" || "$PASSED_TESTS" != "82" ]]; then
-  die "STOP — hermetic auth-session gate failed ($PASSED_TESTS/82 focused tests)"
+if [[ "$OVERALL" != "pass" || "$PASSED_TESTS" != "101" ]]; then
+  die "STOP — hermetic auth-session gate failed ($PASSED_TESTS/101 focused tests)"
 fi
 
-echo "auth-session-gate: PASS — 82/82 focused tests and 2/2 fixture checks"
+echo "auth-session-gate: PASS — 101/101 focused tests and 3/3 fixture checks"
 echo "auth-session-gate: LIMIT — live wallet, durable refresh store, and production flow remain unproven"

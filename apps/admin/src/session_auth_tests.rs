@@ -13,6 +13,11 @@ use epsx_bff::{
         LEGACY_LOCAL_REFRESH_COOKIE, LOCAL_ADMIN_ACCESS_COOKIE as LOCAL_ACCESS_COOKIE,
         LOCAL_ADMIN_REFRESH_COOKIE as LOCAL_REFRESH_COOKIE,
     },
+    refresh_outcome::{
+        REFRESH_OUTCOME_HEADER, REFRESH_OUTCOME_NOT_ROTATED, REFRESH_OUTCOME_REJECTED,
+        REFRESH_OUTCOME_ROTATED, SESSION_STATE_CLEARED, SESSION_STATE_HEADER,
+        SESSION_STATE_PRESERVED, SESSION_STATE_ROTATED,
+    },
     session::{
         AccessTokenClaims, Jwks, JwksVerifier, JwksVerifierConfig, RsaJwk, ADMIN_CLIENT_ID,
         FRONTEND_CLIENT_ID, JWKS_PATH, LOGOUT_PATH, PROFILE_PATH, REFRESH_PATH, VERIFY_PATH,
@@ -35,6 +40,37 @@ use crate::{build_app, session_auth, AppState, SiweLoginBody};
 
 const TEST_ISSUER: &str = "https://issuer.test";
 const TEST_WALLET: &str = "0x1111111111111111111111111111111111111111";
+
+#[test]
+fn failed_cookie_clear_never_attests_cleared_session_state() {
+    let response = match session_auth::try_clear_session_response(
+        StatusCode::UNAUTHORIZED,
+        "forced_cookie_failure",
+        |_| false,
+    ) {
+        Ok(_) => panic!("forced cookie failure unexpectedly succeeded"),
+        Err(response) => response,
+    };
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    assert!(response.headers().get(SESSION_STATE_HEADER).is_none());
+}
+
+fn upstream_refresh_response(mut response: Response, outcome: &'static str) -> Response {
+    response
+        .headers_mut()
+        .insert(REFRESH_OUTCOME_HEADER, HeaderValue::from_static(outcome));
+    response
+}
+
+fn assert_session_state(response: &Response, expected: &'static str) {
+    assert_eq!(
+        response
+            .headers()
+            .get(SESSION_STATE_HEADER)
+            .and_then(|value| value.to_str().ok()),
+        Some(expected)
+    );
+}
 
 struct TestKey {
     encoding: EncodingKey,
@@ -291,7 +327,7 @@ async fn refresh_reads_cookie_and_rotates_verified_pair() {
             async move {
                 assert_eq!(body["client_id"], ADMIN_CLIENT_ID);
                 assert_eq!(body["refresh_token"], "browser-admin-refresh");
-                Json(payload)
+                upstream_refresh_response(Json(payload).into_response(), REFRESH_OUTCOME_ROTATED)
             }
         }),
     );
@@ -302,6 +338,7 @@ async fn refresh_reads_cookie_and_rotates_verified_pair() {
     )
     .await;
     assert_eq!(response.status(), StatusCode::OK);
+    assert_session_state(&response, SESSION_STATE_ROTATED);
     assert_eq!(
         response.headers().get(header::CACHE_CONTROL),
         Some(&HeaderValue::from_static("private, no-store"))
@@ -318,9 +355,16 @@ async fn refresh_reads_cookie_and_rotates_verified_pair() {
 
 #[tokio::test]
 async fn rejected_or_malformed_refresh_clears_canonical_and_legacy_cookies() {
-    let rejected_base =
-        spawn_mock(Router::new().route(REFRESH_PATH, post(|| async { StatusCode::UNAUTHORIZED })))
-            .await;
+    let rejected_base = spawn_mock(Router::new().route(
+        REFRESH_PATH,
+        post(|| async {
+            upstream_refresh_response(
+                StatusCode::UNAUTHORIZED.into_response(),
+                REFRESH_OUTCOME_REJECTED,
+            )
+        }),
+    ))
+    .await;
     let rejected = session_auth::refresh_token(
         State(state(&rejected_base)),
         cookie_headers("epsx.admin.refresh_token=browser-admin-refresh"),
@@ -328,9 +372,15 @@ async fn rejected_or_malformed_refresh_clears_canonical_and_legacy_cookies() {
     .await;
     assert_eq!(rejected.status(), StatusCode::UNAUTHORIZED);
     assert_session_cleared(&rejected);
+    assert_session_state(&rejected, SESSION_STATE_CLEARED);
 
-    let malformed_base =
-        spawn_mock(Router::new().route(REFRESH_PATH, post(|| async { "not-json" }))).await;
+    let malformed_base = spawn_mock(Router::new().route(
+        REFRESH_PATH,
+        post(|| async {
+            upstream_refresh_response("not-json".into_response(), REFRESH_OUTCOME_ROTATED)
+        }),
+    ))
+    .await;
     let malformed = session_auth::refresh_token(
         State(state(&malformed_base)),
         cookie_headers("epsx.admin.refresh_token=browser-admin-refresh"),
@@ -338,28 +388,78 @@ async fn rejected_or_malformed_refresh_clears_canonical_and_legacy_cookies() {
     .await;
     assert_eq!(malformed.status(), StatusCode::BAD_GATEWAY);
     assert_session_cleared(&malformed);
+    assert_session_state(&malformed, SESSION_STATE_CLEARED);
 
-    for upstream_status in [
-        StatusCode::BAD_REQUEST,
-        StatusCode::REQUEST_TIMEOUT,
-        StatusCode::TOO_MANY_REQUESTS,
-        StatusCode::SERVICE_UNAVAILABLE,
+    for (upstream_status, outcome, expected_status, expected_state, clears) in [
+        (
+            StatusCode::BAD_REQUEST,
+            Some(REFRESH_OUTCOME_NOT_ROTATED),
+            StatusCode::BAD_REQUEST,
+            SESSION_STATE_PRESERVED,
+            false,
+        ),
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Some(REFRESH_OUTCOME_NOT_ROTATED),
+            StatusCode::INTERNAL_SERVER_ERROR,
+            SESSION_STATE_PRESERVED,
+            false,
+        ),
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            None,
+            StatusCode::BAD_GATEWAY,
+            SESSION_STATE_CLEARED,
+            true,
+        ),
+        (
+            StatusCode::REQUEST_TIMEOUT,
+            Some(REFRESH_OUTCOME_NOT_ROTATED),
+            StatusCode::BAD_GATEWAY,
+            SESSION_STATE_CLEARED,
+            true,
+        ),
+        (
+            StatusCode::TOO_MANY_REQUESTS,
+            None,
+            StatusCode::BAD_GATEWAY,
+            SESSION_STATE_CLEARED,
+            true,
+        ),
     ] {
-        let retryable_base = spawn_mock(
-            Router::new().route(REFRESH_PATH, post(move || async move { upstream_status })),
-        )
+        let retryable_base = spawn_mock(Router::new().route(
+            REFRESH_PATH,
+            post(move || async move {
+                let response = upstream_status.into_response();
+                match outcome {
+                    Some(outcome) => upstream_refresh_response(response, outcome),
+                    None => response,
+                }
+            }),
+        ))
         .await;
         let retryable = session_auth::refresh_token(
             State(state(&retryable_base)),
             cookie_headers("epsx.admin.refresh_token=browser-admin-refresh"),
         )
         .await;
-        assert_eq!(retryable.status(), StatusCode::BAD_GATEWAY);
-        assert!(
-            response_cookies(&retryable).is_empty(),
-            "non-401 upstream failures must preserve the browser session"
-        );
+        assert_eq!(retryable.status(), expected_status);
+        assert_session_state(&retryable, expected_state);
+        assert_eq!(!response_cookies(&retryable).is_empty(), clears);
     }
+}
+
+#[tokio::test]
+async fn refresh_transport_failure_clears_the_unprovable_session() {
+    let response = session_auth::refresh_token(
+        State(state(&unused_base_url().await)),
+        cookie_headers("epsx.admin.refresh_token=browser-admin-refresh"),
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
+    assert_session_cleared(&response);
+    assert_session_state(&response, SESSION_STATE_CLEARED);
 }
 
 #[tokio::test]
@@ -454,6 +554,7 @@ async fn logout_calls_delete_and_always_clears_locally() {
     .await;
     assert_eq!(success.status(), StatusCode::OK);
     assert_session_cleared(&success);
+    assert_session_state(&success, SESSION_STATE_CLEARED);
 
     let unavailable = unused_base_url().await;
     let failure = session_auth::logout(
@@ -463,6 +564,7 @@ async fn logout_calls_delete_and_always_clears_locally() {
     .await;
     assert_eq!(failure.status(), StatusCode::BAD_GATEWAY);
     assert_session_cleared(&failure);
+    assert_session_state(&failure, SESSION_STATE_CLEARED);
 }
 
 #[tokio::test]

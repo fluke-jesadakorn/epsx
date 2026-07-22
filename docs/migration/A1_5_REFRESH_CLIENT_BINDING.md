@@ -47,16 +47,18 @@ bypass.
   revokes only its exact row; no family is inferred.
 - Successors retain the chain's original `created_at`, which is the JWT
   `auth_time`; refresh no longer advances authentication time on every rotation.
-- The HTTP refresh request requires an explicit client. Invalid credentials are
-  generic `401`, unsupported clients are `400`, dependency failure is `503`,
-  and internal failure is `500`. Refresh responses use `Cache-Control:
-  no-store`.
+- The HTTP refresh request requires an explicit client. Every response carries
+  a closed, token-free `rotated`, `not_rotated`, `rejected`, or
+  `outcome_unknown` marker and uses `Cache-Control: no-store`. A raw status is
+  not treated as mutation proof.
 - Frontend and admin local cookies are named separately. Cookies do not isolate
   `localhost:3000` from `localhost:3001`; the old ambiguous names are therefore
   cleared but never read as refresh credentials. Production `__Host-` cookies
-  remain naturally bound to their separate hosts. BFF refresh clears the browser
-  session only for canonical `401`; upstream `400`, `408`, `429`, `5xx`, and
-  transport failures preserve it for retry/diagnosis.
+  remain naturally bound to their separate hosts. BFF refresh preserves the
+  browser session only for an exact backend-authored `not_rotated` outcome.
+  Rejection, unknown or missing outcomes, transport failures, unexpected
+  statuses, and invalid post-rotation responses clear locally and are never
+  retried automatically.
 
 ## Legacy policy and rollout order
 
@@ -101,7 +103,7 @@ intentionally exits `3`:
 ./scripts/migration/verify-refresh-client-binding.sh --mode readiness
 ```
 
-The A1.4 auth/session gate now covers 82 focused tests plus its two fixture
+The cumulative A1 auth/session gate now covers 101 focused tests plus three fixture
 checks with Cargo offline and loopback-only mocks. These prove compiled query
 shape and database-free state classification; they do not prove PostgreSQL.
 
