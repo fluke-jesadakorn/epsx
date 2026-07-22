@@ -3,6 +3,10 @@ name = "epsx-indexer"
 version.workspace = true
 edition.workspace = true
 
+[features]
+default = []
+dormant-postgres-adapter = []
+
 [[bin]]
 name = "indexer"
 path = "src/main.rs"

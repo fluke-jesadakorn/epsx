@@ -38,6 +38,10 @@
       "services/indexer/src/ingestion/memory.rs",
       "services/indexer/src/ingestion/mod.rs",
       "services/indexer/src/ingestion/ports.rs",
+      "services/indexer/src/ingestion/postgres/candidates.rs",
+      "services/indexer/src/ingestion/postgres/codec.rs",
+      "services/indexer/src/ingestion/postgres/leases.rs",
+      "services/indexer/src/ingestion/postgres/mod.rs",
       "services/indexer/src/ingestion/selection.rs",
       "services/indexer/src/lib.rs",
       "services/indexer/src/main.rs"
@@ -83,6 +87,71 @@
       "Address::from_str(value)",
       "ORDER BY block_number DESC, tx_hash DESC, log_index DESC"
     ]
+  },
+  "dormantAdapterBoundary": {
+    "status": "compiled-static-substrate",
+    "feature": "dormant-postgres-adapter",
+    "sourcePins": [
+      {
+        "path": "services/indexer/Cargo.toml",
+        "bytes": 771,
+        "sha256": "9cd598ce3adeac3fde3ec021704ee5213b93622d6d6ff8e836e0b0c2b165a135"
+      },
+      {
+        "path": "services/indexer/src/ingestion/mod.rs",
+        "bytes": 1170,
+        "sha256": "395e589d5eb05c5d8577d9a15bf1c131f3d1c114ff3eb3289985b97424d6d547"
+      },
+      {
+        "path": "services/indexer/src/ingestion/postgres/candidates.rs",
+        "bytes": 19643,
+        "sha256": "9bccc08effb68e06593469f93d779cc2a12bad088b6698b3eded8d2de4128180"
+      },
+      {
+        "path": "services/indexer/src/ingestion/postgres/codec.rs",
+        "bytes": 5891,
+        "sha256": "693e1ddba5a8f8808251ed8be68f547b5a8da1122eec954a741ca8c0c95f9915"
+      },
+      {
+        "path": "services/indexer/src/ingestion/postgres/leases.rs",
+        "bytes": 11531,
+        "sha256": "20adcdc84b1fd970ed404d2ac9219b3de827ca01a84ece33813cfaf6ba690910"
+      },
+      {
+        "path": "services/indexer/src/ingestion/postgres/mod.rs",
+        "bytes": 557,
+        "sha256": "f9a1a377d74dcaaddbdd747b4ed5780858d6df85fd603425bf283e3d3f902d1c"
+      }
+    ],
+    "defaultEnabled": false,
+    "modulePrivate": true,
+    "publicExport": false,
+    "mainCallsite": false,
+    "repositoryVisibility": "pub(super)",
+    "poolHolderOnly": true,
+    "parentConflictTargetOnly": true,
+    "strictChildInserts": true,
+    "fullCandidateReload": true,
+    "reloadRevalidation": true,
+    "decimalCodec": true,
+    "timestampCodec": true,
+    "outcomeCodec": true,
+    "databaseClockLeasePredicates": true,
+    "persistentLeaseFence": true,
+    "usesUtcNow": false,
+    "usesAdvisoryLocks": false,
+    "providerActivated": false,
+    "workerActivated": false,
+    "routeActivated": false,
+    "migrationExecuted": false,
+    "databaseRead": false,
+    "databaseWrite": false,
+    "runtimeAdapter": false,
+    "executed": false,
+    "testEvidence": {
+      "defaultLibraryPassed": 33,
+      "featureLibraryPassed": 43
+    }
   },
   "migrationRoot": {
     "path": "services/indexer/migrations",

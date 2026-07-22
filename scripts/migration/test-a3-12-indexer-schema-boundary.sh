@@ -15,6 +15,8 @@ grep -q "autonomous provider, placeholder sync and fabricated ingestion are abse
 grep -q "all four surviving runtime relations are public-qualified; only health remains reachable" "$temp_dir/integrity.out"
 grep -q "dormant fork store pins eight guarded tables, 74 columns, 101 constraints and two explicit indexes without runtime activation" "$temp_dir/integrity.out"
 grep -q "ten-name fresh-create preflight rejects every public relation-kind collision before CREATE" "$temp_dir/integrity.out"
+grep -q "six ordered dormant-adapter source byte/SHA-256 pins are recomputed before semantic anchors" "$temp_dir/integrity.out"
+grep -q "default-off private PostgreSQL substrate pins strict candidate reload, codecs and database-clock fenced leases without runtime activation" "$temp_dir/integrity.out"
 
 set +e
 "$verify" --mode readiness >"$temp_dir/readiness.out" 2>&1
@@ -30,8 +32,13 @@ bun -e '
 const r = await Bun.file(process.argv[1]).json();
 if (r.productionReady !== false || r.readinessExit !== 3) process.exit(1);
 if (r.provenance.standaloneSourceIndexer !== false) process.exit(1);
-if (r.runtimeRust.files !== 7 || r.runtimeRust.ddlFindings !== 0 || r.runtimeRust.expectedDelta !== -5 || r.runtimeRust.fakeSyncAvailable !== false) process.exit(1);
+if (r.runtimeRust.files !== 11 || r.runtimeRust.ddlFindings !== 0 || r.runtimeRust.expectedDelta !== -5 || r.runtimeRust.fakeSyncAvailable !== false) process.exit(1);
 if (Object.values(r.runtimeRust.qualifiedRelations).reduce((a,b) => a+b, 0) !== 4) process.exit(1);
+if (r.dormantAdapter.status !== "compiled-static-substrate" || r.dormantAdapter.feature !== "dormant-postgres-adapter" || r.dormantAdapter.defaultEnabled !== false || r.dormantAdapter.privateModule !== true || r.dormantAdapter.publicExport !== false || r.dormantAdapter.mainCallsite !== false || r.dormantAdapter.poolHolderOnly !== true) process.exit(1);
+if (!Array.isArray(r.dormantAdapter.sourcePins) || r.dormantAdapter.sourcePins.length !== 6 || r.dormantAdapter.sourcePins.some((pin) => typeof pin.path !== "string" || !Number.isInteger(pin.bytes) || !/^[0-9a-f]{64}$/.test(pin.sha256))) process.exit(1);
+if (r.dormantAdapter.parentConflictTargetOnly !== true || r.dormantAdapter.strictChildInserts !== true || r.dormantAdapter.fullCandidateReload !== true || r.dormantAdapter.reloadRevalidation !== true || r.dormantAdapter.databaseClockLeasePredicates !== true || r.dormantAdapter.persistentLeaseFence !== true) process.exit(1);
+if (r.dormantAdapter.tests.defaultLibraryPassed !== 33 || r.dormantAdapter.tests.featureLibraryPassed !== 43) process.exit(1);
+if (r.dormantAdapter.databaseRead !== false || r.dormantAdapter.databaseWrite !== false || r.dormantAdapter.migrationExecuted !== false || r.dormantAdapter.runtimeAdapter !== false || r.dormantAdapter.providerActivated !== false || r.dormantAdapter.workerActivated !== false || r.dormantAdapter.routeActivated !== false || r.dormantAdapter.executed !== false) process.exit(1);
 if (r.migrationRoot.migrations !== 2 || r.migrationRoot.projection.pinnedBytes !== 4822 || r.migrationRoot.projection.guardedTables !== 3 || r.migrationRoot.projection.guardedIndexes !== 5) process.exit(1);
 if (r.migrationRoot.forkStore.pinnedBytes !== 23326 || r.migrationRoot.forkStore.guardedTables !== 8 || r.migrationRoot.forkStore.guardedIndexes !== 2) process.exit(1);
 if (r.schema.tables !== 3 || r.schema.columns !== 27 || r.schema.structuralConstraints !== 7 || r.schema.checkConstraints !== 24 || r.schema.indexes !== 10) process.exit(1);
@@ -67,6 +74,15 @@ tamper query-bytes 'value.runtimeBoundary.compatibilityQueryBytes -= 1' 'compati
 tamper structural-array-type 'value.runtimeBoundary.structuralKeyArrayTextCastOccurrences = 1' 'structural key-array type contract drifted'
 tamper relation-count 'value.runtimeBoundary.qualifiedRelationOccurrences["public.blocks"] = 1' 'public.blocks runtime occurrence count'
 tamper rust-inventory 'value.runtimeBoundary.rustInventory.pop()' 'Rust inventory drifted'
+tamper adapter-source-pin-hash 'value.dormantAdapterBoundary.sourcePins[2].sha256 = "0".repeat(64)' 'dormant adapter source pins drifted'
+tamper adapter-source-pin-bytes 'value.dormantAdapterBoundary.sourcePins[3].bytes -= 1' 'dormant adapter source pins drifted'
+tamper adapter-source-pin-path 'value.dormantAdapterBoundary.sourcePins[4].path = "services/indexer/src/main.rs"' 'dormant adapter source pins drifted'
+tamper adapter-source-pin-order 'value.dormantAdapterBoundary.sourcePins.reverse()' 'dormant adapter source pins drifted'
+tamper adapter-feature 'value.dormantAdapterBoundary.feature = "always-on-postgres"' 'dormant adapter boundary drifted'
+tamper adapter-module-privacy 'value.dormantAdapterBoundary.modulePrivate = false' 'dormant adapter boundary drifted'
+tamper adapter-db-clock 'value.dormantAdapterBoundary.databaseClockLeasePredicates = false' 'dormant adapter boundary drifted'
+tamper adapter-strict-child 'value.dormantAdapterBoundary.strictChildInserts = false' 'dormant adapter boundary drifted'
+tamper adapter-activation 'value.dormantAdapterBoundary.routeActivated = true' 'dormant adapter boundary drifted'
 tamper fake-sync-policy 'value.runtimeBoundary.forbiddenRuntimeAnchors.pop()' 'unsafe runtime anchor returned|runtime boundary|drifted'
 tamper migration-hash 'value.migrationRoot.orderedMigrations[0].sha256 = "0".repeat(64)' 'ordered migration pin drifted'
 tamper migration-guard 'value.migrationRoot.orderedMigrations[0].guards.pop()' 'migration root boundary drifted|migration guard|drifted'

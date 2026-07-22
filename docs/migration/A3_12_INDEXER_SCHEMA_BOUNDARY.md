@@ -126,10 +126,13 @@ U256 value bounds. Two explicit indexes support parent and transaction-hash look
 transaction, receipt, and raw-log facts contain no canonical/finalized flags. `input_data` and raw
 log `data` have no fixed SQL cap because the public validation limits remain caller-selectable.
 
-This is static dormant schema only. No runner has parsed or executed it; no adapter uses it; the
-runtime compatibility query deliberately remains pinned to the original three projection tables.
-It does not establish external canonicality, consensus finality, durable replay, checkpointing, or
-production readiness. A12 still owns executable ingestion, repair, replay, and rollout proof.
+This remains a dormant boundary. No runner has parsed or executed the migration. A private,
+default-off PostgreSQL substrate now statically targets the fork-store tables, but it is not
+exported, implemented as the repository port, called from `main`, or activated by a provider,
+worker, route, or startup hook. The runtime compatibility query deliberately remains pinned to the
+original three projection tables. This compiled static substrate does not establish external
+canonicality, consensus finality, durable replay, checkpointing, or production readiness. A12
+still owns executable ingestion, repair, replay, and rollout proof.
 
 ## Exact read-only compatibility boundary
 
@@ -174,13 +177,36 @@ database-only state construction, router construction, then listener binding. Th
 provider, block-number fetch, in-memory cursor, polling option, autonomous task, placeholder hash,
 or conflict-skipping insert.
 
-The recursively pinned Rust inventory now contains seven files: `lib.rs`, `main.rs`, and the dormant
-`ingestion/{domain,memory,mod,ports,selection}.rs` module. The module defines offline checked
-block-batch and fork-preserving selected-chain transition/port contracts. `memory.rs` is a
-`cfg(test)`-only in-memory conformance implementation; it is dormant and makes no external
-canonicality, consensus-finality, or durability claim. It adds no provider adapter, durable
-repository adapter, worker, checkpoint, startup hook, route, SQL, or RPC, so the ingestion,
-checkpoint, and fork/reorg STOP blockers remain unchanged.
+The recursively pinned Rust inventory now contains eleven files: `lib.rs`, `main.rs`, the dormant
+`ingestion/{domain,memory,mod,ports,selection}.rs` module, and the private
+`ingestion/postgres/{candidates,codec,leases,mod}.rs` substrate. The public ingestion module defines
+offline checked block-batch and fork-preserving selected-chain transition/port contracts.
+`memory.rs` is a `cfg(test)`-only in-memory conformance implementation; it is dormant and makes no
+external canonicality, consensus-finality, or durability claim.
+
+The PostgreSQL substrate is behind the default-disabled `dormant-postgres-adapter` feature. Its
+module is private, has no public re-export or `main` callsite, and its repository type remains only
+a `pub(super)` `PgPool` holder without a `SelectedChainRepository` implementation. Its reviewed
+static behavior targets parent candidate conflict only, keeps child inserts strict, reloads all
+candidate children, and revalidates the reconstructed batch. The codecs fail closed across exact
+hash/address widths, unsigned decimal U256, whole-second nonnegative timestamps, and exact receipt
+outcomes. Lease acquisition, renewal, and release use row locks, persisted monotonically advancing
+fences, and PostgreSQL `clock_timestamp()` predicates; they use neither process `Utc::now()` nor
+advisory locks. No provider, worker, checkpoint, startup activation, route activation, migration
+execution, database read, or database write occurred, so all ten STOP blockers remain unchanged.
+
+Six ordered boundary sources are cryptographically pinned before their semantic anchors are
+checked. Exact byte counts and SHA-256 digests prevent comment-only, case, alias, path, or ordering
+drift from passing merely because a few expected substrings remain:
+
+| Source | Bytes | SHA-256 |
+|---|---:|---|
+| `services/indexer/Cargo.toml` | 771 | `9cd598ce3adeac3fde3ec021704ee5213b93622d6d6ff8e836e0b0c2b165a135` |
+| `services/indexer/src/ingestion/mod.rs` | 1,170 | `395e589d5eb05c5d8577d9a15bf1c131f3d1c114ff3eb3289985b97424d6d547` |
+| `services/indexer/src/ingestion/postgres/candidates.rs` | 19,643 | `9bccc08effb68e06593469f93d779cc2a12bad088b6698b3eded8d2de4128180` |
+| `services/indexer/src/ingestion/postgres/codec.rs` | 5,891 | `693e1ddba5a8f8808251ed8be68f547b5a8da1122eec954a741ca8c0c95f9915` |
+| `services/indexer/src/ingestion/postgres/leases.rs` | 11,531 | `20adcdc84b1fd970ed404d2ac9219b3de827ca01a84ece33813cfaf6ba690910` |
+| `services/indexer/src/ingestion/postgres/mod.rs` | 557 | `f9a1a377d74dcaaddbdd747b4ed5780858d6df85fd603425bf283e3d3f902d1c` |
 
 The existing direct boundary remains authoritative: only GET/HEAD `/health` reaches a handler.
 All reads return `404` before SQL, while POST `/sync` still requires exact admin audience plus
@@ -195,10 +221,15 @@ rustfmt --edition 2021 --check \
   services/indexer/src/ingestion/memory.rs \
   services/indexer/src/ingestion/mod.rs \
   services/indexer/src/ingestion/ports.rs \
+  services/indexer/src/ingestion/postgres/candidates.rs \
+  services/indexer/src/ingestion/postgres/codec.rs \
+  services/indexer/src/ingestion/postgres/leases.rs \
+  services/indexer/src/ingestion/postgres/mod.rs \
   services/indexer/src/ingestion/selection.rs \
   services/indexer/src/lib.rs \
   services/indexer/src/main.rs
 cargo test --locked --offline -p epsx-indexer --lib
+cargo test --locked --offline -p epsx-indexer --lib --features dormant-postgres-adapter
 cargo test --locked --offline -p epsx-indexer --bin indexer
 cargo check --locked --offline -p epsx-indexer --bin indexer
 
@@ -207,16 +238,19 @@ scripts/migration/verify-a3-12-indexer-schema-boundary.sh --mode report
 scripts/migration/test-a3-12-indexer-schema-boundary.sh
 ```
 
-The library suite passes 33/33 and the binary suite passes 4/4. The locked offline binary check
-passes. The verifier pins provenance, removed runtime bytes, both migration digests, the unchanged
-runtime-query digest, runtime DDL
-zero, the seven-file recursive Rust inventory, public qualification, schema/constraint/index catalog semantics, model/bind corrections,
-startup ordering, absent fake sync, fail-closed readiness, and ten residual blockers. Its self-test
-adversarially tampers readiness, source commit/path/blob, query digest/bytes, relation counts, fake
-sync policy, both migration digests/guards, fork-store keys/policies, global transaction key, and
-schema descriptors. Same-length
-column, structural-constraint, weakened-check, and index substitutions are rejected, as are
-inventory, inheritance/RLS/opclass/collation/partial-index policy, and blocker tampering.
+The default library suite passes 33/33, the feature-enabled library suite passes 43/43, and the
+binary suite passes 4/4. The locked offline binary check passes. The verifier pins provenance,
+removed runtime bytes, both migration digests, the unchanged runtime-query digest, runtime DDL
+zero, the eleven-file recursive Rust inventory, public qualification, schema/constraint/index
+catalog semantics, model/bind corrections, startup ordering, absent fake sync, the default-off
+private module, six ordered source byte/digest pins, PgPool-only holder, candidate/codec/lease
+anchors, fail-closed readiness, and ten residual blockers. Its self-test adversarially tampers
+readiness, source commit/path/blob, query digest/bytes, relation counts, Rust inventory, adapter
+source-pin hash/bytes/path/order, feature/privacy/database-clock/strict-child/activation policy,
+both migration digests/guards, fork-store collision and key policies, global transaction key, and
+schema descriptors. Same-length column, structural-constraint,
+weakened-check, and index substitutions are rejected, as are inheritance/RLS/opclass/collation/
+partial-index policy and blocker tampering.
 
 `--mode readiness` intentionally exits `3`.
 

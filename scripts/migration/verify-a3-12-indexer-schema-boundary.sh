@@ -92,6 +92,10 @@ exact("Rust inventory", [
   "services/indexer/src/ingestion/memory.rs",
   "services/indexer/src/ingestion/mod.rs",
   "services/indexer/src/ingestion/ports.rs",
+  "services/indexer/src/ingestion/postgres/candidates.rs",
+  "services/indexer/src/ingestion/postgres/codec.rs",
+  "services/indexer/src/ingestion/postgres/leases.rs",
+  "services/indexer/src/ingestion/postgres/mod.rs",
   "services/indexer/src/ingestion/selection.rs",
   "services/indexer/src/lib.rs",
   "services/indexer/src/main.rs"
@@ -133,6 +137,90 @@ if (ddlFindings.length !== 0) fail(`indexer runtime Rust DDL scanner found ${ddl
 const lib = readFileSync(regularRepoFile("services/indexer/src/lib.rs", "indexer library"), "utf8");
 const main = readFileSync(regularRepoFile("services/indexer/src/main.rs", "indexer main"), "utf8");
 for (const anchor of snapshot.anchors) if (lib.includes(anchor) || main.includes(anchor)) fail(`removed runtime DDL anchor returned: ${anchor}`);
+
+const adapter = fixture.dormantAdapterBoundary;
+const adapterSourcePins = [
+  { path: "services/indexer/Cargo.toml", bytes: 771, sha256: "9cd598ce3adeac3fde3ec021704ee5213b93622d6d6ff8e836e0b0c2b165a135" },
+  { path: "services/indexer/src/ingestion/mod.rs", bytes: 1170, sha256: "395e589d5eb05c5d8577d9a15bf1c131f3d1c114ff3eb3289985b97424d6d547" },
+  { path: "services/indexer/src/ingestion/postgres/candidates.rs", bytes: 19643, sha256: "9bccc08effb68e06593469f93d779cc2a12bad088b6698b3eded8d2de4128180" },
+  { path: "services/indexer/src/ingestion/postgres/codec.rs", bytes: 5891, sha256: "693e1ddba5a8f8808251ed8be68f547b5a8da1122eec954a741ca8c0c95f9915" },
+  { path: "services/indexer/src/ingestion/postgres/leases.rs", bytes: 11531, sha256: "20adcdc84b1fd970ed404d2ac9219b3de827ca01a84ece33813cfaf6ba690910" },
+  { path: "services/indexer/src/ingestion/postgres/mod.rs", bytes: 557, sha256: "f9a1a377d74dcaaddbdd747b4ed5780858d6df85fd603425bf283e3d3f902d1c" }
+];
+exact("dormant adapter source pins", adapterSourcePins, adapter?.sourcePins);
+const pinnedAdapterSources = new Map();
+for (const pin of adapterSourcePins) {
+  const source = readFileSync(regularRepoFile(pin.path, "dormant adapter pinned source"));
+  if (source.length !== pin.bytes || sha256(source) !== pin.sha256) fail(`dormant adapter source bytes changed: ${pin.path}`);
+  pinnedAdapterSources.set(pin.path, source.toString("utf8"));
+}
+exact("dormant adapter boundary", {
+  status: "compiled-static-substrate",
+  feature: "dormant-postgres-adapter",
+  sourcePins: adapterSourcePins,
+  defaultEnabled: false,
+  modulePrivate: true,
+  publicExport: false,
+  mainCallsite: false,
+  repositoryVisibility: "pub(super)",
+  poolHolderOnly: true,
+  parentConflictTargetOnly: true,
+  strictChildInserts: true,
+  fullCandidateReload: true,
+  reloadRevalidation: true,
+  decimalCodec: true,
+  timestampCodec: true,
+  outcomeCodec: true,
+  databaseClockLeasePredicates: true,
+  persistentLeaseFence: true,
+  usesUtcNow: false,
+  usesAdvisoryLocks: false,
+  providerActivated: false,
+  workerActivated: false,
+  routeActivated: false,
+  migrationExecuted: false,
+  databaseRead: false,
+  databaseWrite: false,
+  runtimeAdapter: false,
+  executed: false,
+  testEvidence: { defaultLibraryPassed: 33, featureLibraryPassed: 43 }
+}, adapter);
+const cargo = pinnedAdapterSources.get("services/indexer/Cargo.toml");
+const ingestion = pinnedAdapterSources.get("services/indexer/src/ingestion/mod.rs");
+const postgresModule = pinnedAdapterSources.get("services/indexer/src/ingestion/postgres/mod.rs");
+const candidates = pinnedAdapterSources.get("services/indexer/src/ingestion/postgres/candidates.rs");
+const codec = pinnedAdapterSources.get("services/indexer/src/ingestion/postgres/codec.rs");
+const leases = pinnedAdapterSources.get("services/indexer/src/ingestion/postgres/leases.rs");
+if (!cargo.includes("[features]\ndefault = []\ndormant-postgres-adapter = []")) fail("dormant adapter feature/default boundary drifted");
+if ((ingestion.match(/#\[cfg\(feature = \"dormant-postgres-adapter\"\)\]\nmod postgres;/g) ?? []).length !== 1) fail("private dormant adapter module declaration drifted");
+if (/pub(?:\([^)]*\))?\s+mod\s+postgres\b/.test(ingestion) || /pub\s+use\s+(?:self::)?postgres\b/.test(ingestion)) fail("dormant adapter module became public");
+if (main.includes("PostgresSelectedChainRepository") || main.includes("ingestion::postgres") || lib.includes("PostgresSelectedChainRepository") || lib.includes("ingestion::postgres")) fail("dormant adapter gained a main/library callsite or export");
+for (const anchor of [
+  "use sqlx::PgPool;", "mod candidates;", "mod codec;", "mod leases;",
+  "pub(super) struct PostgresSelectedChainRepository {", "pool: PgPool,",
+  "pub(super) fn new(pool: PgPool) -> Self", "pub(super) fn pool(&self) -> &PgPool"
+]) if (!postgresModule.includes(anchor)) fail(`dormant PgPool holder is missing: ${anchor}`);
+if (/impl\s+SelectedChainRepository\s+for\s+PostgresSelectedChainRepository/.test(postgresModule) || /sqlx::query|\.begin\(\)|\.execute\(|\.fetch_/.test(postgresModule)) fail("dormant PgPool holder gained repository behavior");
+if ((candidates.match(/\bON CONFLICT\b/g) ?? []).length !== 1 || !candidates.includes("ON CONFLICT (chain_id, block_hash) DO NOTHING")) fail("candidate conflict handling must target only the parent identity");
+for (const anchor of [
+  "let stored = load_candidate(transaction, identity)", "if stored == *candidate", "SelectionConflict::CandidateContent { identity }",
+  "INSERT INTO public.indexer_transaction_inclusions", "INSERT INTO public.indexer_receipts", "INSERT INTO public.indexer_raw_logs",
+  "FROM public.indexer_transaction_inclusions", "FROM public.indexer_receipts", "FROM public.indexer_raw_logs",
+  "let candidate = validate_block(", "stored candidate failed validation", "loaded candidate hash does not match its requested identity"
+]) if (!candidates.includes(anchor)) fail(`candidate persistence/reload boundary is missing: ${anchor}`);
+for (const anchor of [
+  "pub(super) fn decode_timestamp_seconds(", "value.timestamp_subsec_nanos() != 0", "u64::try_from(value.timestamp())",
+  "pub(super) fn encode_u256_decimal(", "pub(super) fn decode_u256_decimal(", "U256::from_str_radix(value, 10)",
+  "pub(super) fn encode_receipt_outcome(", "pub(super) fn decode_receipt_outcome("
+]) if (!codec.includes(anchor)) fail(`adapter codec boundary is missing: ${anchor}`);
+for (const anchor of [
+  "LeaseFence::successor(stored.fence)?", "lease_expires_at = clock_timestamp()", "lease_expires_at > clock_timestamp()",
+  "clock_timestamp() AS database_now", "FOR UPDATE", "SET lease_owner = NULL,", "RETURNING lease_fence"
+]) if (!leases.includes(anchor)) fail(`database-clock fenced lease boundary is missing: ${anchor}`);
+if (/Utc::now\s*\(/.test(leases)) fail("lease predicates must not use process time");
+if (/advisory/i.test(stripRustComments(leases).join("\n"))) fail("lease substrate must not use advisory locks");
+const adapterCode = [postgresModule, candidates, codec, leases].map((source) => stripRustComments(source).join("\n")).join("\n");
+for (const forbidden of ["tokio::spawn", "PgPool::connect", "sqlx::migrate!", "Migrator::new", "ProviderBuilder", "provider_for_chain", "Router::new", ".route("]) if (adapterCode.includes(forbidden)) fail(`dormant adapter activation returned: ${forbidden}`);
 if (runtime.compatibilityQueryConstant !== "INDEXER_SCHEMA_COMPATIBILITY_QUERY" || runtime.compatibilityFunction !== "verify_schema_compatibility") fail("compatibility boundary names drifted");
 if (runtime.structuralKeyArrayTextCastOccurrences !== 2) fail("structural key-array type contract drifted");
 const queryMatch = lib.match(/pub const INDEXER_SCHEMA_COMPATIBILITY_QUERY: &str = r#"([\s\S]*?)"#;/);
@@ -388,6 +476,31 @@ const report = {
   readinessExit: 3,
   provenance: { sourceCommit: provenance.sourceCommit, standaloneSourceIndexer: false, removedRuntimeBlob: snapshot.blob },
   runtimeRust: { files: runtime.rustInventory.length, ddlFindings: 0, expectedDelta: -5, qualifiedRelations: runtime.qualifiedRelationOccurrences, fakeSyncAvailable: false },
+  dormantAdapter: {
+    status: adapter.status,
+    feature: adapter.feature,
+    sourcePins: adapter.sourcePins,
+    defaultEnabled: false,
+    privateModule: true,
+    publicExport: false,
+    mainCallsite: false,
+    poolHolderOnly: true,
+    parentConflictTargetOnly: true,
+    strictChildInserts: true,
+    fullCandidateReload: true,
+    reloadRevalidation: true,
+    databaseClockLeasePredicates: true,
+    persistentLeaseFence: true,
+    tests: { defaultLibraryPassed: 33, featureLibraryPassed: 43 },
+    databaseRead: false,
+    databaseWrite: false,
+    migrationExecuted: false,
+    runtimeAdapter: false,
+    providerActivated: false,
+    workerActivated: false,
+    routeActivated: false,
+    executed: false
+  },
   migrationRoot: {
     migrations: 2,
     runner: null,
@@ -410,4 +523,6 @@ console.log("a3-12-indexer-schema-boundary: PASS: schema probe precedes listener
 console.log("a3-12-indexer-schema-boundary: PASS: all four surviving runtime relations are public-qualified; only health remains reachable");
 console.log("a3-12-indexer-schema-boundary: PASS: dormant fork store pins eight guarded tables, 74 columns, 101 constraints and two explicit indexes without runtime activation");
 console.log("a3-12-indexer-schema-boundary: PASS: ten-name fresh-create preflight rejects every public relation-kind collision before CREATE");
+console.log("a3-12-indexer-schema-boundary: PASS: six ordered dormant-adapter source byte/SHA-256 pins are recomputed before semantic anchors");
+console.log("a3-12-indexer-schema-boundary: PASS: default-off private PostgreSQL substrate pins strict candidate reload, codecs and database-clock fenced leases without runtime activation");
 '
