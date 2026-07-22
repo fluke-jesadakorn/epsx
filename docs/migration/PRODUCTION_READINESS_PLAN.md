@@ -40,6 +40,9 @@ The default release strategy is a **controlled hybrid**:
 
 - Branch/ref: `migration/dioxus-microservices`
 - Audited commit before this plan: `975c09567fe14ce278370720bd7a0e5aa571e116`
+- Current evidence checkpoint: `b624f320c2db3dc24944cc0414deae7bc2d42196`
+  (wallet/content schema boundaries, combined A3 reconciliation, and conservative
+  admin-redirect/content-lifecycle evidence).
 - UI/BFF targets: `apps/frontend`, `apps/admin`, and `apps/pay`.
 - Candidate extracted services: `services/gateway`, `services/identity`,
   `services/wallet`, `services/pay`, `services/subscription`, `services/content`,
@@ -186,12 +189,17 @@ and revocation behavior remain canonical.
 
 ### Data and migration safety
 
-- Runtime-DDL triage still reports 29 actionable findings across candidate
-  services. Event analytics and subscription have removed their startup DDL
-  and now have pinned additive migrations plus read-only exact schema
-  compatibility checks. Identity has a schema-only additive lifecycle
-  migration while its lifecycle routes remain disabled. These packages still
-  lack the required runner/adoption, populated-upgrade, reconciliation,
+- Runtime-DDL triage now reports 28 findings across 1,124 tracked Rust files:
+  six exact reviewed test exceptions and 22 actionable findings. The 19
+  remaining service-startup findings are in pay (10), indexer (5), and
+  notification (4); three backend bootstrap/lexical findings remain actionable.
+  Event analytics, subscription, wallet, and content have removed their startup
+  DDL and now have pinned additive migrations plus read-only exact schema
+  compatibility checks. Identity has a schema-only additive lifecycle migration
+  while its lifecycle routes remain disabled. The combined static inventory is
+  13/13 registered roots, 171 migration SQL files, and 511 destructive-token
+  findings. All 16 migration risks remain blocked: these packages still lack
+  the required runner/adoption, populated-upgrade, reconciliation,
   concurrent-startup, runtime-lifecycle, and live-database proof.
 - Provisioning creates `epsx_payments_*` databases while pay service manifests
   and compose files also refer to `epsx_pay`; other candidate service database
@@ -238,7 +246,7 @@ passed`. It is not a percentage estimate of engineering effort.
 | Live data parity | 0 | Frontend mocks and admin empty params remain | Sample payloads removed and real empty/error states proven. |
 | Checkout/on-chain parity | 0 | Route mismatch and DB-only escrow transitions | Verified receipts and contract transactions drive state. |
 | Backend/API contract parity | 1 | Both BFFs now return explicit HTML/JSON 404s and preserve 405/redirect semantics; payment prefixes and broader payload/status drift remain | Versioned contract matrix passes for monolith and replacement. |
-| Migration/data safety | 0 | 29 actionable runtime-DDL findings and all 16 migration risks remain blocked; naming drift, baseline edits, and expired partitions remain | Upgrade/backfill/reconcile/rollback tests pass on production-shaped data. |
+| Migration/data safety | 0 | Static remediation reduced runtime DDL to 28 findings (6 reviewed exceptions + 22 actionable); 13 roots and 171 SQL files are inventoried, but all 16 migration risks remain blocked and 511 destructive-token findings, naming drift, baseline edits, and expired partitions remain | Upgrade/backfill/reconcile/rollback tests pass on production-shaped data. |
 | Production manifests/routing | 0 | Admin/frontend/pay transforms are repaired, but identity still uses `:dev`, images lack digests, and direct pay-service ingress remains | Rendered manifests use approved immutable images and intended BFF ingress. |
 | Observability/readiness | 0 | Shallow health checks and incomplete cross-service traces | Dependency readiness, SLO metrics, alerts, and trace IDs pass drills. |
 | Canary/rollback | 0 | Not demonstrated | Shadow, canary, abort thresholds, and rollback rehearsal are approved. |
@@ -433,8 +441,8 @@ bounded path set. Shared contract files require coordination through package A0.
   in SQL, and exclude encrypted key material. Account creation, balance, send,
   signing, and gas estimation return `404` before unsafe custody/RPC handlers.
   The service matrix is now ten aligned, 50 partial, and 57 blocked; wallet
-  custody, truthful chain behavior, schema migration, and runtime integration
-  remain STOP conditions.
+  custody, truthful chain behavior, migration runner/adoption, and runtime
+  integration remain STOP conditions.
 
 - **A2.3h status:** this is an immutable historical pre-remediation identity
   audit pinned to commit `0cdd7ba1967d52e299000b7290873cd4d19dfd09`; it does
@@ -487,14 +495,14 @@ bounded path set. Shared contract files require coordination through package A0.
   preflight, reconciliation, migration, repair, or database mutation has run.
 
 - **A3.3 status:** the checksum-pinned runtime-DDL triage reproduces the
-  migration-safety scanner over 1,124 tracked Rust files and enumerates all 35
-  findings in stable order. Six are exact reviewed test exceptions; all 29
-  actionable findings stay blocked across ten service groups and eleven
-  files. It invents no priority, dependency, database state, or forward SQL and
-  exits `2` with `STOP` for readiness. No database or migration was run. The
-  wider migration-safety inventory covers all 11/11 roots and 169 SQL files; its
-  510 destructive-token findings remain classified, and all 16/16 risks remain
-  blocked.
+  migration-safety scanner over 1,124 tracked Rust files and enumerates all 28
+  findings in stable order. Six are exact reviewed test exceptions; all 22
+  actionable findings stay blocked across eight service groups and nine files.
+  It invents no priority, dependency, database state, or forward SQL and exits
+  `2` with `STOP` for readiness. No database or migration was run. The wider
+  migration-safety inventory covers all 13/13 roots and 171 SQL files; its 511
+  destructive-token findings remain classified, and all 16/16 risks remain
+  blocked. Both static integrity gates and the A3.3 tamper self-test pass.
 
 - **A3.6 status:** event analytics removed its one startup `CREATE TABLE` and
   now carries a checksum-pinned, 260-byte additive `public.events` migration
@@ -522,6 +530,33 @@ bounded path set. Shared contract files require coordination through package A0.
   disposable/live-database evidence. In particular, the schema is not runtime
   proof of generation increments or revoke-versus-rotate race safety. No
   migration, route enablement, or production action was run.
+
+- **A3.9 status:** wallet removed its three startup DDL findings (**3 -> 0**),
+  added one checksum-pinned 775-byte additive migration for three public tables
+  and 17 exact columns, and now stops before listener bind when its read-only
+  catalog probe finds schema, constraint, index, sequence, collation, or default
+  drift. Owner addresses and U256 values are canonicalized before binding, and
+  nonce allocation plus signed-transaction insertion share one SQLx transaction.
+  The locked offline evidence passes 11 library tests, four binary tests, the
+  binary check, integrity verification, and the tamper self-test; the final
+  independent boundary re-review reported no actionable finding. Six STOPs
+  remain: runner/version ledger, safe baseline adoption, populated upgrade,
+  reconciliation, concurrent startup, and PostgreSQL execution. No migration or
+  database action was run.
+
+- **A3.10 status:** content removed its four startup DDL findings (**4 -> 0**),
+  added one checksum-pinned 1,656-byte additive migration for four public tables
+  and 34 exact columns, and now stops before synchronization/listener bind on
+  incompatible columns, constraints, inbound/outbound foreign keys, or any
+  unexpected unique index. Its exact type/bind audit covers JSONB, UUID, and
+  timestamptz projections, while all 19 runtime relation references are public-
+  qualified. The locked offline evidence passes eight library tests, two binary
+  tests, the binary check, integrity verification, and the tamper self-test; the
+  final independent boundary re-review reported no actionable finding. The
+  preserved `ON DELETE CASCADE` contributes one explicit reviewed lexical safety
+  STOP. Runner/version ledger, baseline adoption, populated upgrade,
+  reconciliation, concurrent startup, and PostgreSQL execution remain absent.
+  No migration or database action was run.
 
 ### A4 — Canonical permission and entitlement authority (P0)
 
@@ -688,11 +723,16 @@ bounded path set. Shared contract files require coordination through package A0.
   blockers. `/access-denied` and `/unauthorized` now preserve bounded escaped
   copy, inherited metadata, safe reauthentication/return behavior, keyboard
   order, responsive light/dark layout, and authenticated local browser proof.
-  The admin SSR still provides no per-page loader, operational pages render
-  samples, several form/BFF paths drift, and preserved statuses still lack
-  typed envelopes and page-level consumption. Integrity/tamper checks pass and
-  readiness intentionally exits `3`; no live service, database, chain, or
-  deployment access is claimed.
+  `/notifications` remains a partial 200 script redirect and
+  `/wallet-management` remains a partial pre-SSR HTTP 308; fixed-target
+  in-process proof does not establish source middleware/logout/session ordering,
+  method/body/cache semantics, query policy, or authenticated browser history,
+  RSC, and client-navigation parity. The admin SSR still provides no per-page
+  loader, operational pages render samples, several form/BFF paths drift, and
+  preserved statuses still lack typed envelopes and page-level consumption.
+  The exact **2 aligned / 2 partial / 23 blocked**, 20-STOP integrity and tamper
+  gates pass; readiness intentionally exits `3`. No live service, database,
+  chain, or deployment access is claimed.
 
 ### A9 — Subscription vertical slice (P1)
 
@@ -733,12 +773,16 @@ bounded path set. Shared contract files require coordination through package A0.
 - **A10.0 status:** the pinned content lifecycle contract records 14 source
   anchors, 32 target anchors, eight route batches, 16 lifecycle requirements,
   and 20 stop blockers. It preserves A2.3b as partial and keeps editor routes
-  fail-closed until canonical actor mapping and session ownership exist. The
-  ordered implementation covers published-only immutable revisions, typed
+  fail-closed until canonical actor mapping and session ownership exist. A3.10
+  removes all four content startup-DDL findings and supplies a fail-closed
+  additive schema boundary, but it closes none of the 20 lifecycle blockers:
+  there is still no runner, populated-source adoption/upgrade, lifecycle
+  revision/public-pointer schema, backfill, reconciliation, or rollback proof.
+  The ordered implementation covers published-only immutable revisions, typed
   page/theme/block CRUD, media, filesystem trust, migrations/reconciliation,
   backend-owned plans/rankings/portfolio, wire/status parity, truthful UI
-  states, audit/outbox/idempotency, shadowing, and rollback. Integrity passes;
-  readiness intentionally exits `3`.
+  states, audit/outbox/idempotency, shadowing, and rollback. Integrity and tamper
+  tests pass; readiness intentionally exits `3`.
 
 ### A11 — Notification vertical slice (P1)
 
