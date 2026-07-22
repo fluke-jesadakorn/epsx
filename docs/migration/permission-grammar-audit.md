@@ -30,16 +30,16 @@ record carries source type, file, line, permission, surface, grammar
 classification, and a remediation package. A candidate permission is present
 only when a real backend route guard or token source literally supports it.
 
-The current scan contains 36 records:
+The current scan contains 37 records:
 
 | Usage | Records | Readiness effect |
 | --- | ---: | --- |
 | Dioxus security gates | 1 | The remaining payment-intent read gate is canonical |
 | Dioxus presentation literals | 1 | Reported as presentation drift, not an enforcement blocker |
 | Dioxus presentation dynamic pass-throughs | 1 | Reported as presentation drift, not an enforcement blocker |
-| Service-authorization permissions | 33 | All canonical three-segment values |
+| Service-authorization permissions | 34 | All canonical three-segment values |
 
-Across every source there are 34 canonical three-segment values, no legacy
+Across every source there are 35 canonical three-segment values, no legacy
 two-segment values, 1 unknown dynamic presentation value, and 1
 impossible/cross-grammar presentation value. There are currently no wildcard-aligned
 inventory values.
@@ -55,7 +55,7 @@ controls, while backend enforcement remains unchanged.
 | --- | --- | --- |
 | Dashboard | backend dashboard read/field decision required | fail-closed UI; no operational aggregate or action is exposed |
 | Analytics | backend `admin:analytics:view` plus field decision required | fail-closed UI; no metrics, records, status claims, filters, or export are exposed |
-| Audit log | dedicated backend audit read permission required | fail-closed UI; the semantically wrong analytics presentation gate was removed |
+| Audit log | `admin:audit:read` with canonical wildcard semantics | partial redacted unified-audit inventory; gateway and direct service enforce the admin audience and permission, while isolated DB/browser proof and an authenticated opaque cursor remain open |
 | Notifications | backend read decision / `admin:notifications:manage` mutation authority | fail-closed manage/create UI; no records or actions are exposed |
 | Developer portal | backend read decision / `admin:developer:manage` mutation authority | fail-closed UI; no credentials, usage data, or action is exposed |
 | Payments | `admin:payments:view` | aligned for the read-only intent surface; mutations remain unavailable |

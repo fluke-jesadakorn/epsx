@@ -16,6 +16,11 @@ use axum::{
 };
 use epsx_client::RequestContext;
 use epsx_dioxus_ui::layout::shell::{AdminLayout, ServerUser};
+use epsx_dioxus_ui::pages::admin_pages::audit_log::{
+    ADMIN_AUDIT_CATEGORY_PARAM, ADMIN_AUDIT_CURSOR_PARAM, ADMIN_AUDIT_DATA_PARAM,
+    ADMIN_AUDIT_EMPTY, ADMIN_AUDIT_FORBIDDEN, ADMIN_AUDIT_MALFORMED, ADMIN_AUDIT_READY,
+    ADMIN_AUDIT_STATE_PARAM, ADMIN_AUDIT_UNAVAILABLE,
+};
 use epsx_dioxus_ui::pages::admin_pages::news::{
     ADMIN_NEWS_DATA_PARAM, ADMIN_NEWS_EMPTY, ADMIN_NEWS_FORBIDDEN, ADMIN_NEWS_MALFORMED,
     ADMIN_NEWS_PAGE_PARAM, ADMIN_NEWS_READY, ADMIN_NEWS_STATE_PARAM, ADMIN_NEWS_STATUS_PARAM,
@@ -35,6 +40,7 @@ use epsx_dioxus_ui::pages::admin_pages::payments::{
 use epsx_dioxus_ui::pages::{admin_pages, render_page, PageContext, PageStatus};
 use std::collections::HashMap;
 
+use super::audit_log_adapter::{load_admin_audit, AdminAuditLoad, AdminAuditQuery};
 use super::auth;
 use super::news_adapter::{load_admin_news, AdminNewsLoad, AdminNewsQuery};
 use super::notification_admin_adapter::{
@@ -114,6 +120,47 @@ fn record_admin_notification_load(
         ADMIN_NOTIFICATIONS_STATE_PARAM.to_string(),
         state.to_string(),
     );
+}
+
+fn record_admin_audit_load(
+    params: &mut HashMap<String, String>,
+    query: &AdminAuditQuery,
+    load: AdminAuditLoad,
+) {
+    params.remove(ADMIN_AUDIT_DATA_PARAM);
+    if let Some(category) = &query.category {
+        params.insert(ADMIN_AUDIT_CATEGORY_PARAM.to_string(), category.clone());
+    } else {
+        params.remove(ADMIN_AUDIT_CATEGORY_PARAM);
+    }
+    if let Some(cursor) = &query.cursor {
+        params.insert(ADMIN_AUDIT_CURSOR_PARAM.to_string(), cursor.clone());
+    } else {
+        params.remove(ADMIN_AUDIT_CURSOR_PARAM);
+    }
+
+    let state = match load {
+        AdminAuditLoad::Ready(payload) => {
+            params.insert(
+                ADMIN_AUDIT_DATA_PARAM.to_string(),
+                serde_json::to_string(&payload)
+                    .expect("the typed admin-audit projection is serializable"),
+            );
+            ADMIN_AUDIT_READY
+        }
+        AdminAuditLoad::Empty(payload) => {
+            params.insert(
+                ADMIN_AUDIT_DATA_PARAM.to_string(),
+                serde_json::to_string(&payload)
+                    .expect("the typed empty admin-audit projection is serializable"),
+            );
+            ADMIN_AUDIT_EMPTY
+        }
+        AdminAuditLoad::Forbidden => ADMIN_AUDIT_FORBIDDEN,
+        AdminAuditLoad::Unavailable => ADMIN_AUDIT_UNAVAILABLE,
+        AdminAuditLoad::Malformed => ADMIN_AUDIT_MALFORMED,
+    };
+    params.insert(ADMIN_AUDIT_STATE_PARAM.to_string(), state.to_string());
 }
 
 fn private_admin_html_response(status: axum::http::StatusCode, doc: String) -> Response {
@@ -304,6 +351,30 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                     &default_query,
                     AdminNotificationLoad::Malformed,
                 );
+            }
+        }
+    }
+    // Audit records are loaded only from the extracted analytics service's
+    // exact redacted admin feed. The legacy monolith route exposes sensitive
+    // fields and uses the wrong permission, so it is never used as fallback.
+    if route_path == "/audit-log" {
+        match AdminAuditQuery::from_raw(&query) {
+            Ok(audit_query) => match verified_access_token.as_ref() {
+                Some(token) => {
+                    let mut request_context = RequestContext::from_headers(&headers);
+                    request_context.auth_token = Some(token.clone());
+                    let load =
+                        load_admin_audit(&state.analytics, &audit_query, &request_context).await;
+                    record_admin_audit_load(&mut params, &audit_query, load);
+                }
+                None => {
+                    record_admin_audit_load(&mut params, &audit_query, AdminAuditLoad::Unavailable)
+                }
+            },
+            Err(()) => {
+                let default_query =
+                    AdminAuditQuery::from_raw("").expect("the empty admin-audit query is valid");
+                record_admin_audit_load(&mut params, &default_query, AdminAuditLoad::Malformed);
             }
         }
     }
@@ -565,6 +636,7 @@ mod tests {
     use super::*;
     use epsx_dioxus_ui::{
         auth::{user::AuthMethod, User},
+        pages::admin_pages::audit_log::{AdminAuditList, AdminAuditSummary},
         pages::admin_pages::news::{AdminNewsArticleSummary, AdminNewsList},
         pages::admin_pages::notifications::{AdminNotificationList, AdminNotificationSummary},
         pages::PageContext,
@@ -662,6 +734,29 @@ mod tests {
             priority: Some("normal".to_string()),
             sent_at: Some("2026-07-22T10:00:00Z".to_string()),
             created_at: "2026-07-22T09:59:00Z".to_string(),
+        }
+    }
+
+    fn admin_audit_query() -> AdminAuditQuery {
+        AdminAuditQuery::from_raw("category=system").unwrap()
+    }
+
+    fn admin_audit_payload(items: Vec<AdminAuditSummary>) -> AdminAuditList {
+        AdminAuditList {
+            has_more: !items.is_empty(),
+            next_cursor: (!items.is_empty()).then(|| "cursor_token_2".to_string()),
+            items,
+        }
+    }
+
+    fn admin_audit_item() -> AdminAuditSummary {
+        AdminAuditSummary {
+            id: "00000000-0000-0000-0000-000000000002".to_string(),
+            category: "system".to_string(),
+            action: "settings.updated".to_string(),
+            resource_type: "settings".to_string(),
+            effect: "success".to_string(),
+            occurred_at: "2026-07-22T12:00:00Z".to_string(),
         }
     }
 
@@ -1080,6 +1175,73 @@ mod tests {
                 Some(expected)
             );
             assert!(!params.contains_key(ADMIN_NOTIFICATIONS_DATA_PARAM));
+        }
+    }
+
+    #[test]
+    fn admin_audit_load_records_only_the_redacted_projection_and_query() {
+        let mut params = HashMap::new();
+        record_admin_audit_load(
+            &mut params,
+            &admin_audit_query(),
+            AdminAuditLoad::Ready(admin_audit_payload(vec![admin_audit_item()])),
+        );
+
+        assert_eq!(
+            params.get(ADMIN_AUDIT_STATE_PARAM).map(String::as_str),
+            Some(ADMIN_AUDIT_READY)
+        );
+        assert_eq!(
+            params.get(ADMIN_AUDIT_CATEGORY_PARAM).map(String::as_str),
+            Some("system")
+        );
+        assert!(!params.contains_key(ADMIN_AUDIT_CURSOR_PARAM));
+        let stored: serde_json::Value =
+            serde_json::from_str(params.get(ADMIN_AUDIT_DATA_PARAM).unwrap()).unwrap();
+        assert_eq!(stored["items"][0]["action"], "settings.updated");
+        for forbidden in [
+            "actor",
+            "actor_type",
+            "resource_id",
+            "ip_address",
+            "user_agent",
+            "before_state",
+            "after_state",
+            "metadata",
+            "details",
+            "total",
+        ] {
+            assert!(stored["items"][0].get(forbidden).is_none(), "{forbidden}");
+        }
+    }
+
+    #[test]
+    fn admin_audit_failure_states_remove_stale_projection_and_query_data() {
+        for (load, expected) in [
+            (AdminAuditLoad::Forbidden, ADMIN_AUDIT_FORBIDDEN),
+            (AdminAuditLoad::Unavailable, ADMIN_AUDIT_UNAVAILABLE),
+            (AdminAuditLoad::Malformed, ADMIN_AUDIT_MALFORMED),
+        ] {
+            let mut params = HashMap::from([
+                (
+                    ADMIN_AUDIT_DATA_PARAM.to_string(),
+                    "stale-sensitive-audit-data".to_string(),
+                ),
+                (ADMIN_AUDIT_CATEGORY_PARAM.to_string(), "wallet".to_string()),
+                (
+                    ADMIN_AUDIT_CURSOR_PARAM.to_string(),
+                    "stale_cursor".to_string(),
+                ),
+            ]);
+            let default_query = AdminAuditQuery::from_raw("").unwrap();
+            record_admin_audit_load(&mut params, &default_query, load);
+            assert_eq!(
+                params.get(ADMIN_AUDIT_STATE_PARAM).map(String::as_str),
+                Some(expected)
+            );
+            assert!(!params.contains_key(ADMIN_AUDIT_DATA_PARAM));
+            assert!(!params.contains_key(ADMIN_AUDIT_CATEGORY_PARAM));
+            assert!(!params.contains_key(ADMIN_AUDIT_CURSOR_PARAM));
         }
     }
 

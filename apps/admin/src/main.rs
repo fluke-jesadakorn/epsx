@@ -18,6 +18,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
+mod audit_log_adapter;
 mod auth;
 mod news_adapter;
 mod notification_admin_adapter;

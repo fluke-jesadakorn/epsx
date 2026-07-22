@@ -163,20 +163,21 @@
     {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":2947,"permission":"admin:notifications:manage","surface":"service:notification:notification.post.send","classification":"canonical-3-segment","remediation":null},
     {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":2973,"permission":"admin:notifications:manage","surface":"service:notification:notification.get.admin-list","classification":"canonical-3-segment","remediation":null},
     {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":3270,"permission":"admin:analytics:view","surface":"service:analytics:analytics.get.events","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":3297,"permission":"admin:analytics:view","surface":"service:analytics:analytics.get.metric","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":3324,"permission":"admin:analytics:view","surface":"service:analytics:analytics.get.revenue","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":3550,"permission":"admin:indexer:manage","surface":"service:indexer:indexer.post.sync","classification":"canonical-3-segment","remediation":null}
+    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":3297,"permission":"admin:audit:read","surface":"service:analytics:analytics.get.admin-audit-log","classification":"canonical-3-segment","remediation":null},
+    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":3325,"permission":"admin:analytics:view","surface":"service:analytics:analytics.get.metric","classification":"canonical-3-segment","remediation":null},
+    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":3352,"permission":"admin:analytics:view","surface":"service:analytics:analytics.get.revenue","classification":"canonical-3-segment","remediation":null},
+    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":3578,"permission":"admin:indexer:manage","surface":"service:indexer:indexer.post.sync","classification":"canonical-3-segment","remediation":null}
   ],
   "summary": {
-    "total": 36,
+    "total": 37,
     "sourceCounts": {
       "dioxus-security-gate": 1,
       "dioxus-presentation-literal": 1,
       "dioxus-presentation-dynamic": 1,
-      "service-authorization": 33
+      "service-authorization": 34
     },
     "classificationCounts": {
-      "canonical-3-segment": 34,
+      "canonical-3-segment": 35,
       "wildcard-aligned": 0,
       "legacy-2-segment": 0,
       "unknown": 1,

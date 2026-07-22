@@ -129,6 +129,9 @@ pub fn classify(method: &Method, path: &str) -> AccessPolicy {
         | (&Method::GET, ["api", "v1", "analytics", "revenue"]) => {
             AccessPolicy::Permission("admin:analytics:view")
         }
+        (&Method::GET, ["api", "v1", "analytics", "admin", "audit-log"]) => {
+            AccessPolicy::Permission("admin:audit:read")
+        }
 
         // Indexer reads are public; sync is narrowed to the intended POST
         // operator mutation despite the candidate service's `any` mount.
@@ -290,6 +293,11 @@ mod tests {
                 Method::GET,
                 "/api/v1/analytics/events",
                 AccessPolicy::Permission("admin:analytics:view"),
+            ),
+            (
+                Method::GET,
+                "/api/v1/analytics/admin/audit-log",
+                AccessPolicy::Permission("admin:audit:read"),
             ),
             (
                 Method::GET,
@@ -617,7 +625,7 @@ mod tests {
                 "/api/v1/notification/123",
                 AccessPolicy::Authenticated,
             ),
-            // analytics (6 routes)
+            // analytics (7 routes)
             (
                 Method::POST,
                 "/api/v1/analytics/track",
@@ -637,6 +645,11 @@ mod tests {
                 Method::GET,
                 "/api/v1/analytics/revenue",
                 AccessPolicy::Permission("admin:analytics:view"),
+            ),
+            (
+                Method::GET,
+                "/api/v1/analytics/admin/audit-log",
+                AccessPolicy::Permission("admin:audit:read"),
             ),
             (
                 Method::GET,

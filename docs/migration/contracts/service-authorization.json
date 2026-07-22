@@ -258,7 +258,7 @@
   "evidenceResolution": "For every route, the evidence location is its parent service.source and the exact route.routeAnchor substring. canonicalEvidence entries provide backend or handler-policy anchors.",
   "inventorySummary": {
     "serviceCount": 9,
-    "routeCount": 119,
+    "routeCount": 120,
     "mutationCount": 58,
     "highRiskMutationCount": 58,
     "byService": {
@@ -269,19 +269,19 @@
       "subscription": 9,
       "content": 23,
       "notification": 15,
-      "analytics": 7,
+      "analytics": 8,
       "indexer": 6
     },
     "byClassification": {
       "public-allowlist": 32,
       "unknown": 17,
       "authenticated-user": 3,
-      "permission-specific-admin-operator": 33,
+      "permission-specific-admin-operator": 34,
       "owner-only": 30,
       "internal-webhook": 4
     },
     "byObservedStatus": {
-      "partial": 48,
+      "partial": 49,
       "blocked": 60,
       "aligned": 11
     }
@@ -3204,7 +3204,7 @@
       "name": "analytics",
       "source": "services/analytics/src/lib.rs",
       "routerAnchor": "let app = Router::new()",
-      "currentBoundary": "The shared RS256/JWKS boundary classifies exact methods and paths before handlers: track requires a verified frontend/admin principal, operator reads require the admin audience plus admin:analytics:view, and internal/unknown surfaces return 404. Legacy UUID event attribution remains unresolved.",
+      "currentBoundary": "The shared RS256/JWKS boundary classifies exact methods and paths before handlers: track requires a verified frontend/admin principal, event operator reads require the admin audience plus admin:analytics:view, the redacted audit read requires the admin audience plus admin:audit:read, and internal/unknown surfaces return 404. Legacy UUID event attribution remains unresolved.",
       "routes": [
         {
           "id": "analytics.get.health",
@@ -3284,6 +3284,34 @@
           ],
           "canonicalEvidence": [
             "backend-permission-guard",
+            "analytics-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "analytics.get.admin-audit-log",
+          "method": "GET",
+          "path": "/api/v1/analytics/admin/audit-log",
+          "routeAnchor": ".route(\"/api/v1/analytics/admin/audit-log\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "epsx-service-auth-rs256-jwks",
+          "requiredPermission": "admin:audit:read",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "Gateway and direct service require the exact admin audience plus canonical admin:audit:read before a strict redacted keyset query. Static schema, query, ordering, projection, and fail-closed validation tests pass; isolated database/service and browser proof remain absent."
+          },
+          "dependencies": [
+            "A2",
+            "A11",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract",
             "analytics-service-auth-boundary"
           ]
         },

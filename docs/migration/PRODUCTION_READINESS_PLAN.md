@@ -171,8 +171,8 @@ and revocation behavior remain canonical.
   handlers. Those handlers remain unsuitable for production until real chain,
   transaction, idempotency, and recovery contracts replace them.
 - Both BFFs preserve verified backend permissions without expanding roles. The
-  35-record permission inventory contains one Dioxus security-gate record and,
-  by grammar, 34 canonical three-segment records, no legacy two-segment gates,
+  37-record permission inventory contains one Dioxus security-gate record and,
+  by grammar, 35 canonical three-segment records, no legacy two-segment gates,
   one unknown record, and one impossible/cross-grammar presentation record. The
   permission-grammar readiness gate now passes; UI gates remain presentation
   controls, never policy authority. The ten removed legacy gates were the invented
@@ -646,7 +646,7 @@ bounded path set. Shared contract files require coordination through package A0.
   fall back to the free plan on authority failure.
 
 - **A4.0/A8.1 status:** the deterministic permission-grammar inventory covers
-  35 UI/service records, including one canonical Dioxus security gate. Unavailable
+  37 UI/service records, including one canonical Dioxus security gate. Unavailable
   analytics, wallet, wallet-access, and wallet-plan surfaces now use only the
   session boundary while all future read/manage policy remains backend-owned.
   Grammar-only readiness now passes with no legacy security gates; two
@@ -834,7 +834,7 @@ bounded path set. Shared contract files require coordination through package A0.
 
 - **A8.0–A8.1 status:** the pinned admin contract covers the exact 27 source
   routes and all three intentional redirects in seven execution batches. It records
-  two aligned, three partial, and 22 blocked routes plus 20 cross-cutting STOP
+  two aligned, five partial, and 20 blocked routes plus 20 cross-cutting STOP
   blockers. `/access-denied` and `/unauthorized` now preserve bounded escaped
   copy, inherited metadata, safe reauthentication/return behavior, keyboard
   order, responsive light/dark layout, and authenticated local browser proof.
@@ -845,18 +845,26 @@ bounded path set. Shared contract files require coordination through package A0.
   308; fixed-target in-process proof does not establish source middleware/logout/
   session ordering, accepted method/body/cache/query semantics, or authenticated
   browser history, RSC, and client-navigation parity. The admin SSR still provides no general
-  per-page loader. `/news` is now partial through a strict SSR-only read adapter
+  per-page loader. `/audit-log` is now partial through an extracted exact-admin-audience
+  `admin:audit:read` service route, strict 20-row redacted keyset adapter,
+  native category/continuation links, and explicit outcome states. Actor/target
+  identity, network/device fields, state/metadata details, totals, search/date
+  filters, reverse navigation, and export remain absent pending isolated
+  database/browser and field-specific authority proof. The current unsigned,
+  reversible audit continuation also exposes its boundary timestamp, UUID, and
+  category and must be replaced with an authenticated opaque token or explicitly
+  approved before alignment. `/news` is partial through a strict SSR-only read adapter
   to the pinned Rust backend's protected admin-news list: it preserves bounded
   page/status state, projects away bodies and identity/media fields, separates
   empty/forbidden/unavailable/malformed outcomes, and exposes no mutation. The
   public file-backed content feed remains prohibited as admin state. Dashboard,
-  analytics, audit-log, chat list/detail, media, news create/edit, notification create, settings, developer portal,
+  analytics, chat list/detail, media, news create/edit, notification create, settings, developer portal,
   wallet credits/access/list/detail/disable, and wallet-plan list/detail now
   fail closed without sample records, counts, health, history, configuration,
   credentials, balances, ledger rows, assignments, catalogs, filters, forms,
   upload controls, or mutations. The bounded typed loaders are payment intents,
-  protected legacy news, and the new global redacted notification inventory;
-  only news and notification management are partial routes, because isolated
+  protected legacy news, the global redacted notification inventory, and the
+  redacted audit inventory; audit, news, and notification management are partial routes because isolated
   service/database and authenticated browser proof remain absent. Source
   mutation contracts and BFF paths still drift, and preserved statuses still
   lack typed envelopes and general page-level consumption. The target-only `/policies` addition now
@@ -869,7 +877,7 @@ bounded path set. Shared contract files require coordination through package A0.
   stops on plaintext `api_keys.full_key` persistence/list projection; credit
   readiness stops on a GET path that can create a balance record and on the
   unresolved financial mutation authority.
-  The exact **2 aligned / 4 partial / 21 blocked**, 20-STOP integrity and tamper
+  The exact **2 aligned / 5 partial / 20 blocked**, 20-STOP integrity and tamper
   gates pass; readiness intentionally exits `3`. No live service, database,
   chain, or deployment access is claimed.
 

@@ -4099,6 +4099,7 @@ version = "0.1.0"
 dependencies = [
  "axum 0.8.9",
  "base64 0.22.1",
+ "chrono",
  "dioxus",
  "dioxus-server",
  "dioxus-ssr",
@@ -4131,6 +4132,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "axum 0.8.9",
+ "base64 0.22.1",
  "chrono",
  "clap",
  "epsx-config",

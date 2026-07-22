@@ -11,8 +11,12 @@ production readiness are complete.
 - `POST /api/v1/analytics/track` requires a verified canonical access token
   with exactly the frontend or admin audience.
 - `GET /api/v1/analytics/events`, `metrics/{metric}`, and `revenue` require the
-  exact admin audience plus the literal backend grant
+  exact admin audience plus the canonical backend grant
   `admin:analytics:view`.
+- `GET /api/v1/analytics/admin/audit-log` separately requires the exact admin
+  audience plus canonical `admin:audit:read`. It reads only the canonical unified
+  table through a fixed 20-row category-bound keyset contract and projects no
+  actor/target identity, network/device data, state snapshots, or metadata.
 - Both Prometheus paths return 404 before handler/store access until an
   authenticated internal-service identity contract exists.
 - Unknown paths and unapproved methods are denied before handler/store access.
@@ -40,8 +44,9 @@ git diff --check
 
 The hermetic cases cover anonymous access, invalid and valid-but-unapproved
 audiences, spoofed identity headers, missing permission, frontend tokens
-carrying an admin grant, wildcard grants (which do not satisfy this route's
-literal grant), granular admin success, internal endpoints, unknown routes,
+carrying an admin grant, canonical global/resource wildcard grants, unrelated
+wildcard rejection, granular analytics and audit admin success, strict
+audit query/cursor parsing, redacted audit SELECT fields, internal endpoints, unknown routes,
 unapproved methods, and production URL rejection. Every denial case asserts
 the fake store was not called.
 
@@ -59,6 +64,11 @@ the fake store was not called.
 - Database queries, event semantics, retention, aggregation correctness, and
   revenue meaning remain A12 concerns. The protected reads stay `partial` in
   the authorization fixture rather than claiming broader production readiness.
+- The audit table shape is checked at startup and static query/DTO tests pass,
+  but the existing migration has not been proven through an isolated analytics
+  database/service run. Authenticated browser behavior, reverse continuation,
+  source-compatible search/date filters, field-specific identity/detail reads,
+  and authorized audited server export also remain open.
 - Other extracted services have not adopted the shared boundary. Direct-service
   isolation and ownership enforcement remain open across the matrix.
 

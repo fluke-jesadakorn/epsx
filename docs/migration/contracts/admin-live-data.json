@@ -38,11 +38,12 @@
         "record_payment_intent_load(&mut params, result);",
         "record_admin_news_load(&mut params, &news_query, load);",
         "record_admin_notification_load(&mut params, &notification_query, load);",
+        "record_admin_audit_load(&mut params, &audit_query, load);",
         "let (m, b) = admin_pages::dispatch(&c);",
         "fn safe_admin_layout_path(layout_path: &str, is_authenticated: bool) -> String",
         "let status = match meta.status"
       ],
-      "finding": "SSR verifies a session and keeps data params empty by default; signed-out dynamic chat, news-edit, wallet, disable, and plan shells reduce layout paths to static collections so breadcrumbs and return URLs cannot disclose route references; payment intents, the admin news list, and the redacted global notification inventory perform normalized authenticated reads with explicit non-empty, empty, forbidden where applicable, unavailable, or malformed outcomes."
+      "finding": "SSR verifies a session and keeps data params empty by default; signed-out dynamic chat, news-edit, wallet, disable, and plan shells reduce layout paths to static collections so breadcrumbs and return URLs cannot disclose route references; payment intents, the admin news list, the redacted global notification inventory, and the redacted audit inventory perform normalized authenticated reads with explicit non-empty, empty, forbidden where applicable, unavailable, or malformed outcomes."
     },
     {
       "file": "apps/admin/src/news_adapter.rs",
@@ -102,6 +103,38 @@
         "fn manage_and_create_expose_no_mutation_or_sample_surfaces()"
       ],
       "finding": "The authenticated management page renders only the strict redacted projection with native pagination and retry links. It distinguishes ready, authoritative empty, forbidden, unavailable, malformed, and out-of-range recovery while emitting no identities, bodies, delivery errors, action URLs, forms, buttons, sample metrics, or mutation controls."
+    },
+    {
+      "file": "services/analytics/src/lib.rs",
+      "anchors": [
+        "const AUDIT_READ_PERMISSION: &str = \"admin:audit:read\";",
+        ".route(\"/api/v1/analytics/admin/audit-log\", get(list_audit))",
+        "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY",
+        "ORDER BY created_at DESC, id DESC LIMIT $4",
+        "fn audit_summary_is_valid"
+      ],
+      "finding": "The extracted analytics service owns an exact-audience, dedicated-permission read over only the canonical unified audit table. Startup validates the existing table shape, rows use stable keyset continuation in a read-only repeatable-read transaction, invalid stored fields fail the page, and the SELECT/DTO omit identity, target, network/device, before/after, and metadata fields."
+    },
+    {
+      "file": "apps/admin/src/audit_log_adapter.rs",
+      "anchors": [
+        "pub(crate) struct AdminAuditQuery",
+        "pub(crate) async fn load_admin_audit",
+        "MAX_AUDIT_RESPONSE_BYTES",
+        "#[serde(deny_unknown_fields)]",
+        "fn classify_payload"
+      ],
+      "finding": "The audit BFF adapter accepts only a closed category and bounded canonical cursor, follows no redirects, forwards only the verified bearer and request ID, caps declared and chunked bodies at 256 KiB, binds response rows to the requested category, validates newest-first unique summaries, rejects sensitive or unknown fields, and distinguishes ready, authoritative empty, forbidden, unavailable, and malformed outcomes."
+    },
+    {
+      "file": "shared/rust/dioxus_ui/src/pages/admin_pages/audit_log.rs",
+      "anchors": [
+        "pub fn decode_admin_audit_projection",
+        "pub fn render(ctx: &PageContext)",
+        "data-audit-log-state",
+        "fn ready_state_is_redacted_responsive_and_cursor_driven"
+      ],
+      "finding": "The authenticated page independently validates the redacted projection and renders native category/keyset links, responsive labelled summary rows, semantic timestamps, and explicit outcome recovery without rendering record IDs, actor/target identity, details, export, forms, or mutations; the current reversible continuation token still carries the audit UUID and remains an explicit blocker."
     },
     {
       "file": "apps/admin/src/main.rs",
@@ -197,7 +230,7 @@
     {"id": "B7-mutations", "routes": ["/notifications/create", "/developer-portal", "/wallet-management/wallets/:address/disable"]}
   ],
   "stopBlockers": [
-    "Most admin routes still lack an authoritative SSR service response; only bounded payment intents, protected legacy news, and the redacted global notification inventory currently populate typed PageContext data.",
+    "Most admin routes still lack an authoritative SSR service response; only bounded payment intents, protected legacy news, the redacted global notification inventory, and the redacted audit inventory currently populate typed PageContext data.",
     "Sample rows, counts, timestamps, wallet addresses, balances, and health values can masquerade as live operational data.",
     "Generic skeleton overlays are visual-capture fixtures, not loading-state contracts.",
     "Ordinary Dioxus event closures are not usable in SSR output without proven hydration or a browser bridge.",
@@ -259,17 +292,17 @@
       "blockers": ["select and secure the market-ranking authority separately from event analytics, remove entitlement fallback broadening, preserve the pinned validated query/access/watchlist contract, and prove loaded/empty/stale/degraded/error/retry plus accessible interaction"]
     },
     {
-      "path": "/audit-log", "batch": "B1-command-security", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
+      "path": "/audit-log", "batch": "B1-command-security", "status": "partial", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/audit-log/page.tsx", "anchors": ["export default function AuditLogPage", "fetchLogs"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/audit_log.rs", "handler": "audit_log::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-audit-log-state\": \"unavailable\"", "fn unavailable_workspace_has_no_fake_audit_controls()"]},
-      "params": {"names": ["category", "actor", "resource", "cursor", "date-range"], "current": "all query and legacy params are ignored until the backend owns validation and cursor semantics"},
-      "data": {"reads": ["audit events"], "endpoints": [], "current": "authenticated explicit unavailable state with no inferred empty result", "fallbacks": []},
-      "permissions": {"read": ["dedicated backend audit read permission required"], "manage": [], "current": "authentication-only unavailable shell; semantically wrong admin:analytics:view frontend gate removed and no audit authorization is inferred"},
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/audit_log.rs", "handler": "audit_log::render", "anchors": ["pub fn render(ctx: &PageContext)", "pub fn decode_admin_audit_projection", "\"data-audit-log-state\": ADMIN_AUDIT_READY", "fn ready_state_is_redacted_responsive_and_cursor_driven()"]},
+      "params": {"names": ["category", "cursor"], "current": "one optional closed category and one bounded canonical base64url cursor are accepted; duplicates, unknown keys, malformed values, and legacy search/date/actor/resource parameters fail closed before upstream access"},
+      "data": {"reads": ["redacted unified audit summaries"], "endpoints": ["GET /api/v1/analytics/admin/audit-log?category={optional}&cursor={optional}"], "current": "verified-session SSR consumes one deterministic keyset page containing category/action/resource-type/effect/timestamp summaries; record IDs are not rendered, but the current reversible continuation carries the boundary timestamp, audit UUID, and category; actor and target identity, network/device fields, before/after state, metadata, totals, details, and export payloads are absent", "fallbacks": []},
+      "permissions": {"read": ["admin:audit:read"], "manage": [], "current": "gateway and direct analytics service independently require the exact admin audience and canonical admin:audit:read, including the repository's canonical wildcard semantics; the legacy monolith admin:analytics:view route is not used"},
       "mutations": [],
-      "contracts": {"bodies": [], "envelopes": [], "statuses": []},
-      "states": {"loading": "missing", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "missing", "conflict": "not-applicable"},
-      "ux": {"keyboard": "native retry and dashboard links", "responsive": "source-like admin shell; browser proof absent", "hydration": "not-applicable for unavailable state and native recovery"},
-      "blockers": ["define and enforce a dedicated backend audit read permission, immutable cursor contract, sensitive-field redaction, authorized server export, typed ready/empty/error outcomes, and isolated service/browser proof"]
+      "contracts": {"bodies": [], "envelopes": ["strict items/next_cursor/has_more DTO with at most 20 newest-first summaries and deny-unknown decoding"], "statuses": ["200 ready or authoritative empty; 400 malformed query; 401 unauthenticated; 403 forbidden; dependency and contract failures remain explicit unavailable or malformed UI states"]},
+      "states": {"loading": "missing", "empty": "present", "error": "present", "retry": "present", "forbidden": "present", "conflict": "not-applicable"},
+      "ux": {"keyboard": "native category, retry, reset, newest, and older-activity links with labelled navigation", "responsive": "desktop grid and stacked mobile summary layout present; focused browser proof absent", "hydration": "not required because category and keyset continuation are native links"},
+      "blockers": ["prove the existing analytics migration is adopted by the extracted service against an isolated database, replace the unsigned reversible cursor with an authenticated opaque token or explicitly approve its UUID exposure, add authenticated mobile/desktop browser proof, decide field-specific actor/target detail authority, add indexed source-compatible search/date filtering, add reverse keyset navigation if required, and implement separately authorized audited server export"]
     },
     {
       "path": "/auth", "batch": "B2-auth-denial", "status": "blocked", "dependencies": ["A1", "A5"],

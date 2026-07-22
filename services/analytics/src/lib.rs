@@ -1,12 +1,13 @@
 use async_trait::async_trait;
 use axum::{
-    extract::{Path, Request, State},
+    extract::{Path, RawQuery, Request, State},
     http::{header, HeaderMap, HeaderName, Method, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use epsx_service_auth::{
     authenticate_headers, AccessTokenVerifier, JwksVerifier, JwksVerifierConfig, ADMIN_AUDIENCE,
     FRONTEND_AUDIENCE,
@@ -20,6 +21,14 @@ use std::{
 use thiserror::Error;
 
 const ANALYTICS_VIEW_PERMISSION: &str = "admin:analytics:view";
+const AUDIT_READ_PERMISSION: &str = "admin:audit:read";
+const DEFAULT_AUDIT_LIMIT: i64 = 20;
+const MAX_AUDIT_CURSOR_CHARS: usize = 256;
+const AUDIT_LIST_SQL: &str = "SELECT id::text AS id, category, action, resource_type, effect, \
+     created_at AS occurred_at FROM infra_logs.unified_audit_log \
+     WHERE ($1::text IS NULL OR category = $1) \
+       AND ($2::timestamptz IS NULL OR (created_at, id) < ($2, $3)) \
+     ORDER BY created_at DESC, id DESC LIMIT $4";
 
 #[derive(Debug, Error)]
 pub enum AnalyticsConfigError {
@@ -54,6 +63,50 @@ pub struct TrackEventRequest {
     pub chain_id: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuditListQuery {
+    pub limit: i64,
+    pub category: Option<String>,
+    cursor: Option<AuditCursor>,
+}
+
+impl Default for AuditListQuery {
+    fn default() -> Self {
+        Self {
+            limit: DEFAULT_AUDIT_LIMIT,
+            category: None,
+            cursor: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AuditCursor {
+    occurred_at: chrono::DateTime<chrono::Utc>,
+    id: uuid::Uuid,
+    category: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, FromRow)]
+#[serde(deny_unknown_fields)]
+pub struct AuditSummary {
+    pub id: String,
+    pub category: String,
+    pub action: String,
+    pub resource_type: String,
+    pub effect: String,
+    pub occurred_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuditList {
+    pub items: Vec<AuditSummary>,
+    pub next_cursor: Option<String>,
+    pub has_more: bool,
+}
+
 #[derive(Serialize, FromRow)]
 struct Event {
     id: uuid::Uuid,
@@ -77,6 +130,7 @@ pub trait AnalyticsStore: Send + Sync {
     async fn list_events(&self) -> Result<serde_json::Value, AnalyticsStoreError>;
     async fn metric(&self, metric: &str) -> Result<serde_json::Value, AnalyticsStoreError>;
     async fn revenue(&self) -> Result<serde_json::Value, AnalyticsStoreError>;
+    async fn list_audit(&self, query: &AuditListQuery) -> Result<AuditList, AnalyticsStoreError>;
 }
 
 pub struct SqlAnalyticsStore {
@@ -159,6 +213,68 @@ SELECT
     AND (SELECT compatible FROM primary_key_compatibility)
 "#;
 
+const AUDIT_SCHEMA_COMPATIBILITY_QUERY: &str = r#"
+WITH expected_columns (column_name, data_type, udt_name, is_nullable, character_maximum_length) AS (
+    VALUES
+        ('id', 'uuid', 'uuid', 'NO', NULL::bigint),
+        ('actor', 'character varying', 'varchar', 'YES', 42::bigint),
+        ('actor_type', 'character varying', 'varchar', 'NO', 20::bigint),
+        ('created_at', 'timestamp with time zone', 'timestamptz', 'NO', NULL::bigint),
+        ('resource_type', 'character varying', 'varchar', 'NO', 50::bigint),
+        ('resource_id', 'character varying', 'varchar', 'YES', 255::bigint),
+        ('action', 'character varying', 'varchar', 'NO', 50::bigint),
+        ('effect', 'character varying', 'varchar', 'NO', 20::bigint),
+        ('before_state', 'jsonb', 'jsonb', 'YES', NULL::bigint),
+        ('after_state', 'jsonb', 'jsonb', 'YES', NULL::bigint),
+        ('ip_address', 'character varying', 'varchar', 'YES', 45::bigint),
+        ('user_agent', 'text', 'text', 'YES', NULL::bigint),
+        ('metadata', 'jsonb', 'jsonb', 'YES', NULL::bigint),
+        ('category', 'character varying', 'varchar', 'NO', 30::bigint)
+),
+column_compatibility AS (
+    SELECT bool_and(
+        actual.column_name IS NOT NULL
+        AND actual.data_type = expected.data_type
+        AND actual.udt_name = expected.udt_name
+        AND actual.is_nullable = expected.is_nullable
+        AND actual.character_maximum_length IS NOT DISTINCT FROM expected.character_maximum_length
+    ) AS compatible
+    FROM expected_columns AS expected
+    LEFT JOIN information_schema.columns AS actual
+      ON actual.table_schema = 'infra_logs'
+     AND actual.table_name = 'unified_audit_log'
+     AND actual.column_name = expected.column_name
+),
+primary_key_compatibility AS (
+    SELECT EXISTS (
+        SELECT 1
+        FROM pg_catalog.pg_constraint AS constraint_record
+        JOIN pg_catalog.pg_class AS table_record
+          ON table_record.oid = constraint_record.conrelid
+        JOIN pg_catalog.pg_namespace AS namespace_record
+          ON namespace_record.oid = table_record.relnamespace
+        JOIN pg_catalog.pg_attribute AS attribute_record
+          ON attribute_record.attrelid = table_record.oid
+         AND attribute_record.attnum = constraint_record.conkey[1]
+        WHERE namespace_record.nspname = 'infra_logs'
+          AND table_record.relname = 'unified_audit_log'
+          AND constraint_record.contype = 'p'
+          AND cardinality(constraint_record.conkey) = 1
+          AND attribute_record.attname = 'id'
+    ) AS compatible
+)
+SELECT
+    to_regclass('infra_logs.unified_audit_log') IS NOT NULL
+    AND (
+        SELECT COUNT(*) = 14
+        FROM information_schema.columns
+        WHERE table_schema = 'infra_logs'
+          AND table_name = 'unified_audit_log'
+    )
+    AND COALESCE((SELECT compatible FROM column_compatibility), false)
+    AND (SELECT compatible FROM primary_key_compatibility)
+"#;
+
 #[derive(Debug, Error)]
 pub enum AnalyticsSchemaError {
     #[error("analytics schema compatibility query failed")]
@@ -170,11 +286,15 @@ pub enum AnalyticsSchemaError {
 }
 
 pub async fn verify_schema_compatibility(db: &sqlx::PgPool) -> Result<(), AnalyticsSchemaError> {
-    let compatible = sqlx::query_scalar::<_, bool>(ANALYTICS_SCHEMA_COMPATIBILITY_QUERY)
+    let analytics_compatible = sqlx::query_scalar::<_, bool>(ANALYTICS_SCHEMA_COMPATIBILITY_QUERY)
         .fetch_one(db)
         .await
         .map_err(AnalyticsSchemaError::Query)?;
-    if !compatible {
+    let audit_compatible = sqlx::query_scalar::<_, bool>(AUDIT_SCHEMA_COMPATIBILITY_QUERY)
+        .fetch_one(db)
+        .await
+        .map_err(AnalyticsSchemaError::Query)?;
+    if !analytics_compatible || !audit_compatible {
         return Err(AnalyticsSchemaError::Incompatible);
     }
     Ok(())
@@ -278,6 +398,60 @@ impl AnalyticsStore for SqlAnalyticsStore {
             "note": "Aggregated from event log; integrate payment service for exact USD totals"
         }))
     }
+
+    async fn list_audit(&self, query: &AuditListQuery) -> Result<AuditList, AnalyticsStoreError> {
+        let mut transaction = self.db.begin().await.map_err(|_| AnalyticsStoreError)?;
+        // This must be the first statement after BEGIN so the page is read
+        // from one immutable snapshot.
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+            .execute(&mut *transaction)
+            .await
+            .map_err(|_| AnalyticsStoreError)?;
+
+        // Deliberately omit actor_type, before/after state, network/device
+        // fields, actor/target identity, and metadata from both the SELECT and
+        // the public DTO. Fetch one extra row to derive a stable keyset cursor.
+        let cursor_at = query.cursor.as_ref().map(|cursor| cursor.occurred_at);
+        let cursor_id = query.cursor.as_ref().map(|cursor| cursor.id);
+        let mut items = sqlx::query_as::<_, AuditSummary>(AUDIT_LIST_SQL)
+            .bind(&query.category)
+            .bind(cursor_at)
+            .bind(cursor_id)
+            .bind(query.limit + 1)
+            .fetch_all(&mut *transaction)
+            .await
+            .map_err(|_| AnalyticsStoreError)?;
+
+        transaction
+            .commit()
+            .await
+            .map_err(|_| AnalyticsStoreError)?;
+
+        let has_more = items.len() > query.limit as usize;
+        if has_more {
+            items.pop();
+        }
+        if items.iter().any(|item| !audit_summary_is_valid(item)) {
+            return Err(AnalyticsStoreError);
+        }
+        let next_cursor = if has_more {
+            let last = items.last().ok_or(AnalyticsStoreError)?;
+            let id = uuid::Uuid::parse_str(&last.id).map_err(|_| AnalyticsStoreError)?;
+            Some(encode_audit_cursor(&AuditCursor {
+                occurred_at: last.occurred_at,
+                id,
+                category: query.category.clone(),
+            })?)
+        } else {
+            None
+        };
+
+        Ok(AuditList {
+            items,
+            next_cursor,
+            has_more,
+        })
+    }
 }
 
 #[derive(Clone)]
@@ -297,6 +471,7 @@ pub fn build_router(
         .route("/api/v1/analytics/events", get(list_events))
         .route("/api/v1/analytics/metrics/{metric}", get(get_metrics))
         .route("/api/v1/analytics/revenue", get(get_revenue))
+        .route("/api/v1/analytics/admin/audit-log", get(list_audit))
         .route("/api/v1/analytics/metrics/prometheus", get(not_found))
         .route("/api/v1/analytics/prometheus/metrics", get(not_found))
         .fallback(not_found)
@@ -327,6 +502,9 @@ fn classify(method: &Method, path: &str) -> AccessPolicy {
         (&Method::GET, "/api/v1/analytics/events")
         | (&Method::GET, "/api/v1/analytics/revenue") => {
             AccessPolicy::Permission(ANALYTICS_VIEW_PERMISSION)
+        }
+        (&Method::GET, "/api/v1/analytics/admin/audit-log") => {
+            AccessPolicy::Permission(AUDIT_READ_PERMISSION)
         }
         (&Method::GET, path)
             if path
@@ -373,9 +551,7 @@ async fn authorize_request(
                     Ok(principal) => principal,
                     Err(_) => return auth_error(StatusCode::UNAUTHORIZED),
                 };
-            if principal.audience != ADMIN_AUDIENCE
-                || !principal.permissions.iter().any(|held| held == permission)
-            {
+            if principal.audience != ADMIN_AUDIENCE || !principal.has_permission(permission) {
                 return auth_error(StatusCode::FORBIDDEN);
             }
             Some(principal)
@@ -489,6 +665,115 @@ async fn get_revenue(State(state): State<AppState>) -> Result<Json<serde_json::V
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
+fn parse_audit_query(raw_query: Option<&str>) -> Result<AuditListQuery, ()> {
+    let mut parsed = AuditListQuery::default();
+    let mut category_seen = false;
+    let mut cursor_seen = false;
+    let mut url = reqwest::Url::parse("http://analytics.invalid/")
+        .expect("the fixed audit query base URL is valid");
+    url.set_query(raw_query.filter(|query| !query.is_empty()));
+
+    for (key, value) in url.query_pairs() {
+        match key.as_ref() {
+            "category" => {
+                if category_seen {
+                    return Err(());
+                }
+                category_seen = true;
+                if !audit_category_is_valid(&value) {
+                    return Err(());
+                }
+                parsed.category = Some(value.into_owned());
+            }
+            "cursor" => {
+                if cursor_seen {
+                    return Err(());
+                }
+                cursor_seen = true;
+                if value.is_empty() || value.len() > MAX_AUDIT_CURSOR_CHARS {
+                    return Err(());
+                }
+                parsed.cursor = Some(decode_audit_cursor(&value)?);
+            }
+            _ => return Err(()),
+        }
+    }
+    if parsed
+        .cursor
+        .as_ref()
+        .is_some_and(|cursor| cursor.category != parsed.category)
+    {
+        return Err(());
+    }
+    Ok(parsed)
+}
+
+fn audit_category_is_valid(category: &str) -> bool {
+    matches!(
+        category,
+        "auth"
+            | "developer"
+            | "notification"
+            | "payment"
+            | "permission"
+            | "plan"
+            | "system"
+            | "wallet"
+    )
+}
+
+fn bounded_control_free(value: &str, max_chars: usize) -> bool {
+    !value.trim().is_empty()
+        && value.chars().count() <= max_chars
+        && !value.chars().any(char::is_control)
+}
+
+fn audit_summary_is_valid(item: &AuditSummary) -> bool {
+    uuid::Uuid::parse_str(&item.id).is_ok()
+        && audit_category_is_valid(&item.category)
+        && bounded_control_free(&item.action, 50)
+        && bounded_control_free(&item.resource_type, 50)
+        && matches!(item.effect.as_str(), "success" | "failure" | "denied")
+}
+
+fn encode_audit_cursor(cursor: &AuditCursor) -> Result<String, AnalyticsStoreError> {
+    let bytes = serde_json::to_vec(cursor).map_err(|_| AnalyticsStoreError)?;
+    Ok(URL_SAFE_NO_PAD.encode(bytes))
+}
+
+fn decode_audit_cursor(value: &str) -> Result<AuditCursor, ()> {
+    let bytes = URL_SAFE_NO_PAD.decode(value).map_err(|_| ())?;
+    let cursor: AuditCursor = serde_json::from_slice(&bytes).map_err(|_| ())?;
+    if cursor
+        .category
+        .as_deref()
+        .is_some_and(|value| !audit_category_is_valid(value))
+    {
+        return Err(());
+    }
+    if encode_audit_cursor(&cursor).map_err(|_| ())? != value {
+        return Err(());
+    }
+    Ok(cursor)
+}
+
+async fn list_audit(State(state): State<AppState>, RawQuery(raw_query): RawQuery) -> Response {
+    let query = match parse_audit_query(raw_query.as_deref()) {
+        Ok(query) => query,
+        Err(()) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "error": "invalid_audit_query" })),
+            )
+                .into_response();
+        }
+    };
+    match state.store.list_audit(&query).await {
+        Ok(list) => Json(list).into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
 async fn not_found() -> StatusCode {
     StatusCode::NOT_FOUND
 }
@@ -541,7 +826,11 @@ mod tests {
                 }
                 "admin" => (ADMIN_AUDIENCE, vec![]),
                 "admin-view" => (ADMIN_AUDIENCE, vec![ANALYTICS_VIEW_PERMISSION.into()]),
-                "admin-wildcard" => (ADMIN_AUDIENCE, vec!["admin:analytics:*".into()]),
+                "admin-audit" => (ADMIN_AUDIENCE, vec![AUDIT_READ_PERMISSION.into()]),
+                "admin-analytics-wildcard" => (ADMIN_AUDIENCE, vec!["admin:analytics:*".into()]),
+                "admin-audit-wildcard" => (ADMIN_AUDIENCE, vec!["admin:audit:*".into()]),
+                "admin-global" => (ADMIN_AUDIENCE, vec!["admin:*:*".into()]),
+                "frontend-audit" => (FRONTEND_AUDIENCE, vec![AUDIT_READ_PERMISSION.into()]),
                 "other-audience" => ("epsx-other", vec![]),
                 "wrong-audience" => return Err(VerifyError::Validation),
                 _ => return Err(VerifyError::Validation),
@@ -587,6 +876,18 @@ mod tests {
         async fn revenue(&self) -> Result<serde_json::Value, AnalyticsStoreError> {
             self.hits.fetch_add(1, Ordering::SeqCst);
             Ok(serde_json::json!({ "active_subscriptions": 0 }))
+        }
+
+        async fn list_audit(
+            &self,
+            _query: &AuditListQuery,
+        ) -> Result<AuditList, AnalyticsStoreError> {
+            self.hits.fetch_add(1, Ordering::SeqCst);
+            Ok(AuditList {
+                items: Vec::new(),
+                next_cursor: None,
+                has_more: false,
+            })
         }
     }
 
@@ -692,9 +993,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn admin_reads_require_admin_audience_and_literal_permission() {
+    async fn admin_reads_require_admin_audience_and_canonical_permission() {
         let (app, store) = app();
-        for bearer in ["frontend-with-permission", "admin", "admin-wildcard"] {
+        for bearer in ["frontend-with-permission", "admin"] {
             assert_eq!(
                 status(
                     &app,
@@ -711,12 +1012,100 @@ mod tests {
             "/api/v1/analytics/metrics/page.view",
             "/api/v1/analytics/revenue",
         ] {
+            for bearer in ["admin-view", "admin-analytics-wildcard", "admin-global"] {
+                assert_eq!(
+                    status(&app, request(Method::GET, path, Some(bearer))).await,
+                    StatusCode::OK
+                );
+            }
+        }
+        assert_eq!(store.hits.load(Ordering::SeqCst), 9);
+    }
+
+    #[tokio::test]
+    async fn audit_read_requires_admin_audience_and_canonical_audit_permission() {
+        let (app, store) = app();
+        let path = "/api/v1/analytics/admin/audit-log";
+        for bearer in [
+            "frontend-audit",
+            "admin",
+            "admin-view",
+            "admin-analytics-wildcard",
+        ] {
             assert_eq!(
-                status(&app, request(Method::GET, path, Some("admin-view"))).await,
+                status(&app, request(Method::GET, path, Some(bearer))).await,
+                StatusCode::FORBIDDEN
+            );
+        }
+        assert_eq!(store.hits.load(Ordering::SeqCst), 0);
+        for bearer in ["admin-audit", "admin-audit-wildcard", "admin-global"] {
+            assert_eq!(
+                status(&app, request(Method::GET, path, Some(bearer))).await,
                 StatusCode::OK
             );
         }
         assert_eq!(store.hits.load(Ordering::SeqCst), 3);
+    }
+
+    #[tokio::test]
+    async fn audit_query_rejects_unknown_duplicate_or_malformed_values_before_store() {
+        let (app, store) = app();
+        for query in [
+            "?limit=20",
+            "?category=unknown",
+            "?category=auth&category=system",
+            "?cursor=not-base64url",
+            "?unknown=value",
+        ] {
+            assert_eq!(
+                status(
+                    &app,
+                    request(
+                        Method::GET,
+                        &format!("/api/v1/analytics/admin/audit-log{query}"),
+                        Some("admin-audit"),
+                    ),
+                )
+                .await,
+                StatusCode::BAD_REQUEST,
+                "query {query}"
+            );
+        }
+        assert_eq!(store.hits.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn audit_cursor_is_canonical_and_bound_to_its_category() {
+        let cursor = encode_audit_cursor(&AuditCursor {
+            occurred_at: chrono::DateTime::parse_from_rfc3339("2026-07-22T12:00:00Z")
+                .unwrap()
+                .with_timezone(&chrono::Utc),
+            id: uuid::Uuid::nil(),
+            category: Some("system".to_string()),
+        })
+        .unwrap();
+        assert!(parse_audit_query(Some(&format!("category=system&cursor={cursor}"))).is_ok());
+        assert!(parse_audit_query(Some(&format!("category=auth&cursor={cursor}"))).is_err());
+        assert!(parse_audit_query(Some(&format!("cursor={cursor}"))).is_err());
+    }
+
+    #[test]
+    fn audit_projection_sql_never_selects_sensitive_identity_or_detail_fields() {
+        assert!(AUDIT_LIST_SQL.contains("ORDER BY created_at DESC, id DESC"));
+        for forbidden in [
+            "actor",
+            "resource_id",
+            "ip_address",
+            "user_agent",
+            "before_state",
+            "after_state",
+            "metadata",
+        ] {
+            assert!(
+                !AUDIT_LIST_SQL.contains(forbidden),
+                "audit SELECT leaked {forbidden}"
+            );
+        }
     }
 
     #[tokio::test]

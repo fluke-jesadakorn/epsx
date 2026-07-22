@@ -534,6 +534,7 @@ mod tests {
                 "front" => (epsx_service_auth::FRONTEND_AUDIENCE, vec![]),
                 "admin-no-scope" => (ADMIN_AUDIENCE, vec![]),
                 "admin-users" => (ADMIN_AUDIENCE, vec!["admin:users:read".into()]),
+                "admin-audit" => (ADMIN_AUDIENCE, vec!["admin:audit:read".into()]),
                 "admin-global" => (ADMIN_AUDIENCE, vec!["admin:*:*".into()]),
                 _ => return Err(epsx_service_auth::VerifyError::Validation),
             };
@@ -777,6 +778,27 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn audit_route_requires_admin_audience_and_permission_before_upstream() {
+        let (app, capture, _) = test_app().await;
+        let path = "/api/v1/analytics/admin/audit-log";
+        for (bearer, expected) in [
+            (None, StatusCode::UNAUTHORIZED),
+            (Some("front"), StatusCode::FORBIDDEN),
+            (Some("admin-no-scope"), StatusCode::FORBIDDEN),
+        ] {
+            let mut builder = axum::http::Request::builder().method(Method::GET).uri(path);
+            if let Some(bearer) = bearer {
+                builder = builder.header(header::AUTHORIZATION, format!("Bearer {bearer}"));
+            }
+            assert_eq!(
+                status(&app, builder.body(Body::empty()).unwrap()).await,
+                expected
+            );
+        }
+        assert_eq!(capture.hits.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
     async fn authenticated_and_granular_admin_bearers_forward_unchanged() {
         let (app, capture, _) = test_app().await;
         let cases = [
@@ -786,6 +808,11 @@ mod tests {
                 Method::POST,
                 "/api/v1/notification/send",
                 "Bearer admin-global",
+            ),
+            (
+                Method::GET,
+                "/api/v1/analytics/admin/audit-log",
+                "Bearer admin-audit",
             ),
         ];
         for (method, path, authorization) in cases {
@@ -798,7 +825,7 @@ mod tests {
             assert_eq!(status(&app, request).await, StatusCode::NO_CONTENT);
         }
         let requests = capture.requests.lock().await;
-        assert_eq!(requests.len(), 3);
+        assert_eq!(requests.len(), 4);
         assert_eq!(requests[0].headers[header::AUTHORIZATION], "Bearer front");
         assert_eq!(
             requests[1].headers[header::AUTHORIZATION],
@@ -807,6 +834,10 @@ mod tests {
         assert_eq!(
             requests[2].headers[header::AUTHORIZATION],
             "Bearer admin-global"
+        );
+        assert_eq!(
+            requests[3].headers[header::AUTHORIZATION],
+            "Bearer admin-audit"
         );
         assert!(requests.iter().all(|request| request.body == b"ok"));
     }
