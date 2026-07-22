@@ -20,6 +20,11 @@
       "caseIds": ["identity-token-contract", "bff-verifier", "frontend-session", "admin-session"]
     },
     {
+      "id": "refresh-client-and-family-binding",
+      "status": "compiled-and-hermetic-proof-database-unproved",
+      "caseIds": ["identity-token-contract", "bff-cookie-contract", "frontend-session", "admin-session", "backend-auth-handlers"]
+    },
+    {
       "id": "jwks-issuer-validity",
       "status": "hermetic-proof",
       "caseIds": ["identity-jwks-contract", "bff-verifier"]
@@ -52,7 +57,7 @@
   ],
   "blockedClaims": [
     "real wallet signature and nonce consumption",
-    "durable refresh-token rotation, original-client binding, cross-client denial, old-token rejection, and logout revocation against PostgreSQL",
+    "durable refresh-token client/family binding, cross-client non-consumption, family-lock concurrency, old-token rejection, and logout revocation against PostgreSQL",
     "production issuer, JWKS transport, cookies, routing, and browser behavior",
     "full SIWE to SSR /me to refresh to logout end-to-end flow"
   ],
@@ -60,10 +65,12 @@
     {
       "id": "identity-token-contract",
       "kind": "cargo-test",
-      "expectedTests": 11,
+      "expectedTests": 13,
       "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-identity-shared", "token_service::tests", "--no-fail-fast"],
       "evidence": [
         {"file": "shared/rust/epsx-identity-shared/src/token_service.rs", "anchor": "fn access_token_claims_are_bound_to_one_client_audience()"},
+        {"file": "shared/rust/epsx-identity-shared/src/token_service.rs", "anchor": "fn refresh_clients_accept_only_exact_frontend_and_admin_values()"},
+        {"file": "shared/rust/epsx-identity-shared/src/token_service.rs", "anchor": "fn refresh_client_matching_fails_closed_for_cross_client_and_legacy_rows()"},
         {"file": "shared/rust/epsx-identity-shared/src/token_service.rs", "anchor": "fn access_token_validation_rejects_wrong_audience()"},
         {"file": "shared/rust/epsx-identity-shared/src/token_service.rs", "anchor": "fn access_token_validation_rejects_wrong_issuer()"}
       ]
@@ -92,10 +99,11 @@
     {
       "id": "bff-cookie-contract",
       "kind": "cargo-test",
-      "expectedTests": 6,
+      "expectedTests": 7,
       "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-bff", "cookies::tests", "--no-fail-fast"],
       "evidence": [
         {"file": "shared/rust/bff/src/cookies.rs", "anchor": "fn production_cookies_are_host_only_secure_and_http_only()"},
+        {"file": "shared/rust/bff/src/cookies.rs", "anchor": "fn local_frontend_and_admin_cookie_names_do_not_collide()"},
         {"file": "shared/rust/bff/src/cookies.rs", "anchor": "fn clearing_removes_canonical_pair_and_legacy_cookie()"}
       ]
     },
@@ -184,11 +192,13 @@
     {
       "id": "backend-auth-handlers",
       "kind": "cargo-test",
-      "expectedTests": 8,
+      "expectedTests": 10,
       "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx", "--lib", "web::auth::handlers::tests", "--no-fail-fast"],
       "evidence": [
         {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": ".revoke_refresh_token(refresh_token)"},
         {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": "fn logout_accepts_each_canonical_refresh_cookie()"},
+        {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": "fn refresh_request_requires_an_explicit_supported_client()"},
+        {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": "fn refresh_responses_are_never_cacheable()"},
         {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": "fn logout_success_is_generic_and_never_contains_token_material()"}
       ]
     },

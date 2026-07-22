@@ -75,7 +75,7 @@ if (manifest.schemaVersion !== 1 || manifest.gateId !== "A1.4-hermetic-auth-sess
 if (manifest.mode !== "local-hermetic-only" || manifest.productionReady !== false) fail("gate must remain local-only and non-production");
 if (manifest.liveWalletFlowProven !== false || manifest.durableRefreshStoreProven !== false) fail("live and durable claims must remain false");
 if (!Array.isArray(manifest.blockedClaims) || manifest.blockedClaims.length < 4) fail("blockedClaims must preserve live-flow limits");
-if (!Array.isArray(manifest.capabilities) || manifest.capabilities.length !== 7) fail("seven capability records are required");
+if (!Array.isArray(manifest.capabilities) || manifest.capabilities.length !== 8) fail("eight capability records are required");
 if (!Array.isArray(manifest.cases) || manifest.cases.length !== 15) fail("fifteen fixed cases are required");
 
 const ids = new Set();
@@ -103,7 +103,7 @@ for (const item of manifest.cases) {
     evidenceTotal += 1;
   }
 }
-if (expectedTotal !== 77) fail(`expected focused test total changed: ${expectedTotal}`);
+if (expectedTotal !== 82) fail(`expected focused test total changed: ${expectedTotal}`);
 for (const capability of manifest.capabilities) {
   if (!Array.isArray(capability.caseIds) || capability.caseIds.length === 0) fail(`${capability.id}: caseIds are required`);
   for (const id of capability.caseIds) if (!ids.has(id)) fail(`${capability.id}: unknown case ${id}`);
@@ -161,10 +161,10 @@ run_check() {
   printf '%s\t%s\t0\t0\t%s\n' "$id" "$status" "$command_text" >> "$RESULTS"
 }
 
-run_test identity-token-contract 11 cargo test --offline --locked -p epsx-identity-shared token_service::tests --no-fail-fast
+run_test identity-token-contract 13 cargo test --offline --locked -p epsx-identity-shared token_service::tests --no-fail-fast
 run_test identity-jwks-contract 6 cargo test --offline --locked -p epsx-identity-shared key_manager::tests --no-fail-fast
 run_test bff-verifier 11 cargo test --offline --locked -p epsx-bff session::tests --no-fail-fast
-run_test bff-cookie-contract 6 cargo test --offline --locked -p epsx-bff cookies::tests --no-fail-fast
+run_test bff-cookie-contract 7 cargo test --offline --locked -p epsx-bff cookies::tests --no-fail-fast
 run_test bff-browser-bridge 3 cargo test --offline --locked -p epsx-bff browser_auth::tests --no-fail-fast
 run_test frontend-session 11 cargo test --offline --locked -p epsx-frontend api::auth_session_tests --no-fail-fast
 run_test frontend-cookie-reader 3 cargo test --offline --locked -p epsx-frontend auth::tests --no-fail-fast
@@ -173,7 +173,7 @@ run_test frontend-safe-return 1 cargo test --offline --locked -p epsx-frontend s
 run_test admin-session 12 cargo test --offline --locked -p epsx-admin session_auth_tests --no-fail-fast
 run_test admin-cookie-reader 3 cargo test --offline --locked -p epsx-admin auth::tests --no-fail-fast
 run_test admin-production-config 1 cargo test --offline --locked -p epsx-admin configuration_tests::production_requires_https_non_local_auth_urls --no-fail-fast
-run_test backend-auth-handlers 8 cargo test --offline --locked -p epsx --lib web::auth::handlers::tests --no-fail-fast
+run_test backend-auth-handlers 10 cargo test --offline --locked -p epsx --lib web::auth::handlers::tests --no-fail-fast
 run_check route-inventory ./scripts/migration/verify-route-inventory.sh
 run_check api-contract-fixtures ./scripts/migration/verify-contract-fixtures.sh
 
@@ -192,6 +192,8 @@ const cases = manifest.cases.map((item) => {
   if (!result) throw new Error(`missing result for ${item.id}`);
   const expectedCommand = item.command.join(" ");
   if (result.command !== expectedCommand) throw new Error(`executed command drift for ${item.id}: ${result.command}`);
+  if (result.expectedTests !== item.expectedTests) throw new Error(`expected-test drift for ${item.id}: manifest ${item.expectedTests}, runner ${result.expectedTests}`);
+  if (item.kind === "cargo-test" && result.passedTests !== item.expectedTests) throw new Error(`per-case test mismatch for ${item.id}: expected ${item.expectedTests}, passed ${result.passedTests}`);
   return { id: item.id, kind: item.kind, status: result.status, expectedTests: item.expectedTests, passedTests: result.passedTests, command: item.command };
 });
 const report = {
@@ -201,7 +203,7 @@ const report = {
   productionReady: false,
   liveWalletFlowProven: false,
   durableRefreshStoreProven: false,
-  focusedTests: { expected: 77, passed: Number(passedTests) },
+  focusedTests: { expected: 82, passed: Number(passedTests) },
   fixtureChecks: { expected: 2, passed: cases.filter((item) => item.kind === "fixture-check" && item.status === "pass").length },
   blockedClaims: manifest.blockedClaims,
   cases
@@ -210,9 +212,9 @@ writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
 ' -- "$MANIFEST" "$RESULTS" "$REPORT" "$OVERALL" "$PASSED_TESTS" || die "could not write deterministic report"
 
 echo "auth-session-gate: report $REPORT"
-if [[ "$OVERALL" != "pass" || "$PASSED_TESTS" != "77" ]]; then
-  die "STOP — hermetic auth-session gate failed ($PASSED_TESTS/77 focused tests)"
+if [[ "$OVERALL" != "pass" || "$PASSED_TESTS" != "82" ]]; then
+  die "STOP — hermetic auth-session gate failed ($PASSED_TESTS/82 focused tests)"
 fi
 
-echo "auth-session-gate: PASS — 77/77 focused tests and 2/2 fixture checks"
+echo "auth-session-gate: PASS — 82/82 focused tests and 2/2 fixture checks"
 echo "auth-session-gate: LIMIT — live wallet, durable refresh store, and production flow remain unproven"

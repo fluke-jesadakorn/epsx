@@ -152,11 +152,27 @@ migrated merely because a binary and route table exist.
 - Both BFFs use the shared host-only HttpOnly access/refresh cookie pair, rotate
   it from the refresh cookie only, return token-free browser JSON, and always
   clear local state on logout. Logout is wired to monolith refresh revocation.
-- The durable refresh-token row is not yet bound to its original client, while
-  the refresh handler accepts a caller-selected valid client. Exact-audience
-  lifecycle remains STOP until an additive client binding is stored and checked
-  atomically during rotation, legacy unbound rows fail closed under an explicit
-  cutover policy, and cross-client/concurrent/reuse behavior is database-tested.
+- The canonical refresh implementation now writes one exact frontend/admin
+  client, preflights profile/permission reads and JWT signing, conditionally
+  matches token, wallet, client, active state, and expiry before mutation,
+  persists the exact pre-signed successor, preserves original auth time, and
+  requires the HTTP client explicitly. Every new login receives a family ID;
+  rotation/logout share its transaction-scoped advisory lock; and logout
+  revokes only that lineage. Legacy `NULL` client/family rows are never guessed or
+  first-caller claimed and therefore force reauthentication. The
+  additive expansion remains nullable for rolling compatibility; the later
+  active-NULL revocation/enforcement step is not authored into the runnable
+  chain until old writers are proven gone.
+- Frontend and admin BFFs use distinct local cookie names because localhost
+  ports do not isolate cookies. Ambiguous legacy local names are clearing-only;
+  tracked runtime fixtures use the scoped names; only upstream `401` clears a
+  refresh session; and production `__Host-` names remain host-bound.
+- Exact-audience lifecycle remains STOP because the duplicate core baseline
+  version blocks safe root execution and no disposable PostgreSQL proof covers
+  migration application, cross-client non-consumption, concurrent rotation,
+  rollback, restart persistence, family-lock ordering, or legacy cutover. Raw
+  tokens, consumed-versus-revoked state, and automatic descendant revocation on
+  replay also remain open.
 - A1.4 provides hermetic mock-backed proof for these contracts, but no real
   wallet/nonces or disposable-database test yet proves old-token rejection and
   durable revocation across the complete flow.
@@ -285,7 +301,7 @@ passed`. It is not a percentage estimate of engineering effort.
 | Shared UI package baseline | 2 | Targeted unit/doctest repair in this slice | `cargo test -p epsx-dioxus-ui --lib` and `--doc` pass. |
 | Visual/responsive/accessibility | 1 | Historical screenshots exist; current accepted baseline is incomplete | All routes pass agreed viewport, state, keyboard, and accessibility thresholds. |
 | Interaction parity | 0 | No complete click/form/wallet/navigation matrix | Every interactive control has E2E success and failure coverage. |
-| Auth/session parity | 1 | A1.4 hermetic gate covers 77 focused tests across both BFFs; original-client refresh binding, durable database-backed rotation/revocation, and a real wallet flow remain unproven | SIWE -> SSR me -> client-bound rotation -> revocation works across both BFFs. |
+| Auth/session parity | 1 | A1.4 hermetic gate covers 82 focused tests across both BFFs and compiles original-client/family binding plus local-cookie isolation; durable PostgreSQL family-lock rotation/revocation, legacy cutover, replay response, and a real wallet flow remain unproven | SIWE -> SSR me -> client-bound rotation -> revocation works across both BFFs. |
 | Backend authorization | 1 | Gateway is fail-closed with exact RS256/JWKS and granular edge policy; the 119-route service matrix is 11 aligned, 48 partial, and 60 blocked | Anonymous/cross-owner calls fail at both gateway and service boundaries; granular backend permissions pass. |
 | Live data parity | 0 | The notification owner page, global redacted admin notification inventory, and focused news routes have sample-free explicit dependency outcomes, and notifications adds a statically verified authenticated read-only shared-header count; browser/live database proof is absent, 17 frontend routes remain blocked, other frontend mocks remain, and most admin routes still lack authoritative page data | Sample payloads removed and real empty/error states proven. |
 | Checkout/on-chain parity | 0 | Route mismatch and DB-only escrow transitions | Verified receipts and contract transactions drive state. |
@@ -387,13 +403,23 @@ bounded path set. Shared contract files require coordination through package A0.
   rotation, old-token rejection, logout revocation, secure cookie attributes,
   and access-token rejection when a refresh token is supplied.
 
-- **A1.4 status:** the local hermetic gate passes only when its 77 focused tests
+- **A1.4 status:** the local hermetic gate passes only when its 82 focused tests
   and both baseline fixture checks pass. It proves BFF audience/verifier,
   token-redaction, cookie, local rotation/clearing, proxy rejection, and safe
   return-target contracts. It deliberately does not satisfy the full A1
   acceptance condition: real wallet signing, nonce consumption, durable
   database-backed old-token rejection/revocation, and production-shaped browser
   behavior remain blocked. See `docs/migration/A1_4_AUTH_SESSION_GATE.md`.
+
+- **A1.5 status:** `scripts/migration/verify-refresh-client-binding.sh` pins the
+  additive forward-only expansion, both Diesel schemas, canonical shared
+  runtime, required-client HTTP boundary, fixed BFF clients, non-cacheable
+  responses, sign-before-consume ordering, family-serialized rotation/logout,
+  401-only session clearing, and client-specific localhost cookies/fixtures.
+  Evidence mode is static and hermetic; readiness mode intentionally exits `3`.
+  The dormant identity
+  service remains `404`, the active core migration-version collision remains a
+  STOP, and no database or deployment action is authorized.
 
 ### A2 — Fail-closed service authorization (P0)
 

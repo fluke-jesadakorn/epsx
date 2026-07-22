@@ -92,6 +92,14 @@ const server = createServer((request, response) => {
     response.end();
     return;
   }
+  if (
+    request.method === 'GET' &&
+    request.url === '/api/v1/notification/unread-count'
+  ) {
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ count: 0 }));
+    return;
+  }
   response.writeHead(404, { 'content-type': 'application/json' });
   response.end(JSON.stringify({ error: 'not_found' }));
 });

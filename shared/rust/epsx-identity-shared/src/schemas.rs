@@ -15,6 +15,9 @@ pub mod primary {
             token_id -> Varchar,
             #[max_length = 42]
             wallet_address -> Varchar,
+            #[max_length = 32]
+            client_id -> Nullable<Varchar>,
+            family_id -> Nullable<Uuid>,
             expires_at -> Timestamptz,
             created_at -> Timestamptz,
             is_revoked -> Bool,

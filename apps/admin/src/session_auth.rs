@@ -2,12 +2,12 @@
 
 use axum::{
     extract::State,
-    http::StatusCode,
+    http::{header, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
 use epsx_bff::{
-    cookies::{append_clear_session_cookies, append_session_cookies},
+    cookies::{append_clear_session_cookies, append_session_cookies, CookieClient},
     session::{
         AuthExchange, ChallengeRequest, ChallengeResponse, LogoutRequest, ProfileResponse,
         RefreshRequest, RefreshResponse, SessionUser, VerifyRequest, VerifyResponse,
@@ -89,9 +89,11 @@ async fn establish_session(
         ..claims_user
     };
     let mut response = Json(exchange.browser).into_response();
+    mark_session_no_store(&mut response);
     if let Err(error) = append_session_cookies(
         response.headers_mut(),
         state.cookie_environment,
+        CookieClient::Admin,
         exchange.tokens.access_token(),
         Some(exchange.tokens.refresh_token()),
         exchange.tokens.access_expires_in(),
@@ -190,7 +192,7 @@ pub async fn refresh_token(
             return safe_error(StatusCode::BAD_GATEWAY, "auth_upstream_unavailable");
         }
     };
-    if response.status().is_client_error() {
+    if response.status() == StatusCode::UNAUTHORIZED {
         return clear_session_response(&state, StatusCode::UNAUTHORIZED, "refresh_rejected");
     }
     if !response.status().is_success() {
@@ -248,7 +250,14 @@ pub async fn logout(State(state): State<AppState>, headers: axum::http::HeaderMa
         })),
     )
         .into_response();
-    if append_clear_session_cookies(response.headers_mut(), state.cookie_environment).is_err() {
+    mark_session_no_store(&mut response);
+    if append_clear_session_cookies(
+        response.headers_mut(),
+        state.cookie_environment,
+        CookieClient::Admin,
+    )
+    .is_err()
+    {
         return safe_error(StatusCode::INTERNAL_SERVER_ERROR, "session_cookie_error");
     }
     response
@@ -300,7 +309,9 @@ pub async fn auth_me(State(state): State<AppState>, headers: axum::http::HeaderM
             "inconsistent_profile_identity",
         );
     }
-    Json(profile).into_response()
+    let mut response = Json(profile).into_response();
+    mark_session_no_store(&mut response);
+    response
 }
 
 fn auth_url(state: &AppState, path: &str) -> String {
@@ -317,11 +328,20 @@ fn session_identity_matches(response: &SessionUser, claims: &SessionUser) -> boo
 }
 
 fn safe_error(status: StatusCode, code: &'static str) -> Response {
-    (
+    let mut response = (
         status,
         Json(serde_json::json!({ "success": false, "error": code })),
     )
-        .into_response()
+        .into_response();
+    mark_session_no_store(&mut response);
+    response
+}
+
+fn mark_session_no_store(response: &mut Response) {
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
 }
 
 fn session_establishment_error(
@@ -342,7 +362,13 @@ pub(crate) fn clear_session_response(
     code: &'static str,
 ) -> Response {
     let mut response = safe_error(status, code);
-    if append_clear_session_cookies(response.headers_mut(), state.cookie_environment).is_err() {
+    if append_clear_session_cookies(
+        response.headers_mut(),
+        state.cookie_environment,
+        CookieClient::Admin,
+    )
+    .is_err()
+    {
         return safe_error(StatusCode::INTERNAL_SERVER_ERROR, "session_cookie_error");
     }
     response

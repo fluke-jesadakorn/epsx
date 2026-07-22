@@ -9,9 +9,19 @@ use thiserror::Error;
 
 pub const PRODUCTION_ACCESS_COOKIE: &str = "__Host-epsx.access_token";
 pub const PRODUCTION_REFRESH_COOKIE: &str = "__Host-epsx.refresh_token";
-pub const LOCAL_ACCESS_COOKIE: &str = "epsx.access_token";
-pub const LOCAL_REFRESH_COOKIE: &str = "epsx.refresh_token";
+pub const LOCAL_ACCESS_COOKIE: &str = "epsx.frontend.access_token";
+pub const LOCAL_REFRESH_COOKIE: &str = "epsx.frontend.refresh_token";
+pub const LOCAL_ADMIN_ACCESS_COOKIE: &str = "epsx.admin.access_token";
+pub const LOCAL_ADMIN_REFRESH_COOKIE: &str = "epsx.admin.refresh_token";
+pub const LEGACY_LOCAL_ACCESS_COOKIE: &str = "epsx.access_token";
+pub const LEGACY_LOCAL_REFRESH_COOKIE: &str = "epsx.refresh_token";
 pub const LEGACY_ACCESS_COOKIE: &str = "epsx_token";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CookieClient {
+    Frontend,
+    Admin,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CookieEnvironment {
@@ -49,17 +59,19 @@ impl CookieEnvironment {
         }
     }
 
-    pub const fn access_name(self) -> &'static str {
-        match self {
-            Self::Production => PRODUCTION_ACCESS_COOKIE,
-            Self::Local => LOCAL_ACCESS_COOKIE,
+    pub const fn access_name(self, client: CookieClient) -> &'static str {
+        match (self, client) {
+            (Self::Production, _) => PRODUCTION_ACCESS_COOKIE,
+            (Self::Local, CookieClient::Frontend) => LOCAL_ACCESS_COOKIE,
+            (Self::Local, CookieClient::Admin) => LOCAL_ADMIN_ACCESS_COOKIE,
         }
     }
 
-    pub const fn refresh_name(self) -> &'static str {
-        match self {
-            Self::Production => PRODUCTION_REFRESH_COOKIE,
-            Self::Local => LOCAL_REFRESH_COOKIE,
+    pub const fn refresh_name(self, client: CookieClient) -> &'static str {
+        match (self, client) {
+            (Self::Production, _) => PRODUCTION_REFRESH_COOKIE,
+            (Self::Local, CookieClient::Frontend) => LOCAL_REFRESH_COOKIE,
+            (Self::Local, CookieClient::Admin) => LOCAL_ADMIN_REFRESH_COOKIE,
         }
     }
 
@@ -119,6 +131,7 @@ fn build_clear_cookie(
 pub fn append_session_cookies(
     headers: &mut HeaderMap,
     environment: CookieEnvironment,
+    client: CookieClient,
     access_token: &str,
     refresh_token: Option<&str>,
     access_max_age_seconds: u64,
@@ -126,7 +139,7 @@ pub fn append_session_cookies(
 ) -> Result<(), CookieError> {
     let access = build_session_cookie(
         environment,
-        environment.access_name(),
+        environment.access_name(client),
         access_token,
         access_max_age_seconds,
     )?;
@@ -134,7 +147,7 @@ pub fn append_session_cookies(
         let refresh_ttl = refresh_max_age_seconds.ok_or(CookieError::InvalidLifetime)?;
         Some(build_session_cookie(
             environment,
-            environment.refresh_name(),
+            environment.refresh_name(client),
             refresh_token,
             refresh_ttl,
         )?)
@@ -148,6 +161,13 @@ pub fn append_session_cookies(
     if let Some(refresh) = refresh {
         headers.append(header::SET_COOKIE, refresh);
     }
+    for name in [
+        LEGACY_LOCAL_ACCESS_COOKIE,
+        LEGACY_LOCAL_REFRESH_COOKIE,
+        LEGACY_ACCESS_COOKIE,
+    ] {
+        headers.append(header::SET_COOKIE, build_clear_cookie(environment, name)?);
+    }
 
     Ok(())
 }
@@ -158,10 +178,13 @@ pub fn append_session_cookies(
 pub fn append_clear_session_cookies(
     headers: &mut HeaderMap,
     environment: CookieEnvironment,
+    client: CookieClient,
 ) -> Result<(), CookieError> {
     for name in [
-        environment.access_name(),
-        environment.refresh_name(),
+        environment.access_name(client),
+        environment.refresh_name(client),
+        LEGACY_LOCAL_ACCESS_COOKIE,
+        LEGACY_LOCAL_REFRESH_COOKIE,
         LEGACY_ACCESS_COOKIE,
     ] {
         headers.append(header::SET_COOKIE, build_clear_cookie(environment, name)?);
@@ -169,13 +192,21 @@ pub fn append_clear_session_cookies(
     Ok(())
 }
 
-pub fn read_access_token(headers: &HeaderMap, environment: CookieEnvironment) -> Option<String> {
-    read_cookie(headers, environment.access_name())
+pub fn read_access_token(
+    headers: &HeaderMap,
+    environment: CookieEnvironment,
+    client: CookieClient,
+) -> Option<String> {
+    read_cookie(headers, environment.access_name(client))
         .or_else(|| read_cookie(headers, LEGACY_ACCESS_COOKIE))
 }
 
-pub fn read_refresh_token(headers: &HeaderMap, environment: CookieEnvironment) -> Option<String> {
-    read_cookie(headers, environment.refresh_name())
+pub fn read_refresh_token(
+    headers: &HeaderMap,
+    environment: CookieEnvironment,
+    client: CookieClient,
+) -> Option<String> {
+    read_cookie(headers, environment.refresh_name(client))
 }
 
 pub fn read_cookie(headers: &HeaderMap, name: &str) -> Option<String> {
@@ -240,7 +271,7 @@ mod tests {
         .unwrap();
         let text = as_text(&value);
 
-        assert!(text.starts_with("epsx.refresh_token=opaque-token;"));
+        assert!(text.starts_with("epsx.frontend.refresh_token=opaque-token;"));
         assert!(!text.contains("Secure"));
         assert!(!text.contains("Domain="));
     }
@@ -250,10 +281,11 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert(
             header::COOKIE,
-            HeaderValue::from_static("epsx_token=legacy; epsx.access_token=canonical"),
+            HeaderValue::from_static("epsx_token=legacy; epsx.frontend.access_token=canonical"),
         );
         assert_eq!(
-            read_access_token(&headers, CookieEnvironment::Local).as_deref(),
+            read_access_token(&headers, CookieEnvironment::Local, CookieClient::Frontend,)
+                .as_deref(),
             Some("canonical")
         );
 
@@ -262,22 +294,86 @@ mod tests {
             HeaderValue::from_static("epsx_token=legacy"),
         );
         assert_eq!(
-            read_access_token(&headers, CookieEnvironment::Local).as_deref(),
+            read_access_token(&headers, CookieEnvironment::Local, CookieClient::Frontend,)
+                .as_deref(),
             Some("legacy")
         );
     }
 
     #[test]
+    fn local_frontend_and_admin_cookie_names_do_not_collide() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::COOKIE,
+            HeaderValue::from_static(
+                "epsx.frontend.refresh_token=frontend; epsx.admin.refresh_token=admin; epsx.refresh_token=ambiguous",
+            ),
+        );
+
+        assert_eq!(
+            read_refresh_token(&headers, CookieEnvironment::Local, CookieClient::Frontend,)
+                .as_deref(),
+            Some("frontend")
+        );
+        assert_eq!(
+            read_refresh_token(&headers, CookieEnvironment::Local, CookieClient::Admin).as_deref(),
+            Some("admin")
+        );
+        assert_ne!(
+            CookieEnvironment::Local.access_name(CookieClient::Frontend),
+            CookieEnvironment::Local.access_name(CookieClient::Admin)
+        );
+        assert_ne!(
+            CookieEnvironment::Local.refresh_name(CookieClient::Frontend),
+            CookieEnvironment::Local.refresh_name(CookieClient::Admin)
+        );
+
+        let mut response_headers = HeaderMap::new();
+        append_session_cookies(
+            &mut response_headers,
+            CookieEnvironment::Local,
+            CookieClient::Frontend,
+            "access",
+            Some("refresh"),
+            60,
+            Some(120),
+        )
+        .unwrap();
+        let set_cookies = response_headers
+            .get_all(header::SET_COOKIE)
+            .iter()
+            .map(as_text)
+            .collect::<Vec<_>>();
+        assert_eq!(set_cookies.len(), 5);
+        for legacy in [
+            LEGACY_LOCAL_ACCESS_COOKIE,
+            LEGACY_LOCAL_REFRESH_COOKIE,
+            LEGACY_ACCESS_COOKIE,
+        ] {
+            let clear = set_cookies
+                .iter()
+                .find(|value| value.starts_with(&format!("{legacy}=")))
+                .unwrap();
+            assert!(clear.contains("Max-Age=0"));
+        }
+    }
+
+    #[test]
     fn clearing_removes_canonical_pair_and_legacy_cookie() {
         let mut headers = HeaderMap::new();
-        append_clear_session_cookies(&mut headers, CookieEnvironment::Production).unwrap();
+        append_clear_session_cookies(
+            &mut headers,
+            CookieEnvironment::Production,
+            CookieClient::Frontend,
+        )
+        .unwrap();
         let values = headers
             .get_all(header::SET_COOKIE)
             .iter()
             .map(as_text)
             .collect::<Vec<_>>();
 
-        assert_eq!(values.len(), 3);
+        assert_eq!(values.len(), 5);
         assert!(values
             .iter()
             .any(|value| value.starts_with("__Host-epsx.access_token=")));
@@ -285,6 +381,12 @@ mod tests {
             .iter()
             .any(|value| value.starts_with("__Host-epsx.refresh_token=")));
         assert!(values.iter().any(|value| value.starts_with("epsx_token=")));
+        assert!(values
+            .iter()
+            .any(|value| value.starts_with("epsx.access_token=")));
+        assert!(values
+            .iter()
+            .any(|value| value.starts_with("epsx.refresh_token=")));
         assert!(values.iter().all(|value| value.contains("Max-Age=0")));
         assert!(values.iter().all(|value| value.contains("Secure")));
     }
@@ -306,6 +408,7 @@ mod tests {
             append_session_cookies(
                 &mut headers,
                 CookieEnvironment::Local,
+                CookieClient::Frontend,
                 "access",
                 Some("refresh"),
                 60,

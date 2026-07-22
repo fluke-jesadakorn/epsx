@@ -54,7 +54,7 @@ test.describe('A7 /about pinned-source runtime proof', () => {
   test.beforeEach(async ({ context }) => {
     await context.addCookies([
       {
-        name: 'epsx.access_token',
+        name: 'epsx.frontend.access_token',
         value: accessToken!,
         url: 'http://localhost:3000',
         httpOnly: true,

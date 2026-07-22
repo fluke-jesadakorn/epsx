@@ -35,8 +35,11 @@
       "path": "apps/backend/migrations/core",
       "kind": "active-diesel",
       "runner": "apps/backend/diesel.toml",
-      "observed": {"status": "partial", "summary": "Active root exists, but contains a duplicate baseline version and destructive forward migrations."},
-      "evidence": [{"ref": "worktree", "file": "apps/backend/diesel.toml", "anchor": "dir = \"migrations/core/\""}]
+      "observed": {"status": "partial", "summary": "Active root exists and now contains an additive refresh-client/family expansion, but the root still has a duplicate baseline version and destructive historical forward migrations; the new migration is not authorized to run."},
+      "evidence": [
+        {"ref": "worktree", "file": "apps/backend/diesel.toml", "anchor": "dir = \"migrations/core/\""},
+        {"ref": "worktree", "file": "apps/backend/migrations/core/20260723000000_bind_refresh_tokens_to_client/up.sql", "anchor": "ADD COLUMN IF NOT EXISTS client_id VARCHAR(32)"}
+      ]
     },
     {
       "id": "root.analytics",
@@ -445,9 +448,9 @@
     }
   ],
   "staticScan": {
-    "migrationSql": {"trackedFiles": 175, "findings": 511, "sha256": "cda0fbb7411db38cc02a4c4d7ec97d26b15aaff5a5faa9281ff96e3e763e9132"},
-    "runtimeRustDdl": {"trackedFiles": 1124, "findings": 9, "sha256": "b1a76db8d3cc8e21cb10fa56b76375ae87caa7411c91661ccdcedaeaee8db55f"},
-    "sourceDiff": {"changedPaths": 17, "sha256": "3d9103f3c8f8f66f3726d9167177bed80ffaed921d34fc439ec67f28cbd0fab6"},
+    "migrationSql": {"trackedFiles": 178, "findings": 511, "sha256": "cda0fbb7411db38cc02a4c4d7ec97d26b15aaff5a5faa9281ff96e3e763e9132"},
+    "runtimeRustDdl": {"trackedFiles": 1143, "findings": 9, "sha256": "b1a76db8d3cc8e21cb10fa56b76375ae87caa7411c91661ccdcedaeaee8db55f"},
+    "sourceDiff": {"changedPaths": 19, "sha256": "220e090b3dd4f78b63de7c10f7d98e224b2c2c71d86356830480584062a7ebc4"},
     "reviewedExceptions": [
       {"id": "exception.runtime-test-sql-injection", "scope": "runtimeRustDdl", "file": "apps/backend/__test__/web3/web3_security_tests.rs", "anchor": "DROP TABLE wallet_permissions", "reason": "Test-only malicious input literal; it is not executed as schema DDL."},
       {"id": "exception.runtime-wave11-smoke-schema", "scope": "runtimeRustDdl", "file": "apps/backend/tests/wave11_smoke.rs", "anchor": "CREATE SCHEMA IF NOT EXISTS payments", "reason": "Test assertion fixture for migration text, not runtime application DDL."},

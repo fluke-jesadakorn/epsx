@@ -5,7 +5,7 @@
 
 use axum::http::HeaderMap;
 use epsx_bff::{
-    cookies::{read_access_token, read_refresh_token, CookieEnvironment},
+    cookies::{read_access_token, read_refresh_token, CookieClient, CookieEnvironment},
     session::{JwksVerifier, SessionUser},
 };
 use epsx_dioxus_ui::auth::{user::AuthMethod, User};
@@ -21,11 +21,11 @@ pub fn access_token(headers: &HeaderMap, environment: CookieEnvironment) -> Opti
         .map(str::trim)
         .filter(|token| !token.is_empty())
         .map(str::to_string)
-        .or_else(|| read_access_token(headers, environment))
+        .or_else(|| read_access_token(headers, environment, CookieClient::Frontend))
 }
 
 pub fn refresh_token(headers: &HeaderMap, environment: CookieEnvironment) -> Option<String> {
-    read_refresh_token(headers, environment)
+    read_refresh_token(headers, environment, CookieClient::Frontend)
 }
 
 /// Resolve and cryptographically verify the browser access token before it is
@@ -86,7 +86,7 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert(
             header::COOKIE,
-            HeaderValue::from_static("epsx_token=legacy; epsx.access_token=canonical"),
+            HeaderValue::from_static("epsx_token=legacy; epsx.frontend.access_token=canonical"),
         );
         assert_eq!(
             access_token(&headers, CookieEnvironment::Local).as_deref(),
@@ -99,7 +99,7 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert(
             header::COOKIE,
-            HeaderValue::from_static("epsx.refresh_token=opaque-refresh"),
+            HeaderValue::from_static("epsx.frontend.refresh_token=opaque-refresh"),
         );
         assert!(access_token(&headers, CookieEnvironment::Local).is_none());
         assert_eq!(

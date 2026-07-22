@@ -2,8 +2,9 @@
 // Complete Web3 authentication handlers integrating SIWE with plan permissions
 
 use axum::{
-    extract::{Query, State},
+    extract::{rejection::JsonRejection, Query, State},
     http::{header::CACHE_CONTROL, HeaderMap, HeaderValue, StatusCode},
+    response::{IntoResponse, Response},
     Json,
 };
 use chrono::{DateTime, Utc};
@@ -22,6 +23,7 @@ use crate::{
 };
 
 const JWKS_CACHE_CONTROL: &str = "public, max-age=300, must-revalidate";
+const AUTH_SESSION_CACHE_CONTROL: &str = "no-store";
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct ChallengeRequest {
@@ -174,7 +176,10 @@ pub async fn generate_challenge_handler(
     State(app_state): State<AppState>,
     Json(request): Json<ChallengeRequest>,
 ) -> Result<Json<Value>, StatusCode> {
-    info!("Generating Web3 challenge for wallet: {}", request.wallet_address);
+    info!(
+        "Generating Web3 challenge for wallet: {}",
+        request.wallet_address
+    );
 
     // Get Web3 auth service from domain container
     let web3_auth_service = match app_state.domain_container.get_auth_service() {
@@ -185,7 +190,10 @@ pub async fn generate_challenge_handler(
         }
     };
 
-    match web3_auth_service.generate_challenge(&request.wallet_address).await {
+    match web3_auth_service
+        .generate_challenge(&request.wallet_address)
+        .await
+    {
         Ok(challenge) => {
             info!("Generated challenge for wallet: {}", request.wallet_address);
             Ok(Json(json!({
@@ -229,7 +237,10 @@ pub async fn verify_signature_handler(
     headers: HeaderMap,
     Json(request): Json<SignatureVerificationRequest>,
 ) -> Result<Json<Value>, StatusCode> {
-    info!("Verifying Web3 signature for wallet: {}", request.wallet_address);
+    info!(
+        "Verifying Web3 signature for wallet: {}",
+        request.wallet_address
+    );
 
     // Get services from domain container
     let web3_auth_service = match app_state.domain_container.get_auth_service() {
@@ -269,10 +280,16 @@ pub async fn verify_signature_handler(
     {
         Ok(auth_result) => {
             // Signature verification successful - auth_result contains validated data
-            info!("Signature verification successful for wallet: {}", auth_result.wallet_address);
+            info!(
+                "Signature verification successful for wallet: {}",
+                auth_result.wallet_address
+            );
 
             // Authentication successful - permissions handled by Web3PermissionService
-            info!("Authentication successful for wallet: {}", auth_result.wallet_address);
+            info!(
+                "Authentication successful for wallet: {}",
+                auth_result.wallet_address
+            );
 
             // Also process legacy automatic permissions for backward compatibility
             let permissions_granted = match web3_permission_service
@@ -306,9 +323,12 @@ pub async fn verify_signature_handler(
 
             // Log successful login to audit trail
             let ctx = AuditCtx::from_wallet(&auth_result.wallet_address, &headers);
-            app_state.audit.log(ctx, AuditEntry::new("session", "login", "auth")
-                .id(&auth_result.wallet_address)
-                .after(serde_json::json!({ "wallet": auth_result.wallet_address })));
+            app_state.audit.log(
+                ctx,
+                AuditEntry::new("session", "login", "auth")
+                    .id(&auth_result.wallet_address)
+                    .after(serde_json::json!({ "wallet": auth_result.wallet_address })),
+            );
 
             let expires_in =
                 remaining_access_token_seconds(auth_result.token_expires_at, Utc::now());
@@ -327,7 +347,10 @@ pub async fn verify_signature_handler(
             })))
         }
         Err(Web3AuthError::ExpiredNonce(msg)) => {
-            warn!("Web3 challenge error for wallet: {}: {}", request.wallet_address, msg);
+            warn!(
+                "Web3 challenge error for wallet: {}: {}",
+                request.wallet_address, msg
+            );
             Ok(Json(json!({
                 "success": false,
                 "authenticated": false,
@@ -345,7 +368,10 @@ pub async fn verify_signature_handler(
             })))
         }
         Err(Web3AuthError::ChallengeAlreadyUsed(_)) => {
-            warn!("Challenge already used for wallet: {}", request.wallet_address);
+            warn!(
+                "Challenge already used for wallet: {}",
+                request.wallet_address
+            );
             Ok(Json(json!({
                 "success": false,
                 "authenticated": false,
@@ -390,10 +416,13 @@ pub async fn logout_handler(
     );
 
     if let Some(refresh_token) = refresh_token.as_deref() {
-        let token_service = app_state.domain_container.get_token_service().ok_or_else(|| {
-            error!("Token service unavailable while processing logout");
-            StatusCode::SERVICE_UNAVAILABLE
-        })?;
+        let token_service = app_state
+            .domain_container
+            .get_token_service()
+            .ok_or_else(|| {
+                error!("Token service unavailable while processing logout");
+                StatusCode::SERVICE_UNAVAILABLE
+            })?;
 
         // UPDATE affects zero rows for an unknown or already-revoked token. That is deliberately
         // indistinguishable from a newly revoked token so this endpoint cannot become a token oracle.
@@ -425,7 +454,7 @@ pub struct TokenRefreshRequest {
     /// Refresh token
     pub refresh_token: Option<String>,
     /// Client identifier ("epsx-frontend" or "epsx-admin")
-    pub client_id: Option<String>,
+    pub client_id: String,
 }
 
 /// Refresh access token using refresh token
@@ -435,17 +464,24 @@ pub struct TokenRefreshRequest {
     request_body = TokenRefreshRequest,
     responses(
         (status = 200, description = "Token refreshed successfully", body = Value),
+        (status = 400, description = "Malformed request or unsupported client"),
         (status = 401, description = "Invalid refresh token", body = Value),
-        (status = 500, description = "Internal server error")
+        (status = 500, description = "Internal server error"),
+        (status = 503, description = "Refresh dependency unavailable")
     ),
     tag = "auth"
 )]
 pub async fn refresh_token_handler(
     State(app_state): State<AppState>,
     headers: HeaderMap,
-    Json(request): Json<TokenRefreshRequest>,
-) -> Result<Json<Value>, StatusCode> {
+    request: Result<Json<TokenRefreshRequest>, JsonRejection>,
+) -> Response {
     info!("Processing token refresh request");
+
+    let Json(request) = match request {
+        Ok(request) => request,
+        Err(_) => return refresh_status_response(StatusCode::BAD_REQUEST),
+    };
 
     // 1. Try to get token from request body
     let mut refresh_token = request.refresh_token;
@@ -473,7 +509,7 @@ pub async fn refresh_token_handler(
         Some(t) => t,
         None => {
             warn!("No refresh token provided in body or cookies");
-            return Err(StatusCode::UNAUTHORIZED);
+            return refresh_status_response(StatusCode::UNAUTHORIZED);
         }
     };
 
@@ -481,31 +517,63 @@ pub async fn refresh_token_handler(
         Some(service) => service,
         None => {
             error!("Auth service not available");
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+            return refresh_status_response(StatusCode::SERVICE_UNAVAILABLE);
         }
     };
 
-    let client_id = request.client_id.unwrap_or_else(|| "epsx-frontend".to_string());
-    match web3_auth_service.refresh_tokens(&token, &client_id).await {
-        Ok((tokens, wallet_address, permissions)) => {
-            Ok(Json(json!({
-                "success": true,
-                "authenticated": true,
-                "access_token": tokens.access_token,
-                "refresh_token": tokens.refresh_token,
-                "expires_in": tokens.expires_in,
-                "refresh_expires_in": tokens.refresh_expires_in,
-                "user": {
-                    "wallet": wallet_address,
-                    "permissions": permissions
-                }
-            })))
-        },
-        Err(e) => {
-            tracing::warn!("Token refresh failed: {}", e);
-            Err(StatusCode::UNAUTHORIZED)
+    if !matches!(request.client_id.as_str(), "epsx-frontend" | "epsx-admin") {
+        warn!("Unsupported client supplied to token refresh");
+        return refresh_status_response(StatusCode::BAD_REQUEST);
+    }
+
+    match web3_auth_service
+        .refresh_tokens(&token, &request.client_id)
+        .await
+    {
+        Ok((tokens, wallet_address, permissions)) => refresh_json_response(json!({
+            "success": true,
+            "authenticated": true,
+            "access_token": tokens.access_token,
+            "refresh_token": tokens.refresh_token,
+            "expires_in": tokens.expires_in,
+            "refresh_expires_in": tokens.refresh_expires_in,
+            "user": {
+                "wallet": wallet_address,
+                "permissions": permissions
+            }
+        })),
+        Err(Web3AuthError::InvalidClient(_)) => refresh_status_response(StatusCode::BAD_REQUEST),
+        Err(Web3AuthError::InvalidRefreshToken) => {
+            tracing::warn!("Token refresh credential was rejected");
+            refresh_status_response(StatusCode::UNAUTHORIZED)
+        }
+        Err(Web3AuthError::DatabaseError(error) | Web3AuthError::BlockchainError(error)) => {
+            tracing::error!("Token refresh dependency failed: {}", error);
+            refresh_status_response(StatusCode::SERVICE_UNAVAILABLE)
+        }
+        Err(error) => {
+            tracing::error!("Token refresh failed internally: {}", error);
+            refresh_status_response(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
+}
+
+fn refresh_json_response(body: Value) -> Response {
+    let mut response = Json(body).into_response();
+    response.headers_mut().insert(
+        CACHE_CONTROL,
+        HeaderValue::from_static(AUTH_SESSION_CACHE_CONTROL),
+    );
+    response
+}
+
+fn refresh_status_response(status: StatusCode) -> Response {
+    let mut response = status.into_response();
+    response.headers_mut().insert(
+        CACHE_CONTROL,
+        HeaderValue::from_static(AUTH_SESSION_CACHE_CONTROL),
+    );
+    response
 }
 
 /// Get current Web3 session status
@@ -525,13 +593,17 @@ pub async fn get_session_handler(
 ) -> Result<Json<Value>, StatusCode> {
     // Try to get wallet address from middleware context first
     use crate::web::middleware::auth_middleware::get_web3_context;
-    
+
     if let Some(auth_context) = get_web3_context(&request) {
         // Middleware already validated - use context directly
         let wallet_address = &auth_context.wallet_address;
-        info!("Session check via middleware context for wallet: {}", wallet_address);
-        
-        let web3_permission_service = match app_state.domain_container.get_web3_permission_adapter() {
+        info!(
+            "Session check via middleware context for wallet: {}",
+            wallet_address
+        );
+
+        let web3_permission_service = match app_state.domain_container.get_web3_permission_adapter()
+        {
             Some(service) => service,
             None => {
                 error!("Web3 permission service not available");
@@ -559,10 +631,11 @@ pub async fn get_session_handler(
     }
 
     // Fallback: Validate token directly (like SSE handlers do)
-    let auth_header = request.headers()
+    let auth_header = request
+        .headers()
         .get("authorization")
         .and_then(|h| h.to_str().ok());
-    
+
     let token = match auth_header {
         Some(header) if header.starts_with("Bearer ") => &header[7..],
         _ => {
@@ -589,10 +662,14 @@ pub async fn get_session_handler(
     };
 
     let wallet_address = claims.wallet_address.to_lowercase();
-    info!("Session check via direct token validation for wallet: {}", wallet_address);
+    info!(
+        "Session check via direct token validation for wallet: {}",
+        wallet_address
+    );
 
     // Get permissions from scope claim (already in the token)
-    let permissions: Vec<String> = claims.scope
+    let permissions: Vec<String> = claims
+        .scope
         .split_whitespace()
         .filter(|s| *s != "openid" && *s != "profile")
         .map(|s| s.to_string())
@@ -679,7 +756,9 @@ pub async fn check_permission_handler(
 )]
 pub async fn grant_permission_handler(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: HeaderMap,
     Json(request): Json<GrantPermissionRequest>,
 ) -> Result<Json<Value>, StatusCode> {
@@ -697,7 +776,12 @@ pub async fn grant_permission_handler(
     };
 
     match web3_permission_service
-        .grant_manual_permission(&request.wallet_address, &request.permission, None, request.expires_at)
+        .grant_manual_permission(
+            &request.wallet_address,
+            &request.permission,
+            None,
+            request.expires_at,
+        )
         .await
     {
         Ok(()) => {
@@ -708,13 +792,16 @@ pub async fn grant_permission_handler(
 
             // Log permission grant to audit trail
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            app_state.audit.log(ctx, AuditEntry::new("permission", "grant", "permission")
-                .id(&request.wallet_address)
-                .after(serde_json::json!({
-                    "wallet": request.wallet_address,
-                    "permission": request.permission,
-                    "expires_at": request.expires_at
-                })));
+            app_state.audit.log(
+                ctx,
+                AuditEntry::new("permission", "grant", "permission")
+                    .id(&request.wallet_address)
+                    .after(serde_json::json!({
+                        "wallet": request.wallet_address,
+                        "permission": request.permission,
+                        "expires_at": request.expires_at
+                    })),
+            );
 
             Ok(Json(json!({
                 "success": true,
@@ -750,7 +837,9 @@ pub async fn grant_permission_handler(
 )]
 pub async fn revoke_permission_handler(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: HeaderMap,
     Json(request): Json<RevokePermissionRequest>,
 ) -> Result<Json<Value>, StatusCode> {
@@ -779,12 +868,15 @@ pub async fn revoke_permission_handler(
 
             // Log permission revocation to audit trail
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            app_state.audit.log(ctx, AuditEntry::new("permission", "revoke", "permission")
-                .id(&request.wallet_address)
-                .after(serde_json::json!({
-                    "wallet": request.wallet_address,
-                    "permission": request.permission
-                })));
+            app_state.audit.log(
+                ctx,
+                AuditEntry::new("permission", "revoke", "permission")
+                    .id(&request.wallet_address)
+                    .after(serde_json::json!({
+                        "wallet": request.wallet_address,
+                        "permission": request.permission
+                    })),
+            );
 
             Ok(Json(json!({
                 "success": true,
@@ -820,7 +912,10 @@ pub async fn get_user_permissions_handler(
 ) -> Result<Json<Vec<String>>, StatusCode> {
     // Validate wallet address format briefly (basic check)
     if !wallet_address.starts_with("0x") || wallet_address.len() != 42 {
-        warn!("Invalid wallet address format for permission check: {}", wallet_address);
+        warn!(
+            "Invalid wallet address format for permission check: {}",
+            wallet_address
+        );
         return Err(StatusCode::BAD_REQUEST);
     }
 
@@ -834,7 +929,10 @@ pub async fn get_user_permissions_handler(
         }
     };
 
-    match web3_permission_service.get_user_permissions(&wallet_address).await {
+    match web3_permission_service
+        .get_user_permissions(&wallet_address)
+        .await
+    {
         Ok(permissions) => Ok(Json(permissions)),
         Err(e) => {
             error!("Failed to get user permissions: {}", e);
@@ -853,7 +951,9 @@ mod tests {
     fn jwks_cache_control_is_public_and_bounded() {
         let headers = jwks_response_headers();
         assert_eq!(
-            headers.get(CACHE_CONTROL).and_then(|value| value.to_str().ok()),
+            headers
+                .get(CACHE_CONTROL)
+                .and_then(|value| value.to_str().ok()),
             Some("public, max-age=300, must-revalidate")
         );
         assert!(!JWKS_CACHE_CONTROL.contains("private"));
@@ -894,6 +994,40 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(admin.client_id.as_deref(), Some("epsx-admin"));
+    }
+
+    #[test]
+    fn refresh_request_requires_an_explicit_supported_client() {
+        assert!(serde_json::from_value::<TokenRefreshRequest>(json!({
+            "refresh_token": "opaque"
+        }))
+        .is_err());
+
+        for client_id in ["epsx-frontend", "epsx-admin"] {
+            let request: TokenRefreshRequest = serde_json::from_value(json!({
+                "refresh_token": "opaque",
+                "client_id": client_id
+            }))
+            .unwrap();
+            assert_eq!(request.client_id, client_id);
+        }
+    }
+
+    #[test]
+    fn refresh_responses_are_never_cacheable() {
+        for response in [
+            refresh_json_response(json!({"success": true})),
+            refresh_status_response(StatusCode::UNAUTHORIZED),
+            refresh_status_response(StatusCode::SERVICE_UNAVAILABLE),
+        ] {
+            assert_eq!(
+                response
+                    .headers()
+                    .get(CACHE_CONTROL)
+                    .and_then(|value| value.to_str().ok()),
+                Some("no-store")
+            );
+        }
     }
 
     #[test]
@@ -940,9 +1074,7 @@ mod tests {
 
     #[test]
     fn logout_success_is_generic_and_never_contains_token_material() {
-        let response = logout_success_response(Some(
-            "0x1234567890123456789012345678901234567890",
-        ));
+        let response = logout_success_response(Some("0x1234567890123456789012345678901234567890"));
         let serialized = response.to_string();
 
         assert_eq!(response["success"], true);

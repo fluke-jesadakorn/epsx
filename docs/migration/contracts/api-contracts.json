@@ -109,12 +109,15 @@
         "methods": ["POST"],
         "endpoint": "/api/v1/auth/refresh -> /api/auth/session/refresh",
         "successStatuses": [200],
-        "invariants": ["opaque refresh token is HttpOnly", "rotation is atomic", "old token reuse returns 401", "both cookies rotate together"]
+        "invariants": ["opaque refresh token is HttpOnly", "rotation signs the exact candidate response before conditionally matching and mutating the stored original client", "legacy unbound and cross-client tokens return generic rejection without caller-selected claiming", "old token reuse returns 401", "both cookies rotate together", "only upstream 401 clears BFF cookies while configuration, throttling, transport, and dependency failures preserve them"]
       },
-      "observed": {"status": "blocked", "summary": "Monolith, frontend, and admin rotation contracts are aligned in focused tests; real old-token-reuse proof is still pending."},
+      "observed": {"status": "blocked", "summary": "The compiled monolith and both BFFs now align on exact original-client binding, per-login family lineage, sign-before-consume ordering, fail-closed legacy rows, required HTTP client selection, 401-only clearing, distinct local cookies, and non-cacheable responses. PostgreSQL migration, cross-client non-consumption, family-lock concurrency, rollback, replay-response, and restart proofs remain blocked."},
       "evidence": [
         {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": "path = \"/api/auth/session/refresh\""},
-        {"file": "shared/rust/epsx-identity-shared/src/token_service.rs", "anchor": "pub async fn consume_refresh_token"},
+        {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": "pub client_id: String"},
+        {"file": "shared/rust/epsx-identity-shared/src/token_service.rs", "anchor": "pub(crate) async fn consume_refresh_token"},
+        {"file": "shared/rust/epsx-identity-shared/src/token_service.rs", "anchor": ".consume_refresh_token("},
+        {"file": "apps/backend/migrations/core/20260723000000_bind_refresh_tokens_to_client/up.sql", "anchor": "ADD COLUMN IF NOT EXISTS client_id VARCHAR(32)"},
         {"file": "apps/frontend/src/api.rs", "anchor": "let request = RefreshRequest"},
         {"file": "apps/admin/src/session_auth.rs", "anchor": "client_id: ADMIN_CLIENT_ID"},
         {"file": "apps/admin/src/session_auth.rs", "anchor": "establish_session(&state, exchange, None, true).await"}
@@ -129,9 +132,9 @@
         "methods": ["POST", "DELETE"],
         "endpoint": "/api/v1/auth/logout -> /api/auth/web3/logout",
         "successStatuses": [200],
-        "invariants": ["backend revokes refresh token", "operation is idempotent", "BFF clears access and refresh cookies even on upstream failure"]
+        "invariants": ["backend rotation and logout share a transaction-scoped per-login family advisory lock", "historical tokens revoke only their own active family and legacy NULL-family tokens revoke only themselves", "operation is idempotent", "BFF clears access and refresh cookies even on upstream failure"]
       },
-      "observed": {"status": "blocked", "summary": "Monolith revocation plus frontend and admin always-clear behavior are implemented; a live revocation flow is still pending."},
+      "observed": {"status": "blocked", "summary": "Family-scoped revocation plus frontend and admin always-clear behavior are implemented; two-connection PostgreSQL ordering, replay response, and a live revocation flow are still pending."},
       "evidence": [
         {"file": "apps/backend/src/web/auth/handlers.rs", "anchor": ".revoke_refresh_token(refresh_token)"},
         {"file": "shared/rust/epsx-identity-shared/src/token_service.rs", "anchor": "pub async fn revoke_refresh_token"},
@@ -150,7 +153,7 @@
         "successStatuses": [200],
         "invariants": ["production uses __Host-epsx.access_token and __Host-epsx.refresh_token", "HttpOnly Secure SameSite=Lax Path=/", "no Domain", "Max-Age follows backend TTL"]
       },
-      "observed": {"status": "aligned", "summary": "Frontend uses the shared canonical host-only cookie pair, fails closed on environment selection, and retains the legacy cookie as read-only migration input."},
+      "observed": {"status": "aligned", "summary": "Frontend uses the shared canonical host-only production pair, an isolated epsx.frontend.* local pair, and clearing-only ambiguous local names; the older epsx_token access cookie remains a bounded read migration input."},
       "evidence": [
         {"file": "shared/rust/bff/src/cookies.rs", "anchor": "pub const PRODUCTION_ACCESS_COOKIE"},
         {"file": "apps/frontend/src/api.rs", "anchor": "append_session_cookies("}
@@ -167,7 +170,7 @@
         "successStatuses": [200],
         "invariants": ["same canonical host-only cookie contract as frontend", "admin login establishes SSR session", "tokens never appear in browser JSON"]
       },
-      "observed": {"status": "aligned", "summary": "Admin verifies the epsx-admin RS256 audience, atomically sets the shared HttpOnly cookie pair, and returns token-free JSON in executable mock tests; live browser proof remains pending."},
+      "observed": {"status": "aligned", "summary": "Admin verifies the epsx-admin RS256 audience, atomically sets the host-bound production or isolated epsx.admin.* local HttpOnly pair, and returns token-free JSON in executable mock tests; live browser proof remains pending."},
       "evidence": [
         {"file": "apps/admin/src/main.rs", "anchor": "session::{JwksVerifier, JwksVerifierConfig, ADMIN_CLIENT_ID, JWKS_PATH}"},
         {"file": "apps/admin/src/session_auth.rs", "anchor": "append_session_cookies("},

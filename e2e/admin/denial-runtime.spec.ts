@@ -48,7 +48,7 @@ test.describe('A8 admin denial runtime proof', () => {
   test.beforeEach(async ({ context }) => {
     await context.addCookies([
       {
-        name: 'epsx.access_token',
+        name: 'epsx.admin.access_token',
         value: accessToken!,
         url: 'http://localhost:3001',
         httpOnly: true,
@@ -241,17 +241,20 @@ test.describe('A8 admin denial runtime proof', () => {
     const auth = page.getByRole('link', { name: 'Go to Auth' });
     await auth.focus();
     await expect(auth).toBeFocused();
-    await Promise.all([
-      page.waitForURL(url => url.pathname === '/auth'),
+    const [authRequest] = await Promise.all([
+      page.waitForRequest(request => new URL(request.url()).pathname === '/auth'),
+      page.waitForURL(url => url.pathname === '/' && url.search === ''),
       page.keyboard.press('Enter'),
     ]);
-    await expect(page).toHaveURL(
-      'http://localhost:3001/auth?return_url=%2Fpayments%3Ftab%3Dhistory'
+    const authRequestUrl = new URL(authRequest.url());
+    expect(authRequestUrl.searchParams.get('return_url')).toBe(
+      '/payments?tab=history'
     );
+    await expect(page).toHaveURL('http://localhost:3001/');
     expect(logoutRequests).toEqual(['POST']);
     expect(
       (await context.cookies()).filter(
-        cookie => cookie.name === 'epsx.access_token'
+        cookie => cookie.name === 'epsx.admin.access_token'
       )
     ).toEqual([]);
   });

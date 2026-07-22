@@ -12,10 +12,10 @@ export async function mockAuth(page: Page, user = MOCK_ADMIN, token = MOCK_TOKEN
   const url = new URL(baseURL.startsWith('http') ? baseURL : `http://${baseURL}`);
   const domain = url.hostname;
 
-  // Set auth cookies (dev mode uses epsx.* prefix without __Host-)
+  // Local admin auth cookies are port-safe through an explicit client namespace.
   await page.context().addCookies([
-    { name: 'epsx.access_token', value: token, domain: domain || COOKIE_DOMAIN, path: '/', httpOnly: true, secure: false, sameSite: 'Lax' },
-    { name: 'epsx.refresh_token', value: `refresh_${token}`, domain: domain || COOKIE_DOMAIN, path: '/', httpOnly: true, secure: false, sameSite: 'Lax' },
+    { name: 'epsx.admin.access_token', value: token, domain: domain || COOKIE_DOMAIN, path: '/', httpOnly: true, secure: false, sameSite: 'Lax' },
+    { name: 'epsx.admin.refresh_token', value: `refresh_${token}`, domain: domain || COOKIE_DOMAIN, path: '/', httpOnly: true, secure: false, sameSite: 'Lax' },
     { name: 'epsx.user', value: encodeURIComponent(JSON.stringify(user)), domain: domain || COOKIE_DOMAIN, path: '/', httpOnly: false, secure: false, sameSite: 'Lax' },
     { name: 'epsx.sid', value: `sid_${user.id}`, domain: domain || COOKIE_DOMAIN, path: '/', httpOnly: false, secure: false, sameSite: 'Lax' },
     { name: 'epsx.expires_at', value: String(Date.now() + 86400000), domain: domain || COOKIE_DOMAIN, path: '/', httpOnly: false, secure: false, sameSite: 'Lax' },

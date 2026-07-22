@@ -169,7 +169,7 @@ test.describe('Web3 Wallet Authentication E2E', () => {
         // 5. Set cookies to simulate authenticated state (bypass actual wallet flow)
         await context.addCookies([
             {
-                name: 'epsx.access_token',
+                name: 'epsx.admin.access_token',
                 value: MOCK_VERIFY_SUCCESS.access_token,
                 domain: 'localhost',
                 path: '/',
@@ -215,7 +215,7 @@ test.describe('Web3 Wallet Authentication E2E', () => {
         // 1. Set authentication cookies
         await context.addCookies([
             {
-                name: 'epsx.access_token',
+                name: 'epsx.admin.access_token',
                 value: MOCK_VERIFY_SUCCESS.access_token,
                 domain: 'localhost',
                 path: '/',
@@ -267,7 +267,7 @@ test.describe('Web3 Wallet Authentication E2E', () => {
         // 1. Set authentication cookies
         await context.addCookies([
             {
-                name: 'epsx.access_token',
+                name: 'epsx.admin.access_token',
                 value: MOCK_VERIFY_SUCCESS.access_token,
                 domain: 'localhost',
                 path: '/',

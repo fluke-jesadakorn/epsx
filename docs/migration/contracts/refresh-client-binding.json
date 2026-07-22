@@ -1,0 +1,226 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A1.5-refresh-client-binding",
+  "status": "partial-hermetic-proof",
+  "productionReady": false,
+  "databaseProof": false,
+  "authority": {
+    "runtime": "shared/rust/epsx-identity-shared",
+    "http": "apps/backend/src/web/auth/handlers.rs",
+    "interpretation": "The monolith remains the canonical issuer and durable refresh store. This wave closes caller-selected cross-client rotation in code; it does not enable the dormant identity service."
+  },
+  "migration": {
+    "directory": "apps/backend/migrations/core/20260723000000_bind_refresh_tokens_to_client",
+    "upSha256": "bbb9123588701625e2bcb76c816fb3c0e0b73ad14e83772d0e3eb442178e4ede",
+    "downSha256": "17a8dd4363f8b7a30f43892417d144dd5c805112359c2ff5212046233b96cf02",
+    "mode": "additive-expand-forward-only",
+    "legacyPolicy": "Existing NULL client or family rows are never guessed, backfilled, or claimed. Runtime exact-client/family predicates reject them without mutation and force fresh authentication. Legacy logout revokes only the exact presented row. A separately reviewed enforcement migration may revoke remaining active NULL rows only after every old writer is gone."
+  },
+  "invariants": [
+    {
+      "id": "closed-client-set",
+      "claim": "Only exact epsx-frontend and epsx-admin client values are accepted."
+    },
+    {
+      "id": "initial-binding-and-family",
+      "claim": "Initial refresh issuance stores the validated client and a new per-login family identifier only after every JWT signature succeeds."
+    },
+    {
+      "id": "sign-before-consume",
+      "claim": "Refresh dependency reads and every fallible JWT signature finish before the destructive rotation transition."
+    },
+    {
+      "id": "family-serialized-rotation",
+      "claim": "Rotation acquires a transaction-scoped advisory lock keyed by the stored family, conditionally consumes token, wallet, client, family, active state, and expiry, then inserts the exact pre-signed successor in one transaction."
+    },
+    {
+      "id": "generic-fail-closed-rejection",
+      "claim": "Cross-client, missing-family, and legacy NULL attempts mutate no row and share the invalid-refresh classification used for unknown, expired, revoked, or replayed tokens."
+    },
+    {
+      "id": "stored-binding-propagation",
+      "claim": "The successor copies the client and family returned by the database transition, and JWT issuance uses the preflight stored client rather than the request DTO."
+    },
+    {
+      "id": "stable-auth-time",
+      "claim": "The rotation chain preserves original authentication time rather than advancing auth_time on every refresh."
+    },
+    {
+      "id": "family-scoped-logout",
+      "claim": "Logout and rotation share the transaction-scoped family advisory lock; any historical token revokes only its own active family, while a legacy NULL-family token revokes only itself."
+    },
+    {
+      "id": "http-refresh-boundary",
+      "claim": "The HTTP refresh request requires an explicit client, distinguishes credential rejection from retryable dependency failure, is non-cacheable, and never echoes credentials in error bodies."
+    },
+    {
+      "id": "bff-cookie-and-status-boundary",
+      "claim": "Frontend and admin BFFs use fixed clients and distinct local cookie names; ambiguous legacy local names are clearing-only, and only an upstream 401 clears a refresh session."
+    }
+  ],
+  "evidence": [
+    {
+      "file": "shared/rust/epsx-identity-shared/src/token_service.rs",
+      "anchors": [
+        "enum RefreshClient",
+        "refresh_client_matching_fails_closed_for_cross_client_and_legacy_rows",
+        "openid_refresh_tokens::client_id.eq(Some(client.as_str()))",
+        "Self::generate_refresh_token()",
+        "let family_id = Uuid::new_v4();",
+        "issue_tokens_for_user_with_refresh_token(",
+        ".consume_refresh_token(",
+        "Self::lock_refresh_family(conn, expected_family_id)",
+        "openid_refresh_tokens::family_id.eq(Some(expected_family_id))",
+        "openid_refresh_tokens::client_id.eq(Some(stored_client_id.as_str()))",
+        "openid_refresh_tokens::family_id.eq(Some(family_id))",
+        "openid_refresh_tokens::created_at.eq(&created_at)",
+        "pub async fn revoke_refresh_token",
+        "Self::lock_refresh_family(conn, family_id)",
+        "pg_advisory_xact_lock(hashtextextended"
+      ]
+    },
+    {
+      "file": "shared/rust/epsx-identity-shared/src/auth_service.rs",
+      "anchors": [
+        ".validate_refresh_token(refresh_token, client_id)",
+        ".issue_tokens_for_user_with_refresh_token(",
+        ".consume_refresh_token(",
+        "candidate.family_id",
+        "Web3AuthError::InvalidRefreshToken"
+      ]
+    },
+    {
+      "file": "apps/backend/src/web/auth/handlers.rs",
+      "anchors": [
+        "pub client_id: String",
+        "StatusCode::SERVICE_UNAVAILABLE",
+        "AUTH_SESSION_CACHE_CONTROL",
+        "refresh_request_requires_an_explicit_supported_client"
+      ]
+    },
+    {
+      "file": "shared/rust/bff/src/cookies.rs",
+      "anchors": [
+        "epsx.frontend.refresh_token",
+        "epsx.admin.refresh_token",
+        "LEGACY_LOCAL_REFRESH_COOKIE",
+        "local_frontend_and_admin_cookie_names_do_not_collide"
+      ]
+    },
+    {
+      "file": "apps/frontend/src/api.rs",
+      "anchors": [
+        "client_id: FRONTEND_CLIENT_ID",
+        "CookieClient::Frontend",
+        "private, no-store",
+        "response.status() == StatusCode::UNAUTHORIZED"
+      ]
+    },
+    {
+      "file": "apps/admin/src/session_auth.rs",
+      "anchors": [
+        "client_id: ADMIN_CLIENT_ID",
+        "CookieClient::Admin",
+        "private, no-store",
+        "response.status() == StatusCode::UNAUTHORIZED"
+      ]
+    },
+    {
+      "file": "shared/rust/epsx-identity-shared/src/schemas.rs",
+      "anchors": [
+        "client_id -> Nullable<Varchar>",
+        "family_id -> Nullable<Uuid>"
+      ]
+    },
+    {
+      "file": "apps/backend/src/schemas/primary.rs",
+      "anchors": [
+        "client_id -> Nullable<Varchar>",
+        "family_id -> Nullable<Uuid>"
+      ]
+    },
+    {
+      "file": "e2e/frontend/utils/auth-mock.ts",
+      "anchors": [
+        "epsx.frontend.access_token",
+        "epsx.frontend.refresh_token"
+      ]
+    },
+    {
+      "file": "e2e/admin/utils/auth-mock.ts",
+      "anchors": [
+        "epsx.admin.access_token",
+        "epsx.admin.refresh_token"
+      ]
+    },
+    {
+      "file": "e2e/frontend/fixtures/about-auth-mock.mjs",
+      "anchors": ["/api/v1/notification/unread-count"]
+    },
+    {
+      "file": "e2e/frontend/fixtures/developer-docs-auth-mock.mjs",
+      "anchors": ["/api/v1/notification/unread-count"]
+    },
+    {
+      "file": "e2e/admin/denial-runtime.spec.ts",
+      "anchors": [
+        "epsx.admin.access_token",
+        "page.waitForRequest(",
+        "authRequestUrl.searchParams.get('return_url')"
+      ]
+    }
+  ],
+  "hermeticProof": {
+    "focusedTests": 82,
+    "commands": [
+      "cargo test --offline --locked -p epsx-identity-shared token_service::tests --no-fail-fast",
+      "cargo test --offline --locked -p epsx-bff cookies::tests --no-fail-fast",
+      "cargo test --offline --locked -p epsx --lib web::auth::handlers::tests --no-fail-fast",
+      "cargo test --offline --locked -p epsx-frontend api::auth_session_tests --no-fail-fast",
+      "cargo test --offline --locked -p epsx-admin session_auth_tests --no-fail-fast"
+    ],
+    "interpretation": "These tests and static checks prove parsing, fixed-client BFF requests, exact JWT-audience rejection, cookie isolation, non-cacheability, and compiled query shape. They are not PostgreSQL transaction or persistence evidence."
+  },
+  "residualStops": [
+    {
+      "id": "core-migration-version-collision",
+      "claim": "No migration in the active core root may be executed until its duplicate baseline-version collision is reconciled."
+    },
+    {
+      "id": "postgres-forward-only-migration-unproved",
+      "claim": "No disposable PostgreSQL instance has applied this expansion from each supported history or proved that attempted down migration fails atomically without schema or data change."
+    },
+    {
+      "id": "legacy-row-cutover-unproved",
+      "claim": "Populated legacy-row preservation and the later active-NULL revocation cutover are unproved."
+    },
+    {
+      "id": "postgres-client-and-rotation-unproved",
+      "claim": "PostgreSQL cross-client non-consumption, MVCC single-winner rotation, and deterministic family-lock serialization are unproved."
+    },
+    {
+      "id": "failure-rollback-and-restart-unproved",
+      "claim": "Rollback on forced successor-insert failure and restart persistence are unproved."
+    },
+    {
+      "id": "raw-refresh-token-storage",
+      "claim": "Raw refresh UUID bearer values remain stored directly rather than as keyed digests."
+    },
+    {
+      "id": "refresh-reuse-response-unimplemented",
+      "claim": "Family lineage and family-scoped logout exist, but consumed-versus-revoked state and automatic descendant revocation on replay are not implemented."
+    },
+    {
+      "id": "logout-rotation-db-ordering-unproved",
+      "claim": "The shared transaction-scoped family advisory lock has no two-connection PostgreSQL proof for logout-first, rotation-first, stale-token logout, or distinct-family isolation."
+    },
+    {
+      "id": "access-token-post-logout-validity",
+      "claim": "Already-issued access tokens remain valid until expiry after logout."
+    },
+    {
+      "id": "production-actions-unauthorized",
+      "claim": "No production issuer, browser, routing, canary, rollback, deployment, database, or service action is authorized by this contract."
+    }
+  ]
+}

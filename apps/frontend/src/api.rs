@@ -23,7 +23,7 @@ use axum::{
 };
 use chrono::{DateTime, NaiveDate};
 use epsx_bff::{
-    cookies::{append_clear_session_cookies, append_session_cookies},
+    cookies::{append_clear_session_cookies, append_session_cookies, CookieClient},
     session::{
         AuthExchange, ChallengeRequest, ChallengeResponse, LogoutRequest, ProfileResponse,
         RefreshRequest, RefreshResponse, SessionUser, VerifyRequest, VerifyResponse,
@@ -452,9 +452,11 @@ async fn establish_session(
         ..claims_user
     };
     let mut response = Json(exchange.browser).into_response();
+    mark_session_no_store(&mut response);
     if let Err(error) = append_session_cookies(
         response.headers_mut(),
         state.cookie_environment,
+        CookieClient::Frontend,
         exchange.tokens.access_token(),
         Some(exchange.tokens.refresh_token()),
         exchange.tokens.access_expires_in(),
@@ -553,7 +555,7 @@ pub async fn refresh_token(
             return safe_error(StatusCode::BAD_GATEWAY, "auth_upstream_unavailable");
         }
     };
-    if response.status().is_client_error() {
+    if response.status() == StatusCode::UNAUTHORIZED {
         return clear_session_response(&state, StatusCode::UNAUTHORIZED, "refresh_rejected");
     }
     if !response.status().is_success() {
@@ -611,7 +613,14 @@ pub async fn logout(State(state): State<AppState>, headers: axum::http::HeaderMa
         })),
     )
         .into_response();
-    if append_clear_session_cookies(response.headers_mut(), state.cookie_environment).is_err() {
+    mark_session_no_store(&mut response);
+    if append_clear_session_cookies(
+        response.headers_mut(),
+        state.cookie_environment,
+        CookieClient::Frontend,
+    )
+    .is_err()
+    {
         return safe_error(StatusCode::INTERNAL_SERVER_ERROR, "session_cookie_error");
     }
     response
@@ -654,7 +663,9 @@ pub async fn auth_me(State(state): State<AppState>, headers: axum::http::HeaderM
     {
         return safe_error(StatusCode::BAD_GATEWAY, "inconsistent_profile_identity");
     }
-    Json(profile).into_response()
+    let mut response = Json(profile).into_response();
+    mark_session_no_store(&mut response);
+    response
 }
 
 fn auth_url(state: &AppState, path: &str) -> String {
@@ -671,11 +682,20 @@ fn session_identity_matches(response: &SessionUser, claims: &SessionUser) -> boo
 }
 
 fn safe_error(status: StatusCode, code: &'static str) -> Response {
-    (
+    let mut response = (
         status,
         Json(serde_json::json!({ "success": false, "error": code })),
     )
-        .into_response()
+        .into_response();
+    mark_session_no_store(&mut response);
+    response
+}
+
+fn mark_session_no_store(response: &mut Response) {
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
 }
 
 fn session_establishment_error(
@@ -692,7 +712,13 @@ fn session_establishment_error(
 
 fn clear_session_response(state: &AppState, status: StatusCode, code: &'static str) -> Response {
     let mut response = safe_error(status, code);
-    if append_clear_session_cookies(response.headers_mut(), state.cookie_environment).is_err() {
+    if append_clear_session_cookies(
+        response.headers_mut(),
+        state.cookie_environment,
+        CookieClient::Frontend,
+    )
+    .is_err()
+    {
         return safe_error(StatusCode::INTERNAL_SERVER_ERROR, "session_cookie_error");
     }
     response
@@ -2149,7 +2175,10 @@ mod auth_session_tests {
     };
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
     use epsx_bff::{
-        cookies::{LEGACY_ACCESS_COOKIE, LOCAL_ACCESS_COOKIE, LOCAL_REFRESH_COOKIE},
+        cookies::{
+            LEGACY_ACCESS_COOKIE, LEGACY_LOCAL_ACCESS_COOKIE, LEGACY_LOCAL_REFRESH_COOKIE,
+            LOCAL_ACCESS_COOKIE, LOCAL_REFRESH_COOKIE,
+        },
         session::{AccessTokenClaims, Jwks, JwksVerifierConfig, RsaJwk, JWKS_PATH},
     };
     use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
@@ -2306,12 +2335,14 @@ mod auth_session_tests {
         let cookies = response_cookies(response);
         assert_eq!(
             cookies.len(),
-            3,
-            "expected canonical pair plus legacy clear"
+            5,
+            "expected scoped pair plus ambiguous local and legacy access clears"
         );
         for name in [
             LOCAL_ACCESS_COOKIE,
             LOCAL_REFRESH_COOKIE,
+            LEGACY_LOCAL_ACCESS_COOKIE,
+            LEGACY_LOCAL_REFRESH_COOKIE,
             LEGACY_ACCESS_COOKIE,
         ] {
             let cookie = cookies
@@ -2407,7 +2438,7 @@ mod auth_session_tests {
                 get(|| async { Json(json!({"count": 7})) }),
             );
         let base_url = spawn_mock(router).await;
-        let headers = request_headers(&format!("epsx.access_token={access_token}"));
+        let headers = request_headers(&format!("epsx.frontend.access_token={access_token}"));
 
         let list = notifications_api(
             State(state(&base_url)),
@@ -2498,7 +2529,7 @@ mod auth_session_tests {
                 get(|| async { Json(json!({"count": 0, "items": []})) }),
             );
         let base_url = spawn_mock(router).await;
-        let headers = request_headers(&format!("epsx.access_token={access_token}"));
+        let headers = request_headers(&format!("epsx.frontend.access_token={access_token}"));
 
         let wrong_owner =
             notifications_api(State(state(&base_url)), headers.clone(), RawQuery(None)).await;
@@ -2589,7 +2620,7 @@ mod auth_session_tests {
                 }),
             );
         let base_url = spawn_mock(router).await;
-        let headers = request_headers(&format!("epsx.access_token={access_token}"));
+        let headers = request_headers(&format!("epsx.frontend.access_token={access_token}"));
 
         let list =
             notifications_api(State(state(&base_url)), headers.clone(), RawQuery(None)).await;
@@ -2663,14 +2694,18 @@ mod auth_session_tests {
         .await;
 
         assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers().get(header::CACHE_CONTROL),
+            Some(&HeaderValue::from_static("private, no-store"))
+        );
         let cookies = response_cookies(&response);
-        assert_eq!(cookies.len(), 2);
+        assert_eq!(cookies.len(), 5);
         assert!(cookies
             .iter()
-            .any(|cookie| cookie.starts_with("epsx.access_token=")));
+            .any(|cookie| cookie.starts_with("epsx.frontend.access_token=")));
         assert!(cookies
             .iter()
-            .any(|cookie| cookie.starts_with("epsx.refresh_token=")));
+            .any(|cookie| cookie.starts_with("epsx.frontend.refresh_token=")));
         let body = axum::body::to_bytes(response.into_body(), 16 * 1024)
             .await
             .unwrap();
@@ -2755,12 +2790,36 @@ mod auth_session_tests {
         let base_url = spawn_mock(router).await;
         let response = refresh_token(
             State(state(&base_url)),
-            request_headers("epsx.access_token=old-access; epsx.refresh_token=browser-refresh"),
+            request_headers(
+                "epsx.frontend.access_token=old-access; epsx.frontend.refresh_token=browser-refresh",
+            ),
         )
         .await;
 
         assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
         assert_session_cleared(&response);
+
+        for upstream_status in [
+            StatusCode::BAD_REQUEST,
+            StatusCode::REQUEST_TIMEOUT,
+            StatusCode::TOO_MANY_REQUESTS,
+            StatusCode::SERVICE_UNAVAILABLE,
+        ] {
+            let retryable_base = spawn_mock(
+                Router::new().route(REFRESH_PATH, post(move || async move { upstream_status })),
+            )
+            .await;
+            let retryable = refresh_token(
+                State(state(&retryable_base)),
+                request_headers("epsx.frontend.refresh_token=browser-refresh"),
+            )
+            .await;
+            assert_eq!(retryable.status(), StatusCode::BAD_GATEWAY);
+            assert!(
+                response_cookies(&retryable).is_empty(),
+                "non-401 upstream failures must preserve the browser session"
+            );
+        }
     }
 
     #[tokio::test]
@@ -2810,19 +2869,23 @@ mod auth_session_tests {
         let base_url = spawn_mock(router).await;
         let response = refresh_token(
             State(state(&base_url)),
-            request_headers("epsx.refresh_token=browser-refresh"),
+            request_headers("epsx.frontend.refresh_token=browser-refresh"),
         )
         .await;
 
         assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers().get(header::CACHE_CONTROL),
+            Some(&HeaderValue::from_static("private, no-store"))
+        );
         let cookies = response_cookies(&response);
-        assert_eq!(cookies.len(), 2);
+        assert_eq!(cookies.len(), 5);
         assert!(cookies
             .iter()
-            .any(|cookie| cookie.starts_with("epsx.access_token=")));
+            .any(|cookie| cookie.starts_with("epsx.frontend.access_token=")));
         assert!(cookies
             .iter()
-            .any(|cookie| cookie.starts_with("epsx.refresh_token=rotated-refresh")));
+            .any(|cookie| cookie.starts_with("epsx.frontend.refresh_token=rotated-refresh")));
         let body = axum::body::to_bytes(response.into_body(), 16 * 1024)
             .await
             .unwrap();
@@ -2879,7 +2942,7 @@ mod auth_session_tests {
         let base_url = spawn_mock(router).await;
         let response = auth_me(
             State(state(&base_url)),
-            request_headers(&format!("epsx.access_token={access_token}")),
+            request_headers(&format!("epsx.frontend.access_token={access_token}")),
         )
         .await;
 
@@ -2898,7 +2961,7 @@ mod auth_session_tests {
         let invalid_base = unused_base_url().await;
         let invalid = auth_me(
             State(state(&invalid_base)),
-            request_headers("epsx.access_token=not-a-jwt"),
+            request_headers("epsx.frontend.access_token=not-a-jwt"),
         )
         .await;
         assert_eq!(invalid.status(), StatusCode::UNAUTHORIZED);
@@ -2921,7 +2984,7 @@ mod auth_session_tests {
         let base_url = spawn_mock(router).await;
         let unauthorized = auth_me(
             State(state(&base_url)),
-            request_headers(&format!("epsx.access_token={access_token}")),
+            request_headers(&format!("epsx.frontend.access_token={access_token}")),
         )
         .await;
         assert_eq!(unauthorized.status(), StatusCode::UNAUTHORIZED);
@@ -2937,7 +3000,7 @@ mod auth_session_tests {
         let base_url = spawn_mock(router).await;
         let success = logout(
             State(state(&base_url)),
-            request_headers("epsx.refresh_token=browser-refresh"),
+            request_headers("epsx.frontend.refresh_token=browser-refresh"),
         )
         .await;
         assert_eq!(success.status(), StatusCode::OK);
@@ -2946,7 +3009,7 @@ mod auth_session_tests {
         let unavailable_base = unused_base_url().await;
         let failure = logout(
             State(state(&unavailable_base)),
-            request_headers("epsx.refresh_token=browser-refresh"),
+            request_headers("epsx.frontend.refresh_token=browser-refresh"),
         )
         .await;
         assert_eq!(failure.status(), StatusCode::BAD_GATEWAY);

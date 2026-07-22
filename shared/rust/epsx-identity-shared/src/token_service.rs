@@ -7,7 +7,7 @@ use crate::prelude::TlsPool;
 use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
 use diesel::prelude::*;
-use diesel_async::{AsyncConnection, RunQueryDsl};
+use diesel_async::{AsyncConnection, AsyncPgConnection, RunQueryDsl};
 use jsonwebtoken::{decode, decode_header, encode, Algorithm, Header, Validation};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -19,6 +19,33 @@ use crate::auth_service::Web3VerificationRequest;
 use crate::key_manager::KeyManager;
 
 const SECONDS_PER_DAY: i64 = 24 * 60 * 60;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RefreshClient {
+    Frontend,
+    Admin,
+}
+
+impl RefreshClient {
+    fn parse(value: &str) -> Result<Self, OpenIDTokenError> {
+        match value {
+            "epsx-frontend" => Ok(Self::Frontend),
+            "epsx-admin" => Ok(Self::Admin),
+            other => Err(OpenIDTokenError::InvalidClient(other.to_string())),
+        }
+    }
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Frontend => "epsx-frontend",
+            Self::Admin => "epsx-admin",
+        }
+    }
+
+    fn matches_stored(self, stored: Option<&str>) -> bool {
+        stored == Some(self.as_str())
+    }
+}
 
 fn refresh_token_expiry_seconds(days: i64) -> i64 {
     days.saturating_mul(SECONDS_PER_DAY)
@@ -41,13 +68,13 @@ pub struct OpenIDTokenService {
 /// Compliant with OAuth2/OpenID Connect specification
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct OpenIDTokenResponse {
-    pub access_token: String,      // JWT Bearer token for API access
-    pub token_type: String,        // Always "Bearer"
-    pub expires_in: i64,           // Seconds until access-token expiration
-    pub refresh_token: String,     // For token renewal
-    pub refresh_expires_in: i64,   // Seconds until refresh-token expiration
-    pub id_token: String,          // OpenID identity token
-    pub scope: String,             // "openid profile permissions"
+    pub access_token: String,    // JWT Bearer token for API access
+    pub token_type: String,      // Always "Bearer"
+    pub expires_in: i64,         // Seconds until access-token expiration
+    pub refresh_token: String,   // For token renewal
+    pub refresh_expires_in: i64, // Seconds until refresh-token expiration
+    pub id_token: String,        // OpenID identity token
+    pub scope: String,           // "openid profile permissions"
 }
 
 /// Standard OpenID Connect Access Token Claims
@@ -94,6 +121,8 @@ pub struct IdTokenClaims {
 pub struct RefreshTokenInfo {
     pub token_id: String,          // Unique token identifier
     pub wallet_address: String,    // Associated wallet
+    pub client_id: String,         // Original frontend or admin client
+    pub family_id: Uuid,           // One login lineage; scopes rotation and logout
     pub expires_at: DateTime<Utc>, // Expiration time
     pub created_at: DateTime<Utc>, // Creation time
     pub is_revoked: bool,          // Revocation status
@@ -204,23 +233,31 @@ impl OpenIDTokenService {
 
         self.validate_client_id(client_id)?;
 
-        let refresh_token = self.create_refresh_token(wallet_address).await?;
+        let refresh_token = Self::generate_refresh_token();
+        let family_id = Uuid::new_v4();
+        let response = self
+            .issue_tokens_for_user_with_refresh_token(
+                wallet_address,
+                permissions,
+                client_id,
+                refresh_token.clone(),
+                auth_time,
+            )
+            .await?;
 
-        self.issue_tokens_for_user_with_refresh_token(
-            wallet_address,
-            permissions,
-            client_id,
-            refresh_token,
-            auth_time,
-        )
-        .await
+        // Sign every credential before publishing the durable refresh row. A signer
+        // failure therefore cannot leave an active token the caller never received.
+        self.create_refresh_token(wallet_address, client_id, family_id, &refresh_token, now)
+            .await?;
+
+        Ok(response)
     }
 
-    /// Issue OpenID Connect tokens with a pre-created refresh token.
+    /// Build OpenID Connect tokens around a pre-generated refresh token.
     ///
-    /// Refresh flows consume and replace the refresh token atomically before building
-    /// the JWT response, so they must not call create_refresh_token a second time.
-    pub async fn issue_tokens_for_user_with_refresh_token(
+    /// This method performs no database mutation. Callers must persist or rotate the
+    /// exact refresh value only after every fallible signing operation succeeds.
+    pub(crate) async fn issue_tokens_for_user_with_refresh_token(
         &self,
         wallet_address: &str,
         permissions: &[String],
@@ -269,46 +306,51 @@ impl OpenIDTokenService {
     ) -> Result<OpenIDTokenResponse, OpenIDTokenError> {
         self.validate_client_id(client_id)?;
 
-        // 1. Atomically consume the old refresh token and create its replacement.
-        let (refresh_info, new_refresh_token) = self.consume_refresh_token(refresh_token).await?;
-
-        // 2. Get current user profile
+        // Load all fallible profile data before rotation so a dependency failure
+        // cannot strand an undisclosed successor token.
+        let candidate = self
+            .validate_refresh_token(refresh_token, client_id)
+            .await?;
         let user_profile = self
-            .get_wallet_user_profile(&refresh_info.wallet_address)
+            .get_wallet_user_profile(&candidate.wallet_address)
             .await?;
 
-        // 3. Issue new tokens
-        let auth_time = refresh_info.created_at.timestamp(); // Original auth time
-        let jti = Uuid::new_v4().to_string();
+        // Build every returned credential before the destructive rotation transition.
+        let new_refresh_token = Self::generate_refresh_token();
+        let response = self
+            .issue_tokens_for_user_with_refresh_token(
+                &candidate.wallet_address,
+                &user_profile.permissions,
+                &candidate.client_id,
+                new_refresh_token.clone(),
+                candidate.created_at.timestamp(),
+            )
+            .await?;
 
-        let access_token = self.create_access_token(
-            &refresh_info.wallet_address,
-            &user_profile.permissions,
-            client_id,
-            auth_time,
-            &jti,
-        )?;
-
-        let id_token =
-            self.create_id_token(&refresh_info.wallet_address, client_id, auth_time, None)?;
+        // Publish the exact pre-signed successor only if the conditional consume wins.
+        let refresh_info = self
+            .consume_refresh_token(
+                refresh_token,
+                client_id,
+                &candidate.wallet_address,
+                candidate.family_id,
+                &new_refresh_token,
+            )
+            .await?;
 
         info!(
             "Refreshed tokens for wallet: {}",
             refresh_info.wallet_address
         );
 
-        Ok(OpenIDTokenResponse {
-            access_token,
-            token_type: "Bearer".to_string(),
-            expires_in: self.access_token_expiry_hours * 3600,
-            refresh_token: new_refresh_token,
-            refresh_expires_in: refresh_token_expiry_seconds(self.refresh_token_expiry_days),
-            id_token,
-            scope: "openid profile permissions".to_string(),
-        })
+        Ok(response)
     }
 
-    /// Revoke refresh token (for logout)
+    /// Revoke the refresh family containing the presented token.
+    ///
+    /// Every family rotation and logout first takes the same transaction-scoped
+    /// advisory lock. Historical tokens can therefore close only their own lineage,
+    /// while independent logins for the same wallet/client remain isolated.
     pub async fn revoke_refresh_token(&self, refresh_token: &str) -> Result<(), OpenIDTokenError> {
         use crate::schemas::primary::openid_refresh_tokens;
 
@@ -318,12 +360,44 @@ impl OpenIDTokenService {
             .await
             .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
 
-        diesel::update(openid_refresh_tokens::table)
-            .filter(openid_refresh_tokens::token_id.eq(refresh_token))
-            .set(openid_refresh_tokens::is_revoked.eq(true))
-            .execute(&mut conn)
-            .await
-            .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
+        let presented_token = refresh_token.to_string();
+        conn.transaction::<_, diesel::result::Error, _>(|conn| {
+            Box::pin(async move {
+                let family_id = openid_refresh_tokens::table
+                    .filter(openid_refresh_tokens::token_id.eq(&presented_token))
+                    .select(openid_refresh_tokens::family_id)
+                    .first::<Option<Uuid>>(conn)
+                    .await
+                    .optional()?;
+
+                match family_id {
+                    Some(Some(family_id)) => {
+                        Self::lock_refresh_family(conn, family_id).await?;
+                        diesel::update(openid_refresh_tokens::table)
+                            .filter(openid_refresh_tokens::family_id.eq(Some(family_id)))
+                            .filter(openid_refresh_tokens::is_revoked.eq(false))
+                            .set(openid_refresh_tokens::is_revoked.eq(true))
+                            .execute(conn)
+                            .await?;
+                    }
+                    Some(None) => {
+                        // A legacy row has no safe lineage. Revoke only the exact token;
+                        // never infer a client or merge it with a later login.
+                        diesel::update(openid_refresh_tokens::table)
+                            .filter(openid_refresh_tokens::token_id.eq(&presented_token))
+                            .filter(openid_refresh_tokens::is_revoked.eq(false))
+                            .set(openid_refresh_tokens::is_revoked.eq(true))
+                            .execute(conn)
+                            .await?;
+                    }
+                    None => {}
+                }
+
+                Ok(())
+            })
+        })
+        .await
+        .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
 
         Ok(())
     }
@@ -332,11 +406,17 @@ impl OpenIDTokenService {
     ///
     /// The conditional UPDATE prevents concurrent refresh requests from reusing the same
     /// token. The transaction rolls back the revocation if inserting the replacement fails.
-    pub async fn consume_refresh_token(
+    pub(crate) async fn consume_refresh_token(
         &self,
         refresh_token: &str,
-    ) -> Result<(RefreshTokenInfo, String), OpenIDTokenError> {
+        client_id: &str,
+        expected_wallet_address: &str,
+        expected_family_id: Uuid,
+        new_refresh_token: &str,
+    ) -> Result<RefreshTokenInfo, OpenIDTokenError> {
         use crate::schemas::primary::openid_refresh_tokens;
+
+        let requested_client = RefreshClient::parse(client_id)?;
 
         let mut conn = self
             .db_pool
@@ -345,49 +425,77 @@ impl OpenIDTokenService {
             .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
 
         let old_token = refresh_token.to_string();
-        let new_token = Uuid::new_v4().to_string();
+        let expected_wallet_address = expected_wallet_address.to_string();
+        let requested_client_id = requested_client.as_str().to_string();
+        let new_token = new_refresh_token.to_string();
         let now = Utc::now();
         let new_expires_at = now + Duration::days(self.refresh_token_expiry_days);
 
         conn.transaction::<_, diesel::result::Error, _>(|conn| {
             Box::pin(async move {
-                let (wallet_address, expires_at, created_at) =
+                Self::lock_refresh_family(conn, expected_family_id).await?;
+
+                let (wallet_address, stored_client_id, family_id, expires_at, created_at) =
                     diesel::update(openid_refresh_tokens::table)
                         .filter(openid_refresh_tokens::token_id.eq(&old_token))
+                        .filter(openid_refresh_tokens::wallet_address.eq(&expected_wallet_address))
+                        .filter(
+                            openid_refresh_tokens::client_id.eq(Some(requested_client_id.as_str())),
+                        )
+                        .filter(openid_refresh_tokens::family_id.eq(Some(expected_family_id)))
                         .filter(openid_refresh_tokens::is_revoked.eq(false))
                         .filter(openid_refresh_tokens::expires_at.gt(now))
                         .set(openid_refresh_tokens::is_revoked.eq(true))
                         .returning((
                             openid_refresh_tokens::wallet_address,
+                            openid_refresh_tokens::client_id,
+                            openid_refresh_tokens::family_id,
                             openid_refresh_tokens::expires_at,
                             openid_refresh_tokens::created_at,
                         ))
-                        .get_result::<(String, DateTime<Utc>, DateTime<Utc>)>(conn)
+                        .get_result::<(
+                            String,
+                            Option<String>,
+                            Option<Uuid>,
+                            DateTime<Utc>,
+                            DateTime<Utc>,
+                        )>(conn)
                         .await
                         .optional()?
                         .ok_or(diesel::result::Error::NotFound)?;
+
+                let stored_client_id = stored_client_id
+                    .filter(|stored| requested_client.matches_stored(Some(stored.as_str())))
+                    .ok_or(diesel::result::Error::NotFound)?;
+                let family_id = family_id
+                    .filter(|stored| *stored == expected_family_id)
+                    .ok_or(diesel::result::Error::NotFound)?;
 
                 diesel::insert_into(openid_refresh_tokens::table)
                     .values((
                         openid_refresh_tokens::token_id.eq(&new_token),
                         openid_refresh_tokens::wallet_address.eq(&wallet_address),
+                        openid_refresh_tokens::client_id.eq(Some(stored_client_id.as_str())),
+                        openid_refresh_tokens::family_id.eq(Some(family_id)),
                         openid_refresh_tokens::expires_at.eq(&new_expires_at),
-                        openid_refresh_tokens::created_at.eq(&now),
+                        // `created_at` is the original authentication time for this
+                        // rotation chain; preserving it prevents `auth_time` from
+                        // drifting forward on every refresh.
+                        openid_refresh_tokens::created_at.eq(&created_at),
                         openid_refresh_tokens::is_revoked.eq(false),
                     ))
                     .execute(conn)
                     .await?;
 
-                Ok((
-                    RefreshTokenInfo {
-                        token_id: old_token,
-                        wallet_address,
-                        expires_at,
-                        created_at,
-                        is_revoked: false,
-                    },
-                    new_token,
-                ))
+                Ok(RefreshTokenInfo {
+                    token_id: old_token,
+                    wallet_address,
+                    client_id: stored_client_id,
+                    family_id,
+                    expires_at,
+                    created_at,
+                    is_revoked: false,
+                })
             })
         })
         .await
@@ -642,13 +750,56 @@ impl OpenIDTokenService {
         .map_err(|e| OpenIDTokenError::TokenGenerationFailed(e.to_string()))
     }
 
-    /// Create refresh token and store in database
-    async fn create_refresh_token(&self, wallet_address: &str) -> Result<String, OpenIDTokenError> {
+    fn generate_refresh_token() -> String {
+        Uuid::new_v4().to_string()
+    }
+
+    async fn lock_refresh_family(
+        conn: &mut AsyncPgConnection,
+        family_id: Uuid,
+    ) -> Result<(), diesel::result::Error> {
+        use diesel::sql_types::{BigInt, Uuid as SqlUuid};
+
+        #[derive(QueryableByName)]
+        struct FamilyLockResult {
+            #[diesel(sql_type = BigInt)]
+            lock_result: i64,
+        }
+
+        // A transaction-scoped advisory lock gives every row in one family the
+        // same immutable serialization point. A 64-bit hash collision can only
+        // over-serialize unrelated families; it cannot weaken mutual exclusion.
+        let lock = diesel::sql_query(
+            r#"
+            WITH family_lock AS MATERIALIZED (
+                SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))
+            )
+            SELECT 1::BIGINT AS lock_result
+            FROM family_lock
+            "#,
+        )
+        .bind::<SqlUuid, _>(family_id)
+        .get_result::<FamilyLockResult>(conn)
+        .await?;
+        debug_assert_eq!(lock.lock_result, 1);
+
+        Ok(())
+    }
+
+    /// Store an already-generated refresh token after JWT signing succeeds.
+    async fn create_refresh_token(
+        &self,
+        wallet_address: &str,
+        client_id: &str,
+        family_id: Uuid,
+        token_id: &str,
+        created_at: DateTime<Utc>,
+    ) -> Result<(), OpenIDTokenError> {
         use crate::schemas::primary::openid_refresh_tokens;
 
-        let token_id = Uuid::new_v4().to_string();
-        let now = Utc::now();
-        let expires_at = now + Duration::days(self.refresh_token_expiry_days);
+        let client = RefreshClient::parse(client_id)?;
+
+        let expires_at = created_at + Duration::days(self.refresh_token_expiry_days);
 
         let mut conn = self
             .db_pool
@@ -658,31 +809,38 @@ impl OpenIDTokenService {
 
         diesel::insert_into(openid_refresh_tokens::table)
             .values((
-                openid_refresh_tokens::token_id.eq(&token_id),
+                openid_refresh_tokens::token_id.eq(token_id),
                 openid_refresh_tokens::wallet_address.eq(wallet_address),
+                openid_refresh_tokens::client_id.eq(Some(client.as_str())),
+                openid_refresh_tokens::family_id.eq(Some(family_id)),
                 openid_refresh_tokens::expires_at.eq(&expires_at),
-                openid_refresh_tokens::created_at.eq(&now),
+                openid_refresh_tokens::created_at.eq(&created_at),
                 openid_refresh_tokens::is_revoked.eq(false),
             ))
             .execute(&mut conn)
             .await
             .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
 
-        Ok(token_id)
+        Ok(())
     }
 
     /// Validate refresh token
     pub async fn validate_refresh_token(
         &self,
         token_id: &str,
+        client_id: &str,
     ) -> Result<RefreshTokenInfo, OpenIDTokenError> {
         use crate::schemas::primary::openid_refresh_tokens;
+
+        let client = RefreshClient::parse(client_id)?;
 
         #[derive(Queryable, Selectable)]
         #[diesel(table_name = crate::schemas::primary::openid_refresh_tokens)]
         struct RefreshTokenDb {
             token_id: String,
             wallet_address: String,
+            client_id: Option<String>,
+            family_id: Option<Uuid>,
             expires_at: DateTime<Utc>,
             created_at: DateTime<Utc>,
             is_revoked: bool,
@@ -696,6 +854,8 @@ impl OpenIDTokenService {
 
         let token = openid_refresh_tokens::table
             .filter(openid_refresh_tokens::token_id.eq(token_id))
+            .filter(openid_refresh_tokens::client_id.eq(Some(client.as_str())))
+            .filter(openid_refresh_tokens::family_id.is_not_null())
             .first::<RefreshTokenDb>(&mut conn)
             .await
             .optional()
@@ -717,6 +877,15 @@ impl OpenIDTokenService {
         Ok(RefreshTokenInfo {
             token_id: token.token_id,
             wallet_address: token.wallet_address,
+            client_id: token
+                .client_id
+                .filter(|stored| client.matches_stored(Some(stored.as_str())))
+                .ok_or_else(|| {
+                    OpenIDTokenError::InvalidRefreshToken("Token not found".to_string())
+                })?,
+            family_id: token.family_id.ok_or_else(|| {
+                OpenIDTokenError::InvalidRefreshToken("Token not found".to_string())
+            })?,
             expires_at: token.expires_at,
             created_at: token.created_at,
             is_revoked: token.is_revoked,
@@ -725,15 +894,11 @@ impl OpenIDTokenService {
 
     /// Check if client_id is valid
     pub fn validate_client_id(&self, client_id: &str) -> Result<(), OpenIDTokenError> {
-        if self.is_valid_client(client_id) {
-            Ok(())
-        } else {
-            Err(OpenIDTokenError::InvalidClient(client_id.to_string()))
-        }
+        RefreshClient::parse(client_id).map(|_| ())
     }
 
     fn is_valid_client(&self, client_id: &str) -> bool {
-        matches!(client_id, "epsx-frontend" | "epsx-admin")
+        RefreshClient::parse(client_id).is_ok()
     }
 }
 
@@ -833,6 +998,37 @@ mod tests {
     }
 
     #[test]
+    fn refresh_clients_accept_only_exact_frontend_and_admin_values() {
+        assert_eq!(
+            RefreshClient::parse("epsx-frontend").unwrap(),
+            RefreshClient::Frontend
+        );
+        assert_eq!(
+            RefreshClient::parse("epsx-admin").unwrap(),
+            RefreshClient::Admin
+        );
+        for invalid in ["", "EPSX-admin", "epsx-admin ", "frontend", "epsx-api"] {
+            assert!(matches!(
+                RefreshClient::parse(invalid),
+                Err(OpenIDTokenError::InvalidClient(_))
+            ));
+        }
+    }
+
+    #[test]
+    fn refresh_client_matching_fails_closed_for_cross_client_and_legacy_rows() {
+        let frontend = RefreshClient::Frontend;
+        let admin = RefreshClient::Admin;
+
+        assert!(frontend.matches_stored(Some("epsx-frontend")));
+        assert!(admin.matches_stored(Some("epsx-admin")));
+        assert!(!frontend.matches_stored(Some("epsx-admin")));
+        assert!(!admin.matches_stored(Some("epsx-frontend")));
+        assert!(!frontend.matches_stored(None));
+        assert!(!admin.matches_stored(None));
+    }
+
+    #[test]
     fn access_token_claims_are_bound_to_one_client_audience() {
         let claims = build_access_token_claims(
             TEST_ISSUER,
@@ -846,7 +1042,10 @@ mod tests {
         );
 
         assert_eq!(claims.aud, vec!["epsx-admin"]);
-        assert!(!claims.aud.iter().any(|audience| audience == "epsx-frontend"));
+        assert!(!claims
+            .aud
+            .iter()
+            .any(|audience| audience == "epsx-frontend"));
     }
 
     fn test_claims() -> AccessTokenClaims {
@@ -957,11 +1156,7 @@ mod tests {
     #[test]
     fn access_token_validation_rejects_empty_kid() {
         let key_manager = KeyManager::new().unwrap();
-        let token = encode_test_token(
-            &key_manager,
-            Algorithm::RS256,
-            Some("   ".to_string()),
-        );
+        let token = encode_test_token(&key_manager, Algorithm::RS256, Some("   ".to_string()));
 
         assert!(validate_access_token_with_key_manager(
             &token,

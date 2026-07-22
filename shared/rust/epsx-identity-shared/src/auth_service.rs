@@ -13,7 +13,7 @@ use siwe::{Message, VerificationOpts};
 use std::str::FromStr;
 use tracing::{error, info, warn};
 
-use super::token_service::OpenIDTokenService;
+use super::token_service::{OpenIDTokenError, OpenIDTokenService};
 
 /// Unified Web3 Authentication Service
 #[derive(Clone)]
@@ -83,6 +83,12 @@ pub enum Web3AuthError {
 
     #[error("Invalid signature: {0}")]
     InvalidSignature(String),
+
+    #[error("Invalid client: {0}")]
+    InvalidClient(String),
+
+    #[error("Invalid refresh token")]
+    InvalidRefreshToken,
 
     #[error("Expired nonce: {0}")]
     ExpiredNonce(String),
@@ -282,9 +288,7 @@ impl UnifiedWeb3AuthService {
 
         let openid_service = self.openid_service.as_ref().ok_or_else(|| {
             error!("OpenID token service is unavailable after SIWE verification");
-            Web3AuthError::TokenGenerationFailed(
-                "OpenID token service is unavailable".to_string(),
-            )
+            Web3AuthError::TokenGenerationFailed("OpenID token service is unavailable".to_string())
         })?;
         let tokens = openid_service
             .issue_tokens_for_user(&wallet_address, &permissions, client_id)
@@ -475,37 +479,61 @@ impl UnifiedWeb3AuthService {
         if let Some(ref openid_service) = self.openid_service {
             openid_service
                 .validate_client_id(client_id)
-                .map_err(|e| Web3AuthError::InvalidSignature(format!("Invalid client: {}", e)))?;
+                .map_err(map_refresh_error)?;
 
-            let (refresh_info, new_refresh_token) = openid_service
-                .consume_refresh_token(refresh_token)
+            let candidate = openid_service
+                .validate_refresh_token(refresh_token, client_id)
                 .await
-                .map_err(|e| {
-                    Web3AuthError::InvalidSignature(format!("Invalid refresh token: {}", e))
-                })?;
+                .map_err(map_refresh_error)?;
 
             let permissions = self
-                .get_wallet_permissions(&refresh_info.wallet_address)
+                .get_wallet_permissions(&candidate.wallet_address)
                 .await?;
 
+            let new_refresh_token = uuid::Uuid::new_v4().to_string();
             let response = openid_service
                 .issue_tokens_for_user_with_refresh_token(
-                    &refresh_info.wallet_address,
+                    &candidate.wallet_address,
                     &permissions,
-                    client_id,
-                    new_refresh_token,
-                    refresh_info.created_at.timestamp(),
+                    &candidate.client_id,
+                    new_refresh_token.clone(),
+                    candidate.created_at.timestamp(),
                 )
                 .await
-                .map_err(|e| {
-                    Web3AuthError::InvalidSignature(format!("Token generation failed: {}", e))
-                })?;
+                .map_err(map_refresh_error)?;
+
+            let refresh_info = openid_service
+                .consume_refresh_token(
+                    refresh_token,
+                    client_id,
+                    &candidate.wallet_address,
+                    candidate.family_id,
+                    &new_refresh_token,
+                )
+                .await
+                .map_err(map_refresh_error)?;
 
             Ok((response, refresh_info.wallet_address, permissions))
         } else {
             Err(Web3AuthError::DatabaseError(
                 "OpenID service not configured".to_string(),
             ))
+        }
+    }
+}
+
+fn map_refresh_error(error: OpenIDTokenError) -> Web3AuthError {
+    match error {
+        OpenIDTokenError::InvalidClient(client_id) => Web3AuthError::InvalidClient(client_id),
+        OpenIDTokenError::InvalidRefreshToken(_) | OpenIDTokenError::TokenExpired(_) => {
+            Web3AuthError::InvalidRefreshToken
+        }
+        OpenIDTokenError::DatabaseError(message) => Web3AuthError::DatabaseError(message),
+        OpenIDTokenError::TokenGenerationFailed(message) => {
+            Web3AuthError::TokenGenerationFailed(message)
+        }
+        OpenIDTokenError::Web3AuthenticationFailed(message) => {
+            Web3AuthError::TokenGenerationFailed(message)
         }
     }
 }

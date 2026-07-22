@@ -8,7 +8,11 @@ use axum::{
 };
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use epsx_bff::{
-    cookies::{CookieEnvironment, LEGACY_ACCESS_COOKIE, LOCAL_ACCESS_COOKIE, LOCAL_REFRESH_COOKIE},
+    cookies::{
+        CookieEnvironment, LEGACY_ACCESS_COOKIE, LEGACY_LOCAL_ACCESS_COOKIE,
+        LEGACY_LOCAL_REFRESH_COOKIE, LOCAL_ADMIN_ACCESS_COOKIE as LOCAL_ACCESS_COOKIE,
+        LOCAL_ADMIN_REFRESH_COOKIE as LOCAL_REFRESH_COOKIE,
+    },
     session::{
         AccessTokenClaims, Jwks, JwksVerifier, JwksVerifierConfig, RsaJwk, ADMIN_CLIENT_ID,
         FRONTEND_CLIENT_ID, JWKS_PATH, LOGOUT_PATH, PROFILE_PATH, REFRESH_PATH, VERIFY_PATH,
@@ -150,10 +154,12 @@ fn response_cookies(response: &Response) -> Vec<String> {
 
 fn assert_session_cleared(response: &Response) {
     let cookies = response_cookies(response);
-    assert_eq!(cookies.len(), 3);
+    assert_eq!(cookies.len(), 5);
     for name in [
         LOCAL_ACCESS_COOKIE,
         LOCAL_REFRESH_COOKIE,
+        LEGACY_LOCAL_ACCESS_COOKIE,
+        LEGACY_LOCAL_REFRESH_COOKIE,
         LEGACY_ACCESS_COOKIE,
     ] {
         let cookie = cookies
@@ -219,7 +225,7 @@ async fn admin_siwe_requires_admin_audience_and_returns_no_tokens() {
     .await;
 
     assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(response_cookies(&response).len(), 2);
+    assert_eq!(response_cookies(&response).len(), 5);
     let bytes = to_bytes(response.into_body(), 16 * 1024).await.unwrap();
     let body: Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(body["user"]["permissions"], json!(["admin:users:manage"]));
@@ -292,18 +298,22 @@ async fn refresh_reads_cookie_and_rotates_verified_pair() {
     let base_url = spawn_mock(router).await;
     let response = session_auth::refresh_token(
         State(state(&base_url)),
-        cookie_headers("epsx.refresh_token=browser-admin-refresh"),
+        cookie_headers("epsx.admin.refresh_token=browser-admin-refresh"),
     )
     .await;
     assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get(header::CACHE_CONTROL),
+        Some(&HeaderValue::from_static("private, no-store"))
+    );
     let cookies = response_cookies(&response);
-    assert_eq!(cookies.len(), 2);
+    assert_eq!(cookies.len(), 5);
     assert!(cookies
         .iter()
-        .any(|cookie| cookie.starts_with("epsx.access_token=")));
+        .any(|cookie| cookie.starts_with("epsx.admin.access_token=")));
     assert!(cookies
         .iter()
-        .any(|cookie| cookie.starts_with("epsx.refresh_token=rotated-admin-refresh")));
+        .any(|cookie| cookie.starts_with("epsx.admin.refresh_token=rotated-admin-refresh")));
 }
 
 #[tokio::test]
@@ -313,7 +323,7 @@ async fn rejected_or_malformed_refresh_clears_canonical_and_legacy_cookies() {
             .await;
     let rejected = session_auth::refresh_token(
         State(state(&rejected_base)),
-        cookie_headers("epsx.refresh_token=browser-admin-refresh"),
+        cookie_headers("epsx.admin.refresh_token=browser-admin-refresh"),
     )
     .await;
     assert_eq!(rejected.status(), StatusCode::UNAUTHORIZED);
@@ -323,11 +333,33 @@ async fn rejected_or_malformed_refresh_clears_canonical_and_legacy_cookies() {
         spawn_mock(Router::new().route(REFRESH_PATH, post(|| async { "not-json" }))).await;
     let malformed = session_auth::refresh_token(
         State(state(&malformed_base)),
-        cookie_headers("epsx.refresh_token=browser-admin-refresh"),
+        cookie_headers("epsx.admin.refresh_token=browser-admin-refresh"),
     )
     .await;
     assert_eq!(malformed.status(), StatusCode::BAD_GATEWAY);
     assert_session_cleared(&malformed);
+
+    for upstream_status in [
+        StatusCode::BAD_REQUEST,
+        StatusCode::REQUEST_TIMEOUT,
+        StatusCode::TOO_MANY_REQUESTS,
+        StatusCode::SERVICE_UNAVAILABLE,
+    ] {
+        let retryable_base = spawn_mock(
+            Router::new().route(REFRESH_PATH, post(move || async move { upstream_status })),
+        )
+        .await;
+        let retryable = session_auth::refresh_token(
+            State(state(&retryable_base)),
+            cookie_headers("epsx.admin.refresh_token=browser-admin-refresh"),
+        )
+        .await;
+        assert_eq!(retryable.status(), StatusCode::BAD_GATEWAY);
+        assert!(
+            response_cookies(&retryable).is_empty(),
+            "non-401 upstream failures must preserve the browser session"
+        );
+    }
 }
 
 #[tokio::test]
@@ -360,7 +392,7 @@ async fn me_verifies_jwt_cross_checks_identity_and_clears_mismatch() {
     let base_url = spawn_mock(router).await;
     let response = session_auth::auth_me(
         State(state(&base_url)),
-        cookie_headers(&format!("epsx.access_token={access}")),
+        cookie_headers(&format!("epsx.admin.access_token={access}")),
     )
     .await;
     assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
@@ -369,7 +401,7 @@ async fn me_verifies_jwt_cross_checks_identity_and_clears_mismatch() {
     let invalid_base = unused_base_url().await;
     let invalid = session_auth::auth_me(
         State(state(&invalid_base)),
-        cookie_headers("epsx.access_token=not-a-jwt"),
+        cookie_headers("epsx.admin.access_token=not-a-jwt"),
     )
     .await;
     assert_eq!(invalid.status(), StatusCode::UNAUTHORIZED);
@@ -398,7 +430,7 @@ async fn me_preserves_backend_profile_permissions_and_capabilities_verbatim() {
     let base_url = spawn_mock(router).await;
     let response = session_auth::auth_me(
         State(state(&base_url)),
-        cookie_headers(&format!("epsx.access_token={access}")),
+        cookie_headers(&format!("epsx.admin.access_token={access}")),
     )
     .await;
     assert_eq!(response.status(), StatusCode::OK);
@@ -417,7 +449,7 @@ async fn logout_calls_delete_and_always_clears_locally() {
     .await;
     let success = session_auth::logout(
         State(state(&base_url)),
-        cookie_headers("epsx.refresh_token=browser-admin-refresh"),
+        cookie_headers("epsx.admin.refresh_token=browser-admin-refresh"),
     )
     .await;
     assert_eq!(success.status(), StatusCode::OK);
@@ -426,7 +458,7 @@ async fn logout_calls_delete_and_always_clears_locally() {
     let unavailable = unused_base_url().await;
     let failure = session_auth::logout(
         State(state(&unavailable)),
-        cookie_headers("epsx.refresh_token=browser-admin-refresh"),
+        cookie_headers("epsx.admin.refresh_token=browser-admin-refresh"),
     )
     .await;
     assert_eq!(failure.status(), StatusCode::BAD_GATEWAY);
