@@ -1,0 +1,288 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A1.6-refresh-digest-replay-schema",
+  "status": "partial-hermetic-schema-runtime-proof",
+  "productionReady": false,
+  "databaseProof": false,
+  "runtimeHermeticProof": true,
+  "runtimeProof": false,
+  "cutoverAuthorized": false,
+  "authority": {
+    "table": "public.openid_refresh_tokens",
+    "runtime": "shared/rust/epsx-identity-shared",
+    "interpretation": "The monolith remains canonical. This contract certifies additive schema shape and hermetic source-level runtime composition, but it does not prove PostgreSQL behavior or authorize migration execution, maintenance cutover, key provisioning, or production use."
+  },
+  "migration": {
+    "directory": "apps/backend/migrations/core/20260723100000_add_refresh_token_digest_replay_state",
+    "upSha256": "d7e133eca873625c38a743f2d132eb5f5fb5098accbb53b9f4f0ffa758bfec0e",
+    "downSha256": "a5004d0e7523214ce5223988ff42eccf35ba6bb138626759f4245812a05869a7",
+    "mode": "additive-expand-forward-only",
+    "legacyPolicy": "Pre-A1.6 NULL rows are never request-claimed, digest-upgraded, backfilled, or inferred. A required drained maintenance cutover forces reauthentication; only a separately authorized reconciliation may revoke or scrub plaintext rows.",
+    "storagePolicy": "Only storage_version 2 is admitted for digest rows. Version 2 means token_id is a non-bearer row identifier and lookup uses the keyed digest. Raw-bearing dual-write version 1 is intentionally unsupported."
+  },
+  "invariants": [
+    {
+      "id": "additive-null-expansion",
+      "claim": "Seven nullable, default-free, non-identity, non-generated columns are added without mutating a row."
+    },
+    {
+      "id": "digest-metadata-atomic-shape",
+      "claim": "Legacy rows keep all digest metadata NULL; storage-version-2 rows require digest metadata plus existing client and family bindings."
+    },
+    {
+      "id": "digest-only-storage-version",
+      "claim": "Only storage_version 2 is admitted; no raw-bearing dual-write version is defined by this migration."
+    },
+    {
+      "id": "digest-width",
+      "claim": "A non-NULL token digest is exactly 32 bytes."
+    },
+    {
+      "id": "key-selector-shape",
+      "claim": "Digest key identifiers use 1-32 ASCII alphanumeric, underscore, or hyphen characters, and digest versions are positive."
+    },
+    {
+      "id": "terminal-state-shape",
+      "claim": "Each storage-version-2 row is exactly active, consumed, or revoked; legacy rows keep every new digest and lifecycle column NULL."
+    },
+    {
+      "id": "lifecycle-time-order",
+      "claim": "Consumption and revocation cannot predate row creation."
+    },
+    {
+      "id": "replay-after-consume",
+      "claim": "Replay detection requires a consumed predecessor and cannot predate consumption."
+    },
+    {
+      "id": "digest-lookup-uniqueness",
+      "claim": "The non-NULL key ID, digest version, and digest tuple is unique."
+    },
+    {
+      "id": "forward-only-security-state",
+      "claim": "The reverse migration refuses to erase digest or replay evidence."
+    }
+  ],
+  "runtimeInvariants": [
+    {
+      "id": "opaque-credential-v1",
+      "claim": "Refresh credentials use strict rt1 framing with exactly 32 random bytes from OsRng and canonical unpadded base64url encoding."
+    },
+    {
+      "id": "required-dedicated-hmac-keyring",
+      "claim": "Both runtime factories require the dedicated refresh-token HMAC keyring from environment with no generated or default fallback, and HMAC-SHA256 uses the pinned domain separator."
+    },
+    {
+      "id": "digest-only-storage-and-lookup",
+      "claim": "New rows use independent UUID storage identifiers, persist only digest material, and locate presented credentials through BYTEA digest metadata."
+    },
+    {
+      "id": "exact-runtime-binding-predicates",
+      "claim": "Validation and consumption require the exact digest key, digest version, digest bytes, storage version 2, client, and non-NULL matching family."
+    },
+    {
+      "id": "atomic-consumed-state",
+      "claim": "The winning consume mutation atomically sets is_revoked true and consumed_at from the PostgreSQL clock before inserting the successor."
+    },
+    {
+      "id": "committed-reuse-response",
+      "claim": "Consumed-token reuse records replay and revokes active family descendants inside a transaction that returns a success outcome before the public boundary maps it to generic credential rejection."
+    },
+    {
+      "id": "family-lock-and-database-clock",
+      "claim": "Rotation, logout, and replay response share the transaction-scoped family advisory lock and use PostgreSQL clock_timestamp for persisted lifecycle timestamps."
+    },
+    {
+      "id": "stateless-openid-composition",
+      "claim": "Both backend factories require the HMAC keyring, inject it into OpenIDTokenService, and construct UnifiedWeb3AuthService with new_with_openid."
+    },
+    {
+      "id": "bearer-dto-debug-redaction",
+      "claim": "The token response, logout request, and refresh request bearer-bearing DTOs do not derive Debug."
+    },
+    {
+      "id": "bounded-legacy-raw-path",
+      "claim": "No new-row insert stores a bearer in token_id; raw UUID comparison remains only in bounded storage-version-NULL legacy logout."
+    }
+  ],
+  "evidence": [
+    {
+      "file": "apps/backend/migrations/core/20260723100000_add_refresh_token_digest_replay_state/up.sql",
+      "anchors": [
+        "ADD COLUMN IF NOT EXISTS token_digest BYTEA",
+        "ADD COLUMN IF NOT EXISTS digest_key_id VARCHAR(32)",
+        "ADD COLUMN IF NOT EXISTS replay_detected_at TIMESTAMPTZ",
+        "storage_version = 2",
+        "OCTET_LENGTH(token_digest) = 32",
+        "openid_refresh_tokens_terminal_state_check",
+        "CREATE UNIQUE INDEX openid_refresh_tokens_digest_lookup_uq"
+      ]
+    },
+    {
+      "file": "apps/backend/migrations/core/20260723100000_add_refresh_token_digest_replay_state/down.sql",
+      "anchors": [
+        "RAISE EXCEPTION",
+        "forward-only"
+      ]
+    },
+    {
+      "file": "shared/rust/epsx-identity-shared/src/refresh_token_digest.rs",
+      "anchors": [
+        "const TOKEN_VERSION: &str = \"rt1\";",
+        "const TOKEN_SECRET_BYTES: usize = 32;",
+        "const DIGEST_BYTES: usize = 32;",
+        "const HMAC_DOMAIN_SEPARATOR: &[u8] = b\"epsx.refresh.v1\\0\";",
+        "REFRESH_TOKEN_HMAC_ACTIVE_KID",
+        "REFRESH_TOKEN_HMAC_KEYS_JSON",
+        "pub fn from_env()",
+        "OsRng.fill_bytes(&mut secret);",
+        "pub fn digest_presented(",
+        "Hmac::<Sha256>::new_from_slice(key)",
+        "strict_parser_rejects_malformed_and_noncanonical_credentials",
+        "deterministic_hmac_vector_is_stable_and_domain_separated"
+      ]
+    },
+    {
+      "file": "shared/rust/epsx-identity-shared/src/token_service.rs",
+      "anchors": [
+        "const REFRESH_DIGEST_VERSION: i16 = 1;",
+        "const REFRESH_STORAGE_VERSION: i16 = 2;",
+        "enum RefreshRotationOutcome",
+        "#[derive(Clone, Serialize, Deserialize, ToSchema)]\npub struct OpenIDTokenResponse",
+        "let now = self.current_database_time().await?;",
+        "let new_storage_id = Uuid::new_v4().to_string();",
+        "let storage_id = Uuid::new_v4().to_string();",
+        ".filter(openid_refresh_tokens::token_digest.eq(Some(old_digest.clone())))",
+        ".filter(openid_refresh_tokens::storage_version",
+        "client_id.eq(Some(requested_client_id.as_str()))",
+        "family_id.eq(Some(expected_family_id))",
+        "consumed_at.eq(Some(now))",
+        "return Ok(RefreshRotationOutcome::ReuseDetected);",
+        "RefreshRotationOutcome::ReuseDetected | RefreshRotationOutcome::Invalid",
+        "pg_advisory_xact_lock(hashtextextended",
+        "SELECT clock_timestamp() AS observed_at",
+        "token_id.eq(&presented_token)",
+        "storage_version.is_null()"
+      ]
+    },
+    {
+      "file": "shared/rust/epsx-identity-shared/src/auth_service.rs",
+      "anchors": [
+        "pub fn new_with_openid(",
+        "let new_refresh_token = openid_service.issue_refresh_token();",
+        ".consume_refresh_token("
+      ]
+    },
+    {
+      "file": "apps/backend/src/infrastructure/container/simple_container.rs",
+      "anchors": [
+        "RefreshTokenKeyring::from_env()",
+        "OpenIDTokenService::new(",
+        "UnifiedWeb3AuthService::new_with_openid("
+      ]
+    },
+    {
+      "file": "apps/backend/src/infrastructure/container/stateless_service_factory.rs",
+      "anchors": [
+        "RefreshTokenKeyring::from_env()",
+        "OpenIDTokenService::new(",
+        "UnifiedWeb3AuthService::new_with_openid("
+      ]
+    },
+    {
+      "file": "shared/rust/epsx-identity-shared/src/schemas.rs",
+      "anchors": [
+        "token_digest -> Nullable<Bytea>",
+        "digest_key_id -> Nullable<Varchar>",
+        "digest_version -> Nullable<Int2>",
+        "storage_version -> Nullable<Int2>",
+        "consumed_at -> Nullable<Timestamptz>",
+        "revoked_at -> Nullable<Timestamptz>",
+        "replay_detected_at -> Nullable<Timestamptz>"
+      ]
+    },
+    {
+      "file": "apps/backend/src/schemas/primary.rs",
+      "anchors": [
+        "token_digest -> Nullable<Bytea>",
+        "digest_key_id -> Nullable<Varchar>",
+        "digest_version -> Nullable<Int2>",
+        "storage_version -> Nullable<Int2>",
+        "consumed_at -> Nullable<Timestamptz>",
+        "revoked_at -> Nullable<Timestamptz>",
+        "replay_detected_at -> Nullable<Timestamptz>"
+      ]
+    },
+    {
+      "file": "shared/rust/epsx-identity-shared/Cargo.toml",
+      "anchors": [
+        "sha2 = \"0.10\"",
+        "hmac.workspace = true",
+        "rand = \"0.8\"",
+        "base64 = \"0.22\""
+      ]
+    },
+    {
+      "file": "apps/backend/src/web/auth/handlers.rs",
+      "anchors": [
+        "#[derive(Deserialize, Serialize, ToSchema)]\npub struct LogoutRequest",
+        "#[derive(Deserialize, Serialize, ToSchema)]\npub struct TokenRefreshRequest"
+      ]
+    },
+    {
+      "file": "docs/migration/A1_5_REFRESH_CLIENT_BINDING.md",
+      "anchors": [
+        "opaque credentials, stores keyed digests",
+        "active-descendant revocation after detected reuse"
+      ]
+    },
+    {
+      "file": "docs/migration/contracts/migration-safety.json",
+      "anchors": [
+        "version.core-baseline-collision",
+        "Two active core directories share version 00000000000001."
+      ]
+    }
+  ],
+  "residualStops": [
+    {
+      "id": "core-migration-version-collision",
+      "claim": "No migration in the active core root may execute until the duplicate 00000000000001 baseline collision is reconciled."
+    },
+    {
+      "id": "postgres-expansion-unproved",
+      "claim": "No disposable PostgreSQL instance has applied this expansion from every observed supported history."
+    },
+    {
+      "id": "forward-only-down-unproved",
+      "claim": "No PostgreSQL proof shows that attempted down migration fails atomically without schema or data change."
+    },
+    {
+      "id": "digest-runtime-database-proof-absent",
+      "claim": "Hermetic runtime evidence does not prove digest lookup, lifecycle transitions, replay response, or fail-closed startup against PostgreSQL."
+    },
+    {
+      "id": "maintenance-cutover-unproved",
+      "claim": "The required drained old-to-new maintenance cutover and forced reauthentication have not been executed or proven."
+    },
+    {
+      "id": "legacy-zero-raw-unproved",
+      "claim": "Legacy revocation, plaintext scrubbing, reconciliation, and zero accepted or retained raw bearers are unproved."
+    },
+    {
+      "id": "key-lifecycle-unproved",
+      "claim": "Persistent digest-key secret provisioning, restart persistence, production rotation and safe retirement, and PostgreSQL integration remain unproved and unauthorized."
+    },
+    {
+      "id": "postgres-replay-ordering-unproved",
+      "claim": "MVCC consume, revoke, replay detection, family-lock ordering, and forced-successor rollback are unproved."
+    },
+    {
+      "id": "access-token-post-logout-validity",
+      "claim": "Already-issued access tokens remain valid until expiry after logout or refresh-family revocation."
+    },
+    {
+      "id": "production-actions-unauthorized",
+      "claim": "No production secret, migration, service, browser, routing, canary, rollback, deployment, or database action is authorized by this contract."
+    }
+  ]
+}

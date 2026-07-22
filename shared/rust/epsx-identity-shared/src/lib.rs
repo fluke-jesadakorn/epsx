@@ -29,6 +29,7 @@ pub mod verification_service;
 pub mod token_service;
 pub mod key_manager;
 pub mod granular_permissions;
+pub mod refresh_token_digest;
 pub mod unified_permission_service;
 
 // ============================================================================
@@ -52,6 +53,10 @@ pub use token_service::{
 };
 
 pub use key_manager::KeyManager;
+pub use refresh_token_digest::{
+    DigestedRefreshToken, IssuedRefreshToken, RefreshTokenCredential, RefreshTokenDigest,
+    RefreshTokenDigestError, RefreshTokenKeyring,
+};
 pub use granular_permissions::{
     GranularPermissionClaim, PermissionSource as GranularPermissionSource, GranularPermissionSet,
     PermissionValidationResult, ValidationContext as GranularValidationContext,

@@ -17,13 +17,49 @@ use uuid::Uuid;
 
 use crate::auth_service::Web3VerificationRequest;
 use crate::key_manager::KeyManager;
+use crate::refresh_token_digest::{DigestedRefreshToken, IssuedRefreshToken, RefreshTokenKeyring};
 
 const SECONDS_PER_DAY: i64 = 24 * 60 * 60;
+const REFRESH_DIGEST_VERSION: i16 = 1;
+const REFRESH_STORAGE_VERSION: i16 = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RefreshClient {
     Frontend,
     Admin,
+}
+
+enum RefreshRotationOutcome {
+    Rotated(RefreshTokenInfo),
+    ReuseDetected,
+    Invalid,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum StoredRefreshState {
+    Active,
+    Consumed,
+    Revoked,
+    Invalid,
+}
+
+fn classify_refresh_state(
+    is_revoked: bool,
+    consumed_at: Option<DateTime<Utc>>,
+    revoked_at: Option<DateTime<Utc>>,
+    replay_detected_at: Option<DateTime<Utc>>,
+) -> StoredRefreshState {
+    match (
+        is_revoked,
+        consumed_at.is_some(),
+        revoked_at.is_some(),
+        replay_detected_at.is_some(),
+    ) {
+        (false, false, false, false) => StoredRefreshState::Active,
+        (true, true, false, _) => StoredRefreshState::Consumed,
+        (true, false, true, false) => StoredRefreshState::Revoked,
+        _ => StoredRefreshState::Invalid,
+    }
 }
 
 impl RefreshClient {
@@ -56,9 +92,10 @@ fn refresh_token_expiry_seconds(days: i64) -> i64 {
 #[derive(Clone)]
 pub struct OpenIDTokenService {
     db_pool: &'static TlsPool,
-    issuer: String,                 // "https://api.epsx.io"
-    audiences: Vec<String>,         // ["epsx-frontend", "epsx-admin"]
-    key_manager: Arc<KeyManager>,   // RSA key manager for JWT signing/validation
+    issuer: String,               // "https://api.epsx.io"
+    audiences: Vec<String>,       // ["epsx-frontend", "epsx-admin"]
+    key_manager: Arc<KeyManager>, // RSA key manager for JWT signing/validation
+    refresh_token_keyring: Arc<RefreshTokenKeyring>,
     access_token_expiry_hours: i64, // Default: 1 hour
     refresh_token_expiry_days: i64, // Default: 30 days
     id_token_expiry_hours: i64,     // Default: 1 hour
@@ -66,7 +103,7 @@ pub struct OpenIDTokenService {
 
 /// Standard OpenID Connect Token Response
 /// Compliant with OAuth2/OpenID Connect specification
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Clone, Serialize, Deserialize, ToSchema)]
 pub struct OpenIDTokenResponse {
     pub access_token: String,    // JWT Bearer token for API access
     pub token_type: String,      // Always "Bearer"
@@ -119,13 +156,16 @@ pub struct IdTokenClaims {
 /// Stored in database for token renewal
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RefreshTokenInfo {
-    pub token_id: String,          // Unique token identifier
-    pub wallet_address: String,    // Associated wallet
-    pub client_id: String,         // Original frontend or admin client
-    pub family_id: Uuid,           // One login lineage; scopes rotation and logout
+    pub token_id: String,       // Internal row identifier; never a bearer credential
+    pub wallet_address: String, // Associated wallet
+    pub client_id: String,      // Original frontend or admin client
+    pub family_id: Uuid,        // One login lineage; scopes rotation and logout
     pub expires_at: DateTime<Utc>, // Expiration time
     pub created_at: DateTime<Utc>, // Creation time
-    pub is_revoked: bool,          // Revocation status
+    pub is_revoked: bool,       // Revocation status
+    pub consumed_at: Option<DateTime<Utc>>,
+    pub revoked_at: Option<DateTime<Utc>>,
+    pub replay_detected_at: Option<DateTime<Utc>>,
 }
 
 /// Web3 Authentication + OpenID Token Request
@@ -167,12 +207,14 @@ impl OpenIDTokenService {
         issuer: String,
         audiences: Vec<String>,
         key_manager: Arc<KeyManager>,
+        refresh_token_keyring: Arc<RefreshTokenKeyring>,
     ) -> Self {
         Self {
             db_pool,
             issuer,
             audiences,
             key_manager,
+            refresh_token_keyring,
             access_token_expiry_hours: 1, // 1 hour (refresh token handles renewal)
             refresh_token_expiry_days: 30, // 30 days (rotated on each refresh)
             id_token_expiry_hours: 1,     // 1 hour (matches access token)
@@ -228,19 +270,19 @@ impl OpenIDTokenService {
         permissions: &[String],
         client_id: &str,
     ) -> Result<OpenIDTokenResponse, OpenIDTokenError> {
-        let now = Utc::now();
+        let now = self.current_database_time().await?;
         let auth_time = now.timestamp();
 
         self.validate_client_id(client_id)?;
 
-        let refresh_token = Self::generate_refresh_token();
+        let refresh_token = self.issue_refresh_token();
         let family_id = Uuid::new_v4();
         let response = self
             .issue_tokens_for_user_with_refresh_token(
                 wallet_address,
                 permissions,
                 client_id,
-                refresh_token.clone(),
+                refresh_token.credential().expose().to_owned(),
                 auth_time,
             )
             .await?;
@@ -316,13 +358,13 @@ impl OpenIDTokenService {
             .await?;
 
         // Build every returned credential before the destructive rotation transition.
-        let new_refresh_token = Self::generate_refresh_token();
+        let new_refresh_token = self.issue_refresh_token();
         let response = self
             .issue_tokens_for_user_with_refresh_token(
                 &candidate.wallet_address,
                 &user_profile.permissions,
                 &candidate.client_id,
-                new_refresh_token.clone(),
+                new_refresh_token.credential().expose().to_owned(),
                 candidate.created_at.timestamp(),
             )
             .await?;
@@ -354,6 +396,12 @@ impl OpenIDTokenService {
     pub async fn revoke_refresh_token(&self, refresh_token: &str) -> Result<(), OpenIDTokenError> {
         use crate::schemas::primary::openid_refresh_tokens;
 
+        let digested = match self.refresh_token_keyring.digest_presented(refresh_token) {
+            Ok(digested) => Some(digested),
+            Err(_) if Uuid::parse_str(refresh_token).is_ok() => None,
+            Err(_) => return Ok(()),
+        };
+
         let mut conn = self
             .db_pool
             .get()
@@ -363,33 +411,60 @@ impl OpenIDTokenService {
         let presented_token = refresh_token.to_string();
         conn.transaction::<_, diesel::result::Error, _>(|conn| {
             Box::pin(async move {
-                let family_id = openid_refresh_tokens::table
-                    .filter(openid_refresh_tokens::token_id.eq(&presented_token))
-                    .select(openid_refresh_tokens::family_id)
-                    .first::<Option<Uuid>>(conn)
-                    .await
-                    .optional()?;
+                let family_id = if let Some(digested) = digested {
+                    openid_refresh_tokens::table
+                        .filter(
+                            openid_refresh_tokens::digest_key_id.eq(Some(digested.digest_key_id())),
+                        )
+                        .filter(
+                            openid_refresh_tokens::digest_version.eq(Some(REFRESH_DIGEST_VERSION)),
+                        )
+                        .filter(
+                            openid_refresh_tokens::token_digest
+                                .eq(Some(digested.digest().to_db_bytes())),
+                        )
+                        .filter(
+                            openid_refresh_tokens::storage_version
+                                .eq(Some(REFRESH_STORAGE_VERSION)),
+                        )
+                        .select(openid_refresh_tokens::family_id)
+                        .first::<Option<Uuid>>(conn)
+                        .await
+                        .optional()?
+                } else {
+                    // Bounded A1.5 compatibility: legacy UUID credentials can
+                    // close only their exact row and can never rotate.
+                    diesel::update(openid_refresh_tokens::table)
+                        .filter(openid_refresh_tokens::token_id.eq(&presented_token))
+                        .filter(openid_refresh_tokens::storage_version.is_null())
+                        .filter(openid_refresh_tokens::is_revoked.eq(false))
+                        .set(openid_refresh_tokens::is_revoked.eq(true))
+                        .execute(conn)
+                        .await?;
+                    return Ok(());
+                };
 
                 match family_id {
                     Some(Some(family_id)) => {
                         Self::lock_refresh_family(conn, family_id).await?;
+                        let now = Self::database_clock(conn).await?;
                         diesel::update(openid_refresh_tokens::table)
                             .filter(openid_refresh_tokens::family_id.eq(Some(family_id)))
+                            .filter(
+                                openid_refresh_tokens::storage_version
+                                    .eq(Some(REFRESH_STORAGE_VERSION)),
+                            )
                             .filter(openid_refresh_tokens::is_revoked.eq(false))
-                            .set(openid_refresh_tokens::is_revoked.eq(true))
+                            .filter(openid_refresh_tokens::consumed_at.is_null())
+                            .filter(openid_refresh_tokens::revoked_at.is_null())
+                            .set((
+                                openid_refresh_tokens::is_revoked.eq(true),
+                                openid_refresh_tokens::revoked_at.eq(Some(now)),
+                            ))
                             .execute(conn)
                             .await?;
                     }
-                    Some(None) => {
-                        // A legacy row has no safe lineage. Revoke only the exact token;
-                        // never infer a client or merge it with a later login.
-                        diesel::update(openid_refresh_tokens::table)
-                            .filter(openid_refresh_tokens::token_id.eq(&presented_token))
-                            .filter(openid_refresh_tokens::is_revoked.eq(false))
-                            .set(openid_refresh_tokens::is_revoked.eq(true))
-                            .execute(conn)
-                            .await?;
-                    }
+                    Some(None) => {}
                     None => {}
                 }
 
@@ -412,11 +487,12 @@ impl OpenIDTokenService {
         client_id: &str,
         expected_wallet_address: &str,
         expected_family_id: Uuid,
-        new_refresh_token: &str,
+        new_refresh_token: &IssuedRefreshToken,
     ) -> Result<RefreshTokenInfo, OpenIDTokenError> {
         use crate::schemas::primary::openid_refresh_tokens;
 
         let requested_client = RefreshClient::parse(client_id)?;
+        let old_token = self.digest_presented_refresh_token(refresh_token)?;
 
         let mut conn = self
             .db_pool
@@ -424,29 +500,50 @@ impl OpenIDTokenService {
             .await
             .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
 
-        let old_token = refresh_token.to_string();
+        let old_digest_key_id = old_token.digest_key_id().to_string();
+        let old_digest = old_token.digest().to_db_bytes();
         let expected_wallet_address = expected_wallet_address.to_string();
         let requested_client_id = requested_client.as_str().to_string();
-        let new_token = new_refresh_token.to_string();
-        let now = Utc::now();
-        let new_expires_at = now + Duration::days(self.refresh_token_expiry_days);
+        let new_storage_id = Uuid::new_v4().to_string();
+        let new_digest_key_id = new_refresh_token.digest_key_id().to_string();
+        let new_digest = new_refresh_token.digest().to_db_bytes();
+        let refresh_token_expiry_days = self.refresh_token_expiry_days;
 
-        conn.transaction::<_, diesel::result::Error, _>(|conn| {
-            Box::pin(async move {
-                Self::lock_refresh_family(conn, expected_family_id).await?;
+        let outcome = conn
+            .transaction::<_, diesel::result::Error, _>(|conn| {
+                Box::pin(async move {
+                    Self::lock_refresh_family(conn, expected_family_id).await?;
+                    let now = Self::database_clock(conn).await?;
+                    let new_expires_at = now + Duration::days(refresh_token_expiry_days);
 
-                let (wallet_address, stored_client_id, family_id, expires_at, created_at) =
-                    diesel::update(openid_refresh_tokens::table)
-                        .filter(openid_refresh_tokens::token_id.eq(&old_token))
+                    let consumed = diesel::update(openid_refresh_tokens::table)
+                        .filter(
+                            openid_refresh_tokens::digest_key_id
+                                .eq(Some(old_digest_key_id.as_str())),
+                        )
+                        .filter(
+                            openid_refresh_tokens::digest_version.eq(Some(REFRESH_DIGEST_VERSION)),
+                        )
+                        .filter(openid_refresh_tokens::token_digest.eq(Some(old_digest.clone())))
+                        .filter(
+                            openid_refresh_tokens::storage_version
+                                .eq(Some(REFRESH_STORAGE_VERSION)),
+                        )
                         .filter(openid_refresh_tokens::wallet_address.eq(&expected_wallet_address))
                         .filter(
                             openid_refresh_tokens::client_id.eq(Some(requested_client_id.as_str())),
                         )
                         .filter(openid_refresh_tokens::family_id.eq(Some(expected_family_id)))
                         .filter(openid_refresh_tokens::is_revoked.eq(false))
+                        .filter(openid_refresh_tokens::consumed_at.is_null())
+                        .filter(openid_refresh_tokens::revoked_at.is_null())
                         .filter(openid_refresh_tokens::expires_at.gt(now))
-                        .set(openid_refresh_tokens::is_revoked.eq(true))
+                        .set((
+                            openid_refresh_tokens::is_revoked.eq(true),
+                            openid_refresh_tokens::consumed_at.eq(Some(now)),
+                        ))
                         .returning((
+                            openid_refresh_tokens::token_id,
                             openid_refresh_tokens::wallet_address,
                             openid_refresh_tokens::client_id,
                             openid_refresh_tokens::family_id,
@@ -455,56 +552,184 @@ impl OpenIDTokenService {
                         ))
                         .get_result::<(
                             String,
+                            String,
                             Option<String>,
                             Option<Uuid>,
                             DateTime<Utc>,
                             DateTime<Utc>,
                         )>(conn)
                         .await
-                        .optional()?
+                        .optional()?;
+
+                    let Some((
+                        storage_id,
+                        wallet_address,
+                        stored_client_id,
+                        family_id,
+                        expires_at,
+                        created_at,
+                    )) = consumed
+                    else {
+                        let terminal = openid_refresh_tokens::table
+                            .filter(
+                                openid_refresh_tokens::digest_key_id
+                                    .eq(Some(old_digest_key_id.as_str())),
+                            )
+                            .filter(
+                                openid_refresh_tokens::digest_version
+                                    .eq(Some(REFRESH_DIGEST_VERSION)),
+                            )
+                            .filter(
+                                openid_refresh_tokens::token_digest.eq(Some(old_digest.clone())),
+                            )
+                            .filter(
+                                openid_refresh_tokens::storage_version
+                                    .eq(Some(REFRESH_STORAGE_VERSION)),
+                            )
+                            .filter(
+                                openid_refresh_tokens::wallet_address.eq(&expected_wallet_address),
+                            )
+                            .filter(
+                                openid_refresh_tokens::client_id
+                                    .eq(Some(requested_client_id.as_str())),
+                            )
+                            .filter(openid_refresh_tokens::family_id.eq(Some(expected_family_id)))
+                            .select((
+                                openid_refresh_tokens::is_revoked,
+                                openid_refresh_tokens::consumed_at,
+                                openid_refresh_tokens::revoked_at,
+                                openid_refresh_tokens::replay_detected_at,
+                            ))
+                            .first::<(
+                                bool,
+                                Option<DateTime<Utc>>,
+                                Option<DateTime<Utc>>,
+                                Option<DateTime<Utc>>,
+                            )>(conn)
+                            .await
+                            .optional()?;
+
+                        if matches!(
+                            terminal.map(
+                                |(is_revoked, consumed_at, revoked_at, replay_detected_at)| {
+                                    classify_refresh_state(
+                                        is_revoked,
+                                        consumed_at,
+                                        revoked_at,
+                                        replay_detected_at,
+                                    )
+                                }
+                            ),
+                            Some(StoredRefreshState::Consumed)
+                        ) {
+                            diesel::update(openid_refresh_tokens::table)
+                                .filter(
+                                    openid_refresh_tokens::digest_key_id
+                                        .eq(Some(old_digest_key_id.as_str())),
+                                )
+                                .filter(
+                                    openid_refresh_tokens::digest_version
+                                        .eq(Some(REFRESH_DIGEST_VERSION)),
+                                )
+                                .filter(openid_refresh_tokens::token_digest.eq(Some(old_digest)))
+                                .filter(
+                                    openid_refresh_tokens::storage_version
+                                        .eq(Some(REFRESH_STORAGE_VERSION)),
+                                )
+                                .filter(
+                                    openid_refresh_tokens::client_id
+                                        .eq(Some(requested_client_id.as_str())),
+                                )
+                                .filter(
+                                    openid_refresh_tokens::family_id.eq(Some(expected_family_id)),
+                                )
+                                .filter(openid_refresh_tokens::consumed_at.is_not_null())
+                                .set(openid_refresh_tokens::replay_detected_at.eq(Some(now)))
+                                .execute(conn)
+                                .await?;
+
+                            diesel::update(openid_refresh_tokens::table)
+                                .filter(
+                                    openid_refresh_tokens::family_id.eq(Some(expected_family_id)),
+                                )
+                                .filter(
+                                    openid_refresh_tokens::storage_version
+                                        .eq(Some(REFRESH_STORAGE_VERSION)),
+                                )
+                                .filter(openid_refresh_tokens::is_revoked.eq(false))
+                                .filter(openid_refresh_tokens::consumed_at.is_null())
+                                .filter(openid_refresh_tokens::revoked_at.is_null())
+                                .set((
+                                    openid_refresh_tokens::is_revoked.eq(true),
+                                    openid_refresh_tokens::revoked_at.eq(Some(now)),
+                                ))
+                                .execute(conn)
+                                .await?;
+
+                            return Ok(RefreshRotationOutcome::ReuseDetected);
+                        }
+
+                        return Ok(RefreshRotationOutcome::Invalid);
+                    };
+
+                    let stored_client_id = stored_client_id
+                        .filter(|stored| requested_client.matches_stored(Some(stored.as_str())))
+                        .ok_or(diesel::result::Error::NotFound)?;
+                    let family_id = family_id
+                        .filter(|stored| *stored == expected_family_id)
                         .ok_or(diesel::result::Error::NotFound)?;
 
-                let stored_client_id = stored_client_id
-                    .filter(|stored| requested_client.matches_stored(Some(stored.as_str())))
-                    .ok_or(diesel::result::Error::NotFound)?;
-                let family_id = family_id
-                    .filter(|stored| *stored == expected_family_id)
-                    .ok_or(diesel::result::Error::NotFound)?;
+                    diesel::insert_into(openid_refresh_tokens::table)
+                        .values((
+                            openid_refresh_tokens::token_id.eq(&new_storage_id),
+                            openid_refresh_tokens::wallet_address.eq(&wallet_address),
+                            openid_refresh_tokens::client_id.eq(Some(stored_client_id.as_str())),
+                            openid_refresh_tokens::family_id.eq(Some(family_id)),
+                            openid_refresh_tokens::token_digest.eq(Some(new_digest)),
+                            openid_refresh_tokens::digest_key_id
+                                .eq(Some(new_digest_key_id.as_str())),
+                            openid_refresh_tokens::digest_version.eq(Some(REFRESH_DIGEST_VERSION)),
+                            openid_refresh_tokens::storage_version
+                                .eq(Some(REFRESH_STORAGE_VERSION)),
+                            openid_refresh_tokens::expires_at.eq(&new_expires_at),
+                            // `created_at` is the original authentication time for this
+                            // rotation chain; preserving it prevents `auth_time` from
+                            // drifting forward on every refresh.
+                            openid_refresh_tokens::created_at.eq(&created_at),
+                            openid_refresh_tokens::is_revoked.eq(false),
+                            openid_refresh_tokens::consumed_at.eq(Option::<DateTime<Utc>>::None),
+                            openid_refresh_tokens::revoked_at.eq(Option::<DateTime<Utc>>::None),
+                            openid_refresh_tokens::replay_detected_at
+                                .eq(Option::<DateTime<Utc>>::None),
+                        ))
+                        .execute(conn)
+                        .await?;
 
-                diesel::insert_into(openid_refresh_tokens::table)
-                    .values((
-                        openid_refresh_tokens::token_id.eq(&new_token),
-                        openid_refresh_tokens::wallet_address.eq(&wallet_address),
-                        openid_refresh_tokens::client_id.eq(Some(stored_client_id.as_str())),
-                        openid_refresh_tokens::family_id.eq(Some(family_id)),
-                        openid_refresh_tokens::expires_at.eq(&new_expires_at),
-                        // `created_at` is the original authentication time for this
-                        // rotation chain; preserving it prevents `auth_time` from
-                        // drifting forward on every refresh.
-                        openid_refresh_tokens::created_at.eq(&created_at),
-                        openid_refresh_tokens::is_revoked.eq(false),
-                    ))
-                    .execute(conn)
-                    .await?;
-
-                Ok(RefreshTokenInfo {
-                    token_id: old_token,
-                    wallet_address,
-                    client_id: stored_client_id,
-                    family_id,
-                    expires_at,
-                    created_at,
-                    is_revoked: false,
+                    Ok(RefreshRotationOutcome::Rotated(RefreshTokenInfo {
+                        token_id: storage_id,
+                        wallet_address,
+                        client_id: stored_client_id,
+                        family_id,
+                        expires_at,
+                        created_at,
+                        is_revoked: true,
+                        consumed_at: Some(now),
+                        revoked_at: None,
+                        replay_detected_at: None,
+                    }))
                 })
             })
-        })
-        .await
-        .map_err(|e| match e {
-            diesel::result::Error::NotFound => OpenIDTokenError::InvalidRefreshToken(
-                "Token not found, expired, revoked, or already used".to_string(),
-            ),
-            other => OpenIDTokenError::DatabaseError(other.to_string()),
-        })
+            .await
+            .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
+
+        match outcome {
+            RefreshRotationOutcome::Rotated(info) => Ok(info),
+            RefreshRotationOutcome::ReuseDetected | RefreshRotationOutcome::Invalid => {
+                Err(OpenIDTokenError::InvalidRefreshToken(
+                    "Token not found, expired, revoked, or already used".to_string(),
+                ))
+            }
+        }
     }
 
     /// Validate Access Token
@@ -750,8 +975,49 @@ impl OpenIDTokenService {
         .map_err(|e| OpenIDTokenError::TokenGenerationFailed(e.to_string()))
     }
 
-    fn generate_refresh_token() -> String {
-        Uuid::new_v4().to_string()
+    pub(crate) fn issue_refresh_token(&self) -> IssuedRefreshToken {
+        self.refresh_token_keyring.issue()
+    }
+
+    fn digest_presented_refresh_token(
+        &self,
+        refresh_token: &str,
+    ) -> Result<DigestedRefreshToken, OpenIDTokenError> {
+        self.refresh_token_keyring
+            .digest_presented(refresh_token)
+            .map_err(|_| {
+                OpenIDTokenError::InvalidRefreshToken(
+                    "Token not found, expired, revoked, or already used".to_string(),
+                )
+            })
+    }
+
+    async fn current_database_time(&self) -> Result<DateTime<Utc>, OpenIDTokenError> {
+        let mut conn = self
+            .db_pool
+            .get()
+            .await
+            .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
+        Self::database_clock(&mut conn)
+            .await
+            .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))
+    }
+
+    async fn database_clock(
+        conn: &mut AsyncPgConnection,
+    ) -> Result<DateTime<Utc>, diesel::result::Error> {
+        use diesel::sql_types::Timestamptz;
+
+        #[derive(QueryableByName)]
+        struct DatabaseClock {
+            #[diesel(sql_type = Timestamptz)]
+            observed_at: DateTime<Utc>,
+        }
+
+        diesel::sql_query("SELECT clock_timestamp() AS observed_at")
+            .get_result::<DatabaseClock>(conn)
+            .await
+            .map(|clock| clock.observed_at)
     }
 
     async fn lock_refresh_family(
@@ -792,7 +1058,7 @@ impl OpenIDTokenService {
         wallet_address: &str,
         client_id: &str,
         family_id: Uuid,
-        token_id: &str,
+        refresh_token: &IssuedRefreshToken,
         created_at: DateTime<Utc>,
     ) -> Result<(), OpenIDTokenError> {
         use crate::schemas::primary::openid_refresh_tokens;
@@ -800,6 +1066,8 @@ impl OpenIDTokenService {
         let client = RefreshClient::parse(client_id)?;
 
         let expires_at = created_at + Duration::days(self.refresh_token_expiry_days);
+        let storage_id = Uuid::new_v4().to_string();
+        let token_digest = refresh_token.digest().to_db_bytes();
 
         let mut conn = self
             .db_pool
@@ -809,13 +1077,20 @@ impl OpenIDTokenService {
 
         diesel::insert_into(openid_refresh_tokens::table)
             .values((
-                openid_refresh_tokens::token_id.eq(token_id),
+                openid_refresh_tokens::token_id.eq(&storage_id),
                 openid_refresh_tokens::wallet_address.eq(wallet_address),
                 openid_refresh_tokens::client_id.eq(Some(client.as_str())),
                 openid_refresh_tokens::family_id.eq(Some(family_id)),
+                openid_refresh_tokens::token_digest.eq(Some(token_digest)),
+                openid_refresh_tokens::digest_key_id.eq(Some(refresh_token.digest_key_id())),
+                openid_refresh_tokens::digest_version.eq(Some(REFRESH_DIGEST_VERSION)),
+                openid_refresh_tokens::storage_version.eq(Some(REFRESH_STORAGE_VERSION)),
                 openid_refresh_tokens::expires_at.eq(&expires_at),
                 openid_refresh_tokens::created_at.eq(&created_at),
                 openid_refresh_tokens::is_revoked.eq(false),
+                openid_refresh_tokens::consumed_at.eq(Option::<DateTime<Utc>>::None),
+                openid_refresh_tokens::revoked_at.eq(Option::<DateTime<Utc>>::None),
+                openid_refresh_tokens::replay_detected_at.eq(Option::<DateTime<Utc>>::None),
             ))
             .execute(&mut conn)
             .await
@@ -827,12 +1102,15 @@ impl OpenIDTokenService {
     /// Validate refresh token
     pub async fn validate_refresh_token(
         &self,
-        token_id: &str,
+        refresh_token: &str,
         client_id: &str,
     ) -> Result<RefreshTokenInfo, OpenIDTokenError> {
         use crate::schemas::primary::openid_refresh_tokens;
 
         let client = RefreshClient::parse(client_id)?;
+        let digested = self.digest_presented_refresh_token(refresh_token)?;
+        let digest_key_id = digested.digest_key_id().to_string();
+        let token_digest = digested.digest().to_db_bytes();
 
         #[derive(Queryable, Selectable)]
         #[diesel(table_name = crate::schemas::primary::openid_refresh_tokens)]
@@ -844,6 +1122,9 @@ impl OpenIDTokenService {
             expires_at: DateTime<Utc>,
             created_at: DateTime<Utc>,
             is_revoked: bool,
+            consumed_at: Option<DateTime<Utc>>,
+            revoked_at: Option<DateTime<Utc>>,
+            replay_detected_at: Option<DateTime<Utc>>,
         }
 
         let mut conn = self
@@ -853,25 +1134,51 @@ impl OpenIDTokenService {
             .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
 
         let token = openid_refresh_tokens::table
-            .filter(openid_refresh_tokens::token_id.eq(token_id))
+            .filter(openid_refresh_tokens::digest_key_id.eq(Some(digest_key_id.as_str())))
+            .filter(openid_refresh_tokens::digest_version.eq(Some(REFRESH_DIGEST_VERSION)))
+            .filter(openid_refresh_tokens::token_digest.eq(Some(token_digest.clone())))
+            .filter(openid_refresh_tokens::storage_version.eq(Some(REFRESH_STORAGE_VERSION)))
             .filter(openid_refresh_tokens::client_id.eq(Some(client.as_str())))
             .filter(openid_refresh_tokens::family_id.is_not_null())
+            .select(RefreshTokenDb::as_select())
             .first::<RefreshTokenDb>(&mut conn)
             .await
             .optional()
             .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?
             .ok_or_else(|| OpenIDTokenError::InvalidRefreshToken("Token not found".to_string()))?;
 
-        if token.is_revoked {
-            return Err(OpenIDTokenError::InvalidRefreshToken(
-                "Token revoked".to_string(),
-            ));
-        }
+        let family_id = token
+            .family_id
+            .ok_or_else(|| OpenIDTokenError::InvalidRefreshToken("Token not found".to_string()))?;
 
-        if Utc::now() > token.expires_at {
-            return Err(OpenIDTokenError::TokenExpired(
-                "Refresh token expired".to_string(),
-            ));
+        match classify_refresh_state(
+            token.is_revoked,
+            token.consumed_at,
+            token.revoked_at,
+            token.replay_detected_at,
+        ) {
+            StoredRefreshState::Active => {
+                let now = Self::database_clock(&mut conn)
+                    .await
+                    .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
+                if now > token.expires_at {
+                    return Err(OpenIDTokenError::TokenExpired(
+                        "Refresh token expired".to_string(),
+                    ));
+                }
+            }
+            StoredRefreshState::Consumed => {
+                self.record_refresh_replay(&digest_key_id, &token_digest, client, family_id)
+                    .await?;
+                return Err(OpenIDTokenError::InvalidRefreshToken(
+                    "Token not found, expired, revoked, or already used".to_string(),
+                ));
+            }
+            StoredRefreshState::Revoked | StoredRefreshState::Invalid => {
+                return Err(OpenIDTokenError::InvalidRefreshToken(
+                    "Token not found, expired, revoked, or already used".to_string(),
+                ));
+            }
         }
 
         Ok(RefreshTokenInfo {
@@ -883,13 +1190,77 @@ impl OpenIDTokenService {
                 .ok_or_else(|| {
                     OpenIDTokenError::InvalidRefreshToken("Token not found".to_string())
                 })?,
-            family_id: token.family_id.ok_or_else(|| {
-                OpenIDTokenError::InvalidRefreshToken("Token not found".to_string())
-            })?,
+            family_id,
             expires_at: token.expires_at,
             created_at: token.created_at,
             is_revoked: token.is_revoked,
+            consumed_at: token.consumed_at,
+            revoked_at: token.revoked_at,
+            replay_detected_at: token.replay_detected_at,
         })
+    }
+
+    async fn record_refresh_replay(
+        &self,
+        digest_key_id: &str,
+        token_digest: &[u8],
+        client: RefreshClient,
+        family_id: Uuid,
+    ) -> Result<(), OpenIDTokenError> {
+        use crate::schemas::primary::openid_refresh_tokens;
+
+        let digest_key_id = digest_key_id.to_owned();
+        let token_digest = token_digest.to_vec();
+        let client_id = client.as_str().to_owned();
+        let mut conn = self
+            .db_pool
+            .get()
+            .await
+            .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
+
+        conn.transaction::<_, diesel::result::Error, _>(|conn| {
+            Box::pin(async move {
+                Self::lock_refresh_family(conn, family_id).await?;
+                let now = Self::database_clock(conn).await?;
+
+                let replayed = diesel::update(openid_refresh_tokens::table)
+                    .filter(openid_refresh_tokens::digest_key_id.eq(Some(digest_key_id.as_str())))
+                    .filter(openid_refresh_tokens::digest_version.eq(Some(REFRESH_DIGEST_VERSION)))
+                    .filter(openid_refresh_tokens::token_digest.eq(Some(token_digest)))
+                    .filter(
+                        openid_refresh_tokens::storage_version.eq(Some(REFRESH_STORAGE_VERSION)),
+                    )
+                    .filter(openid_refresh_tokens::client_id.eq(Some(client_id.as_str())))
+                    .filter(openid_refresh_tokens::family_id.eq(Some(family_id)))
+                    .filter(openid_refresh_tokens::consumed_at.is_not_null())
+                    .filter(openid_refresh_tokens::revoked_at.is_null())
+                    .set(openid_refresh_tokens::replay_detected_at.eq(Some(now)))
+                    .execute(conn)
+                    .await?;
+
+                if replayed > 0 {
+                    diesel::update(openid_refresh_tokens::table)
+                        .filter(openid_refresh_tokens::family_id.eq(Some(family_id)))
+                        .filter(
+                            openid_refresh_tokens::storage_version
+                                .eq(Some(REFRESH_STORAGE_VERSION)),
+                        )
+                        .filter(openid_refresh_tokens::is_revoked.eq(false))
+                        .filter(openid_refresh_tokens::consumed_at.is_null())
+                        .filter(openid_refresh_tokens::revoked_at.is_null())
+                        .set((
+                            openid_refresh_tokens::is_revoked.eq(true),
+                            openid_refresh_tokens::revoked_at.eq(Some(now)),
+                        ))
+                        .execute(conn)
+                        .await?;
+                }
+
+                Ok(())
+            })
+        })
+        .await
+        .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))
     }
 
     /// Check if client_id is valid
@@ -1026,6 +1397,29 @@ mod tests {
         assert!(!admin.matches_stored(Some("epsx-frontend")));
         assert!(!frontend.matches_stored(None));
         assert!(!admin.matches_stored(None));
+
+        let now = Utc::now();
+
+        assert!(classify_refresh_state(false, None, None, None) == StoredRefreshState::Active);
+        assert!(
+            classify_refresh_state(true, Some(now), None, None) == StoredRefreshState::Consumed
+        );
+        assert!(
+            classify_refresh_state(true, Some(now), None, Some(now))
+                == StoredRefreshState::Consumed
+        );
+        assert!(classify_refresh_state(true, None, Some(now), None) == StoredRefreshState::Revoked);
+
+        for state in [
+            classify_refresh_state(true, None, None, None),
+            classify_refresh_state(false, Some(now), None, None),
+            classify_refresh_state(false, None, Some(now), None),
+            classify_refresh_state(false, None, None, Some(now)),
+            classify_refresh_state(true, None, Some(now), Some(now)),
+            classify_refresh_state(true, Some(now), Some(now), None),
+        ] {
+            assert!(state == StoredRefreshState::Invalid);
+        }
     }
 
     #[test]

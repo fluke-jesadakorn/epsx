@@ -36,6 +36,7 @@ use crate::domain::payment::repository_ports::{
 use crate::auth::auth_service::UnifiedWeb3AuthService;
 use crate::auth::token_service::OpenIDTokenService;
 use crate::auth::key_manager::KeyManager;
+use crate::auth::RefreshTokenKeyring;
 use crate::auth::UnifiedPermissionService;
 use crate::infrastructure::cqrs::{EventStore, PostgresEventStore, TransactionalOutbox};
 use crate::infrastructure::blockchain::{ContractSubscriber, PaymentEvent};
@@ -238,11 +239,14 @@ impl SimpleContainer {
         // Create OpenID token service with RSA key manager
         let key_manager = KeyManager::from_env_or_generate()
             .expect("Failed to initialize RSA key manager");
+        let refresh_token_keyring = RefreshTokenKeyring::from_env()
+            .expect("Failed to initialize the required refresh-token HMAC keyring");
         let token_service_impl = OpenIDTokenService::new(
             *db_pool,
             Self::get_oidc_issuer(),
             vec!["epsx-frontend".to_string(), "epsx-admin".to_string(), "epsx-api".to_string()], // audiences
             Arc::new(key_manager),
+            Arc::new(refresh_token_keyring),
         );
         let token_service = Arc::new(token_service_impl.clone());
 

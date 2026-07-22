@@ -92,6 +92,9 @@ services:
       WEB3_SESSION_DURATION_HOURS: ${WEB3_SESSION_DURATION_HOURS:-24}
       WEB3_SIGNATURE_TIMEOUT_MINUTES: ${WEB3_SIGNATURE_TIMEOUT_MINUTES:-10}
       JWT_SECRET: ${JWT_SECRET:-temp_jwt_secret_for_dev_32chars}
+      # Required operator inputs; intentionally no fallback key material.
+      REFRESH_TOKEN_HMAC_ACTIVE_KID: ${REFRESH_TOKEN_HMAC_ACTIVE_KID}
+      REFRESH_TOKEN_HMAC_KEYS_JSON: ${REFRESH_TOKEN_HMAC_KEYS_JSON}
 
       # Blockchain Configuration
       NEXT_PUBLIC_BLOCKCHAIN_NETWORK: ${BLOCKCHAIN_NETWORK:-testnet}

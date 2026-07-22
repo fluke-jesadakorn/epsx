@@ -35,7 +35,7 @@ set +e
 readiness_rc=$?
 set -e
 [[ "$readiness_rc" -eq 3 ]] || die "readiness mode must exit 3, observed $readiness_rc"
-grep -Fq "PostgreSQL, legacy cutover, replay response" "$WORK_DIR/readiness.out" || die "readiness STOP detail drifted"
+grep -Fq "PostgreSQL, A1.5 legacy enforcement, A1.6 forced-reauthentication/key lifecycle" "$WORK_DIR/readiness.out" || die "readiness STOP detail drifted"
 
 cp "$CONTRACT" "$WORK_DIR/contract.json"
 cp "$MIGRATION_DIR/up.sql" "$WORK_DIR/up.sql"
@@ -87,8 +87,8 @@ expect_failure invariant-tamper "runtime invariant drifted" \
 for stop_id in \
   core-migration-version-collision \
   postgres-forward-only-migration-unproved \
-  raw-refresh-token-storage \
-  refresh-reuse-response-unimplemented \
+  a1-6-postgres-digest-replay-unproved \
+  a1-6-cutover-key-lifecycle-unproved \
   production-actions-unauthorized; do
   cp "$CONTRACT" "$WORK_DIR/contract.json"
   bun -e '

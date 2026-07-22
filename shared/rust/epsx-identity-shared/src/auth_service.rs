@@ -44,7 +44,7 @@ pub struct Web3VerificationRequest {
 }
 
 /// Web3 authentication result
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Web3AuthResult {
     pub wallet_address: String,
     pub permissions: Vec<String>,
@@ -490,13 +490,13 @@ impl UnifiedWeb3AuthService {
                 .get_wallet_permissions(&candidate.wallet_address)
                 .await?;
 
-            let new_refresh_token = uuid::Uuid::new_v4().to_string();
+            let new_refresh_token = openid_service.issue_refresh_token();
             let response = openid_service
                 .issue_tokens_for_user_with_refresh_token(
                     &candidate.wallet_address,
                     &permissions,
                     &candidate.client_id,
-                    new_refresh_token.clone(),
+                    new_refresh_token.credential().expose().to_owned(),
                     candidate.created_at.timestamp(),
                 )
                 .await

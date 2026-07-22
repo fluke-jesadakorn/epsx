@@ -170,9 +170,11 @@ migrated merely because a binary and route table exist.
 - Exact-audience lifecycle remains STOP because the duplicate core baseline
   version blocks safe root execution and no disposable PostgreSQL proof covers
   migration application, cross-client non-consumption, concurrent rotation,
-  rollback, restart persistence, family-lock ordering, or legacy cutover. Raw
-  tokens, consumed-versus-revoked state, and automatic descendant revocation on
-  replay also remain open.
+  rollback, restart persistence, family-lock ordering, or legacy cutover. The
+  A1.6 additive expansion now defines guarded nullable digest metadata and exact
+  active/consumed/revoked row shapes, but it has not run against PostgreSQL and
+  is not runtime, cutover, key-lifecycle, plaintext-scrub, or replay-response
+  proof.
 - A1.4 provides hermetic mock-backed proof for these contracts, but no real
   wallet/nonces or disposable-database test yet proves old-token rejection and
   durable revocation across the complete flow.
@@ -420,6 +422,16 @@ bounded path set. Shared contract files require coordination through package A0.
   The dormant identity
   service remains `404`, the active core migration-version collision remains a
   STOP, and no database or deployment action is authorized.
+
+- **A1.6 status:** `scripts/migration/verify-refresh-digest-replay.sh` pins the
+  additive forward-only expansion, digest-only `storage_version = 2`, seven
+  exact nullable column guards, eight guarded constraints requiring existing
+  client/family bindings and exact active/consumed/revoked terminal shapes, and
+  the partial unique digest lookup.
+  This is schema/static evidence only. The duplicate core version, disposable
+  PostgreSQL application, digest runtime/database integration, drained forced-
+  reauthentication cutover, legacy plaintext reconciliation, key lifecycle,
+  replay ordering, and every production action remain explicit STOPs.
 
 ### A2 — Fail-closed service authorization (P0)
 

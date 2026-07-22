@@ -99,8 +99,8 @@ const expectedStops = new Map([
   ["legacy-row-cutover-unproved", "Populated legacy-row preservation and the later active-NULL revocation cutover are unproved."],
   ["postgres-client-and-rotation-unproved", "PostgreSQL cross-client non-consumption, MVCC single-winner rotation, and deterministic family-lock serialization are unproved."],
   ["failure-rollback-and-restart-unproved", "Rollback on forced successor-insert failure and restart persistence are unproved."],
-  ["raw-refresh-token-storage", "Raw refresh UUID bearer values remain stored directly rather than as keyed digests."],
-  ["refresh-reuse-response-unimplemented", "Family lineage and family-scoped logout exist, but consumed-versus-revoked state and automatic descendant revocation on replay are not implemented."],
+  ["a1-6-postgres-digest-replay-unproved", "No disposable PostgreSQL instance has applied A1.6 or proven keyed-digest lookup, terminal-state transitions, replay response, and fail-closed startup."],
+  ["a1-6-cutover-key-lifecycle-unproved", "The required drained forced-reauthentication cutover, legacy plaintext reconciliation, persistent secret provisioning, restart persistence, production key rotation, and safe key retirement are unproved and unauthorized."],
   ["logout-rotation-db-ordering-unproved", "The shared transaction-scoped family advisory lock has no two-connection PostgreSQL proof for logout-first, rotation-first, stale-token logout, or distinct-family isolation."],
   ["access-token-post-logout-validity", "Already-issued access tokens remain valid until expiry after logout."],
   ["production-actions-unauthorized", "No production issuer, browser, routing, canary, rollback, deployment, database, or service action is authorized by this contract."]
@@ -143,7 +143,7 @@ for (const anchor of [
 if (!down.includes("RAISE EXCEPTION") || !down.includes("forward-only") || /\bDROP\b/i.test(down)) fail("down migration must refuse destructive rollback");
 
 const expectedEvidence = [
-  { file: "shared/rust/epsx-identity-shared/src/token_service.rs", anchors: ["enum RefreshClient", "refresh_client_matching_fails_closed_for_cross_client_and_legacy_rows", "openid_refresh_tokens::client_id.eq(Some(client.as_str()))", "Self::generate_refresh_token()", "let family_id = Uuid::new_v4();", "issue_tokens_for_user_with_refresh_token(", ".consume_refresh_token(", "Self::lock_refresh_family(conn, expected_family_id)", "openid_refresh_tokens::family_id.eq(Some(expected_family_id))", "openid_refresh_tokens::client_id.eq(Some(stored_client_id.as_str()))", "openid_refresh_tokens::family_id.eq(Some(family_id))", "openid_refresh_tokens::created_at.eq(&created_at)", "pub async fn revoke_refresh_token", "Self::lock_refresh_family(conn, family_id)", "pg_advisory_xact_lock(hashtextextended"] },
+  { file: "shared/rust/epsx-identity-shared/src/token_service.rs", anchors: ["enum RefreshClient", "refresh_client_matching_fails_closed_for_cross_client_and_legacy_rows", "openid_refresh_tokens::client_id.eq(Some(client.as_str()))", "pub(crate) fn issue_refresh_token(&self) -> IssuedRefreshToken", "let family_id = Uuid::new_v4();", "issue_tokens_for_user_with_refresh_token(", ".consume_refresh_token(", "Self::lock_refresh_family(conn, expected_family_id)", "openid_refresh_tokens::family_id.eq(Some(expected_family_id))", "openid_refresh_tokens::client_id.eq(Some(stored_client_id.as_str()))", "openid_refresh_tokens::family_id.eq(Some(family_id))", "openid_refresh_tokens::created_at.eq(&created_at)", "pub async fn revoke_refresh_token", "Self::lock_refresh_family(conn, family_id)", "pg_advisory_xact_lock(hashtextextended"] },
   { file: "shared/rust/epsx-identity-shared/src/auth_service.rs", anchors: [".validate_refresh_token(refresh_token, client_id)", ".issue_tokens_for_user_with_refresh_token(", ".consume_refresh_token(", "candidate.family_id", "Web3AuthError::InvalidRefreshToken"] },
   { file: "apps/backend/src/web/auth/handlers.rs", anchors: ["pub client_id: String", "StatusCode::SERVICE_UNAVAILABLE", "AUTH_SESSION_CACHE_CONTROL", "refresh_request_requires_an_explicit_supported_client"] },
   { file: "shared/rust/bff/src/cookies.rs", anchors: ["epsx.frontend.refresh_token", "epsx.admin.refresh_token", "LEGACY_LOCAL_REFRESH_COOKIE", "local_frontend_and_admin_cookie_names_do_not_collide"] },
@@ -175,8 +175,10 @@ const consumeEnd = tokenService.indexOf("/// Validate Access Token", consumeStar
 if (consumeStart < 0 || consumeEnd < 0) fail("canonical consume boundary is missing");
 const consume = tokenService.slice(consumeStart, consumeEnd);
 const clientFilter = consume.indexOf("openid_refresh_tokens::client_id");
-const mutation = consume.indexOf(".set(openid_refresh_tokens::is_revoked.eq(true))");
+const mutation = consume.indexOf("openid_refresh_tokens::consumed_at.eq(Some(now))");
 if (clientFilter < 0 || mutation < 0 || clientFilter > mutation) fail("stored-client comparison must precede token mutation");
+const normalizedConsume = consume.replace(/\s+/g, " ");
+if (!normalizedConsume.includes(".set(( openid_refresh_tokens::is_revoked.eq(true), openid_refresh_tokens::consumed_at.eq(Some(now)), )) .returning((")) fail("consume must atomically publish the revoked/consumed tuple before returning predecessor state");
 if (!consume.includes("requested_client_id.as_str()") || !consume.includes("expected_wallet_address")) fail("rotation predicate is not bound to client and preflight wallet");
 if (!consume.includes("client_id.eq(Some(stored_client_id.as_str()))")) fail("successor does not copy the returned stored client");
 const familyLock = consume.indexOf("Self::lock_refresh_family(conn, expected_family_id)");
@@ -245,7 +247,7 @@ console.log(`refresh-client-binding: PASS — migration checksums/catalog guards
 ' -- "$REPO_ROOT" "$CONTRACT" "$UP_SQL" "$DOWN_SQL"
 
 if [[ "$MODE" == "readiness" ]]; then
-  echo "refresh-client-binding: STOP — PostgreSQL, legacy cutover, replay response, and production proofs remain blocked" >&2
+  echo "refresh-client-binding: STOP — PostgreSQL, A1.5 legacy enforcement, A1.6 forced-reauthentication/key lifecycle, and production proofs remain blocked" >&2
   exit 3
 fi
 

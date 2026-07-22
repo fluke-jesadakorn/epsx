@@ -4491,6 +4491,7 @@ dependencies = [
  "ethers",
  "futures",
  "hex",
+ "hmac 0.12.1",
  "http 1.4.2",
  "jsonwebtoken 9.3.1",
  "once_cell",

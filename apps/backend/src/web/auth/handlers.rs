@@ -49,7 +49,7 @@ pub struct SignatureVerificationRequest {
     pub client_id: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[derive(Deserialize, Serialize, ToSchema)]
 pub struct LogoutRequest {
     /// Ethereum wallet address to logout. Retained for backward compatibility and audit context.
     #[schema(example = "0x1234567890123456789012345678901234567890")]
@@ -449,7 +449,7 @@ pub async fn logout_handler(
 }
 
 /// Token refresh request body
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[derive(Deserialize, Serialize, ToSchema)]
 pub struct TokenRefreshRequest {
     /// Refresh token
     pub refresh_token: Option<String>,

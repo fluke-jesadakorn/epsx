@@ -24,6 +24,7 @@ use crate::domain::payment::repository_ports::{PaymentRepositoryPort, CreditRepo
 use crate::auth::auth_service::UnifiedWeb3AuthService;
 use crate::auth::token_service::OpenIDTokenService;
 use crate::auth::key_manager::KeyManager;
+use crate::auth::RefreshTokenKeyring;
 use crate::auth::unified_permission_service::UnifiedPermissionService;
 use epsx_contracts::pubsub_port::PubsubPort;
 
@@ -129,20 +130,22 @@ impl StatelessServiceFactory {
             diesel_pool,
         );
 
-        // Create auth services using Diesel pool
-        let auth_service = UnifiedWeb3AuthService::new(
-            diesel_pool,
-            self.config.domain.clone(),
-        );
-
         // Create OpenID token service using Diesel pool and RSA key manager
         let key_manager = KeyManager::from_env_or_generate()
             .expect("Failed to initialize RSA key manager");
+        let refresh_token_keyring = RefreshTokenKeyring::from_env()
+            .expect("Failed to initialize the required refresh-token HMAC keyring");
         let token_service = OpenIDTokenService::new(
             diesel_pool,
             self.config.issuer_url.clone(),
             self.config.oidc_audiences.clone(),
             Arc::new(key_manager),
+            Arc::new(refresh_token_keyring),
+        );
+        let auth_service = UnifiedWeb3AuthService::new_with_openid(
+            diesel_pool,
+            self.config.domain.clone(),
+            token_service.clone(),
         );
 
         // Create UnifiedPermissionService (single source of truth for permissions)

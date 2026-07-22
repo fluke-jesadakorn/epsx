@@ -20,6 +20,7 @@ tokio = { version = "1.0", features = ["full"] }
 async-trait = "0.1"
 jsonwebtoken = "9.2"
 sha2 = "0.10"
+hmac.workspace = true
 rsa = "0.9"
 rand = "0.8"
 tracing = "0.1"

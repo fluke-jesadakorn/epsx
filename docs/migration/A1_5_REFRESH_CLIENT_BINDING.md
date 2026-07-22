@@ -24,15 +24,18 @@ bypass.
   family fields. Nullability is a rolling compatibility state, not permission to
   issue unbound tokens.
 - Initial issuance writes the exact validated client and a fresh per-login
-  family. Refresh preflight rejects unknown, expired, revoked, cross-client,
-  missing-family, and legacy-`NULL` rows before loading profile/permission data.
+  family. The follow-on A1.6 runtime issues an opaque credential while storing
+  only its keyed digest. Refresh preflight rejects unknown, expired, revoked,
+  cross-client, missing-family, and legacy-`NULL` rows before loading
+  profile/permission data.
 - Rotation first takes a transaction-scoped PostgreSQL advisory lock keyed by
   the stored family, then conditionally matches token ID, preflight wallet,
-  stored client, family, active state, and expiry before setting revocation. The
-  successor copies the returned client/family; JWTs use the preflight stored
-  client rather than the request DTO. Consume and successor insert remain one
-  transaction. A rare 64-bit hash collision only serializes unrelated families;
-  it cannot weaken mutual exclusion.
+  stored client, family, active state, and expiry before atomically setting the
+  predecessor tuple to `is_revoked = true` and `consumed_at = now`. The successor
+  copies the returned client/family; JWTs use the preflight stored client rather
+  than the request DTO. Consume and successor insert remain one transaction. A
+  rare 64-bit hash collision only serializes unrelated families; it cannot
+  weaken mutual exclusion.
 - Permission/profile reads, replacement generation, and both fallible JWT
   signatures finish before the conditional consume. A signing failure therefore
   leaves the predecessor active and publishes no successor; a losing concurrent
@@ -63,7 +66,7 @@ permissions, grouped by wallet/client, or claimed by the first refresh request.
 Runtime exact matching therefore leaves them unchanged and forces fresh
 authentication.
 
-A safe rolling sequence is:
+The A1.5 client/family expansion's safe rolling sequence is:
 
 1. apply only the nullable expansion;
 2. deploy binding-aware code that writes every new client/family and rejects
@@ -76,6 +79,9 @@ The fourth step is intentionally absent from the runnable chain. Shipping it in
 the same migration batch could break an old replica still issuing null rows.
 No migration in this repository's active core root is currently authorized to
 run because two baseline directories share Diesel version `00000000000001`.
+The follow-on A1.6 digest/storage-version cutover is stricter: it requires a
+drained maintenance window, no mixed old/new writers, and forced
+reauthentication rather than a rolling raw-token compatibility phase.
 
 ## Hermetic evidence
 
@@ -109,15 +115,21 @@ An explicitly authorized, isolated PostgreSQL harness must still prove:
 - exact initial client/family storage and same-family successor binding;
 - cross-client and legacy-null rejection with the predecessor unchanged;
 - two-connection single-winner rotation and old-token rejection;
+- keyed-digest lookup, consumed/revoked/replay transitions, and automatic
+  active-descendant revocation after detected reuse;
 - rollback when successor insertion is forced to fail;
 - logout-first, rotation-first, stale-token logout, and distinct-family
   isolation under two PostgreSQL connections;
-- restart persistence and the later active-null reconciliation/enforcement.
+- restart persistence and the later active-null reconciliation/enforcement;
+- A1.6 migration application, drained forced-reauthentication cutover, legacy
+  plaintext reconciliation, and persistent production key rotation/retirement.
 
 This bounded family identifier serializes rotation and scopes logout, but it is
-not the dormant identity service's full refresh-session model. Raw UUID bearer
-values remain stored directly; consumed and explicitly revoked states are not
-distinguished; replay does not automatically revoke a live descendant; and
-already-issued access tokens remain valid until expiry. The dormant
-`services/identity` family/session schema and its `404` routes are unchanged;
-A1.5 does not claim A3.8 runtime integration.
+not the dormant identity service's full refresh-session model. A1.6 now issues
+opaque credentials, stores keyed digests, distinguishes consumed and explicitly
+revoked state, records replay, and revokes active descendants in code. That is
+compiled/static evidence, not disposable-PostgreSQL, concurrency, cutover,
+plaintext-scrub, restart, or production key-lifecycle proof. Already-issued
+access tokens remain valid until expiry. The dormant `services/identity`
+family/session schema and its `404` routes are unchanged; A1.5 does not claim
+A3.8 runtime integration.

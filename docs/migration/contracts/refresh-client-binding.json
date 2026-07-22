@@ -65,7 +65,7 @@
         "enum RefreshClient",
         "refresh_client_matching_fails_closed_for_cross_client_and_legacy_rows",
         "openid_refresh_tokens::client_id.eq(Some(client.as_str()))",
-        "Self::generate_refresh_token()",
+        "pub(crate) fn issue_refresh_token(&self) -> IssuedRefreshToken",
         "let family_id = Uuid::new_v4();",
         "issue_tokens_for_user_with_refresh_token(",
         ".consume_refresh_token(",
@@ -203,12 +203,12 @@
       "claim": "Rollback on forced successor-insert failure and restart persistence are unproved."
     },
     {
-      "id": "raw-refresh-token-storage",
-      "claim": "Raw refresh UUID bearer values remain stored directly rather than as keyed digests."
+      "id": "a1-6-postgres-digest-replay-unproved",
+      "claim": "No disposable PostgreSQL instance has applied A1.6 or proven keyed-digest lookup, terminal-state transitions, replay response, and fail-closed startup."
     },
     {
-      "id": "refresh-reuse-response-unimplemented",
-      "claim": "Family lineage and family-scoped logout exist, but consumed-versus-revoked state and automatic descendant revocation on replay are not implemented."
+      "id": "a1-6-cutover-key-lifecycle-unproved",
+      "claim": "The required drained forced-reauthentication cutover, legacy plaintext reconciliation, persistent secret provisioning, restart persistence, production key rotation, and safe key retirement are unproved and unauthorized."
     },
     {
       "id": "logout-rotation-db-ordering-unproved",

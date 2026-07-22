@@ -18,9 +18,17 @@ pub mod primary {
             #[max_length = 32]
             client_id -> Nullable<Varchar>,
             family_id -> Nullable<Uuid>,
+            token_digest -> Nullable<Bytea>,
+            #[max_length = 32]
+            digest_key_id -> Nullable<Varchar>,
+            digest_version -> Nullable<Int2>,
+            storage_version -> Nullable<Int2>,
             expires_at -> Timestamptz,
             created_at -> Timestamptz,
             is_revoked -> Bool,
+            consumed_at -> Nullable<Timestamptz>,
+            revoked_at -> Nullable<Timestamptz>,
+            replay_detected_at -> Nullable<Timestamptz>,
         }
     }
 
