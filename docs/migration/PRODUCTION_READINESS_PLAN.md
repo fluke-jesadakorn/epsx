@@ -40,12 +40,14 @@ The default release strategy is a **controlled hybrid**:
 
 - Branch/ref: `migration/dioxus-microservices`
 - Audited commit before this plan: `975c09567fe14ce278370720bd7a0e5aa571e116`
-- Current evidence checkpoint: `a5f5113d0f0fe42d4fb1700eb1099f8ec99be218`
-  (combined notification/indexer/pay startup-DDL removal and central A3/A6/A9/
-  A11/A12 reconciliation). The pushed evidence sequence also includes
-  `b624f320c2db3dc24944cc0414deae7bc2d42196` for wallet/content boundaries and
-  `526c3850fd4b1af336cb29a1a86f86b68be6c59f` for their readiness-ledger
-  reconciliation.
+- Current evidence checkpoint: `7c7a8e39152acc21604eddf163e5c2aebe1bcaf9`
+  (payment authority/database crosswalk). The immediately preceding pushed
+  evidence is `39f176eeda7b0b973e7522b4c7819c8cbffe279b` for the truthful read-only
+  notification UI, `3b523f06d80922bb010702ef1111f56e44538c1c` for central schema-readiness
+  reconciliation, and `a5f5113d0f0fe42d4fb1700eb1099f8ec99be218` for the combined notification/
+  indexer/pay startup-DDL removal. The earlier wallet/content boundary and
+  readiness checkpoints remain `b624f320c2db3dc24944cc0414deae7bc2d42196`
+  and `526c3850fd4b1af336cb29a1a86f86b68be6c59f`.
 - UI/BFF targets: `apps/frontend`, `apps/admin`, and `apps/pay`.
 - Candidate extracted services: `services/gateway`, `services/identity`,
   `services/wallet`, `services/pay`, `services/subscription`, `services/content`,
@@ -169,14 +171,21 @@ and revocation behavior remain canonical.
   handlers. Those handlers remain unsuitable for production until real chain,
   transaction, idempotency, and recovery contracts replace them.
 - Both BFFs preserve verified backend permissions without expanding roles. The
-  68-record permission inventory contains 53 canonical three-segment records,
-  13 legacy two-segment gates, one unknown record, and one impossible/cross-
-  grammar record. UI gates remain presentation controls, never policy authority.
+  67-record permission inventory contains 33 Dioxus security-gate records and,
+  by grammar, 53 canonical three-segment records, 12 legacy two-segment gates,
+  one unknown record, and one impossible/cross-grammar record. The 12 legacy
+  security gates remain blockers; UI gates remain presentation controls, never
+  policy authority.
 - The deployed identity ranking service returns offset `100` for all wallets,
   including paid users. This is not acceptable entitlement behavior.
 
 ### Checkout and payment
 
+- The payment execution contract now pins 48 current-target anchors, nine exact
+  route models, and 17 STOP blockers. Its authority decision remains
+  `unresolved-do-not-cut-over-or-dual-write`, with no production write authority
+  selected among the canonical backend, historical prototype, current pay
+  candidate, or subscription candidate.
 - Pay BFF calls singular `/api/v1/pay/intent/{id}/execute`; the service exposes
   plural `/api/v1/pay/intents/{id}/confirm` and `/cancel` with no execute route.
 - Gateway uses `/api/v1/payment/*` while the service exposes `/api/v1/pay/*` and
@@ -189,6 +198,12 @@ and revocation behavior remain canonical.
   configured in the pay deployment.
 - Cloudflare currently exposes the pay service port rather than the pay BFF
   port, expanding the unauthenticated service surface.
+- Payment database names are not proven aliases: the canonical backend compose
+  runtime uses `epsx_payments_dev` while its migrator uses `epsx_pay_dev`, the
+  current pay candidate and deployment use `epsx_pay`, provisioning creates
+  `epsx_payments_{dev,staging,prod}`, and the historical prototype used
+  `epsx_payment`. Their table and route models also differ, so the A3.13 guarded
+  fresh-schema migration is not adoption, backfill, or authority evidence.
 
 ### Data and migration safety
 
@@ -251,7 +266,7 @@ passed`. It is not a percentage estimate of engineering effort.
 | Interaction parity | 0 | No complete click/form/wallet/navigation matrix | Every interactive control has E2E success and failure coverage. |
 | Auth/session parity | 1 | A1.4 hermetic gate covers 71 focused tests across both BFFs; durable database-backed rotation/revocation and a real wallet flow remain unproven | SIWE -> SSR me -> rotation -> revocation works across both BFFs. |
 | Backend authorization | 1 | Gateway is fail-closed with exact RS256/JWKS and granular edge policy; the 117-route service matrix is 11 aligned, 47 partial, and 59 blocked | Anonymous/cross-owner calls fail at both gateway and service boundaries; granular backend permissions pass. |
-| Live data parity | 0 | Frontend mocks and admin empty params remain | Sample payloads removed and real empty/error states proven. |
+| Live data parity | 0 | The notification owner page and focused news routes now have sample-free explicit dependency outcomes, but 17 frontend routes remain blocked, other frontend mocks remain, and admin SSR still supplies empty params | Sample payloads removed and real empty/error states proven. |
 | Checkout/on-chain parity | 0 | Route mismatch and DB-only escrow transitions | Verified receipts and contract transactions drive state. |
 | Backend/API contract parity | 1 | Both BFFs now return explicit HTML/JSON 404s and preserve 405/redirect semantics; payment prefixes and broader payload/status drift remain | Versioned contract matrix passes for monolith and replacement. |
 | Migration/data safety | 0 | Static remediation reduced runtime DDL to 9 findings (6 reviewed exceptions + 3 actionable) and service-startup mutations to 0; 15 roots and 175 SQL files are inventoried, but all 16 migration risks remain blocked and 511 destructive-token findings, naming drift, baseline edits, and expired partitions remain. The isolated A3.13 PostgreSQL 18 fresh-schema proof is not an upgrade or readiness gate. | Upgrade/backfill/reconcile/rollback tests pass on production-shaped data. |
@@ -619,9 +634,10 @@ bounded path set. Shared contract files require coordination through package A0.
   fall back to the free plan on authority failure.
 
 - **A4.0/A8.1 status:** the deterministic permission-grammar inventory covers
-  68 UI/service records. A8.2 additionally separates wallet-access and plan
-  read surfaces from their mutation controls using literal backend guards;
-  readiness intentionally stops with 13 legacy security gates and two
+  67 UI/service records, including 33 Dioxus security gates. A8.2 additionally
+  separates wallet-access and plan read surfaces from their mutation controls
+  using literal backend guards;
+  readiness intentionally stops with 12 legacy security gates and two
   presentation-only drift records. Entitlement and ranking-offset parity in the
   acceptance condition above is not yet implemented.
 
@@ -675,14 +691,19 @@ bounded path set. Shared contract files require coordination through package A0.
   verified. Replaying create, webhook, confirm, release, or refund must not
   duplicate value or state transitions.
 
-- **A6.0 status:** the pinned payment execution contract inventories nine
-  route/lifecycle surfaces and 17 evidence-backed stop blockers. Its integrity
-  and tamper tests pass, while readiness intentionally exits `3`. A3.13 removes
-  all ten pay startup-DDL findings and supplies an exact candidate schema
-  boundary, but does not choose the payment system of record or add the
-  runner/adoption, populated upgrade, durable financial constraints,
-  idempotency transaction, receipt/finality, escrow transaction, webhook,
-  ingress, or end-to-end browser proof required to close any A6 blocker.
+- **A6.0 status:** the pinned payment execution contract inventories 48 target
+  anchors, nine exact route/lifecycle models, and 17 evidence-backed STOP
+  blockers. Its integrity and tamper tests pass, while readiness intentionally
+  exits `3`. The authority crosswalk leaves `productionWriteAuthority` null and
+  explicitly forbids cutover or dual write: the canonical backend, historical
+  prototype, current pay candidate, and subscription candidate have distinct
+  route, table, reachability, and database models. The canonical backend's
+  compose runtime/migrator split (`epsx_payments_dev` versus `epsx_pay_dev`) is
+  itself unresolved. A3.13 removes all ten pay startup-DDL findings and supplies
+  an exact candidate schema boundary, but does not choose the payment system of
+  record or add runner/adoption, populated upgrade, durable financial
+  constraints, idempotency transactions, receipt/finality, escrow transactions,
+  webhook, ingress, or end-to-end browser proof required to close any blocker.
 
 - **A6.1 authorization status:** direct pay-service access now proves verified
   owner/admin read boundaries and hides foreign resources. It deliberately
@@ -712,7 +733,7 @@ bounded path set. Shared contract files require coordination through package A0.
   fixtures before the frontend gate moves to done.
 
 - **A7.0–A7.3/B7.2 status:** the exact 28-route live-data contract records three
-  aligned routes, seven partial routes, and 18 blocked routes. `/about`
+  aligned routes, eight partial routes, and 17 blocked routes. `/about`
   removes invented claims and matches the pinned source order, copy, metadata,
   landmarks, and responsive keyboard behavior. `/access-denied`
   has bounded and escaped query rendering plus responsive keyboard browser
@@ -740,8 +761,14 @@ bounded path set. Shared contract files require coordination through package A0.
   partial: A5 is not frozen, the list filters and paginates locally over only
   the upstream first 100 records, upstream detail is HTML while the accepted
   presentation requires GFM, the content service synthesizes unknown slugs,
-  and no live-service browser proof exists. The unchanged **3 aligned / 7
-  partial / 18 blocked** result keeps readiness at exit `3`.
+  and no live-service browser proof exists. `/notifications` is now a truthful
+  read-only partial: authenticated SSR records exact success or dependency
+  error, consumes the current nullable notification DTO without sample fallback,
+  parses timestamps as UTC, escapes content, ignores unapproved action URLs,
+  and renders native empty/error/retry states. It still lacks source-compatible
+  pagination and global counts, mutations, preferences, push/SSE, approved
+  action-URL behavior, and live-service/browser runtime proof. The resulting
+  **3 aligned / 8 partial / 17 blocked** inventory keeps readiness at exit `3`.
 
 ### A8 — Admin live data and mutation parity (P1)
 
@@ -853,13 +880,16 @@ bounded path set. Shared contract files require coordination through package A0.
   rollback are proven.
 
 - **A11.0 status:** the deterministic lifecycle contract pins 14 source records
-  and 36 target anchors across 12 blocked surfaces. Its 22 STOP blockers cover
+  and 40 target anchors across 12 blocked surfaces. Its 22 STOP blockers cover
   migration history/adoption, truthful asynchronous delivery, preferences/SSE/
   push, publisher inbox/outbox and idempotency, retry/dead-letter behavior,
   templates/privacy, reconciliation, observability, deployability, single-writer
   cutover, and duplicate-safe rollback. A3.11 statically reduces notification
-  startup DDL from four to zero and seed calls from two to zero, but fresh or
-  populated migration execution and delivery/runtime proof remain absent.
+  startup DDL from four to zero and seed calls from two to zero. The user page
+  now provides a sample-free, explicit-outcome, static owner read path, but that
+  does not prove source-compatible pagination/global counts, any lifecycle
+  mutation, preferences, push/SSE, action-URL policy, or live delivery/runtime
+  behavior. Fresh or populated migration execution also remains absent.
   Integrity and tamper checks pass; all 22 blockers remain, readiness
   intentionally exits `3`, and no live provider or infrastructure access is
   part of the evidence.
