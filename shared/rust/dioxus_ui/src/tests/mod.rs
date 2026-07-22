@@ -1,11 +1,9 @@
 //! Tests for Wave 3b Track A — per-page auth-gate enrichment.
 //!
-//! Each frontend user page (`/account`, `/profile`, `/dashboard`, etc.)
-//! now wraps its body in `<AuthGate>` with:
-//! - `required_permissions: Some(vec!["<perm>".to_string()])` — the
-//!   `domain:action` schema from `docs/wave3b-gates/design.md` §1.
-//! - `return_url: Some(ctx.path.clone())` — the path the SIWE flow
-//!   should bounce the user back to after sign-in.
+//! Each protected frontend page wraps its body in `<AuthGate>` and provides a
+//! return URL for the SIWE flow. Pages may also surface backend-issued scopes,
+//! but they must not invent a frontend authorization policy when the source
+//! contract requires authentication only.
 //!
 //! These tests render the page bodies (authenticated vs. signed-out)
 //! via `dioxus_ssr::render_element` and assert the gate either
@@ -32,10 +30,7 @@
 use crate::auth::User;
 use crate::pages::PageContext;
 
-/// Convenience: build a `User` with the given permissions list. The
-/// gate's `has_permission` check is exact-match against
-/// `User::permissions`, so the test user must explicitly hold the
-/// permission the page gates on.
+/// Convenience: build a `User` with the given backend-issued permissions.
 fn test_user_with(permissions: &[&str]) -> User {
     User {
         id: "u1".to_string(),
@@ -89,10 +84,7 @@ const GATE_HEADLINE: &str = "Sign in required";
 
 #[test]
 fn profile_page_renders_body_when_authenticated() {
-    // The /profile page gates on `profile:read` and `profile:write`
-    // (see `pages/profile.rs` + `docs/wave3b-gates/design.md` §1).
-    // The test user must hold BOTH to pass the gate.
-    let user = test_user_with(&["profile:read", "profile:write"]);
+    let user = test_user_with(&[]);
     let ctx = authed_ctx("/profile", user);
     let (_meta, element) = crate::pages::profile::render(&ctx);
     let html = render_to_string(element);
@@ -172,41 +164,20 @@ fn profile_page_return_url_bounces_back_to_path() {
     );
 }
 
-/// The required_permissions list is shown in the gate panel when the
-/// user is signed in but missing a permission. This is the "you are
-/// signed in but lack the right role" UX.
-///
-/// Pre-wave-23-T2 the test was on `/account` with `profile:read`;
-/// post-T2 the gate moved to `/profile` with `profile:read` +
-/// `profile:write`. We assert that BOTH permissions are listed in
-/// the missing-permissions panel (the gate fires when ANY required
-/// permission is missing, and the panel surfaces the full list).
 #[test]
-fn profile_page_required_permissions_shown_when_missing() {
-    // The user is signed in but does NOT have ANY of the required
-    // permissions. The gate's case-2 fires: signed in + missing
-    // permissions = "Permission required" panel listing them.
-    let user = test_user_with(&[]); // no permissions at all
+fn profile_page_does_not_create_a_frontend_permission_gate() {
+    let user = test_user_with(&[]);
     let ctx = authed_ctx("/profile", user);
     let (_meta, element) = crate::pages::profile::render(&ctx);
     let html = render_to_string(element);
     assert!(
-        html.contains("Permission required"),
-        "Signed-in /profile without profile:read/write should render the 'Permission required' panel. Got: {}",
+        html.contains(PROFILE_HEADER),
+        "Any locally verified session should render the profile body. Got: {}",
         html
     );
-    // Both required permissions should be listed.
-    for p in ["profile:read", "profile:write"] {
-        assert!(
-            html.contains(p),
-            "Permission panel should list missing permission {p}. Got: {}",
-            html
-        );
-    }
-    // The page body must NOT leak through.
     assert!(
-        !html.contains(PROFILE_HEADER),
-        "Signed-in /profile without the right perms must NOT render the page body header. Got: {}",
+        !html.contains("Permission required"),
+        "The profile route must not infer profile:read/profile:write policy in the UI. Got: {}",
         html
     );
 }

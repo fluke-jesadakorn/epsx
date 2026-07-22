@@ -69,6 +69,11 @@ violates them.
 
 ### 1. Permission-string schema
 
+> Migration note: the later A7 evidence contract supersedes the historical
+> `/profile` entry below. That source route is authentication-only, so the
+> unbacked `profile:read`/`profile:write` UI gate was removed instead of being
+> treated as policy authority.
+
 Use the `domain:action` pattern, matching the existing precedent in
 `pages/admin_pages/unauthorized.rs` (`"admin:*"`) and the TS
 `access-denied` page (`${route}:access`). Conventions:

@@ -52,7 +52,7 @@
       "path":"/news","batch":"B1-public-content","status":"partial","dependencies":["A5"],
       "source":{"file":"apps/frontend/app/news/page.tsx","anchors":["export default async function NewsPage","searchParams: Promise<{ page?: string }>"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/news.rs","handler":"news::render","anchors":["pub fn render(ctx: &PageContext)","enum NewsListOutcome"]},
-      "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
+      "payloads":{"staticOrSample":[],"placeholderOrSkeleton":["pinned source Suspense and loading.tsx profile fallback; target has no route-level loading state"]},
       "loader":{"kind":"gateway-strict","endpoints":["GET /api/v1/content/news?page=1&limit=100"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"crate::api::load_news_list(state.content.as_ref(), &query).await"}]},
       "authOwner":{"auth":"public","owner":"none"},
       "interactions":{"forms":["native GET q plus exact all/updates/engineering/product category form; unknown categories and the removed public limit fail with 400"],"pagination":["fixed 12-item URL-stable GET page links preserve q and category; out-of-range empty pages expose a filter-preserving Previous page link"],"search":["bounded q and exact rendered category fields are validated, filtered, and reflected by SSR"],"wallet":[],"keyboard":["native form submission, pagination, and empty-page recovery links require no hydration"],"controls":["category selector, search submit, article links, enabled pagination links, and out-of-range recovery"]},
@@ -111,14 +111,14 @@
     {
       "path":"/profile","batch":"B2-identity","status":"blocked","dependencies":["A1","A4","A5"],
       "source":{"file":"apps/frontend/app/profile/page.tsx","anchors":["export default async function ProfilePage()","<WalletProfileClient wallet={session.user} />"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/profile.rs","handler":"profile::render","anchors":["pub fn render(ctx: &PageContext)","let mut connected = use_signal(|| true);"]},
-      "payloads":{"staticOrSample":["connected=true, placeholder wallet/API key/permission/account data"],"placeholderOrSkeleton":["pinned source has Loading profile Suspense fallback"]},
-      "loader":{"kind":"none","endpoints":[],"evidence":[]},
-      "authOwner":{"auth":"required by BFF redirect and AuthGate","owner":"session wallet/profile"},
-      "interactions":{"forms":["email verification and delete-account controls are local-only"],"pagination":[],"search":[],"wallet":["connect state hard-coded true"],"keyboard":["delete confirmation input"],"controls":["tabs, API keys, permissions, export, preferences"]},
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/profile.rs","handler":"profile::render","anchors":["pub fn render(ctx: &PageContext)","let selected_tab = selected_profile_tab(&ctx.query);"]},
+      "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
+      "loader":{"kind":"locally-verified-session-claims","endpoints":[],"evidence":[{"file":"apps/frontend/src/auth.rs","anchor":"pub async fn verified_access_token("},{"file":"apps/frontend/src/auth.rs","anchor":"permissions: session.permissions,"}]},
+      "authOwner":{"auth":"required by the pre-SSR redirect and authentication-only AuthGate","owner":"wallet, subject, authentication method, and permissions come only from the locally verified access token; wallet provider, network, role, tier, email, and verification are not inferred"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":["read-only verified session wallet; connector/provider/network state explicitly unavailable"],"keyboard":["native exact-query Web3, Account, Email, and Data tab links"],"controls":["unsupported API-key, email/preference, export, and deletion controls replaced by read-only unavailable notices"]},
       "states":{"loading":"missing","empty":"present","error":"missing","retry":"missing"},
-      "hydration":{"need":"browser","status":"partial","reason":"many use_signal controls exist without production mutation wiring"},
-      "blockers":["load the owner profile and wallet state; wire email, API-key, export, preference, and deletion mutations through A4/A5 contracts"]
+      "hydration":{"need":"none","status":"not-applicable","reason":"all panels are selected by native exact-query links and render synchronously from locally verified session claims"},
+      "blockers":["A1 JWT/JWKS verification failures currently collapse into the unauthenticated redirect with no typed loading, error, or retry state; browser/runtime proof and canonical owner profile, wallet-connection, email, API-key, preference, export, and deletion contracts remain absent under A4/A5; the page is intentionally read-only"]
     },
     {
       "path":"/analytics","batch":"B3-insights","status":"blocked","dependencies":["A4","A5"],

@@ -63,6 +63,11 @@
       "anchor": "from_fn_with_state(\"admin:payments:manage\", perm_guard)",
       "purpose": "Real payment-link route-group guard."
     },
+    "guard-admin-payments-view": {
+      "file": "services/pay/src/lib.rs",
+      "anchor": "pub const PAYMENTS_VIEW_PERMISSION: &str = \"admin:payments:view\";",
+      "purpose": "Direct Pay-service read guard for the admin payment-intent list."
+    },
     "guard-admin-chat": {
       "file": "apps/backend/src/web/admin/routes.rs",
       "anchor": "from_fn_with_state(\"admin:chat:manage\", perm_guard)",
@@ -138,7 +143,7 @@
     {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/admin_pages/news.rs","line":352,"permission":"admin:content:manage","surface":"admin:news","classification":"canonical-3-segment","remediation":{"package":"A8","candidates":["admin:content:manage"],"requiresSplit":false,"evidence":["guard-admin-content"],"decision":"Aligned with the real backend news/content route-group guard."}},
     {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs","line":63,"permission":"admin:notifications:manage","surface":"admin:notifications","classification":"canonical-3-segment","remediation":{"package":"A8","candidates":["admin:notifications:manage"],"requiresSplit":false,"evidence":["guard-admin-notifications"],"decision":"Aligned with the real backend notification route-group guard."}},
     {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs","line":168,"permission":"admin:notifications:manage","surface":"admin:notifications","classification":"canonical-3-segment","remediation":{"package":"A8","candidates":["admin:notifications:manage"],"requiresSplit":false,"evidence":["guard-admin-notifications"],"decision":"Aligned with the real backend notification route-group guard."}},
-    {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/admin_pages/payments.rs","line":62,"permission":"admin:payments:manage","surface":"admin:payments","classification":"canonical-3-segment","remediation":{"package":"A8","candidates":["admin:payments:manage"],"requiresSplit":false,"evidence":["guard-admin-payments"],"decision":"Aligned with the real backend payment-link route-group guard."}},
+    {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/admin_pages/payments.rs","line":189,"permission":"admin:payments:view","surface":"admin:payments","classification":"canonical-3-segment","remediation":{"package":"A8","candidates":["admin:payments:view"],"requiresSplit":false,"evidence":["guard-admin-payments-view"],"decision":"Aligned the read-only payment-intent surface with the direct Pay-service list guard; mutation routes remain unavailable."}},
     {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/admin_pages/policies.rs","line":42,"permission":"policies:manage","surface":"admin:policies","classification":"legacy-2-segment","remediation":{"package":"A8","candidates":[],"requiresSplit":false,"evidence":[],"decision":"No real backend guard for this surface was found; A4 must decide before A8 changes it."}},
     {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/admin_pages/settings.rs","line":45,"permission":"admin:settings:manage","surface":"admin:settings","classification":"canonical-3-segment","remediation":{"package":"A8","candidates":["admin:settings:manage"],"requiresSplit":false,"evidence":["guard-admin-settings"],"decision":"Aligned with the real backend settings-path guard."}},
     {"sourceType":"dioxus-presentation-literal","file":"shared/rust/dioxus_ui/src/pages/admin_pages/unauthorized.rs","line":10,"permission":"admin:*","surface":"admin:unauthorized","classification":"impossible/cross-grammar","remediation":{"package":"A8","candidates":[],"requiresSplit":false,"evidence":[],"decision":"Generic error display is not a backend resource; no route-guard candidate is safe."}},
@@ -158,8 +163,6 @@
     {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/payment.rs","line":154,"permission":"payments:read","surface":"frontend:payment","classification":"legacy-2-segment","remediation":{"package":"A7","candidates":[],"requiresSplit":false,"evidence":[],"decision":"No real backend guard for this frontend surface was found; do not infer a token."}},
     {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/payment.rs","line":552,"permission":"payments:read","surface":"frontend:payment","classification":"legacy-2-segment","remediation":{"package":"A7","candidates":[],"requiresSplit":false,"evidence":[],"decision":"No real backend guard for this frontend surface was found; do not infer a token."}},
     {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/permissions.rs","line":40,"permission":"permissions:read","surface":"frontend:permissions","classification":"legacy-2-segment","remediation":{"package":"A7","candidates":[],"requiresSplit":false,"evidence":[],"decision":"No real backend guard for this frontend surface was found; do not infer a token."}},
-    {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/profile.rs","line":41,"permission":"profile:read","surface":"frontend:profile","classification":"legacy-2-segment","remediation":{"package":"A7","candidates":[],"requiresSplit":false,"evidence":[],"decision":"No real backend guard for this frontend surface was found; do not infer a token."}},
-    {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/profile.rs","line":41,"permission":"profile:write","surface":"frontend:profile","classification":"legacy-2-segment","remediation":{"package":"A7","candidates":[],"requiresSplit":false,"evidence":[],"decision":"No real backend guard for this frontend surface was found; do not infer a token."}},
     {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":887,"permission":"admin:users:read","surface":"service:identity:identity.get.users","classification":"canonical-3-segment","remediation":null},
     {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":912,"permission":"admin:users:create","surface":"service:identity:identity.post.users","classification":"canonical-3-segment","remediation":null},
     {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":937,"permission":"admin:users:read","surface":"service:identity:identity.get.user","classification":"canonical-3-segment","remediation":null},
@@ -194,9 +197,9 @@
     {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":3485,"permission":"admin:indexer:manage","surface":"service:indexer:indexer.post.sync","classification":"canonical-3-segment","remediation":null}
   ],
   "summary": {
-    "total": 67,
+    "total": 65,
     "sourceCounts": {
-      "dioxus-security-gate": 33,
+      "dioxus-security-gate": 31,
       "dioxus-presentation-literal": 1,
       "dioxus-presentation-dynamic": 1,
       "service-authorization": 32
@@ -204,7 +207,7 @@
     "classificationCounts": {
       "canonical-3-segment": 53,
       "wildcard-aligned": 0,
-      "legacy-2-segment": 12,
+      "legacy-2-segment": 10,
       "unknown": 1,
       "impossible/cross-grammar": 1
     }
