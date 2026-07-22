@@ -61,7 +61,7 @@ controls, while backend enforcement remains unchanged.
 | Payments | `admin:payments:view` | aligned for the read-only intent surface; mutations remain unavailable |
 | Chat | backend read decision / `admin:chat:manage` mutation authority | fail-closed list/detail UI; no conversation data or action is exposed |
 | News | backend read decision / `admin:content:manage` mutation authority | fail-closed list/create/edit UI; no records or actions are exposed |
-| Media | backend read decision / `admin:media:manage` mutation authority | fail-closed UI; no object data or action is exposed |
+| Media | dedicated backend read decision remains open / current legacy `admin:media:manage` compatibility guard | partial redacted news/public inventory exposes only key, size, and optional timestamp; BFF admin-session verification does not prove direct monolith exact-audience enforcement, and private buckets, URLs, completeness, integrity, open/copy/upload/delete, and all mutations remain unavailable |
 | Settings | backend read decision / `admin:settings:manage` mutation authority | fail-closed UI; no configuration, credential, session, or action is exposed |
 | Wallet credits | backend read decision / `admin:credits:manage` mutation authority | fail-closed UI; no balance, ledger data, or financial action is exposed |
 | Wallet list/detail | backend `admin:users:read` plus ownership decision required | fail-closed UI; no wallet data or operation is exposed |

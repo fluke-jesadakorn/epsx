@@ -834,7 +834,7 @@ bounded path set. Shared contract files require coordination through package A0.
 
 - **A8.0–A8.1 status:** the pinned admin contract covers the exact 27 source
   routes and all three intentional redirects in seven execution batches. It records
-  two aligned, five partial, and 20 blocked routes plus 20 cross-cutting STOP
+  two aligned, six partial, and 19 blocked routes plus 20 cross-cutting STOP
   blockers. `/access-denied` and `/unauthorized` now preserve bounded escaped
   copy, inherited metadata, safe reauthentication/return behavior, keyboard
   order, responsive light/dark layout, and authenticated local browser proof.
@@ -857,14 +857,26 @@ bounded path set. Shared contract files require coordination through package A0.
   to the pinned Rust backend's protected admin-news list: it preserves bounded
   page/status state, projects away bodies and identity/media fields, separates
   empty/forbidden/unavailable/malformed outcomes, and exposes no mutation. The
-  public file-backed content feed remains prohibited as admin state. Dashboard,
-  analytics, chat list/detail, media, news create/edit, notification create, settings, developer portal,
+  public file-backed content feed remains prohibited as admin state. `/media` is
+  partial through an SSR-only compatibility adapter to the protected legacy
+  `GET /api/admin/media/{news|public}?limit=100` read. The verified admin BFF
+  accepts only an empty query or one exact `bucket=news|public` pair, follows no
+  redirects, caps and strictly validates the legacy envelope, and projects only
+  key, size, and optional last-modified time. URLs, private chat/notification
+  bucket keys, and every open/copy/upload/delete operation remain absent. The
+  legacy backend repeats only its current `admin:media:manage` compatibility
+  guard; direct exact-admin-audience enforcement, a dedicated
+  `admin:media:read` decision, S3 continuation/completeness, URL/preview and
+  private-bucket policy, MIME/hash/ETag/integrity, and isolated storage/browser
+  proof remain STOP blockers. Dashboard,
+  analytics, chat list/detail, news create/edit, notification create, settings, developer portal,
   wallet credits/access/list/detail/disable, and wallet-plan list/detail now
   fail closed without sample records, counts, health, history, configuration,
   credentials, balances, ledger rows, assignments, catalogs, filters, forms,
   upload controls, or mutations. The bounded typed loaders are payment intents,
-  protected legacy news, the global redacted notification inventory, and the
-  redacted audit inventory; audit, news, and notification management are partial routes because isolated
+  protected legacy news, the global redacted notification inventory, the
+  redacted audit inventory, and the redacted news/public media compatibility
+  inventory; audit, media, news, and notification management are partial routes because isolated
   service/database and authenticated browser proof remain absent. Source
   mutation contracts and BFF paths still drift, and preserved statuses still
   lack typed envelopes and general page-level consumption. The target-only `/policies` addition now
@@ -877,7 +889,7 @@ bounded path set. Shared contract files require coordination through package A0.
   stops on plaintext `api_keys.full_key` persistence/list projection; credit
   readiness stops on a GET path that can create a balance record and on the
   unresolved financial mutation authority.
-  The exact **2 aligned / 5 partial / 20 blocked**, 20-STOP integrity and tamper
+  The exact **2 aligned / 6 partial / 19 blocked**, 20-STOP integrity and tamper
   gates pass; readiness intentionally exits `3`. No live service, database,
   chain, or deployment access is claimed.
 

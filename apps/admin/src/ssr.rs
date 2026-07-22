@@ -21,6 +21,10 @@ use epsx_dioxus_ui::pages::admin_pages::audit_log::{
     ADMIN_AUDIT_EMPTY, ADMIN_AUDIT_FORBIDDEN, ADMIN_AUDIT_MALFORMED, ADMIN_AUDIT_READY,
     ADMIN_AUDIT_STATE_PARAM, ADMIN_AUDIT_UNAVAILABLE,
 };
+use epsx_dioxus_ui::pages::admin_pages::media::{
+    ADMIN_MEDIA_BUCKET_PARAM, ADMIN_MEDIA_DATA_PARAM, ADMIN_MEDIA_EMPTY, ADMIN_MEDIA_FORBIDDEN,
+    ADMIN_MEDIA_MALFORMED, ADMIN_MEDIA_READY, ADMIN_MEDIA_STATE_PARAM, ADMIN_MEDIA_UNAVAILABLE,
+};
 use epsx_dioxus_ui::pages::admin_pages::news::{
     ADMIN_NEWS_DATA_PARAM, ADMIN_NEWS_EMPTY, ADMIN_NEWS_FORBIDDEN, ADMIN_NEWS_MALFORMED,
     ADMIN_NEWS_PAGE_PARAM, ADMIN_NEWS_READY, ADMIN_NEWS_STATE_PARAM, ADMIN_NEWS_STATUS_PARAM,
@@ -42,11 +46,60 @@ use std::collections::HashMap;
 
 use super::audit_log_adapter::{load_admin_audit, AdminAuditLoad, AdminAuditQuery};
 use super::auth;
+use super::media_adapter::{load_admin_media, AdminMediaLoad, AdminMediaQuery};
 use super::news_adapter::{load_admin_news, AdminNewsLoad, AdminNewsQuery};
 use super::notification_admin_adapter::{
     load_admin_notifications, AdminNotificationLoad, AdminNotificationQuery,
 };
 use super::AppState;
+
+fn record_admin_media_load(
+    params: &mut HashMap<String, String>,
+    query: &AdminMediaQuery,
+    load: AdminMediaLoad,
+) {
+    params.remove(ADMIN_MEDIA_DATA_PARAM);
+    params.insert(
+        ADMIN_MEDIA_BUCKET_PARAM.to_string(),
+        query.bucket.to_string(),
+    );
+
+    let state = match load {
+        AdminMediaLoad::Ready(payload) => {
+            params.insert(
+                ADMIN_MEDIA_DATA_PARAM.to_string(),
+                serde_json::to_string(&payload)
+                    .expect("the typed admin-media projection is serializable"),
+            );
+            ADMIN_MEDIA_READY
+        }
+        AdminMediaLoad::Empty(payload) => {
+            params.insert(
+                ADMIN_MEDIA_DATA_PARAM.to_string(),
+                serde_json::to_string(&payload)
+                    .expect("the typed empty admin-media projection is serializable"),
+            );
+            ADMIN_MEDIA_EMPTY
+        }
+        AdminMediaLoad::Forbidden => ADMIN_MEDIA_FORBIDDEN,
+        AdminMediaLoad::Unavailable => ADMIN_MEDIA_UNAVAILABLE,
+        AdminMediaLoad::Malformed => ADMIN_MEDIA_MALFORMED,
+    };
+    params.insert(ADMIN_MEDIA_STATE_PARAM.to_string(), state.to_string());
+}
+
+fn page_owns_admin_shell(layout_path: &str) -> bool {
+    matches!(
+        layout_path,
+        "/" | "/index" | "/analytics" | "/policies" | "/settings"
+    )
+}
+
+fn suppress_bff_auth_gate(layout_path: &str) -> bool {
+    // `/media` keeps the dispatcher's route-aware AuthPageOverlay so signed-out
+    // requests retain the safe return URL without a second generic auth panel.
+    layout_path == "/media"
+}
 
 fn record_admin_news_load(
     params: &mut HashMap<String, String>,
@@ -294,6 +347,30 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
             }
         }
     }
+    // Media inventory SSR is a single strict compatibility read. Only the
+    // verified session bearer and request ID cross this boundary; object URLs
+    // and every mutation-capable storage detail are projected away.
+    if route_path == "/media" {
+        match AdminMediaQuery::from_raw(&query) {
+            Ok(media_query) => match verified_access_token.as_ref() {
+                Some(token) => {
+                    let mut request_context = RequestContext::from_headers(&headers);
+                    request_context.auth_token = Some(token.clone());
+                    let load =
+                        load_admin_media(&state.content, &media_query, &request_context).await;
+                    record_admin_media_load(&mut params, &media_query, load);
+                }
+                None => {
+                    record_admin_media_load(&mut params, &media_query, AdminMediaLoad::Unavailable)
+                }
+            },
+            Err(()) => {
+                let default_query =
+                    AdminMediaQuery::from_raw("").expect("the empty admin-media query is valid");
+                record_admin_media_load(&mut params, &default_query, AdminMediaLoad::Malformed);
+            }
+        }
+    }
     // The pinned admin news list still has one exact, backend-owned Rust read
     // contract. Use that compatibility endpoint only for `/news`; the public
     // file-backed content-service feed is not an admin record authority. The
@@ -459,9 +536,9 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     ]);
     // === Wave 49+ — Wave 6B pages provide their own chrome ===
     //
-    // The 5 Wave 6B admin pages (`/admin/dashboard`,
-    // `/admin/analytics`, `/admin/media`, `/admin/policies`,
-    // `/admin/settings`) wrap themselves in `<AdminShell>` (from
+    // The 4 Wave 6B admin pages (`/admin/dashboard`,
+    // `/admin/analytics`, `/admin/policies`, `/admin/settings`) wrap
+    // themselves in `<AdminShell>` (from
     // `shared/rust/dioxus_ui::layout::admin_shell`), which renders
     // the full sidebar + breadcrumb header + main + footer chrome.
     // The BFF's `AdminLayout::Auth` ALSO renders that chrome (via
@@ -473,15 +550,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     // The fix: for routes whose page owns `<AdminShell>`, skip the
     // BFF-level `AdminLayout::Auth` wrap entirely. The page's own
     // authentication gate still covers the signed-out case.
-    let wave6b_paths: &[&str] = &[
-        "/",      // admin home → dashboard::render → AdminShell
-        "/index", // target-only dashboard alias → dashboard::render → AdminShell
-        "/analytics",
-        "/media",
-        "/policies",
-        "/settings",
-    ];
-    let is_wave6b = wave6b_paths.contains(&layout_path.as_str());
+    let is_wave6b = page_owns_admin_shell(&layout_path);
     let body_element = if meta.status == PageStatus::NotFound || is_wave6b {
         // Page provides its own chrome via `<AdminShell>`; don't
         // double-wrap. Its own authentication gate still handles
@@ -492,7 +561,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
             current_path: shell_layout_path,
             server_user,
             is_authenticated,
-            is_gated: None,
+            is_gated: suppress_bff_auth_gate(&layout_path).then_some(false),
             no_layout_paths: no_layout_paths_override,
         }
         .render(body_element, None, None, None)
@@ -637,6 +706,7 @@ mod tests {
     use epsx_dioxus_ui::{
         auth::{user::AuthMethod, User},
         pages::admin_pages::audit_log::{AdminAuditList, AdminAuditSummary},
+        pages::admin_pages::media::{AdminMediaList, AdminMediaObject},
         pages::admin_pages::news::{AdminNewsArticleSummary, AdminNewsList},
         pages::admin_pages::notifications::{AdminNotificationList, AdminNotificationSummary},
         pages::PageContext,
@@ -678,6 +748,22 @@ mod tests {
             "created_at": "2026-07-22T10:00:00Z",
             "updated_at": "2026-07-22T10:00:00Z"
         })
+    }
+
+    fn admin_media_query() -> AdminMediaQuery {
+        AdminMediaQuery::from_raw("bucket=public").unwrap()
+    }
+
+    fn admin_media_payload(items: Vec<AdminMediaObject>) -> AdminMediaList {
+        AdminMediaList { items }
+    }
+
+    fn admin_media_item() -> AdminMediaObject {
+        AdminMediaObject {
+            key: "brand/banner.png".to_string(),
+            size: 42,
+            last_modified: Some("2026-07-22T10:00:00Z".to_string()),
+        }
     }
 
     fn news_query() -> AdminNewsQuery {
@@ -777,7 +863,7 @@ mod tests {
         } else {
             admin_path
         };
-        let (_meta, body) = admin_pages::dispatch(&c);
+        let (meta, body) = admin_pages::dispatch(&c);
         let server_user = user.as_ref().map(|user| ServerUser {
             id: user.id.clone(),
             email: user.email.clone().unwrap_or_default(),
@@ -797,28 +883,44 @@ mod tests {
             "/permissions/policies".to_string(),
             "/developer-portal/api-keys/create".to_string(),
         ]);
-        let body = AdminLayout::Auth {
-            current_path: shell_layout_path,
-            server_user,
-            is_authenticated,
-            is_gated: None,
-            no_layout_paths: no_layout_paths_override,
-        }
-        .render(body, None, None, None);
+        let body = if meta.status == PageStatus::NotFound || page_owns_admin_shell(&c.path) {
+            body
+        } else {
+            AdminLayout::Auth {
+                current_path: shell_layout_path,
+                server_user,
+                is_authenticated,
+                is_gated: suppress_bff_auth_gate(&c.path).then_some(false),
+                no_layout_paths: no_layout_paths_override,
+            }
+            .render(body, None, None, None)
+        };
         dioxus_ssr::render_element(body)
     }
 
     #[test]
     fn admin_dashboard_renders_with_admin_header() {
-        let html = render_admin_html("/admin");
-        // The admin `Header` component renders an element with the
-        // `admin-header` class — that's our marker for "the layout
-        // chrome is present".
+        let user = User {
+            id: "admin-session".to_string(),
+            address: "0x1234".to_string(),
+            chain_id: "56".to_string(),
+            roles: vec![],
+            email: None,
+            tier: None,
+            permissions: vec![],
+            last_login_at: None,
+            auth_method: AuthMethod::Siwe,
+            display_name: None,
+        };
+        let html = render_admin_html_with_user("/admin", Some(user));
+        // Dashboard owns its AdminShell; the shared production/test shell
+        // registry must leave exactly that authenticated chrome in place.
         assert!(
-            html.contains("admin-header"),
-            "expected rendered admin dashboard HTML to include `admin-header` from the `Header` component rendered by `AdminLayout::Auth`; got: {}",
+            html.contains("admin-shell-header"),
+            "expected authenticated admin dashboard HTML to include its page-owned shell header; got: {}",
             html
         );
+        assert_eq!(html.matches("class=\"admin-sidebar ").count(), 1);
     }
 
     #[test]
@@ -843,6 +945,47 @@ mod tests {
             1,
             "audit-log must rely on the BFF admin layout instead of nesting a second shell: {html}"
         );
+    }
+
+    #[test]
+    fn media_authenticated_render_has_exactly_one_bff_admin_sidebar() {
+        assert!(!page_owns_admin_shell("/media"));
+        let user = User {
+            id: "admin-session".to_string(),
+            address: "0x1234".to_string(),
+            chain_id: "56".to_string(),
+            roles: vec![],
+            email: None,
+            tier: None,
+            permissions: vec![],
+            last_login_at: None,
+            auth_method: AuthMethod::Siwe,
+            display_name: None,
+        };
+        let html = render_admin_html_with_user("/admin/media", Some(user));
+
+        assert!(html.contains("data-admin-media-state=\"unavailable\""));
+        assert_eq!(
+            html.matches("class=\"admin-sidebar ").count(),
+            1,
+            "media must rely on the BFF AdminLayout::Auth instead of owning another shell: {html}"
+        );
+    }
+
+    #[test]
+    fn media_signed_out_bff_render_has_one_route_aware_gate_and_safe_return_url() {
+        let html = render_admin_html("/admin/media");
+
+        assert_eq!(
+            html.matches("data-wave25-t3-marker=\"auth-page-overlay\"")
+                .count(),
+            1,
+            "media must render exactly one route-aware auth overlay: {html}"
+        );
+        assert!(html.contains("href=\"/auth?return_url=%2Fmedia\""));
+        assert!(html.contains("data-return-url=\"/media\""));
+        assert!(!html.contains("class=\"auth-gate "));
+        assert!(!html.contains("the admin dashboard"));
     }
 
     #[test]
@@ -971,6 +1114,99 @@ mod tests {
             Some(ADMIN_PAYMENTS_UNAVAILABLE)
         );
         assert!(!params.contains_key(ADMIN_PAYMENTS_DATA_PARAM));
+    }
+
+    #[test]
+    fn admin_media_load_records_only_the_projection_and_bucket() {
+        let mut params = HashMap::new();
+        record_admin_media_load(
+            &mut params,
+            &admin_media_query(),
+            AdminMediaLoad::Ready(admin_media_payload(vec![admin_media_item()])),
+        );
+
+        assert_eq!(
+            params.get(ADMIN_MEDIA_STATE_PARAM).map(String::as_str),
+            Some(ADMIN_MEDIA_READY)
+        );
+        assert_eq!(
+            params.get(ADMIN_MEDIA_BUCKET_PARAM).map(String::as_str),
+            Some("public")
+        );
+        let stored: serde_json::Value =
+            serde_json::from_str(params.get(ADMIN_MEDIA_DATA_PARAM).unwrap()).unwrap();
+        assert_eq!(stored["items"][0]["key"], "brand/banner.png");
+        assert_eq!(stored["items"][0]["size"], 42);
+        assert_eq!(stored["items"][0]["last_modified"], "2026-07-22T10:00:00Z");
+        assert!(stored["items"][0].get("url").is_none());
+    }
+
+    #[test]
+    fn admin_media_load_records_authoritative_empty() {
+        let mut params = HashMap::new();
+        record_admin_media_load(
+            &mut params,
+            &admin_media_query(),
+            AdminMediaLoad::Empty(admin_media_payload(Vec::new())),
+        );
+
+        assert_eq!(
+            params.get(ADMIN_MEDIA_STATE_PARAM).map(String::as_str),
+            Some(ADMIN_MEDIA_EMPTY)
+        );
+        assert_eq!(
+            params.get(ADMIN_MEDIA_BUCKET_PARAM).map(String::as_str),
+            Some("public")
+        );
+        assert!(params.contains_key(ADMIN_MEDIA_DATA_PARAM));
+    }
+
+    #[test]
+    fn admin_media_failure_states_remove_stale_projection_and_normalize_bucket() {
+        for (load, expected) in [
+            (AdminMediaLoad::Forbidden, ADMIN_MEDIA_FORBIDDEN),
+            (AdminMediaLoad::Unavailable, ADMIN_MEDIA_UNAVAILABLE),
+            (AdminMediaLoad::Malformed, ADMIN_MEDIA_MALFORMED),
+        ] {
+            let mut params = HashMap::from([
+                (
+                    ADMIN_MEDIA_DATA_PARAM.to_string(),
+                    "stale-sensitive-media-data".to_string(),
+                ),
+                (ADMIN_MEDIA_BUCKET_PARAM.to_string(), "chat".to_string()),
+            ]);
+            record_admin_media_load(&mut params, &admin_media_query(), load);
+            assert_eq!(
+                params.get(ADMIN_MEDIA_STATE_PARAM).map(String::as_str),
+                Some(expected)
+            );
+            assert!(!params.contains_key(ADMIN_MEDIA_DATA_PARAM));
+            assert_eq!(
+                params.get(ADMIN_MEDIA_BUCKET_PARAM).map(String::as_str),
+                Some("public")
+            );
+        }
+
+        let mut malformed_query = HashMap::from([
+            (
+                ADMIN_MEDIA_DATA_PARAM.to_string(),
+                "stale-sensitive-media-data".to_string(),
+            ),
+            (ADMIN_MEDIA_BUCKET_PARAM.to_string(), "chat".to_string()),
+        ]);
+        let default_query = AdminMediaQuery::from_raw("").unwrap();
+        record_admin_media_load(
+            &mut malformed_query,
+            &default_query,
+            AdminMediaLoad::Malformed,
+        );
+        assert_eq!(
+            malformed_query
+                .get(ADMIN_MEDIA_BUCKET_PARAM)
+                .map(String::as_str),
+            Some("news")
+        );
+        assert!(!malformed_query.contains_key(ADMIN_MEDIA_DATA_PARAM));
     }
 
     #[test]

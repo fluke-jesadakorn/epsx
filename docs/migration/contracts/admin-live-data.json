@@ -39,11 +39,13 @@
         "record_admin_news_load(&mut params, &news_query, load);",
         "record_admin_notification_load(&mut params, &notification_query, load);",
         "record_admin_audit_load(&mut params, &audit_query, load);",
+        "record_admin_media_load(&mut params, &media_query, load);",
+        "load_admin_media(&state.content, &media_query, &request_context).await",
         "let (m, b) = admin_pages::dispatch(&c);",
         "fn safe_admin_layout_path(layout_path: &str, is_authenticated: bool) -> String",
         "let status = match meta.status"
       ],
-      "finding": "SSR verifies a session and keeps data params empty by default; signed-out dynamic chat, news-edit, wallet, disable, and plan shells reduce layout paths to static collections so breadcrumbs and return URLs cannot disclose route references; payment intents, the admin news list, the redacted global notification inventory, and the redacted audit inventory perform normalized authenticated reads with explicit non-empty, empty, forbidden where applicable, unavailable, or malformed outcomes."
+      "finding": "SSR verifies a session and keeps data params empty by default; signed-out dynamic chat, news-edit, wallet, disable, and plan shells reduce layout paths to static collections so breadcrumbs and return URLs cannot disclose route references; payment intents, the admin news list, the redacted global notification inventory, the redacted audit inventory, and the news/public media compatibility inventory perform normalized authenticated reads with explicit non-empty, empty, forbidden where applicable, unavailable, or malformed outcomes."
     },
     {
       "file": "apps/admin/src/news_adapter.rs",
@@ -125,6 +127,30 @@
         "fn classify_payload"
       ],
       "finding": "The audit BFF adapter accepts only a closed category and bounded canonical cursor, follows no redirects, forwards only the verified bearer and request ID, caps declared and chunked bodies at 256 KiB, binds response rows to the requested category, validates newest-first unique summaries, rejects sensitive or unknown fields, and distinguishes ready, authoritative empty, forbidden, unavailable, and malformed outcomes."
+    },
+    {
+      "file": "apps/admin/src/media_adapter.rs",
+      "anchors": [
+        "pub(crate) struct AdminMediaQuery",
+        "pub(crate) async fn load_admin_media",
+        "const MAX_ADMIN_MEDIA_RESPONSE_BYTES",
+        "#[serde(deny_unknown_fields)]",
+        "fn classify_payload",
+        "loader_never_follows_redirects_with_the_admin_bearer"
+      ],
+      "finding": "The SSR-only compatibility adapter accepts only the exact news/public bucket subset, calls the protected legacy GET /api/admin/media/{news|public}?limit=100 route with the verified admin bearer, follows no redirects, caps declared and chunked bodies before JSON allocation, and rejects request, status, response-envelope, or semantic drift. It projects only key, size, and optional last-modified time; URLs and private chat/notification bucket keys never cross into PageContext, and dependency or malformed outcomes never become an authoritative empty inventory."
+    },
+    {
+      "file": "shared/rust/dioxus_ui/src/pages/admin_pages/media.rs",
+      "anchors": [
+        "pub struct AdminMediaObject",
+        "pub struct AdminMediaList",
+        "pub fn decode_admin_media_projection",
+        "pub fn render(ctx: &PageContext)",
+        "\"data-admin-media-state\": ADMIN_MEDIA_READY",
+        "fn ready_inventory_is_redacted_accessible_responsive_and_uses_native_links()"
+      ],
+      "finding": "The authenticated media page independently validates the redacted projection and renders explicit ready, authoritative-empty, forbidden, unavailable, and malformed states with native news/public bucket and retry links. It emits only object key, size, and optional timestamp text: no URL, preview, private bucket, copy/open/upload/delete control, form, button, or mutation crosses the UI boundary."
     },
     {
       "file": "shared/rust/dioxus_ui/src/pages/admin_pages/audit_log.rs",
@@ -230,7 +256,7 @@
     {"id": "B7-mutations", "routes": ["/notifications/create", "/developer-portal", "/wallet-management/wallets/:address/disable"]}
   ],
   "stopBlockers": [
-    "Most admin routes still lack an authoritative SSR service response; only bounded payment intents, protected legacy news, the redacted global notification inventory, and the redacted audit inventory currently populate typed PageContext data.",
+    "Most admin routes still lack an authoritative SSR service response; only bounded payment intents, protected legacy news, the redacted global notification inventory, the redacted audit inventory, and the redacted news/public media compatibility inventory currently populate typed PageContext data.",
     "Sample rows, counts, timestamps, wallet addresses, balances, and health values can masquerade as live operational data.",
     "Generic skeleton overlays are visual-capture fixtures, not loading-state contracts.",
     "Ordinary Dioxus event closures are not usable in SSR output without proven hydration or a browser bridge.",
@@ -370,17 +396,17 @@
       "blockers": ["decide whether creation is intentionally removed; otherwise port the source with backend authorization, validation, secret-once response, conflict/rate-limit UX, and tests"]
     },
     {
-      "path": "/media", "batch": "B4-content-media", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A10", "A11", "A12"],
+      "path": "/media", "batch": "B4-content-media", "status": "partial", "dependencies": ["A1", "A2", "A3", "A5", "A10", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/media/page.tsx", "anchors": ["export default async function MediaPage", "listMediaAction"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/media.rs", "handler": "media::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-admin-media-state\": \"unavailable\"", "fn unavailable_workspace_suppresses_samples_and_media_controls()"]},
-      "params": {"names": ["bucket", "cursor"], "current": "legacy bucket, cursor, filter, view, and hydration parameters are ignored"},
-      "data": {"reads": ["bucket files", "metadata", "pagination"], "endpoints": [], "current": "verified-session explicit unavailable state with no inferred objects, buckets, metadata, storage totals, or pagination", "fallbacks": []},
-      "permissions": {"read": ["dedicated backend media read decision required"], "manage": ["backend media manage decision required before upload/delete"], "current": "session-only unavailable shell behind admin BFF audience verification; no media role or capability is inferred by the frontend"},
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/media.rs", "handler": "media::render", "anchors": ["pub fn render(ctx: &PageContext)", "pub fn decode_admin_media_projection", "\"data-admin-media-state\": ADMIN_MEDIA_READY", "fn ready_inventory_is_redacted_accessible_responsive_and_uses_native_links()"]},
+      "params": {"names": ["bucket", "cursor"], "current": "The only accepted raw query is empty, which defaults to news, or exactly one bucket=news|public pair; duplicate, empty, unknown, cursor, prefix, limit, chat, or notifications input is malformed before I/O, and the legacy upstream limit is fixed at 100"},
+      "data": {"reads": ["news/public object key", "size", "optional last-modified timestamp"], "endpoints": ["GET /api/admin/media/{news|public}?limit=100"], "current": "strict read-only projection from the protected legacy Rust backend; URLs are discarded before PageContext and private chat/notification bucket keys, storage totals, MIME, hash, ETag, and completeness claims are absent", "fallbacks": []},
+      "permissions": {"read": ["legacy backend admin:media:manage compatibility guard"], "manage": ["admin:media:manage before any media mutation"], "current": "the BFF verifies its admin session and forwards the bearer, while the legacy Rust backend repeats only its current admin:media:manage compatibility guard; direct exact-admin-audience enforcement and a dedicated admin:media:read decision are not claimed"},
       "mutations": [],
-      "contracts": {"bodies": ["multipart limits/type/hash unresolved"], "envelopes": [], "statuses": []},
-      "states": {"loading": "missing", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "missing", "conflict": "missing"},
-      "ux": {"keyboard": "native retry and admin-home links; focused browser proof remains open", "responsive": "page-owned responsive admin shell present; focused browser proof remains open", "hydration": "not required because no filter, upload, or deletion control is exposed"},
-      "blockers": ["define backend media read/manage authorization and typed inventory states, consume storage-provider-backed bounded pagination, and implement validated upload/delete with progress, conflict, error, retry, integrity, and storage/cache proof"]
+      "contracts": {"bodies": [], "envelopes": ["strict legacy UnifiedApiResponse<Vec<FileInfo>> decode followed by a minimal deny-unknown redacted projection that omits url"], "statuses": ["redirects are rejected; only HTTP 200 decodes; 400 becomes malformed, 403 becomes forbidden, and every other status or transport/body-cap failure becomes unavailable; HTTP-200 error envelopes are unavailable and malformed success bodies are never authoritative empty"]},
+      "states": {"loading": "not-applicable", "empty": "present", "error": "present", "retry": "present", "forbidden": "present", "conflict": "missing"},
+      "ux": {"keyboard": "native news/public bucket and retry links preserve normalized query state; focused browser proof remains open", "responsive": "read-only object rows and explicit outcome panels are present; focused browser proof remains open", "hydration": "not required because the compatibility inventory uses only native links and exposes no media action"},
+      "blockers": ["require direct monolith exact-admin-audience enforcement and decide a dedicated admin:media:read permission; add S3 continuation with completeness semantics and isolated storage/browser proof; define URL/preview and private-bucket policy plus MIME/hash/ETag/integrity contracts; keep copy/open/upload/delete and every media mutation blocked"]
     },
     {
       "path": "/news", "batch": "B4-content-media", "status": "partial", "dependencies": ["A1", "A2", "A3", "A5", "A10", "A11", "A12"],
