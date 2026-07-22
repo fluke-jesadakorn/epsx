@@ -365,22 +365,80 @@ mod routing_tests {
         body::{to_bytes, Body},
         http::{header, Method, Request, StatusCode},
     };
+    use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+    use epsx_bff::session::{
+        AccessTokenClaims, Jwks, JwksFetcher, RsaJwk, SessionError,
+    };
+    use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
+    use rand::thread_rng;
+    use rsa::{pkcs8::EncodePrivateKey, traits::PublicKeyParts, RsaPrivateKey};
+    use std::{
+        future::Future,
+        pin::Pin,
+        time::{SystemTime, UNIX_EPOCH},
+    };
     use tower::ServiceExt;
 
-    fn test_state() -> AppState {
+    struct FailingJwksFetcher;
+
+    impl JwksFetcher for FailingJwksFetcher {
+        fn fetch<'life0, 'life1, 'async_trait>(
+            &'life0 self,
+            _url: &'life1 str,
+        ) -> Pin<
+            Box<dyn Future<Output = Result<Jwks, SessionError>> + Send + 'async_trait>,
+        >
+        where
+            'life0: 'async_trait,
+            'life1: 'async_trait,
+            Self: 'async_trait,
+        {
+            Box::pin(async {
+                Err(SessionError::JwksFetch(
+                    "deterministic test outage".into(),
+                ))
+            })
+        }
+    }
+
+    struct StaticJwksFetcher {
+        jwks: Jwks,
+    }
+
+    impl JwksFetcher for StaticJwksFetcher {
+        fn fetch<'life0, 'life1, 'async_trait>(
+            &'life0 self,
+            _url: &'life1 str,
+        ) -> Pin<
+            Box<dyn Future<Output = Result<Jwks, SessionError>> + Send + 'async_trait>,
+        >
+        where
+            'life0: 'async_trait,
+            'life1: 'async_trait,
+            Self: 'async_trait,
+        {
+            Box::pin(async { Ok(self.jwks.clone()) })
+        }
+    }
+
+    fn verifier_config() -> JwksVerifierConfig {
+        let base_url = "http://127.0.0.1:9";
+        JwksVerifierConfig::new(
+            format!("{base_url}{JWKS_PATH}"),
+            "https://issuer.test",
+            FRONTEND_CLIENT_ID,
+            Duration::from_secs(60),
+        )
+        .unwrap()
+    }
+
+    fn state_with_verifier(verifier: JwksVerifier) -> AppState {
         let base_url = "http://127.0.0.1:9";
         let config = epsx_client::ClientConfig {
             base_url: base_url.to_string(),
             timeout: Duration::from_millis(50),
         };
         let client = Arc::new(ServiceClient::new(config));
-        let verifier = JwksVerifierConfig::new(
-            format!("{base_url}{JWKS_PATH}"),
-            "https://issuer.test",
-            FRONTEND_CLIENT_ID,
-            Duration::from_secs(60),
-        )
-        .unwrap();
         AppState {
             identity: client.clone(),
             notification: client.clone(),
@@ -389,24 +447,245 @@ mod routing_tests {
             wallet: client.clone(),
             payment: client.clone(),
             subscription: client,
-            verifier: Arc::new(JwksVerifier::with_http(verifier).unwrap()),
+            verifier: Arc::new(verifier),
             cookie_environment: CookieEnvironment::Local,
             api_url: base_url.to_string(),
             demo_login_enabled: false,
         }
     }
 
+    fn test_state() -> AppState {
+        state_with_verifier(JwksVerifier::new(
+            verifier_config(),
+            Arc::new(FailingJwksFetcher),
+        ))
+    }
+
+    fn valid_frontend_session() -> (AppState, String) {
+        let private = RsaPrivateKey::new(&mut thread_rng(), 2048).unwrap();
+        let pem = private.to_pkcs8_pem(rsa::pkcs8::LineEnding::LF).unwrap();
+        let encoding = EncodingKey::from_rsa_pem(pem.as_bytes()).unwrap();
+        let public = private.to_public_key();
+        let kid = "frontend-current";
+        let jwk = RsaJwk {
+            kty: "RSA".into(),
+            use_: Some("sig".into()),
+            alg: Some("RS256".into()),
+            kid: kid.into(),
+            n: URL_SAFE_NO_PAD.encode(public.n().to_bytes_be()),
+            e: URL_SAFE_NO_PAD.encode(public.e().to_bytes_be()),
+        };
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+        let claims = AccessTokenClaims {
+            iss: "https://issuer.test".into(),
+            sub: "0xabc".into(),
+            aud: vec![FRONTEND_CLIENT_ID.into()],
+            exp: now + 300,
+            iat: now,
+            jti: "frontend-test-jti".into(),
+            scope: "openid profile epsx:analytics:read".into(),
+            wallet_address: "0xabc".into(),
+            auth_method: "web3_siwe".into(),
+            auth_time: now,
+            nbf: None,
+        };
+        let mut header = Header::new(Algorithm::RS256);
+        header.kid = Some(kid.into());
+        let token = encode(&header, &claims, &encoding).unwrap();
+        let verifier = JwksVerifier::new(
+            verifier_config(),
+            Arc::new(StaticJwksFetcher {
+                jwks: Jwks { keys: vec![jwk] },
+            }),
+        );
+        (state_with_verifier(verifier), token)
+    }
+
     async fn request(method: Method, uri: &str) -> Response {
-        build_app(test_state())
-            .oneshot(
-                Request::builder()
-                    .method(method)
-                    .uri(uri)
-                    .body(Body::empty())
-                    .unwrap(),
-            )
+        request_with_cookie(method, uri, None).await
+    }
+
+    async fn request_with_cookie(method: Method, uri: &str, cookie: Option<&str>) -> Response {
+        request_with_state_and_cookie(test_state(), method, uri, cookie).await
+    }
+
+    async fn request_with_state_and_cookie(
+        state: AppState,
+        method: Method,
+        uri: &str,
+        cookie: Option<&str>,
+    ) -> Response {
+        let mut request = Request::builder().method(method).uri(uri);
+        if let Some(cookie) = cookie {
+            request = request.header(header::COOKIE, cookie);
+        }
+        build_app(state)
+            .oneshot(request.body(Body::empty()).unwrap())
             .await
             .unwrap()
+    }
+
+    #[tokio::test]
+    async fn frontend_emits_one_private_recovery_bootstrap_only_for_refresh_eligible_html() {
+        let refresh_cookie = "epsx.frontend.refresh_token=opaque-refresh";
+        let response = request_with_cookie(
+            Method::GET,
+            "/auth?return_url=%2Faccount",
+            Some(refresh_cookie),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers()[header::CACHE_CONTROL],
+            "private, no-store"
+        );
+        assert_eq!(response.headers()[header::VARY], "Cookie, Authorization");
+        let body = to_bytes(response.into_body(), 2 * 1024 * 1024)
+            .await
+            .unwrap();
+        let html = String::from_utf8_lossy(&body);
+        assert_eq!(html.matches("data-epsx-session-recovery").count(), 1);
+        assert_eq!(html.matches("window.epsxAuth.recover()").count(), 1);
+        assert!(!html.contains("opaque-refresh"));
+        let bridge_position = html
+            .find("window.epsxAuth =")
+            .expect("the shared auth bridge must be present");
+        let recovery_position = html
+            .find("data-epsx-session-recovery")
+            .expect("the recovery bootstrap must be present");
+        assert!(
+            bridge_position < recovery_position,
+            "the shared bridge must be defined before recovery runs"
+        );
+
+        let wrong_client = request_with_cookie(
+            Method::GET,
+            "/auth",
+            Some("epsx.admin.refresh_token=wrong-client"),
+        )
+        .await;
+        let wrong_client_html = to_bytes(wrong_client.into_body(), 2 * 1024 * 1024)
+            .await
+            .unwrap();
+        assert!(!String::from_utf8_lossy(&wrong_client_html)
+            .contains("data-epsx-session-recovery"));
+
+        let protected = request_with_cookie(
+            Method::GET,
+            "/profile?view=compact",
+            Some(refresh_cookie),
+        )
+        .await;
+        assert_eq!(protected.status(), StatusCode::TEMPORARY_REDIRECT);
+        assert_eq!(
+            protected.headers()[header::LOCATION],
+            "/auth?return_url=%2Fprofile%3Fview%3Dcompact"
+        );
+        assert_eq!(protected.headers()[header::CACHE_CONTROL], "private, no-store");
+        assert_eq!(protected.headers()[header::VARY], "Cookie, Authorization");
+        let return_location = protected.headers()[header::LOCATION]
+            .to_str()
+            .unwrap()
+            .to_string();
+        let auth_return =
+            request_with_cookie(Method::GET, &return_location, Some(refresh_cookie)).await;
+        let auth_return_html = to_bytes(auth_return.into_body(), 2 * 1024 * 1024)
+            .await
+            .unwrap();
+        assert_eq!(
+            String::from_utf8_lossy(&auth_return_html)
+                .matches("data-epsx-session-recovery")
+                .count(),
+            1
+        );
+
+        let rejected = request_with_cookie(
+            Method::GET,
+            "/auth",
+            Some(
+                "epsx.frontend.access_token=malformed; epsx.frontend.refresh_token=opaque-refresh",
+            ),
+        )
+        .await;
+        let rejected_html = String::from_utf8_lossy(
+            &to_bytes(rejected.into_body(), 2 * 1024 * 1024)
+                .await
+                .unwrap(),
+        )
+        .into_owned();
+        assert_eq!(
+            rejected_html.matches("data-epsx-session-recovery").count(),
+            1
+        );
+
+        let verifier_outage = request_with_cookie(
+            Method::GET,
+            "/auth",
+            Some("epsx.frontend.access_token=eyJhbGciOiJSUzI1NiIsImtpZCI6Im91dGFnZSIsInR5cCI6IkpXVCJ9.e30.c2ln; epsx.frontend.refresh_token=opaque-refresh"),
+        )
+        .await;
+        let outage_html = to_bytes(verifier_outage.into_body(), 2 * 1024 * 1024)
+            .await
+            .unwrap();
+        assert!(!String::from_utf8_lossy(&outage_html).contains("data-epsx-session-recovery"));
+
+        let (valid_state, access_token) = valid_frontend_session();
+        let valid_cookie = format!(
+            "epsx.frontend.access_token={access_token}; epsx.frontend.refresh_token=opaque-refresh"
+        );
+        let valid_auth = request_with_state_and_cookie(
+            valid_state.clone(),
+            Method::GET,
+            "/auth?return_url=%2Fprofile",
+            Some(&valid_cookie),
+        )
+        .await;
+        assert_eq!(valid_auth.status(), StatusCode::TEMPORARY_REDIRECT);
+        assert_eq!(valid_auth.headers()[header::LOCATION], "/profile");
+        assert_eq!(valid_auth.headers()[header::CACHE_CONTROL], "private, no-store");
+        assert_eq!(valid_auth.headers()[header::VARY], "Cookie, Authorization");
+
+        let no_refresh = request(Method::GET, "/auth").await;
+        let no_refresh_html = to_bytes(no_refresh.into_body(), 2 * 1024 * 1024)
+            .await
+            .unwrap();
+        assert!(!String::from_utf8_lossy(&no_refresh_html).contains("data-epsx-session-recovery"));
+
+        let offline = request_with_cookie(Method::GET, "/offline", Some(refresh_cookie)).await;
+        assert_eq!(
+            offline.headers()[header::CACHE_CONTROL],
+            "public, max-age=0, must-revalidate"
+        );
+        assert!(offline.headers().get(header::VARY).is_none());
+        let offline_html = to_bytes(offline.into_body(), 2 * 1024 * 1024)
+            .await
+            .unwrap();
+        assert!(!String::from_utf8_lossy(&offline_html).contains("data-epsx-session-recovery"));
+
+        let anonymous_offline = request(Method::GET, "/offline").await;
+        let anonymous_offline_html = to_bytes(anonymous_offline.into_body(), 2 * 1024 * 1024)
+            .await
+            .unwrap();
+        let authenticated_offline = request_with_state_and_cookie(
+            valid_state,
+            Method::GET,
+            "/offline",
+            Some(&valid_cookie),
+        )
+        .await;
+        assert_eq!(
+            authenticated_offline.headers()[header::CACHE_CONTROL],
+            "public, max-age=0, must-revalidate"
+        );
+        assert!(authenticated_offline.headers().get(header::VARY).is_none());
+        let authenticated_offline_html =
+            to_bytes(authenticated_offline.into_body(), 2 * 1024 * 1024)
+                .await
+                .unwrap();
+        assert_eq!(authenticated_offline_html, anonymous_offline_html);
     }
 
     #[tokio::test]

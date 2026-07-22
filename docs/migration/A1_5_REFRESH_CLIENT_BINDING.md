@@ -103,7 +103,7 @@ intentionally exits `3`:
 ./scripts/migration/verify-refresh-client-binding.sh --mode readiness
 ```
 
-The cumulative A1 auth/session gate now covers 101 focused tests plus three fixture
+The cumulative A1 auth/session gate now covers 108 focused tests plus three fixture
 checks with Cargo offline and loopback-only mocks. These prove compiled query
 shape and database-free state classification; they do not prove PostgreSQL.
 

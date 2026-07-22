@@ -798,7 +798,31 @@ mod routing_tests {
         body::{to_bytes, Body},
         http::{header, Method, Request, StatusCode},
     };
+    use epsx_bff::session::{Jwks, JwksFetcher, SessionError};
+    use std::{future::Future, pin::Pin};
     use tower::ServiceExt;
+
+    struct FailingJwksFetcher;
+
+    impl JwksFetcher for FailingJwksFetcher {
+        fn fetch<'life0, 'life1, 'async_trait>(
+            &'life0 self,
+            _url: &'life1 str,
+        ) -> Pin<
+            Box<dyn Future<Output = Result<Jwks, SessionError>> + Send + 'async_trait>,
+        >
+        where
+            'life0: 'async_trait,
+            'life1: 'async_trait,
+            Self: 'async_trait,
+        {
+            Box::pin(async {
+                Err(SessionError::JwksFetch(
+                    "deterministic test outage".into(),
+                ))
+            })
+        }
+    }
 
     fn test_state() -> AppState {
         let base_url = "http://127.0.0.1:9";
@@ -807,7 +831,7 @@ mod routing_tests {
             timeout: Duration::from_millis(50),
         };
         let client = Arc::new(ServiceClient::new(config));
-        let verifier = JwksVerifierConfig::new(
+        let verifier_config = JwksVerifierConfig::new(
             format!("{base_url}{JWKS_PATH}"),
             "https://issuer.test",
             ADMIN_CLIENT_ID,
@@ -823,7 +847,10 @@ mod routing_tests {
             notification: client.clone(),
             analytics: client.clone(),
             indexer: client,
-            verifier: Arc::new(JwksVerifier::with_http(verifier).unwrap()),
+            verifier: Arc::new(JwksVerifier::new(
+                verifier_config,
+                Arc::new(FailingJwksFetcher),
+            )),
             cookie_environment: CookieEnvironment::Local,
             api_url: base_url.to_string(),
             demo_login_enabled: false,
@@ -831,10 +858,97 @@ mod routing_tests {
     }
 
     async fn request(method: Method, uri: &str) -> Response {
+        request_with_cookie(method, uri, None).await
+    }
+
+    async fn request_with_cookie(method: Method, uri: &str, cookie: Option<&str>) -> Response {
+        let mut request = Request::builder().method(method).uri(uri);
+        if let Some(cookie) = cookie {
+            request = request.header(header::COOKIE, cookie);
+        }
         build_app(test_state())
-            .oneshot(Request::builder().method(method).uri(uri).body(Body::empty()).unwrap())
+            .oneshot(request.body(Body::empty()).unwrap())
             .await
             .unwrap()
+    }
+
+    #[tokio::test]
+    async fn admin_emits_one_private_recovery_bootstrap_only_with_refresh_cookie() {
+        let response = request_with_cookie(
+            Method::GET,
+            "/analytics",
+            Some("epsx.admin.refresh_token=opaque-refresh"),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers()[header::CACHE_CONTROL],
+            "private, no-store"
+        );
+        assert_eq!(response.headers()[header::VARY], "Cookie, Authorization");
+        let body = to_bytes(response.into_body(), 2 * 1024 * 1024)
+            .await
+            .unwrap();
+        let html = String::from_utf8_lossy(&body);
+        assert_eq!(html.matches("data-epsx-session-recovery").count(), 1);
+        assert_eq!(html.matches("window.epsxAuth.recover()").count(), 1);
+        assert!(!html.contains("opaque-refresh"));
+        let bridge_position = html
+            .find("window.epsxAuth =")
+            .expect("the shared auth bridge must be present");
+        let recovery_position = html
+            .find("data-epsx-session-recovery")
+            .expect("the recovery bootstrap must be present");
+        assert!(
+            bridge_position < recovery_position,
+            "the shared bridge must be defined before recovery runs"
+        );
+
+        let wrong_client = request_with_cookie(
+            Method::GET,
+            "/analytics",
+            Some("epsx.frontend.refresh_token=wrong-client"),
+        )
+        .await;
+        let wrong_client_html = to_bytes(wrong_client.into_body(), 2 * 1024 * 1024)
+            .await
+            .unwrap();
+        assert!(!String::from_utf8_lossy(&wrong_client_html)
+            .contains("data-epsx-session-recovery"));
+
+        let rejected = request_with_cookie(
+            Method::GET,
+            "/analytics",
+            Some("epsx.admin.access_token=malformed; epsx.admin.refresh_token=opaque-refresh"),
+        )
+        .await;
+        let rejected_html = String::from_utf8_lossy(
+            &to_bytes(rejected.into_body(), 2 * 1024 * 1024)
+                .await
+                .unwrap(),
+        )
+        .into_owned();
+        assert_eq!(
+            rejected_html.matches("data-epsx-session-recovery").count(),
+            1
+        );
+
+        let verifier_outage = request_with_cookie(
+            Method::GET,
+            "/analytics",
+            Some("epsx.admin.access_token=eyJhbGciOiJSUzI1NiIsImtpZCI6Im91dGFnZSIsInR5cCI6IkpXVCJ9.e30.c2ln; epsx.admin.refresh_token=opaque-refresh"),
+        )
+        .await;
+        let outage_html = to_bytes(verifier_outage.into_body(), 2 * 1024 * 1024)
+            .await
+            .unwrap();
+        assert!(!String::from_utf8_lossy(&outage_html).contains("data-epsx-session-recovery"));
+
+        let no_refresh = request(Method::GET, "/analytics").await;
+        let no_refresh_html = to_bytes(no_refresh.into_body(), 2 * 1024 * 1024)
+            .await
+            .unwrap();
+        assert!(!String::from_utf8_lossy(&no_refresh_html).contains("data-epsx-session-recovery"));
     }
 
     #[test]

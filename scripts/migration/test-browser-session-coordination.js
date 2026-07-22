@@ -79,6 +79,7 @@ function realm({ locks, fetchImpl, bus = channelBus(), channelFailure = null }) 
   const messages = [];
   const events = [];
   const redirects = [];
+  const reloads = [];
   const listeners = new Map();
 
   class FakeChannel {
@@ -125,6 +126,9 @@ function realm({ locks, fetchImpl, bus = channelBus(), channelFailure = null }) 
     replace(target) {
       redirects.push(target);
     },
+    reload() {
+      reloads.push("reload");
+    },
   };
   const window = { location, ethereum: undefined };
   const context = vm.createContext({
@@ -149,6 +153,7 @@ function realm({ locks, fetchImpl, bus = channelBus(), channelFailure = null }) 
     messages,
     events,
     redirects,
+    reloads,
     click(target) {
       for (const handler of listeners.get("click") || []) {
         handler({ target, preventDefault() {} });
@@ -188,6 +193,106 @@ test("same-window refresh calls share one promise and one fetch", async () => {
   await Promise.all([first, second]);
   assert(tab.calls.filter((call) => call.path.endsWith("/refresh")).length === 1, "refresh retried");
   assert(locks.maximum === 1, "more than one same-window mutation entered the lock");
+});
+
+test("automatic recovery is one-shot and reloads once after rotation", async () => {
+  const tab = realm({
+    locks: lockManager(),
+    fetchImpl: async () => response(200, "rotated", { success: true, authenticated: true }),
+  });
+  const first = tab.auth.recover();
+  const second = tab.auth.recover();
+  assert(first === second, "duplicate recovery callers did not share one promise");
+  await Promise.all([first, second]);
+  assert(tab.calls.length === 1, "automatic recovery retried refresh");
+  assert(tab.reloads.length === 1, "successful automatic recovery did not reload exactly once");
+  assert(tab.redirects.length === 0, "successful automatic recovery redirected instead of reloading");
+});
+
+test("automatic recovery preserves the page on explicit non-rotation", async () => {
+  const tab = realm({
+    locks: lockManager(),
+    fetchImpl: async () => response(503, "preserved", { success: false, error: "refresh_not_rotated" }),
+  });
+  await rejects(tab.auth.recover(), "preserved automatic recovery unexpectedly succeeded");
+  await rejects(tab.auth.recover(), "a second preserved recovery unexpectedly succeeded");
+  assert(tab.calls.length === 1, "preserved automatic recovery retried");
+  assert(tab.reloads.length === 0 && tab.redirects.length === 0, "preserved recovery navigated");
+});
+
+test("contradictory preserved success never reloads or retries", async () => {
+  const tab = realm({
+    locks: lockManager(),
+    fetchImpl: async () => response(200, "preserved", { success: true, authenticated: true }),
+  });
+  await rejects(tab.auth.recover(), "contradictory preserved response unexpectedly recovered");
+  assert(tab.calls.length === 1, "contradictory preserved response retried");
+  assert(tab.reloads.length === 0 && tab.redirects.length === 0, "contradictory preserved response navigated");
+});
+
+test("missing or invalid refresh state requires confirmed best-effort clearing", async () => {
+  for (const unknownState of [null, "unknown", "cleared, cleared"]) {
+    let request = 0;
+    const unconfirmed = realm({
+      locks: lockManager(),
+      fetchImpl: async () => {
+        request += 1;
+        return request === 1
+          ? response(200, unknownState, { success: true, authenticated: true })
+          : response(502, null, { success: false });
+      },
+    });
+    await rejects(unconfirmed.auth.recover(), `unknown state ${unknownState} unexpectedly recovered`);
+    assert(unconfirmed.calls.length === 2, `unknown state ${unknownState} skipped one clear attempt`);
+    assert(unconfirmed.redirects.length === 0 && unconfirmed.reloads.length === 0, `unknown state ${unknownState} navigated without confirmed clearing`);
+
+    request = 0;
+    const confirmed = realm({
+      locks: lockManager(),
+      fetchImpl: async () => {
+        request += 1;
+        return request === 1
+          ? response(200, unknownState, { success: true, authenticated: true })
+          : response(502, "cleared", { success: false });
+      },
+    });
+    await rejects(confirmed.auth.recover(), `confirmed unknown state ${unknownState} unexpectedly recovered`);
+    assert(confirmed.calls.length === 2, `confirmed unknown state ${unknownState} retried refresh`);
+    assert(confirmed.redirects.length === 1 && confirmed.reloads.length === 0, `confirmed unknown state ${unknownState} did not navigate exactly once`);
+  }
+});
+
+test("automatic recovery navigates only after confirmed clearing", async () => {
+  const tab = realm({
+    locks: lockManager(),
+    fetchImpl: async () => response(401, "cleared", { success: false, error: "refresh_rejected" }),
+  });
+  await rejects(tab.auth.recover(), "cleared automatic recovery unexpectedly succeeded");
+  assert(tab.calls.length === 1, "cleared automatic recovery retried");
+  assert(tab.redirects.length === 1, "confirmed clear did not navigate exactly once");
+  assert(tab.reloads.length === 0, "confirmed clear also reloaded");
+});
+
+test("automatic recovery transport ambiguity without clear confirmation does not navigate", async () => {
+  const tab = realm({
+    locks: lockManager(),
+    fetchImpl: async () => {
+      throw new Error("BFF unavailable");
+    },
+  });
+  await rejects(tab.auth.recover(), "ambiguous automatic recovery unexpectedly succeeded");
+  assert(tab.calls.length === 2, "ambiguous recovery did not make one refresh and one clear attempt");
+  assert(tab.redirects.length === 0 && tab.reloads.length === 0, "unconfirmed clearing navigated");
+});
+
+test("automatic recovery without Web Locks refuses all network I/O", async () => {
+  const tab = realm({
+    locks: null,
+    fetchImpl: async () => response(200, "rotated", { success: true, authenticated: true }),
+  });
+  await rejects(tab.auth.recover(), "unsupported automatic recovery unexpectedly succeeded");
+  assert(tab.calls.length === 0, "unsupported automatic recovery reached the network");
+  assert(tab.redirects.length === 0 && tab.reloads.length === 0, "unsupported recovery navigated");
 });
 
 test("two tab realms serialize refresh through one origin lock", async () => {
@@ -233,6 +338,52 @@ test("refresh and logout use the same exclusive lock", async () => {
   await Promise.all([refreshing, loggingOut]);
   assert(tab.calls.map((call) => call.path).join(",") === "/api/v1/auth/refresh,/api/v1/auth/logout", "mutation order drifted");
   assert(locks.maximum === 1, "refresh and logout overlapped");
+});
+
+test("recovery and SIWE cookie establishment use the same exclusive lock", async () => {
+  const locks = lockManager();
+  const events = [];
+  let releaseRefresh;
+  let markRefreshStarted;
+  const refreshGate = new Promise((resolveGate) => {
+    releaseRefresh = resolveGate;
+  });
+  const refreshStarted = new Promise((resolveStarted) => {
+    markRefreshStarted = resolveStarted;
+  });
+  const recoveringTab = realm({
+    locks,
+    fetchImpl: async (path) => {
+      assert(path.endsWith("/refresh"), "recovery used the wrong endpoint");
+      events.push("refresh-start");
+      markRefreshStarted();
+      await refreshGate;
+      events.push("refresh-end");
+      return response(200, "rotated", { success: true, authenticated: true });
+    },
+  });
+  const loginTab = realm({
+    locks,
+    fetchImpl: async (path) => {
+      assert(path.endsWith("/siwe"), "SIWE used the wrong endpoint");
+      events.push("siwe-start");
+      return response(200, null, { success: true, authenticated: true });
+    },
+  });
+
+  const recovering = recoveringTab.auth.recover();
+  await refreshStarted;
+  const loggingIn = loginTab.auth.siweLogin("message", "signature", "0xabc", "nonce", "56");
+  await new Promise((resolveDelay) => setTimeout(resolveDelay, 5));
+  assert(events.join(",") === "refresh-start", "SIWE overtook recovery inside the mutation lock");
+  releaseRefresh();
+  await Promise.all([recovering, loggingIn]);
+  assert(
+    events.join(",") === "refresh-start,refresh-end,siwe-start",
+    "recovery and SIWE mutation order drifted",
+  );
+  assert(locks.maximum === 1, "recovery and SIWE cookie establishment overlapped");
+  assert(new Set(locks.names).size === 1, "recovery and SIWE used different mutation locks");
 });
 
 test("missing Web Locks refuses refresh before network I/O", async () => {

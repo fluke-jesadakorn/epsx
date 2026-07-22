@@ -416,6 +416,37 @@ pub struct AccessTokenClaims {
     pub nbf: Option<i64>,
 }
 
+/// Closed outcome for an optional browser access credential. Callers use this
+/// distinction to avoid treating verifier infrastructure failures as an
+/// expired session: only a missing or cryptographically rejected credential
+/// may enter the one-shot refresh recovery path.
+#[derive(Clone, PartialEq, Eq)]
+pub enum AccessVerification {
+    Verified { token: String, user: SessionUser },
+    MissingOrRejected,
+    VerifierUnavailable,
+}
+
+impl fmt::Debug for AccessVerification {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Verified { user, .. } => formatter
+                .debug_struct("Verified")
+                .field("token", &"[REDACTED]")
+                .field("user", user)
+                .finish(),
+            Self::MissingOrRejected => formatter.write_str("MissingOrRejected"),
+            Self::VerifierUnavailable => formatter.write_str("VerifierUnavailable"),
+        }
+    }
+}
+
+impl AccessVerification {
+    pub const fn permits_refresh_recovery(&self) -> bool {
+        matches!(self, Self::MissingOrRejected)
+    }
+}
+
 impl AccessTokenClaims {
     /// Preserve the backend-issued scope tokens verbatim as permissions. This
     /// is parsing, not local plan/role expansion.
@@ -683,12 +714,45 @@ impl JwksVerifier {
         Ok(claims)
     }
 
+    /// Verify an optional access token while preserving the difference between
+    /// user-credential rejection and JWKS/verifier unavailability.
+    pub async fn verify_optional_access_token(&self, token: Option<String>) -> AccessVerification {
+        let Some(token) = token else {
+            return AccessVerification::MissingOrRejected;
+        };
+
+        match self.verify(&token).await {
+            Ok(claims) => AccessVerification::Verified {
+                token,
+                user: claims.session_user(),
+            },
+            Err(error) if error.is_verifier_unavailable() => {
+                AccessVerification::VerifierUnavailable
+            }
+            Err(_) => AccessVerification::MissingOrRejected,
+        }
+    }
+
     async fn refresh_cache(&self, cache: &mut JwksCache) -> Result<(), SessionError> {
         let jwks = self.fetcher.fetch(&self.config.jwks_url).await?;
         let keys = validate_jwks(jwks)?;
         cache.keys = keys;
         cache.loaded_at = Some(Instant::now());
         Ok(())
+    }
+}
+
+impl SessionError {
+    /// Errors in the verifier's authority/configuration are not evidence that
+    /// the browser credential itself was rejected.
+    pub const fn is_verifier_unavailable(&self) -> bool {
+        matches!(
+            self,
+            Self::InvalidConfiguration(_)
+                | Self::UnknownKeyId
+                | Self::JwksFetch(_)
+                | Self::MalformedJwks(_)
+        )
     }
 }
 
@@ -847,6 +911,21 @@ mod tests {
             vec!["epsx:analytics:read"]
         );
         assert_eq!(fetcher.calls(), 1);
+
+        let known = TestKey::generate("known");
+        let unknown = TestKey::generate("unknown");
+        let verifier = JwksVerifier::new(
+            config("epsx-frontend"),
+            Arc::new(FakeFetcher::new(vec![Jwks {
+                keys: vec![known.jwk],
+            }])),
+        );
+        assert_eq!(
+            verifier
+                .verify_optional_access_token(Some(unknown.sign(claims())))
+                .await,
+            AccessVerification::VerifierUnavailable
+        );
     }
 
     #[tokio::test]
@@ -998,6 +1077,78 @@ mod tests {
             verifier.verify(&token).await,
             Err(SessionError::MalformedJwks(_))
         ));
+    }
+
+    #[tokio::test]
+    async fn optional_access_verification_separates_rejection_from_authority_outage() {
+        let key = TestKey::generate("current");
+        let fetcher = Arc::new(FakeFetcher::new(Vec::new()));
+        let verifier = JwksVerifier::new(config("epsx-frontend"), fetcher.clone());
+
+        assert_eq!(
+            verifier.verify_optional_access_token(None).await,
+            AccessVerification::MissingOrRejected
+        );
+        assert_eq!(
+            verifier
+                .verify_optional_access_token(Some("not-a-jwt".to_string()))
+                .await,
+            AccessVerification::MissingOrRejected
+        );
+        assert_eq!(fetcher.calls(), 0);
+
+        assert_eq!(
+            verifier
+                .verify_optional_access_token(Some(key.sign(claims())))
+                .await,
+            AccessVerification::VerifierUnavailable
+        );
+        assert_eq!(fetcher.calls(), 1);
+    }
+
+    #[tokio::test]
+    async fn optional_access_verification_returns_only_verified_backend_identity() {
+        let key = TestKey::generate("current");
+        let token = key.sign(claims());
+        let fetcher = Arc::new(FakeFetcher::new(vec![Jwks {
+            keys: vec![key.jwk],
+        }]));
+        let verifier = JwksVerifier::new(config("epsx-frontend"), fetcher);
+
+        let outcome = verifier
+            .verify_optional_access_token(Some(token.clone()))
+            .await;
+        assert!(!format!("{outcome:?}").contains(&token));
+        let AccessVerification::Verified {
+            token: verified_token,
+            user,
+        } = outcome
+        else {
+            panic!("valid access token did not produce a verified outcome");
+        };
+        assert_eq!(verified_token, token);
+        assert_eq!(user.wallet_address, "0xabc");
+        assert_eq!(user.permissions, vec!["epsx:analytics:read"]);
+    }
+
+    #[test]
+    fn verifier_unavailability_classification_is_closed() {
+        for error in [
+            SessionError::InvalidConfiguration("issuer"),
+            SessionError::UnknownKeyId,
+            SessionError::JwksFetch("offline".to_string()),
+            SessionError::MalformedJwks("invalid document"),
+        ] {
+            assert!(error.is_verifier_unavailable());
+        }
+        for error in [
+            SessionError::MalformedToken("invalid token".to_string()),
+            SessionError::WrongAlgorithm,
+            SessionError::MissingKeyId,
+            SessionError::Validation("expired".to_string()),
+        ] {
+            assert!(!error.is_verifier_unavailable());
+        }
     }
 
     #[test]

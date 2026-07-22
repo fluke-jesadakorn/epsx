@@ -3,7 +3,7 @@
 use axum::http::HeaderMap;
 use epsx_bff::{
     cookies::{read_access_token, read_refresh_token, CookieClient, CookieEnvironment},
-    session::{JwksVerifier, SessionUser},
+    session::{AccessVerification, JwksVerifier, SessionUser},
 };
 use epsx_dioxus_ui::auth::{user::AuthMethod, User};
 
@@ -34,9 +34,22 @@ pub async fn verified_access_token(
     verifier: &JwksVerifier,
     environment: CookieEnvironment,
 ) -> Option<(String, SessionUser)> {
-    let token = access_token(headers, environment)?;
-    let user = verifier.verify(&token).await.ok()?.session_user();
-    Some((token, user))
+    match access_verification(headers, verifier, environment).await {
+        AccessVerification::Verified { token, user } => Some((token, user)),
+        AccessVerification::MissingOrRejected | AccessVerification::VerifierUnavailable => None,
+    }
+}
+
+/// Preserve verifier outages as a distinct SSR outcome so an unavailable
+/// JWKS authority cannot trigger a rotate/reload loop.
+pub async fn access_verification(
+    headers: &HeaderMap,
+    verifier: &JwksVerifier,
+    environment: CookieEnvironment,
+) -> AccessVerification {
+    verifier
+        .verify_optional_access_token(access_token(headers, environment))
+        .await
 }
 
 pub async fn current_user(

@@ -19,6 +19,7 @@ use axum::{
     http::{header, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
 };
+use epsx_bff::session::AccessVerification;
 use epsx_dioxus_ui::auth::wallet_button::ConnectedWalletState;
 use epsx_dioxus_ui::auth::User;
 use epsx_dioxus_ui::components::account::{
@@ -202,13 +203,27 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     let query = parts.uri.query().unwrap_or("").to_string();
     let headers = parts.headers.clone();
 
-    let mut wallet = ConnectedWalletState::from_cookies(&headers);
-    let verified_session =
-        auth::verified_access_token(&headers, state.verifier.as_ref(), state.cookie_environment)
-            .await;
-    let (verified_access_token, user) = match verified_session {
-        Some((token, session)) => (Some(token), Some(auth::ui_user(session, wallet.chain_id))),
-        None => (None, None),
+    let offline_shell = path == "/offline";
+    let mut wallet = if offline_shell {
+        ConnectedWalletState::default()
+    } else {
+        ConnectedWalletState::from_cookies(&headers)
+    };
+    let access_verification = if offline_shell {
+        AccessVerification::MissingOrRejected
+    } else {
+        auth::access_verification(&headers, state.verifier.as_ref(), state.cookie_environment).await
+    };
+    let recover_session = access_verification.permits_refresh_recovery()
+        && auth::refresh_token(&headers, state.cookie_environment).is_some()
+        && path != "/offline";
+    let (verified_access_token, user) = match access_verification {
+        AccessVerification::Verified { token, user } => {
+            (Some(token), Some(auth::ui_user(user, wallet.chain_id)))
+        }
+        AccessVerification::MissingOrRejected | AccessVerification::VerifierUnavailable => {
+            (None, None)
+        }
     };
 
     // Wave 22 T4 — `/pricing` is an alias for `/plans` in prod
@@ -222,12 +237,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     let route_is_known = is_known_frontend_route(&path);
 
     if path == "/auth" && user.is_some() {
-        return (
-            StatusCode::TEMPORARY_REDIRECT,
-            [("location", safe_return_url(&query))],
-            "",
-        )
-            .into_response();
+        return private_session_redirect(safe_return_url(&query));
     }
 
     // Wave 22 T5 — mirror prod Vercel middleware 307 redirect behavior
@@ -262,7 +272,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
         // sets in the `epsx.return_url` cookie.
         //
         let location = format!("/auth?return_url={}", urlencode(&next));
-        return (StatusCode::TEMPORARY_REDIRECT, [("location", location)], "").into_response();
+        return private_session_redirect(location);
     }
 
     // Parse dynamic-route params from path
@@ -393,10 +403,18 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
         _ => "",
     };
     let authenticated_header_runtime = notification_badge_runtime(is_authenticated, &path);
+    let recovery_runtime = recover_session
+        .then(|| {
+            format!(
+                "<script data-epsx-session-recovery>{}</script>",
+                epsx_bff::browser_auth::browser_session_recovery_script()
+            )
+        })
+        .unwrap_or_default();
     let doc = doc.replace(
         "</body>",
         &format!(
-            "<script>{}</script>{}{route_runtime}{authenticated_header_runtime}</body>",
+            "<script>{}</script>{recovery_runtime}{}{route_runtime}{authenticated_header_runtime}</body>",
             wallet_shim(),
             offline_worker_registration_script()
         ),
@@ -404,7 +422,14 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
 
     let mut response =
         (status, [("content-type", "text/html; charset=utf-8")], doc).into_response();
-    apply_ssr_cache_policy(&mut response, is_authenticated, &path);
+    apply_ssr_cache_policy(&mut response, is_authenticated, recover_session, &path);
+    response
+}
+
+fn private_session_redirect(location: String) -> Response {
+    let mut response =
+        (StatusCode::TEMPORARY_REDIRECT, [("location", location)], "").into_response();
+    apply_ssr_cache_policy(&mut response, true, false, "/auth");
     response
 }
 
@@ -412,7 +437,12 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
 /// `/offline` is the one reviewed public exception and never receives the
 /// authenticated notification runtime, even when the request carried a valid
 /// session.
-fn apply_ssr_cache_policy(response: &mut Response, is_authenticated: bool, path: &str) {
+fn apply_ssr_cache_policy(
+    response: &mut Response,
+    is_authenticated: bool,
+    recover_session: bool,
+    path: &str,
+) {
     if path == "/offline" {
         // This marker is the service worker's fail-closed permission to cache
         // the response. The worker fetches it with credentials omitted and
@@ -425,10 +455,14 @@ fn apply_ssr_cache_policy(response: &mut Response, is_authenticated: bool, path:
             "x-epsx-public-cache",
             HeaderValue::from_static("offline-shell-v1"),
         );
-    } else if is_authenticated {
+    } else if is_authenticated || recover_session {
         response.headers_mut().insert(
             header::CACHE_CONTROL,
             HeaderValue::from_static("private, no-store"),
+        );
+        response.headers_mut().insert(
+            header::VARY,
+            HeaderValue::from_static("Cookie, Authorization"),
         );
     }
 }
@@ -1561,7 +1595,7 @@ mod tests {
     #[test]
     fn authenticated_badge_shell_is_private_while_offline_stays_public() {
         let mut authenticated = StatusCode::OK.into_response();
-        apply_ssr_cache_policy(&mut authenticated, true, "/rankings");
+        apply_ssr_cache_policy(&mut authenticated, true, false, "/rankings");
         assert_eq!(
             authenticated
                 .headers()
@@ -1569,9 +1603,15 @@ mod tests {
             Some(&axum::http::HeaderValue::from_static("private, no-store"))
         );
         assert!(authenticated.headers().get("x-epsx-public-cache").is_none());
+        assert_eq!(
+            authenticated.headers().get(axum::http::header::VARY),
+            Some(&axum::http::HeaderValue::from_static(
+                "Cookie, Authorization"
+            ))
+        );
 
         let mut signed_out = StatusCode::OK.into_response();
-        apply_ssr_cache_policy(&mut signed_out, false, "/rankings");
+        apply_ssr_cache_policy(&mut signed_out, false, false, "/rankings");
         assert!(signed_out
             .headers()
             .get(axum::http::header::CACHE_CONTROL)
@@ -1579,7 +1619,12 @@ mod tests {
 
         for authenticated_request in [false, true] {
             let mut offline = StatusCode::OK.into_response();
-            apply_ssr_cache_policy(&mut offline, authenticated_request, "/offline");
+            apply_ssr_cache_policy(
+                &mut offline,
+                authenticated_request,
+                authenticated_request,
+                "/offline",
+            );
             assert_eq!(
                 offline.headers().get(axum::http::header::CACHE_CONTROL),
                 Some(&axum::http::HeaderValue::from_static(
@@ -1590,6 +1635,23 @@ mod tests {
                 offline.headers().get("x-epsx-public-cache"),
                 Some(&axum::http::HeaderValue::from_static("offline-shell-v1"))
             );
+            assert!(offline.headers().get(axum::http::header::VARY).is_none());
         }
+    }
+
+    #[test]
+    fn recovery_bearing_frontend_html_is_private_and_varies_by_credentials() {
+        let mut response = StatusCode::OK.into_response();
+        apply_ssr_cache_policy(&mut response, false, true, "/auth");
+        assert_eq!(
+            response.headers().get(axum::http::header::CACHE_CONTROL),
+            Some(&axum::http::HeaderValue::from_static("private, no-store"))
+        );
+        assert_eq!(
+            response.headers().get(axum::http::header::VARY),
+            Some(&axum::http::HeaderValue::from_static(
+                "Cookie, Authorization"
+            ))
+        );
     }
 }

@@ -14,6 +14,7 @@ use axum::{
     extract::{Request, State},
     response::{IntoResponse, Response},
 };
+use epsx_bff::session::AccessVerification;
 use epsx_client::RequestContext;
 use epsx_dioxus_ui::layout::shell::{AdminLayout, ServerUser};
 use epsx_dioxus_ui::pages::admin_pages::audit_log::{
@@ -355,12 +356,18 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     // Resolve only a cryptographically verified canonical cookie/bearer user.
     // Permissions are backend-issued and remain verbatim; the admin UI does no
     // role-to-permission expansion.
-    let verified_session =
-        auth::verified_access_token(&headers, state.verifier.as_ref(), state.cookie_environment)
+    let access_verification =
+        auth::access_verification(&headers, state.verifier.as_ref(), state.cookie_environment)
             .await;
-    let (verified_access_token, user) = match verified_session {
-        Some((token, session)) => (Some(token), Some(auth::ui_user(session, None))),
-        None => (None, None),
+    let recover_session = access_verification.permits_refresh_recovery()
+        && auth::refresh_token(&headers, state.cookie_environment).is_some();
+    let (verified_access_token, user) = match access_verification {
+        AccessVerification::Verified { token, user } => {
+            (Some(token), Some(auth::ui_user(user, None)))
+        }
+        AccessVerification::MissingOrRejected | AccessVerification::VerifierUnavailable => {
+            (None, None)
+        }
     };
 
     // Admin: load only the bounded, read-only payment-intent dependency. Every
@@ -715,10 +722,18 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     let denial_runtime = matches!(layout_path.as_str(), "/access-denied" | "/unauthorized")
         .then_some(admin_denial_runtime_script())
         .unwrap_or("");
+    let recovery_runtime = recover_session
+        .then(|| {
+            format!(
+                "<script data-epsx-session-recovery>{}</script>",
+                epsx_bff::browser_auth::browser_session_recovery_script()
+            )
+        })
+        .unwrap_or_default();
     let doc = doc.replace(
         "</body>",
         &format!(
-            "<script>{}</script>{denial_runtime}</body>",
+            "<script>{}</script>{recovery_runtime}{denial_runtime}</body>",
             epsx_bff::browser_auth::browser_auth_script(),
         ),
     );

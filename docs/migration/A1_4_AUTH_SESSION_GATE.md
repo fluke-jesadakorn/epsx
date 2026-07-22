@@ -2,7 +2,7 @@
 
 `scripts/migration/verify-auth-session-flow.sh` is the local, executable release
 gate for the canonical Rust BFF session contract. It is intentionally narrower
-than a live end-to-end test: its cumulative form runs 101 focused tests with Cargo offline, uses
+than a live end-to-end test: its cumulative form runs 108 focused tests with Cargo offline, uses
 only loopback mock HTTP servers created by those tests, and then runs the route
 and API-contract fixture checks.
 
@@ -67,3 +67,13 @@ Raw UUID refresh credentials, consumed-versus-revoked state, automatic
 descendant revocation on replay, and two-connection family-lock ordering proof
 also remain open. A passing report therefore keeps live auth-session and
 production-readiness contracts blocked.
+
+A1.8 adds a one-shot SSR recovery entrypoint for a missing/rejected access
+credential paired with the BFF's HttpOnly refresh cookie. It preserves JWKS or
+verifier authority failures as a distinct unavailable outcome, never rotates
+after an observed verifier-unavailable outcome, and reloads only after A1.7
+attests successful rotation. A missing access cookie cannot preflight later
+JWKS availability and remains an explicit A1.8 STOP.
+This removes explicit reauthentication as the only expired-cookie journey in
+hermetic code, but it does not change the live-browser, PostgreSQL, proxy-fault,
+exactly-once cookie-delivery, or production STOP conditions above.

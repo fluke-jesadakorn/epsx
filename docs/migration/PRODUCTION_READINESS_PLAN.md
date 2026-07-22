@@ -305,7 +305,7 @@ passed`. It is not a percentage estimate of engineering effort.
 | Shared UI package baseline | 2 | Targeted unit/doctest repair in this slice | `cargo test -p epsx-dioxus-ui --lib` and `--doc` pass. |
 | Visual/responsive/accessibility | 1 | Historical screenshots exist; current accepted baseline is incomplete | All routes pass agreed viewport, state, keyboard, and accessibility thresholds. |
 | Interaction parity | 0 | No complete click/form/wallet/navigation matrix | Every interactive control has E2E success and failure coverage. |
-| Auth/session parity | 1 | The cumulative A1 auth gate covers 101 focused tests plus three fixture checks across both BFFs, including closed refresh outcomes, hermetic browser coordination, and authenticated customer/admin logout reachability; durable PostgreSQL rotation/revocation, commit-loss fault injection, real-browser behavior, and automatic refresh recovery remain unproven | SIWE -> SSR me -> client-bound rotation -> revocation works across both BFFs. |
+| Auth/session parity | 1 | The cumulative A1 auth gate covers 108 focused tests plus three fixture checks across both BFFs, including closed refresh outcomes, hermetic browser coordination, authenticated customer/admin logout reachability, and a one-shot automatic recovery entrypoint; durable PostgreSQL rotation/revocation, commit-loss fault injection, and real-browser recovery behavior remain unproven | SIWE -> SSR me -> client-bound rotation -> revocation works across both BFFs. |
 | Backend authorization | 1 | Gateway is fail-closed with exact RS256/JWKS and granular edge policy; the 119-route service matrix is 11 aligned, 48 partial, and 60 blocked | Anonymous/cross-owner calls fail at both gateway and service boundaries; granular backend permissions pass. |
 | Live data parity | 0 | The notification owner page, global redacted admin notification inventory, and focused news routes have sample-free explicit dependency outcomes, and notifications adds a statically verified authenticated read-only shared-header count; browser/live database proof is absent, 17 frontend routes remain blocked, other frontend mocks remain, and most admin routes still lack authoritative page data | Sample payloads removed and real empty/error states proven. |
 | Checkout/on-chain parity | 0 | Route mismatch and DB-only escrow transitions | Verified receipts and contract transactions drive state. |
@@ -408,9 +408,10 @@ bounded path set. Shared contract files require coordination through package A0.
   and access-token rejection when a refresh token is supplied.
 
 - **A1.4 cumulative gate status:** the local hermetic gate now passes only when
-  its 101 focused tests and three fixture checks pass. It proves BFF audience/verifier,
-  token-redaction, cookie, local rotation/clearing, proxy rejection, and safe
-  return-target contracts. It deliberately does not satisfy the full A1
+  its 108 focused tests and three fixture checks pass. It proves BFF audience/verifier,
+  token-redaction, cookie, local rotation/clearing, proxy rejection, safe
+  return-target contracts, and the A1.8 one-shot recovery entrypoint. It
+  deliberately does not satisfy the full A1
   acceptance condition: real wallet signing, nonce consumption, durable
   database-backed old-token rejection/revocation, and production-shaped browser
   behavior remain blocked. See `docs/migration/A1_4_AUTH_SESSION_GATE.md`.
@@ -447,6 +448,18 @@ bounded path set. Shared contract files require coordination through package A0.
   tamper classes. Real browsers, proxy fault injection, PostgreSQL ordering,
   exactly-once cookie delivery, BFF-unreachable clearing, automatic expired-
   session recovery, and all production actions remain explicit STOPs.
+
+- **A1.8 status:** `scripts/migration/verify-automatic-session-recovery.sh`
+  pins typed verifier-outage separation, a refresh-cookie-only SSR trigger, one
+  fixed token-free recovery bootstrap, a page-lifetime one-shot promise, reload
+  only after an attested rotation, no-lock zero-I/O behavior, and private
+  credential-varying recovery HTML. The frontend `/offline` shell remains
+  public and recovery-free. Its exact Bun VM passes 20 cases, including
+  recovery/SIWE cookie-mutation serialization, and focused Rust tests cover
+  both full BFF render journeys plus JWKS-outage suppression. Real
+  browsers, proxy faults, PostgreSQL ordering, exactly-once cookie delivery,
+  BFF-unreachable clearing, access-JWT revocation latency, and every production
+  action remain explicit STOPs.
 
 ### A2 — Fail-closed service authorization (P0)
 

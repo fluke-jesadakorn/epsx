@@ -71,6 +71,7 @@ async function epsxPostJson(path, payload, label) {
 var epsxSessionLockName = 'epsx.auth.session-mutation.v1';
 var epsxSessionChannelName = 'epsx.auth.session.v1';
 var epsxRefreshPromise = null;
+var epsxRecoverPromise = null;
 var epsxSessionChannel = null;
 if (typeof BroadcastChannel === 'function') {
   try {
@@ -154,6 +155,15 @@ async function epsxBestEffortLocalEnd(reason) {
   }
 }
 
+async function epsxRejectRefreshResponse(response) {
+  try {
+    await epsxReadJson(response, 'Session refresh failed');
+  } catch (error) {
+    throw error;
+  }
+  throw new Error('Session refresh failed: rotation was not attested');
+}
+
 async function epsxRefreshOnce() {
   var response;
   try {
@@ -170,11 +180,15 @@ async function epsxRefreshOnce() {
 
   var state = response.headers.get('x-epsx-session-state');
   if (state === 'preserved') {
-    return epsxReadJson(response, 'Session refresh failed');
+    return epsxRejectRefreshResponse(response);
+  }
+  if (state === 'cleared') {
+    epsxEndLocalSession(response.status === 401 ? 'refresh_rejected' : 'refresh_unknown', '/');
+    return epsxRejectRefreshResponse(response);
   }
   if (state !== 'rotated') {
-    epsxEndLocalSession(response.status === 401 ? 'refresh_rejected' : 'refresh_unknown', '/');
-    return epsxReadJson(response, 'Session refresh failed');
+    await epsxBestEffortLocalEnd('refresh_unknown');
+    return epsxRejectRefreshResponse(response);
   }
 
   var session = await epsxReadJson(response, 'Session refresh failed');
@@ -188,6 +202,25 @@ function epsxRefreshSession() {
     epsxRefreshPromise = null;
   });
   return epsxRefreshPromise;
+}
+
+function epsxRecoverSession() {
+  if (epsxRecoverPromise) return epsxRecoverPromise;
+  epsxRecoverPromise = epsxRefreshSession().then(function(session) {
+    window.location.reload();
+    return session;
+  });
+  return epsxRecoverPromise;
+}
+
+function epsxSiweLogin(message, signature, address, nonce, chainId) {
+  return epsxWithSessionMutation(function() {
+    return epsxPostJson(
+      '/api/v1/auth/siwe',
+      { message: message, signature: signature, address: address, nonce: nonce, chain_id: String(chainId || '') },
+      'Verification failed'
+    );
+  }, false);
 }
 
 function epsxLogoutSession(target) {
@@ -206,12 +239,9 @@ function epsxLogoutSession(target) {
 
 window.epsxAuth = {
   challenge: (address) => epsxPostJson('/api/v1/auth/challenge', { address: address }, 'Challenge failed'),
-  siweLogin: (message, signature, address, nonce, chainId) => epsxPostJson(
-    '/api/v1/auth/siwe',
-    { message: message, signature: signature, address: address, nonce: nonce, chain_id: String(chainId || '') },
-    'Verification failed'
-  ),
+  siweLogin: epsxSiweLogin,
   refresh: epsxRefreshSession,
+  recover: epsxRecoverSession,
   me: async () => {
     var response = await fetch('/api/v1/auth/me', { credentials: 'same-origin' });
     return epsxReadJson(response, 'Session lookup failed');
@@ -311,6 +341,13 @@ document.addEventListener('click', function(event) {
 "#
 }
 
+/// Fixed SSR bootstrap for pages whose BFF observed a missing/rejected access
+/// credential alongside its own HttpOnly refresh cookie. No credential or
+/// request-derived value is interpolated into this script.
+pub fn browser_session_recovery_script() -> &'static str {
+    "window.epsxAuth.recover().catch(function() {});"
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -336,10 +373,14 @@ mod tests {
     }
 
     #[test]
-    fn refresh_and_logout_share_one_cross_tab_mutation_lock() {
+    fn refresh_siwe_and_logout_share_one_cross_tab_mutation_lock() {
         let script = browser_auth_script();
         assert!(script.contains("navigator.locks.request(epsxSessionLockName"));
         assert!(script.contains("epsxWithSessionMutation(epsxRefreshOnce, true)"));
+        assert!(
+            script.contains("function epsxSiweLogin(message, signature, address, nonce, chainId)")
+        );
+        assert!(script.contains("siweLogin: epsxSiweLogin"));
         assert!(script.contains("function epsxLogoutSession(target)"));
         assert!(script.contains("}, false);"));
     }
@@ -350,6 +391,23 @@ mod tests {
         assert!(script.contains("if (epsxRefreshPromise) return epsxRefreshPromise"));
         assert_eq!(script.matches("fetch('/api/v1/auth/refresh'").count(), 1);
         assert!(script.contains("Session refresh requires cross-tab coordination"));
+    }
+
+    #[test]
+    fn recovery_is_one_shot_and_reloads_only_after_verified_rotation() {
+        let script = browser_auth_script();
+        assert!(script.contains("if (epsxRecoverPromise) return epsxRecoverPromise"));
+        assert!(script.contains("epsxRecoverPromise = epsxRefreshSession().then(function(session)"));
+        assert!(script.contains("window.location.reload();"));
+        assert!(script.contains("recover: epsxRecoverSession"));
+        assert!(script.contains("if (state === 'cleared')"));
+        assert!(script.contains("await epsxBestEffortLocalEnd('refresh_unknown')"));
+        assert!(script.contains("return epsxRejectRefreshResponse(response)"));
+        assert!(!browser_session_recovery_script().contains("token"));
+        assert_eq!(
+            browser_session_recovery_script(),
+            "window.epsxAuth.recover().catch(function() {});"
+        );
     }
 
     #[test]

@@ -53,6 +53,11 @@
       "id": "backend-logout-revocation-wiring",
       "status": "source-wired-not-durable-runtime-proven",
       "caseIds": ["backend-auth-handlers", "bff-browser-bridge", "browser-session-coordination"]
+    },
+    {
+      "id": "automatic-session-recovery",
+      "status": "hermetic-entrypoint-proof-browser-runtime-unproved",
+      "caseIds": ["bff-verifier", "bff-browser-bridge", "frontend-recovery-cache", "frontend-recovery-journey", "admin-recovery-journey", "browser-session-coordination"]
     }
   ],
   "blockedClaims": [
@@ -88,10 +93,11 @@
     {
       "id": "bff-verifier",
       "kind": "cargo-test",
-      "expectedTests": 11,
+      "expectedTests": 14,
       "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-bff", "session::tests", "--no-fail-fast"],
       "evidence": [
         {"file": "shared/rust/bff/src/session.rs", "anchor": "async fn rejects_wrong_algorithm_issuer_audience_and_expired()"},
+        {"file": "shared/rust/bff/src/session.rs", "anchor": "async fn optional_access_verification_separates_rejection_from_authority_outage()"},
         {"file": "shared/rust/bff/src/session.rs", "anchor": "fn token_response_sanitization_never_serializes_tokens()"},
         {"file": "shared/rust/bff/src/session.rs", "anchor": "fn verify_request_always_serializes_the_fixed_bff_client()"}
       ]
@@ -110,12 +116,13 @@
     {
       "id": "bff-browser-bridge",
       "kind": "cargo-test",
-      "expectedTests": 7,
+      "expectedTests": 8,
       "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-bff", "browser_auth::tests", "--no-fail-fast"],
       "evidence": [
         {"file": "shared/rust/bff/src/browser_auth.rs", "anchor": "fn bridge_never_reads_or_stores_session_tokens()"},
         {"file": "shared/rust/bff/src/browser_auth.rs", "anchor": "fn bridge_rejects_cross_origin_return_targets()"},
-        {"file": "shared/rust/bff/src/browser_auth.rs", "anchor": "fn refresh_and_logout_share_one_cross_tab_mutation_lock()"},
+        {"file": "shared/rust/bff/src/browser_auth.rs", "anchor": "fn refresh_siwe_and_logout_share_one_cross_tab_mutation_lock()"},
+        {"file": "shared/rust/bff/src/browser_auth.rs", "anchor": "fn recovery_is_one_shot_and_reloads_only_after_verified_rotation()"},
         {"file": "shared/rust/bff/src/browser_auth.rs", "anchor": "fn logout_redirects_only_after_local_clear_confirmation()"},
         {"file": "shared/rust/bff/src/browser_auth.rs", "anchor": "fn channel_failures_degrade_to_same_tab_events_and_logout_is_delegated()"}
       ]
@@ -174,6 +181,26 @@
       ]
     },
     {
+      "id": "frontend-recovery-cache",
+      "kind": "cargo-test",
+      "expectedTests": 1,
+      "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-frontend", "ssr::tests::recovery_bearing_frontend_html_is_private_and_varies_by_credentials", "--no-fail-fast"],
+      "evidence": [
+        {"file": "apps/frontend/src/ssr.rs", "anchor": "fn recovery_bearing_frontend_html_is_private_and_varies_by_credentials()"},
+        {"file": "apps/frontend/src/ssr.rs", "anchor": "HeaderValue::from_static(\"Cookie, Authorization\")"}
+      ]
+    },
+    {
+      "id": "frontend-recovery-journey",
+      "kind": "cargo-test",
+      "expectedTests": 1,
+      "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-frontend", "routing_tests::frontend_emits_one_private_recovery_bootstrap_only_for_refresh_eligible_html", "--no-fail-fast"],
+      "evidence": [
+        {"file": "apps/frontend/src/main.rs", "anchor": "async fn frontend_emits_one_private_recovery_bootstrap_only_for_refresh_eligible_html()"},
+        {"file": "apps/frontend/src/main.rs", "anchor": "epsx.frontend.access_token=eyJhbGciOiJSUzI1NiIsImtpZCI6Im91dGFnZSIsInR5cCI6IkpXVCJ9.e30.c2ln"}
+      ]
+    },
+    {
       "id": "frontend-session-header",
       "kind": "cargo-test",
       "expectedTests": 1,
@@ -211,6 +238,16 @@
       "evidence": [
         {"file": "apps/admin/src/ssr.rs", "anchor": "fn authenticated_admin_chrome_variants_expose_shared_logout_hook()"},
         {"file": "apps/admin/src/ssr.rs", "anchor": "authenticated admin SSR chrome must expose the shared logout hook"}
+      ]
+    },
+    {
+      "id": "admin-recovery-journey",
+      "kind": "cargo-test",
+      "expectedTests": 1,
+      "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-admin", "routing_tests::admin_emits_one_private_recovery_bootstrap_only_with_refresh_cookie", "--no-fail-fast"],
+      "evidence": [
+        {"file": "apps/admin/src/main.rs", "anchor": "async fn admin_emits_one_private_recovery_bootstrap_only_with_refresh_cookie()"},
+        {"file": "apps/admin/src/main.rs", "anchor": "epsx.admin.access_token=eyJhbGciOiJSUzI1NiIsImtpZCI6Im91dGFnZSIsInR5cCI6IkpXVCJ9.e30.c2ln"}
       ]
     },
     {
@@ -287,6 +324,7 @@
       "command": ["bun", "scripts/migration/test-browser-session-coordination.js"],
       "evidence": [
         {"file": "scripts/migration/test-browser-session-coordination.js", "anchor": "two tab realms serialize refresh through one origin lock"},
+        {"file": "scripts/migration/test-browser-session-coordination.js", "anchor": "automatic recovery is one-shot and reloads once after rotation"},
         {"file": "scripts/migration/test-browser-session-coordination.js", "anchor": "broadcast messages contain only the closed token-free schema"}
       ]
     }

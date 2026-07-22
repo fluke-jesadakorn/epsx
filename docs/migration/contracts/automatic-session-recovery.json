@@ -1,0 +1,218 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A1.8-automatic-session-recovery",
+  "status": "partial-hermetic-runtime-proof",
+  "productionReady": false,
+  "automaticRecoveryEntrypointProof": true,
+  "browserHermeticProof": true,
+  "browserRuntimeProof": false,
+  "databaseProof": false,
+  "deploymentAuthorized": false,
+  "sourceBaseline": {
+    "ref": "origin/development",
+    "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db"
+  },
+  "targetBase": {
+    "ref": "migration/dioxus-microservices",
+    "commit": "52b7513d8adc5e08ee7fa4ff503249aa2bd715f7"
+  },
+  "supersedes": [
+    {
+      "contractId": "A1.7-refresh-outcome-coordination",
+      "residualStop": "automatic-refresh-entrypoint-unproved"
+    }
+  ],
+  "invariants": [
+    {
+      "id": "typed-access-verification",
+      "claim": "Optional access verification returns exactly verified, missing-or-rejected, or verifier-unavailable."
+    },
+    {
+      "id": "verifier-outage-never-rotates",
+      "claim": "An observed invalid verifier configuration, unknown key ID after refresh, JWKS transport failure, or malformed JWKS outcome never permits automatic refresh recovery."
+    },
+    {
+      "id": "cookie-only-ssr-trigger",
+      "claim": "A BFF emits recovery only for missing-or-rejected access plus its own HttpOnly refresh cookie."
+    },
+    {
+      "id": "fixed-token-free-bootstrap",
+      "claim": "Recovery HTML contains one fixed call and interpolates no credential, identity, permission, plan, or request value."
+    },
+    {
+      "id": "page-lifetime-single-flight",
+      "claim": "Duplicate recovery callers share one page-lifetime promise that is never reset after success or failure."
+    },
+    {
+      "id": "reload-only-after-rotation",
+      "claim": "Automatic recovery reloads only after the hardened refresh controller returns an attested rotated success."
+    },
+    {
+      "id": "no-lock-no-retry",
+      "claim": "Recovery performs no automatic retry and makes zero refresh requests when cross-tab Web Locks are unavailable."
+    },
+    {
+      "id": "confirmed-clear-navigation",
+      "claim": "Rejected or ambiguous recovery navigates only after A1.7 confirms local cookie clearing."
+    },
+    {
+      "id": "siwe-cookie-mutation-serialized",
+      "claim": "SIWE cookie establishment and refresh recovery share the same origin-wide session-mutation lock when Web Locks are available."
+    },
+    {
+      "id": "private-cache-boundary",
+      "claim": "Recovery-bearing HTML and credential-dependent redirects are private no-store and vary on credentials while the frontend offline shell remains public, anonymous, and recovery-free."
+    },
+    {
+      "id": "backend-policy-authority-retained",
+      "claim": "Automatic recovery contains no permission, plan, ranking-offset, feature-flag, subscription, or entitlement authority."
+    }
+  ],
+  "evidence": [
+    {
+      "file": "shared/rust/bff/src/session.rs",
+      "anchors": [
+        "pub enum AccessVerification",
+        "pub const fn permits_refresh_recovery(&self) -> bool",
+        "pub async fn verify_optional_access_token",
+        "Self::UnknownKeyId",
+        "fn optional_access_verification_separates_rejection_from_authority_outage()"
+      ]
+    },
+    {
+      "file": "shared/rust/bff/src/browser_auth.rs",
+      "anchors": [
+        "var epsxRecoverPromise = null;",
+        "function epsxRecoverSession()",
+        "window.location.reload();",
+        "recover: epsxRecoverSession",
+        "function epsxSiweLogin(message, signature, address, nonce, chainId)",
+        "pub fn browser_session_recovery_script() -> &'static str"
+      ]
+    },
+    {
+      "file": "apps/frontend/src/auth.rs",
+      "anchors": [
+        "pub async fn access_verification(",
+        ".verify_optional_access_token(access_token(headers, environment))"
+      ]
+    },
+    {
+      "file": "apps/admin/src/auth.rs",
+      "anchors": [
+        "pub async fn access_verification(",
+        ".verify_optional_access_token(access_token(headers, environment))"
+      ]
+    },
+    {
+      "file": "apps/frontend/src/ssr.rs",
+      "anchors": [
+        "let recover_session = access_verification.permits_refresh_recovery()",
+        "&& auth::refresh_token(&headers, state.cookie_environment).is_some()",
+        "&& path != \"/offline\";",
+        "<script data-epsx-session-recovery>{}</script>",
+        "fn private_session_redirect(location: String) -> Response",
+        "HeaderValue::from_static(\"Cookie, Authorization\")"
+      ]
+    },
+    {
+      "file": "apps/admin/src/ssr.rs",
+      "anchors": [
+        "let recover_session = access_verification.permits_refresh_recovery()",
+        "&& auth::refresh_token(&headers, state.cookie_environment).is_some();",
+        "<script data-epsx-session-recovery>{}</script>"
+      ]
+    },
+    {
+      "file": "apps/frontend/src/main.rs",
+      "anchors": [
+        "async fn frontend_emits_one_private_recovery_bootstrap_only_for_refresh_eligible_html()",
+        "deterministic test outage",
+        "epsx.frontend.access_token=eyJhbGciOiJSUzI1NiIsImtpZCI6Im91dGFnZSIsInR5cCI6IkpXVCJ9.e30.c2ln",
+        "/auth?return_url=%2Fprofile%3Fview%3Dcompact",
+        "assert_eq!(authenticated_offline_html, anonymous_offline_html);",
+        "assert!(!String::from_utf8_lossy(&offline_html).contains(\"data-epsx-session-recovery\"));"
+      ]
+    },
+    {
+      "file": "apps/admin/src/main.rs",
+      "anchors": [
+        "async fn admin_emits_one_private_recovery_bootstrap_only_with_refresh_cookie()",
+        "deterministic test outage",
+        "epsx.admin.access_token=eyJhbGciOiJSUzI1NiIsImtpZCI6Im91dGFnZSIsInR5cCI6IkpXVCJ9.e30.c2ln",
+        "assert!(!String::from_utf8_lossy(&outage_html).contains(\"data-epsx-session-recovery\"));"
+      ]
+    },
+    {
+      "file": "scripts/migration/test-browser-session-coordination.js",
+      "anchors": [
+        "automatic recovery is one-shot and reloads once after rotation",
+        "automatic recovery preserves the page on explicit non-rotation",
+        "automatic recovery transport ambiguity without clear confirmation does not navigate",
+        "automatic recovery without Web Locks refuses all network I/O",
+        "recovery and SIWE cookie establishment use the same exclusive lock",
+        "browser-session-coordination: PASS ${passed}/${tests.length}"
+      ]
+    },
+    {
+      "file": "docs/migration/A1_8_AUTOMATIC_SESSION_RECOVERY.md",
+      "anchors": [
+        "Only `MissingOrRejected` permits recovery.",
+        "There are no timers, readable expiry cookies, global fetch interception,",
+        "This is a hermetic usability and fail-closed recovery slice."
+      ]
+    },
+    {
+      "file": "docs/migration/A1_4_AUTH_SESSION_GATE.md",
+      "anchors": [
+        "A1.8 adds a one-shot SSR recovery entrypoint"
+      ]
+    },
+    {
+      "file": "docs/migration/PRODUCTION_READINESS_PLAN.md",
+      "anchors": [
+        "**A1.8 status:**",
+        "typed verifier-outage separation"
+      ]
+    }
+  ],
+  "evidenceDigest": "4a4f37c819fd082cf6637c5ca165d308de533bdea6423f0f196c950ac9d54aee",
+  "residualStops": [
+    {
+      "id": "real-browser-matrix-unproved",
+      "claim": "No accepted real-browser matrix proves Web Locks, BroadcastChannel, HttpOnly cookie application, reload, redirect, or multi-tab scheduling."
+    },
+    {
+      "id": "post-commit-fault-unproved",
+      "claim": "No proxy or browser fault injection proves timeout or reset behavior after backend commit."
+    },
+    {
+      "id": "postgres-refresh-ordering-unproved",
+      "claim": "No PostgreSQL exercise proves consume, replay response, commit acknowledgement ambiguity, or family-lock ordering."
+    },
+    {
+      "id": "exactly-once-delivery-unproved",
+      "claim": "A disconnect after backend rotation but before Set-Cookie delivery still forces reauthentication and has no receipt or idempotency protocol."
+    },
+    {
+      "id": "bff-unreachable-clear-unproved",
+      "claim": "JavaScript cannot prove clearing HttpOnly cookies while the BFF itself is unreachable."
+    },
+    {
+      "id": "access-token-post-revocation-validity",
+      "claim": "Already-issued access tokens remain valid until expiry after logout or family revocation."
+    },
+    {
+      "id": "missing-access-authority-preflight-unproved",
+      "claim": "A missing access cookie has no key ID to verify before recovery, so a later JWKS outage can still force reauthentication after rotation."
+    },
+    {
+      "id": "cross-document-cookie-acceptance-unproved",
+      "claim": "No real-browser proof or server-owned attempt guard excludes repeated reloads if refresh cookies are accepted while access cookies are selectively rejected or evicted."
+    },
+    {
+      "id": "production-actions-unauthorized",
+      "claim": "No production browser, proxy, TLS, routing, canary, rollback, deployment, database, secret, or service action is authorized by this contract."
+    }
+  ]
+}

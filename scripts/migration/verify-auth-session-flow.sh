@@ -75,8 +75,8 @@ if (manifest.schemaVersion !== 1 || manifest.gateId !== "A1.4-hermetic-auth-sess
 if (manifest.mode !== "local-hermetic-only" || manifest.productionReady !== false) fail("gate must remain local-only and non-production");
 if (manifest.liveWalletFlowProven !== false || manifest.durableRefreshStoreProven !== false) fail("live and durable claims must remain false");
 if (!Array.isArray(manifest.blockedClaims) || manifest.blockedClaims.length < 4) fail("blockedClaims must preserve live-flow limits");
-if (!Array.isArray(manifest.capabilities) || manifest.capabilities.length !== 8) fail("eight capability records are required");
-if (!Array.isArray(manifest.cases) || manifest.cases.length !== 21) fail("twenty-one fixed cases are required");
+if (!Array.isArray(manifest.capabilities) || manifest.capabilities.length !== 9) fail("nine capability records are required");
+if (!Array.isArray(manifest.cases) || manifest.cases.length !== 24) fail("twenty-four fixed cases are required");
 
 const ids = new Set();
 let expectedTotal = 0;
@@ -103,12 +103,12 @@ for (const item of manifest.cases) {
     evidenceTotal += 1;
   }
 }
-if (expectedTotal !== 101) fail(`expected focused test total changed: ${expectedTotal}`);
+if (expectedTotal !== 108) fail(`expected focused test total changed: ${expectedTotal}`);
 for (const capability of manifest.capabilities) {
   if (!Array.isArray(capability.caseIds) || capability.caseIds.length === 0) fail(`${capability.id}: caseIds are required`);
   for (const id of capability.caseIds) if (!ids.has(id)) fail(`${capability.id}: unknown case ${id}`);
 }
-console.log(`auth-session-gate: manifest 21/21 cases, ${evidenceTotal}/${evidenceTotal} anchors, ${expectedTotal} focused tests`);
+console.log(`auth-session-gate: manifest 24/24 cases, ${evidenceTotal}/${evidenceTotal} anchors, ${expectedTotal} focused tests`);
 ' -- "$REPO_ROOT" "$MANIFEST" || exit 1
 
 OVERALL="pass"
@@ -163,18 +163,21 @@ run_check() {
 
 run_test identity-token-contract 13 cargo test --offline --locked -p epsx-identity-shared token_service::tests --no-fail-fast
 run_test identity-jwks-contract 6 cargo test --offline --locked -p epsx-identity-shared key_manager::tests --no-fail-fast
-run_test bff-verifier 11 cargo test --offline --locked -p epsx-bff session::tests --no-fail-fast
+run_test bff-verifier 14 cargo test --offline --locked -p epsx-bff session::tests --no-fail-fast
 run_test bff-cookie-contract 7 cargo test --offline --locked -p epsx-bff cookies::tests --no-fail-fast
-run_test bff-browser-bridge 7 cargo test --offline --locked -p epsx-bff browser_auth::tests --no-fail-fast
+run_test bff-browser-bridge 8 cargo test --offline --locked -p epsx-bff browser_auth::tests --no-fail-fast
 run_test bff-refresh-outcome 6 cargo test --offline --locked -p epsx-bff refresh_outcome::tests --no-fail-fast
 run_test frontend-session 13 cargo test --offline --locked -p epsx-frontend api::auth_session_tests --no-fail-fast
 run_test frontend-cookie-reader 3 cargo test --offline --locked -p epsx-frontend auth::tests --no-fail-fast
 run_test frontend-production-config 1 cargo test --offline --locked -p epsx-frontend configuration_tests::production_requires_https_non_local_auth_urls --no-fail-fast
 run_test frontend-safe-return 1 cargo test --offline --locked -p epsx-frontend ssr::tests::return_url_must_remain_same_origin --no-fail-fast
+run_test frontend-recovery-cache 1 cargo test --offline --locked -p epsx-frontend ssr::tests::recovery_bearing_frontend_html_is_private_and_varies_by_credentials --no-fail-fast
+run_test frontend-recovery-journey 1 cargo test --offline --locked -p epsx-frontend routing_tests::frontend_emits_one_private_recovery_bootstrap_only_for_refresh_eligible_html --no-fail-fast
 run_test frontend-session-header 1 cargo test --offline --locked -p epsx-templates page_head_tests::header_exposes_truthful_session_action_without_policy_logic --no-fail-fast
 run_test admin-header-session-action 1 cargo test --offline --locked -p epsx-dioxus-ui auth::wallet_button::tests::authenticated_legacy_button_exposes_shared_logout_hook --no-fail-fast
 run_test admin-shell-session-action 1 cargo test --offline --locked -p epsx-dioxus-ui layout::admin_shell::tests::admin_shell_renders_breadcrumbs --no-fail-fast
 run_test admin-ssr-session-action 1 cargo test --offline --locked -p epsx-admin ssr::tests::authenticated_admin_chrome_variants_expose_shared_logout_hook --no-fail-fast
+run_test admin-recovery-journey 1 cargo test --offline --locked -p epsx-admin routing_tests::admin_emits_one_private_recovery_bootstrap_only_with_refresh_cookie --no-fail-fast
 run_test admin-session 14 cargo test --offline --locked -p epsx-admin session_auth_tests --no-fail-fast
 run_test admin-cookie-reader 3 cargo test --offline --locked -p epsx-admin auth::tests --no-fail-fast
 run_test admin-production-config 1 cargo test --offline --locked -p epsx-admin configuration_tests::production_requires_https_non_local_auth_urls --no-fail-fast
@@ -209,7 +212,7 @@ const report = {
   productionReady: false,
   liveWalletFlowProven: false,
   durableRefreshStoreProven: false,
-  focusedTests: { expected: 101, passed: Number(passedTests) },
+  focusedTests: { expected: 108, passed: Number(passedTests) },
   fixtureChecks: { expected: 3, passed: cases.filter((item) => item.kind === "fixture-check" && item.status === "pass").length },
   blockedClaims: manifest.blockedClaims,
   cases
@@ -218,9 +221,9 @@ writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
 ' -- "$MANIFEST" "$RESULTS" "$REPORT" "$OVERALL" "$PASSED_TESTS" || die "could not write deterministic report"
 
 echo "auth-session-gate: report $REPORT"
-if [[ "$OVERALL" != "pass" || "$PASSED_TESTS" != "101" ]]; then
-  die "STOP — hermetic auth-session gate failed ($PASSED_TESTS/101 focused tests)"
+if [[ "$OVERALL" != "pass" || "$PASSED_TESTS" != "108" ]]; then
+  die "STOP — hermetic auth-session gate failed ($PASSED_TESTS/108 focused tests)"
 fi
 
-echo "auth-session-gate: PASS — 101/101 focused tests and 3/3 fixture checks"
+echo "auth-session-gate: PASS — 108/108 focused tests and 3/3 fixture checks"
 echo "auth-session-gate: LIMIT — live wallet, durable refresh store, and production flow remain unproven"
