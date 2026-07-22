@@ -14,12 +14,55 @@ use axum::{
     extract::{Request, State},
     response::{IntoResponse, Response},
 };
+use epsx_client::RequestContext;
 use epsx_dioxus_ui::layout::shell::{AdminLayout, ServerUser};
+use epsx_dioxus_ui::pages::admin_pages::payments::{
+    decode_admin_payment_intent_list, ADMIN_PAYMENTS_DATA_PARAM, ADMIN_PAYMENTS_EMPTY,
+    ADMIN_PAYMENTS_LIMIT_PARAM, ADMIN_PAYMENTS_MALFORMED, ADMIN_PAYMENTS_OFFSET_PARAM,
+    ADMIN_PAYMENTS_PAYER_PARAM, ADMIN_PAYMENTS_READY, ADMIN_PAYMENTS_STATE_PARAM,
+    ADMIN_PAYMENTS_STATUS_PARAM, ADMIN_PAYMENTS_TAB_PARAM, ADMIN_PAYMENTS_UNAVAILABLE,
+};
 use epsx_dioxus_ui::pages::{admin_pages, render_page, PageContext, PageStatus};
 use std::collections::HashMap;
 
 use super::auth;
 use super::AppState;
+
+fn record_payment_intent_load(
+    params: &mut HashMap<String, String>,
+    result: Result<serde_json::Value, ()>,
+) {
+    params.remove(ADMIN_PAYMENTS_DATA_PARAM);
+    match result {
+        Ok(value) => match decode_admin_payment_intent_list(value) {
+            Some(payload) => {
+                let state = if payload.items.is_empty() && payload.total == 0 {
+                    ADMIN_PAYMENTS_EMPTY
+                } else {
+                    ADMIN_PAYMENTS_READY
+                };
+                params.insert(
+                    ADMIN_PAYMENTS_DATA_PARAM.to_string(),
+                    serde_json::to_string(&payload)
+                        .expect("the typed payment-intent response is serializable"),
+                );
+                params.insert(ADMIN_PAYMENTS_STATE_PARAM.to_string(), state.to_string());
+            }
+            None => {
+                params.insert(
+                    ADMIN_PAYMENTS_STATE_PARAM.to_string(),
+                    ADMIN_PAYMENTS_MALFORMED.to_string(),
+                );
+            }
+        },
+        Err(()) => {
+            params.insert(
+                ADMIN_PAYMENTS_STATE_PARAM.to_string(),
+                ADMIN_PAYMENTS_UNAVAILABLE.to_string(),
+            );
+        }
+    }
+}
 
 pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Response {
     let (parts, _body) = request.into_parts();
@@ -30,12 +73,79 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     // Resolve only a cryptographically verified canonical cookie/bearer user.
     // Permissions are backend-issued and remain verbatim; the admin UI does no
     // role-to-permission expansion.
-    let user = auth::current_user(&headers, state.verifier.as_ref(), state.cookie_environment)
-        .await
-        .map(|session| auth::ui_user(session, None));
+    let verified_session =
+        auth::verified_access_token(&headers, state.verifier.as_ref(), state.cookie_environment)
+            .await;
+    let (verified_access_token, user) = match verified_session {
+        Some((token, session)) => (Some(token), Some(auth::ui_user(session, None))),
+        None => (None, None),
+    };
 
-    // Admin: always render the admin page dispatcher
-    let params = HashMap::new();
+    // Admin: load only the bounded, read-only payment-intent dependency. Every
+    // outcome is explicit; an upstream error or malformed payload is never
+    // represented as an authoritative empty list.
+    let mut params = HashMap::new();
+    let route_path = if path.starts_with("/admin") {
+        let stripped = path.trim_start_matches("/admin");
+        if stripped.is_empty() {
+            "/"
+        } else {
+            stripped
+        }
+    } else {
+        path.as_str()
+    };
+    if route_path == "/payments" {
+        match (
+            super::payment_tab(&query),
+            super::PaymentIntentQuery::from_raw(&query),
+        ) {
+            (Ok(tab), Ok(payment_query)) => {
+                params.insert(ADMIN_PAYMENTS_TAB_PARAM.to_string(), tab.to_string());
+                params.insert(
+                    ADMIN_PAYMENTS_LIMIT_PARAM.to_string(),
+                    payment_query.limit.to_string(),
+                );
+                params.insert(
+                    ADMIN_PAYMENTS_OFFSET_PARAM.to_string(),
+                    payment_query.offset.to_string(),
+                );
+                if let Some(payer) = &payment_query.payer {
+                    params.insert(ADMIN_PAYMENTS_PAYER_PARAM.to_string(), payer.clone());
+                }
+                if let Some(status) = &payment_query.status {
+                    params.insert(ADMIN_PAYMENTS_STATUS_PARAM.to_string(), status.clone());
+                }
+
+                if tab == "payments" {
+                    match verified_access_token.as_ref() {
+                        Some(token) => {
+                            let mut request_context = RequestContext::from_headers(&headers);
+                            request_context.auth_token = Some(token.clone());
+                            let result = state
+                                .payment
+                                .get_with_ctx(&payment_query.upstream_path(), &request_context)
+                                .await
+                                .map_err(|error| {
+                                    tracing::warn!(
+                                        "admin payment-intent SSR load unavailable: {error}"
+                                    );
+                                });
+                            record_payment_intent_load(&mut params, result);
+                        }
+                        None => record_payment_intent_load(&mut params, Err(())),
+                    }
+                }
+            }
+            _ => {
+                params.insert(ADMIN_PAYMENTS_TAB_PARAM.to_string(), "payments".to_string());
+                params.insert(
+                    ADMIN_PAYMENTS_STATE_PARAM.to_string(),
+                    ADMIN_PAYMENTS_MALFORMED.to_string(),
+                );
+            }
+        }
+    }
     // Wave 3a Track B — admin doesn't render the wallet dropdown yet,
     // so the BFF just plumbs the default `ConnectedWalletState`. The
     // type is here so Track A's MainLayout can read `ctx.wallet`
@@ -265,6 +375,28 @@ mod tests {
         }
     }
 
+    fn payment_payload(items: Vec<serde_json::Value>, total: i64) -> serde_json::Value {
+        serde_json::json!({ "items": items, "total": total })
+    }
+
+    fn payment_item(id: &str) -> serde_json::Value {
+        serde_json::json!({
+            "id": id,
+            "chain_id": "56",
+            "payer": "0x1111111111111111111111111111111111111111",
+            "payee": "0x2222222222222222222222222222222222222222",
+            "amount": "1000000000000000000",
+            "token_address": "0x3333333333333333333333333333333333333333",
+            "status": "pending",
+            "escrow_id": null,
+            "tx_hash": null,
+            "description": null,
+            "expires_at": null,
+            "created_at": "2026-07-22T10:00:00Z",
+            "updated_at": "2026-07-22T10:00:00Z"
+        })
+    }
+
     /// Render a page through the admin BFF render path (without
     /// `page_shell_with_body_class`) so we can assert on the
     /// layout-wrapped HTML in isolation.
@@ -327,5 +459,77 @@ mod tests {
         assert!(!script.contains("access_token"));
         assert!(!script.contains("refresh_token"));
         assert!(!script.contains("javascript:"));
+    }
+
+    #[test]
+    fn payment_load_records_ready_with_only_typed_payload() {
+        let mut params = HashMap::new();
+        record_payment_intent_load(
+            &mut params,
+            Ok(payment_payload(vec![payment_item("intent-1")], 1)),
+        );
+        assert_eq!(
+            params.get(ADMIN_PAYMENTS_STATE_PARAM).map(String::as_str),
+            Some(ADMIN_PAYMENTS_READY)
+        );
+        let stored: serde_json::Value =
+            serde_json::from_str(params.get(ADMIN_PAYMENTS_DATA_PARAM).unwrap()).unwrap();
+        assert_eq!(stored["items"][0]["id"], "intent-1");
+        assert_eq!(stored["total"], 1);
+    }
+
+    #[test]
+    fn payment_load_records_authoritative_empty() {
+        let mut params = HashMap::new();
+        record_payment_intent_load(&mut params, Ok(payment_payload(vec![], 0)));
+        assert_eq!(
+            params.get(ADMIN_PAYMENTS_STATE_PARAM).map(String::as_str),
+            Some(ADMIN_PAYMENTS_EMPTY)
+        );
+        assert!(params.contains_key(ADMIN_PAYMENTS_DATA_PARAM));
+    }
+
+    #[test]
+    fn payment_load_keeps_nonzero_total_empty_page_ready_for_recovery() {
+        let mut params = HashMap::new();
+        record_payment_intent_load(&mut params, Ok(payment_payload(vec![], 41)));
+        assert_eq!(
+            params.get(ADMIN_PAYMENTS_STATE_PARAM).map(String::as_str),
+            Some(ADMIN_PAYMENTS_READY)
+        );
+        let stored: serde_json::Value =
+            serde_json::from_str(params.get(ADMIN_PAYMENTS_DATA_PARAM).unwrap()).unwrap();
+        assert_eq!(stored["total"], 41);
+    }
+
+    #[test]
+    fn payment_load_records_malformed_without_payload() {
+        let mut params = HashMap::from([(
+            ADMIN_PAYMENTS_DATA_PARAM.to_string(),
+            "stale-sensitive-data".to_string(),
+        )]);
+        record_payment_intent_load(
+            &mut params,
+            Ok(serde_json::json!({ "items": [{ "id": "incomplete" }], "total": 1 })),
+        );
+        assert_eq!(
+            params.get(ADMIN_PAYMENTS_STATE_PARAM).map(String::as_str),
+            Some(ADMIN_PAYMENTS_MALFORMED)
+        );
+        assert!(!params.contains_key(ADMIN_PAYMENTS_DATA_PARAM));
+    }
+
+    #[test]
+    fn payment_load_records_unavailable_without_payload() {
+        let mut params = HashMap::from([(
+            ADMIN_PAYMENTS_DATA_PARAM.to_string(),
+            "stale-sensitive-data".to_string(),
+        )]);
+        record_payment_intent_load(&mut params, Err(()));
+        assert_eq!(
+            params.get(ADMIN_PAYMENTS_STATE_PARAM).map(String::as_str),
+            Some(ADMIN_PAYMENTS_UNAVAILABLE)
+        );
+        assert!(!params.contains_key(ADMIN_PAYMENTS_DATA_PARAM));
     }
 }

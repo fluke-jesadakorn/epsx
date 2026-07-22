@@ -1,647 +1,477 @@
-//! /admin/payments — payment management (Payments Hub).
+//! Read-only admin payment-intent inventory.
 //!
-//! Wave 6B Track C port — brings the page from a thin shell (48 LoC) to
-//! a section-level port of the Next.js source (`apps-old/admin-frontend/app/payments/page.tsx`
-//! 31 LoC + 5 sub-components ~1,239 LoC).
-//!
-//! Wave 42 T2 — wire in the Wave 38b ported admin domain components
-//! (`PageHeader`, `PaymentStatsGrid`, `PaymentFilterSection`,
-//! `PaymentTableRow`, `UserAccessDesktopTable`, `PaymentLinksTable`,
-//! `PaymentLinksHeaderRow`). The previous Wave 6B shell had custom
-//! inline implementations of these sections — the Wave 38b port
-//! aligned the markup with the source `payments-management.tsx`,
-//! `user-access-management.tsx`, `payment-links-management.tsx`,
-//! and `shared/page-layout.tsx` files.
-//!
-//! Section coverage (matches design doc §"Track C — payments + ..."):
-//! 1. `PaymentLinkStats` → `PaymentStatsGrid` (4 stat cards).
-//! 2. `PaymentsFilterPanel` → `PaymentFilterSection` (search + status
-//!    + method + plan).
-//! 3. `PaymentLinksList` → manual `<table>` wrapping `PaymentTableRow`s
-//!    (the port doesn't ship a master table component).
-//! 4. `AccessManagementList` → `UserAccessDesktopTable`.
-//! 5. `CreateLinkForm` — kept inline (not ported as a separate
-//!    component).
-//! 6. `LinkRevokeConfirm` — kept inline.
-//!
-//! Section markers (preserved from Wave 6B; the test
-//! `test_section_markers` asserts these):
-//!   - `payments-stats`
-//!   - `payments-filter-panel`
-//!   - `payment-links-list`
-
-use crate::data_table::{Column, DataTable, Row, SortDir};
-use crate::primitives::*;
-use crate::feedback::*;
+//! Payment, permission, plan, and financial policy remains owned by the Rust
+//! services. This page renders only the canonical admin pay-intent response
+//! supplied by the admin BFF. It deliberately exposes no mutation controls and
+//! does not derive fiat revenue, plan names, or entitlement state.
 
 use dioxus::prelude::*;
-use super::super::{PageContext, PageMeta};
-use crate::auth::AdminAuthGate;
-use crate::components::admin::page_layout::{PageGradient, PageHeader, PageLayout, PageMaxWidth};
-use crate::components::admin::payments_management::{
-    PaymentFilterSection, PaymentFilters, PaymentMobileCard, PaymentPaginationBar, PaymentRow,
-    PaymentStats, PaymentStatsGrid, PaymentTableRow,
-};
-use crate::components::admin::payment_links_management::{
-    PaymentLink, PaymentLinksHeaderRow, PaymentLinksMobileCards, PaymentLinksTable,
-};
-use crate::components::admin::user_access_management::{
-    UserAccessData, UserAccessDesktopTable, UserAccessMobileCards, UserAccessPaginationBar,
-};
+use serde::{Deserialize, Serialize};
 
-// ============================================================================
-// Page entry
-// ============================================================================
+use super::super::{PageContext, PageMeta};
+use crate::auth::AuthGate;
+use crate::components::admin::page_layout::{PageGradient, PageHeader, PageLayout, PageMaxWidth};
+use crate::primitives::Icon;
+
+pub const ADMIN_PAYMENTS_DATA_PARAM: &str = "data_admin_payment_intents";
+pub const ADMIN_PAYMENTS_STATE_PARAM: &str = "data_admin_payment_intents_state";
+pub const ADMIN_PAYMENTS_TAB_PARAM: &str = "admin_payment_intents_tab";
+pub const ADMIN_PAYMENTS_PAYER_PARAM: &str = "admin_payment_intents_payer";
+pub const ADMIN_PAYMENTS_STATUS_PARAM: &str = "admin_payment_intents_status";
+pub const ADMIN_PAYMENTS_LIMIT_PARAM: &str = "admin_payment_intents_limit";
+pub const ADMIN_PAYMENTS_OFFSET_PARAM: &str = "admin_payment_intents_offset";
+
+pub const ADMIN_PAYMENTS_READY: &str = "ready";
+pub const ADMIN_PAYMENTS_EMPTY: &str = "empty";
+pub const ADMIN_PAYMENTS_UNAVAILABLE: &str = "unavailable";
+pub const ADMIN_PAYMENTS_MALFORMED: &str = "malformed";
+
+/// Exact service-owned fields returned by `GET /api/v1/admin/pay/intents`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AdminPaymentIntent {
+    pub id: String,
+    pub chain_id: String,
+    pub payer: String,
+    pub payee: String,
+    pub amount: String,
+    pub token_address: String,
+    pub status: String,
+    pub escrow_id: Option<String>,
+    pub tx_hash: Option<String>,
+    pub description: Option<String>,
+    pub expires_at: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AdminPaymentIntentList {
+    pub items: Vec<AdminPaymentIntent>,
+    pub total: i64,
+}
+
+/// Decode and semantically validate the service boundary before any value is
+/// presented as an authoritative payment record.
+pub fn decode_admin_payment_intent_list(
+    value: serde_json::Value,
+) -> Option<AdminPaymentIntentList> {
+    let payload: AdminPaymentIntentList = serde_json::from_value(value).ok()?;
+    let total = usize::try_from(payload.total).ok()?;
+    if total < payload.items.len() || payload.items.iter().any(|item| !item.is_well_formed()) {
+        return None;
+    }
+    Some(payload)
+}
+
+impl AdminPaymentIntent {
+    fn is_well_formed(&self) -> bool {
+        [
+            self.id.as_str(),
+            self.chain_id.as_str(),
+            self.payer.as_str(),
+            self.payee.as_str(),
+            self.amount.as_str(),
+            self.token_address.as_str(),
+            self.status.as_str(),
+            self.created_at.as_str(),
+            self.updated_at.as_str(),
+        ]
+        .iter()
+        .all(|value| !value.trim().is_empty())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct PaymentFilters {
+    payer: Option<String>,
+    status: Option<String>,
+    limit: usize,
+    offset: usize,
+}
+
+impl PaymentFilters {
+    fn from_ctx(ctx: &PageContext) -> Self {
+        Self {
+            payer: ctx
+                .params
+                .get(ADMIN_PAYMENTS_PAYER_PARAM)
+                .and_then(|value| safe_filter(value, 128)),
+            status: ctx
+                .params
+                .get(ADMIN_PAYMENTS_STATUS_PARAM)
+                .and_then(|value| safe_filter(value, 32)),
+            limit: ctx
+                .params
+                .get(ADMIN_PAYMENTS_LIMIT_PARAM)
+                .and_then(|value| value.parse().ok())
+                .unwrap_or(20)
+                .clamp(1, 100),
+            offset: ctx
+                .params
+                .get(ADMIN_PAYMENTS_OFFSET_PARAM)
+                .and_then(|value| value.parse().ok())
+                .unwrap_or(0),
+        }
+    }
+
+    fn page_url(&self, offset: usize) -> String {
+        let mut pairs = vec![
+            "tab=payments".to_string(),
+            format!("limit={}", self.limit),
+            format!("offset={offset}"),
+        ];
+        if let Some(payer) = &self.payer {
+            pairs.push(format!("payer={payer}"));
+        }
+        if let Some(status) = &self.status {
+            pairs.push(format!("status={status}"));
+        }
+        format!("/payments?{}", pairs.join("&"))
+    }
+}
+
+fn safe_filter(value: &str, max_len: usize) -> Option<String> {
+    (!value.is_empty()
+        && value.len() <= max_len
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b':' | b'.' | b'_' | b'-')))
+    .then(|| value.to_string())
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum PaymentLoad {
+    Ready(AdminPaymentIntentList),
+    Empty,
+    Unavailable,
+    Malformed,
+}
+
+fn payment_load(ctx: &PageContext) -> PaymentLoad {
+    let state = ctx
+        .params
+        .get(ADMIN_PAYMENTS_STATE_PARAM)
+        .map(String::as_str);
+    match state {
+        Some(ADMIN_PAYMENTS_READY) | Some(ADMIN_PAYMENTS_EMPTY) => {
+            let Some(raw) = ctx.params.get(ADMIN_PAYMENTS_DATA_PARAM) else {
+                return PaymentLoad::Malformed;
+            };
+            let Some(payload) = serde_json::from_str(raw)
+                .ok()
+                .and_then(decode_admin_payment_intent_list)
+            else {
+                return PaymentLoad::Malformed;
+            };
+            match (state, payload.items.is_empty(), payload.total) {
+                (Some(ADMIN_PAYMENTS_READY), false, _) => PaymentLoad::Ready(payload),
+                (Some(ADMIN_PAYMENTS_READY), true, total) if total > 0 => {
+                    PaymentLoad::Ready(payload)
+                }
+                (Some(ADMIN_PAYMENTS_EMPTY), true, 0) => PaymentLoad::Empty,
+                _ => PaymentLoad::Malformed,
+            }
+        }
+        Some(ADMIN_PAYMENTS_MALFORMED) => PaymentLoad::Malformed,
+        Some(ADMIN_PAYMENTS_UNAVAILABLE) | None => PaymentLoad::Unavailable,
+        Some(_) => PaymentLoad::Malformed,
+    }
+}
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::admin("Payments");
-    (meta, rsx! {
-        AdminAuthGate {
-            user: ctx.user.clone(),
-            feature: Some("payment management".to_string()),
-            required_permissions: Some(vec!["admin:payments:manage".to_string()]),
-            return_url: Some(ctx.path.clone()),
-            RenderPaymentsHub { ctx: ctx.clone() }
-        }
-    })
+    (
+        meta,
+        rsx! {
+            AuthGate {
+                user: ctx.user.clone(),
+                feature: Some("payment intent visibility".to_string()),
+                required_permissions: Some(vec!["admin:payments:view".to_string()]),
+                return_url: Some(ctx.path.clone()),
+                RenderPaymentsHub { ctx: ctx.clone() }
+            }
+        },
+    )
 }
 
 #[component]
 fn RenderPaymentsHub(ctx: PageContext) -> Element {
-    // Top-level state. In a real BFF render these are SSR'd and a
-    // client-side `refresh()` re-fetches. For the static port we
-    // initialize the signals with sample data.
-    let mut active_tab = use_signal(|| "payments".to_string());
-    let _ = active_tab.read();
-
-    // Payment stats (matches source `StatsGrid`). Wired into the
-    // Wave 38b `PaymentStatsGrid` component.
-    let stats = PaymentStats {
-        total_payments: 1234,
-        total_amount: 45231.00,
-        successful_payments: 1198,
-        failed_payments: 24,
-        pending_payments: 12,
-        average_payment_amount: 36.65,
-        payments_today: 47,
-        revenue_today: 2310.00,
+    let active_tab = ctx
+        .params
+        .get(ADMIN_PAYMENTS_TAB_PARAM)
+        .map(String::as_str)
+        .unwrap_or("payments");
+    let active_tab = match active_tab {
+        "user-access" => "user-access",
+        "payment-links" => "payment-links",
+        _ => "payments",
     };
-
-    // Default filter state.
-    let mut filters = use_signal(PaymentFilters::default);
-
-    // Sample payment rows for the manual `<table>` wrap of
-    // `PaymentTableRow`s. The Wave 38b port doesn't include a
-    // master `<table>` component — only `<tr>` rows. The page
-    // wires the rows into a manual table shell matching the
-    // source's `payments-management.tsx` desktop view.
-    let payments = vec![
-        PaymentRow {
-            id: "pi_1".into(),
-            payment_reference: "pi_abc123".into(),
-            wallet_address: "0x12345678…9abc".into(),
-            plan_name: "Pro".into(),
-            amount: 29.00,
-            currency: "USDT".into(),
-            status: "succeeded".into(),
-            created_at: "2024-09-20 10:32".into(),
-            transaction_hash: Some("0xtxhash0001".into()),
-        },
-        PaymentRow {
-            id: "pi_2".into(),
-            payment_reference: "pi_def456".into(),
-            wallet_address: "0xabcdef12…3456".into(),
-            plan_name: "Pro".into(),
-            amount: 29.00,
-            currency: "USDT".into(),
-            status: "pending".into(),
-            created_at: "2024-09-20 11:14".into(),
-            transaction_hash: None,
-        },
-        PaymentRow {
-            id: "pi_3".into(),
-            payment_reference: "pi_ghi789".into(),
-            wallet_address: "0x98765432…abcd".into(),
-            plan_name: "Enterprise".into(),
-            amount: 299.00,
-            currency: "USDT".into(),
-            status: "failed".into(),
-            created_at: "2024-09-19 09:21".into(),
-            transaction_hash: None,
-        },
-        PaymentRow {
-            id: "pi_4".into(),
-            payment_reference: "pi_jkl012".into(),
-            wallet_address: "0x4bcd9af0…1234".into(),
-            plan_name: "Whale".into(),
-            amount: 999.00,
-            currency: "USDT".into(),
-            status: "succeeded".into(),
-            created_at: "2024-09-19 18:45".into(),
-            transaction_hash: Some("0xtxhash0004".into()),
-        },
-        PaymentRow {
-            id: "pi_5".into(),
-            payment_reference: "pi_mno345".into(),
-            wallet_address: "0x8f124e9a…5678".into(),
-            plan_name: "Pro".into(),
-            amount: 29.00,
-            currency: "USDT".into(),
-            status: "succeeded".into(),
-            created_at: "2024-09-18 22:11".into(),
-            transaction_hash: Some("0xtxhash0005".into()),
-        },
-    ];
-
-    // User access rows for the Wave 38b `UserAccessDesktopTable`.
-    let user_access = vec![
-        UserAccessData {
-            wallet_address: "0x12345678…9abc".into(),
-            plan_name: Some("Pro".into()),
-            status: "active".into(),
-            days_remaining: 23,
-            plan_expires_at: Some("2024-10-15 00:00".into()),
-        },
-        UserAccessData {
-            wallet_address: "0xabcdef12…3456".into(),
-            plan_name: Some("Enterprise".into()),
-            status: "active".into(),
-            days_remaining: 312,
-            plan_expires_at: Some("2025-08-22 00:00".into()),
-        },
-        UserAccessData {
-            wallet_address: "0x98765432…abcd".into(),
-            plan_name: Some("Whale".into()),
-            status: "expiring_soon".into(),
-            days_remaining: 3,
-            plan_expires_at: Some("2024-09-25 00:00".into()),
-        },
-        UserAccessData {
-            wallet_address: "0x4bcd9af0…1234".into(),
-            plan_name: Some("Pro".into()),
-            status: "active".into(),
-            days_remaining: 18,
-            plan_expires_at: Some("2024-10-08 00:00".into()),
-        },
-    ];
-
-    // Sample payment-link rows for the Wave 38b
-    // `PaymentLinksTable`.
-    let links = vec![
-        PaymentLink {
-            id: "pl_1".into(),
-            slug: "pro-monthly".into(),
-            context_type: "plan".into(),
-            context_id: Some("plan_pro".into()),
-            name: "Pro Plan Monthly".into(),
-            amount: 29.00,
-            currency: "USDT".into(),
-            is_active: true,
-            is_usable: true,
-            uses: 47,
-            max_uses: None,
-            created_at: "2024-09-01".into(),
-            expires_at: None,
-        },
-        PaymentLink {
-            id: "pl_2".into(),
-            slug: "enterprise-q4".into(),
-            context_type: "plan".into(),
-            context_id: Some("plan_enterprise".into()),
-            name: "Enterprise Q4 promo".into(),
-            amount: 299.00,
-            currency: "USDT".into(),
-            is_active: true,
-            is_usable: true,
-            uses: 12,
-            max_uses: Some(50),
-            created_at: "2024-09-15".into(),
-            expires_at: Some("2024-12-31".into()),
-        },
-        PaymentLink {
-            id: "pl_3".into(),
-            slug: "whale-vip".into(),
-            context_type: "custom".into(),
-            context_id: None,
-            name: "Whale VIP".into(),
-            amount: 999.00,
-            currency: "USDT".into(),
-            is_active: false,
-            is_usable: false,
-            uses: 5,
-            max_uses: Some(10),
-            created_at: "2024-08-10".into(),
-            expires_at: Some("2024-09-30".into()),
-        },
-    ];
-
-    // The Refresh / Export-CSV action row that goes into the
-    // PageHeader's `extra_actions` slot.
-    let action_row = rsx! {
-        button { class: "btn btn-sm btn-outline", r#type: "button",
-            Icon { name: "refresh-cw".to_string(), size: Some(14) }
-            " Refresh"
-        }
-        button { class: "btn btn-sm btn-outline", r#type: "button",
-            Icon { name: "bar-chart-3".to_string(), size: Some(14) }
-            " Export CSV"
-        }
-    };
+    let filters = PaymentFilters::from_ctx(&ctx);
+    let refresh_url = filters.page_url(filters.offset);
 
     rsx! {
         PageLayout {
             max_width: Some(PageMaxWidth::SevenXl),
-            // Wave 42 T2 — wire in the Wave 38b `PageHeader` for
-            // the page-level title + icon + subtitle + gradient +
-            // action buttons (mirrors the source
-            // `<PageHeader title="Payments Hub" subtitle="…"
-            // icon="CreditCard" gradient="primary" centered>`).
             PageHeader {
                 title: "Payments Hub".to_string(),
-                subtitle: Some("Manage payments, user access, and payment links".to_string()),
+                subtitle: Some("Review backend-authoritative payment intents".to_string()),
                 icon: Some("credit-card".to_string()),
                 gradient: Some(PageGradient::Primary),
                 centered: Some(true),
-                extra_actions: Some(rsx! { {action_row} }),
+                extra_actions: Some(rsx! {
+                    a { class: "btn btn-sm btn-outline", href: refresh_url.clone(),
+                        Icon { name: "refresh-cw".to_string(), size: Some(14) }
+                        " Refresh"
+                    }
+                }),
                 class_name: None,
             }
-
-            // Tab switcher (mirrors the source's `?tab=` query
-            // pattern but rendered as buttons since we're
-            // SSR-static).
-            PaymentsHubTabs { active: active_tab.read().clone() }
-
-            if active_tab.read().as_str() == "payments" {
-                PaymentsTab {
-                    stats: stats.clone(),
-                    filters: filters.read().clone(),
-                    payments: payments.clone(),
-                }
-            } else if active_tab.read().as_str() == "user-access" {
-                UserAccessTab {
-                    user_access: user_access.clone(),
+            PaymentsHubTabs { active: active_tab.to_string() }
+            if active_tab == "payments" {
+                PaymentsTab { load: payment_load(&ctx), filters }
+            } else if active_tab == "user-access" {
+                UnavailableTab {
+                    title: "User access is unavailable".to_string(),
+                    detail: "A canonical subscription/access read contract is not connected to this page yet.".to_string(),
                 }
             } else {
-                PaymentLinksTab {
-                    links: links.clone(),
+                UnavailableTab {
+                    title: "Payment links are unavailable".to_string(),
+                    detail: "Payment-link reads and mutations remain disabled until their service contract is production-ready.".to_string(),
                 }
             }
         }
     }
 }
 
-// ============================================================================
-// Tab 1: Payments — uses Wave 38b ported components
-// ============================================================================
-
 #[component]
-fn PaymentsTab(
-    stats: PaymentStats,
-    filters: PaymentFilters,
-    payments: Vec<PaymentRow>,
-) -> Element {
-    let mut filters_signal = use_signal(|| filters.clone());
+fn PaymentsTab(load: PaymentLoad, filters: PaymentFilters) -> Element {
     rsx! {
         div { class: "space-y-6",
-            // Section 1: stats (Wave 38b `PaymentStatsGrid`).
-            // Outer wrapper preserves the `payments-stats` marker
-            // class the Wave 6B tests still assert on.
-            div { class: "payments-stats",
-                PaymentStatsGrid { stats: stats.clone() }
-            }
-
-            // Section 2: filter panel (Wave 38b
-            // `PaymentFilterSection`).
-            div { class: "payments-filter-panel",
-                PaymentFilterSection {
-                    filters: filters_signal.read().clone(),
-                    on_change: move |f: PaymentFilters| filters_signal.set(f),
-                    on_reset: move |_| filters_signal.set(PaymentFilters::default()),
-                }
-            }
-
-            // Section 3: payments list. The Wave 38b port only
-            // ships a `<tr>`-emitting `PaymentTableRow`, so the
-            // page wraps the rows in a manual `<table>` shell
-            // matching the source's desktop view.
-            div { class: "payment-links-list rounded-2xl border border-border/20 overflow-hidden bg-card",
-                div { class: "h-[3px] bg-gradient-to-r from-[#1fc7d4] to-[#7645d9]" }
-                div { class: "p-6",
-                    div { class: "flex items-center justify-between mb-4",
-                        h2 { class: "text-xs font-bold text-[#1fc7d4] uppercase tracking-[0.2em]",
-                            "Recent Transactions"
-                        }
-                        span { class: "px-3 py-1 bg-muted/50 rounded-full border border-border/40 text-xs font-bold text-muted-foreground uppercase tracking-widest",
-                            "{payments.len()} Payments"
-                        }
+            PaymentFilterForm { filters: filters.clone() }
+            match load {
+                PaymentLoad::Ready(payload) => rsx! {
+                    PaymentIntentList { payload, filters: filters.clone() }
+                },
+                PaymentLoad::Empty => rsx! {
+                    section { class: "rounded-2xl border border-border/30 bg-card p-10 text-center", role: "status",
+                        h2 { class: "text-lg font-semibold", "No payment intents found" }
+                        p { class: "mt-2 text-sm text-muted-foreground", "No authoritative payment intents match the current filters." }
                     }
-                    PaymentsDesktopTable { rows: payments.clone() }
-                    PaymentPaginationBar {
-                        current: 1,
-                        total: 1,
-                        on_change: move |_| {},
+                },
+                PaymentLoad::Unavailable => rsx! {
+                    LoadProblem {
+                        title: "Payment intents unavailable".to_string(),
+                        detail: "The payment service could not provide an authoritative response. No records are being shown.".to_string(),
+                        retry_url: filters.page_url(filters.offset),
                     }
-                    // Mobile card list (hidden on sm+ via the
-                    // ported component's own `hidden sm:block` /
-                    // `block sm:hidden` classes).
-                    PaymentMobileCards { rows: payments.clone() }
-                }
+                },
+                PaymentLoad::Malformed => rsx! {
+                    LoadProblem {
+                        title: "Payment data could not be verified".to_string(),
+                        detail: "The service response did not match the payment-intent contract. No records are being shown.".to_string(),
+                        retry_url: filters.page_url(filters.offset),
+                    }
+                },
             }
         }
     }
 }
 
-/// Desktop `<table>` wrapping `PaymentTableRow`s. The Wave 38b
-/// port doesn't ship a master table component, so the page-level
-/// wiring renders the `<table>` shell here.
 #[component]
-fn PaymentsDesktopTable(rows: Vec<PaymentRow>) -> Element {
+fn PaymentFilterForm(filters: PaymentFilters) -> Element {
+    let payer = filters.payer.clone().unwrap_or_default();
+    let status = filters.status.clone().unwrap_or_default();
     rsx! {
-        div { class: "hidden sm:block overflow-x-auto",
-            table { class: "min-w-full",
-                thead {
-                    tr { class: "border-b border-border/50",
-                        th { class: "px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider", "Reference" }
-                        th { class: "px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider", "Wallet" }
-                        th { class: "px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider", "Plan" }
-                        th { class: "px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider", "Amount" }
-                        th { class: "px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider", "Status" }
-                        th { class: "px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider", "Created" }
-                        th { class: "px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider", "Actions" }
-                    }
+        form { class: "payments-filter-panel rounded-xl border border-border/20 bg-card p-4", method: "GET", action: "/payments",
+            input { r#type: "hidden", name: "tab", value: "payments" }
+            input { r#type: "hidden", name: "offset", value: "0" }
+            div { class: "grid grid-cols-1 gap-4 md:grid-cols-4 md:items-end",
+                label { class: "space-y-2 text-sm font-medium",
+                    span { "Payer" }
+                    input { class: "input w-full font-mono", r#type: "text", name: "payer", value: payer, maxlength: "128", placeholder: "Wallet address" }
                 }
-                tbody { class: "divide-y divide-border/50",
-                    for payment in rows.iter() {
-                        PaymentTableRow { payment: payment.clone() }
-                    }
+                label { class: "space-y-2 text-sm font-medium",
+                    span { "Status" }
+                    input { class: "input w-full", r#type: "text", name: "status", value: status, maxlength: "32", placeholder: "All statuses" }
                 }
-            }
-        }
-    }
-}
-
-/// Mobile card list for the payments tab. The Wave 38b
-/// `PaymentMobileCard` emits one card per row.
-#[component]
-fn PaymentMobileCards(rows: Vec<PaymentRow>) -> Element {
-    rsx! {
-        div { class: "block sm:hidden space-y-3",
-            for payment in rows.iter() {
-                PaymentMobileCard { payment: payment.clone() }
-            }
-        }
-    }
-}
-
-// ============================================================================
-// Tab 2: User Access — uses Wave 38b ported component
-// ============================================================================
-
-#[component]
-fn UserAccessTab(user_access: Vec<UserAccessData>) -> Element {
-    rsx! {
-        div { class: "space-y-6",
-            div { class: "access-management-list",
-                // Top stats for the user-access tab (different
-                // labels than the payments tab — kept as inline
-                // `StatCard`s for the Wave 6B compatibility; the
-                // port's `PaymentStatsGrid` is designed for the
-                // payments shape).
-                div { class: "grid grid-cols-1 md:grid-cols-3 gap-4 mb-6",
-                    StatCard { label: "Users with access".to_string(), value: "412".to_string(), icon: Some("users".to_string()) }
-                    StatCard { label: "Expiring in 7 days".to_string(), value: "8".to_string(), icon: Some("clock".to_string()) }
-                    StatCard { label: "Expired this month".to_string(), value: "3".to_string(), icon: Some("alert-circle".to_string()) }
-                }
-                // Wave 38b `UserAccessDesktopTable` (desktop).
-                UserAccessDesktopTable { user_access: user_access.clone() }
-                // Wave 38b `UserAccessMobileCards` (mobile).
-                UserAccessMobileCards { user_access: user_access.clone() }
-                // Wave 38b `UserAccessPaginationBar`.
-                UserAccessPaginationBar {
-                    current: 1,
-                    disable_next: Some(true),
-                    on_prev: move |_| {},
-                    on_next: move |_| {},
-                }
-            }
-        }
-    }
-}
-
-// ============================================================================
-// Tab 3: Payment Links — uses Wave 38b ported components
-// ============================================================================
-
-#[component]
-fn PaymentLinksTab(links: Vec<PaymentLink>) -> Element {
-    rsx! {
-        div { class: "space-y-6",
-            // Quick filter / actions row (kept inline — not in
-            // the Wave 38b port).
-            div { class: "rounded-xl border border-border/20 bg-card p-4 mb-6",
-                div { class: "grid grid-cols-1 sm:grid-cols-3 gap-4",
-                    div {
-                        label { class: "block text-xs font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2", "Context Type" }
-                        select { class: "input",
-                            option { value: "", "All Types" }
-                            option { value: "plan", "Plan" }
-                            option { value: "group", "Group" }
-                            option { value: "product", "Product" }
-                            option { value: "campaign", "Campaign" }
-                            option { value: "custom", "Custom" }
+                label { class: "space-y-2 text-sm font-medium",
+                    span { "Rows per page" }
+                    select { class: "input w-full", name: "limit",
+                        for value in [10usize, 20, 50, 100] {
+                            option { value: "{value}", selected: filters.limit == value, "{value}" }
                         }
                     }
-                    div {
-                        label { class: "block text-xs font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2", "Status" }
-                        select { class: "input",
-                            option { value: "", "All Status" }
-                            option { value: "true", "Active" }
-                            option { value: "false", "Inactive" }
-                        }
-                    }
-                    div { class: "flex items-end",
-                        button { class: "btn btn-outline w-full", r#type: "button", "Reset" }
-                    }
                 }
+                button { class: "btn btn-primary", r#type: "submit", "Apply filters" }
             }
-            // Wave 38b `PaymentLinksHeaderRow` + `PaymentLinksTable`
-            // + `PaymentLinksMobileCards`.
-            PaymentLinksHeaderRow { count: links.len() as u32 }
-            PaymentLinksTable { links: links.clone() }
-            PaymentLinksMobileCards { links: links.clone() }
-
-            // Two-column layout: form on the left, list on the right
-            // (kept inline from the Wave 6B shell).
-            div { class: "grid grid-cols-1 lg:grid-cols-2 gap-6",
-                CreateLinkForm {}
-                PaymentLinksSummaryCard { count: links.len() as u32 }
-            }
-            LinkRevokeConfirm {}
         }
     }
 }
 
 #[component]
-fn PaymentLinksSummaryCard(count: u32) -> Element {
+fn PaymentIntentList(payload: AdminPaymentIntentList, filters: PaymentFilters) -> Element {
+    let total = usize::try_from(payload.total).unwrap_or(0);
+    let current_page = filters.offset / filters.limit + 1;
+    let total_pages = total.div_ceil(filters.limit).max(1);
+    let previous_offset = filters.offset.saturating_sub(filters.limit);
+    let next_offset = filters.offset.saturating_add(filters.limit);
+    let has_previous = filters.offset > 0;
+    let has_next = next_offset < total;
+
     rsx! {
-        div { class: "payment-links-list rounded-2xl border border-border/20 overflow-hidden bg-card",
+        section { class: "payment-intents-list rounded-2xl border border-border/20 overflow-hidden bg-card",
             div { class: "h-[3px] bg-gradient-to-r from-[#1fc7d4] to-[#7645d9]" }
-            div { class: "p-6",
-                div { class: "flex items-center justify-between mb-4",
-                    h2 { class: "text-xs font-bold text-[#1fc7d4] uppercase tracking-[0.2em]",
-                        "Recent Links"
-                    }
-                    span { class: "px-3 py-1 bg-muted/50 rounded-full border border-border/40 text-xs font-bold text-muted-foreground uppercase tracking-widest",
-                        "{count} links"
-                    }
+            div { class: "flex flex-wrap items-center justify-between gap-3 p-6",
+                div {
+                    h2 { class: "text-lg font-semibold", "Payment intents" }
+                    p { class: "text-sm text-muted-foreground", "{payload.total} authoritative records" }
                 }
-                p { class: "text-sm text-muted-foreground",
-                    "View and manage all created payment links in the table above."
-                }
+                p { class: "text-sm text-muted-foreground", "Page {current_page} of {total_pages}" }
             }
-        }
-    }
-}
-
-// ============================================================================
-// Section 5: CreateLinkForm — kept inline from Wave 6B
-// ============================================================================
-
-#[component]
-fn CreateLinkForm() -> Element {
-    rsx! {
-        // === wave6b-admin-pages-depth-track-c create-link-form ===
-        div { class: "create-link-form rounded-2xl border border-border/20 overflow-hidden bg-card",
-            div { class: "h-[3px] bg-gradient-to-r from-[#7645d9] to-[#ed4b9e]" }
-            div { class: "p-6",
-                h2 { class: "text-xs font-bold text-[#7645d9] uppercase tracking-[0.2em] mb-4",
-                    "Create Payment Link"
+            if payload.items.is_empty() {
+                div { class: "border-t border-border/30 p-8 text-center", role: "status",
+                    h3 { class: "font-semibold", "No payment intents on this page" }
+                    p { class: "mt-2 text-sm text-muted-foreground", "The filtered inventory still contains records. Return to the first page or use Previous." }
+                    a { class: "btn btn-sm btn-outline mt-4", href: filters.page_url(0), "Return to first page" }
                 }
-                div { class: "space-y-4",
-                    div {
-                        label { class: "block text-sm font-medium text-muted-foreground mb-2", "Context Type *" }
-                        select {
-                            class: "input",
-                            required: true,
-                            option { value: "plan", "Plan — Plan payment" }
-                            option { value: "group", "Group — Permission group access" }
-                            option { value: "product", "Product — One-time product purchase" }
-                            option { value: "campaign", "Campaign — Promotional campaign" }
-                            option { value: "custom", "Custom — Custom payment link" }
+            } else {
+                div { class: "hidden overflow-x-auto md:block",
+                    table { class: "min-w-full",
+                        caption { class: "sr-only", "Backend-authoritative payment intents" }
+                        thead {
+                            tr { class: "border-y border-border/30",
+                                th { class: "px-4 py-3 text-left text-xs uppercase text-muted-foreground", scope: "col", "Intent" }
+                                th { class: "px-4 py-3 text-left text-xs uppercase text-muted-foreground", scope: "col", "Payer / payee" }
+                                th { class: "px-4 py-3 text-left text-xs uppercase text-muted-foreground", scope: "col", "Amount / token" }
+                                th { class: "px-4 py-3 text-left text-xs uppercase text-muted-foreground", scope: "col", "Chain" }
+                                th { class: "px-4 py-3 text-left text-xs uppercase text-muted-foreground", scope: "col", "Status" }
+                                th { class: "px-4 py-3 text-left text-xs uppercase text-muted-foreground", scope: "col", "Created" }
+                            }
                         }
-                    }
-                    div {
-                        label { class: "block text-sm font-medium text-muted-foreground mb-2", "Name *" }
-                        input { class: "input", r#type: "text", required: true, placeholder: "e.g., Pro Plan Monthly" }
-                    }
-                    div {
-                        label { class: "block text-sm font-medium text-muted-foreground mb-2", "Description" }
-                        textarea { class: "input", rows: "2", placeholder: "Optional description" }
-                    }
-                    div { class: "grid grid-cols-2 gap-4",
-                        div {
-                            label { class: "block text-sm font-medium text-muted-foreground mb-2", "Amount *" }
-                            input { class: "input", r#type: "number", step: "0.01", min: "0.01", required: true, placeholder: "0.00" }
-                        }
-                        div {
-                            label { class: "block text-sm font-medium text-muted-foreground mb-2", "Currency" }
-                            select { class: "input",
-                                option { value: "USDT", "USDT" }
-                                option { value: "USDC", "USDC" }
-                                option { value: "BNB", "BNB" }
+                        tbody { class: "divide-y divide-border/30",
+                            for intent in payload.items.iter() {
+                                PaymentIntentRow { intent: intent.clone() }
                             }
                         }
                     }
-                    div { class: "grid grid-cols-2 gap-4",
-                        div {
-                            label { class: "block text-sm font-medium text-muted-foreground mb-2", "Expires In (hours)" }
-                            input { class: "input", r#type: "number", min: "1", placeholder: "24" }
-                            p { class: "text-xs text-muted-foreground mt-1", "Leave empty for no expiration" }
-                        }
-                        div {
-                            label { class: "block text-sm font-medium text-muted-foreground mb-2", "Max Uses" }
-                            input { class: "input", r#type: "number", min: "1", placeholder: "Unlimited" }
-                            p { class: "text-xs text-muted-foreground mt-1", "Leave empty for unlimited" }
-                        }
+                }
+                div { class: "space-y-3 p-4 md:hidden",
+                    for intent in payload.items.iter() {
+                        PaymentIntentCard { intent: intent.clone() }
                     }
-                    div {
-                        label { class: "block text-sm font-medium text-muted-foreground mb-2", "Custom Slug (optional)" }
-                        input { class: "input", r#type: "text", placeholder: "Auto-generated if empty" }
-                    }
-                    div { class: "flex justify-end gap-2 pt-2",
-                        button { class: "btn btn-outline", r#type: "button", "Cancel" }
-                        button { class: "btn btn-primary", r#type: "submit",
-                            Icon { name: "plus".to_string(), size: Some(14) }
-                            " Create Link"
-                        }
-                    }
+                }
+            }
+            nav { class: "flex items-center justify-between border-t border-border/30 p-4", aria_label: "Payment intent pagination",
+                if has_previous {
+                    a { class: "btn btn-sm btn-outline", href: filters.page_url(previous_offset), rel: "prev", "Previous" }
+                } else {
+                    span { class: "btn btn-sm btn-outline opacity-50", aria_disabled: "true", "Previous" }
+                }
+                if has_next {
+                    a { class: "btn btn-sm btn-outline", href: filters.page_url(next_offset), rel: "next", "Next" }
+                } else {
+                    span { class: "btn btn-sm btn-outline opacity-50", aria_disabled: "true", "Next" }
                 }
             }
         }
     }
 }
-
-// ============================================================================
-// Section 6: LinkRevokeConfirm — kept inline from Wave 6B
-// ============================================================================
 
 #[component]
-fn LinkRevokeConfirm() -> Element {
+fn PaymentIntentRow(intent: AdminPaymentIntent) -> Element {
     rsx! {
-        // === wave6b-admin-pages-depth-track-c link-revoke-confirm ===
-        div { class: "link-revoke-confirm rounded-2xl border border-destructive/30 bg-destructive/5 p-6",
-            h2 { class: "text-xs font-bold text-destructive uppercase tracking-[0.2em] mb-3",
-                "Revoke Payment Link"
-            }
-            p { class: "text-sm text-foreground mb-4",
-                "Are you sure you want to revoke this payment link? This action cannot be undone."
-            }
-            p { class: "text-xs text-muted-foreground mb-4",
-                "Once revoked, the link will be deactivated, marked unusable, and any pending payments will be cancelled."
-            }
-            div { class: "flex justify-end gap-2",
-                button { class: "btn btn-outline", r#type: "button", "Cancel" }
-                button { class: "btn btn-danger", r#type: "button",
-                    Icon { name: "trash-2".to_string(), size: Some(14) }
-                    " Revoke link"
+        tr {
+            td { class: "px-4 py-4 align-top",
+                code { class: "text-xs", "{intent.id}" }
+                if let Some(hash) = &intent.tx_hash {
+                    p { class: "mt-1 font-mono text-xs text-muted-foreground", "Tx {hash}" }
                 }
+            }
+            td { class: "px-4 py-4 align-top font-mono text-xs",
+                p { "From {intent.payer}" }
+                p { class: "mt-1 text-muted-foreground", "To {intent.payee}" }
+            }
+            td { class: "px-4 py-4 align-top",
+                p { class: "font-semibold", "{intent.amount}" }
+                code { class: "text-xs text-muted-foreground", "{intent.token_address}" }
+            }
+            td { class: "px-4 py-4 align-top", "{intent.chain_id}" }
+            td { class: "px-4 py-4 align-top", StatusBadge { status: intent.status.clone() } }
+            td { class: "px-4 py-4 align-top text-sm text-muted-foreground", "{intent.created_at}" }
+        }
+    }
+}
+
+#[component]
+fn PaymentIntentCard(intent: AdminPaymentIntent) -> Element {
+    rsx! {
+        article { class: "rounded-xl border border-border/30 p-4",
+            div { class: "flex items-start justify-between gap-3",
+                code { class: "break-all text-xs", "{intent.id}" }
+                StatusBadge { status: intent.status.clone() }
+            }
+            dl { class: "mt-4 grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm",
+                dt { class: "text-muted-foreground", "Payer" }
+                dd { class: "break-all font-mono text-xs", "{intent.payer}" }
+                dt { class: "text-muted-foreground", "Payee" }
+                dd { class: "break-all font-mono text-xs", "{intent.payee}" }
+                dt { class: "text-muted-foreground", "Amount" }
+                dd { "{intent.amount}" }
+                dt { class: "text-muted-foreground", "Token" }
+                dd { class: "break-all font-mono text-xs", "{intent.token_address}" }
+                dt { class: "text-muted-foreground", "Chain" }
+                dd { "{intent.chain_id}" }
+                dt { class: "text-muted-foreground", "Created" }
+                dd { "{intent.created_at}" }
             }
         }
     }
 }
 
-// ============================================================================
-// Tab switcher
-// ============================================================================
+#[component]
+fn StatusBadge(status: String) -> Element {
+    rsx! {
+        span { class: "inline-flex rounded-full border border-border/40 bg-muted/40 px-2.5 py-1 text-xs font-semibold", "{status}" }
+    }
+}
+
+#[component]
+fn LoadProblem(title: String, detail: String, retry_url: String) -> Element {
+    rsx! {
+        section { class: "rounded-2xl border border-amber-500/30 bg-amber-500/5 p-8", role: "alert",
+            h2 { class: "text-lg font-semibold", "{title}" }
+            p { class: "mt-2 text-sm text-muted-foreground", "{detail}" }
+            a { class: "btn btn-sm btn-outline mt-5", href: retry_url, "Try again" }
+        }
+    }
+}
+
+#[component]
+fn UnavailableTab(title: String, detail: String) -> Element {
+    rsx! {
+        section { class: "rounded-2xl border border-border/30 bg-card p-10", role: "status",
+            h2 { class: "text-lg font-semibold", "{title}" }
+            p { class: "mt-2 max-w-2xl text-sm text-muted-foreground", "{detail}" }
+        }
+    }
+}
 
 #[component]
 fn PaymentsHubTabs(active: String) -> Element {
-    let tab_btn = |label: &str, key: &str, active: &str| rsx! {
-        button {
-            class: if active == key { "btn btn-primary btn-sm" } else { "btn btn-outline btn-sm" },
-            r#type: "button",
-            "{label}"
-        }
-    };
     rsx! {
-        div { class: "flex gap-2 mb-6",
-            {tab_btn("Payments", "payments", &active)}
-            {tab_btn("User Access", "user-access", &active)}
-            {tab_btn("Payment Links", "payment-links", &active)}
+        nav { class: "flex flex-wrap gap-2 mb-6", aria_label: "Payments sections",
+            a { class: if active == "payments" { "btn btn-primary btn-sm" } else { "btn btn-outline btn-sm" }, href: "/payments?tab=payments", "Payments" }
+            a { class: if active == "user-access" { "btn btn-primary btn-sm" } else { "btn btn-outline btn-sm" }, href: "/payments?tab=user-access", "User Access" }
+            a { class: if active == "payment-links" { "btn btn-primary btn-sm" } else { "btn btn-outline btn-sm" }, href: "/payments?tab=payment-links", "Payment Links" }
         }
     }
 }
-
-// ============================================================================
-// Tests — Wave 6B Track C + Wave 42 T2
-// ============================================================================
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::auth::User;
-    use crate::auth::user::AuthMethod;
-    use crate::pages::PageContext;
+    use crate::auth::{user::AuthMethod, User};
 
     fn authed_ctx() -> PageContext {
         PageContext {
@@ -649,146 +479,194 @@ mod tests {
                 id: "admin-1".to_string(),
                 address: "0xadmin".to_string(),
                 chain_id: "56".to_string(),
-                roles: vec!["admin".to_string()],
-                email: Some("admin@epsx.io".to_string()),
-                tier: Some("Admin".to_string()),
-                permissions: vec!["admin:payments:manage".to_string()],
+                roles: vec![],
+                email: None,
+                tier: None,
+                permissions: vec!["admin:payments:view".to_string()],
                 last_login_at: None,
                 auth_method: AuthMethod::Wallet,
-                display_name: Some("Admin".to_string()),
+                display_name: None,
             }),
             path: "/payments".to_string(),
             ..Default::default()
         }
     }
 
-    fn render_to_string(ctx: &PageContext) -> String {
-        let (_meta, el) = render(ctx);
-        dioxus_ssr::render_element(el)
+    fn intent(id: &str) -> AdminPaymentIntent {
+        AdminPaymentIntent {
+            id: id.to_string(),
+            chain_id: "56".to_string(),
+            payer: "0x1111111111111111111111111111111111111111".to_string(),
+            payee: "0x2222222222222222222222222222222222222222".to_string(),
+            amount: "1000000000000000000".to_string(),
+            token_address: "0x3333333333333333333333333333333333333333".to_string(),
+            status: "pending".to_string(),
+            escrow_id: None,
+            tx_hash: Some("0xtransaction".to_string()),
+            description: None,
+            expires_at: None,
+            created_at: "2026-07-22T10:00:00Z".to_string(),
+            updated_at: "2026-07-22T10:00:00Z".to_string(),
+        }
     }
 
-    /// Wave 6B — `test_render_smoke`. The page renders non-empty HTML
-    /// when the admin is authed and holds `admin:payments:manage`.
-    #[test]
-    fn test_render_smoke() {
-        let (_meta, el) = render(&authed_ctx());
-        let html = dioxus_ssr::render_element(el);
-        assert!(!html.is_empty(), "payments page must render non-empty HTML. Got: {}", html);
-        assert!(html.contains("Payments Hub"), "payments page must contain the hub title. Got: {}", html);
+    fn with_load(state: &str, payload: Option<AdminPaymentIntentList>) -> PageContext {
+        let mut ctx = authed_ctx();
+        ctx.params
+            .insert(ADMIN_PAYMENTS_STATE_PARAM.to_string(), state.to_string());
+        if let Some(payload) = payload {
+            ctx.params.insert(
+                ADMIN_PAYMENTS_DATA_PARAM.to_string(),
+                serde_json::to_string(&payload).unwrap(),
+            );
+        }
+        ctx.params
+            .insert(ADMIN_PAYMENTS_LIMIT_PARAM.to_string(), "20".to_string());
+        ctx.params
+            .insert(ADMIN_PAYMENTS_OFFSET_PARAM.to_string(), "0".to_string());
+        ctx
     }
 
-    /// Wave 6B — `test_section_markers`. All design-doc section
-    /// markers are present in the rendered HTML. The Payments tab is
-    /// the default tab, so the stats + filter + list sections are
-    /// visible; create-link-form and link-revoke-confirm live on the
-    /// Payment Links tab. The default tab is "payments", so the
-    /// create / revoke / payment-links-table markers are NOT in the
-    /// default render. We assert the 5 markers visible on the
-    /// default tab.
-    ///
-    /// Wave 42 T2 — extended to also assert the Wave 38b ported
-    /// component markers (`payments-management-stats`,
-    /// `payments-management-filters`) are present in the default
-    /// render, confirming the wiring landed. The `payment-links-table`
-    /// marker is asserted separately in
-    /// `test_ported_wiring_components_render` via direct render of
-    /// `PaymentLinksTable`.
+    fn render_html(ctx: &PageContext) -> String {
+        let (_, element) = render(ctx);
+        dioxus_ssr::render_element(element)
+    }
+
     #[test]
-    fn test_section_markers() {
-        let html = render_to_string(&authed_ctx());
-        for marker in &[
-            // Wave 6B markers (preserved by the wrapper divs).
-            "payments-stats",
-            "payments-filter-panel",
-            "payment-links-list",
-            // Wave 38b ported-component markers (new in Wave 42 T2).
-            "payments-management-stats",
-            "payments-management-filters",
-        ] {
+    fn ready_renders_only_service_owned_fields_and_escapes_text() {
+        let mut row = intent("intent-1");
+        row.status = "<script>alert(1)</script>".to_string();
+        let html = render_html(&with_load(
+            ADMIN_PAYMENTS_READY,
+            Some(AdminPaymentIntentList {
+                items: vec![row],
+                total: 1,
+            }),
+        ));
+
+        assert!(html.contains("intent-1"), "rendered HTML: {html:?}");
+        assert!(html.contains("1000000000000000000"));
+        assert!(html.contains("&#60;script&#62;alert(1)&#60;/script&#62;"));
+        assert!(!html.contains("<script>alert(1)</script>"));
+        for invented in ["Total Revenue", "$45,231", "pi_abc123", "Pro Plan Monthly"] {
             assert!(
-                html.contains(marker),
-                "payments page should contain section marker `{marker}`. Got: {html}"
+                !html.contains(invented),
+                "invented value leaked: {invented}"
             );
         }
     }
 
-    /// Wave 42 T2 — `test_ported_wiring_landed`. Asserts the
-    /// Wave 38b `PageHeader` rendered the icon + gradient + title
-    /// shape, AND that the Wave 38b `UserAccessDesktopTable` /
-    /// `PaymentLinksTable` data structs compile + render. The
-    /// user-access and payment-links tabs are rendered when the
-    /// active tab signal is set to those values — but the page
-    /// here is SSR-only (signals are not interactive in the SSR
-    /// snapshot). We render each tab component directly to verify
-    /// the ported components still render in isolation.
     #[test]
-    fn test_ported_wiring_components_render() {
-        // Direct test of the Wave 38b `UserAccessDesktopTable`.
-        let mut vdom = dioxus::prelude::VirtualDom::new(|| {
-            rsx! {
-                UserAccessDesktopTable {
-                    user_access: vec![UserAccessData {
-                        wallet_address: "0x12345678".into(),
-                        plan_name: Some("Pro".into()),
-                        status: "active".into(),
-                        days_remaining: 23,
-                        plan_expires_at: Some("2024-10-15".into()),
-                    }],
-                }
-            }
-        });
-        vdom.rebuild_in_place();
-        let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("user-access-management-table"), "UserAccessDesktopTable should render its section marker");
-        assert!(html.contains("Pro"), "UserAccessDesktopTable should render the plan name");
+    fn empty_unavailable_and_malformed_are_distinct() {
+        let empty = render_html(&with_load(
+            ADMIN_PAYMENTS_EMPTY,
+            Some(AdminPaymentIntentList {
+                items: vec![],
+                total: 0,
+            }),
+        ));
+        let unavailable = render_html(&with_load(ADMIN_PAYMENTS_UNAVAILABLE, None));
+        let malformed = render_html(&with_load(ADMIN_PAYMENTS_MALFORMED, None));
 
-        // Direct test of the Wave 38b `PaymentLinksTable`.
-        let mut vdom = dioxus::prelude::VirtualDom::new(|| {
-            rsx! {
-                PaymentLinksTable {
-                    links: vec![PaymentLink {
-                        id: "pl_1".into(),
-                        slug: "pro-monthly".into(),
-                        context_type: "plan".into(),
-                        context_id: Some("plan_pro".into()),
-                        name: "Pro Plan Monthly".into(),
-                        amount: 29.00,
-                        currency: "USDT".into(),
-                        is_active: true,
-                        is_usable: true,
-                        uses: 47,
-                        max_uses: None,
-                        created_at: "2024-09-01".into(),
-                        expires_at: None,
-                    }],
-                }
-            }
-        });
-        vdom.rebuild_in_place();
-        let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("payment-links-table"), "PaymentLinksTable should render its section marker");
-        assert!(html.contains("pro-monthly"), "PaymentLinksTable should render the link slug");
+        assert!(empty.contains("No payment intents found"));
+        assert!(unavailable.contains("Payment intents unavailable"));
+        assert!(!unavailable.contains("No payment intents found"));
+        assert!(malformed.contains("Payment data could not be verified"));
+        assert!(!malformed.contains("No payment intents found"));
+    }
 
-        // Direct test of the Wave 38b `PaymentStatsGrid`.
-        let mut vdom = dioxus::prelude::VirtualDom::new(|| {
-            rsx! {
-                PaymentStatsGrid {
-                    stats: PaymentStats {
-                        total_payments: 100,
-                        total_amount: 5000.0,
-                        successful_payments: 95,
-                        failed_payments: 5,
-                        pending_payments: 0,
-                        average_payment_amount: 50.0,
-                        payments_today: 5,
-                        revenue_today: 250.0,
-                    },
-                }
+    #[test]
+    fn inconsistent_state_or_payload_fails_closed_as_malformed() {
+        let ctx = with_load(
+            ADMIN_PAYMENTS_READY,
+            Some(AdminPaymentIntentList {
+                items: vec![],
+                total: 0,
+            }),
+        );
+        assert!(render_html(&ctx).contains("Payment data could not be verified"));
+
+        let invalid = serde_json::json!({"items": [intent("intent-1")], "total": 0});
+        assert!(decode_admin_payment_intent_list(invalid).is_none());
+    }
+
+    #[test]
+    fn nonzero_total_empty_page_preserves_truth_and_recovery_navigation() {
+        let mut ctx = with_load(
+            ADMIN_PAYMENTS_READY,
+            Some(AdminPaymentIntentList {
+                items: vec![],
+                total: 41,
+            }),
+        );
+        ctx.params
+            .insert(ADMIN_PAYMENTS_OFFSET_PARAM.to_string(), "40".to_string());
+
+        let html = render_html(&ctx);
+        assert!(html.contains("41 authoritative records"));
+        assert!(html.contains("No payment intents on this page"));
+        assert!(html.contains("Return to first page"));
+        assert!(html.contains("offset=0"));
+        assert!(html.contains("Previous"));
+        assert!(!html.contains("No payment intents found"));
+    }
+
+    #[test]
+    fn view_permission_is_required_without_manage_substitution() {
+        let mut denied = with_load(ADMIN_PAYMENTS_UNAVAILABLE, None);
+        denied.user.as_mut().unwrap().permissions = vec!["admin:payments:manage".to_string()];
+        let html = render_html(&denied);
+        assert!(html.contains("Permission required"));
+        assert!(html.contains("admin:payments:view"));
+        assert!(!html.contains("Payments Hub"));
+    }
+
+    #[test]
+    fn unavailable_tabs_have_no_mutation_controls_or_sample_records() {
+        for (tab, expected) in [
+            ("user-access", "User access is unavailable"),
+            ("payment-links", "Payment links are unavailable"),
+        ] {
+            let mut ctx = with_load(ADMIN_PAYMENTS_UNAVAILABLE, None);
+            ctx.params
+                .insert(ADMIN_PAYMENTS_TAB_PARAM.to_string(), tab.to_string());
+            let html = render_html(&ctx);
+            assert!(html.contains(expected));
+            for forbidden in [
+                "Create Payment Link",
+                "Revoke link",
+                "Pro Plan Monthly",
+                "Users with access",
+            ] {
+                assert!(
+                    !html.contains(forbidden),
+                    "forbidden control/sample leaked: {forbidden}"
+                );
             }
-        });
-        vdom.rebuild_in_place();
-        let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("payments-management-stats"), "PaymentStatsGrid should render its section marker");
-        assert!(html.contains("Total Revenue"), "PaymentStatsGrid should render the Total Revenue label");
+        }
+    }
+
+    #[test]
+    fn pagination_preserves_only_normalized_filters() {
+        let mut ctx = with_load(
+            ADMIN_PAYMENTS_READY,
+            Some(AdminPaymentIntentList {
+                items: vec![intent("intent-1")],
+                total: 41,
+            }),
+        );
+        ctx.params.insert(
+            ADMIN_PAYMENTS_PAYER_PARAM.to_string(),
+            "0x1111111111111111111111111111111111111111".to_string(),
+        );
+        ctx.params.insert(
+            ADMIN_PAYMENTS_STATUS_PARAM.to_string(),
+            "pending".to_string(),
+        );
+        let html = render_html(&ctx);
+        assert!(html.contains("offset=20"));
+        assert!(html.contains("payer=0x1111111111111111111111111111111111111111"));
+        assert!(html.contains("status=pending"));
+        assert!(!html.contains("admin:payments:manage"));
     }
 }

@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path as AxPath, Request, State},
+    extract::{Path as AxPath, RawQuery, Request, State},
     http::{header, HeaderMap, HeaderValue, Method, StatusCode},
     middleware::Next,
     response::{IntoResponse, Redirect, Response},
@@ -12,6 +12,7 @@ use epsx_bff::{
     session::{JwksVerifier, JwksVerifierConfig, ADMIN_CLIENT_ID, JWKS_PATH},
 };
 use epsx_client::{RequestContext, ServiceClient};
+use epsx_dioxus_ui::pages::admin_pages::payments::decode_admin_payment_intent_list;
 use serde::Deserialize;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -65,6 +66,132 @@ struct DemoLoginBody {
 
 fn ctx_from(headers: &HeaderMap) -> RequestContext {
     RequestContext::from_headers(headers)
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct PaymentIntentQuery {
+    pub(crate) payer: Option<String>,
+    pub(crate) status: Option<String>,
+    pub(crate) limit: u64,
+    pub(crate) offset: u64,
+}
+
+/// Bound deep pagination well below the pay service's signed `i64` extractor
+/// limit. Larger offsets are treated as invalid rather than being forwarded and
+/// silently interpreted differently upstream.
+const MAX_PAYMENT_INTENT_OFFSET: u64 = 10_000_000;
+
+impl PaymentIntentQuery {
+    pub(crate) fn from_raw(raw_query: &str) -> Result<Self, ()> {
+        let mut parsed = Self {
+            payer: None,
+            status: None,
+            limit: 20,
+            offset: 0,
+        };
+        let mut payer_seen = false;
+        let mut status_seen = false;
+        let mut limit_seen = false;
+        let mut offset_seen = false;
+        let mut url = reqwest::Url::parse("http://admin.invalid/")
+            .expect("the fixed payment query base URL is valid");
+        url.set_query((!raw_query.is_empty()).then_some(raw_query));
+
+        for (key, value) in url.query_pairs() {
+            match key.as_ref() {
+                "payer" => {
+                    if payer_seen {
+                        return Err(());
+                    }
+                    payer_seen = true;
+                    parsed.payer = if value.is_empty() {
+                        None
+                    } else {
+                        Some(safe_payment_query_value(&value, 128).ok_or(())?)
+                    };
+                }
+                "status" => {
+                    if status_seen {
+                        return Err(());
+                    }
+                    status_seen = true;
+                    parsed.status = if value.is_empty() {
+                        None
+                    } else {
+                        Some(safe_payment_query_value(&value, 32).ok_or(())?)
+                    };
+                }
+                "limit" => {
+                    if limit_seen {
+                        return Err(());
+                    }
+                    limit_seen = true;
+                    let limit = value.parse::<u64>().map_err(|_| ())?;
+                    if !(1..=100).contains(&limit) {
+                        return Err(());
+                    }
+                    parsed.limit = limit;
+                }
+                "offset" => {
+                    if offset_seen {
+                        return Err(());
+                    }
+                    offset_seen = true;
+                    let offset = value.parse::<u64>().map_err(|_| ())?;
+                    if offset > MAX_PAYMENT_INTENT_OFFSET {
+                        return Err(());
+                    }
+                    parsed.offset = offset;
+                }
+                _ => {}
+            }
+        }
+        Ok(parsed)
+    }
+
+    pub(crate) fn upstream_path(&self) -> String {
+        let mut pairs = Vec::with_capacity(4);
+        if let Some(payer) = &self.payer {
+            pairs.push(format!("payer={payer}"));
+        }
+        if let Some(status) = &self.status {
+            pairs.push(format!("status={status}"));
+        }
+        pairs.push(format!("limit={}", self.limit));
+        pairs.push(format!("offset={}", self.offset));
+        format!("/api/v1/admin/pay/intents?{}", pairs.join("&"))
+    }
+}
+
+fn safe_payment_query_value(value: &str, max_len: usize) -> Option<String> {
+    (!value.is_empty()
+        && value.len() <= max_len
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b':' | b'.' | b'_' | b'-')))
+    .then(|| value.to_string())
+}
+
+pub(crate) fn payment_tab(raw_query: &str) -> Result<&'static str, ()> {
+    let mut url = reqwest::Url::parse("http://admin.invalid/")
+        .expect("the fixed payment query base URL is valid");
+    url.set_query((!raw_query.is_empty()).then_some(raw_query));
+    let mut tab = None;
+    for (key, value) in url.query_pairs() {
+        if key != "tab" {
+            continue;
+        }
+        if tab.is_some() {
+            return Err(());
+        }
+        tab = Some(match value.as_ref() {
+            "payments" => "payments",
+            "user-access" => "user-access",
+            "payment-links" => "payment-links",
+            _ => return Err(()),
+        });
+    }
+    Ok(tab.unwrap_or("payments"))
 }
 
 fn safe_upstream_status(status: u16) -> Option<StatusCode> {
@@ -159,6 +286,79 @@ mod upstream_error_mapping_tests {
             ))),
             StatusCode::BAD_GATEWAY
         );
+    }
+}
+
+#[cfg(test)]
+mod payment_intent_adapter_tests {
+    use super::*;
+
+    #[test]
+    fn payment_query_forwards_only_the_read_allowlist() {
+        let query = PaymentIntentQuery::from_raw(
+            "payer=0xabc&status=pending&limit=50&offset=100&tab=payments&force=cancel",
+        )
+        .unwrap();
+        assert_eq!(query.payer.as_deref(), Some("0xabc"));
+        assert_eq!(query.status.as_deref(), Some("pending"));
+        assert_eq!(query.limit, 50);
+        assert_eq!(query.offset, 100);
+        assert_eq!(
+            query.upstream_path(),
+            "/api/v1/admin/pay/intents?payer=0xabc&status=pending&limit=50&offset=100"
+        );
+        assert!(!query.upstream_path().contains("force"));
+    }
+
+    #[test]
+    fn payment_query_rejects_invalid_recognized_values_instead_of_broadening() {
+        for raw in [
+            "payer=%26admin%3Dtrue",
+            "status=%0D%0Aauthorization",
+            "limit=0",
+            "limit=999",
+            "offset=-1",
+            "offset=10000001",
+        ] {
+            assert!(PaymentIntentQuery::from_raw(raw).is_err(), "{raw}");
+        }
+        assert!(MAX_PAYMENT_INTENT_OFFSET < i64::MAX as u64);
+    }
+
+    #[test]
+    fn payment_query_uses_bounded_defaults_only_when_values_are_absent() {
+        let query = PaymentIntentQuery::from_raw("payer=&status=&tab=payments").unwrap();
+        assert_eq!(query.payer, None);
+        assert_eq!(query.status, None);
+        assert_eq!(query.limit, 20);
+        assert_eq!(query.offset, 0);
+        assert_eq!(
+            query.upstream_path(),
+            "/api/v1/admin/pay/intents?limit=20&offset=0"
+        );
+    }
+
+    #[test]
+    fn payment_query_rejects_duplicate_recognized_parameters() {
+        for raw in [
+            "payer=0xfirst&payer=0xsecond",
+            "status=pending&status=released",
+            "limit=20&limit=50",
+            "offset=0&offset=20",
+        ] {
+            assert!(PaymentIntentQuery::from_raw(raw).is_err(), "{raw}");
+        }
+    }
+
+    #[test]
+    fn payment_tab_accepts_only_known_read_surfaces() {
+        assert_eq!(payment_tab(""), Ok("payments"));
+        assert_eq!(payment_tab("tab=payments"), Ok("payments"));
+        assert_eq!(payment_tab("tab=user-access"), Ok("user-access"));
+        assert_eq!(payment_tab("tab=payment-links"), Ok("payment-links"));
+        assert!(payment_tab("tab=create-link").is_err());
+        assert!(payment_tab("tab=%0D%0Aevil").is_err());
+        assert!(payment_tab("tab=payments&tab=payment-links").is_err());
     }
 }
 
@@ -333,13 +533,9 @@ fn build_app(state: AppState) -> Router {
             "/api/v1/users/{id}",
             get(get_user).put(update_user).delete(delete_user),
         )
-        // Payments
+        // Payments: the migration slice exposes only the canonical admin-wide
+        // read contract. Owner reads and financial mutations stay unregistered.
         .route("/api/v1/payments", get(list_payments))
-        .route("/api/v1/payments/{id}", get(get_payment))
-        .route("/api/v1/payments/{id}/confirm", post(confirm_payment))
-        .route("/api/v1/payments/{id}/cancel", post(cancel_payment))
-        .route("/api/v1/escrows", get(list_escrows))
-        .route("/api/v1/escrows/{id}/release", post(release_escrow))
         // Subscriptions
         .route("/api/v1/subscriptions", get(list_subscriptions))
         .route("/api/v1/subscriptions/{id}", get(get_subscription))
@@ -491,11 +687,6 @@ fn is_known_protected_admin_api_path(path: &str) -> bool {
         ["api", "v1", "users"]
             | ["api", "v1", "users", _]
             | ["api", "v1", "payments"]
-            | ["api", "v1", "payments", _]
-            | ["api", "v1", "payments", _, "confirm"]
-            | ["api", "v1", "payments", _, "cancel"]
-            | ["api", "v1", "escrows"]
-            | ["api", "v1", "escrows", _, "release"]
             | ["api", "v1", "subscriptions"]
             | ["api", "v1", "subscriptions", _]
             | ["api", "v1", "subscriptions", _, "cancel"]
@@ -534,8 +725,6 @@ fn is_allowed_protected_admin_api_method(method: &Method, path: &str) -> bool {
             is_read || method == Method::PUT || method == Method::DELETE
         }
         ["api", "v1", "payments"]
-        | ["api", "v1", "payments", _]
-        | ["api", "v1", "escrows"]
         | ["api", "v1", "subscriptions"]
         | ["api", "v1", "subscriptions", _]
         | ["api", "v1", "subscription", "plans", _]
@@ -548,10 +737,7 @@ fn is_allowed_protected_admin_api_method(method: &Method, path: &str) -> bool {
         | ["api", "v1", "indexer", "transfers", _, _]
         | ["api", "v1", "wallet", "accounts"]
         | ["api", "v1", "wallet", "accounts", _] => is_read,
-        ["api", "v1", "payments", _, "confirm"]
-        | ["api", "v1", "payments", _, "cancel"]
-        | ["api", "v1", "escrows", _, "release"]
-        | ["api", "v1", "subscriptions", _, "cancel"]
+        ["api", "v1", "subscriptions", _, "cancel"]
         | ["api", "v1", "pages", _, "publish"]
         | ["api", "v1", "notifications", _, "read"]
         | ["api", "v1", "notifications", "send"]
@@ -647,11 +833,6 @@ mod routing_tests {
             "/api/v1/users",
             "/api/v1/users/id",
             "/api/v1/payments",
-            "/api/v1/payments/id",
-            "/api/v1/payments/id/confirm",
-            "/api/v1/payments/id/cancel",
-            "/api/v1/escrows",
-            "/api/v1/escrows/id/release",
             "/api/v1/subscriptions",
             "/api/v1/subscriptions/id",
             "/api/v1/subscriptions/id/cancel",
@@ -687,6 +868,11 @@ mod routing_tests {
             "/api/v1/auth/unknown",
             "/api/v1/indexer/block/bsc",
             "/api/v1/notifications/templates/id/extra",
+            "/api/v1/payments/id",
+            "/api/v1/payments/id/confirm",
+            "/api/v1/payments/id/cancel",
+            "/api/v1/escrows",
+            "/api/v1/escrows/id/release",
         ] {
             assert!(!is_known_admin_api_path(path), "{path}");
         }
@@ -725,6 +911,11 @@ mod routing_tests {
             "/api/",
             "/api/v1/users/id/extra",
             "/api/v1/auth/unknown",
+            "/api/v1/payments/id",
+            "/api/v1/payments/id/confirm",
+            "/api/v1/payments/id/cancel",
+            "/api/v1/escrows",
+            "/api/v1/escrows/id/release",
         ] {
             let response = request(Method::GET, path).await;
             assert_eq!(response.status(), StatusCode::NOT_FOUND, "{path}");
@@ -878,87 +1069,18 @@ async fn delete_user(
 async fn list_payments(
     State(state): State<AppState>,
     headers: HeaderMap,
+    RawQuery(raw_query): RawQuery,
 ) -> Result<Response, StatusCode> {
     let ctx = ctx_from(&headers);
-    state
+    let query = PaymentIntentQuery::from_raw(raw_query.as_deref().unwrap_or_default())
+        .map_err(|()| StatusCode::BAD_REQUEST)?;
+    let value = state
         .payment
-        .get_with_ctx("/api/v1/payment/intents", &ctx)
+        .get_with_ctx(&query.upstream_path(), &ctx)
         .await
-        .map(|v| Json(v).into_response())
-        .map_err(err_to_status)
-}
-
-async fn get_payment(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    AxPath(id): AxPath<String>,
-) -> Result<Response, StatusCode> {
-    let ctx = ctx_from(&headers);
-    let path = format!("/api/v1/payment/intents/{}", id);
-    state
-        .payment
-        .get_with_ctx(&path, &ctx)
-        .await
-        .map(|v| Json(v).into_response())
-        .map_err(err_to_status)
-}
-
-async fn confirm_payment(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    AxPath(id): AxPath<String>,
-) -> Result<Response, StatusCode> {
-    let ctx = ctx_from(&headers);
-    let path = format!("/api/v1/payment/intents/{}/confirm", id);
-    state
-        .payment
-        .post_with_ctx(&path, &serde_json::json!({}), &ctx)
-        .await
-        .map(|v| Json(v).into_response())
-        .map_err(err_to_status)
-}
-
-async fn cancel_payment(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    AxPath(id): AxPath<String>,
-) -> Result<Response, StatusCode> {
-    let ctx = ctx_from(&headers);
-    let path = format!("/api/v1/payment/intents/{}/cancel", id);
-    state
-        .payment
-        .post_with_ctx(&path, &serde_json::json!({}), &ctx)
-        .await
-        .map(|v| Json(v).into_response())
-        .map_err(err_to_status)
-}
-
-async fn list_escrows(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-) -> Result<Response, StatusCode> {
-    let ctx = ctx_from(&headers);
-    state
-        .payment
-        .get_with_ctx("/api/v1/payment/escrows", &ctx)
-        .await
-        .map(|v| Json(v).into_response())
-        .map_err(err_to_status)
-}
-
-async fn release_escrow(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    AxPath(id): AxPath<String>,
-) -> Result<Response, StatusCode> {
-    let ctx = ctx_from(&headers);
-    let path = format!("/api/v1/payment/escrows/{}/release", id);
-    state
-        .payment
-        .post_with_ctx(&path, &serde_json::json!({}), &ctx)
-        .await
-        .map(|v| Json(v).into_response())
-        .map_err(err_to_status)
+        .map_err(err_to_status)?;
+    let payload = decode_admin_payment_intent_list(value).ok_or(StatusCode::BAD_GATEWAY)?;
+    Ok(Json(payload).into_response())
 }
 
 // ===== Subscriptions =====

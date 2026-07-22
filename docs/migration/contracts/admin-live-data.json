@@ -34,11 +34,12 @@
     {
       "file": "apps/admin/src/ssr.rs",
       "anchors": [
-        "let params = HashMap::new();",
+        "let mut params = HashMap::new();",
+        "record_payment_intent_load(&mut params, result);",
         "let (m, b) = admin_pages::dispatch(&c);",
         "let status = match meta.status"
       ],
-      "finding": "SSR verifies a session and dispatches with empty data params; it does not load page data."
+      "finding": "SSR verifies a session and keeps data params empty by default; only the payments intent tab now performs a bounded authenticated read and records explicit ready, empty, unavailable, or malformed state."
     },
     {
       "file": "apps/admin/src/main.rs",
@@ -47,7 +48,7 @@
         ".route(\"/api/v1/notifications/send\", post(send_notification))",
         ".route(\"/api/v1/wallet/accounts\", get(list_accounts))"
       ],
-      "finding": "The BFF exposes proxy handlers, but page components are not wired to their response payloads."
+      "finding": "The payments proxy is wired to the canonical typed admin-wide intent read; other proxy handlers generally remain disconnected from their page payloads."
     },
     {
       "file": "apps/admin/src/main.rs",
@@ -350,15 +351,15 @@
     {
       "path": "/payments", "batch": "B5-commerce", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A6", "A9", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/payments/page.tsx", "anchors": ["export default function AdminPaymentsPage", "useSearchParams"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/payments.rs", "handler": "payments::render", "anchors": ["pub fn render(ctx: &PageContext)", "required_permissions: Some(vec![\"admin:payments:manage\".to_string()])", "let payments = vec!"]},
-      "params": {"names": ["tab", "status", "search", "cursor"], "current": "tab signal starts from a fixed value; query not consumed"},
-      "data": {"reads": ["payments", "subscriptions/access", "payment links", "escrows"], "endpoints": ["GET /api/v1/payments", "GET /api/v1/subscriptions", "GET /api/v1/escrows"], "current": "sample payments/access/links", "fallbacks": ["invented financial records and statuses"]},
-      "permissions": {"read": ["admin:payments:read (required target)"], "manage": ["admin:payments:manage"], "current": "manage gates all reads"},
-      "mutations": [{"name": "confirm/cancel/release/create link/access", "method": "mixed", "endpoint": "partially present in BFF", "current": "page controls do not call canonical endpoints"}],
-      "contracts": {"bodies": ["financial mutation bodies unresolved"], "envelopes": ["BFF proxy bodies untyped at page boundary"], "statuses": ["allowlisted BFF status is preserved; typed financial/finality errors remain absent"]},
-      "states": {"loading": "missing", "empty": "missing", "error": "missing", "retry": "missing", "forbidden": "present", "conflict": "missing"},
-      "ux": {"keyboard": "unproven", "responsive": "unproven", "hydration": "missing for tabs/filters/dialogs"},
-      "blockers": ["remove sample money/status data, split read/manage, complete A6/A9, preserve exact finality/conflict statuses, and prove every financial mutation end to end"]
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/payments.rs", "handler": "payments::render", "anchors": ["pub fn render(ctx: &PageContext)", "required_permissions: Some(vec![\"admin:payments:view\".to_string()])", "decode_admin_payment_intent_list", "PaymentLoad::Unavailable"]},
+      "params": {"names": ["tab", "payer", "status", "limit", "offset"], "current": "SSR consumes a closed allowlist; tab selects one of three known surfaces, optional empty filters remain absent, and malformed or duplicate recognized values are rejected without an upstream request"},
+      "data": {"reads": ["admin-wide payment intents", "subscriptions/access intentionally unavailable", "payment links intentionally unavailable"], "endpoints": ["GET /api/v1/payments", "GET /api/v1/admin/pay/intents"], "current": "typed read-only intent rows from the Pay service; access and payment-link tabs render explicit unavailable states", "fallbacks": []},
+      "permissions": {"read": ["admin:payments:view"], "manage": [], "current": "backend-issued admin:payments:view gates the page and the Pay service repeats the exact admin audience plus view check"},
+      "mutations": [{"name": "confirm/cancel/release/create link/access mutations", "method": "mixed", "endpoint": "unregistered", "current": "mutation controls and the legacy payment/escrow mutation proxy routes are absent"}],
+      "contracts": {"bodies": [], "envelopes": ["typed PayIntentListResponse-compatible payload with semantic non-empty-field and total validation"], "statuses": ["BFF returns 400 for malformed or duplicate recognized query values, preserves the closed safe upstream status set, and maps malformed success payloads to 502; SSR records dependency failures as unavailable rather than empty"]},
+      "states": {"loading": "not-applicable", "empty": "present", "error": "present", "retry": "present", "forbidden": "present", "conflict": "not-applicable"},
+      "ux": {"keyboard": "native GET filters, tab links, refresh, retry, and pagination are statically covered; focused browser proof remains open", "responsive": "desktop table and mobile cards are present; focused browser overflow/layout proof remains open", "hydration": "not required for the read-only payment-intent surface because every active control is a native link or GET form"},
+      "blockers": ["prove the authenticated read against an isolated service/database fixture and in a focused browser, complete the source-compatible access and payment-link tabs, and keep all financial mutations blocked until A6/A9 authority and durability evidence pass"]
     },
     {
       "path": "/settings", "batch": "B1-command-security", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
