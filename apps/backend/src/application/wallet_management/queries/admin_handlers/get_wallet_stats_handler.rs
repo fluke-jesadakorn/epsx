@@ -2,13 +2,13 @@
 // CQRS handler for retrieving global wallet statistics
 
 use crate::application::shared::{ApplicationError, ApplicationResult, Query, QueryHandler};
-use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 use crate::application::wallet_management::queries::admin_models::{
     GetWalletStatsQuery, GetWalletStatsResponse, WalletStatsDto,
 };
+use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 use async_trait::async_trait;
 use diesel::prelude::*;
-use diesel_async::{RunQueryDsl};
+use diesel_async::RunQueryDsl;
 use std::sync::Arc;
 use tracing::{error, info};
 
@@ -39,14 +39,14 @@ impl QueryHandler<GetWalletStatsQuery> for GetWalletStatsQueryHandler {
         // 2. Get wallet statistics
         #[derive(QueryableByName)]
         struct StatsRow {
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
-            total_users: Option<i64>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
-            active_users: Option<i64>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
-            inactive_users: Option<i64>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
-            new_users_30_days: Option<i64>,
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            total_users: i64,
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            active_users: i64,
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            inactive_users: i64,
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            new_users_30_days: i64,
         }
 
         let stats_result = diesel::sql_query(
@@ -67,8 +67,8 @@ impl QueryHandler<GetWalletStatsQuery> for GetWalletStatsQueryHandler {
         })?;
 
         // 3. Calculate growth rate
-        let total = stats_result.total_users.unwrap_or(0);
-        let new_30_days = stats_result.new_users_30_days.unwrap_or(0);
+        let total = stats_result.total_users;
+        let new_30_days = stats_result.new_users_30_days;
         let growth_rate = if total > 0 {
             (new_30_days as f64 / total as f64) * 100.0
         } else {
@@ -77,11 +77,11 @@ impl QueryHandler<GetWalletStatsQuery> for GetWalletStatsQueryHandler {
 
         // 4. Build stats DTO
         let stats = WalletStatsDto {
-            total_users: total as i32,
-            active_users: stats_result.active_users.unwrap_or(0) as i32,
-            inactive_users: stats_result.inactive_users.unwrap_or(0) as i32,
-            new_users_30_days: new_30_days as i32,
-            active_users_30_days: stats_result.active_users.unwrap_or(0) as i32,
+            total_users: total,
+            active_users: stats_result.active_users,
+            inactive_users: stats_result.inactive_users,
+            new_users_30_days: new_30_days,
+            active_users_30_days: stats_result.active_users,
             growth_rate,
         };
 

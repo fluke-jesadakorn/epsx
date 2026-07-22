@@ -1,20 +1,92 @@
-//! Truthful authenticated shells for admin wallet list, detail, and disable routes.
+//! Authenticated wallet status summary plus truthful detail/disable shells.
 //!
-//! The Rust admin BFF does not yet consume a typed authoritative wallet read
-//! model, and the disable mutation is not registered. These pages therefore
-//! expose no sample addresses, balances, plans, permissions, activity, stats,
-//! filters, exports, or mutation controls. Frontend roles and permissions are
-//! never treated as policy authority.
+//! The exact wallet-list route may render four backend-authoritative aggregate
+//! counts. Wallet rows, identities, balances, plans, permissions, activity,
+//! filters, exports, details, and every mutation remain unavailable. Frontend
+//! roles and permissions are never treated as policy authority.
 
 use dioxus::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::auth::AuthGate;
+use crate::components::admin::page_layout::{PageGradient, PageHeader, PageLayout, PageMaxWidth};
 use crate::primitives::Icon;
 
 use super::super::{PageContext, PageMeta};
 
 const WALLETS_PATH: &str = "/wallet-management/wallets";
 const MAX_ROUTE_REFERENCE_CHARS: usize = 64;
+
+pub const ADMIN_WALLET_STATS_DATA_PARAM: &str = "data_admin_wallet_stats";
+pub const ADMIN_WALLET_STATS_STATE_PARAM: &str = "data_admin_wallet_stats_state";
+
+pub const ADMIN_WALLET_STATS_READY: &str = "ready";
+pub const ADMIN_WALLET_STATS_FORBIDDEN: &str = "forbidden";
+pub const ADMIN_WALLET_STATS_UNAVAILABLE: &str = "unavailable";
+pub const ADMIN_WALLET_STATS_MALFORMED: &str = "malformed";
+
+/// Deliberately excludes identities, addresses, balances, tier distribution,
+/// activity-window claims, growth calculations, and every row-level field.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminWalletStatsSummary {
+    pub total_users: i64,
+    pub active_users: i64,
+    pub inactive_users: i64,
+    pub new_users_30_days: i64,
+}
+
+/// Decode the exact aggregate projection and reject impossible count sets.
+/// Zero is valid for every count.
+pub fn decode_admin_wallet_stats_projection(
+    value: serde_json::Value,
+) -> Option<AdminWalletStatsSummary> {
+    let projection: AdminWalletStatsSummary = serde_json::from_value(value).ok()?;
+    if projection.total_users < 0
+        || projection.active_users < 0
+        || projection.inactive_users < 0
+        || projection.new_users_30_days < 0
+        || projection
+            .active_users
+            .checked_add(projection.inactive_users)
+            != Some(projection.total_users)
+        || projection.new_users_30_days > projection.total_users
+    {
+        return None;
+    }
+    Some(projection)
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum WalletStatsLoad {
+    Ready(AdminWalletStatsSummary),
+    Forbidden,
+    Unavailable,
+    Malformed,
+}
+
+fn wallet_stats_load(ctx: &PageContext) -> WalletStatsLoad {
+    match ctx
+        .params
+        .get(ADMIN_WALLET_STATS_STATE_PARAM)
+        .map(String::as_str)
+    {
+        Some(ADMIN_WALLET_STATS_READY) => {
+            let Some(raw) = ctx.params.get(ADMIN_WALLET_STATS_DATA_PARAM) else {
+                return WalletStatsLoad::Malformed;
+            };
+            serde_json::from_str(raw)
+                .ok()
+                .and_then(decode_admin_wallet_stats_projection)
+                .map(WalletStatsLoad::Ready)
+                .unwrap_or(WalletStatsLoad::Malformed)
+        }
+        Some(ADMIN_WALLET_STATS_FORBIDDEN) => WalletStatsLoad::Forbidden,
+        Some(ADMIN_WALLET_STATS_MALFORMED) => WalletStatsLoad::Malformed,
+        Some(ADMIN_WALLET_STATS_UNAVAILABLE) | None => WalletStatsLoad::Unavailable,
+        Some(_) => WalletStatsLoad::Malformed,
+    }
+}
 
 #[derive(Clone, Copy, PartialEq)]
 enum WalletSurface {
@@ -72,7 +144,18 @@ impl WalletSurface {
 }
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    render_surface(ctx, WalletSurface::List, None)
+    let meta = PageMeta::admin("Wallets");
+    (
+        meta,
+        rsx! {
+            AuthGate {
+                user: ctx.user.clone(),
+                feature: Some("the private admin wallet workspace".to_string()),
+                return_url: Some(WALLETS_PATH.to_string()),
+                RenderWalletList { ctx: ctx.clone() }
+            }
+        },
+    )
 }
 
 /// The route value is a bounded, control-free, escaped diagnostic reference.
@@ -97,6 +180,198 @@ pub fn render_disable(ctx: &PageContext) -> (PageMeta, Element) {
             .unwrap_or_default(),
     );
     render_surface(ctx, WalletSurface::Disable, Some(reference))
+}
+
+#[component]
+fn RenderWalletList(ctx: PageContext) -> Element {
+    let load = wallet_stats_load(&ctx);
+
+    rsx! {
+        div {
+            "data-admin-wallets-surface": WalletSurface::List.marker(),
+            PageLayout {
+                max_width: Some(PageMaxWidth::SevenXl),
+                PageHeader {
+                    title: "Wallets".to_string(),
+                    subtitle: Some("Review backend-authoritative user status totals".to_string()),
+                    icon: Some("wallet".to_string()),
+                    gradient: Some(PageGradient::Primary),
+                    centered: Some(false),
+                    extra_actions: None,
+                    class_name: None,
+                }
+                match load {
+                    WalletStatsLoad::Ready(projection) => rsx! {
+                        WalletStatsReady { projection }
+                    },
+                    WalletStatsLoad::Forbidden => rsx! {
+                        WalletStatsProblem {
+                            state: ADMIN_WALLET_STATS_FORBIDDEN,
+                            title: "Wallet summary access was denied".to_string(),
+                            detail: "The backend did not authorize this session to read wallet status totals.".to_string(),
+                        }
+                    },
+                    WalletStatsLoad::Unavailable => rsx! {
+                        WalletStatsProblem {
+                            state: ADMIN_WALLET_STATS_UNAVAILABLE,
+                            title: "Wallet summary is unavailable".to_string(),
+                            detail: "The wallet backend could not provide an authoritative status summary. No totals are being shown.".to_string(),
+                        }
+                    },
+                    WalletStatsLoad::Malformed => rsx! {
+                        WalletStatsProblem {
+                            state: ADMIN_WALLET_STATS_MALFORMED,
+                            title: "Wallet summary could not be verified".to_string(),
+                            detail: "The backend response did not match the strict aggregate contract. No totals are being shown.".to_string(),
+                        }
+                    },
+                }
+                WalletInventoryUnavailableNotice {}
+            }
+        }
+    }
+}
+
+#[component]
+fn WalletStatsReady(projection: AdminWalletStatsSummary) -> Element {
+    let total = format_count(projection.total_users);
+    let active = format_count(projection.active_users);
+    let inactive = format_count(projection.inactive_users);
+    let new_30_days = format_count(projection.new_users_30_days);
+
+    rsx! {
+        section {
+            class: "overflow-hidden rounded-2xl border border-border/30 bg-card shadow-xl",
+            aria_labelledby: "admin-wallet-stats-title",
+            "data-admin-wallets-state": ADMIN_WALLET_STATS_READY,
+            div {
+                class: "h-1 bg-gradient-to-r from-[#1fc7d4] via-[#7645d9] to-[#31d0aa]",
+                aria_hidden: "true",
+            }
+            div { class: "p-5 sm:p-6",
+                h2 {
+                    id: "admin-wallet-stats-title",
+                    class: "text-lg font-semibold text-foreground",
+                    "User status summary"
+                }
+                p { class: "mt-1 max-w-3xl text-sm leading-6 text-muted-foreground",
+                    "These counts describe backend user records. Active and inactive are stored account statuses, not recent activity measurements."
+                }
+            }
+            dl {
+                class: "grid grid-cols-1 gap-px border-t border-border/30 bg-border/30 sm:grid-cols-2 xl:grid-cols-4",
+                WalletCount {
+                    label: "Total users".to_string(),
+                    value: total,
+                    detail: "All registered user records".to_string(),
+                }
+                WalletCount {
+                    label: "Users marked active".to_string(),
+                    value: active,
+                    detail: "Records with active status".to_string(),
+                }
+                WalletCount {
+                    label: "Users marked inactive".to_string(),
+                    value: inactive,
+                    detail: "Records with inactive status".to_string(),
+                }
+                WalletCount {
+                    label: "New users, past 30 days".to_string(),
+                    value: new_30_days,
+                    detail: "Records created in the last 30 days".to_string(),
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn WalletCount(label: String, value: String, detail: String) -> Element {
+    rsx! {
+        div { class: "min-w-0 bg-card p-5 sm:p-6",
+            dt { class: "text-sm font-medium text-muted-foreground", "{label}" }
+            dd { class: "mt-2 break-words text-3xl font-black tracking-tight text-foreground", "{value}" }
+            dd { class: "mt-2 text-xs leading-5 text-muted-foreground", "{detail}" }
+        }
+    }
+}
+
+#[component]
+fn WalletStatsProblem(state: &'static str, title: String, detail: String) -> Element {
+    rsx! {
+        section {
+            class: "rounded-2xl border border-amber-500/25 bg-amber-500/10 p-6 sm:p-8",
+            role: "status",
+            aria_labelledby: "admin-wallet-stats-problem-title",
+            "data-admin-wallets-state": state,
+            div { class: "flex flex-col gap-5 sm:flex-row sm:items-start",
+                div {
+                    class: "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-amber-500/25 bg-background/60 text-amber-700 dark:text-amber-300",
+                    aria_hidden: "true",
+                    Icon { name: "shield-alert".to_string(), size: Some(24) }
+                }
+                div { class: "min-w-0",
+                    h2 {
+                        id: "admin-wallet-stats-problem-title",
+                        class: "text-xl font-bold text-foreground",
+                        "{title}"
+                    }
+                    p { class: "mt-2 max-w-3xl text-sm leading-6 text-muted-foreground", "{detail}" }
+                    nav { class: "mt-5 flex flex-wrap gap-3", aria_label: "Wallet summary recovery",
+                        a { class: "btn btn-sm btn-outline", href: WALLETS_PATH,
+                            Icon { name: "refresh-cw".to_string(), size: Some(15) }
+                            " Retry summary"
+                        }
+                        a { class: "btn btn-sm btn-ghost", href: "/",
+                            Icon { name: "home".to_string(), size: Some(15) }
+                            " Admin home"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn WalletInventoryUnavailableNotice() -> Element {
+    rsx! {
+        section {
+            class: "mt-6 rounded-2xl border border-border/40 bg-muted/20 p-5 sm:p-6",
+            aria_labelledby: "admin-wallet-inventory-unavailable-title",
+            "data-admin-wallet-inventory-state": "unavailable",
+            div { class: "flex flex-col gap-4 sm:flex-row sm:items-start",
+                div {
+                    class: "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/40 bg-background/60 text-muted-foreground",
+                    aria_hidden: "true",
+                    Icon { name: "lock".to_string(), size: Some(19) }
+                }
+                div {
+                    h2 {
+                        id: "admin-wallet-inventory-unavailable-title",
+                        class: "font-semibold text-foreground",
+                        "Wallet inventory remains unavailable"
+                    }
+                    p { class: "mt-2 max-w-4xl text-sm leading-6 text-muted-foreground",
+                        "Wallet rows, filters, details, balances, plans, permissions, activity, and controls are not connected to an authorized typed contract and are not shown."
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn format_count(value: i64) -> String {
+    let digits = value.to_string();
+    let mut formatted = String::with_capacity(digits.len() + digits.len() / 3);
+    let first_group = digits.len() % 3;
+    for (index, byte) in digits.bytes().enumerate() {
+        if index > 0 && index % 3 == first_group {
+            formatted.push(',');
+        }
+        formatted.push(char::from(byte));
+    }
+    formatted
 }
 
 fn render_surface(
@@ -277,6 +552,29 @@ mod tests {
         dioxus_ssr::render_element(element)
     }
 
+    fn stats_json(total: i64, active: i64, inactive: i64, new_30_days: i64) -> String {
+        serde_json::json!({
+            "total_users": total,
+            "active_users": active,
+            "inactive_users": inactive,
+            "new_users_30_days": new_30_days,
+        })
+        .to_string()
+    }
+
+    fn ctx_with_stats(state: &str, data: Option<String>) -> PageContext {
+        let mut ctx = authenticated_ctx();
+        ctx.params.insert(
+            ADMIN_WALLET_STATS_STATE_PARAM.to_string(),
+            state.to_string(),
+        );
+        if let Some(data) = data {
+            ctx.params
+                .insert(ADMIN_WALLET_STATS_DATA_PARAM.to_string(), data);
+        }
+        ctx
+    }
+
     fn assert_no_samples_or_controls(rendered: &str) {
         let lowered = rendered.to_ascii_lowercase();
         for forbidden in [
@@ -306,6 +604,214 @@ mod tests {
                 "wallet UI leaked sample state or a control `{forbidden}`: {rendered}"
             );
         }
+    }
+
+    #[test]
+    fn strict_projection_accepts_zero_and_rejects_extra_or_impossible_counts() {
+        let zero = serde_json::json!({
+            "total_users": 0,
+            "active_users": 0,
+            "inactive_users": 0,
+            "new_users_30_days": 0,
+        });
+        assert_eq!(
+            decode_admin_wallet_stats_projection(zero),
+            Some(AdminWalletStatsSummary {
+                total_users: 0,
+                active_users: 0,
+                inactive_users: 0,
+                new_users_30_days: 0,
+            })
+        );
+
+        for malformed in [
+            serde_json::json!({
+                "total_users": -1,
+                "active_users": 0,
+                "inactive_users": 0,
+                "new_users_30_days": 0,
+            }),
+            serde_json::json!({
+                "total_users": 10,
+                "active_users": 8,
+                "inactive_users": 1,
+                "new_users_30_days": 1,
+            }),
+            serde_json::json!({
+                "total_users": 10,
+                "active_users": 8,
+                "inactive_users": 2,
+                "new_users_30_days": 11,
+            }),
+            serde_json::json!({
+                "total_users": 10,
+                "active_users": 8,
+                "inactive_users": 2,
+                "new_users_30_days": 1,
+                "growth_rate": 10.0,
+            }),
+        ] {
+            assert!(decode_admin_wallet_stats_projection(malformed).is_none());
+        }
+    }
+
+    #[test]
+    fn ready_summary_is_accessible_responsive_neutral_and_inventory_stays_unavailable() {
+        let ctx = ctx_with_stats(
+            ADMIN_WALLET_STATS_READY,
+            Some(stats_json(1_234, 900, 334, 56)),
+        );
+        let rendered = html(render(&ctx).1);
+
+        assert!(rendered.contains("data-admin-wallets-state=\"ready\""));
+        assert!(rendered.contains("data-admin-wallets-surface=\"list\""));
+        assert!(rendered.contains("aria-labelledby=\"admin-wallet-stats-title\""));
+        assert!(rendered.contains("sm:grid-cols-2"));
+        assert!(rendered.contains("xl:grid-cols-4"));
+        assert!(rendered.contains("Total users"));
+        assert!(rendered.contains("1,234"));
+        assert!(rendered.contains("Users marked active"));
+        assert!(rendered.contains(">900<"));
+        assert!(rendered.contains("Users marked inactive"));
+        assert!(rendered.contains(">334<"));
+        assert!(rendered.contains("New users, past 30 days"));
+        assert!(rendered.contains(">56<"));
+        assert!(rendered.contains("not recent activity measurements"));
+        assert!(rendered.contains("data-admin-wallet-inventory-state=\"unavailable\""));
+        assert!(rendered.contains("Wallet inventory remains unavailable"));
+        assert!(rendered.contains(
+            "Wallet rows, filters, details, balances, plans, permissions, activity, and controls"
+        ));
+        for forbidden in [
+            "active users, past 30 days",
+            "growth rate",
+            "tier distribution",
+            "users_by_tier",
+            "active_users_30_days",
+        ] {
+            assert!(!rendered.to_ascii_lowercase().contains(forbidden));
+        }
+        assert_no_samples_or_controls(&rendered);
+    }
+
+    #[test]
+    fn all_zero_counts_are_a_ready_summary_not_an_empty_or_unavailable_state() {
+        let ctx = ctx_with_stats(ADMIN_WALLET_STATS_READY, Some(stats_json(0, 0, 0, 0)));
+        let rendered = html(render(&ctx).1);
+
+        assert!(rendered.contains("data-admin-wallets-state=\"ready\""));
+        assert_eq!(rendered.matches(">0<").count(), 4, "{rendered}");
+        assert!(!rendered.contains("Wallet summary is unavailable"));
+        assert!(!rendered.contains("No users"));
+    }
+
+    #[test]
+    fn forbidden_unavailable_and_malformed_are_distinct_and_hide_stale_data() {
+        for (state, title) in [
+            (
+                ADMIN_WALLET_STATS_FORBIDDEN,
+                "Wallet summary access was denied",
+            ),
+            (
+                ADMIN_WALLET_STATS_UNAVAILABLE,
+                "Wallet summary is unavailable",
+            ),
+            (
+                ADMIN_WALLET_STATS_MALFORMED,
+                "Wallet summary could not be verified",
+            ),
+        ] {
+            let ctx = ctx_with_stats(state, Some(stats_json(777, 700, 77, 7)));
+            let rendered = html(render(&ctx).1);
+
+            assert!(rendered.contains(&format!("data-admin-wallets-state=\"{state}\"")));
+            assert!(rendered.contains(title));
+            assert!(!rendered.contains(">777<"));
+            assert!(!rendered.contains(">700<"));
+            assert!(rendered.contains("Wallet inventory remains unavailable"));
+            assert_no_samples_or_controls(&rendered);
+        }
+    }
+
+    #[test]
+    fn unknown_or_identity_fields_fail_closed_without_reaching_html() {
+        let ctx = ctx_with_stats(
+            ADMIN_WALLET_STATS_READY,
+            Some(
+                serde_json::json!({
+                    "total_users": 1,
+                    "active_users": 1,
+                    "inactive_users": 0,
+                    "new_users_30_days": 1,
+                    "wallet_address": "0xprivate-wallet",
+                    "email": "private@example.test",
+                    "balance": "999999",
+                    "plan": "private-enterprise-plan",
+                    "permissions": ["admin:all"],
+                    "growth_rate": 99.9,
+                    "active_users_30_days": 1,
+                    "users_by_tier": {"private": 1},
+                })
+                .to_string(),
+            ),
+        );
+        let rendered = html(render(&ctx).1);
+
+        assert!(rendered.contains("data-admin-wallets-state=\"malformed\""));
+        for private in [
+            "0xprivate-wallet",
+            "private@example.test",
+            "999999",
+            "private-enterprise-plan",
+            "admin:all",
+            "99.9",
+            "users_by_tier",
+        ] {
+            assert!(
+                !rendered.contains(private),
+                "leaked `{private}`: {rendered}"
+            );
+        }
+        assert_no_samples_or_controls(&rendered);
+    }
+
+    #[test]
+    fn list_projection_never_changes_detail_or_disable_unavailable_surfaces() {
+        let mut ctx = ctx_with_stats(
+            ADMIN_WALLET_STATS_READY,
+            Some(stats_json(1_234, 900, 334, 56)),
+        );
+        ctx.params
+            .insert("address".to_string(), "0xunverified".to_string());
+
+        for (surface, rendered) in [
+            ("detail", html(render_detail(&ctx).1)),
+            ("disable", html(render_disable(&ctx).1)),
+        ] {
+            assert!(rendered.contains("data-admin-wallets-state=\"unavailable\""));
+            assert!(rendered.contains(&format!("data-admin-wallets-surface=\"{surface}\"")));
+            assert!(!rendered.contains("User status summary"));
+            assert!(!rendered.contains("1,234"));
+            assert!(!rendered.contains("Users marked active"));
+            assert_no_samples_or_controls(&rendered);
+        }
+    }
+
+    #[test]
+    fn signed_out_ready_projection_is_private() {
+        let mut ctx = ctx_with_stats(
+            ADMIN_WALLET_STATS_READY,
+            Some(stats_json(1_234, 900, 334, 56)),
+        );
+        ctx.user = None;
+        let rendered = html(render(&ctx).1);
+
+        assert!(rendered.contains("Sign in required"));
+        assert!(!rendered.contains("data-admin-wallets-state"));
+        assert!(!rendered.contains("User status summary"));
+        assert!(!rendered.contains("1,234"));
+        assert!(!rendered.contains("Users marked active"));
+        assert_no_samples_or_controls(&rendered);
     }
 
     #[test]
@@ -405,7 +911,10 @@ mod tests {
 
     #[test]
     fn leaves_are_body_only_and_disable_surface_has_no_mutation_affordance() {
-        let mut ctx = authenticated_ctx();
+        let mut ctx = ctx_with_stats(
+            ADMIN_WALLET_STATS_READY,
+            Some(stats_json(1_234, 900, 334, 56)),
+        );
         ctx.params
             .insert("address".to_string(), "0xunverified".to_string());
 

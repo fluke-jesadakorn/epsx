@@ -353,8 +353,8 @@ if (JSON.stringify(expectedPaths) !== JSON.stringify(actualPaths)) fail("27-rout
 if (batchMembership.size !== 27 || [...batchMembership.keys()].some((path) => !seen.has(path))) {
   fail("batch membership must cover the exact 27-source-route set");
 }
-if (statuses.aligned !== 2 || statuses.partial !== 6 || statuses.blocked !== 19) {
-  fail("baseline status count must remain conservative at 2 aligned, 6 partial, and 19 blocked until evidence is updated deliberately");
+if (statuses.aligned !== 2 || statuses.partial !== 7 || statuses.blocked !== 18) {
+  fail("baseline status count must remain conservative at 2 aligned, 7 partial, and 18 blocked until evidence is updated deliberately");
 }
 const acceptedPartialPaths = [
   "/audit-log",
@@ -363,13 +363,14 @@ const acceptedPartialPaths = [
   "/notifications",
   "/notifications/manage",
   "/wallet-management",
+  "/wallet-management/wallets",
 ];
 const actualPartialPaths = contract.routes
   .filter((route: Json) => route.status === "partial")
   .map((route: Json) => route.path)
   .sort();
 if (JSON.stringify(actualPartialPaths) !== JSON.stringify(acceptedPartialPaths)) {
-  fail("partial status must remain limited to the accepted six-route evidence set");
+  fail("partial status must remain limited to the accepted seven-route evidence set");
 }
 
 const nonAligned = statuses.partial + statuses.blocked;

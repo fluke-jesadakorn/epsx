@@ -316,22 +316,22 @@ pub struct BulkPermissionValidationResponse {
 pub struct WalletStatsResponse {
     /// Total number of registered wallet users
     #[schema(example = 1250)]
-    pub total_users: i32,
+    pub total_users: i64,
     /// Number of currently active users
     #[schema(example = 980)]
-    pub active_users: i32,
+    pub active_users: i64,
     /// Number of inactive users
     #[schema(example = 270)]
-    pub inactive_users: i32,
+    pub inactive_users: i64,
     /// User distribution by tier (deprecated - shows empty object)
     #[schema(example = json!({}))]
     pub users_by_tier: serde_json::Value,
     /// Number of new users in the last 30 days
     #[schema(example = 85)]
-    pub new_users_30_days: i32,
+    pub new_users_30_days: i64,
     /// Number of active users in the last 30 days
     #[schema(example = 650)]
-    pub active_users_30_days: i32,
+    pub active_users_30_days: i64,
     /// Monthly growth rate percentage
     #[schema(example = 7.2)]
     pub growth_rate: f64,
@@ -348,6 +348,49 @@ impl From<query_models::WalletStatsDto> for WalletStatsResponse {
             active_users_30_days: dto.active_users_30_days,
             growth_rate: dto.growth_rate,
         }
+    }
+}
+
+#[cfg(test)]
+mod wallet_stats_projection_tests {
+    use super::*;
+
+    #[test]
+    fn dto_to_web_projection_preserves_large_counts_and_count_invariants() {
+        let active_users = i64::from(i32::MAX) + 17;
+        let inactive_users = 29;
+        let total_users = active_users + inactive_users;
+        let new_users_30_days = 11;
+        let dto = query_models::WalletStatsDto {
+            total_users,
+            active_users,
+            inactive_users,
+            new_users_30_days,
+            active_users_30_days: active_users,
+            growth_rate: 0.5,
+        };
+
+        let response = WalletStatsResponse::from(dto);
+
+        assert_eq!(response.total_users, total_users);
+        assert_eq!(response.active_users, active_users);
+        assert_eq!(response.inactive_users, inactive_users);
+        assert_eq!(response.new_users_30_days, new_users_30_days);
+        assert!(response.total_users > i64::from(i32::MAX));
+        assert_eq!(
+            response.active_users + response.inactive_users,
+            response.total_users
+        );
+        assert!(response.new_users_30_days <= response.total_users);
+
+        let wire = serde_json::to_value(&response).expect("wallet stats serialize");
+        assert_eq!(wire["total_users"], serde_json::json!(total_users));
+        assert_eq!(wire["active_users"], serde_json::json!(active_users));
+        assert_eq!(wire["inactive_users"], serde_json::json!(inactive_users));
+        assert_eq!(
+            wire["new_users_30_days"],
+            serde_json::json!(new_users_30_days)
+        );
     }
 }
 

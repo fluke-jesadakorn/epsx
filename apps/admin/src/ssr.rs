@@ -41,6 +41,10 @@ use epsx_dioxus_ui::pages::admin_pages::payments::{
     ADMIN_PAYMENTS_PAYER_PARAM, ADMIN_PAYMENTS_READY, ADMIN_PAYMENTS_STATE_PARAM,
     ADMIN_PAYMENTS_STATUS_PARAM, ADMIN_PAYMENTS_TAB_PARAM, ADMIN_PAYMENTS_UNAVAILABLE,
 };
+use epsx_dioxus_ui::pages::admin_pages::wallet_wallets::{
+    ADMIN_WALLET_STATS_DATA_PARAM, ADMIN_WALLET_STATS_FORBIDDEN, ADMIN_WALLET_STATS_MALFORMED,
+    ADMIN_WALLET_STATS_READY, ADMIN_WALLET_STATS_STATE_PARAM, ADMIN_WALLET_STATS_UNAVAILABLE,
+};
 use epsx_dioxus_ui::pages::{admin_pages, render_page, PageContext, PageStatus};
 use std::collections::HashMap;
 
@@ -50,6 +54,9 @@ use super::media_adapter::{load_admin_media, AdminMediaLoad, AdminMediaQuery};
 use super::news_adapter::{load_admin_news, AdminNewsLoad, AdminNewsQuery};
 use super::notification_admin_adapter::{
     load_admin_notifications, AdminNotificationLoad, AdminNotificationQuery,
+};
+use super::wallet_stats_adapter::{
+    load_admin_wallet_stats, AdminWalletStatsLoad, AdminWalletStatsQuery,
 };
 use super::AppState;
 
@@ -86,6 +93,30 @@ fn record_admin_media_load(
         AdminMediaLoad::Malformed => ADMIN_MEDIA_MALFORMED,
     };
     params.insert(ADMIN_MEDIA_STATE_PARAM.to_string(), state.to_string());
+}
+
+fn record_admin_wallet_stats_load(
+    params: &mut HashMap<String, String>,
+    load: AdminWalletStatsLoad,
+) {
+    params.remove(ADMIN_WALLET_STATS_DATA_PARAM);
+    let state = match load {
+        AdminWalletStatsLoad::Ready(payload) => {
+            params.insert(
+                ADMIN_WALLET_STATS_DATA_PARAM.to_string(),
+                serde_json::to_string(&payload)
+                    .expect("the typed admin wallet-stats projection is serializable"),
+            );
+            ADMIN_WALLET_STATS_READY
+        }
+        AdminWalletStatsLoad::Forbidden => ADMIN_WALLET_STATS_FORBIDDEN,
+        AdminWalletStatsLoad::Unavailable => ADMIN_WALLET_STATS_UNAVAILABLE,
+        AdminWalletStatsLoad::Malformed => ADMIN_WALLET_STATS_MALFORMED,
+    };
+    params.insert(
+        ADMIN_WALLET_STATS_STATE_PARAM.to_string(),
+        state.to_string(),
+    );
 }
 
 fn page_owns_admin_shell(layout_path: &str) -> bool {
@@ -265,6 +296,18 @@ fn record_payment_intent_load(
     }
 }
 
+/// Strip exactly one canonical admin mount prefix. Repeated prefixes remain
+/// in the routed path and therefore cannot alias an allowlisted admin loader.
+fn strip_single_admin_prefix(path: &str) -> Option<&str> {
+    if path == "/admin" {
+        Some("/")
+    } else if path.starts_with("/admin/") {
+        path.strip_prefix("/admin")
+    } else {
+        None
+    }
+}
+
 pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Response {
     let (parts, _body) = request.into_parts();
     let path = parts.uri.path().to_string();
@@ -286,16 +329,32 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     // outcome is explicit; an upstream error or malformed payload is never
     // represented as an authoritative empty list.
     let mut params = HashMap::new();
-    let route_path = if path.starts_with("/admin") {
-        let stripped = path.trim_start_matches("/admin");
-        if stripped.is_empty() {
-            "/"
-        } else {
-            stripped
+    let route_path = strip_single_admin_prefix(&path).unwrap_or(path.as_str());
+    // Wallet inventory starts with one narrow aggregate read. The adapter
+    // accepts no query grammar, sends only the canonical verified bearer and
+    // request ID, and projects four counts; wallet rows and every mutation
+    // remain unavailable.
+    if route_path == "/wallet-management/wallets" {
+        match AdminWalletStatsQuery::from_raw(&query) {
+            Ok(wallet_stats_query) => match verified_access_token.as_ref() {
+                Some(token) => {
+                    let mut request_context = RequestContext::from_headers(&headers);
+                    request_context.auth_token = Some(token.clone());
+                    let load = load_admin_wallet_stats(
+                        &state.wallet,
+                        wallet_stats_query,
+                        &request_context,
+                    )
+                    .await;
+                    record_admin_wallet_stats_load(&mut params, load);
+                }
+                None => {
+                    record_admin_wallet_stats_load(&mut params, AdminWalletStatsLoad::Unavailable)
+                }
+            },
+            Err(()) => record_admin_wallet_stats_load(&mut params, AdminWalletStatsLoad::Malformed),
         }
-    } else {
-        path.as_str()
-    };
+    }
     if route_path == "/payments" {
         match (
             super::payment_tab(&query),
@@ -484,9 +543,9 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     // check fail — the AuthGate overlay then masked the
     // red-shield Access Denied panel and ballooned the
     // pixel-diff to ~99%.
-    let (meta, body_element, layout_path) = if path.starts_with("/admin") {
-        let p = path.trim_start_matches("/admin").to_string();
-        let stripped = if p.is_empty() { "/".to_string() } else { p };
+    let (meta, body_element, layout_path) = if let Some(stripped) = strip_single_admin_prefix(&path)
+    {
+        let stripped = stripped.to_string();
         let mut c = ctx.clone();
         c.path = stripped.clone();
         let (m, b) = admin_pages::dispatch(&c);
@@ -709,6 +768,7 @@ mod tests {
         pages::admin_pages::media::{AdminMediaList, AdminMediaObject},
         pages::admin_pages::news::{AdminNewsArticleSummary, AdminNewsList},
         pages::admin_pages::notifications::{AdminNotificationList, AdminNotificationSummary},
+        pages::admin_pages::wallet_wallets::AdminWalletStatsSummary,
         pages::PageContext,
     };
 
@@ -856,13 +916,9 @@ mod tests {
     fn render_admin_html_with_user(path: &str, user: Option<User>) -> String {
         let mut ctx = build_ctx(path);
         ctx.user = user.clone();
-        let admin_path = path.trim_start_matches("/admin").to_string();
+        let admin_path = strip_single_admin_prefix(path).unwrap_or(path).to_string();
         let mut c = ctx.clone();
-        c.path = if admin_path.is_empty() {
-            "/".to_string()
-        } else {
-            admin_path
-        };
+        c.path = admin_path;
         let (meta, body) = admin_pages::dispatch(&c);
         let server_user = user.as_ref().map(|user| ServerUser {
             id: user.id.clone(),
@@ -921,6 +977,52 @@ mod tests {
             html
         );
         assert_eq!(html.matches("class=\"admin-sidebar ").count(), 1);
+    }
+
+    #[test]
+    fn wallet_inventory_keeps_bff_owned_shell() {
+        assert!(!page_owns_admin_shell("/wallet-management/wallets"));
+        let user = User {
+            id: "admin-session".to_string(),
+            address: "0x1234".to_string(),
+            chain_id: "56".to_string(),
+            roles: vec![],
+            email: None,
+            tier: None,
+            permissions: vec![],
+            last_login_at: None,
+            auth_method: AuthMethod::Siwe,
+            display_name: None,
+        };
+        let html = render_admin_html_with_user("/admin/wallet-management/wallets", Some(user));
+
+        assert_eq!(
+            html.matches("class=\"admin-sidebar ").count(),
+            1,
+            "wallet inventory must remain body-only inside one BFF shell: {html}"
+        );
+    }
+
+    #[test]
+    fn admin_mount_prefix_is_boundary_aware_and_removed_only_once() {
+        assert_eq!(strip_single_admin_prefix("/admin"), Some("/"));
+        assert_eq!(
+            strip_single_admin_prefix("/admin/wallet-management/wallets"),
+            Some("/wallet-management/wallets")
+        );
+        assert_eq!(
+            strip_single_admin_prefix("/admin/admin/wallet-management/wallets"),
+            Some("/admin/wallet-management/wallets")
+        );
+        assert_eq!(strip_single_admin_prefix("/administrator"), None);
+
+        let mut ctx = build_ctx("/admin/admin/wallet-management/wallets");
+        ctx.path = strip_single_admin_prefix(&ctx.path).unwrap().to_string();
+        let (meta, body) = admin_pages::dispatch(&ctx);
+        assert_eq!(meta.status, PageStatus::NotFound);
+        let rendered = dioxus_ssr::render_element(body);
+        assert!(!rendered.contains("data-admin-wallets-state"));
+        assert!(!rendered.contains("data-admin-wallet-stats"));
     }
 
     #[test]
@@ -1114,6 +1216,75 @@ mod tests {
             Some(ADMIN_PAYMENTS_UNAVAILABLE)
         );
         assert!(!params.contains_key(ADMIN_PAYMENTS_DATA_PARAM));
+    }
+
+    #[test]
+    fn admin_wallet_stats_load_records_only_the_safe_count_projection() {
+        let mut params = HashMap::new();
+        record_admin_wallet_stats_load(
+            &mut params,
+            AdminWalletStatsLoad::Ready(AdminWalletStatsSummary {
+                total_users: 11,
+                active_users: 8,
+                inactive_users: 3,
+                new_users_30_days: 2,
+            }),
+        );
+
+        assert_eq!(
+            params
+                .get(ADMIN_WALLET_STATS_STATE_PARAM)
+                .map(String::as_str),
+            Some(ADMIN_WALLET_STATS_READY)
+        );
+        let stored: serde_json::Value =
+            serde_json::from_str(params.get(ADMIN_WALLET_STATS_DATA_PARAM).unwrap()).unwrap();
+        assert_eq!(stored["total_users"], 11);
+        assert_eq!(stored["active_users"], 8);
+        assert_eq!(stored["inactive_users"], 3);
+        assert_eq!(stored["new_users_30_days"], 2);
+        for forbidden in [
+            "users_by_tier",
+            "active_users_30_days",
+            "growth_rate",
+            "timestamp",
+            "message",
+            "performed_by",
+            "metadata",
+        ] {
+            assert!(stored.get(forbidden).is_none(), "{forbidden}");
+        }
+    }
+
+    #[test]
+    fn admin_wallet_stats_failure_states_remove_stale_projection_data() {
+        for (load, expected) in [
+            (
+                AdminWalletStatsLoad::Forbidden,
+                ADMIN_WALLET_STATS_FORBIDDEN,
+            ),
+            (
+                AdminWalletStatsLoad::Unavailable,
+                ADMIN_WALLET_STATS_UNAVAILABLE,
+            ),
+            (
+                AdminWalletStatsLoad::Malformed,
+                ADMIN_WALLET_STATS_MALFORMED,
+            ),
+        ] {
+            let mut params = HashMap::from([(
+                ADMIN_WALLET_STATS_DATA_PARAM.to_string(),
+                "stale-sensitive-wallet-stats".to_string(),
+            )]);
+            record_admin_wallet_stats_load(&mut params, load);
+            assert_eq!(
+                params
+                    .get(ADMIN_WALLET_STATS_STATE_PARAM)
+                    .map(String::as_str),
+                Some(expected)
+            );
+            assert!(!params.contains_key(ADMIN_WALLET_STATS_DATA_PARAM));
+        }
     }
 
     #[test]

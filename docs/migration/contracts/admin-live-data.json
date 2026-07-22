@@ -40,12 +40,47 @@
         "record_admin_notification_load(&mut params, &notification_query, load);",
         "record_admin_audit_load(&mut params, &audit_query, load);",
         "record_admin_media_load(&mut params, &media_query, load);",
+        "record_admin_wallet_stats_load(&mut params, load);",
+        "load_admin_wallet_stats(",
         "load_admin_media(&state.content, &media_query, &request_context).await",
+        "fn strip_single_admin_prefix(path: &str) -> Option<&str>",
+        "fn admin_mount_prefix_is_boundary_aware_and_removed_only_once()",
         "let (m, b) = admin_pages::dispatch(&c);",
         "fn safe_admin_layout_path(layout_path: &str, is_authenticated: bool) -> String",
         "let status = match meta.status"
       ],
-      "finding": "SSR verifies a session and keeps data params empty by default; signed-out dynamic chat, news-edit, wallet, disable, and plan shells reduce layout paths to static collections so breadcrumbs and return URLs cannot disclose route references; payment intents, the admin news list, the redacted global notification inventory, the redacted audit inventory, and the news/public media compatibility inventory perform normalized authenticated reads with explicit non-empty, empty, forbidden where applicable, unavailable, or malformed outcomes."
+      "finding": "SSR verifies a session and keeps data params empty by default; signed-out dynamic chat, news-edit, wallet, disable, and plan shells reduce layout paths to static collections so breadcrumbs and return URLs cannot disclose route references; a boundary-aware helper removes exactly one canonical admin mount prefix so repeated prefixes cannot alias an allowlisted loader; payment intents, the admin news list, the redacted global notification inventory, the redacted audit inventory, the news/public media compatibility inventory, and the four-count wallet summary perform normalized authenticated reads with explicit ready, empty where applicable, forbidden where applicable, unavailable, or malformed outcomes."
+    },
+    {
+      "file": "apps/admin/src/wallet_stats_adapter.rs",
+      "anchors": [
+        "const WALLET_STATS_PATH: &str = \"/api/admin/wallets/stats\";",
+        "pub(crate) fn from_raw(raw_query: &str) -> Result<Self, ()>",
+        ".redirect(reqwest::redirect::Policy::none())",
+        "MAX_ADMIN_WALLET_STATS_RESPONSE_BYTES",
+        ".bearer_auth(token)",
+        "#[serde(deny_unknown_fields)]",
+        "admin_meta.operation != \"get_user_stats\"",
+        ".checked_add(inactive_users)",
+        "new_users_30_days > total_users",
+        "fn loader_never_follows_redirects_with_the_admin_bearer()",
+        "fn loader_caps_declared_and_streamed_response_bodies()"
+      ],
+      "finding": "The wallet-summary adapter accepts no query grammar, targets only the exact legacy admin GET, forwards only a verified bearer and request ID, follows no redirects, caps declared and streamed bodies at 256 KiB, strictly decodes the full envelope, and rejects negative, overflowing, or inconsistent counts. Only total, active, inactive, and new-30-day i64 values enter SSR state; every row, identity, compatibility field, message, actor, and timestamp is discarded."
+    },
+    {
+      "file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_wallets.rs",
+      "anchors": [
+        "pub struct AdminWalletStatsSummary",
+        "pub fn decode_admin_wallet_stats_projection(",
+        "\"data-admin-wallets-state\": ADMIN_WALLET_STATS_READY",
+        "\"data-admin-wallet-inventory-state\": \"unavailable\"",
+        "fn all_zero_counts_are_a_ready_summary_not_an_empty_or_unavailable_state()",
+        "fn forbidden_unavailable_and_malformed_are_distinct_and_hide_stale_data()",
+        "fn signed_out_ready_projection_is_private()",
+        "fn leaves_are_body_only_and_disable_surface_has_no_mutation_affordance()"
+      ],
+      "finding": "The body-only wallet-list page independently validates the four-count projection, treats zero as ready, distinguishes forbidden, unavailable, and malformed states, and always presents a separate inventory-unavailable notice. Focused Rust tests cover redaction, signed-out privacy, accessible responsive semantics, no nested shell, no rows or identities, and no detail, disable, or other mutation affordance."
     },
     {
       "file": "apps/admin/src/news_adapter.rs",
@@ -503,11 +538,11 @@
       "path": "/settings", "batch": "B1-command-security", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/settings/page.tsx", "anchors": ["export default function SettingsPage", "<SettingsDashboard />"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/settings.rs", "handler": "settings::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-admin-settings-state\": \"unavailable\"", "fn unavailable_state_has_no_samples_secrets_sessions_or_mutation_labels()"]},
-      "params": {"names": ["section"], "current": "legacy section and local editor values are ignored"},
-      "data": {"reads": ["platform settings", "API keys", "sessions", "appearance"], "endpoints": [], "current": "verified-session explicit unavailable state with no configuration defaults, credentials, account records, device sessions, or editable values", "fallbacks": []},
+      "params": {"names": ["tab"], "current": "legacy tab values general, notifications, security, and appearance plus local editor values are ignored"},
+      "data": {"reads": ["general settings", "notification settings", "security timeout", "appearance settings"], "endpoints": ["GET /api/admin/settings"], "current": "verified-session explicit unavailable state with no configuration defaults, credentials, account records, device sessions, or editable values; the source GET and its conflicting default substitution are inventoried but not consumed", "fallbacks": []},
       "permissions": {"read": ["dedicated backend settings read decision required"], "manage": ["admin:settings:manage"], "current": "session-only unavailable shell behind admin BFF audience verification; no settings role or capability is inferred by the frontend"},
-      "mutations": [],
-      "contracts": {"bodies": [], "envelopes": ["typed versioned field-redacted settings response required"], "statuses": ["safe forbidden, validation, conflict, and dependency classes unresolved"]},
+      "mutations": [{"name": "deploy complete settings snapshot", "method": "PUT", "endpoint": "/api/admin/settings", "current": "absent from Rust; the source sends all ten editor fields through a non-transactional arbitrary JSON upsert without version or conflict protection"}, {"name": "reset all settings", "method": "POST", "endpoint": "/api/admin/settings/reset", "current": "absent from Rust; the source operation deletes and reinserts outside a transaction and cannot prove atomic recovery"}],
+      "contracts": {"bodies": ["typed allowlisted ten-field update, version precondition, and atomic reset contract required"], "envelopes": ["typed versioned field-redacted settings response required"], "statuses": ["safe forbidden, validation, conflict, partial-failure, and dependency classes unresolved"]},
       "states": {"loading": "missing", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "missing", "conflict": "not-applicable"},
       "ux": {"keyboard": "native retry and admin-home links; focused browser proof remains open", "responsive": "responsive page-owned unavailable shell present; focused browser proof remains open", "hydration": "not required because no settings data or mutation control is exposed"},
       "blockers": ["add a dedicated backend read/manage split and typed field-redacted BFF adapter, replace default-on-empty behavior with an authoritative versioned contract, and prove validation, optimistic concurrency, secret handling, session safety, auditability, and browser states before enabling mutations"]
@@ -604,17 +639,17 @@
       "blockers": ["separate backend credits read/manage authority, replace the GET path's get-or-create balance side effect with a non-mutating typed bounded read, add a BFF adapter, and keep grant/revoke disabled until validation, idempotency, concurrency, audit, notification durability, and financial recovery evidence pass"]
     },
     {
-      "path": "/wallet-management/wallets", "batch": "B6-wallets-plans", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A9", "A11", "A12"],
+      "path": "/wallet-management/wallets", "batch": "B6-wallets-plans", "status": "partial", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A9", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/wallet-management/wallets/page.tsx", "anchors": ["export default async function WalletsPage", "fetchWalletsAction"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_wallets.rs", "handler": "wallet_wallets::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-admin-wallets-state\": \"unavailable\"", "fn query_and_unrelated_params_never_create_wallet_state()"]},
-      "params": {"names": ["page", "limit", "search", "status", "chain"], "current": "query and unrelated params are ignored until a backend-owned list contract validates them"},
-      "data": {"reads": ["wallets", "pagination", "aggregate stats"], "endpoints": ["GET /api/v1/wallet/accounts"], "current": "verified-session explicit unavailable list state with no wallet rows, counts, balances, plans, permissions, filters, or inferred empty result", "fallbacks": []},
-      "permissions": {"read": ["admin:users:read"], "manage": ["admin:users:update"], "current": "session-only unavailable shell; backend wallet list authorization remains authoritative"},
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_wallets.rs", "handler": "wallet_wallets::render", "anchors": ["pub fn render(ctx: &PageContext)", "ADMIN_WALLET_STATS_READY", "\"data-admin-wallet-inventory-state\": \"unavailable\"", "fn ready_summary_is_accessible_responsive_neutral_and_inventory_stays_unavailable()"]},
+      "params": {"names": [], "current": "the summary accepts no query grammar; every non-empty query is malformed and cannot influence upstream selection or displayed counts"},
+      "data": {"reads": ["total user records", "active user records", "inactive user records", "new user records in the last 30 days"], "endpoints": ["GET /api/admin/wallets/stats"], "current": "verified-session SSR projects only four non-negative i64 aggregate counts; total must equal active plus inactive, new-30-days cannot exceed total, zero is ready data, and wallet rows plus every identity or misleading compatibility field are discarded", "fallbacks": []},
+      "permissions": {"read": ["admin:users:read"], "manage": ["admin:users:update"], "current": "the admin BFF requires an exact verified admin session before the read and the mounted monolith stats route enforces admin:users:read; direct monolith exact-audience enforcement remains unresolved"},
       "mutations": [],
-      "contracts": {"bodies": [], "envelopes": ["wallet proxy JSON unconsumed"], "statuses": ["allowlisted BFF status is preserved; typed errors remain unconsumed"]},
-      "states": {"loading": "missing", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "missing", "conflict": "not-applicable"},
-      "ux": {"keyboard": "native retry and admin-home links; focused browser proof remains open", "responsive": "responsive unavailable shell present; focused browser proof remains open", "hydration": "not required because no wallet rows or table controls are exposed"},
-      "blockers": ["consume an authoritative authorized paginated wallet projection, preserve validated query state, and prove loaded/empty/error/retry/forbidden plus table keyboard/responsive behavior"]
+      "contracts": {"bodies": [], "envelopes": ["strict AdminApiResponse wallet-stats envelope with exact metadata shape, RFC3339 response timestamp, 256 KiB cap, and four-field SSR projection"], "statuses": ["exact 200 is decoded; 403 is forbidden; other upstream statuses are unavailable; redirects are rejected; malformed shape or count relationships fail closed"]},
+      "states": {"loading": "not-applicable", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "present", "conflict": "not-applicable"},
+      "ux": {"keyboard": "native retry and admin-home links are present for failure states; the ready summary has no interactive control; focused browser proof remains open", "responsive": "one-to-two-to-four-column aggregate definition list plus a separate inventory-unavailable notice are statically covered; focused browser overflow/layout proof remains open", "hydration": "not required because the aggregate read is SSR-only and wallet list/filter/detail/mutation controls remain absent"},
+      "blockers": ["enforce the exact admin audience on direct monolith access or move the aggregate to an extracted wallet authority; add isolated database and authenticated browser proof; repair the source list contract's inactive filter, count aliases, last-activity semantics, arbitrary metadata, deterministic ordering, pagination bounds, and failure states before exposing rows or filters; keep detail, enable/disable, metadata, plan, permission, balance, activity, export, and every mutation unavailable until their authorization, validation, conflict, idempotency, audit, and recovery contracts pass"]
     },
     {
       "path": "/wallet-management/wallets/:address/disable", "batch": "B7-mutations", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A9", "A11", "A12"],

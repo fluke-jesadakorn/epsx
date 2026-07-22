@@ -27,6 +27,7 @@ mod session_auth;
 #[cfg(test)]
 mod session_auth_tests;
 mod ssr;
+mod wallet_stats_adapter;
 
 #[derive(Clone)]
 struct AppState {
