@@ -38,6 +38,7 @@
       "services/indexer/src/ingestion/memory.rs",
       "services/indexer/src/ingestion/mod.rs",
       "services/indexer/src/ingestion/ports.rs",
+      "services/indexer/src/ingestion/postgres/apply.rs",
       "services/indexer/src/ingestion/postgres/candidates.rs",
       "services/indexer/src/ingestion/postgres/codec.rs",
       "services/indexer/src/ingestion/postgres/journal.rs",
@@ -105,6 +106,11 @@
         "sha256": "395e589d5eb05c5d8577d9a15bf1c131f3d1c114ff3eb3289985b97424d6d547"
       },
       {
+        "path": "services/indexer/src/ingestion/postgres/apply.rs",
+        "bytes": 32459,
+        "sha256": "9fa47a20ad987c47d173f5d5a88dd3a2b3e8dd05c6563aefb19c6407c05311f0"
+      },
+      {
         "path": "services/indexer/src/ingestion/postgres/candidates.rs",
         "bytes": 19643,
         "sha256": "9bccc08effb68e06593469f93d779cc2a12bad088b6698b3eded8d2de4128180"
@@ -126,8 +132,8 @@
       },
       {
         "path": "services/indexer/src/ingestion/postgres/mod.rs",
-        "bytes": 581,
-        "sha256": "c405807a2bf7ad0c3f3550a01d8df519f71a6363cb29165b762c60a48d6bc537"
+        "bytes": 2688,
+        "sha256": "0f654458fb35646ec55866568aade1ed3bba77a85c480a2d910da44db15d467b"
       },
       {
         "path": "services/indexer/src/ingestion/postgres/reads.rs",
@@ -140,7 +146,7 @@
     "publicExport": false,
     "mainCallsite": false,
     "repositoryVisibility": "pub(super)",
-    "poolHolderOnly": true,
+    "poolHolderOnly": false,
     "parentConflictTargetOnly": true,
     "strictChildInserts": true,
     "fullCandidateReload": true,
@@ -165,9 +171,9 @@
     "journalModulePrivate": true,
     "replayIfPresentPrimitive": true,
     "replayMustPrecedeLease": true,
-    "replayBeforeLeaseCallsite": false,
-    "applyCoordinator": false,
-    "journalTraitImplementation": false,
+    "replayBeforeLeaseCallsite": true,
+    "applyCoordinator": true,
+    "journalTraitImplementation": true,
     "exactJournalHeaderReplay": true,
     "orderedRoleLocalDenseMembers": true,
     "fullAttachedCandidateReload": true,
@@ -179,6 +185,9 @@
     "journalUpdateOrDelete": false,
     "journalTransactionOwnership": false,
     "journalActivated": false,
+    "atomicityDatabaseProof": false,
+    "concurrencyDatabaseProof": false,
+    "cancellationDatabaseProof": false,
     "usesUtcNow": false,
     "usesAdvisoryLocks": false,
     "providerActivated": false,
@@ -191,7 +200,7 @@
     "executed": false,
     "testEvidence": {
       "defaultLibraryPassed": 33,
-      "featureLibraryPassed": 56,
+      "featureLibraryPassed": 62,
       "binaryPassed": 4
     }
   },

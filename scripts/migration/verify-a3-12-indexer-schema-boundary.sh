@@ -92,6 +92,7 @@ exact("Rust inventory", [
   "services/indexer/src/ingestion/memory.rs",
   "services/indexer/src/ingestion/mod.rs",
   "services/indexer/src/ingestion/ports.rs",
+  "services/indexer/src/ingestion/postgres/apply.rs",
   "services/indexer/src/ingestion/postgres/candidates.rs",
   "services/indexer/src/ingestion/postgres/codec.rs",
   "services/indexer/src/ingestion/postgres/journal.rs",
@@ -144,11 +145,12 @@ const adapter = fixture.dormantAdapterBoundary;
 const adapterSourcePins = [
   { path: "services/indexer/Cargo.toml", bytes: 771, sha256: "9cd598ce3adeac3fde3ec021704ee5213b93622d6d6ff8e836e0b0c2b165a135" },
   { path: "services/indexer/src/ingestion/mod.rs", bytes: 1170, sha256: "395e589d5eb05c5d8577d9a15bf1c131f3d1c114ff3eb3289985b97424d6d547" },
+  { path: "services/indexer/src/ingestion/postgres/apply.rs", bytes: 32459, sha256: "9fa47a20ad987c47d173f5d5a88dd3a2b3e8dd05c6563aefb19c6407c05311f0" },
   { path: "services/indexer/src/ingestion/postgres/candidates.rs", bytes: 19643, sha256: "9bccc08effb68e06593469f93d779cc2a12bad088b6698b3eded8d2de4128180" },
   { path: "services/indexer/src/ingestion/postgres/codec.rs", bytes: 5891, sha256: "693e1ddba5a8f8808251ed8be68f547b5a8da1122eec954a741ca8c0c95f9915" },
   { path: "services/indexer/src/ingestion/postgres/journal.rs", bytes: 43871, sha256: "8aa885d3194222fbeb60e9eb034b8c1af7183d54525185fef045c596d62ab839" },
   { path: "services/indexer/src/ingestion/postgres/leases.rs", bytes: 11531, sha256: "20adcdc84b1fd970ed404d2ac9219b3de827ca01a84ece33813cfaf6ba690910" },
-  { path: "services/indexer/src/ingestion/postgres/mod.rs", bytes: 581, sha256: "c405807a2bf7ad0c3f3550a01d8df519f71a6363cb29165b762c60a48d6bc537" },
+  { path: "services/indexer/src/ingestion/postgres/mod.rs", bytes: 2688, sha256: "0f654458fb35646ec55866568aade1ed3bba77a85c480a2d910da44db15d467b" },
   { path: "services/indexer/src/ingestion/postgres/reads.rs", bytes: 20505, sha256: "b87bf78f4773b8f63d619a058d262462200bcb606c2c2c909337fe1a52809cce" }
 ];
 exact("dormant adapter source pins", adapterSourcePins, adapter?.sourcePins);
@@ -167,7 +169,7 @@ exact("dormant adapter boundary", {
   publicExport: false,
   mainCallsite: false,
   repositoryVisibility: "pub(super)",
-  poolHolderOnly: true,
+  poolHolderOnly: false,
   parentConflictTargetOnly: true,
   strictChildInserts: true,
   fullCandidateReload: true,
@@ -192,9 +194,9 @@ exact("dormant adapter boundary", {
   journalModulePrivate: true,
   replayIfPresentPrimitive: true,
   replayMustPrecedeLease: true,
-  replayBeforeLeaseCallsite: false,
-  applyCoordinator: false,
-  journalTraitImplementation: false,
+  replayBeforeLeaseCallsite: true,
+  applyCoordinator: true,
+  journalTraitImplementation: true,
   exactJournalHeaderReplay: true,
   orderedRoleLocalDenseMembers: true,
   fullAttachedCandidateReload: true,
@@ -206,6 +208,9 @@ exact("dormant adapter boundary", {
   journalUpdateOrDelete: false,
   journalTransactionOwnership: false,
   journalActivated: false,
+  atomicityDatabaseProof: false,
+  concurrencyDatabaseProof: false,
+  cancellationDatabaseProof: false,
   usesUtcNow: false,
   usesAdvisoryLocks: false,
   providerActivated: false,
@@ -216,10 +221,11 @@ exact("dormant adapter boundary", {
   databaseWrite: false,
   runtimeAdapter: false,
   executed: false,
-  testEvidence: { defaultLibraryPassed: 33, featureLibraryPassed: 56, binaryPassed: 4 }
+  testEvidence: { defaultLibraryPassed: 33, featureLibraryPassed: 62, binaryPassed: 4 }
 }, adapter);
 const cargo = pinnedAdapterSources.get("services/indexer/Cargo.toml");
 const ingestion = pinnedAdapterSources.get("services/indexer/src/ingestion/mod.rs");
+const apply = pinnedAdapterSources.get("services/indexer/src/ingestion/postgres/apply.rs");
 const postgresModule = pinnedAdapterSources.get("services/indexer/src/ingestion/postgres/mod.rs");
 const candidates = pinnedAdapterSources.get("services/indexer/src/ingestion/postgres/candidates.rs");
 const codec = pinnedAdapterSources.get("services/indexer/src/ingestion/postgres/codec.rs");
@@ -231,12 +237,24 @@ if ((ingestion.match(/#\[cfg\(feature = \"dormant-postgres-adapter\"\)\]\nmod po
 if (/pub(?:\([^)]*\))?\s+mod\s+postgres\b/.test(ingestion) || /pub\s+use\s+(?:self::)?postgres\b/.test(ingestion)) fail("dormant adapter module became public");
 if (main.includes("PostgresSelectedChainRepository") || main.includes("ingestion::postgres") || lib.includes("PostgresSelectedChainRepository") || lib.includes("ingestion::postgres")) fail("dormant adapter gained a main/library callsite or export");
 for (const anchor of [
-  "use sqlx::PgPool;", "mod candidates;", "mod codec;", "mod journal;", "mod leases;", "mod reads;",
+  "use sqlx::PgPool;", "mod apply;", "mod candidates;", "mod codec;", "mod journal;", "mod leases;", "mod reads;",
   "pub(super) struct PostgresSelectedChainRepository {", "pool: PgPool,",
   "pub(super) fn new(pool: PgPool) -> Self", "pub(super) fn pool(&self) -> &PgPool"
 ]) if (!postgresModule.includes(anchor)) fail(`dormant PgPool holder is missing: ${anchor}`);
 if (/pub(?:\([^)]*\))?\s+mod\s+journal\b/.test(postgresModule) || /pub\s+use\s+(?:self::)?journal\b/.test(postgresModule)) fail("journal module became public");
-if (/impl\s+SelectedChainRepository\s+for\s+PostgresSelectedChainRepository/.test(postgresModule) || /sqlx::query|\.begin\(\)|\.execute\(|\.fetch_/.test(postgresModule)) fail("dormant PgPool holder gained repository behavior");
+if (/pub(?:\([^)]*\))?\s+mod\s+apply\b/.test(postgresModule) || /pub\s+use\s+(?:self::)?apply\b/.test(postgresModule)) fail("apply module became public");
+for (const anchor of [
+  "impl SelectedChainRepository for PostgresSelectedChainRepository",
+  "leases::acquire(self.pool(), chain_id, owner, duration).await",
+  "leases::renew(self.pool(), grant, duration).await",
+  "leases::release(self.pool(), grant).await",
+  "reads::snapshot(self.pool(), chain_id).await",
+  "reads::load_candidate(self.pool(), identity).await",
+  "reads::selected_hash(self.pool(), chain_id, number).await",
+  "reads::candidates_at_height(self.pool(), chain_id, number).await",
+  "apply::apply(self.pool(), &mutation).await"
+]) if (!postgresModule.includes(anchor)) fail(`dormant repository-port delegation is missing: ${anchor}`);
+if (/sqlx::query|\.begin\(\)|\.execute\(|\.fetch_/.test(postgresModule)) fail("repository module bypassed its private helper boundaries");
 if ((candidates.match(/\bON CONFLICT\b/g) ?? []).length !== 1 || !candidates.includes("ON CONFLICT (chain_id, block_hash) DO NOTHING")) fail("candidate conflict handling must target only the parent identity");
 for (const anchor of [
   "let stored = load_candidate(transaction, identity)", "if stored == *candidate", "SelectionConflict::CandidateContent { identity }",
@@ -285,10 +303,27 @@ const journalCode = stripRustComments(journal).join("\n");
 if ((journalCode.match(/\bINSERT INTO\b/g) ?? []).length !== 2 || /\bON CONFLICT\b|\bUPDATE\b|\bDELETE\b/i.test(journalCode)) fail("journal append must remain insert-only");
 if (/fingerprint/i.test(journalCode)) fail("journal fingerprint returned");
 if (/\.begin\s*\(|\.commit\s*\(|\.rollback\s*\(|\b(?:BEGIN|COMMIT|ROLLBACK)\b|\bPgPool\b/i.test(journalCode)) fail("journal primitive took transaction ownership");
-const adapterCode = [postgresModule, candidates, codec, journal, leases, reads].map((source) => stripRustComments(source).join("\n")).join("\n");
-if ((adapterCode.match(/\breplay_if_present\s*\(/g) ?? []).length !== 1) fail("replay-before-lease callsite or primitive count drifted");
-if (/\b(?:struct|enum|trait)\s+\w*Coordinator\b|\bapply_coordinator\b/i.test(adapterCode)) fail("dormant apply coordinator returned");
-if (/impl\s+SelectedChainRepository\s+for\s+PostgresSelectedChainRepository/.test(adapterCode)) fail("dormant adapter gained a repository-port implementation");
+for (const anchor of [
+  "pub(super) async fn apply(", "let mut transaction = pool", ".begin()", "lock_chain_state(&mut transaction, mutation.chain_id()).await?",
+  "journal::replay_if_present(&mut transaction, mutation).await?", "let fields = locked_fields.ok_or(SelectionConflict::StaleLease)?;",
+  "require_live_lease(&stored, mutation)?", "if mutation.expected() != &stored.expected", "mutation.expected().revision().next()?",
+  "candidates::persist_or_compare_candidate(&mut transaction, candidate).await?", "validate_transition(&mut transaction, mutation, &plan).await?",
+  "write_selection(&mut transaction, mutation.chain_id(), &plan).await?", "compare_and_swap_state(&mut transaction, mutation, &plan.outcome).await?",
+  "journal::append_applied_mutation(&mut transaction, mutation, &plan.outcome).await?", ".commit()",
+  "clock_timestamp() AS database_now", "FOR UPDATE", "lease_expires_at > clock_timestamp()",
+  "selected_revision", "SelectionConflict::DetachMismatch", "SelectionConflict::FinalizedBoundary",
+  "SelectionConflict::FinalityTargetNotSelected"
+]) if (!apply.includes(anchor)) fail(`atomic apply coordinator boundary is missing: ${anchor}`);
+const applyProduction = apply.slice(0, apply.indexOf("#[cfg(test)]"));
+const applyCode = stripRustComments(applyProduction).join("\n");
+if ((applyCode.match(/\.begin\s*\(/g) ?? []).length !== 1 || (applyCode.match(/\.commit\s*\(/g) ?? []).length !== 2 || /\.rollback\s*\(/.test(applyCode)) fail("apply coordinator transaction ownership drifted");
+const replayCall = applyCode.indexOf("journal::replay_if_present(&mut transaction, mutation).await?");
+const leaseCall = applyCode.indexOf("require_live_lease(&stored, mutation)?");
+if (replayCall < 0 || leaseCall < 0 || replayCall >= leaseCall) fail("exact replay must precede lease validation in the apply coordinator");
+if (/Utc::now\s*\(/.test(applyCode) || /advisory/i.test(applyCode)) fail("apply coordinator must use database clock fencing without advisory locks");
+const adapterCode = [postgresModule, apply, candidates, codec, journal, leases, reads].map((source) => stripRustComments(source).join("\n")).join("\n");
+if ((adapterCode.match(/\breplay_if_present\s*\(/g) ?? []).length !== 2) fail("replay-before-lease primitive or callsite count drifted");
+if ((adapterCode.match(/impl\s+SelectedChainRepository\s+for\s+PostgresSelectedChainRepository/g) ?? []).length !== 1) fail("dormant adapter repository-port implementation drifted");
 for (const forbidden of ["tokio::spawn", "PgPool::connect", "sqlx::migrate!", "Migrator::new", "ProviderBuilder", "provider_for_chain", "Router::new", ".route("]) if (adapterCode.includes(forbidden)) fail(`dormant adapter activation returned: ${forbidden}`);
 if (runtime.compatibilityQueryConstant !== "INDEXER_SCHEMA_COMPATIBILITY_QUERY" || runtime.compatibilityFunction !== "verify_schema_compatibility") fail("compatibility boundary names drifted");
 if (runtime.structuralKeyArrayTextCastOccurrences !== 2) fail("structural key-array type contract drifted");
@@ -553,7 +588,7 @@ const report = {
     privateModule: true,
     publicExport: false,
     mainCallsite: false,
-    poolHolderOnly: true,
+    poolHolderOnly: false,
     parentConflictTargetOnly: true,
     strictChildInserts: true,
     fullCandidateReload: true,
@@ -578,9 +613,9 @@ const report = {
       modulePrivate: true,
       replayIfPresentPrimitive: true,
       replayMustPrecedeLease: true,
-      replayBeforeLeaseCallsite: false,
-      applyCoordinator: false,
-      traitImplementation: false,
+      replayBeforeLeaseCallsite: true,
+      applyCoordinator: true,
+      traitImplementation: true,
       exactHeaderReplay: true,
       orderedRoleLocalDenseMembers: true,
       fullAttachedCandidateReload: true,
@@ -593,7 +628,10 @@ const report = {
       transactionOwnership: false,
       activated: false
     },
-    tests: { defaultLibraryPassed: 33, featureLibraryPassed: 56, binaryPassed: 4 },
+    tests: { defaultLibraryPassed: 33, featureLibraryPassed: 62, binaryPassed: 4 },
+    atomicityDatabaseProof: false,
+    concurrencyDatabaseProof: false,
+    cancellationDatabaseProof: false,
     databaseRead: false,
     databaseWrite: false,
     migrationExecuted: false,
@@ -625,7 +663,7 @@ console.log("a3-12-indexer-schema-boundary: PASS: schema probe precedes listener
 console.log("a3-12-indexer-schema-boundary: PASS: all four surviving runtime relations are public-qualified; only health remains reachable");
 console.log("a3-12-indexer-schema-boundary: PASS: dormant fork store pins eight guarded tables, 74 columns, 101 constraints and two explicit indexes without runtime activation");
 console.log("a3-12-indexer-schema-boundary: PASS: ten-name fresh-create preflight rejects every public relation-kind collision before CREATE");
-console.log("a3-12-indexer-schema-boundary: PASS: eight ordered dormant-adapter source byte/SHA-256 pins are recomputed before semantic anchors");
-console.log("a3-12-indexer-schema-boundary: PASS: private journal pins exact replay/insert primitives without callsite, transaction ownership or runtime activation");
-console.log("a3-12-indexer-schema-boundary: PASS: default-off private PostgreSQL substrate pins candidates, codecs, leases, reads and journal without runtime activation");
+console.log("a3-12-indexer-schema-boundary: PASS: nine ordered dormant-adapter source byte/SHA-256 pins are recomputed before semantic anchors");
+console.log("a3-12-indexer-schema-boundary: PASS: private journal and atomic apply callsite pin replay before lease without journal transaction ownership or runtime activation");
+console.log("a3-12-indexer-schema-boundary: PASS: default-off private PostgreSQL substrate pins port delegation, candidates, codecs, leases, reads, journal and apply without runtime activation");
 '
