@@ -30,16 +30,16 @@ record carries source type, file, line, permission, surface, grammar
 classification, and a remediation package. A candidate permission is present
 only when a real backend route guard or token source literally supports it.
 
-The current scan contains 52 records:
+The current scan contains 48 records:
 
 | Usage | Records | Readiness effect |
 | --- | ---: | --- |
-| Dioxus security gates | 18 | 16 canonical; 2 legacy two-segment values still block |
+| Dioxus security gates | 14 | 12 canonical; 2 legacy two-segment values still block |
 | Dioxus presentation literals | 1 | Reported as presentation drift, not an enforcement blocker |
 | Dioxus presentation dynamic pass-throughs | 1 | Reported as presentation drift, not an enforcement blocker |
 | Service-authorization permissions | 32 | All canonical three-segment values |
 
-Across every source there are 48 canonical three-segment values, 2 legacy
+Across every source there are 44 canonical three-segment values, 2 legacy
 two-segment values, 1 unknown dynamic presentation value, and 1
 impossible/cross-grammar presentation value. There are currently no wildcard-aligned
 inventory values.
@@ -51,22 +51,22 @@ literals; it does not move business policy into Dioxus:
 
 | Dioxus surface | Source-backed backend permission | A8.1 state |
 | --- | --- | --- |
-| Dashboard | `admin:dashboard:view` | aligned |
+| Dashboard | backend dashboard read/field decision required | fail-closed UI; no operational aggregate or action is exposed |
 | Analytics | `admin:analytics:view` | aligned |
 | Audit log | dedicated backend audit read permission required | fail-closed UI; the semantically wrong analytics presentation gate was removed |
 | Notifications | backend read decision / `admin:notifications:manage` mutation authority | fail-closed manage/create UI; no records or actions are exposed |
 | Developer portal | `admin:developer:manage` | aligned |
 | Payments | `admin:payments:view` | aligned for the read-only intent surface; mutations remain unavailable |
-| Chat | `admin:chat:manage` | aligned |
+| Chat | backend read decision / `admin:chat:manage` mutation authority | fail-closed list/detail UI; no conversation data or action is exposed |
 | News | backend read decision / `admin:content:manage` mutation authority | fail-closed list/create/edit UI; no records or actions are exposed |
-| Media | `admin:media:manage` | aligned |
+| Media | backend read decision / `admin:media:manage` mutation authority | fail-closed UI; no object data or action is exposed |
 | Settings | `admin:settings:manage` | aligned |
 | Wallet list/detail | `admin:users:read` | aligned |
 | Wallet disable mutation | `admin:users:update` | aligned |
 | Wallet access | split by operation: `admin:permissions:read` / `admin:permissions:manage` | aligned in A8.2; data remains visible to readers and mutation controls are nested |
 | Wallet plans | split by operation: `admin:plans:read` / `admin:plans:manage` | aligned in A8.2; list data remains visible to readers and mutation controls are nested |
 
-The audit, news, and notification permission decisions remain backend-owned;
+The dashboard, audit, chat, media, news, and notification permission decisions remain backend-owned;
 removing their frontend literals does not remove or weaken any service guard.
 The admin auth and policies gates have no single source-backed backend guard
 candidate in this audit. The generic unauthorized value is presentation-only.

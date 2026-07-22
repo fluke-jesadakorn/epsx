@@ -37,9 +37,10 @@
         "let mut params = HashMap::new();",
         "record_payment_intent_load(&mut params, result);",
         "let (m, b) = admin_pages::dispatch(&c);",
+        "fn safe_admin_layout_path(layout_path: &str, is_authenticated: bool) -> String",
         "let status = match meta.status"
       ],
-      "finding": "SSR verifies a session and keeps data params empty by default; only the payments intent tab now performs a bounded authenticated read and records explicit ready, empty, unavailable, or malformed state."
+      "finding": "SSR verifies a session and keeps data params empty by default; signed-out dynamic chat shells reduce their layout path to the static inbox so breadcrumbs and return URLs cannot disclose a conversation reference; only the payments intent tab now performs a bounded authenticated read and records explicit ready, empty, unavailable, or malformed state."
     },
     {
       "file": "apps/admin/src/main.rs",
@@ -64,9 +65,10 @@
       "anchors": [
         "if !is_known_route(p)",
         "if p == \"/notifications\"",
+        "let return_url = if super::one_segment(p, \"/chat/\").is_some()",
         "c.params.insert(\"planId\".into(), rest.to_string())"
       ],
-      "finding": "The dispatcher validates route shape and extracts dynamic params, but route presence is not live-data or mutation proof."
+      "finding": "The dispatcher validates route shape and extracts dynamic params, and signed-out dynamic chat skeletons use only the static inbox return path so references are not disclosed before authentication; route presence is still not live-data or mutation proof."
     },
     {
       "file": "apps/admin/src/main.rs",
@@ -143,15 +145,15 @@
     {
       "path": "/", "batch": "B1-command-security", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/page.tsx", "anchors": ["export default async function AdminDashboardPage", "getRecentWalletsAction"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/dashboard.rs", "handler": "dashboard::render", "anchors": ["pub fn render(ctx: &PageContext)", "let meta = PageMeta::admin(\"Command Center\")", "AdminStatsCards {}"]},
-      "params": {"names": [], "current": "none"},
-      "data": {"reads": ["recent wallets", "platform KPIs", "transactions", "chain health", "alerts"], "endpoints": [], "current": "fixed cards, charts, alerts, and wallet activity", "fallbacks": ["hard-coded operational success values"]},
-      "permissions": {"read": ["admin:dashboard:view"], "manage": [], "current": "UI read gate only; no direct-service data authorization evidence"},
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/dashboard.rs", "handler": "dashboard::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-admin-dashboard-state\": \"unavailable\"", "fn unavailable_state_has_no_sample_operations_or_controls()"]},
+      "params": {"names": [], "current": "legacy query and hydration parameters are ignored"},
+      "data": {"reads": ["recent wallets", "platform KPIs", "transactions", "chain health", "alerts"], "endpoints": [], "current": "verified-session explicit unavailable state with no inferred metric, health, activity, freshness, or total", "fallbacks": []},
+      "permissions": {"read": ["backend dashboard field/read decision required"], "manage": [], "current": "session-only unavailable shell behind admin BFF audience verification; no role or dashboard capability is inferred by the frontend"},
       "mutations": [],
       "contracts": {"bodies": [], "envelopes": [], "statuses": []},
-      "states": {"loading": "missing", "empty": "missing", "error": "missing", "retry": "missing", "forbidden": "present", "conflict": "not-applicable"},
-      "ux": {"keyboard": "unproven", "responsive": "source classes only", "hydration": "not required for static sample; required for refresh/live controls"},
-      "blockers": ["consume authoritative dashboard aggregates and recent-wallet data; remove sample health and success values; prove degraded/empty/error/retry states"]
+      "states": {"loading": "missing", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "missing", "conflict": "not-applicable"},
+      "ux": {"keyboard": "native retry and workspace links; focused browser proof remains open", "responsive": "page-owned responsive admin shell present; focused browser proof remains open", "hydration": "not required for the fail-closed shell"},
+      "blockers": ["define and enforce a typed backend-authorized dashboard aggregate with freshness and partial-failure semantics, then prove ready/empty/degraded/error/forbidden/retry states and isolated service/browser behavior"]
     },
     {
       "path": "/access-denied", "batch": "B2-auth-denial", "status": "aligned", "dependencies": ["A1"],
@@ -208,28 +210,28 @@
     {
       "path": "/chat", "batch": "B3-support", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/chat/page.tsx", "anchors": ["export default async function ChatPage", "getAdminChatOverview"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/chat.rs", "handler": "chat::render", "anchors": ["pub fn render(ctx: &PageContext)", "let conversations = vec![", "required_permissions: Some(vec![\"admin:chat:manage\".to_string()])"]},
-      "params": {"names": ["status", "topic", "search", "cursor"], "current": "local signals over canned rows"},
-      "data": {"reads": ["conversation overview", "topics", "unread counts"], "endpoints": [], "current": "four canned conversations", "fallbacks": ["sample support traffic"]},
-      "permissions": {"read": ["admin:chat:read (required target)"], "manage": ["admin:chat:manage"], "current": "manage permission gates reads; operation split absent"},
-      "mutations": [{"name": "assign/status/reply", "method": "unwired controls", "endpoint": "missing", "current": "local state only"}],
-      "contracts": {"bodies": [], "envelopes": [], "statuses": []},
-      "states": {"loading": "missing", "empty": "missing", "error": "missing", "retry": "missing", "forbidden": "present", "conflict": "missing"},
-      "ux": {"keyboard": "unproven", "responsive": "source classes only", "hydration": "missing for filters and mutations"},
-      "blockers": ["add authoritative list/read APIs, split read/manage, and prove filter pagination, assignment conflict, reply pending/error, and reconnect behavior"]
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/chat.rs", "handler": "chat::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-admin-chat-state\": \"unavailable\"", "fn unavailable_surfaces_emit_no_samples_counts_filters_or_actions()"]},
+      "params": {"names": ["status", "topic", "search", "cursor"], "current": "legacy status, topic, search, cursor, presence, and hydration parameters are ignored"},
+      "data": {"reads": ["conversation overview", "topics", "unread counts"], "endpoints": [], "current": "verified-session explicit unavailable state with no inferred conversations, topics, presence, unread counts, assignments, or activity", "fallbacks": []},
+      "permissions": {"read": ["backend chat read decision required"], "manage": ["admin:chat:manage before any mutation"], "current": "session-only unavailable shell behind admin BFF audience verification; no chat role or capability is inferred by the frontend"},
+      "mutations": [],
+      "contracts": {"bodies": [], "envelopes": [], "statuses": ["typed ready/empty/error and mutation conflict contracts remain absent"]},
+      "states": {"loading": "missing", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "missing", "conflict": "missing"},
+      "ux": {"keyboard": "native retry and admin-home links; focused browser proof remains open", "responsive": "responsive unavailable shell present; focused browser proof remains open", "hydration": "not required because no filter or mutation is exposed"},
+      "blockers": ["define backend-authorized typed list DTOs with bounded cursor, ordering, redaction, presence semantics, and read/manage split; then prove ready/empty/error/forbidden/retry and conflict-aware mutation behavior"]
     },
     {
       "path": "/chat/:id", "batch": "B3-support", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/chat/[id]/page.tsx", "anchors": ["export default async function ConversationPage", "getConversation(id)"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/chat.rs", "handler": "chat::render_conversation", "anchors": ["pub fn render_conversation(ctx: &PageContext)", "ctx.params.get(\"id\")", "let messages: Vec<Message> = vec!"]},
-      "params": {"names": ["id"], "current": "one path segment extracted; length/grammar and canonical ID unresolved"},
-      "data": {"reads": ["conversation", "messages", "topics", "assignee"], "endpoints": [], "current": "canned messages independent of id", "fallbacks": ["sample conversation content"]},
-      "permissions": {"read": ["admin:chat:read (required target)"], "manage": ["admin:chat:manage"], "current": "manage-only UI gate; resource authorization absent"},
-      "mutations": [{"name": "reply/assign/status", "method": "unwired controls", "endpoint": "missing", "current": "no durable write"}],
-      "contracts": {"bodies": [], "envelopes": [], "statuses": ["source notFound versus target canned success"]},
-      "states": {"loading": "missing", "empty": "missing", "error": "missing", "retry": "missing", "forbidden": "present", "conflict": "missing"},
-      "ux": {"keyboard": "unproven", "responsive": "unproven", "hydration": "missing"},
-      "blockers": ["validate the id, fetch one authorized conversation, preserve non-leaking 404 behavior, and implement durable conflict-aware mutations"]
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/chat.rs", "handler": "chat::render_conversation", "anchors": ["pub fn render_conversation(ctx: &PageContext)", "bounded_route_reference(ctx.params.get(\"id\")", "fn conversation_reference_is_bounded_control_free_escaped_and_unverified()"]},
+      "params": {"names": ["id"], "current": "route reference is control-free, capped at 64 Unicode scalar values, escaped for display, encoded as one retry path segment, and labeled unverified; no canonical lookup occurs"},
+      "data": {"reads": ["conversation", "messages", "topics", "assignee"], "endpoints": [], "current": "verified-session explicit unavailable state; route value never implies record existence, ownership, or authorization", "fallbacks": []},
+      "permissions": {"read": ["backend chat resource authorization required"], "manage": ["admin:chat:manage before any mutation"], "current": "session-only unavailable shell behind admin BFF audience verification; no record or chat capability is inferred by the frontend"},
+      "mutations": [],
+      "contracts": {"bodies": [], "envelopes": [], "statuses": ["non-leaking ready/not-found/forbidden/error and version-conflict contracts remain absent"]},
+      "states": {"loading": "missing", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "missing", "conflict": "missing"},
+      "ux": {"keyboard": "native bounded retry, list, and admin-home links; focused browser proof remains open", "responsive": "responsive unavailable shell present; focused browser proof remains open", "hydration": "not required because no reply, assignment, or status control is exposed"},
+      "blockers": ["validate the canonical id, fetch one backend-authorized typed conversation with message ordering/redaction, preserve non-leaking not-found, and implement audited idempotent conflict-aware reply/assign/status mutations"]
     },
     {
       "path": "/developer-portal", "batch": "B7-mutations", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A11", "A12"],
@@ -260,15 +262,15 @@
     {
       "path": "/media", "batch": "B4-content-media", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A10", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/media/page.tsx", "anchors": ["export default async function MediaPage", "listMediaAction"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/media.rs", "handler": "media::render", "anchors": ["pub fn render(ctx: &PageContext)", "required_permissions: Some(vec![\"admin:media:manage\".to_string()])", "let files: Vec<(String, String, String)> = vec!"]},
-      "params": {"names": ["bucket", "cursor"], "current": "bucket signal does not drive a backend read"},
-      "data": {"reads": ["bucket files", "metadata", "pagination"], "endpoints": [], "current": "sample file tuples", "fallbacks": ["fixed asset inventory"]},
-      "permissions": {"read": ["admin:media:read (required target)"], "manage": ["admin:media:manage"], "current": "manage gates reads and upload"},
-      "mutations": [{"name": "upload/delete", "method": "unwired", "endpoint": "missing", "current": "dropzone/buttons only"}],
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/media.rs", "handler": "media::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-admin-media-state\": \"unavailable\"", "fn unavailable_workspace_suppresses_samples_and_media_controls()"]},
+      "params": {"names": ["bucket", "cursor"], "current": "legacy bucket, cursor, filter, view, and hydration parameters are ignored"},
+      "data": {"reads": ["bucket files", "metadata", "pagination"], "endpoints": [], "current": "verified-session explicit unavailable state with no inferred objects, buckets, metadata, storage totals, or pagination", "fallbacks": []},
+      "permissions": {"read": ["dedicated backend media read decision required"], "manage": ["backend media manage decision required before upload/delete"], "current": "session-only unavailable shell behind admin BFF audience verification; no media role or capability is inferred by the frontend"},
+      "mutations": [],
       "contracts": {"bodies": ["multipart limits/type/hash unresolved"], "envelopes": [], "statuses": []},
-      "states": {"loading": "missing", "empty": "missing", "error": "missing", "retry": "missing", "forbidden": "present", "conflict": "missing"},
-      "ux": {"keyboard": "unproven", "responsive": "unproven", "hydration": "missing for filters/upload"},
-      "blockers": ["split read/manage, consume real bucket pagination, and implement validated upload/delete with progress, conflict, error, retry, and storage/cache proof"]
+      "states": {"loading": "missing", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "missing", "conflict": "missing"},
+      "ux": {"keyboard": "native retry and admin-home links; focused browser proof remains open", "responsive": "page-owned responsive admin shell present; focused browser proof remains open", "hydration": "not required because no filter, upload, or deletion control is exposed"},
+      "blockers": ["define backend media read/manage authorization and typed inventory states, consume storage-provider-backed bounded pagination, and implement validated upload/delete with progress, conflict, error, retry, integrity, and storage/cache proof"]
     },
     {
       "path": "/news", "batch": "B4-content-media", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A10", "A11", "A12"],

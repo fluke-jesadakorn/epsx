@@ -171,17 +171,18 @@ and revocation behavior remain canonical.
   handlers. Those handlers remain unsuitable for production until real chain,
   transaction, idempotency, and recovery contracts replace them.
 - Both BFFs preserve verified backend permissions without expanding roles. The
-  52-record permission inventory contains 18 Dioxus security-gate records and,
-  by grammar, 48 canonical three-segment records, two legacy two-segment gates,
+  48-record permission inventory contains 14 Dioxus security-gate records and,
+  by grammar, 44 canonical three-segment records, two legacy two-segment gates,
   one unknown record, and one impossible/cross-grammar record. The two legacy
   security gates remain blockers; UI gates remain presentation controls, never
   policy authority. The ten removed legacy gates were the invented
   `profile:read`/`profile:write`, duplicate `payments:read`, `analytics:read`,
   `permissions:read`, and four `chat:read`/`chat:write` checks on
   authentication-only, public-unavailable, or deliberately unavailable
-  frontend surfaces. Five additional operation gates were removed from the
-  fail-closed admin audit, news, and notification shells because those pages now
-  expose no records or actions; their future authorization remains backend-owned.
+  frontend surfaces. Nine additional operation gates were removed from the
+  fail-closed admin dashboard, audit, chat, media, news, and notification shells
+  because those pages now expose no operational records or actions; their future
+  authorization remains backend-owned.
 - The deployed identity ranking service returns offset `100` for all wallets,
   including paid users. This is not acceptable entitlement behavior.
 
@@ -640,7 +641,7 @@ bounded path set. Shared contract files require coordination through package A0.
   fall back to the free plan on authority failure.
 
 - **A4.0/A8.1 status:** the deterministic permission-grammar inventory covers
-  52 UI/service records, including 18 Dioxus security gates. A8.2 additionally
+  48 UI/service records, including 14 Dioxus security gates. A8.2 additionally
   separates wallet-access and plan read surfaces from their mutation controls
   using literal backend guards;
   readiness intentionally stops with two legacy security gates and two
@@ -836,11 +837,12 @@ bounded path set. Shared contract files require coordination through package A0.
   in-process proof does not establish source middleware/logout/session ordering,
   method/body/cache semantics, query policy, or authenticated browser history,
   RSC, and client-navigation parity. The admin SSR still provides no general
-  per-page loader. Audit-log, news list/create/edit, and notification
-  manage/create now fail closed without sample records, counts, history,
-  filters, forms, or mutations; other operational pages still render samples,
-  several form/BFF paths drift, and preserved statuses still lack typed
-  envelopes and page-level consumption.
+  per-page loader. Dashboard, audit-log, chat list/detail, media, news
+  list/create/edit, and notification manage/create now fail closed without
+  sample records, counts, health, history, filters, forms, upload controls, or
+  mutations; other operational pages still render samples, several form/BFF
+  paths drift, and preserved statuses still lack typed envelopes and page-level
+  consumption.
   The exact **2 aligned / 2 partial / 23 blocked**, 20-STOP integrity and tamper
   gates pass; readiness intentionally exits `3`. No live service, database,
   chain, or deployment access is claimed.

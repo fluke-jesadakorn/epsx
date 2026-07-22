@@ -27,7 +27,7 @@ bun "$script_dir/verify-permission-grammar.ts" --emit-inventory >"$temp_dir/scan
 cmp "$temp_dir/scan-one.json" "$temp_dir/scan-two.json"
 bun -e '
 const scan = await Bun.file(process.argv[1]).json();
-if (scan.summary.total !== 52 || scan.summary.sourceCounts["dioxus-security-gate"] !== 18 || scan.summary.classificationCounts["legacy-2-segment"] !== 2) process.exit(1);
+if (scan.summary.total !== 48 || scan.summary.sourceCounts["dioxus-security-gate"] !== 14 || scan.summary.classificationCounts["legacy-2-segment"] !== 2) process.exit(1);
 if (scan.inventory.some((item) => item.file === "shared/rust/dioxus_ui/src/pages/notifications.rs" || item.permission === "notifications:read" || item.surface === "frontend:notifications")) process.exit(1);
 ' "$temp_dir/scan-one.json"
 
@@ -51,4 +51,4 @@ if [ "$tamper_status" -ne 1 ]; then
 fi
 grep -q "inventory" "$temp_dir/tamper.out"
 
-echo "permission-grammar self-test: PASS (52 records, 2 security-gate blockers, integrity=0, readiness-stop=3, deterministic=stable, tamper=1)"
+echo "permission-grammar self-test: PASS (48 records, 2 security-gate blockers, integrity=0, readiness-stop=3, deterministic=stable, tamper=1)"

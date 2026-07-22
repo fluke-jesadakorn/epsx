@@ -114,7 +114,8 @@ Use the `domain:action` pattern, matching the existing precedent in
   shells expose no records or actions, while future authorization is backend-owned
 - `notifications:manage` — historical frontend example only; current notification
   manage/create shells expose no records or actions, while future authorization is backend-owned
-- `media:manage` — `/admin/media`
+- `media:manage` — historical frontend example only; the current media shell
+  exposes no object data or action, while future authorization is backend-owned
 - `wallets:manage` — `/admin/wallet-management/*`
 - `settings:manage` — `/admin/settings`
 - `developer:read` — `/developer/*`
@@ -286,10 +287,10 @@ Out of scope: admin pages, free pages (Track C), the
 
 ### Track B — Admin page gate enrichment
 
-> Current reconciliation: audit-log and news use only their session boundary,
-> and notification manage/create use only their verified-session boundary
-> without a local role or capability literal. These pages deliberately expose
-> only an unavailable shell;
+> Current reconciliation: dashboard, audit-log, chat, media, news, and
+> notification manage/create use only their verified-session boundary without a
+> local role or capability literal. These pages deliberately expose only an
+> unavailable shell;
 > backend-owned read/manage authorization is required before any data or action
 > can be connected.
 

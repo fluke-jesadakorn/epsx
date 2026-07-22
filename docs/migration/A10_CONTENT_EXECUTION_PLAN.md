@@ -96,10 +96,10 @@ The contract pins 32 current-worktree anchors. The exact full anchor strings liv
 | Block CRUD | No equivalent legacy block lifecycle baseline. | Filesystem manifests upsert; public output includes `admin_only`; no full CRUD. | Versioned schema/defaults, compatibility/migration policy, public-safe projection, validation at page write/publish/render. |
 | Editor identity | News author is derived from authenticated context. | Body `user_id` is bound by handler, while auth boundary blocks the route. | Principal extension is the sole actor; session ownership/expiry/version/close/list rules are server enforced. |
 | Publish | News publish/unpublish changes status/time but has no complete revision/outbox contract. | Direct status update; commit can separately publish after closing session. | One transaction validates draft/version/media, creates immutable revision, flips public pointer, writes audit+outbox+idempotency, then invalidates cache. |
-| Media | Upload to object storage; public route rejects traversal and can redirect to CDN; local fallback exists. | No target upload/reference lifecycle. | Size/MIME sniff/digest/namespace checks, durable metadata, published-reference integrity, content-addressed immutable delivery, safe GC. |
+| Media | Upload to object storage; public route rejects traversal and can redirect to CDN; local fallback exists. | No target upload/reference lifecycle; the admin media page now fails closed without sample objects, storage totals, filters, or upload/delete controls. | Size/MIME sniff/digest/namespace checks, durable metadata, published-reference integrity, content-addressed immutable delivery, safe GC. |
 | Filesystem sync | Not the legacy news authority. | Mutable manifests/settings/news/plans are runtime authority; reload accumulates entries. | DB/versioned bundle authority is explicit. Production watch is disabled or signed/path-confined; reload is atomic and reconciles removals. |
 | Wire/status | Legacy public/user routes and frontend actions provide prior paths/shapes, with some status/empty bugs. | Gateway rewrites coexist with a live news adapter; ranking/plan/portfolio frontend compatibility producers are absent, while admin/client behavior is not one frozen cross-hop contract. | One route matrix freezes external/internal prefixes, request body, envelope, pagination, status, request ID, cache/security headers. |
-| UI states | News and portfolio have real empty UI; failures can still be degraded upstream. | News now distinguishes empty/error/retry without fake content; home, plans, analytics, and authenticated portfolio fail closed, while the remaining lifecycle surfaces lack a complete state matrix. | Each data surface implements loading, empty, forbidden, not found, retryable error, retry, and success without fake content. |
+| UI states | News and portfolio have real empty UI; failures can still be degraded upstream. | Public news distinguishes empty/error/retry without fake content; admin news and media, home, plans, analytics, and authenticated portfolio fail closed, while the remaining lifecycle surfaces lack a complete state matrix. | Each data surface implements loading, empty, forbidden, not found, retryable error, retry, and success without fake content. |
 
 ## 6. Stop blockers
 
@@ -122,7 +122,7 @@ Readiness stays stopped until all 20 blockers in the contract have implementatio
 15. `B15` portfolio/watchlist owner semantics are replaced by an arbitrary public address route.
 16. `B16` prefixes, bodies, envelopes, statuses, IDs, and headers diverge across hops.
 17. `B17` audit, outbox, and mutation idempotency are missing.
-18. `B18` news states improved and home/plans/analytics/authenticated portfolio now fail closed without static business data, but complete UI state coverage is unproved.
+18. `B18` news states improved and home/plans/analytics/authenticated portfolio plus admin news/media now fail closed without static business data, but complete UI state coverage is unproved.
 19. `B19` shadow/reconciliation/SLO readiness evidence is missing.
 20. `B20` per-batch route/data/cache rollback is unproved.
 

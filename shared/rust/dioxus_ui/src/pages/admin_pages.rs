@@ -129,6 +129,13 @@ pub fn dispatch(ctx: &PageContext) -> (PageMeta, Element) {
     if skeleton_mode && !matches!(p, "/dashboard" | "/policies")
     {
         let slug = slug_for_path(p);
+        // A conversation identifier may be security-sensitive. Keep it out of
+        // the signed-out HTML and return only to the static inbox after auth.
+        let return_url = if super::one_segment(p, "/chat/").is_some() {
+            "/chat".to_string()
+        } else {
+            ctx.path.clone()
+        };
         // Wave 38c T2 — admin-chat is the 4th route that needs
         // the prod-EXACT body class. The other 21 admin routes
         // work fine with `PageMeta::admin()` (no body class), but
@@ -150,7 +157,7 @@ pub fn dispatch(ctx: &PageContext) -> (PageMeta, Element) {
         return (
             meta,
             rsx! {
-                AuthPageOverlay { return_url: ctx.path.clone() }
+                AuthPageOverlay { return_url }
                 SkeletonPage { route_slug: slug.to_string() }
             },
         );
@@ -259,9 +266,8 @@ pub fn is_known_route(path: &str) -> bool {
 /// the current `<SkeletonPage>` rendering is uniform across all
 /// slugs).
 ///
-/// For dynamic paths (`/chat/<id>`, `/news/<id>/edit`, etc.) we
-/// map the static prefix and use the dynamic ID verbatim to keep
-/// the slug readable. Unknown paths fall back to `admin-unknown`.
+/// Dynamic paths map to static sample slugs so route identifiers never enter
+/// skeleton markers. Unknown paths fall back to `admin-unknown`.
 fn slug_for_path(path: &str) -> &'static str {
     match path {
         "/" => "admin-home",
@@ -376,5 +382,19 @@ mod tests {
             assert_eq!(meta.status, super::super::PageStatus::NotFound, "{path}");
             assert!(dioxus_ssr::render_element(body).contains("Page not found"), "{path}");
         }
+    }
+
+    #[test]
+    fn signed_out_dynamic_chat_skeleton_hides_conversation_reference() {
+        let ctx = PageContext {
+            path: "/chat/private-case-reference".into(),
+            ..Default::default()
+        };
+        let (meta, body) = dispatch(&ctx);
+        let rendered = dioxus_ssr::render_element(body);
+
+        assert_eq!(meta.status, super::super::PageStatus::Ok);
+        assert!(!rendered.contains("private-case-reference"));
+        assert_eq!(rendered.matches("data-return-url=\"/chat\"").count(), 3);
     }
 }

@@ -133,11 +133,7 @@
     {"sourceType":"dioxus-presentation-dynamic","file":"shared/rust/dioxus_ui/src/pages/access_denied.rs","line":47,"permission":"<dynamic-pass-through>","surface":"frontend:access_denied","classification":"unknown","remediation":{"package":"A7","candidates":[],"requiresSplit":false,"evidence":[],"decision":"Display-only pass-through; no static policy candidate is safe."}},
     {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/admin_pages/analytics.rs","line":42,"permission":"admin:analytics:view","surface":"admin:analytics","classification":"canonical-3-segment","remediation":{"package":"A8","candidates":["admin:analytics:view"],"requiresSplit":false,"evidence":["guard-admin-analytics"],"decision":"Aligned with the real backend analytics route-group guard."}},
     {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/admin_pages/auth_page.rs","line":109,"permission":"admin:auth","surface":"admin:auth_page","classification":"legacy-2-segment","remediation":{"package":"A8","candidates":[],"requiresSplit":false,"evidence":[],"decision":"No real backend route guard exists for this UI-only auth surface; A4 must decide before A8 changes it."}},
-    {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/admin_pages/chat.rs","line":408,"permission":"admin:chat:manage","surface":"admin:chat","classification":"canonical-3-segment","remediation":{"package":"A8","candidates":["admin:chat:manage"],"requiresSplit":false,"evidence":["guard-admin-chat"],"decision":"Aligned with the real backend chat route-group guard."}},
-    {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/admin_pages/chat.rs","line":459,"permission":"admin:chat:manage","surface":"admin:chat","classification":"canonical-3-segment","remediation":{"package":"A8","candidates":["admin:chat:manage"],"requiresSplit":false,"evidence":["guard-admin-chat"],"decision":"Aligned with the real backend chat route-group guard."}},
-    {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/admin_pages/dashboard.rs","line":43,"permission":"admin:dashboard:view","surface":"admin:dashboard","classification":"canonical-3-segment","remediation":{"package":"A8","candidates":["admin:dashboard:view"],"requiresSplit":false,"evidence":["guard-admin-dashboard"],"decision":"Aligned with the real backend dashboard guard."}},
     {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/admin_pages/developer_portal.rs","line":722,"permission":"admin:developer:manage","surface":"admin:developer_portal","classification":"canonical-3-segment","remediation":{"package":"A8","candidates":["admin:developer:manage"],"requiresSplit":false,"evidence":["guard-admin-developer"],"decision":"Aligned with the real backend developer route-group guard."}},
-    {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/admin_pages/media.rs","line":36,"permission":"admin:media:manage","surface":"admin:media","classification":"canonical-3-segment","remediation":{"package":"A8","candidates":["admin:media:manage"],"requiresSplit":false,"evidence":["guard-admin-media"],"decision":"Aligned with the real backend media route-group guard."}},
     {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/admin_pages/payments.rs","line":189,"permission":"admin:payments:view","surface":"admin:payments","classification":"canonical-3-segment","remediation":{"package":"A8","candidates":["admin:payments:view"],"requiresSplit":false,"evidence":["guard-admin-payments-view"],"decision":"Aligned the read-only payment-intent surface with the direct Pay-service list guard; mutation routes remain unavailable."}},
     {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/admin_pages/policies.rs","line":42,"permission":"policies:manage","surface":"admin:policies","classification":"legacy-2-segment","remediation":{"package":"A8","candidates":[],"requiresSplit":false,"evidence":[],"decision":"No real backend guard for this surface was found; A4 must decide before A8 changes it."}},
     {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/admin_pages/settings.rs","line":45,"permission":"admin:settings:manage","surface":"admin:settings","classification":"canonical-3-segment","remediation":{"package":"A8","candidates":["admin:settings:manage"],"requiresSplit":false,"evidence":["guard-admin-settings"],"decision":"Aligned with the real backend settings-path guard."}},
@@ -184,15 +180,15 @@
     {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":3485,"permission":"admin:indexer:manage","surface":"service:indexer:indexer.post.sync","classification":"canonical-3-segment","remediation":null}
   ],
   "summary": {
-    "total": 52,
+    "total": 48,
     "sourceCounts": {
-      "dioxus-security-gate": 18,
+      "dioxus-security-gate": 14,
       "dioxus-presentation-literal": 1,
       "dioxus-presentation-dynamic": 1,
       "service-authorization": 32
     },
     "classificationCounts": {
-      "canonical-3-segment": 48,
+      "canonical-3-segment": 44,
       "wildcard-aligned": 0,
       "legacy-2-segment": 2,
       "unknown": 1,

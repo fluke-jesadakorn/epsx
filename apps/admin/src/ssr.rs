@@ -216,6 +216,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
         role: u.roles.first().cloned().unwrap_or_default(),
     });
     let is_authenticated = user.is_some();
+    let shell_layout_path = safe_admin_layout_path(&layout_path, is_authenticated);
     let no_layout_paths_override = Some(vec![
         "/auth".to_string(),
         "/login".to_string(),
@@ -237,14 +238,12 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     // double-sidebar / double-header / double-footer bug on every
     // tablet+ viewport.
     //
-    // The fix: for the 5 Wave 6B paths we skip the BFF-level
-    // `AdminLayout::Auth` wrap entirely. The page's own
-    // `<AdminAuthGate>` still handles the auth gate (it's wrapped
-    // around the `<AdminShell>` in each page's render function),
-    // so the unauthed case is still covered.
+    // The fix: for routes whose page owns `<AdminShell>`, skip the
+    // BFF-level `AdminLayout::Auth` wrap entirely. The page's own
+    // authentication gate still covers the signed-out case.
     let wave6b_paths: &[&str] = &[
-        "/", // admin home → dashboard::render → AdminShell
-        "/dashboard",
+        "/",      // admin home → dashboard::render → AdminShell
+        "/index", // target-only dashboard alias → dashboard::render → AdminShell
         "/analytics",
         "/media",
         "/policies",
@@ -253,12 +252,12 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     let is_wave6b = wave6b_paths.contains(&layout_path.as_str());
     let body_element = if meta.status == PageStatus::NotFound || is_wave6b {
         // Page provides its own chrome via `<AdminShell>`; don't
-        // double-wrap. The page's own `<AdminAuthGate>` still
-        // handles the unauthed overlay.
+        // double-wrap. Its own authentication gate still handles
+        // the signed-out overlay.
         body_element
     } else {
         AdminLayout::Auth {
-            current_path: layout_path.clone(),
+            current_path: shell_layout_path,
             server_user,
             is_authenticated,
             is_gated: None,
@@ -303,6 +302,21 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     );
 
     (status, [("content-type", "text/html; charset=utf-8")], doc).into_response()
+}
+
+/// Keep security-sensitive dynamic chat references out of signed-out shell
+/// breadcrumbs and wallet return URLs. The dispatcher still receives the real
+/// path so authenticated routing and authorization can resolve it normally.
+fn safe_admin_layout_path(layout_path: &str, is_authenticated: bool) -> String {
+    if !is_authenticated {
+        if let Some(reference) = layout_path.strip_prefix("/chat/") {
+            if !reference.is_empty() && !reference.contains('/') {
+                return "/chat".to_string();
+            }
+        }
+    }
+
+    layout_path.to_string()
 }
 
 /// The denial pages are rendered as hydration-free SSR. This constant,
@@ -425,6 +439,7 @@ mod tests {
             role: user.roles.first().cloned().unwrap_or_default(),
         });
         let is_authenticated = user.is_some();
+        let shell_layout_path = safe_admin_layout_path(&c.path, is_authenticated);
         // Wave 38b T2 — mirror the production `no_layout_paths`
         // override from `ssr_handler` so the test exercises the
         // same render path as the live BFF (the 3 outliers skip
@@ -437,7 +452,7 @@ mod tests {
             "/developer-portal/api-keys/create".to_string(),
         ]);
         let body = AdminLayout::Auth {
-            current_path: c.path,
+            current_path: shell_layout_path,
             server_user,
             is_authenticated,
             is_gated: None,
@@ -482,6 +497,14 @@ mod tests {
             1,
             "audit-log must rely on the BFF admin layout instead of nesting a second shell: {html}"
         );
+    }
+
+    #[test]
+    fn signed_out_dynamic_chat_full_layout_hides_conversation_reference() {
+        let html = render_admin_html("/admin/chat/private-case-reference");
+
+        assert!(!html.contains("private-case-reference"), "{html}");
+        assert!(html.contains("data-return-url=\"/chat\""), "{html}");
     }
 
     #[test]

@@ -1,441 +1,235 @@
-//! /admin/chat + /admin/chat/[id] — admin chat inbox.
+//! Truthful authenticated admin chat shells for `/chat` and `/chat/{id}`.
 //!
-//! Wave 6B Track D brought the 5 sections per the design doc
-//! (`docs/wave6b-admin-pages-depth/design.md` §"Track D — ... + chat"):
-//! 1. `AdminChatInbox` — the left-hand conversation list with
-//!    filter bar. Mirrors `components/chat/chat-inbox.tsx`.
-//! 2. `AdminChatConversationView` — the right-hand conversation
-//!    view (header + message list + reply input). Reuses the
-//!    Wave 6A `<MessageBubble>` primitive from
-//!    `shared/rust/dioxus_ui/src/chat/message_bubble.rs`. Mirrors
-//!    `components/chat/chat-conversation-view.tsx`.
-//! 3. `ChatReplyInput` — the admin's reply input with a
-//!    canned-responses popover + assign/resolve/close actions.
-//!    Mirrors `components/chat/chat-reply-input.tsx`.
-//! 4. `ChatInboxSearch` — the search/filter bar at the top of the
-//!    inbox (status + topic + free-text). Mirrors
-//!    `components/chat/chat-filter-bar.tsx`.
-//! 5. `ChatUnreadBadge` — the unread-count badge on each
-//!    conversation card. Mirrors
-//!    `components/chat/chat-conversation-card.tsx`.
-//!
-//! Wave 42 T2 — wire in the Wave 38b/40 ported chat module
-//! components (`ChatHeader`, `ChatConversationList`,
-//! `ChatMessageList`) into the page. The admin chat inbox uses
-//! these ported components for the conversation list +
-//! conversation view header + message list, replacing the
-//! Wave 6B inline implementations. Admin-specific fields
-//! (status, topic, wallet) are still rendered alongside the
-//! ported components (the admin chat has richer data per
-//! conversation than the user-facing chat widget).
-//!
-//! Plus the Wave 1 `render` + `render_conversation` top-level
-//! functions and a `ChatStatsPanel` (top stats row reused by the
-//! inbox) inspired by the source's
-//! `components/chat/chat-stats-panel.tsx`.
-
-use crate::primitives::*;
-use crate::feedback::*;
-use crate::data_table::{Column, DataTable, Row, SortDir};
-use crate::chat::{
-    ChatConversationList, ChatHeader, ChatHeaderData, ChatMessageList, ConversationSummary,
-    Message, MessageBubble,
-};
+//! The Rust admin BFF verifies the session audience, but it does not yet expose
+//! typed chat reads or mutations. These routes therefore preserve a private,
+//! production-shaped workspace while rendering an explicit unavailable state.
+//! They do not infer authorization from frontend roles or permissions, and they
+//! expose no sample conversations, messages, presence, counts, filters, canned
+//! replies, assignments, status changes, or reply controls.
 
 use dioxus::prelude::*;
+
+use crate::auth::AuthGate;
+use crate::primitives::Icon;
+
 use super::super::{PageContext, PageMeta};
-use crate::auth::AdminAuthGate;
 
-// ============================================================================
-// Section 5: ChatUnreadBadge (kept inline — admin-specific badge style)
-// ============================================================================
+const CHAT_PATH: &str = "/chat";
+const MAX_ROUTE_REFERENCE_CHARS: usize = 64;
 
-#[component]
-fn ChatUnreadBadge(count: u32) -> Element {
-    if count == 0 {
-        return rsx! { Fragment {} };
-    }
-    rsx! {
-        span { class: "chat-unread-badge",
-            "{count}"
-        }
-    }
+#[derive(Clone, Copy, PartialEq)]
+enum ChatRoute {
+    Inbox,
+    Conversation,
 }
 
-// ============================================================================
-// Section 4: ChatInboxSearch (kept inline — admin-specific filter fields)
-// ============================================================================
+impl ChatRoute {
+    fn meta_title(self) -> &'static str {
+        match self {
+            Self::Inbox => "Support chat unavailable",
+            Self::Conversation => "Conversation unavailable",
+        }
+    }
 
-#[component]
-fn ChatInboxSearch(
-    status: String,
-    topic: String,
-    search: String,
-    on_status_change: EventHandler<String>,
-    on_topic_change: EventHandler<String>,
-    on_search_change: EventHandler<String>,
-) -> Element {
-    rsx! {
-        div { class: "chat-inbox-search p-3 border-b border-border/20 space-y-2",
-            // Free-text search.
-            div { class: "flex items-center gap-2 px-3 py-2 bg-muted/30 rounded-lg",
-                Icon { name: "search".to_string(), size: Some(14), class_name: Some("text-muted-foreground/50".to_string()) }
-                input {
-                    class: "flex-1 bg-transparent text-sm focus:outline-none",
-                    placeholder: "Search conversations...",
-                    value: "{search}",
-                    oninput: move |e| on_search_change.call(e.value().to_string()),
-                }
+    fn surface(self) -> &'static str {
+        match self {
+            Self::Inbox => "inbox",
+            Self::Conversation => "conversation",
+        }
+    }
+
+    fn eyebrow(self) -> &'static str {
+        match self {
+            Self::Inbox => "Support workspace",
+            Self::Conversation => "Conversation workspace",
+        }
+    }
+
+    fn title(self) -> &'static str {
+        match self {
+            Self::Inbox => "Support conversations are unavailable",
+            Self::Conversation => "This conversation cannot be verified",
+        }
+    }
+
+    fn detail(self) -> &'static str {
+        match self {
+            Self::Inbox => {
+                "No conversations, participants, messages, presence, unread counts, topics, statuses, assignments, or activity timestamps are shown because a backend-authoritative chat read contract is not connected."
             }
-            // Status + topic filters.
-            div { class: "grid grid-cols-2 gap-2",
-                select {
-                    class: "input",
-                    value: "{status}",
-                    onchange: move |e| on_status_change.call(e.value().to_string()),
-                    option { value: "", "All statuses" }
-                    option { value: "open", "Open" }
-                    option { value: "in_progress", "In progress" }
-                    option { value: "resolved", "Resolved" }
-                    option { value: "closed", "Closed" }
-                }
-                input {
-                    class: "input",
-                    placeholder: "Topic...",
-                    value: "{topic}",
-                    oninput: move |e| on_topic_change.call(e.value().to_string()),
-                }
+            Self::Conversation => {
+                "No participant, message, presence, assignment, status, ownership, or activity data is shown because the backend has not verified the requested conversation."
             }
         }
     }
 }
 
-// ============================================================================
-// Section 1: AdminChatInbox
-// ============================================================================
-//
-// The left-hand conversation list. Wave 42 T2 — uses the Wave
-// 40 ported `ChatConversationList` component (replaces the
-// Wave 6B inline `ConversationCard` loop). The admin-specific
-// fields (status badge, topic chip, unread badge) are still
-// rendered alongside the ported list.
-
-#[component]
-fn AdminChatInbox() -> Element {
-    let mut status = use_signal(String::new);
-    let mut topic = use_signal(String::new);
-    let mut search = use_signal(String::new);
-    let mut selected = use_signal(|| "1".to_string());
-
-    // Sample conversations. The real BFF fills these from the DB.
-    let conversations = vec![
-        ConversationRow { id: "1".into(), subject: "Plan upgrade question".into(), user: "0x1234\u{2026}5678".into(), status: "open".into(), last_reply: "2 min ago".into(), unread: 3, topic: "billing".into() },
-        ConversationRow { id: "2".into(), subject: "Payment issue".into(), user: "0xabcd\u{2026}ef12".into(), status: "closed".into(), last_reply: "1 hour ago".into(), unread: 0, topic: "payments".into() },
-        ConversationRow { id: "3".into(), subject: "API key question".into(), user: "0x9876\u{2026}5432".into(), status: "open".into(), last_reply: "5 min ago".into(), unread: 1, topic: "developers".into() },
-        ConversationRow { id: "4".into(), subject: "Subscription renewal".into(), user: "0x5555\u{2026}aaaa".into(), status: "in_progress".into(), last_reply: "10 min ago".into(), unread: 0, topic: "subscriptions".into() },
-    ];
-
-    let selected_id = selected.read().clone();
-
-    // Map admin `ConversationRow` → ported `ConversationSummary`
-    // (subject → title, last_reply → last_message + timestamp,
-    // user → avatar_emoji placeholder, unread → unread).
-    let summaries: Vec<ConversationSummary> = conversations.iter().map(|c| ConversationSummary {
-        id: c.id.clone(),
-        title: format!("{} ({})", c.subject, c.user),
-        last_message: format!("[{}] {}", c.status, c.topic),
-        timestamp: c.last_reply.clone(),
-        unread: c.unread,
-    }).collect();
-
-    rsx! {
-        div { class: "admin-chat-inbox h-full flex flex-col",
-            ChatInboxSearch {
-                status: status.read().clone(),
-                topic: topic.read().clone(),
-                search: search.read().clone(),
-                on_status_change: move |v| status.set(v),
-                on_topic_change: move |v| topic.set(v),
-                on_search_change: move |v| search.set(v),
-            }
-            // Wave 40 ported `ChatConversationList` (replaces
-            // the inline `ConversationCard` loop from Wave 6B).
-            div { class: "flex-1 overflow-y-auto pr-1 scrollbar-thin p-2",
-                ChatConversationList {
-                    items: summaries.clone(),
-                    selected: Some(selected_id.clone()),
-                    on_select: {
-                        let selected_id_for_move = selected_id.clone();
-                        move |id: String| {
-                            // The ported component calls on_select
-                            // with the row id. We update our
-                            // admin's selected signal so the
-                            // status/topic chips stay in sync.
-                            selected.set(id.clone());
-                            let _ = selected_id_for_move;
-                        }
-                    },
-                }
-            }
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-struct ConversationRow {
-    id: String,
-    subject: String,
-    user: String,
-    status: String,
-    last_reply: String,
-    unread: u32,
-    topic: String,
-}
-
-// ============================================================================
-// Section 3: ChatReplyInput (kept inline — admin-specific buttons)
-// ============================================================================
-
-#[component]
-fn ChatReplyInput() -> Element {
-    let mut msg = use_signal(String::new);
-    let mut show_canned = use_signal(|| false);
-    let mut show_assign = use_signal(|| false);
-    rsx! {
-        div { class: "chat-reply-input border-t border-border/20 p-4",
-            div { class: "flex gap-2 mb-3 flex-wrap",
-                button {
-                    class: "px-3 py-1.5 text-[11px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 transition-all flex items-center gap-1.5",
-                    r#type: "button",
-                    onclick: move |_| {
-                        let cur = show_canned.read().clone();
-                        show_canned.set(!cur);
-                    },
-                    Icon { name: "message-square".to_string(), size: Some(14) }
-                    " Saved"
-                }
-                button {
-                    class: "px-3 py-1.5 text-[11px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-all flex items-center gap-1.5",
-                    r#type: "button",
-                    onclick: move |_| {
-                        let cur = show_assign.read().clone();
-                        show_assign.set(!cur);
-                    },
-                    Icon { name: "user-plus".to_string(), size: Some(14) }
-                    " Assign"
-                }
-                button {
-                    class: "px-3 py-1.5 text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg hover:bg-emerald-500/20 transition-all flex items-center gap-1.5",
-                    r#type: "button",
-                    Icon { name: "check-circle".to_string(), size: Some(14) }
-                    " Resolve"
-                }
-                button {
-                    class: "px-3 py-1.5 text-[11px] font-bold bg-zinc-500/10 text-zinc-400 border border-zinc-500/20 rounded-lg hover:bg-zinc-500/20 transition-all flex items-center gap-1.5",
-                    r#type: "button",
-                    Icon { name: "x-circle".to_string(), size: Some(14) }
-                    " Close"
-                }
-            }
-            if *show_canned.read() {
-                CannedResponsesPopover { on_select: move |text: String| { msg.set(text); show_canned.set(false); } }
-            }
-            if *show_assign.read() {
-                AssignAgentPopover {}
-            }
-            div { class: "flex gap-2",
-                textarea {
-                    class: "input flex-1",
-                    placeholder: "Type your reply... (supports **markdown**)",
-                    rows: "2",
-                    value: "{msg.read()}",
-                    oninput: move |e| msg.set(e.value().to_string()),
-                }
-                button {
-                    class: "px-4 rounded-xl flex items-center justify-center bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:from-violet-400 hover:to-purple-500",
-                    r#type: "button",
-                    Icon { name: "send".to_string(), size: Some(16) }
-                }
-            }
-        }
-    }
-}
-
-#[component]
-fn CannedResponsesPopover(on_select: EventHandler<String>) -> Element {
-    rsx! {
-        div { class: "canned-responses-popover mb-3 p-2 bg-card border border-border/20 rounded-lg",
-            p { class: "text-xs font-bold text-muted-foreground uppercase tracking-wide px-1 mb-2", "Saved replies" }
-            div { class: "space-y-1 max-h-48 overflow-y-auto",
-                CannedResponseItem { label: "Welcome".to_string(), text: "Hello! Thanks for reaching out to EPSX support. How can I help you today?".to_string(), on_select: on_select }
-                CannedResponseItem { label: "Looking into it".to_string(), text: "I'm looking into this for you right now. I'll get back to you shortly.".to_string(), on_select: on_select }
-                CannedResponseItem { label: "Need more info".to_string(), text: "Could you please provide more details? Specifically, which wallet address and what transaction hash are you referring to?".to_string(), on_select: on_select }
-                CannedResponseItem { label: "Resolved".to_string(), text: "I'm glad we could resolve this for you! Is there anything else I can help with?".to_string(), on_select: on_select }
-                CannedResponseItem { label: "Docs link".to_string(), text: "You can find more information in our documentation at https://epsx.io/docs. Let me know if you have any questions!".to_string(), on_select: on_select }
-            }
-        }
-    }
-}
-
-#[component]
-fn CannedResponseItem(label: String, text: String, on_select: EventHandler<String>) -> Element {
-    rsx! {
-        button {
-            class: "w-full px-3 py-2 text-left rounded-md hover:bg-muted/30 transition-colors",
-            r#type: "button",
-            onclick: move |_| on_select.call(text.clone()),
-            p { class: "text-xs font-semibold", "{label}" }
-            p { class: "text-[11px] text-muted-foreground/60 line-clamp-2", "{text}" }
-        }
-    }
-}
-
-#[component]
-fn AssignAgentPopover() -> Element {
-    rsx! {
-        div { class: "assign-agent-popover mb-3 p-2 bg-card border border-border/20 rounded-lg",
-            p { class: "text-xs font-bold text-muted-foreground uppercase tracking-wide px-1 mb-2", "Assign agent" }
-            div { class: "space-y-1",
-                div { class: "px-3 py-2 rounded-md hover:bg-blue-500/10 transition-colors cursor-pointer",
-                    div { class: "flex items-center gap-2",
-                        Icon { name: "user-plus".to_string(), size: Some(14), class_name: Some("text-blue-400".to_string()) }
-                        div {
-                            p { class: "text-xs font-semibold text-blue-400", "Assign to me" }
-                            p { class: "text-[10px] text-muted-foreground/50 font-mono", "0xADMIN0000\u{2026}0001" }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ============================================================================
-// Section 2: AdminChatConversationView
-// ============================================================================
-//
-// The right-hand conversation view. Wave 42 T2 — uses the
-// Wave 40 ported `ChatHeader` + `ChatMessageList` (replaces the
-// Wave 6B inline header + manual `MessageBubble` loop).
-
-#[component]
-fn AdminChatConversationView(id: String) -> Element {
-    // Sample messages. Real BFF fills these via SSE / polling.
-    let messages: Vec<Message> = vec![
-        Message { id: "m1".into(), sender_name: "User".into(), sender_role: "User".into(), body: "Hi, I\u{2019}d like to upgrade my plan from Pro to Enterprise.".into(), created_at: "10:32 AM".into(), is_read: true, is_own: true, is_system: false, sender_type: "user".into(), attachment: None },
-        Message { id: "m2".into(), sender_name: "Support".into(), sender_role: "Support".into(), body: "Sure! I can help with that. Do you have a preferred billing date?".into(), created_at: "10:33 AM".into(), is_read: true, is_own: false, is_system: false, sender_type: "agent".into(), attachment: None },
-        Message { id: "m3".into(), sender_name: "User".into(), sender_role: "User".into(), body: "How about the 1st of next month?".into(), created_at: "10:35 AM".into(), is_read: false, is_own: true, is_system: false, sender_type: "user".into(), attachment: None },
-        Message { id: "m4".into(), sender_name: "System".into(), sender_role: "".into(), body: "Conversation assigned to Alex".into(), created_at: "10:36 AM".into(), is_read: true, is_own: false, is_system: true, sender_type: "system".into(), attachment: None },
-    ];
-
-    // Wave 40 ported `ChatHeaderData` — built from the
-    // admin's id + subject + topic.
-    let header_data = ChatHeaderData {
-        title: "Plan upgrade question".to_string(),
-        subtitle: format!("id={id} • topic=billing"),
-        avatar_emoji: "\u{1F4AC}".to_string(),
-        is_online: true,
-    };
-
-    rsx! {
-        div { class: "admin-chat-conversation-view flex flex-col h-full",
-            // Wave 40 ported `ChatHeader` (replaces the inline
-            // header from Wave 6B). Admin-specific subject + id +
-            // status + topic chips are rendered below.
-            ChatHeader {
-                data: header_data,
-                on_close: None,
-            }
-            // Admin-specific chips row below the ported header
-            // (subject + id + status + topic).
-            div { class: "px-4 pt-2 pb-3 border-b border-border/20",
-                div { class: "flex flex-wrap items-center gap-x-3 gap-y-1",
-                    code { class: "text-xs font-mono text-muted-foreground", "{id}" }
-                    Badge { kind: BadgeKind::Success, "Open" }
-                    Badge { kind: BadgeKind::Primary, "billing" }
-                }
-            }
-            // Wave 40 ported `ChatMessageList` (replaces the
-            // manual `MessageBubble` loop from Wave 6B). The
-            // Wave 6A `MessageBubble` primitive is still used
-            // inside `ChatMessageList`.
-            ChatMessageList { messages: messages.clone() }
-            // Reply input (admin-specific — kept inline).
-            ChatReplyInput {}
-        }
-    }
-}
-
-// ============================================================================
-// ChatStatsPanel (kept inline — admin-specific stats values)
-// ============================================================================
-
-#[component]
-fn ChatStatsPanel() -> Element {
-    rsx! {
-        div { class: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 chat-stats-panel",
-            StatCard { label: "Total open".to_string(), value: "12".to_string(), icon: Some("inbox".to_string()) }
-            StatCard { label: "In progress".to_string(), value: "5".to_string(), icon: Some("loader".to_string()) }
-            StatCard { label: "Resolved (7d)".to_string(), value: "84".to_string(), icon: Some("check-circle".to_string()) }
-            StatCard { label: "Unassigned".to_string(), value: "3".to_string(), icon: Some("user-plus".to_string()) }
-        }
-    }
-}
-
-// ============================================================================
-// Top-level page entry points
-// ============================================================================
-
+/// `/chat` — authenticated chat inbox shell with no compatibility data.
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    // Wave 38c T2 — the body class is set by `admin_pages::dispatch`
-    // for `/chat` (the 4th route that needs the prod-EXACT body
-    // class). This render() function only runs in non-skeleton mode
-    // (authed user OR skeleton env var unset), where the dispatch
-    // gate falls through to chat::render() with the regular
-    // PageMeta::admin() (no body class override). The body class
-    // is handled at the dispatch layer so both the skeleton-mode
-    // short-circuit AND the non-skeleton authed path stay in sync.
-    let meta = PageMeta::admin("Support chat");
-    (meta, rsx! { RenderAdminChat { ctx: ctx.clone() } })
+    render_route(ctx, ChatRoute::Inbox, None)
+}
+
+/// `/chat/{id}` — authenticated conversation shell. The route value is a
+/// bounded, control-free, HTML-escaped diagnostic reference only. Its presence
+/// never proves that a conversation exists, belongs to a user, or is readable.
+pub fn render_conversation(ctx: &PageContext) -> (PageMeta, Element) {
+    let route_reference =
+        bounded_route_reference(ctx.params.get("id").map(String::as_str).unwrap_or_default());
+    render_route(ctx, ChatRoute::Conversation, Some(route_reference))
+}
+
+fn render_route(
+    ctx: &PageContext,
+    route: ChatRoute,
+    route_reference: Option<String>,
+) -> (PageMeta, Element) {
+    let meta = PageMeta::admin(route.meta_title());
+    let retry_href = route_reference
+        .as_deref()
+        .map(conversation_href)
+        .unwrap_or_else(|| CHAT_PATH.to_string());
+
+    // Query parameters and legacy hydration values are intentionally ignored.
+    // Only a future backend-owned chat contract may create read or action state.
+    (
+        meta,
+        rsx! {
+            AuthGate {
+                user: ctx.user.clone(),
+                feature: Some("the private support chat workspace".to_string()),
+                // Keep route references out of the signed-out response. The
+                // authenticated unavailable shell may offer a bounded retry,
+                // but the login boundary returns only to the static inbox.
+                return_url: Some(CHAT_PATH.to_string()),
+                ChatUnavailable { route, route_reference, retry_href }
+            }
+        },
+    )
+}
+
+/// Strip controls and cap the visible diagnostic value by Unicode scalar
+/// count. Dioxus escapes the remaining display text at the HTML boundary.
+fn bounded_route_reference(raw: &str) -> String {
+    let cleaned = raw
+        .chars()
+        .filter(|character| !character.is_control())
+        .collect::<String>();
+    let cleaned = cleaned.trim();
+
+    if cleaned.is_empty() {
+        return "not provided".to_string();
+    }
+
+    if cleaned.chars().count() <= MAX_ROUTE_REFERENCE_CHARS {
+        return cleaned.to_string();
+    }
+
+    let mut bounded = cleaned
+        .chars()
+        .take(MAX_ROUTE_REFERENCE_CHARS.saturating_sub(1))
+        .collect::<String>();
+    bounded.push('…');
+    bounded
+}
+
+/// Encode the already-bounded reference as one URL path segment. The display
+/// value remains untrusted and unverified even when it is safe to navigate to.
+fn conversation_href(reference: &str) -> String {
+    let mut encoded = String::with_capacity(reference.len());
+    for byte in reference.as_bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
+                encoded.push(char::from(*byte));
+            }
+            _ => {
+                const HEX: &[u8; 16] = b"0123456789ABCDEF";
+                encoded.push('%');
+                encoded.push(char::from(HEX[(byte >> 4) as usize]));
+                encoded.push(char::from(HEX[(byte & 0x0f) as usize]));
+            }
+        }
+    }
+    format!("{CHAT_PATH}/{encoded}")
 }
 
 #[component]
-fn RenderAdminChat(ctx: PageContext) -> Element {
+fn ChatUnavailable(
+    route: ChatRoute,
+    route_reference: Option<String>,
+    retry_href: String,
+) -> Element {
+    let title_id = format!("admin-chat-{}-unavailable-title", route.surface());
+
     rsx! {
-        AdminAuthGate {
-            user: ctx.user.clone(),
-            feature: Some("support chat".to_string()),
-            required_permissions: Some(vec!["admin:chat:manage".to_string()]),
-            return_url: Some(ctx.path.clone()),
-            div { class: "container page-content admin-chat-page",
-                // Page header.
-                div { class: "flex items-center gap-3 mb-6",
-                    div { class: "w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-sm shadow-violet-500/20",
-                        Icon { name: "message-circle".to_string(), size: Some(20), class_name: Some("text-white".to_string()) }
+        div {
+            class: "container page-content max-w-6xl py-10",
+            "data-admin-chat-state": "unavailable",
+            "data-admin-chat-surface": route.surface(),
+            section {
+                class: "relative overflow-hidden rounded-3xl border border-border/40 bg-card shadow-2xl",
+                role: "status",
+                aria_labelledby: title_id.clone(),
+                div { class: "absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#1fc7d4] via-[#7645d9] to-[#ed4b9e]" }
+                div { class: "grid gap-8 p-8 md:grid-cols-[auto_1fr] md:p-12",
+                    div {
+                        class: "flex h-16 w-16 items-center justify-center rounded-2xl border border-violet-500/20 bg-violet-500/10 text-violet-400",
+                        aria_hidden: "true",
+                        Icon { name: "message-circle".to_string(), size: Some(30) }
                     }
                     div {
-                        h1 { class: "text-2xl font-bold text-foreground tracking-tight", "Chat support" }
-                        p { class: "text-xs text-muted-foreground/60", "Manage support conversations" }
-                    }
-                }
-                // Stats panel.
-                ChatStatsPanel {}
-                // 2-column layout: inbox (left) + conversation (right).
-                div { class: "h-[calc(100vh-22rem)] flex flex-col md:flex-row md:gap-4",
-                    // Section 1: inbox (uses Wave 40 ported
-                    // `ChatConversationList`).
-                    div { class: "w-full md:w-[360px] md:flex-shrink-0 flex flex-col admin-chat-inbox-container",
-                        AdminChatInbox {}
-                    }
-                    // Section 2: conversation view (placeholder when
-                    // no conversation is selected).
-                    div { class: "flex-1 rounded-2xl border border-border/20 bg-card overflow-hidden admin-chat-conversation-container",
-                        div { class: "flex flex-col items-center justify-center h-full text-center",
-                            div { class: "w-16 h-16 rounded-xl bg-muted/30 flex items-center justify-center mb-4 border border-border/40",
-                                Icon { name: "message-circle".to_string(), size: Some(32), class_name: Some("text-muted-foreground/20".to_string()) }
+                        p { class: "text-xs font-black uppercase tracking-[0.22em] text-violet-400",
+                            {route.eyebrow()}
+                        }
+                        h1 { id: title_id, class: "mt-3 text-3xl font-black tracking-tight text-foreground",
+                            {route.title()}
+                        }
+                        div {
+                            class: "mt-5 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-5",
+                            p { class: "text-sm font-semibold leading-6 text-foreground",
+                                {route.detail()}
                             }
-                            p { class: "text-sm font-medium text-muted-foreground mb-1", "Select a conversation" }
-                            p { class: "text-xs text-muted-foreground/40", "Choose from the left panel to view details" }
+                        }
+                        if let Some(reference) = route_reference {
+                            p { class: "mt-4 rounded-xl border border-border/30 bg-background/50 px-4 py-3 text-sm text-muted-foreground",
+                                "Unverified route reference: "
+                                code { "data-admin-chat-route-reference": "bounded", "{reference}" }
+                            }
+                        }
+                        p { class: "mt-5 max-w-3xl text-sm leading-6 text-muted-foreground",
+                            "The verified session keeps this workspace private, but only the Rust backend may authorize chat reads or management and return typed conversation data."
+                        }
+                        div { class: "mt-8 grid gap-4 sm:grid-cols-3",
+                            BoundaryItem {
+                                icon: "database",
+                                title: "Conversation data",
+                                detail: "Inbox and message records remain hidden without a typed backend response."
+                            }
+                            BoundaryItem {
+                                icon: "shield",
+                                title: "Authorization",
+                                detail: "Frontend roles and permissions never grant read or management authority."
+                            }
+                            BoundaryItem {
+                                icon: "send",
+                                title: "Operations",
+                                detail: "Replies, assignments, and status changes remain disabled without verified mutations."
+                            }
+                        }
+                        nav { class: "mt-8 flex flex-wrap gap-3", aria_label: "Support chat recovery",
+                            a { class: "btn btn-primary", href: retry_href,
+                                Icon { name: "refresh-cw".to_string(), size: Some(16) }
+                                " Retry chat availability"
+                            }
+                            if route == ChatRoute::Conversation {
+                                a { class: "btn btn-outline", href: CHAT_PATH,
+                                    Icon { name: "arrow-left".to_string(), size: Some(16) }
+                                    " Conversation list"
+                                }
+                            }
+                            a { class: "btn btn-ghost", href: "/",
+                                Icon { name: "home".to_string(), size: Some(16) }
+                                " Admin home"
+                            }
                         }
                     }
                 }
@@ -444,151 +238,179 @@ fn RenderAdminChat(ctx: PageContext) -> Element {
     }
 }
 
-pub fn render_conversation(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::admin("Conversation");
-    (meta, rsx! { RenderAdminConversationPage { ctx: ctx.clone() } })
-}
-
 #[component]
-fn RenderAdminConversationPage(ctx: PageContext) -> Element {
-    let id = ctx.params.get("id").cloned().unwrap_or_default();
+fn BoundaryItem(icon: &'static str, title: &'static str, detail: &'static str) -> Element {
     rsx! {
-        AdminAuthGate {
-            user: ctx.user.clone(),
-            feature: Some("support conversations".to_string()),
-            required_permissions: Some(vec!["admin:chat:manage".to_string()]),
-            return_url: Some(ctx.path.clone()),
-            div { class: "container page-content",
-                a { class: "btn btn-sm btn-ghost mb-4", href: "/chat", Icon { name: "arrow-left".to_string(), size: Some(16) } " Back" }
-                // Section 2: full conversation view (uses Wave
-                // 40 ported `ChatHeader` + `ChatMessageList`).
-                AdminChatConversationView { id: id.clone() }
+        div { class: "rounded-xl border border-border/20 bg-background/40 p-5",
+            div { class: "flex items-center gap-2 font-semibold text-foreground",
+                Icon { name: icon.to_string(), size: Some(18) }
+                "{title}"
+            }
+            p { class: "mt-2 text-sm leading-6 text-muted-foreground", "{detail}" }
+            span { class: "mt-3 inline-flex rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-400",
+                "Unavailable"
             }
         }
     }
 }
-
-// ============================================================================
-// Section markers (used by `tests::test_section_markers`):
-//
-//   1. "Admin chat inbox"            → "Chat support" header + conversation cards
-//   2. "Admin chat conversation view" → "Plan upgrade question" + MessageBubble row
-//   3. "Chat reply input"             → "Saved" / "Assign" / "Resolve" / "Close" buttons
-//   4. "Chat inbox search"            → "Search conversations..." input
-//   5. "Chat unread badge"            → rendered inside ConversationCard
-// ============================================================================
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::*;
-    use crate::pages::PageContext;
     use crate::auth::User;
 
-    /// Build an admin `User` with the `admin:chat:manage` permission.
-    fn test_user_admin() -> User {
-        User {
-            id: "test-admin".to_string(),
-            address: "0xADMIN0000000000000000000000000000000001".to_string(),
-            chain_id: "56".to_string(),
-            roles: vec!["admin".to_string()],
-            email: Some("admin@epsx.io".to_string()),
-            tier: Some("admin".to_string()),
-            permissions: vec!["admin:chat:manage".to_string()],
+    fn authenticated_ctx(path: &str) -> PageContext {
+        PageContext {
+            user: Some(User {
+                id: "admin-session".to_string(),
+                address: "0x1234".to_string(),
+                chain_id: "56".to_string(),
+                roles: vec![],
+                permissions: vec![],
+                ..Default::default()
+            }),
+            path: path.to_string(),
             ..Default::default()
         }
     }
 
-    /// Render the admin page's `Element` to an HTML string.
-    fn render_to_string(el: Element) -> String {
-        dioxus_ssr::render_element(el)
+    fn conversation_ctx(id: &str, signed_in: bool) -> PageContext {
+        let mut ctx = authenticated_ctx("/chat/case-42");
+        ctx.user = signed_in.then(|| ctx.user.take().expect("test user"));
+        ctx.params = HashMap::from([("id".to_string(), id.to_string())]);
+        ctx
     }
 
-    /// `test_render_smoke` — the page body header is rendered for an
-    /// admin user with the right permission.
-    #[test]
-    fn test_render_smoke() {
-        let ctx = PageContext {
-            user: Some(test_user_admin()),
-            path: "/chat".to_string(),
-            ..Default::default()
-        };
-        let (_, el) = render(&ctx);
-        let html = render_to_string(el);
-        assert!(
-            html.contains("Chat support"),
-            "Chat page must render the title for an admin. Got: {}",
-            html
-        );
-        // The 5 sections include the inbox; assert the search bar.
-        assert!(
-            html.contains("Search conversations..."),
-            "Section 4 (ChatInboxSearch) marker missing. Got: {}",
-            html
-        );
-        // Wave 42 T2 — the Wave 40 ported `ChatConversationList`
-        // is rendered in the inbox.
-        assert!(
-            html.contains("chat-conversation-list"),
-            "Wave 40 ported ChatConversationList should render its section marker. Got: {}",
-            html
-        );
+    fn html(element: Element) -> String {
+        dioxus_ssr::render_element(element)
     }
 
-    /// `test_section_markers` — assert each of the 5 design-doc
-    /// sections renders its section-marker text. We render the
-    /// full page once and assert against the combined HTML — this
-    /// avoids the multi-render runtime pitfall of running
-    /// `dioxus_ssr::render_element` against multiple separate
-    /// `use_signal` scopes in a single test.
     #[test]
-    fn test_section_markers() {
-        // Full page render — exercises the inbox (Section 1) +
-        // search (Section 4) + unread badge (Section 5) all in
-        // one runtime scope.
-        let ctx = PageContext {
-            user: Some(test_user_admin()),
-            path: "/chat".to_string(),
-            ..Default::default()
-        };
-        let (_, el) = render(&ctx);
-        let html = render_to_string(el);
-        // Section 1: AdminChatInbox (uses ported ChatConversationList).
-        assert!(html.contains("Plan upgrade question"), "section 1 (AdminChatInbox) sample conv missing");
-        assert!(html.contains("chat-conversation-list"), "Wave 40 ported ChatConversationList marker missing");
-        // Section 4: ChatInboxSearch.
-        assert!(html.contains("Search conversations..."), "section 4 (ChatInboxSearch) search input missing");
-        assert!(html.contains("All statuses"), "section 4 (ChatInboxSearch) status select missing");
+    fn signed_out_routes_keep_chat_state_and_reference_private() {
+        let inbox = html(
+            render(&PageContext {
+                path: CHAT_PATH.to_string(),
+                ..Default::default()
+            })
+            .1,
+        );
+        let conversation = html(render_conversation(&conversation_ctx("private-case", false)).1);
 
-        // Conversation route — exercises Section 2 +
-        // AdminChatConversationView + Wave 40 ported
-        // ChatHeader + ChatMessageList + MessageBubble +
-        // ChatReplyInput.
-        let mut params = std::collections::HashMap::new();
-        params.insert("id".to_string(), "1".to_string());
-        let ctx = PageContext {
-            user: Some(test_user_admin()),
-            path: "/chat/1".to_string(),
-            params,
-            ..Default::default()
-        };
-        let (_, el) = render_conversation(&ctx);
-        let html = render_to_string(el);
-        // Section 2: AdminChatConversationView + ported
-        // ChatHeader + ChatMessageList.
-        assert!(html.contains("Plan upgrade question"), "section 2 (AdminChatConversationView) header missing");
-        // Wave 40 ported ChatHeader marker.
-        assert!(html.contains("chat-header"), "Wave 40 ported ChatHeader marker missing");
-        // Wave 40 ported ChatMessageList marker.
-        assert!(html.contains("chat-message-list"), "Wave 40 ported ChatMessageList marker missing");
-        // The body text uses a Unicode right single quote (U+2019).
-        assert!(html.contains("I\u{2019}d like to upgrade"), "section 2 (AdminChatConversationView) message body missing (via MessageBubble). Got: {}", html);
-        assert!(html.contains("Support"), "section 2 (MessageBubble) sender role missing");
-        assert!(html.contains("Conversation assigned to Alex"), "section 2 (MessageBubble system) missing");
-        // Section 3: ChatReplyInput (rendered inside Section 2).
-        assert!(html.contains("Saved"), "section 3 (ChatReplyInput) Saved button missing");
-        assert!(html.contains("Assign"), "section 3 (ChatReplyInput) Assign button missing");
-        assert!(html.contains("Resolve"), "section 3 (ChatReplyInput) Resolve button missing");
-        assert!(html.contains("Close"), "section 3 (ChatReplyInput) Close button missing");
-        assert!(html.contains("Type your reply"), "section 3 (ChatReplyInput) textarea placeholder missing");
+        for rendered in [inbox, conversation] {
+            assert!(rendered.contains("Sign in required"));
+            assert!(!rendered.contains("data-admin-chat-state"));
+            assert!(!rendered.contains("Support conversations are unavailable"));
+            assert!(!rendered.contains("private-case"));
+        }
+    }
+
+    #[test]
+    fn roles_empty_authenticated_session_reaches_both_unavailable_surfaces() {
+        let inbox = html(render(&authenticated_ctx(CHAT_PATH)).1);
+        let conversation = html(render_conversation(&conversation_ctx("case-42", true)).1);
+
+        assert!(inbox.contains("data-admin-chat-state=\"unavailable\""));
+        assert!(inbox.contains("data-admin-chat-surface=\"inbox\""));
+        assert!(conversation.contains("data-admin-chat-state=\"unavailable\""));
+        assert!(conversation.contains("data-admin-chat-surface=\"conversation\""));
+        assert!(conversation.contains("This conversation cannot be verified"));
+        assert!(!inbox.contains("Permission required"));
+        assert!(!conversation.contains("Permission required"));
+    }
+
+    #[test]
+    fn unavailable_surfaces_emit_no_samples_counts_filters_or_actions() {
+        let inbox = html(render(&authenticated_ctx(CHAT_PATH)).1);
+        let conversation = html(render_conversation(&conversation_ctx("case-42", true)).1);
+        let combined = format!("{inbox}{conversation}");
+
+        for forbidden in [
+            "Plan upgrade question",
+            "Payment issue",
+            "API key question",
+            "Subscription renewal",
+            "0x1234…5678",
+            "Conversation assigned to Alex",
+            "How about the 1st of next month?",
+            "Total open",
+            "Resolved (7d)",
+            "Search conversations",
+            "All statuses",
+            "Saved replies",
+            "Assign to me",
+            "Type your reply",
+            "Mark resolved",
+            "Send reply",
+            "chat-conversation-list",
+            "chat-message-list",
+            "<input",
+            "<select",
+            "<textarea",
+            "<button",
+        ] {
+            assert!(!combined.contains(forbidden), "leaked chat UI: {forbidden}");
+        }
+    }
+
+    #[test]
+    fn legacy_and_hostile_non_id_params_are_ignored() {
+        let mut ctx = authenticated_ctx(CHAT_PATH);
+        ctx.query = "status=open&presence=online&unread=99".to_string();
+        ctx.params = HashMap::from([
+            (
+                "messages".to_string(),
+                "Conversation assigned to Alex".to_string(),
+            ),
+            ("reply".to_string(), "Send reply".to_string()),
+            ("assignee".to_string(), "0xADMIN0000…0001".to_string()),
+        ]);
+        let rendered = html(render(&ctx).1);
+
+        assert!(rendered.contains("data-admin-chat-state=\"unavailable\""));
+        for forbidden in [
+            "status=open",
+            "presence=online",
+            "unread=99",
+            "Conversation assigned to Alex",
+            "Send reply",
+            "0xADMIN0000…0001",
+        ] {
+            assert!(
+                !rendered.contains(forbidden),
+                "legacy value leaked: {forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn conversation_reference_is_bounded_control_free_escaped_and_unverified() {
+        let hostile = format!("\u{0}\n\t\"><script>alert(1)</script>{}", "a".repeat(100));
+        let bounded = bounded_route_reference(&hostile);
+        assert!(bounded.chars().count() <= MAX_ROUTE_REFERENCE_CHARS);
+        assert!(!bounded.chars().any(char::is_control));
+
+        let rendered = html(render_conversation(&conversation_ctx(&hostile, true)).1);
+        assert!(rendered.contains("Unverified route reference"));
+        assert!(rendered.contains("data-admin-chat-route-reference=\"bounded\""));
+        assert!(!rendered.contains("<script>"));
+        assert!(!rendered.contains("href=\"/chat/\"><script"));
+        assert!(rendered.contains("%22%3E%3Cscript%3E"));
+    }
+
+    #[test]
+    fn recovery_uses_native_safe_links_without_mutation_handlers() {
+        let inbox = html(render(&authenticated_ctx(CHAT_PATH)).1);
+        let conversation = html(render_conversation(&conversation_ctx("case 42", true)).1);
+
+        assert!(inbox.contains("href=\"/chat\""));
+        assert!(inbox.contains("href=\"/\""));
+        assert!(conversation.contains("href=\"/chat/case%2042\""));
+        assert!(conversation.contains("Conversation list"));
+        assert!(conversation.contains("href=\"/\""));
+        assert!(!inbox.contains("onclick="));
+        assert!(!conversation.contains("onclick="));
+        assert!(!conversation.contains("javascript:"));
     }
 }
