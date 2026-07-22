@@ -33,7 +33,14 @@
   },
   "runtimeBoundary": {
     "rustRoot": "services/indexer",
-    "rustInventory": ["services/indexer/src/lib.rs", "services/indexer/src/main.rs"],
+    "rustInventory": [
+      "services/indexer/src/ingestion/domain.rs",
+      "services/indexer/src/ingestion/memory.rs",
+      "services/indexer/src/ingestion/mod.rs",
+      "services/indexer/src/ingestion/ports.rs",
+      "services/indexer/src/lib.rs",
+      "services/indexer/src/main.rs"
+    ],
     "scannerFindingBefore": 5,
     "scannerFindingAfter": 0,
     "compatibilityQueryConstant": "INDEXER_SCHEMA_COMPATIBILITY_QUERY",

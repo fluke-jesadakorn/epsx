@@ -128,6 +128,12 @@ database-only state construction, router construction, then listener binding. Th
 provider, block-number fetch, in-memory cursor, polling option, autonomous task, placeholder hash,
 or conflict-skipping insert.
 
+The recursively pinned Rust inventory now contains six files: `lib.rs`, `main.rs`, and the dormant
+`ingestion/{domain,memory,mod,ports}.rs` module. The module defines offline checked block-batch and
+port contracts; `memory.rs` is test-only. It adds no provider adapter, repository adapter, worker,
+checkpoint, startup hook, route, SQL, RPC, canonicality, or finality claim, so the ingestion,
+checkpoint, and fork/reorg STOP blockers remain unchanged.
+
 The existing direct boundary remains authoritative: only GET/HEAD `/health` reaches a handler.
 All reads return `404` before SQL, while POST `/sync` still requires exact admin audience plus
 `admin:indexer:manage` and then returns `404`. The explicit sync handler also returns `404` as a
@@ -136,7 +142,13 @@ second fail-closed layer.
 ## Offline evidence
 
 ```sh
-rustfmt --edition 2021 --check services/indexer/src/lib.rs services/indexer/src/main.rs
+rustfmt --edition 2021 --check \
+  services/indexer/src/ingestion/domain.rs \
+  services/indexer/src/ingestion/memory.rs \
+  services/indexer/src/ingestion/mod.rs \
+  services/indexer/src/ingestion/ports.rs \
+  services/indexer/src/lib.rs \
+  services/indexer/src/main.rs
 cargo test --locked --offline -p epsx-indexer --lib
 cargo test --locked --offline -p epsx-indexer --bin indexer
 cargo check --locked --offline -p epsx-indexer --bin indexer
@@ -146,9 +158,9 @@ scripts/migration/verify-a3-12-indexer-schema-boundary.sh --mode report
 scripts/migration/test-a3-12-indexer-schema-boundary.sh
 ```
 
-The library suite passes 12/12 and the binary suite passes 4/4. The locked offline binary check
+The library suite passes 29/29 and the binary suite passes 4/4. The locked offline binary check
 passes. The verifier pins provenance, removed runtime bytes, migration/query digests, runtime DDL
-zero, public qualification, schema/constraint/index catalog semantics, model/bind corrections,
+zero, the six-file recursive Rust inventory, public qualification, schema/constraint/index catalog semantics, model/bind corrections,
 startup ordering, absent fake sync, fail-closed readiness, and ten residual blockers. Its self-test
 adversarially tampers readiness, source commit/path/blob, query digest/bytes, relation counts, fake
 sync policy, migration digest/guards, global transaction key, and schema descriptors. Same-length

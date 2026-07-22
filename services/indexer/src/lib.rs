@@ -11,6 +11,8 @@ use epsx_service_auth::{
 use std::{sync::Arc, time::Duration};
 use thiserror::Error;
 
+pub mod ingestion;
+
 pub const INDEXER_MANAGE_PERMISSION: &str = "admin:indexer:manage";
 
 pub const INDEXER_SCHEMA_COMPATIBILITY_QUERY: &str = r#"

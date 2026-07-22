@@ -87,7 +87,14 @@ for (const anchor of snapshot.anchors) if (!oldRuntime.includes(anchor)) fail(`o
 
 const runtime = fixture.runtimeBoundary;
 if (runtime.rustRoot !== "services/indexer" || runtime.scannerFindingBefore !== 5 || runtime.scannerFindingAfter !== 0) fail("runtime finding boundary drifted");
-exact("Rust inventory", ["services/indexer/src/lib.rs", "services/indexer/src/main.rs"], runtime.rustInventory);
+exact("Rust inventory", [
+  "services/indexer/src/ingestion/domain.rs",
+  "services/indexer/src/ingestion/memory.rs",
+  "services/indexer/src/ingestion/mod.rs",
+  "services/indexer/src/ingestion/ports.rs",
+  "services/indexer/src/lib.rs",
+  "services/indexer/src/main.rs"
+], runtime.rustInventory);
 exact("startup anchors", ["sqlx::PgPool::connect(&args.database_url)", "verify_schema_compatibility(&db)", "let state = AppState { db };", "tokio::net::TcpListener::bind(addr)"], runtime.startupOrderAnchors);
 exact("forbidden runtime anchors", ["sync_on_start", "poll_interval", "provider_for_chain", "tokio::spawn", "sync_chain", "index_block", "ON CONFLICT (chain_id, number) DO NOTHING", "format!(\"0x{:064x}\", number)", "fetch_block_number"], runtime.forbiddenRuntimeAnchors);
 exact("model/bind anchors", ["timestamp: chrono::DateTime<chrono::Utc>", "from_address: String", "to_address: Option<String>", "miner: Option<String>", "let indexer_block = indexed", ".map(u64::try_from)", "fn canonical_chain_id(value: &str)", "B256::from_str(value)", "Address::from_str(value)", "ORDER BY block_number DESC, tx_hash DESC, log_index DESC"], runtime.modelAndBindAnchors);
@@ -285,7 +292,7 @@ const report = {
   productionReady: false,
   readinessExit: 3,
   provenance: { sourceCommit: provenance.sourceCommit, standaloneSourceIndexer: false, removedRuntimeBlob: snapshot.blob },
-  runtimeRust: { ddlFindings: 0, expectedDelta: -5, qualifiedRelations: runtime.qualifiedRelationOccurrences, fakeSyncAvailable: false },
+  runtimeRust: { files: runtime.rustInventory.length, ddlFindings: 0, expectedDelta: -5, qualifiedRelations: runtime.qualifiedRelationOccurrences, fakeSyncAvailable: false },
   migrationRoot: { migrations: 1, runner: null, pinnedBytes: ordered.bytes, sha256: ordered.sha256, guardedTables: 3, guardedIndexes: 5 },
   schema: { tables: 3, columns: 27, structuralConstraints: schema.structuralConstraints.length, checkConstraints: schema.checkConstraints.length, indexes: schema.indexes.length, transactionPrimaryKey: ["chain_id", "hash"] },
   blockers: fixture.blockers
