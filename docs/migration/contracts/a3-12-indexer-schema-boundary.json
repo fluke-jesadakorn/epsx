@@ -104,9 +104,27 @@
           "CREATE INDEX IF NOT EXISTS idx_transfers_from",
           "CREATE INDEX IF NOT EXISTS idx_transfers_to"
         ]
+      },
+      {
+        "version": "20260722070000",
+        "path": "services/indexer/migrations/20260722070000_create_indexer_fork_store.sql",
+        "bytes": 23326,
+        "sha256": "60b82188c74c5de7463610ce4c5795150970a4b760d5a81c66981cd25d9e5f00",
+        "guards": [
+          "CREATE TABLE IF NOT EXISTS public.indexer_block_candidates (",
+          "CREATE TABLE IF NOT EXISTS public.indexer_transaction_inclusions (",
+          "CREATE TABLE IF NOT EXISTS public.indexer_receipts (",
+          "CREATE TABLE IF NOT EXISTS public.indexer_raw_logs (",
+          "CREATE TABLE IF NOT EXISTS public.indexer_selected_blocks (",
+          "CREATE TABLE IF NOT EXISTS public.indexer_chain_state (",
+          "CREATE TABLE IF NOT EXISTS public.indexer_mutation_journal (",
+          "CREATE TABLE IF NOT EXISTS public.indexer_mutation_blocks (",
+          "CREATE INDEX IF NOT EXISTS idx_indexer_block_candidates_parent",
+          "CREATE INDEX IF NOT EXISTS idx_indexer_transaction_inclusions_hash"
+        ]
       }
     ],
-    "forbiddenTokens": ["ALTER", "DROP", "TRUNCATE", "DELETE", "INSERT", "UPDATE", "CASCADE", "BEGIN", "COMMIT", "CREATE SCHEMA", "CREATE EXTENSION"]
+    "forbiddenTokens": ["ALTER", "DROP", "TRUNCATE", "DELETE", "INSERT", "UPDATE", "CASCADE", "BEGIN TRANSACTION", "BEGIN WORK", "START TRANSACTION", "COMMIT", "ROLLBACK", "CREATE SCHEMA", "CREATE EXTENSION", "CREATE FUNCTION", "CREATE TRIGGER"]
   },
   "schemaContract": {
     "columns": 27,
@@ -199,6 +217,169 @@
     "partialExpressionOrIncludedIndexesAccepted": false,
     "nonCatalogOperatorClassesAccepted": false,
     "indexCollationDriftAccepted": false
+  },
+  "forkStoreContract": {
+    "status": "dormant-static-substrate",
+    "columns": 74,
+    "tables": {
+      "indexer_block_candidates": [
+        "chain_id:int8:required",
+        "block_hash:bytea:required",
+        "number:int8:required",
+        "parent_hash:bytea:required",
+        "block_timestamp:timestamptz:required",
+        "beneficiary:bytea:nullable",
+        "gas_used:int8:required",
+        "gas_limit:int8:required",
+        "stored_at:timestamptz:required:default-clock"
+      ],
+      "indexer_transaction_inclusions": [
+        "chain_id:int8:required",
+        "block_hash:bytea:required",
+        "transaction_index:int4:required",
+        "transaction_hash:bytea:required",
+        "from_address:bytea:required",
+        "to_address:bytea:nullable",
+        "value:numeric(78,0):required",
+        "input_data:bytea:required"
+      ],
+      "indexer_receipts": [
+        "chain_id:int8:required",
+        "block_hash:bytea:required",
+        "transaction_index:int4:required",
+        "outcome:int2:required",
+        "post_state_root:bytea:nullable",
+        "gas_used:int8:required",
+        "cumulative_gas_used:int8:required"
+      ],
+      "indexer_raw_logs": [
+        "chain_id:int8:required",
+        "block_hash:bytea:required",
+        "log_index:int4:required",
+        "transaction_index:int4:required",
+        "address:bytea:required",
+        "topic0:bytea:nullable",
+        "topic1:bytea:nullable",
+        "topic2:bytea:nullable",
+        "topic3:bytea:nullable",
+        "data:bytea:required"
+      ],
+      "indexer_selected_blocks": [
+        "chain_id:int8:required",
+        "number:int8:required",
+        "block_hash:bytea:required",
+        "selected_revision:int8:required"
+      ],
+      "indexer_chain_state": [
+        "chain_id:int8:required",
+        "revision:int8:required:default-zero",
+        "selected_head_number:int8:nullable",
+        "selected_head_hash:bytea:nullable",
+        "finalized_selection_number:int8:nullable",
+        "finalized_selection_hash:bytea:nullable",
+        "lease_owner:varchar(128):nullable",
+        "lease_fence:int8:required:default-zero",
+        "lease_expires_at:timestamptz:nullable",
+        "updated_at:timestamptz:required:default-clock"
+      ],
+      "indexer_mutation_journal": [
+        "chain_id:int8:required",
+        "mutation_id:bytea:required",
+        "kind:int2:required",
+        "expected_revision:int8:required",
+        "expected_selected_head_number:int8:nullable",
+        "expected_selected_head_hash:bytea:nullable",
+        "expected_finalized_selection_number:int8:nullable",
+        "expected_finalized_selection_hash:bytea:nullable",
+        "lease_owner:varchar(128):required",
+        "lease_fence:int8:required",
+        "common_ancestor_number:int8:nullable",
+        "common_ancestor_hash:bytea:nullable",
+        "finality_target_number:int8:nullable",
+        "finality_target_hash:bytea:nullable",
+        "result_revision:int8:required",
+        "result_selected_head_number:int8:nullable",
+        "result_selected_head_hash:bytea:nullable",
+        "result_finalized_selection_number:int8:nullable",
+        "result_finalized_selection_hash:bytea:nullable",
+        "applied_at:timestamptz:required:default-clock"
+      ],
+      "indexer_mutation_blocks": [
+        "chain_id:int8:required",
+        "mutation_id:bytea:required",
+        "role:int2:required",
+        "ordinal:int8:required",
+        "number:int8:required",
+        "block_hash:bytea:required"
+      ]
+    },
+    "structuralConstraints": [
+      "indexer_block_candidates_pkey:pk(chain_id,block_hash)",
+      "indexer_block_candidates_chain_number_hash_key:uq(chain_id,number,block_hash)",
+      "indexer_transaction_inclusions_pkey:pk(chain_id,block_hash,transaction_index)",
+      "indexer_transaction_inclusions_chain_block_tx_hash_key:uq(chain_id,block_hash,transaction_hash)",
+      "indexer_transaction_inclusions_block_fkey:fk(chain_id,block_hash)->indexer_block_candidates(chain_id,block_hash):no-action",
+      "indexer_receipts_pkey:pk(chain_id,block_hash,transaction_index)",
+      "indexer_receipts_transaction_fkey:fk(chain_id,block_hash,transaction_index)->indexer_transaction_inclusions(chain_id,block_hash,transaction_index):no-action",
+      "indexer_raw_logs_pkey:pk(chain_id,block_hash,log_index)",
+      "indexer_raw_logs_receipt_fkey:fk(chain_id,block_hash,transaction_index)->indexer_receipts(chain_id,block_hash,transaction_index):no-action",
+      "indexer_selected_blocks_pkey:pk(chain_id,number)",
+      "indexer_selected_blocks_chain_number_hash_key:uq(chain_id,number,block_hash)",
+      "indexer_selected_blocks_candidate_fkey:fk(chain_id,number,block_hash)->indexer_block_candidates(chain_id,number,block_hash):no-action",
+      "indexer_chain_state_pkey:pk(chain_id)",
+      "indexer_chain_state_selected_head_fkey:fk(chain_id,selected_head_number,selected_head_hash)->indexer_selected_blocks(chain_id,number,block_hash):no-action:deferrable-deferred",
+      "indexer_chain_state_finalized_selection_fkey:fk(chain_id,finalized_selection_number,finalized_selection_hash)->indexer_selected_blocks(chain_id,number,block_hash):no-action:deferrable-deferred",
+      "indexer_mutation_journal_pkey:pk(chain_id,mutation_id)",
+      "indexer_mutation_journal_chain_result_revision_key:uq(chain_id,result_revision)",
+      "indexer_mutation_journal_chain_fkey:fk(chain_id)->indexer_chain_state(chain_id):no-action",
+      "indexer_mutation_journal_expected_head_fkey:fk(chain_id,expected_selected_head_number,expected_selected_head_hash)->indexer_block_candidates(chain_id,number,block_hash):no-action",
+      "indexer_mutation_journal_expected_finalized_fkey:fk(chain_id,expected_finalized_selection_number,expected_finalized_selection_hash)->indexer_block_candidates(chain_id,number,block_hash):no-action",
+      "indexer_mutation_journal_common_ancestor_fkey:fk(chain_id,common_ancestor_number,common_ancestor_hash)->indexer_block_candidates(chain_id,number,block_hash):no-action",
+      "indexer_mutation_journal_finality_target_fkey:fk(chain_id,finality_target_number,finality_target_hash)->indexer_block_candidates(chain_id,number,block_hash):no-action",
+      "indexer_mutation_journal_result_head_fkey:fk(chain_id,result_selected_head_number,result_selected_head_hash)->indexer_block_candidates(chain_id,number,block_hash):no-action",
+      "indexer_mutation_journal_result_finalized_fkey:fk(chain_id,result_finalized_selection_number,result_finalized_selection_hash)->indexer_block_candidates(chain_id,number,block_hash):no-action",
+      "indexer_mutation_blocks_pkey:pk(chain_id,mutation_id,role,ordinal)",
+      "indexer_mutation_blocks_chain_mutation_role_number_key:uq(chain_id,mutation_id,role,number)",
+      "indexer_mutation_blocks_journal_fkey:fk(chain_id,mutation_id)->indexer_mutation_journal(chain_id,mutation_id):no-action",
+      "indexer_mutation_blocks_candidate_fkey:fk(chain_id,number,block_hash)->indexer_block_candidates(chain_id,number,block_hash):no-action"
+    ],
+    "checkConstraints": 73,
+    "explicitIndexes": [
+      "idx_indexer_block_candidates_parent:btree(chain_id,parent_hash,number,block_hash)",
+      "idx_indexer_transaction_inclusions_hash:btree(chain_id,transaction_hash,block_hash,transaction_index)"
+    ],
+    "collisionPreflightNames": [
+      "indexer_block_candidates",
+      "indexer_transaction_inclusions",
+      "indexer_receipts",
+      "indexer_raw_logs",
+      "indexer_selected_blocks",
+      "indexer_chain_state",
+      "indexer_mutation_journal",
+      "indexer_mutation_blocks",
+      "idx_indexer_block_candidates_parent",
+      "idx_indexer_transaction_inclusions_hash"
+    ],
+    "freshCreateCollisionPreflight": true,
+    "preflightBeforeCreates": true,
+    "preflightRelkindRestricted": false,
+    "ifNotExistsAloneSafe": false,
+    "baselineAdoption": false,
+    "futureRunnerRecordsVersionAfterPreflight": true,
+    "proceduralBeginOnlyInCollisionPreflight": true,
+    "topLevelTransactionControl": false,
+    "candidateHeightPrimaryKey": false,
+    "globalTransactionHashUnique": false,
+    "selectedCandidateTripleForeignKey": true,
+    "pairedLeaseOwnerExpiry": true,
+    "liveLeaseRequiresPositiveFence": true,
+    "postStateRootOutcomeExclusive": true,
+    "nullSafeMutationKindChecks": true,
+    "sameTransactionHashAcrossBlockCandidatesAllowed": true,
+    "factCanonicalOrFinalizedFlags": false,
+    "fixedPayloadCaps": false,
+    "mutationFingerprint": false,
+    "runtimeCompatibilityProbeIncludesForkStore": false
   },
   "safety": {
     "databaseRead": false,

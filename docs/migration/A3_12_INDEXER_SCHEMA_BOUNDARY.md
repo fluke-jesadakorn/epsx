@@ -40,7 +40,8 @@ must recompute the combined worktree after concurrent packages are complete.
 
 ## Immutable additive migration
 
-The new manual root contains one ordered transaction-body-only file:
+The manual root contains two ordered transaction-body-only files. The original projection migration
+remains byte-for-byte unchanged:
 
 `services/indexer/migrations/20260722050000_create_indexer_projection_tables.sql`
 
@@ -50,10 +51,30 @@ It is exactly 4,822 bytes with SHA-256
 `ALTER`, `DROP`, `TRUNCATE`, data mutation, `CASCADE`, transaction control, schema/extension
 creation, or backfill. A future reviewed runner owns transaction and version-ledger semantics.
 
-The guard is additive for an empty database. It is deliberately not baseline adoption: when an old
-runtime-created table already exists, the table guard is a SQL no-op and startup rejects its old
-global transaction key, nullability, constraints, or index inventory. This package never attempts
-an in-place primary-key replacement or data rewrite.
+The additive dormant fork-store migration is:
+
+`services/indexer/migrations/20260722070000_create_indexer_fork_store.sql`
+
+It is exactly 23,326 bytes with SHA-256
+`60b82188c74c5de7463610ce4c5795150970a4b760d5a81c66981cd25d9e5f00`. It contains exactly eight
+guarded `CREATE TABLE IF NOT EXISTS public.*` statements and two necessary guarded lookup indexes.
+It contains no destructive statement, DML, transaction control, schema/extension creation,
+function, trigger, payload cap, or reference to the three projection tables.
+
+The original projection guards are additive for an empty database. They are deliberately not
+baseline adoption: when an old runtime-created projection table already exists, its table guard is
+a SQL no-op and startup rejects incompatible shape. This package never attempts an in-place
+primary-key replacement or data rewrite.
+
+The fork-store `IF NOT EXISTS` guards are repository-required but are not treated as collision
+safety by themselves. Before the first `CREATE`, an exact PostgreSQL preflight scans `pg_class` in
+`public` for all eight table names and both explicit index names, without filtering relation kind,
+and raises with the complete collision list. Any collision aborts this fresh-create-only migration;
+it never adopts or repairs an existing relation. A future reviewed transactional runner must
+execute this preflight and the guarded creates atomically, then record the migration version only
+after they succeed. The anonymous preflight uses literal SQLSTATE `42P07`; its sole procedural
+`BEGIN` is confined before the first `CREATE` and is not migration transaction control. Top-level
+`BEGIN TRANSACTION`, `BEGIN WORK`, `START TRANSACTION`, `COMMIT`, and `ROLLBACK` remain forbidden.
 
 ## Exact fresh-schema contract
 
@@ -81,9 +102,34 @@ history indexes. Address history uses separate `from` and `to` indexes and the s
 and blocked; a later route slice still needs a typed cursor contract.
 
 This projection schema does not pretend to be a fork store. Adding `canonical` or `finalized`
-booleans to a one-row-per-`(chain,height)` table would not preserve competing ancestry. A12 still
-owns the canonical block inclusion, receipt/raw-log, finality, fork, repair-journal, and durable
-checkpoint design.
+booleans to a one-row-per-`(chain,height)` table would not preserve competing ancestry.
+
+## Dormant fork-store substrate
+
+The separate additive substrate contains 74 exact columns across eight tables:
+
+| Table | Purpose |
+|---|---|
+| `indexer_block_candidates` | Immutable candidate facts keyed by `(chain_id, block_hash)` |
+| `indexer_transaction_inclusions` | Block-scoped inclusions; the same transaction hash may occur in competing candidates |
+| `indexer_receipts` | Exact reverted/succeeded/post-state receipt outcomes and gas facts |
+| `indexer_raw_logs` | Receipt-scoped raw logs with a strict contiguous four-topic shape |
+| `indexer_selected_blocks` | Current internal selected block per chain and height |
+| `indexer_chain_state` | Revision, selection references, and persisted fenced lease state |
+| `indexer_mutation_journal` | Exact transition header and outcome facts without a serialization fingerprint |
+| `indexer_mutation_blocks` | Ordered detach/attach block identities for each mutation |
+
+The 28 structural constraints and 73 checks preserve block-scoped fork identities, exact candidate
+references, signed-storage revision/fence bounds, nullable reference pairs, deferrable selected-head
+and finalized-selection references, live-lease fencing, NULL-safe mutation-kind shapes, and exact
+U256 value bounds. Two explicit indexes support parent and transaction-hash lookup. Candidate,
+transaction, receipt, and raw-log facts contain no canonical/finalized flags. `input_data` and raw
+log `data` have no fixed SQL cap because the public validation limits remain caller-selectable.
+
+This is static dormant schema only. No runner has parsed or executed it; no adapter uses it; the
+runtime compatibility query deliberately remains pinned to the original three projection tables.
+It does not establish external canonicality, consensus finality, durable replay, checkpointing, or
+production readiness. A12 still owns executable ingestion, repair, replay, and rollout proof.
 
 ## Exact read-only compatibility boundary
 
@@ -162,11 +208,13 @@ scripts/migration/test-a3-12-indexer-schema-boundary.sh
 ```
 
 The library suite passes 32/32 and the binary suite passes 4/4. The locked offline binary check
-passes. The verifier pins provenance, removed runtime bytes, migration/query digests, runtime DDL
+passes. The verifier pins provenance, removed runtime bytes, both migration digests, the unchanged
+runtime-query digest, runtime DDL
 zero, the seven-file recursive Rust inventory, public qualification, schema/constraint/index catalog semantics, model/bind corrections,
 startup ordering, absent fake sync, fail-closed readiness, and ten residual blockers. Its self-test
 adversarially tampers readiness, source commit/path/blob, query digest/bytes, relation counts, fake
-sync policy, migration digest/guards, global transaction key, and schema descriptors. Same-length
+sync policy, both migration digests/guards, fork-store keys/policies, global transaction key, and
+schema descriptors. Same-length
 column, structural-constraint, weakened-check, and index substitutions are rejected, as are
 inventory, inheritance/RLS/opclass/collation/partial-index policy, and blocker tampering.
 

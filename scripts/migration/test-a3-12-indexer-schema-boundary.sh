@@ -13,6 +13,8 @@ grep -q "indexer runtime DDL 5→0; three guarded public tables, 27 exact column
 grep -q "31 exact constraints and 10 exact btree indexes fail closed" "$temp_dir/integrity.out"
 grep -q "autonomous provider, placeholder sync and fabricated ingestion are absent" "$temp_dir/integrity.out"
 grep -q "all four surviving runtime relations are public-qualified; only health remains reachable" "$temp_dir/integrity.out"
+grep -q "dormant fork store pins eight guarded tables, 74 columns, 101 constraints and two explicit indexes without runtime activation" "$temp_dir/integrity.out"
+grep -q "ten-name fresh-create preflight rejects every public relation-kind collision before CREATE" "$temp_dir/integrity.out"
 
 set +e
 "$verify" --mode readiness >"$temp_dir/readiness.out" 2>&1
@@ -30,9 +32,11 @@ if (r.productionReady !== false || r.readinessExit !== 3) process.exit(1);
 if (r.provenance.standaloneSourceIndexer !== false) process.exit(1);
 if (r.runtimeRust.files !== 7 || r.runtimeRust.ddlFindings !== 0 || r.runtimeRust.expectedDelta !== -5 || r.runtimeRust.fakeSyncAvailable !== false) process.exit(1);
 if (Object.values(r.runtimeRust.qualifiedRelations).reduce((a,b) => a+b, 0) !== 4) process.exit(1);
-if (r.migrationRoot.migrations !== 1 || r.migrationRoot.pinnedBytes !== 4822 || r.migrationRoot.guardedTables !== 3 || r.migrationRoot.guardedIndexes !== 5) process.exit(1);
+if (r.migrationRoot.migrations !== 2 || r.migrationRoot.projection.pinnedBytes !== 4822 || r.migrationRoot.projection.guardedTables !== 3 || r.migrationRoot.projection.guardedIndexes !== 5) process.exit(1);
+if (r.migrationRoot.forkStore.pinnedBytes !== 23326 || r.migrationRoot.forkStore.guardedTables !== 8 || r.migrationRoot.forkStore.guardedIndexes !== 2) process.exit(1);
 if (r.schema.tables !== 3 || r.schema.columns !== 27 || r.schema.structuralConstraints !== 7 || r.schema.checkConstraints !== 24 || r.schema.indexes !== 10) process.exit(1);
 if (JSON.stringify(r.schema.transactionPrimaryKey) !== JSON.stringify(["chain_id", "hash"])) process.exit(1);
+if (r.forkStore.status !== "dormant-static-substrate" || r.forkStore.tables !== 8 || r.forkStore.columns !== 74 || r.forkStore.structuralConstraints !== 28 || r.forkStore.checkConstraints !== 73 || r.forkStore.explicitIndexes !== 2 || r.forkStore.collisionPreflight !== true || r.forkStore.collisionNames !== 10 || r.forkStore.freshCreateOnly !== true || r.forkStore.runtimeProbe !== false || r.forkStore.executed !== false) process.exit(1);
 if (r.blockers.length !== 10) process.exit(1);
 ' "$temp_dir/report-one.json"
 
@@ -66,6 +70,27 @@ tamper rust-inventory 'value.runtimeBoundary.rustInventory.pop()' 'Rust inventor
 tamper fake-sync-policy 'value.runtimeBoundary.forbiddenRuntimeAnchors.pop()' 'unsafe runtime anchor returned|runtime boundary|drifted'
 tamper migration-hash 'value.migrationRoot.orderedMigrations[0].sha256 = "0".repeat(64)' 'ordered migration pin drifted'
 tamper migration-guard 'value.migrationRoot.orderedMigrations[0].guards.pop()' 'migration root boundary drifted|migration guard|drifted'
+tamper fork-migration-hash 'value.migrationRoot.orderedMigrations[1].sha256 = "0".repeat(64)' 'fork-store migration pin drifted'
+tamper fork-migration-bytes 'value.migrationRoot.orderedMigrations[1].bytes -= 1' 'fork-store migration pin drifted'
+tamper fork-migration-guard 'value.migrationRoot.orderedMigrations[1].guards.pop()' 'fork-store migration guards drifted'
+tamper fork-table-inventory 'delete value.forkStoreContract.tables.indexer_mutation_blocks' 'fork-store contract descriptors drifted'
+tamper fork-preflight-required 'value.forkStoreContract.freshCreateCollisionPreflight = false' 'fork-store contract descriptors drifted|fork-store static policy drifted'
+tamper fork-preflight-order 'value.forkStoreContract.preflightBeforeCreates = false' 'fork-store contract descriptors drifted|fork-store static policy drifted'
+tamper fork-preflight-relkind 'value.forkStoreContract.preflightRelkindRestricted = true' 'fork-store contract descriptors drifted|fork-store static policy drifted'
+tamper fork-preflight-name 'value.forkStoreContract.collisionPreflightNames.pop()' 'fork-store contract descriptors drifted|fork-store collision contract names drifted'
+tamper fork-if-not-exists-policy 'value.forkStoreContract.ifNotExistsAloneSafe = true' 'fork-store contract descriptors drifted|fork-store static policy drifted'
+tamper fork-baseline-adoption 'value.forkStoreContract.baselineAdoption = true' 'fork-store contract descriptors drifted|fork-store static policy drifted'
+tamper fork-version-order 'value.forkStoreContract.futureRunnerRecordsVersionAfterPreflight = false' 'fork-store contract descriptors drifted|fork-store static policy drifted'
+tamper fork-procedural-begin 'value.forkStoreContract.proceduralBeginOnlyInCollisionPreflight = false' 'fork-store contract descriptors drifted|fork-store static policy drifted'
+tamper fork-transaction-control 'value.forkStoreContract.topLevelTransactionControl = true' 'fork-store contract descriptors drifted|fork-store static policy drifted'
+tamper fork-forbidden-policy 'value.migrationRoot.forbiddenTokens.push("BEGIN")' 'migration forbidden token policy drifted'
+tamper fork-height-key 'value.forkStoreContract.candidateHeightPrimaryKey = true' 'fork-store contract descriptors drifted|fork-store static policy drifted'
+tamper fork-global-tx-key 'value.forkStoreContract.globalTransactionHashUnique = true' 'fork-store contract descriptors drifted|fork-store static policy drifted'
+tamper fork-selected-fk 'value.forkStoreContract.selectedCandidateTripleForeignKey = false' 'fork-store contract descriptors drifted|fork-store static policy drifted'
+tamper fork-lease-pair 'value.forkStoreContract.pairedLeaseOwnerExpiry = false' 'fork-store contract descriptors drifted|fork-store static policy drifted'
+tamper fork-fact-flags 'value.forkStoreContract.factCanonicalOrFinalizedFlags = true' 'fork-store contract descriptors drifted|fork-store static policy drifted'
+tamper fork-payload-caps 'value.forkStoreContract.fixedPayloadCaps = true' 'fork-store contract descriptors drifted|fork-store static policy drifted'
+tamper fork-fingerprint 'value.forkStoreContract.mutationFingerprint = true' 'fork-store contract descriptors drifted|fork-store static policy drifted'
 tamper global-hash-pk 'value.schemaContract.globalTransactionHashPrimaryKeyAccepted = true' 'schema fail-closed policy drifted'
 tamper structural-fk 'value.schemaContract.structuralConstraints.pop()' 'schema structural constraint descriptors drifted'
 tamper column-substitution 'value.schemaContract.tables.blocks[0] = "chain_ix:varchar(10):required"' 'schema column descriptors drifted'

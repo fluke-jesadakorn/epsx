@@ -173,9 +173,13 @@ for (const [qualified, expected] of Object.entries(runtime.qualifiedRelationOccu
 }
 
 const migration = fixture.migrationRoot;
-if (migration.path !== "services/indexer/migrations" || migration.runner !== null || migration.transactionOwner !== "future-reviewed-runner" || migration.orderedMigrations.length !== 1) fail("migration root boundary drifted");
+if (migration.path !== "services/indexer/migrations" || migration.runner !== null || migration.transactionOwner !== "future-reviewed-runner" || migration.orderedMigrations.length !== 2) fail("migration root boundary drifted");
+exact("migration forbidden token policy", ["ALTER", "DROP", "TRUNCATE", "DELETE", "INSERT", "UPDATE", "CASCADE", "BEGIN TRANSACTION", "BEGIN WORK", "START TRANSACTION", "COMMIT", "ROLLBACK", "CREATE SCHEMA", "CREATE EXTENSION", "CREATE FUNCTION", "CREATE TRIGGER"], migration.forbiddenTokens);
 const migrationFiles = readdirSync(safeRelative(migration.path, "migration root")).sort();
-exact("migration inventory", ["20260722050000_create_indexer_projection_tables.sql"], migrationFiles);
+exact("migration inventory", [
+  "20260722050000_create_indexer_projection_tables.sql",
+  "20260722070000_create_indexer_fork_store.sql"
+], migrationFiles);
 const ordered = migration.orderedMigrations[0];
 if (ordered.version !== "20260722050000" || ordered.path !== "services/indexer/migrations/20260722050000_create_indexer_projection_tables.sql" || ordered.bytes !== 4822 || ordered.sha256 !== "5d0ec77a11d2abe1303c5f9b87e7da18eadee9d2e7fa4aeda1aeaf3d76549ff8") fail("ordered migration pin drifted");
 exact("migration guards", ["CREATE TABLE IF NOT EXISTS public.blocks (", "CREATE TABLE IF NOT EXISTS public.transactions (", "CREATE TABLE IF NOT EXISTS public.token_transfers (", "CREATE INDEX IF NOT EXISTS idx_blocks_timestamp", "CREATE INDEX IF NOT EXISTS idx_transactions_block", "CREATE INDEX IF NOT EXISTS idx_transfers_token", "CREATE INDEX IF NOT EXISTS idx_transfers_from", "CREATE INDEX IF NOT EXISTS idx_transfers_to"], ordered.guards);
@@ -184,11 +188,101 @@ if (Buffer.byteLength(sql) !== ordered.bytes || sha256(sql) !== ordered.sha256) 
 for (const guard of ordered.guards) if (!sql.includes(guard)) fail(`migration guard is missing: ${guard}`);
 if ((sql.match(/CREATE TABLE IF NOT EXISTS public\./g) ?? []).length !== 3 || (sql.match(/CREATE INDEX IF NOT EXISTS /g) ?? []).length !== 5) fail("migration must contain exactly three guarded tables and five guarded indexes");
 if ((sql.match(new RegExp(u256Max, "g")) ?? []).length !== 2 || (sql.match(/value::NUMERIC <= NUMERIC/g) ?? []).length !== 2) fail("migration must enforce the exact U256 ceiling for both value columns");
+const forkMigration = migration.orderedMigrations[1];
+if (forkMigration.version !== "20260722070000" || forkMigration.path !== "services/indexer/migrations/20260722070000_create_indexer_fork_store.sql" || forkMigration.bytes !== 23326 || forkMigration.sha256 !== "60b82188c74c5de7463610ce4c5795150970a4b760d5a81c66981cd25d9e5f00") fail("fork-store migration pin drifted");
+exact("fork-store migration guards", [
+  "CREATE TABLE IF NOT EXISTS public.indexer_block_candidates (",
+  "CREATE TABLE IF NOT EXISTS public.indexer_transaction_inclusions (",
+  "CREATE TABLE IF NOT EXISTS public.indexer_receipts (",
+  "CREATE TABLE IF NOT EXISTS public.indexer_raw_logs (",
+  "CREATE TABLE IF NOT EXISTS public.indexer_selected_blocks (",
+  "CREATE TABLE IF NOT EXISTS public.indexer_chain_state (",
+  "CREATE TABLE IF NOT EXISTS public.indexer_mutation_journal (",
+  "CREATE TABLE IF NOT EXISTS public.indexer_mutation_blocks (",
+  "CREATE INDEX IF NOT EXISTS idx_indexer_block_candidates_parent",
+  "CREATE INDEX IF NOT EXISTS idx_indexer_transaction_inclusions_hash"
+], forkMigration.guards);
+const forkSql = readFileSync(regularRepoFile(forkMigration.path, "fork-store migration"), "utf8");
+if (Buffer.byteLength(forkSql) !== forkMigration.bytes || sha256(forkSql) !== forkMigration.sha256) fail("fork-store migration bytes changed");
+for (const guard of forkMigration.guards) if (!forkSql.includes(guard)) fail(`fork-store migration guard is missing: ${guard}`);
+if ((forkSql.match(/CREATE TABLE IF NOT EXISTS public\./g) ?? []).length !== 8 || (forkSql.match(/CREATE INDEX IF NOT EXISTS /g) ?? []).length !== 2) fail("fork-store migration must contain exactly eight guarded tables and two guarded indexes");
+if ((forkSql.match(/^    CONSTRAINT /gm) ?? []).length !== 101 || (forkSql.match(/ CHECK \(/g) ?? []).length !== 73) fail("fork-store constraint inventory drifted");
+const firstForkCreate = forkSql.indexOf("CREATE TABLE IF NOT EXISTS public.indexer_block_candidates");
+if (firstForkCreate <= 0) fail("fork-store collision preflight must precede every CREATE");
+const forkPreflight = forkSql.slice(0, firstForkCreate);
+if (!forkPreflight.trimStart().startsWith("DO $indexer_fork_store_preflight$") || (forkSql.match(/DO \$indexer_fork_store_preflight\$/g) ?? []).length !== 1 || (forkPreflight.match(/\bBEGIN\b/g) ?? []).length !== 1) fail("fork-store collision preflight boundary drifted");
+if (/\brelkind\b/i.test(forkPreflight)) fail("fork-store collision preflight must reject every relation kind");
+for (const anchor of [
+  "FROM pg_catalog.pg_class rel",
+  "JOIN pg_catalog.pg_namespace ns ON ns.oid = rel.relnamespace",
+  "WHERE ns.nspname = \x27public\x27",
+  "rel.relname = ANY (ARRAY[",
+  "IF collision_names IS NOT NULL THEN",
+  "RAISE EXCEPTION USING",
+  "ERRCODE = \x2742P07\x27",
+  "indexer fork-store fresh-create collision in public:",
+  "all eight fork-store table names and both explicit index names are reserved regardless of relation kind",
+  "refusing baseline adoption"
+]) if (!forkPreflight.includes(anchor)) fail(`fork-store collision preflight is missing: ${anchor}`);
+const preflightArray = forkPreflight.match(/rel\.relname = ANY \(ARRAY\[([\s\S]*?)\]::TEXT\[\]\)/);
+if (!preflightArray) fail("fork-store collision preflight name array is missing");
+const preflightNames = [...preflightArray[1].matchAll(/\x27([^\x27]+)\x27/g)].map((match) => match[1]);
+exact("fork-store collision names", [
+  "indexer_block_candidates",
+  "indexer_transaction_inclusions",
+  "indexer_receipts",
+  "indexer_raw_logs",
+  "indexer_selected_blocks",
+  "indexer_chain_state",
+  "indexer_mutation_journal",
+  "indexer_mutation_blocks",
+  "idx_indexer_block_candidates_parent",
+  "idx_indexer_transaction_inclusions_hash"
+], preflightNames);
+for (const anchor of [
+  "CONSTRAINT indexer_block_candidates_pkey PRIMARY KEY (chain_id, block_hash)",
+  "CONSTRAINT indexer_block_candidates_chain_number_hash_key UNIQUE (chain_id, number, block_hash)",
+  "CONSTRAINT indexer_transaction_inclusions_pkey PRIMARY KEY (chain_id, block_hash, transaction_index)",
+  "CONSTRAINT indexer_transaction_inclusions_chain_block_tx_hash_key UNIQUE (chain_id, block_hash, transaction_hash)",
+  "CONSTRAINT indexer_selected_blocks_candidate_fkey FOREIGN KEY (chain_id, number, block_hash)",
+  "REFERENCES public.indexer_block_candidates (chain_id, number, block_hash)",
+  "CONSTRAINT indexer_chain_state_lease_pair_check CHECK (",
+  "CONSTRAINT indexer_chain_state_live_lease_fence_check CHECK (",
+  "ON UPDATE NO ACTION ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED",
+  "AND post_state_root IS NOT NULL",
+  "IS NOT DISTINCT FROM expected_finalized_selection_number",
+  "IS NOT DISTINCT FROM finality_target_number",
+  "result_revision = expected_revision + 1",
+  "lease_fence BETWEEN 1 AND 9223372036854775807",
+  "value <= NUMERIC \x27115792089237316195423570985008687907853269984665640564039457584007913129639935\x27"
+]) if (!forkSql.includes(anchor)) fail(`fork-store invariant is missing: ${anchor}`);
+for (const forbidden of [
+  "PRIMARY KEY (chain_id, number, block_hash)",
+  "UNIQUE (chain_id, transaction_hash)",
+  "PRIMARY KEY (chain_id, transaction_hash)",
+  "REFERENCES public.blocks",
+  "REFERENCES public.transactions",
+  "REFERENCES public.token_transfers",
+  "octet_length(input_data)",
+  "octet_length(data)",
+  "mutation_fingerprint",
+  "payload_fingerprint"
+]) if (forkSql.includes(forbidden)) fail(`fork-store forbidden shape returned: ${forbidden}`);
+const factPrefix = forkSql.slice(0, forkSql.indexOf("CREATE TABLE IF NOT EXISTS public.indexer_selected_blocks"));
+if (/\b(?:canonical|finalized)\b/i.test(factPrefix)) fail("fork facts must not contain canonical or finalized flags");
 for (const pattern of [
   /\bALTER\b/i, /\bDROP\b/i, /\bTRUNCATE\b/i, /\bDELETE\s+FROM\b/i, /(?:^|;)\s*INSERT\s+INTO\b/im,
-  /(?:^|;)\s*UPDATE\s+\w/im, /\bCASCADE\b/i, /\bBEGIN\b/i, /\bCOMMIT\b/i, /\bCREATE\s+SCHEMA\b/i,
-  /\bCREATE\s+EXTENSION\b/i
-]) if (pattern.test(sql)) fail(`migration contains forbidden statement: ${pattern}`);
+  /(?:^|;)\s*UPDATE\s+\w/im, /\bCASCADE\b/i, /\bCOMMIT\b/i, /\bROLLBACK\b/i, /\bSTART\s+TRANSACTION\b/i, /\bCREATE\s+SCHEMA\b/i,
+  /\bCREATE\s+EXTENSION\b/i, /\bCREATE\s+FUNCTION\b/i, /\bCREATE\s+TRIGGER\b/i
+]) for (const migrationSql of [sql, forkSql]) if (pattern.test(migrationSql)) fail(`migration contains forbidden statement: ${pattern}`);
+if (/\bBEGIN\b/i.test(sql) || /\bBEGIN\b/i.test(forkSql.slice(firstForkCreate))) fail("migration contains transaction control outside the exact fork-store collision preflight");
+
+const forkStore = fixture.forkStoreContract;
+if (sha256(JSON.stringify(forkStore)) !== "10695df6816d08514fe92ccbbe0dbf6dcf7eee089dcb5577634d00e6bb1f368b") fail("fork-store contract descriptors drifted");
+if (forkStore.status !== "dormant-static-substrate" || forkStore.columns !== 74 || Object.keys(forkStore.tables).length !== 8 || Object.values(forkStore.tables).reduce((total, columns) => total + columns.length, 0) !== 74) fail("fork-store table/column descriptors drifted");
+if (forkStore.structuralConstraints.length !== 28 || forkStore.checkConstraints !== 73 || forkStore.explicitIndexes.length !== 2) fail("fork-store constraint/index descriptors drifted");
+exact("fork-store collision contract names", preflightNames, forkStore.collisionPreflightNames);
+if (forkStore.freshCreateCollisionPreflight !== true || forkStore.preflightBeforeCreates !== true || forkStore.preflightRelkindRestricted !== false || forkStore.ifNotExistsAloneSafe !== false || forkStore.baselineAdoption !== false || forkStore.futureRunnerRecordsVersionAfterPreflight !== true || forkStore.proceduralBeginOnlyInCollisionPreflight !== true || forkStore.topLevelTransactionControl !== false || forkStore.candidateHeightPrimaryKey !== false || forkStore.globalTransactionHashUnique !== false || forkStore.selectedCandidateTripleForeignKey !== true || forkStore.pairedLeaseOwnerExpiry !== true || forkStore.liveLeaseRequiresPositiveFence !== true || forkStore.postStateRootOutcomeExclusive !== true || forkStore.nullSafeMutationKindChecks !== true || forkStore.sameTransactionHashAcrossBlockCandidatesAllowed !== true || forkStore.factCanonicalOrFinalizedFlags !== false || forkStore.fixedPayloadCaps !== false || forkStore.mutationFingerprint !== false || forkStore.runtimeCompatibilityProbeIncludesForkStore !== false) fail("fork-store static policy drifted");
 
 const schema = fixture.schemaContract;
 if (schema.columns !== 27) fail("schema inventory drifted");
@@ -294,8 +388,14 @@ const report = {
   readinessExit: 3,
   provenance: { sourceCommit: provenance.sourceCommit, standaloneSourceIndexer: false, removedRuntimeBlob: snapshot.blob },
   runtimeRust: { files: runtime.rustInventory.length, ddlFindings: 0, expectedDelta: -5, qualifiedRelations: runtime.qualifiedRelationOccurrences, fakeSyncAvailable: false },
-  migrationRoot: { migrations: 1, runner: null, pinnedBytes: ordered.bytes, sha256: ordered.sha256, guardedTables: 3, guardedIndexes: 5 },
+  migrationRoot: {
+    migrations: 2,
+    runner: null,
+    projection: { pinnedBytes: ordered.bytes, sha256: ordered.sha256, guardedTables: 3, guardedIndexes: 5 },
+    forkStore: { pinnedBytes: forkMigration.bytes, sha256: forkMigration.sha256, guardedTables: 8, guardedIndexes: 2 }
+  },
   schema: { tables: 3, columns: 27, structuralConstraints: schema.structuralConstraints.length, checkConstraints: schema.checkConstraints.length, indexes: schema.indexes.length, transactionPrimaryKey: ["chain_id", "hash"] },
+  forkStore: { status: forkStore.status, tables: 8, columns: forkStore.columns, structuralConstraints: forkStore.structuralConstraints.length, checkConstraints: forkStore.checkConstraints, explicitIndexes: forkStore.explicitIndexes.length, collisionPreflight: true, collisionNames: forkStore.collisionPreflightNames.length, freshCreateOnly: true, runtimeProbe: false, executed: false },
   blockers: fixture.blockers
 };
 if (mode === "report") { console.log(JSON.stringify(report, null, 2)); process.exit(0); }
@@ -308,4 +408,6 @@ console.log("a3-12-indexer-schema-boundary: PASS: 31 exact constraints and 10 ex
 console.log("a3-12-indexer-schema-boundary: PASS: DateTime<Utc>, nullable fields, canonical chain/hash/address parsing and checked numeric conversion pinned");
 console.log("a3-12-indexer-schema-boundary: PASS: schema probe precedes listener; autonomous provider, placeholder sync and fabricated ingestion are absent");
 console.log("a3-12-indexer-schema-boundary: PASS: all four surviving runtime relations are public-qualified; only health remains reachable");
+console.log("a3-12-indexer-schema-boundary: PASS: dormant fork store pins eight guarded tables, 74 columns, 101 constraints and two explicit indexes without runtime activation");
+console.log("a3-12-indexer-schema-boundary: PASS: ten-name fresh-create preflight rejects every public relation-kind collision before CREATE");
 '
