@@ -30,16 +30,16 @@ record carries source type, file, line, permission, surface, grammar
 classification, and a remediation package. A candidate permission is present
 only when a real backend route guard or token source literally supports it.
 
-The current scan contains 66 records:
+The current scan contains 67 records:
 
 | Usage | Records | Readiness effect |
 | --- | ---: | --- |
-| Dioxus security gates | 34 | 21 canonical after A8.2; 13 legacy two-segment values still block |
+| Dioxus security gates | 33 | 21 canonical after A8.2; 12 legacy two-segment values still block |
 | Dioxus presentation literals | 1 | Reported as presentation drift, not an enforcement blocker |
 | Dioxus presentation dynamic pass-throughs | 1 | Reported as presentation drift, not an enforcement blocker |
-| Service-authorization permissions | 30 | All canonical three-segment values |
+| Service-authorization permissions | 32 | All canonical three-segment values |
 
-Across every source there are 51 canonical three-segment values, 13 legacy
+Across every source there are 53 canonical three-segment values, 12 legacy
 two-segment values, 1 unknown dynamic presentation value, and 1
 impossible/cross-grammar presentation value. There are currently no wildcard-aligned
 inventory values.
@@ -76,6 +76,13 @@ The frontend analytics gate is also unresolved. Token examples use
 `epsx:analytics:view`. The other frontend gate strings have no real backend
 guard tied to those UI surfaces in the audited sources, so their candidate
 lists remain empty pending A4 decisions.
+
+The owner notification page and its shared-header unread badge do not introduce
+a frontend permission literal. They depend on a server-verified authenticated
+session and an owner-bound backend/BFF read path; signed-out and public
+`/offline` responses receive no badge runtime. This preserves the backend-only
+authority boundary and keeps the removed `notifications:read` value absent from
+the checked Dioxus security-gate inventory.
 
 ## Gate commands and exit contract
 

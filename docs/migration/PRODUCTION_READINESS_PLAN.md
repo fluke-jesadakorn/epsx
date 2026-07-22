@@ -266,7 +266,7 @@ passed`. It is not a percentage estimate of engineering effort.
 | Interaction parity | 0 | No complete click/form/wallet/navigation matrix | Every interactive control has E2E success and failure coverage. |
 | Auth/session parity | 1 | A1.4 hermetic gate covers 71 focused tests across both BFFs; durable database-backed rotation/revocation and a real wallet flow remain unproven | SIWE -> SSR me -> rotation -> revocation works across both BFFs. |
 | Backend authorization | 1 | Gateway is fail-closed with exact RS256/JWKS and granular edge policy; the 117-route service matrix is 11 aligned, 47 partial, and 59 blocked | Anonymous/cross-owner calls fail at both gateway and service boundaries; granular backend permissions pass. |
-| Live data parity | 0 | The notification owner page and focused news routes now have sample-free explicit dependency outcomes, but 17 frontend routes remain blocked, other frontend mocks remain, and admin SSR still supplies empty params | Sample payloads removed and real empty/error states proven. |
+| Live data parity | 0 | The notification owner page and focused news routes now have sample-free explicit dependency outcomes, and notifications adds a statically verified authenticated read-only shared-header count, but browser/live proof is absent, 17 frontend routes remain blocked, other frontend mocks remain, and admin SSR still supplies empty params | Sample payloads removed and real empty/error states proven. |
 | Checkout/on-chain parity | 0 | Route mismatch and DB-only escrow transitions | Verified receipts and contract transactions drive state. |
 | Backend/API contract parity | 1 | Both BFFs now return explicit HTML/JSON 404s and preserve 405/redirect semantics; payment prefixes and broader payload/status drift remain | Versioned contract matrix passes for monolith and replacement. |
 | Migration/data safety | 0 | Static remediation reduced runtime DDL to 9 findings (6 reviewed exceptions + 3 actionable) and service-startup mutations to 0; 15 roots and 175 SQL files are inventoried, but all 16 migration risks remain blocked and 511 destructive-token findings, naming drift, baseline edits, and expired partitions remain. The isolated A3.13 PostgreSQL 18 fresh-schema proof is not an upgrade or readiness gate. | Upgrade/backfill/reconcile/rollback tests pass on production-shaped data. |
@@ -765,9 +765,15 @@ bounded path set. Shared contract files require coordination through package A0.
   read-only partial: authenticated SSR records exact success or dependency
   error, consumes the current nullable notification DTO without sample fallback,
   parses timestamps as UTC, escapes content, ignores unapproved action URLs,
-  and renders native empty/error/retry states. It still lacks source-compatible
-  pagination and global counts, mutations, preferences, push/SSE, approved
-  action-URL behavior, and live-service/browser runtime proof. The resulting
+  and renders native empty/error/retry states. Its active shared header now
+  starts the badge hidden/unavailable and injects the exact read-only unread-
+  count controller only for server-verified authenticated non-offline responses;
+  authenticated HTML plus every list/count outcome is private/no-store, and the
+  fetch bypasses caches. Exact DTO validation, zero/error hiding, stale-response
+  guards, the `99+` visual cap with exact accessible count, AA badge contrast,
+  and text-only DOM writes have static and unit evidence. It still lacks source-compatible list/count envelopes,
+  pagination, broadcast/expiry/read semantics, mutations, preferences, push/SSE,
+  approved action-URL behavior, and live-service/browser runtime proof. The resulting
   **3 aligned / 8 partial / 17 blocked** inventory keeps readiness at exit `3`.
 
 ### A8 — Admin live data and mutation parity (P1)
@@ -880,16 +886,21 @@ bounded path set. Shared contract files require coordination through package A0.
   rollback are proven.
 
 - **A11.0 status:** the deterministic lifecycle contract pins 14 source records
-  and 40 target anchors across 12 blocked surfaces. Its 22 STOP blockers cover
+  and 53 target anchors across 12 blocked surfaces. Its 22 STOP blockers cover
   migration history/adoption, truthful asynchronous delivery, preferences/SSE/
   push, publisher inbox/outbox and idempotency, retry/dead-letter behavior,
   templates/privacy, reconciliation, observability, deployability, single-writer
   cutover, and duplicate-safe rollback. A3.11 statically reduces notification
   startup DDL from four to zero and seed calls from two to zero. The user page
-  now provides a sample-free, explicit-outcome, static owner read path, but that
-  does not prove source-compatible pagination/global counts, any lifecycle
-  mutation, preferences, push/SSE, action-URL policy, or live delivery/runtime
-  behavior. Fresh or populated migration execution also remains absent.
+  now provides a sample-free, explicit-outcome, static owner read path. The
+  active shared header has a statically verified authenticated read-only unread
+  count with initial hidden/unavailable state, public `/offline` exclusion,
+  private/no-store HTML and BFF outcomes, cache-bypassing fetch, exact DTO
+  validation, stale-response protection, AA contrast, exact accessible count,
+  and no mutation or HTML injection. This does not prove source-compatible list/
+  count envelopes, pagination, broadcast/expiry/read semantics, any lifecycle
+  mutation, preferences, push/SSE, action-URL policy, or live delivery/browser
+  runtime behavior. Fresh or populated migration execution also remains absent.
   Integrity and tamper checks pass; all 22 blockers remain, readiness
   intentionally exits `3`, and no live provider or infrastructure access is
   part of the evidence.

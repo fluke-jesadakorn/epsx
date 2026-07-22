@@ -221,7 +221,8 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     // Stub: cookie parser is a no-op for now — when the wagmi-equivalent
     // client writes a `WalletInfo` cookie, the parser will populate
     // `address` / `connector_id` / `chain_id` from it.
-    wallet.is_authenticated = user.is_some();
+    let is_authenticated = user.is_some();
+    wallet.is_authenticated = is_authenticated;
 
     let ctx = PageContext {
         user,
@@ -301,10 +302,11 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
         "/developer/docs" => developer_docs_runtime_script(),
         _ => "",
     };
+    let authenticated_header_runtime = notification_badge_runtime(is_authenticated, &path);
     let doc = doc.replace(
         "</body>",
         &format!(
-            "<script>{}</script>{}{route_runtime}</body>",
+            "<script>{}</script>{}{route_runtime}{authenticated_header_runtime}</body>",
             wallet_shim(),
             offline_worker_registration_script()
         ),
@@ -312,6 +314,15 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
 
     let mut response =
         (status, [("content-type", "text/html; charset=utf-8")], doc).into_response();
+    apply_ssr_cache_policy(&mut response, is_authenticated, &path);
+    response
+}
+
+/// Keep owner-specific SSR output out of browser and intermediary caches.
+/// `/offline` is the one reviewed public exception and never receives the
+/// authenticated notification runtime, even when the request carried a valid
+/// session.
+fn apply_ssr_cache_policy(response: &mut Response, is_authenticated: bool, path: &str) {
     if path == "/offline" {
         // This marker is the service worker's fail-closed permission to cache
         // the response. The worker fetches it with credentials omitted and
@@ -324,8 +335,12 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
             "x-epsx-public-cache",
             HeaderValue::from_static("offline-shell-v1"),
         );
+    } else if is_authenticated {
+        response.headers_mut().insert(
+            header::CACHE_CONTROL,
+            HeaderValue::from_static("private, no-store"),
+        );
     }
-    response
 }
 
 /// Fetch page-specific data and add it to `params` as JSON-serialized
@@ -849,6 +864,123 @@ fn developer_docs_runtime_script() -> &'static str {
 </script>"#
 }
 
+/// The shared header is static, so its badge target always starts unavailable,
+/// empty, and hidden. Only a server-verified authenticated response receives
+/// this controller; signed-out pages therefore cannot request notification
+/// data. Every refresh clears the previous display before it calls the exact
+/// unread-count BFF route, and any non-success, malformed body, network error,
+/// or superseded response leaves the badge unavailable rather than showing a
+/// fabricated zero or stale count.
+fn notification_badge_runtime(is_authenticated: bool, path: &str) -> &'static str {
+    // `/offline` is an explicitly public/cacheable recovery shell even when a
+    // request happens to carry a valid session. Never let user-specific
+    // notification activity enter that response.
+    if !is_authenticated || path == "/offline" {
+        return "";
+    }
+    r#"<script data-epsx-notification-badge-runtime>
+(function () {
+  'use strict';
+  var endpoint = '/api/v1/notifications/unread-count';
+  var target = document.querySelector('[data-epsx-notification-badge-target="true"]');
+  var badge = document.querySelector('[data-epsx-notification-unread-badge="true"]');
+  if (!target || !badge) return;
+  var pollTimer = null;
+  var requestController = null;
+  var requestGeneration = 0;
+
+  function clearPoll() {
+    if (pollTimer !== null) window.clearTimeout(pollTimer);
+    pollTimer = null;
+  }
+
+  function setUnavailable() {
+    badge.textContent = '';
+    badge.hidden = true;
+    badge.setAttribute('aria-hidden', 'true');
+    badge.setAttribute('data-state', 'unavailable');
+    target.setAttribute('aria-label', 'Notifications');
+  }
+
+  function exactCount(payload) {
+    if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) return null;
+    if (Object.getPrototypeOf(payload) !== Object.prototype) return null;
+    var keys = Object.keys(payload);
+    if (keys.length !== 1 || keys[0] !== 'count') return null;
+    if (!Object.prototype.hasOwnProperty.call(payload, 'count')) return null;
+    if (!Number.isSafeInteger(payload.count) || payload.count < 0) return null;
+    return payload.count;
+  }
+
+  function showCount(count) {
+    if (count === 0) {
+      setUnavailable();
+      badge.setAttribute('data-state', 'available');
+      return;
+    }
+    badge.textContent = count > 99 ? '99+' : String(count);
+    badge.hidden = false;
+    badge.setAttribute('aria-hidden', 'false');
+    badge.setAttribute('data-state', 'available');
+    target.setAttribute('aria-label', 'Notifications, ' + String(count) + ' unread');
+  }
+
+  function schedulePoll() {
+    clearPoll();
+    if (!document.hidden) pollTimer = window.setTimeout(loadCount, 60000);
+  }
+
+  async function loadCount() {
+    clearPoll();
+    setUnavailable();
+    if (document.hidden) return;
+
+    requestGeneration += 1;
+    var generation = requestGeneration;
+    if (requestController) requestController.abort();
+    requestController = typeof AbortController === 'function' ? new AbortController() : null;
+
+    try {
+      var response = await fetch(endpoint, {
+        method: 'GET',
+        cache: 'no-store',
+        credentials: 'include',
+        headers: { 'accept': 'application/json' },
+        signal: requestController ? requestController.signal : undefined
+      });
+      if (generation !== requestGeneration || document.hidden || !response.ok) return;
+      var payload = await response.json();
+      if (generation !== requestGeneration || document.hidden) return;
+      var count = exactCount(payload);
+      if (count === null) return;
+      showCount(count);
+    } catch (_error) {
+      if (generation === requestGeneration && !document.hidden) setUnavailable();
+    } finally {
+      if (generation === requestGeneration) {
+        requestController = null;
+        if (!document.hidden) schedulePoll();
+      }
+    }
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      requestGeneration += 1;
+      clearPoll();
+      if (requestController) requestController.abort();
+      requestController = null;
+      setUnavailable();
+    } else {
+      loadCount();
+    }
+  });
+
+  loadCount();
+})();
+</script>"#
+}
+
 /// Minimal URL-encoder for the `next=` query parameter. Only handles
 /// the characters Vercel's middleware actually encodes; intentionally
 /// avoids pulling in a full url-encoding crate for this one call site.
@@ -901,11 +1033,13 @@ fn safe_return_url(query: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::apply_ssr_cache_policy;
     use super::developer_docs_runtime_script;
     use super::escaped_page_metadata;
     use super::manual_runtime_script;
     use super::news_detail_route_slug;
     use super::news_ssr_status;
+    use super::notification_badge_runtime;
     use super::offline_runtime_script;
     use super::offline_service_worker_script;
     use super::offline_worker_registration_script;
@@ -1070,6 +1204,7 @@ mod tests {
         ));
     }
     use axum::http::StatusCode;
+    use axum::response::IntoResponse;
 
     #[test]
     fn urlencode_passes_alnum() {
@@ -1241,5 +1376,107 @@ mod tests {
         assert!(script.contains("window.epsx.copyText"));
         assert!(!script.contains("fetch("));
         assert!(!script.contains("Authorization"));
+    }
+
+    #[test]
+    fn notification_badge_runtime_is_authenticated_only_and_uses_exact_read_route() {
+        assert_eq!(notification_badge_runtime(false, "/rankings"), "");
+
+        let script = notification_badge_runtime(true, "/rankings");
+        assert!(script.contains("data-epsx-notification-badge-runtime"));
+        assert_eq!(
+            script.matches("/api/v1/notifications/unread-count").count(),
+            1
+        );
+        assert!(script.contains("credentials: 'include'"));
+        assert!(script.contains("method: 'GET'"));
+        assert!(script.contains("cache: 'no-store'"));
+        assert!(!script.contains("/api/v1/notifications?"));
+        assert!(!script.contains("limit=1"));
+        assert!(!script.contains("items.filter"));
+    }
+
+    #[test]
+    fn notification_badge_runtime_validates_exact_counts_and_caps_only_display() {
+        let script = notification_badge_runtime(true, "/rankings");
+        for anchor in [
+            "Object.getPrototypeOf(payload) !== Object.prototype",
+            "keys.length !== 1 || keys[0] !== 'count'",
+            "Object.prototype.hasOwnProperty.call(payload, 'count')",
+            "Number.isSafeInteger(payload.count)",
+            "payload.count < 0",
+            "if (count === 0)",
+            "count > 99 ? '99+' : String(count)",
+            "'Notifications, ' + String(count) + ' unread'",
+        ] {
+            assert!(script.contains(anchor), "missing badge guard: {anchor}");
+        }
+        assert!(!script.contains("Math.min"));
+    }
+
+    #[test]
+    fn notification_badge_runtime_clears_stale_and_never_injects_payload_html() {
+        let script = notification_badge_runtime(true, "/rankings");
+        assert!(script.contains("setUnavailable();\n    if (document.hidden) return;"));
+        assert!(script.contains("generation !== requestGeneration"));
+        assert!(script.contains(
+            "if (generation === requestGeneration && !document.hidden) setUnavailable();"
+        ));
+        assert!(script.contains("if (count === null) return;"));
+        assert!(script.contains("if (requestController) requestController.abort();"));
+        assert!(script.contains("document.addEventListener('visibilitychange'"));
+        assert!(script.contains("badge.textContent = '';"));
+        assert!(script.contains("badge.textContent = count > 99 ? '99+' : String(count);"));
+        assert!(!script.contains("innerHTML"));
+        assert!(!script.contains("insertAdjacentHTML"));
+        assert!(!script.contains("document.write"));
+    }
+
+    #[test]
+    fn offline_public_cache_shell_never_receives_authenticated_badge_runtime() {
+        assert_eq!(notification_badge_runtime(false, "/offline"), "");
+        assert_eq!(notification_badge_runtime(true, "/offline"), "");
+        assert!(!notification_badge_runtime(true, "/offline").contains("fetch("));
+
+        let script = notification_badge_runtime(true, "/rankings");
+        assert!(script.contains("target.setAttribute('aria-label', 'Notifications');"));
+        assert!(script.contains(
+            "target.setAttribute('aria-label', 'Notifications, ' + String(count) + ' unread');"
+        ));
+    }
+
+    #[test]
+    fn authenticated_badge_shell_is_private_while_offline_stays_public() {
+        let mut authenticated = StatusCode::OK.into_response();
+        apply_ssr_cache_policy(&mut authenticated, true, "/rankings");
+        assert_eq!(
+            authenticated
+                .headers()
+                .get(axum::http::header::CACHE_CONTROL),
+            Some(&axum::http::HeaderValue::from_static("private, no-store"))
+        );
+        assert!(authenticated.headers().get("x-epsx-public-cache").is_none());
+
+        let mut signed_out = StatusCode::OK.into_response();
+        apply_ssr_cache_policy(&mut signed_out, false, "/rankings");
+        assert!(signed_out
+            .headers()
+            .get(axum::http::header::CACHE_CONTROL)
+            .is_none());
+
+        for authenticated_request in [false, true] {
+            let mut offline = StatusCode::OK.into_response();
+            apply_ssr_cache_policy(&mut offline, authenticated_request, "/offline");
+            assert_eq!(
+                offline.headers().get(axum::http::header::CACHE_CONTROL),
+                Some(&axum::http::HeaderValue::from_static(
+                    "public, max-age=0, must-revalidate"
+                ))
+            );
+            assert_eq!(
+                offline.headers().get("x-epsx-public-cache"),
+                Some(&axum::http::HeaderValue::from_static("offline-shell-v1"))
+            );
+        }
     }
 }

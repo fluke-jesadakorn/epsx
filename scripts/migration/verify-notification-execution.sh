@@ -119,7 +119,7 @@ for (const item of source.evidence) {
   anchored(content, item, "source");
 }
 
-if (!Array.isArray(contract.targetEvidence) || contract.targetEvidence.length !== 46) fail("exactly 46 target evidence records are required");
+if (!Array.isArray(contract.targetEvidence) || contract.targetEvidence.length !== 53) fail("exactly 53 target evidence records are required");
 const targetContents = new Map();
 for (const item of contract.targetEvidence) {
   if (!item || typeof item.id !== "string" || !/^[a-z][a-z0-9-]+$/.test(item.id) || evidenceIds.has(item.id)) fail(`invalid or duplicate evidence id: ${item?.id}`);
@@ -152,7 +152,14 @@ const exactNotificationAnchors = {
   "tgt-user-ui-disabled-controls": ["shared/rust/dioxus_ui/src/pages/notifications.rs", "fn lifecycle_delivery_and_unapproved_navigation_controls_are_absent()"],
   "tgt-dormant-nav-unavailable": ["apps/frontend/src/ui.rs", "data-state=\"unavailable\""],
   "tgt-active-header-mount": ["apps/frontend/src/ssr.rs", "epsx_templates::epsx_header()"],
-  "tgt-active-header-no-badge": ["shared/rust/templates/src/lib.rs", "pub fn epsx_header() -> String {"],
+  "tgt-active-header-auth-runtime": ["apps/frontend/src/ssr.rs", "let authenticated_header_runtime = notification_badge_runtime(is_authenticated, &path);"],
+  "tgt-active-header-offline-exclusion": ["apps/frontend/src/ssr.rs", "if !is_authenticated || path == \"/offline\" {"],
+  "tgt-active-header-endpoint": ["apps/frontend/src/ssr.rs", "var endpoint = \u0027/api/v1/notifications/unread-count\u0027;"],
+  "tgt-active-header-exact-validation": ["apps/frontend/src/ssr.rs", "if (!Number.isSafeInteger(payload.count) || payload.count < 0) return null;"],
+  "tgt-active-header-race-guard": ["apps/frontend/src/ssr.rs", "if (generation === requestGeneration && !document.hidden) setUnavailable();"],
+  "tgt-active-header-initial-dom": ["shared/rust/templates/src/lib.rs", "data-epsx-notification-unread-badge=\"true\" data-state=\"unavailable\" aria-hidden=\"true\" hidden></span>"],
+  "tgt-active-header-accessibility": ["apps/frontend/src/ssr.rs", "target.setAttribute(\u0027aria-label\u0027, \u0027Notifications, \u0027 + String(count) + \u0027 unread\u0027);"],
+  "tgt-active-header-text-only": ["apps/frontend/src/ssr.rs", "badge.textContent = count > 99 ? \u002799+\u0027 : String(count);"],
 };
 const targetById = new Map(contract.targetEvidence.map((item) => [item.id, item]));
 for (const [id, [file, anchor]] of Object.entries(exactNotificationAnchors)) {
@@ -166,7 +173,7 @@ for (const stale of [
   "tgt-runtime-template-ddl", "tgt-runtime-notification-ddl", "tgt-runtime-sample-seed",
   "tgt-user-ui-sample-fallback", "tgt-user-ui-inert-bulk", "tgt-browser-permission-simulated",
   "tgt-user-preferences-inert", "tgt-frontend-any-method", "tgt-frontend-list-bff",
-  "tgt-nav-count-first-page"
+  "tgt-nav-count-first-page", "tgt-active-header-no-badge"
 ]) {
   if (evidenceIds.has(stale)) fail(`stale pre-A3.11 target evidence remains: ${stale}`);
 }
@@ -210,6 +217,16 @@ const queryContract = frontendApi.slice(queryStart, unreadStructStart);
 const listFunction = frontendApi.slice(listStart, unreadFunctionStart);
 const unreadFunction = frontendApi.slice(unreadFunctionStart, mutationStart);
 const unreadBoundary = frontendApi.slice(unreadStructStart, mutationStart);
+const privateResponseStart = frontendApi.indexOf("fn private_notification_response(", unreadStructStart);
+const privateResponseEnd = frontendApi.indexOf("async fn read_notification_body_limited(", privateResponseStart);
+if (privateResponseStart < 0 || privateResponseEnd < 0 || privateResponseStart >= privateResponseEnd) fail("notification private response boundary drifted");
+const privateResponse = frontendApi.slice(privateResponseStart, privateResponseEnd);
+for (const anchor of [
+  "header::CACHE_CONTROL",
+  "HeaderValue::from_static(\"private, no-store\")"
+]) if (!privateResponse.includes(anchor)) fail(`notification private response policy drifted: ${anchor}`);
+if (!listFunction.includes("private_notification_response(notifications_api_inner(state, headers, raw_query).await)")) fail("notification list response no longer wraps every outcome in the private cache policy");
+if (!unreadFunction.includes("private_notification_response(notification_unread_count_inner(state, headers).await)")) fail("notification unread response no longer wraps every outcome in the private cache policy");
 for (const anchor of [
   "const NOTIFICATION_LIST_OFFSET_MAX: u32 = 1_000_000;",
   "const NOTIFICATION_LIST_BODY_MAX: usize = 2 * 1024 * 1024;",
@@ -290,14 +307,79 @@ const activeSsr = targetContents.get("tgt-active-header-mount");
 const activeNavStart = activeSsr.indexOf("let nav_html = if path == \"/auth\" {");
 const activeNavEnd = activeSsr.indexOf("// === Wave 49+ — re-enable footer ===", activeNavStart);
 if (activeNavStart < 0 || activeNavEnd < 0 || !activeSsr.slice(activeNavStart, activeNavEnd).includes("epsx_templates::epsx_header()")) fail("active SSR shell no longer mounts the reviewed shared header");
-const sharedTemplates = targetContents.get("tgt-active-header-no-badge");
+for (const id of [
+  "tgt-active-header-auth-runtime", "tgt-active-header-offline-exclusion", "tgt-active-header-endpoint",
+  "tgt-active-header-exact-validation", "tgt-active-header-race-guard", "tgt-active-header-accessibility",
+  "tgt-active-header-text-only"
+]) {
+  if (targetContents.get(id) !== activeSsr) fail(`${id}: active SSR evidence must share the mounted-header source`);
+}
+const authDerivation = activeSsr.indexOf("let is_authenticated = user.is_some();");
+const runtimeInjection = activeSsr.indexOf("let authenticated_header_runtime = notification_badge_runtime(is_authenticated, &path);");
+const bodyInjection = activeSsr.indexOf("{route_runtime}{authenticated_header_runtime}</body>", runtimeInjection);
+const badgeRuntimeStart = activeSsr.indexOf("fn notification_badge_runtime(is_authenticated: bool, path: &str) -> &\u0027static str {");
+const badgeRuntimeEnd = activeSsr.indexOf("/// Minimal URL-encoder for the `next=` query parameter.", badgeRuntimeStart);
+if ([authDerivation, runtimeInjection, bodyInjection, badgeRuntimeStart, badgeRuntimeEnd].some((offset) => offset < 0) || !(authDerivation < runtimeInjection && runtimeInjection < bodyInjection && bodyInjection < badgeRuntimeStart && badgeRuntimeStart < badgeRuntimeEnd)) fail("active notification badge auth/injection boundaries drifted");
+const badgeRuntime = activeSsr.slice(badgeRuntimeStart, badgeRuntimeEnd);
+const authGate = badgeRuntime.indexOf("if !is_authenticated || path == \"/offline\" {");
+const emptyReturn = badgeRuntime.indexOf("return \"\";", authGate);
+const browserScript = badgeRuntime.indexOf("data-epsx-notification-badge-runtime", emptyReturn);
+if (authGate < 0 || emptyReturn < 0 || browserScript < 0 || !(authGate < emptyReturn && emptyReturn < browserScript)) fail("signed-out/offline badge runtime gate drifted");
+for (const anchor of [
+  "var endpoint = \u0027/api/v1/notifications/unread-count\u0027;",
+  "cache: \u0027no-store\u0027",
+  "credentials: \u0027include\u0027",
+  "method: \u0027GET\u0027",
+  "Object.getPrototypeOf(payload) !== Object.prototype",
+  "keys.length !== 1 || keys[0] !== \u0027count\u0027",
+  "Object.prototype.hasOwnProperty.call(payload, \u0027count\u0027)",
+  "Number.isSafeInteger(payload.count)",
+  "payload.count < 0",
+  "if (generation !== requestGeneration || document.hidden || !response.ok) return;",
+  "if (generation !== requestGeneration || document.hidden) return;",
+  "if (generation === requestGeneration && !document.hidden) setUnavailable();",
+  "if (count === 0)",
+  "badge.textContent = count > 99 ? \u002799+\u0027 : String(count);",
+  "target.setAttribute(\u0027aria-label\u0027, \u0027Notifications, \u0027 + String(count) + \u0027 unread\u0027);",
+  "badge.hidden = true;",
+  "badge.setAttribute(\u0027data-state\u0027, \u0027unavailable\u0027);",
+  "fetch(endpoint, {"
+]) if (!badgeRuntime.includes(anchor)) fail(`active notification badge runtime contract drifted: ${anchor}`);
+if ((badgeRuntime.match(/fetch\(/g) ?? []).length !== 1) fail("active notification badge must have exactly one read fetch");
+for (const forbidden of [
+  "innerHTML", "insertAdjacentHTML", "document.write", "method: \u0027POST\u0027", "method: \u0027PUT\u0027",
+  "method: \u0027PATCH\u0027", "method: \u0027DELETE\u0027", "/api/v1/notifications?", "limit=1", "items.filter"
+]) if (badgeRuntime.includes(forbidden)) fail(`active notification badge reintroduced mutation, injection, or fabricated-count behavior: ${forbidden}`);
+const sharedTemplates = targetContents.get("tgt-active-header-initial-dom");
 const sharedHeaderStart = sharedTemplates.indexOf("pub fn epsx_header() -> String {");
 const sharedHeaderEnd = sharedTemplates.indexOf("/// A standard page shell.", sharedHeaderStart);
 if (sharedHeaderStart < 0 || sharedHeaderEnd < 0) fail("active shared header boundary markers drifted");
-const sharedHeader = sharedTemplates.slice(sharedHeaderStart, sharedHeaderEnd).toLowerCase();
-for (const forbidden of ["notification", "unread", "data-lucide=\"bell\"", "/api/v1/notifications"]) {
-  if (sharedHeader.includes(forbidden)) fail(`active shared-header badge blocker changed without reviewed integration: ${forbidden}`);
-}
+const sharedHeader = sharedTemplates.slice(sharedHeaderStart, sharedHeaderEnd);
+for (const anchor of [
+  "href=\"/notifications\"",
+  "aria-label=\"Notifications\"",
+  "data-epsx-notification-badge-target=\"true\"",
+  "data-epsx-notification-unread-badge=\"true\" data-state=\"unavailable\" aria-hidden=\"true\" hidden></span>"
+]) if (!sharedHeader.includes(anchor)) fail(`active shared-header initial badge contract drifted: ${anchor}`);
+if ((sharedHeader.match(/data-epsx-notification-badge-target=\"true\"/g) ?? []).length !== 1 || (sharedHeader.match(/data-epsx-notification-unread-badge=\"true\"/g) ?? []).length !== 1) fail("active shared header must expose exactly one badge target and one badge");
+for (const forbidden of [">0</span>", "innerHTML", "fetch(", "/api/v1/notifications/unread-count"]) if (sharedHeader.includes(forbidden)) fail(`active shared header must start inert and unavailable: ${forbidden}`);
+const badgeCssStart = sharedTemplates.indexOf(".epsx-notification-badge {{");
+const badgeCssEnd = sharedTemplates.indexOf(".epsx-notification-badge[hidden]", badgeCssStart);
+if (badgeCssStart < 0 || badgeCssEnd < 0 || badgeCssStart >= badgeCssEnd) fail("active notification badge CSS boundary drifted");
+const badgeCss = sharedTemplates.slice(badgeCssStart, badgeCssEnd);
+if (!badgeCss.includes("background: #dc2626; color: white;")) fail("active notification badge lost its reviewed AA text contrast color");
+if (badgeCss.includes("background: #ef4444; color: white;")) fail("active notification badge restored the sub-AA text contrast color");
+const cachePolicyStart = activeSsr.indexOf("fn apply_ssr_cache_policy(response: &mut Response, is_authenticated: bool, path: &str) {");
+const cachePolicyEnd = activeSsr.indexOf("/// Fetch page-specific data", cachePolicyStart);
+if (cachePolicyStart < 0 || cachePolicyEnd < 0 || cachePolicyStart >= cachePolicyEnd) fail("authenticated SSR cache policy boundary drifted");
+const cachePolicy = activeSsr.slice(cachePolicyStart, cachePolicyEnd);
+for (const anchor of [
+  "if path == \"/offline\" {",
+  "HeaderValue::from_static(\"public, max-age=0, must-revalidate\")",
+  "} else if is_authenticated {",
+  "HeaderValue::from_static(\"private, no-store\")"
+]) if (!cachePolicy.includes(anchor)) fail(`authenticated SSR cache policy drifted: ${anchor}`);
+if (!activeSsr.includes("apply_ssr_cache_policy(&mut response, is_authenticated, &path);")) fail("SSR response no longer applies the reviewed private/public cache split");
 const ownerUi = targetContents.get("tgt-user-ui-target-dto");
 const ownerUiRuntime = ownerUi.split("#[cfg(test)]", 1)[0];
 for (const anchor of [
@@ -358,8 +440,8 @@ for (const surface of contract.surfaceContracts) {
 }
 if (expectedSurfaces.some((id) => !surfaceIds.has(id))) fail("notification surface inventory drifted");
 const ownerReadSurface = contract.surfaceContracts.find((surface) => surface.id === "owner-list-and-count");
-const exactOwnerReadObservation = "The frontend exposes GET-only list and unread-count BFF routes with explicit HEAD-to-405 overrides; all other non-GET methods are rejected. List permits only bounded status/limit/offset, forwards only a verified bearer, streams at most 2 MiB, parses the same bytes into exact wire and passthrough JSON values, and cross-checks every current-target row against the principal wallet; unread-count streams at most 4 KiB and requires the exact non-negative current-target DTO. SSR and the read-only page preserve explicit outcomes without sample fallback or lifecycle controls. Source method/query/envelope parity and the active shared-header badge remain blocked.";
-if (ownerReadSurface?.targetObserved !== exactOwnerReadObservation) fail("owner-list-and-count target observation or active-header blocker drifted");
+const exactOwnerReadObservation = "The frontend exposes GET-only list and unread-count BFF routes with explicit HEAD-to-405 overrides; all other non-GET methods are rejected. List permits only bounded status/limit/offset, forwards only a verified bearer, streams at most 2 MiB, parses the same bytes into exact wire and passthrough JSON values, and cross-checks every current-target row against the principal wallet; unread-count streams at most 4 KiB and requires the exact non-negative current-target DTO. SSR and the read-only page preserve explicit outcomes without sample fallback or lifecycle controls. The active shared header starts empty, hidden, and unavailable; only a server-verified authenticated non-offline response receives its read-only browser controller. Authenticated HTML and every list/count BFF outcome are private/no-store, and the fetch bypasses caches. The controller uses the exact unread-count route with credentials, exact-object/non-negative-safe-integer validation, stale-response generation guards, zero/error hiding, AA badge contrast, a 99+ visual cap with the exact count in the accessible label, and text-only DOM writes. Source method/query/envelope/broadcast/expiry/read parity and live browser/runtime proof remain blocked.";
+if (ownerReadSurface?.targetObserved !== exactOwnerReadObservation) fail("owner-list-and-count target observation or shared-header residual blockers drifted");
 
 const ruleSections = { ownershipRules: 5, deliveryRules: 8, idempotencyRules: 5, privacyRules: 5 };
 for (const [section, expected] of Object.entries(ruleSections)) {
@@ -430,7 +512,7 @@ if [ "$mode" = "report" ]; then
 fi
 
 if [ "$mode" = "integrity" ]; then
-  echo "notification-execution: PASS — 14 source records, 46 target anchors, 12 surfaces, and 22 stop blockers verified"
+  echo "notification-execution: PASS — 14 source records, 53 target anchors, 12 surfaces, and 22 stop blockers verified"
   echo "notification-execution: LIMIT — A2.3c auth and A3.11 schema boundary remain partial; no database, upgrade, reconciliation, Redis, SMTP, push, network, deployment, or production readiness was proven"
   exit 0
 fi

@@ -216,13 +216,16 @@ const exactNotificationLoaderEvidence = [
   { file: "apps/frontend/src/ssr.rs", anchor: ".get_with_ctx(\"/api/v1/notification/list\", &request_context)" },
   { file: "apps/frontend/src/ssr.rs", anchor: "params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"ok\".into());" },
   { file: "apps/frontend/src/ssr.rs", anchor: "params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"error\".into());" },
+  { file: "apps/frontend/src/ssr.rs", anchor: "let authenticated_header_runtime = notification_badge_runtime(is_authenticated, &path);" },
+  { file: "apps/frontend/src/ssr.rs", anchor: "var endpoint = '/api/v1/notifications/unread-count';" },
+  { file: "shared/rust/templates/src/lib.rs", anchor: "data-epsx-notification-unread-badge=\"true\" data-state=\"unavailable\" aria-hidden=\"true\" hidden></span>" },
 ];
 if (
   !notifications ||
   notifications.status !== "partial" ||
   JSON.stringify(notifications.target?.anchors) !== JSON.stringify(exactNotificationTargetAnchors) ||
-  notifications.loader?.kind !== "owner-gateway-explicit-outcome" ||
-  JSON.stringify(notifications.loader?.endpoints) !== JSON.stringify(["GET /api/v1/notification/list"]) ||
+  notifications.loader?.kind !== "owner-gateway-explicit-outcome-plus-authenticated-shared-header" ||
+  JSON.stringify(notifications.loader?.endpoints) !== JSON.stringify(["GET /api/v1/notification/list", "GET /api/v1/notifications/unread-count"]) ||
   JSON.stringify(notifications.loader?.evidence) !== JSON.stringify(exactNotificationLoaderEvidence) ||
   notifications.payloads?.staticOrSample?.length !== 0 ||
   notifications.states?.loading !== "missing" ||
@@ -230,8 +233,8 @@ if (
   notifications.states?.error !== "present" ||
   notifications.states?.retry !== "present" ||
   notifications.authOwner?.auth !== "required" ||
-  notifications.hydration?.need !== "none" ||
-  notifications.hydration?.status !== "not-applicable" ||
+  notifications.hydration?.need !== "browser" ||
+  notifications.hydration?.status !== "partial" ||
   notifications.blockers?.length !== 2
 ) {
   die("/notifications truthful read-only semantic contract drifted");
@@ -256,6 +259,108 @@ for (const forbidden of [
   "Mark all read", "Clear all", "SwitchInput", "BrowserNotificationsPrompt", "NotificationSettingsSection",
 ]) {
   if (notificationUiRuntime.includes(forbidden)) die(`/notifications reintroduced blocked UI behavior: ${forbidden}`);
+}
+
+const notificationSsr = currentFile("apps/frontend/src/ssr.rs", "/notifications shared-header runtime");
+const authDerivation = notificationSsr.indexOf("let is_authenticated = user.is_some();");
+const runtimeInjection = notificationSsr.indexOf("let authenticated_header_runtime = notification_badge_runtime(is_authenticated, &path);");
+const bodyInjection = notificationSsr.indexOf("{route_runtime}{authenticated_header_runtime}</body>", runtimeInjection);
+const badgeRuntimeStart = notificationSsr.indexOf("fn notification_badge_runtime(is_authenticated: bool, path: &str) -> &'static str {");
+const badgeRuntimeEnd = notificationSsr.indexOf("/// Minimal URL-encoder for the `next=` query parameter.", badgeRuntimeStart);
+if ([authDerivation, runtimeInjection, bodyInjection, badgeRuntimeStart, badgeRuntimeEnd].some((offset) => offset < 0) || !(authDerivation < runtimeInjection && runtimeInjection < bodyInjection && bodyInjection < badgeRuntimeStart && badgeRuntimeStart < badgeRuntimeEnd)) {
+  die("/notifications authenticated shared-header injection boundary drifted");
+}
+const badgeRuntime = notificationSsr.slice(badgeRuntimeStart, badgeRuntimeEnd);
+const authGate = badgeRuntime.indexOf("if !is_authenticated || path == \"/offline\" {");
+const emptyReturn = badgeRuntime.indexOf("return \"\";", authGate);
+const scriptStart = badgeRuntime.indexOf("data-epsx-notification-badge-runtime", emptyReturn);
+if (authGate < 0 || emptyReturn < 0 || scriptStart < 0 || !(authGate < emptyReturn && emptyReturn < scriptStart)) {
+  die("/notifications signed-out or public-offline badge exclusion drifted");
+}
+for (const anchor of [
+  "var endpoint = '/api/v1/notifications/unread-count';",
+  "cache: 'no-store'",
+  "credentials: 'include'",
+  "method: 'GET'",
+  "Object.getPrototypeOf(payload) !== Object.prototype",
+  "keys.length !== 1 || keys[0] !== 'count'",
+  "Number.isSafeInteger(payload.count)",
+  "if (generation !== requestGeneration || document.hidden || !response.ok) return;",
+  "if (generation !== requestGeneration || document.hidden) return;",
+  "if (generation === requestGeneration && !document.hidden) setUnavailable();",
+  "if (count === 0)",
+  "badge.textContent = count > 99 ? '99+' : String(count);",
+  "target.setAttribute('aria-label', 'Notifications, ' + String(count) + ' unread');",
+  "badge.hidden = true;",
+]) {
+  if (!badgeRuntime.includes(anchor)) die(`/notifications shared-header badge runtime drifted: ${anchor}`);
+}
+if ((badgeRuntime.match(/fetch\(/g) ?? []).length !== 1) die("/notifications shared-header badge must use exactly one read fetch");
+for (const forbidden of ["innerHTML", "insertAdjacentHTML", "document.write", "method: 'POST'", "method: 'PUT'", "method: 'PATCH'", "method: 'DELETE'", "limit=1", "items.filter"]) {
+  if (badgeRuntime.includes(forbidden)) die(`/notifications shared-header badge reintroduced mutation, injection, or fabricated-count behavior: ${forbidden}`);
+}
+const notificationTemplates = currentFile("shared/rust/templates/src/lib.rs", "/notifications shared-header DOM");
+const sharedHeaderStart = notificationTemplates.indexOf("pub fn epsx_header() -> String {");
+const sharedHeaderEnd = notificationTemplates.indexOf("/// A standard page shell.", sharedHeaderStart);
+if (sharedHeaderStart < 0 || sharedHeaderEnd < 0) die("/notifications shared-header DOM boundaries drifted");
+const sharedHeader = notificationTemplates.slice(sharedHeaderStart, sharedHeaderEnd);
+for (const anchor of [
+  "href=\"/notifications\"",
+  "aria-label=\"Notifications\"",
+  "data-epsx-notification-badge-target=\"true\"",
+  "data-epsx-notification-unread-badge=\"true\" data-state=\"unavailable\" aria-hidden=\"true\" hidden></span>",
+]) {
+  if (!sharedHeader.includes(anchor)) die(`/notifications shared-header initial DOM drifted: ${anchor}`);
+}
+for (const forbidden of [">0</span>", "fetch(", "innerHTML", "/api/v1/notifications/unread-count"]) {
+  if (sharedHeader.includes(forbidden)) die(`/notifications shared header must start inert and unavailable: ${forbidden}`);
+}
+const badgeCssStart = notificationTemplates.indexOf(".epsx-notification-badge {{");
+const badgeCssEnd = notificationTemplates.indexOf(".epsx-notification-badge[hidden]", badgeCssStart);
+if (badgeCssStart < 0 || badgeCssEnd < 0 || badgeCssStart >= badgeCssEnd) {
+  die("/notifications shared-header badge CSS boundary drifted");
+}
+const badgeCss = notificationTemplates.slice(badgeCssStart, badgeCssEnd);
+if (!badgeCss.includes("background: #dc2626; color: white;")) {
+  die("/notifications shared-header badge lost its reviewed AA text contrast color");
+}
+if (badgeCss.includes("background: #ef4444; color: white;")) {
+  die("/notifications shared-header badge restored the sub-AA text contrast color");
+}
+
+const cachePolicyStart = notificationSsr.indexOf("fn apply_ssr_cache_policy(response: &mut Response, is_authenticated: bool, path: &str) {");
+const cachePolicyEnd = notificationSsr.indexOf("/// Fetch page-specific data", cachePolicyStart);
+if (cachePolicyStart < 0 || cachePolicyEnd < 0 || cachePolicyStart >= cachePolicyEnd) {
+  die("/notifications authenticated SSR cache policy boundary drifted");
+}
+const cachePolicy = notificationSsr.slice(cachePolicyStart, cachePolicyEnd);
+for (const anchor of [
+  "if path == \"/offline\" {",
+  "HeaderValue::from_static(\"public, max-age=0, must-revalidate\")",
+  "} else if is_authenticated {",
+  "HeaderValue::from_static(\"private, no-store\")",
+]) {
+  if (!cachePolicy.includes(anchor)) die(`/notifications authenticated SSR cache policy drifted: ${anchor}`);
+}
+if (!notificationSsr.includes("apply_ssr_cache_policy(&mut response, is_authenticated, &path);")) {
+  die("/notifications SSR response no longer applies the reviewed private/public cache split");
+}
+
+const notificationApi = currentFile("apps/frontend/src/api.rs", "/notifications private BFF responses");
+const privateResponseStart = notificationApi.indexOf("fn private_notification_response(");
+const privateResponseEnd = notificationApi.indexOf("async fn read_notification_body_limited(", privateResponseStart);
+if (privateResponseStart < 0 || privateResponseEnd < 0 || privateResponseStart >= privateResponseEnd) {
+  die("/notifications private BFF response boundary drifted");
+}
+const privateResponse = notificationApi.slice(privateResponseStart, privateResponseEnd);
+for (const anchor of ["header::CACHE_CONTROL", "HeaderValue::from_static(\"private, no-store\")"]) {
+  if (!privateResponse.includes(anchor)) die(`/notifications private BFF response policy drifted: ${anchor}`);
+}
+for (const anchor of [
+  "private_notification_response(notifications_api_inner(state, headers, raw_query).await)",
+  "private_notification_response(notification_unread_count_inner(state, headers).await)",
+]) {
+  if (!notificationApi.includes(anchor)) die(`/notifications private BFF wrapper drifted: ${anchor}`);
 }
 
 const expectedPaths = [...expectedByPath.keys()].sort();

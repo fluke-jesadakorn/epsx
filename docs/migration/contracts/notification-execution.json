@@ -282,9 +282,44 @@
       "anchor": "epsx_templates::epsx_header()"
     },
     {
-      "id": "tgt-active-header-no-badge",
+      "id": "tgt-active-header-auth-runtime",
+      "file": "apps/frontend/src/ssr.rs",
+      "anchor": "let authenticated_header_runtime = notification_badge_runtime(is_authenticated, &path);"
+    },
+    {
+      "id": "tgt-active-header-offline-exclusion",
+      "file": "apps/frontend/src/ssr.rs",
+      "anchor": "if !is_authenticated || path == \"/offline\" {"
+    },
+    {
+      "id": "tgt-active-header-endpoint",
+      "file": "apps/frontend/src/ssr.rs",
+      "anchor": "var endpoint = '/api/v1/notifications/unread-count';"
+    },
+    {
+      "id": "tgt-active-header-exact-validation",
+      "file": "apps/frontend/src/ssr.rs",
+      "anchor": "if (!Number.isSafeInteger(payload.count) || payload.count < 0) return null;"
+    },
+    {
+      "id": "tgt-active-header-race-guard",
+      "file": "apps/frontend/src/ssr.rs",
+      "anchor": "if (generation === requestGeneration && !document.hidden) setUnavailable();"
+    },
+    {
+      "id": "tgt-active-header-initial-dom",
       "file": "shared/rust/templates/src/lib.rs",
-      "anchor": "pub fn epsx_header() -> String {"
+      "anchor": "data-epsx-notification-unread-badge=\"true\" data-state=\"unavailable\" aria-hidden=\"true\" hidden></span>"
+    },
+    {
+      "id": "tgt-active-header-accessibility",
+      "file": "apps/frontend/src/ssr.rs",
+      "anchor": "target.setAttribute('aria-label', 'Notifications, ' + String(count) + ' unread');"
+    },
+    {
+      "id": "tgt-active-header-text-only",
+      "file": "apps/frontend/src/ssr.rs",
+      "anchor": "badge.textContent = count > 99 ? '99+' : String(count);"
     },
     {
       "id": "tgt-admin-bff-send",
@@ -353,7 +388,7 @@
     {
       "id": "owner-list-and-count",
       "source": "GET /api/notifications and GET /api/notifications/unread-count with source envelopes, filters, pagination, broadcasts, expiry, and read semantics",
-      "targetObserved": "The frontend exposes GET-only list and unread-count BFF routes with explicit HEAD-to-405 overrides; all other non-GET methods are rejected. List permits only bounded status/limit/offset, forwards only a verified bearer, streams at most 2 MiB, parses the same bytes into exact wire and passthrough JSON values, and cross-checks every current-target row against the principal wallet; unread-count streams at most 4 KiB and requires the exact non-negative current-target DTO. SSR and the read-only page preserve explicit outcomes without sample fallback or lifecycle controls. Source method/query/envelope parity and the active shared-header badge remain blocked.",
+      "targetObserved": "The frontend exposes GET-only list and unread-count BFF routes with explicit HEAD-to-405 overrides; all other non-GET methods are rejected. List permits only bounded status/limit/offset, forwards only a verified bearer, streams at most 2 MiB, parses the same bytes into exact wire and passthrough JSON values, and cross-checks every current-target row against the principal wallet; unread-count streams at most 4 KiB and requires the exact non-negative current-target DTO. SSR and the read-only page preserve explicit outcomes without sample fallback or lifecycle controls. The active shared header starts empty, hidden, and unavailable; only a server-verified authenticated non-offline response receives its read-only browser controller. Authenticated HTML and every list/count BFF outcome are private/no-store, and the fetch bypasses caches. The controller uses the exact unread-count route with credentials, exact-object/non-negative-safe-integer validation, stale-response generation guards, zero/error hiding, AA badge contrast, a 99+ visual cap with the exact count in the accessible label, and text-only DOM writes. Source method/query/envelope/broadcast/expiry/read parity and live browser/runtime proof remain blocked.",
       "ownerKey": "verified-jwt-wallet",
       "status": "blocked",
       "blockerIds": ["B01", "B02", "B04", "B05"]
@@ -603,7 +638,7 @@
       "status": "blocked",
       "summary": "Source and target methods, prefixes, payloads, fields, envelopes, and status codes are not locked by executable compatibility tests.",
       "resolution": "Implement an explicit adapter or versioned API and contract-test every A11 surface against the pinned source behavior.",
-      "evidenceIds": ["src-route-prefixes", "src-user-list-client", "src-backend-routes", "tgt-service-routes", "tgt-frontend-get-only-list", "tgt-active-header-no-badge"]
+      "evidenceIds": ["src-route-prefixes", "src-user-list-client", "src-backend-routes", "tgt-service-routes", "tgt-frontend-get-only-list", "tgt-active-header-auth-runtime", "tgt-active-header-endpoint", "tgt-active-header-initial-dom"]
     },
     {
       "id": "B02",

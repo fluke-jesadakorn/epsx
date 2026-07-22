@@ -37,7 +37,7 @@ if (!news || news.status !== "partial" || news.loader.kind !== "gateway-strict" 
 const newsDetail = contract.routes.find(route => route.path === "/news/:slug");
 if (!newsDetail || newsDetail.status !== "partial" || newsDetail.loader.kind !== "gateway-strict" || JSON.stringify(newsDetail.loader.endpoints) !== JSON.stringify(["GET /api/v1/content/news/{slug}"]) || newsDetail.payloads.staticOrSample.length !== 0 || newsDetail.states.empty !== "present" || newsDetail.states.error !== "present" || newsDetail.states.retry !== "present" || newsDetail.authOwner.auth !== "public" || !newsDetail.blockers.some(blocker => blocker.includes("unknown slugs")) || !newsDetail.blockers.some(blocker => blocker.includes("outer metadata"))) process.exit(1);
 const notifications = contract.routes.find(route => route.path === "/notifications");
-if (!notifications || notifications.status !== "partial" || notifications.loader.kind !== "owner-gateway-explicit-outcome" || JSON.stringify(notifications.loader.endpoints) !== JSON.stringify(["GET /api/v1/notification/list"]) || notifications.loader.evidence.length !== 3 || notifications.payloads.staticOrSample.length !== 0 || notifications.states.loading !== "missing" || notifications.states.empty !== "present" || notifications.states.error !== "present" || notifications.states.retry !== "present" || notifications.hydration.need !== "none" || notifications.hydration.status !== "not-applicable" || notifications.blockers.length !== 2) process.exit(1);
+if (!notifications || notifications.status !== "partial" || notifications.loader.kind !== "owner-gateway-explicit-outcome-plus-authenticated-shared-header" || JSON.stringify(notifications.loader.endpoints) !== JSON.stringify(["GET /api/v1/notification/list", "GET /api/v1/notifications/unread-count"]) || notifications.loader.evidence.length !== 6 || notifications.payloads.staticOrSample.length !== 0 || notifications.states.loading !== "missing" || notifications.states.empty !== "present" || notifications.states.error !== "present" || notifications.states.retry !== "present" || notifications.hydration.need !== "browser" || notifications.hydration.status !== "partial" || notifications.blockers.length !== 2 || !notifications.blockers[0].includes("live-service and browser runtime proof remain missing")) process.exit(1);
 ' "$contract"
 
 FRONTEND_CONTRACT_IN="$contract" FRONTEND_CONTRACT_OUT="$temp_dir/tampered.json" bun -e '
@@ -88,4 +88,16 @@ set -e
 [ "$wrong_notification_status" -eq 1 ] || { cat "$temp_dir/wrong-existing-notification-anchor.out" >&2; exit 1; }
 grep -q "/notifications truthful read-only semantic contract drifted" "$temp_dir/wrong-existing-notification-anchor.out"
 
-echo "frontend-live-data self-test: PASS (integrity=0, readiness-stop=3, deterministic emit, tamper/path/stale-anchor/wrong-existing-notification-anchor=1)"
+FRONTEND_CONTRACT_IN="$contract" FRONTEND_CONTRACT_OUT="$temp_dir/wrong-existing-notification-badge-anchor.json" bun -e '
+const value = await Bun.file(process.env.FRONTEND_CONTRACT_IN).json();
+value.routes.find(route => route.path === "/notifications").loader.evidence[4].anchor = "/api/v1/notification/list";
+await Bun.write(process.env.FRONTEND_CONTRACT_OUT, `${JSON.stringify(value, null, 2)}\n`);
+'
+set +e
+"$verify" --mode integrity --fixture "$temp_dir/wrong-existing-notification-badge-anchor.json" >"$temp_dir/wrong-existing-notification-badge-anchor.out" 2>&1
+wrong_notification_badge_status=$?
+set -e
+[ "$wrong_notification_badge_status" -eq 1 ] || { cat "$temp_dir/wrong-existing-notification-badge-anchor.out" >&2; exit 1; }
+grep -q "/notifications truthful read-only semantic contract drifted" "$temp_dir/wrong-existing-notification-badge-anchor.out"
+
+echo "frontend-live-data self-test: PASS (integrity=0, readiness-stop=3, deterministic emit, tamper/path/stale-anchor/wrong-existing-notification+badge-anchor=1)"

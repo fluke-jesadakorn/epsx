@@ -16,7 +16,7 @@
 
 use axum::{
     extract::{Path as AxPath, Query, RawQuery, State},
-    http::StatusCode,
+    http::{header, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
@@ -911,6 +911,14 @@ fn notification_upstream_error(status: StatusCode) -> Response {
     }
 }
 
+fn private_notification_response(mut response: Response) -> Response {
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    response
+}
+
 async fn read_notification_body_limited(
     mut response: reqwest::Response,
     limit: usize,
@@ -934,6 +942,14 @@ async fn read_notification_body_limited(
 }
 
 pub async fn notifications_api(
+    state: State<AppState>,
+    headers: axum::http::HeaderMap,
+    raw_query: RawQuery,
+) -> Response {
+    private_notification_response(notifications_api_inner(state, headers, raw_query).await)
+}
+
+async fn notifications_api_inner(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
     RawQuery(raw_query): RawQuery,
@@ -980,6 +996,13 @@ pub async fn notifications_api(
 }
 
 pub async fn notification_unread_count(
+    state: State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> Response {
+    private_notification_response(notification_unread_count_inner(state, headers).await)
+}
+
+async fn notification_unread_count_inner(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
 ) -> Response {
@@ -2447,6 +2470,13 @@ mod auth_session_tests {
     const TEST_ISSUER: &str = "https://issuer.test";
     const TEST_WALLET: &str = "0x1111111111111111111111111111111111111111";
 
+    fn assert_private_notification_response(response: &Response) {
+        assert_eq!(
+            response.headers().get(header::CACHE_CONTROL),
+            Some(&HeaderValue::from_static("private, no-store"))
+        );
+    }
+
     struct TestKey {
         encoding: EncodingKey,
         jwk: RsaJwk,
@@ -2694,10 +2724,12 @@ mod auth_session_tests {
         )
         .await;
         assert_eq!(list.status(), StatusCode::OK);
+        assert_private_notification_response(&list);
         assert_eq!(response_json(list).await["total"], 1);
 
         let unread = notification_unread_count(State(state(&base_url)), headers).await;
         assert_eq!(unread.status(), StatusCode::OK);
+        assert_private_notification_response(&unread);
         assert_eq!(response_json(unread).await, json!({"count": 7}));
 
         let observations = observations.lock().unwrap();
@@ -2717,10 +2749,24 @@ mod auth_session_tests {
 
     #[tokio::test]
     async fn notification_reads_distinguish_auth_malformed_and_upstream_failures() {
+        let invalid_query = notifications_api(
+            State(state(&unused_base_url().await)),
+            HeaderMap::new(),
+            RawQuery(Some("limit=0".to_string())),
+        )
+        .await;
+        assert_eq!(invalid_query.status(), StatusCode::BAD_REQUEST);
+        assert_private_notification_response(&invalid_query);
+        assert_eq!(
+            response_json(invalid_query).await["error"],
+            "invalid_notification_query"
+        );
+
         let missing =
             notification_unread_count(State(state(&unused_base_url().await)), HeaderMap::new())
                 .await;
         assert_eq!(missing.status(), StatusCode::UNAUTHORIZED);
+        assert_private_notification_response(&missing);
         assert_eq!(
             response_json(missing).await["error"],
             "invalid_access_token"
@@ -2765,6 +2811,7 @@ mod auth_session_tests {
         let wrong_owner =
             notifications_api(State(state(&base_url)), headers.clone(), RawQuery(None)).await;
         assert_eq!(wrong_owner.status(), StatusCode::BAD_GATEWAY);
+        assert_private_notification_response(&wrong_owner);
         assert_eq!(
             response_json(wrong_owner).await["error"],
             "malformed_notification_response"
@@ -2777,6 +2824,7 @@ mod auth_session_tests {
         )
         .await;
         assert_eq!(upstream.status(), StatusCode::BAD_GATEWAY);
+        assert_private_notification_response(&upstream);
         assert_eq!(
             response_json(upstream).await["error"],
             "notification_upstream_failed"
@@ -2784,6 +2832,7 @@ mod auth_session_tests {
 
         let malformed = notification_unread_count(State(state(&base_url)), headers).await;
         assert_eq!(malformed.status(), StatusCode::BAD_GATEWAY);
+        assert_private_notification_response(&malformed);
         assert_eq!(
             response_json(malformed).await["error"],
             "malformed_notification_response"
@@ -2853,6 +2902,7 @@ mod auth_session_tests {
         let list =
             notifications_api(State(state(&base_url)), headers.clone(), RawQuery(None)).await;
         assert_eq!(list.status(), StatusCode::BAD_GATEWAY);
+        assert_private_notification_response(&list);
         assert_eq!(
             response_json(list).await["error"],
             "malformed_notification_response"
@@ -2860,6 +2910,7 @@ mod auth_session_tests {
 
         let unread = notification_unread_count(State(state(&base_url)), headers).await;
         assert_eq!(unread.status(), StatusCode::BAD_GATEWAY);
+        assert_private_notification_response(&unread);
         assert_eq!(
             response_json(unread).await["error"],
             "malformed_notification_response"

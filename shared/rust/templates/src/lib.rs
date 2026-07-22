@@ -1339,6 +1339,16 @@ pub fn design_system_head_with_keywords(
   .epsx-theme-btn:hover {{ background: var(--bg-tertiary); color: var(--text); }}
   html.dark .epsx-theme-btn {{ background: #1e293b; border-color: #334155; color: #cbd5e1; }}
   html.dark .epsx-theme-btn:hover {{ background: #334155; color: white; }}
+  .epsx-notification-link {{ position: relative; text-decoration: none; }}
+  .epsx-notification-badge {{
+    position: absolute; top: -0.35rem; right: -0.35rem;
+    min-width: 1.1rem; height: 1.1rem; padding: 0 0.25rem;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 9999px; border: 2px solid var(--bg);
+    background: #dc2626; color: white;
+    font-size: 0.625rem; font-weight: 700; line-height: 1;
+  }}
+  .epsx-notification-badge[hidden] {{ display: none !important; }}
 
   /* === Mobile menu sheet (< 640px) === */
   .epsx-mobile-sheet {{
@@ -6794,6 +6804,10 @@ pub fn epsx_header() -> String {
     </nav>
 
     <div class="flex items-center gap-2">
+      <a href="/notifications" class="epsx-theme-btn epsx-notification-link" aria-label="Notifications" data-epsx-notification-badge-target="true">
+        <i data-lucide="bell" style="width:1rem;height:1rem;"></i>
+        <span class="epsx-notification-badge" data-epsx-notification-unread-badge="true" data-state="unavailable" aria-hidden="true" hidden></span>
+      </a>
       <button class="epsx-theme-btn" type="button" aria-label="Toggle theme" onclick="epsx.toggleTheme()">
         <i data-lucide="sun" class="sun" style="display:none;"></i>
         <i data-lucide="moon" class="moon"></i>
@@ -6914,5 +6928,37 @@ mod page_head_tests {
             "<meta name=\"keywords\" content=\"analytics &amp; &quot;markets&quot; &lt;global&gt;\" />"
         ));
         assert!(!head.contains("<global>"));
+    }
+
+    #[test]
+    fn active_header_badge_starts_empty_hidden_unavailable_and_aa_contrast() {
+        let header = epsx_header();
+        assert_eq!(
+            header
+                .matches("data-epsx-notification-badge-target=\"true\"")
+                .count(),
+            1
+        );
+        assert_eq!(
+            header
+                .matches("data-epsx-notification-unread-badge=\"true\"")
+                .count(),
+            1
+        );
+        assert!(header.contains(
+            "data-epsx-notification-unread-badge=\"true\" data-state=\"unavailable\" aria-hidden=\"true\" hidden></span>"
+        ));
+        assert!(!header.contains("data-epsx-notification-unread-badge=\"true\">0"));
+        assert!(!header.contains("innerHTML"));
+
+        let head = design_system_head("Badge contrast", "Accessible notification count");
+        let badge_start = head.find(".epsx-notification-badge {").unwrap();
+        let badge_end = head[badge_start..]
+            .find(".epsx-notification-badge[hidden]")
+            .map(|offset| badge_start + offset)
+            .unwrap();
+        let badge_css = &head[badge_start..badge_end];
+        assert!(badge_css.contains("background: #dc2626; color: white;"));
+        assert!(!badge_css.contains("background: #ef4444; color: white;"));
     }
 }
