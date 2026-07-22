@@ -1,0 +1,315 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A3.11-notification-schema-boundary",
+  "purpose": "offline-static-notification-schema-boundary-only",
+  "productionReady": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "scope": {
+    "service": "services/notification",
+    "database": "epsx_notification",
+    "schema": "public",
+    "tables": ["templates", "notifications"],
+    "status": "partial"
+  },
+  "safety": {
+    "deploymentAuthorized": false,
+    "databaseAccessAuthorized": false,
+    "migrationExecutionAuthorized": false,
+    "networkAccessAuthorized": false,
+    "runtimeDdlAuthorized": false,
+    "startupSeedAuthorized": false,
+    "dataMutationAuthorized": false,
+    "destructiveRollbackAuthorized": false,
+    "readinessMeaning": "Integrity proves immutable source provenance, local source bytes, additive migration bytes, and static SQL/model boundaries only; it is not clean-database execution, populated upgrade, adoption, reconciliation, rollback, deployment, or production evidence."
+  },
+  "evidencePinning": {
+    "authority": "contract-plus-independent-verifier-constants",
+    "compatibilityQuery": {
+      "bytes": 20887,
+      "sha256": "8733c2fd595ad6ea319dc83a5d9ece2adad0e78008a134b129faae6fcdea190e"
+    },
+    "upMigration": {
+      "bytes": 1128,
+      "sha256": "788fa9500df1759d7b224c739f90f4756c2397f28a42aca1ec9af197f27290f7"
+    },
+    "downMigration": {
+      "bytes": 191,
+      "sha256": "5f47cf6f1c82416ac8c60bd3e691c78b4d58f4ee78bae3f778869206350b76cc",
+      "exactBodyRequired": true
+    },
+    "catalogIdentifierInventory": {
+      "information_schema.columns": 2,
+      "pg_catalog.pg_namespace": 13,
+      "pg_catalog.pg_class": 13,
+      "pg_catalog.pg_constraint": 7,
+      "pg_catalog.pg_attribute": 4,
+      "pg_catalog.pg_index": 2,
+      "pg_catalog.pg_type": 2,
+      "pg_catalog.pg_opclass": 2,
+      "pg_catalog.pg_am": 1,
+      "pg_catalog.pg_inherits": 1,
+      "pg_catalog.pg_policy": 1
+    }
+  },
+  "sourceProvenance": {
+    "development": {
+      "ref": "origin/development",
+      "refRole": "provenance-label-only",
+      "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+      "servicePresent": false,
+      "evidence": [
+        {
+          "id": "legacy-notification-schema",
+          "file": "apps/backend/migrations/notifications/00000000000001_consolidated_baseline_v2/up.sql",
+          "blob": "db5ed1153a360559b07852842a132427535aa34c",
+          "anchor": "CREATE TABLE wallet_notifications ("
+        }
+      ]
+    },
+    "removedRuntimeSnapshot": {
+      "commit": "b624f320c2db3dc24944cc0414deae7bc2d42196",
+      "file": "services/notification/src/main.rs",
+      "blob": "64633151dae98bd7e5368d225f869936d3237a41",
+      "requiredAnchors": [
+        "CREATE TABLE IF NOT EXISTS templates (",
+        "CREATE TABLE IF NOT EXISTS notifications (",
+        "CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications",
+        "CREATE INDEX IF NOT EXISTS idx_notif_status ON notifications",
+        "seed_default_templates(&db).await;",
+        "seed_sample_notifications(&db).await;",
+        "Some(chrono::Utc::now().naive_utc())"
+      ]
+    }
+  },
+  "runtimeBoundary": {
+    "rustRoot": "services/notification",
+    "rustInventory": [
+      "services/notification/src/lib.rs",
+      "services/notification/src/main.rs"
+    ],
+    "ddlFindingsBefore": 4,
+    "ddlFindingsAfter": 0,
+    "startupSeedCallsBefore": 2,
+    "startupSeedCallsAfter": 0,
+    "startupSeedWriteSitesAfter": 0,
+    "startupErrorSwallowSitesAfter": 0,
+    "compatibilityQueryConstant": "NOTIFICATION_SCHEMA_COMPATIBILITY_QUERY",
+    "compatibilityFunction": "verify_schema_compatibility",
+    "compatibilityQueryBytes": 20887,
+    "compatibilityQuerySha256": "8733c2fd595ad6ea319dc83a5d9ece2adad0e78008a134b129faae6fcdea190e",
+    "qualifiedRelationOccurrences": {
+      "public.templates": 8,
+      "public.notifications": 11
+    },
+    "timestampBind": "Some(chrono::Utc::now())",
+    "templateLoadResult": "Result<(), TemplateLoadError>",
+    "mainSequence": [
+      "sqlx::PgPool::connect(&args.database_url)",
+      "verify_schema_compatibility(&db)",
+      "load_templates_to_hb(&db, &mut hb)",
+      "SmtpTransport::relay(&args.smtp_host)",
+      "tokio::net::TcpListener::bind(addr)",
+      "axum::serve(listener, app)"
+    ],
+    "queryRequiredAnchors": [
+      "WITH expected_columns (",
+      "expected_not_null (table_name, column_name) AS (",
+      "expected_key_constraints (table_name, constraint_name, constraint_type, column_name) AS (",
+      "expected_indexes (",
+      "LEFT JOIN information_schema.columns AS actual",
+      "actual.ordinal_position = expected.ordinal_position",
+      "actual.character_maximum_length IS NOT DISTINCT FROM expected.character_maximum_length",
+      "actual.datetime_precision IS NOT DISTINCT FROM expected.datetime_precision",
+      "actual.collation_name IS NULL",
+      "actual.is_identity = 'NO'",
+      "actual.is_generated = 'NEVER'",
+      "SELECT COUNT(*) = 26",
+      "COUNT(*) FILTER (WHERE table_name = 'templates') = 9",
+      "COUNT(*) FILTER (WHERE table_name = 'notifications') = 17",
+      "table_record.relpersistence = 'p'",
+      "table_record.relreplident = 'd'",
+      "NOT table_record.relrowsecurity",
+      "NOT table_record.relforcerowsecurity",
+      "NOT table_record.relispartition",
+      "FROM pg_catalog.pg_inherits AS inheritance_record",
+      "FROM pg_catalog.pg_policy AS policy_record",
+      "constraint_record.contype IN ('p', 'u')",
+      "constraint_record.contype = 'n'",
+      "constraint_record.contype = 'f'",
+      "constraint_record.contype = 'c'",
+      "constraint_record.contype NOT IN ('p', 'u', 'n', 'f', 'c')",
+      "NOT constraint_record.condeferrable",
+      "NOT constraint_record.condeferred",
+      "constraint_record.convalidated",
+      "AND constraint_record.connoinherit",
+      "to_jsonb(constraint_record) ? 'conperiod'",
+      "to_jsonb(constraint_record) ? 'conenforced'",
+      "not_null_catalog_exposure AS (",
+      "pg_catalog.current_setting('server_version_num')::integer >= 180000",
+      "scoped_not_null_constraints AS (",
+      "COUNT(constraint_record.oid) = 0",
+      "COUNT(constraint_record.oid) = 14",
+      "index_inventory_compatibility AS (",
+      "SELECT COUNT(*) = 5",
+      "index_record.indisunique = (expected.index_kind IN ('p', 'u'))",
+      "index_record.indisprimary = (expected.index_kind = 'p')",
+      "NOT index_record.indisexclusion",
+      "index_record.indisvalid",
+      "index_record.indisready",
+      "index_record.indislive",
+      "index_record.indimmediate",
+      "index_record.indnatts = index_record.indnkeyatts",
+      "index_record.indpred IS NULL",
+      "index_record.indexprs IS NULL",
+      "index_record.indoption[0] = expected.first_option",
+      "index_record.indoption[1] = expected.second_option",
+      "index_record.indcollation[0] = first_attribute.attcollation",
+      "index_record.indcollation[1] = second_attribute.attcollation",
+      "first_opclass.opcname = 'text_ops'",
+      "second_opclass.opcname = 'timestamptz_ops'",
+      "access_method.amname = 'btree'",
+      "to_regclass('public.templates') IS NOT NULL",
+      "to_regclass('public.notifications') IS NOT NULL",
+      "AND COALESCE((SELECT compatible FROM index_inventory_compatibility), false)"
+    ]
+  },
+  "migrationRoot": {
+    "path": "apps/backend/migrations/notifications",
+    "runnerConfig": "apps/backend/diesel_notifications.toml",
+    "runnerDirectory": "migrations/notifications/",
+    "runnerPrintSchemaFilter": ["notifications", "wallet_notifications"],
+    "runnerPrintSchemaMissing": ["templates"],
+    "historyStatus": "blocked-preexisting-unsafe-history",
+    "preexistingStopEvidence": [
+      "00000000000001_consolidated_baseline_v2 is a renamed/duplicate baseline requiring adoption review",
+      "20260613000000_drop_notification_subscriptions contains DROP TABLE IF EXISTS notification_subscriptions CASCADE"
+    ],
+    "orderedMigrations": [
+      {
+        "version": "20260722040000",
+        "directory": "apps/backend/migrations/notifications/20260722040000_create_notification_service_tables",
+        "up": {
+          "path": "apps/backend/migrations/notifications/20260722040000_create_notification_service_tables/up.sql",
+          "bytes": 1128,
+          "sha256": "788fa9500df1759d7b224c739f90f4756c2397f28a42aca1ec9af197f27290f7"
+        },
+        "down": {
+          "path": "apps/backend/migrations/notifications/20260722040000_create_notification_service_tables/down.sql",
+          "bytes": 191,
+          "sha256": "5f47cf6f1c82416ac8c60bd3e691c78b4d58f4ee78bae3f778869206350b76cc",
+          "policy": "forward-only-refusal"
+        },
+        "guards": [
+          "CREATE TABLE IF NOT EXISTS public.templates (",
+          "CREATE TABLE IF NOT EXISTS public.notifications (",
+          "CREATE INDEX IF NOT EXISTS idx_notif_user",
+          "CREATE INDEX IF NOT EXISTS idx_notif_status"
+        ]
+      }
+    ]
+  },
+  "requiredTables": [
+    {
+      "name": "templates",
+      "columns": [
+        {"ordinal": 1, "name": "id", "sqlAnchor": "id VARCHAR(66) PRIMARY KEY,"},
+        {"ordinal": 2, "name": "name", "sqlAnchor": "name VARCHAR(100) UNIQUE NOT NULL,"},
+        {"ordinal": 3, "name": "channel", "sqlAnchor": "channel VARCHAR(20) NOT NULL,"},
+        {"ordinal": 4, "name": "subject", "sqlAnchor": "subject TEXT,"},
+        {"ordinal": 5, "name": "body", "sqlAnchor": "body TEXT NOT NULL,"},
+        {"ordinal": 6, "name": "variables", "sqlAnchor": "variables JSONB NOT NULL DEFAULT '{}'::jsonb,"},
+        {"ordinal": 7, "name": "active", "sqlAnchor": "active BOOLEAN NOT NULL DEFAULT true,"},
+        {"ordinal": 8, "name": "created_at", "sqlAnchor": "created_at TIMESTAMPTZ(6) NOT NULL DEFAULT NOW(),"},
+        {"ordinal": 9, "name": "updated_at", "sqlAnchor": "updated_at TIMESTAMPTZ(6) NOT NULL DEFAULT NOW()"}
+      ]
+    },
+    {
+      "name": "notifications",
+      "columns": [
+        {"ordinal": 1, "name": "id", "sqlAnchor": "id VARCHAR(66) PRIMARY KEY,"},
+        {"ordinal": 2, "name": "user_id", "sqlAnchor": "user_id VARCHAR(66),"},
+        {"ordinal": 3, "name": "channel", "sqlAnchor": "channel VARCHAR(20) NOT NULL,"},
+        {"ordinal": 4, "name": "recipient", "sqlAnchor": "recipient VARCHAR(255) NOT NULL,"},
+        {"ordinal": 5, "name": "template_id", "sqlAnchor": "template_id VARCHAR(66),"},
+        {"ordinal": 6, "name": "subject", "sqlAnchor": "subject TEXT,"},
+        {"ordinal": 7, "name": "body", "sqlAnchor": "body TEXT NOT NULL,"},
+        {"ordinal": 8, "name": "data", "sqlAnchor": "data JSONB,"},
+        {"ordinal": 9, "name": "status", "sqlAnchor": "status VARCHAR(20) NOT NULL DEFAULT 'pending',"},
+        {"ordinal": 10, "name": "error", "sqlAnchor": "error TEXT,"},
+        {"ordinal": 11, "name": "sent_at", "sqlAnchor": "sent_at TIMESTAMPTZ(6),"},
+        {"ordinal": 12, "name": "created_at", "sqlAnchor": "created_at TIMESTAMPTZ(6) NOT NULL DEFAULT NOW(),"},
+        {"ordinal": 13, "name": "read_at", "sqlAnchor": "read_at TIMESTAMPTZ(6),"},
+        {"ordinal": 14, "name": "title", "sqlAnchor": "title TEXT,"},
+        {"ordinal": 15, "name": "notification_type", "sqlAnchor": "notification_type VARCHAR(50),"},
+        {"ordinal": 16, "name": "priority", "sqlAnchor": "priority VARCHAR(20),"},
+        {"ordinal": 17, "name": "action_url", "sqlAnchor": "action_url TEXT"}
+      ]
+    }
+  ],
+  "constraintSemantics": {
+    "columnTotal": 26,
+    "notNullTotal": 14,
+    "primaryKeys": ["templates.id", "notifications.id"],
+    "uniqueKeys": ["templates.name"],
+    "foreignKeys": [],
+    "checkConstraints": [],
+    "relationConstraintTotalWithoutPg18NotNull": 3,
+    "pg18NotNullInventory": "zero-or-exact-fourteen",
+    "keyConstraintPolicy": {
+      "local": true,
+      "inheritCount": 0,
+      "noInherit": true,
+      "pg18Period": false,
+      "validated": true,
+      "enforcedWhenExposed": true,
+      "deferrable": false,
+      "initiallyDeferred": false
+    },
+    "indexes": [
+      {"name": "templates_pkey", "table": "templates", "unique": true, "primary": true, "keys": ["id ASC"], "opclasses": ["text_ops"], "collation": "column-exact"},
+      {"name": "templates_name_key", "table": "templates", "unique": true, "primary": false, "keys": ["name ASC"], "opclasses": ["text_ops"], "collation": "column-exact"},
+      {"name": "notifications_pkey", "table": "notifications", "unique": true, "primary": true, "keys": ["id ASC"], "opclasses": ["text_ops"], "collation": "column-exact"},
+      {"name": "idx_notif_user", "table": "notifications", "unique": false, "primary": false, "keys": ["user_id ASC", "created_at DESC"], "opclasses": ["text_ops", "timestamptz_ops"], "collation": "column-exact"},
+      {"name": "idx_notif_status", "table": "notifications", "unique": false, "primary": false, "keys": ["status ASC"], "opclasses": ["text_ops"], "collation": "column-exact"}
+    ],
+    "indexPolicy": {
+      "exactTotal": 5,
+      "accessMethod": "btree",
+      "valid": true,
+      "ready": true,
+      "live": true,
+      "immediate": true,
+      "partialAccepted": false,
+      "expressionAccepted": false,
+      "includedColumnsAccepted": false,
+      "standaloneUniqueAccepted": false,
+      "unexpectedIndexAccepted": false
+    },
+    "foreignKeyBoundary": {
+      "inventoryDirection": "inbound-and-outbound",
+      "exactTotal": 0,
+      "unexpectedInboundAccepted": false,
+      "unexpectedOutboundAccepted": false
+    },
+    "relationPolicy": {
+      "ordinary": true,
+      "permanent": true,
+      "partitioned": false,
+      "inheritanceAccepted": false,
+      "rowLevelSecurity": false,
+      "forceRowLevelSecurity": false,
+      "policiesAccepted": false,
+      "replicaIdentity": "default"
+    }
+  },
+  "residualBlockers": [
+    {"id": "B01", "status": "blocked", "summary": "The pre-existing notification migration history contains a renamed baseline/adoption ambiguity and a destructive CASCADE migration."},
+    {"id": "B02", "status": "blocked", "summary": "No empty-database migration execution proves the pinned static schema can be created by the configured runner."},
+    {"id": "B03", "status": "blocked", "summary": "No populated additive upgrade exists for an old runtime-created templates or notifications table because IF NOT EXISTS is a no-op for an incompatible relation."},
+    {"id": "B04", "status": "blocked", "summary": "Legacy wallet_notifications mapping, backfill, reconciliation, and one-writer authority remain unresolved."},
+    {"id": "B05", "status": "blocked", "summary": "Migration-ledger adoption and upgrade ordering have not been exercised, and the existing Diesel print-schema filter still excludes templates."},
+    {"id": "B06", "status": "blocked", "summary": "The forward-only refusal prevents accidental destructive down migration but is not a reviewed data-recovery or rollback procedure."},
+    {"id": "B07", "status": "blocked", "summary": "No deployment, live dependency, canary, cutover, or production evidence is authorized or present."}
+  ]
+}

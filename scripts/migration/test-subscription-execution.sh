@@ -10,7 +10,8 @@ trap 'rm -rf -- "$temp_dir"' EXIT HUP INT TERM
 
 "$verify" --mode integrity >"$temp_dir/integrity.out" 2>&1
 grep -q "20 stop blockers" "$temp_dir/integrity.out"
-grep -q "no database, chain, deployment, migration" "$temp_dir/integrity.out"
+grep -q "A3.7 runtime DDL 2→0" "$temp_dir/integrity.out"
+grep -q "no runner, version ledger, baseline adoption, populated upgrade, reconciliation, concurrent startup, live database" "$temp_dir/integrity.out"
 
 set +e
 "$verify" --mode readiness >"$temp_dir/readiness.out" 2>&1
@@ -26,7 +27,32 @@ grep -q "20 stop blockers remain" "$temp_dir/readiness.out"
 "$verify" --mode report >"$temp_dir/report-one.json"
 "$verify" --mode report >"$temp_dir/report-two.json"
 cmp "$temp_dir/report-one.json" "$temp_dir/report-two.json"
-bun -e 'const report = JSON.parse(await Bun.file(process.argv[1]).text()); if (report.readinessExit !== 3 || report.productionReady !== false || report.blockers.length !== 20 || report.routeContracts.length !== 12) process.exit(1);' "$temp_dir/report-one.json"
+bun -e 'const report = JSON.parse(await Bun.file(process.argv[1]).text()); if (report.readinessExit !== 3 || report.productionReady !== false || report.blockers.length !== 20 || report.routeContracts.length !== 12 || report.a3_7SchemaBoundary.runtimeDdlFindings.before !== 2 || report.a3_7SchemaBoundary.runtimeDdlFindings.after !== 0 || report.a3_7SchemaBoundary.migration.bytes !== 844 || report.a3_7SchemaBoundary.executionProof.runner !== false || report.a3_7SchemaBoundary.executionProof.reconciliation !== false) process.exit(1);' "$temp_dir/report-one.json"
+
+SUBSCRIPTION_CONTRACT_IN="$contract" SUBSCRIPTION_TAMPER_DIR="$temp_dir" bun -e '
+const contract = await Bun.file(process.env.SUBSCRIPTION_CONTRACT_IN).json();
+const write = async (name, mutate) => {
+  const copy = structuredClone(contract);
+  mutate(copy);
+  await Bun.write(`${process.env.SUBSCRIPTION_TAMPER_DIR}/${name}.json`, `${JSON.stringify(copy, null, 2)}\n`);
+};
+await write("a3-runtime-after", (copy) => { copy.a3_7SchemaBoundary.runtimeDdlFindings.after = 1; });
+await write("a3-migration-hash", (copy) => { copy.a3_7SchemaBoundary.migration.sha256 = "0".repeat(64); });
+await write("a3-runner", (copy) => { copy.a3_7SchemaBoundary.executionProof.runner = true; });
+await write("a3-reconciliation", (copy) => { copy.a3_7SchemaBoundary.executionProof.reconciliation = true; });
+'
+for a3_tamper in a3-runtime-after a3-migration-hash a3-runner a3-reconciliation; do
+  set +e
+  "$verify" --mode integrity --contract "$temp_dir/$a3_tamper.json" >"$temp_dir/$a3_tamper.out" 2>&1
+  a3_tamper_status=$?
+  set -e
+  if [ "$a3_tamper_status" -ne 1 ]; then
+    cat "$temp_dir/$a3_tamper.out" >&2
+    echo "subscription-execution self-test: expected $a3_tamper tamper exit 1, got $a3_tamper_status" >&2
+    exit 1
+  fi
+  grep -q "A3.7 schema boundary drifted" "$temp_dir/$a3_tamper.out"
+done
 
 SUBSCRIPTION_CONTRACT_IN="$contract" SUBSCRIPTION_CONTRACT_OUT="$temp_dir/missing-source-anchor.json" bun -e '
 const contract = await Bun.file(process.env.SUBSCRIPTION_CONTRACT_IN).json();
@@ -108,4 +134,4 @@ if [ "$readiness_tamper_status" -ne 1 ]; then
 fi
 grep -q "readiness sentinel changed" "$temp_dir/readiness-tamper.out"
 
-echo "subscription-execution self-test: PASS (integrity=0, readiness-stop=3, deterministic=stable, source/target-anchor/stale/path/readiness tamper=1)"
+echo "subscription-execution self-test: PASS (integrity=0, readiness-stop=3, deterministic=stable, A3.7-runtime/migration/runner/reconciliation and source/target-anchor/stale/path/readiness tamper=1)"

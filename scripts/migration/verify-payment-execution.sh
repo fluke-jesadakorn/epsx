@@ -114,9 +114,11 @@ for (const item of source.evidence) {
 }
 
 if (!Array.isArray(contract.targetEvidence) || contract.targetEvidence.length < 20) fail("at least twenty target evidence records are required");
+const targetEvidenceIds = new Set();
 for (const item of contract.targetEvidence) {
   if (!item || typeof item.id !== "string" || !/^[a-z][a-z0-9-]+$/.test(item.id) || evidenceIds.has(item.id)) fail(`invalid or duplicate evidence id: ${item?.id}`);
   evidenceIds.add(item.id);
+  targetEvidenceIds.add(item.id);
   safeRelative(item.file, item.id);
   const candidate = resolve(root, item.file);
   let actual;
@@ -124,6 +126,15 @@ for (const item of contract.targetEvidence) {
   catch { fail(`missing target evidence file ${item.file}`); }
   if (actual !== root && !actual.startsWith(`${root}${sep}`)) fail(`unsafe evidence path for ${item.id}: ${JSON.stringify(item.file)}`);
   anchored(readFileSync(actual, "utf8"), item, "target");
+}
+for (const staleId of ["tgt-pay-runtime-ddl", "tgt-subscription-runtime-ddl"]) if (targetEvidenceIds.has(staleId)) fail(`stale runtime-DDL evidence returned: ${staleId}`);
+const schemaBoundaryEvidence = [
+  { id: "tgt-pay-schema-boundary", file: "services/pay/src/main.rs", anchor: "verify_schema_compatibility(&db)" },
+  { id: "tgt-subscription-schema-boundary", file: "services/subscription/src/main.rs", anchor: "verify_schema_compatibility(&db)" },
+];
+for (const expected of schemaBoundaryEvidence) {
+  const actual = contract.targetEvidence.find((item) => item.id === expected.id);
+  if (!actual || actual.file !== expected.file || actual.anchor !== expected.anchor) fail(`${expected.id}: schema-boundary evidence drifted`);
 }
 
 const expectedRoutes = [
@@ -178,6 +189,7 @@ const report = {
   contractId: contract.contractId,
   source: { ref: source.ref, commit: source.commit, evidence: source.evidence.length },
   targetEvidence: contract.targetEvidence.length,
+  schemaBoundaryEvidence: schemaBoundaryEvidence.map((item) => item.id),
   routeContracts: contract.routeContracts.map((item) => item.id),
   rules: {
     ownership: contract.ownershipRules.length,

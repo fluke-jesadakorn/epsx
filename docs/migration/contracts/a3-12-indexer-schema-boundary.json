@@ -1,0 +1,218 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A3.12-indexer-schema-boundary",
+  "purpose": "offline-static-indexer-schema-boundary-only",
+  "productionReady": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "scope": {
+    "service": "services/indexer",
+    "database": "epsx_indexer",
+    "schema": "public",
+    "tables": ["blocks", "transactions", "token_transfers"],
+    "status": "partial"
+  },
+  "provenance": {
+    "sourceRef": "origin/development",
+    "sourceRefRole": "provenance-label-only",
+    "sourceCommit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "absentPaths": ["services/indexer", "migrated/services/indexer"],
+    "scopeDecision": "development-has-no-standalone-indexer-contract",
+    "removedRuntimeSnapshot": {
+      "commit": "b624f320c2db3dc24944cc0414deae7bc2d42196",
+      "file": "services/indexer/src/main.rs",
+      "blob": "3bb4779628eb888be9cc0a832bcf249828b2b345",
+      "anchors": [
+        "CREATE TABLE IF NOT EXISTS blocks (",
+        "CREATE TABLE IF NOT EXISTS transactions (",
+        "CREATE TABLE IF NOT EXISTS token_transfers (",
+        "CREATE INDEX IF NOT EXISTS idx_blocks_timestamp ON blocks",
+        "CREATE INDEX IF NOT EXISTS idx_transfers_token ON token_transfers"
+      ]
+    }
+  },
+  "runtimeBoundary": {
+    "rustRoot": "services/indexer",
+    "rustInventory": ["services/indexer/src/lib.rs", "services/indexer/src/main.rs"],
+    "scannerFindingBefore": 5,
+    "scannerFindingAfter": 0,
+    "compatibilityQueryConstant": "INDEXER_SCHEMA_COMPATIBILITY_QUERY",
+    "compatibilityFunction": "verify_schema_compatibility",
+    "compatibilityQueryBytes": 17490,
+    "compatibilityQuerySha256": "17238dc074b4975ea8e5af6ce54ac6ccf57683b84b37e1264123d20da6d38b1e",
+    "structuralKeyArrayTextCastOccurrences": 2,
+    "qualifiedRelationOccurrences": {
+      "public.blocks": 2,
+      "public.transactions": 1,
+      "public.token_transfers": 1
+    },
+    "startupOrderAnchors": [
+      "sqlx::PgPool::connect(&args.database_url)",
+      "verify_schema_compatibility(&db)",
+      "let state = AppState { db };",
+      "tokio::net::TcpListener::bind(addr)"
+    ],
+    "forbiddenRuntimeAnchors": [
+      "sync_on_start",
+      "poll_interval",
+      "provider_for_chain",
+      "tokio::spawn",
+      "sync_chain",
+      "index_block",
+      "ON CONFLICT (chain_id, number) DO NOTHING",
+      "format!(\"0x{:064x}\", number)",
+      "fetch_block_number"
+    ],
+    "modelAndBindAnchors": [
+      "timestamp: chrono::DateTime<chrono::Utc>",
+      "from_address: String",
+      "to_address: Option<String>",
+      "miner: Option<String>",
+      "let indexer_block = indexed",
+      ".map(u64::try_from)",
+      "fn canonical_chain_id(value: &str)",
+      "B256::from_str(value)",
+      "Address::from_str(value)",
+      "ORDER BY block_number DESC, tx_hash DESC, log_index DESC"
+    ]
+  },
+  "migrationRoot": {
+    "path": "services/indexer/migrations",
+    "runner": null,
+    "transactionOwner": "future-reviewed-runner",
+    "orderedMigrations": [
+      {
+        "version": "20260722050000",
+        "path": "services/indexer/migrations/20260722050000_create_indexer_projection_tables.sql",
+        "bytes": 4822,
+        "sha256": "5d0ec77a11d2abe1303c5f9b87e7da18eadee9d2e7fa4aeda1aeaf3d76549ff8",
+        "guards": [
+          "CREATE TABLE IF NOT EXISTS public.blocks (",
+          "CREATE TABLE IF NOT EXISTS public.transactions (",
+          "CREATE TABLE IF NOT EXISTS public.token_transfers (",
+          "CREATE INDEX IF NOT EXISTS idx_blocks_timestamp",
+          "CREATE INDEX IF NOT EXISTS idx_transactions_block",
+          "CREATE INDEX IF NOT EXISTS idx_transfers_token",
+          "CREATE INDEX IF NOT EXISTS idx_transfers_from",
+          "CREATE INDEX IF NOT EXISTS idx_transfers_to"
+        ]
+      }
+    ],
+    "forbiddenTokens": ["ALTER", "DROP", "TRUNCATE", "DELETE", "INSERT", "UPDATE", "CASCADE", "BEGIN", "COMMIT", "CREATE SCHEMA", "CREATE EXTENSION"]
+  },
+  "schemaContract": {
+    "columns": 27,
+    "tables": {
+      "blocks": [
+        "chain_id:varchar(10):required",
+        "number:int8:required",
+        "hash:varchar(66):required",
+        "parent_hash:varchar(66):required",
+        "timestamp:timestamptz(6):required",
+        "miner:varchar(42):nullable",
+        "gas_used:int8:required",
+        "gas_limit:int8:required",
+        "tx_count:int4:required:default-zero"
+      ],
+      "transactions": [
+        "chain_id:varchar(10):required",
+        "hash:varchar(66):required",
+        "from_address:varchar(42):required",
+        "to_address:varchar(42):nullable",
+        "value:varchar(78):required",
+        "block_number:int8:required",
+        "status:int4:nullable",
+        "timestamp:timestamptz(6):required",
+        "input_data:bytea:required"
+      ],
+      "token_transfers": [
+        "chain_id:varchar(10):required",
+        "tx_hash:varchar(66):required",
+        "log_index:int4:required",
+        "token_address:varchar(42):required",
+        "from_address:varchar(42):required",
+        "to_address:varchar(42):required",
+        "value:varchar(78):required",
+        "block_number:int8:required",
+        "timestamp:timestamptz(6):required"
+      ]
+    },
+    "structuralConstraints": [
+      "blocks_pkey:pk(chain_id,number)",
+      "blocks_chain_hash_key:uq(chain_id,hash)",
+      "transactions_pkey:pk(chain_id,hash)",
+      "transactions_chain_hash_block_key:uq(chain_id,hash,block_number)",
+      "transactions_block_fkey:fk(chain_id,block_number)->blocks(chain_id,number):no-action",
+      "token_transfers_pkey:pk(chain_id,tx_hash,log_index)",
+      "token_transfers_transaction_fkey:fk(chain_id,tx_hash,block_number)->transactions(chain_id,hash,block_number):no-action"
+    ],
+    "checkConstraints": [
+      "blocks_chain_id_check:blocks:check(chain_id~'^[1-9][0-9]{0,9}$')",
+      "blocks_number_check:blocks:check(number>=0)",
+      "blocks_hash_check:blocks:check(hash~'^0x[0-9a-f]{64}$')",
+      "blocks_parent_hash_check:blocks:check(parent_hash~'^0x[0-9a-f]{64}$')",
+      "blocks_miner_check:blocks:check(minerisnullorminer~'^0x[0-9a-f]{40}$')",
+      "blocks_gas_used_check:blocks:check(gas_used>=0)",
+      "blocks_gas_limit_check:blocks:check(gas_limit>=0)",
+      "blocks_gas_bounds_check:blocks:check(gas_used<=gas_limit)",
+      "blocks_tx_count_check:blocks:check(tx_count>=0)",
+      "transactions_chain_id_check:transactions:check(chain_id~'^[1-9][0-9]{0,9}$')",
+      "transactions_hash_check:transactions:check(hash~'^0x[0-9a-f]{64}$')",
+      "transactions_from_address_check:transactions:check(from_address~'^0x[0-9a-f]{40}$')",
+      "transactions_to_address_check:transactions:check(to_addressisnullorto_address~'^0x[0-9a-f]{40}$')",
+      "transactions_value_check:transactions:check(casewhenvalue~'^(0|[1-9][0-9]{0,77})$'thenvalue<='115792089237316195423570985008687907853269984665640564039457584007913129639935'elsefalseend)",
+      "transactions_block_number_check:transactions:check(block_number>=0)",
+      "transactions_status_check:transactions:check(statusisnullor(status=any(array[0,1])))",
+      "token_transfers_chain_id_check:token_transfers:check(chain_id~'^[1-9][0-9]{0,9}$')",
+      "token_transfers_tx_hash_check:token_transfers:check(tx_hash~'^0x[0-9a-f]{64}$')",
+      "token_transfers_log_index_check:token_transfers:check(log_index>=0)",
+      "token_transfers_token_address_check:token_transfers:check(token_address~'^0x[0-9a-f]{40}$')",
+      "token_transfers_from_address_check:token_transfers:check(from_address~'^0x[0-9a-f]{40}$')",
+      "token_transfers_to_address_check:token_transfers:check(to_address~'^0x[0-9a-f]{40}$')",
+      "token_transfers_value_check:token_transfers:check(casewhenvalue~'^(0|[1-9][0-9]{0,77})$'thenvalue<='115792089237316195423570985008687907853269984665640564039457584007913129639935'elsefalseend)",
+      "token_transfers_block_number_check:token_transfers:check(block_number>=0)"
+    ],
+    "indexes": [
+      "blocks_pkey:blocks:unique-primary:btree(chain_id,number)",
+      "blocks_chain_hash_key:blocks:unique:btree(chain_id,hash)",
+      "idx_blocks_timestamp:blocks:regular:btree(chain_id,\"timestamp\"-desc,number-desc)",
+      "transactions_pkey:transactions:unique-primary:btree(chain_id,hash)",
+      "transactions_chain_hash_block_key:transactions:unique:btree(chain_id,hash,block_number)",
+      "idx_transactions_block:transactions:regular:btree(chain_id,block_number-desc,hash-desc)",
+      "token_transfers_pkey:token_transfers:unique-primary:btree(chain_id,tx_hash,log_index)",
+      "idx_transfers_token:token_transfers:regular:btree(chain_id,token_address,block_number-desc,tx_hash-desc,log_index-desc)",
+      "idx_transfers_from:token_transfers:regular:btree(chain_id,from_address,block_number-desc,tx_hash-desc,log_index-desc)",
+      "idx_transfers_to:token_transfers:regular:btree(chain_id,to_address,block_number-desc,tx_hash-desc,log_index-desc)"
+    ],
+    "globalTransactionHashPrimaryKeyAccepted": false,
+    "extraColumnsConstraintsOrIndexesAccepted": false,
+    "inheritanceAccepted": false,
+    "rowLevelSecurityAccepted": false,
+    "partialExpressionOrIncludedIndexesAccepted": false,
+    "nonCatalogOperatorClassesAccepted": false,
+    "indexCollationDriftAccepted": false
+  },
+  "safety": {
+    "databaseRead": false,
+    "databaseWrite": false,
+    "migrationExecution": false,
+    "networkRead": false,
+    "rpcOrChainRead": false,
+    "serviceStart": false,
+    "deployment": false,
+    "routeEnablement": false,
+    "readinessMeaning": "integrity proves only local static schema-boundary evidence"
+  },
+  "blockers": [
+    "no reviewed migration runner or durable version ledger",
+    "no populated legacy-table baseline adoption or upgrade proof",
+    "no PostgreSQL parse or execution evidence for the migration or probe",
+    "no concurrent migration and replica-startup evidence",
+    "no canonical block transaction receipt or raw-log ingestion",
+    "no durable checkpoint lease or gap-free atomic advancement",
+    "no fork reorg finality orphan repair or replay model",
+    "no bounded backfill reconciliation or poison-record recovery",
+    "address-history privacy and typed route contracts remain undecided",
+    "no indexer deployment wiring truthful browser UX or production authorization"
+  ]
+}

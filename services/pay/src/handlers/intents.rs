@@ -63,7 +63,7 @@ pub async fn create_pay_intent(
         .unwrap();
 
     sqlx::query(
-        "INSERT INTO pay_intents (id, chain_id, payer, payee, amount, token_address, status, description, expires_at, created_at, updated_at)
+        "INSERT INTO public.pay_intents (id, chain_id, payer, payee, amount, token_address, status, description, expires_at, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, $9, $9)"
     )
     .bind(&id)
@@ -129,7 +129,7 @@ pub async fn list_pay_intents(
     let items: Vec<PayIntent> = if let Some(status) = status.as_deref() {
         sqlx::query_as::<_, PayIntent>(
             "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at
-             FROM pay_intents
+             FROM public.pay_intents
              WHERE (payer = $1 OR payee = $1) AND status = $2
              ORDER BY created_at DESC LIMIT $3 OFFSET $4",
         )
@@ -142,7 +142,7 @@ pub async fn list_pay_intents(
     } else {
         sqlx::query_as::<_, PayIntent>(
             "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at
-             FROM pay_intents
+             FROM public.pay_intents
              WHERE payer = $1 OR payee = $1
              ORDER BY created_at DESC LIMIT $2 OFFSET $3",
         )
@@ -156,7 +156,7 @@ pub async fn list_pay_intents(
 
     let total: i64 = if let Some(status) = status.as_deref() {
         sqlx::query_scalar(
-            "SELECT COUNT(*) FROM pay_intents
+            "SELECT COUNT(*) FROM public.pay_intents
              WHERE (payer = $1 OR payee = $1) AND status = $2",
         )
         .bind(&owner)
@@ -164,7 +164,7 @@ pub async fn list_pay_intents(
         .fetch_one(&state.db)
         .await
     } else {
-        sqlx::query_scalar("SELECT COUNT(*) FROM pay_intents WHERE payer = $1 OR payee = $1")
+        sqlx::query_scalar("SELECT COUNT(*) FROM public.pay_intents WHERE payer = $1 OR payee = $1")
             .bind(&owner)
             .fetch_one(&state.db)
             .await
@@ -186,7 +186,7 @@ pub async fn get_pay_intent(
     let owner = canonical_owner(&principal, None)?;
     let intent: PayIntent = sqlx::query_as::<_, PayIntent>(
         "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at
-         FROM pay_intents WHERE id = $1 AND (payer = $2 OR payee = $2)"
+         FROM public.pay_intents WHERE id = $1 AND (payer = $2 OR payee = $2)"
     )
     .bind(&id)
     .bind(&owner)
@@ -206,14 +206,18 @@ pub async fn confirm_pay_intent(
     AxPath(id): AxPath<String>,
     Json(req): Json<serde_json::Value>,
 ) -> Result<Json<PayIntent>, StatusCode> {
-    let tx_hash = req.get("tx_hash").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+    let tx_hash = req
+        .get("tx_hash")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
     if tx_hash.is_empty() {
         return Err(StatusCode::BAD_REQUEST);
     }
 
     // Create escrow record for this payment
     let intent: PayIntent = sqlx::query_as::<_, PayIntent>(
-        "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at FROM pay_intents WHERE id = $1"
+        "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at FROM public.pay_intents WHERE id = $1"
     )
     .bind(&id)
     .fetch_optional(&state.db)
@@ -229,7 +233,7 @@ pub async fn confirm_pay_intent(
     let fee = compute_fee(&intent.amount);
 
     sqlx::query(
-        "INSERT INTO escrows (id, chain_id, payer, payee, amount, token_address, fee_amount, status, tx_hash) VALUES ($1, $2, $3, $4, $5, $6, $7, 'active', $8)"
+        "INSERT INTO public.escrows (id, chain_id, payer, payee, amount, token_address, fee_amount, status, tx_hash) VALUES ($1, $2, $3, $4, $5, $6, $7, 'active', $8)"
     )
     .bind(&escrow_id)
     .bind(&intent.chain_id)
@@ -243,7 +247,7 @@ pub async fn confirm_pay_intent(
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    sqlx::query("UPDATE pay_intents SET status = 'escrowed', escrow_id = $1, tx_hash = $2, updated_at = NOW() WHERE id = $3")
+    sqlx::query("UPDATE public.pay_intents SET status = 'escrowed', escrow_id = $1, tx_hash = $2, updated_at = NOW() WHERE id = $3")
         .bind(&escrow_id)
         .bind(&tx_hash)
         .bind(&id)
@@ -253,7 +257,7 @@ pub async fn confirm_pay_intent(
 
     let updated: PayIntent = sqlx::query_as::<_, PayIntent>(
         "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at
-         FROM pay_intents WHERE id = $1",
+         FROM public.pay_intents WHERE id = $1",
     )
     .bind(&id)
     .fetch_optional(&state.db)
@@ -271,14 +275,14 @@ pub async fn cancel_pay_intent(
     State(state): State<AppState>,
     AxPath(id): AxPath<String>,
 ) -> Result<Json<PayIntent>, StatusCode> {
-    sqlx::query("UPDATE pay_intents SET status = 'cancelled', updated_at = NOW() WHERE id = $1 AND status = 'pending'")
+    sqlx::query("UPDATE public.pay_intents SET status = 'cancelled', updated_at = NOW() WHERE id = $1 AND status = 'pending'")
         .bind(&id)
         .execute(&state.db)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let intent: PayIntent = sqlx::query_as::<_, PayIntent>(
         "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at
-         FROM pay_intents WHERE id = $1",
+         FROM public.pay_intents WHERE id = $1",
     )
     .bind(&id)
     .fetch_optional(&state.db)

@@ -4,13 +4,13 @@
   "productionReady": false,
   "upstream": {
     "path": "docs/migration/contracts/migration-safety.json",
-    "sha256": "fcfb0614bc343262d0bcdbf9b475b79a53eb356427405185ed6508bc36d03aeb",
+    "sha256": "53db624ba569b6789d0c661f63489d3aee758ea44ca6b788829ee6f9371bd79f",
     "runtimeRustDdl": {
       "trackedFiles": 1124,
-      "findings": 28,
-      "sha256": "eb754053bb0c2b7ff05babcb695c00eb0ca86653b4bd9199e183b4f2a69ee1c4",
+      "findings": 9,
+      "sha256": "b1a76db8d3cc8e21cb10fa56b76375ae87caa7411c91661ccdcedaeaee8db55f",
       "reviewedExceptions": 6,
-      "actionable": 22
+      "actionable": 3
     }
   },
   "statusPolicy": {
@@ -47,31 +47,26 @@
   ],
   "expectedGroups": {
     "classification": {
-      "actionable": 22,
+      "actionable": 3,
       "reviewed-exception": 6
     },
     "ddlKind": {
       "CREATE DATABASE": 3,
-      "CREATE INDEX": 10,
       "CREATE SCHEMA": 4,
-      "CREATE TABLE": 10,
+      "CREATE TABLE": 1,
       "DROP TABLE": 1
     },
     "bootTimeRisk": {
       "lexical-match-not-schema-ddl": 2,
       "reviewed-exception-not-runtime-ddl": 6,
-      "runtime-database-bootstrap": 1,
-      "service-startup-schema-mutation": 19
+      "runtime-database-bootstrap": 1
     },
     "service": {
       "backend-blockchain-monitor": 1,
       "backend-main": 1,
       "backend-migrate": 1,
       "backend-security-test": 1,
-      "backend-smoke-test": 5,
-      "indexer": 5,
-      "notification": 4,
-      "pay": 10
+      "backend-smoke-test": 5
     },
     "file": {
       "apps/backend/__test__/web3/web3_security_tests.rs": 1,
@@ -79,10 +74,7 @@
       "apps/backend/src/bin/migrate.rs": 1,
       "apps/backend/src/main.rs": 1,
       "apps/backend/tests/wave11_smoke.rs": 2,
-      "apps/backend/tests/wave12_smoke.rs": 3,
-      "services/indexer/src/main.rs": 5,
-      "services/notification/src/main.rs": 4,
-      "services/pay/src/db.rs": 10
+      "apps/backend/tests/wave12_smoke.rs": 3
     }
   },
   "findings": [
@@ -94,25 +86,6 @@
     {"id":"finding.006","file":"apps/backend/tests/wave11_smoke.rs","line":117,"ddlKind":"CREATE TABLE","classification":"reviewed-exception","reviewedExceptionId":"exception.runtime-wave11-smoke-table","service":"backend-smoke-test","bootTimeRisk":"reviewed-exception-not-runtime-ddl","status":"blocked"},
     {"id":"finding.007","file":"apps/backend/tests/wave12_smoke.rs","line":129,"ddlKind":"CREATE SCHEMA","classification":"reviewed-exception","reviewedExceptionId":"exception.runtime-wave12-smoke-detect-present","service":"backend-smoke-test","bootTimeRisk":"reviewed-exception-not-runtime-ddl","status":"blocked"},
     {"id":"finding.008","file":"apps/backend/tests/wave12_smoke.rs","line":135,"ddlKind":"CREATE SCHEMA","classification":"reviewed-exception","reviewedExceptionId":"exception.runtime-wave12-smoke-detect-legacy","service":"backend-smoke-test","bootTimeRisk":"reviewed-exception-not-runtime-ddl","status":"blocked"},
-    {"id":"finding.009","file":"apps/backend/tests/wave12_smoke.rs","line":139,"ddlKind":"CREATE SCHEMA","classification":"reviewed-exception","reviewedExceptionId":"exception.runtime-wave12-smoke-message","service":"backend-smoke-test","bootTimeRisk":"reviewed-exception-not-runtime-ddl","status":"blocked"},
-    {"id":"finding.010","file":"services/indexer/src/main.rs","line":126,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"indexer","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.011","file":"services/indexer/src/main.rs","line":144,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"indexer","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.012","file":"services/indexer/src/main.rs","line":161,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"indexer","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.013","file":"services/indexer/src/main.rs","line":179,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"indexer","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.014","file":"services/indexer/src/main.rs","line":185,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"indexer","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.015","file":"services/notification/src/main.rs","line":166,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"notification","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.016","file":"services/notification/src/main.rs","line":183,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"notification","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.017","file":"services/notification/src/main.rs","line":203,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"notification","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.018","file":"services/notification/src/main.rs","line":208,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"notification","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.019","file":"services/pay/src/db.rs","line":32,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.020","file":"services/pay/src/db.rs","line":51,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.021","file":"services/pay/src/db.rs","line":70,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.022","file":"services/pay/src/db.rs","line":83,"ddlKind":"CREATE TABLE","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.023","file":"services/pay/src/db.rs","line":94,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.024","file":"services/pay/src/db.rs","line":95,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.025","file":"services/pay/src/db.rs","line":96,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.026","file":"services/pay/src/db.rs","line":97,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.027","file":"services/pay/src/db.rs","line":98,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"},
-    {"id":"finding.028","file":"services/pay/src/db.rs","line":99,"ddlKind":"CREATE INDEX","classification":"actionable","reviewedExceptionId":null,"service":"pay","bootTimeRisk":"service-startup-schema-mutation","status":"blocked"}
+    {"id":"finding.009","file":"apps/backend/tests/wave12_smoke.rs","line":139,"ddlKind":"CREATE SCHEMA","classification":"reviewed-exception","reviewedExceptionId":"exception.runtime-wave12-smoke-message","service":"backend-smoke-test","bootTimeRisk":"reviewed-exception-not-runtime-ddl","status":"blocked"}
   ]
 }

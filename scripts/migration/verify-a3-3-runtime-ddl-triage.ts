@@ -310,8 +310,8 @@ const classify = (finding: (typeof scannerFindings)[number], index: number) => {
 };
 const classified = scannerFindings.map(classify);
 
-if (!Array.isArray(contract.findings) || contract.findings.length !== 28) {
-  fail("the contract must enumerate exactly 28 scanner findings");
+if (!Array.isArray(contract.findings) || contract.findings.length !== 9) {
+  fail("the contract must enumerate exactly 9 scanner findings");
 }
 exact("enumerated findings", classified, contract.findings);
 if (new Set(classified.map((item) => item.id)).size !== classified.length) {
@@ -324,8 +324,11 @@ const actionable = classified.filter((item) => item.classification === "actionab
 const reviewedExceptions = classified.filter(
   (item) => item.classification === "reviewed-exception",
 );
-if (actionable.length !== 22 || reviewedExceptions.length !== 6) {
-  fail(`expected 22 actionable and 6 exceptions, observed ${actionable.length}/${reviewedExceptions.length}`);
+if (actionable.length !== 3 || reviewedExceptions.length !== 6) {
+  fail(`expected 3 actionable and 6 exceptions, observed ${actionable.length}/${reviewedExceptions.length}`);
+}
+if (classified.some((item) => item.bootTimeRisk === "service-startup-schema-mutation")) {
+  fail("service-startup schema mutations must remain at zero in this rebaseline");
 }
 if (actionable.some((item) => item.reviewedExceptionId !== null)) {
   fail("an actionable finding cannot carry a reviewed exception ID");
@@ -379,13 +382,13 @@ if (jsonOutput) {
     `a3-3-runtime-ddl-triage: ${Object.keys(groups.service).length} service groups, ${Object.keys(groups.file).length} file groups, ${Object.keys(groups.ddlKind).length} DDL kinds, ${Object.keys(groups.bootTimeRisk).length} boot-time risk groups`,
   );
   console.log(
-    "a3-3-runtime-ddl-triage: OK — deterministic offline/static integrity only; all 22 actionable findings remain blocked",
+    "a3-3-runtime-ddl-triage: OK — deterministic offline/static integrity only; all 3 actionable findings remain blocked",
   );
 }
 
 if (readiness) {
   console.error(
-    "a3-3-runtime-ddl-triage: STOP — productionReady=false; runtime DDL remediation and executable database proof are absent",
+    "a3-3-runtime-ddl-triage: STOP — productionReady=false; three backend findings and executable database/rollout proof remain unresolved",
   );
   process.exit(2);
 }

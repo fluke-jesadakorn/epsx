@@ -14,6 +14,449 @@ use thiserror::Error;
 
 pub const NOTIFICATIONS_MANAGE_PERMISSION: &str = "admin:notifications:manage";
 
+const NOTIFICATION_SCHEMA_COMPATIBILITY_QUERY: &str = r#"
+WITH expected_columns (
+    table_name,
+    column_name,
+    ordinal_position,
+    data_type,
+    udt_name,
+    is_nullable,
+    character_maximum_length,
+    datetime_precision,
+    default_kind
+) AS (
+    VALUES
+        ('templates', 'id', 1, 'character varying', 'varchar', 'NO', 66::bigint, NULL::bigint, 'none'),
+        ('templates', 'name', 2, 'character varying', 'varchar', 'NO', 100::bigint, NULL::bigint, 'none'),
+        ('templates', 'channel', 3, 'character varying', 'varchar', 'NO', 20::bigint, NULL::bigint, 'none'),
+        ('templates', 'subject', 4, 'text', 'text', 'YES', NULL::bigint, NULL::bigint, 'none'),
+        ('templates', 'body', 5, 'text', 'text', 'NO', NULL::bigint, NULL::bigint, 'none'),
+        ('templates', 'variables', 6, 'jsonb', 'jsonb', 'NO', NULL::bigint, NULL::bigint, 'empty_object'),
+        ('templates', 'active', 7, 'boolean', 'bool', 'NO', NULL::bigint, NULL::bigint, 'true'),
+        ('templates', 'created_at', 8, 'timestamp with time zone', 'timestamptz', 'NO', NULL::bigint, 6::bigint, 'now'),
+        ('templates', 'updated_at', 9, 'timestamp with time zone', 'timestamptz', 'NO', NULL::bigint, 6::bigint, 'now'),
+        ('notifications', 'id', 1, 'character varying', 'varchar', 'NO', 66::bigint, NULL::bigint, 'none'),
+        ('notifications', 'user_id', 2, 'character varying', 'varchar', 'YES', 66::bigint, NULL::bigint, 'none'),
+        ('notifications', 'channel', 3, 'character varying', 'varchar', 'NO', 20::bigint, NULL::bigint, 'none'),
+        ('notifications', 'recipient', 4, 'character varying', 'varchar', 'NO', 255::bigint, NULL::bigint, 'none'),
+        ('notifications', 'template_id', 5, 'character varying', 'varchar', 'YES', 66::bigint, NULL::bigint, 'none'),
+        ('notifications', 'subject', 6, 'text', 'text', 'YES', NULL::bigint, NULL::bigint, 'none'),
+        ('notifications', 'body', 7, 'text', 'text', 'NO', NULL::bigint, NULL::bigint, 'none'),
+        ('notifications', 'data', 8, 'jsonb', 'jsonb', 'YES', NULL::bigint, NULL::bigint, 'none'),
+        ('notifications', 'status', 9, 'character varying', 'varchar', 'NO', 20::bigint, NULL::bigint, 'pending'),
+        ('notifications', 'error', 10, 'text', 'text', 'YES', NULL::bigint, NULL::bigint, 'none'),
+        ('notifications', 'sent_at', 11, 'timestamp with time zone', 'timestamptz', 'YES', NULL::bigint, 6::bigint, 'none'),
+        ('notifications', 'created_at', 12, 'timestamp with time zone', 'timestamptz', 'NO', NULL::bigint, 6::bigint, 'now'),
+        ('notifications', 'read_at', 13, 'timestamp with time zone', 'timestamptz', 'YES', NULL::bigint, 6::bigint, 'none'),
+        ('notifications', 'title', 14, 'text', 'text', 'YES', NULL::bigint, NULL::bigint, 'none'),
+        ('notifications', 'notification_type', 15, 'character varying', 'varchar', 'YES', 50::bigint, NULL::bigint, 'none'),
+        ('notifications', 'priority', 16, 'character varying', 'varchar', 'YES', 20::bigint, NULL::bigint, 'none'),
+        ('notifications', 'action_url', 17, 'text', 'text', 'YES', NULL::bigint, NULL::bigint, 'none')
+),
+expected_not_null (table_name, column_name) AS (
+    VALUES
+        ('templates', 'id'),
+        ('templates', 'name'),
+        ('templates', 'channel'),
+        ('templates', 'body'),
+        ('templates', 'variables'),
+        ('templates', 'active'),
+        ('templates', 'created_at'),
+        ('templates', 'updated_at'),
+        ('notifications', 'id'),
+        ('notifications', 'channel'),
+        ('notifications', 'recipient'),
+        ('notifications', 'body'),
+        ('notifications', 'status'),
+        ('notifications', 'created_at')
+),
+expected_key_constraints (table_name, constraint_name, constraint_type, column_name) AS (
+    VALUES
+        ('templates', 'templates_pkey', 'p', 'id'),
+        ('templates', 'templates_name_key', 'u', 'name'),
+        ('notifications', 'notifications_pkey', 'p', 'id')
+),
+expected_indexes (
+    table_name,
+    index_name,
+    index_kind,
+    first_column,
+    second_column,
+    first_option,
+    second_option
+) AS (
+    VALUES
+        ('templates', 'templates_pkey', 'p', 'id', NULL::text, 0, NULL::integer),
+        ('templates', 'templates_name_key', 'u', 'name', NULL::text, 0, NULL::integer),
+        ('notifications', 'notifications_pkey', 'p', 'id', NULL::text, 0, NULL::integer),
+        ('notifications', 'idx_notif_user', 'i', 'user_id', 'created_at', 0, 3),
+        ('notifications', 'idx_notif_status', 'i', 'status', NULL::text, 0, NULL::integer)
+),
+column_compatibility AS (
+    SELECT COALESCE(bool_and(
+        actual.column_name IS NOT NULL
+        AND actual.ordinal_position = expected.ordinal_position
+        AND actual.data_type = expected.data_type
+        AND actual.udt_schema = 'pg_catalog'
+        AND actual.udt_name = expected.udt_name
+        AND actual.is_nullable = expected.is_nullable
+        AND actual.character_maximum_length IS NOT DISTINCT FROM expected.character_maximum_length
+        AND actual.datetime_precision IS NOT DISTINCT FROM expected.datetime_precision
+        AND actual.collation_name IS NULL
+        AND actual.is_identity = 'NO'
+        AND actual.is_generated = 'NEVER'
+        AND COALESCE(
+            CASE expected.default_kind
+                WHEN 'empty_object' THEN actual.column_default = '''{}''::jsonb'
+                WHEN 'true' THEN actual.column_default = 'true'
+                WHEN 'pending' THEN actual.column_default IN (
+                    '''pending''::character varying',
+                    '''pending''::text',
+                    '''pending'''
+                )
+                WHEN 'now' THEN actual.column_default IN ('now()', 'CURRENT_TIMESTAMP')
+                ELSE actual.column_default IS NULL
+            END,
+            false
+        )
+    ), false) AS compatible
+    FROM expected_columns AS expected
+    LEFT JOIN information_schema.columns AS actual
+      ON actual.table_schema = 'public'
+     AND actual.table_name = expected.table_name
+     AND actual.column_name = expected.column_name
+),
+column_inventory_compatibility AS (
+    SELECT COUNT(*) = 26
+       AND COUNT(*) FILTER (WHERE table_name = 'templates') = 9
+       AND COUNT(*) FILTER (WHERE table_name = 'notifications') = 17 AS compatible
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name IN ('templates', 'notifications')
+),
+relation_compatibility AS (
+    SELECT COUNT(*) = 2
+       AND COALESCE(bool_and(
+            table_record.relkind = 'r'
+            AND table_record.relpersistence = 'p'
+            AND table_record.relreplident = 'd'
+            AND NOT table_record.relrowsecurity
+            AND NOT table_record.relforcerowsecurity
+            AND NOT table_record.relispartition
+       ), false) AS compatible
+    FROM pg_catalog.pg_class AS table_record
+    JOIN pg_catalog.pg_namespace AS namespace_record
+      ON namespace_record.oid = table_record.relnamespace
+    WHERE namespace_record.nspname = 'public'
+      AND table_record.relname IN ('templates', 'notifications')
+),
+inheritance_compatibility AS (
+    SELECT COUNT(*) = 0 AS compatible
+    FROM pg_catalog.pg_inherits AS inheritance_record
+    JOIN pg_catalog.pg_class AS child_table
+      ON child_table.oid = inheritance_record.inhrelid
+    JOIN pg_catalog.pg_namespace AS child_namespace
+      ON child_namespace.oid = child_table.relnamespace
+    JOIN pg_catalog.pg_class AS parent_table
+      ON parent_table.oid = inheritance_record.inhparent
+    JOIN pg_catalog.pg_namespace AS parent_namespace
+      ON parent_namespace.oid = parent_table.relnamespace
+    WHERE (child_namespace.nspname = 'public' AND child_table.relname IN ('templates', 'notifications'))
+       OR (parent_namespace.nspname = 'public' AND parent_table.relname IN ('templates', 'notifications'))
+),
+policy_compatibility AS (
+    SELECT COUNT(*) = 0 AS compatible
+    FROM pg_catalog.pg_policy AS policy_record
+    JOIN pg_catalog.pg_class AS table_record
+      ON table_record.oid = policy_record.polrelid
+    JOIN pg_catalog.pg_namespace AS namespace_record
+      ON namespace_record.oid = table_record.relnamespace
+    WHERE namespace_record.nspname = 'public'
+      AND table_record.relname IN ('templates', 'notifications')
+),
+key_constraint_compatibility AS (
+    SELECT COUNT(*) = 3
+       AND COALESCE(bool_and(
+            expected.table_name IS NOT NULL
+            AND constraint_record.conname = expected.constraint_name
+            AND constraint_record.contype::text = expected.constraint_type
+            AND cardinality(constraint_record.conkey) = 1
+            AND attribute_record.attname = expected.column_name
+            AND constraint_record.convalidated
+            AND NOT constraint_record.condeferrable
+            AND NOT constraint_record.condeferred
+            AND constraint_record.conparentid = 0
+            AND constraint_record.coninhcount = 0
+            AND constraint_record.conislocal
+            AND constraint_record.connoinherit
+            AND (
+                NOT (to_jsonb(constraint_record) ? 'conperiod')
+                OR COALESCE((to_jsonb(constraint_record) ->> 'conperiod')::boolean, false) = false
+            )
+            AND (
+                NOT (to_jsonb(constraint_record) ? 'conenforced')
+                OR COALESCE((to_jsonb(constraint_record) ->> 'conenforced')::boolean, false)
+            )
+            AND index_record.indisunique
+            AND index_record.indisprimary = (constraint_record.contype = 'p')
+            AND index_record.indisvalid
+            AND index_record.indisready
+            AND index_record.indimmediate
+            AND index_record.indnkeyatts = 1
+            AND index_record.indnatts = 1
+            AND index_record.indpred IS NULL
+            AND index_record.indexprs IS NULL
+       ), false) AS compatible
+    FROM pg_catalog.pg_constraint AS constraint_record
+    JOIN pg_catalog.pg_class AS table_record
+      ON table_record.oid = constraint_record.conrelid
+    JOIN pg_catalog.pg_namespace AS namespace_record
+      ON namespace_record.oid = table_record.relnamespace
+    LEFT JOIN pg_catalog.pg_attribute AS attribute_record
+      ON attribute_record.attrelid = table_record.oid
+     AND attribute_record.attnum = constraint_record.conkey[1]
+     AND NOT attribute_record.attisdropped
+    LEFT JOIN expected_key_constraints AS expected
+      ON expected.table_name = table_record.relname
+     AND expected.constraint_type = constraint_record.contype::text
+     AND expected.column_name = attribute_record.attname
+    LEFT JOIN pg_catalog.pg_index AS index_record
+      ON index_record.indexrelid = constraint_record.conindid
+    WHERE namespace_record.nspname = 'public'
+      AND table_record.relname IN ('templates', 'notifications')
+      AND constraint_record.contype IN ('p', 'u')
+),
+not_null_catalog_exposure AS (
+    SELECT
+        pg_catalog.current_setting('server_version_num')::integer >= 180000
+        OR EXISTS (
+            SELECT 1
+            FROM pg_catalog.pg_constraint AS constraint_record
+            JOIN pg_catalog.pg_class AS table_record
+              ON table_record.oid = constraint_record.conrelid
+            JOIN pg_catalog.pg_namespace AS namespace_record
+              ON namespace_record.oid = table_record.relnamespace
+            WHERE namespace_record.nspname = 'public'
+              AND table_record.relname IN ('templates', 'notifications')
+              AND constraint_record.contype = 'n'
+        ) AS exposed
+),
+scoped_not_null_constraints AS (
+    SELECT
+        constraint_record.*,
+        table_record.relname::text AS table_name,
+        attribute_record.attname::text AS column_name
+    FROM pg_catalog.pg_constraint AS constraint_record
+    JOIN pg_catalog.pg_class AS table_record
+      ON table_record.oid = constraint_record.conrelid
+    JOIN pg_catalog.pg_namespace AS namespace_record
+      ON namespace_record.oid = table_record.relnamespace
+    LEFT JOIN pg_catalog.pg_attribute AS attribute_record
+      ON attribute_record.attrelid = table_record.oid
+     AND attribute_record.attnum = constraint_record.conkey[1]
+     AND NOT attribute_record.attisdropped
+    WHERE namespace_record.nspname = 'public'
+      AND table_record.relname IN ('templates', 'notifications')
+      AND constraint_record.contype = 'n'
+),
+not_null_constraint_compatibility AS (
+    SELECT
+        (
+            NOT exposure.exposed
+            AND COUNT(constraint_record.oid) = 0
+        )
+        OR (
+            exposure.exposed
+            AND COUNT(constraint_record.oid) = 14
+            AND COUNT(DISTINCT (constraint_record.table_name, constraint_record.column_name)) = 14
+            AND COALESCE(bool_and(
+                expected.table_name IS NOT NULL
+                AND cardinality(constraint_record.conkey) = 1
+                AND constraint_record.convalidated
+                AND NOT constraint_record.condeferrable
+                AND NOT constraint_record.condeferred
+                AND constraint_record.conparentid = 0
+                AND constraint_record.coninhcount = 0
+                AND constraint_record.conislocal
+                AND NOT constraint_record.connoinherit
+                AND COALESCE(
+                    (to_jsonb(constraint_record) ->> 'conenforced')::boolean,
+                    false
+                )
+            ), false)
+        ) AS compatible
+    FROM not_null_catalog_exposure AS exposure
+    LEFT JOIN scoped_not_null_constraints AS constraint_record
+      ON true
+    LEFT JOIN expected_not_null AS expected
+      ON expected.table_name = constraint_record.table_name
+     AND expected.column_name = constraint_record.column_name
+    GROUP BY exposure.exposed
+),
+foreign_key_compatibility AS (
+    SELECT COUNT(*) = 0 AS compatible
+    FROM pg_catalog.pg_constraint AS constraint_record
+    JOIN pg_catalog.pg_class AS source_table
+      ON source_table.oid = constraint_record.conrelid
+    JOIN pg_catalog.pg_namespace AS source_namespace
+      ON source_namespace.oid = source_table.relnamespace
+    JOIN pg_catalog.pg_class AS target_table
+      ON target_table.oid = constraint_record.confrelid
+    JOIN pg_catalog.pg_namespace AS target_namespace
+      ON target_namespace.oid = target_table.relnamespace
+    WHERE constraint_record.contype = 'f'
+      AND (
+          (source_namespace.nspname = 'public' AND source_table.relname IN ('templates', 'notifications'))
+          OR (target_namespace.nspname = 'public' AND target_table.relname IN ('templates', 'notifications'))
+      )
+),
+check_constraint_compatibility AS (
+    SELECT COUNT(*) = 0 AS compatible
+    FROM pg_catalog.pg_constraint AS constraint_record
+    JOIN pg_catalog.pg_class AS table_record
+      ON table_record.oid = constraint_record.conrelid
+    JOIN pg_catalog.pg_namespace AS namespace_record
+      ON namespace_record.oid = table_record.relnamespace
+    WHERE namespace_record.nspname = 'public'
+      AND table_record.relname IN ('templates', 'notifications')
+      AND constraint_record.contype = 'c'
+),
+other_constraint_compatibility AS (
+    SELECT COUNT(*) = 0 AS compatible
+    FROM pg_catalog.pg_constraint AS constraint_record
+    JOIN pg_catalog.pg_class AS table_record
+      ON table_record.oid = constraint_record.conrelid
+    JOIN pg_catalog.pg_namespace AS namespace_record
+      ON namespace_record.oid = table_record.relnamespace
+    WHERE namespace_record.nspname = 'public'
+      AND table_record.relname IN ('templates', 'notifications')
+      AND constraint_record.contype NOT IN ('p', 'u', 'n', 'f', 'c')
+),
+index_inventory_compatibility AS (
+    SELECT COUNT(*) = 5
+       AND COALESCE(bool_and(
+            expected.table_name IS NOT NULL
+            AND index_namespace.nspname = 'public'
+            AND index_relation.relkind = 'i'
+            AND index_relation.relpersistence = 'p'
+            AND access_method.amname = 'btree'
+            AND index_record.indisunique = (expected.index_kind IN ('p', 'u'))
+            AND index_record.indisprimary = (expected.index_kind = 'p')
+            AND NOT index_record.indisexclusion
+            AND index_record.indisvalid
+            AND index_record.indisready
+            AND index_record.indislive
+            AND index_record.indimmediate
+            AND NOT index_record.indisclustered
+            AND NOT index_record.indisreplident
+            AND COALESCE((to_jsonb(index_record) ->> 'indnullsnotdistinct')::boolean, false) = false
+            AND index_record.indnkeyatts = CASE WHEN expected.second_column IS NULL THEN 1 ELSE 2 END
+            AND index_record.indnatts = index_record.indnkeyatts
+            AND index_record.indpred IS NULL
+            AND index_record.indexprs IS NULL
+            AND first_attribute.attname = expected.first_column
+            AND index_record.indoption[0] = expected.first_option
+            AND index_record.indcollation[0] = first_attribute.attcollation
+            AND first_type.typname = 'varchar'
+            AND first_opclass.opcname = 'text_ops'
+            AND first_opclass.opcdefault
+            AND (
+                (expected.second_column IS NULL
+                 AND second_attribute.attname IS NULL
+                 AND second_opclass.oid IS NULL)
+                OR
+                (second_attribute.attname = expected.second_column
+                 AND index_record.indoption[1] = expected.second_option
+                 AND index_record.indcollation[1] = second_attribute.attcollation
+                 AND second_attribute.attcollation = 0
+                 AND second_type.typname = 'timestamptz'
+                 AND second_opclass.opcname = 'timestamptz_ops'
+                 AND second_opclass.opcdefault)
+            )
+            AND (
+                (expected.index_kind IN ('p', 'u')
+                 AND constraint_record.oid IS NOT NULL
+                 AND constraint_record.contype::text = expected.index_kind
+                 AND constraint_record.conindid = index_record.indexrelid)
+                OR
+                (expected.index_kind = 'i' AND constraint_record.oid IS NULL)
+            )
+       ), false) AS compatible
+    FROM pg_catalog.pg_index AS index_record
+    JOIN pg_catalog.pg_class AS table_record
+      ON table_record.oid = index_record.indrelid
+    JOIN pg_catalog.pg_namespace AS table_namespace
+      ON table_namespace.oid = table_record.relnamespace
+    JOIN pg_catalog.pg_class AS index_relation
+      ON index_relation.oid = index_record.indexrelid
+    JOIN pg_catalog.pg_namespace AS index_namespace
+      ON index_namespace.oid = index_relation.relnamespace
+    LEFT JOIN expected_indexes AS expected
+      ON expected.table_name = table_record.relname
+     AND expected.index_name = index_relation.relname
+    LEFT JOIN pg_catalog.pg_constraint AS constraint_record
+      ON constraint_record.conrelid = table_record.oid
+     AND constraint_record.conindid = index_record.indexrelid
+     AND constraint_record.contype IN ('p', 'u', 'x')
+    LEFT JOIN pg_catalog.pg_attribute AS first_attribute
+      ON first_attribute.attrelid = table_record.oid
+     AND first_attribute.attnum = index_record.indkey[0]
+     AND NOT first_attribute.attisdropped
+    LEFT JOIN pg_catalog.pg_attribute AS second_attribute
+      ON second_attribute.attrelid = table_record.oid
+     AND second_attribute.attnum = index_record.indkey[1]
+     AND NOT second_attribute.attisdropped
+    LEFT JOIN pg_catalog.pg_type AS first_type
+      ON first_type.oid = first_attribute.atttypid
+    LEFT JOIN pg_catalog.pg_type AS second_type
+      ON second_type.oid = second_attribute.atttypid
+    LEFT JOIN pg_catalog.pg_opclass AS first_opclass
+      ON first_opclass.oid = index_record.indclass[0]
+    LEFT JOIN pg_catalog.pg_opclass AS second_opclass
+      ON second_opclass.oid = index_record.indclass[1]
+    LEFT JOIN pg_catalog.pg_am AS access_method
+      ON access_method.oid = index_relation.relam
+    WHERE table_namespace.nspname = 'public'
+      AND table_record.relname IN ('templates', 'notifications')
+)
+SELECT
+    to_regclass('public.templates') IS NOT NULL
+    AND to_regclass('public.notifications') IS NOT NULL
+    AND COALESCE((SELECT compatible FROM column_compatibility), false)
+    AND COALESCE((SELECT compatible FROM column_inventory_compatibility), false)
+    AND COALESCE((SELECT compatible FROM relation_compatibility), false)
+    AND COALESCE((SELECT compatible FROM inheritance_compatibility), false)
+    AND COALESCE((SELECT compatible FROM policy_compatibility), false)
+    AND COALESCE((SELECT compatible FROM key_constraint_compatibility), false)
+    AND COALESCE((SELECT compatible FROM not_null_constraint_compatibility), false)
+    AND COALESCE((SELECT compatible FROM foreign_key_compatibility), false)
+    AND COALESCE((SELECT compatible FROM check_constraint_compatibility), false)
+    AND COALESCE((SELECT compatible FROM other_constraint_compatibility), false)
+    AND COALESCE((SELECT compatible FROM index_inventory_compatibility), false)
+"#;
+
+#[derive(Debug, Error)]
+pub enum NotificationSchemaError {
+    #[error("notification schema compatibility query failed")]
+    Query(#[source] sqlx::Error),
+    #[error(
+        "notification schema is incompatible; run the reviewed notification migration before startup"
+    )]
+    Incompatible,
+}
+
+pub async fn verify_schema_compatibility(db: &sqlx::PgPool) -> Result<(), NotificationSchemaError> {
+    let compatible = sqlx::query_scalar::<_, bool>(NOTIFICATION_SCHEMA_COMPATIBILITY_QUERY)
+        .fetch_one(db)
+        .await
+        .map_err(NotificationSchemaError::Query)?;
+    if !compatible {
+        return Err(NotificationSchemaError::Incompatible);
+    }
+    Ok(())
+}
+
 #[derive(Debug, Error)]
 pub enum NotificationConfigError {
     #[error("HTTP client configuration failed")]

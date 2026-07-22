@@ -59,6 +59,7 @@ unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
 
 summary=$(bun -e '
 import { readFileSync, realpathSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { isAbsolute, resolve, sep } from "node:path";
 
 const [rootInput, contractPath] = process.argv.slice(1);
@@ -105,6 +106,48 @@ if (contract.schemaVersion !== 1 || contract.contractId !== "A9.0-subscription-e
 if (contract.purpose !== "deterministic-audit-and-readiness-stop") fail("unexpected contract purpose");
 if (contract.productionReady !== false || contract.integrityExit !== 0 || contract.readinessExit !== 3) fail("readiness sentinel changed");
 if (!contract.safety || contract.safety.writesDatabase !== false || contract.safety.contactsChain !== false || contract.safety.contactsNetwork !== false || contract.safety.deploys !== false || contract.safety.mutatesRuntime !== false) fail("safety flags must remain false");
+
+const schemaBoundary = contract.a3_7SchemaBoundary;
+const expectedExecutionProof = {
+  runner: false,
+  versionLedger: false,
+  baselineAdoption: false,
+  populatedUpgrade: false,
+  reconciliation: false,
+  concurrentStartup: false,
+  liveDatabase: false
+};
+if (!schemaBoundary || schemaBoundary.status !== "static-partial-only" || schemaBoundary.contract !== "docs/migration/contracts/a3-7-subscription-schema-boundary.json" || schemaBoundary.contractId !== "A3.7-subscription-schema-boundary") fail("A3.7 schema boundary drifted");
+if (JSON.stringify(schemaBoundary.runtimeDdlFindings) !== JSON.stringify({ before: 2, after: 0 })) fail("A3.7 schema boundary drifted: runtime DDL must remain 2→0");
+if (!schemaBoundary.migration || schemaBoundary.migration.path !== "services/subscription/migrations/20260722010000_create_subscription_tables.sql" || schemaBoundary.migration.bytes !== 844 || schemaBoundary.migration.sha256 !== "20f38597d2d64bad3589036c2fe20aab2be89e5d240c540d401b46713c701349" || schemaBoundary.migration.additiveOnly !== true) fail("A3.7 schema boundary drifted: migration pin changed");
+if (JSON.stringify(schemaBoundary.compatibilityProbe) !== JSON.stringify({ kind: "read-only-startup-schema-compatibility", constant: "SUBSCRIPTION_SCHEMA_COMPATIBILITY_QUERY", function: "verify_schema_compatibility" })) fail("A3.7 schema boundary drifted: compatibility probe changed");
+if (JSON.stringify(schemaBoundary.executionProof) !== JSON.stringify(expectedExecutionProof)) fail("A3.7 schema boundary drifted: unproven execution fact changed");
+
+safeRelative(schemaBoundary.contract, "A3.7 contract");
+const schemaBoundaryPath = realpathSync(resolve(root, schemaBoundary.contract));
+if (schemaBoundaryPath !== root && !schemaBoundaryPath.startsWith(`${root}${sep}`)) fail("unsafe A3.7 contract path");
+let a37;
+try { a37 = JSON.parse(readFileSync(schemaBoundaryPath, "utf8")); }
+catch (error) { fail(`invalid A3.7 contract JSON: ${error.message}`); }
+if (a37.schemaVersion !== 1 || a37.contractId !== schemaBoundary.contractId || a37.productionReady !== false || a37.integrityExit !== 0 || a37.readinessExit !== 3) fail("A3.7 source contract drifted");
+if (!a37.runtimeBoundary || a37.runtimeBoundary.scannerFindingBefore !== 2 || a37.runtimeBoundary.scannerFindingAfter !== 0 || a37.runtimeBoundary.compatibilityQueryConstant !== schemaBoundary.compatibilityProbe.constant || a37.runtimeBoundary.compatibilityFunction !== schemaBoundary.compatibilityProbe.function) fail("A3.7 source runtime boundary drifted");
+if (!a37.migrationRoot || a37.migrationRoot.runner !== null || !Array.isArray(a37.migrationRoot.orderedMigrations) || a37.migrationRoot.orderedMigrations.length !== 1) fail("A3.7 source migration root drifted");
+const a37Migration = a37.migrationRoot.orderedMigrations[0];
+if (a37Migration.path !== schemaBoundary.migration.path || a37Migration.bytes !== schemaBoundary.migration.bytes || a37Migration.sha256 !== schemaBoundary.migration.sha256) fail("A3.7 source migration pin drifted");
+const a37BlockerCategories = ["migration-runner", "baseline-adoption", "populated-upgrade", "reconciliation", "concurrent-startup", "live-database"];
+if (!Array.isArray(a37.blockers) || JSON.stringify(a37.blockers.map((item) => item.category)) !== JSON.stringify(a37BlockerCategories) || a37.blockers.some((item) => item.status !== "blocked")) fail("A3.7 residual blocker ledger drifted");
+
+safeRelative(schemaBoundary.migration.path, "A3.7 migration");
+const migrationPath = realpathSync(resolve(root, schemaBoundary.migration.path));
+if (migrationPath !== root && !migrationPath.startsWith(`${root}${sep}`)) fail("unsafe A3.7 migration path");
+const migrationBytes = readFileSync(migrationPath);
+if (migrationBytes.byteLength !== schemaBoundary.migration.bytes || createHash("sha256").update(migrationBytes).digest("hex") !== schemaBoundary.migration.sha256) fail("A3.7 migration bytes changed");
+const migrationSql = migrationBytes.toString("utf8");
+if ((migrationSql.match(/\bCREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+public\.(?:subscription_plans|subscriptions)\s*\(/gi) ?? []).length !== 2 || /\b(?:DROP|TRUNCATE|DELETE|ALTER|INSERT|UPDATE|MERGE|CASCADE)\b/i.test(migrationSql)) fail("A3.7 migration is not the pinned additive two-table candidate");
+const subscriptionLib = readFileSync(resolve(root, "services/subscription/src/lib.rs"), "utf8");
+const subscriptionMain = readFileSync(resolve(root, "services/subscription/src/main.rs"), "utf8");
+for (const removedAnchor of a37.runtimeBoundary.removedAnchors) if (subscriptionLib.includes(removedAnchor) || subscriptionMain.includes(removedAnchor)) fail(`A3.7 removed runtime DDL returned: ${removedAnchor}`);
+if (!subscriptionLib.includes(schemaBoundary.compatibilityProbe.constant) || !subscriptionLib.includes(`pub async fn ${schemaBoundary.compatibilityProbe.function}`) || !subscriptionMain.includes(`${schemaBoundary.compatibilityProbe.function}(&db)`)) fail("A3.7 read-only compatibility probe drifted");
 
 const source = contract.source;
 if (!source || source.ref !== "origin/development" || !/^[0-9a-f]{40}$/.test(source.commit)) fail("invalid pinned source ref/commit");
@@ -192,6 +235,12 @@ const report = {
   contractId: contract.contractId,
   source: { ref: source.ref, commit: source.commit, evidence: source.evidence.length },
   targetEvidence: contract.targetEvidence.length,
+  a3_7SchemaBoundary: {
+    runtimeDdlFindings: schemaBoundary.runtimeDdlFindings,
+    migration: { path: schemaBoundary.migration.path, bytes: schemaBoundary.migration.bytes, sha256: schemaBoundary.migration.sha256 },
+    compatibilityProbe: schemaBoundary.compatibilityProbe.kind,
+    executionProof: schemaBoundary.executionProof
+  },
   routeContracts: contract.routeContracts.map((item) => item.id),
   rules: {
     ownership: contract.ownershipRules.length,
@@ -216,8 +265,8 @@ if [ "$mode" = "report" ]; then
 fi
 
 if [ "$mode" = "integrity" ]; then
-  echo "subscription-execution: PASS — pinned evidence and contract integrity verified (20 stop blockers)"
-  echo "subscription-execution: LIMIT — no database, chain, deployment, migration, or production readiness was proven"
+  echo "subscription-execution: PASS — A3.7 runtime DDL 2→0, additive migration/probe boundary, pinned evidence, and contract integrity verified (20 stop blockers)"
+  echo "subscription-execution: LIMIT — no runner, version ledger, baseline adoption, populated upgrade, reconciliation, concurrent startup, live database, chain, deployment, or production readiness was proven"
   exit 0
 fi
 

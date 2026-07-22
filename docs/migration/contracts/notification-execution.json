@@ -112,24 +112,24 @@
       "anchor": ".route(\"/api/v1/notification/send\", post(send_notification))"
     },
     {
-      "id": "tgt-runtime-template-ddl",
-      "file": "services/notification/src/main.rs",
-      "anchor": "\"CREATE TABLE IF NOT EXISTS templates ("
+      "id": "tgt-schema-compatibility",
+      "file": "services/notification/src/lib.rs",
+      "anchor": "pub async fn verify_schema_compatibility("
     },
     {
-      "id": "tgt-runtime-notification-ddl",
-      "file": "services/notification/src/main.rs",
-      "anchor": "\"CREATE TABLE IF NOT EXISTS notifications ("
+      "id": "tgt-additive-service-migration",
+      "file": "apps/backend/migrations/notifications/20260722040000_create_notification_service_tables/up.sql",
+      "anchor": "CREATE TABLE IF NOT EXISTS public.notifications ("
     },
     {
-      "id": "tgt-runtime-sample-seed",
-      "file": "services/notification/src/main.rs",
-      "anchor": "seed_sample_notifications(&db).await;"
+      "id": "tgt-startup-no-seeds",
+      "file": "scripts/migration/verify-a3-11-notification-schema-boundary.sh",
+      "anchor": "runtime DDL 4→0 and startup seed calls 2→0"
     },
     {
       "id": "tgt-query-extra-columns",
       "file": "services/notification/src/main.rs",
-      "anchor": "read_at, title, notification_type, priority, action_url FROM notifications"
+      "anchor": "read_at, title, notification_type, priority, action_url FROM public.notifications"
     },
     {
       "id": "tgt-inapp-stub",
@@ -159,7 +159,7 @@
     {
       "id": "tgt-template-delete-cache",
       "file": "services/notification/src/main.rs",
-      "anchor": "sqlx::query(\"DELETE FROM templates WHERE id = $1\")"
+      "anchor": "sqlx::query(\"DELETE FROM public.templates WHERE id = $1\")"
     },
     {
       "id": "tgt-admin-claimed-recipient",
@@ -391,7 +391,7 @@
     {
       "id": "migration-cutover-operations",
       "source": "wallet_notifications data, preferences, realtime semantics, publishers, and UI remain available through a reversible cutover",
-      "targetObserved": "separate runtime-created notifications/templates tables, no deployment, no backfill/reconciliation, and no single-writer declaration",
+      "targetObserved": "a static exact schema boundary and additive fresh-schema migration exist, but no clean/upgrade execution, deployment, backfill/reconciliation, or single-writer declaration exists",
       "ownerKey": "operator-controlled-reviewed-runbook",
       "status": "blocked",
       "blockerIds": ["B02", "B03", "B20", "B21", "B22"]
@@ -560,18 +560,18 @@
       "category": "schema",
       "severity": "stop",
       "status": "blocked",
-      "summary": "Legacy wallet_notifications and candidate notifications/templates are incompatible write models, and the candidate DDL omits columns its queries require.",
-      "resolution": "Choose one schema authority, add versioned constraints and mappings, and prove clean-database plus upgraded-database behavior.",
-      "evidenceIds": ["src-notification-schema", "tgt-runtime-notification-ddl", "tgt-query-extra-columns"]
+      "summary": "The candidate now has an exact static notifications/templates shape, but it remains incompatible with legacy wallet_notifications and has no clean-database or populated-upgrade execution proof.",
+      "resolution": "Choose one schema authority, add versioned mappings and populated upgrade steps, then prove clean-database plus upgraded-database behavior.",
+      "evidenceIds": ["src-notification-schema", "tgt-schema-compatibility", "tgt-additive-service-migration", "tgt-query-extra-columns"]
     },
     {
       "id": "B03",
       "category": "migrations",
       "severity": "stop",
       "status": "blocked",
-      "summary": "The service mutates schema and seeds templates/sample user data during startup.",
-      "resolution": "Move all DDL and controlled seed data to additive reviewed migrations; prohibit sample data in production startup.",
-      "evidenceIds": ["tgt-runtime-template-ddl", "tgt-runtime-notification-ddl", "tgt-runtime-sample-seed"]
+      "summary": "Runtime DDL and startup seeds are statically removed, but the existing migration history is unsafe/ambiguous and no clean or upgrade execution proves adoption.",
+      "resolution": "Repair and adopt the reviewed migration history, prove clean and populated upgrade paths, and keep startup free of DDL and sample writes.",
+      "evidenceIds": ["tgt-schema-compatibility", "tgt-additive-service-migration", "tgt-startup-no-seeds"]
     },
     {
       "id": "B04",
@@ -724,7 +724,7 @@
       "status": "blocked",
       "summary": "No resumable backfill or reconciliation proves legacy history, broadcasts, preferences, templates, and delivery state in the target.",
       "resolution": "Build dry-run and resumable migration tooling with counts, checksums, distributions, duplicates, orphans, and repair reports.",
-      "evidenceIds": ["src-notification-schema", "tgt-runtime-notification-ddl", "tgt-subscription-tracking-dropped"]
+      "evidenceIds": ["src-notification-schema", "tgt-additive-service-migration", "tgt-subscription-tracking-dropped"]
     },
     {
       "id": "B21",

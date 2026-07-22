@@ -9,7 +9,7 @@ This gate turns the subscription migration into an executable, evidence-pinned p
 
 ## Outcome
 
-The current Rust subscription slice is not safe for production traffic. It creates its schema at startup, treats a caller-supplied subscription as immediately active, trusts caller owner fields, lists and mutates records without an owner predicate, has no verified-payment consumer, has no renewal/expiry worker, does not grant or revoke entitlements, and is disconnected from the ranking projection. The frontend and admin surfaces compound this by rendering static/canned data and by drifting from the source route, DTO, envelope, and status contracts.
+The current Rust subscription slice is not safe for production traffic. A3.7 removed both startup DDL findings into one additive candidate migration and added a read-only startup compatibility probe, but there is no reviewed runner or ledger and no baseline adoption, populated upgrade, reconciliation, concurrent-startup, or live-database proof. The runtime still treats a caller-supplied subscription as immediately active, trusts caller owner fields, lists and mutates records without an owner predicate, has no verified-payment consumer, has no renewal/expiry worker, does not grant or revoke entitlements, and is disconnected from the ranking projection. The frontend and admin surfaces compound this by rendering static/canned data and by drifting from the source route, DTO, envelope, and status contracts.
 
 There are **20 stop blockers**. The implementation must retain the source's externally relied-on behavior while hardening source weaknesses: non-persistent manual activation, swallowed permission errors, non-atomic plan switches, cross-database monitor writes, and replay-prone extension behavior are evidence of required remediation, not behavior to reproduce.
 
@@ -28,7 +28,8 @@ The contract pins every source record by Git blob plus a literal anchor. The ver
 
 The present target facts are:
 
-- `services/subscription/src/main.rs` owns both `subscription_plans` and `subscriptions` through runtime `CREATE TABLE IF NOT EXISTS` statements.
+- A3.7 reduced subscription runtime DDL from **2 to 0**, pinned one **844-byte** additive migration (`20f38597d2d64bad3589036c2fe20aab2be89e5d240c540d401b46713c701349`), and makes startup run `verify_schema_compatibility(&db)` before binding the listener.
+- That boundary is static and partial: the migration root has no reviewed runner or version ledger, and no baseline-adoption, populated-upgrade, reconciliation, concurrent-startup, or live-database proof exists. The two-table candidate is not a proven mapping from the development wallet-plan source of truth.
 - `POST /api/v1/subscription/subscriptions` accepts `user_id`, `account_id`, and `payment_token` from the caller. The database default is `active`, and period boundaries are unset.
 - Subscription list, detail, and cancel SQL use no verified owner predicate. Gateway authentication cannot compensate for missing service-level ownership.
 - The service has no current-access, preview, switch, renew, expiry, entitlement, reconciliation, or lifecycle-event endpoint/worker.
@@ -131,9 +132,9 @@ Acceptance: contract fixtures cover every row in the inventory; no body field is
 ### 2. Add durable schema and audit
 
 Owner: subscription persistence agent.
-Create reviewed additive migrations for plan projections, lifecycle state/period, immutable payment cause, idempotency response, outbox/inbox, audit, scheduler lease, dead letter, and reconciliation results. Remove startup DDL only after migrations are deployed through the normal path.
+Build on the narrow A3.7 candidate migration with reviewed additive migrations for plan projections, lifecycle state/period, immutable payment cause, idempotency response, outbox/inbox, audit, scheduler lease, dead letter, and reconciliation results. Add a reviewed runner and version ledger; prove baseline adoption and populated upgrade before any migration execution is authorized.
 
-Acceptance: migration up/down safety is reviewed, no destructive data rewrite exists, invalid statuses/periods and duplicate effective subscriptions are rejected, and startup does not own schema evolution.
+Acceptance: migration up/down safety is reviewed, the runner/ledger and adoption flow are proven, no destructive data rewrite exists, invalid statuses/periods and duplicate effective subscriptions are rejected, and startup remains free of schema mutation.
 
 ### 3. Inventory, backfill, and reconcile
 

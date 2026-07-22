@@ -49,7 +49,7 @@ pub async fn list_escrows(
     let items: Vec<EscrowRecord> = if let Some(s) = &status {
         sqlx::query_as::<_, EscrowRecord>(
             "SELECT id, chain_id, payer, payee, amount, token_address, fee_amount, status, on_chain_id, tx_hash, dispute_reason, created_at, updated_at
-             FROM escrows
+             FROM public.escrows
              WHERE (payer = $1 OR payee = $1) AND status = $2
              ORDER BY created_at DESC LIMIT $3 OFFSET $4"
         )
@@ -62,7 +62,7 @@ pub async fn list_escrows(
     } else {
         sqlx::query_as::<_, EscrowRecord>(
             "SELECT id, chain_id, payer, payee, amount, token_address, fee_amount, status, on_chain_id, tx_hash, dispute_reason, created_at, updated_at
-             FROM escrows
+             FROM public.escrows
              WHERE payer = $1 OR payee = $1
              ORDER BY created_at DESC LIMIT $2 OFFSET $3"
         )
@@ -76,7 +76,7 @@ pub async fn list_escrows(
 
     let total: i64 = if let Some(status) = status.as_deref() {
         sqlx::query_scalar(
-            "SELECT COUNT(*) FROM escrows
+            "SELECT COUNT(*) FROM public.escrows
              WHERE (payer = $1 OR payee = $1) AND status = $2",
         )
         .bind(&owner)
@@ -84,7 +84,7 @@ pub async fn list_escrows(
         .fetch_one(&state.db)
         .await
     } else {
-        sqlx::query_scalar("SELECT COUNT(*) FROM escrows WHERE payer = $1 OR payee = $1")
+        sqlx::query_scalar("SELECT COUNT(*) FROM public.escrows WHERE payer = $1 OR payee = $1")
             .bind(&owner)
             .fetch_one(&state.db)
             .await
@@ -106,7 +106,7 @@ pub async fn get_escrow(
     let owner = canonical_owner(&principal, None)?;
     let escrow: EscrowRecord = sqlx::query_as::<_, EscrowRecord>(
         "SELECT id, chain_id, payer, payee, amount, token_address, fee_amount, status, on_chain_id, tx_hash, dispute_reason, created_at, updated_at
-         FROM escrows WHERE id = $1 AND (payer = $2 OR payee = $2)"
+         FROM public.escrows WHERE id = $1 AND (payer = $2 OR payee = $2)"
     )
     .bind(&id)
     .bind(&owner)
@@ -126,7 +126,7 @@ pub async fn release_escrow(
     AxPath(id): AxPath<String>,
     Json(_req): Json<ReleaseEscrowRequest>,
 ) -> Result<Json<EscrowRecord>, StatusCode> {
-    sqlx::query("UPDATE escrows SET status = 'released', updated_at = NOW() WHERE id = $1 AND status = 'active'")
+    sqlx::query("UPDATE public.escrows SET status = 'released', updated_at = NOW() WHERE id = $1 AND status = 'active'")
         .bind(&id)
         .execute(&state.db)
         .await
@@ -143,7 +143,7 @@ pub async fn refund_escrow(
     AxPath(id): AxPath<String>,
     Json(req): Json<RefundEscrowRequest>,
 ) -> Result<Json<EscrowRecord>, StatusCode> {
-    sqlx::query("UPDATE escrows SET status = 'refunded', dispute_reason = $1, updated_at = NOW() WHERE id = $2 AND status IN ('active', 'disputed')")
+    sqlx::query("UPDATE public.escrows SET status = 'refunded', dispute_reason = $1, updated_at = NOW() WHERE id = $2 AND status IN ('active', 'disputed')")
         .bind(&req.reason)
         .bind(&id)
         .execute(&state.db)
@@ -161,7 +161,7 @@ pub async fn dispute_escrow(
     AxPath(id): AxPath<String>,
     Json(req): Json<DisputeEscrowRequest>,
 ) -> Result<Json<EscrowRecord>, StatusCode> {
-    sqlx::query("UPDATE escrows SET status = 'disputed', dispute_reason = $1, updated_at = NOW() WHERE id = $2 AND status = 'active'")
+    sqlx::query("UPDATE public.escrows SET status = 'disputed', dispute_reason = $1, updated_at = NOW() WHERE id = $2 AND status = 'active'")
         .bind(&req.reason)
         .bind(&id)
         .execute(&state.db)
@@ -181,7 +181,7 @@ pub async fn resolve_dispute(
 ) -> Result<Json<EscrowRecord>, StatusCode> {
     let new_status = if req.to_payee { "released" } else { "refunded" };
     sqlx::query(
-        "UPDATE escrows SET status = $1, updated_at = NOW() WHERE id = $2 AND status = 'disputed'",
+        "UPDATE public.escrows SET status = $1, updated_at = NOW() WHERE id = $2 AND status = 'disputed'",
     )
     .bind(new_status)
     .bind(&id)
@@ -210,7 +210,7 @@ pub async fn confirm_escrow_deposit(
         .unwrap_or_default();
 
     sqlx::query(
-        "UPDATE escrows SET on_chain_id = $1, tx_hash = $2, updated_at = NOW() WHERE id = $3",
+        "UPDATE public.escrows SET on_chain_id = $1, tx_hash = $2, updated_at = NOW() WHERE id = $3",
     )
     .bind(on_chain_id)
     .bind(tx_hash)
@@ -224,7 +224,7 @@ pub async fn confirm_escrow_deposit(
 async fn get_escrow_unscoped(state: &AppState, id: &str) -> Result<Json<EscrowRecord>, StatusCode> {
     let escrow: EscrowRecord = sqlx::query_as::<_, EscrowRecord>(
         "SELECT id, chain_id, payer, payee, amount, token_address, fee_amount, status, on_chain_id, tx_hash, dispute_reason, created_at, updated_at
-         FROM escrows WHERE id = $1",
+         FROM public.escrows WHERE id = $1",
     )
     .bind(id)
     .fetch_optional(&state.db)

@@ -5,7 +5,9 @@ use axum::{
     Json, Router,
 };
 use clap::{Parser, ValueEnum};
-use epsx_notification::{build_auth_verifier, canonical_owner, protect_router};
+use epsx_notification::{
+    build_auth_verifier, canonical_owner, protect_router, verify_schema_compatibility,
+};
 use epsx_service_auth::VerifiedPrincipal;
 use handlebars::Handlebars;
 use lettre::{
@@ -18,6 +20,7 @@ use sqlx::FromRow;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use thiserror::Error;
 use tokio::sync::RwLock;
 use tracing::info;
 use uuid::Uuid;
@@ -143,6 +146,14 @@ struct TemplateListResponse {
     total: i64,
 }
 
+#[derive(Debug, Error)]
+enum TemplateLoadError {
+    #[error("notification template query failed")]
+    Query(#[from] sqlx::Error),
+    #[error("notification template registration failed")]
+    Registration(#[from] handlebars::TemplateError),
+}
+
 #[tokio::main]
 async fn main() {
     epsx_observability::Observability::init("notification");
@@ -161,62 +172,15 @@ async fn main() {
     let db = sqlx::PgPool::connect(&args.database_url)
         .await
         .expect("Failed to connect to database");
-
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS templates (
-            id VARCHAR(66) PRIMARY KEY,
-            name VARCHAR(100) UNIQUE NOT NULL,
-            channel VARCHAR(20) NOT NULL,
-            subject TEXT,
-            body TEXT NOT NULL,
-            variables JSONB DEFAULT '{}',
-            active BOOLEAN DEFAULT true,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-        )",
-    )
-    .execute(&db)
-    .await
-    .expect("Failed to create templates table");
-
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS notifications (
-            id VARCHAR(66) PRIMARY KEY,
-            user_id VARCHAR(66),
-            channel VARCHAR(20) NOT NULL,
-            recipient VARCHAR(255) NOT NULL,
-            template_id VARCHAR(66),
-            subject TEXT,
-            body TEXT NOT NULL,
-            data JSONB,
-            status VARCHAR(20) DEFAULT 'pending',
-            error TEXT,
-            sent_at TIMESTAMPTZ,
-            created_at TIMESTAMPTZ DEFAULT NOW()
-        )",
-    )
-    .execute(&db)
-    .await
-    .expect("Failed to create notifications table");
-
-    sqlx::query(
-        "CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications (user_id, created_at DESC)",
-    )
-    .execute(&db)
-    .await
-    .expect("Failed to initialize notification user index");
-    sqlx::query("CREATE INDEX IF NOT EXISTS idx_notif_status ON notifications (status)")
-        .execute(&db)
+    verify_schema_compatibility(&db)
         .await
-        .expect("Failed to initialize notification status index");
-
-    // Seed default templates
-    seed_default_templates(&db).await;
-    seed_sample_notifications(&db).await;
+        .expect("notification schema must be compatible before startup");
 
     let mut hb = Handlebars::new();
     hb.set_strict_mode(false);
-    load_templates_to_hb(&db, &mut hb).await;
+    load_templates_to_hb(&db, &mut hb)
+        .await
+        .expect("active notification templates must load before startup");
 
     // Init SMTP
     let smtp: Option<SmtpTransport> = if !args.smtp_host.is_empty() {
@@ -236,8 +200,14 @@ async fn main() {
 
     let app = Router::new()
         .route("/health", get(health))
-        .route("/api/v1/notification/templates", get(list_templates).post(create_template))
-        .route("/api/v1/notification/templates/{id}", get(get_template).delete(delete_template))
+        .route(
+            "/api/v1/notification/templates",
+            get(list_templates).post(create_template),
+        )
+        .route(
+            "/api/v1/notification/templates/{id}",
+            get(get_template).delete(delete_template),
+        )
         .route("/api/v1/notification/send", post(send_notification))
         .route("/api/v1/notification/list", get(list_notifications))
         .route("/api/v1/notification/unread-count", get(unread_count))
@@ -245,7 +215,10 @@ async fn main() {
         .route("/api/v1/notification/clear-all", post(clear_all))
         .route("/api/v1/notification/{id}/read", post(mark_read))
         .route("/api/v1/notification/{id}/unread", post(mark_unread))
-        .route("/api/v1/notification/{id}", get(get_notification).delete(delete_notification))
+        .route(
+            "/api/v1/notification/{id}",
+            get(get_notification).delete(delete_notification),
+        )
         .with_state(AppState {
             db,
             templates: Arc::new(RwLock::new(hb)),
@@ -265,83 +238,31 @@ async fn health() -> StatusCode {
     StatusCode::OK
 }
 
-async fn seed_default_templates(db: &sqlx::PgPool) {
-    let defaults: Vec<(&str, &str, &str, &str, &str)> = vec![
-        (
-            "welcome",
-            "email",
-            "Welcome to EPSX",
-            "Hi {{user_name}}, welcome to EPSX! Get started at {{app_url}}",
-            "{}",
-        ),
-        (
-            "payment_received",
-            "email",
-            "Payment Received",
-            "Your payment of {{amount}} {{token}} has been received.",
-            "{}",
-        ),
-        (
-            "subscription_renewed",
-            "email",
-            "Subscription Renewed",
-            "Your {{plan_name}} subscription has been renewed for {{period}}.",
-            "{}",
-        ),
-        (
-            "escrow_released",
-            "email",
-            "Escrow Released",
-            "Escrow {{escrow_id}} has been released. Amount: {{amount}} {{token}}",
-            "{}",
-        ),
-        (
-            "kyc_approved",
-            "email",
-            "KYC Approved",
-            "Hi {{user_name}}, your KYC verification has been approved.",
-            "{}",
-        ),
-        (
-            "login_code",
-            "email",
-            "Your Login Code",
-            "Your EPSX login code: {{code}} (valid for 5 minutes)",
-            "{}",
-        ),
-    ];
-
-    for (name, channel, subject, body, vars) in defaults {
-        let id = format!("0x{}", Uuid::new_v4().simple());
-        sqlx::query(
-            "INSERT INTO templates (id, name, channel, subject, body, variables, active) VALUES ($1, $2, $3, $4, $5, $6, true)
-             ON CONFLICT (name) DO UPDATE SET body = EXCLUDED.body, subject = EXCLUDED.subject, updated_at = NOW()"
-        )
-        .bind(id).bind(name).bind(channel).bind(subject).bind(body).bind(vars)
-        .execute(db).await.ok();
+async fn load_templates_to_hb(
+    db: &sqlx::PgPool,
+    hb: &mut Handlebars<'static>,
+) -> Result<(), TemplateLoadError> {
+    let rows = sqlx::query_as::<_, Template>(
+        "SELECT id, name, channel, subject, body, variables, active, created_at, updated_at FROM public.templates WHERE active = true",
+    )
+    .fetch_all(db)
+    .await?;
+    for template in rows {
+        hb.register_template_string(&template.name, template.body)?;
     }
-}
-
-async fn load_templates_to_hb(db: &sqlx::PgPool, hb: &mut Handlebars<'static>) {
-    if let Ok(rows) = sqlx::query_as::<_, Template>("SELECT id, name, channel, subject, body, variables, active, created_at, updated_at FROM templates WHERE active = true")
-        .fetch_all(db).await
-    {
-        for t in rows {
-            let _ = hb.register_template_string(&t.name, t.body.clone());
-        }
-    }
+    Ok(())
 }
 
 async fn list_templates(
     State(state): State<AppState>,
 ) -> Result<Json<TemplateListResponse>, StatusCode> {
     let items: Vec<Template> = sqlx::query_as::<_, Template>(
-        "SELECT id, name, channel, subject, body, variables, active, created_at, updated_at FROM templates ORDER BY name"
+        "SELECT id, name, channel, subject, body, variables, active, created_at, updated_at FROM public.templates ORDER BY name"
     )
     .fetch_all(&state.db)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM templates")
+    let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM public.templates")
         .fetch_one(&state.db)
         .await
         .unwrap_or(0);
@@ -354,7 +275,7 @@ async fn create_template(
 ) -> Result<Json<Template>, StatusCode> {
     let id = format!("0x{}", Uuid::new_v4().simple());
     sqlx::query(
-        "INSERT INTO templates (id, name, channel, subject, body, variables, active) VALUES ($1, $2, $3, $4, $5, $6, true)
+        "INSERT INTO public.templates (id, name, channel, subject, body, variables, active) VALUES ($1, $2, $3, $4, $5, $6, true)
          ON CONFLICT (name) DO UPDATE SET body = EXCLUDED.body, subject = EXCLUDED.subject, variables = EXCLUDED.variables, updated_at = NOW()"
     )
     .bind(&id).bind(&req.name).bind(&req.channel).bind(&req.subject).bind(&req.body).bind(req.variables.clone())
@@ -368,7 +289,7 @@ async fn create_template(
         .register_template_string(&req.name, req.body.clone());
 
     let template: Template = sqlx::query_as::<_, Template>(
-        "SELECT id, name, channel, subject, body, variables, active, created_at, updated_at FROM templates WHERE id = $1"
+        "SELECT id, name, channel, subject, body, variables, active, created_at, updated_at FROM public.templates WHERE id = $1"
     )
     .bind(&id)
     .fetch_one(&state.db).await
@@ -381,7 +302,7 @@ async fn get_template(
     AxPath(id): AxPath<String>,
 ) -> Result<Json<Template>, StatusCode> {
     let template: Template = sqlx::query_as::<_, Template>(
-        "SELECT id, name, channel, subject, body, variables, active, created_at, updated_at FROM templates WHERE id = $1"
+        "SELECT id, name, channel, subject, body, variables, active, created_at, updated_at FROM public.templates WHERE id = $1"
     )
     .bind(&id)
     .fetch_optional(&state.db).await
@@ -394,7 +315,7 @@ async fn delete_template(
     State(state): State<AppState>,
     AxPath(id): AxPath<String>,
 ) -> Result<StatusCode, StatusCode> {
-    sqlx::query("DELETE FROM templates WHERE id = $1")
+    sqlx::query("DELETE FROM public.templates WHERE id = $1")
         .bind(&id)
         .execute(&state.db)
         .await
@@ -409,7 +330,7 @@ async fn send_notification(
     let id = format!("0x{}", Uuid::new_v4().simple());
     let (subject, body) = if let Some(template_id) = &req.template_id {
         let template: Option<Template> = sqlx::query_as::<_, Template>(
-            "SELECT id, name, channel, subject, body, variables, active, created_at, updated_at FROM templates WHERE id = $1 AND active = true"
+            "SELECT id, name, channel, subject, body, variables, active, created_at, updated_at FROM public.templates WHERE id = $1 AND active = true"
         )
         .bind(template_id)
         .fetch_optional(&state.db).await
@@ -460,7 +381,7 @@ async fn send_notification(
     };
 
     sqlx::query(
-        "INSERT INTO notifications (id, user_id, channel, recipient, template_id, subject, body, data, status, error, sent_at)
+        "INSERT INTO public.notifications (id, user_id, channel, recipient, template_id, subject, body, data, status, error, sent_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)"
     )
     .bind(&id)
@@ -473,7 +394,11 @@ async fn send_notification(
     .bind(req.data.clone())
     .bind(&status)
     .bind(&error)
-    .bind(if status == "sent" { Some(chrono::Utc::now().naive_utc()) } else { None })
+    .bind(if status == "sent" {
+        Some(chrono::Utc::now())
+    } else {
+        None
+    })
     .execute(&state.db).await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -585,14 +510,14 @@ async fn list_notifications(
     let items: Vec<Notification> = match status {
         Some(status) => {
             sqlx::query_as::<_, Notification>(
-                "SELECT id, user_id, channel, recipient, template_id, subject, body, data, status, error, sent_at, created_at, read_at, title, notification_type, priority, action_url FROM notifications WHERE user_id = $1 AND status = $2 ORDER BY created_at DESC LIMIT $3 OFFSET $4"
+                "SELECT id, user_id, channel, recipient, template_id, subject, body, data, status, error, sent_at, created_at, read_at, title, notification_type, priority, action_url FROM public.notifications WHERE user_id = $1 AND status = $2 ORDER BY created_at DESC LIMIT $3 OFFSET $4"
             )
             .bind(&user_id).bind(status).bind(limit).bind(offset)
             .fetch_all(&state.db).await
         }
         None => {
             sqlx::query_as::<_, Notification>(
-                "SELECT id, user_id, channel, recipient, template_id, subject, body, data, status, error, sent_at, created_at, read_at, title, notification_type, priority, action_url FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3"
+                "SELECT id, user_id, channel, recipient, template_id, subject, body, data, status, error, sent_at, created_at, read_at, title, notification_type, priority, action_url FROM public.notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3"
             )
             .bind(&user_id).bind(limit).bind(offset)
             .fetch_all(&state.db).await
@@ -600,11 +525,12 @@ async fn list_notifications(
     }
     .map_err(|e| { tracing::error!("list query failed: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
 
-    let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM notifications WHERE user_id = $1")
-        .bind(&user_id)
-        .fetch_one(&state.db)
-        .await
-        .unwrap_or(0);
+    let total: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM public.notifications WHERE user_id = $1")
+            .bind(&user_id)
+            .fetch_one(&state.db)
+            .await
+            .unwrap_or(0);
     Ok(Json(NotificationListResponse { items, total }))
 }
 
@@ -615,7 +541,7 @@ async fn get_notification(
 ) -> Result<Json<Notification>, StatusCode> {
     let owner = canonical_owner(&principal, None)?;
     let n: Notification = sqlx::query_as::<_, Notification>(
-        "SELECT id, user_id, channel, recipient, template_id, subject, body, data, status, error, sent_at, created_at, read_at, title, notification_type, priority, action_url FROM notifications WHERE id = $1 AND user_id = $2"
+        "SELECT id, user_id, channel, recipient, template_id, subject, body, data, status, error, sent_at, created_at, read_at, title, notification_type, priority, action_url FROM public.notifications WHERE id = $1 AND user_id = $2"
     )
     .bind(&id)
     .bind(&owner)
@@ -639,7 +565,7 @@ async fn mark_read(
     let owner = canonical_owner(&principal, None)?;
     let read_at = chrono::Utc::now();
     let updated: Option<(String,)> = sqlx::query_as(
-        "UPDATE notifications SET read_at = $3, status = CASE WHEN status = 'pending' THEN 'sent' ELSE status END WHERE id = $1 AND user_id = $2 RETURNING id"
+        "UPDATE public.notifications SET read_at = $3, status = CASE WHEN status = 'pending' THEN 'sent' ELSE status END WHERE id = $1 AND user_id = $2 RETURNING id"
     )
     .bind(&id)
     .bind(&owner)
@@ -659,13 +585,14 @@ async fn mark_unread(
     AxPath(id): AxPath<String>,
 ) -> Result<StatusCode, StatusCode> {
     let owner = canonical_owner(&principal, None)?;
-    let result =
-        sqlx::query("UPDATE notifications SET read_at = NULL WHERE id = $1 AND user_id = $2")
-            .bind(&id)
-            .bind(&owner)
-            .execute(&state.db)
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let result = sqlx::query(
+        "UPDATE public.notifications SET read_at = NULL WHERE id = $1 AND user_id = $2",
+    )
+    .bind(&id)
+    .bind(&owner)
+    .execute(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     if result.rows_affected() == 0 {
         Err(StatusCode::NOT_FOUND)
     } else {
@@ -690,7 +617,7 @@ async fn mark_all_read(
 ) -> Result<Json<MarkAllReadResponse>, StatusCode> {
     let owner = canonical_owner(&principal, q.user_id.as_deref())?;
     let result = sqlx::query(
-        "UPDATE notifications SET read_at = NOW() WHERE user_id = $1 AND read_at IS NULL",
+        "UPDATE public.notifications SET read_at = NOW() WHERE user_id = $1 AND read_at IS NULL",
     )
     .bind(&owner)
     .execute(&state.db)
@@ -707,7 +634,7 @@ async fn delete_notification(
     AxPath(id): AxPath<String>,
 ) -> Result<StatusCode, StatusCode> {
     let owner = canonical_owner(&principal, None)?;
-    let result = sqlx::query("DELETE FROM notifications WHERE id = $1 AND user_id = $2")
+    let result = sqlx::query("DELETE FROM public.notifications WHERE id = $1 AND user_id = $2")
         .bind(&id)
         .bind(&owner)
         .execute(&state.db)
@@ -736,7 +663,7 @@ async fn clear_all(
     axum::extract::Query(q): axum::extract::Query<ClearAllQuery>,
 ) -> Result<Json<ClearAllResponse>, StatusCode> {
     let owner = canonical_owner(&principal, q.user_id.as_deref())?;
-    let result = sqlx::query("DELETE FROM notifications WHERE user_id = $1")
+    let result = sqlx::query("DELETE FROM public.notifications WHERE user_id = $1")
         .bind(&owner)
         .execute(&state.db)
         .await
@@ -763,83 +690,11 @@ async fn unread_count(
 ) -> Result<Json<UnreadCountResponse>, StatusCode> {
     let owner = canonical_owner(&principal, q.user_id.as_deref())?;
     let count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND read_at IS NULL",
+        "SELECT COUNT(*) FROM public.notifications WHERE user_id = $1 AND read_at IS NULL",
     )
     .bind(&owner)
     .fetch_one(&state.db)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Json(UnreadCountResponse { count }))
-}
-
-async fn seed_sample_notifications(db: &sqlx::PgPool) {
-    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM notifications")
-        .fetch_one(db)
-        .await
-        .unwrap_or(0);
-    if count > 0 {
-        return;
-    }
-    let samples: Vec<(&str, &str, &str, &str, &str, &str)> = vec![
-        (
-            "demo",
-            "device_signin",
-            "New device signed in",
-            "A new device just signed in to your EPSX account from Chrome on macOS.",
-            "security",
-            "high",
-        ),
-        (
-            "demo",
-            "subscription_renewed",
-            "Subscription renewed",
-            "Your Pro plan was renewed for $29 USDT. Next billing: June 30, 2026.",
-            "payment",
-            "normal",
-        ),
-        (
-            "demo",
-            "watchlist_alert",
-            "Watchlist alert: AAPL +5%",
-            "Apple Inc. (AAPL) is up 5% in the last hour. View your watchlist for details.",
-            "analytics",
-            "normal",
-        ),
-        (
-            "demo",
-            "rank_milestone",
-            "You unlocked rank #1",
-            "Your portfolio hit a new all-time high. 28 stocks in EPS growth >15%.",
-            "analytics",
-            "high",
-        ),
-        (
-            "demo",
-            "api_quota",
-            "API quota at 80%",
-            "You've used 80% of your daily API quota. Upgrade to Pro for 10x capacity.",
-            "system",
-            "warning",
-        ),
-    ];
-    for (uid, _ntype, title, body, ntype_v, prio) in samples {
-        let id = Uuid::new_v4().to_string();
-        let _ = sqlx::query(
-            "INSERT INTO notifications (id, user_id, channel, recipient, title, body, notification_type, priority, status, data)
-             VALUES ($1, $2, 'in_app', $2, $3, $4, $5, $6, 'sent', '{}'::jsonb)"
-        )
-        .bind(&id)
-        .bind(uid)
-        .bind(title)
-        .bind(body)
-        .bind(ntype_v)
-        .bind(if prio == "warning" { "high" } else { prio })
-        .execute(db)
-        .await;
-    }
-    let _ = sqlx::query(
-        "UPDATE notifications SET read_at = NOW() WHERE user_id = 'demo' AND title IN ('Subscription renewed', 'Watchlist alert: AAPL +5%', 'You unlocked rank #1', 'API quota at 80%')"
-    )
-    .execute(db)
-    .await;
 }

@@ -48,10 +48,10 @@ bun -e '
   const report = JSON.parse(readFileSync(process.argv[1], "utf8"));
   const expected = {
     trackedRustFiles: 1124,
-    findings: 28,
+    findings: 9,
     reviewedExceptions: 6,
-    actionable: 22,
-    sha256: "eb754053bb0c2b7ff05babcb695c00eb0ca86653b4bd9199e183b4f2a69ee1c4",
+    actionable: 3,
+    sha256: "b1a76db8d3cc8e21cb10fa56b76375ae87caa7411c91661ccdcedaeaee8db55f",
   };
   if (JSON.stringify(report.scanner) !== JSON.stringify(expected)) process.exit(1);
 ' "$TEST_DIR/report-1.json" || {
@@ -99,6 +99,16 @@ bun -e '
 ' "$TEST_DIR/group-count.json"
 expect_failure group-count bun "$VERIFY" --contract "$TEST_DIR/group-count.json"
 
+cp "$CONTRACT" "$TEST_DIR/missing-finding.json"
+bun -e '
+  import { readFileSync, writeFileSync } from "node:fs";
+  const path = process.argv[1];
+  const value = JSON.parse(readFileSync(path, "utf8"));
+  value.findings.pop();
+  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
+' "$TEST_DIR/missing-finding.json"
+expect_failure missing-finding bun "$VERIFY" --contract "$TEST_DIR/missing-finding.json"
+
 cp "$UPSTREAM" "$TEST_DIR/migration-safety-tampered.json"
 bun -e '
   import { appendFileSync } from "node:fs";
@@ -109,4 +119,4 @@ expect_failure upstream-checksum bun "$VERIFY" --upstream "$TEST_DIR/migration-s
 ln -s "$CONTRACT" "$TEST_DIR/contract-link.json"
 expect_failure symlink-contract bun "$VERIFY" --contract "$TEST_DIR/contract-link.json"
 
-echo "a3-3-runtime-ddl-triage-self-test: PASS — exact 28/6/22 scanner inventory, deterministic report, readiness STOP, and 6 fail-closed tamper/path cases"
+echo "a3-3-runtime-ddl-triage-self-test: PASS — exact 9/6/3 scanner inventory, zero service-startup mutations, deterministic report, readiness STOP, and 7 fail-closed tamper/path cases"

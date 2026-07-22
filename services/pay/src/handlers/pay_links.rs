@@ -37,7 +37,7 @@ pub async fn create_pay_link(
 ) -> Result<Json<PayLinkResponse>, StatusCode> {
     // Verify the intent exists.
     let intent: PayIntent = sqlx::query_as::<_, PayIntent>(
-        "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at FROM pay_intents WHERE id = $1"
+        "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at FROM public.pay_intents WHERE id = $1"
     )
     .bind(&req.intent_id)
     .fetch_optional(&state.db)
@@ -65,7 +65,7 @@ pub async fn create_pay_link(
     let max_uses = req.max_uses.unwrap_or(1);
 
     sqlx::query(
-        "INSERT INTO pay_links (id, slug, intent_id, max_uses, current_uses, expires_at, created_at)
+        "INSERT INTO public.pay_links (id, slug, intent_id, max_uses, current_uses, expires_at, created_at)
          VALUES ($1, $2, $3, $4, 0, $5, $6)"
     )
     .bind(&id)
@@ -105,7 +105,7 @@ pub async fn get_pay_link(
     AxPath(slug): AxPath<String>,
 ) -> Result<Json<PayLinkResponse>, StatusCode> {
     let link: PayLink = sqlx::query_as::<_, PayLink>(
-        "SELECT id, slug, intent_id, max_uses, current_uses, expires_at, created_at FROM pay_links WHERE slug = $1"
+        "SELECT id, slug, intent_id, max_uses, current_uses, expires_at, created_at FROM public.pay_links WHERE slug = $1"
     )
     .bind(&slug)
     .fetch_optional(&state.db)
@@ -140,7 +140,7 @@ pub async fn redeem_pay_link(
     // roundtrip — no race window.
     let updated: Option<(String, i32, i32, Option<chrono::DateTime<chrono::Utc>>)> =
         sqlx::query_as(
-            "UPDATE pay_links
+            "UPDATE public.pay_links
             SET current_uses = current_uses + 1
           WHERE slug = $1
             AND (max_uses IS NULL OR max_uses = 0 OR current_uses < max_uses)
@@ -157,7 +157,7 @@ pub async fn redeem_pay_link(
     // Fetch the resolved intent so the BFF can render the
     // checkout without a second round-trip.
     let intent: PayIntent = sqlx::query_as::<_, PayIntent>(
-        "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at FROM pay_intents WHERE id = $1"
+        "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at FROM public.pay_intents WHERE id = $1"
     )
     .bind(&intent_id)
     .fetch_one(&state.db)

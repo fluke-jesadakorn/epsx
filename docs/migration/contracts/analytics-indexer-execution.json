@@ -175,10 +175,10 @@
       "anchor": ".route(\"/api/v1/analytics/track\", post(track_event))"
     },
     {
-      "id": "tgt-event-runtime-ddl",
+      "id": "tgt-event-schema-boundary",
       "domain": "eventAnalytics",
-      "file": "services/analytics/src/lib.rs",
-      "anchor": "CREATE TABLE IF NOT EXISTS events ("
+      "file": "docs/migration/contracts/a3-6-analytics-schema-boundary.json",
+      "anchor": "\"scannerFindingAfter\": 0"
     },
     {
       "id": "tgt-event-attribution-null",
@@ -217,16 +217,16 @@
       "anchor": "default_value = \"postgres://epsx:epsx@localhost:5432/epsx_indexer\""
     },
     {
-      "id": "tgt-indexer-runtime-ddl",
+      "id": "tgt-indexer-schema-boundary",
       "domain": "indexer",
-      "file": "services/indexer/src/main.rs",
-      "anchor": "CREATE TABLE IF NOT EXISTS blocks ("
+      "file": "docs/migration/contracts/a3-12-indexer-schema-boundary.json",
+      "anchor": "\"scannerFindingAfter\": 0"
     },
     {
-      "id": "tgt-indexer-cross-chain-tx-key",
+      "id": "tgt-indexer-chain-scoped-tx-key",
       "domain": "indexer",
-      "file": "services/indexer/src/main.rs",
-      "anchor": "hash VARCHAR(66) PRIMARY KEY,"
+      "file": "services/indexer/migrations/20260722050000_create_indexer_projection_tables.sql",
+      "anchor": "PRIMARY KEY (chain_id, hash)"
     },
     {
       "id": "tgt-indexer-public-routes",
@@ -238,25 +238,25 @@
       "id": "tgt-indexer-post-sync",
       "domain": "indexer",
       "file": "services/indexer/src/main.rs",
-      "anchor": ".route(\"/api/v1/indexer/sync\", post(trigger_sync))"
+      "anchor": ".route(\"/api/v1/indexer/sync\", post(sync_unavailable))"
     },
     {
-      "id": "tgt-indexer-memory-checkpoint",
+      "id": "tgt-indexer-inert-state",
       "domain": "indexer",
       "file": "services/indexer/src/main.rs",
-      "anchor": "let last_block = Arc::new(RwLock::new(0u64));"
+      "anchor": "let state = AppState { db };"
     },
     {
-      "id": "tgt-indexer-placeholder-block",
+      "id": "tgt-indexer-fake-sync-absent",
       "domain": "indexer",
-      "file": "services/indexer/src/main.rs",
-      "anchor": ".bind(format!(\"0x{:064x}\", number))"
+      "file": "docs/migration/A3_12_INDEXER_SCHEMA_BOUNDARY.md",
+      "anchor": "The package also removes the default-on autonomous provider/sync worker and every fabricated block"
     },
     {
-      "id": "tgt-indexer-no-reorg-update",
+      "id": "tgt-indexer-no-reorg-model",
       "domain": "indexer",
-      "file": "services/indexer/src/main.rs",
-      "anchor": "ON CONFLICT (chain_id, number) DO NOTHING"
+      "file": "docs/migration/A3_12_INDEXER_SCHEMA_BOUNDARY.md",
+      "anchor": "This projection schema does not pretend to be a fork store."
     },
     {
       "id": "tgt-indexer-shallow-health",
@@ -386,7 +386,7 @@
       "id": "event-track",
       "domain": "eventAnalytics",
       "sourceContract": "authenticated event ingestion with canonical attribution and explicit delivery result",
-      "targetObserved": "service verifies a bearer but persists NULL subject; frontend reports ok even when upstream fails",
+      "targetObserved": "service verifies a bearer and validates an exact read-only schema boundary, but persists NULL subject; frontend reports ok even when upstream fails",
       "status": "blocked",
       "blockerIds": ["B10", "B11", "B12", "B14", "B22", "B23"]
     },
@@ -394,7 +394,7 @@
       "id": "event-reads",
       "domain": "eventAnalytics",
       "sourceContract": "admin-only events and metric reads with bounded filters and stable envelopes",
-      "targetObserved": "direct auth exists; list is fixed latest 100 and metric taxonomy is any path segment",
+      "targetObserved": "direct auth and a static schema boundary exist; list is fixed latest 100 and metric taxonomy is any path segment",
       "status": "blocked",
       "blockerIds": ["B01", "B02", "B10", "B12", "B14", "B22", "B23"]
     },
@@ -418,7 +418,7 @@
       "id": "indexer-status",
       "domain": "indexer",
       "sourceContract": "new domain: canonical head, durable indexed head, finality, lag and degraded reason",
-      "targetObserved": "direct boundary returns 404 before status; the disabled handler still mixes DB MAX with provider fallback and calls lag under 100 healthy",
+      "targetObserved": "direct boundary returns 404 before status; the inert handler can report only durable MAX with a degraded reason and has no canonical head, finality, or checkpoint worker",
       "status": "blocked",
       "blockerIds": ["B15", "B16", "B18", "B19", "B22", "B23"]
     },
@@ -426,7 +426,7 @@
       "id": "indexer-block-transaction",
       "domain": "indexer",
       "sourceContract": "new domain: canonical block/transaction records keyed by chain with finality/reorg state",
-      "targetObserved": "direct boundary returns 404 before reads/sync; the disabled sync handler still inserts number-derived placeholder hashes and no transactions",
+      "targetObserved": "direct boundary returns 404 before reads; startup fake sync is removed and the chain-scoped projection schema exists, but no canonical ingestion worker persists blocks, receipts, logs, or transactions",
       "status": "blocked",
       "blockerIds": ["B15", "B16", "B17", "B18", "B19", "B20"]
     },
@@ -434,7 +434,7 @@
       "id": "indexer-transfers",
       "domain": "indexer",
       "sourceContract": "new domain: decoded, checksummed/token-normalized logs with cursor pagination",
-      "targetObserved": "direct boundary returns 404 before the read; ingestion still never decodes or inserts transfer logs",
+      "targetObserved": "direct boundary returns 404 before the read; no ingestion worker decodes or inserts transfer logs",
       "status": "blocked",
       "blockerIds": ["B15", "B16", "B17", "B19", "B20"]
     },
@@ -442,7 +442,7 @@
       "id": "indexer-sync",
       "domain": "indexer",
       "sourceContract": "internal/admin bounded backfill command with idempotent lease, progress and cancellation",
-      "targetObserved": "direct service narrows to POST, verifies admin:indexer:manage, then returns 404; the disabled handler still drives a maximum 101-block loop from an in-memory checkpoint",
+      "targetObserved": "direct service narrows to POST, verifies admin:indexer:manage, then returns 404; the fake loop and memory cursor are removed, leaving no bounded backfill worker or durable checkpoint lease",
       "status": "blocked",
       "blockerIds": ["B15", "B16", "B18", "B19", "B20", "B22"]
     },
@@ -566,9 +566,9 @@
       "category": "event-schema",
       "severity": "stop",
       "status": "blocked",
-      "summary": "Event analytics creates its table at runtime and has no reviewed additive migration lineage.",
-      "resolution": "Create guarded additive migrations, constraints, indexes and rollback-forward procedures; remove runtime DDL.",
-      "evidenceIds": ["src-analytics-schema", "tgt-event-runtime-ddl"]
+      "summary": "Event analytics has a guarded additive migration and read-only startup compatibility probe, but no reviewed runner/version ledger, populated-baseline adoption, source upgrade, or live database proof.",
+      "resolution": "Wire a reviewed runner and immutable ledger, prove populated baseline adoption and source-version upgrades, and add required event constraints/indexes through later additive migrations.",
+      "evidenceIds": ["src-analytics-schema", "tgt-event-schema-boundary"]
     },
     {
       "id": "B11",
@@ -586,7 +586,7 @@
       "status": "blocked",
       "summary": "Event names, property schemas, producer idempotency, time semantics and aggregation definitions are open-ended.",
       "resolution": "Version an allowlisted event catalog with schemas, event IDs, occurred/received timestamps, producer identity and deduplication.",
-      "evidenceIds": ["tgt-event-routes", "tgt-event-runtime-ddl", "tgt-frontend-track-swallow"]
+      "evidenceIds": ["tgt-event-routes", "tgt-event-schema-boundary", "tgt-frontend-track-swallow"]
     },
     {
       "id": "B13",
@@ -604,7 +604,7 @@
       "status": "blocked",
       "summary": "Analytics property privacy classification, redaction, retention, deletion and export policies are not enforced.",
       "resolution": "Classify fields, reject secrets/PII, bound payloads, document retention and implement subject deletion/export audit flows.",
-      "evidenceIds": ["tgt-event-runtime-ddl", "tgt-event-attribution-null"]
+      "evidenceIds": ["tgt-event-schema-boundary", "tgt-event-attribution-null"]
     },
     {
       "id": "B15",
@@ -620,27 +620,27 @@
       "category": "indexer-schema",
       "severity": "stop",
       "status": "blocked",
-      "summary": "Indexer state uses runtime DDL and an unsafe cross-chain transaction primary key.",
-      "resolution": "Create additive migrations with chain-scoped keys, block/log constraints, canonical/finalized flags and query indexes.",
-      "evidenceIds": ["tgt-indexer-runtime-ddl", "tgt-indexer-cross-chain-tx-key"]
+      "summary": "Indexer runtime DDL is removed and its additive projection schema uses a chain-scoped transaction key, but no reviewed runner/adoption proof or receipt, raw-log, canonical, finalized, fork, and repair schema exists.",
+      "resolution": "Wire the migration ledger and populated adoption path, then add receipt/raw-log, canonical/finalized, fork, repair-journal, checkpoint, and query structures through reviewed additive migrations.",
+      "evidenceIds": ["tgt-indexer-schema-boundary", "tgt-indexer-chain-scoped-tx-key"]
     },
     {
       "id": "B17",
       "category": "indexer-ingestion",
       "severity": "stop",
       "status": "blocked",
-      "summary": "The indexer writes fabricated block fields and does not ingest transactions, receipts or decoded logs.",
+      "summary": "The fabricated startup sync is removed, leaving no canonical ingestion of blocks, transactions, receipts, raw logs, or decoded logs.",
       "resolution": "Fetch canonical RPC objects, validate chain IDs and hashes, atomically persist blocks/transactions/receipts/logs and decode supported events.",
-      "evidenceIds": ["tgt-indexer-placeholder-block", "tgt-indexer-public-routes"]
+      "evidenceIds": ["tgt-indexer-fake-sync-absent", "tgt-indexer-public-routes"]
     },
     {
       "id": "B18",
       "category": "indexer-checkpoint",
       "severity": "stop",
       "status": "blocked",
-      "summary": "The sync cursor is process memory and resets on restart independently of durable database state.",
+      "summary": "The in-memory cursor is removed with fake sync, but no durable per-chain checkpoint, lease, or atomic advancement exists.",
       "resolution": "Use a leased durable per-chain checkpoint advanced in the same transaction as canonical block ingestion.",
-      "evidenceIds": ["tgt-indexer-memory-checkpoint", "tgt-indexer-runtime-ddl"]
+      "evidenceIds": ["tgt-indexer-inert-state", "tgt-indexer-schema-boundary"]
     },
     {
       "id": "B19",
@@ -649,7 +649,7 @@
       "status": "blocked",
       "summary": "There is no parent-hash continuity, reorg rollback/replay or chain-specific finality state machine.",
       "resolution": "Track canonical ancestry and finalized head, detect divergence, orphan/replay affected records and test multi-block reorgs.",
-      "evidenceIds": ["tgt-indexer-no-reorg-update", "tgt-indexer-placeholder-block"]
+      "evidenceIds": ["tgt-indexer-no-reorg-model", "tgt-indexer-fake-sync-absent"]
     },
     {
       "id": "B20",
@@ -658,7 +658,7 @@
       "status": "blocked",
       "summary": "Backfill range, concurrency, retries, provider quotas, cancellation, progress and resume semantics are undefined.",
       "resolution": "Implement bounded resumable jobs with leases, adaptive rate limiting, poison-record handling and immutable progress audit.",
-      "evidenceIds": ["tgt-indexer-post-sync", "tgt-indexer-memory-checkpoint"]
+      "evidenceIds": ["tgt-indexer-post-sync", "tgt-indexer-inert-state"]
     },
     {
       "id": "B21",
@@ -667,7 +667,7 @@
       "status": "blocked",
       "summary": "No reconciliation proves market results, event aggregates, indexed chain state and ranking entitlements against their distinct authorities.",
       "resolution": "Create domain-specific checksums/counts/sample comparisons and repair workflows; never join the four authorities into one write model.",
-      "evidenceIds": ["src-live-market-query", "src-admin-revenue-authority", "tgt-identity-free-stub", "tgt-indexer-placeholder-block"]
+      "evidenceIds": ["src-live-market-query", "src-admin-revenue-authority", "tgt-identity-free-stub", "tgt-indexer-fake-sync-absent"]
     },
     {
       "id": "B22",
@@ -694,7 +694,7 @@
       "status": "blocked",
       "summary": "There is no measured shadow, backfill, parity, cutover or rollback procedure for any of the four domains.",
       "resolution": "Run domain-by-domain shadow reads/ingestion, compare bounded metrics, freeze writers where required and retain a tested rollback checkpoint.",
-      "evidenceIds": ["src-auth-ranking-route", "src-analytics-schema", "tgt-market-route-shape", "tgt-event-routes", "tgt-indexer-memory-checkpoint"]
+      "evidenceIds": ["src-auth-ranking-route", "src-analytics-schema", "tgt-market-route-shape", "tgt-event-routes", "tgt-indexer-inert-state"]
     }
   ],
   "ownershipRules": [
@@ -880,8 +880,8 @@
     },
     {
       "id": "N04",
-      "reason": "Event analytics still initializes schema at runtime.",
-      "evidenceIds": ["tgt-event-runtime-ddl"]
+      "reason": "Event analytics has a static schema boundary but no reviewed runner, populated-baseline adoption, source upgrade, or live database proof.",
+      "evidenceIds": ["tgt-event-schema-boundary"]
     },
     {
       "id": "N05",
@@ -895,18 +895,18 @@
     },
     {
       "id": "N07",
-      "reason": "Indexer initializes schema at runtime with an unsafe transaction key.",
-      "evidenceIds": ["tgt-indexer-runtime-ddl", "tgt-indexer-cross-chain-tx-key"]
+      "reason": "Indexer has a chain-scoped additive projection schema but no runner/adoption proof or complete canonical-chain state model.",
+      "evidenceIds": ["tgt-indexer-schema-boundary", "tgt-indexer-chain-scoped-tx-key"]
     },
     {
       "id": "N08",
-      "reason": "Indexer persists number-derived placeholder block fields.",
-      "evidenceIds": ["tgt-indexer-placeholder-block"]
+      "reason": "Indexer fake sync is removed, leaving no canonical ingestion worker.",
+      "evidenceIds": ["tgt-indexer-fake-sync-absent"]
     },
     {
       "id": "N09",
-      "reason": "Indexer checkpoint and sync authorization are not durable/service-local.",
-      "evidenceIds": ["tgt-indexer-memory-checkpoint", "tgt-indexer-post-sync"]
+      "reason": "Indexer sync is service-local and fail-closed, but no durable checkpoint, lease, or bounded worker exists.",
+      "evidenceIds": ["tgt-indexer-inert-state", "tgt-indexer-post-sync"]
     },
     {
       "id": "N10",
@@ -925,10 +925,10 @@
     }
   ],
   "durableStateDependencies": [
-    "additive event analytics migrations and schema-version ledger",
+    "reviewed event analytics migration runner, schema-version ledger and populated-baseline adoption",
     "event producer idempotency and versioned schema catalog",
     "wallet-compatible analytics subject attribution and retention controls",
-    "chain-scoped blocks transactions receipts and logs migrations",
+    "reviewed chain-scoped blocks transactions receipts and logs migrations plus populated-baseline adoption",
     "durable per-chain indexer checkpoint and lease",
     "canonical/finalized/reorg state with repair journal",
     "bounded backfill jobs with progress and cancellation",
@@ -950,7 +950,7 @@
     "Freeze the four domain boundaries, names, authorities and compatibility routes.",
     "Define typed route, status, envelope, freshness and error contracts from the pinned source.",
     "Implement direct-service authentication and canonical ownership before exposing any non-health route.",
-    "Replace runtime DDL with additive durable migrations and constraints.",
+    "Wire reviewed runners, version ledgers and populated-baseline adoption for the additive analytics and indexer schema boundaries; extend them through later migrations.",
     "Make identity ranking offsets authoritative and its change stream durable and authenticated.",
     "Implement real canonical index ingestion, checkpoints, finality and reorg repair.",
     "Build bounded leased backfill with progress, pause, cancel, retry and resume semantics.",

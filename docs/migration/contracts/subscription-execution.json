@@ -13,6 +13,35 @@
     "mutatesRuntime": false,
     "readinessMeaning": "Exit 3 is a truthful stop: integrity is proven, production subscription readiness is not."
   },
+  "a3_7SchemaBoundary": {
+    "status": "static-partial-only",
+    "contract": "docs/migration/contracts/a3-7-subscription-schema-boundary.json",
+    "contractId": "A3.7-subscription-schema-boundary",
+    "runtimeDdlFindings": {
+      "before": 2,
+      "after": 0
+    },
+    "migration": {
+      "path": "services/subscription/migrations/20260722010000_create_subscription_tables.sql",
+      "bytes": 844,
+      "sha256": "20f38597d2d64bad3589036c2fe20aab2be89e5d240c540d401b46713c701349",
+      "additiveOnly": true
+    },
+    "compatibilityProbe": {
+      "kind": "read-only-startup-schema-compatibility",
+      "constant": "SUBSCRIPTION_SCHEMA_COMPATIBILITY_QUERY",
+      "function": "verify_schema_compatibility"
+    },
+    "executionProof": {
+      "runner": false,
+      "versionLedger": false,
+      "baselineAdoption": false,
+      "populatedUpgrade": false,
+      "reconciliation": false,
+      "concurrentStartup": false,
+      "liveDatabase": false
+    }
+  },
   "source": {
     "ref": "origin/development",
     "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
@@ -129,14 +158,14 @@
   },
   "targetEvidence": [
     {
-      "id": "tgt-runtime-plan-ddl",
-      "file": "services/subscription/src/main.rs",
-      "anchor": "CREATE TABLE IF NOT EXISTS subscription_plans ("
+      "id": "tgt-a3-7-additive-migration",
+      "file": "services/subscription/migrations/20260722010000_create_subscription_tables.sql",
+      "anchor": "CREATE TABLE IF NOT EXISTS public.subscription_plans ("
     },
     {
-      "id": "tgt-runtime-subscription-ddl",
+      "id": "tgt-a3-7-read-only-probe",
       "file": "services/subscription/src/main.rs",
-      "anchor": "CREATE TABLE IF NOT EXISTS subscriptions ("
+      "anchor": "verify_schema_compatibility(&db)"
     },
     {
       "id": "tgt-caller-owner-fields",
@@ -145,18 +174,18 @@
     },
     {
       "id": "tgt-active-on-create",
-      "file": "services/subscription/src/main.rs",
+      "file": "services/subscription/migrations/20260722010000_create_subscription_tables.sql",
       "anchor": "status VARCHAR(20) DEFAULT 'active',"
     },
     {
       "id": "tgt-unscoped-list",
       "file": "services/subscription/src/main.rs",
-      "anchor": "SELECT * FROM subscriptions ORDER BY created_at DESC"
+      "anchor": "SELECT * FROM public.subscriptions ORDER BY created_at DESC"
     },
     {
       "id": "tgt-unscoped-cancel",
       "file": "services/subscription/src/main.rs",
-      "anchor": "UPDATE subscriptions SET status = 'cancelled' WHERE id = $1 RETURNING *"
+      "anchor": "UPDATE public.subscriptions SET status = 'cancelled' WHERE id = $1 RETURNING *"
     },
     {
       "id": "tgt-zero-vault",
@@ -241,7 +270,7 @@
     {
       "id": "tgt-pay-intent-route",
       "file": "services/pay/src/main.rs",
-      "anchor": ".route(\"/api/v1/pay/intents/{id}/confirm\", post(handlers::intents::confirm_pay_intent))"
+      "anchor": "\"/api/v1/pay/intents/{id}/confirm\""
     },
     {
       "id": "tgt-pay-bff-create",
@@ -250,8 +279,8 @@
     },
     {
       "id": "tgt-identity-no-entitlement-route",
-      "file": "services/identity/src/main.rs",
-      "anchor": "CREATE TABLE IF NOT EXISTS users ("
+      "file": "docs/migration/contracts/a3-8-identity-lifecycle-schema.json",
+      "anchor": "No roles, permissions, plans, tiers, subscriptions, or frontend authorization decisions are introduced by this package."
     }
   ],
   "routeContracts": [
@@ -713,7 +742,7 @@
       "status": "blocked",
       "summary": "The backend, subscription service, content/static UI, and canned BFF can each describe different plans.",
       "resolution": "Keep plan/permission/ranking business authority in Rust backend and make every other store a versioned projection.",
-      "evidenceIds": ["src-public-plan-client", "tgt-runtime-plan-ddl", "tgt-frontend-canned-plans", "tgt-admin-ui-sample-plans"]
+      "evidenceIds": ["src-public-plan-client", "tgt-a3-7-additive-migration", "tgt-frontend-canned-plans", "tgt-admin-ui-sample-plans"]
     },
     {
       "id": "B08",
@@ -740,7 +769,7 @@
       "status": "blocked",
       "summary": "There is no proven renewal, grace, expiry, revoke, or scheduler lifecycle.",
       "resolution": "Preserve manual repayment semantics, calculate periods deterministically, and add a leased idempotent expiry/revoke worker.",
-      "evidenceIds": ["src-manual-renewal", "tgt-runtime-subscription-ddl"]
+      "evidenceIds": ["src-manual-renewal", "tgt-a3-7-additive-migration"]
     },
     {
       "id": "B11",
@@ -749,7 +778,7 @@
       "status": "blocked",
       "summary": "Neither the target nor the source UNIQUE(wallet,plan) proves at most one effective subscription plan under concurrency.",
       "resolution": "Define category overlap policy, add partial/exclusion constraints, and prove concurrent create/switch behavior.",
-      "evidenceIds": ["src-subscription-schema", "src-non-atomic-switch", "tgt-runtime-subscription-ddl"]
+      "evidenceIds": ["src-subscription-schema", "src-non-atomic-switch", "tgt-a3-7-additive-migration"]
     },
     {
       "id": "B12",
@@ -774,9 +803,9 @@
       "category": "schema-migration",
       "severity": "stop",
       "status": "blocked",
-      "summary": "Subscription schema is created at service startup with no reviewed migrations, backfill, constraints, or reconciliation.",
-      "resolution": "Use additive migration files, inventory/backfill existing records, quarantine ambiguity, then validate constraints.",
-      "evidenceIds": ["tgt-runtime-plan-ddl", "tgt-runtime-subscription-ddl", "src-subscription-schema"]
+      "summary": "A3.7 removed startup DDL into an additive candidate migration, but no runner, version ledger, baseline adoption, populated upgrade, lifecycle constraints, or reconciliation is proven.",
+      "resolution": "Add the reviewed runner and ledger, inventory/backfill existing records, quarantine ambiguity, then validate lifecycle constraints and reconciliation.",
+      "evidenceIds": ["tgt-a3-7-additive-migration", "tgt-a3-7-read-only-probe", "src-subscription-schema"]
     },
     {
       "id": "B15",
@@ -794,7 +823,7 @@
       "status": "blocked",
       "summary": "Cross-service payment/subscription/entitlement effects have no proven outbox, inbox, retry, dead-letter, or reconciliation path.",
       "resolution": "Commit lifecycle+outbox locally, consume idempotently, expose lag/failure metrics, and ship deterministic reconciliation.",
-      "evidenceIds": ["src-monitor-cross-store", "tgt-pay-intent-route", "tgt-runtime-subscription-ddl"]
+      "evidenceIds": ["src-monitor-cross-store", "tgt-pay-intent-route", "tgt-a3-7-additive-migration"]
     },
     {
       "id": "B17",
@@ -830,7 +859,7 @@
       "status": "blocked",
       "summary": "No subscription shadow-traffic, deploy, SLO, cutover, or rollback evidence exists.",
       "resolution": "Deploy behind routing flags, shadow compare, canary mutations, define stop triggers, and retain source authority until acceptance is met.",
-      "evidenceIds": ["tgt-gateway-subscription-mount", "tgt-runtime-subscription-ddl", "src-owner-plan-read"]
+      "evidenceIds": ["tgt-gateway-subscription-mount", "tgt-a3-7-read-only-probe", "src-owner-plan-read"]
     }
   ],
   "requiredExecutionOrder": [

@@ -43,7 +43,7 @@ pub async fn get_pay_history(
     let intents: Vec<PayIntent> = if let Some(status) = status_filter.as_deref() {
         sqlx::query_as::<_, PayIntent>(
             "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at
-             FROM pay_intents
+             FROM public.pay_intents
              WHERE (payer = $1 OR payee = $1) AND status = $2
              ORDER BY created_at DESC LIMIT $3 OFFSET $4",
         )
@@ -56,7 +56,7 @@ pub async fn get_pay_history(
     } else {
         sqlx::query_as::<_, PayIntent>(
             "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at
-             FROM pay_intents
+             FROM public.pay_intents
              WHERE payer = $1 OR payee = $1
              ORDER BY created_at DESC LIMIT $2 OFFSET $3",
         )
@@ -75,7 +75,7 @@ pub async fn get_pay_history(
     let escrows: Vec<EscrowRecord> = if let Some(status) = status_filter.as_deref() {
         sqlx::query_as::<_, EscrowRecord>(
             "SELECT id, chain_id, payer, payee, amount, token_address, fee_amount, status, on_chain_id, tx_hash, dispute_reason, created_at, updated_at
-             FROM escrows
+             FROM public.escrows
              WHERE (payer = $1 OR payee = $1) AND status = $2
              ORDER BY created_at DESC LIMIT $3 OFFSET $4",
         )
@@ -88,7 +88,7 @@ pub async fn get_pay_history(
     } else {
         sqlx::query_as::<_, EscrowRecord>(
             "SELECT id, chain_id, payer, payee, amount, token_address, fee_amount, status, on_chain_id, tx_hash, dispute_reason, created_at, updated_at
-             FROM escrows
+             FROM public.escrows
              WHERE payer = $1 OR payee = $1
              ORDER BY created_at DESC LIMIT $2 OFFSET $3",
         )
@@ -105,7 +105,7 @@ pub async fn get_pay_history(
 
     let total_intents: i64 = if let Some(status) = status_filter.as_deref() {
         sqlx::query_scalar(
-            "SELECT COUNT(*) FROM pay_intents
+            "SELECT COUNT(*) FROM public.pay_intents
              WHERE (payer = $1 OR payee = $1) AND status = $2",
         )
         .bind(&addr)
@@ -113,7 +113,7 @@ pub async fn get_pay_history(
         .fetch_one(&state.db)
         .await
     } else {
-        sqlx::query_scalar("SELECT COUNT(*) FROM pay_intents WHERE payer = $1 OR payee = $1")
+        sqlx::query_scalar("SELECT COUNT(*) FROM public.pay_intents WHERE payer = $1 OR payee = $1")
             .bind(&addr)
             .fetch_one(&state.db)
             .await
@@ -122,7 +122,7 @@ pub async fn get_pay_history(
 
     let total_escrows: i64 = if let Some(status) = status_filter.as_deref() {
         sqlx::query_scalar(
-            "SELECT COUNT(*) FROM escrows
+            "SELECT COUNT(*) FROM public.escrows
              WHERE (payer = $1 OR payee = $1) AND status = $2",
         )
         .bind(&addr)
@@ -130,7 +130,7 @@ pub async fn get_pay_history(
         .fetch_one(&state.db)
         .await
     } else {
-        sqlx::query_scalar("SELECT COUNT(*) FROM escrows WHERE payer = $1 OR payee = $1")
+        sqlx::query_scalar("SELECT COUNT(*) FROM public.escrows WHERE payer = $1 OR payee = $1")
             .bind(&addr)
             .fetch_one(&state.db)
             .await

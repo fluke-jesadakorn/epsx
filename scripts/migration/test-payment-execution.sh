@@ -26,7 +26,7 @@ grep -q "17 stop blockers remain" "$temp_dir/readiness.out"
 "$verify" --mode report >"$temp_dir/report-one.json"
 "$verify" --mode report >"$temp_dir/report-two.json"
 cmp "$temp_dir/report-one.json" "$temp_dir/report-two.json"
-bun -e 'const report = JSON.parse(await Bun.file(process.argv[1]).text()); if (report.readinessExit !== 3 || report.productionReady !== false || report.blockers.length !== 17) process.exit(1);' "$temp_dir/report-one.json"
+bun -e 'const report = JSON.parse(await Bun.file(process.argv[1]).text()); if (report.readinessExit !== 3 || report.productionReady !== false || report.blockers.length !== 17) process.exit(1); if (report.schemaBoundaryEvidence.join(",") !== "tgt-pay-schema-boundary,tgt-subscription-schema-boundary") process.exit(1);' "$temp_dir/report-one.json"
 
 PAYMENT_CONTRACT_IN="$contract" PAYMENT_CONTRACT_OUT="$temp_dir/missing-anchor.json" bun -e '
 const contract = await Bun.file(process.env.PAYMENT_CONTRACT_IN).json();
@@ -76,4 +76,23 @@ if [ "$traversal_status" -ne 1 ]; then
 fi
 grep -q "unsafe evidence path" "$temp_dir/traversal.out"
 
-echo "payment-execution self-test: PASS (integrity=0, readiness-stop=3, deterministic=stable, anchor/stale/traversal tamper=1)"
+PAYMENT_CONTRACT_IN="$contract" PAYMENT_CONTRACT_OUT="$temp_dir/stale-pay-ddl.json" bun -e '
+const contract = await Bun.file(process.env.PAYMENT_CONTRACT_IN).json();
+const item = contract.targetEvidence.find((entry) => entry.id === "tgt-pay-schema-boundary");
+item.id = "tgt-pay-runtime-ddl";
+for (const blocker of contract.blockers) blocker.evidenceIds = blocker.evidenceIds.map((id) => id === "tgt-pay-schema-boundary" ? "tgt-pay-runtime-ddl" : id);
+for (const surface of contract.nonProductionSurfaces) surface.evidenceIds = surface.evidenceIds.map((id) => id === "tgt-pay-schema-boundary" ? "tgt-pay-runtime-ddl" : id);
+await Bun.write(process.env.PAYMENT_CONTRACT_OUT, `${JSON.stringify(contract, null, 2)}\n`);
+'
+set +e
+"$verify" --mode integrity --contract "$temp_dir/stale-pay-ddl.json" >"$temp_dir/stale-pay-ddl.out" 2>&1
+stale_pay_ddl_status=$?
+set -e
+if [ "$stale_pay_ddl_status" -ne 1 ]; then
+  cat "$temp_dir/stale-pay-ddl.out" >&2
+  echo "payment-execution self-test: expected stale-pay-DDL exit 1, got $stale_pay_ddl_status" >&2
+  exit 1
+fi
+grep -q "stale runtime-DDL evidence returned" "$temp_dir/stale-pay-ddl.out"
+
+echo "payment-execution self-test: PASS (integrity=0, readiness-stop=3, deterministic=stable, anchor/stale/traversal/schema-boundary tamper=1)"

@@ -150,6 +150,24 @@ for (const item of contract.targetEvidence) {
 }
 for (const [domain, count] of Object.entries(targetDomainCounts)) if (count < 3) fail(`${domain}: insufficient target evidence (${count})`);
 
+const refreshedBoundaryEvidence = {
+  "tgt-event-schema-boundary": ["eventAnalytics", "docs/migration/contracts/a3-6-analytics-schema-boundary.json", "\"scannerFindingAfter\": 0"],
+  "tgt-indexer-schema-boundary": ["indexer", "docs/migration/contracts/a3-12-indexer-schema-boundary.json", "\"scannerFindingAfter\": 0"],
+  "tgt-indexer-chain-scoped-tx-key": ["indexer", "services/indexer/migrations/20260722050000_create_indexer_projection_tables.sql", "PRIMARY KEY (chain_id, hash)"],
+  "tgt-indexer-post-sync": ["indexer", "services/indexer/src/main.rs", ".route(\"/api/v1/indexer/sync\", post(sync_unavailable))"],
+  "tgt-indexer-inert-state": ["indexer", "services/indexer/src/main.rs", "let state = AppState { db };"],
+  "tgt-indexer-fake-sync-absent": ["indexer", "docs/migration/A3_12_INDEXER_SCHEMA_BOUNDARY.md", "The package also removes the default-on autonomous provider/sync worker and every fabricated block"],
+  "tgt-indexer-no-reorg-model": ["indexer", "docs/migration/A3_12_INDEXER_SCHEMA_BOUNDARY.md", "This projection schema does not pretend to be a fork store."]
+};
+for (const [id, [domain, file, anchor]] of Object.entries(refreshedBoundaryEvidence)) {
+  const item = contract.targetEvidence.find((candidate) => candidate.id === id);
+  if (!item || item.domain !== domain || item.file !== file || item.anchor !== anchor) fail(`${id}: refreshed schema/fake-sync evidence drifted`);
+}
+for (const retired of [
+  "tgt-event-runtime-ddl", "tgt-indexer-runtime-ddl", "tgt-indexer-cross-chain-tx-key",
+  "tgt-indexer-memory-checkpoint", "tgt-indexer-placeholder-block", "tgt-indexer-no-reorg-update"
+]) if (evidenceIds.has(retired)) fail(`retired evidence must not remain: ${retired}`);
+
 const expectedSurfaces = [
   "market-public-rankings", "market-auth-rankings", "market-filters", "market-ui",
   "event-track", "event-reads", "event-revenue", "event-observability",
@@ -178,6 +196,8 @@ for (const blocker of contract.blockers) {
   if (!Array.isArray(blocker.evidenceIds) || blocker.evidenceIds.length === 0) fail(`${blocker.id}: evidence references required`);
   for (const id of blocker.evidenceIds) if (!evidenceIds.has(id)) fail(`${blocker.id}: unknown evidence id ${id}`);
 }
+const expectedBlockerIds = Array.from({ length: 24 }, (_, index) => `B${String(index + 1).padStart(2, "0")}`);
+if (JSON.stringify([...blockerIds].sort()) !== JSON.stringify(expectedBlockerIds)) fail("the exact B01..B24 blocker inventory drifted");
 for (const surface of contract.surfaceContracts) for (const id of surface.blockerIds) if (!blockerIds.has(id)) fail(`${surface.id}: unknown blocker ${id}`);
 
 const ruleSections = {
@@ -214,6 +234,7 @@ const report = {
   source: { ref: source.ref, commit: source.commit, evidence: source.evidence.length },
   domains: Object.fromEntries(Object.entries(contract.domains).map(([id, item]) => [id, { owner: item.owner, status: item.status, targetEvidence: targetDomainCounts[id], surfaces: surfaceDomainCounts[id] }])),
   targetEvidence: contract.targetEvidence.length,
+  refreshedBoundaryEvidence: Object.keys(refreshedBoundaryEvidence).length,
   surfaceContracts: contract.surfaceContracts.map((item) => ({ id: item.id, domain: item.domain, status: item.status })),
   rules: Object.fromEntries(Object.keys(ruleSections).map((section) => [section, contract[section].length])),
   nonProductionSurfaces: contract.nonProductionSurfaces.map((item) => item.id),

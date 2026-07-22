@@ -229,7 +229,7 @@
       "observed": {"status": "blocked", "summary": "Frontend lacks the CTA endpoint, singular/plural proxy shapes drift, and the public pay origin bypasses the BFF."},
       "evidence": [
         {"file": "apps/pay/src/main.rs", "anchor": ".route(\"/api/v1/pay/intent\""},
-        {"file": "services/pay/src/main.rs", "anchor": ".route(\"/api/v1/pay/intents\""},
+        {"file": "services/pay/src/main.rs", "anchor": "\"/api/v1/pay/intents\""},
         {"file": "shared/rust/dioxus_ui/src/pages/plans.rs", "anchor": "fetch('/api/v1/pay/intent'"}
       ]
     },

@@ -1,4 +1,4 @@
-use alloy::providers::Provider;
+use alloy::primitives::{Address, B256};
 use axum::{
     extract::{Path as AxPath, State},
     http::StatusCode,
@@ -6,14 +6,11 @@ use axum::{
     Json, Router,
 };
 use clap::{Parser, ValueEnum};
-use epsx_indexer::{build_auth_verifier, protect_router};
+use epsx_indexer::{build_auth_verifier, protect_router, verify_schema_compatibility};
 use serde::Serialize;
 use sqlx::FromRow;
-use std::net::SocketAddr;
-use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::RwLock;
-use tracing::{error, info, warn};
+use std::{net::SocketAddr, str::FromStr};
+use tracing::info;
 
 #[derive(Parser)]
 #[command(name = "epsx-indexer", about = "EPSX Blockchain Indexer Service")]
@@ -27,12 +24,6 @@ struct Args {
         default_value = "postgres://epsx:epsx@localhost:5432/epsx_indexer"
     )]
     database_url: String,
-    #[arg(long, default_value = "56")]
-    chain_id: u64,
-    #[arg(long, default_value = "3")]
-    poll_interval: u64,
-    #[arg(long, default_value = "true")]
-    sync_on_start: bool,
     #[arg(long, env = "OIDC_ISSUER")]
     oidc_issuer: String,
     #[arg(long, env = "OIDC_JWKS_URL")]
@@ -50,9 +41,6 @@ enum Environment {
 #[derive(Clone)]
 struct AppState {
     db: sqlx::PgPool,
-    chain_id: u64,
-    provider: Arc<RwLock<Option<Arc<dyn Provider + Send + Sync>>>>,
-    last_block: Arc<RwLock<u64>>,
 }
 
 #[derive(Serialize, FromRow)]
@@ -61,7 +49,7 @@ struct BlockRecord {
     number: i64,
     hash: String,
     parent_hash: String,
-    timestamp: chrono::NaiveDateTime,
+    timestamp: chrono::DateTime<chrono::Utc>,
     miner: Option<String>,
     gas_used: i64,
     gas_limit: i64,
@@ -72,22 +60,21 @@ struct BlockRecord {
 struct TxRecord {
     chain_id: String,
     hash: String,
-    from_address: Option<String>,
+    from_address: String,
     to_address: Option<String>,
     value: String,
     block_number: i64,
     status: Option<i32>,
-    timestamp: chrono::NaiveDateTime,
+    timestamp: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Serialize)]
 struct ChainStatus {
     chain_id: String,
     name: String,
-    latest_block: u64,
     indexer_block: u64,
-    lag: u64,
     healthy: bool,
+    degraded_reason: String,
 }
 
 #[derive(Serialize, FromRow)]
@@ -100,7 +87,7 @@ struct TokenTransfer {
     to_address: String,
     value: String,
     block_number: i64,
-    timestamp: chrono::NaiveDateTime,
+    timestamp: chrono::DateTime<chrono::Utc>,
 }
 
 #[tokio::main]
@@ -121,103 +108,15 @@ async fn main() {
     let db = sqlx::PgPool::connect(&args.database_url)
         .await
         .expect("Failed to connect to database");
+    verify_schema_compatibility(&db)
+        .await
+        .expect("indexer schema must be compatible; run the reviewed indexer migration first");
 
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS blocks (
-            chain_id VARCHAR(10) NOT NULL,
-            number BIGINT NOT NULL,
-            hash VARCHAR(66) NOT NULL,
-            parent_hash VARCHAR(66),
-            timestamp TIMESTAMPTZ NOT NULL,
-            miner VARCHAR(42),
-            gas_used BIGINT,
-            gas_limit BIGINT,
-            tx_count INTEGER DEFAULT 0,
-            PRIMARY KEY (chain_id, number)
-        )",
-    )
-    .execute(&db)
-    .await
-    .expect("Failed to create blocks table");
-
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS transactions (
-            chain_id VARCHAR(10) NOT NULL,
-            hash VARCHAR(66) PRIMARY KEY,
-            from_address VARCHAR(42),
-            to_address VARCHAR(42),
-            value VARCHAR(78),
-            block_number BIGINT,
-            status INTEGER,
-            timestamp TIMESTAMPTZ,
-            input_data BYTEA
-        )",
-    )
-    .execute(&db)
-    .await
-    .expect("Failed to create transactions table");
-
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS token_transfers (
-            chain_id VARCHAR(10) NOT NULL,
-            tx_hash VARCHAR(66) NOT NULL,
-            log_index INTEGER NOT NULL,
-            token_address VARCHAR(42) NOT NULL,
-            from_address VARCHAR(42) NOT NULL,
-            to_address VARCHAR(42) NOT NULL,
-            value VARCHAR(78) NOT NULL,
-            block_number BIGINT NOT NULL,
-            timestamp TIMESTAMPTZ NOT NULL,
-            PRIMARY KEY (chain_id, tx_hash, log_index)
-        )",
-    )
-    .execute(&db)
-    .await
-    .expect("Failed to create token_transfers table");
-
-    sqlx::query(
-        "CREATE INDEX IF NOT EXISTS idx_blocks_timestamp ON blocks (chain_id, timestamp DESC)",
-    )
-    .execute(&db)
-    .await
-    .expect("Failed to create blocks index");
-    sqlx::query(
-        "CREATE INDEX IF NOT EXISTS idx_transfers_token ON token_transfers (chain_id, token_address, timestamp DESC)"
-    ).execute(&db).await.expect("Failed to create transfers index");
-
-    let provider = Arc::new(RwLock::new(None));
-    let last_block = Arc::new(RwLock::new(0u64));
-
-    // Initialize provider
-    let chain_id_enum = epsx_kernel::ChainId(args.chain_id);
-    match epsx_web3::provider_for_chain(chain_id_enum) {
-        Ok(p) => {
-            *provider.write().await = Some(Arc::from(p));
-            info!("Connected to BSC provider for chain {}", args.chain_id);
-        }
-        Err(e) => {
-            warn!("Failed to create BSC provider: {} (will retry on sync)", e);
-        }
-    }
-
-    // Start block syncer
-    let sync_state = AppState {
-        db: db.clone(),
-        chain_id: args.chain_id,
-        provider: provider.clone(),
-        last_block: last_block.clone(),
-    };
-
-    if args.sync_on_start {
-        let sync_state = sync_state.clone();
-        let poll = args.poll_interval;
-        tokio::spawn(async move {
-            if let Err(e) = sync_chain(sync_state, poll).await {
-                error!("Chain syncer exited: {}", e);
-            }
-        });
-    }
-
+    // A12 has not supplied canonical ingestion, a durable checkpoint lease,
+    // finality, or replay rules. Startup deliberately creates no provider and
+    // launches no background sync task. Only the fail-closed HTTP shell is
+    // served after the exact read-only schema probe succeeds.
+    let state = AppState { db };
     let app = Router::new()
         .route("/health", get(health))
         .route("/api/v1/indexer/status/{chain}", get(get_chain_status))
@@ -227,8 +126,8 @@ async fn main() {
             "/api/v1/indexer/transfers/{chain}/{address}",
             get(get_address_transfers),
         )
-        .route("/api/v1/indexer/sync", post(trigger_sync))
-        .with_state(sync_state);
+        .route("/api/v1/indexer/sync", post(sync_unavailable))
+        .with_state(state);
     let app = protect_router(app, verifier);
 
     let addr: SocketAddr = format!("{}:{}", args.host, args.port).parse().unwrap();
@@ -241,36 +140,60 @@ async fn health() -> StatusCode {
     StatusCode::OK
 }
 
+fn canonical_chain_id(value: &str) -> Result<String, StatusCode> {
+    let parsed = value.parse::<u64>().map_err(|_| StatusCode::BAD_REQUEST)?;
+    let canonical = parsed.to_string();
+    if parsed == 0 || canonical != value || canonical.len() > 10 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    Ok(canonical)
+}
+
+fn canonical_hash(value: &str) -> Result<String, StatusCode> {
+    B256::from_str(value)
+        .map(|hash| format!("{hash:#x}"))
+        .map_err(|_| StatusCode::BAD_REQUEST)
+}
+
+fn canonical_address(value: &str) -> Result<String, StatusCode> {
+    Address::from_str(value)
+        .map(|address| format!("{address:#x}"))
+        .map_err(|_| StatusCode::BAD_REQUEST)
+}
+
+fn checked_block_number(value: i64) -> Result<i64, StatusCode> {
+    if value < 0 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    Ok(value)
+}
+
 async fn get_chain_status(
     State(state): State<AppState>,
     AxPath(chain_id): AxPath<String>,
 ) -> Result<Json<ChainStatus>, StatusCode> {
-    let result: Option<(Option<i64>,)> =
-        sqlx::query_as("SELECT MAX(number) FROM blocks WHERE chain_id = $1")
+    let chain_id = canonical_chain_id(&chain_id)?;
+    let indexed: Option<i64> =
+        sqlx::query_scalar("SELECT MAX(number) FROM public.blocks WHERE chain_id = $1")
             .bind(&chain_id)
-            .fetch_optional(&state.db)
+            .fetch_one(&state.db)
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let indexer_block = result.and_then(|r| r.0).unwrap_or(0) as u64;
-
-    let latest_block = if let Some(p) = state.provider.read().await.as_ref() {
-        epsx_web3::fetch_block_number(p.as_ref())
-            .await
-            .unwrap_or(indexer_block)
-    } else {
-        indexer_block
-    };
-
-    let lag = latest_block.saturating_sub(indexer_block);
-    let chain_enum = epsx_kernel::ChainId(chain_id.parse().unwrap_or(56));
+    let indexer_block = indexed
+        .map(u64::try_from)
+        .transpose()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .unwrap_or(0);
+    let chain_num = chain_id
+        .parse::<u64>()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Json(ChainStatus {
         chain_id,
-        name: chain_enum.name().to_string(),
-        latest_block,
+        name: epsx_kernel::ChainId(chain_num).name().to_string(),
         indexer_block,
-        lag,
-        healthy: lag < 100,
+        healthy: false,
+        degraded_reason: "canonical ingestion and finality are unavailable".to_string(),
     }))
 }
 
@@ -278,11 +201,15 @@ async fn get_block(
     State(state): State<AppState>,
     AxPath((chain_id, number)): AxPath<(String, i64)>,
 ) -> Result<Json<BlockRecord>, StatusCode> {
+    let chain_id = canonical_chain_id(&chain_id)?;
+    let number = checked_block_number(number)?;
     let block: BlockRecord = sqlx::query_as::<_, BlockRecord>(
-        "SELECT chain_id, number, hash, parent_hash, timestamp, miner, gas_used, gas_limit, tx_count FROM blocks WHERE chain_id = $1 AND number = $2"
+        "SELECT chain_id, number, hash, parent_hash, timestamp, miner, gas_used, gas_limit, tx_count
+         FROM public.blocks
+         WHERE chain_id = $1 AND number = $2",
     )
     .bind(&chain_id)
-    .bind(&number)
+    .bind(number)
     .fetch_optional(&state.db)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
@@ -294,8 +221,12 @@ async fn get_transaction(
     State(state): State<AppState>,
     AxPath((chain_id, hash)): AxPath<(String, String)>,
 ) -> Result<Json<TxRecord>, StatusCode> {
+    let chain_id = canonical_chain_id(&chain_id)?;
+    let hash = canonical_hash(&hash)?;
     let tx: TxRecord = sqlx::query_as::<_, TxRecord>(
-        "SELECT chain_id, hash, from_address, to_address, value, block_number, status, timestamp FROM transactions WHERE chain_id = $1 AND hash = $2"
+        "SELECT chain_id, hash, from_address, to_address, value, block_number, status, timestamp
+         FROM public.transactions
+         WHERE chain_id = $1 AND hash = $2",
     )
     .bind(&chain_id)
     .bind(&hash)
@@ -310,9 +241,14 @@ async fn get_address_transfers(
     State(state): State<AppState>,
     AxPath((chain_id, address)): AxPath<(String, String)>,
 ) -> Result<Json<Vec<TokenTransfer>>, StatusCode> {
-    let address = address.to_lowercase();
+    let chain_id = canonical_chain_id(&chain_id)?;
+    let address = canonical_address(&address)?;
     let transfers: Vec<TokenTransfer> = sqlx::query_as::<_, TokenTransfer>(
-        "SELECT chain_id, tx_hash, log_index, token_address, from_address, to_address, value, block_number, timestamp FROM token_transfers WHERE chain_id = $1 AND (from_address = $2 OR to_address = $2) ORDER BY block_number DESC LIMIT 100"
+        "SELECT chain_id, tx_hash, log_index, token_address, from_address, to_address, value, block_number, timestamp
+         FROM public.token_transfers
+         WHERE chain_id = $1 AND (from_address = $2 OR to_address = $2)
+         ORDER BY block_number DESC, tx_hash DESC, log_index DESC
+         LIMIT 100",
     )
     .bind(&chain_id)
     .bind(&address)
@@ -322,83 +258,63 @@ async fn get_address_transfers(
     Ok(Json(transfers))
 }
 
-async fn trigger_sync(
-    State(state): State<AppState>,
-) -> Result<Json<serde_json::Value>, StatusCode> {
-    if let Err(e) = sync_chain_once(state.clone()).await {
-        return Ok(Json(serde_json::json!({ "success": false, "error": e })));
-    }
-    Ok(Json(
-        serde_json::json!({ "success": true, "indexer_block": *state.last_block.read().await }),
-    ))
+async fn sync_unavailable() -> StatusCode {
+    StatusCode::NOT_FOUND
 }
 
-async fn sync_chain(state: AppState, poll_interval: u64) -> Result<(), String> {
-    let mut interval = tokio::time::interval(Duration::from_secs(poll_interval));
-    loop {
-        interval.tick().await;
-        if let Err(e) = sync_chain_once(state.clone()).await {
-            error!("Sync error: {}", e);
-        }
-    }
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-async fn sync_chain_once(state: AppState) -> Result<(), String> {
-    if state.provider.read().await.is_none() {
-        let chain_id_enum = epsx_kernel::ChainId(state.chain_id);
-        match epsx_web3::provider_for_chain(chain_id_enum) {
-            Ok(p) => {
-                *state.provider.write().await = Some(Arc::from(p));
-            }
-            Err(e) => return Err(format!("provider init: {}", e)),
+    #[test]
+    fn chain_ids_are_canonical_and_fit_the_schema() {
+        assert_eq!(canonical_chain_id("56"), Ok("56".to_string()));
+        assert_eq!(canonical_chain_id("42161"), Ok("42161".to_string()));
+        for invalid in ["", "0", "056", "+56", "-1", "10000000000", "bsc"] {
+            assert_eq!(canonical_chain_id(invalid), Err(StatusCode::BAD_REQUEST));
         }
     }
 
-    let provider_opt = state.provider.read().await.clone();
-    let provider = provider_opt.ok_or_else(|| "no provider".to_string())?;
+    #[test]
+    fn hashes_and_addresses_are_parsed_not_shape_only_lowercased() {
+        let hash = format!("0x{}", "ab".repeat(32));
+        assert_eq!(canonical_hash(&hash), Ok(hash));
+        assert_eq!(canonical_hash("0xnot-a-hash"), Err(StatusCode::BAD_REQUEST));
 
-    let latest = epsx_web3::fetch_block_number(&*provider)
-        .await
-        .map_err(|e| e.to_string())?;
-    let current = *state.last_block.read().await;
-    let from = if current == 0 {
-        latest.saturating_sub(10)
-    } else {
-        current + 1
-    };
-
-    if from > latest {
-        return Ok(());
+        let mixed = "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d";
+        assert_eq!(
+            canonical_address(mixed),
+            Ok("0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d".to_string())
+        );
+        assert_eq!(canonical_address("0xinvalid"), Err(StatusCode::BAD_REQUEST));
     }
 
-    info!("Syncing blocks {} -> {}", from, latest);
-    for n in from..=latest.min(from + 100) {
-        if let Err(e) = index_block(&state, state.chain_id, n).await {
-            warn!("Failed to index block {}: {}", n, e);
-        } else {
-            *state.last_block.write().await = n;
-        }
+    #[test]
+    fn negative_database_block_numbers_never_wrap_unsigned() {
+        assert_eq!(checked_block_number(0), Ok(0));
+        assert_eq!(checked_block_number(i64::MAX), Ok(i64::MAX));
+        assert_eq!(checked_block_number(-1), Err(StatusCode::BAD_REQUEST));
+        assert!(u64::try_from(-1_i64).is_err());
     }
 
-    Ok(())
-}
-
-async fn index_block(state: &AppState, chain_id: u64, number: u64) -> Result<(), String> {
-    sqlx::query(
-        "INSERT INTO blocks (chain_id, number, hash, parent_hash, timestamp, miner, gas_used, gas_limit, tx_count)
-         VALUES ($1, $2, $3, $4, NOW(), $5, $6, $7, $8)
-         ON CONFLICT (chain_id, number) DO NOTHING"
-    )
-    .bind(chain_id.to_string())
-    .bind(number as i64)
-    .bind(format!("0x{:064x}", number))
-    .bind(format!("0x{:064x}", number.saturating_sub(1)))
-    .bind(format!("0x{:042x}", number % 1000))
-    .bind(0i64)
-    .bind(30000000i64)
-    .bind(0i32)
-    .execute(&state.db)
-    .await
-    .map_err(|e| e.to_string())?;
-    Ok(())
+    #[test]
+    fn timestamptz_and_nullable_models_keep_the_wire_shape() {
+        let timestamp = chrono::DateTime::parse_from_rfc3339("2026-07-22T12:34:56Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let block = BlockRecord {
+            chain_id: "56".to_string(),
+            number: 1,
+            hash: format!("0x{}", "11".repeat(32)),
+            parent_hash: format!("0x{}", "00".repeat(32)),
+            timestamp,
+            miner: None,
+            gas_used: 0,
+            gas_limit: 30_000_000,
+            tx_count: 0,
+        };
+        let value = serde_json::to_value(block).unwrap();
+        assert_eq!(value["timestamp"], "2026-07-22T12:34:56Z");
+        assert!(value["miner"].is_null());
+    }
 }

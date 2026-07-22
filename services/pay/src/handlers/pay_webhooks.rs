@@ -15,12 +15,7 @@
 //! Endpoint:
 //! - `POST /api/v1/pay/webhooks/on-chain` → `on_chain_webhook`
 
-use axum::{
-    body::Bytes,
-    extract::State,
-    http::StatusCode,
-    Json,
-};
+use axum::{body::Bytes, extract::State, http::StatusCode, Json};
 use hmac::{Hmac, Mac};
 use serde::Deserialize;
 use sha2::Sha256;
@@ -56,11 +51,10 @@ fn verify_webhook_signature(
     body: &[u8],
 ) -> Result<(), StatusCode> {
     // Fail-closed if the secret isn't configured.
-    let secret = env::var("EPSX_PAY_WEBHOOK_SECRET")
-        .map_err(|_| {
-            tracing::error!("EPSX_PAY_WEBHOOK_SECRET not set — refusing webhook");
-            StatusCode::SERVICE_UNAVAILABLE
-        })?;
+    let secret = env::var("EPSX_PAY_WEBHOOK_SECRET").map_err(|_| {
+        tracing::error!("EPSX_PAY_WEBHOOK_SECRET not set — refusing webhook");
+        StatusCode::SERVICE_UNAVAILABLE
+    })?;
 
     // Read the signature header.
     let sig_hex = headers
@@ -69,11 +63,10 @@ fn verify_webhook_signature(
         .ok_or(StatusCode::UNAUTHORIZED)?;
 
     // Decode the hex signature.
-    let provided = hex::decode(sig_hex)
-        .map_err(|_| {
-            tracing::warn!("webhook signature is not valid hex");
-            StatusCode::UNAUTHORIZED
-        })?;
+    let provided = hex::decode(sig_hex).map_err(|_| {
+        tracing::warn!("webhook signature is not valid hex");
+        StatusCode::UNAUTHORIZED
+    })?;
 
     // Compute HMAC-SHA256(secret, body).
     let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(secret.as_bytes())
@@ -103,18 +96,17 @@ pub async fn on_chain_webhook(
     verify_webhook_signature(&headers, &body)?;
 
     // 2. Parse the now-trusted body as JSON.
-    let event: OnChainEvent = serde_json::from_slice(&body)
-        .map_err(|e| {
-            tracing::warn!("webhook body is not valid JSON: {}", e);
-            StatusCode::BAD_REQUEST
-        })?;
+    let event: OnChainEvent = serde_json::from_slice(&body).map_err(|e| {
+        tracing::warn!("webhook body is not valid JSON: {}", e);
+        StatusCode::BAD_REQUEST
+    })?;
 
     // 3. Idempotency check — INSERT … ON CONFLICT DO NOTHING so
     //    duplicate deliveries are no-ops. If the row was new we
     //    continue with the status update; if it collided we ack
     //    without re-applying.
     let inserted: Option<(String,)> = sqlx::query_as(
-        "INSERT INTO pay_webhook_events (event_id, intent_id, escrow_id, event_type, payload)
+        "INSERT INTO public.pay_webhook_events (event_id, intent_id, escrow_id, event_type, payload)
          VALUES ($1, $2, $3, $4, $5)
          ON CONFLICT (event_id) DO NOTHING
          RETURNING event_id"
@@ -145,12 +137,13 @@ pub async fn on_chain_webhook(
 
     if inserted.is_none() {
         // Duplicate delivery — already processed. Return current status.
-        let current: String = sqlx::query_scalar("SELECT status FROM pay_intents WHERE id = $1")
-            .bind(&event.intent_id)
-            .fetch_optional(&state.db)
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-            .unwrap_or_else(|| new_status.to_string());
+        let current: String =
+            sqlx::query_scalar("SELECT status FROM public.pay_intents WHERE id = $1")
+                .bind(&event.intent_id)
+                .fetch_optional(&state.db)
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+                .unwrap_or_else(|| new_status.to_string());
 
         return Ok(Json(WebhookAck {
             received: true,
@@ -160,7 +153,7 @@ pub async fn on_chain_webhook(
     }
 
     // Apply the status change to the matching intent.
-    sqlx::query("UPDATE pay_intents SET status = $1, updated_at = NOW() WHERE id = $2")
+    sqlx::query("UPDATE public.pay_intents SET status = $1, updated_at = NOW() WHERE id = $2")
         .bind(new_status)
         .bind(&event.intent_id)
         .execute(&state.db)
@@ -172,7 +165,7 @@ pub async fn on_chain_webhook(
 
     // If the event references an escrow, update it too.
     if let Some(escrow_id) = event.escrow_id.as_ref() {
-        sqlx::query("UPDATE escrows SET status = $1, tx_hash = COALESCE($2, tx_hash), updated_at = NOW() WHERE id = $3")
+        sqlx::query("UPDATE public.escrows SET status = $1, tx_hash = COALESCE($2, tx_hash), updated_at = NOW() WHERE id = $3")
             .bind(new_status)
             .bind(event.tx_hash.as_deref().unwrap_or(""))
             .bind(escrow_id)
@@ -183,7 +176,10 @@ pub async fn on_chain_webhook(
 
     tracing::info!(
         "webhook applied: event_id={}, intent_id={}, type={}, status={}",
-        event.event_id, event.intent_id, event.event_type, new_status
+        event.event_id,
+        event.intent_id,
+        event.event_type,
+        new_status
     );
 
     Ok(Json(WebhookAck {

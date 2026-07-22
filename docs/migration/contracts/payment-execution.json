@@ -113,22 +113,22 @@
     {
       "id": "tgt-pay-routes",
       "file": "services/pay/src/main.rs",
-      "anchor": ".route(\"/api/v1/pay/intents/{id}/confirm\", post(handlers::intents::confirm_pay_intent))"
+      "anchor": "\"/api/v1/pay/intents/{id}/confirm\","
     },
     {
-      "id": "tgt-pay-runtime-ddl",
-      "file": "services/pay/src/db.rs",
-      "anchor": "CREATE TABLE IF NOT EXISTS pay_intents ("
+      "id": "tgt-pay-schema-boundary",
+      "file": "services/pay/src/main.rs",
+      "anchor": "verify_schema_compatibility(&db)"
     },
     {
       "id": "tgt-pay-confirm-unverified",
       "file": "services/pay/src/handlers/intents.rs",
-      "anchor": "let tx_hash = req.get(\"tx_hash\").and_then(|v| v.as_str()).unwrap_or_default().to_string();"
+      "anchor": "let tx_hash = req"
     },
     {
       "id": "tgt-pay-confirm-split-write",
       "file": "services/pay/src/handlers/intents.rs",
-      "anchor": "UPDATE pay_intents SET status = 'escrowed', escrow_id = $1, tx_hash = $2"
+      "anchor": "UPDATE public.pay_intents SET status = 'escrowed', escrow_id = $1, tx_hash = $2"
     },
     {
       "id": "tgt-pay-webhook-inbox",
@@ -146,14 +146,14 @@
       "anchor": ".post_with_ctx(&path, &serde_json::json!({}), &ctx)"
     },
     {
-      "id": "tgt-subscription-runtime-ddl",
+      "id": "tgt-subscription-schema-boundary",
       "file": "services/subscription/src/main.rs",
-      "anchor": "CREATE TABLE IF NOT EXISTS subscription_plans ("
+      "anchor": "verify_schema_compatibility(&db)"
     },
     {
       "id": "tgt-subscription-active-insert",
       "file": "services/subscription/src/main.rs",
-      "anchor": "INSERT INTO subscriptions (user_id, plan_id, account_id, payment_token)"
+      "anchor": "INSERT INTO public.subscriptions (user_id, plan_id, account_id, payment_token)"
     },
     {
       "id": "tgt-subscription-zero-vault",
@@ -437,9 +437,9 @@
       "evidenceIds": ["tgt-pay-success-static"]
     },
     {
-      "id": "pay-runtime-schema-and-db-only-escrow",
-      "reason": "Runtime DDL and unverified split state changes are not a production migration or on-chain escrow implementation.",
-      "evidenceIds": ["tgt-pay-runtime-ddl", "tgt-pay-confirm-split-write", "tgt-escrow-placeholder"]
+      "id": "pay-candidate-schema-and-db-only-escrow",
+      "reason": "The A3.13 static candidate schema boundary does not resolve database authority, runner/adoption, unverified split state changes, or on-chain escrow implementation.",
+      "evidenceIds": ["tgt-pay-schema-boundary", "tgt-pay-confirm-split-write", "tgt-escrow-placeholder"]
     },
     {
       "id": "subscription-active-on-insert-zero-vault",
@@ -583,9 +583,9 @@
       "severity": "stop",
       "status": "blocked",
       "category": "durable-schema",
-      "summary": "Pay and subscription services create tables at runtime without versioned migration constraints or an outbox.",
-      "evidenceIds": ["tgt-pay-runtime-ddl", "tgt-subscription-runtime-ddl"],
-      "resolution": "Create reviewed, reversible migrations with FKs, checks, uniqueness, audit, idempotency and inbox/outbox tables."
+      "summary": "A3.7/A3.13 remove runtime DDL and define candidate migration roots, but authority, reviewed runner/adoption, populated upgrade, financial constraints and outbox proof remain absent.",
+      "evidenceIds": ["tgt-pay-schema-boundary", "tgt-subscription-schema-boundary"],
+      "resolution": "Declare authority and prove reviewed runner/adoption/upgrades plus FKs, checks, uniqueness, audit, idempotency and inbox/outbox tables."
     },
     {
       "id": "B14",
@@ -593,7 +593,7 @@
       "status": "blocked",
       "category": "system-of-record",
       "summary": "Canonical backend and extracted services have independent payment/subscription write models with no cutover or reconciliation contract.",
-      "evidenceIds": ["tgt-canonical-routes", "tgt-canonical-replay-index", "tgt-pay-runtime-ddl", "tgt-subscription-runtime-ddl"],
+      "evidenceIds": ["tgt-canonical-routes", "tgt-canonical-replay-index", "tgt-pay-schema-boundary", "tgt-subscription-schema-boundary"],
       "resolution": "Declare one write authority, migration/backfill, reconciliation, rollback and retirement sequence."
     },
     {

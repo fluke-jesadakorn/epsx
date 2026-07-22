@@ -47,7 +47,7 @@ pub async fn admin_list_pay_intents(
         (Some(payer), Some(status)) => {
             let items = sqlx::query_as::<_, PayIntent>(
                 "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at
-                 FROM pay_intents WHERE payer = $1 AND status = $2
+                 FROM public.pay_intents WHERE payer = $1 AND status = $2
                  ORDER BY created_at DESC LIMIT $3 OFFSET $4",
             )
             .bind(payer.to_ascii_lowercase())
@@ -58,7 +58,7 @@ pub async fn admin_list_pay_intents(
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
             let total = sqlx::query_scalar(
-                "SELECT COUNT(*) FROM pay_intents WHERE payer = $1 AND status = $2",
+                "SELECT COUNT(*) FROM public.pay_intents WHERE payer = $1 AND status = $2",
             )
             .bind(payer.to_ascii_lowercase())
             .bind(status)
@@ -71,7 +71,7 @@ pub async fn admin_list_pay_intents(
             let payer = payer.to_ascii_lowercase();
             let items = sqlx::query_as::<_, PayIntent>(
                 "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at
-                 FROM pay_intents WHERE payer = $1
+                 FROM public.pay_intents WHERE payer = $1
                  ORDER BY created_at DESC LIMIT $2 OFFSET $3",
             )
             .bind(&payer)
@@ -80,17 +80,18 @@ pub async fn admin_list_pay_intents(
             .fetch_all(&state.db)
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-            let total = sqlx::query_scalar("SELECT COUNT(*) FROM pay_intents WHERE payer = $1")
-                .bind(&payer)
-                .fetch_one(&state.db)
-                .await
-                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            let total =
+                sqlx::query_scalar("SELECT COUNT(*) FROM public.pay_intents WHERE payer = $1")
+                    .bind(&payer)
+                    .fetch_one(&state.db)
+                    .await
+                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
             (items, total)
         }
         (None, Some(status)) => {
             let items = sqlx::query_as::<_, PayIntent>(
                 "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at
-                 FROM pay_intents WHERE status = $1
+                 FROM public.pay_intents WHERE status = $1
                  ORDER BY created_at DESC LIMIT $2 OFFSET $3",
             )
             .bind(status)
@@ -99,24 +100,25 @@ pub async fn admin_list_pay_intents(
             .fetch_all(&state.db)
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-            let total = sqlx::query_scalar("SELECT COUNT(*) FROM pay_intents WHERE status = $1")
-                .bind(status)
-                .fetch_one(&state.db)
-                .await
-                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            let total =
+                sqlx::query_scalar("SELECT COUNT(*) FROM public.pay_intents WHERE status = $1")
+                    .bind(status)
+                    .fetch_one(&state.db)
+                    .await
+                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
             (items, total)
         }
         (None, None) => {
             let items = sqlx::query_as::<_, PayIntent>(
                 "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at
-                 FROM pay_intents ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+                 FROM public.pay_intents ORDER BY created_at DESC LIMIT $1 OFFSET $2",
             )
             .bind(limit)
             .bind(offset)
             .fetch_all(&state.db)
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-            let total = sqlx::query_scalar("SELECT COUNT(*) FROM pay_intents")
+            let total = sqlx::query_scalar("SELECT COUNT(*) FROM public.pay_intents")
                 .fetch_one(&state.db)
                 .await
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -139,17 +141,19 @@ pub async fn admin_force_cancel_pay_intent(
     // that the public cancel uses. Admins can cancel any
     // intent regardless of its current state — useful for
     // cleaning up stuck or fraudulent intents.
-    sqlx::query("UPDATE pay_intents SET status = 'cancelled', updated_at = NOW() WHERE id = $1")
-        .bind(&id)
-        .execute(&state.db)
-        .await
-        .map_err(|e| {
-            tracing::error!("admin force_cancel: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+    sqlx::query(
+        "UPDATE public.pay_intents SET status = 'cancelled', updated_at = NOW() WHERE id = $1",
+    )
+    .bind(&id)
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        tracing::error!("admin force_cancel: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     let intent: PayIntent = sqlx::query_as::<_, PayIntent>(
-        "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at FROM pay_intents WHERE id = $1"
+        "SELECT id, chain_id, payer, payee, amount, token_address, status, escrow_id, tx_hash, description, expires_at, created_at, updated_at FROM public.pay_intents WHERE id = $1"
     )
     .bind(&id)
     .fetch_one(&state.db)
@@ -169,7 +173,7 @@ pub async fn admin_force_release_escrow(
     State(state): State<AppState>,
     AxPath(id): AxPath<String>,
 ) -> Result<Json<EscrowRecord>, StatusCode> {
-    sqlx::query("UPDATE escrows SET status = 'released', updated_at = NOW() WHERE id = $1")
+    sqlx::query("UPDATE public.escrows SET status = 'released', updated_at = NOW() WHERE id = $1")
         .bind(&id)
         .execute(&state.db)
         .await
@@ -179,7 +183,7 @@ pub async fn admin_force_release_escrow(
         })?;
 
     let escrow: EscrowRecord = sqlx::query_as::<_, EscrowRecord>(
-        "SELECT id, chain_id, payer, payee, amount, token_address, fee_amount, status, on_chain_id, tx_hash, dispute_reason, created_at, updated_at FROM escrows WHERE id = $1"
+        "SELECT id, chain_id, payer, payee, amount, token_address, fee_amount, status, on_chain_id, tx_hash, dispute_reason, created_at, updated_at FROM public.escrows WHERE id = $1"
     )
     .bind(&id)
     .fetch_one(&state.db)
@@ -199,7 +203,7 @@ pub async fn admin_force_refund_escrow(
     State(state): State<AppState>,
     AxPath(id): AxPath<String>,
 ) -> Result<Json<EscrowRecord>, StatusCode> {
-    sqlx::query("UPDATE escrows SET status = 'refunded', updated_at = NOW() WHERE id = $1")
+    sqlx::query("UPDATE public.escrows SET status = 'refunded', updated_at = NOW() WHERE id = $1")
         .bind(&id)
         .execute(&state.db)
         .await
@@ -209,7 +213,7 @@ pub async fn admin_force_refund_escrow(
         })?;
 
     let escrow: EscrowRecord = sqlx::query_as::<_, EscrowRecord>(
-        "SELECT id, chain_id, payer, payee, amount, token_address, fee_amount, status, on_chain_id, tx_hash, dispute_reason, created_at, updated_at FROM escrows WHERE id = $1"
+        "SELECT id, chain_id, payer, payee, amount, token_address, fee_amount, status, on_chain_id, tx_hash, dispute_reason, created_at, updated_at FROM public.escrows WHERE id = $1"
     )
     .bind(&id)
     .fetch_one(&state.db)

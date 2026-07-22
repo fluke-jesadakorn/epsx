@@ -14,7 +14,7 @@ The target is not notification-production-ready. It has a useful authenticated o
 - owner preferences, quiet hours, push subscriptions, SSE replay, and reconnect deduplication;
 - asynchronous email and in-app workers with idempotency, retries, dead letters, and reconciliation;
 - strict/versioned templates, content safety, privacy-safe logging, retention, and erasure;
-- additive migrations, legacy backfill, one write authority, observability, deployment, cutover, and rollback.
+- complete additive lifecycle migrations, legacy backfill, one write authority, observability, deployment, cutover, and rollback.
 
 Integrity success proves only that this audit has not drifted. It does not contact or validate a database, Redis, SMTP, push provider, Kubernetes cluster, internal service, or production environment.
 
@@ -44,11 +44,13 @@ A2.3c establishes a narrow service boundary:
 - template/send routes require the admin audience and `admin:notifications:manage`;
 - unknown and method-drift service paths fail closed.
 
-It does not establish internal publisher identity, message delivery, preference enforcement, schema correctness, migration safety, idempotency, replay, observability, deployment, or cutover readiness. Every A11 surface therefore remains blocked.
+It does not establish internal publisher identity, message delivery, preference enforcement, live schema/adoption correctness, migration-history safety, idempotency, replay, observability, deployment, or cutover readiness. Every A11 surface therefore remains blocked.
 
 ### Storage and state drift
 
-The service creates `templates` and `notifications` tables at startup and seeds default templates plus sample notifications. The startup `notifications` DDL omits `read_at`, `title`, `notification_type`, `priority`, and `action_url`, while live queries and sample inserts use those columns. A clean database therefore has no locked proof that the service can start and serve its own routes.
+A3.11 removes the four startup DDL statements and both startup seed paths. It adds a guarded fresh-schema migration for `public.templates` and `public.notifications`, public-qualifies all 19 application relation references, and makes startup reject any schema that differs from the exact 26-column, three-key, five-index contract before template cache load or listener binding. Template query/registration failures also stop startup instead of being discarded.
+
+That is static boundary evidence, not migration readiness. The existing notification migration history still has a renamed/consolidated baseline adoption ambiguity and a destructive `DROP TABLE ... CASCADE` migration. No empty database, populated upgrade, ledger adoption, legacy mapping, backfill, or reconciliation was executed. `CREATE TABLE IF NOT EXISTS` cannot repair an incompatible table created by the former runtime DDL, so both the schema and migration A11 blockers remain STOP.
 
 The legacy model is `wallet_notifications`, with different field names and richer channel/state fields. The target has no declared single write authority, mapping, backfill, reconciliation, or rollback. Read state is also overloaded with delivery status: marking a record read may change `pending` to `sent`, even though provider acceptance, in-app persistence, client delivery, and user read are distinct facts.
 
@@ -97,7 +99,7 @@ Exit: compatibility fixtures and the authority matrix are reviewed; gateway, BFF
 
 ### N2 — Durable schema and migration
 
-Add versioned, additive migrations for notifications, templates and versions, preferences, publisher inbox, request idempotency, per-channel jobs, attempts, dead letters, provider events, and replay cursors. Add constraints for normalized wallets, allowed channels/types/priorities/states, timestamps, unique event/job identities, and guarded transitions. Remove runtime DDL and production sample seeding only after clean and upgrade paths are proven.
+Extend the narrow A3.11 fresh-schema migration with versioned, additive migrations for template versions, preferences, publisher inbox, request idempotency, per-channel jobs, attempts, dead letters, provider events, and replay cursors. Add constraints for normalized wallets, allowed channels/types/priorities/states, timestamps, unique event/job identities, and guarded transitions. Repair/adopt the existing migration history and prove both clean and populated upgrade paths while keeping runtime DDL and startup samples absent.
 
 Exit: empty-database and legacy-upgrade tests pass; no service startup performs DDL; destructive changes require separate reviewed necessity and recovery evidence.
 
@@ -142,8 +144,8 @@ Exit: reviewed go/no-go evidence includes shadow parity, canary outcomes, migrat
 | ID | Blocked area |
 |---|---|
 | B01 | Source/target API compatibility |
-| B02 | Incompatible and internally inconsistent schemas |
-| B03 | Runtime DDL and sample seeding |
+| B02 | Legacy/candidate schema incompatibility and no clean/upgrade execution proof |
+| B03 | Unsafe/ambiguous migration history and no adoption proof (runtime DDL/seeds are statically absent) |
 | B04 | Complete ownership and normalization proof |
 | B05 | Independent lifecycle state machines |
 | B06 | Durable preferences and quiet-hour enforcement |

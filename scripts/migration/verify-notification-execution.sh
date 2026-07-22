@@ -134,6 +134,18 @@ for (const item of contract.targetEvidence) {
   targetContents.set(item.id, content);
   anchored(content, item, "target");
 }
+for (const id of ["tgt-schema-compatibility", "tgt-additive-service-migration", "tgt-startup-no-seeds"]) {
+  if (!targetContents.has(id)) fail(`missing A3.11 target evidence ${id}`);
+}
+for (const stale of ["tgt-runtime-template-ddl", "tgt-runtime-notification-ddl", "tgt-runtime-sample-seed"]) {
+  if (evidenceIds.has(stale)) fail(`stale pre-A3.11 target evidence remains: ${stale}`);
+}
+const notificationMain = targetContents.get("tgt-service-routes");
+if (/\bCREATE\s+(?:TABLE|INDEX)\b/i.test(notificationMain)) fail("notification runtime DDL reappeared after A3.11");
+if (notificationMain.includes("seed_default_templates") || notificationMain.includes("seed_sample_notifications")) fail("notification startup sample/default seed path reappeared after A3.11");
+const serviceMigration = targetContents.get("tgt-additive-service-migration");
+if ((serviceMigration.match(/\bCREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+public\./gi) ?? []).length !== 2) fail("A3.11 guarded public-table evidence drifted");
+if (/\b(?:DROP|ALTER|TRUNCATE|DELETE|INSERT|UPDATE|MERGE|COPY|CASCADE)\b/i.test(serviceMigration)) fail("A3.11 evidence contains destructive or data-mutating migration SQL");
 if (/^\s*-\s+notification\//m.test(targetContents.get("tgt-kustomize-without-notification"))) fail("notification Kubernetes resource appeared; refresh the A11 deployment audit");
 
 const auth = contract.directAuthPrerequisite;
@@ -199,6 +211,7 @@ const report = {
   contractId: contract.contractId,
   source: { ref: source.ref, commit: source.commit, evidence: source.evidence.length },
   targetEvidence: contract.targetEvidence.length,
+  schemaBoundary: { status: "partial-static", runtimeDdlFindings: 0, startupSeedCalls: 0 },
   directAuthPrerequisite: auth.status,
   surfaces: contract.surfaceContracts.map((item) => ({ id: item.id, status: item.status })),
   rules: {
@@ -227,7 +240,7 @@ fi
 
 if [ "$mode" = "integrity" ]; then
   echo "notification-execution: PASS — 14 source records, 36 target anchors, 12 surfaces, and 22 stop blockers verified"
-  echo "notification-execution: LIMIT — A2.3c direct authentication remains partial; no database, Redis, SMTP, push, network, deployment, or production readiness was proven"
+  echo "notification-execution: LIMIT — A2.3c auth and A3.11 schema boundary remain partial; no database, upgrade, reconciliation, Redis, SMTP, push, network, deployment, or production readiness was proven"
   exit 0
 fi
 

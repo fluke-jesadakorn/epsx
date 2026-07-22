@@ -17,9 +17,9 @@ The canonical backend already has the closest production-shaped flow: authentica
 | Pay hostname | Cloudflare `4747 -> NodePort 30082 -> pay service` | Bypasses the pay BFF even though the config comment says BFF |
 | Pay BFF | singular `/api/v1/pay/intent*`; calls service `/execute` | Service exposes plural `/intents*` and `/confirm`, not `/execute`; no auth context forwarding |
 | Gateway | `/api/v1/payment/*` proxy; financial policy blocked | No proven `/payment/* -> /pay/*` rewrite or ownership boundary |
-| Pay service | public CRUD/state transitions and runtime DDL | Caller-supplied ownership, no idempotency transaction, no receipt/finality verification |
+| Pay service | exact read-only A3.13 schema boundary; write handlers remain 404 | Caller-supplied coordinates, no idempotency transaction, no receipt/finality verification; candidate database authority unresolved |
 | Admin BFF | `/api/v1/payment/*`, empty confirm/release bodies | Confirm needs `tx_hash`; release body needs `escrow_id`; permission/participant rules are not enforced downstream |
-| Subscription service | public CRUD, active-on-insert, zero vault | No verified payment, owner scope, unique active subscription, migrations, or deployment |
+| Subscription service | A3.7 schema boundary; public CRUD, active-on-insert, zero vault | No verified payment, owner scope, unique active subscription, reviewed runner/adoption, or deployment |
 | Durable data | canonical `payments.*` plus separate pay/subscription tables | No declared system of record, cutover, reconciliation, or outbox |
 
 ## Required execution order
@@ -27,7 +27,7 @@ The canonical backend already has the closest production-shaped flow: authentica
 1. Declare one write authority and a reversible cutover: retain the canonical backend or move it behind a compatibility adapter; do not dual-write without an outbox, reconciliation ledger, and rollback procedure.
 2. Lock the browser/API compatibility layer for all routes in the JSON contract, including method, body, envelope, and status semantics. Choose one canonical prefix; rewrites must be explicit and tested.
 3. Enforce identity at gateway and service: the verified JWT wallet is the payer/owner key; server configuration owns receiver, token, chain, amount, and plan price. Hide foreign resources with a uniform `404`.
-4. Add durable migrations, constraints, compare-and-set transitions, idempotency records, inbox/outbox records, and atomic transactions. Runtime `CREATE TABLE` is not an accepted migration strategy.
+4. Build on the A3.7/A3.13 candidate migration roots: declare authority, add reviewed runner/adoption/upgrade evidence, durable financial constraints, compare-and-set transitions, idempotency records, inbox/outbox records, and atomic transactions. Removing runtime DDL alone is not financial durability.
 5. Verify on chain before activation: configured chain, successful receipt, supported token, exact `Transfer` sender/receiver/amount, block hash/number/log index, and chain-specific finality. Handle reorgs before terminal activation.
 6. Lock escrow permissions: participant-scoped reads; payer-or-admin release, payee-or-admin refund, either participant dispute, admin/arbitrator resolution. Admin mutations require admin audience plus `admin:payments:manage`; plan mutation requires `admin:plans:manage`.
 7. Make webhooks internal-only with service identity, key ID, signed timestamp, raw-body digest, replay window, and an atomic inbox-transition-outbox transaction keyed by chain event identity.

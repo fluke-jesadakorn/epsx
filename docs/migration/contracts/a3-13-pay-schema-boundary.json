@@ -1,0 +1,391 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A3.13-pay-schema-boundary",
+  "purpose": "offline-static-pay-candidate-schema-boundary-only",
+  "productionReady": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "scope": {
+    "service": "services/pay",
+    "databaseCandidate": "epsx_pay",
+    "schema": "public",
+    "tables": ["pay_intents", "escrows", "pay_links", "pay_webhook_events"],
+    "status": "partial"
+  },
+  "safety": {
+    "deploymentAuthorized": false,
+    "databaseAccessAuthorized": false,
+    "migrationExecutionAuthorized": false,
+    "networkAccessAuthorized": false,
+    "providerAccessAuthorized": false,
+    "chainAccessAuthorized": false,
+    "runtimeMutationAuthorized": false,
+    "financialRouteEnablementAuthorized": false,
+    "readinessMeaning": "The integrity verifier itself proves only local source, migration bytes, read-only catalog SQL, relation qualification, and the existing fail-closed route boundary. Separately recorded disposable PostgreSQL 18 evidence is not authority, adoption, populated upgrade, reconciliation, chain, or deployed-database evidence."
+  },
+  "authorityBoundary": {
+    "decision": "unresolved-do-not-cut-over-or-dual-write",
+    "candidateDatabaseNames": ["epsx_payment", "epsx_pay", "epsx_payments_dev", "epsx_payments_staging", "epsx_payments_prod"],
+    "developmentSourceRef": "origin/development",
+    "developmentSourceRefRole": "provenance-label-only",
+    "developmentSourceCommit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "developmentEvidence": [
+      {
+        "id": "payment-baseline",
+        "file": "apps/backend/migrations/payments/00000000000001_consolidated_baseline_v4/up.sql",
+        "blob": "02bd7c603211580e7cf39eaf29f69f96d4bd88db",
+        "anchor": "CREATE TABLE payments ("
+      },
+      {
+        "id": "payment-replay-index",
+        "file": "apps/backend/migrations/payments/20260220100000_add_unique_tx_hash_and_expiry/up.sql",
+        "blob": "eaef0ae9b844abea9e46c95ece399c68901ac2e0",
+        "anchor": "CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_unique_tx_hash"
+      },
+      {
+        "id": "payment-routes",
+        "file": "apps/backend/src/web/routes/unified_router.rs",
+        "blob": "46b97779e8726757560d7946d1a47114bed28861",
+        "anchor": ".route(\"/submit\", post(submit_transaction_handler))"
+      },
+      {
+        "id": "payment-owner",
+        "file": "apps/backend/src/web/payments/submit_tx_handler.rs",
+        "blob": "089598e31a0de96ae96efe6187d4057ec2dbbb59",
+        "anchor": "let wallet_address = user_context.wallet_address.clone();"
+      },
+      {
+        "id": "payment-owner-status",
+        "file": "apps/backend/src/web/payments/get_tx_status_handler.rs",
+        "blob": "d521dfd8295af7dea2482aca9d8ccca791e421dd",
+        "anchor": ".filter(payments::wallet_address.eq(&wallet_address))"
+      },
+      {
+        "id": "payment-finality",
+        "file": "apps/backend/src/infrastructure/blockchain/tx_monitor_service.rs",
+        "blob": "decfe180641b9904831c7ebae956429447cbb7a0",
+        "anchor": "min_confirmations: if is_mainnet { 15 } else { 3 },"
+      },
+      {
+        "id": "payment-browser-contract",
+        "file": "shared/api/payments.ts",
+        "blob": "6f913d8618c12fc46b517b572b35fc51cf8ca329",
+        "anchor": "return this.client.post<TransactionStatusData>('/api/payments/submit', request);"
+      }
+    ]
+  },
+  "runtimeBoundary": {
+    "rustRoot": "services/pay/src",
+    "rustInventory": [
+      "services/pay/src/db.rs",
+      "services/pay/src/handlers/escrows.rs",
+      "services/pay/src/handlers/intents.rs",
+      "services/pay/src/handlers/mod.rs",
+      "services/pay/src/handlers/pay_admin.rs",
+      "services/pay/src/handlers/pay_history.rs",
+      "services/pay/src/handlers/pay_links.rs",
+      "services/pay/src/handlers/pay_webhooks.rs",
+      "services/pay/src/lib.rs",
+      "services/pay/src/main.rs",
+      "services/pay/src/types.rs"
+    ],
+    "scannerFindingBefore": 10,
+    "scannerFindingAfter": 0,
+    "removedRuntimeSnapshot": {
+      "commit": "526c3850fd4b1af336cb29a1a86f86b68be6c59f",
+      "file": "services/pay/src/db.rs",
+      "blob": "df3979ce0d92a0b8bbb7374d873b0cd75df71d26"
+    },
+    "removedAnchors": [
+      "CREATE TABLE IF NOT EXISTS pay_intents (",
+      "CREATE TABLE IF NOT EXISTS escrows (",
+      "CREATE TABLE IF NOT EXISTS pay_links (",
+      "CREATE TABLE IF NOT EXISTS pay_webhook_events (",
+      "CREATE INDEX IF NOT EXISTS idx_pay_intents_payer ON pay_intents (payer, status)",
+      "CREATE INDEX IF NOT EXISTS idx_pay_intents_payee ON pay_intents (payee, status)",
+      "CREATE INDEX IF NOT EXISTS idx_escrows_status ON escrows (status)",
+      "CREATE INDEX IF NOT EXISTS idx_pay_links_slug ON pay_links (slug)",
+      "CREATE INDEX IF NOT EXISTS idx_pay_links_intent ON pay_links (intent_id)",
+      "CREATE INDEX IF NOT EXISTS idx_pay_webhook_intent ON pay_webhook_events (intent_id)"
+    ],
+    "compatibilityQueryConstant": "PAY_SCHEMA_COMPATIBILITY_QUERY",
+    "compatibilityFunction": "verify_schema_compatibility",
+    "compatibilityQueryBytes": 19212,
+    "compatibilityQuerySha256": "a4ee6c4ad87e81e1a272d22ed22d3cd7d771f958e899d2b06e040a096f0abca7",
+    "qualifiedRelationOccurrences": {
+      "public.pay_intents": 29,
+      "public.escrows": 21,
+      "public.pay_links": 3,
+      "public.pay_webhook_events": 1
+    },
+    "bindAnchors": [
+      ".bind(state.chain_id.to_string())",
+      ".bind(&req.amount)",
+      ".bind(&req.description)",
+      ".bind(expires_at)",
+      ".bind(now)",
+      ".bind(&intent.chain_id)",
+      ".bind(&intent.amount)",
+      ".bind(max_uses)",
+      ".bind(&event.intent_id)",
+      ".bind(&event.escrow_id)",
+      ".bind(serde_json::json!({"
+    ],
+    "handlerQualificationSource": {
+      "commit": "526c3850fd4b1af336cb29a1a86f86b68be6c59f",
+      "comparison": "Rust tokens excluding whitespace and rustfmt trailing commas must equal the pinned source after removing public qualification before the four owned relation names",
+      "files": [
+        {"path": "services/pay/src/handlers/intents.rs", "blob": "ba69f4bf43c4a7c7cfa30adf47ef973724d4b3d2"},
+        {"path": "services/pay/src/handlers/escrows.rs", "blob": "b3f07bc3d0429bc9463bd2db8432cc667b461d9a"},
+        {"path": "services/pay/src/handlers/pay_admin.rs", "blob": "fe45fd1256d2462ef74a161ef908113c6b33f353"},
+        {"path": "services/pay/src/handlers/pay_history.rs", "blob": "91d36a2302e3ee6318bbf2fdbec46b97c271a3a4"},
+        {"path": "services/pay/src/handlers/pay_links.rs", "blob": "e7a22fe355a070f18bbf8cc84020c6cd661418c3"},
+        {"path": "services/pay/src/handlers/pay_webhooks.rs", "blob": "d76bc79af90c8a6167ddc761e59dc513159d434c"}
+      ]
+    },
+    "queryRequiredAnchors": [
+      "WITH expected_tables (table_name) AS (",
+      "COUNT(relation_oid) = 4",
+      "relkind = 'r'",
+      "relpersistence = 'p'",
+      "NOT relispartition",
+      "NOT relrowsecurity",
+      "NOT relforcerowsecurity",
+      "FROM pg_catalog.pg_inherits AS inheritance_record",
+      "FROM pg_catalog.pg_policy AS policy_record",
+      "(SELECT COUNT(*) FROM expected_columns) = 39",
+      "(SELECT COUNT(*) FROM actual_columns) = 39",
+      "pg_catalog.format_type(attribute_record.atttypid, attribute_record.atttypmod)",
+      "pg_catalog.pg_get_expr(default_record.adbin, default_record.adrelid)",
+      "AND COALESCE(",
+      "COUNT(*) = 28",
+      "attribute_collation = type_default_collation",
+      "(SELECT COUNT(*) FROM expected_structural_constraints) = 5",
+      "(SELECT COUNT(*) FROM structural_constraint_boundary) = 5",
+      "cardinality(actual.conkey) = 1",
+      "AND actual.confkey IS NULL",
+      "current_setting('server_version_num')::integer >= 180000",
+      "(SELECT COUNT(*) FROM expected_columns WHERE not_null) = 29",
+      "(SELECT COUNT(*) FROM actual_not_null_constraints) = 29",
+      "ELSE (SELECT COUNT(*) FROM actual_not_null_constraints) = 0",
+      "(SELECT COUNT(*) FROM expected_indexes) = 11",
+      "(SELECT COUNT(*) FROM actual_indexes) = 11",
+      "actual.indnkeyatts = actual.indnatts",
+      "actual.indpred IS NULL",
+      "actual.indexprs IS NULL",
+      "actual.access_method = 'btree'",
+      "actual.opclasses_compatible",
+      "opclass_namespace.nspname = 'pg_catalog'",
+      "actual.collations_compatible",
+      "actual.options_compatible",
+      "to_regclass('public.pay_intents') IS NOT NULL",
+      "to_regclass('public.escrows') IS NOT NULL",
+      "to_regclass('public.pay_links') IS NOT NULL",
+      "to_regclass('public.pay_webhook_events') IS NOT NULL"
+    ],
+    "mainSequence": [
+      "sqlx::PgPool::connect(&args.database_url)",
+      "verify_schema_compatibility(&db)",
+      "build_provider(args.chain_id)",
+      "let app = Router::new()",
+      "tokio::net::TcpListener::bind(addr)",
+      "axum::serve(listener, app)"
+    ]
+  },
+  "failClosedBoundary": {
+    "file": "services/pay/src/lib.rs",
+    "unsafeMutationPolicy": "UnsafeFinancialMutation",
+    "internalIdentityPolicy": "InternalIdentityUnavailable",
+    "adminManagePolicy": "UnsafePaymentsManage",
+    "requiredAnchors": [
+      "AccessPolicy::UnsafePaymentsManage => {",
+      "return StatusCode::NOT_FOUND.into_response();",
+      "AccessPolicy::UnsafeFinancialMutation",
+      "| AccessPolicy::InternalIdentityUnavailable",
+      "| AccessPolicy::Blocked => return StatusCode::NOT_FOUND.into_response(),"
+    ],
+    "unsafeRoutesReachable": false
+  },
+  "migrationRoot": {
+    "path": "services/pay/migrations",
+    "runner": null,
+    "transactionOwner": "future-reviewed-runner",
+    "orderedMigrations": [
+      {
+        "version": "20260722060000",
+        "path": "services/pay/migrations/20260722060000_create_pay_store.sql",
+        "bytes": 2150,
+        "sha256": "b048fdefebb1c091a0d86ddcf9876a9531519f8ec4d959e863b51067826be83b",
+        "tableStatements": 4,
+        "indexStatements": 6,
+        "transactionControlStatements": 0
+      }
+    ]
+  },
+  "requiredTables": [
+    {
+      "name": "pay_intents",
+      "columns": [
+        {"ordinal": 1, "name": "id", "sqlAnchor": "id VARCHAR(66) PRIMARY KEY,"},
+        {"ordinal": 2, "name": "chain_id", "sqlAnchor": "chain_id VARCHAR(20) NOT NULL,"},
+        {"ordinal": 3, "name": "payer", "sqlAnchor": "payer VARCHAR(42) NOT NULL,"},
+        {"ordinal": 4, "name": "payee", "sqlAnchor": "payee VARCHAR(42) NOT NULL,"},
+        {"ordinal": 5, "name": "amount", "sqlAnchor": "amount VARCHAR(78) NOT NULL,"},
+        {"ordinal": 6, "name": "token_address", "sqlAnchor": "token_address VARCHAR(42) NOT NULL,"},
+        {"ordinal": 7, "name": "status", "sqlAnchor": "status VARCHAR(30) NOT NULL DEFAULT 'pending',"},
+        {"ordinal": 8, "name": "escrow_id", "sqlAnchor": "escrow_id VARCHAR(66),"},
+        {"ordinal": 9, "name": "tx_hash", "sqlAnchor": "tx_hash VARCHAR(66),"},
+        {"ordinal": 10, "name": "description", "sqlAnchor": "description TEXT,"},
+        {"ordinal": 11, "name": "expires_at", "sqlAnchor": "expires_at TIMESTAMPTZ,"},
+        {"ordinal": 12, "name": "created_at", "sqlAnchor": "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),"},
+        {"ordinal": 13, "name": "updated_at", "sqlAnchor": "updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"}
+      ]
+    },
+    {
+      "name": "escrows",
+      "columns": [
+        {"ordinal": 1, "name": "id", "sqlAnchor": "id VARCHAR(66) PRIMARY KEY,"},
+        {"ordinal": 2, "name": "chain_id", "sqlAnchor": "chain_id VARCHAR(20) NOT NULL,"},
+        {"ordinal": 3, "name": "payer", "sqlAnchor": "payer VARCHAR(42) NOT NULL,"},
+        {"ordinal": 4, "name": "payee", "sqlAnchor": "payee VARCHAR(42) NOT NULL,"},
+        {"ordinal": 5, "name": "amount", "sqlAnchor": "amount VARCHAR(78) NOT NULL,"},
+        {"ordinal": 6, "name": "token_address", "sqlAnchor": "token_address VARCHAR(42) NOT NULL,"},
+        {"ordinal": 7, "name": "fee_amount", "sqlAnchor": "fee_amount VARCHAR(78) NOT NULL DEFAULT '0',"},
+        {"ordinal": 8, "name": "status", "sqlAnchor": "status VARCHAR(30) NOT NULL DEFAULT 'active',"},
+        {"ordinal": 9, "name": "on_chain_id", "sqlAnchor": "on_chain_id VARCHAR(78),"},
+        {"ordinal": 10, "name": "tx_hash", "sqlAnchor": "tx_hash VARCHAR(66),"},
+        {"ordinal": 11, "name": "dispute_reason", "sqlAnchor": "dispute_reason TEXT,"},
+        {"ordinal": 12, "name": "created_at", "sqlAnchor": "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),"},
+        {"ordinal": 13, "name": "updated_at", "sqlAnchor": "updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"}
+      ]
+    },
+    {
+      "name": "pay_links",
+      "columns": [
+        {"ordinal": 1, "name": "id", "sqlAnchor": "id VARCHAR(66) PRIMARY KEY,"},
+        {"ordinal": 2, "name": "slug", "sqlAnchor": "slug VARCHAR(32) UNIQUE NOT NULL,"},
+        {"ordinal": 3, "name": "intent_id", "sqlAnchor": "intent_id VARCHAR(66) NOT NULL,"},
+        {"ordinal": 4, "name": "max_uses", "sqlAnchor": "max_uses INTEGER NOT NULL DEFAULT 1,"},
+        {"ordinal": 5, "name": "current_uses", "sqlAnchor": "current_uses INTEGER NOT NULL DEFAULT 0,"},
+        {"ordinal": 6, "name": "expires_at", "sqlAnchor": "expires_at TIMESTAMPTZ,"},
+        {"ordinal": 7, "name": "created_at", "sqlAnchor": "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"}
+      ]
+    },
+    {
+      "name": "pay_webhook_events",
+      "columns": [
+        {"ordinal": 1, "name": "event_id", "sqlAnchor": "event_id VARCHAR(128) PRIMARY KEY,"},
+        {"ordinal": 2, "name": "intent_id", "sqlAnchor": "intent_id VARCHAR(66),"},
+        {"ordinal": 3, "name": "escrow_id", "sqlAnchor": "escrow_id VARCHAR(66),"},
+        {"ordinal": 4, "name": "event_type", "sqlAnchor": "event_type VARCHAR(64) NOT NULL,"},
+        {"ordinal": 5, "name": "payload", "sqlAnchor": "payload JSONB NOT NULL,"},
+        {"ordinal": 6, "name": "received_at", "sqlAnchor": "received_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"}
+      ]
+    }
+  ],
+  "constraintAndIndexSemantics": {
+    "primaryKeys": ["pay_intents.id", "escrows.id", "pay_links.id", "pay_webhook_events.event_id"],
+    "uniqueKeys": ["pay_links.slug"],
+    "foreignKeys": [],
+    "structuralConstraints": 5,
+    "postgres18NotNullConstraints": 29,
+    "postgres18CatalogConstraints": 34,
+    "pre18NotNullConstraints": 0,
+    "totalIndexes": 11,
+    "constraintBackedIndexes": 5,
+    "standaloneIndexes": 6,
+    "partialIndexes": 0,
+    "expressionIndexes": 0,
+    "includeIndexes": 0,
+    "inheritedOrPartitionedRelations": 0,
+    "rowLevelSecurityRelations": 0,
+    "policies": 0,
+    "defaultTypeCollationColumns": 28,
+    "accessMethod": "btree",
+    "opclass": "text_ops",
+    "opclassNamespace": "pg_catalog",
+    "collationPolicy": "all-varchar-and-text-columns-use-type-default-and-every-index-key-matches-its-column"
+  },
+  "rustModelContract": {
+    "file": "services/pay/src/types.rs",
+    "requiredNonOptionalDefaultColumns": [
+      "PayIntent.status",
+      "PayIntent.created_at",
+      "PayIntent.updated_at",
+      "EscrowRecord.fee_amount",
+      "EscrowRecord.status",
+      "EscrowRecord.created_at",
+      "EscrowRecord.updated_at",
+      "PayLink.max_uses",
+      "PayLink.current_uses",
+      "PayLink.created_at"
+    ],
+    "requiredOptionalColumns": [
+      "PayIntent.escrow_id",
+      "PayIntent.tx_hash",
+      "PayIntent.description",
+      "PayIntent.expires_at",
+      "EscrowRecord.on_chain_id",
+      "EscrowRecord.tx_hash",
+      "EscrowRecord.dispute_reason",
+      "PayLink.expires_at"
+    ],
+    "chainIdDecimalCapacity": 20
+  },
+  "freshSchemaDrift": {
+    "guardedMigrationUpgradesPreexistingTables": false,
+    "driftItems": 13,
+    "notNullAdditions": [
+      "pay_intents.status",
+      "pay_intents.created_at",
+      "pay_intents.updated_at",
+      "escrows.fee_amount",
+      "escrows.status",
+      "escrows.created_at",
+      "escrows.updated_at",
+      "pay_links.max_uses",
+      "pay_links.current_uses",
+      "pay_links.created_at",
+      "pay_webhook_events.received_at"
+    ],
+    "lengthWidenings": ["pay_intents.chain_id:10->20", "escrows.chain_id:10->20"],
+    "stopCategories": ["database-authority", "baseline-adoption", "populated-upgrade"]
+  },
+  "isolatedRuntimeDelta": {
+    "payRuntimeDdlFindings": {"before": 10, "after": 0, "delta": -10},
+    "migrationSqlFiles": {"delta": 1},
+    "status": "isolated-package-only-central-a3-3-and-migration-safety-rebaseline-owned-elsewhere"
+  },
+  "isolatedPostgres18Evidence": {
+    "version": "18.4",
+    "distribution": "Homebrew",
+    "cluster": "ephemeral-local-initdb-no-production-data",
+    "freshMigrationProbe": true,
+    "catalogConstraintCounts": {"total": 34, "notNull": 29, "structural": 5},
+    "adversarialCases": {
+      "policyWithRlsDisabled": false,
+      "nonDefaultColumnCollation": false,
+      "foreignNamespaceTextOps": false
+    },
+    "restoredCleanProbe": true,
+    "cleanupConfirmed": true,
+    "readinessEvidence": false
+  },
+  "nonClaims": [
+    "A3.13 does not choose among the canonical backend payment schema, epsx_payment, epsx_pay, or any epsx_payments environment database.",
+    "A3.13 does not adopt, alter, backfill, reconcile, read, or write any existing payment, escrow, link, webhook, subscription, credit, or entitlement row.",
+    "A3.13 does not add financial idempotency, exact-money constraints, chain-event identity, receipt finality, state-machine, audit, inbox, or outbox proof.",
+    "A3.13 does not make any financial, admin mutation, deposit-confirmation, or webhook route reachable; the existing uniform 404 boundary remains required.",
+    "A3.13 does not authorize a migration runner, deployed or candidate database connection, provider call, chain access, deployment, production environment, or canonical inventory rebaseline; only an isolated disposable PostgreSQL 18 cluster was exercised."
+  ],
+  "blockers": [
+    {"id": "B01", "category": "migration-runner", "status": "blocked", "summary": "No reviewed runner discovers, orders, records, or executes the pay candidate migration root."},
+    {"id": "B02", "category": "database-authority", "status": "blocked", "summary": "The payment write authority and the relationship among all candidate database names remain deliberately unresolved."},
+    {"id": "B03", "category": "baseline-adoption", "status": "blocked", "summary": "No safe version-ledger adoption flow for an already matching deployed pay candidate schema has been designed or proven."},
+    {"id": "B04", "category": "populated-upgrade", "status": "blocked", "summary": "No populated source upgrade has proven the two length widenings and eleven NOT NULL additions without row loss."},
+    {"id": "B05", "category": "reconciliation", "status": "blocked", "summary": "No payment, escrow, link, webhook, constraint, index, or competing-authority reconciliation has executed."},
+    {"id": "B06", "category": "concurrent-startup", "status": "blocked", "summary": "No concurrent migration and pay-service startup ordering test has run against PostgreSQL."},
+    {"id": "B07", "category": "live-database", "status": "blocked", "summary": "The migration and probe passed only in a disposable empty PostgreSQL 18 cluster; no candidate, deployed, populated, adoption, or upgrade database proof exists."},
+    {"id": "B08", "category": "financial-durability", "status": "blocked", "summary": "The candidate schema still lacks the idempotency, chain identity, state-machine, audit, inbox, outbox, and finality proof required by A6."}
+  ]
+}

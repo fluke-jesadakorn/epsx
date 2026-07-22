@@ -29,7 +29,7 @@ cmp "$temp_dir/report-one.json" "$temp_dir/report-two.json"
 bun -e '
 const report = JSON.parse(await Bun.file(process.argv[1]).text());
 const expected = ["marketAnalytics", "eventAnalytics", "indexer", "identityRankingOffset"];
-if (report.readinessExit !== 3 || report.productionReady !== false || report.blockers.length !== 24 || report.targetEvidence !== 36 || report.surfaceContracts.length !== 16) process.exit(1);
+if (report.readinessExit !== 3 || report.productionReady !== false || report.blockers.length !== 24 || report.targetEvidence !== 36 || report.refreshedBoundaryEvidence !== 7 || report.surfaceContracts.length !== 16) process.exit(1);
 if (expected.some((domain) => !report.domains[domain] || report.domains[domain].status !== "blocked")) process.exit(1);
 ' "$temp_dir/report-one.json"
 
@@ -48,6 +48,22 @@ if [ "$anchor_status" -ne 1 ]; then
   exit 1
 fi
 grep -q "missing source anchor" "$temp_dir/missing-anchor.out"
+
+A12_CONTRACT_IN="$contract" A12_CONTRACT_OUT="$temp_dir/schema-boundary-anchor.json" bun -e '
+const contract = await Bun.file(process.env.A12_CONTRACT_IN).json();
+contract.targetEvidence.find((item) => item.id === "tgt-indexer-schema-boundary").anchor = "\"productionReady\": false";
+await Bun.write(process.env.A12_CONTRACT_OUT, `${JSON.stringify(contract, null, 2)}\n`);
+'
+set +e
+"$verify" --mode integrity --contract "$temp_dir/schema-boundary-anchor.json" >"$temp_dir/schema-boundary-anchor.out" 2>&1
+schema_boundary_status=$?
+set -e
+if [ "$schema_boundary_status" -ne 1 ]; then
+  cat "$temp_dir/schema-boundary-anchor.out" >&2
+  echo "analytics-indexer-execution self-test: expected schema-boundary-anchor exit 1, got $schema_boundary_status" >&2
+  exit 1
+fi
+grep -q "refreshed schema/fake-sync evidence drifted" "$temp_dir/schema-boundary-anchor.out"
 
 A12_CONTRACT_IN="$contract" A12_CONTRACT_OUT="$temp_dir/stale-source.json" bun -e '
 const contract = await Bun.file(process.env.A12_CONTRACT_IN).json();
@@ -97,6 +113,22 @@ if [ "$conflated_status" -ne 1 ]; then
 fi
 grep -q "owner/authority boundary drifted\|domain owners must not be conflated" "$temp_dir/conflated-domain.out"
 
+A12_CONTRACT_IN="$contract" A12_CONTRACT_OUT="$temp_dir/blocker-inventory.json" bun -e '
+const contract = await Bun.file(process.env.A12_CONTRACT_IN).json();
+contract.blockers[0].id = "B99";
+await Bun.write(process.env.A12_CONTRACT_OUT, `${JSON.stringify(contract, null, 2)}\n`);
+'
+set +e
+"$verify" --mode integrity --contract "$temp_dir/blocker-inventory.json" >"$temp_dir/blocker-inventory.out" 2>&1
+blocker_inventory_status=$?
+set -e
+if [ "$blocker_inventory_status" -ne 1 ]; then
+  cat "$temp_dir/blocker-inventory.out" >&2
+  echo "analytics-indexer-execution self-test: expected blocker-inventory exit 1, got $blocker_inventory_status" >&2
+  exit 1
+fi
+grep -q "exact B01..B24 blocker inventory drifted" "$temp_dir/blocker-inventory.out"
+
 set +e
 EPSX_ENV=production "$verify" --mode integrity >"$temp_dir/production-env.out" 2>&1
 production_status=$?
@@ -119,4 +151,4 @@ if [ "$live_status" -ne 1 ]; then
 fi
 grep -q "never contacts databases, Redis, chains, or live market-data providers" "$temp_dir/live-env.out"
 
-echo "analytics-indexer-execution self-test: PASS (integrity=0, readiness-stop=3, deterministic=stable, anchor/stale/path/domain/prod/live tamper=1)"
+echo "analytics-indexer-execution self-test: PASS (integrity=0, readiness-stop=3, deterministic=stable, source/schema-anchor/stale/path/domain/blocker/prod/live tamper=1)"
