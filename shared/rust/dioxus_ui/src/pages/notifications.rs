@@ -1,184 +1,277 @@
-//! /notifications — notification center with bell widget behavior,
-//! list, mark-read, delete, clear-all, browser-notification
-//! permission CTA, and per-type settings.
+//! Truthful, read-only owner notification center.
 //!
-//! Wave 6A Track C port — see `docs/wave6-auth-pages-depth/design.md`
-//! §"Track C — chat + chat_history + chat_conversation +
-//! notifications" / `notifications.rs`.
-//!
-//! Section list (in order, mirroring the source
-//! `app/notifications/page.tsx` + `components/notifications/*.tsx`):
-//!   1. `NotificationList` — paginated list with type icons,
-//!      read/unread state, mark-read + delete buttons. Ported
-//!      from `notification-bell-client.tsx` 266 LoC.
-//!   2. `BrowserNotificationsPrompt` — "Allow browser
-//!      notifications" CTA with permission status. Ported from
-//!      `browser-notifications.tsx` 152 LoC.
-//!   3. `NotificationSettings` — per-type toggle (news, payment,
-//!      chat, system). Ported from
-//!      `notification-settings-panel.tsx` 110 LoC.
-//!
-//! The previous Wave 1 shell lived at 105 LoC; the new port adds
-//! the three sub-sections so the section-marker tests can assert
-//! each is present.
-//!
-//! CSS for the unread badge, notification list rows, and the
-//! permission badge lives in `shared/rust/templates/src/lib.rs`
-//! under the `// === wave6-auth-pages-depth-track-c ===` marker.
+//! The frontend BFF hydrates this page from the extracted notification
+//! service's owner-scoped `GET /api/v1/notification/list` route. This page
+//! deliberately does not expose notification mutations, action URLs, browser
+//! permission simulation, push controls, or preference controls while their
+//! backend lifecycle contracts remain blocked.
 
+use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
 use serde::Deserialize;
 
-use crate::primitives::*;
-use crate::feedback::*;
-
-use super::PageContext;
-use super::PageMeta;
 use crate::auth::AuthGate;
 use crate::layout::main_layout::MainLayout;
 use crate::layout::PageHeader;
+use crate::primitives::*;
 
-// ── Data shape (mirrors `shared/types/notifications.ts`) ─────────────
+use super::{PageContext, PageMeta};
 
-/// A single notification. Mirrors the source's `Notification`
-/// type (id, title, body, type, read, timestamp, action_url,
-/// action_label, priority) — narrowed to the fields the
-/// notification list + settings render. The BFF hydrates the
-/// `items` list via `getInitialNotificationsAction()`.
-#[derive(Clone, Debug, PartialEq, Default, Deserialize)]
-pub struct Notification {
-    #[serde(default)] pub id: String,
-    #[serde(default)] pub title: String,
-    #[serde(default)] pub body: String,
-    /// `"payment" | "subscription" | "wallet" | "system" |
-    /// "alert" | "news" | "chat" | …`. Drives the row's icon.
-    #[serde(default)] pub kind: String,
-    /// `"low" | "normal" | "high" | "urgent"`. Drives the row's
-    /// icon background color.
-    #[serde(default)] pub priority: String,
-    #[serde(default)] pub read: bool,
-    /// ISO-8601 timestamp string. The list renders this verbatim
-    /// as a short relative or absolute time.
-    #[serde(default)] pub created_at: String,
-    #[serde(default)] pub action_url: Option<String>,
-    #[serde(default)] pub action_label: Option<String>,
+const NOTIFICATIONS_DATA_PARAM: &str = "data_notifications";
+const NOTIFICATIONS_STATE_PARAM: &str = "data_notifications_state";
+
+/// A wire field that must be present but may explicitly contain JSON `null`.
+/// Serde otherwise gives missing fields and explicit `null` the same `None`
+/// representation. The sentinel keeps those states distinct until the whole
+/// service row is validated.
+#[derive(Debug)]
+enum RequiredNullable<T> {
+    Missing,
+    Present(Option<T>),
 }
 
-// ── Page entry ───────────────────────────────────────────────────────
+impl<T> Default for RequiredNullable<T> {
+    fn default() -> Self {
+        Self::Missing
+    }
+}
+
+impl<'de, T> Deserialize<'de> for RequiredNullable<T>
+where
+    T: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Option::<T>::deserialize(deserializer).map(Self::Present)
+    }
+}
+
+impl<T> RequiredNullable<T> {
+    fn require(self) -> Result<Option<T>, ()> {
+        match self {
+            Self::Missing => Err(()),
+            Self::Present(value) => Ok(value),
+        }
+    }
+}
+
+/// Exact read fields emitted by `services/notification/src/main.rs`.
+///
+/// Delivery, recipient, provider, and arbitrary data fields are intentionally
+/// ignored by this read-only UI. `action_url` is parsed so schema drift is
+/// visible in tests, but it is never copied into the render model because its
+/// allowlist policy is not yet locked.
+#[derive(Debug, Deserialize)]
+struct ServiceNotification {
+    id: String,
+    #[serde(default)]
+    subject: RequiredNullable<String>,
+    body: String,
+    created_at: DateTime<Utc>,
+    #[serde(default)]
+    read_at: RequiredNullable<DateTime<Utc>>,
+    #[serde(default)]
+    title: RequiredNullable<String>,
+    #[serde(default)]
+    notification_type: RequiredNullable<String>,
+    #[serde(default)]
+    priority: RequiredNullable<String>,
+    #[serde(default, rename = "action_url")]
+    _action_url: RequiredNullable<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ServiceNotificationList {
+    items: Vec<ServiceNotification>,
+    #[serde(rename = "total")]
+    _total: i64,
+}
+
+/// Presentation-only shape. Ownership and access decisions remain in the
+/// notification service and gateway; this type only maps already-authorized
+/// rows to escaped Dioxus text nodes.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Notification {
+    pub id: String,
+    pub title: String,
+    pub body: String,
+    pub kind: Option<String>,
+    pub priority: Option<String>,
+    pub read: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+impl TryFrom<ServiceNotification> for Notification {
+    type Error = ();
+
+    fn try_from(value: ServiceNotification) -> Result<Self, Self::Error> {
+        let subject = value.subject.require()?;
+        let read_at = value.read_at.require()?;
+        let title = value.title.require()?;
+        let notification_type = value.notification_type.require()?;
+        let priority = value.priority.require()?;
+        let _action_url = value._action_url.require()?;
+        let title = non_blank(title)
+            .or_else(|| non_blank(subject))
+            .unwrap_or_else(|| "Notification".to_string());
+        Ok(Self {
+            id: value.id,
+            title,
+            body: value.body,
+            kind: non_blank(notification_type),
+            priority: non_blank(priority),
+            read: read_at.is_some(),
+            created_at: value.created_at,
+        })
+    }
+}
+
+fn non_blank(value: Option<String>) -> Option<String> {
+    value.filter(|candidate| !candidate.trim().is_empty())
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum NotificationLoad {
+    Loaded(Vec<Notification>),
+    UpstreamError,
+    Malformed,
+}
+
+fn notification_load(ctx: &PageContext) -> NotificationLoad {
+    match ctx
+        .params
+        .get(NOTIFICATIONS_STATE_PARAM)
+        .map(String::as_str)
+    {
+        Some("error") | None => NotificationLoad::UpstreamError,
+        Some("ok") => {
+            let Some(raw) = ctx.params.get(NOTIFICATIONS_DATA_PARAM) else {
+                return NotificationLoad::Malformed;
+            };
+            match serde_json::from_str::<ServiceNotificationList>(raw) {
+                Ok(payload) => match payload
+                    .items
+                    .into_iter()
+                    .map(Notification::try_from)
+                    .collect::<Result<Vec<_>, _>>()
+                {
+                    Ok(items) => NotificationLoad::Loaded(items),
+                    Err(()) => NotificationLoad::Malformed,
+                },
+                Err(_) => NotificationLoad::Malformed,
+            }
+        }
+        Some(_) => NotificationLoad::Malformed,
+    }
+}
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::app("Notifications");
     (meta, rsx! { RenderNotifications { ctx: ctx.clone() } })
 }
 
-/// Top-level wrapper. Mirrors the source
-/// `<NotificationsClient initialData=… focusId=…>` body — pulls
-/// the notification list from `ctx.params` (or falls back to a
-/// demo list), then renders the three sections.
 #[component]
 fn RenderNotifications(ctx: PageContext) -> Element {
-    // BFF-supplied data. The Wave 1 stub parsed JSON from a
-    // `data_notifications` param; the BFF would normally hydrate
-    // the list at SSR time. Fall back to a demo list so the
-    // section-marker tests have something to assert against.
-    let data: Option<serde_json::Value> = ctx.params.get("data_notifications")
-        .and_then(|s| serde_json::from_str(s).ok());
-    let items: Vec<Notification> = data.as_ref()
-        .and_then(|d| serde_json::from_value(d.get("items").cloned().unwrap_or(serde_json::json!([]))).ok())
-        .unwrap_or_else(sample_notifications);
-    let count_label = format!("{} notification(s)", items.len());
+    let load = notification_load(&ctx);
+    let description = match &load {
+        NotificationLoad::Loaded(items) => format!("{} loaded", items.len()),
+        NotificationLoad::UpstreamError | NotificationLoad::Malformed => {
+            "Temporarily unavailable".to_string()
+        }
+    };
 
     rsx! {
         MainLayout { ctx: ctx.clone(),
-            AuthGate { user: ctx.user.clone(), feature: Some("your notifications".to_string()),
-                required_permissions: Some(vec!["notifications:read".to_string()]),
+            AuthGate {
+                user: ctx.user.clone(),
+                feature: Some("your notifications".to_string()),
                 return_url: Some(ctx.path.clone()),
                 div { class: "container page-content notifications-page",
-                    PageHeader { title: "Notifications".to_string(),
-                        description: Some(count_label),
-                        icon: Some("bell".to_string()) }
-                    // ── Section 1: NotificationList ──
-                    NotificationListSection { items: items.clone() }
-                    // ── Section 2: BrowserNotificationsPrompt ──
-                    BrowserNotificationsPrompt {}
-                    // ── Section 3: NotificationSettings ──
-                    NotificationSettingsSection {}
+                    PageHeader {
+                        title: "Notifications".to_string(),
+                        description: Some(description),
+                        icon: Some("bell".to_string()),
+                    }
+                    match load {
+                        NotificationLoad::Loaded(items) => rsx! {
+                            NotificationListSection { items }
+                        },
+                        NotificationLoad::UpstreamError => rsx! {
+                            NotificationUnavailable { malformed: false }
+                        },
+                        NotificationLoad::Malformed => rsx! {
+                            NotificationUnavailable { malformed: true }
+                        },
+                    }
                 }
             }
         }
     }
 }
 
-// ── Section 1: NotificationList ──────────────────────────────────────
+#[component]
+fn NotificationUnavailable(malformed: bool) -> Element {
+    let (title, detail) = if malformed {
+        (
+            "Notifications could not be displayed safely",
+            "The notification service returned an unexpected response. No notification data was shown.",
+        )
+    } else {
+        (
+            "Notifications are temporarily unavailable",
+            "The notification service could not be reached. Your notification history was not replaced with sample data.",
+        )
+    };
+    rsx! {
+        div {
+            class: "card card-glass notifications-unavailable",
+            role: "alert",
+            div { class: "card-body notifications-empty",
+                Icon { name: "alert-circle".to_string(), size: Some(32) }
+                p { class: "notifications-empty-title", "{title}" }
+                p { class: "notifications-empty-hint", "{detail}" }
+                a { class: "btn btn-sm btn-outline", href: "/notifications", "Try again" }
+            }
+        }
+    }
+}
 
-/// Paginated list of notifications with type icons and
-/// read/unread state. Mirrors the `<NotificationItem>` and
-/// `<NotificationBellClient>` body in
-/// `components/notifications/notification-bell-client.tsx` (266
-/// LoC). The source renders this as a dropdown popup; Wave 6A
-/// inlines the same list into the `/notifications` page body
-/// (the BFF / page surface).
+/// Render only the rows loaded into this page. Counts never claim to describe
+/// rows beyond the current service response.
 #[component]
 fn NotificationListSection(items: Vec<Notification>) -> Element {
-    let mut filter = use_signal(|| "all".to_string());
-    let unread_count = items.iter().filter(|n| !n.read).count();
-    let unread_label = format!("{unread_count} unread");
+    if items.is_empty() {
+        return rsx! {
+            div { class: "notifications-list",
+                div { class: "card card-glass notifications-list-card",
+                    div { class: "card-body notifications-empty",
+                        Icon { name: "bell-off".to_string(), size: Some(32) }
+                        p { class: "notifications-empty-title", "No notifications yet" }
+                        p { class: "notifications-empty-hint", "New notifications will appear here." }
+                    }
+                }
+            }
+        };
+    }
 
-    let visible: Vec<Notification> = items.iter()
-        .filter(|n| match filter.read().as_str() {
-            "unread" => !n.read,
-            "read" => n.read,
-            _ => true,
-        })
-        .cloned()
-        .collect();
+    let unread_count = items
+        .iter()
+        .filter(|notification| !notification.read)
+        .count();
+    let unread_label = format!("{unread_count} unread in loaded list");
 
     rsx! {
         div { class: "notifications-list",
-            // Filter bar — All / Unread / Read + bulk actions.
-            div { class: "notifications-filterbar",
-                div { class: "notifications-filters",
-                    button {
-                        class: if *filter.read() == "all" { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" },
-                        r#type: "button",
-                        onclick: move |_| filter.set("all".to_string()),
-                        "All"
-                    }
-                    button {
-                        class: if *filter.read() == "unread" { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" },
-                        r#type: "button",
-                        onclick: move |_| filter.set("unread".to_string()),
-                        "Unread"
-                    }
-                    button {
-                        class: if *filter.read() == "read" { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" },
-                        r#type: "button",
-                        onclick: move |_| filter.set("read".to_string()),
-                        "Read"
-                    }
-                }
-                div { class: "notifications-filterbar-aside",
-                    if unread_count > 0 {
-                        span { class: "notifications-unread-count", "{unread_label}" }
-                    }
-                    button { class: "btn btn-sm btn-outline", r#type: "button", "Mark all read" }
-                    button { class: "btn btn-sm btn-outline", r#type: "button", "Clear all" }
-                }
+            div { class: "notifications-summary",
+                span { class: "notifications-unread-count", "{unread_label}" }
             }
 
-            // List body — empty state + rows.
             div { class: "card card-glass notifications-list-card",
                 div { class: "card-body p-0",
-                    if visible.is_empty() {
-                        div { class: "notifications-empty",
-                            Icon { name: "bell-off".to_string(), size: Some(32) }
-                            p { class: "notifications-empty-title", "You're all caught up" }
-                            p { class: "notifications-empty-hint", "New notifications will appear here." }
-                        }
-                    } else {
-                        for n in visible.iter() {
-                            NotificationRow { n: n.clone() }
-                        }
+                    for notification in items {
+                        NotificationRow { notification }
                     }
                 }
             }
@@ -186,301 +279,55 @@ fn NotificationListSection(items: Vec<Notification>) -> Element {
     }
 }
 
-/// One row in the notification list. Mirrors the source's
-/// `<NotificationItem>` inner markup (icons, title, body, time,
-/// action link, read-receipt dot, delete button). The action
-/// link + delete button render only when their data is present.
 #[component]
-fn NotificationRow(n: Notification) -> Element {
-    let (icon_name, icon_class) = match n.kind.as_str() {
-        "payment" => ("credit-card", "notification-icon-payment"),
-        "subscription" => ("zap", "notification-icon-subscription"),
-        "wallet" => ("wallet", "notification-icon-wallet"),
-        "news" => ("newspaper", "notification-icon-news"),
-        "chat" => ("message-circle", "notification-icon-chat"),
-        "alert" => ("alert-triangle", "notification-icon-alert"),
+fn NotificationRow(notification: Notification) -> Element {
+    let (icon_name, icon_class) = match notification.kind.as_deref() {
+        Some("payment") => ("credit-card", "notification-icon-payment"),
+        Some("subscription") => ("zap", "notification-icon-subscription"),
+        Some("wallet") => ("wallet", "notification-icon-wallet"),
+        Some("news") => ("newspaper", "notification-icon-news"),
+        Some("chat") => ("message-circle", "notification-icon-chat"),
+        Some("alert") => ("alert-triangle", "notification-icon-alert"),
         _ => ("info", "notification-icon-system"),
     };
-    let row_class = if n.read {
+    let row_class = if notification.read {
         "notification-row notification-row-read"
     } else {
         "notification-row notification-row-unread"
     };
-    let unread_dot_class = if n.read {
+    let unread_dot_class = if notification.read {
         "notification-unread-dot notification-unread-dot-empty"
     } else {
         "notification-unread-dot"
     };
+
     rsx! {
-        div { class: "{row_class}",
+        div {
+            class: "{row_class}",
+            "data-notification-id": "{notification.id}",
             div { class: "notification-icon {icon_class}",
                 Icon { name: icon_name.to_string(), size: Some(16) }
             }
             div { class: "notification-body",
                 div { class: "notification-headline",
-                    p { class: "notification-title", "{n.title}" }
+                    p { class: "notification-title", "{notification.title}" }
                     span { class: "{unread_dot_class}" }
                 }
-                p { class: "notification-text", "{n.body}" }
+                p { class: "notification-text", "{notification.body}" }
                 div { class: "notification-meta",
-                    span { class: "notification-time", "{n.created_at}" }
-                    if let (Some(lbl), Some(href)) = (&n.action_label, &n.action_url) {
+                    if let Some(kind) = &notification.kind {
+                        span { class: "notification-kind", "{kind}" }
                         span { class: "notification-meta-sep", "·" }
-                        a { class: "notification-action", href: "{href}", "{lbl}" }
                     }
-                }
-            }
-            div { class: "notification-actions",
-                if !n.read {
-                    button { class: "btn btn-sm btn-ghost", r#type: "button", title: "Mark read",
-                        Icon { name: "check".to_string(), size: Some(14) }
+                    if let Some(priority) = &notification.priority {
+                        span { class: "notification-priority", "{priority}" }
+                        span { class: "notification-meta-sep", "·" }
                     }
-                }
-                button { class: "btn btn-sm btn-ghost", r#type: "button", title: "Delete",
-                    Icon { name: "trash".to_string(), size: Some(14) }
+                    span { class: "notification-time", "{notification.created_at}" }
                 }
             }
         }
     }
-}
-
-// ── Section 2: BrowserNotificationsPrompt ────────────────────────────
-
-/// "Allow browser notifications" CTA. Mirrors the source
-/// `<BrowserNotifications>` body in
-/// `components/notifications/browser-notifications.tsx` (152
-/// LoC). The source has three permission states (default,
-/// granted, denied) and a "Test Notification" button when
-/// granted. Wave 6A inlines the three states as rsx! branches
-/// driven by a `use_signal`.
-#[component]
-fn BrowserNotificationsPrompt() -> Element {
-    // Source's `permission` state. The signal is server-rendered
-    // as "default" (the BFF would later update it client-side
-    // from the `Notification.permission` API).
-    let mut permission = use_signal(|| "default".to_string());
-    let mut enabled = use_signal(|| false);
-    let mut analytics = use_signal(|| true);
-    let mut security = use_signal(|| true);
-    let mut system = use_signal(|| true);
-    let mut permissions = use_signal(|| false);
-
-    rsx! {
-        div { class: "card card-glass browser-notifications",
-            div { class: "card-header browser-notifications-header",
-                div { class: "browser-notifications-title",
-                    Icon { name: "bell".to_string(), size: Some(18) }
-                    h3 { class: "browser-notifications-heading", "Browser Notifications" }
-                }
-                BrowserPermissionBadge { permission: permission.read().clone() }
-            }
-            div { class: "card-body browser-notifications-body",
-                match permission.read().as_str() {
-                    "default" => rsx! {
-                        div { class: "browser-notifications-prompt",
-                            p { class: "browser-notifications-prompt-text",
-                                "Enable browser notifications to receive important alerts about your analytics activity, security events, and permission changes."
-                            }
-                            button {
-                                class: "btn btn-primary browser-notifications-enable",
-                                r#type: "button",
-                                onclick: move |_| permission.set("granted".to_string()),
-                                Icon { name: "bell".to_string(), size: Some(16) }
-                                " Enable Browser Notifications"
-                            }
-                        }
-                    },
-                    "denied" => rsx! {
-                        div { class: "browser-notifications-prompt browser-notifications-prompt-denied",
-                            Icon { name: "bell-off".to_string(), size: Some(18) }
-                            p { class: "browser-notifications-prompt-text",
-                                "Browser notifications are blocked. To enable them, click the lock icon in your browser's address bar and allow notifications for this site."
-                            }
-                        }
-                    },
-                    _ => rsx! {
-                        div { class: "browser-notifications-settings",
-                            div { class: "browser-notifications-toggle",
-                                span { "Enable Notifications" }
-                                SwitchInput { checked: *enabled.read(), label: None }
-                            }
-                            if *enabled.read() {
-                                div { class: "browser-notifications-types",
-                                    ToggleRow { label: "📈 Analytics & Portfolio Alerts".to_string(), checked: *analytics.read() }
-                                    ToggleRow { label: "🔒 Security & Login Alerts".to_string(), checked: *security.read() }
-                                    ToggleRow { label: "🛡️ Permission Changes".to_string(), checked: *permissions.read() }
-                                    ToggleRow { label: "🔧 System Updates".to_string(), checked: *system.read() }
-                                    button { class: "btn btn-outline btn-sm browser-notifications-test", r#type: "button",
-                                        Icon { name: "bell".to_string(), size: Some(14) }
-                                        " Test Notification"
-                                    }
-                                }
-                            }
-                        }
-                    },
-                }
-                div { class: "browser-notifications-footnotes",
-                    p { "📱 ", strong { "Usage:" }, " Browser notifications appear outside the website as native OS notifications." }
-                    p { "🔕 ", strong { "Privacy:" }, " Notifications are processed locally in your browser only." }
-                    p { "⚙️ ", strong { "Control:" }, " You can disable or customize notification types at any time." }
-                }
-            }
-        }
-    }
-}
-
-/// Permission badge for the browser-notifications card. Mirrors
-/// the source's `<NotificationPermissionBadge>` (coloured pill:
-/// "Default" / "Granted" / "Blocked").
-#[component]
-fn BrowserPermissionBadge(permission: String) -> Element {
-    let (label, class) = match permission.as_str() {
-        "granted" => ("Granted", "permission-badge permission-badge-granted"),
-        "denied" => ("Blocked", "permission-badge permission-badge-denied"),
-        _ => ("Default", "permission-badge permission-badge-default"),
-    };
-    rsx! { span { class: "{class}", "{label}" } }
-}
-
-/// One row in the per-type toggle list inside the browser-
-/// notifications card. Mirrors the source's pattern of label
-/// + Switch on the right.
-#[component]
-fn ToggleRow(label: String, checked: bool) -> Element {
-    rsx! {
-        div { class: "browser-notifications-toggle-row",
-            span { "{label}" }
-            SwitchInput { checked: checked, label: None }
-        }
-    }
-}
-
-/// Local switch wrapper. The existing `<Switch>` primitive
-/// requires a label argument; this wrapper exposes a label-less
-/// variant for the toggle rows. Same on/off state — the label
-/// is rendered outside the primitive.
-#[component]
-fn SwitchInput(checked: bool, label: Option<String>) -> Element {
-    rsx! {
-        label { class: if checked { "SwitchRoot switch-md state-checked" } else { "SwitchRoot switch-md state-unchecked" },
-            input {
-                r#type: "checkbox",
-                role: "switch",
-                "aria-checked": checked.to_string(),
-                class: "SwitchInput",
-                checked: checked,
-            }
-            span { class: "SwitchThumb" }
-            if let Some(l) = label {
-                span { class: "SwitchLabel", "{l}" }
-            }
-        }
-    }
-}
-
-// ── Section 3: NotificationSettings ──────────────────────────────────
-
-/// Per-type notification settings. Mirrors the source
-/// `<NotificationSettingsPanel>` in
-/// `components/notifications/ui/notification-settings-panel.tsx`
-/// (110 LoC). Wave 6A renders the same enable + per-type
-/// switches but uses the portal's existing design-system classes.
-#[component]
-fn NotificationSettingsSection() -> Element {
-    let mut enabled = use_signal(|| true);
-    let mut news = use_signal(|| true);
-    let mut payment = use_signal(|| true);
-    let mut chat = use_signal(|| true);
-    let mut system = use_signal(|| true);
-    rsx! {
-        div { class: "card card-glass notification-settings",
-            div { class: "card-header",
-                h3 { class: "notification-settings-heading",
-                    Icon { name: "settings".to_string(), size: Some(18) }
-                    " Notification Settings"
-                }
-            }
-            div { class: "card-body notification-settings-body",
-                // Master enable switch.
-                div { class: "notification-settings-row notification-settings-row-master",
-                    span { "Enable Notifications" }
-                    SwitchInput { checked: *enabled.read(), label: None }
-                }
-                if *enabled.read() {
-                    // Per-type toggles. Mirrors the source's
-                    // indented `border-l-2` layout.
-                    div { class: "notification-settings-types",
-                        ToggleRow { label: "📰 News & Announcements".to_string(), checked: *news.read() }
-                        ToggleRow { label: "💳 Payment & Billing".to_string(), checked: *payment.read() }
-                        ToggleRow { label: "💬 Chat & Support".to_string(), checked: *chat.read() }
-                        ToggleRow { label: "🔧 System Updates".to_string(), checked: *system.read() }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ── Sample data (placeholder until BFF hydrates) ─────────────────────
-
-fn sample_notifications() -> Vec<Notification> {
-    vec![
-        Notification {
-            id: "n1".to_string(),
-            title: "Payment received".to_string(),
-            body: "We received your payment of 99 USDC for the Pro plan renewal.".to_string(),
-            kind: "payment".to_string(),
-            priority: "normal".to_string(),
-            read: false,
-            created_at: "5 minutes ago".to_string(),
-            action_url: Some("/payment".to_string()),
-            action_label: Some("View receipt".to_string()),
-        },
-        Notification {
-            id: "n2".to_string(),
-            title: "New comment on your plan".to_string(),
-            body: "EPSX Support replied to your question about plan upgrade.".to_string(),
-            kind: "chat".to_string(),
-            priority: "normal".to_string(),
-            read: false,
-            created_at: "1 hour ago".to_string(),
-            action_url: Some("/chat".to_string()),
-            action_label: Some("Open chat".to_string()),
-        },
-        Notification {
-            id: "n3".to_string(),
-            title: "Wallet connected".to_string(),
-            body: "Your wallet 0x1234…abcd was successfully connected.".to_string(),
-            kind: "wallet".to_string(),
-            priority: "low".to_string(),
-            read: true,
-            created_at: "yesterday".to_string(),
-            action_url: None,
-            action_label: None,
-        },
-        Notification {
-            id: "n4".to_string(),
-            title: "Scheduled maintenance".to_string(),
-            body: "EPSX services will be unavailable on Sunday from 02:00 to 04:00 UTC.".to_string(),
-            kind: "system".to_string(),
-            priority: "high".to_string(),
-            read: true,
-            created_at: "2 days ago".to_string(),
-            action_url: None,
-            action_label: None,
-        },
-        Notification {
-            id: "n5".to_string(),
-            title: "New feature: Markdown pages".to_string(),
-            body: "We've shipped markdown-driven pages. Check out the new builder!".to_string(),
-            kind: "news".to_string(),
-            priority: "low".to_string(),
-            read: true,
-            created_at: "3 days ago".to_string(),
-            action_url: Some("/news".to_string()),
-            action_label: Some("Read more".to_string()),
-        },
-    ]
 }
 
 #[cfg(test)]
@@ -488,71 +335,315 @@ mod tests {
     use super::*;
     use crate::auth::user::{AuthMethod, User};
 
-    fn notif_ctx(user_perms: &[&str]) -> PageContext {
-        let user = User {
+    fn user_with(perms: &[&str]) -> User {
+        User {
             id: "u1".to_string(),
-            address: "0x1234…abcd".to_string(),
+            address: "0x1234abcd".to_string(),
             chain_id: "56".to_string(),
             roles: vec!["user".to_string()],
             email: None,
             tier: Some("Pro".to_string()),
-            permissions: user_perms.iter().map(|s| s.to_string()).collect(),
+            permissions: perms
+                .iter()
+                .map(|permission| permission.to_string())
+                .collect(),
             last_login_at: None,
             auth_method: AuthMethod::Wallet,
             display_name: None,
-        };
+        }
+    }
+
+    fn context(
+        user: Option<User>,
+        state: Option<&str>,
+        payload: Option<serde_json::Value>,
+    ) -> PageContext {
+        let mut params = std::collections::HashMap::new();
+        if let Some(state) = state {
+            params.insert(NOTIFICATIONS_STATE_PARAM.to_string(), state.to_string());
+        }
+        if let Some(payload) = payload {
+            params.insert(NOTIFICATIONS_DATA_PARAM.to_string(), payload.to_string());
+        }
         PageContext {
-            user: Some(user),
+            user,
             path: "/notifications".to_string(),
+            params,
             ..Default::default()
         }
     }
 
-    /// Wave 6A — `test_render_smoke`. Notifications page must
-    /// render non-empty HTML.
-    #[test]
-    fn test_render_smoke() {
-        let ctx = notif_ctx(&["notifications:read"]);
-        let (_meta, el) = render(&ctx);
-        let html = dioxus_ssr::render_element(el);
-        assert!(!html.is_empty(), "Notifications page must render non-empty HTML.");
-        assert!(html.len() > 200, "Notifications HTML is suspiciously short ({} bytes).", html.len());
+    fn exact_target_payload() -> serde_json::Value {
+        serde_json::json!({
+            "items": [
+                {
+                    "id": "0x1",
+                    "user_id": "0x1234abcd",
+                    "channel": "in_app",
+                    "recipient": "0x1234abcd",
+                    "template_id": null,
+                    "subject": "Subject fallback",
+                    "body": "Unread body",
+                    "data": null,
+                    "status": "read",
+                    "error": null,
+                    "sent_at": null,
+                    "created_at": "2026-07-22T01:00:00Z",
+                    "read_at": null,
+                    "title": null,
+                    "notification_type": null,
+                    "priority": null,
+                    "action_url": "javascript:alert(1)"
+                },
+                {
+                    "id": "0x2",
+                    "user_id": "0x1234abcd",
+                    "channel": "in_app",
+                    "recipient": "0x1234abcd",
+                    "template_id": null,
+                    "subject": null,
+                    "body": "Neutral title body",
+                    "data": null,
+                    "status": "pending",
+                    "error": null,
+                    "sent_at": null,
+                    "created_at": "2026-07-22T02:00:00Z",
+                    "read_at": "2026-07-22T03:00:00Z",
+                    "title": null,
+                    "notification_type": "system",
+                    "priority": "high",
+                    "action_url": "https://unapproved.example/"
+                },
+                {
+                    "id": "0x3",
+                    "user_id": "0x1234abcd",
+                    "channel": "in_app",
+                    "recipient": "0x1234abcd",
+                    "template_id": null,
+                    "subject": "Ignored subject",
+                    "body": "<img src=x onerror=alert(1)>",
+                    "data": null,
+                    "status": "sent",
+                    "error": null,
+                    "sent_at": null,
+                    "created_at": "2026-07-22T04:00:00Z",
+                    "read_at": null,
+                    "title": "<script>alert(\"x\")</script>",
+                    "notification_type": "security",
+                    "priority": "critical",
+                    "action_url": null
+                }
+            ],
+            "total": 999
+        })
     }
 
-    /// Wave 6A — `test_section_markers`. The notifications page
-    /// must render every section the design doc claims:
-    /// notification list, browser notifications CTA, and the
-    /// per-type settings panel.
+    fn render_html(ctx: &PageContext) -> String {
+        let (_meta, element) = render(ctx);
+        dioxus_ssr::render_element(element)
+    }
+
     #[test]
-    fn test_section_markers() {
-        let ctx = notif_ctx(&["notifications:read"]);
-        let (_meta, el) = render(&ctx);
-        let html = dioxus_ssr::render_element(el);
-        for marker in &[
-            "notifications-page",
-            "notifications-list",
-            "notifications-filterbar",
-            "notifications-list-card",
-            "notification-row",
-            "notification-icon",
-            "browser-notifications",
-            "browser-notifications-header",
-            "browser-notifications-prompt",
-            "permission-badge",
-            "notification-settings",
-            "notification-settings-heading",
-            "notification-settings-types",
+    fn exact_target_payload_maps_nullable_fields_without_samples_or_action_urls() {
+        let ctx = context(
+            Some(user_with(&[])),
+            Some("ok"),
+            Some(exact_target_payload()),
+        );
+        let html = render_html(&ctx);
+
+        assert!(html.contains("3 loaded"));
+        assert!(html.contains("Subject fallback"));
+        assert!(html.contains("Neutral title body"));
+        assert!(html.contains(">Notification<"));
+        assert!(html.contains("system"));
+        assert!(html.contains("high"));
+        assert!(!html.contains("javascript:"));
+        assert!(!html.contains("unapproved.example"));
+        assert!(!html.contains("Payment received"));
+        assert!(!html.contains("New comment on your plan"));
+    }
+
+    #[test]
+    fn read_state_comes_only_from_read_at_and_counts_loaded_rows_only() {
+        let ctx = context(
+            Some(user_with(&[])),
+            Some("ok"),
+            Some(exact_target_payload()),
+        );
+        let html = render_html(&ctx);
+
+        assert_eq!(html.matches("notification-row-unread").count(), 2);
+        assert_eq!(html.matches("notification-row-read").count(), 1);
+        assert!(html.contains("2 unread in loaded list"));
+        assert!(!html.contains("999 loaded"));
+    }
+
+    #[test]
+    fn empty_payload_is_distinct_from_dependency_failure() {
+        let ctx = context(
+            Some(user_with(&[])),
+            Some("ok"),
+            Some(serde_json::json!({"items": [], "total": 0})),
+        );
+        let html = render_html(&ctx);
+
+        assert!(html.contains("0 loaded"));
+        assert!(html.contains("No notifications yet"));
+        assert!(!html.contains("temporarily unavailable"));
+    }
+
+    #[test]
+    fn missing_required_nullable_fields_are_malformed_even_when_nullable() {
+        for field in [
+            "subject",
+            "read_at",
+            "title",
+            "notification_type",
+            "priority",
+            "action_url",
         ] {
-            let needle = format!("class=\"{}\"", marker);
-            let found = html.contains(&needle)
-                || html.contains(&format!("\"{} ", marker))
-                || html.contains(&format!(" {} ", marker))
-                || html.contains(&format!(" {}", marker));
+            let mut payload = exact_target_payload();
+            payload["items"][0]
+                .as_object_mut()
+                .expect("fixture notification must be an object")
+                .remove(field);
+            let ctx = context(Some(user_with(&[])), Some("ok"), Some(payload));
+            let html = render_html(&ctx);
+
             assert!(
-                found,
-                "Notifications page must contain section marker '{}'. Got: {}",
-                needle, html
+                html.contains("could not be displayed safely"),
+                "missing {field} must fail closed"
+            );
+            assert!(!html.contains("Unread body"));
+        }
+    }
+
+    #[test]
+    fn invalid_created_at_or_non_null_read_at_is_malformed() {
+        let mut invalid_created_at = exact_target_payload();
+        invalid_created_at["items"][0]["created_at"] = serde_json::json!("not-a-timestamp");
+        let created_at_html = render_html(&context(
+            Some(user_with(&[])),
+            Some("ok"),
+            Some(invalid_created_at),
+        ));
+        assert!(created_at_html.contains("could not be displayed safely"));
+        assert!(!created_at_html.contains("Unread body"));
+
+        let mut invalid_read_at = exact_target_payload();
+        invalid_read_at["items"][0]["read_at"] = serde_json::json!("not-a-timestamp");
+        let read_at_html = render_html(&context(
+            Some(user_with(&[])),
+            Some("ok"),
+            Some(invalid_read_at),
+        ));
+        assert!(read_at_html.contains("could not be displayed safely"));
+        assert!(!read_at_html.contains("Unread body"));
+    }
+
+    #[test]
+    fn malformed_and_upstream_states_are_truthful_and_sample_free() {
+        let malformed = context(
+            Some(user_with(&[])),
+            Some("ok"),
+            Some(serde_json::json!({"items": "not-an-array", "total": 0})),
+        );
+        let malformed_html = render_html(&malformed);
+        assert!(malformed_html.contains("could not be displayed safely"));
+
+        let upstream = context(Some(user_with(&[])), Some("error"), None);
+        let upstream_html = render_html(&upstream);
+        assert!(upstream_html.contains("temporarily unavailable"));
+        assert!(upstream_html.contains("not replaced with sample data"));
+
+        for html in [&malformed_html, &upstream_html] {
+            assert!(!html.contains("Payment received"));
+            assert!(!html.contains("Scheduled maintenance"));
+        }
+    }
+
+    #[test]
+    fn authenticated_owner_needs_no_frontend_permission_grant() {
+        let ctx = context(
+            Some(user_with(&[])),
+            Some("ok"),
+            Some(exact_target_payload()),
+        );
+        let html = render_html(&ctx);
+
+        assert!(html.contains("Subject fallback"));
+        assert!(!html.contains("Permission required"));
+        assert!(!html.contains("notifications:read"));
+    }
+
+    #[test]
+    fn signed_out_user_sees_auth_gate_and_no_owner_rows() {
+        let ctx = context(None, Some("ok"), Some(exact_target_payload()));
+        let html = render_html(&ctx);
+
+        assert!(html.contains("Sign in required"));
+        assert!(!html.contains("Subject fallback"));
+        assert!(!html.contains("Unread body"));
+    }
+
+    #[test]
+    fn notification_content_is_escaped_as_text() {
+        let ctx = context(
+            Some(user_with(&[])),
+            Some("ok"),
+            Some(exact_target_payload()),
+        );
+        let html = render_html(&ctx);
+
+        assert!(!html.contains("<script>alert(\"x\")</script>"));
+        assert!(!html.contains("<img src=x onerror=alert(1)>"));
+        assert!(html.contains("&#60;script&#62;"));
+        assert!(html.contains("&#60;img src=x onerror=alert(1)&#62;"));
+    }
+
+    #[test]
+    fn lifecycle_delivery_and_unapproved_navigation_controls_are_absent() {
+        let ctx = context(
+            Some(user_with(&[])),
+            Some("ok"),
+            Some(exact_target_payload()),
+        );
+        let html = render_html(&ctx);
+
+        for forbidden in [
+            "Mark all read",
+            "Clear all",
+            "Mark read",
+            "Delete",
+            "Enable Browser Notifications",
+            "Test Notification",
+            "Notification Settings",
+            "notification-action",
+            "role=\"switch\"",
+        ] {
+            assert!(
+                !html.contains(forbidden),
+                "unexpected active control: {forbidden}"
             );
         }
+    }
+
+    #[test]
+    fn hydration_less_page_has_no_inert_filter_buttons() {
+        let ctx = context(
+            Some(user_with(&[])),
+            Some("ok"),
+            Some(exact_target_payload()),
+        );
+        let html = render_html(&ctx);
+
+        assert!(html.contains("2 unread in loaded list"));
+        assert!(!html.contains("notifications-filterbar"));
+        assert!(!html.contains("notifications-filters"));
+        assert!(!html.contains("Filter loaded notifications"));
+        assert!(!html.contains(">All<"));
+        assert!(!html.contains(">Unread<"));
+        assert!(!html.contains(">Read<"));
     }
 }

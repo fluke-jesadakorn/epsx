@@ -119,7 +119,7 @@ for (const item of source.evidence) {
   anchored(content, item, "source");
 }
 
-if (!Array.isArray(contract.targetEvidence) || contract.targetEvidence.length !== 36) fail("exactly 36 target evidence records are required");
+if (!Array.isArray(contract.targetEvidence) || contract.targetEvidence.length !== 40) fail("exactly 40 target evidence records are required");
 const targetContents = new Map();
 for (const item of contract.targetEvidence) {
   if (!item || typeof item.id !== "string" || !/^[a-z][a-z0-9-]+$/.test(item.id) || evidenceIds.has(item.id)) fail(`invalid or duplicate evidence id: ${item?.id}`);
@@ -134,15 +134,75 @@ for (const item of contract.targetEvidence) {
   targetContents.set(item.id, content);
   anchored(content, item, "target");
 }
+const exactNotificationAnchors = {
+  "tgt-frontend-ssr-list": ["apps/frontend/src/ssr.rs", ".get_with_ctx(\"/api/v1/notification/list\", &request_context)"],
+  "tgt-frontend-ssr-ok": ["apps/frontend/src/ssr.rs", "params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"ok\".into());"],
+  "tgt-frontend-ssr-error": ["apps/frontend/src/ssr.rs", "params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"error\".into());"],
+  "tgt-user-ui-target-dto": ["shared/rust/dioxus_ui/src/pages/notifications.rs", "struct ServiceNotification {"],
+  "tgt-user-ui-no-sample": ["shared/rust/dioxus_ui/src/pages/notifications.rs", "fn malformed_and_upstream_states_are_truthful_and_sample_free()"],
+  "tgt-user-ui-neutral-title": ["shared/rust/dioxus_ui/src/pages/notifications.rs", ".unwrap_or_else(|| \"Notification\".to_string());"],
+  "tgt-user-ui-auth-only": ["shared/rust/dioxus_ui/src/pages/notifications.rs", "fn authenticated_owner_needs_no_frontend_permission_grant()"],
+  "tgt-user-ui-read-only-count": ["shared/rust/dioxus_ui/src/pages/notifications.rs", "let unread_label = format!(\"{unread_count} unread in loaded list\");"],
+  "tgt-user-ui-disabled-controls": ["shared/rust/dioxus_ui/src/pages/notifications.rs", "fn lifecycle_delivery_and_unapproved_navigation_controls_are_absent()"],
+};
+const targetById = new Map(contract.targetEvidence.map((item) => [item.id, item]));
+for (const [id, [file, anchor]] of Object.entries(exactNotificationAnchors)) {
+  const item = targetById.get(id);
+  if (!item || item.file !== file || item.anchor !== anchor) fail(`${id}: notification semantic anchor drifted`);
+}
 for (const id of ["tgt-schema-compatibility", "tgt-additive-service-migration", "tgt-startup-no-seeds"]) {
   if (!targetContents.has(id)) fail(`missing A3.11 target evidence ${id}`);
 }
-for (const stale of ["tgt-runtime-template-ddl", "tgt-runtime-notification-ddl", "tgt-runtime-sample-seed"]) {
+for (const stale of [
+  "tgt-runtime-template-ddl", "tgt-runtime-notification-ddl", "tgt-runtime-sample-seed",
+  "tgt-user-ui-sample-fallback", "tgt-user-ui-inert-bulk", "tgt-browser-permission-simulated",
+  "tgt-user-preferences-inert"
+]) {
   if (evidenceIds.has(stale)) fail(`stale pre-A3.11 target evidence remains: ${stale}`);
 }
 const notificationMain = targetContents.get("tgt-service-routes");
 if (/\bCREATE\s+(?:TABLE|INDEX)\b/i.test(notificationMain)) fail("notification runtime DDL reappeared after A3.11");
 if (notificationMain.includes("seed_default_templates") || notificationMain.includes("seed_sample_notifications")) fail("notification startup sample/default seed path reappeared after A3.11");
+const frontendSsr = targetContents.get("tgt-frontend-ssr-list");
+for (const anchor of [
+  "params.remove(NOTIFICATIONS_DATA_PARAM);",
+  "params.insert(NOTIFICATIONS_DATA_PARAM.into(), value.to_string());",
+  "params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"ok\".into());",
+  "params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"error\".into());"
+]) if (!frontendSsr.includes(anchor)) fail(`notification SSR outcome contract drifted: ${anchor}`);
+const ownerUi = targetContents.get("tgt-user-ui-target-dto");
+const ownerUiRuntime = ownerUi.split("#[cfg(test)]", 1)[0];
+for (const anchor of [
+  "enum RequiredNullable<T> {",
+  "Missing,",
+  "Present(Option<T>),",
+  "fn require(self) -> Result<Option<T>, ()>",
+  "subject: RequiredNullable<String>,",
+  "created_at: DateTime<Utc>,",
+  "read_at: RequiredNullable<DateTime<Utc>>",
+  "title: RequiredNullable<String>,",
+  "notification_type: RequiredNullable<String>,",
+  "priority: RequiredNullable<String>,",
+  "_action_url: RequiredNullable<String>,",
+  "impl TryFrom<ServiceNotification> for Notification {",
+  "let subject = value.subject.require()?;",
+  "let read_at = value.read_at.require()?;",
+  "let title = value.title.require()?;",
+  "let notification_type = value.notification_type.require()?;",
+  "let priority = value.priority.require()?;",
+  "let _action_url = value._action_url.require()?;",
+  "Some(\"error\") | None => NotificationLoad::UpstreamError",
+  "return NotificationLoad::Malformed;",
+  ".unwrap_or_else(|| \"Notification\".to_string());",
+  "let unread_label = format!(\"{unread_count} unread in loaded list\");",
+  "a { class: \"btn btn-sm btn-outline\", href: \"/notifications\", \"Try again\" }"
+]) if (!ownerUiRuntime.includes(anchor)) fail(`notification owner read-only contract drifted: ${anchor}`);
+for (const forbidden of [
+  "notifications:read", "sample_notifications", "Mark all read", "Clear all", "Mark read", "Delete",
+  "Enable Browser Notifications", "Test Notification", "Notification Settings", "SwitchInput",
+  "BrowserNotificationsPrompt", "NotificationSettingsSection", "notification-action", "use_signal(",
+  "onclick:", "notifications-filters"
+]) if (ownerUiRuntime.includes(forbidden)) fail(`notification owner UI reintroduced blocked behavior: ${forbidden}`);
 const serviceMigration = targetContents.get("tgt-additive-service-migration");
 if ((serviceMigration.match(/\bCREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+public\./gi) ?? []).length !== 2) fail("A3.11 guarded public-table evidence drifted");
 if (/\b(?:DROP|ALTER|TRUNCATE|DELETE|INSERT|UPDATE|MERGE|COPY|CASCADE)\b/i.test(serviceMigration)) fail("A3.11 evidence contains destructive or data-mutating migration SQL");
@@ -239,7 +299,7 @@ if [ "$mode" = "report" ]; then
 fi
 
 if [ "$mode" = "integrity" ]; then
-  echo "notification-execution: PASS — 14 source records, 36 target anchors, 12 surfaces, and 22 stop blockers verified"
+  echo "notification-execution: PASS — 14 source records, 40 target anchors, 12 surfaces, and 22 stop blockers verified"
   echo "notification-execution: LIMIT — A2.3c auth and A3.11 schema boundary remain partial; no database, upgrade, reconciliation, Redis, SMTP, push, network, deployment, or production readiness was proven"
   exit 0
 fi

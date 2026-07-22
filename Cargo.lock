@@ -4354,6 +4354,7 @@ name = "epsx-dioxus-ui"
 version = "0.1.0"
 dependencies = [
  "axum 0.8.9",
+ "chrono",
  "dioxus",
  "dioxus-router",
  "dioxus-ssr",

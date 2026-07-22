@@ -206,6 +206,58 @@ for (const [routeIndex, route] of contract.routes.entries()) {
   }
 }
 
+const notifications = contract.routes.find((route: Json) => route.path === "/notifications");
+const exactNotificationTargetAnchors = [
+  "pub fn render(ctx: &PageContext)",
+  "enum NotificationLoad {",
+  "fn malformed_and_upstream_states_are_truthful_and_sample_free()",
+];
+const exactNotificationLoaderEvidence = [
+  { file: "apps/frontend/src/ssr.rs", anchor: ".get_with_ctx(\"/api/v1/notification/list\", &request_context)" },
+  { file: "apps/frontend/src/ssr.rs", anchor: "params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"ok\".into());" },
+  { file: "apps/frontend/src/ssr.rs", anchor: "params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"error\".into());" },
+];
+if (
+  !notifications ||
+  notifications.status !== "partial" ||
+  JSON.stringify(notifications.target?.anchors) !== JSON.stringify(exactNotificationTargetAnchors) ||
+  notifications.loader?.kind !== "owner-gateway-explicit-outcome" ||
+  JSON.stringify(notifications.loader?.endpoints) !== JSON.stringify(["GET /api/v1/notification/list"]) ||
+  JSON.stringify(notifications.loader?.evidence) !== JSON.stringify(exactNotificationLoaderEvidence) ||
+  notifications.payloads?.staticOrSample?.length !== 0 ||
+  notifications.states?.loading !== "missing" ||
+  notifications.states?.empty !== "present" ||
+  notifications.states?.error !== "present" ||
+  notifications.states?.retry !== "present" ||
+  notifications.authOwner?.auth !== "required" ||
+  notifications.hydration?.need !== "none" ||
+  notifications.hydration?.status !== "not-applicable" ||
+  notifications.blockers?.length !== 2
+) {
+  die("/notifications truthful read-only semantic contract drifted");
+}
+const notificationUi = currentFile(notifications.target.file, "/notifications semantic target");
+const notificationUiRuntime = notificationUi.split("#[cfg(test)]", 1)[0];
+for (const anchor of [
+  "enum RequiredNullable<T> {",
+  "fn require(self) -> Result<Option<T>, ()>",
+  "created_at: DateTime<Utc>,",
+  "read_at: RequiredNullable<DateTime<Utc>>",
+  "impl TryFrom<ServiceNotification> for Notification {",
+  "let _action_url = value._action_url.require()?;",
+  ".unwrap_or_else(|| \"Notification\".to_string());",
+  "Some(\"error\") | None => NotificationLoad::UpstreamError",
+  "let unread_label = format!(\"{unread_count} unread in loaded list\");",
+]) {
+  if (!notificationUiRuntime.includes(anchor)) die(`/notifications missing semantic runtime anchor: ${anchor}`);
+}
+for (const forbidden of [
+  "notifications:read", "sample_notifications", "use_signal(", "onclick:", "notifications-filters",
+  "Mark all read", "Clear all", "SwitchInput", "BrowserNotificationsPrompt", "NotificationSettingsSection",
+]) {
+  if (notificationUiRuntime.includes(forbidden)) die(`/notifications reintroduced blocked UI behavior: ${forbidden}`);
+}
+
 const expectedPaths = [...expectedByPath.keys()].sort();
 const actualPaths = [...seen].sort();
 if (JSON.stringify(expectedPaths) !== JSON.stringify(actualPaths)) die("28-route set differs from routes.json");

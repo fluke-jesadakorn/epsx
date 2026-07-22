@@ -9,7 +9,7 @@ temp_dir=$(mktemp -d "${TMPDIR:-/tmp}/epsx-frontend-live-data.XXXXXX")
 trap 'rm -rf -- "$temp_dir"' EXIT HUP INT TERM
 
 "$verify" --mode integrity >"$temp_dir/integrity.out" 2>&1
-grep -q "PASS integrity (28 routes; 3 aligned, 7 partial, 18 blocked" "$temp_dir/integrity.out"
+grep -q "PASS integrity (28 routes; 3 aligned, 8 partial, 17 blocked" "$temp_dir/integrity.out"
 
 set +e
 "$verify" --mode readiness >"$temp_dir/readiness.out" 2>&1
@@ -25,7 +25,7 @@ grep -q "STOP readiness (25 non-aligned routes" "$temp_dir/readiness.out"
 "$verify" --mode emit >"$temp_dir/emit-one.json"
 "$verify" --mode emit >"$temp_dir/emit-two.json"
 cmp "$temp_dir/emit-one.json" "$temp_dir/emit-two.json"
-bun -e 'const report = await Bun.file(process.argv[1]).json(); if (report.routeCount !== 28 || report.productionReady !== false || report.readinessExit !== 3 || report.statuses.aligned !== 3 || report.statuses.partial !== 7 || report.statuses.blocked !== 18) process.exit(1);' "$temp_dir/emit-one.json"
+bun -e 'const report = await Bun.file(process.argv[1]).json(); if (report.routeCount !== 28 || report.productionReady !== false || report.readinessExit !== 3 || report.statuses.aligned !== 3 || report.statuses.partial !== 8 || report.statuses.blocked !== 17) process.exit(1);' "$temp_dir/emit-one.json"
 bun -e '
 const contract = await Bun.file(process.argv[1]).json();
 const docs = contract.routes.find(route => route.path === "/developer/docs");
@@ -36,6 +36,8 @@ const news = contract.routes.find(route => route.path === "/news");
 if (!news || news.status !== "partial" || news.loader.kind !== "gateway-strict" || JSON.stringify(news.loader.endpoints) !== JSON.stringify(["GET /api/v1/content/news?page=1&limit=100"]) || news.payloads.staticOrSample.length !== 0 || news.states.empty !== "present" || news.states.error !== "present" || news.states.retry !== "present" || news.authOwner.auth !== "public" || !news.interactions.forms.some(item => item.includes("removed public limit")) || !news.interactions.pagination.some(item => item.includes("Previous page")) || !news.blockers.some(blocker => blocker.includes("at most 100"))) process.exit(1);
 const newsDetail = contract.routes.find(route => route.path === "/news/:slug");
 if (!newsDetail || newsDetail.status !== "partial" || newsDetail.loader.kind !== "gateway-strict" || JSON.stringify(newsDetail.loader.endpoints) !== JSON.stringify(["GET /api/v1/content/news/{slug}"]) || newsDetail.payloads.staticOrSample.length !== 0 || newsDetail.states.empty !== "present" || newsDetail.states.error !== "present" || newsDetail.states.retry !== "present" || newsDetail.authOwner.auth !== "public" || !newsDetail.blockers.some(blocker => blocker.includes("unknown slugs")) || !newsDetail.blockers.some(blocker => blocker.includes("outer metadata"))) process.exit(1);
+const notifications = contract.routes.find(route => route.path === "/notifications");
+if (!notifications || notifications.status !== "partial" || notifications.loader.kind !== "owner-gateway-explicit-outcome" || JSON.stringify(notifications.loader.endpoints) !== JSON.stringify(["GET /api/v1/notification/list"]) || notifications.loader.evidence.length !== 3 || notifications.payloads.staticOrSample.length !== 0 || notifications.states.loading !== "missing" || notifications.states.empty !== "present" || notifications.states.error !== "present" || notifications.states.retry !== "present" || notifications.hydration.need !== "none" || notifications.hydration.status !== "not-applicable" || notifications.blockers.length !== 2) process.exit(1);
 ' "$contract"
 
 FRONTEND_CONTRACT_IN="$contract" FRONTEND_CONTRACT_OUT="$temp_dir/tampered.json" bun -e '
@@ -74,4 +76,16 @@ set -e
 [ "$anchor_status" -eq 1 ] || { cat "$temp_dir/stale-anchor.out" >&2; exit 1; }
 grep -q "missing target anchor" "$temp_dir/stale-anchor.out"
 
-echo "frontend-live-data self-test: PASS (integrity=0, readiness-stop=3, deterministic emit, tamper/path/stale-anchor=1)"
+FRONTEND_CONTRACT_IN="$contract" FRONTEND_CONTRACT_OUT="$temp_dir/wrong-existing-notification-anchor.json" bun -e '
+const value = await Bun.file(process.env.FRONTEND_CONTRACT_IN).json();
+value.routes.find(route => route.path === "/notifications").target.anchors[1] = "struct ServiceNotificationList {";
+await Bun.write(process.env.FRONTEND_CONTRACT_OUT, `${JSON.stringify(value, null, 2)}\n`);
+'
+set +e
+"$verify" --mode integrity --fixture "$temp_dir/wrong-existing-notification-anchor.json" >"$temp_dir/wrong-existing-notification-anchor.out" 2>&1
+wrong_notification_status=$?
+set -e
+[ "$wrong_notification_status" -eq 1 ] || { cat "$temp_dir/wrong-existing-notification-anchor.out" >&2; exit 1; }
+grep -q "/notifications truthful read-only semantic contract drifted" "$temp_dir/wrong-existing-notification-anchor.out"
+
+echo "frontend-live-data self-test: PASS (integrity=0, readiness-stop=3, deterministic emit, tamper/path/stale-anchor/wrong-existing-notification-anchor=1)"

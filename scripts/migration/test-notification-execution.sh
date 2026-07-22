@@ -9,7 +9,7 @@ temp_dir=$(mktemp -d "${TMPDIR:-/tmp}/epsx-notification-execution.XXXXXX")
 trap 'rm -rf -- "$temp_dir"' EXIT HUP INT TERM
 
 "$verify" --mode integrity >"$temp_dir/integrity.out" 2>&1
-grep -q "14 source records, 36 target anchors, 12 surfaces, and 22 stop blockers" "$temp_dir/integrity.out"
+grep -q "14 source records, 40 target anchors, 12 surfaces, and 22 stop blockers" "$temp_dir/integrity.out"
 grep -q "A2.3c auth and A3.11 schema boundary remain partial" "$temp_dir/integrity.out"
 grep -q "no database, upgrade, reconciliation, Redis, SMTP, push, network, deployment" "$temp_dir/integrity.out"
 
@@ -30,7 +30,7 @@ cmp "$temp_dir/report-one.json" "$temp_dir/report-two.json"
 bun -e '
 const report = JSON.parse(await Bun.file(process.argv[1]).text());
 if (report.readinessExit !== 3 || report.productionReady !== false) process.exit(1);
-if (report.source.evidence !== 14 || report.targetEvidence !== 36 || report.surfaces.length !== 12 || report.blockers.length !== 22) process.exit(1);
+if (report.source.evidence !== 14 || report.targetEvidence !== 40 || report.surfaces.length !== 12 || report.blockers.length !== 22) process.exit(1);
 if (report.directAuthPrerequisite !== "partial" || report.batches.join(",") !== "N1,N2,N3,N4,N5,N6,N7,N8") process.exit(1);
 if (report.schemaBoundary.status !== "partial-static" || report.schemaBoundary.runtimeDdlFindings !== 0 || report.schemaBoundary.startupSeedCalls !== 0) process.exit(1);
 ' "$temp_dir/report-one.json"
@@ -66,6 +66,38 @@ if [ "$stale_a3_status" -ne 1 ]; then
   exit 1
 fi
 grep -q "missing target anchor tgt-startup-no-seeds" "$temp_dir/stale-a3-anchor.out"
+
+NOTIFICATION_CONTRACT_IN="$contract" NOTIFICATION_CONTRACT_OUT="$temp_dir/wrong-existing-ssr-anchor.json" bun -e '
+const contract = await Bun.file(process.env.NOTIFICATION_CONTRACT_IN).json();
+contract.targetEvidence.find((item) => item.id === "tgt-frontend-ssr-ok").anchor = ".get_with_ctx(\"/api/v1/notification/list\", &request_context)";
+await Bun.write(process.env.NOTIFICATION_CONTRACT_OUT, `${JSON.stringify(contract, null, 2)}\n`);
+'
+set +e
+"$verify" --mode integrity --contract "$temp_dir/wrong-existing-ssr-anchor.json" >"$temp_dir/wrong-existing-ssr-anchor.out" 2>&1
+wrong_ssr_status=$?
+set -e
+if [ "$wrong_ssr_status" -ne 1 ]; then
+  cat "$temp_dir/wrong-existing-ssr-anchor.out" >&2
+  echo "notification-execution self-test: expected wrong-existing-SSR-anchor exit 1, got $wrong_ssr_status" >&2
+  exit 1
+fi
+grep -q "tgt-frontend-ssr-ok: notification semantic anchor drifted" "$temp_dir/wrong-existing-ssr-anchor.out"
+
+NOTIFICATION_CONTRACT_IN="$contract" NOTIFICATION_CONTRACT_OUT="$temp_dir/wrong-existing-ui-anchor.json" bun -e '
+const contract = await Bun.file(process.env.NOTIFICATION_CONTRACT_IN).json();
+contract.targetEvidence.find((item) => item.id === "tgt-user-ui-target-dto").anchor = "struct ServiceNotificationList {";
+await Bun.write(process.env.NOTIFICATION_CONTRACT_OUT, `${JSON.stringify(contract, null, 2)}\n`);
+'
+set +e
+"$verify" --mode integrity --contract "$temp_dir/wrong-existing-ui-anchor.json" >"$temp_dir/wrong-existing-ui-anchor.out" 2>&1
+wrong_ui_status=$?
+set -e
+if [ "$wrong_ui_status" -ne 1 ]; then
+  cat "$temp_dir/wrong-existing-ui-anchor.out" >&2
+  echo "notification-execution self-test: expected wrong-existing-UI-anchor exit 1, got $wrong_ui_status" >&2
+  exit 1
+fi
+grep -q "tgt-user-ui-target-dto: notification semantic anchor drifted" "$temp_dir/wrong-existing-ui-anchor.out"
 
 NOTIFICATION_CONTRACT_IN="$contract" NOTIFICATION_CONTRACT_OUT="$temp_dir/stale-source.json" bun -e '
 const contract = await Bun.file(process.env.NOTIFICATION_CONTRACT_IN).json();
@@ -121,4 +153,4 @@ assert_refused_env REDIS_URL redis://local.invalid/0 "$temp_dir/redis-env.out"
 assert_refused_env SMTP_HOST smtp.invalid "$temp_dir/smtp-env.out"
 assert_refused_env HTTPS_PROXY http://proxy.invalid "$temp_dir/network-env.out"
 
-echo "notification-execution self-test: PASS (integrity=0, readiness-stop=3, deterministic=stable, source/A3.11-anchor/stale/traversal tamper=1, prod/db/redis/smtp/network env refusal=1)"
+echo "notification-execution self-test: PASS (integrity=0, readiness-stop=3, deterministic=stable, source/A3.11-anchor/wrong-existing-SSR+UI/stale/traversal tamper=1, prod/db/redis/smtp/network env refusal=1)"

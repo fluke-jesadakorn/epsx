@@ -212,24 +212,44 @@
       "anchor": ".get_with_ctx(\"/api/v1/notification/list\", &request_context)"
     },
     {
-      "id": "tgt-user-ui-sample-fallback",
-      "file": "shared/rust/dioxus_ui/src/pages/notifications.rs",
-      "anchor": ".unwrap_or_else(sample_notifications);"
+      "id": "tgt-frontend-ssr-ok",
+      "file": "apps/frontend/src/ssr.rs",
+      "anchor": "params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"ok\".into());"
     },
     {
-      "id": "tgt-user-ui-inert-bulk",
-      "file": "shared/rust/dioxus_ui/src/pages/notifications.rs",
-      "anchor": "button { class: \"btn btn-sm btn-outline\", r#type: \"button\", \"Mark all read\" }"
+      "id": "tgt-frontend-ssr-error",
+      "file": "apps/frontend/src/ssr.rs",
+      "anchor": "params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"error\".into());"
     },
     {
-      "id": "tgt-browser-permission-simulated",
+      "id": "tgt-user-ui-target-dto",
       "file": "shared/rust/dioxus_ui/src/pages/notifications.rs",
-      "anchor": "onclick: move |_| permission.set(\"granted\".to_string()),"
+      "anchor": "struct ServiceNotification {"
     },
     {
-      "id": "tgt-user-preferences-inert",
+      "id": "tgt-user-ui-no-sample",
       "file": "shared/rust/dioxus_ui/src/pages/notifications.rs",
-      "anchor": "SwitchInput { checked: *enabled.read(), label: None }"
+      "anchor": "fn malformed_and_upstream_states_are_truthful_and_sample_free()"
+    },
+    {
+      "id": "tgt-user-ui-neutral-title",
+      "file": "shared/rust/dioxus_ui/src/pages/notifications.rs",
+      "anchor": ".unwrap_or_else(|| \"Notification\".to_string());"
+    },
+    {
+      "id": "tgt-user-ui-auth-only",
+      "file": "shared/rust/dioxus_ui/src/pages/notifications.rs",
+      "anchor": "fn authenticated_owner_needs_no_frontend_permission_grant()"
+    },
+    {
+      "id": "tgt-user-ui-read-only-count",
+      "file": "shared/rust/dioxus_ui/src/pages/notifications.rs",
+      "anchor": "let unread_label = format!(\"{unread_count} unread in loaded list\");"
+    },
+    {
+      "id": "tgt-user-ui-disabled-controls",
+      "file": "shared/rust/dioxus_ui/src/pages/notifications.rs",
+      "anchor": "fn lifecycle_delivery_and_unapproved_navigation_controls_are_absent()"
     },
     {
       "id": "tgt-nav-count-first-page",
@@ -303,7 +323,7 @@
     {
       "id": "owner-list-and-count",
       "source": "GET /api/notifications and GET /api/notifications/unread-count with source envelopes, filters, pagination, broadcasts, expiry, and read semantics",
-      "targetObserved": "GET /api/v1/notification/list and /unread-count are owner-authenticated but expose a different schema and status filter",
+      "targetObserved": "GET /api/v1/notification/list is owner-authenticated; frontend SSR preserves explicit ok/error outcomes and the read-only UI consumes the current target DTO without sample fallback, global-count claims, action URLs, or lifecycle controls, while /unread-count and the source-compatible query/envelope remain absent",
       "ownerKey": "verified-jwt-wallet",
       "status": "blocked",
       "blockerIds": ["B01", "B02", "B04", "B05"]
@@ -319,7 +339,7 @@
     {
       "id": "owner-preferences",
       "source": "GET and update notification preferences for email, push, type, priority, and quiet hours",
-      "targetObserved": "protobuf declarations and inert UI controls exist but no HTTP handlers or durable preference enforcement",
+      "targetObserved": "protobuf declarations exist, but the owner UI exposes no preference controls and the HTTP service has no handlers or durable preference enforcement",
       "ownerKey": "verified-jwt-wallet",
       "status": "blocked",
       "blockerIds": ["B06", "B18"]
@@ -335,7 +355,7 @@
     {
       "id": "browser-push",
       "source": "subscribe, unsubscribe, and status routes backed by browser permission state",
-      "targetObserved": "UI changes a local signal to granted and service has no push subscription or delivery implementation",
+      "targetObserved": "the owner UI exposes no browser-permission or push controls, and the service has no push subscription or delivery implementation",
       "ownerKey": "verified-jwt-wallet+browser-subscription",
       "status": "blocked",
       "blockerIds": ["B09", "B18"]
@@ -596,9 +616,9 @@
       "category": "preferences",
       "severity": "stop",
       "status": "blocked",
-      "summary": "Owner notification preferences and quiet-hour enforcement are not implemented in the target HTTP service.",
+      "summary": "Owner notification preferences and quiet-hour enforcement are not implemented in the target HTTP service; the truthful read-only UI therefore exposes no preference controls.",
       "resolution": "Add owner-scoped durable preferences, validation, defaults, legal exception policy, and enqueue-time enforcement.",
-      "evidenceIds": ["src-user-preferences-client", "src-owner-preferences", "tgt-proto-preferences-only", "tgt-user-preferences-inert"]
+      "evidenceIds": ["src-user-preferences-client", "src-owner-preferences", "tgt-proto-preferences-only", "tgt-user-ui-disabled-controls"]
     },
     {
       "id": "B07",
@@ -623,9 +643,9 @@
       "category": "push",
       "severity": "stop",
       "status": "blocked",
-      "summary": "Browser permission is simulated locally and push subscription/delivery lifecycle is absent.",
+      "summary": "Browser permission and push controls are absent from the truthful read-only UI, and push subscription/delivery lifecycle remains unimplemented.",
       "resolution": "Implement real browser permission handling, owner-scoped subscription storage, key rotation, unsubscribe, and push delivery outcomes.",
-      "evidenceIds": ["src-push-client", "tgt-browser-permission-simulated", "tgt-proto-preferences-only"]
+      "evidenceIds": ["src-push-client", "tgt-user-ui-disabled-controls", "tgt-proto-preferences-only"]
     },
     {
       "id": "B10",
@@ -706,7 +726,7 @@
       "status": "blocked",
       "summary": "PII logging, HTML/template rendering, URL fields, retention, erasure, and secret handling lack a verified policy.",
       "resolution": "Enforce the privacy rules, sanitize content and URLs, redact telemetry, and test retention/erasure and secret boundaries.",
-      "evidenceIds": ["tgt-email-mock-success", "tgt-template-nonstrict", "tgt-user-preferences-inert"]
+      "evidenceIds": ["tgt-email-mock-success", "tgt-template-nonstrict", "tgt-user-ui-target-dto", "tgt-user-ui-disabled-controls"]
     },
     {
       "id": "B19",

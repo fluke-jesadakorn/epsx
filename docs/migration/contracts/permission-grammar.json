@@ -155,7 +155,6 @@
     {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/chat_conversation.rs","line":44,"permission":"chat:write","surface":"frontend:chat_conversation","classification":"legacy-2-segment","remediation":{"package":"A7","candidates":[],"requiresSplit":false,"evidence":[],"decision":"No real backend guard for this frontend surface was found; do not infer a token."}},
     {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/chat_history.rs","line":37,"permission":"chat:read","surface":"frontend:chat_history","classification":"legacy-2-segment","remediation":{"package":"A7","candidates":[],"requiresSplit":false,"evidence":[],"decision":"No real backend guard for this frontend surface was found; do not infer a token."}},
     {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/chat.rs","line":98,"permission":"chat:read","surface":"frontend:chat","classification":"legacy-2-segment","remediation":{"package":"A7","candidates":[],"requiresSplit":false,"evidence":[],"decision":"No real backend guard for this frontend surface was found; do not infer a token."}},
-    {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/notifications.rs","line":94,"permission":"notifications:read","surface":"frontend:notifications","classification":"legacy-2-segment","remediation":{"package":"A7","candidates":[],"requiresSplit":false,"evidence":[],"decision":"No real backend guard for this frontend surface was found; do not infer a token."}},
     {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/payment.rs","line":154,"permission":"payments:read","surface":"frontend:payment","classification":"legacy-2-segment","remediation":{"package":"A7","candidates":[],"requiresSplit":false,"evidence":[],"decision":"No real backend guard for this frontend surface was found; do not infer a token."}},
     {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/payment.rs","line":552,"permission":"payments:read","surface":"frontend:payment","classification":"legacy-2-segment","remediation":{"package":"A7","candidates":[],"requiresSplit":false,"evidence":[],"decision":"No real backend guard for this frontend surface was found; do not infer a token."}},
     {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/permissions.rs","line":40,"permission":"permissions:read","surface":"frontend:permissions","classification":"legacy-2-segment","remediation":{"package":"A7","candidates":[],"requiresSplit":false,"evidence":[],"decision":"No real backend guard for this frontend surface was found; do not infer a token."}},
@@ -195,9 +194,9 @@
     {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":3485,"permission":"admin:indexer:manage","surface":"service:indexer:indexer.post.sync","classification":"canonical-3-segment","remediation":null}
   ],
   "summary": {
-    "total": 68,
+    "total": 67,
     "sourceCounts": {
-      "dioxus-security-gate": 34,
+      "dioxus-security-gate": 33,
       "dioxus-presentation-literal": 1,
       "dioxus-presentation-dynamic": 1,
       "service-authorization": 32
@@ -205,7 +204,7 @@
     "classificationCounts": {
       "canonical-3-segment": 53,
       "wildcard-aligned": 0,
-      "legacy-2-segment": 13,
+      "legacy-2-segment": 12,
       "unknown": 1,
       "impossible/cross-grammar": 1
     }

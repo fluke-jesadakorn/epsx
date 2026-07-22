@@ -205,16 +205,16 @@
       "blockers":["replace history fixtures with owner-scoped paginated loader and explicit loading/error/retry"]
     },
     {
-      "path":"/notifications","batch":"B4-communication","status":"blocked","dependencies":["A1","A5"],
+      "path":"/notifications","batch":"B4-communication","status":"partial","dependencies":["A1","A5"],
       "source":{"file":"apps/frontend/app/notifications/page.tsx","anchors":["export default async function NotificationsPage","page: parseInt(params.page ?? '1')"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/notifications.rs","handler":"notifications::render","anchors":["pub fn render(ctx: &PageContext)","ctx.params.get(\"data_notifications\")"]},
-      "payloads":{"staticOrSample":["sample_notifications fallback and local preference defaults"],"placeholderOrSkeleton":[]},
-      "loader":{"kind":"gateway","endpoints":["GET /api/v1/notification/list"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"\"/api/v1/notification/list\""}]},
-      "authOwner":{"auth":"required","owner":"session wallet notifications"},
-      "interactions":{"forms":["browser/email preferences are local-only"],"pagination":["pinned page/type/priority query contract absent"],"search":[],"wallet":[],"keyboard":["filter/preference buttons require hydration"],"controls":["local read/unread filter and fake permission grant"]},
-      "states":{"loading":"missing","empty":"present","error":"missing","retry":"missing"},
-      "hydration":{"need":"browser","status":"partial","reason":"filters/preferences signals are not backed by mutations"},
-      "blockers":["remove sample fallback; implement owner pagination/filter/read/preference/browser-permission contracts and failure states"]
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/notifications.rs","handler":"notifications::render","anchors":["pub fn render(ctx: &PageContext)","enum NotificationLoad {","fn malformed_and_upstream_states_are_truthful_and_sample_free()"]},
+      "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
+      "loader":{"kind":"owner-gateway-explicit-outcome","endpoints":["GET /api/v1/notification/list"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":".get_with_ctx(\"/api/v1/notification/list\", &request_context)"},{"file":"apps/frontend/src/ssr.rs","anchor":"params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"ok\".into());"},{"file":"apps/frontend/src/ssr.rs","anchor":"params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"error\".into());"}]},
+      "authOwner":{"auth":"required","owner":"verified session principal wallet derived by the notification service through the frontend BFF"},
+      "interactions":{"forms":[],"pagination":["source-compatible owner pagination and page/type/priority query contract remain absent"],"search":[],"wallet":[],"keyboard":["native retry link is present for dependency and malformed-payload recovery"],"controls":["no page-local filters or lifecycle controls; mutation, preferences, browser-push, and action-URL controls are absent"]},
+      "states":{"loading":"missing","empty":"present","error":"present","retry":"present"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"the owner list is static SSR output with a native retry link and intentionally exposes no page-local event controls"},
+      "blockers":["A5 must lock the owner list envelope, status, pagination, query/filter, global unread-count, and read semantics; live-service and browser runtime proof remain missing","owner lifecycle mutations, preferences, browser push, realtime delivery, and action-URL policy remain intentionally absent until backend-owned contracts are implemented"]
     },
     {
       "path":"/developer","batch":"B5-developer","status":"blocked","dependencies":["A1","A4","A5"],

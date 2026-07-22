@@ -7,6 +7,7 @@ description = "Dioxus 0.7 UI component library for EPSX — 1:1 mirror of the Ne
 
 [dependencies]
 axum = { workspace = true }
+chrono = { workspace = true }
 dioxus = { workspace = true }
 dioxus-router = { workspace = true }
 epsx-templates = { path = "../templates" }

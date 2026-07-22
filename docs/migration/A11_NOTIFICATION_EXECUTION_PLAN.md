@@ -2,7 +2,7 @@
 
 Status: **audit/design only; production readiness is STOP**. Direct notification-service authentication from A2.3c is a verified prerequisite, but remains **partial** for the lifecycle as a whole. This document does not authorize deployment, production access, database access, Redis access, SMTP/provider access, external network access, or migration execution.
 
-The deterministic authority is [`contracts/notification-execution.json`](contracts/notification-execution.json). It pins 14 source evidence records from `origin/development` commit `373bd231cb7a616c3d4c0ddc1d60e0099a88a5db`, 36 current-target anchors, 12 lifecycle/API surfaces, 22 STOP blockers, and eight ordered execution batches.
+The deterministic authority is [`contracts/notification-execution.json`](contracts/notification-execution.json). It pins 14 source evidence records from `origin/development` commit `373bd231cb7a616c3d4c0ddc1d60e0099a88a5db`, 40 current-target anchors, 12 lifecycle/API surfaces, 22 STOP blockers, and eight ordered execution batches.
 
 ## Outcome and boundary
 
@@ -63,11 +63,11 @@ The legacy model is `wallet_notifications`, with different field names and riche
 - There is no inbox/outbox connection, idempotency key, worker lease, retry classifier, exponential backoff, dead-letter state, authorized redrive, or provider reconciliation.
 - The canonical backend still uses an in-process notification port. The documented HTTP adapter is future work; publication errors may be logged and swallowed, and missing notification DB configuration leaves publisher call sites able to drop messages.
 
-### Realtime, preferences, and UI drift
+### Truthful owner read slice; lifecycle remains blocked
 
 The extracted service has no SSE route, Redis subscription, durable replay cursor, `Last-Event-ID` contract, acknowledgement route, or push-subscription implementation. The protobuf declares preferences, but the HTTP service has no preference handlers.
 
-The user UI can fall back to sample notifications. Its mark/delete/bulk buttons and settings controls are not wired to production lifecycle state, and browser permission is simulated by setting a local signal to `granted`. The navigation badge requests one page with `limit=1` and counts unread items in that response rather than using the unread-count contract. The admin UI also contains sample data and does not prove source-compatible stats, scheduling, or broadcast behavior.
+The owner page now has a narrow truthful read path: authenticated SSR records exact `ok` or `error` dependency state, the UI requires the current service's nullable keys, parses timestamps as UTC datetimes, treats missing/malformed/error payloads as unavailable instead of plausible empty data, uses neutral title/type/priority presentation fallbacks, ignores unapproved action URLs, and renders static read-only rows with a loaded-list count. It no longer requires the frontend-only `notifications:read` token, falls back to samples, or exposes local filters, mark/delete/bulk, preferences, browser-permission, push, or action controls. This is not lifecycle completion: pagination, a global unread count, source-compatible envelopes/filters, live browser/runtime proof, mutations, preferences, push, SSE, and action-URL policy remain blocked. The navigation badge still requests one page with `limit=1` and counts unread items in that response rather than using the unread-count contract. The admin UI also contains sample data and does not prove source-compatible stats, scheduling, or broadcast behavior.
 
 ### Template, privacy, operations, and deployment drift
 

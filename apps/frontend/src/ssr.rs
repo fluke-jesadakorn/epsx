@@ -47,6 +47,29 @@ const UNAUTH_REDIRECT_PATHS: &[&str] = &[
     "/contact",
 ];
 
+const NOTIFICATIONS_DATA_PARAM: &str = "data_notifications";
+const NOTIFICATIONS_STATE_PARAM: &str = "data_notifications_state";
+
+/// Record the notification dependency outcome without turning an upstream
+/// failure into an empty or demo list. The Dioxus page treats `ok` as
+/// permission to parse the exact service payload and every other state as
+/// unavailable.
+fn record_notification_load(
+    params: &mut HashMap<String, String>,
+    result: Result<serde_json::Value, ()>,
+) {
+    params.remove(NOTIFICATIONS_DATA_PARAM);
+    match result {
+        Ok(value) => {
+            params.insert(NOTIFICATIONS_DATA_PARAM.into(), value.to_string());
+            params.insert(NOTIFICATIONS_STATE_PARAM.into(), "ok".into());
+        }
+        Err(()) => {
+            params.insert(NOTIFICATIONS_STATE_PARAM.into(), "error".into());
+        }
+    }
+}
+
 fn news_detail_route_slug(path: &str) -> Option<&str> {
     let slug = path.strip_prefix("/news/")?;
     (!slug.is_empty() && !slug.contains('/') && crate::api::valid_news_slug(slug)).then_some(slug)
@@ -374,15 +397,16 @@ async fn fetch_page_data(
             crate::api::developer_usage_value().to_string(),
         );
     }
-    // /notifications: fetch list
+    // /notifications: fetch the authenticated owner's list. Preserve an
+    // explicit dependency outcome so an upstream failure never renders as an
+    // empty or sample-backed success state.
     if path == "/notifications" && user.is_some() {
-        if let Ok(v) = state
+        let result = state
             .notification
             .get_with_ctx("/api/v1/notification/list", &request_context)
             .await
-        {
-            params.insert("data_notifications".into(), v.to_string());
-        }
+            .map_err(|_| ());
+        record_notification_load(params, result);
     }
     // /plans: fetch plans. Wave 23 T5 — try the BFF's own
     // `/api/v1/plans` endpoint FIRST (returns the content-service
@@ -886,10 +910,63 @@ mod tests {
     use super::offline_service_worker_script;
     use super::offline_worker_registration_script;
     use super::pricing_redirect_response;
+    use super::record_notification_load;
     use super::safe_return_url;
     use super::urlencode;
     use epsx_dioxus_ui::pages::PageMeta;
     use std::collections::HashMap;
+
+    #[test]
+    fn notification_load_records_explicit_success_with_exact_payload() {
+        let payload = serde_json::json!({
+            "items": [{
+                "id": "0x1",
+                "subject": null,
+                "body": "body",
+                "created_at": "2026-07-22T00:00:00Z",
+                "read_at": null,
+                "title": null,
+                "notification_type": null,
+                "priority": null,
+                "action_url": null
+            }],
+            "total": 1
+        });
+        let mut params = HashMap::new();
+
+        record_notification_load(&mut params, Ok(payload.clone()));
+
+        assert_eq!(
+            params
+                .get(super::NOTIFICATIONS_STATE_PARAM)
+                .map(String::as_str),
+            Some("ok")
+        );
+        assert_eq!(
+            params
+                .get(super::NOTIFICATIONS_DATA_PARAM)
+                .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok()),
+            Some(payload)
+        );
+    }
+
+    #[test]
+    fn notification_load_records_explicit_error_and_removes_stale_payload() {
+        let mut params = HashMap::from([(
+            super::NOTIFICATIONS_DATA_PARAM.to_string(),
+            serde_json::json!({"items": [{"title": "stale"}], "total": 1}).to_string(),
+        )]);
+
+        record_notification_load(&mut params, Err(()));
+
+        assert_eq!(
+            params
+                .get(super::NOTIFICATIONS_STATE_PARAM)
+                .map(String::as_str),
+            Some("error")
+        );
+        assert!(!params.contains_key(super::NOTIFICATIONS_DATA_PARAM));
+    }
 
     #[test]
     fn return_url_must_remain_same_origin() {
