@@ -104,6 +104,9 @@ pub fn classify(method: &Method, path: &str) -> AccessPolicy {
         | (&Method::POST, ["api", "v1", "notification", "send"]) => {
             AccessPolicy::Permission("admin:notifications:manage")
         }
+        (&Method::GET, ["api", "v1", "notification", "admin", "list"]) => {
+            AccessPolicy::Permission("admin:notifications:manage")
+        }
         (&Method::GET, ["api", "v1", "notification", "list"])
         | (&Method::GET, ["api", "v1", "notification", "unread-count"])
         | (&Method::POST, ["api", "v1", "notification", "mark-all-read"])
@@ -276,6 +279,11 @@ mod tests {
             (
                 Method::POST,
                 "/api/v1/notification/send",
+                AccessPolicy::Permission("admin:notifications:manage"),
+            ),
+            (
+                Method::GET,
+                "/api/v1/notification/admin/list",
                 AccessPolicy::Permission("admin:notifications:manage"),
             ),
             (
@@ -538,7 +546,7 @@ mod tests {
             (Method::GET, "/api/v1/portfolio/0xabc", AccessPolicy::Public),
             (Method::GET, "/api/v1/plans", AccessPolicy::Public),
             (Method::GET, "/api/v1/rankings", AccessPolicy::Public),
-            // notification (13 routes)
+            // notification (14 routes)
             (
                 Method::GET,
                 "/api/v1/notification/templates",
@@ -562,6 +570,11 @@ mod tests {
             (
                 Method::POST,
                 "/api/v1/notification/send",
+                AccessPolicy::Permission("admin:notifications:manage"),
+            ),
+            (
+                Method::GET,
+                "/api/v1/notification/admin/list",
                 AccessPolicy::Permission("admin:notifications:manage"),
             ),
             (
@@ -684,6 +697,11 @@ mod tests {
             (Method::PUT, "/api/v1/indexer/sync"),
             (Method::GET, "/api//v1/content/site"),
             (Method::GET, "/api/v1/content/%2e%2e/site"),
+            (Method::POST, "/api/v1/notification/admin/list"),
+            (Method::HEAD, "/api/v1/notification/admin/list"),
+            (Method::GET, "/api/v1/notification/admin/list/extra"),
+            (Method::GET, "/api/v1/notification/admin%2flist"),
+            (Method::GET, "/api/v1/notification/admin/%6cist"),
         ];
         for (method, path) in cases {
             assert_eq!(

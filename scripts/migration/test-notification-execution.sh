@@ -9,7 +9,7 @@ temp_dir=$(mktemp -d "${TMPDIR:-/tmp}/epsx-notification-execution.XXXXXX")
 trap 'rm -rf -- "$temp_dir"' EXIT HUP INT TERM
 
 "$verify" --mode integrity >"$temp_dir/integrity.out" 2>&1
-grep -q "14 source records, 53 target anchors, 12 surfaces, and 22 stop blockers" "$temp_dir/integrity.out"
+grep -q "14 source records, 58 target anchors, 12 surfaces, and 22 stop blockers" "$temp_dir/integrity.out"
 grep -q "A2.3c auth and A3.11 schema boundary remain partial" "$temp_dir/integrity.out"
 grep -q "no database, upgrade, reconciliation, Redis, SMTP, push, network, deployment" "$temp_dir/integrity.out"
 
@@ -30,7 +30,7 @@ cmp "$temp_dir/report-one.json" "$temp_dir/report-two.json"
 bun -e '
 const report = JSON.parse(await Bun.file(process.argv[1]).text());
 if (report.readinessExit !== 3 || report.productionReady !== false) process.exit(1);
-if (report.source.evidence !== 14 || report.targetEvidence !== 53 || report.surfaces.length !== 12 || report.blockers.length !== 22) process.exit(1);
+if (report.source.evidence !== 14 || report.targetEvidence !== 58 || report.surfaces.length !== 12 || report.blockers.length !== 22) process.exit(1);
 if (report.directAuthPrerequisite !== "partial" || report.batches.join(",") !== "N1,N2,N3,N4,N5,N6,N7,N8") process.exit(1);
 if (report.schemaBoundary.status !== "partial-static" || report.schemaBoundary.runtimeDdlFindings !== 0 || report.schemaBoundary.startupSeedCalls !== 0) process.exit(1);
 ' "$temp_dir/report-one.json"

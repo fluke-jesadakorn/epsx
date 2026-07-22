@@ -30,16 +30,16 @@ record carries source type, file, line, permission, surface, grammar
 classification, and a remediation package. A candidate permission is present
 only when a real backend route guard or token source literally supports it.
 
-The current scan contains 35 records:
+The current scan contains 36 records:
 
 | Usage | Records | Readiness effect |
 | --- | ---: | --- |
 | Dioxus security gates | 1 | The remaining payment-intent read gate is canonical |
 | Dioxus presentation literals | 1 | Reported as presentation drift, not an enforcement blocker |
 | Dioxus presentation dynamic pass-throughs | 1 | Reported as presentation drift, not an enforcement blocker |
-| Service-authorization permissions | 32 | All canonical three-segment values |
+| Service-authorization permissions | 33 | All canonical three-segment values |
 
-Across every source there are 33 canonical three-segment values, no legacy
+Across every source there are 34 canonical three-segment values, no legacy
 two-segment values, 1 unknown dynamic presentation value, and 1
 impossible/cross-grammar presentation value. There are currently no wildcard-aligned
 inventory values.

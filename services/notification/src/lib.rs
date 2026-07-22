@@ -532,6 +532,7 @@ fn classify(method: &Method, path: &str) -> AccessPolicy {
     }
 
     match (method, segments.as_slice()) {
+        (&Method::GET, ["admin", "list"]) => AccessPolicy::NotificationsAdmin,
         (&Method::GET | &Method::POST, ["templates"]) | (&Method::POST, ["send"]) => {
             AccessPolicy::NotificationsAdmin
         }
@@ -790,6 +791,7 @@ mod tests {
     #[tokio::test]
     async fn admin_routes_use_the_canonical_backend_permission_grammar() {
         let routes = [
+            (Method::GET, "/api/v1/notification/admin/list"),
             (Method::GET, "/api/v1/notification/templates"),
             (Method::POST, "/api/v1/notification/templates"),
             (Method::GET, "/api/v1/notification/templates/template-id"),
@@ -809,7 +811,7 @@ mod tests {
                 );
             }
         }
-        assert_eq!(downstream.hits.load(Ordering::SeqCst), 15);
+        assert_eq!(downstream.hits.load(Ordering::SeqCst), 18);
 
         for bearer in [
             None,
@@ -827,21 +829,21 @@ mod tests {
             assert_eq!(
                 status(
                     &app,
-                    request(Method::POST, "/api/v1/notification/send", bearer),
+                    request(Method::GET, "/api/v1/notification/admin/list", bearer),
                 )
                 .await,
                 expected
             );
         }
-        assert_eq!(downstream.hits.load(Ordering::SeqCst), 15);
+        assert_eq!(downstream.hits.load(Ordering::SeqCst), 18);
     }
 
     #[tokio::test]
     async fn spoofed_headers_never_grant_admin_or_replace_owner_identity() {
         let (app, downstream) = app();
         let mut admin = request(
-            Method::POST,
-            "/api/v1/notification/send",
+            Method::GET,
+            "/api/v1/notification/admin/list",
             Some("admin-owner"),
         );
         admin.headers_mut().insert(
@@ -849,6 +851,19 @@ mod tests {
             NOTIFICATIONS_MANAGE_PERMISSION.parse().unwrap(),
         );
         assert_eq!(status(&app, admin).await, StatusCode::FORBIDDEN);
+
+        let mut authorized_admin = request(
+            Method::GET,
+            "/api/v1/notification/admin/list?limit=20&offset=0",
+            Some("admin-manage"),
+        );
+        authorized_admin
+            .headers_mut()
+            .insert("x-user-id", "0xattacker".parse().unwrap());
+        authorized_admin
+            .headers_mut()
+            .insert("x-permissions", "admin:users:delete".parse().unwrap());
+        assert_eq!(status(&app, authorized_admin).await, StatusCode::OK);
 
         let mut owner = request(
             Method::GET,
@@ -859,7 +874,7 @@ mod tests {
             .headers_mut()
             .insert("x-user-id", "0xattacker".parse().unwrap());
         assert_eq!(status(&app, owner).await, StatusCode::OK);
-        assert_eq!(downstream.hits.load(Ordering::SeqCst), 1);
+        assert_eq!(downstream.hits.load(Ordering::SeqCst), 2);
         assert_eq!(downstream.spoofed_identity_seen.load(Ordering::SeqCst), 0);
     }
 
@@ -892,6 +907,11 @@ mod tests {
             (Method::POST, "/api/v1/notification/templates/template-id"),
             (Method::GET, "/api/v1/notification/send"),
             (Method::POST, "/api/v1/notification/list"),
+            (Method::POST, "/api/v1/notification/admin/list"),
+            (Method::HEAD, "/api/v1/notification/admin/list"),
+            (Method::GET, "/api/v1/notification/admin/list/extra"),
+            (Method::GET, "/api/v1/notification/admin%2flist"),
+            (Method::GET, "/api/v1/notification/admin/%6cist"),
             (Method::DELETE, "/api/v1/notification/templates"),
             (Method::GET, "/api/v1/notification/templates/a/b"),
             (Method::GET, "/api/v1/notification/templates/.."),

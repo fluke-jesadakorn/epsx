@@ -103,6 +103,16 @@
       ]
     },
     {
+      "id": "notification-service-auth-boundary",
+      "file": "services/notification/src/lib.rs",
+      "anchors": [
+        "pub fn protect_router",
+        "(&Method::GET, [\"admin\", \"list\"]) => AccessPolicy::NotificationsAdmin",
+        "principal.audience != ADMIN_AUDIENCE",
+        "!principal.has_permission(NOTIFICATIONS_MANAGE_PERMISSION)"
+      ]
+    },
+    {
       "id": "backend-payment-permissions",
       "file": "apps/backend/src/web/middleware/permission_validation_middleware.rs",
       "anchors": [
@@ -248,31 +258,31 @@
   "evidenceResolution": "For every route, the evidence location is its parent service.source and the exact route.routeAnchor substring. canonicalEvidence entries provide backend or handler-policy anchors.",
   "inventorySummary": {
     "serviceCount": 9,
-    "routeCount": 117,
-    "mutationCount": 57,
-    "highRiskMutationCount": 57,
+    "routeCount": 119,
+    "mutationCount": 58,
+    "highRiskMutationCount": 58,
     "byService": {
-      "gateway": 16,
+      "gateway": 17,
       "identity": 11,
       "wallet": 9,
       "pay": 22,
       "subscription": 9,
       "content": 23,
-      "notification": 14,
+      "notification": 15,
       "analytics": 7,
       "indexer": 6
     },
     "byClassification": {
       "public-allowlist": 32,
-      "unknown": 16,
+      "unknown": 17,
       "authenticated-user": 3,
-      "permission-specific-admin-operator": 32,
+      "permission-specific-admin-operator": 33,
       "owner-only": 30,
       "internal-webhook": 4
     },
     "byObservedStatus": {
-      "partial": 47,
-      "blocked": 59,
+      "partial": 48,
+      "blocked": 60,
       "aligned": 11
     }
   },
@@ -386,7 +396,35 @@
           "canonicalEvidence": [
             "gateway-fail-closed-target"
           ],
-          "notes": "Gateway prefix is payment while the pay service is mounted at /api/v1/pay; routing parity is an A6 dependency."
+          "notes": "This legacy payment prefix remains a mixed wildcard alias; the canonical /api/v1/pay mount is inventoried separately and exact edge policy still decides every reachable method/path."
+        },
+        {
+          "id": "gateway.any.pay-proxy",
+          "method": "ANY",
+          "path": "/api/v1/pay/{*path}",
+          "routeAnchor": ".route(\"/api/v1/pay/{*path}\"",
+          "classification": "unknown",
+          "identitySource": "undecided-fail-closed",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "unknown",
+          "observed": {
+            "status": "blocked",
+            "summary": "The canonical Pay prefix is mounted through an ANY proxy, but the gateway's exact method/path policy denies every unclassified shape before upstream I/O; direct-service ownership and financial mutation readiness remain separate gates."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ],
+          "notes": "Router reachability is intentionally broader than authorization; this inventory keeps the wildcard blocked while the exact gateway policy records the approved Pay shapes."
         },
         {
           "id": "gateway.any.subscription-proxy",
@@ -2767,7 +2805,7 @@
       "name": "notification",
       "source": "services/notification/src/main.rs",
       "routerAnchor": "let app = Router::new()",
-      "currentBoundary": "The direct service now classifies exact methods and paths before handlers, uses the shared RS256/JWKS verifier, requires admin:notifications:manage for templates/send, and binds owner operations to the verified wallet string. Runtime schema, delivery, and legacy owner-data compatibility remain incomplete.",
+      "currentBoundary": "The direct service now classifies exact methods and paths before handlers, uses the shared RS256/JWKS verifier, requires admin:notifications:manage for templates/send and the redacted global admin inventory, and binds owner operations to the verified wallet string. Runtime database, delivery, and legacy owner-data compatibility remain incomplete.",
       "routes": [
         {
           "id": "notification.get.health",
@@ -2923,6 +2961,33 @@
           ],
           "canonicalEvidence": [
             "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "notification.get.admin-list",
+          "method": "GET",
+          "path": "/api/v1/notification/admin/list",
+          "routeAnchor": "\"/api/v1/notification/admin/list\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "Gateway and direct service require the exact admin audience plus canonical admin:notifications:manage before a strict global redacted list query. Static DTO, query, deterministic ordering, read-only repeatable-read snapshot, cardinality, and fail-closed validation tests pass; isolated database and service integration remain unproven."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard",
+            "notification-service-auth-boundary"
           ]
         },
         {

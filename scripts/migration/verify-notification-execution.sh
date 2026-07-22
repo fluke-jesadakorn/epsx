@@ -119,7 +119,7 @@ for (const item of source.evidence) {
   anchored(content, item, "source");
 }
 
-if (!Array.isArray(contract.targetEvidence) || contract.targetEvidence.length !== 53) fail("exactly 53 target evidence records are required");
+if (!Array.isArray(contract.targetEvidence) || contract.targetEvidence.length !== 58) fail("exactly 58 target evidence records are required");
 const targetContents = new Map();
 for (const item of contract.targetEvidence) {
   if (!item || typeof item.id !== "string" || !/^[a-z][a-z0-9-]+$/.test(item.id) || evidenceIds.has(item.id)) fail(`invalid or duplicate evidence id: ${item?.id}`);
@@ -160,6 +160,12 @@ const exactNotificationAnchors = {
   "tgt-active-header-initial-dom": ["shared/rust/templates/src/lib.rs", "data-epsx-notification-unread-badge=\"true\" data-state=\"unavailable\" aria-hidden=\"true\" hidden></span>"],
   "tgt-active-header-accessibility": ["apps/frontend/src/ssr.rs", "target.setAttribute(\u0027aria-label\u0027, \u0027Notifications, \u0027 + String(count) + \u0027 unread\u0027);"],
   "tgt-active-header-text-only": ["apps/frontend/src/ssr.rs", "badge.textContent = count > 99 ? \u002799+\u0027 : String(count);"],
+  "tgt-admin-global-list-handler": ["services/notification/src/main.rs", "async fn list_admin_notifications("],
+  "tgt-admin-global-list-service-policy": ["services/notification/src/lib.rs", "(&Method::GET, [\"admin\", \"list\"]) => AccessPolicy::NotificationsAdmin"],
+  "tgt-admin-global-list-gateway-policy": ["services/gateway/src/policy.rs", "(&Method::GET, [\"api\", \"v1\", \"notification\", \"admin\", \"list\"])"],
+  "tgt-admin-global-list-adapter": ["apps/admin/src/notification_admin_adapter.rs", "pub(crate) async fn load_admin_notifications("],
+  "tgt-admin-global-list-ssr": ["apps/admin/src/ssr.rs", "if route_path == \"/notifications/manage\" {"],
+  "tgt-admin-global-list-ui": ["shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs", "pub fn decode_admin_notification_projection("],
 };
 const targetById = new Map(contract.targetEvidence.map((item) => [item.id, item]));
 for (const [id, [file, anchor]] of Object.entries(exactNotificationAnchors)) {
@@ -173,7 +179,7 @@ for (const stale of [
   "tgt-runtime-template-ddl", "tgt-runtime-notification-ddl", "tgt-runtime-sample-seed",
   "tgt-user-ui-sample-fallback", "tgt-user-ui-inert-bulk", "tgt-browser-permission-simulated",
   "tgt-user-preferences-inert", "tgt-frontend-any-method", "tgt-frontend-list-bff",
-  "tgt-nav-count-first-page", "tgt-active-header-no-badge"
+  "tgt-nav-count-first-page", "tgt-active-header-no-badge", "tgt-admin-ui-unavailable"
 ]) {
   if (evidenceIds.has(stale)) fail(`stale pre-A3.11 target evidence remains: ${stale}`);
 }
@@ -413,6 +419,67 @@ for (const forbidden of [
   "BrowserNotificationsPrompt", "NotificationSettingsSection", "notification-action", "use_signal(",
   "onclick:", "notifications-filters"
 ]) if (ownerUiRuntime.includes(forbidden)) fail(`notification owner UI reintroduced blocked behavior: ${forbidden}`);
+
+const adminService = targetContents.get("tgt-admin-global-list-handler");
+const adminHandlerStart = adminService.indexOf("async fn list_admin_notifications(");
+const adminHandlerEnd = adminService.indexOf("async fn get_notification(", adminHandlerStart);
+const adminHandler = adminService.slice(adminHandlerStart, adminHandlerEnd);
+for (const anchor of [
+  "AdminNotificationQuery::parse(raw_query.as_deref())?",
+  "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY",
+  "sqlx::query_as(ADMIN_NOTIFICATION_LIST_SQL)",
+  "sqlx::query_scalar(ADMIN_NOTIFICATION_COUNT_SQL)",
+  "admin_notification_cardinality_is_valid(total, query.limit, query.offset, rows.len())",
+  ".collect::<Option<Vec<_>>>()",
+  "StatusCode::INTERNAL_SERVER_ERROR"
+]) if (!adminHandler.includes(anchor)) fail(`admin notification global-list handler drifted: ${anchor}`);
+const adminSqlStart = adminService.indexOf("const ADMIN_NOTIFICATION_LIST_SQL");
+const adminSqlEnd = adminService.indexOf(";", adminSqlStart);
+const adminSql = adminService.slice(adminSqlStart, adminSqlEnd);
+for (const anchor of [
+  "SELECT id, title, subject, channel, status, notification_type, priority, sent_at, created_at",
+  "ORDER BY created_at DESC, id DESC LIMIT $1 OFFSET $2"
+]) if (!adminSql.includes(anchor)) fail(`admin notification redacted SQL drifted: ${anchor}`);
+for (const forbidden of ["user_id", "recipient", "template_id", "body", "data", "error", "read_at", "action_url"]) {
+  if (adminSql.includes(forbidden)) fail(`admin notification SQL selected private field: ${forbidden}`);
+}
+const adminServicePolicy = targetContents.get("tgt-admin-global-list-service-policy");
+for (const anchor of [
+  "(&Method::GET, [\"admin\", \"list\"]) => AccessPolicy::NotificationsAdmin",
+  "principal.audience != ADMIN_AUDIENCE",
+  "!principal.has_permission(NOTIFICATIONS_MANAGE_PERMISSION)"
+]) if (!adminServicePolicy.includes(anchor)) fail(`admin notification direct policy drifted: ${anchor}`);
+const adminGatewayPolicy = targetContents.get("tgt-admin-global-list-gateway-policy");
+for (const anchor of [
+  "(&Method::GET, [\"api\", \"v1\", \"notification\", \"admin\", \"list\"])",
+  "AccessPolicy::Permission(\"admin:notifications:manage\")"
+]) if (!adminGatewayPolicy.includes(anchor)) fail(`admin notification gateway policy drifted: ${anchor}`);
+const adminAdapter = targetContents.get("tgt-admin-global-list-adapter").split("#[cfg(test)]", 1)[0];
+for (const anchor of [
+  "MAX_ADMIN_NOTIFICATION_RESPONSE_BYTES: usize = 256 * 1024",
+  "#[serde(deny_unknown_fields)]",
+  "clone_for_bearer()",
+  ".bearer_auth(token)",
+  "read_response_body_limited(response, MAX_ADMIN_NOTIFICATION_RESPONSE_BYTES)",
+  "/api/v1/notification/admin/list?limit={ADMIN_NOTIFICATION_LIMIT}&offset={}"
+]) if (!adminAdapter.includes(anchor)) fail(`admin notification strict adapter drifted: ${anchor}`);
+const adminSsr = targetContents.get("tgt-admin-global-list-ssr");
+for (const anchor of [
+  "if route_path == \"/notifications/manage\" {",
+  "load_admin_notifications(",
+  "record_admin_notification_load(&mut params, &notification_query, load);"
+]) if (!adminSsr.includes(anchor)) fail(`admin notification SSR integration drifted: ${anchor}`);
+const adminUi = targetContents.get("tgt-admin-global-list-ui").split("#[cfg(test)]", 1)[0];
+for (const anchor of [
+  "pub fn decode_admin_notification_projection(",
+  "NotificationLoad::Forbidden",
+  "NotificationLoad::Unavailable",
+  "NotificationLoad::Malformed",
+  "data-admin-notifications-page-state"
+]) if (!adminUi.includes(anchor)) fail(`admin notification read-only UI drifted: ${anchor}`);
+for (const forbidden of ["form {", "button {", "onclick:", "Send notification", "Delete notification"]) {
+  if (adminUi.includes(forbidden)) fail(`admin notification UI reintroduced mutation surface: ${forbidden}`);
+}
 const serviceMigration = targetContents.get("tgt-additive-service-migration");
 if ((serviceMigration.match(/\bCREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+public\./gi) ?? []).length !== 2) fail("A3.11 guarded public-table evidence drifted");
 if (/\b(?:DROP|ALTER|TRUNCATE|DELETE|INSERT|UPDATE|MERGE|COPY|CASCADE)\b/i.test(serviceMigration)) fail("A3.11 evidence contains destructive or data-mutating migration SQL");
@@ -512,7 +579,7 @@ if [ "$mode" = "report" ]; then
 fi
 
 if [ "$mode" = "integrity" ]; then
-  echo "notification-execution: PASS — 14 source records, 53 target anchors, 12 surfaces, and 22 stop blockers verified"
+  echo "notification-execution: PASS — 14 source records, 58 target anchors, 12 surfaces, and 22 stop blockers verified"
   echo "notification-execution: LIMIT — A2.3c auth and A3.11 schema boundary remain partial; no database, upgrade, reconciliation, Redis, SMTP, push, network, deployment, or production readiness was proven"
   exit 0
 fi

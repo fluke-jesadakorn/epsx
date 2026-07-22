@@ -172,7 +172,7 @@ and revocation behavior remain canonical.
   transaction, idempotency, and recovery contracts replace them.
 - Both BFFs preserve verified backend permissions without expanding roles. The
   35-record permission inventory contains one Dioxus security-gate record and,
-  by grammar, 33 canonical three-segment records, no legacy two-segment gates,
+  by grammar, 34 canonical three-segment records, no legacy two-segment gates,
   one unknown record, and one impossible/cross-grammar presentation record. The
   permission-grammar readiness gate now passes; UI gates remain presentation
   controls, never policy authority. The ten removed legacy gates were the invented
@@ -276,8 +276,8 @@ passed`. It is not a percentage estimate of engineering effort.
 | Visual/responsive/accessibility | 1 | Historical screenshots exist; current accepted baseline is incomplete | All routes pass agreed viewport, state, keyboard, and accessibility thresholds. |
 | Interaction parity | 0 | No complete click/form/wallet/navigation matrix | Every interactive control has E2E success and failure coverage. |
 | Auth/session parity | 1 | A1.4 hermetic gate covers 71 focused tests across both BFFs; durable database-backed rotation/revocation and a real wallet flow remain unproven | SIWE -> SSR me -> rotation -> revocation works across both BFFs. |
-| Backend authorization | 1 | Gateway is fail-closed with exact RS256/JWKS and granular edge policy; the 117-route service matrix is 11 aligned, 47 partial, and 59 blocked | Anonymous/cross-owner calls fail at both gateway and service boundaries; granular backend permissions pass. |
-| Live data parity | 0 | The notification owner page and focused news routes now have sample-free explicit dependency outcomes, and notifications adds a statically verified authenticated read-only shared-header count, but browser/live proof is absent, 17 frontend routes remain blocked, other frontend mocks remain, and admin SSR still supplies empty params | Sample payloads removed and real empty/error states proven. |
+| Backend authorization | 1 | Gateway is fail-closed with exact RS256/JWKS and granular edge policy; the 119-route service matrix is 11 aligned, 48 partial, and 60 blocked | Anonymous/cross-owner calls fail at both gateway and service boundaries; granular backend permissions pass. |
+| Live data parity | 0 | The notification owner page, global redacted admin notification inventory, and focused news routes have sample-free explicit dependency outcomes, and notifications adds a statically verified authenticated read-only shared-header count; browser/live database proof is absent, 17 frontend routes remain blocked, other frontend mocks remain, and most admin routes still lack authoritative page data | Sample payloads removed and real empty/error states proven. |
 | Checkout/on-chain parity | 0 | Route mismatch and DB-only escrow transitions | Verified receipts and contract transactions drive state. |
 | Backend/API contract parity | 1 | Both BFFs now return explicit HTML/JSON 404s and preserve 405/redirect semantics; payment prefixes and broader payload/status drift remain | Versioned contract matrix passes for monolith and replacement. |
 | Migration/data safety | 0 | Static remediation reduced runtime DDL to 9 findings (6 reviewed exceptions + 3 actionable) and service-startup mutations to 0; 15 roots and 175 SQL files are inventoried, but all 16 migration risks remain blocked and 511 destructive-token findings, naming drift, baseline edits, and expired partitions remain. The isolated A3.13 PostgreSQL 18 fresh-schema proof is not an upgrade or readiness gate. | Upgrade/backfill/reconcile/rollback tests pass on production-shaped data. |
@@ -410,7 +410,7 @@ bounded path set. Shared contract files require coordination through package A0.
   cross-owner, and granular-admin cases for every mutation.
 
 - **A2.1 status:** gateway edge enforcement passes 18 focused tests and the
-  117-route authorization fixture remains integrity-clean. The fixture still
+  119-route authorization fixture remains integrity-clean. The fixture still
   reports readiness as not proven because direct-service verification,
   cross-owner denial, internal service identity, and handler-level permission
   enforcement remain open. See `docs/migration/A2_GATEWAY_AUTHORIZATION.md`.
@@ -438,11 +438,12 @@ bounded path set. Shared contract files require coordination through package A0.
   content-domain semantics, and cache/validation behavior remain unresolved.
 
 - **A2.3c status:** the notification service now consumes the shared verifier.
-  Health is its only anonymous surface, template/send operations require the
-  admin audience plus `admin:notifications:manage`, and all eight user routes
-  derive and bind their SQL owner key from the verified wallet. The service
-  matrix is now five aligned, 54 partial, and 58 blocked. Startup DDL and seeds
-  are statically absent, but migration-history/adoption and legacy-owner
+  Health is its only anonymous surface, template/send operations and the exact
+  redacted global admin list require the admin audience plus
+  `admin:notifications:manage`, and all eight user routes derive and bind their
+  SQL owner key from the verified wallet. The global service matrix is now 11
+  aligned, 48 partial, and 60 blocked. Startup DDL and seeds are statically
+  absent, but migration-history/adoption and legacy-owner
   reconciliation, internal publisher identity, delivery idempotency/outbox,
   SMTP behavior, template consistency, and DB integration remain unresolved.
 
@@ -495,8 +496,8 @@ bounded path set. Shared contract files require coordination through package A0.
   the other ten route shapes are structurally unavailable and blocked.
   Protected candidates verify the canonical audience and, for admin shapes,
   the exact literal granular permission before returning an intentional `404`.
-  The global 117-route service-authorization matrix is now 11 aligned, 47
-  partial, and 59 blocked. Twelve STOP blockers remain: there is no database,
+  The global 119-route service-authorization matrix is now 11 aligned, 48
+  partial, and 60 blocked. Twelve STOP blockers remain: there is no database,
   Redis, external JWKS, service-integration, migration, or deployment proof,
   and the disabled identity lifecycle is not production functionality.
 
@@ -849,14 +850,16 @@ bounded path set. Shared contract files require coordination through package A0.
   page/status state, projects away bodies and identity/media fields, separates
   empty/forbidden/unavailable/malformed outcomes, and exposes no mutation. The
   public file-backed content feed remains prohibited as admin state. Dashboard,
-  analytics, audit-log, chat list/detail, media, news create/edit, notification manage/create, settings, developer portal,
+  analytics, audit-log, chat list/detail, media, news create/edit, notification create, settings, developer portal,
   wallet credits/access/list/detail/disable, and wallet-plan list/detail now
   fail closed without sample records, counts, health, history, configuration,
   credentials, balances, ledger rows, assignments, catalogs, filters, forms,
-  upload controls, or mutations. The read-only payment-intents tab is the sole
-  operational page with a bounded typed loader; source mutation contracts and
-  BFF paths still drift, and preserved statuses still lack typed envelopes and
-  general page-level consumption. The target-only `/policies` addition now
+  upload controls, or mutations. The bounded typed loaders are payment intents,
+  protected legacy news, and the new global redacted notification inventory;
+  only news and notification management are partial routes, because isolated
+  service/database and authenticated browser proof remain absent. Source
+  mutation contracts and BFF paths still drift, and preserved statuses still
+  lack typed envelopes and general page-level consumption. The target-only `/policies` addition now
   returns the shared 404 and exposes no fabricated policy state or gate.
   The pinned admin `/analytics` route is now explicitly mapped as an EPS market-
   ranking surface with plan-access and watchlist inputs; the target event-
@@ -866,7 +869,7 @@ bounded path set. Shared contract files require coordination through package A0.
   stops on plaintext `api_keys.full_key` persistence/list projection; credit
   readiness stops on a GET path that can create a balance record and on the
   unresolved financial mutation authority.
-  The exact **2 aligned / 3 partial / 22 blocked**, 20-STOP integrity and tamper
+  The exact **2 aligned / 4 partial / 21 blocked**, 20-STOP integrity and tamper
   gates pass; readiness intentionally exits `3`. No live service, database,
   chain, or deployment access is claimed.
 

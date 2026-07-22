@@ -37,11 +37,12 @@
         "let mut params = HashMap::new();",
         "record_payment_intent_load(&mut params, result);",
         "record_admin_news_load(&mut params, &news_query, load);",
+        "record_admin_notification_load(&mut params, &notification_query, load);",
         "let (m, b) = admin_pages::dispatch(&c);",
         "fn safe_admin_layout_path(layout_path: &str, is_authenticated: bool) -> String",
         "let status = match meta.status"
       ],
-      "finding": "SSR verifies a session and keeps data params empty by default; signed-out dynamic chat, news-edit, wallet, disable, and plan shells reduce layout paths to static collections so breadcrumbs and return URLs cannot disclose route references; payment intents and the admin news list now perform normalized authenticated reads with explicit non-empty, empty, forbidden where applicable, unavailable, or malformed outcomes."
+      "finding": "SSR verifies a session and keeps data params empty by default; signed-out dynamic chat, news-edit, wallet, disable, and plan shells reduce layout paths to static collections so breadcrumbs and return URLs cannot disclose route references; payment intents, the admin news list, and the redacted global notification inventory perform normalized authenticated reads with explicit non-empty, empty, forbidden where applicable, unavailable, or malformed outcomes."
     },
     {
       "file": "apps/admin/src/news_adapter.rs",
@@ -56,6 +57,51 @@
         "ClientError::UpstreamStatus(403)"
       ],
       "finding": "The read-only compatibility adapter targets the pinned Rust backend's protected admin-news contract, caps declared and chunked response bodies at 8 MiB before JSON allocation, rejects duplicate or malformed recognized query values and structural or semantic response drift, projects away bodies and identity/media fields, and never treats dependency or error envelopes as an authoritative empty list. The public file-backed content feed is deliberately not used as admin state."
+    },
+    {
+      "file": "apps/admin/src/notification_admin_adapter.rs",
+      "anchors": [
+        "pub(crate) struct AdminNotificationQuery",
+        "\"/api/v1/notification/admin/list?limit={ADMIN_NOTIFICATION_LIMIT}&offset={}\"",
+        "pub(crate) async fn load_admin_notifications",
+        "MAX_ADMIN_NOTIFICATION_RESPONSE_BYTES",
+        "read_response_body_limited",
+        "#[serde(deny_unknown_fields)]",
+        "fn classify_admin_notification_payload"
+      ],
+      "finding": "The admin adapter forwards only a verified bearer and request ID to the exact global-list endpoint, fixes the page size at 20, caps declared and chunked bodies at 256 KiB, rejects structural and semantic drift, and projects only bounded delivery metadata. It distinguishes authoritative empty, recoverable out-of-range, forbidden, unavailable, and malformed outcomes without forwarding caller identity headers."
+    },
+    {
+      "file": "services/notification/src/main.rs",
+      "anchors": [
+        "async fn list_admin_notifications(",
+        "ADMIN_NOTIFICATION_LIST_SQL",
+        "ORDER BY created_at DESC, id DESC LIMIT $1 OFFSET $2",
+        "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY",
+        "fn admin_notification_cardinality_is_valid(",
+        "fn project_admin_notification",
+        "admin notification inventory contains invalid stored fields"
+      ],
+      "finding": "The notification service owns a deterministic global read with strict limit/offset parsing and a redacted DTO. Count and page rows share one read-only repeatable-read transaction, and impossible cardinality, count failures, or invalid stored fields fail closed; recipients, users, templates, bodies, arbitrary data, error details, read state, and action URLs are never selected into the response."
+    },
+    {
+      "file": "services/notification/src/lib.rs",
+      "anchors": [
+        "(&Method::GET, [\"admin\", \"list\"]) => AccessPolicy::NotificationsAdmin",
+        "principal.audience != ADMIN_AUDIENCE",
+        "!principal.has_permission(NOTIFICATIONS_MANAGE_PERMISSION)"
+      ],
+      "finding": "The direct notification service admits only the exact GET admin/list shape after verifying the admin audience and canonical admin:notifications:manage permission; method, arity, and encoded-path drift fail closed before the handler."
+    },
+    {
+      "file": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs",
+      "anchors": [
+        "pub fn decode_admin_notification_projection(",
+        "pub fn render_manage(ctx: &PageContext)",
+        "data-admin-notifications-state",
+        "fn manage_and_create_expose_no_mutation_or_sample_surfaces()"
+      ],
+      "finding": "The authenticated management page renders only the strict redacted projection with native pagination and retry links. It distinguishes ready, authoritative empty, forbidden, unavailable, malformed, and out-of-range recovery while emitting no identities, bodies, delivery errors, action URLs, forms, buttons, sample metrics, or mutation controls."
     },
     {
       "file": "apps/admin/src/main.rs",
@@ -151,7 +197,7 @@
     {"id": "B7-mutations", "routes": ["/notifications/create", "/developer-portal", "/wallet-management/wallets/:address/disable"]}
   ],
   "stopBlockers": [
-    "No admin SSR page loader consumes a service response; PageContext starts with empty params.",
+    "Most admin routes still lack an authoritative SSR service response; only bounded payment intents, protected legacy news, and the redacted global notification inventory currently populate typed PageContext data.",
     "Sample rows, counts, timestamps, wallet addresses, balances, and health values can masquerade as live operational data.",
     "Generic skeleton overlays are visual-capture fixtures, not loading-state contracts.",
     "Ordinary Dioxus event closures are not usable in SSR output without proven hydration or a browser bridge.",
@@ -358,7 +404,7 @@
     {
       "path": "/notifications/create", "batch": "B7-mutations", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/notifications/create/page.tsx", "anchors": ["export default function CreateNotificationPage", "<SendNotificationForm"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs", "handler": "notifications::render_create", "anchors": ["pub fn render_create(ctx: &PageContext)", "\"data-admin-notifications-state\": state_marker", "fn unavailable_surfaces_emit_no_samples_metrics_or_mutations()"]},
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs", "handler": "notifications::render_create", "anchors": ["pub fn render_create(ctx: &PageContext)", "fn NotificationCreateUnavailable() -> Element", "fn manage_and_create_expose_no_mutation_or_sample_surfaces()"]},
       "params": {"names": [], "current": "legacy form and audience parameters are ignored"},
       "data": {"reads": ["recipient validation", "templates", "schedule constraints"], "endpoints": [], "current": "verified-session explicit unavailable state; no static recipients, templates, or schedule defaults", "fallbacks": []},
       "permissions": {"read": [], "manage": ["admin:notifications:manage before any mutation"], "current": "session-only unavailable shell with no local role or capability inference; the admin BFF verifies its audience and the direct service must authorize any future operation"},
@@ -369,17 +415,17 @@
       "blockers": ["define one canonical endpoint/method/body, enforce direct-service manage permission and idempotency, then prove validation/pending/success/error/retry/rate-limit/schedule conflict states"]
     },
     {
-      "path": "/notifications/manage", "batch": "B3-support", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
+      "path": "/notifications/manage", "batch": "B3-support", "status": "partial", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/notifications/manage/page.tsx", "anchors": ["export default function ManageNotificationsPage", "<NotificationManagement />"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs", "handler": "notifications::render_manage", "anchors": ["pub fn render_manage(ctx: &PageContext)", "\"data-admin-notifications-state\": state_marker", "fn unavailable_surfaces_emit_no_samples_metrics_or_mutations()"]},
-      "params": {"names": ["status", "cursor", "search"], "current": "legacy filters, cursor, search, and hydration parameters are ignored"},
-      "data": {"reads": ["sent/scheduled notifications", "delivery stats"], "endpoints": [], "current": "verified-session explicit unavailable state with no inferred rows, metrics, or counts", "fallbacks": []},
-      "permissions": {"read": ["dedicated backend notification read decision required"], "manage": ["admin:notifications:manage before any mutation"], "current": "session-only unavailable shell; the admin BFF verifies its audience and no read or manage capability is inferred by the frontend"},
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs", "handler": "notifications::render_manage", "anchors": ["pub fn render_manage(ctx: &PageContext)", "pub fn decode_admin_notification_projection(", "fn ready_projection_renders_escaped_read_only_inventory_without_private_fields()", "fn manage_and_create_expose_no_mutation_or_sample_surfaces()"]},
+      "params": {"names": ["page", "status", "cursor", "search"], "current": "the target accepts one page in 1..=50001, fixes limit=20 and derives offset; duplicate or malformed page fails without an upstream request, while unsupported legacy status/cursor/search fields are ignored and never forwarded"},
+      "data": {"reads": ["global redacted notification delivery summaries", "delivery stats intentionally unavailable"], "endpoints": ["GET /api/v1/notification/admin/list?limit=20&offset={derived}"], "current": "verified-session SSR consumes an exact global service read and stores only id-hidden title/subject/channel/status/type/priority/timestamps; recipients, users, templates, bodies, arbitrary data, errors, read state, action URLs, metrics, filters, and mutations remain absent", "fallbacks": []},
+      "permissions": {"read": ["admin:notifications:manage (current canonical backend permission)"], "manage": ["admin:notifications:manage before any mutation"], "current": "gateway and direct notification service both require the exact admin audience plus canonical manage permission for this read; the frontend infers no capability, and a future operation-specific read split remains an A11 decision"},
       "mutations": [],
-      "contracts": {"bodies": [], "envelopes": [], "statuses": ["typed ready/empty/error and scheduled conflict contracts remain absent"]},
-      "states": {"loading": "missing", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "missing", "conflict": "missing"},
-      "ux": {"keyboard": "native retry and admin-home links; focused browser proof remains open", "responsive": "responsive shell present; focused browser proof remains open", "hydration": "not required for the fail-closed shell"},
-      "blockers": ["define typed backend history/stats and read authorization, consume canonical list/stats, preserve URL filters/pagination, and implement conflict-aware scheduled mutation UX"]
+      "contracts": {"bodies": [], "envelopes": ["exact direct JSON {items,total,limit,offset}; each item has only id,title,subject,channel,status,notification_type,priority,sent_at,created_at"], "statuses": ["SSR distinguishes ready, authoritative empty, recoverable out-of-range, forbidden, unavailable, and malformed; dependency and contract failure never become an empty inventory"]},
+      "states": {"loading": "missing", "empty": "present", "error": "present", "retry": "present", "forbidden": "present", "conflict": "not-applicable"},
+      "ux": {"keyboard": "native pagination, refresh, retry, and admin-home links are statically covered; focused browser proof remains open", "responsive": "responsive card grid is present; focused mobile/desktop overflow proof remains open", "hydration": "not required for the read-only surface because active controls are native links"},
+      "blockers": ["prove the read against an isolated notification service/database fixture and authenticated mobile/desktop browser", "add source-compatible global filters and delivery/read statistics under a reviewed operation-specific authority", "keep send, schedule, acknowledge, delete, templates, lifecycle, realtime, and preference controls absent until A11 idempotency, durability, conflict, and recovery gates pass"]
     },
     {
       "path": "/payments", "batch": "B5-commerce", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A6", "A9", "A11", "A12"],

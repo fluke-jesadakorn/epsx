@@ -21,6 +21,11 @@ use epsx_dioxus_ui::pages::admin_pages::news::{
     ADMIN_NEWS_PAGE_PARAM, ADMIN_NEWS_READY, ADMIN_NEWS_STATE_PARAM, ADMIN_NEWS_STATUS_PARAM,
     ADMIN_NEWS_UNAVAILABLE,
 };
+use epsx_dioxus_ui::pages::admin_pages::notifications::{
+    ADMIN_NOTIFICATIONS_DATA_PARAM, ADMIN_NOTIFICATIONS_EMPTY, ADMIN_NOTIFICATIONS_FORBIDDEN,
+    ADMIN_NOTIFICATIONS_MALFORMED, ADMIN_NOTIFICATIONS_PAGE_PARAM, ADMIN_NOTIFICATIONS_READY,
+    ADMIN_NOTIFICATIONS_STATE_PARAM, ADMIN_NOTIFICATIONS_UNAVAILABLE,
+};
 use epsx_dioxus_ui::pages::admin_pages::payments::{
     decode_admin_payment_intent_list, ADMIN_PAYMENTS_DATA_PARAM, ADMIN_PAYMENTS_EMPTY,
     ADMIN_PAYMENTS_LIMIT_PARAM, ADMIN_PAYMENTS_MALFORMED, ADMIN_PAYMENTS_OFFSET_PARAM,
@@ -32,6 +37,9 @@ use std::collections::HashMap;
 
 use super::auth;
 use super::news_adapter::{load_admin_news, AdminNewsLoad, AdminNewsQuery};
+use super::notification_admin_adapter::{
+    load_admin_notifications, AdminNotificationLoad, AdminNotificationQuery,
+};
 use super::AppState;
 
 fn record_admin_news_load(
@@ -68,6 +76,44 @@ fn record_admin_news_load(
         AdminNewsLoad::Malformed => ADMIN_NEWS_MALFORMED,
     };
     params.insert(ADMIN_NEWS_STATE_PARAM.to_string(), state.to_string());
+}
+
+fn record_admin_notification_load(
+    params: &mut HashMap<String, String>,
+    query: &AdminNotificationQuery,
+    load: AdminNotificationLoad,
+) {
+    params.remove(ADMIN_NOTIFICATIONS_DATA_PARAM);
+    params.insert(
+        ADMIN_NOTIFICATIONS_PAGE_PARAM.to_string(),
+        query.page.to_string(),
+    );
+
+    let state = match load {
+        AdminNotificationLoad::Ready(payload) => {
+            params.insert(
+                ADMIN_NOTIFICATIONS_DATA_PARAM.to_string(),
+                serde_json::to_string(&payload)
+                    .expect("the typed admin-notification projection is serializable"),
+            );
+            ADMIN_NOTIFICATIONS_READY
+        }
+        AdminNotificationLoad::Empty(payload) => {
+            params.insert(
+                ADMIN_NOTIFICATIONS_DATA_PARAM.to_string(),
+                serde_json::to_string(&payload)
+                    .expect("the typed empty admin-notification projection is serializable"),
+            );
+            ADMIN_NOTIFICATIONS_EMPTY
+        }
+        AdminNotificationLoad::Forbidden => ADMIN_NOTIFICATIONS_FORBIDDEN,
+        AdminNotificationLoad::Unavailable => ADMIN_NOTIFICATIONS_UNAVAILABLE,
+        AdminNotificationLoad::Malformed => ADMIN_NOTIFICATIONS_MALFORMED,
+    };
+    params.insert(
+        ADMIN_NOTIFICATIONS_STATE_PARAM.to_string(),
+        state.to_string(),
+    );
 }
 
 fn private_admin_html_response(status: axum::http::StatusCode, doc: String) -> Response {
@@ -222,6 +268,42 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                 let default_query =
                     AdminNewsQuery::from_raw("").expect("the empty admin-news query is valid");
                 record_admin_news_load(&mut params, &default_query, AdminNewsLoad::Malformed);
+            }
+        }
+    }
+    // The management page requires a global admin inventory. Never reuse the
+    // owner-scoped `/notification/list` feed: it would show only the admin's
+    // wallet records and mislabel them as global state. This exact read keeps
+    // authorization in the notification service and projects no identity or
+    // message body through SSR.
+    if route_path == "/notifications/manage" {
+        match AdminNotificationQuery::from_raw(&query) {
+            Ok(notification_query) => match verified_access_token.as_ref() {
+                Some(token) => {
+                    let mut request_context = RequestContext::from_headers(&headers);
+                    request_context.auth_token = Some(token.clone());
+                    let load = load_admin_notifications(
+                        &state.notification,
+                        &notification_query,
+                        &request_context,
+                    )
+                    .await;
+                    record_admin_notification_load(&mut params, &notification_query, load);
+                }
+                None => record_admin_notification_load(
+                    &mut params,
+                    &notification_query,
+                    AdminNotificationLoad::Unavailable,
+                ),
+            },
+            Err(()) => {
+                let default_query = AdminNotificationQuery::from_raw("")
+                    .expect("the empty admin-notification query is valid");
+                record_admin_notification_load(
+                    &mut params,
+                    &default_query,
+                    AdminNotificationLoad::Malformed,
+                );
             }
         }
     }
@@ -484,6 +566,7 @@ mod tests {
     use epsx_dioxus_ui::{
         auth::{user::AuthMethod, User},
         pages::admin_pages::news::{AdminNewsArticleSummary, AdminNewsList},
+        pages::admin_pages::notifications::{AdminNotificationList, AdminNotificationSummary},
         pages::PageContext,
     };
 
@@ -549,6 +632,36 @@ mod tests {
             published_at: Some("2026-07-22T03:04:05Z".to_string()),
             created_at: "2026-07-21T03:04:05Z".to_string(),
             is_pinned: true,
+        }
+    }
+
+    fn admin_notification_query() -> AdminNotificationQuery {
+        AdminNotificationQuery::from_raw("page=2").unwrap()
+    }
+
+    fn admin_notification_payload(
+        items: Vec<AdminNotificationSummary>,
+        total: i64,
+    ) -> AdminNotificationList {
+        AdminNotificationList {
+            items,
+            total,
+            limit: 20,
+            offset: 20,
+        }
+    }
+
+    fn admin_notification_item() -> AdminNotificationSummary {
+        AdminNotificationSummary {
+            id: "0x0123456789abcdef0123456789abcdef".to_string(),
+            title: Some("Migration delivery".to_string()),
+            subject: Some("Read-only notification inventory".to_string()),
+            channel: "in_app".to_string(),
+            status: "sent".to_string(),
+            notification_type: Some("system".to_string()),
+            priority: Some("normal".to_string()),
+            sent_at: Some("2026-07-22T10:00:00Z".to_string()),
+            created_at: "2026-07-22T09:59:00Z".to_string(),
         }
     }
 
@@ -855,6 +968,118 @@ mod tests {
                 Some(expected)
             );
             assert!(!params.contains_key(ADMIN_NEWS_DATA_PARAM));
+        }
+    }
+
+    #[test]
+    fn admin_notification_load_records_only_the_safe_projection_and_page() {
+        let mut params = HashMap::new();
+        record_admin_notification_load(
+            &mut params,
+            &admin_notification_query(),
+            AdminNotificationLoad::Ready(admin_notification_payload(
+                vec![admin_notification_item()],
+                21,
+            )),
+        );
+
+        assert_eq!(
+            params
+                .get(ADMIN_NOTIFICATIONS_STATE_PARAM)
+                .map(String::as_str),
+            Some(ADMIN_NOTIFICATIONS_READY)
+        );
+        assert_eq!(
+            params
+                .get(ADMIN_NOTIFICATIONS_PAGE_PARAM)
+                .map(String::as_str),
+            Some("2")
+        );
+        let stored: serde_json::Value =
+            serde_json::from_str(params.get(ADMIN_NOTIFICATIONS_DATA_PARAM).unwrap()).unwrap();
+        assert_eq!(stored["items"][0]["channel"], "in_app");
+        assert_eq!(stored["total"], 21);
+        for forbidden in [
+            "user_id",
+            "recipient",
+            "template_id",
+            "body",
+            "message",
+            "data",
+            "error",
+            "read_at",
+            "action_url",
+        ] {
+            assert!(stored["items"][0].get(forbidden).is_none(), "{forbidden}");
+        }
+    }
+
+    #[test]
+    fn admin_notification_load_distinguishes_empty_from_out_of_range_recovery() {
+        let query = admin_notification_query();
+        let mut empty = HashMap::new();
+        record_admin_notification_load(
+            &mut empty,
+            &query,
+            AdminNotificationLoad::Empty(admin_notification_payload(Vec::new(), 0)),
+        );
+        assert_eq!(
+            empty
+                .get(ADMIN_NOTIFICATIONS_STATE_PARAM)
+                .map(String::as_str),
+            Some(ADMIN_NOTIFICATIONS_EMPTY)
+        );
+        assert!(empty.contains_key(ADMIN_NOTIFICATIONS_DATA_PARAM));
+
+        let mut recoverable = HashMap::new();
+        record_admin_notification_load(
+            &mut recoverable,
+            &query,
+            AdminNotificationLoad::Ready(admin_notification_payload(Vec::new(), 1)),
+        );
+        assert_eq!(
+            recoverable
+                .get(ADMIN_NOTIFICATIONS_STATE_PARAM)
+                .map(String::as_str),
+            Some(ADMIN_NOTIFICATIONS_READY)
+        );
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(
+                recoverable.get(ADMIN_NOTIFICATIONS_DATA_PARAM).unwrap()
+            )
+            .unwrap()["total"],
+            1
+        );
+    }
+
+    #[test]
+    fn admin_notification_failure_states_remove_stale_projection_data() {
+        for (load, expected) in [
+            (
+                AdminNotificationLoad::Forbidden,
+                ADMIN_NOTIFICATIONS_FORBIDDEN,
+            ),
+            (
+                AdminNotificationLoad::Unavailable,
+                ADMIN_NOTIFICATIONS_UNAVAILABLE,
+            ),
+            (
+                AdminNotificationLoad::Malformed,
+                ADMIN_NOTIFICATIONS_MALFORMED,
+            ),
+        ] {
+            let mut params = HashMap::from([(
+                ADMIN_NOTIFICATIONS_DATA_PARAM.to_string(),
+                "stale-sensitive-notification-data".to_string(),
+            )]);
+            record_admin_notification_load(&mut params, &admin_notification_query(), load);
+            assert_eq!(
+                params
+                    .get(ADMIN_NOTIFICATIONS_STATE_PARAM)
+                    .map(String::as_str),
+                Some(expected)
+            );
+            assert!(!params.contains_key(ADMIN_NOTIFICATIONS_DATA_PARAM));
         }
     }
 

@@ -327,9 +327,34 @@
       "anchor": ".route(\"/api/v1/notifications/send\", post(send_notification))"
     },
     {
-      "id": "tgt-admin-ui-unavailable",
+      "id": "tgt-admin-global-list-handler",
+      "file": "services/notification/src/main.rs",
+      "anchor": "async fn list_admin_notifications("
+    },
+    {
+      "id": "tgt-admin-global-list-service-policy",
+      "file": "services/notification/src/lib.rs",
+      "anchor": "(&Method::GET, [\"admin\", \"list\"]) => AccessPolicy::NotificationsAdmin"
+    },
+    {
+      "id": "tgt-admin-global-list-gateway-policy",
+      "file": "services/gateway/src/policy.rs",
+      "anchor": "(&Method::GET, [\"api\", \"v1\", \"notification\", \"admin\", \"list\"])"
+    },
+    {
+      "id": "tgt-admin-global-list-adapter",
+      "file": "apps/admin/src/notification_admin_adapter.rs",
+      "anchor": "pub(crate) async fn load_admin_notifications("
+    },
+    {
+      "id": "tgt-admin-global-list-ssr",
+      "file": "apps/admin/src/ssr.rs",
+      "anchor": "if route_path == \"/notifications/manage\" {"
+    },
+    {
+      "id": "tgt-admin-global-list-ui",
       "file": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs",
-      "anchor": "\"data-admin-notifications-state\": state_marker"
+      "anchor": "pub fn decode_admin_notification_projection("
     },
     {
       "id": "tgt-proto-preferences-only",
@@ -468,7 +493,7 @@
     {
       "id": "admin-history-stats-delete",
       "source": "admin-wide list, filters, stats, acknowledge, and delete under admin notification permission",
-      "targetObserved": "admin BFF calls owner-scoped list and lacks source-compatible stats/acknowledge/global history semantics",
+      "targetObserved": "a strict global redacted admin list now exists across gateway, direct service, SSR adapter, and read-only UI; count and rows use one read-only repeatable-read transaction with tuple validation, while source-compatible filters/stats/acknowledge/delete/scheduling semantics and runtime database/browser proof remain absent",
       "ownerKey": "admin-audience+operation-specific-notification-permission",
       "status": "blocked",
       "blockerIds": ["B01", "B05", "B19"]
