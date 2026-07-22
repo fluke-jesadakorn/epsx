@@ -171,14 +171,14 @@ and revocation behavior remain canonical.
   handlers. Those handlers remain unsuitable for production until real chain,
   transaction, idempotency, and recovery contracts replace them.
 - Both BFFs preserve verified backend permissions without expanding roles. The
-  62-record permission inventory contains 28 Dioxus security-gate records and,
-  by grammar, 53 canonical three-segment records, seven legacy two-segment gates,
-  one unknown record, and one impossible/cross-grammar record. The seven legacy
+  61-record permission inventory contains 27 Dioxus security-gate records and,
+  by grammar, 53 canonical three-segment records, six legacy two-segment gates,
+  one unknown record, and one impossible/cross-grammar record. The six legacy
   security gates remain blockers; UI gates remain presentation controls, never
-  policy authority. The five removed legacy gates were the invented
-  `profile:read`/`profile:write`, duplicate `payments:read`, and `analytics:read`
-  checks on authentication-only, public-unavailable, or deliberately
-  unavailable frontend surfaces.
+  policy authority. The six removed legacy gates were the invented
+  `profile:read`/`profile:write`, duplicate `payments:read`, `analytics:read`,
+  and `permissions:read` checks on authentication-only, public-unavailable, or
+  deliberately unavailable frontend surfaces.
 - The deployed identity ranking service returns offset `100` for all wallets,
   including paid users. This is not acceptable entitlement behavior.
 
@@ -637,10 +637,10 @@ bounded path set. Shared contract files require coordination through package A0.
   fall back to the free plan on authority failure.
 
 - **A4.0/A8.1 status:** the deterministic permission-grammar inventory covers
-  62 UI/service records, including 28 Dioxus security gates. A8.2 additionally
+  61 UI/service records, including 27 Dioxus security gates. A8.2 additionally
   separates wallet-access and plan read surfaces from their mutation controls
   using literal backend guards;
-  readiness intentionally stops with seven legacy security gates and two
+  readiness intentionally stops with six legacy security gates and two
   presentation-only drift records. Entitlement and ranking-offset parity in the
   acceptance condition above is not yet implemented.
 
@@ -788,7 +788,12 @@ bounded path set. Shared contract files require coordination through package A0.
   balance or empty ledger; `/analytics` has no canned producer, sample ranking,
   fake policy gate, or inert query/mutation controls; `/developer` and
   `/developer/usage` no longer publish canned keys, plans, mutations, metering,
-  charts, or service health; and both payment routes fail closed without
+  charts, or service health; `/dashboard` removes its canned stats, activity,
+  roles, tiers, and entitlement decisions while retaining only verified session
+  identity; `/portfolio` removes its canned holdings, prices, Live label, and
+  inert watchlist controls; `/permissions` removes hard-coded grants, history,
+  features, SLA, and its circular frontend gate while labeling raw verified
+  session strings as non-canonical; and both payment routes fail closed without
   accepting query-owned financial state, submitting a mutation, or claiming an
   intent or completion. These routes remain blocked until their documented
   A1/A4/A5/A6 authorities and runtime proofs exist. The resulting **2 aligned /

@@ -1,199 +1,52 @@
-//! /dashboard — the EPSX personal dashboard.
+//! `/dashboard` — truthful personal-dashboard availability shell.
 //!
-//! Wave 27 T2 — port of `apps-old/frontend/app/dashboard/page.tsx` +
-//! `apps-old/frontend/components/dashboard/dashboard-client.tsx`
-//! (75 + 296 = 371 LoC of source).
-//!
-//! ## Sections (per source design)
-//!
-//! 1. **Page shell** — `min-h-screen bg-gradient-to-br from-slate-50
-//!    to-slate-100 dark:from-slate-900 dark:to-slate-800` container
-//!    with `container mx-auto px-4 py-8` inner. (Source page.tsx:48-49.)
-//!
-//! 2. **Header** — `mb-8` div with h1 `"Personal Dashboard"`
-//!    (`text-3xl font-bold text-slate-900 dark:text-slate-100`) +
-//!    sub `"Your personalized market analytics and portfolio
-//!    overview"` (`text-slate-600 dark:text-slate-400 mt-2`).
-//!    (Source page.tsx:50-57.)
-//!
-//! 3. **Auth-aware body** — when `ctx.user.is_some()`, render the
-//!    `DashboardClient` (5 feature cards: Profile / Settings /
-//!    Analytics / Premium Content / Moderator Panel + a 6th
-//!    "Your Permissions" card). When unauthenticated, render the
-//!    "Please sign in to access your dashboard..." fallback.
-//!    (Source page.tsx:59-72.)
-//!
-//! ## Auth-aware note
-//!
-//! Wave 25 T2 used `MainLayout`-wrapped stats (Total earnings /
-//! Watchlist / Active plans / API calls). Wave 27 T2 swaps that for
-//! the source's actual structure — an h1 + sub + (authed DashboardClient
-//! OR unauth fallback). The pixel-recheck harness captures the
-//! unauthenticated state (the prod baseline was anonymous), so the
-//! "Please sign in to access your dashboard..." fallback is the
-//! branch the harness diffs against.
-
-use crate::primitives::*;
-use crate::feedback::*;
-
-// === wave41(t1) fe-page-wiring: import ported dashboard domain components ===
-// Wave 40 ported the prod `apps-old/frontend/components/dashboard/dashboard-client.tsx`
-// into `crate::dashboard::DashboardClient`. This page renders the dashboard body
-// inline for Wave 27 T2 pixel-parity. Wiring here is a compile-time type-check
-// anchor — it proves the ported component is still reachable from
-// `crate::dashboard::*` with its typed prop signature, so a future refactor
-// can swap inline ↔ ported without rename surprises.
-use crate::dashboard::DashboardClient as PortedDashboardClient;
+//! The pinned TypeScript source supplied mock metrics and frontend-derived
+//! roles, platforms, tiers, permissions, and feature access. The Rust frontend
+//! has no owner-scoped dashboard read contract yet, so this page intentionally
+//! ignores legacy `data_dashboard` payloads. An authenticated visitor sees only
+//! identity values carried by the locally verified session and an explicit
+//! unavailable state; a signed-out visitor sees a native sign-in path.
 
 use dioxus::prelude::*;
-use super::PageContext;
-use super::PageMeta;
+
+use super::{PageContext, PageMeta};
+use crate::auth::{AuthMethod, User};
 use crate::layout::main_layout::MainLayout;
+use crate::primitives::Icon;
 
-// Compile-time anchor — `DashboardClient` takes a single `stats: DashboardStats`
-// arg; Dioxus generates `DashboardClientProps` for the function pointer shape.
-#[allow(dead_code)]
-const _WAVE41_DASHBOARD_PORTED_TYPE_CHECK: fn(crate::dashboard::dashboard_client::DashboardClientProps) -> Element = PortedDashboardClient;
-
-/// DashboardClient mock data — mirrors `apps-old/frontend/app/dashboard/page.tsx:35-45`.
-#[derive(Clone, Debug, PartialEq)]
-struct DashboardMockStats {
-    total_views: u64,
-    total_users: u64,
-    revenue: u64,
-}
-
-impl DashboardMockStats {
-    fn default_mock() -> Self {
-        // Mirrors the source's `dashboardData` default — total_views=0,
-        // total_users=1, revenue=0.
-        Self { total_views: 0, total_users: 1, revenue: 0 }
-    }
-}
-
-/// Permissions object mirror — mirrors the source's `permissions` shape
-/// (`role`, `permissions: Vec<String>`, `platforms: Vec<String>`,
-/// `platform_context: Option<String>`).
-#[derive(Clone, Debug, PartialEq)]
-struct DashboardPermissions {
-    role: String,
-    permissions: Vec<String>,
-    platforms: Vec<String>,
-    platform_context: Option<String>,
-}
-
-impl DashboardPermissions {
-    fn from_user(user: &crate::auth::User) -> Self {
-        Self {
-            role: if user.roles.is_empty() { "user".to_string() } else { user.roles[0].clone() },
-            permissions: user.permissions.clone(),
-            platforms: vec!["epsx".to_string()],
-            platform_context: Some("epsx".to_string()),
-        }
-    }
-}
-
-/// User object mirror — mirrors the source's `user` shape (id, email,
-/// name, permissions, package_tier, wallet_address, platforms,
-/// primary_platform, platform_context).
-#[derive(Clone, Debug, PartialEq)]
-struct DashboardUserView {
-    id: String,
-    email: String,
-    name: String,
-    permissions: Vec<String>,
-    package_tier: String,
-    wallet_address: Option<String>,
-    platforms: Vec<String>,
-    primary_platform: String,
-    platform_context: Option<String>,
-}
-
-impl DashboardUserView {
-    fn from_ctx_user(user: &crate::auth::User) -> Self {
-        let email = user.email.clone().unwrap_or_default();
-        let name = user
-            .display_name
-            .clone()
-            .unwrap_or_else(|| email.split('@').next().unwrap_or("user").to_string());
-        Self {
-            id: user.id.clone(),
-            email,
-            name,
-            permissions: user.permissions.clone(),
-            package_tier: user.tier.clone().unwrap_or_else(|| "FREE".to_string()),
-            wallet_address: Some(user.address.clone()),
-            platforms: vec!["epsx".to_string()],
-            primary_platform: "epsx".to_string(),
-            platform_context: Some("epsx".to_string()),
-        }
-    }
-}
+const DASHBOARD_PATH: &str = "/dashboard";
+const DASHBOARD_SIGN_IN_PATH: &str = "/auth?return_url=%2Fdashboard";
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::app("Dashboard");
+    let meta = PageMeta::app("Dashboard unavailable");
     (meta, rsx! { RenderDashboard { ctx: ctx.clone() } })
 }
 
 #[component]
 fn RenderDashboard(ctx: PageContext) -> Element {
-    // Mock stats — when the BFF has no `data_dashboard` payload, we
-    // default to the source's mock shape (0/1/0). The OLD prod shows
-    // an identical 0/1/0 mock for the `DashboardClient`'s "Total
-    // Views / Total Users / Revenue" cards (see dashboard-client.tsx
-    // which reads `dashboardData.data.stats`).
-    let mock_stats: DashboardMockStats = ctx.params
-        .get("data_dashboard")
-        .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
-        .and_then(|v| v.get("stats").cloned())
-        .map(|s| DashboardMockStats {
-            total_views: s.get("totalViews").and_then(|x| x.as_u64()).unwrap_or(0),
-            total_users: s.get("totalUsers").and_then(|x| x.as_u64()).unwrap_or(1),
-            revenue: s.get("revenue").and_then(|x| x.as_u64()).unwrap_or(0),
-        })
-        .unwrap_or_else(DashboardMockStats::default_mock);
+    // `ctx.params["data_dashboard"]` is deliberately not read. Until an
+    // owner-scoped backend response is selected and validated, compatibility
+    // payloads cannot establish metrics, activity, access, or entitlements.
+    let user = ctx.user.clone();
 
     rsx! {
-        MainLayout { ctx: ctx.clone(),
-            // === wave27-t2-port-fe-pages ===
-            // Source: apps-old/frontend/app/dashboard/page.tsx:48-49.
-            // Prod renders:
-            //   <div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-            //     <div class="container mx-auto px-4 py-8">
-            // We replicate the same classes verbatim. The v2-CDN's
-            // missing `dark:` support means dark-mode renders light;
-            // we leave that as a structural gap (matches the rest of
-            // the Wave 26 + Wave 27 ports).
-            div { class: "dashboard-prod-page min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800",
+        MainLayout { ctx,
+            div {
+                class: "dashboard-prod-page min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800",
                 div { class: "container mx-auto px-4 py-8",
-                    // Page header (source page.tsx:50-57).
-                    div { class: "dashboard-prod-header mb-8",
+                    header { class: "dashboard-prod-header mb-8",
                         h1 { class: "dashboard-prod-title text-3xl font-bold text-slate-900 dark:text-slate-100",
                             "Personal Dashboard"
                         }
-                        p { class: "dashboard-prod-subtitle text-slate-600 dark:text-slate-400 mt-2",
-                            "Your personalized market analytics and portfolio overview"
+                        p { class: "dashboard-prod-subtitle mt-2 text-slate-600 dark:text-slate-400",
+                            "Review verified session identity and dashboard availability."
                         }
                     }
-                    // Auth-aware body (source page.tsx:59-72).
-                    if let Some(u) = ctx.user.as_ref() {
-                        DashboardClient {
-                            user: DashboardUserView::from_ctx_user(u),
-                            permissions: DashboardPermissions::from_user(u),
-                            stats: mock_stats.clone(),
-                        }
+
+                    if let Some(user) = user {
+                        AuthenticatedDashboard { user }
                     } else {
-                        // Unauthed fallback — matches source's
-                        // <div class="text-center p-8"><p>...sign
-                        // in to access your dashboard...</p></div>.
-                        // The harness captures the unauthed state
-                        // (prod baseline was anonymous), so this is
-                        // the branch the pixel-diff harness measures.
-                        div { class: "dashboard-prod-fallback text-center p-8",
-                            p { class: "dashboard-prod-fallback-text text-slate-600 dark:text-slate-400",
-                                "Please sign in to access your dashboard..."
-                            }
-                        }
+                        SignedOutDashboard {}
                     }
                 }
             }
@@ -201,264 +54,209 @@ fn RenderDashboard(ctx: PageContext) -> Element {
     }
 }
 
-// === DashboardClient ===
-
-/// DashboardClient — authed dashboard body. Mirrors
-/// `apps-old/frontend/components/dashboard/dashboard-client.tsx`
-/// (296 LoC). Renders 5 feature cards (Profile / Settings /
-/// Analytics / Premium Content / Moderator Panel) plus a 6th
-/// "Your Permissions" card showing the user's role + permission
-/// badges. The source has a PancakeSwap-style vibrant background +
-/// floating gradient orbs + animations — we keep those in the
-/// markup but the v2-CDN doesn't generate `dark:` variants, so the
-/// dark-mode appearance will diverge from prod's `dark:from-slate-900
-/// dark:via-slate-800 dark:to-slate-900` gradient.
 #[component]
-fn DashboardClient(
-    user: DashboardUserView,
-    permissions: DashboardPermissions,
-    stats: DashboardMockStats,
-) -> Element {
+fn SignedOutDashboard() -> Element {
     rsx! {
-        div { class: "dashboard-client relative overflow-hidden",
-            // Source: dashboard-client.tsx:39 — vibrant gradient bg.
-            div { class: "dashboard-client-bg absolute inset-0 bg-gradient-to-br from-blue-50 via-orange-50 to-yellow-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900" }
-            // Floating gradient orbs (source: lines 41-44).
-            div { class: "dashboard-client-orb-orange absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-br from-orange-400/15 to-yellow-400/15 rounded-full blur-3xl" }
-            div { class: "dashboard-client-orb-blue absolute top-20 -right-32 w-80 h-80 bg-gradient-to-br from-blue-400/12 to-cyan-400/12 rounded-full blur-3xl" }
-            div { class: "dashboard-client-orb-purple absolute bottom-20 left-20 w-72 h-72 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full blur-3xl" }
-            // Inner content (source: lines 46-294).
-            div { class: "dashboard-client-content relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8",
-                // Enhanced header (source: lines 48-71).
-                div { class: "dashboard-client-header mb-12 text-center",
-                    div { class: "dashboard-client-header-icon inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-orange-500 to-yellow-500 rounded-3xl mb-6 shadow-2xl",
+        section {
+            class: "dashboard-prod-fallback card card-glass mx-auto max-w-2xl overflow-hidden text-center",
+            "data-dashboard-state": "signed-out",
+            aria_labelledby: "dashboard-sign-in-title",
+            div { class: "h-1.5 bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-500" }
+            div { class: "card-body space-y-5 p-8",
+                div { class: "mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-500/10 text-orange-500",
+                    Icon { name: "lock".to_string(), size: Some(30) }
+                }
+                h2 { id: "dashboard-sign-in-title", class: "text-2xl font-semibold text-foreground",
+                    "Sign in required"
+                }
+                p { class: "text-sm leading-6 text-muted-foreground",
+                    "Sign in to review the dashboard state associated with your verified session. No account data is shown while signed out."
+                }
+                a {
+                    class: "btn btn-primary inline-flex items-center gap-2",
+                    href: DASHBOARD_SIGN_IN_PATH,
+                    Icon { name: "log-in".to_string(), size: Some(16) }
+                    "Sign in"
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn AuthenticatedDashboard(user: User) -> Element {
+    rsx! {
+        div { class: "dashboard-client relative overflow-hidden rounded-3xl",
+            div {
+                class: "dashboard-client-bg pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50 via-orange-50 to-yellow-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900",
+                "aria-hidden": "true"
+            }
+            div {
+                class: "dashboard-client-orb-orange pointer-events-none absolute -left-40 -top-40 h-96 w-96 rounded-full bg-gradient-to-br from-orange-400/15 to-yellow-400/15 blur-3xl",
+                "aria-hidden": "true"
+            }
+            div {
+                class: "dashboard-client-orb-blue pointer-events-none absolute -right-32 top-20 h-80 w-80 rounded-full bg-gradient-to-br from-blue-400/12 to-cyan-400/12 blur-3xl",
+                "aria-hidden": "true"
+            }
+            div {
+                class: "dashboard-client-orb-purple pointer-events-none absolute bottom-20 left-20 h-72 w-72 rounded-full bg-gradient-to-br from-purple-400/10 to-pink-400/10 blur-3xl",
+                "aria-hidden": "true"
+            }
+
+            div { class: "dashboard-client-content relative z-10 mx-auto max-w-5xl space-y-8 px-4 py-8 sm:px-6 lg:px-8",
+                header { class: "dashboard-client-header text-center",
+                    div { class: "dashboard-client-header-icon mb-6 inline-flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-orange-500 to-yellow-500 shadow-2xl",
                         Icon { name: "trending-up".to_string(), size: Some(40), class_name: Some("text-white".to_string()) }
                     }
-                    h1 { class: "dashboard-client-title text-5xl font-bold bg-gradient-to-r from-orange-600 via-yellow-600 to-orange-600 bg-clip-text text-transparent mb-4",
-                        "\u{1F680} Dashboard"
+                    h2 {
+                        class: "dashboard-client-title mb-4 bg-gradient-to-r from-orange-600 via-yellow-600 to-orange-600 bg-clip-text text-4xl font-bold text-transparent sm:text-5xl",
+                        "Dashboard"
                     }
-                    p { class: "dashboard-client-welcome text-xl text-gray-600 dark:text-gray-300 mb-4",
-                        "Welcome back, "
-                        span { class: "dashboard-client-welcome-name font-semibold text-orange-600 dark:text-orange-400",
-                            "{user.email}"
-                        }
-                        "! \u{2728}"
-                    }
-                    // Role badge (source: lines 62-70).
-                    div { class: "dashboard-client-role-badge inline-flex items-center gap-3",
-                        span { class: "rounded-full border border-green-300 bg-gradient-to-r from-green-500/10 to-emerald-500/10 px-4 py-2 text-sm font-semibold text-green-700",
-                            Icon { name: "shield".to_string(), size: Some(16), class_name: Some("mr-2".to_string()) }
-                            "Group: {permissions.role}"
-                        }
+                    p { class: "text-base text-gray-600 dark:text-gray-300",
+                        "You are signed in. Only locally verified session identity is displayed below."
                     }
                 }
-                // Stat cards row (source: dashboard-client.tsx shows 5 feature cards
-                // in a 3-col grid; we add a 3-card stats row at the top
-                // mirroring `dashboardData.data.stats`: Total Views /
-                // Total Users / Revenue).
-                div { class: "dashboard-client-stats grid grid-cols-1 md:grid-cols-3 gap-6 mb-8",
-                    DashboardStatCard {
-                        label: "Total Views".to_string(),
-                        value: stats.total_views.to_string(),
-                        icon: "eye".to_string(),
-                        color: "blue".to_string(),
-                    }
-                    DashboardStatCard {
-                        label: "Total Users".to_string(),
-                        value: stats.total_users.to_string(),
-                        icon: "users".to_string(),
-                        color: "green".to_string(),
-                    }
-                    DashboardStatCard {
-                        label: "Revenue".to_string(),
-                        value: format!("${}", stats.revenue),
-                        icon: "dollar-sign".to_string(),
-                        color: "purple".to_string(),
-                    }
-                }
-                // Feature cards grid (source: lines 73-198) — 3-col
-                // grid with 5 cards (Profile / Settings / Analytics /
-                // Premium Content / Moderator Panel).
-                div { class: "dashboard-client-features grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8",
-                    DashboardFeatureCard {
-                        title: "\u{1F464} Profile".to_string(),
-                        description: "Manage your personal information".to_string(),
-                        href: "/profile".to_string(),
-                        cta_label: "View Profile".to_string(),
-                        icon: "user".to_string(),
-                        color: "orange".to_string(),
-                        animation: "fade-in".to_string(),
-                    }
-                    DashboardFeatureCard {
-                        title: "\u{2699}\u{FE0F} Settings".to_string(),
-                        description: "Configure your preferences".to_string(),
-                        href: "/settings".to_string(),
-                        cta_label: "Open Settings".to_string(),
-                        icon: "settings".to_string(),
-                        color: "blue".to_string(),
-                        animation: "fade-in-delayed".to_string(),
-                    }
-                    DashboardFeatureCard {
-                        title: "\u{1F4CA} Analytics".to_string(),
-                        description: "View your data and insights".to_string(),
-                        href: "/analytics".to_string(),
-                        cta_label: "View Analytics".to_string(),
-                        icon: "bar-chart-3".to_string(),
-                        color: "green".to_string(),
-                        animation: "fade-in-delayed-2".to_string(),
-                    }
-                    DashboardFeatureCard {
-                        title: "\u{1F512} Premium Content".to_string(),
-                        description: "Access exclusive premium features".to_string(),
-                        href: "/premium".to_string(),
-                        cta_label: "Access Premium".to_string(),
-                        icon: "lock".to_string(),
-                        color: "purple".to_string(),
-                        animation: "fade-in-delayed-3".to_string(),
-                    }
-                    DashboardFeatureCard {
-                        title: "\u{1F6E1}\u{FE0F} Moderator Panel".to_string(),
-                        description: "Moderate content and users".to_string(),
-                        href: "/moderator".to_string(),
-                        cta_label: "Open Moderator Panel".to_string(),
-                        icon: "shield".to_string(),
-                        color: "red".to_string(),
-                        animation: "fade-in-delayed".to_string(),
-                    }
-                }
-                // Permissions card (source: lines 200-257).
-                div { class: "dashboard-client-permissions mt-12",
-                    div { class: "rounded-2xl border border-indigo-200/50 bg-white/80 backdrop-blur-xl shadow-2xl",
-                        div { class: "dashboard-client-permissions-header px-5 py-4",
-                            h3 { class: "flex items-center text-indigo-600",
-                                div { class: "w-8 h-8 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-lg flex items-center justify-center mr-3",
-                                    Icon { name: "shield".to_string(), size: Some(20), class_name: Some("text-white".to_string()) }
-                                }
-                                "\u{1F510} Your Permissions"
-                            }
-                            p { class: "text-sm text-gray-600 mt-1",
-                                "Current permissions for your account"
-                            }
-                        }
-                        div { class: "px-5 py-4 space-y-4",
-                            div { class: "flex items-center gap-3",
-                                span { class: "text-lg font-semibold text-gray-700", "Group:" }
-                                span { class: "rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-2 text-sm font-semibold text-white shadow-lg",
-                                    "{permissions.role}"
-                                }
-                            }
-                            if !permissions.permissions.is_empty() {
-                                div { class: "space-y-2",
-                                    h4 { class: "font-medium text-gray-700",
-                                        "\u{1F3AF} Permissions:"
-                                    }
-                                    div { class: "flex flex-wrap gap-2",
-                                        for p in permissions.permissions.iter() {
-                                            span { class: "rounded border border-cyan-300 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 px-2 py-1 text-xs font-medium text-cyan-700",
-                                                "{p}"
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                div { class: "text-center py-4",
-                                    p { class: "text-gray-600 mb-2",
-                                        "\u{1F3AD} No specific permissions assigned"
-                                    }
-                                }
-                            }
-                        }
-                    }
+
+                div { class: "grid grid-cols-1 gap-6 lg:grid-cols-2",
+                    SessionIdentityCard { user }
+                    DashboardUnavailableCard {}
                 }
             }
         }
     }
 }
 
-/// Stat card row (Total Views / Total Users / Revenue).
 #[component]
-fn DashboardStatCard(label: String, value: String, icon: String, color: String) -> Element {
-    let color_cls = match color.as_str() {
-        "blue" => "text-blue-600",
-        "green" => "text-green-600",
-        "purple" => "text-purple-600",
-        _ => "text-slate-600",
-    };
-    rsx! {
-        div { class: "dashboard-stat-card rounded-2xl border border-slate-200 bg-white p-5 shadow-lg",
-            div { class: "flex items-center justify-between mb-2",
-                p { class: "text-xs font-medium text-slate-500", "{label}" }
-                Icon { name: icon, size: Some(16), class_name: Some(color_cls.to_string()) }
-            }
-            p { class: "text-2xl font-bold {color_cls}", "{value}" }
-        }
-    }
-}
+fn SessionIdentityCard(user: User) -> Element {
+    let display_name = non_empty(user.display_name.as_deref());
+    let email = non_empty(user.email.as_deref());
+    let wallet = non_empty(Some(user.address.as_str()));
+    let auth_method = verified_auth_method_label(&user.auth_method);
+    let has_claims =
+        display_name.is_some() || email.is_some() || wallet.is_some() || auth_method.is_some();
 
-/// Feature card (Profile / Settings / Analytics / Premium / Moderator).
-#[component]
-fn DashboardFeatureCard(
-    title: String,
-    description: String,
-    href: String,
-    cta_label: String,
-    icon: String,
-    color: String,
-    animation: String,
-) -> Element {
-    let (color_text_cls, color_grad_from, color_grad_to) = match color.as_str() {
-        "orange" => ("text-orange-600", "from-orange-500", "to-yellow-500"),
-        "blue" => ("text-blue-600", "from-blue-500", "to-purple-500"),
-        "green" => ("text-green-600", "from-green-500", "to-emerald-500"),
-        "purple" => ("text-purple-600", "from-purple-500", "to-pink-500"),
-        "red" => ("text-red-600", "from-red-500", "to-rose-500"),
-        _ => ("text-slate-600", "from-slate-500", "to-slate-600"),
-    };
     rsx! {
-        div { class: "dashboard-feature-card dashboard-feature-card-{color} relative overflow-hidden rounded-2xl border border-slate-200/50 bg-white/80 backdrop-blur-xl shadow-2xl",
-            div { class: "dashboard-feature-card-body relative z-10 p-6",
-                h3 { class: "dashboard-feature-card-title flex items-center text-lg font-semibold {color_text_cls} mb-2",
-                    div { class: "w-8 h-8 bg-gradient-to-br {color_grad_from} {color_grad_to} rounded-lg flex items-center justify-center mr-3",
-                        Icon { name: icon, size: Some(20), class_name: Some("text-white".to_string()) }
+        section {
+            class: "dashboard-session-identity rounded-2xl border border-orange-200/60 bg-white/85 p-6 shadow-xl backdrop-blur-xl dark:bg-slate-900/80",
+            "data-dashboard-identity": "verified-session",
+            aria_labelledby: "dashboard-session-title",
+            div { class: "mb-5 flex items-start gap-3",
+                div { class: "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-yellow-500 text-white",
+                    Icon { name: "user".to_string(), size: Some(20) }
+                }
+                div {
+                    h3 { id: "dashboard-session-title", class: "text-lg font-semibold text-foreground",
+                        "Verified session identity"
                     }
-                    "{title}"
+                    p { class: "mt-1 text-sm text-muted-foreground",
+                        "These values come from the locally verified access token."
+                    }
                 }
-                p { class: "dashboard-feature-card-desc text-sm text-gray-600 mb-4",
-                    "{description}"
+            }
+
+            if has_claims {
+                dl { class: "space-y-4 text-sm",
+                    if let Some(display_name) = display_name {
+                        SessionClaim { label: "Display name".to_string(), value: display_name.to_string(), monospace: false }
+                    }
+                    if let Some(email) = email {
+                        SessionClaim { label: "Email".to_string(), value: email.to_string(), monospace: false }
+                    }
+                    if let Some(wallet) = wallet {
+                        SessionClaim { label: "Wallet address".to_string(), value: wallet.to_string(), monospace: true }
+                    }
+                    if let Some(auth_method) = auth_method {
+                        SessionClaim { label: "Authentication method".to_string(), value: auth_method.to_string(), monospace: false }
+                    }
                 }
-                a { class: "dashboard-feature-card-cta inline-flex items-center justify-center w-full rounded-lg bg-gradient-to-r {color_grad_from} {color_grad_to} px-4 py-2 text-sm font-medium text-white shadow-md hover:shadow-lg transition-shadow",
-                    href: "{href}",
-                    "{cta_label}"
+            } else {
+                p { class: "rounded-lg bg-slate-100 p-4 text-sm text-muted-foreground dark:bg-slate-800",
+                    "No displayable identity claims were included in this verified session."
                 }
             }
         }
     }
 }
 
-// =============================================================================
-// Tests
-// =============================================================================
-//
-// - `test_render_smoke` — `render(&empty_ctx())` returns non-empty Element.
-// - `test_unauthed_fallback` — when `ctx.user` is `None`, the SSR'd
-//   HTML contains the "Please sign in" fallback text (matches the
-//   prod capture state).
-// - `test_authed_dashboard_client` — when `ctx.user` is `Some`, the
-//   SSR'd HTML contains the DashboardClient h1 ("Dashboard") and a
-//   stats card label ("Total Views").
-// - `test_section_markers` — SSR'd HTML contains the section-marker
-//   class names defined above.
+#[component]
+fn SessionClaim(label: String, value: String, monospace: bool) -> Element {
+    let value_class = if monospace {
+        "mt-1 break-all font-mono text-xs text-foreground"
+    } else {
+        "mt-1 break-words font-medium text-foreground"
+    };
+
+    rsx! {
+        div { class: "border-b border-slate-200 pb-3 last:border-b-0 last:pb-0 dark:border-slate-700",
+            dt { class: "text-xs font-semibold uppercase tracking-wide text-muted-foreground", "{label}" }
+            dd { class: value_class, "{value}" }
+        }
+    }
+}
+
+#[component]
+fn DashboardUnavailableCard() -> Element {
+    rsx! {
+        section {
+            class: "dashboard-data-unavailable rounded-2xl border border-amber-300/60 bg-white/85 p-6 shadow-xl backdrop-blur-xl dark:bg-slate-900/80",
+            "data-dashboard-state": "unavailable",
+            aria_labelledby: "dashboard-unavailable-title",
+            role: "status",
+            div { class: "mb-5 flex items-start gap-3",
+                div { class: "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600",
+                    Icon { name: "database".to_string(), size: Some(20) }
+                }
+                div {
+                    p { class: "text-xs font-semibold uppercase tracking-widest text-amber-600",
+                        "Dashboard unavailable"
+                    }
+                    h3 { id: "dashboard-unavailable-title", class: "mt-1 text-lg font-semibold text-foreground",
+                        "Account summaries cannot be verified"
+                    }
+                }
+            }
+
+            p { class: "text-sm leading-6 text-muted-foreground",
+                "There is no owner-scoped dashboard response that this frontend can validate. Metrics, recent activity, portfolio summaries, plan access, roles, permissions, and entitlements are not inferred."
+            }
+
+            nav { class: "mt-6 flex flex-wrap gap-3", aria_label: "Dashboard recovery",
+                a { class: "btn btn-primary inline-flex items-center gap-2", href: DASHBOARD_PATH,
+                    Icon { name: "refresh-cw".to_string(), size: Some(16) }
+                    "Retry"
+                }
+                a { class: "btn btn-outline inline-flex items-center gap-2", href: "/profile",
+                    Icon { name: "user".to_string(), size: Some(16) }
+                    "Review verified profile"
+                }
+            }
+        }
+    }
+}
+
+fn non_empty(value: Option<&str>) -> Option<&str> {
+    value.map(str::trim).filter(|value| !value.is_empty())
+}
+
+fn verified_auth_method_label(method: &AuthMethod) -> Option<&'static str> {
+    match method {
+        AuthMethod::Wallet => Some("Wallet"),
+        AuthMethod::Email => Some("Email"),
+        AuthMethod::Demo => Some("Demo"),
+        AuthMethod::OAuth => Some("OAuth"),
+        AuthMethod::Siwe => Some("SIWE"),
+        AuthMethod::Unknown => None,
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::auth::user::User;
-    use crate::auth::user::AuthMethod;
 
     fn empty_ctx() -> PageContext {
         PageContext {
-            user: None,
-            path: "/dashboard".to_string(),
+            path: DASHBOARD_PATH.to_string(),
             ..Default::default()
         }
     }
@@ -466,89 +264,159 @@ mod tests {
     fn authed_ctx() -> PageContext {
         PageContext {
             user: Some(User {
-                id: "u-1".to_string(),
-                address: "0x1234abcd".to_string(),
-                chain_id: "1".to_string(),
-                roles: vec!["user".to_string()],
-                email: Some("test@epsx.io".to_string()),
-                tier: Some("pro".to_string()),
-                permissions: vec!["dashboard:read".to_string(), "analytics:view".to_string()],
-                last_login_at: None,
-                auth_method: AuthMethod::default(),
-                display_name: Some("EPSX tester".to_string()),
+                id: "session-subject-probe".to_string(),
+                address: "0x9abc00000000000000000000000000000000def0".to_string(),
+                chain_id: "unowned-chain-probe".to_string(),
+                roles: vec!["unowned-role-probe".to_string()],
+                email: Some("owner@example.invalid".to_string()),
+                tier: Some("unowned-tier-probe".to_string()),
+                permissions: vec!["unowned:permission:probe".to_string()],
+                last_login_at: Some("unowned-last-login-probe".to_string()),
+                auth_method: AuthMethod::Siwe,
+                display_name: Some("Verified Owner".to_string()),
             }),
-            path: "/dashboard".to_string(),
+            path: DASHBOARD_PATH.to_string(),
             ..Default::default()
         }
     }
 
-    #[test]
-    fn test_render_smoke() {
-        let (_meta, el) = render(&empty_ctx());
-        let html = dioxus_ssr::render_element(el);
-        assert!(!html.is_empty(), "dashboard must render non-empty HTML. Got: {}", html);
-        assert!(html.len() > 100, "dashboard HTML is suspiciously short ({} bytes).", html.len());
+    fn render_to_string(ctx: &PageContext) -> String {
+        let (_, element) = render(ctx);
+        dioxus_ssr::render_element(element)
     }
 
     #[test]
-    fn test_unauthed_fallback() {
-        let (_meta, el) = render(&empty_ctx());
-        let html = dioxus_ssr::render_element(el);
-        assert!(
-            html.contains("Personal Dashboard"),
-            "unauthed dashboard should still render the h1 'Personal Dashboard'. Got: {}",
-            html
-        );
-        assert!(
-            html.contains("Please sign in to access your dashboard"),
-            "unauthed dashboard should render the fallback text. Got: {}",
-            html
-        );
+    fn signed_out_route_preserves_truthful_native_sign_in_state() {
+        let html = render_to_string(&empty_ctx());
+
+        assert!(html.contains("Personal Dashboard"));
+        assert!(html.contains("data-dashboard-state=\"signed-out\""));
+        assert!(html.contains("Sign in required"));
+        assert!(html.contains("href=\"/auth?return_url=%2Fdashboard\""));
+        assert!(!html.contains("data-dashboard-identity=\"verified-session\""));
+        assert!(!html.contains("data-dashboard-state=\"unavailable\""));
     }
 
     #[test]
-    fn test_authed_dashboard_client() {
-        let (_meta, el) = render(&authed_ctx());
-        let html = dioxus_ssr::render_element(el);
-        assert!(
-            html.contains("Dashboard"),
-            "authed dashboard should render the DashboardClient h1. Got: {}",
-            html
-        );
-        assert!(
-            html.contains("Total Views"),
-            "authed dashboard should render the stats card label 'Total Views'. Got: {}",
-            html
-        );
-        assert!(
-            html.contains("dashboard-feature-card-profile") || html.contains("Profile"),
-            "authed dashboard should render the Profile feature card. Got: {}",
-            html
-        );
-    }
+    fn authenticated_route_shows_only_verified_identity_and_unavailable_state() {
+        let html = render_to_string(&authed_ctx());
 
-    #[test]
-    fn test_section_markers() {
-        let (_meta, el) = render(&empty_ctx());
-        let html = dioxus_ssr::render_element(el);
-        for marker in &[
-            "dashboard-prod-page",
-            "dashboard-prod-header",
-            "dashboard-prod-title",
-            "dashboard-prod-subtitle",
-            "dashboard-prod-fallback",
+        for expected in [
+            "data-dashboard-identity=\"verified-session\"",
+            "Verified session identity",
+            "Verified Owner",
+            "owner@example.invalid",
+            "0x9abc00000000000000000000000000000000def0",
+            "SIWE",
+            "data-dashboard-state=\"unavailable\"",
+            "Account summaries cannot be verified",
+            "href=\"/dashboard\"",
+            "href=\"/profile\"",
         ] {
-            let needle_a = format!("class=\"{}\"", marker);
-            let needle_b = format!("class=\"{mark} ", mark = marker);
-            let needle_c = format!(" {}\"", marker);
-            let needle_d = format!(" {} ", marker);
             assert!(
-                html.contains(&needle_a)
-                    || html.contains(&needle_b)
-                    || html.contains(&needle_c)
-                    || html.contains(&needle_d),
-                "dashboard must contain section marker '{}'. Got: {}",
-                marker, html
+                html.contains(expected),
+                "missing verified/unavailable marker: {expected}"
+            );
+        }
+
+        for forbidden in [
+            "session-subject-probe",
+            "unowned-chain-probe",
+            "unowned-role-probe",
+            "unowned-tier-probe",
+            "unowned:permission:probe",
+            "unowned-last-login-probe",
+        ] {
+            assert!(
+                !html.contains(forbidden),
+                "rendered unowned session claim: {forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn hostile_dashboard_payload_is_ignored() {
+        let mut ctx = authed_ctx();
+        ctx.params.insert(
+            "data_dashboard".to_string(),
+            r#"{
+                "stats": {
+                    "totalViews": 987654321,
+                    "totalUsers": 876543210,
+                    "revenue": 765432109
+                },
+                "recentActivity": [{"label": "payload-activity-probe"}],
+                "role": "payload-role-probe",
+                "tier": "payload-tier-probe",
+                "platform": "payload-platform-probe",
+                "entitlement": "payload-entitlement-probe"
+            }"#
+            .to_string(),
+        );
+        let html = render_to_string(&ctx);
+
+        for forbidden in [
+            "987654321",
+            "876543210",
+            "765432109",
+            "payload-activity-probe",
+            "payload-role-probe",
+            "payload-tier-probe",
+            "payload-platform-probe",
+            "payload-entitlement-probe",
+        ] {
+            assert!(
+                !html.contains(forbidden),
+                "rendered dashboard payload claim: {forbidden}"
+            );
+        }
+        assert!(html.contains("data-dashboard-state=\"unavailable\""));
+    }
+
+    #[test]
+    fn legacy_business_cards_and_local_capability_controls_are_absent() {
+        let html = render_to_string(&authed_ctx());
+
+        for forbidden in [
+            "Total Views",
+            "Total Users",
+            "Revenue",
+            "Your Permissions",
+            "Group:",
+            "Premium Content",
+            "Moderator Panel",
+            "Configure your preferences",
+            "View your data and insights",
+            "href=\"/premium\"",
+            "href=\"/moderator\"",
+            "<button",
+            "<form",
+            "<input",
+            "onclick=",
+            "oninput=",
+        ] {
+            assert!(
+                !html.contains(forbidden),
+                "rendered unsupported claim/control: {forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn missing_optional_identity_claims_do_not_gain_fallback_values() {
+        let mut ctx = authed_ctx();
+        let user = ctx.user.as_mut().expect("authenticated fixture");
+        user.address.clear();
+        user.email = None;
+        user.display_name = None;
+        user.auth_method = AuthMethod::Unknown;
+        let html = render_to_string(&ctx);
+
+        assert!(html.contains("No displayable identity claims were included"));
+        for forbidden in ["Guest", "FREE", "Group: user", "Unknown"] {
+            assert!(
+                !html.contains(forbidden),
+                "rendered invented fallback: {forbidden}"
             );
         }
     }

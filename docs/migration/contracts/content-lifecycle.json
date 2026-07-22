@@ -227,9 +227,9 @@
       "anchor": "Err(ClientError::NotFound) => return NewsDetailLoadOutcome::NotFound,"
     },
     {
-      "id": "target-bff-portfolio-static",
-      "file": "apps/frontend/src/api.rs",
-      "anchor": "\"total_value_usd\": 12_345.67"
+      "id": "target-bff-portfolio-absent",
+      "file": "apps/frontend/src/main.rs",
+      "anchor": "Unowned dashboard and portfolio compatibility producers are"
     },
     {
       "id": "target-admin-plain-content",
@@ -252,9 +252,9 @@
       "anchor": "No cached or sample content is being shown."
     },
     {
-      "id": "target-portfolio-ui-static",
+      "id": "target-portfolio-ui-unavailable",
       "file": "shared/rust/dioxus_ui/src/pages/portfolio.rs",
-      "anchor": "Static seed — 6 watched stocks"
+      "anchor": "\"data-portfolio-state\": \"unavailable\""
     },
     {
       "id": "target-analytics-ui-unavailable",
@@ -738,9 +738,9 @@
       "category": "portfolio-ownership",
       "severity": "stop",
       "status": "blocked",
-      "summary": "Target exposes address-selected public placeholder/canned portfolio data instead of a verified-owner watchlist plus live ranking join.",
+      "summary": "The content service still exposes an address-selected public portfolio placeholder instead of verified-owner data; the frontend canned producer is removed and the authenticated UI now fails closed.",
       "resolution": "Restore authenticated owner-scoped overview/watchlist routes, idempotent mutations, and foreign-owner denial fixtures.",
-      "evidenceIds": ["source-portfolio-owner", "source-watchlist-idempotency", "source-watchlist-action", "target-portfolio-placeholder", "target-bff-portfolio-static"]
+      "evidenceIds": ["source-portfolio-owner", "source-watchlist-idempotency", "source-watchlist-action", "target-portfolio-placeholder", "target-bff-portfolio-absent", "target-portfolio-ui-unavailable"]
     },
     {
       "id": "B16",
@@ -765,9 +765,9 @@
       "category": "ui-states",
       "severity": "stop",
       "status": "blocked",
-      "summary": "The news UI exposes explicit empty/error/retry states and analytics now fails closed without sample data, but portfolio still renders production-looking static data and complete lifecycle state coverage remains unproved across the route batches.",
+      "summary": "The news UI exposes explicit empty/error/retry states, while analytics and authenticated portfolio now fail closed without sample data; complete lifecycle state coverage remains unproved across the route batches.",
       "resolution": "Implement explicit loading/empty/forbidden/not-found/error/retry/success states and remove canned fallback from production paths.",
-      "evidenceIds": ["source-news-empty-ui", "source-portfolio-empty-ui", "target-news-ui-error-state", "target-portfolio-ui-static", "target-analytics-ui-unavailable"]
+      "evidenceIds": ["source-news-empty-ui", "source-portfolio-empty-ui", "target-news-ui-error-state", "target-portfolio-ui-unavailable", "target-analytics-ui-unavailable"]
     },
     {
       "id": "B19",

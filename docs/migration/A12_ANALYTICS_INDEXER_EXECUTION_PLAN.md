@@ -53,7 +53,7 @@ The direct service narrows `/sync` to POST, verifies the admin audience plus `ad
 
 The identity HTTP side publicly mounts `POST /v1/emit` beside the ranking-offset SSE stream. The stream is an in-memory broadcast: lagged events can be dropped and there is no revision/cursor/replay repair. Neither this stream nor the gRPC query is backed by active plan assignments.
 
-The Dioxus analytics page now removes sample rankings/events/charts and the `Live` label, ignores compatibility payloads, and fails closed with an explicit unavailable state. Portfolio still uses six static stocks. The analytics route remains blocked rather than aligned because no verified market-data loader, entitlement/query contract, complete async states, or browser proof exists.
+The Dioxus analytics page now removes sample rankings/events/charts and the `Live` label, ignores compatibility payloads, and fails closed with an explicit unavailable state. Authenticated portfolio now also removes its six static stocks, fake prices/ranks/EPS, `Live` claim, and inert watchlist controls, ignores compatibility payloads, and fails closed while preserving the signed-out entry state. Both routes remain blocked rather than aligned because no verified market-data/owner loader, entitlement/query/watchlist contract, complete async states, or browser proof exists.
 
 ## Locked execution sequence
 

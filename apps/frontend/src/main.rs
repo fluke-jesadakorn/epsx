@@ -288,22 +288,9 @@ pub fn build_app(state: AppState) -> Router {
         .route("/api/v1/plans", get(api_plans))
         .route("/api/v1/news", get(api_news))
         .route("/api/v1/news/{slug}", get(api_news_post))
-        .route("/api/v1/portfolio/{addr}", get(api_portfolio))
-        // The dashboard is the last legacy data_X compatibility producer in
-        // this block. Identity, developer, analytics, financial, and metering
-        // mocks are intentionally absent.
-        .route("/api/v1/dashboard", get(api_dashboard))
-        // Wave 31 T1 / Wave 32 T1 — `/api/v1/dashboard/stats` is
-        // the explicit stats endpoint. Wave 31 T1 added the route
-        // (returned the inner `data` sub-object). Wave 32 T1
-        // changed the shape to the full envelope
-        // `{success: true, data: {stats, recentActivity}}` per
-        // the brief: "should return full envelope `{success, data:
-        // {...}}` (brief's shape). My attempt returned only inner
-        // `data` sub-object." The SSR layer still extracts the
-        // inner `data` for the page's `ctx.params["data_dashboard"]`
-        // lookup — see `ssr.rs::fetch_page_data`.
-        .route("/api/v1/dashboard/stats", get(api_dashboard_stats))
+        // Unowned dashboard and portfolio compatibility producers are
+        // intentionally absent. Those pages fail closed until their
+        // owner-scoped backend contracts exist.
         .route("/api/v1/wallet/chains", get(api_wallet_chains))
         .route("/api/v1/wallet/connect", post(api_wallet_connect))
         .route("/api/v1/subscription/plans", get(api_subscription_plans))
@@ -469,6 +456,9 @@ mod routing_tests {
             "/api/v1/developer/docs",
             "/api/v1/developer/usage",
             "/api/v1/analytics/summary",
+            "/api/v1/dashboard",
+            "/api/v1/dashboard/stats",
+            "/api/v1/portfolio/0x0000000000000000000000000000000000000001",
             "/api/v1/payment/not-an-authorized-intent",
         ] {
             let response = request(Method::GET, path).await;

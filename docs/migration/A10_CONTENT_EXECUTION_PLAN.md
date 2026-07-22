@@ -75,9 +75,9 @@ The contract pins 32 current-worktree anchors. The exact full anchor strings liv
 | Filesystem trust | `target-watcher-enabled`, `target-registry-file-read`, `target-registry-db-sync`, `target-site-file-read` | Mutable local files feed runtime registry/DB/site responses. Reload appends into the existing vectors and does not reconcile deletions or reject a full bad generation atomically. |
 | News/plans | `target-news-fallback` (unknown slug returns “coming soon”), `target-plans-file-read` (`marketing/plans.json`) | Unknown news receives a synthesized 200; plans are content files rather than subscription-owned public/active records. |
 | Ranking/portfolio | `target-ranking-static` (`GHC` row), `target-portfolio-placeholder` (`auth_required: true`) | Ranking is canned and has no entitlement authority; portfolio is public and address-selected, not verified-owner data. |
-| Frontend BFF | `target-frontend-routes`, `target-bff-ranking-static`, `target-bff-plan-static`, `target-bff-news-upstream`, `target-bff-news-not-found`, `target-bff-portfolio-static` | News now uses strict live upstream adapters and preserves upstream not-found, but the content service still synthesizes an unknown-slug article and ranking/plan/portfolio BFF responses remain production-looking canned data. |
+| Frontend BFF | `target-frontend-routes`, `target-bff-ranking-static`, `target-bff-plan-static`, `target-bff-news-upstream`, `target-bff-news-not-found`, `target-bff-portfolio-absent` | News now uses strict live upstream adapters and preserves upstream not-found; the canned portfolio producer is removed, while the content service still synthesizes an unknown-slug article and ranking/plan BFF responses remain production-looking canned data. |
 | Admin/client | `target-admin-plain-content`, `target-admin-status-allowlist`, `target-client-typed-status` | Some reads omit request context. The client now discards upstream error details and the admin BFF preserves an allowlisted status, but the bare response still lacks the versioned code/message/validation/retry/correlation envelope required by A5. |
-| UI | `target-news-ui-error-state`, `target-portfolio-ui-static`, `target-analytics-ui-static` | News now exposes explicit empty/error/retry behavior without sample fallback; portfolio and analytics remain static, and complete state coverage across all lifecycle surfaces is absent. |
+| UI | `target-news-ui-error-state`, `target-portfolio-ui-unavailable`, `target-analytics-ui-unavailable` | News exposes explicit empty/error/retry behavior without sample fallback; analytics and authenticated portfolio fail closed without sample market data, while complete state coverage across all lifecycle surfaces remains absent. |
 | Headers | `target-frontend-security-layer` | A frontend security middleware is installed, but no per-content-route cache/security contract is proven across all hops. |
 
 ## 5. Development-to-target contract comparison
@@ -99,7 +99,7 @@ The contract pins 32 current-worktree anchors. The exact full anchor strings liv
 | Media | Upload to object storage; public route rejects traversal and can redirect to CDN; local fallback exists. | No target upload/reference lifecycle. | Size/MIME sniff/digest/namespace checks, durable metadata, published-reference integrity, content-addressed immutable delivery, safe GC. |
 | Filesystem sync | Not the legacy news authority. | Mutable manifests/settings/news/plans are runtime authority; reload accumulates entries. | DB/versioned bundle authority is explicit. Production watch is disabled or signed/path-confined; reload is atomic and reconciles removals. |
 | Wire/status | Legacy public/user routes and frontend actions provide prior paths/shapes, with some status/empty bugs. | Gateway rewrites coexist with a live news adapter and canned ranking/plan/portfolio handlers; admin/client behavior is not one frozen cross-hop contract. | One route matrix freezes external/internal prefixes, request body, envelope, pagination, status, request ID, cache/security headers. |
-| UI states | News and portfolio have real empty UI; failures can still be degraded upstream. | News now distinguishes empty/error/retry without fake content, while portfolio/analytics remain static and the remaining lifecycle surfaces lack a complete state matrix. | Each data surface implements loading, empty, forbidden, not found, retryable error, retry, and success without fake content. |
+| UI states | News and portfolio have real empty UI; failures can still be degraded upstream. | News now distinguishes empty/error/retry without fake content; analytics and authenticated portfolio fail closed, while the remaining lifecycle surfaces lack a complete state matrix. | Each data surface implements loading, empty, forbidden, not found, retryable error, retry, and success without fake content. |
 
 ## 6. Stop blockers
 
@@ -122,7 +122,7 @@ Readiness stays stopped until all 20 blockers in the contract have implementatio
 15. `B15` portfolio/watchlist owner semantics are replaced by an arbitrary public address route.
 16. `B16` prefixes, bodies, envelopes, statuses, IDs, and headers diverge across hops.
 17. `B17` audit, outbox, and mutation idempotency are missing.
-18. `B18` news states improved, but portfolio/analytics still use static data and complete UI state coverage is unproved.
+18. `B18` news states improved and analytics/authenticated portfolio now fail closed without static data, but complete UI state coverage is unproved.
 19. `B19` shadow/reconciliation/SLO readiness evidence is missing.
 20. `B20` per-batch route/data/cache rollback is unproved.
 

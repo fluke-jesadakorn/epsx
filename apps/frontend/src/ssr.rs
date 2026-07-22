@@ -452,24 +452,8 @@ async fn fetch_page_data(
     request_context.auth_token = verified_access_token.map(str::to_owned);
     // SSR data is represented as an explicit outcome. A dependency failure is
     // rendered as a failure and never replaced with production-looking sample
-    // data. Dashboard still has an older in-process adapter; news is
-    // deliberately no longer part of that fallback set.
-
-    let has_session = user.is_some();
-
-    // /dashboard: fetch stat cards + recent activity.
-    // Wave 31 T1 — call the BFF's own `dashboard_data_internal()`
-    // helper in-process. Inject the INNER `data` sub-object (not the
-    // full envelope) so the page's existing
-    // `params["data_dashboard"]["stats"]` lookup continues to work
-    // (the page reads `.get("stats")` directly — see
-    // `pages/dashboard.rs::RenderDashboard`).
-    if path == "/dashboard" {
-        let v = crate::api::dashboard_data_internal(has_session);
-        if let Some(data) = v.get("data") {
-            params.insert("data_dashboard".into(), data.to_string());
-        }
-    }
+    // data. `/dashboard` intentionally has no loader until an owner-scoped
+    // producer contract exists.
     // /news: load the content dependency through the same strict adapter used
     // by the JSON BFF route. The outcome keeps empty distinct from unavailable
     // or malformed and carries the URL-stable q/category/page selection.
@@ -529,31 +513,9 @@ async fn fetch_page_data(
             params.insert("data_plans".into(), v.to_string());
         }
     }
-    // /portfolio: fetch holdings. Wave 23 T5 — try the BFF's own
-    // `/api/v1/portfolio/<addr>` endpoint first (returns a
-    // payload matching the dev `HoldingsTable` row tuple). Falls
-    // back to the wallet service (which has no portfolio endpoint
-    // today but is the right path when it gets one).
-    if path.starts_with("/portfolio") {
-        if let Some(addr) = user.as_ref().map(|u| u.address.clone()) {
-            if let Ok(v) = state
-                .wallet
-                .get_with_ctx(&format!("/api/v1/portfolio/{}", addr), &request_context)
-                .await
-            {
-                params.insert("data_portfolio".into(), v.to_string());
-            } else if let Ok(v) = state
-                .wallet
-                .get_with_ctx(
-                    &format!("/api/v1/wallet/portfolio/{}", addr),
-                    &request_context,
-                )
-                .await
-            {
-                params.insert("data_portfolio".into(), v.to_string());
-            }
-        }
-    }
+    // `/portfolio` intentionally has no loader. No frozen owner-scoped
+    // holdings/watchlist contract exists, so the page fails closed instead of
+    // treating an ambiguous wallet-service path as authoritative.
     // `/account` renders identity details only from the locally verified
     // session. It deliberately performs no ambiguous profile/credit read;
     // owner payment history remains a separate strict A6 outcome below.

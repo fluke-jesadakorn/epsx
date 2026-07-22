@@ -1,137 +1,118 @@
-//! /permissions — user permissions with matrix + feature list.
+//! `/permissions` — authenticated, fail-closed permission visibility.
 //!
-//! Wave 6A Track D — port of `apps-old/frontend/app/permissions/page.tsx`
-//! (91 LoC, the page is small with no sub-components) + the
-//! `permissions-display.tsx` matrix pattern (110 LoC).
-//!
-//! Section coverage (matches design doc §"Track D — permissions"):
-//! - `PermissionsMatrix` — table of feature × plan (the matrix grid)
-//! - `FeatureList` — bulleted list of permissions per current plan
-//! - `RequestAccessCTA` — button to request additional permissions
-//!
-//! The current 93 LoC `permissions.rs` already had the
-//! `permissions / analytics / history` tabs from Wave 3b gate
-//! enrichment; we preserve them as the analytics/history views and
-//! add the new `PermissionsMatrix` as the default tab (which
-/// replaces the previous simple card grid). The 6 permission
-/// cards from the old version are folded into the matrix's rows.
-
-use crate::primitives::*;
-use crate::feedback::*;
+//! The pinned TypeScript page derives permission status, expiry, analytics,
+//! history, and definitions from authenticated backend responses. The Rust
+//! route does not yet have an equivalent owner-data loader. It therefore
+//! exposes only raw permission strings from the locally verified session and
+//! never interprets those strings as canonical access decisions.
 
 use dioxus::prelude::*;
-use super::PageContext;
-use super::PageMeta;
+
+use super::{PageContext, PageMeta};
+use crate::auth::AuthGate;
 use crate::layout::main_layout::MainLayout;
 use crate::layout::PageHeader;
-use crate::auth::AuthGate;
+use crate::primitives::Icon;
+
+const PERMISSIONS_PATH: &str = "/permissions";
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::app("Permissions");
-    (meta, rsx! { RenderPermissions { ctx: ctx.clone() } })
+    (meta, rsx! { PermissionsPage { ctx: ctx.clone() } })
 }
 
 #[component]
-fn RenderPermissions(ctx: PageContext) -> Element {
-    let mut tab = use_signal(|| "permissions".to_string());
+fn PermissionsPage(ctx: PageContext) -> Element {
+    let session_permissions = ctx
+        .user
+        .as_ref()
+        .map(|user| user.permissions.clone())
+        .unwrap_or_default();
+
     rsx! {
         MainLayout { ctx: ctx.clone(),
-            AuthGate { user: ctx.user.clone(), feature: Some("your permissions".to_string()),
-                required_permissions: Some(vec!["permissions:read".to_string()]),
+            AuthGate {
+                user: ctx.user.clone(),
+                feature: Some("your permission information".to_string()),
                 return_url: Some(ctx.path.clone()),
                 div { class: "container page-content max-w-6xl",
-                    // === wave6-auth-pages-depth-track-d permissions header ===
-                    PageHeader { title: "My permissions".to_string(), description: Some("Active permissions, history, and analytics".to_string()), icon: Some("shield".to_string()) }
-                    // === wave6-auth-pages-depth-track-d permissions stat cards ===
-                    div { class: "grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 permissions-stats",
-                        StatCard { label: "Total permissions".to_string(), value: "12".to_string(), icon: Some("key".to_string()) }
-                        StatCard { label: "Active".to_string(), value: "10".to_string(), icon: Some("check".to_string()) }
-                        StatCard { label: "Expiring soon".to_string(), value: "2".to_string(), icon: Some("clock".to_string()) }
+                    PageHeader {
+                        title: "My permissions".to_string(),
+                        description: Some("Verified session claims and permission-service availability".to_string()),
+                        icon: Some("shield".to_string())
                     }
-                    div { class: "card card-glass",
-                        div { class: "card-header",
-                            h2 { class: "card-title", "Permission details" }
-                            // === wave6-auth-pages-depth-track-d permissions tab nav ===
-                            div { class: "tabs permissions-tab-nav",
-                                button { class: if *tab.read() == "permissions" { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" }, onclick: move |_| tab.set("permissions".to_string()), "Permissions" }
-                                button { class: if *tab.read() == "analytics" { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" }, onclick: move |_| tab.set("analytics".to_string()), "Analytics" }
-                                button { class: if *tab.read() == "history" { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" }, onclick: move |_| tab.set("history".to_string()), "History" }
-                            }
-                        }
-                        div { class: "card-body",
-                            if *tab.read() == "permissions" {
-                                // === wave6-auth-pages-depth-track-d permissions matrix ===
-                                div { class: "space-y-6 permissions-matrix-panel",
-                                    PermissionsMatrix {}
-                                    // === wave6-auth-pages-depth-track-d permissions category breakdown ===
-                                    PermissionCategoryBreakdown {}
-                                    // === wave6-auth-pages-depth-track-d permissions feature list ===
-                                    FeatureList {}
-                                    // === wave6-auth-pages-depth-track-d permissions request-access ===
-                                    RequestAccessCTA {}
-                                }
-                            } else if *tab.read() == "analytics" {
-                                div { class: "grid grid-cols-1 md:grid-cols-2 gap-4",
-                                    div { class: "card card-glass", div { class: "card-header", h4 { "By category" } } div { class: "card-body",
-                                        crate::charts::ChartDonut { data: vec![("Trade".to_string(), 4.0, "#22d3ee".to_string()), ("View".to_string(), 3.0, "#22c55e".to_string()), ("Pay".to_string(), 3.0, "#f59e0b".to_string())], size: 180, thickness: 28 } } }
-                                    div { class: "card card-glass", div { class: "card-header", h4 { "By source" } } div { class: "card-body",
-                                        crate::charts::ChartDonut { data: vec![("Plan".to_string(), 8.0, "#3b82f6".to_string()), ("Direct".to_string(), 2.0, "#9ca3af".to_string())], size: 180, thickness: 28 } } }
-                                }
-                            } else {
-                                // === wave6-auth-pages-depth-track-d permissions history ===
-                                div { class: "table-wrap permissions-history-table",
-                                    table { class: "table", thead { tr { th { "Date" } th { "Action" } th { "Permission" } th { "Source" } } } tbody {
-                                        tr { td { "2024-09-15" } td { span { class: "badge badge-success", "Granted" } } td { "trade" } td { "Pro plan" } }
-                                        tr { td { "2024-08-01" } td { span { class: "badge badge-info", "Updated" } } td { "view" } td { "Pro plan" } }
-                                        tr { td { "2024-07-20" } td { span { class: "badge badge-danger", "Revoked" } } td { "admin" } td { "— " } }
-                                    } } }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
 
-/// `PermissionsMatrix` — table of feature × plan. Rows are the
-/// features (per the 6 permission names in the original perm
-/// cards); columns are the 3 plans (Free / Pro / Enterprise).
-/// Each cell shows a check/cross/limited glyph. Mirrors the
-/// matrix grid in `permissions-display.tsx` (110 LoC).
-#[component]
-fn PermissionsMatrix() -> Element {
-    let features = vec![
-        ("Trade",       vec![("Free", false), ("Pro", true),  ("Enterprise", true)]),
-        ("View",        vec![("Free", true),  ("Pro", true),  ("Enterprise", true)]),
-        ("Pay",         vec![("Free", false), ("Pro", true),  ("Enterprise", true)]),
-        ("Analytics",   vec![("Free", false), ("Pro", true),  ("Enterprise", true)]),
-        ("API access",  vec![("Free", false), ("Pro", false), ("Enterprise", true)]),
-        ("Admin",       vec![("Free", false), ("Pro", false), ("Enterprise", true)]),
-        ("Merchant",    vec![("Free", false), ("Pro", true),  ("Enterprise", true)]),
-        ("Webhooks",    vec![("Free", false), ("Pro", false), ("Enterprise", true)]),
-    ];
-    rsx! {
-        div { class: "card card-glass permissions-matrix",
-            div { class: "card-header",
-                h3 { class: "card-title flex items-center gap-2", Icon { name: "grid-3x3".to_string(), size: Some(20) } " Feature × Plan" }
-            }
-            div { class: "card-body p-0",
-                div { class: "table-wrap",
-                    table { class: "table permissions-matrix-table",
-                        thead { tr { th { "Feature" } th { class: "text-center", "Free" } th { class: "text-center", "Pro" } th { class: "text-center", "Enterprise" } } }
-                        tbody {
-                            for (feature, plans) in features.iter() {
-                                tr {
-                                    th { class: "font-semibold text-left", "{feature}" }
-                                    for (_, granted) in plans.iter() {
-                                        td { class: "text-center",
-                                            if *granted {
-                                                Icon { name: "check".to_string(), size: Some(18) }
-                                            } else {
-                                                Icon { name: "x".to_string(), size: Some(18) }
+                    div { class: "grid grid-cols-1 gap-6 lg:grid-cols-5",
+                        section {
+                            class: "card card-glass lg:col-span-3 permissions-session-claims",
+                            "data-permissions-claims-state": "verified-session",
+                            "aria-labelledby": "permissions-session-claims-title",
+                            div { class: "card-header",
+                                h2 {
+                                    id: "permissions-session-claims-title",
+                                    class: "card-title flex items-center gap-2",
+                                    Icon { name: "key".to_string(), size: Some(20) }
+                                    "Backend-issued session claims"
+                                }
+                                p { class: "text-sm text-muted-foreground",
+                                    "These are raw strings from the locally verified session. The frontend does not interpret them as current access, plan, feature, or expiry decisions."
+                                }
+                            }
+                            div { class: "card-body",
+                                if session_permissions.is_empty() {
+                                    p {
+                                        class: "text-sm text-muted-foreground",
+                                        "No permission claim strings were included in this verified session."
+                                    }
+                                } else {
+                                    ul {
+                                        class: "flex flex-wrap gap-2",
+                                        "aria-label": "Raw session permission claims",
+                                        for permission in session_permissions {
+                                            li {
+                                                class: "badge badge-outline font-mono",
+                                                "data-session-permission-claim": "raw",
+                                                "{permission}"
                                             }
                                         }
+                                    }
+                                }
+                            }
+                        }
+
+                        section {
+                            class: "card card-glass lg:col-span-2 permissions-unavailable",
+                            "data-permissions-state": "unavailable",
+                            "aria-labelledby": "permissions-unavailable-title",
+                            role: "status",
+                            div { class: "card-body flex h-full flex-col",
+                                div { class: "flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500",
+                                    Icon { name: "database".to_string(), size: Some(24) }
+                                }
+                                p { class: "mt-5 text-xs font-semibold uppercase tracking-widest text-amber-500",
+                                    "Permission service unavailable"
+                                }
+                                h2 {
+                                    id: "permissions-unavailable-title",
+                                    class: "mt-2 text-xl font-semibold",
+                                    "Access details cannot be verified right now"
+                                }
+                                p { class: "mt-3 text-sm leading-6 text-muted-foreground",
+                                    "Current grants, plan-derived capabilities, expiry status, permission history, and usage analytics remain hidden until an authenticated backend response can be validated end to end."
+                                }
+                                nav {
+                                    class: "mt-6 flex flex-wrap gap-3 border-t border-border/40 pt-5",
+                                    "aria-label": "Permission page recovery",
+                                    a {
+                                        class: "btn btn-primary",
+                                        href: PERMISSIONS_PATH,
+                                        Icon { name: "refresh-cw".to_string(), size: Some(16) }
+                                        " Retry"
+                                    }
+                                    a {
+                                        class: "btn btn-outline",
+                                        href: "/account",
+                                        "Back to account"
                                     }
                                 }
                             }
@@ -143,141 +124,158 @@ fn PermissionsMatrix() -> Element {
     }
 }
 
-/// `FeatureList` — bulleted list of permissions granted on the
-/// user's current plan. Mirrors the "what you get at your tier"
-/// copy in the original `permissions-display.tsx`.
-#[component]
-fn FeatureList() -> Element {
-    let features = vec![
-        "Unlimited payments on-chain",
-        "Real-time analytics dashboard",
-        "API key with 10k req/day",
-        "Webhook delivery (3 endpoints)",
-        "Email + chat support",
-        "Programmable subscription plans",
-    ];
-    rsx! {
-        div { class: "card card-glass permissions-feature-list",
-            div { class: "card-header",
-                h3 { class: "card-title flex items-center gap-2", Icon { name: "list".to_string(), size: Some(20) } " Included on your plan" }
-            }
-            div { class: "card-body",
-                // === wave6-auth-pages-depth-track-d permissions feature-list (bare marker) ===
-                ul { class: "space-y-2 list-disc ml-6 feature-list",
-                    for f in features.iter() {
-                        li { class: "text-sm", "{f}" }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// `RequestAccessCTA` — button to request additional permissions.
-/// Mirrors the "request access" pattern in the original page.
-#[component]
-fn RequestAccessCTA() -> Element {
-    rsx! {
-        // === wave6-auth-pages-depth-track-d permissions request-access-cta (bare marker) ===
-        div { class: "card card-glass permissions-request-access request-access-cta",
-            div { class: "card-body flex flex-col md:flex-row md:items-center md:justify-between gap-4",
-                div {
-                    h3 { class: "text-lg font-bold flex items-center gap-2", Icon { name: "unlock".to_string(), size: Some(20) } " Need more access?" }
-                    p { class: "text-sm text-muted-foreground mt-1", "Request a custom permission upgrade for your account. Our team reviews requests within 24 hours." }
-                }
-                a { class: "btn btn-primary", href: "/contact?subject=Permission+request", Icon { name: "send".to_string(), size: Some(16) } " Request access" }
-            }
-        }
-    }
-}
-
-/// `PermissionCategoryBreakdown` — small horizontal-bar chart of
-/// how the user's permissions distribute across the 5 source
-/// categories. Mirrors the "permissions by category" widget in
-/// the admin permissions page; here we render the user-side
-/// view as a single-row stacked bar with a legend.
-#[component]
-fn PermissionCategoryBreakdown() -> Element {
-    let categories = vec![
-        ("Trade",       4u32,  "#22d3ee"),
-        ("View",        3u32,  "#22c55e"),
-        ("Pay",         3u32,  "#f59e0b"),
-        ("API",         2u32,  "#a855f7"),
-        ("Admin",       1u32,  "#ef4444"),
-    ];
-    let total: u32 = categories.iter().map(|c| c.1).sum();
-    rsx! {
-        // === wave6-auth-pages-depth-track-d permissions category breakdown ===
-        div { class: "card card-glass permissions-category-breakdown",
-            div { class: "card-header",
-                h3 { class: "card-title flex items-center gap-2", Icon { name: "bar-chart-3".to_string(), size: Some(20) } " Permissions by category" }
-            }
-            div { class: "card-body space-y-3",
-                div { class: "flex w-full h-3 rounded-full overflow-hidden bg-white/5",
-                    for (name, count, color) in categories.iter() {
-                        div {
-                            class: "h-full",
-                            style: format!("width: {}%; background: {}", (*count as f64 / total as f64) * 100.0, color),
-                            title: format!("{} ({} permissions)", name, count),
-                        }
-                    }
-                }
-                div { class: "grid grid-cols-2 md:grid-cols-5 gap-2",
-                    for (name, count, color) in categories.iter() {
-                        div { class: "flex items-center gap-2 text-sm",
-                            span { class: "inline-block w-3 h-3 rounded-sm", style: format!("background: {}", color) }
-                            span { class: "text-muted-foreground", "{name}" }
-                            span { class: "font-mono font-bold ml-auto", "{count}" }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::auth::User;
-    use crate::pages::PageContext;
     use crate::auth::user::AuthMethod;
+    use crate::auth::User;
 
-    fn ctx(path: &str) -> PageContext {
-        let user = User {
-            id: "u1".to_string(),
-            address: "0x1234…abcd".to_string(),
-            chain_id: "56".to_string(),
-            roles: vec!["user".to_string()],
-            email: Some("test@epsx.io".to_string()),
-            tier: Some("Pro".to_string()),
-            permissions: vec!["permissions:read".to_string()],
-            last_login_at: None,
-            auth_method: AuthMethod::Wallet,
-            display_name: Some("Test".to_string()),
-        };
-        PageContext { user: Some(user), path: path.to_string(), ..Default::default() }
+    fn session_user(permissions: Vec<&str>) -> User {
+        User {
+            id: "owner-canary-subject".to_string(),
+            address: "owner-canary-wallet".to_string(),
+            chain_id: "owner-canary-chain".to_string(),
+            roles: vec!["owner-canary-role".to_string()],
+            email: Some("owner-canary@example.invalid".to_string()),
+            tier: Some("owner-canary-tier".to_string()),
+            permissions: permissions.into_iter().map(str::to_string).collect(),
+            last_login_at: Some("owner-canary-login".to_string()),
+            auth_method: AuthMethod::Siwe,
+            display_name: Some("owner-canary-name".to_string()),
+        }
     }
 
-    #[test]
-    fn test_render_smoke() {
-        let (_meta, element) = render(&ctx("/permissions"));
-        let html = dioxus_ssr::render_element(element);
-        assert!(html.contains("My permissions"), "/permissions header must render. Got: {}", html);
+    fn page_ctx(user: Option<User>) -> PageContext {
+        PageContext {
+            user,
+            path: PERMISSIONS_PATH.to_string(),
+            ..Default::default()
+        }
     }
 
-    #[test]
-    fn test_section_markers() {
-        let (_meta, element) = render(&ctx("/permissions"));
-        let html = dioxus_ssr::render_element(element);
-        for marker in [
-            "permissions-stats",
+    fn render_page(ctx: &PageContext) -> String {
+        let (_, element) = render(ctx);
+        dioxus_ssr::render_element(element)
+    }
+
+    fn assert_no_unsupported_permission_data(html: &str) {
+        for forbidden in [
+            "permissions:read",
+            "Total permissions",
+            "Expiring soon",
+            "Feature × Plan",
+            "Included on your plan",
+            "Permissions by category",
+            "Permission Activity History",
+            "Platform Distribution",
+            "Usage Statistics",
+            "Pro plan",
+            "Enterprise",
+            "2024-09-15",
+            "within 24 hours",
+            "Request access",
             "permissions-tab-nav",
             "permissions-matrix",
-            "permissions-feature-list",
-            "permissions-request-access",
+            "permissions-history-table",
+            "permissions-category-breakdown",
+            "<button",
+            "onclick=",
         ] {
-            assert!(html.contains(marker), "missing section marker: {}", marker);
+            assert!(
+                !html.contains(forbidden),
+                "permissions page must not render unsupported data or client policy `{forbidden}`. Got: {html}"
+            );
         }
+    }
+
+    #[test]
+    fn signed_in_user_needs_no_circular_frontend_permission_gate() {
+        let html = render_page(&page_ctx(Some(session_user(vec!["reports:read"]))));
+
+        assert!(html.contains("data-permissions-state=\"unavailable\""));
+        assert!(html.contains("data-permissions-claims-state=\"verified-session\""));
+        assert!(html.contains("reports:read"));
+        assert!(!html.contains("Permission required"));
+        assert_no_unsupported_permission_data(&html);
+    }
+
+    #[test]
+    fn raw_verified_claims_are_rendered_exactly_and_html_escaped() {
+        let html = render_page(&page_ctx(Some(session_user(vec![
+            "reports:<script>alert(1)</script>&\"read\"",
+            "billing:view",
+        ]))));
+
+        assert!(
+            html.contains("reports:&#60;script&#62;alert(1)&#60;/script&#62;&#38;&#34;read&#34;"),
+            "raw claim must be preserved with HTML-significant text escaped. Got: {html}"
+        );
+        assert!(html.contains("billing:view"));
+        assert_eq!(
+            html.matches("data-session-permission-claim=\"raw\"")
+                .count(),
+            2
+        );
+        assert!(!html.contains("<script>alert(1)</script>"));
+        assert!(!html.contains("owner-canary-tier"));
+        assert!(!html.contains("owner-canary-role"));
+        assert_no_unsupported_permission_data(&html);
+    }
+
+    #[test]
+    fn empty_verified_claim_set_is_not_interpreted_as_no_access() {
+        let html = render_page(&page_ctx(Some(session_user(vec![]))));
+
+        assert!(
+            html.contains("No permission claim strings were included in this verified session.")
+        );
+        assert!(html.contains("Access details cannot be verified right now"));
+        assert!(!html.contains("no permissions assigned"));
+        assert!(!html.contains("no access"));
+        assert_no_unsupported_permission_data(&html);
+    }
+
+    #[test]
+    fn signed_out_direct_render_reveals_no_owner_claims() {
+        let html = render_page(&page_ctx(None));
+
+        assert!(html.contains("Sign in required"));
+        assert!(html.contains("href=\"/auth?return_url=%2Fpermissions\""));
+        for owner_value in [
+            "owner-canary-subject",
+            "owner-canary-wallet",
+            "owner-canary-role",
+            "owner-canary-tier",
+            "Backend-issued session claims",
+            "data-session-permission-claim",
+        ] {
+            assert!(!html.contains(owner_value));
+        }
+        assert_no_unsupported_permission_data(&html);
+    }
+
+    #[test]
+    fn legacy_and_hostile_params_cannot_supply_permission_data_or_policy() {
+        let mut ctx = page_ctx(Some(session_user(vec!["verified:claim"])));
+        ctx.query = "tab=history&permission=CANARY-QUERY-PERMISSION".to_string();
+        for (key, value) in [
+            ("tab", "analytics"),
+            ("data_permissions", "CANARY-PARAM-PERMISSION"),
+            ("plan", "CANARY-PARAM-PLAN"),
+        ] {
+            ctx.params.insert(key.to_string(), value.to_string());
+        }
+
+        let html = render_page(&ctx);
+        assert!(html.contains("verified:claim"));
+        assert!(html.contains("data-permissions-state=\"unavailable\""));
+        for canary in [
+            "CANARY-QUERY-PERMISSION",
+            "CANARY-PARAM-PERMISSION",
+            "CANARY-PARAM-PLAN",
+        ] {
+            assert!(!html.contains(canary));
+        }
+        assert_no_unsupported_permission_data(&html);
     }
 }

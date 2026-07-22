@@ -331,10 +331,10 @@
       "anchor": "\"Data unavailable\""
     },
     {
-      "id": "tgt-portfolio-static",
+      "id": "tgt-portfolio-unavailable",
       "domain": "marketAnalytics",
       "file": "shared/rust/dioxus_ui/src/pages/portfolio.rs",
-      "anchor": "/// Static seed — 6 watched stocks (the prod's default watchlist for an"
+      "anchor": "\"data-portfolio-state\": \"unavailable\""
     },
     {
       "id": "tgt-frontend-rankings-loader-absent",
@@ -521,9 +521,9 @@
       "category": "ui-truthfulness",
       "severity": "stop",
       "status": "blocked",
-      "summary": "Analytics now fails closed without a verified ranking loader, while portfolio still renders canned records; neither route has production-complete market UX.",
-      "resolution": "Consume typed BFF data, render loading/empty/error/stale states, remove remaining portfolio fixtures, and never label fixtures as live.",
-      "evidenceIds": ["tgt-ui-rankings-unavailable", "tgt-ui-payloads-ignored", "tgt-ui-data-unavailable", "tgt-portfolio-static"]
+      "summary": "Analytics and authenticated portfolio now fail closed without verified market/owner loaders; neither route has production-complete market UX.",
+      "resolution": "Consume typed owner-safe BFF data, render loading/empty/error/stale states, and never label fixtures or unavailable data as live.",
+      "evidenceIds": ["tgt-ui-rankings-unavailable", "tgt-ui-payloads-ignored", "tgt-ui-data-unavailable", "tgt-portfolio-unavailable"]
     },
     {
       "id": "B06",
@@ -532,7 +532,7 @@
       "status": "blocked",
       "summary": "Search, filters, sorting, pagination, export and watchlist interactions are not proven against live backend state.",
       "resolution": "Implement typed query/state contracts and strict mobile/desktop browser tests covering success and failure paths.",
-      "evidenceIds": ["src-browser-filter-flow", "src-plan-access-bootstrap", "tgt-ui-rankings-unavailable", "tgt-portfolio-static"]
+      "evidenceIds": ["src-browser-filter-flow", "src-plan-access-bootstrap", "tgt-ui-rankings-unavailable", "tgt-portfolio-unavailable"]
     },
     {
       "id": "B07",
@@ -875,8 +875,8 @@
     },
     {
       "id": "N03",
-      "reason": "Analytics is intentionally unavailable without a verified loader, and portfolio still contains static sample data.",
-      "evidenceIds": ["tgt-ui-rankings-unavailable", "tgt-ui-payloads-ignored", "tgt-portfolio-static"]
+      "reason": "Analytics and authenticated portfolio are intentionally unavailable without verified market and owner loaders.",
+      "evidenceIds": ["tgt-ui-rankings-unavailable", "tgt-ui-payloads-ignored", "tgt-portfolio-unavailable"]
     },
     {
       "id": "N04",
