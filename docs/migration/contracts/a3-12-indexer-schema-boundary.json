@@ -42,6 +42,7 @@
       "services/indexer/src/ingestion/postgres/codec.rs",
       "services/indexer/src/ingestion/postgres/leases.rs",
       "services/indexer/src/ingestion/postgres/mod.rs",
+      "services/indexer/src/ingestion/postgres/reads.rs",
       "services/indexer/src/ingestion/selection.rs",
       "services/indexer/src/lib.rs",
       "services/indexer/src/main.rs"
@@ -119,8 +120,13 @@
       },
       {
         "path": "services/indexer/src/ingestion/postgres/mod.rs",
-        "bytes": 557,
-        "sha256": "f9a1a377d74dcaaddbdd747b4ed5780858d6df85fd603425bf283e3d3f902d1c"
+        "bytes": 568,
+        "sha256": "521534817aafdb618ebe3528cebceb3206be4e5b145c0ef2ae933794ee026d10"
+      },
+      {
+        "path": "services/indexer/src/ingestion/postgres/reads.rs",
+        "bytes": 20505,
+        "sha256": "b87bf78f4773b8f63d619a058d262462200bcb606c2c2c909337fe1a52809cce"
       }
     ],
     "defaultEnabled": false,
@@ -138,6 +144,17 @@
     "outcomeCodec": true,
     "databaseClockLeasePredicates": true,
     "persistentLeaseFence": true,
+    "readSideHelpers": true,
+    "readModulePrivate": true,
+    "repeatableReadOnlyTransactions": true,
+    "candidateReadSingleSnapshot": true,
+    "snapshotReadSingleSnapshot": true,
+    "absentStateRejectsSelectedOrJournalOrphans": true,
+    "snapshotMappingChecks": true,
+    "snapshotRevisionChecks": true,
+    "selectedHashLeftJoinsChainState": true,
+    "selectedHashRejectsMissingStaleOrFutureState": true,
+    "candidateReadsLegacyProjection": false,
     "usesUtcNow": false,
     "usesAdvisoryLocks": false,
     "providerActivated": false,
@@ -150,7 +167,8 @@
     "executed": false,
     "testEvidence": {
       "defaultLibraryPassed": 33,
-      "featureLibraryPassed": 43
+      "featureLibraryPassed": 50,
+      "binaryPassed": 4
     }
   },
   "migrationRoot": {

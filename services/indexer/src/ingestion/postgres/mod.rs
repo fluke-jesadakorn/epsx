@@ -4,6 +4,7 @@ mod candidates;
 mod codec;
 
 mod leases;
+mod reads;
 
 /// Dormant PostgreSQL repository foundation.
 ///

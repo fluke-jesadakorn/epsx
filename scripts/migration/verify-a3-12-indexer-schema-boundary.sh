@@ -96,6 +96,7 @@ exact("Rust inventory", [
   "services/indexer/src/ingestion/postgres/codec.rs",
   "services/indexer/src/ingestion/postgres/leases.rs",
   "services/indexer/src/ingestion/postgres/mod.rs",
+  "services/indexer/src/ingestion/postgres/reads.rs",
   "services/indexer/src/ingestion/selection.rs",
   "services/indexer/src/lib.rs",
   "services/indexer/src/main.rs"
@@ -145,7 +146,8 @@ const adapterSourcePins = [
   { path: "services/indexer/src/ingestion/postgres/candidates.rs", bytes: 19643, sha256: "9bccc08effb68e06593469f93d779cc2a12bad088b6698b3eded8d2de4128180" },
   { path: "services/indexer/src/ingestion/postgres/codec.rs", bytes: 5891, sha256: "693e1ddba5a8f8808251ed8be68f547b5a8da1122eec954a741ca8c0c95f9915" },
   { path: "services/indexer/src/ingestion/postgres/leases.rs", bytes: 11531, sha256: "20adcdc84b1fd970ed404d2ac9219b3de827ca01a84ece33813cfaf6ba690910" },
-  { path: "services/indexer/src/ingestion/postgres/mod.rs", bytes: 557, sha256: "f9a1a377d74dcaaddbdd747b4ed5780858d6df85fd603425bf283e3d3f902d1c" }
+  { path: "services/indexer/src/ingestion/postgres/mod.rs", bytes: 568, sha256: "521534817aafdb618ebe3528cebceb3206be4e5b145c0ef2ae933794ee026d10" },
+  { path: "services/indexer/src/ingestion/postgres/reads.rs", bytes: 20505, sha256: "b87bf78f4773b8f63d619a058d262462200bcb606c2c2c909337fe1a52809cce" }
 ];
 exact("dormant adapter source pins", adapterSourcePins, adapter?.sourcePins);
 const pinnedAdapterSources = new Map();
@@ -173,6 +175,17 @@ exact("dormant adapter boundary", {
   outcomeCodec: true,
   databaseClockLeasePredicates: true,
   persistentLeaseFence: true,
+  readSideHelpers: true,
+  readModulePrivate: true,
+  repeatableReadOnlyTransactions: true,
+  candidateReadSingleSnapshot: true,
+  snapshotReadSingleSnapshot: true,
+  absentStateRejectsSelectedOrJournalOrphans: true,
+  snapshotMappingChecks: true,
+  snapshotRevisionChecks: true,
+  selectedHashLeftJoinsChainState: true,
+  selectedHashRejectsMissingStaleOrFutureState: true,
+  candidateReadsLegacyProjection: false,
   usesUtcNow: false,
   usesAdvisoryLocks: false,
   providerActivated: false,
@@ -183,7 +196,7 @@ exact("dormant adapter boundary", {
   databaseWrite: false,
   runtimeAdapter: false,
   executed: false,
-  testEvidence: { defaultLibraryPassed: 33, featureLibraryPassed: 43 }
+  testEvidence: { defaultLibraryPassed: 33, featureLibraryPassed: 50, binaryPassed: 4 }
 }, adapter);
 const cargo = pinnedAdapterSources.get("services/indexer/Cargo.toml");
 const ingestion = pinnedAdapterSources.get("services/indexer/src/ingestion/mod.rs");
@@ -191,12 +204,13 @@ const postgresModule = pinnedAdapterSources.get("services/indexer/src/ingestion/
 const candidates = pinnedAdapterSources.get("services/indexer/src/ingestion/postgres/candidates.rs");
 const codec = pinnedAdapterSources.get("services/indexer/src/ingestion/postgres/codec.rs");
 const leases = pinnedAdapterSources.get("services/indexer/src/ingestion/postgres/leases.rs");
+const reads = pinnedAdapterSources.get("services/indexer/src/ingestion/postgres/reads.rs");
 if (!cargo.includes("[features]\ndefault = []\ndormant-postgres-adapter = []")) fail("dormant adapter feature/default boundary drifted");
 if ((ingestion.match(/#\[cfg\(feature = \"dormant-postgres-adapter\"\)\]\nmod postgres;/g) ?? []).length !== 1) fail("private dormant adapter module declaration drifted");
 if (/pub(?:\([^)]*\))?\s+mod\s+postgres\b/.test(ingestion) || /pub\s+use\s+(?:self::)?postgres\b/.test(ingestion)) fail("dormant adapter module became public");
 if (main.includes("PostgresSelectedChainRepository") || main.includes("ingestion::postgres") || lib.includes("PostgresSelectedChainRepository") || lib.includes("ingestion::postgres")) fail("dormant adapter gained a main/library callsite or export");
 for (const anchor of [
-  "use sqlx::PgPool;", "mod candidates;", "mod codec;", "mod leases;",
+  "use sqlx::PgPool;", "mod candidates;", "mod codec;", "mod leases;", "mod reads;",
   "pub(super) struct PostgresSelectedChainRepository {", "pool: PgPool,",
   "pub(super) fn new(pool: PgPool) -> Self", "pub(super) fn pool(&self) -> &PgPool"
 ]) if (!postgresModule.includes(anchor)) fail(`dormant PgPool holder is missing: ${anchor}`);
@@ -219,7 +233,20 @@ for (const anchor of [
 ]) if (!leases.includes(anchor)) fail(`database-clock fenced lease boundary is missing: ${anchor}`);
 if (/Utc::now\s*\(/.test(leases)) fail("lease predicates must not use process time");
 if (/advisory/i.test(stripRustComments(leases).join("\n"))) fail("lease substrate must not use advisory locks");
-const adapterCode = [postgresModule, candidates, codec, leases].map((source) => stripRustComments(source).join("\n")).join("\n");
+if ((reads.match(/begin_consistent_read\(/g) ?? []).length !== 4 || (reads.match(/\.commit\(\)/g) ?? []).length !== 4) fail("read helpers must use one consistent transaction each");
+for (const anchor of [
+  "pub(super) async fn snapshot(", "pub(super) async fn load_candidate(", "pub(super) async fn selected_hash(", "pub(super) async fn candidates_at_height(",
+  "async fn begin_consistent_read<\x27pool>(", "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY", "candidates::load_candidate(&mut transaction, identity)",
+  "verify_snapshot_mapping(&mut transaction, &snapshot)", "require_no_orphaned_selection_state(&mut transaction, chain_id)",
+  "FROM public.indexer_selected_blocks", "FROM public.indexer_mutation_journal", "AS has_selected_blocks", "AS has_mutation_journal",
+  "LEFT JOIN public.indexer_chain_state AS state", "state.revision AS chain_revision", "stored selected block has no chain-state row",
+  "stored selected-block revision must be non-zero", "stored selected-block revision exceeds the chain revision",
+  "stored selected head is not the highest exact selected-block mapping", "stored finalized selection does not match its selected-block mapping",
+  "selected_revision > $2", "a selected-block mapping was written after the stored chain revision"
+]) if (!reads.includes(anchor)) fail(`read-side consistency boundary is missing: ${anchor}`);
+for (const legacy of ["public.blocks", "public.transactions", "public.token_transfers"]) if (reads.includes(legacy) || candidates.includes(legacy)) fail(`candidate/read helper returned to legacy projection: ${legacy}`);
+const adapterCode = [postgresModule, candidates, codec, leases, reads].map((source) => stripRustComments(source).join("\n")).join("\n");
+if (/impl\s+SelectedChainRepository\s+for\s+PostgresSelectedChainRepository/.test(adapterCode)) fail("dormant adapter gained a repository-port implementation");
 for (const forbidden of ["tokio::spawn", "PgPool::connect", "sqlx::migrate!", "Migrator::new", "ProviderBuilder", "provider_for_chain", "Router::new", ".route("]) if (adapterCode.includes(forbidden)) fail(`dormant adapter activation returned: ${forbidden}`);
 if (runtime.compatibilityQueryConstant !== "INDEXER_SCHEMA_COMPATIBILITY_QUERY" || runtime.compatibilityFunction !== "verify_schema_compatibility") fail("compatibility boundary names drifted");
 if (runtime.structuralKeyArrayTextCastOccurrences !== 2) fail("structural key-array type contract drifted");
@@ -491,7 +518,20 @@ const report = {
     reloadRevalidation: true,
     databaseClockLeasePredicates: true,
     persistentLeaseFence: true,
-    tests: { defaultLibraryPassed: 33, featureLibraryPassed: 43 },
+    readSide: {
+      helpers: true,
+      modulePrivate: true,
+      repeatableReadOnlyTransactions: true,
+      candidateReadSingleSnapshot: true,
+      snapshotReadSingleSnapshot: true,
+      absentStateRejectsSelectedOrJournalOrphans: true,
+      snapshotMappingChecks: true,
+      snapshotRevisionChecks: true,
+      selectedHashLeftJoinsChainState: true,
+      selectedHashRejectsMissingStaleOrFutureState: true,
+      candidateReadsLegacyProjection: false
+    },
+    tests: { defaultLibraryPassed: 33, featureLibraryPassed: 50, binaryPassed: 4 },
     databaseRead: false,
     databaseWrite: false,
     migrationExecuted: false,
@@ -523,6 +563,6 @@ console.log("a3-12-indexer-schema-boundary: PASS: schema probe precedes listener
 console.log("a3-12-indexer-schema-boundary: PASS: all four surviving runtime relations are public-qualified; only health remains reachable");
 console.log("a3-12-indexer-schema-boundary: PASS: dormant fork store pins eight guarded tables, 74 columns, 101 constraints and two explicit indexes without runtime activation");
 console.log("a3-12-indexer-schema-boundary: PASS: ten-name fresh-create preflight rejects every public relation-kind collision before CREATE");
-console.log("a3-12-indexer-schema-boundary: PASS: six ordered dormant-adapter source byte/SHA-256 pins are recomputed before semantic anchors");
-console.log("a3-12-indexer-schema-boundary: PASS: default-off private PostgreSQL substrate pins strict candidate reload, codecs and database-clock fenced leases without runtime activation");
+console.log("a3-12-indexer-schema-boundary: PASS: seven ordered dormant-adapter source byte/SHA-256 pins are recomputed before semantic anchors");
+console.log("a3-12-indexer-schema-boundary: PASS: default-off private PostgreSQL substrate pins strict candidate reload, codecs, database-clock leases and consistent read helpers without runtime activation");
 '
