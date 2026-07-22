@@ -396,7 +396,8 @@ mod tests {
     use crate::ingestion::{
         validate_block, BlockNumber, BlockRequest, BoundaryError, ExpectedChainState, FetchedBlock,
         FetchedLog, FetchedReceipt, FetchedTransaction, LogIndex, MutationBuildError,
-        ReceiptOutcome, TransactionHash, TxIndex, ValidationError, ValidationLimits,
+        ReceiptOutcome, SelectionBoundaryError, TransactionHash, TxIndex, ValidationError,
+        ValidationLimits,
     };
     use alloy::primitives::{Address, B256, U256};
     use std::sync::Arc;
@@ -575,14 +576,37 @@ mod tests {
         assert!(LeaseOwner::new("").is_err());
         assert!(LeaseOwner::new("worker/unsafe").is_err());
         assert!(LeaseOwner::new("x".repeat(129)).is_err());
-        assert!(LeaseFence::new(0).is_err());
+        assert_eq!(
+            ChainRevision::new(i64::MAX as u64),
+            Ok(ChainRevision::MAX_STORAGE)
+        );
+        assert_eq!(
+            ChainRevision::new(i64::MAX as u64 + 1),
+            Err(SelectionBoundaryError::ChainRevisionOutOfRange)
+        );
+        assert_eq!(
+            ChainRevision::MAX_STORAGE.next(),
+            Err(MutationBuildError::RevisionExhausted)
+        );
+        assert_eq!(
+            LeaseFence::new(0),
+            Err(SelectionBoundaryError::ZeroLeaseFence)
+        );
+        assert_eq!(
+            LeaseFence::new(i64::MAX as u64),
+            Ok(LeaseFence::MAX_STORAGE)
+        );
+        assert_eq!(
+            LeaseFence::new(i64::MAX as u64 + 1),
+            Err(SelectionBoundaryError::LeaseFenceOutOfRange)
+        );
+        assert_eq!(
+            LeaseFence::successor(Some(LeaseFence::MAX_STORAGE)),
+            Err(SelectionBoundaryError::LeaseFenceExhausted)
+        );
         assert!(MutationId::new(B256::ZERO).is_err());
         assert!(LeaseDuration::new(std::time::Duration::ZERO).is_err());
         assert!(LeaseDuration::new(std::time::Duration::from_secs(86_401)).is_err());
-        assert_eq!(
-            ChainRevision::new(u64::MAX).next(),
-            Err(MutationBuildError::RevisionExhausted)
-        );
     }
 
     #[test]
@@ -1052,7 +1076,7 @@ mod tests {
     #[test]
     fn attachment_builders_reject_gaps_wrong_parents_and_wrong_chains() {
         let expected = ExpectedChainState::new(
-            ChainRevision::new(1),
+            ChainRevision::new(1).unwrap(),
             Some(BlockRef::from_batch(&batch_at(56, 100, 10, 9, 0))),
             None,
         );
@@ -1103,7 +1127,7 @@ mod tests {
         );
 
         let other_chain_head = ExpectedChainState::new(
-            ChainRevision::new(1),
+            ChainRevision::new(1).unwrap(),
             Some(BlockRef::from_batch(&batch_at(97, 100, 10, 9, 0))),
             None,
         );

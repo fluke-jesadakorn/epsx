@@ -67,8 +67,14 @@ impl BlockRef {
 pub struct ChainRevision(u64);
 
 impl ChainRevision {
-    pub const fn new(value: u64) -> Self {
-        Self(value)
+    pub const ZERO: Self = Self(0);
+    pub const MAX_STORAGE: Self = Self(i64::MAX as u64);
+
+    pub const fn new(value: u64) -> Result<Self, SelectionBoundaryError> {
+        if value > Self::MAX_STORAGE.0 {
+            return Err(SelectionBoundaryError::ChainRevisionOutOfRange);
+        }
+        Ok(Self(value))
     }
 
     pub const fn get(self) -> u64 {
@@ -77,10 +83,10 @@ impl ChainRevision {
 
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn next(self) -> Result<Self, MutationBuildError> {
-        self.0
-            .checked_add(1)
-            .map(Self)
-            .ok_or(MutationBuildError::RevisionExhausted)
+        if self == Self::MAX_STORAGE {
+            return Err(MutationBuildError::RevisionExhausted);
+        }
+        Ok(Self(self.0 + 1))
     }
 }
 
@@ -110,9 +116,14 @@ impl LeaseOwner {
 pub struct LeaseFence(u64);
 
 impl LeaseFence {
-    pub fn new(value: u64) -> Result<Self, SelectionBoundaryError> {
+    pub const MAX_STORAGE: Self = Self(i64::MAX as u64);
+
+    pub const fn new(value: u64) -> Result<Self, SelectionBoundaryError> {
         if value == 0 {
             return Err(SelectionBoundaryError::ZeroLeaseFence);
+        }
+        if value > Self::MAX_STORAGE.0 {
+            return Err(SelectionBoundaryError::LeaseFenceOutOfRange);
         }
         Ok(Self(value))
     }
@@ -123,10 +134,13 @@ impl LeaseFence {
 
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn successor(previous: Option<Self>) -> Result<Self, SelectionBoundaryError> {
-        let next = previous
-            .map_or(Some(1), |fence| fence.0.checked_add(1))
-            .ok_or(SelectionBoundaryError::LeaseFenceExhausted)?;
-        Self::new(next)
+        match previous {
+            None => Ok(Self(1)),
+            Some(fence) if fence == Self::MAX_STORAGE => {
+                Err(SelectionBoundaryError::LeaseFenceExhausted)
+            }
+            Some(fence) => Ok(Self(fence.0 + 1)),
+        }
     }
 }
 
@@ -224,7 +238,7 @@ impl ExpectedChainState {
     }
 
     pub const fn empty() -> Self {
-        Self::new(ChainRevision::new(0), None, None)
+        Self::new(ChainRevision::ZERO, None, None)
     }
 
     pub const fn revision(&self) -> ChainRevision {
@@ -533,12 +547,16 @@ impl ChainMutation {
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum SelectionBoundaryError {
+    #[error("chain revision exceeds signed 64-bit storage")]
+    ChainRevisionOutOfRange,
     #[error("lease owner must be 1..=128 safe ASCII characters")]
     InvalidLeaseOwner,
     #[error("lease duration must be nonzero and no more than 24 hours")]
     InvalidLeaseDuration,
     #[error("lease fence must be nonzero")]
     ZeroLeaseFence,
+    #[error("lease fence exceeds signed 64-bit storage")]
+    LeaseFenceOutOfRange,
     #[error("lease fence is exhausted")]
     LeaseFenceExhausted,
     #[error("mutation id must be nonzero")]
