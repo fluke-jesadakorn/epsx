@@ -13,7 +13,7 @@
       "const token = getServerAuthToken(request.cookies);",
       "const verifyResponse = await verifyAdminAccess(request, token);"
     ],
-    "finding": "The source handles logout cookie clearing, session presence, and backend-owned admin verification before either page-level redirect executes."
+    "finding": "The source handles logout and login-route cookie clearing, session presence, and backend-owned admin verification before page-level redirects execute."
   },
   "routeInventory": "docs/migration/contracts/routes.json",
   "expectedRouteCount": 27,
@@ -40,7 +40,7 @@
         "fn safe_admin_layout_path(layout_path: &str, is_authenticated: bool) -> String",
         "let status = match meta.status"
       ],
-      "finding": "SSR verifies a session and keeps data params empty by default; signed-out dynamic chat shells reduce their layout path to the static inbox so breadcrumbs and return URLs cannot disclose a conversation reference; only the payments intent tab now performs a bounded authenticated read and records explicit ready, empty, unavailable, or malformed state."
+      "finding": "SSR verifies a session and keeps data params empty by default; signed-out dynamic chat, news-edit, wallet, disable, and plan shells reduce layout paths to static collections so breadcrumbs and return URLs cannot disclose route references; only the payment-intents tab now performs a bounded authenticated read and records explicit ready, empty, unavailable, or malformed state."
     },
     {
       "file": "apps/admin/src/main.rs",
@@ -74,13 +74,29 @@
       "file": "apps/admin/src/main.rs",
       "anchors": [
         "admin_redirect_targets_are_fixed_but_transport_drift_remains_visible",
+        ".route(\"/auth\", get(admin_auth_redirect))",
+        "Redirect::temporary(\"/\")",
         "Redirect::permanent(\"/wallet-management/wallets\")",
         "window.location.replace('/notifications/manage');"
       ],
-      "finding": "In-process tests prove only that the current GET targets are fixed and query input cannot choose an external target. Notifications remains a 200 script document and wallet management remains a pre-SSR 308; this is not source redirect parity."
+      "finding": "In-process tests prove only that the current GET targets are fixed and query input cannot choose an external target. Auth is a pre-SSR 307, notifications remains a 200 script document, and wallet management remains a pre-SSR 308; source middleware cookie, logout, session-ordering, method/cache, and browser parity remain open."
     }
   ],
   "redirects": [
+    {
+      "path": "/auth",
+      "target": "/",
+      "transport": "http-temporary-pre-ssr",
+      "currentStatus": 307,
+      "sourceSemantics": "Pinned middleware clears cookies for logout, reason=no-session, and clear before the page-level redirect; otherwise the pinned page redirects to root",
+      "sourceNextVersion": "16.0.10",
+      "fixedTargetProven": true,
+      "queryCannotChooseTarget": true,
+      "inProcessTest": {"file": "apps/admin/src/main.rs", "anchor": "admin_redirect_targets_are_fixed_but_transport_drift_remains_visible"},
+      "proofGaps": ["authenticated-browser-history-rsc-client-navigation", "pinned-origin-method-body-cache-matrix", "source-middleware-logout-session-ordering"],
+      "status": "blocked",
+      "blocker": "The fixed pre-SSR 307 removes the open redirect and matches the page destination, but source cookie clearing plus logout/session ordering, a pinned method/body/cache matrix, and authenticated browser/history/RSC/client-navigation proof remain absent."
+    },
     {
       "path": "/notifications",
       "target": "/notifications/manage",
@@ -138,7 +154,7 @@
     "Chat, notification, analytics, media, and audit surfaces remain dependent on A11 service contracts.",
     "Every route needs authenticated browser proof at mobile and desktop widths, keyboard operation, focus restoration, and overflow checks.",
     "Every data or mutation path needs correlation, audit event, metrics/log redaction, timeout, retry, and recovery evidence under A12.",
-    "The two intentional redirects still need authenticated browser/history/RSC/client-navigation proof, a pinned-origin method/body/cache matrix, and source middleware/logout/session ordering parity.",
+    "The three intentional redirects still need authenticated browser/history/RSC/client-navigation proof, a pinned-origin method/body/cache matrix, and source middleware/logout/session ordering parity.",
     "Production readiness remains STOP until all 27 routes are aligned and every route and global blocker is cleared."
   ],
   "routes": [
@@ -197,15 +213,15 @@
     {
       "path": "/auth", "batch": "B2-auth-denial", "status": "blocked", "dependencies": ["A1", "A5"],
       "source": {"file": "apps/admin-frontend/app/auth/page.tsx", "anchors": ["export default function AuthPage", "redirect('/')"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/auth_page.rs", "handler": "auth_page::render", "anchors": ["pub fn render(ctx: &PageContext)", "const AUTH_REDIRECT_SCRIPT", "required_permissions: Some(vec![\"admin:auth\".to_string()])"]},
-      "params": {"names": ["next", "method"], "current": "next is consumed by script without an accepted same-origin allowlist contract"},
-      "data": {"reads": ["verified admin session"], "endpoints": ["GET /api/v1/auth/me"], "current": "UI auth gate plus delayed script", "fallbacks": []},
-      "permissions": {"read": ["admin:auth"], "manage": [], "current": "auth bootstrap is incorrectly coupled to an admin permission"},
+      "target": {"file": "apps/admin/src/main.rs", "handler": "admin_auth_redirect", "anchors": [".route(\"/auth\", get(admin_auth_redirect))", "async fn admin_auth_redirect() -> Response", "Redirect::temporary(\"/\")"]},
+      "params": {"names": ["reason", "clear", "logout"], "current": "all query values are ignored and cannot choose or enter the fixed root redirect; source cookie-clearing query semantics remain unimplemented"},
+      "data": {"reads": ["source middleware session-cookie presence"], "endpoints": [], "current": "public fixed pre-SSR redirect; no frontend permission or session claim is inferred", "fallbacks": []},
+      "permissions": {"read": [], "manage": [], "current": "the invented admin:auth frontend gate is removed; auth lifecycle authority remains under A1"},
       "mutations": [],
-      "contracts": {"bodies": [], "envelopes": [], "statuses": ["source server redirect versus target SSR/script document"]},
-      "states": {"loading": "present", "empty": "not-applicable", "error": "missing", "retry": "missing", "forbidden": "present", "conflict": "not-applicable"},
-      "ux": {"keyboard": "unproven", "responsive": "unproven", "hydration": "inline browser script"},
-      "blockers": ["match source redirect behavior, prohibit cross-origin/open redirect targets, and prove expired/revoked/logout transitions under A1"]
+      "contracts": {"bodies": [], "envelopes": [], "statuses": ["GET and HEAD return fixed 307 Location /; POST is 405", "source logout/reason/clear cookie behavior and middleware ordering remain unmatched"]},
+      "states": {"loading": "not-applicable", "empty": "not-applicable", "error": "not-applicable", "retry": "not-applicable", "forbidden": "not-applicable", "conflict": "not-applicable"},
+      "ux": {"keyboard": "fixed HTTP redirect has no page controls; authenticated browser/history/RSC behavior remains unproven", "responsive": "not-applicable", "hydration": "not required by the pre-SSR redirect"},
+      "blockers": ["prove authenticated browser/history/RSC/client-navigation behavior", "record and accept a pinned-origin method/body/cache matrix", "prove parity with source middleware logout/session/admin-verification ordering"]
     },
     {
       "path": "/chat", "batch": "B3-support", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],

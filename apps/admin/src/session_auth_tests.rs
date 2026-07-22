@@ -550,7 +550,7 @@ async fn every_canonical_auth_route_and_login_alias_is_public() {
 }
 
 #[tokio::test]
-async fn auth_page_is_public_and_uses_safe_tokenless_browser_bridge() {
+async fn auth_page_is_public_and_redirects_to_the_fixed_admin_root() {
     let base_url = unused_base_url().await;
     let response = build_app(state(&base_url))
         .oneshot(
@@ -561,17 +561,8 @@ async fn auth_page_is_public_and_uses_safe_tokenless_browser_bridge() {
         )
         .await
         .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-    let body = to_bytes(response.into_body(), 2 * 1024 * 1024)
-        .await
-        .unwrap();
-    let html = String::from_utf8(body.to_vec()).unwrap();
-    let bridge = epsx_bff::browser_auth::browser_auth_script();
-    assert!(html.contains("/api/v1/auth/challenge"));
-    assert!(html.contains("target.origin !== window.location.origin"));
-    assert!(html.contains("raw.indexOf('//') === 0"));
-    assert!(!bridge.contains("localStorage"));
-    assert!(!bridge.contains("sessionStorage"));
-    assert!(!bridge.contains("access_token"));
-    assert!(!bridge.contains("refresh_token"));
+    assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
+    assert_eq!(response.headers()[header::LOCATION], "/");
+    let body = to_bytes(response.into_body(), 16 * 1024).await.unwrap();
+    assert!(body.is_empty());
 }

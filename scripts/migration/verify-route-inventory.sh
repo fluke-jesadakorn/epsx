@@ -90,7 +90,7 @@ for (const [appName, app] of Object.entries(contract.applications)) {
 }
 
 if (sourceTotal !== 55) fail(`source route total is ${sourceTotal}; expected 55`);
-if (!Array.isArray(contract.intentionalAdminRedirects) || contract.intentionalAdminRedirects.length !== 2) fail("intentionalAdminRedirects must contain exactly 2 entries");
+if (!Array.isArray(contract.intentionalAdminRedirects) || contract.intentionalAdminRedirects.length !== 3) fail("intentionalAdminRedirects must contain exactly 3 entries");
 const adminRoutes = contract.applications.admin.routes;
 for (const redirect of contract.intentionalAdminRedirects) {
   const route = adminRoutes.find((candidate) => candidate.path === redirect.path);
@@ -123,6 +123,6 @@ for (const { appName, path, target } of allTargets) {
 
 console.log(`route-inventory: source ref ${sourceRef} -> ${sourceCommit}`);
 console.log(`route-inventory: target evidence ${allTargets.length}/${allTargets.length}`);
-console.log("route-inventory: intentional admin redirects 2/2");
+console.log("route-inventory: intentional admin redirects 3/3");
 console.log("route-inventory: OK");
 ' -- "$REPO_ROOT" "$CONTRACT" "$SOURCE_REF" "$SOURCE_COMMIT"

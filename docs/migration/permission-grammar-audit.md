@@ -30,16 +30,16 @@ record carries source type, file, line, permission, surface, grammar
 classification, and a remediation package. A candidate permission is present
 only when a real backend route guard or token source literally supports it.
 
-The current scan contains 37 records:
+The current scan contains 35 records:
 
 | Usage | Records | Readiness effect |
 | --- | ---: | --- |
-| Dioxus security gates | 3 | 1 canonical; 2 legacy two-segment values still block |
+| Dioxus security gates | 1 | The remaining payment-intent read gate is canonical |
 | Dioxus presentation literals | 1 | Reported as presentation drift, not an enforcement blocker |
 | Dioxus presentation dynamic pass-throughs | 1 | Reported as presentation drift, not an enforcement blocker |
 | Service-authorization permissions | 32 | All canonical three-segment values |
 
-Across every source there are 33 canonical three-segment values, 2 legacy
+Across every source there are 33 canonical three-segment values, no legacy
 two-segment values, 1 unknown dynamic presentation value, and 1
 impossible/cross-grammar presentation value. There are currently no wildcard-aligned
 inventory values.
@@ -73,19 +73,16 @@ The dashboard, analytics, audit, chat, media, news, notification,
 developer-portal, settings, wallet-credit, wallet, permission-system, and plan
 read/manage decisions remain backend-owned;
 removing their frontend literals does not remove or weaken any service guard.
-The admin auth and policies gates have no single source-backed backend guard
-candidate in this audit. The generic unauthorized value is presentation-only.
-These remain explicit residuals; the inventory deliberately does not guess or
-over-broaden them. Removing nine additional A8 literals from unavailable
-analytics, wallet, wallet-access, and plan surfaces reduced the Dioxus security
-inventory without changing backend enforcement or the two-blocker readiness
-result.
+The invented admin-auth gate was removed when `/auth` became a fixed redirect,
+and the target-only policies gate was removed when `/policies` became an
+explicit 404. The generic unauthorized value remains presentation-only. The
+inventory deliberately does not guess or over-broaden it. Removing eleven A8
+literals across unavailable or non-existent admin surfaces reduced the Dioxus
+security inventory without changing backend enforcement.
 
-The frontend analytics gate is also unresolved. Token examples use
+Backend analytics vocabulary remains an A4 decision: token examples use
 `epsx:analytics:read`, while wallet permission assignment uses
-`epsx:analytics:view`. The other frontend gate strings have no real backend
-guard tied to those UI surfaces in the audited sources, so their candidate
-lists remain empty pending A4 decisions.
+`epsx:analytics:view`. No Dioxus gate guesses between those meanings.
 
 The owner notification page and its shared-header unread badge do not introduce
 a frontend permission literal. They depend on a server-verified authenticated
@@ -114,7 +111,8 @@ Readiness is intentionally stricter:
 ```
 
 It exits reserved status `3` while any non-canonical security-gate permission
-remains. Presentation-only drift is reported separately and does not inflate
-the security-gate blocker count. Readiness may exit `0` only after source code
-and this checked inventory are updated by their owning packages and integrity
-still passes.
+remains. The current grammar-only readiness check exits `0`: the sole remaining
+Dioxus security gate is canonical. The two presentation-only records remain
+visible in integrity evidence but do not enforce access and do not block this
+grammar check. This is not entitlement, ranking, route, or production
+readiness; those remain governed by A4 and the other STOP contracts.

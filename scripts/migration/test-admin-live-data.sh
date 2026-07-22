@@ -9,7 +9,7 @@ temp_dir=$(mktemp -d "${TMPDIR:-/tmp}/epsx-admin-live-data.XXXXXX")
 trap 'rm -rf -- "$temp_dir"' EXIT HUP INT TERM
 
 "$verify" --mode integrity >"$temp_dir/integrity.out" 2>&1
-grep -q "PASS integrity (27 source routes; 2 redirects; 2 aligned, 2 partial, 23 blocked; 20 STOP blockers" "$temp_dir/integrity.out"
+grep -q "PASS integrity (27 source routes; 3 redirects; 2 aligned, 2 partial, 23 blocked; 20 STOP blockers" "$temp_dir/integrity.out"
 
 set +e
 "$verify" --mode readiness >"$temp_dir/readiness.out" 2>&1
@@ -25,7 +25,7 @@ grep -q "STOP readiness (25 non-aligned routes: 2 partial, 23 blocked; 20 cross-
 "$verify" --mode emit >"$temp_dir/emit-one.json"
 "$verify" --mode emit >"$temp_dir/emit-two.json"
 cmp "$temp_dir/emit-one.json" "$temp_dir/emit-two.json"
-bun -e 'const report = await Bun.file(process.argv[1]).json(); if (report.routeCount !== 27 || report.redirectCount !== 2 || report.stopBlockerCount !== 20 || report.productionReady !== false || report.readinessExit !== 3 || report.statuses.aligned !== 2 || report.statuses.partial !== 2 || report.statuses.blocked !== 23) process.exit(1);' "$temp_dir/emit-one.json"
+bun -e 'const report = await Bun.file(process.argv[1]).json(); if (report.routeCount !== 27 || report.redirectCount !== 3 || report.stopBlockerCount !== 20 || report.productionReady !== false || report.readinessExit !== 3 || report.statuses.aligned !== 2 || report.statuses.partial !== 2 || report.statuses.blocked !== 23) process.exit(1);' "$temp_dir/emit-one.json"
 
 ADMIN_CONTRACT_IN="$contract" ADMIN_CONTRACT_OUT="$temp_dir/tampered.json" bun -e '
 const value = await Bun.file(process.env.ADMIN_CONTRACT_IN).json();

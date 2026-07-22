@@ -523,6 +523,10 @@ fn build_app(state: AppState) -> Router {
         .route("/api/v1/auth/demo", post(session_auth::demo_login))
         .route("/api/v1/auth/me", get(session_auth::auth_me))
         .route("/api/v1/auth/logout", post(session_auth::logout))
+        // The legacy admin login page no longer owns authentication. Keep the
+        // browser entry point deterministic while the canonical auth flow is
+        // reconciled, and never let query input choose the redirect target.
+        .route("/auth", get(admin_auth_redirect))
         // Wave 43 T1 A3 — prod-mirror middleware: redirect
         // `/wallet-management` → `/wallet-management/wallets` to
         // match prod's Vercel middleware (3-hop redirect chain).
@@ -946,6 +950,34 @@ mod routing_tests {
     #[tokio::test]
     async fn admin_redirect_targets_are_fixed_but_transport_drift_remains_visible() {
         for uri in [
+            "/auth",
+            "/auth?next=https%3A%2F%2Fevil.example%2Fsteal",
+            "/auth?return_url=%2F%2Fevil.example%2Fsteal",
+            "/auth?return_url=%2Fwallet-management%2Fwallets&next=%2Fanalytics",
+        ] {
+            let auth = request(Method::GET, uri).await;
+            assert_eq!(auth.status(), StatusCode::TEMPORARY_REDIRECT, "{uri}");
+            assert_eq!(auth.headers()[header::LOCATION], "/", "{uri}");
+            let body = to_bytes(auth.into_body(), 16 * 1024).await.unwrap();
+            let body = String::from_utf8_lossy(&body);
+            assert!(!body.contains("evil.example"), "{uri}");
+            assert!(!body.contains("wallet-management"), "{uri}");
+            assert!(!body.contains("analytics"), "{uri}");
+        }
+
+        let auth_head = request(Method::HEAD, "/auth?return_url=https%3A%2F%2Fevil.example").await;
+        assert_eq!(auth_head.status(), StatusCode::TEMPORARY_REDIRECT);
+        assert_eq!(auth_head.headers()[header::LOCATION], "/");
+        assert!(to_bytes(auth_head.into_body(), 16 * 1024)
+            .await
+            .unwrap()
+            .is_empty());
+
+        let auth_post = request(Method::POST, "/auth?return_url=%2Fanalytics").await;
+        assert_eq!(auth_post.status(), StatusCode::METHOD_NOT_ALLOWED);
+        assert!(auth_post.headers().get(header::LOCATION).is_none());
+
+        for uri in [
             "/wallet-management",
             "/wallet-management?next=https%3A%2F%2Fevil.example%2Fsteal",
         ] {
@@ -979,6 +1011,10 @@ mod routing_tests {
 
 async fn api_health() -> &'static str {
     "ok"
+}
+
+async fn admin_auth_redirect() -> Response {
+    Redirect::temporary("/").into_response()
 }
 
 // Wave 43 T1 A3 — mirror prod's Vercel middleware:

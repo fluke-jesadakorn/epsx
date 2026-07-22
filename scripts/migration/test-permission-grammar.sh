@@ -14,20 +14,19 @@ set +e
 "$verify" --mode readiness >"$temp_dir/readiness.out" 2>&1
 readiness_status=$?
 set -e
-if [ "$readiness_status" -ne 3 ]; then
+if [ "$readiness_status" -ne 0 ]; then
   cat "$temp_dir/readiness.out" >&2
-  echo "permission-grammar self-test: expected readiness exit 3, got $readiness_status" >&2
+  echo "permission-grammar self-test: expected readiness exit 0, got $readiness_status" >&2
   exit 1
 fi
-grep -q "2 security-gate blockers" "$temp_dir/readiness.out"
-grep -q "presentation-drift=2" "$temp_dir/readiness.out"
+grep -q "permission-grammar readiness: PASS" "$temp_dir/readiness.out"
 
 bun "$script_dir/verify-permission-grammar.ts" --emit-inventory >"$temp_dir/scan-one.json"
 bun "$script_dir/verify-permission-grammar.ts" --emit-inventory >"$temp_dir/scan-two.json"
 cmp "$temp_dir/scan-one.json" "$temp_dir/scan-two.json"
 bun -e '
 const scan = await Bun.file(process.argv[1]).json();
-if (scan.summary.total !== 37 || scan.summary.sourceCounts["dioxus-security-gate"] !== 3 || scan.summary.classificationCounts["legacy-2-segment"] !== 2) process.exit(1);
+if (scan.summary.total !== 35 || scan.summary.sourceCounts["dioxus-security-gate"] !== 1 || scan.summary.classificationCounts["legacy-2-segment"] !== 0) process.exit(1);
 if (scan.inventory.some((item) => item.file === "shared/rust/dioxus_ui/src/pages/notifications.rs" || item.permission === "notifications:read" || item.surface === "frontend:notifications")) process.exit(1);
 ' "$temp_dir/scan-one.json"
 
@@ -51,4 +50,4 @@ if [ "$tamper_status" -ne 1 ]; then
 fi
 grep -q "inventory" "$temp_dir/tamper.out"
 
-echo "permission-grammar self-test: PASS (37 records, 2 security-gate blockers, integrity=0, readiness-stop=3, deterministic=stable, tamper=1)"
+echo "permission-grammar self-test: PASS (35 records, 0 security-gate blockers, integrity=0, readiness=0, deterministic=stable, tamper=1)"

@@ -179,16 +179,22 @@ for (const [index, evidence] of contract.targetEvidence.entries()) {
   }
 }
 
-if (!Array.isArray(contract.redirects) || contract.redirects.length !== 2) {
-  fail("exactly two intentional target redirects are required");
+if (!Array.isArray(contract.redirects) || contract.redirects.length !== 3) {
+  fail("exactly three intentional target redirects are required");
 }
 const inventoryRedirects = expected
   .filter((route: Json) => route.target?.kind === "redirect")
   .map((route: Json) => `${route.path}\0${route.target.redirectTo}`)
   .sort();
 const expectedRedirectCurrent = new Map<string, { transport: string; status: number }>([
+  ["/auth", { transport: "http-temporary-pre-ssr", status: 307 }],
   ["/notifications", { transport: "document-javascript", status: 200 }],
   ["/wallet-management", { transport: "http-permanent-pre-ssr", status: 308 }],
+]);
+const expectedRedirectStatus = new Map<string, string>([
+  ["/auth", "blocked"],
+  ["/notifications", "partial"],
+  ["/wallet-management", "partial"],
 ]);
 const expectedRedirectProofGaps = [
   "authenticated-browser-history-rsc-client-navigation",
@@ -205,7 +211,7 @@ const contractRedirects = contract.redirects
     const expectedCurrent = expectedRedirectCurrent.get(redirect.path);
     if (!expectedCurrent) fail(`redirects[${index}] has an unexpected path`);
     if (
-      redirect.status !== "partial" ||
+      redirect.status !== expectedRedirectStatus.get(redirect.path) ||
       typeof redirect.blocker !== "string" ||
       redirect.blocker.length === 0 ||
       redirect.transport !== expectedCurrent.transport ||
@@ -214,7 +220,7 @@ const contractRedirects = contract.redirects
       redirect.fixedTargetProven !== true ||
       redirect.queryCannotChooseTarget !== true
     ) {
-      fail(`redirects[${index}] must retain the observed transport/status and remain partial with fixed-target-only proof`);
+      fail(`redirects[${index}] must retain the observed transport, route status, and fixed-target-only proof`);
     }
     if (JSON.stringify(redirect.proofGaps) !== JSON.stringify(expectedRedirectProofGaps)) {
       fail(`redirects[${index}] must retain the exact three redirect proof gaps`);
@@ -236,7 +242,7 @@ const contractRedirects = contract.redirects
   })
   .sort();
 if (JSON.stringify(inventoryRedirects) !== JSON.stringify(contractRedirects)) {
-  fail("redirect set must equal the two redirect-classified routes in routes.json");
+  fail("redirect set must equal the three redirect-classified routes in routes.json");
 }
 
 if (!Array.isArray(contract.batches) || contract.batches.length !== 7) {
@@ -287,10 +293,10 @@ for (const [routeIndex, route] of contract.routes.entries()) {
   if (route.status !== "aligned" && blockers.length === 0) fail(`${label} non-aligned route must have a blocker`);
   if (
     baseline.target?.kind === "redirect" &&
-    (route.status !== "partial" ||
+    (route.status !== expectedRedirectStatus.get(route.path) ||
       JSON.stringify(blockers) !== JSON.stringify(expectedRedirectRouteBlockers))
   ) {
-    fail(`${label} intentional redirect must remain partial with the exact three route proof blockers`);
+    fail(`${label} intentional redirect must retain its conservative status and the exact three route proof blockers`);
   }
 
   if (route.source?.file !== baseline.sourcePage) fail(`${label}.source.file disagrees with routes.json`);
@@ -383,7 +389,7 @@ const emitted = {
 if (mode === "emit") {
   process.stdout.write(`${JSON.stringify(emitted, null, 2)}\n`);
 } else if (mode === "integrity") {
-  console.log(`admin-live-data: PASS integrity (27 source routes; 2 redirects; ${statuses.aligned} aligned, ${statuses.partial} partial, ${statuses.blocked} blocked; 20 STOP blockers; deterministic offline evidence only)`);
+  console.log(`admin-live-data: PASS integrity (27 source routes; 3 redirects; ${statuses.aligned} aligned, ${statuses.partial} partial, ${statuses.blocked} blocked; 20 STOP blockers; deterministic offline evidence only)`);
 } else if (!emitted.productionReady) {
   console.error(`admin-live-data: STOP readiness (${nonAligned} non-aligned routes: ${statuses.partial} partial, ${statuses.blocked} blocked; ${contract.stopBlockers.length} cross-cutting blockers)`);
   process.exit(3);

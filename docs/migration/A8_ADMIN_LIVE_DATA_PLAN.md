@@ -4,14 +4,15 @@ Status: **integrity PASS target; production readiness STOP**. This is an audit a
 
 ## Baseline and conservative result
 
-The source is pinned to `origin/development@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db`. The audit covers the exact 27 source admin pages in [`contracts/routes.json`](contracts/routes.json), with no target-only alias or migration addition counted as source parity. It separately locks the two source routes whose target kind is intentionally `redirect`:
+The source is pinned to `origin/development@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db`. The audit covers the exact 27 source admin pages in [`contracts/routes.json`](contracts/routes.json), with no target-only alias or migration addition counted as source parity. It separately locks the three source routes whose target kind is intentionally `redirect`:
 
+- `/auth` → `/` now returns a fixed HTTP 307;
 - `/notifications` → `/notifications/manage` currently returns a 200 document whose script calls `location.replace`;
 - `/wallet-management` → `/wallet-management/wallets` currently returns an HTTP 308.
 
-Neither redirect is aligned merely because its destination exists. The pinned source middleware handles `?logout`, session presence, and backend-owned admin verification before either page-level `redirect()` executes. The target notification route traverses SSR but returns a 200 script document; the wallet route returns its established 308 before SSR and therefore bypasses the target SSR session path. An in-process test proves only that both current GET targets are fixed and redirect-shaped query input cannot choose an external destination. It does not prove source parity, query preservation or dropping, cache behavior, method/body handling, browser history, RSC/client navigation, or authenticated middleware/logout/session ordering.
+No redirect is aligned merely because its destination exists. The pinned source middleware handles `?logout`, login-route cookie clearing/session presence, and backend-owned admin verification before page-level redirects execute. The target auth and wallet routes bypass SSR with fixed 307/308 responses; notifications traverses SSR but returns a 200 script document. In-process tests prove only that all three current GET targets are fixed and redirect-shaped query input cannot choose an external destination. `/auth` still does not reproduce source `reason=no-session`, `clear`, or `logout` cookie clearing. The set does not yet prove accepted query policy, cache behavior, method/body handling, browser history, RSC/client navigation, or authenticated middleware/logout/session ordering.
 
-Both routes therefore remain partial until three evidence gaps close: authenticated browser/history/RSC/client-navigation behavior, a pinned-origin method/body/cache matrix, and parity with the source middleware/logout/session ordering. Runtime behavior remains unchanged while those gaps are open.
+All three redirects therefore remain non-aligned until three evidence gaps close: authenticated browser/history/RSC/client-navigation behavior, a pinned-origin method/body/cache matrix, and parity with the source middleware/logout/session ordering. `/auth` is blocked because its cookie-lifecycle semantics are absent; `/notifications` and `/wallet-management` remain partial because only their fixed destinations are proven.
 
 The baseline is deliberately strict:
 
@@ -24,6 +25,8 @@ The B2.1 proof closes the two source denial surfaces. `/access-denied` now prese
 
 Every operational page stays blocked overall, but `/payments` now has the first route-scoped admin loader: the read-only payment-intents tab consumes a bounded authenticated Pay-service response and records explicit ready, empty, unavailable, or malformed state. Its access and payment-link tabs remain intentionally unavailable, and the route still lacks isolated service/database and browser proof. The remaining operational pages dispatch without authoritative page data; the reconciled surfaces now fail closed instead of presenting plausible sample state.
 
+The target-only `/policies` reserved path is not one of the 27 source routes and now delegates directly to the shared 404 page. Its fabricated policy catalog, telemetry, builder, controls, and legacy frontend permission gate are absent; this cleanup does not add or align a source route.
+
 ## What the gate proves
 
 Integrity mode is deterministic and offline. It verifies:
@@ -33,7 +36,7 @@ Integrity mode is deterministic and offline. It verifies:
 3. the current target implementation, dispatcher, admin SSR, and BFF contain the recorded anchors;
 4. the route set, source files, and target handlers equal the checked route inventory exactly;
 5. all 27 routes occur in exactly one of seven execution batches;
-6. the two redirects equal the inventory's exact redirect-classified set;
+6. the three redirects equal the inventory's exact redirect-classified set;
 7. every route inventories dynamic params, reads, fallbacks, read/manage gates, mutations, request/envelope/status findings, six async states, keyboard, responsive behavior, hydration, dependencies, and at least one blocker while non-aligned;
 8. the accepted baseline remains 2 aligned / 2 partial / 23 blocked until evidence is deliberately updated.
 
@@ -98,7 +101,7 @@ Financial, credit, plan, subscription, entitlement, publication, and permission 
 Execute a batch only after its named dependencies are evidence-ready. A route moves to aligned only after focused Rust adapter tests and an authenticated local browser fixture prove every applicable contract field.
 
 1. **B1 command and security — `/`, `/analytics`, `/audit-log`, `/settings`.** Dashboard now fails closed without fabricated KPIs, health, alerts, wallets, transactions, activity, uptime, or freshness; analytics fails closed without charts, metrics, status claims, timestamps, filters, tables, or export; `/audit-log` fails closed without sample actors, IPs, timestamps, totals, filters, expansion, pagination, or export; settings fails closed without invented configuration, API keys, devices, sessions, defaults, editors, or mutation controls. Define canonical aggregate/read models and backend field authorization; establish dedicated dashboard, audit, and settings read permissions; add a typed field-redacted versioned settings adapter instead of default-on-empty behavior; wire query-driven ranges, filters, pagination, and authorized server export; render dependency-specific ready/empty/forbidden/degraded/error/retry states; prove optimistic concurrency and audited settings mutations.
-2. **B2 auth and denial — `/access-denied`, `/auth`, `/unauthorized`, `/developer-portal/api-keys/create`.** `/access-denied` and `/unauthorized` are aligned by the B2.1 adapter/browser proof. Finish A1's durable revoked-session behavior for the auth lifecycle, match `/auth` redirect/status behavior, and decide whether API-key creation remains intentionally denied or regains its source mutation flow.
+2. **B2 auth and denial — `/access-denied`, `/auth`, `/unauthorized`, `/developer-portal/api-keys/create`.** `/access-denied` and `/unauthorized` are aligned by the B2.1 adapter/browser proof. `/auth` now has a fixed pre-SSR 307 to `/`, with no invented permission gate, sign-in selector, delay, request reflection, or open-redirect target; it remains blocked until source cookie-clearing/logout/session ordering, method/cache, and authenticated browser/RSC/history behavior are proven. Finish A1's durable revoked-session behavior and decide whether API-key creation remains intentionally denied or regains its source mutation flow.
 3. **B3 support — `/chat`, `/chat/:id`, `/notifications`, `/notifications/manage`.** Keep `/notifications` partial until its three redirect proof gaps close. Admin chat list/detail now fail closed without canned conversations, messages, counts, presence, filters, replies, assignment, or status actions; detail route references are bounded and explicitly unverified. `/notifications/manage` fails closed without sample rows, metrics, filters, dialogs, or local mutations. Define backend read/manage splits and authoritative list/detail data; implement cursor/query preservation, non-leaking detail errors, assignment/status conflicts, message delivery/reconnect, and scheduled notification conflicts.
 4. **B4 content and media — `/media`, `/news`, `/news/create`, `/news/:id/edit`.** Media now fails closed without sample objects, buckets, storage totals, filters, upload, preview, copy, or delete controls. News list/create/edit fail closed without sample articles, publication history, editor fields, filters, or actions; authenticated edit references are bounded and explicitly unverified, while signed-out dispatcher and BFF shells return only to `/news` without disclosing the reference. Finish A10 authority; wire list/detail/revision data; validate upload size/type/hash; establish publish/cache semantics; add optimistic revisions, autosave/recovery, unsaved-change protection, and accessible editor/upload state.
 5. **B5 commerce — `/payments`, `/wallet-management/credits`, `/wallet-management/access`, `/wallet-management/access/plans`.** `/payments` now has a typed read-only admin-intent adapter with truthful empty/dependency/malformed outcomes and native URL-driven filters/pagination; its other two tabs stay explicitly unavailable and all payment mutations stay unregistered. Credits, wallet access, and wallet-plan list now fail closed without invented balances, assignments, catalogs, permissions, prices, metrics, grant/revoke, or plan controls. Finish isolated service/database and browser proof, split credit read/manage authority, replace the current GET path's get-or-create side effect with a non-mutating bounded read, then complete A4/A6/A9 for credit/access/plan/payment-link work, idempotent audited operations, notification durability, and finality/conflict semantics.
@@ -113,7 +116,7 @@ Execute a batch only after its named dependencies are evidence-ready. A route mo
 | `/access-denied` | bounded/escaped source query denial panel with sanitized links and canonical logout action | presentation only; A1 remains logout-revocation authority | aligned |
 | `/analytics` | explicit unavailable page-owned shell; no metrics, charts, records, status claims, filters, or export | frontend analytics gate removed; backend `admin:analytics:view` and field authorization remain required | blocked |
 | `/audit-log` | explicit unavailable shell; no inferred records, filters, or export | frontend analytics gate removed; dedicated backend audit permission still required | blocked |
-| `/auth` | delayed query-driven script redirect | auth bootstrap coupled to permission | blocked |
+| `/auth` | fixed pre-SSR HTTP 307 to `/`; hostile query targets ignored | invented frontend auth permission removed; source cookie clearing/logout/session ordering and browser/method/cache proof remain open | blocked |
 | `/chat` | explicit unavailable shell; no conversations, counts, presence, filters, or actions | frontend capability inference removed; backend read/manage decision required | blocked |
 | `/chat/:id` | bounded encoded unverified route reference only; no conversation/messages/actions | backend resource authorization and typed detail/version contract required | blocked |
 | `/developer-portal` | explicit unavailable shell; no credentials, usage, modules, documentation claims, or actions | plaintext-key persistence/list projection, redacted read/manage split, secret-once creation, and BFF adapter remain open | blocked |
@@ -178,7 +181,7 @@ A8 may pass only when all of the following are true:
 
 - all exact 27 source routes are `aligned` with empty route blocker arrays;
 - the 20 global STOP blockers are removed because linked evidence exists, not because text was deleted;
-- both redirect routes have accepted and tested HTTP/browser semantics;
+- all three redirect routes have accepted and tested HTTP/browser semantics;
 - every operational page consumes authoritative Rust service data without plausible sample fallback;
 - all reads and mutations enforce exact backend-owned authorization and resource ownership;
 - request bodies, response/error envelopes, and statuses are versioned and preserved by A5;

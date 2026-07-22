@@ -5,6 +5,11 @@ touching any page file. Wave 3a laid the layout foundation (chrome
 rendered once per app, wallet state plumbed BFF → page); Wave 3b fills
 in the per-page auth story that Wave 2/3a left as bare stubs.
 
+> Historical design only. The checked A4 permission inventory and A7/A8
+> live-data contracts supersede the implementation directions below. Do not
+> restore legacy frontend permission strings or sample-backed controls from
+> this document.
+
 ## Goal
 
 The four Rust auth primitives exist and work end-to-end:
@@ -387,15 +392,14 @@ before integration.
   introduced 12+ UI permission strings. The current deterministic A4 inventory
   has since removed literals from unavailable surfaces and is authoritative;
   do not restore or invent frontend policy while backend contracts are absent.
-- **Wave 2 `unauthorized.rs` precedent**: it already uses
-  `"admin:*"`. Track B may use the same wildcard for coarse-grained
-  pages where the specific permission isn't obvious from the TS
-  source. The verifier will accept this.
+- **Wave 2 `unauthorized.rs` precedent**: its `"admin:*"` value is now
+  inventoried as impossible/cross-grammar presentation text, not an
+  enforcement wildcard. It must not be copied into an auth gate.
 - **`<AccessDenied>` and `<AuthGate>` confusion**: see §5. The
   integration agent and verifier will check this explicitly.
-- **`return_url` on `/auth`**: not meaningful, but the gate's
-  default connect-href is `/auth` — leaving `return_url` unset on
-  `/auth` is correct (it's the auth route, not a gated one).
+- **`/auth` is not gated**: the current BFF returns a fixed 307 to `/`; the
+  direct Dioxus fallback is also fixed and request-independent. Do not restore
+  a permission gate, sign-in selector, or query-selected redirect target.
 - **Public API stability**: §4 is a hard rule. Wave 1 + Wave 2
   established this. Track workers who are tempted to "tidy up" the
   gate component signatures must NOT. Add new prop values, not new
@@ -403,9 +407,9 @@ before integration.
 - **SSR safety**: all gate components are pure render — no
   `use_signal`, no client-only state. The BFF can call them
   unconditionally. (Verified in Wave 2 Track C; Wave 3a re-verified.)
-- **Test counts**: the existing 13 unit tests (9 Wave 1+2 + 3 Wave 3a
-  + 1 stub) MUST all still pass after Wave 3b. The verifier runs
-  the full `cargo test -p epsx_dioxus_ui` suite.
+- **Historical test counts**: the old 13-test expectation is obsolete. Run the
+  current full `cargo test --locked --offline -p epsx-dioxus-ui --lib` suite
+  and the checked migration gates instead.
 
 ## Push cadence
 

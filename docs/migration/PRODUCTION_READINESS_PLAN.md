@@ -73,7 +73,7 @@ The audited path inventory is in `docs/wave21-pixel-recheck/route-inventory.md`.
 | Surface | Source pages | Target path counterparts | Path result | Important distinction |
 |---|---:|---:|---|---|
 | Frontend | 28 | 28 | 28/28 | Includes dynamic examples such as chat, news, and payment; says nothing about live behavior. |
-| Admin | 27 | 27 | 27/27 | Two source paths intentionally redirect to canonical management paths. |
+| Admin | 27 | 27 | 27/27 | Three source paths have fixed redirect-shaped targets; transport and middleware parity remain separate. |
 
 The frontend E2E inventory has 28 representative paths. The admin E2E inventory
 has 29 scenarios because it includes target routing samples/additions beyond the
@@ -171,11 +171,11 @@ and revocation behavior remain canonical.
   handlers. Those handlers remain unsuitable for production until real chain,
   transaction, idempotency, and recovery contracts replace them.
 - Both BFFs preserve verified backend permissions without expanding roles. The
-  37-record permission inventory contains three Dioxus security-gate records and,
-  by grammar, 33 canonical three-segment records, two legacy two-segment gates,
-  one unknown record, and one impossible/cross-grammar record. The two legacy
-  security gates remain blockers; UI gates remain presentation controls, never
-  policy authority. The ten removed legacy gates were the invented
+  35-record permission inventory contains one Dioxus security-gate record and,
+  by grammar, 33 canonical three-segment records, no legacy two-segment gates,
+  one unknown record, and one impossible/cross-grammar presentation record. The
+  permission-grammar readiness gate now passes; UI gates remain presentation
+  controls, never policy authority. The ten removed legacy gates were the invented
   `profile:read`/`profile:write`, duplicate `payments:read`, `analytics:read`,
   `permissions:read`, and four `chat:read`/`chat:write` checks on
   authentication-only, public-unavailable, or deliberately unavailable
@@ -185,7 +185,8 @@ and revocation behavior remain canonical.
   operational records or actions. Nine more canonical UI literals were removed
   from fail-closed analytics, wallet list/detail/disable, wallet-access, and
   wallet-plan surfaces; their future read/manage authorization remains
-  backend-owned.
+  backend-owned. The final two legacy literals were removed with the fixed
+  `/auth` redirect and the target-only `/policies` 404.
 - The deployed identity ranking service returns offset `100` for all wallets,
   including paid users. This is not acceptable entitlement behavior.
 
@@ -270,7 +271,7 @@ passed`. It is not a percentage estimate of engineering effort.
 | Gate | Score | Current evidence | Done when |
 |---|---:|---|---|
 | Frontend path presence | 2 | 28/28 dispatcher counterparts | Inventory and dispatcher contract test stay green. |
-| Admin path presence | 2 | 27/27 counterparts; two canonical redirects | Redirects and dynamic params have contract tests. |
+| Admin path presence | 2 | 27/27 counterparts; three fixed redirects | Redirects and dynamic params have contract tests. |
 | Shared UI package baseline | 2 | Targeted unit/doctest repair in this slice | `cargo test -p epsx-dioxus-ui --lib` and `--doc` pass. |
 | Visual/responsive/accessibility | 1 | Historical screenshots exist; current accepted baseline is incomplete | All routes pass agreed viewport, state, keyboard, and accessibility thresholds. |
 | Interaction parity | 0 | No complete click/form/wallet/navigation matrix | Every interactive control has E2E success and failure coverage. |
@@ -341,7 +342,7 @@ bounded path set. Shared contract files require coordination through package A0.
 - **Scope:** create a machine-readable route/API/cookie/status inventory under
   `docs/migration/contracts/`; add non-production test scripts under
   `scripts/migration/`; cover 28 frontend and 27 admin source paths, dynamic
-  params, two admin canonical redirects, and monolith API baselines.
+  params, three admin redirects, and monolith API baselines.
 - **Do not change:** runtime routing, business logic, database schemas, or infra.
 - **Dependencies:** none.
 - **Acceptance:**
@@ -644,12 +645,13 @@ bounded path set. Shared contract files require coordination through package A0.
   fall back to the free plan on authority failure.
 
 - **A4.0/A8.1 status:** the deterministic permission-grammar inventory covers
-  37 UI/service records, including three Dioxus security gates. Unavailable
+  35 UI/service records, including one canonical Dioxus security gate. Unavailable
   analytics, wallet, wallet-access, and wallet-plan surfaces now use only the
-  session boundary while all future read/manage policy remains backend-owned;
-  readiness intentionally stops with two legacy security gates and two
-  presentation-only drift records. Entitlement and ranking-offset parity in the
-  acceptance condition above is not yet implemented.
+  session boundary while all future read/manage policy remains backend-owned.
+  Grammar-only readiness now passes with no legacy security gates; two
+  presentation-only records remain inventoried but do not enforce access.
+  Entitlement and ranking-offset parity in the acceptance condition above is
+  not yet implemented, so A4 and production readiness remain open.
 
 ### A5 — BFF/API contract alignment (P0)
 
@@ -827,19 +829,21 @@ bounded path set. Shared contract files require coordination through package A0.
   ./scripts/migration/verify-admin-mutation-authorization.sh
   ```
 
-  All 27 source paths, dynamic params, and two canonical redirects must pass.
+  All 27 source paths, dynamic params, and three redirects must pass.
 
 - **A8.0–A8.1 status:** the pinned admin contract covers the exact 27 source
-  routes and both intentional redirects in seven execution batches. It records
+  routes and all three intentional redirects in seven execution batches. It records
   two aligned, two partial, and 23 blocked routes plus 20 cross-cutting STOP
   blockers. `/access-denied` and `/unauthorized` now preserve bounded escaped
   copy, inherited metadata, safe reauthentication/return behavior, keyboard
   order, responsive light/dark layout, and authenticated local browser proof.
-  `/notifications` remains a partial 200 script redirect and
-  `/wallet-management` remains a partial pre-SSR HTTP 308; fixed-target
-  in-process proof does not establish source middleware/logout/session ordering,
-  method/body/cache semantics, query policy, or authenticated browser history,
-  RSC, and client-navigation parity. The admin SSR still provides no general
+  `/auth` is now a fixed pre-SSR 307 to `/` with no legacy frontend gate or
+  query-selected target, but stays blocked on source cookie-clearing/logout
+  ordering and browser/method/cache proof. `/notifications` remains a partial
+  200 script redirect and `/wallet-management` remains a partial pre-SSR HTTP
+  308; fixed-target in-process proof does not establish source middleware/logout/
+  session ordering, accepted method/body/cache/query semantics, or authenticated
+  browser history, RSC, and client-navigation parity. The admin SSR still provides no general
   per-page loader. Dashboard, analytics, audit-log, chat list/detail, media,
   news list/create/edit, notification manage/create, settings, developer portal,
   wallet credits/access/list/detail/disable, and wallet-plan list/detail now
@@ -848,7 +852,9 @@ bounded path set. Shared contract files require coordination through package A0.
   upload controls, or mutations. The read-only payment-intents tab is the sole
   operational page with a bounded typed loader; source mutation contracts and
   BFF paths still drift, and preserved statuses still lack typed envelopes and
-  general page-level consumption. Developer-portal readiness additionally
+  general page-level consumption. The target-only `/policies` addition now
+  returns the shared 404 and exposes no fabricated policy state or gate.
+  Developer-portal readiness additionally
   stops on plaintext `api_keys.full_key` persistence/list projection; credit
   readiness stops on a GET path that can create a balance record and on the
   unresolved financial mutation authority.

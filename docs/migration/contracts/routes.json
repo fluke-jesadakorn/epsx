@@ -51,7 +51,7 @@
         {"path":"/access-denied","sourcePage":"apps/admin-frontend/app/access-denied/page.tsx","target":{"file":"shared/rust/dioxus_ui/src/pages/admin_pages.rs","handler":"access_denied_panel::render","kind":"static","evidence":["\"/access-denied\" | \"/unauthorized\" | \"/developer-portal/api-keys/create\"","return access_denied_panel::render(ctx)"]}},
         {"path":"/analytics","sourcePage":"apps/admin-frontend/app/analytics/page.tsx","target":{"file":"shared/rust/dioxus_ui/src/pages/admin_pages.rs","handler":"analytics::render","kind":"static","evidence":["\"/analytics\" => analytics::render(ctx)"]}},
         {"path":"/audit-log","sourcePage":"apps/admin-frontend/app/audit-log/page.tsx","target":{"file":"shared/rust/dioxus_ui/src/pages/admin_pages.rs","handler":"audit_log::render","kind":"static","evidence":["\"/audit-log\" => audit_log::render(ctx)"]}},
-        {"path":"/auth","sourcePage":"apps/admin-frontend/app/auth/page.tsx","target":{"file":"shared/rust/dioxus_ui/src/pages/admin_pages.rs","handler":"auth_page::render","kind":"static","evidence":["\"/auth\" => auth_page::render(ctx)"]}},
+        {"path":"/auth","sourcePage":"apps/admin-frontend/app/auth/page.tsx","target":{"file":"apps/admin/src/main.rs","handler":"admin_auth_redirect","kind":"redirect","redirectTo":"/","evidence":[".route(\"/auth\", get(admin_auth_redirect))","async fn admin_auth_redirect() -> Response","Redirect::temporary(\"/\")"]}},
         {"path":"/chat","sourcePage":"apps/admin-frontend/app/chat/page.tsx","target":{"file":"shared/rust/dioxus_ui/src/pages/admin_pages.rs","handler":"chat::render","kind":"static","evidence":["\"/chat\" => chat::render(ctx)"]}},
         {"path":"/chat/:id","sourcePage":"apps/admin-frontend/app/chat/[id]/page.tsx","target":{"file":"shared/rust/dioxus_ui/src/pages/admin_pages.rs","handler":"chat::render_conversation","kind":"dynamic","evidence":["p.starts_with(\"/chat/\")","c.params.insert(\"id\".into(), id)","chat::render_conversation(&c)"]}},
         {"path":"/developer-portal","sourcePage":"apps/admin-frontend/app/developer-portal/page.tsx","target":{"file":"shared/rust/dioxus_ui/src/pages/admin_pages.rs","handler":"developer_portal::render","kind":"static","evidence":["\"/developer-portal\" => developer_portal::render(ctx)"]}},
@@ -78,11 +78,12 @@
       "targetOnly": [
         {"path":"/index","classification":"alias","target":{"file":"shared/rust/dioxus_ui/src/pages/admin_pages.rs","handler":"dashboard::render","kind":"static","evidence":["\"/\" | \"/index\" => dashboard::render(ctx)"]}},
         {"path":"/dashboard","classification":"migration-only-reserved-path","target":{"file":"shared/rust/dioxus_ui/src/pages/admin_pages.rs","handler":"not_found::render","kind":"fallback","evidence":["!matches!(p, \"/dashboard\" | \"/policies\")","\"/dashboard\" => \"admin-dashboard\"","not_found::render(ctx)"]}},
-        {"path":"/policies","classification":"migration-addition","target":{"file":"shared/rust/dioxus_ui/src/pages/admin_pages.rs","handler":"policies::render","kind":"static","evidence":["\"/policies\" => policies::render(ctx)"]}}
+        {"path":"/policies","classification":"migration-only-reserved-path","target":{"file":"shared/rust/dioxus_ui/src/pages/admin_pages/policies.rs","handler":"policies::render","kind":"fallback","evidence":["pub fn render(ctx: &PageContext) -> (PageMeta, Element)","not_found::render(ctx)"]}}
       ]
     }
   },
   "intentionalAdminRedirects": [
+    {"path":"/auth","to":"/","handler":"admin_auth_redirect"},
     {"path":"/notifications","to":"/notifications/manage","handler":"notifications_redirect::render"},
     {"path":"/wallet-management","to":"/wallet-management/wallets","handler":"wallet_redirect_to_wallets"}
   ]
