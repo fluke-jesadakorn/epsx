@@ -8,6 +8,19 @@ Status: **design/audit only; production readiness is STOP**. This document does 
 
 The canonical backend already has the closest production-shaped flow: authenticated wallet ownership, server-side plan/price checks, atomic submission bookkeeping, unique transaction hash protection, owner-scoped status reads, receipt and ERC-20 `Transfer` verification, and a configurable 15-mainnet/3-non-mainnet confirmation gate. That is evidence, not proof that the extracted microservices are safe or that both write models may run together.
 
+This reconciliation does **not** select that backend, the historical prototype, `services/pay`, or `services/subscription` as the future production write authority. The locked decision remains `unresolved-do-not-cut-over-or-dual-write`, and `productionWriteAuthority` remains `null`.
+
+## Exact schema, route, and database crosswalk
+
+| Model | Pinned schema tables | Route prefix | Database evidence | Reachability evidence |
+|---|---|---|---|---|
+| Canonical backend | `payments`, `subscriptions`, `stock_ranking_assignments`, `payment_contexts`, `wallet_credits`, `credit_transactions`, `payment_audit_log` | `/api/payments` | Backend runtime compose uses `epsx_payments_dev`, while its migrator uses `epsx_pay_dev`; environment provisioning also names `epsx_payments_{dev,staging,prod}`; unset `PAYMENTS_DATABASE_URL` falls back to primary `DATABASE_URL` | Existing production-shaped writer; this audit does not declare it the future authority |
+| Historical `development` prototype at `6fe4d5bb…` | `payment_intents`, `escrows` | `/api/v1/payment` | `epsx_payment` | Historical unauthenticated, runtime-DDL, DB-only writer; provenance only |
+| Current pay candidate | `pay_intents`, `escrows`, `pay_links`, `pay_webhook_events` | `/api/v1/pay`, `/api/v1/admin/pay` | `epsx_pay` | Owner/admin reads are principal scoped; owner/internal mutations are `404`; admin mutations are `401`/`403` unless authorized with manage permission, then handler-unavailable `404` |
+| Current subscription candidate | `subscription_plans`, `subscriptions` | `/api/v1/subscription` | `epsx_subscription` | Protected router: plan reads/manage require admin audience plus their exact permission; owner lifecycle and vault remain `404` |
+
+The environment provisioning path still emits `epsx_payments_{dev,staging,prod}`. The pay deployment manifest names `epsx_pay`; backend compose points the canonical backend runtime at `epsx_payments_dev` but its migrator at `epsx_pay_dev`. These are evidence of unresolved naming and authority, not aliases proven to contain equivalent data. In particular, renaming `epsx_payment` to `epsx_pay` would not rename `payment_intents` to `pay_intents`. The guarded A3.13 fresh-schema migration has no `ALTER TABLE`, backfill, or adoption ledger, and the old `escrows` shape is not proven compatible with the exact current candidate shape.
+
 ## Observed Rust drift
 
 | Surface | Observed contract | Stop reason |
@@ -17,10 +30,22 @@ The canonical backend already has the closest production-shaped flow: authentica
 | Pay hostname | Cloudflare `4747 -> NodePort 30082 -> pay service` | Bypasses the pay BFF even though the config comment says BFF |
 | Pay BFF | singular `/api/v1/pay/intent*`; calls service `/execute` | Service exposes plural `/intents*` and `/confirm`, not `/execute`; no auth context forwarding |
 | Gateway | `/api/v1/payment/*` proxy; financial policy blocked | No proven `/payment/* -> /pay/*` rewrite or ownership boundary |
-| Pay service | exact read-only A3.13 schema boundary; write handlers remain 404 | Caller-supplied coordinates, no idempotency transaction, no receipt/finality verification; candidate database authority unresolved |
-| Admin BFF | `/api/v1/payment/*`, empty confirm/release bodies | Confirm needs `tx_hash`; release body needs `escrow_id`; permission/participant rules are not enforced downstream |
-| Subscription service | A3.7 schema boundary; public CRUD, active-on-insert, zero vault | No verified payment, owner scope, unique active subscription, reviewed runner/adoption, or deployment |
+| Pay service | exact read-only A3.13 schema boundary; owner/admin reads are verified-principal scoped | Owner/internal mutations remain `404`; admin mutations are auth-gated `401`/`403` and return handler-unavailable `404` only after manage authorization; inactive bodies still trust caller coordinates and lack execution proof |
+| Admin BFF | `/api/v1/payment/*`, empty confirm/release bodies | Downstream authorization is enforced, but valid manage authority still reaches only handler-unavailable `404`; inactive handler DTOs require fields the BFF omits |
+| Subscription service | A3.7 schema boundary behind OIDC; plan reads need `admin:plans:read`, plan creates need `admin:plans:manage`; owner lifecycle/vault remain `404` | Unreachable subscription/vault bodies contain caller `user_id`, active-on-insert, and zero-vault behavior; no owner/funding lifecycle, uniqueness proof, reviewed runner/adoption, or deployment |
 | Durable data | canonical `payments.*` plus separate pay/subscription tables | No declared system of record, cutover, reconciliation, or outbox |
+
+## Corrected runtime-DDL residual
+
+A3.13 reduced pay-service Rust scanner findings from `10` to `0`. The central A3.3 inventory now has exactly three remaining actionable records, all outside pay:
+
+| Finding | Exact location | Correct meaning |
+|---|---|---|
+| `finding.002` | `apps/backend/src/bin/blockchain_monitor.rs:84` | Lexical match in “Failed to create database pool”; not schema DDL |
+| `finding.003` | `apps/backend/src/bin/migrate.rs:74` | Executable runtime `CREATE DATABASE` bootstrap |
+| `finding.004` | `apps/backend/src/main.rs:38` | Lexical match in “Failed to create database pool”; not schema DDL |
+
+The contract pins each file, line, and exact anchor. This is a correction to evidence only; it neither clears A3.3 nor authorizes changing those runtime files.
 
 ## Required execution order
 
