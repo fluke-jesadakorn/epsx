@@ -87,14 +87,14 @@
     {
       "path":"/account","batch":"B2-identity","status":"blocked","dependencies":["A1","A5","A6"],
       "source":{"file":"apps/frontend/app/account/page.tsx","anchors":["export default async function AccountPage()","pagination:"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/account.rs","handler":"account::render","anchors":["pub fn render(ctx: &PageContext)","let payment_history_load = payment_history_load(&ctx);","PaymentHistoryLoad::SignedOut"]},
-      "payloads":{"staticOrSample":["zero/not-connected account-stat fallback and local preference defaults"],"placeholderOrSkeleton":[]},
-      "loader":{"kind":"owner-gateway-explicit-outcome-first-page","endpoints":["GET /api/v1/account","GET /api/v1/auth/me","GET /api/v1/pay/history/{session-wallet}?limit=10&offset=0"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"account_payment_history_path(owner)"},{"file":"services/gateway/src/policy.rs","anchor":"safe_wallet_segment(wallet)"},{"file":"services/pay/src/handlers/pay_history.rs","anchor":"let addr = canonical_owner(&principal, Some(&address))?;"}]},
-      "authOwner":{"auth":"optional account shell; payment history requires a locally verified session, authenticated gateway forwarding, and a supported Pay audience","owner":"path owner comes only from the verified session wallet; Pay repeats canonical_owner and hides mismatches"},
-      "interactions":{"forms":[],"pagination":["canonical first page is fixed at limit 10 and offset 0; later pinned-source pagination remains absent"],"search":[],"wallet":["account identity display; payment owner never comes from query or connected-wallet cookies"],"keyboard":["native payment refresh, retry, sign-in, and page links"],"controls":["payment history refresh/retry is native; notification preferences remain local signals only"]},
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/account.rs","handler":"account::render","anchors":["pub fn render(ctx: &PageContext)","let payment_history_load = payment_history_load(&ctx);","NotificationPreferencesSection { signed_in: session_user.is_some() }"]},
+      "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
+      "loader":{"kind":"locally-verified-session-claims-plus-owner-gateway-explicit-outcome-first-page","endpoints":["GET /api/v1/pay/history/{session-wallet}?limit=10&offset=0"],"evidence":[{"file":"apps/frontend/src/auth.rs","anchor":"pub async fn verified_access_token("},{"file":"apps/frontend/src/ssr.rs","anchor":"account_payment_history_path(owner)"},{"file":"services/gateway/src/policy.rs","anchor":"safe_wallet_segment(wallet)"},{"file":"services/pay/src/handlers/pay_history.rs","anchor":"let addr = canonical_owner(&principal, Some(&address))?;"}]},
+      "authOwner":{"auth":"optional account shell; verified session claims drive wallet/auth-method display, while payment history requires authenticated gateway forwarding and a supported Pay audience","owner":"only the verified session wallet is displayed or selects financial records; Pay repeats canonical_owner and hides mismatches; profile, credit, access-plan, and preference ownership is not asserted"},
+      "interactions":{"forms":[],"pagination":["canonical first payment-history page is fixed at limit 10 and offset 0; later pinned-source pagination remains absent"],"search":[],"wallet":["verified session wallet/auth method only; payment owner never comes from query, compatibility payloads, or connected-wallet cookies"],"keyboard":["native payment refresh, retry, sign-in, credit, notification, account, and policy links"],"controls":["payment history recovery is native; preference toggles and fake persistence are removed in favor of signed-out/unavailable read-only states"]},
       "states":{"loading":"not-applicable","empty":"present","error":"present","retry":"present"},
-      "hydration":{"need":"browser","status":"partial","reason":"preference toggles are local and not persisted"},
-      "blockers":["prove owner separation against an isolated Pay-service/database fixture and focused browser, then add source-compatible payment-history pagination without client-selected ownership","replace zero account-stat fallbacks and persist backend-owned account preferences; A1/A5/A6 remain open"]
+      "hydration":{"need":"none","status":"not-applicable","reason":"verified session claims, fail-closed unsupported sections, payment outcomes, and every recovery action are server-rendered with native links"},
+      "blockers":["prove owner separation against an isolated Pay-service/database fixture and focused browser, then add source-compatible payment-history pagination without client-selected ownership","add strict owner-scoped profile/member-date, credit, access-plan projection, and notification-preference read/write contracts with explicit unavailable/malformed outcomes before restoring those controls; A1/A5/A6 remain open"]
     },
     {
       "path":"/account/credits","batch":"B2-identity","status":"blocked","dependencies":["A1","A5","A6"],
@@ -123,14 +123,14 @@
     {
       "path":"/analytics","batch":"B3-insights","status":"blocked","dependencies":["A4","A5"],
       "source":{"file":"apps/frontend/app/analytics/page.tsx","anchors":["export default async function AnalyticsPage","<ServerCardDashboard searchParams="]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/analytics.rs","handler":"analytics::render","anchors":["pub fn render(ctx: &PageContext)","fn sample_rankings()"]},
-      "payloads":{"staticOrSample":["sample_rankings, sample_events, sample PnL and volume series"],"placeholderOrSkeleton":[]},
-      "loader":{"kind":"gateway-unused","endpoints":["GET /api/v1/analytics/summary"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"\"/api/v1/analytics/summary\""}]},
-      "authOwner":{"auth":"AuthGate protected","owner":"session entitlement and ranking offset"},
-      "interactions":{"forms":["filter controls do not issue a live query"],"pagination":["table link pagination only"],"search":[],"wallet":[],"keyboard":["dialog/filter buttons require hydration"],"controls":["filters and export are local UI state"]},
-      "states":{"loading":"missing","empty":"missing","error":"missing","retry":"missing"},
-      "hydration":{"need":"browser","status":"partial","reason":"filter/export signals are present but no live data transition exists"},
-      "blockers":["consume data_analytics; move permission/ranking decisions to A4 backend; implement query, loading, empty, error, retry, pagination, and export"]
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/analytics.rs","handler":"analytics::render","anchors":["pub fn render(ctx: &PageContext)","AnalyticsUnavailableContent { signed_in }","data-analytics-state\": \"unavailable"]},
+      "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
+      "loader":{"kind":"intentional-unavailable-no-verified-rankings-contract","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"Ranking data and entitlement"}]},
+      "authOwner":{"auth":"public route; locally verified authentication changes only safe navigation","owner":"none asserted; ranking offsets, plan access, permissions, and watchlist ownership remain backend responsibilities and are not calculated or rendered"},
+      "interactions":{"forms":[],"pagination":["absent until the backend owns validated query and bounded page state"],"search":[],"wallet":["optional native sign-in/account navigation only"],"keyboard":["native retry, plans, sign-in, and account links"],"controls":["fake filters, export, pagination, watchlist, permission gate, and ranking interactions removed"]},
+      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"present"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"public unavailable state and conditional native navigation are fully server-rendered"},
+      "blockers":["A4/A5 must provide a strict end-to-end rankings DTO, backend-owned entitlement/offset decisions, validated query/filter/sort/pagination, watchlist ownership, export policy, complete async outcomes, and browser proof before rankings return"]
     },
     {
       "path":"/dashboard","batch":"B3-insights","status":"blocked","dependencies":["A1","A4","A5"],
@@ -219,14 +219,14 @@
     {
       "path":"/developer","batch":"B5-developer","status":"blocked","dependencies":["A1","A4","A5"],
       "source":{"file":"apps/frontend/app/developer/page.tsx","anchors":["export default async function DeveloperPage()","APIKeyManager"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/developer.rs","handler":"developer::render_overview","anchors":["pub fn render_overview(ctx: &PageContext)","ctx.params.get(\"data_developer\")"]},
-      "payloads":{"staticOrSample":["default permission selections and empty/default API key stats"],"placeholderOrSkeleton":["pinned dynamic APIKeyManager pulse skeleton"]},
-      "loader":{"kind":"gateway","endpoints":["GET /api/v1/developer"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"\"/api/v1/developer\""}]},
-      "authOwner":{"auth":"required","owner":"session wallet API keys"},
-      "interactions":{"forms":["create/revoke callbacks mutate local vectors only"],"pagination":[],"search":[],"wallet":[],"keyboard":["name/scopes form must support keyboard submit"],"controls":["API key create/revoke and permission selection"]},
-      "states":{"loading":"missing","empty":"present","error":"missing","retry":"missing"},
-      "hydration":{"need":"browser","status":"partial","reason":"local form state exists without durable mutations"},
-      "blockers":["wire owner-scoped API-key create/revoke with server-authorized scopes, secret-once handling, and complete async states"]
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/developer.rs","handler":"developer::render_overview","anchors":["pub fn render_overview(ctx: &PageContext)","DeveloperOverviewUnavailable {}","data-section\": \"developer-overview-unavailable"]},
+      "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
+      "loader":{"kind":"intentional-unavailable-no-owner-api-key-contract","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"API-key and rate-limit data"}]},
+      "authOwner":{"auth":"required by authentication-only AuthGate with native return URL","owner":"verified session only opens the unavailable surface; no API key, secret, plan, permission, rate, usage, or expiry ownership is asserted"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native retry and documentation links"],"controls":["local create, revoke, refresh, permission selection, expiry, and fake secret controls removed"]},
+      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"present"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"authentication gate, unavailable state, and recovery navigation are server-rendered native controls"},
+      "blockers":["add authenticated owner-scoped API-key list/create/revoke contracts with backend-authorized scopes and plans, secret-once delivery, rate/usage/expiry reads, typed async outcomes, audit/recovery, and browser proof under A1/A4/A5"]
     },
     {
       "path":"/developer/docs","batch":"B5-developer","status":"partial","dependencies":["A1","A4","A5"],
@@ -253,16 +253,16 @@
       "blockers":["add owner-scoped metering, A4-owned plan/rate-limit decisions, strict DTO validation, range/history pagination, typed loading/error states, and isolated owner/browser proof"]
     },
     {
-      "path":"/manual","batch":"B5-developer","status":"aligned","dependencies":[],
+      "path":"/manual","batch":"B5-developer","status":"partial","dependencies":["A1","A4","A5","A6"],
       "source":{"file":"apps/frontend/app/manual/page.tsx","anchors":["export default function ManualPage()","Complete guide to all platform features"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/manual.rs","handler":"manual::render","anchors":["pub fn render(ctx: &PageContext)","const FEATURES:","data-manual-screenshot","aria-label\": \"Manual categories"]},
-      "payloads":{"staticOrSample":["accepted intentional static 35-feature manual catalog from the pinned source"],"placeholderOrSkeleton":[]},
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/manual.rs","handler":"manual::render","anchors":["pub fn render(ctx: &PageContext)","const FEATURES:","data-manual-screenshot","data-manual-availability-notice","aria-label\": \"Manual categories"]},
+      "payloads":{"staticOrSample":["intentional static 35-feature target catalog from the pinned source; the visible availability notice prevents its intended-workflow descriptions from asserting current runtime capability"],"placeholderOrSkeleton":[]},
       "loader":{"kind":"none","endpoints":[],"evidence":[]},
       "authOwner":{"auth":"public","owner":"none"},
       "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["mobile and desktop category anchors, screenshot dialog focus trap/Escape/restore, dynamic-route suppression, and route-link activation proven by e2e/frontend/manual-runtime.spec.ts"],"controls":["eight category anchors, 35 screenshot controls with fallback/dialog, 34 concrete route links, and one disabled dynamic route template"]},
       "states":{"loading":"not-applicable","empty":"not-applicable","error":"not-applicable","retry":"not-applicable"},
       "hydration":{"need":"browser","status":"implemented","reason":"constant route-scoped BFF bridge restores source screenshot viewing and adds error fallback plus accessible dialog keyboard behavior"},
-      "blockers":[]
+      "blockers":["obtain product acceptance for the safety-driven target-catalog disclaimer and synchronize capability descriptions with authoritative route availability before claiming current-state documentation; add browser proof for the visible notice"]
     },
     {
       "path":"/plans","batch":"B6-commerce-support","status":"blocked","dependencies":["A4","A5","A6"],

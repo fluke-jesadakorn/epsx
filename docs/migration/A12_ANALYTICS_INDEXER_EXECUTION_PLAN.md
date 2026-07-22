@@ -41,7 +41,7 @@ The market service retains the monolith's TradingView implementation through re-
 
 `services/analytics` now has a direct JWT boundary: tracking requires a verified frontend/admin audience and reads require admin audience plus `admin:analytics:view`. That is useful evidence, not end-to-end readiness.
 
-The service now uses a guarded additive `public.events` migration and exact read-only startup compatibility probe. That static boundary has no reviewed runner/version ledger, populated-baseline adoption, source-version upgrade, concurrent-startup, or live-database proof. It still stores `NULL` for canonical subjects because its column is UUID while subjects are wallets, accepts arbitrary event names/properties, and has no producer event ID or deduplication contract. Its revenue endpoint counts `subscription.created`; it explicitly notes that payment integration is required for exact values. The frontend tracking adapter returns `{"ok":true}` even when the upstream fails, and SSR asks for `/api/v1/analytics/summary`, which the service does not expose.
+The service now uses a guarded additive `public.events` migration and exact read-only startup compatibility probe. That static boundary has no reviewed runner/version ledger, populated-baseline adoption, source-version upgrade, concurrent-startup, or live-database proof. It still stores `NULL` for canonical subjects because its column is UUID while subjects are wallets, accepts arbitrary event names/properties, and has no producer event ID or deduplication contract. Its revenue endpoint counts `subscription.created`; it explicitly notes that payment integration is required for exact values. The frontend tracking adapter returns `{"ok":true}` even when the upstream fails. The former mismatched SSR request for `/api/v1/analytics/summary` is removed; rankings now have no loader and fail closed pending the separate market-analytics contract.
 
 ### Indexer
 
@@ -53,7 +53,7 @@ The direct service narrows `/sync` to POST, verifies the admin audience plus `ad
 
 The identity HTTP side publicly mounts `POST /v1/emit` beside the ranking-offset SSE stream. The stream is an in-memory broadcast: lagged events can be dropped and there is no revision/cursor/replay repair. Neither this stream nor the gRPC query is backed by active plan assignments.
 
-The Dioxus analytics page uses sample rankings, sample events and generated charts while rendering a `Live` label. Portfolio uses six static stocks. Those fixtures are appropriate for isolated visual tests only; they are a release blocker when presented as production data.
+The Dioxus analytics page now removes sample rankings/events/charts and the `Live` label, ignores compatibility payloads, and fails closed with an explicit unavailable state. Portfolio still uses six static stocks. The analytics route remains blocked rather than aligned because no verified market-data loader, entitlement/query contract, complete async states, or browser proof exists.
 
 ## Locked execution sequence
 

@@ -289,12 +289,9 @@ pub fn build_app(state: AppState) -> Router {
         .route("/api/v1/news", get(api_news))
         .route("/api/v1/news/{slug}", get(api_news_post))
         .route("/api/v1/portfolio/{addr}", get(api_portfolio))
-        // Legacy data_X compatibility endpoints that still have explicit
-        // consumers. Financial and metering mocks are intentionally absent.
-        .route("/api/v1/account", get(api_account))
-        .route("/api/v1/developer", get(api_developer))
-        .route("/api/v1/developer/docs", get(api_developer_docs))
-        .route("/api/v1/analytics/summary", get(api_analytics))
+        // The dashboard is the last legacy data_X compatibility producer in
+        // this block. Identity, developer, analytics, financial, and metering
+        // mocks are intentionally absent.
         .route("/api/v1/dashboard", get(api_dashboard))
         // Wave 31 T1 / Wave 32 T1 — `/api/v1/dashboard/stats` is
         // the explicit stats endpoint. Wave 31 T1 added the route
@@ -467,7 +464,11 @@ mod routing_tests {
             "/api/",
             "/api/v1/plans/extra",
             "/api/v1/credits",
+            "/api/v1/account",
+            "/api/v1/developer",
+            "/api/v1/developer/docs",
             "/api/v1/developer/usage",
+            "/api/v1/analytics/summary",
             "/api/v1/payment/not-an-authorized-intent",
         ] {
             let response = request(Method::GET, path).await;

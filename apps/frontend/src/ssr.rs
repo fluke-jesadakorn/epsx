@@ -452,8 +452,8 @@ async fn fetch_page_data(
     request_context.auth_token = verified_access_token.map(str::to_owned);
     // SSR data is represented as an explicit outcome. A dependency failure is
     // rendered as a failure and never replaced with production-looking sample
-    // data. Dashboard and developer usage still have older in-process adapters;
-    // news is deliberately no longer part of that fallback set.
+    // data. Dashboard still has an older in-process adapter; news is
+    // deliberately no longer part of that fallback set.
 
     let has_session = user.is_some();
 
@@ -554,31 +554,10 @@ async fn fetch_page_data(
             }
         }
     }
-    // /account: wallet address + member-since + balance + method.
-    // Wave 23 T5 — was previously not wired, page always rendered
-    // the OLD "Not Connected / Join Now / $0 / Web3 Vault"
-    // placeholder set. Now `data_account` returns either the user's
-    // real values (authed) or the placeholder (anon).
+    // `/account` renders identity details only from the locally verified
+    // session. It deliberately performs no ambiguous profile/credit read;
+    // owner payment history remains a separate strict A6 outcome below.
     if path == "/account" {
-        // Never ask an identity dependency for owner data on the public,
-        // signed-out account shell. Candidate profile reads require the same
-        // locally verified bearer used to construct `user`.
-        if user.is_some() && verified_access_token.is_some() {
-            if let Ok(v) = state
-                .identity
-                .get_with_ctx("/api/v1/account", &request_context)
-                .await
-            {
-                params.insert("data_account".into(), v.to_string());
-            } else if let Ok(v) = state
-                .identity
-                .get_with_ctx("/api/v1/auth/me", &request_context)
-                .await
-            {
-                params.insert("data_account".into(), v.to_string());
-            }
-        }
-
         // Source parity starts with the canonical first owner-history page.
         // The path owner is derived only from the locally verified session;
         // URL query, connected-wallet cookies, and account payloads never
@@ -600,33 +579,15 @@ async fn fetch_page_data(
     }
     // `/account/credits` intentionally has no loader. A6 has not selected a
     // credit-ledger authority, so failure must not become a zero balance.
-    // /developer: stats cards + API key list.
-    // Wave 23 T5 — was previously not wired, the page rendered its
-    // hardcoded `sample_api_keys()` fixture for everyone.
-    if path == "/developer" {
-        if let Ok(v) = state
-            .identity
-            .get_with_ctx("/api/v1/developer", &request_context)
-            .await
-        {
-            params.insert("data_developer".into(), v.to_string());
-        }
-    }
+    // `/developer` intentionally has no loader. API-key and rate-limit data
+    // remain unavailable until A4/A5 provide owner-scoped reads and secret-once
+    // mutation contracts.
     // `/developer/docs` intentionally does not fetch the historical
     // `/api/v1/developer/docs` canned fixture. Its version-pinned catalog is
     // rendered directly until A5 provides a generated contract that can prove
     // route/auth/rate-limit drift end to end.
-    // /analytics: summary stats + top movers.
-    // Wave 23 T5 — was previously not wired.
-    if path == "/analytics" {
-        if let Ok(v) = state
-            .analytics
-            .get_with_ctx("/api/v1/analytics/summary", &request_context)
-            .await
-        {
-            params.insert("data_analytics".into(), v.to_string());
-        }
-    }
+    // `/analytics` intentionally has no loader. Ranking data and entitlement
+    // decisions must come from a strict backend-owned A4/A5 contract.
     // Dynamic payment pages intentionally perform no intent lookup until A6
     // provides an owner-safe intent and finality contract.
 }

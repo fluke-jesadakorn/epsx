@@ -1,42 +1,17 @@
-//! /account — the EPSX account settings page.
+//! `/account` — production-safe account overview.
 //!
-//! Wave 22 (T2) — pixel-perfect port of
-//! `apps-old/frontend/app/account/page.tsx` (33 LoC) +
-//! `components/account/account-client.tsx` (363 LoC). Mirrors the OLD
-//! prod layout:
-//!
-//! Sections (render order, matches the OLD prod baseline PNG):
-//! 1. `AccountSettingsHero`    — large gradient title "Account Settings"
-//!    + tagline, on a yellow→orange→pink→purple gradient.
-//! 2. `AccountStatsRow`        — 4 stat cards in a 1/2/4 grid:
-//!    Current Address (Wallet), Member Since, Available Balance, Method.
-//! 3. `AccountQuickActions`    — 3 gradient-border cards: Support Center,
-//!    Privacy Control, Recent Activity — each linking to the relevant
-//!    sub-page.
-//! 4. `AccessAndPlansSection`  — large rounded card with the
-//!    `AccessOverview` slot. In the port this is a static placeholder
-//!    showing "Access overview" with an "Unable to load access
-//!    details" alert (matches the OLD prod render when the API isn't
-//!    wired).
-//! 5. `PaymentHistorySection`  — Transaction History card with a
-//!    placeholder table or empty state.
-//! 6. `NotificationPreferencesSection` — copy of the OLD's grid-12
-//!    notification preferences (5 toggles + Browse All Alerts +
-//!    Advanced Settings buttons).
-//! 7. `PrivacyBannerSection`   — full-width indigo banner with
-//!    "Privacy & Data Security" + "Read Policy" CTA.
-//!
-//! Removed in T2: the Wave-6A-Track-A 6-tab model
-//! (`ProfileTab`/`SubscriptionTab`/`UsageTab`/`NotificationsTab`/
-//! `ConnectedAccountsTab`/`DangerZoneTab`). The OLD prod does not use
-//! tabs; the 7 sections above replace them.
-//!
-//! All section markers are asserted in the `tests` module below.
+//! The page preserves the development UI's section composition while only
+//! presenting claims available from the verified local session. Unsupported
+//! profile statistics, credit balance, access details, and preferences fail
+//! closed as unavailable; they are never inferred from missing or partial
+//! compatibility payloads. Payment history retains its separate strict,
+//! owner-scoped read contract.
 
 use crate::primitives::*;
 
 use super::PageContext;
 use super::PageMeta;
+use crate::auth::user::{AuthMethod, User};
 use crate::components::account::{
     decode_pay_history, PaymentHistoryLoad, PaymentHistoryTab, ACCOUNT_PAYMENT_HISTORY_DATA_PARAM,
     ACCOUNT_PAYMENT_HISTORY_EMPTY, ACCOUNT_PAYMENT_HISTORY_MALFORMED,
@@ -46,6 +21,9 @@ use crate::components::account::{
 use crate::layout::main_layout::MainLayout;
 use dioxus::prelude::*;
 
+const ACCOUNT_PATH: &str = "/account";
+const ACCOUNT_SIGN_IN_PATH: &str = "/auth?return_url=%2Faccount";
+
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::app("Account");
     (meta, rsx! { RenderAccount { ctx: ctx.clone() } })
@@ -53,64 +31,19 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 
 #[component]
 fn RenderAccount(ctx: PageContext) -> Element {
-    // T2: pull live data from `data_account` when the BFF has wired
-    // it up. When absent (the common dev case), we use the
-    // placeholder defaults that match the OLD prod render: a
-    // connected address, a "Join Now" member-since, $0 balance, and
-    // "Web3 Vault" auth method.
-    let data: Option<AccountData> = ctx
-        .params
-        .get("data_account")
-        .and_then(|s| serde_json::from_str(s).ok());
-
-    let wallet = data
-        .as_ref()
-        .and_then(|d| d.wallet_address.clone())
-        .or_else(|| ctx.user.as_ref().map(|u| u.address.clone()))
-        .unwrap_or_else(|| "Not Connected".to_string());
-    let member_since = data
-        .as_ref()
-        .and_then(|d| d.member_since.clone())
-        .unwrap_or_else(|| "Join Now".to_string());
-    let available_balance = data.as_ref().map(|d| d.available_balance).unwrap_or(0.0);
-    let method = data
-        .as_ref()
-        .and_then(|d| d.method.clone())
-        .unwrap_or_else(|| "Web3 Vault".to_string());
-    let method_pretty = if method == "wallet" || method.is_empty() {
-        "Web3 Vault".to_string()
-    } else {
-        method
-    };
+    let session_user = ctx.user.clone();
     let payment_history_address = ctx.user.as_ref().map(|user| user.address.clone());
     let payment_history_load = payment_history_load(&ctx);
 
     rsx! {
         MainLayout { ctx: ctx.clone(),
-            // T2: removed the `<AuthGate>` wrapper — the OLD prod
-            // page is public-readable (see apps-old/frontend/middleware.ts
-            // publicRoutes: '/account*'). For anonymous visitors we
-            // render the OLD prod layout with the placeholder set
-            // (Not Connected / Join Now / $0 / Web3 Vault). Authed
-            // users get the same layout but with the wallet address
-            // + member-since + balance filled in from `data_account`.
-            // Wave 49 T2 (Plan 13) — use the `page-bg-app` body
-            // class (set via PageMeta::app) to reproduce prod's
-            // purple/magenta radial-glow body gradient. The full
-            // MarketingBackground wrapper would render visible orbs
-            // that prod does NOT show.
             div { class: "container page-content account-settings-page",
                 "data-section": "account-page",
                 // 1. Hero
                 AccountSettingsHero {}
                 // 2. 4 stat cards
                 div { class: "mt-8",
-                    AccountStatsRow {
-                        wallet: wallet.clone(),
-                        member_since: member_since.clone(),
-                        available_balance,
-                        method: method_pretty.clone(),
-                    }
+                    AccountStatsRow { user: session_user.clone() }
                 }
                 // 3. 3 quick-action cards
                 div { class: "mt-8",
@@ -129,7 +62,7 @@ fn RenderAccount(ctx: PageContext) -> Element {
                 }
                 // 6. Notification Preferences
                 div { class: "mt-8",
-                    NotificationPreferencesSection {}
+                    NotificationPreferencesSection { signed_in: session_user.is_some() }
                 }
                 // 7. Privacy & Data Security banner
                 div { class: "mt-8",
@@ -165,86 +98,115 @@ fn AccountSettingsHero() -> Element {
 
 // ----- 2. Stats row ------------------------------------------------------------
 
-/// 4 stat cards: Current Address (Wallet), Member Since, Available
-/// Balance, Method. Each card has a coloured border (blue/green/
-/// orange/purple) + a small badge in the top-right (Wallet/Active/
-/// Credits/Secure) + a primary icon (emoji or lucide). Mirrors the
-/// OLD prod render in `account-client.tsx` lines 142-184.
+/// Four source-like cards. The wallet and known authentication method are
+/// verified session claims; profile age and credits remain unavailable until
+/// authoritative reads are selected. `data_account` is intentionally ignored.
 #[component]
-fn AccountStatsRow(
-    wallet: String,
-    member_since: String,
-    available_balance: f64,
-    method: String,
-) -> Element {
-    let balance_str = if available_balance == 0.0 {
-        "$0".to_string()
-    } else {
-        format!("${:.2}", available_balance)
-    };
+fn AccountStatsRow(user: Option<User>) -> Element {
+    let signed_in = user.is_some();
+    let wallet = user
+        .as_ref()
+        .map(|user| user.address.trim())
+        .filter(|address| !address.is_empty())
+        .map(str::to_string);
+    let auth_method = user
+        .as_ref()
+        .and_then(|user| verified_auth_method_label(&user.auth_method));
+
     rsx! {
-        div { class: "account-stats-row grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6",
-            // Current Address (Wallet)
-            div { class: "account-stat-wallet card card-glass p-5 sm:p-6 shadow-xl border-2 border-blue-300/50",
+        section {
+            class: "account-stats-row grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6",
+            aria_label: "Account summary",
+            // Current wallet: only the owner carried by the verified session.
+            div {
+                class: "account-stat-wallet card card-glass p-5 sm:p-6 shadow-xl border-2 border-blue-300/50",
+                "data-account-stat-state": if wallet.is_some() { "verified" } else if signed_in { "unavailable" } else { "signed-out" },
                 div { class: "flex items-center justify-between mb-4 text-2xl sm:text-3xl",
                     span { "👛" }
                     span { class: "text-xs font-semibold px-2 py-0.5 rounded border border-blue-200 bg-blue-50/50 text-blue-600",
-                        "Wallet"
+                        if wallet.is_some() { "Session" } else if signed_in { "Unavailable" } else { "Signed out" }
                     }
                 }
                 div { class: "space-y-1",
                     div { class: "text-sm font-medium text-slate-400", "Current Address" }
-                    div { class: "text-sm font-mono font-bold text-foreground truncate",
-                        "{wallet}"
+                    if let Some(ref wallet) = wallet {
+                        div { class: "text-sm font-mono font-bold text-foreground truncate",
+                            "{wallet}"
+                        }
+                    } else if signed_in {
+                        div { class: "text-sm font-semibold text-muted-foreground", "Not available" }
+                    } else {
+                        a { class: "text-sm font-semibold text-blue-500 hover:underline", href: ACCOUNT_SIGN_IN_PATH,
+                            "Sign in to view"
+                        }
                     }
                 }
             }
-            // Member Since (Active)
-            div { class: "account-stat-member card card-glass p-5 sm:p-6 shadow-xl border-2 border-green-300/50",
+            // Membership date requires an authoritative profile read.
+            div {
+                class: "account-stat-member card card-glass p-5 sm:p-6 shadow-xl border-2 border-green-300/50",
+                "data-account-stat-state": "unavailable",
                 div { class: "flex items-center justify-between mb-4 text-2xl sm:text-3xl",
-                    span { "✅" }
-                    span { class: "text-xs font-semibold px-2 py-0.5 rounded border border-green-200 bg-green-50/50 text-green-600",
-                        "Active"
+                    span { "📅" }
+                    span { class: "text-xs font-semibold px-2 py-0.5 rounded border border-slate-300/50 bg-secondary text-muted-foreground",
+                        "Unavailable"
                     }
                 }
                 div { class: "space-y-1",
                     div { class: "text-sm font-medium text-slate-400", "Member Since" }
-                    div { class: "text-lg font-bold text-foreground",
-                        "{member_since}"
-                    }
+                    div { class: "text-lg font-bold text-muted-foreground", "Not available" }
                 }
             }
-            // Available Balance (Credits)
-            div { class: "account-stat-balance card card-glass p-5 sm:p-6 shadow-xl border-2 border-orange-300/50",
+            // Credit authority is unresolved; link to its truthful detail page.
+            a {
+                class: "account-stat-balance card card-glass p-5 sm:p-6 shadow-xl border-2 border-orange-300/50 block",
+                "data-account-stat-state": "unavailable",
+                href: "/account/credits",
                 div { class: "flex items-center justify-between mb-4 text-2xl sm:text-3xl",
                     span { "💰" }
                     span { class: "text-xs font-semibold px-2 py-0.5 rounded border border-orange-200 bg-orange-50/50 text-orange-600",
-                        "Credits"
+                        "Unavailable"
                     }
                 }
                 div { class: "space-y-1",
                     div { class: "text-sm font-medium text-slate-400", "Available Balance" }
-                    div { class: "text-lg font-bold text-foreground",
-                        "{balance_str}"
-                    }
+                    div { class: "text-lg font-bold text-muted-foreground", "Not available" }
+                    div { class: "text-xs text-orange-500", "View credit status →" }
                 }
             }
-            // Method (Secure)
-            div { class: "account-stat-method card card-glass p-5 sm:p-6 shadow-xl border-2 border-purple-300/50",
+            // Authentication method: shown only when the session identifies it.
+            div {
+                class: "account-stat-method card card-glass p-5 sm:p-6 shadow-xl border-2 border-purple-300/50",
+                "data-account-stat-state": if auth_method.is_some() { "verified" } else if signed_in { "unavailable" } else { "signed-out" },
                 div { class: "flex items-center justify-between mb-4 text-2xl sm:text-3xl",
                     span { "🛡️" }
                     span { class: "text-xs font-semibold px-2 py-0.5 rounded border border-purple-200 bg-purple-50/50 text-purple-600",
-                        "Secure"
+                        if auth_method.is_some() { "Session" } else if signed_in { "Unavailable" } else { "Signed out" }
                     }
                 }
                 div { class: "space-y-1",
-                    div { class: "text-sm font-medium text-slate-400", "Method" }
-                    div { class: "text-lg font-bold text-foreground capitalize",
-                        "{method}"
+                    div { class: "text-sm font-medium text-slate-400", "Sign-in Method" }
+                    if let Some(auth_method) = auth_method {
+                        div { class: "text-lg font-bold text-foreground", "{auth_method}" }
+                    } else if signed_in {
+                        div { class: "text-lg font-bold text-muted-foreground", "Not available" }
+                    } else {
+                        div { class: "text-lg font-bold text-muted-foreground", "Sign in to view" }
                     }
                 }
             }
         }
+    }
+}
+
+fn verified_auth_method_label(method: &AuthMethod) -> Option<&'static str> {
+    match method {
+        AuthMethod::Wallet => Some("Wallet"),
+        AuthMethod::Email => Some("Email"),
+        AuthMethod::Demo => Some("Demo"),
+        AuthMethod::OAuth => Some("OAuth"),
+        AuthMethod::Siwe => Some("SIWE"),
+        AuthMethod::Unknown => None,
     }
 }
 
@@ -287,7 +249,7 @@ fn AccountQuickActions() -> Element {
                             "Privacy Control"
                         }
                     }
-                    p { class: "mt-2 text-sm text-slate-300", "Manage your data and visibility settings" }
+                    p { class: "mt-2 text-sm text-slate-300", "Review how account data is handled" }
                     div { class: "mt-4 flex items-center justify-between",
                         span { class: "px-3 py-1 rounded-full text-xs font-semibold text-white bg-gradient-to-r from-green-400 to-emerald-500",
                             "Settings"
@@ -337,11 +299,14 @@ fn AccessAndPlansSection() -> Element {
                 }
                 h2 { class: "text-2xl sm:text-3xl font-bold text-foreground", "Access & Plans" }
             }
-            div { class: "p-6 rounded-2xl border border-red-200 bg-red-50/30 dark:bg-red-900/10",
+            div {
+                class: "p-6 rounded-2xl border border-red-200 bg-red-50/30 dark:bg-red-900/10",
+                "data-access-state": "unavailable",
+                role: "alert",
                 div { class: "flex items-center gap-3",
                     Icon { name: "alert-triangle".to_string(), size: Some(20), class_name: Some("text-red-500".to_string()) }
                     p { class: "text-sm text-red-600 dark:text-red-400",
-                        "Unable to load access details."
+                        "Access and plan details are unavailable. No access level is being inferred."
                     }
                 }
             }
@@ -413,19 +378,12 @@ fn payment_history_load(ctx: &PageContext) -> PaymentHistoryLoad {
 
 // ----- 6. Notification Preferences ---------------------------------------------
 
-/// 5 notification preference toggles + 2 secondary buttons
-/// ("Browse All Alerts" / "Advanced Settings"). Mirrors
-/// `account-client.tsx` lines 259-340. Toggling is local-state-only
-/// (no BFF integration); the BFF POST is a Wave-22 follow-up.
+/// Source-like notification categories without fabricated values or mutation.
+/// Until an owner-scoped read/write contract exists, authenticated users see
+/// an explicit unavailable state and signed-out users receive a native return
+/// link. There are deliberately no inputs, signals, or success messages.
 #[component]
-fn NotificationPreferencesSection() -> Element {
-    // Default to the same set the OLD initializes: analytics/security/
-    // account ON, system/marketing OFF.
-    let mut analytics_on = use_signal(|| true);
-    let mut security_on = use_signal(|| true);
-    let mut account_on = use_signal(|| true);
-    let mut system_on = use_signal(|| false);
-    let mut marketing_on = use_signal(|| false);
+fn NotificationPreferencesSection(signed_in: bool) -> Element {
     rsx! {
         div { class: "account-notification-prefs card card-glass p-6 sm:p-8 lg:p-10 shadow-2xl border-2 border-purple-200/50",
             "data-section": "account-notification-prefs",
@@ -438,7 +396,11 @@ fn NotificationPreferencesSection() -> Element {
             div { class: "grid lg:grid-cols-12 gap-8",
                 div { class: "lg:col-span-4 space-y-4",
                     p { class: "text-slate-300 text-base leading-relaxed",
-                        "Choose exactly what you want to be notified about. We'll send alerts via web push to keep you updated."
+                        if signed_in {
+                            "Saved notification choices cannot be read or changed right now."
+                        } else {
+                            "Sign in before viewing wallet-owned notification preferences."
+                        }
                     }
                     div { class: "flex flex-col gap-3 pt-2",
                         a { class: "btn btn-outline w-full justify-between group hover:border-purple-300 font-bold",
@@ -446,20 +408,52 @@ fn NotificationPreferencesSection() -> Element {
                             span { "Browse All Alerts" }
                             span { "→" }
                         }
-                        a { class: "btn btn-outline w-full justify-between group font-bold",
-                            href: "/notifications/preferences",
-                            span { "Advanced Settings" }
-                            span { "✨" }
-                        }
                     }
                 }
                 div { class: "lg:col-span-8",
-                    div { class: "grid sm:grid-cols-2 gap-4",
-                        NotifToggleRow { icon: "💹", label: "Analytics Alerts", desc: "Price movements & portfolio", on_signal: analytics_on }
-                        NotifToggleRow { icon: "🛡️", label: "Security Alerts", desc: "Auth & security warnings", on_signal: security_on }
-                        NotifToggleRow { icon: "👤", label: "Account Updates", desc: "Profile & subscription", on_signal: account_on }
-                        NotifToggleRow { icon: "⚙️", label: "System Status", desc: "Maintenance & features", on_signal: system_on }
-                        NotifToggleRow { icon: "🎁", label: "Promotions", desc: "News & special offers", on_signal: marketing_on }
+                    div {
+                        class: "rounded-2xl border-2 border-purple-200/50 bg-purple-500/5 p-5",
+                        "data-preferences-state": if signed_in { "unavailable" } else { "signed-out" },
+                        role: if signed_in { "alert" } else { "status" },
+                        div { class: "flex items-start gap-3",
+                            Icon {
+                                name: if signed_in { "alert-circle".to_string() } else { "lock".to_string() },
+                                size: Some(22),
+                                class_name: Some("mt-0.5 text-purple-400".to_string()),
+                            }
+                            div { class: "min-w-0 flex-1",
+                                h3 { class: "font-semibold text-foreground",
+                                    if signed_in {
+                                        "Notification preferences are unavailable"
+                                    } else {
+                                        "Sign in to view notification preferences"
+                                    }
+                                }
+                                p { class: "mt-1 text-sm leading-6 text-muted-foreground",
+                                    if signed_in {
+                                        "No saved values were loaded, and no changes can be made from this read-only view."
+                                    } else {
+                                        "Preferences are private to the wallet that owns them."
+                                    }
+                                }
+                                div { class: "mt-4 flex flex-wrap gap-3",
+                                    if signed_in {
+                                        a { class: "btn btn-sm btn-outline", href: ACCOUNT_PATH, "Retry" }
+                                    } else {
+                                        a { class: "btn btn-sm btn-primary", href: ACCOUNT_SIGN_IN_PATH, "Sign in" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if signed_in {
+                        ul { class: "mt-4 grid gap-3 sm:grid-cols-2", aria_label: "Preference categories",
+                            PreferenceReadOnlyRow { icon: "💹", label: "Analytics Alerts", description: "Price movements and portfolio alerts" }
+                            PreferenceReadOnlyRow { icon: "🛡️", label: "Security Alerts", description: "Authentication and security warnings" }
+                            PreferenceReadOnlyRow { icon: "👤", label: "Account Updates", description: "Account profile updates" }
+                            PreferenceReadOnlyRow { icon: "⚙️", label: "System Status", description: "Maintenance and feature notices" }
+                            PreferenceReadOnlyRow { icon: "🎁", label: "Promotions", description: "News and special offers" }
+                        }
                     }
                 }
             }
@@ -468,24 +462,22 @@ fn NotificationPreferencesSection() -> Element {
 }
 
 #[component]
-fn NotifToggleRow(icon: String, label: String, desc: String, on_signal: Signal<bool>) -> Element {
-    let mut sig = on_signal;
+fn PreferenceReadOnlyRow(
+    icon: &'static str,
+    label: &'static str,
+    description: &'static str,
+) -> Element {
     rsx! {
-        label { class: "cursor-pointer group notif-toggle-row block",
-            div { class: "flex items-center justify-between p-4 rounded-2xl bg-card border-2 border-border group-hover:border-purple-200 transition-all duration-200",
-                div { class: "flex gap-4",
-                    div { class: "text-2xl mt-1", "{icon}" }
-                    div {
-                        div { class: "font-bold text-foreground group-hover:text-purple-400 transition-colors", "{label}" }
-                        div { class: "text-xs text-slate-400", "{desc}" }
-                    }
+        li { class: "preference-read-only-row flex items-start justify-between gap-3 rounded-2xl border border-border bg-card p-4",
+            div { class: "flex min-w-0 gap-3",
+                span { class: "text-xl", aria_hidden: "true", "{icon}" }
+                div {
+                    p { class: "font-semibold text-foreground", "{label}" }
+                    p { class: "text-xs text-muted-foreground", "{description}" }
                 }
-                input {
-                    r#type: "checkbox",
-                    checked: *sig.read(),
-                    onchange: move |e| sig.set(e.checked()),
-                    class: "h-5 w-5 rounded-lg border-2 border-slate-300 text-purple-600 focus:ring-purple-500 cursor-pointer",
-                }
+            }
+            span { class: "shrink-0 rounded-full border border-border px-2 py-1 text-xs text-muted-foreground",
+                "Not loaded"
             }
         }
     }
@@ -506,7 +498,7 @@ fn PrivacyBannerSection() -> Element {
                     " Privacy & Data Security"
                 }
                 p { class: "text-indigo-100 text-sm max-w-lg",
-                    "Your account data is secured with industrial-grade encryption and protocol-level security."
+                    "Review the privacy policy to understand how EPSX handles account data."
                 }
             }
             a { class: "relative z-10 bg-white text-indigo-600 hover:bg-white/90 font-bold px-8 py-3 rounded-xl",
@@ -519,24 +511,6 @@ fn PrivacyBannerSection() -> Element {
             div { class: "absolute bottom-0 left-0 -ml-16 -mb-16 h-32 w-32 rounded-full bg-indigo-400/20 blur-2xl" }
         }
     }
-}
-
-// ----- Data model --------------------------------------------------------------
-
-/// T2: data model for the account BFF fetch. Parsed from the
-/// `data_account` query param. When the BFF doesn't supply it, the
-/// page renders the OLD "Not Connected / Join Now / $0 / Web3 Vault"
-/// placeholder set.
-#[derive(Clone, Debug, serde::Deserialize, PartialEq)]
-struct AccountData {
-    #[serde(default)]
-    wallet_address: Option<String>,
-    #[serde(default)]
-    member_since: Option<String>,
-    #[serde(default)]
-    available_balance: f64,
-    #[serde(default)]
-    method: Option<String>,
 }
 
 // =============================================================================
@@ -610,6 +584,33 @@ mod tests {
             "total_intents": 1,
             "total_escrows": 0
         })
+    }
+
+    fn render_html(ctx: &PageContext) -> String {
+        let (_meta, element) = render(ctx);
+        dioxus_ssr::render_element(element)
+    }
+
+    fn assert_account_stats_fail_closed(html: &str) {
+        for unsupported_success in [
+            "$0",
+            "$0.00",
+            "Join Now",
+            "Web3 Vault",
+            ">Active<",
+            ">Secure<",
+            "FABRICATED_MEMBER_DATE",
+            "FABRICATED_METHOD",
+            "FABRICATED_WALLET",
+            "$9876.54",
+        ] {
+            assert!(
+                !html.contains(unsupported_success),
+                "unsupported account data must not render as success `{unsupported_success}`. Got: {html}"
+            );
+        }
+        assert!(html.contains("data-account-stat-state=\"unavailable\""));
+        assert!(html.contains("Not available"));
     }
 
     #[test]
@@ -696,16 +697,128 @@ mod tests {
     }
 
     #[test]
-    fn test_wallet_falls_back_to_authenticated_user() {
-        let (_meta, el) = render(&authed_ctx());
-        let html = dioxus_ssr::render_element(el);
-        // Without `data_account`, the current page intentionally uses the
-        // authenticated user's address before falling back to "Not Connected".
+    fn test_wallet_comes_only_from_authenticated_session() {
+        let html = render_html(&authed_ctx());
         assert!(
             html.contains("0x1234abcd"),
-            "wallet field must fall back to the authenticated user's address. Got: {}",
+            "wallet field must show the authenticated session owner. Got: {}",
             html
         );
+    }
+
+    #[test]
+    fn missing_malformed_and_canned_account_payloads_never_become_stats_success() {
+        let missing_html = render_html(&authed_ctx());
+        assert_account_stats_fail_closed(&missing_html);
+
+        for raw in [
+            "{not-json",
+            r#"{"wallet_address":"FABRICATED_WALLET","member_since":"FABRICATED_MEMBER_DATE","available_balance":9876.54,"method":"FABRICATED_METHOD"}"#,
+            r#"{"available_balance":0}"#,
+            "{}",
+        ] {
+            let mut ctx = authed_ctx();
+            ctx.params
+                .insert("data_account".to_string(), raw.to_string());
+            let html = render_html(&ctx);
+            assert!(html.contains("0x1234abcd"));
+            assert_account_stats_fail_closed(&html);
+        }
+    }
+
+    #[test]
+    fn stats_render_only_verified_session_owner_and_known_auth_method() {
+        let user = User {
+            id: "PRIVATE_USER_ID".to_string(),
+            address: "0xverified-owner".to_string(),
+            chain_id: "PRIVATE_CHAIN".to_string(),
+            roles: vec!["INVENTED_ROLE".to_string()],
+            email: Some("INVENTED_EMAIL@example.test".to_string()),
+            tier: Some("INVENTED_TIER".to_string()),
+            permissions: vec!["INVENTED_PERMISSION".to_string()],
+            last_login_at: Some("INVENTED_PROFILE_DATE".to_string()),
+            auth_method: AuthMethod::Siwe,
+            display_name: Some("INVENTED_PROFILE_NAME".to_string()),
+        };
+        let html = dioxus_ssr::render_element(rsx! { AccountStatsRow { user: Some(user) } });
+
+        assert!(html.contains("0xverified-owner"));
+        assert!(html.contains(">SIWE<"));
+        assert_eq!(
+            html.matches("data-account-stat-state=\"verified\"").count(),
+            2
+        );
+        for unsupported_claim in [
+            "PRIVATE_USER_ID",
+            "PRIVATE_CHAIN",
+            "INVENTED_ROLE",
+            "INVENTED_EMAIL",
+            "INVENTED_TIER",
+            "INVENTED_PERMISSION",
+            "INVENTED_PROFILE_DATE",
+            "INVENTED_PROFILE_NAME",
+        ] {
+            assert!(
+                !html.contains(unsupported_claim),
+                "stats must not expose unsupported session/profile claim `{unsupported_claim}`. Got: {html}"
+            );
+        }
+        assert_account_stats_fail_closed(&html);
+    }
+
+    #[test]
+    fn stats_escape_the_verified_owner_and_signed_out_navigation_is_native() {
+        let mut user = authed_ctx().user.expect("test session");
+        user.address = "<script>alert('owner')</script>".to_string();
+        let escaped = dioxus_ssr::render_element(rsx! { AccountStatsRow { user: Some(user) } });
+        assert!(!escaped.contains("<script>alert('owner')</script>"));
+        assert!(escaped.contains("&#60;script&#62;alert(&#39;owner&#39;)&#60;/script&#62;"));
+
+        let signed_out = dioxus_ssr::render_element(rsx! { AccountStatsRow { user: None } });
+        assert!(signed_out.contains("data-account-stat-state=\"signed-out\""));
+        assert!(signed_out.contains("href=\"/auth?return_url=%2Faccount\""));
+        assert!(!signed_out.contains("Not Connected"));
+        assert_account_stats_fail_closed(&signed_out);
+    }
+
+    #[test]
+    fn preferences_are_explicitly_read_only_without_fake_mutation() {
+        let html =
+            dioxus_ssr::render_element(rsx! { NotificationPreferencesSection { signed_in: true } });
+
+        assert!(html.contains("data-preferences-state=\"unavailable\""));
+        assert!(html.contains("role=\"alert\""));
+        assert!(html.contains("No saved values were loaded"));
+        assert_eq!(html.matches("Not loaded").count(), 5);
+        assert!(html.contains("href=\"/account\">Retry</a>"));
+        for fake_mutation in [
+            "<input",
+            "type=\"checkbox\"",
+            "checked=",
+            "onchange",
+            "updated successfully",
+            "Advanced Settings",
+            "notif-toggle-row",
+        ] {
+            assert!(
+                !html.contains(fake_mutation),
+                "read-only preferences must not expose fake mutation `{fake_mutation}`. Got: {html}"
+            );
+        }
+    }
+
+    #[test]
+    fn signed_out_preferences_use_status_and_native_return_link() {
+        let html = dioxus_ssr::render_element(
+            rsx! { NotificationPreferencesSection { signed_in: false } },
+        );
+
+        assert!(html.contains("data-preferences-state=\"signed-out\""));
+        assert!(html.contains("role=\"status\""));
+        assert!(html.contains("Sign in to view notification preferences"));
+        assert!(html.contains("href=\"/auth?return_url=%2Faccount\">Sign in</a>"));
+        assert!(!html.contains("preference-read-only-row"));
+        assert!(!html.contains("<input"));
     }
 
     #[test]

@@ -257,9 +257,9 @@
       "anchor": "Static seed — 6 watched stocks"
     },
     {
-      "id": "target-analytics-ui-static",
+      "id": "target-analytics-ui-unavailable",
       "file": "shared/rust/dioxus_ui/src/pages/analytics.rs",
-      "anchor": "let rankings = sample_rankings();"
+      "anchor": "\"data-analytics-state\": \"unavailable\""
     },
     {
       "id": "target-frontend-security-layer",
@@ -729,9 +729,9 @@
       "category": "ranking-entitlement",
       "severity": "stop",
       "status": "blocked",
-      "summary": "Target rankings are static and bypass backend-owned permission/plan rank offset and cap enforcement.",
-      "resolution": "Route live analytics through backend permission authority and prove anonymous/free/paid boundary fixtures cannot be widened downstream.",
-      "evidenceIds": ["source-ranking-entitlement", "target-ranking-static", "target-bff-ranking-static", "target-analytics-ui-static"]
+      "summary": "Target ranking producers remain static and bypass backend-owned permission/plan rank offset and cap enforcement; the analytics UI now refuses to render them and remains unavailable.",
+      "resolution": "Route live analytics through backend permission authority and prove anonymous/free/paid boundary fixtures cannot be widened downstream before replacing the fail-closed UI.",
+      "evidenceIds": ["source-ranking-entitlement", "target-ranking-static", "target-bff-ranking-static", "target-analytics-ui-unavailable"]
     },
     {
       "id": "B15",
@@ -765,9 +765,9 @@
       "category": "ui-states",
       "severity": "stop",
       "status": "blocked",
-      "summary": "The news UI now exposes explicit empty/error/retry states without sample fallback, but portfolio and analytics still render production-looking static data and complete lifecycle state coverage remains unproved across the route batches.",
+      "summary": "The news UI exposes explicit empty/error/retry states and analytics now fails closed without sample data, but portfolio still renders production-looking static data and complete lifecycle state coverage remains unproved across the route batches.",
       "resolution": "Implement explicit loading/empty/forbidden/not-found/error/retry/success states and remove canned fallback from production paths.",
-      "evidenceIds": ["source-news-empty-ui", "source-portfolio-empty-ui", "target-news-ui-error-state", "target-portfolio-ui-static", "target-analytics-ui-static"]
+      "evidenceIds": ["source-news-empty-ui", "source-portfolio-empty-ui", "target-news-ui-error-state", "target-portfolio-ui-static", "target-analytics-ui-unavailable"]
     },
     {
       "id": "B19",

@@ -168,6 +168,15 @@ fn ManualContent() -> Element {
                 p { class: "mb-8 text-gray-400 manual-prod-subtitle",
                     "Complete guide to all platform features. Screenshots auto-generated from E2E tests."
                 }
+                aside {
+                    class: "mb-8 rounded-lg border border-amber-700/60 bg-amber-950/30 p-4 text-sm text-amber-100",
+                    "aria-labelledby": "manual-availability-title",
+                    "data-manual-availability-notice": "target-reference",
+                    h2 { class: "mb-1 font-semibold", id: "manual-availability-title", "Feature availability" }
+                    p {
+                        "This manual preserves the development target catalog and screenshots for migration reference. Descriptions show intended workflows; they do not confirm that data is live or that actions are currently enabled. When a route reports unavailable, that route state is authoritative."
+                    }
+                }
                 for cat in CATEGORIES.iter() {
                     ManualCategorySection { category: cat }
                 }
@@ -385,6 +394,15 @@ mod tests {
         assert!(html.contains("Complete guide to all platform features"));
         assert!(html.contains("/public/screenshots/home.webp"));
         assert!(html.contains("/payment/[type]/[id]"));
+    }
+
+    #[test]
+    fn manual_frames_pinned_catalog_as_target_reference_not_runtime_availability() {
+        let html = render_to_string(&empty_ctx());
+        assert!(html.contains("data-manual-availability-notice=\"target-reference\""));
+        assert!(html.contains("Descriptions show intended workflows"));
+        assert!(html.contains("they do not confirm that data is live"));
+        assert!(html.contains("that route state is authoritative"));
     }
 
     #[test]

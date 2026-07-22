@@ -7,22 +7,8 @@
 //! ## Sections (per design doc)
 //!
 //! ### Overview (`render_overview`)
-//! 1. `DeveloperStatsCards` — 4 stat cards (API Access, Rate Limit,
-//!    Total Usage, Expires). Source: `developer-stats-cards.tsx` 80 LoC.
-//! 2. `ApiKeysList` — list of API key cards (name, scopes, usage,
-//!    revoke). Source: `api-key-manager.tsx` 116 LoC +
-//!    `api-key-card.tsx` 108 LoC.
-//! 3. `ApiKeyCreateForm` — modal-style form with name, permissions
-//!    transfer-list, expiry preset. Source: `api-key-create-form.tsx`
-//!    145 LoC.
-//! 4. `PlanTransferList` — drag-to-reorder permission transfer
-//!    (Available / Authorized). Source: `plan-transfer-list.tsx` 131
-//!    LoC + `permission-list.tsx` 212 LoC.
-//! 5. `PermissionList` — current API key permissions display. Source:
-//!    `permission-list.tsx` 212 LoC.
-//! 6. **NEW** `DocsQuickLinks` — sidebar with "Quick start", "Auth",
-//!    "Rate limits", "Webhooks" links to `/developer/docs`. (Design
-//!    doc adds this as a Track B new section.)
+//! 1. Authenticated unavailable state — API key, plan, permission, and usage
+//!    claims are withheld until the Rust route has backend-owned contracts.
 //!
 //! ### Usage (`render_usage`)
 //! 7. Authenticated unavailable state — usage reporting is withheld until a
@@ -33,12 +19,7 @@
 //!    74 LoC + `endpoint-section.tsx` (kept as inlined cards).
 //!
 //! ## Section markers (used by `tests::test_section_markers`)
-//!   - `developer-stats-cards`
-//!   - `api-keys-list`
-//!   - `api-key-create-form`
-//!   - `plan-transfer-list`
-//!   - `permission-list`
-//!   - `docs-quick-links`
+//!   - `developer-overview-unavailable`
 //!   - `developer-usage-unavailable`
 //!   - `developer-docs`
 
@@ -51,105 +32,6 @@ use crate::layout::main_layout::MainLayout;
 use crate::layout::{DeveloperShell, PageHeader};
 use dioxus::prelude::*;
 use std::sync::OnceLock;
-
-// ─────────────────────────────────────────────────────────────────────────
-// Sample data — fixtures so the page is deterministic + unit-test
-// friendly. In production the BFF would plumb these from the developer
-// API.
-// ─────────────────────────────────────────────────────────────────────────
-
-#[derive(Clone, Debug, PartialEq)]
-struct ApiKey {
-    id: String,
-    name: String,
-    key: String,
-    scopes: Vec<String>,
-    is_active: bool,
-    created_at: String,
-    usage_count: u64,
-}
-
-// Wave 23 T5 — `ApiKey` is the internal render model (no
-// `Deserialize` derive, used directly in `ApiKeysList`). The
-// BFF's `data_developer` payload has the same field names, so we
-// add a `Deserialize` derive here and rely on serde to do a
-// field-by-field match. The OLD code didn't have a `Deserialize`
-// derive because the page rendered hardcoded `sample_api_keys()`
-// for every visitor.
-#[derive(Clone, Debug, serde::Deserialize, PartialEq)]
-struct ApiKeyWire {
-    #[serde(default)] id: String,
-    #[serde(default)] name: String,
-    #[serde(default)] key: String,
-    #[serde(default)] scopes: Vec<String>,
-    #[serde(default)] is_active: bool,
-    #[serde(default)] created_at: String,
-    #[serde(default)] usage_count: u64,
-}
-
-impl From<ApiKeyWire> for ApiKey {
-    fn from(w: ApiKeyWire) -> Self {
-        ApiKey {
-            id: w.id, name: w.name, key: w.key,
-            scopes: w.scopes, is_active: w.is_active,
-            created_at: w.created_at, usage_count: w.usage_count,
-        }
-    }
-}
-
-#[derive(Clone, Debug, serde::Deserialize)]
-struct DeveloperStatsWire {
-    #[serde(default)] tier: String,
-    #[serde(default)] rate_limit: String,
-    #[serde(default)] total_usage: u64,
-    #[serde(default)] expires: String,
-}
-
-#[derive(Clone, Debug, serde::Deserialize)]
-struct DeveloperData {
-    #[serde(default)] stats: Option<DeveloperStatsWire>,
-    #[serde(default)] api_keys: Option<Vec<ApiKeyWire>>,
-}
-
-impl DeveloperStatsWire {
-    fn into_props(self) -> DeveloperStatsProps {
-        DeveloperStatsProps {
-            tier: self.tier,
-            rate_limit: self.rate_limit,
-            total_usage: self.total_usage,
-            expires: self.expires,
-        }
-    }
-}
-
-struct DeveloperStatsProps {
-    tier: String,
-    rate_limit: String,
-    total_usage: u64,
-    expires: String,
-}
-
-// === wave32-t1-remove-sample-fallbacks ===
-// Wave 32 T1 removed `sample_api_keys()`, and the overview still consumes its
-// compatibility payload. The later A7 truthfulness slice removed all usage
-// fixtures and the canned `/api/v1/developer/usage` producer; that route now
-// renders an explicit unavailable state until owner-safe metering exists.
-
-fn sample_permissions_available() -> Vec<String> {
-    vec![
-        "read".into(),
-        "write".into(),
-        "delete".into(),
-        "analytics:read".into(),
-        "analytics:write".into(),
-        "payments:read".into(),
-        "payments:write".into(),
-        "subscriptions:read".into(),
-        "subscriptions:write".into(),
-        "users:read".into(),
-        "users:write".into(),
-    ]
-}
 
 // ─────────────────────────────────────────────────────────────────────────
 // API docs types + endpoint catalog. Ported from
@@ -464,363 +346,49 @@ fn pretty_response(response: &str) -> String {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Section sub-components — one per design-doc section.
+// Developer overview (`/developer`) — truthful migration state.
 // ─────────────────────────────────────────────────────────────────────────
 
-/// `DeveloperStatsCards` — 4 stat cards across the top of the
-/// overview. Mirrors `developer-stats-cards.tsx` 80 LoC.
+/// Authenticated state for developer API management.
+///
+/// The pinned source populates this surface through authenticated plan and
+/// API-key actions. Until equivalent backend-owned Rust contracts exist, the
+/// page must not render compatibility payloads or simulate mutations locally.
 #[component]
-fn DeveloperStatsCards(
-    api_access: String,
-    api_access_sub: Option<String>,
-    rate_limit: String,
-    rate_limit_sub: Option<String>,
-    total_usage: String,
-    total_usage_sub: Option<String>,
-    expires: String,
-    expires_sub: Option<String>,
-) -> Element {
+fn DeveloperOverviewUnavailable() -> Element {
     rsx! {
-        div { class: "developer-stats-cards grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4",
-            "data-section": "developer-stats-cards",
-            DeveloperStatCell { label: "API Access".to_string(), value: api_access, color: "text-emerald-400", sub: api_access_sub }
-            DeveloperStatCell { label: "Rate Limit".to_string(), value: rate_limit, color: "text-blue-400", sub: rate_limit_sub }
-            DeveloperStatCell { label: "Total Usage".to_string(), value: total_usage, color: "text-purple-400", sub: total_usage_sub }
-            DeveloperStatCell { label: "Expires".to_string(), value: expires, color: "text-amber-400", sub: expires_sub }
-        }
-    }
-}
-
-#[component]
-fn DeveloperStatCell(label: String, value: String, color: String, sub: Option<String>) -> Element {
-    rsx! {
-        div { class: "rounded-2xl border border-border/20 bg-card p-5 shadow-xl",
-            p { class: "text-xs font-medium text-muted-foreground", "{label}" }
-            p { class: "mt-2 text-2xl font-bold {color}", "{value}" }
-            if let Some(s) = &sub {
-                p { class: "mt-1 text-[11px] text-muted-foreground/60", "{s}" }
-            }
-        }
-    }
-}
-
-/// `ApiKeysList` — list of API key cards. Mirrors
-/// `api-key-manager.tsx` 116 LoC + `api-key-card.tsx` 108 LoC.
-#[component]
-fn ApiKeysList(keys: Vec<ApiKey>, on_revoke: EventHandler<String>) -> Element {
-    rsx! {
-        div { class: "api-keys-list rounded-2xl border border-border/20 bg-card shadow-xl",
-            "data-section": "api-keys-list",
-            div { class: "flex items-center justify-between border-b border-border/10 px-5 py-4",
-                h3 { class: "text-lg font-semibold text-foreground", "Your API Keys" }
-                button {
-                    r#type: "button",
-                    class: "rounded-lg bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground",
-                    "Refresh"
+        section {
+            class: "developer-overview-unavailable rounded-2xl border border-border/20 bg-card p-8 shadow-xl",
+            "data-section": "developer-overview-unavailable",
+            role: "status",
+            "aria-live": "polite",
+            "aria-labelledby": "developer-overview-unavailable-title",
+            div { class: "mx-auto max-w-2xl text-center",
+                div { class: "mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted",
+                    Icon { name: "code".to_string(), size: Some(24) }
                 }
-            }
-            div { class: "p-5 space-y-3",
-                if keys.is_empty() {
-                    p { class: "py-10 text-center text-sm text-muted-foreground",
-                        "No API keys yet. Create your first key above."
+                h2 {
+                    id: "developer-overview-unavailable-title",
+                    class: "text-xl font-bold text-foreground",
+                    "Developer tools unavailable"
+                }
+                p { class: "mt-3 text-sm text-muted-foreground",
+                    "API key and plan management are not available right now. No keys, secrets, plan assignments, permissions, usage, rate limits, or expiration values are shown."
+                }
+                nav {
+                    class: "mt-6 flex flex-wrap justify-center gap-3",
+                    "aria-label": "Developer page actions",
+                    a {
+                        class: "btn btn-primary",
+                        href: "/developer",
+                        "Retry"
                     }
-                } else {
-                    for k in keys.iter() {
-                        {
-                            let k = k.clone();
-                            let k_id = k.id.clone();
-                            rsx! {
-                                div {
-                                    key: "{k.id}",
-                                    class: "api-key-card rounded-2xl border border-border/10 bg-card transition-shadow hover:shadow-xl",
-                                    div { class: "p-5",
-                                        // Header
-                                        div { class: "mb-4 flex items-start justify-between",
-                                            div {
-                                                div { class: "flex items-center gap-2",
-                                                    h3 { class: "font-semibold text-foreground", "{k.name}" }
-                                                    span { class: if k.is_active { "rounded-full border border-green-500/30 bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-400" } else { "rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-xs font-medium text-red-400" },
-                                                        if k.is_active { "Active" } else { "Revoked" }
-                                                    }
-                                                }
-                                                p { class: "mt-0.5 text-xs text-muted-foreground", "Created {k.created_at}" }
-                                            }
-                                        }
-                                        // Key preview
-                                        div { class: "mb-4 flex items-center gap-2",
-                                            input {
-                                                r#type: "text",
-                                                readonly: true,
-                                                value: "{k.key}",
-                                                class: "flex-1 rounded-lg bg-slate-900 px-3 py-2 font-mono text-sm text-green-400 truncate border border-border/10",
-                                            }
-                                        }
-                                        // Info grid
-                                        div { class: "grid grid-cols-2 gap-4 border-t border-border/10 pt-4",
-                                            div {
-                                                p { class: "text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60", "Permissions" }
-                                                div { class: "mt-1.5 flex flex-wrap gap-1",
-                                                    for s in k.scopes.iter().take(3) {
-                                                        span { class: "rounded border border-purple-500/30 bg-purple-500/5 px-1.5 py-0.5 text-[10px] font-mono text-purple-400", "{s}" }
-                                                    }
-                                                    if k.scopes.len() > 3 {
-                                                        span { class: "text-[10px] text-muted-foreground", "+{k.scopes.len() - 3}" }
-                                                    }
-                                                }
-                                            }
-                                            div { class: "text-right",
-                                                p { class: "text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60", "Usage" }
-                                                p { class: "mt-1.5 text-lg font-bold text-foreground", "{k.usage_count}" }
-                                            }
-                                        }
-                                    }
-                                    if k.is_active {
-                                        div { class: "border-t border-border/10 px-5 py-3 text-right",
-                                            button {
-                                                r#type: "button",
-                                                class: "text-xs font-medium text-red-400/80 hover:text-red-400",
-                                                onclick: move |_| on_revoke.call(k_id.clone()),
-                                                "Revoke Key"
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                    a {
+                        class: "btn btn-outline",
+                        href: "/developer/docs",
+                        "Read API documentation"
                     }
                 }
-            }
-            // Security tips footer (matches the source `APIKeyManager`)
-            div { class: "rounded-2xl border border-blue-500/20 bg-blue-500/5 p-5 m-5 mt-0",
-                h4 { class: "mb-2 text-sm font-semibold text-blue-300", "Security Best Practices" }
-                ul { class: "list-disc list-inside space-y-1 text-xs text-blue-300/80",
-                    li { "Never commit API keys to version control" }
-                    li { "Use environment variables for key storage" }
-                    li { "Rotate keys regularly for production apps" }
-                    li { "Revoke unused keys promptly" }
-                }
-            }
-        }
-    }
-}
-
-/// `ApiKeyCreateForm` — modal-style form with name, permissions
-/// transfer-list, expiry preset. Mirrors `api-key-create-form.tsx`
-/// 145 LoC. Renders inline (not as a separate `Modal`) so the page
-/// structure is one continuous scroll on the overview.
-#[component]
-fn ApiKeyCreateForm(available: Vec<String>, selected: Vec<String>, on_create: EventHandler<String>) -> Element {
-    let mut name = use_signal(String::new);
-    let mut selected_state = use_signal(|| selected.clone());
-    let mut expiry_preset = use_signal(|| "30 Days".to_string());
-
-    rsx! {
-        div { class: "api-key-create-form rounded-2xl border border-border/20 bg-card shadow-xl",
-            "data-section": "api-key-create-form",
-            div { class: "flex items-center gap-3 border-b border-border/10 px-5 py-4",
-                div { class: "flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg",
-                    Icon { name: "plus".to_string(), size: Some(20), class_name: Some("text-white".to_string()) }
-                }
-                h3 { class: "text-lg font-semibold text-foreground", "Create API Key" }
-            }
-            div { class: "space-y-5 p-5",
-                // Name field
-                div {
-                    label { class: "mb-1 block text-sm font-medium text-muted-foreground", r#for: "api-key-name", "Key Name" }
-                    input {
-                        class: "input",
-                        id: "api-key-name",
-                        r#type: "text",
-                        placeholder: "e.g. Production Server",
-                        value: "{name.read()}",
-                        oninput: move |e| name.set(e.value().to_string()),
-                    }
-                }
-                // Plan transfer list (Available / Authorized)
-                PlanTransferList {
-                    available: available.clone(),
-                    selected: selected_state.read().clone(),
-                    on_change: move |next: Vec<String>| selected_state.set(next),
-                }
-                // Expiry presets
-                div {
-                    label { class: "mb-2 block text-sm font-medium text-muted-foreground", "Expiration" }
-                    div { class: "flex flex-wrap gap-2",
-                        for preset in ["30 Days", "90 Days", "1 Year", "Never"].iter() {
-                            {
-                                let preset = preset.to_string();
-                                let is_active = *expiry_preset.read() == preset;
-                                let active_class = if is_active {
-                                    "rounded-lg border border-purple-500/50 bg-purple-500/10 px-3 py-1.5 text-xs font-medium text-purple-300"
-                                } else {
-                                    "rounded-lg border border-border/30 bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent"
-                                };
-                                rsx! {
-                                    button {
-                                        r#type: "button",
-                                        class: "{active_class}",
-                                        onclick: move |_| expiry_preset.set(preset.clone()),
-                                        "{preset}"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                // Create button
-                button {
-                    r#type: "button",
-                    class: "btn btn-primary w-full api-key-create-submit",
-                    disabled: name.read().trim().is_empty() || selected_state.read().is_empty(),
-                    onclick: move |_| on_create.call(name.read().clone()),
-                    "Create API Key"
-                }
-            }
-        }
-    }
-}
-
-/// `PlanTransferList` — two-pane drag-to-reorder permission
-/// transfer. Mirrors `plan-transfer-list.tsx` 131 LoC. The drag
-/// mechanics are simplified in this port (no dnd-kit dependency);
-/// click-to-toggle is the primary interaction. The source has full
-/// drag-and-drop, but the section-level contract is the visual.
-#[component]
-fn PlanTransferList(available: Vec<String>, selected: Vec<String>, on_change: EventHandler<Vec<String>>) -> Element {
-    rsx! {
-        div { class: "plan-transfer-list space-y-3",
-            "data-section": "plan-transfer-list",
-            div { class: "flex items-center gap-2",
-                div { class: "p-1.5 rounded-lg bg-amber-500/20 border border-amber-500/30",
-                    Icon { name: "shield-check".to_string(), size: Some(14), class_name: Some("text-amber-500".to_string()) }
-                }
-                span { class: "text-sm font-semibold text-foreground", "Select Permissions" }
-            }
-            div { class: "grid grid-cols-1 sm:grid-cols-2 gap-4",
-                // Available column
-                div { class: "permission-list",
-                    div { class: "flex items-center justify-between px-1 mb-1",
-                        h3 { class: "text-xs uppercase font-bold tracking-widest text-muted-foreground",
-                            "Available "
-                            span { class: "ml-1 px-2 py-0.5 rounded-full bg-muted text-[10px]", "{available.len()}" }
-                        }
-                    }
-                    div { class: "permission-list-box flex flex-col gap-2 p-2 rounded-2xl border border-border/30 bg-muted/30 h-[250px] overflow-y-auto",
-                        for perm in available.iter() {
-                            {
-                                let perm = perm.clone();
-                                let perm_for_click = perm.clone();
-                                let selected = selected.clone();
-                                let on_change = on_change.clone();
-                                let is_selected = selected.contains(&perm);
-                                rsx! {
-                                    button {
-                                        r#type: "button",
-                                        key: "avail-{perm}",
-                                        class: if is_selected { "flex items-center justify-between p-3 rounded-xl border border-purple-500/50 bg-purple-500/10 text-sm" } else { "flex items-center justify-between p-3 rounded-xl border border-border/30 bg-background text-sm hover:border-amber-300" },
-                                        onclick: move |_| {
-                                            let mut next = selected.clone();
-                                            if next.contains(&perm_for_click) {
-                                                next.retain(|p| p != &perm_for_click);
-                                            } else {
-                                                next.push(perm_for_click.clone());
-                                            }
-                                            on_change.call(next);
-                                        },
-                                        span { class: "font-mono text-xs text-foreground", "{perm}" }
-                                        Icon { name: "arrow-right".to_string(), size: Some(14), class_name: Some("text-muted-foreground".to_string()) }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                // Authorized column
-                div { class: "permission-list",
-                    div { class: "flex items-center justify-between px-1 mb-1",
-                        h3 { class: "text-xs uppercase font-bold tracking-widest text-amber-600",
-                            "Authorized "
-                            span { class: "ml-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 border border-amber-200 text-[10px]", "{selected.len()}" }
-                        }
-                    }
-                    div { class: "permission-list-box flex flex-col gap-2 p-2 rounded-2xl border border-amber-200/30 bg-amber-50/5 h-[250px] overflow-y-auto",
-                        if selected.is_empty() {
-                            div { class: "flex flex-col items-center justify-center h-full text-amber-500/30",
-                                Icon { name: "shield".to_string(), size: Some(32) }
-                                p { class: "text-sm italic", "Drag or tap to authorize" }
-                            }
-                        } else {
-                            for perm in selected.iter() {
-                                {
-                                    let perm = perm.clone();
-                                    let perm_for_click = perm.clone();
-                                    let selected = selected.clone();
-                                    let on_change = on_change.clone();
-                                    rsx! {
-                                        div {
-                                            key: "auth-{perm}",
-                                            class: "flex items-center justify-between p-3 rounded-xl border border-amber-300 bg-amber-50 text-sm",
-                                            span { class: "font-mono text-xs text-amber-700", "{perm}" }
-                                            button {
-                                                r#type: "button",
-                                                class: "text-amber-700 hover:text-red-500",
-                                                onclick: move |_| {
-                                                    let mut next = selected.clone();
-                                                    next.retain(|p| p != &perm_for_click);
-                                                    on_change.call(next);
-                                                },
-                                                "×"
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// `PermissionList` — current API key permissions display. Mirrors
-/// the lower-half `PermissionList` in the source. We render a compact
-/// chip list of currently-selected permissions for the focused key.
-#[component]
-fn PermissionList(permissions: Vec<String>) -> Element {
-    rsx! {
-        div { class: "permission-list-display rounded-2xl border border-border/20 bg-card p-5 shadow-xl",
-            "data-section": "permission-list",
-            h4 { class: "mb-2 text-sm font-semibold text-foreground", "Current API key permissions" }
-            if permissions.is_empty() {
-                p { class: "text-xs text-muted-foreground", "No permissions granted" }
-            } else {
-                div { class: "flex flex-wrap gap-1.5",
-                    for p in permissions.iter() {
-                        span { class: "rounded border border-purple-500/30 bg-purple-500/5 px-2 py-0.5 text-[10px] font-mono text-purple-400", "{p}" }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// **NEW** `DocsQuickLinks` — sidebar with quick links into the docs
-/// surface. Added by Wave 6A Track B per the design doc (not present
-/// in the original Next.js source, but a natural addition for the
-/// developer portal layout).
-#[component]
-fn DocsQuickLinks() -> Element {
-    rsx! {
-        div { class: "docs-quick-links rounded-2xl border border-border/20 bg-card p-5 shadow-xl",
-            "data-section": "docs-quick-links",
-            h4 { class: "mb-2 text-sm font-semibold text-foreground", "Documentation" }
-            p { class: "mb-3 text-xs text-muted-foreground", "Jump into the reference." }
-            ul { class: "docs-quick-links-list space-y-1",
-                li { a { class: "docs-quick-link block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground", href: "/developer/docs#quick-start", "Quick start" } }
-                li { a { class: "docs-quick-link block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground", href: "/developer/docs#auth", "Auth" } }
-                li { a { class: "docs-quick-link block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground", href: "/developer/docs#rate-limits", "Rate limits" } }
-                li { a { class: "docs-quick-link block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground", href: "/developer/docs#webhooks", "Webhooks" } }
             }
         }
     }
@@ -882,85 +450,23 @@ fn DeveloperUsageUnavailable() -> Element {
 // unchanged.
 // ─────────────────────────────────────────────────────────────────────────
 
-/// `DeveloperOverviewBody` — body of `/developer`. Lives in a
-/// `#[component]` so we can use `use_signal` (the parent `render` is a
-/// plain fn and has no Dioxus runtime).
+/// `DeveloperOverviewBody` — authentication-only overview state.
 #[component]
 fn DeveloperOverviewBody(ctx: PageContext) -> Element {
-    // Local state for create-form permission selection.
-    let mut selected_perms = use_signal(|| vec!["read".to_string(), "analytics:read".to_string()]);
-
-    // === wave32-t1-remove-sample-fallbacks ===
-    // Wave 32 T1 — read live data from `data_developer` (BFF proxy:
-    // /api/v1/developer). The previous wave-23 T5 fallback to
-    // `sample_api_keys()` is REMOVED. The BFF in-process call
-    // (`ssr.rs::fetch_page_data` for `/developer`) always supplies
-    // a payload in the dev/prod path; an empty list now means
-    // "BFF returned no keys" rather than a 1:1 fallback to
-    // hardcoded data. This matches the brief: "If the page is
-    // wired to BFF, REMOVE `sample_api_keys()` (delete the
-    // function and all calls)".
-    let data: Option<DeveloperData> = ctx.params.get("data_developer")
-        .and_then(|s| serde_json::from_str(s).ok());
-    let api_keys: Vec<ApiKey> = data.as_ref()
-        .and_then(|d| d.api_keys.clone())
-        .map(|v| v.into_iter().map(ApiKey::from).collect())
-        .unwrap_or_default();
-    let stats: Option<DeveloperStatsProps> = data.as_ref()
-        .and_then(|d| d.stats.clone())
-        .map(|s| s.into_props());
-    let available = sample_permissions_available();
-
     rsx! {
         MainLayout { ctx: ctx.clone(),
-            AuthGate { user: ctx.user.clone(), feature: Some("the developer portal".to_string()),
+            AuthGate {
+                user: ctx.user.clone(),
+                feature: Some("the developer portal".to_string()),
+                return_url: Some(ctx.path.clone()),
                 DeveloperShell { current_path: ctx.path.clone(),
                     div { class: "container page-content space-y-6",
-                        // Existing page header (kept for breadcrumb continuity)
                         PageHeader {
                             title: "Developer portal".to_string(),
-                            description: Some("API keys, usage, and documentation".to_string()),
+                            description: Some("Developer API management is not currently available.".to_string()),
                             icon: Some("code".to_string()),
-                            a { class: "btn btn-primary", href: "/developer/api-keys/create", Icon { name: "plus".to_string(), size: Some(16) } " Create key" }
                         }
-                        // 1. Stats cards
-                        DeveloperStatsCards {
-                            api_access: stats.as_ref().map(|s| s.tier.clone()).unwrap_or_else(|| "Active".to_string()),
-                            api_access_sub: Some("Pro, Enterprise".to_string()),
-                            rate_limit: stats.as_ref().map(|s| s.rate_limit.clone()).unwrap_or_else(|| "1000/min".to_string()),
-                            rate_limit_sub: Some("50,000/day".to_string()),
-                            total_usage: stats.as_ref().map(|s| s.total_usage.to_string()).unwrap_or_else(|| "170,414".to_string()),
-                            total_usage_sub: Some(format!("{} API keys", api_keys.len())),
-                            expires: stats.as_ref().map(|s| s.expires.clone()).unwrap_or_else(|| "2026-08-15".to_string()),
-                            expires_sub: Some("288 days left".to_string()),
-                        }
-                        // 2. Create form (top, sticky)
-                        ApiKeyCreateForm {
-                            available: available.clone(),
-                            selected: selected_perms.read().clone(),
-                            on_create: move |_name: String| {
-                                // Reset the selection on submit.
-                                selected_perms.set(vec![]);
-                            },
-                        }
-                        // 3. List of API keys
-                        ApiKeysList {
-                            keys: api_keys,
-                            on_revoke: move |_id: String| {
-                                // In production: call revokeKey.
-                            },
-                        }
-                        // 4. Plan transfer list (the standalone
-                        // drag-to-reorder pane for the active key).
-                        PlanTransferList {
-                            available,
-                            selected: selected_perms.read().clone(),
-                            on_change: move |next: Vec<String>| selected_perms.set(next),
-                        }
-                        // 5. PermissionList (current display)
-                        PermissionList { permissions: selected_perms.read().clone() }
-                        // 6. NEW — Docs quick links
-                        DocsQuickLinks {}
+                        DeveloperOverviewUnavailable {}
                     }
                 }
             }
@@ -1307,11 +813,6 @@ fn EndpointCard(endpoint: EndpointDef) -> Element {
     }
 }
 
-// === wave6-auth-pages-depth-track-b ===
-// Unit tests for the developer page. Required by the design doc:
-//   - test_render_smoke: render_overview() returns a non-empty Element
-//   - test_section_markers: the rendered HTML contains the section
-//     marker class names defined above.
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1323,9 +824,6 @@ mod tests {
         }
     }
 
-    /// Authed context — the overview page is wrapped in `<AuthGate>`
-    /// (gated on `the developer portal`). The gate is open when the
-    /// user is present, so we provide a stub user.
     fn authed_ctx() -> PageContext {
         PageContext {
             user: Some(crate::auth::User {
@@ -1352,41 +850,121 @@ mod tests {
     }
 
     fn render_overview_to_string(ctx: &PageContext) -> String {
-        let (_meta, el) = render_overview(ctx);
-        dioxus_ssr::render_element(el)
+        let (_, element) = render_overview(ctx);
+        dioxus_ssr::render_element(element)
     }
 
-    /// Wave 6A — `test_render_smoke`. The `render_overview` function
-    /// returns a non-empty HTML string.
     #[test]
-    fn test_render_smoke() {
-        let ctx = authed_ctx();
-        let (_meta, el) = render_overview(&ctx);
-        let html = dioxus_ssr::render_element(el);
-        assert!(
-            !html.trim().is_empty(),
-            "developer overview should render non-empty HTML"
+    fn developer_overview_authenticated_state_is_truthfully_unavailable() {
+        let mut ctx = authed_ctx();
+        ctx.user
+            .as_mut()
+            .expect("authenticated fixture")
+            .permissions
+            .clear();
+        let html = render_overview_to_string(&ctx);
+
+        assert!(html.contains("developer-overview-unavailable"));
+        assert!(html.contains("Developer tools unavailable"));
+        assert!(html.contains("No keys, secrets, plan assignments, permissions, usage, rate limits, or expiration values are shown."));
+        assert!(!html.contains("Permission required"));
+    }
+
+    #[test]
+    fn developer_overview_ignores_payload_fixtures_secrets_and_business_claims() {
+        let mut ctx = authed_ctx();
+        ctx.params.insert(
+            "data_developer".to_string(),
+            r#"{
+                "stats": {
+                    "tier": "fixture-tier-probe",
+                    "rate_limit": "fixture-rate-probe",
+                    "total_usage": 987654321,
+                    "expires": "fixture-expiry-probe"
+                },
+                "api_keys": [{
+                    "id": "fixture-key-id",
+                    "name": "fixture-key-name",
+                    "key": "epsx_secret_overview_probe",
+                    "scopes": ["backend:permission:probe"],
+                    "is_active": true,
+                    "created_at": "fixture-created-probe",
+                    "usage_count": 7654321
+                }]
+            }"#
+            .to_string(),
         );
-    }
+        let html = render_overview_to_string(&ctx);
 
-    /// Wave 6A — `test_section_markers`. The rendered HTML must
-    /// contain each of the 6 overview section markers.
-    #[test]
-    fn test_section_markers() {
-        let html = render_overview_to_string(&authed_ctx());
-        for marker in &[
-            "developer-stats-cards",
-            "api-keys-list",
-            "api-key-create-form",
-            "plan-transfer-list",
-            "permission-list",
-            "docs-quick-links",
+        for forbidden in [
+            "fixture-tier-probe",
+            "fixture-rate-probe",
+            "987654321",
+            "fixture-expiry-probe",
+            "fixture-key-id",
+            "fixture-key-name",
+            "epsx_secret_overview_probe",
+            "backend:permission:probe",
+            "fixture-created-probe",
+            "7654321",
+            "epsx_live_4f8a2c1b9d3e7f5a",
+            "170,414",
+            "1000/min",
+            "50,000/day",
+            "2026-08-15",
+            "288 days left",
+            "Pro, Enterprise",
         ] {
             assert!(
-                html.contains(marker),
-                "developer overview should contain section marker `{marker}`. Got: {html}"
+                !html.contains(forbidden),
+                "rendered overview fixture or claim: {forbidden}"
             );
         }
+    }
+
+    #[test]
+    fn developer_overview_unavailable_state_is_accessible_and_native() {
+        let html = dioxus_ssr::render_element(rsx! { DeveloperOverviewUnavailable {} });
+
+        assert!(html.contains("role=\"status\""));
+        assert!(html.contains("aria-live=\"polite\""));
+        assert!(html.contains("aria-labelledby=\"developer-overview-unavailable-title\""));
+        assert!(html.contains("href=\"/developer\""));
+        assert!(html.contains("href=\"/developer/docs\""));
+        assert!(html.contains(">Retry</a>"));
+        assert!(html.contains(">Read API documentation</a>"));
+
+        for control in ["<button", "<form", "<input", "onclick=", "oninput="] {
+            assert!(
+                !html.contains(control),
+                "rendered local mutation control: {control}"
+            );
+        }
+        for mutation in [
+            "Create key",
+            "Create API Key",
+            "Revoke Key",
+            "Refresh",
+            "30 Days",
+            "90 Days",
+            "1 Year",
+        ] {
+            assert!(
+                !html.contains(mutation),
+                "rendered unsupported mutation: {mutation}"
+            );
+        }
+    }
+
+    #[test]
+    fn developer_overview_signed_out_uses_native_auth_gate() {
+        let html = render_overview_to_string(&empty_ctx());
+
+        assert!(html.contains("class=\"auth-gate "));
+        assert!(html.contains("role=\"alert\""));
+        assert!(html.contains("Sign in required"));
+        assert!(html.contains("href=\"/auth?return_url=%2Fdeveloper\""));
+        assert!(!html.contains("developer-overview-unavailable"));
     }
 
     fn render_usage_to_string(ctx: &PageContext) -> String {

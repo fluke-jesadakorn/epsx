@@ -313,22 +313,22 @@
       "anchor": "path: /health"
     },
     {
-      "id": "tgt-ui-canned-rankings",
+      "id": "tgt-ui-rankings-unavailable",
       "domain": "marketAnalytics",
       "file": "shared/rust/dioxus_ui/src/pages/analytics.rs",
-      "anchor": "fn sample_rankings() -> Vec<AnalyticsRankingCard> {"
+      "anchor": "\"data-analytics-state\": \"unavailable\""
     },
     {
-      "id": "tgt-ui-canned-events",
+      "id": "tgt-ui-payloads-ignored",
       "domain": "eventAnalytics",
       "file": "shared/rust/dioxus_ui/src/pages/analytics.rs",
-      "anchor": "fn sample_events() -> Vec<(String, String, String, String, String)> {"
+      "anchor": "fn canned_partial_and_malformed_payloads_cannot_render_rankings()"
     },
     {
-      "id": "tgt-ui-live-label",
+      "id": "tgt-ui-data-unavailable",
       "domain": "marketAnalytics",
       "file": "shared/rust/dioxus_ui/src/pages/analytics.rs",
-      "anchor": "span { class: \"text-xs font-medium text-emerald-400\", \"Live\" }"
+      "anchor": "\"Data unavailable\""
     },
     {
       "id": "tgt-portfolio-static",
@@ -337,10 +337,10 @@
       "anchor": "/// Static seed — 6 watched stocks (the prod's default watchlist for an"
     },
     {
-      "id": "tgt-frontend-summary-drift",
-      "domain": "eventAnalytics",
+      "id": "tgt-frontend-rankings-loader-absent",
+      "domain": "marketAnalytics",
       "file": "apps/frontend/src/ssr.rs",
-      "anchor": ".get_with_ctx(\"/api/v1/analytics/summary\", &request_context)"
+      "anchor": "Ranking data and entitlement"
     },
     {
       "id": "tgt-frontend-track-swallow",
@@ -521,9 +521,9 @@
       "category": "ui-truthfulness",
       "severity": "stop",
       "status": "blocked",
-      "summary": "The analytics and portfolio UI render canned records while advertising live data.",
-      "resolution": "Consume typed BFF data, render loading/empty/error/stale states and never label fixtures as live.",
-      "evidenceIds": ["tgt-ui-canned-rankings", "tgt-ui-canned-events", "tgt-ui-live-label", "tgt-portfolio-static"]
+      "summary": "Analytics now fails closed without a verified ranking loader, while portfolio still renders canned records; neither route has production-complete market UX.",
+      "resolution": "Consume typed BFF data, render loading/empty/error/stale states, remove remaining portfolio fixtures, and never label fixtures as live.",
+      "evidenceIds": ["tgt-ui-rankings-unavailable", "tgt-ui-payloads-ignored", "tgt-ui-data-unavailable", "tgt-portfolio-static"]
     },
     {
       "id": "B06",
@@ -532,7 +532,7 @@
       "status": "blocked",
       "summary": "Search, filters, sorting, pagination, export and watchlist interactions are not proven against live backend state.",
       "resolution": "Implement typed query/state contracts and strict mobile/desktop browser tests covering success and failure paths.",
-      "evidenceIds": ["src-browser-filter-flow", "src-plan-access-bootstrap", "tgt-ui-canned-rankings", "tgt-portfolio-static"]
+      "evidenceIds": ["src-browser-filter-flow", "src-plan-access-bootstrap", "tgt-ui-rankings-unavailable", "tgt-portfolio-static"]
     },
     {
       "id": "B07",
@@ -875,8 +875,8 @@
     },
     {
       "id": "N03",
-      "reason": "Analytics UI and portfolio contain static sample data.",
-      "evidenceIds": ["tgt-ui-canned-rankings", "tgt-ui-canned-events", "tgt-portfolio-static"]
+      "reason": "Analytics is intentionally unavailable without a verified loader, and portfolio still contains static sample data.",
+      "evidenceIds": ["tgt-ui-rankings-unavailable", "tgt-ui-payloads-ignored", "tgt-portfolio-static"]
     },
     {
       "id": "N04",
@@ -915,8 +915,8 @@
     },
     {
       "id": "N11",
-      "reason": "Frontend requests a missing analytics summary route and swallows tracking failure.",
-      "evidenceIds": ["tgt-frontend-summary-drift", "tgt-frontend-track-swallow"]
+      "reason": "Frontend ranking loading is deliberately absent, while event tracking still swallows upstream failure.",
+      "evidenceIds": ["tgt-frontend-rankings-loader-absent", "tgt-frontend-track-swallow"]
     },
     {
       "id": "N12",

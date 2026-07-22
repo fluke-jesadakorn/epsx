@@ -171,13 +171,14 @@ and revocation behavior remain canonical.
   handlers. Those handlers remain unsuitable for production until real chain,
   transaction, idempotency, and recovery contracts replace them.
 - Both BFFs preserve verified backend permissions without expanding roles. The
-  63-record permission inventory contains 29 Dioxus security-gate records and,
-  by grammar, 53 canonical three-segment records, eight legacy two-segment gates,
-  one unknown record, and one impossible/cross-grammar record. The eight legacy
+  62-record permission inventory contains 28 Dioxus security-gate records and,
+  by grammar, 53 canonical three-segment records, seven legacy two-segment gates,
+  one unknown record, and one impossible/cross-grammar record. The seven legacy
   security gates remain blockers; UI gates remain presentation controls, never
-  policy authority. The four removed legacy gates were the invented
-  `profile:read`/`profile:write` and duplicate `payments:read` checks on
-  authentication-only or deliberately unavailable frontend surfaces.
+  policy authority. The five removed legacy gates were the invented
+  `profile:read`/`profile:write`, duplicate `payments:read`, and `analytics:read`
+  checks on authentication-only, public-unavailable, or deliberately
+  unavailable frontend surfaces.
 - The deployed identity ranking service returns offset `100` for all wallets,
   including paid users. This is not acceptable entitlement behavior.
 
@@ -636,10 +637,10 @@ bounded path set. Shared contract files require coordination through package A0.
   fall back to the free plan on authority failure.
 
 - **A4.0/A8.1 status:** the deterministic permission-grammar inventory covers
-  63 UI/service records, including 29 Dioxus security gates. A8.2 additionally
+  62 UI/service records, including 28 Dioxus security gates. A8.2 additionally
   separates wallet-access and plan read surfaces from their mutation controls
   using literal backend guards;
-  readiness intentionally stops with eight legacy security gates and two
+  readiness intentionally stops with seven legacy security gates and two
   presentation-only drift records. Entitlement and ranking-offset parity in the
   acceptance condition above is not yet implemented.
 
@@ -734,14 +735,17 @@ bounded path set. Shared contract files require coordination through package A0.
   Close routes in small batches; all 28 must pass interaction and live-data
   fixtures before the frontend gate moves to done.
 
-- **A7.0–A7.3/B7.2 status:** the exact 28-route live-data contract records three
-  aligned routes, eight partial routes, and 17 blocked routes. `/about`
+- **A7.0–A7.3/B7.2 status:** the exact 28-route live-data contract records two
+  aligned routes, nine partial routes, and 17 blocked routes. `/about`
   removes invented claims and matches the pinned source order, copy, metadata,
   landmarks, and responsive keyboard behavior. `/access-denied`
   has bounded and escaped query rendering plus responsive keyboard browser
-  proof. `/manual` exactly matches the pinned 35-feature catalog and proves all
+  proof. `/manual` preserves the pinned 35-feature target catalog and proves all
   screenshot assets, responsive layout, links, dialog focus, and image-error
-  fallback. `/developer/docs` now matches the pinned ten-endpoint catalog and
+  fallback, but a prominent safety notice now says intended workflows do not
+  establish live data or enabled actions and that route unavailable states are
+  authoritative. It remains partial pending product acceptance, status-aware
+  description synchronization, and browser proof of the notice. `/developer/docs` now matches the pinned ten-endpoint catalog and
   proves responsive navigation, accordions, language tabs, copy controls, and
   keyboard behavior, while live requests remain disabled pending A1/A4/A5.
   `/offline` is public and now proves a fresh controlled mobile and desktop
@@ -777,14 +781,18 @@ bounded path set. Shared contract files require coordination through package A0.
   pagination, broadcast/expiry/read semantics, mutations, preferences, push/SSE,
   approved action-URL behavior, and live-service/browser runtime proof. The
   blocked-route inventory is also more truthful without overstating parity:
-  `/profile` exposes only locally verified session claims; `/account/credits`
-  no longer turns failures or missing authority into a zero balance or empty
-  ledger; `/developer/usage` no longer publishes canned metering, charts, keys,
-  or service health; and both payment routes fail closed without accepting
-  query-owned financial state, submitting a mutation, or claiming an intent or
-  completion. These routes remain blocked until their documented A1/A4/A5/A6
-  authorities and runtime proofs exist. The resulting **3 aligned / 8 partial /
-  17 blocked** inventory keeps readiness at exit `3`.
+  `/profile` exposes only locally verified session claims; `/account` preserves
+  strict owner payment history while replacing canned identity/credit/access
+  and local preference state with verified claims or unavailable states;
+  `/account/credits` no longer turns failures or missing authority into a zero
+  balance or empty ledger; `/analytics` has no canned producer, sample ranking,
+  fake policy gate, or inert query/mutation controls; `/developer` and
+  `/developer/usage` no longer publish canned keys, plans, mutations, metering,
+  charts, or service health; and both payment routes fail closed without
+  accepting query-owned financial state, submitting a mutation, or claiming an
+  intent or completion. These routes remain blocked until their documented
+  A1/A4/A5/A6 authorities and runtime proofs exist. The resulting **2 aligned /
+  9 partial / 17 blocked** inventory keeps readiness at exit `3`.
 
 ### A8 — Admin live data and mutation parity (P1)
 

@@ -70,7 +70,8 @@ violates them.
 ### 1. Permission-string schema
 
 > Migration note: the later A7 evidence contract supersedes the historical
-> `/profile`, `/account`, `/account/credits`, and `/payment` entries below.
+> `/profile`, `/account`, `/account/credits`, `/analytics`, and `/payment`
+> entries below.
 > The profile source is authentication-only, so its unbacked
 > `profile:read`/`profile:write` UI gates were removed. The account route does
 > not use those strings as policy authority and separately scopes actual owner
@@ -78,7 +79,10 @@ violates them.
 > financial data. Both payment routes now
 > deliberately fail closed, consume no backend resource, and perform no
 > mutation, so their duplicate unbacked `payments:read` UI gates were also
-> removed. None of these presentation gates may be treated as policy authority.
+> removed. Analytics is a public route whose unavailable surface consumes no
+> ranking or entitlement data, so its unbacked `analytics:read` UI gate was
+> removed too. None of these presentation gates may be treated as policy
+> authority.
 
 Use the `domain:action` pattern, matching the existing precedent in
 `pages/admin_pages/unauthorized.rs` (`"admin:*"`) and the TS
@@ -89,7 +93,8 @@ Use the `domain:action` pattern, matching the existing precedent in
   policy gate without a canonical backend authorization contract
 - `chat:read` — `/chat`, `/chat/history`, `/chat/[id]`
 - `chat:write` — `/chat/[id]` (send/reply)
-- `analytics:read` — `/analytics` (frontend), `/admin/analytics`
+- `analytics:read` — historical frontend example only; `/analytics` has no
+  frontend policy gate, while admin authorization remains a backend contract
 - `notifications:read` — `/notifications`
 - `profile:read` / `profile:write` — historical examples only; authentication
   and backend-owned resource authorization replace these frontend gates
