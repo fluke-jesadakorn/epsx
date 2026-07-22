@@ -972,6 +972,33 @@ mod tests {
         (mutation, outcome)
     }
 
+    #[test]
+    fn initialize_requires_exact_zero_revision_empty_state() {
+        let block = batch_at(56, 100, 10, 9, 0);
+        let valid = ChainMutation::initialize(
+            chain(),
+            mutation_id(1),
+            ExpectedChainState::empty(),
+            owner("worker-a"),
+            LeaseFence::new(1).unwrap(),
+            vec![block.clone()],
+        )
+        .unwrap();
+        assert_eq!(valid.expected(), &ExpectedChainState::empty());
+
+        assert_eq!(
+            ChainMutation::initialize(
+                chain(),
+                mutation_id(2),
+                ExpectedChainState::new(ChainRevision::new(1).unwrap(), None, None),
+                owner("worker-a"),
+                LeaseFence::new(1).unwrap(),
+                vec![block],
+            ),
+            Err(MutationBuildError::InitializeExpectedState)
+        );
+    }
+
     #[tokio::test]
     async fn fork_candidates_and_duplicate_transactions_are_retained_deterministically() {
         let repository = MemoryBlockRepository::default();

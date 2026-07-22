@@ -207,7 +207,7 @@ scripts/migration/verify-a3-12-indexer-schema-boundary.sh --mode report
 scripts/migration/test-a3-12-indexer-schema-boundary.sh
 ```
 
-The library suite passes 32/32 and the binary suite passes 4/4. The locked offline binary check
+The library suite passes 33/33 and the binary suite passes 4/4. The locked offline binary check
 passes. The verifier pins provenance, removed runtime bytes, both migration digests, the unchanged
 runtime-query digest, runtime DDL
 zero, the seven-file recursive Rust inventory, public qualification, schema/constraint/index catalog semantics, model/bind corrections,

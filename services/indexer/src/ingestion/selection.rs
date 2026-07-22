@@ -392,7 +392,7 @@ impl ChainMutation {
         fence: LeaseFence,
         attach: Vec<ValidatedBlockBatch>,
     ) -> Result<Self, MutationBuildError> {
-        if expected.selected_head.is_some() || expected.finalized_selection.is_some() {
+        if expected != ExpectedChainState::empty() {
             return Err(MutationBuildError::InitializeExpectedState);
         }
         validate_attachment(chain_id, &attach)?;
@@ -575,7 +575,7 @@ pub enum MutationBuildError {
     AttachmentGap,
     #[error("attachment parent hashes are not linked")]
     AttachmentParent,
-    #[error("initialize requires an expected state without heads")]
+    #[error("initialize requires the exact empty expected chain state")]
     InitializeExpectedState,
     #[error("transition requires an expected selected head")]
     MissingSelectedHead,
