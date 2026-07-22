@@ -28,7 +28,7 @@ bun -e '
 const r = await Bun.file(process.argv[1]).json();
 if (r.productionReady !== false || r.readinessExit !== 3) process.exit(1);
 if (r.provenance.standaloneSourceIndexer !== false) process.exit(1);
-if (r.runtimeRust.files !== 6 || r.runtimeRust.ddlFindings !== 0 || r.runtimeRust.expectedDelta !== -5 || r.runtimeRust.fakeSyncAvailable !== false) process.exit(1);
+if (r.runtimeRust.files !== 7 || r.runtimeRust.ddlFindings !== 0 || r.runtimeRust.expectedDelta !== -5 || r.runtimeRust.fakeSyncAvailable !== false) process.exit(1);
 if (Object.values(r.runtimeRust.qualifiedRelations).reduce((a,b) => a+b, 0) !== 4) process.exit(1);
 if (r.migrationRoot.migrations !== 1 || r.migrationRoot.pinnedBytes !== 4822 || r.migrationRoot.guardedTables !== 3 || r.migrationRoot.guardedIndexes !== 5) process.exit(1);
 if (r.schema.tables !== 3 || r.schema.columns !== 27 || r.schema.structuralConstraints !== 7 || r.schema.checkConstraints !== 24 || r.schema.indexes !== 10) process.exit(1);

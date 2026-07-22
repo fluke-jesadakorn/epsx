@@ -6,6 +6,7 @@
 
 mod domain;
 mod ports;
+mod selection;
 
 #[cfg(test)]
 mod memory;
@@ -17,6 +18,11 @@ pub use domain::{
     ValidatedTransaction, ValidationError, ValidationLimits,
 };
 pub use ports::{
-    BlockProvider, BlockProviderError, BlockRepository, BlockRepositoryError, CommitOutcome,
-    RepositoryConflict,
+    BlockProvider, BlockProviderError, SelectedChainRepository, SelectedChainRepositoryError,
+    SelectionConflict,
+};
+pub use selection::{
+    ApplyOutcome, BlockIdentity, BlockRef, ChainMutation, ChainRevision, ChainSnapshot,
+    ExpectedChainState, LeaseDuration, LeaseFence, LeaseGrant, LeaseOwner, MutationBuildError,
+    MutationId, MutationKind, SelectionBoundaryError,
 };

@@ -92,6 +92,7 @@ exact("Rust inventory", [
   "services/indexer/src/ingestion/memory.rs",
   "services/indexer/src/ingestion/mod.rs",
   "services/indexer/src/ingestion/ports.rs",
+  "services/indexer/src/ingestion/selection.rs",
   "services/indexer/src/lib.rs",
   "services/indexer/src/main.rs"
 ], runtime.rustInventory);

@@ -128,10 +128,12 @@ database-only state construction, router construction, then listener binding. Th
 provider, block-number fetch, in-memory cursor, polling option, autonomous task, placeholder hash,
 or conflict-skipping insert.
 
-The recursively pinned Rust inventory now contains six files: `lib.rs`, `main.rs`, and the dormant
-`ingestion/{domain,memory,mod,ports}.rs` module. The module defines offline checked block-batch and
-port contracts; `memory.rs` is test-only. It adds no provider adapter, repository adapter, worker,
-checkpoint, startup hook, route, SQL, RPC, canonicality, or finality claim, so the ingestion,
+The recursively pinned Rust inventory now contains seven files: `lib.rs`, `main.rs`, and the dormant
+`ingestion/{domain,memory,mod,ports,selection}.rs` module. The module defines offline checked
+block-batch and fork-preserving selected-chain transition/port contracts. `memory.rs` is a
+`cfg(test)`-only in-memory conformance implementation; it is dormant and makes no external
+canonicality, consensus-finality, or durability claim. It adds no provider adapter, durable
+repository adapter, worker, checkpoint, startup hook, route, SQL, or RPC, so the ingestion,
 checkpoint, and fork/reorg STOP blockers remain unchanged.
 
 The existing direct boundary remains authoritative: only GET/HEAD `/health` reaches a handler.
@@ -147,6 +149,7 @@ rustfmt --edition 2021 --check \
   services/indexer/src/ingestion/memory.rs \
   services/indexer/src/ingestion/mod.rs \
   services/indexer/src/ingestion/ports.rs \
+  services/indexer/src/ingestion/selection.rs \
   services/indexer/src/lib.rs \
   services/indexer/src/main.rs
 cargo test --locked --offline -p epsx-indexer --lib
@@ -158,9 +161,9 @@ scripts/migration/verify-a3-12-indexer-schema-boundary.sh --mode report
 scripts/migration/test-a3-12-indexer-schema-boundary.sh
 ```
 
-The library suite passes 29/29 and the binary suite passes 4/4. The locked offline binary check
+The library suite passes 32/32 and the binary suite passes 4/4. The locked offline binary check
 passes. The verifier pins provenance, removed runtime bytes, migration/query digests, runtime DDL
-zero, the six-file recursive Rust inventory, public qualification, schema/constraint/index catalog semantics, model/bind corrections,
+zero, the seven-file recursive Rust inventory, public qualification, schema/constraint/index catalog semantics, model/bind corrections,
 startup ordering, absent fake sync, fail-closed readiness, and ten residual blockers. Its self-test
 adversarially tampers readiness, source commit/path/blob, query digest/bytes, relation counts, fake
 sync policy, migration digest/guards, global transaction key, and schema descriptors. Same-length
