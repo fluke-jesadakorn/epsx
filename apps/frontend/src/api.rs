@@ -2155,36 +2155,6 @@ pub async fn api_account(
     }
 }
 
-pub async fn api_credits(
-    State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
-) -> Json<serde_json::Value> {
-    let has_session =
-        super::auth::current_user(&headers, state.verifier.as_ref(), state.cookie_environment)
-            .await
-            .is_some();
-    if has_session {
-        Json(serde_json::json!({
-            "available_balance": 250.0,
-            "lifetime_earned": 1_250.0,
-            "lifetime_spent": 1_000.0,
-            "transactions": [
-                { "date": "2025-01-10", "title": "API call reward",    "reason": "Daily bonus",   "amount":  50.0, "kind": "credit" },
-                { "date": "2025-01-08", "title": "Premium analysis",   "reason": "Usage spend",   "amount": -20.0, "kind": "debit"  },
-                { "date": "2025-01-05", "title": "Referral signup",    "reason": "Friend joined", "amount": 100.0, "kind": "credit" },
-                { "date": "2025-01-02", "title": "Watchlist alert",    "reason": "Pro plan",      "amount": -10.0, "kind": "debit"  }
-            ]
-        }))
-    } else {
-        Json(serde_json::json!({
-            "available_balance": 0.0,
-            "lifetime_earned": 0.0,
-            "lifetime_spent": 0.0,
-            "transactions": []
-        }))
-    }
-}
-
 pub async fn api_developer(_state: State<AppState>) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "stats": {
@@ -2199,40 +2169,6 @@ pub async fn api_developer(_state: State<AppState>) -> Json<serde_json::Value> {
             { "id": "k_legacy", "name": "Legacy CI",  "key": "epsx_live_2e5a8b1c4f7d3a9b", "scopes": ["read"],                         "is_active": false, "created_at": "2024-03-10", "usage_count":   1_842 }
         ]
     }))
-}
-
-/// Build the developer-usage payload (summary + per_key + history).
-/// Returned to both the BFF route and the SSR layer (so the page
-/// consumes a consistent shape regardless of which path the data
-/// arrives on).
-///
-/// Wave 31 T1 — extracted from `api_developer_usage` so the SSR
-/// layer can call it in-process.
-pub fn developer_usage_value() -> serde_json::Value {
-    serde_json::json!({
-        "summary": {
-            "calls_today": 12_481,
-            "calls_7d": 84_205,
-            "calls_30d": 358_910,
-            "errors_429": 4,
-            "errors_500": 0
-        },
-        "per_key": [
-            { "key_id": "k_prod",    "name": "Production", "calls_today":  8_231, "errors_429": 2, "errors_500": 0 },
-            { "key_id": "k_staging", "name": "Staging",    "calls_today":  3_750, "errors_429": 1, "errors_500": 0 },
-            { "key_id": "k_legacy",  "name": "Legacy CI",  "calls_today":    500, "errors_429": 1, "errors_500": 0 }
-        ],
-        "history": [
-            { "date": "2025-01-15", "calls":  9_812, "errors_429": 1, "errors_500": 0 },
-            { "date": "2025-01-14", "calls": 11_450, "errors_429": 0, "errors_500": 0 },
-            { "date": "2025-01-13", "calls":  8_902, "errors_429": 2, "errors_500": 0 },
-            { "date": "2025-01-12", "calls": 12_481, "errors_429": 4, "errors_500": 0 }
-        ]
-    })
-}
-
-pub async fn api_developer_usage(_state: State<AppState>) -> Json<serde_json::Value> {
-    Json(developer_usage_value())
 }
 
 pub async fn api_developer_docs(_state: State<AppState>) -> Json<serde_json::Value> {
@@ -2327,22 +2263,6 @@ pub async fn api_dashboard_stats(
     // Return the FULL envelope `{success, data: {stats, recentActivity}}`
     // so the BFF route matches the brief's specified shape.
     Json(dashboard_data_internal(has_session))
-}
-
-pub async fn api_payment(
-    _state: State<AppState>,
-    AxPath(id): AxPath<String>,
-) -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "id": id,
-        "type": "subscription",
-        "status": "pending",
-        "amount": "29.00",
-        "currency": "USDT",
-        "merchant": "0xM1",
-        "plan_id": "sub_1",
-        "expires_at": chrono::Utc::now().timestamp() + 86_400
-    }))
 }
 
 #[cfg(test)]

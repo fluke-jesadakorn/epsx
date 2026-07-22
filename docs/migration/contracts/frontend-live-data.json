@@ -97,16 +97,16 @@
       "blockers":["prove owner separation against an isolated Pay-service/database fixture and focused browser, then add source-compatible payment-history pagination without client-selected ownership","replace zero account-stat fallbacks and persist backend-owned account preferences; A1/A5/A6 remain open"]
     },
     {
-      "path":"/account/credits","batch":"B2-identity","status":"blocked","dependencies":["A1","A5"],
+      "path":"/account/credits","batch":"B2-identity","status":"blocked","dependencies":["A1","A5","A6"],
       "source":{"file":"apps/frontend/app/account/credits/page.tsx","anchors":["export default function CreditsPage()"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/account_credits.rs","handler":"account_credits::render","anchors":["pub fn render(ctx: &PageContext)","ctx.params.get(\"data_credits\")"]},
-      "payloads":{"staticOrSample":["zero balance and empty transactions fallback"],"placeholderOrSkeleton":[]},
-      "loader":{"kind":"gateway","endpoints":["GET /api/v1/credits"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"\"/api/v1/credits\""}]},
-      "authOwner":{"auth":"live data requires verified session","owner":"session wallet credit ledger"},
-      "interactions":{"forms":[],"pagination":["missing for transaction list"],"search":[],"wallet":[],"keyboard":["filter buttons require hydration"],"controls":["transaction type filter"]},
-      "states":{"loading":"missing","empty":"present","error":"missing","retry":"missing"},
-      "hydration":{"need":"browser","status":"partial","reason":"filter uses Dioxus signal under SSR hydration constraints"},
-      "blockers":["prove owner-scoped ledger, pagination, hydrated filtering, and explicit loader error/retry"]
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/account_credits.rs","handler":"account_credits::render","anchors":["pub fn render(ctx: &PageContext)","if let Some(owner) = owner {","data-credits-state\": \"unavailable"]},
+      "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
+      "loader":{"kind":"intentional-unavailable-no-selected-authority","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"failure must not become a zero balance."}]},
+      "authOwner":{"auth":"optional shell; a locally verified session is required before any owner state is displayed","owner":"the verified session wallet is display-only; no balance or ledger ownership is asserted without a selected A6 authority"},
+      "interactions":{"forms":[],"pagination":["absent until an owner-safe bounded ledger contract exists"],"search":[],"wallet":["signed-out status or verified-session unavailable state only"],"keyboard":["native sign-in, retry, and account links"],"controls":["inert transaction filters removed"]},
+      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"present"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"signed-out and unavailable states plus all recovery controls are server-rendered native links"},
+      "blockers":["A6 must select credit authority; make balance reads non-mutating; bound and validate history/filter/pagination; return authoritative totals; admit exact owner-safe gateway reads; add typed loading/error outcomes plus isolated owner and browser proof"]
     },
     {
       "path":"/profile","batch":"B2-identity","status":"blocked","dependencies":["A1","A4","A5"],
@@ -243,14 +243,14 @@
     {
       "path":"/developer/usage","batch":"B5-developer","status":"blocked","dependencies":["A1","A4","A5"],
       "source":{"file":"apps/frontend/app/developer/usage/page.tsx","anchors":["export default async function DeveloperUsagePage()"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/developer.rs","handler":"developer::render_usage","anchors":["pub fn render_usage(ctx: &PageContext)","ctx.params.get(\"data_developer_usage\")"]},
-      "payloads":{"staticOrSample":["empty/default usage values and empty top_endpoints"],"placeholderOrSkeleton":[]},
-      "loader":{"kind":"in-process","endpoints":["crate::api::developer_usage_value"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"crate::api::developer_usage_value().to_string()"}]},
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/developer.rs","handler":"developer::render_usage","anchors":["pub fn render_usage(ctx: &PageContext)","DeveloperUsageUnavailable {}","data-section\": \"developer-usage-unavailable"]},
+      "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
+      "loader":{"kind":"intentional-unavailable-no-owner-metering","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"No owner-safe metering"}]},
       "authOwner":{"auth":"required","owner":"session wallet/API keys and plan limits"},
-      "interactions":{"forms":[],"pagination":["missing history pagination/range"],"search":[],"wallet":[],"keyboard":[],"controls":["display-only charts and tables"]},
-      "states":{"loading":"missing","empty":"present","error":"missing","retry":"missing"},
-      "hydration":{"need":"none","status":"not-applicable","reason":"current page is SSR display"},
-      "blockers":["replace canned in-process usage with owner-scoped metering and A4 limits; add range/pagination/failure states"]
+      "interactions":{"forms":[],"pagination":["range and history pagination absent until metering exists"],"search":[],"wallet":[],"keyboard":["native retry and API-documentation links"],"controls":["sample charts, rows, wallet picker, and inert controls removed"]},
+      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"present"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"authentication gate, unavailable state, and recovery controls are server-rendered native links"},
+      "blockers":["add owner-scoped metering, A4-owned plan/rate-limit decisions, strict DTO validation, range/history pagination, typed loading/error states, and isolated owner/browser proof"]
     },
     {
       "path":"/manual","batch":"B5-developer","status":"aligned","dependencies":[],
@@ -279,26 +279,26 @@
     {
       "path":"/payment","batch":"B6-commerce-support","status":"blocked","dependencies":["A1","A4","A5","A6"],
       "source":{"file":"apps/frontend/app/payment/page.tsx","anchors":["export default async function PaymentPage","redirect(`/payment/access-plan/"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/payment.rs","handler":"payment::render","anchors":["pub fn render(ctx: &PageContext)","action: \"/api/v1/payments/confirm\""]},
-      "payloads":{"staticOrSample":["query-default amount 29.00, token USDT, static tiers/current access"],"placeholderOrSkeleton":[]},
-      "loader":{"kind":"none","endpoints":["POST /api/v1/payments/confirm"],"evidence":[]},
-      "authOwner":{"auth":"required","owner":"session wallet/payment intent"},
-      "interactions":{"forms":["native confirm POST"],"pagination":[],"search":[],"wallet":["payment authorization/transaction not proven"],"keyboard":["native form and links"],"controls":["query-driven wizard steps"]},
-      "states":{"loading":"missing","empty":"missing","error":"missing","retry":"missing"},
-      "hydration":{"need":"browser","status":"partial","reason":"wizard is link/form driven but wallet transaction lifecycle is absent"},
-      "blockers":["A6 source-compatible submit/status/finality flow is STOP; never trust query amount/token or render success before verified terminal state"]
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/payment.rs","handler":"payment::render","anchors":["pub fn render(ctx: &PageContext)","PaymentUnavailablePage { ctx: ctx.clone(), route_context: None }","Checkout is not available right now"]},
+      "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
+      "loader":{"kind":"intentional-fail-closed","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"Dynamic payment pages intentionally perform no intent lookup"}]},
+      "authOwner":{"auth":"no identity or payment data is consumed","owner":"none; query data is ignored and no intent, amount, asset, access, or transaction state is asserted"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":["no wallet submission or completion claim"],"keyboard":["native plans, account, and home links"],"controls":["query-driven wizard, confirm mutation, inline redirect script, and invented permission gate removed"]},
+      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"missing"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"fail-closed unavailable state and alternatives are server-rendered native links"},
+      "blockers":["A6 owner-safe intent, verified amount/asset/recipient, wallet submission, status/finality, idempotency, audit, recovery, and browser proof remain absent"]
     },
     {
       "path":"/payment/:type/:id","batch":"B6-commerce-support","status":"blocked","dependencies":["A1","A4","A5","A6"],
       "source":{"file":"apps/frontend/app/payment/[type]/[id]/page.tsx","anchors":["export default async function PaymentDynamicPage","Fetch plans on server"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/payment.rs","handler":"payment::render_dynamic","anchors":["pub fn render_dynamic(ctx: &PageContext)","ctx.params.get(\"id\")"]},
-      "payloads":{"staticOrSample":["static form/current access; dynamic data_payment is ignored"],"placeholderOrSkeleton":[]},
-      "loader":{"kind":"gateway-unused-intent-only","endpoints":["GET /api/v1/payment/{id}"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"\"data_payment\""}]},
-      "authOwner":{"auth":"required","owner":"type/id must resolve to session-owned payable resource"},
-      "interactions":{"forms":["native confirm POST"],"pagination":[],"search":[],"wallet":["no verified transaction lifecycle"],"keyboard":["native form"],"controls":["type/id summary"]},
-      "states":{"loading":"missing","empty":"missing","error":"missing","retry":"missing"},
-      "hydration":{"need":"browser","status":"missing","reason":"live intent, wallet submission, polling, and recovery are absent"},
-      "blockers":["consume owner-hidden dynamic resource and complete A6 intent/submit/status/finality/error/retry contract for every supported type"]
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/payment.rs","handler":"payment::render_dynamic","anchors":["pub fn render_dynamic(ctx: &PageContext)","bounded_route_context(ctx.params.get(\"id\"))","Unverified route context"]},
+      "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
+      "loader":{"kind":"intentional-fail-closed","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"Dynamic payment pages intentionally perform no intent lookup"}]},
+      "authOwner":{"auth":"no identity or payment data is consumed","owner":"bounded route labels are display-only and explicitly do not confirm an intent; no owner or payable resource is asserted"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":["no wallet submission or completion claim"],"keyboard":["native plans, account, and home links"],"controls":["bounded escaped route context only; confirm mutation and invented permission gate removed"]},
+      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"missing"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"fail-closed unavailable state and alternatives are server-rendered native links"},
+      "blockers":["consume an owner-hidden dynamic resource only after A6 proves intent, submission, status/finality, idempotency, recovery, and browser behavior for every supported type"]
     },
     {
       "path":"/contact","batch":"B6-commerce-support","status":"partial","dependencies":["A5"],

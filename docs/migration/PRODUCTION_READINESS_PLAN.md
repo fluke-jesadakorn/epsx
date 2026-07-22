@@ -171,13 +171,13 @@ and revocation behavior remain canonical.
   handlers. Those handlers remain unsuitable for production until real chain,
   transaction, idempotency, and recovery contracts replace them.
 - Both BFFs preserve verified backend permissions without expanding roles. The
-  65-record permission inventory contains 31 Dioxus security-gate records and,
-  by grammar, 53 canonical three-segment records, 10 legacy two-segment gates,
-  one unknown record, and one impossible/cross-grammar record. The 10 legacy
+  63-record permission inventory contains 29 Dioxus security-gate records and,
+  by grammar, 53 canonical three-segment records, eight legacy two-segment gates,
+  one unknown record, and one impossible/cross-grammar record. The eight legacy
   security gates remain blockers; UI gates remain presentation controls, never
-  policy authority. The two removed legacy gates were the invented
-  `profile:read`/`profile:write` checks on the authentication-only profile
-  surface.
+  policy authority. The four removed legacy gates were the invented
+  `profile:read`/`profile:write` and duplicate `payments:read` checks on
+  authentication-only or deliberately unavailable frontend surfaces.
 - The deployed identity ranking service returns offset `100` for all wallets,
   including paid users. This is not acceptable entitlement behavior.
 
@@ -636,10 +636,10 @@ bounded path set. Shared contract files require coordination through package A0.
   fall back to the free plan on authority failure.
 
 - **A4.0/A8.1 status:** the deterministic permission-grammar inventory covers
-  65 UI/service records, including 31 Dioxus security gates. A8.2 additionally
+  63 UI/service records, including 29 Dioxus security gates. A8.2 additionally
   separates wallet-access and plan read surfaces from their mutation controls
   using literal backend guards;
-  readiness intentionally stops with 10 legacy security gates and two
+  readiness intentionally stops with eight legacy security gates and two
   presentation-only drift records. Entitlement and ranking-offset parity in the
   acceptance condition above is not yet implemented.
 
@@ -775,8 +775,16 @@ bounded path set. Shared contract files require coordination through package A0.
   guards, the `99+` visual cap with exact accessible count, AA badge contrast,
   and text-only DOM writes have static and unit evidence. It still lacks source-compatible list/count envelopes,
   pagination, broadcast/expiry/read semantics, mutations, preferences, push/SSE,
-  approved action-URL behavior, and live-service/browser runtime proof. The resulting
-  **3 aligned / 8 partial / 17 blocked** inventory keeps readiness at exit `3`.
+  approved action-URL behavior, and live-service/browser runtime proof. The
+  blocked-route inventory is also more truthful without overstating parity:
+  `/profile` exposes only locally verified session claims; `/account/credits`
+  no longer turns failures or missing authority into a zero balance or empty
+  ledger; `/developer/usage` no longer publishes canned metering, charts, keys,
+  or service health; and both payment routes fail closed without accepting
+  query-owned financial state, submitting a mutation, or claiming an intent or
+  completion. These routes remain blocked until their documented A1/A4/A5/A6
+  authorities and runtime proofs exist. The resulting **3 aligned / 8 partial /
+  17 blocked** inventory keeps readiness at exit `3`.
 
 ### A8 — Admin live data and mutation parity (P1)
 

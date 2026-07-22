@@ -263,8 +263,7 @@ pub fn build_app(state: AppState) -> Router {
         .route("/api/v1/auth/oauth/{provider}", get(api_oauth_start))
         .route(
             "/api/v1/notifications",
-            get(notifications_api)
-                .head(|| async { axum::http::StatusCode::METHOD_NOT_ALLOWED }),
+            get(notifications_api).head(|| async { axum::http::StatusCode::METHOD_NOT_ALLOWED }),
         )
         .route(
             "/api/v1/notifications/unread-count",
@@ -290,14 +289,10 @@ pub fn build_app(state: AppState) -> Router {
         .route("/api/v1/news", get(api_news))
         .route("/api/v1/news/{slug}", get(api_news_post))
         .route("/api/v1/portfolio/{addr}", get(api_portfolio))
-        // Wave 23 T5 — new data_X endpoints for previously-unwired
-        // data-bound pages (account, credits, developer, analytics,
-        // payment). Each returns a canned payload shape matching
-        // the dev page's typed struct.
+        // Legacy data_X compatibility endpoints that still have explicit
+        // consumers. Financial and metering mocks are intentionally absent.
         .route("/api/v1/account", get(api_account))
-        .route("/api/v1/credits", get(api_credits))
         .route("/api/v1/developer", get(api_developer))
-        .route("/api/v1/developer/usage", get(api_developer_usage))
         .route("/api/v1/developer/docs", get(api_developer_docs))
         .route("/api/v1/analytics/summary", get(api_analytics))
         .route("/api/v1/dashboard", get(api_dashboard))
@@ -312,7 +307,6 @@ pub fn build_app(state: AppState) -> Router {
         // inner `data` for the page's `ctx.params["data_dashboard"]`
         // lookup — see `ssr.rs::fetch_page_data`.
         .route("/api/v1/dashboard/stats", get(api_dashboard_stats))
-        .route("/api/v1/payment/{id}", get(api_payment))
         .route("/api/v1/wallet/chains", get(api_wallet_chains))
         .route("/api/v1/wallet/connect", post(api_wallet_connect))
         .route("/api/v1/subscription/plans", get(api_subscription_plans))
@@ -420,7 +414,13 @@ mod routing_tests {
 
     async fn request(method: Method, uri: &str) -> Response {
         build_app(test_state())
-            .oneshot(Request::builder().method(method).uri(uri).body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap()
     }
@@ -440,24 +440,46 @@ mod routing_tests {
         ] {
             let response = request(Method::GET, path).await;
             assert_eq!(response.status(), StatusCode::NOT_FOUND, "{path}");
-            assert_eq!(response.headers()[header::CONTENT_TYPE], "text/html; charset=utf-8", "{path}");
-            let body = to_bytes(response.into_body(), 2 * 1024 * 1024).await.unwrap();
-            assert!(String::from_utf8_lossy(&body).contains("Page not found"), "{path}");
+            assert_eq!(
+                response.headers()[header::CONTENT_TYPE],
+                "text/html; charset=utf-8",
+                "{path}"
+            );
+            let body = to_bytes(response.into_body(), 2 * 1024 * 1024)
+                .await
+                .unwrap();
+            assert!(
+                String::from_utf8_lossy(&body).contains("Page not found"),
+                "{path}"
+            );
         }
 
-        assert_eq!(request(Method::HEAD, "/missing-page").await.status(), StatusCode::NOT_FOUND);
+        assert_eq!(
+            request(Method::HEAD, "/missing-page").await.status(),
+            StatusCode::NOT_FOUND
+        );
     }
 
     #[tokio::test]
     async fn unknown_api_is_json_and_known_method_mismatch_stays_405() {
-        for path in ["/api", "/api/", "/api/v1/plans/extra"] {
+        for path in [
+            "/api",
+            "/api/",
+            "/api/v1/plans/extra",
+            "/api/v1/credits",
+            "/api/v1/developer/usage",
+            "/api/v1/payment/not-an-authorized-intent",
+        ] {
             let response = request(Method::GET, path).await;
             assert_eq!(response.status(), StatusCode::NOT_FOUND, "{path}");
-            assert_eq!(response.headers()[header::CONTENT_TYPE], "application/json", "{path}");
-            let body: serde_json::Value = serde_json::from_slice(
-                &to_bytes(response.into_body(), 16 * 1024).await.unwrap(),
-            )
-            .unwrap();
+            assert_eq!(
+                response.headers()[header::CONTENT_TYPE],
+                "application/json",
+                "{path}"
+            );
+            let body: serde_json::Value =
+                serde_json::from_slice(&to_bytes(response.into_body(), 16 * 1024).await.unwrap())
+                    .unwrap();
             assert_eq!(body["error"], "not_found", "{path}");
         }
 
@@ -465,7 +487,10 @@ mod routing_tests {
         assert_eq!(head.status(), StatusCode::NOT_FOUND);
         assert_eq!(head.headers()[header::CONTENT_TYPE], "application/json");
 
-        assert_eq!(request(Method::POST, "/api/v1/plans").await.status(), StatusCode::METHOD_NOT_ALLOWED);
+        assert_eq!(
+            request(Method::POST, "/api/v1/plans").await.status(),
+            StatusCode::METHOD_NOT_ALLOWED
+        );
         for method in [
             Method::HEAD,
             Method::POST,

@@ -25,8 +25,8 @@
 //!    doc adds this as a Track B new section.)
 //!
 //! ### Usage (`render_usage`)
-//! 7. `UsageMonitor` — chart of API calls over time, 429/500 error
-//!    counts. Source: `usage-monitor.tsx` 150 LoC.
+//! 7. Authenticated unavailable state — usage reporting is withheld until a
+//!    production-owned data contract is available to the Rust page.
 //!
 //! ### Docs (`render_docs`)
 //! 8. Endpoints sidebar + endpoint cards. Source: `docs-sidebar.tsx`
@@ -39,20 +39,17 @@
 //!   - `plan-transfer-list`
 //!   - `permission-list`
 //!   - `docs-quick-links`
-//!   - `usage-monitor`
+//!   - `developer-usage-unavailable`
 //!   - `developer-docs`
 
-use crate::data_table::{Column, DataTable, Row};
-use crate::feedback::*;
 use crate::primitives::*;
 
-use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
-use crate::layout::main_layout::MainLayout;
-use crate::layout::{PageHeader, DeveloperShell};
 use crate::auth::AuthGate;
-use crate::charts::{ChartBar, ChartLine, DataPoint, Series};
+use crate::layout::main_layout::MainLayout;
+use crate::layout::{DeveloperShell, PageHeader};
+use dioxus::prelude::*;
 use std::sync::OnceLock;
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -132,92 +129,11 @@ struct DeveloperStatsProps {
     expires: String,
 }
 
-// === wave32-t1-developer-usage-wire ===
-// Wave 32 T1 — typed wire structs for `/api/v1/developer/usage`.
-// The BFF returns `{summary: {calls_today, calls_7d, calls_30d,
-// errors_429, errors_500}, per_key: [{key_id, name, calls_today,
-// errors_429, errors_500}], history: [{date, calls, errors_429,
-// errors_500}]}`. The wire structs parse that exact shape with
-// `#[serde(default)]` on every field so a partial BFF payload (e.g.
-// `summary` missing) still deserializes into a usable-but-empty
-// struct. The page then derives the `UsageMonitor` props from
-// `summary` and renders `per_key` + `history` directly.
-
-#[derive(Clone, Debug, serde::Deserialize, Default)]
-struct DeveloperUsageSummaryWire {
-    #[serde(default)] calls_today: u64,
-    #[serde(default)] calls_7d: u64,
-    #[serde(default)] calls_30d: u64,
-    #[serde(default)] errors_429: u64,
-    #[serde(default)] errors_500: u64,
-}
-
-#[derive(Clone, Debug, serde::Deserialize, Default)]
-struct DeveloperUsagePerKeyWire {
-    #[serde(default)] key_id: String,
-    #[serde(default)] name: String,
-    #[serde(default)] calls_today: u64,
-    // Parsed-but-not-yet-rendered. The page renders only the per-key
-    // `calls_today` total today; the BFF may evolve to expose
-    // per-key error breakdowns in a future wave, and we want the
-    // wire struct to deserialize the new shape without a code
-    // change.
-    #[allow(dead_code)] #[serde(default)] errors_429: u64,
-    #[allow(dead_code)] #[serde(default)] errors_500: u64,
-}
-
-#[derive(Clone, Debug, serde::Deserialize, Default)]
-struct DeveloperUsageHistoryWire {
-    #[serde(default)] date: String,
-    #[serde(default)] calls: u64,
-    // Parsed-but-not-yet-rendered. Same rationale as the per-key
-    // `errors_*` fields — the chart currently shows per-day call
-    // volume only.
-    #[allow(dead_code)] #[serde(default)] errors_429: u64,
-    #[allow(dead_code)] #[serde(default)] errors_500: u64,
-}
-
-#[derive(Clone, Debug, serde::Deserialize, Default)]
-struct DeveloperUsageData {
-    #[serde(default)] summary: Option<DeveloperUsageSummaryWire>,
-    #[serde(default)] per_key: Option<Vec<DeveloperUsagePerKeyWire>>,
-    #[serde(default)] history: Option<Vec<DeveloperUsageHistoryWire>>,
-}
-
 // === wave32-t1-remove-sample-fallbacks ===
-// Wave 32 T1 — removed `sample_api_keys()`, `sample_api_key_usage()`,
-// `sample_top_endpoints()`. The BFF
-// (`/api/v1/developer` for the overview, `/api/v1/developer/usage`
-// for the usage page) is now the canonical data source — `ssr.rs::fetch_page_data`
-// calls the BFF in-process and the page reads the typed wire structs
-// directly. There is no longer a need for a hardcoded fixture
-// fallback in the render path. The unit tests in this file inject
-// realistic BFF payloads into `ctx.params` (see `authed_ctx_with_usage`)
-// and assert the BFF data flows through the page render.
-
-// Per-key usage stats (for the `UsageMonitor` per-key card).
-// Mirrors the `<key>` items in `usage-monitor.tsx:56-67`.
-#[derive(Clone, Debug, PartialEq)]
-pub struct ApiKeyUsage {
-    pub id: String,
-    pub name: String,
-    pub status: String,
-    pub total_requests: u64,
-}
-
-/// Per-endpoint call counts (for the `UsageMonitor` top-endpoints
-/// card). Mirrors the `topEndpoints` items in `usage-monitor.tsx:133-143`.
-/// The BFF `/api/v1/developer/usage` payload does not supply
-/// top-endpoints (brief's shape is `{summary, per_key, history}`)
-/// so the page passes an empty `Vec<EndpointUsage>` to
-/// `UsageMonitor`, which renders the "No endpoint data"
-/// placeholder.
-#[derive(Clone, Debug, PartialEq)]
-pub struct EndpointUsage {
-    pub endpoint: String,
-    pub method: String,
-    pub count: u64,
-}
+// Wave 32 T1 removed `sample_api_keys()`, and the overview still consumes its
+// compatibility payload. The later A7 truthfulness slice removed all usage
+// fixtures and the canned `/api/v1/developer/usage` producer; that route now
+// renders an explicit unavailable state until owner-safe metering exists.
 
 fn sample_permissions_available() -> Vec<String> {
     vec![
@@ -911,277 +827,47 @@ fn DocsQuickLinks() -> Element {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Usage sub-page (`/developer/usage`) — `UsageMonitor` chart + stats.
-// Source: `usage-monitor.tsx` 150 LoC.
+// Usage sub-page (`/developer/usage`) — truthful migration state.
 // ─────────────────────────────────────────────────────────────────────────
 
-/// `UsageMonitor` — chart of API calls over time + 429/500 error
-/// counts + per-key usage. Mirrors `usage-monitor.tsx` 150 LoC.
-/// Wave 22 T4 — extends the prior 5-prop signature with
-/// `per_key` (per-key usage table) and `top_endpoints` (top-N
-/// endpoint list) props that render two new sub-cards. Defaults
-/// to sample data when callers pass empty vecs.
-#[component]
-fn UsageMonitor(
-    total_requests: u64,
-    requests_24h: u64,
-    error_rate_24h: f64,
-    success_rate: f64,
-    history: Vec<(String, u32)>,
-    per_key: Vec<ApiKeyUsage>,
-    top_endpoints: Vec<EndpointUsage>,
-) -> Element {
-    let max_count = history.iter().map(|(_, c)| *c).max().unwrap_or(1).max(1);
-    let history_chart: Vec<Series> = vec![Series {
-        name: "API calls".into(),
-        color: "#22d3ee".into(),
-        points: history
-            .iter()
-            .enumerate()
-            .map(|(i, (_d, c))| DataPoint {
-                x: i as f64,
-                y: *c as f64,
-                label: None,
-            })
-            .collect(),
-    }];
-    let total_keys = per_key.len();
-    let active_keys = per_key.iter().filter(|k| k.status == "active").count();
-    rsx! {
-        div { class: "usage-monitor space-y-6",
-            "data-section": "usage-monitor",
-            // Stats grid
-            div { class: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4",
-                div { class: "rounded-2xl border border-border/20 bg-card p-5 shadow-xl",
-                    p { class: "text-xs font-medium text-muted-foreground", "Total Requests" }
-                    p { class: "mt-2 text-2xl font-bold text-emerald-400", "{total_requests}" }
-                    p { class: "mt-1 text-[11px] text-muted-foreground/60", "All time" }
-                }
-                div { class: "rounded-2xl border border-border/20 bg-card p-5 shadow-xl",
-                    p { class: "text-xs font-medium text-muted-foreground", "Requests (24h)" }
-                    p { class: "mt-2 text-2xl font-bold text-blue-400", "{requests_24h}" }
-                    p { class: "mt-1 text-[11px] text-muted-foreground/60", "{total_keys} keys ({active_keys} active)" }
-                }
-                div { class: "rounded-2xl border border-border/20 bg-card p-5 shadow-xl",
-                    p { class: "text-xs font-medium text-muted-foreground", "Error Rate (24h)" }
-                    p { class: "mt-2 text-2xl font-bold text-purple-400", "{error_rate_24h:.2}%" }
-                    p { class: "mt-1 text-[11px] text-muted-foreground/60", "Failed requests" }
-                }
-                div { class: "rounded-2xl border border-border/20 bg-card p-5 shadow-xl",
-                    p { class: "text-xs font-medium text-muted-foreground", "Success Rate" }
-                    p { class: "mt-2 text-2xl font-bold text-amber-400", "{success_rate:.1}%" }
-                    p { class: "mt-1 text-[11px] text-muted-foreground/60", "Global average" }
-                }
-            }
-            // Per-key usage card (mirrors usage-monitor.tsx:42-70)
-            div { class: "usage-monitor-per-key rounded-2xl border border-border/20 bg-card shadow-xl",
-                "data-section": "usage-monitor-per-key",
-                div { class: "border-b border-border/10 px-5 py-4",
-                    h3 { class: "text-sm font-semibold text-foreground", "Usage by API Key" }
-                }
-                div { class: "p-5",
-                    if per_key.is_empty() {
-                        p { class: "py-8 text-center text-sm text-muted-foreground", "No API keys yet" }
-                    } else {
-                        div { class: "space-y-2",
-                            for k in per_key.iter() {
-                                div { class: "flex items-center justify-between rounded-xl bg-background p-3",
-                                    key: "{k.id}",
-                                    div {
-                                        span { class: "text-sm font-medium text-foreground", "{k.name}" }
-                                        span {
-                                            class: if k.status == "active" { "ml-2 rounded border border-green-500/30 bg-green-500/10 px-1.5 py-0.5 text-[10px] text-green-400" } else { "ml-2 rounded border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground" },
-                                            "{k.status}"
-                                        }
-                                    }
-                                    span { class: "text-lg font-bold text-emerald-400", "{k.total_requests}" }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            // History chart card
-            div { class: "rounded-2xl border border-border/20 bg-card shadow-xl",
-                div { class: "flex items-center justify-between border-b border-border/10 px-5 py-4",
-                    h3 { class: "text-sm font-semibold text-foreground", "Usage History" }
-                    div { class: "flex gap-1",
-                        for r in [7u32, 30, 90].iter() {
-                            button {
-                                r#type: "button",
-                                class: "rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground hover:text-foreground",
-                                "{r}d"
-                            }
-                        }
-                    }
-                }
-                div { class: "p-5",
-                    if history.is_empty() {
-                        p { class: "text-center text-sm text-muted-foreground", "No data" }
-                    } else {
-                        // Bar chart fallback (the source uses a custom
-                        // histogram; we reuse the `ChartBar` primitive
-                        // for parity with the rest of the page).
-                        {
-                            let bar_data: Vec<(String, f64)> = history
-                                .iter()
-                                .map(|(d, c)| (d.clone(), *c as f64))
-                                .collect();
-                            rsx! { ChartBar { data: bar_data, width: 720, height: 220 } }
-                        }
-                    }
-                    // Pre-rendered line series for the per-day call
-                    // volume (small line above the bars).
-                    div { class: "mt-3",
-                        ChartLine { series: history_chart, width: 720, height: 120 }
-                    }
-                    // Tell the unit test about the max count without
-                    // rendering it visibly.
-                    span { class: "sr-only", "max count {max_count}" }
-                }
-            }
-            // Top endpoints card (mirrors usage-monitor.tsx:121-147)
-            div { class: "usage-monitor-top-endpoints rounded-2xl border border-border/20 bg-card shadow-xl",
-                "data-section": "usage-monitor-top-endpoints",
-                div { class: "border-b border-border/10 px-5 py-4",
-                    h3 { class: "text-sm font-semibold text-foreground", "Top Endpoints" }
-                }
-                div { class: "p-5",
-                    if top_endpoints.is_empty() {
-                        p { class: "py-4 text-center text-sm text-muted-foreground", "No endpoint data" }
-                    } else {
-                        div { class: "space-y-2",
-                            for ep in top_endpoints.iter() {
-                                div { class: "flex items-center justify-between rounded-xl bg-background p-3",
-                                    key: "{ep.method}-{ep.endpoint}",
-                                    div { class: "flex items-center gap-2",
-                                        span { class: "rounded-md px-2 py-0.5 text-xs font-bold {method_color_class(&ep.method)}",
-                                            "{ep.method}"
-                                        }
-                                        span { class: "font-mono text-xs text-muted-foreground", "{ep.endpoint}" }
-                                    }
-                                    span { class: "text-sm font-bold text-emerald-400", "{ep.count}" }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// Auth-guard body for /developer/usage — matches prod's GlobalAuthGuard
-// modal overlay.
-// ─────────────────────────────────────────────────────────────────────────
-
-/// `DeveloperUsageAuthGuardBody` — unauthed render of `/developer/usage`.
+/// Authenticated state for usage reporting.
 ///
-/// Wave 27 T2 — matches prod's `GlobalAuthGuard` modal overlay that
-/// intercepts `/developer/usage` for unauthed visitors. Prod's page
-/// (apps-old/frontend/app/developer/usage/page.tsx:9-11) returns
-/// `null` when `getCurrentUser()` is missing — the layout's
-/// `GlobalAuthGuard` then renders the empty `<div
-/// class="min-h-screen bg-background flex items-center
-/// justify-center"><div class="container mx-auto p-6">` + a
-/// fixed-position backdrop + a centered auth modal dialog with
-/// the "Select Wallet" step (Safe / WalletConnect / Base Account).
-///
-/// The dev BFF doesn't have a global `GlobalAuthGuard`, so we render
-/// the auth-guard body directly inside the page. This brings the
-/// unauthed `/developer/usage` pixel-diff from ~0% (empty page) to
-/// the structural-floor of "auth modal page".
+/// No metrics are rendered until the Rust page has a production-owned,
+/// authenticated usage contract. Retry and documentation remain ordinary
+/// links so they work in server-rendered output without hydration.
 #[component]
-fn DeveloperUsageAuthGuardBody() -> Element {
+fn DeveloperUsageUnavailable() -> Element {
     rsx! {
-        // Outer <main class="relative min-h-[calc(100svh-3.5rem)]">
-        // mirror — the layout's <main> wrapper is the actual parent
-        // in SSR, so this is an inner div that fills the main area.
-        div { class: "developer-usage-auth-guard relative min-h-[calc(100svh-3.5rem)]",
-            // Outer empty container (matches prod's
-            // <div class="min-h-screen bg-background flex items-center justify-center">)
-            div { class: "developer-usage-auth-guard-inner min-h-screen bg-background flex items-center justify-center",
-                // <div class="container mx-auto p-6">
-                div { class: "developer-usage-auth-guard-content container mx-auto p-6",
-                    // === wave27-t2-port-fe-pages ===
-                    // Prod renders GlobalAuthGuard which includes a
-                    // backdrop overlay + a centered dialog. We render
-                    // both so the pixel-diff harness measures the same
-                    // auth-modal shape. The backdrop + dialog-wrap are
-                    // SIBLINGS (not nested), matching prod's structure
-                    // exactly so the pixel-diff doesn't pick up extra
-                    // padding/margin from a wrapping element.
-                    div {
-                        class: "developer-usage-auth-guard-backdrop fixed inset-0 backdrop-blur-sm state-open:animate-fade-in state-closed:animate-fade-out",
-                        "data-state": "open",
-                        style: "pointer-events: none; z-index: 1090; background-color: rgba(0, 0, 0, 0.5);"
+        section {
+            class: "developer-usage-unavailable rounded-2xl border border-border/20 bg-card p-8 shadow-xl",
+            "data-section": "developer-usage-unavailable",
+            role: "status",
+            "aria-live": "polite",
+            "aria-labelledby": "developer-usage-unavailable-title",
+            div { class: "mx-auto max-w-2xl text-center",
+                div { class: "mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted",
+                    Icon { name: "chart-line".to_string(), size: Some(24) }
+                }
+                h2 {
+                    id: "developer-usage-unavailable-title",
+                    class: "text-xl font-bold text-foreground",
+                    "Usage data unavailable"
+                }
+                p { class: "mt-3 text-sm text-muted-foreground",
+                    "Authenticated usage reporting is temporarily unavailable. No request counts, limits, reliability figures, or activity rows are shown."
+                }
+                nav {
+                    class: "mt-6 flex flex-wrap justify-center gap-3",
+                    "aria-label": "Usage page actions",
+                    a {
+                        class: "btn btn-primary",
+                        href: "/developer/usage",
+                        "Retry"
                     }
-                    div {
-                        class: "developer-usage-auth-guard-dialog-wrap fixed inset-0 flex items-center justify-center p-4",
-                        style: "z-index: 1100; pointer-events: none;",
-                        div {
-                            role: "dialog",
-                            // Wave 29 T1 — removed `sm:max-w-[420px]`
-                            // override so the modal falls back to
-                            // `max-w-lg` (32rem = 512px) on small+
-                            // viewports, matching prod's actual rendered
-                            // modal width (511px). Prod's
-                            // `sm:max-w-[420px]` is in the source but
-                            // NOT emitted in the compiled prod CSS
-                            // (`grep -r sm:max-w apps-old/frontend/.next/dev/static/css/`
-                            // returns 0 results), so prod actually
-                            // renders at 512px (max-w-lg wins). Wave 27
-                            // T2's `sm:max-w-[420px]` was a source-only
-                            // match, not a rendered-pixel match.
-                            class: "developer-usage-auth-guard-dialog grid w-full max-w-lg border-gray-200 dark:border-slate-700 text-foreground rounded-2xl sm:rounded-3xl p-0 gap-0 overflow-hidden bg-transparent dark:bg-transparent border-0 shadow-none",
-                            tabindex: "-1",
-                            style: "pointer-events: auto;",
-                            h2 { class: "sr-only", "Dialog" }
-                            // Mirrors prod's
-                            // <div class="auth-modal-inner "> (note the
-                            // trailing space in prod — preserved for
-                            // pixel-parity).
-                            div { class: "auth-modal-inner ",
-                                div { class: "auth-modal-content",
-                                    div { class: "auth-step auth-step-enter",
-                                        div { class: "auth-step-header",
-                                            span { class: "auth-step-number", "1" }
-                                            span { class: "auth-step-label", "Select Wallet" }
-                                        }
-                                        div { class: "auth-wallets",
-                                            // Three wallet buttons in
-                                            // prod order: Safe /
-                                            // WalletConnect /
-                                            // Base Account.
-                                            button {
-                                                r#type: "button",
-                                                class: "auth-wallet-btn",
-                                                span { class: "auth-wallet-icon", "\u{1F4BC}" }
-                                                span { class: "auth-wallet-name", "Safe" }
-                                            }
-                                            button {
-                                                r#type: "button",
-                                                class: "auth-wallet-btn",
-                                                span { class: "auth-wallet-icon", "\u{1F517}" }
-                                                span { class: "auth-wallet-name", "WalletConnect" }
-                                            }
-                                            button {
-                                                r#type: "button",
-                                                class: "auth-wallet-btn",
-                                                span { class: "auth-wallet-icon", "\u{1F4BC}" }
-                                                span { class: "auth-wallet-name", "Base Account" }
-                                            }
-                                        }
-                                    }
-                                }
-                                div { class: "auth-modal-footer",
-                                    p { class: "auth-footer-text",
-                                        "By connecting, you agree to our Terms of Service."
-                                    }
-                                }
-                            }
-                        }
+                    a {
+                        class: "btn btn-outline",
+                        href: "/developer/docs",
+                        "Read API documentation"
                     }
                 }
             }
@@ -1282,125 +968,25 @@ fn DeveloperOverviewBody(ctx: PageContext) -> Element {
     }
 }
 
-/// `DeveloperUsageBody` — body of `/developer/usage`.
-///
-/// Wave 27 T2 — matches the prod capture's auth-guard layout. Prod
-/// renders:
-///   <main class="relative min-h-[calc(100svh-3.5rem)]">
-///     <div class="min-h-screen bg-background flex items-center justify-center">
-///       <div class="container mx-auto p-6">
-///         <div class="fixed inset-0 bg-background/90 backdrop-blur-sm z-50"></div>
-///       </div>
-///     </div>
-///   </main>
-///
-/// The OLD page's actual content (`<UsageMonitor currentUser={user} />`)
-/// is rendered only when `getCurrentUser()` returns a user. The
-/// prod capture was anonymous, so the body collapses to the empty
-/// `<div class="container mx-auto p-6">` + the global `GlobalAuthGuard`
-/// modal overlay (rendered by the layout, not the page). The harness
-/// diffs the dev's empty body + modal against prod's empty body +
-/// modal.
-///
-/// When `ctx.user.is_some()` we still render the full UsageMonitor
-/// body (matching the source's authed-rendered state).
+/// `DeveloperUsageBody` — authentication-only usage state.
 #[component]
 fn DeveloperUsageBody(ctx: PageContext) -> Element {
-    // === wave32-t1-developer-usage-wire ===
-    // Wave 32 T1 — read the BFF payload from `data_developer_usage`
-    // (set by `ssr.rs::fetch_page_data` for the `/developer/usage`
-    // path). When present, derive the 4 stat-card numbers +
-    // per-key table + history chart from the BFF data. When absent
-    // (unit tests, admin BFF without this path, etc.) fall back to
-    // the historical hardcoded numbers so the surface area stays
-    // unit-testable. The fallback is kept narrow on purpose: the
-    // BFF is now the canonical data source, this is just a
-    // backstop for SSR-with-no-BFF.
-    let usage: Option<DeveloperUsageData> = ctx.params.get("data_developer_usage")
-        .and_then(|s| serde_json::from_str(s).ok());
-
-    // 4 stat cards (Total Requests / Requests 24h / Error Rate 24h /
-    // Success Rate) — derive from the BFF summary.
-    let summary = usage.as_ref().and_then(|u| u.summary.clone());
-    let total_requests = summary.as_ref().map(|s| s.calls_30d).unwrap_or(170_414);
-    let requests_24h = summary.as_ref().map(|s| s.calls_today).unwrap_or(2_891);
-    let (error_rate_24h, success_rate) = match summary.as_ref() {
-        Some(s) if s.calls_today > 0 => {
-            let total_errors = s.errors_429.saturating_add(s.errors_500);
-            let err_pct = (total_errors as f64 / s.calls_today as f64) * 100.0;
-            (err_pct, 100.0 - err_pct)
-        }
-        _ => (0.42_f64, 99.6_f64),
-    };
-
-    // Per-key usage — derive from BFF `per_key[]` (the BFF doesn't
-    // supply a `status` field, so all keys render as "active" —
-    // matches the prod rendering where revoked keys are filtered
-    // out server-side).
-    let per_key: Vec<ApiKeyUsage> = usage.as_ref()
-        .and_then(|u| u.per_key.clone())
-        .map(|keys| keys.into_iter().map(|k| ApiKeyUsage {
-            id: k.key_id,
-            name: k.name,
-            status: "active".to_string(),
-            total_requests: k.calls_today,
-        }).collect())
-        .unwrap_or_default();
-
-    // History chart — derive from BFF `history[]` (date, calls).
-    // Empty when BFF didn't supply history (BFF is the canonical
-    // source — the historical `(0..7).map(|i| ...)` sample loop is
-    // removed).
-    let history: Vec<(String, u32)> = usage.as_ref()
-        .and_then(|u| u.history.clone())
-        .map(|h| h.into_iter().map(|p| (p.date, p.calls as u32)).collect())
-        .unwrap_or_default();
-
-    // Top endpoints — BFF `/api/v1/developer/usage` does not
-    // supply a `top_endpoints` field (per the brief's shape
-    // `{summary, per_key, history}`). Pass an empty vec so the
-    // component renders the "No endpoint data" placeholder.
-    let top_endpoints: Vec<EndpointUsage> = vec![];
-
     rsx! {
         MainLayout { ctx: ctx.clone(),
-            if ctx.user.is_some() {
+            AuthGate {
+                user: ctx.user.clone(),
+                feature: Some("API usage".to_string()),
+                return_url: Some(ctx.path.clone()),
                 DeveloperShell { current_path: ctx.path.clone(),
                     div { class: "developer-usage-prod container page-content space-y-6",
                         PageHeader {
                             title: "API usage".to_string(),
-                            description: Some("Per-day call volume and rate-limit status".to_string()),
+                            description: Some("Usage reporting is not currently available.".to_string()),
                             icon: Some("chart-line".to_string()),
                         }
-                        // 7. UsageMonitor — props now derived from
-                        // the BFF `data_developer_usage` payload.
-                        UsageMonitor {
-                            total_requests,
-                            requests_24h,
-                            error_rate_24h,
-                            success_rate,
-                            history,
-                            per_key,
-                            top_endpoints,
-                        }
-                        // Legacy 3-card row (kept for regression
-                        // parity with the pre-Wave-6A shape).
-                        div { class: "grid grid-cols-1 md:grid-cols-3 gap-4 mt-4",
-                            StatCard { label: "Rate limit".to_string(), value: "1000/min".to_string(), icon: Some("gauge".to_string()) }
-                            StatCard { label: "Current usage".to_string(), value: "234/min".to_string(), icon: Some("activity".to_string()) }
-                            StatCard { label: "Errors (24h)".to_string(), value: "3".to_string(), icon: Some("alert-triangle".to_string()) }
-                        }
+                        DeveloperUsageUnavailable {}
                     }
                 }
-            } else {
-                // === wave27-t2-port-fe-pages ===
-                // Source: apps-old/frontend/app/developer/usage/page.tsx:9-11
-                //   if (!user) { return null; /* Layout handles auth guard */ }
-                // Prod's GlobalAuthGuard renders an empty container +
-                // a fixed background overlay + the auth modal dialog.
-                // We replicate the structure so the pixel-diff harness
-                // measures the same empty-body + auth-modal state.
-                DeveloperUsageAuthGuardBody {}
             }
         }
     }
@@ -1759,34 +1345,9 @@ mod tests {
         }
     }
 
-    /// Authed context pre-populated with a realistic
-    /// `data_developer_usage` BFF payload (mirrors
-    /// `apps/frontend/src/api.rs::developer_usage_value()`).
-    /// Used by the wave-32-T1 test that asserts the BFF data
-    /// flows through the `/developer/usage` page render.
-    fn authed_ctx_with_usage() -> PageContext {
+    fn usage_ctx() -> PageContext {
         let mut ctx = authed_ctx();
         ctx.path = "/developer/usage".to_string();
-        ctx.params.insert(
-            "data_developer_usage".to_string(),
-            r#"{
-                "summary": {
-                    "calls_today": 12481,
-                    "calls_7d": 84205,
-                    "calls_30d": 358910,
-                    "errors_429": 4,
-                    "errors_500": 0
-                },
-                "per_key": [
-                    { "key_id": "k_prod",    "name": "Production", "calls_today": 8231, "errors_429": 2, "errors_500": 0 },
-                    { "key_id": "k_staging", "name": "Staging",    "calls_today": 3750, "errors_429": 1, "errors_500": 0 }
-                ],
-                "history": [
-                    { "date": "2025-01-15", "calls": 9812,  "errors_429": 1, "errors_500": 0 },
-                    { "date": "2025-01-14", "calls": 11450, "errors_429": 0, "errors_500": 0 }
-                ]
-            }"#.to_string(),
-        );
         ctx
     }
 
@@ -1828,105 +1389,111 @@ mod tests {
         }
     }
 
-    // === wave22-t4-developer-pricing-retry ===
-    // Wave 22 T4 — `test_usage_monitor_per_key`. Renders the
-    // /developer/usage body (authed ctx) and asserts the new
-    // UsageMonitor per-key + top-endpoints sub-cards are present
-    // and contain a sample key name + endpoint path.
-    //
-    // === wave32-t1-developer-usage-wire ===
-    // Wave 32 T1 — extended to inject the BFF `data_developer_usage`
-    // payload (per the wave-32 brief: "Read the JSON from
-    // `ctx.params['developer_usage']`. If present, render `per_key`
-    // as the API key cards"). The previous assertions were tied
-    // to the now-removed `sample_api_key_usage()` + `sample_top_endpoints()`
-    // hardcoded fixtures. Per the spec-flips-pre-existing-test
-    // pattern, the assertions are EXTENDED (not deleted): the
-    // "Production" seed comes from the BFF per_key data; the
-    // "/api/analytics/rankings" assertion is replaced with the
-    // "No endpoint data" assertion (BFF doesn't supply endpoints).
-    //
-    // Note: the rendered HTML shows raw numbers (`358910`, `8231`)
-    // — Dioxus's `{}` formatter doesn't add thousand-separators.
-    // Assertions match the actual rendered format.
-    #[test]
-    fn test_usage_monitor_per_key() {
-        let ctx = authed_ctx_with_usage();
-        let (_meta, el) = render_usage(&ctx);
-        let html = dioxus_ssr::render_element(el);
-        assert!(
-            html.contains("usage-monitor-per-key"),
-            "usage body should contain per-key card marker. Got: {html}"
-        );
-        assert!(
-            html.contains("usage-monitor-top-endpoints"),
-            "usage body should contain top-endpoints card marker. Got: {html}"
-        );
-        // BFF data check — the Production key from the injected
-        // `data_developer_usage.per_key[0]` shows up in the
-        // per-key table.
-        assert!(
-            html.contains("Production"),
-            "usage body should render the BFF `per_key[0].name=Production` API key. Got: {html}"
-        );
-        // BFF data check — the per-key `calls_today` number is
-        // rendered (proves the wire→props pipeline is wired).
-        assert!(
-            html.contains("8231"),
-            "usage body should render the BFF `per_key[0].calls_today=8231`. Got: {html}"
-        );
-        // BFF data check — the 30-day total from `summary.calls_30d`
-        // is rendered (proves the summary→total_requests wiring).
-        assert!(
-            html.contains("358910"),
-            "usage body should render the BFF `summary.calls_30d=358910`. Got: {html}"
-        );
-        // BFF data check — the 24h total from `summary.calls_today`
-        // is rendered (proves the summary→requests_24h wiring).
-        assert!(
-            html.contains("12481"),
-            "usage body should render the BFF `summary.calls_today=12481`. Got: {html}"
-        );
-        // BFF does NOT supply `top_endpoints` — the card renders
-        // the "No endpoint data" placeholder (replaces the
-        // pre-wave-32 assertion that checked
-        // `/api/analytics/rankings` from the removed sample data).
-        assert!(
-            html.contains("No endpoint data"),
-            "usage body should render 'No endpoint data' placeholder when BFF has no top_endpoints. Got: {html}"
-        );
+    fn render_usage_to_string(ctx: &PageContext) -> String {
+        let (_, element) = render_usage(ctx);
+        dioxus_ssr::render_element(element)
     }
 
-    // === wave32-t1-developer-usage-wire ===
-    // Wave 32 T1 — `test_usage_monitor_no_bff_data`. Renders the
-    // /developer/usage body with NO `data_developer_usage` BFF
-    // payload and asserts the page still renders (empty data
-    // paths, the 4 stat cards fall back to the historical default
-    // numbers, the per-key + history cards render "No API keys
-    // yet" / "No data" placeholders). This is the no-op test
-    // path for callers (admin BFF, unit tests, dev mode) that
-    // don't plumb the BFF payload.
     #[test]
-    fn test_usage_monitor_no_bff_data() {
-        let ctx = authed_ctx();
-        let (_meta, el) = render_usage(&ctx);
-        let html = dioxus_ssr::render_element(el);
-        assert!(
-            html.contains("usage-monitor-per-key"),
-            "usage body should contain per-key card marker even without BFF data. Got: {html}"
+    fn developer_usage_authenticated_state_is_truthfully_unavailable() {
+        let mut ctx = usage_ctx();
+        ctx.user
+            .as_mut()
+            .expect("authenticated fixture")
+            .permissions
+            .clear();
+        let html = render_usage_to_string(&ctx);
+
+        assert!(html.contains("developer-usage-unavailable"));
+        assert!(html.contains("Usage data unavailable"));
+        assert!(html.contains(
+            "No request counts, limits, reliability figures, or activity rows are shown."
+        ));
+        assert!(!html.contains("Permission required"));
+    }
+
+    #[test]
+    fn developer_usage_ignores_payloads_and_renders_no_metrics_or_sample_rows() {
+        let mut ctx = usage_ctx();
+        ctx.params.insert(
+            "data_developer_usage".to_string(),
+            r#"{
+                "summary": {
+                    "calls_today": 12481,
+                    "calls_30d": 358910,
+                    "error_rate": "0.42%",
+                    "success_rate": "99.6%",
+                    "uptime": "99.99%"
+                },
+                "per_key": [{
+                    "name": "Production",
+                    "key": "epsx_secret_usage_probe",
+                    "calls_today": 8231
+                }],
+                "history": [{"date": "2025-01-15", "calls": 9812}]
+            }"#
+            .to_string(),
         );
-        // No BFF data → no per_key rows → "No API keys yet"
-        // placeholder.
-        assert!(
-            html.contains("No API keys yet"),
-            "usage body should render 'No API keys yet' placeholder when BFF has no per_key. Got: {html}"
-        );
-        // No BFF data → no history → "No data" placeholder in
-        // the history chart card.
-        assert!(
-            html.contains("No data"),
-            "usage body should render 'No data' placeholder when BFF has no history. Got: {html}"
-        );
+        let html = render_usage_to_string(&ctx);
+
+        for forbidden in [
+            "170414",
+            "2891",
+            "0.42%",
+            "99.6%",
+            "99.99%",
+            "1000/min",
+            "234/min",
+            "12481",
+            "358910",
+            "8231",
+            "9812",
+            "Production",
+            "epsx_secret_usage_probe",
+            "Usage History",
+            "Usage by API Key",
+            "Top Endpoints",
+            "usage-monitor",
+        ] {
+            assert!(
+                !html.contains(forbidden),
+                "rendered usage fixture or claim: {forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn developer_usage_unavailable_state_is_accessible_and_native() {
+        let html = dioxus_ssr::render_element(rsx! { DeveloperUsageUnavailable {} });
+
+        assert!(html.contains("role=\"status\""));
+        assert!(html.contains("aria-live=\"polite\""));
+        assert!(html.contains("aria-labelledby=\"developer-usage-unavailable-title\""));
+        assert!(html.contains("href=\"/developer/usage\""));
+        assert!(html.contains("href=\"/developer/docs\""));
+        assert!(html.contains(">Retry</a>"));
+        assert!(html.contains(">Read API documentation</a>"));
+        for control in ["<button", "<form", "<input", "onclick="] {
+            assert!(!html.contains(control), "rendered inert control: {control}");
+        }
+    }
+
+    #[test]
+    fn developer_usage_signed_out_uses_native_auth_gate() {
+        let ctx = PageContext {
+            path: "/developer/usage".to_string(),
+            ..Default::default()
+        };
+        let html = render_usage_to_string(&ctx);
+
+        assert!(html.contains("class=\"auth-gate "));
+        assert!(html.contains("role=\"alert\""));
+        assert!(html.contains("Sign in required"));
+        assert!(html.contains("href=\"/auth?return_url=%2Fdeveloper%2Fusage\""));
+        assert!(!html.contains("developer-usage-unavailable"));
+        for simulated_wallet_ui in ["Select Wallet", "WalletConnect", "Base Account"] {
+            assert!(!html.contains(simulated_wallet_ui));
+        }
     }
 
     /// Wave 22 T4 — `test_docs_categories`. Renders the

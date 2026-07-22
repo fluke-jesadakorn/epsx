@@ -494,14 +494,8 @@ async fn fetch_page_data(
             serde_json::to_string(&outcome).expect("news detail outcome is serializable"),
         );
     }
-    // /developer/usage: fetch usage stats. Wave 31 T1 — call the
-    // BFF's own `developer_usage_value()` helper in-process.
-    if path == "/developer/usage" {
-        params.insert(
-            "data_developer_usage".into(),
-            crate::api::developer_usage_value().to_string(),
-        );
-    }
+    // `/developer/usage` intentionally has no loader. No owner-safe metering
+    // contract exists, so the page renders an explicit unavailable state.
     // /notifications: fetch the authenticated owner's list. Preserve an
     // explicit dependency outcome so an upstream failure never renders as an
     // empty or sample-backed success state.
@@ -604,18 +598,8 @@ async fn fetch_page_data(
             record_account_payment_history_load(params, owner, result);
         }
     }
-    // /account/credits: lifetime earned/spent + transactions.
-    // Wave 23 T5 — was previously not wired, page always rendered
-    // the OLD "$0 / no transactions" baseline.
-    if path == "/account/credits" {
-        if let Ok(v) = state
-            .identity
-            .get_with_ctx("/api/v1/credits", &request_context)
-            .await
-        {
-            params.insert("data_credits".into(), v.to_string());
-        }
-    }
+    // `/account/credits` intentionally has no loader. A6 has not selected a
+    // credit-ledger authority, so failure must not become a zero balance.
     // /developer: stats cards + API key list.
     // Wave 23 T5 — was previously not wired, the page rendered its
     // hardcoded `sample_api_keys()` fixture for everyone.
@@ -643,26 +627,8 @@ async fn fetch_page_data(
             params.insert("data_analytics".into(), v.to_string());
         }
     }
-    // /payment/intent/[id]: payment intent details.
-    // Wave 23 T5 — was previously not wired. The dev `payment.rs`
-    // reads `type` + `id` from the path params but ignores them
-    // (renders a static form), so this is a forward-looking hook.
-    if path.starts_with("/payment/intent/") {
-        if let Some(id) = path
-            .strip_prefix("/payment/intent/")
-            .map(|s| s.trim_end_matches('/').to_string())
-        {
-            if !id.is_empty() {
-                if let Ok(v) = state
-                    .payment
-                    .get_with_ctx(&format!("/api/v1/payment/{}", id), &request_context)
-                    .await
-                {
-                    params.insert("data_payment".into(), v.to_string());
-                }
-            }
-        }
-    }
+    // Dynamic payment pages intentionally perform no intent lookup until A6
+    // provides an owner-safe intent and finality contract.
 }
 
 fn news_ssr_status(path: &str, params: &HashMap<String, String>) -> Option<StatusCode> {
