@@ -16,7 +16,7 @@
   "capabilities": [
     {
       "id": "audience-binding",
-      "status": "hermetic-proof",
+      "status": "hermetic-proof-initial-access-only",
       "caseIds": ["identity-token-contract", "bff-verifier", "frontend-session", "admin-session"]
     },
     {
@@ -52,7 +52,7 @@
   ],
   "blockedClaims": [
     "real wallet signature and nonce consumption",
-    "durable refresh-token rotation, old-token rejection, and logout revocation against PostgreSQL",
+    "durable refresh-token rotation, original-client binding, cross-client denial, old-token rejection, and logout revocation against PostgreSQL",
     "production issuer, JWKS transport, cookies, routing, and browser behavior",
     "full SIWE to SSR /me to refresh to logout end-to-end flow"
   ],
@@ -112,7 +112,7 @@
     {
       "id": "frontend-session",
       "kind": "cargo-test",
-      "expectedTests": 7,
+      "expectedTests": 11,
       "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-frontend", "api::auth_session_tests", "--no-fail-fast"],
       "evidence": [
         {"file": "apps/frontend/src/api.rs", "anchor": "async fn siwe_verifies_returned_jwt_and_only_returns_safe_browser_data()"},
@@ -151,13 +151,15 @@
     {
       "id": "admin-session",
       "kind": "cargo-test",
-      "expectedTests": 10,
+      "expectedTests": 12,
       "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-admin", "session_auth_tests", "--no-fail-fast"],
       "evidence": [
         {"file": "apps/admin/src/session_auth_tests.rs", "anchor": "async fn admin_siwe_requires_admin_audience_and_returns_no_tokens()"},
         {"file": "apps/admin/src/session_auth_tests.rs", "anchor": "async fn frontend_audience_token_cannot_create_admin_session()"},
         {"file": "apps/admin/src/session_auth_tests.rs", "anchor": "async fn unauthenticated_admin_proxy_fails_before_upstream()"},
-        {"file": "apps/admin/src/session_auth_tests.rs", "anchor": "async fn auth_page_is_public_and_uses_safe_tokenless_browser_bridge()"}
+        {"file": "apps/admin/src/session_auth_tests.rs", "anchor": "async fn dashboard_root_loads_only_for_verified_admin_root_aliases()"},
+        {"file": "apps/admin/src/session_auth_tests.rs", "anchor": "async fn wrong_or_multiple_audiences_cannot_reach_the_dashboard_upstream()"},
+        {"file": "apps/admin/src/session_auth_tests.rs", "anchor": "async fn auth_page_is_public_and_redirects_to_the_fixed_admin_root()"}
       ]
     },
     {

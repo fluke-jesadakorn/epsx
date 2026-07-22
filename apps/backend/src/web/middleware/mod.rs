@@ -43,6 +43,7 @@ pub use auth_middleware::{
 // OpenID Bearer auth exports (standard OpenID Connect)
 pub use bearer_middleware::{
   bearer_middleware,
+  require_exact_admin_audience,
   optional_bearer_middleware,
   OpenIDUserContext,
   UnifiedErrorResponse,

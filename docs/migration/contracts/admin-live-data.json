@@ -40,7 +40,9 @@
         "record_admin_notification_load(&mut params, &notification_query, load);",
         "record_admin_audit_load(&mut params, &audit_query, load);",
         "record_admin_media_load(&mut params, &media_query, load);",
+        "record_admin_dashboard_user_status_load(&mut params, load);",
         "record_admin_wallet_stats_load(&mut params, load);",
+        "load_admin_dashboard_user_status(",
         "load_admin_wallet_stats(",
         "load_admin_media(&state.content, &media_query, &request_context).await",
         "fn strip_single_admin_prefix(path: &str) -> Option<&str>",
@@ -49,7 +51,76 @@
         "fn safe_admin_layout_path(layout_path: &str, is_authenticated: bool) -> String",
         "let status = match meta.status"
       ],
-      "finding": "SSR verifies a session and keeps data params empty by default; signed-out dynamic chat, news-edit, wallet, disable, and plan shells reduce layout paths to static collections so breadcrumbs and return URLs cannot disclose route references; a boundary-aware helper removes exactly one canonical admin mount prefix so repeated prefixes cannot alias an allowlisted loader; payment intents, the admin news list, the redacted global notification inventory, the redacted audit inventory, the news/public media compatibility inventory, and the four-count wallet summary perform normalized authenticated reads with explicit ready, empty where applicable, forbidden where applicable, unavailable, or malformed outcomes."
+      "finding": "SSR verifies a session and keeps data params empty by default; signed-out dynamic chat, news-edit, wallet, disable, and plan shells reduce layout paths to static collections so breadcrumbs and return URLs cannot disclose route references; a boundary-aware helper removes exactly one canonical admin mount prefix so repeated prefixes cannot alias an allowlisted loader; payment intents, the admin news list, the redacted global notification inventory, the redacted audit inventory, the news/public media compatibility inventory, the two-count root dashboard snapshot, and the four-count wallet summary perform normalized authenticated reads with explicit ready, empty where applicable, forbidden where applicable, unavailable, or malformed outcomes."
+    },
+    {
+      "file": "apps/admin/src/dashboard_user_status_adapter.rs",
+      "anchors": [
+        "const DASHBOARD_USER_STATUS_PATH: &str = \"/api/admin/dashboard/user-status\";",
+        "pub(crate) fn from_raw(raw_query: Option<&str>) -> Result<Self, ()>",
+        ".redirect(reqwest::redirect::Policy::none())",
+        "MAX_DASHBOARD_USER_STATUS_RESPONSE_BYTES",
+        ".bearer_auth(token)",
+        "#[serde(deny_unknown_fields)]",
+        "admin_meta.operation != DASHBOARD_USER_STATUS_OPERATION",
+        "observed_at > response_timestamp",
+        "data.active_users > data.total_users",
+        "fn loader_never_follows_redirects_with_the_admin_bearer()",
+        "fn loader_caps_declared_and_streamed_response_bodies()"
+      ],
+      "finding": "The root-dashboard adapter accepts no query grammar, targets only the new typed admin GET, forwards only a verified admin bearer and request ID, follows no redirects, caps declared and streamed bodies at 256 KiB, strictly decodes the full envelope, and rejects negative, inconsistent, or temporally impossible snapshots. Only observation time plus total and active i64 counts enter SSR state."
+    },
+    {
+      "file": "apps/backend/src/web/admin/dashboard_handlers.rs",
+      "anchors": [
+        "const DASHBOARD_USER_STATUS_SQL: &str",
+        "statement_timestamp() AS observed_at",
+        "COUNT(*)::bigint AS total_users",
+        "COUNT(*) FILTER (WHERE is_active = TRUE)::bigint AS active_users",
+        "pub async fn admin_dashboard_user_status_handler(",
+        "reject_query(raw_query.as_deref())?;",
+        "AdminMetadata::crud_operation(\"get_dashboard_user_status\", None)",
+        "fn dashboard_user_status_rejects_every_query_string()"
+      ],
+      "finding": "The backend performs one snapshot statement against wallet_users, returns only database observation time and two i64 counts, rejects every query string before database access, propagates dependency failure, and fails closed unless both counts are non-negative and active does not exceed total."
+    },
+    {
+      "file": "apps/backend/src/web/admin/routes.rs",
+      "anchors": [
+        "let dashboard_user_status = Router::new()",
+        ".route(\"/dashboard/user-status\", get(admin_dashboard_user_status_handler))",
+        ".layer(from_fn_with_state(\"admin:dashboard:view\", perm_guard))",
+        ".layer(from_fn(require_exact_admin_audience));",
+        ".merge(dashboard_user_status)"
+      ],
+      "finding": "The production admin router mounts the new read on an isolated subrouter, applies the exact-admin audience guard outside the dashboard permission guard, and merges that protected subrouter without changing the legacy dashboard group."
+    },
+    {
+      "file": "apps/backend/src/web/middleware/bearer_middleware.rs",
+      "anchors": [
+        "pub token_audiences: Option<Vec<String>>",
+        "pub async fn require_exact_admin_audience(",
+        "matches!(audiences, [audience] if audience == \"epsx-admin\")",
+        "token_audiences: Some(claims.aud)",
+        "token_audiences: None",
+        "fn token_audiences_are_server_only_context()",
+        "async fn exact_admin_guard_rejects_missing_api_key_and_non_exact_audiences()",
+        "async fn exact_admin_guard_runs_before_permission_guard()"
+      ],
+      "finding": "JWT audience provenance is retained only in server context and omitted from serialization and deserialization. The selected-route guard accepts exactly one epsx-admin audience, rejects missing context, API-key authentication, frontend/API audiences, and mixed or duplicate audiences with a generic Bearer challenge, and leaves existing routes and permission grammar unchanged."
+    },
+    {
+      "file": "shared/rust/dioxus_ui/src/pages/admin_pages/dashboard.rs",
+      "anchors": [
+        "pub struct AdminDashboardUserStatus",
+        "pub fn decode_admin_dashboard_user_status(",
+        "\"data-admin-dashboard-state\": ADMIN_DASHBOARD_USER_STATUS_READY",
+        "time { datetime: observed_at.clone(), \"{observed_at}\" }",
+        "fn zero_counts_are_authoritative_ready_data()",
+        "fn forbidden_unavailable_and_malformed_are_truthful_explicit_states()",
+        "fn signed_out_route_keeps_snapshot_private()"
+      ],
+      "finding": "The page-owned dashboard shell independently validates the exact two-count projection, treats zero as ready, renders a semantic definition list and machine-readable observation time, distinguishes forbidden, unavailable, and malformed outcomes, keeps signed-out data private, and exposes no health, latency, uptime, alert, activity, module, row, identity, or mutation claim."
     },
     {
       "file": "apps/admin/src/wallet_stats_adapter.rs",
@@ -291,7 +362,7 @@
     {"id": "B7-mutations", "routes": ["/notifications/create", "/developer-portal", "/wallet-management/wallets/:address/disable"]}
   ],
   "stopBlockers": [
-    "Most admin routes still lack an authoritative SSR service response; only bounded payment intents, protected legacy news, the redacted global notification inventory, the redacted audit inventory, and the redacted news/public media compatibility inventory currently populate typed PageContext data.",
+    "Most admin routes still lack an authoritative SSR service response; only bounded payment intents, protected legacy news, the redacted global notification inventory, the redacted audit inventory, the redacted news/public media compatibility inventory, the two-count root dashboard snapshot, and the four-count wallet summary currently populate typed PageContext data.",
     "Sample rows, counts, timestamps, wallet addresses, balances, and health values can masquerade as live operational data.",
     "Generic skeleton overlays are visual-capture fixtures, not loading-state contracts.",
     "Ordinary Dioxus event closures are not usable in SSR output without proven hydration or a browser bridge.",
@@ -314,17 +385,17 @@
   ],
   "routes": [
     {
-      "path": "/", "batch": "B1-command-security", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
+      "path": "/", "batch": "B1-command-security", "status": "partial", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
       "source": {"file": "apps/admin-frontend/app/page.tsx", "anchors": ["export default async function AdminDashboardPage", "getRecentWalletsAction"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/dashboard.rs", "handler": "dashboard::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-admin-dashboard-state\": \"unavailable\"", "fn unavailable_state_has_no_sample_operations_or_controls()"]},
-      "params": {"names": [], "current": "legacy query and hydration parameters are ignored"},
-      "data": {"reads": ["recent wallets", "platform KPIs", "transactions", "chain health", "alerts"], "endpoints": [], "current": "verified-session explicit unavailable state with no inferred metric, health, activity, freshness, or total", "fallbacks": []},
-      "permissions": {"read": ["backend dashboard field/read decision required"], "manage": [], "current": "session-only unavailable shell behind admin BFF audience verification; no role or dashboard capability is inferred by the frontend"},
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/dashboard.rs", "handler": "dashboard::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-admin-dashboard-state\": ADMIN_DASHBOARD_USER_STATUS_READY", "fn forbidden_unavailable_and_malformed_are_truthful_explicit_states()"]},
+      "params": {"names": [], "current": "no query grammar; every query string is rejected by the adapter and direct backend route"},
+      "data": {"reads": ["total registered user records", "active registered user records", "database observation time"], "endpoints": ["GET /api/admin/dashboard/user-status"], "current": "verified-session SSR projects one backend snapshot containing only non-negative total and active i64 counts plus RFC3339 observation time; active cannot exceed total and zero is ready data", "fallbacks": []},
+      "permissions": {"read": ["admin:dashboard:view"], "manage": [], "current": "the BFF verifies the exact admin audience; the selected monolith route independently requires exact singleton epsx-admin JWT provenance, rejects API keys and other or multiple audiences, then enforces admin:dashboard:view"},
       "mutations": [],
-      "contracts": {"bodies": [], "envelopes": [], "statuses": []},
-      "states": {"loading": "missing", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "missing", "conflict": "not-applicable"},
-      "ux": {"keyboard": "native retry and workspace links; focused browser proof remains open", "responsive": "page-owned responsive admin shell present; focused browser proof remains open", "hydration": "not required for the fail-closed shell"},
-      "blockers": ["define and enforce a typed backend-authorized dashboard aggregate with freshness and partial-failure semantics, then prove ready/empty/degraded/error/forbidden/retry states and isolated service/browser behavior"]
+      "contracts": {"bodies": [], "envelopes": ["strict AdminApiResponse dashboard-user-status envelope with exact operation metadata, RFC3339 response and observation times, 256 KiB cap, and three-field SSR projection"], "statuses": ["exact 200 is decoded; 403 is forbidden; every other upstream status is unavailable; redirects are rejected; malformed shape, count relationships, or future observation time fail closed"]},
+      "states": {"loading": "not-applicable", "empty": "not-applicable", "error": "present", "retry": "present", "forbidden": "present", "conflict": "not-applicable"},
+      "ux": {"keyboard": "native retry and audit-workspace links are present for failure states; the ready snapshot has no interactive control; focused browser proof remains open", "responsive": "one-to-two-column semantic count definition list plus page-owned responsive admin shell are statically covered; focused browser overflow/layout proof remains open", "hydration": "not required because the snapshot is SSR-only and has no controls"},
+      "blockers": ["bind durable refresh-token families to their original client audience and prove cross-client denial; add isolated database and authenticated browser proof; define authoritative recent activity and any permitted health, alert, transaction, chain, freshness/degradation, and recovery contracts before restoring those source dashboard sections"]
     },
     {
       "path": "/access-denied", "batch": "B2-auth-denial", "status": "aligned", "dependencies": ["A1"],

@@ -56,6 +56,10 @@ impl TestKey {
     }
 
     fn access_token(&self, audience: &str, permissions: &[&str]) -> String {
+        self.access_token_with_audiences(&[audience], permissions)
+    }
+
+    fn access_token_with_audiences(&self, audiences: &[&str], permissions: &[&str]) -> String {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -67,7 +71,10 @@ impl TestKey {
             &AccessTokenClaims {
                 iss: TEST_ISSUER.into(),
                 sub: TEST_WALLET.into(),
-                aud: vec![audience.into()],
+                aud: audiences
+                    .iter()
+                    .map(|audience| (*audience).to_string())
+                    .collect(),
                 exp: now + 300,
                 iat: now - 1,
                 jti: "admin-test-jti".into(),
@@ -453,6 +460,128 @@ async fn unauthenticated_admin_proxy_fails_before_upstream() {
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     assert_session_cleared(&response);
     assert_eq!(upstream_hits.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn dashboard_root_loads_only_for_verified_admin_root_aliases() {
+    let key = TestKey::generate();
+    let access = key.access_token(ADMIN_CLIENT_ID, &["admin:dashboard:view"]);
+    let dashboard_hits = Arc::new(AtomicUsize::new(0));
+    let hits = dashboard_hits.clone();
+    let router = jwks_route(Jwks {
+        keys: vec![key.jwk.clone()],
+    })
+    .route(
+        "/api/admin/dashboard/user-status",
+        get(move |headers: HeaderMap| {
+            let hits = hits.clone();
+            async move {
+                hits.fetch_add(1, Ordering::SeqCst);
+                assert!(headers.get(header::AUTHORIZATION).is_some());
+                assert!(headers.get("x-request-id").is_some());
+                assert!(headers.get("x-user-id").is_none());
+                assert!(headers.get("x-user-address").is_none());
+                Json(json!({
+                    "success": true,
+                    "data": {
+                        "observed_at": "2026-07-23T03:04:04Z",
+                        "total_users": 11,
+                        "active_users": 8
+                    },
+                    "message": "Dashboard user status retrieved successfully",
+                    "timestamp": "2026-07-23T03:04:05Z",
+                    "admin_meta": {
+                        "operation": "get_dashboard_user_status",
+                        "performed_by": "admin"
+                    }
+                }))
+            }
+        }),
+    );
+    let base_url = spawn_mock(router).await;
+    let app = build_app(state(&base_url));
+
+    for path in ["/", "/index"] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(path)
+                    .header(header::AUTHORIZATION, format!("Bearer {access}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+    assert_eq!(dashboard_hits.load(Ordering::SeqCst), 2);
+
+    for path in ["/?", "/?unexpected=1", "/admin/admin", "/admin/admin/index"] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(path)
+                    .header(header::AUTHORIZATION, format!("Bearer {access}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert!(matches!(
+            response.status(),
+            StatusCode::OK | StatusCode::NOT_FOUND
+        ));
+    }
+    assert_eq!(dashboard_hits.load(Ordering::SeqCst), 2);
+
+    let signed_out = app
+        .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(signed_out.status(), StatusCode::OK);
+    assert_eq!(dashboard_hits.load(Ordering::SeqCst), 2);
+}
+
+#[tokio::test]
+async fn wrong_or_multiple_audiences_cannot_reach_the_dashboard_upstream() {
+    for audiences in [
+        vec![FRONTEND_CLIENT_ID],
+        vec![ADMIN_CLIENT_ID, FRONTEND_CLIENT_ID],
+    ] {
+        let key = TestKey::generate();
+        let access = key.access_token_with_audiences(&audiences, &["admin:dashboard:view"]);
+        let dashboard_hits = Arc::new(AtomicUsize::new(0));
+        let hits = dashboard_hits.clone();
+        let router = jwks_route(Jwks {
+            keys: vec![key.jwk.clone()],
+        })
+        .route(
+            "/api/admin/dashboard/user-status",
+            get(move || {
+                let hits = hits.clone();
+                async move {
+                    hits.fetch_add(1, Ordering::SeqCst);
+                    Json(json!({"unexpected": true}))
+                }
+            }),
+        );
+        let base_url = spawn_mock(router).await;
+        let response = build_app(state(&base_url))
+            .oneshot(
+                Request::builder()
+                    .uri("/")
+                    .header(header::AUTHORIZATION, format!("Bearer {access}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(dashboard_hits.load(Ordering::SeqCst), 0);
+    }
 }
 
 #[tokio::test]

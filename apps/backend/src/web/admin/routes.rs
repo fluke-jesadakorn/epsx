@@ -1,6 +1,10 @@
 // Admin routes configuration
 
-use axum::{ routing::{ get, post, put, patch, delete }, Router, middleware::from_fn_with_state };
+use axum::{
+  middleware::{from_fn, from_fn_with_state},
+  routing::{get, post, put, patch, delete},
+  Router,
+};
 
 // Security monitoring handlers
 use super::security_monitoring_handlers::{ SecurityMonitoringHandlers };
@@ -137,16 +141,22 @@ use super::batch_handlers::{
     admin_notification_overview_handler,
     wallet_access_summary_handler,
 };
+use super::dashboard_handlers::admin_dashboard_user_status_handler;
 use crate::web::auth::AppState;
 
 pub fn create_admin_routes() -> Router<AppState> {
-  use crate::web::middleware::perm_guard;
+  use crate::web::middleware::{perm_guard, require_exact_admin_audience};
 
   // Dashboard identity check and batch overview
   let dashboard = Router::new()
     .route("/me", get(super::setup_handlers::admin_me_handler))
     .route("/dashboard/summary", get(admin_dashboard_summary_handler))
     .layer(from_fn_with_state("admin:dashboard:view", perm_guard));
+
+  let dashboard_user_status = Router::new()
+    .route("/dashboard/user-status", get(admin_dashboard_user_status_handler))
+    .layer(from_fn_with_state("admin:dashboard:view", perm_guard))
+    .layer(from_fn(require_exact_admin_audience));
 
   // Security monitoring
   let security = Router::new()
@@ -338,6 +348,7 @@ pub fn create_admin_routes() -> Router<AppState> {
     .layer(from_fn_with_state("admin:media:manage", perm_guard));
 
   dashboard
+    .merge(dashboard_user_status)
     .merge(security)
     .merge(plans_read)
     .merge(plans_write)

@@ -21,6 +21,12 @@ use epsx_dioxus_ui::pages::admin_pages::audit_log::{
     ADMIN_AUDIT_EMPTY, ADMIN_AUDIT_FORBIDDEN, ADMIN_AUDIT_MALFORMED, ADMIN_AUDIT_READY,
     ADMIN_AUDIT_STATE_PARAM, ADMIN_AUDIT_UNAVAILABLE,
 };
+use epsx_dioxus_ui::pages::admin_pages::dashboard::{
+    AdminDashboardUserStatus, ADMIN_DASHBOARD_USER_STATUS_FORBIDDEN,
+    ADMIN_DASHBOARD_USER_STATUS_MALFORMED, ADMIN_DASHBOARD_USER_STATUS_PARAM,
+    ADMIN_DASHBOARD_USER_STATUS_READY, ADMIN_DASHBOARD_USER_STATUS_STATE_PARAM,
+    ADMIN_DASHBOARD_USER_STATUS_UNAVAILABLE,
+};
 use epsx_dioxus_ui::pages::admin_pages::media::{
     ADMIN_MEDIA_BUCKET_PARAM, ADMIN_MEDIA_DATA_PARAM, ADMIN_MEDIA_EMPTY, ADMIN_MEDIA_FORBIDDEN,
     ADMIN_MEDIA_MALFORMED, ADMIN_MEDIA_READY, ADMIN_MEDIA_STATE_PARAM, ADMIN_MEDIA_UNAVAILABLE,
@@ -50,6 +56,9 @@ use std::collections::HashMap;
 
 use super::audit_log_adapter::{load_admin_audit, AdminAuditLoad, AdminAuditQuery};
 use super::auth;
+use super::dashboard_user_status_adapter::{
+    load_admin_dashboard_user_status, AdminDashboardUserStatusLoad, AdminDashboardUserStatusQuery,
+};
 use super::media_adapter::{load_admin_media, AdminMediaLoad, AdminMediaQuery};
 use super::news_adapter::{load_admin_news, AdminNewsLoad, AdminNewsQuery};
 use super::notification_admin_adapter::{
@@ -59,6 +68,30 @@ use super::wallet_stats_adapter::{
     load_admin_wallet_stats, AdminWalletStatsLoad, AdminWalletStatsQuery,
 };
 use super::AppState;
+
+fn record_admin_dashboard_user_status_load(
+    params: &mut HashMap<String, String>,
+    load: AdminDashboardUserStatusLoad,
+) {
+    params.remove(ADMIN_DASHBOARD_USER_STATUS_PARAM);
+    let state = match load {
+        AdminDashboardUserStatusLoad::Ready(payload) => {
+            params.insert(
+                ADMIN_DASHBOARD_USER_STATUS_PARAM.to_string(),
+                serde_json::to_string(&payload)
+                    .expect("the typed admin dashboard projection is serializable"),
+            );
+            ADMIN_DASHBOARD_USER_STATUS_READY
+        }
+        AdminDashboardUserStatusLoad::Forbidden => ADMIN_DASHBOARD_USER_STATUS_FORBIDDEN,
+        AdminDashboardUserStatusLoad::Unavailable => ADMIN_DASHBOARD_USER_STATUS_UNAVAILABLE,
+        AdminDashboardUserStatusLoad::Malformed => ADMIN_DASHBOARD_USER_STATUS_MALFORMED,
+    };
+    params.insert(
+        ADMIN_DASHBOARD_USER_STATUS_STATE_PARAM.to_string(),
+        state.to_string(),
+    );
+}
 
 fn record_admin_media_load(
     params: &mut HashMap<String, String>,
@@ -308,10 +341,15 @@ fn strip_single_admin_prefix(path: &str) -> Option<&str> {
     }
 }
 
+fn is_dashboard_user_status_route(route_path: &str) -> bool {
+    matches!(route_path, "/" | "/index")
+}
+
 pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Response {
     let (parts, _body) = request.into_parts();
     let path = parts.uri.path().to_string();
-    let query = parts.uri.query().unwrap_or("").to_string();
+    let raw_query = parts.uri.query().map(str::to_string);
+    let query = raw_query.clone().unwrap_or_default();
     let headers = parts.headers.clone();
 
     // Resolve only a cryptographically verified canonical cookie/bearer user.
@@ -330,6 +368,30 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     // represented as an authoritative empty list.
     let mut params = HashMap::new();
     let route_path = strip_single_admin_prefix(&path).unwrap_or(path.as_str());
+    // The root dashboard has one narrow backend-owned status snapshot. The
+    // loader runs only after this BFF has verified the exact admin audience;
+    // signed-out requests and repeated admin prefixes cannot contact it.
+    if is_dashboard_user_status_route(route_path) {
+        if let Some(token) = verified_access_token.as_ref() {
+            match AdminDashboardUserStatusQuery::from_raw(raw_query.as_deref()) {
+                Ok(dashboard_query) => {
+                    let mut request_context = RequestContext::from_headers(&headers);
+                    request_context.auth_token = Some(token.clone());
+                    let load = load_admin_dashboard_user_status(
+                        &state.identity,
+                        dashboard_query,
+                        &request_context,
+                    )
+                    .await;
+                    record_admin_dashboard_user_status_load(&mut params, load);
+                }
+                Err(()) => record_admin_dashboard_user_status_load(
+                    &mut params,
+                    AdminDashboardUserStatusLoad::Malformed,
+                ),
+            }
+        }
+    }
     // Wallet inventory starts with one narrow aggregate read. The adapter
     // accepts no query grammar, sends only the canonical verified bearer and
     // request ID, and projects four counts; wallet rows and every mutation
@@ -1216,6 +1278,81 @@ mod tests {
             Some(ADMIN_PAYMENTS_UNAVAILABLE)
         );
         assert!(!params.contains_key(ADMIN_PAYMENTS_DATA_PARAM));
+    }
+
+    #[test]
+    fn dashboard_user_status_load_records_only_the_safe_snapshot() {
+        let mut params = HashMap::new();
+        record_admin_dashboard_user_status_load(
+            &mut params,
+            AdminDashboardUserStatusLoad::Ready(AdminDashboardUserStatus {
+                observed_at: "2026-07-23T03:04:04Z".to_string(),
+                total_users: 11,
+                active_users: 8,
+            }),
+        );
+
+        assert_eq!(
+            params
+                .get(ADMIN_DASHBOARD_USER_STATUS_STATE_PARAM)
+                .map(String::as_str),
+            Some(ADMIN_DASHBOARD_USER_STATUS_READY)
+        );
+        let stored: serde_json::Value =
+            serde_json::from_str(params.get(ADMIN_DASHBOARD_USER_STATUS_PARAM).unwrap()).unwrap();
+        assert_eq!(stored["observed_at"], "2026-07-23T03:04:04Z");
+        assert_eq!(stored["total_users"], 11);
+        assert_eq!(stored["active_users"], 8);
+        assert_eq!(stored.as_object().unwrap().len(), 3);
+    }
+
+    #[test]
+    fn dashboard_user_status_failures_remove_stale_projection_data() {
+        for (load, expected) in [
+            (
+                AdminDashboardUserStatusLoad::Forbidden,
+                ADMIN_DASHBOARD_USER_STATUS_FORBIDDEN,
+            ),
+            (
+                AdminDashboardUserStatusLoad::Unavailable,
+                ADMIN_DASHBOARD_USER_STATUS_UNAVAILABLE,
+            ),
+            (
+                AdminDashboardUserStatusLoad::Malformed,
+                ADMIN_DASHBOARD_USER_STATUS_MALFORMED,
+            ),
+        ] {
+            let mut params = HashMap::from([(
+                ADMIN_DASHBOARD_USER_STATUS_PARAM.to_string(),
+                "stale-dashboard-data".to_string(),
+            )]);
+            record_admin_dashboard_user_status_load(&mut params, load);
+            assert_eq!(
+                params
+                    .get(ADMIN_DASHBOARD_USER_STATUS_STATE_PARAM)
+                    .map(String::as_str),
+                Some(expected)
+            );
+            assert!(!params.contains_key(ADMIN_DASHBOARD_USER_STATUS_PARAM));
+        }
+    }
+
+    #[test]
+    fn dashboard_loader_matches_only_exact_root_aliases_after_one_mount_strip() {
+        for path in ["/", "/index", "/admin", "/admin/index"] {
+            let route_path = strip_single_admin_prefix(path).unwrap_or(path);
+            assert!(is_dashboard_user_status_route(route_path), "{path}");
+        }
+        for path in [
+            "/dashboard",
+            "/index/extra",
+            "/admin/admin",
+            "/admin/admin/index",
+            "/administrator",
+        ] {
+            let route_path = strip_single_admin_prefix(path).unwrap_or(path);
+            assert!(!is_dashboard_user_status_route(route_path), "{path}");
+        }
     }
 
     #[test]

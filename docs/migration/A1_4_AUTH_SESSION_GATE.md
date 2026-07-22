@@ -2,7 +2,7 @@
 
 `scripts/migration/verify-auth-session-flow.sh` is the local, executable release
 gate for the canonical Rust BFF session contract. It is intentionally narrower
-than a live end-to-end test: it runs 71 focused tests with Cargo offline, uses
+than a live end-to-end test: it runs 77 focused tests with Cargo offline, uses
 only loopback mock HTTP servers created by those tests, and then runs the route
 and API-contract fixture checks.
 
@@ -24,8 +24,8 @@ tests and sets `CARGO_NET_OFFLINE=true`.
 
 ## Proven locally
 
-- access tokens are bound to exactly one frontend or admin audience, and a
-  wrong audience is rejected;
+- initial SIWE issuance binds each access token to exactly the requested
+  frontend or admin audience, and both BFFs reject wrong or multiple audiences;
 - RS256 `kid`, JWKS rotation/cache behavior, issuer, expiry/`nbf`, and malformed
   key material fail closed;
 - browser JSON and the shared wallet bridge do not expose or store session
@@ -44,7 +44,11 @@ tests and sets `CARGO_NET_OFFLINE=true`.
 
 This gate does **not** claim a real wallet-signature flow, nonce consumption,
 durable refresh-token rotation/old-token rejection/logout revocation against
-PostgreSQL, or any production issuer, browser, cookie, or routing behavior.
-Those require a disposable database-backed integration environment and then a
-separately approved production-shaped rehearsal. A passing report therefore
-keeps live auth-session and production-readiness contracts blocked.
+PostgreSQL, or any production issuer, browser, cookie, or routing behavior. The
+current durable refresh row is also not bound to its original client, so a
+valid refresh token can still be rotated for a caller-selected valid client.
+Original-client binding, cross-client denial, legacy-row cutover, concurrent
+rotation, and reuse behavior require a disposable database-backed integration
+environment and then a separately approved production-shaped rehearsal. A
+passing report therefore keeps live auth-session and production-readiness
+contracts blocked.

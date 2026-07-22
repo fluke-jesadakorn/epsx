@@ -144,9 +144,19 @@ migrated merely because a binary and route table exist.
   audience, lifetime, subject/wallet equality, algorithm, and `kid` before
   establishing or forwarding a session, and preserve backend permissions
   verbatim.
+- Canonical initial access-token issuance binds one requested client audience.
+  The new monolith dashboard user-status route also retains that server-validated
+  audience in non-serializable request context, requires exactly `epsx-admin`,
+  rejects API keys and other, mixed, or duplicate audiences, and then enforces
+  `admin:dashboard:view`; existing routes retain their compatibility policy.
 - Both BFFs use the shared host-only HttpOnly access/refresh cookie pair, rotate
   it from the refresh cookie only, return token-free browser JSON, and always
   clear local state on logout. Logout is wired to monolith refresh revocation.
+- The durable refresh-token row is not yet bound to its original client, while
+  the refresh handler accepts a caller-selected valid client. Exact-audience
+  lifecycle remains STOP until an additive client binding is stored and checked
+  atomically during rotation, legacy unbound rows fail closed under an explicit
+  cutover policy, and cross-client/concurrent/reuse behavior is database-tested.
 - A1.4 provides hermetic mock-backed proof for these contracts, but no real
   wallet/nonces or disposable-database test yet proves old-token rejection and
   durable revocation across the complete flow.
@@ -275,7 +285,7 @@ passed`. It is not a percentage estimate of engineering effort.
 | Shared UI package baseline | 2 | Targeted unit/doctest repair in this slice | `cargo test -p epsx-dioxus-ui --lib` and `--doc` pass. |
 | Visual/responsive/accessibility | 1 | Historical screenshots exist; current accepted baseline is incomplete | All routes pass agreed viewport, state, keyboard, and accessibility thresholds. |
 | Interaction parity | 0 | No complete click/form/wallet/navigation matrix | Every interactive control has E2E success and failure coverage. |
-| Auth/session parity | 1 | A1.4 hermetic gate covers 71 focused tests across both BFFs; durable database-backed rotation/revocation and a real wallet flow remain unproven | SIWE -> SSR me -> rotation -> revocation works across both BFFs. |
+| Auth/session parity | 1 | A1.4 hermetic gate covers 77 focused tests across both BFFs; original-client refresh binding, durable database-backed rotation/revocation, and a real wallet flow remain unproven | SIWE -> SSR me -> client-bound rotation -> revocation works across both BFFs. |
 | Backend authorization | 1 | Gateway is fail-closed with exact RS256/JWKS and granular edge policy; the 119-route service matrix is 11 aligned, 48 partial, and 60 blocked | Anonymous/cross-owner calls fail at both gateway and service boundaries; granular backend permissions pass. |
 | Live data parity | 0 | The notification owner page, global redacted admin notification inventory, and focused news routes have sample-free explicit dependency outcomes, and notifications adds a statically verified authenticated read-only shared-header count; browser/live database proof is absent, 17 frontend routes remain blocked, other frontend mocks remain, and most admin routes still lack authoritative page data | Sample payloads removed and real empty/error states proven. |
 | Checkout/on-chain parity | 0 | Route mismatch and DB-only escrow transitions | Verified receipts and contract transactions drive state. |
@@ -377,7 +387,7 @@ bounded path set. Shared contract files require coordination through package A0.
   rotation, old-token rejection, logout revocation, secure cookie attributes,
   and access-token rejection when a refresh token is supplied.
 
-- **A1.4 status:** the local hermetic gate passes only when its 71 focused tests
+- **A1.4 status:** the local hermetic gate passes only when its 77 focused tests
   and both baseline fixture checks pass. It proves BFF audience/verifier,
   token-redaction, cookie, local rotation/clearing, proxy rejection, and safe
   return-target contracts. It deliberately does not satisfy the full A1
@@ -834,7 +844,7 @@ bounded path set. Shared contract files require coordination through package A0.
 
 - **A8.0–A8.1 status:** the pinned admin contract covers the exact 27 source
   routes and all three intentional redirects in seven execution batches. It records
-  two aligned, six partial, and 19 blocked routes plus 20 cross-cutting STOP
+  two aligned, eight partial, and 17 blocked routes plus 20 cross-cutting STOP
   blockers. `/access-denied` and `/unauthorized` now preserve bounded escaped
   copy, inherited metadata, safe reauthentication/return behavior, keyboard
   order, responsive light/dark layout, and authenticated local browser proof.
@@ -868,15 +878,26 @@ bounded path set. Shared contract files require coordination through package A0.
   guard; direct exact-admin-audience enforcement, a dedicated
   `admin:media:read` decision, S3 continuation/completeness, URL/preview and
   private-bucket policy, MIME/hash/ETag/integrity, and isolated storage/browser
-  proof remain STOP blockers. Dashboard,
-  analytics, chat list/detail, news create/edit, notification create, settings, developer portal,
+  proof remain STOP blockers. The root dashboard is now partial through a new
+  exact-admin-audience `admin:dashboard:view` backend route, one-statement
+  snapshot query, strict bounded SSR adapter, and two-count semantic UI. It
+  exposes only database observation time plus total and active user counts;
+  zero is ready, failures are explicit, and health, latency, uptime, alerts,
+  activity, transactions, chain state, identities, and mutations remain absent.
+  Durable refresh-client binding, isolated database proof, authenticated browser
+  proof, and every omitted dashboard authority remain blockers.
+  `/wallet-management/wallets` is partial through its verified four-count user
+  summary while inventory rows and all identity, balance, plan, permission,
+  activity, filter, detail, and mutation surfaces remain unavailable.
+  Analytics, chat list/detail, news create/edit, notification create, settings, developer portal,
   wallet credits/access/list/detail/disable, and wallet-plan list/detail now
   fail closed without sample records, counts, health, history, configuration,
   credentials, balances, ledger rows, assignments, catalogs, filters, forms,
   upload controls, or mutations. The bounded typed loaders are payment intents,
   protected legacy news, the global redacted notification inventory, the
-  redacted audit inventory, and the redacted news/public media compatibility
-  inventory; audit, media, news, and notification management are partial routes because isolated
+  redacted audit inventory, the redacted news/public media compatibility
+  inventory, the root dashboard snapshot, and the wallet summary; audit, media,
+  news, notification management, root dashboard, and wallet inventory are partial routes because isolated
   service/database and authenticated browser proof remain absent. Source
   mutation contracts and BFF paths still drift, and preserved statuses still
   lack typed envelopes and general page-level consumption. The target-only `/policies` addition now
@@ -889,7 +910,7 @@ bounded path set. Shared contract files require coordination through package A0.
   stops on plaintext `api_keys.full_key` persistence/list projection; credit
   readiness stops on a GET path that can create a balance record and on the
   unresolved financial mutation authority.
-  The exact **2 aligned / 6 partial / 19 blocked**, 20-STOP integrity and tamper
+  The exact **2 aligned / 8 partial / 17 blocked**, 20-STOP integrity and tamper
   gates pass; readiness intentionally exits `3`. No live service, database,
   chain, or deployment access is claimed.
 

@@ -276,6 +276,7 @@ mod tests {
             sub: "0x123".to_string(),
             wallet_address: "0x123".to_string(),
             permissions,
+            token_audiences: Some(vec!["epsx-admin".to_string()]),
             auth_method: "web3_siwe".to_string(),
             jti: "test".to_string(),
             exp: 9999999999,

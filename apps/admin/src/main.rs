@@ -20,6 +20,7 @@ use std::time::Duration;
 
 mod audit_log_adapter;
 mod auth;
+mod dashboard_user_status_adapter;
 mod media_adapter;
 mod news_adapter;
 mod notification_admin_adapter;
