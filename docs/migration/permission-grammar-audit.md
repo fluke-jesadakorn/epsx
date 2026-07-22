@@ -30,16 +30,16 @@ record carries source type, file, line, permission, surface, grammar
 classification, and a remediation package. A candidate permission is present
 only when a real backend route guard or token source literally supports it.
 
-The current scan contains 67 records:
+The current scan contains 52 records:
 
 | Usage | Records | Readiness effect |
 | --- | ---: | --- |
-| Dioxus security gates | 33 | 21 canonical after A8.2; 12 legacy two-segment values still block |
+| Dioxus security gates | 18 | 16 canonical; 2 legacy two-segment values still block |
 | Dioxus presentation literals | 1 | Reported as presentation drift, not an enforcement blocker |
 | Dioxus presentation dynamic pass-throughs | 1 | Reported as presentation drift, not an enforcement blocker |
 | Service-authorization permissions | 32 | All canonical three-segment values |
 
-Across every source there are 53 canonical three-segment values, 12 legacy
+Across every source there are 48 canonical three-segment values, 2 legacy
 two-segment values, 1 unknown dynamic presentation value, and 1
 impossible/cross-grammar presentation value. There are currently no wildcard-aligned
 inventory values.
@@ -52,12 +52,13 @@ literals; it does not move business policy into Dioxus:
 | Dioxus surface | Source-backed backend permission | A8.1 state |
 | --- | --- | --- |
 | Dashboard | `admin:dashboard:view` | aligned |
-| Analytics and audit log | `admin:analytics:view` | aligned |
-| Notifications | `admin:notifications:manage` | aligned |
+| Analytics | `admin:analytics:view` | aligned |
+| Audit log | dedicated backend audit read permission required | fail-closed UI; the semantically wrong analytics presentation gate was removed |
+| Notifications | backend read decision / `admin:notifications:manage` mutation authority | fail-closed manage/create UI; no records or actions are exposed |
 | Developer portal | `admin:developer:manage` | aligned |
-| Payments | `admin:payments:manage` | aligned |
+| Payments | `admin:payments:view` | aligned for the read-only intent surface; mutations remain unavailable |
 | Chat | `admin:chat:manage` | aligned |
-| News | `admin:content:manage` | aligned |
+| News | backend read decision / `admin:content:manage` mutation authority | fail-closed list/create/edit UI; no records or actions are exposed |
 | Media | `admin:media:manage` | aligned |
 | Settings | `admin:settings:manage` | aligned |
 | Wallet list/detail | `admin:users:read` | aligned |
@@ -65,6 +66,8 @@ literals; it does not move business policy into Dioxus:
 | Wallet access | split by operation: `admin:permissions:read` / `admin:permissions:manage` | aligned in A8.2; data remains visible to readers and mutation controls are nested |
 | Wallet plans | split by operation: `admin:plans:read` / `admin:plans:manage` | aligned in A8.2; list data remains visible to readers and mutation controls are nested |
 
+The audit, news, and notification permission decisions remain backend-owned;
+removing their frontend literals does not remove or weaken any service guard.
 The admin auth and policies gates have no single source-backed backend guard
 candidate in this audit. The generic unauthorized value is presentation-only.
 These remain explicit residuals; the inventory deliberately does not guess or

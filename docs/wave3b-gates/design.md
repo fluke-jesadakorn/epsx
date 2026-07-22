@@ -107,10 +107,13 @@ Use the `domain:action` pattern, matching the existing precedent in
 - `notifications:read` — `/notifications`
 - `profile:read` / `profile:write` — historical examples only; authentication
   and backend-owned resource authorization replace these frontend gates
-- `audit:read` — `/admin/audit-log`
+- `audit:read` — historical frontend example only; the current audit shell is
+  authentication-only and fail closed pending a dedicated backend audit permission
 - `payments:manage` — `/admin/payments`
-- `news:manage` — `/admin/news`, `/admin/news/create`
-- `notifications:manage` — `/admin/notifications`, `/admin/notifications/create`
+- `news:manage` — historical frontend example only; current news list/create/edit
+  shells expose no records or actions, while future authorization is backend-owned
+- `notifications:manage` — historical frontend example only; current notification
+  manage/create shells expose no records or actions, while future authorization is backend-owned
 - `media:manage` — `/admin/media`
 - `wallets:manage` — `/admin/wallet-management/*`
 - `settings:manage` — `/admin/settings`
@@ -282,6 +285,13 @@ Out of scope: admin pages, free pages (Track C), the
 `ProgressiveAuthBanner` component itself.
 
 ### Track B — Admin page gate enrichment
+
+> Current reconciliation: audit-log and news use only their session boundary,
+> and notification manage/create use only their verified-session boundary
+> without a local role or capability literal. These pages deliberately expose
+> only an unavailable shell;
+> backend-owned read/manage authorization is required before any data or action
+> can be connected.
 
 Scope: 18 admin pages in
 `shared/rust/dioxus_ui/src/pages/admin_pages/*.rs`:

@@ -327,9 +327,9 @@
       "anchor": ".route(\"/api/v1/notifications/send\", post(send_notification))"
     },
     {
-      "id": "tgt-admin-ui-samples",
+      "id": "tgt-admin-ui-unavailable",
       "file": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs",
-      "anchor": "fn sample_notifications() -> Vec<Notification> {"
+      "anchor": "\"data-admin-notifications-state\": state_marker"
     },
     {
       "id": "tgt-proto-preferences-only",

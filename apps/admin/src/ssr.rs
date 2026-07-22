@@ -357,7 +357,10 @@ mod tests {
     //! chrome is present.
 
     use super::*;
-    use epsx_dioxus_ui::pages::PageContext;
+    use epsx_dioxus_ui::{
+        auth::{user::AuthMethod, User},
+        pages::PageContext,
+    };
 
     fn build_ctx(path: &str) -> PageContext {
         PageContext {
@@ -401,7 +404,12 @@ mod tests {
     /// `page_shell_with_body_class`) so we can assert on the
     /// layout-wrapped HTML in isolation.
     fn render_admin_html(path: &str) -> String {
-        let ctx = build_ctx(path);
+        render_admin_html_with_user(path, None)
+    }
+
+    fn render_admin_html_with_user(path: &str, user: Option<User>) -> String {
+        let mut ctx = build_ctx(path);
+        ctx.user = user.clone();
         let admin_path = path.trim_start_matches("/admin").to_string();
         let mut c = ctx.clone();
         c.path = if admin_path.is_empty() {
@@ -410,7 +418,13 @@ mod tests {
             admin_path
         };
         let (_meta, body) = admin_pages::dispatch(&c);
-        let server_user: Option<ServerUser> = None;
+        let server_user = user.as_ref().map(|user| ServerUser {
+            id: user.id.clone(),
+            email: user.email.clone().unwrap_or_default(),
+            name: user.display_name.clone(),
+            role: user.roles.first().cloned().unwrap_or_default(),
+        });
+        let is_authenticated = user.is_some();
         // Wave 38b T2 — mirror the production `no_layout_paths`
         // override from `ssr_handler` so the test exercises the
         // same render path as the live BFF (the 3 outliers skip
@@ -423,9 +437,9 @@ mod tests {
             "/developer-portal/api-keys/create".to_string(),
         ]);
         let body = AdminLayout::Auth {
-            current_path: path.to_string(),
+            current_path: c.path,
             server_user,
-            is_authenticated: false,
+            is_authenticated,
             is_gated: None,
             no_layout_paths: no_layout_paths_override,
         }
@@ -443,6 +457,30 @@ mod tests {
             html.contains("admin-header"),
             "expected rendered admin dashboard HTML to include `admin-header` from the `Header` component rendered by `AdminLayout::Auth`; got: {}",
             html
+        );
+    }
+
+    #[test]
+    fn audit_log_authenticated_render_has_exactly_one_admin_sidebar() {
+        let user = User {
+            id: "admin-session".to_string(),
+            address: "0x1234".to_string(),
+            chain_id: "56".to_string(),
+            roles: vec![],
+            email: None,
+            tier: None,
+            permissions: vec![],
+            last_login_at: None,
+            auth_method: AuthMethod::Siwe,
+            display_name: None,
+        };
+        let html = render_admin_html_with_user("/admin/audit-log", Some(user));
+
+        assert!(html.contains("data-audit-log-state=\"unavailable\""));
+        assert_eq!(
+            html.matches("class=\"admin-sidebar ").count(),
+            1,
+            "audit-log must rely on the BFF admin layout instead of nesting a second shell: {html}"
         );
     }
 
