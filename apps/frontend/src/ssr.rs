@@ -186,8 +186,13 @@ fn record_account_payment_history_load(
 }
 
 fn news_detail_route_slug(path: &str) -> Option<&str> {
+    let slug = news_detail_route_segment(path)?;
+    crate::api::valid_news_slug(slug).then_some(slug)
+}
+
+fn news_detail_route_segment(path: &str) -> Option<&str> {
     let slug = path.strip_prefix("/news/")?;
-    (!slug.is_empty() && !slug.contains('/') && crate::api::valid_news_slug(slug)).then_some(slug)
+    (!slug.is_empty() && !slug.contains('/')).then_some(slug)
 }
 
 fn escaped_page_metadata(meta: &PageMeta) -> (String, String) {
@@ -612,11 +617,14 @@ async fn fetch_page_data(
 }
 
 fn news_ssr_status(path: &str, params: &HashMap<String, String>) -> Option<StatusCode> {
-    let key = if path == "/news" {
-        "data_news"
+    let (key, is_list) = if path == "/news" {
+        ("data_news", true)
     } else {
-        news_detail_route_slug(path)?;
-        "data_news_post"
+        let slug = news_detail_route_segment(path)?;
+        if !crate::api::valid_news_slug(slug) {
+            return Some(StatusCode::NOT_FOUND);
+        }
+        ("data_news_post", false)
     };
     let Some(raw) = params.get(key) else {
         return Some(StatusCode::SERVICE_UNAVAILABLE);
@@ -624,17 +632,14 @@ fn news_ssr_status(path: &str, params: &HashMap<String, String>) -> Option<Statu
     let Ok(value) = serde_json::from_str::<serde_json::Value>(raw) else {
         return Some(StatusCode::SERVICE_UNAVAILABLE);
     };
-    match value.get("state").and_then(serde_json::Value::as_str) {
-        Some("ready" | "empty") => Some(StatusCode::OK),
-        Some("not_found") => Some(StatusCode::NOT_FOUND),
-        Some("error")
-            if value.get("code").and_then(serde_json::Value::as_str)
-                == Some("invalid_news_query") =>
-        {
-            Some(StatusCode::BAD_REQUEST)
-        }
-        Some("error") | None => Some(StatusCode::SERVICE_UNAVAILABLE),
-        Some(_) => Some(StatusCode::SERVICE_UNAVAILABLE),
+    let state = value.get("state").and_then(serde_json::Value::as_str);
+    let code = value.get("code").and_then(serde_json::Value::as_str);
+    match (is_list, state, code) {
+        (true, Some("ready" | "empty"), _) => Some(StatusCode::OK),
+        (true, Some("error"), Some("invalid_news_query")) => Some(StatusCode::BAD_REQUEST),
+        (false, Some("ready"), _) => Some(StatusCode::OK),
+        (false, Some("not_found"), _) => Some(StatusCode::NOT_FOUND),
+        _ => Some(StatusCode::SERVICE_UNAVAILABLE),
     }
 }
 
@@ -1099,6 +1104,7 @@ mod tests {
     use super::developer_docs_runtime_script;
     use super::escaped_page_metadata;
     use super::manual_runtime_script;
+    use super::news_detail_route_segment;
     use super::news_detail_route_slug;
     use super::news_ssr_status;
     use super::notification_badge_runtime;
@@ -1375,20 +1381,26 @@ mod tests {
             "data_news_post".to_string(),
             serde_json::json!({"state": "error", "code": "content_unavailable"}).to_string(),
         )]);
-        for invalid in [
-            "/news/live-article/",
-            "/news/not/a-route",
+        for malformed in ["/news/live-article/", "/news/not/a-route"] {
+            assert_eq!(news_detail_route_slug(malformed), None, "{malformed}");
+            assert_eq!(
+                news_ssr_status(malformed, &dependency_error),
+                None,
+                "{malformed}"
+            );
+        }
+        for invalid_slug in [
             "/news/%2Fsecret",
             "/news/%2E%2E",
             "/news/%zz",
             "/news/UPPER",
             "/news/-leading-hyphen",
         ] {
-            assert_eq!(news_detail_route_slug(invalid), None, "{invalid}");
+            assert_eq!(news_detail_route_slug(invalid_slug), None, "{invalid_slug}");
             assert_eq!(
-                news_ssr_status(invalid, &dependency_error),
-                None,
-                "{invalid}"
+                news_ssr_status(invalid_slug, &dependency_error),
+                Some(StatusCode::NOT_FOUND),
+                "{invalid_slug}"
             );
         }
         assert_eq!(
@@ -1396,6 +1408,136 @@ mod tests {
             Some("live-article")
         );
         assert_eq!(news_ssr_status("/about", &HashMap::new()), None);
+    }
+
+    #[test]
+    fn news_list_ssr_status_accepts_only_list_outcomes() {
+        for state in ["ready", "empty"] {
+            let params = HashMap::from([(
+                "data_news".to_string(),
+                serde_json::json!({"state": state}).to_string(),
+            )]);
+            assert_eq!(
+                news_ssr_status("/news", &params),
+                Some(StatusCode::OK),
+                "{state}"
+            );
+        }
+
+        let invalid_query = HashMap::from([(
+            "data_news".to_string(),
+            serde_json::json!({"state": "error", "code": "invalid_news_query"}).to_string(),
+        )]);
+        assert_eq!(
+            news_ssr_status("/news", &invalid_query),
+            Some(StatusCode::BAD_REQUEST)
+        );
+
+        for outcome in [
+            serde_json::json!({"state": "not_found"}),
+            serde_json::json!({"state": "error", "code": "content_unavailable"}),
+        ] {
+            let params = HashMap::from([("data_news".to_string(), outcome.to_string())]);
+            assert_eq!(
+                news_ssr_status("/news", &params),
+                Some(StatusCode::SERVICE_UNAVAILABLE)
+            );
+        }
+    }
+
+    #[test]
+    fn news_detail_ssr_status_accepts_only_detail_outcomes() {
+        let ready = HashMap::from([(
+            "data_news_post".to_string(),
+            serde_json::json!({"state": "ready"}).to_string(),
+        )]);
+        assert_eq!(
+            news_ssr_status("/news/live-article", &ready),
+            Some(StatusCode::OK)
+        );
+
+        let not_found = HashMap::from([(
+            "data_news_post".to_string(),
+            serde_json::json!({"state": "not_found"}).to_string(),
+        )]);
+        assert_eq!(
+            news_ssr_status("/news/missing", &not_found),
+            Some(StatusCode::NOT_FOUND)
+        );
+
+        for outcome in [
+            serde_json::json!({"state": "empty"}),
+            serde_json::json!({"state": "error", "code": "invalid_news_query"}),
+            serde_json::json!({"state": "error", "code": "content_unavailable"}),
+        ] {
+            let params = HashMap::from([("data_news_post".to_string(), outcome.to_string())]);
+            assert_eq!(
+                news_ssr_status("/news/live-article", &params),
+                Some(StatusCode::SERVICE_UNAVAILABLE)
+            );
+        }
+    }
+
+    #[test]
+    fn news_ssr_status_fails_closed_on_missing_malformed_or_unknown_state() {
+        for (path, key) in [
+            ("/news", "data_news"),
+            ("/news/live-article", "data_news_post"),
+        ] {
+            assert_eq!(
+                news_ssr_status(path, &HashMap::new()),
+                Some(StatusCode::SERVICE_UNAVAILABLE),
+                "{path}: missing"
+            );
+            for raw in [
+                "{not-json".to_string(),
+                serde_json::json!({}).to_string(),
+                serde_json::json!({"state": "future_state"}).to_string(),
+            ] {
+                let params = HashMap::from([(key.to_string(), raw)]);
+                assert_eq!(
+                    news_ssr_status(path, &params),
+                    Some(StatusCode::SERVICE_UNAVAILABLE),
+                    "{path}"
+                );
+            }
+        }
+
+        let dependency_error = HashMap::from([(
+            "data_news_post".to_string(),
+            serde_json::json!({"state": "error", "code": "content_unavailable"}).to_string(),
+        )]);
+        for path in [
+            "/about",
+            "/news/",
+            "/news/live-article/",
+            "/news/not/a-route",
+        ] {
+            assert_eq!(news_ssr_status(path, &dependency_error), None, "{path}");
+        }
+    }
+
+    #[test]
+    fn news_ssr_status_invalid_single_segment_slugs_are_not_found() {
+        let ready = HashMap::from([(
+            "data_news_post".to_string(),
+            serde_json::json!({"state": "ready"}).to_string(),
+        )]);
+        for path in [
+            "/news/UPPER",
+            "/news/-leading-hyphen",
+            "/news/%2Fsecret",
+            "/news/%2E%2E",
+            "/news/%zz",
+        ] {
+            assert!(news_detail_route_segment(path).is_some(), "{path}");
+            assert_eq!(news_detail_route_slug(path), None, "{path}");
+            assert_eq!(
+                news_ssr_status(path, &ready),
+                Some(StatusCode::NOT_FOUND),
+                "{path}"
+            );
+        }
     }
 
     #[test]

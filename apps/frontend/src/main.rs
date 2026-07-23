@@ -748,6 +748,33 @@ mod routing_tests {
     }
 
     #[tokio::test]
+    async fn ssr_invalid_and_malformed_news_route_shapes_are_404() {
+        for path in ["/news/UPPER", "/news/-leading-hyphen", "/news/%2Fsecret"] {
+            let response = request(Method::GET, path).await;
+            assert_eq!(response.status(), StatusCode::NOT_FOUND, "{path}");
+            let body = to_bytes(response.into_body(), 2 * 1024 * 1024)
+                .await
+                .unwrap();
+            assert!(
+                String::from_utf8_lossy(&body).contains("Article not found"),
+                "{path}"
+            );
+        }
+
+        for path in ["/news/", "/news/live-article/", "/news/not/a-route"] {
+            let response = request(Method::GET, path).await;
+            assert_eq!(response.status(), StatusCode::NOT_FOUND, "{path}");
+            let body = to_bytes(response.into_body(), 2 * 1024 * 1024)
+                .await
+                .unwrap();
+            assert!(
+                String::from_utf8_lossy(&body).contains("Page not found"),
+                "{path}"
+            );
+        }
+    }
+
+    #[tokio::test]
     async fn unknown_api_is_json_and_known_method_mismatch_stays_405() {
         for path in [
             "/api",
