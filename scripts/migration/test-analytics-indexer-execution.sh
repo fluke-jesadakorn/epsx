@@ -9,7 +9,7 @@ temp_dir=$(mktemp -d "${TMPDIR:-/tmp}/epsx-analytics-indexer-execution.XXXXXX")
 trap 'rm -rf -- "$temp_dir"' EXIT HUP INT TERM
 
 "$verify" --mode integrity >"$temp_dir/integrity.out" 2>&1
-grep -q "14 source pins, 38 target anchors, 4 separate domains, 16 surfaces, and 24 stop blockers" "$temp_dir/integrity.out"
+grep -q "14 source pins, 38 target anchors, A2.4/A2.5/A2.6 boundary contracts, 4 separate domains, 16 surfaces, and 24 stop blockers" "$temp_dir/integrity.out"
 grep -q "no database, Redis, chain, network, live market-data, deployment" "$temp_dir/integrity.out"
 
 set +e
@@ -28,12 +28,14 @@ grep -q "24 stop blockers remain" "$temp_dir/readiness.out"
 cmp "$temp_dir/report-one.json" "$temp_dir/report-two.json"
 EPSX_A2_4_EVIDENCE_ROOT="$temp_dir" EPSX_A2_4_STATIC_ONLY=1 \
 EPSX_A2_5_EVIDENCE_ROOT="$temp_dir" EPSX_A2_5_STATIC_ONLY=1 \
+EPSX_A2_6_EVIDENCE_ROOT="$temp_dir" EPSX_A2_6_STATIC_ONLY=1 \
   "$verify" --mode report >"$temp_dir/override-proof.json"
 cmp "$temp_dir/report-one.json" "$temp_dir/override-proof.json"
 bun -e '
 const report = JSON.parse(await Bun.file(process.argv[1]).text());
 const expected = ["marketAnalytics", "eventAnalytics", "indexer", "identityRankingOffset"];
 if (report.readinessExit !== 3 || report.productionReady !== false || report.blockers.length !== 24 || report.targetEvidence !== 38 || report.refreshedBoundaryEvidence !== 7 || report.surfaceContracts.length !== 16) process.exit(1);
+if (JSON.stringify(report.composedBoundaryEvidence) !== JSON.stringify(["A2.4", "A2.5", "A2.6"])) process.exit(1);
 if (expected.some((domain) => !report.domains[domain] || report.domains[domain].status !== "blocked")) process.exit(1);
 ' "$temp_dir/report-one.json"
 
@@ -150,6 +152,40 @@ if [ "$a2_5_link_status" -ne 1 ]; then
 fi
 grep -q "B04 must retain the canonical A2.5 provider-boundary evidence link" "$temp_dir/a2-5-link.out"
 
+A12_CONTRACT_IN="$contract" A12_CONTRACT_OUT="$temp_dir/a2-6-drifted-link.json" bun -e '
+const contract = await Bun.file(process.env.A12_CONTRACT_IN).json();
+const evidence = contract.targetEvidence.find((item) => item.id === "tgt-market-a2-6-authority-failure-contract");
+evidence.anchor = "\"productionReady\": false";
+await Bun.write(process.env.A12_CONTRACT_OUT, `${JSON.stringify(contract, null, 2)}\n`);
+'
+set +e
+"$verify" --mode integrity --contract "$temp_dir/a2-6-drifted-link.json" >"$temp_dir/a2-6-drifted-link.out" 2>&1
+a2_6_drifted_link_status=$?
+set -e
+if [ "$a2_6_drifted_link_status" -ne 1 ]; then
+  cat "$temp_dir/a2-6-drifted-link.out" >&2
+  echo "analytics-indexer-execution self-test: expected a2-6-drifted-link exit 1, got $a2_6_drifted_link_status" >&2
+  exit 1
+fi
+grep -q "A2.6 authority-failure boundary evidence is missing or drifted" "$temp_dir/a2-6-drifted-link.out"
+
+A12_CONTRACT_IN="$contract" A12_CONTRACT_OUT="$temp_dir/a2-6-missing-link.json" bun -e '
+const contract = await Bun.file(process.env.A12_CONTRACT_IN).json();
+const blocker = contract.blockers.find((item) => item.id === "B03");
+blocker.evidenceIds = blocker.evidenceIds.filter((id) => id !== "tgt-market-a2-6-authority-failure-contract");
+await Bun.write(process.env.A12_CONTRACT_OUT, `${JSON.stringify(contract, null, 2)}\n`);
+'
+set +e
+"$verify" --mode integrity --contract "$temp_dir/a2-6-missing-link.json" >"$temp_dir/a2-6-missing-link.out" 2>&1
+a2_6_missing_link_status=$?
+set -e
+if [ "$a2_6_missing_link_status" -ne 1 ]; then
+  cat "$temp_dir/a2-6-missing-link.out" >&2
+  echo "analytics-indexer-execution self-test: expected a2-6-missing-link exit 1, got $a2_6_missing_link_status" >&2
+  exit 1
+fi
+grep -q "B03 must retain the canonical A2.6 authority-failure evidence link" "$temp_dir/a2-6-missing-link.out"
+
 set +e
 EPSX_ENV=production "$verify" --mode integrity >"$temp_dir/production-env.out" 2>&1
 production_status=$?
@@ -194,4 +230,4 @@ if [ "$live_status" -ne 1 ]; then
 fi
 grep -q "never contacts databases, Redis, chains, or live market-data providers" "$temp_dir/live-env.out"
 
-echo "analytics-indexer-execution self-test: PASS (integrity=0, readiness-stop=3, deterministic=stable, source/schema-anchor/stale/path/domain/blocker/prod/live tamper=1)"
+echo "analytics-indexer-execution self-test: PASS (integrity=0, readiness-stop=3, deterministic=stable, source/schema-anchor/A2.5/A2.6-link/stale/path/domain/blocker/prod/live tamper=1)"

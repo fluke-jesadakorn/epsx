@@ -57,7 +57,7 @@ impl AnalyticsWalletContext {
         (status = 200, description = "Successfully retrieved analytics rankings", body = CardDashboardResponse),
         (status = 400, description = "Unsupported sort or pagination range"),
         (status = 502, description = "Market provider returned a permanent or invalid response"),
-        (status = 503, description = "Market provider is unavailable or the process concurrency budget is saturated"),
+        (status = 503, description = "Ranking access authority or market provider is unavailable, or the process concurrency budget is saturated"),
         (status = 504, description = "Market provider request exceeded the total deadline")
     ),
     params(
@@ -95,20 +95,16 @@ pub async fn get_unified_analytics_rankings_cached(
     .or_else(|| user_context.as_ref().map(|ctx| ctx.wallet_address.to_lowercase()));
   let is_authenticated = wallet_address.is_some();
 
-  // Calculate ranking configuration based on user's plan metadata
-  let (rank_offset, limit_cap) = if let Some(ref wallet) = wallet_address {
-    match permission_service.get_wallet_ranking_offset(wallet).await {
-      Ok(offset) => {
-        (offset.value(), -1)
-      },
-      Err(_) => {
-        warn!("Analytics ranking offset lookup failed; using free tier");
-        (100, -1)
-      }
-    }
-  } else {
-    (100, -1)
-  };
+  // Anonymous rankings deliberately use the free-tier input without calling
+  // plan authority. Once a verified wallet exists, however, only a successful
+  // authority decision may select its rank range. Treating an authority
+  // outage as free access would turn an operational failure into a false plan
+  // decision and still amplify the request into market-provider work.
+  let rank_offset = resolve_market_ranking_offset(
+    permission_service.as_ref(),
+    wallet_address.as_deref(),
+  ).await?;
+  let limit_cap = -1;
  
   debug!("Rankings permission config resolved: offset={}, limit_cap={}", rank_offset, limit_cap);
 
@@ -228,6 +224,30 @@ pub async fn get_unified_analytics_rankings_cached(
   }
 
   Ok(Json(card_response))
+}
+
+const RANKING_AUTHORITY_UNAVAILABLE_MESSAGE: &str =
+  "Ranking access authority unavailable";
+
+async fn resolve_market_ranking_offset(
+  permission_service: &dyn WalletRankingOffsetQuery,
+  wallet_address: Option<&str>,
+) -> Result<i32, AppError> {
+  let Some(wallet) = wallet_address else {
+    return Ok(epsx_contracts::constants::FREE_PLAN_RANKING_OFFSET);
+  };
+
+  permission_service
+    .get_wallet_ranking_offset(wallet)
+    .await
+    .map(|offset| offset.value())
+    .map_err(|_| {
+      warn!("Analytics ranking offset authority unavailable");
+      AppError::new(
+        ErrorKind::ServiceUnavailable,
+        RANKING_AUTHORITY_UNAVAILABLE_MESSAGE,
+      )
+    })
 }
 
 #[derive(Debug, PartialEq)]
@@ -398,7 +418,11 @@ pub fn generate_cache_key(params: &EPSRankingQueryParams, rank_offset: i32) -> S
 #[cfg(test)]
 mod tests {
   use super::*;
-  use std::sync::atomic::{AtomicUsize, Ordering};
+  use epsx_contracts::value_objects::ranking_offset::RankingOffset;
+  use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Mutex,
+  };
 
   fn a2_5_params(
     page: Option<i32>,
@@ -431,6 +455,74 @@ mod tests {
         "upstream secret response body and bearer token",
       ))
     }
+  }
+
+  struct A2_6Authority {
+    calls: AtomicUsize,
+    wallet: Mutex<Option<String>>,
+    result: Result<RankingOffset, AppError>,
+  }
+
+  #[async_trait::async_trait]
+  impl WalletRankingOffsetQuery for A2_6Authority {
+    async fn get_wallet_ranking_offset(
+      &self,
+      wallet_address: &str,
+    ) -> Result<RankingOffset, AppError> {
+      self.calls.fetch_add(1, Ordering::SeqCst);
+      *self.wallet.lock().expect("wallet recorder lock") =
+        Some(wallet_address.to_string());
+      self.result.clone()
+    }
+  }
+
+  struct A2_6RecordingProvider {
+    calls: AtomicUsize,
+    requests: Mutex<Vec<MarketRankingsRequest>>,
+    total: i32,
+  }
+
+  #[async_trait::async_trait]
+  impl MarketRankingsProviderPort for A2_6RecordingProvider {
+    async fn fetch_rankings(
+      &self,
+      request: MarketRankingsRequest,
+    ) -> Result<MarketRankingsPage, AppError> {
+      self.calls.fetch_add(1, Ordering::SeqCst);
+      self.requests
+        .lock()
+        .expect("provider request recorder lock")
+        .push(request);
+      Ok(MarketRankingsPage {
+        items: Vec::new(),
+        total: self.total,
+      })
+    }
+  }
+
+  async fn call_a2_6_handler(
+    params: EPSRankingQueryParams,
+    authority: Arc<A2_6Authority>,
+    provider: Arc<A2_6RecordingProvider>,
+    wallet: Option<&str>,
+  ) -> Result<Json<CardDashboardResponse>, AppError> {
+    let cache: Arc<dyn Cache> = Arc::new(
+      crate::infrastructure::cache::MemoryCache::new(),
+    );
+    let permission_service: Arc<dyn WalletRankingOffsetQuery> = authority;
+    let rankings_provider: Arc<dyn MarketRankingsProviderPort> = provider;
+    let analytics_wallet_ext = wallet.map(|wallet| {
+      Extension(AnalyticsWalletContext::new(wallet.to_string()))
+    });
+
+    get_unified_analytics_rankings_cached(
+      Query(params),
+      Extension(cache),
+      Extension(permission_service),
+      Extension(rankings_provider),
+      None,
+      analytics_wallet_ext,
+    ).await
   }
 
   #[test]
@@ -481,6 +573,151 @@ mod tests {
 
     assert_eq!(prepared.request.limit, 100);
     assert_eq!(prepared.request.skip, 0);
+  }
+
+  #[tokio::test]
+  async fn a2_6_anonymous_bypasses_authority_and_keeps_free_input() {
+    let authority = Arc::new(A2_6Authority {
+      calls: AtomicUsize::new(0),
+      wallet: Mutex::new(None),
+      result: Err(AppError::database_error(
+        "authority details must be unreachable for anonymous input",
+      )),
+    });
+    let provider = Arc::new(A2_6RecordingProvider {
+      calls: AtomicUsize::new(0),
+      requests: Mutex::new(Vec::new()),
+      total: 150,
+    });
+
+    let Json(response) = call_a2_6_handler(
+      a2_5_params(Some(1), Some(100), None),
+      authority.clone(),
+      provider.clone(),
+      None,
+    ).await.expect("anonymous rankings should remain available");
+
+    assert_eq!(authority.calls.load(Ordering::SeqCst), 0);
+    assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
+    let requests = provider.requests.lock().expect("provider requests lock");
+    assert_eq!(requests.as_slice(), &[MarketRankingsRequest {
+      skip: 99,
+      limit: 10,
+      country: Some("america".to_string()),
+      sector: Some("Technology".to_string()),
+      sort_by: Some("eps_growth".to_string()),
+    }]);
+    let access = response.access_info.expect("anonymous access info");
+    assert_eq!(access.min_accessible_rank, 100);
+    assert_eq!(access.locked_ranks_count, 99);
+  }
+
+  #[tokio::test]
+  async fn a2_6_authenticated_authoritative_offset_proceeds() {
+    let authority = Arc::new(A2_6Authority {
+      calls: AtomicUsize::new(0),
+      wallet: Mutex::new(None),
+      result: Ok(RankingOffset::new(5).expect("valid offset")),
+    });
+    let provider = Arc::new(A2_6RecordingProvider {
+      calls: AtomicUsize::new(0),
+      requests: Mutex::new(Vec::new()),
+      total: 250,
+    });
+
+    let Json(response) = call_a2_6_handler(
+      a2_5_params(Some(2), Some(1_000), None),
+      authority.clone(),
+      provider.clone(),
+      Some("0xAbC"),
+    ).await.expect("authoritative offset should proceed");
+
+    assert_eq!(authority.calls.load(Ordering::SeqCst), 1);
+    assert_eq!(
+      authority.wallet.lock().expect("authority wallet lock").as_deref(),
+      Some("0xabc")
+    );
+    assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
+    let requests = provider.requests.lock().expect("provider requests lock");
+    assert_eq!(requests[0].skip, 104);
+    assert_eq!(requests[0].limit, 100);
+    let access = response.access_info.expect("authenticated access info");
+    assert_eq!(access.min_accessible_rank, 5);
+    assert_eq!(access.locked_ranks_count, 4);
+  }
+
+  #[tokio::test]
+  async fn a2_6_authenticated_no_plan_is_explicit_free_success() {
+    let authority = Arc::new(A2_6Authority {
+      calls: AtomicUsize::new(0),
+      wallet: Mutex::new(None),
+      result: Ok(RankingOffset::free_plan()),
+    });
+    let provider = Arc::new(A2_6RecordingProvider {
+      calls: AtomicUsize::new(0),
+      requests: Mutex::new(Vec::new()),
+      total: 150,
+    });
+
+    let Json(response) = call_a2_6_handler(
+      a2_5_params(Some(1), Some(10), None),
+      authority.clone(),
+      provider.clone(),
+      Some("0xNoPlan"),
+    ).await.expect("explicit free-plan authority success should proceed");
+
+    assert_eq!(authority.calls.load(Ordering::SeqCst), 1);
+    assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
+    assert_eq!(
+      provider.requests.lock().expect("provider requests lock")[0].skip,
+      99
+    );
+    let access = response.access_info.expect("free-plan access info");
+    assert_eq!(access.min_accessible_rank, 100);
+    assert_eq!(access.locked_ranks_count, 99);
+  }
+
+  #[tokio::test]
+  async fn a2_6_authenticated_authority_errors_stop_before_provider_work() {
+    let failures = [
+      AppError::not_found("sensitive missing-plan authority detail"),
+      AppError::database_error("sensitive authority database detail"),
+      AppError::new(
+        ErrorKind::TimeoutError,
+        "sensitive authority timeout detail",
+      ),
+    ];
+
+    for failure in failures {
+      let authority = Arc::new(A2_6Authority {
+        calls: AtomicUsize::new(0),
+        wallet: Mutex::new(None),
+        result: Err(failure),
+      });
+      let provider = Arc::new(A2_6RecordingProvider {
+        calls: AtomicUsize::new(0),
+        requests: Mutex::new(Vec::new()),
+        total: 150,
+      });
+
+      let error = call_a2_6_handler(
+        a2_5_params(Some(1), Some(10), None),
+        authority.clone(),
+        provider.clone(),
+        Some("0xAuthenticated"),
+      ).await.expect_err("authority failure must fail closed");
+
+      assert_eq!(authority.calls.load(Ordering::SeqCst), 1);
+      assert_eq!(error.kind, ErrorKind::ServiceUnavailable);
+      assert_eq!(error.message, RANKING_AUTHORITY_UNAVAILABLE_MESSAGE);
+      assert!(!error.message.contains("sensitive"));
+      assert_eq!(provider.calls.load(Ordering::SeqCst), 0);
+      assert!(provider
+        .requests
+        .lock()
+        .expect("provider requests lock")
+        .is_empty());
+    }
   }
 
   #[tokio::test]

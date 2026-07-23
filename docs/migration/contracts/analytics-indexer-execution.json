@@ -157,10 +157,10 @@
       "anchor": "const GRPC_TIMEOUT: Duration = Duration::from_millis(100);"
     },
     {
-      "id": "tgt-market-free-fallback",
+      "id": "tgt-market-a2-6-authority-failure-contract",
       "domain": "marketAnalytics",
-      "file": "apps/analytics/src/grpc_client.rs",
-      "anchor": "self.fallback.get_wallet_ranking_offset(wallet).await"
+      "file": "docs/migration/contracts/a2-6-ranking-authority-failure-boundary.json",
+      "anchor": "\"contractId\": \"A2.6-ranking-authority-failure-boundary\""
     },
     {
       "id": "tgt-market-a2-4-contract",
@@ -515,9 +515,9 @@
       "category": "market-authorization",
       "severity": "stop",
       "status": "blocked",
-      "summary": "The standalone market service has a hermetic direct-JWT and wallet-propagation boundary, but no live runtime, API-key compatibility, authoritative entitlement-failure, or production ownership proof.",
-      "resolution": "Retain strict service verification and canonical-wallet derivation while proving the remaining compatibility, authority-failure, runtime, routing and cutover behavior.",
-      "evidenceIds": ["src-auth-route-boundary", "src-ranking-offset-authority", "tgt-market-route-shape", "tgt-market-direct-auth"]
+      "summary": "The standalone market service has hermetic direct-JWT, wallet-propagation, and authenticated authority-failure boundaries; authority errors stop before provider work, but live runtime, API-key compatibility, authoritative entitlement success, workload identity/TLS, and production ownership remain unproven.",
+      "resolution": "Retain strict service verification, canonical-wallet derivation, and fail-closed authority errors while proving compatibility, authoritative entitlement success, workload identity/TLS, runtime, routing and cutover behavior.",
+      "evidenceIds": ["src-auth-route-boundary", "src-ranking-offset-authority", "tgt-market-route-shape", "tgt-market-direct-auth", "tgt-market-a2-6-authority-failure-contract"]
     },
     {
       "id": "B04",
@@ -551,9 +551,9 @@
       "category": "ranking-entitlement",
       "severity": "stop",
       "status": "blocked",
-      "summary": "Identity and market fallbacks return the free-plan offset for every wallet, so plan access is not authoritative.",
-      "resolution": "Project active backend plan assignments into a versioned ranking-offset query and test expiry, overlap, downgrade and outage semantics.",
-      "evidenceIds": ["src-ranking-offset-authority", "src-plan-access-bootstrap", "tgt-market-free-fallback", "tgt-identity-free-stub"]
+      "summary": "A2.6 removes the market client's silent authenticated free-plan fallback and proves authority errors stop before provider work, but identity success still returns the free-plan offset for every wallet, so plan access is not authoritative.",
+      "resolution": "Project active backend plan assignments into a versioned ranking-offset query and test explicit free success, paid success, expiry, overlap, downgrade, outage, and recovery semantics.",
+      "evidenceIds": ["src-ranking-offset-authority", "src-plan-access-bootstrap", "tgt-market-a2-6-authority-failure-contract", "tgt-identity-free-stub"]
     },
     {
       "id": "B08",
@@ -839,7 +839,7 @@
     {
       "id": "M05",
       "status": "required-unproven",
-      "rule": "Identity projection metrics cover query latency, fallback count, stream gaps and reconciliation mismatches."
+      "rule": "Identity projection metrics cover query latency, authority failures, stream gaps and reconciliation mismatches."
     },
     {
       "id": "M06",
@@ -882,8 +882,8 @@
     },
     {
       "id": "N02",
-      "reason": "Market entitlement query and fallback always return the free-plan offset.",
-      "evidenceIds": ["tgt-market-free-fallback", "tgt-identity-free-stub"]
+      "reason": "Market authority errors now fail closed, but successful identity queries still return the free-plan offset for every wallet and have no live authoritative plan projection.",
+      "evidenceIds": ["tgt-market-a2-6-authority-failure-contract", "tgt-identity-free-stub"]
     },
     {
       "id": "N03",

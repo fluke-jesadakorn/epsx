@@ -3,9 +3,9 @@
 //! Wires the 5 user-facing analytics routes onto a standalone
 //! `axum` router. Owns the in-process state (`EPSCacheService`,
 //! `WebSocketEarningsService`, `TradingViewEPSRepository`) and
-//! satisfies the `WalletRankingOffsetQuery` port via a tonic
-//! gRPC client that calls the `epsx-identity-service` binary
-//! (with a 100ms timeout + in-process fallback). The HTTP
+//! satisfies the `WalletRankingOffsetQuery` port via a fail-closed tonic
+//! gRPC client that lazily calls the `epsx-identity-service` binary under a
+//! 100ms deadline. The HTTP
 //! boundary exposes only the canonical `/api/analytics/*`
 //! market namespace and verifies optional ranking credentials
 //! before dispatching to the shared backend handler.
@@ -15,7 +15,7 @@
 //!     Refactor #1 (port), §5b (no DB), §1e (TradingView + cache
 //!     + WS move with analytics).
 //!   - `docs/wave8-service-boundary/ROADMAP.md` §17.1 (wave 13a
-//!     Track B — gRPC client + fallback contract).
+//!     Track B — gRPC transport; A2.6 makes authority failures fail closed).
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -373,15 +373,12 @@ async fn main() -> anyhow::Result<()> {
     let state = AnalyticsServiceState::build()
         .context("building in-process analytics state")?;
 
-    // ---- WalletRankingOffsetQuery: gRPC client + fallback ----
+    // ---- WalletRankingOffsetQuery: fail-closed lazy gRPC client ----
     //
-    // Wave 13a Track B. The wave-12 in-process stub
-    // (`FreePlanWalletRankingOffsetQuery`) is the fallback —
-    // if the gRPC call fails or times out (100ms), we
-    // delegate to the stub and return the free-plan offset
-    // (the same behavior the monolith's
-    // `web/analytics/eps/cache.rs:78-81` uses on auth
-    // errors).
+    // A2.6 constructs the tonic channel lazily, so startup and anonymous
+    // rankings do not dial identity. Authenticated ranking requests fail
+    // closed if the authority call fails, times out, or returns an invalid
+    // offset; there is no in-process free-plan fallback on that path.
     //
     // The gRPC endpoint is configurable via the
     // `IDENTITY_GRPC_URL` env var:
@@ -393,13 +390,10 @@ async fn main() -> anyhow::Result<()> {
     //     var in `infrastructure/kubernetes/base/analytics/`)
     let grpc_endpoint = std::env::var("IDENTITY_GRPC_URL")
         .unwrap_or_else(|_| "http://127.0.0.1:50051".to_string());
-    info!(endpoint = %grpc_endpoint, "IDENTITY_GRPC_URL resolved");
+    info!("IDENTITY_GRPC_URL resolved");
 
-    let fallback: Arc<dyn WalletRankingOffsetQuery> =
-        Arc::new(FreePlanWalletRankingOffsetQuery);
     let permission_service: Arc<dyn WalletRankingOffsetQuery> = Arc::new(
-        GrpcWalletRankingOffsetQuery::new(grpc_endpoint, fallback)
-            .await
+        GrpcWalletRankingOffsetQuery::new(grpc_endpoint)
             .context("building gRPC identity client")?,
     );
 
@@ -595,258 +589,6 @@ mod tests {
     fn test_startup_banner() {
         print_startup_banner(MARKET_ROUTES, 8080);
         // No panic = pass.
-    }
-
-    // ========================================================================
-    // wave-13a Track B — gRPC client tests
-    // ========================================================================
-    //
-    // Three tests cover the gRPC client + fallback contract:
-    //
-    // 1. `test_grpc_client_delegates_to_server`: spins up a
-    //    mock tonic server in-process, points the client at
-    //    it, asserts the client returns the server's
-    //    `RankingOffset` value (NOT the fallback's free-plan
-    //    default of 100).
-    //
-    // 2. `test_grpc_client_falls_back_on_unreachable`:
-    //    points the client at `http://127.0.0.1:1` (a port
-    //    that always refuses), asserts the constructor
-    //    fails AND that the fallback path is still usable
-    //    (returns free-plan default of 100).
-    //
-    // 3. `test_grpc_client_falls_back_on_timeout`: spins
-    //    up a mock tonic server that *hangs* on
-    //    `GetWalletRankingOffset` (never responds), points
-    //    the client at it, asserts the 100ms timeout
-    //    triggers and the fallback is invoked.
-    //
-    // The mock server is a small `Identity` impl that wraps
-    // a configurable `RankingOffset` value. We do NOT use
-    // Track A's `epsx-identity-service::FreePlanRankingOffsetService`
-    // directly because Track A's binary may not be present
-    // in the test environment (it lives on its own branch).
-
-    /// Mock tonic `Identity` server. The configured
-    /// `RankingOffset` value is returned for every wallet.
-    /// `delay` (when set) makes the server sleep before
-    /// responding, which the timeout-fallback test uses to
-    /// trigger the 100ms client timeout.
-    struct MockIdentityServer {
-        offset_value: i32,
-        delay: Option<std::time::Duration>,
-    }
-
-    #[tonic::async_trait]
-    impl crate::identity_proto::identity_server::Identity
-        for MockIdentityServer
-    {
-        async fn get_wallet_ranking_offset(
-            &self,
-            _request: tonic::Request<
-                crate::identity_proto::GetWalletRankingOffsetRequest,
-            >,
-        ) -> Result<
-            tonic::Response<
-                crate::identity_proto::GetWalletRankingOffsetResponse,
-            >,
-            tonic::Status,
-        > {
-            if let Some(delay) = self.delay {
-                tokio::time::sleep(delay).await;
-            }
-            Ok(tonic::Response::new(
-                crate::identity_proto::GetWalletRankingOffsetResponse {
-                    offset: self.offset_value,
-                },
-            ))
-        }
-    }
-
-    /// Spin up a mock tonic server on `127.0.0.1:0` (kernel
-    /// picks a free ephemeral port). Returns the bound URL
-    /// ("http://127.0.0.1:<port>") and the server task's
-    /// `JoinHandle` (so the test can `abort()` it on
-    /// teardown — otherwise the server task outlives the
-    /// test and leaks a port).
-    ///
-    /// `offset_value` is the `RankingOffset` the mock
-    /// returns; `delay` (if set) is the artificial server
-    /// delay used by the timeout-fallback test.
-    ///
-    /// **Must be called from inside a `#[tokio::test]`
-    /// runtime** because `tokio::net::TcpListener::bind`
-    /// needs a tokio runtime context.
-    async fn spin_up_mock_server(
-        offset_value: i32,
-        delay: Option<std::time::Duration>,
-    ) -> (String, tokio::task::JoinHandle<()>) {
-        use crate::identity_proto::identity_server::IdentityServer;
-        use tonic::transport::Server;
-
-        let mock = MockIdentityServer { offset_value, delay };
-        let svc = IdentityServer::new(mock);
-
-        // `tokio::net::TcpListener::bind` returns a
-        // `tokio::net::TcpListener` directly, no conversion
-        // from `std::net::TcpListener` needed (which is what
-        // would trigger the `tokio_allow_from_blocking_fd`
-        // cfg error in a test runtime — see
-        // tokio-rs/tokio#7172).
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("bind ephemeral port for mock server");
-        let local_addr = listener
-            .local_addr()
-            .expect("read local_addr from ephemeral listener");
-        let incoming =
-            tokio_stream::wrappers::TcpListenerStream::new(listener);
-
-        let serve = async move {
-            if let Err(e) = Server::builder()
-                .add_service(svc)
-                .serve_with_incoming(incoming)
-                .await
-            {
-                eprintln!("mock server error: {e}");
-            }
-        };
-
-        let handle = tokio::spawn(serve);
-        let url = format!("http://{local_addr}");
-        (url, handle)
-    }
-
-    /// gRPC happy path: mock server returns offset=50, the
-    /// client reaches it, the client returns
-    /// `RankingOffset(50)` (NOT the fallback's
-    /// `RankingOffset::free_plan() = 100`).
-    #[tokio::test]
-    async fn test_grpc_client_delegates_to_server() {
-        let (url, server_handle) = spin_up_mock_server(50, None).await;
-
-        let fallback: Arc<dyn WalletRankingOffsetQuery> =
-            Arc::new(FreePlanWalletRankingOffsetQuery);
-        let client = GrpcWalletRankingOffsetQuery::new(url, fallback)
-            .await
-            .expect("client should connect to the mock server");
-
-        let offset = client
-            .get_wallet_ranking_offset("0xdeadbeef")
-            .await
-            .expect("gRPC call should succeed");
-        assert_eq!(
-            offset.value(),
-            50,
-            "gRPC client should return the server's offset (50), \
-             not the fallback's free-plan offset (100)"
-        );
-
-        // Teardown: abort the server task to free the
-        // ephemeral port. Without this, the server task
-        // outlives the test and the next test's `bind` to
-        // `127.0.0.1:0` may collide.
-        server_handle.abort();
-    }
-
-    /// gRPC unreachable: the constructor is pointed at
-    /// `http://127.0.0.1:1` (a port that always refuses).
-    /// `IdentityClient::connect` returns `Err`, so the
-    /// constructor bubbles the error up. This is the
-    /// "primary failure mode" — the identity service is
-    /// not running at all (e.g. the K8s pod is OOM-killed
-    /// and not yet restarted).
-    ///
-    /// Note: this test asserts the constructor's failure
-    /// mode. The "still returns the free-plan default via
-    /// the fallback" assertion lives in
-    /// `test_fallback_returns_free_plan_when_called_directly`
-    /// (below) because the fallback is a separate code
-    /// path that doesn't go through the gRPC client at
-    /// all — when the constructor fails, the binary
-    /// exits, so the fallback is never invoked in this
-    /// code path. The fallback IS invoked in the timeout
-    /// path (test 3) and the tonic-error path (test 4).
-    #[tokio::test]
-    async fn test_grpc_client_falls_back_on_unreachable() {
-        let fallback: Arc<dyn WalletRankingOffsetQuery> =
-            Arc::new(FreePlanWalletRankingOffsetQuery);
-
-        // Port 1 is reserved + unbound on Linux/macOS — the
-        // connect attempt returns `ECONNREFUSED` immediately.
-        let result = GrpcWalletRankingOffsetQuery::new(
-            "http://127.0.0.1:1".to_string(),
-            fallback,
-        )
-        .await;
-        assert!(
-            result.is_err(),
-            "GrpcWalletRankingOffsetQuery::new should fail when \
-             pointed at an unreachable endpoint"
-        );
-    }
-
-    /// gRPC timeout fallback: mock server hangs
-    /// (delay=200ms, > client's 100ms timeout), client
-    /// should time out and fall back to the in-process
-    /// stub. Assert: the client returns the fallback's
-    /// free-plan offset (100), not the server's offset
-    /// (50).
-    #[tokio::test]
-    async fn test_grpc_client_falls_back_on_timeout() {
-        let (url, server_handle) = spin_up_mock_server(
-            50,
-            Some(std::time::Duration::from_millis(200)),
-        )
-        .await;
-
-        let fallback: Arc<dyn WalletRankingOffsetQuery> =
-            Arc::new(FreePlanWalletRankingOffsetQuery);
-        let client = GrpcWalletRankingOffsetQuery::new(url, fallback)
-            .await
-            .expect("client should connect (the connect is \
-                     fast; the hang is on the gRPC call)");
-
-        let offset = client
-            .get_wallet_ranking_offset("0xdeadbeef")
-            .await
-            .expect("fallback never errors");
-
-        assert_eq!(
-            offset.value(),
-            100,
-            "gRPC client should time out and return the \
-             fallback's free-plan offset (100), not the \
-             server's offset (50)"
-        );
-
-        server_handle.abort();
-    }
-
-    /// The fallback path is independently testable: the
-    /// in-process `FreePlanWalletRankingOffsetQuery` stub
-    /// returns the free-plan default for any wallet. This
-    /// is the same value the gRPC client returns when the
-    /// server is unreachable / times out.
-    #[tokio::test]
-    async fn test_fallback_returns_free_plan_when_called_directly() {
-        let stub = FreePlanWalletRankingOffsetQuery;
-        for wallet in [
-            "0x0000000000000000000000000000000000000000",
-            "0xdeadbeef",
-            "vitalik.eth",
-            "",
-        ] {
-            let offset = stub
-                .get_wallet_ranking_offset(wallet)
-                .await
-                .expect("stub never errors");
-            assert_eq!(
-                offset.value(),
-                100,
-                "fallback must return the free-plan offset for wallet={wallet}"
-            );
-        }
     }
 
     // ========================================================================

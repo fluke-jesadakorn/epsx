@@ -1,0 +1,181 @@
+{
+  "schemaVersion": 1,
+  "artifact": "a2-6-ranking-authority-failure-boundary",
+  "contractId": "A2.6-ranking-authority-failure-boundary",
+  "purpose": "deterministic-hermetic-fail-closed-authority-boundary-and-readiness-stop",
+  "productionReady": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "safety": {
+    "database": false,
+    "redis": false,
+    "identityNetwork": false,
+    "marketProvider": false,
+    "rpc": false,
+    "browser": false,
+    "serviceListener": false,
+    "deployment": false,
+    "production": false
+  },
+  "sourceBaseline": {
+    "ref": "origin/development",
+    "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "interpretation": "The monolith plan query and authenticated free-tier downgrade are compatibility evidence and findings; an authority failure is not an entitlement decision and is not preserved as a production target.",
+    "evidence": [
+      {
+        "id": "src-plan-ranking-query",
+        "file": "apps/backend/src/auth/unified_permission_service.rs",
+        "blob": "17becb76341ca3dfc87dedbc71e9653063a86f9e",
+        "anchor": "pub async fn get_wallet_ranking_offset("
+      },
+      {
+        "id": "src-authenticated-free-downgrade",
+        "file": "apps/backend/src/web/analytics/eps/cache.rs",
+        "blob": "13f8c39b24a248186d6c24f3298023ba678bc210",
+        "anchor": "warn!(\"Analytics API: Failed to get offset for {}: {}, using free tier\", wallet, e);"
+      }
+    ]
+  },
+  "targetBase": {
+    "ref": "migration/dioxus-microservices",
+    "commit": "a7f7ed0c0d0d3b07cb43414b1e3cd2a5f64bd5d1",
+    "interpretation": "Immutable post-A2.5 snapshot before lazy identity transport and fail-closed authenticated authority handling.",
+    "evidence": [
+      {
+        "id": "base-eager-fallback-client",
+        "file": "apps/analytics/src/grpc_client.rs",
+        "blob": "67d4ebf964cc23f5dcbe1dc7dcdbc6596f84bbc8"
+      },
+      {
+        "id": "base-fallback-runtime-wiring",
+        "file": "apps/analytics/src/main.rs",
+        "blob": "e99af6fdfb5d3eaaab98cce96f57e3d2cd96de5f"
+      },
+      {
+        "id": "base-authority-downgrade-handler",
+        "file": "apps/backend/src/web/analytics/eps/cache.rs",
+        "blob": "0cf30cb873a568cd33f16e47af8f997d09946c8c"
+      },
+      {
+        "id": "base-a2-5-provider-contract",
+        "file": "docs/migration/contracts/a2-5-market-provider-boundary.json",
+        "blob": "15b753ffb6df99489d1a3ece739ed121065b6388"
+      }
+    ]
+  },
+  "invariants": [
+    {
+      "id": "anonymous-free-without-authority",
+      "claim": "An anonymous rankings request retains the free-plan offset without invoking the identity authority or requiring identity availability."
+    },
+    {
+      "id": "authenticated-authority-required",
+      "claim": "A verified wallet must receive a successful ranking-offset authority decision before authenticated rankings provider work can begin."
+    },
+    {
+      "id": "authority-denial-before-provider",
+      "claim": "An authenticated authority error becomes a sanitized ServiceUnavailable result and returns before any market provider invocation."
+    },
+    {
+      "id": "lazy-client-construction",
+      "claim": "A valid identity endpoint constructs a lazy tonic channel without dialing during analytics startup or anonymous request handling."
+    },
+    {
+      "id": "single-attempt-single-deadline",
+      "claim": "An authenticated authority lookup performs one RPC attempt under one 100 millisecond deadline with no retry beneath the query port."
+    },
+    {
+      "id": "no-free-fallback",
+      "claim": "Identity status, transport, timeout and invalid-wire failures return an error rather than invoking or synthesizing a free-plan fallback."
+    },
+    {
+      "id": "strict-wire-offset",
+      "claim": "Successful wire offsets use strict RankingOffset validation; invalid negative or oversized values fail rather than clamp to Free Plan."
+    },
+    {
+      "id": "opaque-authority-failure",
+      "claim": "Authority status text, endpoint credentials, wallet identifiers and transport details are not copied into the client-visible error."
+    },
+    {
+      "id": "successful-offset-preserved",
+      "claim": "A single valid authority result is preserved unchanged for backend-owned ranking pagination and does not derive policy from token claims."
+    },
+    {
+      "id": "non-production-evidence",
+      "claim": "All A2.6 evidence is offline or in-process and authorizes no database, identity network, provider, listener, browser, deployment or production action."
+    }
+  ],
+  "hermeticTests": [
+    "a2_6_grpc_success_returns_strictly_validated_offset_once",
+    "a2_6_grpc_status_is_opaque_without_fallback_or_retry",
+    "a2_6_grpc_timeout_is_opaque_without_fallback_or_retry",
+    "a2_6_invalid_wire_offset_is_rejected_not_clamped",
+    "a2_6_lazy_constructor_accepts_unreachable_uri_without_dialing",
+    "a2_6_constructor_rejects_malformed_uri_opaquely",
+    "a2_6_anonymous_bypasses_authority_and_keeps_free_input",
+    "a2_6_authenticated_authoritative_offset_proceeds",
+    "a2_6_authenticated_no_plan_is_explicit_free_success",
+    "a2_6_authenticated_authority_errors_stop_before_provider_work"
+  ],
+  "implementationEvidence": [
+    {
+      "id": "impl-fail-closed-grpc-client",
+      "file": "apps/analytics/src/grpc_client.rs",
+      "sha256": "bafac48faf1e9d03d1990ba57f922a01a350ff7763bed7ede2e70917a2c7a559"
+    },
+    {
+      "id": "impl-lazy-runtime-wiring",
+      "file": "apps/analytics/src/main.rs",
+      "sha256": "76daa6108d37f2c09b76109437e271f3393f9917cef631ccaed198c17858fda4"
+    },
+    {
+      "id": "impl-fail-closed-ranking-handler",
+      "file": "apps/backend/src/web/analytics/eps/cache.rs",
+      "sha256": "282b0be9a63d8e25cfd84970e90da03ea6db1f3a0582f0cf2659c67eaf7b57c6"
+    }
+  ],
+  "residualStops": [
+    {
+      "id": "identity-success-always-free",
+      "claim": "The identity gRPC server still returns the Free Plan offset for every successful request, so paid entitlement success is not authoritative."
+    },
+    {
+      "id": "identity-db-authority-absent",
+      "claim": "The identity service has no reviewed database repository, atomic plan snapshot, schema probe, assignment reconciliation or live plan authority."
+    },
+    {
+      "id": "identity-workload-auth-tls-absent",
+      "claim": "The internal identity RPC has no authenticated workload identity, owner binding, transport TLS or authorization policy."
+    },
+    {
+      "id": "identity-sse-emit-unauthenticated",
+      "claim": "Identity ranking SSE and emit remain unauthenticated, global, ephemeral and disconnected from transactional entitlement changes."
+    },
+    {
+      "id": "source-parity-shadow-unproved",
+      "claim": "Free, paid, expired, overlapping, revoked and admin assignment parity has no reconciled fixture ledger or source-shadow evidence."
+    },
+    {
+      "id": "route-owner-runtime-cutover-unproved",
+      "claim": "The monolith remains canonical and no gateway, Cloudflare, Kubernetes, image, configuration, canary or rollback cutover is authorized."
+    },
+    {
+      "id": "live-deployment-evidence-absent",
+      "claim": "No database, RPC, service listener, browser, staging, load, observability, deployment or rollback evidence exists for A2.6."
+    },
+    {
+      "id": "production-actions-unauthorized",
+      "claim": "Passing A2.6 integrity is not production readiness and never authorizes a live service, secret, database, provider or deployment action."
+    }
+  ],
+  "requiredExecutionOrder": [
+    "E01 freeze the source downgrade and immutable post-A2.5 target base",
+    "E02 enforce authenticated authority failure before provider invocation",
+    "E03 construct the identity client lazily with no Free-plan fallback or retry",
+    "E04 prove strict wire validation, opaque errors, one attempt and anonymous bypass with in-process fakes",
+    "E05 implement and reconcile one authoritative atomic plan-assignment read behind identity",
+    "E06 add authenticated workload identity, owner binding and transport protection",
+    "E07 remove or secure the global SSE and emit surfaces with durable event semantics",
+    "E08 obtain separate integration, shadow, canary, rollback and deployment authorization"
+  ]
+}
