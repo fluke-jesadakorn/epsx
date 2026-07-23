@@ -6960,6 +6960,14 @@ pub fn epsx_header_for_session(is_authenticated: bool) -> String {
       </a>"##;
 
     let logo = epsx_icon_svg();
+    let notification_action = if is_authenticated {
+        r##"<a href="/notifications" class="epsx-theme-btn epsx-notification-link" aria-label="Notifications" data-epsx-notification-badge-target="true">
+        <i data-lucide="bell" style="width:1rem;height:1rem;"></i>
+        <span class="epsx-notification-badge" data-epsx-notification-unread-badge="true" data-state="unavailable" aria-hidden="true" hidden></span>
+      </a>"##
+    } else {
+        ""
+    };
     let (desktop_auth, compact_auth) = if is_authenticated {
         (
             r##"<div class="hidden md:flex items-center gap-1.5">
@@ -7027,10 +7035,7 @@ pub fn epsx_header_for_session(is_authenticated: bool) -> String {
     </nav>
 
     <div class="flex items-center gap-2">
-      <a href="/notifications" class="epsx-theme-btn epsx-notification-link" aria-label="Notifications" data-epsx-notification-badge-target="true">
-        <i data-lucide="bell" style="width:1rem;height:1rem;"></i>
-        <span class="epsx-notification-badge" data-epsx-notification-unread-badge="true" data-state="unavailable" aria-hidden="true" hidden></span>
-      </a>
+      {notification_action}
       <button class="epsx-theme-btn" type="button" data-epsx-theme-toggle aria-label="Toggle theme" onclick="epsx.toggleTheme()">
         <i data-epsx-theme-icon="sun" data-lucide="sun" class="sun" style="display:none;"></i>
         <i data-epsx-theme-icon="moon" data-lucide="moon" class="moon"></i>
@@ -7048,6 +7053,7 @@ pub fn epsx_header_for_session(is_authenticated: bool) -> String {
         market = nav_block("Market", "chart-column", market_items),
         developer = nav_block("Developer", "code", developer_items),
         company = nav_block("Company", "building", company_items),
+        notification_action = notification_action,
         desktop_auth = desktop_auth,
         compact_auth = compact_auth,
         authenticated = is_authenticated,
@@ -7587,7 +7593,7 @@ mod page_head_tests {
 
     #[test]
     fn active_header_badge_starts_empty_hidden_unavailable_and_aa_contrast() {
-        let header = epsx_header();
+        let header = epsx_header_for_session(true);
         assert_eq!(
             header
                 .matches("data-epsx-notification-badge-target=\"true\"")
@@ -8637,16 +8643,19 @@ async function flushPromises() {{
             assert!(marked_opener.contains(r#"onclick="epsx.toggleTheme()""#));
         }
 
-        for header in [
-            epsx_header_for_session(false),
-            epsx_header_for_session(true),
+        for (header, expected_shared_class_openers) in [
+            (epsx_header_for_session(false), 2),
+            (epsx_header_for_session(true), 4),
         ] {
             let shared_class_openers: Vec<&str> = header
                 .split('<')
                 .map(|tail| tail.split_once('>').map_or(tail, |(opener, _)| opener))
                 .filter(|opener| opener.contains("epsx-theme-btn"))
                 .collect();
-            assert!(shared_class_openers.len() >= 3);
+            assert_eq!(
+                shared_class_openers.len(),
+                expected_shared_class_openers
+            );
             assert_eq!(
                 shared_class_openers
                     .iter()
@@ -9419,11 +9428,27 @@ assert.equal(document.body.style.overflow, 'clip');
         assert_eq!(public.matches("href=\"/auth\"").count(), 2);
         assert!(public.contains("data-epsx-authenticated=\"false\""));
         assert!(!public.contains("data-epsx-logout"));
+        assert!(!public.contains("href=\"/notifications\""));
+        assert!(!public.contains("data-epsx-notification-badge-target"));
+        assert!(!public.contains("data-epsx-notification-unread-badge"));
         assert!(!public.contains("openAuth"));
 
         let authenticated = epsx_header_for_session(true);
         assert_eq!(authenticated.matches("data-epsx-logout").count(), 2);
         assert!(authenticated.contains("data-epsx-authenticated=\"true\""));
+        assert_eq!(authenticated.matches("href=\"/notifications\"").count(), 1);
+        assert_eq!(
+            authenticated
+                .matches("data-epsx-notification-badge-target=\"true\"")
+                .count(),
+            1
+        );
+        assert_eq!(
+            authenticated
+                .matches("data-epsx-notification-unread-badge=\"true\"")
+                .count(),
+            1
+        );
         assert!(authenticated.contains("class=\"flex md:hidden items-center gap-1.5\""));
         assert!(authenticated.contains("href=\"/account\""));
         assert!(!authenticated.contains("href=\"/auth\""));
