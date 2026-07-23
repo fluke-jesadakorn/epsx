@@ -1426,6 +1426,10 @@ pub fn design_system_head_with_keywords(
     transition: background 0.15s ease;
   }}
   .epsx-mobile-link:hover, .epsx-mobile-link:active {{ background: var(--bg-secondary); }}
+  .epsx-header :where(a[href], button):focus-visible, .epsx-mobile-sheet :where(a[href], button):focus-visible, .footer a[href]:focus-visible {{
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 2px;
+  }}
 
   /* === Hero entrance animations (epsx.io staggered) === */
   @keyframes epsx-slide-up {{
@@ -7320,6 +7324,98 @@ mod page_head_tests {
             emitted_declaration(emitted_css_rule(&head, ".input:focus"), "outline"),
             "none"
         );
+    }
+
+    #[test]
+    fn shared_navigation_and_footer_emit_scoped_focus_visible_ring() {
+        let head = design_system_head(
+            "Shared navigation focus",
+            "Static header, mobile-sheet, and footer keyboard-ring declarations",
+        );
+        let selector = ".epsx-header :where(a[href], button):focus-visible, .epsx-mobile-sheet :where(a[href], button):focus-visible, .footer a[href]:focus-visible";
+        let focus_rule = emitted_css_rule(&head, selector);
+        assert_eq!(
+            emitted_declaration(focus_rule, "outline"),
+            "3px solid var(--focus-ring)"
+        );
+        assert_eq!(emitted_declaration(focus_rule, "outline-offset"), "2px");
+        assert_eq!(head.matches(&format!("\n  {selector} {{")).count(), 1);
+
+        for component_selector in [
+            ".epsx-nav-trigger",
+            ".epsx-nav-item",
+            ".epsx-connect-btn",
+            ".epsx-theme-btn",
+            ".epsx-mobile-link",
+            ".footer-link",
+        ] {
+            assert!(
+                !emitted_css_rule(&head, component_selector).contains("outline: none"),
+                "{component_selector} must not defeat the scoped focus-visible outline"
+            );
+        }
+
+        let signed_out = epsx_header_for_session(false);
+        let authenticated = epsx_header_for_session(true);
+        for header in [&signed_out, &authenticated] {
+            assert!(header.starts_with(r#"<header class="epsx-header""#));
+            assert!(header.ends_with("</header>"));
+            assert!(header.matches("<a ").count() > 0);
+            assert!(header.matches("<button ").count() > 0);
+            assert!(header.contains(r#"<a href="/"#));
+            assert!(header.contains(r#"<button id="epsx-nav-market-trigger""#));
+            assert!(header.contains(r#"<button class="epsx-theme-btn" type="button""#));
+        }
+        assert_eq!(
+            signed_out
+                .matches(r#"<a href="/auth" class="epsx-connect-btn""#)
+                .count(),
+            2
+        );
+        assert!(authenticated.contains(r#"<a href="/account" class="epsx-theme-btn""#));
+        assert_eq!(
+            authenticated
+                .matches(r#"<button class="epsx-connect-btn" type="button" data-epsx-logout"#)
+                .count(),
+            2
+        );
+
+        let rendered_footer = footer();
+        assert!(rendered_footer.starts_with(r#"<footer class="footer">"#));
+        assert!(rendered_footer.ends_with("</footer>"));
+        assert_eq!(rendered_footer.matches("<a ").count(), 12);
+        assert_eq!(rendered_footer.matches("</a>").count(), 12);
+        assert_eq!(rendered_footer.matches("<button ").count(), 0);
+
+        let controller = shared_navigation_controller_source();
+        assert!(controller.contains("sheet.className = 'epsx-mobile-sheet';"));
+        assert!(controller.contains(
+            r#"<button class="epsx-theme-btn" type="button" aria-label="Close menu" data-epsx-mobile-close"#
+        ));
+        for href in [
+            "/analytics",
+            "/portfolio",
+            "/developer",
+            "/developer/docs",
+            "/about",
+            "/news",
+            "/contact",
+            "/chat",
+        ] {
+            assert!(
+                controller.contains(&format!(r#"<a href="{href}" class="epsx-mobile-link">"#)),
+                "mobile sheet must retain native navigation anchor {href}"
+            );
+        }
+        assert!(controller.contains(
+            r#"<a href="/account" class="epsx-connect-btn" style="text-decoration:none;width:100%;">"#
+        ));
+        assert!(controller.contains(
+            r#"<button class="epsx-connect-btn" type="button" data-epsx-logout style="width:100%;">"#
+        ));
+        assert!(controller.contains(
+            r#"<a href="/auth" class="epsx-connect-btn" style="margin-top:1rem;width:100%;text-decoration:none;">"#
+        ));
     }
 
     #[test]
