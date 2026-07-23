@@ -693,6 +693,14 @@ pub fn design_system_head_with_keywords(
     outline: 3px solid var(--focus-ring);
     outline-offset: 2px;
   }}
+  .btn:disabled {{
+    opacity: 0.5;
+    pointer-events: none;
+  }}
+  .input:disabled {{
+    opacity: 0.5;
+    cursor: not-allowed;
+  }}
   .label {{
     display: block;
     font-size: 0.8125rem;
@@ -7340,6 +7348,66 @@ mod page_head_tests {
             emitted_declaration(emitted_css_rule(&head, ".input:focus"), "outline"),
             "none"
         );
+    }
+
+    #[test]
+    fn shared_native_disabled_controls_emit_exact_parity_styles() {
+        let button = components::Btn::new("Disabled action")
+            .attr("disabled", "")
+            .render();
+        assert!(button.starts_with(r#"<button type="button" class="btn btn-primary""#));
+        assert_eq!(button.matches(r#"disabled="""#).count(), 1);
+        assert!(!button.contains("aria-disabled"));
+        assert!(!button.starts_with("<a "));
+
+        let input = components::Input::new("disabled-input").disabled().render();
+        assert!(input.contains(r#"<input id="disabled-input""#));
+        assert_eq!(input.matches(" disabled ").count(), 1);
+        assert!(input.contains(r#"class="input""#));
+        assert!(!input.contains("aria-disabled"));
+
+        let head = design_system_head(
+            "Shared disabled controls",
+            "Static native button and input disabled-state declarations",
+        );
+        let button_selector = ".btn:disabled";
+        let input_selector = ".input:disabled";
+        assert_eq!(
+            emitted_css_rule(&head, button_selector),
+            ".btn:disabled {\n    opacity: 0.5;\n    pointer-events: none;\n  }"
+        );
+        assert_eq!(
+            emitted_css_rule(&head, input_selector),
+            ".input:disabled {\n    opacity: 0.5;\n    cursor: not-allowed;\n  }"
+        );
+        assert_eq!(
+            head.matches(&format!("\n  {button_selector} {{")).count(),
+            1
+        );
+        assert_eq!(
+            head.matches(&format!("\n  {input_selector} {{")).count(),
+            1
+        );
+
+        let focus_marker = "\n  .btn:focus-visible, .input:focus-visible {";
+        let focus_position = head.find(focus_marker).expect("primitive focus rule");
+        let button_position = head
+            .find("\n  .btn:disabled {")
+            .expect("native button disabled rule");
+        let input_position = head
+            .find("\n  .input:disabled {")
+            .expect("native input disabled rule");
+        assert!(button_position > focus_position);
+        assert!(input_position > focus_position);
+        assert!(button_position < input_position);
+
+        for rule in [
+            emitted_css_rule(&head, button_selector),
+            emitted_css_rule(&head, input_selector),
+        ] {
+            assert!(!rule.contains("aria-disabled"));
+            assert!(!rule.contains("[aria-"));
+        }
     }
 
     #[test]
