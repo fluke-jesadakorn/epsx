@@ -4049,6 +4049,7 @@ dependencies = [
  "epsx-contracts",
  "epsx-database-pools",
  "epsx-identity-shared",
+ "epsx-ranking-store",
  "epsx-web-middleware",
  "ethers",
  "futures",
@@ -4649,6 +4650,19 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid 1.23.3",
+]
+
+[[package]]
+name = "epsx-ranking-store"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "diesel",
+ "diesel-async",
+ "epsx-contracts",
+ "epsx-database-pools",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

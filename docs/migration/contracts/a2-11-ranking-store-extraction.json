@@ -1,0 +1,410 @@
+{
+  "schemaVersion": 1,
+  "artifact": "a2-11-ranking-store-extraction",
+  "contractId": "A2.11-ranking-store-extraction",
+  "purpose": "deterministic-hermetic-library-only-ranking-store-extraction-and-readiness-stop",
+  "productionReady": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "safety": {
+    "database": false,
+    "schemaCatalog": false,
+    "migration": false,
+    "redis": false,
+    "identityNetwork": false,
+    "rpc": false,
+    "browser": false,
+    "serviceListener": false,
+    "deployment": false,
+    "production": false
+  },
+  "sourceBaseline": {
+    "ref": "origin/development",
+    "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "interpretation": "The source ranking query and colliding baselines are compatibility evidence only. Schema adoption, generated-schema/filter gaps, functional indexing, query planning and reconciliation remain STOPs.",
+    "evidence": [
+      {
+        "id": "src-ranking-offset-query",
+        "file": "apps/backend/src/auth/unified_permission_service.rs",
+        "blob": "17becb76341ca3dfc87dedbc71e9653063a86f9e",
+        "anchor": "pub async fn get_wallet_ranking_offset("
+      },
+      {
+        "id": "src-core-baseline-v5",
+        "file": "apps/backend/migrations/core/00000000000001_consolidated_schema_v5/up.sql",
+        "blob": "eaa15a934b7238f84f339d7419781231af1d52d9",
+        "anchor": "CREATE TABLE wallet_plan_assignments ("
+      },
+      {
+        "id": "src-core-baseline-v6",
+        "file": "apps/backend/migrations/core/00000000000001_consolidated_baseline_v6/up.sql",
+        "blob": "3cf683bc589f7252fd1be64ab62b69958fc292de",
+        "anchor": "CREATE TABLE wallet_plan_assignments ("
+      },
+      {
+        "id": "src-generated-primary-schema-gap",
+        "file": "apps/backend/src/schemas/primary.rs",
+        "blob": "520cc17d876a8d76f30801ee93f07fe2a8707397",
+        "anchor": "diesel::allow_tables_to_appear_in_same_query!("
+      },
+      {
+        "id": "src-diesel-primary-filter-gap",
+        "file": "apps/backend/diesel.toml",
+        "blob": "7068b7668375b8123c5ba20c35d583d649c16ae1",
+        "anchor": "filter = { only_tables = [\"wallet_users\", \"api_keys\", \"system_settings\", \"plans\", \"plan_permissions\", \"permissions\""
+      }
+    ]
+  },
+  "targetBase": {
+    "ref": "migration/dioxus-microservices",
+    "commit": "005a604542271050279a6190fc00eada00f32137",
+    "interpretation": "Immutable completed post-A2.10 snapshot before extracting the A2.8 adapter into a library-only store package.",
+    "evidence": [
+      {
+        "id": "base-workspace-manifest",
+        "file": "Cargo.toml",
+        "blob": "76ebd77640d68cb94a44b86d68f7520c47888596",
+        "anchor": "\"shared/rust/epsx-contracts\","
+      },
+      {
+        "id": "base-workspace-lock",
+        "file": "Cargo.lock",
+        "blob": "5440bbf2ec5a27f2826de3219bea407b17b522ac",
+        "anchor": "name = \"epsx-renderer\""
+      },
+      {
+        "id": "base-backend-manifest",
+        "file": "apps/backend/Cargo.toml",
+        "blob": "a3e6ba1ae34c59baff82ae778780c6b44de90030",
+        "anchor": "epsx-database-pools = { path = \"../../shared/rust/epsx-database-pools\" }"
+      },
+      {
+        "id": "base-monolith-adapter",
+        "file": "apps/backend/src/infrastructure/adapters/repositories/ranking_entitlement_snapshot_repository.rs",
+        "blob": "3ea9003735664d0f493194224b48ae684336c4fe",
+        "anchor": "impl RankingEntitlementSnapshotRepository for PostgresRankingEntitlementSnapshotRepository"
+      },
+      {
+        "id": "base-backend-repository-module",
+        "file": "apps/backend/src/infrastructure/adapters/repositories/mod.rs",
+        "blob": "d72a79a27e5009c104dbc54297ff92bbdc0793e7",
+        "anchor": "pub use ranking_entitlement_snapshot_repository::PostgresRankingEntitlementSnapshotRepository;"
+      },
+      {
+        "id": "base-shared-repository-contract",
+        "file": "shared/rust/epsx-contracts/src/ranking_entitlement_snapshot.rs",
+        "blob": "d50c9f8140dc4963734a01dc22d13219de2caa2a",
+        "anchor": "pub trait RankingEntitlementSnapshotRepository: Send + Sync"
+      },
+      {
+        "id": "base-identity-manifest",
+        "file": "shared/rust/epsx-identity-service/Cargo.toml",
+        "blob": "3737c7ccf4989b009c50a67ceb7604ab68b16c66",
+        "anchor": "epsx-contracts = { path = \"../epsx-contracts\" }"
+      },
+      {
+        "id": "base-identity-runtime-main",
+        "file": "shared/rust/epsx-identity-service/src/main.rs",
+        "blob": "41f1ca17e4fa5520b77cbe8c8a42bde255718727",
+        "anchor": "Arc::new(FreePlanRankingOffsetService)"
+      },
+      {
+        "id": "base-identity-free-service",
+        "file": "shared/rust/epsx-identity-service/src/identity_service.rs",
+        "blob": "a08419f241788274d1e07dd75089479ae3f15455",
+        "anchor": "Ok(RankingOffset::free_plan())"
+      },
+      {
+        "id": "base-a2-10-authenticated-composition",
+        "file": "shared/rust/epsx-identity-service/src/authenticated_ranking_rpc.rs",
+        "blob": "3f5a63d741a6f558efb7a0b632e7bf6c714a754a",
+        "anchor": "pub struct AuthenticatedRankingGrpcService"
+      },
+      {
+        "id": "base-identity-proto",
+        "file": "shared/proto/identity.proto",
+        "blob": "2e646cbf49b24b6291406af9ccaa5fbd3f44e946",
+        "anchor": "rpc GetWalletRankingOffset(GetWalletRankingOffsetRequest)"
+      }
+    ]
+  },
+  "invariants": [
+    {
+      "id": "library-only-store-package",
+      "claim": "The extracted epsx-ranking-store package is a library only and contains no binary, listener, runtime, configuration or migration surface."
+    },
+    {
+      "id": "actual-repository-contract-preserved",
+      "claim": "The adapter still implements RankingEntitlementSnapshotRepository and returns Result<RankingEntitlementSnapshot, RankingEntitlementSnapshotError> without an invented query DTO."
+    },
+    {
+      "id": "workspace-member-once",
+      "claim": "The workspace adds shared/rust/epsx-ranking-store exactly once and the lockfile records exactly one package."
+    },
+    {
+      "id": "minimal-store-dependencies",
+      "claim": "The new package depends only on the shared contract and pool plus async-trait, Diesel, Diesel Async and JSON decoding, with Serde test-only."
+    },
+    {
+      "id": "owned-cloneable-pool",
+      "claim": "The extracted adapter owns the existing cloneable TlsPool and removes the monolith-specific Arc of a leaked static pool."
+    },
+    {
+      "id": "backend-compatibility-reexport",
+      "claim": "The former backend adapter path is only a public compatibility re-export of the extracted repository and SQL constant."
+    },
+    {
+      "id": "sql-shape-preserved",
+      "claim": "The A2.8 one-statement schema-qualified read-only SQL digest, bind, joins and selected-column inventory are preserved."
+    },
+    {
+      "id": "strict-decoder-preserved",
+      "claim": "Sentinel handling, consistency checks, deterministic grouping, duplicate rules and corrupt-row failure remain in the extracted pure decoder."
+    },
+    {
+      "id": "twelve-exact-tests-moved",
+      "claim": "All twelve A2.8 SQL and decoder tests retain their exact names under epsx_ranking_store and use the same frozen fixture ledger."
+    },
+    {
+      "id": "identity-no-store-dependency",
+      "claim": "Identity Cargo, authenticated composition, runtime main, always-Free service and protobuf remain byte-identical and gain no store dependency."
+    },
+    {
+      "id": "no-schema-migration-runtime-change",
+      "claim": "A2.11 changes no schema, migration, identity runtime, proto, listener, infrastructure, UI, payment or indexer surface."
+    },
+    {
+      "id": "offline-hermetic-only",
+      "claim": "All evidence uses local files, Git and exact offline tests and authorizes no database, network, service, deployment or production action."
+    }
+  ],
+  "residualStops": [
+    {
+      "id": "schema-adoption-uncertified",
+      "claim": "No catalog or migration ledger proves either colliding baseline is the adopted populated schema."
+    },
+    {
+      "id": "generated-schema-filter-gap",
+      "claim": "Generated primary schema and Diesel filtering still omit wallet_plan_assignments and remain uncertified."
+    },
+    {
+      "id": "lower-wallet-functional-index-absent",
+      "claim": "No adopted functional index matching LOWER(wallet_address) is proven and A2.11 adds no migration."
+    },
+    {
+      "id": "database-execution-absent",
+      "claim": "The extracted statement and decoder have not executed against PostgreSQL or a certified schema."
+    },
+    {
+      "id": "query-plan-and-bound-absent",
+      "claim": "No representative EXPLAIN, cardinality ceiling, latency budget, load or concurrency proof exists."
+    },
+    {
+      "id": "mvcc-concurrency-unproved",
+      "claim": "Transaction isolation, MVCC consistency and behavior under concurrent entitlement writes remain unproved."
+    },
+    {
+      "id": "reconciliation-unproved",
+      "claim": "Synthetic fixture rows are not populated source-to-target data reconciliation."
+    },
+    {
+      "id": "identity-store-wiring-absent",
+      "claim": "Identity has no dependency on, construction of or runtime wiring to epsx-ranking-store."
+    },
+    {
+      "id": "a2-10-concrete-auth-absent",
+      "claim": "A2.10 remains unwired with no concrete verifier, issuer rotation, analytics metadata, TLS or owner delegation."
+    },
+    {
+      "id": "identity-runtime-still-always-free",
+      "claim": "Production identity main still selects the unauthenticated always-Free legacy service for every wallet."
+    },
+    {
+      "id": "ranking-event-durability-absent",
+      "claim": "Ranking updates still have no revision, transactional outbox, durable cursor, replay or repair."
+    },
+    {
+      "id": "ui-bff-readiness-unproved",
+      "claim": "No typed BFF or Dioxus surface consumes a proven authoritative paid ranking result."
+    },
+    {
+      "id": "runtime-deployment-proof-absent",
+      "claim": "No runtime, listener, network, image, manifest, infrastructure, staging, canary, rollback or live proof exists."
+    },
+    {
+      "id": "forbidden-domain-changes-absent",
+      "claim": "Identity runtime/proto, migration/schema, infrastructure, UI, payment and indexer changes remain outside A2.11."
+    },
+    {
+      "id": "production-actions-unauthorized",
+      "claim": "Passing A2.11 integrity never authorizes database, network, service, deployment or production action."
+    }
+  ],
+  "requiredExecutionOrder": [
+    "E01 freeze source compatibility and the immutable post-A2.10 extraction base",
+    "E02 add one library-only epsx-ranking-store workspace package",
+    "E03 move the actual A2.8 adapter and decoder without inventing a second result contract",
+    "E04 own the cloneable shared TlsPool without a monolith-specific leaked static reference",
+    "E05 retain one backend compatibility re-export and one backend package dependency",
+    "E06 preserve the SQL digest, strict decoder semantics, fixture ledger and twelve exact tests",
+    "E07 keep identity Cargo, authenticated composition, always-Free runtime and proto byte-identical",
+    "E08 certify adopted schema, index and representative query plan before store activation",
+    "E09 implement concrete workload trust, analytics metadata, TLS, owner delegation and runtime composition separately",
+    "E10 obtain separate reconciliation, UI, staging, rollback and production authorization"
+  ],
+  "packageContract": {
+    "name": "epsx-ranking-store",
+    "manifest": "shared/rust/epsx-ranking-store/Cargo.toml",
+    "library": "shared/rust/epsx-ranking-store/src/lib.rs",
+    "workspaceMember": "shared/rust/epsx-ranking-store",
+    "backendDependency": "../../shared/rust/epsx-ranking-store",
+    "runtimeDependencies": [
+      "async-trait",
+      "diesel",
+      "diesel-async",
+      "epsx-contracts",
+      "epsx-database-pools",
+      "serde_json"
+    ],
+    "devDependencies": [
+      "serde"
+    ],
+    "binaryTargets": 0
+  },
+  "fixtureEvidence": {
+    "file": "docs/migration/fixtures/a2-8-ranking-entitlement-rows.json",
+    "sha256": "3f8ddaa93047f999459239a148da8dfbdf26a2d338a58b7c5a6a7f4481ae79fa",
+    "fixtureCount": 21
+  },
+  "hermeticTests": [
+    "a2_8_sql_is_one_read_only_schema_qualified_statement",
+    "a2_8_sentinel_empty_wallet_maps_to_empty_snapshot",
+    "a2_8_grouping_and_permissions_are_stable",
+    "a2_8_equivalent_duplicate_rows_are_idempotent",
+    "a2_8_zero_rows_are_corrupt_not_empty_success",
+    "a2_8_conflicting_duplicate_rows_are_corrupt",
+    "a2_8_missing_plan_is_preserved_without_invented_facts",
+    "a2_8_inactive_expired_and_inactive_permission_facts_are_preserved",
+    "a2_8_metadata_shapes_remain_missing_integer_or_invalid",
+    "a2_8_dangling_and_partial_rows_are_corrupt",
+    "a2_8_sentinel_cardinality_and_mixed_rows_are_corrupt",
+    "a2_8_wallet_and_observation_inconsistency_are_corrupt"
+  ],
+  "implementationEvidence": [
+    {
+      "id": "impl-workspace-manifest",
+      "file": "Cargo.toml",
+      "sha256": "bc46c71ec8efc6d7c7af81ffe0c4e0813bfcb1427d6e8b616b3933178c6a947a"
+    },
+    {
+      "id": "impl-workspace-lock",
+      "file": "Cargo.lock",
+      "sha256": "a3a40aabc05feb2a9ecb2d5e4aab7e689eb51764cf8147bff7759a366f5ba95c"
+    },
+    {
+      "id": "impl-backend-manifest",
+      "file": "apps/backend/Cargo.toml",
+      "sha256": "4b4cc24581b0b575fe5dc6cada9165f27b9cbd60c0d260a2d4f6488b961a936c"
+    },
+    {
+      "id": "impl-backend-compatibility-reexport",
+      "file": "apps/backend/src/infrastructure/adapters/repositories/ranking_entitlement_snapshot_repository.rs",
+      "sha256": "4e3e609262aa9c7d73c2e9f01dce41ba2a8c531120d145d8ba88be03dc563f45"
+    },
+    {
+      "id": "impl-ranking-store-manifest",
+      "file": "shared/rust/epsx-ranking-store/Cargo.toml",
+      "sha256": "c2d0bb14dd1b97a1ef8fe99b31af83acd833bf7ffac05d32b4ca35e67cfe225b"
+    },
+    {
+      "id": "impl-ranking-store-library",
+      "file": "shared/rust/epsx-ranking-store/src/lib.rs",
+      "sha256": "8c2228460a82e54972d0200991ee4bea73d27bcc1380fb67925e4323b93c5ee1"
+    },
+    {
+      "id": "impl-shared-repository-contract",
+      "file": "shared/rust/epsx-contracts/src/ranking_entitlement_snapshot.rs",
+      "sha256": "9ba917a2bb2646097162371e19f6c1b6f44d41f65b1f32dce5193614f5baadbe"
+    },
+    {
+      "id": "impl-identity-manifest-unchanged",
+      "file": "shared/rust/epsx-identity-service/Cargo.toml",
+      "sha256": "54f7020be797a137a4c69d1e3fbccf0d21f88923a616bd48f0757aa770cf7c8f"
+    },
+    {
+      "id": "impl-identity-auth-composition-unchanged",
+      "file": "shared/rust/epsx-identity-service/src/authenticated_ranking_rpc.rs",
+      "sha256": "1d9fc78e74d9959030bbd83c27989f987b7f200b8c70f8d0ad8110b36db60a58"
+    },
+    {
+      "id": "impl-identity-runtime-main-unchanged",
+      "file": "shared/rust/epsx-identity-service/src/main.rs",
+      "sha256": "e3b9980bf99434d67c3276b7dec329ba9453b226e72992d390f11c03bfaa78bc"
+    },
+    {
+      "id": "impl-identity-free-service-unchanged",
+      "file": "shared/rust/epsx-identity-service/src/identity_service.rs",
+      "sha256": "f172df2a9998cc773b4299e2760164ee9d9a6c225680260b6c17bdc27f8da320"
+    },
+    {
+      "id": "impl-identity-proto-unchanged",
+      "file": "shared/proto/identity.proto",
+      "sha256": "f33f7256048403c79219913051347d85d05238e9c62269e37e8bffdae9f69d23"
+    }
+  ],
+  "repositoryContract": {
+    "trait": "RankingEntitlementSnapshotRepository",
+    "method": "load_snapshot",
+    "successType": "RankingEntitlementSnapshot",
+    "errorType": "RankingEntitlementSnapshotError",
+    "forbiddenInventedTypes": [
+      "QueryResult",
+      "RankingStoreQueryResult",
+      "ResolvedRankingOffset"
+    ]
+  },
+  "sqlEvidence": {
+    "file": "shared/rust/epsx-ranking-store/src/lib.rs",
+    "constant": "RANKING_ENTITLEMENT_SNAPSHOT_SQL",
+    "sha256": "18d04cc6456e545d1a39c22ab85983ac4de4a26922882e2128721ffa2f418574",
+    "bindParameters": [
+      "$1"
+    ],
+    "qualifiedTables": [
+      "public.wallet_plan_assignments",
+      "public.plans",
+      "public.plan_permissions",
+      "public.permissions"
+    ],
+    "selectedColumns": [
+      "normalized_wallet",
+      "observed_at_micros",
+      "assignment_wallet",
+      "assignment_id",
+      "assignment_plan_id",
+      "assignment_active",
+      "expires_at_micros",
+      "joined_plan_id",
+      "plan_active",
+      "plan_metadata",
+      "plan_permission_link_id",
+      "linked_permission_id",
+      "permission_id",
+      "permission_active",
+      "permission_string"
+    ]
+  },
+  "forbiddenChangePrefixes": [
+    "shared/rust/epsx-identity-service/",
+    "shared/proto/",
+    "apps/backend/migrations/",
+    "apps/backend/src/schemas/",
+    "infrastructure/",
+    "shared/rust/dioxus_ui/",
+    "apps/frontend/",
+    "apps/admin/",
+    "apps/pay/",
+    "services/indexer/",
+    "services/pay/"
+  ]
+}

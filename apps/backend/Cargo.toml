@@ -63,6 +63,8 @@ epsx-identity-shared = { path = "../../shared/rust/epsx-identity-shared" }
 # see the same `TlsPool` / `TlsConnectionManager` (was a placeholder
 # alias in epsx-identity-shared's prelude before this crate existed).
 epsx-database-pools = { path = "../../shared/rust/epsx-database-pools" }
+# A2.11: extracted read-only ranking-entitlement snapshot adapter.
+epsx-ranking-store = { path = "../../shared/rust/epsx-ranking-store" }
 # Wave 10 prep: shared web/middleware crate. Was a facade in wave 9;
 # grew in the prep pass to host the security_headers middleware and
 # the 3 pure rate-limiter factories (the rest of the 10 files in

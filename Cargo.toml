@@ -4,6 +4,7 @@ members = [
     "shared/rust/kernel",
     "shared/rust/epsx-database-pools",
     "shared/rust/epsx-contracts",
+    "shared/rust/epsx-ranking-store",
     "shared/rust/epsx-identity-service",
     "shared/rust/events",
     "shared/rust/config",
