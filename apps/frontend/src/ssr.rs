@@ -921,7 +921,8 @@ fn developer_docs_runtime_script() -> &'static str {
       root.querySelectorAll('[data-docs-section-link]').forEach(function (item) { item.classList.remove('active'); });
       link.classList.add('active');
       var section = document.getElementById('section-' + link.getAttribute('data-docs-section-link'));
-      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (section) section.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
       if (window.matchMedia('(max-width: 1023px)').matches) setSidebar(false);
     });
   });
@@ -1941,8 +1942,134 @@ mod tests {
         assert!(script.contains("aria-expanded"));
         assert!(script.contains("ArrowRight"));
         assert!(script.contains("window.epsx.copyText"));
+        assert!(script.contains(
+            "window.matchMedia('(prefers-reduced-motion: reduce)').matches"
+        ));
+        assert!(script.contains("behavior: reduceMotion ? 'auto' : 'smooth'"));
+        assert!(script.contains("block: 'start'"));
         assert!(!script.contains("fetch("));
         assert!(!script.contains("Authorization"));
+    }
+
+    #[test]
+    fn developer_docs_runtime_rechecks_reduced_motion_for_each_section_click() {
+        let source = developer_docs_runtime_script()
+            .strip_prefix("<script data-epsx-developer-docs-runtime>\n")
+            .and_then(|script| script.strip_suffix("\n</script>"))
+            .expect("developer docs controller script envelope");
+        let source_json =
+            serde_json::to_string(source).expect("serialize developer docs controller");
+        let harness = format!(
+            r#"
+const assert = require('node:assert/strict');
+const vm = require('node:vm');
+const source = {source_json};
+const listeners = Object.create(null);
+const scrollCalls = [];
+const mediaQueries = [];
+let reduceMotion = false;
+let prevented = 0;
+let fetchCalls = 0;
+const classNames = new Set();
+let activeAdds = 0;
+let activeRemoves = 0;
+
+const link = {{
+  classList: {{
+    add(value) {{
+      classNames.add(value);
+      if (value === 'active') activeAdds += 1;
+    }},
+    remove(value) {{
+      classNames.delete(value);
+      if (value === 'active') activeRemoves += 1;
+    }},
+  }},
+  addEventListener(type, listener) {{ listeners[type] = listener; }},
+  getAttribute(name) {{
+    assert.equal(name, 'data-docs-section-link');
+    return 'overview';
+  }},
+}};
+const section = {{
+  scrollIntoView(options) {{ scrollCalls.push(options); }},
+}};
+const root = {{
+  querySelector() {{ return null; }},
+  querySelectorAll(selector) {{
+    if (selector === '[data-docs-section-link]') return [link];
+    if (selector === '[data-docs-endpoint-toggle="true"]') return [];
+    if (selector === '.docs-code-example') return [];
+    if (selector === '[data-docs-copy-response="true"]') return [];
+    throw new Error('unexpected selector: ' + selector);
+  }},
+}};
+const document = {{
+  querySelector(selector) {{
+    assert.equal(selector, '.developer-docs-page');
+    return root;
+  }},
+  getElementById(id) {{
+    assert.equal(id, 'section-overview');
+    return section;
+  }},
+  addEventListener(type) {{ assert.equal(type, 'keydown'); }},
+}};
+const window = {{
+  matchMedia(query) {{
+    mediaQueries.push(query);
+    if (query === '(prefers-reduced-motion: reduce)') return {{ matches: reduceMotion }};
+    if (query === '(max-width: 1023px)') return {{ matches: false }};
+    throw new Error('unexpected media query: ' + query);
+  }},
+  requestAnimationFrame(callback) {{ callback(); }},
+}};
+const context = {{
+  document,
+  window,
+  fetch() {{
+    fetchCalls += 1;
+    throw new Error('controller must not fetch');
+  }},
+}};
+vm.runInNewContext(source, context);
+assert.equal(typeof listeners.click, 'function');
+
+listeners.click({{ preventDefault() {{ prevented += 1; }} }});
+reduceMotion = true;
+listeners.click({{ preventDefault() {{ prevented += 1; }} }});
+
+assert.deepEqual(
+  scrollCalls.map((options) => ({{ behavior: options.behavior, block: options.block }})),
+  [
+    {{ behavior: 'smooth', block: 'start' }},
+    {{ behavior: 'auto', block: 'start' }},
+  ],
+);
+assert.deepEqual(mediaQueries, [
+  '(prefers-reduced-motion: reduce)',
+  '(max-width: 1023px)',
+  '(prefers-reduced-motion: reduce)',
+  '(max-width: 1023px)',
+]);
+assert.equal(prevented, 2);
+assert.equal(activeAdds, 2);
+assert.equal(activeRemoves, 2);
+assert.equal(classNames.has('active'), true);
+assert.equal(fetchCalls, 0);
+"#
+        );
+        let output = std::process::Command::new("node")
+            .arg("-e")
+            .arg(harness)
+            .output()
+            .expect("run developer docs hermetic Node.js fake DOM");
+        assert!(
+            output.status.success(),
+            "developer docs Node.js fake DOM failed:\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr),
+        );
     }
 
     #[test]
