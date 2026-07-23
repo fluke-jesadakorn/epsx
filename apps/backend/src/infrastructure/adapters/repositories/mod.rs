@@ -11,6 +11,7 @@ pub mod market_data_repository_adapter;
 pub mod tradingview_eps_repository; // TradingView EPS data adapter
 pub mod payment_repository_adapter;
 pub mod payment_repository_adapter_cross_pool; // Wave 11 / Track A — cross-pool port impls
+pub mod ranking_entitlement_snapshot_repository;
 pub mod mappers;
 
 pub mod wallet_user;
@@ -66,6 +67,7 @@ pub use database_types::*;
 pub use notification_repository_adapter::NotificationRepositoryAdapter;
 pub use stock_analysis_repository_adapter::StockAnalysisRepositoryAdapter;
 pub use tradingview_eps_repository::TradingViewEPSRepository;
+pub use ranking_entitlement_snapshot_repository::PostgresRankingEntitlementSnapshotRepository;
 
 pub use wallet_user::WalletUserRepositoryAdapter;
 pub use plan_repository_adapter::PostgresPlanRepositoryAdapter;

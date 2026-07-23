@@ -1,0 +1,329 @@
+{
+  "schemaVersion": 1,
+  "artifact": "a2-8-core-ranking-snapshot-adapter",
+  "contractId": "A2.8-core-ranking-snapshot-adapter",
+  "purpose": "deterministic-hermetic-core-owned-static-ranking-snapshot-adapter-and-readiness-stop",
+  "productionReady": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "safety": {
+    "database": false,
+    "schemaCatalog": false,
+    "migration": false,
+    "redis": false,
+    "identityNetwork": false,
+    "rpc": false,
+    "browser": false,
+    "serviceListener": false,
+    "deployment": false,
+    "production": false
+  },
+  "sourceBaseline": {
+    "ref": "origin/development",
+    "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "interpretation": "The source ranking query and both colliding core baseline definitions are pinned as compatibility evidence only. Generated-schema and Diesel-filter omissions, missing LOWER(wallet_address) functional indexing, adopted schema, query plan and reconciliation remain STOPs.",
+    "evidence": [
+      {
+        "id": "src-ranking-offset-query",
+        "file": "apps/backend/src/auth/unified_permission_service.rs",
+        "blob": "17becb76341ca3dfc87dedbc71e9653063a86f9e",
+        "anchor": "pub async fn get_wallet_ranking_offset("
+      },
+      {
+        "id": "src-core-baseline-v5",
+        "file": "apps/backend/migrations/core/00000000000001_consolidated_schema_v5/up.sql",
+        "blob": "eaa15a934b7238f84f339d7419781231af1d52d9",
+        "anchor": "CREATE TABLE wallet_plan_assignments ("
+      },
+      {
+        "id": "src-core-baseline-v6",
+        "file": "apps/backend/migrations/core/00000000000001_consolidated_baseline_v6/up.sql",
+        "blob": "3cf683bc589f7252fd1be64ab62b69958fc292de",
+        "anchor": "CREATE TABLE wallet_plan_assignments ("
+      },
+      {
+        "id": "src-generated-primary-schema-gap",
+        "file": "apps/backend/src/schemas/primary.rs",
+        "blob": "520cc17d876a8d76f30801ee93f07fe2a8707397",
+        "anchor": "diesel::allow_tables_to_appear_in_same_query!("
+      },
+      {
+        "id": "src-diesel-primary-filter-gap",
+        "file": "apps/backend/diesel.toml",
+        "blob": "7068b7668375b8123c5ba20c35d583d649c16ae1",
+        "anchor": "filter = { only_tables = [\"wallet_users\", \"api_keys\", \"system_settings\", \"plans\", \"plan_permissions\", \"permissions\""
+      }
+    ]
+  },
+  "targetBase": {
+    "ref": "migration/dioxus-microservices",
+    "commit": "a8469ff61a8782dc1d53b8dcae20ad7c1085d4a1",
+    "interpretation": "Immutable completed post-A2.7 snapshot before extracting the raw repository contract and adding the unwired core adapter.",
+    "evidence": [
+      {
+        "id": "base-a2-7-contract",
+        "file": "docs/migration/contracts/a2-7-ranking-entitlement-snapshot.json",
+        "blob": "f70788ba232a6413a2464de52f6f054aa6bd8add",
+        "anchor": "\"contractId\": \"A2.7-ranking-entitlement-snapshot\""
+      },
+      {
+        "id": "base-identity-ranking-resolver",
+        "file": "shared/rust/epsx-identity-service/src/ranking_entitlement.rs",
+        "blob": "97f438a99a4820b578b03bb59edda9598b2f3495",
+        "anchor": "pub trait RankingEntitlementSnapshotRepository: Send + Sync"
+      },
+      {
+        "id": "base-contracts-library",
+        "file": "shared/rust/epsx-contracts/src/lib.rs",
+        "blob": "da2c29c68735bce3e0664c45e505b05a9a5a37eb",
+        "anchor": "pub mod wallet_ranking_offset_query;"
+      },
+      {
+        "id": "base-core-repository-module",
+        "file": "apps/backend/src/infrastructure/adapters/repositories/mod.rs",
+        "blob": "c8e47c77606f01445bc74fc0964fcf976f2f1824",
+        "anchor": "pub mod permission_plan_repository_adapter;"
+      },
+      {
+        "id": "base-runtime-free-wiring",
+        "file": "shared/rust/epsx-identity-service/src/main.rs",
+        "blob": "e05d9e320fdaed761cd7ea3aaccd2ed120a20143",
+        "anchor": "Arc::new(FreePlanRankingOffsetService)"
+      },
+      {
+        "id": "base-runtime-free-service",
+        "file": "shared/rust/epsx-identity-service/src/identity_service.rs",
+        "blob": "a08419f241788274d1e07dd75089479ae3f15455",
+        "anchor": "Ok(RankingOffset::free_plan())"
+      }
+    ]
+  },
+  "invariants": [
+    {
+      "id": "core-owned-adapter",
+      "claim": "The PostgreSQL adapter is physically owned by the backend core repository layer that owns plan, assignment and permission storage."
+    },
+    {
+      "id": "one-read-only-statement",
+      "claim": "One schema-qualified read-only Diesel SQL statement with one wallet bind returns the complete raw observation."
+    },
+    {
+      "id": "database-observed-at-microseconds",
+      "claim": "The observation instant comes from statement_timestamp() in the same statement and is represented as Unix epoch microseconds."
+    },
+    {
+      "id": "raw-unfiltered-left-join-facts",
+      "claim": "LEFT JOIN rows preserve raw inactive, expired, missing-plan, permission-active and unrelated permission facts without SQL-side entitlement filtering."
+    },
+    {
+      "id": "sentinel-empty-snapshot",
+      "claim": "A clean sentinel row represents a successful empty owner snapshot without inventing an assignment or conflating it with repository failure."
+    },
+    {
+      "id": "strict-pure-row-decoder",
+      "claim": "Pure decoding rejects contradictory row shapes, mixed wallet or observation facts and conflicting duplicates as corrupt repository data."
+    },
+    {
+      "id": "deterministic-grouping",
+      "claim": "Equivalent duplicate rows are idempotent and assignment and permission output order is deterministic."
+    },
+    {
+      "id": "shared-repository-contract",
+      "claim": "The raw snapshot DTO, repository error and repository port live in epsx-contracts without SQL, clock or ranking decision policy."
+    },
+    {
+      "id": "resolver-remains-identity-owned",
+      "claim": "Ranking entitlement resolution remains in the identity crate and consumes the owner-neutral shared repository contract."
+    },
+    {
+      "id": "runtime-always-free-byte-identical",
+      "claim": "Identity main and identity_service remain byte-identical to the target base and retain always-Free runtime wiring."
+    },
+    {
+      "id": "no-schema-or-migration-change",
+      "claim": "A2.8 adds no migration, schema regeneration, runtime configuration or database adoption claim."
+    },
+    {
+      "id": "offline-static-only",
+      "claim": "All evidence is local static inspection and exact hermetic tests and authorizes no database, network, listener, browser, deployment or production action."
+    }
+  ],
+  "sqlEvidence": {
+    "file": "apps/backend/src/infrastructure/adapters/repositories/ranking_entitlement_snapshot_repository.rs",
+    "constant": "RANKING_ENTITLEMENT_SNAPSHOT_SQL",
+    "sha256": "18d04cc6456e545d1a39c22ab85983ac4de4a26922882e2128721ffa2f418574",
+    "bindParameters": ["$1"],
+    "qualifiedTables": [
+      "public.wallet_plan_assignments",
+      "public.plans",
+      "public.plan_permissions",
+      "public.permissions"
+    ],
+    "selectedColumns": [
+      "normalized_wallet",
+      "observed_at_micros",
+      "assignment_wallet",
+      "assignment_id",
+      "assignment_plan_id",
+      "assignment_active",
+      "expires_at_micros",
+      "joined_plan_id",
+      "plan_active",
+      "plan_metadata",
+      "plan_permission_link_id",
+      "linked_permission_id",
+      "permission_id",
+      "permission_active",
+      "permission_string"
+    ]
+  },
+  "fixtureEvidence": {
+    "file": "docs/migration/fixtures/a2-8-ranking-entitlement-rows.json",
+    "sha256": "3f8ddaa93047f999459239a148da8dfbdf26a2d338a58b7c5a6a7f4481ae79fa",
+    "fixtureCount": 21,
+    "fixtureIds": [
+      "sentinel-empty",
+      "grouping-stable-permissions",
+      "equivalent-duplicates",
+      "conflicting-assignment-duplicates",
+      "conflicting-permission-duplicates",
+      "missing-plan",
+      "inactive-expired-facts",
+      "metadata-lossless-shapes",
+      "dangling-permission",
+      "partial-assignment",
+      "partial-plan",
+      "mismatched-joined-plan",
+      "permission-fields-without-link",
+      "linked-permission-mismatch",
+      "null-present-plan-metadata",
+      "missing-assignment-plan-id",
+      "missing-assignment-active",
+      "duplicate-sentinel",
+      "mixed-sentinel-and-assignment",
+      "inconsistent-wallet",
+      "inconsistent-observation"
+    ]
+  },
+  "hermeticTests": [
+    "a2_8_sql_is_one_read_only_schema_qualified_statement",
+    "a2_8_sentinel_empty_wallet_maps_to_empty_snapshot",
+    "a2_8_grouping_and_permissions_are_stable",
+    "a2_8_equivalent_duplicate_rows_are_idempotent",
+    "a2_8_zero_rows_are_corrupt_not_empty_success",
+    "a2_8_conflicting_duplicate_rows_are_corrupt",
+    "a2_8_missing_plan_is_preserved_without_invented_facts",
+    "a2_8_inactive_expired_and_inactive_permission_facts_are_preserved",
+    "a2_8_metadata_shapes_remain_missing_integer_or_invalid",
+    "a2_8_dangling_and_partial_rows_are_corrupt",
+    "a2_8_sentinel_cardinality_and_mixed_rows_are_corrupt",
+    "a2_8_wallet_and_observation_inconsistency_are_corrupt"
+  ],
+  "implementationEvidence": [
+    {
+      "id": "impl-core-snapshot-adapter",
+      "file": "apps/backend/src/infrastructure/adapters/repositories/ranking_entitlement_snapshot_repository.rs",
+      "sha256": "f8a05e0e7262604afb2f096b58a7bf1a029bbb81db3b2b9f1b82566dc0b0696d"
+    },
+    {
+      "id": "impl-core-repository-export",
+      "file": "apps/backend/src/infrastructure/adapters/repositories/mod.rs",
+      "sha256": "f9311904f89e76d0f8f44b703cfa9feaad961cd694490679fc56fca70f0378ec"
+    },
+    {
+      "id": "impl-shared-snapshot-contract",
+      "file": "shared/rust/epsx-contracts/src/ranking_entitlement_snapshot.rs",
+      "sha256": "9ba917a2bb2646097162371e19f6c1b6f44d41f65b1f32dce5193614f5baadbe"
+    },
+    {
+      "id": "impl-shared-contract-export",
+      "file": "shared/rust/epsx-contracts/src/lib.rs",
+      "sha256": "65dd12ded305efb48a79ce1e7b70a38191bff54b969ebb5cacf0445e915ae20a"
+    },
+    {
+      "id": "impl-identity-resolver-consumer",
+      "file": "shared/rust/epsx-identity-service/src/ranking_entitlement.rs",
+      "sha256": "b6cdeb6486296550b936d243c29efbe3cdf1e896e7ecd47218df79129a102507"
+    },
+    {
+      "id": "impl-unwired-runtime-main",
+      "file": "shared/rust/epsx-identity-service/src/main.rs",
+      "sha256": "2508a73e31b65556970dab3a3a97d71d7a427d8d3f3db7ebb8b39dd71a643e1e"
+    },
+    {
+      "id": "impl-always-free-runtime-service",
+      "file": "shared/rust/epsx-identity-service/src/identity_service.rs",
+      "sha256": "f172df2a9998cc773b4299e2760164ee9d9a6c225680260b6c17bdc27f8da320"
+    }
+  ],
+  "residualStops": [
+    {
+      "id": "database-execution-absent",
+      "claim": "The statement and decoder have not been exercised against PostgreSQL; static inspection is not database compatibility evidence."
+    },
+    {
+      "id": "schema-adoption-uncertified",
+      "claim": "No catalog or migration-ledger proof identifies either pinned baseline as the schema adopted by a populated environment."
+    },
+    {
+      "id": "colliding-baselines-unresolved",
+      "claim": "The v5 and v6 source migration directories share one Diesel migration version and their coexistence remains unresolved."
+    },
+    {
+      "id": "generated-schema-filter-gap",
+      "claim": "Generated primary schema and Diesel table filtering omit wallet_plan_assignments; A2.8 neither regenerates nor certifies them."
+    },
+    {
+      "id": "lower-wallet-functional-index-absent",
+      "claim": "Neither pinned baseline proves a functional index matching LOWER(wallet_address), and A2.8 adds no migration."
+    },
+    {
+      "id": "query-plan-and-bound-absent",
+      "claim": "The complete raw join is intentionally unbounded and has no representative EXPLAIN, cardinality ceiling, latency budget or load evidence."
+    },
+    {
+      "id": "mvcc-concurrency-unproved",
+      "claim": "Transaction isolation, MVCC behavior and snapshot consistency under concurrent plan or permission writes remain unproved."
+    },
+    {
+      "id": "reconciliation-unproved",
+      "claim": "Synthetic row fixtures and static SQL inspection do not reconcile target results with populated source authority data."
+    },
+    {
+      "id": "identity-runtime-still-always-free",
+      "claim": "Identity runtime remains byte-identical and always-Free; it does not construct, authorize or invoke the adapter."
+    },
+    {
+      "id": "identity-workload-auth-tls-absent",
+      "claim": "Identity RPC still lacks workload identity, exact caller authorization, owner binding and TLS policy."
+    },
+    {
+      "id": "ranking-event-durability-absent",
+      "claim": "Ranking changes still have no transactional outbox, monotonic revision, durable cursor, replay or gap repair."
+    },
+    {
+      "id": "ui-bff-readiness-unproved",
+      "claim": "No typed BFF or Dioxus UI consumes this adapter and no loading, free, paid, stale or error browser flow is proven."
+    },
+    {
+      "id": "route-owner-cutover-unproved",
+      "claim": "Route ownership, runtime configuration, images, gateway, Kubernetes, canary, rollback and deployment remain unchanged."
+    },
+    {
+      "id": "production-actions-unauthorized",
+      "claim": "Passing A2.8 integrity never authorizes a database, service, secret, network, deployment or production action."
+    }
+  ],
+  "requiredExecutionOrder": [
+    "E01 freeze the source query, both colliding baselines, generated-schema gap and immutable post-A2.7 target base",
+    "E02 extract only the owner-neutral snapshot DTO, repository error and repository port into epsx-contracts",
+    "E03 add one physically core-owned, schema-qualified, read-only raw snapshot statement",
+    "E04 decode sentinel, assignment, plan and permission rows strictly with deterministic grouping",
+    "E05 replay only the frozen row ledger and SQL-shape checks through exact offline tests",
+    "E06 certify adopted schema, migration ledger and the LOWER(wallet_address) index decision separately",
+    "E07 measure representative query plans, cardinality, concurrency and latency before activation",
+    "E08 reconcile populated source authority and resolve lifecycle and alternate-entitlement policy",
+    "E09 wire an authenticated identity runtime plus durable revision and recovery semantics",
+    "E10 obtain separate UI, staging, canary, rollback and production deployment authorization"
+  ]
+}

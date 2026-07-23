@@ -1,10 +1,9 @@
 //! Pure ranking-entitlement resolution behind [`WalletRankingOffsetQuery`].
 //!
-//! A2.7 deliberately stops at the backend policy boundary. The repository
-//! supplies one raw, atomic observation; this module decides which plan facts
-//! participate and computes the effective offset. There is no PostgreSQL
-//! adapter, runtime wiring, clock, retry, cache, transport, or Free-Plan error
-//! fallback in this slice.
+//! The repository supplies one raw, atomic observation; this module decides
+//! which plan facts participate and computes the effective offset. The core
+//! PostgreSQL adapter remains unwired, and this policy module has no database,
+//! clock, retry, cache, transport, or Free-Plan error fallback.
 
 use std::sync::Arc;
 
@@ -15,6 +14,12 @@ use epsx_contracts::{
     wallet_ranking_offset_query::WalletRankingOffsetQuery,
 };
 
+pub use epsx_contracts::ranking_entitlement_snapshot::{
+    RankingEntitlementSnapshot, RankingEntitlementSnapshotError,
+    RankingEntitlementSnapshotRepository, RawLegacyRankingOffset, RawPlanRankingEntitlement,
+    RawRankingPermission,
+};
+
 /// Only permissions beginning with this exact prefix are ranking-offset
 /// candidates. Direct, nested, view, and wildcard permissions do not
 /// participate.
@@ -22,75 +27,6 @@ pub const RANKING_OFFSET_PERMISSION_PREFIX: &str = "epsx:rankings:offset:";
 
 const AUTHORITY_UNAVAILABLE_MESSAGE: &str = "Ranking access authority unavailable";
 const AUTHORITY_INVALID_MESSAGE: &str = "Ranking access authority returned invalid data";
-
-/// One atomic repository observation for one normalized wallet.
-///
-/// `observed_at` comes from the same storage statement as `assignments`; the
-/// resolver never reads the process clock. The source assignment model has no
-/// effective-start field, so A2.7 intentionally does not invent one.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RankingEntitlementSnapshot {
-    pub normalized_wallet: String,
-    /// Repository observation time as Unix epoch microseconds.
-    pub observed_at: i64,
-    pub assignments: Vec<RawPlanRankingEntitlement>,
-}
-
-/// Raw assignment, plan, legacy metadata, and plan-permission facts.
-///
-/// IDs are retained so a later storage adapter and reconciliation proof can
-/// diagnose duplicate rows without putting identifiers into outward errors.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RawPlanRankingEntitlement {
-    pub assignment_id: String,
-    pub plan_id: String,
-    pub assignment_active: bool,
-    /// Exclusive expiry boundary as Unix epoch microseconds.
-    pub expires_at: Option<i64>,
-    pub plan_present: bool,
-    pub plan_active: bool,
-    pub legacy_metadata_offset: RawLegacyRankingOffset,
-    pub permissions: Vec<RawRankingPermission>,
-}
-
-/// Presence and raw integer-shape of the legacy `plan_metadata` offset.
-///
-/// `Invalid` is distinct from `Missing`: malformed configured authority data
-/// must fail closed, while a genuinely absent legacy field can be supplemented
-/// by a canonical plan permission.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RawLegacyRankingOffset {
-    Missing,
-    Integer(i64),
-    Invalid,
-}
-
-/// One raw permission fact attached to a plan.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RawRankingPermission {
-    pub permission_id: String,
-    pub active: bool,
-    pub permission_string: String,
-}
-
-/// Repository failures stay data-source-neutral and carry no database detail.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RankingEntitlementSnapshotError {
-    Unavailable,
-    Corrupt,
-}
-
-/// Narrow input port for the future storage adapter.
-///
-/// Implementations must return all facts from one atomic storage observation
-/// and must not turn a read or decode failure into an empty snapshot.
-#[async_trait]
-pub trait RankingEntitlementSnapshotRepository: Send + Sync {
-    async fn load_snapshot(
-        &self,
-        normalized_wallet: &str,
-    ) -> Result<RankingEntitlementSnapshot, RankingEntitlementSnapshotError>;
-}
 
 /// Typed result of the pure entitlement decision.
 ///

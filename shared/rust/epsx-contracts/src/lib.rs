@@ -52,6 +52,7 @@ pub mod event_publisher_port;
 // apps/backend/src/infrastructure/adapters/permission/ wrap
 // UnifiedPermissionService 1:1 today.
 pub mod permission_authority_port;
+pub mod ranking_entitlement_snapshot;
 pub mod wallet_ranking_offset_query;
 
 // Re-export the value-object trait + error at the crate root for ergonomics,

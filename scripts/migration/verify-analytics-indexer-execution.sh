@@ -8,6 +8,7 @@ a2_4_verify="$script_dir/verify-a2-4-market-analytics-authorization.sh"
 a2_5_verify="$script_dir/verify-a2-5-market-provider-boundary.sh"
 a2_6_verify="$script_dir/verify-a2-6-ranking-authority-failure-boundary.sh"
 a2_7_verify="$script_dir/verify-a2-7-ranking-entitlement-snapshot.sh"
+a2_8_verify="$script_dir/verify-a2-8-core-ranking-snapshot-adapter.sh"
 mode=""
 
 die() {
@@ -74,10 +75,11 @@ unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
 [ -x "$a2_5_verify" ] || die "missing executable A2.5 verifier"
 [ -x "$a2_6_verify" ] || die "missing executable A2.6 verifier"
 [ -x "$a2_7_verify" ] || die "missing executable A2.7 verifier"
+[ -x "$a2_8_verify" ] || die "missing executable A2.8 verifier"
 EPSX_A2_6_EVIDENCE_ROOT="$repo_root" EPSX_A2_6_STATIC_ONLY=0 \
   "$a2_6_verify" --mode report >/dev/null || die "canonical A2.6 authority-failure verification failed"
-EPSX_A2_7_EVIDENCE_ROOT="$repo_root" EPSX_A2_7_STATIC_ONLY=0 \
-  "$a2_7_verify" --mode report >/dev/null || die "canonical A2.7 entitlement-snapshot verification failed"
+EPSX_A2_8_EVIDENCE_ROOT="$repo_root" EPSX_A2_8_STATIC_ONLY=0 \
+  "$a2_8_verify" --mode report >/dev/null || die "canonical A2.8 core-snapshot-adapter verification failed"
 
 # A2.4 and A2.5 are completed historical slices. A2.6 legitimately edits files
 # they digest, so compose those verifiers from A2.6's immutable post-A2.5 base
@@ -108,6 +110,22 @@ EPSX_A2_4_EVIDENCE_ROOT="$history_root" EPSX_A2_4_STATIC_ONLY=1 \
   "$a2_4_verify" --mode report >/dev/null || die "historical A2.4 boundary verification failed"
 EPSX_A2_5_EVIDENCE_ROOT="$history_root" EPSX_A2_5_STATIC_ONLY=1 \
   "$a2_5_verify" --mode report >/dev/null || die "historical A2.5 boundary verification failed"
+
+# A2.8 extracts the raw snapshot DTO/error/port from the identity crate into
+# epsx-contracts, legitimately changing an A2.7-digested implementation file.
+# Replay A2.7 from its immutable completed commit instead of weakening A2.7.
+a2_7_snapshot="a8469ff61a8782dc1d53b8dcae20ad7c1085d4a1"
+[ "$(git -C "$repo_root" rev-parse "${a2_7_snapshot}^{commit}")" = "$a2_7_snapshot" ] || die "immutable post-A2.7 evidence snapshot is missing"
+set -- \
+  docs/migration/contracts/a2-7-ranking-entitlement-snapshot.json \
+  docs/migration/fixtures/a2-7-ranking-entitlement-snapshot.json \
+  shared/rust/epsx-identity-service/src/ranking_entitlement.rs \
+  shared/rust/epsx-identity-service/src/lib.rs \
+  shared/rust/epsx-identity-service/src/main.rs \
+  shared/rust/epsx-identity-service/src/identity_service.rs
+git -C "$repo_root" archive "$a2_7_snapshot" "$@" | tar -x -C "$history_root" || die "cannot materialize the immutable A2.7 evidence snapshot"
+EPSX_A2_7_EVIDENCE_ROOT="$history_root" EPSX_A2_7_STATIC_ONLY=1 \
+  "$a2_7_verify" --mode report >/dev/null || die "historical A2.7 entitlement-snapshot verification failed"
 
 summary=$(bun -e '
 import { readFileSync, realpathSync } from "node:fs";
@@ -179,7 +197,7 @@ for (const item of source.evidence) {
   anchored(git("show", `${source.commit}:${item.file}`), item, "source");
 }
 
-if (!Array.isArray(contract.targetEvidence) || contract.targetEvidence.length !== 39) fail("exactly thirty-nine target evidence records are required");
+if (!Array.isArray(contract.targetEvidence) || contract.targetEvidence.length !== 40) fail("exactly forty target evidence records are required");
 const targetDomainCounts = Object.fromEntries(Object.keys(expectedDomains).map((domain) => [domain, 0]));
 for (const item of contract.targetEvidence) {
   if (!item || typeof item.id !== "string" || !/^[a-z][a-z0-9-]+$/.test(item.id) || evidenceIds.has(item.id)) fail(`invalid or duplicate evidence id: ${item?.id}`);
@@ -266,7 +284,7 @@ for (const id of [
 const entitlementBoundaryEvidence = contract.targetEvidence.find((item) => item.id === "tgt-identity-a2-7-entitlement-snapshot-contract");
 if (!entitlementBoundaryEvidence || entitlementBoundaryEvidence.domain !== "identityRankingOffset" || entitlementBoundaryEvidence.file !== "docs/migration/contracts/a2-7-ranking-entitlement-snapshot.json" || entitlementBoundaryEvidence.anchor !== "\"contractId\": \"A2.7-ranking-entitlement-snapshot\"") fail("A2.7 entitlement-snapshot evidence is missing or drifted");
 let entitlementBoundary;
-try { entitlementBoundary = JSON.parse(readFileSync(resolve(root, entitlementBoundaryEvidence.file), "utf8")); }
+try { entitlementBoundary = JSON.parse(readFileSync(resolve(historyRoot, entitlementBoundaryEvidence.file), "utf8")); }
 catch (error) { fail(`invalid A2.7 entitlement-snapshot JSON: ${error.message}`); }
 if (entitlementBoundary.schemaVersion !== 1 || entitlementBoundary.artifact !== "a2-7-ranking-entitlement-snapshot" || entitlementBoundary.contractId !== "A2.7-ranking-entitlement-snapshot" || entitlementBoundary.productionReady !== false || entitlementBoundary.readinessExit !== 3) fail("A2.7 entitlement-snapshot identity/readiness drifted");
 if (!entitlementBoundary.targetBase || entitlementBoundary.targetBase.commit !== "395db722e2d71ff73a606d7eac14d6c4ef9d972d") fail("A2.7 must retain the immutable post-A2.6 target-base snapshot");
@@ -285,6 +303,29 @@ for (const id of [
   "ranking-event-durability-absent", "ui-bff-readiness-unproved",
   "live-parity-observability-unproved", "route-owner-cutover-unproved",
 ]) if (!entitlementResidualIds.has(id)) fail(`A2.7 residual STOP is missing: ${id}`);
+
+const adapterBoundaryEvidence = contract.targetEvidence.find((item) => item.id === "tgt-identity-a2-8-core-snapshot-adapter-contract");
+if (!adapterBoundaryEvidence || adapterBoundaryEvidence.domain !== "identityRankingOffset" || adapterBoundaryEvidence.file !== "docs/migration/contracts/a2-8-core-ranking-snapshot-adapter.json" || adapterBoundaryEvidence.anchor !== "\"contractId\": \"A2.8-core-ranking-snapshot-adapter\"") fail("A2.8 core-snapshot-adapter evidence is missing or drifted");
+let adapterBoundary;
+try { adapterBoundary = JSON.parse(readFileSync(resolve(root, adapterBoundaryEvidence.file), "utf8")); }
+catch (error) { fail(`invalid A2.8 core-snapshot-adapter JSON: ${error.message}`); }
+if (adapterBoundary.schemaVersion !== 1 || adapterBoundary.artifact !== "a2-8-core-ranking-snapshot-adapter" || adapterBoundary.contractId !== "A2.8-core-ranking-snapshot-adapter" || adapterBoundary.productionReady !== false || adapterBoundary.readinessExit !== 3) fail("A2.8 core-snapshot-adapter identity/readiness drifted");
+if (!adapterBoundary.targetBase || adapterBoundary.targetBase.commit !== "a8469ff61a8782dc1d53b8dcae20ad7c1085d4a1") fail("A2.8 must retain the immutable post-A2.7 target-base snapshot");
+const adapterInvariantIds = new Set((adapterBoundary.invariants || []).map((item) => item.id));
+for (const id of [
+  "core-owned-adapter", "one-read-only-statement", "database-observed-at-microseconds",
+  "raw-unfiltered-left-join-facts", "sentinel-empty-snapshot", "strict-pure-row-decoder",
+  "shared-repository-contract", "resolver-remains-identity-owned",
+  "runtime-always-free-byte-identical", "offline-static-only",
+]) if (!adapterInvariantIds.has(id)) fail(`A2.8 invariant is missing: ${id}`);
+const adapterResidualIds = new Set((adapterBoundary.residualStops || []).map((item) => item.id));
+for (const id of [
+  "database-execution-absent", "schema-adoption-uncertified",
+  "lower-wallet-functional-index-absent", "query-plan-and-bound-absent",
+  "mvcc-concurrency-unproved", "reconciliation-unproved",
+  "identity-runtime-still-always-free", "identity-workload-auth-tls-absent",
+  "ui-bff-readiness-unproved", "route-owner-cutover-unproved",
+]) if (!adapterResidualIds.has(id)) fail(`A2.8 residual STOP is missing: ${id}`);
 
 const refreshedBoundaryEvidence = {
   "tgt-event-schema-boundary": ["eventAnalytics", "docs/migration/contracts/a3-6-analytics-schema-boundary.json", "\"scannerFindingAfter\": 0"],
@@ -341,8 +382,8 @@ const marketAuthorizationBlocker = contract.blockers.find((blocker) => blocker.i
 const rankingEntitlementBlocker = contract.blockers.find((blocker) => blocker.id === "B07");
 if (!marketAuthorizationBlocker || !marketAuthorizationBlocker.evidenceIds.includes("tgt-market-a2-6-authority-failure-contract") || !marketAuthorizationBlocker.summary.includes("authority errors stop before provider work")) fail("B03 must retain the canonical A2.6 authority-failure evidence link and fail-closed meaning");
 const reconciliationBlocker = contract.blockers.find((blocker) => blocker.id === "B21");
-if (!rankingEntitlementBlocker || !rankingEntitlementBlocker.evidenceIds.includes("tgt-market-a2-6-authority-failure-contract") || !rankingEntitlementBlocker.evidenceIds.includes("tgt-identity-free-stub") || !rankingEntitlementBlocker.evidenceIds.includes("tgt-identity-a2-7-entitlement-snapshot-contract") || !rankingEntitlementBlocker.summary.includes("identity success still returns the free-plan offset")) fail("B07 must retain A2.6/A2.7 evidence and the always-Free identity residual STOP");
-if (!reconciliationBlocker || !reconciliationBlocker.evidenceIds.includes("tgt-identity-a2-7-entitlement-snapshot-contract") || !reconciliationBlocker.summary.includes("deterministic synthetic evidence, not reconciliation")) fail("B21 must keep A2.7 fixtures distinct from reconciliation");
+if (!rankingEntitlementBlocker || !rankingEntitlementBlocker.evidenceIds.includes("tgt-market-a2-6-authority-failure-contract") || !rankingEntitlementBlocker.evidenceIds.includes("tgt-identity-free-stub") || !rankingEntitlementBlocker.evidenceIds.includes("tgt-identity-a2-7-entitlement-snapshot-contract") || !rankingEntitlementBlocker.evidenceIds.includes("tgt-identity-a2-8-core-snapshot-adapter-contract") || !rankingEntitlementBlocker.summary.includes("identity success still returns the free-plan offset") || !rankingEntitlementBlocker.summary.includes("SQL is unexecuted against a certified schema")) fail("B07 must retain A2.6/A2.7/A2.8 evidence and the always-Free/unexecuted identity residual STOP");
+if (!reconciliationBlocker || !reconciliationBlocker.evidenceIds.includes("tgt-identity-a2-7-entitlement-snapshot-contract") || !reconciliationBlocker.evidenceIds.includes("tgt-identity-a2-8-core-snapshot-adapter-contract") || !reconciliationBlocker.summary.includes("static SQL/decoder fixture") || !reconciliationBlocker.summary.includes("not reconciliation")) fail("B21 must keep A2.7 fixtures and A2.8 static SQL distinct from reconciliation");
 for (const surface of contract.surfaceContracts) for (const id of surface.blockerIds) if (!blockerIds.has(id)) fail(`${surface.id}: unknown blocker ${id}`);
 
 const ruleSections = {
@@ -379,7 +420,7 @@ const report = {
   source: { ref: source.ref, commit: source.commit, evidence: source.evidence.length },
   domains: Object.fromEntries(Object.entries(contract.domains).map(([id, item]) => [id, { owner: item.owner, status: item.status, targetEvidence: targetDomainCounts[id], surfaces: surfaceDomainCounts[id] }])),
   targetEvidence: contract.targetEvidence.length,
-  composedBoundaryEvidence: ["A2.4", "A2.5", "A2.6", "A2.7"],
+  composedBoundaryEvidence: ["A2.4", "A2.5", "A2.6", "A2.7", "A2.8"],
   refreshedBoundaryEvidence: Object.keys(refreshedBoundaryEvidence).length,
   surfaceContracts: contract.surfaceContracts.map((item) => ({ id: item.id, domain: item.domain, status: item.status })),
   rules: Object.fromEntries(Object.keys(ruleSections).map((section) => [section, contract[section].length])),
@@ -399,7 +440,7 @@ if [ "$mode" = "report" ]; then
 fi
 
 if [ "$mode" = "integrity" ]; then
-  echo "analytics-indexer-execution: PASS — 14 source pins, 39 target anchors, A2.4/A2.5/A2.6/A2.7 boundary contracts, 4 separate domains, 16 surfaces, and 24 stop blockers verified"
+  echo "analytics-indexer-execution: PASS — 14 source pins, 40 target anchors, A2.4/A2.5/A2.6/A2.7/A2.8 boundary contracts, 4 separate domains, 16 surfaces, and 24 stop blockers verified"
   echo "analytics-indexer-execution: LIMIT — no database, Redis, chain, network, live market-data, deployment, or production readiness was proven"
   exit 0
 fi
