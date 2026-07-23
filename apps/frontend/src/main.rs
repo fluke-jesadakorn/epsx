@@ -549,6 +549,10 @@ mod routing_tests {
         let html = String::from_utf8_lossy(&body);
         assert_eq!(html.matches("data-epsx-session-recovery").count(), 1);
         assert_eq!(html.matches("window.epsxAuth.recover()").count(), 1);
+        assert!(html.contains("data-auth-session-state=\"recovering\""));
+        assert!(html.contains("Restoring your session..."));
+        assert!(html.contains("disabled=\"true\"") || html.contains("disabled=\"disabled\""));
+        assert!(html.contains("detail:{version:1,state:'failed'}"));
         assert!(!html.contains("opaque-refresh"));
         let bridge_position = html
             .find("window.epsxAuth =")
@@ -570,8 +574,9 @@ mod routing_tests {
         let wrong_client_html = to_bytes(wrong_client.into_body(), 2 * 1024 * 1024)
             .await
             .unwrap();
-        assert!(!String::from_utf8_lossy(&wrong_client_html)
-            .contains("data-epsx-session-recovery"));
+        let wrong_client_html = String::from_utf8_lossy(&wrong_client_html);
+        assert!(!wrong_client_html.contains("data-epsx-session-recovery"));
+        assert!(wrong_client_html.contains("data-auth-session-state=\"signed_out\""));
 
         let protected = request_with_cookie(
             Method::GET,
@@ -627,10 +632,27 @@ mod routing_tests {
             Some("epsx.frontend.access_token=eyJhbGciOiJSUzI1NiIsImtpZCI6Im91dGFnZSIsInR5cCI6IkpXVCJ9.e30.c2ln; epsx.frontend.refresh_token=opaque-refresh"),
         )
         .await;
+        assert_eq!(
+            verifier_outage.headers()[header::CACHE_CONTROL],
+            "private, no-store"
+        );
+        assert_eq!(
+            verifier_outage.headers()[header::VARY],
+            "Cookie, Authorization"
+        );
         let outage_html = to_bytes(verifier_outage.into_body(), 2 * 1024 * 1024)
             .await
             .unwrap();
-        assert!(!String::from_utf8_lossy(&outage_html).contains("data-epsx-session-recovery"));
+        let outage_html = String::from_utf8_lossy(&outage_html);
+        assert!(!outage_html.contains("data-epsx-session-recovery"));
+        assert!(outage_html.contains("data-auth-session-state=\"verifier_unavailable\""));
+        assert!(outage_html.contains("Sign-in temporarily unavailable"));
+        assert!(outage_html
+            .contains("We cannot verify your session right now. Please try again later."));
+        assert!(
+            outage_html.contains("disabled=\"true\"")
+                || outage_html.contains("disabled=\"disabled\"")
+        );
 
         let (valid_state, access_token) = valid_frontend_session();
         let valid_cookie = format!(
@@ -652,7 +674,9 @@ mod routing_tests {
         let no_refresh_html = to_bytes(no_refresh.into_body(), 2 * 1024 * 1024)
             .await
             .unwrap();
-        assert!(!String::from_utf8_lossy(&no_refresh_html).contains("data-epsx-session-recovery"));
+        let no_refresh_html = String::from_utf8_lossy(&no_refresh_html);
+        assert!(!no_refresh_html.contains("data-epsx-session-recovery"));
+        assert!(no_refresh_html.contains("data-auth-session-state=\"signed_out\""));
 
         let offline = request_with_cookie(Method::GET, "/offline", Some(refresh_cookie)).await;
         assert_eq!(

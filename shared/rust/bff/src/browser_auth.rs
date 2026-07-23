@@ -345,7 +345,7 @@ document.addEventListener('click', function(event) {
 /// credential alongside its own HttpOnly refresh cookie. No credential or
 /// request-derived value is interpolated into this script.
 pub fn browser_session_recovery_script() -> &'static str {
-    "window.epsxAuth.recover().catch(function() {});"
+    "window.epsxAuth.recover().catch(function(){try{document.dispatchEvent(new CustomEvent('epsx:auth:recovery',{detail:{version:1,state:'failed'}}));}catch(_){}});"
 }
 
 #[cfg(test)]
@@ -406,8 +406,32 @@ mod tests {
         assert!(!browser_session_recovery_script().contains("token"));
         assert_eq!(
             browser_session_recovery_script(),
-            "window.epsxAuth.recover().catch(function() {});"
+            "window.epsxAuth.recover().catch(function(){try{document.dispatchEvent(new CustomEvent('epsx:auth:recovery',{detail:{version:1,state:'failed'}}));}catch(_){}});"
         );
+    }
+
+    #[test]
+    fn recovery_bootstrap_emits_only_fixed_token_free_failure_state() {
+        let script = browser_session_recovery_script();
+        assert_eq!(script.matches("window.epsxAuth.recover()").count(), 1);
+        assert!(script.contains("'epsx:auth:recovery'"));
+        assert!(script.contains("detail:{version:1,state:'failed'}"));
+        for forbidden in [
+            "function(error)",
+            "error.message",
+            "String(",
+            "JSON.stringify",
+            "token",
+            "wallet",
+            "permission",
+            "plan",
+            "fetch(",
+        ] {
+            assert!(
+                !script.contains(forbidden),
+                "recovery bootstrap must not disclose or interpolate {forbidden:?}"
+            );
+        }
     }
 
     #[test]

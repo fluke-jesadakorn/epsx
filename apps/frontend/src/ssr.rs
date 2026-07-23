@@ -27,6 +27,10 @@ use epsx_dioxus_ui::components::account::{
     ACCOUNT_PAYMENT_HISTORY_MALFORMED, ACCOUNT_PAYMENT_HISTORY_READY,
     ACCOUNT_PAYMENT_HISTORY_STATE_PARAM, ACCOUNT_PAYMENT_HISTORY_UNAVAILABLE,
 };
+use epsx_dioxus_ui::pages::auth_page::{
+    AUTH_PAGE_SESSION_STATE_PARAM, AUTH_PAGE_SESSION_STATE_RECOVERING,
+    AUTH_PAGE_SESSION_STATE_SIGNED_OUT, AUTH_PAGE_SESSION_STATE_VERIFIER_UNAVAILABLE,
+};
 use epsx_dioxus_ui::pages::{
     is_known_frontend_route, render_page, PageContext, PageMeta, PageStatus,
 };
@@ -61,6 +65,26 @@ const ACCOUNT_PAYMENT_HISTORY_LIMIT: usize = 10;
 enum AccountPaymentHistoryLoadError {
     Unavailable,
     Malformed,
+}
+
+fn auth_page_session_state(
+    path: &str,
+    access_verification: &AccessVerification,
+    refresh_cookie_present: bool,
+) -> Option<&'static str> {
+    if path != "/auth" {
+        return None;
+    }
+
+    Some(match access_verification {
+        AccessVerification::MissingOrRejected if refresh_cookie_present => {
+            AUTH_PAGE_SESSION_STATE_RECOVERING
+        }
+        AccessVerification::VerifierUnavailable => AUTH_PAGE_SESSION_STATE_VERIFIER_UNAVAILABLE,
+        AccessVerification::MissingOrRejected | AccessVerification::Verified { .. } => {
+            AUTH_PAGE_SESSION_STATE_SIGNED_OUT
+        }
+    })
 }
 
 /// Record the notification dependency outcome without turning an upstream
@@ -214,9 +238,14 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     } else {
         auth::access_verification(&headers, state.verifier.as_ref(), state.cookie_environment).await
     };
+    let refresh_cookie_present = auth::refresh_token(&headers, state.cookie_environment).is_some();
     let recover_session = access_verification.permits_refresh_recovery()
-        && auth::refresh_token(&headers, state.cookie_environment).is_some()
+        && refresh_cookie_present
         && path != "/offline";
+    let auth_page_session_state =
+        auth_page_session_state(&path, &access_verification, refresh_cookie_present);
+    let auth_page_verifier_unavailable =
+        auth_page_session_state == Some(AUTH_PAGE_SESSION_STATE_VERIFIER_UNAVAILABLE);
     let (verified_access_token, user) = match access_verification {
         AccessVerification::Verified { token, user } => {
             (Some(token), Some(auth::ui_user(user, wallet.chain_id)))
@@ -277,6 +306,12 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
 
     // Parse dynamic-route params from path
     let mut params = HashMap::new();
+    if let Some(session_state) = auth_page_session_state {
+        params.insert(
+            AUTH_PAGE_SESSION_STATE_PARAM.to_string(),
+            session_state.to_string(),
+        );
+    }
     if let Some(slug) = news_detail_route_slug(&path) {
         params.insert("slug".into(), slug.to_string());
     }
@@ -422,14 +457,20 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
 
     let mut response =
         (status, [("content-type", "text/html; charset=utf-8")], doc).into_response();
-    apply_ssr_cache_policy(&mut response, is_authenticated, recover_session, &path);
+    apply_ssr_cache_policy(
+        &mut response,
+        is_authenticated,
+        recover_session,
+        auth_page_verifier_unavailable,
+        &path,
+    );
     response
 }
 
 fn private_session_redirect(location: String) -> Response {
     let mut response =
         (StatusCode::TEMPORARY_REDIRECT, [("location", location)], "").into_response();
-    apply_ssr_cache_policy(&mut response, true, false, "/auth");
+    apply_ssr_cache_policy(&mut response, true, false, false, "/auth");
     response
 }
 
@@ -441,6 +482,7 @@ fn apply_ssr_cache_policy(
     response: &mut Response,
     is_authenticated: bool,
     recover_session: bool,
+    auth_page_verifier_unavailable: bool,
     path: &str,
 ) {
     if path == "/offline" {
@@ -455,7 +497,7 @@ fn apply_ssr_cache_policy(
             "x-epsx-public-cache",
             HeaderValue::from_static("offline-shell-v1"),
         );
-    } else if is_authenticated || recover_session {
+    } else if is_authenticated || recover_session || auth_page_verifier_unavailable {
         response.headers_mut().insert(
             header::CACHE_CONTROL,
             HeaderValue::from_static("private, no-store"),
@@ -1053,6 +1095,7 @@ fn safe_return_url(query: &str) -> String {
 mod tests {
     use super::account_payment_history_path;
     use super::apply_ssr_cache_policy;
+    use super::auth_page_session_state;
     use super::developer_docs_runtime_script;
     use super::escaped_page_metadata;
     use super::manual_runtime_script;
@@ -1067,6 +1110,11 @@ mod tests {
     use super::record_notification_load;
     use super::safe_return_url;
     use super::urlencode;
+    use epsx_bff::session::AccessVerification;
+    use epsx_dioxus_ui::pages::auth_page::{
+        AUTH_PAGE_SESSION_STATE_RECOVERING, AUTH_PAGE_SESSION_STATE_SIGNED_OUT,
+        AUTH_PAGE_SESSION_STATE_VERIFIER_UNAVAILABLE,
+    };
     use epsx_dioxus_ui::pages::PageMeta;
     use std::collections::HashMap;
 
@@ -1097,6 +1145,26 @@ mod tests {
             "total_intents": if with_intent { 1 } else { 0 },
             "total_escrows": 0
         })
+    }
+
+    #[test]
+    fn auth_page_session_state_is_closed_and_auth_route_only() {
+        assert_eq!(
+            auth_page_session_state("/auth", &AccessVerification::MissingOrRejected, false),
+            Some(AUTH_PAGE_SESSION_STATE_SIGNED_OUT)
+        );
+        assert_eq!(
+            auth_page_session_state("/auth", &AccessVerification::MissingOrRejected, true),
+            Some(AUTH_PAGE_SESSION_STATE_RECOVERING)
+        );
+        assert_eq!(
+            auth_page_session_state("/auth", &AccessVerification::VerifierUnavailable, true),
+            Some(AUTH_PAGE_SESSION_STATE_VERIFIER_UNAVAILABLE)
+        );
+        assert_eq!(
+            auth_page_session_state("/account", &AccessVerification::MissingOrRejected, true),
+            None
+        );
     }
 
     #[test]
@@ -1595,7 +1663,7 @@ mod tests {
     #[test]
     fn authenticated_badge_shell_is_private_while_offline_stays_public() {
         let mut authenticated = StatusCode::OK.into_response();
-        apply_ssr_cache_policy(&mut authenticated, true, false, "/rankings");
+        apply_ssr_cache_policy(&mut authenticated, true, false, false, "/rankings");
         assert_eq!(
             authenticated
                 .headers()
@@ -1611,7 +1679,7 @@ mod tests {
         );
 
         let mut signed_out = StatusCode::OK.into_response();
-        apply_ssr_cache_policy(&mut signed_out, false, false, "/rankings");
+        apply_ssr_cache_policy(&mut signed_out, false, false, false, "/rankings");
         assert!(signed_out
             .headers()
             .get(axum::http::header::CACHE_CONTROL)
@@ -1621,6 +1689,7 @@ mod tests {
             let mut offline = StatusCode::OK.into_response();
             apply_ssr_cache_policy(
                 &mut offline,
+                authenticated_request,
                 authenticated_request,
                 authenticated_request,
                 "/offline",
@@ -1642,7 +1711,23 @@ mod tests {
     #[test]
     fn recovery_bearing_frontend_html_is_private_and_varies_by_credentials() {
         let mut response = StatusCode::OK.into_response();
-        apply_ssr_cache_policy(&mut response, false, true, "/auth");
+        apply_ssr_cache_policy(&mut response, false, true, false, "/auth");
+        assert_eq!(
+            response.headers().get(axum::http::header::CACHE_CONTROL),
+            Some(&axum::http::HeaderValue::from_static("private, no-store"))
+        );
+        assert_eq!(
+            response.headers().get(axum::http::header::VARY),
+            Some(&axum::http::HeaderValue::from_static(
+                "Cookie, Authorization"
+            ))
+        );
+    }
+
+    #[test]
+    fn verifier_unavailable_auth_html_is_private_and_varies_by_credentials() {
+        let mut response = StatusCode::SERVICE_UNAVAILABLE.into_response();
+        apply_ssr_cache_policy(&mut response, false, false, true, "/auth");
         assert_eq!(
             response.headers().get(axum::http::header::CACHE_CONTROL),
             Some(&axum::http::HeaderValue::from_static("private, no-store"))

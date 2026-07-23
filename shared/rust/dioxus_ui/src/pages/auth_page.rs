@@ -7,6 +7,42 @@ use crate::auth::ConnectButtonSize;
 use crate::layout::main_layout::AuthLayout;
 use dioxus::prelude::*;
 
+pub const AUTH_PAGE_SESSION_STATE_PARAM: &str = "auth_page_session_state";
+pub const AUTH_PAGE_SESSION_STATE_SIGNED_OUT: &str = "signed_out";
+pub const AUTH_PAGE_SESSION_STATE_RECOVERING: &str = "recovering";
+pub const AUTH_PAGE_SESSION_STATE_VERIFIER_UNAVAILABLE: &str = "verifier_unavailable";
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum AuthPageSessionState {
+    #[default]
+    SignedOut,
+    Recovering,
+    VerifierUnavailable,
+}
+
+impl AuthPageSessionState {
+    fn from_context(ctx: &PageContext) -> Self {
+        match ctx
+            .params
+            .get(AUTH_PAGE_SESSION_STATE_PARAM)
+            .map(String::as_str)
+        {
+            None | Some(AUTH_PAGE_SESSION_STATE_SIGNED_OUT) => Self::SignedOut,
+            Some(AUTH_PAGE_SESSION_STATE_RECOVERING) => Self::Recovering,
+            Some(AUTH_PAGE_SESSION_STATE_VERIFIER_UNAVAILABLE) => Self::VerifierUnavailable,
+            Some(_) => Self::VerifierUnavailable,
+        }
+    }
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::SignedOut => AUTH_PAGE_SESSION_STATE_SIGNED_OUT,
+            Self::Recovering => AUTH_PAGE_SESSION_STATE_RECOVERING,
+            Self::VerifierUnavailable => AUTH_PAGE_SESSION_STATE_VERIFIER_UNAVAILABLE,
+        }
+    }
+}
+
 /// Auth page (`/auth`). Wave 5 Track A port — see
 /// `docs/wave5-page-depth/design.md` §"Track A — Hero pages" /
 /// `auth_page.rs`. Two-column layout:
@@ -24,11 +60,11 @@ use dioxus::prelude::*;
 ///   hydration is required — every interactive state is SSR-safe.
 #[component]
 pub fn AuthPage() -> Element {
-    rsx! { RenderAuth {} }
+    rsx! { RenderAuth { session_state: AuthPageSessionState::SignedOut } }
 }
 
 #[component]
-pub fn RenderAuth() -> Element {
+pub fn RenderAuth(session_state: AuthPageSessionState) -> Element {
     // The component is purely declarative — every interactive state
     // (loading / error / success) is driven by the inline script
     // below. The Dioxus `use_signal` calls were removed because
@@ -37,7 +73,10 @@ pub fn RenderAuth() -> Element {
     // visibility from there.
 
     rsx! {
-        div { class: "auth-page",
+        div {
+            class: "auth-page",
+            "data-auth-session-state": session_state.as_str(),
+            "aria-busy": if session_state == AuthPageSessionState::Recovering { "true" } else { "false" },
             // === LEFT column: marketing pitch ===
             div { class: "auth-page-pitch",
                 div { class: "auth-page-pitch-bg", "aria-hidden": "true",
@@ -86,7 +125,7 @@ pub fn RenderAuth() -> Element {
                             }
                         }
                     }
-                    // Social proof — "Powering 2,500+ teams worldwide"
+                    // Product-fit statement without an unsupported customer count.
                     div { class: "auth-page-social-proof",
                         div { class: "auth-page-social-avatars",
                             span { class: "auth-page-social-avatar auth-page-social-avatar-a", "A" }
@@ -95,7 +134,7 @@ pub fn RenderAuth() -> Element {
                             span { class: "auth-page-social-avatar auth-page-social-avatar-d", "D" }
                         }
                         p { class: "auth-page-social-text",
-                            "Powering " span { class: "auth-page-social-count", "2,500+" } " teams worldwide"
+                            "Built for teams using modern data workflows"
                         }
                     }
                 }
@@ -138,6 +177,7 @@ pub fn RenderAuth() -> Element {
                             ConnectButton {
                                 size: Some(ConnectButtonSize::Full),
                                 label: Some("Connect Wallet".to_string()),
+                                disabled: session_state != AuthPageSessionState::SignedOut,
                                 data_connect_wallet: Some(true),
                             }
                         }
@@ -151,12 +191,17 @@ pub fn RenderAuth() -> Element {
                         div {
                             id: "auth-card-status",
                             class: "auth-card-status",
+                            role: "status",
                             "aria-live": "polite",
-                            hidden: true,
+                            hidden: session_state != AuthPageSessionState::Recovering,
                             div { class: "spinner spinner-sm" }
                             span {
                                 id: "auth-card-status-msg",
-                                "Waiting for wallet..."
+                                if session_state == AuthPageSessionState::Recovering {
+                                    "Restoring your session..."
+                                } else {
+                                    "Waiting for wallet..."
+                                }
                             }
                         }
                         // === Error banner (hidden by default) ===
@@ -164,7 +209,8 @@ pub fn RenderAuth() -> Element {
                             id: "auth-card-error",
                             class: "auth-card-error",
                             role: "alert",
-                            hidden: true,
+                            tabindex: "-1",
+                            hidden: session_state != AuthPageSessionState::VerifierUnavailable,
                             div { class: "auth-card-error-icon",
                                 Icon { name: "triangle-alert".to_string(), size: Some(16) }
                             }
@@ -172,12 +218,20 @@ pub fn RenderAuth() -> Element {
                                 div {
                                     id: "auth-card-error-title",
                                     class: "auth-card-error-title",
-                                    "Sign-in failed"
+                                    if session_state == AuthPageSessionState::VerifierUnavailable {
+                                        "Sign-in temporarily unavailable"
+                                    } else {
+                                        "Sign-in failed"
+                                    }
                                 }
                                 div {
                                     id: "auth-card-error-msg",
                                     class: "auth-card-error-msg",
-                                    ""
+                                    if session_state == AuthPageSessionState::VerifierUnavailable {
+                                        "We cannot verify your session right now. Please try again later."
+                                    } else {
+                                        ""
+                                    }
                                 }
                             }
                         }
@@ -208,7 +262,7 @@ pub fn RenderAuth() -> Element {
                     // === Network status indicator ===
                     div { class: "auth-page-status-indicator",
                         span { class: "auth-page-status-dot" }
-                        "Network Secure & Operational"
+                        "Wallet-based sign-in"
                     }
                     // === Manual redirect fallback ===
                     div { class: "auth-page-fallback",
@@ -244,14 +298,33 @@ const WALLET_STATUS_LISTENER_SCRIPT: &str = r#"(function(){
   function $(id){ return document.getElementById(id); }
   var ctaBtn = document.getElementById('auth-card-cta-btn') ||
                document.querySelector('[data-connect-wallet]');
+  var authPage = document.querySelector('[data-auth-session-state]');
   var statusEl = $('auth-card-status');
   var statusMsg = $('auth-card-status-msg');
   var errorEl = $('auth-card-error');
   var errorTitle = $('auth-card-error-title');
   var errorMsg = $('auth-card-error-msg');
+  var ctaLabel = ctaBtn && ctaBtn.querySelector('.connect-btn-label');
+
+  function authActionable() {
+    if (!authPage) return false;
+    var state = authPage.getAttribute('data-auth-session-state');
+    return state === 'signed_out' || state === 'recovery_failed';
+  }
+
+  if (ctaBtn) {
+    ctaBtn.addEventListener('click', function() {
+      if (!authActionable()) return;
+      statusMsg.textContent = 'Opening wallet...';
+      statusEl.hidden = false;
+      errorEl.hidden = true;
+      ctaBtn.disabled = true;
+      if (authPage) authPage.setAttribute('aria-busy', 'true');
+    });
+  }
 
   function show(d) {
-    if (!d) return;
+    if (!d || !authActionable()) return;
     if (d.status === 'challenge') {
       statusMsg.textContent = 'Requesting challenge...';
       statusEl.hidden = false;
@@ -281,25 +354,46 @@ const WALLET_STATUS_LISTENER_SCRIPT: &str = r#"(function(){
       errorEl.hidden = false;
       statusEl.hidden = true;
       if (ctaBtn) ctaBtn.disabled = false;
+      if (authPage) authPage.setAttribute('aria-busy', 'false');
     } else if (d.status === 'idle') {
       statusEl.hidden = true;
       errorEl.hidden = true;
       if (ctaBtn) ctaBtn.disabled = false;
+      if (authPage) authPage.setAttribute('aria-busy', 'false');
     }
   }
 
   document.addEventListener('epsx:wallet:status', function(e) {
     show((e && e.detail) || {});
   });
+
+  document.addEventListener('epsx:auth:recovery', function(e) {
+    var d = (e && e.detail) || {};
+    if (d.version !== 1 || d.state !== 'failed') return;
+    if (!authPage || authPage.getAttribute('data-auth-session-state') !== 'recovering') return;
+    authPage.setAttribute('data-auth-session-state', 'recovery_failed');
+    errorTitle.textContent = 'Session recovery failed';
+    errorMsg.textContent = 'We could not restore your session. Try connecting your wallet again.';
+    errorEl.hidden = false;
+    statusEl.hidden = true;
+    errorEl.focus();
+    if (authPage) authPage.setAttribute('aria-busy', 'false');
+    if (ctaBtn) {
+      ctaBtn.disabled = false;
+      ctaBtn.setAttribute('aria-label', 'Try again with wallet');
+    }
+    if (ctaLabel) ctaLabel.textContent = 'Try Again';
+  });
 })();"#;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Sign in");
+    let session_state = AuthPageSessionState::from_context(ctx);
     (
         meta,
         rsx! {
             AuthLayout { ctx: ctx.clone(),
-                RenderAuth {}
+                RenderAuth { session_state }
             }
         },
     )
@@ -308,6 +402,114 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn render_with_session_state(session_state: Option<&str>) -> String {
+        let mut ctx = PageContext {
+            user: None,
+            path: "/auth".to_string(),
+            ..Default::default()
+        };
+        if let Some(session_state) = session_state {
+            ctx.params.insert(
+                AUTH_PAGE_SESSION_STATE_PARAM.to_string(),
+                session_state.to_string(),
+            );
+        }
+        let (_meta, el) = render(&ctx);
+        dioxus_ssr::render_element(el)
+    }
+
+    #[test]
+    fn auth_page_signed_out_is_actionable() {
+        let html = render_with_session_state(Some(AUTH_PAGE_SESSION_STATE_SIGNED_OUT));
+        assert!(html.contains("data-auth-session-state=\"signed_out\""));
+        assert!(html.contains("data-connect-wallet=\"true\""));
+        assert!(!html.contains("disabled=\"true\""));
+        assert!(!html.contains("disabled=\"disabled\""));
+        assert!(html.contains("Wallet-based sign-in"));
+        assert!(!html.contains("Network Secure &amp; Operational"));
+    }
+
+    #[test]
+    fn auth_page_recovering_is_announced_and_disables_connect() {
+        let html = render_with_session_state(Some(AUTH_PAGE_SESSION_STATE_RECOVERING));
+        assert!(html.contains("data-auth-session-state=\"recovering\""));
+        assert!(html.contains("aria-busy=\"true\""));
+        assert!(html.contains("role=\"status\""));
+        assert!(html.contains("Restoring your session..."));
+        assert!(html.contains("disabled=\"true\"") || html.contains("disabled=\"disabled\""));
+    }
+
+    #[test]
+    fn auth_page_verifier_unavailable_is_fixed_and_disables_connect() {
+        let html = render_with_session_state(Some(AUTH_PAGE_SESSION_STATE_VERIFIER_UNAVAILABLE));
+        assert!(html.contains("data-auth-session-state=\"verifier_unavailable\""));
+        assert!(html.contains("Sign-in temporarily unavailable"));
+        assert!(html.contains("We cannot verify your session right now. Please try again later."));
+        assert!(html.contains("disabled=\"true\"") || html.contains("disabled=\"disabled\""));
+        for forbidden in ["access_token", "refresh_token", "permission", "plan"] {
+            assert!(!html.contains(forbidden));
+        }
+    }
+
+    #[test]
+    fn auth_page_unknown_present_state_fails_closed() {
+        let html = render_with_session_state(Some("future-open-state"));
+        assert!(html.contains("data-auth-session-state=\"verifier_unavailable\""));
+        assert!(html.contains("Sign-in temporarily unavailable"));
+        assert!(html.contains("disabled=\"true\"") || html.contains("disabled=\"disabled\""));
+        assert!(!html.contains("future-open-state"));
+    }
+
+    #[test]
+    fn auth_page_recovery_failure_event_is_fixed_actionable_and_nondisclosing() {
+        let listener = WALLET_STATUS_LISTENER_SCRIPT
+            .split("document.addEventListener('epsx:auth:recovery'")
+            .nth(1)
+            .expect("auth recovery listener must be present");
+        assert!(listener.contains("d.version !== 1 || d.state !== 'failed'"));
+        assert!(
+            listener.contains("authPage.getAttribute('data-auth-session-state') !== 'recovering'")
+        );
+        assert!(listener.contains("Session recovery failed"));
+        assert!(listener
+            .contains("We could not restore your session. Try connecting your wallet again."));
+        assert!(listener.contains("ctaBtn.disabled = false"));
+        assert!(listener.contains("ctaLabel.textContent = 'Try Again'"));
+        assert!(listener.contains("errorEl.focus()"));
+        for forbidden in ["d.message", "e.message", "String(", "JSON.stringify"] {
+            assert!(
+                !listener.contains(forbidden),
+                "recovery failure UI must not disclose rejection details via {forbidden:?}"
+            );
+        }
+
+        let html = render_with_session_state(Some(AUTH_PAGE_SESSION_STATE_RECOVERING));
+        assert!(html.contains("data-connect-wallet=\"true\""));
+        assert!(html.contains("disabled=\"true\"") || html.contains("disabled=\"disabled\""));
+        assert!(html.contains("role=\"alert\""));
+        assert!(html.contains("tabindex=\"-1\""));
+    }
+
+    #[test]
+    fn auth_page_connect_enters_opening_wallet_busy_state_immediately() {
+        let click_handler = WALLET_STATUS_LISTENER_SCRIPT
+            .split("ctaBtn.addEventListener('click', function() {")
+            .nth(1)
+            .and_then(|tail| tail.split("function show(d)").next())
+            .expect("the auth CTA must have a parse-time click listener");
+        assert!(click_handler.contains("statusMsg.textContent = 'Opening wallet...'"));
+        assert!(click_handler.contains("if (!authActionable()) return"));
+        assert!(click_handler.contains("statusEl.hidden = false"));
+        assert!(click_handler.contains("errorEl.hidden = true"));
+        assert!(click_handler.contains("ctaBtn.disabled = true"));
+        assert!(click_handler.contains("authPage.setAttribute('aria-busy', 'true')"));
+        assert!(WALLET_STATUS_LISTENER_SCRIPT
+            .contains("return state === 'signed_out' || state === 'recovery_failed'"));
+        assert!(WALLET_STATUS_LISTENER_SCRIPT.contains("if (!d || !authActionable()) return;"));
+        assert!(!click_handler.contains("eth_requestAccounts"));
+        assert!(!click_handler.contains("fetch("));
+    }
 
     /// Wave 5 — `test_render_smoke`. The `render` function returns a
     /// non-empty `Element` and the rendered HTML string is non-empty.
@@ -416,7 +618,7 @@ mod tests {
 
     /// Wave 5 — `test_pitch_content`. The left-side marketing pitch
     /// must include the three value props (Data Accuracy, Real-time
-    /// Edge, Secure Ownership) and the "2,500+ teams" social proof.
+    /// Edge, Secure Ownership) and a non-numeric product-fit statement.
     #[test]
     fn test_pitch_content() {
         let ctx = PageContext {
@@ -441,12 +643,13 @@ mod tests {
                 html
             );
         }
-        // Social proof.
+        // Product fit, without an unsupported numeric customer claim.
         assert!(
-            html.contains("2,500+"),
-            "Auth page must render the '2,500+' social proof. Got: {}",
+            html.contains("Built for teams using modern data workflows"),
+            "Auth page must render the truthful product-fit statement. Got: {}",
             html
         );
+        assert!(!html.contains("2,500+"));
     }
 
     // ── Wave 50 — SSR-friendly wallet wiring tests ────────────────
@@ -491,6 +694,7 @@ mod tests {
         );
         // Verify the script toggles all 5 status labels.
         for label in &[
+            "Opening wallet...",
             "Requesting challenge...",
             "Check your wallet...",
             "Verifying signature...",

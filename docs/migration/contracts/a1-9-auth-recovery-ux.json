@@ -1,0 +1,251 @@
+{
+  "schemaVersion": 1,
+  "artifact": "a1-9-auth-recovery-ux",
+  "contractId": "A1.9-auth-recovery-ux",
+  "purpose": "deterministic-hermetic-frontend-auth-recovery-ux-proof-and-readiness-stop",
+  "productionReady": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "safety": {
+    "browser": false,
+    "network": false,
+    "database": false,
+    "redis": false,
+    "service": false,
+    "deployment": false,
+    "production": false
+  },
+  "sourceBaseline": {
+    "ref": "origin/development",
+    "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "interpretation": "The TypeScript wallet-auth page is compatibility context only; A1.9 does not execute it or claim complete connector, network-switching, browser, accessibility, or production parity."
+  },
+  "implementationBase": {
+    "ref": "migration/dioxus-microservices",
+    "commit": "346d520484e23532ec40a62d1e2fba9d7a10472c",
+    "interpretation": "Immutable branch snapshot immediately before the A1.9 frontend auth-recovery UX implementation."
+  },
+  "predecessor": {
+    "contractId": "A1.8-automatic-session-recovery",
+    "commit": "c238954cbbf9b8a5db57ef117f0be638c4613766",
+    "contractFile": "docs/migration/contracts/automatic-session-recovery.json",
+    "contractBlob": "120fb172544250424498968ef2bb9b215ed33882",
+    "contractSha256": "a769172a61ef3ade2f90f0230a1b65b55c8abbbfe4411142bc9a01601ac19753",
+    "verifierFile": "scripts/migration/verify-automatic-session-recovery.sh",
+    "verifierBlob": "2727644bfcbf3c72baed4fa134c418e02c2c58e1",
+    "verifierSha256": "d0eeaa9cb39ebee92cc26e0f0de3e16d724d573d17971fc5c66152d3f41a2875",
+    "evidenceDigest": "4a4f37c819fd082cf6637c5ca165d308de533bdea6423f0f196c950ac9d54aee",
+    "expectedInvariants": 11,
+    "expectedAnchors": 46,
+    "expectedResidualStops": 9,
+    "replay": "historical-static"
+  },
+  "invariants": [
+    {
+      "id": "historical-a1-8-replay",
+      "claim": "The exact A1.8 contract, verifier and twelve-file evidence inventory replay successfully from commit c238954c without applying A1.9 files to the historical proof."
+    },
+    {
+      "id": "closed-auth-page-state-classification",
+      "claim": "Only the frontend auth route receives a closed signed-out, recovering or verifier-unavailable state, and recovery requires missing-or-rejected access plus the frontend BFF's own refresh cookie."
+    },
+    {
+      "id": "recovering-state-announced-and-noninteractive",
+      "claim": "The recovering auth page is aria-busy, exposes a live status with fixed restoration copy, and disables wallet connection until recovery resolves."
+    },
+    {
+      "id": "verifier-outage-visible-and-never-recovers",
+      "claim": "Verifier unavailability renders a fixed nondisclosing alert, disables wallet sign-in and never emits the automatic recovery bootstrap."
+    },
+    {
+      "id": "signed-out-state-actionable",
+      "claim": "A genuinely signed-out auth page keeps the wallet action enabled and exposes neither recovery progress nor a verifier-outage claim."
+    },
+    {
+      "id": "unknown-and-stale-state-fails-closed",
+      "claim": "Unknown server states render verifier-unavailable, and a recovery-failure event is accepted only while the page is exactly recovering."
+    },
+    {
+      "id": "fixed-token-free-recovery-failure-event",
+      "claim": "The fixed recovery bootstrap emits exactly the closed version-one failed event after rejection and interpolates no credential, identity, wallet, error or policy value."
+    },
+    {
+      "id": "versioned-generic-actionable-failure-ui",
+      "claim": "A valid recovery failure hides progress, focuses a fixed alert, clears aria-busy and enables a Try Again wallet action without reflecting event payload."
+    },
+    {
+      "id": "immediate-wallet-opening-feedback",
+      "claim": "A wallet click immediately shows Opening wallet, hides stale errors, disables duplicate activation and marks the page busy without performing independent wallet or network work."
+    },
+    {
+      "id": "a1-8-session-safety-retained",
+      "claim": "A1.8 page-lifetime single-flight, shared session-mutation lock, rotation-attested reload, confirmed-clear navigation, no-retry and token-free browser rules remain structurally intact."
+    },
+    {
+      "id": "private-offline-and-truthful-ui-boundaries",
+      "claim": "Recovery-bearing HTML stays private no-store and credential-varying, the offline shell stays public and recovery-free, and unsupported operational or customer-count claims remain absent."
+    },
+    {
+      "id": "backend-policy-authority-retained",
+      "claim": "A1.9 adds no permission, plan, ranking-offset, feature-flag, subscription or entitlement authority and authorizes no live or production action."
+    }
+  ],
+  "implementationEvidence": [
+    {
+      "id": "impl-frontend-router-journey",
+      "file": "apps/frontend/src/main.rs",
+      "sha256": "73b8bfb10ca9903243023d125dc5ea087fa4ea9adc911b4a9c3b83fd66a3dbec"
+    },
+    {
+      "id": "impl-frontend-ssr-state",
+      "file": "apps/frontend/src/ssr.rs",
+      "sha256": "82c38118afc6d4dd044b3afc576bd9e15e9ffde77a101bf64f3a4576c144a8ef"
+    },
+    {
+      "id": "impl-fixed-recovery-bootstrap",
+      "file": "shared/rust/bff/src/browser_auth.rs",
+      "sha256": "d0fec242ac4826f2584623b963dd99472f22373ee46f7f41c0667d34079785ba"
+    },
+    {
+      "id": "impl-auth-page-state-machine",
+      "file": "shared/rust/dioxus_ui/src/pages/auth_page.rs",
+      "sha256": "38e3c0a54ae8ed9275179214a9f3d29441f0547d6411001efc35b4cdab43ed17"
+    },
+    {
+      "id": "impl-fake-dom-harness",
+      "file": "scripts/migration/test-auth-recovery-ux.js",
+      "sha256": "dd28916051bbccd78b87060b4db859b45357dd08dd4cc246636c3f64ae97208b"
+    }
+  ],
+  "hermeticTests": [
+    {
+      "id": "T01",
+      "runner": "cargo",
+      "exactName": "browser_auth::tests::recovery_bootstrap_emits_only_fixed_token_free_failure_state"
+    },
+    {
+      "id": "T02",
+      "runner": "cargo",
+      "exactName": "pages::auth_page::tests::auth_page_signed_out_is_actionable"
+    },
+    {
+      "id": "T03",
+      "runner": "cargo",
+      "exactName": "pages::auth_page::tests::auth_page_recovering_is_announced_and_disables_connect"
+    },
+    {
+      "id": "T04",
+      "runner": "cargo",
+      "exactName": "pages::auth_page::tests::auth_page_verifier_unavailable_is_fixed_and_disables_connect"
+    },
+    {
+      "id": "T05",
+      "runner": "cargo",
+      "exactName": "pages::auth_page::tests::auth_page_unknown_present_state_fails_closed"
+    },
+    {
+      "id": "T06",
+      "runner": "cargo",
+      "exactName": "pages::auth_page::tests::auth_page_recovery_failure_event_is_fixed_actionable_and_nondisclosing"
+    },
+    {
+      "id": "T07",
+      "runner": "cargo",
+      "exactName": "pages::auth_page::tests::auth_page_connect_enters_opening_wallet_busy_state_immediately"
+    },
+    {
+      "id": "T08",
+      "runner": "cargo",
+      "exactName": "pages::auth_page::tests::test_pitch_content"
+    },
+    {
+      "id": "T09",
+      "runner": "cargo",
+      "exactName": "ssr::tests::auth_page_session_state_is_closed_and_auth_route_only"
+    },
+    {
+      "id": "T10",
+      "runner": "cargo",
+      "exactName": "ssr::tests::verifier_unavailable_auth_html_is_private_and_varies_by_credentials"
+    },
+    {
+      "id": "T11",
+      "runner": "cargo",
+      "exactName": "routing_tests::frontend_emits_one_private_recovery_bootstrap_only_for_refresh_eligible_html"
+    },
+    {
+      "id": "T12",
+      "runner": "bun-fake-dom",
+      "exactName": "rejected recovery emits one exact closed event"
+    },
+    {
+      "id": "T13",
+      "runner": "bun-fake-dom",
+      "exactName": "resolved recovery emits no failure event"
+    },
+    {
+      "id": "T14",
+      "runner": "bun-fake-dom",
+      "exactName": "invalid recovery events leave the recovering page closed"
+    },
+    {
+      "id": "T15",
+      "runner": "bun-fake-dom",
+      "exactName": "valid failure becomes fixed actionable UI without reflecting payload"
+    }
+  ],
+  "residualStops": [
+    {
+      "id": "real-browser-matrix-unproved",
+      "claim": "No accepted real-browser matrix proves Web Locks, BroadcastChannel, HttpOnly cookie application, reload, redirect, focus, event ordering or multi-tab scheduling."
+    },
+    {
+      "id": "post-commit-fault-unproved",
+      "claim": "No proxy or browser fault injection proves timeout or reset behavior after backend commit."
+    },
+    {
+      "id": "postgres-refresh-ordering-unproved",
+      "claim": "No PostgreSQL exercise proves consume, replay response, commit acknowledgement ambiguity or family-lock ordering."
+    },
+    {
+      "id": "exactly-once-delivery-unproved",
+      "claim": "A disconnect after backend rotation but before Set-Cookie delivery still forces reauthentication and has no receipt or idempotency protocol."
+    },
+    {
+      "id": "bff-unreachable-clear-unproved",
+      "claim": "JavaScript cannot prove clearing HttpOnly cookies while the BFF itself is unreachable."
+    },
+    {
+      "id": "access-token-post-revocation-validity",
+      "claim": "Already-issued access tokens remain valid until expiry after logout or family revocation."
+    },
+    {
+      "id": "missing-access-authority-preflight-unproved",
+      "claim": "A missing access cookie has no key ID to verify before recovery, so a later JWKS outage can still force reauthentication after rotation."
+    },
+    {
+      "id": "cross-document-cookie-acceptance-unproved",
+      "claim": "No real-browser proof or server-owned attempt guard excludes repeated reloads when refresh cookies are accepted while access cookies are selectively rejected or evicted."
+    },
+    {
+      "id": "assistive-technology-validation-unproved",
+      "claim": "No screen-reader, keyboard-only, reduced-motion or focus-order matrix validates the new status and alert transitions."
+    },
+    {
+      "id": "wallet-provider-network-matrix-unproved",
+      "claim": "Injected-wallet behavior does not prove connector choice, wallet installation, chain switching, mobile wallets or provider-specific recovery."
+    },
+    {
+      "id": "responsive-visual-regression-unproved",
+      "claim": "No accepted screenshot or device matrix proves the signed-out, recovering, outage and recovery-failed layouts."
+    },
+    {
+      "id": "admin-auth-recovery-ux-parity-unproved",
+      "claim": "A1.9 changes only the frontend auth page and does not prove equivalent admin recovery UX."
+    },
+    {
+      "id": "production-actions-unauthorized",
+      "claim": "Passing A1.9 integrity never authorizes a live browser, database, network, secret, service, deployment or production action."
+    }
+  ]
+}
