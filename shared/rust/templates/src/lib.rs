@@ -4868,6 +4868,7 @@ pub fn design_system_head_with_keywords(
                         display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical;
                         overflow: hidden; }}
   .notification-meta {{ display: flex; align-items: center; gap: 0.375rem; margin-top: 0.25rem; flex-wrap: wrap; }}
+  .notification-kind, .notification-priority {{ min-width: 0; overflow-wrap: anywhere; }}
   .notification-time {{ font-size: 0.625rem; color: var(--text-muted, #94a3b8); opacity: 0.5; }}
   .notification-meta-sep {{ color: var(--text-muted, #94a3b8); opacity: 0.4; }}
   .notification-action {{ font-size: 0.625rem; color: #f97316; text-decoration: underline; }}
@@ -7001,6 +7002,17 @@ mod page_head_tests {
         let badge_css = &head[badge_start..badge_end];
         assert!(badge_css.contains("background: #dc2626; color: white;"));
         assert!(!badge_css.contains("background: #ef4444; color: white;"));
+    }
+
+    #[test]
+    fn notification_metadata_tokens_wrap_safely() {
+        let head = design_system_head(
+            "Notification metadata wrapping",
+            "Keep bounded notification tags inside narrow rows",
+        );
+        assert!(head.contains(
+            ".notification-kind, .notification-priority { min-width: 0; overflow-wrap: anywhere; }"
+        ));
     }
 
     #[test]

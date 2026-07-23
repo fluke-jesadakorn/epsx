@@ -338,17 +338,41 @@ fn NotificationListSection(items: Vec<Notification>) -> Element {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct NotificationTypeDecoration {
+    icon_name: &'static str,
+    icon_class: &'static str,
+}
+
+/// Map service-owned type tags to presentation-only icon decoration.
+///
+/// The raw tag remains the visible metadata label. Unknown or absent tags
+/// deliberately receive neutral decoration rather than being reclassified as
+/// a known notification type.
+fn notification_type_decoration(kind: Option<&str>) -> NotificationTypeDecoration {
+    let (icon_name, icon_class) = match kind {
+        Some("payment") => ("credit-card", "notification-icon-payment"),
+        Some("wallet" | "walletmanagement" | "wallet_management" | "wallet-management") => {
+            ("wallet", "notification-icon-wallet")
+        }
+        Some("chat") => ("message-circle", "notification-icon-chat"),
+        Some("security") => ("shield", "notification-icon-system"),
+        Some("permission") => ("key", "notification-icon-system"),
+        Some("announcement" | "news") => ("newspaper", "notification-icon-news"),
+        Some("portfolio-alert" | "alert") => ("alert-triangle", "notification-icon-alert"),
+        Some("subscription") => ("zap", "notification-icon-subscription"),
+        Some("system" | "general" | "advertisement") => ("info", "notification-icon-system"),
+        Some(_) | None => ("info", "notification-icon-system"),
+    };
+    NotificationTypeDecoration {
+        icon_name,
+        icon_class,
+    }
+}
+
 #[component]
 fn NotificationRow(notification: Notification, rendered_at: DateTime<Utc>) -> Element {
-    let (icon_name, icon_class) = match notification.kind.as_deref() {
-        Some("payment") => ("credit-card", "notification-icon-payment"),
-        Some("subscription") => ("zap", "notification-icon-subscription"),
-        Some("wallet") => ("wallet", "notification-icon-wallet"),
-        Some("news") => ("newspaper", "notification-icon-news"),
-        Some("chat") => ("message-circle", "notification-icon-chat"),
-        Some("alert") => ("alert-triangle", "notification-icon-alert"),
-        _ => ("info", "notification-icon-system"),
-    };
+    let decoration = notification_type_decoration(notification.kind.as_deref());
     let row_class = if notification.read {
         "notification-row notification-row-read"
     } else {
@@ -372,8 +396,8 @@ fn NotificationRow(notification: Notification, rendered_at: DateTime<Utc>) -> El
         li {
             class: "{row_class}",
             "data-notification-id": "{notification.id}",
-            div { class: "notification-icon {icon_class}",
-                Icon { name: icon_name.to_string(), size: Some(16) }
+            div { class: "notification-icon {decoration.icon_class}",
+                Icon { name: decoration.icon_name.to_string(), size: Some(16) }
             }
             div { class: "notification-body",
                 div { class: "notification-headline",
@@ -534,6 +558,124 @@ mod tests {
 
     fn timestamp(value: &str) -> DateTime<Utc> {
         value.parse().expect("test timestamp must be RFC3339")
+    }
+
+    fn notification_row_html(kind: Option<&str>, priority: Option<&str>) -> String {
+        let notification = Notification {
+            id: "notification-decoration-test".to_string(),
+            title: "Decoration test".to_string(),
+            body: "Body".to_string(),
+            kind: kind.map(str::to_string),
+            priority: priority.map(str::to_string),
+            read: false,
+            created_at: timestamp("2026-07-22T10:00:00Z"),
+        };
+        dioxus_ssr::render_element(rsx! {
+            NotificationRow {
+                notification,
+                rendered_at: timestamp("2026-07-22T12:00:00Z"),
+            }
+        })
+    }
+
+    #[test]
+    fn notification_type_decorations_cover_exact_tags_and_neutral_fallbacks() {
+        for (kind, icon_name, icon_class) in [
+            (Some("payment"), "credit-card", "notification-icon-payment"),
+            (Some("wallet"), "wallet", "notification-icon-wallet"),
+            (
+                Some("walletmanagement"),
+                "wallet",
+                "notification-icon-wallet",
+            ),
+            (
+                Some("wallet_management"),
+                "wallet",
+                "notification-icon-wallet",
+            ),
+            (
+                Some("wallet-management"),
+                "wallet",
+                "notification-icon-wallet",
+            ),
+            (Some("chat"), "message-circle", "notification-icon-chat"),
+            (Some("security"), "shield", "notification-icon-system"),
+            (Some("permission"), "key", "notification-icon-system"),
+            (Some("announcement"), "newspaper", "notification-icon-news"),
+            (
+                Some("portfolio-alert"),
+                "alert-triangle",
+                "notification-icon-alert",
+            ),
+            (
+                Some("subscription"),
+                "zap",
+                "notification-icon-subscription",
+            ),
+            (Some("news"), "newspaper", "notification-icon-news"),
+            (Some("alert"), "alert-triangle", "notification-icon-alert"),
+            (Some("system"), "info", "notification-icon-system"),
+            (Some("general"), "info", "notification-icon-system"),
+            (Some("advertisement"), "info", "notification-icon-system"),
+            (Some("unknown"), "info", "notification-icon-system"),
+            (Some("Payment"), "info", "notification-icon-system"),
+            (None, "info", "notification-icon-system"),
+        ] {
+            assert_eq!(
+                notification_type_decoration(kind),
+                NotificationTypeDecoration {
+                    icon_name,
+                    icon_class,
+                },
+                "unexpected decoration for {kind:?}",
+            );
+        }
+    }
+
+    #[test]
+    fn notification_rows_render_known_icons_without_relabeling_raw_metadata() {
+        for (kind, priority, icon_name, icon_class) in [
+            ("security", "critical", "shield", "notification-icon-system"),
+            (
+                "wallet_management",
+                "normal",
+                "wallet",
+                "notification-icon-wallet",
+            ),
+            (
+                "portfolio-alert",
+                "high",
+                "alert-triangle",
+                "notification-icon-alert",
+            ),
+        ] {
+            let html = notification_row_html(Some(kind), Some(priority));
+            assert!(html.contains(&format!("class=\"notification-icon {icon_class}\"")));
+            assert!(html.contains(&format!("class=\"lucide lucide-{icon_name} ")));
+            assert!(html.contains(&format!(">Type: </span>{kind}</span>")));
+            assert!(html.contains(&format!(">Priority: </span>{priority}</span>")));
+        }
+    }
+
+    #[test]
+    fn unknown_type_and_priority_stay_escaped_visible_neutral_and_noninteractive() {
+        let html = notification_row_html(
+            Some("<script>unknown</script>"),
+            Some("<img src=x onerror=alert(1)>"),
+        );
+
+        assert!(html.contains("class=\"notification-icon notification-icon-system\""));
+        assert!(html.contains("class=\"lucide lucide-info "));
+        assert!(html.contains(">Type: </span>&#60;script&#62;unknown&#60;/script&#62;</span>"));
+        assert!(html.contains(">Priority: </span>&#60;img src=x onerror=alert(1)&#62;</span>"));
+        assert!(!html.contains("<script>unknown</script>"));
+        assert!(!html.contains("<img src=x onerror=alert(1)>"));
+        for forbidden in ["<a", "<button", "tabindex=", "onclick=", "role=\"button\""] {
+            assert!(
+                !html.contains(forbidden),
+                "decoration unexpectedly introduced interaction: {forbidden}"
+            );
+        }
     }
 
     #[test]
