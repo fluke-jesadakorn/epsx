@@ -113,6 +113,7 @@ pub fn design_system_head_with_keywords(
     --text-subtle:     #64748b;
     --primary:         #3b82f6;
     --primary-hover:   #2563eb;
+    --focus-ring:      #c2410c;
     --shadow-sm:       0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow:          0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
     --shadow-lg:       0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
@@ -194,6 +195,7 @@ pub fn design_system_head_with_keywords(
     --text:            #f1f5f9;
     --text-muted:      #94a3b8;
     --text-subtle:     #64748b;
+    --focus-ring:      #f97316;
     --shadow-sm:       0 1px 2px 0 rgba(0, 0, 0, 0.4);
     --shadow:          0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
     --shadow-lg:       0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
@@ -686,6 +688,10 @@ pub fn design_system_head_with_keywords(
     outline: none;
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+  }}
+  .btn:focus-visible, .input:focus-visible {{
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 2px;
   }}
   .label {{
     display: block;
@@ -7248,6 +7254,71 @@ mod page_head_tests {
         assert!(
             contrast_ratio("#f97316", "#111827") >= 3.0,
             "skip-link focus outline must meet non-text contrast"
+        );
+    }
+
+    #[test]
+    fn shared_primitives_emit_theme_contrasting_focus_visible_ring() {
+        let button = components::Btn::new("Focus target").render();
+        assert!(button.starts_with(
+            r#"<button type="button" class="btn btn-primary"><span>Focus target</span></button>"#
+        ));
+        assert!(!button.contains("disabled"));
+        assert!(!button.contains(r#"tabindex="-1""#));
+
+        let input = components::Input::new("focus-input").render();
+        assert!(input.contains(r#"<input id="focus-input""#));
+        assert!(input.contains(r#"type="text""#));
+        assert!(input.contains(r#"class="input""#));
+        assert!(!input.contains("disabled"));
+        assert!(!input.contains(r#"tabindex="-1""#));
+
+        let head = design_system_head(
+            "Shared primitive focus",
+            "Static button and input keyboard-ring declarations",
+        );
+        let selector = ".btn:focus-visible, .input:focus-visible";
+        let focus_rule = emitted_css_rule(&head, selector);
+        assert_eq!(
+            emitted_declaration(focus_rule, "outline"),
+            "3px solid var(--focus-ring)"
+        );
+        assert_eq!(emitted_declaration(focus_rule, "outline-offset"), "2px");
+        assert_eq!(head.matches(&format!("\n  {selector} {{")).count(), 1);
+
+        let root_rule = emitted_css_rule(&head, ":root");
+        let dark_rule = emitted_css_rule(&head, "html.dark");
+        let light_ring = emitted_hex_declaration(root_rule, "--focus-ring");
+        let dark_ring = emitted_hex_declaration(dark_rule, "--focus-ring");
+        assert_eq!(light_ring, "#c2410c");
+        assert_eq!(dark_ring, "#f97316");
+
+        for (theme, ring, rule) in [
+            ("light", light_ring.as_str(), root_rule),
+            ("dark", dark_ring.as_str(), dark_rule),
+        ] {
+            for surface in ["--bg", "--bg-secondary", "--surface-solid"] {
+                let surface_color = emitted_hex_declaration(rule, surface);
+                assert!(
+                    contrast_ratio(ring, &surface_color) >= 3.0,
+                    "{theme} {ring} focus ring must contrast with {surface} {surface_color}"
+                );
+            }
+        }
+
+        let input_focus_marker = "\n  .input:focus {";
+        let focus_visible_marker = format!("\n  {selector} {{");
+        let input_focus_position = head.find(input_focus_marker).expect("input focus rule");
+        let focus_visible_position = head
+            .find(&focus_visible_marker)
+            .expect("primitive focus-visible rule");
+        assert!(
+            focus_visible_position > input_focus_position,
+            "focus-visible outline must follow and supersede the input focus outline reset"
+        );
+        assert_eq!(
+            emitted_declaration(emitted_css_rule(&head, ".input:focus"), "outline"),
+            "none"
         );
     }
 
