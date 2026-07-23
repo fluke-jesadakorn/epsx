@@ -209,7 +209,7 @@
       "source":{"file":"apps/frontend/app/notifications/page.tsx","anchors":["export default async function NotificationsPage","page: parseInt(params.page ?? '1')"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/notifications.rs","handler":"notifications::render","anchors":["pub fn render(ctx: &PageContext)","enum NotificationLoad {","fn malformed_and_upstream_states_are_truthful_and_sample_free()"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
-      "loader":{"kind":"owner-gateway-explicit-outcome-plus-authenticated-shared-header","endpoints":["GET /api/v1/notification/list","GET /api/v1/notifications/unread-count"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":".get_with_ctx(\"/api/v1/notification/list\", &request_context)"},{"file":"apps/frontend/src/ssr.rs","anchor":"params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"ok\".into());"},{"file":"apps/frontend/src/ssr.rs","anchor":"params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"error\".into());"},{"file":"apps/frontend/src/ssr.rs","anchor":"let authenticated_header_runtime = notification_badge_runtime(is_authenticated, &path);"},{"file":"apps/frontend/src/ssr.rs","anchor":"var endpoint = '/api/v1/notifications/unread-count';"},{"file":"shared/rust/templates/src/lib.rs","anchor":"data-epsx-notification-unread-badge=\"true\" data-state=\"unavailable\" aria-hidden=\"true\" hidden></span>"}]},
+      "loader":{"kind":"owner-gateway-explicit-outcome-plus-authenticated-shared-header","endpoints":["GET /api/v1/notification/list","GET /api/v1/notifications/unread-count"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"let outcome = crate::api::load_owner_notifications("},{"file":"apps/frontend/src/ssr.rs","anchor":"params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"ok\".into());"},{"file":"apps/frontend/src/ssr.rs","anchor":"params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"error\".into());"},{"file":"apps/frontend/src/ssr.rs","anchor":"let authenticated_header_runtime = notification_badge_runtime(is_authenticated, &path);"},{"file":"apps/frontend/src/ssr.rs","anchor":"var endpoint = '/api/v1/notifications/unread-count';"},{"file":"shared/rust/templates/src/lib.rs","anchor":"data-epsx-notification-unread-badge=\"true\" data-state=\"unavailable\" aria-hidden=\"true\" hidden></span>"}]},
       "authOwner":{"auth":"required","owner":"verified session principal wallet derived by the notification service through the frontend BFF; only server-verified authenticated non-offline SSR responses receive the shared-header unread controller"},
       "interactions":{"forms":[],"pagination":["source-compatible owner pagination and page/type/priority query contract remain absent"],"search":[],"wallet":[],"keyboard":["native retry link is present for dependency and malformed-payload recovery","shared-header link has an exact accessible unread-count label while visible text alone caps at 99+"],"controls":["no page-local filters or lifecycle controls; mutation, preferences, browser-push, and action-URL controls are absent","shared-header badge starts empty/hidden/unavailable with AA small-text contrast and uses a read-only exact-count controller with private/no-store owner HTML and BFF outcomes, a cache-bypassing fetch, zero/error hiding, generation race guards, text-only DOM writes, signed-out no-runtime behavior, and public /offline exclusion"]},
       "states":{"loading":"missing","empty":"present","error":"present","retry":"present"},
@@ -301,16 +301,16 @@
       "blockers":["consume an owner-hidden dynamic resource only after A6 proves intent, submission, status/finality, idempotency, recovery, and browser behavior for every supported type"]
     },
     {
-      "path":"/contact","batch":"B6-commerce-support","status":"partial","dependencies":["A5"],
+      "path":"/contact","batch":"B6-commerce-support","status":"partial","dependencies":["A1"],
       "source":{"file":"apps/frontend/app/contact/page.tsx","anchors":["export default function ContactPage()","CopyEmailBtn"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/contact.rs","handler":"contact::render","anchors":["pub fn render(ctx: &PageContext)","action: \"/api/v1/contact\""]},
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/contact.rs","handler":"contact::render","anchors":["pub fn render(ctx: &PageContext)","fn contact_exposes_only_working_email_actions()"]},
       "payloads":{"staticOrSample":["static support channels"],"placeholderOrSkeleton":[]},
-      "loader":{"kind":"native-form","endpoints":["POST /api/v1/contact"],"evidence":[]},
-      "authOwner":{"auth":"middleware-required in current BFF","owner":"session contact request"},
-      "interactions":{"forms":["native contact POST"],"pagination":[],"search":[],"wallet":[],"keyboard":["native form keyboard submission"],"controls":["mailto and copy-email bridge"]},
-      "states":{"loading":"missing","empty":"not-applicable","error":"missing","retry":"missing"},
-      "hydration":{"need":"browser","status":"partial","reason":"copy bridge exists; submit feedback contract is not visible in page"},
-      "blockers":["prove POST contract, CSRF/rate-limit behavior, validation, success/error/retry feedback, and copy-button keyboard status"]
+      "loader":{"kind":"none","endpoints":[],"evidence":[]},
+      "authOwner":{"auth":"middleware-required in current BFF","owner":"none; the public support address is displayed and no contact request is accepted"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native mailto link and semantic copy-email button; focused browser keyboard/status proof remains open"],"controls":["mailto:info@epsx.io and copy-email bridge only; unsupported contact form absent"]},
+      "states":{"loading":"not-applicable","empty":"not-applicable","error":"not-applicable","retry":"not-applicable"},
+      "hydration":{"need":"browser","status":"partial","reason":"mailto is native; the copy-email bridge exists and changes its label, but focused browser keyboard/status proof is absent"},
+      "blockers":["pinned mailto/copy-only behavior is restored and no contact request is accepted; keep partial until middleware-required authenticated responsive proof and copy-button keyboard activation/status feedback pass"]
     },
     {
       "path":"/access-denied","batch":"B7-policy-fallback","status":"aligned","dependencies":[],
@@ -351,14 +351,14 @@
     {
       "path":"/terms","batch":"B7-policy-fallback","status":"partial","dependencies":["A5"],
       "source":{"file":"apps/frontend/app/terms/page.tsx","anchors":["export default function TermsPage()","fetch('/api/public/subscribe'"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/terms.rs","handler":"terms::render","anchors":["pub fn render(ctx: &PageContext)","action: \"/api/public/subscribe\""]},
-      "payloads":{"staticOrSample":["intentional static terms copy"],"placeholderOrSkeleton":["pinned source SkeletonLoader for subscribe form"]},
-      "loader":{"kind":"native-form","endpoints":["POST /api/public/subscribe"],"evidence":[]},
-      "authOwner":{"auth":"public","owner":"subscriber email"},
-      "interactions":{"forms":["native required email form targets an endpoint with no matching email-subscribe handler"],"pagination":[],"search":[],"wallet":[],"keyboard":["focused Playwright proves labelled input focus and native invalid-email blocking"],"controls":["privacy/contact links; six labelled h2 sections under one h1"]},
-      "states":{"loading":"missing","empty":"not-applicable","error":"missing","retry":"missing"},
-      "hydration":{"need":"none","status":"not-applicable","reason":"native form is usable without hydration"},
-      "blockers":["product/legal approval is required for Google/OIDC copy versus wallet/SIWE; /api/public/subscribe has no matching handler, so pending/success/error/retry subscription feedback cannot be proven"]
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/terms.rs","handler":"terms::render","anchors":["pub fn render(ctx: &PageContext)","fn terms_preserves_accessible_legal_content_without_unsupported_subscription()"]},
+      "payloads":{"staticOrSample":["intentional static terms copy"],"placeholderOrSkeleton":[]},
+      "loader":{"kind":"none","endpoints":[],"evidence":[]},
+      "authOwner":{"auth":"public","owner":"none; no subscriber email is collected or accepted"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native privacy/contact links are the only page-local controls; the updated focused Playwright contract checks both links, but runtime proof was not rerun in this slice"],"controls":["privacy/contact links; six labelled h2 sections under one h1; unsupported newsletter form absent"]},
+      "states":{"loading":"not-applicable","empty":"not-applicable","error":"not-applicable","retry":"not-applicable"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"intentional static policy content and native links require no page-local hydration"},
+      "blockers":["product/legal approval is required for Google/OIDC copy versus wallet/SIWE; the target intentionally omits the pinned source newsletter form because /api/public/subscribe has no matching handler, so the source drift must be accepted or a real endpoint must provide validation, rate limiting, pending/success/error/retry feedback, and browser proof"]
     }
   ]
 }

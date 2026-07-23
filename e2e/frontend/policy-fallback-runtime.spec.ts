@@ -103,37 +103,33 @@ test.describe('B7 policy and fallback runtime proof', () => {
     expect(pageErrors).toEqual([]);
   });
 
-  test('terms hierarchy is stable and keyboard validation blocks invalid subscribe', async ({ page }) => {
+  test('terms hierarchy is stable and footer links remain keyboard focusable', async ({ page }) => {
     const pageErrors: string[] = [];
-    const subscribeRequests: string[] = [];
     page.on('pageerror', (error) => pageErrors.push(error.message));
-    page.on('request', (request) => {
-      if (new URL(request.url()).pathname === '/api/public/subscribe') {
-        subscribeRequests.push(request.method());
-      }
-    });
 
     for (const viewport of viewports) {
       await page.setViewportSize(viewport);
       const response = await page.goto('/terms', { waitUntil: 'domcontentloaded' });
       expect(response?.status(), `${viewport.name} terms status`).toBe(200);
       await expect(page.getByRole('heading', { level: 1, name: 'Terms and Conditions' })).toBeVisible();
-      await expect(page.getByRole('heading', { level: 2 })).toHaveCount(7);
+      await expect(page.getByRole('heading', { level: 2 })).toHaveCount(6);
       await expect(page.getByRole('article', { name: 'Terms and conditions details' })).toBeVisible();
       await expect(page.getByRole('heading', { level: 2, name: '1. Introduction' })).toBeVisible();
       await expect(page.getByRole('heading', { level: 2, name: '6. Authentication Standards' })).toBeVisible();
       await expect(page.getByText('Last updated: 6/18/2026', { exact: true })).toBeVisible();
+      await expect(page.locator('form[action="/api/public/subscribe"]')).toHaveCount(0);
+      await expect(page.getByRole('textbox', { name: 'Email' })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Subscribe' })).toHaveCount(0);
+      await expect(page.getByText('Subscribe for updates', { exact: true })).toHaveCount(0);
       await expectResponsiveDocument(page);
     }
 
-    const email = page.getByRole('textbox', { name: 'Email' });
-    await email.focus();
-    await expect(email).toBeFocused();
-    await email.fill('not-an-email');
-    await page.keyboard.press('Enter');
-    expect(await email.evaluate((input: HTMLInputElement) => input.validationMessage.length)).toBeGreaterThan(0);
-    await expect(page).toHaveURL(/\/terms$/);
-    expect(subscribeRequests).toEqual([]);
+    const privacy = page.getByRole('link', { name: 'Read privacy policy' });
+    await privacy.focus();
+    await expect(privacy).toBeFocused();
+    const contact = page.getByRole('link', { name: 'Contact us' });
+    await contact.focus();
+    await expect(contact).toBeFocused();
     expect(pageErrors).toEqual([]);
   });
 });

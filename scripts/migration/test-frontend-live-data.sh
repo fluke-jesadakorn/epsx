@@ -90,7 +90,7 @@ grep -q "/notifications truthful read-only semantic contract drifted" "$temp_dir
 
 FRONTEND_CONTRACT_IN="$contract" FRONTEND_CONTRACT_OUT="$temp_dir/wrong-existing-notification-badge-anchor.json" bun -e '
 const value = await Bun.file(process.env.FRONTEND_CONTRACT_IN).json();
-value.routes.find(route => route.path === "/notifications").loader.evidence[4].anchor = "/api/v1/notification/list";
+value.routes.find(route => route.path === "/notifications").loader.evidence[4].anchor = "let outcome = crate::api::load_owner_notifications(";
 await Bun.write(process.env.FRONTEND_CONTRACT_OUT, `${JSON.stringify(value, null, 2)}\n`);
 '
 set +e

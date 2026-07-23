@@ -1,12 +1,11 @@
 //! `/terms` — Terms of Service page.
 //!
-//! Source of truth: `apps-old/frontend/app/terms/page.tsx` —
-//! 6 sections, ported 1:1 from the OLD source for Wave 22
-//! pixel-perfect parity (the prior 9-section expansion was a
-//! Wave 5 design deviation; the T5 brief mandates the prod
-//! structure which matches the OLD source exactly).
+//! Source baseline: `origin/development:apps/frontend/app/terms/page.tsx`.
+//! The six-section legal body is preserved. Its newsletter form is
+//! intentionally omitted because no matching subscription handler or
+//! complete feedback contract exists.
 //!
-//! Section coverage (6 sections matching `apps-old/frontend/app/terms/page.tsx`):
+//! Section coverage (6 sections matching the pinned source legal body):
 //! 1. Introduction
 //! 2. Authentication & Account Security
 //! 3. Data Collection & Usage
@@ -17,25 +16,25 @@
 //! The current production-aligned render omits the inline table of
 //! contents while retaining stable section IDs for direct anchors.
 
-use crate::primitives::*;
-
-use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
+use dioxus::prelude::*;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Terms and Conditions");
-    (meta, rsx! {
-        MainLayout { ctx: ctx.clone(),
-            div { class: "container page-content legal-page terms-page",
-                TermsHero {}
-                TermsSections {}
-                TermsSubscribeCard {}
-                TermsFooter {}
+    (
+        meta,
+        rsx! {
+            MainLayout { ctx: ctx.clone(),
+                div { class: "container page-content legal-page terms-page",
+                    TermsHero {}
+                    TermsSections {}
+                    TermsFooter {}
+                }
             }
-        }
-    })
+        },
+    )
 }
 
 #[component]
@@ -144,47 +143,6 @@ fn TermsSections() -> Element {
     }
 }
 
-/// Email subscribe card — mirrors the source's
-/// `<Card className="...mt-8"><h2>Subscribe for Updates</h2><SubscribeForm /></Card>`
-/// at the bottom of the page. The source uses a `react-hook-form`
-/// form that posts to `/api/public/subscribe`; the port renders a
-/// plain HTML form (no JS) that posts to the same endpoint so the
-/// page is usable without client-side JavaScript.
-#[component]
-fn TermsSubscribeCard() -> Element {
-    rsx! {
-        section { class: "terms-subscribe-section", "aria-labelledby": "terms-subscribe-title",
-            div { class: "card card-glass terms-subscribe-card",
-                div { class: "card-body",
-                    h2 { id: "terms-subscribe-title", class: "terms-subscribe-title", "Subscribe for updates" }
-                    p { id: "terms-subscribe-description", class: "terms-subscribe-subtitle text-muted-foreground",
-                        "Get a quarterly digest of platform changes and policy updates."
-                    }
-                    form {
-                        class: "terms-subscribe-form",
-                        action: "/api/public/subscribe",
-                        method: "POST",
-                        "aria-describedby": "terms-subscribe-description",
-                        Input {
-                            r#type: InputKind::Email,
-                            id: Some("terms-subscribe-email".to_string()),
-                            name: Some("email".to_string()),
-                            label: Some("Email".to_string()),
-                            placeholder: Some("you@example.com".to_string()),
-                            required: Some(true),
-                        }
-                        button {
-                            class: "btn btn-gradient",
-                            r#type: "submit",
-                            "Subscribe"
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 #[component]
 fn TermsFooter() -> Element {
     rsx! {
@@ -196,7 +154,7 @@ fn TermsFooter() -> Element {
 }
 
 // === wave5-page-depth-track-b ===
-// Unit tests for the terms page. Smoke test plus a 9-section
+// Unit tests for the terms page. Smoke test plus a 6-section
 // structural check (the design doc says terms is "essentially just
 // text" but the Wave 5 page-depth work requires a section-marker
 // regression check for every multi-section legal page).
@@ -214,9 +172,8 @@ mod tests {
 
     /// 6 canonical ToS section slugs. Matches the `id` attribute
     /// on each `<section class="legal-section">` in `TermsSections`
-    /// and the TOC anchor links in `TermsToc`. Matches the OLD
-    /// source `apps-old/frontend/app/terms/page.tsx` exactly for
-    /// Wave 22 pixel-perfect parity.
+    /// and the TOC anchor links in `TermsToc`. Matches the pinned
+    /// source's six-section legal body.
     const TERMS_SECTION_SLUGS: &[&str] = &[
         "introduction",
         "authentication-security",
@@ -231,7 +188,10 @@ mod tests {
         let ctx = empty_ctx();
         let (_meta, el) = render(&ctx);
         let html = dioxus_ssr::render_element(el);
-        assert!(!html.trim().is_empty(), "terms page should render non-empty HTML");
+        assert!(
+            !html.trim().is_empty(),
+            "terms page should render non-empty HTML"
+        );
     }
 
     #[test]
@@ -267,7 +227,10 @@ mod tests {
         let ctx = empty_ctx();
         let (_meta, el) = render(&ctx);
         let html = dioxus_ssr::render_element(el);
-        assert!(!html.contains("legal-toc"), "terms page must not render the retired inline TOC. Got: {html}");
+        assert!(
+            !html.contains("legal-toc"),
+            "terms page must not render the retired inline TOC. Got: {html}"
+        );
         for slug in TERMS_SECTION_SLUGS {
             let section_id = format!("id=\"{slug}\"");
             assert!(
@@ -279,22 +242,36 @@ mod tests {
     }
 
     #[test]
-    fn terms_has_accessible_hierarchy_and_keyboard_native_form_contract() {
+    fn terms_preserves_accessible_legal_content_without_unsupported_subscription() {
         let (_meta, el) = render(&empty_ctx());
         let html = dioxus_ssr::render_element(el);
 
         assert_eq!(html.matches("<h1").count(), 1);
-        assert_eq!(html.matches("<h2").count(), 7);
+        assert_eq!(html.matches("<h2").count(), 6);
         assert_eq!(html.matches("<h3").count(), 0);
         assert!(html.contains("<article"));
         assert!(html.contains("aria-label=\"Terms and conditions details\""));
-        assert_eq!(html.matches("aria-labelledby=").count(), 7);
-        assert!(html.contains("action=\"/api/public/subscribe\""));
-        assert!(html.contains("method=\"POST\""));
-        assert!(html.contains("type=\"email\""));
-        assert!(html.contains("id=\"terms-subscribe-email\""));
-        assert!(html.contains("for=\"terms-subscribe-email\""));
-        assert!(html.contains("required"));
-        assert!(html.contains("aria-describedby=\"terms-subscribe-description\""));
+        assert_eq!(html.matches("aria-labelledby=").count(), 6);
+        assert!(html.contains("Last updated: 6/18/2026"));
+        assert!(html.contains("href=\"/privacy\""));
+        assert!(html.contains(">Read privacy policy</a>"));
+        assert!(html.contains("href=\"/contact\""));
+        assert!(html.contains(">Contact us</a>"));
+
+        for forbidden in [
+            "<form",
+            "<input",
+            "type=\"email\"",
+            "type=\"submit\"",
+            "/api/public/subscribe",
+            "terms-subscribe",
+            "Subscribe for updates",
+            "quarterly digest",
+        ] {
+            assert!(
+                !html.contains(forbidden),
+                "unsupported newsletter surface leaked: {forbidden}"
+            );
+        }
     }
 }

@@ -213,7 +213,7 @@ const exactNotificationTargetAnchors = [
   "fn malformed_and_upstream_states_are_truthful_and_sample_free()",
 ];
 const exactNotificationLoaderEvidence = [
-  { file: "apps/frontend/src/ssr.rs", anchor: ".get_with_ctx(\"/api/v1/notification/list\", &request_context)" },
+  { file: "apps/frontend/src/ssr.rs", anchor: "let outcome = crate::api::load_owner_notifications(" },
   { file: "apps/frontend/src/ssr.rs", anchor: "params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"ok\".into());" },
   { file: "apps/frontend/src/ssr.rs", anchor: "params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"error\".into());" },
   { file: "apps/frontend/src/ssr.rs", anchor: "let authenticated_header_runtime = notification_badge_runtime(is_authenticated, &path);" },
@@ -328,7 +328,7 @@ if (badgeCss.includes("background: #ef4444; color: white;")) {
   die("/notifications shared-header badge restored the sub-AA text contrast color");
 }
 
-const cachePolicyStart = notificationSsr.indexOf("fn apply_ssr_cache_policy(response: &mut Response, is_authenticated: bool, path: &str) {");
+const cachePolicyStart = notificationSsr.indexOf("fn apply_ssr_cache_policy(\n    response: &mut Response,\n    is_authenticated: bool,\n    recover_session: bool,\n    auth_page_verifier_unavailable: bool,\n    path: &str,\n) {");
 const cachePolicyEnd = notificationSsr.indexOf("/// Fetch page-specific data", cachePolicyStart);
 if (cachePolicyStart < 0 || cachePolicyEnd < 0 || cachePolicyStart >= cachePolicyEnd) {
   die("/notifications authenticated SSR cache policy boundary drifted");
@@ -337,12 +337,13 @@ const cachePolicy = notificationSsr.slice(cachePolicyStart, cachePolicyEnd);
 for (const anchor of [
   "if path == \"/offline\" {",
   "HeaderValue::from_static(\"public, max-age=0, must-revalidate\")",
-  "} else if is_authenticated {",
+  "} else if is_authenticated || recover_session || auth_page_verifier_unavailable {",
   "HeaderValue::from_static(\"private, no-store\")",
+  "HeaderValue::from_static(\"Cookie, Authorization\")",
 ]) {
   if (!cachePolicy.includes(anchor)) die(`/notifications authenticated SSR cache policy drifted: ${anchor}`);
 }
-if (!notificationSsr.includes("apply_ssr_cache_policy(&mut response, is_authenticated, &path);")) {
+if (!notificationSsr.includes("apply_ssr_cache_policy(\n        &mut response,\n        is_authenticated,\n        recover_session,\n        auth_page_verifier_unavailable,\n        &path,\n    );")) {
   die("/notifications SSR response no longer applies the reviewed private/public cache split");
 }
 
