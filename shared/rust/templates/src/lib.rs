@@ -5687,20 +5687,87 @@ window.epsx = (function() {
   }
 
   // ============ EPSX.io-style nav (Market/Developer/Company) ============
+  function setNavOpen(wrap, open) {
+    if (!wrap) return;
+    const trigger = wrap.querySelector('.epsx-nav-trigger');
+    const panel = wrap.querySelector('.epsx-nav-menu');
+    wrap.classList.toggle('open', open);
+    if (trigger) trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (panel) panel.hidden = !open;
+  }
+  function closeNav(wrap, restoreFocus) {
+    if (!wrap || !wrap.classList.contains('open')) return;
+    const trigger = wrap.querySelector('.epsx-nav-trigger');
+    setNavOpen(wrap, false);
+    if (restoreFocus && trigger && typeof trigger.focus === 'function') {
+      trigger.focus();
+    }
+  }
+  function closeAllNav(except) {
+    document.querySelectorAll('.epsx-nav-wrap').forEach(function(wrap) {
+      if (wrap !== except) closeNav(wrap, false);
+    });
+  }
   function toggleNav(btn) {
     const wrap = btn.closest('.epsx-nav-wrap');
     if (!wrap) return;
     const willOpen = !wrap.classList.contains('open');
-    document.querySelectorAll('.epsx-nav-wrap').forEach(w => w.classList.remove('open'));
+    closeAllNav(wrap);
+    setNavOpen(wrap, willOpen);
     if (willOpen) {
-      wrap.classList.add('open');
       if (window.epsx && window.epsx.initLucide) window.epsx.initLucide();
     }
   }
   // ============ Mobile menu sheet (visible < 640px) ============
+  function setMobileMenuExpanded(expanded) {
+    const trigger = document.getElementById('epsx-mobile-menu-btn');
+    if (!trigger) return;
+    trigger.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    trigger.setAttribute('aria-label', expanded ? 'Close menu' : 'Open menu');
+  }
+  function closeMobileMenu(restoreFocus) {
+    const sheet = document.getElementById('epsx-mobile-sheet');
+    if (sheet) sheet.remove();
+    setMobileMenuExpanded(false);
+    if (restoreFocus) {
+      const trigger = document.getElementById('epsx-mobile-menu-btn');
+      if (trigger && typeof trigger.focus === 'function') trigger.focus();
+    }
+  }
+  function mobileMenuFocusable(sheet) {
+    return Array.from(
+      sheet.querySelectorAll(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    );
+  }
+  function handleMobileMenuKeydown(e, sheet) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      closeMobileMenu(true);
+      return;
+    }
+    if (e.key !== 'Tab') return;
+    const focusable = mobileMenuFocusable(sheet);
+    if (focusable.length === 0) {
+      e.preventDefault();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const focusInside = sheet.contains(document.activeElement);
+    if (e.shiftKey && (!focusInside || document.activeElement === first)) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && (!focusInside || document.activeElement === last)) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
   function toggleMobileMenu() {
     let sheet = document.getElementById('epsx-mobile-sheet');
-    if (sheet) { sheet.remove(); return; }
+    if (sheet) { closeMobileMenu(true); return; }
     const isAuthenticated = document.querySelector('[data-epsx-authenticated="true"]') !== null;
     const sessionAction = isAuthenticated
       ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-top:1rem;">
@@ -5713,11 +5780,14 @@ window.epsx = (function() {
     sheet = document.createElement('div');
     sheet.id = 'epsx-mobile-sheet';
     sheet.className = 'epsx-mobile-sheet';
+    sheet.setAttribute('role', 'dialog');
+    sheet.setAttribute('aria-modal', 'true');
+    sheet.setAttribute('aria-labelledby', 'epsx-mobile-menu-title');
     sheet.innerHTML = `
       <div class="epsx-mobile-sheet-inner animate-slide-in">
         <div class="flex items-center justify-between mb-4">
-          <span class="text-sm font-semibold uppercase tracking-wider" style="color:var(--text-muted);">Menu</span>
-          <button class="epsx-theme-btn" type="button" aria-label="Close menu" onclick="epsx.toggleMobileMenu()" style="width:2.25rem;height:2.25rem;padding:0;">
+          <span id="epsx-mobile-menu-title" class="text-sm font-semibold uppercase tracking-wider" style="color:var(--text-muted);">Menu</span>
+          <button class="epsx-theme-btn" type="button" aria-label="Close menu" data-epsx-mobile-close style="width:2.25rem;height:2.25rem;padding:0;">
             <i data-lucide="x" style="width:1.125rem;height:1.125rem;"></i>
           </button>
         </div>
@@ -5742,17 +5812,38 @@ window.epsx = (function() {
       </div>
     `;
     document.body.appendChild(sheet);
+    setMobileMenuExpanded(true);
+    sheet.addEventListener('click', function(e) {
+      if (e.target === sheet) closeMobileMenu(true);
+    });
+    const closeButton = sheet.querySelector('[data-epsx-mobile-close]');
+    if (closeButton) {
+      closeButton.addEventListener('click', function() {
+        closeMobileMenu(true);
+      });
+      closeButton.focus();
+    }
     if (window.epsx && window.epsx.initLucide) window.epsx.initLucide();
   }
   // Click-outside to close
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.epsx-nav-wrap')) {
-      document.querySelectorAll('.epsx-nav-wrap').forEach(w => w.classList.remove('open'));
+      closeAllNav(null);
     }
   });
   document.addEventListener('keydown', (e) => {
+    const mobileSheet = document.getElementById('epsx-mobile-sheet');
+    if (mobileSheet && (e.key === 'Escape' || e.key === 'Tab')) {
+      handleMobileMenuKeydown(e, mobileSheet);
+      return;
+    }
     if (e.key === 'Escape') {
-      document.querySelectorAll('.epsx-nav-wrap').forEach(w => w.classList.remove('open'));
+      const openWrap = Array.from(document.querySelectorAll('.epsx-nav-wrap'))
+        .find(function(wrap) { return wrap.classList.contains('open'); });
+      if (openWrap) {
+        e.preventDefault();
+        closeNav(openWrap, true);
+      }
     }
   });
 
@@ -6842,15 +6933,17 @@ pub fn epsx_header_for_session(is_authenticated: bool) -> String {
         )
     };
     let nav_block = |label: &str, icon: &str, items: &str| -> String {
+        let id = label.to_ascii_lowercase();
         format!(
             r##"<div class="epsx-nav-wrap" data-nav="{label}">
-  <button class="epsx-nav-trigger" type="button" onclick="epsx.toggleNav(this)">
+  <button id="epsx-nav-{id}-trigger" class="epsx-nav-trigger" type="button" aria-expanded="false" aria-controls="epsx-nav-{id}-panel" onclick="epsx.toggleNav(this)">
     <i data-lucide="{icon}" class="nav-icon"></i>
     {label}
     <i data-lucide="chevron-down" class="nav-chev"></i>
   </button>
-  <div class="epsx-nav-menu" role="menu">{items}</div>
+  <div id="epsx-nav-{id}-panel" class="epsx-nav-menu" aria-labelledby="epsx-nav-{id}-trigger" hidden>{items}</div>
 </div>"##,
+            id = id,
             label = label,
             icon = icon,
             items = items,
@@ -6883,7 +6976,7 @@ pub fn epsx_header_for_session(is_authenticated: bool) -> String {
       {desktop_auth}
       {compact_auth}
       <!-- Mobile menu toggle (< 640px) -->
-      <button class="epsx-theme-btn md:hidden" type="button" aria-label="Open menu" onclick="epsx.toggleMobileMenu()" id="epsx-mobile-menu-btn" style="width:2.25rem;height:2.25rem;padding:0;">
+      <button class="epsx-theme-btn md:hidden" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="epsx-mobile-sheet" onclick="epsx.toggleMobileMenu()" id="epsx-mobile-menu-btn" style="width:2.25rem;height:2.25rem;padding:0;">
         <i data-lucide="menu" style="width:1.125rem;height:1.125rem;"></i>
       </button>
     </div>
@@ -8064,6 +8157,320 @@ async function flushPromises() {{
             .expect("closed mobile rankings anchor")
             .0;
         assert!(mobile_rankings_anchor.contains("> Rankings <span"));
+    }
+
+    fn shared_navigation_controller_source() -> &'static str {
+        let script = global_js();
+        let start = script
+            .find("  // ============ EPSX.io-style nav (Market/Developer/Company) ============")
+            .expect("shared navigation controller start");
+        let end = script[start..]
+            .find("\n\n  // Update theme toggle visibility")
+            .map(|offset| start + offset)
+            .expect("shared navigation controller end");
+        &script[start..end]
+    }
+
+    #[test]
+    fn shared_navigation_disclosures_have_native_relationships_without_menu_roles() {
+        let header = epsx_header_for_session(false);
+        for key in ["market", "developer", "company"] {
+            let trigger_id = format!("epsx-nav-{key}-trigger");
+            let panel_id = format!("epsx-nav-{key}-panel");
+            assert!(header.contains(&format!(
+                "id=\"{trigger_id}\" class=\"epsx-nav-trigger\" type=\"button\" aria-expanded=\"false\" aria-controls=\"{panel_id}\""
+            )));
+            assert!(header.contains(&format!(
+                "id=\"{panel_id}\" class=\"epsx-nav-menu\" aria-labelledby=\"{trigger_id}\" hidden"
+            )));
+        }
+        assert!(!header.contains("role=\"menu\""));
+        assert!(!header.contains("role=\"menuitem\""));
+        assert!(header.contains(
+            "aria-label=\"Open menu\" aria-expanded=\"false\" aria-controls=\"epsx-mobile-sheet\""
+        ));
+
+        let controller = shared_navigation_controller_source();
+        for marker in [
+            "function setNavOpen(wrap, open)",
+            "function closeNav(wrap, restoreFocus)",
+            "function closeMobileMenu(restoreFocus)",
+            "function handleMobileMenuKeydown(e, sheet)",
+            "sheet.setAttribute('role', 'dialog')",
+            "sheet.setAttribute('aria-modal', 'true')",
+            "sheet.setAttribute('aria-labelledby', 'epsx-mobile-menu-title')",
+            "id=\"epsx-mobile-menu-title\"",
+            "data-epsx-mobile-close",
+        ] {
+            assert!(
+                controller.contains(marker),
+                "shared navigation controller missing {marker}"
+            );
+        }
+    }
+
+    #[test]
+    fn shared_navigation_controller_keeps_state_and_focus_synchronized() {
+        let harness = r###"
+const assert = require('node:assert/strict');
+
+function makeClassList(initial) {
+  const values = new Set(initial || []);
+  return {
+    add(name) { values.add(name); },
+    remove(name) { values.delete(name); },
+    contains(name) { return values.has(name); },
+    toggle(name, force) {
+      if (force === undefined) force = !values.has(name);
+      if (force) values.add(name); else values.delete(name);
+      return force;
+    },
+  };
+}
+
+function focusable(name) {
+  return {
+    name,
+    focusCalls: 0,
+    listeners: {},
+    focus() { this.focusCalls += 1; document.activeElement = this; },
+    addEventListener(type, listener) { (this.listeners[type] ||= []).push(listener); },
+  };
+}
+
+function navDisclosure(name) {
+  const panel = { hidden: true };
+  const wrap = {
+    name,
+    classList: makeClassList(),
+    querySelector(selector) {
+      if (selector === '.epsx-nav-trigger') return trigger;
+      if (selector === '.epsx-nav-menu') return panel;
+      return null;
+    },
+  };
+  const trigger = focusable(`${name}-trigger`);
+  trigger.attributes = { 'aria-expanded': 'false' };
+  trigger.setAttribute = function(name, value) { this.attributes[name] = String(value); };
+  trigger.getAttribute = function(name) { return this.attributes[name] || null; };
+  trigger.closest = function(selector) { return selector === '.epsx-nav-wrap' ? wrap : null; };
+  return { wrap, trigger, panel };
+}
+
+const market = navDisclosure('market');
+const developer = navDisclosure('developer');
+const company = navDisclosure('company');
+const wraps = [market.wrap, developer.wrap, company.wrap];
+const mobileTrigger = focusable('mobile-trigger');
+mobileTrigger.attributes = { 'aria-expanded': 'false', 'aria-label': 'Open menu' };
+mobileTrigger.setAttribute = function(name, value) { this.attributes[name] = String(value); };
+mobileTrigger.getAttribute = function(name) { return this.attributes[name] || null; };
+
+const elements = new Map([['epsx-mobile-menu-btn', mobileTrigger]]);
+const documentEvents = {};
+let sheetNumber = 0;
+let authenticated = false;
+
+function makeSheet() {
+  const sheet = {
+    id: '',
+    className: '',
+    attributes: {},
+    listeners: {},
+    removed: false,
+    renderedHtml: '',
+    focusables: [],
+    setAttribute(name, value) { this.attributes[name] = String(value); },
+    getAttribute(name) { return this.attributes[name] || null; },
+    addEventListener(type, listener) { (this.listeners[type] ||= []).push(listener); },
+    querySelector(selector) {
+      if (selector !== '[data-epsx-mobile-close]') return null;
+      return this.focusables.find(node => node.markup.includes('data-epsx-mobile-close')) || null;
+    },
+    querySelectorAll(selector) {
+      assert.equal(selector, 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])');
+      return this.focusables;
+    },
+    contains(node) { return this.focusables.includes(node); },
+    remove() { this.removed = true; elements.delete(this.id); },
+  };
+  Object.defineProperty(sheet, 'innerHTML', {
+    get() { return this.renderedHtml; },
+    set(value) {
+      this.renderedHtml = value;
+      this.focusables = [];
+      const tagPattern = /<(a|button)\b([^>]*)>/g;
+      let match;
+      while ((match = tagPattern.exec(value)) !== null) {
+        const node = focusable(`mobile-${match[1]}-${this.focusables.length}`);
+        node.tag = match[1];
+        node.markup = match[0];
+        this.focusables.push(node);
+      }
+    },
+  });
+  Object.defineProperties(sheet, {
+    closeButton: { get() { return this.querySelector('[data-epsx-mobile-close]'); } },
+    firstLink: { get() { return this.focusables.find(node => node.tag === 'a'); } },
+    lastFocusable: { get() { return this.focusables[this.focusables.length - 1]; } },
+  });
+  sheetNumber += 1;
+  sheet.sequence = sheetNumber;
+  return sheet;
+}
+
+global.document = {
+  activeElement: null,
+  body: {
+    appendChild(node) { elements.set(node.id, node); },
+  },
+  getElementById(id) { return elements.get(id) || null; },
+  querySelector(selector) {
+    if (selector === '[data-epsx-authenticated="true"]') return authenticated ? {} : null;
+    return null;
+  },
+  querySelectorAll(selector) { return selector === '.epsx-nav-wrap' ? wraps : []; },
+  createElement(tag) { assert.equal(tag, 'div'); return makeSheet(); },
+  addEventListener(type, listener) { (documentEvents[type] ||= []).push(listener); },
+};
+global.window = { epsx: null };
+
+const controller = __CONTROLLER_JSON__;
+eval(`${controller}\nglobalThis.navController = { toggleNav, toggleMobileMenu };`);
+const api = globalThis.navController;
+const click = documentEvents.click[0];
+const keydown = documentEvents.keydown[0];
+assert.equal(typeof click, 'function');
+assert.equal(typeof keydown, 'function');
+
+api.toggleNav(market.trigger);
+assert.equal(market.wrap.classList.contains('open'), true);
+assert.equal(market.trigger.getAttribute('aria-expanded'), 'true');
+assert.equal(market.panel.hidden, false);
+
+api.toggleNav(developer.trigger);
+assert.equal(market.wrap.classList.contains('open'), false);
+assert.equal(market.trigger.getAttribute('aria-expanded'), 'false');
+assert.equal(market.panel.hidden, true);
+assert.equal(developer.wrap.classList.contains('open'), true);
+assert.equal(developer.trigger.getAttribute('aria-expanded'), 'true');
+
+click({ target: { closest() { return null; } } });
+assert.equal(developer.wrap.classList.contains('open'), false);
+assert.equal(developer.trigger.getAttribute('aria-expanded'), 'false');
+assert.equal(developer.panel.hidden, true);
+
+api.toggleNav(company.trigger);
+let prevented = 0;
+keydown({ key: 'Escape', preventDefault() { prevented += 1; } });
+assert.equal(company.wrap.classList.contains('open'), false);
+assert.equal(company.trigger.getAttribute('aria-expanded'), 'false');
+assert.equal(company.trigger.focusCalls, 1);
+assert.equal(prevented, 1);
+
+api.toggleMobileMenu();
+let sheet = elements.get('epsx-mobile-sheet');
+assert.ok(sheet);
+assert.equal(mobileTrigger.getAttribute('aria-expanded'), 'true');
+assert.equal(mobileTrigger.getAttribute('aria-label'), 'Close menu');
+assert.equal(sheet.getAttribute('role'), 'dialog');
+assert.equal(sheet.getAttribute('aria-modal'), 'true');
+assert.equal(sheet.getAttribute('aria-labelledby'), 'epsx-mobile-menu-title');
+assert.equal(sheet.closeButton.focusCalls, 1);
+
+document.activeElement = sheet.lastFocusable;
+prevented = 0;
+keydown({ key: 'Tab', shiftKey: false, preventDefault() { prevented += 1; } });
+assert.equal(prevented, 1);
+assert.equal(document.activeElement, sheet.closeButton);
+
+document.activeElement = sheet.closeButton;
+prevented = 0;
+keydown({ key: 'Tab', shiftKey: true, preventDefault() { prevented += 1; } });
+assert.equal(prevented, 1);
+assert.equal(document.activeElement, sheet.lastFocusable);
+
+document.activeElement = mobileTrigger;
+prevented = 0;
+keydown({ key: 'Tab', shiftKey: false, preventDefault() { prevented += 1; } });
+assert.equal(prevented, 1);
+assert.equal(document.activeElement, sheet.closeButton);
+
+document.activeElement = mobileTrigger;
+prevented = 0;
+keydown({ key: 'Tab', shiftKey: true, preventDefault() { prevented += 1; } });
+assert.equal(prevented, 1);
+assert.equal(document.activeElement, sheet.lastFocusable);
+
+sheet.listeners.click[0]({ target: sheet });
+assert.equal(elements.has('epsx-mobile-sheet'), false);
+assert.equal(mobileTrigger.getAttribute('aria-expanded'), 'false');
+assert.equal(mobileTrigger.getAttribute('aria-label'), 'Open menu');
+assert.equal(document.activeElement, mobileTrigger);
+
+api.toggleMobileMenu();
+sheet = elements.get('epsx-mobile-sheet');
+prevented = 0;
+let stopped = 0;
+keydown({
+  key: 'Escape',
+  shiftKey: false,
+  preventDefault() { prevented += 1; },
+  stopPropagation() { stopped += 1; },
+});
+assert.equal(sheet.removed, true);
+assert.equal(prevented, 1);
+assert.equal(stopped, 1);
+assert.equal(mobileTrigger.getAttribute('aria-expanded'), 'false');
+assert.equal(document.activeElement, mobileTrigger);
+
+api.toggleMobileMenu();
+sheet = elements.get('epsx-mobile-sheet');
+sheet.closeButton.listeners.click[0]();
+assert.equal(sheet.removed, true);
+assert.equal(mobileTrigger.getAttribute('aria-expanded'), 'false');
+assert.equal(document.activeElement, mobileTrigger);
+
+authenticated = true;
+api.toggleMobileMenu();
+sheet = elements.get('epsx-mobile-sheet');
+assert.ok(sheet.renderedHtml.includes('href="/account"'));
+assert.ok(sheet.renderedHtml.includes('data-epsx-logout'));
+assert.equal(sheet.focusables[0], sheet.closeButton);
+assert.ok(sheet.focusables[1].markup.includes('href="/analytics"'));
+assert.ok(sheet.lastFocusable.markup.includes('data-epsx-logout'));
+assert.equal(document.activeElement, sheet.closeButton);
+
+document.activeElement = sheet.lastFocusable;
+prevented = 0;
+keydown({ key: 'Tab', shiftKey: false, preventDefault() { prevented += 1; } });
+assert.equal(prevented, 1);
+assert.equal(document.activeElement, sheet.closeButton);
+
+document.activeElement = mobileTrigger;
+prevented = 0;
+keydown({ key: 'Tab', shiftKey: true, preventDefault() { prevented += 1; } });
+assert.equal(prevented, 1);
+assert.equal(document.activeElement, sheet.lastFocusable);
+
+sheet.closeButton.listeners.click[0]();
+assert.equal(sheet.removed, true);
+assert.equal(document.activeElement, mobileTrigger);
+"###;
+        let controller_json = serde_json::to_string(shared_navigation_controller_source())
+            .expect("serialize shared navigation controller");
+        let harness = harness.replace("__CONTROLLER_JSON__", &controller_json);
+        let output = std::process::Command::new("node")
+            .arg("-e")
+            .arg(harness)
+            .output()
+            .expect("run shared navigation hermetic Node.js VM");
+        assert!(
+            output.status.success(),
+            "Node.js VM failed:\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr),
+        );
     }
 
     #[test]
