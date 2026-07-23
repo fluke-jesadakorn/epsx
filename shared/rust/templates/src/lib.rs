@@ -82,6 +82,8 @@ pub fn design_system_head_with_keywords(
       }}
       if (t === 'light') document.documentElement.classList.remove('dark');
       else document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', t);
+      document.documentElement.style.colorScheme = t;
     }} catch (e) {{}}
   }})();
 </script>
@@ -5658,26 +5660,31 @@ window.epsx = (function() {
     }
     if (t === 'light') document.documentElement.classList.remove('dark');
     else document.documentElement.classList.add('dark');
+    document.documentElement.setAttribute('data-theme', t);
+    document.documentElement.style.colorScheme = t;
     // Canonical storage key: matches the pre-paint `THEME_BOOT_SCRIPT`
     // in `shared/rust/dioxus_ui/src/theme.rs` (the boot script reads
     // `epsx-theme` on every page load). Keeping both halves in sync
     // is what prevents the FOUC on reload.
     try { localStorage.setItem('epsx-theme', t); } catch (e) {}
-    const btn = document.getElementById('epsx-theme-toggle');
-    if (btn) updateThemeIcon(btn, t);
-    document.querySelectorAll('.theme-toggle-sun, .theme-toggle-moon').forEach(el => {
-      const isSun = el.classList.contains('theme-toggle-sun');
-      el.style.display = (isSun && t === 'light') ? 'none' : ((!isSun && t === 'dark') ? 'none' : '');
-    });
+    updateThemeControls(t);
   }
   function currentTheme() {
     return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
   }
-  function updateThemeIcon(btn, t) {
-    const sun  = btn.querySelector('[data-icon="sun"]');
-    const moon = btn.querySelector('[data-icon="moon"]');
+  function updateThemeControl(btn, t) {
+    const sun  = btn.querySelector('[data-epsx-theme-icon="sun"]');
+    const moon = btn.querySelector('[data-epsx-theme-icon="moon"]');
     if (sun) sun.style.display = (t === 'light') ? 'none' : '';
     if (moon) moon.style.display = (t === 'dark') ? 'none' : '';
+    const label = t === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+    btn.setAttribute('aria-label', label);
+    if (btn.hasAttribute('title')) btn.setAttribute('title', label);
+  }
+  function updateThemeControls(t) {
+    document.querySelectorAll('button[data-epsx-theme-toggle]').forEach(btn => {
+      updateThemeControl(btn, t);
+    });
   }
   function toggleTheme() {
     const next = currentTheme() === 'dark' ? 'light' : 'dark';
@@ -5902,17 +5909,6 @@ window.epsx = (function() {
     }
   });
 
-  // Update theme toggle visibility
-  function updateThemeBtns() {
-    const t = currentTheme();
-    document.querySelectorAll('.epsx-theme-btn').forEach(btn => {
-      const sun  = btn.querySelector('.sun');
-      const moon = btn.querySelector('.moon');
-      if (sun)  sun.style.display  = (t === 'light') ? '' : 'none';
-      if (moon) moon.style.display = (t === 'dark')  ? '' : 'none';
-    });
-  }
-
   // ============ Tabs ============
   function activateTab(group, name) {
     document.querySelectorAll('[data-tab-group="' + group + '"]').forEach(el => {
@@ -5923,9 +5919,7 @@ window.epsx = (function() {
 
   // ============ Init theme icon ============
   document.addEventListener('DOMContentLoaded', () => {
-    const btn = document.getElementById('epsx-theme-toggle');
-    if (btn) updateThemeIcon(btn, currentTheme());
-    updateThemeBtns();
+    updateThemeControls(currentTheme());
   });
 
   // ============ API client (fetch wrappers) ============
@@ -6358,9 +6352,9 @@ window.epsx = (function() {
 /// Returns a theme toggle button (sun/moon icons). Renders as a nav-style icon
 /// button. Pair with `set_theme` JS in `global_js()`.
 pub fn theme_toggle_button() -> &'static str {
-    r##"<button id="epsx-theme-toggle" class="nav-link" onclick="epsx.toggleTheme()" aria-label="Toggle theme" style="width:2.25rem;height:2.25rem;padding:0;justify-content:center;">
-  <i data-icon="sun" data-lucide="sun" style="display:none;width:1.125rem;height:1.125rem;"></i>
-  <i data-icon="moon" data-lucide="moon" style="width:1.125rem;height:1.125rem;"></i>
+    r##"<button id="epsx-theme-toggle" class="nav-link" data-epsx-theme-toggle aria-label="Toggle theme" onclick="epsx.toggleTheme()" style="width:2.25rem;height:2.25rem;padding:0;justify-content:center;">
+  <i data-epsx-theme-icon="sun" data-lucide="sun" style="display:none;width:1.125rem;height:1.125rem;"></i>
+  <i data-epsx-theme-icon="moon" data-lucide="moon" style="width:1.125rem;height:1.125rem;"></i>
 </button>"##
 }
 
@@ -7024,9 +7018,9 @@ pub fn epsx_header_for_session(is_authenticated: bool) -> String {
         <i data-lucide="bell" style="width:1rem;height:1rem;"></i>
         <span class="epsx-notification-badge" data-epsx-notification-unread-badge="true" data-state="unavailable" aria-hidden="true" hidden></span>
       </a>
-      <button class="epsx-theme-btn" type="button" aria-label="Toggle theme" onclick="epsx.toggleTheme()">
-        <i data-lucide="sun" class="sun" style="display:none;"></i>
-        <i data-lucide="moon" class="moon"></i>
+      <button class="epsx-theme-btn" type="button" data-epsx-theme-toggle aria-label="Toggle theme" onclick="epsx.toggleTheme()">
+        <i data-epsx-theme-icon="sun" data-lucide="sun" class="sun" style="display:none;"></i>
+        <i data-epsx-theme-icon="moon" data-lucide="moon" class="moon"></i>
       </button>
       {desktop_auth}
       {compact_auth}
@@ -8573,6 +8567,210 @@ async function flushPromises() {{
 }});
 "#
         );
+        let output = std::process::Command::new("node")
+            .arg("-e")
+            .arg(harness)
+            .output()
+            .expect("run hermetic Node.js VM");
+        assert!(
+            output.status.success(),
+            "Node.js VM failed:\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr),
+        );
+    }
+
+    fn shared_theme_controller_source() -> &'static str {
+        let script = global_js();
+        let start = script
+            .find("  // ============ Theme ============")
+            .expect("shared theme controller start");
+        let end = script[start..]
+            .find("\n\n  // ============ Modal ============")
+            .map(|offset| start + offset)
+            .expect("shared theme controller end");
+        &script[start..end]
+    }
+
+    #[test]
+    fn shared_theme_controls_use_a_dedicated_runtime_contract() {
+        let standalone = theme_toggle_button();
+        for rendered in [
+            standalone.to_string(),
+            epsx_header_for_session(false),
+            epsx_header_for_session(true),
+        ] {
+            assert_eq!(
+                rendered.matches("data-epsx-theme-toggle").count(),
+                1,
+                "each shared shell variant must expose one marked theme control"
+            );
+            assert_eq!(
+                rendered.matches(r#"data-epsx-theme-icon="sun""#).count(),
+                1
+            );
+            assert_eq!(
+                rendered.matches(r#"data-epsx-theme-icon="moon""#).count(),
+                1
+            );
+            let marked_opener = rendered
+                .split('<')
+                .map(|tail| tail.split_once('>').map_or(tail, |(opener, _)| opener))
+                .find(|opener| opener.starts_with("button ") && opener.contains("data-epsx-theme-toggle"))
+                .expect("marked theme button opener");
+            assert!(marked_opener.contains(r#"aria-label="Toggle theme""#));
+            assert!(marked_opener.contains(r#"onclick="epsx.toggleTheme()""#));
+        }
+
+        for header in [
+            epsx_header_for_session(false),
+            epsx_header_for_session(true),
+        ] {
+            let shared_class_openers: Vec<&str> = header
+                .split('<')
+                .map(|tail| tail.split_once('>').map_or(tail, |(opener, _)| opener))
+                .filter(|opener| opener.contains("epsx-theme-btn"))
+                .collect();
+            assert!(shared_class_openers.len() >= 3);
+            assert_eq!(
+                shared_class_openers
+                    .iter()
+                    .filter(|opener| opener.contains("data-epsx-theme-toggle"))
+                    .count(),
+                1,
+                "notification, account, and mobile-menu controls must not be theme targets"
+            );
+        }
+
+        let script = global_js();
+        assert!(script.contains(
+            "document.addEventListener('DOMContentLoaded', () => {\n    updateThemeControls(currentTheme());\n  });"
+        ));
+        assert!(!script.contains("document.querySelectorAll('.epsx-theme-btn')"));
+
+        let head = design_system_head("Theme boot", "Theme state reconciliation");
+        assert!(head.contains("document.documentElement.setAttribute('data-theme', t)"));
+        assert!(head.contains("document.documentElement.style.colorScheme = t"));
+    }
+
+    #[test]
+    fn shared_theme_controller_reconciles_names_icons_and_storage() {
+        let controller = serde_json::to_string(shared_theme_controller_source()).unwrap();
+        let harness = r#"
+const assert = require('node:assert/strict');
+const controller = __CONTROLLER_JSON__;
+
+function makeIcon() {
+  return { style: { display: 'unreconciled' } };
+}
+
+function makeControl(label, withTitle) {
+  const attributes = new Map([['aria-label', label]]);
+  if (withTitle) attributes.set('title', label);
+  const sun = makeIcon();
+  const moon = makeIcon();
+  return {
+    sun,
+    moon,
+    getAttribute(name) { return attributes.has(name) ? attributes.get(name) : null; },
+    hasAttribute(name) { return attributes.has(name); },
+    setAttribute(name, value) { attributes.set(name, String(value)); },
+    querySelector(selector) {
+      if (selector === '[data-epsx-theme-icon="sun"]') return sun;
+      if (selector === '[data-epsx-theme-icon="moon"]') return moon;
+      throw new Error(`unexpected control selector: ${selector}`);
+    },
+  };
+}
+
+let dark = false;
+let prefersDark = false;
+const storageWrites = [];
+const selectorCalls = [];
+const rootAttributes = new Map();
+let fetchCalls = 0;
+const controls = [
+  makeControl('Toggle theme', false),
+  makeControl('Toggle theme', false),
+  makeControl('Toggle theme', true),
+];
+const unrelated = makeControl('Notifications', true);
+
+global.document = {
+  documentElement: {
+    style: {},
+    setAttribute(name, value) { rootAttributes.set(name, String(value)); },
+    classList: {
+      add(name) { assert.equal(name, 'dark'); dark = true; },
+      remove(name) { assert.equal(name, 'dark'); dark = false; },
+      contains(name) { assert.equal(name, 'dark'); return dark; },
+    },
+  },
+  querySelectorAll(selector) {
+    selectorCalls.push(selector);
+    assert.equal(selector, 'button[data-epsx-theme-toggle]');
+    return controls;
+  },
+};
+global.window = {
+  matchMedia(query) {
+    assert.equal(query, '(prefers-color-scheme: dark)');
+    return { matches: prefersDark };
+  },
+};
+global.localStorage = {
+  setItem(key, value) { storageWrites.push([key, value]); },
+};
+global.fetch = () => { fetchCalls += 1; throw new Error('unexpected fetch'); };
+
+eval(`${controller}\nglobalThis.themeController = { setTheme, currentTheme, toggleTheme, updateThemeControls };`);
+const api = globalThis.themeController;
+
+api.updateThemeControls(api.currentTheme());
+for (const control of controls) {
+  assert.equal(control.getAttribute('aria-label'), 'Switch to dark theme');
+  assert.equal(control.sun.style.display, 'none');
+  assert.equal(control.moon.style.display, '');
+}
+assert.equal(controls[0].hasAttribute('title'), false);
+assert.equal(controls[2].getAttribute('title'), 'Switch to dark theme');
+
+api.setTheme('dark');
+assert.equal(api.currentTheme(), 'dark');
+assert.deepEqual(storageWrites.at(-1), ['epsx-theme', 'dark']);
+assert.equal(rootAttributes.get('data-theme'), 'dark');
+assert.equal(document.documentElement.style.colorScheme, 'dark');
+for (const control of controls) {
+  assert.equal(control.getAttribute('aria-label'), 'Switch to light theme');
+  assert.equal(control.sun.style.display, '');
+  assert.equal(control.moon.style.display, 'none');
+}
+assert.equal(controls[2].getAttribute('title'), 'Switch to light theme');
+
+api.toggleTheme();
+assert.equal(api.currentTheme(), 'light');
+assert.deepEqual(storageWrites.at(-1), ['epsx-theme', 'light']);
+assert.equal(rootAttributes.get('data-theme'), 'light');
+assert.equal(document.documentElement.style.colorScheme, 'light');
+for (const control of controls) {
+  assert.equal(control.getAttribute('aria-label'), 'Switch to dark theme');
+  assert.equal(control.sun.style.display, 'none');
+  assert.equal(control.moon.style.display, '');
+}
+
+prefersDark = true;
+api.setTheme('system');
+assert.equal(api.currentTheme(), 'dark');
+assert.deepEqual(storageWrites.at(-1), ['epsx-theme', 'dark']);
+assert.equal(unrelated.getAttribute('aria-label'), 'Notifications');
+assert.equal(unrelated.getAttribute('title'), 'Notifications');
+assert.equal(unrelated.sun.style.display, 'unreconciled');
+assert.equal(unrelated.moon.style.display, 'unreconciled');
+assert.ok(selectorCalls.length >= 4);
+assert.ok(selectorCalls.every(selector => selector === 'button[data-epsx-theme-toggle]'));
+assert.equal(fetchCalls, 0);
+"#
+        .replace("__CONTROLLER_JSON__", &controller);
         let output = std::process::Command::new("node")
             .arg("-e")
             .arg(harness)

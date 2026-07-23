@@ -20,8 +20,9 @@ use dioxus::prelude::*;
 ///    pages) render. It now renders the button as raw HTML via
 ///    `dangerous_inner_html` with `onclick="epsx.toggleTheme()"` baked in,
 ///    so the click handler actually fires on the client.
-/// 4. `use_theme` exposes a reactive `Signal<ThemeMode>` so other components
-///    (e.g. the admin settings page) can reflect the active mode.
+/// 4. `use_theme` remains an SSR-local compatibility signal. The shared
+///    hydration-less button does not claim that signal reflects later DOM
+///    toggles; `global_js` owns the live client state.
 pub const EPSX_CSS_VARS: &str = r#"
 :root {
   --background: 0 0% 100%;
@@ -108,6 +109,7 @@ const THEME_BOOT_SCRIPT: &str = r#"
             root.classList.remove('dark');
         }
         root.setAttribute('data-theme', mode);
+        root.style.colorScheme = mode;
     } catch (e) {
         // localStorage may be disabled (e.g. SSR-only render, sandboxed
         // iframe); fall through without modifying the DOM.
@@ -161,19 +163,12 @@ pub fn ThemeRoot(children: Element) -> Element {
     }
 }
 
-/// Reactive theme signal. The default is `Light`; after the first
-/// client-side mount the value should be synced from
-/// `document.documentElement.getAttribute('data-theme')` via
-/// `use_effect` (see `UnifiedThemeToggle`).
+/// SSR-local theme signal. The default is `Light`. Hydration-less documents
+/// do not synchronize it after render; client-side theme state is owned by
+/// the marked controls and `epsx_templates::global_js`.
 pub fn use_theme() -> Signal<ThemeMode> {
     use_signal(ThemeMode::default)
 }
-
-// `current_dom_theme` removed — replaced by the inline
-// `use_effect` inside `UnifiedThemeToggle`. A standalone
-// `fn current_dom_theme()` cannot return a value from an
-// `async` block; callers that need the live value should
-// use `use_theme` + `use_effect` (see below).
 
 /// Click-target theme toggle. Renders a single sun/moon button. Clicking
 /// it flips the `dark` class on `<html>`, updates `data-theme`, and
@@ -190,17 +185,15 @@ pub fn use_theme() -> Signal<ThemeMode> {
 /// ```
 #[component]
 pub fn UnifiedThemeToggle() -> Element {
+    // This only selects a deterministic SSR icon fallback. The browser-side
+    // controller reconciles it from the pre-paint DOM theme before use.
     let mode = use_theme();
 
-    // Compute the icon + label for the current mode. The `data-theme`
-    // attribute is set by the pre-paint `THEME_BOOT_SCRIPT` (see
-    // `ThemeRoot`); the icon visibility toggling is also handled by
-    // `epsx.toggleTheme()` in `global_js` (it calls `updateThemeIcon`
-    // on the same element after flipping the class).
-    let (_icon, label) = match *mode.read() {
-        ThemeMode::Light => ("sun", "Switch to dark mode"),
-        ThemeMode::Dark  => ("moon", "Switch to light mode"),
-    };
+    // The server cannot read the browser's persisted theme, so keep the
+    // fallback name neutral. `global_js` reconciles the icon and exact
+    // "Switch to … theme" action name from the live DOM theme on
+    // DOMContentLoaded and after every toggle.
+    let label = "Toggle theme";
 
     // Build the full button as a raw HTML string so we can emit a
     // literal `onclick="epsx.toggleTheme()"` attribute (the Dioxus
@@ -212,7 +205,7 @@ pub fn UnifiedThemeToggle() -> Element {
     let moon_display = if *mode.read() == ThemeMode::Dark  { "none" } else { "" };
     let safe_label = epsx_templates::html_attr_escape_pub(label);
     let html = format!(
-        r#"<button type="button" class="theme-toggle btn btn-icon btn-ghost" aria-label="{label}" title="{label}" onclick="epsx.toggleTheme()"><span class="theme-toggle-icon theme-toggle-sun"  style="display:{sun_disp};width:1.125rem;height:1.125rem;">{sun}</span><span class="theme-toggle-icon theme-toggle-moon" style="display:{moon_disp};width:1.125rem;height:1.125rem;">{moon}</span></button>"#,
+        r#"<button type="button" class="theme-toggle btn btn-icon btn-ghost" data-epsx-theme-toggle aria-label="{label}" title="{label}" onclick="epsx.toggleTheme()"><span class="theme-toggle-icon theme-toggle-sun" data-epsx-theme-icon="sun" style="display:{sun_disp};width:1.125rem;height:1.125rem;">{sun}</span><span class="theme-toggle-icon theme-toggle-moon" data-epsx-theme-icon="moon" style="display:{moon_disp};width:1.125rem;height:1.125rem;">{moon}</span></button>"#,
         label     = safe_label,
         sun_disp  = sun_display,
         moon_disp = moon_display,
@@ -235,6 +228,17 @@ mod tests {
     fn theme_mode_toggle() {
         assert_eq!(ThemeMode::Light.toggle(), ThemeMode::Dark);
         assert_eq!(ThemeMode::Dark.toggle(), ThemeMode::Light);
+    }
+
+    #[test]
+    fn unified_toggle_emits_the_shared_runtime_contract() {
+        let html = dioxus_ssr::render_element(rsx! { UnifiedThemeToggle {} });
+        assert_eq!(html.matches("data-epsx-theme-toggle").count(), 1);
+        assert_eq!(html.matches(r#"data-epsx-theme-icon="sun""#).count(), 1);
+        assert_eq!(html.matches(r#"data-epsx-theme-icon="moon""#).count(), 1);
+        assert!(html.contains(r#"aria-label="Toggle theme""#));
+        assert!(html.contains(r#"title="Toggle theme""#));
+        assert!(html.contains(r#"onclick="epsx.toggleTheme()""#));
     }
 
     #[test]
@@ -271,6 +275,8 @@ mod tests {
             THEME_BOOT_SCRIPT.contains(THEME_STORAGE_KEY),
             "boot script must read epsx-theme from localStorage"
         );
+        assert!(THEME_BOOT_SCRIPT.contains("root.setAttribute('data-theme', mode)"));
+        assert!(THEME_BOOT_SCRIPT.contains("root.style.colorScheme = mode"));
     }
 
     /// Wave 23 T4 v2 — `epsx_templates::global_js` (in
