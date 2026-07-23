@@ -370,9 +370,32 @@ fn notification_type_decoration(kind: Option<&str>) -> NotificationTypeDecoratio
     }
 }
 
+/// Map an exact service-owned priority value to a presentation-only chip.
+///
+/// The raw priority remains the visible label. This mapping is deliberately
+/// case-sensitive and returns only static class names, so an arbitrary service
+/// value can never become part of an HTML class or be relabelled as a known
+/// priority.
+fn notification_priority_class(priority: &str) -> &'static str {
+    match priority {
+        "critical" | "urgent" => "notification-priority-critical",
+        "high" => "notification-priority-high",
+        "normal" => "notification-priority-normal",
+        "low" => "notification-priority-low",
+        _ => "notification-priority-neutral",
+    }
+}
+
 #[component]
 fn NotificationRow(notification: Notification, rendered_at: DateTime<Utc>) -> Element {
     let decoration = notification_type_decoration(notification.kind.as_deref());
+    let rendered_priority = notification
+        .priority
+        .as_deref()
+        .filter(|priority| !priority.trim().is_empty());
+    let priority_class = rendered_priority
+        .map(notification_priority_class)
+        .unwrap_or("notification-priority-neutral");
     let row_class = if notification.read {
         "notification-row notification-row-read"
     } else {
@@ -416,8 +439,9 @@ fn NotificationRow(notification: Notification, rendered_at: DateTime<Utc>) -> El
                         }
                         span { class: "notification-meta-sep", aria_hidden: "true", "·" }
                     }
-                    if let Some(priority) = &notification.priority {
-                        span { class: "notification-priority",
+                    if let Some(priority) = rendered_priority {
+                        span {
+                            class: "notification-priority {priority_class}",
                             span { class: "sr-only", "Priority: " }
                             "{priority}"
                         }
@@ -634,26 +658,56 @@ mod tests {
 
     #[test]
     fn notification_rows_render_known_icons_without_relabeling_raw_metadata() {
-        for (kind, priority, icon_name, icon_class) in [
-            ("security", "critical", "shield", "notification-icon-system"),
+        for (kind, priority, icon_name, icon_class, priority_class) in [
+            (
+                "security",
+                "critical",
+                "shield",
+                "notification-icon-system",
+                "notification-priority-critical",
+            ),
             (
                 "wallet_management",
                 "normal",
                 "wallet",
                 "notification-icon-wallet",
+                "notification-priority-normal",
             ),
             (
                 "portfolio-alert",
                 "high",
                 "alert-triangle",
                 "notification-icon-alert",
+                "notification-priority-high",
             ),
         ] {
             let html = notification_row_html(Some(kind), Some(priority));
             assert!(html.contains(&format!("class=\"notification-icon {icon_class}\"")));
             assert!(html.contains(&format!("class=\"lucide lucide-{icon_name} ")));
             assert!(html.contains(&format!(">Type: </span>{kind}</span>")));
+            assert!(html.contains(&format!("class=\"notification-priority {priority_class}\"")));
             assert!(html.contains(&format!(">Priority: </span>{priority}</span>")));
+        }
+    }
+
+    #[test]
+    fn priority_presentation_classes_use_an_exact_static_raw_value_map() {
+        for (priority, expected_class) in [
+            ("critical", "notification-priority-critical"),
+            ("urgent", "notification-priority-critical"),
+            ("high", "notification-priority-high"),
+            ("normal", "notification-priority-normal"),
+            ("low", "notification-priority-low"),
+            ("unknown", "notification-priority-neutral"),
+            ("Critical", "notification-priority-neutral"),
+            (" urgent", "notification-priority-neutral"),
+            ("normal ", "notification-priority-neutral"),
+        ] {
+            assert_eq!(
+                notification_priority_class(priority),
+                expected_class,
+                "unexpected presentation class for exact raw value {priority:?}",
+            );
         }
     }
 
@@ -666,15 +720,80 @@ mod tests {
 
         assert!(html.contains("class=\"notification-icon notification-icon-system\""));
         assert!(html.contains("class=\"lucide lucide-info "));
+        assert!(html.contains("class=\"notification-priority notification-priority-neutral\""));
         assert!(html.contains(">Type: </span>&#60;script&#62;unknown&#60;/script&#62;</span>"));
         assert!(html.contains(">Priority: </span>&#60;img src=x onerror=alert(1)&#62;</span>"));
         assert!(!html.contains("<script>unknown</script>"));
         assert!(!html.contains("<img src=x onerror=alert(1)>"));
+        assert!(!html.contains("notification-priority-&#60;"));
         for forbidden in ["<a", "<button", "tabindex=", "onclick=", "role=\"button\""] {
             assert!(
                 !html.contains(forbidden),
                 "decoration unexpectedly introduced interaction: {forbidden}"
             );
+        }
+    }
+
+    #[test]
+    fn null_and_blank_priorities_remain_absent_without_inventing_normal() {
+        for priority in [None, Some(""), Some(" \t")] {
+            let html = notification_row_html(Some("system"), priority);
+            assert!(!html.contains("notification-priority"));
+            assert!(!html.contains(">Priority: </span>"));
+            assert!(!html.contains(">normal</span>"));
+        }
+
+        for priority in [
+            serde_json::Value::Null,
+            serde_json::json!(""),
+            serde_json::json!(" \t"),
+        ] {
+            let mut payload = exact_target_payload();
+            payload["items"][0]["priority"] = priority;
+            let items = match notification_load(&context(None, Some("ok"), Some(payload))) {
+                NotificationLoad::Loaded(items) => items,
+                state => panic!("nullable priority fixture did not load: {state:?}"),
+            };
+            assert_eq!(items[0].priority, None);
+
+            let html = dioxus_ssr::render_element(rsx! {
+                NotificationRow {
+                    notification: items[0].clone(),
+                    rendered_at: timestamp("2026-07-22T12:00:00Z"),
+                }
+            });
+            assert!(!html.contains("notification-priority"));
+            assert!(!html.contains(">Priority: </span>"));
+            assert!(!html.contains(">normal</span>"));
+        }
+    }
+
+    #[test]
+    fn every_priority_chip_renders_the_exact_static_class_and_stays_noninteractive() {
+        for (priority, priority_class) in [
+            ("critical", "notification-priority-critical"),
+            ("urgent", "notification-priority-critical"),
+            ("high", "notification-priority-high"),
+            ("normal", "notification-priority-normal"),
+            ("low", "notification-priority-low"),
+            ("future-priority", "notification-priority-neutral"),
+        ] {
+            let html = notification_row_html(Some("system"), Some(priority));
+            assert!(html.contains(&format!("class=\"notification-priority {priority_class}\"")));
+            assert!(html.contains(&format!(">Priority: </span>{priority}</span>")));
+            for forbidden in [
+                "<a",
+                "<button",
+                "tabindex=",
+                "onclick=",
+                "role=\"button\"",
+                "role=\"link\"",
+            ] {
+                assert!(
+                    !html.contains(forbidden),
+                    "priority {priority:?} unexpectedly introduced interaction: {forbidden}"
+                );
+            }
         }
     }
 

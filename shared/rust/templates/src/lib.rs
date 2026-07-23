@@ -4842,8 +4842,8 @@ pub fn design_system_head_with_keywords(
   .notification-row:last-child {{ border-bottom: 0; }}
   .notification-row-unread {{ background: rgba(249,115,22,0.04); }}
   .notification-row-unread:hover {{ background: rgba(249,115,22,0.06); }}
-  .notification-row-read {{ opacity: 0.7; }}
-  .notification-row-read:hover {{ opacity: 0.9; background: rgba(255,255,255,0.02); }}
+  .notification-row-read {{ opacity: 1; }}
+  .notification-row-read:hover {{ opacity: 1; background: rgba(255,255,255,0.02); }}
   .notification-icon {{ width: 2rem; height: 2rem; border-radius: 9999px; flex-shrink: 0;
                         display: flex; align-items: center; justify-content: center;
                         background: rgba(255,255,255,0.06); color: var(--text, #fff); }}
@@ -4869,6 +4869,19 @@ pub fn design_system_head_with_keywords(
                         overflow: hidden; }}
   .notification-meta {{ display: flex; align-items: center; gap: 0.375rem; margin-top: 0.25rem; flex-wrap: wrap; }}
   .notification-kind, .notification-priority {{ min-width: 0; overflow-wrap: anywhere; }}
+  .notification-priority {{ display: inline-flex; align-items: center; max-width: 100%;
+                            padding: 0.0625rem 0.375rem; border-radius: 9999px;
+                            font-size: 0.625rem; line-height: 1rem; font-weight: 600; }}
+  .notification-priority-critical {{ color: #991b1b; background: #fee2e2; }}
+  .notification-priority-high {{ color: #9a3412; background: #ffedd5; }}
+  .notification-priority-normal {{ color: #1e3a8a; background: #dbeafe; }}
+  .notification-priority-low {{ color: #166534; background: #dcfce7; }}
+  .notification-priority-neutral {{ color: #334155; background: #e2e8f0; }}
+  html.dark .notification-priority-critical {{ color: #fecaca; background: #7f1d1d; }}
+  html.dark .notification-priority-high {{ color: #fed7aa; background: #7c2d12; }}
+  html.dark .notification-priority-normal {{ color: #dbeafe; background: #1e3a8a; }}
+  html.dark .notification-priority-low {{ color: #dcfce7; background: #14532d; }}
+  html.dark .notification-priority-neutral {{ color: #f1f5f9; background: #334155; }}
   .notification-time {{ font-size: 0.625rem; color: var(--text-muted, #94a3b8); opacity: 0.5; }}
   .notification-meta-sep {{ color: var(--text-muted, #94a3b8); opacity: 0.4; }}
   .notification-action {{ font-size: 0.625rem; color: #f97316; text-decoration: underline; }}
@@ -7013,6 +7026,113 @@ mod page_head_tests {
         assert!(head.contains(
             ".notification-kind, .notification-priority { min-width: 0; overflow-wrap: anywhere; }"
         ));
+    }
+
+    fn emitted_css_rule<'a>(head: &'a str, selector: &str) -> &'a str {
+        let start_marker = format!("{selector} {{");
+        let start = head
+            .find(&start_marker)
+            .unwrap_or_else(|| panic!("missing emitted CSS rule for {selector}"));
+        let end = head[start..]
+            .find('}')
+            .map(|offset| start + offset + 1)
+            .unwrap_or_else(|| panic!("unterminated emitted CSS rule for {selector}"));
+        &head[start..end]
+    }
+
+    fn emitted_hex_declaration(rule: &str, property: &str) -> String {
+        let marker = format!("{property}: #");
+        let start = rule
+            .find(&marker)
+            .map(|offset| offset + property.len() + 2)
+            .unwrap_or_else(|| panic!("missing {property} hex declaration in {rule}"));
+        rule[start..start + 7].to_string()
+    }
+
+    fn hex_rgb(hex: &str) -> [f64; 3] {
+        assert_eq!(hex.len(), 7, "expected six-digit hex color");
+        assert!(hex.starts_with('#'), "expected hex color, got {hex}");
+        let channel = |start| {
+            u8::from_str_radix(&hex[start..start + 2], 16)
+                .unwrap_or_else(|_| panic!("invalid hex color {hex}")) as f64
+                / 255.0
+        };
+        [channel(1), channel(3), channel(5)]
+    }
+
+    fn relative_luminance(hex: &str) -> f64 {
+        let linear = |channel: f64| {
+            if channel <= 0.04045 {
+                channel / 12.92
+            } else {
+                ((channel + 0.055) / 1.055).powf(2.4)
+            }
+        };
+        let [red, green, blue] = hex_rgb(hex).map(linear);
+        0.2126 * red + 0.7152 * green + 0.0722 * blue
+    }
+
+    fn contrast_ratio(foreground: &str, background: &str) -> f64 {
+        let foreground = relative_luminance(foreground);
+        let background = relative_luminance(background);
+        let lighter = foreground.max(background);
+        let darker = foreground.min(background);
+        (lighter + 0.05) / (darker + 0.05)
+    }
+
+    #[test]
+    fn notification_priority_chips_emit_exact_small_text_aa_theme_pairs() {
+        let head = design_system_head(
+            "Notification priority contrast",
+            "Exact presentation-only priority chip colors",
+        );
+        let expected_pairs = [
+            (".notification-priority-critical", "#991b1b", "#fee2e2"),
+            (".notification-priority-high", "#9a3412", "#ffedd5"),
+            (".notification-priority-normal", "#1e3a8a", "#dbeafe"),
+            (".notification-priority-low", "#166534", "#dcfce7"),
+            (".notification-priority-neutral", "#334155", "#e2e8f0"),
+            (
+                "html.dark .notification-priority-critical",
+                "#fecaca",
+                "#7f1d1d",
+            ),
+            (
+                "html.dark .notification-priority-high",
+                "#fed7aa",
+                "#7c2d12",
+            ),
+            (
+                "html.dark .notification-priority-normal",
+                "#dbeafe",
+                "#1e3a8a",
+            ),
+            ("html.dark .notification-priority-low", "#dcfce7", "#14532d"),
+            (
+                "html.dark .notification-priority-neutral",
+                "#f1f5f9",
+                "#334155",
+            ),
+        ];
+
+        for (selector, expected_foreground, expected_background) in expected_pairs {
+            let rule = emitted_css_rule(&head, selector);
+            let foreground = emitted_hex_declaration(rule, "color");
+            let background = emitted_hex_declaration(rule, "background");
+            assert_eq!(foreground, expected_foreground, "{selector} foreground");
+            assert_eq!(background, expected_background, "{selector} background");
+            assert!(
+                contrast_ratio(&foreground, &background) >= 4.5,
+                "{selector} priority chip does not meet WCAG AA small-text contrast"
+            );
+        }
+
+        assert!(head.contains(".notification-row-read { opacity: 1; }"));
+        assert!(head.contains(
+            ".notification-row-read:hover { opacity: 1; background: rgba(255,255,255,0.02); }"
+        ));
+        assert!(!head.contains(".notification-row-read { opacity: 0.7; }"));
+        assert!(!head.contains(".notification-row-read:hover { opacity: 0.9;"));
     }
 
     #[test]
