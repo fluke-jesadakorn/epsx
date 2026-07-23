@@ -34,7 +34,7 @@ use epsx_bff::{
         CHALLENGE_PATH, FRONTEND_CLIENT_ID, LOGOUT_PATH, PROFILE_PATH, REFRESH_PATH, VERIFY_PATH,
     },
 };
-use epsx_client::{ClientError, ServiceClient};
+use epsx_client::{ClientError, RequestContext, ServiceClient};
 use serde::{Deserialize, Serialize};
 
 use super::AppState;
@@ -822,7 +822,7 @@ const NOTIFICATION_LIST_BODY_MAX: usize = 2 * 1024 * 1024;
 const NOTIFICATION_UNREAD_BODY_MAX: usize = 4 * 1024;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-struct NotificationListQuery {
+pub(crate) struct NotificationListQuery {
     limit: Option<u16>,
     offset: Option<u32>,
     status: Option<String>,
@@ -963,10 +963,23 @@ struct NotificationWire {
 }
 
 impl NotificationListWire {
-    fn validate(&self, owner: &str, requested_limit: Option<u16>) -> Result<(), ()> {
-        let limit = usize::from(requested_limit.unwrap_or(50));
+    fn validate(&self, owner: &str, query: &NotificationListQuery) -> Result<(), ()> {
+        let limit = usize::from(query.limit.unwrap_or(50));
         if self.total < 0 || self.items.len() > limit || self.total < self.items.len() as i64 {
             return Err(());
+        }
+        // The service's unfiltered count describes the same owner query as the
+        // unfiltered page. Require an exact page cardinality so a split count /
+        // row read cannot turn contradictory data into an authoritative empty
+        // state. The current service count is deliberately not filter-aware,
+        // so status-filtered pages retain only the conservative bounds above.
+        if query.status.is_none() {
+            let offset = u64::from(query.offset.unwrap_or(0));
+            let remaining = (self.total as u64).saturating_sub(offset);
+            let expected = remaining.min(limit as u64) as usize;
+            if self.items.len() != expected {
+                return Err(());
+            }
         }
         for item in &self.items {
             if !item
@@ -988,6 +1001,95 @@ impl NotificationListWire {
             item.action_url.as_ref()?;
         }
         Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct NotificationRequestId(String);
+
+pub(crate) fn notification_request_id(headers: &axum::http::HeaderMap) -> NotificationRequestId {
+    NotificationRequestId(RequestContext::from_headers(headers).request_id.to_string())
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum NotificationListUnavailable {
+    Unauthorized,
+    UpstreamFailed,
+    Dependency,
+}
+
+#[derive(Debug, PartialEq)]
+pub(crate) enum NotificationListLoadOutcome {
+    Ready(serde_json::Value),
+    Empty(serde_json::Value),
+    Unavailable(NotificationListUnavailable),
+    Malformed,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum NotificationBodyReadError {
+    TooLarge,
+    Transport,
+}
+
+pub(crate) async fn load_owner_notifications(
+    client: &ServiceClient,
+    bearer: &str,
+    owner: &str,
+    query: &NotificationListQuery,
+    request_id: &NotificationRequestId,
+) -> NotificationListLoadOutcome {
+    let url = format!(
+        "{}/api/v1/notification/list{}",
+        client.base_url().trim_end_matches('/'),
+        query.upstream_suffix()
+    );
+    let response = match client
+        .auth_client()
+        .get(url)
+        .bearer_auth(bearer)
+        .header("x-request-id", request_id.0.as_str())
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(_) => {
+            return NotificationListLoadOutcome::Unavailable(
+                NotificationListUnavailable::Dependency,
+            )
+        }
+    };
+    if !response.status().is_success() {
+        return NotificationListLoadOutcome::Unavailable(
+            if response.status() == StatusCode::UNAUTHORIZED {
+                NotificationListUnavailable::Unauthorized
+            } else {
+                NotificationListUnavailable::UpstreamFailed
+            },
+        );
+    }
+
+    let body = match read_notification_body_limited(response, NOTIFICATION_LIST_BODY_MAX).await {
+        Ok(body) => body,
+        Err(NotificationBodyReadError::TooLarge) => return NotificationListLoadOutcome::Malformed,
+        Err(NotificationBodyReadError::Transport) => {
+            return NotificationListLoadOutcome::Unavailable(
+                NotificationListUnavailable::Dependency,
+            )
+        }
+    };
+    let payload = match serde_json::from_slice::<NotificationListWire>(&body) {
+        Ok(payload) if payload.validate(owner, query).is_ok() => payload,
+        Ok(_) | Err(_) => return NotificationListLoadOutcome::Malformed,
+    };
+    let value = match serde_json::from_slice::<serde_json::Value>(&body) {
+        Ok(value) => value,
+        Err(_) => return NotificationListLoadOutcome::Malformed,
+    };
+    if payload.items.is_empty() {
+        NotificationListLoadOutcome::Empty(value)
+    } else {
+        NotificationListLoadOutcome::Ready(value)
     }
 }
 
@@ -1019,19 +1121,26 @@ fn private_notification_response(mut response: Response) -> Response {
 async fn read_notification_body_limited(
     mut response: reqwest::Response,
     limit: usize,
-) -> Result<Vec<u8>, ()> {
+) -> Result<Vec<u8>, NotificationBodyReadError> {
     if response
         .content_length()
         .is_some_and(|length| length > limit as u64)
     {
-        return Err(());
+        return Err(NotificationBodyReadError::TooLarge);
     }
 
     let mut body = Vec::new();
-    while let Some(chunk) = response.chunk().await.map_err(|_| ())? {
-        let next_len = body.len().checked_add(chunk.len()).ok_or(())?;
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|_| NotificationBodyReadError::Transport)?
+    {
+        let next_len = body
+            .len()
+            .checked_add(chunk.len())
+            .ok_or(NotificationBodyReadError::TooLarge)?;
         if next_len > limit {
-            return Err(());
+            return Err(NotificationBodyReadError::TooLarge);
         }
         body.extend_from_slice(&chunk);
     }
@@ -1059,36 +1168,31 @@ async fn notifications_api_inner(
         Ok(session) => session,
         Err(response) => return response,
     };
-    let url = format!(
-        "{}/api/v1/notification/list{}",
-        state.api_url.trim_end_matches('/'),
-        query.upstream_suffix()
-    );
-    let client = state.notification.clone_for_bearer();
-    let req = client.get(&url).bearer_auth(&token);
-    match req.send().await {
-        Ok(response) if response.status().is_success() => {
-            let body = match read_notification_body_limited(response, NOTIFICATION_LIST_BODY_MAX)
-                .await
-            {
-                Ok(body) => body,
-                Err(()) => {
-                    return safe_error(StatusCode::BAD_GATEWAY, "malformed_notification_response")
-                }
-            };
-            let value = serde_json::from_slice::<serde_json::Value>(&body);
-            let payload = serde_json::from_slice::<NotificationListWire>(&body);
-            match (value, payload) {
-                (Ok(value), Ok(payload))
-                    if payload.validate(&user.wallet_address, query.limit).is_ok() =>
-                {
-                    Json(value).into_response()
-                }
-                _ => safe_error(StatusCode::BAD_GATEWAY, "malformed_notification_response"),
-            }
+    let request_id = notification_request_id(&headers);
+    match load_owner_notifications(
+        state.notification.as_ref(),
+        &token,
+        &user.wallet_address,
+        &query,
+        &request_id,
+    )
+    .await
+    {
+        NotificationListLoadOutcome::Ready(value) | NotificationListLoadOutcome::Empty(value) => {
+            Json(value).into_response()
         }
-        Ok(response) => notification_upstream_error(response.status()),
-        Err(_) => safe_error(StatusCode::BAD_GATEWAY, "notification_upstream_unavailable"),
+        NotificationListLoadOutcome::Malformed => {
+            safe_error(StatusCode::BAD_GATEWAY, "malformed_notification_response")
+        }
+        NotificationListLoadOutcome::Unavailable(NotificationListUnavailable::Unauthorized) => {
+            notification_upstream_error(StatusCode::UNAUTHORIZED)
+        }
+        NotificationListLoadOutcome::Unavailable(NotificationListUnavailable::UpstreamFailed) => {
+            notification_upstream_error(StatusCode::BAD_GATEWAY)
+        }
+        NotificationListLoadOutcome::Unavailable(NotificationListUnavailable::Dependency) => {
+            safe_error(StatusCode::BAD_GATEWAY, "notification_upstream_unavailable")
+        }
     }
 }
 
@@ -1124,8 +1228,11 @@ async fn notification_unread_count_inner(
                 .await
             {
                 Ok(body) => body,
-                Err(()) => {
+                Err(NotificationBodyReadError::TooLarge) => {
                     return safe_error(StatusCode::BAD_GATEWAY, "malformed_notification_response")
+                }
+                Err(NotificationBodyReadError::Transport) => {
+                    return safe_error(StatusCode::BAD_GATEWAY, "notification_upstream_unavailable")
                 }
             };
             match serde_json::from_slice::<NotificationUnreadCount>(&body) {
@@ -2377,17 +2484,21 @@ mod notification_contract_tests {
     #[test]
     fn exact_list_shape_requires_owner_and_every_service_field() {
         let owner = "0x1111111111111111111111111111111111111111";
+        let one_row_query = NotificationListQuery {
+            limit: Some(1),
+            ..NotificationListQuery::default()
+        };
         let valid = serde_json::json!({"items": [notification(owner)], "total": 1});
         serde_json::from_value::<NotificationListWire>(valid)
             .unwrap()
-            .validate(owner, Some(1))
+            .validate(owner, &one_row_query)
             .unwrap();
 
         let mut wrong_owner = notification("0x2222222222222222222222222222222222222222");
         wrong_owner.as_object_mut().unwrap().remove("action_url");
         let malformed = serde_json::json!({"items": [wrong_owner], "total": 1});
         let payload = serde_json::from_value::<NotificationListWire>(malformed).unwrap();
-        assert!(payload.validate(owner, Some(1)).is_err());
+        assert!(payload.validate(owner, &one_row_query).is_err());
 
         let extra = serde_json::json!({
             "items": [notification(owner)],
@@ -2395,6 +2506,58 @@ mod notification_contract_tests {
             "sample": true
         });
         assert!(serde_json::from_value::<NotificationListWire>(extra).is_err());
+
+        let mut unknown_row = notification(owner);
+        unknown_row
+            .as_object_mut()
+            .unwrap()
+            .insert("sample".to_string(), serde_json::Value::Bool(true));
+        assert!(
+            serde_json::from_value::<NotificationListWire>(serde_json::json!({
+                "items": [unknown_row],
+                "total": 1
+            }))
+            .is_err()
+        );
+
+        for total in [-1, 0] {
+            let payload = serde_json::from_value::<NotificationListWire>(serde_json::json!({
+                "items": [notification(owner)],
+                "total": total
+            }))
+            .unwrap();
+            assert!(payload.validate(owner, &one_row_query).is_err());
+        }
+    }
+
+    #[test]
+    fn unfiltered_page_cardinality_must_agree_with_total() {
+        let owner = "0x1111111111111111111111111111111111111111";
+        let contradictory = serde_json::from_value::<NotificationListWire>(serde_json::json!({
+            "items": [],
+            "total": 1
+        }))
+        .unwrap();
+        assert!(contradictory
+            .validate(owner, &NotificationListQuery::default())
+            .is_err());
+
+        let past_end = NotificationListQuery {
+            limit: Some(1),
+            offset: Some(2),
+            status: None,
+        };
+        assert!(contradictory.validate(owner, &past_end).is_ok());
+
+        // The current service reports an unfiltered total for a filtered row
+        // query. Until that service contract is repaired, do not pretend the
+        // filtered page can be checked against the global total.
+        let filtered = NotificationListQuery {
+            limit: Some(1),
+            offset: None,
+            status: Some("sent".to_string()),
+        };
+        assert!(contradictory.validate(owner, &filtered).is_ok());
     }
 
     #[test]
@@ -2576,6 +2739,31 @@ mod auth_session_tests {
         format!("http://{address}")
     }
 
+    async fn spawn_stalled_chunked_body(chunk: Vec<u8>, stall: Duration) -> String {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = [0_u8; 2048];
+            let _ = stream.read(&mut request).await.unwrap();
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n",
+                )
+                .await
+                .unwrap();
+            stream
+                .write_all(format!("{:X}\r\n", chunk.len()).as_bytes())
+                .await
+                .unwrap();
+            stream.write_all(&chunk).await.unwrap();
+            stream.write_all(b"\r\n").await.unwrap();
+            stream.flush().await.unwrap();
+            tokio::time::sleep(stall).await;
+        });
+        format!("http://{address}")
+    }
+
     fn state(base_url: &str) -> AppState {
         let config = epsx_client::ClientConfig {
             base_url: base_url.to_string(),
@@ -2676,6 +2864,199 @@ mod auth_session_tests {
         .unwrap()
     }
 
+    fn notification_client(base_url: &str, timeout: Duration) -> ServiceClient {
+        ServiceClient::new(epsx_client::ClientConfig {
+            base_url: base_url.to_string(),
+            timeout,
+        })
+    }
+
+    async fn load_notification_payload(payload: Value) -> NotificationListLoadOutcome {
+        let router = Router::new().route(
+            "/api/v1/notification/list",
+            get(move || {
+                let payload = payload.clone();
+                async move { Json(payload) }
+            }),
+        );
+        let base_url = spawn_mock(router).await;
+        load_owner_notifications(
+            &notification_client(&base_url, Duration::from_secs(1)),
+            "verified-bearer",
+            TEST_WALLET,
+            &NotificationListQuery::default(),
+            &NotificationRequestId("11111111-1111-4111-8111-111111111111".to_string()),
+        )
+        .await
+    }
+
+    #[tokio::test]
+    async fn shared_notification_loader_classifies_empty_and_strict_contract_failures() {
+        let ready = notification_payload(TEST_WALLET);
+        assert_eq!(
+            load_notification_payload(ready.clone()).await,
+            NotificationListLoadOutcome::Ready(ready)
+        );
+
+        let empty = json!({"items": [], "total": 0});
+        assert_eq!(
+            load_notification_payload(empty.clone()).await,
+            NotificationListLoadOutcome::Empty(empty)
+        );
+
+        assert_eq!(
+            load_notification_payload(json!({"items": [], "total": 1})).await,
+            NotificationListLoadOutcome::Malformed
+        );
+
+        assert_eq!(
+            load_owner_notifications(
+                &notification_client(&unused_base_url().await, Duration::from_millis(50)),
+                "verified-bearer",
+                TEST_WALLET,
+                &NotificationListQuery::default(),
+                &NotificationRequestId("11111111-1111-4111-8111-111111111111".to_string(),),
+            )
+            .await,
+            NotificationListLoadOutcome::Unavailable(NotificationListUnavailable::Dependency)
+        );
+
+        let malformed_router = Router::new().route(
+            "/api/v1/notification/list",
+            get(|| async {
+                Response::builder()
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from("{"))
+                    .unwrap()
+            }),
+        );
+        let malformed_base_url = spawn_mock(malformed_router).await;
+        assert_eq!(
+            load_owner_notifications(
+                &notification_client(&malformed_base_url, Duration::from_secs(1)),
+                "verified-bearer",
+                TEST_WALLET,
+                &NotificationListQuery::default(),
+                &NotificationRequestId("11111111-1111-4111-8111-111111111111".to_string(),),
+            )
+            .await,
+            NotificationListLoadOutcome::Malformed
+        );
+
+        assert_eq!(
+            load_notification_payload(notification_payload(
+                "0x2222222222222222222222222222222222222222"
+            ))
+            .await,
+            NotificationListLoadOutcome::Malformed
+        );
+
+        let mut unknown = notification_payload(TEST_WALLET);
+        unknown["items"][0]["unknown"] = json!(true);
+        assert_eq!(
+            load_notification_payload(unknown).await,
+            NotificationListLoadOutcome::Malformed
+        );
+
+        let mut negative_total = notification_payload(TEST_WALLET);
+        negative_total["total"] = json!(-1);
+        assert_eq!(
+            load_notification_payload(negative_total).await,
+            NotificationListLoadOutcome::Malformed
+        );
+
+        let mut impossible_total = notification_payload(TEST_WALLET);
+        impossible_total["total"] = json!(0);
+        assert_eq!(
+            load_notification_payload(impossible_total).await,
+            NotificationListLoadOutcome::Malformed
+        );
+    }
+
+    #[tokio::test]
+    async fn shared_notification_loader_fails_closed_on_timeout_redirect_and_chunked_overflow() {
+        let timeout_router = Router::new().route(
+            "/api/v1/notification/list",
+            get(|| async {
+                tokio::time::sleep(Duration::from_millis(200)).await;
+                Json(json!({"items": [], "total": 0}))
+            }),
+        );
+        let timeout_base_url = spawn_mock(timeout_router).await;
+        let request_id = NotificationRequestId("11111111-1111-4111-8111-111111111111".to_string());
+        assert_eq!(
+            load_owner_notifications(
+                &notification_client(&timeout_base_url, Duration::from_millis(20)),
+                "verified-bearer",
+                TEST_WALLET,
+                &NotificationListQuery::default(),
+                &request_id,
+            )
+            .await,
+            NotificationListLoadOutcome::Unavailable(NotificationListUnavailable::Dependency)
+        );
+
+        let stalled_base_url =
+            spawn_stalled_chunked_body(br#"{"items":[]"#.to_vec(), Duration::from_millis(200))
+                .await;
+        assert_eq!(
+            load_owner_notifications(
+                &notification_client(&stalled_base_url, Duration::from_millis(50)),
+                "verified-bearer",
+                TEST_WALLET,
+                &NotificationListQuery::default(),
+                &request_id,
+            )
+            .await,
+            NotificationListLoadOutcome::Unavailable(NotificationListUnavailable::Dependency)
+        );
+
+        let followed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let followed_target = followed.clone();
+        let redirect_router = Router::new()
+            .route(
+                "/api/v1/notification/list",
+                get(|| async { axum::response::Redirect::temporary("/redirect-target") }),
+            )
+            .route(
+                "/redirect-target",
+                get(move || {
+                    let followed_target = followed_target.clone();
+                    async move {
+                        followed_target.store(true, std::sync::atomic::Ordering::SeqCst);
+                        Json(notification_payload(TEST_WALLET))
+                    }
+                }),
+            );
+        let redirect_base_url = spawn_mock(redirect_router).await;
+        assert_eq!(
+            load_owner_notifications(
+                &notification_client(&redirect_base_url, Duration::from_secs(1)),
+                "verified-bearer",
+                TEST_WALLET,
+                &NotificationListQuery::default(),
+                &request_id,
+            )
+            .await,
+            NotificationListLoadOutcome::Unavailable(NotificationListUnavailable::UpstreamFailed)
+        );
+        assert!(!followed.load(std::sync::atomic::Ordering::SeqCst));
+
+        let oversized_base_url =
+            spawn_chunked_body(vec![vec![b'x'; NOTIFICATION_LIST_BODY_MAX], vec![b'x']]).await;
+        assert_eq!(
+            load_owner_notifications(
+                &notification_client(&oversized_base_url, Duration::from_secs(1)),
+                "verified-bearer",
+                TEST_WALLET,
+                &NotificationListQuery::default(),
+                &request_id,
+            )
+            .await,
+            NotificationListLoadOutcome::Malformed
+        );
+    }
+
     #[tokio::test]
     async fn notification_reads_forward_only_verified_bearer_and_safe_query() {
         let key = TestKey::generate();
@@ -2709,6 +3090,15 @@ mod auth_session_tests {
                             "x_user_address": headers
                                 .get("x-user-address")
                                 .and_then(|value| value.to_str().ok()),
+                            "x_permissions": headers
+                                .get("x-permissions")
+                                .and_then(|value| value.to_str().ok()),
+                            "cookie": headers
+                                .get(header::COOKIE)
+                                .and_then(|value| value.to_str().ok()),
+                            "request_id": headers
+                                .get("x-request-id")
+                                .and_then(|value| value.to_str().ok()),
                         }));
                         if headers
                             .get(header::AUTHORIZATION)
@@ -2726,7 +3116,20 @@ mod auth_session_tests {
                 get(|| async { Json(json!({"count": 7})) }),
             );
         let base_url = spawn_mock(router).await;
-        let headers = request_headers(&format!("epsx.frontend.access_token={access_token}"));
+        let mut headers = request_headers(&format!("epsx.frontend.access_token={access_token}"));
+        headers.insert(
+            "x-request-id",
+            HeaderValue::from_static("22222222-2222-4222-8222-222222222222"),
+        );
+        headers.insert("x-user-id", HeaderValue::from_static("browser-user"));
+        headers.insert(
+            "x-user-address",
+            HeaderValue::from_static("0x2222222222222222222222222222222222222222"),
+        );
+        headers.insert(
+            "x-permissions",
+            HeaderValue::from_static("browser:unverified"),
+        );
 
         let list = notifications_api(
             State(state(&base_url)),
@@ -2752,6 +3155,12 @@ mod auth_session_tests {
         );
         assert!(observations[0]["x_user_id"].is_null());
         assert!(observations[0]["x_user_address"].is_null());
+        assert!(observations[0]["x_permissions"].is_null());
+        assert!(observations[0]["cookie"].is_null());
+        assert_eq!(
+            observations[0]["request_id"],
+            "22222222-2222-4222-8222-222222222222"
+        );
         assert!(!observations[0]["query"]
             .as_str()
             .unwrap()
@@ -2865,11 +3274,10 @@ mod auth_session_tests {
 
             let oversized_url = spawn_chunked_body(vec![vec![b'a'; limit], vec![b'b']]).await;
             let oversized = reqwest::get(oversized_url).await.unwrap();
-            assert!(
-                read_notification_body_limited(oversized, limit)
-                    .await
-                    .is_err(),
-                "chunked response must fail above {limit} bytes"
+            assert_eq!(
+                read_notification_body_limited(oversized, limit).await,
+                Err(NotificationBodyReadError::TooLarge),
+                "chunked response must fail above {limit} bytes",
             );
         }
     }

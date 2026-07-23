@@ -93,16 +93,21 @@ fn auth_page_session_state(
 /// unavailable.
 fn record_notification_load(
     params: &mut HashMap<String, String>,
-    result: Result<serde_json::Value, ()>,
+    outcome: crate::api::NotificationListLoadOutcome,
 ) {
     params.remove(NOTIFICATIONS_DATA_PARAM);
-    match result {
-        Ok(value) => {
+    params.remove(NOTIFICATIONS_STATE_PARAM);
+    match outcome {
+        crate::api::NotificationListLoadOutcome::Ready(value)
+        | crate::api::NotificationListLoadOutcome::Empty(value) => {
             params.insert(NOTIFICATIONS_DATA_PARAM.into(), value.to_string());
             params.insert(NOTIFICATIONS_STATE_PARAM.into(), "ok".into());
         }
-        Err(()) => {
+        crate::api::NotificationListLoadOutcome::Unavailable(_) => {
             params.insert(NOTIFICATIONS_STATE_PARAM.into(), "error".into());
+        }
+        crate::api::NotificationListLoadOutcome::Malformed => {
+            params.insert(NOTIFICATIONS_STATE_PARAM.into(), "malformed".into());
         }
     }
 }
@@ -375,10 +380,12 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     };
 
     let (meta, body_element) = render_page(&ctx, false);
-    let status = news_ssr_status(&path, &ctx.params).unwrap_or_else(|| match meta.status {
-        PageStatus::Ok => StatusCode::OK,
-        PageStatus::NotFound => StatusCode::NOT_FOUND,
-    });
+    let status = notifications_ssr_status(&path, &ctx.params)
+        .or_else(|| news_ssr_status(&path, &ctx.params))
+        .unwrap_or_else(|| match meta.status {
+            PageStatus::Ok => StatusCode::OK,
+            PageStatus::NotFound => StatusCode::NOT_FOUND,
+        });
     let body_html = dioxus_ssr::render_element(body_element);
 
     // === Wave 49+ — SSR-safe navbar ===
@@ -564,13 +571,23 @@ async fn fetch_page_data(
     // /notifications: fetch the authenticated owner's list. Preserve an
     // explicit dependency outcome so an upstream failure never renders as an
     // empty or sample-backed success state.
-    if path == "/notifications" && user.is_some() {
-        let result = state
-            .notification
-            .get_with_ctx("/api/v1/notification/list", &request_context)
-            .await
-            .map_err(|_| ());
-        record_notification_load(params, result);
+    if path == "/notifications" {
+        if let (Some(owner), Some(bearer)) = (
+            user.as_ref().map(|user| user.address.as_str()),
+            verified_access_token,
+        ) {
+            let notification_query = crate::api::NotificationListQuery::default();
+            let request_id = crate::api::notification_request_id(headers);
+            let outcome = crate::api::load_owner_notifications(
+                state.notification.as_ref(),
+                bearer,
+                owner,
+                &notification_query,
+                &request_id,
+            )
+            .await;
+            record_notification_load(params, outcome);
+        }
     }
     // `/plans` intentionally has no loader. Pricing, eligibility, features,
     // sale windows, and subscription decisions remain unavailable until a
@@ -641,6 +658,23 @@ fn news_ssr_status(path: &str, params: &HashMap<String, String>) -> Option<Statu
         (false, Some("not_found"), _) => Some(StatusCode::NOT_FOUND),
         _ => Some(StatusCode::SERVICE_UNAVAILABLE),
     }
+}
+
+fn notifications_ssr_status(path: &str, params: &HashMap<String, String>) -> Option<StatusCode> {
+    if path != "/notifications" {
+        return None;
+    }
+    Some(
+        if params
+            .get(NOTIFICATIONS_STATE_PARAM)
+            .is_some_and(|state| state == "ok")
+            && params.contains_key(NOTIFICATIONS_DATA_PARAM)
+        {
+            StatusCode::OK
+        } else {
+            StatusCode::SERVICE_UNAVAILABLE
+        },
+    )
 }
 
 /// Shared SSR-safe wallet challenge/sign/verify bridge.
@@ -1108,6 +1142,7 @@ mod tests {
     use super::news_detail_route_slug;
     use super::news_ssr_status;
     use super::notification_badge_runtime;
+    use super::notifications_ssr_status;
     use super::offline_runtime_script;
     use super::offline_service_worker_script;
     use super::offline_worker_registration_script;
@@ -1272,12 +1307,20 @@ mod tests {
     }
 
     #[test]
-    fn notification_load_records_explicit_success_with_exact_payload() {
+    fn notification_load_records_ready_and_authoritative_empty_as_200() {
         let payload = serde_json::json!({
             "items": [{
                 "id": "0x1",
+                "user_id": "0x1111111111111111111111111111111111111111",
+                "channel": "in_app",
+                "recipient": "0x1111111111111111111111111111111111111111",
+                "template_id": null,
                 "subject": null,
                 "body": "body",
+                "data": null,
+                "status": "sent",
+                "error": null,
+                "sent_at": null,
                 "created_at": "2026-07-22T00:00:00Z",
                 "read_at": null,
                 "title": null,
@@ -1289,7 +1332,10 @@ mod tests {
         });
         let mut params = HashMap::new();
 
-        record_notification_load(&mut params, Ok(payload.clone()));
+        record_notification_load(
+            &mut params,
+            crate::api::NotificationListLoadOutcome::Ready(payload.clone()),
+        );
 
         assert_eq!(
             params
@@ -1303,24 +1349,61 @@ mod tests {
                 .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok()),
             Some(payload)
         );
+        assert_eq!(
+            notifications_ssr_status("/notifications", &params),
+            Some(axum::http::StatusCode::OK)
+        );
+
+        let empty = serde_json::json!({"items": [], "total": 0});
+        record_notification_load(
+            &mut params,
+            crate::api::NotificationListLoadOutcome::Empty(empty.clone()),
+        );
+        assert_eq!(
+            params
+                .get(super::NOTIFICATIONS_DATA_PARAM)
+                .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok()),
+            Some(empty)
+        );
+        assert_eq!(
+            notifications_ssr_status("/notifications", &params),
+            Some(axum::http::StatusCode::OK)
+        );
     }
 
     #[test]
-    fn notification_load_records_explicit_error_and_removes_stale_payload() {
-        let mut params = HashMap::from([(
-            super::NOTIFICATIONS_DATA_PARAM.to_string(),
-            serde_json::json!({"items": [{"title": "stale"}], "total": 1}).to_string(),
-        )]);
+    fn notification_load_records_failures_as_503_and_removes_stale_payload() {
+        for (outcome, state) in [
+            (
+                crate::api::NotificationListLoadOutcome::Unavailable(
+                    crate::api::NotificationListUnavailable::Dependency,
+                ),
+                "error",
+            ),
+            (
+                crate::api::NotificationListLoadOutcome::Malformed,
+                "malformed",
+            ),
+        ] {
+            let mut params = HashMap::from([(
+                super::NOTIFICATIONS_DATA_PARAM.to_string(),
+                serde_json::json!({"items": [{"title": "stale"}], "total": 1}).to_string(),
+            )]);
 
-        record_notification_load(&mut params, Err(()));
+            record_notification_load(&mut params, outcome);
 
-        assert_eq!(
-            params
-                .get(super::NOTIFICATIONS_STATE_PARAM)
-                .map(String::as_str),
-            Some("error")
-        );
-        assert!(!params.contains_key(super::NOTIFICATIONS_DATA_PARAM));
+            assert_eq!(
+                params
+                    .get(super::NOTIFICATIONS_STATE_PARAM)
+                    .map(String::as_str),
+                Some(state)
+            );
+            assert!(!params.contains_key(super::NOTIFICATIONS_DATA_PARAM));
+            assert_eq!(
+                notifications_ssr_status("/notifications", &params),
+                Some(axum::http::StatusCode::SERVICE_UNAVAILABLE)
+            );
+        }
     }
 
     #[test]
