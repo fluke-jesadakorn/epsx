@@ -34,6 +34,7 @@
 pub mod emit_handler;
 pub mod event_bus;
 pub mod identity_service;
+pub mod ranking_entitlement;
 pub mod sse_handler;
 
 /// tonic-build-generated gRPC types. The generated file is

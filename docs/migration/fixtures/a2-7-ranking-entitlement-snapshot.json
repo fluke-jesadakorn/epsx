@@ -1,0 +1,590 @@
+{
+  "schemaVersion": 1,
+  "description": "A2.7 fixed-time, backend-only ranking entitlement decision ledger. Facts contain no effective-start or grace-period field because the source ranking decision has no scheduled-start field and does not honor plan grace periods.",
+  "observedAt": 1784808000000000,
+  "normalizedWallet": "0xabcdef",
+  "cases": [
+    {
+      "id": "no-plan",
+      "assignments": [],
+      "expected": { "kind": "no_effective_plan", "effective_offset": 100 }
+    },
+    {
+      "id": "inactive-assignment-is-irrelevant",
+      "assignments": [
+        {
+          "assignmentId": "assignment-inactive",
+          "planId": "plan-inactive-assignment",
+          "assignmentActive": false,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "integer", "value": 0 },
+          "permissions": [
+            { "permissionId": "permission-inactive-assignment", "active": true, "permissionString": "epsx:rankings:offset:0" }
+          ]
+        }
+      ],
+      "expected": { "kind": "no_effective_plan", "effective_offset": 100 }
+    },
+    {
+      "id": "active-unexpired-assignment-with-missing-plan-is-corrupt",
+      "assignments": [
+        {
+          "assignmentId": "assignment-orphan-current",
+          "planId": "plan-missing-current",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": false,
+          "planActive": false,
+          "metadata": { "kind": "missing" },
+          "permissions": []
+        }
+      ],
+      "expected": { "kind": "error", "error": "missing_plan" }
+    },
+    {
+      "id": "expiry-before-observation-is-irrelevant",
+      "assignments": [
+        {
+          "assignmentId": "assignment-expired-before",
+          "planId": "plan-missing-expired-before",
+          "assignmentActive": true,
+          "expiresAt": 1784807999000000,
+          "planPresent": false,
+          "planActive": false,
+          "metadata": { "kind": "invalid" },
+          "permissions": [
+            { "permissionId": "permission-expired-before", "active": true, "permissionString": "epsx:rankings:offset:not-a-number" }
+          ]
+        }
+      ],
+      "expected": { "kind": "no_effective_plan", "effective_offset": 100 }
+    },
+    {
+      "id": "expiry-equal-observation-is-expired",
+      "assignments": [
+        {
+          "assignmentId": "assignment-expiry-equal",
+          "planId": "plan-missing-expiry-equal",
+          "assignmentActive": true,
+          "expiresAt": 1784808000000000,
+          "planPresent": false,
+          "planActive": false,
+          "metadata": { "kind": "invalid" },
+          "permissions": []
+        }
+      ],
+      "expected": { "kind": "no_effective_plan", "effective_offset": 100 }
+    },
+    {
+      "id": "expiry-one-microsecond-after-observation-is-effective",
+      "assignments": [
+        {
+          "assignmentId": "assignment-expiry-after",
+          "planId": "plan-expiry-after",
+          "assignmentActive": true,
+          "expiresAt": 1784808000000001,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "integer", "value": 5 },
+          "permissions": []
+        }
+      ],
+      "expected": { "kind": "plan_grant", "minimum_plan_offset": 5, "effective_offset": 5 }
+    },
+    {
+      "id": "permanent-assignment-is-effective",
+      "assignments": [
+        {
+          "assignmentId": "assignment-permanent",
+          "planId": "plan-permanent",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "integer", "value": 4 },
+          "permissions": []
+        }
+      ],
+      "expected": { "kind": "plan_grant", "minimum_plan_offset": 4, "effective_offset": 4 }
+    },
+    {
+      "id": "cancelled-assignment-does-not-grant",
+      "assignments": [
+        {
+          "assignmentId": "assignment-cancelled",
+          "planId": "plan-cancelled",
+          "assignmentActive": false,
+          "expiresAt": 1785542400000000,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "integer", "value": 0 },
+          "permissions": []
+        }
+      ],
+      "expected": { "kind": "no_effective_plan", "effective_offset": 100 }
+    },
+    {
+      "id": "inactive-plan-does-not-grant",
+      "assignments": [
+        {
+          "assignmentId": "assignment-active-plan-inactive",
+          "planId": "plan-inactive",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": false,
+          "metadata": { "kind": "integer", "value": 0 },
+          "permissions": []
+        }
+      ],
+      "expected": { "kind": "no_effective_plan", "effective_offset": 100 }
+    },
+    {
+      "id": "overlap-uses-minimum-offset",
+      "assignments": [
+        {
+          "assignmentId": "assignment-overlap-25",
+          "planId": "plan-overlap-25",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "missing" },
+          "permissions": [
+            { "permissionId": "permission-overlap-25", "active": true, "permissionString": "epsx:rankings:offset:25" }
+          ]
+        },
+        {
+          "assignmentId": "assignment-overlap-1",
+          "planId": "plan-overlap-1",
+          "assignmentActive": true,
+          "expiresAt": 1784851200000000,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "missing" },
+          "permissions": [
+            { "permissionId": "permission-overlap-1", "active": true, "permissionString": "epsx:rankings:offset:1" }
+          ]
+        }
+      ],
+      "expected": { "kind": "plan_grant", "minimum_plan_offset": 1, "effective_offset": 1 }
+    },
+    {
+      "id": "legacy-metadata-lower-than-permission",
+      "assignments": [
+        {
+          "assignmentId": "assignment-meta-lower",
+          "planId": "plan-meta-lower",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "integer", "value": 2 },
+          "permissions": [
+            { "permissionId": "permission-five", "active": true, "permissionString": "epsx:rankings:offset:5" }
+          ]
+        }
+      ],
+      "expected": { "kind": "plan_grant", "minimum_plan_offset": 2, "effective_offset": 2 }
+    },
+    {
+      "id": "permission-lower-than-legacy-metadata",
+      "assignments": [
+        {
+          "assignmentId": "assignment-permission-lower",
+          "planId": "plan-permission-lower",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "integer", "value": 10 },
+          "permissions": [
+            { "permissionId": "permission-three", "active": true, "permissionString": "epsx:rankings:offset:3" }
+          ]
+        }
+      ],
+      "expected": { "kind": "plan_grant", "minimum_plan_offset": 3, "effective_offset": 3 }
+    },
+    {
+      "id": "inactive-permission-is-ignored",
+      "assignments": [
+        {
+          "assignmentId": "assignment-inactive-permission",
+          "planId": "plan-inactive-permission",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "missing" },
+          "permissions": [
+            { "permissionId": "permission-inactive-invalid", "active": false, "permissionString": "epsx:rankings:offset:-1" }
+          ]
+        }
+      ],
+      "expected": { "kind": "effective_plans_without_grant", "effective_offset": 100 }
+    },
+    {
+      "id": "effective-plan-without-ranking-grant",
+      "assignments": [
+        {
+          "assignmentId": "assignment-no-grant",
+          "planId": "plan-no-grant",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "missing" },
+          "permissions": [
+            { "permissionId": "permission-analytics-view", "active": true, "permissionString": "epsx:analytics:view" }
+          ]
+        }
+      ],
+      "expected": { "kind": "effective_plans_without_grant", "effective_offset": 100 }
+    },
+    {
+      "id": "explicit-free-offset-is-plan-derived",
+      "assignments": [
+        {
+          "assignmentId": "assignment-explicit-free",
+          "planId": "plan-explicit-free",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "missing" },
+          "permissions": [
+            { "permissionId": "permission-explicit-free", "active": true, "permissionString": "epsx:rankings:offset:100" }
+          ]
+        }
+      ],
+      "expected": { "kind": "plan_grant", "minimum_plan_offset": 100, "effective_offset": 100 }
+    },
+    {
+      "id": "valid-500-remains-plan-derived-but-cannot-worsen-free",
+      "assignments": [
+        {
+          "assignmentId": "assignment-500",
+          "planId": "plan-500",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "integer", "value": 500 },
+          "permissions": []
+        }
+      ],
+      "expected": { "kind": "plan_grant", "minimum_plan_offset": 500, "effective_offset": 100 }
+    },
+    {
+      "id": "duplicates-and-order-do-not-change-minimum",
+      "assignments": [
+        {
+          "assignmentId": "assignment-duplicate",
+          "planId": "plan-duplicate",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "integer", "value": 10 },
+          "permissions": [
+            { "permissionId": "permission-duplicate-3", "active": true, "permissionString": "epsx:rankings:offset:3" },
+            { "permissionId": "permission-duplicate-10", "active": true, "permissionString": "epsx:rankings:offset:10" },
+            { "permissionId": "permission-duplicate-3", "active": true, "permissionString": "epsx:rankings:offset:3" }
+          ]
+        },
+        {
+          "assignmentId": "assignment-duplicate",
+          "planId": "plan-duplicate",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "missing" },
+          "permissions": [
+            { "permissionId": "permission-duplicate-8", "active": true, "permissionString": "epsx:rankings:offset:8" }
+          ]
+        }
+      ],
+      "expected": { "kind": "plan_grant", "minimum_plan_offset": 3, "effective_offset": 3 }
+    },
+    {
+      "id": "reversed-duplicate-order-has-the-same-minimum",
+      "assignments": [
+        {
+          "assignmentId": "assignment-duplicate",
+          "planId": "plan-duplicate",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "missing" },
+          "permissions": [
+            { "permissionId": "permission-duplicate-8", "active": true, "permissionString": "epsx:rankings:offset:8" }
+          ]
+        },
+        {
+          "assignmentId": "assignment-duplicate",
+          "planId": "plan-duplicate",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "integer", "value": 10 },
+          "permissions": [
+            { "permissionId": "permission-duplicate-3", "active": true, "permissionString": "epsx:rankings:offset:3" },
+            { "permissionId": "permission-duplicate-10", "active": true, "permissionString": "epsx:rankings:offset:10" },
+            { "permissionId": "permission-duplicate-3", "active": true, "permissionString": "epsx:rankings:offset:3" }
+          ]
+        }
+      ],
+      "expected": { "kind": "plan_grant", "minimum_plan_offset": 3, "effective_offset": 3 }
+    },
+    {
+      "id": "negative-legacy-metadata-is-corrupt",
+      "assignments": [
+        {
+          "assignmentId": "assignment-meta-negative",
+          "planId": "plan-meta-negative",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "integer", "value": -1 },
+          "permissions": []
+        }
+      ],
+      "expected": { "kind": "error", "error": "invalid_legacy_metadata_offset" }
+    },
+    {
+      "id": "oversize-legacy-metadata-is-corrupt",
+      "assignments": [
+        {
+          "assignmentId": "assignment-meta-oversize",
+          "planId": "plan-meta-oversize",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "integer", "value": 1001 },
+          "permissions": []
+        }
+      ],
+      "expected": { "kind": "error", "error": "invalid_legacy_metadata_offset" }
+    },
+    {
+      "id": "i64-value-outside-i32-is-corrupt",
+      "assignments": [
+        {
+          "assignmentId": "assignment-meta-i64",
+          "planId": "plan-meta-i64",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "integer", "value": 2147483648 },
+          "permissions": []
+        }
+      ],
+      "expected": { "kind": "error", "error": "invalid_legacy_metadata_offset" }
+    },
+    {
+      "id": "invalid-legacy-metadata-type-is-corrupt",
+      "assignments": [
+        {
+          "assignmentId": "assignment-meta-type",
+          "planId": "plan-meta-type",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "invalid" },
+          "permissions": []
+        }
+      ],
+      "expected": { "kind": "error", "error": "invalid_legacy_metadata_offset" }
+    },
+    {
+      "id": "malformed-permission-offset-is-corrupt",
+      "assignments": [
+        {
+          "assignmentId": "assignment-permission-malformed",
+          "planId": "plan-permission-malformed",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "missing" },
+          "permissions": [
+            { "permissionId": "permission-malformed", "active": true, "permissionString": "epsx:rankings:offset:not-a-number" }
+          ]
+        }
+      ],
+      "expected": { "kind": "error", "error": "invalid_permission_offset" }
+    },
+    {
+      "id": "negative-permission-offset-is-corrupt",
+      "assignments": [
+        {
+          "assignmentId": "assignment-permission-negative",
+          "planId": "plan-permission-negative",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "missing" },
+          "permissions": [
+            { "permissionId": "permission-negative", "active": true, "permissionString": "epsx:rankings:offset:-1" }
+          ]
+        }
+      ],
+      "expected": { "kind": "error", "error": "invalid_permission_offset" }
+    },
+    {
+      "id": "oversize-permission-offset-is-corrupt",
+      "assignments": [
+        {
+          "assignmentId": "assignment-permission-oversize",
+          "planId": "plan-permission-oversize",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "missing" },
+          "permissions": [
+            { "permissionId": "permission-oversize", "active": true, "permissionString": "epsx:rankings:offset:1001" }
+          ]
+        }
+      ],
+      "expected": { "kind": "error", "error": "invalid_permission_offset" }
+    },
+    {
+      "id": "empty-permission-offset-is-corrupt",
+      "assignments": [
+        {
+          "assignmentId": "assignment-permission-empty",
+          "planId": "plan-permission-empty",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "missing" },
+          "permissions": [
+            { "permissionId": "permission-empty", "active": true, "permissionString": "epsx:rankings:offset:" }
+          ]
+        }
+      ],
+      "expected": { "kind": "error", "error": "invalid_permission_offset" }
+    },
+    {
+      "id": "leading-zero-permission-retains-source-semantics",
+      "assignments": [
+        {
+          "assignmentId": "assignment-permission-leading-zero",
+          "planId": "plan-permission-leading-zero",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "missing" },
+          "permissions": [
+            { "permissionId": "permission-leading-zero", "active": true, "permissionString": "epsx:rankings:offset:01" }
+          ]
+        }
+      ],
+      "expected": { "kind": "plan_grant", "minimum_plan_offset": 1, "effective_offset": 1 }
+    },
+    {
+      "id": "noncanonical-plus-permission-is-corrupt",
+      "assignments": [
+        {
+          "assignmentId": "assignment-permission-plus",
+          "planId": "plan-permission-plus",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "missing" },
+          "permissions": [
+            { "permissionId": "permission-plus", "active": true, "permissionString": "epsx:rankings:offset:+1" }
+          ]
+        }
+      ],
+      "expected": { "kind": "error", "error": "invalid_permission_offset" }
+    },
+    {
+      "id": "corrupt-candidates-on-irrelevant-facts-are-ignored",
+      "assignments": [
+        {
+          "assignmentId": "assignment-irrelevant-inactive",
+          "planId": "plan-irrelevant-inactive",
+          "assignmentActive": false,
+          "expiresAt": null,
+          "planPresent": false,
+          "planActive": false,
+          "metadata": { "kind": "invalid" },
+          "permissions": [
+            { "permissionId": "permission-irrelevant-inactive", "active": true, "permissionString": "epsx:rankings:offset:-1" }
+          ]
+        },
+        {
+          "assignmentId": "assignment-irrelevant-expired",
+          "planId": "plan-irrelevant-expired",
+          "assignmentActive": true,
+          "expiresAt": 1784804400000000,
+          "planPresent": false,
+          "planActive": false,
+          "metadata": { "kind": "invalid" },
+          "permissions": []
+        },
+        {
+          "assignmentId": "assignment-irrelevant-plan-inactive",
+          "planId": "plan-irrelevant-plan-inactive",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": false,
+          "metadata": { "kind": "invalid" },
+          "permissions": [
+            { "permissionId": "permission-irrelevant-plan-inactive", "active": true, "permissionString": "epsx:rankings:offset:not-a-number" }
+          ]
+        },
+        {
+          "assignmentId": "assignment-relevant-seven",
+          "planId": "plan-relevant-seven",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "integer", "value": 7 },
+          "permissions": [
+            { "permissionId": "permission-relevant-inactive-invalid", "active": false, "permissionString": "epsx:rankings:offset:not-a-number" }
+          ]
+        }
+      ],
+      "expected": { "kind": "plan_grant", "minimum_plan_offset": 7, "effective_offset": 7 }
+    },
+    {
+      "id": "nested-direct-and-wildcard-permissions-do-not-participate",
+      "assignments": [
+        {
+          "assignmentId": "assignment-unrelated-grammar",
+          "planId": "plan-unrelated-grammar",
+          "assignmentActive": true,
+          "expiresAt": null,
+          "planPresent": true,
+          "planActive": true,
+          "metadata": { "kind": "missing" },
+          "permissions": [
+            { "permissionId": "permission-nested", "active": true, "permissionString": "admin:epsx:rankings:offset:0" },
+            { "permissionId": "permission-direct", "active": true, "permissionString": "epsx:rankings:view:5" },
+            { "permissionId": "permission-wildcard-platform", "active": true, "permissionString": "epsx:*:*" },
+            { "permissionId": "permission-wildcard-global", "active": true, "permissionString": "*:*:*" }
+          ]
+        }
+      ],
+      "expected": { "kind": "effective_plans_without_grant", "effective_offset": 100 }
+    }
+  ]
+}

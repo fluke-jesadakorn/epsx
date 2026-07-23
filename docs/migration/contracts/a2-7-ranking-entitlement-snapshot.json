@@ -1,0 +1,273 @@
+{
+  "schemaVersion": 1,
+  "artifact": "a2-7-ranking-entitlement-snapshot",
+  "contractId": "A2.7-ranking-entitlement-snapshot",
+  "purpose": "deterministic-hermetic-ranking-entitlement-snapshot-and-readiness-stop",
+  "productionReady": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "safety": {
+    "database": false,
+    "redis": false,
+    "identityNetwork": false,
+    "marketProvider": false,
+    "rpc": false,
+    "browser": false,
+    "serviceListener": false,
+    "deployment": false,
+    "production": false
+  },
+  "sourceBaseline": {
+    "ref": "origin/development",
+    "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "interpretation": "The monolith ranking query is compatibility authority for this pure resolver: active joined assignments, exclusive expiry, Free Plan seed and minimum valid ranking candidate. Conflicting grace, scheduling, direct-grant, token-claim and PlanFeatures behavior remains unresolved rather than invented.",
+    "evidence": [
+      {
+        "id": "src-ranking-offset-query",
+        "file": "apps/backend/src/auth/unified_permission_service.rs",
+        "blob": "17becb76341ca3dfc87dedbc71e9653063a86f9e",
+        "anchor": "pub async fn get_wallet_ranking_offset("
+      },
+      {
+        "id": "src-no-plan-free-success",
+        "file": "apps/backend/src/auth/unified_permission_service.rs",
+        "blob": "17becb76341ca3dfc87dedbc71e9653063a86f9e",
+        "anchor": "if rows.is_empty() {"
+      },
+      {
+        "id": "src-subscription-grace-conflict",
+        "file": "apps/backend/src/web/payments/subscription_handlers.rs",
+        "blob": "a051eb373cc94258cfe001cb66c90f3bbb9646d2",
+        "anchor": "OR (wga.expires_at + (g.grace_period_hours || ' hours')::INTERVAL) > NOW())"
+      },
+      {
+        "id": "src-locked-rank-presentation",
+        "file": "apps/frontend/components/analytics/plan-status-bar.tsx",
+        "blob": "cdf7696cdb1290389653c3d520cb3b270cbbe8e1",
+        "anchor": "locked ranks = offset - 1"
+      },
+      {
+        "id": "src-core-assignment-schema",
+        "file": "apps/backend/migrations/core/00000000000001_consolidated_baseline_v6/up.sql",
+        "blob": "3cf683bc589f7252fd1be64ab62b69958fc292de",
+        "anchor": "CREATE TABLE wallet_plan_assignments ("
+      },
+      {
+        "id": "src-plan-features-alternative",
+        "file": "apps/backend/src/domain/subscription_management/value_objects/plan_features.rs",
+        "blob": "666c4f52d2d4121c1a59b15d631c79c61094cd5e",
+        "anchor": "ranking_offset: Option<i32>,"
+      }
+    ]
+  },
+  "targetBase": {
+    "ref": "migration/dioxus-microservices",
+    "commit": "395db722e2d71ff73a606d7eac14d6c4ef9d972d",
+    "interpretation": "Immutable completed post-A2.6 snapshot before adding the pure entitlement-snapshot resolver.",
+    "evidence": [
+      {
+        "id": "base-identity-free-stub",
+        "file": "shared/rust/epsx-identity-service/src/identity_service.rs",
+        "blob": "a08419f241788274d1e07dd75089479ae3f15455",
+        "anchor": "Ok(RankingOffset::free_plan())"
+      },
+      {
+        "id": "base-runtime-free-wiring",
+        "file": "shared/rust/epsx-identity-service/src/main.rs",
+        "blob": "e05d9e320fdaed761cd7ea3aaccd2ed120a20143",
+        "anchor": "Arc::new(FreePlanRankingOffsetService)"
+      },
+      {
+        "id": "base-strict-ranking-offset",
+        "file": "shared/rust/epsx-contracts/src/value_objects/ranking_offset.rs",
+        "blob": "eed39fba8e1fdbe8aa2e8f920ace95eff16953cb",
+        "anchor": "pub const RANKING_OFFSET_MAX: i32 = 1000;"
+      },
+      {
+        "id": "base-a2-6-authority-contract",
+        "file": "docs/migration/contracts/a2-6-ranking-authority-failure-boundary.json",
+        "blob": "19410d9a46a4e50a73c404be5ba8a80e13553534",
+        "anchor": "\"contractId\": \"A2.6-ranking-authority-failure-boundary\""
+      }
+    ]
+  },
+  "invariants": [
+    {
+      "id": "fixed-observed-at",
+      "claim": "Resolution is a pure function of one caller-supplied epoch-microsecond observed_at and never reads a process clock or mutable external state."
+    },
+    {
+      "id": "active-assignment-present-active-plan",
+      "claim": "Only an active assignment joined to a present active plan contributes ranking entitlement candidates."
+    },
+    {
+      "id": "exclusive-expiry-or-permanent",
+      "claim": "An assignment is current only when expiry is absent or strictly later than observed_at; equality is expired."
+    },
+    {
+      "id": "strict-relevant-candidate-validation",
+      "claim": "Every relevant metadata or ranking-permission candidate is parsed without lossy casts and strictly range-validated; decimal permission suffixes retain source-compatible leading-zero semantics."
+    },
+    {
+      "id": "inactive-and-unrelated-permissions-ignored",
+      "claim": "Inactive permissions and permission strings outside the exact ranking-offset namespace do not affect a snapshot result."
+    },
+    {
+      "id": "minimum-seeded-free",
+      "claim": "The selected offset starts at the Free Plan value and can only move to the minimum valid effective candidate."
+    },
+    {
+      "id": "typed-success-provenance",
+      "claim": "NoEffectivePlan, EffectivePlansWithoutGrant and PlanGrant successes remain distinct, including a PlanGrant whose value is exactly 100."
+    },
+    {
+      "id": "order-and-duplicate-invariance",
+      "claim": "Reordering input rows or repeating equivalent join rows cannot change the resolved entitlement outcome."
+    },
+    {
+      "id": "errors-distinct-from-free",
+      "claim": "Malformed relevant snapshot data returns an error and is never represented as an empty snapshot or successful Free Plan decision."
+    },
+    {
+      "id": "runtime-always-free-remains-unwired",
+      "claim": "The pure resolver is not wired into the identity gRPC runtime, which deliberately retains the always-Free service for this slice."
+    },
+    {
+      "id": "no-scheduling-or-grace-invention",
+      "claim": "A2.7 applies neither assigned_at scheduling nor grace; both require a later explicit backend authority decision."
+    },
+    {
+      "id": "offline-non-production",
+      "claim": "All proof is local and hermetic and authorizes no database, RPC, browser, listener, deployment or production action."
+    }
+  ],
+  "fixtureEvidence": {
+    "file": "docs/migration/fixtures/a2-7-ranking-entitlement-snapshot.json",
+    "sha256": "d75a67575827638887ac3d4629aa3b01fa21b1408859e769212618408a539365",
+    "fixtureCount": 30,
+    "fixtureIds": [
+      "no-plan",
+      "inactive-assignment-is-irrelevant",
+      "active-unexpired-assignment-with-missing-plan-is-corrupt",
+      "expiry-before-observation-is-irrelevant",
+      "expiry-equal-observation-is-expired",
+      "expiry-one-microsecond-after-observation-is-effective",
+      "permanent-assignment-is-effective",
+      "cancelled-assignment-does-not-grant",
+      "inactive-plan-does-not-grant",
+      "overlap-uses-minimum-offset",
+      "legacy-metadata-lower-than-permission",
+      "permission-lower-than-legacy-metadata",
+      "inactive-permission-is-ignored",
+      "effective-plan-without-ranking-grant",
+      "explicit-free-offset-is-plan-derived",
+      "valid-500-remains-plan-derived-but-cannot-worsen-free",
+      "duplicates-and-order-do-not-change-minimum",
+      "reversed-duplicate-order-has-the-same-minimum",
+      "negative-legacy-metadata-is-corrupt",
+      "oversize-legacy-metadata-is-corrupt",
+      "i64-value-outside-i32-is-corrupt",
+      "invalid-legacy-metadata-type-is-corrupt",
+      "malformed-permission-offset-is-corrupt",
+      "negative-permission-offset-is-corrupt",
+      "oversize-permission-offset-is-corrupt",
+      "empty-permission-offset-is-corrupt",
+      "leading-zero-permission-retains-source-semantics",
+      "noncanonical-plus-permission-is-corrupt",
+      "corrupt-candidates-on-irrelevant-facts-are-ignored",
+      "nested-direct-and-wildcard-permissions-do-not-participate"
+    ]
+  },
+  "hermeticTests": [
+    "a2_7_fixture_ledger_matches_pure_decisions",
+    "a2_7_query_is_dyn_compatible",
+    "a2_7_query_normalizes_wallet_and_calls_repository_once",
+    "a2_7_repository_corrupt_maps_to_opaque_internal_error",
+    "a2_7_repository_unavailable_maps_to_opaque_service_unavailable",
+    "a2_7_resolution_corruption_maps_to_opaque_internal_error",
+    "a2_7_snapshot_wallet_mismatch_fails_opaquely"
+  ],
+  "implementationEvidence": [
+    {
+      "id": "impl-pure-ranking-entitlement-resolver",
+      "file": "shared/rust/epsx-identity-service/src/ranking_entitlement.rs",
+      "sha256": "3c42711783a14f6ff6d7ebeb813a03fa556aa466e3f15b08895ae59faef68bb8"
+    },
+    {
+      "id": "impl-resolver-library-export",
+      "file": "shared/rust/epsx-identity-service/src/lib.rs",
+      "sha256": "4853eddb05a16f39968d2b812ddbb61ba872d5c407be51bd65524d8a78a6d208"
+    },
+    {
+      "id": "impl-unwired-runtime-main",
+      "file": "shared/rust/epsx-identity-service/src/main.rs",
+      "sha256": "2508a73e31b65556970dab3a3a97d71d7a427d8d3f3db7ebb8b39dd71a643e1e"
+    },
+    {
+      "id": "impl-always-free-runtime-service",
+      "file": "shared/rust/epsx-identity-service/src/identity_service.rs",
+      "sha256": "f172df2a9998cc773b4299e2760164ee9d9a6c225680260b6c17bdc27f8da320"
+    }
+  ],
+  "residualStops": [
+    {
+      "id": "core-owned-adapter-absent",
+      "claim": "Core still owns plans, assignments and permissions; no reviewed core-owned adapter supplies an entitlement snapshot to identity."
+    },
+    {
+      "id": "atomic-sql-snapshot-unproved",
+      "claim": "No one-statement or transactionally consistent owner-scoped SQL snapshot has been implemented or proven."
+    },
+    {
+      "id": "schema-adoption-reconciliation-unproved",
+      "claim": "Schema compatibility, version-ledger adoption, populated upgrade and source reconciliation remain unproved."
+    },
+    {
+      "id": "identity-runtime-still-always-free",
+      "claim": "The identity gRPC runtime still returns the Free Plan offset for every successful request and does not invoke this resolver."
+    },
+    {
+      "id": "scheduling-grace-policy-unresolved",
+      "claim": "Scheduled-start and grace behavior conflict across source surfaces and are deliberately unresolved by A2.7."
+    },
+    {
+      "id": "alternate-entitlement-sources-unresolved",
+      "claim": "Direct permissions, token claims and PlanFeatures are not ranking authority in A2.7 and require a later explicit decision."
+    },
+    {
+      "id": "identity-workload-auth-tls-absent",
+      "claim": "The identity RPC has no authenticated workload identity, exact caller authorization, owner binding or TLS policy."
+    },
+    {
+      "id": "ranking-event-durability-absent",
+      "claim": "Ranking changes have no transactional outbox, monotonic revision, durable cursor, replay or gap-repair contract."
+    },
+    {
+      "id": "ui-bff-readiness-unproved",
+      "claim": "No typed BFF or Dioxus UI consumes this resolver and no browser loading, free, paid, stale or error flow is proven."
+    },
+    {
+      "id": "live-parity-observability-unproved",
+      "claim": "No live fixture parity, shadow read, staging, observability, mismatch alert or rollback evidence exists."
+    },
+    {
+      "id": "route-owner-cutover-unproved",
+      "claim": "Route ownership, immutable images, configuration, gateway, Kubernetes, canary, rollback and deployment remain unchanged."
+    },
+    {
+      "id": "production-actions-unauthorized",
+      "claim": "Passing A2.7 integrity is not production readiness and never authorizes a live service, database, secret or deployment action."
+    }
+  ],
+  "requiredExecutionOrder": [
+    "E01 freeze source semantics and the immutable post-A2.6 target base",
+    "E02 implement the pure fixed-observed-at snapshot resolver",
+    "E03 replay the deterministic fixture ledger through exact hermetic tests",
+    "E04 preserve always-Free runtime wiring and every non-production boundary",
+    "E05 add a reviewed core-owned atomic snapshot adapter and schema proof",
+    "E06 reconcile scheduling, grace, direct grants, token claims and PlanFeatures authority",
+    "E07 wire authenticated identity RPC plus durable revision and replay semantics",
+    "E08 prove typed BFF and UI behavior against reconciled local fixtures",
+    "E09 obtain separate live parity, shadow, canary, rollback and deployment authorization"
+  ]
+}

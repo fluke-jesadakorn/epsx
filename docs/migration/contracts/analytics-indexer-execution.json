@@ -283,6 +283,12 @@
       "anchor": "Ok(RankingOffset::free_plan())"
     },
     {
+      "id": "tgt-identity-a2-7-entitlement-snapshot-contract",
+      "domain": "identityRankingOffset",
+      "file": "docs/migration/contracts/a2-7-ranking-entitlement-snapshot.json",
+      "anchor": "\"contractId\": \"A2.7-ranking-entitlement-snapshot\""
+    },
+    {
       "id": "tgt-identity-emit-route",
       "domain": "identityRankingOffset",
       "file": "shared/rust/epsx-identity-service/src/main.rs",
@@ -374,7 +380,7 @@
       "id": "market-auth-rankings",
       "domain": "marketAnalytics",
       "sourceContract": "GET /api/analytics/rankings with server-resolved plan offset",
-      "targetObserved": "strict optional bearer handling propagates a verified wallet and the canonical handler caps authenticated provider work at 100 rows, but identity still returns or falls back to free offset",
+      "targetObserved": "strict optional bearer handling propagates a verified wallet, authority failures stop before provider work, and the canonical handler caps authenticated provider work at 100 rows, but the identity runtime still returns the free offset",
       "status": "blocked",
       "blockerIds": ["B01", "B02", "B03", "B04", "B07", "B09", "B23"]
     },
@@ -462,7 +468,7 @@
       "id": "identity-ranking-offset-query",
       "domain": "identityRankingOffset",
       "sourceContract": "wallet plan assignments resolve the minimum active-plan ranking offset in the backend",
-      "targetObserved": "gRPC identity implementation always returns free plan offset",
+      "targetObserved": "A2.7 hermetically resolves epoch-microsecond fixed-time raw entitlement snapshots with source-compatible decimal permission parsing into typed no-plan, no-grant, or plan-grant outcomes, but no database adapter or atomic SQL exists and the gRPC identity runtime still returns free plan offset",
       "status": "blocked",
       "blockerIds": ["B07", "B21", "B23"]
     },
@@ -551,9 +557,9 @@
       "category": "ranking-entitlement",
       "severity": "stop",
       "status": "blocked",
-      "summary": "A2.6 removes the market client's silent authenticated free-plan fallback and proves authority errors stop before provider work, but identity success still returns the free-plan offset for every wallet, so plan access is not authoritative.",
-      "resolution": "Project active backend plan assignments into a versioned ranking-offset query and test explicit free success, paid success, expiry, overlap, downgrade, outage, and recovery semantics.",
-      "evidenceIds": ["src-ranking-offset-authority", "src-plan-access-bootstrap", "tgt-market-a2-6-authority-failure-contract", "tgt-identity-free-stub"]
+      "summary": "A2.6 removes the market client's silent authenticated free-plan fallback and A2.7 hermetically proves a pure epoch-microsecond fixed-time entitlement resolver with explicit no-plan, no-grant and plan-grant outcomes, exclusive expiry, overlap, source-compatible decimal parsing and strict range validation; identity success still returns the free-plan offset because no core-owned atomic adapter or runtime wiring exists.",
+      "resolution": "Keep the pure resolver and fail-closed market boundary, then add one reviewed core-owned atomic owner snapshot, reconcile source lifecycle and alternate entitlement semantics, wire authenticated identity runtime, and prove free, paid, expiry, overlap, downgrade, outage and recovery parity.",
+      "evidenceIds": ["src-ranking-offset-authority", "src-plan-access-bootstrap", "tgt-market-a2-6-authority-failure-contract", "tgt-identity-free-stub", "tgt-identity-a2-7-entitlement-snapshot-contract"]
     },
     {
       "id": "B08",
@@ -677,9 +683,9 @@
       "category": "reconciliation",
       "severity": "stop",
       "status": "blocked",
-      "summary": "No reconciliation proves market results, event aggregates, indexed chain state and ranking entitlements against their distinct authorities.",
-      "resolution": "Create domain-specific checksums/counts/sample comparisons and repair workflows; never join the four authorities into one write model.",
-      "evidenceIds": ["src-live-market-query", "src-admin-revenue-authority", "tgt-identity-free-stub", "tgt-indexer-fake-sync-absent"]
+      "summary": "A2.7's ranking fixture ledger is deterministic synthetic evidence, not reconciliation; no comparison proves market results, event aggregates, indexed chain state or ranking entitlements against their distinct live authorities.",
+      "resolution": "Create domain-specific checksums, counts, bounded mismatch samples and repair workflows against authoritative snapshots; never join the four authorities into one write model or treat synthetic fixtures as parity.",
+      "evidenceIds": ["src-live-market-query", "src-admin-revenue-authority", "tgt-identity-free-stub", "tgt-identity-a2-7-entitlement-snapshot-contract", "tgt-indexer-fake-sync-absent"]
     },
     {
       "id": "B22",
