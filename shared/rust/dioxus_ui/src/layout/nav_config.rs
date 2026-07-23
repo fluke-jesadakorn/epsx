@@ -53,7 +53,7 @@ pub static NAV_GROUPS: LazyLock<Vec<NavGroup>> = LazyLock::new(|| {
                     href: "/analytics".to_string(),
                     key: "rankings".to_string(),
                     icon: Some("chart-line".to_string()),
-                    desc: Some("EPS stock rankings".to_string()),
+                    desc: Some("Rankings availability".to_string()),
                 },
                 NavItem {
                     label: "Portfolio".to_string(),
@@ -81,7 +81,7 @@ pub static NAV_GROUPS: LazyLock<Vec<NavGroup>> = LazyLock::new(|| {
                     href: "/developer/docs".to_string(),
                     key: "docs".to_string(),
                     icon: Some("book".to_string()),
-                    desc: Some("API reference".to_string()),
+                    desc: Some("Pinned API reference".to_string()),
                 },
             ],
         },
@@ -102,7 +102,7 @@ pub static NAV_GROUPS: LazyLock<Vec<NavGroup>> = LazyLock::new(|| {
                     href: "/news".to_string(),
                     key: "news".to_string(),
                     icon: Some("newspaper".to_string()),
-                    desc: Some("Latest updates".to_string()),
+                    desc: Some("News availability".to_string()),
                 },
                 NavItem {
                     label: "Contact".to_string(),
@@ -264,8 +264,13 @@ mod tests {
                 .find(|item| item.key == key)
                 .and_then(|item| item.desc.as_deref())
         };
+        assert_eq!(description("rankings"), Some("Rankings availability"));
         assert_eq!(description("portfolio"), Some("Portfolio availability"));
         assert_eq!(description("api-keys"), Some("API access status"));
+        assert_eq!(description("docs"), Some("Pinned API reference"));
+        assert_eq!(description("about"), None);
+        assert_eq!(description("news"), Some("News availability"));
+        assert_eq!(description("contact"), None);
         assert_eq!(description("support"), Some("Support status"));
 
         let descriptions: Vec<&str> = NAV_GROUPS
@@ -277,6 +282,9 @@ mod tests {
             "Watchlist & tracking",
             "Manage API access",
             "Live chat & help center",
+            "EPS stock rankings",
+            "API reference",
+            "Latest updates",
         ] {
             assert!(
                 !descriptions.contains(&unsupported),

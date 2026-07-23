@@ -5793,7 +5793,7 @@ window.epsx = (function() {
         </div>
         <div class="epsx-mobile-section">
           <div class="epsx-mobile-section-title">Market</div>
-          <a href="/analytics" class="epsx-mobile-link"><i data-lucide="chart-column" style="width:1rem;height:1rem;color:var(--epsx-orange);"></i> Rankings <span style="color:var(--text-subtle);font-size:0.75rem;">EPS stock rankings</span></a>
+          <a href="/analytics" class="epsx-mobile-link"><i data-lucide="chart-column" style="width:1rem;height:1rem;color:var(--epsx-orange);"></i> Rankings <span style="color:var(--text-subtle);font-size:0.75rem;">Rankings availability</span></a>
           <a href="/portfolio" class="epsx-mobile-link"><i data-lucide="trending-up" style="width:1rem;height:1rem;color:var(--epsx-orange);"></i> Portfolio <span style="color:var(--text-subtle);font-size:0.75rem;">Portfolio availability</span></a>
         </div>
         <div class="epsx-mobile-section">
@@ -6829,7 +6829,7 @@ pub fn epsx_header_for_session(is_authenticated: bool) -> String {
         <i data-lucide="chart-column" class="item-icon"></i>
         <div>
           <div class="item-label">Rankings</div>
-          <div class="item-desc">EPS stock rankings</div>
+          <div class="item-desc">Rankings availability</div>
         </div>
       </a>
       <a href="/portfolio" class="epsx-nav-item">
@@ -6862,7 +6862,7 @@ pub fn epsx_header_for_session(is_authenticated: bool) -> String {
         <i data-lucide="book" class="item-icon"></i>
         <div>
           <div class="item-label">Documentation</div>
-          <div class="item-desc">Integration guides &amp; reference</div>
+          <div class="item-desc">Pinned API reference</div>
         </div>
       </a>"##;
 
@@ -6872,21 +6872,21 @@ pub fn epsx_header_for_session(is_authenticated: bool) -> String {
         <i data-lucide="info" class="item-icon"></i>
         <div>
           <div class="item-label">About</div>
-          <div class="item-desc">Our mission &amp; team</div>
+          <div class="item-desc">Mission &amp; vision</div>
         </div>
       </a>
       <a href="/news" class="epsx-nav-item">
         <i data-lucide="newspaper" class="item-icon"></i>
         <div>
           <div class="item-label">News</div>
-          <div class="item-desc">Latest updates</div>
+          <div class="item-desc">News availability</div>
         </div>
       </a>
       <a href="/contact" class="epsx-nav-item">
         <i data-lucide="mail" class="item-icon"></i>
         <div>
           <div class="item-label">Contact</div>
-          <div class="item-desc">Get in touch</div>
+          <div class="item-desc">Contact by email</div>
         </div>
       </a>
       <a href="/chat" class="epsx-nav-item">
@@ -8534,10 +8534,20 @@ assert.equal(document.activeElement, mobileTrigger);
         assert_routes_in_order(mobile, &routes);
 
         for expected in [
+            "<div class=\"item-label\">Rankings</div>",
+            "<div class=\"item-desc\">Rankings availability</div>",
             "<div class=\"item-label\">Portfolio</div>",
             "<div class=\"item-desc\">Portfolio availability</div>",
             "<div class=\"item-label\">API Keys</div>",
             "<div class=\"item-desc\">API access status</div>",
+            "<div class=\"item-label\">Documentation</div>",
+            "<div class=\"item-desc\">Pinned API reference</div>",
+            "<div class=\"item-label\">About</div>",
+            "<div class=\"item-desc\">Mission &amp; vision</div>",
+            "<div class=\"item-label\">News</div>",
+            "<div class=\"item-desc\">News availability</div>",
+            "<div class=\"item-label\">Contact</div>",
+            "<div class=\"item-desc\">Contact by email</div>",
             "<div class=\"item-label\">Support</div>",
             "<div class=\"item-desc\">Support status</div>",
         ] {
@@ -8547,6 +8557,7 @@ assert.equal(document.activeElement, mobileTrigger);
             );
         }
         for expected in [
+            "> Rankings <span style=\"color:var(--text-subtle);font-size:0.75rem;\">Rankings availability</span>",
             "> Portfolio <span style=\"color:var(--text-subtle);font-size:0.75rem;\">Portfolio availability</span>",
             "> API Keys</a>",
             "> Support</a>",
@@ -8561,6 +8572,11 @@ assert.equal(document.activeElement, mobileTrigger);
             "Watchlist &amp; tracking",
             "Manage your API access",
             "Live chat &amp; help center",
+            "EPS stock rankings",
+            "Integration guides &amp; reference",
+            "Our mission &amp; team",
+            "Latest updates",
+            "Get in touch",
         ] {
             assert!(
                 !desktop.contains(unsupported) && !mobile.contains(unsupported),
