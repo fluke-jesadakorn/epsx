@@ -6,7 +6,7 @@
 //! permission simulation, push controls, or preference controls while their
 //! backend lifecycle contracts remain blocked.
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, SecondsFormat, Utc};
 use dioxus::prelude::*;
 use serde::Deserialize;
 
@@ -130,6 +130,32 @@ impl TryFrom<ServiceNotification> for Notification {
 
 fn non_blank(value: Option<String>) -> Option<String> {
     value.filter(|candidate| !candidate.trim().is_empty())
+}
+
+/// Format an authoritative service timestamp for display without changing its
+/// ordering or lifecycle meaning. `now` is injected so every row in one render
+/// can share the same instant and the presentation boundaries stay testable.
+fn notification_timestamp_label(created_at: &DateTime<Utc>, now: &DateTime<Utc>) -> String {
+    let elapsed_seconds = now.signed_duration_since(*created_at).num_seconds();
+    if elapsed_seconds < 60 {
+        "Just now".to_string()
+    } else if elapsed_seconds < 60 * 60 {
+        format!("{}m ago", elapsed_seconds / 60)
+    } else if elapsed_seconds < 24 * 60 * 60 {
+        format!("{}h ago", elapsed_seconds / (60 * 60))
+    } else if elapsed_seconds < 7 * 24 * 60 * 60 {
+        format!("{}d ago", elapsed_seconds / (24 * 60 * 60))
+    } else {
+        created_at.format("%b %-d, %Y").to_string()
+    }
+}
+
+fn notification_timestamp_datetime(created_at: &DateTime<Utc>) -> String {
+    created_at.to_rfc3339_opts(SecondsFormat::AutoSi, true)
+}
+
+fn notification_timestamp_title(created_at: &DateTime<Utc>) -> String {
+    created_at.format("%Y-%m-%d %H:%M:%S UTC").to_string()
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -261,6 +287,7 @@ fn NotificationListSection(items: Vec<Notification>) -> Element {
         .filter(|notification| !notification.read)
         .count();
     let unread_label = format!("{unread_count} unread in loaded list");
+    let rendered_at = Utc::now();
 
     rsx! {
         div { class: "notifications-list",
@@ -271,7 +298,7 @@ fn NotificationListSection(items: Vec<Notification>) -> Element {
             div { class: "card card-glass notifications-list-card",
                 div { class: "card-body p-0",
                     for notification in items {
-                        NotificationRow { notification }
+                        NotificationRow { notification, rendered_at }
                     }
                 }
             }
@@ -280,7 +307,7 @@ fn NotificationListSection(items: Vec<Notification>) -> Element {
 }
 
 #[component]
-fn NotificationRow(notification: Notification) -> Element {
+fn NotificationRow(notification: Notification, rendered_at: DateTime<Utc>) -> Element {
     let (icon_name, icon_class) = match notification.kind.as_deref() {
         Some("payment") => ("credit-card", "notification-icon-payment"),
         Some("subscription") => ("zap", "notification-icon-subscription"),
@@ -300,6 +327,9 @@ fn NotificationRow(notification: Notification) -> Element {
     } else {
         "notification-unread-dot"
     };
+    let timestamp_label = notification_timestamp_label(&notification.created_at, &rendered_at);
+    let timestamp_datetime = notification_timestamp_datetime(&notification.created_at);
+    let timestamp_title = notification_timestamp_title(&notification.created_at);
 
     rsx! {
         div {
@@ -323,7 +353,12 @@ fn NotificationRow(notification: Notification) -> Element {
                         span { class: "notification-priority", "{priority}" }
                         span { class: "notification-meta-sep", "·" }
                     }
-                    span { class: "notification-time", "{notification.created_at}" }
+                    time {
+                        class: "notification-time",
+                        datetime: "{timestamp_datetime}",
+                        title: "{timestamp_title}",
+                        "{timestamp_label}"
+                    }
                 }
             }
         }
@@ -441,6 +476,60 @@ mod tests {
     fn render_html(ctx: &PageContext) -> String {
         let (_meta, element) = render(ctx);
         dioxus_ssr::render_element(element)
+    }
+
+    fn timestamp(value: &str) -> DateTime<Utc> {
+        value.parse().expect("test timestamp must be RFC3339")
+    }
+
+    #[test]
+    fn notification_timestamp_labels_have_exact_human_boundaries() {
+        let now = timestamp("2026-07-22T12:00:00Z");
+        for (offset_seconds, expected) in [
+            (-1, "Just now"),
+            (0, "Just now"),
+            (59, "Just now"),
+            (60, "1m ago"),
+            (3_599, "59m ago"),
+            (3_600, "1h ago"),
+            (86_399, "23h ago"),
+            (86_400, "1d ago"),
+            (604_799, "6d ago"),
+            (604_800, "Jul 15, 2026"),
+        ] {
+            let created_at = now - chrono::Duration::seconds(offset_seconds);
+            assert_eq!(
+                notification_timestamp_label(&created_at, &now),
+                expected,
+                "unexpected label at {offset_seconds} elapsed seconds"
+            );
+        }
+    }
+
+    #[test]
+    fn notification_row_renders_one_semantic_canonical_escaped_time() {
+        let notification = Notification {
+            id: "notification-1".to_string(),
+            title: "<script>alert('title')</script>".to_string(),
+            body: "<img src=x onerror=alert(1)>".to_string(),
+            kind: Some("system".to_string()),
+            priority: Some("normal".to_string()),
+            read: false,
+            created_at: timestamp("2026-07-22T10:00:00Z"),
+        };
+        let rendered_at = timestamp("2026-07-22T12:00:00Z");
+        let html =
+            dioxus_ssr::render_element(rsx! { NotificationRow { notification, rendered_at } });
+
+        assert_eq!(html.matches("<time").count(), 1);
+        assert!(html.contains("class=\"notification-time\""));
+        assert!(html.contains("datetime=\"2026-07-22T10:00:00Z\""));
+        assert!(html.contains("title=\"2026-07-22 10:00:00 UTC\""));
+        assert!(html.contains(">2h ago</time>"));
+        assert!(!html.contains("<script>alert('title')</script>"));
+        assert!(!html.contains("<img src=x onerror=alert(1)>"));
+        assert!(html.contains("&#60;script&#62;"));
+        assert!(html.contains("&#60;img src=x onerror=alert(1)&#62;"));
     }
 
     #[test]
