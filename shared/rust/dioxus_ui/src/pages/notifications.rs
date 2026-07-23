@@ -865,6 +865,8 @@ mod tests {
         assert!(html.contains("<ul class=\"card-body p-0\" role=\"list\""));
         assert_eq!(html.matches("<li").count(), 3);
         assert_eq!(html.matches("<h3 class=\"notification-title\"").count(), 3);
+        assert_eq!(html.matches("notification-row-unread").count(), 2);
+        assert_eq!(html.matches("notification-row-read").count(), 1);
         assert!(!html.contains("<article"));
 
         assert_eq!(html.matches(">Unread: </span>").count(), 2);
@@ -883,6 +885,8 @@ mod tests {
         );
         assert_eq!(html.matches(">Type: </span>").count(), 2);
         assert_eq!(html.matches(">Priority: </span>").count(), 2);
+        assert_eq!(html.matches("notification-priority-high").count(), 1);
+        assert_eq!(html.matches("notification-priority-critical").count(), 1);
         assert_eq!(html.matches(">Received: </span>").count(), 3);
 
         let first = html.find("data-notification-id=\"0x1\"").unwrap();

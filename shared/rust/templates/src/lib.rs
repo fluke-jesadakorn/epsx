@@ -4824,12 +4824,14 @@ pub fn design_system_head_with_keywords(
                       text-align: center; margin: 0.375rem 0 0; }}
 
   /* --- /notifications list + browser prompt + settings --- */
-  .notifications-page {{ max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem; }}
+  .notifications-page {{ max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem;
+                         --notification-state-accent: #9a3412; }}
+  html.dark .notifications-page {{ --notification-state-accent: #fdba74; }}
   .notifications-list {{ display: flex; flex-direction: column; gap: 0.75rem; }}
   .notifications-filterbar {{ display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }}
   .notifications-filters {{ display: flex; gap: 0.25rem; }}
   .notifications-filterbar-aside {{ margin-left: auto; display: flex; gap: 0.5rem; align-items: center; }}
-  .notifications-unread-count {{ font-size: 0.75rem; color: #f97316; font-weight: 600; }}
+  .notifications-unread-count {{ font-size: 0.75rem; color: var(--notification-state-accent); font-weight: 600; opacity: 1; }}
   .notifications-list-card {{ padding: 0; }}
   .notifications-empty {{ padding: 2rem; text-align: center; color: var(--text-muted, #94a3b8); }}
   .notifications-empty > svg {{ color: var(--text-muted, #94a3b8); opacity: 0.4; margin-bottom: 0.5rem; }}
@@ -4861,7 +4863,7 @@ pub fn design_system_head_with_keywords(
   .notification-row-unread .notification-title {{ font-weight: 700; color: var(--text, #fff); }}
   .notification-row-read .notification-title   {{ color: var(--text-muted, #94a3b8); font-weight: 400; }}
   .notification-unread-dot {{ width: 0.625rem; height: 0.625rem; border-radius: 9999px;
-                               background: #f97316; flex-shrink: 0; margin-top: 0.375rem; }}
+                               background: var(--notification-state-accent); flex-shrink: 0; margin-top: 0.375rem; }}
   .notification-unread-dot-empty {{ background: transparent; border: 1px solid var(--card-border, rgba(255,255,255,0.20)); }}
   .notification-text {{ font-size: 0.75rem; margin: 0.125rem 0 0; line-height: 1.4;
                         color: var(--text-muted, #94a3b8);
@@ -4882,7 +4884,7 @@ pub fn design_system_head_with_keywords(
   html.dark .notification-priority-normal {{ color: #dbeafe; background: #1e3a8a; }}
   html.dark .notification-priority-low {{ color: #dcfce7; background: #14532d; }}
   html.dark .notification-priority-neutral {{ color: #f1f5f9; background: #334155; }}
-  .notification-time {{ font-size: 0.625rem; color: var(--text-muted, #94a3b8); opacity: 0.5; }}
+  .notification-time {{ font-size: 0.625rem; color: var(--text-muted, #94a3b8); opacity: 1; }}
   .notification-meta-sep {{ color: var(--text-muted, #94a3b8); opacity: 0.4; }}
   .notification-action {{ font-size: 0.625rem; color: #f97316; text-decoration: underline; }}
   .notification-actions {{ display: flex; align-items: center; gap: 0.25rem; flex-shrink: 0; }}
@@ -7029,10 +7031,11 @@ mod page_head_tests {
     }
 
     fn emitted_css_rule<'a>(head: &'a str, selector: &str) -> &'a str {
-        let start_marker = format!("{selector} {{");
-        let start = head
+        let start_marker = format!("\n  {selector} {{");
+        let marker_start = head
             .find(&start_marker)
             .unwrap_or_else(|| panic!("missing emitted CSS rule for {selector}"));
+        let start = marker_start + 3;
         let end = head[start..]
             .find('}')
             .map(|offset| start + offset + 1)
@@ -7040,14 +7043,30 @@ mod page_head_tests {
         &head[start..end]
     }
 
-    fn emitted_hex_declaration(rule: &str, property: &str) -> String {
-        let marker = format!("{property}: #");
+    fn emitted_declaration<'a>(rule: &'a str, property: &str) -> &'a str {
+        let marker = format!("{property}:");
         let start = rule
             .find(&marker)
-            .map(|offset| offset + property.len() + 2)
-            .unwrap_or_else(|| panic!("missing {property} hex declaration in {rule}"));
-        rule[start..start + 7].to_string()
+            .map(|offset| offset + marker.len())
+            .unwrap_or_else(|| panic!("missing {property} declaration in {rule}"));
+        let end = rule[start..]
+            .find(';')
+            .map(|offset| start + offset)
+            .unwrap_or_else(|| panic!("unterminated {property} declaration in {rule}"));
+        rule[start..end].trim()
     }
+
+    fn emitted_hex_declaration(rule: &str, property: &str) -> String {
+        let value = emitted_declaration(rule, property);
+        assert_eq!(value.len(), 7, "expected six-digit {property} color");
+        assert!(
+            value.starts_with('#'),
+            "expected {property} hex declaration in {rule}"
+        );
+        value.to_string()
+    }
+
+    type Rgba = [f64; 4];
 
     fn hex_rgb(hex: &str) -> [f64; 3] {
         assert_eq!(hex.len(), 7, "expected six-digit hex color");
@@ -7060,7 +7079,96 @@ mod page_head_tests {
         [channel(1), channel(3), channel(5)]
     }
 
-    fn relative_luminance(hex: &str) -> f64 {
+    fn css_color(value: &str) -> Rgba {
+        if value.starts_with('#') {
+            let [red, green, blue] = hex_rgb(value);
+            return [red, green, blue, 1.0];
+        }
+        if value == "transparent" {
+            return [0.0; 4];
+        }
+        let components = value
+            .strip_prefix("rgba(")
+            .and_then(|inner| inner.strip_suffix(')'))
+            .unwrap_or_else(|| panic!("unsupported emitted CSS color {value}"))
+            .split(',')
+            .map(str::trim)
+            .collect::<Vec<_>>();
+        assert_eq!(components.len(), 4, "invalid emitted rgba color {value}");
+        [
+            components[0].parse::<f64>().unwrap() / 255.0,
+            components[1].parse::<f64>().unwrap() / 255.0,
+            components[2].parse::<f64>().unwrap() / 255.0,
+            components[3].parse().unwrap(),
+        ]
+    }
+
+    type RgbEnvelope = [[f64; 2]; 3];
+
+    fn opaque_channel_envelope(colors: impl IntoIterator<Item = Rgba>) -> RgbEnvelope {
+        let mut envelope = [[f64::INFINITY, f64::NEG_INFINITY]; 3];
+        for color in colors {
+            assert_eq!(color[3], 1.0, "gradient base stops must be opaque");
+            for channel in 0..3 {
+                envelope[channel][0] = envelope[channel][0].min(color[channel]);
+                envelope[channel][1] = envelope[channel][1].max(color[channel]);
+            }
+        }
+        envelope
+    }
+
+    fn radial_over_opaque_envelope(
+        radial_stops: impl IntoIterator<Item = Rgba>,
+        background: RgbEnvelope,
+    ) -> RgbEnvelope {
+        let mut alpha = [f64::INFINITY, f64::NEG_INFINITY];
+        let mut premultiplied = [[f64::INFINITY, f64::NEG_INFINITY]; 3];
+        for stop in radial_stops {
+            alpha[0] = alpha[0].min(stop[3]);
+            alpha[1] = alpha[1].max(stop[3]);
+            for channel in 0..3 {
+                let value = stop[channel] * stop[3];
+                premultiplied[channel][0] = premultiplied[channel][0].min(value);
+                premultiplied[channel][1] = premultiplied[channel][1].max(value);
+            }
+        }
+        std::array::from_fn(|channel| {
+            [
+                (premultiplied[channel][0] + (1.0 - alpha[1]) * background[channel][0])
+                    .clamp(0.0, 1.0),
+                (premultiplied[channel][1] + (1.0 - alpha[0]) * background[channel][1])
+                    .clamp(0.0, 1.0),
+            ]
+        })
+    }
+
+    fn fixed_color_over_envelope(foreground: Rgba, background: RgbEnvelope) -> RgbEnvelope {
+        std::array::from_fn(|channel| {
+            [
+                foreground[channel] * foreground[3]
+                    + background[channel][0] * (1.0 - foreground[3]),
+                foreground[channel] * foreground[3]
+                    + background[channel][1] * (1.0 - foreground[3]),
+            ]
+        })
+    }
+
+    fn overlays_over_envelope(
+        overlays: impl IntoIterator<Item = Rgba>,
+        background: RgbEnvelope,
+    ) -> RgbEnvelope {
+        let mut envelope = [[f64::INFINITY, f64::NEG_INFINITY]; 3];
+        for overlay in overlays {
+            let surface = fixed_color_over_envelope(overlay, background);
+            for channel in 0..3 {
+                envelope[channel][0] = envelope[channel][0].min(surface[channel][0]);
+                envelope[channel][1] = envelope[channel][1].max(surface[channel][1]);
+            }
+        }
+        envelope
+    }
+
+    fn relative_luminance_channels(channels: [f64; 3]) -> f64 {
         let linear = |channel: f64| {
             if channel <= 0.04045 {
                 channel / 12.92
@@ -7068,8 +7176,12 @@ mod page_head_tests {
                 ((channel + 0.055) / 1.055).powf(2.4)
             }
         };
-        let [red, green, blue] = hex_rgb(hex).map(linear);
+        let [red, green, blue] = channels.map(linear);
         0.2126 * red + 0.7152 * green + 0.0722 * blue
+    }
+
+    fn relative_luminance(hex: &str) -> f64 {
+        relative_luminance_channels(hex_rgb(hex))
     }
 
     fn contrast_ratio(foreground: &str, background: &str) -> f64 {
@@ -7078,6 +7190,38 @@ mod page_head_tests {
         let lighter = foreground.max(background);
         let darker = foreground.min(background);
         (lighter + 0.05) / (darker + 0.05)
+    }
+
+    fn declared_contrast_ratio(foreground: Rgba, background: Rgba) -> f64 {
+        assert_eq!(foreground[3], 1.0, "foreground must be opaque");
+        assert_eq!(background[3], 1.0, "background must be opaque");
+        let foreground = relative_luminance_channels(foreground[..3].try_into().unwrap());
+        let background = relative_luminance_channels(background[..3].try_into().unwrap());
+        (foreground.max(background) + 0.05) / (foreground.min(background) + 0.05)
+    }
+
+    fn conservative_envelope_contrast(
+        foreground: Rgba,
+        background: RgbEnvelope,
+        surface_is_lighter: bool,
+    ) -> f64 {
+        let bound = usize::from(!surface_is_lighter);
+        let surface = [
+            background[0][bound],
+            background[1][bound],
+            background[2][bound],
+            1.0,
+        ];
+        let foreground_luminance =
+            relative_luminance_channels(foreground[..3].try_into().unwrap());
+        let surface_luminance =
+            relative_luminance_channels(surface[..3].try_into().unwrap());
+        if surface_is_lighter {
+            assert!(foreground_luminance < surface_luminance);
+        } else {
+            assert!(foreground_luminance > surface_luminance);
+        }
+        declared_contrast_ratio(foreground, surface)
     }
 
     #[test]
@@ -7133,6 +7277,152 @@ mod page_head_tests {
         ));
         assert!(!head.contains(".notification-row-read { opacity: 0.7; }"));
         assert!(!head.contains(".notification-row-read:hover { opacity: 0.9;"));
+    }
+
+    #[test]
+    fn notification_state_accent_and_time_meet_declared_page_card_envelope_contrast() {
+        let head = design_system_head(
+            "Notification metadata contrast",
+            "Emitted count, timestamp, and filled-dot colors",
+        );
+        const LIGHT_PAGE: [&str; 3] = ["#f5f3ff", "#ede9fe", "#fce7f3"];
+        const DARK_PAGE: [&str; 4] = ["#0a0e1a", "#13182b", "#1a1138", "#2a1748"];
+        const RADIAL: [&str; 3] = [
+            "rgba(139, 92, 246, 0.18)",
+            "rgba(168, 85, 247, 0.08)",
+            "transparent",
+        ];
+        const ROW_OVERLAYS: [&str; 4] = [
+            "transparent",
+            "rgba(255,255,255,0.02)",
+            "rgba(249,115,22,0.04)",
+            "rgba(249,115,22,0.06)",
+        ];
+
+        let declarations = [
+            (
+                "html:not(.dark) .page-bg-app",
+                "background",
+                "linear-gradient(135deg, #f5f3ff 0%, #ede9fe 50%, #fce7f3 100%)",
+            ),
+            (
+                ".page-bg-app",
+                "background",
+                "radial-gradient(ellipse 80% 60% at 50% 40%, rgba(139, 92, 246, 0.18) 0%, rgba(168, 85, 247, 0.08) 35%, transparent 70%), linear-gradient(135deg, #0a0e1a 0%, #13182b 30%, #1a1138 60%, #2a1748 100%)",
+            ),
+            (":root", "--glass-bg", "rgba(255, 255, 255, 0.80)"),
+            (":root", "--text-muted", "#475569"),
+            ("html.dark", "--text-muted", "#94a3b8"),
+            (".card-glass", "background", "var(--glass-bg)"),
+            (
+                "html.dark .card-glass",
+                "background",
+                "rgba(15, 23, 42, 0.55)",
+            ),
+            (
+                ".notification-row-unread",
+                "background",
+                "rgba(249,115,22,0.04)",
+            ),
+            (
+                ".notification-row-unread:hover",
+                "background",
+                "rgba(249,115,22,0.06)",
+            ),
+            (".notification-row-read", "opacity", "1"),
+            (".notification-row-read:hover", "opacity", "1"),
+            (
+                ".notification-row-read:hover",
+                "background",
+                "rgba(255,255,255,0.02)",
+            ),
+            (
+                ".notifications-page",
+                "--notification-state-accent",
+                "#9a3412",
+            ),
+            (
+                "html.dark .notifications-page",
+                "--notification-state-accent",
+                "#fdba74",
+            ),
+            (
+                ".notifications-unread-count",
+                "color",
+                "var(--notification-state-accent)",
+            ),
+            (".notifications-unread-count", "opacity", "1"),
+            (
+                ".notification-unread-dot",
+                "background",
+                "var(--notification-state-accent)",
+            ),
+            (
+                ".notification-time",
+                "color",
+                "var(--text-muted, #94a3b8)",
+            ),
+            (".notification-time", "opacity", "1"),
+            (
+                ".notification-unread-dot-empty",
+                "background",
+                "transparent",
+            ),
+            (
+                ".notification-unread-dot-empty",
+                "border",
+                "1px solid var(--card-border, rgba(255,255,255,0.20))",
+            ),
+        ];
+        for (selector, property, expected) in declarations {
+            let actual = emitted_declaration(emitted_css_rule(&head, selector), property)
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ");
+            assert_eq!(actual, expected, "{selector} {property}");
+        }
+        assert!(!emitted_css_rule(&head, ".notification-row-read").contains("background:"));
+
+        // CSS gradient interpolation and backdrop blur produce convex channel
+        // mixtures. Component-wise bounds therefore cover every continuous
+        // gradient position and every blurred backdrop, not only the stops.
+        // The radial layer is bounded in premultiplied-alpha form before the
+        // opaque glass card and row overlays are composed over that envelope.
+        let light_pages = opaque_channel_envelope(LIGHT_PAGE.map(css_color));
+        let dark_linear = opaque_channel_envelope(DARK_PAGE.map(css_color));
+        let dark_pages = radial_over_opaque_envelope(RADIAL.map(css_color), dark_linear);
+        let light_cards =
+            fixed_color_over_envelope(css_color("rgba(255, 255, 255, 0.80)"), light_pages);
+        let dark_cards =
+            fixed_color_over_envelope(css_color("rgba(15, 23, 42, 0.55)"), dark_pages);
+        let light_rows = overlays_over_envelope(ROW_OVERLAYS.map(css_color), light_cards);
+        let dark_rows = overlays_over_envelope(ROW_OVERLAYS.map(css_color), dark_cards);
+
+        let count = conservative_envelope_contrast(css_color("#9a3412"), light_pages, true)
+            .min(conservative_envelope_contrast(
+                css_color("#fdba74"),
+                dark_pages,
+                false,
+            ));
+        let time = conservative_envelope_contrast(css_color("#475569"), light_rows, true)
+            .min(conservative_envelope_contrast(
+                css_color("#94a3b8"),
+                dark_rows,
+                false,
+            ));
+        let dot = conservative_envelope_contrast(css_color("#9a3412"), light_rows, true)
+            .min(conservative_envelope_contrast(
+                css_color("#fdba74"),
+                dark_rows,
+                false,
+            ));
+        for (label, actual, threshold) in [
+            ("count", count, 4.5),
+            ("timestamp", time, 4.5),
+            ("filled unread dot", dot, 3.0),
+        ] {
+            assert!(actual >= threshold, "{label} contrast is {actual}");
+        }
     }
 
     #[test]
