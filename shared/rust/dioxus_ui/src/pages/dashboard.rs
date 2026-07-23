@@ -14,7 +14,6 @@ use crate::auth::{AuthMethod, User};
 use crate::layout::main_layout::MainLayout;
 use crate::primitives::Icon;
 
-const DASHBOARD_PATH: &str = "/dashboard";
 const DASHBOARD_SIGN_IN_PATH: &str = "/auth?return_url=%2Fdashboard";
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
@@ -221,12 +220,8 @@ fn DashboardUnavailableCard() -> Element {
                 "There is no owner-scoped dashboard response that this frontend can validate. Metrics, recent activity, portfolio summaries, plan access, roles, permissions, and entitlements are not inferred."
             }
 
-            nav { class: "mt-6 flex flex-wrap gap-3", aria_label: "Dashboard recovery",
-                a { class: "btn btn-primary inline-flex items-center gap-2", href: DASHBOARD_PATH,
-                    Icon { name: "refresh-cw".to_string(), size: Some(16) }
-                    "Retry"
-                }
-                a { class: "btn btn-outline inline-flex items-center gap-2", href: "/profile",
+            nav { class: "mt-6 flex flex-wrap gap-3", aria_label: "Dashboard alternatives",
+                a { class: "btn btn-primary inline-flex items-center gap-2", href: "/profile",
                     Icon { name: "user".to_string(), size: Some(16) }
                     "Review verified profile"
                 }
@@ -256,7 +251,7 @@ mod tests {
 
     fn empty_ctx() -> PageContext {
         PageContext {
-            path: DASHBOARD_PATH.to_string(),
+            path: "/dashboard".to_string(),
             ..Default::default()
         }
     }
@@ -275,7 +270,7 @@ mod tests {
                 auth_method: AuthMethod::Siwe,
                 display_name: Some("Verified Owner".to_string()),
             }),
-            path: DASHBOARD_PATH.to_string(),
+            path: "/dashboard".to_string(),
             ..Default::default()
         }
     }
@@ -310,7 +305,7 @@ mod tests {
             "SIWE",
             "data-dashboard-state=\"unavailable\"",
             "Account summaries cannot be verified",
-            "href=\"/dashboard\"",
+            "aria-label=\"Dashboard alternatives\"",
             "href=\"/profile\"",
         ] {
             assert!(
@@ -318,6 +313,8 @@ mod tests {
                 "missing verified/unavailable marker: {expected}"
             );
         }
+        assert!(!html.contains("href=\"/dashboard\""));
+        assert!(!html.contains(">Retry</a>"));
 
         for forbidden in [
             "session-subject-probe",

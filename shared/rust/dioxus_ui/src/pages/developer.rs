@@ -380,11 +380,6 @@ fn DeveloperOverviewUnavailable() -> Element {
                     class: "mt-6 flex flex-wrap justify-center gap-3",
                     "aria-label": "Developer page actions",
                     a {
-                        class: "btn btn-primary",
-                        href: "/developer",
-                        "Retry"
-                    }
-                    a {
                         class: "btn btn-outline",
                         href: "/developer/docs",
                         "Read API documentation"
@@ -402,8 +397,8 @@ fn DeveloperOverviewUnavailable() -> Element {
 /// Authenticated state for usage reporting.
 ///
 /// No metrics are rendered until the Rust page has a production-owned,
-/// authenticated usage contract. Retry and documentation remain ordinary
-/// links so they work in server-rendered output without hydration.
+/// authenticated usage contract. Documentation remains an ordinary link so it
+/// works in server-rendered output without hydration.
 #[component]
 fn DeveloperUsageUnavailable() -> Element {
     rsx! {
@@ -428,11 +423,6 @@ fn DeveloperUsageUnavailable() -> Element {
                 nav {
                     class: "mt-6 flex flex-wrap justify-center gap-3",
                     "aria-label": "Usage page actions",
-                    a {
-                        class: "btn btn-primary",
-                        href: "/developer/usage",
-                        "Retry"
-                    }
                     a {
                         class: "btn btn-outline",
                         href: "/developer/docs",
@@ -924,10 +914,10 @@ mod tests {
         assert!(html.contains("role=\"status\""));
         assert!(html.contains("aria-live=\"polite\""));
         assert!(html.contains("aria-labelledby=\"developer-overview-unavailable-title\""));
-        assert!(html.contains("href=\"/developer\""));
         assert!(html.contains("href=\"/developer/docs\""));
-        assert!(html.contains(">Retry</a>"));
         assert!(html.contains(">Read API documentation</a>"));
+        assert!(!html.contains("href=\"/developer\""));
+        assert!(!html.contains(">Retry</a>"));
 
         for control in ["<button", "<form", "<input", "onclick=", "oninput="] {
             assert!(
@@ -1042,10 +1032,10 @@ mod tests {
         assert!(html.contains("role=\"status\""));
         assert!(html.contains("aria-live=\"polite\""));
         assert!(html.contains("aria-labelledby=\"developer-usage-unavailable-title\""));
-        assert!(html.contains("href=\"/developer/usage\""));
         assert!(html.contains("href=\"/developer/docs\""));
-        assert!(html.contains(">Retry</a>"));
         assert!(html.contains(">Read API documentation</a>"));
+        assert!(!html.contains("href=\"/developer/usage\""));
+        assert!(!html.contains(">Retry</a>"));
         for control in ["<button", "<form", "<input", "onclick="] {
             assert!(!html.contains(control), "rendered inert control: {control}");
         }

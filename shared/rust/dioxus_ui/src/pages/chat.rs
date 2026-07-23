@@ -82,7 +82,6 @@ fn RenderChatInbox(ctx: PageContext) -> Element {
                                 "Conversation data and chat actions are temporarily unavailable. No topics, messages, participants, timestamps, or statuses are shown."
                             }
                             div { class: "auth-gate-actions",
-                                a { class: "btn btn-primary", href: "/chat", "Check again" }
                                 a { class: "btn btn-outline", href: "/", "Back to home" }
                             }
                         }
@@ -161,7 +160,7 @@ mod tests {
     }
 
     #[test]
-    fn unavailable_inbox_has_no_fake_mutations_or_filters() {
+    fn unavailable_inbox_has_no_fake_mutations_filters_or_self_recovery() {
         let rendered = html(&signed_in_ctx());
         for forbidden in [
             "<button",
@@ -173,13 +172,15 @@ mod tests {
             "Resolve",
             "Type your reply",
             "Search conversations",
+            ">Check again</a>",
         ] {
             assert!(
                 !rendered.contains(forbidden),
                 "fake chat control leaked: {forbidden}"
             );
         }
-        assert!(rendered.contains("href=\"/chat\""));
+        assert!(!rendered.contains("href=\"/chat\""));
+        assert!(rendered.contains("href=\"/chat/history\""));
         assert!(rendered.contains("href=\"/\""));
     }
 }

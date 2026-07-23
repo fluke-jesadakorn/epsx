@@ -187,7 +187,11 @@ mod tests {
                 "unsupported conversation content leaked: {forbidden}"
             );
         }
+        assert!(!rendered.contains("href=\"/chat/case-42\""));
+        assert!(!rendered.contains(">Check again</a>"));
         assert!(rendered.contains("href=\"/chat\""));
+        assert!(rendered.contains(">Return to inbox</a>"));
         assert!(rendered.contains("href=\"/\""));
+        assert!(rendered.contains(">Back to home</a>"));
     }
 }

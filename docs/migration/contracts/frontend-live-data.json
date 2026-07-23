@@ -103,9 +103,9 @@
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-unavailable-no-selected-authority","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"failure must not become a zero balance."}]},
       "authOwner":{"auth":"optional shell; a locally verified session is required before any owner state is displayed","owner":"the verified session wallet is display-only; no balance or ledger ownership is asserted without a selected A6 authority"},
-      "interactions":{"forms":[],"pagination":["absent until an owner-safe bounded ledger contract exists"],"search":[],"wallet":["signed-out status or verified-session unavailable state only"],"keyboard":["native sign-in, retry, and account links"],"controls":["inert transaction filters removed"]},
-      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"present"},
-      "hydration":{"need":"none","status":"not-applicable","reason":"signed-out and unavailable states plus all recovery controls are server-rendered native links"},
+      "interactions":{"forms":[],"pagination":["absent until an owner-safe bounded ledger contract exists"],"search":[],"wallet":["signed-out status or verified-session unavailable state only"],"keyboard":["native sign-in and account links"],"controls":["inert transaction filters and no-producer self-retry removed; sign-in/account navigation remains"]},
+      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"not-applicable"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"signed-out and unavailable states plus alternative navigation are server-rendered native links"},
       "blockers":["A6 must select credit authority; make balance reads non-mutating; bound and validate history/filter/pagination; return authoritative totals; admit exact owner-safe gateway reads; add typed loading/error outcomes plus isolated owner and browser proof"]
     },
     {
@@ -127,8 +127,8 @@
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-unavailable-no-verified-rankings-contract","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"Ranking data and entitlement"}]},
       "authOwner":{"auth":"public route; locally verified authentication changes only safe navigation","owner":"none asserted; ranking offsets, plan access, permissions, and watchlist ownership remain backend responsibilities and are not calculated or rendered"},
-      "interactions":{"forms":[],"pagination":["absent until the backend owns validated query and bounded page state"],"search":[],"wallet":["optional native sign-in/account navigation only"],"keyboard":["native retry, plans, sign-in, and account links"],"controls":["fake filters, export, pagination, watchlist, permission gate, and ranking interactions removed"]},
-      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"present"},
+      "interactions":{"forms":[],"pagination":["absent until the backend owns validated query and bounded page state"],"search":[],"wallet":["optional native sign-in/account navigation only"],"keyboard":["native plans, sign-in, and account links"],"controls":["fake filters, export, pagination, watchlist, permission gate, ranking interactions, and no-producer self-retry removed; plans/sign-in/account navigation remains"]},
+      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"not-applicable"},
       "hydration":{"need":"none","status":"not-applicable","reason":"public unavailable state and conditional native navigation are fully server-rendered"},
       "blockers":["A4/A5 must provide a strict end-to-end rankings DTO, backend-owned entitlement/offset decisions, validated query/filter/sort/pagination, watchlist ownership, export policy, complete async outcomes, and browser proof before rankings return"]
     },
@@ -139,9 +139,9 @@
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-unavailable-no-owner-dashboard","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"`/dashboard` intentionally has no loader"}]},
       "authOwner":{"auth":"optional progressive dashboard","owner":"signed-out visitors receive no account data; authenticated display name, email, wallet, and known authentication method come only from the locally verified session and are not interpreted as role, tier, plan, permission, or entitlement decisions"},
-      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":["native sign-in navigation only"],"keyboard":["native sign-in, retry, and verified-profile links"],"controls":["mock stat/activity cards and local capability links removed"]},
-      "states":{"loading":"missing","empty":"present","error":"present","retry":"present"},
-      "hydration":{"need":"none","status":"not-applicable","reason":"signed-out, verified-session identity, unavailable, and recovery states are server-rendered with native links"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":["native sign-in navigation only"],"keyboard":["native sign-in and verified-profile links"],"controls":["mock stat/activity cards, local capability links, and no-producer self-retry removed; sign-in/profile navigation remains"]},
+      "states":{"loading":"missing","empty":"present","error":"present","retry":"not-applicable"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"signed-out, verified-session identity, unavailable state, and alternative navigation are server-rendered with native links"},
       "blockers":["add a strict owner-scoped dashboard DTO and loader with backend-owned plan/permission/entitlement projections, explicit ready/empty/error semantics, freshness rules, and isolated owner/browser proof"]
     },
     {
@@ -151,9 +151,9 @@
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-unavailable-no-owner-portfolio","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"`/portfolio` intentionally has no loader"}]},
       "authOwner":{"auth":"optional; signed-out visitors receive a native Require Sign In state","owner":"no holdings, watchlist, financial, or entitlement data is asserted until a verified session-owner contract exists"},
-      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":["native sign-in navigation only"],"keyboard":["native sign-in, retry, account, and contact links"],"controls":["six sample cards, Live badge, upsell, search, and inert watchlist actions removed"]},
-      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"present"},
-      "hydration":{"need":"none","status":"not-applicable","reason":"signed-out, unavailable, and recovery states are server-rendered with native links"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":["native sign-in navigation only"],"keyboard":["native sign-in, account, and contact links"],"controls":["six sample cards, Live badge, upsell, search, inert watchlist actions, and no-producer self-retry removed; sign-in/account/contact navigation remains"]},
+      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"not-applicable"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"signed-out and unavailable states plus alternative navigation are server-rendered with native links"},
       "blockers":["add frozen authenticated owner-scoped holdings/watchlist DTOs, backend-owned plan/access decisions, market provenance/freshness, ownership-safe idempotent mutations, complete async outcomes, and isolated owner/browser proof"]
     },
     {
@@ -163,21 +163,21 @@
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"locally-verified-session-claims-only","endpoints":[],"evidence":[{"file":"apps/frontend/src/auth.rs","anchor":"permissions: session.permissions,"}]},
       "authOwner":{"auth":"required by the pre-SSR redirect and authentication-only AuthGate","owner":"raw permission strings come only from the locally verified session and are explicitly non-canonical; current grants, plan capabilities, definitions, expiry, history, analytics, and request decisions remain backend-owned and unavailable"},
-      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native retry and account links"],"controls":["circular permissions:read gate, simulated tabs/stats/matrix/history/features, SLA, and inert request-access control removed"]},
-      "states":{"loading":"missing","empty":"present","error":"present","retry":"present"},
-      "hydration":{"need":"none","status":"not-applicable","reason":"verified raw claims, unavailable state, and recovery controls are server-rendered with native links"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native account link"],"controls":["circular permissions:read gate, simulated tabs/stats/matrix/history/features, SLA, inert request-access control, and no-producer self-retry removed; account navigation remains"]},
+      "states":{"loading":"missing","empty":"present","error":"present","retry":"not-applicable"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"verified raw claims, unavailable state, and account navigation are server-rendered with native links"},
       "blockers":["A4/A5 must supply canonical owner-scoped grants, definitions, expiry, history and usage analytics plus a real request-access workflow; add strict DTO validation, complete async outcomes, and isolated owner/browser proof without frontend policy logic"]
     },
     {
       "path":"/chat","batch":"B4-communication","status":"blocked","dependencies":["A1","A5"],
       "source":{"file":"apps/frontend/app/chat/page.tsx","anchors":["export default async function ChatPage()","getServerAuthToken(cookieStore)"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/chat.rs","handler":"chat::render","anchors":["pub fn render(ctx: &PageContext)","\"data-chat-state\": \"unavailable\"","fn sample_and_presence_claims_are_suppressed()","fn unavailable_inbox_has_no_fake_mutations_or_filters()"]},
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/chat.rs","handler":"chat::render","anchors":["pub fn render(ctx: &PageContext)","\"data-chat-state\": \"unavailable\"","fn sample_and_presence_claims_are_suppressed()","fn unavailable_inbox_has_no_fake_mutations_filters_or_self_recovery()"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-unavailable-no-owner-chat","endpoints":[],"evidence":[]},
       "authOwner":{"auth":"required by redirect/AuthGate","owner":"no conversation ownership or data is asserted without an owner-scoped backend contract"},
-      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native retry and home links"],"controls":["sample inbox, presence, create/send, filters, selection, and local-only mutations removed"]},
-      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"present"},
-      "hydration":{"need":"none","status":"not-applicable","reason":"authentication gate, unavailable state, and recovery links are server-rendered"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native history and home links"],"controls":["sample inbox, presence, create/send, filters, selection, local-only mutations, and no-producer self-retry removed; history/home navigation remains"]},
+      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"not-applicable"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"authentication gate, unavailable state, and history/home navigation are server-rendered"},
       "blockers":["add strict verified-owner list/create contracts, backend-derived status and presence semantics, pagination, complete async outcomes, and isolated owner/browser proof before restoring inbox interactions"]
     },
     {
@@ -187,21 +187,21 @@
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-unavailable-no-owner-chat-detail","endpoints":[],"evidence":[]},
       "authOwner":{"auth":"required by redirect/AuthGate","owner":"the bounded route reference is explicitly unverified and never selects or confirms a conversation; backend ownership remains absent"},
-      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native inbox and home links"],"controls":["sample messages, send, resolve, presence, status, and fake realtime controls removed"]},
-      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"present"},
-      "hydration":{"need":"none","status":"not-applicable","reason":"authentication gate, unavailable state, bounded escaped label, and recovery links are server-rendered"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native inbox and home links"],"controls":["sample messages, send, resolve, presence, status, and fake realtime controls removed; inbox/home navigation remains and no retry is offered"]},
+      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"not-applicable"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"authentication gate, unavailable state, bounded escaped label, and inbox/home navigation are server-rendered"},
       "blockers":["add a non-enumerating verified-owner detail loader, idempotent message send/resolve contracts, SSE reconnect/order/deduplication, complete async outcomes, keyboard behavior, and isolated owner/browser proof"]
     },
     {
       "path":"/chat/history","batch":"B4-communication","status":"blocked","dependencies":["A1","A5"],
       "source":{"file":"apps/frontend/app/chat/history/page.tsx","anchors":["export default function ChatHistoryPage()","const [loading, setLoading] = useState(true)"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/chat_history.rs","handler":"chat_history::render","anchors":["pub fn render(ctx: &PageContext)","\"data-chat-history-state\": \"unavailable\"","fn history_suppresses_samples_counts_and_inert_controls()"]},
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/chat_history.rs","handler":"chat_history::render","anchors":["pub fn render(ctx: &PageContext)","\"data-chat-history-state\": \"unavailable\"","fn history_suppresses_samples_counts_controls_and_self_recovery()"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-unavailable-no-owner-chat-history","endpoints":[],"evidence":[]},
       "authOwner":{"auth":"required by redirect/AuthGate","owner":"no history ownership, counts, or status is asserted without an owner-scoped backend contract"},
-      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native retry and inbox links"],"controls":["sample history, counts, topic/status filters, resolve actions, and pagination removed"]},
-      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"present"},
-      "hydration":{"need":"none","status":"not-applicable","reason":"authentication gate, unavailable state, and recovery links are server-rendered"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native inbox link"],"controls":["sample history, counts, topic/status filters, resolve actions, pagination, and no-producer self-retry removed; inbox navigation remains"]},
+      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"not-applicable"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"authentication gate, unavailable state, and inbox navigation are server-rendered"},
       "blockers":["add a strict verified-owner history DTO with bounded pagination, filter/status semantics, complete async outcomes, and isolated owner/browser proof"]
     },
     {
@@ -223,9 +223,9 @@
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-unavailable-no-owner-api-key-contract","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"API-key and rate-limit data"}]},
       "authOwner":{"auth":"required by authentication-only AuthGate with native return URL","owner":"verified session only opens the unavailable surface; no API key, secret, plan, permission, rate, usage, or expiry ownership is asserted"},
-      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native retry and documentation links"],"controls":["local create, revoke, refresh, permission selection, expiry, and fake secret controls removed"]},
-      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"present"},
-      "hydration":{"need":"none","status":"not-applicable","reason":"authentication gate, unavailable state, and recovery navigation are server-rendered native controls"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native documentation link"],"controls":["local create, revoke, refresh, permission selection, expiry, fake secret controls, and no-producer self-retry removed; documentation navigation remains"]},
+      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"not-applicable"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"authentication gate, unavailable state, and documentation navigation are server-rendered native controls"},
       "blockers":["add authenticated owner-scoped API-key list/create/revoke contracts with backend-authorized scopes and plans, secret-once delivery, rate/usage/expiry reads, typed async outcomes, audit/recovery, and browser proof under A1/A4/A5"]
     },
     {
@@ -247,9 +247,9 @@
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-unavailable-no-owner-metering","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"No owner-safe metering"}]},
       "authOwner":{"auth":"required","owner":"session wallet/API keys and plan limits"},
-      "interactions":{"forms":[],"pagination":["range and history pagination absent until metering exists"],"search":[],"wallet":[],"keyboard":["native retry and API-documentation links"],"controls":["sample charts, rows, wallet picker, and inert controls removed"]},
-      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"present"},
-      "hydration":{"need":"none","status":"not-applicable","reason":"authentication gate, unavailable state, and recovery controls are server-rendered native links"},
+      "interactions":{"forms":[],"pagination":["range and history pagination absent until metering exists"],"search":[],"wallet":[],"keyboard":["native API-documentation link"],"controls":["sample charts, rows, wallet picker, inert controls, and no-producer self-retry removed; API-documentation navigation remains"]},
+      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"not-applicable"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"authentication gate, unavailable state, and API-documentation navigation are server-rendered native links"},
       "blockers":["add owner-scoped metering, A4-owned plan/rate-limit decisions, strict DTO validation, range/history pagination, typed loading/error states, and isolated owner/browser proof"]
     },
     {
@@ -271,9 +271,9 @@
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-unavailable-no-public-plan-contract","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"`/plans` intentionally has no loader"}]},
       "authOwner":{"auth":"public unavailable surface","owner":"no plan, price, promotion, feature, eligibility, or access claim is asserted; subscription and permission authorities remain backend-owned"},
-      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native retry, contact, and home links"],"controls":["static catalogs, prices, promotions, eligibility, checkout, countdowns, FAQs, and payment mutations removed"]},
-      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"present"},
-      "hydration":{"need":"none","status":"not-applicable","reason":"public unavailable state and all recovery actions are server-rendered native links"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native contact and home links"],"controls":["static catalogs, prices, promotions, eligibility, checkout, countdowns, FAQs, payment mutations, and no-producer self-retry removed; contact/home navigation remains"]},
+      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"not-applicable"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"public unavailable state and alternative navigation are server-rendered native links"},
       "blockers":["A4/A5 must freeze a versioned subscription-owned active/public plan DTO plus backend access, eligibility, promotion, proration, cache, and async-state semantics with browser proof; A6 payment mutation remains separately stopped until explicitly authorized and proven idempotent"]
     },
     {

@@ -60,7 +60,6 @@ fn ChatHistoryUnavailable() -> Element {
                 "Owner-scoped conversation history cannot be loaded right now. No conversation count, result row, topic, status, unread state, or timestamp is being inferred."
             }
             div { class: "auth-gate-actions",
-                a { class: "btn btn-primary", href: "/chat/history", "Check again" }
                 a { class: "btn btn-outline", href: "/chat", "Return to inbox" }
             }
         }
@@ -116,7 +115,7 @@ mod tests {
     }
 
     #[test]
-    fn history_suppresses_samples_counts_and_inert_controls() {
+    fn history_suppresses_samples_counts_controls_and_self_recovery() {
         let rendered = html(&signed_in_ctx());
         for forbidden in [
             "Plan upgrade question",
@@ -128,13 +127,15 @@ mod tests {
             "All Topics",
             "<select",
             "<button",
+            "href=\"/chat/history\"",
+            ">Check again</a>",
         ] {
             assert!(
                 !rendered.contains(forbidden),
                 "unsupported history content leaked: {forbidden}"
             );
         }
-        assert!(rendered.contains("href=\"/chat/history\""));
         assert!(rendered.contains("href=\"/chat\""));
+        assert!(rendered.contains(">Return to inbox</a>"));
     }
 }

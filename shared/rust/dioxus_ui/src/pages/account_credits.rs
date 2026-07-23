@@ -12,7 +12,6 @@ use super::{PageContext, PageMeta};
 use crate::layout::main_layout::MainLayout;
 use crate::primitives::*;
 
-const CREDITS_PATH: &str = "/account/credits";
 const ACCOUNT_PATH: &str = "/account";
 const CREDITS_SIGN_IN_PATH: &str = "/auth?return_url=%2Faccount%2Fcredits";
 
@@ -133,9 +132,10 @@ fn CreditsUnavailable(owner: String) -> Element {
                                 "Signed-in wallet: "
                                 span { class: "font-mono break-all text-foreground", "{owner}" }
                             }
-                            div { class: "mt-6 flex flex-wrap gap-3",
-                                a { class: "btn btn-primary", href: CREDITS_PATH, "Retry" }
-                                a { class: "btn btn-outline", href: ACCOUNT_PATH, "Back to account" }
+                            nav {
+                                class: "mt-6 flex flex-wrap gap-3",
+                                "aria-label": "Credit page alternatives",
+                                a { class: "btn btn-primary", href: ACCOUNT_PATH, "Back to account" }
                             }
                         }
                     }
@@ -191,7 +191,7 @@ mod tests {
     fn signed_out_ctx() -> PageContext {
         PageContext {
             user: None,
-            path: CREDITS_PATH.to_string(),
+            path: "/account/credits".to_string(),
             ..Default::default()
         }
     }
@@ -210,7 +210,7 @@ mod tests {
                 auth_method: AuthMethod::default(),
                 display_name: Some("EPSX tester".to_string()),
             }),
-            path: CREDITS_PATH.to_string(),
+            path: "/account/credits".to_string(),
             ..Default::default()
         }
     }
@@ -252,15 +252,17 @@ mod tests {
     }
 
     #[test]
-    fn authenticated_state_is_an_alert_with_native_retry_and_account_navigation() {
+    fn authenticated_state_is_an_alert_with_meaningful_account_navigation() {
         let html = render_html(&authed_ctx_with_address("0x1234abcd"));
 
         assert!(html.contains("data-credits-state=\"unavailable\""));
         assert!(html.contains("role=\"alert\""));
         assert!(html.contains("Your credit data cannot be verified right now"));
         assert!(html.contains("No balance or ledger activity is being inferred."));
-        assert!(html.contains("href=\"/account/credits\">Retry</a>"));
+        assert!(html.contains("aria-label=\"Credit page alternatives\""));
         assert!(html.contains("href=\"/account\">Back to account</a>"));
+        assert!(!html.contains("href=\"/account/credits\""));
+        assert!(!html.contains(">Retry</a>"));
         assert_no_inferred_financial_state(&html);
     }
 

@@ -14,8 +14,6 @@ use crate::layout::main_layout::MainLayout;
 use crate::layout::PageHeader;
 use crate::primitives::Icon;
 
-const PERMISSIONS_PATH: &str = "/permissions";
-
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::app("Permissions");
     (meta, rsx! { PermissionsPage { ctx: ctx.clone() } })
@@ -102,15 +100,9 @@ fn PermissionsPage(ctx: PageContext) -> Element {
                                 }
                                 nav {
                                     class: "mt-6 flex flex-wrap gap-3 border-t border-border/40 pt-5",
-                                    "aria-label": "Permission page recovery",
+                                    "aria-label": "Permission page alternatives",
                                     a {
                                         class: "btn btn-primary",
-                                        href: PERMISSIONS_PATH,
-                                        Icon { name: "refresh-cw".to_string(), size: Some(16) }
-                                        " Retry"
-                                    }
-                                    a {
-                                        class: "btn btn-outline",
                                         href: "/account",
                                         "Back to account"
                                     }
@@ -148,7 +140,7 @@ mod tests {
     fn page_ctx(user: Option<User>) -> PageContext {
         PageContext {
             user,
-            path: PERMISSIONS_PATH.to_string(),
+            path: "/permissions".to_string(),
             ..Default::default()
         }
     }
@@ -195,6 +187,10 @@ mod tests {
         assert!(html.contains("data-permissions-state=\"unavailable\""));
         assert!(html.contains("data-permissions-claims-state=\"verified-session\""));
         assert!(html.contains("reports:read"));
+        assert!(html.contains("aria-label=\"Permission page alternatives\""));
+        assert!(html.contains("href=\"/account\""));
+        assert!(!html.contains("href=\"/permissions\""));
+        assert!(!html.contains("> Retry</a>"));
         assert!(!html.contains("Permission required"));
         assert_no_unsupported_permission_data(&html);
     }

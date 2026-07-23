@@ -15,7 +15,6 @@ use super::{PageContext, PageMeta};
 use crate::layout::main_layout::MainLayout;
 use crate::primitives::Icon;
 
-const PLANS_PATH: &str = "/plans";
 const CONTACT_PATH: &str = "/contact";
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
@@ -108,15 +107,9 @@ fn PlansUnavailableContent() -> Element {
 
                             nav {
                                 class: "mt-8 flex flex-col gap-3 border-t border-gray-200/70 pt-6 sm:flex-row dark:border-white/10",
-                                "aria-label": "Plan catalog recovery",
+                                "aria-label": "Plan catalog alternatives",
                                 a {
                                     class: "btn btn-primary",
-                                    href: PLANS_PATH,
-                                    Icon { name: "refresh-cw".to_string(), size: Some(16) }
-                                    " Retry catalog"
-                                }
-                                a {
-                                    class: "btn btn-outline",
                                     href: CONTACT_PATH,
                                     Icon { name: "mail".to_string(), size: Some(16) }
                                     " Contact support"
@@ -157,7 +150,7 @@ mod tests {
 
     fn page_ctx() -> PageContext {
         PageContext {
-            path: PLANS_PATH.to_string(),
+            path: "/plans".to_string(),
             ..Default::default()
         }
     }
@@ -276,14 +269,14 @@ mod tests {
     }
 
     #[test]
-    fn recovery_uses_native_safe_navigation() {
+    fn unavailable_catalog_offers_only_meaningful_safe_navigation() {
         let html = render_html(&page_ctx());
 
-        assert!(html.contains("aria-label=\"Plan catalog recovery\""));
-        assert!(html.contains("href=\"/plans\""));
+        assert!(html.contains("aria-label=\"Plan catalog alternatives\""));
+        assert!(!html.contains("href=\"/plans\""));
         assert!(html.contains("href=\"/contact\""));
         assert!(html.contains("href=\"/\""));
-        assert!(html.contains("Retry catalog"));
+        assert!(!html.contains("Retry catalog"));
         assert!(html.contains("Contact support"));
         assert!(!html.contains("javascript:"));
     }

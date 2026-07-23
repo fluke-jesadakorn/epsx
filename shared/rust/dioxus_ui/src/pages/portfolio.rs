@@ -144,12 +144,6 @@ fn PortfolioUnavailable() -> Element {
                     aria_label: "Portfolio alternatives",
                     a {
                         class: "btn btn-primary",
-                        href: "/portfolio",
-                        Icon { name: "refresh-cw".to_string(), size: Some(16) }
-                        " Retry"
-                    }
-                    a {
-                        class: "btn btn-outline",
                         href: "/account",
                         Icon { name: "user".to_string(), size: Some(16) }
                         " Return to account"
@@ -264,7 +258,7 @@ mod tests {
     }
 
     #[test]
-    fn authenticated_portfolio_fails_closed_with_native_recovery() {
+    fn authenticated_portfolio_fails_closed_with_meaningful_alternatives() {
         let (_meta, el) = render(&authed_ctx());
         let html = dioxus_ssr::render_element(el);
 
@@ -273,12 +267,13 @@ mod tests {
             "Your portfolio cannot be verified right now",
             "No securities, prices, rankings, plan access, or watchlist membership are being inferred.",
             "aria-label=\"Portfolio alternatives\"",
-            "href=\"/portfolio\"",
             "href=\"/account\"",
             "href=\"/contact\"",
         ] {
             assert!(html.contains(marker), "missing truthful marker `{marker}`: {html}");
         }
+        assert!(!html.contains("href=\"/portfolio\""));
+        assert!(!html.contains("> Retry</a>"));
     }
 
     #[test]

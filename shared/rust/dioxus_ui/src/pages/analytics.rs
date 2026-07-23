@@ -13,7 +13,6 @@ use super::{PageContext, PageMeta};
 use crate::layout::main_layout::MainLayout;
 use crate::primitives::Icon;
 
-const ANALYTICS_PATH: &str = "/analytics";
 const ANALYTICS_SIGN_IN_PATH: &str = "/auth?return_url=%2Fanalytics";
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
@@ -122,12 +121,6 @@ fn AnalyticsUnavailableContent(signed_in: bool) -> Element {
                             "aria-label": "Analytics alternatives",
                             a {
                                 class: "btn btn-primary",
-                                href: ANALYTICS_PATH,
-                                Icon { name: "refresh-cw".to_string(), size: Some(16) }
-                                " Retry"
-                            }
-                            a {
-                                class: "btn btn-outline",
                                 href: "/plans",
                                 Icon { name: "layers".to_string(), size: Some(16) }
                                 " Browse plans"
@@ -179,7 +172,7 @@ mod tests {
 
     fn page_ctx() -> PageContext {
         PageContext {
-            path: ANALYTICS_PATH.to_string(),
+            path: "/analytics".to_string(),
             ..Default::default()
         }
     }
@@ -248,7 +241,9 @@ mod tests {
         assert!(html.contains("data-analytics-state=\"unavailable\""));
         assert!(html.contains("role=\"alert\""));
         assert!(html.contains("Rankings cannot be verified right now"));
-        assert!(html.contains("href=\"/analytics\""));
+        assert!(!html.contains("href=\"/analytics\""));
+        assert!(!html.contains("> Retry</a>"));
+        assert!(html.contains("href=\"/plans\""));
         assert!(html.contains("href=\"/auth?return_url=%2Fanalytics\""));
         assert!(!html.contains("Sign in required"));
         assert!(!html.contains("Permission required"));
@@ -303,6 +298,9 @@ mod tests {
 
         assert!(html.contains("aria-labelledby=\"analytics-unavailable-title\""));
         assert!(html.contains("aria-label=\"Analytics alternatives\""));
+        assert!(!html.contains("href=\"/analytics\""));
+        assert!(html.contains("href=\"/plans\""));
+        assert!(html.contains("href=\"/auth?return_url=%2Fanalytics\""));
         for forbidden in [
             "<form",
             "<input",
@@ -316,6 +314,7 @@ mod tests {
             "Remove from watchlist",
             "Next page",
             "Previous page",
+            "> Retry</a>",
         ] {
             assert!(
                 !html.contains(forbidden),
