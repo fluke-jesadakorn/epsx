@@ -828,10 +828,23 @@ fn manual_runtime_script() -> &'static str {
   var title = dialog.querySelector('[data-manual-dialog-title="true"]');
   var close = dialog.querySelector('[data-manual-dialog-close="true"]');
   var previousFocus = null;
+  var bodyOverflowBeforeDialog = null;
+
+  function lockBodyScroll() {
+    if (bodyOverflowBeforeDialog !== null) return;
+    bodyOverflowBeforeDialog = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+  }
+
+  function restoreBodyScroll() {
+    if (bodyOverflowBeforeDialog === null) return;
+    document.body.style.overflow = bodyOverflowBeforeDialog;
+    bodyOverflowBeforeDialog = null;
+  }
 
   function hideDialog() {
     dialog.hidden = true;
-    document.body.style.overflow = '';
+    restoreBodyScroll();
     if (previousFocus && typeof previousFocus.focus === 'function') previousFocus.focus();
     previousFocus = null;
   }
@@ -854,7 +867,7 @@ fn manual_runtime_script() -> &'static str {
       image.alt = button.getAttribute('data-screenshot-alt') || '';
       title.textContent = button.getAttribute('data-screenshot-alt') || 'Feature screenshot';
       dialog.hidden = false;
-      document.body.style.overflow = 'hidden';
+      lockBodyScroll();
       close.focus();
     });
   });
@@ -1929,9 +1942,156 @@ mod tests {
         assert!(script.contains("data-image-error"));
         assert!(script.contains("thumb.complete && thumb.naturalWidth === 0"));
         assert!(script.contains("event.preventDefault()"));
+        assert!(script.contains("var bodyOverflowBeforeDialog = null;"));
+        assert!(script.contains("bodyOverflowBeforeDialog = document.body.style.overflow;"));
+        assert!(script.contains("document.body.style.overflow = bodyOverflowBeforeDialog;"));
+        assert!(!script.contains("document.body.style.overflow = '';"));
         assert!(!script.contains("javascript:"));
         assert!(!script.contains("window.location"));
         assert!(!script.contains("fetch("));
+    }
+
+    #[test]
+    fn manual_runtime_restores_exact_body_overflow_for_every_dialog_close_path() {
+        let source = manual_runtime_script()
+            .strip_prefix("<script data-epsx-manual-runtime>\n")
+            .and_then(|script| script.strip_suffix("\n</script>"))
+            .expect("manual controller script envelope");
+        let source_json = serde_json::to_string(source).expect("serialize manual controller");
+        let harness = r###"
+const assert = require('node:assert/strict');
+const vm = require('node:vm');
+const source = __SOURCE_JSON__;
+
+function interactive(name) {
+  return {
+    name,
+    listeners: Object.create(null),
+    focusCalls: 0,
+    addEventListener(type, listener) { this.listeners[type] = listener; },
+    focus() { this.focusCalls += 1; document.activeElement = this; },
+  };
+}
+
+const close = interactive('close');
+const panelChild = {};
+const panel = { contains(target) { return target === panelChild; } };
+const image = { src: '', alt: '' };
+const title = { textContent: '' };
+const dialog = interactive('dialog');
+dialog.hidden = true;
+dialog.querySelector = function(selector) {
+  const nodes = {
+    '[data-manual-dialog-panel="true"]': panel,
+    '[data-manual-dialog-image="true"]': image,
+    '[data-manual-dialog-title="true"]': title,
+    '[data-manual-dialog-close="true"]': close,
+  };
+  return nodes[selector] || null;
+};
+
+const thumb = interactive('thumb');
+thumb.complete = false;
+thumb.naturalWidth = 1;
+const trigger = interactive('trigger');
+trigger.disabled = false;
+trigger.attributes = {
+  'data-screenshot-src': '/public/screenshots/home.webp',
+  'data-screenshot-alt': 'Home overview',
+  'aria-haspopup': 'dialog',
+};
+trigger.querySelector = function(selector) {
+  assert.equal(selector, 'img');
+  return thumb;
+};
+trigger.getAttribute = function(name) { return this.attributes[name] || null; };
+trigger.setAttribute = function(name, value) { this.attributes[name] = String(value); };
+trigger.removeAttribute = function(name) { delete this.attributes[name]; };
+
+const routeTemplate = interactive('route-template');
+const document = {
+  activeElement: null,
+  body: { style: { overflow: 'clip' } },
+  querySelector(selector) {
+    assert.equal(selector, '[data-manual-dialog="true"]');
+    return dialog;
+  },
+  querySelectorAll(selector) {
+    if (selector === '[data-manual-screenshot="true"]') return [trigger];
+    if (selector === '[data-route-template="true"]') return [routeTemplate];
+    throw new Error('unexpected selector: ' + selector);
+  },
+};
+let fetchCalls = 0;
+vm.runInNewContext(source, {
+  document,
+  fetch() { fetchCalls += 1; throw new Error('manual controller must not fetch'); },
+});
+
+trigger.listeners.click();
+assert.equal(dialog.hidden, false);
+assert.equal(document.body.style.overflow, 'hidden');
+assert.equal(image.src, '/public/screenshots/home.webp');
+assert.equal(image.alt, 'Home overview');
+assert.equal(title.textContent, 'Home overview');
+assert.equal(document.activeElement, close);
+
+trigger.listeners.click();
+assert.equal(document.body.style.overflow, 'hidden');
+close.listeners.click();
+assert.equal(dialog.hidden, true);
+assert.equal(document.body.style.overflow, 'clip');
+assert.equal(document.activeElement, trigger);
+
+document.body.style.overflow = 'scroll';
+close.listeners.click();
+assert.equal(document.body.style.overflow, 'scroll');
+
+document.body.style.overflow = 'auto';
+trigger.listeners.click();
+dialog.listeners.click({ target: {} });
+assert.equal(dialog.hidden, true);
+assert.equal(document.body.style.overflow, 'auto');
+assert.equal(document.activeElement, trigger);
+
+document.body.style.overflow = 'clip';
+trigger.listeners.click();
+let prevented = 0;
+dialog.listeners.keydown({ key: 'Escape', preventDefault() { prevented += 1; } });
+assert.equal(prevented, 1);
+assert.equal(dialog.hidden, true);
+assert.equal(document.body.style.overflow, 'clip');
+assert.equal(document.activeElement, trigger);
+
+document.body.style.overflow = 'visible';
+trigger.listeners.click();
+prevented = 0;
+dialog.listeners.keydown({ key: 'Tab', preventDefault() { prevented += 1; } });
+assert.equal(prevented, 1);
+assert.equal(dialog.hidden, false);
+assert.equal(document.body.style.overflow, 'hidden');
+assert.equal(document.activeElement, close);
+close.listeners.click();
+assert.equal(document.body.style.overflow, 'visible');
+assert.equal(document.activeElement, trigger);
+
+let routePrevented = 0;
+routeTemplate.listeners.click({ preventDefault() { routePrevented += 1; } });
+assert.equal(routePrevented, 1);
+assert.equal(fetchCalls, 0);
+"###
+        .replace("__SOURCE_JSON__", &source_json);
+        let output = std::process::Command::new("node")
+            .arg("-e")
+            .arg(harness)
+            .output()
+            .expect("run manual dialog hermetic Node.js fake DOM");
+        assert!(
+            output.status.success(),
+            "manual dialog Node.js fake DOM failed:\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr),
+        );
     }
 
     #[test]
