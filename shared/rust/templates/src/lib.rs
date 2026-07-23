@@ -6775,30 +6775,30 @@ pub fn footer() -> &'static str {
         </p>
       </div>
       <div>
-        <h4 style="font-size:0.875rem;font-weight:600;color:var(--text);margin-bottom:0.75rem;">Platform</h4>
-        <div style="display:flex;flex-direction:column;gap:0.5rem;">
+        <h2 id="footer-platform-heading" style="font-size:0.875rem;font-weight:600;color:var(--text);margin:0 0 0.75rem;">Platform</h2>
+        <nav aria-labelledby="footer-platform-heading" style="display:flex;flex-direction:column;gap:0.5rem;">
           <a href="/analytics" class="footer-link">Rankings</a>
           <a href="/portfolio" class="footer-link">Portfolio</a>
           <a href="/plans" class="footer-link">Plans</a>
           <a href="/news" class="footer-link">News</a>
-        </div>
+        </nav>
       </div>
       <div>
-        <h4 style="font-size:0.875rem;font-weight:600;color:var(--text);margin-bottom:0.75rem;">Developers</h4>
-        <div style="display:flex;flex-direction:column;gap:0.5rem;">
+        <h2 id="footer-developers-heading" style="font-size:0.875rem;font-weight:600;color:var(--text);margin:0 0 0.75rem;">Developers</h2>
+        <nav aria-labelledby="footer-developers-heading" style="display:flex;flex-direction:column;gap:0.5rem;">
           <a href="/developer" class="footer-link">API Keys</a>
           <a href="/developer/docs" class="footer-link">Documentation</a>
           <a href="/chat" class="footer-link">Support</a>
-        </div>
+        </nav>
       </div>
       <div>
-        <h4 style="font-size:0.875rem;font-weight:600;color:var(--text);margin-bottom:0.75rem;">Company</h4>
-        <div style="display:flex;flex-direction:column;gap:0.5rem;">
+        <h2 id="footer-company-heading" style="font-size:0.875rem;font-weight:600;color:var(--text);margin:0 0 0.75rem;">Company</h2>
+        <nav aria-labelledby="footer-company-heading" style="display:flex;flex-direction:column;gap:0.5rem;">
           <a href="/about" class="footer-link">About</a>
           <a href="/contact" class="footer-link">Contact</a>
           <a href="/terms" class="footer-link">Terms of Service</a>
           <a href="/privacy" class="footer-link">Privacy Policy</a>
-        </div>
+        </nav>
       </div>
     </div>
     <div style="border-top:1px solid var(--border);padding-top:1.5rem;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;align-items:center;font-size:0.8125rem;">
@@ -8218,6 +8218,76 @@ async function flushPromises() {{
             !rendered.contains("&copy; 20"),
             "footer must not hard-code a current-looking copyright year"
         );
+    }
+
+    #[test]
+    fn active_footer_has_named_native_navigation_landmarks() {
+        let rendered = footer();
+        assert_eq!(rendered.matches(r#"<footer class="footer">"#).count(), 1);
+        assert_eq!(rendered.matches("</footer>").count(), 1);
+        assert_eq!(rendered.matches("<nav ").count(), 3);
+        assert_eq!(rendered.matches("</nav>").count(), 3);
+
+        let groups = [
+            ("footer-platform-heading", "Platform"),
+            ("footer-developers-heading", "Developers"),
+            ("footer-company-heading", "Company"),
+        ];
+        for (id, label) in groups {
+            let heading = format!(
+                r#"<h2 id="{id}" style="font-size:0.875rem;font-weight:600;color:var(--text);margin:0 0 0.75rem;">{label}</h2>"#
+            );
+            let nav = format!(
+                r#"<nav aria-labelledby="{id}" style="display:flex;flex-direction:column;gap:0.5rem;">"#
+            );
+            assert_eq!(rendered.matches(&heading).count(), 1);
+            assert_eq!(rendered.matches(&nav).count(), 1);
+            assert_eq!(rendered.matches(&format!(r#"id="{id}""#)).count(), 1);
+            assert_eq!(
+                rendered
+                    .matches(&format!(r#"aria-labelledby="{id}""#))
+                    .count(),
+                1
+            );
+        }
+        assert_eq!(rendered.matches("aria-labelledby=").count(), 3);
+        for forbidden in ["<h4", "role=", "tabindex=", "onclick="] {
+            assert!(
+                !rendered.contains(forbidden),
+                "footer must keep native semantics without {forbidden}"
+            );
+        }
+
+        let expected_links = [
+            r##"<a href="/" style="text-decoration:none;">
+          <span class="logo-text">EPSX</span>
+        </a>"##,
+            r#"<a href="/analytics" class="footer-link">Rankings</a>"#,
+            r#"<a href="/portfolio" class="footer-link">Portfolio</a>"#,
+            r#"<a href="/plans" class="footer-link">Plans</a>"#,
+            r#"<a href="/news" class="footer-link">News</a>"#,
+            r#"<a href="/developer" class="footer-link">API Keys</a>"#,
+            r#"<a href="/developer/docs" class="footer-link">Documentation</a>"#,
+            r#"<a href="/chat" class="footer-link">Support</a>"#,
+            r#"<a href="/about" class="footer-link">About</a>"#,
+            r#"<a href="/contact" class="footer-link">Contact</a>"#,
+            r#"<a href="/terms" class="footer-link">Terms of Service</a>"#,
+            r#"<a href="/privacy" class="footer-link">Privacy Policy</a>"#,
+        ];
+        assert_eq!(rendered.matches("<a ").count(), expected_links.len());
+        assert_eq!(rendered.matches("</a>").count(), expected_links.len());
+        let mut previous_end = 0;
+        for link in expected_links {
+            assert_eq!(
+                rendered.matches(link).count(),
+                1,
+                "footer must expose each exact native href/text pair once"
+            );
+            let relative_position = rendered[previous_end..]
+                .find(link)
+                .expect("footer link must retain its exact order");
+            previous_end += relative_position + link.len();
+        }
     }
 
     fn shared_navigation_controller_source() -> &'static str {
