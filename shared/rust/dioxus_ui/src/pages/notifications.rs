@@ -136,6 +136,9 @@ fn non_blank(value: Option<String>) -> Option<String> {
 /// ordering or lifecycle meaning. `now` is injected so every row in one render
 /// can share the same instant and the presentation boundaries stay testable.
 fn notification_timestamp_label(created_at: &DateTime<Utc>, now: &DateTime<Utc>) -> String {
+    if created_at > now {
+        return created_at.format("%b %-d, %Y, %H:%M:%S UTC").to_string();
+    }
     let elapsed_seconds = now.signed_duration_since(*created_at).num_seconds();
     if elapsed_seconds < 60 {
         "Just now".to_string()
@@ -800,8 +803,28 @@ mod tests {
     #[test]
     fn notification_timestamp_labels_have_exact_human_boundaries() {
         let now = timestamp("2026-07-22T12:00:00Z");
+        for (created_at, expected) in [
+            (
+                now + chrono::Duration::nanoseconds(1),
+                "Jul 22, 2026, 12:00:00 UTC",
+            ),
+            (
+                now + chrono::Duration::seconds(1),
+                "Jul 22, 2026, 12:00:01 UTC",
+            ),
+            (
+                now + chrono::Duration::days(9),
+                "Jul 31, 2026, 12:00:00 UTC",
+            ),
+        ] {
+            assert_eq!(
+                notification_timestamp_label(&created_at, &now),
+                expected,
+                "future timestamps must use a deterministic absolute UTC label"
+            );
+        }
+
         for (offset_seconds, expected) in [
-            (-1, "Just now"),
             (0, "Just now"),
             (59, "Just now"),
             (60, "1m ago"),
@@ -845,6 +868,30 @@ mod tests {
         assert!(!html.contains("<img src=x onerror=alert(1)>"));
         assert!(html.contains("&#60;script&#62;"));
         assert!(html.contains("&#60;img src=x onerror=alert(1)&#62;"));
+    }
+
+    #[test]
+    fn future_notification_row_uses_visible_absolute_utc_and_canonical_time_metadata() {
+        let notification = Notification {
+            id: "notification-future-time".to_string(),
+            title: "Future timestamp".to_string(),
+            body: "Timestamp truthfulness".to_string(),
+            kind: None,
+            priority: None,
+            read: false,
+            created_at: timestamp("2026-07-22T12:00:01Z"),
+        };
+        let html = dioxus_ssr::render_element(rsx! {
+            NotificationRow {
+                notification,
+                rendered_at: timestamp("2026-07-22T12:00:00Z"),
+            }
+        });
+
+        assert!(html.contains("datetime=\"2026-07-22T12:00:01Z\""));
+        assert!(html.contains("title=\"2026-07-22 12:00:01 UTC\""));
+        assert!(html.contains(">Received: </span>Jul 22, 2026, 12:00:01 UTC</time>"));
+        assert!(!html.contains("Just now"));
     }
 
     #[test]
