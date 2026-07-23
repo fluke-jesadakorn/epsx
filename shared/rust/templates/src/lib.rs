@@ -5724,7 +5724,7 @@ window.epsx = (function() {
         <div class="epsx-mobile-section">
           <div class="epsx-mobile-section-title">Market</div>
           <a href="/analytics" class="epsx-mobile-link"><i data-lucide="chart-column" style="width:1rem;height:1rem;color:var(--epsx-orange);"></i> Rankings <span style="color:var(--text-subtle);font-size:0.75rem;">EPS stock rankings</span></a>
-          <a href="/portfolio" class="epsx-mobile-link"><i data-lucide="trending-up" style="width:1rem;height:1rem;color:var(--epsx-orange);"></i> Portfolio <span style="color:var(--text-subtle);font-size:0.75rem;">Watchlist &amp; tracking</span></a>
+          <a href="/portfolio" class="epsx-mobile-link"><i data-lucide="trending-up" style="width:1rem;height:1rem;color:var(--epsx-orange);"></i> Portfolio <span style="color:var(--text-subtle);font-size:0.75rem;">Portfolio availability</span></a>
         </div>
         <div class="epsx-mobile-section">
           <div class="epsx-mobile-section-title">Developer</div>
@@ -6745,7 +6745,7 @@ pub fn epsx_header_for_session(is_authenticated: bool) -> String {
         <i data-lucide="trending-up" class="item-icon"></i>
         <div>
           <div class="item-label">Portfolio</div>
-          <div class="item-desc">Watchlist &amp; tracking</div>
+          <div class="item-desc">Portfolio availability</div>
         </div>
       </a>"##;
 
@@ -6764,7 +6764,7 @@ pub fn epsx_header_for_session(is_authenticated: bool) -> String {
         <i data-lucide="key" class="item-icon"></i>
         <div>
           <div class="item-label">API Keys</div>
-          <div class="item-desc">Manage your API access</div>
+          <div class="item-desc">API access status</div>
         </div>
       </a>
       <a href="/developer/docs" class="epsx-nav-item">
@@ -6802,7 +6802,7 @@ pub fn epsx_header_for_session(is_authenticated: bool) -> String {
         <i data-lucide="help-circle" class="item-icon"></i>
         <div>
           <div class="item-label">Support</div>
-          <div class="item-desc">Live chat &amp; help center</div>
+          <div class="item-desc">Support status</div>
         </div>
       </a>"##;
 
@@ -8064,6 +8064,75 @@ async function flushPromises() {{
             .expect("closed mobile rankings anchor")
             .0;
         assert!(mobile_rankings_anchor.contains("> Rankings <span"));
+    }
+
+    #[test]
+    fn shared_navigation_preserves_routes_labels_and_order_with_truthful_descriptions() {
+        fn assert_routes_in_order(rendered: &str, routes: &[&str]) {
+            let mut tail = rendered;
+            for route in routes {
+                let needle = format!("href=\"{route}\"");
+                assert_eq!(
+                    rendered.matches(&needle).count(),
+                    1,
+                    "shared navigation must retain exactly one {route} link"
+                );
+                tail = tail
+                    .split_once(&needle)
+                    .unwrap_or_else(|| panic!("missing or reordered {route} link"))
+                    .1;
+            }
+        }
+
+        let routes = [
+            "/analytics",
+            "/portfolio",
+            "/developer",
+            "/developer/docs",
+            "/about",
+            "/news",
+            "/contact",
+            "/chat",
+        ];
+        let desktop = epsx_header_for_session(false);
+        let mobile = global_js();
+        assert_routes_in_order(&desktop, &routes);
+        assert_routes_in_order(mobile, &routes);
+
+        for expected in [
+            "<div class=\"item-label\">Portfolio</div>",
+            "<div class=\"item-desc\">Portfolio availability</div>",
+            "<div class=\"item-label\">API Keys</div>",
+            "<div class=\"item-desc\">API access status</div>",
+            "<div class=\"item-label\">Support</div>",
+            "<div class=\"item-desc\">Support status</div>",
+        ] {
+            assert!(
+                desktop.contains(expected),
+                "desktop navigation missing {expected}"
+            );
+        }
+        for expected in [
+            "> Portfolio <span style=\"color:var(--text-subtle);font-size:0.75rem;\">Portfolio availability</span>",
+            "> API Keys</a>",
+            "> Support</a>",
+        ] {
+            assert!(
+                mobile.contains(expected),
+                "mobile navigation missing {expected}"
+            );
+        }
+
+        for unsupported in [
+            "Watchlist &amp; tracking",
+            "Manage your API access",
+            "Live chat &amp; help center",
+        ] {
+            assert!(
+                !desktop.contains(unsupported) && !mobile.contains(unsupported),
+                "shared navigation retained unsupported description: {unsupported}"
+            );
+        }
     }
 
     #[test]

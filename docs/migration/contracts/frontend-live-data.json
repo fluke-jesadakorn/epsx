@@ -151,7 +151,7 @@
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-unavailable-no-owner-portfolio","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"`/portfolio` intentionally has no loader"}]},
       "authOwner":{"auth":"optional; signed-out visitors receive a native Require Sign In state","owner":"no holdings, watchlist, financial, or entitlement data is asserted until a verified session-owner contract exists"},
-      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":["native sign-in navigation only"],"keyboard":["native sign-in, account, and contact links"],"controls":["six sample cards, Live badge, upsell, search, inert watchlist actions, and no-producer self-retry removed; sign-in/account/contact navigation remains"]},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":["native sign-in navigation only"],"keyboard":["native sign-in, account, and contact links"],"controls":["six sample cards, Live badge, upsell, search, inert watchlist actions, and no-producer self-retry removed; sign-in/account/contact navigation remains","shared Portfolio navigation retains its label, /portfolio destination, group, and order but uses the presentation-only Portfolio availability description instead of claiming working watchlist or tracking capability"]},
       "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"not-applicable"},
       "hydration":{"need":"none","status":"not-applicable","reason":"signed-out and unavailable states plus alternative navigation are server-rendered with native links"},
       "blockers":["add frozen authenticated owner-scoped holdings/watchlist DTOs, backend-owned plan/access decisions, market provenance/freshness, ownership-safe idempotent mutations, complete async outcomes, and isolated owner/browser proof"]
@@ -175,7 +175,7 @@
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-unavailable-no-owner-chat","endpoints":[],"evidence":[]},
       "authOwner":{"auth":"required by redirect/AuthGate","owner":"no conversation ownership or data is asserted without an owner-scoped backend contract"},
-      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native history and home links"],"controls":["sample inbox, presence, create/send, filters, selection, local-only mutations, and no-producer self-retry removed; history/home navigation remains"]},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native history and home links"],"controls":["sample inbox, presence, create/send, filters, selection, local-only mutations, and no-producer self-retry removed; history/home navigation remains","shared Support navigation retains its label, /chat destination, group, and order but uses the presentation-only Support status description instead of claiming live chat or a help center"]},
       "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"not-applicable"},
       "hydration":{"need":"none","status":"not-applicable","reason":"authentication gate, unavailable state, and history/home navigation are server-rendered"},
       "blockers":["add strict verified-owner list/create contracts, backend-derived status and presence semantics, pagination, complete async outcomes, and isolated owner/browser proof before restoring inbox interactions"]
@@ -223,7 +223,7 @@
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-unavailable-no-owner-api-key-contract","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"API-key and rate-limit data"}]},
       "authOwner":{"auth":"required by authentication-only AuthGate with native return URL","owner":"verified session only opens the unavailable surface; no API key, secret, plan, permission, rate, usage, or expiry ownership is asserted"},
-      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native documentation link"],"controls":["local create, revoke, refresh, permission selection, expiry, fake secret controls, and no-producer self-retry removed; documentation navigation remains"]},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native documentation link"],"controls":["local create, revoke, refresh, permission selection, expiry, fake secret controls, and no-producer self-retry removed; documentation navigation remains","shared API Keys navigation retains its label, /developer destination, group, and order but uses the presentation-only API access status description instead of claiming working API-access management"]},
       "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"not-applicable"},
       "hydration":{"need":"none","status":"not-applicable","reason":"authentication gate, unavailable state, and documentation navigation are server-rendered native controls"},
       "blockers":["add authenticated owner-scoped API-key list/create/revoke contracts with backend-authorized scopes and plans, secret-once delivery, rate/usage/expiry reads, typed async outcomes, audit/recovery, and browser proof under A1/A4/A5"]

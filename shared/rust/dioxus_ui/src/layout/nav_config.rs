@@ -60,7 +60,7 @@ pub static NAV_GROUPS: LazyLock<Vec<NavGroup>> = LazyLock::new(|| {
                     href: "/portfolio".to_string(),
                     key: "portfolio".to_string(),
                     icon: Some("trending-up".to_string()),
-                    desc: Some("Watchlist & tracking".to_string()),
+                    desc: Some("Portfolio availability".to_string()),
                 },
             ],
         },
@@ -74,7 +74,7 @@ pub static NAV_GROUPS: LazyLock<Vec<NavGroup>> = LazyLock::new(|| {
                     href: "/developer".to_string(),
                     key: "api-keys".to_string(),
                     icon: Some("code".to_string()),
-                    desc: Some("Manage API access".to_string()),
+                    desc: Some("API access status".to_string()),
                 },
                 NavItem {
                     label: "Documentation".to_string(),
@@ -116,7 +116,7 @@ pub static NAV_GROUPS: LazyLock<Vec<NavGroup>> = LazyLock::new(|| {
                     href: "/chat".to_string(),
                     key: "support".to_string(),
                     icon: Some("help-circle".to_string()),
-                    desc: None,
+                    desc: Some("Support status".to_string()),
                 },
             ],
         },
@@ -214,5 +214,74 @@ mod tests {
         let len = keys.len();
         keys.dedup();
         assert_eq!(len, keys.len(), "duplicate group keys in NAV_GROUPS");
+    }
+
+    #[test]
+    fn nav_groups_preserve_routes_labels_and_order_with_truthful_descriptions() {
+        let groups: Vec<(&str, Vec<(&str, &str)>)> = NAV_GROUPS
+            .iter()
+            .map(|group| {
+                (
+                    group.label.as_str(),
+                    group
+                        .items
+                        .iter()
+                        .map(|item| (item.label.as_str(), item.href.as_str()))
+                        .collect(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            groups,
+            vec![
+                (
+                    "Market",
+                    vec![("Rankings", "/analytics"), ("Portfolio", "/portfolio")]
+                ),
+                (
+                    "Developer",
+                    vec![
+                        ("API Keys", "/developer"),
+                        ("Documentation", "/developer/docs"),
+                    ]
+                ),
+                (
+                    "Company",
+                    vec![
+                        ("About", "/about"),
+                        ("News", "/news"),
+                        ("Contact", "/contact"),
+                        ("Support", "/chat"),
+                    ]
+                ),
+            ]
+        );
+
+        let description = |key: &str| {
+            NAV_GROUPS
+                .iter()
+                .flat_map(|group| group.items.iter())
+                .find(|item| item.key == key)
+                .and_then(|item| item.desc.as_deref())
+        };
+        assert_eq!(description("portfolio"), Some("Portfolio availability"));
+        assert_eq!(description("api-keys"), Some("API access status"));
+        assert_eq!(description("support"), Some("Support status"));
+
+        let descriptions: Vec<&str> = NAV_GROUPS
+            .iter()
+            .flat_map(|group| group.items.iter())
+            .filter_map(|item| item.desc.as_deref())
+            .collect();
+        for unsupported in [
+            "Watchlist & tracking",
+            "Manage API access",
+            "Live chat & help center",
+        ] {
+            assert!(
+                !descriptions.contains(&unsupported),
+                "navigation config retained unsupported description: {unsupported}"
+            );
+        }
     }
 }
