@@ -12,6 +12,8 @@ use dioxus::prelude::*;
 
 const NEWS_PAGE_SIZE: u32 = 12;
 const NEWS_CATEGORIES: [&str; 4] = ["all", "updates", "engineering", "product"];
+const NEWS_AUTHOR_MAX_CHARS: usize = 160;
+const NEWS_READ_TIME_MAX_CHARS: usize = 32;
 
 #[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
 struct NewsPost {
@@ -54,6 +56,10 @@ enum NewsListOutcome {
 
 fn safe_text(value: &str, max: usize) -> bool {
     value.chars().count() <= max && !value.chars().any(char::is_control)
+}
+
+fn valid_optional_display_text(value: Option<&str>, max: usize) -> bool {
+    value.is_none_or(|value| !value.trim().is_empty() && safe_text(value, max))
 }
 
 fn safe_slug(value: &str) -> bool {
@@ -110,6 +116,8 @@ fn valid_post(post: &NewsPost) -> bool {
             .tags
             .iter()
             .all(|tag| !tag.trim().is_empty() && safe_text(tag, 64))
+        && valid_optional_display_text(post.author.as_deref(), NEWS_AUTHOR_MAX_CHARS)
+        && valid_optional_display_text(post.read_time.as_deref(), NEWS_READ_TIME_MAX_CHARS)
         && post.cover_image_url.as_deref().is_none_or(safe_cover)
         && post.published_at.as_deref().is_none_or(valid_display_date)
 }
@@ -332,15 +340,28 @@ fn NewsList(
     query: String,
     category: String,
 ) -> Element {
+    let featured_index = posts.iter().position(|post| post.featured);
+    let featured_post = featured_index.map(|index| posts[index].clone());
+    let normal_posts: Vec<NewsPost> = posts
+        .into_iter()
+        .enumerate()
+        .filter_map(|(index, post)| (Some(index) != featured_index).then_some(post))
+        .collect();
+    let normal_grid_class = if featured_post.is_some() {
+        "news-list-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8"
+    } else {
+        "news-list-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+    };
+
     rsx! {
         section { class: "news-list-section mt-8", aria_label: "News articles",
-            if posts.len() == 1 {
-                ArticleCard { post: posts[0].clone() }
-            } else {
-                NewsFeaturedCard { post: posts[0].clone() }
-                div { class: "news-list-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8",
-                    for post in posts.iter().skip(1) {
-                        ArticleCard { post: post.clone() }
+            if let Some(post) = featured_post {
+                NewsFeaturedCard { post }
+            }
+            if !normal_posts.is_empty() {
+                div { class: normal_grid_class,
+                    for post in normal_posts {
+                        ArticleCard { post }
                     }
                 }
             }
@@ -583,6 +604,117 @@ mod tests {
             "tags": ["engineering"],
             "featured": true
         })
+    }
+
+    fn article_with_feature(title: &str, slug: &str, featured: bool) -> serde_json::Value {
+        let mut value = article(title);
+        value["id"] = serde_json::json!(format!("id-{slug}"));
+        value["slug"] = serde_json::json!(slug);
+        value["featured"] = serde_json::json!(featured);
+        value
+    }
+
+    fn render_articles(articles: Vec<serde_json::Value>) -> String {
+        let total = articles.len();
+        let (_, element) = render(&context(
+            serde_json::json!({
+                "state": "ready",
+                "articles": articles,
+                "total": total,
+                "page": 1,
+                "limit": 12,
+                "total_pages": 1,
+                "query": "",
+                "category": "all"
+            }),
+            "",
+        ));
+        dioxus_ssr::render_element(element)
+    }
+
+    #[test]
+    fn no_featured_posts_render_only_normal_cards_without_badge() {
+        let html = render_articles(vec![
+            article_with_feature("Alpha update", "alpha-update", false),
+            article_with_feature("Beta update", "beta-update", false),
+        ]);
+        assert!(!html.contains("news-featured-card"));
+        assert!(!html.contains("Featured"));
+        assert_eq!(html.matches("news-article-card").count(), 2);
+        assert!(
+            html.find("Alpha update").expect("alpha must render")
+                < html.find("Beta update").expect("beta must render")
+        );
+
+        let single = render_articles(vec![article_with_feature(
+            "Only normal",
+            "only-normal",
+            false,
+        )]);
+        assert!(!single.contains("news-featured-card"));
+        assert!(!single.contains("Featured"));
+        assert_eq!(single.matches("news-article-card").count(), 1);
+        assert_eq!(single.matches("Only normal").count(), 1);
+    }
+
+    #[test]
+    fn featured_not_first_preserves_other_order_without_duplication() {
+        let html = render_articles(vec![
+            article_with_feature("Alpha normal", "alpha-normal", false),
+            article_with_feature("Primary feature", "primary-feature", true),
+            article_with_feature("Beta normal", "beta-normal", false),
+            article_with_feature("Later feature", "later-feature", true),
+        ]);
+        assert_eq!(html.matches("news-featured-card").count(), 1);
+        assert_eq!(html.matches("news-article-card").count(), 3);
+        assert_eq!(html.matches("Featured").count(), 1);
+        for title in [
+            "Alpha normal",
+            "Primary feature",
+            "Beta normal",
+            "Later feature",
+        ] {
+            assert_eq!(html.matches(title).count(), 1, "{title}");
+        }
+        let primary = html.find("Primary feature").expect("feature must render");
+        let alpha = html.find("Alpha normal").expect("alpha must render");
+        let beta = html.find("Beta normal").expect("beta must render");
+        let later = html.find("Later feature").expect("later must render");
+        assert!(primary < alpha);
+        assert!(alpha < beta && beta < later);
+    }
+
+    #[test]
+    fn single_featured_post_uses_featured_card() {
+        let mut article = article_with_feature("Only feature", "only-feature", true);
+        article["author"] = serde_json::json!("EPSX Editorial");
+        article["read_time"] = serde_json::json!("7 min");
+        let html = render_articles(vec![article]);
+        assert_eq!(html.matches("news-featured-card").count(), 1);
+        assert_eq!(html.matches("news-article-card").count(), 0);
+        assert_eq!(html.matches("Featured").count(), 1);
+        assert_eq!(html.matches("Only feature").count(), 1);
+    }
+
+    #[test]
+    fn malformed_author_or_read_time_fails_closed() {
+        let cases = [
+            ("author", String::new()),
+            ("author", "bad\nauthor".to_string()),
+            ("author", "a".repeat(NEWS_AUTHOR_MAX_CHARS + 1)),
+            ("read_time", " ".to_string()),
+            ("read_time", "bad\tvalue".to_string()),
+            ("read_time", "r".repeat(NEWS_READ_TIME_MAX_CHARS + 1)),
+        ];
+        for (field, value) in cases {
+            let mut article =
+                article_with_feature("Malformed metadata", "malformed-metadata", false);
+            article[field] = serde_json::Value::String(value);
+            let html = render_articles(vec![article]);
+            assert!(html.contains("News is temporarily unavailable"), "{field}");
+            assert!(!html.contains("news-article-card"), "{field}");
+            assert!(!html.contains("Malformed metadata"), "{field}");
+        }
     }
 
     #[test]
