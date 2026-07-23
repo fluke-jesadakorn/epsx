@@ -684,6 +684,32 @@ fn EndpointCard(endpoint: EndpointDef) -> Element {
     let curl_panel_id = format!("{card_id}-panel-curl");
     let javascript_panel_id = format!("{card_id}-panel-javascript");
     let python_panel_id = format!("{card_id}-panel-python");
+    let code_copy_status_id = format!("{card_id}-copy-code-status");
+    let response_copy_status_id = format!("{card_id}-copy-response-status");
+    let code_copy_label = format!(
+        "Copy selected code example for {} {}",
+        endpoint.method, endpoint.path
+    );
+    let response_copy_label = format!(
+        "Copy response example for {} {}",
+        endpoint.method, endpoint.path
+    );
+    let code_copy_success = format!(
+        "Copied code example for {} {} to clipboard.",
+        endpoint.method, endpoint.path
+    );
+    let code_copy_failure = format!(
+        "Could not copy code example for {} {}.",
+        endpoint.method, endpoint.path
+    );
+    let response_copy_success = format!(
+        "Copied response example for {} {} to clipboard.",
+        endpoint.method, endpoint.path
+    );
+    let response_copy_failure = format!(
+        "Could not copy response example for {} {}.",
+        endpoint.method, endpoint.path
+    );
     rsx! {
         article { class: "docs-endpoint-card rounded-2xl border border-border/20 bg-card shadow-xl",
             id: "{card_id}",
@@ -779,7 +805,25 @@ fn EndpointCard(endpoint: EndpointDef) -> Element {
                                     "{label}"
                                 }
                             }
-                            button { r#type: "button", class: "docs-copy-button", "data-docs-copy-code": "true", span { "Copy" } }
+                            button {
+                                r#type: "button",
+                                class: "docs-copy-button",
+                                "data-docs-copy-code": "true",
+                                "data-copy-status-target": "{code_copy_status_id}",
+                                "data-copy-success-message": "{code_copy_success}",
+                                "data-copy-failure-message": "{code_copy_failure}",
+                                "data-copy-flash-result": "true",
+                                "aria-label": "{code_copy_label}",
+                                "aria-describedby": "{code_copy_status_id}",
+                                span { "Copy" }
+                            }
+                            span {
+                                id: "{code_copy_status_id}",
+                                class: "sr-only",
+                                role: "status",
+                                "aria-live": "polite",
+                                "aria-atomic": "true",
+                            }
                         }
                         pre {
                             id: "{curl_panel_id}",
@@ -816,7 +860,25 @@ fn EndpointCard(endpoint: EndpointDef) -> Element {
                 div { class: "docs-endpoint-card-response",
                     h4 { class: "mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground", "Response" }
                     div { class: "docs-response-example",
-                        button { r#type: "button", class: "docs-copy-button docs-response-copy", "data-docs-copy-response": "true", span { "Copy" } }
+                        button {
+                            r#type: "button",
+                            class: "docs-copy-button docs-response-copy",
+                            "data-docs-copy-response": "true",
+                            "data-copy-status-target": "{response_copy_status_id}",
+                            "data-copy-success-message": "{response_copy_success}",
+                            "data-copy-failure-message": "{response_copy_failure}",
+                            "data-copy-flash-result": "true",
+                            "aria-label": "{response_copy_label}",
+                            "aria-describedby": "{response_copy_status_id}",
+                            span { "Copy" }
+                        }
+                        span {
+                            id: "{response_copy_status_id}",
+                            class: "sr-only",
+                            role: "status",
+                            "aria-live": "polite",
+                            "aria-atomic": "true",
+                        }
                         pre { class: "docs-response-panel", code { "{response}" } }
                     }
                 }
@@ -1263,6 +1325,103 @@ mod tests {
         assert_eq!(html.matches(r#"role="tabpanel""#).count(), 30);
         assert!(html.contains(r#"id="docs-endpoint-get-api-auth-session-verify-tab-curl""#));
         assert!(html.contains(r#"id="docs-endpoint-get-api-auth-session-verify-panel-curl""#));
+    }
+
+    #[test]
+    fn developer_docs_copy_controls_have_unique_contextual_status_contracts() {
+        fn opening_tag_with<'a>(html: &'a str, marker: &str) -> &'a str {
+            html.split('<')
+                .filter_map(|tail| tail.split_once('>').map(|(opener, _)| opener))
+                .find(|opener| opener.contains(marker))
+                .unwrap_or_else(|| panic!("missing opening tag with {marker}"))
+        }
+
+        let (_meta, element) = render_docs(&authed_ctx());
+        let html = dioxus_ssr::render_element(element);
+        let mut status_ids = std::collections::HashSet::new();
+        let mut endpoint_count = 0;
+
+        for category in cached_endpoint_categories() {
+            for endpoint in &category.endpoints {
+                endpoint_count += 1;
+                let card_id = format!(
+                    "docs-endpoint-{}-{}",
+                    endpoint.method.to_ascii_lowercase(),
+                    endpoint.path.trim_matches('/').replace('/', "-")
+                );
+                for (kind, control_marker) in [
+                    ("code", r#"data-docs-copy-code="true""#),
+                    ("response", r#"data-docs-copy-response="true""#),
+                ] {
+                    let status_id = format!("{card_id}-copy-{kind}-status");
+                    assert!(
+                        status_ids.insert(status_id.clone()),
+                        "duplicate status id {status_id}"
+                    );
+                    let status_target = format!(r#"data-copy-status-target="{status_id}""#);
+                    let button = opening_tag_with(&html, &status_target);
+                    assert!(button.starts_with("button "));
+                    assert!(button.contains(control_marker));
+                    let accessible_name = if kind == "code" {
+                        format!(
+                            "Copy selected code example for {} {}",
+                            endpoint.method, endpoint.path
+                        )
+                    } else {
+                        format!(
+                            "Copy response example for {} {}",
+                            endpoint.method, endpoint.path
+                        )
+                    };
+                    assert!(button.contains(&format!(r#"aria-label="{accessible_name}""#)));
+                    assert!(button.contains(&format!(
+                        r#"aria-describedby="{status_id}""#
+                    )));
+                    assert!(button.contains(&format!(
+                        r#"data-copy-success-message="Copied {kind} example for {} {} to clipboard.""#,
+                        endpoint.method, endpoint.path,
+                    )));
+                    assert!(button.contains(&format!(
+                        r#"data-copy-failure-message="Could not copy {kind} example for {} {}.""#,
+                        endpoint.method, endpoint.path,
+                    )));
+                    assert!(button.contains(r#"data-copy-flash-result="true""#));
+
+                    let status = opening_tag_with(&html, &format!(r#"id="{status_id}""#));
+                    assert!(status.starts_with("span "));
+                    assert!(status.contains(r#"class="sr-only""#));
+                    assert!(status.contains(r#"role="status""#));
+                    assert!(status.contains(r#"aria-live="polite""#));
+                    assert!(status.contains(r#"aria-atomic="true""#));
+                    assert!(html.contains(&format!("<{status}></span>")));
+                    assert_eq!(
+                        html.matches(&format!(r#"id="{status_id}""#)).count(),
+                        1
+                    );
+                    assert_eq!(
+                        html.matches(&format!(
+                            r#"data-copy-status-target="{status_id}""#
+                        ))
+                        .count(),
+                        1
+                    );
+                    assert_eq!(
+                        html.matches(&format!(r#"aria-describedby="{status_id}""#))
+                            .count(),
+                        1
+                    );
+                    assert_eq!(html.matches(&status_id).count(), 3);
+                }
+            }
+        }
+
+        assert_eq!(endpoint_count, 10);
+        assert_eq!(status_ids.len(), 20);
+        assert_eq!(html.matches("data-copy-status-target=").count(), 20);
+        assert_eq!(html.matches("data-copy-success-message=").count(), 20);
+        assert_eq!(html.matches("data-copy-failure-message=").count(), 20);
+        assert_eq!(html.matches(r#"data-copy-flash-result="true""#).count(), 20);
+        assert_eq!(html.matches(">Copy</span>").count(), 20);
     }
 
     /// Wave 22 T4 — `test_endpoint_catalog_units`. Cached catalog

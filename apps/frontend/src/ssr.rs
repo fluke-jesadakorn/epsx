@@ -2233,6 +2233,146 @@ assert.equal(fetchCalls, 0);
     }
 
     #[test]
+    fn developer_docs_runtime_forwards_exact_active_copy_payloads_without_fetching() {
+        let source = developer_docs_runtime_script()
+            .strip_prefix("<script data-epsx-developer-docs-runtime>\n")
+            .and_then(|script| script.strip_suffix("\n</script>"))
+            .expect("developer docs controller script envelope");
+        let source_json =
+            serde_json::to_string(source).expect("serialize developer docs controller");
+        let harness = format!(
+            r#"
+const assert = require('node:assert/strict');
+const vm = require('node:vm');
+const source = {source_json};
+const codeListeners = Object.create(null);
+const responseListeners = Object.create(null);
+const copyCalls = [];
+let fetchCalls = 0;
+
+const codeButton = {{
+  addEventListener(type, listener) {{ codeListeners[type] = listener; }},
+}};
+const responseButton = {{
+  addEventListener(type, listener) {{ responseListeners[type] = listener; }},
+  parentElement: {{
+    querySelector(selector) {{
+      assert.equal(selector, '.docs-response-panel code');
+      return {{ textContent: '{{"success":true}}' }};
+    }},
+  }},
+}};
+function makeTab(language, selected) {{
+  const listeners = Object.create(null);
+  const attributes = {{
+    'data-docs-code-tab': language,
+    'aria-selected': selected ? 'true' : 'false',
+  }};
+  return {{
+    language,
+    listeners,
+    tabIndex: selected ? 0 : -1,
+    classList: {{ toggle() {{}} }},
+    addEventListener(type, listener) {{ listeners[type] = listener; }},
+    setAttribute(name, value) {{ attributes[name] = String(value); }},
+    getAttribute(name) {{ return attributes[name] || null; }},
+    focus() {{}},
+  }};
+}}
+const tabs = [
+  makeTab('curl', true),
+  makeTab('javascript', false),
+  makeTab('python', false),
+];
+const panels = [
+  {{ language: 'curl', hidden: false, code: {{ textContent: 'curl active-example' }}, getAttribute() {{ return this.language; }} }},
+  {{ language: 'javascript', hidden: true, code: {{ textContent: 'const activeLanguage = "javascript";' }}, getAttribute() {{ return this.language; }} }},
+  {{ language: 'python', hidden: true, code: {{ textContent: 'active_language = "python"' }}, getAttribute() {{ return this.language; }} }},
+];
+const example = {{
+  querySelectorAll(selector) {{
+    if (selector === '[data-docs-code-tab]') return tabs;
+    if (selector === '[data-docs-code-panel]') return panels;
+    throw new Error('unexpected example querySelectorAll: ' + selector);
+  }},
+  querySelector(selector) {{
+    if (selector === '[data-docs-copy-code="true"]') return codeButton;
+    if (selector === '[data-docs-code-panel]:not([hidden]) code') {{
+      const activePanel = panels.find((panel) => !panel.hidden);
+      return activePanel ? activePanel.code : null;
+    }}
+    throw new Error('unexpected example querySelector: ' + selector);
+  }},
+}};
+const root = {{
+  querySelector(selector) {{
+    if (selector === '[data-docs-sidebar="true"]') return null;
+    if (selector === '[data-docs-sidebar-toggle="true"]') return null;
+    if (selector === '[data-docs-sidebar-overlay="true"]') return null;
+    throw new Error('unexpected root querySelector: ' + selector);
+  }},
+  querySelectorAll(selector) {{
+    if (selector === '[data-docs-section-link]') return [];
+    if (selector === '[data-docs-endpoint-toggle="true"]') return [];
+    if (selector === '.docs-code-example') return [example];
+    if (selector === '[data-docs-copy-response="true"]') return [responseButton];
+    throw new Error('unexpected root querySelectorAll: ' + selector);
+  }},
+}};
+const document = {{
+  querySelector(selector) {{
+    assert.equal(selector, '.developer-docs-page');
+    return root;
+  }},
+  addEventListener(type) {{ assert.equal(type, 'keydown'); }},
+}};
+const window = {{
+  epsx: {{
+    copyText(text, button) {{ copyCalls.push({{ text, button }}); }},
+  }},
+}};
+const context = {{
+  document,
+  window,
+  fetch() {{
+    fetchCalls += 1;
+    throw new Error('developer docs copy runtime must not fetch');
+  }},
+}};
+vm.runInNewContext(source, context);
+assert.equal(typeof codeListeners.click, 'function');
+assert.equal(typeof responseListeners.click, 'function');
+
+codeListeners.click();
+assert.equal(typeof tabs[1].listeners.click, 'function');
+tabs[1].listeners.click();
+codeListeners.click();
+responseListeners.click();
+
+assert.equal(copyCalls.length, 3);
+assert.equal(copyCalls[0].text, 'curl active-example');
+assert.equal(copyCalls[0].button, codeButton);
+assert.equal(copyCalls[1].text, 'const activeLanguage = "javascript";');
+assert.equal(copyCalls[1].button, codeButton);
+assert.equal(copyCalls[2].text, '{{"success":true}}');
+assert.equal(copyCalls[2].button, responseButton);
+assert.equal(fetchCalls, 0);
+"#
+        );
+        let output = std::process::Command::new("node")
+            .arg("-e")
+            .arg(harness)
+            .output()
+            .expect("run developer docs copy hermetic Node.js fake DOM");
+        assert!(
+            output.status.success(),
+            "developer docs copy Node.js fake DOM failed:\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr),
+        );
+    }
+
+    #[test]
     fn notification_badge_runtime_is_authenticated_only_and_uses_exact_read_route() {
         assert_eq!(notification_badge_runtime(false, "/rankings"), "");
 

@@ -6067,13 +6067,17 @@ window.epsx = (function() {
   //           onclick hits the DOM.
   //   btn   — the clicked element. Buttons with a
   //           `data-copy-status-target` announce through that dedicated
-  //           status node without changing their label. Other copy
-  //           buttons retain the legacy 2 s inline label flash.
+  //           status node while keeping their accessible name stable.
+  //           An explicit `data-copy-flash-result="true"` also opts the
+  //           visible label into the guarded 2 s result flash. Other copy
+  //           buttons retain the legacy inline label flash.
   function copyText(text, btn) {
     var statusTargetId =
       btn && typeof btn.getAttribute === 'function'
         ? (btn.getAttribute('data-copy-status-target') || '')
         : '';
+    var flashStatusResult =
+      statusTargetId && btn && btn.getAttribute('data-copy-flash-result') === 'true';
     var copyGeneration = 0;
     if (statusTargetId && btn) {
       copyGeneration = (btn.__epsxCopyGeneration || 0) + 1;
@@ -6082,9 +6086,21 @@ window.epsx = (function() {
         clearTimeout(btn.__epsxCopyStatusTimer);
         btn.__epsxCopyStatusTimer = null;
       }
+      var previousStatus = document.getElementById(statusTargetId);
+      if (previousStatus) previousStatus.textContent = '';
+      restoreStatusLabel();
     }
     function isCurrentCopy() {
       return !statusTargetId || !btn || btn.__epsxCopyGeneration === copyGeneration;
+    }
+    function restoreStatusLabel() {
+      if (!btn || !flashStatusResult) return;
+      var span = btn.querySelector('span');
+      var orig = btn.getAttribute('data-orig-label');
+      if (!orig) return;
+      if (span) span.textContent = orig;
+      else btn.textContent = orig;
+      btn.removeAttribute('data-orig-label');
     }
     function fallback(t) {
       var ta = null;
@@ -6129,15 +6145,26 @@ window.epsx = (function() {
       }
       return copied;
     }
-    function announce(message) {
+    function announce(message, resultLabel) {
       if (!btn || !isCurrentCopy()) return;
       var status = document.getElementById(statusTargetId);
-      if (!status) return;
-      status.textContent = message;
+      if (!status && !flashStatusResult) return;
+      if (status) status.textContent = message;
+      if (flashStatusResult) {
+        var span = btn.querySelector('span');
+        var orig = btn.getAttribute('data-orig-label');
+        if (!orig) {
+          orig = span ? span.textContent : btn.textContent;
+          btn.setAttribute('data-orig-label', orig);
+        }
+        if (span) span.textContent = resultLabel;
+        else btn.textContent = resultLabel;
+      }
       btn.__epsxCopyStatusTimer = setTimeout(function() {
         if (!isCurrentCopy()) return;
         var currentStatus = document.getElementById(statusTargetId);
         if (currentStatus) currentStatus.textContent = '';
+        restoreStatusLabel();
         btn.__epsxCopyStatusTimer = null;
       }, 2000);
     }
@@ -6162,11 +6189,11 @@ window.epsx = (function() {
     function showResult(copied) {
       if (!isCurrentCopy()) return;
       if (statusTargetId) {
-        announce(
-          copied
-            ? 'Email address copied to clipboard.'
-            : 'Could not copy email address.'
-        );
+        var successMessage = btn.getAttribute('data-copy-success-message') ||
+          'Email address copied to clipboard.';
+        var failureMessage = btn.getAttribute('data-copy-failure-message') ||
+          'Could not copy email address.';
+        announce(copied ? successMessage : failureMessage, copied ? '✓ Copied' : 'Copy failed');
       } else {
         flash(copied ? '✓ Copied' : 'Copy failed');
       }
@@ -8287,8 +8314,9 @@ mod page_head_tests {
     }
 
     #[test]
-    fn contact_copy_feedback_controller_is_deterministic_accessible_and_race_safe() {
+    fn copy_feedback_controller_is_deterministic_accessible_and_race_safe() {
         let controller = serde_json::to_string(copy_text_controller_source()).unwrap();
+        assert!(!copy_text_controller_source().contains("innerHTML"));
         let harness = format!(
             r#"
 const assert = require('node:assert/strict');
@@ -8319,7 +8347,9 @@ function activeTimerIds() {{
 }}
 
 const status = {{ textContent: '' }};
+const docsStatus = {{ textContent: '' }};
 const label = {{ textContent: 'Copy' }};
+const docsLabel = {{ textContent: 'Copy' }};
 const genericLabel = {{ textContent: 'Copy code' }};
 let statusAvailable = true;
 let buttonFocusCalls = 0;
@@ -8333,6 +8363,22 @@ const button = {{
   setAttribute(name, value) {{ this.attributes[name] = String(value); }},
   removeAttribute(name) {{ delete this.attributes[name]; }},
   querySelector(selector) {{ return selector === 'span' ? label : null; }},
+  focus() {{ buttonFocusCalls += 1; }},
+  textContent: 'Copy',
+}};
+const docsButton = {{
+  attributes: {{
+    'data-copy-status-target': 'docs-copy-status',
+    'data-copy-success-message': 'Copied code example for GET /api/example to clipboard.',
+    'data-copy-failure-message': 'Could not copy code example for GET /api/example.',
+    'data-copy-flash-result': 'true',
+    'aria-label': 'Copy selected code example for GET /api/example',
+    'aria-describedby': 'docs-copy-status',
+  }},
+  getAttribute(name) {{ return this.attributes[name] || null; }},
+  setAttribute(name, value) {{ this.attributes[name] = String(value); }},
+  removeAttribute(name) {{ delete this.attributes[name]; }},
+  querySelector(selector) {{ return selector === 'span' ? docsLabel : null; }},
   focus() {{ buttonFocusCalls += 1; }},
   textContent: 'Copy',
 }};
@@ -8371,7 +8417,10 @@ function detachTextarea(node) {{
 const document = {{
   activeElement: priorFocus,
   getElementById(id) {{
-    return statusAvailable && id === 'contact-copy-email-status' ? status : null;
+    if (!statusAvailable) return null;
+    if (id === 'contact-copy-email-status') return status;
+    if (id === 'docs-copy-status') return docsStatus;
+    return null;
   }},
   createElement(tag) {{
     assert.equal(tag, 'textarea');
@@ -8431,13 +8480,18 @@ vm.runInContext(controllerSource + '\nthis.copyText = copyText;', context);
 
 function resetCase() {{
   status.textContent = '';
+  docsStatus.textContent = '';
   label.textContent = 'Copy';
+  docsLabel.textContent = 'Copy';
   button.textContent = 'Copy';
+  docsButton.textContent = 'Copy';
   genericLabel.textContent = 'Copy code';
   genericButton.textContent = 'Copy code';
   genericButton.attributes = {{}};
   delete button.__epsxCopyStatusTimer;
   delete button.__epsxCopyGeneration;
+  delete docsButton.__epsxCopyStatusTimer;
+  delete docsButton.__epsxCopyGeneration;
   statusAvailable = true;
   clipboardWrites = [];
   clipboardWrite = () => Promise.resolve();
@@ -8549,8 +8603,9 @@ async function flushPromises() {{
   execResult = false;
   context.copyText('support@example.com', button);
   assert.ok(timers.get(staleTimer).cancelled);
+  assert.equal(status.textContent, '');
   invokeTimer(staleTimer);
-  assert.equal(status.textContent, 'Email address copied to clipboard.');
+  assert.equal(status.textContent, '');
   rejectSecondCopy(new Error('second copy failed'));
   await flushPromises();
   assert.equal(status.textContent, 'Could not copy email address.');
@@ -8632,6 +8687,80 @@ async function flushPromises() {{
   assert.equal(status.textContent, '');
   assert.equal(label.textContent, 'Copy');
   assert.deepEqual(activeTimerIds(), []);
+
+  resetCase();
+  context.copyText('const example = true;', docsButton);
+  await flushPromises();
+  assert.equal(docsStatus.textContent, 'Copied code example for GET /api/example to clipboard.');
+  assert.equal(docsLabel.textContent, '✓ Copied');
+  assert.equal(docsButton.attributes['aria-label'], 'Copy selected code example for GET /api/example');
+  assert.deepEqual(activeTimerIds(), [1]);
+  invokeTimer(1);
+  assert.equal(docsStatus.textContent, '');
+  assert.equal(docsLabel.textContent, 'Copy');
+
+  resetCase();
+  clipboardWrite = () => Promise.reject(new Error('permission denied'));
+  execResult = false;
+  context.copyText('const example = true;', docsButton);
+  await flushPromises();
+  assert.equal(execCalls, 1);
+  assert.equal(attachedTextareas.length, 0);
+  assert.equal(docsStatus.textContent, 'Could not copy code example for GET /api/example.');
+  assert.equal(docsLabel.textContent, 'Copy failed');
+  invokeTimer(activeTimerIds()[0]);
+  assert.equal(docsStatus.textContent, '');
+  assert.equal(docsLabel.textContent, 'Copy');
+
+  resetCase();
+  const pendingDocsWrites = [];
+  clipboardWrite = () => new Promise((resolve, reject) => {{
+    pendingDocsWrites.push({{ resolve, reject }});
+  }});
+  context.copyText('first docs payload', docsButton);
+  context.copyText('second docs payload', docsButton);
+  assert.equal(pendingDocsWrites.length, 2);
+  pendingDocsWrites[1].resolve();
+  await flushPromises();
+  assert.equal(docsStatus.textContent, 'Copied code example for GET /api/example to clipboard.');
+  assert.equal(docsLabel.textContent, '✓ Copied');
+  const staleDocsTimer = activeTimerIds()[0];
+  pendingDocsWrites[0].reject(new Error('stale docs rejection'));
+  await flushPromises();
+  assert.equal(execCalls, 0);
+  assert.equal(docsStatus.textContent, 'Copied code example for GET /api/example to clipboard.');
+  assert.equal(docsLabel.textContent, '✓ Copied');
+
+  let rejectLatestDocsCopy;
+  clipboardWrite = () => new Promise((_resolve, reject) => {{
+    rejectLatestDocsCopy = reject;
+  }});
+  execResult = false;
+  context.copyText('latest docs payload', docsButton);
+  assert.ok(timers.get(staleDocsTimer).cancelled);
+  assert.equal(docsStatus.textContent, '');
+  assert.equal(docsLabel.textContent, 'Copy');
+  invokeTimer(staleDocsTimer);
+  assert.equal(docsStatus.textContent, '');
+  assert.equal(docsLabel.textContent, 'Copy');
+  rejectLatestDocsCopy(new Error('latest docs rejection'));
+  await flushPromises();
+  assert.equal(execCalls, 1);
+  assert.equal(docsStatus.textContent, 'Could not copy code example for GET /api/example.');
+  assert.equal(docsLabel.textContent, 'Copy failed');
+  invokeTimer(activeTimerIds()[0]);
+  assert.equal(docsStatus.textContent, '');
+  assert.equal(docsLabel.textContent, 'Copy');
+
+  resetCase();
+  statusAvailable = false;
+  context.copyText('docs payload without status node', docsButton);
+  await flushPromises();
+  assert.equal(docsStatus.textContent, '');
+  assert.equal(docsLabel.textContent, '✓ Copied');
+  assert.deepEqual(activeTimerIds(), [1]);
+  invokeTimer(1);
+  assert.equal(docsLabel.textContent, 'Copy');
 
   resetCase();
   context.copyText('generic', genericButton);
