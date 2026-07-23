@@ -817,9 +817,11 @@ const NOTIFICATION_LIST_OFFSET_MAX: u32 = 1_000_000;
 // The list endpoint returns at most 100 rows. A 2 MiB cap leaves roughly
 // 20 KiB per row for the body and JSON data while preventing a chunked
 // upstream response from forcing unbounded BFF allocation. The unread
-// response is the single-field `{ "count": i64 }` DTO.
+// response is the single-field `{ "count": u64 }` DTO constrained to the
+// largest integer JavaScript can represent exactly.
 const NOTIFICATION_LIST_BODY_MAX: usize = 2 * 1024 * 1024;
 const NOTIFICATION_UNREAD_BODY_MAX: usize = 4 * 1024;
+const NOTIFICATION_UNREAD_JS_SAFE_MAX: u64 = 9_007_199_254_740_991;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct NotificationListQuery {
@@ -1093,10 +1095,117 @@ pub(crate) async fn load_owner_notifications(
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 struct NotificationUnreadCount {
-    count: i64,
+    count: u64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum NotificationUnreadLoadOutcome {
+    Ready(u64),
+    DependencyUnavailable,
+    UpstreamFailed,
+    Malformed,
+}
+
+fn valid_notification_json_content_type(headers: &axum::http::HeaderMap) -> bool {
+    let mut values = headers.get_all(header::CONTENT_TYPE).iter();
+    let Some(value) = values.next() else {
+        return false;
+    };
+    if values.next().is_some() {
+        return false;
+    }
+    let Ok(value) = value.to_str() else {
+        return false;
+    };
+    let mut parts = value.split(';');
+    if !parts
+        .next()
+        .is_some_and(|media_type| media_type.trim().eq_ignore_ascii_case("application/json"))
+    {
+        return false;
+    }
+
+    let Some(parameter) = parts.next() else {
+        return true;
+    };
+    if parts.next().is_some() {
+        return false;
+    }
+    let Some((name, raw_value)) = parameter.trim().split_once('=') else {
+        return false;
+    };
+    if !name.trim().eq_ignore_ascii_case("charset") {
+        return false;
+    }
+    let raw_value = raw_value.trim();
+    let charset = match raw_value.strip_prefix('"') {
+        Some(value) => match value.strip_suffix('"') {
+            Some(value) => value,
+            None => return false,
+        },
+        None if raw_value.ends_with('"') => return false,
+        None => raw_value,
+    };
+    !charset.is_empty()
+        && !charset
+            .chars()
+            .any(|character| matches!(character, '"' | '\\'))
+        && charset.eq_ignore_ascii_case("utf-8")
+}
+
+fn unread_status_is_dependency_unavailable(status: StatusCode) -> bool {
+    matches!(status.as_u16(), 408 | 425 | 429) || status.is_server_error()
+}
+
+pub(crate) async fn load_notification_unread_count(
+    client: &ServiceClient,
+    bearer: &str,
+    request_id: &NotificationRequestId,
+) -> NotificationUnreadLoadOutcome {
+    let url = format!(
+        "{}/api/v1/notification/unread-count",
+        client.base_url().trim_end_matches('/')
+    );
+    let response = match client
+        .auth_client()
+        .get(url)
+        .bearer_auth(bearer)
+        .header("x-request-id", request_id.0.as_str())
+        .header(header::ACCEPT, HeaderValue::from_static("application/json"))
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(_) => return NotificationUnreadLoadOutcome::DependencyUnavailable,
+    };
+    if response.status() != StatusCode::OK {
+        return if unread_status_is_dependency_unavailable(response.status()) {
+            NotificationUnreadLoadOutcome::DependencyUnavailable
+        } else {
+            NotificationUnreadLoadOutcome::UpstreamFailed
+        };
+    }
+    if !valid_notification_json_content_type(response.headers()) {
+        return NotificationUnreadLoadOutcome::Malformed;
+    }
+    let body = match read_notification_body_limited(response, NOTIFICATION_UNREAD_BODY_MAX).await {
+        Ok(body) => body,
+        Err(NotificationBodyReadError::TooLarge) => {
+            return NotificationUnreadLoadOutcome::Malformed
+        }
+        Err(NotificationBodyReadError::Transport) => {
+            return NotificationUnreadLoadOutcome::DependencyUnavailable
+        }
+    };
+    match serde_json::from_slice::<NotificationUnreadCount>(&body) {
+        Ok(payload) if payload.count <= NOTIFICATION_UNREAD_JS_SAFE_MAX => {
+            NotificationUnreadLoadOutcome::Ready(payload.count)
+        }
+        Ok(_) | Err(_) => NotificationUnreadLoadOutcome::Malformed,
+    }
 }
 
 fn notification_upstream_error(status: StatusCode) -> Response {
@@ -1114,6 +1223,10 @@ fn private_notification_response(mut response: Response) -> Response {
     response.headers_mut().insert(
         header::CACHE_CONTROL,
         HeaderValue::from_static("private, no-store"),
+    );
+    response.headers_mut().insert(
+        header::VARY,
+        HeaderValue::from_static("Cookie, Authorization"),
     );
     response
 }
@@ -1203,6 +1316,24 @@ pub async fn notification_unread_count(
     private_notification_response(notification_unread_count_inner(state, headers).await)
 }
 
+fn notification_unread_load_response(outcome: NotificationUnreadLoadOutcome) -> Response {
+    match outcome {
+        NotificationUnreadLoadOutcome::Ready(count) => {
+            Json(NotificationUnreadCount { count }).into_response()
+        }
+        NotificationUnreadLoadOutcome::DependencyUnavailable => safe_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "notification_upstream_unavailable",
+        ),
+        NotificationUnreadLoadOutcome::UpstreamFailed => {
+            safe_error(StatusCode::BAD_GATEWAY, "notification_upstream_failed")
+        }
+        NotificationUnreadLoadOutcome::Malformed => {
+            safe_error(StatusCode::BAD_GATEWAY, "malformed_notification_response")
+        }
+    }
+}
+
 async fn notification_unread_count_inner(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
@@ -1211,40 +1342,10 @@ async fn notification_unread_count_inner(
         Ok(token) => token,
         Err(response) => return response,
     };
-    let url = format!(
-        "{}/api/v1/notification/unread-count",
-        state.api_url.trim_end_matches('/')
-    );
-    match state
-        .notification
-        .clone_for_bearer()
-        .get(&url)
-        .bearer_auth(&token)
-        .send()
-        .await
-    {
-        Ok(response) if response.status().is_success() => {
-            let body = match read_notification_body_limited(response, NOTIFICATION_UNREAD_BODY_MAX)
-                .await
-            {
-                Ok(body) => body,
-                Err(NotificationBodyReadError::TooLarge) => {
-                    return safe_error(StatusCode::BAD_GATEWAY, "malformed_notification_response")
-                }
-                Err(NotificationBodyReadError::Transport) => {
-                    return safe_error(StatusCode::BAD_GATEWAY, "notification_upstream_unavailable")
-                }
-            };
-            match serde_json::from_slice::<NotificationUnreadCount>(&body) {
-                Ok(payload) if payload.count >= 0 => Json(payload).into_response(),
-                Ok(_) | Err(_) => {
-                    safe_error(StatusCode::BAD_GATEWAY, "malformed_notification_response")
-                }
-            }
-        }
-        Ok(response) => notification_upstream_error(response.status()),
-        Err(_) => safe_error(StatusCode::BAD_GATEWAY, "notification_upstream_unavailable"),
-    }
+    let request_id = notification_request_id(&headers);
+    notification_unread_load_response(
+        load_notification_unread_count(state.notification.as_ref(), &token, &request_id).await,
+    )
 }
 
 pub async fn notification_read(
@@ -2571,6 +2672,8 @@ mod notification_contract_tests {
         for malformed in [
             serde_json::json!({}),
             serde_json::json!({"count": 0, "items": []}),
+            serde_json::json!({"count": -1}),
+            serde_json::json!({"count": 1.5}),
             serde_json::json!({"count": "0"}),
             serde_json::Value::Null,
         ] {
@@ -2646,6 +2749,10 @@ mod auth_session_tests {
         assert_eq!(
             response.headers().get(header::CACHE_CONTROL),
             Some(&HeaderValue::from_static("private, no-store"))
+        );
+        assert_eq!(
+            response.headers().get(header::VARY),
+            Some(&HeaderValue::from_static("Cookie, Authorization"))
         );
     }
 
@@ -2871,6 +2978,269 @@ mod auth_session_tests {
         })
     }
 
+    fn test_notification_request_id() -> NotificationRequestId {
+        NotificationRequestId("11111111-1111-4111-8111-111111111111".to_string())
+    }
+
+    async fn load_unread_response(
+        status: StatusCode,
+        content_type: Option<&str>,
+        body: impl Into<Vec<u8>>,
+    ) -> NotificationUnreadLoadOutcome {
+        let content_type = content_type.map(str::to_string);
+        let body = body.into();
+        let router = Router::new().route(
+            "/api/v1/notification/unread-count",
+            get(move || {
+                let content_type = content_type.clone();
+                let body = body.clone();
+                async move {
+                    let mut response = Response::builder().status(status);
+                    if let Some(content_type) = content_type {
+                        response = response.header(header::CONTENT_TYPE, content_type);
+                    }
+                    response.body(Body::from(body)).unwrap()
+                }
+            }),
+        );
+        let base_url = spawn_mock(router).await;
+        load_notification_unread_count(
+            &notification_client(&base_url, Duration::from_secs(1)),
+            "verified-bearer",
+            &test_notification_request_id(),
+        )
+        .await
+    }
+
+    #[tokio::test]
+    async fn notification_unread_loader_accepts_only_exact_200_and_json_content_type() {
+        for content_type in [
+            "application/json",
+            "Application/JSON",
+            "application/json; charset=utf-8",
+            "APPLICATION/JSON; CHARSET=UTF-8",
+            "application/json; charset=\"utf-8\"",
+        ] {
+            assert_eq!(
+                load_unread_response(
+                    StatusCode::OK,
+                    Some(content_type),
+                    br#"{"count":7}"#.to_vec(),
+                )
+                .await,
+                NotificationUnreadLoadOutcome::Ready(7),
+                "valid content type rejected: {content_type}",
+            );
+        }
+
+        for content_type in [
+            None,
+            Some("text/json"),
+            Some("application/problem+json"),
+            Some("application/json; charset=iso-8859-1"),
+            Some("application/json; foo=bar"),
+            Some("application/json; charset=utf-8; charset=utf-8"),
+            Some("application/json;"),
+            Some("application/json; charset"),
+            Some("application/json; charset=\"utf-8"),
+        ] {
+            assert_eq!(
+                load_unread_response(StatusCode::OK, content_type, br#"{"count":7}"#.to_vec(),)
+                    .await,
+                NotificationUnreadLoadOutcome::Malformed,
+                "invalid content type accepted: {content_type:?}",
+            );
+        }
+
+        let mut duplicate_content_type = HeaderMap::new();
+        duplicate_content_type.append(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("application/json"),
+        );
+        duplicate_content_type.append(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("application/json"),
+        );
+        assert!(!valid_notification_json_content_type(
+            &duplicate_content_type
+        ));
+
+        for status in [
+            StatusCode::REQUEST_TIMEOUT,
+            StatusCode::TOO_EARLY,
+            StatusCode::TOO_MANY_REQUESTS,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            StatusCode::SERVICE_UNAVAILABLE,
+        ] {
+            assert_eq!(
+                load_unread_response(status, Some("application/json"), br#"{"count":7}"#.to_vec(),)
+                    .await,
+                NotificationUnreadLoadOutcome::DependencyUnavailable,
+                "dependency status misclassified: {status}",
+            );
+        }
+
+        for status in [
+            StatusCode::CREATED,
+            StatusCode::ACCEPTED,
+            StatusCode::NO_CONTENT,
+            StatusCode::PARTIAL_CONTENT,
+            StatusCode::BAD_REQUEST,
+            StatusCode::UNAUTHORIZED,
+            StatusCode::FORBIDDEN,
+            StatusCode::NOT_FOUND,
+            StatusCode::CONFLICT,
+        ] {
+            assert_eq!(
+                load_unread_response(status, Some("application/json"), br#"{"count":7}"#.to_vec(),)
+                    .await,
+                NotificationUnreadLoadOutcome::UpstreamFailed,
+                "upstream status misclassified: {status}",
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn notification_unread_loader_enforces_exact_js_safe_counts() {
+        for (body, expected) in [
+            (
+                br#"{"count":0}"#.as_slice(),
+                NotificationUnreadLoadOutcome::Ready(0),
+            ),
+            (
+                br#"{"count":9007199254740991}"#.as_slice(),
+                NotificationUnreadLoadOutcome::Ready(NOTIFICATION_UNREAD_JS_SAFE_MAX),
+            ),
+        ] {
+            assert_eq!(
+                load_unread_response(StatusCode::OK, Some("application/json"), body.to_vec()).await,
+                expected,
+            );
+        }
+
+        for body in [
+            br#"{}"#.as_slice(),
+            br#"null"#.as_slice(),
+            br#"[]"#.as_slice(),
+            br#"{"count":-1}"#.as_slice(),
+            br#"{"count":1.5}"#.as_slice(),
+            br#"{"count":"1"}"#.as_slice(),
+            br#"{"count":0,"extra":true}"#.as_slice(),
+            br#"{"count":1,"count":2}"#.as_slice(),
+            br#"{"count":9007199254740992}"#.as_slice(),
+            br#"{"count":18446744073709551616}"#.as_slice(),
+            br#"{"count":1}{"count":2}"#.as_slice(),
+        ] {
+            assert_eq!(
+                load_unread_response(StatusCode::OK, Some("application/json"), body.to_vec()).await,
+                NotificationUnreadLoadOutcome::Malformed,
+                "malformed unread payload accepted: {}",
+                String::from_utf8_lossy(body),
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn notification_unread_loader_fails_closed_on_connect_stall_overflow_and_redirect() {
+        assert_eq!(
+            load_notification_unread_count(
+                &notification_client(&unused_base_url().await, Duration::from_millis(50)),
+                "verified-bearer",
+                &test_notification_request_id(),
+            )
+            .await,
+            NotificationUnreadLoadOutcome::DependencyUnavailable,
+        );
+
+        let stalled_base_url =
+            spawn_stalled_chunked_body(br#"{"count":"#.to_vec(), Duration::from_millis(200)).await;
+        assert_eq!(
+            load_notification_unread_count(
+                &notification_client(&stalled_base_url, Duration::from_millis(50)),
+                "verified-bearer",
+                &test_notification_request_id(),
+            )
+            .await,
+            NotificationUnreadLoadOutcome::DependencyUnavailable,
+        );
+
+        let oversized_base_url =
+            spawn_chunked_body(vec![vec![b'x'; NOTIFICATION_UNREAD_BODY_MAX], vec![b'x']]).await;
+        assert_eq!(
+            load_notification_unread_count(
+                &notification_client(&oversized_base_url, Duration::from_secs(1)),
+                "verified-bearer",
+                &test_notification_request_id(),
+            )
+            .await,
+            NotificationUnreadLoadOutcome::Malformed,
+        );
+
+        let followed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let followed_target = followed.clone();
+        let redirect_router = Router::new()
+            .route(
+                "/api/v1/notification/unread-count",
+                get(|| async { axum::response::Redirect::temporary("/redirect-target") }),
+            )
+            .route(
+                "/redirect-target",
+                get(move || {
+                    let followed_target = followed_target.clone();
+                    async move {
+                        followed_target.store(true, std::sync::atomic::Ordering::SeqCst);
+                        Json(json!({"count": 7}))
+                    }
+                }),
+            );
+        let redirect_base_url = spawn_mock(redirect_router).await;
+        assert_eq!(
+            load_notification_unread_count(
+                &notification_client(&redirect_base_url, Duration::from_secs(1)),
+                "verified-bearer",
+                &test_notification_request_id(),
+            )
+            .await,
+            NotificationUnreadLoadOutcome::UpstreamFailed,
+        );
+        assert!(!followed.load(std::sync::atomic::Ordering::SeqCst));
+    }
+
+    #[tokio::test]
+    async fn notification_unread_response_mapping_is_private_exact_and_redacted() {
+        for (outcome, expected_status, expected_body) in [
+            (
+                NotificationUnreadLoadOutcome::Ready(7),
+                StatusCode::OK,
+                json!({"count": 7}),
+            ),
+            (
+                NotificationUnreadLoadOutcome::DependencyUnavailable,
+                StatusCode::SERVICE_UNAVAILABLE,
+                json!({"success": false, "error": "notification_upstream_unavailable"}),
+            ),
+            (
+                NotificationUnreadLoadOutcome::UpstreamFailed,
+                StatusCode::BAD_GATEWAY,
+                json!({"success": false, "error": "notification_upstream_failed"}),
+            ),
+            (
+                NotificationUnreadLoadOutcome::Malformed,
+                StatusCode::BAD_GATEWAY,
+                json!({"success": false, "error": "malformed_notification_response"}),
+            ),
+        ] {
+            let response =
+                private_notification_response(notification_unread_load_response(outcome));
+            assert_eq!(response.status(), expected_status);
+            assert_private_notification_response(&response);
+            let body = response_json(response).await;
+            assert_eq!(body, expected_body);
+            assert!(!body.to_string().contains("http"));
+            assert!(!body.to_string().contains("verified-bearer"));
+        }
+    }
+
     async fn load_notification_payload(payload: Value) -> NotificationListLoadOutcome {
         let router = Router::new().route(
             "/api/v1/notification/list",
@@ -3062,11 +3432,13 @@ mod auth_session_tests {
         let key = TestKey::generate();
         let access_token = key.access_token(&[]);
         let expected_token = access_token.clone();
+        let unread_expected_token = access_token.clone();
         let jwks = Jwks {
             keys: vec![key.jwk.clone()],
         };
         let observations = Arc::new(std::sync::Mutex::new(Vec::<Value>::new()));
         let list_observations = observations.clone();
+        let unread_observations = observations.clone();
         let router = Router::new()
             .route(
                 JWKS_PATH,
@@ -3082,9 +3454,13 @@ mod auth_session_tests {
                     let expected_token = expected_token.clone();
                     async move {
                         observations.lock().unwrap().push(json!({
+                            "endpoint": "list",
                             "query": query,
                             "authorization": headers
                                 .get(header::AUTHORIZATION)
+                                .and_then(|value| value.to_str().ok()),
+                            "accept": headers
+                                .get(header::ACCEPT)
                                 .and_then(|value| value.to_str().ok()),
                             "x_user_id": headers.get("x-user-id").and_then(|value| value.to_str().ok()),
                             "x_user_address": headers
@@ -3113,9 +3489,47 @@ mod auth_session_tests {
             )
             .route(
                 "/api/v1/notification/unread-count",
-                get(|| async { Json(json!({"count": 7})) }),
+                get(move |headers: HeaderMap| {
+                    let observations = unread_observations.clone();
+                    let expected_token = unread_expected_token.clone();
+                    async move {
+                        observations.lock().unwrap().push(json!({
+                            "endpoint": "unread",
+                            "authorization": headers
+                                .get(header::AUTHORIZATION)
+                                .and_then(|value| value.to_str().ok()),
+                            "accept": headers
+                                .get(header::ACCEPT)
+                                .and_then(|value| value.to_str().ok()),
+                            "x_user_id": headers
+                                .get("x-user-id")
+                                .and_then(|value| value.to_str().ok()),
+                            "x_user_address": headers
+                                .get("x-user-address")
+                                .and_then(|value| value.to_str().ok()),
+                            "x_permissions": headers
+                                .get("x-permissions")
+                                .and_then(|value| value.to_str().ok()),
+                            "cookie": headers
+                                .get(header::COOKIE)
+                                .and_then(|value| value.to_str().ok()),
+                            "request_id": headers
+                                .get("x-request-id")
+                                .and_then(|value| value.to_str().ok()),
+                        }));
+                        if headers
+                            .get(header::AUTHORIZATION)
+                            .and_then(|value| value.to_str().ok())
+                            != Some(format!("Bearer {expected_token}").as_str())
+                        {
+                            return StatusCode::UNAUTHORIZED.into_response();
+                        }
+                        Json(json!({"count": 7})).into_response()
+                    }
+                }),
             );
         let base_url = spawn_mock(router).await;
+        let app_state = state(&base_url);
         let mut headers = request_headers(&format!("epsx.frontend.access_token={access_token}"));
         headers.insert(
             "x-request-id",
@@ -3132,7 +3546,7 @@ mod auth_session_tests {
         );
 
         let list = notifications_api(
-            State(state(&base_url)),
+            State(app_state.clone()),
             headers.clone(),
             RawQuery(Some("status=sent&offset=2&limit=25".to_string())),
         )
@@ -3141,13 +3555,24 @@ mod auth_session_tests {
         assert_private_notification_response(&list);
         assert_eq!(response_json(list).await["total"], 1);
 
-        let unread = notification_unread_count(State(state(&base_url)), headers).await;
+        let unread = notification_unread_count(State(app_state.clone()), headers.clone()).await;
         assert_eq!(unread.status(), StatusCode::OK);
         assert_private_notification_response(&unread);
         assert_eq!(response_json(unread).await, json!({"count": 7}));
 
+        headers.insert("x-request-id", HeaderValue::from_static("not-a-request-id"));
+        let unread_with_generated_request_id =
+            notification_unread_count(State(app_state), headers).await;
+        assert_eq!(unread_with_generated_request_id.status(), StatusCode::OK);
+        assert_private_notification_response(&unread_with_generated_request_id);
+        assert_eq!(
+            response_json(unread_with_generated_request_id).await,
+            json!({"count": 7})
+        );
+
         let observations = observations.lock().unwrap();
-        assert_eq!(observations.len(), 1);
+        assert_eq!(observations.len(), 3);
+        assert_eq!(observations[0]["endpoint"], "list");
         assert_eq!(observations[0]["query"], "limit=25&offset=2&status=sent");
         assert_eq!(
             observations[0]["authorization"],
@@ -3165,6 +3590,26 @@ mod auth_session_tests {
             .as_str()
             .unwrap()
             .contains("user_id"));
+
+        for unread_observation in &observations[1..] {
+            assert_eq!(unread_observation["endpoint"], "unread");
+            assert_eq!(
+                unread_observation["authorization"],
+                format!("Bearer {access_token}")
+            );
+            assert_eq!(unread_observation["accept"], "application/json");
+            assert!(unread_observation["x_user_id"].is_null());
+            assert!(unread_observation["x_user_address"].is_null());
+            assert!(unread_observation["x_permissions"].is_null());
+            assert!(unread_observation["cookie"].is_null());
+        }
+        assert_eq!(
+            observations[1]["request_id"],
+            "22222222-2222-4222-8222-222222222222"
+        );
+        let generated_request_id = observations[2]["request_id"].as_str().unwrap();
+        assert_ne!(generated_request_id, "not-a-request-id");
+        assert!(uuid::Uuid::parse_str(generated_request_id).is_ok());
     }
 
     #[tokio::test]
