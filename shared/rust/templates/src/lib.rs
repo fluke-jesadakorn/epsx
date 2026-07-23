@@ -6979,7 +6979,7 @@ pub fn epsx_header_for_session(is_authenticated: bool) -> String {
           Sign out
         </button>
       </div>"##,
-            r##"<div class="flex md:hidden items-center gap-1.5">
+            r##"<div class="hidden sm:flex md:hidden items-center gap-1.5">
         <button class="epsx-connect-btn" type="button" data-epsx-logout style="height:2rem;padding:0 0.75rem;font-size:0.75rem;border-radius:1rem;">
           <i data-lucide="log-out" style="width:0.75rem;height:0.75rem;"></i>
           Sign out
@@ -6994,7 +6994,7 @@ pub fn epsx_header_for_session(is_authenticated: bool) -> String {
           Connect
         </a>
       </div>"##,
-            r##"<div class="flex md:hidden items-center gap-1.5">
+            r##"<div class="hidden sm:flex md:hidden items-center gap-1.5">
         <a href="/auth" class="epsx-connect-btn" style="height:2rem;padding:0 0.75rem;font-size:0.75rem;border-radius:1rem;text-decoration:none;">
           <i data-lucide="wallet" style="width:0.75rem;height:0.75rem;"></i>
           Connect
@@ -9427,6 +9427,12 @@ assert.equal(document.body.style.overflow, 'clip');
         let public = epsx_header_for_session(false);
         assert_eq!(public.matches("href=\"/auth\"").count(), 2);
         assert!(public.contains("data-epsx-authenticated=\"false\""));
+        assert_eq!(
+            public
+                .matches("class=\"hidden sm:flex md:hidden items-center gap-1.5\"")
+                .count(),
+            1
+        );
         assert!(!public.contains("data-epsx-logout"));
         assert!(!public.contains("href=\"/notifications\""));
         assert!(!public.contains("data-epsx-notification-badge-target"));
@@ -9449,7 +9455,14 @@ assert.equal(document.body.style.overflow, 'clip');
                 .count(),
             1
         );
-        assert!(authenticated.contains("class=\"flex md:hidden items-center gap-1.5\""));
+        assert_eq!(
+            authenticated
+                .matches("class=\"hidden sm:flex md:hidden items-center gap-1.5\"")
+                .count(),
+            1
+        );
+        assert!(!public.contains("class=\"flex md:hidden items-center gap-1.5\""));
+        assert!(!authenticated.contains("class=\"flex md:hidden items-center gap-1.5\""));
         assert!(authenticated.contains("href=\"/account\""));
         assert!(!authenticated.contains("href=\"/auth\""));
         assert!(!authenticated.contains("permission"));
@@ -9459,5 +9472,17 @@ assert.equal(document.body.style.overflow, 'clip');
         assert!(script.contains("document.querySelector('[data-epsx-authenticated=\"true\"]')"));
         assert!(script.contains("const sessionAction = isAuthenticated"));
         assert!(script.contains("data-epsx-logout"));
+
+        let compiled_css = include_str!("../../../../apps/frontend/public/dist/tailwind.css");
+        for selector in [
+            ".hidden{display:none}",
+            ".sm\\:flex{display:flex}",
+            ".md\\:hidden{display:none}",
+        ] {
+            assert!(
+                compiled_css.contains(selector),
+                "compiled frontend stylesheet missing {selector}"
+            );
+        }
     }
 }
