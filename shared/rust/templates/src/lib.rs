@@ -6771,7 +6771,7 @@ pub fn footer() -> &'static str {
           <span class="logo-text">EPSX</span>
         </a>
         <p style="margin-top:0.75rem;font-size:0.875rem;max-width:18rem;">
-          Web3 analytics, on-chain subscriptions, and a visual builder for modern DeFi platforms.
+          Public information and reference content for EPSX.
         </p>
       </div>
       <div>
@@ -6802,7 +6802,7 @@ pub fn footer() -> &'static str {
       </div>
     </div>
     <div style="border-top:1px solid var(--border);padding-top:1.5rem;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;align-items:center;font-size:0.8125rem;">
-      <span>&copy; 2025 EPSX. All rights reserved.</span>
+      <span>&copy; EPSX. All rights reserved.</span>
       <span>Built on BSC</span>
     </div>
   </div>
@@ -8183,6 +8183,40 @@ async function flushPromises() {{
         assert!(
             portfolio_position < plans_position && plans_position < news_position,
             "canonical Plans link must retain the Portfolio -> Plans -> News order"
+        );
+    }
+
+    #[test]
+    fn active_footer_uses_neutral_verified_static_claims() {
+        let rendered = footer();
+        let neutral_brand = "Public information and reference content for EPSX.";
+        let yearless_notice = "&copy; EPSX. All rights reserved.";
+        let bsc_label = "Built on BSC";
+
+        assert_eq!(
+            rendered.matches(neutral_brand).count(),
+            1,
+            "footer must expose the neutral EPSX information and reference description once"
+        );
+        assert_eq!(
+            rendered.matches(yearless_notice).count(),
+            1,
+            "footer must expose one durable yearless copyright notice"
+        );
+        assert_eq!(
+            rendered.matches(bsc_label).count(),
+            1,
+            "footer must retain the statically configured BSC label once"
+        );
+        assert!(
+            !rendered.contains(
+                "Web3 analytics, on-chain subscriptions, and a visual builder for modern DeFi platforms."
+            ),
+            "footer must not claim unavailable analytics, subscriptions, or builder capabilities"
+        );
+        assert!(
+            !rendered.contains("&copy; 20"),
+            "footer must not hard-code a current-looking copyright year"
         );
     }
 
