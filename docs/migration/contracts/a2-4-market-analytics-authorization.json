@@ -202,12 +202,12 @@
     {
       "id": "impl-market-router",
       "file": "apps/analytics/src/main.rs",
-      "sha256": "f58a2a04d67732e7d322bc552d63919470d6004fe518366cfb338c8a0520620f"
+      "sha256": "5abec572f6d7cef0128aff75299a051098b2261c401df15c6e90b5b9b7aace57"
     },
     {
       "id": "impl-market-wallet-bridge",
       "file": "apps/backend/src/web/analytics/eps/cache.rs",
-      "sha256": "3acb066cc3af7a8415a996ab640ddeb830f1e4a1254f4aa3685cf2a90d1cfe29"
+      "sha256": "917ec1d5df3547b99287403c5cbda9137e7e80138f77fc57fd054056c6447e20"
     }
   ],
   "residualStops": [
@@ -229,11 +229,11 @@
     },
     {
       "id": "provider-boundary-unproved",
-      "claim": "TradingView provenance, licensing, quotas, timeout, retry, normalization, freshness, cache and sanitized failure semantics are unproven."
+      "claim": "TradingView provenance, licensing, quotas, timeout, retry, normalization, freshness, cache and sanitized failure semantics are unproven by A2.4."
     },
     {
       "id": "provider-amplification-unbounded",
-      "claim": "Public rankings can request up to 1000 rows and construct fresh provider clients without a proven rate, concurrency or circuit-breaker boundary."
+      "claim": "A2.4 does not prove a public request-size, rate, concurrency or circuit-breaker boundary; later provider slices must carry that evidence independently."
     },
     {
       "id": "internal-identity-untrusted",
@@ -261,7 +261,7 @@
     }
   ],
   "requiredExecutionOrder": [
-    "E01 Extract a provider port and bound public request size, concurrency, retry and timeout behavior with deterministic fixtures.",
+    "E01 Extract and independently verify a provider port with bounded public request size, concurrency, retry and timeout behavior.",
     "E02 Make identity ranking offsets authoritative from active backend plan assignments and fail authenticated authority errors truthfully before provider work.",
     "E03 Define authenticated internal-service identity for ranking queries; keep public emit and global SSE unavailable until a durable owner-safe protocol exists.",
     "E04 Lock public/auth query, envelope, status, cap, API-key and freshness compatibility against the pinned source contract.",

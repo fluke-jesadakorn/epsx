@@ -1,0 +1,320 @@
+{
+  "schemaVersion": 1,
+  "artifact": "a2-5-market-provider-boundary",
+  "contractId": "A2.5-market-rankings-provider-boundary",
+  "purpose": "deterministic-hermetic-resource-boundary-and-readiness-stop",
+  "productionReady": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "safety": {
+    "database": false,
+    "redis": false,
+    "identityNetwork": false,
+    "marketProvider": false,
+    "rpc": false,
+    "browser": false,
+    "serviceListener": false,
+    "deployment": false,
+    "production": false
+  },
+  "sourceBaseline": {
+    "ref": "origin/development",
+    "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "interpretation": "Compatibility evidence is preserved where safe; client-only bounds, silent filter behavior, fallback authentication and unbounded provider work are findings rather than production targets.",
+    "evidence": [
+      {
+        "id": "src-public-ranking-cap",
+        "file": "shared/api/analytics.ts",
+        "blob": "95e6457879199083da6f9cf27034ce0ebc6b1815",
+        "anchor": "limit: Math.min(filters.limit ?? 10, 10), // Public API limit: max 10"
+      },
+      {
+        "id": "src-auth-ranking-client",
+        "file": "shared/api/analytics.ts",
+        "blob": "95e6457879199083da6f9cf27034ce0ebc6b1815",
+        "anchor": "async getAuthenticatedRankings(filters: AnalyticsFilters = {}): Promise<CardDashboardResponse> {"
+      },
+      {
+        "id": "src-per-request-provider",
+        "file": "apps/backend/src/web/analytics/eps/cache.rs",
+        "blob": "13f8c39b24a248186d6c24f3298023ba678bc210",
+        "anchor": "TradingViewApiService::new("
+      },
+      {
+        "id": "src-provider-retry",
+        "file": "apps/backend/src/infrastructure/adapters/services/tradingview/rest.rs",
+        "blob": "4ac774f151801c8c81f590a0e162c4914a134ecd",
+        "anchor": "pub async fn execute_custom_request("
+      },
+      {
+        "id": "src-provider-three-retries",
+        "file": "apps/backend/src/infrastructure/adapters/services/tradingview/api_service.rs",
+        "blob": "ef5c58e3e8127b944a3f97df9b893ba66cf1ee57",
+        "anchor": "execute_custom_request(payload, 3)"
+      },
+      {
+        "id": "src-unchecked-provider-range",
+        "file": "apps/backend/src/infrastructure/adapters/services/tradingview/scanner.rs",
+        "blob": "8b30975ea466a70f17163ce8b32aa091fc92be97",
+        "anchor": "let range_end = skip + limit;"
+      },
+      {
+        "id": "src-existing-port-area",
+        "file": "apps/backend/src/domain/market_analytics/repository_ports/market_data_scanner_port.rs",
+        "blob": "9dfb7d102cfb7a087f2bc351e34cf84507bca08e",
+        "anchor": "pub trait MarketDataScannerPort: Send + Sync"
+      }
+    ]
+  },
+  "targetBase": {
+    "ref": "migration/dioxus-microservices",
+    "commit": "e5b6552481de8fda72ffdd56b435789c7049392b",
+    "interpretation": "Immutable post-A2.4 snapshot before provider extraction, request bounds, shared concurrency ownership, single-attempt transport and deterministic provider tests.",
+    "evidence": [
+      {
+        "id": "base-ranking-handler",
+        "file": "apps/backend/src/web/analytics/eps/cache.rs",
+        "blob": "c1bfd92a3976788fc7dcb2cdaf7e20b310082577"
+      },
+      {
+        "id": "base-provider-rest",
+        "file": "apps/backend/src/infrastructure/adapters/services/tradingview/rest.rs",
+        "blob": "3bdb98f5d077749e95f9ca0a5008ba5439dadcc4"
+      },
+      {
+        "id": "base-provider-api",
+        "file": "apps/backend/src/infrastructure/adapters/services/tradingview/api_service.rs",
+        "blob": "ef5c58e3e8127b944a3f97df9b893ba66cf1ee57"
+      },
+      {
+        "id": "base-provider-scanner",
+        "file": "apps/backend/src/infrastructure/adapters/services/tradingview/scanner.rs",
+        "blob": "a79b38fd0e28f76c0f0a009c1327399b205243b9"
+      },
+      {
+        "id": "base-provider-port-area",
+        "file": "apps/backend/src/domain/market_analytics/repository_ports/market_data_scanner_port.rs",
+        "blob": "00ea0febe2928393372ae921b8d0a20405d54c15"
+      },
+      {
+        "id": "base-provider-adapter",
+        "file": "apps/backend/src/infrastructure/adapters/services/tradingview/tradingview_adapter.rs",
+        "blob": "eb78f0fc455f8194df3ee81f3d717ed5e3ea839e"
+      },
+      {
+        "id": "base-standalone-wiring",
+        "file": "apps/analytics/src/main.rs",
+        "blob": "d79023471643f90c366f5ca11e0c42b091814287"
+      },
+      {
+        "id": "base-monolith-wiring",
+        "file": "apps/backend/src/web/routes/unified_router.rs",
+        "blob": "a4e18b46623d28243345e011e7bba426a1313d9a"
+      }
+    ]
+  },
+  "invariants": [
+    {
+      "id": "canonical-port-only-handler",
+      "claim": "The canonical rankings handler calls one injected MarketRankingsProviderPort and contains no direct TradingView construction or WebSocket enhancement."
+    },
+    {
+      "id": "process-shared-provider",
+      "claim": "Standalone and monolith runtimes each construct one bounded provider Arc from their existing shared TradingView service and inject that Arc into the router."
+    },
+    {
+      "id": "anonymous-cap-ten",
+      "claim": "Anonymous rankings requests and successful provider pages are capped server-side at 10 rows, matching the pinned public client contract."
+    },
+    {
+      "id": "authenticated-cap-one-hundred",
+      "claim": "Authenticated rankings requests and successful provider pages are capped at 100 rows, matching the existing UI pagination vocabulary and provider maximum."
+    },
+    {
+      "id": "checked-pagination",
+      "claim": "Rank offset, page and limit arithmetic is checked before provider work; accessible pagination totals exclude locked ranks and unsupported ranges fail validation."
+    },
+    {
+      "id": "shared-concurrency-budget",
+      "claim": "One process-shared semaphore admits at most five concurrent provider calls and saturation fails fast with a sanitized 503."
+    },
+    {
+      "id": "bounded-transient-retry",
+      "claim": "Transient transport, 408, 429 and 5xx provider failures are retryable while permanent HTTP failures are not; no logical request performs more than three total attempts."
+    },
+    {
+      "id": "single-total-deadline",
+      "claim": "All provider attempts and backoff for a logical request are contained by one 30-second deadline; timeout cancellation releases the permit."
+    },
+    {
+      "id": "single-attempt-live-adapter",
+      "claim": "The live rankings adapter performs one raw HTTP attempt; it has no nested retry beneath the bounded decorator."
+    },
+    {
+      "id": "opaque-provider-failures",
+      "claim": "Provider response bodies, credentials and raw transport details do not reach ranking clients; 502, 503 and 504 classes remain distinguishable."
+    },
+    {
+      "id": "bounded-provider-response",
+      "claim": "The live HTTP response body is capped at two MiB, successful pages cannot exceed the requested row count, and negative provider totals fail closed."
+    },
+    {
+      "id": "card-contract-preserved",
+      "claim": "Successful fake-provider results preserve the existing card, rank and quarterly projection shape."
+    },
+    {
+      "id": "authority-dependency-honest",
+      "claim": "A2.5 does not claim authoritative paid access or strict authority-outage behavior; those remain the next identity dependency."
+    },
+    {
+      "id": "non-production-evidence",
+      "claim": "All A2.5 evidence is offline and in-process; no provider, identity, database, Redis, RPC, listener, browser or deployment action is authorized."
+    }
+  ],
+  "hermeticTests": [
+    "a2_5_invalid_pagination_never_calls_inner_provider",
+    "a2_5_transient_failures_succeed_within_three_total_attempts",
+    "a2_5_transient_failures_stop_after_three_total_attempts",
+    "a2_5_permanent_failure_is_not_retried_and_is_sanitized",
+    "a2_5_invalid_provider_page_is_rejected",
+    "a2_5_timeout_is_sanitized_and_releases_the_permit",
+    "a2_5_shared_concurrency_peaks_at_five_and_saturation_fails_fast",
+    "a2_5_provider_response_body_is_bounded",
+    "a2_5_http_status_retry_classification_is_explicit",
+    "a2_5_missing_provider_total_preserves_current_page_extent",
+    "a2_5_anonymous_limit_is_capped_at_ten",
+    "a2_5_authenticated_limit_is_capped_at_one_hundred",
+    "a2_5_checked_pagination_overflow_fails_before_provider_call",
+    "a2_5_sort_aliases_normalize_and_supported_fields_are_preserved",
+    "a2_5_unknown_sort_is_rejected_before_provider_call",
+    "a2_5_accessible_pagination_excludes_locked_ranks",
+    "a2_5_provider_error_is_sanitized",
+    "a2_5_successful_mapping_preserves_quarterly_dto"
+  ],
+  "implementationEvidence": [
+    {
+      "id": "impl-rankings-port",
+      "file": "apps/backend/src/domain/market_analytics/repository_ports/market_rankings_provider_port.rs",
+      "sha256": "8c465441d8d904a72c74dcb8a2abe030a88ca6ab1cc5b061c453f0e8332002c8"
+    },
+    {
+      "id": "impl-rankings-port-module",
+      "file": "apps/backend/src/domain/market_analytics/repository_ports/mod.rs",
+      "sha256": "6591ca8a6db2be02abfc55db0075a1869edd8b144cac311cb25aadf8d83e6782"
+    },
+    {
+      "id": "impl-rankings-domain-export",
+      "file": "apps/backend/src/domain/market_analytics/mod.rs",
+      "sha256": "9d8f0c74f4c299021647ec3cdd5d097ce1faf584f37abcda70834a44c86359ca"
+    },
+    {
+      "id": "impl-bounded-provider",
+      "file": "apps/backend/src/infrastructure/adapters/services/tradingview/bounded_rankings_provider.rs",
+      "sha256": "281df061a40db3f127c46df2184cd0b5801c397e970c8c08858b6ecfca351578"
+    },
+    {
+      "id": "impl-provider-module",
+      "file": "apps/backend/src/infrastructure/adapters/services/tradingview/mod.rs",
+      "sha256": "6d44e0865b0dc339f47af77323142954128f2565867f187f307e27ffd44888df"
+    },
+    {
+      "id": "impl-provider-types",
+      "file": "apps/backend/src/infrastructure/adapters/services/tradingview/types.rs",
+      "sha256": "85d4248f68897cd69b80a1aac07c02249a65aae72ccc7b5ee20dd5b1a883ccd2"
+    },
+    {
+      "id": "impl-provider-rest",
+      "file": "apps/backend/src/infrastructure/adapters/services/tradingview/rest.rs",
+      "sha256": "a730498205af3956382a99292c1580827847ced39825df10f7fa37220e185913"
+    },
+    {
+      "id": "impl-provider-api",
+      "file": "apps/backend/src/infrastructure/adapters/services/tradingview/api_service.rs",
+      "sha256": "70312e3451c576aa39c4ea734b2ba6f687bc001d57b177c1c492e2b9f32ab952"
+    },
+    {
+      "id": "impl-provider-adapter",
+      "file": "apps/backend/src/infrastructure/adapters/services/tradingview/tradingview_adapter.rs",
+      "sha256": "604cb1136508dcef1f4550950d1c58d3795722de2ef8ac972a2408601c8311bf"
+    },
+    {
+      "id": "impl-ranking-handler",
+      "file": "apps/backend/src/web/analytics/eps/cache.rs",
+      "sha256": "917ec1d5df3547b99287403c5cbda9137e7e80138f77fc57fd054056c6447e20"
+    },
+    {
+      "id": "impl-standalone-wiring",
+      "file": "apps/analytics/src/main.rs",
+      "sha256": "5abec572f6d7cef0128aff75299a051098b2261c401df15c6e90b5b9b7aace57"
+    },
+    {
+      "id": "impl-monolith-wiring",
+      "file": "apps/backend/src/web/routes/unified_router.rs",
+      "sha256": "7578a2479445b68a5c85adc9afdcef7b7dd085c7d1292b56d7709e387851507b"
+    }
+  ],
+  "residualStops": [
+    {
+      "id": "route-owner-cutover-unproved",
+      "claim": "The monolith still owns canonical market routes and no gateway, Cloudflare, workload or DNS cutover is authorized or proven."
+    },
+    {
+      "id": "public-auth-compatibility-incomplete",
+      "claim": "Legacy public aliases, API-key behavior, query closure, financial filters, country/sector normalization, envelopes, HEAD and wrong-method compatibility remain incomplete."
+    },
+    {
+      "id": "plan-offset-authority-always-free",
+      "claim": "The identity ranking-offset service still returns free-plan authority for every wallet, so paid rank ranges are not proven."
+    },
+    {
+      "id": "authority-outage-fallback-unproved",
+      "claim": "Authenticated authority failures still silently fall back to free and can continue into provider work."
+    },
+    {
+      "id": "provider-commercial-data-semantics-unproved",
+      "claim": "TradingView licensing, quota, schema compatibility, exchange/timezone normalization, observation time, freshness, cache age and stale semantics remain unproven."
+    },
+    {
+      "id": "distributed-resilience-unproved",
+      "claim": "The five-call budget is process-local; cross-replica quotas, adaptive throttling, circuit breaking and distributed cache behavior remain unproven."
+    },
+    {
+      "id": "legacy-provider-callers-unbounded",
+      "claim": "Admin, repository, watchlist and other legacy TradingView call paths do not yet share the A2.5 rankings boundary."
+    },
+    {
+      "id": "internal-identity-untrusted",
+      "claim": "The identity gRPC query has no authenticated service identity, owner binding, NetworkPolicy or immutable non-development image proof."
+    },
+    {
+      "id": "upstream-ranking-events-unsafe",
+      "claim": "Identity still exposes unauthenticated emit/global stream paths and dormant historical SSE source remains pending archive cleanup."
+    },
+    {
+      "id": "runtime-config-readiness-unproved",
+      "claim": "Checked-in overlays still select pre-candidate images/configuration and health does not prove identity or market-provider readiness."
+    },
+    {
+      "id": "market-ui-unproved",
+      "claim": "No typed BFF loader or responsive Dioxus loading, authoritative-empty, error, stale, filter, pagination, watchlist and entitlement journey consumes this contract."
+    },
+    {
+      "id": "live-runtime-unproved",
+      "claim": "No accepted real JWT, provider, identity, proxy, listener, browser, staging or fault-injection exercise exists."
+    },
+    {
+      "id": "production-actions-unauthorized",
+      "claim": "No image publication, secret mutation, service restart, canary, rollback or production deployment is authorized by this contract."
+    }
+  ],
+  "requiredExecutionOrder": [
+    "E01 Verify and commit the A2.5 provider port, request bounds, process-shared budget, retry/deadline owner and opaque failure contract.",
+    "E02 Make identity ranking offsets authoritative from backend plan assignments and fail authenticated authority errors before provider work.",
+    "E03 Authenticate analytics-to-identity service calls and keep global emit/stream paths unavailable until an owner-safe durable protocol exists.",
+    "E04 Lock query, filter, API-key, envelope, provenance, observation-time, freshness, cache and provider-commercial compatibility against the pinned source.",
+    "E05 Select one production market route owner and add explicit gateway or BFF routing without colliding with event analytics.",
+    "E06 Add the typed frontend BFF loader and Dioxus loading, authoritative-empty, error, stale, filter, sort, pagination, watchlist and entitlement states.",
+    "E07 Run hermetic full-story tests, then separately authorized disposable and staging exercises with observability, shadow parity and rollback evidence.",
+    "E08 Request production deployment authorization only after every residual STOP is closed."
+  ]
+}

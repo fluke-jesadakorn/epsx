@@ -54,5 +54,6 @@ pub use aggregates::{
 // Public exports from repository ports
 pub use repository_ports::{
     StockAnalysisRepositoryPort, StockAnalysisSearchCriteria, StockAnalysisStatistics,
-    EPSRankingRepositoryPort, EPSRankingSearchCriteria
+    EPSRankingRepositoryPort, EPSRankingSearchCriteria, MarketRankingsPage,
+    MarketRankingsProviderPort, MarketRankingsRequest
 };

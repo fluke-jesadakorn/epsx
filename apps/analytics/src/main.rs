@@ -24,6 +24,8 @@ use anyhow::Context;
 use async_trait::async_trait;
 use axum::routing::get;
 use axum::Router;
+use epsx::domain::market_analytics::repository_ports::MarketRankingsProviderPort;
+use epsx::infrastructure::adapters::services::tradingview::BoundedMarketRankingsProvider;
 use epsx_contracts::value_objects::ranking_offset::RankingOffset;
 use epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery;
 use epsx_contracts::errors::AppResult;
@@ -115,6 +117,7 @@ pub fn build_analytics_router(
     permission_service: Arc<dyn WalletRankingOffsetQuery>,
     cache: Arc<dyn epsx::infrastructure::cache::Cache>,
     eps_ranking_service: Arc<epsx::domain::market_analytics::services::eps_ranking_service::EPSRankingService>,
+    market_rankings_provider: Arc<dyn MarketRankingsProviderPort>,
     verifier: Arc<dyn AccessTokenVerifier>,
 ) -> Router {
     use epsx::web::analytics::eps_handlers::{
@@ -137,7 +140,8 @@ pub fn build_analytics_router(
         .route("/api/analytics/sectors", get(get_sectors_by_country))
         .layer(axum::Extension(permission_service))
         .layer(axum::Extension(cache))
-        .layer(axum::Extension(eps_ranking_service));
+        .layer(axum::Extension(eps_ranking_service))
+        .layer(axum::Extension(market_rankings_provider));
     protect_router(router, verifier)
 }
 
@@ -214,6 +218,8 @@ impl WalletRankingOffsetQuery for FreePlanWalletRankingOffsetQuery {
 pub struct AnalyticsServiceState {
     /// Live-data adapter (the only outbound HTTP / WSS dependency).
     pub tradingview_service: Arc<TradingViewApiService>,
+    /// Process-shared market provider with the A2.5 resource boundary.
+    pub market_rankings_provider: Arc<dyn MarketRankingsProviderPort>,
     /// DDD repository that wraps the TradingView service.
     pub eps_repository: Arc<TradingViewEPSRepository>,
     /// Legacy `EPSRankingService` (the actual DDD service the
@@ -238,6 +244,14 @@ impl AnalyticsServiceState {
         // ---- TradingView transport ----
         let config = Arc::new(epsx::config::get_fallback_config());
         let tradingview_service = Arc::new(TradingViewApiService::new(config));
+        let tradingview_adapter = Arc::new(TradingViewAdapter::new(
+            tradingview_service.clone(),
+        ));
+        let raw_market_rankings_provider: Arc<dyn MarketRankingsProviderPort> =
+            tradingview_adapter.clone();
+        let market_rankings_provider: Arc<dyn MarketRankingsProviderPort> = Arc::new(
+            BoundedMarketRankingsProvider::new(raw_market_rankings_provider),
+        );
         let eps_repository = Arc::new(TradingViewEPSRepository::new(
             tradingview_service.clone(),
         ));
@@ -262,7 +276,7 @@ impl AnalyticsServiceState {
         // initialized before the first request lands. The handler
         // `Extension(Arc<EPSCacheService>)` shape is preserved.
         let market_data_scanner: Arc<dyn epsx::domain::market_analytics::repository_ports::MarketDataScannerPort> =
-            Arc::new(TradingViewAdapter::new(tradingview_service.clone()));
+            tradingview_adapter;
         let eps_repo_for_cache = eps_repository.clone();
         let eps_cache_service = Arc::new(EPSCacheService::new(
             market_data_scanner,
@@ -277,6 +291,7 @@ impl AnalyticsServiceState {
 
         Ok(Self {
             tradingview_service,
+            market_rankings_provider,
             eps_repository,
             eps_ranking_service,
             eps_cache_service,
@@ -393,6 +408,7 @@ async fn main() -> anyhow::Result<()> {
         permission_service,
         state.cache.clone(),
         state.eps_ranking_service.clone(),
+        state.market_rankings_provider.clone(),
         verifier,
     );
 
@@ -480,12 +496,18 @@ mod tests {
         use epsx::domain::market_analytics::services::eps_ranking_service::EPSRankingService;
         let config = Arc::new(epsx::config::get_fallback_config());
         let tradingview = Arc::new(TradingViewApiService::new(config));
+        let raw_market_rankings_provider: Arc<dyn MarketRankingsProviderPort> =
+            Arc::new(TradingViewAdapter::new(tradingview.clone()));
+        let market_rankings_provider: Arc<dyn MarketRankingsProviderPort> = Arc::new(
+            BoundedMarketRankingsProvider::new(raw_market_rankings_provider),
+        );
         let eps_repo = Arc::new(TradingViewEPSRepository::new(tradingview));
         let eps_ranking = Arc::new(EPSRankingService::new(eps_repo));
         let router = build_analytics_router(
             perm,
             cache,
             eps_ranking,
+            market_rankings_provider,
             Arc::new(RejectingVerifier),
         );
 
@@ -560,6 +582,7 @@ mod tests {
         // Arc::strong_count is the cheapest assertion that the
         // state actually built something.
         assert!(Arc::strong_count(&state.tradingview_service) >= 1);
+        assert!(Arc::strong_count(&state.market_rankings_provider) >= 1);
         assert!(Arc::strong_count(&state.eps_repository) >= 1);
         assert!(Arc::strong_count(&state.eps_ranking_service) >= 1);
         assert!(Arc::strong_count(&state.eps_cache_service) >= 1);

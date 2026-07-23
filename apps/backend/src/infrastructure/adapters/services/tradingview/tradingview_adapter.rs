@@ -1,9 +1,14 @@
 use std::sync::Arc;
 use async_trait::async_trait;
-use crate::domain::market_analytics::repository_ports::MarketDataScannerPort;
+use crate::domain::market_analytics::repository_ports::{
+    MarketDataScannerPort, MarketRankingsPage, MarketRankingsProviderPort,
+    MarketRankingsRequest,
+};
 use crate::domain::shared_kernel::entities::eps_growth::EPSGrowthData;
-use epsx_contracts::errors::AppError;
+use epsx_contracts::errors::{AppError, ErrorKind};
 use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
+use crate::infrastructure::adapters::services::tradingview::types::MarketDataError;
+use tracing::error;
 
 /// Adapter that implements MarketDataScannerPort for TradingView API service
 /// This bridges the domain port interface with the concrete TradingView implementation
@@ -78,5 +83,71 @@ impl MarketDataScannerPort for TradingViewAdapter {
         // For now, return empty as TradingView API doesn't have direct symbol search
         // This could be enhanced later with actual TradingView symbol search functionality
         Ok(vec![])
+    }
+}
+
+#[async_trait]
+impl MarketRankingsProviderPort for TradingViewAdapter {
+    async fn fetch_rankings(
+        &self,
+        request: MarketRankingsRequest,
+    ) -> Result<MarketRankingsPage, AppError> {
+        let (items, total) = self.tradingview_service
+            .fetch_eps_growth_ranking_once(
+                request.skip,
+                request.limit,
+                request.country,
+                request.sector,
+                request.sort_by,
+            )
+            .await
+            .map_err(map_rankings_error)?;
+
+        Ok(MarketRankingsPage { items, total })
+    }
+}
+
+fn map_rankings_error(error: MarketDataError) -> AppError {
+    error!(error_kind = %market_data_error_kind(&error), "market rankings provider attempt failed");
+
+    match error {
+        MarketDataError::HttpStatus(408 | 504) =>
+            AppError::new(ErrorKind::TimeoutError, "Market rankings provider timeout"),
+        MarketDataError::HttpStatus(429 | 500..=599) =>
+            AppError::new(ErrorKind::ServiceUnavailable, "Market rankings provider unavailable"),
+        MarketDataError::NetworkError(_) | MarketDataError::ConnectionError(_) =>
+            AppError::network_error("Market rankings provider network failure"),
+        _ => AppError::external_service_error("Market rankings provider failure"),
+    }
+}
+
+fn market_data_error_kind(error: &MarketDataError) -> &'static str {
+    match error {
+        MarketDataError::NetworkError(_) => "network",
+        MarketDataError::ConnectionError(_) => "connection",
+        MarketDataError::ParsingError(_) => "parsing",
+        MarketDataError::ExternalApiError(_) => "external_api",
+        MarketDataError::HttpStatus(_) => "http_status",
+        MarketDataError::SerializationError(_) => "serialization",
+        MarketDataError::ValidationError(_) => "validation",
+    }
+}
+
+#[cfg(test)]
+mod a2_5_tests {
+    use super::*;
+
+    #[test]
+    fn a2_5_http_status_retry_classification_is_explicit() {
+        for status in [408, 429, 500, 502, 503, 504, 599] {
+            let error = map_rankings_error(MarketDataError::HttpStatus(status));
+            assert!(error.is_retryable(), "status {status} must be retryable");
+        }
+
+        for status in [400, 401, 403, 404] {
+            let error = map_rankings_error(MarketDataError::HttpStatus(status));
+            assert!(!error.is_retryable(), "status {status} must be permanent");
+            assert_eq!(error.http_status(), 502);
+        }
     }
 }

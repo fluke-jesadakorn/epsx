@@ -12,6 +12,9 @@ use tracing::{debug, error, info, warn};
 
 use super::types::{TradingViewConfig, TradingViewResponse, MarketDataError};
 
+const MAX_CUSTOM_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
+const RESPONSE_TOO_LARGE_MESSAGE: &str = "TradingView response exceeded the configured limit";
+
 /// REST API client for TradingView integration
 pub struct TradingViewRestClient {
     client: Client,
@@ -115,45 +118,59 @@ impl TradingViewRestClient {
             .take(max_retries)
             .map(jitter);
 
-        Retry::spawn(retry_strategy, || {
-            let headers = self.get_request_headers();
-            let body = payload.clone();
-            
-            async move {
-                let response = self.client
-                    .post(&self.config.scanner_api_url)
-                    .headers(headers)
-                    .body(serde_json::to_string(&body).map_err(|e| {
-                        error!("Failed to serialize request body: {:?}", e);
-                        MarketDataError::SerializationError(e.to_string())
-                    })?)
-                    .send()
-                    .await
-                    .map_err(|e| {
-                        error!("TradingView API request failed: {:?}", e);
-                        MarketDataError::NetworkError(e.to_string())
-                    })?;
-
-                if !response.status().is_success() {
-                    let status = response.status();
-                    let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-                    error!("TradingView API error {}: {}", status, error_text);
-                    return Err(MarketDataError::ExternalApiError(format!("API error {}: {}", status, error_text)));
-                }
-
-                let response_text = response.text().await.map_err(|e| {
-                    error!("Failed to read response text: {:?}", e);
-                    MarketDataError::NetworkError(e.to_string())
-                })?;
-
-                serde_json::from_str::<TradingViewResponse>(&response_text).map_err(|e| {
-                    error!("Failed to parse TradingView response: {:?}", e);
-                    debug!("Response text (first 500 chars): {}", &response_text[..response_text.len().min(500)]);
-                    MarketDataError::ParsingError(e.to_string())
-                })
-            }
-        })
+        Retry::spawn(retry_strategy, ||
+            self.execute_custom_request_once(payload.clone())
+        )
         .await
+    }
+
+    /// Execute exactly one custom HTTP request. Rankings retry ownership lives
+    /// in the process-shared bounded provider, so this path must not retry.
+    pub async fn execute_custom_request_once(
+        &self,
+        payload: serde_json::Value,
+    ) -> Result<TradingViewResponse, MarketDataError> {
+        let mut response = self.client
+            .post(&self.config.scanner_api_url)
+            .headers(self.get_request_headers())
+            .body(serde_json::to_string(&payload).map_err(|e| {
+                error!("Failed to serialize TradingView request");
+                MarketDataError::SerializationError(e.to_string())
+            })?)
+            .send()
+            .await
+            .map_err(|e| {
+                let category = if e.is_timeout() { "timeout" } else if e.is_connect() { "connect" } else { "transport" };
+                error!("TradingView API request failed ({})", category);
+                MarketDataError::NetworkError(category.to_string())
+            })?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            error!("TradingView API returned status {}", status);
+            return Err(MarketDataError::HttpStatus(status.as_u16()));
+        }
+
+        if response.content_length().is_some_and(|length| length > MAX_CUSTOM_RESPONSE_BYTES as u64) {
+            error!("TradingView API response exceeded configured byte limit");
+            return Err(MarketDataError::ExternalApiError(RESPONSE_TOO_LARGE_MESSAGE.to_string()));
+        }
+
+        let mut response_body = Vec::with_capacity(
+            response.content_length().unwrap_or(0).min(MAX_CUSTOM_RESPONSE_BYTES as u64) as usize,
+        );
+        while let Some(chunk) = response.chunk().await.map_err(|e| {
+            let category = if e.is_timeout() { "timeout" } else { "response" };
+            error!("Failed to read TradingView response ({})", category);
+            MarketDataError::NetworkError(category.to_string())
+        })? {
+            append_bounded_response_chunk(&mut response_body, &chunk, MAX_CUSTOM_RESPONSE_BYTES)?;
+        }
+
+        serde_json::from_slice::<TradingViewResponse>(&response_body).map_err(|e| {
+            error!("Failed to parse TradingView response: {}", e);
+            MarketDataError::ParsingError(e.to_string())
+        })
     }
 
     /// Execute batch requests with rate limiting
@@ -211,6 +228,25 @@ impl TradingViewRestClient {
             }
         }
     }
+}
+
+fn append_bounded_response_chunk(
+    response_body: &mut Vec<u8>,
+    chunk: &[u8],
+    max_bytes: usize,
+) -> Result<(), MarketDataError> {
+    let next_len = response_body
+        .len()
+        .checked_add(chunk.len())
+        .filter(|length| *length <= max_bytes)
+        .ok_or_else(|| {
+            error!("TradingView API response exceeded configured byte limit");
+            MarketDataError::ExternalApiError(RESPONSE_TOO_LARGE_MESSAGE.to_string())
+        })?;
+
+    response_body.reserve(next_len.saturating_sub(response_body.len()));
+    response_body.extend_from_slice(chunk);
+    Ok(())
 }
 
 #[cfg(test)]
@@ -275,5 +311,18 @@ mod tests {
     #[test]
     fn test_batch_size_constants() {
         // Constants are verified at compile time
+    }
+
+    #[test]
+    fn a2_5_provider_response_body_is_bounded() {
+        let mut response_body = vec![1, 2];
+        append_bounded_response_chunk(&mut response_body, &[3, 4], 4)
+            .expect("response at the exact limit should be accepted");
+        assert_eq!(response_body, vec![1, 2, 3, 4]);
+
+        let error = append_bounded_response_chunk(&mut response_body, &[5], 4)
+            .expect_err("response above the limit must fail closed");
+        assert!(matches!(error, MarketDataError::ExternalApiError(_)));
+        assert_eq!(response_body, vec![1, 2, 3, 4]);
     }
 }

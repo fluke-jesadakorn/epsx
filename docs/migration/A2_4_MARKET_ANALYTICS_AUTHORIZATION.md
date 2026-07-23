@@ -80,7 +80,8 @@ exit `3` even after integrity passes.
   provider; they need a truthful fail-closed response before provider work.
 - TradingView provenance, licensing, quotas, retries, timeout, normalization,
   freshness, cache, error behavior and public amplification controls are
-  unproven.
+  unproven by this independently verifiable A2.4 boundary. A2.5 is a separate
+  downstream contract.
 - The checked-in overlays still select pre-A2.4 images/configuration; no
   reviewed candidate OIDC wiring exists, and `/health` proves only a static
   response.

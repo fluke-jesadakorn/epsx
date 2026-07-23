@@ -55,6 +55,31 @@ impl TradingViewApiService {
         Ok((results, total))
     }
 
+    /// Fetch one ranking page with exactly one provider attempt. The bounded
+    /// rankings decorator owns retries and the total request deadline.
+    pub async fn fetch_eps_growth_ranking_once(
+        &self,
+        skip: i32,
+        limit: i32,
+        country: Option<String>,
+        sector: Option<String>,
+        sort_by: Option<String>,
+    ) -> Result<(Vec<StockScreeningResult>, i32), MarketDataError> {
+        let payload = self.scanner.build_screener_request_with_params(
+            skip,
+            limit,
+            country,
+            sector,
+            sort_by,
+        );
+
+        let response = self.rest_client.execute_custom_request_once(payload).await?;
+        let total = resolve_market_rankings_total(response.total_count, skip, response.data.len())?;
+        let results = self.scanner.process_trading_view_response(response);
+
+        Ok((results, total))
+    }
+
     /// Fetch specific symbols concurrently
     pub async fn fetch_symbols_concurrent(&self, symbols: Vec<String>) -> Result<Vec<EPSGrowthData>, MarketDataError> {
         let payload = self.scanner.build_symbols_request(symbols);
@@ -100,5 +125,31 @@ impl TradingViewApiService {
     pub async fn clear_cache(&self) {
         let mut cache = self.cache.write().await;
         cache.clear_all();
+    }
+}
+
+fn resolve_market_rankings_total(
+    provider_total: Option<i32>,
+    skip: i32,
+    page_len: usize,
+) -> Result<i32, MarketDataError> {
+    if let Some(total) = provider_total {
+        return Ok(total);
+    }
+
+    let page_len = i32::try_from(page_len)
+        .map_err(|_| MarketDataError::ValidationError("Provider page length is unsupported".to_string()))?;
+    skip.checked_add(page_len)
+        .ok_or_else(|| MarketDataError::ValidationError("Provider total is unsupported".to_string()))
+}
+
+#[cfg(test)]
+mod a2_5_tests {
+    use super::*;
+
+    #[test]
+    fn a2_5_missing_provider_total_preserves_current_page_extent() {
+        assert_eq!(resolve_market_rankings_total(None, 99, 6).unwrap(), 105);
+        assert_eq!(resolve_market_rankings_total(Some(250), 99, 6).unwrap(), 250);
     }
 }

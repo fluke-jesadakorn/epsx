@@ -9,7 +9,7 @@ temp_dir=$(mktemp -d "${TMPDIR:-/tmp}/epsx-analytics-indexer-execution.XXXXXX")
 trap 'rm -rf -- "$temp_dir"' EXIT HUP INT TERM
 
 "$verify" --mode integrity >"$temp_dir/integrity.out" 2>&1
-grep -q "14 source pins, 37 target anchors, 4 separate domains, 16 surfaces, and 24 stop blockers" "$temp_dir/integrity.out"
+grep -q "14 source pins, 38 target anchors, 4 separate domains, 16 surfaces, and 24 stop blockers" "$temp_dir/integrity.out"
 grep -q "no database, Redis, chain, network, live market-data, deployment" "$temp_dir/integrity.out"
 
 set +e
@@ -26,10 +26,14 @@ grep -q "24 stop blockers remain" "$temp_dir/readiness.out"
 "$verify" --mode report >"$temp_dir/report-one.json"
 "$verify" --mode report >"$temp_dir/report-two.json"
 cmp "$temp_dir/report-one.json" "$temp_dir/report-two.json"
+EPSX_A2_4_EVIDENCE_ROOT="$temp_dir" EPSX_A2_4_STATIC_ONLY=1 \
+EPSX_A2_5_EVIDENCE_ROOT="$temp_dir" EPSX_A2_5_STATIC_ONLY=1 \
+  "$verify" --mode report >"$temp_dir/override-proof.json"
+cmp "$temp_dir/report-one.json" "$temp_dir/override-proof.json"
 bun -e '
 const report = JSON.parse(await Bun.file(process.argv[1]).text());
 const expected = ["marketAnalytics", "eventAnalytics", "indexer", "identityRankingOffset"];
-if (report.readinessExit !== 3 || report.productionReady !== false || report.blockers.length !== 24 || report.targetEvidence !== 37 || report.refreshedBoundaryEvidence !== 7 || report.surfaceContracts.length !== 16) process.exit(1);
+if (report.readinessExit !== 3 || report.productionReady !== false || report.blockers.length !== 24 || report.targetEvidence !== 38 || report.refreshedBoundaryEvidence !== 7 || report.surfaceContracts.length !== 16) process.exit(1);
 if (expected.some((domain) => !report.domains[domain] || report.domains[domain].status !== "blocked")) process.exit(1);
 ' "$temp_dir/report-one.json"
 
@@ -129,6 +133,23 @@ if [ "$blocker_inventory_status" -ne 1 ]; then
 fi
 grep -q "exact B01..B24 blocker inventory drifted" "$temp_dir/blocker-inventory.out"
 
+A12_CONTRACT_IN="$contract" A12_CONTRACT_OUT="$temp_dir/a2-5-link.json" bun -e '
+const contract = await Bun.file(process.env.A12_CONTRACT_IN).json();
+const blocker = contract.blockers.find((item) => item.id === "B04");
+blocker.evidenceIds = blocker.evidenceIds.filter((id) => id !== "tgt-market-a2-5-contract");
+await Bun.write(process.env.A12_CONTRACT_OUT, `${JSON.stringify(contract, null, 2)}\n`);
+'
+set +e
+"$verify" --mode integrity --contract "$temp_dir/a2-5-link.json" >"$temp_dir/a2-5-link.out" 2>&1
+a2_5_link_status=$?
+set -e
+if [ "$a2_5_link_status" -ne 1 ]; then
+  cat "$temp_dir/a2-5-link.out" >&2
+  echo "analytics-indexer-execution self-test: expected a2-5-link exit 1, got $a2_5_link_status" >&2
+  exit 1
+fi
+grep -q "B04 must retain the canonical A2.5 provider-boundary evidence link" "$temp_dir/a2-5-link.out"
+
 set +e
 EPSX_ENV=production "$verify" --mode integrity >"$temp_dir/production-env.out" 2>&1
 production_status=$?
@@ -139,6 +160,28 @@ if [ "$production_status" -ne 1 ]; then
   exit 1
 fi
 grep -q "production-looking environment" "$temp_dir/production-env.out"
+
+set +e
+ENV=production "$verify" --mode integrity >"$temp_dir/generic-production-env.out" 2>&1
+generic_production_status=$?
+set -e
+if [ "$generic_production_status" -ne 1 ]; then
+  cat "$temp_dir/generic-production-env.out" >&2
+  echo "analytics-indexer-execution self-test: expected generic-production-env exit 1, got $generic_production_status" >&2
+  exit 1
+fi
+grep -q "production-looking environment" "$temp_dir/generic-production-env.out"
+
+set +e
+TEST_DATABASE_URL=postgres://example.invalid/test "$verify" --mode integrity >"$temp_dir/test-database-env.out" 2>&1
+test_database_status=$?
+set -e
+if [ "$test_database_status" -ne 1 ]; then
+  cat "$temp_dir/test-database-env.out" >&2
+  echo "analytics-indexer-execution self-test: expected test-database-env exit 1, got $test_database_status" >&2
+  exit 1
+fi
+grep -q "never contacts databases" "$temp_dir/test-database-env.out"
 
 set +e
 BSC_RPC_URL=https://example.invalid "$verify" --mode integrity >"$temp_dir/live-env.out" 2>&1

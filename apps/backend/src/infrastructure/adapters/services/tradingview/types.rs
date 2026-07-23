@@ -19,6 +19,8 @@ pub enum MarketDataError {
     ParsingError(String),
     #[error("External API error: {0}")]
     ExternalApiError(String),
+    #[error("External API HTTP status: {0}")]
+    HttpStatus(u16),
     #[error("Serialization error: {0}")]
     SerializationError(String),
     #[error("Validation error: {0}")]

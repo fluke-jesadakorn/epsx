@@ -4,6 +4,8 @@ set -eu
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(git -C "$script_dir" rev-parse --show-toplevel)
 contract="$repo_root/docs/migration/contracts/analytics-indexer-execution.json"
+a2_4_verify="$script_dir/verify-a2-4-market-analytics-authorization.sh"
+a2_5_verify="$script_dir/verify-a2-5-market-provider-boundary.sh"
 mode=""
 
 die() {
@@ -39,12 +41,12 @@ esac
 command -v bun >/dev/null 2>&1 || die "bun is required"
 command -v git >/dev/null 2>&1 || die "git is required"
 
-for name in DATABASE_URL ANALYTICS_DATABASE_URL INDEXER_DATABASE_URL REDIS_URL REDIS_CLUSTER_URL RPC_URL CHAIN_RPC_URL BSC_RPC_URL BSC_MAINNET_RPC_URL BSC_TESTNET_RPC_URL ETH_RPC_URL WEB3_PROVIDER_URL TRADINGVIEW_URL TRADINGVIEW_BASE_URL TRADINGVIEW_WEBSOCKET_URL MARKET_DATA_URL MARKET_DATA_API_KEY LIVE_DATA_URL; do
+for name in DATABASE_URL TEST_DATABASE_URL ANALYTICS_DATABASE_URL IDENTITY_DATABASE_URL INDEXER_DATABASE_URL REDIS_URL REDIS_CLUSTER_URL RPC_URL CHAIN_RPC_URL BSC_RPC_URL BSC_MAINNET_RPC_URL BSC_TESTNET_RPC_URL ETH_RPC_URL WEB3_PROVIDER_URL TRADINGVIEW_URL TRADINGVIEW_BASE_URL TRADINGVIEW_WEBSOCKET_URL MARKET_DATA_URL MARKET_DATA_API_KEY LIVE_DATA_URL; do
   eval "value=\${$name-}"
   [ -z "$value" ] || die "$name must be unset; this verifier never contacts databases, Redis, chains, or live market-data providers"
 done
 
-for name in EPSX_ENV APP_ENV ENVIRONMENT NODE_ENV RUST_ENV DEPLOY_ENV; do
+for name in EPSX_ENV APP_ENV ENV ENVIRONMENT NODE_ENV RUST_ENV DEPLOY_ENV DEPLOYMENT_ENV; do
   eval "value=\${$name-}"
   normalized=$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')
   case "$normalized" in
@@ -64,6 +66,13 @@ done
 
 export NO_PROXY="127.0.0.1,localhost,::1"
 unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
+
+[ -x "$a2_4_verify" ] || die "missing executable A2.4 verifier"
+[ -x "$a2_5_verify" ] || die "missing executable A2.5 verifier"
+EPSX_A2_4_EVIDENCE_ROOT="$repo_root" EPSX_A2_4_STATIC_ONLY=0 \
+  "$a2_4_verify" --mode report >/dev/null || die "canonical A2.4 boundary verification failed"
+EPSX_A2_5_EVIDENCE_ROOT="$repo_root" EPSX_A2_5_STATIC_ONLY=0 \
+  "$a2_5_verify" --mode report >/dev/null || die "canonical A2.5 boundary verification failed"
 
 summary=$(bun -e '
 import { readFileSync, realpathSync } from "node:fs";
@@ -134,7 +143,7 @@ for (const item of source.evidence) {
   anchored(git("show", `${source.commit}:${item.file}`), item, "source");
 }
 
-if (!Array.isArray(contract.targetEvidence) || contract.targetEvidence.length !== 37) fail("exactly thirty-seven target evidence records are required");
+if (!Array.isArray(contract.targetEvidence) || contract.targetEvidence.length !== 38) fail("exactly thirty-eight target evidence records are required");
 const targetDomainCounts = Object.fromEntries(Object.keys(expectedDomains).map((domain) => [domain, 0]));
 for (const item of contract.targetEvidence) {
   if (!item || typeof item.id !== "string" || !/^[a-z][a-z0-9-]+$/.test(item.id) || evidenceIds.has(item.id)) fail(`invalid or duplicate evidence id: ${item?.id}`);
@@ -175,6 +184,32 @@ const marketMain = marketFiles.get("apps/analytics/src/main.rs");
 if (!marketAuth || !marketMain || !marketAuth.includes("authenticate_headers(state.verifier.as_ref(), request.headers()).await") || !marketAuth.includes("private, no-store")) fail("A2.4 direct-auth/cache structure drifted");
 const marketProduction = marketMain.slice(0, marketMain.indexOf("#[cfg(test)]\nmod tests"));
 if (!marketProduction.includes("protect_router(router, verifier)") || !marketProduction.includes("/api/analytics/rankings") || marketProduction.includes("run_sse_consumer(") || marketProduction.includes("rankings_stream_handler") || marketProduction.includes(".route(\"/v1/rankings/stream\"")) fail("A2.4 route/auth/SSE structure drifted");
+
+const providerBoundaryEvidence = contract.targetEvidence.find((item) => item.id === "tgt-market-a2-5-contract");
+if (!providerBoundaryEvidence || providerBoundaryEvidence.domain !== "marketAnalytics" || providerBoundaryEvidence.file !== "docs/migration/contracts/a2-5-market-provider-boundary.json") fail("A2.5 market provider boundary evidence is missing");
+let providerBoundary;
+try { providerBoundary = JSON.parse(readFileSync(resolve(root, providerBoundaryEvidence.file), "utf8")); }
+catch (error) { fail(`invalid A2.5 market provider boundary JSON: ${error.message}`); }
+if (providerBoundary.schemaVersion !== 1 || providerBoundary.contractId !== "A2.5-market-rankings-provider-boundary" || providerBoundary.productionReady !== false || providerBoundary.readinessExit !== 3) fail("A2.5 provider boundary identity/readiness drifted");
+if (!Array.isArray(providerBoundary.implementationEvidence) || providerBoundary.implementationEvidence.length !== 12) fail("A2.5 must pin twelve implementation files");
+const providerFiles = new Map();
+for (const item of providerBoundary.implementationEvidence) {
+  safeRelative(item.file, `A2.5 ${item.id}`);
+  const candidate = resolve(root, item.file);
+  let actual;
+  try { actual = realpathSync(candidate); }
+  catch { fail(`missing A2.5 implementation file ${item.file}`); }
+  if (actual !== root && !actual.startsWith(`${root}${sep}`)) fail(`unsafe A2.5 implementation path ${item.file}`);
+  const content = readFileSync(actual, "utf8");
+  if (!/^[0-9a-f]{64}$/.test(item.sha256) || createHash("sha256").update(content).digest("hex") !== item.sha256) fail(`A2.5 implementation digest drifted: ${item.id}`);
+  providerFiles.set(item.file, content);
+}
+const providerPort = providerFiles.get("apps/backend/src/domain/market_analytics/repository_ports/market_rankings_provider_port.rs");
+const boundedProvider = providerFiles.get("apps/backend/src/infrastructure/adapters/services/tradingview/bounded_rankings_provider.rs");
+const rankingHandler = providerFiles.get("apps/backend/src/web/analytics/eps/cache.rs");
+if (!providerPort || !providerPort.includes("pub trait MarketRankingsProviderPort: Send + Sync")) fail("A2.5 rankings provider port structure drifted");
+if (!boundedProvider || !boundedProvider.includes("MAX_TOTAL_ATTEMPTS: usize = 3") || !boundedProvider.includes("try_acquire_owned()") || !boundedProvider.includes("time::timeout")) fail("A2.5 bounded provider structure drifted");
+if (!rankingHandler || !rankingHandler.includes("Extension(rankings_provider): Extension<Arc<dyn MarketRankingsProviderPort>>") || rankingHandler.includes("TradingViewApiService::new(") || rankingHandler.includes("enhance_with_websocket_data")) fail("A2.5 canonical handler provider boundary drifted");
 
 const refreshedBoundaryEvidence = {
   "tgt-event-schema-boundary": ["eventAnalytics", "docs/migration/contracts/a3-6-analytics-schema-boundary.json", "\"scannerFindingAfter\": 0"],
@@ -224,6 +259,8 @@ for (const blocker of contract.blockers) {
 }
 const expectedBlockerIds = Array.from({ length: 24 }, (_, index) => `B${String(index + 1).padStart(2, "0")}`);
 if (JSON.stringify([...blockerIds].sort()) !== JSON.stringify(expectedBlockerIds)) fail("the exact B01..B24 blocker inventory drifted");
+const marketDataBlocker = contract.blockers.find((blocker) => blocker.id === "B04");
+if (!marketDataBlocker || !marketDataBlocker.evidenceIds.includes("tgt-market-a2-5-contract") || !marketDataBlocker.summary.includes("A2.5 hermetically bounds")) fail("B04 must retain the canonical A2.5 provider-boundary evidence link");
 for (const surface of contract.surfaceContracts) for (const id of surface.blockerIds) if (!blockerIds.has(id)) fail(`${surface.id}: unknown blocker ${id}`);
 
 const ruleSections = {
@@ -279,7 +316,7 @@ if [ "$mode" = "report" ]; then
 fi
 
 if [ "$mode" = "integrity" ]; then
-  echo "analytics-indexer-execution: PASS — 14 source pins, 37 target anchors, 4 separate domains, 16 surfaces, and 24 stop blockers verified"
+  echo "analytics-indexer-execution: PASS — 14 source pins, 38 target anchors, 4 separate domains, 16 surfaces, and 24 stop blockers verified"
   echo "analytics-indexer-execution: LIMIT — no database, Redis, chain, network, live market-data, deployment, or production readiness was proven"
   exit 0
 fi

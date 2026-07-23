@@ -112,4 +112,4 @@ The Dioxus analytics page now removes sample rankings/events/charts and the `Liv
 ./scripts/migration/test-analytics-indexer-execution.sh
 ```
 
-The verifier reads only local Git objects and local files. It refuses database, Redis, chain/RPC, live-market-data and production-looking environment variables, removes proxy variables, and never starts a service. Integrity passing proves only that the 14 source pins, target anchors, domain separation and 24-blocker STOP contract are internally consistent.
+The verifier reads only local Git objects and local files. It refuses database, Redis, chain/RPC, live-market-data and production-looking environment variables, removes proxy variables, and never starts a service. Integrity passing proves only that the 14 source pins, 38 target anchors (including the A2.5 bounded-provider contract), domain separation and 24-blocker STOP contract are internally consistent.

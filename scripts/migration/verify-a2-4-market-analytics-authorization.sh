@@ -234,8 +234,8 @@ if (JSON.stringify(contract.hermeticTests) !== JSON.stringify(expectedTests)) fa
 const implementation = [
   ["impl-market-manifest", "apps/analytics/Cargo.toml", "8edb05b7fc9f4eee4313c59e434c7a0d874f0f3efe0eaea1df26938a15497f3f"],
   ["impl-market-auth", "apps/analytics/src/auth.rs", "4cb018b22cf510302b20b7c21f546083d07fc39b3b94593212ddc328d55a3471"],
-  ["impl-market-router", "apps/analytics/src/main.rs", "f58a2a04d67732e7d322bc552d63919470d6004fe518366cfb338c8a0520620f"],
-  ["impl-market-wallet-bridge", "apps/backend/src/web/analytics/eps/cache.rs", "3acb066cc3af7a8415a996ab640ddeb830f1e4a1254f4aa3685cf2a90d1cfe29"],
+  ["impl-market-router", "apps/analytics/src/main.rs", "5abec572f6d7cef0128aff75299a051098b2261c401df15c6e90b5b9b7aace57"],
+  ["impl-market-wallet-bridge", "apps/backend/src/web/analytics/eps/cache.rs", "917ec1d5df3547b99287403c5cbda9137e7e80138f77fc57fd054056c6447e20"],
 ];
 if (!Array.isArray(contract.implementationEvidence) || contract.implementationEvidence.length !== implementation.length) fail("four implementation records are required");
 const contents = new Map();
@@ -285,8 +285,8 @@ const expectedStops = [
   { id: "public-auth-compatibility-incomplete", claim: "Legacy public duplicate paths, API-key behavior, implicit HEAD, wrong-method 405 behavior, query caps, filters, envelopes and status compatibility are not fully adjudicated." },
   { id: "plan-offset-authority-always-free", claim: "The identity gRPC server still returns free-plan offset for every wallet, so premium behavior is not authoritative." },
   { id: "authority-outage-fallback-unproved", claim: "Authenticated authority failures still silently fall back to free and can continue into provider work instead of a truthful fail-closed response." },
-  { id: "provider-boundary-unproved", claim: "TradingView provenance, licensing, quotas, timeout, retry, normalization, freshness, cache and sanitized failure semantics are unproven." },
-  { id: "provider-amplification-unbounded", claim: "Public rankings can request up to 1000 rows and construct fresh provider clients without a proven rate, concurrency or circuit-breaker boundary." },
+  { id: "provider-boundary-unproved", claim: "TradingView provenance, licensing, quotas, timeout, retry, normalization, freshness, cache and sanitized failure semantics are unproven by A2.4." },
+  { id: "provider-amplification-unbounded", claim: "A2.4 does not prove a public request-size, rate, concurrency or circuit-breaker boundary; later provider slices must carry that evidence independently." },
   { id: "internal-identity-untrusted", claim: "The gRPC identity query has no authenticated service identity, authoritative owner binding, NetworkPolicy or immutable non-dev image proof." },
   { id: "upstream-ranking-events-unsafe", claim: "The downstream SSE path is disabled, but identity still exposes unauthenticated emit/global stream endpoints and the candidate retains dormant historical SSE source, tests and dependencies pending archive cleanup." },
   { id: "runtime-config-readiness-unproved", claim: "Checked-in overlays still select pre-A2.4 images/configuration; no reviewed candidate OIDC wiring exists and health does not check identity or market-provider readiness." },
@@ -296,7 +296,7 @@ const expectedStops = [
 ];
 if (JSON.stringify(contract.residualStops) !== JSON.stringify(expectedStops)) fail("exact residual STOP claims drifted");
 const expectedSteps = [
-  "E01 Extract a provider port and bound public request size, concurrency, retry and timeout behavior with deterministic fixtures.",
+  "E01 Extract and independently verify a provider port with bounded public request size, concurrency, retry and timeout behavior.",
   "E02 Make identity ranking offsets authoritative from active backend plan assignments and fail authenticated authority errors truthfully before provider work.",
   "E03 Define authenticated internal-service identity for ranking queries; keep public emit and global SSE unavailable until a durable owner-safe protocol exists.",
   "E04 Lock public/auth query, envelope, status, cap, API-key and freshness compatibility against the pinned source contract.",

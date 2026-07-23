@@ -477,6 +477,20 @@ impl UnifiedRouteBuilder {
                 config,
             ),
         );
+        let raw_market_rankings_provider: Arc<
+            dyn crate::domain::market_analytics::repository_ports::MarketRankingsProviderPort,
+        > = Arc::new(
+            crate::infrastructure::adapters::services::tradingview::TradingViewAdapter::new(
+                tradingview_service.clone(),
+            ),
+        );
+        let market_rankings_provider: Arc<
+            dyn crate::domain::market_analytics::repository_ports::MarketRankingsProviderPort,
+        > = Arc::new(
+            crate::infrastructure::adapters::services::tradingview::BoundedMarketRankingsProvider::new(
+                raw_market_rankings_provider,
+            ),
+        );
         let eps_repository = Arc::new(crate::web::analytics::TradingViewEPSRepository::new(
             tradingview_service,
         ));
@@ -515,6 +529,7 @@ impl UnifiedRouteBuilder {
             )
             .layer(Extension(self.get_or_default_cache()))
             .layer(Extension(eps_ranking_service))
+            .layer(Extension(market_rankings_provider))
             .layer(Extension(permission_service))
             .layer(axum_middleware::from_fn_with_state(
                 app_state,
