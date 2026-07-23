@@ -5781,6 +5781,17 @@ window.epsx = (function() {
     }
   }
   // ============ Mobile menu sheet (visible < 640px) ============
+  let mobileMenuBodyOverflow = null;
+  function lockMobileMenuBodyScroll() {
+    if (!document.body || mobileMenuBodyOverflow !== null) return;
+    mobileMenuBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+  }
+  function restoreMobileMenuBodyScroll() {
+    if (!document.body || mobileMenuBodyOverflow === null) return;
+    document.body.style.overflow = mobileMenuBodyOverflow;
+    mobileMenuBodyOverflow = null;
+  }
   function setMobileMenuExpanded(expanded) {
     const trigger = document.getElementById('epsx-mobile-menu-btn');
     if (!trigger) return;
@@ -5788,6 +5799,7 @@ window.epsx = (function() {
     trigger.setAttribute('aria-label', expanded ? 'Close menu' : 'Open menu');
   }
   function closeMobileMenu(restoreFocus) {
+    restoreMobileMenuBodyScroll();
     const sheet = document.getElementById('epsx-mobile-sheet');
     if (sheet) sheet.remove();
     setMobileMenuExpanded(false);
@@ -5874,6 +5886,7 @@ window.epsx = (function() {
       </div>
     `;
     document.body.appendChild(sheet);
+    lockMobileMenuBodyScroll();
     setMobileMenuExpanded(true);
     sheet.addEventListener('click', function(e) {
       if (e.target === sheet) closeMobileMenu(true);
@@ -9016,6 +9029,8 @@ assert.equal(fetchCalls, 0);
             "function setNavOpen(wrap, open)",
             "function closeNav(wrap, restoreFocus)",
             "function closeMobileMenu(restoreFocus)",
+            "function lockMobileMenuBodyScroll()",
+            "function restoreMobileMenuBodyScroll()",
             "function handleMobileMenuKeydown(e, sheet)",
             "sheet.setAttribute('role', 'dialog')",
             "sheet.setAttribute('aria-modal', 'true')",
@@ -9143,6 +9158,7 @@ function makeSheet() {
 global.document = {
   activeElement: null,
   body: {
+    style: { overflow: 'clip' },
     appendChild(node) { elements.set(node.id, node); },
   },
   getElementById(id) { return elements.get(id) || null; },
@@ -9192,6 +9208,7 @@ assert.equal(prevented, 1);
 api.toggleMobileMenu();
 let sheet = elements.get('epsx-mobile-sheet');
 assert.ok(sheet);
+assert.equal(document.body.style.overflow, 'hidden');
 assert.equal(mobileTrigger.getAttribute('aria-expanded'), 'true');
 assert.equal(mobileTrigger.getAttribute('aria-label'), 'Close menu');
 assert.equal(sheet.getAttribute('role'), 'dialog');
@@ -9228,9 +9245,11 @@ assert.equal(elements.has('epsx-mobile-sheet'), false);
 assert.equal(mobileTrigger.getAttribute('aria-expanded'), 'false');
 assert.equal(mobileTrigger.getAttribute('aria-label'), 'Open menu');
 assert.equal(document.activeElement, mobileTrigger);
+assert.equal(document.body.style.overflow, 'clip');
 
 api.toggleMobileMenu();
 sheet = elements.get('epsx-mobile-sheet');
+assert.equal(document.body.style.overflow, 'hidden');
 prevented = 0;
 let stopped = 0;
 keydown({
@@ -9244,17 +9263,29 @@ assert.equal(prevented, 1);
 assert.equal(stopped, 1);
 assert.equal(mobileTrigger.getAttribute('aria-expanded'), 'false');
 assert.equal(document.activeElement, mobileTrigger);
+assert.equal(document.body.style.overflow, 'clip');
 
 api.toggleMobileMenu();
 sheet = elements.get('epsx-mobile-sheet');
+assert.equal(document.body.style.overflow, 'hidden');
 sheet.closeButton.listeners.click[0]();
 assert.equal(sheet.removed, true);
 assert.equal(mobileTrigger.getAttribute('aria-expanded'), 'false');
+assert.equal(document.activeElement, mobileTrigger);
+assert.equal(document.body.style.overflow, 'clip');
+
+api.toggleMobileMenu();
+sheet = elements.get('epsx-mobile-sheet');
+assert.equal(document.body.style.overflow, 'hidden');
+api.toggleMobileMenu();
+assert.equal(sheet.removed, true);
+assert.equal(document.body.style.overflow, 'clip');
 assert.equal(document.activeElement, mobileTrigger);
 
 authenticated = true;
 api.toggleMobileMenu();
 sheet = elements.get('epsx-mobile-sheet');
+assert.equal(document.body.style.overflow, 'hidden');
 assert.ok(sheet.renderedHtml.includes('href="/account"'));
 assert.ok(sheet.renderedHtml.includes('data-epsx-logout'));
 assert.equal(sheet.focusables[0], sheet.closeButton);
@@ -9277,6 +9308,7 @@ assert.equal(document.activeElement, sheet.lastFocusable);
 sheet.closeButton.listeners.click[0]();
 assert.equal(sheet.removed, true);
 assert.equal(document.activeElement, mobileTrigger);
+assert.equal(document.body.style.overflow, 'clip');
 "###;
         let controller_json = serde_json::to_string(shared_navigation_controller_source())
             .expect("serialize shared navigation controller");
