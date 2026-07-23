@@ -251,13 +251,23 @@ fn NotificationUnavailable(malformed: bool) -> Element {
         )
     };
     rsx! {
-        div {
+        section {
             class: "card card-glass notifications-unavailable",
             role: "alert",
+            aria_labelledby: "notifications-unavailable-title",
+            aria_describedby: "notifications-unavailable-detail",
             div { class: "card-body notifications-empty",
                 Icon { name: "alert-circle".to_string(), size: Some(32) }
-                p { class: "notifications-empty-title", "{title}" }
-                p { class: "notifications-empty-hint", "{detail}" }
+                h2 {
+                    id: "notifications-unavailable-title",
+                    class: "notifications-empty-title",
+                    "{title}"
+                }
+                p {
+                    id: "notifications-unavailable-detail",
+                    class: "notifications-empty-hint",
+                    "{detail}"
+                }
                 a { class: "btn btn-sm btn-outline", href: "/notifications", "Try again" }
             }
         }
@@ -270,11 +280,17 @@ fn NotificationUnavailable(malformed: bool) -> Element {
 fn NotificationListSection(items: Vec<Notification>) -> Element {
     if items.is_empty() {
         return rsx! {
-            div { class: "notifications-list",
+            section {
+                class: "notifications-list",
+                aria_labelledby: "notifications-empty-title",
                 div { class: "card card-glass notifications-list-card",
                     div { class: "card-body notifications-empty",
                         Icon { name: "bell-off".to_string(), size: Some(32) }
-                        p { class: "notifications-empty-title", "No notifications yet" }
+                        h2 {
+                            id: "notifications-empty-title",
+                            class: "notifications-empty-title",
+                            "No notifications yet"
+                        }
                         p { class: "notifications-empty-hint", "New notifications will appear here." }
                     }
                 }
@@ -290,13 +306,29 @@ fn NotificationListSection(items: Vec<Notification>) -> Element {
     let rendered_at = Utc::now();
 
     rsx! {
-        div { class: "notifications-list",
+        section {
+            class: "notifications-list",
+            aria_labelledby: "notifications-list-title",
+            aria_describedby: "notifications-list-summary",
+            h2 {
+                id: "notifications-list-title",
+                class: "sr-only",
+                "Loaded notifications"
+            }
             div { class: "notifications-summary",
-                span { class: "notifications-unread-count", "{unread_label}" }
+                p {
+                    id: "notifications-list-summary",
+                    class: "notifications-unread-count",
+                    style: "margin: 0;",
+                    "{unread_label}"
+                }
             }
 
             div { class: "card card-glass notifications-list-card",
-                div { class: "card-body p-0",
+                ul {
+                    class: "card-body p-0",
+                    role: "list",
+                    style: "list-style: none; margin: 0; padding: 0;",
                     for notification in items {
                         NotificationRow { notification, rendered_at }
                     }
@@ -330,9 +362,14 @@ fn NotificationRow(notification: Notification, rendered_at: DateTime<Utc>) -> El
     let timestamp_label = notification_timestamp_label(&notification.created_at, &rendered_at);
     let timestamp_datetime = notification_timestamp_datetime(&notification.created_at);
     let timestamp_title = notification_timestamp_title(&notification.created_at);
+    let read_state_label = if notification.read {
+        "Read: "
+    } else {
+        "Unread: "
+    };
 
     rsx! {
-        div {
+        li {
             class: "{row_class}",
             "data-notification-id": "{notification.id}",
             div { class: "notification-icon {icon_class}",
@@ -340,23 +377,33 @@ fn NotificationRow(notification: Notification, rendered_at: DateTime<Utc>) -> El
             }
             div { class: "notification-body",
                 div { class: "notification-headline",
-                    p { class: "notification-title", "{notification.title}" }
-                    span { class: "{unread_dot_class}" }
+                    h3 { class: "notification-title",
+                        span { class: "sr-only", "{read_state_label}" }
+                        "{notification.title}"
+                    }
+                    span { class: "{unread_dot_class}", aria_hidden: "true" }
                 }
                 p { class: "notification-text", "{notification.body}" }
                 div { class: "notification-meta",
                     if let Some(kind) = &notification.kind {
-                        span { class: "notification-kind", "{kind}" }
-                        span { class: "notification-meta-sep", "·" }
+                        span { class: "notification-kind",
+                            span { class: "sr-only", "Type: " }
+                            "{kind}"
+                        }
+                        span { class: "notification-meta-sep", aria_hidden: "true", "·" }
                     }
                     if let Some(priority) = &notification.priority {
-                        span { class: "notification-priority", "{priority}" }
-                        span { class: "notification-meta-sep", "·" }
+                        span { class: "notification-priority",
+                            span { class: "sr-only", "Priority: " }
+                            "{priority}"
+                        }
+                        span { class: "notification-meta-sep", aria_hidden: "true", "·" }
                     }
                     time {
                         class: "notification-time",
                         datetime: "{timestamp_datetime}",
                         title: "{timestamp_title}",
+                        span { class: "sr-only", "Received: " }
                         "{timestamp_label}"
                     }
                 }
@@ -478,6 +525,13 @@ mod tests {
         dioxus_ssr::render_element(element)
     }
 
+    fn exact_notifications() -> Vec<Notification> {
+        match notification_load(&context(None, Some("ok"), Some(exact_target_payload()))) {
+            NotificationLoad::Loaded(items) => items,
+            state => panic!("exact notification fixture did not load: {state:?}"),
+        }
+    }
+
     fn timestamp(value: &str) -> DateTime<Utc> {
         value.parse().expect("test timestamp must be RFC3339")
     }
@@ -525,11 +579,120 @@ mod tests {
         assert!(html.contains("class=\"notification-time\""));
         assert!(html.contains("datetime=\"2026-07-22T10:00:00Z\""));
         assert!(html.contains("title=\"2026-07-22 10:00:00 UTC\""));
-        assert!(html.contains(">2h ago</time>"));
+        assert!(html.contains(">Received: </span>2h ago</time>"));
         assert!(!html.contains("<script>alert('title')</script>"));
         assert!(!html.contains("<img src=x onerror=alert(1)>"));
         assert!(html.contains("&#60;script&#62;"));
         assert!(html.contains("&#60;img src=x onerror=alert(1)&#62;"));
+    }
+
+    #[test]
+    fn loaded_notifications_are_a_named_native_noninteractive_list() {
+        let html = dioxus_ssr::render_element(
+            rsx! { NotificationListSection { items: exact_notifications() } },
+        );
+
+        assert!(html.contains("<section class=\"notifications-list\""));
+        assert!(html.contains("aria-labelledby=\"notifications-list-title\""));
+        assert!(html.contains("aria-describedby=\"notifications-list-summary\""));
+        assert!(html.contains(
+            "<h2 id=\"notifications-list-title\" class=\"sr-only\">Loaded notifications</h2>"
+        ));
+        assert!(html.contains("<p id=\"notifications-list-summary\""));
+        assert!(html.contains(">2 unread in loaded list</p>"));
+        assert_eq!(html.matches("<ul").count(), 1);
+        assert!(html.contains("<ul class=\"card-body p-0\" role=\"list\""));
+        assert_eq!(html.matches("<li").count(), 3);
+        assert_eq!(html.matches("<h3 class=\"notification-title\"").count(), 3);
+        assert!(!html.contains("<article"));
+
+        assert_eq!(html.matches(">Unread: </span>").count(), 2);
+        assert_eq!(html.matches(">Read: </span>").count(), 1);
+        assert!(html.contains(">Unread: </span>Subject fallback</h3>"));
+        assert!(html.contains(">Read: </span>Notification</h3>"));
+
+        assert!(html.contains("class=\"notification-unread-dot\" aria-hidden=\"true\""));
+        assert!(html.contains(
+            "class=\"notification-unread-dot notification-unread-dot-empty\" aria-hidden=\"true\""
+        ));
+        assert_eq!(
+            html.matches("class=\"notification-meta-sep\" aria-hidden=\"true\"")
+                .count(),
+            4
+        );
+        assert_eq!(html.matches(">Type: </span>").count(), 2);
+        assert_eq!(html.matches(">Priority: </span>").count(), 2);
+        assert_eq!(html.matches(">Received: </span>").count(), 3);
+
+        let first = html.find("data-notification-id=\"0x1\"").unwrap();
+        let second = html.find("data-notification-id=\"0x2\"").unwrap();
+        let third = html.find("data-notification-id=\"0x3\"").unwrap();
+        assert!(first < second && second < third);
+
+        for forbidden in [
+            "<a",
+            "<button",
+            "tabindex=",
+            "onclick=",
+            "role=\"button\"",
+            "role=\"link\"",
+        ] {
+            assert!(
+                !html.contains(forbidden),
+                "loaded rows unexpectedly became interactive: {forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn empty_notifications_are_a_named_section_without_live_status() {
+        let html = dioxus_ssr::render_element(
+            rsx! { NotificationListSection { items: Vec::<Notification>::new() } },
+        );
+
+        assert!(html.contains("<section class=\"notifications-list\""));
+        assert!(html.contains("aria-labelledby=\"notifications-empty-title\""));
+        assert!(html.contains(
+            "<h2 id=\"notifications-empty-title\" class=\"notifications-empty-title\">No notifications yet</h2>"
+        ));
+        assert!(html.contains("New notifications will appear here."));
+        assert!(!html.contains("aria-live="));
+        assert!(!html.contains("role=\"alert\""));
+        assert!(!html.contains("role=\"status\""));
+    }
+
+    #[test]
+    fn unavailable_notifications_are_named_described_alerts_with_native_retry() {
+        for (malformed, title, detail) in [
+            (
+                false,
+                "Notifications are temporarily unavailable",
+                "The notification service could not be reached. Your notification history was not replaced with sample data.",
+            ),
+            (
+                true,
+                "Notifications could not be displayed safely",
+                "The notification service returned an unexpected response. No notification data was shown.",
+            ),
+        ] {
+            let html =
+                dioxus_ssr::render_element(rsx! { NotificationUnavailable { malformed } });
+
+            assert!(html.contains(
+                "<section class=\"card card-glass notifications-unavailable\" role=\"alert\""
+            ));
+            assert!(html.contains("aria-labelledby=\"notifications-unavailable-title\""));
+            assert!(html.contains("aria-describedby=\"notifications-unavailable-detail\""));
+            assert!(html.contains(&format!(
+                "<h2 id=\"notifications-unavailable-title\" class=\"notifications-empty-title\">{title}</h2>"
+            )));
+            assert!(html.contains(&format!(
+                "<p id=\"notifications-unavailable-detail\" class=\"notifications-empty-hint\">{detail}</p>"
+            )));
+            assert!(html.contains(
+                "<a class=\"btn btn-sm btn-outline\" href=\"/notifications\">Try again</a>"
+            ));
+        }
     }
 
     #[test]
