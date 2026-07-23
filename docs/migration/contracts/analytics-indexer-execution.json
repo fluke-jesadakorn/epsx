@@ -295,16 +295,16 @@
       "anchor": "\"contractId\": \"A2.8-core-ranking-snapshot-adapter\""
     },
     {
-      "id": "tgt-identity-emit-route",
+      "id": "tgt-identity-a2-9-event-containment-contract",
       "domain": "identityRankingOffset",
-      "file": "shared/rust/epsx-identity-service/src/main.rs",
-      "anchor": ".route(\"/v1/emit\", post(emit_ranking_offset))"
+      "file": "docs/migration/contracts/a2-9-identity-event-containment.json",
+      "anchor": "\"contractId\": \"A2.9-identity-event-containment\""
     },
     {
-      "id": "tgt-identity-stream-route",
+      "id": "tgt-k8s-identity-sse-config-stale",
       "domain": "identityRankingOffset",
-      "file": "shared/rust/epsx-identity-service/src/main.rs",
-      "anchor": ".route(\"/v1/stream/ranking-offsets\", get(stream_ranking_offsets))"
+      "file": "infrastructure/kubernetes/base/identity/deployment.yaml",
+      "anchor": "- name: BIND_ADDR_SSE"
     },
     {
       "id": "tgt-gateway-event-port",
@@ -474,7 +474,7 @@
       "id": "identity-ranking-offset-query",
       "domain": "identityRankingOffset",
       "sourceContract": "wallet plan assignments resolve the minimum active-plan ranking offset in the backend",
-      "targetObserved": "A2.7 hermetically resolves fixed-time raw entitlement snapshots and A2.8 adds an unwired core-owned adapter with one schema-qualified static read-only statement and strict pure row decoding, but the SQL is unexecuted against any certified schema or reconciled data and the gRPC identity runtime still returns free plan offset",
+      "targetObserved": "A2.7 hermetically resolves fixed-time raw entitlement snapshots, A2.8 adds an unwired core-owned adapter, and A2.9 removes the production identity event listener; the SQL remains unexecuted against any certified schema or reconciled data and the gRPC identity runtime still returns free plan offset",
       "status": "blocked",
       "blockerIds": ["B07", "B21", "B23"]
     },
@@ -482,15 +482,15 @@
       "id": "identity-ranking-offset-stream",
       "domain": "identityRankingOffset",
       "sourceContract": "durable entitlement changes invalidate market caches with revision and replay semantics",
-      "targetObserved": "ephemeral broadcast/SSE drops lagged events and has no durable cursor",
+      "targetObserved": "A2.9 removes the production SSE mount and leaves no event-delivery runtime; no durable outbox, revision, cursor, replay or repair replacement exists and checked-in 50052 configuration is stale",
       "status": "blocked",
-      "blockerIds": ["B08", "B09", "B21", "B22"]
+      "blockerIds": ["B08", "B09", "B21", "B22", "B23"]
     },
     {
       "id": "identity-ranking-offset-emit",
       "domain": "identityRankingOffset",
       "sourceContract": "only the authoritative plan projection publishes versioned offset changes",
-      "targetObserved": "publicly mounted POST /v1/emit accepts a caller supplied offset",
+      "targetObserved": "A2.9 removes the public emit mount; no authenticated authoritative publisher or durable publication path replaces it",
       "status": "blocked",
       "blockerIds": ["B08", "B09", "B21"]
     },
@@ -563,27 +563,27 @@
       "category": "ranking-entitlement",
       "severity": "stop",
       "status": "blocked",
-      "summary": "A2.6 removes the market client's silent authenticated free-plan fallback, A2.7 hermetically proves the pure entitlement resolver, and A2.8 adds a static core-owned one-statement snapshot adapter with a strict pure decoder; identity success still returns the free-plan offset because the adapter is unwired, its SQL is unexecuted against a certified schema, and reconciliation, workload authorization and runtime activation are absent.",
+      "summary": "A2.6 removes the market client's silent authenticated free-plan fallback, A2.7 proves the pure resolver, A2.8 adds a static core-owned snapshot adapter, and A2.9 removes the unsafe identity event listener; identity success still returns the free-plan offset because the adapter is unwired, its SQL is unexecuted against a certified schema, and reconciliation, workload authorization and runtime activation are absent.",
       "resolution": "Keep the pure resolver, fail-closed market boundary and static core adapter; certify the adopted schema and query plan, reconcile source lifecycle and alternate entitlement semantics, wire authenticated identity runtime, and prove free, paid, expiry, overlap, downgrade, outage and recovery parity.",
-      "evidenceIds": ["src-ranking-offset-authority", "src-plan-access-bootstrap", "tgt-market-a2-6-authority-failure-contract", "tgt-identity-free-stub", "tgt-identity-a2-7-entitlement-snapshot-contract", "tgt-identity-a2-8-core-snapshot-adapter-contract"]
+      "evidenceIds": ["src-ranking-offset-authority", "src-plan-access-bootstrap", "tgt-market-a2-6-authority-failure-contract", "tgt-identity-free-stub", "tgt-identity-a2-7-entitlement-snapshot-contract", "tgt-identity-a2-8-core-snapshot-adapter-contract", "tgt-identity-a2-9-event-containment-contract"]
     },
     {
       "id": "B08",
       "category": "ranking-event-auth",
       "severity": "stop",
       "status": "blocked",
-      "summary": "The identity ranking-offset emit route is not protected by a proven internal service identity.",
-      "resolution": "Remove the public admin hook or require authenticated internal publisher identity, exact audience and replay protection.",
-      "evidenceIds": ["tgt-identity-emit-route", "tgt-identity-stream-route"]
+      "summary": "A2.9 removes the public identity emit and stream mounts, but no authenticated authoritative publisher identity, exact audience or replay protection exists for a durable replacement.",
+      "resolution": "Keep the removed public hook absent; require authenticated internal publisher identity, exact audience, owner binding and replay protection before any replacement is mounted.",
+      "evidenceIds": ["tgt-identity-a2-9-event-containment-contract", "tgt-k8s-identity-sse-config-stale"]
     },
     {
       "id": "B09",
       "category": "ranking-event-delivery",
       "severity": "stop",
       "status": "blocked",
-      "summary": "Ranking-offset SSE is ephemeral and has no durable revision, cursor, replay or repair contract.",
+      "summary": "A2.9 removes the ephemeral production SSE mount, leaving no ranking-event delivery runtime and no durable revision, cursor, replay or repair contract.",
       "resolution": "Publish versioned outbox events, persist consumer cursor, detect gaps and reconcile offsets before invalidating caches.",
-      "evidenceIds": ["tgt-market-a2-4-contract", "tgt-identity-stream-route", "tgt-identity-emit-route"]
+      "evidenceIds": ["tgt-market-a2-4-contract", "tgt-identity-a2-9-event-containment-contract", "tgt-k8s-identity-sse-config-stale"]
     },
     {
       "id": "B10",
@@ -707,9 +707,9 @@
       "category": "deployment",
       "severity": "stop",
       "status": "blocked",
-      "summary": "Deployment manifests expose only the market analytics workload; event analytics and indexer production wiring are absent and service naming conflicts remain.",
+      "summary": "Deployment manifests expose only the market analytics workload, event analytics and indexer production wiring are absent, service naming conflicts remain, and checked-in identity/analytics configuration still advertises the A2.9-removed 50052 SSE surface.",
       "resolution": "Add distinct immutable-image workloads, secrets, policies, probes, resources and gateway URLs, then validate rendered manifests offline and staging behavior separately.",
-      "evidenceIds": ["tgt-k8s-market-service", "tgt-k8s-market-only-probe", "tgt-gateway-event-port", "tgt-indexer-db-default"]
+      "evidenceIds": ["tgt-k8s-market-service", "tgt-k8s-market-only-probe", "tgt-gateway-event-port", "tgt-indexer-db-default", "tgt-k8s-identity-sse-config-stale", "tgt-identity-a2-9-event-containment-contract"]
     },
     {
       "id": "B24",
@@ -934,8 +934,8 @@
     },
     {
       "id": "N10",
-      "reason": "Ranking change publication is an unproven public admin hook over ephemeral SSE.",
-      "evidenceIds": ["tgt-identity-emit-route", "tgt-identity-stream-route"]
+      "reason": "A2.9 removes the unsafe identity event mounts, but no authenticated durable ranking-event replacement exists and checked-in 50052 configuration remains stale.",
+      "evidenceIds": ["tgt-identity-a2-9-event-containment-contract", "tgt-k8s-identity-sse-config-stale"]
     },
     {
       "id": "N11",
@@ -967,7 +967,7 @@
     "secret-backed database/provider configuration without credential defaults",
     "dependency-aware startup/readiness probes and disruption budgets",
     "internal metrics scraping, alerts and runbooks",
-    "network policies for provider, database, gRPC and SSE traffic",
+    "network policies for provider, database, gRPC and any future durable ranking-event transport",
     "staging shadow/parity jobs plus reviewed cutover and rollback artifacts"
   ],
   "requiredExecutionOrder": [
@@ -975,7 +975,7 @@
     "Define typed route, status, envelope, freshness and error contracts from the pinned source.",
     "Implement direct-service authentication and canonical ownership before exposing any non-health route.",
     "Wire reviewed runners, version ledgers and populated-baseline adoption for the additive analytics and indexer schema boundaries; extend them through later migrations.",
-    "Make identity ranking offsets authoritative and its change stream durable and authenticated.",
+    "Keep A2.9's removed public identity event surface absent; make ranking offsets authoritative and add only a durable authenticated replacement transport.",
     "Implement real canonical index ingestion, checkpoints, finality and reorg repair.",
     "Build bounded leased backfill with progress, pause, cancel, retry and resume semantics.",
     "Version event taxonomy, attribution, idempotency, privacy, retention and authoritative aggregates.",

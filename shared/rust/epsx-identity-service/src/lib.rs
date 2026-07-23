@@ -1,29 +1,17 @@
 //! `epsx-identity-service` library surface.
 //!
-//! The binary in `src/main.rs` is the dual-port server entry
-//! point: tonic gRPC on port 50051 (wave 13a) + axum HTTP/1.1
-//! (SSE + admin emit) on port 50052 (wave 13b). This `lib.rs`
-//! exposes the gRPC impl (`identity_service`), the wave-13b
-//! HTTP/1.1 layer (`event_bus` + `sse_handler` +
-//! `emit_handler`), the generated gRPC types (`generated`),
-//! and the raw proto schema (`proto`) so the bin's tests +
-//! the wave-13a Track B client's integration tests can
-//! import them via the standard `epsx_identity_service::`
-//! crate path.
+//! The production binary in `src/main.rs` exposes only the tonic gRPC
+//! endpoint. This library exports the ranking query implementation, ranking
+//! entitlement logic, generated gRPC types, and raw proto schema. Historical
+//! event helpers remain compiled only in test builds; they are not part of the
+//! production library surface.
 //!
 //! Module map:
 //!   - `identity_service`: the `WalletRankingOffsetQuery` impl
 //!     that the tonic server's `IdentityServer` wraps. The
 //!     stub returns the free-plan offset for every wallet.
-//!   - `event_bus` (wave 13b): the in-process broadcast
-//!     channel that the SSE handler reads from + the admin
-//!     emit handler writes to.
-//!   - `sse_handler` (wave 13b): the `GET /v1/stream/
-//!     ranking-offsets` axum handler that streams events
-//!     to SSE clients.
-//!   - `emit_handler` (wave 13b): the `POST /v1/emit` axum
-//!     handler that publishes a `RankingOffsetChange` to
-//!     the bus.
+//!   - `event_bus`, `sse_handler`, `emit_handler`: retained under
+//!     `cfg(test)` for historical coverage only.
 //!   - `generated`: the tonic-build-generated gRPC types
 //!     (`IdentityServer`, `IdentityClient`, request / response
 //!     messages). Re-exported from `$OUT_DIR/identity.rs`.
@@ -31,10 +19,13 @@
 //!     literal so a future test can assert the wire schema
 //!     without a separate `include_str!` at the call site.
 
+#[cfg(test)]
 pub mod emit_handler;
+#[cfg(test)]
 pub mod event_bus;
 pub mod identity_service;
 pub mod ranking_entitlement;
+#[cfg(test)]
 pub mod sse_handler;
 
 /// tonic-build-generated gRPC types. The generated file is

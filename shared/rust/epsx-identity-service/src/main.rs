@@ -1,81 +1,26 @@
-//! `epsx-identity-service` binary — dual-port server entry
-//! point (wave 13a Track A + wave 13b Track A).
+//! `epsx-identity-service` binary — single-port gRPC server entry point.
 //!
-//! ## Port layout
+//! The binary exposes `GetWalletRankingOffset` over tonic on
+//! `BIND_ADDR` (default `0.0.0.0:50051`). The current adapter delegates
+//! to `FreePlanRankingOffsetService`, preserving the always-Free success
+//! response while the tier-aware identity implementation is migrated.
 //!
-//! - **Port 50051 (BIND_ADDR, gRPC, HTTP/2):** tonic gRPC
-//!   server. Exposes ONE RPC, `GetWalletRankingOffset`, that
-//!   returns the free-plan offset (100) for every wallet.
-//!   The impl is a stub — it satisfies the kernel-level
-//!   `WalletRankingOffsetQuery` port
-//!   (`shared/rust/epsx-contracts/src/wallet_ranking_offset_query.rs`)
-//!   via `FreePlanRankingOffsetService` in `identity_service.rs`.
-//!   Behavior contract: the new binary is functionally
-//!   identical to the wave-12 in-process
-//!   `FreePlanWalletRankingOffsetQuery` in
-//!   `apps/analytics/src/main.rs:122-141` but goes over gRPC
-//!   instead of in-process. The fallback contract (timeout →
-//!   fall back to free-plan offset) is implemented in
-//!   **Track B** (the analytics binary's gRPC client); Track
-//!   A is just the server.
-//! - **Port 50052 (BIND_ADDR_SSE, HTTP/1.1, axum):** SSE
-//!   stream + admin emit hook. Exposes:
-//!     - `GET  /v1/stream/ranking-offsets` — SSE stream of
-//!       `RankingOffsetChange` events.
-//!     - `POST /v1/emit` — admin hook to publish a
-//!       `RankingOffsetChange` to the bus.
-//!   Both endpoints share a single `RankingOffsetEventBus`
-//!   instance — the admin emit handler writes to it, the
-//!   SSE handler reads from it.
-//!
-//! ## Why two ports, not one?
-//!
-//! The task spec suggested `tonic-web = "0.12"` as the
-//! bridge. In practice, `tonic-web` is a **gRPC-Web**
-//! protocol translator (browser → tonic, HTTP/1.1 +
-//! `application/grpc-web` content type → native gRPC over
-//! HTTP/2). It is NOT a general HTTP/1.1 router — the crate
-//! docs explicitly state "is not expected to handle
-//! arbitrary HTTP/x.x requests or bespoke protocols" and
-//! "There is no support for web socket transports". There
-//! is no `resource()` / `add_routes()` API in any
-//! `tonic-web` version. The right primitive for hosting
-//! arbitrary HTTP/1.1 routes alongside tonic is plain axum
-//! on a separate port — the workspace already pins
-//! `axum = "0.8"` with the `ws` feature (which transitively
-//! enables `tokio` + `keep_alive`), and the wave-10
-//! notifications SSE handler already uses the same axum
-//! pattern. Two ports keeps the gRPC seam clean (no
-//! content-type negotiation, no ALPN) at the cost of one
-//! extra `tokio::spawn`.
-//!
-//! ## Spec
-//!
-//! - Wave 13a (Track A): `docs/wave8-service-boundary/ROADMAP.md`
-//!   §17.1.
-//! - Wave 13b (Track A): `docs/wave8-service-boundary/ROADMAP.md`
-//!   §17.2 (this track creates that section).
+//! Event publishing helpers remain available in library test builds for
+//! historical coverage, but the production binary does not construct them.
 
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::Context;
-use axum::{
-    routing::{get, post},
-    Router,
-};
 use tonic::transport::Server;
-use tracing::{error, info};
+use tracing::info;
 use tracing_subscriber::EnvFilter;
 
 use epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery;
-use epsx_identity_service::emit_handler::emit_ranking_offset;
-use epsx_identity_service::event_bus::RankingOffsetEventBus;
 use epsx_identity_service::generated::identity_server::IdentityServer;
 use epsx_identity_service::identity_service::{
     map_app_error_to_status, FreePlanRankingOffsetService,
 };
-use epsx_identity_service::sse_handler::stream_ranking_offsets;
 
 // ============================================================================
 // gRPC service impl
@@ -116,18 +61,12 @@ impl GrpcIdentityService {
 }
 
 #[tonic::async_trait]
-impl epsx_identity_service::generated::identity_server::Identity
-    for GrpcIdentityService
-{
+impl epsx_identity_service::generated::identity_server::Identity for GrpcIdentityService {
     async fn get_wallet_ranking_offset(
         &self,
-        request: tonic::Request<
-            epsx_identity_service::generated::GetWalletRankingOffsetRequest,
-        >,
+        request: tonic::Request<epsx_identity_service::generated::GetWalletRankingOffsetRequest>,
     ) -> Result<
-        tonic::Response<
-            epsx_identity_service::generated::GetWalletRankingOffsetResponse,
-        >,
+        tonic::Response<epsx_identity_service::generated::GetWalletRankingOffsetResponse>,
         tonic::Status,
     > {
         use epsx_identity_service::generated as pb;
@@ -152,10 +91,6 @@ impl epsx_identity_service::generated::identity_server::Identity
 const BINARY_NAME: &str = env!("CARGO_PKG_NAME");
 const BINARY_VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_BIND_ADDR: &str = "0.0.0.0:50051";
-const DEFAULT_BIND_ADDR_SSE: &str = "0.0.0.0:50052";
-/// 1024-slot broadcast channel. Plenty for the dev cluster;
-/// production tuning can lift this in wave-14+ if needed.
-const EVENT_BUS_CAPACITY: usize = 1024;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -168,25 +103,14 @@ async fn main() -> anyhow::Result<()> {
         .with_target(false)
         .init();
 
-    // ---- bind addresses ----
-    // Default: 0.0.0.0:50051 (tonic convention) +
-    //          0.0.0.0:50052 (axum convention, separate port).
-    // Override with `BIND_ADDR` (gRPC) and `BIND_ADDR_SSE`
-    // (HTTP/1.1) env vars (same pattern as the analytics
-    // binary) so the dev container can bind to a different
-    // port if the host's 50051/50052 are already in use.
+    // Default: 0.0.0.0:50051 (tonic convention). Override with
+    // `BIND_ADDR` so a container can bind to a different address.
     let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| DEFAULT_BIND_ADDR.to_string());
     let grpc_addr: SocketAddr = bind_addr
         .parse()
         .with_context(|| format!("parsing BIND_ADDR={bind_addr}"))?;
-    let bind_addr_sse =
-        std::env::var("BIND_ADDR_SSE").unwrap_or_else(|_| DEFAULT_BIND_ADDR_SSE.to_string());
-    let sse_addr: SocketAddr = bind_addr_sse
-        .parse()
-        .with_context(|| format!("parsing BIND_ADDR_SSE={bind_addr_sse}"))?;
 
-    // ---- startup banner ----
-    print_startup_banner(grpc_addr, sse_addr);
+    print_startup_banner(grpc_addr);
 
     // ---- DI ----
     // Day 1: a single Arc<dyn WalletRankingOffsetQuery> backed
@@ -195,91 +119,136 @@ async fn main() -> anyhow::Result<()> {
     let port_impl: Arc<dyn WalletRankingOffsetQuery> = Arc::new(FreePlanRankingOffsetService);
     let grpc_service = GrpcIdentityService::new(port_impl);
 
-    // ---- pub-sub bus (shared between gRPC future
-    //      publishers + the HTTP/1.1 SSE + emit handlers) ----
-    let bus = Arc::new(RankingOffsetEventBus::new(EVENT_BUS_CAPACITY));
-
-    // ---- gRPC server (port 50051, unchanged from wave 13a) ----
-    let grpc_server = {
-        let addr = grpc_addr;
-        let svc = grpc_service;
-        async move {
-            info!(%addr, "epsx-identity-service: tonic gRPC server listening");
-            if let Err(err) = Server::builder()
-                .add_service(IdentityServer::new(svc))
-                .serve(addr)
-                .await
-            {
-                error!(error = %err, "tonic::server::serve returned an error");
-                return Err(err.into());
-            }
-            Ok::<(), anyhow::Error>(())
-        }
-    };
-
-    // ---- HTTP/1.1 server (port 50052, wave 13b) ----
-    // axum router with two routes:
-    //   - `GET  /v1/stream/ranking-offsets` — SSE stream
-    //   - `POST /v1/emit` — admin emit hook
-    // Both share the same `RankingOffsetEventBus` state via
-    // `with_state(Arc::clone(&bus))`. The bus is the only
-    // shared state the binary owns; the gRPC future-tier
-    // impls (wave 13c+) will hold their own `Arc` to the
-    // same bus.
-    let http_server = {
-        let addr = sse_addr;
-        let bus = Arc::clone(&bus);
-        async move {
-            let app = Router::new()
-                .route("/v1/stream/ranking-offsets", get(stream_ranking_offsets))
-                .route("/v1/emit", post(emit_ranking_offset))
-                .with_state((*bus).clone());
-
-            info!(
-                %addr,
-                routes = "/v1/stream/ranking-offsets (GET, SSE), /v1/emit (POST, JSON)",
-                "epsx-identity-service: axum HTTP/1.1 server listening"
-            );
-
-            let listener = tokio::net::TcpListener::bind(addr)
-                .await
-                .with_context(|| format!("binding axum listener to {addr}"))?;
-
-            if let Err(err) = axum::serve(listener, app).await {
-                error!(error = %err, "axum::serve returned an error");
-                return Err(err.into());
-            }
-            Ok::<(), anyhow::Error>(())
-        }
-    };
-
-    // ---- serve both concurrently ----
-    // `tokio::try_join!` propagates the first error and
-    // cancels the other future. If the gRPC server fails to
-    // bind, the HTTP/1.1 server is also cancelled; if the
-    // HTTP/1.1 server fails, the gRPC server is cancelled.
-    // K8s liveness probes on both ports keep the failure
-    // modes independent at the pod level.
-    tokio::try_join!(grpc_server, http_server)?;
+    info!(%grpc_addr, "epsx-identity-service: tonic gRPC server listening");
+    Server::builder()
+        .add_service(IdentityServer::new(grpc_service))
+        .serve(grpc_addr)
+        .await
+        .context("serving the identity gRPC endpoint")?;
 
     Ok(())
 }
 
-fn print_startup_banner(grpc_addr: SocketAddr, sse_addr: SocketAddr) {
+fn print_startup_banner(grpc_addr: SocketAddr) {
     info!("============================================================");
     info!("  {} v{}", BINARY_NAME, BINARY_VERSION);
-    info!("  Wave 13a — Track A (gRPC, tonic) +");
-    info!("  Wave 13b — Track A (SSE + admin emit, axum)");
-    info!("  gRPC:        {}", grpc_addr);
-    info!("  HTTP/1.1 SSE:{}", sse_addr);
-    info!("  Event bus:   broadcast channel, capacity = {}", EVENT_BUS_CAPACITY);
+    info!("  Identity gRPC: {}", grpc_addr);
     info!("  gRPC methods (1):");
     info!("    rpc GetWalletRankingOffset(GetWalletRankingOffsetRequest)");
     info!("        returns GetWalletRankingOffsetResponse");
-    info!("  HTTP/1.1 routes (2):");
-    info!("    GET  /v1/stream/ranking-offsets  (SSE)");
-    info!("    POST /v1/emit                    (JSON, admin)");
     info!("  Day-1 behavior: always returns the free-plan offset");
     info!("  (matching the wave-12 in-process FreePlanWalletRankingOffsetQuery stub).");
     info!("============================================================");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use epsx_contracts::value_objects::ranking_offset::RankingOffset;
+    use epsx_identity_service::generated::identity_server::Identity;
+    use epsx_identity_service::generated::{
+        GetWalletRankingOffsetRequest, GetWalletRankingOffsetResponse,
+    };
+    use prost::Message;
+
+    fn service() -> GrpcIdentityService {
+        GrpcIdentityService::new(Arc::new(FreePlanRankingOffsetService))
+    }
+
+    #[tokio::test]
+    async fn a2_9_in_process_grpc_service_returns_unchanged_free_offset() {
+        for wallet in [
+            "0x0000000000000000000000000000000000000000",
+            "0xdeadbeef",
+            "vitalik.eth",
+            "",
+        ] {
+            let response = Identity::get_wallet_ranking_offset(
+                &service(),
+                tonic::Request::new(GetWalletRankingOffsetRequest {
+                    wallet: wallet.to_owned(),
+                }),
+            )
+            .await
+            .expect("the always-Free service must not fail")
+            .into_inner();
+
+            assert_eq!(response.offset, RankingOffset::free_plan().value());
+        }
+    }
+
+    #[tokio::test]
+    async fn a2_9_proto_wire_round_trip_remains_field_compatible() {
+        let request = GetWalletRankingOffsetRequest {
+            wallet: "0xabcdef".to_owned(),
+        };
+        let request_bytes = request.encode_to_vec();
+        assert_eq!(request_bytes.first(), Some(&0x0a), "wallet remains field 1");
+        let decoded_request = GetWalletRankingOffsetRequest::decode(request_bytes.as_slice())
+            .expect("request wire payload must decode");
+
+        let response =
+            Identity::get_wallet_ranking_offset(&service(), tonic::Request::new(decoded_request))
+                .await
+                .expect("the always-Free service must not fail")
+                .into_inner();
+        let response_bytes = response.encode_to_vec();
+
+        assert_eq!(response_bytes, [0x08, 0x64], "offset remains int32 field 1");
+        let decoded_response = GetWalletRankingOffsetResponse::decode(response_bytes.as_slice())
+            .expect("response wire payload must decode");
+        assert_eq!(decoded_response.offset, RankingOffset::free_plan().value());
+    }
+
+    #[test]
+    fn a2_9_production_main_contains_only_grpc_listener_surface() {
+        let source = include_str!("main.rs");
+        let production = source
+            .split_once("#[cfg(test)]")
+            .expect("main must keep tests after the production entry point")
+            .0;
+
+        for forbidden in [
+            "BIND_ADDR_SSE",
+            "DEFAULT_BIND_ADDR_SSE",
+            "50052",
+            "axum",
+            "axum::",
+            "Router",
+            "/v1/",
+            "/v1/stream/ranking-offsets",
+            "/v1/emit",
+            "RankingOffsetEventBus",
+            "EVENT_BUS_CAPACITY",
+            "emit_ranking_offset",
+            "stream_ranking_offsets",
+            "try_join!",
+            "TcpListener",
+            "TcpSocket",
+            "http_server",
+        ] {
+            assert!(
+                !production.contains(forbidden),
+                "production main unexpectedly contains {forbidden}"
+            );
+        }
+
+        for required in [
+            "DEFAULT_BIND_ADDR",
+            "0.0.0.0:50051",
+            "IdentityServer::new",
+            ".serve(grpc_addr)",
+        ] {
+            assert!(
+                production.contains(required),
+                "production main must retain {required}"
+            );
+        }
+
+        assert_eq!(
+            production.matches(".serve(").count(),
+            1,
+            "production main must have exactly one server listener"
+        );
+    }
 }

@@ -1,0 +1,235 @@
+{
+  "schemaVersion": 1,
+  "artifact": "a2-9-identity-event-containment",
+  "contractId": "A2.9-identity-event-containment",
+  "purpose": "deterministic-hermetic-production-binary-event-code-path-containment-and-readiness-stop",
+  "productionReady": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "safety": {
+    "database": false,
+    "migration": false,
+    "redis": false,
+    "identityNetwork": false,
+    "rpc": false,
+    "browser": false,
+    "serviceListener": false,
+    "deployment": false,
+    "production": false
+  },
+  "targetBase": {
+    "ref": "migration/dioxus-microservices",
+    "commit": "fd780ff257f0bc15910053704c5a59e5b3da4a3e",
+    "interpretation": "Immutable completed post-A2.8 snapshot before removing the production identity HTTP/SSE listener. The baseline remains historical evidence for the removed exposure, not an authorized runtime.",
+    "evidence": [
+      {
+        "id": "base-identity-main",
+        "file": "shared/rust/epsx-identity-service/src/main.rs",
+        "blob": "e05d9e320fdaed761cd7ea3aaccd2ed120a20143",
+        "anchor": ".route(\"/v1/emit\", post(emit_ranking_offset))"
+      },
+      {
+        "id": "base-identity-library",
+        "file": "shared/rust/epsx-identity-service/src/lib.rs",
+        "blob": "5a54b0a3317e50eb515421a1daf7d6aaa92b9ec5",
+        "anchor": "pub mod emit_handler;"
+      },
+      {
+        "id": "base-always-free-service",
+        "file": "shared/rust/epsx-identity-service/src/identity_service.rs",
+        "blob": "a08419f241788274d1e07dd75089479ae3f15455",
+        "anchor": "Ok(RankingOffset::free_plan())"
+      },
+      {
+        "id": "base-identity-proto",
+        "file": "shared/proto/identity.proto",
+        "blob": "2e646cbf49b24b6291406af9ccaa5fbd3f44e946",
+        "anchor": "rpc GetWalletRankingOffset(GetWalletRankingOffsetRequest)"
+      }
+    ]
+  },
+  "invariants": [
+    {
+      "id": "production-grpc-only",
+      "claim": "The identity production binary serves only the existing tonic gRPC service and contains no second Axum or TCP listener."
+    },
+    {
+      "id": "no-production-50052-configuration",
+      "claim": "The production binary neither defines, reads nor parses BIND_ADDR_SSE or a 50052 default."
+    },
+    {
+      "id": "emit-route-unmounted",
+      "claim": "POST /v1/emit is not mounted or referenced by the production binary code path."
+    },
+    {
+      "id": "stream-route-unmounted",
+      "claim": "GET /v1/stream/ranking-offsets is not mounted or referenced by the production binary code path."
+    },
+    {
+      "id": "historical-event-modules-test-only",
+      "claim": "The emit handler, event bus and SSE handler remain available only behind cfg(test) and are excluded from normal library and binary builds."
+    },
+    {
+      "id": "grpc-wire-unchanged",
+      "claim": "The identity proto, generated RPC shape and default gRPC port 50051 are unchanged from the target base."
+    },
+    {
+      "id": "always-free-behavior-unchanged",
+      "claim": "The runtime still injects FreePlanRankingOffsetService and the service still returns RankingOffset::free_plan()."
+    },
+    {
+      "id": "no-durable-replacement-invented",
+      "claim": "A2.9 removes an unsafe surface but adds no outbox, revision, cursor, replay, gap-repair or publisher mechanism."
+    },
+    {
+      "id": "no-cargo-lock-proto-change",
+      "claim": "The identity Cargo manifest, workspace lockfile and identity proto remain byte-identical to the target base."
+    },
+    {
+      "id": "no-database-or-migration-change",
+      "claim": "A2.9 changes no database, generated schema, Diesel configuration or migration path."
+    },
+    {
+      "id": "no-kubernetes-or-deployment-change",
+      "claim": "A2.9 changes no Kubernetes or deployment file; checked-in 50052 and SSE configuration remains stale and explicitly blocked."
+    },
+    {
+      "id": "offline-static-only",
+      "claim": "All evidence is local static inspection and exact offline compilation/tests and authorizes no network, listener, secret, deployment or production action."
+    }
+  ],
+  "implementationEvidence": [
+    {
+      "id": "impl-production-grpc-only-main",
+      "file": "shared/rust/epsx-identity-service/src/main.rs",
+      "sha256": "e3b9980bf99434d67c3276b7dec329ba9453b226e72992d390f11c03bfaa78bc"
+    },
+    {
+      "id": "impl-test-only-module-boundary",
+      "file": "shared/rust/epsx-identity-service/src/lib.rs",
+      "sha256": "88ed3f1f3eeb2a9527f5c81828b9194beb8da4ef9ae8b128cb857a225844ddcf"
+    }
+  ],
+  "testOnlyModuleEvidence": [
+    {
+      "id": "dormant-emit-handler",
+      "file": "shared/rust/epsx-identity-service/src/emit_handler.rs",
+      "sha256": "6c9f63b1cf44141791a69cd95b94d8ee428d41bdc75bf8b1dba9fdd16303db6f"
+    },
+    {
+      "id": "dormant-event-bus",
+      "file": "shared/rust/epsx-identity-service/src/event_bus.rs",
+      "sha256": "0cda139bf36229865801d43c28f04b7ed0c830c933d1383748182d36dd220f5f"
+    },
+    {
+      "id": "dormant-sse-handler",
+      "file": "shared/rust/epsx-identity-service/src/sse_handler.rs",
+      "sha256": "0a91bb08d6c590940c0ec94006a32aadfcac11eed52f7a5912de7783d08ff7f8"
+    }
+  ],
+  "unchangedEvidence": [
+    {
+      "id": "unchanged-always-free-service",
+      "file": "shared/rust/epsx-identity-service/src/identity_service.rs",
+      "sha256": "f172df2a9998cc773b4299e2760164ee9d9a6c225680260b6c17bdc27f8da320"
+    },
+    {
+      "id": "unchanged-identity-cargo",
+      "file": "shared/rust/epsx-identity-service/Cargo.toml",
+      "sha256": "54f7020be797a137a4c69d1e3fbccf0d21f88923a616bd48f0757aa770cf7c8f"
+    },
+    {
+      "id": "unchanged-workspace-lock",
+      "file": "Cargo.lock",
+      "sha256": "ac9b2fd8b3e723a4fa1e708dc519eba50c4b068bbeea0a80e299566c7abfdcfe"
+    },
+    {
+      "id": "unchanged-identity-proto",
+      "file": "shared/proto/identity.proto",
+      "sha256": "f33f7256048403c79219913051347d85d05238e9c62269e37e8bffdae9f69d23"
+    }
+  ],
+  "staleDeploymentEvidence": [
+    {
+      "id": "stale-identity-deployment-50052",
+      "file": "infrastructure/kubernetes/base/identity/deployment.yaml",
+      "sha256": "e32a88cd353b75dc4f3c6fd893332671509f1fd1c0e5e5da5182e5b1fbe0ee02",
+      "anchor": "- name: BIND_ADDR_SSE"
+    },
+    {
+      "id": "stale-identity-service-50052",
+      "file": "infrastructure/kubernetes/base/identity/service.yaml",
+      "sha256": "407e9ccf1b744a318598657482ca944af5cc3aeea53d63d45da3683a3016b8c7",
+      "anchor": "targetPort: 50052"
+    },
+    {
+      "id": "stale-analytics-sse-url",
+      "file": "infrastructure/kubernetes/base/analytics/deployment.yaml",
+      "sha256": "d52ea8115f4c697c38d1c18286ed614e6400ef4c09d91e0efe9c8762909a72e4",
+      "anchor": "- name: IDENTITY_SSE_URL"
+    }
+  ],
+  "hermeticTests": [
+    "a2_9_in_process_grpc_service_returns_unchanged_free_offset",
+    "a2_9_proto_wire_round_trip_remains_field_compatible",
+    "a2_9_production_main_contains_only_grpc_listener_surface"
+  ],
+  "residualStops": [
+    {
+      "id": "paid-ranking-authority-unwired",
+      "claim": "Identity success still returns the Free Plan offset because the A2.7 resolver and A2.8 core adapter remain unwired."
+    },
+    {
+      "id": "schema-and-adoption-unproved",
+      "claim": "The ranking snapshot SQL remains unexecuted against a certified adopted schema or populated data."
+    },
+    {
+      "id": "query-plan-and-index-unproved",
+      "claim": "The LOWER(wallet_address) functional-index decision, row fan-out, query plan, latency and concurrency behavior remain unproved."
+    },
+    {
+      "id": "identity-workload-auth-tls-absent",
+      "claim": "Identity gRPC still lacks workload identity, exact caller authorization, owner binding and TLS policy."
+    },
+    {
+      "id": "authenticated-publisher-absent",
+      "claim": "Removing the public emit hook does not create an authenticated authoritative publisher."
+    },
+    {
+      "id": "durable-ranking-events-absent",
+      "claim": "No transactional outbox, monotonic revision, durable cursor, replay, gap detection or repair mechanism exists."
+    },
+    {
+      "id": "reconciliation-unproved",
+      "claim": "No populated reconciliation proves plan assignments, ranking projection and market-consumer state agree."
+    },
+    {
+      "id": "stale-manifests-unremediated",
+      "claim": "Checked-in identity and analytics manifests still advertise port 50052 and IDENTITY_SSE_URL; A2.9 neither edits nor renders them."
+    },
+    {
+      "id": "runtime-and-deployment-unproved",
+      "claim": "No service is started and no image, gateway, Kubernetes, canary, rollback or deployment behavior is proven."
+    },
+    {
+      "id": "cutover-unproved",
+      "claim": "No shadow, parity, cutover or rollback procedure exists for the identity ranking projection."
+    },
+    {
+      "id": "production-actions-unauthorized",
+      "claim": "Passing A2.9 integrity never authorizes a database, service, secret, network, deployment or production action."
+    }
+  ],
+  "requiredExecutionOrder": [
+    "E01 freeze the exact post-A2.8 target base and removed HTTP/SSE exposure",
+    "E02 remove only the production 50052 parsing listener and route mounts",
+    "E03 place historical emit bus and SSE modules behind cfg(test)",
+    "E04 preserve the gRPC proto default 50051 and always-Free runtime behavior exactly",
+    "E05 prove static production containment plus three exact hermetic regressions offline",
+    "E06 certify adopted ranking schema index query plan and populated reconciliation separately",
+    "E07 wire authoritative paid ranking resolution behind authenticated workload identity and TLS",
+    "E08 publish only transactional versioned events with authenticated publisher cursor replay and repair",
+    "E09 reconcile projection and consumer state and test rollback before any cutover",
+    "E10 obtain separate explicit production deployment authorization"
+  ]
+}
