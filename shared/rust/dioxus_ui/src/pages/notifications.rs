@@ -848,6 +848,64 @@ mod tests {
     }
 
     #[test]
+    fn hostile_unbroken_title_and_body_render_complete_in_their_semantic_elements() {
+        let title_token = "T".repeat(1_024);
+        let body_token = "B".repeat(2_048);
+        let title = format!("title-head-<script>{title_token}</script>-title-tail");
+        let body = format!("body-head-<img src=x onerror=alert(1)>{body_token}-body-tail");
+        let notification = Notification {
+            id: "notification-full-content-test".to_string(),
+            title,
+            body,
+            kind: None,
+            priority: None,
+            read: false,
+            created_at: timestamp("2026-07-22T10:00:00Z"),
+        };
+        let html = dioxus_ssr::render_element(rsx! {
+            NotificationRow {
+                notification,
+                rendered_at: timestamp("2026-07-22T12:00:00Z"),
+            }
+        });
+        let escaped_title =
+            format!("title-head-&#60;script&#62;{title_token}&#60;/script&#62;-title-tail");
+        let escaped_body =
+            format!("body-head-&#60;img src=x onerror=alert(1)&#62;{body_token}-body-tail");
+
+        let title_element = format!(
+            "<h3 class=\"notification-title\"><span class=\"sr-only\">Unread: </span>{escaped_title}</h3>"
+        );
+        let body_element = format!("<p class=\"notification-text\">{escaped_body}</p>");
+        let title_position = html.find(&title_element).expect("complete title element");
+        let body_position = html.find(&body_element).expect("complete body element");
+        let time_position = html.find("<time").expect("semantic received time");
+        assert!(title_position < body_position && body_position < time_position);
+        assert_eq!(html.matches("title-head-").count(), 1);
+        assert_eq!(html.matches("-title-tail").count(), 1);
+        assert_eq!(html.matches("body-head-").count(), 1);
+        assert_eq!(html.matches("-body-tail").count(), 1);
+        assert!(!html.contains("<script>"));
+        assert!(!html.contains("<img"));
+        for forbidden in [
+            "<a",
+            "<button",
+            "<details",
+            "<summary",
+            "tabindex=",
+            "onclick=",
+            "role=\"button\"",
+            "role=\"link\"",
+            "notification-action",
+        ] {
+            assert!(
+                !html.contains(forbidden),
+                "full-content row unexpectedly became interactive: {forbidden}"
+            );
+        }
+    }
+
+    #[test]
     fn loaded_notifications_are_a_named_native_noninteractive_list() {
         let html = dioxus_ssr::render_element(
             rsx! { NotificationListSection { items: exact_notifications() } },

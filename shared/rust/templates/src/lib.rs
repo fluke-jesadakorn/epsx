@@ -4856,19 +4856,17 @@ pub fn design_system_head_with_keywords(
   .notification-icon-chat        {{ background: rgba(118,69,217,0.10); color: #7645d9; }}
   .notification-icon-alert       {{ background: rgba(239,68,68,0.10);  color: #ef4444; }}
   .notification-icon-system      {{ background: rgba(148,163,184,0.10); color: #94a3b8; }}
-  .notification-body {{ flex: 1; min-width: 0; }}
-  .notification-headline {{ display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }}
+  .notification-body {{ flex: 1; min-width: 0; overflow-wrap: anywhere; }}
+  .notification-headline {{ display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; min-width: 0; }}
   .notification-title {{ font-size: 0.875rem; margin: 0; line-height: 1.3; font-weight: 600; flex: 1; min-width: 0;
-                          overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+                          overflow-wrap: anywhere; white-space: normal; }}
   .notification-row-unread .notification-title {{ font-weight: 700; color: var(--text, #fff); }}
   .notification-row-read .notification-title   {{ color: var(--text-muted, #94a3b8); font-weight: 400; }}
   .notification-unread-dot {{ width: 0.625rem; height: 0.625rem; border-radius: 9999px;
                                background: var(--notification-state-accent); flex-shrink: 0; margin-top: 0.375rem; }}
   .notification-unread-dot-empty {{ background: transparent; border: 1px solid var(--card-border, rgba(255,255,255,0.20)); }}
   .notification-text {{ font-size: 0.75rem; margin: 0.125rem 0 0; line-height: 1.4;
-                        color: var(--text-muted, #94a3b8);
-                        display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical;
-                        overflow: hidden; }}
+                        color: var(--text-muted, #94a3b8); overflow-wrap: anywhere; white-space: normal; }}
   .notification-meta {{ display: flex; align-items: center; gap: 0.375rem; margin-top: 0.25rem; flex-wrap: wrap; }}
   .notification-kind, .notification-priority {{ min-width: 0; overflow-wrap: anywhere; }}
   .notification-priority {{ display: inline-flex; align-items: center; max-width: 100%;
@@ -7054,6 +7052,59 @@ mod page_head_tests {
             .map(|offset| start + offset)
             .unwrap_or_else(|| panic!("unterminated {property} declaration in {rule}"));
         rule[start..end].trim()
+    }
+
+    #[test]
+    fn notification_content_rules_wrap_without_irreversible_hiding_or_clamping() {
+        let head = design_system_head(
+            "Notification content visibility",
+            "Keep complete escaped notification text in normal flow",
+        );
+        for (selector, expected) in [
+            (
+                ".notification-body",
+                &["min-width: 0;", "overflow-wrap: anywhere;"][..],
+            ),
+            (
+                ".notification-headline",
+                &["display: flex;", "min-width: 0;"][..],
+            ),
+            (
+                ".notification-title",
+                &[
+                    "flex: 1;",
+                    "min-width: 0;",
+                    "overflow-wrap: anywhere;",
+                    "white-space: normal;",
+                ][..],
+            ),
+            (
+                ".notification-text",
+                &["overflow-wrap: anywhere;", "white-space: normal;"][..],
+            ),
+        ] {
+            let rule = emitted_css_rule(&head, selector);
+            for declaration in expected {
+                assert!(
+                    rule.contains(declaration),
+                    "{selector} must emit {declaration}"
+                );
+            }
+            for forbidden in [
+                "overflow: hidden",
+                "text-overflow:",
+                "white-space: nowrap",
+                "display: -webkit-box",
+                "-webkit-line-clamp:",
+                "line-clamp:",
+                "-webkit-box-orient:",
+            ] {
+                assert!(
+                    !rule.contains(forbidden),
+                    "{selector} must not hide content with {forbidden}"
+                );
+            }
+        }
     }
 
     fn emitted_hex_declaration(rule: &str, property: &str) -> String {
