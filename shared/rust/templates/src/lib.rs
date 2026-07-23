@@ -3752,6 +3752,22 @@ pub fn design_system_head_with_keywords(
   .auth-page-fallback {{ text-align: center; font-size: 0.75rem; }}
   .auth-page-fallback a {{ color: rgb(113, 113, 122); text-decoration: underline; text-underline-offset: 2px; }}
 
+  html.dark .auth-page-pitch,
+  html.dark .auth-page-value-title,
+  html.dark .auth-card-title,
+  html.dark .auth-card-foot a {{ color: var(--text); }}
+  html.dark .auth-page-sub,
+  html.dark .auth-page-value-desc,
+  html.dark .auth-page-social-text,
+  html.dark .auth-card-sub,
+  html.dark .auth-card-foot,
+  html.dark .auth-page-status-indicator,
+  html.dark .auth-page-fallback a {{ color: var(--text-muted); }}
+  html.dark .auth-card-error {{
+    background: #7f1d1d; color: #fecaca;
+  }}
+  html.dark .auth-card-status {{ background: #1e3a8a; color: #dbeafe; }}
+
   /* === About page sections === */
   .about-hero-section {{ padding: 4rem 0 2rem; text-align: center; }}
   .about-hero-content {{ max-width: 48rem; margin: 0 auto; }}
@@ -7879,6 +7895,70 @@ mod page_head_tests {
             assert!(foreground_luminance > surface_luminance);
         }
         declared_contrast_ratio(foreground, surface)
+    }
+
+    #[test]
+    fn auth_dark_mode_text_and_state_colors_meet_declared_aa_contrast() {
+        let head = design_system_head(
+            "Authentication contrast",
+            "Static dark-theme authentication foreground and state pairs",
+        );
+        let dark_rule = emitted_css_rule(&head, "html.dark");
+        let primary = emitted_hex_declaration(dark_rule, "--text");
+        let muted = emitted_hex_declaration(dark_rule, "--text-muted");
+        let page_background = emitted_hex_declaration(dark_rule, "--bg");
+
+        let primary_selector = "html.dark .auth-page-pitch,\n  html.dark .auth-page-value-title,\n  html.dark .auth-card-title,\n  html.dark .auth-card-foot a";
+        let muted_selector = "html.dark .auth-page-sub,\n  html.dark .auth-page-value-desc,\n  html.dark .auth-page-social-text,\n  html.dark .auth-card-sub,\n  html.dark .auth-card-foot,\n  html.dark .auth-page-status-indicator,\n  html.dark .auth-page-fallback a";
+        assert_eq!(
+            emitted_declaration(emitted_css_rule(&head, primary_selector), "color"),
+            "var(--text)"
+        );
+        assert_eq!(
+            emitted_declaration(emitted_css_rule(&head, muted_selector), "color"),
+            "var(--text-muted)"
+        );
+
+        for (label, foreground) in [("primary", &primary), ("muted", &muted)] {
+            assert!(
+                contrast_ratio(foreground, &page_background) >= 4.5,
+                "auth {label} text must meet declared WCAG AA contrast on the dark page"
+            );
+        }
+
+        let page_envelope = opaque_channel_envelope([css_color(&page_background)]);
+        for surface_selector in ["html.dark .card", "html.dark .card-glass"] {
+            let surface = css_color(emitted_declaration(
+                emitted_css_rule(&head, surface_selector),
+                "background",
+            ));
+            assert_eq!(surface[3], 0.55);
+            let card_envelope = fixed_color_over_envelope(surface, page_envelope);
+            for (label, foreground) in [("primary", &primary), ("muted", &muted)] {
+                let actual = conservative_envelope_contrast(
+                    css_color(foreground),
+                    card_envelope,
+                    false,
+                );
+                assert!(
+                    actual >= 4.5,
+                    "auth {label} text contrast on {surface_selector} is {actual}"
+                );
+            }
+        }
+
+        for (selector, foreground, background) in [
+            ("html.dark .auth-card-error", "#fecaca", "#7f1d1d"),
+            ("html.dark .auth-card-status", "#dbeafe", "#1e3a8a"),
+        ] {
+            let rule = emitted_css_rule(&head, selector);
+            assert_eq!(emitted_declaration(rule, "color"), foreground);
+            assert_eq!(emitted_declaration(rule, "background"), background);
+            assert!(
+                contrast_ratio(foreground, background) >= 4.5,
+                "{selector} text must meet declared WCAG AA contrast"
+            );
+        }
     }
 
     #[test]

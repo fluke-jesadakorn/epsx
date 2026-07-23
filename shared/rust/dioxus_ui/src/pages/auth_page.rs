@@ -428,6 +428,20 @@ mod tests {
         assert!(!html.contains("disabled=\"disabled\""));
         assert!(html.contains("Wallet-based sign-in"));
         assert!(!html.contains("Network Secure &amp; Operational"));
+        for class in [
+            "auth-page-pitch",
+            "auth-page-sub",
+            "auth-page-value-title",
+            "auth-page-value-desc",
+            "auth-page-social-text",
+            "auth-card-title",
+            "auth-card-sub",
+            "auth-card-foot",
+            "auth-page-status-indicator",
+            "auth-page-fallback",
+        ] {
+            assert!(html.contains(&format!("class=\"{class}\"")), "missing {class}");
+        }
     }
 
     #[test]
@@ -436,6 +450,7 @@ mod tests {
         assert!(html.contains("data-auth-session-state=\"recovering\""));
         assert!(html.contains("aria-busy=\"true\""));
         assert!(html.contains("role=\"status\""));
+        assert!(html.contains("class=\"auth-card-status\""));
         assert!(html.contains("Restoring your session..."));
         assert!(html.contains("disabled=\"true\"") || html.contains("disabled=\"disabled\""));
     }
@@ -444,6 +459,9 @@ mod tests {
     fn auth_page_verifier_unavailable_is_fixed_and_disables_connect() {
         let html = render_with_session_state(Some(AUTH_PAGE_SESSION_STATE_VERIFIER_UNAVAILABLE));
         assert!(html.contains("data-auth-session-state=\"verifier_unavailable\""));
+        assert!(html.contains("class=\"auth-card-error\""));
+        assert!(html.contains("class=\"auth-card-error-title\""));
+        assert!(html.contains("class=\"auth-card-error-msg\""));
         assert!(html.contains("Sign-in temporarily unavailable"));
         assert!(html.contains("We cannot verify your session right now. Please try again later."));
         assert!(html.contains("disabled=\"true\"") || html.contains("disabled=\"disabled\""));
