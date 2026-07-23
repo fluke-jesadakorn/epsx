@@ -7028,7 +7028,7 @@ pub fn epsx_header_for_session(is_authenticated: bool) -> String {
       <span class="text-xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#488BFA] to-[#A43FF3] leading-none mt-0.5">EPSX</span>
     </a>
 
-    <nav class="hidden md:flex items-center gap-1">
+    <nav class="hidden md:flex items-center gap-1" aria-label="Primary">
       {market}
       {developer}
       {company}
@@ -9001,6 +9001,48 @@ assert.equal(fetchCalls, 0);
                 .find(link)
                 .expect("footer link must retain its exact order");
             previous_end += relative_position + link.len();
+        }
+    }
+
+    #[test]
+    fn completed_shell_names_primary_and_footer_navigation_landmarks() {
+        for authenticated in [false, true] {
+            let header = epsx_header_for_session(authenticated);
+            let primary =
+                r#"<nav class="hidden md:flex items-center gap-1" aria-label="Primary">"#;
+            assert_eq!(header.matches("<nav ").count(), 1);
+            assert_eq!(header.matches(primary).count(), 1);
+            assert!(!header.contains(r#"role="navigation""#));
+
+            let shell = page_shell(
+                "Named navigation",
+                "Native navigation landmark names",
+                &header,
+                r#"<section id="body-sentinel">Body</section>"#,
+                true,
+            );
+            assert_eq!(shell.matches("<nav ").count(), 4);
+            assert_eq!(shell.matches(r#"aria-label="Primary""#).count(), 1);
+            assert_eq!(shell.matches("aria-labelledby=\"footer-").count(), 3);
+            assert!(!shell.contains(r#"role="navigation""#));
+            for footer_heading in [
+                "footer-platform-heading",
+                "footer-developers-heading",
+                "footer-company-heading",
+            ] {
+                assert_eq!(
+                    shell
+                        .matches(&format!(r#"id="{footer_heading}""#))
+                        .count(),
+                    1
+                );
+                assert_eq!(
+                    shell
+                        .matches(&format!(r#"aria-labelledby="{footer_heading}""#))
+                        .count(),
+                    1
+                );
+            }
         }
     }
 
