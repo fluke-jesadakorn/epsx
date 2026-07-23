@@ -678,6 +678,12 @@ fn EndpointCard(endpoint: EndpointDef) -> Element {
     let javascript = code_snippet(&endpoint, "javascript");
     let python = code_snippet(&endpoint, "python");
     let response = pretty_response(&endpoint.response_example);
+    let curl_tab_id = format!("{card_id}-tab-curl");
+    let javascript_tab_id = format!("{card_id}-tab-javascript");
+    let python_tab_id = format!("{card_id}-tab-python");
+    let curl_panel_id = format!("{card_id}-panel-curl");
+    let javascript_panel_id = format!("{card_id}-panel-javascript");
+    let python_panel_id = format!("{card_id}-panel-python");
     rsx! {
         article { class: "docs-endpoint-card rounded-2xl border border-border/20 bg-card shadow-xl",
             id: "{card_id}",
@@ -756,12 +762,18 @@ fn EndpointCard(endpoint: EndpointDef) -> Element {
                             class: "docs-code-toolbar",
                             role: "tablist",
                             "aria-label": "Code language",
-                            for (lang, label) in [("curl", "cURL"), ("javascript", "JavaScript"), ("python", "Python")] {
+                            for (lang, label, tab_id, panel_id) in [
+                                ("curl", "cURL", curl_tab_id.clone(), curl_panel_id.clone()),
+                                ("javascript", "JavaScript", javascript_tab_id.clone(), javascript_panel_id.clone()),
+                                ("python", "Python", python_tab_id.clone(), python_panel_id.clone()),
+                            ] {
                                 button {
+                                    id: "{tab_id}",
                                     r#type: "button",
                                     class: if lang == "curl" { "docs-code-tab active" } else { "docs-code-tab" },
                                     role: "tab",
                                     "data-docs-code-tab": "{lang}",
+                                    "aria-controls": "{panel_id}",
                                     "aria-selected": if lang == "curl" { "true" } else { "false" },
                                     tabindex: if lang == "curl" { "0" } else { "-1" },
                                     "{label}"
@@ -769,9 +781,35 @@ fn EndpointCard(endpoint: EndpointDef) -> Element {
                             }
                             button { r#type: "button", class: "docs-copy-button", "data-docs-copy-code": "true", span { "Copy" } }
                         }
-                        pre { class: "docs-code-panel", "data-docs-code-panel": "curl", code { "{curl}" } }
-                        pre { class: "docs-code-panel", "data-docs-code-panel": "javascript", hidden: true, code { "{javascript}" } }
-                        pre { class: "docs-code-panel", "data-docs-code-panel": "python", hidden: true, code { "{python}" } }
+                        pre {
+                            id: "{curl_panel_id}",
+                            class: "docs-code-panel",
+                            role: "tabpanel",
+                            tabindex: "0",
+                            "aria-labelledby": "{curl_tab_id}",
+                            "data-docs-code-panel": "curl",
+                            code { "{curl}" }
+                        }
+                        pre {
+                            id: "{javascript_panel_id}",
+                            class: "docs-code-panel",
+                            role: "tabpanel",
+                            tabindex: "0",
+                            "aria-labelledby": "{javascript_tab_id}",
+                            "data-docs-code-panel": "javascript",
+                            hidden: true,
+                            code { "{javascript}" }
+                        }
+                        pre {
+                            id: "{python_panel_id}",
+                            class: "docs-code-panel",
+                            role: "tabpanel",
+                            tabindex: "0",
+                            "aria-labelledby": "{python_tab_id}",
+                            "data-docs-code-panel": "python",
+                            hidden: true,
+                            code { "{python}" }
+                        }
                     }
                 }
                 // Response example
@@ -1146,6 +1184,85 @@ mod tests {
         assert_eq!(html.matches("const res = await fetch").count(), 10);
         assert!(!html.contains("REST endpoints, request/response schemas, and examples"));
         assert!(!html.contains("API documentation</h1>"));
+    }
+
+    #[test]
+    fn docs_code_tabs_reference_unique_panels() {
+        fn opening_tag_with_id<'a>(html: &'a str, tag: &str, id: &str) -> &'a str {
+            let id_attribute = format!(r#"id="{id}""#);
+            html.split('<')
+                .filter_map(|tail| tail.split_once('>').map(|(opener, _)| opener))
+                .find(|opener| {
+                    opener.starts_with(tag)
+                        && opener.as_bytes().get(tag.len()) == Some(&b' ')
+                        && opener.contains(&id_attribute)
+                })
+                .unwrap_or_else(|| panic!("missing <{tag}> with {id_attribute}"))
+        }
+
+        let (_meta, element) = render_docs(&authed_ctx());
+        let html = dioxus_ssr::render_element(element);
+        let mut tab_ids = std::collections::HashSet::new();
+        let mut panel_ids = std::collections::HashSet::new();
+        let mut endpoint_count = 0;
+
+        for category in cached_endpoint_categories() {
+            for endpoint in &category.endpoints {
+                endpoint_count += 1;
+                let card_id = format!(
+                    "docs-endpoint-{}-{}",
+                    endpoint.method.to_ascii_lowercase(),
+                    endpoint.path.trim_matches('/').replace('/', "-")
+                );
+                for (language, selected) in
+                    [("curl", true), ("javascript", false), ("python", false)]
+                {
+                    let tab_id = format!("{card_id}-tab-{language}");
+                    let panel_id = format!("{card_id}-panel-{language}");
+                    assert!(tab_ids.insert(tab_id.clone()), "duplicate tab id {tab_id}");
+                    assert!(
+                        panel_ids.insert(panel_id.clone()),
+                        "duplicate panel id {panel_id}"
+                    );
+
+                    let tab = opening_tag_with_id(&html, "button", &tab_id);
+                    assert!(tab.contains(r#"role="tab""#));
+                    assert!(tab.contains(&format!(r#"data-docs-code-tab="{language}""#)));
+                    assert!(tab.contains(&format!(r#"aria-controls="{panel_id}""#)));
+                    assert!(tab.contains(if selected {
+                        r#"aria-selected="true""#
+                    } else {
+                        r#"aria-selected="false""#
+                    }));
+                    assert!(tab.contains(if selected {
+                        r#"tabindex="0""#
+                    } else {
+                        r#"tabindex="-1""#
+                    }));
+
+                    let panel = opening_tag_with_id(&html, "pre", &panel_id);
+                    assert!(panel.contains(r#"role="tabpanel""#));
+                    assert!(panel.contains(r#"tabindex="0""#));
+                    assert!(panel.contains(&format!(r#"aria-labelledby="{tab_id}""#)));
+                    assert!(panel.contains(&format!(
+                        r#"data-docs-code-panel="{language}""#
+                    )));
+                    assert_eq!(panel.contains(" hidden"), !selected);
+                    assert_eq!(html.matches(&format!(r#"id="{tab_id}""#)).count(), 1);
+                    assert_eq!(html.matches(&format!(r#"id="{panel_id}""#)).count(), 1);
+                }
+            }
+        }
+
+        assert_eq!(endpoint_count, 10);
+        assert_eq!(tab_ids.len(), 30);
+        assert_eq!(panel_ids.len(), 30);
+        assert!(tab_ids.is_disjoint(&panel_ids));
+        assert_eq!(html.matches(r#"role="tablist""#).count(), 10);
+        assert_eq!(html.matches(r#"role="tab""#).count(), 30);
+        assert_eq!(html.matches(r#"role="tabpanel""#).count(), 30);
+        assert!(html.contains(r#"id="docs-endpoint-get-api-auth-session-verify-tab-curl""#));
+        assert!(html.contains(r#"id="docs-endpoint-get-api-auth-session-verify-panel-curl""#));
     }
 
     /// Wave 22 T4 — `test_endpoint_catalog_units`. Cached catalog

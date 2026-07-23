@@ -8986,7 +8986,7 @@ assert.equal(fetchCalls, 0);
             .find("  // ============ EPSX.io-style nav (Market/Developer/Company) ============")
             .expect("shared navigation controller start");
         let end = script[start..]
-            .find("\n\n  // Update theme toggle visibility")
+            .find("\n\n  // ============ Tabs ============")
             .map(|offset| start + offset)
             .expect("shared navigation controller end");
         &script[start..end]
