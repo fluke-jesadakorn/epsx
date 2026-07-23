@@ -16,22 +16,22 @@ const NEWS_AUTHOR_MAX_CHARS: usize = 160;
 const NEWS_READ_TIME_MAX_CHARS: usize = 32;
 
 #[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
-struct NewsPost {
+pub(super) struct NewsPost {
     id: Option<String>,
-    slug: String,
-    title: String,
-    summary: String,
-    cover_image_url: Option<String>,
-    author: Option<String>,
-    published_at: Option<String>,
-    read_time: Option<String>,
-    tags: Vec<String>,
-    featured: bool,
+    pub(super) slug: String,
+    pub(super) title: String,
+    pub(super) summary: String,
+    pub(super) cover_image_url: Option<String>,
+    pub(super) author: Option<String>,
+    pub(super) published_at: Option<String>,
+    pub(super) read_time: Option<String>,
+    pub(super) tags: Vec<String>,
+    pub(super) featured: bool,
 }
 
 #[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
 #[serde(tag = "state", rename_all = "snake_case")]
-enum NewsListOutcome {
+pub(super) enum NewsListOutcome {
     Ready {
         articles: Vec<NewsPost>,
         total: u64,
@@ -122,8 +122,8 @@ fn valid_post(post: &NewsPost) -> bool {
         && post.published_at.as_deref().is_none_or(valid_display_date)
 }
 
-fn parse_outcome(ctx: &PageContext) -> NewsListOutcome {
-    let Some(raw) = ctx.params.get("data_news") else {
+pub(super) fn parse_news_list_outcome(raw: Option<&str>) -> NewsListOutcome {
+    let Some(raw) = raw else {
         return NewsListOutcome::Error {
             code: "missing_content_outcome".to_string(),
         };
@@ -192,7 +192,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let mut meta = PageMeta::marketing("News");
     meta.title = "News — EPSX".to_string();
     meta.description = "Latest news and updates from EPSX analytics platform".to_string();
-    let outcome = parse_outcome(ctx);
+    let outcome = parse_news_list_outcome(ctx.params.get("data_news").map(String::as_str));
     let retry_href = if ctx.query.is_empty() {
         "/news".to_string()
     } else {

@@ -26,15 +26,15 @@
   "routes": [
     {
       "path":"/","batch":"B1-public-content","status":"blocked","dependencies":["A4","A5"],
-      "source":{"file":"apps/frontend/app/page.tsx","anchors":["export default async function HomePage","<Suspense fallback={<TopPerformersLoading />}>" ]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/home.rs","handler":"home::render","anchors":["pub fn render(ctx: &PageContext)","\"data-home-market-state\": \"unavailable\"","\"data-home-plans-state\": \"unavailable\"","\"data-home-news-state\": \"unavailable\"","fn home_does_not_render_legacy_fixtures_or_numeric_claims()"]},
+      "source":{"file":"apps/frontend/app/page.tsx","anchors":["export default async function HomePage","<ServerNewsSection />" ]},
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/home.rs","handler":"home::render","anchors":["pub fn render(ctx: &PageContext)","\"data-home-market-state\": \"unavailable\"","\"data-home-plans-state\": \"unavailable\"","\"data-home-news-state\": \"ready\"","fn home_news_renders_one_to_three_rows_in_source_order_and_truncates_four()"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
-      "loader":{"kind":"intentional-unavailable-no-home-producers","endpoints":[],"evidence":[]},
-      "authOwner":{"auth":"public","owner":"no ranking, pricing, plan, eligibility, or editorial claims are asserted; each remains backend-owned"},
-      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native analytics, plans, news, and recovery links"],"controls":["fixed market cards, plan catalogs, article fixtures, numerical/live claims, and share action removed"]},
-      "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"present"},
-      "hydration":{"need":"none","status":"not-applicable","reason":"public fail-closed sections and recovery links are fully server-rendered"},
-      "blockers":["A4/A5 must provide strict ranking, public plan, and published-news preview contracts with backend-owned access decisions, provenance/freshness, complete async outcomes, and browser proof before the unavailable sections are replaced"]
+      "loader":{"kind":"gateway-strict-news-plus-unavailable-market-plans","endpoints":["GET /api/v1/content/news?page=1&limit=100"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"load_home_news(state.content.as_ref(), path).await"}]},
+      "authOwner":{"auth":"public","owner":"the default public-news list is not owner-scoped; no ranking, pricing, plan, eligibility, or editorial ordering claim is asserted by the frontend"},
+      "interactions":{"forms":[],"pagination":[],"search":["Home query fields never select, filter, page, or limit the preview"],"wallet":[],"keyboard":["native article, view-all, analytics, plans, news, and retry-home links"],"controls":["source-order first-three public-news links; fixed market cards, plan catalogs, article fixtures, numerical/live claims, and share action remain removed"]},
+      "states":{"loading":"missing","empty":"present","error":"present","retry":"present"},
+      "hydration":{"need":"none","status":"not-applicable","reason":"strict public-news ready/empty/error outcomes and fail-closed market/plan sections are fully server-rendered with native links"},
+      "blockers":["A4/A5 must still provide strict ranking and public-plan contracts with backend-owned access decisions, provenance/freshness, complete async outcomes, and browser proof before those unavailable Home sections are replaced","Home reuses the general first-100 news list and its fixed 12-item normalized page before taking three source-order rows; unlike the pinned dedicated featured endpoint it cannot prove pinned/featured ordering, the content service still turns a missing marketing news file into an indistinguishable empty list, source 60-second ISR parity is absent, and no live-service/browser proof exists"]
     },
     {
       "path":"/about","batch":"B1-public-content","status":"aligned","dependencies":[],

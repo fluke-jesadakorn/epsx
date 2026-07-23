@@ -59,6 +59,7 @@ const UNAUTH_REDIRECT_PATHS: &[&str] = &[
 
 const NOTIFICATIONS_DATA_PARAM: &str = "data_notifications";
 const NOTIFICATIONS_STATE_PARAM: &str = "data_notifications_state";
+const HOME_NEWS_DATA_PARAM: &str = "data_home_news";
 const ACCOUNT_PAYMENT_HISTORY_LIMIT: usize = 10;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -110,6 +111,26 @@ fn record_notification_load(
             params.insert(NOTIFICATIONS_STATE_PARAM.into(), "malformed".into());
         }
     }
+}
+
+async fn load_home_news(
+    client: &epsx_client::ServiceClient,
+    path: &str,
+) -> Option<crate::api::NewsListLoadOutcome> {
+    if !matches!(path, "/" | "/index") {
+        return None;
+    }
+    Some(crate::api::load_news_list(client, &crate::api::NewsQuery::default()).await)
+}
+
+fn record_home_news_load(
+    params: &mut HashMap<String, String>,
+    outcome: crate::api::NewsListLoadOutcome,
+) {
+    params.insert(
+        HOME_NEWS_DATA_PARAM.to_string(),
+        serde_json::to_string(&outcome).expect("home news outcome is serializable"),
+    );
 }
 
 fn account_payment_history_path(owner: &str) -> Option<String> {
@@ -542,6 +563,12 @@ async fn fetch_page_data(
     // rendered as a failure and never replaced with production-looking sample
     // data. `/dashboard` intentionally has no loader until an owner-scoped
     // producer contract exists.
+    // `/` and its existing `/index` alias reuse the strict normalized list
+    // adapter with its default page/query/category. Home query fields belong
+    // to other sections and never select or limit the public-news preview.
+    if let Some(outcome) = load_home_news(state.content.as_ref(), path).await {
+        record_home_news_load(params, outcome);
+    }
     // /news: load the content dependency through the same strict adapter used
     // by the JSON BFF route. The outcome keeps empty distinct from unavailable
     // or malformed and carries the URL-stable q/category/page selection.
@@ -1137,6 +1164,7 @@ mod tests {
     use super::auth_page_session_state;
     use super::developer_docs_runtime_script;
     use super::escaped_page_metadata;
+    use super::load_home_news;
     use super::manual_runtime_script;
     use super::news_detail_route_segment;
     use super::news_detail_route_slug;
@@ -1148,6 +1176,7 @@ mod tests {
     use super::offline_worker_registration_script;
     use super::pricing_redirect_response;
     use super::record_account_payment_history_load;
+    use super::record_home_news_load;
     use super::record_notification_load;
     use super::safe_return_url;
     use super::urlencode;
@@ -1156,7 +1185,7 @@ mod tests {
         AUTH_PAGE_SESSION_STATE_RECOVERING, AUTH_PAGE_SESSION_STATE_SIGNED_OUT,
         AUTH_PAGE_SESSION_STATE_VERIFIER_UNAVAILABLE,
     };
-    use epsx_dioxus_ui::pages::PageMeta;
+    use epsx_dioxus_ui::pages::{PageContext, PageMeta, PageStatus};
     use std::collections::HashMap;
 
     fn owner_history_payload(owner: &str, with_intent: bool) -> serde_json::Value {
@@ -1419,6 +1448,104 @@ mod tests {
         assert_eq!(safe_return_url("return_url=%2F%2Fevil.example%2Fx"), "/");
         assert_eq!(safe_return_url("return_url=%5C%5Cevil.example"), "/");
         assert_eq!(safe_return_url("return_url=%2Fauth"), "/");
+    }
+
+    #[tokio::test]
+    async fn home_news_loader_uses_one_default_list_call_for_exact_root_paths_only() {
+        let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let route_calls = std::sync::Arc::clone(&calls);
+        let router = axum::Router::new().route(
+            "/api/v1/content/news",
+            axum::routing::get(move || {
+                let route_calls = std::sync::Arc::clone(&route_calls);
+                async move {
+                    route_calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    axum::Json(serde_json::json!({"articles": [], "total": 0}))
+                }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("loopback listener");
+        let address = listener.local_addr().expect("loopback address");
+        tokio::spawn(async move {
+            axum::serve(listener, router)
+                .await
+                .expect("home news mock server");
+        });
+        let client = epsx_client::ServiceClient::new(epsx_client::ClientConfig {
+            base_url: format!("http://{address}"),
+            timeout: std::time::Duration::from_secs(1),
+        });
+
+        for (expected_calls, path) in [(1, "/"), (2, "/index")] {
+            let outcome = load_home_news(&client, path)
+                .await
+                .expect("exact home path must load news");
+            assert!(matches!(
+                outcome,
+                crate::api::NewsListLoadOutcome::Empty {
+                    total: 0,
+                    page: 1,
+                    limit: 12,
+                    total_pages: 0,
+                    ref query,
+                    ref category,
+                } if query.is_empty() && category == "all"
+            ));
+            assert_eq!(
+                calls.load(std::sync::atomic::Ordering::SeqCst),
+                expected_calls
+            );
+        }
+
+        for path in ["/news", "/about", "/?q=foreign", "/index/"] {
+            assert!(load_home_news(&client, path).await.is_none(), "{path}");
+        }
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn home_news_uses_a_distinct_param_and_keeps_root_status_soft_ok() {
+        let mut params = HashMap::from([(
+            "data_news".to_string(),
+            "dedicated-news-route-value".to_string(),
+        )]);
+        record_home_news_load(
+            &mut params,
+            crate::api::NewsListLoadOutcome::Error {
+                code: "content_unavailable".to_string(),
+            },
+        );
+
+        assert_eq!(
+            params.get("data_news").map(String::as_str),
+            Some("dedicated-news-route-value")
+        );
+        assert_eq!(
+            params
+                .get(super::HOME_NEWS_DATA_PARAM)
+                .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok()),
+            Some(serde_json::json!({
+                "state": "error",
+                "code": "content_unavailable"
+            }))
+        );
+        assert_eq!(news_ssr_status("/", &params), None);
+        assert_eq!(news_ssr_status("/index", &params), None);
+
+        let ctx = PageContext {
+            path: "/".to_string(),
+            params,
+            ..Default::default()
+        };
+        let (meta, _) = epsx_dioxus_ui::pages::home::render(&ctx);
+        assert_eq!(meta.status, PageStatus::Ok);
+        let status = news_ssr_status(&ctx.path, &ctx.params).unwrap_or_else(|| match meta.status {
+            PageStatus::Ok => StatusCode::OK,
+            PageStatus::NotFound => StatusCode::NOT_FOUND,
+        });
+        assert_eq!(status, StatusCode::OK);
     }
 
     #[test]
