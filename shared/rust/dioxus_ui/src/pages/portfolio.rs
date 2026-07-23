@@ -13,6 +13,8 @@ use crate::layout::main_layout::MainLayout;
 use crate::primitives::*;
 use dioxus::prelude::*;
 
+const PORTFOLIO_SIGN_IN_PATH: &str = "/auth?return_url=%2Fportfolio";
+
 /// Inline CSS rules for Tailwind v2 CDN arbitrary-value classes
 /// that the CDN doesn't generate. We inject these into the page so
 /// `h-[400px]`-style dimensions render correctly.
@@ -207,7 +209,7 @@ fn PortfolioSignInCard() -> Element {
                 }
                 // Primary "Sign In" button — bright blue
                 a { class: "portfolio-prod-signin-btn w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-center block",
-                    href: "/auth",
+                    href: PORTFOLIO_SIGN_IN_PATH,
                     "Sign In"
                 }
                 // "Learn More" link — blue text
@@ -344,7 +346,7 @@ mod tests {
             "portfolio-prod-signin",
             "Sign In Required",
             "To view your portfolio, you need basic authentication.",
-            "href=\"/auth\"",
+            "href=\"/auth?return_url=%2Fportfolio\"",
             "href=\"/contact\"",
             "aria-label=\"Sign in required\"",
         ] {
@@ -354,6 +356,8 @@ mod tests {
             );
         }
 
+        assert_eq!(html.matches(PORTFOLIO_SIGN_IN_PATH).count(), 1);
+        assert!(!html.contains("href=\"/auth\""));
         assert!(!html.contains("data-portfolio-state=\"unavailable\""));
         assert!(!html.contains("portfolio-prod-stock-card"));
         assert!(!html.contains("portfolio-prod-search-input"));
