@@ -11,6 +11,13 @@ use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
 use dioxus::prelude::*;
 
+#[path = "manual_route_statuses.rs"]
+mod manual_route_statuses;
+
+#[cfg(test)]
+use manual_route_statuses::RouteMigrationStatus;
+use manual_route_statuses::{ManualRouteStatus, MANUAL_ROUTE_STATUSES};
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct ManualFeature {
     id: &'static str,
@@ -91,6 +98,11 @@ const MANUAL_INLINE_CSS: &str = r#"
 .manual-prod-category { scroll-margin-top: 5rem; }
 .manual-prod-feature-head { flex-wrap: wrap; }
 .manual-prod-feature-route { overflow-wrap: anywhere; }
+.manual-prod-feature-status { border: 1px solid currentColor; border-radius: 9999px; padding: 0.125rem 0.5rem; font-size: 0.75rem; font-weight: 600; line-height: 1rem; }
+.manual-prod-feature-status[data-manual-route-status="aligned"] { color: rgb(134, 239, 172); }
+.manual-prod-feature-status[data-manual-route-status="partial"] { color: rgb(253, 224, 71); }
+.manual-prod-feature-status[data-manual-route-status="blocked"] { color: rgb(252, 165, 165); }
+.manual-prod-feature-status[data-manual-route-status="unavailable"] { color: rgb(156, 163, 175); }
 .manual-prod-screenshot-button { display: block; width: 100%; height: 100%; text-align: left; }
 .manual-prod-screenshot-img { width: 100%; height: 100%; object-fit: cover; object-position: top; cursor: zoom-in; }
 .manual-prod-screenshot-fallback { display: none; width: 100%; height: 100%; align-items: center; justify-content: center; color: rgb(107, 114, 128); }
@@ -170,11 +182,14 @@ fn ManualContent() -> Element {
                 }
                 aside {
                     class: "mb-8 rounded-lg border border-amber-700/60 bg-amber-950/30 p-4 text-sm text-amber-100",
-                    "aria-labelledby": "manual-availability-title",
-                    "data-manual-availability-notice": "target-reference",
-                    h2 { class: "mb-1 font-semibold", id: "manual-availability-title", "Feature availability" }
+                    "aria-labelledby": "manual-migration-title",
+                    "data-manual-migration-notice": "route-evidence",
+                    h2 { class: "mb-1 font-semibold", id: "manual-migration-title", "Route migration status" }
                     p {
-                        "This manual preserves the development target catalog and screenshots for migration reference. Descriptions show intended workflows; they do not confirm that data is live or that actions are currently enabled. When a route reports unavailable, that route state is authoritative."
+                        "This manual preserves the development target catalog and screenshots for migration reference. Descriptions show intended workflows; they do not confirm feature availability, live data, or enabled actions."
+                    }
+                    p { class: "mt-2",
+                        "Badges report route-level migration readiness from the checked contract only. They are not feature, permission, plan, entitlement, authentication, or live runtime checks. Duplicate feature cards that share a route intentionally share its route migration status."
                     }
                 }
                 for cat in CATEGORIES.iter() {
@@ -212,8 +227,23 @@ fn ManualFeatureCard(feature: ManualFeature) -> Element {
     let screenshot_src = format!("/public/screenshots/{screenshot_name}.webp");
     let heading_id = format!("manual-feature-{}", feature.id);
     let screenshot_label = format!("Open {} screenshot", feature.name);
-    let dynamic_route = feature.route.contains('[');
-    let route_href = if dynamic_route { "#" } else { feature.route };
+    let dynamic_route = feature.route == "/payment/[type]/[id]";
+    let route_status = lookup_manual_route_status(feature.route);
+    let status_label = route_status
+        .map(|status| status.status.label())
+        .unwrap_or("Migration status unavailable");
+    let status_token = route_status
+        .map(|status| status.status.token())
+        .unwrap_or("unavailable");
+    let status_accessible_label = format!("Route status: {status_label}");
+    let action_label = if dynamic_route {
+        "Route template only"
+    } else if route_status.is_some() {
+        "View route"
+    } else {
+        "Route status unavailable"
+    };
+    let action_accessible_label = format!("{action_label}: {}", feature.name);
     rsx! {
         article { class: "manual-prod-feature group overflow-hidden rounded-lg border border-gray-800 bg-gray-900/60 transition-colors hover:border-gray-600", "aria-labelledby": "{heading_id}",
             div { class: "manual-prod-screenshot-wrap relative aspect-video w-full overflow-hidden bg-gray-800",
@@ -240,14 +270,33 @@ fn ManualFeatureCard(feature: ManualFeature) -> Element {
                     span { class: "rounded bg-gray-800 px-1.5 py-0.5 text-xs text-gray-400 font-mono manual-prod-feature-route",
                         "{feature.route}"
                     }
+                    span {
+                        class: "manual-prod-feature-status",
+                        "data-manual-route-status": "{status_token}",
+                        "aria-label": "{status_accessible_label}",
+                        "{status_label}"
+                    }
                 }
                 p { class: "mb-2 text-sm text-gray-400 manual-prod-feature-desc", "{feature.desc}" }
-                a {
-                    class: "text-sm text-blue-400 hover:text-blue-300 manual-prod-feature-link",
-                    href: "{route_href}",
-                    "aria-disabled": if dynamic_route { "true" } else { "false" },
-                    "data-route-template": if dynamic_route { "true" } else { "false" },
-                    "Open page →"
+                if dynamic_route || route_status.is_none() {
+                    span {
+                        class: "text-sm text-gray-400 manual-prod-feature-link",
+                        "aria-disabled": "true",
+                        "data-route-template": if dynamic_route { "true" } else { "false" },
+                        "data-manual-route-action": "{status_token}",
+                        "aria-label": "{action_accessible_label}",
+                        "{action_label}"
+                    }
+                } else if let Some(status) = route_status {
+                    a {
+                        class: "text-sm text-blue-400 hover:text-blue-300 manual-prod-feature-link",
+                        href: "{status.target_route}",
+                        "aria-disabled": "false",
+                        "data-route-template": "false",
+                        "data-manual-route-action": "{status_token}",
+                        "aria-label": "{action_accessible_label}",
+                        "{action_label} →"
+                    }
                 }
             }
         }
@@ -291,6 +340,20 @@ fn cat_slug(cat: &str) -> String {
     cat.to_lowercase().replace(' ', "-")
 }
 
+fn normalize_manual_route(route: &str) -> &str {
+    match route {
+        "/payment/[type]/[id]" => "/payment/:type/:id",
+        _ => route,
+    }
+}
+
+fn lookup_manual_route_status(route: &str) -> Option<&'static ManualRouteStatus> {
+    let normalized_route = normalize_manual_route(route);
+    MANUAL_ROUTE_STATUSES
+        .iter()
+        .find(|status| status.target_route == normalized_route)
+}
+
 // === wave5-page-depth-track-b tests + Wave 25 T2 prod markers ===
 #[cfg(test)]
 mod tests {
@@ -307,6 +370,12 @@ mod tests {
     fn render_to_string(ctx: &PageContext) -> String {
         let (_meta, el) = render(ctx);
         dioxus_ssr::render_element(el)
+    }
+
+    fn render_feature_to_string(feature: &ManualFeature) -> String {
+        dioxus_ssr::render_element(rsx! {
+            ManualFeatureCard { feature: feature.clone() }
+        })
     }
 
     #[test]
@@ -342,7 +411,7 @@ mod tests {
             "aspect-video",
             "data-manual-screenshot",
             "data-manual-dialog",
-            "Open page",
+            "View route",
         ] {
             assert!(
                 html.contains(marker),
@@ -397,12 +466,14 @@ mod tests {
     }
 
     #[test]
-    fn manual_frames_pinned_catalog_as_target_reference_not_runtime_availability() {
+    fn manual_frames_badges_as_route_migration_evidence_not_feature_availability() {
         let html = render_to_string(&empty_ctx());
-        assert!(html.contains("data-manual-availability-notice=\"target-reference\""));
+        assert!(html.contains("data-manual-migration-notice=\"route-evidence\""));
+        assert!(html.contains("Route migration status"));
         assert!(html.contains("Descriptions show intended workflows"));
-        assert!(html.contains("they do not confirm that data is live"));
-        assert!(html.contains("that route state is authoritative"));
+        assert!(html.contains("they do not confirm feature availability"));
+        assert!(html.contains("route-level migration readiness from the checked contract only"));
+        assert!(html.contains("Duplicate feature cards that share a route intentionally share"));
     }
 
     #[test]
@@ -467,5 +538,291 @@ mod tests {
                 f.category
             );
         }
+    }
+
+    #[test]
+    fn every_pinned_feature_has_exactly_one_route_status_mapping() {
+        assert_eq!(FEATURES.len(), 35, "pinned source catalog has 35 features");
+        assert_eq!(
+            FEATURES
+                .iter()
+                .map(|feature| normalize_manual_route(feature.route))
+                .collect::<std::collections::BTreeSet<_>>()
+                .len(),
+            21,
+            "pinned features have 21 unique normalized routes"
+        );
+
+        for feature in FEATURES {
+            let normalized_route = normalize_manual_route(feature.route);
+            let matches = MANUAL_ROUTE_STATUSES
+                .iter()
+                .filter(|status| status.target_route == normalized_route)
+                .count();
+            assert_eq!(
+                matches, 1,
+                "feature `{}` route `{}` must have exactly one presentation mapping",
+                feature.id, feature.route
+            );
+        }
+    }
+
+    #[test]
+    fn route_status_map_is_the_exact_unique_contract_path_set() {
+        let expected_routes = [
+            "/",
+            "/about",
+            "/news",
+            "/news/:slug",
+            "/auth",
+            "/account",
+            "/account/credits",
+            "/profile",
+            "/analytics",
+            "/dashboard",
+            "/portfolio",
+            "/permissions",
+            "/chat",
+            "/chat/:id",
+            "/chat/history",
+            "/notifications",
+            "/developer",
+            "/developer/docs",
+            "/developer/usage",
+            "/manual",
+            "/plans",
+            "/payment",
+            "/payment/:type/:id",
+            "/contact",
+            "/access-denied",
+            "/offline",
+            "/privacy",
+            "/terms",
+        ];
+        assert_eq!(MANUAL_ROUTE_STATUSES.len(), expected_routes.len());
+        for expected_route in expected_routes {
+            assert_eq!(
+                MANUAL_ROUTE_STATUSES
+                    .iter()
+                    .filter(|status| status.target_route == expected_route)
+                    .count(),
+                1,
+                "contract route `{expected_route}` must occur exactly once"
+            );
+        }
+
+        assert_eq!(
+            normalize_manual_route("/payment/[type]/[id]"),
+            "/payment/:type/:id"
+        );
+        assert_eq!(
+            normalize_manual_route("/payment/[unknown]/[id]"),
+            "/payment/[unknown]/[id]",
+            "only the pinned payment template may be normalized"
+        );
+    }
+
+    #[test]
+    fn generated_route_statuses_expose_raw_contract_semantics() {
+        let mut aligned = 0;
+        let mut partial = 0;
+        let mut blocked = 0;
+        for status in MANUAL_ROUTE_STATUSES {
+            match status.status {
+                RouteMigrationStatus::Aligned => {
+                    aligned += 1;
+                    assert_eq!(status.status.label(), "Migration aligned");
+                    assert_eq!(status.status.token(), "aligned");
+                }
+                RouteMigrationStatus::Partial => {
+                    partial += 1;
+                    assert_eq!(status.status.label(), "Migration partial");
+                    assert_eq!(status.status.token(), "partial");
+                }
+                RouteMigrationStatus::Blocked => {
+                    blocked += 1;
+                    assert_eq!(status.status.label(), "Migration blocked");
+                    assert_eq!(status.status.token(), "blocked");
+                }
+            }
+        }
+        assert_eq!((aligned, partial, blocked), (1, 10, 17));
+    }
+
+    #[test]
+    fn duplicate_feature_routes_share_one_authoritative_status() {
+        for feature in FEATURES {
+            let status = lookup_manual_route_status(feature.route)
+                .expect("all pinned features must have a status mapping");
+            for duplicate in FEATURES
+                .iter()
+                .filter(|candidate| candidate.route == feature.route)
+            {
+                assert_eq!(
+                    lookup_manual_route_status(duplicate.route),
+                    Some(status),
+                    "duplicate route `{}` disagrees between `{}` and `{}`",
+                    feature.route,
+                    feature.id,
+                    duplicate.id
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn rendered_cards_expose_accessible_route_status_labels() {
+        let html = render_to_string(&empty_ctx());
+        assert_eq!(
+            html.matches("class=\"manual-prod-feature-status\"").count(),
+            FEATURES.len(),
+            "each feature card must expose one route-status badge"
+        );
+        assert_eq!(
+            html.matches("aria-label=\"Route status:").count(),
+            FEATURES.len(),
+            "each route-status badge must have an explicit accessible label"
+        );
+        for (label, expected_count) in [
+            ("Migration aligned", 1),
+            ("Migration partial", 10),
+            ("Migration blocked", 24),
+        ] {
+            assert_eq!(
+                html.matches(&format!("aria-label=\"Route status: {label}\""))
+                    .count(),
+                expected_count,
+                "unexpected rendered total for `{label}`"
+            );
+        }
+        for label in [
+            "Migration aligned",
+            "Migration partial",
+            "Migration blocked",
+        ] {
+            assert!(
+                html.contains(&format!("Route status: {label}")),
+                "rendered manual must include `{label}` status text"
+            );
+        }
+    }
+
+    #[test]
+    fn concrete_actions_are_neutral_and_blocked_descriptions_remain_reference_copy() {
+        for feature in FEATURES {
+            let status = lookup_manual_route_status(feature.route)
+                .expect("all pinned features must have a status mapping");
+            let html = render_feature_to_string(feature);
+            let action_start = html
+                .find("manual-prod-feature-link")
+                .expect("card must retain a route-status action");
+            let action_tail = &html[action_start..];
+            let action_end = ["</a>", "</span>"]
+                .iter()
+                .filter_map(|closing| action_tail.find(closing))
+                .min()
+                .map(|offset| action_start + offset)
+                .expect("route-status action must close");
+            let action = &html[action_start..action_end];
+            let expected_action = if feature.route == "/payment/[type]/[id]" {
+                "Route template only"
+            } else {
+                "View route"
+            };
+            assert!(
+                action.contains(expected_action),
+                "`{}` card must use its neutral route action",
+                feature.id
+            );
+            assert!(
+                !action.contains("Open page"),
+                "`{}` card must not claim its page works",
+                feature.id
+            );
+            assert!(
+                action.contains(&format!(
+                    "data-manual-route-action=\"{}\"",
+                    status.status.token()
+                )),
+                "`{}` action must expose its raw migration status",
+                feature.id,
+            );
+            if feature.route == "/payment/[type]/[id]" {
+                assert!(
+                    !action.contains("href="),
+                    "the dynamic payment template status must be noninteractive"
+                );
+                assert!(action.contains("aria-disabled=\"true\""));
+            } else {
+                assert!(action.contains("href="));
+                assert!(action.contains("aria-disabled=\"false\""));
+            }
+            if status.status == RouteMigrationStatus::Blocked {
+                assert!(html.contains("manual-prod-feature-desc"));
+                assert!(html.contains("Route status: Migration blocked"));
+                assert!(!html.contains("Migration status unavailable"));
+                assert!(!html.contains("Route status unavailable"));
+                if feature.route != "/payment/[type]/[id]" {
+                    assert!(
+                        action.contains("View route"),
+                        "blocked descriptions must not change the neutral route action"
+                    );
+                }
+            }
+        }
+
+        let misleading_description = ManualFeature {
+            id: "description-is-not-status",
+            name: "Description Is Not Status",
+            desc: "Available, aligned, live, and ready",
+            route: "/",
+            screenshots: &["home"],
+            category: "Public",
+        };
+        let html = render_feature_to_string(&misleading_description);
+        assert!(html.contains("Available, aligned, live, and ready"));
+        assert!(html.contains("Route status: Migration blocked"));
+    }
+
+    #[test]
+    fn unknown_or_malicious_routes_fail_closed() {
+        for route in [
+            "/unknown",
+            "javascript:alert(1)",
+            "/../../account",
+            "/payment/[unknown]/[id]",
+            "/payment/:type/:id?redirect=https://evil.example",
+        ] {
+            assert_eq!(
+                lookup_manual_route_status(route),
+                None,
+                "unrecognized route `{route}` must not receive a target"
+            );
+        }
+
+        let unknown = ManualFeature {
+            id: "unknown",
+            name: "Unknown",
+            desc: "Untrusted test fixture",
+            route: "javascript:alert(1)",
+            screenshots: &["unknown"],
+            category: "Public",
+        };
+        let html = render_feature_to_string(&unknown);
+        assert!(html.contains("Route status: Migration status unavailable"));
+        assert!(html.contains("Route status unavailable"));
+        assert!(!html.contains("href="));
+        assert!(html.contains("aria-disabled=\"true\""));
+        assert!(!html.contains("href=\"javascript:"));
+        assert!(!html.contains("Open page"));
+
+        let bracketed_unknown = ManualFeature {
+            route: "/payment/[unknown]/[id]",
+            ..unknown
+        };
+        let html = render_feature_to_string(&bracketed_unknown);
+        assert!(html.contains("Migration status unavailable"));
+        assert!(html.contains("Route status unavailable"));
+        assert!(!html.contains("Route template only"));
     }
 }

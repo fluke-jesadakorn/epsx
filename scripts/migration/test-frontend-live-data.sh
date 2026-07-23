@@ -6,7 +6,20 @@ repo_root=$(git -C "$script_dir" rev-parse --show-toplevel)
 verify="$script_dir/verify-frontend-live-data.sh"
 contract="$repo_root/docs/migration/contracts/frontend-live-data.json"
 temp_dir=$(mktemp -d "${TMPDIR:-/tmp}/epsx-frontend-live-data.XXXXXX")
-trap 'rm -rf -- "$temp_dir"' EXIT HUP INT TERM
+source_fixture_dir=
+cleanup() {
+  rm -rf -- "$temp_dir"
+  if [ -n "$source_fixture_dir" ]; then
+    rm -rf -- "$source_fixture_dir"
+  fi
+}
+trap cleanup EXIT HUP INT TERM
+source_fixture_dir=$(mktemp -d "$repo_root/shared/rust/dioxus_ui/.frontend-live-data-source.XXXXXX")
+source_fixture_rel=${source_fixture_dir#"$repo_root"/}
+case "$source_fixture_rel" in
+  shared/rust/dioxus_ui/.frontend-live-data-source.*) ;;
+  *) echo "frontend-live-data self-test: unsafe source fixture directory" >&2; exit 1 ;;
+esac
 
 "$verify" --mode integrity >"$temp_dir/integrity.out" 2>&1
 grep -q "PASS integrity (28 routes; 1 aligned, 10 partial, 17 blocked" "$temp_dir/integrity.out"
@@ -38,6 +51,8 @@ const newsDetail = contract.routes.find(route => route.path === "/news/:slug");
 if (!newsDetail || newsDetail.status !== "partial" || newsDetail.loader.kind !== "gateway-strict" || JSON.stringify(newsDetail.loader.endpoints) !== JSON.stringify(["GET /api/v1/content/news/{slug}"]) || newsDetail.payloads.staticOrSample.length !== 0 || newsDetail.states.empty !== "present" || newsDetail.states.error !== "present" || newsDetail.states.retry !== "present" || newsDetail.authOwner.auth !== "public" || !newsDetail.blockers.some(blocker => blocker.includes("unknown slugs")) || !newsDetail.blockers.some(blocker => blocker.includes("outer metadata"))) process.exit(1);
 const notifications = contract.routes.find(route => route.path === "/notifications");
 if (!notifications || notifications.status !== "partial" || notifications.loader.kind !== "owner-gateway-explicit-outcome-plus-authenticated-shared-header" || JSON.stringify(notifications.loader.endpoints) !== JSON.stringify(["GET /api/v1/notification/list", "GET /api/v1/notifications/unread-count"]) || notifications.loader.evidence.length !== 6 || notifications.payloads.staticOrSample.length !== 0 || notifications.states.loading !== "missing" || notifications.states.empty !== "present" || notifications.states.error !== "present" || notifications.states.retry !== "present" || notifications.hydration.need !== "browser" || notifications.hydration.status !== "partial" || notifications.blockers.length !== 2 || !notifications.blockers[0].includes("live-service and browser runtime proof remain missing")) process.exit(1);
+const manual = contract.routes.find(route => route.path === "/manual");
+if (!manual || manual.status !== "partial" || manual.loader.kind !== "none" || manual.payloads.staticOrSample.length !== 1 || manual.states.retry !== "not-applicable" || manual.hydration.need !== "browser" || manual.hydration.status !== "implemented" || !manual.target.anchors.includes("#[path = \"manual_route_statuses.rs\"]") || !manual.interactions.controls.some(item => item.includes("1 Migration aligned, 10 Migration partial, and 24 Migration blocked")) || !manual.interactions.controls.some(item => item.includes("all 34 concrete route links use the neutral View route action")) || !manual.interactions.controls.some(item => item.includes("noninteractive Route template only"))) process.exit(1);
 ' "$contract"
 
 FRONTEND_CONTRACT_IN="$contract" FRONTEND_CONTRACT_OUT="$temp_dir/tampered.json" bun -e '
@@ -100,4 +115,104 @@ set -e
 [ "$wrong_notification_badge_status" -eq 1 ] || { cat "$temp_dir/wrong-existing-notification-badge-anchor.out" >&2; exit 1; }
 grep -q "/notifications truthful read-only semantic contract drifted" "$temp_dir/wrong-existing-notification-badge-anchor.out"
 
-echo "frontend-live-data self-test: PASS (integrity=0, readiness-stop=3, deterministic emit, tamper/path/stale-anchor/wrong-existing-notification+badge-anchor=1)"
+prepare_manual_fixture() {
+  fixture_name=$1
+  fixture_dir="$source_fixture_dir/$fixture_name"
+  mkdir "$fixture_dir"
+  cp "$repo_root/shared/rust/dioxus_ui/src/pages/manual.rs" "$fixture_dir/manual.rs"
+  cp "$repo_root/shared/rust/dioxus_ui/src/pages/manual_route_statuses.rs" "$fixture_dir/manual_route_statuses.rs"
+}
+
+prepare_manual_fixture status-row-drift
+MANUAL_STATUS_FILE="$source_fixture_dir/status-row-drift/manual_route_statuses.rs" \
+FRONTEND_CONTRACT_IN="$contract" \
+FRONTEND_CONTRACT_OUT="$temp_dir/manual-status-row-drift.json" \
+MANUAL_TARGET_REL="$source_fixture_rel/status-row-drift/manual.rs" bun -e '
+const source = await Bun.file(process.env.MANUAL_STATUS_FILE).text();
+const needle = [
+  "    ManualRouteStatus {",
+  "        target_route: \"/about\",",
+  "        status: RouteMigrationStatus::Aligned,",
+  "    },",
+].join("\n");
+const replacement = [
+  "    ManualRouteStatus {",
+  "        target_route: \"/about\",",
+  "        status: RouteMigrationStatus::Blocked,",
+  "    },",
+].join("\n");
+if (source.split(needle).length !== 2) process.exit(1);
+await Bun.write(process.env.MANUAL_STATUS_FILE, source.replace(needle, replacement));
+const value = await Bun.file(process.env.FRONTEND_CONTRACT_IN).json();
+value.routes.find(route => route.path === "/manual").target.file = process.env.MANUAL_TARGET_REL;
+await Bun.write(process.env.FRONTEND_CONTRACT_OUT, `${JSON.stringify(value, null, 2)}\n`);
+'
+set +e
+"$verify" --mode integrity --fixture "$temp_dir/manual-status-row-drift.json" >"$temp_dir/manual-status-row-drift.out" 2>&1
+manual_status_row_drift=$?
+set -e
+[ "$manual_status_row_drift" -eq 1 ] || { cat "$temp_dir/manual-status-row-drift.out" >&2; exit 1; }
+grep -q "generated route status module differs byte-for-byte" "$temp_dir/manual-status-row-drift.out"
+
+prepare_manual_fixture status-decoys
+MANUAL_STATUS_FILE="$source_fixture_dir/status-decoys/manual_route_statuses.rs" \
+FRONTEND_CONTRACT_IN="$contract" \
+FRONTEND_CONTRACT_OUT="$temp_dir/manual-status-decoys.json" \
+MANUAL_TARGET_REL="$source_fixture_rel/status-decoys/manual.rs" bun -e '
+const source = await Bun.file(process.env.MANUAL_STATUS_FILE).text();
+const decoys = [
+  "// ManualRouteStatus { target_route: \"/about\", status: RouteMigrationStatus::Aligned }",
+  "const STATUS_STRING_DECOY: &str = \"ManualRouteStatus { target_route: /about, status: Aligned }\";",
+  "",
+].join("\n");
+await Bun.write(process.env.MANUAL_STATUS_FILE, `${source}${decoys}`);
+const value = await Bun.file(process.env.FRONTEND_CONTRACT_IN).json();
+value.routes.find(route => route.path === "/manual").target.file = process.env.MANUAL_TARGET_REL;
+await Bun.write(process.env.FRONTEND_CONTRACT_OUT, `${JSON.stringify(value, null, 2)}\n`);
+'
+set +e
+"$verify" --mode integrity --fixture "$temp_dir/manual-status-decoys.json" >"$temp_dir/manual-status-decoys.out" 2>&1
+manual_status_decoys=$?
+set -e
+[ "$manual_status_decoys" -eq 1 ] || { cat "$temp_dir/manual-status-decoys.out" >&2; exit 1; }
+grep -q "generated route status module differs byte-for-byte" "$temp_dir/manual-status-decoys.out"
+
+prepare_manual_fixture feature-helper-decoys
+MANUAL_SOURCE_FILE="$source_fixture_dir/feature-helper-decoys/manual.rs" \
+FRONTEND_CONTRACT_IN="$contract" \
+FRONTEND_CONTRACT_OUT="$temp_dir/manual-feature-helper-decoys.json" \
+MANUAL_TARGET_REL="$source_fixture_rel/feature-helper-decoys/manual.rs" bun -e '
+const source = await Bun.file(process.env.MANUAL_SOURCE_FILE).text();
+const constructor = "ManualFeature { id: \"home\", name: \"Home\", desc: \"The landing page displays the hero section with platform tagline, primary navigation bar, and an overview of key features. Visitors see call-to-action buttons for signing up and exploring analytics.\", route: \"/\", screenshots: &[\"home\"], category: \"Public\" },";
+if (source.split(constructor).length !== 2) process.exit(1);
+const boundary = "/// Route-scoped rules provide the source colors";
+if (source.split(boundary).length !== 2) process.exit(1);
+const decoys = [
+  "fn manual_feature_helper() -> ManualFeature {",
+  `    ${constructor.slice(0, -1)}`,
+  "}",
+  "// ManualFeature { id: \"home\", route: \"/\" }",
+  "const MANUAL_FEATURE_STRING_DECOY: &str = r#\"ManualFeature { id: \\\"home\\\", route: \\\"/\\\" }\"#;",
+  "",
+].join("\n");
+const mutated = source
+  .replace(constructor, "manual_feature_helper(),")
+  .replace(boundary, `${decoys}${boundary}`);
+await Bun.write(process.env.MANUAL_SOURCE_FILE, mutated);
+const value = await Bun.file(process.env.FRONTEND_CONTRACT_IN).json();
+value.routes.find(route => route.path === "/manual").target.file = process.env.MANUAL_TARGET_REL;
+await Bun.write(process.env.FRONTEND_CONTRACT_OUT, `${JSON.stringify(value, null, 2)}\n`);
+'
+set +e
+"$verify" --mode integrity --fixture "$temp_dir/manual-feature-helper-decoys.json" >"$temp_dir/manual-feature-helper-decoys.out" 2>&1
+manual_feature_helper_decoys=$?
+set -e
+[ "$manual_feature_helper_decoys" -eq 1 ] || { cat "$temp_dir/manual-feature-helper-decoys.out" >&2; exit 1; }
+grep -q "/manual FEATURES expected ident \"ManualFeature\"" "$temp_dir/manual-feature-helper-decoys.out"
+
+removed_source_fixture=$source_fixture_dir
+rm -rf -- "$removed_source_fixture"
+source_fixture_dir=
+[ ! -e "$removed_source_fixture" ] || { echo "frontend-live-data self-test: source fixture cleanup failed" >&2; exit 1; }
+
+echo "frontend-live-data self-test: PASS (integrity=0, readiness-stop=3, deterministic emit, tamper/path/stale-anchor/notification/manual-generated-row+decoy+literal-parser-negative=1, linked-worktree-safe-cleanup)"

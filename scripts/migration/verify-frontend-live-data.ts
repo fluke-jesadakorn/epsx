@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, realpathSync } from "node:fs";
-import { isAbsolute, relative, resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 
 type Json = Record<string, any>;
 
@@ -97,6 +97,236 @@ const stringArray = (value: unknown, label: string): string[] => {
     die(`${label} must be an array of non-empty strings`);
   }
   return value;
+};
+
+const uniqueSection = (source: string, start: string, end: string, label: string): string => {
+  const starts = source.split(start).length - 1;
+  const ends = source.split(end).length - 1;
+  if (starts !== 1 || ends !== 1) die(`${label} boundaries must each occur exactly once`);
+  const startOffset = source.indexOf(start);
+  const endOffset = source.indexOf(end, startOffset + start.length);
+  if (startOffset < 0 || endOffset < 0 || startOffset >= endOffset) die(`${label} boundaries are invalid`);
+  return source.slice(startOffset, endOffset);
+};
+
+type RustToken = {
+  kind: "ident" | "string" | "symbol";
+  value: string;
+  offset: number;
+};
+
+const rustTokens = (source: string, label: string): RustToken[] => {
+  const tokens: RustToken[] = [];
+  let index = 0;
+  while (index < source.length) {
+    const char = source[index];
+    if (/\s/.test(char)) {
+      index += 1;
+      continue;
+    }
+    if (source.startsWith("//", index)) {
+      const newline = source.indexOf("\n", index + 2);
+      index = newline < 0 ? source.length : newline + 1;
+      continue;
+    }
+    if (source.startsWith("/*", index)) {
+      const commentStart = index;
+      let depth = 1;
+      index += 2;
+      while (index < source.length && depth > 0) {
+        if (source.startsWith("/*", index)) {
+          depth += 1;
+          index += 2;
+        } else if (source.startsWith("*/", index)) {
+          depth -= 1;
+          index += 2;
+        } else {
+          index += 1;
+        }
+      }
+      if (depth !== 0) die(`${label} has an unterminated block comment at byte ${commentStart}`);
+      continue;
+    }
+    if (char === "r") {
+      let cursor = index + 1;
+      while (source[cursor] === "#") cursor += 1;
+      if (source[cursor] === '"') {
+        const hashes = source.slice(index + 1, cursor);
+        const close = `"${hashes}`;
+        const valueStart = cursor + 1;
+        const closeAt = source.indexOf(close, valueStart);
+        if (closeAt < 0) die(`${label} has an unterminated raw string at byte ${index}`);
+        tokens.push({ kind: "string", value: source.slice(valueStart, closeAt), offset: index });
+        index = closeAt + close.length;
+        continue;
+      }
+    }
+    if (char === '"') {
+      const stringStart = index;
+      index += 1;
+      let value = "";
+      let closed = false;
+      while (index < source.length) {
+        const current = source[index];
+        if (current === "\\") {
+          if (index + 1 >= source.length) break;
+          value += source.slice(index, index + 2);
+          index += 2;
+        } else if (current === '"') {
+          index += 1;
+          closed = true;
+          break;
+        } else {
+          value += current;
+          index += 1;
+        }
+      }
+      if (!closed) die(`${label} has an unterminated string at byte ${stringStart}`);
+      tokens.push({ kind: "string", value, offset: stringStart });
+      continue;
+    }
+    if (/[A-Za-z_]/.test(char)) {
+      const identStart = index;
+      index += 1;
+      while (index < source.length && /[A-Za-z0-9_]/.test(source[index])) index += 1;
+      tokens.push({ kind: "ident", value: source.slice(identStart, index), offset: identStart });
+      continue;
+    }
+    tokens.push({ kind: "symbol", value: char, offset: index });
+    index += 1;
+  }
+  return tokens;
+};
+
+const parseManualFeatureRoutes = (source: string): string[] => {
+  const tokens = rustTokens(source, "/manual");
+  const declarations: number[] = [];
+  for (let index = 0; index + 1 < tokens.length; index += 1) {
+    if (tokens[index].kind === "ident" && tokens[index].value === "const" && tokens[index + 1].value === "FEATURES") {
+      declarations.push(index);
+    }
+  }
+  if (declarations.length !== 1) {
+    const constNames = tokens
+      .map((token, index) => token.value === "const" ? tokens[index + 1]?.value : undefined)
+      .filter(Boolean);
+    die(`/manual must declare exactly one tokenized const FEATURES table, found ${declarations.length}; consts=${JSON.stringify(constNames)}`);
+  }
+  let cursor = declarations[0];
+  const expect = (kind: RustToken["kind"], value: string): RustToken => {
+    const token = tokens[cursor];
+    if (!token || token.kind !== kind || token.value !== value) {
+      die(`/manual FEATURES expected ${kind} ${JSON.stringify(value)} at token ${cursor}, found ${JSON.stringify(token?.value)}`);
+    }
+    cursor += 1;
+    return token;
+  };
+  expect("ident", "const");
+  expect("ident", "FEATURES");
+  expect("symbol", ":");
+  expect("symbol", "&");
+  expect("symbol", "[");
+  expect("ident", "ManualFeature");
+  expect("symbol", "]");
+  expect("symbol", "=");
+  expect("symbol", "&");
+  expect("symbol", "[");
+
+  const routes: string[] = [];
+  const exactFields = ["id", "name", "desc", "route", "screenshots", "category"];
+  while (tokens[cursor]?.value !== "]") {
+    expect("ident", "ManualFeature");
+    expect("symbol", "{");
+    let route = "";
+    for (const [fieldIndex, field] of exactFields.entries()) {
+      expect("ident", field);
+      expect("symbol", ":");
+      if (field === "screenshots") {
+        expect("symbol", "&");
+        expect("symbol", "[");
+        expect("string", tokens[cursor]?.value ?? "");
+        while (tokens[cursor]?.value === ",") {
+          cursor += 1;
+          if (tokens[cursor]?.value === "]") break;
+          if (tokens[cursor]?.kind !== "string") {
+            die(`/manual FEATURES screenshots must contain only literal strings at token ${cursor}`);
+          }
+          cursor += 1;
+        }
+        expect("symbol", "]");
+      } else {
+        const value = tokens[cursor];
+        if (!value || value.kind !== "string") {
+          die(`/manual FEATURES field ${field} must be a literal string at token ${cursor}`);
+        }
+        cursor += 1;
+        if (field === "route") route = value.value;
+      }
+      if (fieldIndex < exactFields.length - 1) expect("symbol", ",");
+      else if (tokens[cursor]?.value === ",") cursor += 1;
+    }
+    expect("symbol", "}");
+    expect("symbol", ",");
+    if (route.length === 0) die("/manual FEATURES route must be a nonempty literal string");
+    routes.push(route);
+  }
+  expect("symbol", "]");
+  expect("symbol", ";");
+  return routes;
+};
+
+export const generateManualRouteStatuses = (routes: Json[]): string => {
+  const variants: Record<string, string> = {
+    aligned: "Aligned",
+    partial: "Partial",
+    blocked: "Blocked",
+  };
+  const rows = routes.map((route) => {
+    const variant = variants[route.status];
+    if (!variant || typeof route.path !== "string") die("cannot generate /manual status module from invalid contract route");
+    return `    ManualRouteStatus {
+        target_route: "${route.path}",
+        status: RouteMigrationStatus::${variant},
+    },`;
+  });
+  return `// @generated from docs/migration/contracts/frontend-live-data.json
+// Checked source: keep this deterministic table byte-comparable with the contract.
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum RouteMigrationStatus {
+    Aligned,
+    Partial,
+    Blocked,
+}
+
+impl RouteMigrationStatus {
+    pub(super) const fn label(self) -> &'static str {
+        match self {
+            Self::Aligned => "Migration aligned",
+            Self::Partial => "Migration partial",
+            Self::Blocked => "Migration blocked",
+        }
+    }
+
+    pub(super) const fn token(self) -> &'static str {
+        match self {
+            Self::Aligned => "aligned",
+            Self::Partial => "partial",
+            Self::Blocked => "blocked",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct ManualRouteStatus {
+    pub(super) target_route: &'static str,
+    pub(super) status: RouteMigrationStatus,
+}
+
+pub(super) const MANUAL_ROUTE_STATUSES: &[ManualRouteStatus] = &[
+${rows.join("\n")}
+];
+`;
 };
 
 if (contract.schemaVersion !== 1 || contract.artifact !== "a7-frontend-live-data") {
@@ -204,6 +434,116 @@ for (const [routeIndex, route] of contract.routes.entries()) {
   if (!hydrationNeeds.has(route.hydration?.need) || !hydrationStatuses.has(route.hydration?.status) || typeof route.hydration?.reason !== "string") {
     die(`${label}.hydration is invalid`);
   }
+}
+
+const manual = contract.routes.find((route: Json) => route.path === "/manual");
+if (!manual) die("/manual contract record is required");
+const manualUi = currentFile(manual.target?.file, "/manual status presentation target");
+const manualTestBoundary = "// === wave5-page-depth-track-b tests + Wave 25 T2 prod markers ===";
+if (manualUi.split(manualTestBoundary).length !== 2) die("/manual runtime/test boundary must occur exactly once");
+const manualRuntime = manualUi.slice(0, manualUi.indexOf(manualTestBoundary));
+const rawFeatureRoutes = parseManualFeatureRoutes(manualRuntime);
+if (rawFeatureRoutes.length !== 35) {
+  die(`/manual FEATURES must contain exactly 35 literal ManualFeature struct entries, found ${rawFeatureRoutes.length}`);
+}
+if (
+  rawFeatureRoutes.filter((path) => path === "/payment/[type]/[id]").length !== 1 ||
+  rawFeatureRoutes.filter((path) => path.includes("[")).length !== 1
+) {
+  die("/manual must contain exactly one dynamic route, the pinned /payment/[type]/[id] template");
+}
+const normalizeManualRoute = (path: string): string =>
+  path === "/payment/[type]/[id]" ? "/payment/:type/:id" : path;
+const manualNormalization = uniqueSection(
+  manualRuntime,
+  "fn normalize_manual_route(route: &str) -> &str {",
+  "fn lookup_manual_route_status(route: &str)",
+  "/manual route normalization",
+);
+if (
+  !manualNormalization.includes('"/payment/[type]/[id]" => "/payment/:type/:id"') ||
+  !manualNormalization.includes("_ => route") ||
+  (manualNormalization.match(/=>/g) ?? []).length !== 2
+) {
+  die("/manual may normalize only the exact /payment/[type]/[id] route template");
+}
+const featureRouteCounts = new Map<string, number>();
+for (const rawRoute of rawFeatureRoutes) {
+  const normalized = normalizeManualRoute(rawRoute);
+  featureRouteCounts.set(normalized, (featureRouteCounts.get(normalized) ?? 0) + 1);
+}
+if (featureRouteCounts.size !== 21) {
+  die(`/manual FEATURES must contain exactly 21 unique normalized routes, found ${featureRouteCounts.size}`);
+}
+const exactDuplicateFeatureRoutes = new Map([
+  ["/account", 3],
+  ["/profile", 2],
+  ["/analytics", 6],
+  ["/portfolio", 2],
+  ["/notifications", 5],
+  ["/developer", 2],
+]);
+for (const [path, count] of featureRouteCounts) {
+  const expectedCount = exactDuplicateFeatureRoutes.get(path) ?? 1;
+  if (count !== expectedCount) {
+    die(`/manual feature route ${path} must occur ${expectedCount} time(s), found ${count}`);
+  }
+  if (!expectedByPath.has(path)) die(`/manual feature route is unmapped after exact normalization: ${path}`);
+}
+for (const [path, expectedCount] of exactDuplicateFeatureRoutes) {
+  if (featureRouteCounts.get(path) !== expectedCount) {
+    die(`/manual duplicate feature route ${path} must occur exactly ${expectedCount} times`);
+  }
+}
+
+const manualTargetRel = safeRelative(manual.target?.file, "/manual target file");
+const generatedStatusesRel = `${dirname(manualTargetRel)}/manual_route_statuses.rs`;
+const actualGeneratedStatuses = currentFile(generatedStatusesRel, "/manual generated route statuses");
+const expectedGeneratedStatuses = generateManualRouteStatuses(contract.routes);
+if (actualGeneratedStatuses !== expectedGeneratedStatuses) {
+  die("/manual generated route status module differs byte-for-byte from the checked contract");
+}
+
+const statusByPath = new Map(contract.routes.map((route: Json) => [route.path, route.status]));
+const manualBadgeCounts = { aligned: 0, partial: 0, blocked: 0 };
+for (const rawRoute of rawFeatureRoutes) {
+  const path = normalizeManualRoute(rawRoute);
+  const status = statusByPath.get(path);
+  if (!status || !(status in manualBadgeCounts)) die(`/manual feature route lacks a checked migration status: ${path}`);
+  manualBadgeCounts[status as keyof typeof manualBadgeCounts] += 1;
+}
+if (
+  JSON.stringify(manualBadgeCounts) !==
+  JSON.stringify({ aligned: 1, partial: 10, blocked: 24 })
+) {
+  die(`/manual route-migration badge totals drifted: ${JSON.stringify(manualBadgeCounts)}`);
+}
+for (const anchor of [
+  '#[path = "manual_route_statuses.rs"]',
+  "use manual_route_statuses::{ManualRouteStatus, MANUAL_ROUTE_STATUSES};",
+  'let dynamic_route = feature.route == "/payment/[type]/[id]";',
+  ".map(|status| status.status.label())",
+  '.unwrap_or("Migration status unavailable")',
+  ".map(|status| status.status.token())",
+  '.unwrap_or("unavailable")',
+  '"Route template only"',
+  '} else if route_status.is_some() {\n        "View route"',
+  '"Route status unavailable"',
+  "if dynamic_route || route_status.is_none()",
+  '"aria-disabled": "true"',
+  '"data-manual-route-action": "{status_token}"',
+  "} else if let Some(status) = route_status {",
+  'href: "{status.target_route}"',
+]) {
+  if (!manualRuntime.includes(anchor)) die(`/manual route action policy drifted: ${anchor}`);
+}
+for (const forbidden of [
+  "feature.route.contains('[')",
+  "ManualRouteAvailability",
+  "Reference only",
+  "Open page",
+]) {
+  if (manualRuntime.includes(forbidden)) die(`/manual reintroduced feature-availability or non-neutral action policy: ${forbidden}`);
 }
 
 const notifications = contract.routes.find((route: Json) => route.path === "/notifications");
