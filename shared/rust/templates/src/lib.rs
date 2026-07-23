@@ -5593,6 +5593,22 @@ pub fn design_system_head_with_keywords(
     /* The auto-redirect UI shown briefly before the redirect. */
   }}
   /* end wave6b-admin-pages-depth-track-d */
+
+  /* Respect the same global reduced-motion preference as the development
+     frontend/admin styles. Zero delays keep delayed `both` entrances from
+     holding content at their initial keyframe while motion is reduced. */
+  @media (prefers-reduced-motion: reduce) {{
+    *,
+    *::before,
+    *::after {{
+      animation-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      transition-delay: 0ms !important;
+      scroll-behavior: auto !important;
+    }}
+  }}
 </style>"##,
         keywords_meta = keywords_meta,
     )
@@ -7416,6 +7432,80 @@ mod page_head_tests {
         assert!(controller.contains(
             r#"<a href="/auth" class="epsx-connect-btn" style="margin-top:1rem;width:100%;text-decoration:none;">"#
         ));
+    }
+
+    #[test]
+    fn shared_head_emits_development_parity_reduced_motion_override() {
+        let head = design_system_head(
+            "Shared reduced motion",
+            "Static reduced-motion declarations for the emitted shared head",
+        );
+        let media_query = "@media (prefers-reduced-motion: reduce)";
+        let reduced_motion_block = r#"  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      transition-delay: 0ms !important;
+      scroll-behavior: auto !important;
+    }
+  }"#;
+
+        assert_eq!(head.matches(media_query).count(), 1);
+        assert!(head.contains(reduced_motion_block));
+        for forbidden in ["display:", "visibility:", "opacity:"] {
+            assert!(
+                !reduced_motion_block.contains(forbidden),
+                "reduced-motion override must not hide content with {forbidden}"
+            );
+        }
+
+        let finite_animation = emitted_css_rule(&head, ".animate-slide-in");
+        assert_eq!(
+            emitted_declaration(finite_animation, "animation"),
+            "slideIn 0.3s ease-out"
+        );
+        let infinite_animation =
+            emitted_css_rule(&head, ".animate-pulse-glow");
+        assert_eq!(
+            emitted_declaration(infinite_animation, "animation"),
+            "pulseGlow 2s infinite"
+        );
+        let delayed_both_animation = emitted_css_rule(&head, ".animate-slide-up-delayed");
+        assert_eq!(
+            emitted_declaration(delayed_both_animation, "animation"),
+            "slideUp 0.8s ease-out 0.15s both"
+        );
+        let delayed_transition = emitted_css_rule(&head, ".tooltip-content");
+        assert_eq!(
+            emitted_declaration(delayed_transition, "transition"),
+            "opacity 0.15s ease, transform 0.15s ease"
+        );
+        assert_eq!(
+            emitted_declaration(delayed_transition, "transition-delay"),
+            "var(--tooltip-delay, 0ms)"
+        );
+
+        let reduced_motion_position = head
+            .find(reduced_motion_block)
+            .expect("reduced-motion block");
+        for example in [
+            finite_animation,
+            infinite_animation,
+            delayed_both_animation,
+            delayed_transition,
+        ] {
+            let example_position = head
+                .find(example)
+                .expect("animation or transition example");
+            assert!(
+                example_position < reduced_motion_position,
+                "reduced-motion override must follow the emitted motion it overrides"
+            );
+        }
     }
 
     #[test]
