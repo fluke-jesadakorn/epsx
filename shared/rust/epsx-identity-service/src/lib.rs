@@ -23,6 +23,7 @@
 pub mod emit_handler;
 #[cfg(test)]
 pub mod event_bus;
+pub mod authenticated_ranking_rpc;
 pub mod identity_service;
 pub mod ranking_entitlement;
 #[cfg(test)]

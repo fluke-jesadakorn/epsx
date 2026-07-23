@@ -151,10 +151,10 @@
       "anchor": "pub use epsx::infrastructure::adapters::services::tradingview::TradingViewApiService;"
     },
     {
-      "id": "tgt-market-grpc-timeout",
-      "domain": "marketAnalytics",
-      "file": "apps/analytics/src/grpc_client.rs",
-      "anchor": "const GRPC_TIMEOUT: Duration = Duration::from_millis(100);"
+      "id": "tgt-identity-a2-10-authenticated-ranking-rpc-contract",
+      "domain": "identityRankingOffset",
+      "file": "docs/migration/contracts/a2-10-authenticated-ranking-rpc.json",
+      "anchor": "\"contractId\": \"A2.10-authenticated-ranking-rpc\""
     },
     {
       "id": "tgt-market-a2-6-authority-failure-contract",
@@ -474,7 +474,7 @@
       "id": "identity-ranking-offset-query",
       "domain": "identityRankingOffset",
       "sourceContract": "wallet plan assignments resolve the minimum active-plan ranking offset in the backend",
-      "targetObserved": "A2.7 hermetically resolves fixed-time raw entitlement snapshots, A2.8 adds an unwired core-owned adapter, and A2.9 removes the production identity event listener; the SQL remains unexecuted against any certified schema or reconciled data and the gRPC identity runtime still returns free plan offset",
+      "targetObserved": "A2.7 hermetically resolves fixed-time raw entitlement snapshots, A2.8 adds an unwired core-owned adapter, A2.9 removes the production identity event listener, and A2.10 exports an unwired fail-closed workload-authenticated RPC composition; no concrete credential verifier, analytics metadata, TLS, owner delegation, certified store activation or runtime wiring exists and production still returns free plan offset",
       "status": "blocked",
       "blockerIds": ["B07", "B21", "B23"]
     },
@@ -527,9 +527,9 @@
       "category": "market-authorization",
       "severity": "stop",
       "status": "blocked",
-      "summary": "The standalone market service has hermetic direct-JWT, wallet-propagation, and authenticated authority-failure boundaries; authority errors stop before provider work, but live runtime, API-key compatibility, authoritative entitlement success, workload identity/TLS, and production ownership remain unproven.",
-      "resolution": "Retain strict service verification, canonical-wallet derivation, and fail-closed authority errors while proving compatibility, authoritative entitlement success, workload identity/TLS, runtime, routing and cutover behavior.",
-      "evidenceIds": ["src-auth-route-boundary", "src-ranking-offset-authority", "tgt-market-route-shape", "tgt-market-direct-auth", "tgt-market-a2-6-authority-failure-contract"]
+      "summary": "The standalone market service has hermetic direct-JWT, wallet-propagation, and authenticated authority-failure boundaries, and authority errors stop before provider work; A2.10 adds an exported but unwired server-side workload-auth composition, while analytics metadata, a concrete credential verifier, TLS, owner delegation, authoritative entitlement success, live runtime and production ownership remain unproven.",
+      "resolution": "Retain strict service verification, canonical-wallet derivation, fail-closed authority errors and A2.10 ordering while proving compatibility, analytics credential injection, trusted workload verification, owner delegation, TLS, authoritative entitlement success, runtime, routing and cutover behavior.",
+      "evidenceIds": ["src-auth-route-boundary", "src-ranking-offset-authority", "tgt-market-route-shape", "tgt-market-direct-auth", "tgt-market-a2-6-authority-failure-contract", "tgt-identity-a2-10-authenticated-ranking-rpc-contract"]
     },
     {
       "id": "B04",
@@ -563,9 +563,9 @@
       "category": "ranking-entitlement",
       "severity": "stop",
       "status": "blocked",
-      "summary": "A2.6 removes the market client's silent authenticated free-plan fallback, A2.7 proves the pure resolver, A2.8 adds a static core-owned snapshot adapter, and A2.9 removes the unsafe identity event listener; identity success still returns the free-plan offset because the adapter is unwired, its SQL is unexecuted against a certified schema, and reconciliation, workload authorization and runtime activation are absent.",
-      "resolution": "Keep the pure resolver, fail-closed market boundary and static core adapter; certify the adopted schema and query plan, reconcile source lifecycle and alternate entitlement semantics, wire authenticated identity runtime, and prove free, paid, expiry, overlap, downgrade, outage and recovery parity.",
-      "evidenceIds": ["src-ranking-offset-authority", "src-plan-access-bootstrap", "tgt-market-a2-6-authority-failure-contract", "tgt-identity-free-stub", "tgt-identity-a2-7-entitlement-snapshot-contract", "tgt-identity-a2-8-core-snapshot-adapter-contract", "tgt-identity-a2-9-event-containment-contract"]
+      "summary": "A2.6 removes the market client's silent authenticated free-plan fallback, A2.7 proves the pure resolver, A2.8 adds a static core-owned snapshot adapter, A2.9 removes the unsafe identity event listener, and A2.10 adds an exported fail-closed authenticated RPC composition; identity success still returns the free-plan offset because the composition and adapter are unwired, SQL is unexecuted against a certified schema, and concrete credential trust, analytics metadata, TLS, owner delegation, reconciliation and runtime activation are absent.",
+      "resolution": "Keep the pure resolver, fail-closed market boundary, static core adapter and A2.10 auth-before-wallet/query ordering; certify credential trust and rotation, inject analytics metadata, define owner delegation and TLS, certify the adopted schema and query plan, reconcile source lifecycle and alternate entitlement semantics, then prove free, paid, expiry, overlap, downgrade, outage and recovery parity before runtime activation.",
+      "evidenceIds": ["src-ranking-offset-authority", "src-plan-access-bootstrap", "tgt-market-a2-6-authority-failure-contract", "tgt-identity-free-stub", "tgt-identity-a2-7-entitlement-snapshot-contract", "tgt-identity-a2-8-core-snapshot-adapter-contract", "tgt-identity-a2-9-event-containment-contract", "tgt-identity-a2-10-authenticated-ranking-rpc-contract"]
     },
     {
       "id": "B08",
@@ -894,8 +894,8 @@
     },
     {
       "id": "N02",
-      "reason": "Market authority errors now fail closed, but successful identity queries still return the free-plan offset for every wallet and have no live authoritative plan projection.",
-      "evidenceIds": ["tgt-market-a2-6-authority-failure-contract", "tgt-identity-free-stub"]
+      "reason": "Market authority errors now fail closed and A2.10 exports an unwired workload-auth composition, but analytics sends no metadata, no concrete verifier/TLS/owner delegation exists, and production identity still returns the free-plan offset for every wallet without a live authoritative projection.",
+      "evidenceIds": ["tgt-market-a2-6-authority-failure-contract", "tgt-identity-free-stub", "tgt-identity-a2-10-authenticated-ranking-rpc-contract"]
     },
     {
       "id": "N03",
@@ -975,7 +975,7 @@
     "Define typed route, status, envelope, freshness and error contracts from the pinned source.",
     "Implement direct-service authentication and canonical ownership before exposing any non-health route.",
     "Wire reviewed runners, version ledgers and populated-baseline adoption for the additive analytics and indexer schema boundaries; extend them through later migrations.",
-    "Keep A2.9's removed public identity event surface absent; make ranking offsets authoritative and add only a durable authenticated replacement transport.",
+    "Keep A2.9's removed public identity event surface absent and A2.10's auth-before-wallet/query composition unwired until trusted credential verification, analytics metadata, TLS, owner delegation, certified store/query-plan evidence and reconciliation exist; add only a durable authenticated replacement event transport.",
     "Implement real canonical index ingestion, checkpoints, finality and reorg repair.",
     "Build bounded leased backfill with progress, pause, cancel, retry and resume semantics.",
     "Version event taxonomy, attribution, idempotency, privacy, retention and authoritative aggregates.",

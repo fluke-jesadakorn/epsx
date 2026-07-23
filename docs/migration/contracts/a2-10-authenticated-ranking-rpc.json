@@ -1,0 +1,334 @@
+{
+  "schemaVersion": 1,
+  "artifact": "a2-10-authenticated-ranking-rpc",
+  "contractId": "A2.10-authenticated-ranking-rpc",
+  "purpose": "deterministic-hermetic-unwired-workload-authenticated-ranking-rpc-composition-and-readiness-stop",
+  "productionReady": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "safety": {
+    "database": false,
+    "migration": false,
+    "redis": false,
+    "identityNetwork": false,
+    "rpcListener": false,
+    "tls": false,
+    "credentialVerifier": false,
+    "browser": false,
+    "deployment": false,
+    "production": false
+  },
+  "targetBase": {
+    "ref": "migration/dioxus-microservices",
+    "commit": "60ababc75a79d173b3b217df8e9b9155795a1117",
+    "interpretation": "Immutable completed post-A2.9 snapshot before adding the exported but unwired workload-authenticated ranking RPC composition.",
+    "evidence": [
+      {
+        "id": "base-identity-library",
+        "file": "shared/rust/epsx-identity-service/src/lib.rs",
+        "blob": "536d7e4b2cafa148dace5dbfbb3d6a4574c2942c",
+        "anchor": "pub mod identity_service;"
+      },
+      {
+        "id": "base-identity-main",
+        "file": "shared/rust/epsx-identity-service/src/main.rs",
+        "blob": "41f1ca17e4fa5520b77cbe8c8a42bde255718727",
+        "anchor": "Arc::new(FreePlanRankingOffsetService)"
+      },
+      {
+        "id": "base-always-free-service",
+        "file": "shared/rust/epsx-identity-service/src/identity_service.rs",
+        "blob": "a08419f241788274d1e07dd75089479ae3f15455",
+        "anchor": "Ok(RankingOffset::free_plan())"
+      },
+      {
+        "id": "base-entitlement-resolver",
+        "file": "shared/rust/epsx-identity-service/src/ranking_entitlement.rs",
+        "blob": "edb9d2bf9fbb445f97b0c67dba729275cb5657e6",
+        "anchor": "pub struct SnapshotWalletRankingOffsetQuery"
+      },
+      {
+        "id": "base-identity-proto",
+        "file": "shared/proto/identity.proto",
+        "blob": "2e646cbf49b24b6291406af9ccaa5fbd3f44e946",
+        "anchor": "string wallet = 1;"
+      },
+      {
+        "id": "base-analytics-client",
+        "file": "apps/analytics/src/grpc_client.rs",
+        "blob": "2d20ab78cbb019384a3d192ac49052bf6a003e00",
+        "anchor": "let request = tonic::Request::new(GetWalletRankingOffsetRequest { wallet });"
+      }
+    ]
+  },
+  "invariants": [
+    {
+      "id": "exported-unwired-composition",
+      "claim": "The authenticated ranking RPC module is a normal library export but is neither constructed nor referenced by production main or the existing identity service."
+    },
+    {
+      "id": "exact-single-authorization-metadata",
+      "claim": "The request must contain exactly one ASCII authorization metadata value."
+    },
+    {
+      "id": "strict-bearer-shape",
+      "claim": "The value must use exact case-sensitive Bearer space, a non-empty credential, and no ASCII whitespace inside the credential."
+    },
+    {
+      "id": "authorizer-once-before-wallet-or-query",
+      "claim": "The workload authorizer is called exactly once and before wallet validation or ranking query work."
+    },
+    {
+      "id": "exact-workload-subject-and-audience",
+      "claim": "Only subject epsx-analytics-service and audience epsx-identity-service are accepted."
+    },
+    {
+      "id": "canonical-evm-wallet-once",
+      "claim": "Only 42-byte lowercase-0x plus 40 ASCII-hex wallets are accepted; mixed-case hex is lowercased once without trimming or alternate name resolution."
+    },
+    {
+      "id": "query-once-after-authorization",
+      "claim": "The ranking query is called exactly once with the normalized wallet and only after metadata, credential, subject, audience and wallet checks pass."
+    },
+    {
+      "id": "sanitized-exact-status-matrix",
+      "claim": "Every denial and authority failure maps to the exact fixed gRPC code and message without raw credential, wallet or AppError details."
+    },
+    {
+      "id": "metadata-not-protobuf-credential",
+      "claim": "Authorization uses gRPC metadata; the proto adds no credential field and remains byte-identical to the target base."
+    },
+    {
+      "id": "no-concrete-credential-adapter",
+      "claim": "A2.10 defines only the workload authorizer port and opaque outcomes; it supplies no verifier, issuer trust, key source or rotation mechanism."
+    },
+    {
+      "id": "no-listener-network-or-tls",
+      "claim": "The new module contains no listener, server builder, socket, channel, endpoint, connector, HTTP client or TLS implementation."
+    },
+    {
+      "id": "runtime-always-free-unchanged",
+      "claim": "Production main and the existing identity service remain byte-identical and still construct and return the always-Free legacy shim."
+    },
+    {
+      "id": "analytics-client-metadata-absent",
+      "claim": "The analytics identity client remains byte-identical and injects no authorization metadata."
+    },
+    {
+      "id": "store-and-schema-unactivated",
+      "claim": "The A2.8 adapter and shared snapshot contract remain byte-identical; no database, migration, schema or Diesel configuration changes occur."
+    },
+    {
+      "id": "event-infra-ui-payment-indexer-unchanged",
+      "claim": "Historical event modules, infrastructure, UI, payment and indexer paths remain unchanged from the target base."
+    },
+    {
+      "id": "offline-hermetic-only",
+      "claim": "Evidence uses local static inspection and exact in-process offline library tests and authorizes no credential, network, store, deployment or production action."
+    }
+  ],
+  "implementationEvidence": [
+    {
+      "id": "impl-authenticated-ranking-rpc",
+      "file": "shared/rust/epsx-identity-service/src/authenticated_ranking_rpc.rs",
+      "sha256": "1d9fc78e74d9959030bbd83c27989f987b7f200b8c70f8d0ad8110b36db60a58"
+    },
+    {
+      "id": "impl-library-export",
+      "file": "shared/rust/epsx-identity-service/src/lib.rs",
+      "sha256": "b98920a2d30c0ba1e9c6fd43f10ff27420863fd2f484f26fa1bce053e39781ea"
+    }
+  ],
+  "unchangedEvidence": [
+    {
+      "id": "unchanged-identity-main",
+      "file": "shared/rust/epsx-identity-service/src/main.rs",
+      "sha256": "e3b9980bf99434d67c3276b7dec329ba9453b226e72992d390f11c03bfaa78bc"
+    },
+    {
+      "id": "unchanged-always-free-service",
+      "file": "shared/rust/epsx-identity-service/src/identity_service.rs",
+      "sha256": "f172df2a9998cc773b4299e2760164ee9d9a6c225680260b6c17bdc27f8da320"
+    },
+    {
+      "id": "unchanged-entitlement-resolver",
+      "file": "shared/rust/epsx-identity-service/src/ranking_entitlement.rs",
+      "sha256": "b6cdeb6486296550b936d243c29efbe3cdf1e896e7ecd47218df79129a102507"
+    },
+    {
+      "id": "unchanged-analytics-client",
+      "file": "apps/analytics/src/grpc_client.rs",
+      "sha256": "bafac48faf1e9d03d1990ba57f922a01a350ff7763bed7ede2e70917a2c7a559"
+    },
+    {
+      "id": "unchanged-identity-proto",
+      "file": "shared/proto/identity.proto",
+      "sha256": "f33f7256048403c79219913051347d85d05238e9c62269e37e8bffdae9f69d23"
+    },
+    {
+      "id": "unchanged-identity-cargo",
+      "file": "shared/rust/epsx-identity-service/Cargo.toml",
+      "sha256": "54f7020be797a137a4c69d1e3fbccf0d21f88923a616bd48f0757aa770cf7c8f"
+    },
+    {
+      "id": "unchanged-workspace-lock",
+      "file": "Cargo.lock",
+      "sha256": "ac9b2fd8b3e723a4fa1e708dc519eba50c4b068bbeea0a80e299566c7abfdcfe"
+    },
+    {
+      "id": "unchanged-core-snapshot-adapter",
+      "file": "apps/backend/src/infrastructure/adapters/repositories/ranking_entitlement_snapshot_repository.rs",
+      "sha256": "f8a05e0e7262604afb2f096b58a7bf1a029bbb81db3b2b9f1b82566dc0b0696d"
+    },
+    {
+      "id": "unchanged-shared-snapshot-contract",
+      "file": "shared/rust/epsx-contracts/src/ranking_entitlement_snapshot.rs",
+      "sha256": "9ba917a2bb2646097162371e19f6c1b6f44d41f65b1f32dce5193614f5baadbe"
+    },
+    {
+      "id": "unchanged-emit-handler",
+      "file": "shared/rust/epsx-identity-service/src/emit_handler.rs",
+      "sha256": "6c9f63b1cf44141791a69cd95b94d8ee428d41bdc75bf8b1dba9fdd16303db6f"
+    },
+    {
+      "id": "unchanged-event-bus",
+      "file": "shared/rust/epsx-identity-service/src/event_bus.rs",
+      "sha256": "0cda139bf36229865801d43c28f04b7ed0c830c933d1383748182d36dd220f5f"
+    },
+    {
+      "id": "unchanged-sse-handler",
+      "file": "shared/rust/epsx-identity-service/src/sse_handler.rs",
+      "sha256": "0a91bb08d6c590940c0ec94006a32aadfcac11eed52f7a5912de7783d08ff7f8"
+    }
+  ],
+  "authenticationContract": {
+    "metadataName": "authorization",
+    "schemePrefix": "Bearer ",
+    "expectedSubject": "epsx-analytics-service",
+    "expectedAudience": "epsx-identity-service",
+    "authorizerCallsOnAcceptedMetadata": 1,
+    "queryCallsOnSuccess": 1
+  },
+  "walletContract": {
+    "byteLength": 42,
+    "prefix": "0x",
+    "hexBytes": 40,
+    "mixedCaseHexAccepted": true,
+    "normalizedLowercaseExactlyOnce": true,
+    "trimmed": false,
+    "ensOrAlternateFormat": false,
+    "zeroAddressAccepted": true
+  },
+  "statusContract": [
+    {
+      "id": "missing-duplicate-nonascii-malformed-or-rejected-credential",
+      "code": "Unauthenticated",
+      "message": "workload authentication required"
+    },
+    {
+      "id": "authorizer-unavailable",
+      "code": "Unavailable",
+      "message": "workload authorization unavailable"
+    },
+    {
+      "id": "wrong-subject-or-audience",
+      "code": "PermissionDenied",
+      "message": "workload caller forbidden"
+    },
+    {
+      "id": "invalid-wallet",
+      "code": "InvalidArgument",
+      "message": "invalid wallet address"
+    },
+    {
+      "id": "query-unavailable",
+      "code": "Unavailable",
+      "message": "ranking authority unavailable"
+    },
+    {
+      "id": "query-corrupt",
+      "code": "Internal",
+      "message": "ranking authority returned invalid data"
+    },
+    {
+      "id": "query-unexpected",
+      "code": "Internal",
+      "message": "ranking authority failed"
+    }
+  ],
+  "hermeticTests": [
+    "a2_10_missing_metadata_is_unauthenticated_before_authorizer_or_query",
+    "a2_10_duplicate_or_malformed_bearer_is_rejected_before_authorizer_or_query",
+    "a2_10_invalid_credential_precedes_wallet_validation_and_query",
+    "a2_10_authorizer_unavailable_precedes_wallet_validation_and_query",
+    "a2_10_wrong_subject_or_audience_is_permission_denied_before_query",
+    "a2_10_invalid_evm_wallet_is_invalid_argument_without_query",
+    "a2_10_mixed_case_wallet_is_normalized_once_and_queried_once",
+    "a2_10_query_unavailable_maps_to_sanitized_unavailable",
+    "a2_10_corrupt_query_maps_to_sanitized_internal",
+    "a2_10_unexpected_query_error_is_sanitized_internal",
+    "a2_10_authorization_uses_metadata_without_proto_field_changes"
+  ],
+  "unchangedPathScopes": [
+    "apps/analytics/src/grpc_client.rs",
+    "shared/proto/identity.proto",
+    "shared/rust/epsx-identity-service/Cargo.toml",
+    "Cargo.lock",
+    "apps/backend/migrations",
+    "services",
+    "infrastructure",
+    "shared/rust/dioxus_ui",
+    "apps/frontend",
+    "apps/admin-frontend",
+    "apps/payments"
+  ],
+  "residualStops": [
+    {
+      "id": "concrete-credential-verifier-and-issuer-trust-absent",
+      "claim": "No adapter cryptographically verifies a trusted workload issuer, signature, expiry or intended claims."
+    },
+    {
+      "id": "credential-issuance-storage-rotation-absent",
+      "claim": "No workload credential issuance, storage, distribution or rotation contract exists."
+    },
+    {
+      "id": "analytics-authorization-metadata-absent",
+      "claim": "The analytics identity client injects no authorization metadata and has no reviewed credential source."
+    },
+    {
+      "id": "identity-workload-tls-absent",
+      "claim": "No reviewed TLS or mTLS identity and transport policy protects the RPC."
+    },
+    {
+      "id": "store-schema-and-query-plan-unactivated",
+      "claim": "The A2.8 store adapter remains unwired and its adopted schema, index decision, query plan and populated reconciliation remain unproved."
+    },
+    {
+      "id": "runtime-still-always-free-legacy-shim",
+      "claim": "Production main remains unauthenticated and still constructs FreePlanRankingOffsetService; A2.10 is exported but unwired."
+    },
+    {
+      "id": "owner-delegation-binding-absent",
+      "claim": "No signed delegation or owner binding proves that the authenticated workload may query the requested wallet."
+    },
+    {
+      "id": "runtime-deployment-and-live-proof-absent",
+      "claim": "No listener, network, image, manifest rendering, deployment, staging, live parity, cutover or rollback proof exists."
+    },
+    {
+      "id": "production-actions-unauthorized",
+      "claim": "Passing A2.10 never authorizes a credential, database, network, service, secret, deployment or production action."
+    }
+  ],
+  "requiredExecutionOrder": [
+    "E01 freeze the exact completed post-A2.9 target base",
+    "E02 export only the unwired authenticated ranking RPC composition",
+    "E03 authenticate exact workload metadata subject and audience before wallet or query work",
+    "E04 canonicalize one EVM wallet once and query once with sanitized status mapping",
+    "E05 prove eleven exact fake-authorizer and fake-query tests offline without listeners",
+    "E06 implement and review a concrete trusted issuer verifier credential source and rotation path",
+    "E07 inject analytics metadata and establish TLS plus owner-delegation policy",
+    "E08 certify schema index query plan reconciliation and only then compose the A2.8 store adapter",
+    "E09 prove runtime shadow parity rollback and obtain separate explicit production deployment authorization"
+  ]
+}

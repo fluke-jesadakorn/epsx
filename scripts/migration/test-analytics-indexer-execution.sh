@@ -9,7 +9,7 @@ temp_dir=$(mktemp -d "${TMPDIR:-/tmp}/epsx-analytics-indexer-execution.XXXXXX")
 trap 'rm -rf -- "$temp_dir"' EXIT HUP INT TERM
 
 "$verify" --mode integrity >"$temp_dir/integrity.out" 2>&1
-grep -q "14 source pins, 40 target anchors, A2.4/A2.5/A2.6/A2.7/A2.8/A2.9 boundary contracts, 4 separate domains, 16 surfaces, and 24 stop blockers" "$temp_dir/integrity.out"
+grep -q "14 source pins, 40 target anchors, A2.4/A2.5/A2.6/A2.7/A2.8/A2.9/A2.10 boundary contracts, 4 separate domains, 16 surfaces, and 24 stop blockers" "$temp_dir/integrity.out"
 grep -q "no database, Redis, chain, network, live market-data, deployment" "$temp_dir/integrity.out"
 
 set +e
@@ -32,13 +32,14 @@ EPSX_A2_6_EVIDENCE_ROOT="$temp_dir" EPSX_A2_6_STATIC_ONLY=1 \
 EPSX_A2_7_EVIDENCE_ROOT="$temp_dir" EPSX_A2_7_STATIC_ONLY=1 \
 EPSX_A2_8_EVIDENCE_ROOT="$temp_dir" EPSX_A2_8_STATIC_ONLY=1 \
 EPSX_A2_9_EVIDENCE_ROOT="$temp_dir" EPSX_A2_9_STATIC_ONLY=1 \
+EPSX_A2_10_EVIDENCE_ROOT="$temp_dir" EPSX_A2_10_STATIC_ONLY=1 \
   "$verify" --mode report >"$temp_dir/override-proof.json"
 cmp "$temp_dir/report-one.json" "$temp_dir/override-proof.json"
 bun -e '
 const report = JSON.parse(await Bun.file(process.argv[1]).text());
 const expected = ["marketAnalytics", "eventAnalytics", "indexer", "identityRankingOffset"];
 if (report.readinessExit !== 3 || report.productionReady !== false || report.blockers.length !== 24 || report.targetEvidence !== 40 || report.refreshedBoundaryEvidence !== 7 || report.surfaceContracts.length !== 16) process.exit(1);
-if (JSON.stringify(report.composedBoundaryEvidence) !== JSON.stringify(["A2.4", "A2.5", "A2.6", "A2.7", "A2.8", "A2.9"])) process.exit(1);
+if (JSON.stringify(report.composedBoundaryEvidence) !== JSON.stringify(["A2.4", "A2.5", "A2.6", "A2.7", "A2.8", "A2.9", "A2.10"])) process.exit(1);
 if (expected.some((domain) => !report.domains[domain] || report.domains[domain].status !== "blocked")) process.exit(1);
 ' "$temp_dir/report-one.json"
 
@@ -187,7 +188,7 @@ if [ "$a2_6_missing_link_status" -ne 1 ]; then
   echo "analytics-indexer-execution self-test: expected a2-6-missing-link exit 1, got $a2_6_missing_link_status" >&2
   exit 1
 fi
-grep -q "B03 must retain the canonical A2.6 authority-failure evidence link" "$temp_dir/a2-6-missing-link.out"
+grep -q "B03 must retain A2.6 fail-closed evidence plus A2.10 unwired workload-auth" "$temp_dir/a2-6-missing-link.out"
 
 A12_CONTRACT_IN="$contract" A12_CONTRACT_OUT="$temp_dir/a2-7-drifted-link.json" bun -e '
 const contract = await Bun.file(process.env.A12_CONTRACT_IN).json();
@@ -221,7 +222,7 @@ if [ "$a2_7_missing_link_status" -ne 1 ]; then
   echo "analytics-indexer-execution self-test: expected a2-7-missing-link exit 1, got $a2_7_missing_link_status" >&2
   exit 1
 fi
-grep -q "B07 must retain A2.6/A2.7/A2.8/A2.9 evidence" "$temp_dir/a2-7-missing-link.out"
+grep -q "B07 must retain A2.6/A2.7/A2.8/A2.9/A2.10 evidence" "$temp_dir/a2-7-missing-link.out"
 
 A12_CONTRACT_IN="$contract" A12_CONTRACT_OUT="$temp_dir/a2-8-drifted-link.json" bun -e '
 const contract = await Bun.file(process.env.A12_CONTRACT_IN).json();
@@ -255,7 +256,7 @@ if [ "$a2_8_missing_b07_status" -ne 1 ]; then
   echo "analytics-indexer-execution self-test: expected a2-8-missing-b07-link exit 1, got $a2_8_missing_b07_status" >&2
   exit 1
 fi
-grep -q "B07 must retain A2.6/A2.7/A2.8/A2.9 evidence" "$temp_dir/a2-8-missing-b07-link.out"
+grep -q "B07 must retain A2.6/A2.7/A2.8/A2.9/A2.10 evidence" "$temp_dir/a2-8-missing-b07-link.out"
 
 A12_CONTRACT_IN="$contract" A12_CONTRACT_OUT="$temp_dir/a2-8-missing-b21-link.json" bun -e '
 const contract = await Bun.file(process.env.A12_CONTRACT_IN).json();
@@ -308,6 +309,57 @@ if [ "$a2_9_missing_b08_status" -ne 1 ]; then
 fi
 grep -q "B08 must retain A2.9 containment" "$temp_dir/a2-9-missing-b08-link.out"
 
+A12_CONTRACT_IN="$contract" A12_CONTRACT_OUT="$temp_dir/a2-10-drifted-link.json" bun -e '
+const contract = await Bun.file(process.env.A12_CONTRACT_IN).json();
+const evidence = contract.targetEvidence.find((item) => item.id === "tgt-identity-a2-10-authenticated-ranking-rpc-contract");
+evidence.anchor = "\"productionReady\": false";
+await Bun.write(process.env.A12_CONTRACT_OUT, `${JSON.stringify(contract, null, 2)}\n`);
+'
+set +e
+"$verify" --mode integrity --contract "$temp_dir/a2-10-drifted-link.json" >"$temp_dir/a2-10-drifted-link.out" 2>&1
+a2_10_drifted_link_status=$?
+set -e
+if [ "$a2_10_drifted_link_status" -ne 1 ]; then
+  cat "$temp_dir/a2-10-drifted-link.out" >&2
+  echo "analytics-indexer-execution self-test: expected a2-10-drifted-link exit 1, got $a2_10_drifted_link_status" >&2
+  exit 1
+fi
+grep -q "A2.10 authenticated-ranking-RPC evidence is missing or drifted" "$temp_dir/a2-10-drifted-link.out"
+
+A12_CONTRACT_IN="$contract" A12_CONTRACT_OUT="$temp_dir/a2-10-missing-b03-link.json" bun -e '
+const contract = await Bun.file(process.env.A12_CONTRACT_IN).json();
+const blocker = contract.blockers.find((item) => item.id === "B03");
+blocker.evidenceIds = blocker.evidenceIds.filter((id) => id !== "tgt-identity-a2-10-authenticated-ranking-rpc-contract");
+await Bun.write(process.env.A12_CONTRACT_OUT, `${JSON.stringify(contract, null, 2)}\n`);
+'
+set +e
+"$verify" --mode integrity --contract "$temp_dir/a2-10-missing-b03-link.json" >"$temp_dir/a2-10-missing-b03-link.out" 2>&1
+a2_10_missing_b03_status=$?
+set -e
+if [ "$a2_10_missing_b03_status" -ne 1 ]; then
+  cat "$temp_dir/a2-10-missing-b03-link.out" >&2
+  echo "analytics-indexer-execution self-test: expected a2-10-missing-b03-link exit 1, got $a2_10_missing_b03_status" >&2
+  exit 1
+fi
+grep -q "B03 must retain A2.6 fail-closed evidence plus A2.10 unwired workload-auth" "$temp_dir/a2-10-missing-b03-link.out"
+
+A12_CONTRACT_IN="$contract" A12_CONTRACT_OUT="$temp_dir/a2-10-missing-b07-link.json" bun -e '
+const contract = await Bun.file(process.env.A12_CONTRACT_IN).json();
+const blocker = contract.blockers.find((item) => item.id === "B07");
+blocker.evidenceIds = blocker.evidenceIds.filter((id) => id !== "tgt-identity-a2-10-authenticated-ranking-rpc-contract");
+await Bun.write(process.env.A12_CONTRACT_OUT, `${JSON.stringify(contract, null, 2)}\n`);
+'
+set +e
+"$verify" --mode integrity --contract "$temp_dir/a2-10-missing-b07-link.json" >"$temp_dir/a2-10-missing-b07-link.out" 2>&1
+a2_10_missing_b07_status=$?
+set -e
+if [ "$a2_10_missing_b07_status" -ne 1 ]; then
+  cat "$temp_dir/a2-10-missing-b07-link.out" >&2
+  echo "analytics-indexer-execution self-test: expected a2-10-missing-b07-link exit 1, got $a2_10_missing_b07_status" >&2
+  exit 1
+fi
+grep -q "B07 must retain A2.6/A2.7/A2.8/A2.9/A2.10 evidence" "$temp_dir/a2-10-missing-b07-link.out"
+
 set +e
 EPSX_ENV=production "$verify" --mode integrity >"$temp_dir/production-env.out" 2>&1
 production_status=$?
@@ -352,4 +404,4 @@ if [ "$live_status" -ne 1 ]; then
 fi
 grep -q "never contacts databases, Redis, chains, or live market-data providers" "$temp_dir/live-env.out"
 
-echo "analytics-indexer-execution self-test: PASS (integrity=0, readiness-stop=3, deterministic=stable, source/schema-anchor/A2.5/A2.6/A2.7/A2.8/A2.9-link/stale/path/domain/blocker/prod/live tamper=1)"
+echo "analytics-indexer-execution self-test: PASS (integrity=0, readiness-stop=3, deterministic=stable, source/schema-anchor/A2.5/A2.6/A2.7/A2.8/A2.9/A2.10-link/stale/path/domain/blocker/prod/live tamper=1)"
