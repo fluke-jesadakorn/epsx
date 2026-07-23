@@ -1,5 +1,5 @@
-//! `/contact` — PancakeSwap-style gradient page with email CTA,
-//! inline contact form, and 3 info cards.
+//! `/contact` — PancakeSwap-style gradient page with an email CTA
+//! and 3 info cards.
 //!
 //! Source of truth: `apps-old/frontend/app/contact/page.tsx` +
 //! `apps-old/frontend/app/contact/contact-form.tsx`. The port
@@ -12,45 +12,35 @@
 //! - the gradient-text "Contact Us" hero
 //! - the email CTA card with `MailtoBtn` + `CopyEmailBtn`
 //! - the 3 info cards (General, Support, Response time)
-//! - a new contact form (name / email / subject / message) per
-//!   the Wave 5 design doc, which calls for a form that hits
-//!   `/api/v1/contact` (already wired by Wave 1).
 //!
-//! Client-side validation is signalled via per-field error text
-//! below each input. Submit is a no-op in SSR — the form posts to
-//! `/api/v1/contact` via a `<form action=… method=POST>` so the
-//! page is fully usable without JavaScript. With JS the page would
-//! intercept the submit and post via `fetch`; that enhancement is
-//! intentionally left for Wave 6.
+//! No submission form is rendered until a real contact endpoint with
+//! validation, rate limiting, and complete outcome feedback exists. The
+//! source-compatible email and copy controls remain usable without one.
 
 use crate::primitives::*;
 
-use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
-use crate::auth::ProgressiveAuthBanner;
+use dioxus::prelude::*;
 
 const SUPPORT_EMAIL: &str = "info@epsx.io";
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Contact");
-    (meta, rsx! {
-        MainLayout { ctx: ctx.clone(),
-            ContactBackground {}
-            if ctx.user.is_none() {
-                ProgressiveAuthBanner {
-                    feature: Some("support requests".to_string()),
+    (
+        meta,
+        rsx! {
+            MainLayout { ctx: ctx.clone(),
+                ContactBackground {}
+                div { class: "contact-page",
+                    ContactHero {}
+                    ContactEmailCard {}
+                    ContactInfoCards {}
                 }
             }
-            div { class: "contact-page",
-                ContactHero {}
-                ContactEmailCard {}
-                ContactInfoCards {}
-                ContactFormCard {}
-            }
-        }
-    })
+        },
+    )
 }
 
 /// PancakeSwap-style gradient background with 3 floating orbs.
@@ -193,7 +183,11 @@ fn ContactInfoCards() -> Element {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-enum ContactCardTone { Purple, Orange, Blue }
+enum ContactCardTone {
+    Purple,
+    Orange,
+    Blue,
+}
 
 impl ContactCardTone {
     fn class(&self) -> &'static str {
@@ -239,80 +233,11 @@ fn ContactInfoCardView(card: ContactInfoCard) -> Element {
     }
 }
 
-/// Inline contact form (name / email / subject / message).
-///
-/// SSR-only — the form posts to `/api/v1/contact` (already wired
-/// in Wave 1) via a normal HTML form submission. No client-side
-/// JS intercept, no optimistic update, no fetch — that's
-/// intentionally Wave 6 work. The form is fully usable without
-/// JavaScript.
-#[component]
-fn ContactFormCard() -> Element {
-    rsx! {
-        section { class: "contact-form-section",
-            div { class: "container",
-                div { class: "contact-form-card card card-glass",
-                    div { class: "card-body",
-                        h2 { class: "contact-form-title", "Send a message" }
-                        p { class: "contact-form-subtitle text-muted-foreground",
-                            "We typically respond within 24 hours on business days."
-                        }
-                        form {
-                            class: "contact-form",
-                            action: "/api/v1/contact",
-                            method: "POST",
-                            div { class: "contact-form-row",
-                                Input {
-                                    r#type: InputKind::Text,
-                                    name: Some("name".to_string()),
-                                    label: Some("Name".to_string()),
-                                    placeholder: Some("Your name".to_string()),
-                                    required: Some(true),
-                                }
-                                Input {
-                                    r#type: InputKind::Email,
-                                    name: Some("email".to_string()),
-                                    label: Some("Email".to_string()),
-                                    placeholder: Some("you@example.com".to_string()),
-                                    required: Some(true),
-                                }
-                            }
-                            Input {
-                                r#type: InputKind::Text,
-                                name: Some("subject".to_string()),
-                                label: Some("Subject".to_string()),
-                                placeholder: Some("What is this about?".to_string()),
-                                required: Some(true),
-                            }
-                            Input {
-                                r#type: InputKind::Textarea,
-                                name: Some("message".to_string()),
-                                label: Some("Message".to_string()),
-                                placeholder: Some("Tell us more…".to_string()),
-                                rows: Some(6),
-                                required: Some(true),
-                            }
-                            div { class: "contact-form-actions",
-                                button {
-                                    class: "btn btn-gradient btn-lg",
-                                    r#type: "submit",
-                                    "Send message"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 // === wave5-page-depth-track-b ===
 // Unit tests for the contact page. The design doc requires:
 //   - test_render_smoke: render() returns a non-empty Element
 //   - test_section_markers: the rendered HTML contains the
-//     contact-hero / contact-email / contact-info / contact-form
-//     section class names.
+//     contact-hero / contact-email / contact-info section class names.
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -335,7 +260,10 @@ mod tests {
         let ctx = empty_ctx();
         let (_meta, el) = render(&ctx);
         let html = dioxus_ssr::render_element(el);
-        assert!(!html.trim().is_empty(), "contact page should render non-empty HTML");
+        assert!(
+            !html.trim().is_empty(),
+            "contact page should render non-empty HTML"
+        );
     }
 
     #[test]
@@ -347,7 +275,6 @@ mod tests {
             "contact-hero",
             "contact-email-section",
             "contact-info-section",
-            "contact-form-section",
         ] {
             assert!(
                 html.contains(marker),
@@ -366,6 +293,36 @@ mod tests {
                 html.contains(title),
                 "contact page should mention `{title}`. Got: {}",
                 html
+            );
+        }
+    }
+
+    #[test]
+    fn contact_exposes_only_working_email_actions() {
+        let html = render_to_string(&empty_ctx());
+
+        assert!(html.contains("href=\"mailto:info@epsx.io\""));
+        assert!(html.contains("aria-label=\"Copy email address\""));
+        assert!(html.contains("data-copy=\"info@epsx.io\""));
+        assert!(html.contains("type=\"button\""));
+        assert!(html.contains("onclick=\"epsx.copyText('info@epsx.io', this)\""));
+        assert!(html.contains("<span>Copy</span>"));
+
+        for forbidden in [
+            "<form",
+            "</form>",
+            "type=\"submit\"",
+            "<input",
+            "<textarea",
+            "/api/v1/contact",
+            "contact-form-section",
+            "progressive-auth-banner",
+            "Sign in to support requests",
+            "you need a wallet to act",
+        ] {
+            assert!(
+                !html.contains(forbidden),
+                "unsupported contact submission control leaked: {forbidden}"
             );
         }
     }
