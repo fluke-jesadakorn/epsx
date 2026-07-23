@@ -5707,9 +5707,9 @@ window.epsx = (function() {
           <a href="/account" class="epsx-connect-btn" style="text-decoration:none;width:100%;"><i data-lucide="user" style="width:1rem;height:1rem;"></i> Account</a>
           <button class="epsx-connect-btn" type="button" data-epsx-logout style="width:100%;"><i data-lucide="log-out" style="width:1rem;height:1rem;"></i> Sign out</button>
         </div>`
-      : `<button class="epsx-connect-btn" type="button" onclick="epsx.toggleMobileMenu();epsx.openAuth();" style="margin-top:1rem;width:100%;">
+      : `<a href="/auth" class="epsx-connect-btn" style="margin-top:1rem;width:100%;text-decoration:none;">
           <i data-lucide="wallet" style="width:1rem;height:1rem;"></i> Connect Wallet
-        </button>`;
+        </a>`;
     sheet = document.createElement('div');
     sheet.id = 'epsx-mobile-sheet';
     sheet.className = 'epsx-mobile-sheet';
@@ -5723,7 +5723,7 @@ window.epsx = (function() {
         </div>
         <div class="epsx-mobile-section">
           <div class="epsx-mobile-section-title">Market</div>
-          <a href="/rankings" class="epsx-mobile-link"><i data-lucide="chart-column" style="width:1rem;height:1rem;color:var(--epsx-orange);"></i> Rankings <span style="color:var(--text-subtle);font-size:0.75rem;">EPS stock rankings</span></a>
+          <a href="/analytics" class="epsx-mobile-link"><i data-lucide="chart-column" style="width:1rem;height:1rem;color:var(--epsx-orange);"></i> Rankings <span style="color:var(--text-subtle);font-size:0.75rem;">EPS stock rankings</span></a>
           <a href="/portfolio" class="epsx-mobile-link"><i data-lucide="trending-up" style="width:1rem;height:1rem;color:var(--epsx-orange);"></i> Portfolio <span style="color:var(--text-subtle);font-size:0.75rem;">Watchlist &amp; tracking</span></a>
         </div>
         <div class="epsx-mobile-section">
@@ -5755,78 +5755,6 @@ window.epsx = (function() {
       document.querySelectorAll('.epsx-nav-wrap').forEach(w => w.classList.remove('open'));
     }
   });
-
-  // ============ Auth modal (epsx.io "Select Wallet" exact structure) ============
-  function openAuth() {
-    closeAuth();
-    const back = document.createElement('div');
-    back.className = 'modal-backdrop';
-    back.id = 'epsx-auth-back';
-    back.setAttribute('role', 'dialog');
-    back.setAttribute('aria-modal', 'true');
-    back.innerHTML = authHTML();
-    back.addEventListener('click', (e) => { if (e.target === back) closeAuth(); });
-    document.body.appendChild(back);
-    if (window.epsx && window.epsx.initLucide) window.epsx.initLucide();
-  }
-  function closeAuth() {
-    const back = document.getElementById('epsx-auth-back');
-    if (back) back.remove();
-  }
-  function authHTML() {
-    // Mirror epsx.io's auth-modal-inner / auth-wallet-btn structure exactly.
-    //
-    // Wave 50 — wired the 3 wallet buttons to `epsx.connectWallet()`
-    // (the page-shell wallet shim's full EIP-4361 challenge → sign →
-    // verify flow) instead of the previous `window.location.href=
-    // '/api/v1/auth/siwe?provider=...'` redirect, which was a GET to
-    // a POST-only endpoint and did nothing. The 3 buttons now all
-    // trigger the same connect flow (window.ethereum / MetaMask /
-    // any injected EIP-1193 provider). For users without a wallet,
-    // the shim toasts "Install MetaMask or another BSC wallet".
-    //
-    // Closing the modal first means the auth status events propagate
-    // to whichever page the user lands on after the verify reload.
-    //
-    // Also added a "Try the demo account" button below the wallet
-    // list so users without MetaMask installed can still sign in via
-    // `/api/v1/auth/demo` — calls `epsx.connectWalletDemo()`.
-    return `
-      <div class="auth-modal-inner animate-zoom-in" style="max-width:420px;width:100%;">
-        <div class="auth-modal-content">
-          <div class="auth-step auth-step-enter">
-            <div class="auth-step-header">
-              <span class="auth-step-number">1</span>
-              <span class="auth-step-label">Select Wallet</span>
-            </div>
-            <div class="auth-wallets">
-              <button class="auth-wallet-btn" type="button" onclick="window.epsx &amp;&amp; window.epsx.closeAuth &amp;&amp; window.epsx.closeAuth();window.epsx &amp;&amp; window.epsx.connectWallet &amp;&amp; window.epsx.connectWallet();">
-                <span class="auth-wallet-icon">💼</span>
-                <span class="auth-wallet-name">Safe</span>
-              </button>
-              <button class="auth-wallet-btn" type="button" onclick="window.epsx &amp;&amp; window.epsx.closeAuth &amp;&amp; window.epsx.closeAuth();window.epsx &amp;&amp; window.epsx.connectWallet &amp;&amp; window.epsx.connectWallet();">
-                <span class="auth-wallet-icon">🔗</span>
-                <span class="auth-wallet-name">WalletConnect</span>
-              </button>
-              <button class="auth-wallet-btn" type="button" onclick="window.epsx &amp;&amp; window.epsx.closeAuth &amp;&amp; window.epsx.closeAuth();window.epsx &amp;&amp; window.epsx.connectWallet &amp;&amp; window.epsx.connectWallet();">
-                <span class="auth-wallet-icon">💼</span>
-                <span class="auth-wallet-name">Base Account</span>
-              </button>
-            </div>
-            <div style="margin-top:0.75rem;border-top:1px solid rgba(255,255,255,0.10);padding-top:0.75rem;">
-              <button class="auth-wallet-btn" type="button" onclick="window.epsx &amp;&amp; window.epsx.closeAuth &amp;&amp; window.epsx.closeAuth();window.epsx &amp;&amp; window.epsx.connectWalletDemo &amp;&amp; window.epsx.connectWalletDemo();" style="background:rgba(255,255,255,0.04);">
-                <span class="auth-wallet-icon">🧪</span>
-                <span class="auth-wallet-name">Try the demo account</span>
-              </button>
-            </div>
-          </div>
-        </div>
-        <div class="auth-modal-footer">
-          <p class="auth-footer-text">By connecting, you agree to our <a href="/terms" style="color:rgba(255,255,255,0.7);text-decoration:underline;">Terms of Service</a>.</p>
-        </div>
-      </div>
-    `;
-  }
 
   // Update theme toggle visibility
   function updateThemeBtns() {
@@ -6162,7 +6090,7 @@ window.epsx = (function() {
   }
   document.addEventListener('DOMContentLoaded', function() { bindTabLists(); });
 
-  return { toast, setTheme, currentTheme, toggleTheme, openModal, closeModal, toggleDropdown, openSheet, closeSheet, activateTab, toggleNavDropdown, toggleNavAccordion, toggleNav, openAuth, closeAuth, apiGet, apiPost, loadRankings, startCountdown, startCountdowns, companyCardHTML, toggleMobileMenu, copyText, shareText, submitNewsSearch, bindNavigateSelects, bindTabLists };
+  return { toast, setTheme, currentTheme, toggleTheme, openModal, closeModal, toggleDropdown, openSheet, closeSheet, activateTab, toggleNavDropdown, toggleNavAccordion, toggleNav, apiGet, apiPost, loadRankings, startCountdown, startCountdowns, companyCardHTML, toggleMobileMenu, copyText, shareText, submitNewsSearch, bindNavigateSelects, bindTabLists };
 })();
 </script>
 
@@ -6723,12 +6651,12 @@ pub fn epsx_header() -> String {
 }
 
 /// Render the public header with a truthful browser-session action.
-/// Authentication remains server-derived; the button only invokes the BFF
-/// session controller and contains no permissions or entitlement logic.
+/// Authentication remains server-derived; public controls use the native auth
+/// route and contain no permissions or entitlement logic.
 pub fn epsx_header_for_session(is_authenticated: bool) -> String {
     // Market dropdown items (rankings, portfolio)
     let market_items = r##"
-      <a href="/rankings" class="epsx-nav-item">
+      <a href="/analytics" class="epsx-nav-item">
         <i data-lucide="chart-column" class="item-icon"></i>
         <div>
           <div class="item-label">Rankings</div>
@@ -6822,16 +6750,16 @@ pub fn epsx_header_for_session(is_authenticated: bool) -> String {
     } else {
         (
             r##"<div class="hidden md:flex items-center gap-1.5">
-        <button class="epsx-connect-btn" type="button" onclick="epsx.openAuth()">
+        <a href="/auth" class="epsx-connect-btn" style="text-decoration:none;">
           <i data-lucide="wallet" style="width:1rem;height:1rem;"></i>
           Connect
-        </button>
+        </a>
       </div>"##,
             r##"<div class="flex md:hidden items-center gap-1.5">
-        <button class="epsx-connect-btn" type="button" onclick="epsx.openAuth()" style="height:2rem;padding:0 0.75rem;font-size:0.75rem;border-radius:1rem;">
+        <a href="/auth" class="epsx-connect-btn" style="height:2rem;padding:0 0.75rem;font-size:0.75rem;border-radius:1rem;text-decoration:none;">
           <i data-lucide="wallet" style="width:0.75rem;height:0.75rem;"></i>
           Connect
-        </button>
+        </a>
       </div>"##,
         )
     };
@@ -7477,18 +7405,84 @@ mod page_head_tests {
     }
 
     #[test]
+    fn public_connect_controls_use_auth_route_without_shell_provider_claims() {
+        let public = epsx_header_for_session(false);
+        let public_connect_anchors: Vec<&str> = public
+            .split("<a href=\"/auth\" class=\"epsx-connect-btn\"")
+            .skip(1)
+            .map(|tail| tail.split_once("</a>").expect("closed auth anchor").0)
+            .collect();
+        assert_eq!(public_connect_anchors.len(), 2);
+        for anchor in public_connect_anchors {
+            assert!(anchor.contains("Connect"));
+        }
+        assert!(!public.contains("openAuth"));
+
+        let script = global_js();
+        let mobile_connect_anchor = script
+            .split_once("<a href=\"/auth\" class=\"epsx-connect-btn\"")
+            .expect("mobile auth anchor")
+            .1
+            .split_once("</a>")
+            .expect("closed mobile auth anchor")
+            .0;
+        assert!(mobile_connect_anchor.contains("Connect Wallet"));
+        for unsupported in [
+            "function openAuth",
+            "function closeAuth",
+            "authHTML()",
+            "connectWalletDemo",
+            "auth-wallet-name",
+            "Try the demo account",
+            "WalletConnect",
+            "Base Account",
+        ] {
+            assert!(
+                !script.contains(unsupported),
+                "shared shell retained unsupported auth claim: {unsupported}"
+            );
+        }
+    }
+
+    #[test]
+    fn shared_rankings_navigation_targets_existing_analytics_route() {
+        let desktop = epsx_header_for_session(false);
+        assert!(!desktop.contains("href=\"/rankings\""));
+        let desktop_rankings_anchor = desktop
+            .split_once("<a href=\"/analytics\" class=\"epsx-nav-item\">")
+            .expect("desktop rankings anchor")
+            .1
+            .split_once("</a>")
+            .expect("closed desktop rankings anchor")
+            .0;
+        assert!(desktop_rankings_anchor.contains("<div class=\"item-label\">Rankings</div>"));
+
+        let mobile = global_js();
+        assert!(!mobile.contains("href=\"/rankings\""));
+        let mobile_rankings_anchor = mobile
+            .split_once("<a href=\"/analytics\" class=\"epsx-mobile-link\">")
+            .expect("mobile rankings anchor")
+            .1
+            .split_once("</a>")
+            .expect("closed mobile rankings anchor")
+            .0;
+        assert!(mobile_rankings_anchor.contains("> Rankings <span"));
+    }
+
+    #[test]
     fn header_exposes_truthful_session_action_without_policy_logic() {
         let public = epsx_header_for_session(false);
-        assert_eq!(public.matches("onclick=\"epsx.openAuth()\"").count(), 2);
+        assert_eq!(public.matches("href=\"/auth\"").count(), 2);
         assert!(public.contains("data-epsx-authenticated=\"false\""));
         assert!(!public.contains("data-epsx-logout"));
+        assert!(!public.contains("openAuth"));
 
         let authenticated = epsx_header_for_session(true);
         assert_eq!(authenticated.matches("data-epsx-logout").count(), 2);
         assert!(authenticated.contains("data-epsx-authenticated=\"true\""));
         assert!(authenticated.contains("class=\"flex md:hidden items-center gap-1.5\""));
         assert!(authenticated.contains("href=\"/account\""));
-        assert!(!authenticated.contains("onclick=\"epsx.openAuth()\""));
+        assert!(!authenticated.contains("href=\"/auth\""));
         assert!(!authenticated.contains("permission"));
         assert!(!authenticated.contains("plan"));
 
