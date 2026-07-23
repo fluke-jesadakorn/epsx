@@ -5896,25 +5896,81 @@ window.epsx = (function() {
   //           quotes, newlines, unicode; the builder fn escapes these
   //           into a single-quoted JS string literal before the
   //           onclick hits the DOM.
-  //   btn   — the clicked element. Used to flip its label to
-  //           "✓ Copied" / "Copied!" for 2 s, then restore.
+  //   btn   — the clicked element. Buttons with a
+  //           `data-copy-status-target` announce through that dedicated
+  //           status node without changing their label. Other copy
+  //           buttons retain the legacy 2 s inline label flash.
   function copyText(text, btn) {
+    var statusTargetId =
+      btn && typeof btn.getAttribute === 'function'
+        ? (btn.getAttribute('data-copy-status-target') || '')
+        : '';
+    var copyGeneration = 0;
+    if (statusTargetId && btn) {
+      copyGeneration = (btn.__epsxCopyGeneration || 0) + 1;
+      btn.__epsxCopyGeneration = copyGeneration;
+      if (btn.__epsxCopyStatusTimer != null) {
+        clearTimeout(btn.__epsxCopyStatusTimer);
+        btn.__epsxCopyStatusTimer = null;
+      }
+    }
+    function isCurrentCopy() {
+      return !statusTargetId || !btn || btn.__epsxCopyGeneration === copyGeneration;
+    }
     function fallback(t) {
+      var ta = null;
+      var appendAttempted = false;
+      var copied = false;
+      var priorFocus = null;
+      try { priorFocus = document.activeElement; } catch (e) {}
       try {
-        var ta = document.createElement('textarea');
+        ta = document.createElement('textarea');
         ta.value = t;
         ta.setAttribute('readonly', '');
         ta.style.position = 'fixed';
         ta.style.top = '-9999px';
         ta.style.opacity = '0';
+        appendAttempted = true;
         document.body.appendChild(ta);
         ta.focus();
         ta.select();
-        var ok = false;
-        try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
-        document.body.removeChild(ta);
-        return ok;
-      } catch (e) { return false; }
+        copied = document.execCommand('copy');
+      } catch (e) {
+        copied = false;
+      } finally {
+        if (ta && appendAttempted) {
+          try {
+            document.body.removeChild(ta);
+          } catch (e) {
+            try {
+              if (typeof ta.remove === 'function') ta.remove();
+            } catch (removeError) {}
+          }
+        }
+        var focusRestored = false;
+        if (priorFocus && typeof priorFocus.focus === 'function') {
+          try {
+            priorFocus.focus();
+            focusRestored = true;
+          } catch (e) {}
+        }
+        if (!focusRestored && btn && typeof btn.focus === 'function') {
+          try { btn.focus(); } catch (e) {}
+        }
+      }
+      return copied;
+    }
+    function announce(message) {
+      if (!btn || !isCurrentCopy()) return;
+      var status = document.getElementById(statusTargetId);
+      if (!status) return;
+      status.textContent = message;
+      btn.__epsxCopyStatusTimer = setTimeout(function() {
+        if (!isCurrentCopy()) return;
+        var currentStatus = document.getElementById(statusTargetId);
+        if (currentStatus) currentStatus.textContent = '';
+        btn.__epsxCopyStatusTimer = null;
+      }, 2000);
     }
     function flash(label) {
       if (!btn) return;
@@ -5934,17 +5990,33 @@ window.epsx = (function() {
         btn.removeAttribute('data-orig-label');
       }, 2000);
     }
+    function showResult(copied) {
+      if (!isCurrentCopy()) return;
+      if (statusTargetId) {
+        announce(
+          copied
+            ? 'Email address copied to clipboard.'
+            : 'Could not copy email address.'
+        );
+      } else {
+        flash(copied ? '✓ Copied' : 'Copy failed');
+      }
+    }
+    function useFallback() {
+      if (!isCurrentCopy()) return;
+      showResult(fallback(text));
+    }
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(
-        function() { flash('✓ Copied'); },
-        function() {
-          if (fallback(text)) flash('✓ Copied');
-          else flash('Copy failed');
-        }
-      );
+      try {
+        navigator.clipboard.writeText(text).then(
+          function() { showResult(true); },
+          useFallback
+        );
+      } catch (e) {
+        useFallback();
+      }
     } else {
-      if (fallback(text)) flash('✓ Copied');
-      else flash('Copy failed');
+      useFallback();
     }
   }
 
@@ -6157,9 +6229,11 @@ pub fn theme_toggle_button() -> &'static str {
 // them via `dangerous_inner_html` on a wrapping `<span>` (or the
 // element itself, where Dioxus allows it).
 //
-// All `onclick` values are constructed via `js_string_literal()`
-// which properly escapes `'`, `"`, `\`, newlines, and `</` so the
-// resulting HTML is XSS-safe. Pair each builder with a matching
+// User-controlled arguments are first encoded for the JavaScript
+// string-literal context via `js_string_literal()`. Each complete
+// expression must then be encoded for its outer HTML attribute
+// context via `html_attr_escape()`; JavaScript backslashes do not
+// escape HTML quote delimiters. Pair each builder with a matching
 // function in `global_js()` (the public `epsx.*` namespace).
 
 /// Escape an arbitrary `&str` so it is safe to embed as a JS
@@ -6225,9 +6299,8 @@ pub fn onclick_submit_news_search(form_id: &str) -> String {
 
 /// Returns a complete `<button>…</button>` HTML string that
 /// copies `text` to the clipboard when clicked. The `label`
-/// parameter is the resting label; on a successful copy the
-/// `epsx.copyText` JS flips the inner `<span>` to "✓ Copied" for
-/// 2 s, then restores.
+/// parameter is the resting label; generic copy buttons retain
+/// the `epsx.copyText` inline feedback that restores after 2 s.
 ///
 /// Usage from a Dioxus component:
 /// ```ignore
@@ -6237,7 +6310,7 @@ pub fn onclick_submit_news_search(form_id: &str) -> String {
 /// }
 /// ```
 pub fn copy_button_html(text: &str, label: &str) -> String {
-    let onclick = onclick_copy_text(text);
+    let onclick = html_attr_escape(&onclick_copy_text(text));
     format!(
         r#"<button type="button" class="btn btn-sm btn-outline copy-btn" data-copy="{safe_text}" onclick="{onclick}" aria-label="Copy to clipboard"><span>{label}</span></button>"#,
         safe_text = html_attr_escape(text),
@@ -6248,11 +6321,13 @@ pub fn copy_button_html(text: &str, label: &str) -> String {
 
 /// Returns a complete `<button>…</button>` HTML string for the
 /// contact page's "Copy email" button. Visually matches the
-/// `contact-copy-btn` class so existing CSS still applies.
+/// `contact-copy-btn` class so existing CSS still applies. The
+/// caller renders the associated `contact-copy-email-status`
+/// polite status region next to this stable-label button.
 pub fn email_copy_button_html(email: &str) -> String {
-    let onclick = onclick_copy_text(email);
+    let onclick = html_attr_escape(&onclick_copy_text(email));
     format!(
-        r#"<button type="button" class="btn btn-ghost contact-copy-btn" data-copy="{safe_email}" onclick="{onclick}" aria-label="Copy email address"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="check"><polyline points="20 6 9 17 4 12"></polyline></svg><span>Copy</span></button>"#,
+        r#"<button id="contact-copy-email-button" type="button" class="btn btn-ghost contact-copy-btn" data-copy="{safe_email}" data-copy-status-target="contact-copy-email-status" onclick="{onclick}" aria-label="Copy email address" aria-describedby="contact-copy-email-status"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="check"><polyline points="20 6 9 17 4 12"></polyline></svg><span>Copy</span></button>"#,
         safe_email = html_attr_escape(email),
         onclick = onclick,
     )
@@ -6262,7 +6337,10 @@ pub fn email_copy_button_html(email: &str) -> String {
 /// share button. Uses the Web Share API on mobile; on desktop
 /// falls back to copying the URL to the clipboard.
 pub fn share_button_html(text: &str, title: &str, label: &str) -> String {
-    let onclick = onclick_share_text(text, title);
+    // The complete JavaScript expression is an HTML attribute value.
+    // Escaping only its string-literal arguments is insufficient because
+    // JavaScript backslashes do not protect quote delimiters from HTML.
+    let onclick = html_attr_escape(&onclick_share_text(text, title));
     format!(
         r#"<button type="button" class="share-btn" data-share-text="{safe_text}" data-share-title="{safe_title}" onclick="{onclick}" aria-label="Share"><span>{label}</span></button>"#,
         safe_text = html_attr_escape(text),
@@ -6277,7 +6355,7 @@ pub fn share_button_html(text: &str, title: &str, label: &str) -> String {
 /// `epsx.submitNewsSearch(form_id)`, which collects the named
 /// inputs and navigates to `/news?q=…&category=…`.
 pub fn news_search_submit_button_html(form_id: &str, label: &str) -> String {
-    let onclick = onclick_submit_news_search(form_id);
+    let onclick = html_attr_escape(&onclick_submit_news_search(form_id));
     format!(
         r#"<button type="button" class="btn btn-outline" onclick="{onclick}">{label}</button>"#,
         onclick = onclick,
@@ -7402,6 +7480,525 @@ mod page_head_tests {
         ] {
             assert!(actual >= threshold, "{label} contrast is {actual}");
         }
+    }
+
+    fn copy_text_controller_source() -> &'static str {
+        let script = global_js();
+        let start = script
+            .find("  function copyText(text, btn) {")
+            .expect("copyText controller");
+        let end = script[start..]
+            .find("\n\n  // ============ Share")
+            .map(|offset| start + offset)
+            .expect("copyText controller boundary");
+        &script[start..end]
+    }
+
+    #[test]
+    fn contact_copy_button_targets_dedicated_accessible_status() {
+        let button = email_copy_button_html("support@example.com");
+        for expected in [
+            r#"id="contact-copy-email-button""#,
+            r#"data-copy-status-target="contact-copy-email-status""#,
+            r#"aria-label="Copy email address""#,
+            r#"aria-describedby="contact-copy-email-status""#,
+            r#"<span>Copy</span>"#,
+        ] {
+            assert!(button.contains(expected), "missing {expected}");
+        }
+        assert_eq!(button.matches("contact-copy-email-status").count(), 2);
+        assert!(!button.contains("Copied"));
+        assert!(!button.contains("Copy failed"));
+    }
+
+    #[test]
+    fn public_copy_button_escapes_complete_onclick_attribute() {
+        let button =
+            copy_button_html("\" autofocus onfocus=\"alert(1)\"", "Copy");
+        let data_copy_tail = button
+            .split_once("data-copy=\"")
+            .expect("data-copy attribute")
+            .1;
+        let (data_copy, after_data_copy) = data_copy_tail
+            .split_once('"')
+            .expect("closed data-copy attribute");
+        assert_eq!(
+            data_copy,
+            "&quot; autofocus onfocus=&quot;alert(1)&quot;"
+        );
+        assert!(after_data_copy.starts_with(" onclick=\""));
+
+        let onclick_tail = after_data_copy
+            .strip_prefix(" onclick=\"")
+            .expect("onclick follows data-copy");
+        let (onclick, after_onclick) = onclick_tail
+            .split_once('"')
+            .expect("closed onclick attribute");
+        assert_eq!(
+            onclick,
+            r#"epsx.copyText(&#39;\&quot; autofocus onfocus=\&quot;alert(1)\&quot;&#39;, this)"#
+        );
+        assert!(after_onclick.starts_with(" aria-label=\"Copy to clipboard\""));
+    }
+
+    #[test]
+    fn public_share_button_escapes_data_and_complete_onclick_attributes() {
+        let button = share_button_html(
+            "\" autofocus onfocus=\"alert(1)\"",
+            "\" formaction=\"https://evil.invalid\"",
+            "Share",
+        );
+        let text_tail = button
+            .split_once("data-share-text=\"")
+            .expect("share text attribute")
+            .1;
+        let (text, after_text) = text_tail
+            .split_once('"')
+            .expect("closed share text attribute");
+        assert_eq!(
+            text,
+            "&quot; autofocus onfocus=&quot;alert(1)&quot;"
+        );
+        assert!(after_text.starts_with(" data-share-title=\""));
+
+        let title_tail = after_text
+            .strip_prefix(" data-share-title=\"")
+            .expect("share title follows text");
+        let (title, after_title) = title_tail
+            .split_once('"')
+            .expect("closed share title attribute");
+        assert_eq!(
+            title,
+            "&quot; formaction=&quot;https://evil.invalid&quot;"
+        );
+        assert!(after_title.starts_with(" onclick=\""));
+
+        let onclick_tail = after_title
+            .strip_prefix(" onclick=\"")
+            .expect("onclick follows share title");
+        let (onclick, after_onclick) = onclick_tail
+            .split_once('"')
+            .expect("closed share onclick attribute");
+        assert_eq!(
+            onclick,
+            r#"epsx.shareText(&#39;\&quot; autofocus onfocus=\&quot;alert(1)\&quot;&#39;, &#39;\&quot; formaction=\&quot;https://evil.invalid\&quot;&#39;, this)"#
+        );
+        assert!(after_onclick.starts_with(" aria-label=\"Share\""));
+    }
+
+    #[test]
+    fn public_news_submit_button_escapes_complete_onclick_attribute() {
+        let button = news_search_submit_button_html(
+            "\" autofocus onfocus=\"alert(1)\"",
+            "Search",
+        );
+        let onclick_tail = button
+            .split_once("onclick=\"")
+            .expect("news submit onclick attribute")
+            .1;
+        let (onclick, after_onclick) = onclick_tail
+            .split_once('"')
+            .expect("closed news submit onclick attribute");
+        assert_eq!(
+            onclick,
+            r#"epsx.submitNewsSearch(&#39;\&quot; autofocus onfocus=\&quot;alert(1)\&quot;&#39;)"#
+        );
+        assert_eq!(after_onclick, ">Search</button>");
+    }
+
+    #[test]
+    fn contact_copy_feedback_controller_is_deterministic_accessible_and_race_safe() {
+        let controller = serde_json::to_string(copy_text_controller_source()).unwrap();
+        let harness = format!(
+            r#"
+const assert = require('node:assert/strict');
+const vm = require('node:vm');
+const controllerSource = {controller};
+
+let nextTimerId = 1;
+let timers = new Map();
+function scheduleTimer(callback, delay) {{
+  assert.equal(delay, 2000);
+  const id = nextTimerId++;
+  timers.set(id, {{ callback, cancelled: false }});
+  return id;
+}}
+function cancelTimer(id) {{
+  const timer = timers.get(id);
+  if (timer) timer.cancelled = true;
+}}
+function invokeTimer(id) {{
+  const timer = timers.get(id);
+  assert.ok(timer, 'timer must exist');
+  timer.callback();
+}}
+function activeTimerIds() {{
+  return Array.from(timers.entries())
+    .filter((entry) => !entry[1].cancelled)
+    .map((entry) => entry[0]);
+}}
+
+const status = {{ textContent: '' }};
+const label = {{ textContent: 'Copy' }};
+const genericLabel = {{ textContent: 'Copy code' }};
+let statusAvailable = true;
+let buttonFocusCalls = 0;
+const button = {{
+  attributes: {{
+    'data-copy-status-target': 'contact-copy-email-status',
+    'aria-label': 'Copy email address',
+    'aria-describedby': 'contact-copy-email-status',
+  }},
+  getAttribute(name) {{ return this.attributes[name] || null; }},
+  setAttribute(name, value) {{ this.attributes[name] = String(value); }},
+  removeAttribute(name) {{ delete this.attributes[name]; }},
+  querySelector(selector) {{ return selector === 'span' ? label : null; }},
+  focus() {{ buttonFocusCalls += 1; }},
+  textContent: 'Copy',
+}};
+const genericButton = {{
+  attributes: {{}},
+  getAttribute(name) {{ return this.attributes[name] || null; }},
+  setAttribute(name, value) {{ this.attributes[name] = String(value); }},
+  removeAttribute(name) {{ delete this.attributes[name]; }},
+  querySelector(selector) {{ return selector === 'span' ? genericLabel : null; }},
+  focus() {{ buttonFocusCalls += 1; }},
+  textContent: 'Copy code',
+}};
+
+let clipboardWrites = [];
+let clipboardWrite = () => Promise.resolve();
+let execResult = true;
+let execCalls = 0;
+let execThrows = false;
+let attachedTextareas = [];
+let textareaFocusThrows = false;
+let textareaSelectThrows = false;
+let removeThrowsOnce = false;
+let priorFocusCalls = 0;
+let priorFocusThrows = false;
+const priorFocus = {{
+  focus() {{
+    priorFocusCalls += 1;
+    if (priorFocusThrows) throw new Error('prior focus failed');
+  }},
+}};
+function detachTextarea(node) {{
+  const index = attachedTextareas.indexOf(node);
+  if (index !== -1) attachedTextareas.splice(index, 1);
+  node.parentNode = null;
+}}
+const document = {{
+  activeElement: priorFocus,
+  getElementById(id) {{
+    return statusAvailable && id === 'contact-copy-email-status' ? status : null;
+  }},
+  createElement(tag) {{
+    assert.equal(tag, 'textarea');
+    return {{
+      value: '',
+      style: {{}},
+      parentNode: null,
+      setAttribute() {{}},
+      focus() {{
+        if (textareaFocusThrows) throw new Error('textarea focus failed');
+      }},
+      select() {{
+        if (textareaSelectThrows) throw new Error('textarea select failed');
+      }},
+      remove() {{ detachTextarea(this); }},
+    }};
+  }},
+  body: {{
+    appendChild(node) {{
+      attachedTextareas.push(node);
+      node.parentNode = this;
+    }},
+    removeChild(node) {{
+      if (removeThrowsOnce) {{
+        removeThrowsOnce = false;
+        throw new Error('removeChild failed');
+      }}
+      const index = attachedTextareas.indexOf(node);
+      assert.notEqual(index, -1);
+      detachTextarea(node);
+    }},
+  }},
+  execCommand(command) {{
+    assert.equal(command, 'copy');
+    execCalls += 1;
+    if (execThrows) throw new Error('execCommand failed');
+    return execResult;
+  }},
+}};
+const navigator = {{}};
+function installClipboard() {{
+  navigator.clipboard = {{
+    writeText(text) {{
+      clipboardWrites.push(text);
+      return clipboardWrite(text);
+    }},
+  }};
+}}
+installClipboard();
+const context = vm.createContext({{
+  document,
+  navigator,
+  setTimeout: scheduleTimer,
+  clearTimeout: cancelTimer,
+}});
+vm.runInContext(controllerSource + '\nthis.copyText = copyText;', context);
+
+function resetCase() {{
+  status.textContent = '';
+  label.textContent = 'Copy';
+  button.textContent = 'Copy';
+  genericLabel.textContent = 'Copy code';
+  genericButton.textContent = 'Copy code';
+  genericButton.attributes = {{}};
+  delete button.__epsxCopyStatusTimer;
+  delete button.__epsxCopyGeneration;
+  statusAvailable = true;
+  clipboardWrites = [];
+  clipboardWrite = () => Promise.resolve();
+  installClipboard();
+  execResult = true;
+  execCalls = 0;
+  execThrows = false;
+  attachedTextareas = [];
+  textareaFocusThrows = false;
+  textareaSelectThrows = false;
+  removeThrowsOnce = false;
+  priorFocusCalls = 0;
+  priorFocusThrows = false;
+  buttonFocusCalls = 0;
+  document.activeElement = priorFocus;
+  timers = new Map();
+  nextTimerId = 1;
+}}
+async function flushPromises() {{
+  await Promise.resolve();
+  await Promise.resolve();
+}}
+
+(async function run() {{
+  resetCase();
+  context.copyText('support@example.com', button);
+  await flushPromises();
+  assert.deepEqual(clipboardWrites, ['support@example.com']);
+  assert.equal(status.textContent, 'Email address copied to clipboard.');
+  assert.equal(label.textContent, 'Copy');
+  assert.equal(button.attributes['aria-label'], 'Copy email address');
+  assert.deepEqual(activeTimerIds(), [1]);
+  invokeTimer(1);
+  assert.equal(status.textContent, '');
+  assert.equal(label.textContent, 'Copy');
+  assert.equal(priorFocusCalls, 0);
+
+  resetCase();
+  clipboardWrite = () => Promise.reject(new Error('permission denied'));
+  execResult = true;
+  context.copyText('support@example.com', button);
+  await flushPromises();
+  assert.equal(execCalls, 1);
+  assert.equal(attachedTextareas.length, 0);
+  assert.equal(status.textContent, 'Email address copied to clipboard.');
+  assert.equal(label.textContent, 'Copy');
+  assert.equal(priorFocusCalls, 1);
+
+  resetCase();
+  clipboardWrite = () => Promise.reject(new Error('permission denied'));
+  execResult = false;
+  context.copyText('support@example.com', button);
+  await flushPromises();
+  assert.equal(execCalls, 1);
+  assert.equal(attachedTextareas.length, 0);
+  assert.equal(status.textContent, 'Could not copy email address.');
+  assert.equal(label.textContent, 'Copy');
+  assert.equal(priorFocusCalls, 1);
+
+  resetCase();
+  clipboardWrite = () => {{
+    throw new Error('synchronous Clipboard failure');
+  }};
+  execResult = true;
+  context.copyText('support@example.com', button);
+  await flushPromises();
+  assert.equal(execCalls, 1);
+  assert.equal(attachedTextareas.length, 0);
+  assert.equal(status.textContent, 'Email address copied to clipboard.');
+  assert.equal(priorFocusCalls, 1);
+
+  resetCase();
+  delete navigator.clipboard;
+  execResult = true;
+  context.copyText('support@example.com', button);
+  await flushPromises();
+  assert.deepEqual(clipboardWrites, []);
+  assert.equal(execCalls, 1);
+  assert.equal(attachedTextareas.length, 0);
+  assert.equal(status.textContent, 'Email address copied to clipboard.');
+  assert.equal(priorFocusCalls, 1);
+
+  resetCase();
+  const pendingWrites = [];
+  clipboardWrite = () => new Promise((resolve, reject) => {{
+    pendingWrites.push({{ resolve, reject }});
+  }});
+  context.copyText('first@example.com', button);
+  context.copyText('second@example.com', button);
+  assert.equal(pendingWrites.length, 2);
+  pendingWrites[1].resolve();
+  await flushPromises();
+  assert.equal(status.textContent, 'Email address copied to clipboard.');
+  assert.equal(execCalls, 0);
+  pendingWrites[0].reject(new Error('stale first rejection'));
+  await flushPromises();
+  assert.equal(execCalls, 0);
+  assert.equal(status.textContent, 'Email address copied to clipboard.');
+  assert.equal(activeTimerIds().length, 1);
+
+  resetCase();
+  context.copyText('support@example.com', button);
+  await flushPromises();
+  const staleTimer = activeTimerIds()[0];
+  let rejectSecondCopy;
+  clipboardWrite = () => new Promise((_resolve, reject) => {{
+    rejectSecondCopy = reject;
+  }});
+  execResult = false;
+  context.copyText('support@example.com', button);
+  assert.ok(timers.get(staleTimer).cancelled);
+  invokeTimer(staleTimer);
+  assert.equal(status.textContent, 'Email address copied to clipboard.');
+  rejectSecondCopy(new Error('second copy failed'));
+  await flushPromises();
+  assert.equal(status.textContent, 'Could not copy email address.');
+  invokeTimer(staleTimer);
+  assert.equal(status.textContent, 'Could not copy email address.');
+  const currentTimers = activeTimerIds();
+  assert.equal(currentTimers.length, 1);
+  invokeTimer(currentTimers[0]);
+  assert.equal(status.textContent, '');
+  assert.equal(label.textContent, 'Copy');
+
+  resetCase();
+  clipboardWrite = () => Promise.reject(new Error('permission denied'));
+  textareaFocusThrows = true;
+  context.copyText('support@example.com', button);
+  await flushPromises();
+  assert.equal(execCalls, 0);
+  assert.equal(attachedTextareas.length, 0);
+  assert.equal(status.textContent, 'Could not copy email address.');
+  assert.equal(priorFocusCalls, 1);
+
+  resetCase();
+  clipboardWrite = () => Promise.reject(new Error('permission denied'));
+  textareaSelectThrows = true;
+  context.copyText('support@example.com', button);
+  await flushPromises();
+  assert.equal(execCalls, 0);
+  assert.equal(attachedTextareas.length, 0);
+  assert.equal(status.textContent, 'Could not copy email address.');
+  assert.equal(priorFocusCalls, 1);
+
+  resetCase();
+  clipboardWrite = () => Promise.reject(new Error('permission denied'));
+  execThrows = true;
+  context.copyText('support@example.com', button);
+  await flushPromises();
+  assert.equal(execCalls, 1);
+  assert.equal(attachedTextareas.length, 0);
+  assert.equal(status.textContent, 'Could not copy email address.');
+  assert.equal(priorFocusCalls, 1);
+
+  resetCase();
+  clipboardWrite = () => Promise.reject(new Error('permission denied'));
+  execResult = true;
+  removeThrowsOnce = true;
+  context.copyText('support@example.com', button);
+  await flushPromises();
+  assert.equal(execCalls, 1);
+  assert.equal(attachedTextareas.length, 0);
+  assert.equal(status.textContent, 'Email address copied to clipboard.');
+  assert.equal(priorFocusCalls, 1);
+
+  resetCase();
+  clipboardWrite = () => Promise.reject(new Error('permission denied'));
+  textareaFocusThrows = true;
+  document.activeElement = {{}};
+  context.copyText('support@example.com', button);
+  await flushPromises();
+  assert.equal(attachedTextareas.length, 0);
+  assert.equal(buttonFocusCalls, 1);
+  assert.equal(status.textContent, 'Could not copy email address.');
+
+  resetCase();
+  clipboardWrite = () => Promise.reject(new Error('permission denied'));
+  execResult = false;
+  priorFocusThrows = true;
+  context.copyText('support@example.com', button);
+  await flushPromises();
+  assert.equal(execCalls, 1);
+  assert.equal(attachedTextareas.length, 0);
+  assert.equal(priorFocusCalls, 1);
+  assert.equal(buttonFocusCalls, 1);
+  assert.equal(status.textContent, 'Could not copy email address.');
+
+  resetCase();
+  statusAvailable = false;
+  context.copyText('support@example.com', button);
+  await flushPromises();
+  assert.equal(status.textContent, '');
+  assert.equal(label.textContent, 'Copy');
+  assert.deepEqual(activeTimerIds(), []);
+
+  resetCase();
+  context.copyText('generic', genericButton);
+  await flushPromises();
+  assert.equal(genericLabel.textContent, '✓ Copied');
+  const genericTimer = activeTimerIds()[0];
+  invokeTimer(genericTimer);
+  assert.equal(genericLabel.textContent, 'Copy code');
+
+  resetCase();
+  clipboardWrite = () => Promise.reject(new Error('permission denied'));
+  execResult = true;
+  context.copyText('generic', genericButton);
+  await flushPromises();
+  assert.equal(execCalls, 1);
+  assert.equal(attachedTextareas.length, 0);
+  assert.equal(genericLabel.textContent, '✓ Copied');
+  invokeTimer(activeTimerIds()[0]);
+  assert.equal(genericLabel.textContent, 'Copy code');
+
+  resetCase();
+  clipboardWrite = () => Promise.reject(new Error('permission denied'));
+  execResult = false;
+  context.copyText('generic', genericButton);
+  await flushPromises();
+  assert.equal(execCalls, 1);
+  assert.equal(attachedTextareas.length, 0);
+  assert.equal(genericLabel.textContent, 'Copy failed');
+  invokeTimer(activeTimerIds()[0]);
+  assert.equal(genericLabel.textContent, 'Copy code');
+}})().catch((error) => {{
+  console.error(error);
+  process.exitCode = 1;
+}});
+"#
+        );
+        let output = std::process::Command::new("node")
+            .arg("-e")
+            .arg(harness)
+            .output()
+            .expect("run hermetic Node.js VM");
+        assert!(
+            output.status.success(),
+            "Node.js VM failed:\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr),
+        );
     }
 
     #[test]

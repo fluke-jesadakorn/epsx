@@ -303,14 +303,14 @@
     {
       "path":"/contact","batch":"B6-commerce-support","status":"partial","dependencies":["A1"],
       "source":{"file":"apps/frontend/app/contact/page.tsx","anchors":["export default function ContactPage()","CopyEmailBtn"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/contact.rs","handler":"contact::render","anchors":["pub fn render(ctx: &PageContext)","fn contact_exposes_only_working_email_actions()"]},
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/contact.rs","handler":"contact::render","anchors":["pub fn render(ctx: &PageContext)","fn contact_copy_email_has_stable_accessible_status_contract()"]},
       "payloads":{"staticOrSample":["static support channels"],"placeholderOrSkeleton":[]},
       "loader":{"kind":"none","endpoints":[],"evidence":[]},
       "authOwner":{"auth":"middleware-required in current BFF","owner":"none; the public support address is displayed and no contact request is accepted"},
-      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native mailto link and semantic copy-email button; focused browser keyboard/status proof remains open"],"controls":["mailto:info@epsx.io and copy-email bridge only; unsupported contact form absent"]},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["native mailto link and semantic copy-email button; focused Rust and hermetic Node VM proof cover the controller contract, but no browser or assistive-technology keyboard/status proof has run"],"controls":["native mailto:info@epsx.io; stable-name/stable-label semantic copy button associated with an initially empty role=status aria-live=polite aria-atomic region; exact success/failure textContent announcements; Clipboard rejection, synchronous failure, and no-API fallback to execCommand; generation/timer guards suppress stale results and resets; exception-safe textarea cleanup and focus restoration; generic copy behavior preserved; complete onclick expression attribute-escaped; unsupported contact form absent"]},
       "states":{"loading":"not-applicable","empty":"not-applicable","error":"not-applicable","retry":"not-applicable"},
-      "hydration":{"need":"browser","status":"partial","reason":"mailto is native; the copy-email bridge exists and changes its label, but focused browser keyboard/status proof is absent"},
-      "blockers":["pinned mailto/copy-only behavior is restored and no contact request is accepted; keep partial until middleware-required authenticated responsive proof and copy-button keyboard activation/status feedback pass"]
+      "hydration":{"need":"browser","status":"partial","reason":"mailto is native and focused Rust plus hermetic Node VM tests prove the stable-label copy controller and polite status contract, but no browser or assistive-technology keyboard/announcement proof has run"},
+      "blockers":["native mailto and copy-only behavior are restored and no contact request is accepted; keep partial until middleware-required authenticated responsive proof and real browser/assistive-technology copy-button keyboard activation, exact status announcement, focus, and reset behavior pass"]
     },
     {
       "path":"/access-denied","batch":"B7-policy-fallback","status":"partial","dependencies":[],

@@ -25,6 +25,7 @@ use crate::layout::main_layout::MainLayout;
 use dioxus::prelude::*;
 
 const SUPPORT_EMAIL: &str = "info@epsx.io";
+const CONTACT_COPY_STATUS_ID: &str = "contact-copy-email-status";
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Contact");
@@ -123,21 +124,26 @@ fn MailtoBtn() -> Element {
     }
 }
 
-/// Copy email button. Wave 23 T4 v2: now wires the click handler
-/// via the inline `onclick="epsx.copyText(…)"` attribute emitted by
-/// `epsx_templates::email_copy_button_html`. The previous
-/// `onclick: move |_| { … }` Dioxus closure was being stripped at
-/// SSR time (hydration-less), so the button was visible but did
-/// nothing. The new pattern wires the handler at first paint
-/// through the global `epsx` namespace loaded by
-/// `epsx_templates::global_js()`. The label flips to "Copied!" for
-/// 2 seconds via `epsx.copyText`'s built-in flash logic.
+/// Copy email button. The raw button emitted by the shared template
+/// keeps the accessible name and visible label stable while reporting
+/// clipboard outcomes through the dedicated polite status region.
+/// `data-copy-status-target` and `aria-describedby` both point at
+/// `CONTACT_COPY_STATUS_ID`, giving the shared script and assistive
+/// technology the same explicit association without hydration.
 #[component]
 fn CopyEmailBtn() -> Element {
     let html = epsx_templates::email_copy_button_html(SUPPORT_EMAIL);
     rsx! {
         span { class: "contact-copy-btn-wrap inline-block",
             dangerous_inner_html: "{html}"
+        }
+        span {
+            id: CONTACT_COPY_STATUS_ID,
+            class: "contact-copy-status text-sm text-muted-foreground",
+            role: "status",
+            "aria-live": "polite",
+            "aria-atomic": "true",
+            "data-copy-status": "true",
         }
     }
 }
@@ -303,9 +309,14 @@ mod tests {
 
         assert!(html.contains("href=\"mailto:info@epsx.io\""));
         assert!(html.contains("aria-label=\"Copy email address\""));
+        assert!(html.contains("id=\"contact-copy-email-button\""));
+        assert!(html.contains("aria-describedby=\"contact-copy-email-status\""));
+        assert!(html.contains("data-copy-status-target=\"contact-copy-email-status\""));
         assert!(html.contains("data-copy=\"info@epsx.io\""));
         assert!(html.contains("type=\"button\""));
-        assert!(html.contains("onclick=\"epsx.copyText('info@epsx.io', this)\""));
+        assert!(
+            html.contains("onclick=\"epsx.copyText(&#39;info@epsx.io&#39;, this)\"")
+        );
         assert!(html.contains("<span>Copy</span>"));
 
         for forbidden in [
@@ -325,5 +336,55 @@ mod tests {
                 "unsupported contact submission control leaked: {forbidden}"
             );
         }
+    }
+
+    #[test]
+    fn contact_copy_email_has_stable_accessible_status_contract() {
+        let html = render_to_string(&empty_ctx());
+
+        assert_eq!(
+            html.matches("id=\"contact-copy-email-button\"").count(),
+            1,
+            "copy button id must be unique"
+        );
+        assert_eq!(
+            html.matches("id=\"contact-copy-email-status\"").count(),
+            1,
+            "copy status id must be unique"
+        );
+        assert!(html.contains("aria-label=\"Copy email address\""));
+        assert!(html.contains("aria-describedby=\"contact-copy-email-status\""));
+        assert!(html.contains("data-copy-status-target=\"contact-copy-email-status\""));
+        assert!(html.contains("role=\"status\""));
+        assert!(html.contains("aria-live=\"polite\""));
+        assert!(html.contains("aria-atomic=\"true\""));
+        assert!(html.contains("data-copy-status=\"true\""));
+        assert!(
+            html.contains("<span>Copy</span>"),
+            "the button's visible label must remain the stable action label"
+        );
+
+        let status_start = html
+            .find("id=\"contact-copy-email-status\"")
+            .expect("copy status region should render");
+        let status_tail = &html[status_start..];
+        let opening_end = status_tail
+            .find('>')
+            .expect("copy status region should have an opening tag");
+        let closing_start = status_tail
+            .find("</span>")
+            .expect("copy status region should have a closing tag");
+        assert_eq!(
+            &status_tail[opening_end + 1..closing_start],
+            "",
+            "copy status must be neutral and empty before an outcome"
+        );
+        assert!(
+            !html.contains("aria-label=\"Copied")
+                && !html.contains("aria-label=\"Copy failed")
+                && !html.contains("<form")
+                && !html.contains("/api/v1/contact"),
+            "SSR must not invent a clipboard result or contact mutation"
+        );
     }
 }
