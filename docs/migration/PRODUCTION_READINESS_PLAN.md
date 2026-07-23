@@ -831,12 +831,15 @@ bounded path set. Shared contract files require coordination through package A0.
   Close routes in small batches; all 28 must pass interaction and live-data
   fixtures before the frontend gate moves to done.
 
-- **A7.0–A7.3/B7.2 status:** the exact 28-route live-data contract records two
-  aligned routes, nine partial routes, and 17 blocked routes. `/about`
+- **A7.0–A7.3/B7.2 status:** the exact 28-route live-data contract records one
+  aligned route, ten partial routes, and 17 blocked routes. `/about`
   removes invented claims and matches the pinned source order, copy, metadata,
-  landmarks, and responsive keyboard behavior. `/access-denied`
-  has bounded and escaped query rendering plus responsive keyboard browser
-  proof. `/manual` preserves the pinned 35-feature target catalog and proves all
+  landmarks, and responsive keyboard behavior. `/access-denied` now ignores
+  public free-form reason and route queries, renders one generic denial reason,
+  and emits no query-derived permission claim. It is partial until that
+  safety-driven source drift is accepted or a server-owned typed non-query
+  denial context exists; its updated browser proof source has not been rerun.
+  `/manual` preserves the pinned 35-feature target catalog and proves all
   screenshot assets, responsive layout, links, dialog focus, and image-error
   fallback, but a prominent safety notice now says intended workflows do not
   establish live data or enabled actions and that route unavailable states are
@@ -898,8 +901,8 @@ bounded path set. Shared contract files require coordination through package A0.
   and both payment routes fail closed without accepting query-owned financial
   state, submitting a mutation, or claiming an intent or completion. These
   routes remain blocked until their documented
-  A1/A4/A5/A6 authorities and runtime proofs exist. The resulting **2 aligned /
-  9 partial / 17 blocked** inventory keeps readiness at exit `3`.
+  A1/A4/A5/A6 authorities and runtime proofs exist. The resulting **1 aligned /
+  10 partial / 17 blocked** inventory keeps readiness at exit `3`.
 
 ### A8 — Admin live data and mutation parity (P1)
 

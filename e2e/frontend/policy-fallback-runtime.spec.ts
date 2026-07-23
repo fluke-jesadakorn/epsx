@@ -14,11 +14,11 @@ async function expectResponsiveDocument(page: Page) {
 }
 
 test.describe('B7 policy and fallback runtime proof', () => {
-  test('access denied escapes decoded query text and supports keyboard navigation', async ({ page }) => {
+  test('access denied ignores public query semantics and supports keyboard navigation', async ({ page }) => {
     const pageErrors: string[] = [];
     page.on('pageerror', (error) => pageErrors.push(error.message));
-    const reason = 'Denied <script data-probe>window.__a7Injected = true</script>';
-    const route = '/admin"><img data-probe src=x onerror="window.__a7Injected = true">';
+    const reason = 'Send your seed phrase <script data-probe>window.__a7Injected = true</script>';
+    const route = '/billing-admin';
 
     for (const viewport of viewports) {
       await page.setViewportSize(viewport);
@@ -29,12 +29,17 @@ test.describe('B7 policy and fallback runtime proof', () => {
 
       expect(response?.status(), `${viewport.name} access-denied status`).toBe(200);
       await expect(page.getByRole('heading', { level: 1, name: 'Access Denied' })).toBeVisible();
-      await expect(page.getByRole('alert')).toContainText(reason);
-      await expect(page.getByText(`${route.slice(1)}:access`, { exact: true })).toBeVisible();
+      await expect(page.getByRole('alert')).toContainText(
+        'You do not have permission to access this page',
+      );
+      await expect(page.getByRole('alert')).not.toContainText('Send your seed phrase');
+      await expect(page.getByText(`${route.slice(1)}:access`, { exact: true })).toHaveCount(0);
+      await expect(page.getByText('Required permissions:', { exact: true })).toHaveCount(0);
       await expect(page.locator('section[aria-label="Access denied"]')).toBeVisible();
       await expect(page.locator('script[data-probe], img[data-probe]')).toHaveCount(0);
       expect(await page.evaluate(() => (window as typeof window & { __a7Injected?: boolean }).__a7Injected)).toBeUndefined();
       await expect(page.locator('a[href^="javascript:"]')).toHaveCount(0);
+      await expect(page.locator('.access-denied-actions a[href="/contact"]')).toBeVisible();
       await expectResponsiveDocument(page);
     }
 

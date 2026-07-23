@@ -313,16 +313,16 @@
       "blockers":["pinned mailto/copy-only behavior is restored and no contact request is accepted; keep partial until middleware-required authenticated responsive proof and copy-button keyboard activation/status feedback pass"]
     },
     {
-      "path":"/access-denied","batch":"B7-policy-fallback","status":"aligned","dependencies":[],
+      "path":"/access-denied","batch":"B7-policy-fallback","status":"partial","dependencies":[],
       "source":{"file":"apps/frontend/app/access-denied/page.tsx","anchors":["export default function AccessDeniedPage","searchParams.reason"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/access_denied.rs","handler":"access_denied::render","anchors":["pub fn render(ctx: &PageContext)",".query_param(\"reason\")"]},
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/access_denied.rs","handler":"access_denied::render","anchors":["pub fn render(ctx: &PageContext)","GENERIC_DENIAL_REASON"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":["pinned source Suspense Loading fallback is unnecessary for synchronous SSR target"]},
       "loader":{"kind":"none","endpoints":[],"evidence":[]},
-      "authOwner":{"auth":"public denial surface","owner":"none; reason/route are presentation only"},
-      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["focused Playwright proves Go Home focus and Enter activation on the SSR page"],"controls":["safe home/contact navigation; decoded query text is bounded, control-filtered, and HTML-escaped"]},
+      "authOwner":{"auth":"public denial surface","owner":"none; public reason/route query fields are ignored and no contextual denial or permission semantics are asserted"},
+      "interactions":{"forms":[],"pagination":[],"search":[],"wallet":[],"keyboard":["updated focused Playwright source covers safe Home keyboard activation, but the safety-driven generic behavior has not been rerun in a browser"],"controls":["fixed generic denial reason plus safe home/contact navigation; public query fields create no denial or permission semantics"]},
       "states":{"loading":"not-applicable","empty":"not-applicable","error":"not-applicable","retry":"not-applicable"},
       "hydration":{"need":"none","status":"not-applicable","reason":"synchronous denial surface"},
-      "blockers":[]
+      "blockers":["product acceptance of the safety-driven source drift or a server-owned typed non-query denial context is required before contextual detail and alignment"]
     },
     {
       "path":"/offline","batch":"B7-policy-fallback","status":"partial","dependencies":[],
