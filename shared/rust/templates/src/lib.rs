@@ -331,6 +331,27 @@ pub fn design_system_head_with_keywords(
   }}
   body {{ min-height: 100vh; }}
 
+  .epsx-skip-link {{
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 10000;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    background: #111827;
+    color: #fff;
+    font-weight: 700;
+    text-decoration: none;
+    transform: translateY(calc(-100% - 1.5rem));
+    transition: transform 0.15s ease;
+  }}
+  .epsx-skip-link:focus, .epsx-skip-link:focus-visible {{
+    transform: translateY(0);
+    outline: 3px solid #f97316;
+    outline-offset: 2px;
+  }}
+  #epsx-main-content {{ scroll-margin-top: 3.5rem; }}
+
   /* === Gradient text === */
   .gradient-text {{
     background: var(--gradient-warm);
@@ -7039,8 +7060,9 @@ pub fn page_shell_with_body_class_and_keywords(
 {js}
 </head>
 <body class="min-h-screen {body_class}">
+<a class="epsx-skip-link" href="#epsx-main-content">Skip to main content</a>
 {nav}
-<main style="min-height:calc(100vh - 3.5rem);">
+<main id="epsx-main-content" tabindex="-1" style="min-height:calc(100vh - 3.5rem);">
 {body}
 </main>
 {footer}
@@ -7082,6 +7104,151 @@ mod page_head_tests {
             "<meta name=\"keywords\" content=\"analytics &amp; &quot;markets&quot; &lt;global&gt;\" />"
         ));
         assert!(!head.contains("<global>"));
+    }
+
+    #[test]
+    fn shared_shell_emits_first_child_skip_link_to_unique_main_target() {
+        let nav = r#"<header id="nav-sentinel"><a href="/nav-sentinel">Nav sentinel</a></header>"#;
+        let body =
+            r#"<section id="body-sentinel"><a href="/body-sentinel">Body sentinel</a></section>"#;
+        let rendered = page_shell_with_body_class_and_keywords(
+            "Skip link",
+            "Shared shell bypass navigation",
+            None,
+            nav,
+            body,
+            true,
+            "body-sentinel-class",
+        );
+        let body_opener = r#"<body class="min-h-screen body-sentinel-class">"#;
+        let skip_link =
+            r##"<a class="epsx-skip-link" href="#epsx-main-content">Skip to main content</a>"##;
+        let main_opener = r#"<main id="epsx-main-content" tabindex="-1" style="min-height:calc(100vh - 3.5rem);">"#;
+        let body_content = rendered
+            .split_once(&format!("{body_opener}\n"))
+            .expect("body opener")
+            .1;
+
+        assert!(
+            body_content.starts_with(&format!("{skip_link}\n{nav}\n{main_opener}\n")),
+            "skip link must be the first body child before arbitrary navigation and main content"
+        );
+        assert_eq!(body_content.find("<a "), Some(0));
+        assert_eq!(rendered.matches(skip_link).count(), 1);
+        assert_eq!(
+            rendered
+                .matches(r##"href="#epsx-main-content""##)
+                .count(),
+            1
+        );
+        assert_eq!(
+            rendered.matches(r#"id="epsx-main-content""#).count(),
+            1
+        );
+        assert_eq!(body_content.matches(r#"tabindex="-1""#).count(), 1);
+        assert!(
+            !skip_link.contains("role=")
+                && !skip_link.contains("aria-")
+                && !skip_link.contains("onclick=")
+        );
+        assert!(
+            rendered.contains(&format!("{main_opener}\n{body}\n</main>")),
+            "arbitrary body content must remain verbatim inside the main target"
+        );
+
+        let skip_position = rendered.find(skip_link).expect("skip link");
+        let nav_position = rendered.find(nav).expect("navigation sentinel");
+        let main_position = rendered.find(main_opener).expect("main target");
+        let body_position = rendered.find(body).expect("body sentinel");
+        let footer_position = rendered.find(footer()).expect("footer sentinel");
+        assert!(
+            skip_position < nav_position
+                && nav_position < main_position
+                && main_position < body_position
+                && body_position < footer_position,
+            "shell must retain skip -> nav -> main body -> footer order"
+        );
+    }
+
+    #[test]
+    fn shared_shell_skip_link_css_is_focus_visible_contrasting_and_above_header() {
+        let head = design_system_head(
+            "Skip link CSS",
+            "Static shared-shell bypass-navigation declarations",
+        );
+        let skip_rule = emitted_css_rule(&head, ".epsx-skip-link");
+        for (property, expected) in [
+            ("position", "fixed"),
+            ("top", "0.75rem"),
+            ("left", "0.75rem"),
+            ("z-index", "10000"),
+            ("padding", "0.75rem 1rem"),
+            ("border-radius", "0.5rem"),
+            ("background", "#111827"),
+            ("color", "#fff"),
+            ("font-weight", "700"),
+            ("text-decoration", "none"),
+            ("transform", "translateY(calc(-100% - 1.5rem))"),
+            ("transition", "transform 0.15s ease"),
+        ] {
+            assert_eq!(
+                emitted_declaration(skip_rule, property),
+                expected,
+                "skip link {property}"
+            );
+        }
+        for forbidden in [
+            "display:",
+            "visibility:",
+            "clip:",
+            "clip-path:",
+            "opacity:",
+        ] {
+            assert!(
+                !skip_rule.contains(forbidden),
+                "skip link must remain accessible without {forbidden}"
+            );
+        }
+
+        let focus_rule = emitted_css_rule(
+            &head,
+            ".epsx-skip-link:focus, .epsx-skip-link:focus-visible",
+        );
+        assert_eq!(
+            emitted_declaration(focus_rule, "transform"),
+            "translateY(0)"
+        );
+        assert_eq!(
+            emitted_declaration(focus_rule, "outline"),
+            "3px solid #f97316"
+        );
+        assert_eq!(emitted_declaration(focus_rule, "outline-offset"), "2px");
+        let main_rule = emitted_css_rule(&head, "#epsx-main-content");
+        assert_eq!(
+            emitted_declaration(main_rule, "scroll-margin-top"),
+            "3.5rem"
+        );
+
+        let skip_z = emitted_declaration(skip_rule, "z-index")
+            .parse::<u32>()
+            .unwrap();
+        let header_z = emitted_declaration(emitted_css_rule(&head, ".epsx-header"), "z-index")
+            .parse::<u32>()
+            .unwrap();
+        let dropdown_z =
+            emitted_declaration(emitted_css_rule(&head, ".epsx-nav-menu"), "z-index")
+                .parse::<u32>()
+                .unwrap();
+        assert!(skip_z > header_z);
+        assert!(skip_z > dropdown_z);
+        assert!(
+            contrast_ratio("#ffffff", "#111827") >= 4.5,
+            "skip-link text must meet WCAG AA contrast"
+        );
+        assert!(
+            contrast_ratio("#f97316", "#111827") >= 3.0,
+            "skip-link focus outline must meet non-text contrast"
+        );
     }
 
     #[test]
