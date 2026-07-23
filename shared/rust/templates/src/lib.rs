@@ -7186,6 +7186,8 @@ mod page_head_tests {
             rendered.matches(r#"id="epsx-main-content""#).count(),
             1
         );
+        assert_eq!(rendered.matches("<main").count(), 1);
+        assert_eq!(rendered.matches("</main>").count(), 1);
         assert_eq!(body_content.matches(r#"tabindex="-1""#).count(), 1);
         assert!(
             !skip_link.contains("role=")

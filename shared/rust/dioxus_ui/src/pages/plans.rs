@@ -38,7 +38,7 @@ fn PlansUnavailablePage(ctx: PageContext) -> Element {
 #[component]
 fn PlansUnavailableContent() -> Element {
     rsx! {
-        main {
+        div {
                 class: "plans-prod-page relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-indigo-900",
                 "data-plans-state": "unavailable",
                 div {
@@ -207,6 +207,10 @@ mod tests {
         assert!(html.contains("role=\"alert\""));
         assert!(html.contains("aria-labelledby=\"plans-unavailable-title\""));
         assert!(html.contains("Plan options cannot be verified right now"));
+        assert!(
+            !html.contains("<main"),
+            "plans page fragment must defer its sole main landmark to the shared shell"
+        );
         assert_no_catalog_or_purchase_claims(&html);
     }
 

@@ -169,12 +169,12 @@ fn ManualSidebar() -> Element {
     }
 }
 
-/// Main content pane — matches prod's `<main className="flex-1 p-8">`
-/// + `<div className="mx-auto max-w-6xl">`.
+/// Content pane — preserves the prod styling while the shared page shell owns
+/// the document's single `<main>` landmark.
 #[component]
 fn ManualContent() -> Element {
     rsx! {
-        main { class: "manual-prod-content flex-1 p-8", id: "manual-content",
+        div { class: "manual-prod-content flex-1 p-8", id: "manual-content",
             div { class: "mx-auto max-w-6xl",
                 h1 { class: "mb-2 text-3xl font-bold manual-prod-title", "EPSX Feature Manual" }
                 p { class: "mb-8 text-gray-400 manual-prod-subtitle",
@@ -386,6 +386,10 @@ mod tests {
         assert!(
             !html.trim().is_empty(),
             "manual page should render non-empty HTML"
+        );
+        assert!(
+            !html.contains("<main"),
+            "manual page fragment must defer its sole main landmark to the shared shell"
         );
     }
 

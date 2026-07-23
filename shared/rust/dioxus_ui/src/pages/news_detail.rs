@@ -541,7 +541,7 @@ fn SafeMarkdownNodes(nodes: Vec<SafeMarkdownNode>) -> Element {
 #[component]
 fn NewsNotFound() -> Element {
     rsx! {
-        main { class: "news-detail-not-found container page-content flex min-h-[60vh] items-center justify-center",
+        div { class: "news-detail-not-found container page-content flex min-h-[60vh] items-center justify-center",
             section { class: "card card-glass max-w-xl p-8 sm:p-12 text-center", aria_labelledby: "news-not-found-title",
                 div { class: "mx-auto mb-4 text-cyan-500", Icon { name: "newspaper".to_string(), size: Some(40) } }
                 h1 { id: "news-not-found-title", class: "text-2xl font-bold", "Article not found" }
@@ -555,7 +555,7 @@ fn NewsNotFound() -> Element {
 #[component]
 fn NewsDetailError(retry_href: String) -> Element {
     rsx! {
-        main { class: "news-detail-error container page-content flex min-h-[60vh] items-center justify-center",
+        div { class: "news-detail-error container page-content flex min-h-[60vh] items-center justify-center",
             section { class: "card card-glass max-w-xl p-8 sm:p-12 text-center", role: "alert",
                 div { class: "mx-auto mb-4 text-cyan-500", Icon { name: "triangle-alert".to_string(), size: Some(40) } }
                 h1 { class: "text-2xl font-bold", "Article temporarily unavailable" }
@@ -1343,6 +1343,37 @@ mod tests {
         assert!(html.contains("Article not found"));
         assert!(!html.contains("coming soon"));
         assert!(!html.contains("Welcome to EPSX"));
+    }
+
+    #[test]
+    fn every_detail_state_defers_the_main_landmark_to_the_shared_shell() {
+        let contexts = [
+            context(
+                "live-article",
+                serde_json::json!({
+                    "state": "ready",
+                    "article": article("Live article", "Published body")
+                }),
+            ),
+            context(
+                "missing-article",
+                serde_json::json!({"state": "not_found"}),
+            ),
+            context(
+                "failed-article",
+                serde_json::json!({"state": "error", "code": "dependency_unavailable"}),
+            ),
+        ];
+
+        for ctx in contexts {
+            let (_, element) = render(&ctx);
+            let html = dioxus_ssr::render_element(element);
+            assert!(
+                !html.contains("<main"),
+                "news detail page fragment must not nest a main landmark for {}: {html}",
+                ctx.path
+            );
+        }
     }
 
     #[test]
