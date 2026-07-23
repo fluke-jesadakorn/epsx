@@ -6779,7 +6779,7 @@ pub fn footer() -> &'static str {
         <div style="display:flex;flex-direction:column;gap:0.5rem;">
           <a href="/analytics" class="footer-link">Rankings</a>
           <a href="/portfolio" class="footer-link">Portfolio</a>
-          <a href="/pricing" class="footer-link">Pricing</a>
+          <a href="/plans" class="footer-link">Plans</a>
           <a href="/news" class="footer-link">News</a>
         </div>
       </div>
@@ -8157,6 +8157,33 @@ async function flushPromises() {{
             .expect("closed mobile rankings anchor")
             .0;
         assert!(mobile_rankings_anchor.contains("> Rankings <span"));
+    }
+
+    #[test]
+    fn active_footer_links_directly_to_canonical_plans_route() {
+        let rendered = footer();
+        let plans = r#"<a href="/plans" class="footer-link">Plans</a>"#;
+        assert_eq!(
+            rendered.matches(plans).count(),
+            1,
+            "footer must expose one neutral canonical Plans link"
+        );
+        assert!(
+            !rendered.contains(r#"href="/pricing""#),
+            "active footer must not route through the compatibility alias"
+        );
+
+        let portfolio_position = rendered
+            .find(r#"<a href="/portfolio" class="footer-link">Portfolio</a>"#)
+            .expect("Portfolio footer link");
+        let plans_position = rendered.find(plans).expect("Plans footer link");
+        let news_position = rendered
+            .find(r#"<a href="/news" class="footer-link">News</a>"#)
+            .expect("News footer link");
+        assert!(
+            portfolio_position < plans_position && plans_position < news_position,
+            "canonical Plans link must retain the Portfolio -> Plans -> News order"
+        );
     }
 
     fn shared_navigation_controller_source() -> &'static str {
