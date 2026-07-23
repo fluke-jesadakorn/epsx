@@ -429,11 +429,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     //
     // The auth page hides the navbar via the `path == "/auth"`
     // short-circuit (the dedicated `<AuthLayout>` is full-bleed).
-    let nav_html = if path == "/auth" {
-        String::new()
-    } else {
-        epsx_templates::epsx_header_for_session(is_authenticated)
-    };
+    let nav_html = frontend_navigation_html(&path, &query, is_authenticated);
 
     // === Wave 49+ — re-enable footer ===
     //
@@ -1139,6 +1135,26 @@ fn urlencode(s: &str) -> String {
     out
 }
 
+fn normalized_request_target(path: &str, query: &str) -> String {
+    if query.is_empty() {
+        path.to_string()
+    } else {
+        format!("{path}?{query}")
+    }
+}
+
+fn frontend_navigation_html(path: &str, query: &str, is_authenticated: bool) -> String {
+    if path == "/auth" {
+        return String::new();
+    }
+
+    let return_target = normalized_request_target(path, query);
+    epsx_templates::epsx_header_for_session_and_return_target(
+        is_authenticated,
+        &return_target,
+    )
+}
+
 fn safe_return_url(query: &str) -> String {
     let Ok(request_url) = reqwest::Url::parse(&format!("https://frontend.invalid/?{query}")) else {
         return "/".to_string();
@@ -1178,6 +1194,7 @@ mod tests {
     use super::auth_page_session_state;
     use super::developer_docs_runtime_script;
     use super::escaped_page_metadata;
+    use super::frontend_navigation_html;
     use super::load_home_news;
     use super::manual_runtime_script;
     use super::news_detail_route_segment;
@@ -1185,6 +1202,7 @@ mod tests {
     use super::news_ssr_status;
     use super::notification_badge_runtime;
     use super::notifications_ssr_status;
+    use super::normalized_request_target;
     use super::offline_runtime_script;
     use super::offline_service_worker_script;
     use super::offline_worker_registration_script;
@@ -1809,6 +1827,57 @@ mod tests {
     fn urlencode_encodes_inner_query_separators() {
         assert_eq!(urlencode("/pricing?ref=foo"), "%2Fpricing%3Fref%3Dfoo");
         assert_eq!(urlencode("/x?a=1&b=2"), "%2Fx%3Fa%3D1%26b%3D2");
+    }
+
+    #[test]
+    fn shared_navigation_preserves_normalized_path_and_raw_query_for_auth() {
+        let target =
+            normalized_request_target("/news/example", "q=eps&category=markets");
+        assert_eq!(target, "/news/example?q=eps&category=markets");
+
+        let header =
+            frontend_navigation_html("/news/example", "q=eps&category=markets", false);
+        let expected =
+            "href=\"/auth?return_url=%2Fnews%2Fexample%3Fq%3Deps%26category%3Dmarkets\"";
+        assert_eq!(header.matches(expected).count(), 2);
+        assert_eq!(header.matches("data-epsx-auth-link").count(), 2);
+        assert!(!header.contains("href=\"/auth\""));
+
+        let encoded_query = "q=a%20b&q=c%2Bd&next=%2Fportfolio&probe=%3Ctag%3E";
+        let encoded_target = normalized_request_target("/news/example", encoded_query);
+        let encoded_header = frontend_navigation_html("/news/example", encoded_query, false);
+        let encoded_return_url = "%2Fnews%2Fexample%3Fq%3Da%2520b%26q%3Dc%252Bd%26next%3D%252Fportfolio%26probe%3D%253Ctag%253E";
+        assert_eq!(
+            encoded_header
+                .matches(&format!("href=\"/auth?return_url={encoded_return_url}\""))
+                .count(),
+            2
+        );
+        assert_eq!(
+            safe_return_url(&format!("return_url={encoded_return_url}")),
+            encoded_target
+        );
+    }
+
+    #[test]
+    fn shared_navigation_omits_auth_header_and_fails_hostile_targets_closed() {
+        assert!(frontend_navigation_html("/auth", "return_url=%2Fnews", false).is_empty());
+
+        for hostile_path in [
+            "https://evil.example",
+            "//evil.example",
+            "/\\evil.example",
+            "/news/\u{0007}bad",
+        ] {
+            let header = frontend_navigation_html(hostile_path, "", false);
+            assert_eq!(
+                header.matches("href=\"/auth?return_url=%2F\"").count(),
+                2,
+                "{hostile_path:?}"
+            );
+            assert!(!header.contains("evil.example"), "{hostile_path:?}");
+            assert!(!header.contains("href=\"/auth\""), "{hostile_path:?}");
+        }
     }
 
     /// Wave 22 T4 — `/pricing` (no query) → 307 `/plans`.

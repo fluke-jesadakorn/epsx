@@ -5859,12 +5859,15 @@ window.epsx = (function() {
     let sheet = document.getElementById('epsx-mobile-sheet');
     if (sheet) { closeMobileMenu(true); return; }
     const isAuthenticated = document.querySelector('[data-epsx-authenticated="true"]') !== null;
+    const sharedAuthLink = document.querySelector('.epsx-header [data-epsx-auth-link]');
+    const sharedAuthHref =
+      (sharedAuthLink && sharedAuthLink.getAttribute('href')) || '/auth?return_url=%2F';
     const sessionAction = isAuthenticated
       ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-top:1rem;">
           <a href="/account" class="epsx-connect-btn" style="text-decoration:none;width:100%;"><i data-lucide="user" style="width:1rem;height:1rem;"></i> Account</a>
           <button class="epsx-connect-btn" type="button" data-epsx-logout style="width:100%;"><i data-lucide="log-out" style="width:1rem;height:1rem;"></i> Sign out</button>
         </div>`
-      : `<a href="/auth" class="epsx-connect-btn" style="margin-top:1rem;width:100%;text-decoration:none;">
+      : `<a data-epsx-mobile-auth-link class="epsx-connect-btn" style="margin-top:1rem;width:100%;text-decoration:none;">
           <i data-lucide="wallet" style="width:1rem;height:1rem;"></i> Connect Wallet
         </a>`;
     sheet = document.createElement('div');
@@ -5901,6 +5904,8 @@ window.epsx = (function() {
         ${sessionAction}
       </div>
     `;
+    const mobileAuthLink = sheet.querySelector('[data-epsx-mobile-auth-link]');
+    if (mobileAuthLink) mobileAuthLink.setAttribute('href', sharedAuthHref);
     document.body.appendChild(sheet);
     lockMobileMenuBodyScroll();
     setMobileMenuExpanded(true);
@@ -6928,6 +6933,19 @@ pub fn epsx_header() -> String {
 /// Authentication remains server-derived; public controls use the native auth
 /// route and contain no permissions or entitlement logic.
 pub fn epsx_header_for_session(is_authenticated: bool) -> String {
+    epsx_header_for_session_and_return_target(is_authenticated, "/")
+}
+
+/// Render the public header while preserving a safe same-origin return target
+/// for signed-out Connect actions. Existing callers can continue to use
+/// [`epsx_header_for_session`], which returns to `/`.
+pub fn epsx_header_for_session_and_return_target(
+    is_authenticated: bool,
+    return_target: &str,
+) -> String {
+    let auth_href = auth_href_for_return_target(return_target);
+    let auth_href = html_attr_escape(&auth_href);
+
     // Market dropdown items (rankings, portfolio)
     let market_items = r##"
       <a href="/analytics" class="epsx-nav-item">
@@ -7021,28 +7039,30 @@ pub fn epsx_header_for_session(is_authenticated: bool) -> String {
           <i data-lucide="log-out" style="width:1rem;height:1rem;"></i>
           Sign out
         </button>
-      </div>"##,
+      </div>"##
+                .to_string(),
             r##"<div class="hidden sm:flex md:hidden items-center gap-1.5">
         <button class="epsx-connect-btn" type="button" data-epsx-logout style="height:2rem;padding:0 0.75rem;font-size:0.75rem;border-radius:1rem;">
           <i data-lucide="log-out" style="width:0.75rem;height:0.75rem;"></i>
           Sign out
         </button>
-      </div>"##,
+      </div>"##
+                .to_string(),
         )
     } else {
         (
-            r##"<div class="hidden md:flex items-center gap-1.5">
-        <a href="/auth" class="epsx-connect-btn" style="text-decoration:none;">
+            format!(r##"<div class="hidden md:flex items-center gap-1.5">
+        <a href="{auth_href}" class="epsx-connect-btn" data-epsx-auth-link style="text-decoration:none;">
           <i data-lucide="wallet" style="width:1rem;height:1rem;"></i>
           Connect
         </a>
-      </div>"##,
-            r##"<div class="hidden sm:flex md:hidden items-center gap-1.5">
-        <a href="/auth" class="epsx-connect-btn" style="height:2rem;padding:0 0.75rem;font-size:0.75rem;border-radius:1rem;text-decoration:none;">
+      </div>"##),
+            format!(r##"<div class="hidden sm:flex md:hidden items-center gap-1.5">
+        <a href="{auth_href}" class="epsx-connect-btn" data-epsx-auth-link style="height:2rem;padding:0 0.75rem;font-size:0.75rem;border-radius:1rem;text-decoration:none;">
           <i data-lucide="wallet" style="width:0.75rem;height:0.75rem;"></i>
           Connect
         </a>
-      </div>"##,
+      </div>"##),
         )
     };
     let nav_block = |label: &str, icon: &str, items: &str| -> String {
@@ -7101,6 +7121,44 @@ pub fn epsx_header_for_session(is_authenticated: bool) -> String {
         compact_auth = compact_auth,
         authenticated = is_authenticated,
     )
+}
+
+fn auth_href_for_return_target(candidate: &str) -> String {
+    let target = safe_shell_return_target(candidate);
+    format!(
+        "/auth?return_url={}",
+        percent_encode_query_value(target)
+    )
+}
+
+fn safe_shell_return_target(candidate: &str) -> &str {
+    let route_path = candidate
+        .split_once(['?', '#'])
+        .map_or(candidate, |(path, _)| path);
+    if candidate.is_empty()
+        || !candidate.starts_with('/')
+        || candidate.starts_with("//")
+        || candidate.contains('\\')
+        || candidate.chars().any(char::is_control)
+        || route_path == "/auth"
+    {
+        "/"
+    } else {
+        candidate
+    }
+}
+
+fn percent_encode_query_value(value: &str) -> String {
+    let mut encoded = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                encoded.push(byte as char);
+            }
+            _ => encoded.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    encoded
 }
 
 /// A standard page shell. Returns the complete `<!DOCTYPE html>...<body>...</body></html>`
@@ -7510,7 +7568,7 @@ mod page_head_tests {
         }
         assert_eq!(
             signed_out
-                .matches(r#"<a href="/auth" class="epsx-connect-btn""#)
+                .matches(r#"<a href="/auth?return_url=%2F" class="epsx-connect-btn" data-epsx-auth-link"#)
                 .count(),
             2
         );
@@ -7556,7 +7614,10 @@ mod page_head_tests {
             r#"<button class="epsx-connect-btn" type="button" data-epsx-logout style="width:100%;">"#
         ));
         assert!(controller.contains(
-            r#"<a href="/auth" class="epsx-connect-btn" style="margin-top:1rem;width:100%;text-decoration:none;">"#
+            r#"<a data-epsx-mobile-auth-link class="epsx-connect-btn" style="margin-top:1rem;width:100%;text-decoration:none;">"#
+        ));
+        assert!(controller.contains(
+            "if (mobileAuthLink) mobileAuthLink.setAttribute('href', sharedAuthHref);"
         ));
     }
 
@@ -9021,7 +9082,9 @@ assert.equal(fetchCalls, 0);
     fn public_connect_controls_use_auth_route_without_shell_provider_claims() {
         let public = epsx_header_for_session(false);
         let public_connect_anchors: Vec<&str> = public
-            .split("<a href=\"/auth\" class=\"epsx-connect-btn\"")
+            .split(
+                "<a href=\"/auth?return_url=%2F\" class=\"epsx-connect-btn\" data-epsx-auth-link",
+            )
             .skip(1)
             .map(|tail| tail.split_once("</a>").expect("closed auth anchor").0)
             .collect();
@@ -9033,13 +9096,17 @@ assert.equal(fetchCalls, 0);
 
         let script = global_js();
         let mobile_connect_anchor = script
-            .split_once("<a href=\"/auth\" class=\"epsx-connect-btn\"")
+            .split_once("<a data-epsx-mobile-auth-link class=\"epsx-connect-btn\"")
             .expect("mobile auth anchor")
             .1
             .split_once("</a>")
             .expect("closed mobile auth anchor")
             .0;
         assert!(mobile_connect_anchor.contains("Connect Wallet"));
+        assert!(!mobile_connect_anchor.contains("href="));
+        assert!(script.contains(
+            "if (mobileAuthLink) mobileAuthLink.setAttribute('href', sharedAuthHref);"
+        ));
         for unsupported in [
             "function openAuth",
             "function closeAuth",
@@ -9054,6 +9121,62 @@ assert.equal(fetchCalls, 0);
                 !script.contains(unsupported),
                 "shared shell retained unsupported auth claim: {unsupported}"
             );
+        }
+    }
+
+    #[test]
+    fn shared_connect_controls_encode_exact_safe_return_target_and_reject_hostile_values() {
+        let expected_href =
+            "/auth?return_url=%2Fnews%2Fexample%3Fq%3Deps%26category%3Dmarkets";
+        let public = epsx_header_for_session_and_return_target(
+            false,
+            "/news/example?q=eps&category=markets",
+        );
+        assert_eq!(
+            public
+                .matches(&format!(
+                    "href=\"{expected_href}\" class=\"epsx-connect-btn\" data-epsx-auth-link"
+                ))
+                .count(),
+            2
+        );
+        assert!(!public.contains("href=\"/auth\""));
+
+        let encoded_query_href = "/auth?return_url=%2Fnews%2Fexample%3Fq%3Da%2520b%26q%3Dc%252Bd%26next%3D%252Fportfolio%26probe%3D%253Ctag%253E";
+        let encoded_query_header = epsx_header_for_session_and_return_target(
+            false,
+            "/news/example?q=a%20b&q=c%2Bd&next=%2Fportfolio&probe=%3Ctag%3E",
+        );
+        assert_eq!(
+            encoded_query_header
+                .matches(&format!(
+                    "href=\"{encoded_query_href}\" class=\"epsx-connect-btn\" data-epsx-auth-link"
+                ))
+                .count(),
+            2
+        );
+
+        for hostile in [
+            "",
+            "news/example",
+            "//evil.example/path",
+            "/\\evil.example/path",
+            "/auth",
+            "/auth?return_url=%2Fevil",
+            "/news/\u{0000}bad",
+        ] {
+            let header = epsx_header_for_session_and_return_target(false, hostile);
+            assert_eq!(
+                header
+                    .matches(
+                        "href=\"/auth?return_url=%2F\" class=\"epsx-connect-btn\" data-epsx-auth-link",
+                    )
+                    .count(),
+                2,
+                "{hostile:?}"
+            );
+            assert!(!header.contains("evil.example"), "{hostile:?}");
+            assert!(!header.contains("href=\"/auth\""), "{hostile:?}");
         }
     }
 
@@ -9331,8 +9454,11 @@ function focusable(name) {
     name,
     focusCalls: 0,
     listeners: {},
+    attributes: {},
     focus() { this.focusCalls += 1; document.activeElement = this; },
     addEventListener(type, listener) { (this.listeners[type] ||= []).push(listener); },
+    setAttribute(name, value) { this.attributes[name] = String(value); },
+    getAttribute(name) { return this.attributes[name] || null; },
   };
 }
 
@@ -9368,6 +9494,11 @@ const elements = new Map([['epsx-mobile-menu-btn', mobileTrigger]]);
 const documentEvents = {};
 let sheetNumber = 0;
 let authenticated = false;
+const sharedAuthHref =
+  '/auth?return_url=%2Fnews%2Fexample%3Fq%3Deps%26category%3Dmarkets';
+const sharedAuthAnchor = {
+  getAttribute(name) { return name === 'href' ? sharedAuthHref : null; },
+};
 
 function makeSheet() {
   const sheet = {
@@ -9382,8 +9513,13 @@ function makeSheet() {
     getAttribute(name) { return this.attributes[name] || null; },
     addEventListener(type, listener) { (this.listeners[type] ||= []).push(listener); },
     querySelector(selector) {
-      if (selector !== '[data-epsx-mobile-close]') return null;
-      return this.focusables.find(node => node.markup.includes('data-epsx-mobile-close')) || null;
+      if (selector === '[data-epsx-mobile-close]') {
+        return this.focusables.find(node => node.markup.includes('data-epsx-mobile-close')) || null;
+      }
+      if (selector === '[data-epsx-mobile-auth-link]') {
+        return this.focusables.find(node => node.markup.includes('data-epsx-mobile-auth-link')) || null;
+      }
+      return null;
     },
     querySelectorAll(selector) {
       assert.equal(selector, 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])');
@@ -9426,6 +9562,9 @@ global.document = {
   getElementById(id) { return elements.get(id) || null; },
   querySelector(selector) {
     if (selector === '[data-epsx-authenticated="true"]') return authenticated ? {} : null;
+    if (selector === '.epsx-header [data-epsx-auth-link]') {
+      return authenticated ? null : sharedAuthAnchor;
+    }
     return null;
   },
   querySelectorAll(selector) { return selector === '.epsx-nav-wrap' ? wraps : []; },
@@ -9477,6 +9616,10 @@ assert.equal(sheet.getAttribute('role'), 'dialog');
 assert.equal(sheet.getAttribute('aria-modal'), 'true');
 assert.equal(sheet.getAttribute('aria-labelledby'), 'epsx-mobile-menu-title');
 assert.equal(sheet.closeButton.focusCalls, 1);
+const mobileAuthLink = sheet.querySelector('[data-epsx-mobile-auth-link]');
+assert.ok(mobileAuthLink);
+assert.equal(mobileAuthLink.getAttribute('href'), sharedAuthHref);
+assert.equal(sheet.renderedHtml.includes(sharedAuthHref), false);
 
 document.activeElement = sheet.lastFocusable;
 prevented = 0;
@@ -9676,7 +9819,12 @@ assert.equal(document.body.style.overflow, 'clip');
     #[test]
     fn header_exposes_truthful_session_action_without_policy_logic() {
         let public = epsx_header_for_session(false);
-        assert_eq!(public.matches("href=\"/auth\"").count(), 2);
+        assert_eq!(
+            public.matches("href=\"/auth?return_url=%2F\"").count(),
+            2
+        );
+        assert_eq!(public.matches("data-epsx-auth-link").count(), 2);
+        assert!(!public.contains("href=\"/auth\""));
         assert!(public.contains("data-epsx-authenticated=\"false\""));
         assert_eq!(
             public
