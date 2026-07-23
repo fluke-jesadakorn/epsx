@@ -93,6 +93,7 @@ pub struct EndpointCategory {
 /// of pretending the unused BFF fixture is authoritative.
 pub const DEVELOPER_DOCS_SOURCE_BASELINE: &str =
     "origin/development@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db";
+const DEVELOPER_DOCS_EXAMPLE_ORIGIN: &str = "https://api.example.invalid";
 
 fn endpoint_categories() -> Vec<EndpointCategory> {
     // Default rate limits per tier — mirrors the source's
@@ -114,7 +115,7 @@ fn endpoint_categories() -> Vec<EndpointCategory> {
         EndpointCategory {
             id: "auth".into(),
             title: "Authentication".into(),
-            desc: "API keys use the same Authorization header as JWT tokens. Pass your key as a Bearer token.".into(),
+            desc: "Pinned Authorization Bearer-header reference; accepted credential types are not verified here.".into(),
             endpoints: vec![EndpointDef {
                 method: "GET".into(),
                 path: "/api/auth/session/verify".into(),
@@ -294,7 +295,7 @@ pub fn tier_color_class(tier: &str) -> &'static str {
 }
 
 fn code_snippet(endpoint: &EndpointDef, language: &str) -> String {
-    let url = format!("https://api.epsx.io{}", endpoint.path);
+    let url = format!("{DEVELOPER_DOCS_EXAMPLE_ORIGIN}{}", endpoint.path);
     match language {
         "javascript" => {
             let mut options = vec![
@@ -548,19 +549,35 @@ pub fn render_docs(ctx: &PageContext) -> (PageMeta, Element) {
                                 div { class: "h-[3px] w-16 rounded-full bg-gradient-to-r from-[#7645d9] to-[#1fc7d4]" }
                                 h1 { class: "mt-3 text-3xl font-bold text-foreground", "API Reference" }
                                 p { class: "mt-2 text-muted-foreground",
-                                    "Integrate EPSX analytics into your applications. Use your API key as a Bearer token — same endpoints, same data."
+                                    "Pinned migration reference for reviewing endpoint, schema, and example structure."
+                                }
+                            }
+                            aside {
+                                class: "developer-docs-reference-warning rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5",
+                                "data-docs-reference-warning": "true",
+                                role: "note",
+                                "aria-labelledby": "developer-docs-reference-warning-title",
+                                h2 {
+                                    id: "developer-docs-reference-warning-title",
+                                    class: "text-base font-semibold text-foreground",
+                                    "Pinned migration reference"
+                                }
+                                p { class: "mt-2 text-sm text-muted-foreground",
+                                    "Endpoint, authentication, tier, rate-limit, schema, and example content below comes from the pinned migration source "
+                                    code { class: "font-mono text-xs", "{DEVELOPER_DOCS_SOURCE_BASELINE}" }
+                                    ". It is not a verified production contract. Do not use real credentials."
                                 }
                             }
                             // Auth guide card
                             div { class: "developer-docs-auth-card rounded-2xl border border-border/20 bg-card p-5 shadow-xl",
                                 h3 { class: "text-sm font-semibold text-foreground", "Authentication" }
                                 p { class: "mt-1 text-sm text-muted-foreground",
-                                    "All requests use the "
+                                    "The pinned reference shows an "
                                     code { class: "rounded bg-background px-1.5 py-0.5 text-xs", "Authorization: Bearer <token>" }
-                                    " header. Your API key works like a JWT — the middleware auto-detects the type."
+                                    " header. Accepted credential types and middleware behavior are not verified here."
                                 }
                                 pre { class: "developer-docs-curl mt-3 rounded-xl bg-slate-900 p-3 font-mono text-xs text-gray-300",
-                                    "curl -H \"Authorization: Bearer YOUR_API_KEY\" https://api.epsx.io/api/analytics/rankings"
+                                    "curl -H \"Authorization: Bearer YOUR_API_KEY\" https://api.example.invalid/api/analytics/rankings"
                                 }
                             }
                             // Endpoint sections
@@ -614,9 +631,9 @@ fn DocsSidebar(categories: Vec<EndpointCategory>) -> Element {
             }
             // Quick start card
             div { class: "docs-sidebar-quickstart mx-1 mt-4 rounded-xl border border-border/10 bg-background p-3",
-                p { class: "text-xs font-medium text-foreground", "Quick Start" }
+                p { class: "text-xs font-medium text-foreground", "Header reference" }
                 p { class: "mt-1 text-[11px] leading-relaxed text-muted-foreground",
-                    "Pass your API key as a Bearer token in the Authorization header."
+                    "Pinned Bearer-header example only. Do not use real credentials."
                 }
                 code { class: "mt-2 block rounded-lg bg-slate-900 p-2 font-mono text-[10px] text-gray-300",
                     "Authorization: Bearer <key>"
@@ -776,36 +793,14 @@ fn EndpointCard(endpoint: EndpointDef) -> Element {
                     }
                 }
 
-                // The source's direct browser executor can mutate watchlists
-                // and depends on A4/A5 API-key/route contracts that are not yet
-                // closed on this branch. Preserve the visible panel and inputs,
-                // but fail closed instead of issuing an unsafe or misleading
-                // request through the frontend.
-                div { class: "docs-try-it rounded-2xl border border-border/20 bg-card shadow-xl",
-                    div { class: "docs-try-it-header", h4 { "Try it" } }
-                    div { class: "docs-try-it-body",
-                        label { class: "docs-field-label", r#for: "{card_id}-api-key", "API Key" }
-                        select { id: "{card_id}-api-key", class: "docs-field-control", disabled: true,
-                            option { value: "", "No key (anonymous)" }
-                        }
-                        for p in endpoint.params.iter() {
-                            label { class: "docs-field-label", r#for: "{card_id}-{p.name}",
-                                "{p.name}"
-                                if p.required { span { " *" } }
-                                small { " {p.kind}" }
-                            }
-                            input {
-                                id: "{card_id}-{p.name}",
-                                class: "docs-field-control",
-                                r#type: "text",
-                                placeholder: p.default.as_deref().unwrap_or(&p.desc),
-                                disabled: true,
-                            }
-                        }
-                        button { r#type: "button", class: "docs-send-button", disabled: true, "Send Request" }
-                        p { class: "docs-try-it-status", role: "status",
-                            "Live requests stay disabled until the A4/A5 API-key, ownership, and route contracts are verified."
-                        }
+                div {
+                    class: "docs-live-request-unavailable rounded-2xl border border-border/20 bg-card p-4 shadow-xl",
+                    "data-docs-live-request-notice": "true",
+                    role: "note",
+                    "aria-label": "Live requests unavailable",
+                    h4 { class: "text-sm font-semibold text-foreground", "Live requests unavailable" }
+                    p { class: "mt-1 text-sm text-muted-foreground",
+                        "This endpoint is reference-only. It does not accept credentials or send a request."
                     }
                 }
             }
@@ -1117,9 +1112,48 @@ mod tests {
         );
         assert_eq!(html.matches("docs-endpoint-card rounded-2xl").count(), 10);
         assert_eq!(html.matches("data-docs-endpoint-toggle=\"true\"").count(), 10);
-        assert_eq!(html.matches("docs-try-it rounded-2xl").count(), 10);
-        assert_eq!(html.matches("docs-send-button").count(), 10);
-        assert!(html.contains("Live requests stay disabled until the A4/A5"));
+        assert_eq!(html.matches("docs-endpoint-card-params").count(), 3);
+        assert_eq!(html.matches("docs-endpoint-card-rate-limits").count(), 10);
+        assert_eq!(html.matches("data-docs-code-tab=").count(), 30);
+        assert_eq!(html.matches("data-docs-code-panel=").count(), 30);
+        assert_eq!(html.matches("data-docs-copy-code=\"true\"").count(), 10);
+        assert_eq!(html.matches("data-docs-copy-response=\"true\"").count(), 10);
+        assert_eq!(html.matches("docs-response-panel").count(), 10);
+        assert_eq!(html.matches("data-docs-reference-warning=\"true\"").count(), 1);
+        assert_eq!(html.matches("data-docs-live-request-notice=\"true\"").count(), 10);
+        assert_eq!(html.matches("role=\"note\"").count(), 11);
+        assert!(html.contains("It is not a verified production contract."));
+        assert!(html.contains("Do not use real credentials."));
+        assert_eq!(html.matches("Live requests unavailable").count(), 20);
+        assert_eq!(html.matches("https://api.example.invalid").count(), 31);
+        assert!(html.contains(
+            "curl -H &#34;Authorization: Bearer YOUR_API_KEY&#34; https://api.example.invalid/api/analytics/rankings"
+        ));
+        assert!(!html.contains("api.epsx.io"));
+        assert!(!html.contains("same endpoints, same data"));
+        assert!(!html.contains("works like a JWT"));
+        for removed_control in [
+            "docs-field-control",
+            "<select",
+            "<input",
+            "docs-send-button",
+            "Try it",
+            "Try It",
+            "Send Request",
+            "No key",
+            "-api-key\"",
+            "<form",
+            "docs-request-executor",
+            "data-docs-fetch",
+        ] {
+            assert!(
+                !html.contains(removed_control),
+                "docs page retained live-request control or executor: {removed_control}"
+            );
+        }
+        // The ten JavaScript fetch calls remain inert text inside the preserved
+        // language examples; there is no form, field, send control, or executor.
+        assert_eq!(html.matches("const res = await fetch").count(), 10);
         assert!(!html.contains("REST endpoints, request/response schemas, and examples"));
         assert!(!html.contains("API documentation</h1>"));
     }
@@ -1200,17 +1234,20 @@ mod tests {
     }
 
     #[test]
-    fn developer_docs_code_examples_match_pinned_generators() {
+    fn developer_docs_code_examples_use_non_routable_reference_origin() {
         let post = &cached_endpoint_categories()[2].endpoints[1];
         assert_eq!(
             code_snippet(post, "curl"),
-            "curl -X POST \"https://api.epsx.io/api/users/watchlist\" \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"ticker\": \"AAPL\"}'"
+            "curl -X POST \"https://api.example.invalid/api/users/watchlist\" \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"ticker\": \"AAPL\"}'"
         );
-        assert!(
-            code_snippet(post, "javascript")
-                .contains("body: JSON.stringify({ ticker: 'AAPL' })")
+        assert_eq!(
+            code_snippet(post, "javascript"),
+            "const res = await fetch('https://api.example.invalid/api/users/watchlist', {\n  method: 'POST',\n  headers: { 'Authorization': 'Bearer YOUR_API_KEY' },\n  body: JSON.stringify({ ticker: 'AAPL' })\n});\nconst data = await res.json();"
         );
-        assert!(code_snippet(post, "python").contains("requests.post"));
+        assert_eq!(
+            code_snippet(post, "python"),
+            "import requests\n\nurl = \"https://api.example.invalid/api/users/watchlist\"\nheaders = {\"Authorization\": \"Bearer YOUR_API_KEY\"}\nres = requests.post(url, headers=headers, json={\"ticker\": \"AAPL\"})\ndata = res.json()"
+        );
         let pretty = pretty_response(&post.response_example);
         assert!(pretty.contains("\n  \"success\": true"));
     }
