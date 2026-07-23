@@ -188,7 +188,6 @@ pub(crate) struct NewsDetailArticle {
     pub cover_image_url: Option<String>,
     pub author: Option<String>,
     pub published_at: Option<String>,
-    pub read_time: Option<String>,
     pub tags: Vec<String>,
 }
 
@@ -1410,18 +1409,50 @@ pub(crate) fn valid_news_slug(slug: &str) -> bool {
 }
 
 fn valid_cover_image_url(value: &str) -> bool {
-    if value.is_empty() || value.chars().any(char::is_control) || value.contains('\\') {
+    if value.is_empty()
+        || value.len() > 2_048
+        || value.chars().any(char::is_control)
+        || value.contains('\\')
+        || value.contains('#')
+    {
         return false;
     }
     if value.starts_with('/') {
-        return !value.starts_with("//");
+        return !value.starts_with("//")
+            && reqwest::Url::parse("https://epsx.invalid/")
+                .and_then(|base| base.join(value))
+                .is_ok_and(|url| {
+                    url.scheme() == "https"
+                        && url.host_str() == Some("epsx.invalid")
+                        && url.username().is_empty()
+                        && url.password().is_none()
+                        && url.fragment().is_none()
+                });
+    }
+    let Some(authority) = canonical_https_authority(value) else {
+        return false;
+    };
+    if authority.contains('@') {
+        return false;
     }
     reqwest::Url::parse(value).is_ok_and(|url| {
         url.scheme() == "https"
+            && url.host_str().is_some()
             && url.username().is_empty()
             && url.password().is_none()
             && url.fragment().is_none()
     })
+}
+
+fn canonical_https_authority(value: &str) -> Option<&str> {
+    let Some((scheme, rest)) = value.split_once("://") else {
+        return None;
+    };
+    if !scheme.eq_ignore_ascii_case("https") {
+        return None;
+    }
+    let authority = rest.split(['/', '?', '#']).next()?;
+    (!authority.is_empty()).then_some(authority)
 }
 
 struct DecodedNewsPayload {
@@ -1502,11 +1533,14 @@ fn normalize_news_date(value: Option<String>) -> Result<Option<String>, ()> {
         "December",
     ];
     use chrono::Datelike;
+    let year = date.year();
+    if !(1..=9_999).contains(&year) {
+        return Err(());
+    }
     Ok(Some(format!(
-        "{} {}, {}",
+        "{} {}, {year:04}",
         MONTHS[date.month0() as usize],
         date.day(),
-        date.year()
     )))
 }
 
@@ -1567,11 +1601,20 @@ fn normalize_detail_article(
 ) -> Result<NewsDetailArticle, ()> {
     let article = normalize_tags(article);
     validate_common_article(&article)?;
-    if article.slug != expected_slug {
+    let title = article.title.trim().to_string();
+    if article.slug != expected_slug
+        || article
+            .id
+            .as_deref()
+            .is_some_and(|id| id.chars().count() > 128 || id.chars().any(char::is_control))
+        || title.is_empty()
+        || title.chars().count() > 200
+        || title.chars().any(char::is_control)
+    {
         return Err(());
     }
     if article.summary.as_deref().is_some_and(|summary| {
-        summary.chars().count() > 2_000 || summary.chars().any(char::is_control)
+        summary.chars().count() > 500 || summary.chars().any(char::is_control)
     }) {
         return Err(());
     }
@@ -1583,19 +1626,29 @@ fn normalize_detail_article(
             .or(article.date.clone()),
     )?;
     let body = article.content.or(article.body).ok_or(())?;
-    if body.trim().is_empty() || body.chars().count() > 500_000 {
+    if body.trim().is_empty() || body.len() > 256 * 1_024 {
+        return Err(());
+    }
+    let author = article
+        .author_wallet
+        .or(article.author)
+        .map(|author| author.trim().to_string());
+    if author.as_deref().is_some_and(|author| {
+        author.trim().is_empty()
+            || author.chars().count() > 120
+            || author.chars().any(char::is_control)
+    }) {
         return Err(());
     }
     Ok(NewsDetailArticle {
         id: article.id,
         slug: article.slug,
-        title: article.title,
+        title,
         summary: article.summary,
         body,
         cover_image_url: article.cover_image_url.or(article.image),
-        author: article.author_wallet.or(article.author),
+        author,
         published_at,
-        read_time: article.read_time,
         tags: article.tags,
     })
 }
@@ -2104,6 +2157,134 @@ mod news_adapter_tests {
         )
         .expect("current exact legacy shape should remain supported");
         assert_eq!(legacy.published_at.as_deref(), Some("July 22, 2026"));
+    }
+
+    #[test]
+    fn news_dates_are_canonical_and_bounded_to_four_digit_common_era_years() {
+        assert_eq!(
+            normalize_news_date(Some("0001-01-01".to_string())).unwrap(),
+            Some("January 1, 0001".to_string())
+        );
+        assert_eq!(
+            normalize_news_date(Some("9999-12-31".to_string())).unwrap(),
+            Some("December 31, 9999".to_string())
+        );
+        for invalid in ["0000-01-01", "+10000-01-01"] {
+            assert!(
+                normalize_news_date(Some(invalid.to_string())).is_err(),
+                "out-of-contract year was accepted: {invalid}"
+            );
+        }
+    }
+
+    #[test]
+    fn detail_adapter_enforces_production_field_and_body_bounds() {
+        let valid = serde_json::json!({
+            "success": true,
+            "data": article("live-article", "  Live article  ", &["engineering"]),
+            "error": null
+        });
+        let normalized = parse_news_detail(valid, "live-article").unwrap();
+        assert_eq!(normalized.title, "Live article");
+        assert_eq!(normalized.author.as_deref(), Some("0x1111"));
+
+        for (field, value) in [
+            ("id", serde_json::json!("x".repeat(129))),
+            ("id", serde_json::json!("bad\u{0}id")),
+            ("title", serde_json::json!("x".repeat(201))),
+            ("title", serde_json::json!("bad\ntitle")),
+            ("summary", serde_json::json!("x".repeat(501))),
+            ("summary", serde_json::json!("bad\u{0}summary")),
+            ("author_wallet", serde_json::json!(" ")),
+            ("author_wallet", serde_json::json!("bad\nauthor")),
+        ] {
+            let mut malformed = article("live-article", "Live article", &["engineering"]);
+            malformed[field] = value;
+            assert!(parse_news_detail(
+                serde_json::json!({"success": true, "data": malformed, "error": null}),
+                "live-article"
+            )
+            .is_err());
+        }
+
+        let mut exact_body = article("live-article", "Live article", &["engineering"]);
+        exact_body["content"] = serde_json::json!("x".repeat(256 * 1_024));
+        assert!(parse_news_detail(
+            serde_json::json!({"success": true, "data": exact_body, "error": null}),
+            "live-article"
+        )
+        .is_ok());
+
+        let mut oversized_body = article("live-article", "Live article", &["engineering"]);
+        oversized_body["content"] = serde_json::json!("x".repeat(256 * 1_024 + 1));
+        assert!(parse_news_detail(
+            serde_json::json!({"success": true, "data": oversized_body, "error": null}),
+            "live-article"
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn detail_adapter_ignores_upstream_read_time() {
+        let mut upstream = article("live-article", "Live article", &["engineering"]);
+        upstream["read_time"] = serde_json::json!("999 min");
+        let normalized = parse_news_detail(
+            serde_json::json!({"success": true, "data": upstream, "error": null}),
+            "live-article",
+        )
+        .unwrap();
+        let serialized = serde_json::to_value(normalized).unwrap();
+        assert!(serialized.get("read_time").is_none());
+    }
+
+    #[test]
+    fn detail_adapter_accepts_only_safe_covers_and_real_dates() {
+        let oversized_cover = format!("https://example.com/{}", "x".repeat(2_048));
+        for cover in [
+            "//evil.example/image.png",
+            "http://example.com/image.png",
+            "https://user@example.com/image.png",
+            "https://@example.com/image.png",
+            "HTTPS://user@example.com/image.png",
+            "HTTPS://@example.com/image.png",
+            "https:////@example.com/image.png",
+            "https:/@example.com/image.png",
+            "https:@example.com/image.png",
+            "https://example.com/image.png#fragment",
+            "/image\\name.png",
+            oversized_cover.as_str(),
+        ] {
+            let mut malformed = article("live-article", "Live article", &["engineering"]);
+            malformed["cover_image_url"] = serde_json::json!(cover);
+            assert!(parse_news_detail(
+                serde_json::json!({"success": true, "data": malformed, "error": null}),
+                "live-article"
+            )
+            .is_err());
+        }
+
+        for cover in [
+            "/images/news.png",
+            "https://example.com/images/news.png",
+            "HTTPS://example.com/images/news.png",
+        ] {
+            let mut valid = article("live-article", "Live article", &["engineering"]);
+            valid["cover_image_url"] = serde_json::json!(cover);
+            let normalized = parse_news_detail(
+                serde_json::json!({"success": true, "data": valid, "error": null}),
+                "live-article",
+            )
+            .unwrap();
+            assert_eq!(normalized.cover_image_url.as_deref(), Some(cover));
+        }
+
+        let mut impossible_date = article("live-article", "Live article", &["engineering"]);
+        impossible_date["published_at"] = serde_json::json!("2026-02-30");
+        assert!(parse_news_detail(
+            serde_json::json!({"success": true, "data": impossible_date, "error": null}),
+            "live-article"
+        )
+        .is_err());
     }
 
     #[test]

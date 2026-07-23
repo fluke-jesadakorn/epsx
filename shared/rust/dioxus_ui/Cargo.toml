@@ -11,8 +11,10 @@ chrono = { workspace = true }
 dioxus = { workspace = true }
 dioxus-router = { workspace = true }
 epsx-templates = { path = "../templates" }
+pulldown-cmark = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+url = { workspace = true }
 
 [dev-dependencies]
 # === wave3a-wiring-track-a ===

@@ -4363,8 +4363,10 @@ dependencies = [
  "dioxus-router",
  "dioxus-ssr",
  "epsx-templates",
+ "pulldown-cmark",
  "serde",
  "serde_json",
+ "url",
 ]
 
 [[package]]
