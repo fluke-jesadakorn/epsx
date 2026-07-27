@@ -10,21 +10,17 @@
 //! for the regression test that pins the query count to 1.
 
 use axum::{
-    extract::{State, Query},
+    extract::{Query, State},
     response::Json,
     Extension,
 };
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 use crate::{
     prelude::*,
-    web::{
-        auth::AppState,
-        middleware::UnifiedErrorResponse,
-        pagination::Pagination,
-    },
+    web::{auth::AppState, middleware::UnifiedErrorResponse, pagination::Pagination},
 };
 
 /// Payment history query parameters
@@ -88,11 +84,24 @@ pub async fn get_user_payment_history(
     // history through the port. The single LEFT JOIN replaces
     // the old N+1 loop.
     let payment_repo = app_state.payment_repo.as_ref().ok_or_else(|| {
-        tracing::error!("PaymentRepositoryPort not wired in AppState — wave 11 track A scaffolding incomplete");
-        Json(UnifiedErrorResponse::new(500, "Internal error", "Payment service is not initialized"))
+        tracing::error!(
+            "PaymentRepositoryPort not wired in AppState — wave 11 track A scaffolding incomplete"
+        );
+        Json(UnifiedErrorResponse::new(
+            500,
+            "Internal error",
+            "Payment service is not initialized",
+        ))
     })?;
-    let wallet = crate::domain::wallet_management::value_objects::WalletAddress::new(&wallet_address)
-        .map_err(|e| Json(UnifiedErrorResponse::new(400, "Invalid wallet", e.to_string())))?;
+    let wallet =
+        crate::domain::wallet_management::value_objects::WalletAddress::new(&wallet_address)
+            .map_err(|e| {
+                Json(UnifiedErrorResponse::new(
+                    400,
+                    "Invalid wallet",
+                    e.to_string(),
+                ))
+            })?;
     let pg = Pagination::small(params.page, params.per_page);
 
     let items = payment_repo
@@ -100,7 +109,11 @@ pub async fn get_user_payment_history(
         .await
         .map_err(|e| {
             tracing::error!("Failed to list user payments: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Database query failed", format!("Failed to fetch payments: {}", e)))
+            Json(UnifiedErrorResponse::new(
+                500,
+                "Database query failed",
+                format!("Failed to fetch payments: {}", e),
+            ))
         })?;
 
     // Total page count from the port's row count (page size =
@@ -117,7 +130,9 @@ pub async fn get_user_payment_history(
     let mut payment_infos = Vec::with_capacity(items.len());
     for row in items {
         use bigdecimal::ToPrimitive;
-        let amount_f64 = row.amount.parse::<bigdecimal::BigDecimal>()
+        let amount_f64 = row
+            .amount
+            .parse::<bigdecimal::BigDecimal>()
             .ok()
             .and_then(|bd| bd.to_f64())
             .unwrap_or(0.0);

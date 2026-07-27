@@ -1,8 +1,8 @@
 use crate::prelude::*;
 
+use crate::domain::market_analytics::value_objects::*;
 use crate::domain::shared_kernel::aggregate_root::AggregateBase;
 use crate::domain::shared_kernel::domain_event::EventMetadata;
-use crate::domain::market_analytics::value_objects::*;
 use std::collections::BTreeMap;
 use uuid::Uuid;
 
@@ -30,8 +30,9 @@ impl EPSRanking {
         sector_filter: Option<SectorCategory>,
         country_filter: Option<Country>,
     ) -> Self {
-        let ranking_id = Self::generate_ranking_id(&ranking_type, &time_period, &sector_filter, &country_filter);
-        
+        let ranking_id =
+            Self::generate_ranking_id(&ranking_type, &time_period, &sector_filter, &country_filter);
+
         let mut ranking = Self {
             ranking_id: ranking_id.clone(),
             ranking_type: ranking_type.clone(),
@@ -71,13 +72,21 @@ impl EPSRanking {
         // Validate filters
         if let Some(ref sector_filter) = self.sector_filter {
             if sector.category() != sector_filter {
-                return Err(format!("Stock sector {} does not match ranking filter {:?}", sector.category().as_str(), sector_filter));
+                return Err(format!(
+                    "Stock sector {} does not match ranking filter {:?}",
+                    sector.category().as_str(),
+                    sector_filter
+                ));
             }
         }
 
         if let Some(ref country_filter) = self.country_filter {
             if &country != country_filter {
-                return Err(format!("Stock country {} does not match ranking filter {}", country.name(), country_filter.name()));
+                return Err(format!(
+                    "Stock country {} does not match ranking filter {}",
+                    country.name(),
+                    country_filter.name()
+                ));
             }
         }
 
@@ -99,10 +108,10 @@ impl EPSRanking {
 
         // Find correct position based on score
         let rank = self.calculate_rank(&entry);
-        
+
         // Shift existing entries down if necessary
         self.shift_entries_from_rank(rank);
-        
+
         // Insert new entry
         self.entries.insert(rank, entry);
         self.total_entries = self.entries.len() as u32;
@@ -125,17 +134,18 @@ impl EPSRanking {
 
     /// Remove stock from ranking
     pub fn remove_entry(&mut self, symbol: &StockSymbol) -> Result<(), String> {
-        let rank = self.find_entry_rank(symbol)
+        let rank = self
+            .find_entry_rank(symbol)
             .ok_or_else(|| format!("Stock {} not found in ranking", symbol.as_str()))?;
 
         self.entries.remove(&rank);
-        
+
         // Shift remaining entries up
         self.compact_rankings();
-        
+
         self.total_entries = self.entries.len() as u32;
         self.last_updated = Utc::now();
-        
+
         // Update statistics
         self.update_statistics();
 
@@ -152,7 +162,8 @@ impl EPSRanking {
 
     /// Get top N entries
     pub fn top_entries(&self, limit: usize) -> Vec<(u32, &RankingEntry)> {
-        self.entries.iter()
+        self.entries
+            .iter()
             .take(limit)
             .map(|(rank, entry)| (*rank, entry))
             .collect()
@@ -165,13 +176,18 @@ impl EPSRanking {
 
     /// Get entry by symbol
     pub fn get_entry_by_symbol(&self, symbol: &StockSymbol) -> Option<(u32, &RankingEntry)> {
-        self.entries.iter()
+        self.entries
+            .iter()
             .find(|(_, entry)| &entry.symbol == symbol)
             .map(|(rank, entry)| (*rank, entry))
     }
 
     /// Get entries within percentile range
-    pub fn entries_in_percentile_range(&self, min_percentile: f64, max_percentile: f64) -> Vec<(u32, &RankingEntry)> {
+    pub fn entries_in_percentile_range(
+        &self,
+        min_percentile: f64,
+        max_percentile: f64,
+    ) -> Vec<(u32, &RankingEntry)> {
         if self.total_entries == 0 {
             return vec![];
         }
@@ -179,7 +195,8 @@ impl EPSRanking {
         let min_rank = ((min_percentile / 100.0) * self.total_entries as f64).ceil() as u32;
         let max_rank = ((max_percentile / 100.0) * self.total_entries as f64).floor() as u32;
 
-        self.entries.range(min_rank..=max_rank)
+        self.entries
+            .range(min_rank..=max_rank)
             .map(|(rank, entry)| (*rank, entry))
             .collect()
     }
@@ -201,27 +218,32 @@ impl EPSRanking {
     /// Calculate rank for new entry
     fn calculate_rank(&self, new_entry: &RankingEntry) -> u32 {
         let mut rank = 1;
-        
+
         for existing_entry in self.entries.values() {
             if new_entry.score > existing_entry.score {
                 break;
             }
             rank += 1;
         }
-        
+
         rank
     }
 
     /// Find rank of existing entry by symbol
     fn find_entry_rank(&self, symbol: &StockSymbol) -> Option<u32> {
-        self.entries.iter()
+        self.entries
+            .iter()
             .find(|(_, entry)| &entry.symbol == symbol)
             .map(|(rank, _)| *rank)
     }
 
     /// Shift entries from given rank downward
     fn shift_entries_from_rank(&mut self, from_rank: u32) {
-        let entries_to_shift: Vec<_> = self.entries.range(from_rank..).map(|(rank, _)| *rank).collect();
+        let entries_to_shift: Vec<_> = self
+            .entries
+            .range(from_rank..)
+            .map(|(rank, _)| *rank)
+            .collect();
         let mut shifted_entries = BTreeMap::new();
 
         for old_rank in entries_to_shift {
@@ -254,7 +276,11 @@ impl EPSRanking {
 
         let scores: Vec<f64> = self.entries.values().map(|e| e.score).collect();
         let eps_values: Vec<f64> = self.entries.values().map(|e| e.eps_value.value()).collect();
-        let growth_values: Vec<f64> = self.entries.values().map(|e| e.growth_factor.percentage()).collect();
+        let growth_values: Vec<f64> = self
+            .entries
+            .values()
+            .map(|e| e.growth_factor.percentage())
+            .collect();
 
         self.statistics = RankingStatistics {
             total_entries: self.total_entries,
@@ -301,15 +327,33 @@ impl EPSRanking {
     }
 
     // Getters
-    pub fn ranking_id(&self) -> &str { &self.ranking_id }
-    pub fn ranking_type(&self) -> &RankingType { &self.ranking_type }
-    pub fn time_period(&self) -> RankingPeriod { self.time_period }
-    pub fn sector_filter(&self) -> Option<&SectorCategory> { self.sector_filter.as_ref() }
-    pub fn country_filter(&self) -> Option<&Country> { self.country_filter.as_ref() }
-    pub fn total_entries(&self) -> u32 { self.total_entries }
-    pub fn last_updated(&self) -> DateTime<Utc> { self.last_updated }
-    pub fn statistics(&self) -> &RankingStatistics { &self.statistics }
-    pub fn entries(&self) -> &BTreeMap<u32, RankingEntry> { &self.entries }
+    pub fn ranking_id(&self) -> &str {
+        &self.ranking_id
+    }
+    pub fn ranking_type(&self) -> &RankingType {
+        &self.ranking_type
+    }
+    pub fn time_period(&self) -> RankingPeriod {
+        self.time_period
+    }
+    pub fn sector_filter(&self) -> Option<&SectorCategory> {
+        self.sector_filter.as_ref()
+    }
+    pub fn country_filter(&self) -> Option<&Country> {
+        self.country_filter.as_ref()
+    }
+    pub fn total_entries(&self) -> u32 {
+        self.total_entries
+    }
+    pub fn last_updated(&self) -> DateTime<Utc> {
+        self.last_updated
+    }
+    pub fn statistics(&self) -> &RankingStatistics {
+        &self.statistics
+    }
+    pub fn entries(&self) -> &BTreeMap<u32, RankingEntry> {
+        &self.entries
+    }
 }
 
 impl AggregateRoot for EPSRanking {
@@ -417,7 +461,9 @@ impl RankingPeriod {
         match s.to_lowercase().as_str() {
             "quarterly" | "q" => Ok(RankingPeriod::Quarterly),
             "yearly" | "annual" | "y" => Ok(RankingPeriod::Yearly),
-            "ttm" | "trailing12months" | "trailing_12_months" => Ok(RankingPeriod::Trailing12Months),
+            "ttm" | "trailing12months" | "trailing_12_months" => {
+                Ok(RankingPeriod::Trailing12Months)
+            }
             _ => Err(format!("Invalid ranking period: {}", s)),
         }
     }

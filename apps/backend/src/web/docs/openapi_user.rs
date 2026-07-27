@@ -4,9 +4,8 @@
 //! Excludes admin-only endpoints for cleaner public documentation.
 
 use utoipa::{
-    OpenApi,
-    Modify,
     openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
+    Modify, OpenApi,
 };
 
 /// User-facing OpenAPI documentation
@@ -150,9 +149,9 @@ impl Modify for UserSecurityAddon {
                             1) Generate challenge via POST /api/auth/web3/challenge \
                             2) Sign the SIWE message with your wallet \
                             3) Verify signature via POST /api/auth/web3/verify to get token \
-                            4) Use the token as Bearer authentication for protected endpoints"
+                            4) Use the token as Bearer authentication for protected endpoints",
                         ))
-                        .build()
+                        .build(),
                 ),
             );
         }

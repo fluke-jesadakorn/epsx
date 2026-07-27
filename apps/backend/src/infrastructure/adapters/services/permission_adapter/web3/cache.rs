@@ -1,12 +1,12 @@
 // Web3 validation result cache manager
 // Handles caching of NFT, Token, and DAO validation results
 
-use crate::prelude::*;
 use crate::domain::wallet_management::value_objects::WalletAddress;
 use crate::infrastructure::cache::Cache;
-use tracing::debug;
+use crate::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use tracing::debug;
 
 const CACHE_TTL_SECONDS: u64 = 300; // 5 minutes
 
@@ -29,7 +29,8 @@ impl Web3CacheMgr {
         tokens: &[u64],
         chain: u64,
     ) -> AppResult<Option<NftResult>> {
-        self.get_cached("nft", wallet, contract, &format_tokens(tokens), chain).await
+        self.get_cached("nft", wallet, contract, &format_tokens(tokens), chain)
+            .await
     }
 
     pub async fn set_nft(
@@ -40,7 +41,15 @@ impl Web3CacheMgr {
         chain: u64,
         result: &NftResult,
     ) -> AppResult<()> {
-        self.set_cached("nft", wallet, contract, &format_tokens(tokens), chain, result).await
+        self.set_cached(
+            "nft",
+            wallet,
+            contract,
+            &format_tokens(tokens),
+            chain,
+            result,
+        )
+        .await
     }
 
     // Token balance cache
@@ -62,7 +71,8 @@ impl Web3CacheMgr {
         chain: u64,
         result: &TokenResult,
     ) -> AppResult<()> {
-        self.set_cached("token", wallet, contract, min, chain, result).await
+        self.set_cached("token", wallet, contract, min, chain, result)
+            .await
     }
 
     // DAO membership cache
@@ -73,7 +83,8 @@ impl Web3CacheMgr {
         min_power: &str,
         chain: u64,
     ) -> AppResult<Option<DaoResult>> {
-        self.get_cached("dao", wallet, contract, min_power, chain).await
+        self.get_cached("dao", wallet, contract, min_power, chain)
+            .await
     }
 
     pub async fn set_dao(
@@ -84,7 +95,8 @@ impl Web3CacheMgr {
         chain: u64,
         result: &DaoResult,
     ) -> AppResult<()> {
-        self.set_cached("dao", wallet, contract, min_power, chain, result).await
+        self.set_cached("dao", wallet, contract, min_power, chain, result)
+            .await
     }
 
     // Generic cache operations
@@ -130,12 +142,29 @@ impl Web3CacheMgr {
 
 // Helpers
 
-fn cache_key(prefix: &str, wallet: &WalletAddress, contract: &str, param: &str, chain: u64) -> String {
-    format!("{}:{}:{}:{}:{}", prefix, wallet.as_str(), contract, param, chain)
+fn cache_key(
+    prefix: &str,
+    wallet: &WalletAddress,
+    contract: &str,
+    param: &str,
+    chain: u64,
+) -> String {
+    format!(
+        "{}:{}:{}:{}:{}",
+        prefix,
+        wallet.as_str(),
+        contract,
+        param,
+        chain
+    )
 }
 
 fn format_tokens(tokens: &[u64]) -> String {
-    tokens.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(",")
+    tokens
+        .iter()
+        .map(|id| id.to_string())
+        .collect::<Vec<_>>()
+        .join(",")
 }
 
 // Result types

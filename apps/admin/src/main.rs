@@ -14,8 +14,8 @@ use epsx_bff::{
     session::{JwksVerifier, JwksVerifierConfig, ADMIN_CLIENT_ID, JWKS_PATH},
 };
 use epsx_client::{RequestContext, ServiceClient};
-use epsx_dioxus_ui::pages::admin_pages::payments::decode_admin_payment_intent_list;
 use epsx_dioxus_ui::pages::admin_pages::media::AdminMediaMutationProjection;
+use epsx_dioxus_ui::pages::admin_pages::payments::decode_admin_payment_intent_list;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::net::SocketAddr;
@@ -41,25 +41,23 @@ mod settings_admin_adapter;
 mod ssr;
 mod wallet_stats_adapter;
 
-use developer_portal_adapter::{
-    create_admin_api_key, revoke_admin_api_key, update_admin_api_key_expiration,
-    AdminDeveloperCreateInput, AdminDeveloperMutationError,
-};
 use commerce_adapter::{
     send_wallet_status_mutation, wallet_status_mutation_path, AdminCommerceMutationLoad,
     WalletStatusCommand,
 };
-use notification_admin_adapter::{
-    delete_admin_notification, mark_admin_notification_read, send_admin_notification,
-    AdminNotificationMutationResult, AdminNotificationSendRequest, AdminNotificationSendResult,
+use developer_portal_adapter::{
+    create_admin_api_key, revoke_admin_api_key, update_admin_api_key_expiration,
+    AdminDeveloperCreateInput, AdminDeveloperMutationError,
 };
+use media_adapter::{delete_admin_media, upload_admin_public_file, AdminMediaMutationError};
 use news_adapter::{
     create_admin_news, delete_admin_news, transition_admin_news, update_admin_news,
     upload_admin_news_image, AdminNewsCreateInput, AdminNewsMutationError, AdminNewsTransition,
     AdminNewsUpdateInput,
 };
-use media_adapter::{
-    delete_admin_media, upload_admin_public_file, AdminMediaMutationError,
+use notification_admin_adapter::{
+    delete_admin_notification, mark_admin_notification_read, send_admin_notification,
+    AdminNotificationMutationResult, AdminNotificationSendRequest, AdminNotificationSendResult,
 };
 
 #[derive(Clone)]
@@ -383,9 +381,9 @@ fn admin_proxy_error_code(status: StatusCode) -> &'static str {
         StatusCode::TOO_MANY_REQUESTS => "rate_limited",
         StatusCode::METHOD_NOT_ALLOWED => "method_not_allowed",
         StatusCode::PAYLOAD_TOO_LARGE => "payload_too_large",
-        StatusCode::BAD_GATEWAY
-        | StatusCode::SERVICE_UNAVAILABLE
-        | StatusCode::GATEWAY_TIMEOUT => "service_unavailable",
+        StatusCode::BAD_GATEWAY | StatusCode::SERVICE_UNAVAILABLE | StatusCode::GATEWAY_TIMEOUT => {
+            "service_unavailable"
+        }
         _ => "admin_service_unavailable",
     }
 }
@@ -522,14 +520,19 @@ mod upstream_error_mapping_tests {
 
     #[test]
     fn admin_proxy_errors_use_closed_codes_and_retryability() {
-        assert_eq!(admin_proxy_error_code(StatusCode::BAD_REQUEST), "invalid_request");
+        assert_eq!(
+            admin_proxy_error_code(StatusCode::BAD_REQUEST),
+            "invalid_request"
+        );
         assert_eq!(admin_proxy_error_code(StatusCode::CONFLICT), "conflict");
         assert_eq!(
             admin_proxy_error_code(StatusCode::SERVICE_UNAVAILABLE),
             "service_unavailable"
         );
         assert!(!admin_proxy_error_is_retryable(StatusCode::FORBIDDEN));
-        assert!(admin_proxy_error_is_retryable(StatusCode::TOO_MANY_REQUESTS));
+        assert!(admin_proxy_error_is_retryable(
+            StatusCode::TOO_MANY_REQUESTS
+        ));
         assert!(admin_proxy_error_is_retryable(StatusCode::GATEWAY_TIMEOUT));
     }
 
@@ -537,9 +540,17 @@ mod upstream_error_mapping_tests {
     fn auth_query_flags_match_source_cookie_clear_contract() {
         assert!(query_has_key(Some("logout=1"), "logout"));
         assert!(query_has_key(Some("clear"), "clear"));
-        assert!(query_has_value(Some("reason=no-session"), "reason", "no-session"));
+        assert!(query_has_value(
+            Some("reason=no-session"),
+            "reason",
+            "no-session"
+        ));
         assert!(!query_has_key(Some("next=logout"), "logout"));
-        assert!(!query_has_value(Some("reason=backend_error"), "reason", "no-session"));
+        assert!(!query_has_value(
+            Some("reason=backend_error"),
+            "reason",
+            "no-session"
+        ));
     }
 }
 
@@ -997,22 +1008,13 @@ fn build_app(state: AppState) -> Router {
             "/settings",
             get(fallback_handler).post(submit_settings_form),
         )
-        .route(
-            "/settings/reset",
-            post(submit_settings_form),
-        )
-        .route(
-            "/news",
-            get(fallback_handler).post(submit_news_delete_form),
-        )
+        .route("/settings/reset", post(submit_settings_form))
+        .route("/news", get(fallback_handler).post(submit_news_delete_form))
         .route(
             "/news/create",
             get(fallback_handler).post(submit_news_create_form),
         )
-        .route(
-            "/news/upload-image",
-            post(submit_news_image_upload_form),
-        )
+        .route("/news/upload-image", post(submit_news_image_upload_form))
         .route(
             "/news/{id}/edit",
             get(fallback_handler).post(submit_news_edit_form),
@@ -1053,10 +1055,7 @@ fn build_app(state: AppState) -> Router {
             "/media",
             get(fallback_handler).post(submit_media_delete_form),
         )
-        .route(
-            "/media/upload",
-            post(submit_media_upload_form),
-        )
+        .route("/media/upload", post(submit_media_upload_form))
         .route(
             "/wallet-management/wallets/{address}/disable",
             get(fallback_handler).post(submit_wallet_disable_form),
@@ -1347,9 +1346,7 @@ fn is_allowed_protected_admin_api_method(method: &Method, path: &str) -> bool {
         }
         ["api", "v1", "admin", "pay", "intents"]
         | ["api", "v1", "admin", "pay", "intents", _, _]
-        | ["api", "v1", "admin", "pay", "escrows", _, _] => {
-            is_read || method == Method::POST
-        }
+        | ["api", "v1", "admin", "pay", "escrows", _, _] => is_read || method == Method::POST,
         ["api", "v1", "subscriptions", _, "cancel"]
         | ["api", "v1", "pages", _, "publish"]
         | ["api", "v1", "notifications", _, "read"]
@@ -1743,7 +1740,11 @@ mod routing_tests {
             assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT, "{uri}");
             assert_eq!(response.headers()[header::LOCATION], location, "{uri}");
             assert_eq!(
-                response.headers().get_all(header::SET_COOKIE).iter().count(),
+                response
+                    .headers()
+                    .get_all(header::SET_COOKIE)
+                    .iter()
+                    .count(),
                 5,
                 "{uri}"
             );
@@ -1894,7 +1895,10 @@ async fn admin_service_proxy(State(state): State<AppState>, request: Request) ->
     let method = parts.method;
     let headers = parts.headers;
     let ctx = ctx_from(&headers);
-    let body = if matches!(method, Method::POST | Method::PUT | Method::PATCH | Method::DELETE) {
+    let body = if matches!(
+        method,
+        Method::POST | Method::PUT | Method::PATCH | Method::DELETE
+    ) {
         match to_bytes(body, 2 * 1024 * 1024).await {
             Ok(bytes) => bytes,
             Err(_) => return admin_proxy_error(StatusCode::PAYLOAD_TOO_LARGE, &ctx),
@@ -1905,8 +1909,7 @@ async fn admin_service_proxy(State(state): State<AppState>, request: Request) ->
 
     let client = if path.starts_with("/api/admin/media") || path.starts_with("/api/admin/news") {
         &state.content
-    } else if path.starts_with("/api/v1/admin/wallets")
-        || path.starts_with("/api/v1/admin/credits")
+    } else if path.starts_with("/api/v1/admin/wallets") || path.starts_with("/api/v1/admin/credits")
     {
         &state.wallet
     } else if path.starts_with("/api/v1/admin/subscription") {
@@ -2867,12 +2870,9 @@ async fn verified_admin_auth_context(
     if !same_origin_admin_notification_form(headers) {
         return Err(StatusCode::FORBIDDEN);
     }
-    let Some((token, _user)) = auth::verified_access_token(
-        headers,
-        state.verifier.as_ref(),
-        state.cookie_environment,
-    )
-    .await
+    let Some((token, _user)) =
+        auth::verified_access_token(headers, state.verifier.as_ref(), state.cookie_environment)
+            .await
     else {
         return Err(StatusCode::UNAUTHORIZED);
     };
@@ -2909,10 +2909,8 @@ async fn submit_news_delete_form(State(state): State<AppState>, request: Request
         Ok(body) => body,
         Err(_) => return StatusCode::PAYLOAD_TOO_LARGE.into_response(),
     };
-    let mut fields = match parse_admin_editor_fields(
-        &body,
-        &["id", "if_match", "idempotency_key"],
-    ) {
+    let mut fields = match parse_admin_editor_fields(&body, &["id", "if_match", "idempotency_key"])
+    {
         Ok(fields) => fields,
         Err(()) => return news_mutation_redirect("/news", "malformed"),
     };
@@ -2928,15 +2926,7 @@ async fn submit_news_delete_form(State(state): State<AppState>, request: Request
         Ok(value) => value,
         Err(()) => return news_mutation_redirect("/news", "malformed"),
     };
-    match delete_admin_news(
-        &state.content,
-        &context,
-        &id,
-        &if_match,
-        &idempotency_key,
-    )
-    .await
-    {
+    match delete_admin_news(&state.content, &context, &id, &if_match, &idempotency_key).await {
         Ok(_) => news_mutation_redirect("/news", "committed"),
         Err(error) => news_mutation_redirect("/news", news_mutation_error_state(error)),
     }
@@ -3011,20 +3001,14 @@ async fn submit_news_image_upload_form(
     let Some(bytes) = bytes.filter(|value| !value.is_empty()) else {
         return news_mutation_redirect("/news", "malformed");
     };
-    match upload_admin_news_image(
-        &state.content,
-        &context,
-        &filename,
-        bytes,
-        &idempotency_key,
-    )
-    .await
+    match upload_admin_news_image(&state.content, &context, &filename, bytes, &idempotency_key)
+        .await
     {
         Ok(result) => {
             let query = url::form_urlencoded::Serializer::new(String::new())
                 .append_pair("image_url", &result.url)
                 .finish();
-            Redirect::to(&format!("/news/{article_id}/edit?{query}" )).into_response()
+            Redirect::to(&format!("/news/{article_id}/edit?{query}")).into_response()
         }
         Err(error) => news_mutation_redirect(
             &format!("/news/{article_id}/edit"),
@@ -3096,25 +3080,58 @@ async fn submit_settings_form(State(state): State<AppState>, request: Request) -
     let allowed = if parts.uri.path() == "/settings/reset" {
         &["idempotency_key"][..]
     } else {
-        &["category", "key", "value_json", "expected_updated_at", "idempotency_key"][..]
+        &[
+            "category",
+            "key",
+            "value_json",
+            "expected_updated_at",
+            "idempotency_key",
+        ][..]
     };
     let mut fields = match parse_admin_editor_fields(&body, allowed) {
         Ok(fields) => fields,
         Err(()) => return Redirect::to("/settings?mutation=invalid").into_response(),
     };
     let idempotency_key = match form_value(&mut fields, "idempotency_key") {
-        Ok(value) if (1..=56).contains(&value.chars().count()) && value.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-')) => value,
+        Ok(value)
+            if (1..=56).contains(&value.chars().count())
+                && value.bytes().all(|byte| {
+                    byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-')
+                }) =>
+        {
+            value
+        }
         _ => return Redirect::to("/settings?mutation=invalid").into_response(),
     };
     let (method, path, payload) = if parts.uri.path() == "/settings/reset" {
-        (reqwest::Method::POST, "/api/admin/settings/reset", serde_json::Value::Null)
+        (
+            reqwest::Method::POST,
+            "/api/admin/settings/reset",
+            serde_json::Value::Null,
+        )
     } else {
-        let category = match form_value(&mut fields, "category") { Ok(value) => value, Err(()) => return Redirect::to("/settings?mutation=invalid").into_response() };
-        let key = match form_value(&mut fields, "key") { Ok(value) => value, Err(()) => return Redirect::to("/settings?mutation=invalid").into_response() };
-        let raw_value = match form_value(&mut fields, "value_json") { Ok(value) => value, Err(()) => return Redirect::to("/settings?mutation=invalid").into_response() };
-        let value = match serde_json::from_str::<serde_json::Value>(&raw_value) { Ok(value) => value, Err(_) => return Redirect::to("/settings?mutation=invalid").into_response() };
+        let category = match form_value(&mut fields, "category") {
+            Ok(value) => value,
+            Err(()) => return Redirect::to("/settings?mutation=invalid").into_response(),
+        };
+        let key = match form_value(&mut fields, "key") {
+            Ok(value) => value,
+            Err(()) => return Redirect::to("/settings?mutation=invalid").into_response(),
+        };
+        let raw_value = match form_value(&mut fields, "value_json") {
+            Ok(value) => value,
+            Err(()) => return Redirect::to("/settings?mutation=invalid").into_response(),
+        };
+        let value = match serde_json::from_str::<serde_json::Value>(&raw_value) {
+            Ok(value) => value,
+            Err(_) => return Redirect::to("/settings?mutation=invalid").into_response(),
+        };
         let expected_updated_at = optional_form_value(&mut fields, "expected_updated_at");
-        (reqwest::Method::PUT, "/api/admin/settings", serde_json::json!({"settings": [{"category": category, "key": key, "value": value, "expected_updated_at": expected_updated_at}]}))
+        (
+            reqwest::Method::PUT,
+            "/api/admin/settings",
+            serde_json::json!({"settings": [{"category": category, "key": key, "value": value, "expected_updated_at": expected_updated_at}]}),
+        )
     };
     let Some(token) = context.auth_token.as_deref() else {
         return Redirect::to("/settings?mutation=unavailable").into_response();
@@ -3122,7 +3139,14 @@ async fn submit_settings_form(State(state): State<AppState>, request: Request) -
     let request = state
         .identity
         .auth_client()
-        .request(method, format!("{}{}", state.identity.base_url().trim_end_matches('/'), path))
+        .request(
+            method,
+            format!(
+                "{}{}",
+                state.identity.base_url().trim_end_matches('/'),
+                path
+            ),
+        )
         .bearer_auth(token)
         .header("x-request-id", context.request_id.to_string())
         .header("idempotency-key", &idempotency_key)
@@ -3132,7 +3156,9 @@ async fn submit_settings_form(State(state): State<AppState>, request: Request) -
         Ok(response) if response.status().is_success() => "success",
         Ok(response) if response.status().as_u16() == StatusCode::FORBIDDEN.as_u16() => "forbidden",
         Ok(response) if response.status().as_u16() == StatusCode::CONFLICT.as_u16() => "conflict",
-        Ok(response) if matches!(response.status().as_u16(), value if value == StatusCode::BAD_REQUEST.as_u16() || value == StatusCode::UNPROCESSABLE_ENTITY.as_u16()) => "invalid",
+        Ok(response) if matches!(response.status().as_u16(), value if value == StatusCode::BAD_REQUEST.as_u16() || value == StatusCode::UNPROCESSABLE_ENTITY.as_u16()) => {
+            "invalid"
+        }
         Ok(_) | Err(_) => "unavailable",
     };
     Redirect::to(&format!("/settings?mutation={state_name}")).into_response()
@@ -3181,7 +3207,14 @@ async fn submit_news_edit_form(
         form_value(&mut fields, "if_match"),
         form_value(&mut fields, "idempotency_key"),
     ) {
-        (Ok(title), Ok(slug), Ok(content), Ok(tags), Ok(expected_updated_at), Ok(idempotency_key)) => {
+        (
+            Ok(title),
+            Ok(slug),
+            Ok(content),
+            Ok(tags),
+            Ok(expected_updated_at),
+            Ok(idempotency_key),
+        ) => {
             let input = AdminNewsUpdateInput {
                 title: Some(title),
                 slug: Some(slug),
@@ -3256,23 +3289,41 @@ async fn submit_developer_create_form(State(state): State<AppState>, request: Re
         ],
     ) {
         Ok(fields) => fields,
-        Err(()) => return Redirect::to("/developer-portal/api-keys/create?mutation=malformed").into_response(),
+        Err(()) => {
+            return Redirect::to("/developer-portal/api-keys/create?mutation=malformed")
+                .into_response()
+        }
     };
     let client_name = match form_value(&mut fields, "client_name") {
         Ok(value) => value,
-        Err(()) => return Redirect::to("/developer-portal/api-keys/create?mutation=malformed").into_response(),
+        Err(()) => {
+            return Redirect::to("/developer-portal/api-keys/create?mutation=malformed")
+                .into_response()
+        }
     };
     let wallet_address = match form_value(&mut fields, "wallet_address") {
         Ok(value) => value.to_ascii_lowercase(),
-        Err(()) => return Redirect::to("/developer-portal/api-keys/create?mutation=malformed").into_response(),
+        Err(()) => {
+            return Redirect::to("/developer-portal/api-keys/create?mutation=malformed")
+                .into_response()
+        }
     };
     let permissions = optional_form_value(&mut fields, "permissions")
-        .map(|value| value.split(',').map(str::trim).map(ToOwned::to_owned).collect())
+        .map(|value| {
+            value
+                .split(',')
+                .map(str::trim)
+                .map(ToOwned::to_owned)
+                .collect()
+        })
         .unwrap_or_default();
     let expires_at = optional_form_value(&mut fields, "expires_at");
     let idempotency_key = match form_value(&mut fields, "idempotency_key") {
         Ok(value) => value,
-        Err(()) => return Redirect::to("/developer-portal/api-keys/create?mutation=malformed").into_response(),
+        Err(()) => {
+            return Redirect::to("/developer-portal/api-keys/create?mutation=malformed")
+                .into_response()
+        }
     };
     let input = AdminDeveloperCreateInput {
         client_name,
@@ -3296,10 +3347,8 @@ async fn submit_developer_create_form(State(state): State<AppState>, request: Re
             let encoded = match serde_json::to_vec(&payload) {
                 Ok(bytes) => URL_SAFE_NO_PAD.encode(bytes),
                 Err(_) => {
-                    return Redirect::to(
-                        "/developer-portal/api-keys/create?mutation=malformed",
-                    )
-                    .into_response()
+                    return Redirect::to("/developer-portal/api-keys/create?mutation=malformed")
+                        .into_response()
                 }
             };
             let mut response = Redirect::to("/developer-portal/api-keys/create").into_response();
@@ -3320,7 +3369,10 @@ async fn submit_developer_create_form(State(state): State<AppState>, request: Re
                 developer_portal_adapter::AdminDeveloperMutationError::Invalid
                 | developer_portal_adapter::AdminDeveloperMutationError::Malformed => "malformed",
             };
-            Redirect::to(&format!("/developer-portal/api-keys/create?mutation={state}")).into_response()
+            Redirect::to(&format!(
+                "/developer-portal/api-keys/create?mutation={state}"
+            ))
+            .into_response()
         }
     }
 }
@@ -3330,11 +3382,16 @@ fn developer_mutation_error_state(error: AdminDeveloperMutationError) -> &'stati
         AdminDeveloperMutationError::Conflict => "conflict",
         AdminDeveloperMutationError::Forbidden => "forbidden",
         AdminDeveloperMutationError::Unavailable => "unavailable",
-        AdminDeveloperMutationError::Invalid | AdminDeveloperMutationError::Malformed => "malformed",
+        AdminDeveloperMutationError::Invalid | AdminDeveloperMutationError::Malformed => {
+            "malformed"
+        }
     }
 }
 
-async fn submit_developer_mutation_form(State(state): State<AppState>, request: Request) -> Response {
+async fn submit_developer_mutation_form(
+    State(state): State<AppState>,
+    request: Request,
+) -> Response {
     let (parts, body) = request.into_parts();
     let context = match verified_admin_form_context(&state, &parts.headers).await {
         Ok(context) => context,
@@ -3346,7 +3403,13 @@ async fn submit_developer_mutation_form(State(state): State<AppState>, request: 
     };
     let mut fields = match parse_admin_editor_fields(
         &body,
-        &["operation", "api_key_id", "reason", "expires_at", "idempotency_key"],
+        &[
+            "operation",
+            "api_key_id",
+            "reason",
+            "expires_at",
+            "idempotency_key",
+        ],
     ) {
         Ok(fields) => fields,
         Err(()) => return Redirect::to("/developer-portal?mutation=malformed").into_response(),
@@ -3368,7 +3431,8 @@ async fn submit_developer_mutation_form(State(state): State<AppState>, request: 
             Ok(value) => value,
             Err(()) => return Redirect::to("/developer-portal?mutation=malformed").into_response(),
         };
-        revoke_admin_api_key(&state.identity, &context, &id, &reason, &idempotency_key).await
+        revoke_admin_api_key(&state.identity, &context, &id, &reason, &idempotency_key)
+            .await
             .map(|_| ())
     } else {
         let expires_at = optional_form_value(&mut fields, "expires_at");
@@ -3397,11 +3461,17 @@ async fn send_admin_form_mutation(
     idempotency_key: &str,
     context: &RequestContext,
 ) -> Result<StatusCode, &'static str> {
-    let Some(token) = context.auth_token.as_deref().filter(|value| !value.trim().is_empty()) else {
+    let Some(token) = context
+        .auth_token
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    else {
         return Err("unavailable");
     };
     if !(1..=128).contains(&idempotency_key.len())
-        || !idempotency_key.bytes().all(|byte| byte.is_ascii_graphic() && byte != b' ')
+        || !idempotency_key
+            .bytes()
+            .all(|byte| byte.is_ascii_graphic() && byte != b' ')
     {
         return Err("malformed");
     }
@@ -3458,24 +3528,42 @@ async fn submit_chat_mutation_form(State(state): State<AppState>, request: Reque
     };
     let mut fields = match parse_admin_editor_fields(
         &body,
-        &["operation", "content", "status", "agent_address", "idempotency_key"],
+        &[
+            "operation",
+            "content",
+            "status",
+            "agent_address",
+            "idempotency_key",
+        ],
     ) {
         Ok(fields) => fields,
-        Err(()) => return Redirect::to(&format!("/chat/{conversation_id}?mutation=malformed")).into_response(),
+        Err(()) => {
+            return Redirect::to(&format!("/chat/{conversation_id}?mutation=malformed"))
+                .into_response()
+        }
     };
     let operation = match form_value(&mut fields, "operation") {
         Ok(value) if matches!(value.as_str(), "reply" | "status" | "assign" | "read") => value,
-        _ => return Redirect::to(&format!("/chat/{conversation_id}?mutation=malformed")).into_response(),
+        _ => {
+            return Redirect::to(&format!("/chat/{conversation_id}?mutation=malformed"))
+                .into_response()
+        }
     };
     let idempotency_key = match form_value(&mut fields, "idempotency_key") {
         Ok(value) => value,
-        Err(()) => return Redirect::to(&format!("/chat/{conversation_id}?mutation=malformed")).into_response(),
+        Err(()) => {
+            return Redirect::to(&format!("/chat/{conversation_id}?mutation=malformed"))
+                .into_response()
+        }
     };
     let (method, path, payload) = match operation.as_str() {
         "reply" => {
             let content = match form_value(&mut fields, "content") {
                 Ok(value) if valid_admin_form_text(&value, 16 * 1024, true) => value,
-                _ => return Redirect::to(&format!("/chat/{conversation_id}?mutation=malformed")).into_response(),
+                _ => {
+                    return Redirect::to(&format!("/chat/{conversation_id}?mutation=malformed"))
+                        .into_response()
+                }
             };
             (
                 reqwest::Method::POST,
@@ -3485,8 +3573,18 @@ async fn submit_chat_mutation_form(State(state): State<AppState>, request: Reque
         }
         "status" => {
             let status = match form_value(&mut fields, "status") {
-                Ok(value) if matches!(value.as_str(), "open" | "in_progress" | "resolved" | "closed") => value,
-                _ => return Redirect::to(&format!("/chat/{conversation_id}?mutation=malformed")).into_response(),
+                Ok(value)
+                    if matches!(
+                        value.as_str(),
+                        "open" | "in_progress" | "resolved" | "closed"
+                    ) =>
+                {
+                    value
+                }
+                _ => {
+                    return Redirect::to(&format!("/chat/{conversation_id}?mutation=malformed"))
+                        .into_response()
+                }
             };
             (
                 reqwest::Method::PUT,
@@ -3496,8 +3594,12 @@ async fn submit_chat_mutation_form(State(state): State<AppState>, request: Reque
         }
         "assign" => {
             let agent_address = optional_form_value(&mut fields, "agent_address");
-            if agent_address.as_deref().is_some_and(|value| !valid_admin_wallet(value)) {
-                return Redirect::to(&format!("/chat/{conversation_id}?mutation=malformed")).into_response();
+            if agent_address
+                .as_deref()
+                .is_some_and(|value| !valid_admin_wallet(value))
+            {
+                return Redirect::to(&format!("/chat/{conversation_id}?mutation=malformed"))
+                    .into_response();
             }
             (
                 reqwest::Method::PUT,
@@ -3528,7 +3630,10 @@ async fn submit_chat_mutation_form(State(state): State<AppState>, request: Reque
     Redirect::to(&format!("/chat/{conversation_id}?mutation={state}")).into_response()
 }
 
-async fn submit_commerce_mutation_form(State(state): State<AppState>, request: Request) -> Response {
+async fn submit_commerce_mutation_form(
+    State(state): State<AppState>,
+    request: Request,
+) -> Response {
     let (parts, body) = request.into_parts();
     let context = match verified_admin_form_context(&state, &parts.headers).await {
         Ok(context) => context,
@@ -3541,22 +3646,44 @@ async fn submit_commerce_mutation_form(State(state): State<AppState>, request: R
     let mut fields = match parse_admin_editor_fields(
         &body,
         &[
-            "operation", "wallet_address", "plan_id", "permission", "expected_version",
-            "amount_minor", "reason", "merchant_id", "name", "description", "amount",
-            "currency", "chain_id", "interval", "active", "intent_id", "max_uses",
-            "expires_in", "link_id", "idempotency_key",
+            "operation",
+            "wallet_address",
+            "plan_id",
+            "permission",
+            "expected_version",
+            "amount_minor",
+            "reason",
+            "merchant_id",
+            "name",
+            "description",
+            "amount",
+            "currency",
+            "chain_id",
+            "interval",
+            "active",
+            "intent_id",
+            "max_uses",
+            "expires_in",
+            "link_id",
+            "idempotency_key",
         ],
     ) {
         Ok(fields) => fields,
-        Err(()) => return Redirect::to("/wallet-management/access?mutation=malformed").into_response(),
+        Err(()) => {
+            return Redirect::to("/wallet-management/access?mutation=malformed").into_response()
+        }
     };
     let operation = match form_value(&mut fields, "operation") {
         Ok(value) => value,
-        Err(()) => return Redirect::to("/wallet-management/access?mutation=malformed").into_response(),
+        Err(()) => {
+            return Redirect::to("/wallet-management/access?mutation=malformed").into_response()
+        }
     };
     let idempotency_key = match form_value(&mut fields, "idempotency_key") {
         Ok(value) => value,
-        Err(()) => return Redirect::to("/wallet-management/access?mutation=malformed").into_response(),
+        Err(()) => {
+            return Redirect::to("/wallet-management/access?mutation=malformed").into_response()
+        }
     };
     let expected_version = || {
         fields
@@ -3566,23 +3693,48 @@ async fn submit_commerce_mutation_form(State(state): State<AppState>, request: R
     };
     let (client, method, path, payload, return_path) = match operation.as_str() {
         "access_assign" | "access_revoke" => {
-            let wallet = match fields.get("wallet_address").filter(|value| valid_admin_wallet(value)) {
+            let wallet = match fields
+                .get("wallet_address")
+                .filter(|value| valid_admin_wallet(value))
+            {
                 Some(value) => value.to_ascii_lowercase(),
-                None => return Redirect::to("/wallet-management/access?mutation=malformed").into_response(),
+                None => {
+                    return Redirect::to("/wallet-management/access?mutation=malformed")
+                        .into_response()
+                }
             };
-            let plan_id = match fields.get("plan_id").and_then(|value| uuid::Uuid::parse_str(value).ok()) {
+            let plan_id = match fields
+                .get("plan_id")
+                .and_then(|value| uuid::Uuid::parse_str(value).ok())
+            {
                 Some(value) => value.to_string(),
-                None => return Redirect::to("/wallet-management/access?mutation=malformed").into_response(),
+                None => {
+                    return Redirect::to("/wallet-management/access?mutation=malformed")
+                        .into_response()
+                }
             };
-            let permission = match fields.get("permission").filter(|value| valid_admin_form_text(value, 128, true)) {
+            let permission = match fields
+                .get("permission")
+                .filter(|value| valid_admin_form_text(value, 128, true))
+            {
                 Some(value) => value.clone(),
-                None => return Redirect::to("/wallet-management/access?mutation=malformed").into_response(),
+                None => {
+                    return Redirect::to("/wallet-management/access?mutation=malformed")
+                        .into_response()
+                }
             };
             let expected_version = match expected_version() {
                 Some(value) => value,
-                None => return Redirect::to("/wallet-management/access?mutation=malformed").into_response(),
+                None => {
+                    return Redirect::to("/wallet-management/access?mutation=malformed")
+                        .into_response()
+                }
             };
-            let action = if operation == "access_assign" { "assign" } else { "revoke" };
+            let action = if operation == "access_assign" {
+                "assign"
+            } else {
+                "revoke"
+            };
             (
                 &state.subscription,
                 reqwest::Method::POST,
@@ -3592,23 +3744,49 @@ async fn submit_commerce_mutation_form(State(state): State<AppState>, request: R
             )
         }
         "credit_grant" | "credit_revoke" => {
-            let wallet = match fields.get("wallet_address").filter(|value| valid_admin_wallet(value)) {
+            let wallet = match fields
+                .get("wallet_address")
+                .filter(|value| valid_admin_wallet(value))
+            {
                 Some(value) => value.to_ascii_lowercase(),
-                None => return Redirect::to("/wallet-management/credits?mutation=malformed").into_response(),
+                None => {
+                    return Redirect::to("/wallet-management/credits?mutation=malformed")
+                        .into_response()
+                }
             };
             let expected_version = match expected_version() {
                 Some(value) => value,
-                None => return Redirect::to("/wallet-management/credits?mutation=malformed").into_response(),
+                None => {
+                    return Redirect::to("/wallet-management/credits?mutation=malformed")
+                        .into_response()
+                }
             };
-            let amount_minor = match fields.get("amount_minor").and_then(|value| value.parse::<i64>().ok()).filter(|value| (1..=1_000_000_000_000).contains(value)) {
+            let amount_minor = match fields
+                .get("amount_minor")
+                .and_then(|value| value.parse::<i64>().ok())
+                .filter(|value| (1..=1_000_000_000_000).contains(value))
+            {
                 Some(value) => value,
-                None => return Redirect::to("/wallet-management/credits?mutation=malformed").into_response(),
+                None => {
+                    return Redirect::to("/wallet-management/credits?mutation=malformed")
+                        .into_response()
+                }
             };
-            let reason = match fields.get("reason").filter(|value| valid_admin_form_text(value, 500, true)) {
+            let reason = match fields
+                .get("reason")
+                .filter(|value| valid_admin_form_text(value, 500, true))
+            {
                 Some(value) => value.clone(),
-                None => return Redirect::to("/wallet-management/credits?mutation=malformed").into_response(),
+                None => {
+                    return Redirect::to("/wallet-management/credits?mutation=malformed")
+                        .into_response()
+                }
             };
-            let action = if operation == "credit_grant" { "grant" } else { "revoke" };
+            let action = if operation == "credit_grant" {
+                "grant"
+            } else {
+                "revoke"
+            };
             (
                 &state.wallet,
                 reqwest::Method::POST,
@@ -3618,44 +3796,99 @@ async fn submit_commerce_mutation_form(State(state): State<AppState>, request: R
             )
         }
         "plan_create" | "plan_update" => {
-            let plan_id = fields.get("plan_id").and_then(|value| uuid::Uuid::parse_str(value).ok());
-            let merchant_id = match fields.get("merchant_id").and_then(|value| uuid::Uuid::parse_str(value).ok()) {
+            let plan_id = fields
+                .get("plan_id")
+                .and_then(|value| uuid::Uuid::parse_str(value).ok());
+            let merchant_id = match fields
+                .get("merchant_id")
+                .and_then(|value| uuid::Uuid::parse_str(value).ok())
+            {
                 Some(value) => value,
-                None => return Redirect::to("/wallet-management/access/plans?mutation=malformed").into_response(),
+                None => {
+                    return Redirect::to("/wallet-management/access/plans?mutation=malformed")
+                        .into_response()
+                }
             };
-            let name = match fields.get("name").filter(|value| valid_admin_form_text(value, 100, true)) {
+            let name = match fields
+                .get("name")
+                .filter(|value| valid_admin_form_text(value, 100, true))
+            {
                 Some(value) => value.clone(),
-                None => return Redirect::to("/wallet-management/access/plans?mutation=malformed").into_response(),
+                None => {
+                    return Redirect::to("/wallet-management/access/plans?mutation=malformed")
+                        .into_response()
+                }
             };
-            let amount = match fields.get("amount").filter(|value| !value.is_empty() && value.len() <= 78 && value.bytes().all(|byte| byte.is_ascii_digit())) {
+            let amount = match fields.get("amount").filter(|value| {
+                !value.is_empty()
+                    && value.len() <= 78
+                    && value.bytes().all(|byte| byte.is_ascii_digit())
+            }) {
                 Some(value) => value.clone(),
-                None => return Redirect::to("/wallet-management/access/plans?mutation=malformed").into_response(),
+                None => {
+                    return Redirect::to("/wallet-management/access/plans?mutation=malformed")
+                        .into_response()
+                }
             };
-            let currency = match fields.get("currency").filter(|value| !value.is_empty() && value.len() <= 10 && value.bytes().all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit())) {
+            let currency = match fields.get("currency").filter(|value| {
+                !value.is_empty()
+                    && value.len() <= 10
+                    && value
+                        .bytes()
+                        .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit())
+            }) {
                 Some(value) => value.clone(),
-                None => return Redirect::to("/wallet-management/access/plans?mutation=malformed").into_response(),
+                None => {
+                    return Redirect::to("/wallet-management/access/plans?mutation=malformed")
+                        .into_response()
+                }
             };
-            let chain_id = match fields.get("chain_id").filter(|value| !value.is_empty() && value.len() <= 10 && value.bytes().all(|byte| byte.is_ascii_digit())) {
+            let chain_id = match fields.get("chain_id").filter(|value| {
+                !value.is_empty()
+                    && value.len() <= 10
+                    && value.bytes().all(|byte| byte.is_ascii_digit())
+            }) {
                 Some(value) => value.clone(),
-                None => return Redirect::to("/wallet-management/access/plans?mutation=malformed").into_response(),
+                None => {
+                    return Redirect::to("/wallet-management/access/plans?mutation=malformed")
+                        .into_response()
+                }
             };
-            let interval = match fields.get("interval").and_then(|value| value.parse::<i32>().ok()).filter(|value| (1..=366).contains(value)) {
+            let interval = match fields
+                .get("interval")
+                .and_then(|value| value.parse::<i32>().ok())
+                .filter(|value| (1..=366).contains(value))
+            {
                 Some(value) => value,
-                None => return Redirect::to("/wallet-management/access/plans?mutation=malformed").into_response(),
+                None => {
+                    return Redirect::to("/wallet-management/access/plans?mutation=malformed")
+                        .into_response()
+                }
             };
             let expected = if operation == "plan_update" {
                 match expected_version() {
                     Some(value) => Some(value),
-                    None => return Redirect::to("/wallet-management/access/plans?mutation=malformed").into_response(),
+                    None => {
+                        return Redirect::to("/wallet-management/access/plans?mutation=malformed")
+                            .into_response()
+                    }
                 }
             } else {
                 None
             };
-            let path = plan_id.map(|id| format!("/api/v1/admin/subscription/plans/{id}")).unwrap_or_else(|| "/api/v1/admin/subscription/plans".to_string());
-            let return_path = plan_id.map(|id| format!("/wallet-management/access/plans/{id}")).unwrap_or_else(|| "/wallet-management/access/plans".to_string());
+            let path = plan_id
+                .map(|id| format!("/api/v1/admin/subscription/plans/{id}"))
+                .unwrap_or_else(|| "/api/v1/admin/subscription/plans".to_string());
+            let return_path = plan_id
+                .map(|id| format!("/wallet-management/access/plans/{id}"))
+                .unwrap_or_else(|| "/wallet-management/access/plans".to_string());
             (
                 &state.subscription,
-                if operation == "plan_update" { reqwest::Method::PUT } else { reqwest::Method::POST },
+                if operation == "plan_update" {
+                    reqwest::Method::PUT
+                } else {
+                    reqwest::Method::POST
+                },
                 path,
                 serde_json::json!({
                     "merchant_id": merchant_id,
@@ -3672,12 +3905,19 @@ async fn submit_commerce_mutation_form(State(state): State<AppState>, request: R
             )
         }
         "payment_link_create" => {
-            let intent_id = match fields.get("intent_id").filter(|value| valid_admin_form_text(value, 128, true)) {
+            let intent_id = match fields
+                .get("intent_id")
+                .filter(|value| valid_admin_form_text(value, 128, true))
+            {
                 Some(value) => value.clone(),
                 None => return Redirect::to("/payments?mutation=malformed").into_response(),
             };
-            let max_uses = fields.get("max_uses").and_then(|value| value.parse::<i32>().ok());
-            let expires_in = fields.get("expires_in").and_then(|value| value.parse::<i64>().ok());
+            let max_uses = fields
+                .get("max_uses")
+                .and_then(|value| value.parse::<i32>().ok());
+            let expires_in = fields
+                .get("expires_in")
+                .and_then(|value| value.parse::<i64>().ok());
             (
                 &state.payment,
                 reqwest::Method::POST,
@@ -3687,7 +3927,10 @@ async fn submit_commerce_mutation_form(State(state): State<AppState>, request: R
             )
         }
         "payment_link_disable" => {
-            let link_id = match fields.get("link_id").filter(|value| valid_admin_form_text(value, 128, true)) {
+            let link_id = match fields
+                .get("link_id")
+                .filter(|value| valid_admin_form_text(value, 128, true))
+            {
                 Some(value) => value.clone(),
                 None => return Redirect::to("/payments?mutation=malformed").into_response(),
             };
@@ -3704,7 +3947,10 @@ async fn submit_commerce_mutation_form(State(state): State<AppState>, request: R
             )
         }
         "payment_intent_cancel" => {
-            let intent_id = match fields.get("intent_id").filter(|value| valid_admin_form_text(value, 128, true)) {
+            let intent_id = match fields
+                .get("intent_id")
+                .filter(|value| valid_admin_form_text(value, 128, true))
+            {
                 Some(value) => value.clone(),
                 None => return Redirect::to("/payments?mutation=malformed").into_response(),
             };
@@ -3722,19 +3968,13 @@ async fn submit_commerce_mutation_form(State(state): State<AppState>, request: R
         }
         _ => return Redirect::to("/wallet-management/access?mutation=malformed").into_response(),
     };
-    let state_name = match send_admin_form_mutation(
-        client,
-        method,
-        &path,
-        &payload,
-        &idempotency_key,
-        &context,
-    )
-    .await
-    {
-        Ok(_) => "success",
-        Err(state) => state,
-    };
+    let state_name =
+        match send_admin_form_mutation(client, method, &path, &payload, &idempotency_key, &context)
+            .await
+        {
+            Ok(_) => "success",
+            Err(state) => state,
+        };
     Redirect::to(&format!("{return_path}?mutation={state_name}")).into_response()
 }
 
@@ -3791,15 +4031,7 @@ async fn submit_media_delete_form(State(state): State<AppState>, request: Reques
         Ok(value) => value,
         Err(()) => return media_mutation_redirect(&bucket, "malformed", None),
     };
-    match delete_admin_media(
-        &state.content,
-        &context,
-        &bucket,
-        &key,
-        &idempotency_key,
-    )
-    .await
-    {
+    match delete_admin_media(&state.content, &context, &bucket, &key, &idempotency_key).await {
         Ok(projection) => media_mutation_redirect(&bucket, "committed", Some(&projection)),
         Err(error) => media_mutation_redirect(&bucket, media_mutation_state(error), None),
     }
@@ -3838,19 +4070,12 @@ async fn submit_media_upload_form(
             _ => return media_mutation_redirect("public", "malformed", None),
         }
     }
-    let (Some(filename), Some(bytes), Some(idempotency_key)) =
-        (filename, bytes, idempotency_key)
+    let (Some(filename), Some(bytes), Some(idempotency_key)) = (filename, bytes, idempotency_key)
     else {
         return media_mutation_redirect("public", "malformed", None);
     };
-    match upload_admin_public_file(
-        &state.content,
-        &context,
-        &filename,
-        bytes,
-        &idempotency_key,
-    )
-    .await
+    match upload_admin_public_file(&state.content, &context, &filename, bytes, &idempotency_key)
+        .await
     {
         Ok(projection) => media_mutation_redirect("public", "committed", Some(&projection)),
         Err(error) => media_mutation_redirect("public", media_mutation_state(error), None),
@@ -3948,7 +4173,10 @@ async fn submit_wallet_disable_form(State(state): State<AppState>, request: Requ
     .into_response()
 }
 
-async fn submit_notification_manage_form(State(state): State<AppState>, request: Request) -> Response {
+async fn submit_notification_manage_form(
+    State(state): State<AppState>,
+    request: Request,
+) -> Response {
     let (parts, body) = request.into_parts();
     let context = match verified_admin_form_context(&state, &parts.headers).await {
         Ok(context) => context,
@@ -4058,11 +4286,9 @@ async fn submit_notification_form(State(state): State<AppState>, request: Reques
             let encoded = serde_json::to_vec(&result)
                 .ok()
                 .map(|bytes| URL_SAFE_NO_PAD.encode(bytes));
-            let mut response = Redirect::to(&format!(
-                "/notifications/create?mutation={}",
-                result.status
-            ))
-            .into_response();
+            let mut response =
+                Redirect::to(&format!("/notifications/create?mutation={}", result.status))
+                    .into_response();
             if let Some(encoded) = encoded {
                 let cookie = format!(
                     "{ADMIN_NOTIFICATION_CREATE_COOKIE}={encoded}; Path=/notifications/create; Max-Age=30; HttpOnly; SameSite=Lax"

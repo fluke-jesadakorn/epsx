@@ -2,16 +2,16 @@
 // CQRS handler for updating wallet information
 
 use crate::application::shared::{ApplicationError, ApplicationResult, Command, CommandHandler};
-use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 use crate::application::wallet_management::commands::admin_models::{
     UpdateWalletCommand, UpdateWalletResponse,
 };
 use crate::application::wallet_management::queries::admin_models::{
-    WalletActivitySummaryDto, WalletDetailDto, WalletPlanDto, WalletPermissionDto,
+    WalletActivitySummaryDto, WalletDetailDto, WalletPermissionDto, WalletPlanDto,
 };
+use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 use async_trait::async_trait;
 use diesel::prelude::*;
-use diesel_async::{RunQueryDsl};
+use diesel_async::RunQueryDsl;
 use std::sync::Arc;
 use tracing::{error, info};
 
@@ -47,17 +47,16 @@ impl CommandHandler<UpdateWalletCommand> for UpdateWalletCommandHandler {
             wallet_address: String,
         }
 
-        let wallet_exists = diesel::sql_query(
-            "SELECT wallet_address FROM wallet_users WHERE wallet_address = $1"
-        )
-        .bind::<diesel::sql_types::Text, _>(&command.wallet_address)
-        .get_result::<WalletExistsRow>(&mut conn)
-        .await
-        .optional()
-        .map_err(|e| {
-            error!("Failed to check wallet existence: {}", e);
-            ApplicationError::infrastructure(format!("Failed to check wallet: {}", e))
-        })?;
+        let wallet_exists =
+            diesel::sql_query("SELECT wallet_address FROM wallet_users WHERE wallet_address = $1")
+                .bind::<diesel::sql_types::Text, _>(&command.wallet_address)
+                .get_result::<WalletExistsRow>(&mut conn)
+                .await
+                .optional()
+                .map_err(|e| {
+                    error!("Failed to check wallet existence: {}", e);
+                    ApplicationError::infrastructure(format!("Failed to check wallet: {}", e))
+                })?;
 
         if wallet_exists.is_none() {
             return Err(ApplicationError::not_found(
@@ -77,7 +76,8 @@ impl CommandHandler<UpdateWalletCommand> for UpdateWalletCommandHandler {
         if let Some(ref new_metadata) = command.metadata {
             // Use JSONB concatenation to merge new values with existing metadata
             // This preserves existing fields while updating/adding new ones
-            let metadata_json = serde_json::to_string(new_metadata).unwrap_or_else(|_| "{}".to_string());
+            let metadata_json =
+                serde_json::to_string(new_metadata).unwrap_or_else(|_| "{}".to_string());
             updates.push(format!(
                 "wallet_metadata = COALESCE(wallet_metadata, '{{}}') || '{}'::jsonb",
                 metadata_json.replace("'", "''")
@@ -110,10 +110,7 @@ impl CommandHandler<UpdateWalletCommand> for UpdateWalletCommandHandler {
                 ApplicationError::infrastructure(format!("Failed to update wallet: {}", e))
             })?;
 
-        info!(
-            "Successfully updated wallet: {}",
-            command.wallet_address
-        );
+        info!("Successfully updated wallet: {}", command.wallet_address);
 
         // 5. Fetch updated wallet details
         let updated_wallet = self.fetch_wallet_details(&command.wallet_address).await?;
@@ -157,7 +154,7 @@ impl UpdateWalletCommandHandler {
             SELECT wallet_address, is_active, created_at, last_auth_at, wallet_metadata
             FROM wallet_users
             WHERE wallet_address = $1
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(wallet_address)
         .get_result::<WalletRow>(&mut conn)
@@ -212,7 +209,7 @@ impl UpdateWalletCommandHandler {
               AND p.is_active = true
 
             ORDER BY permission
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(wallet_address)
         .load::<PermissionRow>(&mut conn)

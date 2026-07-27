@@ -83,8 +83,7 @@ impl PaymentWizardState {
     /// Construct from URL search params (parsed by the BFF SSR
     /// fallback before `VirtualDom::new_with_props`).
     pub fn from_search(query: &str) -> Self {
-        let params: CheckoutUrlParams = serde_urlencoded::from_str(query)
-            .unwrap_or_default();
+        let params: CheckoutUrlParams = serde_urlencoded::from_str(query).unwrap_or_default();
         let step = if params.intent.is_some() {
             // Returning user — show the in-progress state.
             WizardStep::ConnectWallet
@@ -117,7 +116,9 @@ impl PaymentWizardState {
 
     /// Move to the failed state with a reason.
     pub fn fail(&mut self, reason: impl Into<String>) {
-        self.step = WizardStep::Failed { reason: reason.into() };
+        self.step = WizardStep::Failed {
+            reason: reason.into(),
+        };
     }
 
     /// Map to `UnifiedPaymentStep` for the visual stepper.
@@ -237,7 +238,8 @@ mod tests {
 
     #[test]
     fn from_search_parses_amount_and_currency() {
-        let s = PaymentWizardState::from_search("amount=10.50&currency=USDT&chain_id=56&token=USDT");
+        let s =
+            PaymentWizardState::from_search("amount=10.50&currency=USDT&chain_id=56&token=USDT");
         assert_eq!(s.params.amount.as_deref(), Some("10.50"));
         assert_eq!(s.params.currency.as_deref(), Some("USDT"));
         assert_eq!(s.params.chain_id.as_deref(), Some("56"));
@@ -262,13 +264,22 @@ mod tests {
     #[test]
     fn unified_step_maps_correctly() {
         let mut s = PaymentWizardState::default();
-        assert_eq!(s.unified_step(), epsx_dioxus_ui::payment::UnifiedPaymentStep::Idle);
+        assert_eq!(
+            s.unified_step(),
+            epsx_dioxus_ui::payment::UnifiedPaymentStep::Idle
+        );
         s.advance();
-        assert_eq!(s.unified_step(), epsx_dioxus_ui::payment::UnifiedPaymentStep::ConnectWallet);
+        assert_eq!(
+            s.unified_step(),
+            epsx_dioxus_ui::payment::UnifiedPaymentStep::ConnectWallet
+        );
         s.advance();
         s.advance();
         s.advance();
         s.advance();
-        assert_eq!(s.unified_step(), epsx_dioxus_ui::payment::UnifiedPaymentStep::Done);
+        assert_eq!(
+            s.unified_step(),
+            epsx_dioxus_ui::payment::UnifiedPaymentStep::Done
+        );
     }
 }

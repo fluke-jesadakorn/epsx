@@ -219,11 +219,26 @@ fn SettingsSurface(load: SettingsLoad, mutation: Option<String>) -> Element {
 #[component]
 fn SettingsMutationNotice(state: String) -> Element {
     let (title, class_name) = match state.as_str() {
-        "success" => ("Settings update committed", "border-green-500/30 bg-green-500/10"),
-        "conflict" => ("Settings changed; reload before retrying", "border-amber-500/30 bg-amber-500/10"),
-        "forbidden" => ("Settings update was denied", "border-red-500/30 bg-red-500/10"),
-        "invalid" => ("Settings update was invalid", "border-amber-500/30 bg-amber-500/10"),
-        _ => ("Settings update is unavailable", "border-amber-500/30 bg-amber-500/10"),
+        "success" => (
+            "Settings update committed",
+            "border-green-500/30 bg-green-500/10",
+        ),
+        "conflict" => (
+            "Settings changed; reload before retrying",
+            "border-amber-500/30 bg-amber-500/10",
+        ),
+        "forbidden" => (
+            "Settings update was denied",
+            "border-red-500/30 bg-red-500/10",
+        ),
+        "invalid" => (
+            "Settings update was invalid",
+            "border-amber-500/30 bg-amber-500/10",
+        ),
+        _ => (
+            "Settings update is unavailable",
+            "border-amber-500/30 bg-amber-500/10",
+        ),
     };
     rsx! { p { class: format!("m-6 rounded-xl border p-4 text-sm {class_name}"), role: "status", "data-admin-settings-mutation": state, "{title}" } }
 }

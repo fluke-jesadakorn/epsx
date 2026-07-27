@@ -939,6 +939,11 @@ async fn news_post(
         "subscription-vaults",
         "paymaster",
         "about",
+        "optimizing-high-throughput-analytics-rust",
+        "real-time-intelligence",
+        "securing-the-future",
+        "scalable-foundation",
+        "smarter-decisions-ai",
     ];
     let mapped = match slug.as_str() {
         "strategic-roadmap-future" | "strategic-launch-epsx" | "platform-update" => Some("welcome"),
@@ -951,28 +956,50 @@ async fn news_post(
         "proprietary-performance-metrics" | "metrics-deep-dive" | "performance-analysis" => {
             Some("paymaster")
         }
+        "optimizing-high-throughput-analytics-rust"
+        | "rust-performance"
+        | "throughput-deep-dive" => Some("optimizing-high-throughput-analytics-rust"),
+        "real-time-intelligence" | "real-time-data" | "live-pipeline" => {
+            Some("real-time-intelligence")
+        }
+        "securing-the-future" | "security-overview" | "siwe-explained" => {
+            Some("securing-the-future")
+        }
+        "scalable-postgresql-time-series"
+        | "scalable-foundation"
+        | "scalability-update"
+        | "infrastructure-deep-dive" => Some("scalable-foundation"),
+        "predictive-ai-models-market-sentiment"
+        | "smarter-decisions-ai"
+        | "ai-deep-dive"
+        | "model-explainer" => Some("smarter-decisions-ai"),
         _ => None,
     };
 
     let pick = mapped.and_then(|m| candidates.iter().find(|c| **c == m).copied());
-    let body_html = pick.and_then(|name| {
+    let body_markdown = pick.and_then(|name| {
         let p = pages_dir.join(format!("{name}.mdx"));
         std::fs::read_to_string(&p).ok()
     });
 
-    let (title, body) = match body_html {
+    let (title, body, published) = match body_markdown {
         Some(raw) => {
-            use epsx_renderer::render_markdown;
             let trimmed = raw.trim_start_matches('\n');
             let mut title = slug.replace('-', " ");
+            let mut published = "June 9, 2026".to_string();
             let body_start;
             if trimmed.starts_with("---") {
                 let after = trimmed[3..].trim_start_matches('\n');
                 if let Some(close) = after.find("\n---") {
                     for line in after[..close].lines() {
-                        if let Some(v) = line.trim().strip_prefix("title:") {
+                        let line = line.trim();
+                        if let Some(v) = line.strip_prefix("title:") {
                             title = v.trim().trim_matches('"').to_string();
-                            break;
+                        } else if let Some(v) = line.strip_prefix("date:") {
+                            let value = v.trim().trim_matches('"');
+                            if !value.is_empty() {
+                                published = value.to_string();
+                            }
                         }
                     }
                     body_start = close + 4;
@@ -988,7 +1015,11 @@ async fn news_post(
             } else {
                 trimmed
             };
-            (title, render_markdown(md))
+            // The frontend owns the bounded/safe Markdown renderer. Returning
+            // the source here keeps the content-service contract portable and
+            // avoids sending HTML that would be escaped as literal text by the
+            // Rust SSR renderer.
+            (title, md.to_string(), published)
         }
         None => return Err(StatusCode::NOT_FOUND),
     };
@@ -997,7 +1028,7 @@ async fn news_post(
         "slug": slug,
         "title": title,
         "body": body,
-        "published": "2026-06-09T00:00:00Z"
+        "published": published
     })))
 }
 

@@ -19,7 +19,12 @@ pub struct ResolvedUserLimits {
 }
 
 impl ResolvedUserLimits {
-    pub fn new(ranking_limit: i32, api_minute_limit: i32, has_premium_features: bool, is_admin: bool) -> Self {
+    pub fn new(
+        ranking_limit: i32,
+        api_minute_limit: i32,
+        has_premium_features: bool,
+        is_admin: bool,
+    ) -> Self {
         Self {
             wallet_address: None,
             ranking_limit,
@@ -32,15 +37,15 @@ impl ResolvedUserLimits {
             is_admin,
         }
     }
-    
+
     pub fn default_free() -> Self {
         Self::new(3, 10, false, false)
     }
-    
+
     pub fn default_premium() -> Self {
         Self::new(100, 100, true, false)
     }
-    
+
     pub fn default_admin() -> Self {
         Self::new(1000, 1000, true, true)
     }

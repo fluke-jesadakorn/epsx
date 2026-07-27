@@ -4,31 +4,27 @@
 //! and database operations for plan lookup.
 
 use axum::{
-    extract::{State, Query},
-    Extension,
+    extract::{Query, State},
     response::Json,
+    Extension,
 };
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use chrono::{DateTime, Utc};
-use tracing::{info, debug, error};
 use diesel::sql_types::Text;
 use diesel::QueryableByName;
+use serde::{Deserialize, Serialize};
+use tracing::{debug, error, info};
+use uuid::Uuid;
 
-use crate::{
-    web::{
-        auth::AppState,
-        middleware::{OpenIDUserContext, UnifiedErrorResponse},
-    },
+use crate::web::{
+    auth::AppState,
+    middleware::{OpenIDUserContext, UnifiedErrorResponse},
 };
 // wave10(track-c): the activate-subscription handler is the
 // cross-cut that ROADMAP §4 wave 11 calls out. Migrated from
 // `crate::auth::UnifiedPermissionService` (concrete) to
 // `Arc<dyn PermissionAuthorityPort>` (trait) so the future
 // `epsx-payments` binary can serve this port over the wire.
-use epsx_contracts::permission_authority_port::{
-    GrantPermissionRequest, PermissionAuthorityPort,
-};
+use epsx_contracts::permission_authority_port::{GrantPermissionRequest, PermissionAuthorityPort};
 use std::sync::Arc;
 
 /// Helper struct for deduplication query
@@ -149,9 +145,7 @@ pub async fn validate_payment_handler(
 ) -> Result<Json<ValidatePaymentResponse>, Json<UnifiedErrorResponse>> {
     info!(
         "Validating payment for user {}, plan {}, transaction {}",
-        user_context.wallet_address,
-        payload.plan_id,
-        payload.transaction_hash
+        user_context.wallet_address, payload.plan_id, payload.transaction_hash
     );
 
     // Validate wallet address matches authenticated user
@@ -160,7 +154,11 @@ pub async fn validate_payment_handler(
             "Wallet address mismatch: {} vs {}",
             user_context.wallet_address, payload.wallet_address
         );
-        return Err(UnifiedErrorResponse::json(400, "Wallet address mismatch", "Authenticated wallet does not match payment wallet"));
+        return Err(UnifiedErrorResponse::json(
+            400,
+            "Wallet address mismatch",
+            "Authenticated wallet does not match payment wallet",
+        ));
     }
 
     // Fetch plan details from database
@@ -181,7 +179,8 @@ pub async fn validate_payment_handler(
 
     Ok(Json(ValidatePaymentResponse {
         success: true,
-        message: "Payment validation submitted. Blockchain monitor will process the transaction.".to_string(),
+        message: "Payment validation submitted. Blockchain monitor will process the transaction."
+            .to_string(),
         data: Some(PaymentValidationData {
             transaction_hash: payload.transaction_hash.clone(),
             plan_id: payload.plan_id,
@@ -206,8 +205,7 @@ pub async fn activate_subscription_handler(
 ) -> Result<Json<ActivateSubscriptionResponse>, Json<UnifiedErrorResponse>> {
     info!(
         "Activating subscription for user {}, plan {}",
-        user_context.wallet_address,
-        payload.plan_id
+        user_context.wallet_address, payload.plan_id
     );
 
     // Validate wallet address matches authenticated user
@@ -216,7 +214,11 @@ pub async fn activate_subscription_handler(
             "Wallet address mismatch: {} vs {}",
             user_context.wallet_address, payload.wallet_address
         );
-        return Err(UnifiedErrorResponse::json(400, "Wallet address mismatch", "Authenticated wallet does not match subscription wallet"));
+        return Err(UnifiedErrorResponse::json(
+            400,
+            "Wallet address mismatch",
+            "Authenticated wallet does not match subscription wallet",
+        ));
     }
 
     // Fetch plan details
@@ -227,8 +229,11 @@ pub async fn activate_subscription_handler(
         // Extract offset
         if let Some(offset) = features.get("ranking_offset").and_then(|v| v.as_i64()) {
             let perm = format!("epsx:rankings:offset:{}", offset);
-            info!("Granting rank offset permission to {}: {}", user_context.wallet_address, perm);
-            
+            info!(
+                "Granting rank offset permission to {}: {}",
+                user_context.wallet_address, perm
+            );
+
             let request = GrantPermissionRequest {
                 wallet_address: user_context.wallet_address.clone(),
                 permission_string: perm.clone(),
@@ -236,17 +241,20 @@ pub async fn activate_subscription_handler(
                 reason: Some("Plan activation".to_string()),
                 expires_at: None, // Permissions stick until revoked or plan expires (handled separately)
             };
-            
+
             if let Err(e) = permission_service.grant_permission(request).await {
                 error!("Failed to grant permission {}: {}", perm, e);
             }
         }
-        
+
         // Extract limit
         if let Some(limit) = features.get("rankings_limit").and_then(|v| v.as_i64()) {
             let perm = format!("epsx:rankings:limit:{}", limit);
-            info!("Granting rank limit permission to {}: {}", user_context.wallet_address, perm);
-            
+            info!(
+                "Granting rank limit permission to {}: {}",
+                user_context.wallet_address, perm
+            );
+
             let request = GrantPermissionRequest {
                 wallet_address: user_context.wallet_address.clone(),
                 permission_string: perm.clone(),
@@ -254,9 +262,9 @@ pub async fn activate_subscription_handler(
                 reason: Some("Plan activation".to_string()),
                 expires_at: None,
             };
-            
+
             if let Err(e) = permission_service.grant_permission(request).await {
-                 error!("Failed to grant permission {}: {}", perm, e);
+                error!("Failed to grant permission {}: {}", perm, e);
             }
         }
     }
@@ -295,16 +303,15 @@ pub async fn get_payment_details_handler(
     Extension(user_context): Extension<OpenIDUserContext>,
     Query(params): Query<PaymentLookupParams>,
 ) -> Result<Json<PaymentDetailsResponse>, Json<UnifiedErrorResponse>> {
+    use crate::infrastructure::database::get_payments_pool;
+    use crate::infrastructure::models::payment::PaymentDb;
+    use crate::schemas::payments::payments;
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
-    use crate::infrastructure::database::get_payments_pool;
-    use crate::schemas::payments::payments;
-    use crate::infrastructure::models::payment::PaymentDb;
 
     debug!(
         "Getting payment details for user {} with params: {:?}",
-        user_context.wallet_address,
-        params
+        user_context.wallet_address, params
     );
 
     // If wallet_address is provided, validate it matches authenticated user
@@ -314,25 +321,38 @@ pub async fn get_payment_details_handler(
                 "Wallet address mismatch: {} vs {}",
                 user_context.wallet_address, wallet
             );
-            return Err(UnifiedErrorResponse::json(403, "Access denied", "Can only query your own payments"));
+            return Err(UnifiedErrorResponse::json(
+                403,
+                "Access denied",
+                "Can only query your own payments",
+            ));
         }
     }
 
     // Get PAYMENTS database connection
     let payments_pool = get_payments_pool().await.map_err(|e| {
         error!("Failed to get payments database pool: {}", e);
-        UnifiedErrorResponse::json(500, "Database connection failed", "Failed to get payments database pool")
+        UnifiedErrorResponse::json(
+            500,
+            "Database connection failed",
+            "Failed to get payments database pool",
+        )
     })?;
     let mut payments_conn = payments_pool.get().await.map_err(|e| {
         error!("Failed to get payments database connection: {}", e);
-        UnifiedErrorResponse::json(500, "Database connection failed", "Failed to establish payments database connection")
+        UnifiedErrorResponse::json(
+            500,
+            "Database connection failed",
+            "Failed to establish payments database connection",
+        )
     })?;
 
     // Build query based on provided parameters
     let mut query = payments::table.into_boxed();
 
     // Always filter by authenticated user's wallet
-    query = query.filter(payments::wallet_address.ilike(format!("%{}%", user_context.wallet_address)));
+    query =
+        query.filter(payments::wallet_address.ilike(format!("%{}%", user_context.wallet_address)));
 
     // Apply transaction_hash filter if provided
     if let Some(ref tx_hash) = params.transaction_hash {
@@ -373,7 +393,11 @@ pub async fn get_payment_details_handler(
         Err(diesel::NotFound) => None,
         Err(e) => {
             error!("Failed to query payment: {}", e);
-            return Err(UnifiedErrorResponse::json(500, "Query failed", format!("Failed to load payment: {}", e)));
+            return Err(UnifiedErrorResponse::json(
+                500,
+                "Query failed",
+                format!("Failed to load payment: {}", e),
+            ));
         }
     };
 
@@ -383,30 +407,11 @@ pub async fn get_payment_details_handler(
     }))
 }
 
-
 // NOTE: Legacy confirm_payment_handler has been removed.
 // Payment confirmation is now handled by:
 // - submit_tx_handler.rs: POST /api/payments/submit (accepts tx_hash)
 // - tx_monitor_service.rs: Background service that monitors and confirms transactions
 // - get_tx_status_handler.rs: GET /api/payments/status/:tx_hash (frontend polls this)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -419,14 +424,15 @@ async fn fetch_plan_info(
 ) -> Result<(String, f64, serde_json::Value), Json<UnifiedErrorResponse>> {
     // Try to fetch from plan repository using the plan ID
     let plan_id_str = plan_id.to_string();
-    
+
     // Query the pricing_plans table if available, otherwise use plans
     match app_state.plan_repo.get_subscription_plans().await {
         Ok(plans) => {
             // Find the plan by ID (compare as string since plan_id might be stored differently)
             for plan in plans {
                 if plan.id.to_string() == plan_id_str {
-                    let price = plan.price
+                    let price = plan
+                        .price
                         .as_ref()
                         .and_then(|p| p.to_string().parse::<f64>().ok())
                         .unwrap_or(0.0);
@@ -435,11 +441,19 @@ async fn fetch_plan_info(
                 }
             }
             // Plan not found, return not found error
-            Err(UnifiedErrorResponse::json(404, "Plan not found", format!("No plan found with ID: {}", plan_id)))
+            Err(UnifiedErrorResponse::json(
+                404,
+                "Plan not found",
+                format!("No plan found with ID: {}", plan_id),
+            ))
         }
         Err(e) => {
             error!("Failed to fetch plans: {}", e);
-            Err(UnifiedErrorResponse::json(500, "Database error", "Failed to fetch plan information"))
+            Err(UnifiedErrorResponse::json(
+                500,
+                "Database error",
+                "Failed to fetch plan information",
+            ))
         }
     }
 }

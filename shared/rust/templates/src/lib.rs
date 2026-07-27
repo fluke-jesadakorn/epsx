@@ -42,7 +42,9 @@ pub fn design_system_head_with_keywords(
 ) -> String {
     let keywords_meta = keywords
         .map(escape_html_attribute)
-        .map(|value| format!(r#"<meta name="keywords" content="{value}" />\n"#))
+        // Keep the separator as a real newline. A raw `\\n` sequence here
+        // becomes visible text at the top of pages that include keywords.
+        .map(|value| format!("<meta name=\"keywords\" content=\"{value}\" />\n"))
         .unwrap_or_default();
     format!(
         r##"<meta charset="utf-8" />
@@ -65,21 +67,17 @@ pub fn design_system_head_with_keywords(
 <script>
   // FOUC prevention: apply theme before first paint
   //
-  // Wave 24 T4': aligned storage key to the canonical `epsx-theme`
-  // (hyphen) used by `theme.rs`'s boot script + `setTheme` in
-  // `global_js`. The previous `epsx_theme` (underscore) meant a
-  // user who toggled the theme would persist to `epsx-theme` but
-  // the next page load would read `epsx_theme` (miss) and reset to
-  // the default. The default is now `system` (OS preference) — the
-  // previous `'dark'` literal would force the dev BFF into dark
-  // mode even when the user's OS was light, which exposed a
-  // Tailwind v2.2.19 no-`dark:`-variant divergence from prod.
+  // Keep the storage keys used by the Rust shell and the source app's
+  // SafeThemeScript in sync. An explicit preference wins; otherwise the
+  // source shell defaults to dark so the first paint matches epsx.io.
   (function() {{
     try {{
-      var t = localStorage.getItem('epsx-theme') || 'system';
-      if (t === 'system') {{
-        t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      }}
+      var cookieTheme = document.cookie.split(';').map(function(part) {{
+        return part.trim().split('=');
+      }}).find(function(pair) {{ return pair[0] === 'theme'; }});
+      var t = localStorage.getItem('epsx-theme') || localStorage.getItem('theme') ||
+        (cookieTheme && cookieTheme[1]) || 'dark';
+      if (t !== 'light' && t !== 'dark') t = 'dark';
       if (t === 'light') document.documentElement.classList.remove('dark');
       else document.documentElement.classList.add('dark');
       document.documentElement.setAttribute('data-theme', t);
@@ -330,6 +328,12 @@ pub fn design_system_head_with_keywords(
   html {{
     text-rendering: optimizeLegibility;
   }}
+  /* Reference captures include the browser's persistent vertical scrollbar.
+   * Reserve the same desktop gutter even when the automation browser uses
+   * overlay scrollbars, keeping centered page content on the same x-axis. */
+  @media (min-width: 768px) {{
+    html {{ scrollbar-gutter: stable; }}
+  }}
   body {{
     font-feature-settings: "cv11", "ss01";
   }}
@@ -384,6 +388,19 @@ pub fn design_system_head_with_keywords(
     background-clip: text;
     -webkit-text-fill-color: transparent;
     color: transparent;
+  }}
+
+  /* Source pages use these pancake utility names for the brand gradient
+     on section headings and short divider rules. */
+  .pancake-gradient-text {{
+    background: var(--pancake-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }}
+  .pancake-gradient {{
+    background: var(--pancake-gradient);
   }}
 
   /* === Wave 26 T1 — v3-style gradient utility overrides ===
@@ -838,6 +855,69 @@ pub fn design_system_head_with_keywords(
     flex-shrink: 0;
   }}
   .auth-wallet-name {{ font-size: 1rem; font-weight: 500; color: #ffffff; }}
+
+  /* Admin wallet gate — the production desktop composition is a 60/40
+   * split (marketing copy on the left, wallet card on the right). The
+   * Tailwind utility subset used by the local SSR build does not emit all
+   * responsive `lg:*` rules, so keep this route's structural breakpoints
+   * explicit. Mobile/tablet retain the focused wallet-selection layout. */
+  .wave25-t3-auth-overlay {{ flex-direction: column; }}
+  .wave25-t3-auth-left {{ display: none !important; }}
+  .wave25-t3-auth-right {{ width: 100% !important; max-width: 56rem !important; }}
+  .wave25-t3-desktop-card-heading {{ display: none !important; }}
+  .wave25-t3-auth-card-inner {{ max-width: 26.25rem; }}
+  /* The reference tablet layout keeps the focused card compact: the
+   * generated utility CSS otherwise applies `sm:` sizing at 768px and
+   * makes the card, lock mark, and wallet buttons noticeably too large. */
+  @media (min-width: 640px) and (max-width: 1023px) {{
+    .wave25-t3-auth-right {{ padding: 3rem 1rem !important; }}
+    .wave25-t3-auth-heading {{ margin-bottom: 2rem !important; }}
+    .wave25-t3-auth-heading .wave25-t3-auth-lock {{ width: 3rem !important; height: 3rem !important; }}
+    .wave25-t3-auth-heading .wave25-t3-auth-lock + span {{ font-size: 1.5rem !important; }}
+    .wave25-t3-auth-heading h1 {{ font-size: 1.875rem !important; }}
+    .wave25-t3-auth-heading p {{ font-size: 1rem !important; }}
+    .wave25-t3-auth-card-inner {{ max-width: 28rem !important; margin-left: auto; margin-right: auto; padding: 2rem !important; }}
+    .wave25-t3-auth-card-inner .auth-wallet-btn {{ min-height: 4.375rem !important; }}
+  }}
+  @media (min-width: 1024px) {{
+    .wave25-t3-auth-overlay {{
+      flex-direction: row;
+      align-items: stretch !important;
+      justify-content: stretch !important;
+    }}
+    .wave25-t3-auth-left {{
+      display: flex !important;
+      width: 60% !important;
+      padding: 5rem 6rem !important;
+    }}
+    .wave25-t3-auth-left .group > div:first-child {{
+      border-color: rgba(148,163,184,0.08) !important;
+      background: rgba(255,255,255,0.05) !important;
+    }}
+    .wave25-t3-auth-right {{
+      width: 40% !important;
+      max-width: none !important;
+      padding: 1.5rem !important;
+      border-left: 1px solid rgba(148,163,184,0.20);
+      background: rgba(255,255,255,0.02);
+      backdrop-filter: blur(24px);
+    }}
+    .wave25-t3-auth-heading {{ display: none !important; }}
+    .wave25-t3-auth-card {{ width: 100% !important; }}
+    .wave25-t3-auth-card-inner {{
+      width: 100% !important;
+      max-width: 28rem !important;
+      margin-left: auto;
+      margin-right: auto;
+      background: rgb(20,25,36) !important;
+    }}
+    .wave25-t3-auth-card-inner .auth-step-header {{ margin-bottom: 1rem !important; }}
+    .wave25-t3-auth-card-inner .auth-wallets {{ gap: 0.75rem !important; }}
+    .wave25-t3-auth-card-inner .auth-wallet-btn {{ min-height: 70px !important; }}
+    .wave25-t3-auth-card-inner .auth-wallet-icon {{ height: 2.25rem !important; }}
+    .wave25-t3-desktop-card-heading {{ display: block !important; }}
+  }}
+
   .auth-modal-footer {{
     padding: 1rem 2rem 1.5rem;
     background: #191923;
@@ -1362,6 +1442,36 @@ pub fn design_system_head_with_keywords(
     box-shadow: 0 20px 25px -5px rgba(249,115,22,0.4);
   }}
 
+  /* Connected-but-not-signed-in wallet identity. */
+  .epsx-wallet-pill {{
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    height: 2.5rem; padding: 0 0.875rem; border-radius: 1rem;
+    color: var(--text); background: var(--bg-secondary);
+    border: 1px solid var(--border); text-decoration: none;
+    font-size: 0.8125rem; font-weight: 600;
+  }}
+  .epsx-wallet-pill:hover {{ color: var(--text); border-color: var(--epsx-orange); }}
+  .epsx-wallet-pill svg, .epsx-wallet-pill i {{ color: var(--epsx-orange); }}
+  html.dark .epsx-wallet-pill {{ color: #e2e8f0; background: #1e293b; border-color: #334155; }}
+
+  /* Wallet-connected prompt from the development navigation client. */
+  .epsx-sign-in-banner {{
+    position: sticky; top: 3.5rem; z-index: 40;
+    display: flex; align-items: center; justify-content: center; gap: 0.75rem;
+    padding: 0.75rem 1.5rem; color: white; font-size: 1rem;
+    background: linear-gradient(90deg, #5a33b8, #7645d9 52%, #1a9bab);
+    box-shadow: 0 10px 20px rgba(15,23,42,0.18);
+  }}
+  .epsx-sign-in-banner-action {{
+    color: white; font-weight: 700; text-decoration: none;
+    border-radius: 0.375rem; padding: 0.25rem 1rem;
+    background: rgba(255,255,255,0.2); transition: background 0.15s ease;
+  }}
+  .epsx-sign-in-banner-action:hover {{ background: rgba(255,255,255,0.3); }}
+  @media (max-width: 640px) {{
+    .epsx-sign-in-banner {{ flex-wrap: wrap; gap: 0.4rem 0.65rem; font-size: 0.875rem; text-align: center; }}
+  }}
+
   /* === Theme toggle (sun/moon) === */
   .epsx-theme-btn {{
     display: inline-flex; align-items: center; justify-content: center;
@@ -1376,6 +1486,59 @@ pub fn design_system_head_with_keywords(
   .epsx-theme-btn:hover {{ background: var(--bg-tertiary); color: var(--text); }}
   html.dark .epsx-theme-btn {{ background: #1e293b; border-color: #334155; color: #cbd5e1; }}
   html.dark .epsx-theme-btn:hover {{ background: #334155; color: white; }}
+  /* Development's chain selector is read-only in the SSR shell. Keep its
+     tablet/desktop label visually aligned with the source action cluster;
+     hydrated wallet switching can replace this slot later. */
+  .epsx-network-badge {{
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    color: #94a3b8; font-size: 0.875rem; font-weight: 500;
+    white-space: nowrap; line-height: 1;
+  }}
+  .epsx-network-badge i {{ color: var(--epsx-orange); flex-shrink: 0; }}
+  html.dark .epsx-network-badge {{ color: #94a3b8; }}
+  @media (max-width: 639px) {{ .epsx-network-badge {{ display: none; }} }}
+  /* The page shell emits Tailwind's `md:hidden` markers, but the source
+     navigation switches between its full desktop composition and its
+     compact action/header composition at the `lg` breakpoint (1024px).
+     The SSR shell does not run the frontend Tailwind build, so make that
+     breakpoint explicit here. */
+  @media (min-width: 768px) {{
+    .epsx-header #epsx-mobile-menu-btn {{ display: none !important; }}
+  }}
+  @media (max-width: 1023px) {{
+    /* Hide the desktop brand/nav group and reveal the duplicate compact
+       brand. The `md:*` utility classes are still present in the emitted
+       markup for parity, but these rules are authoritative in SSR. */
+    .epsx-header > div > div:first-child {{ display: none !important; }}
+    .epsx-header > div > a {{ display: flex !important; }}
+
+    /* Swap the full wallet action for the source's compact tablet action. */
+    .epsx-header > div > div:last-child > div[class~="md:flex"] {{ display: none !important; }}
+    .epsx-header > div > div:last-child > div[class~="md:hidden"] {{ display: flex !important; }}
+    .epsx-header #epsx-mobile-menu-btn {{ display: inline-flex !important; }}
+  }}
+  /* The signed-out reference keeps the compact menu affordance beside the
+     desktop nav at the narrower desktop capture width. Authenticated wider
+     captures retain the uncluttered wallet-only action cluster. */
+  @media (min-width: 768px) and (max-width: 1535px) {{
+    .epsx-header[data-epsx-authenticated="false"] #epsx-mobile-menu-btn {{ display: inline-flex !important; }}
+  }}
+  /* The signed-out desktop reference reserves the center of the shell for
+     the primary menu, leaving a generous breathing space after the brand. */
+  @media (min-width: 1200px) and (max-width: 1535px) {{
+    .epsx-header[data-epsx-authenticated="false"] > div > div:first-child {{ gap: 17.75rem; }}
+  }}
+  /* The development mobile nav keeps the header minimal: theme, wallet,
+     and notification actions move into the sheet below 640px. */
+  @media (max-width: 639px) {{
+    .epsx-header [data-epsx-theme-toggle],
+    .epsx-header .epsx-notification-link {{ display: none; }}
+    .epsx-header > div > div:last-child > div[class~="md:hidden"] {{ display: none !important; }}
+    .epsx-header #epsx-mobile-menu-btn {{
+      background: transparent; border-color: transparent; color: var(--epsx-orange);
+    }}
+    html.dark .epsx-header #epsx-mobile-menu-btn {{ background: transparent; border-color: transparent; color: var(--epsx-orange); }}
+  }}
   .epsx-notification-link {{ position: relative; text-decoration: none; }}
   .epsx-notification-badge {{
     position: absolute; top: -0.35rem; right: -0.35rem;
@@ -1520,6 +1683,42 @@ pub fn design_system_head_with_keywords(
     color: var(--text-muted);
   }}
   html.dark .stat-card .stat-label {{ color: #cbd5e1; }}
+
+  /* === Dioxus homepage source-parity surfaces ===
+     The Rust SSR emits the development hero's responsive utility classes,
+     while these stable selectors keep the same glass surfaces available when
+     a cached Tailwind bundle is served during a local rebuild. */
+  .home-prod-plan-card {{
+    background: rgba(255,255,255,0.8);
+    border-color: rgba(249,115,22,0.5);
+  }}
+  .home-prod-plan-title {{ color: var(--text); }}
+  .home-prod-plan-sub {{ color: var(--text-muted); }}
+  /* The local utility bundle intentionally contains only a bounded subset of
+     arbitrary responsive classes. Pin the reference landing measurements in
+     stable selectors so the Rust SSR remains visually deterministic. */
+  @media (min-width: 1024px) {{
+    /* The connected hero is vertically centered beneath the sign-in banner.
+       Keep the inner frame at its flex-center position; translating it upward
+       makes the desktop state sit 12px above the supplied reference capture. */
+    .home-prod-hero:not(.home-prod-hero-signed-out) > .home-prod-hero-inner {{ transform: none; }}
+    .home-prod-hero-signed-out h1 {{ font-size: 96px !important; line-height: 120px !important; letter-spacing: normal !important; }}
+  }}
+  @media (min-width: 768px) {{
+    /* The source hero uses md:text-2xl + leading-relaxed. Keep the
+       connected SSR hero at that authored size even when the compact
+       local utility bundle omits responsive text utilities. */
+    .home-prod-hero-subtitle {{ font-size: 24px !important; line-height: 39px !important; }}
+  }}
+  @media (min-width: 640px) {{
+    .home-prod-hero-signed-out .home-prod-hero-cta {{ min-width: 220px !important; height: 56px !important; padding-top: 0 !important; padding-bottom: 0 !important; font-size: 1rem !important; }}
+  }}
+  html.dark .home-prod-plan-card {{
+    background: rgba(30,41,59,0.7);
+    border-color: rgba(251,146,60,0.2);
+  }}
+  html.dark .home-prod-plan-title {{ color: #ffffff; }}
+  html.dark .home-prod-plan-sub {{ color: #cbd5e1; }}
 
   /* === Company card (Performance Companies) === */
   .company-card {{
@@ -3211,6 +3410,7 @@ pub fn design_system_head_with_keywords(
   }}
   .connect-btn-icon {{ display: inline-flex; align-items: center; }}
   .connect-btn-label {{ line-height: 1; }}
+  .connect-btn-chevron {{ display: inline-flex; align-items: center; opacity: 0.9; }}
 
   /* --- connected wallet dropdown (provider card + actions + nav + disconnect) --- */
   .connected-wallet-dropdown {{
@@ -3668,6 +3868,29 @@ pub fn design_system_head_with_keywords(
     position: relative; display: flex; min-height: 100vh; width: 100%;
     flex-direction: column; overflow: hidden;
   }}
+  /* The source auth page keeps its three blurred color orbs outside the
+     desktop pitch column.  Keeping a page-level layer means the same
+     depth is visible on tablet/mobile when that column is hidden. */
+  .auth-page-background {{ position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }}
+  .auth-page-background-orb {{ position: absolute; border-radius: 9999px; filter: blur(120px); opacity: 0.75; animation: pulse 4s ease-in-out infinite; }}
+  .auth-page-background-orb-1 {{ top: -10%; left: -10%; width: 60%; height: 60%; background: rgba(249, 115, 22, 0.10); }}
+  .auth-page-background-orb-2 {{ bottom: -10%; right: -10%; width: 60%; height: 60%; background: rgba(168, 85, 247, 0.10); animation-delay: 1s; }}
+  .auth-page-background-orb-3 {{ top: 20%; right: 10%; width: 40%; height: 40%; background: rgba(59, 130, 246, 0.10); animation-delay: 2s; }}
+  .auth-page-theme-toggle {{
+    position: absolute; top: 1.5rem; right: 1.5rem; z-index: 3;
+    display: inline-flex; align-items: center; justify-content: center;
+  }}
+  .auth-page-theme-toggle .theme-toggle {{
+    width: 2.75rem; height: 2.75rem; padding: 0;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: 9999px; background: rgba(15, 23, 42, 0.32);
+    color: var(--text); backdrop-filter: blur(12px);
+  }}
+  .auth-page-theme-toggle .theme-toggle:hover {{ background: rgba(15, 23, 42, 0.50); }}
+  html:not(.dark) .auth-page-theme-toggle .theme-toggle {{
+    border-color: rgba(15, 23, 42, 0.12); background: rgba(255, 255, 255, 0.58);
+  }}
+  html:not(.dark) .auth-page-theme-toggle .theme-toggle:hover {{ background: rgba(255, 255, 255, 0.82); }}
   @media (min-width: 1024px) {{ .auth-page {{ flex-direction: row; }} }}
   .auth-page-pitch {{
     position: relative; display: none; flex-direction: column; justify-content: center;
@@ -3681,13 +3904,15 @@ pub fn design_system_head_with_keywords(
   .auth-page-pitch-orb-1 {{ top: -10%; left: -10%; width: 60%; height: 60%; background: rgba(251, 146, 60, 0.10); }}
   .auth-page-pitch-orb-2 {{ bottom: -10%; right: -10%; width: 60%; height: 60%; background: rgba(168, 85, 247, 0.10); animation-delay: 1s; }}
   .auth-page-pitch-orb-3 {{ top: 20%; right: 10%; width: 40%; height: 40%; background: rgba(59, 130, 246, 0.10); animation-delay: 2s; }}
-  .auth-page-pitch-inner {{ position: relative; z-index: 1; max-width: 36rem; }}
+  .auth-page-pitch-inner {{ position: relative; z-index: 1; max-width: 40rem; }}
   .auth-page-brand {{ margin-bottom: 3rem; font-size: 2rem; font-weight: 900; font-style: italic; letter-spacing: -0.02em; text-transform: uppercase; }}
   .auth-page-brand a {{ color: inherit; text-decoration: none; }}
+  .auth-brand-icon {{ display: inline-flex; align-items: center; justify-content: center; width: 3.25rem; height: 3.25rem; margin-right: 0.75rem; border-radius: 1rem; background: linear-gradient(135deg, #f97316, #9333ea); box-shadow: 0 0 32px -8px rgba(249,115,22,0.55); vertical-align: middle; font-style: normal; }}
   .auth-page-headline {{
     font-size: 3.5rem; line-height: 1.1; font-weight: 800; margin: 0 0 1.5rem;
   }}
-  @media (min-width: 1280px) {{ .auth-page-headline {{ font-size: 4.5rem; }} }}
+  .auth-page-headline-line {{ display: inline-block; white-space: nowrap; }}
+  @media (min-width: 1280px) {{ .auth-page-headline {{ font-size: 4.25rem; }} }}
   .auth-page-sub {{ font-size: 1.125rem; line-height: 1.7; color: rgb(113, 113, 122); margin: 0 0 3rem; max-width: 32rem; }}
   .auth-page-value-props {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem; max-width: 36rem; margin-bottom: 3rem; }}
   .auth-page-value-prop {{ display: flex; gap: 1rem; align-items: flex-start; }}
@@ -3714,18 +3939,34 @@ pub fn design_system_head_with_keywords(
 
   .auth-page-form-col {{
     position: relative; z-index: 1; display: flex; align-items: center; justify-content: center;
-    padding: 2rem 1.5rem; width: 100%;
+    padding: 1rem; width: 100%;
   }}
   @media (min-width: 1024px) {{ .auth-page-form-col {{ width: 40%; backdrop-filter: blur(24px); border-left: 1px solid rgba(0, 0, 0, 0.06); }} }}
-  .auth-page-form-inner {{ width: 100%; max-width: 28rem; display: flex; flex-direction: column; gap: 1.5rem; }}
-  .auth-card {{ padding: 2.5rem 2rem; display: flex; flex-direction: column; gap: 1.25rem; }}
+  .auth-page-form-inner {{ width: 100%; max-width: 28rem; display: flex; flex-direction: column; gap: 0; }}
+  .auth-page-mobile-header {{ display: none; text-align: center; color: var(--text); }}
+  .auth-page-mobile-header h2 {{ font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; margin: 0.75rem 0 0.5rem; }}
+  .auth-page-mobile-header p {{ color: var(--text-muted); margin: 0; font-size: 1rem; }}
+  .auth-page-mobile-brand {{ display: flex; justify-content: center; align-items: center; margin-bottom: 1rem; font-size: 1.875rem; font-weight: 900; font-style: italic; letter-spacing: -0.04em; text-transform: uppercase; }}
+  .auth-page-mobile-brand a {{ color: inherit; text-decoration: none; }}
+  .auth-card {{ padding: 2.5rem 2rem; display: flex; flex-direction: column; gap: 2rem; border-radius: 1.5rem; }}
+  .auth-card-desktop-heading {{ display: block; }}
+  .auth-card-mobile-icon {{ display: flex; justify-content: center; align-items: center; width: 5rem; height: 5rem; margin: 0 auto; border-radius: 1.5rem; background: rgba(249,115,22,0.10); color: var(--epsx-orange); border: 1px solid rgba(249,115,22,0.20); }}
   .auth-card-title {{ font-size: 1.5rem; font-weight: 800; margin: 0; color: rgb(24, 24, 27); text-align: center; }}
   .auth-card-sub {{ font-size: 0.9375rem; color: rgb(113, 113, 122); margin: 0; text-align: center; }}
   .auth-card-cta {{ width: 100%; }}
-  .auth-card-cta .connect-btn {{ width: 100%; justify-content: center; height: 3.5rem; font-size: 1.125rem; font-weight: 700; }}
+  /* ConnectButton emits an inline-flex wrapper around the actual button.
+     Stretch both layers so the wallet CTA follows the source card geometry
+     on compact/tablet screens instead of collapsing to its label width. */
+  .auth-card-cta .connect-btn-wrap {{ display: flex; width: 100%; }}
+  .auth-card-cta .connect-btn {{ display: flex; width: 100% !important; justify-content: center; height: 3.5rem; font-size: 1.125rem; font-weight: 700; }}
+  .auth-card-cta .connect-btn {{ background: linear-gradient(90deg, #f97316, #f59e0b); box-shadow: 0 12px 30px -10px rgba(249,115,22,0.55); }}
+  .auth-card-cta .connect-btn:hover {{ background: linear-gradient(90deg, #ea580c, #d97706); box-shadow: 0 16px 34px -10px rgba(249,115,22,0.65); }}
   .auth-card-divider {{ display: flex; align-items: center; gap: 1rem; color: rgb(161, 161, 170); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; margin: 0.5rem 0; }}
   .auth-card-divider::before, .auth-card-divider::after {{ content: ""; flex: 1; height: 1px; background: rgba(0, 0, 0, 0.08); }}
   .auth-card-divider-thin {{ margin: 0; }}
+  .auth-card-features {{ list-style: none; display: flex; flex-direction: column; gap: 0.75rem; margin: 0; padding: 0; }}
+  .auth-card-feature {{ display: flex; align-items: center; gap: 0.75rem; color: var(--text-muted); font-size: 0.875rem; line-height: 1.5; }}
+  .auth-card-feature-icon {{ display: inline-flex; flex: 0 0 1.25rem; width: 1.25rem; height: 1.25rem; align-items: center; justify-content: center; border: 1px solid rgba(249,115,22,0.55); border-radius: 9999px; color: var(--epsx-orange); font-size: 0.75rem; font-weight: 800; line-height: 1; }}
   .auth-card-email-form {{ display: flex; flex-direction: column; gap: 0.5rem; }}
   .auth-card-email-input {{ width: 100%; }}
   .auth-card-google-btn {{ gap: 0.5rem; }}
@@ -3733,8 +3974,12 @@ pub fn design_system_head_with_keywords(
     display: inline-flex; align-items: center; justify-content: center;
     width: 1.25rem; height: 1.25rem; border-radius: 0.25rem; font-weight: 900; color: #4285F4;
   }}
-  .auth-card-foot {{ font-size: 0.75rem; color: rgb(113, 113, 122); text-align: center; margin: 0; line-height: 1.6; }}
+  .auth-card-foot {{ max-width: 20rem; align-self: center; font-size: 0.75rem; color: rgb(113, 113, 122); text-align: center; margin: 0; line-height: 1.6; }}
   .auth-card-foot a {{ color: rgb(82, 82, 91); text-decoration: underline; text-underline-offset: 2px; }}
+  .auth-card-mobile-features {{ display: none; }}
+  .auth-card-mobile-feature {{ display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.5rem; padding: 0.75rem; border-radius: 0.75rem; border: 1px solid rgba(0,0,0,0.08); background: rgba(255,255,255,0.02); }}
+  .auth-card-mobile-feature h4 {{ margin: 0; font-size: 0.75rem; font-weight: 600; color: var(--text); }}
+  .auth-card-mobile-feature-icon {{ display: flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: 0.5rem; background: rgba(249,115,22,0.10); color: var(--epsx-orange); }}
   .auth-card-error {{
     display: flex; gap: 0.75rem; padding: 0.75rem 1rem; border-radius: 0.5rem;
     background: rgba(239, 68, 68, 0.10); border: 1px solid rgba(239, 68, 68, 0.30); color: rgb(153, 27, 27);
@@ -3749,6 +3994,8 @@ pub fn design_system_head_with_keywords(
     font-size: 0.625rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.2em; color: rgb(113, 113, 122);
   }}
   .auth-page-status-dot {{ width: 0.25rem; height: 0.25rem; border-radius: 9999px; background: rgb(16, 185, 129); animation: pulse 2s ease-in-out infinite; }}
+  .auth-page-status-compact {{ display: none; }}
+  .auth-page-status-wallet {{ display: none; }}
   .auth-page-fallback {{ text-align: center; font-size: 0.75rem; }}
   .auth-page-fallback a {{ color: rgb(113, 113, 122); text-decoration: underline; text-underline-offset: 2px; }}
 
@@ -3767,6 +4014,49 @@ pub fn design_system_head_with_keywords(
     background: #7f1d1d; color: #fecaca;
   }}
   html.dark .auth-card-status {{ background: #1e3a8a; color: #dbeafe; }}
+  html.dark .auth-card-mobile-feature {{ border-color: rgba(148,163,184,0.25); }}
+  @media (max-width: 1023px) {{
+    .auth-page-form-col {{ padding-left: 1rem; padding-right: 1rem; }}
+    .auth-page-mobile-header {{ display: block; margin-top: 1rem; margin-bottom: 1.5rem; }}
+    .auth-card-desktop-heading {{ display: none; }}
+    .auth-card-mobile-icon {{ display: flex; }}
+    .auth-card {{ padding: 2rem; }}
+    .auth-card-mobile-features {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; padding-top: 1.25rem; border-top: 1px solid rgba(0,0,0,0.08); }}
+    html.dark .auth-card-mobile-features {{ border-top-color: rgba(148,163,184,0.25); }}
+  }}
+  @media (min-width: 640px) and (max-width: 1023px) {{
+    .auth-page-form-col {{ padding-top: 1.5rem; padding-bottom: 1.5rem; }}
+    .auth-page-form-inner {{ max-width: 24rem; }}
+    .auth-page-mobile-header {{ margin-bottom: 2.5rem; }}
+    .auth-page-mobile-header h2 {{ font-size: 1.75rem; }}
+    .auth-page-mobile-header p {{ font-size: 0.875rem; }}
+    .auth-page-mobile-brand {{ margin-bottom: 0.75rem; }}
+    .auth-page-mobile-brand .auth-brand-icon {{ width: 3rem; height: 3rem; margin-right: 0.5rem; }}
+    .auth-card {{ padding: 1.75rem 1.75rem 1.6875rem; gap: 1.75rem; }}
+    .auth-card-mobile-icon {{ width: 4.25rem; height: 4.25rem; border-radius: 1.25rem; }}
+    .auth-card-cta .connect-btn {{ height: 3rem; font-size: 1rem; }}
+    .auth-card-features {{ gap: 0.5rem; }}
+    .auth-card-mobile-features {{ gap: 0.625rem; padding-top: 1.125rem; margin-top: -0.5rem; }}
+    .auth-card-mobile-feature {{ min-height: 4.875rem; padding: 0.625rem; gap: 0.25rem; }}
+    .auth-card-mobile-feature-icon {{ width: 2rem; height: 2rem; }}
+    .auth-card-foot {{ margin-top: -0.125rem; }}
+    .auth-page-status-wide {{ display: none; }}
+    .auth-page-status-compact {{ display: inline; }}
+    .auth-page-status-indicator {{ margin-top: 1.5rem; }}
+    .auth-page-fallback {{ margin-top: 1rem; }}
+  }}
+  @media (max-width: 639px) {{
+    .auth-card {{ padding: 2.5rem 2rem; }}
+    .auth-card-cta {{ margin-top: 0.125rem; }}
+    .auth-card-foot {{ margin-top: 0.25rem; }}
+    .auth-card-cta .connect-btn {{ background: linear-gradient(90deg, #ff8a3d, #b34de8); box-shadow: 0 12px 30px -10px rgba(178, 76, 232, 0.42); }}
+    .auth-card-cta .connect-btn:hover {{ background: linear-gradient(90deg, #f97316, #9333ea); box-shadow: 0 16px 34px -10px rgba(168, 85, 247, 0.55); }}
+    .auth-page-status-wide {{ display: none; }}
+    .auth-page-status-compact {{ display: none; }}
+    .auth-page-status-wallet {{ display: inline; }}
+    .auth-page-status-indicator {{ margin-top: 1.5rem; }}
+    .auth-page-fallback {{ margin-top: 1.5rem; }}
+  }}
 
   /* === About page sections === */
   .about-hero-section {{ padding: 4rem 0 2rem; text-align: center; }}
@@ -4180,16 +4470,24 @@ pub fn design_system_head_with_keywords(
   .error-page-hints ul {{ padding-left: 1.5rem; margin: 0; line-height: 1.7; color: var(--text-muted, #94a3b8); }}
 
   .offline-page {{
-    min-height: 80vh; display: flex; align-items: center; justify-content: center;
+    min-height: calc(100vh + 7rem); display: flex; align-items: center; justify-content: center;
     padding: 2rem 1rem;
     background: linear-gradient(135deg, #f8fafc, #f1f5f9);
   }}
   :root.dark .offline-page {{ background: linear-gradient(135deg, #0f172a, #1e293b); }}
-  .offline-card {{ max-width: 32rem; width: 100%; padding: 2.5rem 2rem; text-align: center; }}
+  .offline-card {{
+    max-width: 28rem; width: 100%; padding: 2rem 1.5rem; text-align: center;
+    border: 1px solid rgba(148, 163, 184, 0.38);
+  }}
+  :root.dark .offline-card {{
+    border-color: rgba(148, 163, 184, 0.55);
+    background: rgba(15, 23, 42, 0.54);
+  }}
   .offline-icon {{
     display: inline-flex; padding: 1.25rem; border-radius: 9999px;
     background: rgba(249, 115, 22, 0.1); color: #f97316; margin-bottom: 1.5rem;
   }}
+  .offline-icon svg {{ width: 2.5rem; height: 2.5rem; }}
   :root.dark .offline-icon {{ background: rgba(249, 115, 22, 0.2); }}
   .offline-title {{ font-size: 1.5rem; font-weight: 700; margin: 0 0 0.5rem; }}
   .offline-subtitle {{ margin: 0 0 1.5rem; }}
@@ -4204,8 +4502,16 @@ pub fn design_system_head_with_keywords(
   .offline-available-dot {{ width: 0.5rem; height: 0.5rem; border-radius: 9999px; flex-shrink: 0; }}
   .offline-available-dot-yes {{ background: #10b981; }}
   .offline-available-dot-limited {{ background: #f97316; }}
-  .offline-actions {{ display: flex; flex-direction: column; gap: 0.75rem; }}
-  .offline-actions-row {{ display: flex; gap: 0.5rem; }}
+  .offline-actions {{ display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }}
+  .offline-retry {{
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+    width: auto; min-height: 2.75rem; padding: 0.5rem 1.25rem;
+    border: 0; background: transparent; color: var(--text); box-shadow: none;
+    font-weight: 600;
+  }}
+  .offline-retry:hover {{ background: transparent; color: #f97316; box-shadow: none; }}
+  .offline-retry:focus-visible {{ outline: 2px solid #f97316; outline-offset: 2px; }}
+  .offline-actions-row {{ display: flex; width: 100%; gap: 0.5rem; }}
   .offline-actions-row .btn {{ flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; }}
   .offline-tip {{
     margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.06);
@@ -4436,6 +4742,7 @@ pub fn design_system_head_with_keywords(
    * conflicts. */
 
   /* --- /chat inbox shell + main panel (2-column flex layout) --- */
+  .container.chat-public-page {{ width: 100%; max-width: 36rem; margin-left: auto; margin-right: auto; box-sizing: border-box; }}
   .chat-page {{ position: relative; min-height: 70vh; }}
   .chat-inbox-row {{ display: flex; gap: 0; align-items: stretch; min-height: 540px;
                      border: 1px solid var(--glass-border, rgba(255,255,255,0.08));
@@ -4888,6 +5195,14 @@ pub fn design_system_head_with_keywords(
   .notifications-filterbar {{ display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }}
   .notifications-filters {{ display: flex; gap: 0.25rem; }}
   .notifications-filterbar-aside {{ margin-left: auto; display: flex; gap: 0.5rem; align-items: center; }}
+  .notifications-filter-preview {{ border: 1px solid var(--card-border, rgba(255,255,255,0.08));
+                                  background: var(--card-bg, rgba(248,250,252,0.04)); }}
+  .notifications-filter-option {{ min-height: 2.5rem; width: 100%; display: flex; align-items: center;
+                                  justify-content: space-between; gap: 0.5rem; padding: 0.375rem 0.75rem;
+                                  border: 1px solid rgba(71,85,105,0.7); border-radius: 0.5rem;
+                                  background: rgba(51,65,85,0.7); color: rgba(203,213,225,0.7);
+                                  font-size: 0.75rem; font-weight: 500; }}
+  .notifications-filter-option .epsx-icon {{ flex-shrink: 0; opacity: 0.7; }}
   .notifications-unread-count {{ font-size: 0.75rem; color: var(--notification-state-accent); font-weight: 600; opacity: 1; }}
   .notifications-list-card {{ padding: 0; }}
   .notifications-empty {{ padding: 2rem; text-align: center; color: var(--text-muted, #94a3b8); }}
@@ -5080,7 +5395,10 @@ pub fn design_system_head_with_keywords(
     width: 100%;
     height: 100%;
     min-height: 100vh;
-    background: var(--background, transparent);
+    /* `--background` stores HSL channels, matching the `bg-background`
+       utility used by the source MainLayout. Keep the shell on that same
+       slate surface instead of falling through to the warm document body. */
+    background: hsl(var(--background));
   }}
   .admin-shell-sidebar {{
     flex-shrink: 0;
@@ -5682,7 +6000,12 @@ window.epsx = (function() {
     // in `shared/rust/dioxus_ui/src/theme.rs` (the boot script reads
     // `epsx-theme` on every page load). Keeping both halves in sync
     // is what prevents the FOUC on reload.
-    try { localStorage.setItem('epsx-theme', t); } catch (e) {}
+    try {
+      localStorage.setItem('epsx-theme', t);
+      // Keep the source app's `theme` cookie in sync so a fresh SSR
+      // document and the client controller resolve the same mode.
+      document.cookie = 'theme=' + t + '; path=/; max-age=31536000; SameSite=Lax';
+    } catch (e) {}
     updateThemeControls(t);
   }
   function currentTheme() {
@@ -6449,15 +6772,15 @@ fn js_string_literal(s: &str) -> String {
         match c {
             '\\' => out.push_str("\\\\"),
             '\'' => out.push_str("\\'"),
-            '"'  => out.push_str("\\\""),
+            '"' => out.push_str("\\\""),
             '\n' => out.push_str("\\n"),
             '\r' => out.push_str("\\r"),
             '\t' => out.push_str("\\t"),
             '\x08' => out.push_str("\\b"),
             '\x0c' => out.push_str("\\f"),
-            '<'  => out.push_str("\\x3c"),  // break `</script>` / `</...>` matches
-            '>'  => out.push_str("\\x3e"),
-            '&'  => out.push_str("\\x26"),
+            '<' => out.push_str("\\x3c"), // break `</script>` / `</...>` matches
+            '>' => out.push_str("\\x3e"),
+            '&' => out.push_str("\\x26"),
             c if (c as u32) < 0x20 => {
                 use std::fmt::Write;
                 let _ = write!(&mut out, "\\u{:04x}", c as u32);
@@ -6492,10 +6815,7 @@ pub fn onclick_share_text(text: &str, title: &str) -> String {
 /// inputs; this onclick collects them and navigates to the BFF
 /// route with `?q=…&category=…`.
 pub fn onclick_submit_news_search(form_id: &str) -> String {
-    format!(
-        "epsx.submitNewsSearch({})",
-        js_string_literal(form_id)
-    )
+    format!("epsx.submitNewsSearch({})", js_string_literal(form_id))
 }
 
 /// Returns a complete `<button>…</button>` HTML string that
@@ -6560,7 +6880,7 @@ pub fn news_search_submit_button_html(form_id: &str, label: &str) -> String {
     format!(
         r#"<button type="button" class="btn btn-outline" onclick="{onclick}">{label}</button>"#,
         onclick = onclick,
-        label   = html_text_escape(label),
+        label = html_text_escape(label),
     )
 }
 
@@ -6580,15 +6900,15 @@ pub fn navigate_select_html(
         let sel = if val == current { " selected" } else { "" };
         opts.push_str(&format!(
             r#"<option value="{val}"{sel}>{lbl}</option>"#,
-            val  = html_attr_escape(val),
-            sel  = sel,
-            lbl  = html_text_escape(lbl),
+            val = html_attr_escape(val),
+            sel = sel,
+            lbl = html_text_escape(lbl),
         ));
     }
     format!(
         r#"<select class="input input-sm" data-epsx-navigate="1" data-base-href="{base}" data-qp="{qp}">{opts}</select>"#,
         base = html_attr_escape(base_href),
-        qp   = html_attr_escape(query_param),
+        qp = html_attr_escape(query_param),
         opts = opts,
     )
 }
@@ -6644,44 +6964,14 @@ fn html_text_escape(s: &str) -> String {
 /// Returns the standard EPSX logo (gradient text "EPSX").
 /// Returns the EPSX hexagon-with-chart icon (matches epsx.io's `/logos/epsx-icon.svg`).
 ///
-/// Wave 44 t2: replaced the simplified inline path data with the actual
-/// prod SVG file (`apps-old/frontend/public/logos/epsx-icon.svg`) so the
-/// rendered pixels match. The previous shape was a stylized approximation
-/// using `viewBox=0 0 32 32` with a 2-stop gradient — the prod SVG is
-/// `viewBox=0 0 256 256` with a 4-stop gradient and three analytics bars
-/// + polyline + 3 circles. Without this, every page in the nav has a
-/// ~7K-pixel diff in the top-left brand area (manual, privacy, plans,
-/// etc. all had 7159px red diff in cell 0,0).
-///
-/// Note: prod wraps this in `<img src="/logos/epsx-icon.svg" class="h-8 w-8">`
-/// (CSS-sized to 32x32). The dev SSR sizes via the parent's `h-8 w-8`
-/// Tailwind class — same visual size. We keep the same `class="epsx-icon"`
-/// attr for selectors that hook the wrapper.
+/// Wave 44 t2: use the production asset (`/logos/epsx-icon.svg`) directly.
+/// Keeping this as a CSS background (rather than duplicating inline SVG
+/// gradients in both desktop and mobile headers) avoids document-global
+/// gradient ID collisions and makes the icon render consistently at every
+/// breakpoint. A background also keeps the shell's text/attribute escaping
+/// contract intact for hostile wallet values.
 pub fn epsx_icon_svg() -> &'static str {
-    r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" class="epsx-icon" aria-hidden="true">
-  <defs>
-    <linearGradient id="epsx-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#488BFA" />
-      <stop offset="33%" stop-color="#6D6FFA" />
-      <stop offset="66%" stop-color="#8D54F7" />
-      <stop offset="100%" stop-color="#A43FF3" />
-    </linearGradient>
-  </defs>
-
-  <polygon points="128,8 231.92,68 231.92,188 128,248 24.08,188 24.08,68"
-           fill="none" stroke="url(#epsx-grad)" stroke-width="20" stroke-linejoin="round" />
-
-  <rect x="76" y="140" width="24" height="40" fill="url(#epsx-grad)" />
-  <rect x="116" y="110" width="24" height="70" fill="url(#epsx-grad)" />
-  <rect x="156" y="80" width="24" height="100" fill="url(#epsx-grad)" />
-
-  <polyline points="88,140 128,110 168,80"
-            fill="none" stroke="url(#epsx-grad)" stroke-width="12" stroke-linejoin="round" />
-
-  <circle cx="88" cy="140" r="16" fill="url(#epsx-grad)" />
-  <circle cx="128" cy="110" r="16" fill="url(#epsx-grad)" />
-  <circle cx="168" cy="80" r="16" fill="url(#epsx-grad)" />
-</svg>"##
+    r#"<span class="epsx-icon" role="img" aria-label="EPSX" style="background:url('/public/logos/epsx-icon.svg') center/contain no-repeat;"></span>"#
 }
 
 /// Lucide icon path data — `name` is the kebab-case lucide name (e.g. `chart-column`).
@@ -6689,92 +6979,264 @@ pub fn epsx_icon_svg() -> &'static str {
 /// We embed the 50+ icons we use; for anything else, return empty.
 pub fn lucide_icon(name: &str) -> &'static str {
     match name {
-        "chart-column" => r#"<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>"#,
+        "chart-column" => {
+            r#"<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>"#
+        }
         // Wave 28 T2 — register prod's exact icon shape for the
         // portfolio upsell banner (the 3-bar chart with no axis
         // labels). Path data from lucide.dev/chart-no-axes-column.
-        "chart-no-axes-column" => r#"<path d="M5 21V3"/><path d="M19 21V3"/><path d="M15 21V9"/><path d="M11 21V13"/><path d="M7 21V17"/>"#,
+        "chart-no-axes-column" => {
+            r#"<path d="M5 21V3"/><path d="M19 21V3"/><path d="M15 21V9"/><path d="M11 21V13"/><path d="M7 21V17"/>"#
+        }
         "code" => r#"<path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/>"#,
-        "building" => r#"<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>"#,
+        "building" => {
+            r#"<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>"#
+        }
         "chevron-down" => r#"<path d="m6 9 6 6 6-6"/>"#,
         "chevron-right" => r#"<path d="m9 18 6-6-6-6"/>"#,
         "trending-up" => r#"<path d="M22 7 13.5 15.5 8.5 10.5 2 17"/><path d="M16 7h6v6"/>"#,
-        "chart-line" => r#"<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m19 9-5 5-4-4-3 3"/>"#,
-        "zap" => r#"<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>"#,
-        "users" => r#"<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>"#,
-        "calendar" => r#"<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>"#,
-        "newspaper" => r#"<path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/>"#,
-        "pin" => r#"<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>"#,
+        "chart-line" | "line-chart" => {
+            r#"<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m19 9-5 5-4-4-3 3"/>"#
+        }
+        "zap" => {
+            r#"<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>"#
+        }
+        "users" => {
+            r#"<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>"#
+        }
+        "calendar" => {
+            r#"<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>"#
+        }
+        "newspaper" => {
+            r#"<path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/>"#
+        }
+        "pin" => {
+            r#"<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>"#
+        }
         "arrow-right" => r#"<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>"#,
         "info" => r#"<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>"#,
-        "mail" => r#"<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>"#,
-        "help-circle" => r#"<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>"#,
-        "circle-help" => r#"<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>"#,
-        "menu" => r#"<line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/>"#,
+        "mail" => {
+            r#"<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>"#
+        }
+        "help-circle" => {
+            r#"<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>"#
+        }
+        "circle-help" => {
+            r#"<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>"#
+        }
+        "menu" => {
+            r#"<line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/>"#
+        }
         "x" => r#"<path d="M18 6 6 18"/><path d="m6 6 12 12"/>"#,
-        "sun" => r#"<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>"#,
+        "sun" => {
+            r#"<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>"#
+        }
         "moon" => r#"<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>"#,
-        "wallet" => r#"<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>"#,
-        "log-out" => r#"<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>"#,
-        "user" => r#"<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>"#,
-        "settings" => r#"<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>"#,
+        "wallet" => {
+            r#"<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>"#
+        }
+        "log-out" => {
+            r#"<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>"#
+        }
+        "user" => {
+            r#"<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>"#
+        }
+        "settings" => {
+            r#"<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>"#
+        }
         "check" => r#"<path d="M20 6 9 17l-5-5"/>"#,
         // Wave-49 TODO cleanup (alert.rs): shadcn's <Alert> uses
         // 'check-circle' for the Success variant. Register the
         // shape so the Alert component can render the exact lucide
         // name instead of the 'check' substitute.
-        "check-circle" => r#"<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>"#,
+        "check-circle" => {
+            r#"<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>"#
+        }
         // Wave-49 TODO cleanup (alert.rs): shadcn's <Alert> uses
         // 'alert-triangle' for the Warning variant.
-        "alert-triangle" => r#"<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/>"#,
+        "alert-triangle" => {
+            r#"<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/>"#
+        }
         "plus" => r#"<path d="M5 12h14"/><path d="M12 5v14"/>"#,
         "search" => r#"<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>"#,
-        "share" => r#"<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/>"#,
-        "bell" => r#"<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>"#,
-        "book" => r#"<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>"#,
-        "key" => r#"<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/>"#,
-        "layout-dashboard" => r#"<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>"#,
+        "heart" => {
+            r#"<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>"#
+        }
+        "share" => {
+            r#"<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/>"#
+        }
+        "bell" => {
+            r#"<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>"#
+        }
+        "book" => {
+            r#"<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>"#
+        }
+        "key" => {
+            r#"<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/>"#
+        }
+        "layout-dashboard" => {
+            r#"<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>"#
+        }
         "message-circle" => r#"<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>"#,
-        "file-text" => r#"<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/>"#,
-        "history" => r#"<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>"#,
-        "credit-card" => r#"<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>"#,
-        "link" => r#"<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>"#,
-        "external-link" => r#"<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>"#,
-        "briefcase" => r#"<path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/>"#,
+        "file-text" => {
+            r#"<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/>"#
+        }
+        "history" => {
+            r#"<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>"#
+        }
+        "credit-card" => {
+            r#"<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>"#
+        }
+        "link" => {
+            r#"<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>"#
+        }
+        "external-link" => {
+            r#"<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>"#
+        }
+        "briefcase" => {
+            r#"<path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/>"#
+        }
         // wave2-chrome-track-a: added icons required by admin sidebar/header parity.
         // All paths mirror the official lucide.dev SVG body.
-        "home" => r#"<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>"#,
-        "lock" => r#"<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>"#,
+        "home" => {
+            r#"<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>"#
+        }
+        "lock" => {
+            r#"<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>"#
+        }
         "shield" => r#"<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>"#,
-        "globe" => r#"<circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>"#,
-        "palette" => r#"<circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>"#,
-        "send" => r#"<line x1="22" x2="11" y1="2" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>"#,
-        "coins" => r#"<circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/>"#,
-        "link-2" => r#"<path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/>"#,
-        "image" => r#"<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>"#,
-        "bar-chart-3" => r#"<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>"#,
-        "book-open" => r#"<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>"#,
+        "globe" => {
+            r#"<circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>"#
+        }
+        "palette" => {
+            r#"<circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>"#
+        }
+        "send" => {
+            r#"<line x1="22" x2="11" y1="2" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>"#
+        }
+        "coins" => {
+            r#"<circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/>"#
+        }
+        "link-2" => {
+            r#"<path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/>"#
+        }
+        "image" => {
+            r#"<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>"#
+        }
+        "bar-chart-3" => {
+            r#"<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>"#
+        }
+        "book-open" => {
+            r#"<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>"#
+        }
         // === wave5-page-depth-track-a === new icons required by the
         // expanded home / auth / about hero pages. All paths mirror
         // the official lucide.dev SVG body. No existing icons are
         // restyled.
-        "share-2" => r#"<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/>"#,
+        "share-2" => {
+            r#"<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/>"#
+        }
         "clock" => r#"<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>"#,
-        "star" => r#"<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>"#,
+        "star" => {
+            r#"<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>"#
+        }
         "circle-check" => r#"<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>"#,
-        "rocket" => r#"<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>"#,
-        "target" => r#"<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>"#,
-        "lightbulb" => r#"<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>"#,
-        "database" => r#"<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/>"#,
-        "message-square" => r#"<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>"#,
-        "sparkles" => r#"<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>"#,
+        "rocket" => {
+            r#"<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>"#
+        }
+        "target" => {
+            r#"<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>"#
+        }
+        "lightbulb" => {
+            r#"<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>"#
+        }
+        "database" => {
+            r#"<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/>"#
+        }
+        "message-square" => {
+            r#"<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>"#
+        }
+        "sparkles" => {
+            r#"<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>"#
+        }
+        "gem" => {
+            r#"<path d="M6 3h12l4 6-10 12L2 9Z"/><path d="m12 21 4-12-4-6-4 6 4 12Z"/><path d="M2 9h20"/>"#
+        }
+        "cpu" => {
+            r#"<rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/>"#
+        }
         "play" => r#"<polygon points="6 3 20 12 6 21 6 3"/>"#,
         "arrow-up-right" => r#"<path d="M7 7h10v10"/><path d="M7 17 17 7"/>"#,
-        "circle-x" => r#"<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>"#,
-        "triangle-alert" => r#"<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>"#,
-        "wifi-off" => r#"<line x1="2" x2="22" y1="2" y2="22"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M2 8.82a15 15 0 0 1 4.17-2.65"/><path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/><path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"/><path d="M5 13a10 10 0 0 1 5.24-2.76"/><line x1="12" x2="12.01" y1="20" y2="20"/>"#,
-        "mail" => r#"<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>"#,
-        "tag" => r#"<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5"/>"#,
+        "circle-x" => {
+            r#"<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>"#
+        }
+        "triangle-alert" => {
+            r#"<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>"#
+        }
+        "wifi-off" => {
+            r#"<line x1="2" x2="22" y1="2" y2="22"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M2 8.82a15 15 0 0 1 4.17-2.65"/><path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/><path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"/><path d="M5 13a10 10 0 0 1 5.24-2.76"/><line x1="12" x2="12.01" y1="20" y2="20"/>"#
+        }
+        // Additional names used by the migrated chat, notifications,
+        // analytics and admin surfaces. Keep the aliases here so SSR and
+        // client-rendered icons share one complete Lucide registry.
+        "arrow-right-left" => {
+            r#"<path d="m17 11 4-4-4-4"/><path d="M3 7h18"/><path d="m7 13-4 4 4 4"/><path d="M21 17H3"/>"#
+        }
+        "bell-off" => {
+            r#"<path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M18.63 13A17.89 17.89 0 0 1 18 8"/><path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/><path d="M18 8a6 6 0 0 0-9.33-5"/><path d="m1 1 22 22"/>"#
+        }
+        "bot" => {
+            r#"<rect width="18" height="10" x="3" y="8" rx="2"/><path d="M12 4v4"/><path d="M8 12h.01"/><path d="M16 12h.01"/><path d="M7 16h10"/>"#
+        }
+        "check-check" => r#"<path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/>"#,
+        "circle-alert" => {
+            r#"<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>"#
+        }
+        "copy" => {
+            r#"<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>"#
+        }
+        "edit" => {
+            r#"<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L8 18l-4 1 1-4Z"/>"#
+        }
+        "eye" => {
+            r#"<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>"#
+        }
+        "eye-off" => {
+            r#"<path d="M10.733 5.076a10.744 10.744 0 0 1 8.14 2.633c1.17 1.03 2.13 2.33 2.8 3.77a1 1 0 0 1 0 .85 10.77 10.77 0 0 1-4.05 4.73"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.42-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.15"/><path d="m2 2 20 20"/>"#
+        }
+        "file-question" => {
+            r#"<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v6h6"/><path d="M9.1 9a3 3 0 1 1 5.8 1c0 2-2.9 2-2.9 4"/><path d="M12 18h.01"/>"#
+        }
+        "headset" => {
+            r#"<path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M21 14h-3a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2Z"/><path d="M3 14v-2a9 9 0 0 1 18 0v2"/><path d="M21 14v-2"/>"#
+        }
+        "inbox" => {
+            r#"<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/>"#
+        }
+        "list-restart" => {
+            r#"<path d="M21 6H3"/><path d="M7 12H3"/><path d="M7 18H3"/><path d="M16 12h5"/><path d="M16 18h5"/><path d="M13 12h.01"/><path d="M13 18h.01"/><path d="M16 3v3"/><path d="m19 4-3 3-3-3"/>"#
+        }
+        "loader" => {
+            r#"<path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m7.8 16.2-2.9 2.9"/><path d="M6 12H2"/><path d="m7.8 7.8-2.9-2.9"/>"#
+        }
+        "log-in" => {
+            r#"<path d="m10 17 5-5-5-5"/><path d="M15 12H3"/><path d="M21 19V5a2 2 0 0 0-2-2h-6"/>"#
+        }
+        "pin-off" => {
+            r#"<line x1="2" x2="22" y1="2" y2="22"/><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16h7"/><path d="M15 7v3.76a2 2 0 0 0 1.11 1.79l1.78.9A2 2 0 0 1 19 15.24V16h-3"/><path d="M8 2h8a2 2 0 0 1 0 4H8"/>"#
+        }
+        "shield-alert" => {
+            r#"<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/>"#
+        }
+        "sliders-horizontal" => {
+            r#"<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>"#
+        }
+        "mail" => {
+            r#"<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>"#
+        }
+        "tag" => {
+            r#"<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5"/>"#
+        }
         // === wave6b-admin-pages-depth-track-a === new icons required by
         // the 5 admin pages (dashboard, analytics, policies, settings,
         // media). All paths mirror the official lucide.dev SVG body.
@@ -6784,10 +7246,16 @@ pub fn lucide_icon(name: &str) -> &'static str {
         // - `layers` — policies stats bar "Total Policies" card.
         // - `activity` — policies monitor "Evaluations (24h)" stat.
         // - `rotate-ccw` — settings dashboard "Reset Logic" button.
-        "download" => r#"<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>"#,
-        "layers" => r#"<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>"#,
+        "download" => {
+            r#"<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>"#
+        }
+        "layers" => {
+            r#"<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>"#
+        }
         "activity" => r#"<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>"#,
-        "rotate-ccw" => r#"<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>"#,
+        "rotate-ccw" => {
+            r#"<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>"#
+        }
         // end wave6b-admin-pages-depth-track-a icon additions
 
         // === wave6b-admin-pages-depth-track-c === new icons required by
@@ -6795,14 +7263,28 @@ pub fn lucide_icon(name: &str) -> &'static str {
         // + wallet_plans + wallet_access). All paths mirror the
         // official lucide.dev SVG body. No existing icons are
         // restyled.
-        "refresh-cw" => r#"<path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/>"#,
-        "trash" => r#"<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>"#,
-        "trash-2" => r#"<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>"#,
-        "alert-circle" => r#"<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>"#,
+        "refresh-cw" => {
+            r#"<path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/>"#
+        }
+        "trash" => {
+            r#"<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>"#
+        }
+        "trash-2" => {
+            r#"<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>"#
+        }
+        "alert-circle" => {
+            r#"<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>"#
+        }
         "arrow-left" => r#"<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>"#,
-        "user-check" => r#"<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/>"#,
-        "rotate-ccw" => r#"<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>"#,
-        "shield-check" => r#"<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>"#,
+        "user-check" => {
+            r#"<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/>"#
+        }
+        "rotate-ccw" => {
+            r#"<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>"#
+        }
+        "shield-check" => {
+            r#"<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>"#
+        }
         // === wave38b(t2): added shield-x for the 3 admin outlier
         // pages (access-denied, unauthorized, developer-portal/
         // api-keys/create). Prod renders this icon inside a
@@ -6810,8 +7292,12 @@ pub fn lucide_icon(name: &str) -> &'static str {
         // `tools/e2e-admin/baselines/prod-admin/{admin-access-
         // denied,admin-unauthorized,admin-developer-portal-api-
         // keys-create}.html` for the exact class structure.
-        "shield-x" => r#"<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m14.5 9.5-5 5"/><path d="m9.5 9.5 5 5"/>"#,
-        "building" => r#"<rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/>"#,
+        "shield-x" => {
+            r#"<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m14.5 9.5-5 5"/><path d="m9.5 9.5 5 5"/>"#
+        }
+        "building" => {
+            r#"<rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/>"#
+        }
         _ => "",
     }
 }
@@ -6829,7 +7315,11 @@ pub fn lucide(name: &str, size: &str, class: &str) -> String {
 }
 
 pub fn logo(href: &str, size: &str) -> String {
-    let cls = if size == "sm" { "logo-text-sm" } else { "logo-text" };
+    let cls = if size == "sm" {
+        "logo-text-sm"
+    } else {
+        "logo-text"
+    };
     format!(
         r#"<a href="{href}" class="flex items-center gap-2.5 group" style="text-decoration:none;">
   {icon}
@@ -6943,6 +7433,40 @@ pub fn epsx_header_for_session_and_return_target(
     is_authenticated: bool,
     return_target: &str,
 ) -> String {
+    epsx_header_for_session_and_wallet(is_authenticated, return_target, None)
+}
+
+/// Render the public header with an optional browser-connected wallet.
+///
+/// The wallet cookie only describes the connected provider; it never grants
+/// access. When present without a server-authenticated session we show the
+/// compact wallet identity in the header and leave the sign-in action to the
+/// native `/auth` route.
+pub fn epsx_header_for_session_and_wallet(
+    is_authenticated: bool,
+    return_target: &str,
+    wallet_address: Option<&str>,
+) -> String {
+    epsx_header_for_session_and_wallet_with_network(
+        is_authenticated,
+        return_target,
+        wallet_address,
+        false,
+    )
+}
+
+/// Render the public header with an optional non-interactive network label.
+///
+/// The development navigation renders the chain selector in the tablet and
+/// desktop action cluster. The Rust BFF cannot switch a wallet network from
+/// an SSR-only shell, so it exposes the verified local target as a label and
+/// leaves network mutation to a future hydrated wallet integration.
+pub fn epsx_header_for_session_and_wallet_with_network(
+    is_authenticated: bool,
+    return_target: &str,
+    wallet_address: Option<&str>,
+    show_network: bool,
+) -> String {
     let auth_href = auth_href_for_return_target(return_target);
     let auth_href = html_attr_escape(&auth_href);
 
@@ -7049,21 +7573,54 @@ pub fn epsx_header_for_session_and_return_target(
       </div>"##
                 .to_string(),
         )
+    } else if let Some(address) = wallet_address.filter(|value| !value.trim().is_empty()) {
+        let short = short_wallet_address(address);
+        let safe_short = html_attr_escape(&short);
+        (
+            format!(
+                r##"<div class="hidden md:flex items-center gap-1.5">
+        <a href="{auth_href}" class="epsx-wallet-pill" data-epsx-wallet-pill aria-label="Connected wallet {safe_short}">
+          <i data-lucide="wallet" style="width:1rem;height:1rem;"></i>
+          {safe_short}
+        </a>
+      </div>"##
+            ),
+            format!(
+                r##"<div class="hidden sm:flex md:hidden items-center gap-1.5">
+        <a href="{auth_href}" class="epsx-wallet-pill" data-epsx-wallet-pill aria-label="Connected wallet {safe_short}" style="height:2rem;padding:0 0.75rem;font-size:0.75rem;border-radius:1rem;">
+          <i data-lucide="wallet" style="width:0.75rem;height:0.75rem;"></i>
+          {safe_short}
+        </a>
+      </div>"##
+            ),
+        )
     } else {
         (
-            format!(r##"<div class="hidden md:flex items-center gap-1.5">
+            format!(
+                r##"<div class="hidden md:flex items-center gap-1.5">
         <a href="{auth_href}" class="epsx-connect-btn" data-epsx-auth-link style="text-decoration:none;">
           <i data-lucide="wallet" style="width:1rem;height:1rem;"></i>
           Connect
         </a>
-      </div>"##),
-            format!(r##"<div class="hidden sm:flex md:hidden items-center gap-1.5">
+      </div>"##
+            ),
+            format!(
+                r##"<div class="hidden sm:flex md:hidden items-center gap-1.5">
         <a href="{auth_href}" class="epsx-connect-btn" data-epsx-auth-link style="height:2rem;padding:0 0.75rem;font-size:0.75rem;border-radius:1rem;text-decoration:none;">
           <i data-lucide="wallet" style="width:0.75rem;height:0.75rem;"></i>
           Connect
         </a>
-      </div>"##),
+      </div>"##
+            ),
         )
+    };
+    let network_indicator = if show_network {
+        r##"<div class="epsx-network-badge" data-epsx-network="bsc-testnet" aria-label="Current network: BSC Testnet">
+        <i data-lucide="link" style="width:1rem;height:1rem;"></i>
+        <span>BSC Testnet</span>
+      </div>"##
+    } else {
+        ""
     };
     let nav_block = |label: &str, icon: &str, items: &str| -> String {
         let id = label.to_ascii_lowercase();
@@ -7086,16 +7643,23 @@ pub fn epsx_header_for_session_and_return_target(
     format!(
         r##"<header class="epsx-header" data-epsx-authenticated="{authenticated}">
   <div class="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 md:px-6">
-    <a href="/" class="flex items-center gap-2.5 group" style="text-decoration:none;">
+    <div class="hidden md:flex items-center gap-6">
+      <a href="/" class="flex items-center gap-2.5 group" style="text-decoration:none;">
+        {logo}
+        <span class="text-xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#488BFA] to-[#A43FF3] leading-none mt-0.5">EPSX</span>
+      </a>
+
+      <nav class="hidden md:flex items-center gap-1" aria-label="Primary">
+        {market}
+        {developer}
+        {company}
+      </nav>
+    </div>
+
+    <a href="/" class="md:hidden flex items-center gap-2.5 group" style="text-decoration:none;">
       {logo}
       <span class="text-xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#488BFA] to-[#A43FF3] leading-none mt-0.5">EPSX</span>
     </a>
-
-    <nav class="hidden md:flex items-center gap-1" aria-label="Primary">
-      {market}
-      {developer}
-      {company}
-    </nav>
 
     <div class="flex items-center gap-2">
       {notification_action}
@@ -7103,6 +7667,7 @@ pub fn epsx_header_for_session_and_return_target(
         <i data-epsx-theme-icon="sun" data-lucide="sun" class="sun" style="display:none;"></i>
         <i data-epsx-theme-icon="moon" data-lucide="moon" class="moon"></i>
       </button>
+      {network_indicator}
       {desktop_auth}
       {compact_auth}
       <!-- Mobile menu toggle (< 640px) -->
@@ -7123,12 +7688,40 @@ pub fn epsx_header_for_session_and_return_target(
     )
 }
 
+fn short_wallet_address(address: &str) -> String {
+    let trimmed = address.trim();
+    if trimmed.chars().count() <= 10 {
+        return trimmed.to_string();
+    }
+    let prefix: String = trimmed.chars().take(6).collect();
+    let suffix: String = trimmed
+        .chars()
+        .rev()
+        .take(4)
+        .collect::<String>()
+        .chars()
+        .rev()
+        .collect();
+    format!("{prefix}…{suffix}")
+}
+
+/// Purple-to-teal prompt shown when a wallet is connected but the SIWE
+/// session is not authenticated yet. The link is server-safe and preserves
+/// the current same-origin return target.
+pub fn epsx_wallet_sign_in_banner(return_target: &str) -> String {
+    let href = html_attr_escape(&auth_href_for_return_target(return_target));
+    format!(
+        r##"<div class="epsx-sign-in-banner" role="region" aria-label="Sign-in prompt">
+  <span class="font-medium opacity-90">Your wallet is connected —</span>
+  <a href="{href}" class="epsx-sign-in-banner-action">Sign In with Wallet</a>
+  <span class="opacity-70">to access all features</span>
+</div>"##
+    )
+}
+
 fn auth_href_for_return_target(candidate: &str) -> String {
     let target = safe_shell_return_target(candidate);
-    format!(
-        "/auth?return_url={}",
-        percent_encode_query_value(target)
-    )
+    format!("/auth?return_url={}", percent_encode_query_value(target))
 }
 
 fn safe_shell_return_target(candidate: &str) -> &str {
@@ -7164,7 +7757,13 @@ fn percent_encode_query_value(value: &str) -> String {
 /// A standard page shell. Returns the complete `<!DOCTYPE html>...<body>...</body></html>`
 /// wrapper used by every BFF page. BFFs just supply the `<nav>` content and
 /// the body content.
-pub fn page_shell(title: &str, description: &str, nav: &str, body: &str, include_footer: bool) -> String {
+pub fn page_shell(
+    title: &str,
+    description: &str,
+    nav: &str,
+    body: &str,
+    include_footer: bool,
+) -> String {
     page_shell_with_body_class(title, description, nav, body, include_footer, "")
 }
 
@@ -7284,15 +7883,10 @@ mod page_head_tests {
         assert_eq!(body_content.find("<a "), Some(0));
         assert_eq!(rendered.matches(skip_link).count(), 1);
         assert_eq!(
-            rendered
-                .matches(r##"href="#epsx-main-content""##)
-                .count(),
+            rendered.matches(r##"href="#epsx-main-content""##).count(),
             1
         );
-        assert_eq!(
-            rendered.matches(r#"id="epsx-main-content""#).count(),
-            1
-        );
+        assert_eq!(rendered.matches(r#"id="epsx-main-content""#).count(), 1);
         assert_eq!(rendered.matches("<main").count(), 1);
         assert_eq!(rendered.matches("</main>").count(), 1);
         assert_eq!(body_content.matches(r#"tabindex="-1""#).count(), 1);
@@ -7347,13 +7941,7 @@ mod page_head_tests {
                 "skip link {property}"
             );
         }
-        for forbidden in [
-            "display:",
-            "visibility:",
-            "clip:",
-            "clip-path:",
-            "opacity:",
-        ] {
+        for forbidden in ["display:", "visibility:", "clip:", "clip-path:", "opacity:"] {
             assert!(
                 !skip_rule.contains(forbidden),
                 "skip link must remain accessible without {forbidden}"
@@ -7385,10 +7973,9 @@ mod page_head_tests {
         let header_z = emitted_declaration(emitted_css_rule(&head, ".epsx-header"), "z-index")
             .parse::<u32>()
             .unwrap();
-        let dropdown_z =
-            emitted_declaration(emitted_css_rule(&head, ".epsx-nav-menu"), "z-index")
-                .parse::<u32>()
-                .unwrap();
+        let dropdown_z = emitted_declaration(emitted_css_rule(&head, ".epsx-nav-menu"), "z-index")
+            .parse::<u32>()
+            .unwrap();
         assert!(skip_z > header_z);
         assert!(skip_z > dropdown_z);
         assert!(
@@ -7500,10 +8087,7 @@ mod page_head_tests {
             head.matches(&format!("\n  {button_selector} {{")).count(),
             1
         );
-        assert_eq!(
-            head.matches(&format!("\n  {input_selector} {{")).count(),
-            1
-        );
+        assert_eq!(head.matches(&format!("\n  {input_selector} {{")).count(), 1);
 
         let focus_marker = "\n  .btn:focus-visible, .input:focus-visible {";
         let focus_position = head.find(focus_marker).expect("primitive focus rule");
@@ -7568,7 +8152,9 @@ mod page_head_tests {
         }
         assert_eq!(
             signed_out
-                .matches(r#"<a href="/auth?return_url=%2F" class="epsx-connect-btn" data-epsx-auth-link"#)
+                .matches(
+                    r#"<a href="/auth?return_url=%2F" class="epsx-connect-btn" data-epsx-auth-link"#
+                )
                 .count(),
             2
         );
@@ -7579,6 +8165,11 @@ mod page_head_tests {
                 .count(),
             2
         );
+        let route_header =
+            epsx_header_for_session_and_wallet_with_network(false, "/plans", None, true);
+        assert!(route_header.contains(r#"data-epsx-network="bsc-testnet""#));
+        assert!(route_header.contains("BSC Testnet"));
+        assert!(!signed_out.contains(r#"data-epsx-network="bsc-testnet""#));
 
         let rendered_footer = footer();
         assert!(rendered_footer.starts_with(r#"<footer class="footer">"#));
@@ -7616,9 +8207,8 @@ mod page_head_tests {
         assert!(controller.contains(
             r#"<a data-epsx-mobile-auth-link class="epsx-connect-btn" style="margin-top:1rem;width:100%;text-decoration:none;">"#
         ));
-        assert!(controller.contains(
-            "if (mobileAuthLink) mobileAuthLink.setAttribute('href', sharedAuthHref);"
-        ));
+        assert!(controller
+            .contains("if (mobileAuthLink) mobileAuthLink.setAttribute('href', sharedAuthHref);"));
     }
 
     #[test]
@@ -7655,8 +8245,7 @@ mod page_head_tests {
             emitted_declaration(finite_animation, "animation"),
             "slideIn 0.3s ease-out"
         );
-        let infinite_animation =
-            emitted_css_rule(&head, ".animate-pulse-glow");
+        let infinite_animation = emitted_css_rule(&head, ".animate-pulse-glow");
         assert_eq!(
             emitted_declaration(infinite_animation, "animation"),
             "pulseGlow 2s infinite"
@@ -7685,9 +8274,7 @@ mod page_head_tests {
             delayed_both_animation,
             delayed_transition,
         ] {
-            let example_position = head
-                .find(example)
-                .expect("animation or transition example");
+            let example_position = head.find(example).expect("animation or transition example");
             assert!(
                 example_position < reduced_motion_position,
                 "reduced-motion override must follow the emitted motion it overrides"
@@ -7973,10 +8560,8 @@ mod page_head_tests {
             background[2][bound],
             1.0,
         ];
-        let foreground_luminance =
-            relative_luminance_channels(foreground[..3].try_into().unwrap());
-        let surface_luminance =
-            relative_luminance_channels(surface[..3].try_into().unwrap());
+        let foreground_luminance = relative_luminance_channels(foreground[..3].try_into().unwrap());
+        let surface_luminance = relative_luminance_channels(surface[..3].try_into().unwrap());
         if surface_is_lighter {
             assert!(foreground_luminance < surface_luminance);
         } else {
@@ -8023,11 +8608,8 @@ mod page_head_tests {
             assert_eq!(surface[3], 0.55);
             let card_envelope = fixed_color_over_envelope(surface, page_envelope);
             for (label, foreground) in [("primary", &primary), ("muted", &muted)] {
-                let actual = conservative_envelope_contrast(
-                    css_color(foreground),
-                    card_envelope,
-                    false,
-                );
+                let actual =
+                    conservative_envelope_contrast(css_color(foreground), card_envelope, false);
                 assert!(
                     actual >= 4.5,
                     "auth {label} text contrast on {surface_selector} is {actual}"
@@ -8218,29 +8800,19 @@ mod page_head_tests {
         let dark_pages = radial_over_opaque_envelope(RADIAL.map(css_color), dark_linear);
         let light_cards =
             fixed_color_over_envelope(css_color("rgba(255, 255, 255, 0.80)"), light_pages);
-        let dark_cards =
-            fixed_color_over_envelope(css_color("rgba(15, 23, 42, 0.55)"), dark_pages);
+        let dark_cards = fixed_color_over_envelope(css_color("rgba(15, 23, 42, 0.55)"), dark_pages);
         let light_rows = overlays_over_envelope(ROW_OVERLAYS.map(css_color), light_cards);
         let dark_rows = overlays_over_envelope(ROW_OVERLAYS.map(css_color), dark_cards);
 
-        let count = conservative_envelope_contrast(css_color("#9a3412"), light_pages, true)
-            .min(conservative_envelope_contrast(
-                css_color("#fdba74"),
-                dark_pages,
-                false,
-            ));
-        let time = conservative_envelope_contrast(css_color("#475569"), light_rows, true)
-            .min(conservative_envelope_contrast(
-                css_color("#94a3b8"),
-                dark_rows,
-                false,
-            ));
-        let dot = conservative_envelope_contrast(css_color("#9a3412"), light_rows, true)
-            .min(conservative_envelope_contrast(
-                css_color("#fdba74"),
-                dark_rows,
-                false,
-            ));
+        let count = conservative_envelope_contrast(css_color("#9a3412"), light_pages, true).min(
+            conservative_envelope_contrast(css_color("#fdba74"), dark_pages, false),
+        );
+        let time = conservative_envelope_contrast(css_color("#475569"), light_rows, true).min(
+            conservative_envelope_contrast(css_color("#94a3b8"), dark_rows, false),
+        );
+        let dot = conservative_envelope_contrast(css_color("#9a3412"), light_rows, true).min(
+            conservative_envelope_contrast(css_color("#fdba74"), dark_rows, false),
+        );
         for (label, actual, threshold) in [
             ("count", count, 4.5),
             ("timestamp", time, 4.5),
@@ -8281,8 +8853,7 @@ mod page_head_tests {
 
     #[test]
     fn public_copy_button_escapes_complete_onclick_attribute() {
-        let button =
-            copy_button_html("\" autofocus onfocus=\"alert(1)\"", "Copy");
+        let button = copy_button_html("\" autofocus onfocus=\"alert(1)\"", "Copy");
         let data_copy_tail = button
             .split_once("data-copy=\"")
             .expect("data-copy attribute")
@@ -8290,10 +8861,7 @@ mod page_head_tests {
         let (data_copy, after_data_copy) = data_copy_tail
             .split_once('"')
             .expect("closed data-copy attribute");
-        assert_eq!(
-            data_copy,
-            "&quot; autofocus onfocus=&quot;alert(1)&quot;"
-        );
+        assert_eq!(data_copy, "&quot; autofocus onfocus=&quot;alert(1)&quot;");
         assert!(after_data_copy.starts_with(" onclick=\""));
 
         let onclick_tail = after_data_copy
@@ -8323,10 +8891,7 @@ mod page_head_tests {
         let (text, after_text) = text_tail
             .split_once('"')
             .expect("closed share text attribute");
-        assert_eq!(
-            text,
-            "&quot; autofocus onfocus=&quot;alert(1)&quot;"
-        );
+        assert_eq!(text, "&quot; autofocus onfocus=&quot;alert(1)&quot;");
         assert!(after_text.starts_with(" data-share-title=\""));
 
         let title_tail = after_text
@@ -8335,10 +8900,7 @@ mod page_head_tests {
         let (title, after_title) = title_tail
             .split_once('"')
             .expect("closed share title attribute");
-        assert_eq!(
-            title,
-            "&quot; formaction=&quot;https://evil.invalid&quot;"
-        );
+        assert_eq!(title, "&quot; formaction=&quot;https://evil.invalid&quot;");
         assert!(after_title.starts_with(" onclick=\""));
 
         let onclick_tail = after_title
@@ -8356,10 +8918,7 @@ mod page_head_tests {
 
     #[test]
     fn public_news_submit_button_escapes_complete_onclick_attribute() {
-        let button = news_search_submit_button_html(
-            "\" autofocus onfocus=\"alert(1)\"",
-            "Search",
-        );
+        let button = news_search_submit_button_html("\" autofocus onfocus=\"alert(1)\"", "Search");
         let onclick_tail = button
             .split_once("onclick=\"")
             .expect("news submit onclick attribute")
@@ -8896,10 +9455,7 @@ async function flushPromises() {{
                 1,
                 "each shared shell variant must expose one marked theme control"
             );
-            assert_eq!(
-                rendered.matches(r#"data-epsx-theme-icon="sun""#).count(),
-                1
-            );
+            assert_eq!(rendered.matches(r#"data-epsx-theme-icon="sun""#).count(), 1);
             assert_eq!(
                 rendered.matches(r#"data-epsx-theme-icon="moon""#).count(),
                 1
@@ -8907,7 +9463,9 @@ async function flushPromises() {{
             let marked_opener = rendered
                 .split('<')
                 .map(|tail| tail.split_once('>').map_or(tail, |(opener, _)| opener))
-                .find(|opener| opener.starts_with("button ") && opener.contains("data-epsx-theme-toggle"))
+                .find(|opener| {
+                    opener.starts_with("button ") && opener.contains("data-epsx-theme-toggle")
+                })
                 .expect("marked theme button opener");
             assert!(marked_opener.contains(r#"aria-label="Toggle theme""#));
             assert!(marked_opener.contains(r#"onclick="epsx.toggleTheme()""#));
@@ -8922,10 +9480,7 @@ async function flushPromises() {{
                 .map(|tail| tail.split_once('>').map_or(tail, |(opener, _)| opener))
                 .filter(|opener| opener.contains("epsx-theme-btn"))
                 .collect();
-            assert_eq!(
-                shared_class_openers.len(),
-                expected_shared_class_openers
-            );
+            assert_eq!(shared_class_openers.len(), expected_shared_class_openers);
             assert_eq!(
                 shared_class_openers
                     .iter()
@@ -9104,9 +9659,8 @@ assert.equal(fetchCalls, 0);
             .0;
         assert!(mobile_connect_anchor.contains("Connect Wallet"));
         assert!(!mobile_connect_anchor.contains("href="));
-        assert!(script.contains(
-            "if (mobileAuthLink) mobileAuthLink.setAttribute('href', sharedAuthHref);"
-        ));
+        assert!(script
+            .contains("if (mobileAuthLink) mobileAuthLink.setAttribute('href', sharedAuthHref);"));
         for unsupported in [
             "function openAuth",
             "function closeAuth",
@@ -9126,8 +9680,7 @@ assert.equal(fetchCalls, 0);
 
     #[test]
     fn shared_connect_controls_encode_exact_safe_return_target_and_reject_hostile_values() {
-        let expected_href =
-            "/auth?return_url=%2Fnews%2Fexample%3Fq%3Deps%26category%3Dmarkets";
+        let expected_href = "/auth?return_url=%2Fnews%2Fexample%3Fq%3Deps%26category%3Dmarkets";
         let public = epsx_header_for_session_and_return_target(
             false,
             "/news/example?q=eps&category=markets",
@@ -9178,6 +9731,28 @@ assert.equal(fetchCalls, 0);
             assert!(!header.contains("evil.example"), "{hostile:?}");
             assert!(!header.contains("href=\"/auth\""), "{hostile:?}");
         }
+    }
+
+    #[test]
+    fn connected_wallet_shell_matches_source_banner_and_escapes_cookie_values() {
+        let header = epsx_header_for_session_and_wallet(
+            false,
+            "/news/example",
+            Some("0xea6400000000000000000000000000000000E3dF"),
+        );
+        assert!(header.contains("class=\"epsx-wallet-pill\""));
+        assert!(header.contains("0xea64…E3dF"));
+        assert!(!header.contains("data-epsx-auth-link"));
+
+        let banner = epsx_wallet_sign_in_banner("/news/example");
+        assert!(banner.contains("Your wallet is connected"));
+        assert!(banner.contains("Sign In with Wallet"));
+        assert!(banner.contains("return_url=%2Fnews%2Fexample"));
+
+        let hostile =
+            epsx_header_for_session_and_wallet(false, "/", Some("<img src=x onerror=alert(1)>"));
+        assert!(!hostile.contains("<img"));
+        assert!(hostile.contains("&lt;img"));
     }
 
     #[test]
@@ -9340,8 +9915,7 @@ assert.equal(fetchCalls, 0);
     fn completed_shell_names_primary_and_footer_navigation_landmarks() {
         for authenticated in [false, true] {
             let header = epsx_header_for_session(authenticated);
-            let primary =
-                r#"<nav class="hidden md:flex items-center gap-1" aria-label="Primary">"#;
+            let primary = r#"<nav class="hidden md:flex items-center gap-1" aria-label="Primary">"#;
             assert_eq!(header.matches("<nav ").count(), 1);
             assert_eq!(header.matches(primary).count(), 1);
             assert!(!header.contains(r#"role="navigation""#));
@@ -9363,9 +9937,7 @@ assert.equal(fetchCalls, 0);
                 "footer-company-heading",
             ] {
                 assert_eq!(
-                    shell
-                        .matches(&format!(r#"id="{footer_heading}""#))
-                        .count(),
+                    shell.matches(&format!(r#"id="{footer_heading}""#)).count(),
                     1
                 );
                 assert_eq!(
@@ -9732,6 +10304,50 @@ assert.equal(document.body.style.overflow, 'clip');
     }
 
     #[test]
+    fn shared_header_collapses_to_compact_actions_at_source_tablet_breakpoint() {
+        let head = design_system_head(
+            "Responsive shared header",
+            "The source navbar is desktop at lg and compact below 1024px",
+        );
+        assert!(head.contains("@media (max-width: 1023px)"));
+        assert!(head.contains(".epsx-header > div > div:first-child { display: none !important; }"));
+        assert!(head.contains(".epsx-header > div > a { display: flex !important; }"));
+        assert!(head.contains(
+            ".epsx-header > div > div:last-child > div[class~=\"md:flex\"] { display: none !important; }"
+        ));
+        assert!(head.contains(
+            ".epsx-header > div > div:last-child > div[class~=\"md:hidden\"] { display: flex !important; }"
+        ));
+        assert!(head
+            .contains(".epsx-header #epsx-mobile-menu-btn { display: inline-flex !important; }"));
+        // Under the source mobile breakpoint, the compact wallet action is
+        // removed again so only the logo and hamburger remain.
+        assert!(head.contains(
+            ".epsx-header > div > div:last-child > div[class~=\"md:hidden\"] { display: none !important; }"
+        ));
+    }
+
+    #[test]
+    fn compact_page_controls_preserve_source_geometry() {
+        let head = design_system_head(
+            "Responsive page controls",
+            "Auth, offline, and mobile layouts retain their source geometry",
+        );
+        assert!(head.contains(".auth-card-cta .connect-btn-wrap { display: flex; width: 100%; }"));
+        assert!(
+            head.contains(".auth-card-cta .connect-btn { display: flex; width: 100% !important;")
+        );
+        assert!(head.contains(".auth-page-form-col { padding-left: 1rem; padding-right: 1rem; }"));
+        assert!(head.contains(".auth-page-status-wide { display: none; }"));
+        assert!(head.contains(".auth-page-status-compact { display: inline; }"));
+        assert!(head.contains("min-height: calc(100vh + 7rem)"));
+        assert!(head.contains(".offline-icon svg { width: 2.5rem; height: 2.5rem; }"));
+        assert!(head.contains(
+            ".home-prod-hero:not(.home-prod-hero-signed-out) > .home-prod-hero-inner { transform: none; }"
+        ));
+    }
+
+    #[test]
     fn shared_navigation_preserves_routes_labels_and_order_with_truthful_descriptions() {
         fn assert_routes_in_order(rendered: &str, routes: &[&str]) {
             let mut tail = rendered;
@@ -9819,10 +10435,7 @@ assert.equal(document.body.style.overflow, 'clip');
     #[test]
     fn header_exposes_truthful_session_action_without_policy_logic() {
         let public = epsx_header_for_session(false);
-        assert_eq!(
-            public.matches("href=\"/auth?return_url=%2F\"").count(),
-            2
-        );
+        assert_eq!(public.matches("href=\"/auth?return_url=%2F\"").count(), 2);
         assert_eq!(public.matches("data-epsx-auth-link").count(), 2);
         assert!(!public.contains("href=\"/auth\""));
         assert!(public.contains("data-epsx-authenticated=\"false\""));

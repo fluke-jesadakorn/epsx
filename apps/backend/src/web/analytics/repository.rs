@@ -1,12 +1,12 @@
 // TradingView EPS Repository Implementation
 // Domain repository adapter for TradingView data source
 
-use std::sync::Arc;
 use async_trait::async_trait;
+use std::sync::Arc;
 
-use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
 use crate::domain::market_analytics::services::eps_ranking_service::EPSRepository;
 use crate::domain::shared_kernel::entities::eps_growth::{EPSGrowthData, EPSRanking};
+use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
 use epsx_contracts::errors::AppError;
 
 /// TradingView-based EPS Repository implementation
@@ -17,7 +17,9 @@ pub struct TradingViewEPSRepository {
 
 impl TradingViewEPSRepository {
     pub fn new(tradingview_service: Arc<TradingViewApiService>) -> Self {
-        Self { tradingview_service }
+        Self {
+            tradingview_service,
+        }
     }
 
     /// Convert TradingView screening results to EPSRanking format
@@ -38,13 +40,16 @@ impl TradingViewEPSRepository {
 
         // Convert TradingView earnings timestamps to strings for EPSGrowthData
         let next_earnings_date_str = result.next_earnings_date.and_then(|ts| {
-            chrono::DateTime::from_timestamp(ts as i64, 0)
-                .map(|dt| {
-                    let date_str = dt.format("%Y-%m-%d").to_string();
-                    tracing::info!("[{}] next_earnings_date: {} -> {}",
-                        result.symbol, ts, date_str);
+            chrono::DateTime::from_timestamp(ts as i64, 0).map(|dt| {
+                let date_str = dt.format("%Y-%m-%d").to_string();
+                tracing::info!(
+                    "[{}] next_earnings_date: {} -> {}",
+                    result.symbol,
+                    ts,
                     date_str
-                })
+                );
+                date_str
+            })
         });
 
         let last_earnings_date_str = result.last_earnings_date.and_then(|ts| {
@@ -53,7 +58,10 @@ impl TradingViewEPSRepository {
         });
 
         if next_earnings_date_str.is_none() && last_earnings_date_str.is_none() {
-            tracing::warn!("[{}] NO earnings dates from TradingView - will use fallback", result.symbol);
+            tracing::warn!(
+                "[{}] NO earnings dates from TradingView - will use fallback",
+                result.symbol
+            );
         }
 
         EPSRanking::from_eps_data(
@@ -74,7 +82,7 @@ impl TradingViewEPSRepository {
                 next_earnings_date: next_earnings_date_str,
                 last_earnings_date: last_earnings_date_str,
             },
-            Some(rank)
+            Some(rank),
         )
     }
 }
@@ -98,25 +106,22 @@ impl EPSRepository for TradingViewEPSRepository {
         // Apply rank offset: skip to the user's accessible rank range
         let skip = rank_offset + (page - 1) * limit;
 
-        let (screening_results, _total) = self.tradingview_service
-            .fetch_eps_growth_ranking(
-                Some(skip),
-                Some(limit),
-                country,
-                sector,
-                sort_by
-            )
+        let (screening_results, _total) = self
+            .tradingview_service
+            .fetch_eps_growth_ranking(Some(skip), Some(limit), country, sector, sort_by)
             .await
-            .map_err(|e| AppError::new(
-                epsx_contracts::errors::ErrorKind::ExternalServiceError,
-                format!("TradingView API error: {}", e)
-            ))?;
+            .map_err(|e| {
+                AppError::new(
+                    epsx_contracts::errors::ErrorKind::ExternalServiceError,
+                    format!("TradingView API error: {}", e),
+                )
+            })?;
 
         let rankings = screening_results
             .into_iter()
             .enumerate()
             .map(|(i, result)| {
-                let rank = skip + i as i32 + 1;  // Actual rank includes offset
+                let rank = skip + i as i32 + 1; // Actual rank includes offset
                 self.convert_screening_to_eps_ranking(result, rank)
             })
             .collect();
@@ -124,28 +129,39 @@ impl EPSRepository for TradingViewEPSRepository {
         Ok(rankings)
     }
 
-    async fn get_total_count(&self, rank_offset: i32, country: Option<String>, sector: Option<String>) -> Result<i64, AppError> {
+    async fn get_total_count(
+        &self,
+        rank_offset: i32,
+        country: Option<String>,
+        sector: Option<String>,
+    ) -> Result<i64, AppError> {
         // For TradingView, we'll return a reasonable estimate since exact count isn't always available
-        let (_results, total) = self.tradingview_service
+        let (_results, total) = self
+            .tradingview_service
             .fetch_eps_growth_ranking(
                 Some(0),
                 Some(1), // Just get first item to get total count
                 country,
                 sector,
-                None
+                None,
             )
             .await
-            .map_err(|e| AppError::new(
-                epsx_contracts::errors::ErrorKind::ExternalServiceError,
-                format!("TradingView API error: {}", e)
-            ))?;
+            .map_err(|e| {
+                AppError::new(
+                    epsx_contracts::errors::ErrorKind::ExternalServiceError,
+                    format!("TradingView API error: {}", e),
+                )
+            })?;
 
         // Return count of accessible ranks (total - offset)
         let accessible_count = (total - rank_offset).max(0) as i64;
         Ok(accessible_count)
     }
 
-    async fn batch_store_eps_data(&self, _eps_data_list: Vec<EPSGrowthData>) -> Result<usize, AppError> {
+    async fn batch_store_eps_data(
+        &self,
+        _eps_data_list: Vec<EPSGrowthData>,
+    ) -> Result<usize, AppError> {
         // TradingView is read-only, so batch storage is not supported
         Ok(0)
     }
@@ -163,7 +179,10 @@ impl EPSRepository for TradingViewEPSRepository {
         ])
     }
 
-    async fn get_sectors_by_country(&self, _country: Option<String>) -> Result<Vec<String>, AppError> {
+    async fn get_sectors_by_country(
+        &self,
+        _country: Option<String>,
+    ) -> Result<Vec<String>, AppError> {
         // Return common sectors available in TradingView
         Ok(vec![
             "Technology".to_string(),

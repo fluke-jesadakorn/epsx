@@ -10,7 +10,7 @@
 // keep compiling during the migration window.
 
 use chrono::{DateTime, Utc};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use uuid::Uuid;
 
@@ -93,12 +93,12 @@ impl InMemoryEventBus {
             events: std::sync::RwLock::new(Vec::new()),
         }
     }
-    
+
     pub fn published_events(&self) -> Vec<String> {
         let events = self.events.read().unwrap();
         events.clone()
     }
-    
+
     pub fn clear_events(&self) {
         let mut events = self.events.write().unwrap();
         events.clear();

@@ -8,8 +8,8 @@
 //! - Payments are tied to context (group/plan/link) enabling flexible feature unlocking
 //! - Default expiration: 24 hours, multi-use by default
 
+use crate::domain::shared_kernel::{AggregateBase, AggregateRoot, DomainEvent};
 use crate::prelude::*;
-use crate::domain::shared_kernel::{AggregateRoot, AggregateBase, DomainEvent};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -109,18 +109,18 @@ impl std::fmt::Display for PaymentContextId {
 pub struct PaymentContext {
     id: PaymentContextId,
     context_type: PaymentContextType,
-    context_id: Option<Uuid>,       // UUID of plan, group, etc.
-    slug: String,                    // URL-friendly identifier
-    name: String,                    // Display name
+    context_id: Option<Uuid>, // UUID of plan, group, etc.
+    slug: String,             // URL-friendly identifier
+    name: String,             // Display name
     description: Option<String>,
     amount: rust_decimal::Decimal,
     currency: String,
-    expires_at: Option<DateTime<Utc>>,  // Default: 24 hours from creation
-    max_uses: Option<i32>,              // Default: None (multi-use)
+    expires_at: Option<DateTime<Utc>>, // Default: 24 hours from creation
+    max_uses: Option<i32>,             // Default: None (multi-use)
     current_uses: i32,
     metadata: serde_json::Value,
     is_active: bool,
-    created_by: String,                 // Wallet address of creator
+    created_by: String, // Wallet address of creator
     base: AggregateBase,
 }
 
@@ -181,13 +181,17 @@ impl PaymentContext {
     pub fn create(id: PaymentContextId, params: CreatePaymentContextParams) -> AppResult<Self> {
         // Generate slug if not provided
         let slug = params.slug.unwrap_or_else(|| {
-            format!("{}-{}", params.context_type.as_str(), &Uuid::new_v4().to_string()[..8])
+            format!(
+                "{}-{}",
+                params.context_type.as_str(),
+                &Uuid::new_v4().to_string()[..8]
+            )
         });
 
         // Default expiration: 24 hours from now
-        let expires_at = params.expires_at.or_else(|| {
-            Some(Utc::now() + chrono::Duration::hours(DEFAULT_EXPIRATION_HOURS))
-        });
+        let expires_at = params
+            .expires_at
+            .or_else(|| Some(Utc::now() + chrono::Duration::hours(DEFAULT_EXPIRATION_HOURS)));
 
         Ok(Self {
             id,
@@ -199,7 +203,7 @@ impl PaymentContext {
             amount: params.amount,
             currency: params.currency,
             expires_at,
-            max_uses: params.max_uses,  // None = multi-use (unlimited)
+            max_uses: params.max_uses, // None = multi-use (unlimited)
             current_uses: 0,
             metadata: params.metadata.unwrap_or_else(|| serde_json::json!({})),
             is_active: true,
@@ -271,7 +275,9 @@ impl PaymentContext {
     pub fn increment_usage(&mut self) -> AppResult<()> {
         // Check if still usable
         if !self.is_usable() {
-            return Err(AppError::validation_error("Payment link is no longer usable"));
+            return Err(AppError::validation_error(
+                "Payment link is no longer usable",
+            ));
         }
 
         self.current_uses += 1;
@@ -318,8 +324,8 @@ impl PaymentContext {
     /// Compute link hash for smart contract verification
     pub fn compute_link_hash(&self) -> [u8; 32] {
         // Simple hash placeholder - in production use sha3::Keccak256
-        use std::hash::{Hash, Hasher};
         use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
         let mut hasher = DefaultHasher::new();
         self.slug.hash(&mut hasher);
         let hash = hasher.finish();
@@ -330,33 +336,77 @@ impl PaymentContext {
     }
 
     // Getters
-    pub fn id(&self) -> &PaymentContextId { &self.id }
-    pub fn context_type(&self) -> PaymentContextType { self.context_type }
-    pub fn context_id(&self) -> Option<&Uuid> { self.context_id.as_ref() }
-    pub fn slug(&self) -> &str { &self.slug }
-    pub fn name(&self) -> &str { &self.name }
-    pub fn description(&self) -> Option<&str> { self.description.as_deref() }
-    pub fn amount(&self) -> rust_decimal::Decimal { self.amount }
-    pub fn currency(&self) -> &str { &self.currency }
-    pub fn expires_at(&self) -> Option<DateTime<Utc>> { self.expires_at }
-    pub fn max_uses(&self) -> Option<i32> { self.max_uses }
-    pub fn current_uses(&self) -> i32 { self.current_uses }
-    pub fn metadata(&self) -> &serde_json::Value { &self.metadata }
-    pub fn is_active(&self) -> bool { self.is_active }
-    pub fn created_by(&self) -> &str { &self.created_by }
+    pub fn id(&self) -> &PaymentContextId {
+        &self.id
+    }
+    pub fn context_type(&self) -> PaymentContextType {
+        self.context_type
+    }
+    pub fn context_id(&self) -> Option<&Uuid> {
+        self.context_id.as_ref()
+    }
+    pub fn slug(&self) -> &str {
+        &self.slug
+    }
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+    pub fn description(&self) -> Option<&str> {
+        self.description.as_deref()
+    }
+    pub fn amount(&self) -> rust_decimal::Decimal {
+        self.amount
+    }
+    pub fn currency(&self) -> &str {
+        &self.currency
+    }
+    pub fn expires_at(&self) -> Option<DateTime<Utc>> {
+        self.expires_at
+    }
+    pub fn max_uses(&self) -> Option<i32> {
+        self.max_uses
+    }
+    pub fn current_uses(&self) -> i32 {
+        self.current_uses
+    }
+    pub fn metadata(&self) -> &serde_json::Value {
+        &self.metadata
+    }
+    pub fn is_active(&self) -> bool {
+        self.is_active
+    }
+    pub fn created_by(&self) -> &str {
+        &self.created_by
+    }
 }
 
 impl AggregateRoot for PaymentContext {
     type Id = PaymentContextId;
 
-    fn id(&self) -> &Self::Id { &self.id }
-    fn version(&self) -> u64 { self.base.version }
-    fn increment_version(&mut self) { self.base.increment_version(); }
-    fn uncommitted_events(&self) -> &[Box<dyn DomainEvent>] { self.base.uncommitted_events() }
-    fn mark_events_as_committed(&mut self) { self.base.mark_events_as_committed(); }
-    fn created_at(&self) -> DateTime<Utc> { self.base.created_at }
-    fn updated_at(&self) -> DateTime<Utc> { self.base.updated_at }
-    fn touch(&mut self) { self.base.touch(); }
+    fn id(&self) -> &Self::Id {
+        &self.id
+    }
+    fn version(&self) -> u64 {
+        self.base.version
+    }
+    fn increment_version(&mut self) {
+        self.base.increment_version();
+    }
+    fn uncommitted_events(&self) -> &[Box<dyn DomainEvent>] {
+        self.base.uncommitted_events()
+    }
+    fn mark_events_as_committed(&mut self) {
+        self.base.mark_events_as_committed();
+    }
+    fn created_at(&self) -> DateTime<Utc> {
+        self.base.created_at
+    }
+    fn updated_at(&self) -> DateTime<Utc> {
+        self.base.updated_at
+    }
+    fn touch(&mut self) {
+        self.base.touch();
+    }
 }
 
 /// Payment Context Error

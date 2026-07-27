@@ -1,13 +1,12 @@
-use std::sync::Arc;
-use async_trait::async_trait;
 use crate::domain::market_analytics::repository_ports::{
-    MarketDataScannerPort, MarketRankingsPage, MarketRankingsProviderPort,
-    MarketRankingsRequest,
+    MarketDataScannerPort, MarketRankingsPage, MarketRankingsProviderPort, MarketRankingsRequest,
 };
 use crate::domain::shared_kernel::entities::eps_growth::EPSGrowthData;
-use epsx_contracts::errors::{AppError, ErrorKind};
-use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
 use crate::infrastructure::adapters::services::tradingview::types::MarketDataError;
+use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
+use async_trait::async_trait;
+use epsx_contracts::errors::{AppError, ErrorKind};
+use std::sync::Arc;
 use tracing::error;
 
 /// Adapter that implements MarketDataScannerPort for TradingView API service
@@ -29,30 +28,49 @@ impl MarketDataScannerPort for TradingViewAdapter {
     async fn fetch_eps_data(&self, symbol: &str) -> Result<Option<EPSGrowthData>, AppError> {
         // Fetch data for a single symbol using TradingView API
         let symbols = vec![symbol.to_string()];
-        let results = self.tradingview_service.fetch_symbols_concurrent(symbols).await
-            .map_err(|e| AppError::external_service_error(format!("TradingView API error: {}", e)))?;
-        
+        let results = self
+            .tradingview_service
+            .fetch_symbols_concurrent(symbols)
+            .await
+            .map_err(|e| {
+                AppError::external_service_error(format!("TradingView API error: {}", e))
+            })?;
+
         Ok(results.into_iter().next())
     }
-    
-    async fn fetch_batch_eps_data(&self, symbols: &[String]) -> Result<Vec<EPSGrowthData>, AppError> {
+
+    async fn fetch_batch_eps_data(
+        &self,
+        symbols: &[String],
+    ) -> Result<Vec<EPSGrowthData>, AppError> {
         let symbols_vec = symbols.to_vec();
-        self.tradingview_service.fetch_symbols_concurrent(symbols_vec).await
-            .map_err(|e| AppError::external_service_error(format!("TradingView batch API error: {}", e)))
+        self.tradingview_service
+            .fetch_symbols_concurrent(symbols_vec)
+            .await
+            .map_err(|e| {
+                AppError::external_service_error(format!("TradingView batch API error: {}", e))
+            })
     }
-    
+
     async fn health_check(&self) -> Result<(), AppError> {
-        self.tradingview_service.test_connections().await
-            .map_err(|e| AppError::external_service_error(format!("TradingView connection test failed: {}", e)))
+        self.tradingview_service
+            .test_connections()
+            .await
+            .map_err(|e| {
+                AppError::external_service_error(format!(
+                    "TradingView connection test failed: {}",
+                    e
+                ))
+            })
             .map(|_| ())
     }
-    
+
     async fn get_countries(&self) -> Result<Vec<String>, AppError> {
         // TradingView API doesn't directly provide countries list
         // Return commonly supported countries
         Ok(vec![
             "america".to_string(),
-            "europe".to_string(), 
+            "europe".to_string(),
             "asia".to_string(),
             "us".to_string(),
             "gb".to_string(),
@@ -61,8 +79,11 @@ impl MarketDataScannerPort for TradingViewAdapter {
             "cn".to_string(),
         ])
     }
-    
-    async fn get_sectors_by_country(&self, _country: Option<&str>) -> Result<Vec<String>, AppError> {
+
+    async fn get_sectors_by_country(
+        &self,
+        _country: Option<&str>,
+    ) -> Result<Vec<String>, AppError> {
         // TradingView API doesn't directly provide sectors by country
         // Return commonly supported sectors
         Ok(vec![
@@ -78,8 +99,12 @@ impl MarketDataScannerPort for TradingViewAdapter {
             "real_estate".to_string(),
         ])
     }
-    
-    async fn search_symbols(&self, _query: &str, _limit: Option<usize>) -> Result<Vec<String>, AppError> {
+
+    async fn search_symbols(
+        &self,
+        _query: &str,
+        _limit: Option<usize>,
+    ) -> Result<Vec<String>, AppError> {
         // For now, return empty as TradingView API doesn't have direct symbol search
         // This could be enhanced later with actual TradingView symbol search functionality
         Ok(vec![])
@@ -92,7 +117,8 @@ impl MarketRankingsProviderPort for TradingViewAdapter {
         &self,
         request: MarketRankingsRequest,
     ) -> Result<MarketRankingsPage, AppError> {
-        let (items, total) = self.tradingview_service
+        let (items, total) = self
+            .tradingview_service
             .fetch_eps_growth_ranking_once(
                 request.skip,
                 request.limit,
@@ -111,12 +137,16 @@ fn map_rankings_error(error: MarketDataError) -> AppError {
     error!(error_kind = %market_data_error_kind(&error), "market rankings provider attempt failed");
 
     match error {
-        MarketDataError::HttpStatus(408 | 504) =>
-            AppError::new(ErrorKind::TimeoutError, "Market rankings provider timeout"),
-        MarketDataError::HttpStatus(429 | 500..=599) =>
-            AppError::new(ErrorKind::ServiceUnavailable, "Market rankings provider unavailable"),
-        MarketDataError::NetworkError(_) | MarketDataError::ConnectionError(_) =>
-            AppError::network_error("Market rankings provider network failure"),
+        MarketDataError::HttpStatus(408 | 504) => {
+            AppError::new(ErrorKind::TimeoutError, "Market rankings provider timeout")
+        }
+        MarketDataError::HttpStatus(429 | 500..=599) => AppError::new(
+            ErrorKind::ServiceUnavailable,
+            "Market rankings provider unavailable",
+        ),
+        MarketDataError::NetworkError(_) | MarketDataError::ConnectionError(_) => {
+            AppError::network_error("Market rankings provider network failure")
+        }
         _ => AppError::external_service_error("Market rankings provider failure"),
     }
 }

@@ -85,7 +85,10 @@ fn load_env_file(path: &Path, protected_keys: &[String]) -> Result<(), dotenv::E
 
     for item in iter {
         let (key, value) = item?;
-        if protected_keys.iter().any(|protected_key| protected_key == &key) {
+        if protected_keys
+            .iter()
+            .any(|protected_key| protected_key == &key)
+        {
             continue;
         }
 
@@ -174,9 +177,7 @@ impl Config {
         };
 
         // Helper function to get optional env var
-        let get_optional = |key: &str| -> Option<String> {
-            env::var(key).ok()
-        };
+        let get_optional = |key: &str| -> Option<String> { env::var(key).ok() };
 
         // Helper function to get env var with default
         let get_with_default = |key: &str, default: &str| -> String {
@@ -195,24 +196,39 @@ impl Config {
                 } else {
                     url
                 }
-            },
+            }
             Err(e) => {
                 errors.push(e);
                 String::new()
             }
         };
 
+        let backend_url = get_with_default(
+            "BACKEND_URL",
+            if Self::is_development() {
+                "http://localhost:8080"
+            } else {
+                ""
+            },
+        );
 
-        let backend_url = get_with_default("BACKEND_URL", 
-            if Self::is_development() { "http://localhost:8080" } else { "" });
+        let frontend_url = get_with_default(
+            "FRONTEND_URL",
+            if Self::is_development() {
+                "http://localhost:3000"
+            } else {
+                ""
+            },
+        );
+        let admin_frontend_url = get_with_default(
+            "ADMIN_FRONTEND_URL",
+            if Self::is_development() {
+                "http://localhost:3001"
+            } else {
+                ""
+            },
+        );
 
-
-
-        let frontend_url = get_with_default("FRONTEND_URL", 
-            if Self::is_development() { "http://localhost:3000" } else { "" });
-        let admin_frontend_url = get_with_default("ADMIN_FRONTEND_URL", 
-            if Self::is_development() { "http://localhost:3001" } else { "" });
-        
         // Validate required URLs in production
         if !Self::is_development() {
             if backend_url.is_empty() {
@@ -240,15 +256,18 @@ impl Config {
         // Blockchain Infrastructure - with fallbacks to free RPC endpoints
         let ethereum_rpc_url = get_with_default("ETHEREUM_RPC_URL", "https://eth.llamarpc.com");
         let polygon_rpc_url = get_with_default("POLYGON_RPC_URL", "https://polygon.llamarpc.com");
-        let arbitrum_rpc_url = get_with_default("ARBITRUM_RPC_URL", "https://arbitrum.llamarpc.com");
-        let optimism_rpc_url = get_with_default("OPTIMISM_RPC_URL", "https://optimism.llamarpc.com");
+        let arbitrum_rpc_url =
+            get_with_default("ARBITRUM_RPC_URL", "https://arbitrum.llamarpc.com");
+        let optimism_rpc_url =
+            get_with_default("OPTIMISM_RPC_URL", "https://optimism.llamarpc.com");
         let base_rpc_url = get_with_default("BASE_RPC_URL", "https://base.llamarpc.com");
         let bsc_rpc_url = get_with_default("BSC_RPC_URL", "https://bsc-dataseed.binance.org");
 
         // WebSocket endpoints for real-time subscriptions
         let ethereum_ws_url = get_with_default("WS_URL_ETHEREUM", "wss://eth.llamarpc.com");
         let polygon_ws_url = get_with_default("WS_URL_POLYGON", "wss://polygon-bor.publicnode.com");
-        let arbitrum_ws_url = get_with_default("WS_URL_ARBITRUM", "wss://arbitrum-one.publicnode.com");
+        let arbitrum_ws_url =
+            get_with_default("WS_URL_ARBITRUM", "wss://arbitrum-one.publicnode.com");
         let optimism_ws_url = get_with_default("WS_URL_OPTIMISM", "wss://optimism.publicnode.com");
         let base_ws_url = get_with_default("WS_URL_BASE", "wss://base.publicnode.com");
         let bsc_ws_url = get_with_default("WS_URL_BSC", "wss://bsc-ws-node.nariox.org:443");
@@ -273,14 +292,14 @@ impl Config {
         // keccak256("PaymentReceived(address,uint256,address,uint256,uint256,uint256)")
         let payment_event_topic = get_with_default(
             "PAYMENT_EVENT_TOPIC",
-            "0xa7f9e7f4f9c6e7e3d8b3a2f1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1"
+            "0xa7f9e7f4f9c6e7e3d8b3a2f1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1",
         );
 
         // Enterprise Web3 Features - Optional
         let enterprise_nft_contract = get_optional("ENTERPRISE_NFT_CONTRACT");
         let enterprise_dao_contract = get_optional("ENTERPRISE_DAO_CONTRACT");
         let enterprise_governance_token = get_optional("ENTERPRISE_GOVERNANCE_TOKEN");
-        
+
         // Blockchain Network Configuration
         let blockchain_network = get_with_default("NEXT_PUBLIC_BLOCKCHAIN_NETWORK", "testnet");
 
@@ -294,7 +313,7 @@ impl Config {
         // Parse supported tokens from comma-separated env var or strict defaults
         let supported_tokens_str = get_with_default("SUPPORTED_PAYMENT_TOKENS", 
             "0x55d398326f99059fF775485246999027B3197955,0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d,0x337610d27c682E347C9cD60BD4b3b107C9d34dDD,0x64544969ed7EBf5f083679233325356EbE738930");
-        
+
         let supported_payment_tokens = supported_tokens_str
             .split(',')
             .map(|s| s.trim().to_string())
@@ -348,14 +367,14 @@ impl Config {
 
     /// Check if running in development environment
     fn is_development() -> bool {
-        env::var("RUST_ENV").unwrap_or_else(|_| "development".to_string()) == "development" ||
-        env::var("NODE_ENV").unwrap_or_else(|_| "development".to_string()) == "development"
+        env::var("RUST_ENV").unwrap_or_else(|_| "development".to_string()) == "development"
+            || env::var("NODE_ENV").unwrap_or_else(|_| "development".to_string()) == "development"
     }
 
     /// Check if running in production environment
     pub fn is_production(&self) -> bool {
-        env::var("RUST_ENV").unwrap_or_default() == "production" ||
-        env::var("NODE_ENV").unwrap_or_default() == "production"
+        env::var("RUST_ENV").unwrap_or_default() == "production"
+            || env::var("NODE_ENV").unwrap_or_default() == "production"
     }
 
     /// Get Web3 challenge endpoint
@@ -440,12 +459,12 @@ pub fn load_env() {
 /// Initialize and validate configuration
 pub fn init_config() -> Config {
     load_env();
-    
+
     match Config::from_env() {
         Ok(config) => {
             println!("Environment validation passed");
             config
-        },
+        }
         Err(errors) => {
             eprintln!("Environment validation failed:");
             for error in &errors {
@@ -488,7 +507,8 @@ pub fn get_fallback_config() -> Config {
         arbitrum_payment_contract: None,
         optimism_payment_contract: None,
         base_payment_contract: None,
-        payment_event_topic: "0xa7f9e7f4f9c6e7e3d8b3a2f1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1".to_string(),
+        payment_event_topic: "0xa7f9e7f4f9c6e7e3d8b3a2f1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1"
+            .to_string(),
         enterprise_nft_contract: None,
         enterprise_dao_contract: None,
         enterprise_governance_token: None,
@@ -508,9 +528,9 @@ pub fn get_fallback_config() -> Config {
 /// Get BSC chain ID based on the blockchain network environment
 pub fn get_bsc_chain_id(blockchain_network: &str) -> u64 {
     match blockchain_network {
-        "mainnet" => 56,  // BSC Mainnet
-        "testnet" => 97,  // BSC Testnet
-        _ => 97, // Default to testnet for safety
+        "mainnet" => 56, // BSC Mainnet
+        "testnet" => 97, // BSC Testnet
+        _ => 97,         // Default to testnet for safety
     }
 }
 pub fn get_database_url() -> String {
@@ -524,8 +544,8 @@ pub fn get_log_level() -> String {
 }
 
 pub fn is_production() -> bool {
-    env::var("RUST_ENV").unwrap_or_default() == "production" ||
-    env::var("NODE_ENV").unwrap_or_default() == "production"
+    env::var("RUST_ENV").unwrap_or_default() == "production"
+        || env::var("NODE_ENV").unwrap_or_default() == "production"
 }
 
 pub fn is_development() -> bool {

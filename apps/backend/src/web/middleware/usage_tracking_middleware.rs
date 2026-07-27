@@ -1,19 +1,19 @@
+use crate::infrastructure::container::DomainContainer;
+use crate::schemas::infra_logs::analytics_events; // Import the new table
+use crate::schemas::infra_logs::api_key_usage_logs;
+use crate::schemas::primary::api_keys;
+use crate::web::middleware::auth_middleware::Web3AuthContext;
+use crate::web::middleware::bearer_middleware::OpenIDUserContext;
 use axum::{
     extract::{Request, State},
     middleware::Next,
     response::Response,
 };
-use std::sync::Arc;
-use tracing::{error, warn, info};
 use chrono::Utc;
-use crate::infrastructure::container::DomainContainer;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use crate::schemas::primary::api_keys;
-use crate::schemas::infra_logs::api_key_usage_logs;
-use crate::schemas::infra_logs::analytics_events; // Import the new table
-use crate::web::middleware::auth_middleware::Web3AuthContext;
-use crate::web::middleware::bearer_middleware::OpenIDUserContext;
+use std::sync::Arc;
+use tracing::{error, info, warn};
 
 #[derive(Insertable)]
 #[diesel(table_name = analytics_events)]
@@ -40,14 +40,16 @@ pub async fn usage_tracking_middleware(
     let path = request.uri().path().to_string();
 
     // Extract API key ID from OpenIDUserContext if auth_method == "api_key"
-    let api_key_id_from_ctx = request.extensions()
+    let api_key_id_from_ctx = request
+        .extensions()
         .get::<OpenIDUserContext>()
         .filter(|ctx| ctx.auth_method == "api_key")
         .and_then(|ctx| uuid::Uuid::parse_str(&ctx.jti).ok());
 
     // Fallback: legacy x-api-key header
     let api_key_id = api_key_id_from_ctx.or_else(|| {
-        request.headers()
+        request
+            .headers()
             .get("x-api-key")
             .and_then(|h| h.to_str().ok())
             .and_then(|s| uuid::Uuid::parse_str(s).ok())
@@ -59,14 +61,11 @@ pub async fn usage_tracking_middleware(
     let status_code = response.status().as_u16() as i32;
 
     // 1. EXTRACT WALLET CONTEXT
-    let wallet_address = response.extensions()
+    let wallet_address = response
+        .extensions()
         .get::<Web3AuthContext>()
         .map(|ctx| ctx.wallet_address.clone())
-        .or_else(|| {
-             response.extensions()
-                .get::<String>()
-                .cloned()
-        });
+        .or_else(|| response.extensions().get::<String>().cloned());
 
     // 2. API KEY USAGE TRACKING
     if let Some(key_id) = api_key_id {
@@ -81,8 +80,9 @@ pub async fn usage_tracking_middleware(
                 method_clone,
                 path_clone,
                 status_code,
-                duration
-            ).await;
+                duration,
+            )
+            .await;
         });
     }
 
@@ -91,7 +91,7 @@ pub async fn usage_tracking_middleware(
     let method_for_db = method.clone();
     let path_for_db = path.clone();
     let wallet_for_db = wallet_address.clone();
-    
+
     tokio::spawn(async move {
         // Construct the event
         let event = NewAnalyticsEvent {
@@ -107,7 +107,8 @@ pub async fn usage_tracking_middleware(
         };
 
         // Get connection
-        let pool = container_for_db.get_analytics_pool()
+        let pool = container_for_db
+            .get_analytics_pool()
             .unwrap_or_else(|| container_for_db.db_pool());
 
         if let Ok(mut conn) = pool.get().await {
@@ -115,18 +116,18 @@ pub async fn usage_tracking_middleware(
                 .values(&event)
                 .execute(&mut conn)
                 .await;
-                
+
             if let Err(e) = result {
                 error!("Failed to insert analytics event: {}", e);
             }
         } else {
-             error!("Failed to get DB connection for analytics logging");
+            error!("Failed to get DB connection for analytics logging");
         }
     });
 
     // 4. TRACING LOGGING (Operational Logs)
     let event_name = format!("API_{}_{}", method, status_code); // e.g., API_GET_200
-    
+
     // Structured logging for analytics ingestion
     info!(
         target: "analytics",
@@ -153,7 +154,8 @@ async fn log_usage(
 ) {
     // Use analytics pool if available, otherwise fallback to primary usage logs
     // ideally we should treat them separately, but for now this ensures we write to the right place
-    let pool = container.get_analytics_pool()
+    let pool = container
+        .get_analytics_pool()
         .unwrap_or_else(|| container.db_pool());
 
     let mut conn = match pool.get().await {
@@ -163,7 +165,7 @@ async fn log_usage(
             return;
         }
     };
-    
+
     // 1. Log detailed usage
     let new_log = (
         api_key_usage_logs::api_key_id.eq(api_key_id),
@@ -173,15 +175,15 @@ async fn log_usage(
         api_key_usage_logs::response_time_ms.eq(duration_ms),
         api_key_usage_logs::request_at.eq(Utc::now()),
     );
-    
+
     if let Err(e) = diesel::insert_into(api_key_usage_logs::table)
         .values(new_log)
         .execute(&mut conn)
-        .await 
+        .await
     {
         warn!("Failed to insert usage log: {}", e);
     }
-    
+
     // 2. Update total requests count on api_key
     // Using simple increment
     if let Err(e) = diesel::update(api_keys::table.find(api_key_id))

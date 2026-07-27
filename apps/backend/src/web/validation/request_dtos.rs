@@ -9,7 +9,7 @@ use super::validators::*;
 pub struct ValidatedLoginRequest {
     #[validate(custom(function = "validate_secure_email"))]
     pub email: String,
-    
+
     #[validate(custom(function = "validate_strong_password"))]
     pub password: String,
 }
@@ -19,17 +19,17 @@ pub struct ValidatedLoginRequest {
 pub struct ValidatedRegisterRequest {
     #[validate(custom(function = "validate_secure_email"))]
     pub email: String,
-    
+
     #[validate(custom(function = "validate_strong_password"))]
     pub password: String,
-    
+
     #[validate(custom(function = "validate_display_name"))]
     pub display_name: String,
-    
+
     #[validate(custom(function = "validate_phone_number"))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub phone: Option<String>,
-    
+
     #[validate(length(min = 1, max = 50))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub company: Option<String>,
@@ -47,7 +47,7 @@ pub struct ValidatedPasswordResetRequest {
 pub struct ValidatedPasswordChangeRequest {
     #[validate(length(min = 1, max = 128))]
     pub current_password: String,
-    
+
     #[validate(custom(function = "validate_strong_password"))]
     pub new_password: String,
 }
@@ -58,23 +58,23 @@ pub struct ValidatedUserProfileUpdateRequest {
     #[validate(custom(function = "validate_display_name"))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
-    
+
     #[validate(custom(function = "validate_phone_number"))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub phone: Option<String>,
-    
+
     #[validate(custom(function = "validate_secure_url"))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub website: Option<String>,
-    
+
     #[validate(length(max = 500))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bio: Option<String>,
-    
+
     #[validate(length(max = 100))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub company: Option<String>,
-    
+
     #[validate(length(max = 100))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub location: Option<String>,
@@ -108,10 +108,10 @@ fn validate_permissions_list(permissions: &[String]) -> Result<(), ValidationErr
 pub struct ValidatedPermissionAssignRequest {
     #[validate(length(min = 1))]
     pub wallet_address: String,
-    
+
     #[validate(custom(function = "validate_permissions_list"))]
     pub permissions: Vec<String>,
-    
+
     #[validate(length(max = 500))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
@@ -122,17 +122,17 @@ pub struct ValidatedPermissionAssignRequest {
 pub struct ValidatedPaymentCreateRequest {
     #[validate(custom(function = "validate_positive_decimal"))]
     pub amount: String,
-    
+
     #[validate(custom(function = "validate_currency_code"))]
     pub currency: String,
-    
+
     #[validate(length(min = 1, max = 200))]
     pub description: String,
-    
+
     #[validate(length(max = 100))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub customer_email: Option<String>,
-    
+
     #[validate(custom(function = "validate_json_content"))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<String>,
@@ -144,19 +144,19 @@ pub struct ValidatedStockQueryRequest {
     #[validate(length(min = 1, max = 10))]
     #[validate(regex(path = *STOCK_SYMBOL_REGEX))]
     pub symbol: String,
-    
+
     #[validate(range(min = 1, max = 1000))]
     #[serde(default = "default_limit")]
     pub limit: i32,
-    
+
     #[validate(range(min = 0))]
     #[serde(default)]
     pub offset: i32,
-    
+
     #[validate(custom(function = "validate_date_range"))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub start_date: Option<String>,
-    
+
     #[validate(custom(function = "validate_date_range"))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end_date: Option<String>,
@@ -170,14 +170,12 @@ fn default_limit() -> i32 {
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-static STOCK_SYMBOL_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^[A-Z]{1,5}$").unwrap()
-});
+static STOCK_SYMBOL_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[A-Z]{1,5}$").unwrap());
 
 /// Custom validator for date range
 fn validate_date_range(date: &str) -> Result<(), ValidationError> {
     use chrono::DateTime;
-    
+
     match DateTime::parse_from_rfc3339(date) {
         Ok(_) => Ok(()),
         Err(_) => {
@@ -199,13 +197,13 @@ fn validate_date_range(date: &str) -> Result<(), ValidationError> {
 pub struct ValidatedWebhookRequest {
     #[validate(length(min = 1, max = 100))]
     pub event_type: String,
-    
+
     #[validate(custom(function = "validate_json_content"))]
     pub payload: String,
-    
+
     #[validate(length(min = 32, max = 128))]
     pub signature: String,
-    
+
     #[validate(range(min = 1))]
     pub timestamp: i64,
 }
@@ -215,14 +213,14 @@ pub struct ValidatedWebhookRequest {
 pub struct ValidatedApiKeyCreateRequest {
     #[validate(length(min = 1, max = 100))]
     pub name: String,
-    
+
     #[validate(length(max = 500))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    
+
     #[validate(custom(function = "validate_permissions_list"))]
     pub permissions: Vec<String>,
-    
+
     #[validate(custom(function = "validate_expiry_date"))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<String>,
@@ -231,7 +229,7 @@ pub struct ValidatedApiKeyCreateRequest {
 /// Custom validator for expiry date
 fn validate_expiry_date(date: &str) -> Result<(), ValidationError> {
     use chrono::{DateTime, Utc};
-    
+
     match DateTime::parse_from_rfc3339(date) {
         Ok(parsed_date) => {
             let now = Utc::now();
@@ -240,7 +238,7 @@ fn validate_expiry_date(date: &str) -> Result<(), ValidationError> {
                 error.message = Some("Expiry date must be in the future".into());
                 return Err(error);
             }
-            
+
             // Check if expiry is too far in the future (max 1 year)
             let max_expiry = now + chrono::Duration::days(365);
             if parsed_date.with_timezone(&Utc) > max_expiry {
@@ -248,9 +246,9 @@ fn validate_expiry_date(date: &str) -> Result<(), ValidationError> {
                 error.message = Some("Expiry date cannot be more than 1 year from now".into());
                 return Err(error);
             }
-            
+
             Ok(())
-        },
+        }
         Err(_) => {
             let mut error = ValidationError::new("invalid_expiry_format");
             error.message = Some("Expiry date must be in ISO 8601 format".into());
@@ -264,23 +262,23 @@ fn validate_expiry_date(date: &str) -> Result<(), ValidationError> {
 pub struct ValidatedSearchRequest {
     #[validate(length(min = 1, max = 200))]
     pub query: String,
-    
+
     #[validate(range(min = 1, max = 100))]
     #[serde(default = "default_search_limit")]
     pub limit: i32,
-    
+
     #[validate(range(min = 0))]
     #[serde(default)]
     pub offset: i32,
-    
+
     #[validate(length(max = 50))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub category: Option<String>,
-    
+
     #[validate(custom(function = "validate_sort_field"))]
     #[serde(default = "default_sort")]
     pub sort: String,
-    
+
     #[validate(custom(function = "validate_sort_order"))]
     #[serde(default = "default_sort_order")]
     pub order: String,
@@ -301,13 +299,14 @@ fn default_sort_order() -> String {
 /// Custom validator for sort field
 fn validate_sort_field(sort: &str) -> Result<(), ValidationError> {
     let allowed_sorts = ["relevance", "date", "name", "price", "popularity"];
-    
+
     if !allowed_sorts.contains(&sort) {
         let mut error = ValidationError::new("invalid_sort_field");
-        error.message = Some(format!("Sort field must be one of: {}", allowed_sorts.join(", ")).into());
+        error.message =
+            Some(format!("Sort field must be one of: {}", allowed_sorts.join(", ")).into());
         return Err(error);
     }
-    
+
     Ok(())
 }
 
@@ -318,7 +317,7 @@ fn validate_sort_order(order: &str) -> Result<(), ValidationError> {
         error.message = Some("Sort order must be 'asc' or 'desc'".into());
         return Err(error);
     }
-    
+
     Ok(())
 }
 
@@ -327,13 +326,13 @@ fn validate_sort_order(order: &str) -> Result<(), ValidationError> {
 pub struct ValidatedBulkOperationRequest<T: Clone + serde::Serialize> {
     #[validate(length(min = 1, max = 100))]
     pub items: Vec<T>,
-    
+
     #[validate(length(min = 1, max = 50))]
     pub operation: String,
-    
+
     #[serde(default)]
     pub dry_run: bool,
-    
+
     #[validate(length(max = 500))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
@@ -344,17 +343,17 @@ pub struct ValidatedBulkOperationRequest<T: Clone + serde::Serialize> {
 pub struct ValidatedFileUploadRequest {
     #[validate(custom(function = "validate_file_name"))]
     pub filename: String,
-    
+
     #[validate(length(min = 1, max = 100))]
     pub content_type: String,
-    
+
     #[validate(range(min = 1, max = 10485760))] // Max 10MB
     pub file_size: usize,
-    
+
     #[validate(length(max = 500))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    
+
     #[serde(default)]
     pub is_public: bool,
 }
@@ -405,9 +404,9 @@ mod tests {
         assert!(valid_request.validate().is_ok());
 
         let invalid_request = ValidatedPaymentCreateRequest {
-            amount: "-50.00".to_string(), // Negative amount should fail
+            amount: "-50.00".to_string(),    // Negative amount should fail
             currency: "INVALID".to_string(), // Invalid currency should fail
-            description: "".to_string(), // Empty description should fail
+            description: "".to_string(),     // Empty description should fail
             customer_email: None,
             metadata: None,
         };
@@ -427,8 +426,8 @@ mod tests {
 
         let invalid_request = ValidatedStockQueryRequest {
             symbol: "INVALID123".to_string(), // Invalid symbol format
-            limit: 2000, // Exceeds max limit
-            offset: -1, // Negative offset
+            limit: 2000,                      // Exceeds max limit
+            offset: -1,                       // Negative offset
             start_date: Some("invalid-date".to_string()), // Invalid date format
             end_date: None,
         };
@@ -452,7 +451,7 @@ mod tests {
 
     #[test]
     fn test_validate_expiry_date() {
-        use chrono::{Utc, Duration};
+        use chrono::{Duration, Utc};
 
         // Future date should be valid
         let future_date = (Utc::now() + Duration::days(30)).to_rfc3339();

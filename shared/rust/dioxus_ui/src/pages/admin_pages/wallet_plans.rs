@@ -257,7 +257,8 @@ pub fn render_editor(ctx: &PageContext) -> (PageMeta, Element) {
 #[component]
 fn RenderPlanList(ctx: PageContext) -> Element {
     let mutation = match ctx.query_param("mutation").as_deref() {
-        Some("success") | Some("conflict") | Some("forbidden") | Some("unavailable") | Some("malformed") => ctx.query_param("mutation"),
+        Some("success") | Some("conflict") | Some("forbidden") | Some("unavailable")
+        | Some("malformed") => ctx.query_param("mutation"),
         _ => None,
     };
     match plans_load(&ctx) {
@@ -376,7 +377,8 @@ fn PlanListRow(plan: AdminPlanProjection) -> Element {
 #[component]
 fn RenderPlanDetail(ctx: PageContext) -> Element {
     let mutation = match ctx.query_param("mutation").as_deref() {
-        Some("success") | Some("conflict") | Some("forbidden") | Some("unavailable") | Some("malformed") => ctx.query_param("mutation"),
+        Some("success") | Some("conflict") | Some("forbidden") | Some("unavailable")
+        | Some("malformed") => ctx.query_param("mutation"),
         _ => None,
     };
     match plan_detail_load(&ctx) {

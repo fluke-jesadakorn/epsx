@@ -4,13 +4,13 @@
 
 use chrono::Utc;
 use diesel::prelude::*;
-use diesel_async::{RunQueryDsl};
+use diesel_async::RunQueryDsl;
 use tracing::info;
 use uuid::Uuid;
 
 use crate::domain::developer_portal::{
-    ApiModule, ModuleStatus, ModuleEndpoint, ModuleListResponse,
-    CreateModuleRequest, UpdateModuleRequest,
+    ApiModule, CreateModuleRequest, ModuleEndpoint, ModuleListResponse, ModuleStatus,
+    UpdateModuleRequest,
 };
 use crate::prelude::*;
 use crate::schemas::primary::api_modules;
@@ -31,7 +31,10 @@ impl ModuleRepository {
         status_filter: Option<&str>,
         category_filter: Option<&str>,
     ) -> AppResult<ModuleListResponse> {
-        let mut conn = self.pool.get().await
+        let mut conn = self
+            .pool
+            .get()
+            .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
         let mut query = api_modules::table.into_boxed();
@@ -67,32 +70,38 @@ impl ModuleRepository {
             .map_err(|e| AppError::database_error(format!("Failed to list modules: {}", e)))?;
 
         let total = rows.len() as i64;
-        let modules: Vec<ApiModule> = rows.into_iter().map(|row| {
-            let endpoints: Vec<ModuleEndpoint> = serde_json::from_value(row.endpoints.clone())
-                .unwrap_or_default();
-            
-            ApiModule {
-                id: row.id,
-                name: row.name,
-                display_name: row.display_name,
-                description: row.description,
-                category: row.category,
-                status: ModuleStatus::from(row.status.as_str()),
-                base_path: row.base_path,
-                default_rate_limit: row.default_rate_limit,
-                access_levels: row.access_levels,
-                endpoints,
-                created_at: row.created_at,
-                updated_at: row.updated_at,
-            }
-        }).collect();
+        let modules: Vec<ApiModule> = rows
+            .into_iter()
+            .map(|row| {
+                let endpoints: Vec<ModuleEndpoint> =
+                    serde_json::from_value(row.endpoints.clone()).unwrap_or_default();
+
+                ApiModule {
+                    id: row.id,
+                    name: row.name,
+                    display_name: row.display_name,
+                    description: row.description,
+                    category: row.category,
+                    status: ModuleStatus::from(row.status.as_str()),
+                    base_path: row.base_path,
+                    default_rate_limit: row.default_rate_limit,
+                    access_levels: row.access_levels,
+                    endpoints,
+                    created_at: row.created_at,
+                    updated_at: row.updated_at,
+                }
+            })
+            .collect();
 
         Ok(ModuleListResponse { modules, total })
     }
 
     /// Get a module by ID
     pub async fn get_by_id(&self, id: Uuid) -> AppResult<Option<ApiModule>> {
-        let mut conn = self.pool.get().await
+        let mut conn = self
+            .pool
+            .get()
+            .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
         #[derive(Queryable)]
@@ -119,9 +128,9 @@ impl ModuleRepository {
             .map_err(|e| AppError::database_error(format!("Failed to fetch module: {}", e)))?;
 
         Ok(row.map(|row| {
-            let endpoints: Vec<ModuleEndpoint> = serde_json::from_value(row.endpoints.clone())
-                .unwrap_or_default();
-            
+            let endpoints: Vec<ModuleEndpoint> =
+                serde_json::from_value(row.endpoints.clone()).unwrap_or_default();
+
             ApiModule {
                 id: row.id,
                 name: row.name,
@@ -141,13 +150,18 @@ impl ModuleRepository {
 
     /// Create a new module
     pub async fn create(&self, request: CreateModuleRequest) -> AppResult<ApiModule> {
-        let mut conn = self.pool.get().await
+        let mut conn = self
+            .pool
+            .get()
+            .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
         let id = Uuid::new_v4();
         let now = Utc::now();
-        let endpoints_json = serde_json::to_value(request.endpoints.unwrap_or_default())
-            .map_err(|e| AppError::internal_error(format!("Failed to serialize endpoints: {}", e)))?;
+        let endpoints_json =
+            serde_json::to_value(request.endpoints.unwrap_or_default()).map_err(|e| {
+                AppError::internal_error(format!("Failed to serialize endpoints: {}", e))
+            })?;
         let access_levels = request.access_levels.unwrap_or(serde_json::json!({}));
 
         diesel::insert_into(api_modules::table)
@@ -171,13 +185,17 @@ impl ModuleRepository {
 
         info!("Created module {} ({})", request.display_name, request.name);
 
-        self.get_by_id(id).await?
+        self.get_by_id(id)
+            .await?
             .ok_or_else(|| AppError::not_found("Module not found after creation"))
     }
 
     /// Update a module
     pub async fn update(&self, id: Uuid, request: UpdateModuleRequest) -> AppResult<ApiModule> {
-        let mut conn = self.pool.get().await
+        let mut conn = self
+            .pool
+            .get()
+            .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
         let now = Utc::now();
@@ -244,8 +262,9 @@ impl ModuleRepository {
         }
 
         if let Some(endpoints) = &request.endpoints {
-            let endpoints_json = serde_json::to_value(endpoints)
-                .map_err(|e| AppError::internal_error(format!("Failed to serialize endpoints: {}", e)))?;
+            let endpoints_json = serde_json::to_value(endpoints).map_err(|e| {
+                AppError::internal_error(format!("Failed to serialize endpoints: {}", e))
+            })?;
             diesel::update(api_modules::table)
                 .filter(api_modules::id.eq(&id))
                 .set((
@@ -257,7 +276,8 @@ impl ModuleRepository {
                 .map_err(|e| AppError::database_error(format!("Failed to update module: {}", e)))?;
         }
 
-        self.get_by_id(id).await?
+        self.get_by_id(id)
+            .await?
             .ok_or_else(|| AppError::not_found("Module not found"))
     }
 }

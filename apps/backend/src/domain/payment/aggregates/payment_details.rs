@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-use crate::domain::payment::value_objects::{CryptoAddress, TransactionHash, Currency};
+use crate::domain::payment::value_objects::{CryptoAddress, Currency, TransactionHash};
 
 /// Crypto payment specific details
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,7 +46,10 @@ pub enum BlockchainVerificationStatus {
 }
 
 impl CryptoPaymentDetails {
-    pub fn new(currency: Currency, network: epsx_contracts::value_objects::payments::Network) -> Self {
+    pub fn new(
+        currency: Currency,
+        network: epsx_contracts::value_objects::payments::Network,
+    ) -> Self {
         Self {
             currency,
             network,
@@ -63,14 +66,14 @@ impl CryptoPaymentDetails {
             last_verification_attempt: None,
         }
     }
-    
+
     /// Mark verification as in progress
     pub fn start_verification(&mut self) {
         self.verification_status = BlockchainVerificationStatus::InProgress;
         self.last_verification_attempt = Some(Utc::now());
         self.verification_error = None;
     }
-    
+
     /// Mark verification as successful with blockchain data
     pub fn mark_verified(
         &mut self,
@@ -88,18 +91,18 @@ impl CryptoPaymentDetails {
         self.token_contract = Some(token_contract);
         self.verification_error = None;
     }
-    
+
     /// Mark verification as failed with error reason
     pub fn mark_verification_failed(&mut self, error: String) {
         self.verification_status = BlockchainVerificationStatus::Failed;
         self.verification_error = Some(error);
     }
-    
+
     /// Mark as pending confirmations
     pub fn mark_pending_confirmations(&mut self) {
         self.verification_status = BlockchainVerificationStatus::PendingConfirmations;
     }
-    
+
     /// Check if verification is complete (either verified or failed)
     pub fn is_verification_complete(&self) -> bool {
         matches!(

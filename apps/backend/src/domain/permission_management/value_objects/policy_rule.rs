@@ -20,7 +20,9 @@ impl PolicyRule {
         let condition = condition.into();
 
         if condition.is_empty() {
-            return Err(AppError::validation_error("Policy condition cannot be empty"));
+            return Err(AppError::validation_error(
+                "Policy condition cannot be empty",
+            ));
         }
 
         Ok(Self { condition, action })

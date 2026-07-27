@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tracing::{debug, error, info, warn};
 
-use super::{PaymentEvent, parse_payment_event, PaymentVerifier};
+use super::{parse_payment_event, PaymentEvent, PaymentVerifier};
 use epsx_contracts::errors::AppError;
 
 /// BSC blockchain event listener for PaymentReceived events
@@ -25,23 +25,26 @@ impl BscEventListener {
         poll_interval_secs: u64,
         supported_tokens: Vec<String>,
     ) -> Result<Self, AppError> {
-        let provider = Provider::<Http>::try_from(&rpc_url)
-            .map_err(|e| AppError::internal_server_error(format!("Failed to create provider: {}", e)))?;
+        let provider = Provider::<Http>::try_from(&rpc_url).map_err(|e| {
+            AppError::internal_server_error(format!("Failed to create provider: {}", e))
+        })?;
 
-        let contract_address = contract_address.parse::<H160>()
-            .map_err(|e| AppError::internal_server_error(format!("Invalid contract address: {}", e)))?;
+        let contract_address = contract_address.parse::<H160>().map_err(|e| {
+            AppError::internal_server_error(format!("Invalid contract address: {}", e))
+        })?;
 
         let payment_verifier = Arc::new(PaymentVerifier::new(
             rpc_url.clone(),
             format!("{:#x}", contract_address),
-            supported_tokens
+            supported_tokens,
         )?);
 
         // PaymentWithContext event topic (V2)
         // keccak256("PaymentWithContext(address,uint8,uint256,address,uint256,uint256,uint256,bytes32)")
-        let event_topic = H256::from_slice(&hex::decode(
-            "842de788230478cf96f2c9139ce2cedad856220f7accbee6cd941b420224a770"
-        ).unwrap_or_default());
+        let event_topic = H256::from_slice(
+            &hex::decode("842de788230478cf96f2c9139ce2cedad856220f7accbee6cd941b420224a770")
+                .unwrap_or_default(),
+        );
 
         Ok(Self {
             provider: Arc::new(provider),
@@ -56,9 +59,17 @@ impl BscEventListener {
     /// Start listening for events
     pub async fn start_listening<F>(&mut self, callback: F) -> Result<(), AppError>
     where
-        F: Fn(PaymentEvent) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), AppError>> + Send>> + Send + Sync,
+        F: Fn(
+                PaymentEvent,
+            )
+                -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), AppError>> + Send>>
+            + Send
+            + Sync,
     {
-        info!("Starting BSC event listener on contract: {:?}", self.contract_address);
+        info!(
+            "Starting BSC event listener on contract: {:?}",
+            self.contract_address
+        );
         info!("Starting from block: {}", self.last_checked_block);
 
         loop {
@@ -80,10 +91,17 @@ impl BscEventListener {
 
                                         // Process event
                                         if let Err(e) = callback(event.clone()).await {
-                                            error!("Failed to process event {}: {}", event.unique_id(), e);
+                                            error!(
+                                                "Failed to process event {}: {}",
+                                                event.unique_id(),
+                                                e
+                                            );
                                         }
                                     } else {
-                                        error!("Payment verification failed: {:?}", verification.errors);
+                                        error!(
+                                            "Payment verification failed: {:?}",
+                                            verification.errors
+                                        );
                                     }
                                 }
                                 Err(e) => {
@@ -105,12 +123,20 @@ impl BscEventListener {
 
     /// Check for new events since last checked block
     async fn check_new_events(&mut self) -> Result<Vec<PaymentEvent>, AppError> {
-        let current_block = self.provider.get_block_number().await
-            .map_err(|e| AppError::internal_server_error(format!("Failed to get block number: {}", e)))?
+        let current_block = self
+            .provider
+            .get_block_number()
+            .await
+            .map_err(|e| {
+                AppError::internal_server_error(format!("Failed to get block number: {}", e))
+            })?
             .as_u64();
 
         if current_block <= self.last_checked_block {
-            debug!("No new blocks. Current: {}, Last checked: {}", current_block, self.last_checked_block);
+            debug!(
+                "No new blocks. Current: {}, Last checked: {}",
+                current_block, self.last_checked_block
+            );
             return Ok(Vec::new());
         }
 
@@ -139,8 +165,10 @@ impl BscEventListener {
             .from_block(from_block)
             .to_block(to_block);
 
-        let logs = self.provider.get_logs(&filter).await
-            .map_err(|e| AppError::internal_server_error(format!("Failed to get logs: {}", e)))?;
+        let logs =
+            self.provider.get_logs(&filter).await.map_err(|e| {
+                AppError::internal_server_error(format!("Failed to get logs: {}", e))
+            })?;
 
         let mut events = Vec::new();
 
@@ -164,8 +192,9 @@ impl BscEventListener {
 
     /// Get current block number
     pub async fn get_current_block(&self) -> Result<u64, AppError> {
-        let block_number = self.provider.get_block_number().await
-            .map_err(|e| AppError::internal_server_error(format!("Failed to get block number: {}", e)))?;
+        let block_number = self.provider.get_block_number().await.map_err(|e| {
+            AppError::internal_server_error(format!("Failed to get block number: {}", e))
+        })?;
 
         Ok(block_number.as_u64())
     }
@@ -191,6 +220,10 @@ mod tests {
             vec![], // Empty tokens list for testing
         );
 
-        assert!(listener.is_ok(), "BscEventListener::new failed: {:?}", listener.err());
+        assert!(
+            listener.is_ok(),
+            "BscEventListener::new failed: {:?}",
+            listener.err()
+        );
     }
 }

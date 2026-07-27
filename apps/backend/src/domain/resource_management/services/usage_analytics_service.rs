@@ -2,9 +2,9 @@
 // Domain service for analyzing resource usage patterns and generating insights
 
 use crate::domain::resource_management::aggregates::UserResourceUsage;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UsageAnalytics {
@@ -94,15 +94,18 @@ impl UsageAnalyticsService {
             let trend = self.calculate_usage_trend(resource_type, historical_data);
             let average_daily = self.calculate_average_daily_usage(resource_type, historical_data);
 
-            resource_breakdown.insert(resource_type.clone(), ResourceAnalytics {
-                resource_type: resource_type.clone(),
-                total_usage: *current_usage,
-                quota_limit: *quota_limit,
-                usage_percentage,
-                peak_usage: *current_usage, // Simplified - in real implementation, track peak
-                average_daily_usage: average_daily,
-                trend,
-            });
+            resource_breakdown.insert(
+                resource_type.clone(),
+                ResourceAnalytics {
+                    resource_type: resource_type.clone(),
+                    total_usage: *current_usage,
+                    quota_limit: *quota_limit,
+                    usage_percentage,
+                    peak_usage: *current_usage, // Simplified - in real implementation, track peak
+                    average_daily_usage: average_daily,
+                    trend,
+                },
+            );
 
             total_requests += current_usage;
 
@@ -153,7 +156,11 @@ impl UsageAnalyticsService {
         }
     }
 
-    fn calculate_usage_trend(&self, resource_type: &str, historical_data: &[UserResourceUsage]) -> UsageTrend {
+    fn calculate_usage_trend(
+        &self,
+        resource_type: &str,
+        historical_data: &[UserResourceUsage],
+    ) -> UsageTrend {
         if historical_data.len() < 2 {
             return UsageTrend::Stable;
         }
@@ -170,8 +177,10 @@ impl UsageAnalyticsService {
             return UsageTrend::Stable;
         }
 
-        let first_half_avg = recent_usage[..recent_usage.len()/2].iter().sum::<i64>() as f64 / (recent_usage.len()/2) as f64;
-        let second_half_avg = recent_usage[recent_usage.len()/2..].iter().sum::<i64>() as f64 / (recent_usage.len() - recent_usage.len()/2) as f64;
+        let first_half_avg = recent_usage[..recent_usage.len() / 2].iter().sum::<i64>() as f64
+            / (recent_usage.len() / 2) as f64;
+        let second_half_avg = recent_usage[recent_usage.len() / 2..].iter().sum::<i64>() as f64
+            / (recent_usage.len() - recent_usage.len() / 2) as f64;
 
         let change_percentage = ((second_half_avg - first_half_avg) / first_half_avg) * 100.0;
 
@@ -182,7 +191,11 @@ impl UsageAnalyticsService {
         }
     }
 
-    fn calculate_average_daily_usage(&self, resource_type: &str, historical_data: &[UserResourceUsage]) -> f64 {
+    fn calculate_average_daily_usage(
+        &self,
+        resource_type: &str,
+        historical_data: &[UserResourceUsage],
+    ) -> f64 {
         if historical_data.is_empty() {
             return 0.0;
         }
@@ -195,7 +208,10 @@ impl UsageAnalyticsService {
         total_usage as f64 / historical_data.len() as f64
     }
 
-    fn calculate_efficiency_score(&self, resource_breakdown: &HashMap<String, ResourceAnalytics>) -> f64 {
+    fn calculate_efficiency_score(
+        &self,
+        resource_breakdown: &HashMap<String, ResourceAnalytics>,
+    ) -> f64 {
         if resource_breakdown.is_empty() {
             return 0.0;
         }
@@ -212,14 +228,19 @@ impl UsageAnalyticsService {
                 } else {
                     // Penalize over-usage
                     100.0 - ((usage_pct - 80.0) * 2.0)
-                }.max(0.0)
+                }
+                .max(0.0)
             })
             .sum();
 
         total_efficiency / resource_breakdown.len() as f64
     }
 
-    fn predict_overage(&self, usage: &UserResourceUsage, _historical_data: &[UserResourceUsage]) -> HashMap<String, f64> {
+    fn predict_overage(
+        &self,
+        usage: &UserResourceUsage,
+        _historical_data: &[UserResourceUsage],
+    ) -> HashMap<String, f64> {
         let mut predictions = HashMap::new();
 
         for (resource_type, current_usage) in &usage.current_usage {

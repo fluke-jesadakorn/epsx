@@ -2,11 +2,11 @@
 //
 // Database models for wallet_credits and credit_transactions tables using Diesel ORM
 
-use chrono::{DateTime, Utc};
-use diesel::{Queryable, Selectable, Insertable, AsChangeset};
-use uuid::Uuid;
 use bigdecimal::BigDecimal;
+use chrono::{DateTime, Utc};
+use diesel::{AsChangeset, Insertable, Queryable, Selectable};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 /// Diesel Queryable model for wallet_credits table
 #[derive(Debug, Clone, Queryable, Selectable)]

@@ -62,19 +62,19 @@ pub use epsx::domain::shared_kernel::entities::eps_growth::EPSRanking;
 ///   - `TradingViewEPSRepository` (the live-data adapter)
 ///   - `TradingViewApiService` (the REST + WebSocket aggregator)
 pub mod cache {
-    pub use epsx::domain::market_analytics::domain_services::EPSCacheService;
     pub use epsx::domain::market_analytics::domain_services::EPSCacheConfig;
     pub use epsx::domain::market_analytics::domain_services::EPSCacheParams;
-    pub use epsx::web::analytics::WebSocketEarningsService;
+    pub use epsx::domain::market_analytics::domain_services::EPSCacheService;
     pub use epsx::web::analytics::TradingViewEPSRepository;
+    pub use epsx::web::analytics::WebSocketEarningsService;
 }
 
 /// TradingView transport — `infrastructure/adapters/services/tradingview/`
 /// (9 files, ~3,500 LOC). The live data source for every rankings
 /// request. Moved with the analytics domain per audit §1e.
 pub mod tradingview {
-    pub use epsx::infrastructure::adapters::services::tradingview::TradingViewApiService;
     pub use epsx::infrastructure::adapters::services::tradingview::TradingViewAdapter;
+    pub use epsx::infrastructure::adapters::services::tradingview::TradingViewApiService;
     pub use epsx::infrastructure::adapters::services::tradingview::TradingViewCache;
     pub use epsx::infrastructure::adapters::services::tradingview::TradingViewScanner;
 }
@@ -84,9 +84,9 @@ pub mod tradingview {
 /// (4 files, 853 LOC). Used by `WebSocketEarningsService` to fetch
 /// real-time earnings for ranking enhancement.
 pub mod tradingview_ws {
-    pub use epsx::infrastructure::adapters::services::tradingview_websocket::TradingViewWebSocketService;
-    pub use epsx::infrastructure::adapters::services::tradingview_websocket::QuarterlyEPSData;
     pub use epsx::infrastructure::adapters::services::tradingview_websocket::EPSWebSocketData;
+    pub use epsx::infrastructure::adapters::services::tradingview_websocket::QuarterlyEPSData;
+    pub use epsx::infrastructure::adapters::services::tradingview_websocket::TradingViewWebSocketService;
 }
 
 /// Analytics repositories — the 3 "must-move-with" adapters from
@@ -99,9 +99,9 @@ pub mod tradingview_ws {
 /// the spec asked for them to be explicitly called out under the
 /// moved group.
 pub mod repositories {
-    pub use epsx::infrastructure::adapters::repositories::stock_analysis_repository_adapter;
-    pub use epsx::infrastructure::adapters::repositories::market_data_repository_adapter;
     pub use epsx::infrastructure::adapters::repositories::mappers::market_analytics_mappers;
+    pub use epsx::infrastructure::adapters::repositories::market_data_repository_adapter;
+    pub use epsx::infrastructure::adapters::repositories::stock_analysis_repository_adapter;
 }
 
 /// Wave 10 R6 port — the read-only "what's this wallet's tier?"
@@ -129,9 +129,9 @@ mod tests {
         // Compile-time equality: both paths must refer to the same
         // type. If the re-export silently shadows to a different
         // type, this `assert_eq!` will fail at compile time.
-        fn assert_same_type(a: *const epsx::domain::shared_kernel::entities::eps_growth::EPSRanking)
-                            -> *const EPSRanking
-        {
+        fn assert_same_type(
+            a: *const epsx::domain::shared_kernel::entities::eps_growth::EPSRanking,
+        ) -> *const EPSRanking {
             a
         }
         // The helper is the assertion — the type system enforces

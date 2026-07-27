@@ -12,5 +12,5 @@ pub use outbound::*;
 
 pub mod services {
     // Email service exports removed - Web3-first system uses direct wallet notifications
-    pub use super::outbound::{NotificationServicePort};
+    pub use super::outbound::NotificationServicePort;
 }

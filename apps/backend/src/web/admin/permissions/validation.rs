@@ -7,16 +7,15 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
-use uuid::Uuid;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use uuid::Uuid;
 
 use crate::web::auth::AppState;
 use crate::web::responses::AdminResponse;
-
 
 // ============================================================================
 // REQUEST/RESPONSE TYPES
@@ -154,7 +153,10 @@ pub async fn validate_permission(
     };
 
     // Use UnifiedPermissionService for validation
-    let is_valid = match permission_service.has_permission(&wallet, &req.permission).await {
+    let is_valid = match permission_service
+        .has_permission(&wallet, &req.permission)
+        .await
+    {
         Ok(result) => result,
         Err(e) => {
             tracing::error!("Failed to validate permission: {}", e);
@@ -169,7 +171,9 @@ pub async fn validate_permission(
                 .iter()
                 .find(|p| p.permission_string == req.permission)
                 .and_then(|p| {
-                    if p.source_type == crate::auth::unified_permission_service::PermissionSource::Plan {
+                    if p.source_type
+                        == crate::auth::unified_permission_service::PermissionSource::Plan
+                    {
                         Some(p.source_name.clone())
                     } else {
                         None
@@ -267,11 +271,15 @@ pub async fn validate_bulk_permissions(
     };
 
     // Use UnifiedPermissionService for bulk validation
-    let batch_result = match permission_service.has_permissions_batch(&wallet, &req.permissions).await {
+    let batch_result = match permission_service
+        .has_permissions_batch(&wallet, &req.permissions)
+        .await
+    {
         Ok(result) => result,
         Err(e) => {
             tracing::error!("Failed to validate bulk permissions: {}", e);
-            return AdminResponse::server_error("Bulk permission validation failed").into_response();
+            return AdminResponse::server_error("Bulk permission validation failed")
+                .into_response();
         }
     };
 
@@ -354,7 +362,7 @@ pub async fn get_wallet_permissions(
         JOIN plans pg ON wga.plan_id = pg.id
         WHERE wga.wallet_address = $1
         ORDER BY wga.assigned_at DESC
-        "#
+        "#,
     )
     .bind::<diesel::sql_types::Text, _>(&wallet)
     .load::<PlanRow>(&mut conn)
@@ -367,16 +375,17 @@ pub async fn get_wallet_permissions(
         }
     };
 
-    let plans: Vec<PermissionPlanSummary> = plans.into_iter().map(|row| {
-        PermissionPlanSummary {
+    let plans: Vec<PermissionPlanSummary> = plans
+        .into_iter()
+        .map(|row| PermissionPlanSummary {
             id: row.id.to_string(),
             name: row.name,
             plan_type: row.plan_type,
             is_active: row.is_active,
             assigned_at: row.assigned_at,
             expires_at: row.expires_at,
-        }
-    }).collect();
+        })
+        .collect();
 
     // Get effective permissions using UnifiedPermissionService
     let permission_service = match app_state.domain_container.get_unified_permission_service() {
@@ -410,7 +419,7 @@ pub async fn get_wallet_permissions(
           AND wga.is_active = true
           AND wga.expires_at IS NOT NULL
           AND wga.expires_at BETWEEN NOW() AND NOW() + INTERVAL '7 days'
-        "#
+        "#,
     )
     .bind::<diesel::sql_types::Text, _>(&wallet)
     .get_result::<CountRow>(&mut conn)
@@ -428,7 +437,7 @@ pub async fn get_wallet_permissions(
         WHERE wga.wallet_address = $1
           AND wga.expires_at IS NOT NULL
           AND wga.expires_at < NOW()
-        "#
+        "#,
     )
     .bind::<diesel::sql_types::Text, _>(&wallet)
     .get_result::<CountRow>(&mut conn)

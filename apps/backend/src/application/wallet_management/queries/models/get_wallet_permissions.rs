@@ -1,5 +1,5 @@
-use serde::{Serialize, Deserialize};
-use crate::application::shared::{Query, ApplicationResult};
+use crate::application::shared::{ApplicationResult, Query};
+use serde::{Deserialize, Serialize};
 
 /// Query to get user permissions
 #[derive(Debug, Clone, Serialize, Deserialize)]

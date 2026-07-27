@@ -115,8 +115,7 @@ async fn main() -> anyhow::Result<()> {
     // ---- DI ----
     // Keep the standalone authority fail-closed until a verified,
     // database-backed tier-aware implementation is wired.
-    let port_impl: Arc<dyn WalletRankingOffsetQuery> =
-        Arc::new(UnavailableRankingOffsetService);
+    let port_impl: Arc<dyn WalletRankingOffsetQuery> = Arc::new(UnavailableRankingOffsetService);
     let grpc_service = GrpcIdentityService::new(port_impl);
 
     info!(%grpc_addr, "epsx-identity-service: tonic gRPC server listening");
@@ -174,9 +173,10 @@ mod tests {
         let decoded_request = GetWalletRankingOffsetRequest::decode(request_bytes.as_slice())
             .expect("request wire payload must decode");
 
-        let error = Identity::get_wallet_ranking_offset(&service(), tonic::Request::new(decoded_request))
-            .await
-            .expect_err("unwired authority must reject the request");
+        let error =
+            Identity::get_wallet_ranking_offset(&service(), tonic::Request::new(decoded_request))
+                .await
+                .expect_err("unwired authority must reject the request");
         assert_eq!(error.code(), tonic::Code::Unavailable);
     }
 

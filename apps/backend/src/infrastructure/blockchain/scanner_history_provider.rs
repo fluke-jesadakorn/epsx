@@ -1,7 +1,9 @@
 use async_trait::async_trait;
 use serde::Deserialize;
 
-use crate::domain::payment::repository_ports::{TransactionHistoryProvider, TransactionHistoryInfo};
+use crate::domain::payment::repository_ports::{
+    TransactionHistoryInfo, TransactionHistoryProvider,
+};
 
 use chrono::{DateTime, Utc};
 
@@ -43,7 +45,8 @@ struct BscScanLog {
 
 impl ScannerTransactionHistoryProvider {
     pub fn new(api_key: String, contract_address: String) -> Self {
-        let event_topic = "0xa7f9e7f4f9c6e7e3d8b3a2f1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1".to_string();
+        let event_topic =
+            "0xa7f9e7f4f9c6e7e3d8b3a2f1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1".to_string();
         let is_mainnet = std::env::var("BLOCKCHAIN_NETWORK")
             .unwrap_or_default()
             .eq_ignore_ascii_case("mainnet");
@@ -51,7 +54,8 @@ impl ScannerTransactionHistoryProvider {
             "https://api.bscscan.com/api"
         } else {
             "https://api-testnet.bscscan.com/api"
-        }.to_string();
+        }
+        .to_string();
         Self {
             api_key,
             contract_address,
@@ -70,9 +74,12 @@ impl TransactionHistoryProvider for ScannerTransactionHistoryProvider {
         per_page: u32,
     ) -> Result<(Vec<TransactionHistoryInfo>, u64), String> {
         let client = reqwest::Client::new();
-        
+
         // Format wallet address for topic1 (pad to 32 bytes)
-        let wallet_topic = format!("0x000000000000000000000000{}", &wallet_address[2..].to_lowercase());
+        let wallet_topic = format!(
+            "0x000000000000000000000000{}",
+            &wallet_address[2..].to_lowercase()
+        );
 
         let url = format!(
             "{}?module=logs&action=getLogs&fromBlock=0&toBlock=latest&address={}&topic0={}&topic1={}&page={}&offset={}&apikey={}",
@@ -85,9 +92,13 @@ impl TransactionHistoryProvider for ScannerTransactionHistoryProvider {
             self.api_key
         );
 
-        let resp = client.get(&url).send().await
+        let resp = client
+            .get(&url)
+            .send()
+            .await
             .map_err(|e| format!("Failed to call BscScan: {}", e))?
-            .json::<BscScanResponse>().await
+            .json::<BscScanResponse>()
+            .await
             .map_err(|e| format!("Failed to parse BscScan response: {}", e))?;
 
         if resp.status != "1" && resp.message != "No logs found" {
@@ -99,14 +110,14 @@ impl TransactionHistoryProvider for ScannerTransactionHistoryProvider {
             for log_val in logs {
                 let log: BscScanLog = serde_json::from_value(log_val)
                     .map_err(|e| format!("Invalid log format: {}", e))?;
-                
-                let block_number = u64::from_str_radix(log.block_number.trim_start_matches("0x"), 16)
-                    .unwrap_or(0);
-                let timestamp_secs = i64::from_str_radix(log.time_stamp.trim_start_matches("0x"), 16)
-                    .unwrap_or(0);
-                
-                let timestamp = DateTime::<Utc>::from_timestamp(timestamp_secs, 0)
-                    .unwrap_or_else(Utc::now);
+
+                let block_number =
+                    u64::from_str_radix(log.block_number.trim_start_matches("0x"), 16).unwrap_or(0);
+                let timestamp_secs =
+                    i64::from_str_radix(log.time_stamp.trim_start_matches("0x"), 16).unwrap_or(0);
+
+                let timestamp =
+                    DateTime::<Utc>::from_timestamp(timestamp_secs, 0).unwrap_or_else(Utc::now);
 
                 let amount_wei = log.data.trim_start_matches("0x");
                 let amount = u128::from_str_radix(amount_wei, 16)
@@ -130,7 +141,7 @@ impl TransactionHistoryProvider for ScannerTransactionHistoryProvider {
         // BscScan getLogs doesn't return total count in a simple way for logs
         // Usually you call and it returns what it matches
         let total = history.len() as u64; // Placeholder
-        
+
         Ok((history, total))
     }
 }

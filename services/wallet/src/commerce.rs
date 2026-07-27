@@ -395,10 +395,11 @@ async fn mutate_wallet_status(
         return error(headers, StatusCode::BAD_REQUEST, "missing_idempotency_key");
     };
     if request.expected_version < 0
-        || request
-            .reason
-            .as_deref()
-            .is_some_and(|reason| reason.trim().is_empty() || reason.chars().count() > MAX_REASON_CHARS || reason.chars().any(char::is_control))
+        || request.reason.as_deref().is_some_and(|reason| {
+            reason.trim().is_empty()
+                || reason.chars().count() > MAX_REASON_CHARS
+                || reason.chars().any(char::is_control)
+        })
     {
         return error(headers, StatusCode::BAD_REQUEST, "invalid_wallet_request");
     }

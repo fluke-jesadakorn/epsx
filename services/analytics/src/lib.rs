@@ -9,8 +9,8 @@ use axum::{
 };
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use epsx_service_auth::{
-    authenticate_headers, AccessTokenVerifier, JwksVerifier, JwksVerifierConfig, ADMIN_AUDIENCE,
-    FRONTEND_AUDIENCE, VerifiedPrincipal,
+    authenticate_headers, AccessTokenVerifier, JwksVerifier, JwksVerifierConfig, VerifiedPrincipal,
+    ADMIN_AUDIENCE, FRONTEND_AUDIENCE,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
@@ -636,10 +636,14 @@ async fn track_event(
 
 fn event_name_is_valid(value: &str) -> bool {
     let mut chars = value.chars();
-    let Some(first) = chars.next() else { return false };
+    let Some(first) = chars.next() else {
+        return false;
+    };
     value.len() <= 100
         && first.is_ascii_alphabetic()
-        && chars.all(|character| character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-'))
+        && chars.all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-')
+        })
 }
 
 async fn list_events(State(state): State<AppState>) -> Result<Json<serde_json::Value>, StatusCode> {

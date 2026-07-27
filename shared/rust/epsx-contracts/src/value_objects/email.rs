@@ -1,10 +1,10 @@
 // kernel extraction wave9 — moved from apps/backend/src/domain/shared_kernel/value_objects/email.rs
 // Import-path adjustment: `crate::core::errors::AppError` →
 // `crate::errors::AppError`; the trait now lives in `crate::value_object`.
+use crate::errors::AppError;
+use crate::value_object::{ValueObject, ValueObjectError};
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use crate::value_object::{ValueObject, ValueObjectError};
-use crate::errors::AppError;
 
 /// Email address value object with validation
 ///
@@ -19,7 +19,10 @@ impl Email {
         if Self::is_valid(&email) {
             Ok(Self(email.to_lowercase()))
         } else {
-            Err(AppError::validation_error(format!("Invalid email format: {}", email)))
+            Err(AppError::validation_error(format!(
+                "Invalid email format: {}",
+                email
+            )))
         }
     }
 
@@ -39,10 +42,13 @@ impl Email {
 
 impl ValueObject for Email {
     type Error = ValueObjectError;
-    
+
     fn validate(&self) -> Result<(), Self::Error> {
         if !Self::is_valid(&self.0) {
-            return Err(ValueObjectError::InvalidFormat(format!("Invalid email format: {}", self.0)));
+            return Err(ValueObjectError::InvalidFormat(format!(
+                "Invalid email format: {}",
+                self.0
+            )));
         }
         Ok(())
     }

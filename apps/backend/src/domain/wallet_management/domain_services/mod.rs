@@ -5,16 +5,9 @@
 // Web3 wallet-based services
 pub mod wallet_permission_service;
 
-
 // NEW - Web3 wallet permission service (primary)
 pub use wallet_permission_service::{
-    WalletPermissionService,
-    Web3PermissionContext,
-    Web3ValidationResult,
+    HasChainAccessSpecification, HasWalletPlatformAccessSpecification, IsWalletAdminSpecification,
+    PermissionSyncResult, WalletPermissionService, Web3PermissionContext, Web3ValidationResult,
     Web3ValidationType,
-    PermissionSyncResult,
-    IsWalletAdminSpecification,
-    HasWalletPlatformAccessSpecification,
-    HasChainAccessSpecification,
 };
-

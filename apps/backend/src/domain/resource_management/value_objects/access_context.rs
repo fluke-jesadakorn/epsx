@@ -7,9 +7,9 @@ use std::fmt;
 /// Represents different access contexts for resource usage
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum AccessContext {
-    Internal,   // Web application access
-    External,   // API access
-    Both,       // Both web and API access
+    Internal, // Web application access
+    External, // API access
+    Both,     // Both web and API access
 }
 
 /// Configuration for access context
@@ -56,7 +56,7 @@ impl AccessContext {
     pub fn as_str(&self) -> &'static str {
         match self {
             AccessContext::Internal => "internal",
-            AccessContext::External => "external", 
+            AccessContext::External => "external",
             AccessContext::Both => "both",
         }
     }
@@ -147,8 +147,8 @@ impl AccessRateLimit {
     }
 
     pub fn is_unlimited(&self) -> bool {
-        self.requests_per_minute.is_none() 
-            && self.requests_per_hour.is_none() 
+        self.requests_per_minute.is_none()
+            && self.requests_per_hour.is_none()
             && self.requests_per_day.is_none()
     }
 }
@@ -189,10 +189,10 @@ impl ApiAccessConfig {
         if self.allowed_endpoints.is_empty() {
             return true; // Allow all if none specified
         }
-        
-        self.allowed_endpoints.iter().any(|allowed| {
-            endpoint.starts_with(allowed) || allowed == "*"
-        })
+
+        self.allowed_endpoints
+            .iter()
+            .any(|allowed| endpoint.starts_with(allowed) || allowed == "*")
     }
 
     pub fn is_expired(&self) -> bool {

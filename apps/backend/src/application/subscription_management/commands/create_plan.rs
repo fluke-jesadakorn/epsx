@@ -1,14 +1,16 @@
+use crate::application::shared::command_bus::CommandHandler;
 use async_trait::async_trait;
 use std::sync::Arc;
-use crate::application::shared::command_bus::CommandHandler;
 
-use crate::application::shared::ApplicationResult;
 use crate::application::shared::error::ApplicationError;
+use crate::application::shared::ApplicationResult;
 
 use crate::domain::subscription_management::domain_services::plan_factory::PlanFactory;
 use crate::domain::subscription_management::repository_ports::PlanRepositoryPort;
 
-use crate::application::subscription_management::commands::models::create_plan::{CreatePlanCommand, CreatePlanResponse};
+use crate::application::subscription_management::commands::models::create_plan::{
+    CreatePlanCommand, CreatePlanResponse,
+};
 
 pub type CreatePlanResult = CreatePlanResponse;
 
@@ -35,9 +37,13 @@ impl CommandHandler<CreatePlanCommand> for CreatePlanCommandHandler {
             command.price_amount,
             command.currency,
             command.billing_cycle,
-        ).map_err(ApplicationError::business_rule)?;
+        )
+        .map_err(ApplicationError::business_rule)?;
 
-        self.plan_repository.save(&plan).await.map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
+        self.plan_repository
+            .save(&plan)
+            .await
+            .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         Ok(CreatePlanResult {
             plan_id: plan.id().to_string(),
@@ -45,5 +51,3 @@ impl CommandHandler<CreatePlanCommand> for CreatePlanCommandHandler {
         })
     }
 }
-
-

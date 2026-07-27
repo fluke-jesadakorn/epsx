@@ -3,52 +3,32 @@
 // following CQRS and hexagonal architecture patterns
 
 pub mod commands;
-pub mod queries;
 pub mod controllers; // HTTP controllers (inbound adapters)
 pub mod dtos; // Request/Response DTOs
+pub mod queries;
 pub mod wallet_management_repository; // Repository for wallet query operations
 
 // Re-export command and query models for easy access
 pub use commands::{
-    UpdateWalletCommand,
-    UpdateWalletResponse,
-    DeleteWalletCommand,
-    DeleteWalletResponse,
-    GrantPermissionCommand,
-    GrantPermissionResponse,
-
+    DeleteWalletCommand, DeleteWalletResponse, GrantPermissionCommand, GrantPermissionResponse,
+    UpdateWalletCommand, UpdateWalletResponse,
 };
 
 pub use queries::{
-    GetWalletQuery,
-    GetWalletResponse,
-    SearchWalletsQuery,
-    SearchWalletsResponse,
-    ListWalletsQuery,
-    ListWalletsResponse,
+    GetWalletPermissionsQuery, GetWalletPermissionsResponse, GetWalletQuery, GetWalletResponse,
+    ListWalletsQuery, ListWalletsResponse, SearchWalletsQuery, SearchWalletsResponse,
     WalletSummary,
-    GetWalletPermissionsQuery,
-    GetWalletPermissionsResponse,
-
-
 };
 
 // Re-export command handlers
 pub use commands::{
-    UpdateWalletCommandHandler,
-    DeleteWalletCommandHandler,
-    GrantPermissionCommandHandler,
-
+    DeleteWalletCommandHandler, GrantPermissionCommandHandler, UpdateWalletCommandHandler,
 };
 
 // Re-export query handlers
 pub use queries::{
-    GetWalletQueryHandler,
-    ListWalletsQueryHandler,
+    GetWalletPermissionsQueryHandler, GetWalletQueryHandler, ListWalletsQueryHandler,
     SearchWalletsQueryHandler,
-    GetWalletPermissionsQueryHandler,
-
-
 };
 
 // Tests module

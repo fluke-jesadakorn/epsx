@@ -31,7 +31,12 @@ impl Bucket {
     }
 
     pub fn all() -> &'static [Bucket] {
-        &[Bucket::Chat, Bucket::News, Bucket::Notifications, Bucket::Public]
+        &[
+            Bucket::Chat,
+            Bucket::News,
+            Bucket::Notifications,
+            Bucket::Public,
+        ]
     }
 }
 

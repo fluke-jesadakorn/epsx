@@ -495,25 +495,69 @@ pub async fn reset_settings_handler(
     // the database commit.
     let request = UpdateSettingsRequest {
         settings: vec![
-            SettingUpdate { category: "general".into(), key: "systemName".into(), value: json!("EPSX Admin Console"), expected_updated_at: None },
-            SettingUpdate { category: "general".into(), key: "adminEmail".into(), value: json!("admin@epsx.com"), expected_updated_at: None },
-            SettingUpdate { category: "general".into(), key: "maintenanceMode".into(), value: json!(false), expected_updated_at: None },
-            SettingUpdate { category: "notifications".into(), key: "emailNotifications".into(), value: json!(true), expected_updated_at: None },
-            SettingUpdate { category: "notifications".into(), key: "pushNotifications".into(), value: json!(false), expected_updated_at: None },
-            SettingUpdate { category: "notifications".into(), key: "smsNotifications".into(), value: json!(true), expected_updated_at: None },
-            SettingUpdate { category: "notifications".into(), key: "securityAlerts".into(), value: json!(true), expected_updated_at: None },
-            SettingUpdate { category: "security".into(), key: "sessionTimeout".into(), value: json!(30), expected_updated_at: None },
-            SettingUpdate { category: "appearance".into(), key: "theme".into(), value: json!("light"), expected_updated_at: None },
-            SettingUpdate { category: "appearance".into(), key: "primaryColor".into(), value: json!("#FF8C00"), expected_updated_at: None },
+            SettingUpdate {
+                category: "general".into(),
+                key: "systemName".into(),
+                value: json!("EPSX Admin Console"),
+                expected_updated_at: None,
+            },
+            SettingUpdate {
+                category: "general".into(),
+                key: "adminEmail".into(),
+                value: json!("admin@epsx.com"),
+                expected_updated_at: None,
+            },
+            SettingUpdate {
+                category: "general".into(),
+                key: "maintenanceMode".into(),
+                value: json!(false),
+                expected_updated_at: None,
+            },
+            SettingUpdate {
+                category: "notifications".into(),
+                key: "emailNotifications".into(),
+                value: json!(true),
+                expected_updated_at: None,
+            },
+            SettingUpdate {
+                category: "notifications".into(),
+                key: "pushNotifications".into(),
+                value: json!(false),
+                expected_updated_at: None,
+            },
+            SettingUpdate {
+                category: "notifications".into(),
+                key: "smsNotifications".into(),
+                value: json!(true),
+                expected_updated_at: None,
+            },
+            SettingUpdate {
+                category: "notifications".into(),
+                key: "securityAlerts".into(),
+                value: json!(true),
+                expected_updated_at: None,
+            },
+            SettingUpdate {
+                category: "security".into(),
+                key: "sessionTimeout".into(),
+                value: json!(30),
+                expected_updated_at: None,
+            },
+            SettingUpdate {
+                category: "appearance".into(),
+                key: "theme".into(),
+                value: json!("light"),
+                expected_updated_at: None,
+            },
+            SettingUpdate {
+                category: "appearance".into(),
+                key: "primaryColor".into(),
+                value: json!("#FF8C00"),
+                expected_updated_at: None,
+            },
         ],
     };
-    update_settings_handler(
-        State(app_state),
-        Extension(context),
-        headers,
-        Json(request),
-    )
-    .await
+    update_settings_handler(State(app_state), Extension(context), headers, Json(request)).await
 }
 
 #[cfg(test)]

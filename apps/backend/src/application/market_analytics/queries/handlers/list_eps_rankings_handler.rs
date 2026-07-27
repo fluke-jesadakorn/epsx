@@ -1,11 +1,12 @@
-use crate::prelude::*;
-use crate::application::shared::{QueryHandler, ApplicationResult, ApplicationError};
 use crate::application::market_analytics::queries::{
-    ListEPSRankingsQuery, ListEPSRankingsResponse, EPSRankingSummary
+    EPSRankingSummary, ListEPSRankingsQuery, ListEPSRankingsResponse,
 };
+use crate::application::shared::{ApplicationError, ApplicationResult, QueryHandler};
 use crate::domain::market_analytics::{
-    EPSRankingRepositoryPort, EPSRankingSearchCriteria, RankingType, RankingPeriod, SectorCategory, Country
+    Country, EPSRankingRepositoryPort, EPSRankingSearchCriteria, RankingPeriod, RankingType,
+    SectorCategory,
 };
+use crate::prelude::*;
 use crate::web::pagination::Pagination;
 
 /// Query handler for listing EPS rankings
@@ -15,40 +16,49 @@ pub struct ListEPSRankingsQueryHandler {
 
 impl ListEPSRankingsQueryHandler {
     pub fn new(ranking_repository: Arc<dyn EPSRankingRepositoryPort>) -> Self {
-        Self {
-            ranking_repository,
-        }
+        Self { ranking_repository }
     }
 }
 
 #[async_trait]
 impl QueryHandler<ListEPSRankingsQuery> for ListEPSRankingsQueryHandler {
-    async fn handle(&self, query: ListEPSRankingsQuery) -> ApplicationResult<ListEPSRankingsResponse> {
+    async fn handle(
+        &self,
+        query: ListEPSRankingsQuery,
+    ) -> ApplicationResult<ListEPSRankingsResponse> {
         // 1. Parse filters
         let ranking_type = if let Some(type_str) = query.ranking_type {
-            Some(RankingType::from_str(&type_str)
-                .map_err(|e| ApplicationError::validation("ranking_type", e.to_string()))?)
+            Some(
+                RankingType::from_str(&type_str)
+                    .map_err(|e| ApplicationError::validation("ranking_type", e.to_string()))?,
+            )
         } else {
             None
         };
 
         let time_period = if let Some(period_str) = query.time_period {
-            Some(RankingPeriod::from_str(&period_str)
-                .map_err(|e| ApplicationError::validation("time_period", e.to_string()))?)
+            Some(
+                RankingPeriod::from_str(&period_str)
+                    .map_err(|e| ApplicationError::validation("time_period", e.to_string()))?,
+            )
         } else {
             None
         };
 
         let sector_filter = if let Some(sector_str) = query.sector {
-            Some(SectorCategory::from_str(&sector_str)
-                .map_err(|e| ApplicationError::validation("sector", e.to_string()))?)
+            Some(
+                SectorCategory::from_str(&sector_str)
+                    .map_err(|e| ApplicationError::validation("sector", e.to_string()))?,
+            )
         } else {
             None
         };
 
         let country_filter = if let Some(country_str) = query.country {
-            Some(Country::new(country_str)
-                .map_err(|e| ApplicationError::validation("country", e.to_string()))?)
+            Some(
+                Country::new(country_str)
+                    .map_err(|e| ApplicationError::validation("country", e.to_string()))?,
+            )
         } else {
             None
         };
@@ -66,15 +76,22 @@ impl QueryHandler<ListEPSRankingsQuery> for ListEPSRankingsQueryHandler {
         };
 
         // 3. Get rankings and total count
-        let rankings = self.ranking_repository.find_all(criteria.clone()).await
+        let rankings = self
+            .ranking_repository
+            .find_all(criteria.clone())
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
-        let total = self.ranking_repository.count(criteria).await
+        let total = self
+            .ranking_repository
+            .count(criteria)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         // 4. Map to summaries
-        let summaries: Vec<EPSRankingSummary> = rankings.into_iter().map(|ranking| {
-            EPSRankingSummary {
+        let summaries: Vec<EPSRankingSummary> = rankings
+            .into_iter()
+            .map(|ranking| EPSRankingSummary {
                 ranking_id: ranking.ranking_id().to_string(),
                 ranking_type: ranking.ranking_type().to_string(),
                 time_period: ranking.time_period().to_string(),
@@ -82,8 +99,8 @@ impl QueryHandler<ListEPSRankingsQuery> for ListEPSRankingsQueryHandler {
                 country_filter: ranking.country_filter().map(|c| c.name().to_string()),
                 total_entries: ranking.total_entries(),
                 last_updated: ranking.last_updated(),
-            }
-        }).collect();
+            })
+            .collect();
 
         // 5. Return response
         Ok(ListEPSRankingsResponse {

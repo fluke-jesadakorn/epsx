@@ -2,11 +2,11 @@
 //!
 //! Database models for payments, subscriptions, and payment_audit_log tables using Diesel ORM
 
-use chrono::{DateTime, Utc};
-use diesel::{Queryable, Selectable, Insertable, AsChangeset, QueryableByName};
-use uuid::Uuid;
 use bigdecimal::BigDecimal;
+use chrono::{DateTime, Utc};
+use diesel::{AsChangeset, Insertable, Queryable, QueryableByName, Selectable};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 /// Diesel Queryable model for payments table
 #[derive(Debug, Clone, Queryable, Selectable)]
@@ -76,7 +76,7 @@ pub struct SubscriptionDb {
     pub id: Uuid,
     pub wallet_address: String,
     pub plan_id: Uuid,
-    pub payment_id: Option<Uuid>,  // Nullable for admin-assigned subscriptions
+    pub payment_id: Option<Uuid>, // Nullable for admin-assigned subscriptions
     pub status: String,
     pub started_at: Option<DateTime<Utc>>,
     pub expires_at: DateTime<Utc>,
@@ -91,7 +91,7 @@ pub struct SubscriptionDb {
 pub struct NewSubscriptionDb {
     pub wallet_address: String,
     pub plan_id: Uuid,
-    pub payment_id: Option<Uuid>,  // Nullable for admin-assigned subscriptions
+    pub payment_id: Option<Uuid>, // Nullable for admin-assigned subscriptions
     pub status: String,
     pub started_at: Option<DateTime<Utc>>,
     pub expires_at: DateTime<Utc>,
@@ -171,7 +171,7 @@ pub struct UpdatePaymentRequest {
 pub struct CreateSubscriptionRequest {
     pub wallet_address: String,
     pub plan_id: Uuid,
-    pub payment_id: Option<Uuid>,  // Optional for admin-assigned free subscriptions
+    pub payment_id: Option<Uuid>, // Optional for admin-assigned free subscriptions
     pub expires_at: DateTime<Utc>,
     pub auto_renew: Option<bool>,
     pub metadata: Option<serde_json::Value>,

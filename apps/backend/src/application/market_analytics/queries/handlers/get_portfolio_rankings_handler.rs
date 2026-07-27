@@ -1,14 +1,14 @@
-use crate::prelude::*;
-use crate::application::shared::{QueryHandler, ApplicationResult, ApplicationError};
+use crate::application::market_analytics::dtos::{
+    CardDashboardMetadata, CardDashboardResponse, EPSPaginationResponse, EPSQuarterlyData,
+    QuarterlyPerformanceData, SymbolCardData,
+};
 use crate::application::market_analytics::queries::{
     GetPortfolioRankingsQuery, GetPortfolioRankingsResponse,
 };
-use crate::application::market_analytics::dtos::{
-    CardDashboardResponse, SymbolCardData, EPSPaginationResponse,
-    CardDashboardMetadata, QuarterlyPerformanceData, EPSQuarterlyData,
-};
-use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
+use crate::application::shared::{ApplicationError, ApplicationResult, QueryHandler};
 use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
+use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
+use crate::prelude::*;
 
 /// Query handler for getting portfolio rankings (positive-growth stocks only)
 pub struct GetPortfolioRankingsQueryHandler {
@@ -17,7 +17,9 @@ pub struct GetPortfolioRankingsQueryHandler {
 
 impl GetPortfolioRankingsQueryHandler {
     pub fn new(tradingview_service: Arc<TradingViewApiService>) -> Self {
-        Self { tradingview_service }
+        Self {
+            tradingview_service,
+        }
     }
 
     /// Transform EPSRanking to SymbolCardData
@@ -27,19 +29,17 @@ impl GetPortfolioRankingsQueryHandler {
         let price_current = ranking.price_current.unwrap_or(0.0);
 
         // Build quarterly performance from ranking data
-        let quarterly_performance = vec![
-            QuarterlyPerformanceData {
-                quarter: "Q1".to_string(),
-                date: chrono::Utc::now().to_string(),
-                price: price_current,
-                eps: current_eps,
-                eps_growth: growth_factor,
-                price_growth: 0.0,
-                announcement_date: None,
-                announcement_timestamp: None,
-                is_estimated: false,
-            },
-        ];
+        let quarterly_performance = vec![QuarterlyPerformanceData {
+            quarter: "Q1".to_string(),
+            date: chrono::Utc::now().to_string(),
+            price: price_current,
+            eps: current_eps,
+            eps_growth: growth_factor,
+            price_growth: 0.0,
+            announcement_date: None,
+            announcement_timestamp: None,
+            is_estimated: false,
+        }];
 
         SymbolCardData {
             rank,
@@ -68,8 +68,12 @@ impl GetPortfolioRankingsQueryHandler {
                 avg_growth_rate: Some(growth_factor),
                 consistency_score: Some("high".to_string()),
             }),
-            next_earnings_date: ranking.next_earnings_date.and_then(|s| s.parse::<i64>().ok()),
-            last_earnings_date: ranking.last_earnings_date.and_then(|s| s.parse::<i64>().ok()),
+            next_earnings_date: ranking
+                .next_earnings_date
+                .and_then(|s| s.parse::<i64>().ok()),
+            last_earnings_date: ranking
+                .last_earnings_date
+                .and_then(|s| s.parse::<i64>().ok()),
             next_earnings_date_formatted: None,
             days_until_next_earnings: None,
             progress_percentage: None,
@@ -177,10 +181,7 @@ impl QueryHandler<GetPortfolioRankingsQuery> for GetPortfolioRankingsQueryHandle
                 has_prev,
             },
             metadata,
-            message: Some(format!(
-                "Fetched {} positive-growth stocks",
-                filtered_count
-            )),
+            message: Some(format!("Fetched {} positive-growth stocks", filtered_count)),
             processing_time_ms: start.elapsed().as_millis() as u64,
         };
 

@@ -3,8 +3,8 @@ use aws_sdk_s3::{
     presigning::PresigningConfig,
     primitives::ByteStream,
     types::{
-        BucketLifecycleConfiguration, CompletedMultipartUpload, CompletedPart,
-        ExpirationStatus, LifecycleExpiration, LifecycleRule, LifecycleRuleFilter,
+        BucketLifecycleConfiguration, CompletedMultipartUpload, CompletedPart, ExpirationStatus,
+        LifecycleExpiration, LifecycleRule, LifecycleRuleFilter,
     },
     Client,
 };
@@ -37,7 +37,11 @@ impl S3Storage {
         };
 
         // Use public_url for presigned URL generation so URLs are browser-accessible
-        let presign_endpoint = if !public_url.is_empty() { public_url } else { endpoint };
+        let presign_endpoint = if !public_url.is_empty() {
+            public_url
+        } else {
+            endpoint
+        };
         Self {
             client: make_client(endpoint),
             presign_client: make_client(presign_endpoint),
@@ -71,7 +75,8 @@ impl S3Storage {
                         "Resource": [format!("arn:aws:s3:::{}/*", name)]
                     }]
                 });
-                if let Err(e) = self.client
+                if let Err(e) = self
+                    .client
                     .put_bucket_policy()
                     .bucket(name)
                     .policy(policy.to_string())
@@ -93,11 +98,10 @@ impl S3Storage {
                     .expiration(expiration)
                     .build()
                 {
-                    if let Ok(config) = BucketLifecycleConfiguration::builder()
-                        .rules(rule)
-                        .build()
+                    if let Ok(config) = BucketLifecycleConfiguration::builder().rules(rule).build()
                     {
-                        if let Err(e) = self.client
+                        if let Err(e) = self
+                            .client
                             .put_bucket_lifecycle_configuration()
                             .bucket(name)
                             .lifecycle_configuration(config)
@@ -142,7 +146,8 @@ impl S3Storage {
         bytes: Vec<u8>,
         content_type: &str,
     ) -> Result<String, String> {
-        let create = self.client
+        let create = self
+            .client
             .create_multipart_upload()
             .bucket(bucket.as_str())
             .key(key)
@@ -156,7 +161,8 @@ impl S3Storage {
 
         for (i, chunk) in bytes.chunks(MULTIPART_THRESHOLD).enumerate() {
             let part_num = (i + 1) as i32;
-            let part = self.client
+            let part = self
+                .client
                 .upload_part()
                 .bucket(bucket.as_str())
                 .key(key)
@@ -199,7 +205,8 @@ impl S3Storage {
     ) -> Result<String, String> {
         let config = PresigningConfig::expires_in(Duration::from_secs(expires_secs))
             .map_err(|e| format!("Presigning config error: {}", e))?;
-        let req = self.presign_client
+        let req = self
+            .presign_client
             .get_object()
             .bucket(bucket.as_str())
             .key(key)
@@ -209,16 +216,27 @@ impl S3Storage {
         Ok(req.uri().to_string())
     }
 
-    pub async fn get_object_bytes(&self, bucket: Bucket, key: &str) -> Result<(Vec<u8>, String), String> {
-        let output = self.client
+    pub async fn get_object_bytes(
+        &self,
+        bucket: Bucket,
+        key: &str,
+    ) -> Result<(Vec<u8>, String), String> {
+        let output = self
+            .client
             .get_object()
             .bucket(bucket.as_str())
             .key(key)
             .send()
             .await
             .map_err(|e| format!("S3 get failed: {}", e))?;
-        let content_type = output.content_type().unwrap_or("application/octet-stream").to_string();
-        let bytes = output.body.collect().await
+        let content_type = output
+            .content_type()
+            .unwrap_or("application/octet-stream")
+            .to_string();
+        let bytes = output
+            .body
+            .collect()
+            .await
             .map_err(|e| format!("Failed to read body: {}", e))?
             .into_bytes()
             .to_vec();
@@ -250,13 +268,17 @@ impl S3Storage {
             req = req.max_keys(l);
         }
 
-        let resp = req.send().await.map_err(|e| format!("S3 list failed: {}", e))?;
+        let resp = req
+            .send()
+            .await
+            .map_err(|e| format!("S3 list failed: {}", e))?;
         let is_private = !matches!(bucket, Bucket::Public | Bucket::News);
         let mut items = Vec::new();
         for obj in resp.contents() {
             let key = obj.key().unwrap_or_default().to_string();
             let url = if is_private {
-                self.presigned_url(bucket, &key, 3600).await
+                self.presigned_url(bucket, &key, 3600)
+                    .await
                     .unwrap_or_else(|_| self.public_url(bucket, &key))
             } else {
                 self.public_url(bucket, &key)

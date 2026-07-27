@@ -100,15 +100,12 @@ impl RedisPubsubAdapter {
 impl PubsubPort for RedisPubsubAdapter {
     async fn publish(&self, channel: &str, payload: &[u8]) -> Result<(), AppError> {
         let mut conn = self.pool.get_connection();
-        let subscriber_count: i32 = conn
-            .publish(channel, payload)
-            .await
-            .map_err(|e| {
-                AppError::new(
-                    ErrorKind::InternalError,
-                    format!("Redis publish to {} failed: {}", channel, e),
-                )
-            })?;
+        let subscriber_count: i32 = conn.publish(channel, payload).await.map_err(|e| {
+            AppError::new(
+                ErrorKind::InternalError,
+                format!("Redis publish to {} failed: {}", channel, e),
+            )
+        })?;
 
         tracing::debug!(
             "RedisPubsubAdapter: published to channel={} subscribers={} bytes={}",
@@ -143,15 +140,12 @@ impl PubsubPort for RedisPubsubAdapter {
         // because `subscribe` is not async and the connect+SUBSCRIBE
         // roundtrip is bounded by the redis timeout.
         let stream = futures::executor::block_on(async {
-            let mut ps = client
-                .get_async_pubsub()
-                .await
-                .map_err(|e| {
-                    AppError::new(
-                        ErrorKind::InternalError,
-                        format!("Redis pubsub connection failed: {}", e),
-                    )
-                })?;
+            let mut ps = client.get_async_pubsub().await.map_err(|e| {
+                AppError::new(
+                    ErrorKind::InternalError,
+                    format!("Redis pubsub connection failed: {}", e),
+                )
+            })?;
             for ch in &channels_owned {
                 ps.subscribe(ch.as_str()).await.map_err(|e| {
                     AppError::new(
@@ -242,13 +236,10 @@ mod tests {
                 .unwrap();
         });
 
-        let received = tokio::time::timeout(
-            std::time::Duration::from_secs(2),
-            sub.next_message(),
-        )
-        .await
-        .expect("timed out waiting for redis pubsub message")
-        .expect("subscriber closed before delivering message");
+        let received = tokio::time::timeout(std::time::Duration::from_secs(2), sub.next_message())
+            .await
+            .expect("timed out waiting for redis pubsub message")
+            .expect("subscriber closed before delivering message");
 
         assert_eq!(received, b"hello redis pubsub");
     }

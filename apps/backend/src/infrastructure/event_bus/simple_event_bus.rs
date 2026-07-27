@@ -10,17 +10,17 @@ pub struct SimpleEventBus {
 
 impl SimpleEventBus {
     pub fn new() -> Self {
-        Self { 
-            events: Arc::new(RwLock::new(Vec::new()))
+        Self {
+            events: Arc::new(RwLock::new(Vec::new())),
         }
     }
-    
+
     /// Get published event types (for testing/debugging)
     pub fn published_events(&self) -> Vec<String> {
         let events = self.events.read().unwrap();
         events.clone()
     }
-    
+
     /// Clear all stored events
     pub fn clear(&self) {
         let mut events = self.events.write().unwrap();

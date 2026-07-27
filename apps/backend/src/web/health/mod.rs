@@ -2,10 +2,10 @@ use crate::prelude::TlsPool;
 // Health check module for monitoring system status
 // Single comprehensive /health endpoint with external service status
 
-use axum::{response::Json, extract::State};
+use axum::{extract::State, response::Json};
 use serde_json::{json, Value};
-use utoipa::ToSchema;
 use std::sync::Arc;
+use utoipa::ToSchema;
 // use diesel::prelude::*;
 use crate::infrastructure::cache::Cache;
 
@@ -47,9 +47,7 @@ pub struct ServiceStatus {
     ),
     tag = "health"
 )]
-pub async fn health_check_handler(
-    State(state): State<HealthState>,
-) -> Json<Value> {
+pub async fn health_check_handler(State(state): State<HealthState>) -> Json<Value> {
     let cache = state.cache;
 
     // Check PostgreSQL (All Pools)
@@ -74,7 +72,8 @@ pub async fn health_check_handler(
     // Overall status
     let overall_status = if db_health.healthy && redis_status.status == "connected" {
         "healthy"
-    } else if db_health.primary { // If at least primary DB is up
+    } else if db_health.primary {
+        // If at least primary DB is up
         "degraded"
     } else {
         "unhealthy"

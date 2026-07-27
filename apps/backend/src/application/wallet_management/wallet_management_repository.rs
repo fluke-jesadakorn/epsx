@@ -1,11 +1,11 @@
 // Wallet Management Repository - Centralized wallet query operations for CQRS handlers
 // Eliminates duplicate SQL across admin query handlers
 
-use diesel::prelude::*;
-use diesel_async::{RunQueryDsl};
-use chrono::{DateTime, Utc};
-use std::sync::Arc;
 use crate::infrastructure::database::diesel_connection_manager::TlsPool;
+use chrono::{DateTime, Utc};
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
+use std::sync::Arc;
 
 use epsx_contracts::errors::{AppError, ErrorKind};
 
@@ -72,7 +72,10 @@ impl WalletManagementRepository {
         wallet_address: &str,
     ) -> Result<Option<WalletBasicInfo>, AppError> {
         let mut conn = self.pool.get().await.map_err(|e| {
-            AppError::new(ErrorKind::DatabaseError, format!("Failed to get connection: {}", e))
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to get connection: {}", e),
+            )
         })?;
 
         #[derive(QueryableByName)]
@@ -94,13 +97,18 @@ impl WalletManagementRepository {
             SELECT wallet_address, is_active, created_at, last_auth_at, wallet_metadata
             FROM wallet_users
             WHERE wallet_address = $1
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(wallet_address)
         .get_result::<WalletRow>(&mut conn)
         .await
         .optional()
-        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to fetch wallet: {}", e)))?;
+        .map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to fetch wallet: {}", e),
+            )
+        })?;
 
         Ok(wallet.map(|w| WalletBasicInfo {
             wallet_address: w.wallet_address,
@@ -117,7 +125,10 @@ impl WalletManagementRepository {
         wallet_address: &str,
     ) -> Result<Vec<WalletPermission>, AppError> {
         let mut conn = self.pool.get().await.map_err(|e| {
-            AppError::new(ErrorKind::DatabaseError, format!("Failed to get connection: {}", e))
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to get connection: {}", e),
+            )
         })?;
 
         #[derive(QueryableByName)]
@@ -162,20 +173,28 @@ impl WalletManagementRepository {
               AND p.is_active = true
 
             ORDER BY permission
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(wallet_address)
         .load::<PermissionRow>(&mut conn)
         .await
-        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to fetch permissions: {}", e)))?;
+        .map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to fetch permissions: {}", e),
+            )
+        })?;
 
-        Ok(permissions.into_iter().map(|row| WalletPermission {
-            permission: row.permission.unwrap_or_else(|| "unknown".to_string()),
-            source: row.source.unwrap_or_else(|| "unknown".to_string()),
-            granted_at: row.granted_at.unwrap_or_else(chrono::Utc::now),
-            expires_at: row.expires_at,
-            is_active: row.is_active.unwrap_or(true),
-        }).collect())
+        Ok(permissions
+            .into_iter()
+            .map(|row| WalletPermission {
+                permission: row.permission.unwrap_or_else(|| "unknown".to_string()),
+                source: row.source.unwrap_or_else(|| "unknown".to_string()),
+                granted_at: row.granted_at.unwrap_or_else(chrono::Utc::now),
+                expires_at: row.expires_at,
+                is_active: row.is_active.unwrap_or(true),
+            })
+            .collect())
     }
 
     /// Find wallets with filtering and pagination (parameterized query)
@@ -184,7 +203,10 @@ impl WalletManagementRepository {
         criteria: &WalletSearchCriteria,
     ) -> Result<Vec<WalletSummary>, AppError> {
         let mut conn = self.pool.get().await.map_err(|e| {
-            AppError::new(ErrorKind::DatabaseError, format!("Failed to get connection: {}", e))
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to get connection: {}", e),
+            )
         })?;
 
         // Validate and sanitize sort columns (whitelist — safe for format!())
@@ -197,19 +219,28 @@ impl WalletManagementRepository {
         };
 
         let sort_order = criteria.sort_order.as_deref().unwrap_or("DESC");
-        let safe_sort_order = if sort_order.to_uppercase() == "ASC" { "ASC" } else { "DESC" };
+        let safe_sort_order = if sort_order.to_uppercase() == "ASC" {
+            "ASC"
+        } else {
+            "DESC"
+        };
 
         // Prepare bind params — user input is NEVER interpolated
         let search_pattern = criteria.search.as_ref().map(|s| format!("%{}%", s));
-        let is_active_filter: Option<bool> = criteria.status.as_ref().and_then(|s| match s.as_str() {
-            "active" => Some(true),
-            "disabled" => Some(false),
-            _ => None,
-        });
-        let date_from: Option<DateTime<Utc>> = criteria.date_from.as_ref()
+        let is_active_filter: Option<bool> =
+            criteria.status.as_ref().and_then(|s| match s.as_str() {
+                "active" => Some(true),
+                "disabled" => Some(false),
+                _ => None,
+            });
+        let date_from: Option<DateTime<Utc>> = criteria
+            .date_from
+            .as_ref()
             .and_then(|d| chrono::DateTime::parse_from_rfc3339(d).ok())
             .map(|d| d.with_timezone(&Utc));
-        let date_to: Option<DateTime<Utc>> = criteria.date_to.as_ref()
+        let date_to: Option<DateTime<Utc>> = criteria
+            .date_to
+            .as_ref()
             .and_then(|d| chrono::DateTime::parse_from_rfc3339(d).ok())
             .map(|d| d.with_timezone(&Utc));
         let exclude_plan = criteria.exclude_plan_id.clone();
@@ -284,39 +315,52 @@ impl WalletManagementRepository {
             .bind::<diesel::sql_types::BigInt, _>(criteria.offset as i64)
             .load::<WalletSummaryRow>(&mut conn)
             .await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to fetch wallets: {}", e)))?;
+            .map_err(|e| {
+                AppError::new(
+                    ErrorKind::DatabaseError,
+                    format!("Failed to fetch wallets: {}", e),
+                )
+            })?;
 
-        Ok(rows.into_iter().map(|row| WalletSummary {
-            wallet_address: row.wallet_address,
-            is_active: row.is_active,
-            created_at: row.created_at,
-            last_auth_at: row.last_auth_at,
-            permissions_count: row.permissions_count,
-            plans_count: row.plans_count,
-            plan_name: row.plan_name,
-            wallet_metadata: row.wallet_metadata,
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(|row| WalletSummary {
+                wallet_address: row.wallet_address,
+                is_active: row.is_active,
+                created_at: row.created_at,
+                last_auth_at: row.last_auth_at,
+                permissions_count: row.permissions_count,
+                plans_count: row.plans_count,
+                plan_name: row.plan_name,
+                wallet_metadata: row.wallet_metadata,
+            })
+            .collect())
     }
 
     /// Count wallets with filters (parameterized query)
-    pub async fn count_wallets(
-        &self,
-        criteria: &WalletSearchCriteria,
-    ) -> Result<i64, AppError> {
+    pub async fn count_wallets(&self, criteria: &WalletSearchCriteria) -> Result<i64, AppError> {
         let mut conn = self.pool.get().await.map_err(|e| {
-            AppError::new(ErrorKind::DatabaseError, format!("Failed to get connection: {}", e))
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to get connection: {}", e),
+            )
         })?;
 
         let search_pattern = criteria.search.as_ref().map(|s| format!("%{}%", s));
-        let is_active_filter: Option<bool> = criteria.status.as_ref().and_then(|s| match s.as_str() {
-            "active" => Some(true),
-            "disabled" => Some(false),
-            _ => None,
-        });
-        let date_from: Option<DateTime<Utc>> = criteria.date_from.as_ref()
+        let is_active_filter: Option<bool> =
+            criteria.status.as_ref().and_then(|s| match s.as_str() {
+                "active" => Some(true),
+                "disabled" => Some(false),
+                _ => None,
+            });
+        let date_from: Option<DateTime<Utc>> = criteria
+            .date_from
+            .as_ref()
             .and_then(|d| chrono::DateTime::parse_from_rfc3339(d).ok())
             .map(|d| d.with_timezone(&Utc));
-        let date_to: Option<DateTime<Utc>> = criteria.date_to.as_ref()
+        let date_to: Option<DateTime<Utc>> = criteria
+            .date_to
+            .as_ref()
             .and_then(|d| chrono::DateTime::parse_from_rfc3339(d).ok())
             .map(|d| d.with_timezone(&Utc));
         let exclude_plan = criteria.exclude_plan_id.clone();
@@ -350,7 +394,10 @@ impl WalletManagementRepository {
     /// Get permission count for a wallet
     pub async fn get_permission_count(&self, wallet_address: &str) -> Result<i32, AppError> {
         let mut conn = self.pool.get().await.map_err(|e| {
-            AppError::new(ErrorKind::DatabaseError, format!("Failed to get connection: {}", e))
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to get connection: {}", e),
+            )
         })?;
 
         #[derive(QueryableByName)]
@@ -379,12 +426,17 @@ impl WalletManagementRepository {
                   AND p.is_active = true
                   AND (wdp.expires_at IS NULL OR wdp.expires_at > NOW())
             ), 0) as total_count
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(wallet_address)
         .get_result::<PermCountRow>(&mut conn)
         .await
-        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count permissions: {}", e)))?;
+        .map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to count permissions: {}", e),
+            )
+        })?;
 
         Ok(row.total_count.unwrap_or(0))
     }

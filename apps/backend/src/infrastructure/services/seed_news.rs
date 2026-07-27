@@ -4,7 +4,7 @@
 //! Uses ON CONFLICT (slug) to safely re-run (idempotent).
 
 use diesel_async::RunQueryDsl;
-use tracing::{info, error};
+use tracing::{error, info};
 
 use crate::prelude::TlsPool;
 
@@ -88,11 +88,15 @@ pub async fn seed_production_news(pool: &TlsPool) {
 
     for def in NEWS_ARTICLES {
         let published_at_sql = format!("NOW() - INTERVAL '{} days'", def.days_ago);
-        let pinned_at_sql = if def.is_pinned { "NOW() - INTERVAL '{} days'" } else { "NULL" };
+        let pinned_at_sql = if def.is_pinned {
+            "NOW() - INTERVAL '{} days'"
+        } else {
+            "NULL"
+        };
         let pinned_at_val = pinned_at_sql.replace("{}", &def.days_ago.to_string());
 
-        let result = diesel::sql_query(
-            format!(r#"INSERT INTO news_articles (
+        let result = diesel::sql_query(format!(
+            r#"INSERT INTO news_articles (
                 title, slug, summary, content, cover_image_url,
                 author_wallet, status, tags, published_at, is_pinned, pinned_at
             ) VALUES (
@@ -108,11 +112,10 @@ pub async fn seed_production_news(pool: &TlsPool) {
                 published_at = EXCLUDED.published_at,
                 is_pinned = EXCLUDED.is_pinned,
                 pinned_at = EXCLUDED.pinned_at,
-                updated_at = NOW()"#, 
-                published_at_sql.replace("{}", &def.days_ago.to_string()),
-                pinned_at_val
-            )
-        )
+                updated_at = NOW()"#,
+            published_at_sql.replace("{}", &def.days_ago.to_string()),
+            pinned_at_val
+        ))
         .bind::<diesel::sql_types::Text, _>(def.title)
         .bind::<diesel::sql_types::Text, _>(def.slug)
         .bind::<diesel::sql_types::Text, _>(def.summary)

@@ -2,12 +2,12 @@ use axum::{
     extract::{Query, State},
     response::IntoResponse,
 };
-use chrono::{DateTime, Utc, Duration};
-use tracing::{error, info};
+use chrono::{DateTime, Duration, Utc};
 use diesel::prelude::*;
+use diesel::sql_types::{BigInt, Double, Timestamptz, Uuid as SqlUuid};
 use diesel_async::RunQueryDsl;
-use diesel::sql_types::{Timestamptz, BigInt, Double, Uuid as SqlUuid};
 use serde::{Deserialize, Serialize};
+use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::web::auth::AppState;
@@ -44,14 +44,14 @@ pub async fn get_usage_analytics_handler(
     // We need to check if there is a separate analytics pool or if we use the same one.
     // Based on UsageService, it seems there might be two pools, but AppState usually only exposes one.
     // UsageService::new(core_pool, analytics_pool).
-    
+
     // NOTE: In the current architecture shown in Overview.rs, we use app_state.db_pool.
-    // If usage logs are in a separate DB, we rely on the implementation detail that 
+    // If usage logs are in a separate DB, we rely on the implementation detail that
     // for simple deployments they might be in the same DB or accessible via the same pool.
     // If they are strictly separate, we might need to access the analytics pool from state if available.
-    // Checking AppState definition would be good, but assuming db_pool is correct for now 
+    // Checking AppState definition would be good, but assuming db_pool is correct for now
     // as we are patching an existing system.
-    
+
     let mut conn = match app_state.db_pool.get().await {
         Ok(conn) => conn,
         Err(e) => {
@@ -66,9 +66,9 @@ pub async fn get_usage_analytics_handler(
         Some("30d") => 30,
         _ => 7,
     };
-    
+
     let start_date = Utc::now() - Duration::days(period_days);
-    
+
     // Parse API Key UUID if present and not "all"
     let api_key_uuid = match query.api_key.as_deref() {
         Some("all") => None,
@@ -81,7 +81,7 @@ pub async fn get_usage_analytics_handler(
     // Since api_key_usage_logs is partitioned, we should ideally use the base table
     // or rely on Diesel to handle the table name if it's a view/parent.
     // The schema defines `api_key_usage_logs` so we use that.
-    
+
     let sql = format!(
         r#"
         SELECT 
@@ -95,7 +95,11 @@ pub async fn get_usage_analytics_handler(
         GROUP BY date
         ORDER BY date ASC
         "#,
-        if api_key_uuid.is_some() { "AND api_key_id = $2" } else { "" }
+        if api_key_uuid.is_some() {
+            "AND api_key_id = $2"
+        } else {
+            ""
+        }
     );
 
     let result = if let Some(uuid) = api_key_uuid {
@@ -120,5 +124,6 @@ pub async fn get_usage_analytics_handler(
         }
     };
 
-    AdminResponse::success_with_message(usage_data, "Usage analytics retrieved successfully").into_response()
+    AdminResponse::success_with_message(usage_data, "Usage analytics retrieved successfully")
+        .into_response()
 }

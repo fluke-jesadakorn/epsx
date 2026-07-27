@@ -752,11 +752,7 @@ mod tests {
         assert!(rendered.contains("Prefix: epsx_abc123"));
         assert!(rendered.contains("Market data"));
         assert!(rendered.contains("Requests today"));
-        for forbidden in [
-            "full_key",
-            "epsx_live_",
-            "Authorization: Bearer",
-        ] {
+        for forbidden in ["full_key", "epsx_live_", "Authorization: Bearer"] {
             assert!(
                 !rendered.contains(forbidden),
                 "secret or mutation leaked: {forbidden}"

@@ -2,18 +2,18 @@
 // CQRS handler for disabling a wallet
 
 use crate::application::shared::{ApplicationError, ApplicationResult, CommandHandler};
-use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 use crate::application::wallet_management::commands::admin_models::{
     DisableWalletCommand, DisableWalletResponse,
 };
+use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 use async_trait::async_trait;
-use diesel_async::{RunQueryDsl};
-use diesel::sql_types::Text;
+use chrono::{Duration, Utc};
 use diesel::prelude::*;
+use diesel::sql_types::Text;
+use diesel_async::RunQueryDsl;
+use serde_json::json;
 use std::sync::Arc;
 use tracing::{error, info};
-use chrono::{Utc, Duration};
-use serde_json::json;
 
 pub struct DisableWalletCommandHandler {
     db_pool: Arc<&'static TlsPool>,
@@ -33,7 +33,10 @@ impl CommandHandler<DisableWalletCommand> for DisableWalletCommandHandler {
     ) -> ApplicationResult<DisableWalletResponse> {
         // 1. Validate command (basic validation done by types, but we can add more)
         if command.wallet_address.trim().is_empty() {
-            return Err(ApplicationError::validation("wallet_address", "Wallet address cannot be empty"));
+            return Err(ApplicationError::validation(
+                "wallet_address",
+                "Wallet address cannot be empty",
+            ));
         }
 
         let mut conn = self.db_pool.get().await.map_err(|e| {
@@ -50,17 +53,16 @@ impl CommandHandler<DisableWalletCommand> for DisableWalletCommandHandler {
             wallet_address: String,
         }
 
-        let wallet_exists = diesel::sql_query(
-            "SELECT wallet_address FROM wallet_users WHERE wallet_address = $1"
-        )
-        .bind::<Text, _>(&command.wallet_address)
-        .get_result::<WalletExistsRow>(&mut conn)
-        .await
-        .optional()
-        .map_err(|e| {
-            error!("Failed to check wallet existence: {}", e);
-            ApplicationError::infrastructure(format!("Failed to check wallet: {}", e))
-        })?;
+        let wallet_exists =
+            diesel::sql_query("SELECT wallet_address FROM wallet_users WHERE wallet_address = $1")
+                .bind::<Text, _>(&command.wallet_address)
+                .get_result::<WalletExistsRow>(&mut conn)
+                .await
+                .optional()
+                .map_err(|e| {
+                    error!("Failed to check wallet existence: {}", e);
+                    ApplicationError::infrastructure(format!("Failed to check wallet: {}", e))
+                })?;
 
         if wallet_exists.is_none() {
             return Err(ApplicationError::not_found(
@@ -71,7 +73,9 @@ impl CommandHandler<DisableWalletCommand> for DisableWalletCommandHandler {
 
         // 3. Prepare additional metadata
         let disabled_at = Utc::now();
-        let disabled_until = command.duration_days.map(|days| disabled_at + Duration::days(days as i64));
+        let disabled_until = command
+            .duration_days
+            .map(|days| disabled_at + Duration::days(days as i64));
 
         let disable_info = json!({
             "reasonCategory": command.reason_category,
@@ -91,7 +95,7 @@ impl CommandHandler<DisableWalletCommand> for DisableWalletCommandHandler {
              SET is_active = false,
                  disable_info = $2,
                  updated_at = NOW()
-             WHERE wallet_address = $1"
+             WHERE wallet_address = $1",
         )
         .bind::<Text, _>(&command.wallet_address)
         .bind::<diesel::sql_types::Jsonb, _>(&disable_info);
@@ -100,11 +104,8 @@ impl CommandHandler<DisableWalletCommand> for DisableWalletCommandHandler {
             error!("Failed to disable wallet: {}", e);
             ApplicationError::infrastructure(format!("Failed to disable wallet: {}", e))
         })?;
-        
-        info!(
-            "Successfully disabled wallet: {}",
-            command.wallet_address
-        );
+
+        info!("Successfully disabled wallet: {}", command.wallet_address);
 
         Ok(DisableWalletResponse {
             success: true,

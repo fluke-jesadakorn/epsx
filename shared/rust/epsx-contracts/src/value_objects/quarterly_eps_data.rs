@@ -1,8 +1,8 @@
 // kernel extraction wave9 — moved from apps/backend/src/domain/shared_kernel/value_objects/quarterly_eps_data.rs
 // Import-path adjustment: `crate::domain::shared_kernel::value_object::*` →
 // `crate::value_object::*`.
-use serde::{Deserialize, Serialize};
 use crate::value_object::{ValueObject, ValueObjectError};
+use serde::{Deserialize, Serialize};
 
 /// Quarterly EPS data value object - Domain representation
 /// Represents quarterly earnings data independent of external data sources
@@ -28,7 +28,7 @@ impl PartialEq for QuarterlyEPSData {
             && self.timestamp == other.timestamp
             && self.estimated_eps.zip(other.estimated_eps).map_or(
                 self.estimated_eps.is_none() && other.estimated_eps.is_none(),
-                |(a, b)| (a - b).abs() < f64::EPSILON
+                |(a, b)| (a - b).abs() < f64::EPSILON,
             )
             && self.is_reported == other.is_reported
             && self.beat_estimate == other.beat_estimate
@@ -75,7 +75,8 @@ impl QuarterlyEPSData {
 
     /// Calculate EPS surprise (difference between actual and estimated)
     pub fn eps_surprise(&self) -> Option<f64> {
-        self.estimated_eps.map(|estimated| self.actual_eps - estimated)
+        self.estimated_eps
+            .map(|estimated| self.actual_eps - estimated)
     }
 
     /// Calculate EPS surprise percentage
@@ -88,20 +89,26 @@ impl QuarterlyEPSData {
 
 impl ValueObject for QuarterlyEPSData {
     type Error = ValueObjectError;
-    
+
     fn validate(&self) -> Result<(), Self::Error> {
         if self.quarter_number == 0 || self.quarter_number > 4 {
-            return Err(ValueObjectError::OutOfRange("Quarter number must be 1-4".to_string()));
+            return Err(ValueObjectError::OutOfRange(
+                "Quarter number must be 1-4".to_string(),
+            ));
         }
-        
+
         if self.period.is_empty() {
-            return Err(ValueObjectError::Required("Period cannot be empty".to_string()));
+            return Err(ValueObjectError::Required(
+                "Period cannot be empty".to_string(),
+            ));
         }
-        
+
         if self.timestamp <= 0 {
-            return Err(ValueObjectError::InvalidFormat("Timestamp must be positive".to_string()));
+            return Err(ValueObjectError::InvalidFormat(
+                "Timestamp must be positive".to_string(),
+            ));
         }
-        
+
         Ok(())
     }
 }
@@ -112,12 +119,7 @@ mod tests {
 
     #[test]
     fn test_quarterly_eps_data_creation() {
-        let eps_data = QuarterlyEPSData::new(
-            3,
-            "2024-Q3".to_string(),
-            2.45,
-            1672531200,
-        ).unwrap();
+        let eps_data = QuarterlyEPSData::new(3, "2024-Q3".to_string(), 2.45, 1672531200).unwrap();
 
         assert_eq!(eps_data.quarter_number, 3);
         assert_eq!(eps_data.actual_eps, 2.45);
@@ -126,14 +128,9 @@ mod tests {
 
     #[test]
     fn test_eps_surprise_calculation() {
-        let eps_data = QuarterlyEPSData::new(
-            2,
-            "2024-Q2".to_string(),
-            2.50,
-            1672531200,
-        )
-        .unwrap()
-        .with_estimates(2.30, true);
+        let eps_data = QuarterlyEPSData::new(2, "2024-Q2".to_string(), 2.50, 1672531200)
+            .unwrap()
+            .with_estimates(2.30, true);
 
         assert!((eps_data.eps_surprise().unwrap() - 0.20).abs() < 1e-10);
         assert!(eps_data.eps_surprise_percentage().unwrap() > 8.0);
@@ -141,12 +138,7 @@ mod tests {
 
     #[test]
     fn test_invalid_quarter_number() {
-        let result = QuarterlyEPSData::new(
-            5,
-            "2024-Q5".to_string(),
-            1.0,
-            1672531200,
-        );
+        let result = QuarterlyEPSData::new(5, "2024-Q5".to_string(), 1.0, 1672531200);
 
         assert!(result.is_err());
     }

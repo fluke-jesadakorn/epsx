@@ -1,10 +1,12 @@
-use crate::prelude::*;
-use crate::application::shared::{QueryHandler, ApplicationResult, ApplicationError};
 use crate::application::permission_management::queries::{
-    GetWalletPlansQuery, GetWalletPlansResponse, WalletPlanInfo
+    GetWalletPlansQuery, GetWalletPlansResponse, WalletPlanInfo,
 };
-use crate::domain::permission_management::{PlanAssignmentRepositoryPort, PermissionPlanRepositoryPort};
+use crate::application::shared::{ApplicationError, ApplicationResult, QueryHandler};
+use crate::domain::permission_management::{
+    PermissionPlanRepositoryPort, PlanAssignmentRepositoryPort,
+};
 use crate::domain::wallet_management::WalletAddress;
+use crate::prelude::*;
 
 /// Query handler for getting wallet plans
 pub struct GetWalletPlansQueryHandler {
@@ -26,13 +28,19 @@ impl GetWalletPlansQueryHandler {
 
 #[async_trait]
 impl QueryHandler<GetWalletPlansQuery> for GetWalletPlansQueryHandler {
-    async fn handle(&self, query: GetWalletPlansQuery) -> ApplicationResult<GetWalletPlansResponse> {
+    async fn handle(
+        &self,
+        query: GetWalletPlansQuery,
+    ) -> ApplicationResult<GetWalletPlansResponse> {
         // 1. Parse wallet address
         let wallet_address = WalletAddress::new(&query.wallet_address)
             .map_err(|e| ApplicationError::validation("wallet_address", e.to_string()))?;
 
         // 2. Find assignments
-        let assignments = self.assignment_repository.find_by_wallet(&wallet_address).await
+        let assignments = self
+            .assignment_repository
+            .find_by_wallet(&wallet_address)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         // 3. Get plan details for each assignment with actual timestamps
@@ -43,7 +51,11 @@ impl QueryHandler<GetWalletPlansQuery> for GetWalletPlansQueryHandler {
                     plan_id: plan.id().as_str(),
                     plan_name: plan.name().to_string(),
                     plan_slug: plan.slug().as_str().to_string(),
-                    permissions: plan.permissions().iter().map(|p| p.as_str().to_string()).collect(),
+                    permissions: plan
+                        .permissions()
+                        .iter()
+                        .map(|p| p.as_str().to_string())
+                        .collect(),
                     assigned_at: assignment.assigned_at(),
                     expires_at: assignment.expires_at(),
                     is_active: assignment.is_active(),

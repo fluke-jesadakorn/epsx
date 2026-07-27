@@ -1,9 +1,9 @@
-use crate::prelude::*;
-use crate::application::shared::{QueryHandler, ApplicationResult, ApplicationError};
 use crate::application::permission_management::queries::{
-    GetPlanMembersQuery, GetPlanMembersResponse, PlanMemberInfo
+    GetPlanMembersQuery, GetPlanMembersResponse, PlanMemberInfo,
 };
+use crate::application::shared::{ApplicationError, ApplicationResult, QueryHandler};
 use crate::domain::permission_management::{PlanAssignmentRepositoryPort, PlanId};
+use crate::prelude::*;
 
 /// Query handler for getting plan members
 pub struct GetPlanMembersQueryHandler {
@@ -20,13 +20,19 @@ impl GetPlanMembersQueryHandler {
 
 #[async_trait]
 impl QueryHandler<GetPlanMembersQuery> for GetPlanMembersQueryHandler {
-    async fn handle(&self, query: GetPlanMembersQuery) -> ApplicationResult<GetPlanMembersResponse> {
+    async fn handle(
+        &self,
+        query: GetPlanMembersQuery,
+    ) -> ApplicationResult<GetPlanMembersResponse> {
         // 1. Parse plan ID
         let plan_id = PlanId::parse(&query.plan_id)
             .map_err(|e| ApplicationError::validation("plan_id", e.to_string()))?;
 
         // 2. Find assignments
-        let assignments = self.assignment_repository.find_by_plan(&plan_id).await
+        let assignments = self
+            .assignment_repository
+            .find_by_plan(&plan_id)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         // 3. Build response with actual timestamps

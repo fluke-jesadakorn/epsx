@@ -1,9 +1,9 @@
-use chrono::{DateTime, Utc};
-use std::collections::HashMap;
-use crate::domain::shared_kernel::aggregate_root::{AggregateRoot, AggregateBase};
-use crate::domain::shared_kernel::domain_event::{DomainEvent, EventMetadata};
 use crate::domain::market_analytics::value_objects::*;
+use crate::domain::shared_kernel::aggregate_root::{AggregateBase, AggregateRoot};
+use crate::domain::shared_kernel::domain_event::{DomainEvent, EventMetadata};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 /// Stock Analysis Aggregate Root
@@ -49,7 +49,8 @@ impl StockAnalysis {
         };
 
         // Calculate initial analysis score
-        let analysis_score = Self::calculate_analysis_score(&current_eps, &eps_growth, &sector, &country);
+        let analysis_score =
+            Self::calculate_analysis_score(&current_eps, &eps_growth, &sector, &country);
 
         let id = symbol.to_string();
         let mut stock_analysis = Self {
@@ -68,24 +69,30 @@ impl StockAnalysis {
         };
 
         // Publish domain event
-        stock_analysis.base.add_event(Box::new(StockAnalysisCreated::new(
-            id,
-            stock_analysis.base.version,
-            symbol,
-            stock_analysis.company_name.clone(),
-            stock_analysis.analysis_score.clone(),
-        )));
+        stock_analysis
+            .base
+            .add_event(Box::new(StockAnalysisCreated::new(
+                id,
+                stock_analysis.base.version,
+                symbol,
+                stock_analysis.company_name.clone(),
+                stock_analysis.analysis_score.clone(),
+            )));
 
         Ok(stock_analysis)
     }
 
     /// Update EPS data and recalculate metrics
-    pub fn update_eps(&mut self, current_eps: EPSValue, previous_eps: EPSValue) -> Result<(), String> {
+    pub fn update_eps(
+        &mut self,
+        current_eps: EPSValue,
+        previous_eps: EPSValue,
+    ) -> Result<(), String> {
         let old_score = self.analysis_score.clone();
-        
+
         self.previous_eps = previous_eps;
         self.current_eps = current_eps;
-        
+
         // Recalculate growth
         self.eps_growth = match previous_eps.percentage_change_to(current_eps) {
             Some(change) => GrowthFactor::new(change)?,
@@ -93,7 +100,12 @@ impl StockAnalysis {
         };
 
         // Recalculate analysis score
-        self.analysis_score = Self::calculate_analysis_score(&current_eps, &self.eps_growth, &self.sector, &self.country);
+        self.analysis_score = Self::calculate_analysis_score(
+            &current_eps,
+            &self.eps_growth,
+            &self.sector,
+            &self.country,
+        );
         self.last_updated = Utc::now();
 
         // Publish event if score changed significantly
@@ -117,7 +129,12 @@ impl StockAnalysis {
         self.sector = sector;
 
         // Recalculate analysis score
-        self.analysis_score = Self::calculate_analysis_score(&self.current_eps, &self.eps_growth, &self.sector, &self.country);
+        self.analysis_score = Self::calculate_analysis_score(
+            &self.current_eps,
+            &self.eps_growth,
+            &self.sector,
+            &self.country,
+        );
         self.last_updated = Utc::now();
 
         // Publish event if score changed significantly
@@ -141,7 +158,12 @@ impl StockAnalysis {
         self.country = country;
 
         // Recalculate analysis score
-        self.analysis_score = Self::calculate_analysis_score(&self.current_eps, &self.eps_growth, &self.sector, &self.country);
+        self.analysis_score = Self::calculate_analysis_score(
+            &self.current_eps,
+            &self.eps_growth,
+            &self.sector,
+            &self.country,
+        );
         self.last_updated = Utc::now();
 
         // Publish event if score changed significantly
@@ -159,7 +181,13 @@ impl StockAnalysis {
     }
 
     /// Set ranking for a specific category
-    pub fn set_ranking(&mut self, category: RankingCategory, rank: u32, total_stocks: u32, percentile: f64) -> Result<(), String> {
+    pub fn set_ranking(
+        &mut self,
+        category: RankingCategory,
+        rank: u32,
+        total_stocks: u32,
+        percentile: f64,
+    ) -> Result<(), String> {
         if rank == 0 || total_stocks == 0 {
             return Err("Rank and total stocks must be greater than zero".to_string());
         }
@@ -202,7 +230,12 @@ impl StockAnalysis {
     }
 
     /// Calculate comprehensive analysis score
-    fn calculate_analysis_score(eps: &EPSValue, growth: &GrowthFactor, sector: &MarketSector, country: &Country) -> AnalysisScore {
+    fn calculate_analysis_score(
+        eps: &EPSValue,
+        growth: &GrowthFactor,
+        sector: &MarketSector,
+        country: &Country,
+    ) -> AnalysisScore {
         let eps_score = match eps.quality_rating() {
             EPSQuality::Excellent => 25,
             EPSQuality::Good => 20,
@@ -220,7 +253,11 @@ impl StockAnalysis {
             GrowthPotential::Unknown => 5,
         };
 
-        let country_score = if country.is_developed_market() { 15 } else { 10 };
+        let country_score = if country.is_developed_market() {
+            15
+        } else {
+            10
+        };
 
         let volatility_adjustment = match sector.typical_volatility() {
             VolatilityLevel::High => -5i8,
@@ -229,7 +266,9 @@ impl StockAnalysis {
             VolatilityLevel::Unknown => 0i8,
         };
 
-        let overall_score = ((eps_score + growth_score + sector_score + country_score) as i8 + volatility_adjustment).clamp(0, 100) as u8;
+        let overall_score = ((eps_score + growth_score + sector_score + country_score) as i8
+            + volatility_adjustment)
+            .clamp(0, 100) as u8;
 
         AnalysisScore {
             overall_score,
@@ -262,16 +301,36 @@ impl StockAnalysis {
     }
 
     // Getters
-    pub fn symbol(&self) -> &StockSymbol { &self.symbol }
-    pub fn company_name(&self) -> &str { &self.company_name }
-    pub fn current_eps(&self) -> EPSValue { self.current_eps }
-    pub fn previous_eps(&self) -> EPSValue { self.previous_eps }
-    pub fn eps_growth(&self) -> GrowthFactor { self.eps_growth }
-    pub fn sector(&self) -> &MarketSector { &self.sector }
-    pub fn country(&self) -> &Country { &self.country }
-    pub fn analysis_score(&self) -> &AnalysisScore { &self.analysis_score }
-    pub fn rankings(&self) -> &HashMap<RankingCategory, Ranking> { &self.rankings }
-    pub fn last_updated(&self) -> DateTime<Utc> { self.last_updated }
+    pub fn symbol(&self) -> &StockSymbol {
+        &self.symbol
+    }
+    pub fn company_name(&self) -> &str {
+        &self.company_name
+    }
+    pub fn current_eps(&self) -> EPSValue {
+        self.current_eps
+    }
+    pub fn previous_eps(&self) -> EPSValue {
+        self.previous_eps
+    }
+    pub fn eps_growth(&self) -> GrowthFactor {
+        self.eps_growth
+    }
+    pub fn sector(&self) -> &MarketSector {
+        &self.sector
+    }
+    pub fn country(&self) -> &Country {
+        &self.country
+    }
+    pub fn analysis_score(&self) -> &AnalysisScore {
+        &self.analysis_score
+    }
+    pub fn rankings(&self) -> &HashMap<RankingCategory, Ranking> {
+        &self.rankings
+    }
+    pub fn last_updated(&self) -> DateTime<Utc> {
+        self.last_updated
+    }
 }
 
 impl AggregateRoot for StockAnalysis {

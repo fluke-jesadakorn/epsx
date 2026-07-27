@@ -4,7 +4,7 @@
 pub trait Specification<T> {
     /// Check if the specification is satisfied by the given object
     fn is_satisfied_by(&self, obj: &T) -> bool;
-    
+
     /// Combine with another specification using AND logic
     fn and<S: Specification<T>>(self, other: S) -> AndSpecification<T, Self, S>
     where
@@ -12,7 +12,7 @@ pub trait Specification<T> {
     {
         AndSpecification::new(self, other)
     }
-    
+
     /// Combine with another specification using OR logic
     fn or<S: Specification<T>>(self, other: S) -> OrSpecification<T, Self, S>
     where
@@ -20,7 +20,7 @@ pub trait Specification<T> {
     {
         OrSpecification::new(self, other)
     }
-    
+
     /// Negate this specification
     fn not(self) -> NotSpecification<T, Self>
     where

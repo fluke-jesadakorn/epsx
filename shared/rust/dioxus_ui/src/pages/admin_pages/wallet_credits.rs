@@ -106,7 +106,8 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 fn RenderWalletCredits(ctx: PageContext) -> Element {
     let load = credit_load(&ctx);
     let mutation = match ctx.query_param("mutation").as_deref() {
-        Some("success") | Some("conflict") | Some("forbidden") | Some("unavailable") | Some("malformed") => ctx.query_param("mutation"),
+        Some("success") | Some("conflict") | Some("forbidden") | Some("unavailable")
+        | Some("malformed") => ctx.query_param("mutation"),
         _ => None,
     };
 

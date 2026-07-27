@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 // ============================================================================
 // REQUEST/RESPONSE TYPES
@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 
 #[derive(Debug, Deserialize)]
 pub struct AnalyticsQuery {
-    pub period: Option<String>, // "7d", "30d", "90d", "1y"
+    pub period: Option<String>,      // "7d", "30d", "90d", "1y"
     pub granularity: Option<String>, // "hour", "day", "week", "month"
     pub include_inactive: Option<bool>,
 }

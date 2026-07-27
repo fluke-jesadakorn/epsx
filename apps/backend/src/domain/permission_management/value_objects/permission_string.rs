@@ -12,14 +12,14 @@ impl PermissionString {
         let parts: Vec<&str> = permission.split(':').collect();
         if parts.len() < 3 {
             return Err(AppError::validation_error(
-                "Permission must follow format platform:resource:action"
+                "Permission must follow format platform:resource:action",
             ));
         }
 
         // Validate each part is not empty
         if parts.iter().any(|p| p.is_empty()) {
             return Err(AppError::validation_error(
-                "Permission parts cannot be empty"
+                "Permission parts cannot be empty",
             ));
         }
 

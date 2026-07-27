@@ -4,15 +4,11 @@ use std::collections::HashSet;
 
 use crate::domain::shared_kernel::aggregate_root::AggregateBase;
 
-use crate::domain::wallet_management::value_objects::{
-    Permission, WalletAddress
-};
+use crate::domain::wallet_management::value_objects::{Permission, WalletAddress};
 
 use crate::domain::wallet_management::events::{
-    WalletUserCreatedEvent,
-    WalletUserActivatedEvent,
+    WalletPermissionsUpdatedEvent, WalletUserActivatedEvent, WalletUserCreatedEvent,
     WalletUserDeactivatedEvent,
-    WalletPermissionsUpdatedEvent
 };
 
 /// Parameters for loading a WalletUser
@@ -35,24 +31,24 @@ pub struct WalletUserLoadParams {
 pub struct WalletUser {
     // Primary identity - wallet address is the key
     wallet_address: WalletAddress,
-    
+
     // User status
     is_active: bool,
-    
+
     // Web3 permissions system
     permissions: HashSet<Permission>,
-    
+
     // Permission plans the user belongs to
     plans: HashSet<String>,
-    
+
     // Web3-specific metadata
     wallet_metadata: WalletMetadata,
-    
+
     // Audit fields
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
     last_auth_at: Option<DateTime<Utc>>,
-    
+
     // Aggregate infrastructure
     #[serde(flatten)]
     base: AggregateBase,
@@ -95,7 +91,7 @@ impl WalletMetadata {
     pub fn to_json(&self) -> Result<serde_json::Value, serde_json::Error> {
         serde_json::to_value(self)
     }
-    
+
     /// Create WalletMetadata from JSON for database reconstruction
     pub fn from_json(json: serde_json::Value) -> Result<Self, serde_json::Error> {
         serde_json::from_value(json)
@@ -108,14 +104,15 @@ impl WalletUser {
         wallet_address: WalletAddress,
         initial_plans: HashSet<String>,
     ) -> AppResult<Self> {
-        // Business rule: Wallet address must be valid  
-        wallet_address.validate()
-            .map_err(|e| AppError::validation_error(format!("Invalid wallet address: {}", e))
-                .with_component("wallet_user"))?;
-        
+        // Business rule: Wallet address must be valid
+        wallet_address.validate().map_err(|e| {
+            AppError::validation_error(format!("Invalid wallet address: {}", e))
+                .with_component("wallet_user")
+        })?;
+
         let now = Utc::now();
         let base = AggregateBase::new();
-        
+
         let mut user = Self {
             wallet_address: wallet_address.clone(),
             is_active: true, // New wallet users are active by default
@@ -127,19 +124,19 @@ impl WalletUser {
             last_auth_at: None,
             base,
         };
-        
+
         // Raise domain event
         user.base.add_event(Box::new(WalletUserCreatedEvent::new(
             wallet_address,
             initial_plans.clone(),
-            user.base.version
+            user.base.version,
         )));
-        
+
         user.plans = initial_plans;
-        
+
         Ok(user)
     }
-    
+
     /// Load existing wallet user (for repository reconstruction)
     pub fn load(params: WalletUserLoadParams) -> Self {
         let mut base = AggregateBase::new();
@@ -159,207 +156,219 @@ impl WalletUser {
             base,
         }
     }
-    
+
     /// Get wallet address (primary key)
     pub fn wallet_address(&self) -> &WalletAddress {
         &self.wallet_address
     }
-    
+
     /// Check if user is active
     pub fn is_active(&self) -> bool {
         self.is_active
     }
-    
+
     /// Get user permissions
     pub fn permissions(&self) -> &HashSet<Permission> {
         &self.permissions
     }
-    
+
     /// Get user permission plans
     pub fn plans(&self) -> &HashSet<String> {
         &self.plans
     }
-    
+
     /// Get wallet metadata
     pub fn wallet_metadata(&self) -> &WalletMetadata {
         &self.wallet_metadata
     }
-    
+
     /// Get last authentication timestamp
     pub fn last_auth_at(&self) -> Option<DateTime<Utc>> {
         self.last_auth_at
     }
-    
+
     /// Activate wallet user
     pub fn activate(&mut self) -> AppResult<()> {
         if self.is_active {
             return Err(AppError::business_rule_violation("User is already active")
                 .with_component("wallet_user"));
         }
-        
+
         self.is_active = true;
         self.updated_at = Utc::now();
-        
+
         // Raise domain event
         self.base.add_event(Box::new(WalletUserActivatedEvent::new(
             self.wallet_address.clone(),
-            self.base.version
+            self.base.version,
         )));
-        
+
         Ok(())
     }
-    
+
     /// Deactivate wallet user
     pub fn deactivate(&mut self, reason: String) -> AppResult<()> {
         if !self.is_active {
-            return Err(AppError::business_rule_violation("User is already inactive")
-                .with_component("wallet_user"));
+            return Err(
+                AppError::business_rule_violation("User is already inactive")
+                    .with_component("wallet_user"),
+            );
         }
-        
+
         self.is_active = false;
         self.updated_at = Utc::now();
-        
+
         // Clear permissions when deactivating
         let old_permissions = self.permissions.clone();
         self.permissions.clear();
-        
+
         // Raise domain event
-        self.base.add_event(Box::new(WalletUserDeactivatedEvent::new(
-            self.wallet_address.clone(),
-            reason,
-            old_permissions.into_iter().collect(),
-            self.base.version
-        )));
-        
+        self.base
+            .add_event(Box::new(WalletUserDeactivatedEvent::new(
+                self.wallet_address.clone(),
+                reason,
+                old_permissions.into_iter().collect(),
+                self.base.version,
+            )));
+
         Ok(())
     }
-    
+
     /// Grant permission to wallet user
     pub fn grant_permission(&mut self, permission: Permission) -> AppResult<()> {
         // Business rule: User must be active to receive permissions
         if !self.is_active {
-            return Err(AppError::business_rule_violation("Cannot grant permissions to inactive user")
-                .with_component("wallet_user"));
+            return Err(AppError::business_rule_violation(
+                "Cannot grant permissions to inactive user",
+            )
+            .with_component("wallet_user"));
         }
-        
+
         // Business rule: Don't grant duplicate permissions
         if self.permissions.contains(&permission) {
             return Ok(()); // Idempotent operation
         }
-        
+
         let old_permissions: Vec<Permission> = self.permissions.iter().cloned().collect();
         self.permissions.insert(permission.clone());
         self.updated_at = Utc::now();
         let new_permissions: Vec<Permission> = self.permissions.iter().cloned().collect();
-        
+
         // Raise domain event
-        self.base.add_event(Box::new(WalletPermissionsUpdatedEvent::new(
-            self.wallet_address.clone(),
-            old_permissions,
-            new_permissions,
-            self.base.version
-        )));
-        
+        self.base
+            .add_event(Box::new(WalletPermissionsUpdatedEvent::new(
+                self.wallet_address.clone(),
+                old_permissions,
+                new_permissions,
+                self.base.version,
+            )));
+
         Ok(())
     }
-    
+
     /// Revoke permission from wallet user
     pub fn revoke_permission(&mut self, permission: &Permission) -> AppResult<()> {
         if !self.permissions.contains(permission) {
             return Ok(()); // Idempotent operation
         }
-        
+
         let old_permissions: Vec<Permission> = self.permissions.iter().cloned().collect();
         self.permissions.remove(permission);
         self.updated_at = Utc::now();
         let new_permissions: Vec<Permission> = self.permissions.iter().cloned().collect();
-        
+
         // Raise domain event
-        self.base.add_event(Box::new(WalletPermissionsUpdatedEvent::new(
-            self.wallet_address.clone(),
-            old_permissions,
-            new_permissions,
-            self.base.version
-        )));
-        
+        self.base
+            .add_event(Box::new(WalletPermissionsUpdatedEvent::new(
+                self.wallet_address.clone(),
+                old_permissions,
+                new_permissions,
+                self.base.version,
+            )));
+
         Ok(())
     }
-    
+
     /// Update permission plans
     pub fn update_plans(&mut self, new_plans: HashSet<String>) -> AppResult<()> {
         if self.plans == new_plans {
             return Ok(()); // No change needed
         }
-        
+
         let _old_plans = self.plans.clone();
         self.plans = new_plans.clone();
         self.updated_at = Utc::now();
-        
+
         // Permission plans changed - could raise an event here if needed
         // self.base.add_event(Box::new(PermissionPlansChangedEvent::new(...)));
-        
+
         Ok(())
     }
-    
+
     /// Record authentication
     pub fn record_authentication(&mut self) -> AppResult<()> {
         self.last_auth_at = Some(Utc::now());
         self.updated_at = Utc::now();
-        
+
         Ok(())
     }
-    
+
     /// Update wallet metadata
     pub fn update_metadata(&mut self, metadata: WalletMetadata) -> AppResult<()> {
         self.wallet_metadata = metadata;
         self.updated_at = Utc::now();
-        
+
         Ok(())
     }
-    
+
     /// Check if user has specific permission
     pub fn has_permission(&self, permission: &Permission) -> bool {
         self.permissions.contains(permission)
     }
-    
+
     /// Check if user has admin privileges (requires explicit admin wildcard or dashboard perm)
     pub fn is_admin(&self) -> bool {
-        let strs: Vec<String> = self.permissions.iter().map(|p| p.as_str().to_string()).collect();
+        let strs: Vec<String> = self
+            .permissions
+            .iter()
+            .map(|p| p.as_str().to_string())
+            .collect();
         epsx_contracts::permissions::is_admin(&strs)
     }
-    
+
     /// Check if user has premium access
     pub fn is_premium(&self) -> bool {
-        self.plans.contains("Premium Access Plan") ||
-        self.plans.contains("Premium Access Group") ||
-        self.plans.contains("Professional Access Plan") ||
-        self.plans.contains("Professional Access Group") ||
-        self.plans.contains("Enterprise Access Plan") ||
-        self.plans.contains("Enterprise Access Group")
+        self.plans.contains("Premium Access Plan")
+            || self.plans.contains("Premium Access Group")
+            || self.plans.contains("Professional Access Plan")
+            || self.plans.contains("Professional Access Group")
+            || self.plans.contains("Enterprise Access Plan")
+            || self.plans.contains("Enterprise Access Group")
     }
-    
+
     /// Update permissions in batch
     pub fn update_permissions(&mut self, new_permissions: HashSet<Permission>) -> AppResult<()> {
         let old_permissions = self.permissions.clone();
         self.permissions = new_permissions.clone();
         self.updated_at = Utc::now();
-        
+
         // Raise domain event
-        self.base.add_event(Box::new(WalletPermissionsUpdatedEvent::new(
-            self.wallet_address.clone(),
-            old_permissions.into_iter().collect(),
-            new_permissions.into_iter().collect(),
-            self.base.version
-        )));
-        
+        self.base
+            .add_event(Box::new(WalletPermissionsUpdatedEvent::new(
+                self.wallet_address.clone(),
+                old_permissions.into_iter().collect(),
+                new_permissions.into_iter().collect(),
+                self.base.version,
+            )));
+
         Ok(())
     }
-    
+
     /// Get created timestamp
     pub fn created_at(&self) -> DateTime<Utc> {
         self.created_at
     }
-    
+
     /// Get updated timestamp
     pub fn updated_at(&self) -> DateTime<Utc> {
         self.updated_at
@@ -374,35 +383,35 @@ impl WalletUser {
 
 impl AggregateRoot for WalletUser {
     type Id = WalletAddress;
-    
+
     fn id(&self) -> &Self::Id {
         &self.wallet_address
     }
-    
+
     fn version(&self) -> u64 {
         self.base.version
     }
-    
+
     fn increment_version(&mut self) {
         self.base.increment_version();
     }
-    
+
     fn uncommitted_events(&self) -> &[Box<dyn DomainEvent>] {
         &self.base.events
     }
-    
+
     fn mark_events_as_committed(&mut self) {
         self.base.events.clear();
     }
-    
+
     fn created_at(&self) -> DateTime<Utc> {
         self.base.created_at
     }
-    
+
     fn updated_at(&self) -> DateTime<Utc> {
         self.base.updated_at
     }
-    
+
     fn touch(&mut self) {
         self.base.touch();
     }
@@ -412,10 +421,11 @@ impl AggregateRoot for WalletUser {
 mod tests {
     use super::*;
     use crate::domain::wallet_management::value_objects::WalletAddress;
-    
+
     #[test]
     fn test_create_wallet_user() {
-        let wallet_address = WalletAddress::new("0x742d35Cc67C9c24d4D3A6A5c9B1c4D6F8F8c8B8d").unwrap();
+        let wallet_address =
+            WalletAddress::new("0x742d35Cc67C9c24d4D3A6A5c9B1c4D6F8F8c8B8d").unwrap();
         let initial_plans = HashSet::from(["Basic Access Plan".to_string()]);
         let wallet = WalletUser::create(wallet_address.clone(), initial_plans.clone()).unwrap();
 
@@ -424,46 +434,49 @@ mod tests {
         assert_eq!(wallet.plans(), &initial_plans);
         assert!(wallet.permissions().is_empty());
     }
-    
+
     #[test]
     fn test_grant_revoke_permission() {
-        let wallet_address = WalletAddress::new("0x742d35Cc67C9c24d4D3A6A5c9B1c4D6F8F8c8B8d").unwrap();
+        let wallet_address =
+            WalletAddress::new("0x742d35Cc67C9c24d4D3A6A5c9B1c4D6F8F8c8B8d").unwrap();
         let initial_plans = HashSet::from(["Basic Access Plan".to_string()]);
         let mut user = WalletUser::create(wallet_address, initial_plans).unwrap();
-        
+
         let permission = Permission::new("epsx:data:read").unwrap();
         user.grant_permission(permission.clone()).unwrap();
-        
+
         assert!(user.has_permission(&permission));
-        
+
         user.revoke_permission(&permission).unwrap();
         assert!(!user.has_permission(&permission));
     }
-    
+
     #[test]
     fn test_permission_plan_update() {
-        let wallet_address = WalletAddress::new("0x742d35Cc67C9c24d4D3A6A5c9B1c4D6F8F8c8B8d").unwrap();
+        let wallet_address =
+            WalletAddress::new("0x742d35Cc67C9c24d4D3A6A5c9B1c4D6F8F8c8B8d").unwrap();
         let initial_plans = HashSet::from(["Basic Access Plan".to_string()]);
         let mut user = WalletUser::create(wallet_address, initial_plans).unwrap();
-        
+
         assert!(!user.is_premium());
-        
+
         let premium_plans = HashSet::from(["Premium Access Plan".to_string()]);
         user.update_plans(premium_plans.clone()).unwrap();
         assert!(user.is_premium());
         assert_eq!(user.plans(), &premium_plans);
     }
-    
+
     #[test]
     fn test_deactivate_user_clears_permissions() {
-        let wallet_address = WalletAddress::new("0x742d35Cc67C9c24d4D3A6A5c9B1c4D6F8F8c8B8d").unwrap();
+        let wallet_address =
+            WalletAddress::new("0x742d35Cc67C9c24d4D3A6A5c9B1c4D6F8F8c8B8d").unwrap();
         let initial_plans = HashSet::from(["Basic Access Plan".to_string()]);
         let mut user = WalletUser::create(wallet_address, initial_plans).unwrap();
-        
+
         let permission = Permission::new("epsx:data:read").unwrap();
         user.grant_permission(permission.clone()).unwrap();
         assert!(user.has_permission(&permission));
-        
+
         user.deactivate("Test deactivation".to_string()).unwrap();
         assert!(!user.is_active());
         assert!(user.permissions().is_empty());

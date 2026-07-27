@@ -367,9 +367,13 @@ fn RenderPaymentsHub(ctx: PageContext) -> Element {
     };
     let filters = PaymentFilters::from_ctx(&ctx);
     let refresh_url = filters.page_url(filters.offset);
-    let mutation = match ctx.params.get(ADMIN_PAYMENT_MUTATION_PARAM).map(String::as_str) {
-        Some("success") | Some("conflict") | Some("forbidden") | Some("unavailable") | Some("malformed") =>
-            ctx.params.get(ADMIN_PAYMENT_MUTATION_PARAM).cloned(),
+    let mutation = match ctx
+        .params
+        .get(ADMIN_PAYMENT_MUTATION_PARAM)
+        .map(String::as_str)
+    {
+        Some("success") | Some("conflict") | Some("forbidden") | Some("unavailable")
+        | Some("malformed") => ctx.params.get(ADMIN_PAYMENT_MUTATION_PARAM).cloned(),
         _ => None,
     };
 

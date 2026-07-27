@@ -1,5 +1,5 @@
-use crate::prelude::*;
 use crate::domain::permission_management::{PermissionGroup, PermissionString};
+use crate::prelude::*;
 
 /// Domain service for permission validation logic
 pub struct PermissionValidationService;
@@ -11,13 +11,13 @@ impl PermissionValidationService {
 
         if parts.len() < 3 {
             return Err(AppError::validation_error(
-                "Permission must follow format platform:resource:action"
+                "Permission must follow format platform:resource:action",
             ));
         }
 
         if parts.iter().any(|p| p.is_empty()) {
             return Err(AppError::validation_error(
-                "Permission parts cannot be empty"
+                "Permission parts cannot be empty",
             ));
         }
 

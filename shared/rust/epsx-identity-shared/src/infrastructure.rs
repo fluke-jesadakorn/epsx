@@ -50,6 +50,5 @@ impl UnifiedPermissionCache {
     ) {
     }
 
-    pub async fn invalidate_wallet(&self, _wallet_address: &str) {
-    }
+    pub async fn invalidate_wallet(&self, _wallet_address: &str) {}
 }

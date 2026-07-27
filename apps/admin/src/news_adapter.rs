@@ -242,7 +242,8 @@ pub(crate) async fn load_admin_news_editor(
         Ok(response) => response,
         Err(_) => return AdminNewsEditorLoad::Malformed,
     };
-    if !response.success || response.error.is_some() || !valid_response_meta(response.meta.as_ref()) {
+    if !response.success || response.error.is_some() || !valid_response_meta(response.meta.as_ref())
+    {
         return AdminNewsEditorLoad::Malformed;
     }
     let Some(article) = response.data else {
@@ -1263,12 +1264,7 @@ mod tests {
 
         let projected = serde_json::to_value(payload).unwrap();
         let item = &projected["articles"][0];
-        for omitted in [
-            "content",
-            "author_wallet",
-            "cover_image_url",
-            "pinned_at",
-        ] {
+        for omitted in ["content", "author_wallet", "cover_image_url", "pinned_at"] {
             assert!(item.get(omitted).is_none(), "{omitted}");
         }
         assert!(projected.get("meta").is_none());

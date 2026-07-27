@@ -1,8 +1,8 @@
 // kernel extraction wave9 — moved from apps/backend/src/domain/shared_kernel/value_objects/session_id.rs
+use crate::value_object::{ValueObject, ValueObjectError};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use uuid::Uuid;
-use crate::value_object::{ValueObject, ValueObjectError};
 
 /// Session identifier value object
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -34,22 +34,28 @@ impl SessionId {
 
 impl ValueObject for SessionId {
     type Error = ValueObjectError;
-    
+
     fn validate(&self) -> Result<(), Self::Error> {
         if self.0.is_empty() {
-            return Err(ValueObjectError::Required("Session ID cannot be empty".to_string()));
+            return Err(ValueObjectError::Required(
+                "Session ID cannot be empty".to_string(),
+            ));
         }
-        
+
         // Allow both UUID format and prefixed formats (e.g., "auth_code:xyz", "refresh:xyz")
         if self.0.len() < 8 {
-            return Err(ValueObjectError::InvalidFormat("Session ID must be at least 8 characters".to_string()));
+            return Err(ValueObjectError::InvalidFormat(
+                "Session ID must be at least 8 characters".to_string(),
+            ));
         }
-        
+
         // If it's not a prefixed format, validate as UUID
         if !self.0.contains(':') && uuid::Uuid::parse_str(&self.0).is_err() {
-            return Err(ValueObjectError::InvalidFormat("Session ID must be a valid UUID or prefixed format".to_string()));
+            return Err(ValueObjectError::InvalidFormat(
+                "Session ID must be a valid UUID or prefixed format".to_string(),
+            ));
         }
-        
+
         Ok(())
     }
 }

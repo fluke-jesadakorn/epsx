@@ -1,11 +1,11 @@
-use crate::prelude::*;
-use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
 use crate::application::market_analytics::commands::{
-    UpdateStockAnalysisCommand, UpdateStockAnalysisResponse
+    UpdateStockAnalysisCommand, UpdateStockAnalysisResponse,
 };
+use crate::application::shared::{ApplicationError, ApplicationResult, CommandHandler};
 use crate::domain::market_analytics::{
-    StockAnalysisRepositoryPort, StockSymbol, EPSValue, MarketSector, Country
+    Country, EPSValue, MarketSector, StockAnalysisRepositoryPort, StockSymbol,
 };
+use crate::prelude::*;
 use epsx_contracts::event_publisher_port::EventPublisherPort;
 
 /// Command handler for updating stock analyses
@@ -28,13 +28,19 @@ impl UpdateStockAnalysisCommandHandler {
 
 #[async_trait]
 impl CommandHandler<UpdateStockAnalysisCommand> for UpdateStockAnalysisCommandHandler {
-    async fn handle(&self, command: UpdateStockAnalysisCommand) -> ApplicationResult<UpdateStockAnalysisResponse> {
+    async fn handle(
+        &self,
+        command: UpdateStockAnalysisCommand,
+    ) -> ApplicationResult<UpdateStockAnalysisResponse> {
         // 1. Validate symbol
         let symbol = StockSymbol::new(command.symbol.clone())
             .map_err(|e| ApplicationError::validation("symbol", e.to_string()))?;
 
         // 2. Load existing stock analysis
-        let mut stock_analysis = self.stock_analysis_repository.find_by_symbol(&symbol).await
+        let mut stock_analysis = self
+            .stock_analysis_repository
+            .find_by_symbol(&symbol)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
             .ok_or_else(|| ApplicationError::not_found("symbol", "Stock analysis not found"))?;
 
@@ -45,7 +51,8 @@ impl CommandHandler<UpdateStockAnalysisCommand> for UpdateStockAnalysisCommandHa
             let previous_eps = EPSValue::new(previous)
                 .map_err(|e| ApplicationError::validation("previous_eps", e.to_string()))?;
 
-            stock_analysis.update_eps(current_eps, previous_eps)
+            stock_analysis
+                .update_eps(current_eps, previous_eps)
                 .map_err(|e| ApplicationError::business_logic(e.to_string()))?;
         }
 
@@ -53,7 +60,8 @@ impl CommandHandler<UpdateStockAnalysisCommand> for UpdateStockAnalysisCommandHa
         if let Some(sector_str) = command.sector {
             let sector = MarketSector::new(sector_str)
                 .map_err(|e| ApplicationError::validation("sector", e.to_string()))?;
-            stock_analysis.update_sector(sector)
+            stock_analysis
+                .update_sector(sector)
                 .map_err(|e| ApplicationError::business_logic(e.to_string()))?;
         }
 
@@ -61,17 +69,22 @@ impl CommandHandler<UpdateStockAnalysisCommand> for UpdateStockAnalysisCommandHa
         if let Some(country_str) = command.country {
             let country = Country::new(country_str)
                 .map_err(|e| ApplicationError::validation("country", e.to_string()))?;
-            stock_analysis.update_country(country)
+            stock_analysis
+                .update_country(country)
                 .map_err(|e| ApplicationError::business_logic(e.to_string()))?;
         }
 
         // 6. Save updated stock analysis
-        self.stock_analysis_repository.save(&stock_analysis).await
+        self.stock_analysis_repository
+            .save(&stock_analysis)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         // 7. Publish domain events
         for event in stock_analysis.uncommitted_events() {
-            let owned: Box<dyn crate::domain::shared_kernel::DomainEvent> = Box::new(epsx_contracts::domain_event::OwnedEvent::from_borrowed(&**event));
+            let owned: Box<dyn crate::domain::shared_kernel::DomainEvent> = Box::new(
+                epsx_contracts::domain_event::OwnedEvent::from_borrowed(&**event),
+            );
             if let Err(e) = self.event_publisher.publish(owned).await {
                 tracing::warn!(
                     error = %e,

@@ -1,21 +1,17 @@
 // WalletUserAnalyticsPort implementation — statistics and analytics methods
 
-use crate::prelude::*;
-use std::collections::{HashMap, HashSet};
-use chrono::{NaiveDate, Utc};
-use tracing::{error, info};
-use diesel_async::RunQueryDsl;
-use crate::domain::wallet_management::{
-    aggregates::{WalletUser, WalletMetadata},
-    value_objects::WalletAddress,
-    repository_ports::{
-        WalletUserAnalyticsPort,
-        WalletUserStatistics,
-        Web3Analytics,
-    },
-};
-use super::{WalletUserRepositoryAdapter, WalletUserQueryResult};
+use super::{WalletUserQueryResult, WalletUserRepositoryAdapter};
 use crate::domain::wallet_management::aggregates::wallet_user::WalletUserLoadParams;
+use crate::domain::wallet_management::{
+    aggregates::{WalletMetadata, WalletUser},
+    repository_ports::{WalletUserAnalyticsPort, WalletUserStatistics, Web3Analytics},
+    value_objects::WalletAddress,
+};
+use crate::prelude::*;
+use chrono::{NaiveDate, Utc};
+use diesel_async::RunQueryDsl;
+use std::collections::{HashMap, HashSet};
+use tracing::{error, info};
 
 #[async_trait]
 impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
@@ -91,7 +87,7 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
             FROM permissions p
             WHERE p.is_active = true
             GROUP BY permission_type
-            "#
+            "#,
         )
         .load::<PermissionTypeRow>(&mut conn)
         .await
@@ -120,7 +116,7 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
             SELECT chain_id, count
             FROM mv_web3_chain_distribution
             ORDER BY count DESC
-            "#
+            "#,
         )
         .load::<ChainRow>(&mut conn)
         .await
@@ -142,7 +138,8 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
 
         info!(
             "Generated Web3 analytics: {} permission types, {} chains",
-            permission_type_distribution.len(), chain_distribution.len()
+            permission_type_distribution.len(),
+            chain_distribution.len()
         );
 
         #[derive(diesel::QueryableByName)]
@@ -165,7 +162,7 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
             GROUP BY contract_address
             ORDER BY user_count DESC
             LIMIT 10
-            "#
+            "#,
         )
         .load::<ContractRow>(&mut conn)
         .await
@@ -183,7 +180,7 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
             GROUP BY contract_address
             ORDER BY user_count DESC
             LIMIT 10
-            "#
+            "#,
         )
         .load::<ContractRow>(&mut conn)
         .await
@@ -201,16 +198,25 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
             GROUP BY contract_address
             ORDER BY user_count DESC
             LIMIT 10
-            "#
+            "#,
         )
         .load::<ContractRow>(&mut conn)
         .await
         .unwrap_or_default();
 
         Ok(Web3Analytics {
-            top_nft_contracts: nft_rows.into_iter().map(|r| (r.contract_address, r.user_count as u64)).collect(),
-            top_token_contracts: token_rows.into_iter().map(|r| (r.contract_address, r.user_count as u64)).collect(),
-            top_dao_contracts: dao_rows.into_iter().map(|r| (r.contract_address, r.user_count as u64)).collect(),
+            top_nft_contracts: nft_rows
+                .into_iter()
+                .map(|r| (r.contract_address, r.user_count as u64))
+                .collect(),
+            top_token_contracts: token_rows
+                .into_iter()
+                .map(|r| (r.contract_address, r.user_count as u64))
+                .collect(),
+            top_dao_contracts: dao_rows
+                .into_iter()
+                .map(|r| (r.contract_address, r.user_count as u64))
+                .collect(),
             chain_distribution,
             permission_type_distribution,
         })
@@ -251,11 +257,15 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
                 .with_operation("get_permission_distribution")
         })?;
 
-        let distribution: HashMap<String, u64> = rows.into_iter()
+        let distribution: HashMap<String, u64> = rows
+            .into_iter()
             .map(|r| (r.permission_string, r.user_count as u64))
             .collect();
 
-        info!("Retrieved permission distribution for {} permissions", distribution.len());
+        info!(
+            "Retrieved permission distribution for {} permissions",
+            distribution.len()
+        );
         Ok(distribution)
     }
 
@@ -286,24 +296,36 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
               AND (wallet_metadata->>'primary_chain_id')::bigint = $2
             GROUP BY DATE(last_auth_at)
             ORDER BY auth_date DESC
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Timestamptz, _>(cutoff_date)
         .bind::<diesel::sql_types::BigInt, _>(chain_id as i64)
         .load::<ActivityRow>(&mut conn)
         .await
         .map_err(|e| {
-            error!("Failed to get activity patterns for chain {}: {}", chain_id, e);
+            error!(
+                "Failed to get activity patterns for chain {}: {}",
+                chain_id, e
+            );
             AppError::database_error(e.to_string())
                 .with_component("wallet_user_repository")
-                .with_operation(format!("get_activity_patterns_by_chain(chain={}, days={})", chain_id, days))
+                .with_operation(format!(
+                    "get_activity_patterns_by_chain(chain={}, days={})",
+                    chain_id, days
+                ))
         })?;
 
-        let patterns: Vec<(NaiveDate, u64)> = rows.into_iter()
+        let patterns: Vec<(NaiveDate, u64)> = rows
+            .into_iter()
             .filter_map(|row| row.auth_date.map(|d| (d, row.daily_active_users as u64)))
             .collect();
 
-        info!("Retrieved {} activity patterns for chain {} over {} days", patterns.len(), chain_id, days);
+        info!(
+            "Retrieved {} activity patterns for chain {} over {} days",
+            patterns.len(),
+            chain_id,
+            days
+        );
         Ok(patterns)
     }
 
@@ -320,15 +342,14 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
             WHERE is_active = true
             AND (last_auth_at IS NULL OR last_auth_at < $1)
             ORDER BY last_auth_at ASC NULLS FIRST
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Timestamptz, _>(cutoff_date)
         .load::<WalletUserQueryResult>(&mut conn)
         .await
         .map_err(|e| {
             error!("Failed to find inactive users: {}", e);
-            AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
+            AppError::database_error(e.to_string()).with_component("wallet_user_repository")
         })?;
 
         let mut users = Vec::new();
@@ -375,24 +396,29 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
               AND resource_type = 'plan'
               AND resource_id IS NOT NULL
             ORDER BY wallet_address, resource_id, created_at ASC
-            "#
+            "#,
         )
         .load::<ProgressionRow>(&mut conn)
         .await
         .map_err(|e| {
             error!("Failed to get plan progression: {}", e);
-            AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
+            AppError::database_error(e.to_string()).with_component("wallet_user_repository")
         })?;
 
         let mut progression: HashMap<String, Vec<String>> = HashMap::new();
         for row in rows {
             if !row.wallet_address.is_empty() && !row.permission_plan.is_empty() {
-                progression.entry(row.wallet_address).or_default().push(row.permission_plan);
+                progression
+                    .entry(row.wallet_address)
+                    .or_default()
+                    .push(row.permission_plan);
             }
         }
 
-        info!("Retrieved plan progression for {} wallets", progression.len());
+        info!(
+            "Retrieved plan progression for {} wallets",
+            progression.len()
+        );
         Ok(progression)
     }
 

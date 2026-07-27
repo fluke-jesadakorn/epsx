@@ -268,10 +268,7 @@ impl AdminNotificationQuery {
         if let Some(wallet_address) = self.wallet_address.as_deref() {
             query.append_pair("wallet_address", wallet_address);
         }
-        format!(
-            "/api/v1/notification/admin/list?{}",
-            query.finish()
-        )
+        format!("/api/v1/notification/admin/list?{}", query.finish())
     }
 }
 

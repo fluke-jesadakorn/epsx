@@ -81,13 +81,11 @@ mod chat_pubsub_canary_tests {
             .await
             .expect("publish to chat:new");
 
-        let received = tokio::time::timeout(
-            std::time::Duration::from_secs(1),
-            subscriber.next_message(),
-        )
-        .await
-        .expect("timed out waiting for chat:new event")
-        .expect("subscriber closed before delivering message");
+        let received =
+            tokio::time::timeout(std::time::Duration::from_secs(1), subscriber.next_message())
+                .await
+                .expect("timed out waiting for chat:new event")
+                .expect("subscriber closed before delivering message");
 
         // Decode and assert the round-trip preserves the chat event
         // shape — this is what a real SSE client would receive.
@@ -142,13 +140,11 @@ mod chat_pubsub_canary_tests {
         // Read two messages — order is not guaranteed.
         let mut received = Vec::new();
         for _ in 0..2 {
-            let msg = tokio::time::timeout(
-                std::time::Duration::from_secs(1),
-                subscriber.next_message(),
-            )
-            .await
-            .expect("timeout")
-            .expect("stream closed");
+            let msg =
+                tokio::time::timeout(std::time::Duration::from_secs(1), subscriber.next_message())
+                    .await
+                    .expect("timeout")
+                    .expect("stream closed");
             received.push(serde_json::from_slice::<serde_json::Value>(&msg).unwrap());
         }
         received.sort_by_key(|v| v["type"].as_str().unwrap_or("").to_string());

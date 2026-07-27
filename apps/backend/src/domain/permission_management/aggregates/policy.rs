@@ -1,6 +1,6 @@
+use crate::domain::permission_management::{events::PolicyCreatedEvent, PolicyId, PolicyRule};
+use crate::domain::shared_kernel::{AggregateBase, AggregateRoot, DomainEvent};
 use crate::prelude::*;
-use crate::domain::shared_kernel::{AggregateRoot, AggregateBase, DomainEvent};
-use crate::domain::permission_management::{PolicyId, PolicyRule, events::PolicyCreatedEvent};
 
 /// Policy Aggregate Root
 /// Represents access control policies and rules

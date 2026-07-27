@@ -14,5 +14,5 @@ pub mod specification;
 // `epsx_contracts::traits::domain_event` path working.
 pub use crate::domain_event::{DomainEvent, DomainEventBus, EventMetadata, InMemoryEventBus};
 
-pub use aggregate_root::{AggregateRoot, AggregateBase, Identity, new_id};
+pub use aggregate_root::{new_id, AggregateBase, AggregateRoot, Identity};
 pub use specification::Specification;

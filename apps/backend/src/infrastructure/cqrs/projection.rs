@@ -2,12 +2,12 @@
 // Read model projections from domain events
 
 use crate::prelude::*;
+use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use diesel_async::{AsyncConnection, RunQueryDsl};
-use async_trait::async_trait;
 use serde_json::Value as JsonValue;
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 // Type alias for complex Redis result
 type RedisStreamResult = redis::RedisResult<Vec<(String, Vec<(String, Vec<(String, String)>)>)>>;
@@ -211,14 +211,17 @@ impl ProjectionManager {
         let checkpoint = projection
             .get_checkpoint(self.pool.as_ref())
             .await?
-            .unwrap_or_else(|| ProjectionCheckpoint::initial(projection.projection_name().to_string()));
+            .unwrap_or_else(|| {
+                ProjectionCheckpoint::initial(projection.projection_name().to_string())
+            });
 
         // Fetch events from Redis Streams (or fallback to outbox polling)
         let events = if self.redis_client.is_some() {
             self.fetch_events_from_redis(&checkpoint).await?
         } else {
             // Fallback: poll outbox_events directly
-            self.fetch_events_from_outbox(&checkpoint, projection.handles_event_types()).await?
+            self.fetch_events_from_outbox(&checkpoint, projection.handles_event_types())
+                .await?
         };
 
         if events.is_empty() {
@@ -231,7 +234,10 @@ impl ProjectionManager {
         // Process each event
         for event in events {
             // Check if projection handles this event type
-            if !projection.handles_event_types().contains(&event.event_type.as_str()) {
+            if !projection
+                .handles_event_types()
+                .contains(&event.event_type.as_str())
+            {
                 continue;
             }
 
@@ -244,37 +250,48 @@ impl ProjectionManager {
             let mut checkpoint_clone = updated_checkpoint.clone();
 
             // Use Diesel transaction
-            updated_checkpoint = conn.transaction::<_, diesel::result::Error, _>(|conn| {
-                Box::pin(async move {
-                    // Project event
-                    projection.project_event(conn, &event).await
-                        .map_err(|_| diesel::result::Error::RollbackTransaction)?;
+            updated_checkpoint = conn
+                .transaction::<_, diesel::result::Error, _>(|conn| {
+                    Box::pin(async move {
+                        // Project event
+                        projection
+                            .project_event(conn, &event)
+                            .await
+                            .map_err(|_| diesel::result::Error::RollbackTransaction)?;
 
-                    // Update checkpoint
-                    checkpoint_clone.advance(&event);
+                        // Update checkpoint
+                        checkpoint_clone.advance(&event);
 
-                    // Save checkpoint
-                    projection.save_checkpoint(conn, &checkpoint_clone).await
-                        .map_err(|_| diesel::result::Error::RollbackTransaction)?;
+                        // Save checkpoint
+                        projection
+                            .save_checkpoint(conn, &checkpoint_clone)
+                            .await
+                            .map_err(|_| diesel::result::Error::RollbackTransaction)?;
 
-                    Ok(checkpoint_clone)
+                        Ok(checkpoint_clone)
+                    })
                 })
-            })
-            .await
-            .map_err(|e| {
-                AppError::database_error(format!("Failed to commit projection: {:?}", e))
-            })?;
+                .await
+                .map_err(|e| {
+                    AppError::database_error(format!("Failed to commit projection: {:?}", e))
+                })?;
         }
 
         Ok(event_count)
     }
 
     /// Fetch events from Redis Streams
-    async fn fetch_events_from_redis(&self, checkpoint: &ProjectionCheckpoint) -> AppResult<Vec<ProjectionEvent>> {
+    async fn fetch_events_from_redis(
+        &self,
+        checkpoint: &ProjectionCheckpoint,
+    ) -> AppResult<Vec<ProjectionEvent>> {
         if let Some(redis_client) = &self.redis_client {
-            let mut con = redis_client.get_multiplexed_async_connection().await.map_err(|e| {
-                AppError::internal_error(format!("Failed to get Redis connection: {}", e))
-            })?;
+            let mut con = redis_client
+                .get_multiplexed_async_connection()
+                .await
+                .map_err(|e| {
+                    AppError::internal_error(format!("Failed to get Redis connection: {}", e))
+                })?;
 
             // Use last sequence as Redis Stream ID or start from beginning
             let last_id = if checkpoint.last_processed_sequence > 0 {
@@ -323,7 +340,11 @@ impl ProjectionManager {
     }
 
     /// Parse Redis Stream fields into ProjectionEvent
-    fn parse_redis_event(&self, fields: &[(String, String)], sequence_number: i64) -> Option<ProjectionEvent> {
+    fn parse_redis_event(
+        &self,
+        fields: &[(String, String)],
+        sequence_number: i64,
+    ) -> Option<ProjectionEvent> {
         let mut event_id: Option<Uuid> = None;
         let mut aggregate_id: Option<String> = None;
         let mut aggregate_type: Option<String> = None;
@@ -338,7 +359,11 @@ impl ProjectionManager {
                 "aggregate_type" => aggregate_type = Some(value.clone()),
                 "event_type" => event_type = Some(value.clone()),
                 "payload" => event_payload = serde_json::from_str(value).ok(),
-                "created_at" => occurred_at = DateTime::parse_from_rfc3339(value).ok().map(|dt| dt.with_timezone(&Utc)),
+                "created_at" => {
+                    occurred_at = DateTime::parse_from_rfc3339(value)
+                        .ok()
+                        .map(|dt| dt.with_timezone(&Utc))
+                }
                 _ => {}
             }
         }
@@ -360,11 +385,13 @@ impl ProjectionManager {
         checkpoint: &ProjectionCheckpoint,
         event_types: Vec<&'static str>,
     ) -> AppResult<Vec<ProjectionEvent>> {
-        let mut conn = self.pool.get().await
-            .map_err(|e| AppError::database_error(format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.pool.get().await.map_err(|e| {
+            AppError::database_error(format!("Failed to get database connection: {}", e))
+        })?;
 
         let event_type_strs: Vec<String> = event_types.iter().map(|s| s.to_string()).collect();
-        let event_types_literal = event_type_strs.iter()
+        let event_types_literal = event_type_strs
+            .iter()
             .map(|s| format!("'{}'", s.replace("'", "''")))
             .collect::<Vec<_>>()
             .join(",");
@@ -386,8 +413,7 @@ impl ProjectionManager {
             ORDER BY id ASC
             LIMIT 100
             "#,
-            checkpoint.last_processed_sequence,
-            event_types_literal
+            checkpoint.last_processed_sequence, event_types_literal
         );
 
         #[derive(QueryableByName)]
@@ -433,15 +459,16 @@ impl ProjectionManager {
 
     /// Mark projection as unhealthy
     async fn mark_projection_unhealthy(&self, projection: &Arc<dyn Projection>) -> AppResult<()> {
-        let mut conn = self.pool.get().await
-            .map_err(|e| AppError::database_error(format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.pool.get().await.map_err(|e| {
+            AppError::database_error(format!("Failed to get database connection: {}", e))
+        })?;
 
         diesel::sql_query(
             r#"
             UPDATE read_model.projection_checkpoints
             SET is_healthy = false, processed_at = NOW()
             WHERE projection_name = $1
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(projection.projection_name())
         .execute(&mut conn)

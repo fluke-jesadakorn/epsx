@@ -1,8 +1,8 @@
 // Get Admin Modules Query
 // Module usage statistics and status for admin monitoring
 
-use serde::{Deserialize, Serialize};
 use crate::application::shared::Query;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
 pub struct GetAdminModulesQuery {

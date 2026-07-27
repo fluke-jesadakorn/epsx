@@ -425,11 +425,21 @@ fn RenderWalletDisable(ctx: PageContext, reference: Option<String>) -> Element {
         )
     }) {
         return match state {
-            ADMIN_WALLET_DISABLE_SUCCESS => rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_SUCCESS, title: "Wallet disabled".to_string(), detail: "The wallet service committed the status change and returned an operation receipt.".to_string() } },
-            ADMIN_WALLET_DISABLE_CONFLICT => rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_CONFLICT, title: "Wallet status changed elsewhere".to_string(), detail: "The submitted version was stale. Reload the backend-authoritative wallet detail before retrying.".to_string() } },
-            ADMIN_WALLET_DISABLE_FORBIDDEN => rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_FORBIDDEN, title: "Wallet change access was denied".to_string(), detail: "The wallet service did not authorize this session to change the requested resource.".to_string() } },
-            ADMIN_WALLET_DISABLE_UNAVAILABLE => rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_UNAVAILABLE, title: "Wallet change is unavailable".to_string(), detail: "The wallet service did not provide a committed mutation result. No success is inferred.".to_string() } },
-            _ => rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_MALFORMED, title: "Wallet change could not be verified".to_string(), detail: "The mutation response or route state did not match the strict contract.".to_string() } },
+            ADMIN_WALLET_DISABLE_SUCCESS => {
+                rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_SUCCESS, title: "Wallet disabled".to_string(), detail: "The wallet service committed the status change and returned an operation receipt.".to_string() } }
+            }
+            ADMIN_WALLET_DISABLE_CONFLICT => {
+                rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_CONFLICT, title: "Wallet status changed elsewhere".to_string(), detail: "The submitted version was stale. Reload the backend-authoritative wallet detail before retrying.".to_string() } }
+            }
+            ADMIN_WALLET_DISABLE_FORBIDDEN => {
+                rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_FORBIDDEN, title: "Wallet change access was denied".to_string(), detail: "The wallet service did not authorize this session to change the requested resource.".to_string() } }
+            }
+            ADMIN_WALLET_DISABLE_UNAVAILABLE => {
+                rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_UNAVAILABLE, title: "Wallet change is unavailable".to_string(), detail: "The wallet service did not provide a committed mutation result. No success is inferred.".to_string() } }
+            }
+            _ => {
+                rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_MALFORMED, title: "Wallet change could not be verified".to_string(), detail: "The mutation response or route state did not match the strict contract.".to_string() } }
+            }
         };
     }
 
@@ -460,10 +470,18 @@ fn RenderWalletDisable(ctx: PageContext, reference: Option<String>) -> Element {
                 }
             }
         }
-        WalletDetailLoad::Ready(_) => rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_MALFORMED, title: "Wallet is already disabled".to_string(), detail: "The backend-authoritative wallet state does not require this operation.".to_string() } },
-        WalletDetailLoad::Forbidden => rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_FORBIDDEN, title: "Wallet detail access was denied".to_string(), detail: "The current wallet status could not be authorized.".to_string() } },
-        WalletDetailLoad::Unavailable => rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_UNAVAILABLE, title: "Wallet status is unavailable".to_string(), detail: "The wallet service did not provide the current version, so no mutation form is shown.".to_string() } },
-        WalletDetailLoad::Malformed => rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_MALFORMED, title: "Wallet status could not be verified".to_string(), detail: "The route or backend detail response did not match the strict wallet contract.".to_string() } },
+        WalletDetailLoad::Ready(_) => {
+            rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_MALFORMED, title: "Wallet is already disabled".to_string(), detail: "The backend-authoritative wallet state does not require this operation.".to_string() } }
+        }
+        WalletDetailLoad::Forbidden => {
+            rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_FORBIDDEN, title: "Wallet detail access was denied".to_string(), detail: "The current wallet status could not be authorized.".to_string() } }
+        }
+        WalletDetailLoad::Unavailable => {
+            rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_UNAVAILABLE, title: "Wallet status is unavailable".to_string(), detail: "The wallet service did not provide the current version, so no mutation form is shown.".to_string() } }
+        }
+        WalletDetailLoad::Malformed => {
+            rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_MALFORMED, title: "Wallet status could not be verified".to_string(), detail: "The route or backend detail response did not match the strict wallet contract.".to_string() } }
+        }
     }
 }
 

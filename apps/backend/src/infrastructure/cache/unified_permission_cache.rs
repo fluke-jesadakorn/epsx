@@ -21,7 +21,7 @@ use crate::auth::unified_permission_service::PermissionDetail;
 // CACHE CONFIGURATION
 // ============================================================================
 
-const CACHE_TTL_SECONDS: u64 = 30;  // 30 seconds
+const CACHE_TTL_SECONDS: u64 = 30; // 30 seconds
 const PERMISSION_CHECK_PREFIX: &str = "perm_check:";
 const WALLET_PERMISSIONS_PREFIX: &str = "wallet_perms:";
 const CACHE_VERSION_PREFIX: &str = "cache_ver:";
@@ -56,31 +56,30 @@ impl UnifiedPermissionCache {
         wallet_address: &str,
         permission: &str,
     ) -> Option<bool> {
-        let key = format!("{}{}:{}", PERMISSION_CHECK_PREFIX, wallet_address, permission);
+        let key = format!(
+            "{}{}:{}",
+            PERMISSION_CHECK_PREFIX, wallet_address, permission
+        );
 
         match self.get_connection().await {
-            Ok(mut conn) => {
-                match conn.get::<_, Option<String>>(&key).await {
-                    Ok(Some(value)) => {
-                        match value.as_str() {
-                            "1" => {
-                                debug!("Cache hit for permission check: {}", permission);
-                                Some(true)
-                            }
-                            "0" => {
-                                debug!("Cache hit for permission check: {}", permission);
-                                Some(false)
-                            }
-                            _ => None,
-                        }
+            Ok(mut conn) => match conn.get::<_, Option<String>>(&key).await {
+                Ok(Some(value)) => match value.as_str() {
+                    "1" => {
+                        debug!("Cache hit for permission check: {}", permission);
+                        Some(true)
                     }
-                    Ok(None) => None,
-                    Err(e) => {
-                        warn!("Redis error getting permission check: {}", e);
-                        None
+                    "0" => {
+                        debug!("Cache hit for permission check: {}", permission);
+                        Some(false)
                     }
+                    _ => None,
+                },
+                Ok(None) => None,
+                Err(e) => {
+                    warn!("Redis error getting permission check: {}", e);
+                    None
                 }
-            }
+            },
             Err(e) => {
                 error!("Failed to get Redis connection: {}", e);
                 None
@@ -95,12 +94,18 @@ impl UnifiedPermissionCache {
         permission: &str,
         has_permission: bool,
     ) {
-        let key = format!("{}{}:{}", PERMISSION_CHECK_PREFIX, wallet_address, permission);
+        let key = format!(
+            "{}{}:{}",
+            PERMISSION_CHECK_PREFIX, wallet_address, permission
+        );
         let value = if has_permission { "1" } else { "0" };
 
         match self.get_connection().await {
             Ok(mut conn) => {
-                if let Err(e) = conn.set_ex::<_, _, ()>(&key, value, CACHE_TTL_SECONDS).await {
+                if let Err(e) = conn
+                    .set_ex::<_, _, ()>(&key, value, CACHE_TTL_SECONDS)
+                    .await
+                {
                     warn!("Redis error setting permission check: {}", e);
                 }
             }
@@ -122,27 +127,23 @@ impl UnifiedPermissionCache {
         let key = format!("{}{}", WALLET_PERMISSIONS_PREFIX, wallet_address);
 
         match self.get_connection().await {
-            Ok(mut conn) => {
-                match conn.get::<_, Option<String>>(&key).await {
-                    Ok(Some(json)) => {
-                        match serde_json::from_str::<Vec<PermissionDetail>>(&json) {
-                            Ok(permissions) => {
-                                debug!("Cache hit for wallet permissions: {}", wallet_address);
-                                Some(permissions)
-                            }
-                            Err(e) => {
-                                warn!("Failed to deserialize cached permissions: {}", e);
-                                None
-                            }
-                        }
+            Ok(mut conn) => match conn.get::<_, Option<String>>(&key).await {
+                Ok(Some(json)) => match serde_json::from_str::<Vec<PermissionDetail>>(&json) {
+                    Ok(permissions) => {
+                        debug!("Cache hit for wallet permissions: {}", wallet_address);
+                        Some(permissions)
                     }
-                    Ok(None) => None,
                     Err(e) => {
-                        warn!("Redis error getting wallet permissions: {}", e);
+                        warn!("Failed to deserialize cached permissions: {}", e);
                         None
                     }
+                },
+                Ok(None) => None,
+                Err(e) => {
+                    warn!("Redis error getting wallet permissions: {}", e);
+                    None
                 }
-            }
+            },
             Err(e) => {
                 error!("Failed to get Redis connection: {}", e);
                 None
@@ -159,18 +160,16 @@ impl UnifiedPermissionCache {
         let key = format!("{}{}", WALLET_PERMISSIONS_PREFIX, wallet_address);
 
         match serde_json::to_string(permissions) {
-            Ok(json) => {
-                match self.get_connection().await {
-                    Ok(mut conn) => {
-                        if let Err(e) = conn.set_ex::<_, _, ()>(&key, json, CACHE_TTL_SECONDS).await {
-                            warn!("Redis error setting wallet permissions: {}", e);
-                        }
-                    }
-                    Err(e) => {
-                        error!("Failed to get Redis connection: {}", e);
+            Ok(json) => match self.get_connection().await {
+                Ok(mut conn) => {
+                    if let Err(e) = conn.set_ex::<_, _, ()>(&key, json, CACHE_TTL_SECONDS).await {
+                        warn!("Redis error setting wallet permissions: {}", e);
                     }
                 }
-            }
+                Err(e) => {
+                    error!("Failed to get Redis connection: {}", e);
+                }
+            },
             Err(e) => {
                 error!("Failed to serialize permissions: {}", e);
             }
@@ -206,10 +205,16 @@ impl UnifiedPermissionCache {
                     warn!("Redis error incrementing cache version: {}", e);
                 }
 
-                debug!("Successfully invalidated cache for wallet: {}", wallet_address);
+                debug!(
+                    "Successfully invalidated cache for wallet: {}",
+                    wallet_address
+                );
             }
             Err(e) => {
-                error!("Failed to get Redis connection for cache invalidation: {}", e);
+                error!(
+                    "Failed to get Redis connection for cache invalidation: {}",
+                    e
+                );
             }
         }
     }
@@ -250,15 +255,13 @@ impl UnifiedPermissionCache {
         let key = format!("{}{}", CACHE_VERSION_PREFIX, wallet_address);
 
         match self.get_connection().await {
-            Ok(mut conn) => {
-                match conn.get::<_, Option<i64>>(&key).await {
-                    Ok(version) => version,
-                    Err(e) => {
-                        warn!("Redis error getting cache version: {}", e);
-                        None
-                    }
+            Ok(mut conn) => match conn.get::<_, Option<i64>>(&key).await {
+                Ok(version) => version,
+                Err(e) => {
+                    warn!("Redis error getting cache version: {}", e);
+                    None
                 }
-            }
+            },
             Err(e) => {
                 error!("Failed to get Redis connection: {}", e);
                 None
@@ -312,9 +315,15 @@ impl UnifiedPermissionCache {
     pub async fn clear_all(&self) {
         match self.get_connection().await {
             Ok(mut conn) => {
-                let _ = self.delete_keys_by_pattern(&mut conn, &format!("{}*", PERMISSION_CHECK_PREFIX)).await;
-                let _ = self.delete_keys_by_pattern(&mut conn, &format!("{}*", WALLET_PERMISSIONS_PREFIX)).await;
-                let _ = self.delete_keys_by_pattern(&mut conn, &format!("{}*", CACHE_VERSION_PREFIX)).await;
+                let _ = self
+                    .delete_keys_by_pattern(&mut conn, &format!("{}*", PERMISSION_CHECK_PREFIX))
+                    .await;
+                let _ = self
+                    .delete_keys_by_pattern(&mut conn, &format!("{}*", WALLET_PERMISSIONS_PREFIX))
+                    .await;
+                let _ = self
+                    .delete_keys_by_pattern(&mut conn, &format!("{}*", CACHE_VERSION_PREFIX))
+                    .await;
             }
             Err(e) => {
                 error!("Failed to clear cache: {}", e);
@@ -369,7 +378,10 @@ mod tests {
         cache.set_permission_check(wallet, permission, true).await;
 
         // Should return cached value
-        assert_eq!(cache.get_permission_check(wallet, permission).await, Some(true));
+        assert_eq!(
+            cache.get_permission_check(wallet, permission).await,
+            Some(true)
+        );
 
         // Invalidate
         cache.invalidate_wallet(wallet).await;

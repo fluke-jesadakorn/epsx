@@ -110,8 +110,8 @@ pub struct SiweVerifier;
 
 impl SiweVerifier {
     pub async fn verify(message: &str, signature: &str, expected_domain: &str) -> Result<String> {
-        let parsed = siwe::Message::from_str(message)
-            .map_err(|e| CryptoError::Siwe(e.to_string()))?;
+        let parsed =
+            siwe::Message::from_str(message).map_err(|e| CryptoError::Siwe(e.to_string()))?;
 
         if parsed.domain != expected_domain {
             return Err(CryptoError::Siwe("Domain mismatch".to_string()));

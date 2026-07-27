@@ -1,4 +1,3 @@
-
 use axum::Router;
 // use axum::{
 //     error_handling::HandleErrorLayer,
@@ -19,12 +18,11 @@ use axum::Router;
 
 use crate::config::env::{get_env_var, is_production};
 
-pub mod headers;
 pub mod cors;
+pub mod headers;
 
 #[derive(Clone, Copy)]
 pub struct SecurityRequestId;
-
 
 // use tower_http::request_id::RequestId;
 
@@ -35,7 +33,6 @@ pub struct SecurityRequestId;
 //         Some(RequestId::new(header_value))
 //     }
 // }
-
 
 // async fn handle_timeout_error(error: BoxError) -> (StatusCode, String) {
 //     if error.is::<tower::timeout::error::Elapsed>() {
@@ -69,7 +66,7 @@ where
         // Request ID tracking
         .layer(SetRequestIdLayer::x_request_id(SecurityRequestId))
         .layer(PropagateRequestIdLayer::x_request_id())
-        
+
         // Security headers
         // Content Security Policy
         // Security headers
@@ -143,17 +140,17 @@ where
             HeaderName::from_static("cache-control"),
             HeaderValue::from_static("no-cache, no-store, must-revalidate, private"),
         ))
-        
+
         // CORS configuration - environment aware
         .layer(cors::get_cors_layer())
-        
+
         // Request timeout
         // Moved to top
         // .layer(TimeoutLayer::new(Duration::from_secs(30)))
-        
+
         // Compression
         .layer(CompressionLayer::new())
-        
+
         // Request tracing
         .layer(TraceLayer::new_for_http());
 
@@ -164,25 +161,25 @@ where
 /// Get allowed origins for CORS based on environment
 pub fn get_allowed_origins() -> Vec<String> {
     let mut origins = Vec::new();
-    
+
     // Frontend URLs
     if let Ok(frontend_url) = get_env_var("FRONTEND_URL") {
         origins.push(frontend_url);
     }
-    
+
     if let Ok(admin_url) = get_env_var("ADMIN_FRONTEND_URL") {
         origins.push(admin_url);
     }
-    
+
     // Production URLs
     if let Ok(prod_frontend) = get_env_var("PRODUCTION_FRONTEND_URL") {
         origins.push(prod_frontend);
     }
-    
+
     if let Ok(prod_admin) = get_env_var("PRODUCTION_ADMIN_URL") {
         origins.push(prod_admin);
     }
-    
+
     // Development fallbacks
     if !is_production() {
         origins.extend([
@@ -192,45 +189,49 @@ pub fn get_allowed_origins() -> Vec<String> {
             "http://127.0.0.1:3001".to_string(),
         ]);
     }
-    
+
     origins
 }
 
 /// Validate that all required security environment variables are set
 pub fn validate_security_config() -> Result<(), Vec<String>> {
     let mut errors = Vec::new();
-    
+
     if is_production() {
         // Check for production-required security variables
-        
+
         if get_env_var("COOKIE_SIGNING_KEY").is_err() {
             errors.push("COOKIE_SIGNING_KEY is required in production".to_string());
         }
-        
+
         if get_env_var("COOKIE_ENCRYPTION_KEY").is_err() {
             errors.push("COOKIE_ENCRYPTION_KEY is required in production".to_string());
         }
-        
+
         // JWT_SECRET is mandatory in production
         match get_env_var("JWT_SECRET") {
             Ok(jwt_secret) => {
                 if jwt_secret.len() < 32 {
-                    errors.push("JWT_SECRET must be at least 32 characters in production".to_string());
+                    errors.push(
+                        "JWT_SECRET must be at least 32 characters in production".to_string(),
+                    );
                 }
             }
             Err(_) => {
                 errors.push("JWT_SECRET is required in production".to_string());
             }
         }
-        
+
         // Validate NextAuth secret length
         if let Ok(nextauth_secret) = get_env_var("NEXTAUTH_SECRET") {
             if nextauth_secret.len() < 32 {
-                errors.push("NEXTAUTH_SECRET must be at least 32 characters in production".to_string());
+                errors.push(
+                    "NEXTAUTH_SECRET must be at least 32 characters in production".to_string(),
+                );
             }
         }
     }
-    
+
     if errors.is_empty() {
         Ok(())
     } else {
@@ -242,11 +243,16 @@ pub fn validate_security_config() -> Result<(), Vec<String>> {
 pub fn get_security_config_summary() -> SecurityConfigSummary {
     SecurityConfigSummary {
         environment: get_env_var("RUST_ENV").unwrap_or_else(|_| "unknown".to_string()),
-        cookie_security_configured: get_env_var("COOKIE_SIGNING_KEY").is_ok() && get_env_var("COOKIE_ENCRYPTION_KEY").is_ok(),
+        cookie_security_configured: get_env_var("COOKIE_SIGNING_KEY").is_ok()
+            && get_env_var("COOKIE_ENCRYPTION_KEY").is_ok(),
         cors_origins: get_allowed_origins(),
-        ip_allowlisting_enabled: !get_env_var("SECURITY_IP_ALLOWLIST").unwrap_or_default().is_empty(),
-        admin_ip_allowlisting_enabled: !get_env_var("SECURITY_ADMIN_IP_ALLOWLIST").unwrap_or_default().is_empty(),
-        rate_limiting_enabled: true, // Always enabled
+        ip_allowlisting_enabled: !get_env_var("SECURITY_IP_ALLOWLIST")
+            .unwrap_or_default()
+            .is_empty(),
+        admin_ip_allowlisting_enabled: !get_env_var("SECURITY_ADMIN_IP_ALLOWLIST")
+            .unwrap_or_default()
+            .is_empty(),
+        rate_limiting_enabled: true,    // Always enabled
         security_headers_enabled: true, // Always enabled
     }
 }
@@ -269,7 +275,11 @@ impl std::fmt::Display for SecurityConfigSummary {
         writeln!(f, "  Cookie Security: {}", self.cookie_security_configured)?;
         writeln!(f, "  CORS Origins: {:?}", self.cors_origins)?;
         writeln!(f, "  IP Allowlisting: {}", self.ip_allowlisting_enabled)?;
-        writeln!(f, "  Admin IP Allowlisting: {}", self.admin_ip_allowlisting_enabled)?;
+        writeln!(
+            f,
+            "  Admin IP Allowlisting: {}",
+            self.admin_ip_allowlisting_enabled
+        )?;
         writeln!(f, "  Rate Limiting: {}", self.rate_limiting_enabled)?;
         writeln!(f, "  Security Headers: {}", self.security_headers_enabled)?;
         Ok(())

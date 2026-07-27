@@ -311,7 +311,8 @@ fn render_route(
         ChatRoute::Conversation => detail_load(ctx),
     };
     let mutation = match ctx.query_param(ADMIN_CHAT_MUTATION_PARAM).as_deref() {
-        Some("success") | Some("conflict") | Some("forbidden") | Some("unavailable") | Some("malformed") => ctx.query_param(ADMIN_CHAT_MUTATION_PARAM),
+        Some("success") | Some("conflict") | Some("forbidden") | Some("unavailable")
+        | Some("malformed") => ctx.query_param(ADMIN_CHAT_MUTATION_PARAM),
         _ => None,
     };
 
@@ -374,7 +375,12 @@ fn conversation_href(reference: &str) -> String {
 }
 
 #[component]
-fn ChatSurface(route: ChatRoute, retry_href: String, load: ChatLoad, mutation: Option<String>) -> Element {
+fn ChatSurface(
+    route: ChatRoute,
+    retry_href: String,
+    load: ChatLoad,
+    mutation: Option<String>,
+) -> Element {
     match load {
         ChatLoad::Ready(list) => rsx! { ChatListReady { list } },
         ChatLoad::Detail(detail) => rsx! { ChatDetailReady { detail, mutation } },

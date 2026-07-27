@@ -1,18 +1,18 @@
 // NFT ownership validation for Web3 permissions
 
-use crate::prelude::*;
-use crate::domain::wallet_management::value_objects::{WalletAddress, Permission};
-use crate::domain::wallet_management::domain_services::{Web3ValidationResult, Web3ValidationType};
-use super::cache::{Web3CacheMgr, NftResult};
+use super::cache::{NftResult, Web3CacheMgr};
 use super::config::BlockchainCfg;
-use tracing::{error, info, warn, debug};
+use crate::domain::wallet_management::domain_services::{Web3ValidationResult, Web3ValidationType};
+use crate::domain::wallet_management::value_objects::{Permission, WalletAddress};
+use crate::prelude::*;
 use ethers::prelude::*;
 use ethers::providers::{Http, Provider};
-use ethers::types::{Address, U256, Bytes, TransactionRequest};
 use ethers::types::transaction::eip2718::TypedTransaction;
+use ethers::types::{Address, Bytes, TransactionRequest, U256};
 use std::str::FromStr;
 use std::time::Duration;
 use tokio::time::timeout;
+use tracing::{debug, error, info, warn};
 
 pub struct NftValidator {
     cache: Web3CacheMgr,
@@ -32,7 +32,12 @@ impl NftValidator {
         tokens: &[u64],
         chain: u64,
     ) -> AppResult<NftResult> {
-        debug!("Validating NFT ownership for wallet {} on contract {} (chain {})", wallet.as_str(), contract, chain);
+        debug!(
+            "Validating NFT ownership for wallet {} on contract {} (chain {})",
+            wallet.as_str(),
+            contract,
+            chain
+        );
 
         // Check cache first
         if let Some(cached) = self.cache.get_nft(wallet, contract, tokens, chain).await? {
@@ -40,16 +45,18 @@ impl NftValidator {
         }
 
         // Get RPC endpoint
-        let rpc = self.cfg.rpc_endpoints.get(&chain)
-            .ok_or_else(|| AppError::blockchain_rpc_error(
-                format!("No RPC endpoint for chain {}", chain)
-            ).with_component("nft_validator"))?;
+        let rpc = self.cfg.rpc_endpoints.get(&chain).ok_or_else(|| {
+            AppError::blockchain_rpc_error(format!("No RPC endpoint for chain {}", chain))
+                .with_component("nft_validator")
+        })?;
 
         // Validate on blockchain
         let result = self.check_blockchain(wallet, contract, tokens, rpc).await?;
 
         // Cache result
-        self.cache.set_nft(wallet, contract, tokens, chain, &result).await?;
+        self.cache
+            .set_nft(wallet, contract, tokens, chain, &result)
+            .await?;
 
         Ok(result)
     }
@@ -97,12 +104,18 @@ impl NftValidator {
         tokens: &[u64],
         rpc: &str,
     ) -> AppResult<NftResult> {
-        info!("Checking NFT ownership for wallet {} on contract {}", wallet.as_str(), contract);
+        info!(
+            "Checking NFT ownership for wallet {} on contract {}",
+            wallet.as_str(),
+            contract
+        );
 
         let timeout_dur = Duration::from_millis(self.cfg.request_timeout_ms);
         let result = timeout(timeout_dur, async {
             self.check_rpc(wallet, contract, tokens, rpc).await
-        }).await.map_err(|_| {
+        })
+        .await
+        .map_err(|_| {
             AppError::blockchain_rpc_error("NFT ownership check timeout".to_string())
                 .with_component("nft_validator")
         })??;
@@ -120,8 +133,9 @@ impl NftValidator {
         debug!("Making NFT ownership RPC call to {}", rpc);
 
         // Create provider
-        let provider = Provider::<Http>::try_from(rpc)
-            .map_err(|e| AppError::blockchain_rpc_error(format!("Failed to create provider: {}", e)))?;
+        let provider = Provider::<Http>::try_from(rpc).map_err(|e| {
+            AppError::blockchain_rpc_error(format!("Failed to create provider: {}", e))
+        })?;
 
         // Parse addresses
         let contract_addr = Address::from_str(contract)
@@ -134,8 +148,9 @@ impl NftValidator {
 
         if tokens.is_empty() {
             // Check overall NFT balance
-            let balance = provider.get_balance(wallet_addr, None).await
-                .map_err(|e| AppError::blockchain_rpc_error(format!("Failed to get NFT balance: {}", e)))?;
+            let balance = provider.get_balance(wallet_addr, None).await.map_err(|e| {
+                AppError::blockchain_rpc_error(format!("Failed to get NFT balance: {}", e))
+            })?;
             owns_required = balance > U256::zero();
             if owns_required {
                 owned.push(1); // Placeholder

@@ -18,29 +18,28 @@ pub async fn security_headers_middleware(
     // Check if this is a docs route that should allow iframe embedding
     let path = request.uri().path();
     let is_docs_route = path.starts_with("/docs") || path.starts_with("/api-docs");
-    
+
     // Process the request
     let mut response = next.run(request).await;
-    
+
     // Get the headers map
     let headers = response.headers_mut();
-    
+
     // Add essential security headers (with iframe exception for docs)
     add_security_headers(headers, is_docs_route);
-    
+
     Ok(response)
 }
 
 /// Request ID middleware for tracing
-pub async fn request_id_middleware(
-    mut request: Request,
-    next: Next,
-) -> Result<Response, Response> {
+pub async fn request_id_middleware(mut request: Request, next: Next) -> Result<Response, Response> {
     // Generate request ID
     let request_id = Uuid::new_v4().to_string();
 
     // Insert request ID into request extensions
-    request.extensions_mut().insert(RequestId(request_id.clone()));
+    request
+        .extensions_mut()
+        .insert(RequestId(request_id.clone()));
 
     // Process the request
     let mut response = next.run(request).await;
@@ -48,13 +47,15 @@ pub async fn request_id_middleware(
     // Add request ID to response headers
     // UUID strings are always valid header values, but handle error for safety
     if let Ok(header_value) = HeaderValue::from_str(&request_id) {
-        response.headers_mut().insert(
-            HeaderName::from_static("x-request-id"),
-            header_value,
-        );
+        response
+            .headers_mut()
+            .insert(HeaderName::from_static("x-request-id"), header_value);
     } else {
         // This should never happen with a valid UUID, but log if it does
-        tracing::warn!("Failed to create header value from request ID: {}", request_id);
+        tracing::warn!(
+            "Failed to create header value from request ID: {}",
+            request_id
+        );
     }
 
     Ok(response)
@@ -72,13 +73,13 @@ fn add_security_headers(headers: &mut HeaderMap, is_docs_route: bool) {
         HeaderName::from_static("x-xss-protection"),
         HeaderValue::from_static("1; mode=block"),
     );
-    
+
     // Prevent MIME type sniffing
     headers.insert(
         HeaderName::from_static("x-content-type-options"),
         HeaderValue::from_static("nosniff"),
     );
-    
+
     // Prevent clickjacking - with exception for docs routes
     if is_docs_route {
         // For docs routes, don't set X-Frame-Options (let CSP frame-ancestors handle it)
@@ -89,7 +90,7 @@ fn add_security_headers(headers: &mut HeaderMap, is_docs_route: bool) {
             HeaderValue::from_static("DENY"),
         );
     }
-    
+
     // Force HTTPS in production
     if std::env::var("RUST_ENV").unwrap_or_default() == "production" {
         headers.insert(
@@ -97,7 +98,7 @@ fn add_security_headers(headers: &mut HeaderMap, is_docs_route: bool) {
             HeaderValue::from_static("max-age=31536000; includeSubDomains; preload"),
         );
     }
-    
+
     // Referrer policy for privacy
     headers.insert(
         HeaderName::from_static("referrer-policy"),

@@ -1,16 +1,12 @@
 // Bulk Permission Operations
 // Consolidated bulk operations from bulk_permission_handlers.rs
 
-use axum::{
-    extract::State,
-    response::IntoResponse,
-    Json,
-};
-use serde::{Deserialize, Serialize};
+use axum::{extract::State, response::IntoResponse, Json};
 use chrono::{DateTime, Utc};
-use uuid::Uuid;
 use diesel::prelude::*;
 use diesel_async::{AsyncConnection, RunQueryDsl};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
 use crate::web::auth::AppState;
@@ -120,7 +116,9 @@ pub struct ValidationSummary {
 /// POST /admin/permissions/bulk/grant
 pub async fn bulk_grant(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Json(req): Json<BulkGrantRequest>,
 ) -> impl IntoResponse {
@@ -263,12 +261,14 @@ pub async fn bulk_grant(
     };
 
     let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-    app_state.audit.log(ctx, AuditEntry::new("permission", "bulk_grant", "permission")
-        .meta(serde_json::json!({
+    app_state.audit.log(
+        ctx,
+        AuditEntry::new("permission", "bulk_grant", "permission").meta(serde_json::json!({
             "wallets": summary.total_wallets,
             "granted": summary.permissions_granted,
             "failed": summary.failed_operations,
-        })));
+        })),
+    );
 
     AdminResponse::success(BulkOperationResponse {
         successful,
@@ -276,14 +276,17 @@ pub async fn bulk_grant(
         summary,
         operation: "bulk_grant_permissions".to_string(),
         timestamp: Utc::now(),
-    }).into_response()
+    })
+    .into_response()
 }
 
 /// Bulk revoke direct permissions from multiple wallets
 /// POST /admin/permissions/bulk/revoke
 pub async fn bulk_revoke(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Json(req): Json<BulkRevokeRequest>,
 ) -> impl IntoResponse {
@@ -321,15 +324,16 @@ pub async fn bulk_revoke(
         // Revoke each permission
         for perm_string in &req.permission_strings {
             // Get permission ID
-            let perm_id = match diesel::sql_query("SELECT id FROM permissions WHERE permission_string = $1")
-                .bind::<diesel::sql_types::Text, _>(perm_string)
-                .get_result::<PermId>(&mut conn)
-                .await
-                .optional()
-            {
-                Ok(Some(result)) => result.id,
-                _ => continue,
-            };
+            let perm_id =
+                match diesel::sql_query("SELECT id FROM permissions WHERE permission_string = $1")
+                    .bind::<diesel::sql_types::Text, _>(perm_string)
+                    .get_result::<PermId>(&mut conn)
+                    .await
+                    .optional()
+                {
+                    Ok(Some(result)) => result.id,
+                    _ => continue,
+                };
 
             // Revoke direct permission
             match diesel::sql_query("DELETE FROM wallet_direct_permissions WHERE wallet_address = $1 AND permission_id = $2")
@@ -363,12 +367,14 @@ pub async fn bulk_revoke(
     };
 
     let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-    app_state.audit.log(ctx, AuditEntry::new("permission", "bulk_revoke", "permission")
-        .meta(serde_json::json!({
+    app_state.audit.log(
+        ctx,
+        AuditEntry::new("permission", "bulk_revoke", "permission").meta(serde_json::json!({
             "wallets": summary.total_wallets,
             "revoked": summary.permissions_revoked,
             "failed": summary.failed_operations,
-        })));
+        })),
+    );
 
     AdminResponse::success(BulkOperationResponse {
         successful,
@@ -376,14 +382,17 @@ pub async fn bulk_revoke(
         summary,
         operation: "bulk_revoke_permissions".to_string(),
         timestamp: Utc::now(),
-    }).into_response()
+    })
+    .into_response()
 }
 
 /// Bulk assign wallets to a permission plan
 /// POST /admin/permissions/bulk/assign-plans
 pub async fn bulk_assign_plans(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Json(req): Json<BulkAssignPlansRequest>,
 ) -> impl IntoResponse {
@@ -429,12 +438,16 @@ pub async fn bulk_assign_plans(
             VALUES ($1, $2, NOW(), $3, true, $4)
             ON CONFLICT (wallet_address, plan_id) DO UPDATE
             SET is_active = true, expires_at = EXCLUDED.expires_at, updated_at = NOW()
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(&wallet)
         .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(req.expires_at)
-        .bind::<diesel::sql_types::Text, _>(req.assignment_source.as_deref().unwrap_or("bulk_assignment"))
+        .bind::<diesel::sql_types::Text, _>(
+            req.assignment_source
+                .as_deref()
+                .unwrap_or("bulk_assignment"),
+        )
         .execute(&mut conn)
         .await
         {
@@ -466,13 +479,16 @@ pub async fn bulk_assign_plans(
     };
 
     let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-    app_state.audit.log(ctx, AuditEntry::new("plan_assignment", "bulk_assign", "plan")
-        .id(&req.plan_id)
-        .meta(serde_json::json!({
-            "wallets": summary.total_wallets,
-            "successful": summary.successful_operations,
-            "failed": summary.failed_operations,
-        })));
+    app_state.audit.log(
+        ctx,
+        AuditEntry::new("plan_assignment", "bulk_assign", "plan")
+            .id(&req.plan_id)
+            .meta(serde_json::json!({
+                "wallets": summary.total_wallets,
+                "successful": summary.successful_operations,
+                "failed": summary.failed_operations,
+            })),
+    );
 
     AdminResponse::success(BulkOperationResponse {
         successful,
@@ -480,14 +496,17 @@ pub async fn bulk_assign_plans(
         summary,
         operation: "bulk_assign_plans".to_string(),
         timestamp: Utc::now(),
-    }).into_response()
+    })
+    .into_response()
 }
 
 /// Apply a permission template to multiple wallets
 /// POST /admin/permissions/bulk/apply-template
 pub async fn bulk_apply_template(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Json(req): Json<BulkApplyTemplateRequest>,
 ) -> impl IntoResponse {
@@ -523,7 +542,14 @@ pub async fn bulk_apply_template(
     };
 
     // Reuse bulk grant logic (call and convert return type)
-    bulk_grant(State(app_state), axum::Extension(user_ctx), headers, Json(grant_req)).await.into_response()
+    bulk_grant(
+        State(app_state),
+        axum::Extension(user_ctx),
+        headers,
+        Json(grant_req),
+    )
+    .await
+    .into_response()
 }
 
 /// Validate permissions for multiple wallets
@@ -624,5 +650,6 @@ pub async fn bulk_validate(
         wallet_validations,
         summary,
         timestamp: Utc::now(),
-    }).into_response()
+    })
+    .into_response()
 }

@@ -183,7 +183,10 @@ pub async fn admin_notification_overview_handler(
     AdminResponse::success_with_message(response, "Notification overview retrieved").into_response()
 }
 
-async fn fetch_notifications(app_state: &AppState, limit: i64) -> Result<serde_json::Value, String> {
+async fn fetch_notifications(
+    app_state: &AppState,
+    limit: i64,
+) -> Result<serde_json::Value, String> {
     let mut conn = app_state.db_pool.get().await.map_err(|e| e.to_string())?;
 
     #[derive(QueryableByName, serde::Serialize)]
@@ -225,7 +228,7 @@ async fn fetch_notification_stats(app_state: &AppState) -> Result<serde_json::Va
     let result = diesel::sql_query(
         "SELECT COUNT(*)::bigint as total,
                 COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours')::bigint as today
-         FROM notifications"
+         FROM notifications",
     )
     .get_result::<StatsRow>(&mut conn)
     .await
@@ -253,7 +256,10 @@ pub async fn wallet_access_summary_handler(
     State(app_state): State<AppState>,
     axum::extract::Path(wallet_address): axum::extract::Path<String>,
 ) -> axum::response::Response {
-    info!("Admin: Getting wallet access summary for {}", wallet_address);
+    info!(
+        "Admin: Getting wallet access summary for {}",
+        wallet_address
+    );
 
     let (avail_perms, avail_plans, wallet_perms, wallet_assignments) = tokio::join!(
         fetch_available_permissions(&app_state),
@@ -263,14 +269,17 @@ pub async fn wallet_access_summary_handler(
     );
 
     let response = match (avail_perms, avail_plans, wallet_perms, wallet_assignments) {
-        (Ok(available_permissions), Ok(available_plans), Ok(wallet_permissions), Ok(wallet_assignments)) => {
-            WalletAccessSummaryResponse {
-                available_permissions,
-                available_plans,
-                wallet_permissions,
-                wallet_assignments,
-            }
-        }
+        (
+            Ok(available_permissions),
+            Ok(available_plans),
+            Ok(wallet_permissions),
+            Ok(wallet_assignments),
+        ) => WalletAccessSummaryResponse {
+            available_permissions,
+            available_plans,
+            wallet_permissions,
+            wallet_assignments,
+        },
         _ => {
             return crate::web::responses::UnifiedApiResponse::<()>::error(
                 503,
@@ -327,7 +336,7 @@ async fn fetch_available_plans(app_state: &AppState) -> Result<serde_json::Value
          LEFT JOIN wallet_plan_assignments wpa ON p.id = wpa.plan_id AND wpa.is_active = true
          WHERE p.is_active = true
          GROUP BY p.id, p.name, p.description, p.plan_group
-         ORDER BY p.name"
+         ORDER BY p.name",
     )
     .load::<PlanRow>(&mut conn)
     .await
@@ -336,7 +345,10 @@ async fn fetch_available_plans(app_state: &AppState) -> Result<serde_json::Value
     Ok(serde_json::to_value(results).unwrap_or_else(|_| serde_json::json!([])))
 }
 
-async fn fetch_wallet_permissions(app_state: &AppState, wallet: &str) -> Result<Vec<String>, String> {
+async fn fetch_wallet_permissions(
+    app_state: &AppState,
+    wallet: &str,
+) -> Result<Vec<String>, String> {
     let mut conn = app_state.db_pool.get().await.map_err(|e| e.to_string())?;
 
     #[derive(QueryableByName)]
@@ -356,7 +368,10 @@ async fn fetch_wallet_permissions(app_state: &AppState, wallet: &str) -> Result<
     Ok(results.into_iter().map(|r| r.permission_string).collect())
 }
 
-async fn fetch_wallet_plan_assignments(app_state: &AppState, wallet: &str) -> Result<serde_json::Value, String> {
+async fn fetch_wallet_plan_assignments(
+    app_state: &AppState,
+    wallet: &str,
+) -> Result<serde_json::Value, String> {
     let mut conn = app_state.db_pool.get().await.map_err(|e| e.to_string())?;
 
     #[derive(QueryableByName, serde::Serialize)]

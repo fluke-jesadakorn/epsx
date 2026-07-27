@@ -115,9 +115,7 @@ pub async fn stream_ranking_offsets(
             });
             Ok(Event::default().data(json))
         }
-        Err(tokio_stream::wrappers::errors::BroadcastStreamRecvError::Lagged(
-            skipped,
-        )) => {
+        Err(tokio_stream::wrappers::errors::BroadcastStreamRecvError::Lagged(skipped)) => {
             // Slow consumer; emit a heartbeat so the client
             // knows the connection is still alive + that it
             // missed some events (the count is in the

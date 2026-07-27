@@ -47,15 +47,27 @@ pub fn render_markdown(md: &str) -> String {
 }
 
 pub fn get_string(props: &serde_json::Value, key: &str, default: &str) -> String {
-    props.get(key).and_then(|v| v.as_str()).unwrap_or(default).to_string()
+    props
+        .get(key)
+        .and_then(|v| v.as_str())
+        .unwrap_or(default)
+        .to_string()
 }
 
 pub fn get_u32(props: &serde_json::Value, key: &str, default: u32) -> u32 {
-    props.get(key).and_then(|v| v.as_u64()).map(|v| v as u32).unwrap_or(default)
+    props
+        .get(key)
+        .and_then(|v| v.as_u64())
+        .map(|v| v as u32)
+        .unwrap_or(default)
 }
 
 pub fn get_array(props: &serde_json::Value, key: &str) -> Vec<serde_json::Value> {
-    props.get(key).and_then(|v| v.as_array()).cloned().unwrap_or_default()
+    props
+        .get(key)
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default()
 }
 
 pub fn get_bool(props: &serde_json::Value, key: &str, default: bool) -> bool {
@@ -187,7 +199,11 @@ fn render_testimonial(p: &serde_json::Value) -> String {
 </section>"#,
         quote = quote,
         author = author,
-        role_suffix = if role.is_empty() { String::new() } else { format!(", {}", role) }
+        role_suffix = if role.is_empty() {
+            String::new()
+        } else {
+            format!(", {}", role)
+        }
     )
 }
 
@@ -277,9 +293,18 @@ fn render_custom_html(p: &serde_json::Value) -> String {
     let html = get_string(p, "html", "");
     let css = get_string(p, "css", "");
     let scripts = get_string(p, "scripts", "");
-    let style_tag = if css.is_empty() { String::new() } else { format!(r#"<style>{}</style>"#, css) };
-    let script_tag = if scripts.is_empty() { String::new() } else { format!(r#"<script>{}</script>"#, scripts) };
-    format!("<div class=\"custom-html\">{style}{html}{script}</div>",
+    let style_tag = if css.is_empty() {
+        String::new()
+    } else {
+        format!(r#"<style>{}</style>"#, css)
+    };
+    let script_tag = if scripts.is_empty() {
+        String::new()
+    } else {
+        format!(r#"<script>{}</script>"#, scripts)
+    };
+    format!(
+        "<div class=\"custom-html\">{style}{html}{script}</div>",
         style = style_tag,
         html = html,
         script = script_tag

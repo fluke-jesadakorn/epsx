@@ -1,7 +1,7 @@
 use clap::{Arg, Command};
 use diesel::prelude::*;
+use epsx::infrastructure::models::permission::{NewWalletDirectPermissionDb, PermissionDb};
 use epsx::infrastructure::models::wallet_user::NewWalletUserDb;
-use epsx::infrastructure::models::permission::{PermissionDb, NewWalletDirectPermissionDb};
 use std::env;
 
 #[tokio::main]
@@ -14,7 +14,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .short('w')
                 .value_name("WALLET_ADDRESS")
                 .help("Wallet address to grant permissions to")
-                .required(true)
+                .required(true),
         )
         .arg(
             Arg::new("permission")
@@ -22,19 +22,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .short('p')
                 .value_name("PERMISSION")
                 .help("Permission to grant (e.g., 'epsx:analytics:view')")
-                .required(false)
+                .required(false),
         )
         .arg(
             Arg::new("analytics")
                 .long("analytics")
                 .help("Grant all analytics permissions")
-                .action(clap::ArgAction::SetTrue)
+                .action(clap::ArgAction::SetTrue),
         )
         .get_matches();
 
     // Get database connection
-    let database_url = env::var("DATABASE_URL")
-        .expect("DATABASE_URL environment variable not set");
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL environment variable not set");
 
     let mut conn = diesel::PgConnection::establish(&database_url)?;
 
@@ -54,16 +53,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn grant_analytics_permissions(
     conn: &mut diesel::PgConnection,
-    wallet_address: &str
+    wallet_address: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let permissions = vec![
         "epsx:analytics:view",
-        "epsx:analytics:basic", 
+        "epsx:analytics:basic",
         "epsx:analytics:premium",
-        "epsx:analytics:professional"
+        "epsx:analytics:professional",
     ];
 
-    println!("Granting analytics permissions to wallet: {}", wallet_address);
+    println!(
+        "Granting analytics permissions to wallet: {}",
+        wallet_address
+    );
 
     // First, ensure the wallet user exists
     let wallet_addr = ensure_wallet_user_exists(conn, wallet_address)?;
@@ -80,9 +82,12 @@ fn grant_analytics_permissions(
 fn grant_single_permission(
     conn: &mut diesel::PgConnection,
     wallet_address: &str,
-    permission: &str
+    permission: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    println!("Granting permission '{}' to wallet: {}", permission, wallet_address);
+    println!(
+        "Granting permission '{}' to wallet: {}",
+        permission, wallet_address
+    );
 
     // Ensure the wallet user exists
     let wallet_addr = ensure_wallet_user_exists(conn, wallet_address)?;
@@ -96,7 +101,7 @@ fn grant_single_permission(
 
 fn ensure_wallet_user_exists(
     conn: &mut diesel::PgConnection,
-    wallet_addr_str: &str
+    wallet_addr_str: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
     use epsx::schemas::primary::wallet_users::dsl::*;
 
@@ -130,7 +135,7 @@ fn ensure_wallet_user_exists(
 fn grant_single_permission_direct(
     conn: &mut diesel::PgConnection,
     wallet_addr_str: &str,
-    permission_str: &str
+    permission_str: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use epsx::schemas::primary::permissions::dsl::*;
     use epsx::schemas::primary::wallet_direct_permissions::dsl as wdp;
@@ -144,7 +149,10 @@ fn grant_single_permission_direct(
     let perm = match perm_def {
         Some(p) => p,
         None => {
-            eprintln!("Error: Permission definition '{}' not found in permissions catalog.", permission_str);
+            eprintln!(
+                "Error: Permission definition '{}' not found in permissions catalog.",
+                permission_str
+            );
             eprintln!("Please add it to the permissions table first.");
             std::process::exit(1);
         }
@@ -158,7 +166,10 @@ fn grant_single_permission_direct(
         .get_result(conn)?;
 
     if existing_count > 0 {
-        println!("Permission '{}' already granted to wallet '{}'", permission_str, wallet_addr_str);
+        println!(
+            "Permission '{}' already granted to wallet '{}'",
+            permission_str, wallet_addr_str
+        );
         return Ok(());
     }
 
@@ -176,6 +187,9 @@ fn grant_single_permission_direct(
         .values(&new_grant)
         .execute(conn)?;
 
-    println!("Permission '{}' granted to wallet '{}'", permission_str, wallet_addr_str);
+    println!(
+        "Permission '{}' granted to wallet '{}'",
+        permission_str, wallet_addr_str
+    );
     Ok(())
 }

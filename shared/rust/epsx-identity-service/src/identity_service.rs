@@ -87,10 +87,7 @@ pub struct FreePlanRankingOffsetService;
 #[async_trait]
 impl WalletRankingOffsetQuery for FreePlanRankingOffsetService {
     #[instrument(skip(self), fields(wallet = %wallet))]
-    async fn get_wallet_ranking_offset(
-        &self,
-        wallet: &str,
-    ) -> AppResult<RankingOffset> {
+    async fn get_wallet_ranking_offset(&self, wallet: &str) -> AppResult<RankingOffset> {
         info!(
             wallet = %wallet,
             "FreePlanRankingOffsetService: returning free-plan offset (wave 13a stub; \

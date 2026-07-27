@@ -61,7 +61,8 @@ impl PaymentEvent {
         let token_address = format!("0x{}", hex::encode(&log.data[12..32]));
 
         // Amount (bytes 32..64) - BSC USDT/USDC use 18 decimals
-        let amount_bytes: [u8; 32] = log.data[32..64].try_into()
+        let amount_bytes: [u8; 32] = log.data[32..64]
+            .try_into()
             .map_err(|_| EventParseError::DataConversionFailed)?;
         let amount_u256 = U256::from_big_endian(&amount_bytes);
         let amount = Decimal::from_str_exact(&amount_u256.to_string())
@@ -70,30 +71,35 @@ impl PaymentEvent {
                 .map_err(|_| EventParseError::DecimalConversionFailed)?; // 10^18
 
         // Timestamp (bytes 64..96)
-        let timestamp_bytes: [u8; 32] = log.data[64..96].try_into()
+        let timestamp_bytes: [u8; 32] = log.data[64..96]
+            .try_into()
             .map_err(|_| EventParseError::DataConversionFailed)?;
         let timestamp_u256 = U256::from_big_endian(&timestamp_bytes);
         let timestamp_secs = timestamp_u256.as_u64() as i64;
-        let timestamp = DateTime::from_timestamp(timestamp_secs, 0)
-            .ok_or(EventParseError::InvalidTimestamp)?;
+        let timestamp =
+            DateTime::from_timestamp(timestamp_secs, 0).ok_or(EventParseError::InvalidTimestamp)?;
 
         // Payment ID (bytes 96..128)
-        let payment_id_bytes: [u8; 32] = log.data[96..128].try_into()
+        let payment_id_bytes: [u8; 32] = log.data[96..128]
+            .try_into()
             .map_err(|_| EventParseError::DataConversionFailed)?;
         let payment_id = U256::from_big_endian(&payment_id_bytes).as_u64();
 
         // Link hash (bytes 128..160)
         let link_hash = format!("0x{}", hex::encode(&log.data[128..160]));
 
-        let transaction_hash = log.transaction_hash
+        let transaction_hash = log
+            .transaction_hash
             .ok_or(EventParseError::MissingTransactionHash)?
             .to_string();
 
-        let block_number = log.block_number
+        let block_number = log
+            .block_number
             .ok_or(EventParseError::MissingBlockNumber)?
             .as_u64();
 
-        let log_index = log.log_index
+        let log_index = log
+            .log_index
             .ok_or(EventParseError::MissingLogIndex)?
             .as_u32();
 
@@ -184,7 +190,8 @@ mod tests {
             amount: Decimal::from(29),
             timestamp: Utc::now(),
             payment_id: 1,
-            link_hash: "0x0000000000000000000000000000000000000000000000000000000000000000".to_string(),
+            link_hash: "0x0000000000000000000000000000000000000000000000000000000000000000"
+                .to_string(),
             transaction_hash: "0xabc123".to_string(),
             block_number: 12345,
             log_index: 5,
@@ -203,7 +210,8 @@ mod tests {
             amount: Decimal::from(29),
             timestamp: Utc::now(),
             payment_id: 1,
-            link_hash: "0x0000000000000000000000000000000000000000000000000000000000000000".to_string(),
+            link_hash: "0x0000000000000000000000000000000000000000000000000000000000000000"
+                .to_string(),
             transaction_hash: "0xabc123".to_string(),
             block_number: 12345,
             log_index: 5,

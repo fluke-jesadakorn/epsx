@@ -127,25 +127,16 @@ pub trait PermissionAuthorityPort: Send + Sync {
     /// Idempotent: re-granting an existing permission updates the
     /// expiry and `granted_by` rather than inserting a duplicate
     /// row.
-    async fn grant_permission(
-        &self,
-        req: GrantPermissionRequest,
-    ) -> AppResult<()>;
+    async fn grant_permission(&self, req: GrantPermissionRequest) -> AppResult<()>;
 
     /// Revoke a previously granted direct permission. Returns
     /// `AppError::not_found` if the wallet does not currently
     /// hold the permission.
-    async fn revoke_permission(
-        &self,
-        req: RevokePermissionRequest,
-    ) -> AppResult<()>;
+    async fn revoke_permission(&self, req: RevokePermissionRequest) -> AppResult<()>;
 
     /// List every effective permission currently held by `user_id`.
     /// Used by the admin overview and the JWT re-issue path.
-    async fn get_user_permissions(
-        &self,
-        user_id: &UserId,
-    ) -> AppResult<Vec<Permission>>;
+    async fn get_user_permissions(&self, user_id: &UserId) -> AppResult<Vec<Permission>>;
 }
 
 // -----------------------------------------------------------------------------

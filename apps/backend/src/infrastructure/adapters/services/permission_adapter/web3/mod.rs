@@ -3,12 +3,12 @@
 
 pub mod cache;
 pub mod config;
+pub mod dao;
 pub mod nft;
 pub mod token;
-pub mod dao;
 
-pub use cache::{Web3CacheMgr, NftResult, TokenResult, DaoResult};
+pub use cache::{DaoResult, NftResult, TokenResult, Web3CacheMgr};
 pub use config::BlockchainCfg;
+pub use dao::DaoValidator;
 pub use nft::NftValidator;
 pub use token::TokenValidator;
-pub use dao::DaoValidator;

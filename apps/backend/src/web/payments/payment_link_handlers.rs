@@ -203,8 +203,8 @@ fn generate_slug(context_type: &PaymentContextType, name: &str) -> String {
 /// Compute keccak256 hash of slug for smart contract verification
 fn compute_link_hash(slug: &str) -> String {
     // Simple hash for now - in production use sha3::Keccak256
-    use std::hash::{Hash, Hasher};
     use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
     let mut hasher = DefaultHasher::new();
     slug.hash(&mut hasher);
     format!("0x{:064x}", hasher.finish())
@@ -252,7 +252,12 @@ fn db_to_response(db: PaymentContextDb) -> PaymentLinkResponse {
 /// this. A `None` value means the server has not finished
 /// initializing; the audit log records the warning so the
 /// operations team can see the misconfiguration.
-fn get_port(state: &AppState) -> Result<Arc<dyn crate::domain::payment::repository_ports::PaymentContextRepositoryPort>, StatusCode> {
+fn get_port(
+    state: &AppState,
+) -> Result<
+    Arc<dyn crate::domain::payment::repository_ports::PaymentContextRepositoryPort>,
+    StatusCode,
+> {
     state
         .payment_context_repository_port
         .clone()
@@ -280,7 +285,9 @@ fn get_port(state: &AppState) -> Result<Arc<dyn crate::domain::payment::reposito
 )]
 pub async fn create_payment_link_handler(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Json(request): Json<CreatePaymentLinkRequest>,
 ) -> Result<(StatusCode, JsonResponse<PaymentLinkResponse>), StatusCode> {
@@ -387,7 +394,10 @@ pub async fn list_payment_links_handler(
         ..Default::default()
     };
 
-    match (port.find_all(criteria).await, port.count(count_criteria).await) {
+    match (
+        port.find_all(criteria).await,
+        port.count(count_criteria).await,
+    ) {
         (Ok(contexts), Ok(total)) => {
             let payment_links: Vec<PaymentLinkResponse> =
                 contexts.into_iter().map(db_to_response).collect();
@@ -490,7 +500,9 @@ pub async fn get_payment_link_by_slug_handler(
 )]
 pub async fn update_payment_link_handler(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Path(id): Path<Uuid>,
     Json(request): Json<UpdatePaymentLinkRequest>,
@@ -567,7 +579,9 @@ pub async fn update_payment_link_handler(
 )]
 pub async fn delete_payment_link_handler(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, StatusCode> {
@@ -589,8 +603,7 @@ pub async fn delete_payment_link_handler(
 
             // Audit log
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            let entry = AuditEntry::new("payment_link", "delete", "payment")
-                .id(&id.to_string());
+            let entry = AuditEntry::new("payment_link", "delete", "payment").id(&id.to_string());
             app_state.audit.log(ctx, entry);
 
             Ok(StatusCode::NO_CONTENT)
@@ -619,7 +632,9 @@ pub async fn delete_payment_link_handler(
 )]
 pub async fn record_payment_usage_handler(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Path(id): Path<Uuid>,
 ) -> Result<JsonResponse<PaymentLinkResponse>, StatusCode> {
@@ -879,7 +894,10 @@ mod tests {
         // payments is lifted to a separate service) can be
         // substituted without code change. The function-pointer
         // type assertion pins the trait-object shape.
-        fn _takes_dyn_port(_: Arc<dyn crate::domain::payment::repository_ports::PaymentContextRepositoryPort>) {}
+        fn _takes_dyn_port(
+            _: Arc<dyn crate::domain::payment::repository_ports::PaymentContextRepositoryPort>,
+        ) {
+        }
         let _ = _takes_dyn_port as fn(_);
     }
 
@@ -896,8 +914,7 @@ mod tests {
         // this test pins the value in the handler docstring
         // and in the route builder below.
         assert_eq!(
-            expected,
-            "/api/public/payment-links/{slug}",
+            expected, "/api/public/payment-links/{slug}",
             "public slug route path must not change without coordinating with the frontend team"
         );
     }
@@ -946,24 +963,15 @@ mod tests {
     impl crate::domain::payment::repository_ports::PaymentContextRepositoryPort
         for MockPaymentContextRepository
     {
-        async fn save(
-            &self,
-            context: NewPaymentContextDb,
-        ) -> AppResult<PaymentContextDb> {
+        async fn save(&self, context: NewPaymentContextDb) -> AppResult<PaymentContextDb> {
             unimplemented!("not exercised by the route tests")
         }
 
-        async fn find_by_id(
-            &self,
-            _id: Uuid,
-        ) -> AppResult<Option<PaymentContextDb>> {
+        async fn find_by_id(&self, _id: Uuid) -> AppResult<Option<PaymentContextDb>> {
             unimplemented!("not exercised by the route tests")
         }
 
-        async fn find_by_slug(
-            &self,
-            slug: &str,
-        ) -> AppResult<Option<PaymentContextDb>> {
+        async fn find_by_slug(&self, slug: &str) -> AppResult<Option<PaymentContextDb>> {
             Ok(self.by_slug.lock().unwrap().get(slug).cloned())
         }
 
@@ -986,17 +994,11 @@ mod tests {
             unimplemented!("not exercised by the route tests")
         }
 
-        async fn increment_usage(
-            &self,
-            _id: Uuid,
-        ) -> AppResult<PaymentContextDb> {
+        async fn increment_usage(&self, _id: Uuid) -> AppResult<PaymentContextDb> {
             unimplemented!("not exercised by the route tests")
         }
 
-        async fn count(
-            &self,
-            _criteria: PaymentContextSearchCriteria,
-        ) -> AppResult<i64> {
+        async fn count(&self, _criteria: PaymentContextSearchCriteria) -> AppResult<i64> {
             unimplemented!("not exercised by the route tests")
         }
 

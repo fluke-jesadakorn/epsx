@@ -84,24 +84,24 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 #[component]
 fn PortfolioHeader(wallet_connected: bool) -> Element {
     rsx! {
-            div { class: "portfolio-prod-header mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
-                div { class: "flex items-center gap-3",
-                    div { class: "portfolio-prod-icon flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500",
-                        Icon { name: "heart".to_string(), size: Some(20), class_name: Some("text-white".to_string()) }
-                    }
-                    div {
-                        h1 { class: "text-2xl font-bold text-white portfolio-prod-title", "Portfolio" }
-                        p { class: "text-sm text-slate-400 portfolio-prod-subtitle",
-                            "Track your watchlisted stocks"
-                        }
-                    }
+        div { class: "portfolio-prod-header mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
+            div { class: "flex items-center gap-3",
+                div { class: "portfolio-prod-icon flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500",
+                    Icon { name: "heart".to_string(), size: Some(20), class_name: Some("text-white".to_string()) }
                 }
-                span { class: "inline-flex w-max items-center gap-1.5 self-start rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400 sm:self-center",
-                    Icon { name: "trending-up".to_string(), size: Some(14) }
-                    "Live"
+                div {
+                    h1 { class: "text-2xl font-bold text-white portfolio-prod-title", "Portfolio" }
+                    p { class: "text-sm text-slate-400 portfolio-prod-subtitle",
+                        "Track your watchlisted stocks"
+                    }
                 }
             }
+            span { class: "inline-flex w-max items-center gap-1.5 self-start rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400 sm:self-center",
+                Icon { name: "trending-up".to_string(), size: Some(14) }
+                "Live"
+            }
         }
+    }
 }
 
 #[component]

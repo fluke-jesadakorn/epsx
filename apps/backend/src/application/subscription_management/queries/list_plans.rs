@@ -1,9 +1,9 @@
-use crate::prelude::*;
-use crate::application::shared::{Query, QueryHandler, ApplicationResult, ApplicationError};
+use crate::application::shared::{ApplicationError, ApplicationResult, Query, QueryHandler};
 use crate::domain::subscription_management::{
     aggregates::Plan,
     repository_ports::{PlanRepositoryPort, PlanSearchCriteria},
 };
+use crate::prelude::*;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
@@ -28,6 +28,9 @@ impl ListPlansQueryHandler {
 #[async_trait]
 impl QueryHandler<ListPlansQuery> for ListPlansQueryHandler {
     async fn handle(&self, query: ListPlansQuery) -> ApplicationResult<Vec<Plan>> {
-        self.repository.find_all(query.criteria).await.map_err(ApplicationError::from)
+        self.repository
+            .find_all(query.criteria)
+            .await
+            .map_err(ApplicationError::from)
     }
 }

@@ -3,13 +3,16 @@ use axum::{
     response::IntoResponse,
 };
 use chrono::{DateTime, Utc};
-use uuid::Uuid;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
+use uuid::Uuid;
 
+use super::{
+    AssignmentResponse, ExpiringAssignmentsQuery, ListAssignmentsQuery, PlanHistoryQuery,
+    PlanHistoryResponse,
+};
 use crate::web::auth::AppState;
-use crate::web::responses::{AdminResponse, create_pagination};
-use super::{AssignmentResponse, ListAssignmentsQuery, ExpiringAssignmentsQuery, PlanHistoryQuery, PlanHistoryResponse};
+use crate::web::responses::{create_pagination, AdminResponse};
 
 /// List wallet-plan assignments with pagination
 /// GET /admin/permissions/assignments
@@ -41,7 +44,7 @@ pub async fn list_assignments(
             wga.assignment_metadata
         FROM wallet_plan_assignments wga
         JOIN plans pg ON wga.plan_id = pg.id
-        "#
+        "#,
     );
 
     let mut where_clauses = Vec::new();
@@ -120,15 +123,14 @@ pub async fn list_assignments(
     }
 
     // Get total count
-    let total: i64 = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments"
-    )
-    .get_result::<CountRow>(&mut conn)
-    .await
-    {
-        Ok(row) => row.count,
-        Err(_) => 0,
-    };
+    let total: i64 =
+        match diesel::sql_query("SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments")
+            .get_result::<CountRow>(&mut conn)
+            .await
+        {
+            Ok(row) => row.count,
+            Err(_) => 0,
+        };
 
     // Build and execute query with all binds inline
     let result = match (
@@ -214,8 +216,9 @@ pub async fn list_assignments(
         }
     };
 
-    let assignments: Vec<AssignmentResponse> = rows.into_iter().map(|row| {
-        AssignmentResponse {
+    let assignments: Vec<AssignmentResponse> = rows
+        .into_iter()
+        .map(|row| AssignmentResponse {
             id: row.id.to_string(),
             wallet_address: row.wallet_address,
             plan_id: row.plan_id.to_string(),
@@ -232,8 +235,8 @@ pub async fn list_assignments(
             auto_renew: row.auto_renew,
             next_billing_date: row.next_billing_date,
             assignment_metadata: row.assignment_metadata,
-        }
-    }).collect();
+        })
+        .collect();
 
     let pagination = create_pagination(pg.page, pg.limit, total as u64);
     AdminResponse::success_with_pagination(assignments, pagination).into_response()
@@ -286,7 +289,7 @@ pub async fn get_expiring_assignments(
           AND wga.expires_at IS NOT NULL
           AND wga.expires_at BETWEEN NOW() AND NOW() + ($1 || ' days')::interval
         ORDER BY wga.expires_at ASC
-        "#
+        "#,
     )
     .bind::<diesel::sql_types::BigInt, _>(days)
     .load::<ExpiringRow>(&mut conn)
@@ -299,22 +302,26 @@ pub async fn get_expiring_assignments(
         }
     };
 
-    let expiring: Vec<serde_json::Value> = rows.into_iter().map(|row| {
-        serde_json::json!({
-            "id": row.id.to_string(),
-            "wallet_address": row.wallet_address,
-            "plan_id": row.plan_id.to_string(),
-            "plan_name": row.plan_name,
-            "assigned_at": row.assigned_at,
-            "expires_at": row.expires_at,
+    let expiring: Vec<serde_json::Value> = rows
+        .into_iter()
+        .map(|row| {
+            serde_json::json!({
+                "id": row.id.to_string(),
+                "wallet_address": row.wallet_address,
+                "plan_id": row.plan_id.to_string(),
+                "plan_name": row.plan_name,
+                "assigned_at": row.assigned_at,
+                "expires_at": row.expires_at,
+            })
         })
-    }).collect();
+        .collect();
 
     AdminResponse::success(serde_json::json!({
         "assignments": expiring,
         "count": expiring.len(),
         "days": days
-    })).into_response()
+    }))
+    .into_response()
 }
 
 /// Get assignment history for a wallet
@@ -392,7 +399,7 @@ pub async fn get_assignment_history(
         JOIN plans pg ON wga.plan_id = pg.id
         WHERE wga.wallet_address = $1
         ORDER BY wga.assigned_at DESC
-        "#
+        "#,
     )
     .bind::<diesel::sql_types::Text, _>(&wallet)
     .load::<HistoryRow>(&mut conn)
@@ -405,8 +412,9 @@ pub async fn get_assignment_history(
         }
     };
 
-    let history: Vec<AssignmentResponse> = rows.into_iter().map(|row| {
-        AssignmentResponse {
+    let history: Vec<AssignmentResponse> = rows
+        .into_iter()
+        .map(|row| AssignmentResponse {
             id: row.id.to_string(),
             wallet_address: row.wallet_address,
             plan_id: row.plan_id.to_string(),
@@ -423,14 +431,15 @@ pub async fn get_assignment_history(
             auto_renew: row.auto_renew,
             next_billing_date: row.next_billing_date,
             assignment_metadata: row.assignment_metadata,
-        }
-    }).collect();
+        })
+        .collect();
 
     AdminResponse::success(serde_json::json!({
         "wallet_address": wallet,
         "assignments": history,
         "count": history.len()
-    })).into_response()
+    }))
+    .into_response()
 }
 
 /// Get plans assigned to a wallet
@@ -478,7 +487,7 @@ pub async fn get_wallet_plans(
         JOIN plans pg ON wga.plan_id = pg.id
         WHERE wga.wallet_address = $1 AND wga.is_active = true
         ORDER BY wga.assigned_at DESC
-        "#
+        "#,
     )
     .bind::<diesel::sql_types::Text, _>(&wallet)
     .load::<PlanRow>(&mut conn)
@@ -491,24 +500,28 @@ pub async fn get_wallet_plans(
         }
     };
 
-    let plans: Vec<serde_json::Value> = rows.into_iter().map(|row| {
-        serde_json::json!({
-            "id": row.id.to_string(),
-            "plan_id": row.plan_id.to_string(),
-            "plan_name": row.plan_name,
-            "plan_slug": row.plan_slug,
-            "plan_type": row.plan_type,
-            "assigned_at": row.assigned_at,
-            "expires_at": row.expires_at,
-            "is_active": row.is_active,
+    let plans: Vec<serde_json::Value> = rows
+        .into_iter()
+        .map(|row| {
+            serde_json::json!({
+                "id": row.id.to_string(),
+                "plan_id": row.plan_id.to_string(),
+                "plan_name": row.plan_name,
+                "plan_slug": row.plan_slug,
+                "plan_type": row.plan_type,
+                "assigned_at": row.assigned_at,
+                "expires_at": row.expires_at,
+                "is_active": row.is_active,
+            })
         })
-    }).collect();
+        .collect();
 
     AdminResponse::success(serde_json::json!({
         "wallet_address": wallet,
         "plans": plans,
         "count": plans.len()
-    })).into_response()
+    }))
+    .into_response()
 }
 
 /// Get plan assignment history (audit log)
@@ -521,7 +534,10 @@ pub async fn get_plan_history(
     let offset = query.offset.unwrap_or(0);
 
     // Use analytics pool if available, otherwise fallback to primary pool (for dev)
-    let pool = app_state.analytics_db_pool.as_ref().unwrap_or(&app_state.db_pool);
+    let pool = app_state
+        .analytics_db_pool
+        .as_ref()
+        .unwrap_or(&app_state.db_pool);
 
     let mut conn = match pool.get().await {
         Ok(conn) => conn,
@@ -538,10 +554,14 @@ pub async fn get_plan_history(
             "remove" => "plan_removed",
             "expire" => "expired",
             _ => "plan_assigned",
-        }.to_string()
+        }
+        .to_string()
     });
 
-    let plan_uuid: Option<Uuid> = query.plan_id.as_ref().and_then(|gid| Uuid::parse_str(gid).ok());
+    let plan_uuid: Option<Uuid> = query
+        .plan_id
+        .as_ref()
+        .and_then(|gid| Uuid::parse_str(gid).ok());
     let search_pattern: Option<String> = query.user_search.as_ref().map(|s| format!("%{}%", s));
 
     // Use fixed param slots with NULL-check pattern to avoid dynamic bind chains
@@ -623,36 +643,40 @@ pub async fn get_plan_history(
         }
     };
 
-    let history: Vec<PlanHistoryResponse> = rows.into_iter().map(|row| {
-        let op_type = match row.event_type.as_str() {
-            "plan_assigned" => "assign",
-            "plan_removed" => "remove",
-            "expired" => "expire",
-             _ => "assign",
-        };
+    let history: Vec<PlanHistoryResponse> = rows
+        .into_iter()
+        .map(|row| {
+            let op_type = match row.event_type.as_str() {
+                "plan_assigned" => "assign",
+                "plan_removed" => "remove",
+                "expired" => "expire",
+                _ => "assign",
+            };
 
-        PlanHistoryResponse {
-            id: row.id.to_string(),
-            user_id: row.user_id,
-            user_email: None,
-            user_name: None,
-            plan_id: row.plan_id.map(|g| g.to_string()).unwrap_or_default(),
-            plan_name: row.plan_name,
-            operation_type: op_type.to_string(),
-            operation_source: row.event_source,
-            performed_by: row.performed_by,
-            performed_by_name: row.performed_by_name,
-            reason: row.reason,
-            expires_at: row.expires_at,
-            metadata: row.metadata,
-            created_at: row.created_at,
-        }
-    }).collect();
+            PlanHistoryResponse {
+                id: row.id.to_string(),
+                user_id: row.user_id,
+                user_email: None,
+                user_name: None,
+                plan_id: row.plan_id.map(|g| g.to_string()).unwrap_or_default(),
+                plan_name: row.plan_name,
+                operation_type: op_type.to_string(),
+                operation_source: row.event_source,
+                performed_by: row.performed_by,
+                performed_by_name: row.performed_by_name,
+                reason: row.reason,
+                expires_at: row.expires_at,
+                metadata: row.metadata,
+                created_at: row.created_at,
+            }
+        })
+        .collect();
 
     let total = history.len() as u64;
 
     AdminResponse::success(serde_json::json!({
         "history": history,
         "total": total
-    })).into_response()
+    }))
+    .into_response()
 }

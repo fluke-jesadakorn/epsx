@@ -101,15 +101,15 @@ use super::notification_handlers::{
     upload_notification_image,
 };
 // System settings handlers
-use super::system_settings_handlers::{
-    get_all_settings_handler, get_settings_by_category_handler, reset_settings_handler,
-    update_settings_handler,
-};
 use super::batch_handlers::{
     admin_dashboard_summary_handler, admin_notification_overview_handler,
     wallet_access_summary_handler,
 };
 use super::dashboard_handlers::admin_dashboard_user_status_handler;
+use super::system_settings_handlers::{
+    get_all_settings_handler, get_settings_by_category_handler, reset_settings_handler,
+    update_settings_handler,
+};
 use crate::web::auth::AppState;
 
 pub fn create_admin_routes() -> Router<AppState> {
@@ -528,7 +528,10 @@ pub fn create_admin_routes() -> Router<AppState> {
     // before touching the monolith settings table.
     let settings_read = Router::new()
         .route("/settings", get(get_all_settings_handler))
-        .route("/settings/{category}", get(get_settings_by_category_handler))
+        .route(
+            "/settings/{category}",
+            get(get_settings_by_category_handler),
+        )
         .layer(from_fn_with_state("admin:settings:read", perm_guard));
     let settings_write = Router::new()
         .route("/settings", put(update_settings_handler))

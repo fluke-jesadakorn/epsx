@@ -1,6 +1,6 @@
-use crate::prelude::*;
-use crate::application::shared::Query;
 use crate::application::market_analytics::queries::StockAnalysisSummary;
+use crate::application::shared::Query;
+use crate::prelude::*;
 
 /// Query to get top performing stocks
 #[derive(Debug, Clone)]

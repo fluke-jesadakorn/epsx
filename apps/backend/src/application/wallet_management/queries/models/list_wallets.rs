@@ -1,11 +1,11 @@
 // List Wallets Query
 // Query to retrieve multiple wallets with filtering and pagination
 
-use crate::application::shared::{Query, ApplicationResult};
+use crate::application::shared::{ApplicationResult, Query};
 use crate::domain::wallet_management::value_objects::Permission;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListWalletsQuery {
@@ -30,22 +30,22 @@ impl ListWalletsQuery {
             wallet_pattern_filter: None,
         }
     }
-    
+
     pub fn with_limit(mut self, limit: usize) -> Self {
         self.limit = limit;
         self
     }
-    
+
     pub fn with_offset(mut self, offset: usize) -> Self {
         self.offset = offset;
         self
     }
-    
+
     pub fn with_permission_filter(mut self, permissions: Vec<String>) -> Self {
         self.permission_filter = Some(permissions);
         self
     }
-    
+
     pub fn with_wallet_pattern_filter(mut self, pattern: String) -> Self {
         self.wallet_pattern_filter = Some(pattern);
         self
@@ -61,17 +61,17 @@ pub struct ListWalletsResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WalletSummary {
     // Identity fields (Web3-first: wallet-based)
-    pub id: String,                        // Wallet address for frontend
-    pub display_name: Option<String>,      // Display name from database
+    pub id: String,                   // Wallet address for frontend
+    pub display_name: Option<String>, // Display name from database
 
     // Status and group fields
-    pub group: String,                     // Derived from permissions (admin/user/premium)
-    pub status: String,                    // Derived from is_active (active/inactive)
+    pub group: String,  // Derived from permissions (admin/user/premium)
+    pub status: String, // Derived from is_active (active/inactive)
     pub is_active: bool,
 
     // Permission and tier fields
     pub permissions: HashSet<Permission>,
-    pub permission_plan: String,          // Permission group from permissions
+    pub permission_plan: String, // Permission group from permissions
 
     // Timestamp fields
     pub created_at: DateTime<Utc>,
@@ -93,7 +93,7 @@ impl Query for ListWalletsQuery {
         if self.limit > 1000 {
             return Err(crate::application::ApplicationError::validation(
                 "limit",
-                "Limit cannot exceed 1000"
+                "Limit cannot exceed 1000",
             ));
         }
         Ok(())

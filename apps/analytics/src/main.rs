@@ -28,18 +28,16 @@ use axum::Router;
 use epsx::domain::market_analytics::repository_ports::MarketRankingsProviderPort;
 use epsx::infrastructure::adapters::services::tradingview::BoundedMarketRankingsProvider;
 #[cfg(test)]
+use epsx_contracts::errors::AppResult;
+#[cfg(test)]
 use epsx_contracts::value_objects::ranking_offset::RankingOffset;
 use epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery;
-#[cfg(test)]
-use epsx_contracts::errors::AppResult;
 use epsx_service_auth::AccessTokenVerifier;
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
 use epsx_analytics_service::{
-    cache::{
-        EPSCacheService, TradingViewEPSRepository, WebSocketEarningsService,
-    },
+    cache::{EPSCacheService, TradingViewEPSRepository, WebSocketEarningsService},
     tradingview::{TradingViewAdapter, TradingViewApiService},
 };
 
@@ -119,7 +117,9 @@ use sse_consumer::LocalRankingOffsetBus;
 pub fn build_analytics_router(
     permission_service: Arc<dyn WalletRankingOffsetQuery>,
     cache: Arc<dyn epsx::infrastructure::cache::Cache>,
-    eps_ranking_service: Arc<epsx::domain::market_analytics::services::eps_ranking_service::EPSRankingService>,
+    eps_ranking_service: Arc<
+        epsx::domain::market_analytics::services::eps_ranking_service::EPSRankingService,
+    >,
     market_rankings_provider: Arc<dyn MarketRankingsProviderPort>,
     verifier: Arc<dyn AccessTokenVerifier>,
 ) -> Router {
@@ -174,10 +174,7 @@ pub struct FreePlanWalletRankingOffsetQuery;
 #[cfg(test)]
 #[async_trait]
 impl WalletRankingOffsetQuery for FreePlanWalletRankingOffsetQuery {
-    async fn get_wallet_ranking_offset(
-        &self,
-        wallet: &str,
-    ) -> AppResult<RankingOffset> {
+    async fn get_wallet_ranking_offset(&self, wallet: &str) -> AppResult<RankingOffset> {
         tracing::debug!(
             wallet = %wallet,
             "test-only free-plan ranking fixture"
@@ -200,7 +197,8 @@ pub struct AnalyticsServiceState {
     pub eps_repository: Arc<TradingViewEPSRepository>,
     /// Legacy `EPSRankingService` (the actual DDD service the
     /// handlers call into).
-    pub eps_ranking_service: Arc<epsx::domain::market_analytics::services::eps_ranking_service::EPSRankingService>,
+    pub eps_ranking_service:
+        Arc<epsx::domain::market_analytics::services::eps_ranking_service::EPSRankingService>,
     /// In-process cache (private `HashMap`; in-process state).
     pub eps_cache_service: Arc<epsx::domain::market_analytics::domain_services::EPSCacheService>,
     /// WebSocket earnings service (the lazy_static cache wrapper).
@@ -220,17 +218,13 @@ impl AnalyticsServiceState {
         // ---- TradingView transport ----
         let config = Arc::new(epsx::config::get_fallback_config());
         let tradingview_service = Arc::new(TradingViewApiService::new(config));
-        let tradingview_adapter = Arc::new(TradingViewAdapter::new(
-            tradingview_service.clone(),
-        ));
+        let tradingview_adapter = Arc::new(TradingViewAdapter::new(tradingview_service.clone()));
         let raw_market_rankings_provider: Arc<dyn MarketRankingsProviderPort> =
             tradingview_adapter.clone();
         let market_rankings_provider: Arc<dyn MarketRankingsProviderPort> = Arc::new(
             BoundedMarketRankingsProvider::new(raw_market_rankings_provider),
         );
-        let eps_repository = Arc::new(TradingViewEPSRepository::new(
-            tradingview_service.clone(),
-        ));
+        let eps_repository = Arc::new(TradingViewEPSRepository::new(tradingview_service.clone()));
         let eps_ranking_service = Arc::new(
             epsx::domain::market_analytics::services::eps_ranking_service::EPSRankingService::new(
                 eps_repository.clone(),
@@ -238,9 +232,8 @@ impl AnalyticsServiceState {
         );
 
         // ---- In-process cache (no Redis) ----
-        let cache: Arc<dyn epsx::infrastructure::cache::Cache> = Arc::new(
-            epsx::infrastructure::cache::memory_cache::MemoryCache::new(),
-        );
+        let cache: Arc<dyn epsx::infrastructure::cache::Cache> =
+            Arc::new(epsx::infrastructure::cache::memory_cache::MemoryCache::new());
 
         // ---- EPSCacheService (the private HashMap cache) ----
         // Construction needs a `MarketDataScannerPort` impl and an
@@ -251,8 +244,9 @@ impl AnalyticsServiceState {
         // the new binary; we construct it eagerly so the cache is
         // initialized before the first request lands. The handler
         // `Extension(Arc<EPSCacheService>)` shape is preserved.
-        let market_data_scanner: Arc<dyn epsx::domain::market_analytics::repository_ports::MarketDataScannerPort> =
-            tradingview_adapter;
+        let market_data_scanner: Arc<
+            dyn epsx::domain::market_analytics::repository_ports::MarketDataScannerPort,
+        > = tradingview_adapter;
         let eps_repo_for_cache = eps_repository.clone();
         let eps_cache_service = Arc::new(EPSCacheService::new(
             market_data_scanner,
@@ -303,9 +297,9 @@ fn production_environment() -> bool {
         "DEPLOY_ENV",
         "DEPLOYMENT_ENV",
     ]
-        .into_iter()
-        .filter_map(|name| std::env::var(name).ok())
-        .any(|value| is_production_marker(&value))
+    .into_iter()
+    .filter_map(|name| std::env::var(name).ok())
+    .any(|value| is_production_marker(&value))
 }
 
 fn is_production_marker(value: &str) -> bool {
@@ -346,8 +340,7 @@ async fn main() -> anyhow::Result<()> {
         .context("building market analytics OIDC verifier")?;
 
     // ---- DI ----
-    let state = AnalyticsServiceState::build()
-        .context("building in-process analytics state")?;
+    let state = AnalyticsServiceState::build().context("building in-process analytics state")?;
 
     // ---- WalletRankingOffsetQuery: fail-closed lazy gRPC client ----
     //
@@ -364,8 +357,8 @@ async fn main() -> anyhow::Result<()> {
     //   - K8s:    `http://epsx-identity:50051` (the K8s
     //     service DNS, set by the deployment.yaml env
     //     var in `infrastructure/kubernetes/base/analytics/`)
-    let grpc_endpoint = std::env::var("IDENTITY_GRPC_URL")
-        .unwrap_or_else(|_| "http://127.0.0.1:50051".to_string());
+    let grpc_endpoint =
+        std::env::var("IDENTITY_GRPC_URL").unwrap_or_else(|_| "http://127.0.0.1:50051".to_string());
     info!("IDENTITY_GRPC_URL resolved");
 
     let permission_service: Arc<dyn WalletRankingOffsetQuery> = Arc::new(
@@ -459,8 +452,7 @@ mod tests {
             ]
         );
 
-        let perm: Arc<dyn WalletRankingOffsetQuery> =
-            Arc::new(FreePlanWalletRankingOffsetQuery);
+        let perm: Arc<dyn WalletRankingOffsetQuery> = Arc::new(FreePlanWalletRankingOffsetQuery);
         let cache: Arc<dyn epsx::infrastructure::cache::Cache> =
             Arc::new(epsx::infrastructure::cache::memory_cache::MemoryCache::new());
         use epsx::domain::market_analytics::services::eps_ranking_service::EPSRankingService;
@@ -503,12 +495,7 @@ mod tests {
         for path in blocked_paths {
             let response = router
                 .clone()
-                .oneshot(
-                    Request::builder()
-                        .uri(&path)
-                        .body(Body::empty())
-                        .unwrap(),
-                )
+                .oneshot(Request::builder().uri(&path).body(Body::empty()).unwrap())
                 .await
                 .unwrap();
             assert_eq!(response.status(), StatusCode::NOT_FOUND, "path={path}");
@@ -549,8 +536,7 @@ mod tests {
     /// panicking. No DB connection is opened (Q2 ROADMAP §7).
     #[tokio::test]
     async fn test_state_build_no_db() {
-        let state = AnalyticsServiceState::build()
-            .expect("state build must succeed without DB");
+        let state = AnalyticsServiceState::build().expect("state build must succeed without DB");
         // Arc::strong_count is the cheapest assertion that the
         // state actually built something.
         assert!(Arc::strong_count(&state.tradingview_service) >= 1);
@@ -621,8 +607,7 @@ mod tests {
     /// import from `main()` to avoid a circular
     /// module reference; the test asserts the URL
     /// string format at runtime as a guard.)
-    const PROD_SSE_URL_DEFAULT: &str =
-        "http://127.0.0.1:50052/v1/stream/ranking-offsets";
+    const PROD_SSE_URL_DEFAULT: &str = "http://127.0.0.1:50052/v1/stream/ranking-offsets";
 
     /// Resolve the SSE URL the same way `main()` does:
     /// read `IDENTITY_SSE_URL` from env, falling back to
@@ -632,12 +617,10 @@ mod tests {
     /// production. This is the shape that prevents the
     /// "test passes, production broken" class of bug
     /// (verifier caught it in attempt #3).
-    fn resolve_test_sse_url(
-        mock_host_port: &str,
-    ) -> (String, String) {
+    fn resolve_test_sse_url(mock_host_port: &str) -> (String, String) {
         // Read the env var the same way `main()` does.
-        let prod_url = std::env::var("IDENTITY_SSE_URL")
-            .unwrap_or_else(|_| PROD_SSE_URL_DEFAULT.to_string());
+        let prod_url =
+            std::env::var("IDENTITY_SSE_URL").unwrap_or_else(|_| PROD_SSE_URL_DEFAULT.to_string());
 
         // Parse the prod URL into (scheme+host+port, path).
         // `url::Url::parse` is heavyweight for a string
@@ -690,8 +673,7 @@ mod tests {
     /// full URL using the same env-var-style config
     /// `main()` uses. This is the anti-test-pollution
     /// guard (see the section comment above).
-    async fn spin_up_mock_sse_server()
-    -> (String, tokio::task::JoinHandle<()>) {
+    async fn spin_up_mock_sse_server() -> (String, tokio::task::JoinHandle<()>) {
         use axum::routing::get;
         use axum::Router;
 
@@ -704,9 +686,7 @@ mod tests {
             let event1 = r#"data: {"wallet":"0xE2E2","offset":77,"changed_at_ms":1700000077000}"#;
             let event2 = r#"data: {"wallet":"0xC0DE","offset":50,"changed_at_ms":1700000077500}"#;
             (
-                [
-                    (axum::http::header::CONTENT_TYPE, "text/event-stream"),
-                ],
+                [(axum::http::header::CONTENT_TYPE, "text/event-stream")],
                 format!("{event1}\n\n{event2}\n\n"),
             )
         }
@@ -802,24 +782,18 @@ mod tests {
 
         // Drain 2 events. Use a 5s timeout so the test
         // fails fast if the consumer never publishes.
-        let r1 = tokio::time::timeout(
-            std::time::Duration::from_secs(5),
-            rx.recv(),
-        )
-        .await
-        .expect("event 1 must arrive within 5s")
-        .expect("event 1 must be received (not lagged)");
+        let r1 = tokio::time::timeout(std::time::Duration::from_secs(5), rx.recv())
+            .await
+            .expect("event 1 must arrive within 5s")
+            .expect("event 1 must be received (not lagged)");
         assert_eq!(r1.wallet, "0xE2E2");
         assert_eq!(r1.offset, 77);
         assert_eq!(r1.changed_at_ms, 1_700_000_077_000);
 
-        let r2 = tokio::time::timeout(
-            std::time::Duration::from_secs(5),
-            rx.recv(),
-        )
-        .await
-        .expect("event 2 must arrive within 5s")
-        .expect("event 2 must be received (not lagged)");
+        let r2 = tokio::time::timeout(std::time::Duration::from_secs(5), rx.recv())
+            .await
+            .expect("event 2 must arrive within 5s")
+            .expect("event 2 must be received (not lagged)");
         assert_eq!(r2.wallet, "0xC0DE");
         assert_eq!(r2.offset, 50);
         assert_eq!(r2.changed_at_ms, 1_700_000_077_500);
@@ -833,11 +807,7 @@ mod tests {
         // state. The shutdown signal makes it exit
         // cleanly.)
         let _ = shutdown_tx_signal.send(true);
-        let _ = tokio::time::timeout(
-            std::time::Duration::from_secs(2),
-            consumer_handle,
-        )
-        .await;
+        let _ = tokio::time::timeout(std::time::Duration::from_secs(2), consumer_handle).await;
         server_handle.abort();
     }
 
@@ -900,8 +870,7 @@ mod tests {
             format!("http://mock-host:12345{path}")
         };
         assert_eq!(
-            test_url,
-            "http://mock-host:12345/v1/stream/ranking-offsets",
+            test_url, "http://mock-host:12345/v1/stream/ranking-offsets",
             "test URL must preserve the production path verbatim"
         );
 

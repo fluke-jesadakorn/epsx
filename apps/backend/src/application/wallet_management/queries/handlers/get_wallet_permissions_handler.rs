@@ -1,10 +1,10 @@
 use crate::prelude::*;
 
-use crate::application::shared::{Query, QueryHandler, ApplicationResult, ApplicationError};
+use crate::application::shared::{ApplicationError, ApplicationResult, Query, QueryHandler};
 use crate::application::wallet_management::queries::models::{
-    GetWalletPermissionsQuery, GetWalletPermissionsResponse
+    GetWalletPermissionsQuery, GetWalletPermissionsResponse,
 };
-use crate::domain::wallet_management::{WalletUserRepositoryPort, WalletAddress};
+use crate::domain::wallet_management::{WalletAddress, WalletUserRepositoryPort};
 
 /// Query handler for retrieving wallet permissions
 pub struct GetWalletPermissionsQueryHandler {
@@ -19,7 +19,10 @@ impl GetWalletPermissionsQueryHandler {
 
 #[async_trait]
 impl QueryHandler<GetWalletPermissionsQuery> for GetWalletPermissionsQueryHandler {
-    async fn handle(&self, query: GetWalletPermissionsQuery) -> ApplicationResult<GetWalletPermissionsResponse> {
+    async fn handle(
+        &self,
+        query: GetWalletPermissionsQuery,
+    ) -> ApplicationResult<GetWalletPermissionsResponse> {
         // 1. Validate query
         query.validate()?;
 
@@ -28,7 +31,8 @@ impl QueryHandler<GetWalletPermissionsQuery> for GetWalletPermissionsQueryHandle
             .map_err(|e| ApplicationError::validation("wallet_address", e.to_string()))?;
 
         // 3. Find wallet
-        let wallet = self.wallet_repository
+        let wallet = self
+            .wallet_repository
             .find_by_wallet(&wallet_addr)
             .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
@@ -36,18 +40,21 @@ impl QueryHandler<GetWalletPermissionsQuery> for GetWalletPermissionsQueryHandle
 
         // 4. Extract permissions
         // 4. Filter permissions
-        let all_permissions: Vec<String> = wallet.permissions()
+        let all_permissions: Vec<String> = wallet
+            .permissions()
             .iter()
             .map(|p| p.as_str().to_string())
             .collect();
 
-        let active_permissions: Vec<String> = wallet.permissions()
+        let active_permissions: Vec<String> = wallet
+            .permissions()
             .iter()
             .filter(|p| p.is_active())
             .map(|p| p.as_str().to_string())
             .collect();
 
-        let expired_permissions: Vec<String> = wallet.permissions()
+        let expired_permissions: Vec<String> = wallet
+            .permissions()
             .iter()
             .filter(|p| !p.is_active())
             .map(|p| p.as_str().to_string())

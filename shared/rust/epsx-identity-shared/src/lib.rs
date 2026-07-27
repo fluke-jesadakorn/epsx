@@ -15,52 +15,52 @@
 //     in-process in the backend binary (CLAUDE.md).
 //   - No new workspace dependencies are added by this crate.
 
-pub mod prelude;
-pub mod core;
 pub mod config;
 pub mod constants;
-pub mod schemas;
+pub mod core;
 pub mod infrastructure;
+pub mod prelude;
+pub mod schemas;
 
 // Auth domain modules (moved from apps/backend/src/auth/*)
 pub mod auth_service;
 pub mod challenge_service;
-pub mod verification_service;
-pub mod token_service;
-pub mod key_manager;
 pub mod granular_permissions;
+pub mod key_manager;
 pub mod refresh_token_digest;
+pub mod token_service;
 pub mod unified_permission_service;
+pub mod verification_service;
 
 // ============================================================================
 // EXPORTS — UNIFIED PERMISSION SYSTEM
 // ============================================================================
 
 pub use unified_permission_service::{
-    UnifiedPermissionService, PermissionDetail, PermissionSource as UnifiedPermissionSource,
-    PermissionStats as UnifiedPermissionStats, GrantPermissionRequest, RevokePermissionRequest,
-    AssignPlanRequest, RemovePlanRequest,
+    AssignPlanRequest, GrantPermissionRequest, PermissionDetail,
+    PermissionSource as UnifiedPermissionSource, PermissionStats as UnifiedPermissionStats,
+    RemovePlanRequest, RevokePermissionRequest, UnifiedPermissionService,
 };
 
 pub use auth_service::{
-    UnifiedWeb3AuthService, Web3Challenge, Web3VerificationRequest, Web3AuthResult,
-    Web3Permission, Web3PermissionType, Web3AuthError,
+    UnifiedWeb3AuthService, Web3AuthError, Web3AuthResult, Web3Challenge, Web3Permission,
+    Web3PermissionType, Web3VerificationRequest,
 };
 
 pub use token_service::{
-    OpenIDTokenService, OpenIDTokenResponse, AccessTokenClaims, IdTokenClaims,
-    Web3AuthTokenRequest, OpenIDTokenError, RefreshTokenInfo,
+    AccessTokenClaims, IdTokenClaims, OpenIDTokenError, OpenIDTokenResponse, OpenIDTokenService,
+    RefreshTokenInfo, Web3AuthTokenRequest,
 };
 
+pub use granular_permissions::{
+    GranularPermissionClaim, GranularPermissionError, GranularPermissionSet,
+    PermissionSource as GranularPermissionSource, PermissionValidationResult,
+    ValidationContext as GranularValidationContext,
+};
 pub use key_manager::KeyManager;
 pub use refresh_token_digest::{
     DigestedRefreshToken, IssuedRefreshToken, RefreshTokenCredential, RefreshTokenDigest,
     RefreshTokenDigestError, RefreshTokenKeyring,
-};
-pub use granular_permissions::{
-    GranularPermissionClaim, PermissionSource as GranularPermissionSource, GranularPermissionSet,
-    PermissionValidationResult, ValidationContext as GranularValidationContext,
-    GranularPermissionError,
 };
 
 pub use prelude::TlsPool;

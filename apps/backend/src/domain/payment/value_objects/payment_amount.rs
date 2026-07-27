@@ -1,8 +1,8 @@
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{self, Display};
-use serde::{Serialize, Deserialize};
 
 /// Re-export Currency and Network from shared kernel
 pub use epsx_contracts::value_objects::Currency as SharedCurrency;
@@ -145,36 +145,36 @@ impl PaymentAmount {
     /// Get minimum amount for currency
     pub fn minimum_amount_for_currency(currency: &Currency) -> Decimal {
         match currency {
-            Currency::USD => dec!(10),        // $10 minimum
-            Currency::USDT => dec!(10),       // $10 minimum
-            Currency::USDC => dec!(10),       // $10 minimum
-            Currency::ETH => ETH_MIN,         // 0.01 ETH minimum
-            Currency::BTC => BTC_MIN,         // 0.001 BTC minimum
-            Currency::BNB => BNB_MIN,         // 0.1 BNB minimum
-            Currency::TRX => dec!(100),       // 100 TRX minimum
-            Currency::Bitcoin => BTC_MIN,     // 0.001 BTC minimum (alias)
-            Currency::Ethereum => ETH_MIN,    // 0.01 ETH minimum (alias)
-            Currency::Usdt => dec!(10),       // $10 minimum (alias)
-            Currency::Usdc => dec!(10),       // $10 minimum (alias)
-            Currency::Bnb => BNB_MIN,         // 0.1 BNB minimum (alias)
+            Currency::USD => dec!(10),     // $10 minimum
+            Currency::USDT => dec!(10),    // $10 minimum
+            Currency::USDC => dec!(10),    // $10 minimum
+            Currency::ETH => ETH_MIN,      // 0.01 ETH minimum
+            Currency::BTC => BTC_MIN,      // 0.001 BTC minimum
+            Currency::BNB => BNB_MIN,      // 0.1 BNB minimum
+            Currency::TRX => dec!(100),    // 100 TRX minimum
+            Currency::Bitcoin => BTC_MIN,  // 0.001 BTC minimum (alias)
+            Currency::Ethereum => ETH_MIN, // 0.01 ETH minimum (alias)
+            Currency::Usdt => dec!(10),    // $10 minimum (alias)
+            Currency::Usdc => dec!(10),    // $10 minimum (alias)
+            Currency::Bnb => BNB_MIN,      // 0.1 BNB minimum (alias)
         }
     }
 
     /// Get maximum amount for currency
     pub fn maximum_amount_for_currency(currency: &Currency) -> Decimal {
         match currency {
-            Currency::USD => Decimal::from(1_000_000),    // $1M maximum
-            Currency::USDT => Decimal::from(1_000_000),   // $1M maximum
-            Currency::USDC => Decimal::from(1_000_000),   // $1M maximum
-            Currency::ETH => Decimal::from(1000),         // 1000 ETH maximum
-            Currency::BTC => Decimal::from(100),          // 100 BTC maximum
-            Currency::BNB => Decimal::from(10_000),       // 10k BNB maximum
-            Currency::TRX => Decimal::from(10_000_000),   // 10M TRX maximum
-            Currency::Bitcoin => Decimal::from(100),      // 100 BTC maximum (alias)
-            Currency::Ethereum => Decimal::from(1000),    // 1000 ETH maximum (alias)
-            Currency::Usdt => Decimal::from(1_000_000),   // $1M maximum (alias)
-            Currency::Usdc => Decimal::from(1_000_000),   // $1M maximum (alias)
-            Currency::Bnb => Decimal::from(10_000),       // 10k BNB maximum (alias)
+            Currency::USD => Decimal::from(1_000_000),  // $1M maximum
+            Currency::USDT => Decimal::from(1_000_000), // $1M maximum
+            Currency::USDC => Decimal::from(1_000_000), // $1M maximum
+            Currency::ETH => Decimal::from(1000),       // 1000 ETH maximum
+            Currency::BTC => Decimal::from(100),        // 100 BTC maximum
+            Currency::BNB => Decimal::from(10_000),     // 10k BNB maximum
+            Currency::TRX => Decimal::from(10_000_000), // 10M TRX maximum
+            Currency::Bitcoin => Decimal::from(100),    // 100 BTC maximum (alias)
+            Currency::Ethereum => Decimal::from(1000),  // 1000 ETH maximum (alias)
+            Currency::Usdt => Decimal::from(1_000_000), // $1M maximum (alias)
+            Currency::Usdc => Decimal::from(1_000_000), // $1M maximum (alias)
+            Currency::Bnb => Decimal::from(10_000),     // 10k BNB maximum (alias)
         }
     }
 
@@ -199,11 +199,14 @@ impl PaymentAmount {
     }
 
     /// Create from smallest unit
-    pub fn from_smallest_unit(amount: Decimal, currency: Currency) -> Result<Self, PaymentAmountError> {
+    pub fn from_smallest_unit(
+        amount: Decimal,
+        currency: Currency,
+    ) -> Result<Self, PaymentAmountError> {
         let decimals = currency.decimals();
         let divisor = Decimal::from(10_u64.pow(decimals as u32));
         let actual_amount = amount / divisor;
-        
+
         PaymentAmount::new(actual_amount, currency)
     }
 
@@ -225,30 +228,30 @@ impl PaymentAmount {
     /// Check if amount is within processing fee range
     pub fn processing_fee(&self) -> PaymentAmount {
         let fee_rate = match self.currency {
-            Currency::USD => FEE_USD,         // 3% for USD
-            Currency::USDT | Currency::USDC => FEE_STABLE,  // 2% for stablecoins
-            Currency::ETH => FEE_ETH,         // 2.5% for ETH
-            Currency::BTC => FEE_BTC,         // 1.5% for BTC
-            Currency::BNB => FEE_BNB,         // 2% for BNB
-            Currency::TRX => FEE_TRX,         // 3% for TRX
-            Currency::Bitcoin => FEE_BTC,     // 1.5% for BTC (alias)
-            Currency::Ethereum => FEE_ETH,    // 2.5% for ETH (alias)
+            Currency::USD => FEE_USD,                      // 3% for USD
+            Currency::USDT | Currency::USDC => FEE_STABLE, // 2% for stablecoins
+            Currency::ETH => FEE_ETH,                      // 2.5% for ETH
+            Currency::BTC => FEE_BTC,                      // 1.5% for BTC
+            Currency::BNB => FEE_BNB,                      // 2% for BNB
+            Currency::TRX => FEE_TRX,                      // 3% for TRX
+            Currency::Bitcoin => FEE_BTC,                  // 1.5% for BTC (alias)
+            Currency::Ethereum => FEE_ETH,                 // 2.5% for ETH (alias)
             Currency::Usdt | Currency::Usdc => FEE_STABLE, // 2% for stablecoins (aliases)
-            Currency::Bnb => FEE_BNB,         // 2% for BNB (alias)
+            Currency::Bnb => FEE_BNB,                      // 2% for BNB (alias)
         };
 
         let fee_amount = self.amount * fee_rate;
         // Fee should always be valid since it's derived from a positive amount
         // If fee calculation fails (edge case), return zero fee rather than panic
-        PaymentAmount::new(fee_amount, self.currency.clone()).unwrap_or_else(|_| {
-            PaymentAmount::zero(self.currency.clone())
-        })
+        PaymentAmount::new(fee_amount, self.currency.clone())
+            .unwrap_or_else(|_| PaymentAmount::zero(self.currency.clone()))
     }
 
     /// Get amount after deducting processing fee
     pub fn amount_after_fees(&self) -> PaymentAmount {
         let fee = self.processing_fee();
-        self.subtract(&fee).unwrap_or_else(|_| PaymentAmount::zero(self.currency.clone()))
+        self.subtract(&fee)
+            .unwrap_or_else(|_| PaymentAmount::zero(self.currency.clone()))
     }
 
     fn count_decimal_places(value: Decimal) -> usize {
@@ -389,7 +392,7 @@ mod tests {
     fn test_amount_addition() {
         let amount1 = PaymentAmount::new(dec!(50.0), Currency::USDT).unwrap();
         let amount2 = PaymentAmount::new(dec!(25.0), Currency::USDT).unwrap();
-        
+
         let sum = amount1.add(&amount2).unwrap();
         assert_eq!(sum.amount(), dec!(75.0));
         assert_eq!(sum.currency(), &Currency::USDT);
@@ -399,17 +402,20 @@ mod tests {
     fn test_currency_mismatch() {
         let usd_amount = PaymentAmount::new(dec!(50.0), Currency::USD).unwrap();
         let usdt_amount = PaymentAmount::new(dec!(25.0), Currency::USDT).unwrap();
-        
+
         let result = usd_amount.add(&usdt_amount);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), PaymentAmountError::CurrencyMismatch { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            PaymentAmountError::CurrencyMismatch { .. }
+        ));
     }
 
     #[test]
     fn test_amount_subtraction() {
         let amount1 = PaymentAmount::new(dec!(50.0), Currency::USDT).unwrap();
         let amount2 = PaymentAmount::new(dec!(25.0), Currency::USDT).unwrap();
-        
+
         let diff = amount1.subtract(&amount2).unwrap();
         assert_eq!(diff.amount(), dec!(25.0));
 
@@ -422,7 +428,7 @@ mod tests {
     fn test_processing_fee() {
         let amount = PaymentAmount::new(dec!(500.0), Currency::USDT).unwrap();
         let fee = amount.processing_fee();
-        
+
         assert_eq!(fee.amount(), dec!(10.0)); // 2% of 500
         assert_eq!(fee.currency(), &Currency::USDT);
 
@@ -443,7 +449,7 @@ mod tests {
     fn test_smallest_unit_conversion() {
         let eth_amount = PaymentAmount::new(dec!(1.0), Currency::ETH).unwrap();
         let wei = eth_amount.to_smallest_unit();
-        
+
         // 1 ETH = 10^18 wei
         let expected_wei = "1000000000000000000".parse::<Decimal>().unwrap();
         assert_eq!(wei, expected_wei);
@@ -456,10 +462,10 @@ mod tests {
     fn test_exchange_rates() {
         let mut rates = ExchangeRates::new();
         rates.set_rate(Currency::ETH, dec!(2000.0)); // 1 ETH = $2000
-        
+
         let eth_amount = PaymentAmount::new(dec!(0.5), Currency::ETH).unwrap();
         let usd_equivalent = eth_amount.to_usd_equivalent(&rates).unwrap();
-        
+
         assert_eq!(usd_equivalent.amount(), dec!(1000.0));
         assert_eq!(usd_equivalent.currency(), &Currency::USD);
     }

@@ -1,8 +1,8 @@
-use crate::prelude::*;
-use crate::application::shared::{QueryHandler, ApplicationResult};
 use crate::application::market_analytics::queries::{
     GetAdminModulesQuery, GetAdminModulesResponse,
 };
+use crate::application::shared::{ApplicationResult, QueryHandler};
+use crate::prelude::*;
 
 /// Query handler for getting admin module statistics
 pub struct GetAdminModulesQueryHandler {}

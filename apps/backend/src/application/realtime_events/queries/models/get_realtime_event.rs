@@ -1,7 +1,7 @@
-use crate::prelude::*;
 use crate::application::shared::Query;
+use crate::domain::realtime_events::aggregates::{EventPriority, EventStatus};
 use crate::domain::realtime_events::value_objects::{EventId, EventPayload};
-use crate::domain::realtime_events::aggregates::{EventStatus, EventPriority};
+use crate::prelude::*;
 
 /// Query to get a realtime event by ID
 #[derive(Debug, Clone)]

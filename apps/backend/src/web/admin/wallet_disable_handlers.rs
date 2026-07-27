@@ -16,8 +16,8 @@ use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 use uuid::Uuid;
 
-use crate::web::auth::AppState;
 use crate::web::admin::responses::{AdminApiResponse, AdminMetadata};
+use crate::web::auth::AppState;
 
 // ============================================================================
 // REQUEST/RESPONSE TYPES
@@ -116,7 +116,10 @@ pub async fn disable_wallet_handler(
     RequestJson(request): RequestJson<DisableWalletRequest>,
 ) -> Result<Json<AdminApiResponse<DisableWalletResponse>>, StatusCode> {
     let admin_wallet = &admin_context.wallet_address;
-    info!("Admin {} disabling wallet: {}", admin_wallet, wallet_address);
+    info!(
+        "Admin {} disabling wallet: {}",
+        admin_wallet, wallet_address
+    );
 
     let mut conn = app_state.db_pool.get().await.map_err(|e| {
         error!("Failed to get connection: {}", e);
@@ -124,7 +127,9 @@ pub async fn disable_wallet_handler(
     })?;
 
     let now = Utc::now();
-    let expires_at = request.duration_days.map(|days| now + Duration::days(days as i64));
+    let expires_at = request
+        .duration_days
+        .map(|days| now + Duration::days(days as i64));
 
     // Build disable_info JSON with actual admin wallet
     let disable_info = serde_json::json!({
@@ -201,7 +206,10 @@ pub async fn disable_wallet_handler(
 
     let metadata = AdminMetadata::crud_operation("disable_wallet", Some(admin_wallet.clone()));
 
-    info!("Admin {}: Successfully disabled wallet: {}", admin_wallet, wallet_address);
+    info!(
+        "Admin {}: Successfully disabled wallet: {}",
+        admin_wallet, wallet_address
+    );
     Ok(Json(AdminApiResponse::success_with_meta(
         response,
         "Wallet disabled successfully",
@@ -234,7 +242,10 @@ pub async fn enable_wallet_handler(
     RequestJson(request): RequestJson<EnableWalletRequest>,
 ) -> Result<Json<AdminApiResponse<EnableWalletResponse>>, StatusCode> {
     let admin_wallet = &admin_context.wallet_address;
-    info!("Admin {} re-enabling wallet: {}", admin_wallet, wallet_address);
+    info!(
+        "Admin {} re-enabling wallet: {}",
+        admin_wallet, wallet_address
+    );
 
     let mut conn = app_state.db_pool.get().await.map_err(|e| {
         error!("Failed to get connection: {}", e);
@@ -290,7 +301,7 @@ pub async fn enable_wallet_handler(
              SET expires_at = NULL, updated_at = $1 
              WHERE wallet_address = $2 
              AND expires_at < $1 
-             AND source_metadata->>'disabled_during_account_disable' = 'true'"
+             AND source_metadata->>'disabled_during_account_disable' = 'true'",
         )
         .bind::<diesel::sql_types::Timestamptz, _>(now)
         .bind::<diesel::sql_types::Text, _>(&wallet_address)
@@ -330,7 +341,10 @@ pub async fn enable_wallet_handler(
 
     let metadata = AdminMetadata::crud_operation("enable_wallet", Some(admin_wallet.clone()));
 
-    info!("Admin {}: Successfully enabled wallet: {}", admin_wallet, wallet_address);
+    info!(
+        "Admin {}: Successfully enabled wallet: {}",
+        admin_wallet, wallet_address
+    );
     Ok(Json(AdminApiResponse::success_with_meta(
         response,
         "Wallet enabled successfully",
@@ -366,7 +380,8 @@ pub async fn get_wallet_activity_handler(
 ) -> Result<Json<AdminApiResponse<ActivityLogResponse>>, StatusCode> {
     info!("Admin: Getting activity for wallet: {}", wallet_address);
 
-    let limit: i32 = params.get("limit")
+    let limit: i32 = params
+        .get("limit")
         .and_then(|l| l.parse().ok())
         .unwrap_or(20)
         .min(100);
@@ -398,7 +413,7 @@ pub async fn get_wallet_activity_handler(
          FROM wallet_activity_logs 
          WHERE wallet_address = $1 
          ORDER BY created_at DESC 
-         LIMIT $2"
+         LIMIT $2",
     )
     .bind::<diesel::sql_types::Text, _>(&wallet_address)
     .bind::<diesel::sql_types::Integer, _>(limit)
@@ -414,7 +429,7 @@ pub async fn get_wallet_activity_handler(
     }
 
     let total: i64 = diesel::sql_query(
-        "SELECT COUNT(*) as count FROM wallet_activity_logs WHERE wallet_address = $1"
+        "SELECT COUNT(*) as count FROM wallet_activity_logs WHERE wallet_address = $1",
     )
     .bind::<diesel::sql_types::Text, _>(&wallet_address)
     .get_result::<CountRow>(&mut conn)
@@ -438,7 +453,11 @@ pub async fn get_wallet_activity_handler(
 
     let metadata = AdminMetadata::crud_operation("get_wallet_activity", Some("admin".to_string()));
 
-    info!("Admin: Retrieved {} activity events for {}", response.events.len(), wallet_address);
+    info!(
+        "Admin: Retrieved {} activity events for {}",
+        response.events.len(),
+        wallet_address
+    );
     Ok(Json(AdminApiResponse::success_with_meta(
         response,
         "Activity history retrieved successfully",

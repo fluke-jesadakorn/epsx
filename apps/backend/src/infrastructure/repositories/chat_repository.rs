@@ -1,12 +1,12 @@
 use chrono::Utc;
-use diesel::prelude::*;
 use diesel::dsl::count_star;
+use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use uuid::Uuid;
 
 use crate::infrastructure::models::chat::*;
 use crate::prelude::TlsPool;
-use crate::schemas::primary::{chat_topics, chat_conversations, chat_messages};
+use crate::schemas::primary::{chat_conversations, chat_messages, chat_topics};
 
 pub struct ChatRepository;
 
@@ -151,7 +151,11 @@ impl ChatRepository {
     ) -> Result<ChatConversationDb, String> {
         let mut conn = pool.get().await.map_err(|e| e.to_string())?;
 
-        let new_status = if agent.is_some() { "in_progress" } else { "open" };
+        let new_status = if agent.is_some() {
+            "in_progress"
+        } else {
+            "open"
+        };
 
         diesel::update(chat_conversations::table.find(conv_id))
             .set((
@@ -188,7 +192,8 @@ impl ChatRepository {
         sender_address: Option<&str>,
         content: &str,
     ) -> Result<ChatMessageDb, String> {
-        Self::send_message_with_meta(pool, conv_id, sender_type, sender_address, content, None).await
+        Self::send_message_with_meta(pool, conv_id, sender_type, sender_address, content, None)
+            .await
     }
 
     pub async fn send_message_with_meta(
@@ -246,10 +251,7 @@ impl ChatRepository {
         Ok(created)
     }
 
-    pub async fn mark_read_by_user(
-        pool: &TlsPool,
-        conv_id: Uuid,
-    ) -> Result<(), String> {
+    pub async fn mark_read_by_user(pool: &TlsPool, conv_id: Uuid) -> Result<(), String> {
         let mut conn = pool.get().await.map_err(|e| e.to_string())?;
 
         // Mark all agent/system messages as read
@@ -274,10 +276,7 @@ impl ChatRepository {
         Ok(())
     }
 
-    pub async fn mark_read_by_agent(
-        pool: &TlsPool,
-        conv_id: Uuid,
-    ) -> Result<(), String> {
+    pub async fn mark_read_by_agent(pool: &TlsPool, conv_id: Uuid) -> Result<(), String> {
         let mut conn = pool.get().await.map_err(|e| e.to_string())?;
 
         diesel::update(
@@ -300,10 +299,7 @@ impl ChatRepository {
         Ok(())
     }
 
-    pub async fn get_unread_count(
-        pool: &TlsPool,
-        wallet: &str,
-    ) -> Result<i64, String> {
+    pub async fn get_unread_count(pool: &TlsPool, wallet: &str) -> Result<i64, String> {
         let mut conn = pool.get().await.map_err(|e| e.to_string())?;
 
         let total: i64 = chat_conversations::table
@@ -317,10 +313,7 @@ impl ChatRepository {
         Ok(total)
     }
 
-    pub async fn get_last_message(
-        pool: &TlsPool,
-        conv_id: Uuid,
-    ) -> Result<Option<String>, String> {
+    pub async fn get_last_message(pool: &TlsPool, conv_id: Uuid) -> Result<Option<String>, String> {
         let mut conn = pool.get().await.map_err(|e| e.to_string())?;
         chat_messages::table
             .filter(chat_messages::conversation_id.eq(conv_id))
@@ -376,10 +369,7 @@ impl ChatRepository {
         })
     }
 
-    pub async fn get_topic(
-        pool: &TlsPool,
-        topic_id: Uuid,
-    ) -> Result<Option<ChatTopicDb>, String> {
+    pub async fn get_topic(pool: &TlsPool, topic_id: Uuid) -> Result<Option<ChatTopicDb>, String> {
         let mut conn = pool.get().await.map_err(|e| e.to_string())?;
         chat_topics::table
             .find(topic_id)

@@ -13,14 +13,21 @@ impl Price {
         let currency = currency.into();
 
         if amount < Decimal::ZERO {
-            return Err(AppError::validation_error("Price amount cannot be negative"));
+            return Err(AppError::validation_error(
+                "Price amount cannot be negative",
+            ));
         }
 
         if currency.is_empty() || currency.len() != 3 {
-            return Err(AppError::validation_error("Currency must be a 3-letter code (e.g., USD)"));
+            return Err(AppError::validation_error(
+                "Currency must be a 3-letter code (e.g., USD)",
+            ));
         }
 
-        Ok(Self { amount, currency: currency.to_uppercase() })
+        Ok(Self {
+            amount,
+            currency: currency.to_uppercase(),
+        })
     }
 
     pub fn amount(&self) -> Decimal {

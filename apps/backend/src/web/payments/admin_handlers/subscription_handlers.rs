@@ -1,19 +1,14 @@
 //! Admin Subscription Handlers
 
 use axum::{
-    extract::{State, Query},
+    extract::{Query, State},
     response::Json,
 };
 use chrono::{Datelike, Utc};
-use tracing::{info, error};
+use tracing::{error, info};
 use uuid::Uuid;
 
-use crate::{
-    web::{
-        middleware::UnifiedErrorResponse,
-        pagination::Pagination,
-    },
-};
+use crate::web::{middleware::UnifiedErrorResponse, pagination::Pagination};
 
 use super::types::*;
 
@@ -36,19 +31,25 @@ pub async fn admin_list_subscriptions_handler(
     State(app_state): State<crate::web::auth::AppState>,
     Query(params): Query<AdminPaymentListParams>, // Reuse same params
 ) -> Result<Json<AdminSubscriptionListResponse>, Json<UnifiedErrorResponse>> {
-    use diesel::prelude::*;
-    use diesel_async::RunQueryDsl;
+    use crate::domain::payment::repository_ports::SubscriptionFilters;
     use crate::infrastructure::database::get_payments_pool;
     use crate::schemas::payments::subscriptions;
-    use crate::domain::payment::repository_ports::SubscriptionFilters;
+    use diesel::prelude::*;
+    use diesel_async::RunQueryDsl;
 
     info!("Admin listing subscriptions with params: {:?}", params);
 
     // Wave 11 / Track A: pull subscriptions + plan names
     // through the port (single LEFT JOIN).
     let payment_repo = app_state.payment_repo.as_ref().ok_or_else(|| {
-        error!("PaymentRepositoryPort not wired in AppState — wave 11 track A scaffolding incomplete");
-        Json(UnifiedErrorResponse::new(500, "Internal error", "Payment service is not initialized"))
+        error!(
+            "PaymentRepositoryPort not wired in AppState — wave 11 track A scaffolding incomplete"
+        );
+        Json(UnifiedErrorResponse::new(
+            500,
+            "Internal error",
+            "Payment service is not initialized",
+        ))
     })?;
 
     // Apply pagination
@@ -68,7 +69,11 @@ pub async fn admin_list_subscriptions_handler(
         .await
         .map_err(|e| {
             error!("Failed to list subscriptions: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Query failed", format!("Failed to load subscriptions: {}", e)))
+            Json(UnifiedErrorResponse::new(
+                500,
+                "Query failed",
+                format!("Failed to load subscriptions: {}", e),
+            ))
         })?;
 
     let subscriptions_resp: Vec<AdminSubscriptionInfo> = rows
@@ -103,19 +108,30 @@ pub async fn admin_list_subscriptions_handler(
     let mut payments_conn = {
         let payments_pool = get_payments_pool().await.map_err(|e| {
             error!("Failed to get payments database pool: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to get payments database pool"))
+            Json(UnifiedErrorResponse::new(
+                500,
+                "Database connection failed",
+                "Failed to get payments database pool",
+            ))
         })?;
         payments_pool.get().await.map_err(|e| {
             error!("Failed to get payments database connection: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to establish payments database connection"))
+            Json(UnifiedErrorResponse::new(
+                500,
+                "Database connection failed",
+                "Failed to establish payments database connection",
+            ))
         })?
     };
 
-    let today_start = Utc::now().date_naive().and_hms_opt(0, 0, 0)
+    let today_start = Utc::now()
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
         .map(|dt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
         .unwrap_or_else(Utc::now);
     let seven_days_from_now = Utc::now() + chrono::Duration::days(7);
-    let month_start = Utc::now().date_naive()
+    let month_start = Utc::now()
+        .date_naive()
         .with_day(1)
         .and_then(|d| d.and_hms_opt(0, 0, 0))
         .map(|dt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
@@ -165,8 +181,11 @@ pub async fn admin_list_subscriptions_handler(
     use crate::schemas::payments::payments;
     let monthly_revenue_bd: Option<bigdecimal::BigDecimal> = payments::table
         .filter(payments::created_at.ge(month_start))
-        .filter(payments::status.eq("completed")
-            .or(payments::status.eq("confirmed")))
+        .filter(
+            payments::status
+                .eq("completed")
+                .or(payments::status.eq("confirmed")),
+        )
         .select(diesel::dsl::sum(payments::amount))
         .first(&mut payments_conn)
         .await
@@ -186,7 +205,12 @@ pub async fn admin_list_subscriptions_handler(
         monthly_revenue,
     };
 
-    info!("Found {} subscriptions (page {} of {})", subscriptions_resp.len(), pg.page, total_pages);
+    info!(
+        "Found {} subscriptions (page {} of {})",
+        subscriptions_resp.len(),
+        pg.page,
+        total_pages
+    );
 
     Ok(Json(AdminSubscriptionListResponse {
         success: true,

@@ -147,7 +147,7 @@ pub async fn on_chain_webhook(
     if inserted.is_none() {
         // Duplicate delivery — already processed. Return current status.
         let current: String =
-                sqlx::query_scalar("SELECT status FROM public.pay_intents WHERE id = $1")
+            sqlx::query_scalar("SELECT status FROM public.pay_intents WHERE id = $1")
                 .bind(&event.intent_id)
                 .fetch_optional(&mut *tx)
                 .await
@@ -162,17 +162,16 @@ pub async fn on_chain_webhook(
     }
 
     // Apply the status change to the matching intent.
-    let intent_update = sqlx::query(
-        "UPDATE public.pay_intents SET status = $1, updated_at = NOW() WHERE id = $2",
-    )
-        .bind(new_status)
-        .bind(&event.intent_id)
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| {
-            tracing::error!("webhook status update: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+    let intent_update =
+        sqlx::query("UPDATE public.pay_intents SET status = $1, updated_at = NOW() WHERE id = $2")
+            .bind(new_status)
+            .bind(&event.intent_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| {
+                tracing::error!("webhook status update: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
     if intent_update.rows_affected() != 1 {
         return Err(StatusCode::NOT_FOUND);
     }

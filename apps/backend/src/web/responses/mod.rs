@@ -8,22 +8,14 @@ pub mod wrappers;
 
 // Export unified response types
 pub use unified_response::{
+    ErrorInfo, PaginationMeta, PermissionContext, ResponseMeta, RestrictedAction,
     UnifiedApiResponse,
-    ErrorInfo,
-    ResponseMeta,
-    PaginationMeta,
-    PermissionContext,
-    RestrictedAction,
 };
 
 // Export domain-specific response wrappers
 pub use wrappers::{
-    AdminResponse,
-    AnalyticsResponse,
-    AuthResponse,
-    create_pagination,
-    ToUnifiedResponse,
+    create_pagination, AdminResponse, AnalyticsResponse, AuthResponse, ToUnifiedResponse,
 };
 
 // Re-export macros
-pub use crate::{success_response, error_response};
+pub use crate::{error_response, success_response};

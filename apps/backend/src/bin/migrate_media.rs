@@ -12,7 +12,6 @@
 ///
 /// Environment:
 ///   MINIO_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY, MINIO_PUBLIC_URL, DATABASE_URL
-
 use std::env;
 use std::path::Path;
 
@@ -100,7 +99,9 @@ async fn migrate_dir(client: &Client, dir: &str, bucket: &str) -> (u64, u64) {
 
     while let Ok(Some(entry)) = entries.next_entry().await {
         let path = entry.path();
-        if !path.is_file() { continue; }
+        if !path.is_file() {
+            continue;
+        }
 
         let filename = match path.file_name().and_then(|n| n.to_str()) {
             Some(n) => n.to_string(),
@@ -154,7 +155,9 @@ async fn migrate_chat_dir(client: &Client, base_dir: &str) -> (u64, u64) {
 
     while let Ok(Some(conv_entry)) = conv_entries.next_entry().await {
         let conv_path = conv_entry.path();
-        if !conv_path.is_dir() { continue; }
+        if !conv_path.is_dir() {
+            continue;
+        }
 
         let conv_id = match conv_path.file_name().and_then(|n| n.to_str()) {
             Some(n) => n.to_string(),
@@ -168,7 +171,9 @@ async fn migrate_chat_dir(client: &Client, base_dir: &str) -> (u64, u64) {
 
         while let Ok(Some(file_entry)) = file_entries.next_entry().await {
             let file_path = file_entry.path();
-            if !file_path.is_file() { continue; }
+            if !file_path.is_file() {
+                continue;
+            }
 
             let filename = match file_path.file_name().and_then(|n| n.to_str()) {
                 Some(n) => n.to_string(),
@@ -235,7 +240,12 @@ fn patch_news_urls(db_url: &str, public_url: &str) -> Result<(), Box<dyn std::er
 }
 
 fn mime_from_ext(filename: &str) -> &'static str {
-    match filename.rsplit('.').next().map(|s| s.to_lowercase()).as_deref() {
+    match filename
+        .rsplit('.')
+        .next()
+        .map(|s| s.to_lowercase())
+        .as_deref()
+    {
         Some("jpg" | "jpeg") => "image/jpeg",
         Some("png") => "image/png",
         Some("gif") => "image/gif",

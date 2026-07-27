@@ -2,18 +2,18 @@
 // CQRS handler for re-enabling a wallet
 
 use crate::application::shared::{ApplicationError, ApplicationResult, CommandHandler};
-use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 use crate::application::wallet_management::commands::admin_models::{
     EnableWalletCommand, EnableWalletResponse,
 };
+use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 use async_trait::async_trait;
-use diesel_async::{RunQueryDsl};
-use diesel::sql_types::Text;
+use chrono::Utc;
 use diesel::prelude::*;
+use diesel::sql_types::Text;
+use diesel_async::RunQueryDsl;
+use serde_json::json;
 use std::sync::Arc;
 use tracing::{error, info};
-use chrono::Utc;
-use serde_json::json;
 
 pub struct EnableWalletCommandHandler {
     db_pool: Arc<&'static TlsPool>,
@@ -33,7 +33,10 @@ impl CommandHandler<EnableWalletCommand> for EnableWalletCommandHandler {
     ) -> ApplicationResult<EnableWalletResponse> {
         // 1. Validate command
         if command.wallet_address.trim().is_empty() {
-            return Err(ApplicationError::validation("wallet_address", "Wallet address cannot be empty"));
+            return Err(ApplicationError::validation(
+                "wallet_address",
+                "Wallet address cannot be empty",
+            ));
         }
 
         let mut conn = self.db_pool.get().await.map_err(|e| {
@@ -49,17 +52,16 @@ impl CommandHandler<EnableWalletCommand> for EnableWalletCommandHandler {
             wallet_address: String,
         }
 
-        let wallet_exists = diesel::sql_query(
-            "SELECT wallet_address FROM wallet_users WHERE wallet_address = $1"
-        )
-        .bind::<Text, _>(&command.wallet_address)
-        .get_result::<WalletExistsRow>(&mut conn)
-        .await
-        .optional()
-        .map_err(|e| {
-            error!("Failed to check wallet existence: {}", e);
-            ApplicationError::infrastructure(format!("Failed to check wallet: {}", e))
-        })?;
+        let wallet_exists =
+            diesel::sql_query("SELECT wallet_address FROM wallet_users WHERE wallet_address = $1")
+                .bind::<Text, _>(&command.wallet_address)
+                .get_result::<WalletExistsRow>(&mut conn)
+                .await
+                .optional()
+                .map_err(|e| {
+                    error!("Failed to check wallet existence: {}", e);
+                    ApplicationError::infrastructure(format!("Failed to check wallet: {}", e))
+                })?;
 
         if wallet_exists.is_none() {
             return Err(ApplicationError::not_found(
@@ -72,7 +74,7 @@ impl CommandHandler<EnableWalletCommand> for EnableWalletCommandHandler {
         // We'll move the current disable_info to a history array if we want to keep track,
         // or just remove it. For now, let's keep it simple and just remove or nullify it,
         // but maybe adding a "reenabled_info" is better for audit.
-        
+
         let reenable_info = json!({
             "enabledAt": Utc::now(),
             "resolutionNote": command.resolution_note,
@@ -98,10 +100,7 @@ impl CommandHandler<EnableWalletCommand> for EnableWalletCommandHandler {
             ApplicationError::infrastructure(format!("Failed to enable wallet: {}", e))
         })?;
 
-        info!(
-            "Successfully enabled wallet: {}",
-            command.wallet_address
-        );
+        info!("Successfully enabled wallet: {}", command.wallet_address);
 
         Ok(EnableWalletResponse {
             success: true,

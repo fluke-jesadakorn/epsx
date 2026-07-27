@@ -2,11 +2,11 @@
 // Consolidates assignment operations from permission_plan_handlers.rs and normalized_permission_handlers.rs
 
 pub mod create;
-pub mod remove;
 pub mod queries;
+pub mod remove;
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 // ============================================================================
 // REQUEST/RESPONSE TYPES
@@ -91,5 +91,8 @@ pub struct PlanHistoryResponse {
 
 // Re-export handlers
 pub use create::create_assignment;
+pub use queries::{
+    get_assignment_history, get_expiring_assignments, get_plan_history, get_wallet_plans,
+    list_assignments,
+};
 pub use remove::remove_assignment;
-pub use queries::{list_assignments, get_expiring_assignments, get_assignment_history, get_wallet_plans, get_plan_history};

@@ -1,12 +1,12 @@
-use crate::prelude::*;
-use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
 use crate::application::permission_management::commands::{
-    CreatePermissionPlanCommand, CreatePermissionPlanResponse
+    CreatePermissionPlanCommand, CreatePermissionPlanResponse,
 };
+use crate::application::shared::{ApplicationError, ApplicationResult, CommandHandler};
 use crate::domain::permission_management::{
-    PermissionPlanRepositoryPort, PermissionPlan, PlanSlug, PermissionString,
-    aggregates::permission_plan::CreatePermissionPlanParams
+    aggregates::permission_plan::CreatePermissionPlanParams, PermissionPlan,
+    PermissionPlanRepositoryPort, PermissionString, PlanSlug,
 };
+use crate::prelude::*;
 use epsx_contracts::event_publisher_port::EventPublisherPort;
 
 /// Command handler for creating permission plans
@@ -29,25 +29,35 @@ impl CreatePermissionPlanCommandHandler {
 
 #[async_trait]
 impl CommandHandler<CreatePermissionPlanCommand> for CreatePermissionPlanCommandHandler {
-    async fn handle(&self, command: CreatePermissionPlanCommand) -> ApplicationResult<CreatePermissionPlanResponse> {
+    async fn handle(
+        &self,
+        command: CreatePermissionPlanCommand,
+    ) -> ApplicationResult<CreatePermissionPlanResponse> {
         // 1. Validate slug format
         let slug = PlanSlug::new(&command.slug)
             .map_err(|e| ApplicationError::validation("slug", e.to_string()))?;
 
         // 2. Check if slug already exists
-        if self.plan_repository.slug_exists(&slug).await
-            .map_err(|e| ApplicationError::infrastructure(e.to_string()))? {
-            return Err(ApplicationError::conflict("Plan with this slug already exists"));
+        if self
+            .plan_repository
+            .slug_exists(&slug)
+            .await
+            .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
+        {
+            return Err(ApplicationError::conflict(
+                "Plan with this slug already exists",
+            ));
         }
 
         // 3. Parse permissions
-        let permissions: Result<Vec<PermissionString>, _> = command.permissions
+        let permissions: Result<Vec<PermissionString>, _> = command
+            .permissions
             .iter()
             .map(PermissionString::new)
             .collect();
 
-        let permissions = permissions
-            .map_err(|e| ApplicationError::validation("permissions", e.to_string()))?;
+        let permissions =
+            permissions.map_err(|e| ApplicationError::validation("permissions", e.to_string()))?;
 
         // 4. Create permission plan aggregate
         let plan = PermissionPlan::create(CreatePermissionPlanParams {
@@ -69,15 +79,20 @@ impl CommandHandler<CreatePermissionPlanCommand> for CreatePermissionPlanCommand
             grace_period_hours: None,
             plan_category: None,
             plan_group: None,
-        }).map_err(ApplicationError::from)?;
+        })
+        .map_err(ApplicationError::from)?;
 
         // 5. Save plan
-        self.plan_repository.save(&plan).await
+        self.plan_repository
+            .save(&plan)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         // 6. Publish events
         for event in plan.uncommitted_events() {
-            let owned: Box<dyn crate::domain::shared_kernel::DomainEvent> = Box::new(epsx_contracts::domain_event::OwnedEvent::from_borrowed(&**event));
+            let owned: Box<dyn crate::domain::shared_kernel::DomainEvent> = Box::new(
+                epsx_contracts::domain_event::OwnedEvent::from_borrowed(&**event),
+            );
             if let Err(e) = self.event_publisher.publish(owned).await {
                 tracing::warn!(
                     error = %e,

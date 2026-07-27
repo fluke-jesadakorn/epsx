@@ -731,7 +731,11 @@ pub(crate) async fn send_wallet_status_mutation(
         Err(_) => return AdminCommerceMutationLoad::Unavailable,
     };
     let request = match http_client
-        .post(format!("{}{}", client.base_url().trim_end_matches('/'), path))
+        .post(format!(
+            "{}{}",
+            client.base_url().trim_end_matches('/'),
+            path
+        ))
         .header("x-request-id", ctx.request_id.to_string())
         .header("idempotency-key", idempotency_key)
         .bearer_auth(token)

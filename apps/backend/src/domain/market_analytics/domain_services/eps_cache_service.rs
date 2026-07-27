@@ -1,10 +1,12 @@
 use crate::prelude::*;
 
 use std::collections::HashMap;
-use tracing::{debug, info};
 use tokio::sync::RwLock;
+use tracing::{debug, info};
 
-use crate::domain::shared_kernel::entities::eps_growth::{EPSGrowthData, EPSRanking, EPSRankingsResponse, EPSPagination};
+use crate::domain::shared_kernel::entities::eps_growth::{
+    EPSGrowthData, EPSPagination, EPSRanking, EPSRankingsResponse,
+};
 // USE NEW PORT
 use crate::domain::market_analytics::repository_ports::MarketDataScannerPort;
 use crate::domain::market_analytics::services::eps_ranking_service::EPSRepository;
@@ -75,7 +77,7 @@ pub struct EPSCacheParams {
     pub min_eps: Option<f64>,
     pub min_growth: Option<f64>,
     pub force_refresh: bool, // Force cache refresh
-    pub rank_offset: i32,  // Minimum accessible rank (from permissions)
+    pub rank_offset: i32,    // Minimum accessible rank (from permissions)
 }
 
 impl Default for EPSCacheParams {
@@ -89,7 +91,7 @@ impl Default for EPSCacheParams {
             min_eps: None,
             min_growth: None,
             force_refresh: false,
-            rank_offset: 100,  // Default: free tier
+            rank_offset: 100, // Default: free tier
         }
     }
 }
@@ -117,7 +119,10 @@ impl EPSCacheService {
     }
 
     /// Get EPS rankings with cache-first approach
-    pub async fn get_eps_rankings(&self, params: EPSCacheParams) -> Result<EPSRankingsResponse, AppError> {
+    pub async fn get_eps_rankings(
+        &self,
+        params: EPSCacheParams,
+    ) -> Result<EPSRankingsResponse, AppError> {
         debug!("Getting EPS rankings with cache params: {:?}", params);
 
         // Check cache first (unless force refresh)
@@ -136,9 +141,10 @@ impl EPSCacheService {
     /// Check cache for existing data
     async fn get_from_cache(&self, params: &EPSCacheParams) -> Option<EPSRankingsResponse> {
         let cache = self.cache.read().await;
-        
+
         // Get all non-expired entries
-        let valid_entries: Vec<EPSRanking> = cache.entries
+        let valid_entries: Vec<EPSRanking> = cache
+            .entries
             .values()
             .filter(|entry| !self.is_expired(entry))
             .map(|entry| self.convert_to_ranking(&entry.data))
@@ -162,51 +168,63 @@ impl EPSCacheService {
     }
 
     /// Fetch fresh data from database first, then enhance with TradingView if needed
-    async fn fetch_and_cache_data(&self, params: &EPSCacheParams) -> Result<EPSRankingsResponse, AppError> {
+    async fn fetch_and_cache_data(
+        &self,
+        params: &EPSCacheParams,
+    ) -> Result<EPSRankingsResponse, AppError> {
         let start_time = std::time::Instant::now();
 
         // Primary source: Database EPS rankings
-        info!("Fetching EPS rankings from database (offset: {})", params.rank_offset);
-        let db_rankings = self.eps_repository.get_rankings_filtered(
-            params.rank_offset,  // SECURITY: Enforced minimum rank
-            params.country.clone(),
-            params.sector.clone(),
-            params.sort_by.clone(),
-            params.page,
-            params.limit,
-        ).await?;
+        info!(
+            "Fetching EPS rankings from database (offset: {})",
+            params.rank_offset
+        );
+        let db_rankings = self
+            .eps_repository
+            .get_rankings_filtered(
+                params.rank_offset, // SECURITY: Enforced minimum rank
+                params.country.clone(),
+                params.sector.clone(),
+                params.sort_by.clone(),
+                params.page,
+                params.limit,
+            )
+            .await?;
 
         debug!("Fetched {} EPS rankings from database", db_rankings.len());
 
         // Convert database rankings to EPSGrowthData for caching
-        let fresh_data: Vec<EPSGrowthData> = db_rankings.iter().map(|ranking| {
-            EPSGrowthData {
-                symbol: ranking.symbol.clone(),
-                name: ranking.name.clone(),
-                country: ranking.country.clone(),
-                sector: ranking.sector.clone(),
-                exchange: ranking.exchange.clone(),
-                current_eps: ranking.current_eps,
-                growth_factor: ranking.growth_factor,
-                price_current: ranking.price_current,
-                market_cap: ranking.market_cap,
-                volume: ranking.volume,
-                ranking_score: None, // Not in EPSRanking, will be calculated
-                created_at: None,
-                updated_at: None,
-                next_earnings_date: ranking.next_earnings_date.clone(),
-                last_earnings_date: ranking.last_earnings_date.clone(),
-            }
-        }).collect();
+        let fresh_data: Vec<EPSGrowthData> = db_rankings
+            .iter()
+            .map(|ranking| {
+                EPSGrowthData {
+                    symbol: ranking.symbol.clone(),
+                    name: ranking.name.clone(),
+                    country: ranking.country.clone(),
+                    sector: ranking.sector.clone(),
+                    exchange: ranking.exchange.clone(),
+                    current_eps: ranking.current_eps,
+                    growth_factor: ranking.growth_factor,
+                    price_current: ranking.price_current,
+                    market_cap: ranking.market_cap,
+                    volume: ranking.volume,
+                    ranking_score: None, // Not in EPSRanking, will be calculated
+                    created_at: None,
+                    updated_at: None,
+                    next_earnings_date: ranking.next_earnings_date.clone(),
+                    last_earnings_date: ranking.last_earnings_date.clone(),
+                }
+            })
+            .collect();
 
         // Update cache with fresh data from database
         {
             let mut cache = self.cache.write().await;
             cache.misses += 1;
-            
+
             // Clear expired entries during cache update
             self.cleanup_expired_entries(&mut cache);
-            
+
             // Add fresh data to cache
             for eps_data in &fresh_data {
                 let entry = CacheEntry {
@@ -218,7 +236,14 @@ impl EPSCacheService {
         }
 
         // Get total count for pagination (from offset onwards)
-        let total_count = self.eps_repository.get_total_count(params.rank_offset, params.country.clone(), params.sector.clone()).await?;
+        let total_count = self
+            .eps_repository
+            .get_total_count(
+                params.rank_offset,
+                params.country.clone(),
+                params.sector.clone(),
+            )
+            .await?;
         let pagination = EPSPagination::new(params.page, params.limit, total_count);
 
         // Use database rankings directly (already filtered and sorted)
@@ -228,7 +253,10 @@ impl EPSCacheService {
         };
 
         let duration = start_time.elapsed();
-        info!("Live EPS data fetch and cache update completed in {:?}", duration);
+        info!(
+            "Live EPS data fetch and cache update completed in {:?}",
+            duration
+        );
 
         Ok(result)
     }
@@ -247,7 +275,7 @@ impl EPSCacheService {
             sector: eps_data.sector.clone(),
             exchange: eps_data.exchange.clone(),
             ranking_position: None, // Will be set during pagination
-            quarterly_data: None, // Will be populated by WebSocket enhancement
+            quarterly_data: None,   // Will be populated by WebSocket enhancement
             next_earnings_date: eps_data.next_earnings_date.clone(),
             last_earnings_date: eps_data.last_earnings_date.clone(),
         }
@@ -287,9 +315,16 @@ impl EPSCacheService {
     }
 
     /// Sort rankings based on criteria
-    fn sort_rankings(&self, mut rankings: Vec<EPSRanking>, sort_by: &Option<String>) -> Vec<EPSRanking> {
-        let sort_field = sort_by.as_ref().map(|s| s.as_str()).unwrap_or("growth_factor");
-        
+    fn sort_rankings(
+        &self,
+        mut rankings: Vec<EPSRanking>,
+        sort_by: &Option<String>,
+    ) -> Vec<EPSRanking> {
+        let sort_field = sort_by
+            .as_ref()
+            .map(|s| s.as_str())
+            .unwrap_or("growth_factor");
+
         rankings.sort_by(|a, b| {
             match sort_field {
                 "growth_factor" | "qoq_growth" => {
@@ -318,13 +353,18 @@ impl EPSCacheService {
     }
 
     /// Apply pagination to rankings
-    fn paginate_rankings(&self, rankings: Vec<EPSRanking>, page: i32, limit: i32) -> EPSRankingsResponse {
+    fn paginate_rankings(
+        &self,
+        rankings: Vec<EPSRanking>,
+        page: i32,
+        limit: i32,
+    ) -> EPSRankingsResponse {
         let total_count = rankings.len() as i64;
         let _total_pages = ((total_count as f64) / (limit as f64)).ceil() as i32;
-        
+
         let start_idx = ((page - 1) * limit) as usize;
         let end_idx = (start_idx + limit as usize).min(rankings.len());
-        
+
         let paginated_rankings = if start_idx < rankings.len() {
             rankings[start_idx..end_idx].to_vec()
         } else {
@@ -349,32 +389,43 @@ impl EPSCacheService {
         let before_count = cache.entries.len();
         cache.entries.retain(|_, entry| !self.is_expired(entry));
         let removed_count = before_count - cache.entries.len();
-        
+
         if removed_count > 0 {
             debug!("Cleaned up {} expired cache entries", removed_count);
         }
-        
+
         cache.last_cleanup = std::time::Instant::now();
     }
 
     /// Get cache statistics
     pub async fn get_cache_stats(&self) -> CacheStats {
         let cache = self.cache.read().await;
-        
-        let active_entries = cache.entries.values()
+
+        let active_entries = cache
+            .entries
+            .values()
             .filter(|entry| !self.is_expired(entry))
             .count();
-        
+
         let expired_entries = cache.entries.len() - active_entries;
         let total_requests = cache.hits + cache.misses;
-        
+
         CacheStats {
             total_entries: cache.entries.len(),
             active_entries,
             expired_entries,
-            hit_ratio: if total_requests > 0 { cache.hits as f64 / total_requests as f64 } else { 0.0 },
-            miss_ratio: if total_requests > 0 { cache.misses as f64 / total_requests as f64 } else { 0.0 },
-            cache_size_mb: (cache.entries.len() * std::mem::size_of::<CacheEntry>()) as f64 / (1024.0 * 1024.0),
+            hit_ratio: if total_requests > 0 {
+                cache.hits as f64 / total_requests as f64
+            } else {
+                0.0
+            },
+            miss_ratio: if total_requests > 0 {
+                cache.misses as f64 / total_requests as f64
+            } else {
+                0.0
+            },
+            cache_size_mb: (cache.entries.len() * std::mem::size_of::<CacheEntry>()) as f64
+                / (1024.0 * 1024.0),
         }
     }
 
@@ -385,28 +436,40 @@ impl EPSCacheService {
     }
 
     /// Get available sectors from database
-    pub async fn get_sectors_by_country(&self, country: Option<String>) -> Result<Vec<String>, AppError> {
+    pub async fn get_sectors_by_country(
+        &self,
+        country: Option<String>,
+    ) -> Result<Vec<String>, AppError> {
         // Use database as source of truth for sectors
         self.eps_repository.get_sectors_by_country(country).await
     }
 
     /// Get total count for pagination validation from database
-    pub async fn get_total_count_for_params(&self, params: &EPSCacheParams) -> Result<i64, AppError> {
+    pub async fn get_total_count_for_params(
+        &self,
+        params: &EPSCacheParams,
+    ) -> Result<i64, AppError> {
         // Use database as source of truth for total count (from offset onwards)
-        self.eps_repository.get_total_count(params.rank_offset, params.country.clone(), params.sector.clone()).await
+        self.eps_repository
+            .get_total_count(
+                params.rank_offset,
+                params.country.clone(),
+                params.sector.clone(),
+            )
+            .await
     }
 
     /// Force cache refresh from database
     pub async fn refresh_cache(&self) -> Result<usize, AppError> {
         info!("Forcing cache refresh from database");
-        
+
         let params = EPSCacheParams {
             force_refresh: true,
             ..Default::default()
         };
-        
+
         let result = self.fetch_and_cache_data(&params).await?;
-        
+
         Ok(result.rankings.len())
     }
 
@@ -460,6 +523,9 @@ mod tests {
         };
 
         assert_eq!(stats.hit_ratio + stats.miss_ratio, 1.0);
-        assert_eq!(stats.active_entries + stats.expired_entries, stats.total_entries);
+        assert_eq!(
+            stats.active_entries + stats.expired_entries,
+            stats.total_entries
+        );
     }
 }

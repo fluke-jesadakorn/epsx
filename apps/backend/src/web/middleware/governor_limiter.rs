@@ -21,7 +21,9 @@ pub async fn threat_aware_middleware(
     next: Next,
 ) -> Result<Response, StatusCode> {
     // Extract IP address from request headers
-    let ip = req.headers().get("cf-connecting-ip")
+    let ip = req
+        .headers()
+        .get("cf-connecting-ip")
         .or_else(|| req.headers().get("x-forwarded-for"))
         .and_then(|h| h.to_str().ok())
         .map(|s| s.to_string())
@@ -32,7 +34,10 @@ pub async fn threat_aware_middleware(
     // Check if IP is explicitly blocked by our Threat Detection Service
     if let Some(summary) = threat_service.get_security_summary(&ip) {
         if summary.is_blocked {
-            warn!("Blocked request from IP {} due to Critical Threat Level", ip);
+            warn!(
+                "Blocked request from IP {} due to Critical Threat Level",
+                ip
+            );
             return Err(StatusCode::TOO_MANY_REQUESTS);
         }
     }

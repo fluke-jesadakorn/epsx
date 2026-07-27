@@ -1,9 +1,9 @@
-use crate::prelude::*;
-use crate::application::shared::{QueryHandler, ApplicationResult};
 use crate::application::market_analytics::queries::{
-    GetSystemMetricsQuery, GetSystemMetricsResponse, CacheMetrics, DatabaseMetrics, ApiMetrics,
+    ApiMetrics, CacheMetrics, DatabaseMetrics, GetSystemMetricsQuery, GetSystemMetricsResponse,
 };
+use crate::application::shared::{ApplicationResult, QueryHandler};
 use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
+use crate::prelude::*;
 
 /// Query handler for getting multi-source system metrics
 pub struct GetSystemMetricsQueryHandler {
@@ -12,7 +12,10 @@ pub struct GetSystemMetricsQueryHandler {
 }
 
 impl GetSystemMetricsQueryHandler {
-    pub fn new(tradingview_service: Arc<TradingViewApiService>, db_pool: Arc<&'static TlsPool>) -> Self {
+    pub fn new(
+        tradingview_service: Arc<TradingViewApiService>,
+        db_pool: Arc<&'static TlsPool>,
+    ) -> Self {
         Self {
             tradingview_service,
             db_pool,

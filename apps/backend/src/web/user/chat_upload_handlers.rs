@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::infrastructure::models::chat::TypingRequest;
 use crate::infrastructure::repositories::ChatRepository;
-use crate::infrastructure::storage::{Bucket, upload_file};
+use crate::infrastructure::storage::{upload_file, Bucket};
 use crate::web::{auth::AppState, middleware::OpenIDUserContext, responses::UnifiedApiResponse};
 
 // ============================================================================
@@ -26,29 +26,70 @@ pub async fn upload_attachment(
     // Verify ownership
     match ChatRepository::get_conversation(&app_state.db_pool, conv_id).await {
         Ok(Some(conv)) if conv.wallet_address == ctx.wallet_address => {}
-        Ok(Some(_)) => return Err(Json(UnifiedApiResponse::error(403, "Forbidden", "Not your conversation"))),
-        Ok(None) => return Err(Json(UnifiedApiResponse::error(404, "Not found", "Conversation not found"))),
+        Ok(Some(_)) => {
+            return Err(Json(UnifiedApiResponse::error(
+                403,
+                "Forbidden",
+                "Not your conversation",
+            )))
+        }
+        Ok(None) => {
+            return Err(Json(UnifiedApiResponse::error(
+                404,
+                "Not found",
+                "Conversation not found",
+            )))
+        }
         Err(e) => return Err(Json(UnifiedApiResponse::error(500, "Database error", &e))),
     }
 
-    let s3 = app_state.s3.as_ref()
-        .ok_or_else(|| Json(UnifiedApiResponse::error(503, "Storage unavailable", "S3 storage not configured")))?;
+    let s3 = app_state.s3.as_ref().ok_or_else(|| {
+        Json(UnifiedApiResponse::error(
+            503,
+            "Storage unavailable",
+            "S3 storage not configured",
+        ))
+    })?;
 
     let field = match multipart.next_field().await {
         Ok(Some(f)) => f,
-        Ok(None) => return Err(Json(UnifiedApiResponse::error(400, "Bad request", "No file provided"))),
-        Err(e) => return Err(Json(UnifiedApiResponse::error(400, "Bad request", &e.to_string()))),
+        Ok(None) => {
+            return Err(Json(UnifiedApiResponse::error(
+                400,
+                "Bad request",
+                "No file provided",
+            )))
+        }
+        Err(e) => {
+            return Err(Json(UnifiedApiResponse::error(
+                400,
+                "Bad request",
+                &e.to_string(),
+            )))
+        }
     };
 
     let original_name = field.file_name().unwrap_or("file").to_string();
     let bytes = match field.bytes().await {
         Ok(b) => b,
-        Err(e) => return Err(Json(UnifiedApiResponse::error(400, "Bad request", &e.to_string()))),
+        Err(e) => {
+            return Err(Json(UnifiedApiResponse::error(
+                400,
+                "Bad request",
+                &e.to_string(),
+            )))
+        }
     };
 
-    let result = upload_file(s3, Bucket::Chat, &bytes, &original_name, Some(&conv_id.to_string()))
-        .await
-        .map_err(|e| Json(UnifiedApiResponse::error(400, "Upload failed", &e)))?;
+    let result = upload_file(
+        s3,
+        Bucket::Chat,
+        &bytes,
+        &original_name,
+        Some(&conv_id.to_string()),
+    )
+    .await
+    .map_err(|e| Json(UnifiedApiResponse::error(400, "Upload failed", &e)))?;
 
     let attachment = serde_json::json!({
         "url": result.url,
@@ -69,11 +110,16 @@ pub async fn upload_attachment(
         Some(&ctx.wallet_address),
         &content,
         Some(meta.clone()),
-    ).await {
+    )
+    .await
+    {
         Ok(msg) => {
             // Publish to Redis
             if let Some(pubsub) = &app_state.pubsub {
-                let conv = ChatRepository::get_conversation(&app_state.db_pool, conv_id).await.ok().flatten();
+                let conv = ChatRepository::get_conversation(&app_state.db_pool, conv_id)
+                    .await
+                    .ok()
+                    .flatten();
                 let event = serde_json::json!({
                     "type": "new_message",
                     "conversation_id": conv_id,
@@ -88,7 +134,10 @@ pub async fn upload_attachment(
                     }
                 }
             }
-            info!("User {} uploaded file to conv {}", ctx.wallet_address, conv_id);
+            info!(
+                "User {} uploaded file to conv {}",
+                ctx.wallet_address, conv_id
+            );
             Ok(Json(UnifiedApiResponse::success(serde_json::json!({
                 "message": msg,
                 "attachment": attachment,
@@ -143,24 +192,53 @@ pub async fn admin_upload_attachment(
     Path(conv_id): Path<Uuid>,
     mut multipart: Multipart,
 ) -> Result<Json<UnifiedApiResponse<serde_json::Value>>, Json<UnifiedApiResponse<()>>> {
-    let s3 = app_state.s3.as_ref()
-        .ok_or_else(|| Json(UnifiedApiResponse::error(503, "Storage unavailable", "S3 storage not configured")))?;
+    let s3 = app_state.s3.as_ref().ok_or_else(|| {
+        Json(UnifiedApiResponse::error(
+            503,
+            "Storage unavailable",
+            "S3 storage not configured",
+        ))
+    })?;
 
     let field = match multipart.next_field().await {
         Ok(Some(f)) => f,
-        Ok(None) => return Err(Json(UnifiedApiResponse::error(400, "Bad request", "No file provided"))),
-        Err(e) => return Err(Json(UnifiedApiResponse::error(400, "Bad request", &e.to_string()))),
+        Ok(None) => {
+            return Err(Json(UnifiedApiResponse::error(
+                400,
+                "Bad request",
+                "No file provided",
+            )))
+        }
+        Err(e) => {
+            return Err(Json(UnifiedApiResponse::error(
+                400,
+                "Bad request",
+                &e.to_string(),
+            )))
+        }
     };
 
     let original_name = field.file_name().unwrap_or("file").to_string();
     let bytes = match field.bytes().await {
         Ok(b) => b,
-        Err(e) => return Err(Json(UnifiedApiResponse::error(400, "Bad request", &e.to_string()))),
+        Err(e) => {
+            return Err(Json(UnifiedApiResponse::error(
+                400,
+                "Bad request",
+                &e.to_string(),
+            )))
+        }
     };
 
-    let result = upload_file(s3, Bucket::Chat, &bytes, &original_name, Some(&conv_id.to_string()))
-        .await
-        .map_err(|e| Json(UnifiedApiResponse::error(400, "Upload failed", &e)))?;
+    let result = upload_file(
+        s3,
+        Bucket::Chat,
+        &bytes,
+        &original_name,
+        Some(&conv_id.to_string()),
+    )
+    .await
+    .map_err(|e| Json(UnifiedApiResponse::error(400, "Upload failed", &e)))?;
 
     let attachment = serde_json::json!({
         "url": result.url,
@@ -175,7 +253,13 @@ pub async fn admin_upload_attachment(
 
     let conv = match ChatRepository::get_conversation(&app_state.db_pool, conv_id).await {
         Ok(Some(c)) => c,
-        Ok(None) => return Err(Json(UnifiedApiResponse::error(404, "Not found", "Conversation not found"))),
+        Ok(None) => {
+            return Err(Json(UnifiedApiResponse::error(
+                404,
+                "Not found",
+                "Conversation not found",
+            )))
+        }
         Err(e) => return Err(Json(UnifiedApiResponse::error(500, "Database error", &e))),
     };
 
@@ -186,7 +270,9 @@ pub async fn admin_upload_attachment(
         Some(&ctx.wallet_address),
         &content,
         Some(meta),
-    ).await {
+    )
+    .await
+    {
         Ok(msg) => {
             if let Some(pubsub) = &app_state.pubsub {
                 let event = serde_json::json!({
@@ -219,13 +305,29 @@ pub async fn user_typing(
 ) -> Result<Json<UnifiedApiResponse<()>>, Json<UnifiedApiResponse<()>>> {
     let conv = match ChatRepository::get_conversation(&app_state.db_pool, conv_id).await {
         Ok(Some(c)) if c.wallet_address == ctx.wallet_address => c,
-        Ok(Some(_)) => return Err(Json(UnifiedApiResponse::error(403, "Forbidden", "Not your conversation"))),
-        Ok(None) => return Err(Json(UnifiedApiResponse::error(404, "Not found", "Conversation not found"))),
+        Ok(Some(_)) => {
+            return Err(Json(UnifiedApiResponse::error(
+                403,
+                "Forbidden",
+                "Not your conversation",
+            )))
+        }
+        Ok(None) => {
+            return Err(Json(UnifiedApiResponse::error(
+                404,
+                "Not found",
+                "Conversation not found",
+            )))
+        }
         Err(e) => return Err(Json(UnifiedApiResponse::error(500, "Database error", &e))),
     };
 
     if let Some(pubsub) = &app_state.pubsub {
-        let event_type = if body.is_typing { "typing_start" } else { "typing_stop" };
+        let event_type = if body.is_typing {
+            "typing_start"
+        } else {
+            "typing_stop"
+        };
         let event = serde_json::json!({
             "type": event_type,
             "conversation_id": conv_id,
@@ -253,12 +355,22 @@ pub async fn admin_typing(
 ) -> Result<Json<UnifiedApiResponse<()>>, Json<UnifiedApiResponse<()>>> {
     let conv = match ChatRepository::get_conversation(&app_state.db_pool, conv_id).await {
         Ok(Some(c)) => c,
-        Ok(None) => return Err(Json(UnifiedApiResponse::error(404, "Not found", "Conversation not found"))),
+        Ok(None) => {
+            return Err(Json(UnifiedApiResponse::error(
+                404,
+                "Not found",
+                "Conversation not found",
+            )))
+        }
         Err(e) => return Err(Json(UnifiedApiResponse::error(500, "Database error", &e))),
     };
 
     if let Some(pubsub) = &app_state.pubsub {
-        let event_type = if body.is_typing { "typing_start" } else { "typing_stop" };
+        let event_type = if body.is_typing {
+            "typing_start"
+        } else {
+            "typing_stop"
+        };
         let event = serde_json::json!({
             "type": event_type,
             "conversation_id": conv_id,

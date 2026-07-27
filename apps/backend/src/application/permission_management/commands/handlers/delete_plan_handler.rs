@@ -1,9 +1,11 @@
-use crate::prelude::*;
-use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
 use crate::application::permission_management::commands::{
-    DeletePermissionPlanCommand, DeletePermissionPlanResponse
+    DeletePermissionPlanCommand, DeletePermissionPlanResponse,
 };
-use crate::domain::permission_management::{PermissionPlanRepositoryPort, PlanId, events::PlanDeletedEvent};
+use crate::application::shared::{ApplicationError, ApplicationResult, CommandHandler};
+use crate::domain::permission_management::{
+    events::PlanDeletedEvent, PermissionPlanRepositoryPort, PlanId,
+};
+use crate::prelude::*;
 // wave11(track-c) R7: migrated from `Arc<dyn DomainEventBus>` to the
 // kernel-level `EventPublisherPort`. The publish is async on the
 // port (was sync on the bus). The `Box<dyn DomainEvent>` shape lets
@@ -30,18 +32,28 @@ impl DeletePermissionPlanCommandHandler {
 
 #[async_trait]
 impl CommandHandler<DeletePermissionPlanCommand> for DeletePermissionPlanCommandHandler {
-    async fn handle(&self, command: DeletePermissionPlanCommand) -> ApplicationResult<DeletePermissionPlanResponse> {
+    async fn handle(
+        &self,
+        command: DeletePermissionPlanCommand,
+    ) -> ApplicationResult<DeletePermissionPlanResponse> {
         // 1. Parse plan ID
         let plan_id = PlanId::parse(&command.plan_id)
             .map_err(|e| ApplicationError::validation("plan_id", e.to_string()))?;
 
         // 2. Check if plan exists
-        let _plan = self.plan_repository.find_by_id(&plan_id).await
+        let _plan = self
+            .plan_repository
+            .find_by_id(&plan_id)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
-            .ok_or_else(|| ApplicationError::not_found("PermissionPlan", command.plan_id.clone()))?;
+            .ok_or_else(|| {
+                ApplicationError::not_found("PermissionPlan", command.plan_id.clone())
+            })?;
 
         // 3. Delete plan
-        self.plan_repository.delete(&plan_id).await
+        self.plan_repository
+            .delete(&plan_id)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         // 4. Publish PlanDeletedEvent (R7 + R8 wiring — was _event_bus
