@@ -165,7 +165,7 @@ pub fn RenderAuth(session_state: AuthPageSessionState) -> Element {
                             span { class: "auth-page-social-avatar auth-page-social-avatar-d", "D" }
                         }
                         p { class: "auth-page-social-text",
-                            "Powering " span { class: "auth-page-social-count", "2,500+" } " teams worldwide"
+                            "Built for teams using modern data workflows"
                         }
                     }
                 }
@@ -329,9 +329,9 @@ pub fn RenderAuth(session_state: AuthPageSessionState) -> Element {
                     // === Network status indicator ===
                     div { class: "auth-page-status-indicator",
                         span { class: "auth-page-status-dot" }
-                        span { class: "auth-page-status-wide", "Network Secure & Operational" }
+                        span { class: "auth-page-status-wide", "Wallet-based sign-in" }
                         span { class: "auth-page-status-compact", "Secure Connection" }
-                        span { class: "auth-page-status-wallet", "Wallet-based Sign-in" }
+                        span { class: "auth-page-status-wallet", "Wallet-based sign-in" }
                     }
                     // === Manual redirect fallback ===
                     div { class: "auth-page-fallback",
@@ -495,8 +495,9 @@ mod tests {
         assert!(html.contains("data-connect-wallet=\"true\""));
         assert!(!html.contains("disabled=\"true\""));
         assert!(!html.contains("disabled=\"disabled\""));
-        assert!(html.contains("Network Secure"));
+        assert!(html.contains("Wallet-based sign-in"));
         assert!(html.contains("Secure Connection"));
+        assert!(!html.contains("Network Secure"));
         for class in [
             "auth-page-pitch",
             "auth-page-sub",
@@ -737,12 +738,13 @@ mod tests {
                 html
             );
         }
-        // Source social proof.
+        // Product fit, without an unsupported numeric customer claim.
         assert!(
-            html.contains("Powering") && html.contains("2,500+"),
-            "Auth page must render source social proof. Got: {}",
+            html.contains("Built for teams using modern data workflows"),
+            "Auth page must render the truthful product-fit statement. Got: {}",
             html
         );
+        assert!(!html.contains("2,500+"));
     }
 
     // ── Wave 50 — SSR-friendly wallet wiring tests ────────────────

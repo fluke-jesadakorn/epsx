@@ -147,7 +147,7 @@ if (expectedStops.size !== 0) fail("one or more residual STOPs are missing");
 let anchors = 0;
 if (!Array.isArray(contract.evidence) || contract.evidence.length !== 17) fail("seventeen evidence files are required");
 const evidenceDigest = createHash("sha256").update(JSON.stringify(contract.evidence)).digest("hex");
-if (evidenceDigest !== "2559e1df7f96be8bb36c9e608d8bceecc20ac31213fd0af0bb9ebaea0913a31d") fail("exact evidence file/anchor inventory drifted");
+if (evidenceDigest !== "01df307f939518812f0185b1834281b114197843f19d31b46860e009dda6450d") fail("exact evidence file/anchor inventory drifted");
 for (const item of contract.evidence) {
   if (!item.file || item.file.startsWith("/") || item.file.split("/").includes("..")) fail(`invalid evidence path: ${item.file}`);
   const content = read(resolve(root, item.file));
@@ -242,9 +242,13 @@ if (!header.includes("href=\"/account\"")) fail("authenticated header account li
 if (!header.includes("data-epsx-authenticated=\"{authenticated}\"")) fail("mobile session marker drifted");
 for (const forbidden of ["permission", "ranking_offset", "feature_flag", "subscription", "entitlement"]) if (header.includes(forbidden)) fail(`header acquired backend-only policy authority: ${forbidden}`);
 
-for (const file of ["shared/rust/dioxus_ui/src/layout/admin_shell.rs", "shared/rust/dioxus_ui/src/auth/wallet_button.rs"]) {
-  const adminChrome = normalize(stripRustComments(read(resolve(root, file))));
-  if (!adminChrome.includes("\"data-epsx-logout\": \"true\"")) fail(`${file}: authenticated admin chrome logout hook drifted`);
+const adminShell = normalize(stripRustComments(read(resolve(root, "shared/rust/dioxus_ui/src/layout/admin_shell.rs"))));
+if (!adminShell.includes("Header {") || !adminShell.includes("html.contains(\"data-epsx-logout=\\\"true\\\"\")")) {
+  fail("shared/rust/dioxus_ui/src/layout/admin_shell.rs: composed authenticated admin chrome logout hook drifted");
+}
+const walletButton = normalize(stripRustComments(read(resolve(root, "shared/rust/dioxus_ui/src/auth/wallet_button.rs"))));
+if (!walletButton.includes("\"data-epsx-logout\": \"true\"")) {
+  fail("shared/rust/dioxus_ui/src/auth/wallet_button.rs: authenticated admin chrome logout hook drifted");
 }
 
 console.log(`refresh-outcome-coordination: PASS 12/12 invariants, ${anchors}/${anchors} anchors, 8/8 residual STOPs`);

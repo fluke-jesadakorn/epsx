@@ -103,7 +103,7 @@ for (const item of manifest.cases) {
     evidenceTotal += 1;
   }
 }
-if (expectedTotal !== 117) fail(`expected focused test total changed: ${expectedTotal}`);
+if (expectedTotal !== 122) fail(`expected focused test total changed: ${expectedTotal}`);
 for (const capability of manifest.capabilities) {
   if (!Array.isArray(capability.caseIds) || capability.caseIds.length === 0) fail(`${capability.id}: caseIds are required`);
   for (const id of capability.caseIds) if (!ids.has(id)) fail(`${capability.id}: unknown case ${id}`);
@@ -167,8 +167,8 @@ run_test bff-verifier 14 cargo test --offline --locked -p epsx-bff session::test
 run_test bff-cookie-contract 7 cargo test --offline --locked -p epsx-bff cookies::tests --no-fail-fast
 run_test bff-browser-bridge 9 cargo test --offline --locked -p epsx-bff browser_auth::tests --no-fail-fast
 run_test bff-refresh-outcome 6 cargo test --offline --locked -p epsx-bff refresh_outcome::tests --no-fail-fast
-run_test frontend-session 19 cargo test --offline --locked -p epsx-frontend api::auth_session_tests --no-fail-fast
-run_test frontend-cookie-reader 3 cargo test --offline --locked -p epsx-frontend auth::tests --no-fail-fast
+run_test frontend-session 21 cargo test --offline --locked -p epsx-frontend api::auth_session_tests --no-fail-fast
+run_test frontend-cookie-reader 6 cargo test --offline --locked -p epsx-frontend auth::tests --no-fail-fast
 run_test frontend-production-config 1 cargo test --offline --locked -p epsx-frontend configuration_tests::production_requires_https_non_local_auth_urls --no-fail-fast
 run_test frontend-safe-return 1 cargo test --offline --locked -p epsx-frontend ssr::tests::return_url_must_remain_same_origin --no-fail-fast
 run_test frontend-recovery-cache 1 cargo test --offline --locked -p epsx-frontend ssr::tests::recovery_bearing_frontend_html_is_private_and_varies_by_credentials --no-fail-fast
@@ -212,7 +212,7 @@ const report = {
   productionReady: false,
   liveWalletFlowProven: false,
   durableRefreshStoreProven: false,
-  focusedTests: { expected: 117, passed: Number(passedTests) },
+  focusedTests: { expected: 122, passed: Number(passedTests) },
   fixtureChecks: { expected: 3, passed: cases.filter((item) => item.kind === "fixture-check" && item.status === "pass").length },
   blockedClaims: manifest.blockedClaims,
   cases
@@ -221,9 +221,9 @@ writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
 ' -- "$MANIFEST" "$RESULTS" "$REPORT" "$OVERALL" "$PASSED_TESTS" || die "could not write deterministic report"
 
 echo "auth-session-gate: report $REPORT"
-if [[ "$OVERALL" != "pass" || "$PASSED_TESTS" != "117" ]]; then
-  die "STOP — hermetic auth-session gate failed ($PASSED_TESTS/117 focused tests)"
+if [[ "$OVERALL" != "pass" || "$PASSED_TESTS" != "122" ]]; then
+  die "STOP — hermetic auth-session gate failed ($PASSED_TESTS/122 focused tests)"
 fi
 
-echo "auth-session-gate: PASS — 117/117 focused tests and 3/3 fixture checks"
+echo "auth-session-gate: PASS — 122/122 focused tests and 3/3 fixture checks"
 echo "auth-session-gate: LIMIT — live wallet, durable refresh store, and production flow remain unproven"

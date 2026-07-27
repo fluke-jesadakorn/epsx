@@ -142,7 +142,7 @@
     {
       "id": "frontend-session",
       "kind": "cargo-test",
-      "expectedTests": 19,
+      "expectedTests": 21,
       "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-frontend", "api::auth_session_tests", "--no-fail-fast"],
       "evidence": [
         {"file": "apps/frontend/src/api.rs", "anchor": "async fn siwe_verifies_returned_jwt_and_only_returns_safe_browser_data()"},
@@ -155,7 +155,7 @@
     {
       "id": "frontend-cookie-reader",
       "kind": "cargo-test",
-      "expectedTests": 3,
+      "expectedTests": 6,
       "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-frontend", "auth::tests", "--no-fail-fast"],
       "evidence": [
         {"file": "apps/frontend/src/auth.rs", "anchor": "fn refresh_cookie_is_never_an_access_token()"},
@@ -207,7 +207,7 @@
       "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-templates", "page_head_tests::header_exposes_truthful_session_action_without_policy_logic", "--no-fail-fast"],
       "evidence": [
         {"file": "shared/rust/templates/src/lib.rs", "anchor": "fn header_exposes_truthful_session_action_without_policy_logic()"},
-        {"file": "apps/frontend/src/ssr.rs", "anchor": "epsx_templates::epsx_header_for_session_and_return_target("}
+        {"file": "apps/frontend/src/ssr.rs", "anchor": "epsx_templates::epsx_header_for_session_and_wallet_with_network("}
       ]
     },
     {
@@ -227,7 +227,7 @@
       "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-dioxus-ui", "layout::admin_shell::tests::admin_shell_renders_breadcrumbs", "--no-fail-fast"],
       "evidence": [
         {"file": "shared/rust/dioxus_ui/src/layout/admin_shell.rs", "anchor": "authenticated AdminShell must expose the shared logout controller hook"},
-        {"file": "shared/rust/dioxus_ui/src/layout/admin_shell.rs", "anchor": "\"data-epsx-logout\": \"true\""}
+        {"file": "shared/rust/dioxus_ui/src/layout/admin_shell.rs", "anchor": "html.contains(\"data-epsx-logout=\\\"true\\\"\")"}
       ]
     },
     {
